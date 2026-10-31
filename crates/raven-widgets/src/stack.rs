@@ -118,3 +118,102 @@ impl View for Spacer {
         cx.container(style, &[], Paint::None)
     }
 }
+
+/// A vertically scrolling stack. It fills the space its parent gives it (or
+/// `height`) and scrolls its children with the wheel or trackpad, showing a
+/// thin scrollbar when they overflow.
+pub struct ScrollView<C> {
+    children: C,
+    style: LayoutStyle,
+}
+
+impl<C> std::fmt::Debug for ScrollView<C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScrollView").field("style", &self.style).finish_non_exhaustive()
+    }
+}
+
+impl<C: ViewSeq> ScrollView<C> {
+    pub fn new(children: C) -> Self {
+        Self {
+            children,
+            style: LayoutStyle {
+                spacing: 16.0,
+                grow: 1.0,
+                align: Align::Stretch,
+                overflow_hidden: true,
+                min_height: Some(0.0),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+        }
+    }
+
+    pub fn spacing(mut self, spacing: f32) -> Self {
+        self.style.spacing = spacing;
+        self
+    }
+
+    pub fn padding(mut self, padding: impl Into<Insets>) -> Self {
+        self.style.padding = padding.into();
+        self
+    }
+
+    /// A fixed height instead of filling the parent.
+    pub fn height(mut self, height: f32) -> Self {
+        self.style.height = Some(height);
+        self.style.grow = 0.0;
+        self
+    }
+
+    pub fn align(mut self, align: Align) -> Self {
+        self.style.align = align;
+        self
+    }
+}
+
+impl<C: ViewSeq> View for ScrollView<C> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let children = cx.children(&self.children);
+        let node = cx.container(self.style, &children, Paint::None);
+        cx.scrollable(node);
+        node
+    }
+}
+
+/// Lays children out in equal-width columns, wrapping into rows.
+pub struct Grid<C> {
+    children: C,
+    style: LayoutStyle,
+}
+
+impl<C> std::fmt::Debug for Grid<C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Grid").field("style", &self.style).finish_non_exhaustive()
+    }
+}
+
+impl<C: ViewSeq> Grid<C> {
+    pub fn new(columns: u16, children: C) -> Self {
+        Self {
+            children,
+            style: LayoutStyle {
+                spacing: 16.0,
+                grid_columns: Some(columns.max(1)),
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+        }
+    }
+
+    pub fn spacing(mut self, spacing: f32) -> Self {
+        self.style.spacing = spacing;
+        self
+    }
+}
+
+impl<C: ViewSeq> View for Grid<C> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let children = cx.children(&self.children);
+        cx.container(self.style, &children, Paint::None)
+    }
+}

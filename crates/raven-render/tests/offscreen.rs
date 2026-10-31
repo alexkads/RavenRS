@@ -195,3 +195,22 @@ fn text_draws_coverage_inside_its_bounds() {
     assert_eq!(before.glyphs, 5);
     assert_eq!(before.draw_calls, 1);
 }
+
+#[test]
+fn clip_rect_limits_drawing_and_nests() {
+    let Some(gpu) = gpu() else { return };
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    let mut scene = Scene::new();
+    scene.set_clear_color(Color::BLACK);
+    scene.push_clip(Rect::new(0.0, 0.0, 100.0, 100.0));
+    scene.push_clip(Rect::new(50.0, 0.0, 100.0, 50.0));
+    scene.push_quad(Quad::new(Rect::new(0.0, 0.0, 200.0, 100.0), Color::WHITE));
+    scene.pop_clip();
+    scene.pop_clip();
+    scene.push_quad(Quad::new(Rect::new(180.0, 80.0, 20.0, 20.0), Color::hex(0x00ff00)));
+    let img = render(&gpu, &mut renderer, &scene, 2.0);
+    assert_eq!(pixel(&img, 2 * 75, 2 * 25), [255, 255, 255, 255], "inside both clips");
+    assert_eq!(pixel(&img, 2 * 25, 2 * 25), [0, 0, 0, 255], "outside the inner clip");
+    assert_eq!(pixel(&img, 2 * 120, 2 * 25), [0, 0, 0, 255], "outside the outer clip");
+    assert_eq!(pixel(&img, 2 * 190, 2 * 90), [0, 255, 0, 255], "clip popped");
+}

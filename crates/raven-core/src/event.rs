@@ -16,6 +16,12 @@ pub enum Event {
     },
     /// The pointer left the window or canvas.
     PointerLeave,
+    /// Wheel or trackpad scrolling, in logical pixels. Positive `delta.y` means
+    /// the user scrolled up (content should move down), as on every platform.
+    Scroll {
+        position: Point,
+        delta: Point,
+    },
     KeyDown {
         key: Key,
         modifiers: Modifiers,
@@ -45,6 +51,9 @@ pub enum Key {
     Tab,
     Escape,
     Backspace,
+    Delete,
+    Home,
+    End,
     ArrowLeft,
     ArrowRight,
     ArrowUp,

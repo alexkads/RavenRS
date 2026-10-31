@@ -20,6 +20,11 @@ use raven_core::{Color, FontRef, GlyphRun, Point, PositionedGlyph, Scene, Size};
 
 static INTER_REGULAR: &[u8] = include_bytes!("../fonts/Inter-Regular.ttf");
 static INTER_SEMIBOLD: &[u8] = include_bytes!("../fonts/Inter-SemiBold.ttf");
+/// A subset of Lucide icons (ISC License), see `scripts/gen-icons.py`.
+static RAVEN_ICONS: &[u8] = include_bytes!("../fonts/RavenIcons.ttf");
+
+/// The family name of the embedded icon font.
+pub const ICON_FAMILY: &str = "RavenIcons";
 
 /// The family name of the embedded default font.
 pub const DEFAULT_FAMILY: &str = "Inter";
@@ -75,6 +80,7 @@ impl TextSystem {
             families.extend(system.register_static_font(bytes));
         }
         families.dedup();
+        system.register_static_font(RAVEN_ICONS);
         for generic in [GenericFamily::SansSerif, GenericFamily::SystemUi, GenericFamily::UiSansSerif] {
             system.fonts.collection.set_generic_families(generic, families.iter().copied());
         }
@@ -202,6 +208,21 @@ mod tests {
         let bold =
             ts.layout("RavenRS", &TextAttrs { weight: 600.0, ..TextAttrs::default() }).measure(None).width;
         assert!(bold > regular, "semibold face should be selected ({bold} vs {regular})");
+    }
+
+    #[test]
+    fn icon_font_is_registered() {
+        let mut ts = TextSystem::new();
+        let attrs = TextAttrs {
+            family: Some(ICON_FAMILY.into()),
+            size: 16.0,
+            line_height: 16.0,
+            ..Default::default()
+        };
+        // U+E151 is "search" in Lucide; any private-use glyph from the subset will do.
+        let mut layout = ts.layout("\u{e151}", &attrs);
+        let size = layout.measure(None);
+        assert!((size.width - 16.0).abs() < 1.0, "icon glyph should be one em wide, got {}", size.width);
     }
 
     #[test]

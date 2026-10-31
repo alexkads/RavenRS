@@ -58,6 +58,11 @@ pub struct LayoutStyle {
     pub grow: f32,
     /// Overrides the parent's cross-axis alignment for this box.
     pub align_self: Option<Align>,
+    /// Content may overflow this box (it scrolls or clips): the box does not
+    /// grow to fit its content.
+    pub overflow_hidden: bool,
+    /// Lays children out in this many equal-width grid columns instead of a stack.
+    pub grid_columns: Option<u16>,
 }
 
 impl LayoutStyle {
@@ -107,6 +112,15 @@ impl LayoutStyle {
             flex_shrink: 1.0,
             ..taffy::Style::default()
         };
+        if let Some(columns) = self.grid_columns {
+            style.display = taffy::Display::Grid;
+            style.grid_template_columns = taffy::style_helpers::evenly_sized_tracks(columns);
+            style.align_items = taffy::AlignItems::STRETCH;
+        }
+        if self.overflow_hidden {
+            style.overflow = taffy::Point { x: taffy::Overflow::Scroll, y: taffy::Overflow::Scroll };
+            style.scrollbar_width = 0.0;
+        }
         // Text and other measured leaves must be allowed to shrink below their
         // max-content width so they can wrap.
         if self.axis.is_none() {
@@ -272,6 +286,13 @@ impl<C> LayoutTree<C> {
         ))
     }
 
+    /// The size of the node's content, which can exceed its frame when it overflows.
+    pub fn content_size(&self, node: LayoutId) -> Result<Size, LayoutError> {
+        let l = self.taffy.layout(node)?;
+        let r = l.scrollable_overflow_rect;
+        Ok(Size::new(r.right.max(0.0), r.bottom.max(0.0)))
+    }
+
     pub fn context_mut(&mut self, node: LayoutId) -> Option<&mut C> {
         self.taffy.get_node_context_mut(node)
     }
@@ -324,6 +345,22 @@ mod tests {
         tree.compute(root, Size::new(100.0, 100.0), |_, _| Size::ZERO).unwrap();
         assert_eq!(tree.frame(b).unwrap().origin, Point::new(15.0, 35.0));
         assert_eq!(tree.frame(a).unwrap().origin, Point::new(0.0, 45.0));
+    }
+
+    #[test]
+    fn grid_splits_width_into_equal_columns() {
+        let mut tree = LayoutTree::<()>::new();
+        let cells: Vec<_> = (0..4).map(|_| fixed(&mut tree, 10.0, 10.0)).collect();
+        let style = LayoutStyle {
+            grid_columns: Some(2),
+            spacing: 10.0,
+            width: Some(210.0),
+            ..LayoutStyle::stack(Axis::Vertical)
+        };
+        let root = tree.node(style, &cells).unwrap();
+        tree.compute(root, Size::new(500.0, 500.0), |_, _| Size::ZERO).unwrap();
+        assert_eq!(tree.frame(cells[1]).unwrap().origin, Point::new(110.0, 0.0));
+        assert_eq!(tree.frame(cells[3]).unwrap().origin, Point::new(110.0, 20.0));
     }
 
     #[test]

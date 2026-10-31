@@ -9,7 +9,9 @@ use raven_style::Theme;
 use raven_widgets::{Ui, View};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::Closure;
-use web_sys::{Document, EventTarget, HtmlCanvasElement, KeyboardEvent, PointerEvent, ResizeObserver};
+use web_sys::{
+    Document, EventTarget, HtmlCanvasElement, KeyboardEvent, PointerEvent, ResizeObserver, WheelEvent,
+};
 
 use crate::WebError;
 
@@ -192,7 +194,7 @@ async fn create_gpu(canvas: &HtmlCanvasElement, scheduler: &Rc<Scheduler>) -> Re
 /// Mounts `root` on the canvas and starts rendering.
 ///
 /// On failure a readable message is also shown on the page, next to the canvas.
-pub async fn start(root: impl View, options: WebOptions) -> Result<WebApp, WebError> {
+pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<WebApp, WebError> {
     let doc = document()?;
     let canvas = doc
         .get_element_by_id(&options.canvas_id)
@@ -286,6 +288,27 @@ pub async fn start(root: impl View, options: WebOptions) -> Result<WebApp, WebEr
     app.listeners.push(pointer("pointerup", |position, button| Event::PointerUp { position, button }));
     app.listeners.push(pointer("pointerleave", |_, _| Event::PointerLeave));
 
+    {
+        let (state, sched) = (state.clone(), scheduler.clone());
+        app.listeners.push(Listener {
+            target: target.clone(),
+            kind: "wheel",
+            closure: Closure::new(move |e: web_sys::Event| {
+                let Some(e) = e.dyn_ref::<WheelEvent>() else { return };
+                let unit = match e.delta_mode() {
+                    WheelEvent::DOM_DELTA_LINE => 16.0,
+                    WheelEvent::DOM_DELTA_PAGE => 600.0,
+                    _ => 1.0,
+                };
+                let position = Point::new(e.offset_x() as f32, e.offset_y() as f32);
+                let delta = Point::new((-e.delta_x() * unit) as f32, (-e.delta_y() * unit) as f32);
+                // Only keep the page from scrolling when the app scrolled something.
+                if dispatch(&state, &sched, Event::Scroll { position, delta }) {
+                    e.prevent_default();
+                }
+            }),
+        });
+    }
     for kind in ["keydown", "keyup"] {
         let (state, sched) = (state.clone(), scheduler.clone());
         app.listeners.push(Listener {
@@ -295,7 +318,10 @@ pub async fn start(root: impl View, options: WebOptions) -> Result<WebApp, WebEr
                 let Some(e) = e.dyn_ref::<KeyboardEvent>() else { return };
                 let key = map_key(&e.key());
                 // Keep Tab, Space and Enter inside the app instead of moving browser focus or scrolling.
-                if matches!(key, Key::Tab | Key::Space | Key::Enter) {
+                if matches!(
+                    key,
+                    Key::Tab | Key::Space | Key::Enter | Key::Backspace | Key::ArrowUp | Key::ArrowDown
+                ) {
                     e.prevent_default();
                 }
                 let modifiers = Modifiers {
@@ -318,7 +344,9 @@ pub async fn start(root: impl View, options: WebOptions) -> Result<WebApp, WebEr
         app.listeners.push(Listener {
             target: target.clone(),
             kind: "blur",
-            closure: Closure::new(move |_e: web_sys::Event| dispatch(&state, &sched, Event::FocusLost)),
+            closure: Closure::new(move |_e: web_sys::Event| {
+                dispatch(&state, &sched, Event::FocusLost);
+            }),
         });
     }
     for l in &app.listeners {
@@ -340,8 +368,9 @@ pub async fn start(root: impl View, options: WebOptions) -> Result<WebApp, WebEr
     Ok(app)
 }
 
-fn dispatch(state: &Rc<RefCell<State>>, scheduler: &Scheduler, event: Event) {
-    let Ok(mut s) = state.try_borrow_mut() else { return };
+/// Feeds an event to the UI; returns true when it asked for a redraw.
+fn dispatch(state: &Rc<RefCell<State>>, scheduler: &Scheduler, event: Event) -> bool {
+    let Ok(mut s) = state.try_borrow_mut() else { return false };
     let redraw = s.ui.handle_event(&event);
     let cursor = s.ui.cursor();
     if cursor != s.cursor {
@@ -357,6 +386,7 @@ fn dispatch(state: &Rc<RefCell<State>>, scheduler: &Scheduler, event: Event) {
     if redraw {
         scheduler.schedule();
     }
+    redraw
 }
 
 fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
@@ -425,6 +455,9 @@ fn map_key(key: &str) -> Key {
         "Tab" => Key::Tab,
         "Escape" => Key::Escape,
         "Backspace" => Key::Backspace,
+        "Delete" => Key::Delete,
+        "Home" => Key::Home,
+        "End" => Key::End,
         "ArrowLeft" => Key::ArrowLeft,
         "ArrowRight" => Key::ArrowRight,
         "ArrowUp" => Key::ArrowUp,

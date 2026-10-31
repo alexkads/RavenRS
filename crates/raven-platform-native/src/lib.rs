@@ -14,7 +14,7 @@ use raven_style::Theme;
 use raven_widgets::{Ui, View};
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
-use winit::event::{ElementState, MouseButton, WindowEvent};
+use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
 use winit::window::{Window, WindowId};
@@ -82,7 +82,7 @@ impl From<GpuError> for PlatformError {
 }
 
 /// Opens a window showing `root` and runs until it is closed.
-pub fn run(root: impl View, options: WindowOptions) -> Result<(), PlatformError> {
+pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), PlatformError> {
     let event_loop = EventLoop::new().map_err(|e| PlatformError::EventLoop(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Wait);
     let mut app = App {
@@ -244,6 +244,9 @@ fn map_key(key: &WinitKey) -> Key {
         WinitKey::Named(NamedKey::Tab) => Key::Tab,
         WinitKey::Named(NamedKey::Escape) => Key::Escape,
         WinitKey::Named(NamedKey::Backspace) => Key::Backspace,
+        WinitKey::Named(NamedKey::Delete) => Key::Delete,
+        WinitKey::Named(NamedKey::Home) => Key::Home,
+        WinitKey::Named(NamedKey::End) => Key::End,
         WinitKey::Named(NamedKey::ArrowLeft) => Key::ArrowLeft,
         WinitKey::Named(NamedKey::ArrowRight) => Key::ArrowRight,
         WinitKey::Named(NamedKey::ArrowUp) => Key::ArrowUp,
@@ -319,6 +322,19 @@ impl ApplicationHandler for App {
                         ElementState::Released => Event::PointerUp { position, button },
                     };
                     self.dispatch(event);
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                if let Some(position) = self.pointer {
+                    let delta = match delta {
+                        // One notch scrolls three 16px lines, as browsers do.
+                        MouseScrollDelta::LineDelta(x, y) => Point::new(x * 48.0, y * 48.0),
+                        MouseScrollDelta::PixelDelta(p) => {
+                            let scale = self.ui.scale().max(f32::EPSILON) as f64;
+                            Point::new((p.x / scale) as f32, (p.y / scale) as f32)
+                        }
+                    };
+                    self.dispatch(Event::Scroll { position, delta });
                 }
             }
             WindowEvent::ModifiersChanged(m) => {

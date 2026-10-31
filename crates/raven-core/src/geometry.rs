@@ -113,6 +113,23 @@ impl Rect {
         )
     }
 
+    /// The overlapping area, or an empty rectangle at the origin of `self` when
+    /// the two do not overlap.
+    pub fn intersect(&self, other: &Rect) -> Self {
+        let x0 = self.x().max(other.x());
+        let y0 = self.y().max(other.y());
+        let x1 = self.max_x().min(other.max_x());
+        let y1 = self.max_y().min(other.max_y());
+        if x1 <= x0 || y1 <= y0 {
+            return Self::from_origin_size(self.origin, Size::ZERO);
+        }
+        Self::new(x0, y0, x1 - x0, y1 - y0)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.size.width <= 0.0 || self.size.height <= 0.0
+    }
+
     pub fn translate(&self, offset: Point) -> Self {
         Self::from_origin_size(self.origin + offset, self.size)
     }
@@ -145,6 +162,13 @@ impl From<f32> for Insets {
     }
 }
 
+/// `(vertical, horizontal)`, like the two-value CSS `padding`.
+impl From<(f32, f32)> for Insets {
+    fn from((vertical, horizontal): (f32, f32)) -> Self {
+        Self::symmetric(vertical, horizontal)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,6 +180,13 @@ mod tests {
         assert!(r.contains(Point::new(29.9, 19.9)));
         assert!(!r.contains(Point::new(30.0, 15.0)));
         assert!(!r.contains(Point::new(15.0, 20.0)));
+    }
+
+    #[test]
+    fn intersection() {
+        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
+        assert_eq!(a.intersect(&Rect::new(5.0, 5.0, 10.0, 10.0)), Rect::new(5.0, 5.0, 5.0, 5.0));
+        assert!(a.intersect(&Rect::new(20.0, 0.0, 5.0, 5.0)).is_empty());
     }
 
     #[test]

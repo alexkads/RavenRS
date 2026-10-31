@@ -5,7 +5,7 @@ use crate::context::{BuildCx, NodeId};
 /// `build` runs whenever the UI rebuilds. It must be cheap and side-effect free:
 /// read state, create layout boxes and paint instructions through `cx`, and
 /// return the node that represents this view.
-pub trait View: 'static {
+pub trait View {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId;
 }
 
@@ -32,7 +32,7 @@ pub trait View: 'static {
 ///     }
 /// }
 /// ```
-pub trait Component: 'static {
+pub trait Component {
     fn body(&self) -> impl View;
 }
 
@@ -92,7 +92,7 @@ where
 
 impl<F, V> View for FnView<F>
 where
-    F: Fn() -> V + 'static,
+    F: Fn() -> V,
     V: View,
 {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -103,7 +103,7 @@ where
 
 /// An ordered collection of child views: tuples of up to 12 views, `Vec<V>`
 /// and `Vec<AnyView>`.
-pub trait ViewSeq: 'static {
+pub trait ViewSeq {
     fn build_each(&self, cx: &mut BuildCx<'_>, out: &mut Vec<NodeId>);
 }
 

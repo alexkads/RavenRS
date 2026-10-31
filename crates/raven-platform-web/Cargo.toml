@@ -28,6 +28,7 @@ web-sys = { workspace = true, features = [
     "PointerEvent",
     "MouseEvent",
     "KeyboardEvent",
+    "WheelEvent",
     "FocusEvent",
     "ResizeObserver",
     "CssStyleDeclaration",

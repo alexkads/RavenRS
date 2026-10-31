@@ -44,6 +44,8 @@ struct Batch {
     kind: BatchKind,
     start: u32,
     end: u32,
+    /// Scissor rectangle in device pixels: x, y, width, height.
+    scissor: [u32; 4],
 }
 
 /// Counters for profiling and tests.
@@ -110,6 +112,8 @@ pub struct Renderer {
     quads: Vec<QuadInstance>,
     glyphs: Vec<GlyphInstance>,
     batches: Vec<Batch>,
+    clips: Vec<[u32; 4]>,
+    target_size: (u32, u32),
 }
 
 impl std::fmt::Debug for Renderer {
@@ -289,6 +293,8 @@ impl Renderer {
             quads: Vec::new(),
             glyphs: Vec::new(),
             batches: Vec::new(),
+            clips: Vec::new(),
+            target_size: (1, 1),
         }
     }
 
@@ -324,6 +330,7 @@ impl Renderer {
         if size.0 == 0 || size.1 == 0 || scale <= 0.0 {
             return RenderStats::default();
         }
+        self.target_size = size;
         self.prepare(scene, scale);
 
         let globals = Globals {
@@ -363,7 +370,12 @@ impl Renderer {
             });
             pass.set_bind_group(0, &self.globals_bind_group, &[]);
             let mut current = None;
+            let mut scissor = [0, 0, size.0, size.1];
             for batch in &self.batches {
+                if batch.scissor != scissor {
+                    scissor = batch.scissor;
+                    pass.set_scissor_rect(scissor[0], scissor[1], scissor[2], scissor[3]);
+                }
                 if current != Some(batch.kind) {
                     match batch.kind {
                         BatchKind::Quads => {
@@ -435,8 +447,25 @@ impl Renderer {
         self.quads.clear();
         self.glyphs.clear();
         self.batches.clear();
+        self.clips.clear();
         for primitive in scene.primitives() {
             match primitive {
+                Primitive::PushClip(rect) => {
+                    let (w, h) = self.target_size;
+                    let x0 = (rect.x() * scale).floor().clamp(0.0, w as f32) as u32;
+                    let y0 = (rect.y() * scale).floor().clamp(0.0, h as f32) as u32;
+                    let x1 = (rect.max_x() * scale).ceil().clamp(0.0, w as f32) as u32;
+                    let y1 = (rect.max_y() * scale).ceil().clamp(0.0, h as f32) as u32;
+                    let outer = self.current_scissor();
+                    let ix0 = x0.max(outer[0]);
+                    let iy0 = y0.max(outer[1]);
+                    let ix1 = x1.min(outer[0] + outer[2]).max(ix0);
+                    let iy1 = y1.min(outer[1] + outer[3]).max(iy0);
+                    self.clips.push([ix0, iy0, ix1 - ix0, iy1 - iy0]);
+                }
+                Primitive::PopClip => {
+                    self.clips.pop();
+                }
                 Primitive::Quad(quad) => {
                     let start = self.quads.len() as u32;
                     push_quad(&mut self.quads, quad);
@@ -493,13 +522,22 @@ impl Renderer {
         Ok(())
     }
 
+    fn current_scissor(&self) -> [u32; 4] {
+        self.clips.last().copied().unwrap_or([0, 0, self.target_size.0, self.target_size.1])
+    }
+
     fn extend_batch(&mut self, kind: BatchKind, start: u32, end: u32) {
         if start == end {
             return;
         }
+        let scissor = self.current_scissor();
+        // A fully clipped batch draws nothing; scissor rects must not be empty anyway.
+        if scissor[2] == 0 || scissor[3] == 0 {
+            return;
+        }
         match self.batches.last_mut() {
-            Some(last) if last.kind == kind && last.end == start => last.end = end,
-            _ => self.batches.push(Batch { kind, start, end }),
+            Some(last) if last.kind == kind && last.end == start && last.scissor == scissor => last.end = end,
+            _ => self.batches.push(Batch { kind, start, end, scissor }),
         }
     }
 }

@@ -152,6 +152,10 @@ pub struct GlyphRun {
 pub enum Primitive {
     Quad(Quad),
     Glyphs(GlyphRun),
+    /// Restricts everything until the matching [`Primitive::PopClip`] to the
+    /// intersection of this rectangle and the enclosing clip.
+    PushClip(Rect),
+    PopClip,
 }
 
 /// An ordered display list. Reused between frames to avoid reallocating.
@@ -187,6 +191,16 @@ impl Scene {
         if !run.glyphs.is_empty() {
             self.primitives.push(Primitive::Glyphs(run));
         }
+    }
+
+    /// Clips subsequent primitives to `rect` (intersected with the current clip)
+    /// until [`Scene::pop_clip`].
+    pub fn push_clip(&mut self, rect: Rect) {
+        self.primitives.push(Primitive::PushClip(rect));
+    }
+
+    pub fn pop_clip(&mut self) {
+        self.primitives.push(Primitive::PopClip);
     }
 
     pub fn primitives(&self) -> &[Primitive] {

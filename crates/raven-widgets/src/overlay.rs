@@ -1,0 +1,602 @@
+//! Floating layers: tooltips, popovers, menus, selects and dialogs.
+
+use std::fmt;
+use std::rc::Rc;
+
+use raven_core::{Border, Color, CursorIcon, Insets};
+use raven_layout::{Align, Axis, Justify, LayoutStyle};
+use raven_reactive::{Binding, State};
+use raven_style::{Semantic, TextStyle, Theme, Weight};
+
+use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint};
+use crate::{AnyView, Button, ButtonStyle, IconButton, IconName, View, util};
+
+/// The floating panel surface shared by menus, selects and popovers.
+fn panel_paint(theme: &Theme) -> Paint {
+    Paint::Quad(QuadPaint {
+        corner_radius: theme.radii.lg,
+        border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+        shadow: Some(theme.elevation.raised),
+        ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+    })
+}
+
+/// Wraps children in the floating panel surface. Clicks on its background stay
+/// in the panel instead of reaching what is underneath.
+fn panel(cx: &mut BuildCx<'_>, children: &[NodeId], padding: f32, min_width: f32) -> NodeId {
+    let theme = *cx.theme();
+    let style = LayoutStyle {
+        padding: Insets::uniform(padding),
+        min_width: Some(min_width),
+        align: Align::Stretch,
+        ..LayoutStyle::stack(Axis::Vertical)
+    };
+    let node = cx.container(style, children, panel_paint(&theme));
+    cx.cursor(node, CursorIcon::Default);
+    node
+}
+
+/// Shows a short label above its content while the pointer is over it.
+pub struct Tooltip<V> {
+    content: V,
+    text: String,
+}
+
+impl<V> fmt::Debug for Tooltip<V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Tooltip").field("text", &self.text).finish_non_exhaustive()
+    }
+}
+
+impl<V: View> Tooltip<V> {
+    pub fn new(content: V, text: impl Into<String>) -> Self {
+        Self { content, text: text.into() }
+    }
+}
+
+struct Bubble<'a>(&'a str);
+
+impl View for Bubble<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        // Inverted colors read as a tooltip in every theme.
+        let text =
+            util::label(cx, self.0, TextStyle::Callout, Some(Weight::MEDIUM), theme.color(Semantic::Canvas));
+        cx.container(
+            LayoutStyle { padding: Insets::symmetric(5.0, 10.0), ..LayoutStyle::stack(Axis::Horizontal) },
+            &[text],
+            Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(theme.color(Semantic::Ink)) }),
+        )
+    }
+}
+
+impl<V: View> View for Tooltip<V> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let child = cx.child(&self.content);
+        let node = cx.container(
+            LayoutStyle { align_self: Some(Align::Start), ..LayoutStyle::stack(Axis::Horizontal) },
+            &[child],
+            Paint::None,
+        );
+        // Hoverable even when the content itself is not interactive.
+        cx.cursor(node, CursorIcon::Default);
+        if cx.is_hover_within() {
+            cx.overlay(node, Placement::AboveCenter, &Bubble(&self.text), None);
+        }
+        node
+    }
+}
+
+/// Floating content anchored below a view, open while `open` is true. Clicking
+/// outside or pressing Escape closes it.
+pub struct Popover<A, C> {
+    open: Binding<bool>,
+    anchor: A,
+    content: C,
+}
+
+impl<A, C> fmt::Debug for Popover<A, C> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Popover").finish_non_exhaustive()
+    }
+}
+
+impl<A: View, C: View> Popover<A, C> {
+    pub fn new(open: Binding<bool>, anchor: A, content: C) -> Self {
+        Self { open, anchor, content }
+    }
+}
+
+struct PanelOf<'a>(&'a dyn View);
+
+impl View for PanelOf<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let child = cx.child(self.0);
+        panel(cx, &[child], 16.0, 220.0)
+    }
+}
+
+impl<A: View, C: View> View for Popover<A, C> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let anchor = cx.child(&self.anchor);
+        if self.open.get() {
+            let close = self.open.clone();
+            cx.overlay(
+                anchor,
+                Placement::Below,
+                &PanelOf(&self.content),
+                Some(Rc::new(move || close.set(false))),
+            );
+        }
+        anchor
+    }
+}
+
+/// One entry of a [`DropdownMenu`].
+pub struct MenuItem {
+    label: String,
+    icon: Option<IconName>,
+    shortcut: Option<String>,
+    destructive: bool,
+    on_select: Option<Rc<dyn Fn()>>,
+}
+
+impl fmt::Debug for MenuItem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MenuItem").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
+impl MenuItem {
+    pub fn new(label: impl Into<String>) -> Self {
+        Self { label: label.into(), icon: None, shortcut: None, destructive: false, on_select: None }
+    }
+
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    pub fn shortcut(mut self, shortcut: impl Into<String>) -> Self {
+        self.shortcut = Some(shortcut.into());
+        self
+    }
+
+    pub fn destructive(mut self) -> Self {
+        self.destructive = true;
+        self
+    }
+
+    pub fn on_select(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_select = Some(Rc::new(handler));
+        self
+    }
+}
+
+enum Entry {
+    Item(MenuItem),
+    Separator,
+}
+
+/// A button that opens a list of actions.
+pub struct DropdownMenu {
+    label: String,
+    icon: Option<IconName>,
+    style: ButtonStyle,
+    entries: Vec<Entry>,
+}
+
+impl fmt::Debug for DropdownMenu {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DropdownMenu").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
+impl DropdownMenu {
+    pub fn new(label: impl Into<String>) -> Self {
+        Self { label: label.into(), icon: None, style: ButtonStyle::Secondary, entries: Vec::new() }
+    }
+
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    pub fn style(mut self, style: ButtonStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    pub fn item(mut self, item: MenuItem) -> Self {
+        self.entries.push(Entry::Item(item));
+        self
+    }
+
+    pub fn separator(mut self) -> Self {
+        self.entries.push(Entry::Separator);
+        self
+    }
+}
+
+/// A row in a menu or select list. `on_click` runs after `close`.
+struct ListRow<'a> {
+    label: &'a str,
+    icon: Option<IconName>,
+    trailing: Option<&'a str>,
+    checked: bool,
+    destructive: bool,
+    close: Rc<dyn Fn()>,
+    on_click: Option<Rc<dyn Fn()>>,
+}
+
+impl View for ListRow<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let hovered = cx.is_hovered();
+        let ink = if self.destructive { theme.color(Semantic::Danger) } else { theme.color(Semantic::Ink) };
+        let muted = if self.destructive { ink } else { theme.color(Semantic::InkMuted) };
+        let mut children = Vec::new();
+        if let Some(icon) = self.icon {
+            children.push(util::icon(cx, icon, 16.0, muted));
+        }
+        let weight = self.checked.then_some(Weight::SEMIBOLD);
+        let label = util::label(cx, self.label, TextStyle::Body, weight, ink);
+        children.push(cx.container(
+            LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
+            &[label],
+            Paint::None,
+        ));
+        if let Some(t) = self.trailing {
+            children.push(util::label(cx, t, TextStyle::Callout, None, theme.color(Semantic::InkMuted)));
+        }
+        if self.checked {
+            children.push(util::icon(
+                cx,
+                IconName::Check,
+                16.0,
+                theme.color(Semantic::Accent).lerp(ink, 0.3),
+            ));
+        }
+        let fill = if hovered { theme.color(Semantic::Ink).with_alpha(0.07) } else { Color::TRANSPARENT };
+        let style = LayoutStyle {
+            padding: Insets::symmetric(0.0, 10.0),
+            height: Some(34.0),
+            spacing: 10.0,
+            align: Align::Center,
+            ..LayoutStyle::stack(Axis::Horizontal)
+        };
+        let node = cx.container(
+            style,
+            &children,
+            Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(fill) }),
+        );
+        let (action, close) = (self.on_click.clone(), self.close.clone());
+        cx.on_click(
+            node,
+            Rc::new(move || {
+                close();
+                if let Some(a) = &action {
+                    a();
+                }
+            }),
+        );
+        cx.cursor(node, CursorIcon::Pointer);
+        node
+    }
+}
+
+struct MenuList<'a> {
+    entries: &'a [Entry],
+    close: Rc<dyn Fn()>,
+}
+
+impl View for MenuList<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let mut rows = Vec::new();
+        for (i, entry) in self.entries.iter().enumerate() {
+            match entry {
+                Entry::Item(item) => {
+                    let row = ListRow {
+                        label: &item.label,
+                        icon: item.icon,
+                        trailing: item.shortcut.as_deref(),
+                        checked: false,
+                        destructive: item.destructive,
+                        close: self.close.clone(),
+                        on_click: item.on_select.clone(),
+                    };
+                    rows.push(cx.keyed_child(i as u64, &row));
+                }
+                Entry::Separator => {
+                    let line = cx.child(&crate::Divider::horizontal());
+                    rows.push(cx.container(
+                        LayoutStyle {
+                            padding: Insets::symmetric(4.0, 4.0),
+                            align: Align::Stretch,
+                            ..LayoutStyle::stack(Axis::Vertical)
+                        },
+                        &[line],
+                        Paint::None,
+                    ));
+                }
+            }
+        }
+        panel(cx, &rows, 6.0, 220.0)
+    }
+}
+
+impl View for DropdownMenu {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let open: State<bool> = cx.use_state(|| false);
+        let toggle = open.clone();
+        let mut trigger = Button::new(self.label.clone())
+            .style(self.style)
+            .trailing_icon(IconName::ChevronDown)
+            .on_click(move || toggle.update(|o| *o = !*o));
+        if let Some(icon) = self.icon {
+            trigger = trigger.icon(icon);
+        }
+        let anchor = cx.child(&trigger);
+        if open.get() {
+            let close: Rc<dyn Fn()> = {
+                let open = open.clone();
+                Rc::new(move || open.set(false))
+            };
+            cx.overlay(
+                anchor,
+                Placement::Below,
+                &MenuList { entries: &self.entries, close: close.clone() },
+                Some(close),
+            );
+        }
+        anchor
+    }
+}
+
+/// Picks one option from a list, shown in a field-like trigger.
+#[derive(Debug)]
+pub struct Select {
+    selected: Binding<usize>,
+    options: Vec<String>,
+    width: f32,
+}
+
+impl Select {
+    pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self { selected, options: options.into_iter().map(Into::into).collect(), width: 220.0 }
+    }
+
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+}
+
+struct Options<'a> {
+    options: &'a [String],
+    selected: Binding<usize>,
+    close: Rc<dyn Fn()>,
+    width: f32,
+}
+
+impl View for Options<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let current = self.selected.get();
+        let rows: Vec<NodeId> = self
+            .options
+            .iter()
+            .enumerate()
+            .map(|(i, option)| {
+                let selected = self.selected.clone();
+                let row = ListRow {
+                    label: option,
+                    icon: None,
+                    trailing: None,
+                    checked: i == current,
+                    destructive: false,
+                    close: self.close.clone(),
+                    on_click: Some(Rc::new(move || selected.set(i))),
+                };
+                cx.keyed_child(i as u64, &row)
+            })
+            .collect();
+        panel(cx, &rows, 6.0, self.width)
+    }
+}
+
+impl View for Select {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let open: State<bool> = cx.use_state(|| false);
+        let is_open = open.get();
+        let hovered = cx.is_hovered();
+        let current = self.options.get(self.selected.get()).map_or("", String::as_str);
+        let label = util::label(cx, current, TextStyle::Body, None, theme.color(Semantic::Ink));
+        let label = cx.container(
+            LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
+            &[label],
+            Paint::None,
+        );
+        let chevron = util::icon(
+            cx,
+            if is_open { IconName::ChevronUp } else { IconName::ChevronDown },
+            16.0,
+            theme.color(Semantic::InkMuted),
+        );
+        let border = if is_open {
+            Border { width: 1.5, color: theme.color(Semantic::Accent) }
+        } else {
+            let base = theme.color(Semantic::Border);
+            Border {
+                width: 1.0,
+                color: if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base },
+            }
+        };
+        let style = LayoutStyle {
+            padding: Insets::symmetric(0.0, 12.0),
+            width: Some(self.width),
+            height: Some(40.0),
+            spacing: 8.0,
+            align: Align::Center,
+            align_self: Some(Align::Start),
+            ..LayoutStyle::stack(Axis::Horizontal)
+        };
+        let paint = QuadPaint {
+            corner_radius: theme.radii.md,
+            border: Some(border),
+            ..QuadPaint::new(theme.color(Semantic::Surface))
+        };
+        let node = cx.container(style, &[label, chevron], Paint::Quad(paint));
+        let toggle = open.clone();
+        cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
+        cx.focusable(node, theme.radii.md);
+        cx.cursor(node, CursorIcon::Pointer);
+        if is_open {
+            let close: Rc<dyn Fn()> = {
+                let open = open.clone();
+                Rc::new(move || open.set(false))
+            };
+            let list = Options {
+                options: &self.options,
+                selected: self.selected.clone(),
+                close: close.clone(),
+                width: self.width,
+            };
+            cx.overlay(node, Placement::Below, &list, Some(close));
+        }
+        node
+    }
+}
+
+/// A modal dialog over a dimmed backdrop, shown while `open` is true.
+/// Clicking the backdrop, the close button or pressing Escape closes it.
+pub struct Dialog {
+    open: Binding<bool>,
+    title: String,
+    description: Option<String>,
+    content: Option<AnyView>,
+    actions: Vec<AnyView>,
+}
+
+impl fmt::Debug for Dialog {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Dialog").field("title", &self.title).finish_non_exhaustive()
+    }
+}
+
+impl Dialog {
+    pub fn new(open: Binding<bool>, title: impl Into<String>) -> Self {
+        Self { open, title: title.into(), description: None, content: None, actions: Vec::new() }
+    }
+
+    pub fn description(mut self, text: impl Into<String>) -> Self {
+        self.description = Some(text.into());
+        self
+    }
+
+    pub fn content(mut self, content: impl View + 'static) -> Self {
+        self.content = Some(Box::new(content));
+        self
+    }
+
+    /// Buttons at the bottom-right, in order.
+    pub fn action(mut self, action: impl View + 'static) -> Self {
+        self.actions.push(Box::new(action));
+        self
+    }
+}
+
+struct DialogLayer<'a> {
+    dialog: &'a Dialog,
+}
+
+impl View for DialogLayer<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let viewport = cx.viewport();
+        let d = self.dialog;
+        let close = d.open.clone();
+        let title = util::label(cx, &d.title, TextStyle::Title, None, theme.color(Semantic::Ink));
+        let title = cx.container(
+            LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
+            &[title],
+            Paint::None,
+        );
+        let x = cx.child(
+            &IconButton::new(IconName::X).size(crate::ButtonSize::Small).on_click(move || close.set(false)),
+        );
+        let header = cx.container(
+            LayoutStyle { align: Align::Center, spacing: 12.0, ..LayoutStyle::stack(Axis::Horizontal) },
+            &[title, x],
+            Paint::None,
+        );
+        let mut body = vec![header];
+        if let Some(text) = &d.description {
+            body.push(util::label(cx, text, TextStyle::Body, None, theme.color(Semantic::InkMuted)));
+        }
+        if let Some(content) = &d.content {
+            body.push(cx.child(content.as_ref()));
+        }
+        if !d.actions.is_empty() {
+            let actions: Vec<NodeId> = d.actions.iter().map(|a| cx.child(a.as_ref())).collect();
+            body.push(cx.container(
+                LayoutStyle {
+                    spacing: 10.0,
+                    justify: Justify::End,
+                    padding: Insets { top: 8.0, ..Insets::ZERO },
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &actions,
+                Paint::None,
+            ));
+        }
+        let card = cx.container(
+            LayoutStyle {
+                width: Some((viewport.width - 32.0).clamp(240.0, 460.0)),
+                padding: Insets::uniform(24.0),
+                spacing: 14.0,
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &body,
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.xl,
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                shadow: Some(theme.elevation.raised),
+                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+            }),
+        );
+        // The card swallows clicks so only the backdrop closes the dialog.
+        cx.cursor(card, CursorIcon::Default);
+        let backdrop = cx.container(
+            LayoutStyle {
+                width: Some(viewport.width),
+                height: Some(viewport.height),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[card],
+            Paint::Quad(QuadPaint::new(Color::rgba(0.0, 0.0, 0.0, 0.55))),
+        );
+        let close = d.open.clone();
+        cx.on_click(backdrop, Rc::new(move || close.set(false)));
+        backdrop
+    }
+}
+
+impl View for Dialog {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let anchor = cx.empty();
+        if self.open.get() {
+            let close = self.open.clone();
+            cx.overlay(
+                anchor,
+                Placement::Fill,
+                &DialogLayer { dialog: self },
+                Some(Rc::new(move || close.set(false))),
+            );
+        }
+        anchor
+    }
+}
