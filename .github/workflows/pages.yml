@@ -1,21 +1,21 @@
 name: Pages
 
+# Builds the landing page plus the WebAssembly demo and publishes them to the
+# gh-pages branch, which GitHub Pages serves at https://alexkads.github.io/RavenRS/.
 on:
   push:
     branches: [master, main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,16 +35,8 @@ jobs:
           cp site/index.html _site/
           cp -R examples/hello-world/web/. _site/demo/
           touch _site/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
+      - uses: peaceiris/actions-gh-pages@v4
         with:
-          path: _site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          force_orphan: true
