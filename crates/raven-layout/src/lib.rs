@@ -62,10 +62,7 @@ pub struct LayoutStyle {
 
 impl LayoutStyle {
     pub fn stack(axis: Axis) -> Self {
-        Self {
-            axis: Some(axis),
-            ..Self::default()
-        }
+        Self { axis: Some(axis), ..Self::default() }
     }
 
     pub fn leaf() -> Self {
@@ -75,8 +72,7 @@ impl LayoutStyle {
     fn to_taffy(self) -> taffy::Style {
         let len = LengthPercentage::length;
         let dim = |v: Option<f32>| v.map_or(Dimension::auto(), Dimension::length);
-        let lpa =
-            |v: Option<f32>| v.map_or(LengthPercentageAuto::auto(), LengthPercentageAuto::length);
+        let lpa = |v: Option<f32>| v.map_or(LengthPercentageAuto::auto(), LengthPercentageAuto::length);
         let align = |a: Align| match a {
             Align::Start => taffy::AlignItems::FLEX_START,
             Align::Center => taffy::AlignItems::CENTER,
@@ -89,10 +85,7 @@ impl LayoutStyle {
                 Some(Axis::Horizontal) => FlexDirection::Row,
                 _ => FlexDirection::Column,
             },
-            gap: taffy::Size {
-                width: len(self.spacing),
-                height: len(self.spacing),
-            },
+            gap: taffy::Size { width: len(self.spacing), height: len(self.spacing) },
             padding: taffy::Rect {
                 left: len(self.padding.left),
                 right: len(self.padding.right),
@@ -107,18 +100,9 @@ impl LayoutStyle {
                 Justify::End => taffy::JustifyContent::FLEX_END,
                 Justify::SpaceBetween => taffy::JustifyContent::SPACE_BETWEEN,
             },
-            size: taffy::Size {
-                width: dim(self.width),
-                height: dim(self.height),
-            },
-            min_size: taffy::Size {
-                width: lpa(self.min_width),
-                height: lpa(self.min_height),
-            },
-            max_size: taffy::Size {
-                width: lpa(self.max_width),
-                height: LengthPercentageAuto::auto(),
-            },
+            size: taffy::Size { width: dim(self.width), height: dim(self.height) },
+            min_size: taffy::Size { width: lpa(self.min_width), height: lpa(self.min_height) },
+            max_size: taffy::Size { width: lpa(self.max_width), height: LengthPercentageAuto::auto() },
             flex_grow: self.grow,
             flex_shrink: 1.0,
             ..taffy::Style::default()
@@ -200,9 +184,7 @@ impl<C> Default for LayoutTree<C> {
 
 impl<C> fmt::Debug for LayoutTree<C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("LayoutTree")
-            .field("nodes", &self.taffy.total_node_count())
-            .finish()
+        f.debug_struct("LayoutTree").field("nodes", &self.taffy.total_node_count()).finish()
     }
 }
 
@@ -216,9 +198,7 @@ fn to_available(a: AvailableSpace) -> Available {
 
 impl<C> LayoutTree<C> {
     pub fn new() -> Self {
-        Self {
-            taffy: TaffyTree::new(),
-        }
+        Self { taffy: TaffyTree::new() }
     }
 
     /// Removes every node, keeping allocations for the next build.
@@ -227,23 +207,13 @@ impl<C> LayoutTree<C> {
     }
 
     /// Adds a container (or a fixed-size leaf) with the given children.
-    pub fn node(
-        &mut self,
-        style: LayoutStyle,
-        children: &[LayoutId],
-    ) -> Result<LayoutId, LayoutError> {
+    pub fn node(&mut self, style: LayoutStyle, children: &[LayoutId]) -> Result<LayoutId, LayoutError> {
         Ok(self.taffy.new_with_children(style.to_taffy(), children)?)
     }
 
     /// Adds a leaf whose size comes from the measure callback given to [`Self::compute`].
-    pub fn measured_leaf(
-        &mut self,
-        style: LayoutStyle,
-        context: C,
-    ) -> Result<LayoutId, LayoutError> {
-        Ok(self
-            .taffy
-            .new_leaf_with_context(style.to_taffy(), context)?)
+    pub fn measured_leaf(&mut self, style: LayoutStyle, context: C) -> Result<LayoutId, LayoutError> {
+        Ok(self.taffy.new_leaf_with_context(style.to_taffy(), context)?)
     }
 
     /// Computes the layout of `root` inside `available` logical pixels.
@@ -257,32 +227,28 @@ impl<C> LayoutTree<C> {
             width: AvailableSpace::Definite(available.width),
             height: AvailableSpace::Definite(available.height),
         };
-        self.taffy
-            .compute_layout_with_measure(root, space, |inputs, _id, context, style| {
-                taffy::compute_leaf_layout(
-                    inputs,
-                    style,
-                    |_, _| 0.0,
-                    |known, avail| {
-                        let Some(ctx) = context else {
-                            return taffy::Size::ZERO;
-                        };
-                        let size = measure(
-                            ctx,
-                            MeasureInput {
-                                known_width: known.width,
-                                known_height: known.height,
-                                available_width: to_available(avail.width),
-                                available_height: to_available(avail.height),
-                            },
-                        );
-                        taffy::Size {
-                            width: size.width,
-                            height: size.height,
-                        }
-                    },
-                )
-            })?;
+        self.taffy.compute_layout_with_measure(root, space, |inputs, _id, context, style| {
+            taffy::compute_leaf_layout(
+                inputs,
+                style,
+                |_, _| 0.0,
+                |known, avail| {
+                    let Some(ctx) = context else {
+                        return taffy::Size::ZERO;
+                    };
+                    let size = measure(
+                        ctx,
+                        MeasureInput {
+                            known_width: known.width,
+                            known_height: known.height,
+                            available_width: to_available(avail.width),
+                            available_height: to_available(avail.height),
+                        },
+                    );
+                    taffy::Size { width: size.width, height: size.height }
+                },
+            )
+        })?;
         Ok(())
     }
 
@@ -320,11 +286,7 @@ mod tests {
     use super::*;
 
     fn fixed(tree: &mut LayoutTree<()>, w: f32, h: f32) -> LayoutId {
-        let style = LayoutStyle {
-            width: Some(w),
-            height: Some(h),
-            ..LayoutStyle::leaf()
-        };
+        let style = LayoutStyle { width: Some(w), height: Some(h), ..LayoutStyle::leaf() };
         tree.node(style, &[]).unwrap()
     }
 
@@ -341,8 +303,7 @@ mod tests {
             ..LayoutStyle::stack(Axis::Vertical)
         };
         let root = tree.node(style, &[a, b]).unwrap();
-        tree.compute(root, Size::new(800.0, 600.0), |_, _| Size::ZERO)
-            .unwrap();
+        tree.compute(root, Size::new(800.0, 600.0), |_, _| Size::ZERO).unwrap();
         assert_eq!(tree.frame(a).unwrap(), Rect::new(32.0, 32.0, 100.0, 20.0));
         assert_eq!(tree.frame(b).unwrap(), Rect::new(32.0, 76.0, 50.0, 30.0));
         assert_eq!(tree.frame(root).unwrap().size, Size::new(800.0, 600.0));
@@ -360,8 +321,7 @@ mod tests {
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let root = tree.node(style, &[a, b]).unwrap();
-        tree.compute(root, Size::new(100.0, 100.0), |_, _| Size::ZERO)
-            .unwrap();
+        tree.compute(root, Size::new(100.0, 100.0), |_, _| Size::ZERO).unwrap();
         assert_eq!(tree.frame(b).unwrap().origin, Point::new(15.0, 35.0));
         assert_eq!(tree.frame(a).unwrap().origin, Point::new(0.0, 45.0));
     }
@@ -371,24 +331,10 @@ mod tests {
         // A fake "text" of 300px that wraps into 100px-tall lines of at most the available width.
         let mut tree = LayoutTree::<f32>::new();
         let text = tree.measured_leaf(LayoutStyle::leaf(), 300.0).unwrap();
-        let style = LayoutStyle {
-            align: Align::Stretch,
-            ..LayoutStyle::stack(Axis::Vertical)
-        };
-        let root = tree
-            .node(
-                LayoutStyle {
-                    width: Some(120.0),
-                    ..style
-                },
-                &[text],
-            )
-            .unwrap();
+        let style = LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) };
+        let root = tree.node(LayoutStyle { width: Some(120.0), ..style }, &[text]).unwrap();
         tree.compute(root, Size::new(500.0, 500.0), |natural, input| {
-            let limit = input
-                .known_width
-                .or(input.available_width.limit())
-                .unwrap_or(*natural);
+            let limit = input.known_width.or(input.available_width.limit()).unwrap_or(*natural);
             let width = natural.min(limit.max(1.0));
             Size::new(width, (*natural / width).ceil() * 10.0)
         })

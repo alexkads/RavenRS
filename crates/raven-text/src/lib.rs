@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use parley::fontique::{Blob, Collection, CollectionOptions, FamilyId, GenericFamily, SourceCache};
 use parley::{
-    Alignment, AlignmentOptions, FontContext, FontFamily, FontWeight, Layout, LayoutContext,
-    LineHeight, PositionedLayoutItem, StyleProperty,
+    Alignment, AlignmentOptions, FontContext, FontFamily, FontWeight, Layout, LayoutContext, LineHeight,
+    PositionedLayoutItem, StyleProperty,
 };
 use raven_core::{Color, FontRef, GlyphRun, Point, PositionedGlyph, Scene, Size};
 
@@ -40,13 +40,7 @@ pub struct TextAttrs {
 
 impl Default for TextAttrs {
     fn default() -> Self {
-        Self {
-            size: 15.0,
-            line_height: 22.0,
-            weight: 400.0,
-            letter_spacing: 0.0,
-            family: None,
-        }
+        Self { size: 15.0, line_height: 22.0, weight: 400.0, letter_spacing: 0.0, family: None }
     }
 }
 
@@ -71,15 +65,9 @@ impl Default for TextSystem {
 impl TextSystem {
     /// Creates a text system with Inter registered and used for every generic family.
     pub fn new() -> Self {
-        let collection = Collection::new(CollectionOptions {
-            shared: false,
-            system_fonts: false,
-        });
+        let collection = Collection::new(CollectionOptions { shared: false, system_fonts: false });
         let mut system = Self {
-            fonts: FontContext {
-                collection,
-                source_cache: SourceCache::default(),
-            },
+            fonts: FontContext { collection, source_cache: SourceCache::default() },
             layouts: LayoutContext::new(),
         };
         let mut families = Vec::new();
@@ -87,27 +75,15 @@ impl TextSystem {
             families.extend(system.register_static_font(bytes));
         }
         families.dedup();
-        for generic in [
-            GenericFamily::SansSerif,
-            GenericFamily::SystemUi,
-            GenericFamily::UiSansSerif,
-        ] {
-            system
-                .fonts
-                .collection
-                .set_generic_families(generic, families.iter().copied());
+        for generic in [GenericFamily::SansSerif, GenericFamily::SystemUi, GenericFamily::UiSansSerif] {
+            system.fonts.collection.set_generic_families(generic, families.iter().copied());
         }
         system
     }
 
     fn register_static_font(&mut self, bytes: &'static [u8]) -> Vec<FamilyId> {
         let blob = Blob::new(Arc::new(bytes));
-        self.fonts
-            .collection
-            .register_fonts(blob, None)
-            .into_iter()
-            .map(|(id, _)| id)
-            .collect()
+        self.fonts.collection.register_fonts(blob, None).into_iter().map(|(id, _)| id).collect()
     }
 
     /// Registers a font file (TTF/OTF/TTC) and returns the family names it provides.
@@ -119,31 +95,22 @@ impl TextSystem {
             .into_iter()
             .map(|(id, _)| id)
             .collect();
-        ids.into_iter()
-            .filter_map(|id| self.fonts.collection.family_name(id).map(str::to_owned))
-            .collect()
+        ids.into_iter().filter_map(|id| self.fonts.collection.family_name(id).map(str::to_owned)).collect()
     }
 
     /// Shapes `text`. Line breaking happens later in [`TextLayout::measure`].
     pub fn layout(&mut self, text: &str, attrs: &TextAttrs) -> TextLayout {
-        let mut builder = self
-            .layouts
-            .ranged_builder(&mut self.fonts, text, 1.0, false);
+        let mut builder = self.layouts.ranged_builder(&mut self.fonts, text, 1.0, false);
         let family = attrs.family.as_deref().unwrap_or(DEFAULT_FAMILY);
         builder.push_default(StyleProperty::FontFamily(FontFamily::Source(family.into())));
         builder.push_default(StyleProperty::FontSize(attrs.size));
         builder.push_default(StyleProperty::FontWeight(FontWeight::new(attrs.weight)));
-        builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(
-            attrs.line_height,
-        )));
+        builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(attrs.line_height)));
         if attrs.letter_spacing != 0.0 {
             builder.push_default(StyleProperty::LetterSpacing(attrs.letter_spacing));
         }
         let layout = builder.build(text);
-        TextLayout {
-            layout,
-            broken_at: None,
-        }
+        TextLayout { layout, broken_at: None }
     }
 }
 
@@ -168,8 +135,7 @@ impl TextLayout {
     pub fn measure(&mut self, max_width: Option<f32>) -> Size {
         if self.broken_at != Some(max_width) {
             self.layout.break_all_lines(max_width);
-            self.layout
-                .align(Alignment::Start, AlignmentOptions::default());
+            self.layout.align(Alignment::Start, AlignmentOptions::default());
             self.broken_at = Some(max_width);
         }
         Size::new(self.layout.width(), self.layout.height())
@@ -187,11 +153,7 @@ impl TextLayout {
                 let font = run.font();
                 let glyphs = glyph_run
                     .positioned_glyphs()
-                    .map(|g| PositionedGlyph {
-                        id: g.id,
-                        x: origin.x + g.x,
-                        y: origin.y + g.y,
-                    })
+                    .map(|g| PositionedGlyph { id: g.id, x: origin.x + g.x, y: origin.y + g.y })
                     .collect();
                 scene.push_glyphs(GlyphRun {
                     font: FontRef {
@@ -219,11 +181,7 @@ mod tests {
         let mut ts = TextSystem::new();
         let mut layout = ts.layout("Welcome to RavenRS", &TextAttrs::default());
         let size = layout.measure(None);
-        assert!(
-            size.width > 100.0 && size.width < 200.0,
-            "unexpected width {}",
-            size.width
-        );
+        assert!(size.width > 100.0 && size.width < 200.0, "unexpected width {}", size.width);
         assert_eq!(size.height, 22.0);
     }
 
@@ -240,24 +198,10 @@ mod tests {
     #[test]
     fn semibold_is_wider_than_regular() {
         let mut ts = TextSystem::new();
-        let regular = ts
-            .layout("RavenRS", &TextAttrs::default())
-            .measure(None)
-            .width;
-        let bold = ts
-            .layout(
-                "RavenRS",
-                &TextAttrs {
-                    weight: 600.0,
-                    ..TextAttrs::default()
-                },
-            )
-            .measure(None)
-            .width;
-        assert!(
-            bold > regular,
-            "semibold face should be selected ({bold} vs {regular})"
-        );
+        let regular = ts.layout("RavenRS", &TextAttrs::default()).measure(None).width;
+        let bold =
+            ts.layout("RavenRS", &TextAttrs { weight: 600.0, ..TextAttrs::default() }).measure(None).width;
+        assert!(bold > regular, "semibold face should be selected ({bold} vs {regular})");
     }
 
     #[test]
@@ -272,10 +216,7 @@ mod tests {
         };
         assert_eq!(run.glyphs.len(), 5);
         assert!(run.glyphs[0].x >= 10.0);
-        assert!(
-            run.glyphs[0].y > 20.0,
-            "glyph y is the baseline below the origin"
-        );
+        assert!(run.glyphs[0].y > 20.0, "glyph y is the baseline below the origin");
         assert!(!run.font.bytes().is_empty());
     }
 }

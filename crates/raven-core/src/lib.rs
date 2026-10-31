@@ -14,6 +14,5 @@ pub use color::Color;
 pub use event::{CursorIcon, Event, Key, Modifiers, PointerButton};
 pub use geometry::{Insets, Point, Rect, Size};
 pub use scene::{
-    Border, Brush, FontRef, GlyphRun, LinearGradient, PositionedGlyph, Primitive, Quad, Scene,
-    Shadow,
+    Border, Brush, FontRef, GlyphRun, LinearGradient, PositionedGlyph, Primitive, Quad, Scene, Shadow,
 };

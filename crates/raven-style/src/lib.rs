@@ -132,12 +132,7 @@ impl Typography {
 }
 
 const fn ts(size: f32, line_height: f32, weight: Weight, letter_spacing: f32) -> TypeStyle {
-    TypeStyle {
-        size,
-        line_height,
-        weight,
-        letter_spacing,
-    }
+    TypeStyle { size, line_height, weight, letter_spacing }
 }
 
 /// The type scale shared by all themes (Inter, 400 and 600).
@@ -164,16 +159,8 @@ pub struct Spacing {
     pub s12: f32,
 }
 
-pub const SPACING: Spacing = Spacing {
-    s1: 4.0,
-    s2: 8.0,
-    s3: 12.0,
-    s4: 16.0,
-    s5: 20.0,
-    s6: 24.0,
-    s8: 32.0,
-    s12: 48.0,
-};
+pub const SPACING: Spacing =
+    Spacing { s1: 4.0, s2: 8.0, s3: 12.0, s4: 16.0, s5: 20.0, s6: 24.0, s8: 32.0, s12: 48.0 };
 
 /// Corner radii (`radius-*` tokens).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -185,13 +172,7 @@ pub struct Radii {
     pub full: f32,
 }
 
-pub const RADII: Radii = Radii {
-    sm: 6.0,
-    md: 10.0,
-    lg: 16.0,
-    xl: 24.0,
-    full: 9999.0,
-};
+pub const RADII: Radii = Radii { sm: 6.0, md: 10.0, lg: 16.0, xl: 24.0, full: 9999.0 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Elevation {
@@ -233,19 +214,11 @@ pub struct Theme {
     pub interaction: Interaction,
 }
 
-const INTERACTION: Interaction = Interaction {
-    min_target: 40.0,
-    focus_ring_width: 2.0,
-    focus_ring_offset: 3.0,
-    reduced_motion: false,
-};
+const INTERACTION: Interaction =
+    Interaction { min_target: 40.0, focus_ring_width: 2.0, focus_ring_offset: 3.0, reduced_motion: false };
 
 const fn shadow(y: f32, blur: f32, color: Color) -> Shadow {
-    Shadow {
-        offset: Point::new(0.0, y),
-        blur,
-        color,
-    }
+    Shadow { offset: Point::new(0.0, y), blur, color }
 }
 
 impl Theme {
@@ -306,16 +279,8 @@ impl Theme {
             spacing: SPACING,
             radii: RADII,
             elevation: Elevation {
-                soft: shadow(
-                    6.0,
-                    20.0,
-                    Color::rgba(17.0 / 255.0, 24.0 / 255.0, 39.0 / 255.0, 0.08),
-                ),
-                raised: shadow(
-                    12.0,
-                    32.0,
-                    Color::rgba(17.0 / 255.0, 24.0 / 255.0, 39.0 / 255.0, 0.14),
-                ),
+                soft: shadow(6.0, 20.0, Color::rgba(17.0 / 255.0, 24.0 / 255.0, 39.0 / 255.0, 0.08)),
+                raised: shadow(12.0, 32.0, Color::rgba(17.0 / 255.0, 24.0 / 255.0, 39.0 / 255.0, 0.14)),
             },
             material: Material::Solid,
             interaction: INTERACTION,
@@ -387,11 +352,7 @@ mod tests {
     /// The design system promises 4.5:1 for text on its grounds in every theme.
     #[test]
     fn text_contrast_meets_wcag_aa() {
-        for theme in [
-            Theme::raven_dark(),
-            Theme::raven_light(),
-            Theme::raven_glass(),
-        ] {
+        for theme in [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()] {
             let p = theme.palette;
             let card = opaque_over(p.bg_200, p.bg_000);
             for (name, fg, bg) in [
@@ -404,11 +365,7 @@ mod tests {
                 let ratio = fg.contrast_ratio(bg);
                 assert!(ratio >= 4.5, "{}: {name} is {ratio:.2}:1", theme.name);
             }
-            assert!(
-                p.focus_ring.contrast_ratio(p.bg_000) >= 3.0,
-                "{}: focus ring",
-                theme.name
-            );
+            assert!(p.focus_ring.contrast_ratio(p.bg_000) >= 3.0, "{}: focus ring", theme.name);
         }
     }
 

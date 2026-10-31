@@ -58,11 +58,7 @@ impl Color {
     /// Converts to linear-light RGB (alpha unchanged), as needed by `*Srgb` render targets.
     pub fn to_linear(self) -> [f32; 4] {
         fn channel(c: f32) -> f32 {
-            if c <= 0.04045 {
-                c / 12.92
-            } else {
-                ((c + 0.055) / 1.055).powf(2.4)
-            }
+            if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
         }
         [channel(self.r), channel(self.g), channel(self.b), self.a]
     }

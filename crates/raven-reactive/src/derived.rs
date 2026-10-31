@@ -54,17 +54,13 @@ impl<T: Clone + 'static> Derived<T> {
 
 impl<T> Clone for Derived<T> {
     fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
+        Self { inner: self.inner.clone() }
     }
 }
 
 impl<T> fmt::Debug for Derived<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Derived")
-            .field("dirty", &self.inner.observer.is_dirty())
-            .finish()
+        f.debug_struct("Derived").field("dirty", &self.inner.observer.is_dirty()).finish()
     }
 }
 

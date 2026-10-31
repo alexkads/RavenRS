@@ -1,0 +1,26 @@
+[package]
+name = "hello-world"
+description = "The first RavenRS milestone: the same UI in a native window and in the browser."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+raven.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tracing-subscriber.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+console_error_panic_hook.workspace = true
+web-sys = { workspace = true, features = ["console"] }
+
+[lints]
+workspace = true

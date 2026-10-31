@@ -1,0 +1,19 @@
+[package]
+name = "raven-widgets"
+description = "RavenRS declarative views, the extension API for custom components, and the UI runtime."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+raven-core.workspace = true
+raven-reactive.workspace = true
+raven-layout.workspace = true
+raven-text.workspace = true
+raven-style.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

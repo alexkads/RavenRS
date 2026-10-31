@@ -58,11 +58,7 @@ impl GpuContext {
             .await
             .map_err(|e| GpuError::Device(e.to_string()))?;
         tracing::info!(adapter = ?adapter.get_info(), "GPU ready");
-        Ok(Self {
-            adapter,
-            device,
-            queue,
-        })
+        Ok(Self { adapter, device, queue })
     }
 }
 
@@ -70,9 +66,5 @@ impl GpuContext {
 /// in sRGB space, matching browsers and design tools; `*Srgb` formats still work
 /// because the shaders linearize colors when told to.
 pub fn preferred_surface_format(formats: &[wgpu::TextureFormat]) -> Option<wgpu::TextureFormat> {
-    formats
-        .iter()
-        .copied()
-        .find(|f| !f.is_srgb())
-        .or_else(|| formats.first().copied())
+    formats.iter().copied().find(|f| !f.is_srgb()).or_else(|| formats.first().copied())
 }

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/raven-core", "crates/raven-reactive", "crates/raven-style", "crates/raven-layout", "crates/raven-text", "crates/raven-render"]
+members = ["crates/*", "examples/*"]
 
 [workspace.package]
 version = "0.1.0"
@@ -55,5 +55,4 @@ opt-level = 3
 inherits = "release"
 opt-level = "z"
 lto = true
-strip = true
 panic = "abort"

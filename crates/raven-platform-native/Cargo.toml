@@ -1,0 +1,20 @@
+[package]
+name = "raven-platform-native"
+description = "RavenRS desktop backend: winit windows rendered with wgpu on Windows, macOS and Linux."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+raven-core.workspace = true
+raven-style.workspace = true
+raven-widgets.workspace = true
+raven-render.workspace = true
+winit.workspace = true
+pollster.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

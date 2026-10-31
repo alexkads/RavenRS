@@ -39,12 +39,7 @@ pub struct LinearGradient {
 
 impl LinearGradient {
     pub const fn vertical(from: Color, to: Color) -> Self {
-        Self {
-            start: Point::new(0.0, 0.0),
-            end: Point::new(0.0, 1.0),
-            from,
-            to,
-        }
+        Self { start: Point::new(0.0, 0.0), end: Point::new(0.0, 1.0), from, to }
     }
 }
 
@@ -66,20 +61,12 @@ pub struct Shadow {
 impl Shadow {
     /// The `shadow-soft` token of Raven Dark: `0 8px 24px rgba(0,0,0,0.35)`.
     pub const fn soft() -> Self {
-        Self {
-            offset: Point::new(0.0, 8.0),
-            blur: 24.0,
-            color: Color::rgba(0.0, 0.0, 0.0, 0.35),
-        }
+        Self { offset: Point::new(0.0, 8.0), blur: 24.0, color: Color::rgba(0.0, 0.0, 0.0, 0.35) }
     }
 
     /// The `shadow-raised` token of Raven Dark: `0 16px 40px rgba(0,0,0,0.45)`.
     pub const fn raised() -> Self {
-        Self {
-            offset: Point::new(0.0, 16.0),
-            blur: 40.0,
-            color: Color::rgba(0.0, 0.0, 0.0, 0.45),
-        }
+        Self { offset: Point::new(0.0, 16.0), blur: 40.0, color: Color::rgba(0.0, 0.0, 0.0, 0.45) }
     }
 }
 
@@ -97,13 +84,7 @@ pub struct Quad {
 
 impl Quad {
     pub fn new(rect: Rect, fill: impl Into<Brush>) -> Self {
-        Self {
-            rect,
-            corner_radii: [0.0; 4],
-            fill: fill.into(),
-            border: None,
-            shadow: None,
-        }
+        Self { rect, corner_radii: [0.0; 4], fill: fill.into(), border: None, shadow: None }
     }
 
     pub fn radius(mut self, r: f32) -> Self {
@@ -139,10 +120,7 @@ impl FontRef {
 
 impl fmt::Debug for FontRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FontRef")
-            .field("id", &self.id)
-            .field("index", &self.index)
-            .finish()
+        f.debug_struct("FontRef").field("id", &self.id).field("index", &self.index).finish()
     }
 }
 
@@ -232,11 +210,7 @@ mod tests {
     fn empty_glyph_runs_are_skipped() {
         let mut scene = Scene::new();
         scene.push_glyphs(GlyphRun {
-            font: FontRef {
-                id: 1,
-                data: Arc::new(Vec::<u8>::new()),
-                index: 0,
-            },
+            font: FontRef { id: 1, data: Arc::new(Vec::<u8>::new()), index: 0 },
             size: 12.0,
             color: Color::WHITE,
             glyphs: vec![],

@@ -95,9 +95,7 @@ impl Subscribers {
         };
         let epoch = current.epoch.get();
         let mut list = self.list.borrow_mut();
-        let already = list
-            .iter()
-            .any(|(w, e)| *e == epoch && w.as_ptr() == Rc::as_ptr(&current));
+        let already = list.iter().any(|(w, e)| *e == epoch && w.as_ptr() == Rc::as_ptr(&current));
         if !already {
             list.push((Rc::downgrade(&current), epoch));
         }

@@ -68,12 +68,7 @@ struct InstanceBuffer {
 impl InstanceBuffer {
     fn new(device: &wgpu::Device, label: &'static str, stride: usize) -> Self {
         let capacity = 256;
-        Self {
-            buffer: Self::create(device, label, stride * capacity),
-            capacity,
-            stride,
-            label,
-        }
+        Self { buffer: Self::create(device, label, stride * capacity), capacity, stride, label }
     }
 
     fn create(device: &wgpu::Device, label: &'static str, size: usize) -> wgpu::Buffer {
@@ -174,11 +169,7 @@ fn pipeline(
 
 impl Renderer {
     /// Creates the pipelines for rendering into textures of `target_format`.
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        target_format: wgpu::TextureFormat,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, target_format: wgpu::TextureFormat) -> Self {
         let globals_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("raven globals"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -222,10 +213,7 @@ impl Renderer {
         let globals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("raven globals"),
             layout: &globals_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: globals_buffer.as_entire_binding(),
-            }],
+            entries: &[wgpu::BindGroupEntry { binding: 0, resource: globals_buffer.as_entire_binding() }],
         });
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("raven atlas sampler"),
@@ -250,8 +238,7 @@ impl Renderer {
             0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4,
             4 => Float32x4, 5 => Float32x4, 6 => Float32x4
         ];
-        let glyph_attributes =
-            wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4];
+        let glyph_attributes = wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4];
         let quad_pipeline = pipeline(
             device,
             "raven quad pipeline",
@@ -319,10 +306,7 @@ impl Renderer {
                     binding: 0,
                     resource: wgpu::BindingResource::TextureView(&atlas.view),
                 },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(sampler),
-                },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(sampler) },
             ],
         })
     }
@@ -347,22 +331,14 @@ impl Renderer {
             scale,
             srgb_target: u32::from(self.srgb_target),
         };
-        self.queue
-            .write_buffer(&self.globals_buffer, 0, bytemuck::bytes_of(&globals));
-        self.quad_buffer
-            .upload(&self.device, &self.queue, bytemuck::cast_slice(&self.quads));
-        self.glyph_buffer.upload(
-            &self.device,
-            &self.queue,
-            bytemuck::cast_slice(&self.glyphs),
-        );
+        self.queue.write_buffer(&self.globals_buffer, 0, bytemuck::bytes_of(&globals));
+        self.quad_buffer.upload(&self.device, &self.queue, bytemuck::cast_slice(&self.quads));
+        self.glyph_buffer.upload(&self.device, &self.queue, bytemuck::cast_slice(&self.glyphs));
 
         let clear = self.color_for_target(scene.clear_color());
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("raven frame"),
-            });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("raven frame") });
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("raven main pass"),
@@ -416,11 +392,7 @@ impl Renderer {
     }
 
     fn color_for_target(&self, c: Color) -> [f32; 4] {
-        let [r, g, b, a] = if self.srgb_target {
-            c.to_linear()
-        } else {
-            c.to_array()
-        };
+        let [r, g, b, a] = if self.srgb_target { c.to_linear() } else { c.to_array() };
         [r * a, g * a, b * a, a]
     }
 
@@ -434,24 +406,16 @@ impl Renderer {
                     let size = (self.atlas.size * 2).min(max_atlas);
                     tracing::debug!(size, "growing glyph atlas");
                     self.atlas = GlyphAtlas::new(&self.device, size);
-                    self.atlas_bind_group = Self::atlas_bind_group(
-                        &self.device,
-                        &self.atlas_layout,
-                        &self.atlas,
-                        &self.sampler,
-                    );
+                    self.atlas_bind_group =
+                        Self::atlas_bind_group(&self.device, &self.atlas_layout, &self.atlas, &self.sampler);
                 }
                 Err(AtlasFull) => {
                     // Already at the device limit: start from an empty atlas. Text in
                     // this frame that still does not fit is skipped and logged.
                     tracing::warn!("glyph atlas is full at the device limit; clearing it");
                     self.atlas = GlyphAtlas::new(&self.device, self.atlas.size);
-                    self.atlas_bind_group = Self::atlas_bind_group(
-                        &self.device,
-                        &self.atlas_layout,
-                        &self.atlas,
-                        &self.sampler,
-                    );
+                    self.atlas_bind_group =
+                        Self::atlas_bind_group(&self.device, &self.atlas_layout, &self.atlas, &self.sampler);
                     let _ = self.try_prepare_lossy(scene, scale);
                     return;
                 }
@@ -499,12 +463,11 @@ impl Renderer {
                             size_q,
                             subpixel: bin as u8,
                         };
-                        let entry =
-                            match self.atlas.get_or_insert(&self.queue, key, run.font.bytes()) {
-                                Lookup::Hit(entry) => entry,
-                                Lookup::Full if skip_missing => None,
-                                Lookup::Full => return Err(AtlasFull),
-                            };
+                        let entry = match self.atlas.get_or_insert(&self.queue, key, run.font.bytes()) {
+                            Lookup::Hit(entry) => entry,
+                            Lookup::Full if skip_missing => None,
+                            Lookup::Full => return Err(AtlasFull),
+                        };
                         let Some(a) = entry else { continue };
                         let device_y = (g.y * scale).round();
                         self.glyphs.push(GlyphInstance {
@@ -548,12 +511,7 @@ fn push_quad(out: &mut Vec<QuadInstance>, quad: &Quad) {
     let rect = [r.x(), r.y(), r.width(), r.height()];
     if let Some(shadow) = quad.shadow {
         out.push(QuadInstance {
-            rect: [
-                rect[0] + shadow.offset.x,
-                rect[1] + shadow.offset.y,
-                rect[2],
-                rect[3],
-            ],
+            rect: [rect[0] + shadow.offset.x, rect[1] + shadow.offset.y, rect[2], rect[3]],
             radii: quad.corner_radii,
             color0: shadow.color.to_array(),
             color1: [0.0; 4],
@@ -564,16 +522,11 @@ fn push_quad(out: &mut Vec<QuadInstance>, quad: &Quad) {
     }
     let (color0, color1, gradient, gradient_on) = match quad.fill {
         Brush::Solid(c) => (c.to_array(), c.to_array(), [0.0; 4], 0.0),
-        Brush::LinearGradient(g) => (
-            g.from.to_array(),
-            g.to.to_array(),
-            [g.start.x, g.start.y, g.end.x, g.end.y],
-            1.0,
-        ),
+        Brush::LinearGradient(g) => {
+            (g.from.to_array(), g.to.to_array(), [g.start.x, g.start.y, g.end.x, g.end.y], 1.0)
+        }
     };
-    let (border_width, border_color) = quad
-        .border
-        .map_or((0.0, [0.0; 4]), |b| (b.width, b.color.to_array()));
+    let (border_width, border_color) = quad.border.map_or((0.0, [0.0; 4]), |b| (b.width, b.color.to_array()));
     out.push(QuadInstance {
         rect,
         radii: quad.corner_radii,

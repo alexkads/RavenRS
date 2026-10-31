@@ -13,10 +13,7 @@ pub struct Binding<T> {
 
 impl<T: 'static> Binding<T> {
     pub fn new(get: impl Fn() -> T + 'static, set: impl Fn(T) + 'static) -> Self {
-        Self {
-            get: Rc::new(get),
-            set: Rc::new(set),
-        }
+        Self { get: Rc::new(get), set: Rc::new(set) }
     }
 
     /// A binding that always reads `value` and ignores writes; useful in previews and tests.
@@ -62,10 +59,7 @@ impl<T: 'static> Binding<T> {
 
 impl<T> Clone for Binding<T> {
     fn clone(&self) -> Self {
-        Self {
-            get: self.get.clone(),
-            set: self.set.clone(),
-        }
+        Self { get: self.get.clone(), set: self.set.clone() }
     }
 }
 
@@ -95,18 +89,9 @@ mod tests {
 
     #[test]
     fn mapped_binding_edits_one_field() {
-        let s = State::new(Settings {
-            volume: 3,
-            muted: false,
-        });
+        let s = State::new(Settings { volume: 3, muted: false });
         let muted = s.binding().map(|s| s.muted, |s, m| s.muted = m);
         muted.set(true);
-        assert_eq!(
-            s.get(),
-            Settings {
-                volume: 3,
-                muted: true
-            }
-        );
+        assert_eq!(s.get(), Settings { volume: 3, muted: true });
     }
 }

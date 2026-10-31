@@ -1,0 +1,28 @@
+[package]
+name = "raven"
+description = "RavenRS: beautiful native interfaces, powered by Rust. One declarative UI for desktop and WebAssembly, drawn on the GPU."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["gui", "ui", "wgpu", "webgpu", "wasm"]
+categories = ["gui", "graphics", "wasm"]
+
+[dependencies]
+raven-core.workspace = true
+raven-reactive.workspace = true
+raven-layout.workspace = true
+raven-text.workspace = true
+raven-style.workspace = true
+raven-render.workspace = true
+raven-widgets.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+raven-platform-native.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+raven-platform-web.workspace = true
+
+[lints]
+workspace = true

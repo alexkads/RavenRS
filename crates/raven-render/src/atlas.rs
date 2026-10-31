@@ -57,11 +57,7 @@ impl GlyphAtlas {
     pub fn new(device: &wgpu::Device, size: u32) -> Self {
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("raven glyph atlas"),
-            size: wgpu::Extent3d {
-                width: size,
-                height: size,
-                depth_or_array_layers: 1,
-            },
+            size: wgpu::Extent3d { width: size, height: size, depth_or_array_layers: 1 },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -70,14 +66,7 @@ impl GlyphAtlas {
             view_formats: &[],
         });
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        Self {
-            texture,
-            view,
-            size,
-            shelves: Vec::new(),
-            cache: HashMap::new(),
-            scaler: ScaleContext::new(),
-        }
+        Self { texture, view, size, shelves: Vec::new(), cache: HashMap::new(), scaler: ScaleContext::new() }
     }
 
     pub fn len(&self) -> usize {
@@ -85,12 +74,7 @@ impl GlyphAtlas {
     }
 
     /// Returns the cached glyph, rasterizing and uploading it on a miss.
-    pub fn get_or_insert(
-        &mut self,
-        queue: &wgpu::Queue,
-        key: GlyphKey,
-        font_bytes: &[u8],
-    ) -> Lookup {
+    pub fn get_or_insert(&mut self, queue: &wgpu::Queue, key: GlyphKey, font_bytes: &[u8]) -> Lookup {
         if let Some(entry) = self.cache.get(&key) {
             return Lookup::Hit(*entry);
         }
@@ -114,42 +98,19 @@ impl GlyphAtlas {
                 aspect: wgpu::TextureAspect::All,
             },
             &image.data,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(w),
-                rows_per_image: Some(h),
-            },
-            wgpu::Extent3d {
-                width: w,
-                height: h,
-                depth_or_array_layers: 1,
-            },
+            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(w), rows_per_image: Some(h) },
+            wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
         );
-        let glyph = AtlasGlyph {
-            x,
-            y,
-            width: w,
-            height: h,
-            left: image.placement.left,
-            top: image.placement.top,
-        };
+        let glyph =
+            AtlasGlyph { x, y, width: w, height: h, left: image.placement.left, top: image.placement.top };
         self.cache.insert(key, Some(glyph));
         Lookup::Hit(Some(glyph))
     }
 
-    fn rasterize(
-        &mut self,
-        key: GlyphKey,
-        font_bytes: &[u8],
-    ) -> Option<swash::scale::image::Image> {
+    fn rasterize(&mut self, key: GlyphKey, font_bytes: &[u8]) -> Option<swash::scale::image::Image> {
         let font = swash::FontRef::from_index(font_bytes, key.font_index as usize)?;
         let glyph_id = u16::try_from(key.glyph).ok()?;
-        let mut scaler = self
-            .scaler
-            .builder(font)
-            .size(key.size_q as f32 / 4.0)
-            .hint(false)
-            .build();
+        let mut scaler = self.scaler.builder(font).size(key.size_q as f32 / 4.0).hint(false).build();
         Render::new(&[Source::Outline])
             .format(Format::Alpha)
             .offset(Vector::new(f32::from(key.subpixel) / SUBPIXEL_BINS, 0.0))
@@ -177,11 +138,7 @@ impl GlyphAtlas {
         if y + ph > self.size {
             return None;
         }
-        self.shelves.push(Shelf {
-            y,
-            height: ph,
-            cursor: pw,
-        });
+        self.shelves.push(Shelf { y, height: ph, cursor: pw });
         Some((0, y))
     }
 }

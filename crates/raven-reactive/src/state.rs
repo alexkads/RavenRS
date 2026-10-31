@@ -19,10 +19,7 @@ pub struct State<T> {
 impl<T: 'static> State<T> {
     pub fn new(value: T) -> Self {
         Self {
-            inner: Rc::new(StateInner {
-                value: RefCell::new(value),
-                subscribers: Subscribers::default(),
-            }),
+            inner: Rc::new(StateInner { value: RefCell::new(value), subscribers: Subscribers::default() }),
         }
     }
 
@@ -85,9 +82,7 @@ impl<T: 'static> State<T> {
 
 impl<T> Clone for State<T> {
     fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
+        Self { inner: self.inner.clone() }
     }
 }
 

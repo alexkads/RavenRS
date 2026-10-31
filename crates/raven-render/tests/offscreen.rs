@@ -3,6 +3,8 @@
 //!
 //! Skipped (with a message) on machines without any GPU adapter.
 
+#![allow(clippy::expect_used, reason = "test helpers fail loudly")]
+
 use raven_core::{Color, LinearGradient, Point, Quad, Rect, Scene, Shadow};
 use raven_render::{GpuContext, Renderer, wgpu};
 use raven_text::{TextAttrs, TextSystem};
@@ -12,8 +14,7 @@ const H: u32 = 100;
 const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
 fn gpu() -> Option<GpuContext> {
-    let instance =
-        wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
     match pollster::block_on(GpuContext::new(&instance, None)) {
         Ok(gpu) => Some(gpu),
         Err(e) => {
@@ -24,20 +25,11 @@ fn gpu() -> Option<GpuContext> {
 }
 
 /// Renders at `scale` and returns RGBA8 pixels of a `W*scale x H*scale` image.
-fn render(
-    gpu: &GpuContext,
-    renderer: &mut Renderer,
-    scene: &Scene,
-    scale: f32,
-) -> (u32, u32, Vec<u8>) {
+fn render(gpu: &GpuContext, renderer: &mut Renderer, scene: &Scene, scale: f32) -> (u32, u32, Vec<u8>) {
     let (w, h) = ((W as f32 * scale) as u32, (H as f32 * scale) as u32);
     let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("offscreen"),
-        size: wgpu::Extent3d {
-            width: w,
-            height: h,
-            depth_or_array_layers: 1,
-        },
+        size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -48,17 +40,14 @@ fn render(
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
     renderer.render(scene, &view, (w, h), scale);
 
-    let padded =
-        (w * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+    let padded = (w * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
     let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("readback"),
         size: u64::from(padded * h),
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
     });
-    let mut encoder = gpu
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+    let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
     encoder.copy_texture_to_buffer(
         texture.as_image_copy(),
         wgpu::TexelCopyBufferInfo {
@@ -69,18 +58,12 @@ fn render(
                 rows_per_image: Some(h),
             },
         },
-        wgpu::Extent3d {
-            width: w,
-            height: h,
-            depth_or_array_layers: 1,
-        },
+        wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
     );
     gpu.queue.submit(Some(encoder.finish()));
     let slice = buffer.slice(..);
     slice.map_async(wgpu::MapMode::Read, |r| r.expect("map readback buffer"));
-    gpu.device
-        .poll(wgpu::PollType::wait_indefinitely())
-        .expect("poll device");
+    gpu.device.poll(wgpu::PollType::wait_indefinitely()).expect("poll device");
     let data = slice.get_mapped_range().expect("mapped range");
     let mut pixels = Vec::with_capacity((w * h * 4) as usize);
     for row in 0..h {
@@ -116,10 +99,7 @@ fn rounded_quad_border_and_clear() {
     for scale in [1.0, 2.0] {
         let img = render(&gpu, &mut renderer, &scene, scale);
         let s = |v: f32| (v * scale) as u32;
-        assert!(
-            close(pixel(&img, s(70.0), s(50.0)), [255, 0, 0, 255], 2),
-            "fill at center, scale {scale}"
-        );
+        assert!(close(pixel(&img, s(70.0), s(50.0)), [255, 0, 0, 255], 2), "fill at center, scale {scale}");
         assert!(
             close(pixel(&img, s(70.0), s(21.0)), [0, 255, 0, 255], 2),
             "border on top edge, scale {scale}"
@@ -128,10 +108,7 @@ fn rounded_quad_border_and_clear() {
             close(pixel(&img, s(21.0), s(21.0)), [11, 13, 18, 255], 2),
             "rounded corner is background, scale {scale}"
         );
-        assert!(
-            close(pixel(&img, s(180.0), s(90.0)), [11, 13, 18, 255], 1),
-            "clear color, scale {scale}"
-        );
+        assert!(close(pixel(&img, s(180.0), s(90.0)), [11, 13, 18, 255], 1), "clear color, scale {scale}");
     }
 }
 
@@ -158,25 +135,17 @@ fn shadow_darkens_below_the_shape_and_fades() {
     let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
     let mut scene = Scene::new();
     scene.set_clear_color(Color::WHITE);
-    scene.push_quad(
-        Quad::new(Rect::new(50.0, 20.0, 100.0, 40.0), Color::WHITE)
-            .radius(8.0)
-            .shadow(Shadow {
-                offset: Point::new(0.0, 8.0),
-                blur: 16.0,
-                color: Color::rgba(0.0, 0.0, 0.0, 0.5),
-            }),
-    );
+    scene.push_quad(Quad::new(Rect::new(50.0, 20.0, 100.0, 40.0), Color::WHITE).radius(8.0).shadow(Shadow {
+        offset: Point::new(0.0, 8.0),
+        blur: 16.0,
+        color: Color::rgba(0.0, 0.0, 0.0, 0.5),
+    }));
     let img = render(&gpu, &mut renderer, &scene, 1.0);
     let near = pixel(&img, 100, 64)[0];
     let far = pixel(&img, 100, 95)[0];
     assert!(near < 235, "shadow visible just below the card: {near}");
     assert!(far > near, "shadow fades with distance: {far} vs {near}");
-    assert_eq!(
-        pixel(&img, 100, 40),
-        [255, 255, 255, 255],
-        "card itself is opaque white"
-    );
+    assert_eq!(pixel(&img, 100, 40), [255, 255, 255, 255], "card itself is opaque white");
 }
 
 #[test]
@@ -184,15 +153,8 @@ fn text_draws_coverage_inside_its_bounds() {
     let Some(gpu) = gpu() else { return };
     let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
     let mut text = TextSystem::new();
-    let mut layout = text.layout(
-        "Raven",
-        &TextAttrs {
-            size: 32.0,
-            line_height: 38.0,
-            weight: 600.0,
-            ..Default::default()
-        },
-    );
+    let mut layout = text
+        .layout("Raven", &TextAttrs { size: 32.0, line_height: 38.0, weight: 600.0, ..Default::default() });
     let size = layout.measure(None);
     let mut scene = Scene::new();
     scene.set_clear_color(Color::BLACK);
@@ -204,20 +166,12 @@ fn text_draws_coverage_inside_its_bounds() {
         for x in 0..img.0 {
             if pixel(&img, x, y)[0] > 128 {
                 let (lx, ly) = (x as f32 / 2.0, y as f32 / 2.0);
-                let inside =
-                    lx >= 9.0 && lx <= 11.0 + size.width && ly >= 9.0 && ly <= 11.0 + size.height;
-                if inside {
-                    lit_inside += 1
-                } else {
-                    lit_outside += 1
-                }
+                let inside = lx >= 9.0 && lx <= 11.0 + size.width && ly >= 9.0 && ly <= 11.0 + size.height;
+                if inside { lit_inside += 1 } else { lit_outside += 1 }
             }
         }
     }
-    assert!(
-        lit_inside > 500,
-        "text produced too few lit pixels: {lit_inside}"
-    );
+    assert!(lit_inside > 500, "text produced too few lit pixels: {lit_inside}");
     assert_eq!(lit_outside, 0, "text drew outside its layout box");
 
     // A second frame reuses the cached glyphs.
@@ -226,11 +180,7 @@ fn text_draws_coverage_inside_its_bounds() {
         &gpu.device
             .create_texture(&wgpu::TextureDescriptor {
                 label: None,
-                size: wgpu::Extent3d {
-                    width: 4,
-                    height: 4,
-                    depth_or_array_layers: 1,
-                },
+                size: wgpu::Extent3d { width: 4, height: 4, depth_or_array_layers: 1 },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,

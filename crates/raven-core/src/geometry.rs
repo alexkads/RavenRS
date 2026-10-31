@@ -40,10 +40,7 @@ pub struct Size {
 }
 
 impl Size {
-    pub const ZERO: Self = Self {
-        width: 0.0,
-        height: 0.0,
-    };
+    pub const ZERO: Self = Self { width: 0.0, height: 0.0 };
 
     pub const fn new(width: f32, height: f32) -> Self {
         Self { width, height }
@@ -63,16 +60,10 @@ pub struct Rect {
 }
 
 impl Rect {
-    pub const ZERO: Self = Self {
-        origin: Point::ZERO,
-        size: Size::ZERO,
-    };
+    pub const ZERO: Self = Self { origin: Point::ZERO, size: Size::ZERO };
 
     pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self {
-            origin: Point::new(x, y),
-            size: Size::new(width, height),
-        }
+        Self { origin: Point::new(x, y), size: Size::new(width, height) }
     }
 
     pub const fn from_origin_size(origin: Point, size: Size) -> Self {
@@ -104,10 +95,7 @@ impl Rect {
     }
 
     pub fn center(&self) -> Point {
-        Point::new(
-            self.origin.x + self.size.width * 0.5,
-            self.origin.y + self.size.height * 0.5,
-        )
+        Point::new(self.origin.x + self.size.width * 0.5, self.origin.y + self.size.height * 0.5)
     }
 
     /// Half-open containment: the left/top edges are inside, the right/bottom edges are not.
@@ -143,21 +131,11 @@ impl Insets {
     pub const ZERO: Self = Self::uniform(0.0);
 
     pub const fn uniform(v: f32) -> Self {
-        Self {
-            top: v,
-            right: v,
-            bottom: v,
-            left: v,
-        }
+        Self { top: v, right: v, bottom: v, left: v }
     }
 
     pub const fn symmetric(vertical: f32, horizontal: f32) -> Self {
-        Self {
-            top: vertical,
-            right: horizontal,
-            bottom: vertical,
-            left: horizontal,
-        }
+        Self { top: vertical, right: horizontal, bottom: vertical, left: horizontal }
     }
 }
 
