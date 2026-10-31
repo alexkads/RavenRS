@@ -137,6 +137,20 @@ fn show_error(canvas: &HtmlCanvasElement, message: &str) {
     }
 }
 
+/// Distance a touch must travel before it scrolls instead of tapping.
+const TOUCH_SLOP: f32 = 8.0;
+
+#[derive(Clone, Copy)]
+struct TouchScroll {
+    start: Point,
+    last: Point,
+    scrolling: bool,
+}
+
+fn is_dragging(state: &Rc<RefCell<State>>) -> bool {
+    state.try_borrow().is_ok_and(|s| s.ui.is_dragging())
+}
+
 /// An invisible textarea that receives keyboard focus and text for the canvas.
 fn create_text_input(canvas: &HtmlCanvasElement) -> Result<HtmlTextAreaElement, WebError> {
     let doc = document()?;
@@ -310,10 +324,14 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     };
 
     let target: EventTarget = canvas.clone().into();
+    // A touch that moves more than a few pixels becomes a scroll gesture, unless
+    // it started on something draggable (a slider).
+    let touch: Rc<Cell<Option<TouchScroll>>> = Rc::new(Cell::new(None));
     let pointer = |kind: &'static str, make: fn(Point, PointerButton) -> Event| {
         let (state, sched) = (state.clone(), scheduler.clone());
         let canvas = canvas.clone();
         let focus_text_input = text_input.clone();
+        let touch = touch.clone();
         Listener {
             target: target.clone(),
             kind,
@@ -326,15 +344,42 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                     2 => PointerButton::Secondary,
                     n => PointerButton::Other(n.max(0) as u16),
                 };
+                let is_touch = e.pointer_type() == "touch";
                 match kind {
                     "pointerdown" => {
                         canvas.set_pointer_capture(e.pointer_id()).ok();
                         // Focus after the browser's default focus handling for this click.
                         e.prevent_default();
                         focus_text_input.focus().ok();
+                        if is_touch {
+                            touch.set(Some(TouchScroll { start: p, last: p, scrolling: false }));
+                        }
                     }
-                    "pointerup" => {
+                    "pointermove" if is_touch => {
+                        if let Some(mut t) = touch.get()
+                            && !is_dragging(&state)
+                        {
+                            let moved = (p.x - t.start.x).hypot(p.y - t.start.y);
+                            if t.scrolling || moved > TOUCH_SLOP {
+                                if !t.scrolling {
+                                    // Cancels the press, so lifting the finger does not click.
+                                    dispatch(&state, &sched, Event::PointerLeave);
+                                    t.scrolling = true;
+                                }
+                                let delta = Point::new(p.x - t.last.x, p.y - t.last.y);
+                                dispatch(&state, &sched, Event::Scroll { position: t.start, delta });
+                                t.last = p;
+                                touch.set(Some(t));
+                                return;
+                            }
+                        }
+                    }
+                    "pointerup" | "pointercancel" => {
                         canvas.release_pointer_capture(e.pointer_id()).ok();
+                        let was_scrolling = touch.take().is_some_and(|t| t.scrolling);
+                        if was_scrolling {
+                            return;
+                        }
                     }
                     _ => {}
                 }
@@ -346,6 +391,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     app.listeners.push(pointer("pointerdown", |position, button| Event::PointerDown { position, button }));
     app.listeners.push(pointer("pointerup", |position, button| Event::PointerUp { position, button }));
     app.listeners.push(pointer("pointerleave", |_, _| Event::PointerLeave));
+    app.listeners.push(pointer("pointercancel", |_, _| Event::PointerLeave));
 
     {
         let (state, sched) = (state.clone(), scheduler.clone());

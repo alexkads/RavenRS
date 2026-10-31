@@ -164,7 +164,7 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Workspace, local checks (`scripts/check.sh`: desktop + wasm) | ✓ | | Hosted CI (intentionally not used for now) |
 | `State`, `Binding`, `Derived`, dependency tracking | ✓ | | |
 | Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
-| `View`, `Component`, `BuildCx`, `view_fn`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`raven-macros`) |
+| `View`, `Component`, `BuildCx`, `view_fn`, `responsive`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`raven-macros`) |
 | Layout: `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Section`, `Card` | ✓ | | `ZStack`, horizontal scrolling, virtualized lists |
 | Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `TextField`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `Select`, `ThemeSwitcher` | ✓ | | `DatePicker`, multi-line text, text selection |
 | Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion` | ✓ | | `NavigationView`, docking, resizable panels |
@@ -175,7 +175,7 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Raven Dark / Light / Glass tokens | ✓ | | runtime theme switch UI, reduced-motion wiring |
 | Motion engine (springs, transitions) | | | `raven-animation` |
 | Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, device loss | ✓ | | multiple windows, clipboard, IME |
-| Web: canvas, WebGPU, DPR, pointer, wheel, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | clipboard copy, touch gestures |
+| Web: canvas, WebGPU, DPR, pointer, wheel, touch scrolling, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | clipboard copy, pinch and momentum scrolling |
 | Accessibility | keyboard focus and visible focus ring | | AccessKit tree, screen readers |
 | Benchmarks and profiling | `tracing` spans per phase | | criterion benches, GPU timestamps |
 

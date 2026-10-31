@@ -94,7 +94,7 @@ fn page_header(title: &str, description: &str) -> impl View + use<> {
 }
 
 impl Gallery {
-    fn sidebar(&self) -> impl View {
+    fn sidebar(&self) -> impl View + use<> {
         let current = self.page.get();
         let mut items: Vec<AnyView> = vec![
             Box::new(
@@ -122,42 +122,52 @@ impl Gallery {
         Sidebar::new(items)
     }
 
-    fn toolbar(&self) -> impl View {
+    fn toolbar(&self, narrow: bool) -> AnyView {
+        if narrow {
+            let pages: Vec<&str> = PAGES.iter().map(|(_, label)| *label).collect();
+            return Box::new(
+                VStack::new((Select::new(self.page.binding(), pages).width(240.0), ThemeSwitcher))
+                    .spacing(10.0)
+                    .padding((12.0, 16.0)),
+            );
+        }
         let (_, title) = PAGES[self.page.get().min(PAGES.len() - 1)];
-        HStack::new((
-            Breadcrumb::new(["Components", title]),
-            Spacer::new(),
-            Tooltip::new(IconButton::new(IconName::Search), "Search (⌘K)"),
-            Tooltip::new(IconButton::new(IconName::Bell), "Notifications"),
-            ThemeSwitcher,
-        ))
-        .spacing(8.0)
-        .align(Align::Center)
-        .padding((14.0, 32.0))
+        Box::new(
+            HStack::new((
+                Breadcrumb::new(["Components", title]),
+                Spacer::new(),
+                Tooltip::new(IconButton::new(IconName::Search), "Search (⌘K)"),
+                Tooltip::new(IconButton::new(IconName::Bell), "Notifications"),
+                ThemeSwitcher,
+            ))
+            .spacing(8.0)
+            .align(Align::Center)
+            .padding((14.0, 32.0)),
+        )
     }
 
-    fn page(&self) -> AnyView {
+    fn page(&self, width: f32) -> AnyView {
         match self.page.get() {
-            0 => Box::new(self.overview()),
-            1 => Box::new(self.buttons()),
-            2 => Box::new(self.forms()),
-            3 => Box::new(self.navigation()),
-            4 => Box::new(self.overlays()),
-            5 => Box::new(self.data_display()),
-            6 => Box::new(self.feedback()),
-            7 => Box::new(self.charts()),
-            _ => Box::new(self.icons()),
+            0 => Box::new(self.overview(width)),
+            1 => Box::new(self.buttons(width)),
+            2 => Box::new(self.forms(width)),
+            3 => Box::new(self.navigation(width)),
+            4 => Box::new(self.overlays(width)),
+            5 => Box::new(self.data_display(width)),
+            6 => Box::new(self.feedback(width)),
+            7 => Box::new(self.charts(width)),
+            _ => Box::new(self.icons(width)),
         }
     }
 
-    fn overview(&self) -> impl View + use<> {
+    fn overview(&self, width: f32) -> impl View + use<> {
         VStack::new((
             page_header(
                 "Overview",
                 "A dashboard assembled only from RavenRS components. Every pixel is drawn on the GPU.",
             ),
             Grid::new(
-                4,
+                columns(width, 4),
                 vec![
                     stat_card(Stat::new("Revenue", "R$ 128.450").delta("+12.4%", true)),
                     stat_card(Stat::new("Active users", "8,214").delta("+3.1%", true)),
@@ -166,7 +176,7 @@ impl Gallery {
                 ],
             ),
             Grid::new(
-                2,
+                columns(width, 2),
                 (
                     demo(
                         "Revenue",
@@ -211,7 +221,7 @@ impl Gallery {
         .align(Align::Stretch)
     }
 
-    fn buttons(&self) -> impl View + use<> {
+    fn buttons(&self, _width: f32) -> impl View + use<> {
         let clicks = self.clicks.clone();
         let inc = move || clicks.update(|n| *n += 1);
         let (a, b, c, d) = (inc.clone(), inc.clone(), inc.clone(), inc);
@@ -230,7 +240,8 @@ impl Gallery {
                         Button::new("Ghost").style(ButtonStyle::Ghost).on_click(c),
                         Button::new("Delete").style(ButtonStyle::Danger).icon(IconName::Trash2).on_click(d),
                     ))
-                    .spacing(12.0),
+                    .spacing(12.0)
+                    .wrap(),
                     Text::bound(&self.clicks, |n| format!("Clicked {n} times. Try Tab and Enter too."))
                         .style(TextStyle::Callout)
                         .foreground(Semantic::InkMuted),
@@ -247,7 +258,8 @@ impl Gallery {
                     Button::new("Disabled").style(ButtonStyle::Secondary).disabled(true),
                 ))
                 .spacing(12.0)
-                .align(Align::Center),
+                .align(Align::Center)
+                .wrap(),
             ),
             demo(
                 "Icon buttons",
@@ -262,14 +274,15 @@ impl Gallery {
                     ),
                     Tooltip::new(IconButton::new(IconName::Plus).style(ButtonStyle::Primary), "New item"),
                 ))
-                .spacing(6.0),
+                .spacing(6.0)
+                .wrap(),
             ),
         ))
         .spacing(24.0)
         .align(Align::Stretch)
     }
 
-    fn forms(&self) -> impl View + use<> {
+    fn forms(&self, width: f32) -> impl View + use<> {
         let volume = self.volume.clone();
         VStack::new((
             page_header(
@@ -277,7 +290,7 @@ impl Gallery {
                 "Inputs bound to state. Every control works with the mouse and the keyboard.",
             ),
             Grid::new(
-                2,
+                columns(width, 2),
                 (
                     demo(
                         "Text fields",
@@ -351,7 +364,8 @@ impl Gallery {
                             Text::bound(&self.seats, |s| format!("{s} seats")).foreground(Semantic::InkMuted),
                         ))
                         .spacing(12.0)
-                        .align(Align::Center),
+                        .align(Align::Center)
+                        .wrap(),
                     ),
                 ),
             ),
@@ -360,7 +374,7 @@ impl Gallery {
         .align(Align::Stretch)
     }
 
-    fn navigation(&self) -> impl View + use<> {
+    fn navigation(&self, _width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Navigation", "Tabs, breadcrumbs, sidebars and disclosures."),
             demo(
@@ -420,7 +434,7 @@ impl Gallery {
         .align(Align::Stretch)
     }
 
-    fn overlays(&self) -> impl View + use<> {
+    fn overlays(&self, width: f32) -> impl View + use<> {
         let (open_popover, open_dialog) = (self.popover.clone(), self.dialog.clone());
         let log = |label: &'static str, state: &State<String>| {
             let s = state.clone();
@@ -432,7 +446,7 @@ impl Gallery {
         VStack::new((
             page_header("Overlays", "Floating layers above the UI. Click outside or press Escape to close them."),
             Grid::new(
-                2,
+                columns(width, 2),
                 (
                     demo(
                         "Dropdown menu",
@@ -476,7 +490,8 @@ impl Gallery {
                             Tooltip::new(Kbd::new("⌘K"), "Open the command palette"),
                         ))
                         .spacing(16.0)
-                        .align(Align::Center),
+                        .align(Align::Center)
+                        .wrap(),
                     ),
                     demo(
                         "Dialog",
@@ -502,7 +517,7 @@ impl Gallery {
         .align(Align::Stretch)
     }
 
-    fn data_display(&self) -> impl View + use<> {
+    fn data_display(&self, width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Data display", "Lists, tables, badges, avatars and keyboard keys."),
             demo(
@@ -541,7 +556,7 @@ impl Gallery {
                 .row(["INV-1044", "Kestrel Health", "Overdue", "R$ 2.560"]),
             ),
             Grid::new(
-                2,
+                columns(width, 2),
                 (
                     demo(
                         "Badges",
@@ -553,7 +568,8 @@ impl Gallery {
                             Badge::new("Pending").tone(Tone::Warning),
                             Badge::new("Overdue").tone(Tone::Danger),
                         ))
-                        .spacing(8.0),
+                        .spacing(8.0)
+                        .wrap(),
                     ),
                     demo(
                         "Avatars and keys",
@@ -568,7 +584,8 @@ impl Gallery {
                             Kbd::new("K"),
                         ))
                         .spacing(8.0)
-                        .align(Align::Center),
+                        .align(Align::Center)
+                        .wrap(),
                     ),
                 ),
             ),
@@ -577,7 +594,7 @@ impl Gallery {
         .align(Align::Stretch)
     }
 
-    fn feedback(&self) -> impl View + use<> {
+    fn feedback(&self, width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Feedback", "Alerts, progress and loading placeholders."),
             demo(
@@ -596,7 +613,7 @@ impl Gallery {
                 .align(Align::Stretch),
             ),
             Grid::new(
-                2,
+                columns(width, 2),
                 (
                     demo(
                         "Progress",
@@ -633,7 +650,7 @@ impl Gallery {
         .align(Align::Stretch)
     }
 
-    fn charts(&self) -> impl View + use<> {
+    fn charts(&self, width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Charts", "Drawn with the same GPU primitives as everything else, through Canvas."),
             demo(
@@ -645,7 +662,7 @@ impl Gallery {
                 .height(200.0),
             ),
             Grid::new(
-                2,
+                columns(width, 2),
                 (
                     demo(
                         "Bar chart",
@@ -673,7 +690,7 @@ impl Gallery {
         .align(Align::Stretch)
     }
 
-    fn icons(&self) -> impl View + use<> {
+    fn icons(&self, width: f32) -> impl View + use<> {
         let tiles: Vec<AnyView> = IconName::ALL
             .iter()
             .map(|icon| -> AnyView {
@@ -696,11 +713,16 @@ impl Gallery {
                 "Icons",
                 "112 Lucide icons (ISC license) built in, drawn as font glyphs so they take any size and color.",
             ),
-            Grid::new(6, tiles).spacing(10.0),
+            Grid::new(columns(width, 6), tiles).spacing(10.0),
         ))
         .spacing(24.0)
         .align(Align::Stretch)
     }
+}
+
+/// How many of `max` columns fit in `width` logical pixels (cards need ~240px).
+fn columns(width: f32, max: u16) -> u16 {
+    ((width / 240.0).floor() as u16).clamp(1, max)
 }
 
 fn stat_card(stat: Stat) -> AnyView {
@@ -709,24 +731,29 @@ fn stat_card(stat: Stat) -> AnyView {
 
 impl Component for Gallery {
     fn body(&self) -> impl View {
-        HStack::new((
-            self.sidebar(),
-            VStack::new((
-                self.toolbar(),
+        responsive(move |size: Size| -> AnyView {
+            let narrow = size.width < 820.0;
+            let content_width =
+                if narrow { size.width - 32.0 } else { (size.width - 248.0 - 64.0).min(1080.0) };
+            let padding = if narrow { (20.0, 16.0) } else { (28.0, 32.0) };
+            let main = VStack::new((
+                self.toolbar(narrow),
                 Divider::horizontal(),
                 // Keyed by page, so each page opens scrolled to the top with fresh local state.
                 Keyed::new(
                     self.page.get() as u64,
-                    ScrollView::new((PageBody(self.page()),)).padding((28.0, 32.0)).spacing(0.0),
+                    ScrollView::new((PageBody(self.page(content_width)),)).padding(padding).spacing(0.0),
                 ),
             ))
             .spacing(0.0)
             .align(Align::Stretch)
-            .grow(1.0),
-        ))
-        .spacing(0.0)
-        .align(Align::Stretch)
-        .grow(1.0)
+            .grow(1.0);
+            if narrow {
+                Box::new(main)
+            } else {
+                Box::new(HStack::new((self.sidebar(), main)).spacing(0.0).align(Align::Stretch).grow(1.0))
+            }
+        })
     }
 }
 
@@ -789,6 +816,36 @@ mod tests {
             page.set(i);
             ui.update();
             assert!(ui.element_count() > 40, "page {i} built only {} elements", ui.element_count());
+        }
+    }
+
+    fn first_glyph_y(ui: &Ui) -> f32 {
+        ui.scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| match p {
+                raven::core::Primitive::Glyphs(g) => g.glyphs.first().map(|g| g.y),
+                _ => None,
+            })
+            .fold(f32::MIN, f32::max)
+    }
+
+    #[test]
+    fn pages_scroll_on_desktop_and_phone_layouts() {
+        for size in [Size::new(1280.0, 720.0), Size::new(375.0, 812.0)] {
+            let mut ui = Ui::new(Gallery::new(), Theme::raven_dark());
+            ui.set_viewport(size, 1.0);
+            ui.update();
+            let before = first_glyph_y(&ui);
+            let at = Point::new(size.width - 60.0, size.height - 100.0);
+            assert!(
+                ui.handle_event(&raven::core::Event::Scroll { position: at, delta: Point::new(0.0, -200.0) }),
+                "the page scrolls at {size:?}"
+            );
+            assert!(
+                (first_glyph_y(&ui) - (before - 200.0)).abs() < 0.5,
+                "content moved up by 200px at {size:?}"
+            );
         }
     }
 }

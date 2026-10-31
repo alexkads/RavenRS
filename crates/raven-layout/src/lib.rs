@@ -63,6 +63,8 @@ pub struct LayoutStyle {
     pub overflow_hidden: bool,
     /// Lays children out in this many equal-width grid columns instead of a stack.
     pub grid_columns: Option<u16>,
+    /// Children move to a new line when they do not fit (flex-wrap).
+    pub wrap: bool,
 }
 
 impl LayoutStyle {
@@ -112,6 +114,9 @@ impl LayoutStyle {
             flex_shrink: 1.0,
             ..taffy::Style::default()
         };
+        if self.wrap {
+            style.flex_wrap = taffy::FlexWrap::Wrap;
+        }
         if let Some(columns) = self.grid_columns {
             style.display = taffy::Display::Grid;
             style.grid_template_columns = taffy::style_helpers::evenly_sized_tracks(columns);

@@ -56,9 +56,20 @@ macro_rules! stack {
                 self
             }
 
-            /// Takes a share of the free space in the parent stack.
+            /// Takes a share of the free space in the parent stack. A growing
+            /// stack may also shrink below its content (CSS `min-height: 0`), so
+            /// scroll views inside it get a bounded height.
             pub fn grow(mut self, grow: f32) -> Self {
                 self.style.grow = grow;
+                self.style.min_width.get_or_insert(0.0);
+                self.style.min_height.get_or_insert(0.0);
+                self
+            }
+
+            /// Moves children that do not fit onto new lines (rows wrap down,
+            /// columns wrap right).
+            pub fn wrap(mut self) -> Self {
+                self.style.wrap = true;
                 self
             }
         }

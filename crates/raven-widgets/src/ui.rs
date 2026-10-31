@@ -159,6 +159,12 @@ impl Ui {
         self.needs_build || self.state_dirty.get()
     }
 
+    /// True while a pointer drag that started on a draggable element (a slider,
+    /// a splitter) is in progress. Touch platforms use it to tell drags from scrolls.
+    pub fn is_dragging(&self) -> bool {
+        self.dragging.is_some()
+    }
+
     /// The cursor the platform should show.
     pub fn cursor(&self) -> CursorIcon {
         self.cursor

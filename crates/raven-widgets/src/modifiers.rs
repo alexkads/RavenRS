@@ -115,6 +115,8 @@ impl<V: View> Styled<V> {
 
     pub fn grow(mut self, grow: f32) -> Self {
         self.style.grow = grow;
+        self.style.min_width.get_or_insert(0.0);
+        self.style.min_height.get_or_insert(0.0);
         self
     }
 

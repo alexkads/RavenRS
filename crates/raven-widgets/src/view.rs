@@ -83,6 +83,45 @@ impl<V: View> View for Keyed<V> {
     }
 }
 
+/// A view built from the viewport size; see [`responsive`].
+pub struct Responsive<F>(F);
+
+impl<F> std::fmt::Debug for Responsive<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Responsive")
+    }
+}
+
+/// Builds a view from the viewport size (in logical pixels), like SwiftUI's
+/// `GeometryReader`: use it to switch layouts at breakpoints.
+///
+/// ```
+/// use raven_widgets::{HStack, Text, VStack, View, responsive, AnyView};
+///
+/// let layout = responsive(|size| -> AnyView {
+///     if size.width < 600.0 { Box::new(VStack::new((Text::new("A"), Text::new("B")))) }
+///     else { Box::new(HStack::new((Text::new("A"), Text::new("B")))) }
+/// });
+/// ```
+pub fn responsive<F, V>(f: F) -> Responsive<F>
+where
+    F: Fn(raven_core::Size) -> V,
+    V: View,
+{
+    Responsive(f)
+}
+
+impl<F, V> View for Responsive<F>
+where
+    F: Fn(raven_core::Size) -> V,
+    V: View,
+{
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let view = (self.0)(cx.viewport());
+        cx.child(&view)
+    }
+}
+
 /// A view produced by a closure on every build; see [`view_fn`].
 pub struct FnView<F>(F);
 
