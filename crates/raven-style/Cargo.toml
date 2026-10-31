@@ -1,0 +1,14 @@
+[package]
+name = "raven-style"
+description = "RavenRS design tokens and the Raven Dark, Raven Light and Raven Glass themes."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+raven-core.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,16 @@
+[package]
+name = "raven-text"
+description = "RavenRS text: shaping and line layout with Parley, with the Inter font embedded."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+include = ["src/**/*", "fonts/**/*", "Cargo.toml"]
+
+[dependencies]
+raven-core.workspace = true
+parley.workspace = true
+
+[lints]
+workspace = true

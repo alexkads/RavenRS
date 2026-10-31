@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "examples/*"]
+members = ["crates/raven-core", "crates/raven-reactive", "crates/raven-style", "crates/raven-layout", "crates/raven-text", "crates/raven-render"]
 
 [workspace.package]
 version = "0.1.0"
