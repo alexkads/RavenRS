@@ -9,11 +9,11 @@ RavenRS draws every pixel itself on the GPU with `wgpu`: on Windows, macOS and L
 
 [Live demo](https://alexkads.github.io/RavenRS/) · [Architecture](ARCHITECTURE.md) · [Design system](docs/design-system/README.md) · [Roadmap](#roadmap)
 
-![RavenRS hello-world running natively on macOS](docs/media/hello-world-native.png)
+![The RavenRS component gallery running natively on macOS](docs/media/component-gallery.png)
 
 </div>
 
-> **Status: early.** The first milestone is done: the same UI runs natively and in the browser, with text, cards, buttons, reactive state, keyboard focus and a GPU renderer. The API will change. See [what is implemented](ARCHITECTURE.md#11-status).
+> **Status: early.** The same UI runs natively and in the browser with 40+ components, 112 icons, three themes, reactive state and a GPU renderer. The API will change. See [what is implemented](ARCHITECTURE.md#11-status) and try the [component gallery](https://alexkads.github.io/RavenRS/).
 
 ## Why RavenRS
 
@@ -71,13 +71,31 @@ impl Component for Counter {
 }
 ```
 
-Need full control? Implement `View` and use `BuildCx` directly: create layout boxes, paint any `Scene` primitive with `Paint::Custom`, react to `cx.is_hovered()` / `cx.is_pressed()`, and register `cx.on_click`, `cx.focusable` and `cx.cursor`. That is exactly how `Button` and `Card` are written. For quick custom drawing there is `Canvas`.
+Need full control? Implement `View` and use `BuildCx` directly: create layout boxes, paint any `Scene` primitive with `Paint::Custom`, keep per-instance state with `cx.use_state`, open floating layers with `cx.overlay`, react to `cx.is_hovered()` / `cx.is_pressed()`, and register `cx.on_click`, `cx.on_key`, `cx.on_drag`, `cx.focusable` and `cx.cursor`. That is exactly how every built-in component is written. For quick custom drawing there is `Canvas`.
+
+## Components
+
+| Group | Components |
+|---|---|
+| Inputs | `Button` (primary, secondary, ghost, danger; 3 sizes; icons; disabled), `IconButton`, `TextField`, `Select`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `ThemeSwitcher` |
+| Navigation | `Tabs`, `Sidebar`, `SidebarSection`, `SidebarItem`, `Breadcrumb`, `Disclosure`, `Accordion` |
+| Overlays | `Tooltip`, `Popover`, `DropdownMenu` + `MenuItem`, `Dialog` |
+| Layout | `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Section`, `Card`, `GlassCard`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
+| Data | `Table`, `List`, `ListItem`, `Stat`, `BarChart`, `AreaChart`, `Canvas` |
+| Feedback | `Alert`, `Badge`, `ProgressBar`, `Skeleton` |
+| Content | `Text`, `Icon` (112 Lucide icons), `Avatar`, `Kbd`, `Divider` |
+
+All of them are in [`examples/component-gallery`](examples/component-gallery), which runs natively and [in the browser](https://alexkads.github.io/RavenRS/).
 
 ## Run it
 
 Requirements: Rust stable (1.88+). For the web: the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` **0.2.130** (it must match the crate version) and, optionally, `wasm-opt` from Binaryen.
 
 **Desktop**
+
+```bash
+cargo run -p component-gallery --release
+```
 
 ```bash
 cargo run -p hello-world --release
@@ -94,11 +112,11 @@ cargo install wasm-bindgen-cli --version 0.2.130 --locked
 ```
 
 ```bash
-./scripts/build-web.sh hello-world
+./scripts/build-web.sh component-gallery
 ```
 
 ```bash
-python3 -m http.server -d examples/hello-world/web 8080
+python3 -m http.server -d examples/component-gallery/web 8080
 ```
 
 Then open http://localhost:8080. Without WebGPU the page explains what is missing instead of failing silently.
@@ -139,7 +157,7 @@ The renderer tests draw real scenes on your GPU offscreen and check pixels; they
 ## Roadmap
 
 1. **Foundation** (done): workspace, local check scripts, wgpu on desktop and WebGPU, SDF shapes, text, first example.
-2. **Layout and text**: more layout primitives (`ZStack`, `Grid`), images, clipping and scrolling.
+2. **Components** (in progress): 40+ components done; images, `ZStack`, virtualized lists and data grids next.
 3. **Reactivity**: incremental reconciliation and per-component invalidation.
 4. **Design system**: motion engine (springs, transitions), backdrop blur for Raven Glass, theme switching.
 5. **Showcase**: a dashboard and a full component gallery running natively and on the web.
@@ -147,6 +165,6 @@ The renderer tests draw real scenes on your GPU offscreen and check pixels; they
 
 ## License
 
-Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your option. The embedded Inter font is under the [SIL Open Font License 1.1](crates/raven-text/fonts/Inter-LICENSE.txt).
+Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your option. The embedded Inter font is under the [SIL Open Font License 1.1](crates/raven-text/fonts/Inter-LICENSE.txt); the icons come from [Lucide](https://lucide.dev) under the [ISC License](crates/raven-text/fonts/RavenIcons-LICENSE.txt).
 
 Contributions are welcome. Unless you state otherwise, any contribution you submit is dual-licensed as above.

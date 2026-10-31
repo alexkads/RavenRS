@@ -10,7 +10,8 @@ use raven_widgets::{Ui, View};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::Closure;
 use web_sys::{
-    Document, EventTarget, HtmlCanvasElement, KeyboardEvent, PointerEvent, ResizeObserver, WheelEvent,
+    CompositionEvent, Document, EventTarget, HtmlCanvasElement, HtmlTextAreaElement, InputEvent,
+    KeyboardEvent, PointerEvent, ResizeObserver, WheelEvent,
 };
 
 use crate::WebError;
@@ -89,6 +90,7 @@ pub struct WebApp {
     listeners: Vec<Listener>,
     resize_observer: Option<ResizeObserver>,
     _resize_callback: Option<Closure<dyn FnMut(js_sys::Array)>>,
+    text_input: Option<HtmlTextAreaElement>,
 }
 
 impl std::fmt::Debug for WebApp {
@@ -108,6 +110,9 @@ impl Drop for WebApp {
         }
         if let Some(observer) = self.resize_observer.take() {
             observer.disconnect();
+        }
+        if let Some(input) = self.text_input.take() {
+            input.remove();
         }
         self.scheduler.callback.borrow_mut().take();
         if let Ok(mut state) = self.state.try_borrow_mut() {
@@ -129,6 +134,52 @@ fn show_error(canvas: &HtmlCanvasElement, message: &str) {
     panel.set_text_content(Some(message));
     if let Some(parent) = canvas.parent_node() {
         parent.insert_before(&panel, canvas.next_sibling().as_ref()).ok();
+    }
+}
+
+/// An invisible textarea that receives keyboard focus and text for the canvas.
+fn create_text_input(canvas: &HtmlCanvasElement) -> Result<HtmlTextAreaElement, WebError> {
+    let doc = document()?;
+    let input: HtmlTextAreaElement =
+        doc.create_element("textarea")?.dyn_into().map_err(|_| WebError::Js("textarea".into()))?;
+    input.set_attribute("aria-label", "Text input")?;
+    input.set_attribute("autocapitalize", "off")?;
+    input.set_attribute("autocomplete", "off")?;
+    input.set_attribute("spellcheck", "false")?;
+    let style = input.style();
+    for (k, v) in [
+        ("position", "fixed"),
+        ("left", "0"),
+        ("top", "0"),
+        ("width", "1px"),
+        ("height", "1px"),
+        ("opacity", "0"),
+        ("padding", "0"),
+        ("border", "0"),
+        ("resize", "none"),
+        ("pointer-events", "none"),
+        // Font size 16px avoids iOS zooming into the page on focus.
+        ("font-size", "16px"),
+    ] {
+        style.set_property(k, v)?;
+    }
+    if let Some(parent) = canvas.parent_node() {
+        parent.insert_before(&input, canvas.next_sibling().as_ref())?;
+    }
+    Ok(input)
+}
+
+/// Delivers committed text: a lone space as the Space key (so it also activates
+/// buttons), anything else as characters.
+fn send_text(state: &Rc<RefCell<State>>, scheduler: &Scheduler, text: &str) {
+    let modifiers = Modifiers::default();
+    for (i, part) in text.split(' ').enumerate() {
+        if i > 0 {
+            dispatch(state, scheduler, Event::KeyDown { key: Key::Space, modifiers });
+        }
+        if !part.is_empty() {
+            dispatch(state, scheduler, Event::KeyDown { key: Key::Character(part.to_owned()), modifiers });
+        }
     }
 }
 
@@ -245,18 +296,24 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         }));
     }
 
+    // Keyboard input goes through a hidden <textarea>: unlike a canvas it receives
+    // `input` and composition events, so IMEs, dead keys, emoji pickers, mobile
+    // keyboards and paste all deliver text.
+    let text_input = create_text_input(&canvas)?;
     let mut app = WebApp {
         state: state.clone(),
         scheduler: scheduler.clone(),
         listeners: Vec::new(),
         resize_observer: None,
         _resize_callback: None,
+        text_input: Some(text_input.clone()),
     };
 
     let target: EventTarget = canvas.clone().into();
     let pointer = |kind: &'static str, make: fn(Point, PointerButton) -> Event| {
         let (state, sched) = (state.clone(), scheduler.clone());
         let canvas = canvas.clone();
+        let focus_text_input = text_input.clone();
         Listener {
             target: target.clone(),
             kind,
@@ -272,7 +329,9 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                 match kind {
                     "pointerdown" => {
                         canvas.set_pointer_capture(e.pointer_id()).ok();
-                        canvas.focus().ok();
+                        // Focus after the browser's default focus handling for this click.
+                        e.prevent_default();
+                        focus_text_input.focus().ok();
                     }
                     "pointerup" => {
                         canvas.release_pointer_capture(e.pointer_id()).ok();
@@ -309,27 +368,34 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
             }),
         });
     }
+    let input_target: EventTarget = text_input.clone().into();
+    let composing = Rc::new(Cell::new(false));
     for kind in ["keydown", "keyup"] {
-        let (state, sched) = (state.clone(), scheduler.clone());
+        let (state, sched, composing) = (state.clone(), scheduler.clone(), composing.clone());
         app.listeners.push(Listener {
-            target: target.clone(),
+            target: input_target.clone(),
             kind,
             closure: Closure::new(move |e: web_sys::Event| {
                 let Some(e) = e.dyn_ref::<KeyboardEvent>() else { return };
-                let key = map_key(&e.key());
-                // Keep Tab, Space and Enter inside the app instead of moving browser focus or scrolling.
-                if matches!(
-                    key,
-                    Key::Tab | Key::Space | Key::Enter | Key::Backspace | Key::ArrowUp | Key::ArrowDown
-                ) {
-                    e.prevent_default();
+                if composing.get() || e.is_composing() {
+                    return;
                 }
+                let key = map_key(&e.key());
                 let modifiers = Modifiers {
                     shift: e.shift_key(),
                     ctrl: e.ctrl_key(),
                     alt: e.alt_key(),
                     meta: e.meta_key(),
                 };
+                // Printable text arrives through the `input` event instead, so it is
+                // not inserted twice; shortcuts with Ctrl/Cmd still go through here.
+                let printable =
+                    matches!(key, Key::Character(_) | Key::Space) && !(modifiers.ctrl || modifiers.meta);
+                if printable {
+                    return;
+                }
+                // Keep Tab, Enter, arrows and Backspace inside the app.
+                e.prevent_default();
                 let event = if kind == "keydown" {
                     Event::KeyDown { key, modifiers }
                 } else {
@@ -340,9 +406,49 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         });
     }
     {
+        let (state, sched, composing, input) =
+            (state.clone(), scheduler.clone(), composing.clone(), text_input.clone());
+        app.listeners.push(Listener {
+            target: input_target.clone(),
+            kind: "input",
+            closure: Closure::new(move |e: web_sys::Event| {
+                if composing.get() || e.dyn_ref::<InputEvent>().is_some_and(InputEvent::is_composing) {
+                    return;
+                }
+                let text = input.value();
+                input.set_value("");
+                send_text(&state, &sched, &text);
+            }),
+        });
+    }
+    {
+        let composing = composing.clone();
+        app.listeners.push(Listener {
+            target: input_target.clone(),
+            kind: "compositionstart",
+            closure: Closure::new(move |_e: web_sys::Event| composing.set(true)),
+        });
+    }
+    {
+        let (state, sched, composing, input) =
+            (state.clone(), scheduler.clone(), composing.clone(), text_input.clone());
+        app.listeners.push(Listener {
+            target: input_target.clone(),
+            kind: "compositionend",
+            closure: Closure::new(move |e: web_sys::Event| {
+                composing.set(false);
+                let text =
+                    e.dyn_ref::<CompositionEvent>().and_then(CompositionEvent::data).unwrap_or_default();
+                input.set_value("");
+                send_text(&state, &sched, &text);
+            }),
+        });
+    }
+
+    {
         let (state, sched) = (state.clone(), scheduler.clone());
         app.listeners.push(Listener {
-            target: target.clone(),
+            target: input_target.clone(),
             kind: "blur",
             closure: Closure::new(move |_e: web_sys::Event| {
                 dispatch(&state, &sched, Event::FocusLost);
@@ -353,6 +459,16 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         l.target.add_event_listener_with_callback(l.kind, l.closure.as_ref().unchecked_ref())?;
     }
 
+    {
+        let input = text_input.clone();
+        app.listeners.push(Listener {
+            target: target.clone(),
+            kind: "focus",
+            closure: Closure::new(move |_e: web_sys::Event| {
+                input.focus().ok();
+            }),
+        });
+    }
     // Size changes (CSS layout, window resize, zoom) schedule a frame; the frame
     // reads the new size and device pixel ratio.
     let sched = scheduler.clone();

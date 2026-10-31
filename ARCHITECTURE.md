@@ -106,6 +106,17 @@ Components can be created at three levels, and the built-in widgets use the same
 
 `Canvas` wraps `Paint::Custom` for custom drawing inside normal layout, `view_fn` turns a closure into a reactive view, and `Option<V>` renders conditionally.
 
+## 6.1 Runtime services for components
+
+Rich components need more than layout and paint; the runtime provides them generically, so third-party components get the same powers as built-in ones:
+
+* **Widget-local state.** `cx.use_state(init)` returns a `State<T>` owned by that widget instance, keyed by its `WidgetId` and call order. It survives rebuilds and is dropped when the widget is no longer built. `Keyed::new(key, view)` resets it on purpose.
+* **Overlays.** `cx.overlay(anchor, placement, &view, on_dismiss)` builds a floating layer after the main tree. It is laid out as its own Taffy root, placed relative to the anchor's final frame (flipped and clamped to the viewport), painted last, hit-tested first, and dismissed on outside clicks or Escape.
+* **Scrolling and clipping.** `cx.scrollable(node)` makes a vertical scroll container: offsets are kept per `WidgetId`, wheel events move the innermost scrollable under the pointer, children are clipped with scissor rectangles, and a thin scrollbar is drawn. Scrolling only re-places and repaints; it does not rebuild or re-run layout.
+* **Input.** `cx.on_key` (focused element first, default handling otherwise), `cx.on_drag` (start/move/end with the element frame), `cx.on_click`, `cx.focusable`, `cx.cursor`, and `cx.is_hover_within()` for hover over a subtree.
+* **Theme as state.** The theme is a `State<Theme>`; `ThemeSwitcher` or any component can change it through `cx.theme_state()` and the whole UI rebuilds with the new tokens.
+* **Icons.** A 36 KB subset of Lucide (ISC) is embedded as a font, so icons are glyphs: sharp at any size, colored like text, and batched with text. `scripts/gen-icons.py` regenerates the subset and the `IconName` enum.
+
 ## 7. Rendering
 
 `raven-render` is a small 2D renderer on `wgpu` 30.
@@ -153,14 +164,18 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Workspace, local checks (`scripts/check.sh`: desktop + wasm) | ✓ | | Hosted CI (intentionally not used for now) |
 | `State`, `Binding`, `Derived`, dependency tracking | ✓ | | |
 | Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
-| `View`, `Component`, `BuildCx`, `view_fn`, `Option<V>` | ✓ | | Environment values, `#[component]` macro (`raven-macros`) |
-| `VStack`, `HStack`, `Spacer`, `Text`, `Button`, `Card`, `Canvas` | ✓ | | `ZStack`, `Image`, `TextField`, `Toggle`, `Slider`, `ScrollView`, `List`, `Grid`, `NavigationView`, `TabView`, `Popover`, `Tooltip` |
+| `View`, `Component`, `BuildCx`, `view_fn`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`raven-macros`) |
+| Layout: `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Section`, `Card` | ✓ | | `ZStack`, horizontal scrolling, virtualized lists |
+| Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `TextField`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `Select`, `ThemeSwitcher` | ✓ | | `DatePicker`, multi-line text, text selection |
+| Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion` | ✓ | | `NavigationView`, docking, resizable panels |
+| Overlays: `Tooltip`, `Popover`, `DropdownMenu`, `Dialog` | ✓ | | context menus, command palette, toasts |
+| Display: `Text`, `Icon` (112 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Skeleton`, `Alert`, `Stat`, `List`, `Table`, `BarChart`, `AreaChart`, `Canvas` | ✓ | | `Image`, data grid with sorting and virtualization, line/pie charts |
 | `GlassCard` | | translucent fill only | backdrop blur |
-| Rounded rects, borders, gradients, soft shadows, text | ✓ | | radial gradients, clipping, transforms, images, layers |
+| Rounded rects, borders, gradients, soft shadows, text, rectangular clipping | ✓ | | rounded clipping, radial gradients, transforms, images, layers |
 | Raven Dark / Light / Glass tokens | ✓ | | runtime theme switch UI, reduced-motion wiring |
 | Motion engine (springs, transitions) | | | `raven-animation` |
-| Desktop: window, HiDPI, resize, mouse, keyboard, device loss | ✓ | | multiple windows, clipboard |
-| Web: canvas, WebGPU, DPR, pointer, keyboard, rAF on demand, cleanup, device loss | ✓ | | clipboard bridge, IME, touch gestures |
+| Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, device loss | ✓ | | multiple windows, clipboard, IME |
+| Web: canvas, WebGPU, DPR, pointer, wheel, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | clipboard copy, touch gestures |
 | Accessibility | keyboard focus and visible focus ring | | AccessKit tree, screen readers |
 | Benchmarks and profiling | `tracing` spans per phase | | criterion benches, GPU timestamps |
 

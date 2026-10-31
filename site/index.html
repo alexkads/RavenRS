@@ -76,8 +76,15 @@
   .dot:nth-child(1) { background: #ef5b5b; } .dot:nth-child(2) { background: #e8a23a; } .dot:nth-child(3) { background: #3fb984; }
   .titlebar .title { margin-left: 12px; font-size: 13px; color: var(--ink-muted); font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .badge { font-size: 12px; font-weight: 600; color: var(--success); background: rgba(63, 185, 132, 0.12); border: 1px solid rgba(63, 185, 132, 0.3); padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
-  .window iframe { display: block; width: 100%; height: 520px; border: 0; background: var(--bg-000); }
+  .window iframe { display: block; width: 100%; height: min(760px, 80vh); border: 0; background: var(--bg-000); }
   .stage-note { text-align: center; font-size: 13px; color: var(--ink-muted); margin-top: 14px; }
+  .stage-note a { color: var(--sheen); }
+  .catalog { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 900px) { .catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .catalog { grid-template-columns: minmax(0, 1fr); } }
+  .group { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-100); padding: 20px; min-width: 0; }
+  .group h3 { margin: 0 0 12px; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }
+  .group .chip-row { padding-top: 0; }
   .stage-note kbd { font-family: var(--font-mono); font-size: 12px; background: var(--bg-200); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--ink); }
 
   /* Sections */
@@ -148,6 +155,7 @@
     <a class="brand" href="#top"><span class="mark"><i></i></span>RavenRS</a>
     <ul>
       <li class="hide-sm"><a href="#features">Features</a></li>
+      <li class="hide-sm"><a href="#components">Components</a></li>
       <li class="hide-sm"><a href="#code">Code</a></li>
       <li class="hide-sm"><a href="#roadmap">Roadmap</a></li>
       <li><a class="gh" href="https://github.com/alexkads/RavenRS">
@@ -159,7 +167,7 @@
 
 <header class="hero" id="top">
   <div class="wrap">
-    <span class="eyebrow"><b>v0.1</b> First milestone: desktop and WebGPU from one codebase</span>
+    <span class="eyebrow"><b>v0.1</b> 40+ components, desktop and WebGPU from one codebase</span>
     <h1>Beautiful native interfaces, <span class="sheen">powered by Rust.</span></h1>
     <p class="lede">Write your UI once, declaratively. RavenRS draws every pixel on the GPU with wgpu, in a native window on Windows, macOS and Linux, and in the browser through WebAssembly and WebGPU.</p>
     <div class="cta">
@@ -172,12 +180,12 @@
       <div class="window">
         <div class="titlebar">
           <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-          <span class="title">hello-world · running in your browser on WebGPU</span>
+          <span class="title">component-gallery · running in your browser on WebGPU</span>
           <span class="badge">Live · Rust → WASM</span>
         </div>
-        <iframe src="demo/" title="RavenRS hello-world demo, rendered with WebGPU" loading="lazy"></iframe>
+        <iframe src="demo/" title="RavenRS component gallery, rendered with WebGPU" loading="lazy"></iframe>
       </div>
-      <p class="stage-note">This is the real app, compiled to WebAssembly and drawn on a canvas. Click the buttons, or press <kbd>Tab</kbd> and <kbd>Enter</kbd>.</p>
+      <p class="stage-note">The real component gallery, compiled to WebAssembly and drawn on a canvas. Browse the sidebar, switch themes, type, drag and press <kbd>Tab</kbd>. <a href="demo/" target="_blank" rel="noopener">Open full screen</a>.</p>
     </div>
   </div>
 </header>
@@ -222,8 +230,26 @@
         <span class="glyph"><svg viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5"/></svg></span>
         <h3>Extend everything</h3>
         <p>Your components use the same public API as the built-in ones: compose with <code>Component</code>, or take full control of layout, painting and input with <code>View</code>.</p>
-        <div class="chip-row"><span class="chip">Component</span><span class="chip">View</span><span class="chip">Canvas</span></div>
+        <div class="chip-row"><span class="chip">Component</span><span class="chip">View</span><span class="chip">use_state</span><span class="chip">overlay</span></div>
       </article>
+    </div>
+  </div>
+</section>
+
+<section id="components">
+  <div class="wrap">
+    <p class="kicker">Components</p>
+    <h2>Everything a real application needs, already designed.</h2>
+    <p class="sub">Every component reads the same tokens, works with the keyboard, and runs unchanged on desktop and the web. Try them all in the gallery above.</p>
+    <div class="catalog">
+      <div class="group"><h3>Inputs</h3><div class="chip-row"><span class="chip">Button</span><span class="chip">IconButton</span><span class="chip">TextField</span><span class="chip">Select</span><span class="chip">Toggle</span><span class="chip">Checkbox</span><span class="chip">RadioGroup</span><span class="chip">Slider</span><span class="chip">Stepper</span><span class="chip">SegmentedControl</span><span class="chip">ThemeSwitcher</span></div></div>
+      <div class="group"><h3>Navigation</h3><div class="chip-row"><span class="chip">Tabs</span><span class="chip">Sidebar</span><span class="chip">SidebarItem</span><span class="chip">Breadcrumb</span><span class="chip">Disclosure</span><span class="chip">Accordion</span></div></div>
+      <div class="group"><h3>Overlays</h3><div class="chip-row"><span class="chip">Tooltip</span><span class="chip">Popover</span><span class="chip">DropdownMenu</span><span class="chip">MenuItem</span><span class="chip">Dialog</span></div></div>
+      <div class="group"><h3>Layout</h3><div class="chip-row"><span class="chip">VStack</span><span class="chip">HStack</span><span class="chip">Grid</span><span class="chip">ScrollView</span><span class="chip">Spacer</span><span class="chip">Section</span><span class="chip">Card</span><span class="chip">GlassCard</span></div></div>
+      <div class="group"><h3>Data</h3><div class="chip-row"><span class="chip">Table</span><span class="chip">List</span><span class="chip">ListItem</span><span class="chip">Stat</span><span class="chip">BarChart</span><span class="chip">AreaChart</span><span class="chip">Canvas</span></div></div>
+      <div class="group"><h3>Feedback</h3><div class="chip-row"><span class="chip">Alert</span><span class="chip">Badge</span><span class="chip">ProgressBar</span><span class="chip">Skeleton</span></div></div>
+      <div class="group"><h3>Content</h3><div class="chip-row"><span class="chip">Text</span><span class="chip">Icon ×112</span><span class="chip">Avatar</span><span class="chip">Kbd</span><span class="chip">Divider</span></div></div>
+      <div class="group"><h3>Build your own</h3><div class="chip-row"><span class="chip">Component</span><span class="chip">View</span><span class="chip">BuildCx</span><span class="chip">ViewExt</span><span class="chip">use_state</span><span class="chip">overlay</span></div></div>
     </div>
   </div>
 </section>
@@ -304,7 +330,7 @@
     <p class="sub">Each phase is validated before the next begins. Status is tracked in ARCHITECTURE.md.</p>
     <div class="roadmap">
       <div class="phase"><span class="label">Phase 1</span><p><b>Foundation.</b> Workspace, checks, wgpu on desktop and WebGPU, SDF shapes, text, first app.</p><span class="state done">Done</span></div>
-      <div class="phase"><span class="label">Phase 2</span><p><b>Components.</b> A full library: inputs, toggles, sliders, tabs, lists, menus, scrolling, images.</p><span class="state next">Next</span></div>
+      <div class="phase"><span class="label">Phase 2</span><p><b>Components.</b> 40+ components: inputs, menus, dialogs, tabs, tables, charts, scrolling, 112 icons. Images and virtualization next.</p><span class="state next">In progress</span></div>
       <div class="phase"><span class="label">Phase 3</span><p><b>Reactivity.</b> Incremental reconciliation and per-component invalidation.</p><span class="state later">Planned</span></div>
       <div class="phase"><span class="label">Phase 4</span><p><b>Design system.</b> Spring motion, backdrop blur for Raven Glass, live theme switching.</p><span class="state later">Planned</span></div>
       <div class="phase"><span class="label">Phase 5</span><p><b>Showcase.</b> A professional dashboard and component gallery on desktop and web.</p><span class="state later">Planned</span></div>

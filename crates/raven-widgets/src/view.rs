@@ -62,6 +62,27 @@ impl<V: View> View for Option<V> {
     }
 }
 
+/// Gives a view an explicit identity, like SwiftUI's `.id()`: when the key
+/// changes, the view is treated as new (its local state and scroll position
+/// start over).
+#[derive(Debug)]
+pub struct Keyed<V> {
+    key: u64,
+    view: V,
+}
+
+impl<V: View> Keyed<V> {
+    pub fn new(key: u64, view: V) -> Self {
+        Self { key, view }
+    }
+}
+
+impl<V: View> View for Keyed<V> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        cx.keyed_child(self.key, &self.view)
+    }
+}
+
 /// A view produced by a closure on every build; see [`view_fn`].
 pub struct FnView<F>(F);
 

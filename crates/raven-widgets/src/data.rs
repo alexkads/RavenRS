@@ -486,7 +486,9 @@ impl View for AreaChart {
                         from: line.with_alpha(0.28),
                         to: line.with_alpha(0.0),
                     };
-                    scene.push_quad(Quad::new(Rect::new(x, y, step + 0.5, f.max_y() - y), fill));
+                    // Columns tile exactly (no overlap), so translucent fills do not stack into stripes.
+                    let w = step.min(f.max_x() - x);
+                    scene.push_quad(Quad::new(Rect::new(x, y, w, f.max_y() - y), fill));
                     last = Some((x, y));
                 }
                 for c in 0..columns {

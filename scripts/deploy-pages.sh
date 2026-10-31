@@ -13,12 +13,14 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 ./scripts/build-web.sh hello-world
+./scripts/build-web.sh component-gallery
 
 site="$(mktemp -d)"
 trap 'rm -rf "$site"' EXIT
-mkdir -p "$site/demo"
+mkdir -p "$site/demo" "$site/hello"
 cp site/index.html "$site/"
-cp -R examples/hello-world/web/. "$site/demo/"
+cp -R examples/component-gallery/web/. "$site/demo/"
+cp -R examples/hello-world/web/. "$site/hello/"
 touch "$site/.nojekyll"
 
 cd "$site"

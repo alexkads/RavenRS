@@ -62,4 +62,4 @@ pub use stack::{Grid, HStack, ScrollView, Spacer, VStack};
 pub use text::Text;
 pub use text_field::TextField;
 pub use ui::Ui;
-pub use view::{AnyView, Component, FnView, View, ViewSeq, view_fn};
+pub use view::{AnyView, Component, FnView, Keyed, View, ViewSeq, view_fn};
