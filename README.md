@@ -103,15 +103,21 @@ python3 -m http.server -d examples/hello-world/web 8080
 
 Then open http://localhost:8080. Without WebGPU the page explains what is missing instead of failing silently.
 
-**Check everything**
+**Check everything** (there is no hosted CI; run this before pushing)
 
 ```bash
-cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
+./scripts/check.sh
 ```
 
+It runs rustfmt, clippy for desktop and wasm32, the test suite and the web build.
+
+**Publish the website**
+
 ```bash
-cargo clippy -p raven -p raven-platform-web -p hello-world --target wasm32-unknown-unknown -- -D warnings
+./scripts/deploy-pages.sh
 ```
+
+It builds the landing page and the WebAssembly demo on your machine and pushes them to the `gh-pages` branch that GitHub Pages serves.
 
 The renderer tests draw real scenes on your GPU offscreen and check pixels; they skip themselves on machines without a GPU adapter.
 
@@ -132,7 +138,7 @@ The renderer tests draw real scenes on your GPU offscreen and check pixels; they
 
 ## Roadmap
 
-1. **Foundation** (done): workspace, CI, wgpu on desktop and WebGPU, SDF shapes, text, first example.
+1. **Foundation** (done): workspace, local check scripts, wgpu on desktop and WebGPU, SDF shapes, text, first example.
 2. **Layout and text**: more layout primitives (`ZStack`, `Grid`), images, clipping and scrolling.
 3. **Reactivity**: incremental reconciliation and per-component invalidation.
 4. **Design system**: motion engine (springs, transitions), backdrop blur for Raven Glass, theme switching.

@@ -150,7 +150,7 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 
 | Area | Implemented | Experimental | Planned |
 |---|---|---|---|
-| Workspace, CI (desktop + wasm) | ✓ | | |
+| Workspace, local checks (`scripts/check.sh`: desktop + wasm) | ✓ | | Hosted CI (intentionally not used for now) |
 | `State`, `Binding`, `Derived`, dependency tracking | ✓ | | |
 | Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
 | `View`, `Component`, `BuildCx`, `view_fn`, `Option<V>` | ✓ | | Environment values, `#[component]` macro (`raven-macros`) |
