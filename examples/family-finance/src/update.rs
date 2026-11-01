@@ -546,6 +546,17 @@ mod tests {
     }
 
     #[test]
+    fn macos_lists_one_app_with_its_new_icon() {
+        let text = include_str!("../install.cmd");
+        // In the Applications folder, the previous version would show as a second app.
+        assert!(text.contains(r#"ANTERIOR="$CASA/anterior/$NOME.app""#));
+        // macOS keeps icons by path, so it has to be told the app changed.
+        assert!(text.contains("lsregister"));
+        // A version that changes on every install is what makes it read the icon again.
+        assert!(text.contains("<key>CFBundleVersion</key><string>$(date"));
+    }
+
+    #[test]
     fn an_update_recompiles_what_changed() {
         // Without -m the files keep their commit's date, older than the last build, so
         // Cargo skipped the crates that changed and the update failed to compile.

@@ -64,10 +64,10 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/fa
 | System | What it gets | Where the app goes | How to open it |
 |---|---|---|---|
 | Windows 11 | Visual Studio Build Tools by `winget`, Rust | `%LOCALAPPDATA%\Programs\RavenFinancas` | Start menu |
-| macOS | Apple's command line tools, Rust | `~/Applications/Raven Finanças.app` | Launchpad or Finder |
+| macOS | Apple's command line tools, Rust | `/Applications/Raven Finanças.app`, or `~/Applications` without permission there | Launchpad or Finder |
 | Linux | C compiler and window libraries by `apt`, `dnf`, `pacman` or `zypper`, Rust | `~/.local/bin/family-finance` | Applications menu |
 
-At startup, the app reads `novidades.json` from master. If that version is newer, a banner says what changed and an installed copy starts compiling at low priority. The installed app is only replaced after the new binary answers `--versao`, and the old one stays beside it as `.anterior`. A version that failed is not retried by itself for a day. A copy built with `cargo run` only mentions the new version.
+At startup, the app reads `novidades.json` from master. If that version is newer, a banner says what changed and an installed copy starts compiling at low priority. The installed app is only replaced after the new binary answers `--versao`, and the old one is kept: on macOS in `~/.raven-financas/anterior`, elsewhere beside it as `.anterior`. A version that failed is not retried by itself for a day. A copy built with `cargo run` only mentions the new version.
 
 **To release**, make one commit with three changes: `version` in `Cargo.toml`, `novidades.json`, and the same entry with its `data` on top of `historico-de-novidades.json`. A test holds them together. Make it the last commit of the release: anyone who compiled 0.1.N will not compile another 0.1.N.
 
