@@ -26,6 +26,8 @@ pub(crate) struct Store {
     pub path: Option<PathBuf>,
     pub updater: Updater,
     revision: State<u64>,
+    /// The window's diagnostics panel, for the button in Ajustes.
+    pub diagnostics: Diagnostics,
 }
 
 impl Store {
@@ -38,6 +40,7 @@ impl Store {
             path,
             updater,
             revision: State::new(0),
+            diagnostics: Diagnostics::default(),
         }
     }
 

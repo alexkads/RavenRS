@@ -58,6 +58,7 @@ fn main() -> Result<(), PlatformError> {
                 Some(icon) => identity.icon(icon),
                 None => identity,
             };
+            let options = options.diagnostics(app.diagnostics());
             run_as(app, options, identity)
         }
         Err(e) => {

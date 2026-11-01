@@ -82,6 +82,9 @@ pub struct WindowOptions {
     /// The words of the whole UI, including what the platform adds to it such as
     /// the diagnostics panel. `None` is English.
     pub labels: Option<Labels>,
+    /// Shares the diagnostics panel with the app, which can open it or start a
+    /// performance test from its own screens. `None` still has the panel.
+    pub diagnostics: Option<Diagnostics>,
     /// The page for new issues, such as `https://github.com/owner/repo/issues/new`.
     /// With it the diagnostics panel can start a bug report; `None` hides that button.
     pub new_issue_url: Option<String>,
@@ -95,6 +98,7 @@ impl Default for WindowOptions {
             min_size: Some(Size::new(320.0, 240.0)),
             theme: Theme::default(),
             labels: None,
+            diagnostics: None,
             new_issue_url: None,
         }
     }
@@ -129,6 +133,13 @@ impl WindowOptions {
     /// Sets the words of the whole UI, including the diagnostics panel.
     pub fn labels(mut self, labels: Labels) -> Self {
         self.labels = Some(labels);
+        self
+    }
+
+    /// Shares `diagnostics` with the app, for a button of its own that opens the
+    /// panel or starts a performance test.
+    pub fn diagnostics(mut self, diagnostics: Diagnostics) -> Self {
+        self.diagnostics = Some(diagnostics);
         self
     }
 
@@ -236,7 +247,7 @@ fn run_window(
         .build()
         .map_err(|e| PlatformError::EventLoop(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Wait);
-    let diagnostics = Diagnostics::default();
+    let diagnostics = options.diagnostics.clone().unwrap_or_default();
     diagnostics.set_open(std::env::var_os(DIAGNOSTICS_VARIABLE).is_some());
     if let Some(url) = options.new_issue_url.clone() {
         diagnostics.set_bug_reporter(url, |url| open_url(url).map_err(|e| e.to_string()));

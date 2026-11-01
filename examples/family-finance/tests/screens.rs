@@ -84,7 +84,7 @@ fn app(theme: Theme, page: usize, updater: Updater) -> Ui {
 }
 
 /// The panel with a made-up report of an old GPU left without its driver.
-fn diagnostics_panel() -> Ui {
+fn diagnostics_panel() -> (Ui, Diagnostics) {
     let today = Date::new(2026, 11, 15).expect("valid date");
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today).expect("seed");
@@ -122,22 +122,9 @@ fn diagnostics_panel() -> Ui {
             },
         }
     });
-    let ms = std::time::Duration::from_millis;
-    for i in 0..60 {
-        diagnostics.record(FrameSample {
-            update: ms(9 + i % 5),
-            acquire: ms(2),
-            render: ms(38 + i % 21),
-            present: ms(1),
-            quads: 840,
-            glyphs: 2310,
-            draw_calls: 46,
-            size: (2720, 1720),
-            scale: 2.0,
-        });
-    }
-    diagnostics.set_open(true);
-    Ui::new(Localized::new(Labels::pt_br(), DiagnosticsHost::new(app, diagnostics)), Theme::raven_light())
+    diagnostics.start_test();
+    let host = DiagnosticsHost::new(app, diagnostics.clone());
+    (Ui::new(Localized::new(Labels::pt_br(), host), Theme::raven_light()), diagnostics)
 }
 
 #[test]
@@ -161,13 +148,33 @@ fn draw_every_screen() {
     let mut glass = app(Theme::raven_glass(), 3, Updater::idle());
     capture(&gpu, &mut glass, size, &folder.join("agenda-vidro.png"));
 
-    let mut panel = diagnostics_panel();
-    for frame in 0..120 {
+    // A made-up test: 16 frames a second, most of each spent drawing.
+    let (mut panel, diagnostics) = diagnostics_panel();
+    let ms = std::time::Duration::from_millis;
+    for frame in 0..=80_u32 {
         panel.set_viewport(size, 2.0);
-        panel.set_time(f64::from(frame) / 60.0);
+        panel.set_time(f64::from(frame) / 16.0);
+        panel.update();
+        diagnostics.record(FrameSample {
+            update: ms(u64::from(9 + frame % 5)),
+            acquire: ms(2),
+            render: ms(u64::from(38 + frame % 21)),
+            present: ms(1),
+            quads: 840,
+            glyphs: 2310,
+            draw_calls: 46,
+            size: (2720, 1720),
+            scale: 2.0,
+        });
+    }
+    for frame in 0..60 {
+        panel.set_time(5.0 + f64::from(frame) / 60.0);
         panel.update();
     }
     capture(&gpu, &mut panel, size, &folder.join("diagnostico.png"));
+
+    let mut ajustes = app(Theme::raven_light(), 7, Updater::idle());
+    capture(&gpu, &mut ajustes, size, &folder.join("ajustes-desempenho.png"));
 
     let mut dark = app(Theme::raven_dark(), 0, Updater::idle());
     capture(&gpu, &mut dark, size, &folder.join("painel-escuro.png"));

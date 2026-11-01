@@ -155,7 +155,13 @@ fn copy_rows(store: &Store, confirm: &Confirm) -> Vec<ListItem> {
         .collect()
 }
 
-pub(crate) fn settings(store: &Store, forms: &Forms, news: &updates::NewsDialog) -> impl View + use<> {
+pub(crate) fn settings(
+    store: &Store,
+    forms: &Forms,
+    news: &updates::NewsDialog,
+    page: &State<usize>,
+) -> impl View + use<> {
+    let (diagnostics, painel) = (store.diagnostics.clone(), page.clone());
     let path = store.path.as_ref().map_or_else(|| "Só na memória".to_owned(), |p| p.display().to_string());
     let version = store.read(|db| db.schema_version());
     let (backup_store, restore_store, wipe_store, demo_store) =
@@ -182,6 +188,25 @@ pub(crate) fn settings(store: &Store, forms: &Forms, news: &updates::NewsDialog)
     ScrollView::new((VStack::new((
         heading("Ajustes", "Onde seus dados ficam e como o app se atualiza."),
         group("Aparência", ThemeSwitcher),
+        group(
+            "Desempenho",
+            Card::new(
+                VStack::new((
+                    Text::new(
+                        "Está achando o app lento? O teste abre o Painel, redesenha a janela por 5 segundos e diz o resultado.",
+                    )
+                    .style(TextStyle::Callout),
+                    Button::new("Testar desempenho").icon(IconName::Activity).style(ButtonStyle::Secondary).on_click(
+                        move || {
+                            painel.set(0);
+                            diagnostics.start_test();
+                        },
+                    ),
+                ))
+                .spacing(10.0)
+                .align(Align::Start),
+            ),
+        ),
         group(
             "Backup",
             Card::new(
