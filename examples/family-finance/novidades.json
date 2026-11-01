@@ -1,13 +1,12 @@
 {
-  "versao": "0.1.3",
-  "titulo": "Treinamentos dentro do app, backup e restauração mais claros, e um jeito fácil de relatar problemas.",
+  "versao": "0.1.4",
+  "titulo": "Tire dúvidas na página Treinamentos: você pergunta e o filme abre no ponto certo.",
   "importante": false,
   "novidades": [
-    "Nova página Treinamentos: um filme com capítulos, que para em cada passo e espera o seu clique.",
-    "Os Ajustes mostram quando foi o último backup, e dá para restaurar um arquivo vendo antes o que há nele.",
-    "O app guarda sozinho uma cópia por dia e outra antes de trocar seus dados, e você pode voltar a qualquer uma.",
-    "Relatar problema, no rodapé: você revê os últimos minutos, cobre o que quiser e salva o relato em um arquivo.",
-    "Rolar dentro de uma janela não move mais a tela de trás."
+    "Em Treinamentos, digite sua dúvida e o filme abre no momento que explica aquilo.",
+    "A busca entende as palavras dos capítulos e dos passos, com ou sem acento, e funciona sem internet.",
+    "Novo painel de diagnóstico, com Ctrl+Shift+D (Cmd+Shift+D no Mac), que mostra como o app está usando a placa de vídeo.",
+    "O painel de diagnóstico tem um botão que abre um relato de bug já preenchido na página do projeto."
   ],
-  "por_que_atualizar": "Seus dados ficam mais protegidos: há cópias automáticas e dá para restaurar um backup com segurança."
+  "por_que_atualizar": "Para achar a resposta de uma dúvida sem precisar assistir ao filme inteiro."
 }
