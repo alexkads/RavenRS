@@ -1,10 +1,10 @@
 //! A family's last year of money, generated around today, so the app opens
 //! with something to look at. The same day always gives the same data.
 
-use ravenrs::prelude::Date;
+use ravenrs::prelude::{Date, Frequency, RecurrenceEnd, RecurrenceRule};
 
 use crate::db::{Database, DbResult};
-use crate::model::{AccountKind, BillInput, Flow, Recurrence, TransactionInput, shift_months};
+use crate::model::{AccountKind, BillInput, Flow, Recurrence, ScheduleInput, TransactionInput, shift_months};
 
 /// Months of history to generate.
 const HISTORY_MONTHS: i32 = 13;
@@ -207,6 +207,52 @@ pub fn load_demo(db: &Database, today: Date) -> DbResult<()> {
                 db.pay_bill(id, checking, bill.due, bill.amount_cents)?;
             }
         }
+
+        // What is planned ahead, so the agenda has receipts and payments to confirm.
+        let plan = |text: &str, flow, cents, category, start, rule| {
+            db.add_schedule(&ScheduleInput {
+                description: String::from(text),
+                flow,
+                amount_cents: cents,
+                account_id: checking,
+                category_id: category,
+                member_id: None,
+                start,
+                rule,
+            })
+        };
+        plan(
+            "Aluguel da garagem",
+            Flow::Income,
+            350_00,
+            freelance,
+            today.add_days(2),
+            RecurrenceRule::new(Frequency::Monthly),
+        )?;
+        plan(
+            "Aula de natação",
+            Flow::Expense,
+            90_00,
+            health,
+            today.add_days(1),
+            RecurrenceRule::new(Frequency::Weekly).end(RecurrenceEnd::After(12)),
+        )?;
+        plan(
+            "Décimo terceiro",
+            Flow::Income,
+            3_200_00,
+            salary,
+            today.add_days(16),
+            RecurrenceRule::new(Frequency::Once),
+        )?;
+        plan(
+            "Seguro do carro",
+            Flow::Expense,
+            210_00,
+            transport,
+            today.add_days(9),
+            RecurrenceRule::new(Frequency::Monthly).end(RecurrenceEnd::After(6)),
+        )?;
 
         // A yearly bill and a one-off one, ahead of today.
         db.add_bill(&BillInput {

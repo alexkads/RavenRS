@@ -39,6 +39,7 @@ mod context;
 mod data;
 mod date;
 mod display;
+mod event_calendar;
 mod extras;
 mod fill;
 mod floating;
@@ -52,8 +53,10 @@ mod modifiers;
 mod motion;
 mod nav;
 mod overlay;
+mod recurrence;
 mod remote;
 mod ribbon;
+mod scheduler;
 mod stack;
 mod text;
 mod text_field;
@@ -74,6 +77,7 @@ pub use context::{
 pub use data::{AreaChart, BarChart, Column, List, ListItem, Table};
 pub use date::{Date, days_in_month, is_leap_year};
 pub use display::{Alert, Avatar, Badge, Divider, Kbd, ProgressBar, Section, Skeleton, Stat, Tone};
+pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
 pub use extras::{Carousel, FormField, InputOtp, Menubar, Rule, Spinner, Splitter, validate};
 pub use fill::Fill;
 pub use floating::{
@@ -93,8 +97,12 @@ pub use modifiers::{Styled, ViewExt};
 pub use motion::{Collapse, Motion};
 pub use nav::{Accordion, Breadcrumb, Disclosure, Sidebar, SidebarItem, SidebarSection, Tabs};
 pub use overlay::{Dialog, DropdownMenu, MenuItem, Popover, Select, Tooltip};
+pub use recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
 pub use remote::UiWaker;
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
+pub use scheduler::{
+    Resource, Scheduler, SchedulerChange, SchedulerEvent, SchedulerRange, TimeAxis, TimePoint, TimeScale,
+};
 pub use stack::{Grid, HStack, ScrollView, Spacer, VStack};
 pub use text::Text;
 pub use text_field::TextField;

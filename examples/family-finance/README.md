@@ -15,7 +15,7 @@ The first run opens on a sample family, so there is something to explore. **Ajus
 | Painel | `Stat`, `Alert`, `AreaChart`, `BarChart`, `Grid`, `List`, `responsive` |
 | Lançamentos | `DataGrid` (filter row, search, grouping, totals, cell templates, CSV), `SegmentedControl`, `DropdownMenu`, `ravenrs-criteria` |
 | Contas a pagar | `DataGrid`, `Dialog`, `FormField`, `DatePicker`, `Select`, `Stepper` |
-| Agenda | `Calendar`, `Badge` |
+| Agenda | `Scheduler` to move what is ahead, `EventCalendar` for the month, `RecurrenceEditor` to plan a receipt or a payment |
 | Orçamentos | `ProgressBar`, `Alert`, `Dialog` |
 | Relatórios | `ravenrs-report`, `ravenrs-report-viewer`, `ravenrs-report-export`, charts and barcodes from `ravenrs-graphics` |
 | Cadastros | `Tabs`, `ListItem`, `FormField` |
@@ -35,6 +35,7 @@ The filter on Lançamentos is the part to read first. What the user types, such 
 | `src/filter.rs` | Expressions to SQL |
 | `src/reports.rs` | The report definitions |
 | `src/update.rs` | Finding and installing a new version |
+| `schedules` and `schedule_days` tables | What is planned: the days come from a `RecurrenceRule`, and only days confirmed, moved or skipped get a row |
 | `src/ui/` | One file per screen; `store.rs` has what they share |
 | `tests/db.rs`, `tests/app.rs` | The rules on a real database, and the app driven through `Ui`, without a window |
 | `tests/screens.rs` | Draws every screen to a PNG file |
@@ -45,17 +46,25 @@ FF_SCREENSHOTS=$PWD/target/screens cargo test -p family-finance --test screens
 
 ## Installing and updating
 
-The app is not packaged. It installs and updates by compiling the master branch on the user's machine, the way VintageLightbox does, using `install.cmd`, one file that runs on Windows, macOS and Linux.
+The app is not packaged. It installs and updates by compiling the master branch on the user's machine, the way VintageLightbox does, using `install.cmd`, one file that runs on all three systems. It gets what it needs first, Rust and a C compiler, so the first run can take a while; updates reuse what was compiled. It asks for an administrator's permission only to install those tools.
 
-```bash
-curl -fsSLO https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd
+**Windows 11**, in PowerShell, or download [install.cmd](install.cmd) and double-click it:
+
+```powershell
+irm https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -OutFile "$env:TEMP\install.cmd"; & "$env:TEMP\install.cmd"
 ```
 
+**macOS and Linux**, in a terminal:
+
 ```bash
-sh install.cmd
+curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -o /tmp/install.cmd && sh /tmp/install.cmd
 ```
 
-On Windows, download the file and double-click it.
+| System | What it gets | Where the app goes | How to open it |
+|---|---|---|---|
+| Windows 11 | Visual Studio Build Tools by `winget`, Rust | `%LOCALAPPDATA%\Programs\RavenFinancas` | Start menu |
+| macOS | Apple's command line tools, Rust | `~/Applications/Raven Finanças.app` | Launchpad or Finder |
+| Linux | C compiler and window libraries by `apt`, `dnf`, `pacman` or `zypper`, Rust | `~/.local/bin/family-finance` | Applications menu |
 
 At startup, the app reads `novidades.json` from master. If that version is newer, a banner says what changed and an installed copy starts compiling at low priority. The installed app is only replaced after the new binary answers `--versao`, and the old one stays beside it as `.anterior`. A version that failed is not retried by itself for a day. A copy built with `cargo run` only mentions the new version.
 
@@ -73,12 +82,15 @@ Fixed in the framework:
 * A doughnut chart's legend listed categories with no slice.
 * Component text was fixed in English (`Labels`, `Localized`).
 * `Stat` could not show spending going up as bad (`Stat::delta_toned`).
+* There was no way to show or edit things over time (`Scheduler`, `EventCalendar`, `RecurrenceEditor`).
+* A menu inside a dialog opened in the window's corner, behind the backdrop.
 * Nothing let a background thread ask for a frame (`UiWaker`).
 * The desktop had no save dialog (`ravenrs::native::SaveDialog`).
 * Each app repeated how to open a file with the system's program (`ravenrs::native::open_with_system`).
 
 Still open:
 
+* **The rest of the scheduler.** What is missing from the reference product is listed in [docs/PARITY.md](../../docs/PARITY.md).
 * **Chart axes.** `AreaChart` has no axis labels or tooltips, so the dashboard writes the first and last month by hand.
 * **More text to translate.** `Ribbon`, `Carousel`, `InputOtp`, `validate::email`, `validate::min_length` and a grid's yes/no values are still in English.
 

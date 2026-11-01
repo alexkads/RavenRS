@@ -98,7 +98,9 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | List / List view | | ✓ | ✓ | ✅ `List`, `ListItem` |
 | List box (with reordering) | | ✓ | ✓ | ⬜ |
 | Card view / Tile view | | ✓ | ✓ | 🟡 `Grid` of cards; no virtualization |
-| Scheduler / Calendar views | | ✓ | ✓ | ⬜ |
+| Scheduler (resource timeline) | | ✓ | ✓ | 🟡 `Scheduler`; gaps listed under "Scheduler" below |
+| Calendar with events | | ✓ | ✓ | ✅ `EventCalendar` |
+| Recurrence editor | | ✓ | ✓ | ✅ `RecurrenceEditor`, `RecurrenceRule` (reads and writes iCalendar's `RRULE`) |
 | Gantt | | ✓ | ✓ | ⬜ |
 | Kanban / Task board | | | ✓ | ⬜ |
 | Timeline | | | ✓ | ⬜ |
@@ -169,3 +171,31 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Localization (formats, strings) | | ✓ | ✓ | 🟡 number formats; `Labels` and `Localized` for component text (Ribbon, Carousel and InputOtp still fixed) |
 | Animations | ✓ | ✓ | ✓ | ✅ springs, transitions, shared layout, enter and exit; 🟡 no rotation or group opacity yet |
 | Native desktop and browser from one codebase | | | | ✅ (none of the three does both) |
+
+## Scheduler
+
+The reference is [Bryntum Scheduler](https://bryntum.com/products/scheduler/). The behavior is the model and the implementation is our own.
+
+| Capability | Status |
+|---|---|
+| Rows of resources, time axis with two header rows, bars by time | ✅ |
+| Hours, days, weeks and months, with zoom keeping the same time | ✅ |
+| Drag along time and between rows, resize by the ends, draw on an empty stretch | ✅ |
+| Snap to the scale, refusal through `can_drop`, locked and fixed-length events | ✅ |
+| Overlapping events on lanes, with the row growing | ✅ |
+| Weekend shading, marked time ranges, a line at now, opening at now | ✅ |
+| Collapsible groups of resources | ✅ |
+| Keyboard for events; names and dates for screen readers | ✅ |
+| Only what is in view is built | ✅ tested with 5,000 rows |
+| Recurring events | ✅ `RecurrenceRule`; the app expands the days |
+| Scrolling the wheel over the resources column | ⬜ |
+| Scrolling by itself while dragging near an edge | ⬜ |
+| Tooltip while hovering over or dragging an event | ⬜ |
+| Scrolling a bar into view when keyboard focus moves to it | ⬜ |
+| Dependencies between events | ⬜ |
+| Resource tree of any depth, multiple assignment, extra columns | ⬜ |
+| Working hours, non-continuous axis, vertical mode, nested events | ⬜ |
+| Summaries and histograms per row or period | ⬜ |
+| Dragging from a list or grid onto the timeline, or between schedulers | ⬜ |
+| Undo and redo, built-in event editor and menu | ⬜ |
+| Export to PDF, PNG, Excel and ICS, printing | ⬜ |

@@ -3,6 +3,7 @@
 use crate::context::{BuildCx, NodeId};
 use crate::date::Date;
 use crate::grid::Summary;
+use crate::recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
 use crate::view::View;
 
 /// The words the built-in components use. Start from [`Labels::default`]
@@ -59,6 +60,34 @@ pub struct Labels {
     pub month_year: String,
     /// Writes a date the way people here do, for a date picker.
     pub short_date: fn(Date) -> String,
+    /// After the count of events an [`EventCalendar`](crate::EventCalendar) day has no room for.
+    pub calendar_more: String,
+    /// The header over a [`Scheduler`](crate::Scheduler)'s resources.
+    pub scheduler_resources: String,
+    /// Zooms a scheduler's time axis in.
+    pub zoom_in: String,
+    /// Zooms a scheduler's time axis out.
+    pub zoom_out: String,
+    /// A recurrence editor's name.
+    pub recurrence_name: String,
+    /// Once, daily, weekly, monthly and yearly, as an editor offers them.
+    pub recurrence_frequencies: [String; 5],
+    /// Before the interval, such as "Every".
+    pub recurrence_every: String,
+    /// The singular and plural of day, week, month and year.
+    pub recurrence_units: [(String, String); 4],
+    /// A rule repeating every day, week, month and year, in words.
+    pub recurrence_each: [String; 4],
+    /// What says when a rule stops.
+    pub recurrence_ends_name: String,
+    /// Never, on a date and after a number of times, as an editor offers them.
+    pub recurrence_ends: [String; 3],
+    /// After the number of times.
+    pub recurrence_times: String,
+    /// Before the last day, in words.
+    pub recurrence_until: String,
+    /// Before the next days, in words.
+    pub recurrence_next: String,
     /// A grid's search field.
     pub grid_search: String,
     /// A grid's grouping menu.
@@ -107,6 +136,10 @@ fn brazilian_date(date: Date) -> String {
     format!("{:02}/{:02}/{:04}", date.day(), date.month(), date.year())
 }
 
+fn pairs<const N: usize>(words: [(&str, &str); N]) -> [(String, String); N] {
+    words.map(|(one, many)| (one.to_owned(), many.to_owned()))
+}
+
 fn owned<const N: usize>(words: [&str; N]) -> [String; N] {
     words.map(str::to_owned)
 }
@@ -151,6 +184,25 @@ impl Default for Labels {
             ]),
             month_year: " ".into(),
             short_date: english_date,
+            calendar_more: "more".into(),
+            scheduler_resources: "Resources".into(),
+            zoom_in: "Zoom in".into(),
+            zoom_out: "Zoom out".into(),
+            recurrence_name: "Repeats".into(),
+            recurrence_frequencies: owned(["Once", "Daily", "Weekly", "Monthly", "Yearly"]),
+            recurrence_every: "Every".into(),
+            recurrence_units: pairs([
+                ("day", "days"),
+                ("week", "weeks"),
+                ("month", "months"),
+                ("year", "years"),
+            ]),
+            recurrence_each: owned(["Every day", "Every week", "Every month", "Every year"]),
+            recurrence_ends_name: "Ends".into(),
+            recurrence_ends: owned(["Never", "On a date", "After"]),
+            recurrence_times: "times".into(),
+            recurrence_until: "until".into(),
+            recurrence_next: "Next".into(),
             grid_search: "Search all columns".into(),
             grid_group: "Group".into(),
             grid_clear_grouping: "Clear grouping".into(),
@@ -215,6 +267,25 @@ impl Labels {
             ]),
             month_year: " de ".into(),
             short_date: brazilian_date,
+            calendar_more: "mais".into(),
+            scheduler_resources: "Recursos".into(),
+            zoom_in: "Aproximar".into(),
+            zoom_out: "Afastar".into(),
+            recurrence_name: "Repetição".into(),
+            recurrence_frequencies: owned(["Uma vez", "Diária", "Semanal", "Mensal", "Anual"]),
+            recurrence_every: "A cada".into(),
+            recurrence_units: pairs([
+                ("dia", "dias"),
+                ("semana", "semanas"),
+                ("mês", "meses"),
+                ("ano", "anos"),
+            ]),
+            recurrence_each: owned(["Todo dia", "Toda semana", "Todo mês", "Todo ano"]),
+            recurrence_ends_name: "Termina".into(),
+            recurrence_ends: owned(["Nunca", "Em uma data", "Depois de"]),
+            recurrence_times: "vezes".into(),
+            recurrence_until: "até".into(),
+            recurrence_next: "Próximas".into(),
             grid_search: "Buscar em todas as colunas".into(),
             grid_group: "Agrupar".into(),
             grid_clear_grouping: "Desfazer agrupamento".into(),
@@ -246,6 +317,38 @@ impl Labels {
     /// A full date, for screen readers: `15 November 2026`, `15 novembro de 2026`.
     pub fn long_date(&self, date: Date) -> String {
         format!("{} {}", date.day(), self.month_title(date))
+    }
+
+    /// The word for one period of this frequency; `count` picks singular or plural.
+    pub fn recurrence_unit(&self, frequency: Frequency, count: u32) -> &str {
+        let unit = match frequency {
+            Frequency::Daily => &self.recurrence_units[0],
+            Frequency::Weekly => &self.recurrence_units[1],
+            Frequency::Yearly => &self.recurrence_units[3],
+            _ => &self.recurrence_units[2],
+        };
+        if count > 1 { &unit.1 } else { &unit.0 }
+    }
+
+    /// A rule in words, with its next days: `Every month, 3 times. Next: 05/11/2026, 05/12/2026`.
+    pub fn recurrence_summary(&self, rule: &RecurrenceRule, start: Date) -> String {
+        let how = match (rule.frequency, rule.interval.max(1)) {
+            (Frequency::Daily, 1) => self.recurrence_each[0].clone(),
+            (Frequency::Weekly, 1) => self.recurrence_each[1].clone(),
+            (Frequency::Monthly, 1) => self.recurrence_each[2].clone(),
+            (Frequency::Yearly, 1) => self.recurrence_each[3].clone(),
+            (Frequency::Daily | Frequency::Weekly | Frequency::Monthly | Frequency::Yearly, n) => {
+                format!("{} {n} {}", self.recurrence_every, self.recurrence_unit(rule.frequency, n))
+            }
+            _ => self.recurrence_frequencies[0].clone(),
+        };
+        let until = match rule.end {
+            RecurrenceEnd::Until(day) => format!(" {} {}", self.recurrence_until, (self.short_date)(day)),
+            RecurrenceEnd::After(count) => format!(", {count} {}", self.recurrence_times),
+            _ => String::new(),
+        };
+        let next: Vec<String> = rule.days_from(start).take(3).map(self.short_date).collect();
+        format!("{how}{until}. {}: {}", self.recurrence_next, next.join(", "))
     }
 
     /// What a grid's footer calls this summary.

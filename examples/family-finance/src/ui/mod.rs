@@ -261,6 +261,8 @@ impl Component for App {
                 self.forms.transaction.view(&self.store),
                 self.forms.bill.view(&self.store),
                 self.forms.pay.view(&self.store),
+                self.forms.schedule.view(&self.store),
+                self.forms.occurrence.view(&self.store),
                 self.forms.confirm.view(),
                 updates::news_sheet(&self.store.updater, &self.news),
                 self.palette_view(),

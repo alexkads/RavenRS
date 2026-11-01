@@ -50,10 +50,31 @@ function Correr([scriptblock]$bloco) {
 
 New-Item -ItemType Directory -Force -Path $Casa | Out-Null
 
+# The linker and the C compiler SQLite needs: the Visual Studio Build Tools.
+# vswhere finds them even though they are not on PATH.
+function Tem-Compilador {
+    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (-not (Test-Path $vswhere)) { return $false }
+    $achado = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+    return [bool]$achado
+}
+if (-not (Tem-Compilador)) {
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        throw "faltam as ferramentas de compilacao. Instale o 'Instalador de Aplicativo' pela Microsoft Store e rode de novo, ou instale o Visual Studio Build Tools com C++: https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+    }
+    Write-Host "> instalando as ferramentas de compilacao da Microsoft (pode pedir permissao e levar alguns minutos)" -ForegroundColor Cyan
+    Correr { winget install --exact --id Microsoft.VisualStudio.2022.BuildTools --silent --accept-package-agreements --accept-source-agreements --override "--wait --quiet --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" }
+    if (-not (Tem-Compilador)) { throw "as ferramentas de compilacao continuam faltando; reinicie o Windows e rode este arquivo de novo" }
+}
+
+if (-not (Get-Command cargo -ErrorAction SilentlyContinue) -and (Test-Path "$env:USERPROFILE\.cargo\bin\cargo.exe")) {
+    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+}
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
     Write-Host "> instalando o Rust" -ForegroundColor Cyan
     $rustup = Join-Path $Casa "rustup-init.exe"
-    Invoke-WebRequest -UseBasicParsing "https://win.rustup.rs/x86_64" -OutFile $rustup
+    $arquitetura = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "aarch64" } else { "x86_64" }
+    Invoke-WebRequest -UseBasicParsing "https://win.rustup.rs/$arquitetura" -OutFile $rustup
     Correr { & $rustup -y --profile minimal }
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 }
@@ -107,13 +128,45 @@ mkdir -p "$CASA"
 if ! command -v cargo >/dev/null 2>&1 && [ -x "$HOME/.cargo/bin/cargo" ]; then
   PATH="$HOME/.cargo/bin:$PATH"
 fi
-if ! command -v cc >/dev/null 2>&1; then
-  if [ "$(uname -s)" = Darwin ]; then
-    erro "falta o compilador C, que o SQLite usa. Rode: xcode-select --install"
-  else
-    erro "falta o compilador C, que o SQLite usa. Instale o gcc pelo gerenciador de pacotes do sistema."
+# What Linux needs to compile the app and then open its window: a C compiler,
+# for SQLite, and the libraries the window loads when it starts.
+pacotes_do_linux() {
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "apt-get install -y build-essential curl libxkbcommon-x11-0 libvulkan1 mesa-vulkan-drivers"
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "dnf install -y gcc curl libxkbcommon-x11 vulkan-loader mesa-vulkan-drivers"
+  elif command -v pacman >/dev/null 2>&1; then
+    echo "pacman -S --needed --noconfirm base-devel curl libxkbcommon-x11 vulkan-icd-loader"
+  elif command -v zypper >/dev/null 2>&1; then
+    echo "zypper install -y gcc curl libxkbcommon-x11-0 libvulkan1"
   fi
-  exit 1
+}
+
+if [ "$(uname -s)" = Darwin ]; then
+  # `cc` exists on a new Mac, but only as a stand-in that asks to install the tools.
+  if ! xcode-select -p >/dev/null 2>&1; then
+    xcode-select --install 2>/dev/null || true
+    erro "faltam as ferramentas de linha de comando da Apple. Confirme a janela que abriu e, quando terminar, rode este arquivo de novo."
+    exit 1
+  fi
+elif ! command -v cc >/dev/null 2>&1; then
+  COMANDO="$(pacotes_do_linux)"
+  if [ -z "$COMANDO" ]; then
+    erro "falta o compilador C, que o SQLite usa. Instale o gcc pelo gerenciador de pacotes do sistema e rode de novo."
+    exit 1
+  fi
+  # Only with someone there to type the password: an update running by itself never gets here.
+  if [ -t 0 ] && command -v sudo >/dev/null 2>&1; then
+    diga "instalando o compilador C e as bibliotecas da janela (pede a sua senha)"
+    # shellcheck disable=SC2086
+    sudo $COMANDO
+  elif [ "$(id -u)" = 0 ]; then
+    # shellcheck disable=SC2086
+    $COMANDO
+  else
+    erro "falta o compilador C, que o SQLite usa. Rode: sudo $COMANDO"
+    exit 1
+  fi
 fi
 if ! command -v cargo >/dev/null 2>&1; then
   diga "instalando o Rust"

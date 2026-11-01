@@ -26,7 +26,7 @@ pub enum Tone {
 }
 
 impl Tone {
-    fn color(self, theme: &Theme) -> Color {
+    pub(crate) fn color(self, theme: &Theme) -> Color {
         match self {
             Tone::Neutral => theme.color(Semantic::InkMuted),
             Tone::Accent => theme.color(Semantic::FocusRing).lerp(theme.color(Semantic::Accent), 0.35),

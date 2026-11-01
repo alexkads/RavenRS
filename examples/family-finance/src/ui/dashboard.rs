@@ -7,8 +7,8 @@ use ravenrs::prelude::*;
 use super::forms::Forms;
 use super::store::{Memo, Store, heading};
 use crate::model::{
-    Account, Bill, BillStatus, BudgetLine, MonthTotals, date_label, month_label, month_short, parse_date,
-    shift_months,
+    Account, Bill, BillStatus, BudgetLine, Flow, MonthTotals, date_label, month_label, month_short,
+    parse_date, shift_months,
 };
 use crate::money::format_brl;
 
@@ -24,6 +24,8 @@ struct Numbers {
     balances: Vec<i64>,
     budget: Vec<BudgetLine>,
     open_bills: Vec<Bill>,
+    /// Payments planned for the coming days, still to confirm.
+    planned_out_cents: i64,
 }
 
 /// The screen's data, kept between rebuilds.
@@ -77,6 +79,12 @@ pub(crate) fn dashboard(
             balances: store.read(|db| db.balance_history(today, 12)),
             budget: store.read(|db| db.budget_lines(today)),
             open_bills: store.read(|db| db.open_bills()),
+            planned_out_cents: store
+                .read(|db| db.occurrences(today, today.add_days(SOON_DAYS)))
+                .iter()
+                .filter(|o| o.transaction_id.is_none() && o.schedule.input.flow == Flow::Expense)
+                .map(|o| o.schedule.input.amount_cents)
+                .sum(),
         })
     });
     let today = store.today;
@@ -93,7 +101,7 @@ pub(crate) fn dashboard(
         let overdue_total: i64 = overdue.iter().map(|b| b.amount_cents).sum();
         let horizon = today.add_days(SOON_DAYS);
         let soon: Vec<&Bill> = numbers.open_bills.iter().filter(|b| b.due <= horizon).collect();
-        let soon_total: i64 = soon.iter().map(|b| b.amount_cents).sum();
+        let soon_total: i64 = soon.iter().map(|b| b.amount_cents).sum::<i64>() + numbers.planned_out_cents;
 
         let mut income = Stat::new("Receitas do mês", format_brl(now.income_cents));
         if let Some(change) = percent_change(now.income_cents, before.income_cents) {
