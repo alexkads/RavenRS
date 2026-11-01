@@ -85,7 +85,9 @@ $codigo = Join-Path $Casa "fonte"
 if (Test-Path $Fonte) { Copy-Item $Fonte $pacote -Force } else { Invoke-WebRequest -UseBasicParsing $Fonte -OutFile $pacote }
 if (Test-Path $codigo) { Remove-Item -Recurse -Force $codigo }
 New-Item -ItemType Directory -Force -Path $codigo | Out-Null
-Correr { tar -xzf $pacote -C $codigo --strip-components=1 }
+# -m: the files take today's date. With the date of their commit they could look older than the
+# last build, and Cargo would keep the old code and fail on the new.
+Correr { tar -xzmf $pacote -C $codigo --strip-components=1 }
 
 Write-Host "> compilando (a primeira vez demora; as seguintes aproveitam o que ja existe)" -ForegroundColor Cyan
 $env:CARGO_TARGET_DIR = $Alvo
@@ -185,7 +187,9 @@ case "$FONTE" in
 esac
 rm -rf "${CODIGO:?}"
 mkdir -p "$CODIGO"
-tar -xzf "$PACOTE" -C "$CODIGO" --strip-components=1
+# -m: the files take today's date. With the date of their commit they could look older than the
+# last build, and Cargo would keep the old code and fail on the new.
+tar -xzmf "$PACOTE" -C "$CODIGO" --strip-components=1
 
 diga "compilando (a primeira vez demora; as seguintes aproveitam o que já existe)"
 CARGO_TARGET_DIR="${FF_TARGET:-$CASA/target}"

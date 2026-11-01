@@ -546,6 +546,15 @@ mod tests {
     }
 
     #[test]
+    fn an_update_recompiles_what_changed() {
+        // Without -m the files keep their commit's date, older than the last build, so
+        // Cargo skipped the crates that changed and the update failed to compile.
+        let text = include_str!("../install.cmd");
+        assert_eq!(text.matches("tar -xzmf").count(), 2, "on both sides of the installer");
+        assert!(!text.contains("tar -xzf"));
+    }
+
+    #[test]
     fn a_stale_lock_does_not_hold_updates_back() {
         let dir = std::env::temp_dir().join(format!("ff-lock-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
