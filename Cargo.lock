@@ -3130,6 +3130,7 @@ name = "ravenrs-report"
 version = "27.1.0"
 dependencies = [
  "criterion",
+ "image",
  "proptest",
  "ravenrs-core",
  "ravenrs-criteria",
@@ -3142,6 +3143,7 @@ dependencies = [
 name = "ravenrs-report-pdf"
 version = "27.1.0"
 dependencies = [
+ "image",
  "miniz_oxide 0.8.9",
  "pdf-writer",
  "ravenrs-core",
@@ -3175,6 +3177,7 @@ dependencies = [
 name = "ravenrs-report-xlsx"
 version = "27.1.0"
 dependencies = [
+ "image",
  "ravenrs-core",
  "ravenrs-report",
  "rust_xlsxwriter",

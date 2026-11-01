@@ -102,3 +102,53 @@ fn an_empty_document_still_gives_a_valid_workbook() {
     assert!(to_xlsx(&Document::default()).is_ok());
     assert_eq!(to_csv(&Document::default()), "");
 }
+
+fn png_base64() -> String {
+    let mut bytes = Cursor::new(Vec::new());
+    image::RgbaImage::from_pixel(32, 16, image::Rgba([20, 120, 200, 255]))
+        .write_to(&mut bytes, image::ImageFormat::Png)
+        .unwrap();
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::new();
+    for chunk in bytes.into_inner().chunks(3) {
+        let n = u32::from(chunk[0]) << 16
+            | u32::from(chunk.get(1).copied().unwrap_or(0)) << 8
+            | u32::from(chunk.get(2).copied().unwrap_or(0));
+        out.push(TABLE[(n >> 18) as usize & 63] as char);
+        out.push(TABLE[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { TABLE[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { TABLE[n as usize & 63] as char } else { '=' });
+    }
+    out
+}
+
+#[test]
+fn pictures_are_placed_on_the_sheet() {
+    let report = Report::new("T").detail(
+        Band::new(40.0)
+            .control(Control::picture(png_base64()).at(0.0, 0.0, 32.0, 16.0))
+            .control(Control::field("[A]").at(40.0, 0.0, 100.0, 16.0)),
+    );
+    let doc = ReportEngine::new().render(&report, &json!([{ "A": "x" }]));
+    let xlsx = to_xlsx(&doc).unwrap();
+    assert!(part(&xlsx, "xl/worksheets/sheet1.xml").contains("<drawing"));
+    let mut archive = zip::ZipArchive::new(Cursor::new(&xlsx)).unwrap();
+    assert!(archive.by_name("xl/media/image1.png").is_ok());
+}
+
+#[test]
+fn links_become_hyperlinks_and_bookmarks_leave_no_trace() {
+    let report = Report::new("T").detail(
+        Band::new(20.0)
+            .control(Control::bookmark("[A]", 0))
+            .control(Control::link("Abrir", "https://example.com/a").at(0.0, 0.0, 100.0, 20.0)),
+    );
+    let doc = ReportEngine::new().render(&report, &json!([{ "A": "marcador" }]));
+    let xlsx = to_xlsx(&doc).unwrap();
+    let sheet = part(&xlsx, "xl/worksheets/sheet1.xml");
+    assert!(sheet.contains("<hyperlink"), "{sheet}");
+    assert!(part(&xlsx, "xl/worksheets/_rels/sheet1.xml.rels").contains("https://example.com/a"));
+    assert!(part(&xlsx, "xl/sharedStrings.xml").contains("Abrir"));
+    assert!(!part(&xlsx, "xl/sharedStrings.xml").contains("marcador"));
+    assert_eq!(to_csv(&doc), "Abrir\r\n");
+}

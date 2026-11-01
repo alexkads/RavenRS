@@ -212,6 +212,49 @@ fn open_on_desktop(file: &ExportedFile) {
     open_path(&path);
 }
 
+/// Asks the user for a PNG or JPEG and hands it over as a `data:` address. In
+/// the browser this is the file dialog; the desktop build has no file dialog
+/// yet, so a picture there comes from a field instead.
+pub fn pick_image(on_pick: impl FnOnce(String) + 'static) {
+    #[cfg(target_arch = "wasm32")]
+    pick_image_in_browser(on_pick);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = on_pick;
+        tracing::warn!("choosing an image from a file is only available in the browser");
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn pick_image_in_browser(on_pick: impl FnOnce(String) + 'static) {
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen::closure::Closure;
+
+    let Some(page) = web_sys::window().and_then(|w| w.document()) else { return };
+    let Some(input) =
+        page.create_element("input").ok().and_then(|e| e.dyn_into::<web_sys::HtmlInputElement>().ok())
+    else {
+        return;
+    };
+    input.set_type("file");
+    input.set_accept("image/png,image/jpeg");
+    let chosen = input.clone();
+    let on_change = Closure::once_into_js(move || {
+        let Some(file) = chosen.files().and_then(|files| files.get(0)) else { return };
+        let Ok(reader) = web_sys::FileReader::new() else { return };
+        let done = reader.clone();
+        let on_load = Closure::once_into_js(move || {
+            if let Some(source) = done.result().ok().and_then(|r| r.as_string()) {
+                on_pick(source);
+            }
+        });
+        reader.set_onload(Some(on_load.unchecked_ref()));
+        reader.read_as_data_url(&file).ok();
+    });
+    input.set_onchange(Some(on_change.unchecked_ref()));
+    input.click();
+}
+
 /// Prints the document: through a hidden frame and the browser's print dialog
 /// on the web, or by opening the page in the default browser on the desktop.
 pub fn print(document: &Document) {

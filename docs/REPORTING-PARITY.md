@@ -28,14 +28,14 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Table / row / cell | Merge, split, insert, bind cells, row height grows | ✅ rows of cells, cell styles, rows grow to their tallest cell, rules on cells. Merge/split ⬜ [R3] |
 | Panel | Container, can shrink | ✅ container that grows with its content |
 | Check Box | Checked/unchecked/indeterminate, glyphs, editable | ✅ checked/unchecked with caption. Indeterminate, glyphs ⬜ [R3] |
-| Picture Box | PNG/JPEG/SVG/…; Normal/Stretch/Zoom/Squeeze/Tile; URL or binding | ⬜ [R2] |
+| Picture Box | PNG/JPEG/SVG/…; Normal/Stretch/Zoom/Squeeze/Tile; URL or binding | 🟡 PNG and JPEG from the layout or a field (`data:` or base64); Normal, Stretch, Zoom, Squeeze. SVG, Tile, reading from a URL ⬜ [R3] |
 | Line | Horizontal/vertical/slant/back slant, styles | ✅ horizontal/vertical/slant. Back slant, dash styles ⬜ [R3] |
 | Shape | Rectangle, ellipse, arrow, star, polygon… | 🟡 rectangle (rounded) and ellipse. The rest ⬜ [R3] |
 | Cross-band line / box | Spans bands | ⬜ [R3] |
 | Page break | Forced break inside a band | 🟡 band page break before/after. Control ⬜ [R3] |
 | Page info | Page n of N, date, user, per-group numbering | ✅ via `FormatString('Page {0} of {1}', PageNumber(), PageCount())`, `Now()`. Per-group numbering ⬜ [R3] |
 | Subreport | Embeds another report, parameter bindings | ⬜ [R3] |
-| Table of contents, bookmarks | From bookmarks; PDF outline | ⬜ [R2/R3] |
+| Table of contents, bookmarks | From bookmarks; PDF outline | 🟡 `Bookmark` control builds the PDF outline, nested by level. Table of contents ⬜ [R3] |
 | Barcode | 40+ symbologies (Code 128, EAN, UPC, ITF, GS1, QR, Data Matrix, PDF417, Aztec, postal…) | ⬜ [R3]: Code 128, Code 39, EAN-13/8, UPC-A, ITF-14, QR, Data Matrix, PDF417 first |
 | Chart | 2D/3D, many series types | ⬜ [R3]: bar, line, area, pie, doughnut, scatter |
 | Sparkline | Line/area/bar/win-loss | ⬜ [R3] |
@@ -115,8 +115,8 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 | Format | DevExpress options | RavenRS |
 |---|---|---|
-| PDF | PDF/A, PDF/UA, security, signatures, metadata, attachments, AcroForms | 🟡 `ravenrs-report-pdf`: PDF 1.7 vector pages, embedded font subsets, selectable text, title. Links and outline ⬜ [R2], PDF/A and signing ⬜ [R5] |
-| XLSX / XLS | Single file, sheet per page, data-only mode, native formats | 🟡 `ravenrs-report-xlsx`: single sheet that follows the page, real numbers and dates, Excel-native formats, fills, borders, merged cells, page header once. Sheet per page, data-only mode ⬜ [R3], XLS not planned |
+| PDF | PDF/A, PDF/UA, security, signatures, metadata, attachments, AcroForms | 🟡 `ravenrs-report-pdf`: PDF 1.7 vector pages, embedded font subsets, selectable text, title, images, links, outline. PDF/A and signing ⬜ [R5] |
+| XLSX / XLS | Single file, sheet per page, data-only mode, native formats | 🟡 `ravenrs-report-xlsx`: single sheet that follows the page, real numbers and dates, Excel-native formats, fills, borders, merged cells, images, hyperlinks, page header once. Sheet per page, data-only mode ⬜ [R3], XLS not planned |
 | DOCX, RTF | | ⬜ [R5] |
 | HTML, MHT | | ⬜ [R3] HTML |
 | CSV, TXT | | 🟡 CSV (`ravenrs_report_xlsx::to_csv`), with the culture's separator. TXT ⬜ [R3] |

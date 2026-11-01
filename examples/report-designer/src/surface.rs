@@ -3,15 +3,19 @@
 //! into another band) and resized from the corner handle; bands are resized
 //! from their bottom edge.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
 
-use ravenrs::core::Border;
+use ravenrs::core::{Border, ImageQuad};
 use ravenrs::layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs::prelude::*;
 use ravenrs::style::Palette;
 use ravenrs::widgets::{DragPhase, Paint, QuadPaint};
-use ravenrs_report::{Control, ControlKind, LineDirection, Report, ShapeKind, Style, TextAlign};
+use ravenrs_report::{
+    Control, ControlKind, DocumentImage, LineDirection, Report, ShapeKind, Style, TextAlign, decode_picture,
+    picture_rect,
+};
 
 use crate::bands::BandRef;
 use crate::editor::{Editor, Selection, snap};
@@ -276,6 +280,15 @@ pub fn design_text(c: &Control) -> String {
             None => l.text.clone(),
         },
         ControlKind::CheckBox(cb) => format!("☐ {}", cb.text),
+        ControlKind::Link(l) => l.label.expression.clone().unwrap_or_else(|| l.label.text.clone()),
+        ControlKind::Bookmark(b) => {
+            format!("Marcador: {}", b.expression.clone().unwrap_or_else(|| b.text.clone()))
+        }
+        ControlKind::Picture(p) => match p.expression.as_deref().filter(|s| !s.trim().is_empty()) {
+            Some(field) => format!("Imagem: {field}"),
+            None if p.source.trim().is_empty() => "Imagem".to_owned(),
+            None => "Imagem inválida".to_owned(),
+        },
         _ => String::new(),
     }
 }
@@ -299,6 +312,24 @@ fn text_view(text: &str, style: &Style, zoom: f32, one_line: bool) -> HStack<(Te
         .justify(justify)
         .align(Align::Center)
         .padding(Insets::symmetric(0.0, style.padding.unwrap_or(2.0) * zoom))
+}
+
+thread_local! {
+    /// The image last decoded for each source: the surface rebuilds often.
+    static DESIGN_IMAGES: RefCell<HashMap<String, Option<DocumentImage>>> = RefCell::new(HashMap::new());
+}
+
+/// A picture's image, decoded once.
+fn design_image(source: &str) -> Option<DocumentImage> {
+    if source.trim().is_empty() {
+        return None;
+    }
+    DESIGN_IMAGES.with_borrow_mut(|images| {
+        if images.len() > 64 {
+            images.clear();
+        }
+        images.entry(source.to_owned()).or_insert_with(|| decode_picture(source)).clone()
+    })
 }
 
 impl View for ControlView {
@@ -368,6 +399,32 @@ impl View for ControlView {
                             _ => Rect::new(f.x(), f.center().y - lw / 2.0, f.width(), lw),
                         };
                         scene.push_quad(Quad::new(r, ink));
+                    })),
+                )]
+            }
+            ControlKind::Picture(picture)
+                if picture.expression.as_deref().is_none_or(|s| s.trim().is_empty())
+                    && design_image(&picture.source).is_some() =>
+            {
+                let Some(image) = design_image(&picture.source) else { return cx.child(&Text::new("")) };
+                let mode = picture.mode;
+                let (cw, ch) = (c.width, c.height);
+                vec![cx.container(
+                    LayoutStyle { width: Some(w), height: Some(h), ..LayoutStyle::leaf() },
+                    &[],
+                    Paint::Custom(Rc::new(move |f: Rect, scene: &mut Scene| {
+                        // Placed in points, as the engine does, then scaled to the zoom.
+                        let placed = picture_rect(mode, Rect::new(0.0, 0.0, cw, ch), &image);
+                        let scale = f.width() / cw.max(1.0);
+                        let drawn = Rect::new(
+                            f.x() + placed.x() * scale,
+                            f.y() + placed.y() * scale,
+                            placed.width() * scale,
+                            placed.height() * scale,
+                        );
+                        scene.push_clip(f);
+                        scene.push_image(ImageQuad::new(drawn, image.pixels().clone()));
+                        scene.pop_clip();
                     })),
                 )]
             }

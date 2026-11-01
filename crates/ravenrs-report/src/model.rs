@@ -344,6 +344,65 @@ pub enum ControlKind {
     Table(Table),
     /// A container whose controls move together.
     Panel(Panel),
+    /// A PNG or JPEG image.
+    Picture(Picture),
+    /// Text that opens an address when clicked in a PDF, a spreadsheet or a web page.
+    Link(LinkLabel),
+    /// An invisible entry in the document's outline, at this control's position.
+    Bookmark(Bookmark),
+}
+
+/// A picture.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Picture {
+    /// The image: a `data:image/...;base64,` address, or just base64.
+    pub source: String,
+    /// An expression giving the image in the same forms, such as `[Photo]`; it wins over `source`.
+    pub expression: Option<String>,
+    /// How the image fits the control's box.
+    pub mode: PictureMode,
+}
+
+/// How a picture fits its box.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub enum PictureMode {
+    /// As large as fits, keeping its proportions, centered.
+    #[default]
+    Zoom,
+    /// Like zoom, but a small image is not enlarged.
+    Squeeze,
+    /// Fills the box, ignoring its proportions.
+    Stretch,
+    /// At its natural size (one pixel to a point) from the top left, cut at the box.
+    Normal,
+}
+
+/// A label that is also a link.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct LinkLabel {
+    /// What it shows.
+    #[serde(flatten)]
+    pub label: Label,
+    /// The address (`https:`, `http:` or `mailto:`).
+    pub url: String,
+    /// An expression giving the address, such as `'mailto:' + [Email]`; it wins over `url`.
+    pub url_expression: Option<String>,
+}
+
+/// An entry in the document's outline.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Bookmark {
+    /// Fixed text.
+    pub text: String,
+    /// An expression giving the text, such as `[Region]`; it wins over `text`.
+    pub expression: Option<String>,
+    /// How deep it is: 0 at the top, 1 under the 0 before it, and so on.
+    pub level: u32,
 }
 
 /// Text content of a label or table cell.
@@ -836,6 +895,39 @@ impl Control {
     /// A label with fixed text.
     pub fn label(text: impl Into<String>) -> Self {
         Self { kind: ControlKind::Label(Label { text: text.into(), ..Label::default() }), ..Self::default() }
+    }
+
+    /// A picture from a `data:` address or base64 text.
+    pub fn picture(source: impl Into<String>) -> Self {
+        Self {
+            kind: ControlKind::Picture(Picture { source: source.into(), ..Picture::default() }),
+            ..Self::default()
+        }
+    }
+
+    /// Text that opens `url` when clicked.
+    pub fn link(text: impl Into<String>, url: impl Into<String>) -> Self {
+        Self {
+            kind: ControlKind::Link(LinkLabel {
+                label: Label { text: text.into(), ..Label::default() },
+                url: url.into(),
+                url_expression: None,
+            }),
+            ..Self::default()
+        }
+    }
+
+    /// An outline entry showing the value of `expression`, at `level`.
+    pub fn bookmark(expression: impl Into<String>, level: u32) -> Self {
+        Self {
+            kind: ControlKind::Bookmark(Bookmark {
+                expression: Some(expression.into()),
+                level,
+                ..Bookmark::default()
+            }),
+            height: 12.0,
+            ..Self::default()
+        }
     }
 
     /// A label showing the value of `expression`.

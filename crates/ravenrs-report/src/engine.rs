@@ -5,19 +5,19 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use ravenrs_core::{Color, Point, Rect};
+use ravenrs_core::{Color, ImageData, Point, Rect};
 use ravenrs_text::{TextAttrs, TextSystem};
 use serde_json::Value as Json;
 
-use crate::document::{Document, Item, Page, PlacedLine, TextBlock, parse_color};
+use crate::document::{Document, DocumentImage, ImageFormat, Item, Page, PlacedLine, TextBlock, parse_color};
 use ravenrs_criteria::{
     Criteria, Culture, CustomFunction, DateTime, Environment, ParseError, Scope, Value, format_composite,
     format_value,
 };
 
 use crate::model::{
-    Band, Control, ControlKind, LineDirection, ParameterKind, Report, ShapeKind, SortField, Style, TableCell,
-    TextAlign, VerticalAlign,
+    Band, Control, ControlKind, LineDirection, ParameterKind, PictureMode, Report, ShapeKind, SortField,
+    Style, TableCell, TextAlign, VerticalAlign,
 };
 
 /// Settings for one run of a report.
@@ -44,6 +44,7 @@ pub struct ReportEngine {
     text: TextSystem,
     measured: HashMap<(String, u32, bool, u32), Rc<Measured>>,
     functions: Vec<(String, CustomFunction)>,
+    images: HashMap<String, Option<DocumentImage>>,
 }
 
 impl std::fmt::Debug for ReportEngine {
@@ -79,11 +80,22 @@ struct Block {
 }
 
 const DEFAULT_SIZE: f32 = 10.0;
+/// The largest side of an image, in pixels.
+const MAX_IMAGE_SIDE: u32 = 12_000;
+/// The most memory decoding one image may use.
+const MAX_IMAGE_BYTES: u64 = 512 * 1024 * 1024;
+/// How many decoded images an engine remembers.
+const MAX_CACHED_IMAGES: usize = 256;
 
 impl ReportEngine {
     /// An engine with the embedded Inter font.
     pub fn new() -> Self {
-        Self { text: TextSystem::new(), measured: HashMap::new(), functions: Vec::new() }
+        Self {
+            text: TextSystem::new(),
+            measured: HashMap::new(),
+            functions: Vec::new(),
+            images: HashMap::new(),
+        }
     }
 
     /// Adds a function to the expressions of every report this engine renders.
@@ -134,6 +146,20 @@ impl ReportEngine {
         }
         self.measured.insert(key, m.clone());
         m
+    }
+
+    /// An image from its source text, decoded once: a logo on every page, or the
+    /// same photo on many rows, is one image.
+    fn image(&mut self, source: &str) -> Option<DocumentImage> {
+        if let Some(image) = self.images.get(source) {
+            return image.clone();
+        }
+        let image = decode_picture(source);
+        if self.images.len() >= MAX_CACHED_IMAGES {
+            self.images.clear();
+        }
+        self.images.insert(source.to_owned(), image.clone());
+        image
     }
 
     /// The text system used for measuring, to paint documents with the same metrics.
@@ -679,6 +705,67 @@ impl<'r> Run<'r> {
                 }
                 (y - at.y).max(c.height)
             }
+            ControlKind::Picture(picture) => {
+                let rect = Rect::new(at.x, at.y, c.width, c.height);
+                backdrop(&look, rect, items);
+                let source = match picture.expression.as_deref().filter(|s| !s.trim().is_empty()) {
+                    Some(expression) => match self.eval(ctx, expression, &control_name(c)) {
+                        Ok(value) => value.to_text(),
+                        Err(_) => String::new(),
+                    },
+                    None => picture.source.clone(),
+                };
+                if !source.trim().is_empty() {
+                    match engine.image(&source) {
+                        Some(image) => {
+                            let drawn = picture_rect(picture.mode, rect, &image);
+                            items.push(Item::Image { rect: drawn, clip: rect, image });
+                        }
+                        None => self
+                            .errors
+                            .borrow_mut()
+                            .push(format!("{}: not a PNG or JPEG image, or too large", control_name(c))),
+                    }
+                }
+                c.height
+            }
+            ControlKind::Link(link) => {
+                let (text, _) = self.label_text(ctx, &link.label, &control_name(c));
+                let rect = Rect::new(at.x, at.y, c.width, c.height);
+                let height = self.text_box(engine, &text, &look, rect, link.label.grows(), items);
+                let url = match link.url_expression.as_deref().filter(|s| !s.trim().is_empty()) {
+                    Some(expression) => match self.eval(ctx, expression, &control_name(c)) {
+                        Ok(value) => value.to_text(),
+                        Err(_) => String::new(),
+                    },
+                    None => link.url.clone(),
+                };
+                let url = url.trim();
+                if safe_url(url) {
+                    items.push(Item::Link {
+                        rect: Rect::new(at.x, at.y, c.width, height),
+                        url: url.to_owned(),
+                    });
+                } else if !url.is_empty() {
+                    self.errors
+                        .borrow_mut()
+                        .push(format!("{}: links must use https:, http: or mailto:", control_name(c)));
+                }
+                height
+            }
+            ControlKind::Bookmark(bookmark) => {
+                let title = match bookmark.expression.as_deref().filter(|s| !s.trim().is_empty()) {
+                    Some(expression) => match self.eval(ctx, expression, &control_name(c)) {
+                        Ok(value) => format_value(&value, "", self.env.formats()),
+                        Err(_) => String::new(),
+                    },
+                    None => bookmark.text.clone(),
+                };
+                if !title.trim().is_empty() {
+                    items.push(Item::Bookmark { title, level: bookmark.level, y: at.y });
+                }
+                0.0
+            }
             ControlKind::Panel(panel) => {
                 let mut content = Vec::new();
                 let inner = self.controls(engine, &panel.controls, ctx, at, zebra, &mut content);
@@ -912,6 +999,91 @@ impl<'r> Run<'r> {
     }
 }
 
+/// Where an image goes in its control's box.
+pub fn picture_rect(mode: PictureMode, rect: Rect, image: &DocumentImage) -> Rect {
+    let (w, h) = (image.pixels().width() as f32, image.pixels().height() as f32);
+    let centered = |scale: f32| {
+        let (dw, dh) = (w * scale, h * scale);
+        Rect::new(rect.x() + (rect.width() - dw) / 2.0, rect.y() + (rect.height() - dh) / 2.0, dw, dh)
+    };
+    let fit = (rect.width() / w).min(rect.height() / h);
+    match mode {
+        PictureMode::Stretch => rect,
+        PictureMode::Normal => Rect::new(rect.x(), rect.y(), w, h),
+        PictureMode::Squeeze => centered(fit.min(1.0)),
+        _ => centered(fit),
+    }
+}
+
+/// Whether a link's address is one a reader can open safely: data can fill
+/// links in, and a `javascript:` or `file:` address must not reach a document.
+fn safe_url(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    (lower.starts_with("https://") || lower.starts_with("http://") || lower.starts_with("mailto:"))
+        && !url.chars().any(char::is_control)
+}
+
+/// Decodes base64 text, ignoring whitespace; `None` when it is not valid.
+fn decode_base64(text: &str) -> Option<Vec<u8>> {
+    let mut out = Vec::with_capacity(text.len() / 4 * 3);
+    let (mut buffer, mut bits) = (0_u32, 0_u32);
+    let mut padding = 0;
+    for byte in text.bytes() {
+        let value = match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            b'=' => {
+                padding += 1;
+                continue;
+            }
+            b' ' | b'\n' | b'\r' | b'\t' => continue,
+            _ => return None,
+        };
+        if padding > 0 {
+            return None;
+        }
+        buffer = (buffer << 6) | u32::from(value);
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buffer >> bits) as u8);
+            buffer &= (1 << bits) - 1;
+        }
+    }
+    Some(out)
+}
+
+/// Decodes a PNG or JPEG from a `data:` address or base64 text. Limits protect
+/// a server from a small file that expands into huge pixels.
+pub fn decode_picture(source: &str) -> Option<DocumentImage> {
+    let text = source.trim();
+    let text = match text.strip_prefix("data:") {
+        Some(rest) => rest.split_once("base64,")?.1,
+        None => text,
+    };
+    let bytes = decode_base64(text)?;
+    let format = match image::guess_format(&bytes).ok()? {
+        image::ImageFormat::Png => ImageFormat::Png,
+        image::ImageFormat::Jpeg => ImageFormat::Jpeg,
+        _ => return None,
+    };
+    let mut reader = image::ImageReader::new(std::io::Cursor::new(&bytes)).with_guessed_format().ok()?;
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(MAX_IMAGE_SIDE);
+    limits.max_image_height = Some(MAX_IMAGE_SIDE);
+    limits.max_alloc = Some(MAX_IMAGE_BYTES);
+    reader.limits(limits);
+    let decoded = reader.decode().ok()?;
+    let channels = decoded.color().channel_count();
+    let rgba = decoded.to_rgba8();
+    let (width, height) = rgba.dimensions();
+    let pixels = ImageData::from_rgba8(width, height, rgba.into_raw())?;
+    Some(DocumentImage::new(pixels, bytes.into(), format, channels))
+}
+
 /// Records on the text box just drawn the value behind its text. A format with
 /// literal text around the value (`Total: {0:C2}`) keeps it text.
 fn keep_value(items: &mut [Item], text: &str, value: Option<Value>, label: &crate::model::Label) {
@@ -1011,6 +1183,13 @@ fn translate(item: &Item, by: Point) -> Item {
         Item::Ellipse { rect, fill, stroke } => Item::Ellipse { rect: r(rect), fill: *fill, stroke: *stroke },
         Item::Line { from, to, width, color } => {
             Item::Line { from: p(from), to: p(to), width: *width, color: *color }
+        }
+        Item::Image { rect, clip, image } => {
+            Item::Image { rect: r(rect), clip: r(clip), image: image.clone() }
+        }
+        Item::Link { rect, url } => Item::Link { rect: r(rect), url: url.clone() },
+        Item::Bookmark { title, level, y } => {
+            Item::Bookmark { title: title.clone(), level: *level, y: y + by.y }
         }
         Item::Text(t) => Item::Text(TextBlock {
             clip: r(&t.clip),

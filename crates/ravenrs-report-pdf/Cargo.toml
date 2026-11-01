@@ -23,6 +23,7 @@ miniz_oxide = "0.8"
 skrifa = "0.44"
 
 [dev-dependencies]
+image.workspace = true
 serde_json.workspace = true
 
 [lints]

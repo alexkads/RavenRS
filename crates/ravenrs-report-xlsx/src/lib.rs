@@ -27,9 +27,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 
 use ravenrs_core::{Color, Rect};
-use ravenrs_report::{Culture, Document, Item, TextAlign, TextBlock};
+use ravenrs_report::{Culture, Document, DocumentImage, Item, TextAlign, TextBlock};
 use rust_xlsxwriter::{
-    Color as XlsxColor, Format, FormatAlign, FormatBorder, Workbook, Worksheet, XlsxError,
+    Color as XlsxColor, Format, FormatAlign, FormatBorder, Image, Url, Workbook, Worksheet, XlsxError,
 };
 
 /// Why a document could not be written as XLSX.
@@ -85,6 +85,10 @@ pub fn to_xlsx(document: &Document) -> Result<Vec<u8>, XlsxExportError> {
     for b in &flow.boxes {
         xs.extend([b.rect.x(), b.rect.max_x()]);
         ys.extend([b.rect.y(), b.rect.max_y()]);
+    }
+    for picture in &flow.pictures {
+        xs.extend([picture.rect.x(), picture.rect.max_x()]);
+        ys.extend([picture.rect.y(), picture.rect.max_y()]);
     }
     let xs = Grid::new(xs, SNAP);
     let mut ys = Grid::new(ys, SNAP);
@@ -165,7 +169,9 @@ pub fn to_xlsx(document: &Document) -> Result<Vec<u8>, XlsxExportError> {
                 taken.insert((r, column(c)));
             }
         }
-        cells.insert(key, Placed { text: t.text.clone(), block: Some(t.block), r1, c1 });
+        let center = t.rect.center();
+        let url = flow.links.iter().find(|l| l.rect.contains(center)).map(|l| l.url.as_str());
+        cells.insert(key, Placed { text: t.text.clone(), block: Some(t.block), r1, c1, url });
     }
 
     // Filled and bordered cells without text.
@@ -177,6 +183,12 @@ pub fn to_xlsx(document: &Document) -> Result<Vec<u8>, XlsxExportError> {
     }
     for (&(r0, c0), placed) in &cells {
         write_cell(sheet, &mut formats, &styles, &culture, (r0, c0), placed)?;
+    }
+    for picture in &flow.pictures {
+        let width = (picture.rect.width() * PIXELS_PER_POINT).max(1.0).round() as u32;
+        let height = (picture.rect.height() * PIXELS_PER_POINT).max(1.0).round() as u32;
+        let image = Image::new_from_buffer(picture.image.encoded())?.set_scale_to_size(width, height, false);
+        sheet.insert_image(ys.nearest(picture.rect.y()), column(xs.nearest(picture.rect.x())), &image)?;
     }
     Ok(book.save_to_buffer()?)
 }
@@ -230,6 +242,18 @@ struct Flow<'d> {
     texts: Vec<FlowText<'d>>,
     boxes: Vec<FlowBox>,
     rules: Vec<Rule>,
+    pictures: Vec<FlowPicture>,
+    links: Vec<FlowLink>,
+}
+
+struct FlowPicture {
+    rect: Rect,
+    image: DocumentImage,
+}
+
+struct FlowLink {
+    rect: Rect,
+    url: String,
 }
 
 struct FlowText<'d> {
@@ -254,7 +278,13 @@ struct Rule {
 
 impl<'d> Flow<'d> {
     fn new(document: &'d Document) -> Self {
-        let mut flow = Self { texts: Vec::new(), boxes: Vec::new(), rules: Vec::new() };
+        let mut flow = Self {
+            texts: Vec::new(),
+            boxes: Vec::new(),
+            rules: Vec::new(),
+            pictures: Vec::new(),
+            links: Vec::new(),
+        };
         // Where the next page's first item lands.
         let mut bottom = 0.0_f32;
         for (n, page) in document.pages.iter().enumerate() {
@@ -299,6 +329,12 @@ impl<'d> Flow<'d> {
                     color: rgb(*color),
                 });
             }
+            Item::Image { rect, image, .. } => {
+                self.pictures.push(FlowPicture { rect: shifted(*rect, dy), image: image.clone() });
+            }
+            Item::Link { rect, url } => {
+                self.links.push(FlowLink { rect: shifted(*rect, dy), url: url.clone() })
+            }
             _ => {}
         }
     }
@@ -310,6 +346,7 @@ fn extent(item: &Item) -> Option<(f32, f32)> {
         Item::Text(t) => Some((t.clip.y(), t.clip.max_y())),
         Item::Rect { rect, .. } | Item::Ellipse { rect, .. } => Some((rect.y(), rect.max_y())),
         Item::Line { from, to, .. } => Some((from.y.min(to.y), from.y.max(to.y))),
+        Item::Image { clip, .. } => Some((clip.y(), clip.max_y())),
         _ => None,
     }
 }
@@ -477,6 +514,8 @@ struct Placed<'d> {
     block: Option<&'d TextBlock>,
     r1: u32,
     c1: u32,
+    /// The address the cell opens, when it is a link.
+    url: Option<&'d str>,
 }
 
 fn write_cell(
@@ -516,6 +555,13 @@ fn write_cell(
     let format = formats.get(&look).clone();
     if placed.r1 > r0 + 1 || c1 > c0 + 1 {
         sheet.merge_range(r0, c0, placed.r1 - 1, c1 - 1, &placed.text, &format)?;
+    }
+    if let Some(url) = placed.url {
+        // Excel refuses very long addresses; the text matters more than the link.
+        let link = Url::new(url).set_text(&placed.text);
+        if sheet.write_url_with_format(r0, c0, link, &format).is_ok() {
+            return Ok(());
+        }
     }
     match number {
         Some(n) => sheet.write_number_with_format(r0, c0, n, &format)?,

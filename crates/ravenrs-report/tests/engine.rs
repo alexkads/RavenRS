@@ -422,3 +422,191 @@ proptest! {
         let _ = ravenrs_report::Criteria::parse(&src);
     }
 }
+
+fn png_base64(width: u32, height: u32, alpha: u8) -> String {
+    let image = image::RgbaImage::from_pixel(width, height, image::Rgba([200, 30, 30, alpha]));
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    image.write_to(&mut bytes, image::ImageFormat::Png).expect("encodes");
+    encode_base64(&bytes.into_inner())
+}
+
+fn encode_base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::new();
+    for chunk in bytes.chunks(3) {
+        let n = u32::from(chunk[0]) << 16
+            | u32::from(chunk.get(1).copied().unwrap_or(0)) << 8
+            | u32::from(chunk.get(2).copied().unwrap_or(0));
+        out.push(TABLE[(n >> 18) as usize & 63] as char);
+        out.push(TABLE[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { TABLE[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { TABLE[n as usize & 63] as char } else { '=' });
+    }
+    out
+}
+
+fn one_row(control: ravenrs_report::Control) -> ravenrs_report::Document {
+    let report = ravenrs_report::Report::new("T").detail(ravenrs_report::Band::new(100.0).control(control));
+    ravenrs_report::ReportEngine::new().render(&report, &serde_json::json!([{ "A": "x" }]))
+}
+
+fn image_of(doc: &ravenrs_report::Document) -> (ravenrs_core::Rect, ravenrs_core::Rect) {
+    doc.pages[0]
+        .items
+        .iter()
+        .find_map(|i| match i {
+            ravenrs_report::Item::Image { rect, clip, .. } => Some((*rect, *clip)),
+            _ => None,
+        })
+        .expect("an image")
+}
+
+#[test]
+fn pictures_fit_their_box_by_mode() {
+    use ravenrs_report::{Control, ControlKind, Picture, PictureMode};
+    let doc_with = |mode, source: String| {
+        one_row(
+            Control {
+                kind: ControlKind::Picture(Picture { source, mode, ..Picture::default() }),
+                ..Control::default()
+            }
+            .at(0.0, 0.0, 100.0, 100.0),
+        )
+    };
+    let wide = png_base64(40, 20, 255);
+    let (zoom, clip) = image_of(&doc_with(PictureMode::Zoom, wide.clone()));
+    assert_eq!((zoom.width(), zoom.height()), (100.0, 50.0), "as large as fits");
+    assert!((zoom.y() - clip.y() - 25.0).abs() < 0.01, "centered");
+    let (squeeze, _) = image_of(&doc_with(PictureMode::Squeeze, wide.clone()));
+    assert_eq!((squeeze.width(), squeeze.height()), (40.0, 20.0), "not enlarged");
+    let (stretch, clip) = image_of(&doc_with(PictureMode::Stretch, wide.clone()));
+    assert_eq!(stretch, clip);
+    let (normal, clip) = image_of(&doc_with(PictureMode::Normal, png_base64(400, 300, 255)));
+    assert_eq!((normal.width(), normal.height()), (400.0, 300.0), "cut at the box");
+    assert_eq!((normal.x(), normal.y()), (clip.x(), clip.y()));
+}
+
+#[test]
+fn pictures_come_from_data_addresses_base64_and_fields() {
+    use ravenrs_report::{Control, ControlKind, Picture};
+    let base64 = png_base64(4, 4, 255);
+    image_of(&one_row(Control::picture(format!("data:image/png;base64,{base64}"))));
+    image_of(&one_row(Control::picture(base64.clone())));
+    let from_field = Control {
+        kind: ControlKind::Picture(Picture { expression: Some("[Photo]".into()), ..Picture::default() }),
+        ..Control::default()
+    };
+    let report = ravenrs_report::Report::new("T").detail(ravenrs_report::Band::new(50.0).control(from_field));
+    let doc = ravenrs_report::ReportEngine::new().render(&report, &serde_json::json!([{ "Photo": base64 }]));
+    image_of(&doc);
+}
+
+#[test]
+fn a_bad_picture_is_reported_and_the_report_goes_on() {
+    for source in ["not base64 !!", "aGVsbG8gd29ybGQ=", "data:image/png;base64,aGVsbG8="] {
+        let doc = one_row(ravenrs_report::Control::picture(source));
+        assert!(doc.errors.iter().any(|e| e.contains("image")), "{source}: {:?}", doc.errors);
+        assert!(!doc.pages[0].items.iter().any(|i| matches!(i, ravenrs_report::Item::Image { .. })));
+    }
+}
+
+#[test]
+fn an_image_used_on_every_row_is_decoded_once() {
+    let source = png_base64(8, 8, 255);
+    let report = ravenrs_report::Report::new("T").detail(
+        ravenrs_report::Band::new(20.0)
+            .control(ravenrs_report::Control::picture(source).at(0.0, 0.0, 20.0, 20.0)),
+    );
+    let doc = ravenrs_report::ReportEngine::new().render(&report, &serde_json::json!([{}, {}, {}]));
+    let ids: std::collections::HashSet<u64> = doc.pages[0]
+        .items
+        .iter()
+        .filter_map(|i| match i {
+            ravenrs_report::Item::Image { image, .. } => Some(image.pixels().id()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(ids.len(), 1);
+}
+
+#[test]
+fn links_only_open_safe_addresses() {
+    let links = |url: &str| {
+        let doc = one_row(ravenrs_report::Control::link("abrir", url).at(10.0, 5.0, 100.0, 20.0));
+        let found: Vec<String> = doc.pages[0]
+            .items
+            .iter()
+            .filter_map(|i| match i {
+                ravenrs_report::Item::Link { url, .. } => Some(url.clone()),
+                _ => None,
+            })
+            .collect();
+        (found, doc.errors)
+    };
+    for good in ["https://example.com/a?b=1", "http://example.com", "mailto:ana@example.com"] {
+        assert_eq!(links(good).0, [good]);
+    }
+    for bad in [
+        "javascript:alert(1)",
+        "file:///etc/passwd",
+        "JAVASCRIPT:alert(1)",
+        "data:text/html,x",
+        "https://a\nb",
+    ] {
+        let (found, errors) = links(bad);
+        assert!(found.is_empty(), "{bad}");
+        assert!(!errors.is_empty(), "{bad}");
+    }
+    assert_eq!(links("").1, Vec::<String>::new(), "no address is not a mistake");
+}
+
+#[test]
+fn links_can_come_from_data_and_svg_escapes_them() {
+    use ravenrs_report::{Control, ControlKind, Label, LinkLabel};
+    let control = Control {
+        kind: ControlKind::Link(LinkLabel {
+            label: Label { text: "site".into(), ..Label::default() },
+            url_expression: Some("'https://example.com/?a=' + [A] + '&b=\"'".into()),
+            ..LinkLabel::default()
+        }),
+        ..Control::default()
+    };
+    let doc = one_row(control);
+    assert_eq!(doc.page_text(0), ["site"], "the link prints its text");
+    let svg = doc.page_svg(0);
+    assert!(svg.contains(r#"href="https://example.com/?a=x&amp;b=&quot;""#), "{svg}");
+}
+
+#[test]
+fn bookmarks_print_nothing_and_take_no_room() {
+    let report = ravenrs_report::Report::new("T").detail(
+        ravenrs_report::Band::new(20.0)
+            .control(ravenrs_report::Control::bookmark("[A]", 1))
+            .control(ravenrs_report::Control::field("[A]").at(0.0, 0.0, 100.0, 20.0)),
+    );
+    let doc = ravenrs_report::ReportEngine::new()
+        .render(&report, &serde_json::json!([{ "A": "um" }, { "A": "dois" }]));
+    assert_eq!(doc.page_text(0), ["um", "dois"]);
+    let marks: Vec<(String, u32)> = doc.pages[0]
+        .items
+        .iter()
+        .filter_map(|i| match i {
+            ravenrs_report::Item::Bookmark { title, level, .. } => Some((title.clone(), *level)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(marks, [("um".to_owned(), 1), ("dois".to_owned(), 1)]);
+}
+
+#[test]
+fn the_new_controls_survive_a_trip_through_json() {
+    use ravenrs_report::{Control, Report};
+    let report = Report::new("T").detail(
+        ravenrs_report::Band::new(20.0)
+            .control(Control::picture("abc"))
+            .control(Control::link("a", "https://b"))
+            .control(Control::bookmark("[C]", 2)),
+    );
+    let again = Report::from_json(&report.to_json()).expect("reads back");
+    assert_eq!(again, report);
+}

@@ -314,3 +314,151 @@ fn an_empty_report_still_gives_a_valid_file() {
     let doc = ReportEngine::new().render(&Report::new("Vazio"), &json!([]));
     assert_eq!(read(&doc).with("/Type /Page\n").len(), doc.pages.len());
 }
+
+fn encoded_image(format: image::ImageFormat, alpha: u8) -> Vec<u8> {
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    if format == image::ImageFormat::Jpeg {
+        image::RgbImage::from_pixel(32, 16, image::Rgb([20, 120, 200])).write_to(&mut bytes, format).unwrap();
+    } else {
+        image::RgbaImage::from_pixel(32, 16, image::Rgba([20, 120, 200, alpha]))
+            .write_to(&mut bytes, format)
+            .unwrap();
+    }
+    bytes.into_inner()
+}
+
+fn encode_base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::new();
+    for chunk in bytes.chunks(3) {
+        let n = u32::from(chunk[0]) << 16
+            | u32::from(chunk.get(1).copied().unwrap_or(0)) << 8
+            | u32::from(chunk.get(2).copied().unwrap_or(0));
+        out.push(TABLE[(n >> 18) as usize & 63] as char);
+        out.push(TABLE[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { TABLE[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { TABLE[n as usize & 63] as char } else { '=' });
+    }
+    out
+}
+
+fn rows(band: Band, count: usize) -> Document {
+    let report = Report::new("T").detail(band);
+    let data: Vec<_> = (0..count).map(|i| json!({ "N": format!("Linha {i}") })).collect();
+    ReportEngine::new().render(&report, &json!(data))
+}
+
+#[test]
+fn an_image_on_many_rows_is_stored_once() {
+    let png = encode_base64(&encoded_image(image::ImageFormat::Png, 255));
+    let doc = rows(Band::new(40.0).control(Control::picture(png).at(0.0, 0.0, 32.0, 16.0)), 60);
+    assert!(doc.pages.len() > 1);
+    let pdf = read(&doc);
+    assert_eq!(pdf.with("/Subtype /Image").len(), 1);
+    assert!(pdf.page_content().contains(" Do"), "{}", pdf.page_content());
+}
+
+#[test]
+fn a_jpeg_keeps_its_original_file_and_a_png_with_transparency_gets_a_mask() {
+    let jpeg = encoded_image(image::ImageFormat::Jpeg, 255);
+    let doc =
+        rows(Band::new(40.0).control(Control::picture(encode_base64(&jpeg)).at(0.0, 0.0, 32.0, 16.0)), 1);
+    let bytes = to_pdf(&doc).unwrap();
+    assert!(find(&bytes, &jpeg, 0).is_some(), "the JPEG file is in the PDF byte for byte");
+    assert!(parse(&bytes).with("/DCTDecode").len() == 1);
+
+    let opaque = encode_base64(&encoded_image(image::ImageFormat::Png, 255));
+    let doc = rows(Band::new(40.0).control(Control::picture(opaque).at(0.0, 0.0, 32.0, 16.0)), 1);
+    assert!(read(&doc).with("/SMask").is_empty());
+
+    let clear = encode_base64(&encoded_image(image::ImageFormat::Png, 128));
+    let doc = rows(Band::new(40.0).control(Control::picture(clear).at(0.0, 0.0, 32.0, 16.0)), 1);
+    let pdf = read(&doc);
+    assert_eq!(pdf.with("/SMask").len(), 1);
+    assert_eq!(pdf.with("/Subtype /Image").len(), 2, "the image and its mask");
+}
+
+#[test]
+fn links_become_annotations_where_the_text_is() {
+    let doc = rows(
+        Band::new(40.0).control(Control::link("site", "https://example.com/a").at(10.0, 0.0, 100.0, 20.0)),
+        1,
+    );
+    let bytes = to_pdf(&doc).unwrap();
+    let pdf = parse(&bytes);
+    let annotation = &pdf.with("/Subtype /Link")[0].0;
+    assert!(annotation.contains("/URI (https://example.com/a)"), "{annotation}");
+    assert!(annotation.contains("/Border [0 0 0]"), "{annotation}");
+    assert!(pdf.first_page().contains("/Annots"), "{}", pdf.first_page());
+    let (w, h) = (doc.pages[0].width, doc.pages[0].height);
+    assert!(w > 0.0 && h > 0.0);
+}
+
+#[test]
+fn no_bookmarks_means_no_outline() {
+    let pdf = read(&rows(Band::new(20.0).control(Control::field("[N]").at(0.0, 0.0, 100.0, 20.0)), 1));
+    assert!(pdf.with("/Outlines").is_empty());
+    assert!(pdf.with("/PageMode").is_empty());
+}
+
+#[test]
+fn bookmarks_build_a_tree_that_opens_on_the_right_page() {
+    let band = Band::new(100.0)
+        .control(Control::bookmark("[N]", 0))
+        .control(Control::bookmark("'Sub ' + [N]", 1))
+        .control(Control::field("[N]").at(0.0, 0.0, 100.0, 20.0));
+    let doc = rows(band, 12);
+    assert!(doc.pages.len() >= 2);
+    let bytes = to_pdf(&doc).unwrap();
+    let pdf = parse(&bytes);
+    let catalog = &pdf.with("/Type /Catalog")[0].0;
+    assert!(catalog.contains("/Outlines") && catalog.contains("/PageMode /UseOutlines"), "{catalog}");
+    let root_id: u32 = number_after(catalog, "/Outlines ").unwrap();
+    let root = &pdf.objects[&root_id].0;
+    assert_eq!(number_after::<i32>(root, "/Count "), Some(24));
+    // Walk the top level by its links, and each entry's single child.
+    let mut current: u32 = number_after(root, "/First ").unwrap();
+    let mut pages = Vec::new();
+    let mut seen = 0;
+    loop {
+        let item = &pdf.objects[&current].0;
+        assert_eq!(number_after::<u32>(item, "/Parent "), Some(root_id));
+        assert_eq!(number_after::<i32>(item, "/Count "), Some(1));
+        let child: u32 = number_after(item, "/First ").unwrap();
+        assert_eq!(number_after::<u32>(item, "/Last "), Some(child));
+        assert_eq!(number_after::<u32>(&pdf.objects[&child].0, "/Parent "), Some(current));
+        pages.push(number_after::<u32>(item, "/Dest [").unwrap());
+        seen += 1;
+        match number_after::<u32>(item, "/Next ") {
+            Some(next) => current = next,
+            None => break,
+        }
+    }
+    assert_eq!(seen, 12);
+    assert_eq!(number_after::<u32>(root, "/Last "), Some(current));
+    assert!(pages.first() != pages.last(), "entries lead to the pages they are on");
+}
+
+#[test]
+fn a_level_that_skips_one_still_gives_a_valid_tree() {
+    let band = Band::new(30.0).control(Control::bookmark("[N]", 3));
+    let pdf = read(&rows(band, 2));
+    let items = pdf.with("/Parent ");
+    let root: u32 = number_after(&pdf.with("/Type /Catalog")[0].0, "/Outlines ").unwrap();
+    let entries: Vec<_> = items.iter().filter(|(item, _)| item.contains("/Title ")).collect();
+    assert_eq!(entries.len(), 2);
+    for (item, _) in entries {
+        assert_eq!(number_after::<u32>(item, "/Parent "), Some(root), "both hang from the top: {item}");
+    }
+}
+
+#[test]
+fn accented_outline_titles_are_utf16() {
+    let band = Band::new(30.0).control(Control::bookmark("'Região'", 0));
+    let bytes = to_pdf(&rows(band, 1)).unwrap();
+    let parsed = parse(&bytes);
+    assert!(
+        parsed.with("/Title ").iter().any(|(d, _)| d.contains('\u{fe}') || d.contains("FEFF")),
+        "title not utf-16"
+    );
+}

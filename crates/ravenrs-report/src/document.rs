@@ -4,8 +4,9 @@
 use std::fmt::Write as _;
 
 use std::ops::Range;
+use std::sync::Arc;
 
-use ravenrs_core::{Color, Point, Rect};
+use ravenrs_core::{Color, ImageData, Point, Rect};
 use ravenrs_criteria::Value;
 
 use crate::model::TextAlign;
@@ -77,6 +78,77 @@ pub enum Item {
     },
     /// Lines of text in one font, clipped to a box.
     Text(TextBlock),
+    /// An image.
+    Image {
+        /// Where the whole image is drawn; it can be larger than `clip`.
+        rect: Rect,
+        /// The control's box; the image is cut there.
+        clip: Rect,
+        /// The image.
+        image: DocumentImage,
+    },
+    /// An area that opens an address when clicked. Prints nothing.
+    Link {
+        /// The clickable area.
+        rect: Rect,
+        /// The address (`https:`, `http:` or `mailto:`).
+        url: String,
+    },
+    /// An entry in the document's outline. Prints nothing.
+    Bookmark {
+        /// Its text.
+        title: String,
+        /// How deep it is: 0 at the top.
+        level: u32,
+        /// Where on the page it leads.
+        y: f32,
+    },
+}
+
+/// The file format of a [`DocumentImage`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ImageFormat {
+    /// PNG.
+    Png,
+    /// JPEG.
+    Jpeg,
+}
+
+/// A decoded image, with the file it came from: exporters can embed the file
+/// itself, which keeps JPEG photos small and unchanged. Clones share the data.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DocumentImage {
+    pixels: ImageData,
+    encoded: Arc<[u8]>,
+    format: ImageFormat,
+    channels: u8,
+}
+
+impl DocumentImage {
+    pub(crate) fn new(pixels: ImageData, encoded: Arc<[u8]>, format: ImageFormat, channels: u8) -> Self {
+        Self { pixels, encoded, format, channels }
+    }
+
+    /// The decoded pixels, RGBA8.
+    pub fn pixels(&self) -> &ImageData {
+        &self.pixels
+    }
+
+    /// The original file.
+    pub fn encoded(&self) -> &[u8] {
+        &self.encoded
+    }
+
+    /// The original file's format.
+    pub fn format(&self) -> ImageFormat {
+        self.format
+    }
+
+    /// How many color channels the original file has: 1 gray, 3 color; 2 or 4 with transparency.
+    pub fn channels(&self) -> u8 {
+        self.channels
+    }
 }
 
 /// Text already broken into lines and positioned.
@@ -220,6 +292,38 @@ impl Document {
                         s.push_str("</svg>");
                     }
                 }
+                Item::Image { rect, clip, image } => {
+                    let mime = match image.format() {
+                        ImageFormat::Png => "image/png",
+                        ImageFormat::Jpeg => "image/jpeg",
+                    };
+                    // A nested viewport cuts the image at its box.
+                    let _ = write!(
+                        s,
+                        r#"<svg x="{x}" y="{y}" width="{w}" height="{h}" viewBox="{x} {y} {w} {h}"><image x="{}" y="{}" width="{}" height="{}" preserveAspectRatio="none" href="data:{mime};base64,{}"/></svg>"#,
+                        rect.x(),
+                        rect.y(),
+                        rect.width(),
+                        rect.height(),
+                        base64(image.encoded()),
+                        x = clip.x(),
+                        y = clip.y(),
+                        w = clip.width(),
+                        h = clip.height(),
+                    );
+                }
+                Item::Link { rect, url } => {
+                    let _ = write!(
+                        s,
+                        r#"<a href="{}"><rect x="{}" y="{}" width="{}" height="{}" fill="transparent"/></a>"#,
+                        escape(url).replace('"', "&quot;"),
+                        rect.x(),
+                        rect.y(),
+                        rect.width(),
+                        rect.height(),
+                    );
+                }
+                Item::Bookmark { .. } => {}
             }
         }
         s.push_str("</svg>");

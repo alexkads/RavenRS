@@ -37,8 +37,8 @@ mod paint;
 pub mod samples;
 pub mod wizard;
 
-pub use document::{Document, Item, Page, PlacedLine, TextBlock};
-pub use engine::{RenderOptions, ReportEngine};
+pub use document::{Document, DocumentImage, ImageFormat, Item, Page, PlacedLine, TextBlock};
+pub use engine::{RenderOptions, ReportEngine, decode_picture, picture_rect};
 pub use model::*;
 pub use paint::paint_page;
 pub use ravenrs_criteria as criteria;

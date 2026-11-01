@@ -7,6 +7,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Added
 - **Report server.** `ravenrs-report-server` stores layouts with versions, renders them over HTTP, and sends scheduled reports by email or to a folder as PDF, XLSX or CSV. Jobs have cron schedules with time zones, parameters computed by expression, skip if empty, retries that do not send twice, retention, and a history of who received what. See [docs/REPORT-SERVER.md](docs/REPORT-SERVER.md).
 - `ReportEngine::count_rows` says how many rows a report would print.
+- **Pictures in reports.** `ControlKind::Picture` shows a PNG or JPEG from the layout or a field, fitted by `PictureMode`. A PDF keeps a JPEG's original file and stores an image once however often it prints; XLSX and SVG show them too. `decode_picture` and `picture_rect` are public, and the designer inserts and chooses images in the browser.
+- **Links and outline.** `ControlKind::Link` opens an `https:`, `http:` or `mailto:` address from a PDF, a spreadsheet or SVG; any other scheme is refused and reported. `ControlKind::Bookmark` adds entries, nested by level, to the PDF's outline. `Item` gains `Image`, `Link` and `Bookmark`.
 
 ### Changed
 - The site roadmap, `docs/PARITY.md` and `ARCHITECTURE.md` now reflect what shipped.

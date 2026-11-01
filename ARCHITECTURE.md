@@ -314,7 +314,7 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Web: canvas, WebGPU, DPR, pointer, wheel, touch scrolling, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), clipboard copy, rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | pinch and momentum scrolling |
 | Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web | | caret and selection for screen readers, right-to-left |
 | Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
-| Reporting: engine, wizard, designer with preview, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | PDF links and outline, other exports, viewer widget, SQL data sources (phases R2 to R5) |
+| Reporting: engine, wizard, designer with preview, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, viewer widget, SQL data sources (phases R2 to R5) |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`, budgets in [docs/QUALITY.md](docs/QUALITY.md)) | | GPU timestamps |
 
 ## 12. Decisions log

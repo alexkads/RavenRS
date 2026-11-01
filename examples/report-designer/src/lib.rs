@@ -311,6 +311,24 @@ impl Designer {
                             .large(),
                         )
                         .item(
+                            insert("Imagem", IconName::Image, || {
+                                Control::picture("").at(0.0, 0.0, 100.0, 60.0)
+                            })
+                            .large(),
+                        )
+                        .item(
+                            insert("Link", IconName::Link, || {
+                                Control::link("Abrir site", "https://").at(0.0, 0.0, 140.0, 18.0)
+                            })
+                            .small(),
+                        )
+                        .item(
+                            insert("Marcador", IconName::Bookmark, || {
+                                Control::bookmark("[Customer]", 0).at(0.0, 0.0, 120.0, 12.0)
+                            })
+                            .small(),
+                        )
+                        .item(
                             insert("Linha", IconName::Minus, || Control {
                                 kind: ravenrs_report::ControlKind::Line(Line::default()),
                                 ..Control::line().at(0.0, 0.0, 200.0, 4.0)

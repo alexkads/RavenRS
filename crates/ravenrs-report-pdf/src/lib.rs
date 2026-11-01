@@ -18,11 +18,13 @@ use std::fmt;
 use std::rc::Rc;
 
 use miniz_oxide::deflate::compress_to_vec_zlib;
-use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
+use pdf_writer::types::{
+    ActionType, AnnotationType, CidFontType, FontFlags, PageMode, SystemInfo, UnicodeCmap,
+};
 use pdf_writer::writers::Resources;
 use pdf_writer::{Content, Filter, Finish, Name, Pdf, Rect as PdfRect, Ref, Str, TextStr};
 use ravenrs_core::{Color, Rect};
-use ravenrs_report::{Document, Item, Page, TextBlock};
+use ravenrs_report::{Document, DocumentImage, ImageFormat, Item, Page, TextBlock};
 use ravenrs_text::{TextAttrs, TextSystem};
 use skrifa::instance::{LocationRef, Size};
 use skrifa::{GlyphId, MetadataProvider};
@@ -131,6 +133,9 @@ struct Writer {
     shaped: HashMap<(bool, String), Rc<Shaped>>,
     /// Opacities in use, as 0–255; each becomes a graphics state.
     alphas: BTreeSet<u8>,
+    /// Images in use; a logo on every page is stored once. Position is the name's number.
+    images: Vec<DocumentImage>,
+    image_index: HashMap<u64, usize>,
 }
 
 impl Writer {
@@ -140,6 +145,8 @@ impl Writer {
             fonts: [Font::new(false)?, Font::new(true)?],
             shaped: HashMap::new(),
             alphas: BTreeSet::new(),
+            images: Vec::new(),
+            image_index: HashMap::new(),
         })
     }
 
@@ -192,10 +199,29 @@ impl Writer {
                     end_alpha(&mut content, alpha);
                 }
                 Item::Text(block) => self.draw_text(&mut content, block, h),
+                Item::Image { rect, clip, image } => {
+                    let index = self.image_number(image);
+                    content.save_state();
+                    content.rect(clip.x(), h - clip.max_y(), clip.width(), clip.height());
+                    content.clip_nonzero();
+                    content.end_path();
+                    content.transform([rect.width(), 0.0, 0.0, rect.height(), rect.x(), h - rect.max_y()]);
+                    content.x_object(Name(image_name(index).as_bytes()));
+                    content.restore_state();
+                }
+                // Links and bookmarks print nothing; they are written with the page.
                 _ => {}
             }
         }
         compress_to_vec_zlib(&content.finish(), 6)
+    }
+
+    fn image_number(&mut self, image: &DocumentImage) -> usize {
+        let images = &mut self.images;
+        *self.image_index.entry(image.pixels().id()).or_insert_with(|| {
+            images.push(image.clone());
+            images.len() - 1
+        })
     }
 
     fn draw(
@@ -299,8 +325,16 @@ impl Writer {
             id
         };
         let (catalog, tree, resources, info) = (alloc(), alloc(), alloc(), alloc());
+        let page_ids: Vec<(Ref, Ref)> = contents.iter().map(|_| (alloc(), alloc())).collect();
         let mut pdf = Pdf::new();
-        pdf.catalog(catalog).pages(tree);
+        let outline = write_outline(&mut pdf, &contents, &page_ids, &mut alloc);
+        let mut root = pdf.catalog(catalog);
+        root.pages(tree);
+        if let Some(outline) = outline {
+            root.outlines(outline);
+            root.page_mode(PageMode::UseOutlines);
+        }
+        root.finish();
         let mut about = pdf.document_info(info);
         about.title(TextStr(&document.title));
         about.producer(TextStr("RavenRS Reporting"));
@@ -314,6 +348,8 @@ impl Writer {
             let value = f32::from(*alpha) / 255.0;
             pdf.ext_graphics(*id).non_stroking_alpha(value).stroking_alpha(value);
         }
+        let image_ids: Vec<Ref> =
+            self.images.iter().map(|image| write_image(&mut pdf, image, &mut alloc)).collect();
         let mut res = pdf.indirect(resources).start::<Resources>();
         let mut fonts = res.fonts();
         for (bold, id) in [false, true].into_iter().zip(&font_ids) {
@@ -325,9 +361,13 @@ impl Writer {
             states.pair(Name(alpha_name(*alpha).as_bytes()), *id);
         }
         states.finish();
+        let mut x_objects = res.x_objects();
+        for (index, id) in image_ids.iter().enumerate() {
+            x_objects.pair(Name(image_name(index).as_bytes()), *id);
+        }
+        x_objects.finish();
         res.finish();
 
-        let page_ids: Vec<(Ref, Ref)> = contents.iter().map(|_| (alloc(), alloc())).collect();
         let mut pages = pdf.pages(tree);
         pages.kids(page_ids.iter().map(|(page, _)| *page));
         pages.count(i32::try_from(page_ids.len()).unwrap_or(i32::MAX));
@@ -338,8 +378,32 @@ impl Writer {
             out.parent(tree);
             out.media_box(PdfRect::new(0.0, 0.0, page.width, page.height));
             out.contents(*content_id);
+            let links: Vec<(&Rect, &str)> = page
+                .items
+                .iter()
+                .filter_map(|item| match item {
+                    Item::Link { rect, url } => Some((rect, url.as_str())),
+                    _ => None,
+                })
+                .collect();
+            let annotation_ids: Vec<Ref> = links.iter().map(|_| alloc()).collect();
+            if !annotation_ids.is_empty() {
+                out.annotations(annotation_ids.iter().copied());
+            }
             out.finish();
             pdf.stream(*content_id, data).filter(Filter::FlateDecode);
+            for ((rect, url), annotation_id) in links.iter().zip(&annotation_ids) {
+                let mut annotation = pdf.annotation(*annotation_id);
+                annotation.subtype(AnnotationType::Link);
+                annotation.rect(PdfRect::new(
+                    rect.x(),
+                    page.height - rect.max_y(),
+                    rect.max_x(),
+                    page.height - rect.y(),
+                ));
+                annotation.border(0.0, 0.0, 0.0, None);
+                annotation.action().action_type(ActionType::Uri).uri(Str(url.as_bytes()));
+            }
         }
         Ok(pdf.finish())
     }
@@ -357,6 +421,142 @@ fn font_name(bold: bool) -> &'static str {
 
 fn alpha_name(alpha: u8) -> String {
     format!("A{alpha}")
+}
+
+fn image_name(index: usize) -> String {
+    format!("I{index}")
+}
+
+/// Embeds an image. A JPEG goes in as the original file when PDF can show it
+/// directly, so a photo keeps its quality and size; anything else as pixels,
+/// with transparency as a separate mask.
+fn write_image(pdf: &mut Pdf, image: &DocumentImage, alloc: &mut impl FnMut() -> Ref) -> Ref {
+    let id = alloc();
+    let pixels = image.pixels();
+    let (width, height) = (pixels.width() as i32, pixels.height() as i32);
+    if image.format() == ImageFormat::Jpeg && matches!(image.channels(), 1 | 3) {
+        let mut out = pdf.image_xobject(id, image.encoded());
+        out.filter(Filter::DctDecode);
+        out.width(width);
+        out.height(height);
+        if image.channels() == 1 {
+            out.color_space().device_gray();
+        } else {
+            out.color_space().device_rgb();
+        }
+        out.bits_per_component(8);
+        return id;
+    }
+    let (rgba, _) = pixels.pixels().as_chunks::<4>();
+    let rgb: Vec<u8> = rgba.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
+    let mask = rgba.iter().any(|p| p[3] != 255).then(|| {
+        let alpha: Vec<u8> = rgba.iter().map(|p| p[3]).collect();
+        let mask_id = alloc();
+        let compressed = compress_to_vec_zlib(&alpha, 6);
+        let mut out = pdf.image_xobject(mask_id, &compressed);
+        out.filter(Filter::FlateDecode);
+        out.width(width);
+        out.height(height);
+        out.color_space().device_gray();
+        out.bits_per_component(8);
+        out.finish();
+        mask_id
+    });
+    let compressed = compress_to_vec_zlib(&rgb, 6);
+    let mut out = pdf.image_xobject(id, &compressed);
+    out.filter(Filter::FlateDecode);
+    out.width(width);
+    out.height(height);
+    out.color_space().device_rgb();
+    out.bits_per_component(8);
+    if let Some(mask) = mask {
+        out.s_mask(mask);
+    }
+    id
+}
+
+/// A bookmark in the outline tree.
+struct OutlineNode<'d> {
+    id: Ref,
+    title: &'d str,
+    page: Ref,
+    top: f32,
+    parent: Option<usize>,
+    children: Vec<usize>,
+    descendants: i32,
+}
+
+/// Writes the outline from the pages' bookmarks; `None` when there are none.
+fn write_outline(
+    pdf: &mut Pdf,
+    contents: &[(Vec<u8>, &Page)],
+    page_ids: &[(Ref, Ref)],
+    alloc: &mut impl FnMut() -> Ref,
+) -> Option<Ref> {
+    let mut nodes: Vec<OutlineNode<'_>> = Vec::new();
+    let mut roots = Vec::new();
+    // The open path: the level and node of each ancestor of what comes next.
+    let mut path: Vec<(u32, usize)> = Vec::new();
+    for ((_, page), (page_id, _)) in contents.iter().zip(page_ids) {
+        for item in &page.items {
+            let Item::Bookmark { title, level, y } = item else { continue };
+            // The parent is the latest entry at a lesser level, so a level that skips one still fits.
+            while path.last().is_some_and(|(open, _)| open >= level) {
+                path.pop();
+            }
+            let index = nodes.len();
+            let parent = path.last().map(|(_, node)| *node);
+            nodes.push(OutlineNode {
+                id: alloc(),
+                title,
+                page: *page_id,
+                top: page.height - y,
+                parent,
+                children: Vec::new(),
+                descendants: 0,
+            });
+            match parent {
+                Some(parent) => nodes[parent].children.push(index),
+                None => roots.push(index),
+            }
+            path.push((*level, index));
+        }
+    }
+    if nodes.is_empty() {
+        return None;
+    }
+    // Children come after their parents, so going backwards adds them up.
+    for index in (0..nodes.len()).rev() {
+        if let Some(parent) = nodes[index].parent {
+            nodes[parent].descendants += nodes[index].descendants + 1;
+        }
+    }
+    let root = alloc();
+    let mut outline = pdf.outline(root);
+    outline.first(nodes[roots[0]].id);
+    outline.last(nodes[roots[roots.len() - 1]].id);
+    outline.count(nodes.len() as i32);
+    outline.finish();
+    for (index, node) in nodes.iter().enumerate() {
+        let siblings = node.parent.map_or(&roots, |parent| &nodes[parent].children);
+        let at = siblings.iter().position(|sibling| *sibling == index).unwrap_or(0);
+        let mut item = pdf.outline_item(node.id);
+        item.title(TextStr(node.title));
+        item.parent(node.parent.map_or(root, |parent| nodes[parent].id));
+        if at > 0 {
+            item.prev(nodes[siblings[at - 1]].id);
+        }
+        if let Some(next) = siblings.get(at + 1) {
+            item.next(nodes[*next].id);
+        }
+        if let (Some(first), Some(last)) = (node.children.first(), node.children.last()) {
+            item.first(nodes[*first].id);
+            item.last(nodes[*last].id);
+            item.count(node.descendants);
+        }
+        item.dest().page(node.page).xyz(0.0, node.top, None);
+    }
+    Some(root)
 }
 
 /// Embeds a font's subset; returns the reference pages use.

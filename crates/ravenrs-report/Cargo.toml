@@ -19,6 +19,7 @@ ravenrs-text.workspace = true
 ravenrs-criteria.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+image.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

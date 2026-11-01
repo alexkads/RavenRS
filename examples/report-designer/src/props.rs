@@ -2,7 +2,7 @@
 
 use ravenrs::prelude::*;
 use ravenrs::style::SPACING;
-use ravenrs_report::{ControlKind, PageSettings, Style, TextAlign};
+use ravenrs_report::{ControlKind, PageSettings, PictureMode, Style, TextAlign};
 
 use crate::bands::BandRef;
 use crate::editor::{Editor, Selection};
@@ -109,6 +109,149 @@ impl View for Properties {
     }
 }
 
+const PICTURE_MODES: [(&str, PictureMode); 4] = [
+    ("Ajustar sem cortar", PictureMode::Zoom),
+    ("Só reduzir", PictureMode::Squeeze),
+    ("Esticar", PictureMode::Stretch),
+    ("Tamanho original", PictureMode::Normal),
+];
+
+/// A text field over part of the selected control.
+fn control_text(
+    e: &Editor,
+    kind: &'static str,
+    read: impl Fn(&ControlKind) -> String + 'static,
+    write: impl Fn(&mut ControlKind, String) + 'static,
+) -> TextField {
+    let (reader, writer) = (e.clone(), e.clone());
+    TextField::new(Binding::new(
+        move || reader.selected_control().map(|(_, _, c)| read(&c.kind)).unwrap_or_default(),
+        move |s: String| writer.edit_control(kind, |c| write(&mut c.kind, s)),
+    ))
+    .compact()
+}
+
+fn picture_props(e: &Editor, picture: &ravenrs_report::Picture, rows: &mut Vec<AnyView>) {
+    let chooser = e.clone();
+    rows.push(Box::new(
+        Button::new(if picture.source.is_empty() { "Escolher imagem…" } else { "Trocar imagem…" })
+            .icon(IconName::Image)
+            .full_width()
+            .on_click(move || {
+                let e = chooser.clone();
+                crate::preview::pick_image(move |source| {
+                    e.edit_control("picture", |c| {
+                        if let ControlKind::Picture(p) = &mut c.kind {
+                            p.source = source;
+                        }
+                    });
+                });
+            }),
+    ));
+    let expression = control_text(
+        e,
+        "picture-field",
+        |k| match k {
+            ControlKind::Picture(p) => p.expression.clone().unwrap_or_default(),
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Picture(p) = k {
+                p.expression = (!s.trim().is_empty()).then_some(s);
+            }
+        },
+    );
+    rows.push(Box::new(
+        FormField::new("Campo com a imagem", expression)
+            .hint("Opcional. Ex.: [Foto], em base64 ou endereço data:"),
+    ));
+    let index = PICTURE_MODES.iter().position(|(_, m)| *m == picture.mode).unwrap_or(0);
+    let write = e.clone();
+    let mode = Select::new(
+        Binding::new(
+            move || index,
+            move |i: usize| {
+                write.edit_control("picture-mode", |c| {
+                    if let ControlKind::Picture(p) = &mut c.kind {
+                        p.mode = PICTURE_MODES[i.min(PICTURE_MODES.len() - 1)].1;
+                    }
+                });
+            },
+        ),
+        PICTURE_MODES.iter().map(|(name, _)| *name),
+    )
+    .width(268.0)
+    .label("Encaixe");
+    rows.push(Box::new(FormField::new("Encaixe", mode)));
+}
+
+fn link_props(e: &Editor, rows: &mut Vec<AnyView>) {
+    let text = control_text(
+        e,
+        "link-text",
+        |k| match k {
+            ControlKind::Link(l) => l.label.expression.clone().unwrap_or_else(|| l.label.text.clone()),
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Link(l) = k {
+                if l.label.expression.is_some() {
+                    l.label.expression = Some(s);
+                } else {
+                    l.label.text = s;
+                }
+            }
+        },
+    );
+    rows.push(Box::new(FormField::new("Texto", text)));
+    let url = control_text(
+        e,
+        "link-url",
+        |k| match k {
+            ControlKind::Link(l) => {
+                l.url_expression.clone().map_or_else(|| l.url.clone(), |x| format!("={x}"))
+            }
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Link(l) = k {
+                match s.strip_prefix('=') {
+                    Some(expression) => l.url_expression = Some(expression.to_owned()),
+                    None => {
+                        l.url_expression = None;
+                        l.url = s;
+                    }
+                }
+            }
+        },
+    );
+    rows.push(Box::new(
+        FormField::new("Endereço", url)
+            .hint("https:, http: ou mailto:. Comece com = para usar uma expressão"),
+    ));
+}
+
+fn bookmark_props(e: &Editor, rows: &mut Vec<AnyView>) {
+    let text = control_text(
+        e,
+        "bookmark-text",
+        |k| match k {
+            ControlKind::Bookmark(b) => b.expression.clone().unwrap_or_else(|| b.text.clone()),
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Bookmark(b) = k {
+                if b.expression.is_some() {
+                    b.expression = Some(s);
+                } else {
+                    b.text = s;
+                }
+            }
+        },
+    );
+    rows.push(Box::new(FormField::new("Expressão", text).hint("O texto no sumário do PDF. Ex.: [Region]")));
+}
+
 fn control_props(e: &Editor) -> impl View + use<> {
     let Some((band, _, control)) = e.selected_control() else { return Box::new(Text::new("")) as AnyView };
     let report = e.report.get();
@@ -120,6 +263,9 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Line(_) => "Linha",
         ControlKind::Shape(_) => "Forma",
         ControlKind::Panel(_) => "Painel",
+        ControlKind::Picture(_) => "Imagem",
+        ControlKind::Link(_) => "Link",
+        ControlKind::Bookmark(_) => "Marcador",
         _ => "Controle",
     };
     let mut rows: Vec<AnyView> = vec![Box::new(
@@ -182,6 +328,12 @@ fn control_props(e: &Editor) -> impl View + use<> {
         .width(268.0)
         .label("Formato");
         rows.push(Box::new(FormField::new("Formato", picker)));
+    }
+    match &control.kind {
+        ControlKind::Picture(picture) => picture_props(e, picture, &mut rows),
+        ControlKind::Link(_) => link_props(e, &mut rows),
+        ControlKind::Bookmark(_) => bookmark_props(e, &mut rows),
+        _ => {}
     }
     rows.push(Box::new(section("Posição e tamanho (pt)")));
     rows.push(Box::new(

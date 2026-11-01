@@ -4,8 +4,8 @@
 use serde_json::{Value as Json, json};
 
 use crate::model::{
-    Band, Control, DataSource, DataSourceKind, DetailReport, Group, PageSettings, ParameterKind, Report,
-    Style, Table, TableRow, TextAlign, VerticalAlign,
+    Band, Control, ControlKind, DataSource, DataSourceKind, DetailReport, Group, Label, LinkLabel,
+    PageSettings, ParameterKind, Report, Style, Table, TableRow, TextAlign, VerticalAlign,
 };
 
 // Raven Light tokens: reports are printed on white paper.
@@ -215,6 +215,7 @@ pub fn sales_by_region(rows: usize) -> Report {
                                 .at(0.0, 10.0, 4.0, 16.0)
                                 .style(Style::new().background(ACCENT)),
                         )
+                        .control(Control::bookmark("[Region]", 0).at(0.0, 8.0, 80.0, 12.0))
                         .control(
                             Control::field("'Região ' + [Region]")
                                 .at(10.0, 8.0, 300.0, 20.0)
@@ -370,9 +371,19 @@ pub fn invoice() -> Report {
                         .style(Style::new().bold().font_size(11.0).color(INK)),
                 )
                 .control(
-                    Control::field("[Seller.Email]")
-                        .at(44.0, 18.0, 260.0, 14.0)
-                        .style(Style::new().font_size(8.5).color(MUTED)),
+                    Control {
+                        kind: ControlKind::Link(LinkLabel {
+                            label: Label {
+                                expression: Some("[Seller.Email]".to_owned()),
+                                ..Label::default()
+                            },
+                            url_expression: Some("'mailto:' + [Seller.Email]".to_owned()),
+                            ..LinkLabel::default()
+                        }),
+                        ..Control::default()
+                    }
+                    .at(44.0, 18.0, 260.0, 14.0)
+                    .style(Style::new().font_size(8.5).color(MUTED)),
                 )
                 .control(
                     Control::label("FATURA")

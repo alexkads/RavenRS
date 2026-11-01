@@ -165,7 +165,7 @@ For other MCP clients, configure the command `ravenrs-mcp` over stdio. The skill
 
 ## Roadmap
 
-- **Reporting**: the engine, the [report designer](https://alexkads.github.io/RavenRS/designer/), PDF, XLSX and CSV export, and a [report server](https://github.com/alexkads/RavenRS/blob/master/docs/REPORT-SERVER.md) with scheduled delivery are here. Next: pictures, PDF links and outline, charts and barcodes. See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING.md).
+- **Reporting**: the engine, the [report designer](https://alexkads.github.io/RavenRS/designer/), PDF, XLSX and CSV export, and a [report server](https://github.com/alexkads/RavenRS/blob/master/docs/REPORT-SERVER.md) with scheduled delivery are here. Next: a document viewer, charts and barcodes. See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING.md).
 - **DataGrid parity**: frozen columns, drag reordering and drag-to-group, header filters, master-detail.
 - **Vector paths** for line and pie charts and gauges, and backdrop blur for Raven Glass.
 - **Platform**: IME composition display, right-to-left layout.

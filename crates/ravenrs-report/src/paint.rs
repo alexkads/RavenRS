@@ -1,6 +1,6 @@
 //! Draws document pages into a RavenRS [`Scene`] for on-screen previews.
 
-use ravenrs_core::{Color, Point, Quad, Rect, Scene};
+use ravenrs_core::{Color, ImageQuad, Point, Quad, Rect, Scene};
 use ravenrs_text::TextSystem;
 
 use crate::document::{Item, Page};
@@ -75,6 +75,13 @@ pub fn paint_page(page: &Page, text: &mut TextSystem, scene: &mut Scene, origin:
                 }
                 scene.pop_clip();
             }
+            Item::Image { rect: r, clip, image } => {
+                scene.push_clip(rect(clip));
+                scene.push_image(ImageQuad::new(rect(r), image.pixels().clone()));
+                scene.pop_clip();
+            }
+            // Nothing to print: they matter in the exported file.
+            Item::Link { .. } | Item::Bookmark { .. } => {}
         }
     }
     scene.pop_clip();
