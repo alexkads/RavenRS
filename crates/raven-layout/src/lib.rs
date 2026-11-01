@@ -65,6 +65,8 @@ pub struct LayoutStyle {
     pub grid_columns: Option<u16>,
     /// Children move to a new line when they do not fit (flex-wrap).
     pub wrap: bool,
+    /// Width divided by height; with one dimension known, the other follows.
+    pub aspect_ratio: Option<f32>,
 }
 
 impl LayoutStyle {
@@ -114,6 +116,11 @@ impl LayoutStyle {
             flex_shrink: 1.0,
             ..taffy::Style::default()
         };
+        style.aspect_ratio = self.aspect_ratio;
+        // A box with an explicit size keeps it: it never shrinks to make room.
+        if self.width.is_some() || self.height.is_some() {
+            style.flex_shrink = 0.0;
+        }
         if self.wrap {
             style.flex_wrap = taffy::FlexWrap::Wrap;
         }
@@ -350,6 +357,33 @@ mod tests {
         tree.compute(root, Size::new(100.0, 100.0), |_, _| Size::ZERO).unwrap();
         assert_eq!(tree.frame(b).unwrap().origin, Point::new(15.0, 35.0));
         assert_eq!(tree.frame(a).unwrap().origin, Point::new(0.0, 45.0));
+    }
+
+    #[test]
+    fn explicit_sizes_do_not_shrink_next_to_overflowing_content() {
+        let mut tree = LayoutTree::<()>::new();
+        let header = tree
+            .node(LayoutStyle { height: Some(40.0), overflow_hidden: true, ..LayoutStyle::leaf() }, &[])
+            .unwrap();
+        let tall = fixed(&mut tree, 10.0, 5000.0);
+        let body = tree
+            .node(
+                LayoutStyle {
+                    grow: 1.0,
+                    min_height: Some(0.0),
+                    overflow_hidden: true,
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[tall],
+            )
+            .unwrap();
+        let root = tree
+            .node(LayoutStyle { height: Some(300.0), ..LayoutStyle::stack(Axis::Vertical) }, &[header, body])
+            .unwrap();
+        tree.compute(root, Size::new(100.0, 300.0), |_, _| Size::ZERO).unwrap();
+        assert_eq!(tree.frame(header).unwrap().size.height, 40.0);
+        let body = tree.frame(body).unwrap();
+        assert_eq!((body.y(), body.height()), (40.0, 260.0), "the overflowing body takes the rest");
     }
 
     #[test]

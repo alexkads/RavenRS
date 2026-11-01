@@ -1,9 +1,8 @@
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
-use raven_core::{Color, CursorIcon, Event, Key, Point, PointerButton, Quad, Rect, Scene, Size};
+use raven_core::{Color, CursorIcon, Event, Key, Modifiers, Point, PointerButton, Quad, Rect, Scene, Size};
 use raven_layout::{Align, Axis, LayoutStyle, LayoutTree};
 use raven_reactive::{Observer, State};
 use raven_style::{Semantic, Theme};
@@ -11,8 +10,8 @@ use raven_text::TextSystem;
 
 use crate::View;
 use crate::context::{
-    BuildCx, Drag, DragPhase, Element, Interaction, LocalStore, NodeId, Overlay, Paint, Placement, TextLeaf,
-    WidgetId,
+    BuildCx, Drag, DragPhase, Element, Interaction, LocalStore, NodeId, Overlay, Paint, Placement,
+    ScrollState, TextLeaf, WidgetId,
 };
 
 type Waker = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
@@ -43,7 +42,8 @@ pub struct Ui {
     content: Vec<Size>,
     /// Elements in painting (back-to-front) order; hit testing walks it backwards.
     paint_order: Vec<NodeId>,
-    scroll_offsets: HashMap<WidgetId, f32>,
+    scroll: ScrollState,
+    modifiers: Rc<Cell<Modifiers>>,
     /// Parent of each element, for hover-within.
     parents: Vec<Option<NodeId>>,
     /// The hovered element and its ancestors.
@@ -95,7 +95,8 @@ impl Ui {
             clips: Vec::new(),
             content: Vec::new(),
             paint_order: Vec::new(),
-            scroll_offsets: HashMap::new(),
+            scroll: ScrollState::default(),
+            modifiers: Rc::new(Cell::new(Modifiers::default())),
             parents: Vec::new(),
             hover_chain: Vec::new(),
             local: LocalStore::default(),
@@ -210,12 +211,21 @@ impl Ui {
                 let element = target.map(|n| &self.elements[n.0 as usize]);
                 let widget = element.map(|e| e.widget);
                 let draggable = element.is_some_and(|e| e.on_drag.is_some());
-                let focusable = element.is_some_and(|e| e.focus_radius.is_some());
                 if self.interaction.pressed != widget {
                     self.interaction.pressed = widget;
                     self.needs_build = true;
                 }
-                let focused = if focusable { widget } else { None };
+                // Like the DOM, a click focuses the nearest focusable element at or above the target.
+                let mut node = target;
+                let mut focused = None;
+                while let Some(n) = node {
+                    let e = &self.elements[n.0 as usize];
+                    if e.focus_radius.is_some() {
+                        focused = Some(e.widget);
+                        break;
+                    }
+                    node = self.parents.get(n.0 as usize).copied().flatten();
+                }
                 if self.interaction.focused != focused || self.interaction.focus_visible {
                     self.interaction.focused = focused;
                     self.interaction.focus_visible = false;
@@ -253,12 +263,24 @@ impl Ui {
             }
             Event::Scroll { position, delta } => {
                 if self.scroll(*position, *delta) {
-                    self.place_and_paint();
-                    self.refresh_hover();
+                    if !self.needs_build {
+                        self.place_and_paint();
+                        self.refresh_hover();
+                    }
                     return true;
                 }
             }
+            Event::DoubleClick { position } => {
+                if let Some(node) = self.hit_test(*position) {
+                    let handler = self.elements[node.0 as usize].on_double_click.clone();
+                    if let Some(handler) = handler {
+                        handler();
+                    }
+                }
+            }
+            Event::KeyUp { modifiers, .. } => self.modifiers.set(*modifiers),
             Event::KeyDown { key, modifiers } => {
+                self.modifiers.set(*modifiers);
                 let handler = self.focused_element().and_then(|e| e.on_key.clone());
                 if let Some(handler) = handler
                     && handler(key, *modifiers)
@@ -327,6 +349,8 @@ impl Ui {
         }
     }
 
+    /// Scrolls the innermost scroll container under `p` that can move in the
+    /// direction of `delta`. Returns true if something scrolled.
     fn scroll(&mut self, p: Point, delta: Point) -> bool {
         for &node in self.paint_order.iter().rev() {
             let i = node.0 as usize;
@@ -334,15 +358,32 @@ impl Ui {
             if !e.scroll || !self.frames[i].intersect(&self.clips[i]).contains(p) {
                 continue;
             }
-            let max = (self.content[i].height - self.frames[i].height()).max(0.0);
-            let current = self.scroll_offsets.get(&e.widget).copied().unwrap_or(0.0);
-            let next = (current - delta.y).clamp(0.0, max);
-            if (next - current).abs() > f32::EPSILON {
-                self.scroll_offsets.insert(e.widget, next);
+            let max = self.max_offset(i);
+            let current = self.scroll.offsets.get(&e.widget).copied().unwrap_or(Point::ZERO);
+            let next = Point::new(
+                if e.scroll_x { (current.x - delta.x).clamp(0.0, max.x) } else { 0.0 },
+                (current.y - delta.y).clamp(0.0, max.y),
+            );
+            if (next.x - current.x).abs() > f32::EPSILON || (next.y - current.y).abs() > f32::EPSILON {
+                self.scroll.offsets.insert(e.widget, next);
+                if e.rebuild_on_scroll {
+                    self.needs_build = true;
+                }
                 return true;
             }
         }
         false
+    }
+
+    fn max_offset(&self, i: usize) -> Point {
+        let (content, frame) = (self.content[i], self.frames[i]);
+        Point::new((content.width - frame.width()).max(0.0), (content.height - frame.height()).max(0.0))
+    }
+
+    fn clamped_offset(&self, i: usize) -> Point {
+        let max = self.max_offset(i);
+        let o = self.scroll.offsets.get(&self.elements[i].widget).copied().unwrap_or(Point::ZERO);
+        Point::new(o.x.clamp(0.0, max.x), o.y.clamp(0.0, max.y))
     }
 
     fn move_focus(&mut self, forward: bool) {
@@ -422,8 +463,10 @@ impl Ui {
         let viewport = self.viewport;
         let theme = self.theme.clone();
         self.local.begin_build();
-        let Self { root, text, layout, elements, interaction, observer, hover_chain, local, .. } = self;
-        let (node, overlays, error) = observer.track(|| {
+        let modifiers = self.modifiers.clone();
+        let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
+            self;
+        let (node, overlays, requests, focus, error) = observer.track(|| {
             let mut cx = BuildCx::new(
                 theme,
                 viewport,
@@ -432,6 +475,8 @@ impl Ui {
                 elements,
                 *interaction,
                 hover_chain,
+                scroll,
+                modifiers,
                 local,
                 placeholder,
             );
@@ -444,8 +489,28 @@ impl Ui {
                 ..LayoutStyle::stack(Axis::Vertical)
             };
             let node = cx.container(style, &[content], Paint::None);
-            (node, std::mem::take(&mut cx.overlays), cx.error.take())
+            (
+                node,
+                std::mem::take(&mut cx.overlays),
+                std::mem::take(&mut cx.scroll_requests),
+                cx.focus_request.take(),
+                cx.error.take(),
+            )
         });
+        if let Some(widget) = focus
+            && self.interaction.focused != Some(widget)
+        {
+            self.interaction.focused = Some(widget);
+            self.interaction.focus_visible = false;
+            // Rebuild once so the newly focused widget can draw its focus state.
+            self.needs_build = true;
+        }
+        for (widget, offset) in requests {
+            if self.scroll.offsets.insert(widget, offset) != Some(offset) {
+                // Virtualized content depends on the offset: build again at the new position.
+                self.needs_build = true;
+            }
+        }
         self.local.end_build();
         if let Some(e) = error {
             return Err(e);
@@ -518,13 +583,16 @@ impl Ui {
                 local.translate(parent_origin)
             };
             self.frames[i] = frame;
-            let element = &self.elements[i];
-            let mut child_origin = frame.origin;
-            if element.scroll {
-                let max = (self.content[i].height - frame.height()).max(0.0);
-                let offset = self.scroll_offsets.get(&element.widget).copied().unwrap_or(0.0).min(max);
-                child_origin.y -= offset;
+            let mut child_origin = frame.origin + self.elements[i].translate;
+            if self.elements[i].scroll {
+                let offset = self.clamped_offset(i);
+                child_origin = child_origin - offset;
+                let widget = self.elements[i].widget;
+                self.scroll.viewports.insert(widget, frame.size);
+                // Store the clamped value so builds see where the content really is.
+                self.scroll.offsets.insert(widget, offset);
             }
+            let element = &self.elements[i];
             for child in &element.children {
                 stack.push((*child, child_origin, false));
             }
@@ -608,18 +676,23 @@ impl Ui {
 
     fn paint_scrollbar(&mut self, i: usize, theme: &Theme) {
         let frame = self.frames[i];
-        let content = self.content[i].height;
-        if content <= frame.height() + 0.5 || frame.height() <= 0.0 {
-            return;
-        }
-        let max = content - frame.height();
-        let offset = self.scroll_offsets.get(&self.elements[i].widget).copied().unwrap_or(0.0).min(max);
-        let track = frame.height() - 8.0;
-        let thumb = (track * frame.height() / content).max(24.0).min(track);
-        let y = frame.y() + 4.0 + (track - thumb) * (offset / max);
-        let rect = Rect::new(frame.max_x() - SCROLLBAR_WIDTH - 3.0, y, SCROLLBAR_WIDTH, thumb);
+        let (content, max) = (self.content[i], self.max_offset(i));
+        let offset = self.clamped_offset(i);
         let color = theme.color(Semantic::InkMuted).with_alpha(0.45);
-        self.scene.push_quad(Quad::new(rect, color).radius(SCROLLBAR_WIDTH / 2.0));
+        if max.y > 0.5 && frame.height() > 0.0 {
+            let track = frame.height() - 8.0;
+            let thumb = (track * frame.height() / content.height).max(24.0).min(track);
+            let y = frame.y() + 4.0 + (track - thumb) * (offset.y / max.y);
+            let rect = Rect::new(frame.max_x() - SCROLLBAR_WIDTH - 3.0, y, SCROLLBAR_WIDTH, thumb);
+            self.scene.push_quad(Quad::new(rect, color).radius(SCROLLBAR_WIDTH / 2.0));
+        }
+        if self.elements[i].scroll_x && max.x > 0.5 && frame.width() > 0.0 {
+            let track = frame.width() - 8.0;
+            let thumb = (track * frame.width() / content.width).max(24.0).min(track);
+            let x = frame.x() + 4.0 + (track - thumb) * (offset.x / max.x);
+            let rect = Rect::new(x, frame.max_y() - SCROLLBAR_WIDTH - 3.0, thumb, SCROLLBAR_WIDTH);
+            self.scene.push_quad(Quad::new(rect, color).radius(SCROLLBAR_WIDTH / 2.0));
+        }
     }
 }
 

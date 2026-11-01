@@ -11,6 +11,8 @@ const PAGES: &[(IconName, &str)] = &[
     (IconName::PanelLeft, "Navigation"),
     (IconName::Layers, "Overlays"),
     (IconName::Table, "Data display"),
+    (IconName::Database, "Data grid"),
+    (IconName::Image, "Images"),
     (IconName::Bell, "Feedback"),
     (IconName::ChartBar, "Charts"),
     (IconName::Sparkles, "Icons"),
@@ -36,6 +38,10 @@ pub struct Gallery {
     popover: State<bool>,
     dialog: State<bool>,
     last_action: State<String>,
+    images: Vec<ImageData>,
+    grid: GridData,
+    grid_selection: State<std::collections::BTreeSet<usize>>,
+    export_info: State<String>,
 }
 
 impl Default for Gallery {
@@ -64,6 +70,10 @@ impl Gallery {
             popover: State::new(false),
             dialog: State::new(false),
             last_action: State::new("Nothing yet".into()),
+            images: art::all(),
+            grid: GridData::new(sample_rows(100_000)),
+            grid_selection: State::new(Default::default()),
+            export_info: State::new(String::new()),
         }
     }
 }
@@ -154,8 +164,10 @@ impl Gallery {
             3 => Box::new(self.navigation(width)),
             4 => Box::new(self.overlays(width)),
             5 => Box::new(self.data_display(width)),
-            6 => Box::new(self.feedback(width)),
-            7 => Box::new(self.charts(width)),
+            6 => Box::new(self.data_grid(width)),
+            7 => Box::new(self.images(width)),
+            8 => Box::new(self.feedback(width)),
+            9 => Box::new(self.charts(width)),
             _ => Box::new(self.icons(width)),
         }
     }
@@ -594,6 +606,129 @@ impl Gallery {
         .align(Align::Stretch)
     }
 
+    fn data_grid(&self, width: f32) -> impl View + use<> {
+        let info = self.export_info.clone();
+        let _ = width;
+        VStack::new((
+            page_header(
+                "Data grid",
+                "100,000 rows, virtualized. Sort (Shift-click for several columns), filter with >, <, = or a..b, search, group, resize columns, select with Ctrl/Shift, edit with a double-click, export to CSV.",
+            ),
+            DataGrid::new(
+                self.grid.clone(),
+                [
+                    GridColumn::number("ID").width(90.0).groupable(false),
+                    GridColumn::text("Customer").width(200.0).editable(),
+                    GridColumn::text("Country").width(140.0),
+                    GridColumn::text("Plan").width(130.0).template(|v| -> AnyView {
+                        let text = if let Value::Text(t) = v { t.clone() } else { String::new() };
+                        let tone = match text.as_str() {
+                            "Enterprise" => Tone::Accent,
+                            "Business" => Tone::Success,
+                            "Team" => Tone::Warning,
+                            _ => Tone::Neutral,
+                        };
+                        Box::new(Badge::new(text).tone(tone))
+                    }),
+                    GridColumn::number("Seats").width(100.0).summary(Summary::Sum).editable(),
+                    GridColumn::currency("MRR", "R$ ", 2).width(150.0).summary(Summary::Sum),
+                    GridColumn::number("Health").width(110.0).summary(Summary::Average).number_format(NumberFormat {
+                        decimals: 0,
+                        suffix: "%".into(),
+                        ..NumberFormat::default()
+                    }),
+                    GridColumn::boolean("Active").width(100.0),
+                    GridColumn::text("Account manager").width(170.0).hidden(),
+                ],
+            )
+            .selection_mode(SelectionMode::Multiple)
+            .selection(self.grid_selection.binding())
+            .sort_by(5, SortDirection::Descending)
+            .height(620.0)
+            .on_export(move |csv| {
+                let lines = csv.lines().count().saturating_sub(1);
+                info.set(format!("Exported {lines} rows as CSV ({} KB).", csv.len() / 1024));
+            }),
+            Text::bound(&self.export_info, Clone::clone).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+        ))
+        .spacing(18.0)
+        .align(Align::Stretch)
+    }
+
+    fn images(&self, width: f32) -> impl View + use<> {
+        let [aurora, dunes, ocean, bloom] = [0, 1, 2, 3].map(|i| self.images[i].clone());
+        let card = |image: ImageData, title: &'static str, caption: &'static str| -> AnyView {
+            Box::new(
+                Card::new(
+                    VStack::new((
+                        Image::new(image).stretch().height(170.0).corner_radius(12.0),
+                        Text::new(title).style(TextStyle::Headline),
+                        Text::new(caption).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+                    ))
+                    .spacing(10.0)
+                    .align(Align::Stretch),
+                )
+                .padding(12.0)
+                .corner_radius(18.0),
+            )
+        };
+        let mode = |mode: ContentMode, label: &'static str, image: ImageData| -> AnyView {
+            Box::new(
+                VStack::new((
+                    Image::new(image)
+                        .content_mode(mode)
+                        .size(180.0, 130.0)
+                        .corner_radius(10.0)
+                        .background(Semantic::Control)
+                        .corner_radius(10.0),
+                    Text::new(label).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+                ))
+                .spacing(8.0),
+            )
+        };
+        VStack::new((
+            page_header(
+                "Images",
+                "Textures with mipmaps, rounded corners and cover, fit or fill. PNG and JPEG decode with Image::from_bytes; these are generated in Rust.",
+            ),
+            Grid::new(
+                columns(width, 4),
+                vec![
+                    card(aurora.clone(), "Aurora", "Sine bands over a night gradient"),
+                    card(dunes.clone(), "Dunes", "Layered curves at sunset"),
+                    card(ocean.clone(), "Ocean", "Interfering waves"),
+                    card(bloom.clone(), "Bloom", "A radial color field"),
+                ],
+            ),
+            demo(
+                "Content modes",
+                "The same wide image in a 180 × 130 frame.",
+                HStack::new((
+                    mode(ContentMode::Cover, "Cover: fills and crops", dunes.clone()),
+                    mode(ContentMode::Fit, "Fit: shows everything", dunes.clone()),
+                    mode(ContentMode::Fill, "Fill: stretches", dunes),
+                ))
+                .spacing(20.0)
+                .wrap(),
+            ),
+            demo(
+                "Shapes and opacity",
+                "Any corner radius, and opacity for disabled or decorative images.",
+                HStack::new((
+                    Image::new(bloom.clone()).size(64.0, 64.0).corner_radius(32.0),
+                    Image::new(ocean.clone()).size(64.0, 64.0).corner_radius(16.0),
+                    Image::new(aurora.clone()).size(64.0, 64.0),
+                    Image::new(bloom).size(64.0, 64.0).corner_radius(32.0).opacity(0.4),
+                ))
+                .spacing(16.0)
+                .align(Align::Center)
+                .wrap(),
+            ),
+        ))
+        .spacing(24.0)
+        .align(Align::Stretch)
+    }
+
     fn feedback(&self, width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Feedback", "Alerts, progress and loading placeholders."),
@@ -717,6 +852,116 @@ impl Gallery {
         ))
         .spacing(24.0)
         .align(Align::Stretch)
+    }
+}
+
+/// Deterministic sample data for the data grid demo.
+fn sample_rows(n: usize) -> Vec<Vec<Value>> {
+    const FIRST: &[&str] = &[
+        "Northwind",
+        "Aurora",
+        "Kestrel",
+        "Lumen",
+        "Vertex",
+        "Harbor",
+        "Nimbus",
+        "Cobalt",
+        "Juniper",
+        "Atlas",
+        "Solace",
+        "Quartz",
+        "Meridian",
+        "Tidal",
+        "Orchid",
+        "Summit",
+    ];
+    const SECOND: &[&str] =
+        &["Labs", "Studio", "Health", "Data", "Systems", "Foods", "Logistics", "Bank", "Energy", "Media"];
+    const COUNTRIES: &[&str] = &[
+        "Brazil",
+        "Portugal",
+        "Argentina",
+        "Chile",
+        "Mexico",
+        "United States",
+        "Germany",
+        "Japan",
+        "Canada",
+        "Spain",
+    ];
+    const PLANS: &[&str] = &["Starter", "Team", "Business", "Enterprise"];
+    const MANAGERS: &[&str] = &["Ana Lima", "Bruno Reis", "Carla Dias", "Diego Alves", "Elisa Rocha"];
+    let mut seed: u64 = 0x5eed_cafe;
+    let mut next = move || {
+        seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        (seed >> 33) as usize
+    };
+    (0..n)
+        .map(|i| {
+            let plan = next() % PLANS.len();
+            let seats = match plan {
+                0 => 1 + next() % 5,
+                1 => 5 + next() % 30,
+                2 => 20 + next() % 150,
+                _ => 100 + next() % 900,
+            };
+            let price = [0.0, 49.0, 89.0, 139.0][plan];
+            vec![
+                Value::from(i + 1),
+                Value::from(format!("{} {}", FIRST[next() % FIRST.len()], SECOND[next() % SECOND.len()])),
+                Value::from(COUNTRIES[next() % COUNTRIES.len()]),
+                Value::from(PLANS[plan]),
+                Value::from(seats),
+                Value::from(seats as f64 * price),
+                Value::from((40 + next() % 61) as f64),
+                Value::from(next() % 10 != 0),
+                Value::from(MANAGERS[next() % MANAGERS.len()]),
+            ]
+        })
+        .collect()
+}
+
+/// Procedural images, so the gallery ships no third-party pictures.
+mod art {
+    use raven::prelude::*;
+
+    fn mix(a: Color, b: Color, t: f32) -> Color {
+        a.lerp(b, t)
+    }
+
+    pub fn all() -> Vec<ImageData> {
+        let (w, h) = (480, 300);
+        let aurora = ImageData::from_fn(w, h, |x, y| {
+            let (u, v) = (x as f32 / w as f32, y as f32 / h as f32);
+            let sky = mix(Color::hex(0x0b1030), Color::hex(0x2a1b4f), v);
+            let band = ((u * 9.0 + (v * 4.0).sin() * 1.5).sin() * 0.5 + 0.5)
+                * (1.0 - (v - 0.35).abs() * 2.6).max(0.0);
+            mix(sky, Color::hex(0x3cf2b0), band * 0.85)
+        });
+        let dunes = ImageData::from_fn(w, h, |x, y| {
+            let (u, v) = (x as f32 / w as f32, y as f32 / h as f32);
+            let mut c = mix(Color::hex(0xffb36b), Color::hex(0xff6f61), v);
+            for (k, color) in [(0.55, 0xe2734a), (0.68, 0xc4553a), (0.82, 0x8f3b2e)] {
+                let line = k + (u * 6.0 + k * 9.0).sin() * 0.05;
+                if v > line {
+                    c = mix(c, Color::hex(color), 0.9);
+                }
+            }
+            c
+        });
+        let ocean = ImageData::from_fn(w, h, |x, y| {
+            let (u, v) = (x as f32 / w as f32, y as f32 / h as f32);
+            let wave = ((u * 14.0 + v * 6.0).sin() + (u * 5.0 - v * 11.0).sin()) * 0.25 + 0.5;
+            mix(mix(Color::hex(0x0a3d62), Color::hex(0x38ada9), v), Color::hex(0xd6f5ff), wave * 0.35)
+        });
+        let bloom = ImageData::from_fn(256, 256, |x, y| {
+            let (u, v) = (x as f32 / 255.0 - 0.5, y as f32 / 255.0 - 0.5);
+            let r = (u * u + v * v).sqrt() * 2.0;
+            let a = v.atan2(u);
+            let petals = ((a * 5.0).sin() * 0.5 + 0.5) * (1.0 - r).max(0.0);
+            mix(mix(Color::hex(0x4c66ee), Color::hex(0x161a2e), r.min(1.0)), Color::hex(0xff8fd8), petals)
+        });
+        [aurora, dunes, ocean, bloom].into_iter().flatten().collect()
     }
 }
 

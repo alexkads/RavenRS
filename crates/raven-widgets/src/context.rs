@@ -143,6 +143,13 @@ pub(crate) struct Element {
     pub clip: bool,
     /// Children scroll vertically inside the frame (implies `clip`).
     pub scroll: bool,
+    /// Children also scroll horizontally.
+    pub scroll_x: bool,
+    /// Scrolling rebuilds the UI (virtualized content that depends on the offset).
+    pub rebuild_on_scroll: bool,
+    /// Visual offset applied to the children's positions.
+    pub translate: Point,
+    pub on_double_click: Option<Rc<dyn Fn()>>,
 }
 
 impl Element {
@@ -160,11 +167,16 @@ impl Element {
             on_drag: None,
             clip: false,
             scroll: false,
+            scroll_x: false,
+            rebuild_on_scroll: false,
+            translate: Point::ZERO,
+            on_double_click: None,
         }
     }
 
     pub fn is_interactive(&self) -> bool {
         self.on_click.is_some()
+            || self.on_double_click.is_some()
             || self.cursor.is_some()
             || self.focus_radius.is_some()
             || self.on_drag.is_some()
@@ -190,6 +202,14 @@ struct Scope {
     id: WidgetId,
     next_child: u64,
     next_state: u32,
+}
+
+/// Scroll positions and visible sizes of scroll containers, by widget.
+#[derive(Debug, Default)]
+pub(crate) struct ScrollState {
+    pub offsets: HashMap<WidgetId, Point>,
+    /// Frame size of each scroll container in the last layout.
+    pub viewports: HashMap<WidgetId, Size>,
 }
 
 /// Widget-local state that survives rebuilds, keyed by widget identity and
@@ -224,6 +244,10 @@ pub struct BuildCx<'a> {
     pub(crate) elements: &'a mut Vec<Element>,
     pub(crate) interaction: Interaction,
     pub(crate) hover_chain: &'a [WidgetId],
+    pub(crate) scroll: &'a ScrollState,
+    pub(crate) scroll_requests: Vec<(WidgetId, Point)>,
+    pub(crate) focus_request: Option<WidgetId>,
+    pub(crate) modifiers: Rc<std::cell::Cell<Modifiers>>,
     pub(crate) local: &'a mut LocalStore,
     pub(crate) placeholder: LayoutId,
     pub(crate) error: Option<LayoutError>,
@@ -246,6 +270,8 @@ impl<'a> BuildCx<'a> {
         elements: &'a mut Vec<Element>,
         interaction: Interaction,
         hover_chain: &'a [WidgetId],
+        scroll: &'a ScrollState,
+        modifiers: Rc<std::cell::Cell<Modifiers>>,
         local: &'a mut LocalStore,
         placeholder: LayoutId,
     ) -> Self {
@@ -260,6 +286,10 @@ impl<'a> BuildCx<'a> {
             elements,
             interaction,
             hover_chain,
+            scroll,
+            scroll_requests: Vec::new(),
+            focus_request: None,
+            modifiers,
             local,
             placeholder,
             error: None,
@@ -444,6 +474,62 @@ impl<'a> BuildCx<'a> {
     pub fn clip(&mut self, node: NodeId) {
         if let Some(e) = self.element_mut(node) {
             e.clip = true;
+        }
+    }
+
+    /// This widget's scroll offset (for its scrollable element), as of this build.
+    pub fn scroll_offset(&self) -> Point {
+        self.scroll.offsets.get(&self.widget_id()).copied().unwrap_or(Point::ZERO)
+    }
+
+    /// The visible size of this widget's scroll container in the last layout,
+    /// or `None` before its first layout. Virtualized views use it with
+    /// [`Self::scroll_offset`] to build only the visible rows.
+    pub fn scroll_viewport(&self) -> Option<Size> {
+        self.scroll.viewports.get(&self.widget_id()).copied()
+    }
+
+    /// Scrolls this widget's scroll container to `offset` after the build
+    /// (clamped to its content), e.g. to keep a selected row visible.
+    pub fn set_scroll_offset(&mut self, offset: Point) {
+        let id = self.widget_id();
+        self.scroll_requests.push((id, offset));
+    }
+
+    /// Moves keyboard focus to this widget's focusable element after the build.
+    pub fn request_focus(&mut self) {
+        self.focus_request = Some(self.widget_id());
+    }
+
+    /// Keyboard modifiers as of the latest input event, readable from click
+    /// handlers (e.g. Shift-click to extend a selection).
+    pub fn modifiers(&self) -> Rc<std::cell::Cell<Modifiers>> {
+        self.modifiers.clone()
+    }
+
+    /// A scroll container in both directions whose content is rebuilt on every
+    /// scroll (see [`Self::scroll_viewport`]).
+    pub fn scrollable_virtual(&mut self, node: NodeId, horizontal: bool) {
+        if let Some(e) = self.element_mut(node) {
+            e.scroll = true;
+            e.scroll_x = horizontal;
+            e.clip = true;
+            e.rebuild_on_scroll = true;
+        }
+    }
+
+    /// Moves the node's children by `offset` when painting (e.g. a header that
+    /// follows a body's horizontal scroll).
+    pub fn translate(&mut self, node: NodeId, offset: Point) {
+        if let Some(e) = self.element_mut(node) {
+            e.translate = offset;
+        }
+    }
+
+    /// Calls `handler` on a double click.
+    pub fn on_double_click(&mut self, node: NodeId, handler: Rc<dyn Fn()>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_double_click = Some(handler);
         }
     }
 

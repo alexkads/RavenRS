@@ -52,7 +52,10 @@ pub mod web {
 
 /// Everything an app usually needs, in one import.
 pub mod prelude {
-    pub use raven_core::{Color, CursorIcon, Insets, LinearGradient, Point, Quad, Rect, Scene, Shadow, Size};
+    pub use raven_core::{
+        Color, CursorIcon, ImageData, ImageQuad, Insets, LinearGradient, Point, Quad, Rect, Scene, Shadow,
+        Size,
+    };
     pub use raven_layout::{Align, Justify};
     pub use raven_reactive::{Binding, Derived, State};
     pub use raven_style::{Semantic, TextStyle, Theme, Weight};

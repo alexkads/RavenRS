@@ -14,6 +14,10 @@ pub enum Event {
         position: Point,
         button: PointerButton,
     },
+    /// A second primary click in quick succession, sent after its `PointerUp`.
+    DoubleClick {
+        position: Point,
+    },
     /// The pointer left the window or canvas.
     PointerLeave,
     /// Wheel or trackpad scrolling, in logical pixels. Positive `delta.y` means
@@ -77,4 +81,6 @@ pub enum CursorIcon {
     Default,
     Pointer,
     Text,
+    /// Horizontal resize, e.g. a column edge.
+    ColResize,
 }

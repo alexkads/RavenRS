@@ -97,7 +97,7 @@ impl Checkbox {
     }
 }
 
-fn check_box(cx: &mut BuildCx<'_>, theme: &Theme, checked: bool, hovered: bool) -> NodeId {
+pub(crate) fn check_box(cx: &mut BuildCx<'_>, theme: &Theme, checked: bool, hovered: bool) -> NodeId {
     let mark = if checked {
         vec![util::icon(cx, IconName::Check, 14.0, theme.color(Semantic::OnAccent))]
     } else {

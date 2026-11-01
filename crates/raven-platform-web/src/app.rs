@@ -392,6 +392,19 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     app.listeners.push(pointer("pointerup", |position, button| Event::PointerUp { position, button }));
     app.listeners.push(pointer("pointerleave", |_, _| Event::PointerLeave));
     app.listeners.push(pointer("pointercancel", |_, _| Event::PointerLeave));
+    {
+        let (state, sched) = (state.clone(), scheduler.clone());
+        app.listeners.push(Listener {
+            target: target.clone(),
+            kind: "dblclick",
+            closure: Closure::new(move |e: web_sys::Event| {
+                if let Some(e) = e.dyn_ref::<web_sys::MouseEvent>() {
+                    let position = Point::new(e.offset_x() as f32, e.offset_y() as f32);
+                    dispatch(&state, &sched, Event::DoubleClick { position });
+                }
+            }),
+        });
+    }
 
     {
         let (state, sched) = (state.clone(), scheduler.clone());
@@ -540,6 +553,7 @@ fn dispatch(state: &Rc<RefCell<State>>, scheduler: &Scheduler, event: Event) -> 
             CursorIcon::Default => "default",
             CursorIcon::Pointer => "pointer",
             CursorIcon::Text => "text",
+            CursorIcon::ColResize => "col-resize",
         };
         s.canvas.style().set_property("cursor", css).ok();
         s.cursor = cursor;

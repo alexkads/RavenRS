@@ -117,6 +117,32 @@ Rich components need more than layout and paint; the runtime provides them gener
 * **Theme as state.** The theme is a `State<Theme>`; `ThemeSwitcher` or any component can change it through `cx.theme_state()` and the whole UI rebuilds with the new tokens.
 * **Icons.** A 36 KB subset of Lucide (ISC) is embedded as a font, so icons are glyphs: sharp at any size, colored like text, and batched with text. `scripts/gen-icons.py` regenerates the subset and the `IconName` enum.
 
+## 6.2 DataGrid
+
+`DataGrid` is split in two layers. `grid::query` is a pure pipeline over rows (filter → search → sort → group → summarize) with no UI dependency: it is unit-tested on its own, including a 100,000-row sort-and-group run. The view caches the query result per (query, data version) and builds only the rows inside the viewport plus a small overscan, with spacers above and below; scrolling rebuilds just that window (`BuildCx::scrollable_virtual`, `scroll_viewport`, `set_scroll_offset`). Data lives in `GridData`, shared copy-on-write so edits invalidate the cache exactly once.
+
+Parity with the DevExpress DataGrid feature set:
+
+| Feature | RavenRS |
+|---|---|
+| Virtual scrolling (100k+ rows), vertical and horizontal | ✓ |
+| Sorting, multi-column (Shift/Ctrl-click), with priority badges | ✓ |
+| Filter row with operators (`>`, `>=`, `<`, `<=`, `=`, `<>`, `a..b`), text and yes/no | ✓ |
+| Search panel across visible columns | ✓ |
+| Grouping, nested, expand/collapse (click or arrows), group panel chips | ✓ (from the Group menu; drag-to-group planned) |
+| Group summaries and footer totals (sum, average, min, max, count) | ✓ |
+| Column resizing (drag), column chooser (show/hide), min widths | ✓ |
+| Selection: single, multiple with check boxes, Shift ranges, Ctrl toggle, select all | ✓ |
+| Keyboard navigation (arrows, Home/End, Page Up/Down, Space, Enter/F2) with auto-scroll | ✓ |
+| Cell editing (double-click, Enter, F2; Enter commits, Escape cancels), typed parsing | ✓ |
+| Cell templates (any view) and custom formats; number/currency formats with separators | ✓ |
+| CSV export (RFC 4180, raw numbers) | ✓ |
+| Column reordering by drag, drag-to-group | planned |
+| Fixed (frozen) columns, multi-level (banded) headers | planned |
+| Header filter pop-ups (value checklists), filter builder | planned |
+| Master-detail rows, paging UI, row add/delete UI, validation | planned |
+| Excel export, state persistence, context menus, cell range copy | planned |
+
 ## 7. Rendering
 
 `raven-render` is a small 2D renderer on `wgpu` 30.
@@ -169,9 +195,10 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `TextField`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `Select`, `ThemeSwitcher` | ✓ | | `DatePicker`, multi-line text, text selection |
 | Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion` | ✓ | | `NavigationView`, docking, resizable panels |
 | Overlays: `Tooltip`, `Popover`, `DropdownMenu`, `Dialog` | ✓ | | context menus, command palette, toasts |
-| Display: `Text`, `Icon` (112 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Skeleton`, `Alert`, `Stat`, `List`, `Table`, `BarChart`, `AreaChart`, `Canvas` | ✓ | | `Image`, data grid with sorting and virtualization, line/pie charts |
+| Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |
+| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (112 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Skeleton`, `Alert`, `Stat`, `List`, `Table`, `BarChart`, `AreaChart`, `Canvas` | ✓ | | image loading from URLs, line/pie charts |
 | `GlassCard` | | translucent fill only | backdrop blur |
-| Rounded rects, borders, gradients, soft shadows, text, rectangular clipping | ✓ | | rounded clipping, radial gradients, transforms, images, layers |
+| Rounded rects, borders, gradients, soft shadows, text, images (mipmapped, rounded), rectangular clipping | ✓ | | rounded clipping, radial gradients, transforms, layers |
 | Raven Dark / Light / Glass tokens | ✓ | | runtime theme switch UI, reduced-motion wiring |
 | Motion engine (springs, transitions) | | | `raven-animation` |
 | Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, device loss | ✓ | | multiple windows, clipboard, IME |

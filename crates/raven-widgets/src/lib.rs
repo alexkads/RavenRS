@@ -30,8 +30,10 @@ mod context;
 mod data;
 mod display;
 mod fill;
+pub mod grid;
 mod icon;
 mod icon_set;
+mod image;
 mod inputs;
 mod modifiers;
 mod nav;
@@ -52,8 +54,14 @@ pub use context::{
 pub use data::{AreaChart, BarChart, Column, List, ListItem, Table};
 pub use display::{Alert, Avatar, Badge, Divider, Kbd, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use fill::Fill;
+pub use grid::{
+    CellAlign, DataGrid, GridColumn, GridData, NumberFormat, SelectionMode, SortDirection, Summary, Value,
+};
 pub use icon::Icon;
 pub use icon_set::IconName;
+#[cfg(feature = "decode")]
+pub use image::decode_image;
+pub use image::{ContentMode, DecodeError, Image};
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use modifiers::{Styled, ViewExt};
 pub use nav::{Accordion, Breadcrumb, Disclosure, Sidebar, SidebarItem, SidebarSection, Tabs};

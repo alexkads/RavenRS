@@ -148,10 +148,102 @@ pub struct GlyphRun {
     pub glyphs: Vec<PositionedGlyph>,
 }
 
+/// Decoded pixels: RGBA8, straight (not premultiplied) alpha, sRGB, row-major.
+/// Cloning is cheap; the renderer caches the GPU texture by `id`.
+#[derive(Clone)]
+pub struct ImageData {
+    id: u64,
+    width: u32,
+    height: u32,
+    pixels: Arc<[u8]>,
+}
+
+impl ImageData {
+    /// Wraps RGBA8 pixels. Returns `None` when the buffer does not match the size.
+    pub fn from_rgba8(width: u32, height: u32, pixels: impl Into<Arc<[u8]>>) -> Option<Self> {
+        let pixels = pixels.into();
+        if width == 0 || height == 0 || pixels.len() != width as usize * height as usize * 4 {
+            return None;
+        }
+        static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Some(Self { id, width, height, pixels })
+    }
+
+    /// Builds an image by evaluating `f(x, y)` for every pixel (procedural art, tests).
+    pub fn from_fn(width: u32, height: u32, f: impl Fn(u32, u32) -> Color) -> Option<Self> {
+        let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
+        for y in 0..height {
+            for x in 0..width {
+                let c = f(x, y);
+                let to8 = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+                pixels.extend_from_slice(&[to8(c.r), to8(c.g), to8(c.b), to8(c.a)]);
+            }
+        }
+        Self::from_rgba8(width, height, pixels)
+    }
+
+    /// Stable identity used as the GPU cache key.
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn pixels(&self) -> &[u8] {
+        &self.pixels
+    }
+
+    pub fn aspect_ratio(&self) -> f32 {
+        self.width as f32 / self.height as f32
+    }
+}
+
+impl fmt::Debug for ImageData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ImageData").field("id", &self.id).field("size", &(self.width, self.height)).finish()
+    }
+}
+
+impl PartialEq for ImageData {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+/// An image drawn into a rectangle, with optional rounded corners.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImageQuad {
+    pub rect: Rect,
+    pub image: ImageData,
+    /// The part of the image to show, in normalized coordinates (u0, v0, u1, v1).
+    pub uv: [f32; 4],
+    pub corner_radii: [f32; 4],
+    pub opacity: f32,
+}
+
+impl ImageQuad {
+    pub fn new(rect: Rect, image: ImageData) -> Self {
+        Self { rect, image, uv: [0.0, 0.0, 1.0, 1.0], corner_radii: [0.0; 4], opacity: 1.0 }
+    }
+
+    pub fn radius(mut self, r: f32) -> Self {
+        self.corner_radii = [r; 4];
+        self
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Primitive {
     Quad(Quad),
     Glyphs(GlyphRun),
+    Image(ImageQuad),
     /// Restricts everything until the matching [`Primitive::PopClip`] to the
     /// intersection of this rectangle and the enclosing clip.
     PushClip(Rect),
@@ -193,6 +285,10 @@ impl Scene {
         }
     }
 
+    pub fn push_image(&mut self, image: ImageQuad) {
+        self.primitives.push(Primitive::Image(image));
+    }
+
     /// Clips subsequent primitives to `rect` (intersected with the current clip)
     /// until [`Scene::pop_clip`].
     pub fn push_clip(&mut self, rect: Rect) {
@@ -219,6 +315,16 @@ impl Scene {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn image_data_validates_size_and_gets_unique_ids() {
+        assert!(ImageData::from_rgba8(2, 2, vec![0u8; 15]).is_none());
+        let a = ImageData::from_rgba8(2, 2, vec![0u8; 16]).unwrap();
+        let b = ImageData::from_fn(2, 1, |x, _| if x == 0 { Color::WHITE } else { Color::BLACK }).unwrap();
+        assert_ne!(a.id(), b.id());
+        assert_eq!(&b.pixels()[..8], &[255, 255, 255, 255, 0, 0, 0, 255]);
+        assert_eq!(a, a.clone());
+    }
 
     #[test]
     fn empty_glyph_runs_are_skipped() {

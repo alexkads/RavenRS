@@ -1,7 +1,8 @@
 use bytemuck::{Pod, Zeroable};
-use raven_core::{Brush, Color, Primitive, Quad, Scene};
+use raven_core::{Brush, Color, ImageQuad, Primitive, Quad, Scene};
 
 use crate::atlas::{GlyphAtlas, GlyphKey, Lookup, SUBPIXEL_BINS};
+use crate::images::ImageCache;
 
 const INITIAL_ATLAS_SIZE: u32 = 1024;
 
@@ -33,10 +34,21 @@ struct GlyphInstance {
     color: [f32; 4],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct ImageInstance {
+    rect: [f32; 4],
+    uv: [f32; 4],
+    radii: [f32; 4],
+    params: [f32; 4],
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum BatchKind {
     Quads,
     Glyphs,
+    /// Images of one texture, identified by image id.
+    Image(u64),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -57,6 +69,9 @@ pub struct RenderStats {
     pub draw_calls: usize,
     /// Glyphs resident in the atlas.
     pub atlas_glyphs: usize,
+    pub images: usize,
+    /// Image textures resident on the GPU.
+    pub cached_images: usize,
 }
 
 /// A growable instance buffer that is reused across frames.
@@ -101,6 +116,11 @@ pub struct Renderer {
     srgb_target: bool,
     quad_pipeline: wgpu::RenderPipeline,
     glyph_pipeline: wgpu::RenderPipeline,
+    image_pipeline: wgpu::RenderPipeline,
+    image_sampler: wgpu::Sampler,
+    image_cache: ImageCache,
+    image_buffer: InstanceBuffer,
+    image_instances: Vec<ImageInstance>,
     globals_buffer: wgpu::Buffer,
     globals_bind_group: wgpu::BindGroup,
     atlas_layout: wgpu::BindGroupLayout,
@@ -243,6 +263,27 @@ impl Renderer {
             4 => Float32x4, 5 => Float32x4, 6 => Float32x4
         ];
         let glyph_attributes = wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4];
+        let image_attributes =
+            wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4];
+        let image_pipeline = pipeline(
+            device,
+            "raven image pipeline",
+            include_str!("../shaders/image.wgsl"),
+            &glyph_layout,
+            wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<ImageInstance>() as u64,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &image_attributes,
+            },
+            target_format,
+        );
+        let image_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("raven image sampler"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            ..Default::default()
+        });
         let quad_pipeline = pipeline(
             device,
             "raven quad pipeline",
@@ -274,6 +315,15 @@ impl Renderer {
             srgb_target: target_format.is_srgb(),
             quad_pipeline,
             glyph_pipeline,
+            image_pipeline,
+            image_sampler,
+            image_cache: ImageCache::default(),
+            image_buffer: InstanceBuffer::new(
+                device,
+                "raven image instances",
+                std::mem::size_of::<ImageInstance>(),
+            ),
+            image_instances: Vec::new(),
             globals_buffer,
             globals_bind_group,
             atlas_layout,
@@ -331,6 +381,7 @@ impl Renderer {
             return RenderStats::default();
         }
         self.target_size = size;
+        self.image_cache.begin_frame();
         self.prepare(scene, scale);
 
         let globals = Globals {
@@ -341,6 +392,7 @@ impl Renderer {
         self.queue.write_buffer(&self.globals_buffer, 0, bytemuck::bytes_of(&globals));
         self.quad_buffer.upload(&self.device, &self.queue, bytemuck::cast_slice(&self.quads));
         self.glyph_buffer.upload(&self.device, &self.queue, bytemuck::cast_slice(&self.glyphs));
+        self.image_buffer.upload(&self.device, &self.queue, bytemuck::cast_slice(&self.image_instances));
 
         let clear = self.color_for_target(scene.clear_color());
         let mut encoder = self
@@ -387,6 +439,12 @@ impl Renderer {
                             pass.set_bind_group(1, &self.atlas_bind_group, &[]);
                             pass.set_vertex_buffer(0, self.glyph_buffer.buffer.slice(..));
                         }
+                        BatchKind::Image(id) => {
+                            let Some(image) = self.image_cache.get(id) else { continue };
+                            pass.set_pipeline(&self.image_pipeline);
+                            pass.set_bind_group(1, &image.bind_group, &[]);
+                            pass.set_vertex_buffer(0, self.image_buffer.buffer.slice(..));
+                        }
                     }
                     current = Some(batch.kind);
                 }
@@ -400,6 +458,8 @@ impl Renderer {
             glyphs: self.glyphs.len(),
             draw_calls: self.batches.len(),
             atlas_glyphs: self.atlas.len(),
+            images: self.image_instances.len(),
+            cached_images: self.image_cache.len(),
         }
     }
 
@@ -446,6 +506,7 @@ impl Renderer {
     fn build(&mut self, scene: &Scene, scale: f32, skip_missing: bool) -> Result<(), AtlasFull> {
         self.quads.clear();
         self.glyphs.clear();
+        self.image_instances.clear();
         self.batches.clear();
         self.clips.clear();
         for primitive in scene.primitives() {
@@ -466,6 +527,7 @@ impl Renderer {
                 Primitive::PopClip => {
                     self.clips.pop();
                 }
+                Primitive::Image(image) => self.push_image(image),
                 Primitive::Quad(quad) => {
                     let start = self.quads.len() as u32;
                     push_quad(&mut self.quads, quad);
@@ -520,6 +582,20 @@ impl Renderer {
             }
         }
         Ok(())
+    }
+
+    fn push_image(&mut self, image: &ImageQuad) {
+        let layout = &self.atlas_layout;
+        self.image_cache.prepare(&self.device, &self.queue, layout, &self.image_sampler, &image.image);
+        let start = self.image_instances.len() as u32;
+        let r = image.rect;
+        self.image_instances.push(ImageInstance {
+            rect: [r.x(), r.y(), r.width(), r.height()],
+            uv: image.uv,
+            radii: image.corner_radii,
+            params: [image.opacity.clamp(0.0, 1.0), 0.0, 0.0, 0.0],
+        });
+        self.extend_batch(BatchKind::Image(image.image.id()), start, start + 1);
     }
 
     fn current_scissor(&self) -> [u32; 4] {

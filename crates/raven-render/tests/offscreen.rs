@@ -214,3 +214,54 @@ fn clip_rect_limits_drawing_and_nests() {
     assert_eq!(pixel(&img, 2 * 120, 2 * 25), [0, 0, 0, 255], "outside the outer clip");
     assert_eq!(pixel(&img, 2 * 190, 2 * 90), [0, 255, 0, 255], "clip popped");
 }
+
+#[test]
+fn images_draw_with_rounded_corners_uv_crop_and_mipmaps() {
+    use raven_core::{ImageData, ImageQuad};
+    let Some(gpu) = gpu() else { return };
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    // Left half red, right half blue.
+    let halves =
+        ImageData::from_fn(64, 64, |x, _| if x < 32 { Color::hex(0xff0000) } else { Color::hex(0x0000ff) })
+            .expect("image");
+    // 1px checkerboard: averages to mid grey when minified.
+    let checker =
+        ImageData::from_fn(256, 256, |x, y| if (x + y) % 2 == 0 { Color::WHITE } else { Color::BLACK })
+            .expect("image");
+    let mut scene = Scene::new();
+    scene.set_clear_color(Color::hex(0x00ff00));
+    scene.push_image(ImageQuad::new(Rect::new(10.0, 10.0, 80.0, 80.0), halves.clone()).radius(20.0));
+    let mut crop = ImageQuad::new(Rect::new(100.0, 10.0, 40.0, 40.0), halves);
+    crop.uv = [0.5, 0.0, 1.0, 1.0];
+    scene.push_image(crop);
+    scene.push_image(ImageQuad::new(Rect::new(150.0, 10.0, 32.0, 32.0), checker));
+
+    let img = render(&gpu, &mut renderer, &scene, 1.0);
+    assert!(close(pixel(&img, 25, 50), [255, 0, 0, 255], 3), "left half red");
+    assert!(close(pixel(&img, 75, 50), [0, 0, 255, 255], 3), "right half blue");
+    assert!(close(pixel(&img, 11, 11), [0, 255, 0, 255], 3), "rounded corner shows the background");
+    assert!(close(pixel(&img, 110, 30), [0, 0, 255, 255], 3), "uv crop shows only the blue half");
+    let grey = pixel(&img, 166, 26);
+    assert!(
+        (100..=156).contains(&grey[0]) && grey[0].abs_diff(grey[1]) < 4,
+        "minified checkerboard is grey: {grey:?}"
+    );
+    let stats = renderer.render(
+        &scene,
+        &gpu.device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d { width: 4, height: 4, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: FORMAT,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+            .create_view(&Default::default()),
+        (4, 4),
+        1.0,
+    );
+    assert_eq!((stats.images, stats.cached_images), (3, 2), "textures are reused across frames");
+}

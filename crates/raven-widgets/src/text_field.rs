@@ -19,7 +19,10 @@ pub struct TextField {
     icon: Option<IconName>,
     secure: bool,
     width: Option<f32>,
+    compact: bool,
+    autofocus: bool,
     on_submit: Option<Rc<dyn Fn(String)>>,
+    on_cancel: Option<Rc<dyn Fn()>>,
 }
 
 impl fmt::Debug for TextField {
@@ -30,7 +33,17 @@ impl fmt::Debug for TextField {
 
 impl TextField {
     pub fn new(value: Binding<String>) -> Self {
-        Self { value, placeholder: String::new(), icon: None, secure: false, width: None, on_submit: None }
+        Self {
+            value,
+            placeholder: String::new(),
+            icon: None,
+            secure: false,
+            width: None,
+            compact: false,
+            autofocus: false,
+            on_submit: None,
+            on_cancel: None,
+        }
     }
 
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
@@ -52,6 +65,24 @@ impl TextField {
 
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
+        self
+    }
+
+    /// A shorter field with smaller text, for toolbars, filter rows and cells.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
+    }
+
+    /// Takes keyboard focus when it first appears.
+    pub fn autofocus(mut self) -> Self {
+        self.autofocus = true;
+        self
+    }
+
+    /// Called when Escape is pressed while the field is focused.
+    pub fn on_cancel(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_cancel = Some(Rc::new(handler));
         self
     }
 
@@ -105,13 +136,19 @@ impl View for TextField {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let caret: State<usize> = cx.use_state(|| usize::MAX);
+        let focus_requested: State<bool> = cx.use_state(|| false);
+        if self.autofocus && !*focus_requested.peek() {
+            focus_requested.set_if_changed(true);
+            cx.request_focus();
+        }
         let focused = cx.is_focused();
         let hovered = cx.is_hovered();
         let text = self.value.get();
         let len = text.chars().count();
         let caret_at = caret.get().min(len);
         let shown: String = if self.secure { "•".repeat(len) } else { text.clone() };
-        let attrs = util::attrs(&theme, TextStyle::Body, None);
+        let attrs =
+            util::attrs(&theme, if self.compact { TextStyle::Callout } else { TextStyle::Body }, None);
 
         let mut children = Vec::new();
         if let Some(icon) = self.icon {
@@ -156,28 +193,34 @@ impl View for TextField {
             }
         };
         let style = LayoutStyle {
-            padding: Insets::symmetric(0.0, 12.0),
-            height: Some(40.0),
+            padding: Insets::symmetric(0.0, if self.compact { 8.0 } else { 12.0 }),
+            height: Some(if self.compact { 30.0 } else { 40.0 }),
             width: self.width,
-            min_width: Some(160.0),
+            min_width: Some(if self.compact { 0.0 } else { 160.0 }),
             spacing: 8.0,
             align: Align::Center,
             align_self: Some(if self.width.is_some() { Align::Start } else { Align::Stretch }),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let paint = QuadPaint {
-            corner_radius: theme.radii.md,
+            corner_radius: if self.compact { theme.radii.sm } else { theme.radii.md },
             border: Some(border),
             ..QuadPaint::new(theme.color(Semantic::Surface))
         };
         let node = cx.container(style, &children, Paint::Quad(paint));
 
-        let (value, submit) = (self.value.clone(), self.on_submit.clone());
+        let (value, submit, cancel) = (self.value.clone(), self.on_submit.clone(), self.on_cancel.clone());
         cx.on_key(
             node,
             Rc::new(move |key, modifiers| {
                 if modifiers.ctrl || modifiers.meta {
                     return false;
+                }
+                if *key == Key::Escape
+                    && let Some(cancel) = &cancel
+                {
+                    cancel();
+                    return true;
                 }
                 if *key == Key::Enter {
                     if let Some(submit) = &submit {

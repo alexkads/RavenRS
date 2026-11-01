@@ -91,6 +91,7 @@ pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), Plat
         window: None,
         pointer: None,
         modifiers: Modifiers::default(),
+        last_click: None,
         error: None,
     };
     event_loop.run_app(&mut app).map_err(|e| PlatformError::EventLoop(e.to_string()))?;
@@ -118,6 +119,8 @@ struct App {
     /// Last pointer position in logical pixels.
     pointer: Option<Point>,
     modifiers: Modifiers,
+    /// Time and place of the last primary release, to detect double clicks.
+    last_click: Option<(std::time::Instant, Point)>,
     error: Option<PlatformError>,
 }
 
@@ -187,6 +190,7 @@ impl App {
                     CursorIcon::Default => winit::window::CursorIcon::Default,
                     CursorIcon::Pointer => winit::window::CursorIcon::Pointer,
                     CursorIcon::Text => winit::window::CursorIcon::Text,
+                    CursorIcon::ColResize => winit::window::CursorIcon::ColResize,
                 });
                 state.cursor = cursor;
             }
@@ -322,6 +326,19 @@ impl ApplicationHandler for App {
                         ElementState::Released => Event::PointerUp { position, button },
                     };
                     self.dispatch(event);
+                    if state == ElementState::Released && button == PointerButton::Primary {
+                        let now = std::time::Instant::now();
+                        let double = self.last_click.is_some_and(|(t, p)| {
+                            now.duration_since(t).as_millis() < 450
+                                && (p.x - position.x).hypot(p.y - position.y) < 5.0
+                        });
+                        if double {
+                            self.last_click = None;
+                            self.dispatch(Event::DoubleClick { position });
+                        } else {
+                            self.last_click = Some((now, position));
+                        }
+                    }
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {

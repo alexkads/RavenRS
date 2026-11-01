@@ -5,6 +5,8 @@
 //! * **Quads** (rounded rectangles, borders, linear gradients, soft shadows) are
 //!   instanced and shaded with a signed-distance function (`shaders/quad.wgsl`),
 //!   so edges are anti-aliased analytically at any scale factor.
+//! * **Images** are textures with a full mip chain, cached by image id, drawn
+//!   with the same rounded-corner SDF mask as quads (`shaders/image.wgsl`).
 //! * **Text** is rasterized once per glyph/size/subpixel offset with `swash` into
 //!   an R8 atlas and drawn as textured quads (`shaders/glyph.wgsl`).
 //!
@@ -16,6 +18,7 @@
 
 mod atlas;
 mod gpu;
+mod images;
 mod renderer;
 
 pub use gpu::{GpuContext, GpuError, preferred_surface_format};

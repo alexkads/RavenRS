@@ -81,9 +81,9 @@ Need full control? Implement `View` and use `BuildCx` directly: create layout bo
 | Navigation | `Tabs`, `Sidebar`, `SidebarSection`, `SidebarItem`, `Breadcrumb`, `Disclosure`, `Accordion` |
 | Overlays | `Tooltip`, `Popover`, `DropdownMenu` + `MenuItem`, `Dialog` |
 | Layout | `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Section`, `Card`, `GlassCard`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
-| Data | `Table`, `List`, `ListItem`, `Stat`, `BarChart`, `AreaChart`, `Canvas` |
+| Data | `DataGrid` (100k+ rows virtualized: multi-sort, filter row, search, grouping, summaries, resizing, column chooser, selection, editing, templates, CSV export), `Table`, `List`, `ListItem`, `Stat`, `BarChart`, `AreaChart`, `Canvas` |
 | Feedback | `Alert`, `Badge`, `ProgressBar`, `Skeleton` |
-| Content | `Text`, `Icon` (112 Lucide icons), `Avatar`, `Kbd`, `Divider` |
+| Content | `Text`, `Image` (PNG/JPEG, cover/fit/fill), `Icon` (112 Lucide icons), `Avatar`, `Kbd`, `Divider` |
 
 All of them are in [`examples/component-gallery`](examples/component-gallery), which runs natively and [in the browser](https://alexkads.github.io/RavenRS/).
 
@@ -157,7 +157,7 @@ The renderer tests draw real scenes on your GPU offscreen and check pixels; they
 ## Roadmap
 
 1. **Foundation** (done): workspace, local check scripts, wgpu on desktop and WebGPU, SDF shapes, text, first example.
-2. **Components** (in progress): 40+ components done; images, `ZStack`, virtualized lists and data grids next.
+2. **Components** (in progress): 40+ components, images and a virtualized DataGrid done; DataGrid parity items (frozen columns, drag reordering, header filters, master-detail) and `ZStack` next.
 3. **Reactivity**: incremental reconciliation and per-component invalidation.
 4. **Design system**: motion engine (springs, transitions), backdrop blur for Raven Glass, theme switching.
 5. **Showcase**: a dashboard and a full component gallery running natively and on the web.
