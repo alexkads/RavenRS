@@ -1,13 +1,9 @@
 {
-  "versao": "0.1.1",
-  "titulo": "O app agora avisa de versão nova no rodapé, sem atrapalhar o que você está fazendo.",
+  "versao": "0.1.2",
+  "titulo": "O ícone do app aparece no Linux com GNOME, como no Fedora.",
   "importante": false,
   "novidades": [
-    "Um rodapé sempre mostra a versão em uso; um clique nela mostra o que aquela versão trouxe.",
-    "O app procura versão nova ao abrir e de hora em hora, e mostra em que etapa a atualização está.",
-    "As novidades agora têm a lista de versões e o comando para instalar à mão, se precisar.",
-    "Gesto de pinça para dar zoom nos relatórios e botão de imprimir.",
-    "A tabela de dados ficou legível no tema Vidro."
+    "A janela agora se identifica para o sistema, e o GNOME mostra o ícone do Raven Finanças nela."
   ],
-  "por_que_atualizar": "Sem esta versão, você só fica sabendo de uma atualização ao abrir o app."
+  "por_que_atualizar": "Sem esta versão, a janela do app pode aparecer sem ícone no GNOME."
 }
