@@ -156,7 +156,7 @@ impl Gallery {
                     Icon::new(IconName::Sparkles).size(18.0).color(Semantic::Accent),
                     Text::new("RavenRS").style(TextStyle::Headline),
                     Spacer::new(),
-                    Badge::new("v0.1"),
+                    Badge::new("v26.2"),
                 ))
                 .spacing(10.0)
                 .align(Align::Center)

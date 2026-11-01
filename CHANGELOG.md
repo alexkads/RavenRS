@@ -4,7 +4,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
-## [26.2.0] - unreleased
+## [26.2.0] - 2026-11-01
 
 The first release under the `YY.R.P` versioning model. It follows 0.1.0 directly; the jump in the number marks the new model, not a long gap.
 
