@@ -20,7 +20,7 @@ tracing-subscriber.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 console_error_panic_hook.workspace = true
-web-sys = { workspace = true, features = ["console"] }
+web-sys = { workspace = true, features = ["console", "Window", "Location", "UrlSearchParams"] }
 
 [lints]
 workspace = true

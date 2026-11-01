@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Checks site/components/index.html against the code: every link opens a page of
-the generated API docs, and every public component is listed. Run after `cargo doc`."""
+"""Checks site/components/index.html against the code: every component's API link
+opens a page of the generated docs, and every public component is listed. Run after
+`cargo doc`. scripts/gen-component-pages.py checks that each one has an example."""
 import pathlib
 import re
 import sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
 page = (root / "site/components/index.html").read_text()
-links = dict(
-    (name, path) for path, name in re.findall(r'href="\.\./api/(ravenrs_widgets/(?:\w+/)*struct\.(\w+)\.html)"', page)
-)
+links = {
+    name: f"ravenrs_widgets/{path}"
+    for path, name in re.findall(r'data-api="((?:\w+/)*struct\.(\w+)\.html)"', page)
+}
 listed = set(links)
 
 # Parts of a listed component, and plumbing that is not a component on its own.

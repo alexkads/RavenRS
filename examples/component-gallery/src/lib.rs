@@ -4,6 +4,8 @@
 use ravenrs::layout::{Axis, LayoutStyle};
 use ravenrs::prelude::*;
 
+pub mod samples;
+
 /// Categories shown in the sidebar, in order.
 const PAGES: &[(IconName, &str)] = &[
     (IconName::LayoutDashboard, "Overview"),
@@ -1845,13 +1847,24 @@ mod web_entry {
     pub fn start() {
         console_error_panic_hook::set_once();
         wasm_bindgen_futures::spawn_local(async {
-            match ravenrs::web::start(super::Gallery::new(), ravenrs::web::WebOptions::new("raven-canvas"))
-                .await
-            {
+            let options = ravenrs::web::WebOptions::new("raven-canvas");
+            // `?component=Button` shows that example alone, for the component pages.
+            let sample = requested_component().and_then(|name| super::samples::SampleApp::new(&name));
+            let started = match sample {
+                Some(sample) => ravenrs::web::start(sample, options).await,
+                None => ravenrs::web::start(super::Gallery::new(), options).await,
+            };
+            match started {
                 Ok(app) => APP.with(|a| *a.borrow_mut() = Some(app)),
                 Err(e) => web_sys::console::error_1(&e.to_string().into()),
             }
         });
+    }
+
+    fn requested_component() -> Option<String> {
+        let search = web_sys::window()?.location().search().ok()?;
+        let params = web_sys::UrlSearchParams::new_with_str(&search).ok()?;
+        params.get("component")
     }
 
     #[wasm_bindgen]

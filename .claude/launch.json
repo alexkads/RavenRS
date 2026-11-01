@@ -36,6 +36,18 @@
         "8095"
       ],
       "port": 8095
+    },
+    {
+      "name": "site-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "target/site-preview",
+        "8097"
+      ],
+      "port": 8097
     }
   ]
 }

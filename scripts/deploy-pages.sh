@@ -23,6 +23,7 @@ trap 'rm -rf "$site"' EXIT
 mkdir -p "$site/demo" "$site/hello" "$site/designer" "$site/assets" "$site/components"
 cp site/index.html "$site/"
 cp -R site/components/. "$site/components/"
+./scripts/gen-component-pages.py "$site/components"
 cp -R examples/component-gallery/web/. "$site/demo/"
 cp -R examples/hello-world/web/. "$site/hello/"
 cp -R examples/report-designer/web/. "$site/designer/"
