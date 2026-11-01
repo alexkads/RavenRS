@@ -26,9 +26,10 @@ const FAR_BELOW_THE_BEST: f32 = 0.25;
 const STOP_WORDS: &[&str] = &[
     "a", "ao", "aos", "as", "com", "como", "da", "das", "de", "do", "dos", "e", "em", "eu", "faco", "fazer",
     "foi", "ha", "isso", "mais", "meu", "meus", "minha", "minhas", "na", "nas", "no", "nos", "o", "onde",
-    "os", "ou", "para", "pelo", "pela", "por", "posso", "pra", "qual", "quando", "que", "quero", "se", "sem",
-    "seu", "sua", "um", "uma", "uns", "umas", "an", "and", "are", "can", "does", "for", "how", "i", "in",
-    "is", "it", "my", "of", "on", "or", "the", "to", "what", "where", "with",
+    "os", "ou", "outra", "outras", "outro", "outros", "para", "pelo", "pela", "por", "posso", "pra", "qual",
+    "quando", "que", "quero", "se", "sem", "seu", "sua", "um", "uma", "uns", "umas", "an", "and", "are",
+    "can", "does", "for", "how", "i", "in", "is", "it", "my", "of", "on", "or", "the", "to", "what", "where",
+    "with",
 ];
 
 /// What a moment of a film is.

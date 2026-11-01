@@ -152,6 +152,7 @@ fn questions_in_plain_words_find_the_right_moment_of_the_film() {
     }
     assert_eq!(best("cartão de crédito"), None);
     assert_eq!(best("como cadastrar uma compra"), None);
+    assert_eq!(best("convidar outra pessoa da família"), None);
 }
 
 #[test]
