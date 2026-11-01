@@ -3,12 +3,12 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
-use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::date::Date;
 use crate::{ButtonSize, IconButton, IconName, View, util};
 
@@ -156,6 +156,13 @@ impl View for Day<'_> {
             &[label],
             Paint::Quad(QuadPaint { corner_radius: 9.0, border, ..QuadPaint::new(fill) }),
         );
+        // The full date, so the day reads on its own ("31 October 2026").
+        let name = format!("{} {}", self.date.day(), self.date.month_title());
+        let mut semantics = Semantics::new(Role::Button).name(name).selected(selected).disabled(!enabled);
+        if c.today == Some(self.date) {
+            semantics = semantics.description("Today");
+        }
+        cx.semantics(node, semantics);
         if self.keys.focus_to.get() == Some(self.date) {
             self.keys.focus_to.set(None);
             cx.request_focus();
@@ -190,6 +197,7 @@ impl View for Calendar {
         let (prev, next) = (month.clone(), month.clone());
         let back = cx.child(
             &IconButton::new(IconName::ChevronLeft)
+                .label("Previous month")
                 .size(ButtonSize::Small)
                 .on_click(move || prev.update(|m| *m = m.add_months(-1))),
         );
@@ -207,6 +215,7 @@ impl View for Calendar {
         );
         let forward = cx.child(
             &IconButton::new(IconName::ChevronRight)
+                .label("Next month")
                 .size(ButtonSize::Small)
                 .on_click(move || next.update(|m| *m = m.add_months(1))),
         );
@@ -223,6 +232,8 @@ impl View for Calendar {
             .iter()
             .map(|d| {
                 let l = util::label(cx, d, TextStyle::Caption, None, theme.color(Semantic::InkMuted));
+                // Each day's name already says the date.
+                cx.semantics(l, Semantics::hidden());
                 cx.container(
                     LayoutStyle {
                         width: Some(36.0),
@@ -261,6 +272,7 @@ impl View for Calendar {
             &cells,
             Paint::None,
         );
+        cx.semantics(grid, Semantics::new(Role::Calendar).name(shown.month_title()));
         cx.container(
             LayoutStyle {
                 spacing: 10.0,
@@ -282,12 +294,13 @@ pub struct DatePicker {
     placeholder: String,
     today: Option<Date>,
     width: f32,
+    label: Option<String>,
 }
 
 impl DatePicker {
     /// `month` is shown when no date is selected yet.
     pub fn new(value: Binding<Option<Date>>, month: Date) -> Self {
-        Self { value, month, placeholder: "Pick a date".into(), today: None, width: 220.0 }
+        Self { value, month, placeholder: "Pick a date".into(), today: None, width: 220.0, label: None }
     }
 
     /// Text shown while no date is selected ("Pick a date" by default).
@@ -336,6 +349,15 @@ impl View for CalendarPanel<'_> {
     }
 }
 
+impl DatePicker {
+    /// The name screen readers announce, such as "Due date". Inside a
+    /// [`crate::FormField`], its label is used instead.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
 impl View for DatePicker {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
@@ -374,6 +396,13 @@ impl View for DatePicker {
                 ..QuadPaint::new(theme.color(Semantic::Surface))
             }),
         );
+        cx.semantics(label, Semantics::hidden());
+        let value = self.value.get().map(|d| format!("{} {}", d.day(), d.month_title())).unwrap_or_default();
+        let mut semantics = Semantics::new(Role::ComboBox).value(value).expanded(is_open);
+        if let Some(label) = &self.label {
+            semantics = semantics.name(label.clone());
+        }
+        cx.semantics(node, semantics);
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
         cx.focusable(node, theme.radii.md);

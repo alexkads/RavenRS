@@ -3,12 +3,17 @@
 //!
 //! Frames are produced on demand: the event loop sleeps until input arrives or
 //! reactive state changes, so an idle app uses no CPU or GPU time.
+//!
+//! Screen readers see the UI through AccessKit: the accessibility tree is
+//! built only while one is running.
+
+mod access;
 
 use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use ravenrs_core::{CursorIcon, Event, Key, Modifiers, Point, PointerButton, Size};
+use ravenrs_core::{AccessTree, CursorIcon, Event, Key, Modifiers, Point, PointerButton, Size};
 use ravenrs_render::{GpuContext, GpuError, Renderer, preferred_surface_format, wgpu};
 use ravenrs_style::Theme;
 use ravenrs_widgets::{Ui, View};
@@ -16,7 +21,7 @@ use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event::StartCause;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
 use winit::window::{Window, WindowId};
 
@@ -102,9 +107,13 @@ impl From<GpuError> for PlatformError {
 
 /// Opens a window showing `root` and runs until it is closed.
 pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), PlatformError> {
-    let event_loop = EventLoop::new().map_err(|e| PlatformError::EventLoop(e.to_string()))?;
+    let event_loop = EventLoop::<accesskit_winit::Event>::with_user_event()
+        .build()
+        .map_err(|e| PlatformError::EventLoop(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Wait);
     let mut app = App {
+        proxy: event_loop.create_proxy(),
+        access: None,
         ui: Ui::new(root, options.theme),
         options,
         window: None,
@@ -132,8 +141,18 @@ struct WindowState {
     window: Arc<Window>,
 }
 
+/// The AccessKit adapter of the window and what it last sent.
+struct Access {
+    adapter: accesskit_winit::Adapter,
+    /// A screen reader asked for the tree; updates are sent while true.
+    active: bool,
+    last: Option<AccessTree>,
+}
+
 struct App {
     ui: Ui,
+    proxy: EventLoopProxy<accesskit_winit::Event>,
+    access: Option<Access>,
     options: WindowOptions,
     window: Option<WindowState>,
     /// Last pointer position in logical pixels.
@@ -147,7 +166,9 @@ struct App {
 
 impl App {
     fn create_window(&mut self, event_loop: &ActiveEventLoop) -> Result<WindowState, PlatformError> {
+        // Hidden until the accessibility adapter is attached, as AccessKit requires.
         let mut attributes = Window::default_attributes()
+            .with_visible(false)
             .with_title(self.options.title.clone())
             .with_inner_size(LogicalSize::new(self.options.size.width, self.options.size.height));
         if let Some(min) = self.options.min_size {
@@ -155,7 +176,27 @@ impl App {
         }
         let window =
             Arc::new(event_loop.create_window(attributes).map_err(|e| PlatformError::Window(e.to_string()))?);
+        let adapter =
+            accesskit_winit::Adapter::with_event_loop_proxy(event_loop, &window, self.proxy.clone());
+        self.access = Some(Access { adapter, active: false, last: None });
+        window.set_visible(true);
         self.init_gpu(window)
+    }
+
+    /// Sends the accessibility tree to the screen reader if one is listening
+    /// and the tree changed.
+    fn update_access(&mut self) {
+        let Some(access) = &mut self.access else { return };
+        if !access.active {
+            return;
+        }
+        let tree = self.ui.access_tree();
+        if access.last.as_ref() == Some(&tree) {
+            return;
+        }
+        let scale = f64::from(self.ui.scale());
+        access.adapter.update_if_active(|| access::tree_update(&tree, scale));
+        access.last = Some(tree);
     }
 
     fn init_gpu(&mut self, window: Arc<Window>) -> Result<WindowState, PlatformError> {
@@ -263,6 +304,7 @@ impl App {
         if self.ui.needs_redraw() {
             state.window.request_redraw();
         }
+        self.update_access();
     }
 }
 
@@ -299,7 +341,7 @@ fn map_button(button: MouseButton) -> PointerButton {
     }
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler<accesskit_winit::Event> for App {
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
         if let StartCause::ResumeTimeReached { .. } = cause
             && let Some(state) = &self.window
@@ -333,7 +375,39 @@ impl ApplicationHandler for App {
         }
     }
 
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: accesskit_winit::Event) {
+        use accesskit_winit::WindowEvent as A;
+        match event.window_event {
+            A::InitialTreeRequested => {
+                if let Some(access) = &mut self.access {
+                    access.active = true;
+                    access.last = None;
+                }
+                self.ui.update();
+                self.update_access();
+            }
+            A::ActionRequested(request) => {
+                let Some(action) = access::action(request.action) else { return };
+                self.ui.set_time(self.started.elapsed().as_secs_f64());
+                if self.ui.perform_action(request.target_node.0, action)
+                    && let Some(state) = &self.window
+                {
+                    state.window.request_redraw();
+                }
+            }
+            A::AccessibilityDeactivated => {
+                if let Some(access) = &mut self.access {
+                    access.active = false;
+                    access.last = None;
+                }
+            }
+        }
+    }
+
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        if let (Some(access), Some(state)) = (&mut self.access, &self.window) {
+            access.adapter.process_event(&state.window, &event);
+        }
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {

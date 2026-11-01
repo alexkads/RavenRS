@@ -3,12 +3,12 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Quad, Rect};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
-use crate::context::{BuildCx, DragPhase, NodeId, Paint, Placement, QuadPaint};
+use crate::context::{BuildCx, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::overlay::{Entry, MenuList};
 use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, MenuItem, View, util};
 
@@ -47,7 +47,7 @@ impl View for Spinner {
         }
         let (size, color) = (self.size, theme.color(Semantic::Accent).lerp(theme.color(Semantic::Ink), 0.2));
         let step = if still { 0 } else { ((now * 10.0) as i64).rem_euclid(8) as usize };
-        cx.container(
+        let node = cx.container(
             LayoutStyle { width: Some(size), height: Some(size), ..LayoutStyle::leaf() },
             &[],
             Paint::Custom(Rc::new(move |f: Rect, scene| {
@@ -63,7 +63,9 @@ impl View for Spinner {
                     scene.push_quad(Quad::new(rect, color.with_alpha(alpha)).radius(dot / 2.0));
                 }
             })),
-        )
+        );
+        cx.semantics(node, Semantics::new(Role::ProgressIndicator).name("Loading"));
+        node
     }
 }
 
@@ -140,6 +142,7 @@ impl View for Carousel {
         let (prev, next, s1, s2) = (index.clone(), index.clone(), since.clone(), since.clone());
         let back = cx.child(
             &IconButton::new(IconName::ChevronLeft)
+                .label("Previous slide")
                 .style(ButtonStyle::Secondary)
                 .size(ButtonSize::Small)
                 .on_click(move || {
@@ -149,6 +152,7 @@ impl View for Carousel {
         );
         let forward = cx.child(
             &IconButton::new(IconName::ChevronRight)
+                .label("Next slide")
                 .style(ButtonStyle::Secondary)
                 .size(ButtonSize::Small)
                 .on_click(move || {
@@ -172,6 +176,10 @@ impl View for Carousel {
                 },
                 &[],
                 Paint::Quad(QuadPaint { corner_radius: 4.0, ..QuadPaint::new(color) }),
+            );
+            cx.semantics(
+                dot,
+                Semantics::new(Role::Button).name(format!("Slide {} of {n}", i + 1)).selected(on),
             );
             let idx = index.clone();
             cx.on_click(dot, Rc::new(move || idx.set(i)));
@@ -425,6 +433,7 @@ impl View for MenuTitle<'_> {
             &[label],
             Paint::Quad(QuadPaint { corner_radius: 6.0, ..QuadPaint::new(fill) }),
         );
+        cx.semantics(node, Semantics::new(Role::MenuItem).expanded(is_open));
         let open = self.open.clone();
         cx.on_click(node, Rc::new(move || open.update(|o| *o = if *o == Some(i) { None } else { Some(i) })));
         cx.cursor(node, CursorIcon::Pointer);
@@ -452,7 +461,7 @@ impl View for Menubar {
         let titles: Vec<NodeId> = (0..self.menus.len())
             .map(|index| cx.keyed_child(index as u64, &MenuTitle { index, bar: self, open: open.clone() }))
             .collect();
-        cx.container(
+        let node = cx.container(
             LayoutStyle {
                 padding: Insets::uniform(4.0),
                 spacing: 2.0,
@@ -465,7 +474,9 @@ impl View for Menubar {
                 border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
                 ..QuadPaint::new(theme.color(Semantic::Surface))
             }),
-        )
+        );
+        cx.semantics(node, Semantics::new(Role::MenuBar));
+        node
     }
 }
 
@@ -537,6 +548,16 @@ impl View for InputOtp {
             &boxes,
             Paint::None,
         );
+        for b in &boxes {
+            cx.semantics(*b, Semantics::hidden());
+        }
+        let typed: String = self.value.get().chars().take(self.length).collect();
+        let mut semantics = Semantics::new(Role::TextInput)
+            .name("Verification code")
+            .value(typed)
+            .description(format!("{} digits", self.length));
+        semantics.fallback_name = true;
+        cx.semantics(node, semantics);
         let (value, len, done) = (self.value.clone(), self.length, self.on_complete.clone());
         cx.on_key(
             node,
@@ -693,6 +714,7 @@ impl<V: View> View for FormField<V> {
         let mut children = vec![label, content];
         let value = self.value.as_ref().map(Binding::get).unwrap_or_default();
         let error = (self.show_errors || !value.is_empty()).then(|| self.error()).flatten();
+        cx.label_control(content, self.label.text(), error.as_deref().or(self.hint.as_deref()));
         if let Some(e) = error {
             let icon = util::icon(cx, IconName::CircleAlert, 14.0, theme.color(Semantic::Danger));
             let text = util::label(cx, &e, TextStyle::Callout, None, theme.color(Semantic::Danger));

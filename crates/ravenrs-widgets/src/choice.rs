@@ -3,12 +3,12 @@
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
-use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::{ButtonSize, ButtonStyle, IconName, View, util};
 
 /// A button that stays pressed: bold, italic, "pin", "mute".
@@ -73,6 +73,12 @@ fn toggle_item(
         &children,
         Paint::Quad(QuadPaint { corner_radius: 8.0, border, ..QuadPaint::new(fill) }),
     );
+    let mut semantics = Semantics::new(Role::Button).toggled(on);
+    if icon_only && let Some(i) = icon {
+        semantics = semantics.name(i.name().replace('-', " "));
+        semantics.fallback_name = true;
+    }
+    cx.semantics(node, semantics);
     cx.on_click(node, on_click);
     cx.focusable(node, 8.0);
     cx.cursor(node, CursorIcon::Pointer);
@@ -166,7 +172,7 @@ impl View for ToggleGroup {
                 cx.keyed_child(index as u64, &GroupItem { index, group: self, roving })
             })
             .collect();
-        cx.container(
+        let node = cx.container(
             LayoutStyle {
                 spacing: 4.0,
                 align: Align::Center,
@@ -175,7 +181,9 @@ impl View for ToggleGroup {
             },
             &items,
             Paint::None,
-        )
+        );
+        cx.semantics(node, Semantics::new(Role::Toolbar));
+        node
     }
 }
 
@@ -239,10 +247,13 @@ impl View for Pagination {
                     let b = self.page.clone();
                     let style = if p == current { ButtonStyle::Secondary } else { ButtonStyle::Ghost };
                     let button = crate::Button::new((p + 1).to_string())
+                        .accessible_name(format!("Page {}", p + 1))
                         .style(style)
                         .size(ButtonSize::Small)
                         .on_click(move || b.set(p));
-                    items.push(cx.keyed_child(p as u64, &button));
+                    let node = cx.keyed_child(p as u64, &button);
+                    cx.update_semantics(node, |s| s.selected = Some(p == current));
+                    items.push(node);
                 }
                 None => {
                     let dots = util::icon(cx, IconName::Ellipsis, 16.0, theme.color(Semantic::InkMuted));
@@ -270,7 +281,7 @@ impl View for Pagination {
                     .on_click(move || next.update(|p| *p = (*p + 1).min(last))),
             ),
         );
-        cx.container(
+        let node = cx.container(
             LayoutStyle {
                 spacing: 4.0,
                 align: Align::Center,
@@ -279,7 +290,9 @@ impl View for Pagination {
             },
             &items,
             Paint::None,
-        )
+        );
+        cx.semantics(node, Semantics::new(Role::Group).name("Pagination"));
+        node
     }
 }
 
@@ -295,6 +308,11 @@ impl Label {
     /// A label with this text.
     pub fn new(text: impl Into<String>) -> Self {
         Self { text: text.into(), required: false, hint: None }
+    }
+
+    /// The label text.
+    pub fn text(&self) -> &str {
+        &self.text
     }
 
     /// Adds a red `*` after the text.

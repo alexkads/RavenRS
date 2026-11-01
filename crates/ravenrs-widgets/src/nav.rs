@@ -3,12 +3,12 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{CursorIcon, Insets, Quad, Rect};
+use ravenrs_core::{CursorIcon, Insets, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
-use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::{AnyView, IconName, View, ViewSeq, util};
 
 /// A tab bar with one content view per tab; only the selected one is built.
@@ -66,6 +66,7 @@ impl View for TabButton {
                 }
             })),
         );
+        cx.semantics(node, Semantics::new(Role::Tab).selected(on));
         let (selected, index) = (self.selected.clone(), self.roving.index);
         cx.on_click(node, Rc::new(move || selected.set(index)));
         // Tabs activate as focus moves (WAI-ARIA tabs, automatic activation).
@@ -101,11 +102,25 @@ impl View for Tabs {
                 scene.push_quad(Quad::new(Rect::new(f.x(), f.max_y() - 1.0, f.width(), 1.0), border));
             })),
         );
+        cx.semantics(bar, Semantics::new(Role::TabList));
         let selected = self.selected.get().min(self.tabs.len().saturating_sub(1));
         let mut children = vec![bar];
-        if let Some((_, content)) = self.tabs.get(selected) {
+        if let Some((label, content)) = self.tabs.get(selected) {
             // Keyed by tab so each tab keeps its own local state.
-            children.push(cx.keyed_child(selected as u64, content.as_ref()));
+            let content = cx.keyed_child(selected as u64, content.as_ref());
+            // A box that fills the space, so content that grows still does.
+            let panel = cx.container(
+                LayoutStyle {
+                    grow: 1.0,
+                    min_height: Some(0.0),
+                    align: Align::Stretch,
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[content],
+                Paint::None,
+            );
+            cx.semantics(panel, Semantics::new(Role::TabPanel).name(label.clone()));
+            children.push(panel);
         }
         cx.container(
             LayoutStyle { spacing: 20.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
@@ -273,6 +288,7 @@ impl View for SidebarItem {
         };
         let paint = Paint::Quad(QuadPaint { corner_radius: 8.0, ..QuadPaint::new(fill) });
         let node = cx.container(style, &children, paint);
+        cx.semantics(node, Semantics::new(Role::Button).selected(self.selected));
         if let Some(h) = &self.on_click {
             cx.on_click(node, h.clone());
         }
@@ -306,11 +322,13 @@ impl View for Breadcrumb {
             let weight = if last { Some(Weight::SEMIBOLD) } else { None };
             children.push(util::label(cx, item, TextStyle::Callout, weight, color));
         }
-        cx.container(
+        let node = cx.container(
             LayoutStyle { spacing: 6.0, align: Align::Center, ..LayoutStyle::stack(Axis::Horizontal) },
             &children,
             Paint::None,
-        )
+        );
+        cx.semantics(node, Semantics::new(Role::Group).name("Breadcrumb"));
+        node
     }
 }
 
@@ -366,6 +384,7 @@ impl View for Disclosure {
             &[icon, title],
             Paint::Quad(QuadPaint { corner_radius: 8.0, ..QuadPaint::new(header_fill) }),
         );
+        cx.semantics(header, Semantics::new(Role::Button).expanded(is_open));
         let toggle = open.clone();
         cx.on_click(header, Rc::new(move || toggle.update(|o| *o = !*o)));
         cx.focusable(header, 8.0);

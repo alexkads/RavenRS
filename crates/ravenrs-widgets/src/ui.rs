@@ -14,6 +14,8 @@ use crate::context::{
     ScrollState, Shortcut, TextLeaf, WidgetId,
 };
 
+mod access;
+
 type Waker = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 
 /// Lines scrolled per wheel notch are converted to pixels by the platform; this
@@ -67,6 +69,7 @@ pub struct Ui {
     pointer: Option<Point>,
     cursor: CursorIcon,
     scene: Scene,
+    access_map: access::AccessMap,
 }
 
 impl fmt::Debug for Ui {
@@ -123,6 +126,7 @@ impl Ui {
             pointer: None,
             cursor: CursorIcon::Default,
             scene: Scene::new(),
+            access_map: access::AccessMap::default(),
         }
     }
 

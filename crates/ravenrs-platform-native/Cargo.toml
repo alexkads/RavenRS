@@ -19,6 +19,8 @@ ravenrs-style.workspace = true
 ravenrs-widgets.workspace = true
 ravenrs-render.workspace = true
 winit.workspace = true
+accesskit.workspace = true
+accesskit_winit.workspace = true
 pollster.workspace = true
 tracing.workspace = true
 

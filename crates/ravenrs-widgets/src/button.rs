@@ -1,11 +1,11 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
-use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::{IconName, View, util};
 
 /// Visual emphasis of a [`Button`] or other control.
@@ -148,6 +148,7 @@ pub struct Button {
     trailing_icon: Option<IconName>,
     disabled: bool,
     full_width: bool,
+    accessible_name: Option<String>,
 }
 
 impl fmt::Debug for Button {
@@ -168,7 +169,15 @@ impl Button {
             trailing_icon: None,
             disabled: false,
             full_width: false,
+            accessible_name: None,
         }
+    }
+
+    /// Sets the name screen readers announce, instead of the label. Icon-only
+    /// buttons should always have one.
+    pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
+        self.accessible_name = Some(name.into());
+        self
     }
 
     /// Runs `handler` when the button is clicked or activated with Enter or Space.
@@ -246,6 +255,15 @@ impl View for Button {
         let radius = theme.radii.md;
         let paint = Paint::Quad(QuadPaint { fill: fill.into(), corner_radius: radius, border, shadow: None });
         let node = cx.container(style, &children, paint);
+        let mut semantics = Semantics::new(Role::Button).disabled(self.disabled);
+        if let Some(name) = &self.accessible_name {
+            semantics = semantics.name(name.clone());
+        } else if let (true, Some(icon)) = (icon_only, self.icon) {
+            // A guess a surrounding tooltip replaces.
+            semantics = semantics.name(icon.name().replace('-', " "));
+            semantics.fallback_name = true;
+        }
+        cx.semantics(node, semantics);
         if !self.disabled {
             if let Some(handler) = &self.on_click {
                 cx.on_click(node, handler.clone());
@@ -272,6 +290,13 @@ impl IconButton {
     /// Runs `handler` when the button is clicked or activated with Enter or Space.
     pub fn on_click(mut self, handler: impl Fn() + 'static) -> Self {
         self.button = self.button.on_click(handler);
+        self
+    }
+
+    /// Sets the name screen readers announce, such as "Search". Without it,
+    /// the icon's name is used, which rarely describes the action well.
+    pub fn label(mut self, name: impl Into<String>) -> Self {
+        self.button = self.button.accessible_name(name);
         self
     }
 

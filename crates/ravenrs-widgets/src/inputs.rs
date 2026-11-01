@@ -2,12 +2,12 @@
 
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Point, Quad, Rect, Shadow};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Point, Quad, Rect, Role, Shadow};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
-use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint};
+use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics};
 use crate::{IconName, View, util};
 
 fn row(cx: &mut BuildCx<'_>, children: &[NodeId]) -> NodeId {
@@ -100,6 +100,7 @@ impl View for Toggle {
             children.push(util::label(cx, label, TextStyle::Body, None, theme.color(Semantic::Ink)));
         }
         let node = row(cx, &children);
+        cx.semantics(node, Semantics::new(Role::Switch).toggled(on));
         let value = self.value.clone();
         make_interactive(cx, node, 8.0, Rc::new(move || value.update(|v| *v = !*v)));
         node
@@ -149,9 +150,11 @@ pub(crate) fn check_box(cx: &mut BuildCx<'_>, theme: &Theme, checked: bool, hove
 impl View for Checkbox {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let b = check_box(cx, &theme, self.value.get(), cx.is_hovered());
+        let checked = self.value.get();
+        let b = check_box(cx, &theme, checked, cx.is_hovered());
         let label = util::label(cx, &self.label, TextStyle::Body, None, theme.color(Semantic::Ink));
         let node = row(cx, &[b, label]);
+        cx.semantics(node, Semantics::new(Role::CheckBox).toggled(checked));
         let value = self.value.clone();
         make_interactive(cx, node, 6.0, Rc::new(move || value.update(|v| *v = !*v)));
         node
@@ -164,12 +167,19 @@ impl View for Checkbox {
 pub struct RadioGroup {
     selected: Binding<usize>,
     options: Vec<String>,
+    label: Option<String>,
 }
 
 impl RadioGroup {
     /// Radio buttons for `options`; `selected` holds the zero-based index.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self { selected, options: options.into_iter().map(Into::into).collect() }
+        Self { selected, options: options.into_iter().map(Into::into).collect(), label: None }
+    }
+
+    /// The name screen readers announce for the group, such as "Plan".
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 }
 
@@ -218,6 +228,7 @@ impl View for RadioOption {
         );
         let label = util::label(cx, &self.label, TextStyle::Body, None, theme.color(Semantic::Ink));
         let node = row(cx, &[circle, label]);
+        cx.semantics(node, Semantics::new(Role::RadioButton).selected(on).toggled(on));
         self.choice.wire(cx, node, 6.0);
         node
     }
@@ -237,11 +248,21 @@ impl View for RadioGroup {
                 cx.child(&RadioOption { choice, label: label.clone() })
             })
             .collect();
-        cx.container(
+        let node = cx.container(
             LayoutStyle { spacing: 10.0, ..LayoutStyle::stack(Axis::Vertical) },
             &options,
             Paint::None,
-        )
+        );
+        cx.semantics(node, group_semantics(self.label.as_deref()));
+        node
+    }
+}
+
+fn group_semantics(label: Option<&str>) -> Semantics {
+    let semantics = Semantics::new(Role::RadioGroup);
+    match label {
+        Some(l) => semantics.name(l),
+        None => semantics,
     }
 }
 
@@ -263,12 +284,13 @@ pub struct Slider {
     max: f32,
     step: f32,
     width: Option<f32>,
+    label: Option<String>,
 }
 
 impl Slider {
     /// A slider over 0.0–1.0 bound to `value`, stepping by 0.01.
     pub fn new(value: Binding<f32>) -> Self {
-        Self { value, min: 0.0, max: 1.0, step: 0.01, width: None }
+        Self { value, min: 0.0, max: 1.0, step: 0.01, width: None, label: None }
     }
 
     /// The value range; also resets the step to 1/100 of the range.
@@ -288,6 +310,12 @@ impl Slider {
     /// Fixed width in logical pixels; by default the slider stretches.
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
+        self
+    }
+
+    /// The name screen readers announce, such as "Volume".
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
         self
     }
 }
@@ -338,6 +366,12 @@ impl View for Slider {
                 );
             })),
         );
+        let mut semantics =
+            Semantics::new(Role::Slider).numeric(value as f64, min as f64, max as f64, Some(step as f64));
+        if let Some(label) = &self.label {
+            semantics = semantics.name(label.clone());
+        }
+        cx.semantics(node, semantics);
         let snap = move |v: f32| ((v - min) / step).round() * step + min;
         let drag_value = self.value.clone();
         cx.on_drag(
@@ -379,18 +413,25 @@ pub struct Stepper {
     value: Binding<i32>,
     min: i32,
     max: i32,
+    label: Option<String>,
 }
 
 impl Stepper {
     /// A stepper bound to `value`, unbounded.
     pub fn new(value: Binding<i32>) -> Self {
-        Self { value, min: i32::MIN, max: i32::MAX }
+        Self { value, min: i32::MIN, max: i32::MAX, label: None }
     }
 
     /// Clamps the value to `min..=max`.
     pub fn range(mut self, min: i32, max: i32) -> Self {
         self.min = min;
         self.max = max.max(min);
+        self
+    }
+
+    /// The name screen readers announce, such as "Seats".
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
         self
     }
 }
@@ -404,6 +445,7 @@ impl View for Stepper {
         let inc = self.value.clone();
         let minus = cx.child(
             &crate::IconButton::new(IconName::Minus)
+                .label("Decrease")
                 .size(crate::ButtonSize::Small)
                 .on_click(move || dec.update(|v| *v = (*v - 1).max(min))),
         );
@@ -419,8 +461,11 @@ impl View for Stepper {
             &[text],
             Paint::None,
         );
+        // Read through the spin button's value instead.
+        cx.semantics(value, Semantics::hidden());
         let plus = cx.child(
             &crate::IconButton::new(IconName::Plus)
+                .label("Increase")
                 .size(crate::ButtonSize::Small)
                 .on_click(move || inc.update(|v| *v = (*v + 1).min(max))),
         );
@@ -437,6 +482,12 @@ impl View for Stepper {
             ..QuadPaint::new(theme.color(Semantic::Surface))
         };
         let node = cx.container(style, &[minus, value, plus], Paint::Quad(paint));
+        let mut semantics =
+            Semantics::new(Role::SpinButton).numeric(v as f64, min as f64, max as f64, Some(1.0));
+        if let Some(label) = &self.label {
+            semantics = semantics.name(label.clone());
+        }
+        cx.semantics(node, semantics);
         let value = self.value.clone();
         cx.on_key(
             node,
@@ -464,12 +515,13 @@ impl View for Stepper {
 pub struct SegmentedControl {
     selected: Binding<usize>,
     options: Vec<(Option<IconName>, String)>,
+    label: Option<String>,
 }
 
 impl SegmentedControl {
     /// Segments for `options`; `selected` holds the zero-based index.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self { selected, options: options.into_iter().map(|o| (None, o.into())).collect() }
+        Self { selected, options: options.into_iter().map(|o| (None, o.into())).collect(), label: None }
     }
 
     /// Segments with an icon before each label.
@@ -477,7 +529,17 @@ impl SegmentedControl {
         selected: Binding<usize>,
         options: impl IntoIterator<Item = (IconName, &'static str)>,
     ) -> Self {
-        Self { selected, options: options.into_iter().map(|(i, l)| (Some(i), l.to_owned())).collect() }
+        Self {
+            selected,
+            options: options.into_iter().map(|(i, l)| (Some(i), l.to_owned())).collect(),
+            label: None,
+        }
+    }
+
+    /// The name screen readers announce for the group, such as "Density".
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 }
 
@@ -521,6 +583,7 @@ impl View for Segment {
             Paint::None
         };
         let node = cx.container(style, &children, paint);
+        cx.semantics(node, Semantics::new(Role::RadioButton).selected(on).toggled(on));
         self.choice.wire(cx, node, 7.0);
         node
     }
@@ -549,7 +612,9 @@ impl View for SegmentedControl {
         };
         let paint =
             QuadPaint { corner_radius: theme.radii.md, ..QuadPaint::new(theme.color(Semantic::Control)) };
-        cx.container(style, &segments, Paint::Quad(paint))
+        let node = cx.container(style, &segments, Paint::Quad(paint));
+        cx.semantics(node, group_semantics(self.label.as_deref()));
+        node
     }
 }
 
@@ -566,9 +631,12 @@ impl View for ThemeSwitcher {
             move || read.with(|t| themes.iter().position(|x| x.name == t.name).unwrap_or(0)),
             move |i: usize| state.set(themes[i.min(themes.len() - 1)]),
         );
-        cx.child(&SegmentedControl::with_icons(
-            binding,
-            [(IconName::Moon, "Dark"), (IconName::Sun, "Light"), (IconName::Layers, "Glass")],
-        ))
+        cx.child(
+            &SegmentedControl::with_icons(
+                binding,
+                [(IconName::Moon, "Dark"), (IconName::Sun, "Light"), (IconName::Layers, "Glass")],
+            )
+            .label("Theme"),
+        )
     }
 }

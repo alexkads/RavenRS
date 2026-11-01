@@ -1,12 +1,12 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, CursorIcon, Insets, Key, Quad, Rect};
+use ravenrs_core::{Border, CursorIcon, Insets, Key, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
 
-use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::{IconName, View, util};
 
 /// A single-line text input bound to a `String`.
@@ -230,6 +230,15 @@ impl View for TextField {
             ..QuadPaint::new(theme.color(Semantic::Surface))
         };
         let node = cx.container(style, &children, Paint::Quad(paint));
+        // The visible text is exposed as the value; the placeholder names the
+        // field until a label (a FormField, say) gives it a real name.
+        cx.semantics(text_area, Semantics::hidden());
+        let mut semantics = Semantics::new(Role::TextInput).value(shown);
+        if !self.placeholder.is_empty() {
+            semantics = semantics.name(self.placeholder.clone());
+            semantics.fallback_name = true;
+        }
+        cx.semantics(node, semantics);
 
         let (value, submit, cancel) = (self.value.clone(), self.on_submit.clone(), self.on_cancel.clone());
         let intercept = self.intercept.clone();

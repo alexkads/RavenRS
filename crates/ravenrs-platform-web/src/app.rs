@@ -15,6 +15,7 @@ use web_sys::{
 };
 
 use crate::WebError;
+use crate::access::Mirror;
 
 /// Where and how the app mounts.
 #[derive(Clone, Debug)]
@@ -23,17 +24,25 @@ pub struct WebOptions {
     pub canvas_id: String,
     /// The theme the app starts with.
     pub theme: Theme,
+    /// Mirrors the UI as invisible ARIA elements for screen readers (on by default).
+    pub accessibility: bool,
 }
 
 impl WebOptions {
     /// Mounts on the `<canvas>` with this id, in the default theme.
     pub fn new(canvas_id: impl Into<String>) -> Self {
-        Self { canvas_id: canvas_id.into(), theme: Theme::default() }
+        Self { canvas_id: canvas_id.into(), theme: Theme::default(), accessibility: true }
     }
 
     /// Starts in `theme` instead of Raven Dark.
     pub fn theme(mut self, theme: Theme) -> Self {
         self.theme = theme;
+        self
+    }
+
+    /// Turns the screen reader mirror on or off.
+    pub fn accessibility(mut self, on: bool) -> Self {
+        self.accessibility = on;
         self
     }
 }
@@ -52,6 +61,8 @@ struct State {
     gpu: Option<Gpu>,
     cursor: CursorIcon,
     recovering: bool,
+    /// The screen reader mirror and the text input it points focus from.
+    mirror: Option<(Mirror, HtmlTextAreaElement)>,
 }
 
 /// Schedules at most one `requestAnimationFrame` at a time. Kept apart from
@@ -141,6 +152,11 @@ impl Drop for WebApp {
         }
         if let Some(input) = self.text_input.take() {
             input.remove();
+        }
+        if let Ok(mut state) = self.state.try_borrow_mut()
+            && let Some((mirror, _)) = state.mirror.take()
+        {
+            mirror.remove();
         }
         if let (Some(window), Some((id, _))) = (web_sys::window(), self.scheduler.timer.take()) {
             window.clear_timeout_with_handle(id);
@@ -349,6 +365,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         gpu: Some(gpu),
         cursor: CursorIcon::Default,
         recovering: false,
+        mirror: None,
     }));
 
     // The frame callback.
@@ -571,10 +588,6 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
             }),
         });
     }
-    for l in &app.listeners {
-        l.target.add_event_listener_with_callback(l.kind, l.closure.as_ref().unchecked_ref())?;
-    }
-
     {
         let input = text_input.clone();
         app.listeners.push(Listener {
@@ -584,6 +597,35 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                 input.focus().ok();
             }),
         });
+    }
+    if options.accessibility {
+        let mirror = Mirror::new(&doc, &canvas)?;
+        // A screen reader "clicks" mirror elements; the click goes to that node.
+        let (ui_state, sched) = (state.clone(), scheduler.clone());
+        app.listeners.push(Listener {
+            target: mirror.element().clone().into(),
+            kind: "click",
+            closure: Closure::new(move |e: web_sys::Event| {
+                let Some(id) = e
+                    .target()
+                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                    .and_then(|t| Mirror::node_of(&t))
+                else {
+                    return;
+                };
+                let Ok(mut s) = ui_state.try_borrow_mut() else { return };
+                s.ui.set_time(now_seconds());
+                let redraw = s.ui.perform_action(id, ravenrs_core::AccessAction::Click);
+                drop(s);
+                if redraw {
+                    sched.schedule();
+                }
+            }),
+        });
+        state.borrow_mut().mirror = Some((mirror, text_input.clone()));
+    }
+    for l in &app.listeners {
+        l.target.add_event_listener_with_callback(l.kind, l.closure.as_ref().unchecked_ref())?;
     }
     // Size changes (CSS layout, window resize, zoom) schedule a frame; the frame
     // reads the new size and device pixel ratio.
@@ -680,6 +722,12 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
     let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
     gpu.renderer.render(scene, &view, (w, h), dpr);
     gpu.context.queue.present(frame);
+    if let Some((mirror, input)) = &mut s.mirror {
+        let tree = s.ui.access_tree();
+        if let Err(e) = mirror.update(tree, &s.canvas, input) {
+            tracing::warn!(error = %e, "accessibility mirror update failed");
+        }
+    }
     if s.ui.needs_redraw() {
         scheduler.schedule();
     } else if let Some(at) = s.ui.next_wake() {

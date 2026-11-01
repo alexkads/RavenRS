@@ -4,12 +4,12 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
-use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::{AnyView, Button, ButtonStyle, IconButton, IconName, View, util};
 
 /// The floating panel surface shared by menus, selects and popovers.
@@ -64,17 +64,21 @@ impl View for Bubble<'_> {
         // Inverted colors read as a tooltip in every theme.
         let text =
             util::label(cx, self.0, TextStyle::Callout, Some(Weight::MEDIUM), theme.color(Semantic::Canvas));
-        cx.container(
+        let node = cx.container(
             LayoutStyle { padding: Insets::symmetric(5.0, 10.0), ..LayoutStyle::stack(Axis::Horizontal) },
             &[text],
             Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(theme.color(Semantic::Ink)) }),
-        )
+        );
+        // The text is already the name or description of the anchor.
+        cx.semantics(node, Semantics::hidden());
+        node
     }
 }
 
 impl<V: View> View for Tooltip<V> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let child = cx.child(&self.content);
+        cx.label_control(child, &self.text, None);
         let node = cx.container(
             LayoutStyle { align_self: Some(Align::Start), ..LayoutStyle::stack(Axis::Horizontal) },
             &[child],
@@ -244,6 +248,8 @@ struct ListRow<'a> {
     close: Rc<dyn Fn()>,
     on_click: Option<Rc<dyn Fn()>>,
     roving: util::Roving,
+    /// `MenuItem` in menus, `ListBoxOption` in select lists.
+    role: Role,
 }
 
 impl View for ListRow<'_> {
@@ -287,6 +293,14 @@ impl View for ListRow<'_> {
             &children,
             Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(fill) }),
         );
+        let mut semantics = Semantics::new(self.role);
+        if self.role == Role::ListBoxOption {
+            semantics = semantics.selected(self.checked);
+        }
+        if let Some(t) = self.trailing {
+            semantics = semantics.name(self.label).description(t);
+        }
+        cx.semantics(node, semantics);
         let (action, close) = (self.on_click.clone(), self.close.clone());
         cx.on_click(
             node,
@@ -334,6 +348,7 @@ impl View for MenuList<'_> {
                         destructive: item.destructive,
                         close: self.close.clone(),
                         on_click: item.on_select.clone(),
+                        role: Role::MenuItem,
                     };
                     rows.push(cx.keyed_child(i as u64, &row));
                 }
@@ -351,7 +366,9 @@ impl View for MenuList<'_> {
                 }
             }
         }
-        panel(cx, &rows, 6.0, 220.0)
+        let node = panel(cx, &rows, 6.0, 220.0);
+        cx.semantics(node, Semantics::new(Role::Menu));
+        node
     }
 }
 
@@ -367,8 +384,10 @@ impl View for DropdownMenu {
             trigger = trigger.icon(icon);
         }
         let anchor = cx.child(&trigger);
+        let is_open = open.get();
+        cx.update_semantics(anchor, |s| s.expanded = Some(is_open));
         let was_open = cx.use_state(|| Rc::new(Cell::new(false))).get();
-        if open.get() {
+        if is_open {
             was_open.set(true);
             let close: Rc<dyn Fn()> = {
                 let open = open.clone();
@@ -396,17 +415,25 @@ pub struct Select {
     selected: Binding<usize>,
     options: Vec<String>,
     width: f32,
+    label: Option<String>,
 }
 
 impl Select {
     /// A select over `options`; `selected` holds the zero-based index of the choice.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self { selected, options: options.into_iter().map(Into::into).collect(), width: 220.0 }
+        Self { selected, options: options.into_iter().map(Into::into).collect(), width: 220.0, label: None }
     }
 
     /// Sets the width in logical pixels (220 by default).
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
+        self
+    }
+
+    /// The name screen readers announce, such as "Country". Inside a
+    /// [`crate::FormField`], its label is used instead.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
         self
     }
 }
@@ -437,11 +464,14 @@ impl View for Options<'_> {
                     destructive: false,
                     close: self.close.clone(),
                     on_click: Some(Rc::new(move || selected.set(i))),
+                    role: Role::ListBoxOption,
                 };
                 cx.keyed_child(i as u64, &row)
             })
             .collect();
-        panel(cx, &rows, 6.0, self.width)
+        let node = panel(cx, &rows, 6.0, self.width);
+        cx.semantics(node, Semantics::new(Role::ListBox));
+        node
     }
 }
 
@@ -488,6 +518,12 @@ impl View for Select {
             ..QuadPaint::new(theme.color(Semantic::Surface))
         };
         let node = cx.container(style, &[label, chevron], Paint::Quad(paint));
+        cx.semantics(label, Semantics::hidden());
+        let mut semantics = Semantics::new(Role::ComboBox).value(current).expanded(is_open);
+        if let Some(label) = &self.label {
+            semantics = semantics.name(label.clone());
+        }
+        cx.semantics(node, semantics);
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
         // Arrow keys open the list too, like a native select.
@@ -585,8 +621,12 @@ impl View for DialogLayer<'_> {
             Paint::None,
         );
         let x = cx.child(
-            &IconButton::new(IconName::X).size(crate::ButtonSize::Small).on_click(move || close.set(false)),
+            &IconButton::new(IconName::X)
+                .label("Close")
+                .size(crate::ButtonSize::Small)
+                .on_click(move || close.set(false)),
         );
+        cx.semantics(title, Semantics::new(Role::Heading).level(2));
         let header = cx.container(
             LayoutStyle { align: Align::Center, spacing: 12.0, ..LayoutStyle::stack(Axis::Horizontal) },
             &[title, x],
@@ -628,6 +668,11 @@ impl View for DialogLayer<'_> {
                 ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
             }),
         );
+        let mut semantics = Semantics::new(Role::Dialog).name(d.title.clone()).modal();
+        if let Some(text) = &d.description {
+            semantics = semantics.description(text.clone());
+        }
+        cx.semantics(card, semantics);
         // The card swallows clicks so only the backdrop closes the dialog.
         cx.cursor(card, CursorIcon::Default);
         let backdrop = cx.container(

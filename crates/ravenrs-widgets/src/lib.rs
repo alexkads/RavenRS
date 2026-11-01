@@ -57,7 +57,8 @@ pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
 pub use choice::{AspectRatio, Label, Pagination, ToggleButton, ToggleGroup};
 pub use context::{
-    BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, NodeId, Paint, Placement, QuadPaint, WidgetId,
+    BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, NodeId, Paint, Placement, QuadPaint,
+    Semantics, WidgetId,
 };
 pub use data::{AreaChart, BarChart, Column, List, ListItem, Table};
 pub use date::{Date, days_in_month, is_leap_year};

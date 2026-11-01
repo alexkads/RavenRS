@@ -43,6 +43,7 @@ web-sys = { workspace = true, features = [
     "ResizeObserver",
     "CssStyleDeclaration",
     "Node",
+    "DomRect",
     "console",
 ] }
 

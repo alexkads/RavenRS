@@ -1,10 +1,10 @@
 //! Components that present information: badges, avatars, alerts, stats, progress.
 
-use ravenrs_core::{Border, Color, Insets, Quad, Rect};
+use ravenrs_core::{Border, Color, Insets, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
-use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::{IconName, View, ViewSeq, util};
 
 /// Tone of a badge or alert. Status tones always come with a word or an icon,
@@ -157,7 +157,10 @@ impl View for Avatar {
             border: Some(Border { width: 1.0, color: base.with_alpha(0.5) }),
             shadow: None,
         };
-        cx.container(style, &[text], Paint::Quad(paint))
+        let node = cx.container(style, &[text], Paint::Quad(paint));
+        cx.semantics(text, Semantics::hidden());
+        cx.semantics(node, Semantics::new(Role::Image).name(self.name.clone()));
+        node
     }
 }
 
@@ -223,7 +226,9 @@ impl View for Divider {
         } else {
             LayoutStyle { height: Some(1.0), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() }
         };
-        cx.container(style, &[], Paint::Quad(QuadPaint::new(color)))
+        let node = cx.container(style, &[], Paint::Quad(QuadPaint::new(color)));
+        cx.semantics(node, Semantics::new(Role::Separator));
+        node
     }
 }
 
@@ -256,7 +261,7 @@ impl View for ProgressBar {
             if self.tone == Tone::Accent { theme.color(Semantic::Accent) } else { self.tone.color(&theme) };
         let (value, h) = (self.value, self.height);
         let style = LayoutStyle { height: Some(h), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
-        cx.container(
+        let node = cx.container(
             style,
             &[],
             Paint::Custom(std::rc::Rc::new(move |frame: Rect, scene| {
@@ -267,7 +272,15 @@ impl View for ProgressBar {
                     scene.push_quad(Quad::new(bar, fill).radius(h / 2.0));
                 }
             })),
-        )
+        );
+        let percent = (f64::from(value) * 100.0).round();
+        cx.semantics(
+            node,
+            Semantics::new(Role::ProgressIndicator)
+                .numeric(percent, 0.0, 100.0, None)
+                .value(format!("{percent}%")),
+        );
+        node
     }
 }
 
@@ -309,7 +322,9 @@ impl View for Skeleton {
             corner_radius: self.radius.unwrap_or(theme.radii.sm),
             ..QuadPaint::new(theme.color(Semantic::Control))
         };
-        cx.container(style, &[], Paint::Quad(paint))
+        let node = cx.container(style, &[], Paint::Quad(paint));
+        cx.semantics(node, Semantics::hidden());
+        node
     }
 }
 
@@ -360,7 +375,10 @@ impl View for Alert {
             border: Some(Border { width: 1.0, color: color.with_alpha(0.30) }),
             shadow: None,
         };
-        cx.container(style, &[icon, text], Paint::Quad(paint))
+        let node = cx.container(style, &[icon, text], Paint::Quad(paint));
+        let role = if self.tone == Tone::Danger { Role::Alert } else { Role::Status };
+        cx.semantics(node, Semantics::new(role));
+        node
     }
 }
 
@@ -443,8 +461,9 @@ impl<C: ViewSeq> Section<C> {
 impl<C: ViewSeq> View for Section<C> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let mut header =
-            vec![util::label(cx, &self.title, TextStyle::Title, None, theme.color(Semantic::Ink))];
+        let title = util::label(cx, &self.title, TextStyle::Title, None, theme.color(Semantic::Ink));
+        cx.semantics(title, Semantics::new(Role::Heading).level(2));
+        let mut header = vec![title];
         if let Some(d) = &self.description {
             header.push(util::label(cx, d, TextStyle::Body, None, theme.color(Semantic::InkMuted)));
         }

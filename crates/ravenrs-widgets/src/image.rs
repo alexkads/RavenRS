@@ -1,11 +1,11 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{ImageData, ImageQuad, Rect};
+use ravenrs_core::{ImageData, ImageQuad, Rect, Role};
 use ravenrs_layout::{Align, LayoutStyle};
 
 use crate::View;
-use crate::context::{BuildCx, NodeId, Paint};
+use crate::context::{BuildCx, NodeId, Paint, Semantics};
 
 /// How an image fills its frame when their aspect ratios differ.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -51,6 +51,7 @@ pub struct Image {
     height: Option<f32>,
     stretch: bool,
     opacity: f32,
+    alt: Option<String>,
 }
 
 impl Image {
@@ -64,6 +65,7 @@ impl Image {
             height: None,
             stretch: false,
             opacity: 1.0,
+            alt: None,
         }
     }
 
@@ -105,6 +107,13 @@ impl Image {
     /// Stretches across the parent stack (height follows the aspect ratio unless set).
     pub fn stretch(mut self) -> Self {
         self.stretch = true;
+        self
+    }
+
+    /// Describes the image for screen readers. Images without it are treated
+    /// as decoration and hidden from them.
+    pub fn alt(mut self, text: impl Into<String>) -> Self {
+        self.alt = Some(text.into());
         self
     }
 
@@ -159,7 +168,7 @@ impl View for Image {
             ..LayoutStyle::leaf()
         };
         let (data, mode, radius, opacity) = (self.data.clone(), self.mode, self.radius, self.opacity);
-        cx.container(
+        let node = cx.container(
             style,
             &[],
             Paint::Custom(Rc::new(move |frame: Rect, scene| {
@@ -172,7 +181,11 @@ impl View for Image {
                 quad.opacity = opacity;
                 scene.push_image(quad);
             })),
-        )
+        );
+        if let Some(alt) = &self.alt {
+            cx.semantics(node, Semantics::new(Role::Image).name(alt.clone()));
+        }
+        node
     }
 }
 

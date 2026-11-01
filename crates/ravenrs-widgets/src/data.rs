@@ -3,11 +3,11 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, LinearGradient, Point, Quad, Rect};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, LinearGradient, Point, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
-use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::{Avatar, IconName, View, ViewSeq, util};
 
 /// A bordered list; rows are separated by hairlines.
@@ -35,8 +35,11 @@ impl<C: ViewSeq> View for List<C> {
         let mut children = Vec::with_capacity(rows.len() * 2);
         for (i, row) in rows.into_iter().enumerate() {
             if i > 0 {
-                children.push(cx.child(&crate::Divider::horizontal()));
+                let line = cx.child(&crate::Divider::horizontal());
+                cx.semantics(line, Semantics::hidden());
+                children.push(line);
             }
+            cx.semantics_if_none(row, Semantics::new(Role::ListItem));
             children.push(row);
         }
         let style = LayoutStyle {
@@ -49,7 +52,9 @@ impl<C: ViewSeq> View for List<C> {
             border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
             ..QuadPaint::new(theme.color(Semantic::Surface))
         };
-        cx.container(style, &children, Paint::Quad(paint))
+        let node = cx.container(style, &children, Paint::Quad(paint));
+        cx.semantics(node, Semantics::new(Role::List));
+        node
     }
 }
 
@@ -195,6 +200,10 @@ impl View for ListItem {
             &children,
             Paint::Quad(QuadPaint { corner_radius: 10.0, ..QuadPaint::new(fill) }),
         );
+        cx.semantics(
+            node,
+            Semantics::new(if self.on_click.is_some() { Role::Button } else { Role::ListItem }),
+        );
         if let Some(h) = &self.on_click {
             cx.on_click(node, h.clone());
             cx.focusable(node, 10.0);
@@ -278,7 +287,8 @@ impl View for TableRow<'_> {
                     (TextStyle::Body, theme.color(Semantic::InkMuted), None)
                 };
                 let label = util::label(cx, &text, style, weight, color);
-                cx.container(
+                let header = self.header;
+                let cell = cx.container(
                     LayoutStyle {
                         grow: col.weight,
                         width: Some(0.0),
@@ -288,7 +298,14 @@ impl View for TableRow<'_> {
                     },
                     &[label],
                     Paint::None,
-                )
+                );
+                let semantics = if header {
+                    Semantics::new(Role::ColumnHeader).name(col.title.clone())
+                } else {
+                    Semantics::new(Role::Cell)
+                };
+                cx.semantics(cell, semantics);
+                cell
             })
             .collect();
         let hovered = !self.header && cx.is_hovered();
@@ -300,6 +317,7 @@ impl View for TableRow<'_> {
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let node = cx.container(style, &cells, Paint::Quad(QuadPaint::new(fill)));
+        cx.semantics(node, Semantics::new(Role::Row));
         if !self.header {
             cx.cursor(node, CursorIcon::Default);
         }
@@ -312,7 +330,9 @@ impl View for Table {
         let theme = *cx.theme();
         let mut children = vec![cx.child(&TableRow { columns: &self.columns, cells: &[], header: true })];
         for (i, row) in self.rows.iter().enumerate() {
-            children.push(cx.child(&crate::Divider::horizontal()));
+            let line = cx.child(&crate::Divider::horizontal());
+            cx.semantics(line, Semantics::hidden());
+            children.push(line);
             children.push(
                 cx.keyed_child(i as u64, &TableRow { columns: &self.columns, cells: row, header: false }),
             );
@@ -331,6 +351,7 @@ impl View for Table {
                 ..QuadPaint::new(theme.color(Semantic::Surface))
             }),
         );
+        cx.semantics(node, Semantics::new(Role::Table));
         cx.clip(node);
         node
     }

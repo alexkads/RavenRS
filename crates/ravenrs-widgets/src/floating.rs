@@ -5,12 +5,12 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Point};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Point, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
-use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::overlay::{Entry, MenuList, PanelOf, panel};
 use crate::{ButtonSize, IconButton, IconName, MenuItem, TextField, Tone, View, util};
 
@@ -180,8 +180,12 @@ impl View for SheetLayer<'_> {
             &[title],
             Paint::None,
         );
-        let x = cx
-            .child(&IconButton::new(IconName::X).size(ButtonSize::Small).on_click(move || close.set(false)));
+        let x = cx.child(
+            &IconButton::new(IconName::X)
+                .label("Close")
+                .size(ButtonSize::Small)
+                .on_click(move || close.set(false)),
+        );
         let header = cx.container(
             LayoutStyle { align: Align::Center, spacing: 12.0, ..LayoutStyle::stack(Axis::Horizontal) },
             &[title, x],
@@ -210,6 +214,11 @@ impl View for SheetLayer<'_> {
                 ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
             }),
         );
+        let mut semantics = Semantics::new(Role::Dialog).name(s.title.clone()).modal();
+        if let Some(d) = &s.description {
+            semantics = semantics.description(d.clone());
+        }
+        cx.semantics(panel, semantics);
         cx.cursor(panel, CursorIcon::Default);
         let backdrop = cx.container(
             LayoutStyle {
@@ -365,7 +374,10 @@ impl View for ToastStack<'_> {
             let (toasts, id) = (self.1.clone(), t.id);
             let x = cx.keyed_child(
                 t.id,
-                &IconButton::new(IconName::X).size(ButtonSize::Small).on_click(move || toasts.dismiss(id)),
+                &IconButton::new(IconName::X)
+                    .label("Dismiss")
+                    .size(ButtonSize::Small)
+                    .on_click(move || toasts.dismiss(id)),
             );
             let card = cx.container(
                 LayoutStyle {
@@ -382,6 +394,9 @@ impl View for ToastStack<'_> {
                     ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
                 }),
             );
+            // Announced as it appears; danger toasts interrupt.
+            let role = if t.tone == Tone::Danger { Role::Alert } else { Role::Status };
+            cx.semantics(card, Semantics::new(role));
             cx.cursor(card, CursorIcon::Default);
             cards.push(card);
         }
@@ -601,6 +616,11 @@ impl View for PaletteLayer<'_> {
                 &items,
                 Paint::Quad(QuadPaint { corner_radius: 8.0, ..QuadPaint::new(fill) }),
             );
+            let mut semantics = Semantics::new(Role::ListBoxOption).selected(on).active(on);
+            if let Some(shortcut) = &c.shortcut {
+                semantics = semantics.name(c.label.clone()).description(shortcut.clone());
+            }
+            cx.semantics(row, semantics);
             let (open, action, hl) = (self.palette.open.clone(), c.action.clone(), self.highlight.clone());
             cx.on_click(
                 row,
@@ -622,7 +642,9 @@ impl View for PaletteLayer<'_> {
                 theme.color(Semantic::InkMuted),
             ));
         }
+        cx.label_control(field, "Command palette", None);
         let card = panel(cx, &rows, 10.0, (viewport.width - 32.0).clamp(280.0, 560.0));
+        cx.semantics(card, Semantics::new(Role::Dialog).name("Command palette").modal());
         let backdrop = cx.container(
             LayoutStyle {
                 width: Some(viewport.width),
@@ -672,6 +694,7 @@ pub struct Combobox {
     options: Vec<String>,
     placeholder: String,
     width: f32,
+    label: Option<String>,
 }
 
 impl Combobox {
@@ -685,6 +708,7 @@ impl Combobox {
             options: options.into_iter().map(Into::into).collect(),
             placeholder: "Select…".into(),
             width: 240.0,
+            label: None,
         }
     }
 
@@ -697,6 +721,13 @@ impl Combobox {
     /// Sets the width in logical pixels (240 by default).
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
+        self
+    }
+
+    /// The name screen readers announce, such as "Framework". Inside a
+    /// [`crate::FormField`], its label is used instead.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
         self
     }
 }
@@ -781,6 +812,7 @@ impl View for ComboPanel<'_> {
                 &items,
                 Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(fill) }),
             );
+            cx.semantics(row, Semantics::new(Role::ListBoxOption).selected(current == Some(i)).active(on));
             let p = pick.clone();
             cx.on_click(row, Rc::new(move || p(i)));
             cx.cursor(row, CursorIcon::Pointer);
@@ -795,7 +827,9 @@ impl View for ComboPanel<'_> {
                 theme.color(Semantic::InkMuted),
             ));
         }
-        panel(cx, &rows, 6.0, self.combo.width)
+        let node = panel(cx, &rows, 6.0, self.combo.width);
+        cx.semantics(node, Semantics::new(Role::ListBox));
+        node
     }
 }
 
@@ -844,6 +878,13 @@ impl View for Combobox {
                 ..QuadPaint::new(theme.color(Semantic::Surface))
             }),
         );
+        cx.semantics(label, Semantics::hidden());
+        let value = if self.selected.get().is_some() { text.clone() } else { String::new() };
+        let mut semantics = Semantics::new(Role::ComboBox).value(value).expanded(is_open);
+        if let Some(label) = &self.label {
+            semantics = semantics.name(label.clone());
+        }
+        cx.semantics(node, semantics);
         let (o, q, h) = (open.clone(), query.clone(), highlight.clone());
         cx.on_click(
             node,

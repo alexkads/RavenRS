@@ -181,6 +181,14 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 
 `winit`'s web backend was not used so that DPR handling, frame scheduling and (later) IME and accessibility bridges stay explicit.
 
+**Accessibility.** After layout, `Ui::access_tree` walks the element tree and builds a platform-neutral `AccessTree` (`ravenrs-core`).
+* **Which elements become nodes.** An element becomes a node when a widget described it with `Semantics` or when it is focusable (it then defaults to a button). Text is a label, except inside roles that take their name from content, where it becomes the name ("Save" on a button). Other boxes are transparent.
+* **Ids.** Node ids derive from `WidgetId`, so they stay stable across rebuilds.
+* **Modal layers.** While one is open, only it is exposed.
+* **Actions.** `Ui::perform_action` maps click, focus and increment/decrement back to the element's handlers. Assistive technology therefore drives the same code paths as the mouse and keyboard.
+* **Desktop.** The tree goes to AccessKit (`accesskit_winit`) only while a screen reader is listening, and is resent when it changes. The root transform scales logical to physical pixels.
+* **Web.** It is mirrored as invisible, absolutely positioned ARIA elements over the canvas. The hidden text input that holds keyboard focus points at the focused node with `aria-activedescendant`. New status and alert nodes are announced through a live region, and clicks on mirror elements become click actions.
+
 **WASM size (hello-world, `wasm-release` profile + `wasm-opt -Oz`).** ≈2.4 MB raw, ≈1.06 MB gzipped, of which about 830 KB raw are the two embedded Inter faces. Shipping a subsetted font is the first size win available.
 
 ## 11. Status
@@ -203,7 +211,7 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Motion engine (springs, transitions) | | | `raven-animation` |
 | Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, device loss | ✓ | | multiple windows, clipboard, IME |
 | Web: canvas, WebGPU, DPR, pointer, wheel, touch scrolling, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | clipboard copy, pinch and momentum scrolling |
-| Accessibility | keyboard focus and visible focus ring | | AccessKit tree, screen readers |
+| Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web | | caret and selection for screen readers, right-to-left |
 | Benchmarks and profiling | `tracing` spans per phase | | criterion benches, GPU timestamps |
 
 ## 12. Decisions log

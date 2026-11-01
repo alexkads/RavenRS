@@ -1,7 +1,7 @@
 //! Browser backend for RavenRS.
 //!
 //! The UI is drawn by RavenRS into a `<canvas>` with WebGPU; the DOM is used only
-//! to host the canvas and receive input. Frames are scheduled with
+//! to host the canvas, receive input and mirror the UI for screen readers. Frames are scheduled with
 //! `requestAnimationFrame` only when something changed, so an idle page costs
 //! nothing. Nothing blocks the main thread: adapter and device creation are
 //! awaited, and no threads or `SharedArrayBuffer` are required.
@@ -13,6 +13,7 @@
 
 #![cfg(target_arch = "wasm32")]
 
+mod access;
 mod app;
 mod error;
 

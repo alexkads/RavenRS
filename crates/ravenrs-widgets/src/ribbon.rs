@@ -5,12 +5,12 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Quad, Rect};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
-use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::overlay::{Entry, MenuList, panel};
 use crate::{IconName, MenuItem, TextField, Tone, Tooltip, View, util};
 
@@ -373,6 +373,14 @@ impl View for ItemView<'_> {
             &children,
             Paint::Quad(QuadPaint { corner_radius: 6.0, border, ..QuadPaint::new(fill) }),
         );
+        let mut semantics = Semantics::new(Role::Button).name(item.label.clone()).disabled(!item.enabled);
+        if item.toggle.is_some() {
+            semantics = semantics.toggled(on);
+        }
+        if has_menu {
+            semantics = semantics.expanded(open.get());
+        }
+        cx.semantics(node, semantics);
         if item.enabled {
             let (action, toggle, menu_open) = (item.action.clone(), item.toggle.clone(), open.clone());
             cx.on_click(
@@ -474,7 +482,10 @@ impl View for GroupView<'_> {
             Paint::None,
         );
         let muted = theme.color(Semantic::InkMuted);
-        let mut caption = vec![util::label(cx, &g.title, TextStyle::Caption, None, muted)];
+        let title = util::label(cx, &g.title, TextStyle::Caption, None, muted);
+        // The group's toolbar is already named after it.
+        cx.semantics(title, Semantics::hidden());
+        let mut caption = vec![title];
         if let Some(l) = &g.launcher {
             let arrow = util::icon(cx, IconName::ArrowDown, 11.0, muted);
             let b = cx.container(
@@ -488,6 +499,7 @@ impl View for GroupView<'_> {
                 &[arrow],
                 Paint::None,
             );
+            cx.semantics(b, Semantics::new(Role::Button).name(format!("{} options", g.title)));
             cx.on_click(b, l.clone());
             cx.cursor(b, CursorIcon::Pointer);
             caption.push(b);
@@ -505,7 +517,7 @@ impl View for GroupView<'_> {
             Paint::None,
         );
         let line = theme.color(Semantic::Border);
-        cx.container(
+        let node = cx.container(
             LayoutStyle {
                 padding: Insets { right: 6.0, left: 2.0, ..Insets::ZERO },
                 align: Align::Center,
@@ -518,7 +530,9 @@ impl View for GroupView<'_> {
                     line,
                 ));
             })),
-        )
+        );
+        cx.semantics(node, Semantics::new(Role::Toolbar).name(g.title.clone()));
+        node
     }
 }
 
@@ -598,6 +612,7 @@ impl View for Tab<'_> {
                 }
             })),
         );
+        cx.semantics(node, Semantics::new(Role::Tab).selected(on));
         let (sel, i, collapsed, popup) =
             (self.selected.clone(), self.index, self.collapsed.clone(), self.popup.clone());
         cx.on_click(
@@ -655,6 +670,7 @@ impl View for Ribbon {
                 &[text],
                 Paint::Quad(QuadPaint { corner_radius: 6.0, ..QuadPaint::new(fill) }),
             );
+            cx.semantics(app, Semantics::new(Role::Button).expanded(app_open.get()));
             let o = app_open.clone();
             cx.on_click(app, Rc::new(move || o.update(|v| *v = !*v)));
             cx.focusable(app, 6.0);
@@ -712,7 +728,7 @@ impl View for Ribbon {
                 tabs.push(tab);
             }
         }
-        row.push(cx.container(
+        let tab_list = cx.container(
             LayoutStyle {
                 spacing: 2.0,
                 align: Align::End,
@@ -722,7 +738,9 @@ impl View for Ribbon {
             },
             &tabs,
             Paint::None,
-        ));
+        );
+        cx.semantics(tab_list, Semantics::new(Role::TabList).name("Ribbon"));
+        row.push(tab_list);
         if let Some(q) = &self.search {
             row.push(
                 cx.child(

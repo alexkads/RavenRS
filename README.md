@@ -144,7 +144,7 @@ Then open http://localhost:8080 in a browser with WebGPU (Chrome, Edge, Safari 1
 - **Reporting** (next major track): report engine, document viewer, end-user report designer on the `Ribbon`, PDF/XLSX export.
 - **DataGrid parity**: frozen columns, drag reordering and drag-to-group, header filters, master-detail.
 - **Vector paths** for line and pie charts and gauges, and backdrop blur for Raven Glass.
-- **Platform**: clipboard, IME composition display, AccessKit screen reader support, right-to-left layout.
+- **Platform**: clipboard, IME composition display, right-to-left layout.
 - **Motion**: spring animations and transitions.
 
 See [docs/PARITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) for the full list and [CHANGELOG.md](https://github.com/alexkads/RavenRS/blob/master/CHANGELOG.md) for what changed.

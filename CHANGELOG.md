@@ -12,6 +12,12 @@ The first release under the `YY.R.P` versioning model. It follows 0.1.0 directly
 - Enums that will grow are now `#[non_exhaustive]`: `Event`, `Key`, `PointerButton`, `CursorIcon`, `Brush`, `Primitive`, `Semantic`, `TextStyle`, `Material`, `Axis`, `Align`, `Justify`, `Available`, `DragPhase`, `Placement`, `ButtonStyle`, `ButtonSize`, `Tone`, `SelectionMode`, `Value`, `Summary`, `CellAlign`, `ContentMode`, `RibbonSize`, `Side` and `WebError`. Matches on them need a wildcard arm; future variants will then be additions.
 
 ### Added
+- Screen reader support. `Ui::access_tree` describes the UI as roles, names, values and states, and `Ui::perform_action` runs what assistive technology asks for (click, focus, increment, decrement).
+  - Desktop: the tree goes to VoiceOver, Narrator, NVDA and Orca through AccessKit. It is built only while a screen reader is listening.
+  - Web: the tree is mirrored as invisible ARIA elements over the canvas. Focus is announced through `aria-activedescendant`, toasts through a live region, and screen reader clicks reach the UI. `WebOptions::accessibility(false)` turns it off.
+  - Every built-in component describes itself, such as check boxes with their state, sliders with their range, the DataGrid with its rows and keyboard row, and dialogs as modal (the page behind them is hidden).
+  - Custom components use `BuildCx::semantics` with `Semantics`.
+  - New accessible names: `IconButton::label`, `Button::accessible_name` and `Image::alt`. `label` was added to `Slider`, `Stepper`, `Select`, `Combobox`, `DatePicker`, `RadioGroup` and `SegmentedControl`. `FormField` and `Tooltip` name the control inside them.
 - Full keyboard operation following the WAI-ARIA patterns:
   - `RadioGroup`, `SegmentedControl` and `Tabs`: arrow keys move selection and focus together, wrapping; Home and End jump to the ends.
   - `ToggleGroup`: arrow keys move focus; Space toggles.
@@ -23,12 +29,14 @@ The first release under the `YY.R.P` versioning model. It follows 0.1.0 directly
 - Documentation on every public item, a README per crate, and runnable examples.
 
 ### Fixed
+- On the web, the canvas now passes keyboard focus to the hidden text input when it is focused with Tab; the listener was never registered.
 - DataGrid queries over 100,000 rows now fit in a frame: search 47 → 3.2 ms, range filter 31 → 0.9 ms, text sort 23 → 12 ms, grouping 15 → 11 ms.
 - Focus moved by code keeps the focus ring while the user navigates by keyboard.
 - `AspectRatio` content with modifiers (for example a styled `Spacer`) no longer collapses to zero height.
 - `winit` no longer pulls in `sctk-adwaita`, removing a dependency with a security advisory (RUSTSEC-2026-0192) on Linux.
 
 ### Quality
+- Accessibility tests for every component family, and an audit that opens every gallery page and fails on any unnamed control.
 - GPU golden-image tests (6 scenes in dark and light), property tests, layout and keyboard tests, criterion benchmarks with budgets, and `cargo deny`, MSRV, feature and benchmark checks in `scripts/check.sh`. See [docs/QUALITY.md](docs/QUALITY.md).
 
 ## [0.1.0] - 2026-10-31

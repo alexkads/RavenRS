@@ -8,6 +8,14 @@ all-features = true
 # Known vulnerabilities fail the check; unmaintained crates are reported.
 version = 2
 yanked = "deny"
+# Linux screen reader support (AccessKit -> atspi -> zbus 5) pulls in three crates
+# that were merged into zbus 6. They are unmaintained, not vulnerable; remove
+# these once atspi moves to zbus 6.
+ignore = [
+    { id = "RUSTSEC-2026-0370", reason = "zvariant merged into zbus 6; reached only through AccessKit's Linux adapter" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names merged into zbus 6; reached only through AccessKit's Linux adapter" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive merged into zbus 6; reached only through AccessKit's Linux adapter" },
+]
 
 [licenses]
 version = 2

@@ -199,9 +199,12 @@ impl Gallery {
         if narrow {
             let pages: Vec<&str> = PAGES.iter().map(|(_, label)| *label).collect();
             return Box::new(
-                VStack::new((Select::new(self.page.binding(), pages).width(240.0), ThemeSwitcher))
-                    .spacing(10.0)
-                    .padding((12.0, 16.0)),
+                VStack::new((
+                    Select::new(self.page.binding(), pages).width(240.0).label("Page"),
+                    ThemeSwitcher,
+                ))
+                .spacing(10.0)
+                .padding((12.0, 16.0)),
             );
         }
         let (_, title) = PAGES[self.page.get().min(PAGES.len() - 1)];
@@ -401,11 +404,13 @@ impl Gallery {
                             Select::new(
                                 self.range.binding(),
                                 ["Last 7 days", "Last 30 days", "Last 90 days", "This year"],
-                            ),
+                            )
+                            .label("Date range"),
                             SegmentedControl::new(
                                 self.density.binding(),
                                 ["Compact", "Default", "Comfortable"],
-                            ),
+                            )
+                            .label("Density"),
                         ))
                         .spacing(14.0),
                     ),
@@ -426,13 +431,14 @@ impl Gallery {
                         RadioGroup::new(
                             self.plan.binding(),
                             ["Starter: free", "Team: R$ 49 / seat", "Enterprise: talk to us"],
-                        ),
+                        )
+                        .label("Plan"),
                     ),
                     demo(
                         "Slider",
                         "Drag the thumb, or focus it and use the arrow keys.",
                         VStack::new((
-                            Slider::new(self.volume.binding()),
+                            Slider::new(self.volume.binding()).label("Volume"),
                             Text::dynamic(move || format!("Volume: {:.0}%", volume.get() * 100.0))
                                 .style(TextStyle::Callout)
                                 .foreground(Semantic::InkMuted),
@@ -444,7 +450,7 @@ impl Gallery {
                         "Stepper",
                         "Small integer quantities with bounds.",
                         HStack::new((
-                            Stepper::new(self.seats.binding()).range(1, 50),
+                            Stepper::new(self.seats.binding()).range(1, 50).label("Seats"),
                             Text::bound(&self.seats, |s| format!("{s} seats")).foreground(Semantic::InkMuted),
                         ))
                         .spacing(12.0)
@@ -721,7 +727,7 @@ impl Gallery {
                         "Date picker and combobox",
                         "A calendar in a popover, and a select you can type into.",
                         VStack::new((
-                            DatePicker::new(self.date.binding(), today).today(today),
+                            DatePicker::new(self.date.binding(), today).today(today).label("Date"),
                             Combobox::new(
                                 self.country.binding(),
                                 [
@@ -737,7 +743,8 @@ impl Gallery {
                                     "United States",
                                 ],
                             )
-                            .placeholder("Choose a country"),
+                            .placeholder("Choose a country")
+                            .label("Country"),
                             Text::bound(&self.date, |d| {
                                 d.map_or("No date selected".into(), |d| format!("Selected: {d}"))
                             })

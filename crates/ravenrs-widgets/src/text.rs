@@ -6,7 +6,7 @@ use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_text::TextAttrs;
 
-use crate::context::{BuildCx, NodeId};
+use crate::context::{BuildCx, NodeId, Semantics};
 use crate::{Fill, View};
 
 enum Content {
@@ -92,12 +92,26 @@ impl View for Text {
             family: None,
         };
         let color = self.foreground.resolve(theme);
-        match &self.content {
+        let node = match &self.content {
             Content::Static(s) => cx.text(s, &attrs, color, LayoutStyle::leaf()),
             Content::Dynamic(f) => {
                 let s = f();
                 cx.text(&s, &attrs, color, LayoutStyle::leaf())
             }
+        };
+        if let Some(level) = heading_level(self.style) {
+            cx.semantics(node, Semantics::new(ravenrs_core::Role::Heading).level(level));
         }
+        node
+    }
+}
+
+/// The heading level screen readers announce for large text styles.
+pub(crate) fn heading_level(style: TextStyle) -> Option<u32> {
+    match style {
+        TextStyle::Display => Some(1),
+        TextStyle::Title => Some(2),
+        TextStyle::Headline => Some(3),
+        _ => None,
     }
 }

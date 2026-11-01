@@ -3,7 +3,10 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Brush, Color, CursorIcon, Key, Modifiers, Point, Rect, Scene, Shadow, Size};
+use ravenrs_core::{
+    Border, Brush, Color, CursorIcon, Key, Modifiers, NumericValue, Point, Rect, Role, Scene, Shadow, Size,
+    Toggled,
+};
 use ravenrs_layout::{LayoutError, LayoutId, LayoutStyle, LayoutTree};
 use ravenrs_reactive::State;
 use ravenrs_style::Theme;
@@ -26,6 +29,11 @@ impl WidgetId {
         h = (h ^ (h >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
         h = (h ^ (h >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
         Self(h ^ (h >> 31))
+    }
+
+    /// The raw identity, for derived ids such as accessibility node ids.
+    pub(crate) fn raw(self) -> u64 {
+        self.0
     }
 }
 
@@ -150,6 +158,141 @@ pub(crate) struct Shortcut {
     pub handler: Rc<dyn Fn()>,
 }
 
+/// How a node appears to screen readers: its [`Role`], name and state.
+///
+/// Built-in components set this themselves. Custom components call
+/// [`BuildCx::semantics`] on the node they return:
+///
+/// ```
+/// use ravenrs_core::Role;
+/// use ravenrs_widgets::Semantics;
+///
+/// let s = Semantics::new(Role::Switch).name("Wi-Fi").toggled(true);
+/// assert_eq!(s.role(), Role::Switch);
+/// ```
+///
+/// Without semantics, a focusable node is announced as a button named by the
+/// text inside it, text is announced as a label, and other boxes are
+/// transparent: their children belong to the nearest described ancestor.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Semantics {
+    pub(crate) role: Role,
+    pub(crate) name: Option<String>,
+    pub(crate) description: Option<String>,
+    pub(crate) value: Option<String>,
+    pub(crate) numeric: Option<NumericValue>,
+    pub(crate) toggled: Option<Toggled>,
+    pub(crate) selected: Option<bool>,
+    pub(crate) expanded: Option<bool>,
+    pub(crate) disabled: bool,
+    pub(crate) modal: bool,
+    pub(crate) level: Option<u32>,
+    pub(crate) hidden: bool,
+    pub(crate) active: bool,
+    /// The name is a guess (an icon's name) that a tooltip may replace.
+    pub(crate) fallback_name: bool,
+}
+
+impl Semantics {
+    /// A node with this role, named by its content when the role allows it.
+    pub fn new(role: Role) -> Self {
+        Self {
+            role,
+            name: None,
+            description: None,
+            value: None,
+            numeric: None,
+            toggled: None,
+            selected: None,
+            expanded: None,
+            disabled: false,
+            modal: false,
+            level: None,
+            hidden: false,
+            active: false,
+            fallback_name: false,
+        }
+    }
+
+    /// Hides the node and everything inside it from assistive technology
+    /// (decorations, duplicated content).
+    pub fn hidden() -> Self {
+        Self { hidden: true, ..Self::new(Role::Group) }
+    }
+
+    /// The role.
+    pub fn role(&self) -> Role {
+        self.role
+    }
+
+    /// Sets the accessible name, replacing the name from content.
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    /// Sets a description, read after the name.
+    pub fn description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    /// Sets a text value (text fields, combo boxes).
+    pub fn value(mut self, value: impl Into<String>) -> Self {
+        self.value = Some(value.into());
+        self
+    }
+
+    /// Sets a numeric value and its range.
+    pub fn numeric(mut self, value: f64, min: f64, max: f64, step: Option<f64>) -> Self {
+        self.numeric = Some(NumericValue { value, min, max, step });
+        self
+    }
+
+    /// Sets the checked state.
+    pub fn toggled(mut self, toggled: impl Into<Toggled>) -> Self {
+        self.toggled = Some(toggled.into());
+        self
+    }
+
+    /// Sets the selected state.
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.selected = Some(selected);
+        self
+    }
+
+    /// Sets the expanded state.
+    pub fn expanded(mut self, expanded: bool) -> Self {
+        self.expanded = Some(expanded);
+        self
+    }
+
+    /// Marks the control as not responding to input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    /// Marks a dialog as modal.
+    pub fn modal(mut self) -> Self {
+        self.modal = true;
+        self
+    }
+
+    /// Marks the option highlighted in a list that a focused text field
+    /// drives (combobox pattern), so screen readers announce it.
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
+    }
+
+    /// Sets the heading level (1 to 6).
+    pub fn level(mut self, level: u32) -> Self {
+        self.level = Some(level.clamp(1, 6));
+        self
+    }
+}
+
 pub(crate) struct Overlay {
     pub root: NodeId,
     pub anchor: NodeId,
@@ -183,6 +326,10 @@ pub(crate) struct Element {
     pub translate: Point,
     pub on_double_click: Option<Rc<dyn Fn()>>,
     pub on_context_menu: Option<Rc<dyn Fn(Point)>>,
+    /// How the element appears to assistive technology.
+    pub semantics: Option<Box<Semantics>>,
+    /// The string a text leaf shows.
+    pub text: Option<Rc<str>>,
 }
 
 impl Element {
@@ -205,6 +352,8 @@ impl Element {
             translate: Point::ZERO,
             on_double_click: None,
             on_context_menu: None,
+            semantics: None,
+            text: None,
         }
     }
 
@@ -464,6 +613,7 @@ impl<'a> BuildCx<'a> {
         };
         let mut element = Element::new(self.widget_id(), id);
         element.text_color = Some(color);
+        element.text = Some(text.into());
         self.push(element)
     }
 
@@ -481,6 +631,63 @@ impl<'a> BuildCx<'a> {
     pub fn on_click(&mut self, node: NodeId, handler: Rc<dyn Fn()>) {
         if let Some(e) = self.element_mut(node) {
             e.on_click = Some(handler);
+        }
+    }
+
+    /// Describes the node to screen readers; see [`Semantics`].
+    pub fn semantics(&mut self, node: NodeId, semantics: Semantics) {
+        if let Some(e) = self.element_mut(node) {
+            e.semantics = Some(Box::new(semantics));
+        }
+    }
+
+    /// Describes a node built by someone else (content passed in by the app)
+    /// unless it already describes itself.
+    pub(crate) fn semantics_if_none(&mut self, node: NodeId, semantics: Semantics) {
+        if let Some(e) = self.element_mut(node)
+            && e.semantics.is_none()
+            && e.text.is_none()
+        {
+            e.semantics = Some(Box::new(semantics));
+        }
+    }
+
+    /// Changes the semantics a child already set (marking a button selected, say).
+    pub(crate) fn update_semantics(&mut self, node: NodeId, f: impl FnOnce(&mut Semantics)) {
+        if let Some(s) = self.element_mut(node).and_then(|e| e.semantics.as_deref_mut()) {
+            f(s);
+        }
+    }
+
+    /// The first described or focusable node at or under `node`, in tree
+    /// order: the control a label or tooltip around it is about.
+    fn control_in(&self, node: NodeId) -> Option<usize> {
+        let mut stack = vec![node];
+        while let Some(n) = stack.pop() {
+            let e = self.elements.get(n.0 as usize)?;
+            if e.semantics.as_deref().is_some_and(|s| !s.hidden) || e.focus_radius.is_some() {
+                return Some(n.0 as usize);
+            }
+            stack.extend(e.children.iter().rev());
+        }
+        None
+    }
+
+    /// Names the control at or under `node` with `name` unless it already has
+    /// a name of its own, and sets `description` (form fields, tooltips).
+    /// When it has a name, `name` becomes its description instead.
+    pub(crate) fn label_control(&mut self, node: NodeId, name: &str, description: Option<&str>) {
+        let Some(i) = self.control_in(node) else { return };
+        let e = &mut self.elements[i];
+        let s = e.semantics.get_or_insert_with(|| Box::new(Semantics::new(Role::Button)));
+        if s.name.is_none() || s.fallback_name {
+            s.name = Some(name.to_owned());
+            s.fallback_name = false;
+            if let Some(d) = description {
+                s.description = Some(d.to_owned());
+            }
+        } else if s.name.as_deref() != Some(name) {
+            s.description = Some(description.map_or_else(|| name.to_owned(), |d| format!("{name}. {d}")));
         }
     }
 

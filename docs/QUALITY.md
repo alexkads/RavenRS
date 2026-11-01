@@ -8,12 +8,13 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 
 1. **API.** Typed builder methods with defaults that look right without configuration. Values come in through `Binding<T>`, events go out through closures. Every public item has rustdoc, and the type has a runnable example. Growable enums are `#[non_exhaustive]`.
 2. **States.** Rest, hover, pressed, focused (keyboard ring), disabled, selected or checked where it applies, empty, loading and error where it applies, and overflow (long text, many items, a tiny viewport).
-3. **Keyboard.** Reachable with Tab. Enter and Space activate. Arrow keys, Home and End follow the [WAI-ARIA Authoring Practices](https://www.w3.org/WAI/ARIA/apg/patterns/) pattern for that widget. Escape closes overlays.
-4. **Themes.** Built only from semantic tokens, so it is correct in Raven Dark, Light and Glass. Text meets WCAG AA contrast, which `ravenrs-style` tests for every theme.
-5. **Edge cases.** Empty data, a single item, huge counts, non-ASCII text, out-of-range values (clamped, never panicking) and a zero-size viewport.
-6. **Performance.** Stays inside the budgets below. Large collections are virtualized.
-7. **Tests.** At least one behavior test that drives it through `Ui` (pointer and keyboard). Property tests for any pure logic. A golden image for any component whose drawing is non-trivial.
-8. **Docs and demo.** A section in the [component gallery](../examples/component-gallery) that shows its variants and states.
+3. **Screen readers.** It sets a role and state with `Semantics`, and every control has a name: from its text, a `label`, a `FormField` or a `Tooltip`. The gallery audit (`examples/component-gallery/tests/accessibility.rs`) fails on any unnamed control.
+4. **Keyboard.** Reachable with Tab. Enter and Space activate. Arrow keys, Home and End follow the [WAI-ARIA Authoring Practices](https://www.w3.org/WAI/ARIA/apg/patterns/) pattern for that widget. Escape closes overlays.
+5. **Themes.** Built only from semantic tokens, so it is correct in Raven Dark, Light and Glass. Text meets WCAG AA contrast, which `ravenrs-style` tests for every theme.
+6. **Edge cases.** Empty data, a single item, huge counts, non-ASCII text, out-of-range values (clamped, never panicking) and a zero-size viewport.
+7. **Performance.** Stays inside the budgets below. Large collections are virtualized.
+8. **Tests.** At least one behavior test that drives it through `Ui` (pointer and keyboard). Property tests for any pure logic. A golden image for any component whose drawing is non-trivial.
+9. **Docs and demo.** A section in the [component gallery](../examples/component-gallery) that shows its variants and states.
 
 ## Enforced checks
 
@@ -23,7 +24,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 |---|---|
 | `cargo fmt --check` | Formatting drift |
 | `cargo clippy -D warnings` on native and `wasm32` | Lints, including `missing_docs` on every public item |
-| `cargo test --workspace` | Unit, behavior, property ([proptest](https://docs.rs/proptest)) and doc tests |
+| `cargo test --workspace` | Unit, behavior, accessibility, property ([proptest](https://docs.rs/proptest)) and doc tests |
 | GPU golden-image tests (`crates/ravenrs/tests/visual.rs`) | Visual regressions in 6 scenes × dark and light; tolerance 24/255 per channel on at most 0.4% of pixels |
 | GPU pixel tests (`crates/ravenrs-render/tests/offscreen.rs`) | Renderer correctness: shapes, clipping, images |
 | `cargo doc -D warnings` | Broken intra-doc links |
@@ -59,7 +60,7 @@ The DataGrid caches the query result and reruns it only when the data or the que
 
 ## Component audit
 
-Status against the definition of done. **Behavior** names the test suites that drive the component. **Visual** marks golden-image coverage. Accessibility for screen readers (AccessKit) and right-to-left layout are missing for every component and are tracked once, in the gaps below.
+Status against the definition of done. **Behavior** names the test suites that drive the component. **Visual** marks golden-image coverage. Every component sets screen reader semantics, covered by `accessibility` (widgets) and the gallery audit. Right-to-left layout is missing for every component and is tracked once, in the gaps below.
 
 | Component | Behavior tests | Visual | Keyboard | Notes |
 |---|---|---|---|---|
@@ -99,8 +100,8 @@ Defects found and fixed during this audit:
 
 These block a "commercial-grade" label and are prioritized ahead of new components of the same family:
 
-1. **Screen readers.** No AccessKit tree yet, so no component exposes roles or names to assistive technology.
-2. **Right-to-left layout.** Parley shapes bidirectional text, but layouts do not mirror.
-3. **Remaining keyboard patterns** in the 🟡 rows above: Left/Right between Menubar menus and Ribbon key tips.
-4. **Clipboard** in `TextField` and the DataGrid.
-5. **Visual coverage.** Golden images exist for 6 scenes. Overlays, navigation and charts have none yet.
+1. **Right-to-left layout.** Parley shapes bidirectional text, but layouts do not mirror.
+2. **Remaining keyboard patterns** in the 🟡 rows above: Left/Right between Menubar menus and Ribbon key tips.
+3. **Clipboard** in `TextField` and the DataGrid.
+4. **Visual coverage.** Golden images exist for 6 scenes. Overlays, navigation and charts have none yet.
+5. **Screen reader depth.** Text fields do not expose caret position or selection, charts expose only their labels, and the web mirror is rebuilt whole when the tree changes. Tested with macOS VoiceOver's API (System Events) and the browser's DOM; not yet with NVDA, Narrator or Orca.

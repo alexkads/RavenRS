@@ -6,14 +6,14 @@ use std::collections::BTreeSet;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Color, CursorIcon, Insets, Key, Point, Quad, Rect};
+use ravenrs_core::{Color, CursorIcon, Insets, Key, Point, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use super::model::{CellAlign, GridColumn, GridData, Row, SortDirection};
 use super::query::{GridQuery, QueryResult, ViewRow, run_query, to_csv};
-use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint};
+use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics};
 use crate::{
     Badge, Button, ButtonSize, ButtonStyle, DropdownMenu, IconName, MenuItem, Spacer, TextField, View, util,
 };
@@ -313,6 +313,15 @@ impl View for HeaderCell<'_> {
         let mut label_style = cell_style(width - 6.0, 40.0, col.align);
         label_style.padding = Insets { left: 12.0, right: 6.0, ..Insets::ZERO };
         let label = cx.container(label_style, &content, Paint::None);
+        let mut semantics = Semantics::new(Role::ColumnHeader).name(col.title.clone());
+        if let Some((_, dir)) = sort {
+            semantics = semantics.description(if dir == SortDirection::Ascending {
+                "Sorted ascending"
+            } else {
+                "Sorted descending"
+            });
+        }
+        cx.semantics(label, semantics);
         if col.sortable {
             let q = s.h.query.clone();
             let m = s.h.modifiers.clone();
@@ -384,7 +393,9 @@ impl View for FilterCell<'_> {
                 move |t| write.update(|q| q.set_filter(c, t)),
             );
             let hint = if col.number.is_some() { "e.g. >100" } else { "Filter…" };
-            children.push(cx.child(&TextField::new(binding).placeholder(hint).compact()));
+            let field = cx.child(&TextField::new(binding).placeholder(hint).compact());
+            cx.label_control(field, &format!("Filter {}", col.title), Some(hint));
+            children.push(field);
         }
         let mut style = cell_style(s.widths[c], 40.0, CellAlign::Start);
         style.padding = Insets::symmetric(0.0, 6.0);
@@ -423,6 +434,7 @@ impl View for DataRow<'_> {
                 &[b],
                 Paint::None,
             );
+            cx.semantics(cell, Semantics::new(Role::CheckBox).name("Select row").toggled(selected));
             let (sel, h) = (s.h.selection.clone(), s.h.clone());
             cx.on_click(
                 cell,
@@ -480,6 +492,9 @@ impl View for DataRow<'_> {
                 style.justify = Justify::Start;
             }
             let cell = cx.container(LayoutStyle { align: Align::Center, ..style }, &[content], Paint::None);
+            if s.editing != Some((row, c)) {
+                cx.semantics(cell, Semantics::new(Role::Cell));
+            }
             let result = s.result.clone();
             let h = s.h.clone();
             cx.on_click(cell, Rc::new(move || click_row(&result, &h, mode, row, index)));
@@ -510,7 +525,7 @@ impl View for DataRow<'_> {
         };
         let line = theme.color(Semantic::Border).with_alpha(0.6);
         let focus = (s.focus_row == Some(index)).then(|| theme.color(Semantic::Accent));
-        cx.container(
+        let node = cx.container(
             LayoutStyle {
                 width: Some(s.total_width),
                 height: Some(rh),
@@ -524,7 +539,14 @@ impl View for DataRow<'_> {
                     scene.push_quad(Quad::new(Rect::new(f.x(), f.y(), 2.0, f.height()), accent));
                 }
             })),
-        )
+        );
+        // The grid body keeps focus; the keyboard row is announced as active.
+        let mut semantics = Semantics::new(Role::Row).active(s.focus_row == Some(index));
+        if mode != SelectionMode::None {
+            semantics = semantics.selected(selected);
+        }
+        cx.semantics(node, semantics);
+        node
     }
 }
 
@@ -590,6 +612,13 @@ impl View for GroupRow<'_> {
                 focus.set(Some(index));
                 q.update(|q| q.toggle_collapsed(&key));
             }),
+        );
+        cx.semantics(
+            node,
+            Semantics::new(Role::Row)
+                .name(format!("{}: {shown}, {count} rows", col.title))
+                .expanded(!*collapsed)
+                .active(s.focus_row == Some(self.index)),
         );
         cx.cursor(node, CursorIcon::Pointer);
         node
@@ -1075,6 +1104,7 @@ impl View for DataGrid {
             Paint::None,
         );
         cx.scrollable_virtual(body, true);
+        cx.semantics(body, Semantics::new(Role::Grid).name("Data grid").description(format!("{len} rows")));
         cx.focusable(body, 0.0);
         cx.on_key(body, key_handler(&shared, self.selection_mode));
         sections.push(body);

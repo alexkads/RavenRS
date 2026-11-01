@@ -263,7 +263,7 @@
       <ul class="points">
         <li><div><b>Typed builders, no magic</b><span>Everything is plain Rust you can jump to. Macros come later as sugar, not as the API.</span></div></li>
         <li><div><b>State that knows its readers</b><span>The UI redraws when state it read changes, and stays idle otherwise.</span></div></li>
-        <li><div><b>Accessible defaults</b><span>Buttons are focusable, keyboard-operable and show a visible focus ring.</span></div></li>
+        <li><div><b>Accessible by default</b><span>Every component works with the keyboard and speaks to screen readers: AccessKit on desktop, ARIA in the browser.</span></div></li>
       </ul>
     </div>
     <div class="code">
@@ -333,7 +333,7 @@
       <div class="phase"><span class="label">Phase 1</span><p><b>Foundation.</b> Workspace, checks, wgpu on desktop and WebGPU, SDF shapes, text, first app.</p><span class="state done">Done</span></div>
       <div class="phase"><span class="label">Phase 2</span><p><b>Components.</b> 60+ components, a Ribbon, a command palette, charts, and a virtualized 100k-row DataGrid with sorting, filtering, grouping, summaries and editing.</p><span class="state done">Done</span></div>
       <div class="phase"><span class="label">Phase 3</span><p><b>Quality and release.</b> Published to crates.io, WAI-ARIA keyboard patterns, golden images, property tests, performance budgets and yearly versioning.</p><span class="state done">Done</span></div>
-      <div class="phase"><span class="label">Phase 4</span><p><b>Accessibility and platform.</b> AccessKit screen readers, clipboard, IME composition display, right-to-left layout.</p><span class="state next">In progress</span></div>
+      <div class="phase"><span class="label">Phase 4</span><p><b>Accessibility and platform.</b> Screen readers on desktop and web (done), then clipboard, IME composition display and right-to-left layout.</p><span class="state next">In progress</span></div>
       <div class="phase"><span class="label">Phase 5</span><p><b>Reporting.</b> Report engine, document viewer, an end-user report designer on the Ribbon, PDF and XLSX export.</p><span class="state later">Planned</span></div>
       <div class="phase"><span class="label">Phase 6</span><p><b>Polish.</b> DataGrid frozen columns, drag reordering and master-detail, vector charts, backdrop blur for Raven Glass, spring motion, incremental reconciliation.</p><span class="state later">Planned</span></div>
     </div>
