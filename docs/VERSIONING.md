@@ -1,6 +1,6 @@
 # Versioning and releases
 
-> **Status: proposed.** RavenRS is at 0.1. This model starts with the next release, 26.2.0.
+> Adopted on 2026-10-31. The first release under this model is 26.2.0, which follows 0.1.0.
 
 RavenRS follows the release model of commercial component vendors, adapted so that every version is also valid [Cargo SemVer](https://doc.rust-lang.org/cargo/reference/semver.html).
 

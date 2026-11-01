@@ -349,7 +349,7 @@ dependencies = [
 
 [[package]]
 name = "component-gallery"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -804,7 +804,7 @@ dependencies = [
 
 [[package]]
 name = "hello-world"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -1954,7 +1954,7 @@ checksum = "ca45419789ae5a7899559e9512e58ca889e41f04f1f2445e9f4b290ceccd1d08"
 
 [[package]]
 name = "ravenrs"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "image",
  "pollster",
@@ -1971,14 +1971,14 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-core"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "proptest",
 ]
 
 [[package]]
 name = "ravenrs-layout"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "proptest",
  "ravenrs-core",
@@ -1987,7 +1987,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-platform-native"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "pollster",
  "ravenrs-core",
@@ -2000,7 +2000,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-platform-web"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "js-sys",
  "ravenrs-core",
@@ -2015,14 +2015,14 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-reactive"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "proptest",
 ]
 
 [[package]]
 name = "ravenrs-render"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "bytemuck",
  "pollster",
@@ -2035,14 +2035,14 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-style"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "ravenrs-core",
 ]
 
 [[package]]
 name = "ravenrs-text"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "criterion",
  "parley",
@@ -2051,7 +2051,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-widgets"
-version = "0.1.0"
+version = "26.2.0"
 dependencies = [
  "criterion",
  "image",

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "examples/*"]
 
 [workspace.package]
-version = "0.1.0"
+version = "26.2.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -12,16 +12,16 @@ homepage = "https://alexkads.github.io/RavenRS/"
 authors = ["Alex S S Fonseca <alexkads@gmail.com>"]
 
 [workspace.dependencies]
-ravenrs = { version = "0.1.0", path = "crates/ravenrs" }
-ravenrs-core = { version = "0.1.0", path = "crates/ravenrs-core" }
-ravenrs-reactive = { version = "0.1.0", path = "crates/ravenrs-reactive" }
-ravenrs-layout = { version = "0.1.0", path = "crates/ravenrs-layout" }
-ravenrs-text = { version = "0.1.0", path = "crates/ravenrs-text" }
-ravenrs-style = { version = "0.1.0", path = "crates/ravenrs-style" }
-ravenrs-render = { version = "0.1.0", path = "crates/ravenrs-render" }
-ravenrs-widgets = { version = "0.1.0", path = "crates/ravenrs-widgets" }
-ravenrs-platform-native = { version = "0.1.0", path = "crates/ravenrs-platform-native" }
-ravenrs-platform-web = { version = "0.1.0", path = "crates/ravenrs-platform-web" }
+ravenrs = { version = "26.2.0", path = "crates/ravenrs" }
+ravenrs-core = { version = "26.2.0", path = "crates/ravenrs-core" }
+ravenrs-reactive = { version = "26.2.0", path = "crates/ravenrs-reactive" }
+ravenrs-layout = { version = "26.2.0", path = "crates/ravenrs-layout" }
+ravenrs-text = { version = "26.2.0", path = "crates/ravenrs-text" }
+ravenrs-style = { version = "26.2.0", path = "crates/ravenrs-style" }
+ravenrs-render = { version = "26.2.0", path = "crates/ravenrs-render" }
+ravenrs-widgets = { version = "26.2.0", path = "crates/ravenrs-widgets" }
+ravenrs-platform-native = { version = "26.2.0", path = "crates/ravenrs-platform-native" }
+ravenrs-platform-web = { version = "26.2.0", path = "crates/ravenrs-platform-web" }
 
 wgpu = "30.0.1"
 # Without "wayland-csd-adwaita": its font stack (ttf-parser) is unmaintained (RUSTSEC-2026-0192);

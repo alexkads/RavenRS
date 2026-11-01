@@ -18,7 +18,7 @@ One declarative UI, drawn on the GPU, in a native window on Windows, macOS and L
 
 RavenRS is a free, open source GUI framework for Rust with a large component library: 60+ components including a virtualized **DataGrid** for 100,000+ rows, an Office-style **Ribbon**, a **command palette**, calendars, menus, dialogs, charts and 200 icons. Everything is drawn by RavenRS itself with `wgpu`, so the same code looks the same on the desktop and on the web.
 
-> **Status: 0.1, early and moving fast.** The component library is broad and tested, but the API can still change between minor versions. [docs/PARITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) tracks every component family of shadcn/ui, DevExpress and Telerik and where RavenRS stands.
+> **Versions follow the component-vendor model:** `YY.R.P`, with breaking changes only in each year's `.1` release, new features in `.2`, and monthly fixes ([docs/VERSIONING.md](docs/VERSIONING.md)). The current line, 26.x, is young: [docs/QUALITY.md](docs/QUALITY.md) lists what is still missing. [docs/PARITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) tracks every component family of shadcn/ui, DevExpress and Telerik and where RavenRS stands.
 
 ## Why RavenRS
 
