@@ -1,0 +1,18 @@
+[package]
+name = "ravenrs-core"
+description = "Geometry, color, input events and the display list shared by every RavenRS crate."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+documentation = "https://docs.rs/ravenrs-core"
+keywords = ["gui", "geometry", "scene"]
+categories = ["gui", "graphics"]
+
+[dependencies]
+
+[lints]
+workspace = true

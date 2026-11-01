@@ -8,18 +8,20 @@ edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/alexkads/RavenRS"
+homepage = "https://alexkads.github.io/RavenRS/"
+authors = ["Alex S S Fonseca <alexkads@gmail.com>"]
 
 [workspace.dependencies]
-raven = { path = "crates/raven" }
-raven-core = { path = "crates/raven-core" }
-raven-reactive = { path = "crates/raven-reactive" }
-raven-layout = { path = "crates/raven-layout" }
-raven-text = { path = "crates/raven-text" }
-raven-style = { path = "crates/raven-style" }
-raven-render = { path = "crates/raven-render" }
-raven-widgets = { path = "crates/raven-widgets" }
-raven-platform-native = { path = "crates/raven-platform-native" }
-raven-platform-web = { path = "crates/raven-platform-web" }
+ravenrs = { version = "0.1.0", path = "crates/ravenrs" }
+ravenrs-core = { version = "0.1.0", path = "crates/ravenrs-core" }
+ravenrs-reactive = { version = "0.1.0", path = "crates/ravenrs-reactive" }
+ravenrs-layout = { version = "0.1.0", path = "crates/ravenrs-layout" }
+ravenrs-text = { version = "0.1.0", path = "crates/ravenrs-text" }
+ravenrs-style = { version = "0.1.0", path = "crates/ravenrs-style" }
+ravenrs-render = { version = "0.1.0", path = "crates/ravenrs-render" }
+ravenrs-widgets = { version = "0.1.0", path = "crates/ravenrs-widgets" }
+ravenrs-platform-native = { version = "0.1.0", path = "crates/ravenrs-platform-native" }
+ravenrs-platform-web = { version = "0.1.0", path = "crates/ravenrs-platform-web" }
 
 wgpu = "30.0.1"
 winit = "0.30.13"

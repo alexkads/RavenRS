@@ -1,0 +1,20 @@
+[package]
+name = "ravenrs-layout"
+description = "RavenRS layout: a small, typed facade over Taffy's flexbox."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+documentation = "https://docs.rs/ravenrs-layout"
+keywords = ["gui", "layout", "flexbox", "taffy"]
+categories = ["gui"]
+
+[dependencies]
+ravenrs-core.workspace = true
+taffy.workspace = true
+
+[lints]
+workspace = true

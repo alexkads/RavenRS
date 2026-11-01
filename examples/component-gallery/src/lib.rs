@@ -1,7 +1,7 @@
 //! The RavenRS component gallery: every built-in component, grouped by
 //! category, with live state. Runs natively and in the browser.
 
-use raven::prelude::*;
+use ravenrs::prelude::*;
 
 /// Categories shown in the sidebar, in order.
 const PAGES: &[(IconName, &str)] = &[
@@ -468,7 +468,7 @@ impl Gallery {
                         "Activity",
                         List::new((
                             ListItem::new("Ana Lima merged #482")
-                                .subtitle("raven-render: clip stack")
+                                .subtitle("ravenrs-render: clip stack")
                                 .avatar("Ana Lima")
                                 .trailing("2m"),
                             ListItem::new("Bruno Reis opened #483")
@@ -1502,7 +1502,7 @@ fn sample_rows(n: usize) -> Vec<Vec<Value>> {
 
 /// Procedural images, so the gallery ships no third-party pictures.
 mod art {
-    use raven::prelude::*;
+    use ravenrs::prelude::*;
 
     fn mix(a: Color, b: Color, t: f32) -> Color {
         a.lerp(b, t)
@@ -1593,10 +1593,10 @@ impl View for PageBody {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let content = cx.child(self.0.as_ref());
         cx.container(
-            raven::layout::LayoutStyle {
+            ravenrs::layout::LayoutStyle {
                 max_width: Some(1080.0),
                 align: Align::Stretch,
-                ..raven::layout::LayoutStyle::stack(raven::layout::Axis::Vertical)
+                ..ravenrs::layout::LayoutStyle::stack(ravenrs::layout::Axis::Vertical)
             },
             &[content],
             Paint::None,
@@ -1611,14 +1611,15 @@ mod web_entry {
     use wasm_bindgen::prelude::*;
 
     thread_local! {
-        static APP: RefCell<Option<raven::web::WebApp>> = const { RefCell::new(None) };
+        static APP: RefCell<Option<ravenrs::web::WebApp>> = const { RefCell::new(None) };
     }
 
     #[wasm_bindgen(start)]
     pub fn start() {
         console_error_panic_hook::set_once();
         wasm_bindgen_futures::spawn_local(async {
-            match raven::web::start(super::Gallery::new(), raven::web::WebOptions::new("raven-canvas")).await
+            match ravenrs::web::start(super::Gallery::new(), ravenrs::web::WebOptions::new("raven-canvas"))
+                .await
             {
                 Ok(app) => APP.with(|a| *a.borrow_mut() = Some(app)),
                 Err(e) => web_sys::console::error_1(&e.to_string().into()),
@@ -1654,7 +1655,7 @@ mod tests {
             .primitives()
             .iter()
             .filter_map(|p| match p {
-                raven::core::Primitive::Glyphs(g) => g.glyphs.first().map(|g| g.y),
+                ravenrs::core::Primitive::Glyphs(g) => g.glyphs.first().map(|g| g.y),
                 _ => None,
             })
             .fold(f32::MIN, f32::max)
@@ -1669,7 +1670,10 @@ mod tests {
             let before = first_glyph_y(&ui);
             let at = Point::new(size.width - 60.0, size.height - 100.0);
             assert!(
-                ui.handle_event(&raven::core::Event::Scroll { position: at, delta: Point::new(0.0, -200.0) }),
+                ui.handle_event(&ravenrs::core::Event::Scroll {
+                    position: at,
+                    delta: Point::new(0.0, -200.0)
+                }),
                 "the page scrolls at {size:?}"
             );
             assert!(

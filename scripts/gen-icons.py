@@ -3,8 +3,8 @@
 
 Usage: gen-icons.py <lucide.ttf> <lucide.css>
 Requires fontTools (pip install fonttools). Writes:
-  crates/raven-text/fonts/RavenIcons.ttf   (subset with only the icons below)
-  crates/raven-widgets/src/icon_set.rs      (the `IconName` enum)
+  crates/ravenrs-text/fonts/RavenIcons.ttf   (subset with only the icons below)
+  crates/ravenrs-widgets/src/icon_set.rs      (the `IconName` enum)
 
 Add an icon by appending its Lucide name to ICONS and running the script again.
 """
@@ -53,7 +53,7 @@ def main() -> None:
     # Keep the first occurrence of each name, in order.
     names = list(dict.fromkeys(n for n in ICONS if n in codepoints))
 
-    out_font = root / "crates/raven-text/fonts/RavenIcons.ttf"
+    out_font = root / "crates/ravenrs-text/fonts/RavenIcons.ttf"
     opts = subset.Options()
     opts.name_IDs = ["*"]
     opts.notdef_outline = True
@@ -88,7 +88,7 @@ def main() -> None:
     lines += ["        }", "    }", "", "    /// The character that draws this icon in the RavenIcons font.", "    pub fn glyph(self) -> char {", "        match self {"]
     lines += [f"            IconName::{ident(n)} => '\\u{{{codepoints[n]:x}}}'," for n in names]
     lines += ["        }", "    }", "}", ""]
-    (root / "crates/raven-widgets/src/icon_set.rs").write_text("\n".join(lines))
+    (root / "crates/ravenrs-widgets/src/icon_set.rs").write_text("\n".join(lines))
     print(f"{len(names)} icons, font {out_font.stat().st_size} bytes")
 
 

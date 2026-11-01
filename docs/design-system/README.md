@@ -1,6 +1,6 @@
 # RavenRS
 
-Beautiful native interfaces, powered by Rust. RavenRS draws every pixel itself on the GPU (wgpu), on the desktop and in the browser (WebAssembly + WebGPU), so this system is the single source of truth for how a RavenRS app looks everywhere. The Rust crate `raven-style` mirrors these tokens value for value; when a token changes here, it changes there.
+Beautiful native interfaces, powered by Rust. RavenRS draws every pixel itself on the GPU (wgpu), on the desktop and in the browser (WebAssembly + WebGPU), so this system is the single source of truth for how a RavenRS app looks everywhere. The Rust crate `ravenrs-style` mirrors these tokens value for value; when a token changes here, it changes there.
 
 ## Principles
 

@@ -1,0 +1,32 @@
+[package]
+name = "ravenrs"
+description = "RavenRS: beautiful native interfaces, powered by Rust. One declarative UI for desktop and WebAssembly, drawn on the GPU."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+documentation = "https://docs.rs/ravenrs"
+keywords = ["gui", "ui", "wgpu", "webgpu", "wasm"]
+categories = ["gui", "graphics", "wasm"]
+readme = "../../README.md"
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-reactive.workspace = true
+ravenrs-layout.workspace = true
+ravenrs-text.workspace = true
+ravenrs-style.workspace = true
+ravenrs-render.workspace = true
+ravenrs-widgets.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ravenrs-platform-native.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+ravenrs-platform-web.workspace = true
+
+[lints]
+workspace = true

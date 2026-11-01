@@ -13,10 +13,13 @@ step "clippy (native)"
 cargo clippy --workspace --all-targets -- -D warnings
 
 step "clippy (wasm32)"
-cargo clippy -p raven -p raven-platform-web -p hello-world -p component-gallery --target wasm32-unknown-unknown -- -D warnings
+cargo clippy -p ravenrs -p ravenrs-platform-web -p hello-world -p component-gallery --target wasm32-unknown-unknown -- -D warnings
 
 step "tests (GPU tests skip themselves without an adapter)"
 cargo test --workspace
+
+step "API docs (broken links fail)"
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --exclude hello-world --exclude component-gallery --quiet
 
 step "web builds"
 ./scripts/build-web.sh hello-world

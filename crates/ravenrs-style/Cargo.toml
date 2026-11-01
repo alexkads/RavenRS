@@ -1,0 +1,19 @@
+[package]
+name = "ravenrs-style"
+description = "RavenRS design tokens and the Raven Dark, Raven Light and Raven Glass themes."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+documentation = "https://docs.rs/ravenrs-style"
+keywords = ["gui", "theme", "design-tokens"]
+categories = ["gui"]
+
+[dependencies]
+ravenrs-core.workspace = true
+
+[lints]
+workspace = true

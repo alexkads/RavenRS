@@ -34,26 +34,26 @@ The survey was done against the official repositories and docs (October 2026). N
 ## 3. Crate graph
 
 ```
-raven-core ─────────────┬──────────────┬──────────────┬─────────────┐
+ravenrs-core ─────────────┬──────────────┬──────────────┬─────────────┐
  (geometry, color,      │              │              │             │
   events, Scene)        ▼              ▼              ▼             ▼
-                  raven-layout    raven-text     raven-style   raven-render
+                  ravenrs-layout    ravenrs-text     ravenrs-style   ravenrs-render
                    (Taffy)        (Parley)       (tokens)      (wgpu, swash)
-raven-reactive ───┐      │              │              │             │
+ravenrs-reactive ───┐      │              │              │             │
  (State, Binding, │      └──────┬───────┴──────────────┘             │
-  Derived)        └────► raven-widgets ◄─────────────────────────────┤
+  Derived)        └────► ravenrs-widgets ◄─────────────────────────────┤
                          (View, Component, BuildCx, Ui)              │
                                 │                                    │
                 ┌───────────────┴───────────────┐                    │
                 ▼                               ▼                    │
-     raven-platform-native             raven-platform-web ◄──────────┘
+     ravenrs-platform-native             ravenrs-platform-web ◄──────────┘
        (winit + wgpu)              (canvas + WebGPU, wasm32 only)
                 └───────────────┬───────────────┘
                                 ▼
                               raven  (facade + prelude)
 ```
 
-There are no cycles. `raven-widgets` never touches the GPU and `raven-render` knows nothing about widgets; they meet only through `raven_core::Scene`, a plain display list. That boundary keeps widgets testable without a GPU (the widget tests run headless) and keeps the renderer replaceable.
+There are no cycles. `ravenrs-widgets` never touches the GPU and `ravenrs-render` knows nothing about widgets; they meet only through `ravenrs_core::Scene`, a plain display list. That boundary keeps widgets testable without a GPU (the widget tests run headless) and keeps the renderer replaceable.
 
 ## 4. The frame pipeline
 
@@ -78,7 +78,7 @@ Nothing runs between frames. An idle app sleeps on the desktop (`ControlFlow::Wa
 
 ## 5. Reactive system
 
-`raven-reactive` is single-threaded by design: `Rc`, `Cell`, `RefCell`, no locks. UI state lives on the UI thread on every platform, including the browser main thread.
+`ravenrs-reactive` is single-threaded by design: `Rc`, `Cell`, `RefCell`, no locks. UI state lives on the UI thread on every platform, including the browser main thread.
 
 * `State<T>` owns a value. `get`/`with` record a read in the innermost tracking `Observer`; `set`/`update` notify only the observers that read it during their latest run.
 * `Binding<T>` is a read/write view of a value owned elsewhere (SwiftUI's `@Binding`). `Binding::map` projects onto a field.
@@ -145,13 +145,13 @@ Parity with the DevExpress DataGrid feature set:
 
 ## 7. Rendering
 
-`raven-render` is a small 2D renderer on `wgpu` 30.
+`ravenrs-render` is a small 2D renderer on `wgpu` 30.
 
 * **Quads** are instanced. The WGSL fragment shader evaluates a signed-distance function of a rounded box with per-corner radii, so edges are anti-aliased analytically (one device pixel of coverage ramp) at any scale factor. Borders, two-stop linear gradients and fill share the same shader.
 * **Soft shadows** are separate instances drawn under their shape: the coverage is an `erf` approximation over the same SDF, which gives a Gaussian-looking falloff in one pass with no blur texture.
 * **Text** is shaped by Parley, rasterized per glyph by `swash` (outline, alpha mask, 4 horizontal sub-pixel positions, no hinting) into an R8 atlas packed with shelves, and drawn as textured quads snapped to the device pixel grid. The atlas grows (×2 up to the device limit) when it fills; at the limit it is cleared.
 * **Color.** Tokens are sRGB. The renderer prefers non-sRGB surface formats so blending happens in sRGB space, as in browsers and design tools; on `*Srgb` targets the shaders linearize colors first. Output is premultiplied alpha.
-* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. The only GPU→CPU readback in the repository is in `crates/raven-render/tests/offscreen.rs`, which renders real scenes on the GPU and checks pixels.
+* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. The only GPU→CPU readback in the repository is in `crates/ravenrs-render/tests/offscreen.rs`, which renders real scenes on the GPU and checks pixels.
 
 **Why not Vello (yet).** Vello's main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Vello remains the candidate for arbitrary vector paths (charts, icons, `Canvas` paths) behind the same `Scene` boundary.
 
@@ -159,7 +159,7 @@ Parity with the DevExpress DataGrid feature set:
 
 ## 8. Layout
 
-`raven-layout` exposes a small typed subset of flexbox (`LayoutStyle`: axis, spacing, padding, alignment, justification, sizes, growth) over Taffy. The UI root is a box sized to the viewport; stacks are flex containers; text leaves have zero minimum width so they wrap instead of overflowing. Taffy also offers Grid and Block layout, which `Grid` and `List` will use.
+`ravenrs-layout` exposes a small typed subset of flexbox (`LayoutStyle`: axis, spacing, padding, alignment, justification, sizes, growth) over Taffy. The UI root is a box sized to the viewport; stacks are flex containers; text leaves have zero minimum width so they wrap instead of overflowing. Taffy also offers Grid and Block layout, which `Grid` and `List` will use.
 
 ## 9. Text
 
@@ -167,9 +167,9 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 
 ## 10. Platforms
 
-**Desktop (`raven-platform-native`).** winit 0.30 (`ApplicationHandler`), one window, `ControlFlow::Wait`. Surface reconfiguration on resize and scale-factor changes, logical-pixel input, cursor icons, keyboard focus traversal, and GPU device-loss recovery (the device, surface and renderer are recreated on the next frame).
+**Desktop (`ravenrs-platform-native`).** winit 0.30 (`ApplicationHandler`), one window, `ControlFlow::Wait`. Surface reconfiguration on resize and scale-factor changes, logical-pixel input, cursor icons, keyboard focus traversal, and GPU device-loss recovery (the device, surface and renderer are recreated on the next frame).
 
-**Web (`raven-platform-web`).** Plain `web-sys` on a `<canvas>`:
+**Web (`ravenrs-platform-web`).** Plain `web-sys` on a `<canvas>`:
 
 * async adapter and device creation (`wasm-bindgen-futures`), never blocking the main thread;
 * a friendly message next to the canvas when `navigator.gpu` is missing (no WebGL fallback in this phase);

@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use raven::prelude::*;
+use ravenrs::prelude::*;
 
 /// A reusable component: a labelled headline number in a card, with a note
 /// under it. It shows how apps build their own components from RavenRS views.
@@ -73,7 +73,7 @@ mod web_entry {
     use wasm_bindgen::prelude::*;
 
     thread_local! {
-        static APP: RefCell<Option<raven::web::WebApp>> = const { RefCell::new(None) };
+        static APP: RefCell<Option<ravenrs::web::WebApp>> = const { RefCell::new(None) };
     }
 
     /// Runs automatically when the module is instantiated.
@@ -81,7 +81,7 @@ mod web_entry {
     pub fn start() {
         console_error_panic_hook::set_once();
         wasm_bindgen_futures::spawn_local(async {
-            match raven::web::start(super::app(), raven::web::WebOptions::new("raven-canvas")).await {
+            match ravenrs::web::start(super::app(), ravenrs::web::WebOptions::new("raven-canvas")).await {
                 Ok(app) => APP.with(|a| *a.borrow_mut() = Some(app)),
                 Err(e) => web_sys::console::error_1(&e.to_string().into()),
             }
@@ -97,7 +97,7 @@ mod web_entry {
 
 #[cfg(test)]
 mod tests {
-    use raven::core::{Event, Point, PointerButton, Primitive, Size};
+    use ravenrs::core::{Event, Point, PointerButton, Primitive, Size};
 
     use super::*;
 

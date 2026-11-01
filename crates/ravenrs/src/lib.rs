@@ -1,0 +1,63 @@
+//! # RavenRS
+//!
+//! Beautiful native interfaces, powered by Rust. Write the UI once with
+//! declarative views and run it in a native window or in the browser
+//! (WebAssembly + WebGPU), drawn by the same GPU renderer.
+//!
+//! ```no_run
+//! use ravenrs::prelude::*;
+//!
+//! fn app() -> impl View {
+//!     let count = State::new(0);
+//!     let c = count.clone();
+//!     VStack::new((
+//!         Text::new("Welcome to RavenRS").style(TextStyle::Display),
+//!         Card::new(Text::bound(&count, |n| format!("Clicks: {n}")).style(TextStyle::Metric)),
+//!         Button::new("Get Started").on_click(move || c.update(|n| *n += 1)),
+//!     ))
+//!     .spacing(24.0)
+//!     .padding(32.0)
+//! }
+//!
+//! # #[cfg(not(target_arch = "wasm32"))]
+//! fn main() -> Result<(), ravenrs::native::PlatformError> {
+//!     ravenrs::native::run(app(), ravenrs::native::WindowOptions::new("Hello"))
+//! }
+//! # #[cfg(target_arch = "wasm32")]
+//! # fn main() {}
+//! ```
+//!
+//! The crates behind this facade can also be used on their own:
+//! [`core`], [`reactive`], [`layout`], [`text`], [`style`], [`render`], [`widgets`].
+
+pub use ravenrs_core as core;
+pub use ravenrs_layout as layout;
+pub use ravenrs_reactive as reactive;
+pub use ravenrs_render as render;
+pub use ravenrs_style as style;
+pub use ravenrs_text as text;
+pub use ravenrs_widgets as widgets;
+
+/// Desktop windows (Windows, macOS, Linux).
+#[cfg(not(target_arch = "wasm32"))]
+pub mod native {
+    pub use ravenrs_platform_native::{PlatformError, WindowOptions, run};
+}
+
+/// The browser: a `<canvas>` driven by WebGPU.
+#[cfg(target_arch = "wasm32")]
+pub mod web {
+    pub use ravenrs_platform_web::{WebApp, WebError, WebOptions, start};
+}
+
+/// Everything an app usually needs, in one import.
+pub mod prelude {
+    pub use ravenrs_core::{
+        Color, CursorIcon, ImageData, ImageQuad, Insets, LinearGradient, Point, Quad, Rect, Scene, Shadow,
+        Size,
+    };
+    pub use ravenrs_layout::{Align, Justify};
+    pub use ravenrs_reactive::{Binding, Derived, State};
+    pub use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
+    pub use ravenrs_widgets::*;
+}

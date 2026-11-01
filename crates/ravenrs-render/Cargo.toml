@@ -1,0 +1,27 @@
+[package]
+name = "ravenrs-render"
+description = "RavenRS GPU renderer: SDF quads, soft shadows, gradients and an atlas-based text pipeline on wgpu."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+documentation = "https://docs.rs/ravenrs-render"
+keywords = ["wgpu", "renderer", "gpu", "2d"]
+categories = ["graphics", "rendering"]
+
+[dependencies]
+ravenrs-core.workspace = true
+wgpu.workspace = true
+swash.workspace = true
+bytemuck.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+pollster.workspace = true
+ravenrs-text.workspace = true
+
+[lints]
+workspace = true

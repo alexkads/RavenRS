@@ -157,7 +157,8 @@
       <li class="hide-sm"><a href="#features">Features</a></li>
       <li class="hide-sm"><a href="#components">Components</a></li>
       <li class="hide-sm"><a href="#code">Code</a></li>
-      <li class="hide-sm"><a href="#roadmap">Roadmap</a></li>
+      <li class="hide-sm"><a href="https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md">Docs</a></li>
+      <li class="hide-sm"><a href="api/ravenrs/">API</a></li>
       <li><a class="gh" href="https://github.com/alexkads/RavenRS">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub</a></li>
@@ -167,13 +168,13 @@
 
 <header class="hero" id="top">
   <div class="wrap">
-    <span class="eyebrow"><b>v0.1</b> 40+ components, desktop and WebGPU from one codebase</span>
+    <span class="eyebrow"><b>v0.1</b> 60+ components, desktop and WebGPU from one codebase, free and open source</span>
     <h1>Beautiful native interfaces, <span class="sheen">powered by Rust.</span></h1>
     <p class="lede">Write your UI once, declaratively. RavenRS draws every pixel on the GPU with wgpu, in a native window on Windows, macOS and Linux, and in the browser through WebAssembly and WebGPU.</p>
     <div class="cta">
       <a class="btn primary" href="#demo">Try the live demo</a>
       <a class="btn secondary" href="https://github.com/alexkads/RavenRS">Star on GitHub</a>
-      <span class="install"><span>$</span> git clone github.com/alexkads/RavenRS <button type="button" id="copy" aria-label="Copy clone command">Copy</button></span>
+      <span class="install"><span>$</span> cargo add ravenrs --git https://github.com/alexkads/RavenRS <button type="button" id="copy" aria-label="Copy install command">Copy</button></span>
     </div>
 
     <div class="stage" id="demo">
@@ -239,17 +240,17 @@
 <section id="components">
   <div class="wrap">
     <p class="kicker">Components</p>
-    <h2>Everything a real application needs, already designed.</h2>
+    <h2>60+ components, already designed and tested.</h2>
     <p class="sub">Every component reads the same tokens, works with the keyboard, and runs unchanged on desktop and the web. Try them all in the gallery above.</p>
     <div class="catalog">
-      <div class="group"><h3>Inputs</h3><div class="chip-row"><span class="chip">Button</span><span class="chip">IconButton</span><span class="chip">TextField</span><span class="chip">Select</span><span class="chip">Toggle</span><span class="chip">Checkbox</span><span class="chip">RadioGroup</span><span class="chip">Slider</span><span class="chip">Stepper</span><span class="chip">SegmentedControl</span><span class="chip">ThemeSwitcher</span></div></div>
-      <div class="group"><h3>Navigation</h3><div class="chip-row"><span class="chip">Tabs</span><span class="chip">Sidebar</span><span class="chip">SidebarItem</span><span class="chip">Breadcrumb</span><span class="chip">Disclosure</span><span class="chip">Accordion</span></div></div>
-      <div class="group"><h3>Overlays</h3><div class="chip-row"><span class="chip">Tooltip</span><span class="chip">Popover</span><span class="chip">DropdownMenu</span><span class="chip">MenuItem</span><span class="chip">Dialog</span></div></div>
-      <div class="group"><h3>Layout</h3><div class="chip-row"><span class="chip">VStack</span><span class="chip">HStack</span><span class="chip">Grid</span><span class="chip">ScrollView</span><span class="chip">Spacer</span><span class="chip">Section</span><span class="chip">Card</span><span class="chip">GlassCard</span></div></div>
-      <div class="group"><h3>Data</h3><div class="chip-row"><span class="chip">DataGrid ×100k</span><span class="chip">Table</span><span class="chip">List</span><span class="chip">ListItem</span><span class="chip">Stat</span><span class="chip">BarChart</span><span class="chip">AreaChart</span><span class="chip">Canvas</span></div></div>
-      <div class="group"><h3>Feedback</h3><div class="chip-row"><span class="chip">Alert</span><span class="chip">Badge</span><span class="chip">ProgressBar</span><span class="chip">Skeleton</span></div></div>
-      <div class="group"><h3>Content</h3><div class="chip-row"><span class="chip">Image</span><span class="chip">Text</span><span class="chip">Icon ×112</span><span class="chip">Avatar</span><span class="chip">Kbd</span><span class="chip">Divider</span></div></div>
-      <div class="group"><h3>Build your own</h3><div class="chip-row"><span class="chip">Component</span><span class="chip">View</span><span class="chip">BuildCx</span><span class="chip">ViewExt</span><span class="chip">use_state</span><span class="chip">overlay</span></div></div>
+      <div class="group"><h3>Inputs</h3><div class="chip-row"><span class="chip">Button</span><span class="chip">IconButton</span><span class="chip">ToggleButton</span><span class="chip">ToggleGroup</span><span class="chip">TextField</span><span class="chip">Select</span><span class="chip">Combobox</span><span class="chip">Checkbox</span><span class="chip">RadioGroup</span><span class="chip">Toggle</span><span class="chip">Slider</span><span class="chip">Stepper</span><span class="chip">SegmentedControl</span><span class="chip">InputOtp</span><span class="chip">Calendar</span><span class="chip">DatePicker</span></div></div>
+      <div class="group"><h3>Navigation</h3><div class="chip-row"><span class="chip">Ribbon</span><span class="chip">Menubar</span><span class="chip">Tabs</span><span class="chip">Sidebar</span><span class="chip">Breadcrumb</span><span class="chip">Pagination</span><span class="chip">Accordion</span><span class="chip">CommandPalette</span></div></div>
+      <div class="group"><h3>Overlays</h3><div class="chip-row"><span class="chip">Dialog</span><span class="chip">Sheet</span><span class="chip">Popover</span><span class="chip">HoverCard</span><span class="chip">Tooltip</span><span class="chip">DropdownMenu</span><span class="chip">ContextMenu</span><span class="chip">Toaster</span></div></div>
+      <div class="group"><h3>Data</h3><div class="chip-row"><span class="chip">DataGrid ×100k</span><span class="chip">Table</span><span class="chip">List</span><span class="chip">Stat</span><span class="chip">BarChart</span><span class="chip">AreaChart</span></div></div>
+      <div class="group"><h3>Layout</h3><div class="chip-row"><span class="chip">VStack</span><span class="chip">HStack</span><span class="chip">Grid</span><span class="chip">ScrollView</span><span class="chip">Splitter</span><span class="chip">Card</span><span class="chip">GlassCard</span><span class="chip">AspectRatio</span></div></div>
+      <div class="group"><h3>Forms</h3><div class="chip-row"><span class="chip">FormField</span><span class="chip">Label</span><span class="chip">validate::email</span><span class="chip">validate::required</span></div></div>
+      <div class="group"><h3>Media & feedback</h3><div class="chip-row"><span class="chip">Image</span><span class="chip">Icon ×200</span><span class="chip">Carousel</span><span class="chip">Avatar</span><span class="chip">Badge</span><span class="chip">Alert</span><span class="chip">ProgressBar</span><span class="chip">Spinner</span><span class="chip">Skeleton</span></div></div>
+      <div class="group"><h3>Build your own</h3><div class="chip-row"><span class="chip">Component</span><span class="chip">View</span><span class="chip">BuildCx</span><span class="chip">use_state</span><span class="chip">overlay</span><span class="chip">wake_at</span><span class="chip">shortcut</span></div></div>
     </div>
   </div>
 </section>
@@ -270,7 +271,7 @@
         <button type="button" role="tab" id="tab-app" aria-selected="true" aria-controls="code-app">app.rs</button>
         <button type="button" role="tab" id="tab-comp" aria-selected="false" aria-controls="code-comp">component.rs</button>
       </header>
-<pre id="code-app" role="tabpanel" aria-labelledby="tab-app"><span class="k">use</span> raven::prelude::*;
+<pre id="code-app" role="tabpanel" aria-labelledby="tab-app"><span class="k">use</span> ravenrs::prelude::*;
 
 <span class="k">fn</span> <span class="f">app</span>() -&gt; <span class="k">impl</span> <span class="t">View</span> {
     <span class="k">let</span> count = <span class="t">State</span>::<span class="f">new</span>(<span class="n">0</span>);
@@ -344,8 +345,8 @@
     <h2>Build the interface you would be proud to ship.</h2>
     <p class="sub" style="margin-inline:auto">RavenRS is open source under MIT or Apache-2.0. Issues, ideas and pull requests are welcome.</p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/alexkads/RavenRS">Get started on GitHub</a>
-      <a class="btn secondary" href="https://github.com/alexkads/RavenRS/blob/master/ARCHITECTURE.md">Read the architecture</a>
+      <a class="btn primary" href="https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md">Read the getting started guide</a>
+      <a class="btn secondary" href="api/ravenrs/">Browse the API docs</a>
     </div>
   </div>
 </section>
@@ -360,7 +361,7 @@
 <script>
   document.getElementById('copy').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    try { await navigator.clipboard.writeText('git clone https://github.com/alexkads/RavenRS'); btn.textContent = 'Copied'; }
+    try { await navigator.clipboard.writeText('cargo add ravenrs --git https://github.com/alexkads/RavenRS'); btn.textContent = 'Copied'; }
     catch { btn.textContent = 'Select'; }
     setTimeout(() => { btn.textContent = 'Copy'; }, 1600);
   });

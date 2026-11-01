@@ -4,29 +4,43 @@
 
 **Beautiful native interfaces, powered by Rust.**
 
-Write your UI once, declaratively, and run it in a native window or in the browser.
-RavenRS draws every pixel itself on the GPU with `wgpu`: on Windows, macOS and Linux, and through WebAssembly + WebGPU on the web.
+One declarative UI, drawn on the GPU, in a native window on Windows, macOS and Linux, and in the browser through WebAssembly + WebGPU.
 
-[Live demo](https://alexkads.github.io/RavenRS/) · [Architecture](ARCHITECTURE.md) · [Design system](docs/design-system/README.md) · [Roadmap](#roadmap)
+[**Live gallery**](https://alexkads.github.io/RavenRS/) · [Getting started](docs/GETTING_STARTED.md) · [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/) · [Components](#components) · [Parity tracker](docs/PARITY.md) · [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
+
+![License: MIT or Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-4c66ee)
+![Rust 1.88+](https://img.shields.io/badge/rust-1.88%2B-4c66ee)
+![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-4c66ee)
 
 ![The RavenRS component gallery running natively on macOS](docs/media/component-gallery.png)
 
 </div>
 
-> **Status: early.** The same UI runs natively and in the browser with 40+ components, 112 icons, three themes, reactive state and a GPU renderer. The API will change. See [what is implemented](ARCHITECTURE.md#11-status) and try the [component gallery](https://alexkads.github.io/RavenRS/).
+RavenRS is a free, open source GUI framework for Rust with a large component library: 60+ components including a virtualized **DataGrid** for 100,000+ rows, an Office-style **Ribbon**, a **command palette**, calendars, menus, dialogs, charts and 200 icons. Everything is drawn by RavenRS itself with `wgpu`, so the same code looks the same on the desktop and on the web.
+
+> **Status: 0.1, early and moving fast.** The component library is broad and tested, but the API can still change between minor versions. [docs/PARITY.md](docs/PARITY.md) tracks every component family of shadcn/ui, DevExpress and Telerik and where RavenRS stands.
 
 ## Why RavenRS
 
-- **One UI, every platform.** The same Rust code renders in a desktop window and on a `<canvas>` in the browser. No DOM widgets, no webview: the renderer is shared, so it looks identical.
-- **Declarative and reactive.** Compose views with typed builders. `State<T>` tracks who reads it, so changing a value redraws only when something on screen depends on it.
-- **Beautiful by default.** Components read semantic tokens from three themes (Raven Dark, Raven Light, Raven Glass) with contrast checked against WCAG AA in tests.
-- **Built to be extended.** Your own components use the same public API as the built-in ones: compose with `Component`, or go low-level with `View` and `BuildCx` for layout, painting, hit-testing and focus.
-- **GPU-first, idle when idle.** Signed-distance rounded rectangles, borders, gradients and soft shadows in one shader; text from a glyph atlas. Frames are produced only when something changed.
+- **One UI, every platform.** Desktop windows and a browser `<canvas>` share the renderer, the layout engine and every component. No webview, no DOM widgets.
+- **Declarative and reactive.** Compose views with typed builders. `State<T>` knows who reads it, so a change redraws only when something on screen depends on it, and an idle app uses no CPU or GPU.
+- **Beautiful by default.** Three themes (Raven Dark, Raven Light, Raven Glass) built from semantic design tokens, with text contrast checked against WCAG AA in the test suite.
+- **Batteries included.** Data grid, ribbon, date pickers, command palette, toasts, context menus, splitters, carousels, forms with validation and more, all keyboard-operable.
+- **Built to be extended.** Your components use the same public API as the built-in ones, from a simple `Component` to a fully custom `View` that draws, scrolls, opens overlays and handles input.
 
-## A taste
+## Quick start
+
+Add RavenRS to your project (until the first crates.io release, use the Git repository):
+
+```toml
+[dependencies]
+ravenrs = { git = "https://github.com/alexkads/RavenRS" }
+```
+
+Write your UI:
 
 ```rust
-use raven::prelude::*;
+use ravenrs::prelude::*;
 
 fn app() -> impl View {
     let count = State::new(0);
@@ -38,23 +52,39 @@ fn app() -> impl View {
             Text::new("REVENUE").style(TextStyle::Caption).foreground(Semantic::InkMuted),
             Text::new("R$ 128.450").style(TextStyle::Metric),
             Text::bound(&count, |n| format!("Clicked {n} times")).foreground(Semantic::InkMuted),
-        )))
-        .corner_radius(24.0)
-        .shadow(Shadow::soft()),
-        Button::new("Get Started").on_click(move || increment.update(|n| *n += 1)),
+        ))),
+        Button::new("Get Started").icon(IconName::Sparkles).on_click(move || increment.update(|n| *n += 1)),
     ))
     .spacing(24.0)
     .padding(32.0)
 }
 
-fn main() -> Result<(), raven::native::PlatformError> {
-    raven::native::run(app(), raven::native::WindowOptions::new("Hello"))
+fn main() -> Result<(), ravenrs::native::PlatformError> {
+    ravenrs::native::run(app(), ravenrs::native::WindowOptions::new("Hello"))
 }
 ```
 
-### Your own components
+The [getting started guide](docs/GETTING_STARTED.md) covers the browser build, state, components of your own, themes and the data grid.
+
+## Components
+
+| Group | Components |
+|---|---|
+| Inputs | `Button` (4 styles, 3 sizes, icons), `IconButton`, `ToggleButton`, `ToggleGroup`, `TextField`, `Select`, `Combobox`, `Checkbox`, `RadioGroup`, `Toggle`, `Slider`, `Stepper`, `SegmentedControl`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher` |
+| Forms | `FormField` with `validate::{required, email, min_length}` and custom rules, `Label` |
+| Navigation | `Ribbon`, `Menubar`, `Tabs`, `Sidebar`, `Breadcrumb`, `Pagination`, `Disclosure`, `Accordion`, `CommandPalette` (⌘K) |
+| Overlays | `Dialog`, `Sheet`, `Popover`, `HoverCard`, `Tooltip`, `DropdownMenu`, `ContextMenu`, `Toaster` |
+| Data | `DataGrid` (virtualized; multi-sort, filter row, search, grouping, summaries, resize, column chooser, selection, editing, templates, CSV export), `Table`, `List`, `Stat`, `BarChart`, `AreaChart` |
+| Layout | `VStack`, `HStack`, `Grid`, `ScrollView`, `Splitter`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `Spacer`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
+| Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Alert`, `ProgressBar`, `Spinner`, `Skeleton`, `Kbd`, `Divider`, `Canvas` |
+
+Every component is in [`examples/component-gallery`](examples/component-gallery), which runs natively and [in your browser](https://alexkads.github.io/RavenRS/).
+
+## Your own components
 
 ```rust
+use ravenrs::prelude::*;
+
 /// State lives in the struct; `body` composes views and runs on every rebuild.
 struct Counter {
     count: State<i32>,
@@ -71,37 +101,15 @@ impl Component for Counter {
 }
 ```
 
-Need full control? Implement `View` and use `BuildCx` directly: create layout boxes, paint any `Scene` primitive with `Paint::Custom`, keep per-instance state with `cx.use_state`, open floating layers with `cx.overlay`, react to `cx.is_hovered()` / `cx.is_pressed()`, and register `cx.on_click`, `cx.on_key`, `cx.on_drag`, `cx.focusable` and `cx.cursor`. That is exactly how every built-in component is written. For quick custom drawing there is `Canvas`.
+Need full control? Implement `View` and use `BuildCx`: layout boxes, any drawing through `Paint::Custom`, per-instance state with `cx.use_state`, floating layers with `cx.overlay`, virtualized scrolling, timers with `cx.wake_at`, and input through `on_click`, `on_key`, `on_drag`, `on_context_menu` and `shortcut`. Every built-in component is written this way.
 
-## Components
+## Run the examples
 
-| Group | Components |
-|---|---|
-| Inputs | `Button` (primary, secondary, ghost, danger; 3 sizes; icons; disabled), `IconButton`, `TextField`, `Select`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `ThemeSwitcher` |
-| Navigation | `Tabs`, `Sidebar`, `SidebarSection`, `SidebarItem`, `Breadcrumb`, `Disclosure`, `Accordion` |
-| Overlays | `Tooltip`, `Popover`, `DropdownMenu` + `MenuItem`, `Dialog` |
-| Layout | `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Section`, `Card`, `GlassCard`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
-| Data | `DataGrid` (100k+ rows virtualized: multi-sort, filter row, search, grouping, summaries, resizing, column chooser, selection, editing, templates, CSV export), `Table`, `List`, `ListItem`, `Stat`, `BarChart`, `AreaChart`, `Canvas` |
-| Feedback | `Alert`, `Badge`, `ProgressBar`, `Skeleton` |
-| Content | `Text`, `Image` (PNG/JPEG, cover/fit/fill), `Icon` (112 Lucide icons), `Avatar`, `Kbd`, `Divider` |
-
-All of them are in [`examples/component-gallery`](examples/component-gallery), which runs natively and [in the browser](https://alexkads.github.io/RavenRS/).
-
-## Run it
-
-Requirements: Rust stable (1.88+). For the web: the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` **0.2.130** (it must match the crate version) and, optionally, `wasm-opt` from Binaryen.
-
-**Desktop**
+Requirements: Rust stable 1.88+. For the browser: the `wasm32-unknown-unknown` target and `wasm-bindgen-cli` **0.2.130** (it must match the crate version).
 
 ```bash
 cargo run -p component-gallery --release
 ```
-
-```bash
-cargo run -p hello-world --release
-```
-
-**Browser** (Chrome, Edge, Safari 18+, or Firefox with WebGPU)
 
 ```bash
 rustup target add wasm32-unknown-unknown
@@ -112,59 +120,42 @@ cargo install wasm-bindgen-cli --version 0.2.130 --locked
 ```
 
 ```bash
-./scripts/build-web.sh component-gallery
+./scripts/build-web.sh component-gallery && python3 -m http.server -d examples/component-gallery/web 8080
 ```
 
-```bash
-python3 -m http.server -d examples/component-gallery/web 8080
-```
-
-Then open http://localhost:8080. Without WebGPU the page explains what is missing instead of failing silently.
-
-**Check everything** (there is no hosted CI; run this before pushing)
-
-```bash
-./scripts/check.sh
-```
-
-It runs rustfmt, clippy for desktop and wasm32, the test suite and the web build.
-
-**Publish the website**
-
-```bash
-./scripts/deploy-pages.sh
-```
-
-It builds the landing page and the WebAssembly demo on your machine and pushes them to the `gh-pages` branch that GitHub Pages serves.
-
-The renderer tests draw real scenes on your GPU offscreen and check pixels; they skip themselves on machines without a GPU adapter.
+Then open http://localhost:8080 in a browser with WebGPU (Chrome, Edge, Safari 18+, or Firefox with WebGPU enabled). Without WebGPU, the page explains what is missing.
 
 ## Crates
 
 | Crate | What it does |
 |---|---|
-| [`raven`](crates/raven) | The facade and `prelude`. Start here. |
-| [`raven-core`](crates/raven-core) | Geometry, colors, input events and `Scene`, the display list between widgets and renderers. |
-| [`raven-reactive`](crates/raven-reactive) | `State`, `Binding`, `Derived` and dependency-tracking `Observer`s. Single-threaded, no locks. |
-| [`raven-style`](crates/raven-style) | Design tokens and the Raven Dark, Light and Glass themes. |
-| [`raven-layout`](crates/raven-layout) | Flexbox layout on [Taffy](https://github.com/DioxusLabs/taffy). |
-| [`raven-text`](crates/raven-text) | Text shaping and wrapping with [Parley](https://github.com/linebender/parley), Inter embedded. |
-| [`raven-render`](crates/raven-render) | The `wgpu` renderer: SDF quads, shadows, gradients, glyph atlas. |
-| [`raven-widgets`](crates/raven-widgets) | `View`, `Component`, `BuildCx`, the built-in widgets and the `Ui` runtime. |
-| [`raven-platform-native`](crates/raven-platform-native) | Desktop windows with [winit](https://github.com/rust-windowing/winit). |
-| [`raven-platform-web`](crates/raven-platform-web) | `<canvas>` + WebGPU in the browser. |
+| [`ravenrs`](crates/ravenrs) | The facade and `prelude`. Start here. |
+| [`ravenrs-widgets`](crates/ravenrs-widgets) | Every component, the `View`/`Component`/`BuildCx` API and the `Ui` runtime. |
+| [`ravenrs-reactive`](crates/ravenrs-reactive) | `State`, `Binding`, `Derived` and dependency-tracking observers. |
+| [`ravenrs-style`](crates/ravenrs-style) | Design tokens and the Raven Dark, Light and Glass themes. |
+| [`ravenrs-layout`](crates/ravenrs-layout) | Flexbox and grid layout on [Taffy](https://github.com/DioxusLabs/taffy). |
+| [`ravenrs-text`](crates/ravenrs-text) | Text with [Parley](https://github.com/linebender/parley); Inter and the icon font embedded. |
+| [`ravenrs-render`](crates/ravenrs-render) | The `wgpu` renderer: SDF shapes, shadows, gradients, images, glyph atlas, clipping. |
+| [`ravenrs-core`](crates/ravenrs-core) | Geometry, colors, input events and the `Scene` display list. |
+| [`ravenrs-platform-native`](crates/ravenrs-platform-native) | Desktop windows with [winit](https://github.com/rust-windowing/winit). |
+| [`ravenrs-platform-web`](crates/ravenrs-platform-web) | `<canvas>` + WebGPU in the browser. |
 
 ## Roadmap
 
-1. **Foundation** (done): workspace, local check scripts, wgpu on desktop and WebGPU, SDF shapes, text, first example.
-2. **Components** (in progress): 40+ components, images and a virtualized DataGrid done; DataGrid parity items (frozen columns, drag reordering, header filters, master-detail) and `ZStack` next.
-3. **Reactivity**: incremental reconciliation and per-component invalidation.
-4. **Design system**: motion engine (springs, transitions), backdrop blur for Raven Glass, theme switching.
-5. **Showcase**: a dashboard and a full component gallery running natively and on the web.
-6. **Professional components**: virtualized lists and tables, docking, popovers, menus, command palette, rich text input, accessibility through AccessKit.
+- **Reporting** (next major track): report engine, document viewer, end-user report designer on the `Ribbon`, PDF/XLSX export.
+- **DataGrid parity**: frozen columns, drag reordering and drag-to-group, header filters, master-detail.
+- **Vector paths** for line and pie charts and gauges, and backdrop blur for Raven Glass.
+- **Platform**: clipboard, IME composition display, AccessKit screen reader support, right-to-left layout.
+- **Motion**: spring animations and transitions.
+
+See [docs/PARITY.md](docs/PARITY.md) for the full list and [CHANGELOG.md](CHANGELOG.md) for what changed.
+
+## Contributing
+
+Issues, ideas and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to build, test and add a component. Please follow the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your option. The embedded Inter font is under the [SIL Open Font License 1.1](crates/raven-text/fonts/Inter-LICENSE.txt); the icons come from [Lucide](https://lucide.dev) under the [ISC License](crates/raven-text/fonts/RavenIcons-LICENSE.txt).
+Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your option. The embedded Inter font is under the [SIL Open Font License 1.1](crates/ravenrs-text/fonts/Inter-LICENSE.txt); the icons come from [Lucide](https://lucide.dev) under the [ISC License](crates/ravenrs-text/fonts/RavenIcons-LICENSE.txt).
 
-Contributions are welcome. Unless you state otherwise, any contribution you submit is dual-licensed as above.
+Unless you state otherwise, any contribution you submit is dual-licensed as above, without additional terms.

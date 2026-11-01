@@ -11,7 +11,7 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-raven.workspace = true
+ravenrs.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber.workspace = true

@@ -284,7 +284,7 @@ name = "component-gallery"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
- "raven",
+ "ravenrs",
  "tracing-subscriber",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -684,7 +684,7 @@ name = "hello-world"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
- "raven",
+ "ravenrs",
  "tracing-subscriber",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -1767,54 +1767,54 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca45419789ae5a7899559e9512e58ca889e41f04f1f2445e9f4b290ceccd1d08"
 
 [[package]]
-name = "raven"
+name = "ravenrs"
 version = "0.1.0"
 dependencies = [
- "raven-core",
- "raven-layout",
- "raven-platform-native",
- "raven-platform-web",
- "raven-reactive",
- "raven-render",
- "raven-style",
- "raven-text",
- "raven-widgets",
+ "ravenrs-core",
+ "ravenrs-layout",
+ "ravenrs-platform-native",
+ "ravenrs-platform-web",
+ "ravenrs-reactive",
+ "ravenrs-render",
+ "ravenrs-style",
+ "ravenrs-text",
+ "ravenrs-widgets",
 ]
 
 [[package]]
-name = "raven-core"
+name = "ravenrs-core"
 version = "0.1.0"
 
 [[package]]
-name = "raven-layout"
+name = "ravenrs-layout"
 version = "0.1.0"
 dependencies = [
- "raven-core",
+ "ravenrs-core",
  "taffy",
 ]
 
 [[package]]
-name = "raven-platform-native"
+name = "ravenrs-platform-native"
 version = "0.1.0"
 dependencies = [
  "pollster",
- "raven-core",
- "raven-render",
- "raven-style",
- "raven-widgets",
+ "ravenrs-core",
+ "ravenrs-render",
+ "ravenrs-style",
+ "ravenrs-widgets",
  "tracing",
  "winit",
 ]
 
 [[package]]
-name = "raven-platform-web"
+name = "ravenrs-platform-web"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "raven-core",
- "raven-render",
- "raven-style",
- "raven-widgets",
+ "ravenrs-core",
+ "ravenrs-render",
+ "ravenrs-style",
+ "ravenrs-widgets",
  "tracing",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -1822,47 +1822,47 @@ dependencies = [
 ]
 
 [[package]]
-name = "raven-reactive"
+name = "ravenrs-reactive"
 version = "0.1.0"
 
 [[package]]
-name = "raven-render"
+name = "ravenrs-render"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
  "pollster",
- "raven-core",
- "raven-text",
+ "ravenrs-core",
+ "ravenrs-text",
  "swash",
  "tracing",
  "wgpu",
 ]
 
 [[package]]
-name = "raven-style"
+name = "ravenrs-style"
 version = "0.1.0"
 dependencies = [
- "raven-core",
+ "ravenrs-core",
 ]
 
 [[package]]
-name = "raven-text"
+name = "ravenrs-text"
 version = "0.1.0"
 dependencies = [
  "parley",
- "raven-core",
+ "ravenrs-core",
 ]
 
 [[package]]
-name = "raven-widgets"
+name = "ravenrs-widgets"
 version = "0.1.0"
 dependencies = [
  "image",
- "raven-core",
- "raven-layout",
- "raven-reactive",
- "raven-style",
- "raven-text",
+ "ravenrs-core",
+ "ravenrs-layout",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-text",
  "tracing",
 ]
 
