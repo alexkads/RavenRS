@@ -64,22 +64,23 @@ Status against the definition of done. **Behavior** names the test suites that d
 | Component | Behavior tests | Visual | Keyboard | Notes |
 |---|---|---|---|---|
 | Button, IconButton | ui, keyboard_and_basics | ✅ | ✅ Enter/Space, tested | |
-| ToggleButton, ToggleGroup | batch_parity | | 🟡 Tab + Enter/Space | Arrow keys inside the group planned |
+| ToggleButton, ToggleGroup | batch_parity, keyboard_and_basics | | ✅ arrows move focus, Space toggles, tested | |
 | TextField | components, properties | ✅ | ✅ editing keys, tested; IME on web | Clipboard planned |
-| Select | components | | 🟡 Tab + Enter opens | Arrow keys in the list planned |
+| Select | components, keyboard_and_basics | | ✅ Enter/Space/arrows open on the current option, arrows, Enter, focus returns, tested | |
 | Combobox | batch_parity | | ✅ type, arrows, Enter, tested | |
-| Checkbox, Toggle | components, batch_parity | ✅ | 🟡 Tab + Enter/Space | |
+| Checkbox, Toggle | components, batch_parity, keyboard_and_basics | ✅ | ✅ Space, tested | |
 | RadioGroup, SegmentedControl | keyboard_and_basics | ✅ | ✅ arrows, Home/End, wrap, tested | Keyboard added in this pass |
 | Slider | components | ✅ | ✅ arrows, Home/End, tested | |
 | Stepper | keyboard_and_basics | | ✅ arrows, Home/End, tested | Keyboard added in this pass |
 | InputOtp | batch_parity | | ✅ digits and Backspace, tested | |
 | FormField, Label | batch_parity, keyboard_and_basics | | n/a | |
-| Calendar, DatePicker | batch_parity | ✅ | 🟡 Tab + Enter per day | Arrow-key grid navigation planned |
-| Ribbon | ribbon | ✅ | 🟡 Tab + Enter | Key tips planned |
-| Menubar, DropdownMenu, ContextMenu | keyboard_and_basics, components, batch_parity | | 🟡 Tab + Enter, Escape | Arrow keys inside menus planned |
-| Tabs, Sidebar, Breadcrumb, Pagination, Accordion, Disclosure | components, layout_and_content, batch_parity | | 🟡 Tab + Enter | Arrow keys between tabs planned |
+| Calendar, DatePicker | batch_parity, keyboard_and_basics | ✅ | ✅ one Tab stop; arrows, Home/End, Page Up/Down, Enter, tested | |
+| Ribbon | ribbon | ✅ | 🟡 Tab + Enter; its menus are fully keyboard-operable | Key tips planned |
+| DropdownMenu, ContextMenu, Menubar | keyboard_and_basics, components, batch_parity | | ✅ first item focused on open, arrows, Enter, Escape, focus returns, tested | Menubar: Left/Right between menus planned |
+| Tabs | components, layout_and_content, keyboard_and_basics | | ✅ arrows open tabs, Home/End, tested | |
+| Sidebar, Breadcrumb, Pagination, Accordion, Disclosure | components, layout_and_content, batch_parity | | 🟡 Tab + Enter | Links and buttons by pattern; untested |
 | CommandPalette | batch_parity | | ✅ ⌘K, type, arrows, Enter, tested | |
-| Dialog, Sheet, Popover, HoverCard, Tooltip, Toaster | components, batch_parity, keyboard_and_basics | | ✅ Escape, tested | Focus trap in Dialog planned |
+| Dialog, Sheet, Popover, HoverCard, Tooltip, Toaster | components, batch_parity, keyboard_and_basics | | ✅ Escape; Dialog and Sheet trap focus and return it, tested | |
 | DataGrid | datagrid, properties | ✅ | ✅ row navigation, Enter edits, tested | See the DataGrid parity table in ARCHITECTURE.md |
 | Table, List, Stat, BarChart, AreaChart | components | ✅ partial | n/a | |
 | Layout: stacks, Grid, ScrollView, Splitter, AspectRatio, Card, Section | layout_and_content, components, keyboard_and_basics | ✅ partial | 🟡 Splitter arrows, untested | AspectRatio content now fills its box |
@@ -88,7 +89,8 @@ Status against the definition of done. **Behavior** names the test suites that d
 ✅ means the WAI-ARIA keys for that widget work and a test covers them. 🟡 means it is reachable and activatable but the full pattern is missing or untested.
 
 Defects found and fixed during this audit:
-- RadioGroup, SegmentedControl and Stepper had no keyboard support beyond Tab.
+- RadioGroup, SegmentedControl and Stepper had no keyboard support beyond Tab. Tabs, ToggleGroup, every menu, the Select list and the Calendar grid lacked their arrow-key patterns, and Calendar days could not take focus at all.
+- Tab could leave an open Dialog or Sheet for the page behind it; focus now stays inside and returns to the opener on close.
 - Focus moved by code hid the focus ring even when the user was navigating by keyboard.
 - `AspectRatio` content with modifiers (for example `Spacer::new().background(...)`) collapsed to zero height.
 - The DataGrid query exceeded the frame budget on 100k rows (see above).
@@ -99,6 +101,6 @@ These block a "commercial-grade" label and are prioritized ahead of new componen
 
 1. **Screen readers.** No AccessKit tree yet, so no component exposes roles or names to assistive technology.
 2. **Right-to-left layout.** Parley shapes bidirectional text, but layouts do not mirror.
-3. **Full keyboard patterns** for the 🟡 rows above: arrow keys in menus, the Select list, tabs, toggle groups and the calendar grid; a focus trap inside dialogs.
+3. **Remaining keyboard patterns** in the 🟡 rows above: Left/Right between Menubar menus and Ribbon key tips.
 4. **Clipboard** in `TextField` and the DataGrid.
 5. **Visual coverage.** Golden images exist for 6 scenes. Overlays, navigation and charts have none yet.

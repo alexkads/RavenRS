@@ -48,3 +48,91 @@ pub(crate) fn icon(cx: &mut BuildCx<'_>, name: IconName, size: f32, color: Color
     let style = LayoutStyle { width: Some(size), height: Some(size), ..LayoutStyle::leaf() };
     cx.text(s, &icon_attrs(size), color, style)
 }
+
+/// A pending focus move inside a group: which item takes focus on its next
+/// build. Requesting one also bumps a reactive tick, so the group rebuilds even
+/// when nothing else changed (arrow keys in a toolbar only move focus).
+#[derive(Clone, Debug)]
+pub(crate) struct FocusTarget {
+    target: std::rc::Rc<std::cell::Cell<Option<usize>>>,
+    tick: ravenrs_reactive::State<u32>,
+}
+
+impl FocusTarget {
+    pub(crate) fn new(initial: Option<usize>) -> Self {
+        Self {
+            target: std::rc::Rc::new(std::cell::Cell::new(initial)),
+            tick: ravenrs_reactive::State::new(0),
+        }
+    }
+
+    fn request(&self, index: usize) {
+        self.target.set(Some(index));
+        self.tick.update(|t| *t = t.wrapping_add(1));
+    }
+
+    /// True once if focus should move to `index`; reading subscribes the build.
+    fn take(&self, index: usize) -> bool {
+        let _ = self.tick.get();
+        let hit = self.target.get() == Some(index);
+        if hit {
+            self.target.set(None);
+        }
+        hit
+    }
+}
+
+/// Roving focus for item `index` of `count` in a row or column (radio buttons,
+/// tabs, toolbar buttons, menu items): arrow keys move focus to the neighbor,
+/// wrapping; Home and End jump to the ends.
+#[derive(Clone, Debug)]
+pub(crate) struct Roving {
+    pub(crate) index: usize,
+    pub(crate) count: usize,
+    pub(crate) focus_to: FocusTarget,
+}
+
+/// The shared [`FocusTarget`] of a group; call once per build of the group.
+/// `initial` focuses that item when the group first appears (an opened menu).
+pub(crate) fn roving_cell(cx: &mut BuildCx<'_>, initial: Option<usize>) -> FocusTarget {
+    cx.use_state(|| FocusTarget::new(initial)).get()
+}
+
+impl Roving {
+    /// Takes focus if an arrow key moved it here, and handles arrow keys on
+    /// `node`. `on_move` runs with the new index (to select it, for patterns
+    /// where selection follows focus).
+    pub(crate) fn wire(
+        &self,
+        cx: &mut BuildCx<'_>,
+        node: NodeId,
+        on_move: Option<std::rc::Rc<dyn Fn(usize)>>,
+    ) {
+        if self.focus_to.take(self.index) {
+            // By node: the focusable element may belong to a child widget (a button).
+            cx.request_focus_node(node);
+        }
+        let (index, count, focus_to) = (self.index, self.count, self.focus_to.clone());
+        cx.on_key(
+            node,
+            std::rc::Rc::new(move |key, _| {
+                use ravenrs_core::Key;
+                if count == 0 {
+                    return false;
+                }
+                let target = match key {
+                    Key::ArrowRight | Key::ArrowDown => (index + 1) % count,
+                    Key::ArrowLeft | Key::ArrowUp => (index + count - 1) % count,
+                    Key::Home => 0,
+                    Key::End => count - 1,
+                    _ => return false,
+                };
+                focus_to.request(target);
+                if let Some(on_move) = &on_move {
+                    on_move(target);
+                }
+                true
+            }),
+        );
+    }
+}

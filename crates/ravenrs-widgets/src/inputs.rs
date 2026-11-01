@@ -1,6 +1,5 @@
 //! Form controls bound to state through [`Binding`].
 
-use std::cell::Cell;
 use std::rc::Rc;
 
 use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Point, Quad, Rect, Shadow};
@@ -27,41 +26,23 @@ fn make_interactive(cx: &mut BuildCx<'_>, node: NodeId, radius: f32, on_click: R
     cx.cursor(node, CursorIcon::Pointer);
 }
 
-/// Option `index` of `count` in a single-choice group (radio buttons, segments).
-/// Arrow keys select and focus the neighbor, wrapping around; Home and End
-/// jump to the ends, following the WAI-ARIA radio group pattern.
+/// Option of a single-choice group (radio buttons, segments): arrow keys select
+/// and focus the neighbor, following the WAI-ARIA radio group pattern.
 struct ChoiceOption {
-    index: usize,
-    count: usize,
+    roving: util::Roving,
     selected: Binding<usize>,
-    /// The option that takes focus on its next build, after an arrow key.
-    focus_to: Rc<Cell<Option<usize>>>,
 }
 
 impl ChoiceOption {
+    fn index(&self) -> usize {
+        self.roving.index
+    }
+
     fn wire(&self, cx: &mut BuildCx<'_>, node: NodeId, radius: f32) {
-        if self.focus_to.get() == Some(self.index) {
-            self.focus_to.set(None);
-            cx.request_focus();
-        }
-        let (selected, index, count) = (self.selected.clone(), self.index, self.count);
+        let (selected, index) = (self.selected.clone(), self.index());
         make_interactive(cx, node, radius, Rc::new(move || selected.set(index)));
-        let (selected, focus_to) = (self.selected.clone(), self.focus_to.clone());
-        cx.on_key(
-            node,
-            Rc::new(move |key, _| {
-                let target = match key {
-                    Key::ArrowRight | Key::ArrowDown => (index + 1) % count,
-                    Key::ArrowLeft | Key::ArrowUp => (index + count - 1) % count,
-                    Key::Home => 0,
-                    Key::End => count - 1,
-                    _ => return false,
-                };
-                focus_to.set(Some(target));
-                selected.set(target);
-                true
-            }),
-        );
+        let selected = self.selected.clone();
+        self.roving.wire(cx, node, Some(Rc::new(move |i| selected.set(i))));
     }
 }
 
@@ -200,7 +181,7 @@ struct RadioOption {
 impl View for RadioOption {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let on = self.choice.selected.get() == self.choice.index;
+        let on = self.choice.selected.get() == self.choice.index();
         let hovered = cx.is_hovered();
         let dot = if on {
             vec![cx.container(
@@ -244,19 +225,15 @@ impl View for RadioOption {
 
 impl View for RadioGroup {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let focus_to = cx.use_state(|| Rc::new(Cell::new(None))).get();
+        let focus_to = util::roving_cell(cx, None);
         let count = self.options.len();
         let options: Vec<NodeId> = self
             .options
             .iter()
             .enumerate()
             .map(|(index, label)| {
-                let choice = ChoiceOption {
-                    index,
-                    count,
-                    selected: self.selected.clone(),
-                    focus_to: focus_to.clone(),
-                };
+                let roving = util::Roving { index, count, focus_to: focus_to.clone() };
+                let choice = ChoiceOption { roving, selected: self.selected.clone() };
                 cx.child(&RadioOption { choice, label: label.clone() })
             })
             .collect();
@@ -513,7 +490,7 @@ struct Segment {
 impl View for Segment {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let on = self.choice.selected.get() == self.choice.index;
+        let on = self.choice.selected.get() == self.choice.index();
         let hovered = cx.is_hovered();
         let color = if on || hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
         let mut children = Vec::new();
@@ -552,19 +529,15 @@ impl View for Segment {
 impl View for SegmentedControl {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let focus_to = cx.use_state(|| Rc::new(Cell::new(None))).get();
+        let focus_to = util::roving_cell(cx, None);
         let count = self.options.len();
         let segments: Vec<NodeId> = self
             .options
             .iter()
             .enumerate()
             .map(|(index, (icon, label))| {
-                let choice = ChoiceOption {
-                    index,
-                    count,
-                    selected: self.selected.clone(),
-                    focus_to: focus_to.clone(),
-                };
+                let roving = util::Roving { index, count, focus_to: focus_to.clone() };
+                let choice = ChoiceOption { roving, selected: self.selected.clone() };
                 cx.child(&Segment { choice, icon: *icon, label: label.clone() })
             })
             .collect();

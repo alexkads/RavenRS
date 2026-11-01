@@ -1,8 +1,9 @@
 //! Calendar and date picker.
 
+use std::cell::Cell;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Key};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -11,7 +12,9 @@ use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint};
 use crate::date::Date;
 use crate::{ButtonSize, IconButton, IconName, View, util};
 
-/// A month grid to pick a date. Use ‹ › to change month.
+/// A month grid to pick a date. Use ‹ › to change month. From the keyboard the
+/// grid is one Tab stop: arrows move by day and week, Home and End to the ends
+/// of the week, Page Up and Page Down by month, and Enter or Space picks.
 ///
 /// ```
 /// use ravenrs_reactive::State;
@@ -74,6 +77,44 @@ struct Day<'a> {
     date: Date,
     in_month: bool,
     calendar: &'a Calendar,
+    /// The grid's single Tab stop.
+    active: bool,
+    /// Shared with the other days: the shown month, the keyboard cursor and
+    /// the day that takes focus on its next build.
+    keys: &'a GridKeys,
+}
+
+#[derive(Clone)]
+struct GridKeys {
+    month: State<Date>,
+    cursor: State<Option<Date>>,
+    focus_to: Rc<Cell<Option<Date>>>,
+}
+
+impl GridKeys {
+    /// Moves the cursor (and the shown month, if needed) for a navigation key.
+    fn handler(&self, from: Date) -> crate::context::KeyHandler {
+        let keys = self.clone();
+        Rc::new(move |key, _| {
+            let to = match key {
+                Key::ArrowLeft => from.add_days(-1),
+                Key::ArrowRight => from.add_days(1),
+                Key::ArrowUp => from.add_days(-7),
+                Key::ArrowDown => from.add_days(7),
+                Key::Home => from.add_days(-i32::from(from.weekday())),
+                Key::End => from.add_days(6 - i32::from(from.weekday())),
+                Key::PageUp => from.add_months(-1),
+                Key::PageDown => from.add_months(1),
+                _ => return false,
+            };
+            if to.first_of_month() != keys.month.get() {
+                keys.month.set(to.first_of_month());
+            }
+            keys.cursor.set(Some(to));
+            keys.focus_to.set(Some(to));
+            true
+        })
+    }
 }
 
 impl View for Day<'_> {
@@ -82,7 +123,7 @@ impl View for Day<'_> {
         let c = self.calendar;
         let selected = c.selected.get() == Some(self.date);
         let enabled = c.min.is_none_or(|m| self.date >= m) && c.max.is_none_or(|m| self.date <= m);
-        let hovered = cx.is_hovered() && enabled;
+        let hovered = (cx.is_hovered() && enabled) || cx.is_focus_visible();
         let ink = theme.color(Semantic::Ink);
         let color = if selected {
             theme.color(Semantic::OnAccent)
@@ -115,6 +156,14 @@ impl View for Day<'_> {
             &[label],
             Paint::Quad(QuadPaint { corner_radius: 9.0, border, ..QuadPaint::new(fill) }),
         );
+        if self.keys.focus_to.get() == Some(self.date) {
+            self.keys.focus_to.set(None);
+            cx.request_focus();
+        }
+        if self.active {
+            cx.focusable(node, 9.0);
+            cx.on_key(node, self.keys.handler(self.date));
+        }
         if enabled {
             let (sel, date, pick) = (c.selected.clone(), self.date, c.on_pick.clone());
             cx.on_click(
@@ -187,10 +236,24 @@ impl View for Calendar {
                 )
             })
             .collect();
+        let keys = GridKeys {
+            month: month.clone(),
+            cursor: cx.use_state(|| None),
+            focus_to: cx.use_state(|| Rc::new(Cell::new(None))).get(),
+        };
+        // The Tab stop: the keyboard cursor, else the selection, else today, in
+        // the shown month; otherwise its first day.
+        let in_shown = |d: &Date| d.first_of_month() == shown;
+        let active = [keys.cursor.get(), self.selected.get(), self.today]
+            .into_iter()
+            .flatten()
+            .find(in_shown)
+            .unwrap_or(shown);
         let start = shown.add_days(-i32::from(shown.weekday()));
         for i in 0..42 {
             let date = start.add_days(i);
-            let day = Day { date, in_month: date.month() == shown.month(), calendar: self };
+            let in_month = date.month() == shown.month();
+            let day = Day { date, in_month, calendar: self, active: date == active, keys: &keys };
             cells.push(cx.keyed_child(date.to_days() as u64, &day));
         }
         let grid = cx.container(

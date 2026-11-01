@@ -697,6 +697,8 @@ fn map_key(key: &str) -> Key {
         "Delete" => Key::Delete,
         "Home" => Key::Home,
         "End" => Key::End,
+        "PageUp" => Key::PageUp,
+        "PageDown" => Key::PageDown,
         "ArrowLeft" => Key::ArrowLeft,
         "ArrowRight" => Key::ArrowRight,
         "ArrowUp" => Key::ArrowUp,

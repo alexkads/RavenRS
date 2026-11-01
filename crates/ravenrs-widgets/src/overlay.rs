@@ -1,5 +1,6 @@
 //! Floating layers: tooltips, popovers, menus, selects and dialogs.
 
+use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -185,7 +186,9 @@ pub(crate) enum Entry {
     Separator,
 }
 
-/// A button that opens a list of actions.
+/// A button that opens a list of actions. The first item takes focus as the
+/// menu opens; arrow keys move, Enter runs, Escape closes, and focus returns
+/// to the button.
 pub struct DropdownMenu {
     label: String,
     icon: Option<IconName>,
@@ -230,7 +233,8 @@ impl DropdownMenu {
     }
 }
 
-/// A row in a menu or select list. `on_click` runs after `close`.
+/// A row in a menu or select list. `on_click` runs after `close`. Rows take
+/// focus as the list opens, and arrow keys move between them.
 struct ListRow<'a> {
     label: &'a str,
     icon: Option<IconName>,
@@ -239,12 +243,13 @@ struct ListRow<'a> {
     destructive: bool,
     close: Rc<dyn Fn()>,
     on_click: Option<Rc<dyn Fn()>>,
+    roving: util::Roving,
 }
 
 impl View for ListRow<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let hovered = cx.is_hovered();
+        let hovered = cx.is_hovered() || cx.is_focus_visible();
         let ink = if self.destructive { theme.color(Semantic::Danger) } else { theme.color(Semantic::Ink) };
         let muted = if self.destructive { ink } else { theme.color(Semantic::InkMuted) };
         let mut children = Vec::new();
@@ -292,9 +297,16 @@ impl View for ListRow<'_> {
                 }
             }),
         );
+        cx.focusable(node, 7.0);
+        self.roving.wire(cx, node, None);
         cx.cursor(node, CursorIcon::Pointer);
         node
     }
+}
+
+/// The shared roving focus of a list that focuses row `start` when it opens.
+fn list_focus(cx: &mut BuildCx<'_>, start: usize) -> util::FocusTarget {
+    util::roving_cell(cx, Some(start))
 }
 
 pub(crate) struct MenuList<'a> {
@@ -305,10 +317,16 @@ pub(crate) struct MenuList<'a> {
 impl View for MenuList<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let mut rows = Vec::new();
+        let count = self.entries.iter().filter(|e| matches!(e, Entry::Item(_))).count();
+        let focus_to = list_focus(cx, 0);
+        let mut item_index = 0;
         for (i, entry) in self.entries.iter().enumerate() {
             match entry {
                 Entry::Item(item) => {
+                    let roving = util::Roving { index: item_index, count, focus_to: focus_to.clone() };
+                    item_index += 1;
                     let row = ListRow {
+                        roving,
                         label: &item.label,
                         icon: item.icon,
                         trailing: item.shortcut.as_deref(),
@@ -349,7 +367,9 @@ impl View for DropdownMenu {
             trigger = trigger.icon(icon);
         }
         let anchor = cx.child(&trigger);
+        let was_open = cx.use_state(|| Rc::new(Cell::new(false))).get();
         if open.get() {
+            was_open.set(true);
             let close: Rc<dyn Fn()> = {
                 let open = open.clone();
                 Rc::new(move || open.set(false))
@@ -360,12 +380,17 @@ impl View for DropdownMenu {
                 &MenuList { entries: &self.entries, close: close.clone() },
                 Some(close),
             );
+        } else if was_open.replace(false) {
+            // Focus returns to the trigger when the menu closes.
+            cx.request_focus_node(anchor);
         }
         anchor
     }
 }
 
-/// Picks one option from a list, shown in a field-like trigger.
+/// Picks one option from a list, shown in a field-like trigger. Enter, Space or
+/// an arrow key opens the list with the current option focused; arrows move,
+/// Enter picks, Escape closes, and focus returns to the field.
 #[derive(Debug)]
 pub struct Select {
     selected: Binding<usize>,
@@ -396,6 +421,7 @@ struct Options<'a> {
 impl View for Options<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let current = self.selected.get();
+        let (count, focus_to) = (self.options.len(), list_focus(cx, current));
         let rows: Vec<NodeId> = self
             .options
             .iter()
@@ -403,6 +429,7 @@ impl View for Options<'_> {
             .map(|(i, option)| {
                 let selected = self.selected.clone();
                 let row = ListRow {
+                    roving: util::Roving { index: i, count, focus_to: focus_to.clone() },
                     label: option,
                     icon: None,
                     trailing: None,
@@ -463,9 +490,27 @@ impl View for Select {
         let node = cx.container(style, &[label, chevron], Paint::Quad(paint));
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
+        // Arrow keys open the list too, like a native select.
+        let opener = open.clone();
+        cx.on_key(
+            node,
+            Rc::new(move |key, _| {
+                let opens = matches!(key, ravenrs_core::Key::ArrowDown | ravenrs_core::Key::ArrowUp);
+                if opens {
+                    opener.set(true);
+                }
+                opens
+            }),
+        );
         cx.focusable(node, theme.radii.md);
         cx.cursor(node, CursorIcon::Pointer);
+        let was_open = cx.use_state(|| Rc::new(Cell::new(false))).get();
+        if !is_open && was_open.replace(false) {
+            // Focus returns to the field when the list closes.
+            cx.request_focus();
+        }
         if is_open {
+            was_open.set(true);
             let close: Rc<dyn Fn()> = {
                 let open = open.clone();
                 Rc::new(move || open.set(false))

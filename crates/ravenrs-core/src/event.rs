@@ -99,6 +99,10 @@ pub enum Key {
     ArrowUp,
     /// Down arrow.
     ArrowDown,
+    /// Page Up.
+    PageUp,
+    /// Page Down.
+    PageDown,
     /// Text produced by the key, already composed with modifiers and layout.
     Character(String),
     /// Any other named key, by its platform name.

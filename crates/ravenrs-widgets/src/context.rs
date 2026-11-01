@@ -569,6 +569,14 @@ impl<'a> BuildCx<'a> {
         self.focus_request = Some(self.widget_id());
     }
 
+    /// Moves keyboard focus to the widget that built `node` (a child's trigger
+    /// button, say) after the build.
+    pub(crate) fn request_focus_node(&mut self, node: NodeId) {
+        if let Some(e) = self.elements.get(node.0 as usize) {
+            self.focus_request = Some(e.widget);
+        }
+    }
+
     /// Keyboard modifiers as of the latest input event, readable from click
     /// handlers (e.g. Shift-click to extend a selection).
     pub fn modifiers(&self) -> Rc<std::cell::Cell<Modifiers>> {

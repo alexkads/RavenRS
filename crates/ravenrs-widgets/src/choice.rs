@@ -86,7 +86,8 @@ impl View for ToggleButton {
     }
 }
 
-/// A row of toggle buttons where one (or several) can be on.
+/// A row of toggle buttons where one (or several) can be on. Arrow keys move
+/// the focus between buttons; Space or Enter toggles the focused one.
 #[derive(Debug)]
 pub struct ToggleGroup {
     items: Vec<(Option<IconName>, String)>,
@@ -121,6 +122,7 @@ fn collect(
 struct GroupItem<'a> {
     index: usize,
     group: &'a ToggleGroup,
+    roving: util::Roving,
 }
 
 impl View for GroupItem<'_> {
@@ -148,14 +150,21 @@ impl View for GroupItem<'_> {
             }
             _ => (false, Rc::new(|| {})),
         };
-        toggle_item(cx, on, *icon, label, action)
+        let node = toggle_item(cx, on, *icon, label, action);
+        // A toolbar: arrows move focus only; Space or Enter toggles.
+        self.roving.wire(cx, node, None);
+        node
     }
 }
 
 impl View for ToggleGroup {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let items: Vec<NodeId> = (0..self.items.len())
-            .map(|index| cx.keyed_child(index as u64, &GroupItem { index, group: self }))
+        let (count, focus_to) = (self.items.len(), util::roving_cell(cx, None));
+        let items: Vec<NodeId> = (0..count)
+            .map(|index| {
+                let roving = util::Roving { index, count, focus_to: focus_to.clone() };
+                cx.keyed_child(index as u64, &GroupItem { index, group: self, roving })
+            })
             .collect();
         cx.container(
             LayoutStyle {

@@ -12,7 +12,14 @@ The first release under the `YY.R.P` versioning model. It follows 0.1.0 directly
 - Enums that will grow are now `#[non_exhaustive]`: `Event`, `Key`, `PointerButton`, `CursorIcon`, `Brush`, `Primitive`, `Semantic`, `TextStyle`, `Material`, `Axis`, `Align`, `Justify`, `Available`, `DragPhase`, `Placement`, `ButtonStyle`, `ButtonSize`, `Tone`, `SelectionMode`, `Value`, `Summary`, `CellAlign`, `ContentMode`, `RibbonSize`, `Side` and `WebError`. Matches on them need a wildcard arm; future variants will then be additions.
 
 ### Added
-- Keyboard support following WAI-ARIA in `RadioGroup` and `SegmentedControl` (arrow keys move selection and focus, wrapping; Home and End) and in `Stepper` (arrow keys step; Home and End jump to the limits).
+- Full keyboard operation following the WAI-ARIA patterns:
+  - `RadioGroup`, `SegmentedControl` and `Tabs`: arrow keys move selection and focus together, wrapping; Home and End jump to the ends.
+  - `ToggleGroup`: arrow keys move focus; Space toggles.
+  - `Stepper`: arrow keys step; Home and End jump to the limits.
+  - Menus (`DropdownMenu`, `ContextMenu`, `Menubar`, the `Ribbon` menus) and the `Select` list: the first (or current) item takes focus on open, arrows move, Enter chooses, Escape closes, and focus returns to the trigger. Arrow keys also open a `Select`.
+  - `Calendar`: the grid is one Tab stop; arrows move by day and week, Home and End to the ends of the week, Page Up and Page Down by month.
+  - `Dialog`, `Sheet` and other full-window layers keep Tab inside them and return focus to where it was when they close.
+- `Key::PageUp` and `Key::PageDown`.
 - Documentation on every public item, a README per crate, and runnable examples.
 
 ### Fixed

@@ -12,6 +12,7 @@ use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
 use crate::{AnyView, IconName, View, ViewSeq, util};
 
 /// A tab bar with one content view per tab; only the selected one is built.
+/// Arrow keys move between tabs and open them; Home and End jump to the ends.
 pub struct Tabs {
     selected: Binding<usize>,
     tabs: Vec<(String, AnyView)>,
@@ -37,7 +38,7 @@ impl Tabs {
 }
 
 struct TabButton {
-    index: usize,
+    roving: util::Roving,
     label: String,
     selected: Binding<usize>,
 }
@@ -45,7 +46,7 @@ struct TabButton {
 impl View for TabButton {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let on = self.selected.get() == self.index;
+        let on = self.selected.get() == self.roving.index;
         let color =
             if on || cx.is_hovered() { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
         let label = util::label(cx, &self.label, TextStyle::Body, Some(Weight::SEMIBOLD), color);
@@ -65,8 +66,11 @@ impl View for TabButton {
                 }
             })),
         );
-        let (selected, index) = (self.selected.clone(), self.index);
+        let (selected, index) = (self.selected.clone(), self.roving.index);
         cx.on_click(node, Rc::new(move || selected.set(index)));
+        // Tabs activate as focus moves (WAI-ARIA tabs, automatic activation).
+        let selected = self.selected.clone();
+        self.roving.wire(cx, node, Some(Rc::new(move |i| selected.set(i))));
         cx.focusable(node, 6.0);
         cx.cursor(node, CursorIcon::Pointer);
         node
@@ -76,12 +80,14 @@ impl View for TabButton {
 impl View for Tabs {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let border = cx.theme().color(Semantic::Border);
+        let (count, focus_to) = (self.tabs.len(), util::roving_cell(cx, None));
         let buttons: Vec<NodeId> = self
             .tabs
             .iter()
             .enumerate()
             .map(|(index, (label, _))| {
-                cx.child(&TabButton { index, label: label.clone(), selected: self.selected.clone() })
+                let roving = util::Roving { index, count, focus_to: focus_to.clone() };
+                cx.child(&TabButton { roving, label: label.clone(), selected: self.selected.clone() })
             })
             .collect();
         let bar = cx.container(

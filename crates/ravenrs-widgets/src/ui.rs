@@ -34,6 +34,8 @@ pub struct Ui {
     elements: Vec<Element>,
     root_node: Option<NodeId>,
     overlays: Vec<Overlay>,
+    /// Where focus returns when the open modal layer closes (`Some(None)`: nowhere).
+    modal_return: Option<Option<WidgetId>>,
     /// Absolute frames, indexed like `elements`.
     frames: Vec<Rect>,
     /// The clip in effect where each element is painted.
@@ -97,6 +99,7 @@ impl Ui {
             elements: Vec::new(),
             root_node: None,
             overlays: Vec::new(),
+            modal_return: None,
             frames: Vec::new(),
             clips: Vec::new(),
             content: Vec::new(),
@@ -370,6 +373,66 @@ impl Ui {
         self.elements.iter().find(|e| e.widget == w && e.focus_radius.is_some())
     }
 
+    /// The topmost full-window layer (dialog, sheet, command palette): while it
+    /// is open, focus stays inside it.
+    fn modal_root(&self) -> Option<NodeId> {
+        self.overlays.iter().rev().find(|o| o.placement == Placement::Fill).map(|o| o.root)
+    }
+
+    fn is_inside(&self, mut node: NodeId, root: NodeId) -> bool {
+        loop {
+            if node == root {
+                return true;
+            }
+            match self.parents.get(node.0 as usize).copied().flatten() {
+                Some(parent) => node = parent,
+                None => return false,
+            }
+        }
+    }
+
+    /// The first focusable element under `root`, in tree order.
+    fn first_focusable(&self, root: NodeId) -> Option<WidgetId> {
+        let mut stack = vec![root];
+        while let Some(n) = stack.pop() {
+            let e = &self.elements[n.0 as usize];
+            if e.focus_radius.is_some() {
+                return Some(e.widget);
+            }
+            stack.extend(e.children.iter().rev());
+        }
+        None
+    }
+
+    /// Keeps focus inside an open modal layer, moving it in when the layer
+    /// opens and back to where it was when the layer closes.
+    fn trap_focus(&mut self) {
+        match self.modal_root() {
+            Some(root) => {
+                let focused = self.interaction.focused;
+                let inside = (0..self.elements.len()).any(|i| {
+                    let e = &self.elements[i];
+                    Some(e.widget) == focused
+                        && e.focus_radius.is_some()
+                        && self.is_inside(NodeId(i as u32), root)
+                });
+                if !inside {
+                    self.modal_return.get_or_insert(focused);
+                    if let Some(first) = self.first_focusable(root) {
+                        self.interaction.focused = Some(first);
+                        self.needs_build = true;
+                    }
+                }
+            }
+            None => {
+                if let Some(back) = self.modal_return.take() {
+                    self.interaction.focused = back;
+                    self.needs_build = true;
+                }
+            }
+        }
+    }
+
     fn drag(&mut self, widget: WidgetId, phase: DragPhase, position: Point) {
         let found = self
             .elements
@@ -440,9 +503,11 @@ impl Ui {
     }
 
     fn move_focus(&mut self, forward: bool) {
+        let modal = self.modal_root();
         let focusable: Vec<WidgetId> = self
             .paint_order
             .iter()
+            .filter(|n| modal.is_none_or(|root| self.is_inside(**n, root)))
             .map(|n| &self.elements[n.0 as usize])
             .filter(|e| e.focus_radius.is_some())
             .map(|e| e.widget)
@@ -591,6 +656,7 @@ impl Ui {
                 self.parents[o.root.0 as usize] = Some(o.anchor);
             }
         }
+        self.trap_focus();
         Ok(())
     }
 
