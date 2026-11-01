@@ -257,3 +257,13 @@ fn the_agenda_also_shows_the_month() {
     assert!(says(&mut ui, "novembro de 2026"), "the month in Portuguese");
     audit(&mut ui, "Agenda, mês");
 }
+
+#[test]
+fn the_icon_ships_with_the_app() {
+    let icon = family_finance::icon().expect("assets/icon.png decodes");
+    assert_eq!((icon.width(), icon.height()), (256, 256));
+    for file in ["icon.icns", "icon.ico", "icon.svg", "logo.svg", "logo.png"] {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets").join(file);
+        assert!(path.exists(), "the installer and the README use {file}");
+    }
+}

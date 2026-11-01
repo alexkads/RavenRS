@@ -18,6 +18,11 @@ pub mod update;
 
 use ravenrs::prelude::Date;
 
+/// The app's icon, for the window and the sidebar.
+pub fn icon() -> Option<ravenrs::prelude::ImageData> {
+    ravenrs::widgets::decode_image(include_bytes!("../assets/icon.png")).ok()
+}
+
 /// Today on this computer's calendar. Due dates are days people live by, so
 /// this is the local date and not UTC, which would be tomorrow every evening in Brazil.
 pub fn today() -> Date {

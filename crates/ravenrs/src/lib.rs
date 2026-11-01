@@ -22,7 +22,9 @@ pub use ravenrs_widgets as widgets;
 /// Desktop windows (Windows, macOS, Linux).
 #[cfg(not(target_arch = "wasm32"))]
 pub mod native {
-    pub use ravenrs_platform_native::{PlatformError, SaveDialog, WindowOptions, open_with_system, run};
+    pub use ravenrs_platform_native::{
+        PlatformError, SaveDialog, WindowOptions, open_with_system, run, run_with_icon,
+    };
 }
 
 /// The browser: a `<canvas>` driven by WebGPU.

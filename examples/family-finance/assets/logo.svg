@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 320" role="img" aria-label="Raven Finanças">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5f78f5"/>
+      <stop offset="1" stop-color="#3348bf"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd76a"/>
+      <stop offset="1" stop-color="#f2a93b"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(24 24) scale(0.265625)">
+    <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+    <circle cx="806" cy="520" r="100" fill="url(#coin)"/>
+    <circle cx="806" cy="520" r="68" fill="none" stroke="#b9791c" stroke-width="16"/>
+    <path fill="#12151c" d="M196 884 C262 772 250 628 276 500 C304 356 424 226 566 232 C640 236 700 274 738 330 L918 408 L728 470 C698 488 682 516 672 566 C646 704 556 816 416 852 C344 870 268 880 196 884 Z"/>
+    <path fill="#2a3040" d="M322 768 C356 660 366 566 432 490 C468 566 466 700 322 768 Z"/>
+    <circle cx="584" cy="340" r="28" fill="#ffd76a"/>
+  </g>
+  <text x="330" y="150" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="108" font-weight="700" fill="#12151c" letter-spacing="-2">Raven</text>
+  <text x="330" y="262" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-size="108" font-weight="400" fill="#3f57db" letter-spacing="-2">Finanças</text>
+</svg>

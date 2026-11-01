@@ -109,9 +109,13 @@ try { Copy-Item $novo $instalado } catch {
     throw "nao consegui colocar o app novo; o anterior voltou"
 }
 
+$icone = Join-Path $Destino "icon.ico"
+Copy-Item (Join-Path $codigo "examples\family-finance\assets\icon.ico") $icone -Force
+
 $atalho = Join-Path ([Environment]::GetFolderPath("Programs")) "Raven Financas.lnk"
 $s = (New-Object -ComObject WScript.Shell).CreateShortcut($atalho)
 $s.TargetPath = $instalado
+$s.IconLocation = $icone
 $s.Save()
 Write-Host "OK Raven Financas $resposta instalado. Abra pelo menu Iniciar." -ForegroundColor Green
 #==FIM-POWERSHELL==
@@ -210,6 +214,8 @@ if [ "$(uname -s)" = Darwin ]; then
   rm -rf "${NOVO:?}"
   mkdir -p "$NOVO/Contents/MacOS"
   cp "$BINARIO" "$NOVO/Contents/MacOS/family-finance"
+  mkdir -p "$NOVO/Contents/Resources"
+  cp "$CODIGO/examples/family-finance/assets/icon.icns" "$NOVO/Contents/Resources/icon.icns"
   cat > "$NOVO/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -219,6 +225,7 @@ if [ "$(uname -s)" = Darwin ]; then
 	<key>CFBundleDisplayName</key><string>$NOME</string>
 	<key>CFBundleIdentifier</key><string>dev.ravenrs.family-finance</string>
 	<key>CFBundleExecutable</key><string>family-finance</string>
+	<key>CFBundleIconFile</key><string>icon</string>
 	<key>CFBundleShortVersionString</key><string>$RESPOSTA</string>
 	<key>CFBundleVersion</key><string>$RESPOSTA</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
@@ -240,7 +247,8 @@ PLIST
   printf '\nOK %s %s instalado em %s.\n' "$NOME" "$RESPOSTA" "$DESTINO"
 else
   DESTINO="${FF_DESTINO:-$HOME/.local}"
-  mkdir -p "$DESTINO/bin" "$DESTINO/share/applications"
+  mkdir -p "$DESTINO/bin" "$DESTINO/share/applications" "$DESTINO/share/icons/hicolor/256x256/apps"
+  cp "$CODIGO/examples/family-finance/assets/icon.png" "$DESTINO/share/icons/hicolor/256x256/apps/family-finance.png"
   INSTALADO="$DESTINO/bin/family-finance"
   [ -f "$INSTALADO" ] && cp -p "$INSTALADO" "$INSTALADO.anterior"
   # `mv` is atomic on the same disk, so the installed binary is never half written.
@@ -251,6 +259,7 @@ else
 Type=Application
 Name=$NOME
 Exec=$INSTALADO
+Icon=family-finance
 Categories=Office;Finance;
 DESKTOP
   printf '\nOK %s %s instalado em %s.\n' "$NOME" "$RESPOSTA" "$INSTALADO"
