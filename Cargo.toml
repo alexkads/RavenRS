@@ -72,6 +72,10 @@ missing_docs = "warn"
 unwrap_used = "warn"
 expect_used = "warn"
 
+[profile.dev]
+# Each worktree has its own target/; keep backtraces with file and line, drop the rest.
+debug = "line-tables-only"
+
 [profile.release]
 # Smaller WASM binaries; native release builds benefit as well.
 lto = "thin"
