@@ -23,6 +23,9 @@ const OVERRIDES: [&str; 9] = [
     "GALLIUM_DRIVER",
 ];
 
+/// The overrides whose values are lists of paths, which may be in a person's folder.
+const PATH_OVERRIDES: [&str; 2] = ["VK_ICD_FILENAMES", "VK_DRIVER_FILES"];
+
 /// An instance for `display`, which lets the GL backend reach the window system.
 /// `permissive` also accepts drivers that are not conformant.
 pub(crate) fn new_instance(display: Option<&OwnedDisplayHandle>, permissive: bool) -> wgpu::Instance {
@@ -58,10 +61,22 @@ fn system_report() -> SystemReport {
         vulkan_drivers: vulkan_drivers(),
         overrides: OVERRIDES
             .iter()
-            .filter_map(|name| Some(format!("{name}={}", std::env::var(name).ok()?)))
+            .filter_map(|name| Some(override_entry(name, &std::env::var(name).ok()?)))
             .collect(),
         optimized: !cfg!(debug_assertions),
     }
+}
+
+/// `NAME=value`, with only the file names of a list of paths: the report is made to
+/// be shared, and which driver file is enough to tell what happened.
+fn override_entry(name: &str, value: &str) -> String {
+    if !PATH_OVERRIDES.contains(&name) {
+        return format!("{name}={value}");
+    }
+    let files: Vec<_> = std::env::split_paths(value)
+        .filter_map(|path| Some(path.file_name()?.to_string_lossy().into_owned()))
+        .collect();
+    format!("{name}={}", files.join(","))
 }
 
 /// The distribution's name on Linux; the system's elsewhere.
@@ -148,6 +163,16 @@ pub fn diagnose() -> DiagnosticReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn overrides_with_paths_keep_only_the_file_names() {
+        assert_eq!(
+            override_entry("VK_DRIVER_FILES", "/home/ana/icd/radeon.json:/opt/lvp.json"),
+            "VK_DRIVER_FILES=radeon.json,lvp.json"
+        );
+        assert_eq!(override_entry("WGPU_BACKEND", "gl"), "WGPU_BACKEND=gl");
+    }
 
     #[test]
     fn the_distribution_name_comes_from_os_release() {

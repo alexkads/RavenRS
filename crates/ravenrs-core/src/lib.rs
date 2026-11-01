@@ -19,7 +19,7 @@ pub use access::{AccessAction, AccessNode, AccessTree, NumericValue, Role, Toggl
 pub use color::Color;
 pub use diagnostics::{
     AdapterReport, DiagnosticFinding, DiagnosticReport, FrameLog, FrameSample, FrameSummary, GpuReport,
-    Percentiles, SurfaceReport, SystemReport,
+    MAX_ISSUE_URL, Percentiles, SurfaceReport, SystemReport, new_issue_url, redact_user_paths,
 };
 pub use event::{CursorIcon, Event, Key, Modifiers, PointerButton};
 pub use geometry::{Insets, Point, Rect, Size};

@@ -4,14 +4,18 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{DiagnosticFinding, DiagnosticReport, FrameLog, FrameSample, Percentiles};
+use ravenrs_core::{
+    DiagnosticFinding, DiagnosticReport, FrameLog, FrameSample, Percentiles, new_issue_url, redact_user_paths,
+};
 use ravenrs_reactive::State;
 
 use crate::context::{BuildCx, NodeId, Placement};
 use crate::floating::{SheetLayer, Side};
 use crate::labels::Labels;
 use crate::view::View;
-use crate::{Alert, CodeBlock, Grid, ScrollView, Stat, Tone, VStack, ViewExt as _};
+use crate::{
+    Alert, Button, ButtonStyle, CodeBlock, Grid, IconName, ScrollView, Stat, Tone, VStack, ViewExt as _,
+};
 
 /// How often the open panel shows new numbers, in seconds. Its own rebuilds are
 /// frames too, so this stays slow enough not to weigh on what it measures.
@@ -20,6 +24,14 @@ const REFRESH: f64 = 0.5;
 const PANEL_WIDTH: f32 = 520.0;
 
 type ReportSource = Rc<dyn Fn() -> DiagnosticReport>;
+type OpenUrl = Rc<dyn Fn(&str) -> Result<(), String>>;
+
+/// Where a bug report goes and how the platform gets it there.
+#[derive(Clone)]
+struct BugReporter {
+    new_issue: String,
+    open: OpenUrl,
+}
 
 /// What a platform shares with the panel of a [`DiagnosticsHost`]: it records
 /// frames here, says how to describe the GPU, and opens the panel.
@@ -32,6 +44,7 @@ pub struct Diagnostics {
     frames: Rc<RefCell<FrameLog>>,
     source: Rc<RefCell<Option<ReportSource>>>,
     report: Rc<RefCell<Option<DiagnosticReport>>>,
+    bug_reporter: Rc<RefCell<Option<BugReporter>>>,
 }
 
 impl fmt::Debug for Diagnostics {
@@ -42,7 +55,13 @@ impl fmt::Debug for Diagnostics {
 
 impl Default for Diagnostics {
     fn default() -> Self {
-        Self { open: State::new(false), frames: Rc::default(), source: Rc::default(), report: Rc::default() }
+        Self {
+            open: State::new(false),
+            frames: Rc::default(),
+            source: Rc::default(),
+            report: Rc::default(),
+            bug_reporter: Rc::default(),
+        }
     }
 }
 
@@ -72,6 +91,18 @@ impl Diagnostics {
     pub fn set_report_source(&self, source: impl Fn() -> DiagnosticReport + 'static) {
         *self.source.borrow_mut() = Some(Rc::new(source));
         *self.report.borrow_mut() = None;
+    }
+
+    /// Adds a button to the panel that starts a bug report on the `new_issue` page.
+    /// `open` shows a URL to the person, in a browser on the desktop, and says why
+    /// when it cannot. Nothing is sent: the person reviews and submits on that page.
+    pub fn set_bug_reporter(
+        &self,
+        new_issue: impl Into<String>,
+        open: impl Fn(&str) -> Result<(), String> + 'static,
+    ) {
+        *self.bug_reporter.borrow_mut() =
+            Some(BugReporter { new_issue: new_issue.into(), open: Rc::new(open) });
     }
 
     /// The report, gathering it if needed; `None` before a source is set.
@@ -131,6 +162,58 @@ struct Panel<'a> {
     diagnostics: &'a Diagnostics,
 }
 
+/// What a bug report would share, and the button that starts one.
+struct ReportBug {
+    reporter: BugReporter,
+    text: String,
+}
+
+impl View for ReportBug {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let labels = cx.labels();
+        let spacing = cx.theme().spacing.s2;
+        let failed = cx.use_state(|| false);
+        let (reporter, text, failure) = (self.reporter.clone(), self.text.clone(), failed.clone());
+        let on_click = {
+            let labels = labels.clone();
+            move || {
+                let url = new_issue_url(
+                    &reporter.new_issue,
+                    &labels.diagnostics_report_questions,
+                    &text,
+                    &labels.diagnostics_report_truncated,
+                );
+                let opened = (reporter.open)(&url);
+                if let Err(e) = &opened {
+                    tracing::warn!(error = %e, "could not open the bug report");
+                }
+                failure.set(opened.is_err());
+            }
+        };
+        let failure = failed.get().then(|| {
+            Alert::new(
+                labels.diagnostics_report_failed.clone(),
+                labels.diagnostics_report_failed_detail.clone(),
+            )
+            .tone(Tone::Danger)
+        });
+        cx.child(
+            &VStack::new((
+                Alert::new(
+                    labels.diagnostics_report_shares.clone(),
+                    labels.diagnostics_report_shares_detail.clone(),
+                ),
+                failure,
+                Button::new(labels.diagnostics_report_bug.clone())
+                    .icon(IconName::ExternalLink)
+                    .style(ButtonStyle::Secondary)
+                    .on_click(on_click),
+            ))
+            .spacing(spacing),
+        )
+    }
+}
+
 fn finding_alert(labels: &Labels, finding: &DiagnosticFinding) -> Alert {
     let (title, message, tone) = match finding {
         DiagnosticFinding::SoftwareRendering => {
@@ -144,7 +227,7 @@ fn finding_alert(labels: &Labels, finding: &DiagnosticFinding) -> Alert {
         }
         DiagnosticFinding::NoGpu(reason) => (&labels.diagnostics_no_gpu, reason.clone(), Tone::Danger),
     };
-    Alert::new(title.clone(), message).tone(tone)
+    Alert::new(title.clone(), redact_user_paths(&message)).tone(tone)
 }
 
 fn stage(name: &str, stage: Percentiles) -> Stat {
@@ -158,6 +241,10 @@ impl View for Panel<'_> {
         let spacing = cx.theme().spacing.s3;
         let report = self.diagnostics.report().unwrap_or_default();
         let summary = self.diagnostics.frames.borrow().summary();
+        // The exact text a bug report would carry, so what is read here is what is shared.
+        let text = redact_user_paths(&format!("{report}{summary}"));
+        let reporter = self.diagnostics.bug_reporter.borrow().clone();
+        let report_bug = reporter.map(|reporter| ReportBug { reporter, text: text.clone() });
         let alerts: Vec<_> = report.findings().iter().map(|f| finding_alert(&labels, f)).collect();
         cx.child(
             &ScrollView::new((
@@ -172,7 +259,8 @@ impl View for Panel<'_> {
                     ),
                 )
                 .spacing(spacing),
-                CodeBlock::new(format!("{report}{summary}")),
+                report_bug,
+                CodeBlock::new(text),
             ))
             .grow(1.0),
         )
