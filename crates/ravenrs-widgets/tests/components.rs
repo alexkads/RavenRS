@@ -554,3 +554,38 @@ mod overlays_opened_from_inside_another {
         assert!(!open_popover.get(), "a click truly outside still closes it");
     }
 }
+
+mod glass_tokens_stay_translucent {
+    use ravenrs_core::{Primitive, Size};
+    use ravenrs_style::{Semantic, Theme};
+    use ravenrs_widgets::{DataGrid, GridColumn, GridData, Summary, Ui};
+
+    #[test]
+    fn a_grids_header_and_footer_keep_the_glass_look() {
+        let theme = Theme::raven_glass();
+        let data = GridData::new(vec![vec!["Ana".into(), 10.0.into()]]);
+        let grid = DataGrid::new(
+            data,
+            [GridColumn::text("Nome"), GridColumn::number("Valor").summary(Summary::Sum)],
+        );
+        let mut ui = Ui::new(grid, theme);
+        ui.set_viewport(Size::new(800.0, 500.0), 1.0);
+        ui.update();
+        ui.update();
+        let control = theme.color(Semantic::Control);
+        let bands = ui
+            .scene()
+            .primitives()
+            .iter()
+            .filter(|p| matches!(p, Primitive::Quad(q) if q.fill == control.faded(0.6).into()))
+            .count();
+        assert_eq!(bands, 2, "the header and the footer");
+        let too_opaque = ui
+            .scene()
+            .primitives()
+            .iter()
+            .filter(|p| matches!(p, Primitive::Quad(q) if q.fill == control.with_alpha(0.6).into()))
+            .count();
+        assert_eq!(too_opaque, 0, "a token's own transparency is kept");
+    }
+}

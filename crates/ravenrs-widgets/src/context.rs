@@ -341,6 +341,7 @@ pub(crate) struct Element {
     /// Visual offset applied to the children's positions.
     pub translate: Point,
     pub on_double_click: Option<Rc<dyn Fn()>>,
+    pub on_pinch: Option<Rc<dyn Fn(f32)>>,
     pub on_context_menu: Option<Rc<dyn Fn(Point)>>,
     /// How the element appears to assistive technology.
     pub semantics: Option<Box<Semantics>>,
@@ -371,6 +372,7 @@ impl Element {
             rebuild_on_scroll: false,
             translate: Point::ZERO,
             on_double_click: None,
+            on_pinch: None,
             on_context_menu: None,
             semantics: None,
             text: None,
@@ -974,7 +976,15 @@ impl<'a> BuildCx<'a> {
         }
     }
 
-    /// Calls `handler` on a double click.
+    /// Calls `handler` on a zoom gesture over the node, with how much larger was
+    /// asked for relative to now: 0.02 is 2% larger, and a negative value is smaller.
+    pub fn on_pinch(&mut self, node: NodeId, handler: Rc<dyn Fn(f32)>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_pinch = Some(handler);
+        }
+    }
+
+    /// Calls `handler` on a double click on the node.
     pub fn on_double_click(&mut self, node: NodeId, handler: Rc<dyn Fn()>) {
         if let Some(e) = self.element_mut(node) {
             e.on_double_click = Some(handler);

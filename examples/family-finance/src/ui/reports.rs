@@ -77,23 +77,21 @@ pub(crate) fn reports(store: &Store, state: &ReportsState) -> impl View + use<> 
             Box::new(
                 DocumentViewer::new(document, &state.viewer).labels(ViewerLabels::pt_br()).toolbar_trailing(
                     move || {
-                        [
+                        let mut menu =
+                            DropdownMenu::new("Exportar").icon(IconName::Download).size(ButtonSize::Small);
+                        for (label, icon, format) in [
                             ("PDF", IconName::FileText, ExportFormat::Pdf),
                             ("Excel", IconName::Table, ExportFormat::Xlsx),
                             ("CSV", IconName::File, ExportFormat::Csv),
-                        ]
-                        .into_iter()
-                        .map(|(label, icon, format)| {
+                        ] {
                             let (store, document) = (export_store.clone(), export_document.clone());
-                            Box::new(
-                                Button::new(label)
-                                    .accessible_name(format!("Exportar em {label}"))
+                            menu = menu.item(
+                                MenuItem::new(label)
                                     .icon(icon)
-                                    .size(ButtonSize::Small)
-                                    .on_click(move || save(&store, &document, format)),
-                            ) as AnyView
-                        })
-                        .collect()
+                                    .on_select(move || save(&store, &document, format)),
+                            );
+                        }
+                        vec![Box::new(menu) as AnyView]
                     },
                 ),
             )

@@ -44,6 +44,9 @@ use winit::window::{Icon, Window, WindowId};
 
 pub use files::{SaveDialog, open_with_system};
 
+/// Wheel pixels that ask for twice the size, with Ctrl held.
+const WHEEL_PER_ZOOM: f32 = 400.0;
+
 /// What reaches the event loop from outside it.
 #[derive(Debug)]
 enum UserEvent {
@@ -551,7 +554,17 @@ impl ApplicationHandler<UserEvent> for App {
                             Point::new((p.x / scale) as f32, (p.y / scale) as f32)
                         }
                     };
-                    self.dispatch(Event::Scroll { position, delta });
+                    if self.modifiers.ctrl {
+                        // How touchpads on Windows and Linux send a pinch, and how a mouse asks to zoom.
+                        self.dispatch(Event::Pinch { position, delta: delta.y / WHEEL_PER_ZOOM });
+                    } else {
+                        self.dispatch(Event::Scroll { position, delta });
+                    }
+                }
+            }
+            WindowEvent::PinchGesture { delta, .. } => {
+                if let Some(position) = self.pointer {
+                    self.dispatch(Event::Pinch { position, delta: delta as f32 });
                 }
             }
             WindowEvent::ModifiersChanged(m) => {

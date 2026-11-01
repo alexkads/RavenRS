@@ -534,6 +534,13 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                 };
                 let position = Point::new(e.offset_x() as f32, e.offset_y() as f32);
                 let delta = Point::new((-e.delta_x() * unit) as f32, (-e.delta_y() * unit) as f32);
+                // Browsers send a trackpad pinch as a wheel with Ctrl held. Taking it
+                // keeps the browser from zooming the whole page.
+                if e.ctrl_key() {
+                    e.prevent_default();
+                    dispatch(&state, &sched, Event::Pinch { position, delta: delta.y / 100.0 });
+                    return;
+                }
                 // Only keep the page from scrolling when the app scrolled something.
                 if dispatch(&state, &sched, Event::Scroll { position, delta }) {
                     e.prevent_default();

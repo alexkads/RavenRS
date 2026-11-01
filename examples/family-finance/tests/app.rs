@@ -161,12 +161,14 @@ fn a_bad_filter_explains_itself_and_a_good_one_applies() {
 }
 
 #[test]
-fn the_report_screen_offers_every_export() {
+fn the_report_screen_offers_to_print_and_every_export() {
     let mut ui = app();
     press(&mut ui, Role::Button, "Relatórios");
-    let buttons = names(&mut ui, Role::Button);
-    for format in ["Exportar em PDF", "Exportar em Excel", "Exportar em CSV"] {
-        assert!(buttons.iter().any(|n| n == format), "{format} in {buttons:?}");
+    assert!(names(&mut ui, Role::Button).iter().any(|n| n == "Imprimir"));
+    press(&mut ui, Role::Button, "Exportar");
+    let items = names(&mut ui, Role::MenuItem);
+    for format in ["PDF", "Excel", "CSV"] {
+        assert!(items.iter().any(|n| n == format), "{format} in {items:?}");
     }
 }
 

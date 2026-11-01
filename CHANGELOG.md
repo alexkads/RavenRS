@@ -7,12 +7,16 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Added
 - **Waking the UI from another thread.** `UiWaker`, from `BuildCx::ui_waker`, asks for a rebuild from any thread, so background work needs no polling. `Ui::set_remote_waker` connects it to a platform.
 - `ravenrs::native::SaveDialog` shows the system's dialog for choosing where to save, and `ravenrs::native::open_with_system` opens a file with the system's program.
+- **Pinch to zoom.** `Event::Pinch` carries a trackpad pinch, or Ctrl with the wheel, and `BuildCx::on_pinch` receives it. `DocumentViewer` zooms with it.
+- **Printing from the viewer.** `DocumentViewer` has a print button, on by default, and `ravenrs_report_viewer::print` prints a document on the desktop and in the browser. The designer uses the same code.
+- `Color::faded` makes a color less opaque relative to what it already is, which is what a theme's translucent tokens need.
 - `ravenrs::native::run_with_icon` opens the window with an icon, for the title bar and task bar on Windows and Linux.
 - **`Scheduler`.** A timeline of resources on the model of Bryntum Scheduler: events as bars that drag along time and between rows, resize by their ends and are drawn on an empty stretch, with `can_drop` to refuse a place, zoom from months to hours, lanes for overlaps, shaded weekends, collapsible groups, keyboard control, and only what is in view built. `TimeAxis` and `TimePoint` describe its time. What is still missing is listed in [docs/PARITY.md](docs/PARITY.md).
 - **`EventCalendar`.** A month with its events inside each day.
 - **Recurrence.** `RecurrenceRule` says on which days something repeats, with no UI, and reads and writes iCalendar's `RRULE`. `RecurrenceEditor` edits one and says it in words.
 
 ### Fixed
+- In the glass theme, the `DataGrid`'s header, footer and group rows and the lines of `DataGrid`, `Ribbon` and `Scheduler` came out far too opaque, with the header text unreadable: `with_alpha` replaced the token's own transparency.
 - A `Select`, `DatePicker` or menu inside a `Dialog` or `Sheet` opened in the window's corner, behind the dialog's backdrop. Overlays opened from inside another now come after it: they sit by their anchor and on top, keep focus, and Escape closes only them.
 
 ## [27.1.1] - 2026-11-01
