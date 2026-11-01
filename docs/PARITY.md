@@ -153,7 +153,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Report engine (bands, groups, summaries, expressions) | | ✓ | ✓ | ⬜ next major track (`raven-reports`) |
+| Report engine (bands, groups, summaries, expressions) | | ✓ | ✓ | ⬜ next major track (`ravenrs-report`, see [REPORTING.md](REPORTING.md)) |
 | Document viewer (pages, zoom, search, thumbnails) | | ✓ | ✓ | ⬜ |
 | End-user report designer | | ✓ | ✓ | ⬜ (built on `Ribbon`) |
 | Export: PDF, XLSX, DOCX, CSV, HTML, images | | ✓ | ✓ | 🟡 CSV from `DataGrid` |
