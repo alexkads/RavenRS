@@ -9,6 +9,7 @@ use std::sync::Arc;
 use ravenrs_core::{Color, ImageData, Point, Rect};
 use ravenrs_criteria::Value;
 
+use crate::base64::encode;
 use crate::model::TextAlign;
 
 /// A paginated document.
@@ -87,15 +88,13 @@ pub enum Item {
         /// The image.
         image: DocumentImage,
     },
-    /// Filled rectangles that belong together, such as the bars of a barcode.
-    /// Spreadsheets place them as one picture and not as cells.
-    Marks {
+    /// Vector shapes that belong together, such as a chart or a barcode. PDF and SVG write
+    /// them as they are; the screen and spreadsheets get them as one picture.
+    Vector {
         /// The box they are in.
         rect: Rect,
-        /// Their color.
-        color: Color,
-        /// The rectangles, in the page's coordinates.
-        marks: Vec<Rect>,
+        /// The shapes, back to front, in the page's coordinates.
+        shapes: Vec<crate::vector::Shape>,
     },
     /// An area that opens an address when clicked. Prints nothing.
     Link {
@@ -315,7 +314,7 @@ impl Document {
                         rect.y(),
                         rect.width(),
                         rect.height(),
-                        base64(image.encoded()),
+                        encode(image.encoded()),
                         x = clip.x(),
                         y = clip.y(),
                         w = clip.width(),
@@ -333,20 +332,31 @@ impl Document {
                         rect.height(),
                     );
                 }
-                Item::Marks { color, marks, .. } => {
-                    let _ = write!(s, r#"<path fill="{}" d=""#, css(*color));
-                    for mark in marks {
+                Item::Vector { shapes, .. } => {
+                    for shape in shapes {
+                        let mut d = String::new();
+                        for segment in &shape.path {
+                            match segment {
+                                crate::vector::PathSegment::Move(p) => {
+                                    let _ = write!(d, "M{} {}", p.x, p.y);
+                                }
+                                crate::vector::PathSegment::Line(p) => {
+                                    let _ = write!(d, "L{} {}", p.x, p.y);
+                                }
+                                crate::vector::PathSegment::Cubic(a, b, c) => {
+                                    let _ = write!(d, "C{} {} {} {} {} {}", a.x, a.y, b.x, b.y, c.x, c.y);
+                                }
+                                crate::vector::PathSegment::Close => d.push('Z'),
+                                _ => {}
+                            }
+                        }
                         let _ = write!(
                             s,
-                            "M{} {}h{}v{}h-{}z",
-                            mark.x(),
-                            mark.y(),
-                            mark.width(),
-                            mark.height(),
-                            mark.width()
+                            r#"<path d="{d}" fill="{}"{}/>"#,
+                            shape.fill.map_or("none".into(), css),
+                            stroke_attr(shape.stroke)
                         );
                     }
-                    s.push_str(r#""/>"#);
                 }
                 Item::Bookmark { .. } => {}
             }
@@ -373,8 +383,8 @@ impl Document {
              .sheet:last-child{{break-after:auto}}\
              </style></head><body>",
             escape(&self.title),
-            base64(ravenrs_text::inter_font(false)),
-            base64(ravenrs_text::inter_font(true)),
+            encode(ravenrs_text::inter_font(false)),
+            encode(ravenrs_text::inter_font(true)),
         );
         for page in 0..self.pages.len() {
             s.push_str("<div class=\"sheet\">");
@@ -384,21 +394,6 @@ impl Document {
         s.push_str("</body></html>");
         s
     }
-}
-
-fn base64(bytes: &[u8]) -> String {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
-        let n = u32::from(chunk[0]) << 16
-            | u32::from(chunk.get(1).copied().unwrap_or(0)) << 8
-            | u32::from(chunk.get(2).copied().unwrap_or(0));
-        out.push(TABLE[(n >> 18) as usize & 63] as char);
-        out.push(TABLE[(n >> 12) as usize & 63] as char);
-        out.push(if chunk.len() > 1 { TABLE[(n >> 6) as usize & 63] as char } else { '=' });
-        out.push(if chunk.len() > 2 { TABLE[n as usize & 63] as char } else { '=' });
-    }
-    out
 }
 
 fn stroke_attr(stroke: Option<(f32, Color)>) -> String {
@@ -436,15 +431,6 @@ pub(crate) fn parse_color(s: &str) -> Option<Color> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn base64_matches_the_standard() {
-        assert_eq!(base64(b""), "");
-        assert_eq!(base64(b"f"), "Zg==");
-        assert_eq!(base64(b"fo"), "Zm8=");
-        assert_eq!(base64(b"foo"), "Zm9v");
-        assert_eq!(base64(b"foobar"), "Zm9vYmFy");
-    }
 
     #[test]
     fn colors_parse() {

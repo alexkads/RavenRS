@@ -26,7 +26,8 @@ mod format;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 
-use ravenrs_core::{Color, Rect};
+use ravenrs_core::{Color, ImageData, Rect};
+use ravenrs_report::vector::{Shape, rasterize};
 use ravenrs_report::{Culture, Document, DocumentImage, Item, TextAlign, TextBlock};
 use rust_xlsxwriter::{
     Color as XlsxColor, Format, FormatAlign, FormatBorder, Image, Url, Workbook, Worksheet, XlsxError,
@@ -86,9 +87,9 @@ pub fn to_xlsx(document: &Document) -> Result<Vec<u8>, XlsxExportError> {
         xs.extend([b.rect.x(), b.rect.max_x()]);
         ys.extend([b.rect.y(), b.rect.max_y()]);
     }
-    for group in &flow.marks {
-        xs.extend([group.rect.x(), group.rect.max_x()]);
-        ys.extend([group.rect.y(), group.rect.max_y()]);
+    for drawing in &flow.drawings {
+        xs.extend([drawing.rect.x(), drawing.rect.max_x()]);
+        ys.extend([drawing.rect.y(), drawing.rect.max_y()]);
     }
     for picture in &flow.pictures {
         xs.extend([picture.rect.x(), picture.rect.max_x()]);
@@ -188,12 +189,13 @@ pub fn to_xlsx(document: &Document) -> Result<Vec<u8>, XlsxExportError> {
     for (&(r0, c0), placed) in &cells {
         write_cell(sheet, &mut formats, &styles, &culture, (r0, c0), placed)?;
     }
-    for group in &flow.marks {
-        let png = marks_png(group)?;
-        let width = (group.rect.width() * PIXELS_PER_POINT).max(1.0).round() as u32;
-        let height = (group.rect.height() * PIXELS_PER_POINT).max(1.0).round() as u32;
+    for drawing in &flow.drawings {
+        let Some(pixels) = rasterize(&drawing.shapes, drawing.page_rect, DRAWING_SCALE) else { continue };
+        let png = drawing_png(&pixels)?;
+        let width = (drawing.rect.width() * PIXELS_PER_POINT).max(1.0).round() as u32;
+        let height = (drawing.rect.height() * PIXELS_PER_POINT).max(1.0).round() as u32;
         let image = Image::new_from_buffer(&png)?.set_scale_to_size(width, height, false);
-        sheet.insert_image(ys.nearest(group.rect.y()), column(xs.nearest(group.rect.x())), &image)?;
+        sheet.insert_image(ys.nearest(drawing.rect.y()), column(xs.nearest(drawing.rect.x())), &image)?;
     }
     for picture in &flow.pictures {
         let width = (picture.rect.width() * PIXELS_PER_POINT).max(1.0).round() as u32;
@@ -254,20 +256,21 @@ struct Flow<'d> {
     boxes: Vec<FlowBox>,
     rules: Vec<Rule>,
     pictures: Vec<FlowPicture>,
-    marks: Vec<FlowMarks>,
+    drawings: Vec<FlowDrawing>,
     links: Vec<FlowLink>,
+}
+
+/// Shapes placed as one picture, such as a chart or a barcode. Coordinates stay those of the
+/// page, so `page_rect` is what they are drawn from.
+struct FlowDrawing {
+    rect: Rect,
+    page_rect: Rect,
+    shapes: Vec<Shape>,
 }
 
 struct FlowPicture {
     rect: Rect,
     image: DocumentImage,
-}
-
-/// Rectangles placed as one picture, such as a barcode.
-struct FlowMarks {
-    rect: Rect,
-    color: Rgb,
-    marks: Vec<Rect>,
 }
 
 struct FlowLink {
@@ -302,7 +305,7 @@ impl<'d> Flow<'d> {
             boxes: Vec::new(),
             rules: Vec::new(),
             pictures: Vec::new(),
-            marks: Vec::new(),
+            drawings: Vec::new(),
             links: Vec::new(),
         };
         // Where the next page's first item lands.
@@ -352,10 +355,10 @@ impl<'d> Flow<'d> {
             Item::Image { rect, image, .. } => {
                 self.pictures.push(FlowPicture { rect: shifted(*rect, dy), image: image.clone() });
             }
-            Item::Marks { rect, color, marks } => self.marks.push(FlowMarks {
+            Item::Vector { rect, shapes } => self.drawings.push(FlowDrawing {
                 rect: shifted(*rect, dy),
-                color: rgb(*color),
-                marks: marks.iter().map(|m| shifted(*m, dy)).collect(),
+                page_rect: *rect,
+                shapes: shapes.clone(),
             }),
             Item::Link { rect, url } => {
                 self.links.push(FlowLink { rect: shifted(*rect, dy), url: url.clone() })
@@ -372,7 +375,7 @@ fn extent(item: &Item) -> Option<(f32, f32)> {
         Item::Rect { rect, .. } | Item::Ellipse { rect, .. } => Some((rect.y(), rect.max_y())),
         Item::Line { from, to, .. } => Some((from.y.min(to.y), from.y.max(to.y))),
         Item::Image { clip, .. } => Some((clip.y(), clip.max_y())),
-        Item::Marks { rect, .. } => Some((rect.y(), rect.max_y())),
+        Item::Vector { rect, .. } => Some((rect.y(), rect.max_y())),
         _ => None,
     }
 }
@@ -381,34 +384,14 @@ fn shifted(rect: Rect, dy: f32) -> Rect {
     Rect::new(rect.x(), rect.y() + dy, rect.width(), rect.height())
 }
 
-/// Pixels per point when rasterizing marks: sharp enough for a scanner on paper.
-const MARKS_SCALE: f32 = 8.0;
+/// Pixels per point when rasterizing drawings: sharp enough for a scanner on paper.
+const DRAWING_SCALE: f32 = 6.0;
 
-/// Draws marks on white as a PNG.
-fn marks_png(group: &FlowMarks) -> Result<Vec<u8>, XlsxExportError> {
-    let (width, height) = (
-        (group.rect.width() * MARKS_SCALE).ceil().max(1.0) as u32,
-        (group.rect.height() * MARKS_SCALE).ceil().max(1.0) as u32,
-    );
-    let mut pixels = image::GrayImage::from_pixel(width, height, image::Luma([255]));
-    let ink = {
-        let (r, g, b) = ((group.color >> 16) & 255, (group.color >> 8) & 255, group.color & 255);
-        image::Luma([((r * 299 + g * 587 + b * 114) / 1000) as u8])
-    };
-    for mark in &group.marks {
-        let to_pixel = |value: f32, origin: f32| ((value - origin) * MARKS_SCALE).round().max(0.0) as u32;
-        let (x0, x1) =
-            (to_pixel(mark.x(), group.rect.x()), to_pixel(mark.max_x(), group.rect.x()).min(width));
-        let (y0, y1) =
-            (to_pixel(mark.y(), group.rect.y()), to_pixel(mark.max_y(), group.rect.y()).min(height));
-        for y in y0..y1 {
-            for x in x0..x1 {
-                pixels.put_pixel(x, y, ink);
-            }
-        }
-    }
+fn drawing_png(pixels: &ImageData) -> Result<Vec<u8>, XlsxExportError> {
+    let image = image::RgbaImage::from_raw(pixels.width(), pixels.height(), pixels.pixels().to_vec())
+        .ok_or_else(|| XlsxExportError::Workbook(XlsxError::ParameterError("bad chart size".to_owned())))?;
     let mut bytes = std::io::Cursor::new(Vec::new());
-    pixels
+    image
         .write_to(&mut bytes, image::ImageFormat::Png)
         .map_err(|e| XlsxExportError::Workbook(XlsxError::ParameterError(e.to_string())))?;
     Ok(bytes.into_inner())

@@ -31,6 +31,8 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Token ou tema | `docs/design-system/tokens.json` e `ravenrs-style`, sempre juntos | `docs/design-system/README.md` |
 | Plataforma | `ravenrs-platform-native` e `ravenrs-platform-web`; confira se a outra precisa do mesmo | §10 do `ARCHITECTURE.md` |
 | Função ou operador de expressão | `crates/ravenrs-criteria/src/`; funções no catálogo de `functions.rs` | Ida e volta em `format.rs`, `eval.rs`, `validate.rs`, `sql.rs` conforme o caso |
+| Formas vetoriais, layout de gráfico, códigos de barras | `crates/ravenrs-graphics/src/`: `vector`, `chart`, `barcode` | Testes no próprio crate; ver quem usa em `ravenrs-report` |
+| Exportar relatório para arquivo | `crates/ravenrs-report-export/src/lib.rs`, que chama os exportadores | Editor e servidor usam só esse ponto de entrada |
 | Motor de relatórios | `model.rs`, `engine.rs`, `document.rs` em `crates/ravenrs-report/src/` | `docs/REPORTING.md`, `docs/REPORTING-PARITY.md` |
 | Servidor de relatórios | `crates/ravenrs-report-server/src/`: `http`, `scheduler`, `store`, `cron`, `deliver` | `docs/REPORT-SERVER.md`, `crates/ravenrs-report-server/tests/server.rs` |
 | Visualizador de relatórios | `crates/ravenrs-report-viewer/src/`: `lib` (`DocumentViewer`), `search`, `parameters` | `crates/ravenrs-report-viewer/tests/viewer.rs` |
@@ -45,6 +47,7 @@ Estas regras são o que mantém o projeto testável e portátil, por isso vale p
 
 - **Widgets e renderer só se encontram no `Scene`.** `ravenrs-widgets` nunca toca a GPU e `ravenrs-render` não conhece widgets. Assim os testes de widgets rodam sem GPU e o renderer continua substituível.
 - **`ravenrs-criteria` não depende de nada do RavenRS** e não recebe nada específico de um módulo. Filtros, regras de segurança e um futuro equivalente ao XAF vão usar a mesma linguagem.
+- **Lógica útil a mais de um motor vai para um crate compartilhado, nunca para uma cópia.** `ravenrs-criteria`, `ravenrs-graphics` e `ravenrs-report-export` não conhecem quem os chama. Antes de escrever lógica num motor, procure se outro já tem.
 - **`ravenrs-report` não depende de GPU nem de janela**, porque também roda em servidores. Layout gera um `Document` uma vez, e visualizador e exportadores desenham esse mesmo resultado.
 - **Tudo que não é cola de plataforma compila para `wasm32-unknown-unknown`:** sem threads, sem `SharedArrayBuffer` e sem bloquear. Fontes são embutidas, porque o navegador não expõe as do sistema.
 - **Estado é de uma thread só:** `Rc` e `RefCell`, sem travas. Fontes de estado não mantêm observadores vivos.

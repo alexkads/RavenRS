@@ -1,0 +1,23 @@
+[package]
+name = "ravenrs-graphics"
+description = "Vector shapes, chart layout and barcodes for RavenRS: logic shared by reports, the UI and anything else that draws them."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-graphics"
+keywords = ["chart", "barcode", "qrcode", "vector", "gui"]
+categories = ["graphics", "visualization"]
+
+[dependencies]
+ravenrs-core.workspace = true
+serde.workspace = true
+qrcodegen = "1.8"
+tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd"] }
+
+[lints]
+workspace = true

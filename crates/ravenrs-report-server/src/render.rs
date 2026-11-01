@@ -17,17 +17,7 @@ const MAX_DATA_BYTES: u64 = 64 * 1024 * 1024;
 const DATA_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// A produced file.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OutputFile {
-    /// Its format.
-    pub format: Format,
-    /// Its name.
-    pub name: String,
-    /// Its media type.
-    pub mime: &'static str,
-    /// Its content.
-    pub bytes: Vec<u8>,
-}
+pub use ravenrs_report_export::ExportedFile as OutputFile;
 
 /// What a render produced.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -40,15 +30,6 @@ pub struct Rendered {
     pub rows: usize,
     /// Problems in the report; the files are still produced.
     pub warnings: Vec<String>,
-}
-
-/// The media type of a format.
-pub fn mime(format: Format) -> &'static str {
-    match format {
-        Format::Pdf => "application/pdf",
-        Format::Xlsx => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        Format::Csv => "text/csv; charset=utf-8",
-    }
 }
 
 /// A date as a report parameter value.
@@ -219,21 +200,10 @@ pub fn render(
     let mut engine = ReportEngine::new();
     let rows = engine.count_rows(report, data, &options);
     let document = engine.render_with(report, data, &options);
-    let mut files = Vec::with_capacity(formats.len());
-    for format in formats {
-        let bytes = match format {
-            Format::Pdf => ravenrs_report_pdf::to_pdf(&document).map_err(|e| e.to_string())?,
-            Format::Xlsx => ravenrs_report_xlsx::to_xlsx(&document).map_err(|e| e.to_string())?,
-            // A byte order mark, so Excel reads the accents as UTF-8.
-            Format::Csv => format!("\u{feff}{}", ravenrs_report_xlsx::to_csv(&document)).into_bytes(),
-        };
-        files.push(OutputFile {
-            format: *format,
-            name: crate::store::document_file_name(&document.title, date_label, *format),
-            mime: mime(*format),
-            bytes,
-        });
-    }
+    let files = formats
+        .iter()
+        .map(|format| ravenrs_report_export::export(&document, *format, Some(date_label)))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(Rendered { title: document.title, files, rows, warnings: document.errors })
 }
 

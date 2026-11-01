@@ -470,5 +470,16 @@ fn barcodes_are_vector_rectangles() {
     let pdf = read(&rows(band, 1));
     assert!(pdf.with("/Subtype /Image").is_empty(), "no raster");
     let content = pdf.page_content();
-    assert!(content.matches(" re\n").count() > 10, "{content}");
+    assert!(content.matches("h\n").count() > 10, "{content}");
+}
+
+#[test]
+fn charts_are_vector_with_searchable_text() {
+    let report = samples::sales_dashboard();
+    let data = report.embedded_data().cloned().unwrap();
+    let doc = ReportEngine::new().render(&report, &data);
+    let pdf = read(&doc);
+    assert!(pdf.with("/Subtype /Image").is_empty(), "no raster");
+    assert!(pdf.page_text().contains("Por região"));
+    assert!(pdf.page_content().contains(" c\n"), "curves for the slices");
 }

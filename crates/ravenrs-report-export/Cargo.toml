@@ -1,0 +1,26 @@
+[package]
+name = "ravenrs-report-export"
+description = "One way to turn a RavenRS report document into a file: PDF, XLSX or CSV, with its name and media type."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-report-export"
+keywords = ["report", "export", "pdf", "xlsx", "csv"]
+categories = ["template-engine", "encoding"]
+
+[dependencies]
+ravenrs-report.workspace = true
+ravenrs-report-pdf.workspace = true
+ravenrs-report-xlsx.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

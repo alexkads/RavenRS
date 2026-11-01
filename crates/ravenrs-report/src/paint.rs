@@ -80,9 +80,10 @@ pub fn paint_page(page: &Page, text: &mut TextSystem, scene: &mut Scene, origin:
                 scene.push_image(ImageQuad::new(rect(r), image.pixels().clone()));
                 scene.pop_clip();
             }
-            Item::Marks { color, marks, .. } => {
-                for mark in marks {
-                    scene.push_quad(Quad::new(rect(mark), *color));
+            Item::Vector { rect: r, shapes } => {
+                // Twice as sharp as needed, for high-density screens.
+                if let Some(image) = crate::vector::rasterize(shapes, *r, scale * 2.0) {
+                    scene.push_image(ImageQuad::new(rect(r), image));
                 }
             }
             // Nothing to print: they matter in the exported file.

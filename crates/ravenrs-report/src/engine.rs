@@ -15,6 +15,7 @@ use ravenrs_criteria::{
     format_value,
 };
 
+use crate::chart::LabelAlign;
 use crate::model::{
     Band, Control, ControlKind, LineDirection, ParameterKind, PictureMode, Report, ShapeKind, SortField,
     Style, TableCell, TextAlign, VerticalAlign,
@@ -80,6 +81,10 @@ struct Block {
 }
 
 const DEFAULT_SIZE: f32 = 10.0;
+/// Text on a chart's axes and legend.
+const CHART_MUTED: Color = Color::rgba(0.353, 0.388, 0.459, 1.0);
+/// A chart's gridlines.
+const CHART_GRID: Color = Color::rgba(0.855, 0.867, 0.898, 1.0);
 /// The largest side of an image, in pixels.
 const MAX_IMAGE_SIDE: u32 = 12_000;
 /// The most memory decoding one image may use.
@@ -754,10 +759,9 @@ impl<'r> Run<'r> {
                             rect.width(),
                             (rect.height() - text_height).max(1.0),
                         );
-                        items.push(Item::Marks {
+                        items.push(Item::Vector {
                             rect: bars,
-                            color: look.color,
-                            marks: crate::barcode::marks(&pattern, bars),
+                            shapes: vec![crate::barcode::shape(&pattern, bars, look.color)],
                         });
                         if let Some(printed) = printed {
                             let caption =
@@ -775,6 +779,47 @@ impl<'r> Run<'r> {
                     // A row without a code is not a mistake; a code that does not fit its format is.
                     Err(_) if content.trim().is_empty() => {}
                     Err(reason) => self.errors.borrow_mut().push(format!("{}: {reason}", control_name(c))),
+                }
+                c.height
+            }
+            ControlKind::Chart(chart) => {
+                let rect = Rect::new(at.x, at.y, c.width, c.height);
+                backdrop(&look, rect, items);
+                let data = self.chart_data(ctx, chart, &control_name(c));
+                let format = chart.format.as_deref().map(str::trim).filter(|f| !f.is_empty()).unwrap_or("N0");
+                let number = |value: f64| format_value(&Value::Number(value), format, self.env.formats());
+                let drawing = crate::chart::draw(
+                    &data,
+                    rect,
+                    &crate::chart::ChartOptions {
+                        kind: chart.kind,
+                        title: &chart.title,
+                        legend: !chart.hide_legend,
+                        size: look.size,
+                        ink: look.color,
+                        muted: CHART_MUTED,
+                        grid: CHART_GRID,
+                        format: &number,
+                    },
+                );
+                items.push(Item::Vector { rect, shapes: drawing.shapes });
+                for label in drawing.labels {
+                    let label_look = Look {
+                        size: label.size,
+                        bold: label.bold,
+                        color: label.color,
+                        align: match label.align {
+                            LabelAlign::Center => TextAlign::Center,
+                            LabelAlign::Right => TextAlign::Right,
+                            _ => TextAlign::Left,
+                        },
+                        valign: VerticalAlign::Middle,
+                        padding: 0.0,
+                        wrap: false,
+                        background: None,
+                        border: None,
+                    };
+                    self.text_box(engine, &label.text, &label_look, label.rect, false, items);
                 }
                 c.height
             }
@@ -827,6 +872,104 @@ impl<'r> Run<'r> {
     }
 
     /// A label's text and the value behind it, when it has one.
+    /// Evaluates a chart's points from the rows in scope or a nested list.
+    fn chart_data(
+        &self,
+        ctx: &Scope<'_, Json>,
+        chart: &crate::model::Chart,
+        what: &str,
+    ) -> crate::chart::ChartData {
+        let nested = chart
+            .data_member
+            .as_deref()
+            .filter(|path| !path.trim().is_empty())
+            .and_then(|path| {
+                let segments: Vec<String> = path.split('.').map(|s| s.trim().to_owned()).collect();
+                lookup(ctx.current_row(), &segments)
+            })
+            .and_then(Json::as_array);
+        let rows: Vec<&Json> = match nested {
+            Some(items) => items.iter().collect(),
+            None if chart.data_member.as_deref().is_some_and(|p| !p.trim().is_empty()) => Vec::new(),
+            None => ctx.current_rows().to_vec(),
+        };
+        let argument = chart.argument.as_deref().filter(|s| !s.trim().is_empty());
+        let mut categories: Vec<String> = Vec::new();
+        let mut positions: Vec<f64> = Vec::new();
+        let mut index: HashMap<String, usize> = HashMap::new();
+        let mut totals: Vec<Vec<f64>> = vec![Vec::new(); chart.series.len()];
+        for (row_index, row) in rows.iter().enumerate() {
+            let scope = Scope::new(&self.env).row(*row).rows(&rows).position(Some(row_index));
+            let (name, position) = match argument {
+                Some(expression) => match self.eval(&scope, expression, what) {
+                    Ok(value) => (
+                        format_value(&value, "", self.env.formats()),
+                        value.as_number().unwrap_or(row_index as f64),
+                    ),
+                    Err(_) => continue,
+                },
+                None => ((row_index + 1).to_string(), row_index as f64),
+            };
+            // A scatter chart has one dot per row, whatever its argument.
+            let scatter = chart.kind == crate::chart::ChartKind::Scatter || argument.is_none();
+            let slot = if scatter {
+                categories.push(name);
+                positions.push(position);
+                categories.len() - 1
+            } else {
+                *index.entry(name.clone()).or_insert_with(|| {
+                    categories.push(name);
+                    positions.push(position);
+                    categories.len() - 1
+                })
+            };
+            for (series, total) in chart.series.iter().zip(&mut totals) {
+                total.resize(categories.len(), 0.0);
+                if let Ok(value) = self.eval(&scope, &series.value, what)
+                    && let Some(number) = value.as_number()
+                {
+                    total[slot] += number;
+                }
+            }
+        }
+        if chart.sorted {
+            let numeric = positions
+                .iter()
+                .zip(&categories)
+                .all(|(_, name)| name.trim().replace(self.env.formats().decimal, ".").parse::<f64>().is_ok());
+            let mut order: Vec<usize> = (0..categories.len()).collect();
+            if numeric {
+                order.sort_by(|a, b| positions[*a].total_cmp(&positions[*b]));
+            } else {
+                order.sort_by(|a, b| categories[*a].cmp(&categories[*b]));
+            }
+            categories = order.iter().map(|i| categories[*i].clone()).collect();
+            positions = order.iter().map(|i| positions[*i]).collect();
+            for total in &mut totals {
+                *total = order.iter().map(|i| total.get(*i).copied().unwrap_or(0.0)).collect();
+            }
+        }
+        let series = chart
+            .series
+            .iter()
+            .zip(totals)
+            .enumerate()
+            .map(|(i, (series, mut values))| {
+                values.resize(categories.len(), 0.0);
+                crate::chart::SeriesData {
+                    name: series.name.clone(),
+                    color: series
+                        .color
+                        .as_deref()
+                        .and_then(parse_color)
+                        .unwrap_or(crate::chart::PALETTE[i % crate::chart::PALETTE.len()]),
+                    values,
+                }
+            })
+            .collect();
+        crate::chart::ChartData { categories, positions, series }
+    }
+
     fn label_text(
         &self,
         ctx: &Scope<'_, Json>,
@@ -1072,39 +1215,6 @@ fn safe_url(url: &str) -> bool {
         && !url.chars().any(char::is_control)
 }
 
-/// Decodes base64 text, ignoring whitespace; `None` when it is not valid.
-fn decode_base64(text: &str) -> Option<Vec<u8>> {
-    let mut out = Vec::with_capacity(text.len() / 4 * 3);
-    let (mut buffer, mut bits) = (0_u32, 0_u32);
-    let mut padding = 0;
-    for byte in text.bytes() {
-        let value = match byte {
-            b'A'..=b'Z' => byte - b'A',
-            b'a'..=b'z' => byte - b'a' + 26,
-            b'0'..=b'9' => byte - b'0' + 52,
-            b'+' => 62,
-            b'/' => 63,
-            b'=' => {
-                padding += 1;
-                continue;
-            }
-            b' ' | b'\n' | b'\r' | b'\t' => continue,
-            _ => return None,
-        };
-        if padding > 0 {
-            return None;
-        }
-        buffer = (buffer << 6) | u32::from(value);
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            out.push((buffer >> bits) as u8);
-            buffer &= (1 << bits) - 1;
-        }
-    }
-    Some(out)
-}
-
 /// Decodes a PNG or JPEG from a `data:` address or base64 text. Limits protect
 /// a server from a small file that expands into huge pixels.
 pub fn decode_picture(source: &str) -> Option<DocumentImage> {
@@ -1113,7 +1223,7 @@ pub fn decode_picture(source: &str) -> Option<DocumentImage> {
         Some(rest) => rest.split_once("base64,")?.1,
         None => text,
     };
-    let bytes = decode_base64(text)?;
+    let bytes = crate::base64::decode(text)?;
     let format = match image::guess_format(&bytes).ok()? {
         image::ImageFormat::Png => ImageFormat::Png,
         image::ImageFormat::Jpeg => ImageFormat::Jpeg,
@@ -1237,8 +1347,8 @@ fn translate(item: &Item, by: Point) -> Item {
             Item::Image { rect: r(rect), clip: r(clip), image: image.clone() }
         }
         Item::Link { rect, url } => Item::Link { rect: r(rect), url: url.clone() },
-        Item::Marks { rect, color, marks } => {
-            Item::Marks { rect: r(rect), color: *color, marks: marks.iter().map(r).collect() }
+        Item::Vector { rect, shapes } => {
+            Item::Vector { rect: r(rect), shapes: shapes.iter().map(|shape| shape.translated(by)).collect() }
         }
         Item::Bookmark { title, level, y } => {
             Item::Bookmark { title: title.clone(), level: *level, y: y + by.y }

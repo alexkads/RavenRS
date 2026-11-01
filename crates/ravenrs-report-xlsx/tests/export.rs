@@ -169,3 +169,15 @@ fn barcodes_become_one_picture_and_not_a_grid_of_cells() {
     let mut archive = zip::ZipArchive::new(Cursor::new(&xlsx)).unwrap();
     assert!(archive.by_name("xl/media/image1.png").is_ok());
 }
+
+#[test]
+fn charts_become_a_picture_with_their_text_in_cells() {
+    let report = samples::sales_dashboard();
+    let data = report.embedded_data().cloned().unwrap();
+    let doc = ReportEngine::new().render(&report, &data);
+    let xlsx = to_xlsx(&doc).unwrap();
+    let mut archive = zip::ZipArchive::new(Cursor::new(&xlsx)).unwrap();
+    assert!(archive.by_name("xl/media/image3.png").is_ok(), "one picture per chart");
+    drop(archive);
+    assert!(part(&xlsx, "xl/sharedStrings.xml").contains("Por região"));
+}

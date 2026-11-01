@@ -3,9 +3,10 @@
 
 use serde_json::{Value as Json, json};
 
+use crate::chart::ChartKind;
 use crate::model::{
-    Band, Control, ControlKind, DataSource, DataSourceKind, DetailReport, Group, Label, LinkLabel,
-    PageSettings, ParameterKind, Report, Style, Table, TableRow, TextAlign, VerticalAlign,
+    Band, Chart, ChartSeries, Control, ControlKind, DataSource, DataSourceKind, DetailReport, Group, Label,
+    LinkLabel, PageSettings, ParameterKind, Report, Style, Table, TableRow, TextAlign, VerticalAlign,
 };
 
 // Raven Light tokens: reports are printed on white paper.
@@ -474,6 +475,77 @@ pub fn invoice() -> Report {
                 ),
         )
         .page_footer(page_footer(true))
+}
+
+/// A sales dashboard: one page of charts over the same orders.
+pub fn sales_dashboard() -> Report {
+    let w = PageSettings::a4().content_width();
+    let half = (w - 16.0) / 2.0;
+    let total = "[Quantity] * [UnitPrice]";
+    let monthly = Chart {
+        kind: ChartKind::Area,
+        title: "Vendas por mês".to_owned(),
+        argument: Some("GetMonth([Date])".to_owned()),
+        series: vec![ChartSeries::new("Total", total)],
+        sorted: true,
+        format: Some("N0".to_owned()),
+        ..Chart::default()
+    };
+    let chart = |chart: Chart, x: f32, y: f32, width: f32, height: f32| {
+        Control { kind: ControlKind::Chart(chart), ..Control::default() }
+            .at(x, y, width, height)
+            .style(Style::new().font_size(9.0).color(INK))
+    };
+    Report::new("Painel de vendas")
+        .culture("pt-BR")
+        .data_source(DataSource {
+            name: "Vendas".into(),
+            kind: DataSourceKind::Json { data: sales_data(300) },
+        })
+        .report_header(
+            Band::new(620.0)
+                .control(
+                    Control::label("Painel de vendas")
+                        .at(0.0, 0.0, w, 30.0)
+                        .style(Style::new().font_size(20.0).bold().color(INK)),
+                )
+                .control(
+                    Control::field(
+                        "FormatString('{0} pedidos · {1:C2}', Count(), Sum([Quantity] * [UnitPrice]))",
+                    )
+                    .at(0.0, 30.0, w, 16.0)
+                    .style(Style::new().font_size(10.0).color(MUTED)),
+                )
+                .control(chart(monthly, 0.0, 60.0, w, 200.0))
+                .control(chart(
+                    Chart {
+                        kind: ChartKind::Bar,
+                        title: "Por região".to_owned(),
+                        argument: Some("[Region]".to_owned()),
+                        series: vec![ChartSeries::new("Total", total)],
+                        sorted: true,
+                        ..Chart::default()
+                    },
+                    0.0,
+                    276.0,
+                    half,
+                    230.0,
+                ))
+                .control(chart(
+                    Chart {
+                        kind: ChartKind::Doughnut,
+                        title: "Por produto".to_owned(),
+                        argument: Some("[Product]".to_owned()),
+                        series: vec![ChartSeries::new("Total", total)],
+                        ..Chart::default()
+                    },
+                    half + 16.0,
+                    276.0,
+                    half,
+                    230.0,
+                ))
+                .control(Control::bookmark("'Painel'", 0).at(0.0, 0.0, 80.0, 12.0)),
+        )
 }
 
 /// A customer list grouped by the first letter, the simplest kind of report.

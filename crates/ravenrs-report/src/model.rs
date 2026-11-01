@@ -352,6 +352,50 @@ pub enum ControlKind {
     Bookmark(Bookmark),
     /// A barcode or QR Code.
     Barcode(Barcode),
+    /// A chart of the rows in scope, or of a nested list.
+    Chart(Chart),
+}
+
+/// A chart.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Chart {
+    /// The kind of chart.
+    pub kind: crate::chart::ChartKind,
+    /// A title above it.
+    pub title: String,
+    /// What each point is about, such as `[Region]`. Rows with the same value add
+    /// up into one point; without it, every row is a point.
+    pub argument: Option<String>,
+    /// The numbers to show.
+    pub series: Vec<ChartSeries>,
+    /// Orders the points by their argument, as numbers when they all are.
+    pub sorted: bool,
+    /// Leaves the legend out.
+    pub hide_legend: bool,
+    /// How numbers are shown, such as `N0` or `C2`.
+    pub format: Option<String>,
+    /// An array field of the current row to chart, instead of the rows in scope.
+    pub data_member: Option<String>,
+}
+
+/// A chart's series.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ChartSeries {
+    /// Its name in the legend.
+    pub name: String,
+    /// The number for each row, such as `[Quantity] * [Price]`.
+    pub value: String,
+    /// Its color; one from the palette when absent.
+    pub color: Option<String>,
+}
+
+impl ChartSeries {
+    /// A series named `name`, with `value` for each row.
+    pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
+        Self { name: name.into(), value: value.into(), color: None }
+    }
 }
 
 /// A barcode.
@@ -922,6 +966,23 @@ impl Control {
     /// A label with fixed text.
     pub fn label(text: impl Into<String>) -> Self {
         Self { kind: ControlKind::Label(Label { text: text.into(), ..Label::default() }), ..Self::default() }
+    }
+
+    /// A chart: one series of `value` per `argument`.
+    pub fn chart(
+        kind: crate::chart::ChartKind,
+        argument: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
+        Self {
+            kind: ControlKind::Chart(Chart {
+                kind,
+                argument: Some(argument.into()),
+                series: vec![ChartSeries::new("", value)],
+                ..Chart::default()
+            }),
+            ..Self::default()
+        }
     }
 
     /// A barcode showing the value of `expression`.

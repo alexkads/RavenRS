@@ -55,60 +55,12 @@ pub fn document(
     doc
 }
 
-/// A format the document can be exported to.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Export {
-    /// PDF, vector pages with embedded fonts.
-    Pdf,
-    /// XLSX, with real numbers and dates in the cells.
-    Xlsx,
-    /// CSV, with the text as printed.
-    Csv,
-}
-
-/// A file ready to be saved.
-#[derive(Debug)]
-pub struct ExportedFile {
-    /// The suggested file name.
-    pub name: String,
-    /// The media type (browsers need it for the download).
-    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
-    pub mime: &'static str,
-    /// The content.
-    pub bytes: Vec<u8>,
-}
-
-/// Writes the document in `format`.
-pub fn exported_file(document: &Document, format: Export) -> Result<ExportedFile, String> {
-    let (extension, mime, bytes) = match format {
-        Export::Pdf => {
-            ("pdf", "application/pdf", ravenrs_report_pdf::to_pdf(document).map_err(|e| e.to_string())?)
-        }
-        Export::Xlsx => (
-            "xlsx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ravenrs_report_xlsx::to_xlsx(document).map_err(|e| e.to_string())?,
-        ),
-        // A byte order mark, so Excel reads the accents as UTF-8.
-        Export::Csv => {
-            ("csv", "text/csv", format!("\u{feff}{}", ravenrs_report_xlsx::to_csv(document)).into_bytes())
-        }
-    };
-    Ok(ExportedFile { name: format!("{}.{extension}", file_stem(&document.title)), mime, bytes })
-}
-
-/// A title as a file name: without the characters file systems refuse.
-fn file_stem(title: &str) -> String {
-    let stem: String =
-        title.chars().map(|c| if c.is_control() || r#"<>:"/\|?*"#.contains(c) { ' ' } else { c }).collect();
-    let stem = stem.trim().trim_end_matches('.').trim();
-    if stem.is_empty() { "relatorio".to_owned() } else { stem.to_owned() }
-}
+pub use ravenrs_report_export::{ExportFormat as Export, ExportedFile};
 
 /// Exports the document and hands the file to the user: a download on the web,
 /// or the program that opens the format on the desktop.
 pub fn export(document: &Document, format: Export) {
-    match exported_file(document, format) {
+    match ravenrs_report_export::export(document, format, None) {
         Ok(file) => {
             #[cfg(target_arch = "wasm32")]
             download(&file);
@@ -273,37 +225,5 @@ fn open_path(path: &std::path::Path) {
     };
     if let Err(e) = opener {
         tracing::warn!(error = %e, "could not open the file");
-    }
-}
-
-#[cfg(test)]
-mod export_tests {
-    use ravenrs_report::{ReportEngine, samples};
-
-    use super::*;
-
-    fn invoice() -> Document {
-        let report = samples::invoice();
-        let data = report.embedded_data().cloned().unwrap_or_default();
-        ReportEngine::new().render(&report, &data)
-    }
-
-    #[test]
-    fn each_format_gives_a_named_file_of_its_kind() -> Result<(), String> {
-        let doc = invoice();
-        let pdf = exported_file(&doc, Export::Pdf)?;
-        assert!(pdf.name == "Fatura.pdf" && pdf.bytes.starts_with(b"%PDF-"));
-        let xlsx = exported_file(&doc, Export::Xlsx)?;
-        assert!(xlsx.name == "Fatura.xlsx" && xlsx.bytes.starts_with(b"PK"));
-        let csv = exported_file(&doc, Export::Csv)?;
-        assert!(csv.name == "Fatura.csv" && csv.bytes.starts_with("\u{feff}".as_bytes()));
-        Ok(())
-    }
-
-    #[test]
-    fn file_names_are_safe() {
-        assert_eq!(file_stem("Vendas: 2026/11"), "Vendas  2026 11");
-        assert_eq!(file_stem("  ?? "), "relatorio");
-        assert_eq!(file_stem("Relatório."), "Relatório");
     }
 }

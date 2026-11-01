@@ -15,8 +15,7 @@ categories = ["web-programming::http-server", "template-engine"]
 
 [dependencies]
 ravenrs-report.workspace = true
-ravenrs-report-pdf.workspace = true
-ravenrs-report-xlsx.workspace = true
+ravenrs-report-export.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true

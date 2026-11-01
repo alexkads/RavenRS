@@ -284,6 +284,9 @@ pub fn design_text(c: &Control) -> String {
         ControlKind::Bookmark(b) => {
             format!("Marcador: {}", b.expression.clone().unwrap_or_else(|| b.text.clone()))
         }
+        ControlKind::Chart(c) => {
+            format!("Gráfico: {}", if c.title.is_empty() { "sem título" } else { &c.title })
+        }
         ControlKind::Barcode(b) => {
             format!("Código: {}", b.expression.clone().unwrap_or_else(|| b.text.clone()))
         }

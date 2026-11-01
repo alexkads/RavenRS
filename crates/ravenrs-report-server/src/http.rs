@@ -383,7 +383,7 @@ async fn get_document(
         Some("xlsx") => Format::Xlsx,
         _ => Format::Csv,
     };
-    Ok(file_response(&file, crate::render::mime(format), bytes, None))
+    Ok(file_response(&file, format.mime(), bytes, None))
 }
 
 #[cfg(test)]

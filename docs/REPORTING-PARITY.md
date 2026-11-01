@@ -37,8 +37,8 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Subreport | Embeds another report, parameter bindings | ⬜ [R3] |
 | Table of contents, bookmarks | From bookmarks; PDF outline | 🟡 `Bookmark` control builds the PDF outline, nested by level. Table of contents ⬜ [R3] |
 | Barcode | 40+ symbologies (Code 128, EAN, UPC, ITF, GS1, QR, Data Matrix, PDF417, Aztec, postal…) | 🟡 Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF and QR, vector in PDF and SVG. Data Matrix, PDF417 ⬜ [R3] |
-| Chart | 2D/3D, many series types | ⬜ [R3]: bar, line, area, pie, doughnut, scatter |
-| Sparkline | Line/area/bar/win-loss | ⬜ [R3] |
+| Chart | 2D/3D, many series types | 🟡 bar, line, area, pie, doughnut and scatter, from the rows in scope or a nested list; vector in PDF and SVG, a picture in XLSX. Date axes, stacked and 3D ⬜ [R3] |
+| Sparkline | Line/area/bar/win-loss | 🟡 line, as a chart kind. Area, bar, win-loss ⬜ [R3] |
 | Gauge | Linear and circular | ⬜ [R3] |
 | Cross Tab | Pivot with totals, summaries, layouts | ⬜ [R5] |
 | Rich text | RTF/HTML subset | ⬜ [R3]: HTML subset |

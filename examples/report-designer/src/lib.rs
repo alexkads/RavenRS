@@ -12,6 +12,7 @@ use ravenrs::prelude::*;
 use ravenrs::style::{RADII, SPACING};
 use ravenrs::widgets::{DragPhase, Paint, Placement, QuadPaint};
 use ravenrs_report::barcode::Symbology;
+use ravenrs_report::chart::ChartKind;
 use ravenrs_report::wizard::{self, FieldInfo, FieldKind, WizardOptions};
 use ravenrs_report::{
     Control, DataSource, DataSourceKind, DateTime, Line, Report, Style, Table, TableRow, samples,
@@ -327,6 +328,13 @@ impl Designer {
                         .item(
                             insert("Código de barras", IconName::Tag, || {
                                 Control::barcode(Symbology::Code128, "[Id]").at(0.0, 0.0, 160.0, 50.0)
+                            })
+                            .large(),
+                        )
+                        .item(
+                            insert("Gráfico", IconName::ChartColumn, || {
+                                Control::chart(ChartKind::Bar, "[Region]", "[Quantity] * [UnitPrice]")
+                                    .at(0.0, 0.0, 320.0, 180.0)
                             })
                             .large(),
                         )
@@ -925,6 +933,12 @@ impl View for Gallery {
                     "O mesmo relatório com 10 mil pedidos: veja o tempo de geração.",
                     IconName::Zap,
                     open(|| samples::sales_by_region(10_000), 1),
+                ),
+                template_card(
+                    "Painel de vendas",
+                    "Gráficos de área, barras e rosca sobre os mesmos pedidos.",
+                    IconName::ChartColumn,
+                    open(samples::sales_dashboard, 1),
                 ),
                 template_card(
                     "Lista de clientes",

@@ -60,7 +60,7 @@ fn opens_with_the_template_gallery_and_every_template_loads() {
     let mut ui = designer();
     audit(&mut ui, "gallery");
     assert!(names(&mut ui, Role::Dialog).contains(&"Novo relatório".to_owned()));
-    for template in ["Fatura", "Vendas por região", "Lista de clientes"] {
+    for template in ["Fatura", "Vendas por região", "Painel de vendas", "Lista de clientes"] {
         press(&mut ui, Role::Button, template);
         assert!(names(&mut ui, Role::Dialog).is_empty(), "{template} closes the gallery");
         audit(&mut ui, template);

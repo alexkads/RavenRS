@@ -3,7 +3,8 @@
 use ravenrs::prelude::*;
 use ravenrs::style::SPACING;
 use ravenrs_report::barcode::Symbology;
-use ravenrs_report::{ControlKind, PageSettings, PictureMode, Style, TextAlign};
+use ravenrs_report::chart::ChartKind;
+use ravenrs_report::{ChartSeries, ControlKind, PageSettings, PictureMode, Style, TextAlign};
 
 use crate::bands::BandRef;
 use crate::editor::{Editor, Selection};
@@ -321,6 +322,84 @@ fn barcode_props(e: &Editor, barcode: &ravenrs_report::Barcode, rows: &mut Vec<A
     )));
 }
 
+const CHART_KINDS: [(&str, ChartKind); 7] = [
+    ("Barras", ChartKind::Bar),
+    ("Linhas", ChartKind::Line),
+    ("Área", ChartKind::Area),
+    ("Pizza", ChartKind::Pie),
+    ("Rosca", ChartKind::Doughnut),
+    ("Dispersão", ChartKind::Scatter),
+    ("Sparkline", ChartKind::Sparkline),
+];
+
+fn chart_props(e: &Editor, chart: &ravenrs_report::Chart, rows: &mut Vec<AnyView>) {
+    let index = CHART_KINDS.iter().position(|(_, k)| *k == chart.kind).unwrap_or(0);
+    let write = e.clone();
+    let kind = Select::new(
+        Binding::new(
+            move || index,
+            move |i: usize| {
+                write.edit_control("chart-kind", |c| {
+                    if let ControlKind::Chart(chart) = &mut c.kind {
+                        chart.kind = CHART_KINDS[i.min(CHART_KINDS.len() - 1)].1;
+                    }
+                });
+            },
+        ),
+        CHART_KINDS.iter().map(|(name, _)| *name),
+    )
+    .width(268.0)
+    .label("Tipo");
+    rows.push(Box::new(FormField::new("Tipo", kind)));
+    let title = control_text(
+        e,
+        "chart-title",
+        |k| match k {
+            ControlKind::Chart(c) => c.title.clone(),
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Chart(c) = k {
+                c.title = s;
+            }
+        },
+    );
+    rows.push(Box::new(FormField::new("Título", title)));
+    let argument = control_text(
+        e,
+        "chart-argument",
+        |k| match k {
+            ControlKind::Chart(c) => c.argument.clone().unwrap_or_default(),
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Chart(c) = k {
+                c.argument = (!s.trim().is_empty()).then_some(s);
+            }
+        },
+    );
+    rows.push(Box::new(
+        FormField::new("Agrupar por", argument).hint("Ex.: [Region]. Linhas iguais somam num ponto"),
+    ));
+    let value = control_text(
+        e,
+        "chart-value",
+        |k| match k {
+            ControlKind::Chart(c) => c.series.first().map(|s| s.value.clone()).unwrap_or_default(),
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Chart(c) = k {
+                match c.series.first_mut() {
+                    Some(series) => series.value = s,
+                    None => c.series.push(ChartSeries::new("", s)),
+                }
+            }
+        },
+    );
+    rows.push(Box::new(FormField::new("Valor", value).hint("Ex.: [Quantity] * [UnitPrice]")));
+}
+
 fn control_props(e: &Editor) -> impl View + use<> {
     let Some((band, _, control)) = e.selected_control() else { return Box::new(Text::new("")) as AnyView };
     let report = e.report.get();
@@ -334,6 +413,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Panel(_) => "Painel",
         ControlKind::Picture(_) => "Imagem",
         ControlKind::Barcode(_) => "Código de barras",
+        ControlKind::Chart(_) => "Gráfico",
         ControlKind::Link(_) => "Link",
         ControlKind::Bookmark(_) => "Marcador",
         _ => "Controle",
@@ -404,6 +484,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Link(_) => link_props(e, &mut rows),
         ControlKind::Bookmark(_) => bookmark_props(e, &mut rows),
         ControlKind::Barcode(barcode) => barcode_props(e, barcode, &mut rows),
+        ControlKind::Chart(chart) => chart_props(e, chart, &mut rows),
         _ => {}
     }
     rows.push(Box::new(section("Posição e tamanho (pt)")));

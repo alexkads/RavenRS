@@ -12,7 +12,7 @@ use jiff::Timestamp;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::job::{Format, Job};
+use crate::job::Job;
 
 /// Whether `name` is safe as a single path component: letters, digits, `.`,
 /// `_` and `-`, starting with a letter or digit.
@@ -23,30 +23,13 @@ pub fn valid_name(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
-/// Whether a file name is safe to serve, as [`document_file_name`] writes them.
+/// Whether a file name is safe to serve.
 fn valid_document_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 255
         && !name.contains(['/', '\\', '\0'])
         && !name.starts_with('.')
         && name.chars().all(|c| !c.is_control())
-}
-
-/// A title as a file name, keeping accents and dropping what file systems refuse.
-pub fn document_file_name(title: &str, date: &str, format: Format) -> String {
-    let clean: String = title
-        .chars()
-        .map(|c| if c.is_control() || r#"<>:"/\|?*"#.contains(c) { ' ' } else { c })
-        .take(100)
-        .collect();
-    let clean = clean.trim().trim_matches('.').trim();
-    let clean = if clean.is_empty() { "report" } else { clean };
-    let extension = match format {
-        Format::Pdf => "pdf",
-        Format::Xlsx => "xlsx",
-        Format::Csv => "csv",
-    };
-    format!("{clean} {date}.{extension}")
 }
 
 /// What happened in a run.
@@ -484,15 +467,5 @@ mod tests {
         }
         assert_eq!(store.layout("a", None)?, Some((11, "11".to_owned())));
         Ok(())
-    }
-
-    #[test]
-    fn file_names_drop_what_file_systems_refuse() {
-        assert_eq!(
-            document_file_name("Vendas: Sul/Norte", "2026-11-01", Format::Pdf),
-            "Vendas  Sul Norte 2026-11-01.pdf"
-        );
-        assert_eq!(document_file_name("Relatório", "2026-11-01", Format::Xlsx), "Relatório 2026-11-01.xlsx");
-        assert_eq!(document_file_name("../..", "d", Format::Csv), "report d.csv");
     }
 }

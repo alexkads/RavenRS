@@ -57,10 +57,14 @@ ravenrs-mcp  ──► ravenrs-criteria  (tool for coding assistants; nothing de
 ravenrs-criteria  (expression language, no RavenRS dependencies)
         ▲
         │
+ravenrs-graphics  ──► ravenrs-core  (shapes, chart layout, barcodes; shared, knows no engine)
+        ▲
+        │
 ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
         ▲
         │
 ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)
+ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
         ▲
         ├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)
@@ -83,7 +87,9 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-platform-native` | `lib` (winit loop), `access` (AccessKit) |
 | `ravenrs-platform-web` | `app` (canvas, events, frames), `access` (ARIA mirror), `error` |
 | `ravenrs-criteria` | `ast`, `parse`, `format`, `eval`, `functions`, `validate`, `sql`, `value` |
-| `ravenrs-report` | `model`, `engine`, `document`, `paint`, `wizard`, `samples` |
+| `ravenrs-report` | `model`, `engine`, `document`, `base64`, `paint`, `wizard`, `samples` |
+| `ravenrs-graphics` | `vector`, `chart`, `barcode` |
+| `ravenrs-report-export` | `lib` |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |
@@ -316,7 +322,7 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Web: canvas, WebGPU, DPR, pointer, wheel, touch scrolling, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), clipboard copy, rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | pinch and momentum scrolling |
 | Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web | | caret and selection for screen readers, right-to-left |
 | Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
-| Reporting: engine, wizard, designer with preview, viewer, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
+| Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`, budgets in [docs/QUALITY.md](docs/QUALITY.md)) | | GPU timestamps |
 
 ## 12. Decisions log

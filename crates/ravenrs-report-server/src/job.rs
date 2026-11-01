@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use jiff::tz::TimeZone;
 use ravenrs_report::Criteria;
+pub use ravenrs_report_export::ExportFormat as Format;
 use serde::{Deserialize, Serialize};
 
 use crate::cron::Schedule;
@@ -69,18 +70,6 @@ pub enum ParameterValue {
     },
     /// A fixed value.
     Fixed(serde_json::Value),
-}
-
-/// An output file format.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Format {
-    /// PDF.
-    Pdf,
-    /// Excel workbook.
-    Xlsx,
-    /// Comma- or semicolon-separated text.
-    Csv,
 }
 
 /// Where a job's files go.

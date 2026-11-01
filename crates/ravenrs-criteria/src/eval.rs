@@ -266,6 +266,16 @@ impl<'a, R: Record> Scope<'a, R> {
         self
     }
 
+    /// The current row, if there is one.
+    pub fn current_row(&self) -> Option<&'a R> {
+        self.row
+    }
+
+    /// The rows aggregates run over.
+    pub fn current_rows(&self) -> &'a [&'a R] {
+        self.rows
+    }
+
     /// Evaluates `criteria`.
     pub fn evaluate(&self, criteria: &Criteria) -> Result<Value, EvalError> {
         let value = self.node(criteria);

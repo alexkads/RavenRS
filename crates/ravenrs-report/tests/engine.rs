@@ -620,7 +620,8 @@ fn barcodes_draw_marks_with_their_text_and_report_bad_content() {
     );
     let mut engine = ReportEngine::new();
     let doc = engine.render(&report, &serde_json::json!([{ "Sku": "400638133393" }, { "Sku": "abc" }, {}]));
-    let marks = doc.pages[0].items.iter().filter(|i| matches!(i, ravenrs_report::Item::Marks { .. })).count();
+    let marks =
+        doc.pages[0].items.iter().filter(|i| matches!(i, ravenrs_report::Item::Vector { .. })).count();
     assert_eq!(marks, 1, "only the valid row draws");
     assert_eq!(doc.page_text(0), ["4006381333931"], "the check digit is printed");
     assert_eq!(doc.errors.len(), 1, "a bad code is reported, an empty one is not: {:?}", doc.errors);
@@ -641,4 +642,103 @@ fn a_qr_code_prints_no_text_and_stays_square() {
     let doc = ReportEngine::new().render(&report, &serde_json::json!([{}]));
     assert!(doc.page_text(0).is_empty());
     assert!(doc.page_svg(0).contains("<path"));
+}
+
+fn dashboard_items() -> (ravenrs_report::Document, usize) {
+    let report = ravenrs_report::samples::sales_dashboard();
+    let data = report.embedded_data().cloned().expect("embedded data");
+    let doc = ravenrs_report::ReportEngine::new().render(&report, &data);
+    let charts =
+        doc.pages[0].items.iter().filter(|i| matches!(i, ravenrs_report::Item::Vector { .. })).count();
+    (doc, charts)
+}
+
+#[test]
+fn the_dashboard_sample_draws_its_three_charts_without_errors() {
+    let (doc, charts) = dashboard_items();
+    assert_eq!(charts, 3);
+    assert!(doc.errors.is_empty(), "{:?}", doc.errors);
+    let text = doc.page_text(0).join(" | ");
+    assert!(
+        text.contains("Vendas por mês") && text.contains("Por região") && text.contains("Por produto"),
+        "{text}"
+    );
+    assert!(doc.page_svg(0).contains("<path"));
+}
+
+fn chart_report(chart: ravenrs_report::Chart) -> ravenrs_report::Document {
+    let control = ravenrs_report::Control {
+        kind: ravenrs_report::ControlKind::Chart(chart),
+        ..ravenrs_report::Control::default()
+    }
+    .at(0.0, 0.0, 400.0, 200.0);
+    let report =
+        ravenrs_report::Report::new("T").report_header(ravenrs_report::Band::new(200.0).control(control));
+    ravenrs_report::ReportEngine::new().render(
+        &report,
+        &serde_json::json!([
+            { "R": "Sul", "V": 10, "Items": [{ "Q": 1 }, { "Q": 5 }] },
+            { "R": "Norte", "V": 20 },
+            { "R": "Sul", "V": 5 }
+        ]),
+    )
+}
+
+#[test]
+fn rows_with_the_same_argument_add_up_into_one_point() {
+    use ravenrs_report::chart::ChartKind;
+    use ravenrs_report::{Chart, ChartSeries};
+    let doc = chart_report(Chart {
+        kind: ChartKind::Pie,
+        argument: Some("[R]".into()),
+        series: vec![ChartSeries::new("", "[V]")],
+        ..Chart::default()
+    });
+    let text = doc.page_text(0);
+    // 15 of 35 and 20 of 35.
+    assert!(text.contains(&"43%".to_owned()) && text.contains(&"57%".to_owned()), "{text:?}");
+    assert!(text.contains(&"Sul".to_owned()) && text.contains(&"Norte".to_owned()), "{text:?}");
+}
+
+#[test]
+fn sorted_points_follow_their_argument() {
+    use ravenrs_report::chart::ChartKind;
+    use ravenrs_report::{Chart, ChartSeries};
+    let positions = |sorted| {
+        let doc = chart_report(Chart {
+            kind: ChartKind::Bar,
+            argument: Some("[R]".into()),
+            series: vec![ChartSeries::new("", "[V]")],
+            sorted,
+            ..Chart::default()
+        });
+        let at = |name: &str| {
+            doc.pages[0].items.iter().find_map(|item| match item {
+                ravenrs_report::Item::Text(t) if t.lines.iter().any(|l| l.text == name) => Some(t.clip.x()),
+                _ => None,
+            })
+        };
+        (at("Sul").expect("Sul"), at("Norte").expect("Norte"))
+    };
+    let (sul, norte) = positions(false);
+    assert!(sul < norte, "first seen first");
+    let (sul, norte) = positions(true);
+    assert!(norte < sul, "alphabetical");
+}
+
+#[test]
+fn a_bad_series_expression_is_reported_and_a_chart_without_data_is_empty() {
+    use ravenrs_report::{Chart, ChartSeries};
+    let doc = chart_report(Chart {
+        argument: Some("[R]".into()),
+        series: vec![ChartSeries::new("", "Nope(")],
+        ..Chart::default()
+    });
+    assert!(!doc.errors.is_empty());
+    let doc = chart_report(Chart {
+        data_member: Some("Missing".into()),
+        series: vec![ChartSeries::new("", "[Q]")],
+        ..Chart::default()
+    });
+    assert!(doc.errors.is_empty(), "{:?}", doc.errors);
 }

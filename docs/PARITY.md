@@ -110,13 +110,13 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 |---|---|---|---|---|
 | Bar / column chart | ✓ | ✓ | ✓ | ✅ `BarChart` |
 | Area chart, sparkline | ✓ | ✓ | ✓ | ✅ `AreaChart` |
-| Line chart | ✓ | ✓ | ✓ | ⬜ (needs a vector path renderer) |
-| Pie / donut | ✓ | ✓ | ✓ | ⬜ (needs a vector path renderer) |
+| Line chart | ✓ | ✓ | ✓ | ⬜ in the UI; layout ready in `ravenrs-graphics`, used by reports |
+| Pie / donut | ✓ | ✓ | ✓ | ⬜ in the UI; layout ready in `ravenrs-graphics`, used by reports |
 | Scatter, bubble, radar, funnel, financial | | ✓ | ✓ | ⬜ |
 | Gauges (linear, circular, arc) | | ✓ | ✓ | 🟡 `ProgressBar`; circular gauges need paths |
 | Maps | | ✓ | ✓ | ⬜ |
 | Diagram / Org chart | | ✓ | ✓ | ⬜ |
-| QR code / Barcode | | ✓ | ✓ | 🟡 in reports (`ravenrs_report::barcode`); no UI component yet |
+| QR code / Barcode | | ✓ | ✓ | 🟡 logic in `ravenrs-graphics`, used by reports; no UI component yet |
 
 ## Overlays and feedback
 

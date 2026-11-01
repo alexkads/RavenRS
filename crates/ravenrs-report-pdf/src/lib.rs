@@ -24,6 +24,7 @@ use pdf_writer::types::{
 use pdf_writer::writers::Resources;
 use pdf_writer::{Content, Filter, Finish, Name, Pdf, Rect as PdfRect, Ref, Str, TextStr};
 use ravenrs_core::{Color, Rect};
+use ravenrs_report::vector::{self, PathSegment};
 use ravenrs_report::{Document, DocumentImage, ImageFormat, Item, Page, TextBlock};
 use ravenrs_text::{TextAttrs, TextSystem};
 use skrifa::instance::{LocationRef, Size};
@@ -58,8 +59,6 @@ pub fn to_pdf(document: &Document) -> Result<Vec<u8>, PdfError> {
 
 /// Text is shaped at this size, so positions come out in PDF's text space units.
 const UNITS: f32 = 1000.0;
-/// Bézier handle length that approximates a quarter circle of radius 1.
-const KAPPA: f32 = 0.552_284_8;
 
 /// A shaped line of text, in thousandths of the font size.
 struct Shaped {
@@ -184,10 +183,12 @@ impl Writer {
         for item in &page.items {
             match item {
                 Item::Rect { rect, fill, stroke, radius } => {
-                    self.draw(&mut content, *fill, *stroke, |c| rect_path(c, *rect, *radius, h));
+                    self.draw(&mut content, *fill, *stroke, |c| {
+                        write_path(c, &vector::rectangle(*rect, *radius), h)
+                    });
                 }
                 Item::Ellipse { rect, fill, stroke } => {
-                    self.draw(&mut content, *fill, *stroke, |c| ellipse_path(c, *rect, h));
+                    self.draw(&mut content, *fill, *stroke, |c| write_path(c, &vector::ellipse(*rect), h));
                 }
                 Item::Line { from, to, width, color } => {
                     let alpha = self.begin_alpha(&mut content, *color);
@@ -209,14 +210,12 @@ impl Writer {
                     content.x_object(Name(image_name(index).as_bytes()));
                     content.restore_state();
                 }
-                Item::Marks { color, marks, .. } => {
-                    let alpha = self.begin_alpha(&mut content, *color);
-                    content.set_fill_rgb(color.r, color.g, color.b);
-                    for mark in marks {
-                        content.rect(mark.x(), h - mark.max_y(), mark.width(), mark.height());
+                Item::Vector { shapes, .. } => {
+                    for shape in shapes {
+                        self.draw(&mut content, shape.fill, shape.stroke, |c| {
+                            write_path(c, &shape.path, h);
+                        });
                     }
-                    content.fill_nonzero();
-                    end_alpha(&mut content, alpha);
                 }
                 // Links and bookmarks print nothing; they are written with the page.
                 _ => {}
@@ -639,37 +638,23 @@ fn subset_tag(glyphs: &[u16]) -> String {
         .collect()
 }
 
-/// A rectangle's path, with `y` measured from the top of a page of height `h`.
-fn rect_path(content: &mut Content, rect: Rect, radius: f32, h: f32) {
-    let (x0, x1, y0, y1) = (rect.x(), rect.max_x(), h - rect.max_y(), h - rect.y());
-    let r = radius.clamp(0.0, rect.width().min(rect.height()) / 2.0);
-    if r <= 0.0 {
-        content.rect(x0, y0, rect.width(), rect.height());
-        return;
+/// A shape's outline, with `y` measured from the top of a page of height `h`.
+fn write_path(content: &mut Content, path: &[PathSegment], h: f32) {
+    for segment in path {
+        match segment {
+            PathSegment::Move(p) => {
+                content.move_to(p.x, h - p.y);
+            }
+            PathSegment::Line(p) => {
+                content.line_to(p.x, h - p.y);
+            }
+            PathSegment::Cubic(a, b, c) => {
+                content.cubic_to(a.x, h - a.y, b.x, h - b.y, c.x, h - c.y);
+            }
+            PathSegment::Close => {
+                content.close_path();
+            }
+            _ => {}
+        }
     }
-    let k = r * (1.0 - KAPPA);
-    content.move_to(x0 + r, y0);
-    content.line_to(x1 - r, y0);
-    content.cubic_to(x1 - k, y0, x1, y0 + k, x1, y0 + r);
-    content.line_to(x1, y1 - r);
-    content.cubic_to(x1, y1 - k, x1 - k, y1, x1 - r, y1);
-    content.line_to(x0 + r, y1);
-    content.cubic_to(x0 + k, y1, x0, y1 - k, x0, y1 - r);
-    content.line_to(x0, y0 + r);
-    content.cubic_to(x0, y0 + k, x0 + k, y0, x0 + r, y0);
-    content.close_path();
-}
-
-/// An ellipse's path, inscribed in `rect`.
-fn ellipse_path(content: &mut Content, rect: Rect, h: f32) {
-    let center = rect.center();
-    let (cx, cy) = (center.x, h - center.y);
-    let (rx, ry) = (rect.width() / 2.0, rect.height() / 2.0);
-    let (kx, ky) = (rx * KAPPA, ry * KAPPA);
-    content.move_to(cx + rx, cy);
-    content.cubic_to(cx + rx, cy + ky, cx + kx, cy + ry, cx, cy + ry);
-    content.cubic_to(cx - kx, cy + ry, cx - rx, cy + ky, cx - rx, cy);
-    content.cubic_to(cx - rx, cy - ky, cx - kx, cy - ry, cx, cy - ry);
-    content.cubic_to(cx + kx, cy - ry, cx + rx, cy - ky, cx + rx, cy);
-    content.close_path();
 }

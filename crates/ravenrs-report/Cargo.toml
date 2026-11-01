@@ -20,7 +20,7 @@ ravenrs-criteria.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 image.workspace = true
-qrcodegen = "1.8"
+ravenrs-graphics.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
