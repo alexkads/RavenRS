@@ -464,3 +464,93 @@ mod waking_from_another_thread {
         assert!(!ui.needs_redraw());
     }
 }
+
+mod overlays_opened_from_inside_another {
+    use super::{click, key};
+    use ravenrs_core::{AccessAction, Key, Point, Rect, Role, Size};
+    use ravenrs_reactive::State;
+    use ravenrs_style::Theme;
+    use ravenrs_widgets::{Button, Dialog, HStack, Popover, Select, Ui, VStack};
+
+    fn select() -> Select {
+        Select::new(State::new(0).binding(), ["Um", "Dois", "Três"]).label("Conta").width(200.0)
+    }
+
+    fn opened(view: impl ravenrs_widgets::View + 'static) -> Ui {
+        let mut ui = Ui::new(view, Theme::raven_light());
+        ui.set_viewport(Size::new(1000.0, 800.0), 1.0);
+        ui.update();
+        ui.update();
+        open(&mut ui);
+        ui
+    }
+
+    fn open(ui: &mut Ui) {
+        let id = node(ui, Role::ComboBox, "Conta").1;
+        ui.perform_action(id, AccessAction::Click);
+        ui.update();
+        ui.update();
+    }
+
+    fn node(ui: &mut Ui, role: Role, name: &str) -> (Rect, u64) {
+        find(ui, role, name).unwrap_or_else(|| panic!("no {role:?} {name}"))
+    }
+
+    fn find(ui: &mut Ui, role: Role, name: &str) -> Option<(Rect, u64)> {
+        ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.role == role && n.name.as_deref() == Some(name))
+            .map(|n| (n.bounds, n.id))
+    }
+
+    fn in_dialog(selected: State<usize>) -> impl ravenrs_widgets::View {
+        Dialog::new(State::new(true).binding(), "Pagar")
+            .content(Select::new(selected.binding(), ["Um", "Dois", "Três"]).label("Conta").width(200.0))
+    }
+
+    #[test]
+    fn a_select_in_a_dialog_opens_under_its_field_and_works() {
+        let selected = State::new(0_usize);
+        let mut ui = opened(in_dialog(selected.clone()));
+        let field = node(&mut ui, Role::ComboBox, "Conta").0;
+        let option = node(&mut ui, Role::ListBoxOption, "Dois").0;
+        assert!(option.y() >= field.max_y(), "under the field: {field:?} {option:?}");
+        assert!((option.x() - field.x()).abs() < 16.0, "beside it, not in a corner: {field:?} {option:?}");
+
+        click(&mut ui, option.center());
+        assert_eq!(selected.get(), 1, "the click reaches it, above the backdrop");
+        assert!(find(&mut ui, Role::ListBoxOption, "Dois").is_none(), "the menu closed");
+        assert!(find(&mut ui, Role::ComboBox, "Conta").is_some(), "and the dialog stayed");
+    }
+
+    #[test]
+    fn escape_closes_the_menu_and_then_the_dialog() {
+        let open_dialog = State::new(true);
+        let mut ui = opened(Dialog::new(open_dialog.binding(), "Pagar").content(select()));
+        assert!(find(&mut ui, Role::ListBoxOption, "Dois").is_some());
+        key(&mut ui, Key::Escape);
+        ui.update();
+        assert!(find(&mut ui, Role::ListBoxOption, "Dois").is_none(), "the menu first");
+        assert!(open_dialog.get(), "the dialog stays");
+        key(&mut ui, Key::Escape);
+        assert!(!open_dialog.get(), "then the dialog");
+    }
+
+    #[test]
+    fn a_menu_that_sticks_out_of_a_popover_does_not_close_it() {
+        let open_popover = State::new(true);
+        let selected = State::new(0_usize);
+        let mut ui = opened(VStack::new((HStack::new((Popover::new(
+            open_popover.binding(),
+            Button::new("Abrir"),
+            Select::new(selected.binding(), ["Um", "Dois", "Três"]).label("Conta").width(200.0),
+        ),)),)));
+        let option = node(&mut ui, Role::ListBoxOption, "Três").0;
+        click(&mut ui, option.center());
+        assert_eq!(selected.get(), 2);
+        assert!(open_popover.get(), "the popover stays open");
+        click(&mut ui, Point::new(900.0, 700.0));
+        assert!(!open_popover.get(), "a click truly outside still closes it");
+    }
+}

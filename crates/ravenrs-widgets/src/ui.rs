@@ -497,6 +497,12 @@ impl Ui {
         self.overlays.iter().rev().find(|o| o.placement == Placement::Fill).map(|o| o.root)
     }
 
+    /// A modal layer and what is above it: a menu opened from it counts as inside it.
+    fn modal_layers(&self, root: NodeId) -> Vec<NodeId> {
+        let from = self.overlays.iter().position(|o| o.root == root).unwrap_or(0);
+        self.overlays[from..].iter().map(|o| o.root).collect()
+    }
+
     fn is_inside(&self, mut node: NodeId, root: NodeId) -> bool {
         loop {
             if node == root {
@@ -528,11 +534,12 @@ impl Ui {
         match self.modal_root() {
             Some(root) => {
                 let focused = self.interaction.focused;
+                let layers = self.modal_layers(root);
                 let inside = (0..self.elements.len()).any(|i| {
                     let e = &self.elements[i];
                     Some(e.widget) == focused
                         && e.focus_radius.is_some()
-                        && self.is_inside(NodeId(i as u32), root)
+                        && layers.iter().any(|layer| self.is_inside(NodeId(i as u32), *layer))
                 });
                 if !inside {
                     self.modal_return.get_or_insert(focused);
@@ -570,11 +577,14 @@ impl Ui {
 
     fn dismiss_overlays_outside(&mut self, p: Point) {
         let mut handlers = Vec::new();
-        for overlay in &self.overlays {
+        for (i, overlay) in self.overlays.iter().enumerate() {
             let Some(dismiss) = &overlay.on_dismiss else { continue };
             let inside = |n: NodeId| self.frames.get(n.0 as usize).is_some_and(|f| f.contains(p));
             let in_anchor = overlay.placement != Placement::Fill && inside(overlay.anchor);
-            if !inside(overlay.root) && !in_anchor {
+            // A menu opened from this layer may stick out of it, and a click there is not outside.
+            let in_popup_above =
+                self.overlays[i + 1..].iter().any(|o| o.placement != Placement::Fill && inside(o.root));
+            if !inside(overlay.root) && !in_anchor && !in_popup_above {
                 handlers.push(dismiss.clone());
             }
         }
@@ -621,11 +631,11 @@ impl Ui {
     }
 
     fn move_focus(&mut self, forward: bool) {
-        let modal = self.modal_root();
+        let layers = self.modal_root().map(|root| self.modal_layers(root));
         let focusable: Vec<WidgetId> = self
             .paint_order
             .iter()
-            .filter(|n| modal.is_none_or(|root| self.is_inside(**n, root)))
+            .filter(|n| layers.as_ref().is_none_or(|l| l.iter().any(|root| self.is_inside(**n, *root))))
             .map(|n| &self.elements[n.0 as usize])
             .filter(|e| e.focus_radius.is_some())
             .map(|e| e.widget)

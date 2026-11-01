@@ -486,7 +486,7 @@ impl PayForm {
                     accounts.iter().map(|a| format!("{} ({})", a.name, format_brl(a.balance_cents))),
                 )
                 .label("Pagar com")
-                .width(388.0),
+                .width(392.0),
             ),
             HStack::new((
                 FormField::new("Valor pago", TextField::new(self.amount.binding()).width(190.0))

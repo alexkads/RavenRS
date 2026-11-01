@@ -23,6 +23,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Links and outline.** `ControlKind::Link` opens an `https:`, `http:` or `mailto:` address from a PDF, a spreadsheet or SVG; any other scheme is refused and reported. `ControlKind::Bookmark` adds entries, nested by level, to the PDF's outline. `Item` gains `Image`, `Link` and `Bookmark`.
 
 ### Fixed
+- A `Select`, `DatePicker` or menu inside a `Dialog` or `Sheet` opened in the window's corner, behind the dialog's backdrop. Overlays opened from inside another now come after it: they sit by their anchor and on top, keep focus, and Escape closes only them.
 - `Button`, `Badge`, `DatePicker` and other controls ignored a stack's `Align::Center` and sat at its start.
 - `None` and other empty views took a gap in their stack.
 - `DocumentViewer` worked out its width from the whole window, so beside a sidebar the page was off center and scrolled sideways.
