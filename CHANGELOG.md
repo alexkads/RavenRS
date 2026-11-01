@@ -19,8 +19,8 @@ The first release under the `YY.R.P` versioning model. It follows 0.1.0 directly
   - An expression language close to DevExpress Criteria, with fields, parameters, calculated fields, `Iif`, text, math and date functions, `FormatString`, and aggregates over a group, a page, the report or a nested collection.
   - Conditional formatting, named styles, zebra rows, .NET-style formats with pt-BR and en-US cultures.
   - Pagination with growing text, keep-with-next, repeated group headers and page breaks: 10,000 rows in 80 ms natively, about 200 ms in the browser.
-  - A wizard that builds a table report from a choice of fields, and SVG output per page.
-- **Report Designer** (`examples/report-designer`, [live](https://alexkads.github.io/RavenRS/designer/)): template gallery, wizard, field list with drag and drop, bands, move and resize, property grid, undo and redo, instant preview, JSON view.
+  - A wizard that builds a table report from a choice of fields, SVG output per page, and `Document::print_html`, a print-ready page with the fonts embedded.
+- **Report Designer** (`examples/report-designer`, [live](https://alexkads.github.io/RavenRS/designer/)): template gallery, wizard, field list with drag and drop, bands, move and resize, property grid, undo and redo, instant preview, printing (the browser's dialog can also save a PDF), JSON view.
 - `LayoutStyle::absolute` places a box at an offset outside the flow; `ScrollView::horizontal` scrolls sideways; `TextLayout::lines` reports line ranges and baselines.
 - Screen reader support. `Ui::access_tree` describes the UI as roles, names, values and states, and `Ui::perform_action` runs what assistive technology asks for (click, focus, increment, decrement).
   - Desktop: the tree goes to VoiceOver, Narrator, NVDA and Orca through AccessKit. It is built only while a screen reader is listening.

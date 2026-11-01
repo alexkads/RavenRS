@@ -117,3 +117,81 @@ pub fn draw_at(source: &Scene, origin: Point, scene: &mut Scene) {
 pub fn page_view(scene: Rc<Scene>, width: f32, height: f32) -> Canvas {
     Canvas::new(move |frame, out| draw_at(&scene, frame.origin, out)).size(width, height)
 }
+
+/// Prints the document: through a hidden frame and the browser's print dialog
+/// on the web, or by opening the page in the default browser on the desktop.
+pub fn print(document: &Document) {
+    let html = document.print_html();
+    #[cfg(target_arch = "wasm32")]
+    print_in_browser(&html);
+    #[cfg(not(target_arch = "wasm32"))]
+    print_on_desktop(&html);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn print_in_browser(html: &str) {
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen::closure::Closure;
+
+    const FRAME_ID: &str = "ravenrs-print-frame";
+    let Some(doc) = web_sys::window().and_then(|w| w.document()) else { return };
+    if let Some(old) = doc.get_element_by_id(FRAME_ID) {
+        old.remove();
+    }
+    let Some(frame) =
+        doc.create_element("iframe").ok().and_then(|e| e.dyn_into::<web_sys::HtmlIFrameElement>().ok())
+    else {
+        return;
+    };
+    frame.set_id(FRAME_ID);
+    frame.set_attribute("aria-hidden", "true").ok();
+    // Not display:none: browsers refuse to print hidden frames.
+    let style = frame.style();
+    for (k, v) in [
+        ("position", "fixed"),
+        ("right", "0"),
+        ("bottom", "0"),
+        ("width", "0"),
+        ("height", "0"),
+        ("border", "0"),
+    ] {
+        style.set_property(k, v).ok();
+    }
+    let target = frame.clone();
+    let on_load = Closure::once_into_js(move || {
+        let Some(window) = target.content_window() else { return };
+        // The embedded fonts must be ready, or the page prints in a fallback font.
+        let ready = window.document().and_then(|d| d.fonts().ready().ok());
+        wasm_bindgen_futures::spawn_local(async move {
+            if let Some(ready) = ready {
+                wasm_bindgen_futures::JsFuture::from(ready).await.ok();
+            }
+            window.focus().ok();
+            window.print().ok();
+        });
+    });
+    frame.set_onload(Some(on_load.unchecked_ref()));
+    frame.set_srcdoc(html);
+    if let Some(body) = doc.body() {
+        body.append_child(&frame).ok();
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn print_on_desktop(html: &str) {
+    let path = std::env::temp_dir().join("ravenrs-report-print.html");
+    if let Err(e) = std::fs::write(&path, html) {
+        tracing::warn!(error = %e, "could not write the print page");
+        return;
+    }
+    let opener = if cfg!(target_os = "macos") {
+        std::process::Command::new("open").arg(&path).spawn()
+    } else if cfg!(target_os = "windows") {
+        std::process::Command::new("cmd").args(["/C", "start", ""]).arg(&path).spawn()
+    } else {
+        std::process::Command::new("xdg-open").arg(&path).spawn()
+    };
+    if let Err(e) = opener {
+        tracing::warn!(error = %e, "could not open the print page");
+    }
+}

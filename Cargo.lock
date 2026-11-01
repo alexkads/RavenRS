@@ -2734,6 +2734,7 @@ dependencies = [
  "ravenrs",
  "ravenrs-report",
  "serde_json",
+ "tracing",
  "tracing-subscriber",
  "wasm-bindgen",
  "wasm-bindgen-futures",

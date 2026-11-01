@@ -29,6 +29,12 @@ pub const ICON_FAMILY: &str = "RavenIcons";
 /// The family name of the embedded default font.
 pub const DEFAULT_FAMILY: &str = "Inter";
 
+/// The embedded Inter font file, regular or semibold, for documents that embed
+/// the font they were measured with.
+pub fn inter_font(semibold: bool) -> &'static [u8] {
+    if semibold { INTER_SEMIBOLD } else { INTER_REGULAR }
+}
+
 /// Visual attributes of a piece of text.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextAttrs {

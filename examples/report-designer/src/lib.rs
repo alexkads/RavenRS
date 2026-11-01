@@ -103,7 +103,7 @@ impl Component for Designer {
             Gallery { editor: e.clone() },
             WizardDialog { editor: e.clone(), state: self.wizard.clone() },
             FieldGhost(e.clone()),
-            Shortcuts(e),
+            Shortcuts { editor: e, cache: self.cache.clone(), params: self.params.clone() },
         ))
         .spacing(0.0)
         .align(Align::Stretch)
@@ -132,9 +132,20 @@ impl<C: ViewSeq> View for FillRow<C> {
     }
 }
 
+/// Renders the report as it stands and sends it to the printer.
+fn print_report(editor: &Editor, cache: &Rc<RefCell<RenderCache>>, params: &State<HashMap<String, String>>) {
+    let doc = preview::document(editor, cache, &params.get());
+    preview::print(&doc);
+}
+
 impl Designer {
     fn ribbon(&self) -> impl View + use<> {
         let e = self.editor.clone();
+        let printer = |item: RibbonItem| {
+            let (ed, cache, params) = (e.clone(), self.cache.clone(), self.params.clone());
+            item.on_click(move || print_report(&ed, &cache, &params))
+        };
+        let (pm_e, pm_c, pm_p) = (e.clone(), self.cache.clone(), self.params.clone());
         let insert = |label: &'static str, icon: IconName, make: fn() -> Control| {
             let e = e.clone();
             RibbonItem::button(label, icon).on_click(move || {
@@ -165,6 +176,10 @@ impl Designer {
                     MenuItem::new("Assistente de relatório…")
                         .icon(IconName::Sparkles)
                         .on_select(move || e2.wizard_open.set(true)),
+                    MenuItem::new("Imprimir…")
+                        .icon(IconName::Printer)
+                        .shortcut("⌘P")
+                        .on_select(move || print_report(&pm_e, &pm_c, &pm_p)),
                     MenuItem::new("Ver o JSON do relatório")
                         .icon(IconName::Code)
                         .on_select(move || e3.tab.set(2)),
@@ -172,6 +187,7 @@ impl Designer {
             )
             .quick_access(RibbonItem::button("Desfazer", IconName::Undo2).on_click(move || e4.undo()))
             .quick_access(RibbonItem::button("Refazer", IconName::Redo2).on_click(move || e5.redo()))
+            .quick_access(printer(RibbonItem::button("Imprimir", IconName::Printer)))
             .page(
                 RibbonPage::new("Início")
                     .group(
@@ -193,6 +209,10 @@ impl Designer {
                             .item(tab_toggle(0, "Design", IconName::Pencil, t0))
                             .item(tab_toggle(1, "Visualizar", IconName::Eye, t1))
                             .item(tab_toggle(2, "JSON", IconName::Code, t2)),
+                    )
+                    .group(
+                        RibbonGroup::new("Saída")
+                            .item(printer(RibbonItem::button("Imprimir", IconName::Printer).large())),
                     )
                     .group(
                         RibbonGroup::new("Zoom")
@@ -521,11 +541,18 @@ impl View for FieldGhost {
 }
 
 /// Undo, redo and delete from the keyboard.
-struct Shortcuts(Editor);
+struct Shortcuts {
+    editor: Editor,
+    cache: Rc<RefCell<RenderCache>>,
+    params: State<HashMap<String, String>>,
+}
 
 impl View for Shortcuts {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let (u, r, d, b) = (self.0.clone(), self.0.clone(), self.0.clone(), self.0.clone());
+        let e = &self.editor;
+        let (u, r, d, b) = (e.clone(), e.clone(), e.clone(), e.clone());
+        let (pe, pc, pp) = (e.clone(), self.cache.clone(), self.params.clone());
+        cx.shortcut(Key::Character("p".into()), true, Rc::new(move || print_report(&pe, &pc, &pp)));
         cx.shortcut(Key::Character("z".into()), true, Rc::new(move || u.undo()));
         cx.shortcut(Key::Character("y".into()), true, Rc::new(move || r.redo()));
         cx.shortcut(Key::Delete, false, Rc::new(move || d.delete_selected()));
@@ -609,6 +636,12 @@ impl View for PreviewPane {
             e.page.clone(),
         )));
         bar.push(Box::new(Spacer::new()));
+        let (pe, pc, pp) = (e.clone(), self.cache.clone(), self.params.clone());
+        let print_button = Button::new("Imprimir")
+            .icon(IconName::Printer)
+            .style(ButtonStyle::Secondary)
+            .size(ButtonSize::Small)
+            .on_click(move || print_report(&pe, &pc, &pp));
         for p in &report.parameters {
             let name = p.name.clone();
             let (read, write) = (self.params.clone(), self.params.clone());
@@ -631,6 +664,7 @@ impl View for PreviewPane {
                     .align(Align::Center),
             ));
         }
+        bar.push(Box::new(print_button));
         let toolbar = cx.child(
             &HStack::new(bar).spacing(10.0).align(Align::Center).padding(Insets::symmetric(8.0, 16.0)),
         );

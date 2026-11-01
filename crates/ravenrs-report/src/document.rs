@@ -170,17 +170,35 @@ impl Document {
                     );
                 }
                 Item::Text(t) => {
-                    for l in &t.lines {
+                    // Text wider than its box is cut there, as on screen.
+                    let overflows = t.lines.iter().any(|l| l.x + l.width > t.clip.max_x() + 0.5);
+                    if overflows {
+                        let c = t.clip;
                         let _ = write!(
                             s,
-                            r#"<text x="{}" y="{}" font-family="Inter, sans-serif" font-size="{}" font-weight="{}" fill="{}">{}</text>"#,
+                            r#"<svg x="{x}" y="{y}" width="{w}" height="{h}" viewBox="{x} {y} {w} {h}">"#,
+                            x = c.x(),
+                            y = c.y(),
+                            w = c.width(),
+                            h = c.height()
+                        );
+                    }
+                    for l in &t.lines {
+                        // textLength keeps the measured width even if another font is substituted.
+                        let _ = write!(
+                            s,
+                            r#"<text x="{}" y="{}" textLength="{}" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-family="Inter, sans-serif" font-size="{}" font-weight="{}" fill="{}">{}</text>"#,
                             l.x,
                             l.baseline,
+                            l.width.max(0.01),
                             t.size,
                             if t.bold { 600 } else { 400 },
                             css(t.color),
-                            escape(&l.text)
+                            escape(l.text.trim_end())
                         );
+                    }
+                    if overflows {
+                        s.push_str("</svg>");
                     }
                 }
             }
@@ -188,6 +206,51 @@ impl Document {
         s.push_str("</svg>");
         s
     }
+
+    /// The whole document as a standalone HTML page sized for printing: one
+    /// sheet per page, with the Inter font embedded so it prints as measured.
+    /// Open it in a browser and print, or save it as PDF from the print dialog.
+    pub fn print_html(&self) -> String {
+        let (w, h) = self.pages.first().map_or((595.28, 841.89), |p| (p.width, p.height));
+        let mut s = String::new();
+        let _ = write!(
+            s,
+            "<!doctype html><html><head><meta charset=\"utf-8\"><title>{}</title><style>\
+             @font-face{{font-family:Inter;font-weight:400;src:url(data:font/ttf;base64,{})}}\
+             @font-face{{font-family:Inter;font-weight:600;src:url(data:font/ttf;base64,{})}}\
+             @page{{size:{w}pt {h}pt;margin:0}}\
+             html,body{{margin:0;padding:0;background:#fff}}\
+             svg{{display:block}}\
+             .sheet{{break-after:page;overflow:hidden}}\
+             .sheet:last-child{{break-after:auto}}\
+             </style></head><body>",
+            escape(&self.title),
+            base64(ravenrs_text::inter_font(false)),
+            base64(ravenrs_text::inter_font(true)),
+        );
+        for page in 0..self.pages.len() {
+            s.push_str("<div class=\"sheet\">");
+            s.push_str(&self.page_svg(page));
+            s.push_str("</div>");
+        }
+        s.push_str("</body></html>");
+        s
+    }
+}
+
+fn base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let n = u32::from(chunk[0]) << 16
+            | u32::from(chunk.get(1).copied().unwrap_or(0)) << 8
+            | u32::from(chunk.get(2).copied().unwrap_or(0));
+        out.push(TABLE[(n >> 18) as usize & 63] as char);
+        out.push(TABLE[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { TABLE[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { TABLE[n as usize & 63] as char } else { '=' });
+    }
+    out
 }
 
 fn stroke_attr(stroke: Option<(f32, Color)>) -> String {
@@ -225,6 +288,15 @@ pub(crate) fn parse_color(s: &str) -> Option<Color> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn base64_matches_the_standard() {
+        assert_eq!(base64(b""), "");
+        assert_eq!(base64(b"f"), "Zg==");
+        assert_eq!(base64(b"fo"), "Zm8=");
+        assert_eq!(base64(b"foo"), "Zm9v");
+        assert_eq!(base64(b"foobar"), "Zm9vYmFy");
+    }
 
     #[test]
     fn colors_parse() {

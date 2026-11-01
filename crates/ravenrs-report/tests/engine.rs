@@ -365,6 +365,21 @@ fn wizard_output_is_a_working_report() {
     assert!(doc.page_text(0).iter().any(|l| l == "QUANTITY"));
 }
 
+#[test]
+fn print_html_has_one_sheet_per_page_at_the_paper_size_and_escapes_text() {
+    let rows: Vec<Json> = (0..100).map(|i| json!({ "N": format!("<b>{i}</b> & co") })).collect();
+    let report = Report::new("A & B").detail(Band::new(30.0).control(field("[N]")));
+    let doc = render(&report, &Json::Array(rows));
+    assert!(doc.pages.len() > 1);
+    let html = doc.print_html();
+    assert_eq!(html.matches("class=\"sheet\"").count(), doc.pages.len());
+    assert!(html.contains("@page{size:595.28pt 841.89pt;margin:0}"));
+    assert!(html.contains("<title>A &amp; B</title>"));
+    assert!(html.contains("&lt;b&gt;0&lt;/b&gt; &amp; co"));
+    assert!(!html.contains("<b>0</b>"), "data never becomes markup");
+    assert!(html.contains("font-family:Inter;font-weight:600"), "the font is embedded");
+}
+
 proptest! {
     /// Every row prints exactly once and group subtotals add up to the grand total.
     #[test]

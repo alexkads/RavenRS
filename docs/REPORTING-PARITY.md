@@ -108,7 +108,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 |---|---|---|
 | Page navigation, zoom, thumbnails, search, document map | | 🟡 designer preview: pages, zoom, navigation. Thumbnails, search, document map ⬜ [R2] |
 | Drill-down, drill-through, interactive sorting, editing in preview | | ⬜ [R4] |
-| Print, export from the viewer, email | | ⬜ [R2/R3] |
+| Print, export from the viewer, email | | 🟡 print button and Cmd/Ctrl+P through the browser's dialog. Export and email ⬜ [R2/R3] |
 
 ## 9. Export
 
