@@ -5,6 +5,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ## [Unreleased]
 
 ### Added
+- **Bug reports from the diagnostics panel.** `WindowOptions::new_issue_url` adds a button that opens a new issue in the browser with the report filled in, cut to a safe length, for the person to review and send. Nothing is sent by the app, and the panel says what the report has before it opens. `ravenrs::native::open_url` opens a web page, and `ravenrs_core::new_issue_url` and `redact_user_paths` are the plain functions behind the button.
 - **Diagnostics on the desktop.** Ctrl+Shift+D (Cmd+Shift+D on a Mac) or `RAVENRS_DIAG=1` opens a panel in any app with the GPU in use, GPUs left out for their drivers, what is wrong and what recent frames cost, with a report to copy into a bug report. `ravenrs::native::diagnose` gives the same GPU report without showing a window. Closed, the panel costs nothing. `WindowOptions::labels` sets the words of the whole UI, this panel included.
 - **Expressions in the grid's filter row.** A `DataGrid` filter can be a `ravenrs-criteria` expression over column titles, such as `[Seats] > 10 And [Country] = 'Brazil'`. The short syntax (`>=15`, `5..12`, `sim`, plain text) works as before.
 - `ravenrs_criteria::NumberStyle` lays out digits with any separators and affixes; `Culture` and the grid's `NumberFormat` both use it.

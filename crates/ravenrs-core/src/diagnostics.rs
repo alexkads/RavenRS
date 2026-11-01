@@ -8,6 +8,12 @@ use std::time::Duration;
 
 /// Frames a [`FrameLog`] keeps.
 const FRAME_LOG_SIZE: usize = 240;
+/// The longest URL [`new_issue_url`] builds. Servers answer longer ones with an
+/// error instead of the page, and GitHub's limit is not documented, so this stays
+/// well under the 8 KB many servers allow.
+pub const MAX_ISSUE_URL: usize = 6000;
+/// Where a path starts to name a person's own folder.
+const USER_FOLDERS: [&str; 4] = ["/home/", "/Users/", "\\Users\\", "\\users\\"];
 
 /// One GPU as the graphics API describes it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -198,6 +204,87 @@ impl fmt::Display for DiagnosticReport {
         }
         Ok(())
     }
+}
+
+/// `text` with every path inside a person's own folder replaced, since those
+/// paths usually carry the person's name. A path can have spaces, so what follows
+/// goes up to the end of the line or a quote or list separator: too much hidden is
+/// better than a surname left behind.
+///
+/// ```
+/// use ravenrs_core::redact_user_paths;
+///
+/// let text = "Overrides: VK_DRIVER_FILES=/home/ana/icd.json\nGPU: Intel";
+/// assert_eq!(redact_user_paths(text), "Overrides: VK_DRIVER_FILES=<user folder>\nGPU: Intel");
+/// ```
+pub fn redact_user_paths(text: &str) -> String {
+    let mut redacted = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = USER_FOLDERS.iter().filter_map(|folder| rest.find(folder)).min() {
+        redacted.push_str(&rest[..at]);
+        redacted.push_str("<user folder>");
+        rest = &rest[at..];
+        let end = rest.find(['\n', '"', '\'', ',', ';']).unwrap_or(rest.len());
+        rest = &rest[end..];
+    }
+    redacted.push_str(rest);
+    redacted
+}
+
+/// Whether a byte stands for itself in a URL's query.
+fn is_unreserved(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~')
+}
+
+fn percent_encode(text: &str) -> String {
+    let mut encoded = String::with_capacity(text.len());
+    for byte in text.bytes() {
+        if is_unreserved(byte) {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
+/// The URL of a new issue with `intro` and then `report` in a code block as its
+/// body, for the person to review and send on the page it opens. It never passes
+/// [`MAX_ISSUE_URL`]: a report that would make it longer loses its last lines, whole
+/// where possible, and `truncated_note` says so after the block.
+///
+/// `new_issue` is the page for new issues and may already have a query, such as
+/// `https://github.com/owner/repo/issues/new`.
+///
+/// ```
+/// use ravenrs_core::new_issue_url;
+///
+/// let url = new_issue_url("https://example.com/new", "Steps:", "GPU: Intel\n", "");
+/// assert_eq!(url, "https://example.com/new?body=Steps%3A%0A%0A%60%60%60text%0AGPU%3A%20Intel%0A%60%60%60%0A");
+/// ```
+pub fn new_issue_url(new_issue: &str, intro: &str, report: &str, truncated_note: &str) -> String {
+    let joiner = if new_issue.contains('?') { '&' } else { '?' };
+    let url = |report: &str, note: &str| {
+        let body = format!("{intro}\n\n```text\n{report}\n```\n{note}");
+        format!("{new_issue}{joiner}body={}", percent_encode(&body))
+    };
+    let report = report.trim_end();
+    let whole = url(report, "");
+    if whole.len() <= MAX_ISSUE_URL {
+        return whole;
+    }
+    let room = MAX_ISSUE_URL.saturating_sub(url("", truncated_note).len());
+    let mut used = 0;
+    let mut end = 0;
+    for (at, c) in report.char_indices() {
+        used += percent_encode(c.encode_utf8(&mut [0; 4])).len();
+        if used > room {
+            break;
+        }
+        end = at + c.len_utf8();
+    }
+    let kept = &report[..end];
+    url(kept.rfind('\n').map_or(kept, |line| &kept[..line]), truncated_note)
 }
 
 /// What one frame cost. All durations are time on the CPU: waiting for a busy

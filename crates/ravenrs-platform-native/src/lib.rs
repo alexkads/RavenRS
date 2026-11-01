@@ -46,7 +46,7 @@ use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
 use winit::window::{Icon, Window, WindowAttributes, WindowId};
 
 pub use diagnostics::diagnose;
-pub use files::{SaveDialog, open_with_system};
+pub use files::{SaveDialog, open_url, open_with_system};
 
 /// Wheel pixels that ask for twice the size, with Ctrl held.
 const WHEEL_PER_ZOOM: f32 = 400.0;
@@ -82,6 +82,9 @@ pub struct WindowOptions {
     /// The words of the whole UI, including what the platform adds to it such as
     /// the diagnostics panel. `None` is English.
     pub labels: Option<Labels>,
+    /// The page for new issues, such as `https://github.com/owner/repo/issues/new`.
+    /// With it the diagnostics panel can start a bug report; `None` hides that button.
+    pub new_issue_url: Option<String>,
 }
 
 impl Default for WindowOptions {
@@ -92,6 +95,7 @@ impl Default for WindowOptions {
             min_size: Some(Size::new(320.0, 240.0)),
             theme: Theme::default(),
             labels: None,
+            new_issue_url: None,
         }
     }
 }
@@ -125,6 +129,13 @@ impl WindowOptions {
     /// Sets the words of the whole UI, including the diagnostics panel.
     pub fn labels(mut self, labels: Labels) -> Self {
         self.labels = Some(labels);
+        self
+    }
+
+    /// Sets the page for new issues, so the diagnostics panel can start a bug
+    /// report there. The person reviews it and sends it on that page.
+    pub fn new_issue_url(mut self, url: impl Into<String>) -> Self {
+        self.new_issue_url = Some(url.into());
         self
     }
 }
@@ -227,6 +238,9 @@ fn run_window(
     event_loop.set_control_flow(ControlFlow::Wait);
     let diagnostics = Diagnostics::default();
     diagnostics.set_open(std::env::var_os(DIAGNOSTICS_VARIABLE).is_some());
+    if let Some(url) = options.new_issue_url.clone() {
+        diagnostics.set_bug_reporter(url, |url| open_url(url).map_err(|e| e.to_string()));
+    }
     let root = DiagnosticsHost::new(root, diagnostics.clone());
     let mut ui = match options.labels.clone() {
         Some(labels) => Ui::new(Localized::new(labels, root), options.theme),

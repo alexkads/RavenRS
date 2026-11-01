@@ -84,6 +84,20 @@ pub struct Labels {
     pub diagnostics_acquire: String,
     /// Diagnostics: the time spent recording and submitting GPU work.
     pub diagnostics_render: String,
+    /// Diagnostics: the button that opens a new bug report in the browser.
+    pub diagnostics_report_bug: String,
+    /// Diagnostics: the title of what a bug report would share.
+    pub diagnostics_report_shares: String,
+    /// Diagnostics: what a bug report would share and that nothing is sent yet.
+    pub diagnostics_report_shares_detail: String,
+    /// Diagnostics: the browser could not be opened for a bug report.
+    pub diagnostics_report_failed: String,
+    /// What to do about the browser not opening.
+    pub diagnostics_report_failed_detail: String,
+    /// The start of a new bug report: the questions for the person to answer.
+    pub diagnostics_report_questions: String,
+    /// After a report cut short to fit in a URL.
+    pub diagnostics_report_truncated: String,
     /// A calendar's back button.
     pub previous_month: String,
     /// A calendar's forward button.
@@ -218,6 +232,21 @@ impl Default for Labels {
             diagnostics_update: "Update".into(),
             diagnostics_acquire: "Acquire".into(),
             diagnostics_render: "Render".into(),
+            diagnostics_report_bug: "Report bug".into(),
+            diagnostics_report_shares: "What a bug report shares".into(),
+            diagnostics_report_shares_detail: "Opens a page in your browser with the text below, for you to \
+                review and send yourself. Nothing is sent from here. It has the system's name, the GPU, \
+                driver file names and frame times, with no personal folders and none of your data."
+                .into(),
+            diagnostics_report_failed: "Could not open the browser".into(),
+            diagnostics_report_failed_detail: "Copy the text below and paste it into a new bug report."
+                .into(),
+            diagnostics_report_questions: "**What happened**\n\n\n**Steps to reproduce**\n1. \n\n\
+                **What you expected**\n\n\n**Diagnostics report**"
+                .into(),
+            diagnostics_report_truncated: "The report was cut short to fit in the link. The diagnostics \
+                panel has the whole text."
+                .into(),
             release_versions: "Versions".into(),
             release_newer: "Newer".into(),
             release_older: "Older".into(),
@@ -322,6 +351,20 @@ impl Labels {
             diagnostics_update: "Atualização".into(),
             diagnostics_acquire: "Aquisição".into(),
             diagnostics_render: "Render".into(),
+            diagnostics_report_bug: "Relatar bug".into(),
+            diagnostics_report_shares: "O que um relato de bug compartilha".into(),
+            diagnostics_report_shares_detail: "Abre uma página no navegador com o texto abaixo, para você \
+                revisar e enviar. Nada é enviado daqui. Ele traz o nome do sistema, a GPU, nomes de arquivos \
+                de driver e tempos de quadro, sem pastas pessoais e sem nenhum dado seu."
+                .into(),
+            diagnostics_report_failed: "Não foi possível abrir o navegador".into(),
+            diagnostics_report_failed_detail: "Copie o texto abaixo e cole em um novo relato de bug.".into(),
+            diagnostics_report_questions: "**O que aconteceu**\n\n\n**Passos para reproduzir**\n1. \n\n\
+                **O que você esperava**\n\n\n**Relatório de diagnóstico**"
+                .into(),
+            diagnostics_report_truncated: "O relatório foi cortado para caber no link. O painel de \
+                diagnóstico tem o texto inteiro."
+                .into(),
             release_versions: "Versões".into(),
             release_newer: "Mais recente".into(),
             release_older: "Mais antiga".into(),

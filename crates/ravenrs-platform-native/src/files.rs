@@ -69,3 +69,31 @@ pub fn open_with_system(path: &Path) -> io::Result<()> {
     };
     command.arg(path).spawn().map(|_| ())
 }
+
+/// Opens a web page in the browser. Only `http` and `https` are accepted, so a
+/// bad URL cannot end up running a program or opening a file instead.
+///
+/// On Windows this does not go through `cmd`, as [`open_with_system`] does: `cmd`
+/// would take the `&` between a query's parameters as the start of a new command.
+pub fn open_url(url: &str) -> io::Result<()> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a web address"));
+    }
+    if cfg!(target_os = "windows") {
+        Command::new("rundll32").args(["url.dll,FileProtocolHandler", url]).spawn().map(|_| ())
+    } else {
+        open_with_system(Path::new(url))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_web_addresses_are_opened() {
+        for url in ["file:///etc/passwd", "/bin/sh", "--help", "javascript:alert(1)", ""] {
+            assert_eq!(open_url(url).map_err(|e| e.kind()), Err(io::ErrorKind::InvalidInput), "{url}");
+        }
+    }
+}

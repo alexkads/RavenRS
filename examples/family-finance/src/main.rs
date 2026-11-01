@@ -42,7 +42,8 @@ fn main() -> Result<(), PlatformError> {
     let options = WindowOptions::new("Raven Finanças")
         .size(1360.0, 860.0)
         .theme(Theme::raven_light())
-        .labels(Labels::pt_br());
+        .labels(Labels::pt_br())
+        .new_issue_url("https://github.com/alexkads/RavenRS/issues/new");
     match open(&path) {
         Ok(db) => {
             let updater = Updater::idle();
