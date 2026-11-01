@@ -225,7 +225,7 @@ impl Gallery {
                     Icon::new(IconName::Sparkles).size(18.0).color(Semantic::Accent),
                     Text::new("RavenRS").style(TextStyle::Headline),
                     Spacer::new(),
-                    Badge::new("v26.2"),
+                    Badge::new("v27.1"),
                 ))
                 .spacing(10.0)
                 .align(Align::Center)
@@ -1432,7 +1432,7 @@ impl Gallery {
                 VStack::new((
                     Alert::new(
                         "New version available",
-                        "RavenRS 26.2 adds reporting and the criteria language.",
+                        "RavenRS 27.1 adds motion and report export to PDF and Excel.",
                     )
                     .tone(Tone::Accent),
                     Alert::new("Deployment finished", "The site is live on GitHub Pages.")

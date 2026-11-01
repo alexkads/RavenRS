@@ -16,6 +16,8 @@ Vendors name releases the same way: DevExpress ships `25.1` and `25.2`, and Tele
 
 ## Calendar
 
+A breaking change can bring a `YY.1.0` forward rather than slip into a feature release: 27.1.0 shipped in November 2026 for that reason.
+
 | When | Release | What it may contain |
 |---|---|---|
 | First half of the year | `YY.1.0` | New components and features, **and** the year's breaking changes, each listed in a migration guide |

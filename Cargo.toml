@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "examples/*"]
 
 [workspace.package]
-version = "26.2.1"
+version = "27.1.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -12,21 +12,21 @@ homepage = "https://alexkads.github.io/RavenRS/"
 authors = ["Alex S S Fonseca <alexkads@gmail.com>"]
 
 [workspace.dependencies]
-ravenrs = { version = "26.2.1", path = "crates/ravenrs" }
-ravenrs-core = { version = "26.2.1", path = "crates/ravenrs-core" }
-ravenrs-animation = { version = "26.2.1", path = "crates/ravenrs-animation" }
-ravenrs-reactive = { version = "26.2.1", path = "crates/ravenrs-reactive" }
-ravenrs-layout = { version = "26.2.1", path = "crates/ravenrs-layout" }
-ravenrs-text = { version = "26.2.1", path = "crates/ravenrs-text" }
-ravenrs-style = { version = "26.2.1", path = "crates/ravenrs-style" }
-ravenrs-render = { version = "26.2.1", path = "crates/ravenrs-render" }
-ravenrs-widgets = { version = "26.2.1", path = "crates/ravenrs-widgets" }
-ravenrs-platform-native = { version = "26.2.1", path = "crates/ravenrs-platform-native" }
-ravenrs-platform-web = { version = "26.2.1", path = "crates/ravenrs-platform-web" }
-ravenrs-report = { version = "26.2.1", path = "crates/ravenrs-report" }
-ravenrs-criteria = { version = "26.2.1", path = "crates/ravenrs-criteria" }
-ravenrs-report-pdf = { version = "26.2.1", path = "crates/ravenrs-report-pdf" }
-ravenrs-report-xlsx = { version = "26.2.1", path = "crates/ravenrs-report-xlsx" }
+ravenrs = { version = "27.1.0", path = "crates/ravenrs" }
+ravenrs-core = { version = "27.1.0", path = "crates/ravenrs-core" }
+ravenrs-animation = { version = "27.1.0", path = "crates/ravenrs-animation" }
+ravenrs-reactive = { version = "27.1.0", path = "crates/ravenrs-reactive" }
+ravenrs-layout = { version = "27.1.0", path = "crates/ravenrs-layout" }
+ravenrs-text = { version = "27.1.0", path = "crates/ravenrs-text" }
+ravenrs-style = { version = "27.1.0", path = "crates/ravenrs-style" }
+ravenrs-render = { version = "27.1.0", path = "crates/ravenrs-render" }
+ravenrs-widgets = { version = "27.1.0", path = "crates/ravenrs-widgets" }
+ravenrs-platform-native = { version = "27.1.0", path = "crates/ravenrs-platform-native" }
+ravenrs-platform-web = { version = "27.1.0", path = "crates/ravenrs-platform-web" }
+ravenrs-report = { version = "27.1.0", path = "crates/ravenrs-report" }
+ravenrs-criteria = { version = "27.1.0", path = "crates/ravenrs-criteria" }
+ravenrs-report-pdf = { version = "27.1.0", path = "crates/ravenrs-report-pdf" }
+ravenrs-report-xlsx = { version = "27.1.0", path = "crates/ravenrs-report-xlsx" }
 
 wgpu = "30.0.1"
 # Without "wayland-csd-adwaita": its font stack (ttf-parser) is unmaintained (RUSTSEC-2026-0192);

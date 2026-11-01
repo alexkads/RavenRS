@@ -75,6 +75,7 @@ pub type LiveFn = Rc<dyn Fn(Rect, f64, &mut Scene)>;
 
 /// What an element draws before its children.
 #[derive(Clone, Default)]
+#[non_exhaustive]
 pub enum Paint {
     /// Draws nothing.
     #[default]

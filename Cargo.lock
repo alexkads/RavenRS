@@ -677,7 +677,7 @@ dependencies = [
 
 [[package]]
 name = "component-gallery"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -1331,7 +1331,7 @@ dependencies = [
 
 [[package]]
 name = "hello-world"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -2682,7 +2682,7 @@ checksum = "ca45419789ae5a7899559e9512e58ca889e41f04f1f2445e9f4b290ceccd1d08"
 
 [[package]]
 name = "ravenrs"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "image",
  "pollster",
@@ -2700,7 +2700,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-animation"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "proptest",
  "ravenrs-core",
@@ -2708,14 +2708,14 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-core"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "proptest",
 ]
 
 [[package]]
 name = "ravenrs-criteria"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "js-sys",
  "proptest",
@@ -2724,7 +2724,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-layout"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "proptest",
  "ravenrs-core",
@@ -2733,7 +2733,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-mcp"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "proc-macro2",
  "ravenrs-criteria",
@@ -2746,7 +2746,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-platform-native"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -2762,7 +2762,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-platform-web"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "js-sys",
  "ravenrs-core",
@@ -2777,14 +2777,14 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-reactive"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "proptest",
 ]
 
 [[package]]
 name = "ravenrs-render"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "bytemuck",
  "pollster",
@@ -2797,7 +2797,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "criterion",
  "proptest",
@@ -2810,7 +2810,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-pdf"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "miniz_oxide 0.8.9",
  "pdf-writer",
@@ -2824,7 +2824,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-xlsx"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "ravenrs-core",
  "ravenrs-report",
@@ -2835,7 +2835,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-style"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
@@ -2843,7 +2843,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-text"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "criterion",
  "parley",
@@ -2852,7 +2852,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-widgets"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "criterion",
  "image",
@@ -2979,7 +2979,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
 name = "report-designer"
-version = "26.2.1"
+version = "27.1.0"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",

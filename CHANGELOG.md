@@ -4,6 +4,17 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.0] - 2026-11-01
+
+### Migrating from 26.2
+
+This release is ahead of the usual calendar because these changes are breaking, and breaking changes ship only in a `YY.1` release. Most apps need no change.
+
+- `Theme` has a new field, `motion`. A `Theme` written out field by field needs it: add `motion: Theme::raven_dark().motion`, or start from a built-in theme and change what you need.
+- `Document` has `culture`, `Page` has `page_header` and `page_footer`, and `TextBlock` has `align`, `value` and `format`. Code that builds these by hand needs the new fields; with `Document` and `Page`, `..Default::default()` covers them.
+- `Paint` has a new variant, `Live`, and is now `#[non_exhaustive]`. A `match` on it needs a `_` arm.
+- `Card` and `GlassCard` are no longer `Send`, `Sync`, `UnwindSafe` or `RefUnwindSafe`, because they can hold a click handler. Views live on the UI thread, so this matters only to code that required those traits explicitly.
+
 ### Added
 - **PDF export.** `ravenrs-report-pdf` writes a report `Document` as vector pages with subsets of its fonts embedded and selectable text, in pure Rust, on servers and in the browser.
 - **XLSX and CSV export.** `ravenrs-report-xlsx` lays a `Document` out on a grid that follows the page, with real numbers and dates in the cells and report formats translated to Excel's. CSV uses the culture's separator.
@@ -124,6 +135,8 @@ The first public release.
 - `scripts/check.sh` runs formatting, clippy (native and wasm32), the tests and the web builds locally.
 - `scripts/deploy-pages.sh` publishes the landing page, the live gallery and the API docs.
 
-[Unreleased]: https://github.com/alexkads/RavenRS/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.0...HEAD
+[27.1.0]: https://github.com/alexkads/RavenRS/compare/v26.2.1...v27.1.0
+[26.2.1]: https://github.com/alexkads/RavenRS/compare/v26.2.0...v26.2.1
 [26.2.0]: https://github.com/alexkads/RavenRS/compare/v0.1.0...v26.2.0
 [0.1.0]: https://github.com/alexkads/RavenRS/releases/tag/v0.1.0
