@@ -5,6 +5,9 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap};
 
+use ravenrs_core::csv::push_field;
+use ravenrs_criteria::{Criteria, Environment, Record, Scope};
+
 use super::model::{GridColumn, Row, SortDirection, Summary, Value};
 
 /// What the user asked the grid to show.
@@ -12,7 +15,9 @@ use super::model::{GridColumn, Row, SortDirection, Summary, Value};
 pub struct GridQuery {
     /// Sort columns in priority order.
     pub sort: Vec<(usize, SortDirection)>,
-    /// Filter-row text per column (index = column).
+    /// Filter-row text per column (index = column): the short syntax of [`matches_filter`], or
+    /// a [`ravenrs_criteria`] expression over columns named by their titles, such as
+    /// `[Seats] > 10 And [Country] = 'Brazil'`.
     pub filters: Vec<String>,
     /// Text searched in every visible column.
     pub search: String,
@@ -125,7 +130,8 @@ pub struct QueryResult {
 /// Does `value` (shown as `display`) pass a filter-row expression?
 ///
 /// Numbers accept `>`, `>=`, `<`, `<=`, `=`, `<>` and ranges `a..b`; everything
-/// else is a case-insensitive "contains".
+/// else is a case-insensitive "contains". This is the short syntax of one cell; only
+/// [`run_query`] knows the columns that a filter-row expression names.
 pub fn matches_filter(value: &Value, display: &str, filter: &str) -> bool {
     Filter::parse(filter).matches(value, || Cow::Borrowed(display))
 }
@@ -193,6 +199,47 @@ impl Filter {
             (Value::Bool(b), _, Some(want)) => *b == want,
             _ => contains_lowercase(&display(), &self.text),
         }
+    }
+}
+
+/// The expression in a filter-row text, when it is one: it parses and every field it reads is a
+/// column title. Any other text, such as `[draft]`, stays a short filter, and so does anything a
+/// row cannot answer on its own: aggregates, parameters and functions the grid does not register.
+fn expression_of(filter: &str, titles: &HashMap<&str, usize>) -> Option<Criteria> {
+    if !filter.contains('[') {
+        return None;
+    }
+    let criteria = Criteria::parse(filter).ok()?;
+    let fields = criteria.properties();
+    let answerable = !criteria
+        .any(&|c| matches!(c, Criteria::Aggregate(_) | Criteria::Parameter(_) | Criteria::Custom(..)));
+    (answerable && !fields.is_empty() && fields.iter().all(|f| titles.contains_key(f.as_str())))
+        .then_some(criteria)
+}
+
+/// A grid row as expressions read it, with raw values rather than the text shown.
+struct GridRecord<'a> {
+    titles: &'a HashMap<&'a str, usize>,
+    row: &'a Row,
+}
+
+impl Record for GridRecord<'_> {
+    fn field(&self, path: &[String]) -> Option<ravenrs_criteria::Value> {
+        use ravenrs_criteria::Value as Field;
+        let column = match path {
+            [title] => self.titles.get(title.as_str()),
+            _ => self.titles.get(path.join(".").as_str()),
+        }?;
+        Some(match self.row.get(*column) {
+            Some(Value::Text(s)) => Field::Text(s.clone()),
+            Some(Value::Number(n)) => Field::Number(*n),
+            Some(Value::Bool(b)) => Field::Bool(*b),
+            Some(Value::Empty) | None => Field::Null,
+        })
+    }
+
+    fn collection(&self, _path: &[String]) -> Option<Vec<&Self>> {
+        None
     }
 }
 
@@ -308,11 +355,21 @@ fn summaries(columns: &[GridColumn], rows: &[Row], indices: &[usize]) -> Vec<Opt
 /// Runs the whole pipeline.
 pub fn run_query(columns: &[GridColumn], rows: &[Row], query: &GridQuery) -> QueryResult {
     let search = query.search.trim().to_lowercase();
-    let active_filters: Vec<(usize, Filter)> = (0..columns.len())
-        .map(|c| (c, query.filter(c)))
-        .filter(|(c, f)| !f.trim().is_empty() && columns[*c].filterable)
-        .map(|(c, f)| (c, Filter::parse(f)))
-        .collect();
+    // Reversed so that the first of two columns with one title wins.
+    let titles: HashMap<&str, usize> =
+        columns.iter().enumerate().rev().map(|(c, col)| (col.title.as_str(), c)).collect();
+    let mut active_filters: Vec<(usize, Filter)> = Vec::new();
+    let mut expressions: Vec<Criteria> = Vec::new();
+    for (c, f) in (0..columns.len()).map(|c| (c, query.filter(c))) {
+        if f.trim().is_empty() || !columns[c].filterable {
+            continue;
+        }
+        match expression_of(f, &titles) {
+            Some(expression) => expressions.push(expression),
+            None => active_filters.push((c, Filter::parse(f))),
+        }
+    }
+    let env = Environment::new();
     let searched: Vec<(usize, bool)> = (0..columns.len())
         .filter(|&c| !query.is_hidden(c))
         .map(|c| (c, numbers_may_contain(&columns[c], &search)))
@@ -325,6 +382,12 @@ pub fn run_query(columns: &[GridColumn], rows: &[Row], query: &GridQuery) -> Que
             active_filters.iter().all(|(c, f)| {
                 let v = cell(r, *c);
                 f.matches(v, || columns[*c].display_cow(v))
+            })
+        })
+        .filter(|&r| {
+            expressions.iter().all(|expression| {
+                let record = GridRecord { titles: &titles, row: &rows[r] };
+                Scope::new(&env).row(&record).matches(expression)
             })
         })
         .filter(|&r| {
@@ -434,31 +497,28 @@ pub fn to_tsv(columns: &[GridColumn], rows: &[Row], visible: &[usize], selected:
 
 /// Matching rows as CSV (RFC 4180), visible columns only, in display order.
 pub fn to_csv(columns: &[GridColumn], rows: &[Row], query: &GridQuery, matched: &[usize]) -> String {
-    let quote = |s: &str| {
-        if s.contains([',', '"', '\n', '\r']) {
-            format!("\"{}\"", s.replace('"', "\"\""))
-        } else {
-            s.to_owned()
-        }
-    };
     let visible: Vec<usize> = (0..columns.len()).filter(|&c| !query.is_hidden(c)).collect();
-    let mut out = visible.iter().map(|&c| quote(&columns[c].title)).collect::<Vec<_>>().join(",");
+    let mut out = String::new();
+    for (i, &c) in visible.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        push_field(&mut out, &columns[c].title, ',');
+    }
     out.push_str("\r\n");
     let empty = Value::Empty;
     for &r in matched {
-        let line = visible
-            .iter()
-            .map(|&c| {
-                let v = rows[r].get(c).unwrap_or(&empty);
-                // Raw numbers export unformatted so spreadsheets read them as numbers.
-                match v {
-                    Value::Number(n) => n.to_string(),
-                    _ => quote(&columns[c].display(v)),
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(",");
-        out.push_str(&line);
+        for (i, &c) in visible.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            let v = rows[r].get(c).unwrap_or(&empty);
+            // Raw numbers export unformatted so spreadsheets read them as numbers.
+            match v {
+                Value::Number(n) => out.push_str(&n.to_string()),
+                _ => push_field(&mut out, &columns[c].display_cow(v), ','),
+            }
+        }
         out.push_str("\r\n");
     }
     out

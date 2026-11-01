@@ -56,6 +56,7 @@ ravenrs-mcp  ──► ravenrs-criteria  (tool for coding assistants; nothing de
 
 ravenrs-criteria  (expression language, no RavenRS dependencies)
         ▲
+        ├── ravenrs-widgets  (DataGrid filter expressions, number layout)
         │
 ravenrs-graphics  ──► ravenrs-core  (shapes, chart layout, barcodes; shared, knows no engine)
         ▲
@@ -72,7 +73,7 @@ ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 examples/report-designer  ──► ravenrs (the UI)
 ```
 
-`ravenrs-criteria` (the expression language) depends on nothing else in RavenRS, so any module can use it for filters, rules and validation. `ravenrs-report` (the report engine) depends only on `ravenrs-core`, `ravenrs-text` and `ravenrs-criteria`, so it also runs on servers. The `ravenrs` facade re-exports neither of them; apps depend on them directly. See [§6.3](#63-criteria-language), [§6.4](#64-reporting) and [docs/REPORTING.md](docs/REPORTING.md).
+`ravenrs-criteria` (the expression language) depends on nothing else in RavenRS, so any module can use it for filters, rules and validation. `ravenrs-report` (the report engine) depends only on `ravenrs-core`, `ravenrs-text` and `ravenrs-criteria`, so it also runs on servers. `ravenrs-widgets` uses `ravenrs-criteria` without its JSON feature, for `DataGrid` filter expressions and number layout. The `ravenrs` facade re-exports neither of them; apps depend on them directly. See [§6.3](#63-criteria-language), [§6.4](#64-reporting) and [docs/REPORTING.md](docs/REPORTING.md).
 
 There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform crates are where widgets and the renderer come together. `ravenrs-widgets` never touches the GPU and `ravenrs-render` knows nothing about widgets; they meet only through `ravenrs_core::Scene`, a plain display list. That boundary keeps widgets testable without a GPU (the widget tests run headless) and keeps the renderer replaceable.
 
@@ -80,7 +81,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 
 | Crate | Modules |
 |---|---|
-| `ravenrs-core` | `geometry`, `color`, `event`, `scene` (the display list), `access` (the accessibility tree) |
+| `ravenrs-core` | `geometry`, `color`, `event`, `scene` (the display list), `access` (the accessibility tree), `csv` (field quoting for every CSV export) |
 | `ravenrs-animation` | `spring`, `easing`, `oklab`, `animated` (pure functions of time) |
 | `ravenrs-reactive` | `state`, `binding`, `derived`, `observer` |
 | `ravenrs-render` | `renderer` (batching and passes), `gpu` (surface and device), `atlas` (glyphs), `images` |
@@ -183,6 +184,7 @@ Parity with the DevExpress DataGrid feature set:
 | Virtual scrolling (100k+ rows), vertical and horizontal | ✓ |
 | Sorting, multi-column (Shift/Ctrl-click), with priority badges | ✓ |
 | Filter row with operators (`>`, `>=`, `<`, `<=`, `=`, `<>`, `a..b`), text and yes/no | ✓ |
+| Filter row expressions over column titles (`[Seats] > 10 And [Country] = 'Brazil'`), from `ravenrs-criteria` | ✓ |
 | Search panel across visible columns | ✓ |
 | Grouping, nested, expand/collapse (click or arrows), group panel chips | ✓ (from the Group menu; drag-to-group planned) |
 | Group summaries and footer totals (sum, average, min, max, count) | ✓ |
@@ -190,8 +192,8 @@ Parity with the DevExpress DataGrid feature set:
 | Selection: single, multiple with check boxes, Shift ranges, Ctrl toggle, select all | ✓ |
 | Keyboard navigation (arrows, Home/End, Page Up/Down, Space, Enter/F2) with auto-scroll | ✓ |
 | Cell editing (double-click, Enter, F2; Enter commits, Escape cancels), typed parsing | ✓ |
-| Cell templates (any view) and custom formats; number/currency formats with separators | ✓ |
-| CSV export (RFC 4180, raw numbers) | ✓ |
+| Cell templates (any view) and custom formats; number/currency formats with separators (digits from `ravenrs_criteria::NumberStyle`) | ✓ |
+| CSV export (RFC 4180, raw numbers; quoting from `ravenrs_core::csv`, shared with reports) | ✓ |
 | Copying rows as tab-separated text (Cmd/Ctrl+C) | ✓ |
 | Column reordering by drag, drag-to-group | planned |
 | Fixed (frozen) columns, multi-level (banded) headers | planned |
@@ -210,7 +212,7 @@ Parity with the DevExpress DataGrid feature set:
 * **SQL.** `to_sql` translates to parameterized SQL per `Dialect`.
 * **Formatting.** `format_value` and `format_composite` use .NET-style format strings per `Culture`.
 
-`DataGrid` still parses its own filter syntax in `grid::query`; moving it onto this crate is planned.
+`DataGrid` filter rows use this crate for expressions. Text that parses, whose fields are all column titles and that needs nothing beyond the row (no aggregates, parameters or custom functions), runs here over raw cell values. Anything else keeps the short syntax in `grid::query`, which stays a native fast path: it is checked against a frozen copy of its old behavior, and costs no parsing unless the text has a `[`. `NumberStyle` lays out digits for both `Culture` and the grid's `NumberFormat`.
 
 ## 6.4 Reporting
 

@@ -20,6 +20,7 @@ ravenrs-reactive.workspace = true
 ravenrs-layout.workspace = true
 ravenrs-text.workspace = true
 ravenrs-style.workspace = true
+ravenrs-criteria.workspace = true
 tracing.workspace = true
 image = { workspace = true, optional = true }
 

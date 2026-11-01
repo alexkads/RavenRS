@@ -232,22 +232,12 @@ pub fn to_csv(document: &Document) -> String {
                 out.push(separator);
             }
             if let Some(text) = row.get(&c) {
-                push_csv_field(&mut out, text, separator);
+                ravenrs_core::csv::push_field(&mut out, text, separator);
             }
         }
         out.push_str("\r\n");
     }
     out
-}
-
-fn push_csv_field(out: &mut String, text: &str, separator: char) {
-    if text.contains([separator, '"', '\n', '\r']) {
-        out.push('"');
-        out.push_str(&text.replace('"', "\"\""));
-        out.push('"');
-    } else {
-        out.push_str(text);
-    }
 }
 
 /// The document's pages flowed into one long page.

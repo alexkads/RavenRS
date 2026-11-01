@@ -113,36 +113,79 @@ impl Culture {
 
     /// `1234567.891` with `decimals` places and thousands separators: `1.234.567,89`.
     pub fn number(&self, n: f64, decimals: usize, grouping: bool) -> String {
-        let fixed = format!("{:.*}", decimals, n.abs());
+        NumberStyle {
+            decimals,
+            group: grouping.then_some(self.group),
+            decimal: self.decimal,
+            prefix: "",
+            suffix: "",
+        }
+        .format(n)
+    }
+
+    /// A currency amount: `R$ 1.234,50` or `$1,234.50`; negatives as `-R$ 1,00`.
+    pub fn currency(&self, n: f64, decimals: usize) -> String {
+        let space = if self.currency_space { "\u{a0}" } else { "" };
+        NumberStyle {
+            decimals,
+            group: Some(self.group),
+            decimal: self.decimal,
+            prefix: &format!("{}{space}", self.currency),
+            suffix: "",
+        }
+        .format(n)
+    }
+}
+
+/// How to write a number: decimal places, separators and text around it. This is the one place
+/// that lays out digits, for [`Culture`] and for anything with separators of its own.
+///
+/// ```
+/// use ravenrs_criteria::NumberStyle;
+///
+/// let style = NumberStyle { decimals: 2, group: Some('.'), decimal: ',', prefix: "R$ ", suffix: "" };
+/// assert_eq!(style.format(-1234.5), "-R$ 1.234,50");
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NumberStyle<'a> {
+    /// Digits after the decimal separator.
+    pub decimals: usize,
+    /// Thousands separator, if digits are grouped.
+    pub group: Option<char>,
+    /// Decimal separator.
+    pub decimal: char,
+    /// Text before the number, after the sign (e.g. a currency symbol).
+    pub prefix: &'a str,
+    /// Text after the number (e.g. `%`).
+    pub suffix: &'a str,
+}
+
+impl NumberStyle<'_> {
+    /// Writes `n`, rounded to the style's decimals. A value that rounds to zero has no sign.
+    pub fn format(&self, n: f64) -> String {
+        let fixed = format!("{:.*}", self.decimals, n.abs());
         let (int, frac) = fixed.split_once('.').unwrap_or((&fixed, ""));
-        let mut out = String::new();
-        let negative = n < 0.0 && fixed.chars().any(|c| c.is_ascii_digit() && c != '0');
-        if negative {
+        let mut out =
+            String::with_capacity(fixed.len() + int.len() / 3 + self.prefix.len() + self.suffix.len());
+        if n < 0.0 && fixed.chars().any(|c| c.is_ascii_digit() && c != '0') {
             out.push('-');
         }
-        if grouping {
-            for (i, c) in int.chars().enumerate() {
-                if i > 0 && (int.len() - i) % 3 == 0 {
-                    out.push(self.group);
-                }
-                out.push(c);
+        out.push_str(self.prefix);
+        for (i, c) in int.chars().enumerate() {
+            if let Some(group) = self.group
+                && i > 0
+                && (int.len() - i) % 3 == 0
+            {
+                out.push(group);
             }
-        } else {
-            out.push_str(int);
+            out.push(c);
         }
         if !frac.is_empty() {
             out.push(self.decimal);
             out.push_str(frac);
         }
+        out.push_str(self.suffix);
         out
-    }
-
-    /// A currency amount: `R$ 1.234,50` or `$1,234.50`; negatives as `-R$ 1,00`.
-    pub fn currency(&self, n: f64, decimals: usize) -> String {
-        let body = self.number(n.abs(), decimals, true);
-        let sign = if n < 0.0 && body.chars().any(|c| c.is_ascii_digit() && c != '0') { "-" } else { "" };
-        let space = if self.currency_space { "\u{a0}" } else { "" };
-        format!("{sign}{}{space}{body}", self.currency)
     }
 }
 

@@ -53,6 +53,7 @@ Measured with `cargo bench` (criterion) on an Apple M-series laptop, release pro
 | … sort by a number | < 16 ms | 7.9 ms |
 | … sort by text, then number | < 16 ms | 12.3 ms |
 | … filter row range `100..200` | < 16 ms | 0.9 ms |
+| … filter row expression over three conditions | < 16 ms | 8.6 ms |
 | … search across columns | < 16 ms | 3.2 ms |
 | … group with summaries | < 16 ms | 11.3 ms |
 | Shape a label / shape and wrap a paragraph | < 0.1 ms | 0.003 ms / 0.035 ms |

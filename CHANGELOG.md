@@ -4,6 +4,15 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- **Expressions in the grid's filter row.** A `DataGrid` filter can be a `ravenrs-criteria` expression over column titles, such as `[Seats] > 10 And [Country] = 'Brazil'`. The short syntax (`>=15`, `5..12`, `sim`, plain text) works as before.
+- `ravenrs_criteria::NumberStyle` lays out digits with any separators and affixes; `Culture` and the grid's `NumberFormat` both use it.
+- `ravenrs_core::csv::push_field` quotes a CSV field; the grid and report exports both use it.
+
+### Changed
+- `ravenrs-widgets` now depends on `ravenrs-criteria`, without its JSON feature.
+- A filter-row text that names a column in brackets and parses, such as `[Seats] > 3`, is now an expression instead of a search for those characters. Other text in brackets, such as `[draft]`, is still a search.
+
 ## [27.1.1] - 2026-11-01
 
 ### Added
