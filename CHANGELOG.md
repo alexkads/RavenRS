@@ -4,8 +4,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.2] - 2026-11-01
+
 ### Added
-- **Bug reports from the diagnostics panel.** `WindowOptions::new_issue_url` adds a button that opens a new issue in the browser with the report filled in, cut to a safe length, for the person to review and send. Nothing is sent by the app, and the panel says what the report has before it opens. `ravenrs::native::open_url` opens a web page, and `ravenrs_core::new_issue_url` and `redact_user_paths` are the plain functions behind the button.
+- **Bug reports from the diagnostics panel.** `AppIdentity::new_issue_url` adds a button that opens a new issue in the browser with the report filled in, cut to a safe length, for the person to review and send. Nothing is sent by the app, and the panel says what the report has before it opens. `ravenrs::native::open_url` opens a web page, and `ravenrs_core::new_issue_url` and `redact_user_paths` are the plain functions behind the button.
 - **Diagnostics on the desktop.** Ctrl+Shift+D (Cmd+Shift+D on a Mac) or `RAVENRS_DIAG=1` opens a panel in any app with the GPU in use, GPUs left out for their drivers, what is wrong and what recent frames cost, with a report to copy into a bug report. `ravenrs::native::diagnose` gives the same GPU report without showing a window. Closed, the panel costs nothing. `WindowOptions::labels` sets the words of the whole UI, this panel included.
 - **Expressions in the grid's filter row.** A `DataGrid` filter can be a `ravenrs-criteria` expression over column titles, such as `[Seats] > 10 And [Country] = 'Brazil'`. The short syntax (`>=15`, `5..12`, `sim`, plain text) works as before.
 - `ravenrs_criteria::NumberStyle` lays out digits with any separators and affixes; `Culture` and the grid's `NumberFormat` both use it.
@@ -14,7 +16,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Barcodes in the UI.** `Barcode` shows a QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A or Interleaved 2 of 5 with every module on whole pixels. Text a format cannot hold shows why.
 - `Paint::Rich` draws with a `PaintCx`, for views that shape text while painting or need the device scale.
 - `charts` feature on `ravenrs` and `ravenrs-widgets`, on by default. `ravenrs` also forwards `decode`.
-- `ChartKind::SparkArea`, a smoothed line over a filled area, and `ChartOptions` fields for colors, bar corners and the widest bar.
+- `ChartKind::SparkArea`, a smoothed line over a filled area, and `ChartStyle` with `chart::draw_styled` for colors, bar corners and the widest bar.
 - **`MovieAssistant`.** Someone types a question and the moment of a training film that answers it opens. `MovieLibrary` searches the chapters and steps the films already hold, ignoring accents and case and accepting near forms of a word and typing slips, with no model and no network, on the desktop and in the browser. `MovieCue` opens a moment of a `MoviePlayer` from outside it. `ravenrs_text::fold` is the folding that searches compare with, shared with `DocumentViewer`.
 - **Training films (`ravenrs::movie`, crate `ravenrs-movie`).** `Recorder` runs the real app from a script and stores what it drew, with no pixels, no GPU and built-in fonts by reference, so films are small enough to ship inside an app and stay sharp at any zoom. `MoviePlayer` plays them with chapters, marks to click and steps that wait. `MovieEditor` edits them on a timeline in the style of screen-recording editors: cuts, speed, title cards, callouts, captions, spotlight, hiding regions, zoom and pan, fades, pointer highlight and clickable spots. There is no sound yet.
 - **`Timeline` and `ToolRail`.** `Timeline` shows blocks along time on named tracks, under a ruler with markers and a playhead, and reports moves and trims. `ToolRail` is a narrow bar of tools with their names under their icons. `IconButton::disabled` makes an icon button inert.
@@ -211,7 +213,8 @@ The first public release.
 - `scripts/check.sh` runs formatting, clippy (native and wasm32), the tests and the web builds locally.
 - `scripts/deploy-pages.sh` publishes the landing page, the live gallery and the API docs.
 
-[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.1...HEAD
+[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.2...HEAD
+[27.1.2]: https://github.com/alexkads/RavenRS/compare/v27.1.1...v27.1.2
 [27.1.1]: https://github.com/alexkads/RavenRS/compare/v27.1.0...v27.1.1
 [27.1.0]: https://github.com/alexkads/RavenRS/compare/v26.2.1...v27.1.0
 [26.2.1]: https://github.com/alexkads/RavenRS/compare/v26.2.0...v26.2.1

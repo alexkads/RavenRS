@@ -38,14 +38,6 @@ pub enum Event {
         /// Scroll distance in logical pixels on each axis.
         delta: Point,
     },
-    /// A pinch on a trackpad or Ctrl with the wheel: a zoom gesture.
-    Pinch {
-        /// Pointer position in logical pixels.
-        position: Point,
-        /// How much larger the user asked for, relative to now: 0.02 is 2% larger,
-        /// and a negative value is smaller.
-        delta: f32,
-    },
     /// A key was pressed (including auto-repeat).
     KeyDown {
         /// Key that was pressed.
@@ -62,6 +54,14 @@ pub enum Event {
     },
     /// The window or canvas lost keyboard focus.
     FocusLost,
+    /// A pinch on a trackpad or Ctrl with the wheel: a zoom gesture.
+    Pinch {
+        /// Pointer position in logical pixels.
+        position: Point,
+        /// How much larger the user asked for, relative to now: 0.02 is 2% larger,
+        /// and a negative value is smaller.
+        delta: f32,
+    },
 }
 
 /// Mouse button or equivalent touch/pen action.

@@ -79,12 +79,6 @@ pub struct WindowOptions {
     pub min_size: Option<Size>,
     /// Theme the UI starts with.
     pub theme: Theme,
-    /// The words of the whole UI, including what the platform adds to it such as
-    /// the diagnostics panel. `None` is English.
-    pub labels: Option<Labels>,
-    /// The page for new issues, such as `https://github.com/owner/repo/issues/new`.
-    /// With it the diagnostics panel can start a bug report; `None` hides that button.
-    pub new_issue_url: Option<String>,
 }
 
 impl Default for WindowOptions {
@@ -94,8 +88,6 @@ impl Default for WindowOptions {
             size: Size::new(960.0, 640.0),
             min_size: Some(Size::new(320.0, 240.0)),
             theme: Theme::default(),
-            labels: None,
-            new_issue_url: None,
         }
     }
 }
@@ -123,19 +115,6 @@ impl WindowOptions {
     /// Sets the theme the UI starts with.
     pub fn theme(mut self, theme: Theme) -> Self {
         self.theme = theme;
-        self
-    }
-
-    /// Sets the words of the whole UI, including the diagnostics panel.
-    pub fn labels(mut self, labels: Labels) -> Self {
-        self.labels = Some(labels);
-        self
-    }
-
-    /// Sets the page for new issues, so the diagnostics panel can start a bug
-    /// report there. The person reviews it and sends it on that page.
-    pub fn new_issue_url(mut self, url: impl Into<String>) -> Self {
-        self.new_issue_url = Some(url.into());
         self
     }
 }
@@ -171,7 +150,7 @@ impl From<GpuError> for PlatformError {
 
 /// Opens a window showing `root` and runs until it is closed.
 pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), PlatformError> {
-    run_window(root, options, None, None)
+    run_window(root, options, AppIdentity::anonymous(None))
 }
 
 /// Who the app is to the system, for finding its icon and its menu entry.
@@ -191,12 +170,32 @@ pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), Plat
 pub struct AppIdentity {
     id: String,
     icon: Option<ImageData>,
+    labels: Option<Labels>,
+    new_issue_url: Option<String>,
 }
 
 impl AppIdentity {
+    /// No name: what [`run`] and [`run_with_icon`] open as.
+    fn anonymous(icon: Option<ImageData>) -> Self {
+        Self { id: String::new(), icon, labels: None, new_issue_url: None }
+    }
+
     /// The app known as `id`, which is the name of its `.desktop` file on Linux.
     pub fn new(id: impl Into<String>) -> Self {
-        Self { id: id.into(), icon: None }
+        Self { id: id.into(), icon: None, labels: None, new_issue_url: None }
+    }
+
+    /// Sets the words of the whole UI, including the diagnostics panel.
+    pub fn labels(mut self, labels: Labels) -> Self {
+        self.labels = Some(labels);
+        self
+    }
+
+    /// Sets the page for new issues, so the diagnostics panel can start a bug
+    /// report there. The person reviews it and sends it on that page.
+    pub fn new_issue_url(mut self, url: impl Into<String>) -> Self {
+        self.new_issue_url = Some(url.into());
+        self
     }
 
     /// An icon for the title bar and the task bar on Windows and on Linux with
@@ -213,7 +212,7 @@ pub fn run_as(
     options: WindowOptions,
     identity: AppIdentity,
 ) -> Result<(), PlatformError> {
-    run_window(root, options, identity.icon, Some(identity.id))
+    run_window(root, options, identity)
 }
 
 /// Like [`run`], with an icon for the window's title bar and the task bar on
@@ -223,26 +222,27 @@ pub fn run_with_icon(
     options: WindowOptions,
     icon: ImageData,
 ) -> Result<(), PlatformError> {
-    run_window(root, options, Some(icon), None)
+    run_window(root, options, AppIdentity::anonymous(Some(icon)))
 }
 
 fn run_window(
     root: impl View + 'static,
     options: WindowOptions,
-    icon: Option<ImageData>,
-    app_id: Option<String>,
+    identity: AppIdentity,
 ) -> Result<(), PlatformError> {
+    let AppIdentity { id, icon, labels, new_issue_url } = identity;
+    let app_id = (!id.is_empty()).then_some(id);
     let event_loop = EventLoop::<UserEvent>::with_user_event()
         .build()
         .map_err(|e| PlatformError::EventLoop(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Wait);
     let diagnostics = Diagnostics::default();
     diagnostics.set_open(std::env::var_os(DIAGNOSTICS_VARIABLE).is_some());
-    if let Some(url) = options.new_issue_url.clone() {
+    if let Some(url) = new_issue_url {
         diagnostics.set_bug_reporter(url, |url| open_url(url).map_err(|e| e.to_string()));
     }
     let root = DiagnosticsHost::new(root, diagnostics.clone());
-    let mut ui = match options.labels.clone() {
+    let mut ui = match labels {
         Some(labels) => Ui::new(Localized::new(labels, root), options.theme),
         None => Ui::new(root, options.theme),
     };

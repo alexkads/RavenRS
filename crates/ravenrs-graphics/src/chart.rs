@@ -126,6 +126,11 @@ pub struct ChartOptions<'a> {
     pub grid: Color,
     /// How numbers are shown.
     pub format: &'a dyn Fn(f64) -> String,
+}
+
+/// More about the look of a chart, for [`draw_styled`].
+#[derive(Clone, Copy, Debug)]
+pub struct ChartStyle<'a> {
     /// Slice and legend colors of pie and doughnut charts, repeated as needed;
     /// [`PALETTE`] when empty.
     pub palette: &'a [Color],
@@ -136,6 +141,12 @@ pub struct ChartOptions<'a> {
     pub bar_radius: f32,
     /// The widest a bar can be, so few bars in a wide chart stay bars.
     pub max_bar_width: f32,
+}
+
+impl Default for ChartStyle<'_> {
+    fn default() -> Self {
+        Self { palette: &[], separator: Color::WHITE, bar_radius: 0.0, max_bar_width: f32::INFINITY }
+    }
 }
 
 /// Roughly how wide a character is, as a share of the font size; enough to
@@ -210,11 +221,21 @@ fn arc(path: &mut Vec<PathSegment>, center: Point, radius: f32, from: f32, to: f
     }
 }
 
-/// Lays a chart out inside `rect`.
+/// Lays a chart out inside `rect`, in the default [`ChartStyle`].
 pub fn draw(data: &ChartData, rect: Rect, options: &ChartOptions<'_>) -> ChartDrawing {
+    draw_styled(data, rect, options, &ChartStyle::default())
+}
+
+/// Lays a chart out inside `rect`, in this style.
+pub fn draw_styled(
+    data: &ChartData,
+    rect: Rect,
+    options: &ChartOptions<'_>,
+    style: &ChartStyle<'_>,
+) -> ChartDrawing {
     let mut drawing = ChartDrawing::default();
     if matches!(options.kind, ChartKind::Sparkline | ChartKind::SparkArea) {
-        sparkline(data, rect, options, &mut drawing);
+        sparkline(data, rect, options, style, &mut drawing);
         return drawing;
     }
     let mut area = rect;
@@ -239,7 +260,7 @@ pub fn draw(data: &ChartData, rect: Rect, options: &ChartOptions<'_>) -> ChartDr
             .iter()
             .enumerate()
             .filter(|(i, _)| values.is_none_or(|v| v.get(*i).is_some_and(|value| *value > 0.0)))
-            .map(|(i, name)| (name.clone(), slice_color(options, i)))
+            .map(|(i, name)| (name.clone(), slice_color(style, i)))
             .collect()
     } else if data.series.len() > 1 {
         data.series.iter().map(|s| (s.name.clone(), s.color)).collect()
@@ -250,15 +271,15 @@ pub fn draw(data: &ChartData, rect: Rect, options: &ChartOptions<'_>) -> ChartDr
         area = legend(&entries, area, options, &mut drawing);
     }
     if round {
-        circle(data, area, options, &mut drawing);
+        circle(data, area, options, style, &mut drawing);
     } else {
-        cartesian(data, area, options, &mut drawing);
+        cartesian(data, area, options, style, &mut drawing);
     }
     drawing
 }
 
-fn slice_color(options: &ChartOptions<'_>, index: usize) -> Color {
-    let palette = if options.palette.is_empty() { &PALETTE[..] } else { options.palette };
+fn slice_color(style: &ChartStyle<'_>, index: usize) -> Color {
+    let palette = if style.palette.is_empty() { &PALETTE[..] } else { style.palette };
     palette[index % palette.len()]
 }
 
@@ -312,7 +333,13 @@ fn legend(
     Rect::new(area.x(), area.y(), area.width(), (top - area.y() - GAP).max(0.0))
 }
 
-fn circle(data: &ChartData, area: Rect, options: &ChartOptions<'_>, drawing: &mut ChartDrawing) {
+fn circle(
+    data: &ChartData,
+    area: Rect,
+    options: &ChartOptions<'_>,
+    style: &ChartStyle<'_>,
+    drawing: &mut ChartDrawing,
+) {
     let Some(series) = data.series.first() else { return };
     let total: f64 = series.values.iter().filter(|v| **v > 0.0).sum();
     if total <= 0.0 || area.width() <= 0.0 || area.height() <= 0.0 {
@@ -340,8 +367,8 @@ fn circle(data: &ChartData, area: Rect, options: &ChartOptions<'_>, drawing: &mu
         path.push(PathSegment::Close);
         drawing.shapes.push(Shape {
             path,
-            fill: Some(slice_color(options, index)),
-            stroke: Some((1.0, options.separator)),
+            fill: Some(slice_color(style, index)),
+            stroke: Some((1.0, style.separator)),
         });
         if share >= SLICE_LABEL_MIN {
             let middle = (angle + end) / 2.0;
@@ -359,7 +386,13 @@ fn circle(data: &ChartData, area: Rect, options: &ChartOptions<'_>, drawing: &mu
     }
 }
 
-fn cartesian(data: &ChartData, area: Rect, options: &ChartOptions<'_>, drawing: &mut ChartDrawing) {
+fn cartesian(
+    data: &ChartData,
+    area: Rect,
+    options: &ChartOptions<'_>,
+    style: &ChartStyle<'_>,
+    drawing: &mut ChartDrawing,
+) {
     let values = data.series.iter().flat_map(|s| s.values.iter().copied()).filter(|v| v.is_finite());
     let (mut min, mut max) =
         values.fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| (a.min(v), b.max(v)));
@@ -419,7 +452,7 @@ fn cartesian(data: &ChartData, area: Rect, options: &ChartOptions<'_>, drawing: 
     match options.kind {
         ChartKind::Bar => {
             let series_count = data.series.len().max(1) as f32;
-            let bar = (band * 0.72 / series_count).min(options.max_bar_width);
+            let bar = (band * 0.72 / series_count).min(style.max_bar_width);
             let group = bar * series_count;
             let zero = y_of(0.0_f64.clamp(low, high));
             for (s, series) in data.series.iter().enumerate() {
@@ -433,7 +466,7 @@ fn cartesian(data: &ChartData, area: Rect, options: &ChartOptions<'_>, drawing: 
                     let rect = Rect::new(x, top, (bar - 0.5).max(0.5), height.max(0.25));
                     drawing
                         .shapes
-                        .push(Shape::filled(vector::rectangle(rect, options.bar_radius), series.color));
+                        .push(Shape::filled(vector::rectangle(rect, style.bar_radius), series.color));
                 }
             }
         }
@@ -530,7 +563,13 @@ fn smooth(points: &[Point]) -> Vec<PathSegment> {
         .collect()
 }
 
-fn sparkline(data: &ChartData, rect: Rect, options: &ChartOptions<'_>, drawing: &mut ChartDrawing) {
+fn sparkline(
+    data: &ChartData,
+    rect: Rect,
+    options: &ChartOptions<'_>,
+    style: &ChartStyle<'_>,
+    drawing: &mut ChartDrawing,
+) {
     let Some(series) = data.series.first() else { return };
     let values: Vec<f64> = series.values.iter().copied().filter(|v| v.is_finite()).collect();
     if values.is_empty() {
@@ -565,7 +604,7 @@ fn sparkline(data: &ChartData, rect: Rect, options: &ChartOptions<'_>, drawing: 
         line.extend(curve);
         drawing.shapes.push(Shape { path: line, fill: None, stroke: Some((2.0, series.color)) });
         let mut last = dot(end, 4.0, series.color);
-        last.stroke = Some((2.0, options.separator));
+        last.stroke = Some((2.0, style.separator));
         drawing.shapes.push(last);
     } else {
         drawing.shapes.push(polyline(&points, 1.25, series.color));
@@ -591,10 +630,6 @@ mod tests {
             muted: Color::BLACK,
             grid: Color::BLACK,
             format,
-            palette: &[],
-            separator: Color::WHITE,
-            bar_radius: 0.0,
-            max_bar_width: f32::INFINITY,
         }
     }
 
@@ -745,9 +780,8 @@ mod tests {
     #[test]
     fn bars_stop_growing_at_their_widest() {
         let format = plain;
-        let mut narrow = options(ChartKind::Bar, &format);
-        narrow.max_bar_width = 20.0;
-        let drawing = draw(&data(&[5.0]), AREA, &narrow);
+        let narrow = ChartStyle { max_bar_width: 20.0, ..ChartStyle::default() };
+        let drawing = draw_styled(&data(&[5.0]), AREA, &options(ChartKind::Bar, &format), &narrow);
         let bar = drawing.shapes.iter().find(|s| s.fill == Some(PALETTE[0])).expect("a bar");
         let xs: Vec<f32> = bar.path.iter().flat_map(bounds).map(|p| p.x).collect();
         let width = xs.iter().copied().fold(f32::MIN, f32::max) - xs.iter().copied().fold(f32::MAX, f32::min);
@@ -758,10 +792,8 @@ mod tests {
     fn slices_use_the_colors_they_are_given() {
         let format = plain;
         let colors = [Color::BLACK];
-        let mut given = options(ChartKind::Pie, &format);
-        given.palette = &colors;
-        given.separator = Color::BLACK;
-        let drawing = draw(&data(&[1.0, 2.0]), AREA, &given);
+        let given = ChartStyle { palette: &colors, separator: Color::BLACK, ..ChartStyle::default() };
+        let drawing = draw_styled(&data(&[1.0, 2.0]), AREA, &options(ChartKind::Pie, &format), &given);
         assert!(drawing.shapes.iter().all(|s| s.fill == Some(Color::BLACK)));
     }
 
