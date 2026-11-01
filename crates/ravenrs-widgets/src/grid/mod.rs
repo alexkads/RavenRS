@@ -9,5 +9,5 @@ pub use model::{
     CellAlign, CellFormat, CellTemplate, GridColumn, GridData, NumberFormat, Row, SortDirection, Summary,
     Value,
 };
-pub use query::{GridQuery, QueryResult, ViewRow};
+pub use query::{GridQuery, QueryResult, ViewRow, to_tsv};
 pub use view::{DataGrid, SelectionMode};

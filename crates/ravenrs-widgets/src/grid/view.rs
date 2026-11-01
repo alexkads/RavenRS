@@ -12,7 +12,7 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use super::model::{CellAlign, GridColumn, GridData, Row, SortDirection};
-use super::query::{GridQuery, QueryResult, ViewRow, run_query, to_csv};
+use super::query::{GridQuery, QueryResult, ViewRow, run_query, to_csv, to_tsv};
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics};
 use crate::{
     Badge, Button, ButtonSize, ButtonStyle, DropdownMenu, IconName, MenuItem, Spacer, TextField, View, util,
@@ -855,8 +855,9 @@ impl DataGrid {
     }
 }
 
-fn key_handler(s: &Shared<'_>, mode: SelectionMode) -> crate::KeyHandler {
+fn key_handler(s: &Shared<'_>, mode: SelectionMode, clipboard: crate::Clipboard) -> crate::KeyHandler {
     let (result, h) = (s.result.clone(), s.h.clone());
+    let visible: Vec<usize> = s.visible.to_vec();
     let columns: Vec<(usize, bool)> = s.visible.iter().map(|&c| (c, s.grid.columns[c].editable)).collect();
     let rows = s.rows_rc.clone();
     let display: Vec<GridColumn> = s.grid.columns.clone();
@@ -867,6 +868,31 @@ fn key_handler(s: &Shared<'_>, mode: SelectionMode) -> crate::KeyHandler {
             return false;
         }
         let current = h.focus_row.get().unwrap_or(0).min(len - 1);
+        let data_rows =
+            || result.rows.iter().filter_map(|v| if let ViewRow::Data(r) = v { Some(*r) } else { None });
+        if mods.ctrl || mods.meta {
+            match key {
+                // Copy the selected rows in view order, else the keyboard row.
+                Key::Character(c) if c.eq_ignore_ascii_case("c") => {
+                    let selection = h.selection.get();
+                    let mut picked: Vec<usize> = data_rows().filter(|r| selection.contains(r)).collect();
+                    if picked.is_empty()
+                        && let ViewRow::Data(r) = result.rows[current]
+                    {
+                        picked.push(r);
+                    }
+                    if !picked.is_empty() {
+                        clipboard.write(&to_tsv(&display, &rows, &visible, &picked));
+                    }
+                    return true;
+                }
+                Key::Character(c) if c.eq_ignore_ascii_case("a") && mode == SelectionMode::Multiple => {
+                    h.selection.set(data_rows().collect());
+                    return true;
+                }
+                _ => return false,
+            }
+        }
         // Enter / F2: edit the first editable cell, or activate the row, or toggle a group.
         let activate = |i: usize| match &result.rows[i] {
             ViewRow::Data(r) => {
@@ -898,8 +924,8 @@ fn key_handler(s: &Shared<'_>, mode: SelectionMode) -> crate::KeyHandler {
             Key::ArrowUp => move_to(current.saturating_sub(1)),
             Key::Home => move_to(0),
             Key::End => move_to(len - 1),
-            Key::Other(k) if k.contains("PageDown") => move_to((current + 15).min(len - 1)),
-            Key::Other(k) if k.contains("PageUp") => move_to(current.saturating_sub(15)),
+            Key::PageDown => move_to((current + 15).min(len - 1)),
+            Key::PageUp => move_to(current.saturating_sub(15)),
             Key::Space => match &result.rows[current] {
                 ViewRow::Data(r) if mode == SelectionMode::Multiple => h.selection.update(|s| {
                     if !s.remove(r) {
@@ -1106,7 +1132,8 @@ impl View for DataGrid {
         cx.scrollable_virtual(body, true);
         cx.semantics(body, Semantics::new(Role::Grid).name("Data grid").description(format!("{len} rows")));
         cx.focusable(body, 0.0);
-        cx.on_key(body, key_handler(&shared, self.selection_mode));
+        let clipboard = cx.clipboard();
+        cx.on_key(body, key_handler(&shared, self.selection_mode, clipboard));
         sections.push(body);
 
         // Footer totals.

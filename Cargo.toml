@@ -28,6 +28,7 @@ wgpu = "30.0.1"
 # Wayland windows use winit's built-in fallback frame instead.
 winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
 accesskit = "0.25.2"
+arboard = { version = "3.7.0", default-features = false, features = ["wayland-data-control"] }
 accesskit_winit = { version = "0.34.2", default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
 taffy = { version = "0.15.1", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "content_size"] }
 parley = { version = "0.12.0", default-features = false, features = ["std"] }

@@ -409,7 +409,7 @@ impl View for ItemView<'_> {
             cx.overlay(
                 node,
                 Placement::Below,
-                &MenuList { entries: &item.menu, close: close.clone() },
+                &MenuList { entries: &item.menu, close: close.clone(), on_side: None },
                 Some(close),
             );
         }
@@ -680,7 +680,12 @@ impl View for Ribbon {
                     let o = app_open.clone();
                     Rc::new(move || o.set(false))
                 };
-                cx.overlay(app, Placement::Below, &MenuList { entries, close: close.clone() }, Some(close));
+                cx.overlay(
+                    app,
+                    Placement::Below,
+                    &MenuList { entries, close: close.clone(), on_side: None },
+                    Some(close),
+                );
             }
             row.push(app);
         }

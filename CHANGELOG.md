@@ -18,6 +18,13 @@ The first release under the `YY.R.P` versioning model. It follows 0.1.0 directly
   - Every built-in component describes itself, such as check boxes with their state, sliders with their range, the DataGrid with its rows and keyboard row, and dialogs as modal (the page behind them is hidden).
   - Custom components use `BuildCx::semantics` with `Semantics`.
   - New accessible names: `IconButton::label`, `Button::accessible_name` and `Image::alt`. `label` was added to `Slider`, `Stepper`, `Select`, `Combobox`, `DatePicker`, `RadioGroup` and `SegmentedControl`. `FormField` and `Tooltip` name the control inside them.
+- Text selection and the clipboard in `TextField`:
+  - Shift with arrows, Home and End selects; Alt or Ctrl moves and deletes by word; Cmd moves and deletes to the line ends.
+  - Cmd/Ctrl+A selects all. A press places the caret, a drag selects, Shift-click extends and a double-click selects a word.
+  - Cmd/Ctrl+C, X and V copy, cut and paste. Password fields accept a paste but never copy.
+  - The clipboard is a runtime service, `BuildCx::clipboard`: the system clipboard on desktop and the browser's on the web.
+- DataGrid: Cmd/Ctrl+C copies the selected rows (or the keyboard row) as tab-separated text that pastes into spreadsheets; Cmd/Ctrl+A selects every row.
+- `Menubar` follows the WAI-ARIA menubar pattern. Left and Right move between titles, Down, Enter or Space opens a menu, Left and Right inside a menu open the neighbor menu, and Escape returns focus to the title.
 - Full keyboard operation following the WAI-ARIA patterns:
   - `RadioGroup`, `SegmentedControl` and `Tabs`: arrow keys move selection and focus together, wrapping; Home and End jump to the ends.
   - `ToggleGroup`: arrow keys move focus; Space toggles.
@@ -29,6 +36,7 @@ The first release under the `YY.R.P` versioning model. It follows 0.1.0 directly
 - Documentation on every public item, a README per crate, and runnable examples.
 
 ### Fixed
+- DataGrid: Page Up and Page Down move by 15 rows again; they stopped working when those keys got their own `Key` variants.
 - On the web, the canvas now passes keyboard focus to the hidden text input when it is focused with Tab; the listener was never registered.
 - DataGrid queries over 100,000 rows now fit in a frame: search 47 → 3.2 ms, range filter 31 → 0.9 ms, text sort 23 → 12 ms, grouping 15 → 11 ms.
 - Focus moved by code keeps the focus ring while the user navigates by keyboard.

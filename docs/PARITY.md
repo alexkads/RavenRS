@@ -60,7 +60,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Text box | ✓ | ✓ | ✓ | ✅ `TextField` (clipboard planned) |
+| Text box | ✓ | ✓ | ✓ | ✅ `TextField` (selection, clipboard) |
 | Text area (multi-line) | ✓ | ✓ | ✓ | ⬜ |
 | Label | ✓ | ✓ | ✓ | ✅ `Label` |
 | Form, field validation | ✓ | ✓ | ✓ | ✅ `FormField` + validators |

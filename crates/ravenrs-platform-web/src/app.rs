@@ -245,6 +245,28 @@ fn send_text(state: &Rc<RefCell<State>>, scheduler: &Scheduler, text: &str) {
     }
 }
 
+/// Copies through `navigator.clipboard`. Reading is asynchronous in the
+/// browser, so pasting is left to the browser: it arrives as typed text.
+struct BrowserClipboard;
+
+impl ravenrs_widgets::ClipboardProvider for BrowserClipboard {
+    fn read_text(&self) -> Option<String> {
+        None
+    }
+
+    fn write_text(&self, text: &str) {
+        if let Some(window) = web_sys::window() {
+            // The promise is not awaited; a refusal (no permission) only logs.
+            let promise = window.navigator().clipboard().write_text(text);
+            wasm_bindgen_futures::spawn_local(async move {
+                if wasm_bindgen_futures::JsFuture::from(promise).await.is_err() {
+                    tracing::warn!("the browser refused to write to the clipboard");
+                }
+            });
+        }
+    }
+}
+
 /// Seconds since the page loaded.
 fn now_seconds() -> f64 {
     web_sys::window().and_then(|w| w.performance()).map_or(0.0, |p| p.now() / 1000.0)
@@ -349,6 +371,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     };
 
     let mut ui = Ui::new(root, options.theme);
+    ui.set_clipboard(BrowserClipboard);
     let (css, dpr) = measure(&canvas);
     ui.set_viewport(css, dpr);
     let waker = scheduler.clone();
@@ -524,7 +547,11 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                 // not inserted twice; shortcuts with Ctrl/Cmd still go through here.
                 let printable =
                     matches!(key, Key::Character(_) | Key::Space) && !(modifiers.ctrl || modifiers.meta);
-                if printable {
+                // Cmd/Ctrl+V is left to the browser, which pastes into the text
+                // input; the text then arrives through the `input` event.
+                let paste = (modifiers.ctrl || modifiers.meta)
+                    && matches!(&key, Key::Character(c) if c.eq_ignore_ascii_case("v"));
+                if printable || paste {
                     return;
                 }
                 // Keep Tab, Enter, arrows and Backspace inside the app.
@@ -578,6 +605,23 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         });
     }
 
+    {
+        // Pasted text comes straight from the clipboard event, so it is
+        // delivered once, whatever the text input held.
+        let (state, sched) = (state.clone(), scheduler.clone());
+        app.listeners.push(Listener {
+            target: input_target.clone(),
+            kind: "paste",
+            closure: Closure::new(move |e: web_sys::Event| {
+                let Some(e) = e.dyn_ref::<web_sys::ClipboardEvent>() else { return };
+                let Some(text) = e.clipboard_data().and_then(|d| d.get_data("text/plain").ok()) else {
+                    return;
+                };
+                e.prevent_default();
+                send_text(&state, &sched, &text);
+            }),
+        });
+    }
     {
         let (state, sched) = (state.clone(), scheduler.clone());
         app.listeners.push(Listener {

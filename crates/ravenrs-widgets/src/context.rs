@@ -438,6 +438,7 @@ pub struct BuildCx<'a> {
     pub(crate) local: &'a mut LocalStore,
     pub(crate) placeholder: LayoutId,
     pub(crate) error: Option<LayoutError>,
+    pub(crate) clipboard: crate::Clipboard,
     scopes: Vec<Scope>,
 }
 
@@ -461,6 +462,7 @@ impl<'a> BuildCx<'a> {
         modifiers: Rc<std::cell::Cell<Modifiers>>,
         local: &'a mut LocalStore,
         placeholder: LayoutId,
+        clipboard: crate::Clipboard,
     ) -> Self {
         Self {
             // Read through the state so a theme change rebuilds the UI.
@@ -483,6 +485,7 @@ impl<'a> BuildCx<'a> {
             local,
             placeholder,
             error: None,
+            clipboard,
             scopes: vec![Scope { id: WidgetId::ROOT, next_child: 0, next_state: 0 }],
         }
     }
@@ -495,6 +498,11 @@ impl<'a> BuildCx<'a> {
     /// The app-wide theme as state: set it to switch themes at runtime.
     pub fn theme_state(&self) -> State<Theme> {
         self.theme_state.clone()
+    }
+
+    /// The system clipboard, for copy and paste handlers.
+    pub fn clipboard(&self) -> crate::Clipboard {
+        self.clipboard.clone()
     }
 
     /// The viewport size in logical pixels.

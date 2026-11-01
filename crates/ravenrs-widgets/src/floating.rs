@@ -64,7 +64,7 @@ impl<V: View> View for ContextMenu<V> {
             cx.overlay(
                 node,
                 Placement::At(p),
-                &MenuList { entries: &self.entries, close: close.clone() },
+                &MenuList { entries: &self.entries, close: close.clone(), on_side: None },
                 Some(close),
             );
         }

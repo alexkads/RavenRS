@@ -9,6 +9,22 @@
 
 mod access;
 
+/// The system clipboard through `arboard`. When it cannot be opened (no
+/// display server, say), copy and paste stay inside the app.
+struct SystemClipboard(std::cell::RefCell<arboard::Clipboard>);
+
+impl ravenrs_widgets::ClipboardProvider for SystemClipboard {
+    fn read_text(&self) -> Option<String> {
+        self.0.borrow_mut().get_text().ok()
+    }
+
+    fn write_text(&self, text: &str) {
+        if let Err(e) = self.0.borrow_mut().set_text(text) {
+            tracing::warn!(error = %e, "could not write to the clipboard");
+        }
+    }
+}
+
 use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -111,10 +127,15 @@ pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), Plat
         .build()
         .map_err(|e| PlatformError::EventLoop(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Wait);
+    let mut ui = Ui::new(root, options.theme);
+    match arboard::Clipboard::new() {
+        Ok(clipboard) => ui.set_clipboard(SystemClipboard(std::cell::RefCell::new(clipboard))),
+        Err(e) => tracing::warn!(error = %e, "system clipboard unavailable; using an in-app clipboard"),
+    }
     let mut app = App {
         proxy: event_loop.create_proxy(),
         access: None,
-        ui: Ui::new(root, options.theme),
+        ui,
         options,
         window: None,
         pointer: None,

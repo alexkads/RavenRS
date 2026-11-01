@@ -108,6 +108,18 @@ impl Roving {
         node: NodeId,
         on_move: Option<std::rc::Rc<dyn Fn(usize)>>,
     ) {
+        self.wire_with(cx, node, on_move, None);
+    }
+
+    /// Like [`Self::wire`], with `before` seeing keys first (a menubar title
+    /// opens its menu with Down; menu items switch menus with Left and Right).
+    pub(crate) fn wire_with(
+        &self,
+        cx: &mut BuildCx<'_>,
+        node: NodeId,
+        on_move: Option<std::rc::Rc<dyn Fn(usize)>>,
+        before: Option<crate::KeyHandler>,
+    ) {
         if self.focus_to.take(self.index) {
             // By node: the focusable element may belong to a child widget (a button).
             cx.request_focus_node(node);
@@ -115,8 +127,13 @@ impl Roving {
         let (index, count, focus_to) = (self.index, self.count, self.focus_to.clone());
         cx.on_key(
             node,
-            std::rc::Rc::new(move |key, _| {
+            std::rc::Rc::new(move |key, modifiers| {
                 use ravenrs_core::Key;
+                if let Some(before) = &before
+                    && before(key, modifiers)
+                {
+                    return true;
+                }
                 if count == 0 {
                     return false;
                 }

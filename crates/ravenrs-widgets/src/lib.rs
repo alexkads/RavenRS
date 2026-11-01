@@ -28,6 +28,7 @@ mod calendar;
 mod canvas;
 mod card;
 mod choice;
+mod clipboard;
 mod context;
 mod data;
 mod date;
@@ -56,6 +57,7 @@ pub use calendar::{Calendar, DatePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
 pub use choice::{AspectRatio, Label, Pagination, ToggleButton, ToggleGroup};
+pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use context::{
     BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, NodeId, Paint, Placement, QuadPaint,
     Semantics, WidgetId,

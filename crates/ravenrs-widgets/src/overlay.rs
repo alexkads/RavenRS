@@ -250,6 +250,8 @@ struct ListRow<'a> {
     roving: util::Roving,
     /// `MenuItem` in menus, `ListBoxOption` in select lists.
     role: Role,
+    /// Left (false) or Right (true) in a menubar menu: open the neighbor menu.
+    on_side: Option<Rc<dyn Fn(bool)>>,
 }
 
 impl View for ListRow<'_> {
@@ -312,7 +314,20 @@ impl View for ListRow<'_> {
             }),
         );
         cx.focusable(node, 7.0);
-        self.roving.wire(cx, node, None);
+        let before: Option<crate::KeyHandler> = self.on_side.clone().map(|side| {
+            Rc::new(move |key: &ravenrs_core::Key, _: ravenrs_core::Modifiers| match key {
+                ravenrs_core::Key::ArrowLeft => {
+                    side(false);
+                    true
+                }
+                ravenrs_core::Key::ArrowRight => {
+                    side(true);
+                    true
+                }
+                _ => false,
+            }) as crate::KeyHandler
+        });
+        self.roving.wire_with(cx, node, None, before);
         cx.cursor(node, CursorIcon::Pointer);
         node
     }
@@ -326,6 +341,8 @@ fn list_focus(cx: &mut BuildCx<'_>, start: usize) -> util::FocusTarget {
 pub(crate) struct MenuList<'a> {
     pub entries: &'a [Entry],
     pub close: Rc<dyn Fn()>,
+    /// Set by a menubar: Left and Right open the neighbor menu.
+    pub on_side: Option<Rc<dyn Fn(bool)>>,
 }
 
 impl View for MenuList<'_> {
@@ -349,6 +366,7 @@ impl View for MenuList<'_> {
                         close: self.close.clone(),
                         on_click: item.on_select.clone(),
                         role: Role::MenuItem,
+                        on_side: self.on_side.clone(),
                     };
                     rows.push(cx.keyed_child(i as u64, &row));
                 }
@@ -396,7 +414,7 @@ impl View for DropdownMenu {
             cx.overlay(
                 anchor,
                 Placement::Below,
-                &MenuList { entries: &self.entries, close: close.clone() },
+                &MenuList { entries: &self.entries, close: close.clone(), on_side: None },
                 Some(close),
             );
         } else if was_open.replace(false) {
@@ -465,6 +483,7 @@ impl View for Options<'_> {
                     close: self.close.clone(),
                     on_click: Some(Rc::new(move || selected.set(i))),
                     role: Role::ListBoxOption,
+                    on_side: None,
                 };
                 cx.keyed_child(i as u64, &row)
             })

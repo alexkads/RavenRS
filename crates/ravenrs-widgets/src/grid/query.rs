@@ -413,6 +413,25 @@ fn emit_groups(
     }
 }
 
+/// Rows as tab-separated text, the way spreadsheets copy and paste: the
+/// shown (formatted) values of the `visible` columns, no header.
+pub fn to_tsv(columns: &[GridColumn], rows: &[Row], visible: &[usize], selected: &[usize]) -> String {
+    let empty = Value::Empty;
+    let clean = |s: String| s.replace(['\t', '\n', '\r'], " ");
+    selected
+        .iter()
+        .filter_map(|&r| rows.get(r))
+        .map(|row| {
+            visible
+                .iter()
+                .map(|&c| clean(columns[c].display(row.get(c).unwrap_or(&empty))))
+                .collect::<Vec<_>>()
+                .join("\t")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Matching rows as CSV (RFC 4180), visible columns only, in display order.
 pub fn to_csv(columns: &[GridColumn], rows: &[Row], query: &GridQuery, matched: &[usize]) -> String {
     let quote = |s: &str| {

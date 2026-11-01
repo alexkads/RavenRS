@@ -1,5 +1,6 @@
 //! Spinner, carousel, splitter, menubar, one-time-code input and form fields.
 
+use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -403,15 +404,15 @@ impl Menubar {
 }
 
 struct MenuTitle<'a> {
-    index: usize,
     bar: &'a Menubar,
     open: State<Option<usize>>,
+    roving: util::Roving,
 }
 
 impl View for MenuTitle<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let i = self.index;
+        let (i, count) = (self.roving.index, self.roving.count);
         let is_open = self.open.get() == Some(i);
         let hovered = cx.is_hovered();
         let ink = theme.color(Semantic::Ink);
@@ -438,17 +439,44 @@ impl View for MenuTitle<'_> {
         cx.on_click(node, Rc::new(move || open.update(|o| *o = if *o == Some(i) { None } else { Some(i) })));
         cx.cursor(node, CursorIcon::Pointer);
         cx.focusable(node, 6.0);
+        // WAI-ARIA menubar: Left and Right move between titles (switching the
+        // open menu if one is open); Down, Enter and Space open the menu.
+        let opener = self.open.clone();
+        let before: crate::KeyHandler = Rc::new(move |key, _| {
+            let opens = matches!(key, Key::ArrowDown | Key::Enter | Key::Space);
+            if opens {
+                opener.set(Some(i));
+            }
+            opens || *key == Key::ArrowUp
+        });
+        let follow = self.open.clone();
+        let on_move: Rc<dyn Fn(usize)> = Rc::new(move |to| {
+            if follow.get().is_some() {
+                follow.set(Some(to));
+            }
+        });
+        self.roving.wire_with(cx, node, Some(on_move), Some(before));
+        let was_open = cx.use_state(|| Rc::new(Cell::new(false))).get();
         if is_open {
+            was_open.set(true);
             let close: Rc<dyn Fn()> = {
                 let open = self.open.clone();
                 Rc::new(move || open.set(None))
             };
+            // The neighbor menu opens and focuses its first item.
+            let side_open = self.open.clone();
+            let on_side: Rc<dyn Fn(bool)> = Rc::new(move |forward| {
+                side_open.set(Some(if forward { (i + 1) % count } else { (i + count - 1) % count }));
+            });
             cx.overlay(
                 node,
                 Placement::Below,
-                &MenuList { entries: &self.bar.menus[i].1, close: close.clone() },
+                &MenuList { entries: &self.bar.menus[i].1, close: close.clone(), on_side: Some(on_side) },
                 Some(close),
             );
+        } else if was_open.replace(false) && self.open.get().is_none() {
+            // Focus returns to the title when the menubar's menu closes.
+            cx.request_focus_node(node);
         }
         node
     }
@@ -458,8 +486,12 @@ impl View for Menubar {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let open: State<Option<usize>> = cx.use_state(|| None);
-        let titles: Vec<NodeId> = (0..self.menus.len())
-            .map(|index| cx.keyed_child(index as u64, &MenuTitle { index, bar: self, open: open.clone() }))
+        let (count, focus_to) = (self.menus.len(), util::roving_cell(cx, None));
+        let titles: Vec<NodeId> = (0..count)
+            .map(|index| {
+                let roving = util::Roving { index, count, focus_to: focus_to.clone() };
+                cx.keyed_child(index as u64, &MenuTitle { bar: self, open: open.clone(), roving })
+            })
             .collect();
         let node = cx.container(
             LayoutStyle {

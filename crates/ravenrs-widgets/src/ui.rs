@@ -70,6 +70,7 @@ pub struct Ui {
     cursor: CursorIcon,
     scene: Scene,
     access_map: access::AccessMap,
+    clipboard: crate::Clipboard,
 }
 
 impl fmt::Debug for Ui {
@@ -127,7 +128,20 @@ impl Ui {
             cursor: CursorIcon::Default,
             scene: Scene::new(),
             access_map: access::AccessMap::default(),
+            clipboard: crate::Clipboard::default(),
         }
+    }
+
+    /// Installs the system clipboard (platform layers do this); the default is
+    /// an in-memory clipboard.
+    pub fn set_clipboard(&mut self, provider: impl crate::ClipboardProvider + 'static) {
+        self.clipboard = crate::Clipboard::new(provider);
+        self.needs_build = true;
+    }
+
+    /// The clipboard widgets copy to and paste from.
+    pub fn clipboard(&self) -> crate::Clipboard {
+        self.clipboard.clone()
     }
 
     /// Called whenever reactive state the UI depends on changes.
@@ -586,6 +600,7 @@ impl Ui {
         let theme = self.theme.clone();
         self.local.begin_build();
         let modifiers = self.modifiers.clone();
+        let clipboard = self.clipboard.clone();
         let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
             self;
         let now = self.time;
@@ -602,6 +617,7 @@ impl Ui {
                 modifiers,
                 local,
                 placeholder,
+                clipboard,
             );
             cx.now = now;
             let content = cx.child(&**root);

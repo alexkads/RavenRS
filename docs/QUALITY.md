@@ -66,7 +66,7 @@ Status against the definition of done. **Behavior** names the test suites that d
 |---|---|---|---|---|
 | Button, IconButton | ui, keyboard_and_basics | ✅ | ✅ Enter/Space, tested | |
 | ToggleButton, ToggleGroup | batch_parity, keyboard_and_basics | | ✅ arrows move focus, Space toggles, tested | |
-| TextField | components, properties | ✅ | ✅ editing keys, tested; IME on web | Clipboard planned |
+| TextField | components, properties, editing_and_clipboard | ✅ | ✅ editing, word and line moves, Shift selection, select all, copy/cut/paste, mouse drag and double-click, tested; IME on web | Passwords paste but never copy |
 | Select | components, keyboard_and_basics | | ✅ Enter/Space/arrows open on the current option, arrows, Enter, focus returns, tested | |
 | Combobox | batch_parity | | ✅ type, arrows, Enter, tested | |
 | Checkbox, Toggle | components, batch_parity, keyboard_and_basics | ✅ | ✅ Space, tested | |
@@ -77,12 +77,12 @@ Status against the definition of done. **Behavior** names the test suites that d
 | FormField, Label | batch_parity, keyboard_and_basics | | n/a | |
 | Calendar, DatePicker | batch_parity, keyboard_and_basics | ✅ | ✅ one Tab stop; arrows, Home/End, Page Up/Down, Enter, tested | |
 | Ribbon | ribbon | ✅ | 🟡 Tab + Enter; its menus are fully keyboard-operable | Key tips planned |
-| DropdownMenu, ContextMenu, Menubar | keyboard_and_basics, components, batch_parity | | ✅ first item focused on open, arrows, Enter, Escape, focus returns, tested | Menubar: Left/Right between menus planned |
+| DropdownMenu, ContextMenu, Menubar | keyboard_and_basics, components, batch_parity | | ✅ first item focused on open, arrows, Enter, Escape, focus returns; Menubar Left/Right between titles and open menus, tested | |
 | Tabs | components, layout_and_content, keyboard_and_basics | | ✅ arrows open tabs, Home/End, tested | |
 | Sidebar, Breadcrumb, Pagination, Accordion, Disclosure | components, layout_and_content, batch_parity | | 🟡 Tab + Enter | Links and buttons by pattern; untested |
 | CommandPalette | batch_parity | | ✅ ⌘K, type, arrows, Enter, tested | |
 | Dialog, Sheet, Popover, HoverCard, Tooltip, Toaster | components, batch_parity, keyboard_and_basics | | ✅ Escape; Dialog and Sheet trap focus and return it, tested | |
-| DataGrid | datagrid, properties | ✅ | ✅ row navigation, Enter edits, tested | See the DataGrid parity table in ARCHITECTURE.md |
+| DataGrid | datagrid, properties, editing_and_clipboard | ✅ | ✅ row navigation, Page Up/Down, Enter edits, Cmd/Ctrl+C copies rows as tab-separated text, Cmd/Ctrl+A, tested | See the DataGrid parity table in ARCHITECTURE.md |
 | Table, List, Stat, BarChart, AreaChart | components | ✅ partial | n/a | |
 | Layout: stacks, Grid, ScrollView, Splitter, AspectRatio, Card, Section | layout_and_content, components, keyboard_and_basics | ✅ partial | 🟡 Splitter arrows, untested | AspectRatio content now fills its box |
 | Media and feedback: Image, Icon, Carousel, Avatar, Badge, Alert, ProgressBar, Spinner, Skeleton, Kbd, Divider | layout_and_content, components, batch_parity | ✅ partial | 🟡 Carousel arrows, untested | |
@@ -101,7 +101,6 @@ Defects found and fixed during this audit:
 These block a "commercial-grade" label and are prioritized ahead of new components of the same family:
 
 1. **Right-to-left layout.** Parley shapes bidirectional text, but layouts do not mirror.
-2. **Remaining keyboard patterns** in the 🟡 rows above: Left/Right between Menubar menus and Ribbon key tips.
-3. **Clipboard** in `TextField` and the DataGrid.
-4. **Visual coverage.** Golden images exist for 6 scenes. Overlays, navigation and charts have none yet.
-5. **Screen reader depth.** Text fields do not expose caret position or selection, charts expose only their labels, and the web mirror is rebuilt whole when the tree changes. Tested with macOS VoiceOver's API (System Events) and the browser's DOM; not yet with NVDA, Narrator or Orca.
+2. **Remaining keyboard patterns** in the 🟡 rows above: Ribbon key tips.
+3. **Visual coverage.** Golden images exist for 6 scenes. Overlays, navigation and charts have none yet.
+4. **Screen reader depth.** Text fields do not expose caret position or selection, charts expose only their labels, and the web mirror is rebuilt whole when the tree changes. Tested with macOS VoiceOver's API (System Events) and the browser's DOM; not yet with NVDA, Narrator or Orca.

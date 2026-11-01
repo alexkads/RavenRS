@@ -44,6 +44,9 @@ web-sys = { workspace = true, features = [
     "CssStyleDeclaration",
     "Node",
     "DomRect",
+    "Clipboard",
+    "ClipboardEvent",
+    "DataTransfer",
     "console",
 ] }
 
