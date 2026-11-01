@@ -8,8 +8,8 @@ use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
-use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{AnyView, IconName, View, ViewSeq, util};
+use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics, WidgetId};
+use crate::{AnyView, IconName, Motion, View, ViewSeq, motion, util};
 
 /// A tab bar with one content view per tab; only the selected one is built.
 /// Arrow keys move between tabs and open them; Home and End jump to the ends.
@@ -38,6 +38,7 @@ impl Tabs {
 }
 
 struct TabButton {
+    scope: WidgetId,
     roving: util::Roving,
     label: String,
     selected: Binding<usize>,
@@ -50,22 +51,32 @@ impl View for TabButton {
         let color =
             if on || cx.is_hovered() { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
         let label = util::label(cx, &self.label, TextStyle::Body, Some(Weight::SEMIBOLD), color);
-        let accent = theme.color(Semantic::Accent);
-        let style = LayoutStyle {
-            padding: Insets { top: 8.0, bottom: 12.0, left: 2.0, right: 2.0 },
-            ..LayoutStyle::stack(Axis::Horizontal)
-        };
-        let node = cx.container(
-            style,
+        motion::control(cx, label);
+        let label = cx.container(
+            LayoutStyle { padding: Insets::symmetric(0.0, 2.0), ..LayoutStyle::stack(Axis::Horizontal) },
             &[label],
-            Paint::Custom(Rc::new(move |f: Rect, scene| {
-                if on {
-                    scene.push_quad(
-                        Quad::new(Rect::new(f.x(), f.max_y() - 2.0, f.width(), 2.0), accent).radius(1.0),
-                    );
-                }
-            })),
+            Paint::None,
         );
+        // The underline is one object that slides from tab to tab.
+        let marker = cx.container(
+            LayoutStyle { height: Some(2.0), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() },
+            &[],
+            if on {
+                let accent = theme.color(Semantic::Accent);
+                Paint::Quad(QuadPaint { corner_radius: 1.0, ..QuadPaint::new(accent) })
+            } else {
+                Paint::None
+            },
+        );
+        if on {
+            cx.motion(marker, Motion::new().shared_layout(self.scope, 0, theme.motion.snappy));
+        }
+        let style = LayoutStyle {
+            padding: Insets { top: 8.0, ..Insets::ZERO },
+            spacing: 10.0,
+            ..LayoutStyle::stack(Axis::Vertical)
+        };
+        let node = cx.container(style, &[label, marker], Paint::None);
         cx.semantics(node, Semantics::new(Role::Tab).selected(on));
         let (selected, index) = (self.selected.clone(), self.roving.index);
         cx.on_click(node, Rc::new(move || selected.set(index)));
@@ -82,13 +93,14 @@ impl View for Tabs {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let border = cx.theme().color(Semantic::Border);
         let (count, focus_to) = (self.tabs.len(), util::roving_cell(cx, None));
+        let scope = cx.widget_id();
         let buttons: Vec<NodeId> = self
             .tabs
             .iter()
             .enumerate()
             .map(|(index, (label, _))| {
                 let roving = util::Roving { index, count, focus_to: focus_to.clone() };
-                cx.child(&TabButton { roving, label: label.clone(), selected: self.selected.clone() })
+                cx.child(&TabButton { scope, roving, label: label.clone(), selected: self.selected.clone() })
             })
             .collect();
         let bar = cx.container(
@@ -300,6 +312,7 @@ impl View for SidebarItem {
         };
         let paint = Paint::Quad(QuadPaint { corner_radius: theme.radii.md, ..QuadPaint::new(fill) });
         let node = cx.container(style, &children, paint);
+        motion::control(cx, node);
         cx.semantics(node, Semantics::new(Role::Button).selected(self.selected));
         if let Some(h) = &self.on_click {
             cx.on_click(node, h.clone());
@@ -370,6 +383,22 @@ impl Disclosure {
     }
 }
 
+struct DisclosureBody<'a>(&'a dyn View);
+
+impl View for DisclosureBody<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let content = cx.child(self.0);
+        cx.container(
+            LayoutStyle {
+                padding: Insets { top: 2.0, bottom: 10.0, left: 32.0, right: 8.0 },
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[content],
+            Paint::None,
+        )
+    }
+}
+
 impl View for Disclosure {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
@@ -396,26 +425,16 @@ impl View for Disclosure {
             &[icon, title],
             Paint::Quad(QuadPaint { corner_radius: 8.0, ..QuadPaint::new(header_fill) }),
         );
+        motion::control(cx, header);
         cx.semantics(header, Semantics::new(Role::Button).expanded(is_open));
         let toggle = open.clone();
         cx.on_click(header, Rc::new(move || toggle.update(|o| *o = !*o)));
         cx.focusable(header, 8.0);
         cx.cursor(header, CursorIcon::Pointer);
-        let mut children = vec![header];
-        if is_open {
-            let content = cx.child(self.content.as_ref());
-            children.push(cx.container(
-                LayoutStyle {
-                    padding: Insets { top: 2.0, bottom: 10.0, left: 32.0, right: 8.0 },
-                    ..LayoutStyle::stack(Axis::Vertical)
-                },
-                &[content],
-                Paint::None,
-            ));
-        }
+        let body = motion::collapse(cx, is_open, &DisclosureBody(self.content.as_ref()));
         cx.container(
             LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
-            &children,
+            &[header, body],
             Paint::None,
         )
     }

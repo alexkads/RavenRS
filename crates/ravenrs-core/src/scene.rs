@@ -305,6 +305,118 @@ pub enum Primitive {
     PopClip,
 }
 
+/// A visual change applied to painted content without touching layout: what a
+/// compositor would do to a layer, here done to the display list.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Effect {
+    /// Multiplies alpha, `0.0` to `1.0`. Each primitive fades on its own, so
+    /// shapes that overlap show through each other while partly faded.
+    pub opacity: f32,
+    /// Movement in logical pixels.
+    pub offset: Point,
+    /// Size multiplier around the pivot.
+    pub scale: f32,
+}
+
+impl Effect {
+    /// No change.
+    pub const IDENTITY: Self = Self { opacity: 1.0, offset: Point::new(0.0, 0.0), scale: 1.0 };
+
+    /// Fully transparent.
+    pub const fn hidden() -> Self {
+        Self { opacity: 0.0, ..Self::IDENTITY }
+    }
+
+    /// Moved by `(x, y)` logical pixels.
+    pub const fn moved(x: f32, y: f32) -> Self {
+        Self { offset: Point::new(x, y), ..Self::IDENTITY }
+    }
+
+    /// Scaled around the pivot.
+    pub const fn scaled(scale: f32) -> Self {
+        Self { scale, ..Self::IDENTITY }
+    }
+
+    /// The same effect with this opacity.
+    pub const fn with_opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity;
+        self
+    }
+
+    /// The same effect with this scale.
+    pub const fn with_scale(mut self, scale: f32) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    /// True when applying the effect would change nothing.
+    pub fn is_identity(&self) -> bool {
+        *self == Self::IDENTITY
+    }
+
+    fn point(&self, p: Point, pivot: Point) -> Point {
+        Point::new(
+            pivot.x + (p.x - pivot.x) * self.scale + self.offset.x,
+            pivot.y + (p.y - pivot.y) * self.scale + self.offset.y,
+        )
+    }
+
+    fn rect(&self, r: Rect, pivot: Point) -> Rect {
+        Rect::from_origin_size(self.point(r.origin, pivot), r.size.scale(self.scale))
+    }
+
+    fn color(&self, c: Color) -> Color {
+        c.with_alpha(c.a * self.opacity)
+    }
+
+    fn apply(&self, primitive: &mut Primitive, pivot: Point) {
+        match primitive {
+            Primitive::Quad(q) => {
+                q.rect = self.rect(q.rect, pivot);
+                q.corner_radii = q.corner_radii.map(|r| r * self.scale);
+                q.fill = match q.fill {
+                    Brush::Solid(c) => Brush::Solid(self.color(c)),
+                    Brush::LinearGradient(g) => Brush::LinearGradient(LinearGradient {
+                        from: self.color(g.from),
+                        to: self.color(g.to),
+                        ..g
+                    }),
+                };
+                if let Some(b) = &mut q.border {
+                    b.width *= self.scale;
+                    b.color = self.color(b.color);
+                }
+                if let Some(s) = &mut q.shadow {
+                    s.offset = Point::new(s.offset.x * self.scale, s.offset.y * self.scale);
+                    s.blur *= self.scale;
+                    s.color = self.color(s.color);
+                }
+            }
+            Primitive::Glyphs(run) => {
+                run.size *= self.scale;
+                run.color = self.color(run.color);
+                for g in &mut run.glyphs {
+                    let p = self.point(Point::new(g.x, g.y), pivot);
+                    (g.x, g.y) = (p.x, p.y);
+                }
+            }
+            Primitive::Image(image) => {
+                image.rect = self.rect(image.rect, pivot);
+                image.corner_radii = image.corner_radii.map(|r| r * self.scale);
+                image.opacity *= self.opacity;
+            }
+            Primitive::PushClip(rect) => *rect = self.rect(*rect, pivot),
+            Primitive::PopClip => {}
+        }
+    }
+}
+
+impl Default for Effect {
+    fn default() -> Self {
+        Self::IDENTITY
+    }
+}
+
 /// An ordered display list. Reused between frames to avoid reallocating.
 #[derive(Clone, Debug, Default)]
 pub struct Scene {
@@ -359,6 +471,33 @@ impl Scene {
     /// Ends the clip started by the matching [`Scene::push_clip`].
     pub fn pop_clip(&mut self) {
         self.primitives.push(Primitive::PopClip);
+    }
+
+    /// Applies `effect` to a range of primitives, scaling around `pivot`.
+    ///
+    /// ```
+    /// use ravenrs_core::{Color, Effect, Point, Primitive, Quad, Rect, Scene};
+    ///
+    /// let mut scene = Scene::new();
+    /// scene.push_quad(Quad::new(Rect::new(0.0, 0.0, 10.0, 10.0), Color::WHITE));
+    /// scene.apply_effect(0..1, Effect::moved(5.0, 0.0), Point::ZERO);
+    /// let Primitive::Quad(q) = &scene.primitives()[0] else { unreachable!() };
+    /// assert_eq!(q.rect.x(), 5.0);
+    /// ```
+    pub fn apply_effect(&mut self, range: std::ops::Range<usize>, effect: Effect, pivot: Point) {
+        if effect.is_identity() {
+            return;
+        }
+        if let Some(primitives) = self.primitives.get_mut(range) {
+            for primitive in primitives {
+                effect.apply(primitive, pivot);
+            }
+        }
+    }
+
+    /// Appends primitives recorded earlier.
+    pub fn extend_from_slice(&mut self, primitives: &[Primitive]) {
+        self.primitives.extend_from_slice(primitives);
     }
 
     /// All primitives in painter's order.

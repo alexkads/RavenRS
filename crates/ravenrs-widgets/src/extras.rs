@@ -4,14 +4,14 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Quad, Rect, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::overlay::{Entry, MenuList};
-use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, MenuItem, View, util};
+use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, MenuItem, Motion, View, util};
 
 /// An indeterminate activity indicator. With reduced motion it is static.
 #[derive(Clone, Copy, Debug)]
@@ -41,24 +41,20 @@ impl Spinner {
 impl View for Spinner {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let now = cx.now();
-        let still = theme.interaction.reduced_motion;
-        if !still {
-            cx.wake_at(now + 1.0 / 30.0);
-        }
         let (size, color) = (self.size, theme.color(Semantic::Accent).lerp(theme.color(Semantic::Ink), 0.2));
-        let step = if still { 0 } else { ((now * 10.0) as i64).rem_euclid(8) as usize };
         let node = cx.container(
             LayoutStyle { width: Some(size), height: Some(size), ..LayoutStyle::leaf() },
             &[],
-            Paint::Custom(Rc::new(move |f: Rect, scene| {
+            Paint::Live(Rc::new(move |f: Rect, time, scene| {
                 let c = f.center();
                 let dot = (size * 0.18).max(2.0);
                 let r = size / 2.0 - dot / 2.0;
+                // One turn every 0.8 s; the brightness moves continuously around the ring.
+                let head = (time / 0.8).fract() as f32 * 8.0;
                 for i in 0..8 {
                     let a = i as f32 / 8.0 * std::f32::consts::TAU;
-                    let age = (i + 8 - step) % 8;
-                    let alpha = 1.0 - age as f32 / 9.0;
+                    let age = (i as f32 - head).rem_euclid(8.0);
+                    let alpha = 1.0 - age / 9.0;
                     let rect =
                         Rect::new(c.x + r * a.cos() - dot / 2.0, c.y + r * a.sin() - dot / 2.0, dot, dot);
                     scene.push_quad(Quad::new(rect, color.with_alpha(alpha)).radius(dot / 2.0));
@@ -102,6 +98,32 @@ impl Carousel {
     }
 }
 
+struct Slide<'a>(&'a dyn View, f32);
+
+impl View for Slide<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let m = cx.theme().motion;
+        let child = cx.child(self.0);
+        let node = cx.container(
+            LayoutStyle {
+                grow: 1.0,
+                align: Align::Stretch,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[child],
+            Paint::None,
+        );
+        cx.motion(
+            node,
+            Motion::new()
+                .enter(Effect::moved(32.0 * self.1, 0.0).with_opacity(0.0), m.snappy)
+                .exit(Effect::hidden(), m.fast),
+        );
+        node
+    }
+}
+
 impl View for Carousel {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
@@ -120,8 +142,18 @@ impl View for Carousel {
             cx.wake_at(if start.is_nan() { now + every } else { start + every });
         }
         let current = index.get() % n;
+        // Slides arrive from the side the user is heading to.
+        let shown = cx.use_state(|| current);
+        let direction = cx.use_state(|| 1.0_f32);
+        let previous = *shown.peek();
+        if previous != current {
+            let forward = (current + n - previous) % n <= n / 2;
+            direction.set_if_changed(if forward { 1.0 } else { -1.0 });
+            shown.set_if_changed(current);
+        }
+        let heading = *direction.peek();
         let slide = match self.slides.get(current) {
-            Some(s) => cx.keyed_child(current as u64, s.as_ref()),
+            Some(s) => cx.keyed_child(current as u64, &Slide(s.as_ref(), heading)),
             None => cx.empty(),
         };
         let stage = cx.container(
@@ -185,6 +217,7 @@ impl View for Carousel {
             let idx = index.clone();
             cx.on_click(dot, Rc::new(move || idx.set(i)));
             cx.cursor(dot, CursorIcon::Pointer);
+            cx.motion(dot, Motion::new().key(i as u64).layout(theme.motion.snappy).paint(theme.motion.fast));
             dots.push(dot);
         }
         let dots = cx.container(

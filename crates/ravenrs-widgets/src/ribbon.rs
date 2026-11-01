@@ -373,6 +373,7 @@ impl View for ItemView<'_> {
             &children,
             Paint::Quad(QuadPaint { corner_radius: 6.0, border, ..QuadPaint::new(fill) }),
         );
+        crate::motion::control(cx, node);
         let mut semantics = Semantics::new(Role::Button).name(item.label.clone()).disabled(!item.enabled);
         if item.toggle.is_some() {
             semantics = semantics.toggled(on);
@@ -590,6 +591,7 @@ impl View for Tab<'_> {
             _ => theme.color(Semantic::InkMuted),
         };
         let label = util::label(cx, &self.page.title, TextStyle::Callout, Some(Weight::SEMIBOLD), color);
+        crate::motion::control(cx, label);
         let accent = tone.unwrap_or(theme.color(Semantic::Accent));
         let category_fill = tone.map(|t| t.with_alpha(0.10));
         let node = cx.container(

@@ -469,6 +469,7 @@ impl View for TextField {
             ..QuadPaint::new(theme.color(Semantic::Control))
         };
         let node = cx.container(style, &children, Paint::Quad(paint));
+        crate::motion::control(cx, node);
         // The visible text is exposed as the value; the placeholder names the
         // field until a label (a FormField, say) gives it a real name.
         cx.semantics(text_area, Semantics::hidden());

@@ -34,20 +34,34 @@ Spacing is a 4px grid: `space-1` (4) through `space-12` (48). Screens pad by `sp
 
 ## Motion
 
-| Use | Rust API (planned, Motion Engine) | Parameters |
-|---|---|---|
-| Hover, press, focus color | `Transition::fast()` | `duration-fast`, ease-out |
-| Things changing place or size | `Spring::snappy()` | stiffness 380, damping 30 |
-| Panels and sheets | `Spring::gentle()` | stiffness 170, damping 26 |
+| Use | Token (`theme.motion`) | Rust API | Parameters |
+|---|---|---|---|
+| Hover, press, focus color | `fast` | `Transition::fast()` | `duration-fast`, ease-out |
+| Small layout and opacity changes | `base` | `Transition::base()` | `duration-base`, ease-in-out |
+| Things changing place or size | `snappy` | `Transition::snappy()` | stiffness 380, damping 30 |
+| Panels and sheets | `gentle` | `Transition::gentle()` | stiffness 170, damping 26 |
+
+Rules for components:
+
+- Use `theme.motion`, not numbers of your own, and declare motion with `cx.motion`.
+- Exits are shorter than entrances: the user has already moved on.
+- Scale subtly (0.96 and up). Popups grow from their anchor, with `Motion::anchored`.
+- A row in a virtualized list has no enter animation, because scrolling would set it off.
 
 ## Components
 
 | Family | Components |
 |---|---|
-| Text | Implemented |
-| Button | Implemented (primary; hover, pressed, focus states) |
-| Card | Implemented (rounded fill, soft shadow, hairline) |
-| GlassCard | Planned (translucent fill ships with Raven Glass; blur needs the compositor) |
+| Text and icons | `Text`, `Icon`, `Label`, `Kbd`, `Badge` |
+| Actions | `Button`, `IconButton`, `ToggleButton`, `ToggleGroup`, `DropdownMenu`, `Ribbon`, `Menubar` |
+| Forms | `TextField`, `Select`, `Combobox`, `DatePicker`, `Calendar`, `Checkbox`, `RadioGroup`, `Toggle`, `Slider`, `Stepper`, `SegmentedControl`, `InputOtp`, `ColorSwatch`, `FormField` |
+| Surfaces | `Card`, `GlassCard` (translucent fill; blur needs the compositor), `Section`, `Divider`, `Splitter`, `Accordion`, `Disclosure` |
+| Navigation | `Sidebar`, `SidebarItem`, `Tabs`, `Breadcrumb`, `Pagination`, `CommandPalette` |
+| Overlays | `Dialog`, `Sheet`, `Popover`, `Tooltip`, `HoverCard`, `ContextMenu`, `Toaster` |
+| Data | `DataGrid`, `Table`, `List`, `Stat`, `AreaChart`, `BarChart`, `Avatar`, `Image`, `Carousel` |
+| Feedback | `Alert`, `ProgressBar`, `Skeleton`, `Spinner` |
+
+Modules of RavenRS itself, such as the report designer, follow the same rule as any app: they use these components and tokens, and what is missing joins the library first. Printed paper is the one surface that stays light in every theme, drawn with Raven Light tokens.
 
 ## Writing
 

@@ -48,6 +48,7 @@ Measured with `cargo bench` (criterion) on an Apple M-series laptop, release pro
 |---|---|---|
 | Full frame: form with 40 cards (build + layout + paint) | < 8 ms | 1.6 ms |
 | Full frame: DataGrid with 100,000 rows | < 8 ms | 0.5 ms |
+| Animation frame: the same form, paint phase only | < 2 ms | 0.11 ms |
 | DataGrid query over 100k rows: no sort | < 16 ms | 1.0 ms |
 | … sort by a number | < 16 ms | 7.9 ms |
 | … sort by text, then number | < 16 ms | 12.3 ms |

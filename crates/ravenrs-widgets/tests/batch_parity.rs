@@ -160,6 +160,19 @@ fn sheet_slides_from_the_right_and_closes_on_backdrop() {
     assert!(!open.get());
 }
 
+/// Plays animations to their end from time `t`, at 60 frames a second.
+fn settle(ui: &mut Ui, mut t: f64) -> f64 {
+    for _ in 0..600 {
+        ui.update();
+        if !ui.is_animating() {
+            break;
+        }
+        t += 1.0 / 60.0;
+        ui.set_time(t);
+    }
+    t
+}
+
 #[test]
 fn toasts_expire_on_the_clock() {
     let toasts = Toasts::new();
@@ -169,12 +182,14 @@ fn toasts_expire_on_the_clock() {
     ui.update();
     assert!(has_panel(&ui));
     assert_eq!(ui.next_wake(), Some(14.0), "wakes when the toast expires");
+    settle(&mut ui, 10.0);
     ui.set_time(13.9);
     assert!(!ui.needs_redraw());
     ui.set_time(14.0);
     assert!(ui.needs_redraw());
     ui.update();
     ui.update();
+    settle(&mut ui, 14.0);
     assert!(!has_panel(&ui));
     assert!(toasts.is_empty());
 }
@@ -226,6 +241,7 @@ fn spinner_and_carousel_schedule_frames() {
     ui.set_time(3.1);
     ui.update();
     ui.update();
+    settle(&mut ui, 3.1);
     assert_eq!(
         runs(&ui).iter().filter(|&&n| n == 3).count(),
         1,

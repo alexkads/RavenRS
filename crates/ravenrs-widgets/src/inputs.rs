@@ -2,13 +2,13 @@
 
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Point, Quad, Rect, Role, Shadow};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Quad, Rect, Role, Shadow};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
-use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics};
-use crate::{IconName, View, util};
+use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics, WidgetId};
+use crate::{IconName, Motion, View, motion, util};
 
 fn row(cx: &mut BuildCx<'_>, children: &[NodeId]) -> NodeId {
     let style = LayoutStyle {
@@ -76,25 +76,39 @@ impl View for Toggle {
         } else {
             theme.color(Semantic::Control).lerp(theme.color(Semantic::Ink), if hovered { 0.08 } else { 0.0 })
         };
-        let border = theme.color(Semantic::Border);
-        let switch = cx.container(
-            LayoutStyle { width: Some(40.0), height: Some(24.0), ..LayoutStyle::leaf() },
+        let border = (!on).then(|| Border { width: 1.0, color: theme.color(Semantic::Border) });
+        // The thumb stretches while held and is kept apart from the track so it
+        // can glide from one end to the other.
+        let thumb = cx.container(
+            LayoutStyle {
+                width: Some(if cx.is_pressed() { 22.0 } else { 18.0 }),
+                height: Some(18.0),
+                ..LayoutStyle::leaf()
+            },
             &[],
-            Paint::Custom(Rc::new(move |f: Rect, scene| {
-                let mut q = Quad::new(f, track).radius(12.0);
-                if !on {
-                    q = q.border(1.0, border);
-                }
-                scene.push_quad(q);
-                let x = if on { f.max_x() - 21.0 } else { f.x() + 3.0 };
-                let thumb = Rect::new(x, f.y() + 3.0, 18.0, 18.0);
-                scene.push_quad(Quad::new(thumb, Color::WHITE).radius(9.0).shadow(Shadow {
+            Paint::Quad(QuadPaint {
+                corner_radius: 9.0,
+                shadow: Some(Shadow {
                     offset: Point::new(0.0, 1.0),
                     blur: 3.0,
                     color: Color::rgba(0.0, 0.0, 0.0, 0.3),
-                }));
-            })),
+                }),
+                ..QuadPaint::new(Color::WHITE)
+            }),
         );
+        let switch = cx.container(
+            LayoutStyle {
+                width: Some(40.0),
+                height: Some(24.0),
+                padding: Insets::uniform(3.0),
+                justify: if on { Justify::End } else { Justify::Start },
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[thumb],
+            Paint::Quad(QuadPaint { corner_radius: 12.0, border, ..QuadPaint::new(track) }),
+        );
+        cx.motion(thumb, Motion::new().layout(theme.motion.snappy));
+        motion::control(cx, switch);
         let mut children = vec![switch];
         if let Some(label) = &self.label {
             children.push(util::label(cx, label, TextStyle::Body, None, theme.color(Semantic::Ink)));
@@ -135,6 +149,16 @@ pub(crate) fn check_box(cx: &mut BuildCx<'_>, theme: &Theme, checked: bool, hove
     } else {
         vec![]
     };
+    check_box_around(cx, theme, checked, hovered, &mark)
+}
+
+fn check_box_around(
+    cx: &mut BuildCx<'_>,
+    theme: &Theme,
+    checked: bool,
+    hovered: bool,
+    mark: &[NodeId],
+) -> NodeId {
     let paint = if checked {
         QuadPaint { corner_radius: 5.0, ..QuadPaint::new(theme.color(Semantic::Accent)) }
     } else {
@@ -152,14 +176,38 @@ pub(crate) fn check_box(cx: &mut BuildCx<'_>, theme: &Theme, checked: bool, hove
         justify: Justify::Center,
         ..LayoutStyle::stack(Axis::Horizontal)
     };
-    cx.container(style, &mark, Paint::Quad(paint))
+    cx.container(style, mark, Paint::Quad(paint))
+}
+
+/// The check or dot inside a selected control pops in and fades away.
+fn pop_mark(cx: &mut BuildCx<'_>, mark: NodeId) {
+    let m = cx.theme().motion;
+    cx.motion(
+        mark,
+        Motion::new()
+            .enter(Effect::hidden().with_scale(0.5), m.snappy)
+            .exit(Effect::hidden().with_scale(0.5), m.fast),
+    );
 }
 
 impl View for Checkbox {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let checked = self.value.get();
-        let b = check_box(cx, &theme, checked, cx.is_hovered());
+        let mark = checked.then(|| util::icon(cx, IconName::Check, 14.0, theme.color(Semantic::OnAccent)));
+        let hovered = cx.is_hovered();
+        let mut b = check_box_around(cx, &theme, checked, hovered, mark.as_slice());
+        motion::control(cx, b);
+        if let Some(mark) = mark {
+            pop_mark(cx, mark);
+        }
+        if let Some(width) = self.leading {
+            b = cx.container(
+                LayoutStyle { width: Some(width), ..LayoutStyle::stack(Axis::Horizontal) },
+                &[b],
+                Paint::None,
+            );
+        }
         let label = util::label(cx, &self.label, TextStyle::Body, None, theme.color(Semantic::Ink));
         let node = row(cx, &[b, label]);
         cx.semantics(node, Semantics::new(Role::CheckBox).toggled(checked));
@@ -234,6 +282,10 @@ impl View for RadioOption {
             &dot,
             Paint::Quad(paint),
         );
+        motion::control(cx, circle);
+        if let Some(&dot) = dot.first() {
+            pop_mark(cx, dot);
+        }
         let label = util::label(cx, &self.label, TextStyle::Body, None, theme.color(Semantic::Ink));
         let node = row(cx, &[circle, label]);
         cx.semantics(node, Semantics::new(Role::RadioButton).selected(on).toggled(on));
@@ -552,6 +604,7 @@ impl SegmentedControl {
 }
 
 struct Segment {
+    scope: WidgetId,
     choice: ChoiceOption,
     icon: Option<IconName>,
     label: String,
@@ -567,7 +620,9 @@ impl View for Segment {
         if let Some(icon) = self.icon {
             children.push(util::icon(cx, icon, 14.0, color));
         }
-        children.push(util::label(cx, &self.label, TextStyle::Callout, Some(Weight::SEMIBOLD), color));
+        let label = util::label(cx, &self.label, TextStyle::Callout, Some(Weight::SEMIBOLD), color);
+        motion::control(cx, label);
+        children.push(label);
         let style = LayoutStyle {
             padding: Insets::symmetric(0.0, 14.0),
             height: Some(30.0),
@@ -591,6 +646,13 @@ impl View for Segment {
             Paint::None
         };
         let node = cx.container(style, &children, paint);
+        if on {
+            // The selected pill is one object that slides under the labels.
+            cx.motion(
+                node,
+                Motion::new().shared_layout(self.scope, 0, theme.motion.snappy).shape_only().underlay(),
+            );
+        }
         cx.semantics(node, Semantics::new(Role::RadioButton).selected(on).toggled(on));
         self.choice.wire(cx, node, 7.0);
         node
@@ -602,6 +664,7 @@ impl View for SegmentedControl {
         let theme = *cx.theme();
         let focus_to = util::roving_cell(cx, None);
         let count = self.options.len();
+        let scope = cx.widget_id();
         let segments: Vec<NodeId> = self
             .options
             .iter()
@@ -609,7 +672,7 @@ impl View for SegmentedControl {
             .map(|(index, (icon, label))| {
                 let roving = util::Roving { index, count, focus_to: focus_to.clone() };
                 let choice = ChoiceOption { roving, selected: self.selected.clone() };
-                cx.child(&Segment { choice, icon: *icon, label: label.clone() })
+                cx.child(&Segment { scope, choice, icon: *icon, label: label.clone() })
             })
             .collect();
         let style = LayoutStyle {

@@ -259,7 +259,8 @@ impl View for ProgressBar {
         let track = theme.color(Semantic::Control);
         let fill =
             if self.tone == Tone::Accent { theme.color(Semantic::Accent) } else { self.tone.color(&theme) };
-        let (value, h) = (self.value, self.height);
+        let h = self.height;
+        let value = cx.animated(self.value, theme.motion.snappy).clamp(0.0, 1.0);
         let style = LayoutStyle { height: Some(h), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
         let node = cx.container(
             style,
@@ -273,7 +274,7 @@ impl View for ProgressBar {
                 }
             })),
         );
-        let percent = (f64::from(value) * 100.0).round();
+        let percent = (f64::from(self.value) * 100.0).round();
         cx.semantics(
             node,
             Semantics::new(Role::ProgressIndicator)
@@ -318,11 +319,17 @@ impl View for Skeleton {
             align_self: self.width.is_none().then_some(Align::Stretch),
             ..LayoutStyle::leaf()
         };
-        let paint = QuadPaint {
-            corner_radius: self.radius.unwrap_or(theme.radii.sm),
-            ..QuadPaint::new(theme.color(Semantic::Control))
-        };
-        let node = cx.container(style, &[], Paint::Quad(paint));
+        let radius = self.radius.unwrap_or(theme.radii.sm);
+        let (base, ink) = (theme.color(Semantic::Control), theme.color(Semantic::Ink));
+        let node = cx.container(
+            style,
+            &[],
+            Paint::Live(std::rc::Rc::new(move |frame: Rect, time, scene| {
+                // A slow breath, which starts at rest under reduced motion.
+                let breath = (1.0 - (time * std::f64::consts::TAU / 1.6).cos()) as f32 / 2.0;
+                scene.push_quad(Quad::new(frame, base.lerp(ink, 0.08 * breath)).radius(radius));
+            })),
+        );
         cx.semantics(node, Semantics::hidden());
         node
     }

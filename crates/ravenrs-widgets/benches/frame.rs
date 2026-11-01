@@ -29,6 +29,11 @@ fn form() -> impl View {
     ScrollView::new(rows).spacing(12.0).padding(24.0)
 }
 
+/// The form with a spinner, whose frames repeat the paint phase alone.
+fn animated_form() -> impl View {
+    VStack::new((Spinner::new(), form())).grow(1.0)
+}
+
 fn grid() -> impl View {
     let rows = (0..100_000)
         .map(|i| vec![Value::from(format!("Customer {i:06}")), Value::from("Brazil"), Value::from(i % 500)])
@@ -59,9 +64,26 @@ fn frame(c: &mut Criterion, name: &str, view: impl View + 'static) {
     });
 }
 
+/// A frame where only an animation is due: the paint phase, with no build or layout.
+fn motion_frame(c: &mut Criterion) {
+    let mut ui = Ui::new(animated_form(), Theme::raven_dark());
+    ui.set_viewport(Size::new(1280.0, 800.0), 2.0);
+    let mut time = 0.0;
+    ui.set_time(time);
+    ui.update();
+    c.bench_function("frame_form_40_cards_motion_only", |b| {
+        b.iter(|| {
+            time += 1.0 / 60.0;
+            ui.set_time(time);
+            ui.update().primitives().len()
+        })
+    });
+}
+
 fn bench(c: &mut Criterion) {
     frame(c, "frame_form_40_cards", form());
     frame(c, "frame_datagrid_100k", grid());
+    motion_frame(c);
 }
 
 criterion_group!(benches, bench);

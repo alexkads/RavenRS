@@ -14,6 +14,7 @@ authors = ["Alex S S Fonseca <alexkads@gmail.com>"]
 [workspace.dependencies]
 ravenrs = { version = "26.2.1", path = "crates/ravenrs" }
 ravenrs-core = { version = "26.2.1", path = "crates/ravenrs-core" }
+ravenrs-animation = { version = "26.2.1", path = "crates/ravenrs-animation" }
 ravenrs-reactive = { version = "26.2.1", path = "crates/ravenrs-reactive" }
 ravenrs-layout = { version = "26.2.1", path = "crates/ravenrs-layout" }
 ravenrs-text = { version = "26.2.1", path = "crates/ravenrs-text" }

@@ -2,7 +2,10 @@ use std::cell::{Cell, RefCell};
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Color, CursorIcon, Event, Key, Modifiers, Point, PointerButton, Quad, Rect, Scene, Size};
+use ravenrs_core::{
+    Color, CursorIcon, Effect, Event, Key, Modifiers, Point, PointerButton, Primitive, Quad, Rect, Scene,
+    Size,
+};
 use ravenrs_layout::{Align, Axis, LayoutStyle, LayoutTree};
 use ravenrs_reactive::{Observer, State};
 use ravenrs_style::{Semantic, Theme};
@@ -10,9 +13,10 @@ use ravenrs_text::TextSystem;
 
 use crate::View;
 use crate::context::{
-    BuildCx, Drag, DragPhase, Element, Interaction, LocalStore, NodeId, Overlay, Paint, Placement,
+    BuildCx, Drag, DragPhase, Element, Interaction, LocalStore, NodeId, Overlay, Paint, Placement, QuadPaint,
     ScrollState, Shortcut, TextLeaf, WidgetId,
 };
+use crate::motion::{GhostLayer, MotionEntry, MotionSystem, NodePaint, Sampled, flipped};
 
 mod access;
 
@@ -21,6 +25,16 @@ type Waker = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 /// Lines scrolled per wheel notch are converted to pixels by the platform; this
 /// is the width of the overlay scrollbar.
 const SCROLLBAR_WIDTH: f32 = 4.0;
+
+/// Longest time between frames that animations treat as having really passed.
+const MAX_FRAME_GAP: f64 = 0.25;
+
+/// How much a longer gap counts for: little enough not to skip the animation,
+/// enough that a machine this slow still gets through it.
+const STALL_STEP: f64 = 0.05;
+
+/// Time between paints of animated drawing, in seconds.
+const LIVE_FRAME: f64 = 1.0 / 60.0;
 
 /// The platform-independent UI runtime: owns the root view, reacts to input and
 /// state changes, and produces a [`Scene`] for the renderer.
@@ -71,6 +85,25 @@ pub struct Ui {
     scene: Scene,
     access_map: access::AccessMap,
     clipboard: crate::Clipboard,
+    motion: MotionSystem,
+    motions: Vec<MotionEntry>,
+    /// What scrolling added to each element's frame.
+    shifts: Vec<Point>,
+    /// The picture's palette, to notice a theme change.
+    painted_palette: Option<ravenrs_style::Palette>,
+    /// The next build lands colors at once, because the picture crossfades.
+    crossfade: bool,
+    /// The next layout lands frames at once (the window was resized).
+    snap_layout: bool,
+    /// The system asked for reduced motion.
+    system_reduced_motion: bool,
+    /// When animated drawing wants its next paint.
+    next_live: Option<f64>,
+    /// The latest paint had animated drawing.
+    has_live: bool,
+    /// A value from `BuildCx::animated` was moving in the latest build.
+    value_moving: bool,
+    painting_overlays: bool,
 }
 
 impl fmt::Debug for Ui {
@@ -129,6 +162,17 @@ impl Ui {
             scene: Scene::new(),
             access_map: access::AccessMap::default(),
             clipboard: crate::Clipboard::default(),
+            motion: MotionSystem::default(),
+            motions: Vec::new(),
+            shifts: Vec::new(),
+            painted_palette: None,
+            crossfade: false,
+            snap_layout: false,
+            system_reduced_motion: false,
+            next_live: None,
+            has_live: false,
+            value_moving: false,
+            painting_overlays: false,
         }
     }
 
@@ -155,6 +199,7 @@ impl Ui {
             self.viewport = size;
             self.scale = scale;
             self.needs_build = true;
+            self.snap_layout = true;
         }
     }
 
@@ -190,19 +235,54 @@ impl Ui {
 
     /// True when the next [`Ui::update`] would produce a different scene.
     pub fn needs_redraw(&self) -> bool {
+        self.needs_rebuild() || self.motion.active || self.live_is_due()
+    }
+
+    fn needs_rebuild(&self) -> bool {
         self.needs_build || self.state_dirty.get() || self.wake.is_some_and(|w| self.time >= w)
     }
 
+    fn live_is_due(&self) -> bool {
+        self.next_live.is_some_and(|t| self.time >= t)
+    }
+
+    /// True while an animation is running, which means the next frame will
+    /// differ from this one even if nothing else happens.
+    pub fn is_animating(&self) -> bool {
+        self.motion.active || self.value_moving
+    }
+
     /// Sets the clock (seconds since the app started). Platforms call it before
-    /// handling events and before each frame.
+    /// handling events and before each frame. Animations start only once a
+    /// platform drives this clock.
+    ///
+    /// Animations follow their own clock, which skips stalls: after a long pause
+    /// (a hidden window, a slow frame) they continue about where they were
+    /// instead of jumping to the end.
     pub fn set_time(&mut self, seconds: f64) {
+        let elapsed = seconds - self.time;
+        self.motion.clock += if (0.0..=MAX_FRAME_GAP).contains(&elapsed) { elapsed } else { STALL_STEP };
+        self.motion.enabled = true;
         self.time = seconds;
+    }
+
+    /// Tells the runtime that the system asks for reduced motion. Things stop
+    /// traveling and springing; colors and opacity may still fade. A theme can
+    /// ask for the same through its `reduced_motion` token.
+    pub fn set_reduced_motion(&mut self, reduced: bool) {
+        if self.system_reduced_motion != reduced {
+            self.system_reduced_motion = reduced;
+            self.needs_build = true;
+        }
     }
 
     /// When the UI wants its next frame even without input (seconds, same clock
     /// as [`Ui::set_time`]). Platforms schedule a timer for it.
     pub fn next_wake(&self) -> Option<f64> {
-        self.wake
+        match (self.wake, self.next_live) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        }
     }
 
     /// True while a pointer drag that started on a draggable element (a slider,
@@ -218,12 +298,16 @@ impl Ui {
 
     /// Rebuilds, lays out and paints as needed, then returns the current scene.
     pub fn update(&mut self) -> &Scene {
-        if self.needs_redraw() {
+        if self.needs_rebuild() {
             self.rebuild();
             // The tree changed under a stationary pointer: refresh hover once.
             if self.refresh_hover() {
                 self.rebuild();
             }
+        } else if self.motion.active || self.live_is_due() {
+            // Only animations are due: the tree and its layout are still valid.
+            let _span = tracing::trace_span!("ravenrs::motion_frame").entered();
+            self.paint();
         }
         &self.scene
     }
@@ -604,42 +688,53 @@ impl Ui {
         let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
             self;
         let now = self.time;
-        let (node, overlays, requests, focus, wake, shortcuts, error) = observer.track(|| {
-            let mut cx = BuildCx::new(
-                theme,
-                viewport,
-                text,
-                layout,
-                elements,
-                *interaction,
-                hover_chain,
-                scroll,
-                modifiers,
-                local,
-                placeholder,
-                clipboard,
-            );
-            cx.now = now;
-            let content = cx.child(&**root);
-            let style = LayoutStyle {
-                width: Some(viewport.width),
-                height: Some(viewport.height),
-                align: Align::Stretch,
-                overflow_hidden: true,
-                ..LayoutStyle::stack(Axis::Vertical)
-            };
-            let node = cx.container(style, &[content], Paint::None);
-            (
-                node,
-                std::mem::take(&mut cx.overlays),
-                std::mem::take(&mut cx.scroll_requests),
-                cx.focus_request.take(),
-                cx.wake.take(),
-                std::mem::take(&mut cx.shortcuts),
-                cx.error.take(),
-            )
-        });
+        let motion_clock = self.motion.clock;
+        let motion_enabled = self.motion.enabled;
+        let reduced_motion = self.system_reduced_motion || theme.peek().interaction.reduced_motion;
+        self.motion.reduced = reduced_motion;
+        let (node, overlays, requests, focus, wake, shortcuts, error, motions, moving) =
+            observer.track(|| {
+                let mut cx = BuildCx::new(
+                    theme,
+                    viewport,
+                    text,
+                    layout,
+                    elements,
+                    *interaction,
+                    hover_chain,
+                    scroll,
+                    modifiers,
+                    local,
+                    placeholder,
+                    clipboard,
+                );
+                cx.now = now;
+                cx.motion_clock = motion_clock;
+                cx.motion_enabled = motion_enabled;
+                cx.reduced_motion = reduced_motion;
+                let content = cx.child(&**root);
+                let style = LayoutStyle {
+                    width: Some(viewport.width),
+                    height: Some(viewport.height),
+                    align: Align::Stretch,
+                    overflow_hidden: true,
+                    ..LayoutStyle::stack(Axis::Vertical)
+                };
+                let node = cx.container(style, &[content], Paint::None);
+                (
+                    node,
+                    std::mem::take(&mut cx.overlays),
+                    std::mem::take(&mut cx.scroll_requests),
+                    cx.focus_request.take(),
+                    cx.wake.take(),
+                    std::mem::take(&mut cx.shortcuts),
+                    cx.error.take(),
+                    std::mem::take(&mut cx.motions),
+                    cx.value_moving,
+                )
+            });
         self.wake = wake;
+        self.value_moving = moving;
         self.shortcuts = shortcuts;
         if let Some(widget) = focus
             && self.interaction.focused != Some(widget)
@@ -663,6 +758,15 @@ impl Ui {
         }
         self.root_node = Some(node);
         self.overlays = overlays;
+        self.motions = motions;
+        let palette = self.theme.peek().palette;
+        self.crossfade = self.motion.enabled && self.painted_palette.is_some_and(|p| p != palette);
+        let elements = &self.elements;
+        let paints = |n: NodeId| {
+            let e = &elements[n.0 as usize];
+            NodePaint::of(&e.paint, e.text_color)
+        };
+        self.motion.sync(&self.motions, paints, self.crossfade);
         self.parents.clear();
         self.parents.resize(self.elements.len(), None);
         for (i, e) in self.elements.iter().enumerate() {
@@ -704,6 +808,9 @@ impl Ui {
             if e.scroll {
                 self.content[i] = self.layout.content_size(e.layout)?;
             }
+            if e.measure {
+                self.scroll.contents.insert(e.widget, self.layout.content_size(e.layout)?);
+            }
         }
         Ok(())
     }
@@ -713,6 +820,8 @@ impl Ui {
         let Some(root) = self.root_node else { return };
         self.frames.clear();
         self.frames.resize(self.elements.len(), Rect::ZERO);
+        self.shifts.clear();
+        self.shifts.resize(self.elements.len(), Point::ZERO);
         self.place(root, Point::ZERO);
         let overlays = std::mem::take(&mut self.overlays);
         for overlay in &overlays {
@@ -723,14 +832,22 @@ impl Ui {
             self.place(overlay.root, origin);
         }
         self.overlays = overlays;
+        let snap = std::mem::take(&mut self.snap_layout);
+        for entry in &self.motions {
+            if let Some(t) = entry.motion.layout {
+                let i = entry.node.0 as usize;
+                let unscrolled = self.frames[i].translate(Point::ZERO - self.shifts[i]);
+                self.motion.sync_frame(entry.key, unscrolled, t, snap);
+            }
+        }
         self.paint();
     }
 
     /// Sets absolute frames for `node` and its subtree; `origin` is where the
     /// node's own frame starts (its layout location is ignored for roots).
     fn place(&mut self, node: NodeId, origin: Point) {
-        let mut stack = vec![(node, origin, true)];
-        while let Some((node, parent_origin, is_root)) = stack.pop() {
+        let mut stack = vec![(node, origin, true, Point::ZERO)];
+        while let Some((node, parent_origin, is_root, shift)) = stack.pop() {
             let i = node.0 as usize;
             let Ok(local) = self.layout.frame(self.elements[i].layout) else { continue };
             let frame = if is_root {
@@ -739,10 +856,13 @@ impl Ui {
                 local.translate(parent_origin)
             };
             self.frames[i] = frame;
+            self.shifts[i] = shift;
             let mut child_origin = frame.origin + self.elements[i].translate;
+            let mut child_shift = shift;
             if self.elements[i].scroll {
                 let offset = self.clamped_offset(i);
                 child_origin = child_origin - offset;
+                child_shift = child_shift - offset;
                 let widget = self.elements[i].widget;
                 self.scroll.viewports.insert(widget, frame.size);
                 // Store the clamped value so builds see where the content really is.
@@ -750,7 +870,7 @@ impl Ui {
             }
             let element = &self.elements[i];
             for child in &element.children {
-                stack.push((*child, child_origin, false));
+                stack.push((*child, child_origin, false, child_shift));
             }
         }
     }
@@ -758,29 +878,48 @@ impl Ui {
     fn paint(&mut self) {
         let _span = tracing::trace_span!("ravenrs::paint").entered();
         let theme = self.theme();
+        let viewport = Rect::from_origin_size(Point::ZERO, self.viewport);
+        if self.crossfade {
+            let mut old = Vec::with_capacity(self.scene.len() + 1);
+            old.push(Primitive::Quad(Quad::new(viewport, self.scene.clear_color())));
+            old.extend_from_slice(self.scene.primitives());
+            self.motion.crossfade(old, viewport, theme.motion.base);
+            self.crossfade = false;
+        }
+        self.painted_palette = Some(theme.palette);
         self.scene.clear();
         self.scene.set_clear_color(theme.color(Semantic::Canvas));
         self.paint_order.clear();
         self.clips.clear();
         self.clips.resize(self.elements.len(), Rect::ZERO);
-        let viewport = Rect::from_origin_size(Point::ZERO, self.viewport);
+        self.motion.active = false;
+        self.has_live = false;
+        self.painting_overlays = false;
         if let Some(root) = self.root_node {
             self.paint_node(root, viewport, &theme);
         }
-        let roots: Vec<NodeId> = self.overlays.iter().map(|o| o.root).collect();
-        for root in roots {
+        self.motion.paint_ghosts(GhostLayer::Main, &mut self.scene);
+        self.painting_overlays = true;
+        for i in 0..self.overlays.len() {
+            let root = self.overlays[i].root;
             self.paint_node(root, viewport, &theme);
         }
+        self.motion.paint_ghosts(GhostLayer::Overlay, &mut self.scene);
+        self.motion.paint_ghosts(GhostLayer::Top, &mut self.scene);
+        let live = self.has_live && !self.reduced_motion();
+        self.next_live = live.then_some(self.time + LIVE_FRAME);
     }
 
-    fn paint_node(&mut self, node: NodeId, clip: Rect, theme: &Theme) {
-        let i = node.0 as usize;
-        self.paint_order.push(node);
-        self.clips[i] = clip;
-        let frame = self.frames[i];
+    fn reduced_motion(&self) -> bool {
+        self.system_reduced_motion || self.theme.peek().interaction.reduced_motion
+    }
+
+    /// The node's own shape, at `frame`.
+    fn paint_shape(&mut self, i: usize, frame: Rect, quad: Option<QuadPaint>) {
         match &self.elements[i].paint {
             Paint::None => {}
             Paint::Quad(q) => {
+                let q = quad.unwrap_or(*q);
                 let mut quad = Quad::new(frame, q.fill).radius(q.corner_radius);
                 quad.border = q.border;
                 quad.shadow = q.shadow;
@@ -790,8 +929,54 @@ impl Ui {
                 let draw = draw.clone();
                 draw(frame, &mut self.scene);
             }
+            Paint::Live(draw) => {
+                let draw = draw.clone();
+                let time = if self.reduced_motion() { 0.0 } else { self.time };
+                self.has_live = true;
+                draw(frame, time, &mut self.scene);
+            }
         }
+    }
+
+    /// The motion values of element `i` for this frame, if it has a motion.
+    fn sample_motion(&mut self, i: usize) -> Option<(MotionEntry, Sampled)> {
+        let index = self.elements[i].motion?;
+        let entry = *self.motions.get(index as usize)?;
+        let e = &self.elements[i];
+        let paint = NodePaint::of(&e.paint, e.text_color);
+        Some((entry, self.motion.sample(entry.key, &paint, self.shifts[i])))
+    }
+
+    /// For an overlay root, its anchor's frame.
+    fn anchor_of(&self, node: NodeId) -> Option<Rect> {
+        let overlay = self.overlays.iter().find(|o| o.root == node)?;
+        self.frames.get(overlay.anchor.0 as usize).copied()
+    }
+
+    fn paint_node(&mut self, node: NodeId, clip: Rect, theme: &Theme) {
+        let i = node.0 as usize;
+        self.paint_order.push(node);
+        self.clips[i] = clip;
+        let frame = self.frames[i];
+        let start = self.scene.len();
+        let sampled = self.sample_motion(i);
+        let motion = sampled.as_ref().map(|(entry, _)| *entry);
+        let (quad, text_color, visual, mut effect) = match sampled {
+            Some((_, s)) => (s.quad, s.text, s.frame.unwrap_or(frame), s.effect),
+            None => (None, None, frame, Effect::IDENTITY),
+        };
+        let underlaid = motion.is_some_and(|m| m.motion.underlay);
+        if !underlaid {
+            self.paint_shape(i, visual, quad);
+        }
+        let exit = motion.filter(|m| m.motion.exit.is_some());
+        if exit.is_some() {
+            self.motion.begin_capture();
+        }
+        // Everything from here on travels with the node.
+        let content_start = self.scene.len();
         if let Some(color) = self.elements[i].text_color {
+            let color = text_color.unwrap_or(color);
             let layout_id = self.elements[i].layout;
             if let Some(leaf) = self.layout.context_mut(layout_id) {
                 if let Some((text, attrs)) = &leaf.truncate {
@@ -812,6 +997,16 @@ impl Ui {
             clip
         };
         let children = self.elements[i].children.clone();
+        for &child in &children {
+            if let Some(m) = self.elements[child.0 as usize].motion
+                && self.motions.get(m as usize).is_some_and(|e| e.motion.underlay)
+            {
+                let c = child.0 as usize;
+                if let Some((_, s)) = self.sample_motion(c) {
+                    self.paint_shape(c, s.frame.unwrap_or(self.frames[c]), s.quad);
+                }
+            }
+        }
         for child in children {
             self.paint_node(child, child_clip, theme);
         }
@@ -833,6 +1028,37 @@ impl Ui {
                 .border(ix.focus_ring_width, theme.color(Semantic::FocusRing));
             self.scene.push_quad(ring);
         }
+        let Some(entry) = motion else { return };
+        let end = self.scene.len();
+        if !entry.motion.shape_only && visual.origin != frame.origin {
+            self.scene.apply_effect(
+                content_start..end,
+                {
+                    let d = visual.origin - frame.origin;
+                    Effect::moved(d.x, d.y)
+                },
+                Point::ZERO,
+            );
+        }
+        let mut pivot = visual.center();
+        let mut flip = false;
+        if entry.motion.anchored
+            && let Some(anchor) = self.anchor_of(node)
+        {
+            let target = anchor.center();
+            pivot = Point::new(
+                target.x.clamp(visual.x(), visual.max_x()),
+                target.y.clamp(visual.y(), visual.max_y()),
+            );
+            flip = visual.center().y < target.y;
+            effect = flipped(effect, flip);
+        }
+        if exit.is_some() {
+            let layer = if self.painting_overlays { GhostLayer::Overlay } else { GhostLayer::Main };
+            let primitives = &self.scene.primitives()[start..end];
+            self.motion.end_capture(entry.key, primitives, start..end, clip, pivot, flip, layer);
+        }
+        self.scene.apply_effect(start..end, effect, pivot);
     }
 
     fn paint_scrollbar(&mut self, i: usize, theme: &Theme) {

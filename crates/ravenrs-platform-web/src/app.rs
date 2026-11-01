@@ -478,6 +478,23 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
             }),
         }
     };
+    // Follows the system's reduced-motion setting, even if it changes later.
+    if let Some(query) =
+        web_sys::window().and_then(|w| w.match_media("(prefers-reduced-motion: reduce)").ok().flatten())
+    {
+        state.borrow_mut().ui.set_reduced_motion(query.matches());
+        let (ui_state, sched, watched) = (state.clone(), scheduler.clone(), query.clone());
+        app.listeners.push(Listener {
+            target: query.into(),
+            kind: "change",
+            closure: Closure::new(move |_e: web_sys::Event| {
+                let Ok(mut s) = ui_state.try_borrow_mut() else { return };
+                s.ui.set_reduced_motion(watched.matches());
+                drop(s);
+                sched.schedule();
+            }),
+        });
+    }
     app.listeners.push(pointer("pointermove", |position, _| Event::PointerMove { position }));
     app.listeners.push(pointer("pointerdown", |position, button| Event::PointerDown { position, button }));
     app.listeners.push(pointer("pointerup", |position, button| Event::PointerUp { position, button }));

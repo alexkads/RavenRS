@@ -2660,6 +2660,7 @@ version = "26.2.1"
 dependencies = [
  "image",
  "pollster",
+ "ravenrs-animation",
  "ravenrs-core",
  "ravenrs-layout",
  "ravenrs-platform-native",
@@ -2669,6 +2670,14 @@ dependencies = [
  "ravenrs-style",
  "ravenrs-text",
  "ravenrs-widgets",
+]
+
+[[package]]
+name = "ravenrs-animation"
+version = "26.2.1"
+dependencies = [
+ "proptest",
+ "ravenrs-core",
 ]
 
 [[package]]
@@ -2777,6 +2786,7 @@ dependencies = [
 name = "ravenrs-style"
 version = "26.2.1"
 dependencies = [
+ "ravenrs-animation",
  "ravenrs-core",
 ]
 
@@ -2796,6 +2806,7 @@ dependencies = [
  "criterion",
  "image",
  "proptest",
+ "ravenrs-animation",
  "ravenrs-core",
  "ravenrs-layout",
  "ravenrs-reactive",

@@ -15,6 +15,7 @@ categories = ["gui"]
 
 [dependencies]
 ravenrs-core.workspace = true
+ravenrs-animation.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-layout.workspace = true
 ravenrs-text.workspace = true

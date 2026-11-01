@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gallery-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "examples/component-gallery/web",
+        "8091"
+      ],
+      "port": 8091
+    },
+    {
+      "name": "designer-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "examples/report-designer/web",
+        "8094"
+      ],
+      "port": 8094
+    }
+  ]
+}

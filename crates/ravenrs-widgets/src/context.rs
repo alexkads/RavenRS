@@ -1,8 +1,10 @@
 use std::any::Any;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::rc::Rc;
 
+use ravenrs_animation::{Animatable, Animated, Transition};
 use ravenrs_core::{
     Border, Brush, Color, CursorIcon, Key, Modifiers, NumericValue, Point, Rect, Role, Scene, Shadow, Size,
     Toggled,
@@ -13,6 +15,7 @@ use ravenrs_style::Theme;
 use ravenrs_text::{TextAttrs, TextLayout, TextSystem};
 
 use crate::View;
+use crate::motion::{Motion, MotionEntry, MotionKey};
 use crate::view::ViewSeq;
 
 /// Stable identity of a widget across rebuilds, derived from its position in the
@@ -65,6 +68,11 @@ impl QuadPaint {
 /// Custom drawing callback: receives the element's absolute frame in logical pixels.
 pub type DrawFn = Rc<dyn Fn(Rect, &mut Scene)>;
 
+/// Drawing that changes over time: receives the element's frame and the clock in
+/// seconds. It runs on paint-only frames, at most 60 times a second, for as long
+/// as the view is built. With reduced motion it runs once, at time zero.
+pub type LiveFn = Rc<dyn Fn(Rect, f64, &mut Scene)>;
+
 /// What an element draws before its children.
 #[derive(Clone, Default)]
 pub enum Paint {
@@ -75,6 +83,8 @@ pub enum Paint {
     Quad(QuadPaint),
     /// Arbitrary drawing into the scene, given the element's absolute frame.
     Custom(DrawFn),
+    /// Arbitrary drawing that keeps changing (spinners, pulses), without rebuilding.
+    Live(LiveFn),
 }
 
 impl fmt::Debug for Paint {
@@ -83,6 +93,7 @@ impl fmt::Debug for Paint {
             Self::None => f.write_str("None"),
             Self::Quad(q) => f.debug_tuple("Quad").field(q).finish(),
             Self::Custom(_) => f.write_str("Custom"),
+            Self::Live(_) => f.write_str("Live"),
         }
     }
 }
@@ -330,6 +341,10 @@ pub(crate) struct Element {
     pub semantics: Option<Box<Semantics>>,
     /// The string a text leaf shows.
     pub text: Option<Rc<str>>,
+    /// Index of this element's entry among the build's motions.
+    pub motion: Option<u32>,
+    /// Report the size of the content (see [`BuildCx::measured_content`]).
+    pub measure: bool,
 }
 
 impl Element {
@@ -354,6 +369,8 @@ impl Element {
             on_context_menu: None,
             semantics: None,
             text: None,
+            motion: None,
+            measure: false,
         }
     }
 
@@ -388,6 +405,7 @@ struct Scope {
     id: WidgetId,
     next_child: u64,
     next_state: u32,
+    next_motion: u64,
 }
 
 /// Scroll positions and visible sizes of scroll containers, by widget.
@@ -396,6 +414,8 @@ pub(crate) struct ScrollState {
     pub offsets: HashMap<WidgetId, Point>,
     /// Frame size of each scroll container in the last layout.
     pub viewports: HashMap<WidgetId, Size>,
+    /// Content size of each measured element in the last layout.
+    pub contents: HashMap<WidgetId, Size>,
 }
 
 /// Widget-local state that survives rebuilds, keyed by widget identity and
@@ -441,6 +461,12 @@ pub struct BuildCx<'a> {
     pub(crate) placeholder: LayoutId,
     pub(crate) error: Option<LayoutError>,
     pub(crate) clipboard: crate::Clipboard,
+    pub(crate) motions: Vec<MotionEntry>,
+    pub(crate) motion_clock: f64,
+    pub(crate) motion_enabled: bool,
+    pub(crate) reduced_motion: bool,
+    /// A value from [`Self::animated`] is still moving.
+    pub(crate) value_moving: bool,
     scopes: Vec<Scope>,
 }
 
@@ -488,7 +514,12 @@ impl<'a> BuildCx<'a> {
             placeholder,
             error: None,
             clipboard,
-            scopes: vec![Scope { id: WidgetId::ROOT, next_child: 0, next_state: 0 }],
+            motions: Vec::new(),
+            motion_clock: 0.0,
+            motion_enabled: false,
+            reduced_motion: false,
+            value_moving: false,
+            scopes: vec![Scope { id: WidgetId::ROOT, next_child: 0, next_state: 0, next_motion: 0 }],
         }
     }
 
@@ -587,7 +618,7 @@ impl<'a> BuildCx<'a> {
 
     fn build_scoped(&mut self, key: u64, view: &dyn View) -> NodeId {
         let id = self.widget_id().child(key);
-        self.scopes.push(Scope { id, next_child: 0, next_state: 0 });
+        self.scopes.push(Scope { id, next_child: 0, next_state: 0, next_motion: 0 });
         let node = view.build(self);
         self.scopes.pop();
         node
@@ -783,6 +814,66 @@ impl<'a> BuildCx<'a> {
     /// toasts that expire, carousels that advance, spinners that turn.
     pub fn wake_at(&mut self, time: f64) {
         self.wake = Some(self.wake.map_or(time, |w| w.min(time)));
+    }
+
+    /// Declares how `node` animates; see [`Motion`]. Call it in the same order on
+    /// every build, or give the motion a [`Motion::key`].
+    pub fn motion(&mut self, node: NodeId, motion: Motion) {
+        let id = self.widget_id();
+        let key = match motion.shared {
+            Some((scope, tag)) => MotionKey::Shared(scope, tag),
+            None => match (motion.key, self.scopes.last_mut()) {
+                (Some(k), _) => MotionKey::Node(id, k | (1 << 63)),
+                (None, Some(scope)) => {
+                    scope.next_motion += 1;
+                    MotionKey::Node(id, scope.next_motion)
+                }
+                (None, None) => MotionKey::Node(id, 0),
+            },
+        };
+        let index = self.motions.len() as u32;
+        if let Some(e) = self.element_mut(node) {
+            e.motion = Some(index);
+            self.motions.push(MotionEntry { node, key, motion });
+        }
+    }
+
+    /// A value that eases toward `target`, for what [`Motion`] does not cover:
+    /// numbers that feed layout or custom drawing. Call it in the same order on
+    /// every build. It rebuilds the UI on each frame while it moves, so prefer
+    /// [`Motion`] when you can.
+    pub fn animated<T: Animatable + 'static>(&mut self, target: T, transition: Transition) -> T {
+        let cell = self.use_state(|| Rc::new(RefCell::new(Animated::new(target))));
+        let cell = cell.peek().clone();
+        let mut value = cell.borrow_mut();
+        let now = self.motion_clock;
+        let transition =
+            if !self.motion_enabled || self.reduced_motion { Transition::Instant } else { transition };
+        value.set_target(target, transition, now);
+        if value.step(now) {
+            self.value_moving = true;
+            self.wake_at(self.now);
+        }
+        value.value(now)
+    }
+
+    /// The user asked for less motion, in the system settings or in the theme.
+    /// [`Motion`] already respects this; check it for motion you draw yourself.
+    pub fn reduced_motion(&self) -> bool {
+        self.reduced_motion
+    }
+
+    /// Asks the runtime to report the size of the content of `node`, read back
+    /// with [`Self::measured_content`] on the next build.
+    pub fn measure_content(&mut self, node: NodeId) {
+        if let Some(e) = self.element_mut(node) {
+            e.measure = true;
+        }
+    }
+
+    /// The size of the content of this view's measured node in the last layout.
+    pub fn measured_content(&self) -> Option<Size> {
+        self.scroll.contents.get(&self.widget_id()).copied()
     }
 
     /// Registers an app-wide keyboard shortcut for as long as this view is built.

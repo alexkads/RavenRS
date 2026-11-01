@@ -2,7 +2,7 @@
 //!
 //! ## Crates behind this facade
 //!
-//! [`core`], [`reactive`], [`layout`], [`text`], [`style`], [`render`] and [`widgets`]
+//! [`core`], [`animation`], [`reactive`], [`layout`], [`text`], [`style`], [`render`] and [`widgets`]
 //! can also be used on their own.
 
 /// Keeps the code in the skill for AI assistants compiling.
@@ -10,6 +10,7 @@
 #[doc = include_str!("../../../plugins/ravenrs/skills/ravenrs/SKILL.md")]
 struct SkillDoctests;
 
+pub use ravenrs_animation as animation;
 pub use ravenrs_core as core;
 pub use ravenrs_layout as layout;
 pub use ravenrs_reactive as reactive;
@@ -32,9 +33,10 @@ pub mod web {
 
 /// Everything an app usually needs, in one import.
 pub mod prelude {
+    pub use ravenrs_animation::{Animated, Easing, Spring, Transition};
     pub use ravenrs_core::{
-        AccessAction, AccessTree, Color, CursorIcon, ImageData, ImageQuad, Insets, LinearGradient, Point,
-        Quad, Rect, Role, Scene, Shadow, Size, Toggled,
+        AccessAction, AccessTree, Color, CursorIcon, Effect, ImageData, ImageQuad, Insets, LinearGradient,
+        Point, Quad, Rect, Role, Scene, Shadow, Size, Toggled,
     };
     pub use ravenrs_layout::{Align, Justify};
     pub use ravenrs_reactive::{Binding, Derived, State};

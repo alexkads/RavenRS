@@ -1,12 +1,12 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{IconName, View, util};
+use crate::{IconName, Motion, View, util};
 
 /// Visual emphasis of a [`Button`] or other control.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -226,8 +226,9 @@ impl Button {
 impl View for Button {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
+        let pressed = cx.is_pressed() && !self.disabled;
         let (fill, label_color, border) =
-            control_colors(&theme, self.style, cx.is_hovered(), cx.is_pressed(), self.disabled);
+            control_colors(&theme, self.style, cx.is_hovered(), pressed, self.disabled);
         let icon_size = if self.size == ButtonSize::Small { 14.0 } else { 16.0 };
         let mut children = Vec::new();
         if let Some(icon) = self.icon {
@@ -255,6 +256,8 @@ impl View for Button {
         let radius = theme.radii.md;
         let paint = Paint::Quad(QuadPaint { fill: fill.into(), corner_radius: radius, border, shadow: None });
         let node = cx.container(style, &children, paint);
+        let squeeze = if pressed { Effect::scaled(0.97) } else { Effect::IDENTITY };
+        cx.motion(node, Motion::new().paint(theme.motion.fast).effect(squeeze, theme.motion.snappy));
         let mut semantics = Semantics::new(Role::Button).disabled(self.disabled);
         if let Some(name) = &self.accessible_name {
             semantics = semantics.name(name.clone());

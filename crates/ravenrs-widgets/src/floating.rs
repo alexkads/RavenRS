@@ -5,14 +5,14 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Point, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::overlay::{Entry, MenuList, PanelOf, panel};
-use crate::{ButtonSize, IconButton, IconName, MenuItem, TextField, Tone, View, util};
+use crate::{ButtonSize, IconButton, IconName, MenuItem, Motion, TextField, Tone, View, motion, util};
 
 /// Opens a menu at the pointer on right click (or long press, planned) over its content.
 pub struct ContextMenu<V> {
@@ -220,6 +220,13 @@ impl View for SheetLayer<'_> {
         }
         cx.semantics(panel, semantics);
         cx.cursor(panel, CursorIcon::Default);
+        let away = s.width.min(viewport.width) * if s.side == Side::Right { 1.0 } else { -1.0 };
+        cx.motion(
+            panel,
+            Motion::new()
+                .enter(Effect::moved(away, 0.0), theme.motion.gentle)
+                .exit(Effect::moved(away, 0.0), theme.motion.base),
+        );
         let backdrop = cx.container(
             LayoutStyle {
                 width: Some(viewport.width),
@@ -232,6 +239,7 @@ impl View for SheetLayer<'_> {
         );
         let close = s.open.clone();
         cx.on_click(backdrop, Rc::new(move || close.set(false)));
+        motion::scrim(cx, backdrop);
         backdrop
     }
 }
@@ -398,6 +406,15 @@ impl View for ToastStack<'_> {
             let role = if t.tone == Tone::Danger { Role::Alert } else { Role::Status };
             cx.semantics(card, Semantics::new(role));
             cx.cursor(card, CursorIcon::Default);
+            // The rest of the stack makes room as one comes or goes.
+            cx.motion(
+                card,
+                Motion::new()
+                    .key(t.id)
+                    .layout(theme.motion.snappy)
+                    .enter(Effect::moved(32.0, 0.0).with_opacity(0.0), theme.motion.gentle)
+                    .exit(Effect::moved(32.0, 0.0).with_opacity(0.0), theme.motion.fast),
+            );
             cards.push(card);
         }
         cx.container(LayoutStyle { spacing: 10.0, ..LayoutStyle::stack(Axis::Vertical) }, &cards, Paint::None)
@@ -658,6 +675,7 @@ impl View for PaletteLayer<'_> {
         );
         let close = self.palette.open.clone();
         cx.on_click(backdrop, Rc::new(move || close.set(false)));
+        motion::scrim(cx, backdrop);
         backdrop
     }
 }

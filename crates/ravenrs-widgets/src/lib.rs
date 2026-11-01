@@ -22,6 +22,12 @@
 //! *build* (views to elements, tracked by a reactive observer), *layout* (Taffy),
 //! *paint*. It only rebuilds when state the last build read has changed or the
 //! interaction state (hover, press, focus) changed, and it never touches the GPU.
+//!
+//! # Motion
+//!
+//! A view declares how a node moves with [`BuildCx::motion`] and the runtime
+//! plays it. While only animations run, frames repeat the paint phase alone, so
+//! views are not rebuilt. When nothing moves, no frames are requested.
 
 mod button;
 mod calendar;
@@ -42,6 +48,7 @@ mod icon_set;
 mod image;
 mod inputs;
 mod modifiers;
+mod motion;
 mod nav;
 mod overlay;
 mod ribbon;
@@ -59,7 +66,7 @@ pub use card::{Card, GlassCard};
 pub use choice::{AspectRatio, ColorSwatch, Label, Pagination, ToggleButton, ToggleGroup};
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use context::{
-    BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, NodeId, Paint, Placement, QuadPaint,
+    BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint, Placement, QuadPaint,
     Semantics, WidgetId,
 };
 pub use data::{AreaChart, BarChart, Column, List, ListItem, Table};
@@ -80,6 +87,7 @@ pub use image::decode_image;
 pub use image::{ContentMode, DecodeError, Image};
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use modifiers::{Styled, ViewExt};
+pub use motion::{Collapse, Motion};
 pub use nav::{Accordion, Breadcrumb, Disclosure, Sidebar, SidebarItem, SidebarSection, Tabs};
 pub use overlay::{Dialog, DropdownMenu, MenuItem, Popover, Select, Tooltip};
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};

@@ -5,6 +5,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ## [Unreleased]
 
 ### Added
+- **Motion.** The new `ravenrs-animation` crate has closed-form springs, CSS-compatible curves, OKLab color mixing and `Animated<T>`, which changes target with no jump in position or velocity. `BuildCx::motion` and `Motion` declare paint and layout transitions, shared layout, effects, and enter and exit animations. While only animations run, frames repeat the paint phase alone. Also new: `Collapse`, `BuildCx::animated`, `Paint::Live`, `Effect`, `Scene::apply_effect`, `Theme::motion`, `Ui::is_animating` and `Ui::set_reduced_motion`, which the browser now drives from `prefers-reduced-motion`.
+- Built-in components animate: buttons, toggles, check boxes, radio buttons, segmented controls, tabs, disclosures, accordions, sidebars, text fields, menus, popovers, tooltips, dialogs, sheets, the command palette, toasts, carousels, progress bars, spinners and skeletons. Switching themes crossfades.
 - **Skill and MCP server for AI assistants.** The Claude Code plugin in `plugins/ravenrs` brings a skill on building with RavenRS and `ravenrs-mcp`, a read-only server that works offline. Its tools are `list_components`, `component_api`, `component_examples`, `design_tokens`, `parity_status`, `validate_expression` and `expression_functions`. It is installed from git, not published to crates.io, and nothing in the framework depends on it. See the [README](README.md#ai-assistants).
 - `ColorSwatch`, a named color to pick from a palette.
 - `Text::truncate` and `BuildCx::text_truncated` keep text on one line that ends with `…`; screen readers still get the whole text. `TextSystem::layout_ellipsized` is the underlying call.

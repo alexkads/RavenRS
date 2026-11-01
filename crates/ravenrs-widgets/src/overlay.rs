@@ -4,13 +4,13 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
-use crate::{AnyView, Button, ButtonStyle, IconButton, IconName, View, util};
+use crate::{AnyView, Button, ButtonStyle, IconButton, IconName, Motion, View, motion, util};
 
 /// The floating panel surface shared by menus, selects and popovers.
 fn panel_paint(theme: &Theme) -> Paint {
@@ -34,6 +34,7 @@ pub(crate) fn panel(cx: &mut BuildCx<'_>, children: &[NodeId], padding: f32, min
     };
     let node = cx.container(style, children, panel_paint(&theme));
     cx.cursor(node, CursorIcon::Default);
+    motion::popup(cx, node);
     node
 }
 
@@ -71,6 +72,7 @@ impl View for Bubble<'_> {
         );
         // The text is already the name or description of the anchor.
         cx.semantics(node, Semantics::hidden());
+        motion::popup(cx, node);
         node
     }
 }
@@ -308,6 +310,7 @@ impl View for ListRow<'_> {
             &children,
             Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(fill) }),
         );
+        motion::control(cx, node);
         let mut semantics = Semantics::new(self.role);
         if self.role == Role::ListBoxOption {
             semantics = semantics.selected(self.checked);
@@ -731,6 +734,12 @@ impl View for DialogLayer<'_> {
         cx.semantics(card, semantics);
         // The card swallows clicks so only the backdrop closes the dialog.
         cx.cursor(card, CursorIcon::Default);
+        cx.motion(
+            card,
+            Motion::new()
+                .enter(Effect::moved(0.0, 8.0).with_opacity(0.0).with_scale(0.96), theme.motion.gentle)
+                .exit(Effect::IDENTITY.with_scale(0.98), theme.motion.fast),
+        );
         let backdrop = cx.container(
             LayoutStyle {
                 width: Some(viewport.width),
@@ -744,6 +753,7 @@ impl View for DialogLayer<'_> {
         );
         let close = d.open.clone();
         cx.on_click(backdrop, Rc::new(move || close.set(false)));
+        motion::scrim(cx, backdrop);
         backdrop
     }
 }

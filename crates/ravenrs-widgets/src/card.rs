@@ -110,6 +110,9 @@ impl<V: View> Card<V> {
         let corner_radius = paint.corner_radius;
         let child = cx.child(&self.content);
         let node = cx.container(style, &[child], Paint::Quad(paint));
+        if self.on_click.is_some() {
+            crate::motion::control(cx, node);
+        }
         if let Some(handler) = &self.on_click {
             cx.semantics(node, Semantics::new(Role::Button));
             cx.on_click(node, handler.clone());

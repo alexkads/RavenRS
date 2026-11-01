@@ -72,6 +72,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | Crate | Modules |
 |---|---|
 | `ravenrs-core` | `geometry`, `color`, `event`, `scene` (the display list), `access` (the accessibility tree) |
+| `ravenrs-animation` | `spring`, `easing`, `oklab`, `animated` (pure functions of time) |
 | `ravenrs-reactive` | `state`, `binding`, `derived`, `observer` |
 | `ravenrs-render` | `renderer` (batching and passes), `gpu` (surface and device), `atlas` (glyphs), `images` |
 | `ravenrs-platform-native` | `lib` (winit loop), `access` (AccessKit) |
@@ -112,7 +113,7 @@ Renderer::render:  batch quads/glyphs ──► upload instances ──► one r
 * **Paint** walks the element tree in order and appends primitives (`Quad`, `GlyphRun`) to the `Scene`. Focus rings are painted after the focused element's children so they sit on top.
 * **Render** turns the scene into instanced draws. Consecutive primitives of the same kind are merged into one draw call; painter's order is preserved.
 
-Nothing runs between frames. An idle app sleeps on the desktop (`ControlFlow::Wait`) and schedules no animation frames on the web.
+Nothing runs between frames. An idle app sleeps on the desktop (`ControlFlow::Wait`) and schedules no animation frames on the web. While an animation runs, frames repeat only the paint phase ([§6.5](#65-motion)).
 
 ## 5. Reactive system
 
@@ -210,6 +211,32 @@ Expressions in a report come from `ravenrs-criteria`, and text is measured with 
 
 Phase R1 is done. Exporters, the viewer widget, the server and scheduled delivery are not built yet; [docs/REPORTING.md](docs/REPORTING.md) has the design and phases, and [docs/REPORTING-PARITY.md](docs/REPORTING-PARITY.md) tracks each feature.
 
+## 6.5 Motion
+
+`ravenrs-animation` holds the mathematics and knows nothing about the UI. `ravenrs-style` carries the tokens in `Theme::motion`. The runtime is `motion.rs` in `ravenrs-widgets`.
+
+**Declared, not driven.** A view says how a node moves with `cx.motion(node, Motion::new()...)`. Builds only set targets, on tracks that live outside the view tree and are keyed by identity. Then `Ui::update` has three cases: state changed, so build, lay out and paint; only animations are due, so paint alone; nothing is due, so no frame is requested. An animation therefore costs a repaint, not a rebuild. `Scene` stays the only meeting point with the renderer, so motion works headless and needed no GPU changes.
+
+| Technique | Where | Why |
+|---|---|---|
+| Closed-form springs | `Spring::sample` | The position depends only on time, so results do not vary with frame rate and a long frame cannot blow up. |
+| Interruption without a jump | `Animated::set_target` | A spring restarts from its current position and velocity. Tweens are additive: each one eases in its share of the change and the sum has no corner. |
+| OKLab with premultiplied alpha | `Animatable for Color` | Midpoints keep lightness and hue, and a fade from transparent does not pass through gray. At rest the exact token comes back, with no rounding. |
+| Layout animation | `Motion::layout` | The node's old frame eases to its new one while children travel with it. Its size is redrawn rather than scaled, so nothing distorts. Input uses the final frame, and frames are compared without scroll offsets, so scrolling never animates. |
+| Shared layout | `Motion::shared_layout` | Nodes of different widgets count as one object, which is how a tab underline slides. `underlay` paints it behind its siblings. |
+| Exit by snapshot | `Motion::exit` | A view that stops being built is gone at once for the app: state, input and accessibility. Its last primitives stay on screen as a *ghost* that plays the exit. Reopening revives it from where it was. A nested exit (a dialog's card in its backdrop) plays inside the outer one. |
+| Anchored popups | `Motion::anchored` | Scale around the point nearest the anchor; offsets flip when the popup flipped. |
+| Height to fit | `Collapse` | The runtime reports the content's natural size to the next build. This one does rebuild on each frame, because it changes layout. |
+| Live drawing | `Paint::Live` | Spinners and pulses repaint at no more than 60 Hz with no rebuild. |
+| Theme crossfade | `Ui::paint` | The old picture fades over the new one, in a single layer, instead of every color moving at its own pace. |
+| Lag smoothing | `Ui::set_time` | Animations have their own clock, in which a gap above 250 ms counts as 50 ms: after a stall they continue instead of jumping to the end, and a very slow machine still gets through them. |
+
+**Reduced motion.** It comes from `Ui::set_reduced_motion` (the browser's `prefers-reduced-motion`, live) or from the theme's token. Things stop traveling and bouncing, colors and opacity fade briefly, and live drawing stops.
+
+**No clock, no animation.** Motion starts with the first `Ui::set_time`. A `Ui` without a platform lands everything at once, which keeps headless tests and reference images deterministic.
+
+**Limits.** Effects run on the display list (`Scene::apply_effect`), so there is no rotation, and opacity applies per primitive: overlapping shapes show through each other while partly faded. Real group opacity and rotation need layers and transforms in the renderer. Text snaps to pixels vertically, so a slow move of a text block advances in device pixels.
+
 ## 7. Rendering
 
 `ravenrs-render` is a small 2D renderer on `wgpu` 30.
@@ -274,8 +301,8 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `BarChart`, `AreaChart`, `Canvas` | ✓ | | image loading from URLs, line/pie charts |
 | `GlassCard` | | translucent fill only | backdrop blur |
 | Rounded rects, borders, gradients, soft shadows, text, images (mipmapped, rounded), rectangular clipping | ✓ | | rounded clipping, radial gradients, transforms, layers |
-| Raven Dark / Light / Glass tokens, runtime theme switching, `reduced_motion` token (honored by `Spinner`) | ✓ | | reading the system's reduced-motion setting |
-| Motion engine (springs, transitions) | | | `ravenrs-animation` |
+| Raven Dark / Light / Glass tokens, runtime theme switching, reduced motion from the theme token, `Ui::set_reduced_motion` and the browser's `prefers-reduced-motion` | ✓ | | reading the setting on the desktop (winit does not expose it) |
+| Motion (see §6.5): analytic springs, additive tweens, OKLab colors, implicit paint and layout transitions, shared layout, enter and exit, paint-only frames | ✓ | | rotation and true group opacity (renderer transforms and layers), gestures, momentum scrolling |
 | Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, clipboard, device loss | ✓ | | multiple windows, IME |
 | Web: canvas, WebGPU, DPR, pointer, wheel, touch scrolling, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), clipboard copy, rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | pinch and momentum scrolling |
 | Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web | | caret and selection for screen readers, right-to-left |

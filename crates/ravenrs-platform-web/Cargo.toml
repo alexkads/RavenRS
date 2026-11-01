@@ -25,6 +25,7 @@ js-sys.workspace = true
 web-sys = { workspace = true, features = [
     "Window",
     "Performance",
+    "MediaQueryList",
     "Document",
     "Element",
     "HtmlElement",

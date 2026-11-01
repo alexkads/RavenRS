@@ -1,0 +1,23 @@
+[package]
+name = "ravenrs-animation"
+description = "RavenRS motion primitives: analytic springs, cubic-bezier easing, OKLab color interpolation and interruptible animated values."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-animation"
+keywords = ["gui", "animation", "spring", "easing", "oklab"]
+categories = ["gui"]
+
+[dependencies]
+ravenrs-core.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

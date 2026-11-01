@@ -4,6 +4,7 @@
 //! that is also published as the RavenRS design system. Components never hard-code
 //! colors or sizes: they ask the [`Theme`] for a semantic token.
 
+use ravenrs_animation::Transition;
 use ravenrs_core::{Color, Insets, Point, Shadow};
 
 /// Semantic color roles. Widgets refer to roles, never to raw colors, so every
@@ -278,6 +279,21 @@ pub struct Interaction {
     pub reduced_motion: bool,
 }
 
+/// Motion tokens: how long things take and how they move.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MotionTokens {
+    /// Hover, press and focus color (`duration-fast`).
+    pub fast: Transition,
+    /// Small layout and opacity changes (`duration-base`).
+    pub base: Transition,
+    /// Panels and sheets entering, by time (`duration-slow`).
+    pub slow: Transition,
+    /// Things changing place or size (`spring-snappy`).
+    pub snappy: Transition,
+    /// Panels and sheets, by physics (`spring-gentle`).
+    pub gentle: Transition,
+}
+
 /// A complete theme: palette plus the shared scales.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Theme {
@@ -297,10 +313,20 @@ pub struct Theme {
     pub material: Material,
     /// Interaction sizing and motion preferences.
     pub interaction: Interaction,
+    /// Motion tokens.
+    pub motion: MotionTokens,
 }
 
 const INTERACTION: Interaction =
     Interaction { min_target: 40.0, focus_ring_width: 2.0, focus_ring_offset: 3.0, reduced_motion: false };
+
+const MOTION: MotionTokens = MotionTokens {
+    fast: Transition::fast(),
+    base: Transition::base(),
+    slow: Transition::slow(),
+    snappy: Transition::snappy(),
+    gentle: Transition::gentle(),
+};
 
 const fn shadow(y: f32, blur: f32, color: Color) -> Shadow {
     Shadow { offset: Point::new(0.0, y), blur, color }
@@ -337,6 +363,7 @@ impl Theme {
             },
             material: Material::Solid,
             interaction: INTERACTION,
+            motion: MOTION,
         }
     }
 
@@ -370,6 +397,7 @@ impl Theme {
             },
             material: Material::Solid,
             interaction: INTERACTION,
+            motion: MOTION,
         }
     }
 
@@ -404,6 +432,7 @@ impl Theme {
             },
             material: Material::Glass,
             interaction: INTERACTION,
+            motion: MOTION,
         }
     }
 
