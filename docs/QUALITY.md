@@ -55,6 +55,8 @@ Measured with `cargo bench` (criterion) on an Apple M-series laptop, release pro
 | … search across columns | < 16 ms | 3.2 ms |
 | … group with summaries | < 16 ms | 11.3 ms |
 | Shape a label / shape and wrap a paragraph | < 0.1 ms | 0.003 ms / 0.035 ms |
+| Report: grouped sales over 10,000 rows, 305 pages | < 300 ms | 80 ms native, about 200 ms in the browser |
+| Report: invoice | < 5 ms | 0.05 ms |
 
 The DataGrid caches the query result and reruns it only when the data or the query changes, so these costs are paid once per user action, not every frame. Version 0.1 broke the budget in three cases (search at 47 ms, filter at 31 ms, text sort at 23 ms). They were fixed by parsing filters once per query, matching text case-insensitively without allocating, computing sort keys only for matching rows, and replacing text comparisons with precomputed ranks.
 

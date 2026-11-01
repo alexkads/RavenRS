@@ -141,7 +141,7 @@ Then open http://localhost:8080 in a browser with WebGPU (Chrome, Edge, Safari 1
 
 ## Roadmap
 
-- **Reporting** (next major track): report engine, document viewer, end-user report designer on the `Ribbon`, PDF/XLSX export.
+- **Reporting**: the engine and the [report designer](https://alexkads.github.io/RavenRS/designer/) are here. Next: PDF and XLSX export, then a server that runs reports on a schedule and sends them. See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING.md).
 - **DataGrid parity**: frozen columns, drag reordering and drag-to-group, header filters, master-detail.
 - **Vector paths** for line and pie charts and gauges, and backdrop blur for Raven Glass.
 - **Platform**: IME composition display, right-to-left layout.

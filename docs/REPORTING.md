@@ -1,6 +1,6 @@
 # RavenRS Reporting — design and roadmap
 
-> Status: proposed, 2026-11-01. Reference product: [DevExpress Reporting](https://www.devexpress.com/subscriptions/reporting/).
+> Status: phase R1 done, 2026-11-01. Reference product: [DevExpress Reporting](https://www.devexpress.com/subscriptions/reporting/).
 
 RavenRS Reporting turns data into paginated documents. It covers what the DevExpress Reporting subscription covers: a report engine, a document viewer, exports, an end-user report designer and a report server. Everything is in Rust and runs on desktop, in the browser (WebAssembly) and on servers.
 
@@ -85,15 +85,32 @@ RavenRS Reporting turns data into paginated documents. It covers what the DevExp
 
 ## Delivery phases
 
-Each phase ends with tests, docs, gallery demos and `scripts/check.sh` green, like every RavenRS feature.
+Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every RavenRS feature. [REPORTING-PARITY.md](REPORTING-PARITY.md) tracks every DevExpress feature against these phases.
 
-| Phase | Delivers | Done when |
+| Phase | Delivers | Status |
 |---|---|---|
-| **R1 — Engine** | Report model + JSON format + Rust builder, expressions, parameters, bands, groups, sorting, filtering, summaries, master-detail, pagination, Label/Table/Picture/Line/Shape/CheckBox/PageInfo/Panel, styles, pt-BR formats | An invoice and a grouped sales report paginate correctly over 10,000 rows in < 300 ms; golden tests on the `Document` |
-| **R2 — PDF and viewer** | PDF export with embedded fonts, links and outline; `DocumentViewer` widget (zoom, fit, thumbnails, search, parameter panel, export buttons) on desktop and web | The PDF opens identically in Acrobat, Chrome and Preview; the viewer shows the same pages |
-| **R3 — More output and controls** | XLSX, CSV, HTML, SVG/PNG export; barcodes; charts and sparklines; sub-reports; table of contents; watermarks | Each exporter has golden tests; barcodes decode with a scanner library |
-| **R4 — Designer** | End-user designer on the `Ribbon`: report explorer, field list, band surface with snapping, property grid, expression editor, drag and drop, undo/redo, preview, save/load JSON, wizards (table report, labels, invoice) | A user can build the R1 invoice from scratch without code |
-| **R5 — Server and data** | `ravenrs-report-server` (HTTP API: render, template storage, parameters), SQL/CSV/XLSX sources, Cross Tab, PDF/A and digital signatures | Another system can POST JSON and receive a PDF; load-tested |
+| **R1 — Engine and designer preview** | Report model, JSON format with data sources, Rust builder, expressions, parameters, bands, groups, sorting, filtering, summaries, master-detail, pagination, Label/Table/CheckBox/Line/Shape/Panel, styles, pt-BR formats, table wizard, web designer with preview | ✅ 10,000 rows in 80 ms native, about 200 ms in the browser |
+| **R2 — PDF and viewer** | PDF export with embedded fonts, links and outline; pictures; viewer with thumbnails and search; full parameter panel (lookups, multi-value); the remaining expression functions | Next |
+| **R3 — Server, scheduling and more output** | `ravenrs-report-server` (see below); XLSX, CSV, HTML, PNG export; barcodes; charts and sparklines; subreports; table of contents; watermarks; multi-column; the remaining band options | Planned |
+| **R4 — Designer depth** | Expression editor, group and sort panel, snap lines, align and size tools, multi-select, labels wizard, style gallery, drill-down and interactive sorting in preview | Planned |
+| **R5 — Enterprise data and documents** | SQL, CSV/XLSX and federated sources; Cross Tab; DOCX; PDF/A, PDF/UA, signatures; vertical bands; right-to-left; AI prompt-to-report | Planned |
+
+## Server and scheduled delivery
+
+`ravenrs-report-server` runs reports headless with the same engine and layouts:
+
+* **Storage.** Layouts (`*.rvreport.json`, data sources included) are stored by the server, versioned, and opened and saved by the designer.
+* **Data at run time.**
+  * The server resolves `url` and `sql` data sources when a report runs.
+  * Connections and secrets live in the server's configuration, referred to by name, and never in a layout.
+* **Render on demand.** An HTTP API: `POST /render` with a layout (or its name), parameters and a format returns PDF or XLSX.
+* **Scheduled jobs**, following the job model of DevExpress Report Server:
+  * A cron-like schedule.
+  * A report and its parameter values, fixed or by expression (for example, last month).
+  * Recipients, individually or on one shared email.
+  * Delivery as a PDF or XLSX attachment, inline HTML, a link, or a file in a folder.
+  * A skip-if-empty option and document retention.
+  * A run history of who received what, and retries on failure.
 
 ## Decisions
 

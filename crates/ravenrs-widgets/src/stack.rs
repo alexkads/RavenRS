@@ -141,6 +141,7 @@ impl View for Spacer {
 pub struct ScrollView<C> {
     children: C,
     style: LayoutStyle,
+    horizontal: bool,
 }
 
 impl<C> std::fmt::Debug for ScrollView<C> {
@@ -162,7 +163,17 @@ impl<C: ViewSeq> ScrollView<C> {
                 min_height: Some(0.0),
                 ..LayoutStyle::stack(Axis::Vertical)
             },
+            horizontal: false,
         }
+    }
+
+    /// Also scrolls sideways, for content wider than the view (a zoomed page,
+    /// a wide canvas). Children keep their own width instead of stretching.
+    pub fn horizontal(mut self) -> Self {
+        self.horizontal = true;
+        self.style.align = Align::Start;
+        self.style.min_width = Some(0.0);
+        self
     }
 
     /// Gap between children, in logical pixels (default 16).
@@ -196,6 +207,9 @@ impl<C: ViewSeq> View for ScrollView<C> {
         let children = cx.children(&self.children);
         let node = cx.container(self.style, &children, Paint::None);
         cx.scrollable(node);
+        if self.horizontal {
+            cx.scroll_horizontally(node);
+        }
         node
     }
 }

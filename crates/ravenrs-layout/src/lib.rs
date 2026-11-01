@@ -91,6 +91,9 @@ pub struct LayoutStyle {
     pub wrap: bool,
     /// Width divided by height; with one dimension known, the other follows.
     pub aspect_ratio: Option<f32>,
+    /// Takes the box out of the flow and places it at this `(x, y)` offset
+    /// from its parent's top-left corner (design surfaces, diagrams, canvases).
+    pub absolute: Option<(f32, f32)>,
 }
 
 impl LayoutStyle {
@@ -149,6 +152,15 @@ impl LayoutStyle {
         }
         if self.wrap {
             style.flex_wrap = taffy::FlexWrap::Wrap;
+        }
+        if let Some((x, y)) = self.absolute {
+            style.position = taffy::Position::Absolute;
+            style.inset = taffy::Rect {
+                left: LengthPercentageAuto::length(x),
+                top: LengthPercentageAuto::length(y),
+                right: LengthPercentageAuto::auto(),
+                bottom: LengthPercentageAuto::auto(),
+            };
         }
         if let Some(columns) = self.grid_columns {
             style.display = taffy::Display::Grid;
@@ -385,6 +397,33 @@ mod tests {
         assert_eq!(tree.frame(a).unwrap(), Rect::new(32.0, 32.0, 100.0, 20.0));
         assert_eq!(tree.frame(b).unwrap(), Rect::new(32.0, 76.0, 50.0, 30.0));
         assert_eq!(tree.frame(root).unwrap().size, Size::new(800.0, 600.0));
+    }
+
+    #[test]
+    fn absolute_children_sit_at_their_offset_outside_the_flow() {
+        let mut tree = LayoutTree::<()>::new();
+        let flow = fixed(&mut tree, 40.0, 10.0);
+        let pinned = tree
+            .node(
+                LayoutStyle {
+                    width: Some(30.0),
+                    height: Some(12.0),
+                    absolute: Some((50.0, 70.0)),
+                    ..LayoutStyle::leaf()
+                },
+                &[],
+            )
+            .unwrap();
+        let style = LayoutStyle {
+            padding: Insets::uniform(8.0),
+            width: Some(200.0),
+            height: Some(100.0),
+            ..LayoutStyle::stack(Axis::Vertical)
+        };
+        let root = tree.node(style, &[pinned, flow]).unwrap();
+        tree.compute(root, Size::new(200.0, 100.0), |_, _| Size::ZERO).unwrap();
+        assert_eq!(tree.frame(pinned).unwrap(), Rect::new(50.0, 70.0, 30.0, 12.0));
+        assert_eq!(tree.frame(flow).unwrap().origin, Point::new(8.0, 8.0), "the flow ignores absolute boxes");
     }
 
     #[test]

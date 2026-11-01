@@ -22,12 +22,15 @@ ravenrs-render = { version = "26.2.0", path = "crates/ravenrs-render" }
 ravenrs-widgets = { version = "26.2.0", path = "crates/ravenrs-widgets" }
 ravenrs-platform-native = { version = "26.2.0", path = "crates/ravenrs-platform-native" }
 ravenrs-platform-web = { version = "26.2.0", path = "crates/ravenrs-platform-web" }
+ravenrs-report = { version = "26.2.0", path = "crates/ravenrs-report" }
 
 wgpu = "30.0.1"
 # Without "wayland-csd-adwaita": its font stack (ttf-parser) is unmaintained (RUSTSEC-2026-0192);
 # Wayland windows use winit's built-in fallback frame instead.
 winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
 accesskit = "0.25.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 arboard = { version = "3.7.0", default-features = false, features = ["wayland-data-control"] }
 accesskit_winit = { version = "0.34.2", default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
 taffy = { version = "0.15.1", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "content_size"] }

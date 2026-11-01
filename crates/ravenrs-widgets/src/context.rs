@@ -809,6 +809,13 @@ impl<'a> BuildCx<'a> {
         }
     }
 
+    /// Lets a scroll container (see [`Self::scrollable`]) scroll sideways too.
+    pub fn scroll_horizontally(&mut self, node: NodeId) {
+        if let Some(e) = self.element_mut(node) {
+            e.scroll_x = true;
+        }
+    }
+
     /// Moves the node's children by `offset` when painting (e.g. a header that
     /// follows a body's horizontal scroll).
     pub fn translate(&mut self, node: NodeId, offset: Point) {

@@ -14,14 +14,17 @@ fi
 
 ./scripts/build-web.sh hello-world
 ./scripts/build-web.sh component-gallery
-cargo doc --no-deps --workspace --exclude hello-world --exclude component-gallery --quiet
+./scripts/build-web.sh report-designer
+cargo doc --no-deps --workspace --exclude hello-world --exclude component-gallery --exclude report-designer --quiet
 
 site="$(mktemp -d)"
 trap 'rm -rf "$site"' EXIT
-mkdir -p "$site/demo" "$site/hello"
+mkdir -p "$site/demo" "$site/hello" "$site/designer" "$site/assets"
 cp site/index.html "$site/"
 cp -R examples/component-gallery/web/. "$site/demo/"
 cp -R examples/hello-world/web/. "$site/hello/"
+cp -R examples/report-designer/web/. "$site/designer/"
+cp -R site/assets/. "$site/assets/"
 mkdir -p "$site/api"
 cp -R target/doc/. "$site/api/"
 touch "$site/.nojekyll"

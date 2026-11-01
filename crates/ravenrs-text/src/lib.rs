@@ -121,6 +121,21 @@ impl TextSystem {
     }
 }
 
+/// One line of a broken [`TextLayout`], as reported by [`TextLayout::lines`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextLine {
+    /// Byte range of the line in the source text, trailing whitespace included.
+    pub range: std::ops::Range<usize>,
+    /// Width of the line's content, trailing whitespace excluded.
+    pub width: f32,
+    /// Top of the line box, from the top of the layout.
+    pub top: f32,
+    /// Baseline, from the top of the layout.
+    pub baseline: f32,
+    /// Height of the line box.
+    pub height: f32,
+}
+
 /// Shaped text, ready to be broken into lines at any width and drawn.
 pub struct TextLayout {
     layout: Layout<()>,
@@ -146,6 +161,24 @@ impl TextLayout {
             self.broken_at = Some(max_width);
         }
         Size::new(self.layout.width(), self.layout.height())
+    }
+
+    /// The lines of the last [`Self::measure`], with their text ranges and
+    /// positions (documents and PDF export draw text line by line).
+    pub fn lines(&self) -> Vec<TextLine> {
+        self.layout
+            .lines()
+            .map(|line| {
+                let m = line.metrics();
+                TextLine {
+                    range: line.text_range(),
+                    width: (m.advance - m.hanging_advance).max(0.0),
+                    top: m.block_min_coord,
+                    baseline: m.baseline,
+                    height: m.block_max_coord - m.block_min_coord,
+                }
+            })
+            .collect()
     }
 
     /// Appends the glyphs, as laid out by the last [`Self::measure`], to `scene`
@@ -190,6 +223,24 @@ mod tests {
         let size = layout.measure(None);
         assert!(size.width > 100.0 && size.width < 200.0, "unexpected width {}", size.width);
         assert_eq!(size.height, 22.0);
+    }
+
+    #[test]
+    fn reports_lines_with_ranges_and_baselines() {
+        let mut ts = TextSystem::new();
+        let text = "one two three four five six";
+        let mut layout = ts.layout(text, &TextAttrs::default());
+        layout.measure(Some(60.0));
+        let lines = layout.lines();
+        assert!(lines.len() > 1);
+        assert_eq!(lines[0].range.start, 0);
+        assert_eq!(lines.last().map(|l| l.range.end), Some(text.len()));
+        for pair in lines.windows(2) {
+            assert_eq!(pair[0].range.end, pair[1].range.start, "lines cover the text without gaps");
+            assert!(pair[1].baseline > pair[0].baseline);
+        }
+        assert!(lines.iter().all(|l| l.width <= 60.0 + 0.5 && l.height == 22.0));
+        assert!(text[lines[0].range.clone()].ends_with(' '), "trailing space stays in the range");
     }
 
     #[test]
