@@ -1145,6 +1145,16 @@ mod tests {
     }
 
     #[test]
+    fn gnome_finds_the_icon_through_the_window_id() {
+        let installer = include_str!("../install.cmd");
+        let id = paths::APP_ID;
+        assert!(installer.contains(&format!("share/applications/{id}.desktop")), "the file's name is the id");
+        assert!(installer.contains(&format!("StartupWMClass={id}")));
+        assert!(installer.contains(&format!("Icon={id}")));
+        assert!(installer.contains(&format!("hicolor/256x256/apps/{id}.png")));
+    }
+
+    #[test]
     fn an_update_recompiles_what_changed() {
         // Without -m the files keep their commit's date, older than the last build, so
         // Cargo skipped the crates that changed and the update failed to compile.

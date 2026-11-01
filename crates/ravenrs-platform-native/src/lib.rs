@@ -40,7 +40,7 @@ use winit::event::StartCause;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
-use winit::window::{Icon, Window, WindowId};
+use winit::window::{Icon, Window, WindowAttributes, WindowId};
 
 pub use files::{SaveDialog, open_with_system};
 
@@ -144,7 +144,49 @@ impl From<GpuError> for PlatformError {
 
 /// Opens a window showing `root` and runs until it is closed.
 pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), PlatformError> {
-    run_window(root, options, None)
+    run_window(root, options, None, None)
+}
+
+/// Who the app is to the system, for finding its icon and its menu entry.
+///
+/// On Linux the id is what ties the window to the app's `.desktop` file. Wayland
+/// has no way for a window to carry an icon: GNOME shows the one in the
+/// `.desktop` file whose name, without the extension, is the window's id. On
+/// X11 the id must match the file's `StartupWMClass`.
+///
+/// ```
+/// use ravenrs_platform_native::AppIdentity;
+///
+/// // For a file named `notes.desktop`.
+/// let identity = AppIdentity::new("notes");
+/// ```
+#[derive(Clone, Debug)]
+pub struct AppIdentity {
+    id: String,
+    icon: Option<ImageData>,
+}
+
+impl AppIdentity {
+    /// The app known as `id`, which is the name of its `.desktop` file on Linux.
+    pub fn new(id: impl Into<String>) -> Self {
+        Self { id: id.into(), icon: None }
+    }
+
+    /// An icon for the title bar and the task bar on Windows and on Linux with
+    /// X11. macOS takes an app's icon from its bundle instead.
+    pub fn icon(mut self, icon: ImageData) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+}
+
+/// Like [`run`], for an app the system should recognize as itself.
+pub fn run_as(
+    root: impl View + 'static,
+    options: WindowOptions,
+    identity: AppIdentity,
+) -> Result<(), PlatformError> {
+    run_window(root, options, identity.icon, Some(identity.id))
 }
 
 /// Like [`run`], with an icon for the window's title bar and the task bar on
@@ -154,13 +196,14 @@ pub fn run_with_icon(
     options: WindowOptions,
     icon: ImageData,
 ) -> Result<(), PlatformError> {
-    run_window(root, options, Some(icon))
+    run_window(root, options, Some(icon), None)
 }
 
 fn run_window(
     root: impl View + 'static,
     options: WindowOptions,
     icon: Option<ImageData>,
+    app_id: Option<String>,
 ) -> Result<(), PlatformError> {
     let event_loop = EventLoop::<UserEvent>::with_user_event()
         .build()
@@ -182,6 +225,7 @@ fn run_window(
         ui,
         options,
         icon,
+        app_id,
         window: None,
         pointer: None,
         modifiers: Modifiers::default(),
@@ -221,6 +265,7 @@ struct App {
     access: Option<Access>,
     options: WindowOptions,
     icon: Option<ImageData>,
+    app_id: Option<String>,
     window: Option<WindowState>,
     /// Last pointer position in logical pixels.
     pointer: Option<Point>,
@@ -229,6 +274,31 @@ struct App {
     last_click: Option<(std::time::Instant, Point)>,
     started: std::time::Instant,
     error: Option<PlatformError>,
+}
+
+/// The same setting serves Wayland's app id and X11's `WM_CLASS`.
+#[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
+fn with_app_id(attributes: WindowAttributes, id: &str) -> WindowAttributes {
+    use winit::platform::wayland::WindowAttributesExtWayland as _;
+    attributes.with_name(id, id)
+}
+
+/// Other systems know the app by its bundle or its executable.
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+)))]
+fn with_app_id(attributes: WindowAttributes, _id: &str) -> WindowAttributes {
+    attributes
 }
 
 impl App {
@@ -240,6 +310,9 @@ impl App {
             .with_inner_size(LogicalSize::new(self.options.size.width, self.options.size.height));
         if let Some(min) = self.options.min_size {
             attributes = attributes.with_min_inner_size(LogicalSize::new(min.width, min.height));
+        }
+        if let Some(id) = &self.app_id {
+            attributes = with_app_id(attributes, id);
         }
         if let Some(image) = &self.icon {
             match Icon::from_rgba(image.pixels().to_vec(), image.width(), image.height()) {
