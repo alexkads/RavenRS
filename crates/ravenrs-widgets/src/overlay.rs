@@ -82,7 +82,7 @@ impl<V: View> View for Tooltip<V> {
         let child = cx.child(&self.content);
         cx.label_control(child, &self.text, None);
         let node = cx.container(
-            LayoutStyle { align_self: Some(Align::Start), ..LayoutStyle::stack(Axis::Horizontal) },
+            LayoutStyle { align_self: Some(Align::Fit), ..LayoutStyle::stack(Axis::Horizontal) },
             &[child],
             Paint::None,
         );
@@ -545,7 +545,7 @@ impl View for Select {
             height: Some(40.0),
             spacing: 8.0,
             align: Align::Center,
-            align_self: Some(Align::Start),
+            align_self: Some(Align::Fit),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let paint = QuadPaint {
@@ -608,7 +608,7 @@ pub struct Dialog {
     content: Option<AnyView>,
     actions: Vec<AnyView>,
     width: f32,
-    close_label: String,
+    close_label: Option<String>,
 }
 
 impl fmt::Debug for Dialog {
@@ -627,7 +627,7 @@ impl Dialog {
             content: None,
             actions: Vec::new(),
             width: 460.0,
-            close_label: "Close".into(),
+            close_label: None,
         }
     }
 
@@ -650,9 +650,9 @@ impl Dialog {
         self
     }
 
-    /// The close button's name for screen readers ("Close" by default).
+    /// The close button's name for screen readers (from [`Labels`](crate::Labels) by default).
     pub fn close_label(mut self, label: impl Into<String>) -> Self {
-        self.close_label = label.into();
+        self.close_label = Some(label.into());
         self
     }
 
@@ -681,7 +681,7 @@ impl View for DialogLayer<'_> {
         );
         let x = cx.child(
             &IconButton::new(IconName::X)
-                .label(d.close_label.clone())
+                .label(d.close_label.clone().unwrap_or_else(|| cx.labels().close.clone()))
                 .size(crate::ButtonSize::Small)
                 .on_click(move || close.set(false)),
         );

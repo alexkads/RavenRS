@@ -250,7 +250,7 @@ impl View for Button {
             spacing: 8.0,
             align: Align::Center,
             justify: Justify::Center,
-            align_self: Some(if self.full_width { Align::Stretch } else { Align::Start }),
+            align_self: Some(if self.full_width { Align::Stretch } else { Align::Fit }),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let radius = theme.radii.md;

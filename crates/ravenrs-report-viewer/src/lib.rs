@@ -53,6 +53,29 @@ const CHROME_HEIGHT: f32 = 200.0;
 /// Problems in the report shown above the page; the rest are summed up.
 const ERRORS_SHOWN: usize = 3;
 
+/// The pages, centered, in a column that can get wider than its scroll view.
+struct PagesColumn {
+    pages: Vec<AnyView>,
+    min_width: f32,
+}
+
+impl View for PagesColumn {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let pages = cx.children(&self.pages);
+        cx.container(
+            LayoutStyle {
+                spacing: SPACING.s3,
+                padding: SPACING.s6.into(),
+                min_width: Some(self.min_width),
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &pages,
+            Paint::None,
+        )
+    }
+}
+
 /// The text a viewer shows.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
@@ -536,15 +559,13 @@ impl View for DocumentViewer {
                 text: document.page_text(current).join(" "),
             }));
         }
-        let content_width = (viewport.width - sidebar).max(page_width * zoom + 2.0 * SPACING.s6);
+        // At least the width of the page, and otherwise the width of the view,
+        // wherever the app has put it, so the page stays centered.
         let main = cx.child(
-            &ScrollView::new((VStack::new(body)
-                .spacing(SPACING.s3)
-                .padding(SPACING.s6)
-                .width(content_width)
-                .align(Align::Center),))
-            .horizontal()
-            .grow(1.0),
+            &ScrollView::new((PagesColumn { pages: body, min_width: page_width * zoom + 2.0 * SPACING.s6 },))
+                .horizontal()
+                .align(Align::Stretch)
+                .grow(1.0),
         );
         let row_children = if thumbnails {
             // The window less what is usually above the pages: toolbars and a status bar.

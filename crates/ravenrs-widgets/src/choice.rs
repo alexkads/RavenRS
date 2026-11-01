@@ -176,7 +176,7 @@ impl View for ToggleGroup {
             LayoutStyle {
                 spacing: 4.0,
                 align: Align::Center,
-                align_self: Some(Align::Start),
+                align_self: Some(Align::Fit),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &items,

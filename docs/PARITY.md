@@ -166,6 +166,6 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Keyboard navigation and focus | ✓ | ✓ | ✓ | ✅ |
 | Screen reader support | ✓ | ✓ | ✓ | ✓ AccessKit on desktop, ARIA mirror on the web |
 | Right-to-left | ✓ | ✓ | ✓ | ⬜ (Parley supports bidi; layout mirroring planned) |
-| Localization (formats, strings) | | ✓ | ✓ | 🟡 number formats; strings planned |
+| Localization (formats, strings) | | ✓ | ✓ | 🟡 number formats; `Labels` and `Localized` for component text (Ribbon, Carousel and InputOtp still fixed) |
 | Animations | ✓ | ✓ | ✓ | ✅ springs, transitions, shared layout, enter and exit; 🟡 no rotation or group opacity yet |
 | Native desktop and browser from one codebase | | | | ✅ (none of the three does both) |

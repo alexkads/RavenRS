@@ -455,6 +455,7 @@ pub struct BuildCx<'a> {
     pub(crate) scroll_requests: Vec<(WidgetId, Point)>,
     pub(crate) focus_request: Option<WidgetId>,
     pub(crate) now: f64,
+    labels: Rc<crate::Labels>,
     pub(crate) shortcuts: Vec<Shortcut>,
     pub(crate) wake: Option<f64>,
     pub(crate) modifiers: Rc<std::cell::Cell<Modifiers>>,
@@ -508,6 +509,7 @@ impl<'a> BuildCx<'a> {
             scroll_requests: Vec::new(),
             focus_request: None,
             now: 0.0,
+            labels: Rc::new(crate::Labels::default()),
             shortcuts: Vec::new(),
             wake: None,
             modifiers,
@@ -527,6 +529,15 @@ impl<'a> BuildCx<'a> {
     /// The theme in effect for this build.
     pub fn theme(&self) -> &Theme {
         &self.theme
+    }
+
+    /// The words the components use here; see [`Localized`](crate::Localized).
+    pub fn labels(&self) -> Rc<crate::Labels> {
+        self.labels.clone()
+    }
+
+    pub(crate) fn replace_labels(&mut self, labels: Rc<crate::Labels>) -> Rc<crate::Labels> {
+        std::mem::replace(&mut self.labels, labels)
     }
 
     /// The app-wide theme as state: set it to switch themes at runtime.
@@ -683,7 +694,8 @@ impl<'a> BuildCx<'a> {
 
     /// An empty box that takes no space.
     pub fn empty(&mut self) -> NodeId {
-        self.container(LayoutStyle::leaf(), &[], Paint::None)
+        // Out of the flow, so a `None` or a closed dialog takes no gap in its stack.
+        self.container(LayoutStyle { absolute: Some((0.0, 0.0)), ..LayoutStyle::leaf() }, &[], Paint::None)
     }
 
     /// Calls `handler` when the node is clicked, or activated with Enter/Space while focused.

@@ -96,7 +96,7 @@ impl<A: View, C: View> View for HoverCard<A, C> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let child = cx.child(&self.trigger);
         let node = cx.container(
-            LayoutStyle { align_self: Some(Align::Start), ..LayoutStyle::stack(Axis::Horizontal) },
+            LayoutStyle { align_self: Some(Align::Fit), ..LayoutStyle::stack(Axis::Horizontal) },
             &[child],
             Paint::None,
         );
@@ -182,7 +182,7 @@ impl View for SheetLayer<'_> {
         );
         let x = cx.child(
             &IconButton::new(IconName::X)
-                .label("Close")
+                .label(cx.labels().close.clone())
                 .size(ButtonSize::Small)
                 .on_click(move || close.set(false)),
         );
@@ -383,7 +383,7 @@ impl View for ToastStack<'_> {
             let x = cx.keyed_child(
                 t.id,
                 &IconButton::new(IconName::X)
-                    .label("Dismiss")
+                    .label(cx.labels().dismiss.clone())
                     .size(ButtonSize::Small)
                     .on_click(move || toasts.dismiss(id)),
             );
@@ -523,7 +523,7 @@ pub(crate) fn fuzzy_match(text: &str, query: &str) -> bool {
 pub struct CommandPalette {
     open: Binding<bool>,
     commands: Vec<Command>,
-    placeholder: String,
+    placeholder: Option<String>,
 }
 
 impl fmt::Debug for CommandPalette {
@@ -535,7 +535,7 @@ impl fmt::Debug for CommandPalette {
 impl CommandPalette {
     /// A palette shown while `open` is true; Cmd/Ctrl+K toggles it.
     pub fn new(open: Binding<bool>) -> Self {
-        Self { open, commands: Vec::new(), placeholder: "Type a command or search…".into() }
+        Self { open, commands: Vec::new(), placeholder: None }
     }
 
     /// Appends a command.
@@ -546,7 +546,7 @@ impl CommandPalette {
 
     /// Sets the search box placeholder.
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
-        self.placeholder = text.into();
+        self.placeholder = Some(text.into());
         self
     }
 }
@@ -573,7 +573,9 @@ impl View for PaletteLayer<'_> {
             (self.highlight.clone(), self.palette.open.clone(), actions.clone(), matches.len());
         let field = cx.child(
             &TextField::new(self.query.binding())
-                .placeholder(self.palette.placeholder.clone())
+                .placeholder(
+                    self.palette.placeholder.clone().unwrap_or_else(|| cx.labels().search_commands.clone()),
+                )
                 .icon(IconName::Search)
                 .autofocus()
                 .intercept_keys(Rc::new(move |key, _| {
@@ -653,15 +655,16 @@ impl View for PaletteLayer<'_> {
         if matches.is_empty() {
             rows.push(util::label(
                 cx,
-                "No matching commands.",
+                &cx.labels().no_commands.clone(),
                 TextStyle::Callout,
                 None,
                 theme.color(Semantic::InkMuted),
             ));
         }
-        cx.label_control(field, "Command palette", None);
+        let palette_name = cx.labels().command_palette.clone();
+        cx.label_control(field, &palette_name, None);
         let card = panel(cx, &rows, 10.0, (viewport.width - 32.0).clamp(280.0, 560.0));
-        cx.semantics(card, Semantics::new(Role::Dialog).name("Command palette").modal());
+        cx.semantics(card, Semantics::new(Role::Dialog).name(palette_name).modal());
         let backdrop = cx.container(
             LayoutStyle {
                 width: Some(viewport.width),
@@ -710,7 +713,7 @@ impl View for CommandPalette {
 pub struct Combobox {
     selected: Binding<Option<usize>>,
     options: Vec<String>,
-    placeholder: String,
+    placeholder: Option<String>,
     width: f32,
     label: Option<String>,
 }
@@ -724,7 +727,7 @@ impl Combobox {
         Self {
             selected,
             options: options.into_iter().map(Into::into).collect(),
-            placeholder: "Select…".into(),
+            placeholder: None,
             width: 240.0,
             label: None,
         }
@@ -732,7 +735,7 @@ impl Combobox {
 
     /// Sets the text shown when nothing is selected.
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
-        self.placeholder = text.into();
+        self.placeholder = Some(text.into());
         self
     }
 
@@ -776,7 +779,7 @@ impl View for ComboPanel<'_> {
             (self.highlight.clone(), Rc::new(matches.clone()), pick.clone(), self.open.clone());
         let field = cx.child(
             &TextField::new(self.query.binding())
-                .placeholder("Search…")
+                .placeholder(cx.labels().search.clone())
                 .icon(IconName::Search)
                 .compact()
                 .autofocus()
@@ -839,7 +842,7 @@ impl View for ComboPanel<'_> {
         if matches.is_empty() {
             rows.push(util::label(
                 cx,
-                "No results.",
+                &cx.labels().no_results.clone(),
                 TextStyle::Callout,
                 None,
                 theme.color(Semantic::InkMuted),
@@ -861,7 +864,10 @@ impl View for Combobox {
         let hovered = cx.is_hovered();
         let (text, color) = match self.selected.get().and_then(|i| self.options.get(i)) {
             Some(t) => (t.clone(), theme.color(Semantic::Ink)),
-            None => (self.placeholder.clone(), theme.color(Semantic::InkMuted)),
+            None => (
+                self.placeholder.clone().unwrap_or_else(|| cx.labels().select.clone()),
+                theme.color(Semantic::InkMuted),
+            ),
         };
         let label = util::label(cx, &text, TextStyle::Body, None, color);
         let label = cx.container(
@@ -886,7 +892,7 @@ impl View for Combobox {
                 padding: Insets::symmetric(0.0, 12.0),
                 spacing: 8.0,
                 align: Align::Center,
-                align_self: Some(Align::Start),
+                align_self: Some(Align::Fit),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[label, chevrons],

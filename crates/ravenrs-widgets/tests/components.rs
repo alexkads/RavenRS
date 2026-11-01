@@ -327,3 +327,91 @@ fn dialog_width_is_configurable_and_fits_the_window() {
     let dialog = tree.find(ravenrs_core::Role::Dialog, "Wide").expect("dialog");
     assert_eq!(dialog.bounds.width(), 768.0, "the 800 px window less its margins");
 }
+
+mod from_the_family_finance_example {
+    //! What building a real app found wrong, kept fixed.
+    use ravenrs_core::{Role, Size};
+    use ravenrs_layout::Align;
+    use ravenrs_reactive::State;
+    use ravenrs_style::Theme;
+    use ravenrs_widgets::{
+        Badge, Button, Date, DatePicker, HStack, Labels, Localized, Text, Ui, VStack, View,
+    };
+
+    fn tree_of(view: impl View + 'static) -> Ui {
+        let mut ui = Ui::new(view, Theme::raven_light());
+        ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+        ui.update();
+        ui.update();
+        ui
+    }
+
+    fn frame_of(ui: &mut Ui, role: Role, name: &str) -> ravenrs_core::Rect {
+        ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.role == role && n.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("no {name}"))
+            .bounds
+    }
+
+    #[test]
+    fn a_button_follows_a_row_that_centers_its_children() {
+        let mut ui = tree_of(
+            HStack::new((
+                VStack::new((Text::new("Tall"),)).height(64.0),
+                Button::new("Short"),
+                Badge::new("Tag"),
+            ))
+            .align(Align::Center),
+        );
+        let short = frame_of(&mut ui, Role::Button, "Short");
+        assert!((short.center().y - 32.0).abs() < 0.5, "in the middle of a 64 px row: {short:?}");
+    }
+
+    #[test]
+    fn a_button_keeps_its_width_in_a_column_that_stretches() {
+        let mut ui = tree_of(VStack::new((Button::new("Save"),)).align(Align::Stretch).width(500.0));
+        assert!(frame_of(&mut ui, Role::Button, "Save").width() < 200.0);
+    }
+
+    #[test]
+    fn none_takes_no_gap_in_a_stack() {
+        let mut ui = tree_of(
+            VStack::new((Button::new("A"), None::<Text>, None::<Text>, Button::new("B"))).spacing(20.0),
+        );
+        let (a, b) = (frame_of(&mut ui, Role::Button, "A"), frame_of(&mut ui, Role::Button, "B"));
+        assert!((b.y() - a.max_y() - 20.0).abs() < 0.5, "one gap between them: {a:?} {b:?}");
+    }
+
+    #[test]
+    fn localized_reaches_the_components_inside_and_only_those() {
+        let day = State::new(Date::new(2026, 3, 9));
+        let month = Date::new(2026, 3, 1).expect("valid");
+        let (inside, outside) = (day.clone(), day);
+        let mut ui = tree_of(VStack::new((
+            Localized::new(Labels::pt_br(), DatePicker::new(inside.binding(), month).label("Dentro")),
+            DatePicker::new(outside.binding(), month).label("Outside"),
+        )));
+        let value = |ui: &mut Ui, name: &str| {
+            ui.access_tree()
+                .nodes
+                .iter()
+                .find(|n| n.name.as_deref() == Some(name))
+                .and_then(|n| n.value.clone())
+                .unwrap_or_default()
+        };
+        assert_eq!(value(&mut ui, "Dentro"), "9 março de 2026");
+        assert_eq!(value(&mut ui, "Outside"), "9 March 2026");
+    }
+
+    #[test]
+    fn labels_write_dates_and_summaries_their_way() {
+        let date = Date::new(2026, 11, 5).expect("valid");
+        let pt = Labels::pt_br();
+        assert_eq!(pt.month_title(date), "novembro de 2026");
+        assert_eq!((pt.short_date)(date), "05/11/2026");
+        assert_eq!(pt.summary(ravenrs_widgets::Summary::Sum), "Soma");
+        assert_eq!(Labels::default().month_title(date), date.month_title());
+    }
+}

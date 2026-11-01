@@ -315,10 +315,11 @@ impl View for HeaderCell<'_> {
         let label = cx.container(label_style, &content, Paint::None);
         let mut semantics = Semantics::new(Role::ColumnHeader).name(col.title.clone());
         if let Some((_, dir)) = sort {
+            let labels = cx.labels();
             semantics = semantics.description(if dir == SortDirection::Ascending {
-                "Sorted ascending"
+                labels.grid_sorted_ascending.clone()
             } else {
-                "Sorted descending"
+                labels.grid_sorted_descending.clone()
             });
         }
         cx.semantics(label, semantics);
@@ -392,9 +393,11 @@ impl View for FilterCell<'_> {
                 move || read.with(|q| q.filter(c).to_owned()),
                 move |t| write.update(|q| q.set_filter(c, t)),
             );
-            let hint = if col.number.is_some() { "e.g. >100" } else { "Filter…" };
-            let field = cx.child(&TextField::new(binding).placeholder(hint).compact());
-            cx.label_control(field, &format!("Filter {}", col.title), Some(hint));
+            let labels = cx.labels();
+            let hint =
+                if col.number.is_some() { &labels.grid_number_filter_hint } else { &labels.grid_filter_hint };
+            let field = cx.child(&TextField::new(binding).placeholder(hint.clone()).compact());
+            cx.label_control(field, &format!("{} {}", labels.grid_filter_column, col.title), Some(hint));
             children.push(field);
         }
         let mut style = cell_style(s.widths[c], 40.0, CellAlign::Start);
@@ -434,7 +437,8 @@ impl View for DataRow<'_> {
                 &[b],
                 Paint::None,
             );
-            cx.semantics(cell, Semantics::new(Role::CheckBox).name("Select row").toggled(selected));
+            let name = cx.labels().grid_select_row.clone();
+            cx.semantics(cell, Semantics::new(Role::CheckBox).name(name).toggled(selected));
             let (sel, h) = (s.h.selection.clone(), s.h.clone());
             cx.on_click(
                 cell,
@@ -570,7 +574,8 @@ impl View for GroupRow<'_> {
         let mut children = vec![util::icon(cx, chevron, 16.0, muted)];
         let attrs = cell_attrs(&theme);
         children.push(cx.text(&format!("{}:", col.title), &attrs, muted, LayoutStyle::leaf()));
-        let shown = if label.is_empty() { "(empty)" } else { label.as_str() };
+        let labels = cx.labels();
+        let shown = if label.is_empty() { labels.grid_empty.as_str() } else { label.as_str() };
         let mut bold = attrs.clone();
         bold.weight = Weight::SEMIBOLD.0;
         children.push(cx.text(shown, &bold, ink, LayoutStyle::leaf()));
@@ -581,8 +586,12 @@ impl View for GroupRow<'_> {
                 && !s.h.query.peek().is_hidden(c)
             {
                 let other = &s.grid.columns[c];
-                let text =
-                    format!("{} {}: {}", summary.label(), other.title, other.display_summary(summary, *v));
+                let text = format!(
+                    "{} {}: {}",
+                    labels.summary(summary),
+                    other.title,
+                    other.display_summary(summary, *v)
+                );
                 children.push(util::label(cx, &text, TextStyle::Callout, None, muted));
             }
         }
@@ -616,7 +625,7 @@ impl View for GroupRow<'_> {
         cx.semantics(
             node,
             Semantics::new(Role::Row)
-                .name(format!("{}: {shown}, {count} rows", col.title))
+                .name(format!("{}: {shown}, {count} {}", col.title, labels.grid_rows))
                 .expanded(!*collapsed)
                 .active(s.focus_row == Some(self.index)),
         );
@@ -664,6 +673,7 @@ impl DataGrid {
         rows: &Rc<Vec<Row>>,
     ) -> NodeId {
         let theme = *cx.theme();
+        let labels = cx.labels();
         let mut items = Vec::new();
         if self.search_panel {
             let (read, write) = (h.query.clone(), h.query.clone());
@@ -674,7 +684,7 @@ impl DataGrid {
             items.push(
                 cx.child(
                     &TextField::new(search)
-                        .placeholder("Search all columns")
+                        .placeholder(labels.grid_search.clone())
                         .icon(IconName::Search)
                         .compact()
                         .width(240.0),
@@ -682,7 +692,8 @@ impl DataGrid {
             );
         }
         let query = h.query.peek().clone();
-        let mut group = DropdownMenu::new("Group").icon(IconName::Layers).size(ButtonSize::Small);
+        let mut group =
+            DropdownMenu::new(labels.grid_group.clone()).icon(IconName::Layers).size(ButtonSize::Small);
         for (c, col) in
             self.columns.iter().enumerate().filter(|(c, col)| col.groupable && !query.is_hidden(*c))
         {
@@ -696,17 +707,18 @@ impl DataGrid {
         }
         if !query.group_by.is_empty() {
             let q = h.query.clone();
-            group = group.separator().item(MenuItem::new("Clear grouping").icon(IconName::X).on_select(
-                move || {
+            group = group.separator().item(
+                MenuItem::new(labels.grid_clear_grouping.clone()).icon(IconName::X).on_select(move || {
                     q.update(|q| {
                         q.group_by.clear();
                         q.collapsed.clear();
                     })
-                },
-            ));
+                }),
+            );
         }
         items.push(cx.child(&group));
-        let mut chooser = DropdownMenu::new("Columns").icon(IconName::Table).size(ButtonSize::Small);
+        let mut chooser =
+            DropdownMenu::new(labels.grid_columns.clone()).icon(IconName::Table).size(ButtonSize::Small);
         for (c, col) in self.columns.iter().enumerate() {
             let q = h.query.clone();
             let item = MenuItem::new(col.title.clone()).on_select(move || {
@@ -727,7 +739,7 @@ impl DataGrid {
             let q = h.query.clone();
             items.push(
                 cx.child(
-                    &Button::new("Reset")
+                    &Button::new(labels.grid_reset.clone())
                         .style(ButtonStyle::Ghost)
                         .size(ButtonSize::Small)
                         .icon(IconName::RotateCcw)
@@ -744,10 +756,15 @@ impl DataGrid {
         items.push(cx.child(&Spacer::new()));
         let selected = h.selection.get().len();
         let fmt = crate::grid::model::NumberFormat::default();
-        let mut status =
-            format!("{} of {} rows", fmt.format(result.matched.len() as f64), fmt.format(rows.len() as f64));
+        let mut status = format!(
+            "{} {} {} {}",
+            fmt.format(result.matched.len() as f64),
+            labels.grid_of,
+            fmt.format(rows.len() as f64),
+            labels.grid_rows
+        );
         if selected > 0 {
-            status.push_str(&format!(" · {} selected", fmt.format(selected as f64)));
+            status.push_str(&format!(" · {} {}", fmt.format(selected as f64), labels.grid_selected));
         }
         items.push(util::label(cx, &status, TextStyle::Callout, None, theme.color(Semantic::InkMuted)));
         if let Some(export) = &self.on_export {
@@ -755,7 +772,7 @@ impl DataGrid {
                 (export.clone(), self.columns.clone(), rows.clone(), query.clone(), result.matched.clone());
             items.push(
                 cx.child(
-                    &Button::new("Export CSV")
+                    &Button::new(labels.grid_export.clone())
                         .style(ButtonStyle::Secondary)
                         .size(ButtonSize::Small)
                         .icon(IconName::Download)
@@ -1100,13 +1117,8 @@ impl View for DataGrid {
             Paint::None,
         ));
         if len == 0 {
-            let msg = util::label(
-                cx,
-                "No rows match the current filters.",
-                TextStyle::Body,
-                None,
-                theme.color(Semantic::InkMuted),
-            );
+            let empty = cx.labels().grid_no_rows.clone();
+            let msg = util::label(cx, &empty, TextStyle::Body, None, theme.color(Semantic::InkMuted));
             body_rows.push(cx.container(
                 LayoutStyle { padding: Insets::uniform(24.0), ..LayoutStyle::stack(Axis::Horizontal) },
                 &[msg],
@@ -1130,7 +1142,12 @@ impl View for DataGrid {
             Paint::None,
         );
         cx.scrollable_virtual(body, true);
-        cx.semantics(body, Semantics::new(Role::Grid).name("Data grid").description(format!("{len} rows")));
+        cx.semantics(
+            body,
+            Semantics::new(Role::Grid)
+                .name(cx.labels().grid_name.clone())
+                .description(format!("{len} {}", cx.labels().grid_rows)),
+        );
         cx.focusable(body, 0.0);
         let clipboard = cx.clipboard();
         cx.on_key(body, key_handler(&shared, self.selection_mode, clipboard));
@@ -1153,7 +1170,8 @@ impl View for DataGrid {
                 let mut lines = Vec::new();
                 if let (Some(s), Some(v)) = (col.summary, result.totals.get(c).copied().flatten()) {
                     let muted = theme.color(Semantic::InkMuted);
-                    lines.push(util::label(cx, &s.label().to_uppercase(), TextStyle::Caption, None, muted));
+                    let name = cx.labels().summary(s).to_uppercase();
+                    lines.push(util::label(cx, &name, TextStyle::Caption, None, muted));
                     lines.push(cx.text(
                         &col.display_summary(s, v),
                         &a,

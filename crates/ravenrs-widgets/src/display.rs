@@ -86,7 +86,7 @@ impl View for Badge {
             padding: Insets::symmetric(3.0, 9.0),
             spacing: 4.0,
             align: Align::Center,
-            align_self: Some(Align::Start),
+            align_self: Some(Align::Fit),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let paint = QuadPaint {
@@ -394,7 +394,7 @@ impl View for Alert {
 pub struct Stat {
     label: String,
     value: String,
-    delta: Option<(String, bool)>,
+    delta: Option<(String, bool, bool)>,
 }
 
 impl Stat {
@@ -405,7 +405,14 @@ impl Stat {
 
     /// A change such as `"+12.4%"`; `up` picks the color and arrow.
     pub fn delta(mut self, text: impl Into<String>, up: bool) -> Self {
-        self.delta = Some((text.into(), up));
+        self.delta = Some((text.into(), up, up));
+        self
+    }
+
+    /// A change where going up is not always good, such as spending: `up` picks
+    /// the arrow and `good` the color.
+    pub fn delta_toned(mut self, text: impl Into<String>, up: bool, good: bool) -> Self {
+        self.delta = Some((text.into(), up, good));
         self
     }
 }
@@ -425,9 +432,9 @@ impl View for Stat {
         value_attrs.line_height = 36.0;
         let value = cx.text(&self.value, &value_attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
         let mut children = vec![label, value];
-        if let Some((text, up)) = &self.delta {
+        if let Some((text, up, good)) = &self.delta {
             let badge = Badge::new(text.clone())
-                .tone(if *up { Tone::Success } else { Tone::Danger })
+                .tone(if *good { Tone::Success } else { Tone::Danger })
                 .icon(if *up { IconName::TrendingUp } else { IconName::TrendingDown });
             children.push(cx.child(&badge));
         }

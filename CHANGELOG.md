@@ -5,6 +5,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ## [Unreleased]
 
 ### Added
+- **Family finance example.** `examples/family-finance` is a desktop app for a family's expenses and bills to pay on SQLite, with reports, expression filters in SQL and updates that compile on the user's machine. It exists to show the framework and to find what is missing in it; see its [README](examples/family-finance/README.md).
+- **Components in other languages.** `Labels` holds the words the built-in components use and `Localized` applies them to everything inside, so an app sets its language once. `Labels::pt_br` comes ready.
+- `Align::Fit` keeps a child's own size without overriding a parent that centers its children.
+- `Stat::delta_toned` separates a change's direction from whether it is good, for numbers such as spending.
 - **Report server.** `ravenrs-report-server` stores layouts with versions, renders them over HTTP, and sends scheduled reports by email or to a folder as PDF, XLSX or CSV. Jobs have cron schedules with time zones, parameters computed by expression, skip if empty, retries that do not send twice, retention, and a history of who received what. See [docs/REPORT-SERVER.md](docs/REPORT-SERVER.md).
 - `ReportEngine::count_rows` says how many rows a report would print.
 - **Document viewer.** `ravenrs-report-viewer` has `DocumentViewer`, with pages, zoom, fit to width, thumbnails, and search with highlights that ignores case and accents, and `ParameterPanel`, with a control for each parameter kind and apply and reset. The report designer's preview uses both.
@@ -15,6 +19,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Scope::current_row` and `Scope::current_rows` read what a scope holds.
 - **Pictures in reports.** `ControlKind::Picture` shows a PNG or JPEG from the layout or a field, fitted by `PictureMode`. A PDF keeps a JPEG's original file and stores an image once however often it prints; XLSX and SVG show them too. `decode_picture` and `picture_rect` are public, and the designer inserts and chooses images in the browser.
 - **Links and outline.** `ControlKind::Link` opens an `https:`, `http:` or `mailto:` address from a PDF, a spreadsheet or SVG; any other scheme is refused and reported. `ControlKind::Bookmark` adds entries, nested by level, to the PDF's outline. `Item` gains `Image`, `Link` and `Bookmark`.
+
+### Fixed
+- `Button`, `Badge`, `DatePicker` and other controls ignored a stack's `Align::Center` and sat at its start.
+- `None` and other empty views took a gap in their stack.
+- `DocumentViewer` worked out its width from the whole window, so beside a sidebar the page was off center and scrolled sideways.
+- A pie or doughnut chart listed categories with no slice in its legend.
 
 ### Changed
 - The site roadmap, `docs/PARITY.md` and `ARCHITECTURE.md` now reflect what shipped.

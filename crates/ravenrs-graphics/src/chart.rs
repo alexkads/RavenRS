@@ -221,9 +221,12 @@ pub fn draw(data: &ChartData, rect: Rect, options: &ChartOptions<'_>) -> ChartDr
     }
     let round = matches!(options.kind, ChartKind::Pie | ChartKind::Doughnut);
     let entries: Vec<(String, Color)> = if round {
+        // A category with nothing to show has no slice, so it has no place in the legend.
+        let values = data.series.first().map(|s| s.values.as_slice());
         data.categories
             .iter()
             .enumerate()
+            .filter(|(i, _)| values.is_none_or(|v| v.get(*i).is_some_and(|value| *value > 0.0)))
             .map(|(i, name)| (name.clone(), PALETTE[i % PALETTE.len()]))
             .collect()
     } else if data.series.len() > 1 {

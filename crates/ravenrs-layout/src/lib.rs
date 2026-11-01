@@ -38,6 +38,10 @@ pub enum Align {
     End,
     /// Fill the whole cross axis.
     Stretch,
+    /// As `align_self`: keep its own size. It follows a parent that centers or
+    /// ends its children, and goes to the start of one that stretches them.
+    /// This is what a button wants, so it never grows to a column's width.
+    Fit,
 }
 
 /// Main-axis distribution of a stack's children.
@@ -112,7 +116,7 @@ impl LayoutStyle {
         let dim = |v: Option<f32>| v.map_or(Dimension::auto(), Dimension::length);
         let lpa = |v: Option<f32>| v.map_or(LengthPercentageAuto::auto(), LengthPercentageAuto::length);
         let align = |a: Align| match a {
-            Align::Start => taffy::AlignItems::FLEX_START,
+            Align::Start | Align::Fit => taffy::AlignItems::FLEX_START,
             Align::Center => taffy::AlignItems::CENTER,
             Align::End => taffy::AlignItems::FLEX_END,
             Align::Stretch => taffy::AlignItems::STRETCH,
@@ -243,6 +247,8 @@ impl From<taffy::TaffyError> for LayoutError {
 /// A layout tree whose measured leaves carry a context `C`.
 pub struct LayoutTree<C> {
     taffy: TaffyTree<C>,
+    /// Nodes whose `align_self` is [`Align::Fit`], until their parent is known.
+    fit: std::collections::HashSet<LayoutId>,
 }
 
 impl<C> Default for LayoutTree<C> {
@@ -279,17 +285,31 @@ impl<C> LayoutTree<C> {
     /// assert_eq!(tree.frame(child).unwrap().height(), 20.0);
     /// ```
     pub fn new() -> Self {
-        Self { taffy: TaffyTree::new() }
+        Self { taffy: TaffyTree::new(), fit: std::collections::HashSet::new() }
     }
 
     /// Removes every node, keeping allocations for the next build.
     pub fn clear(&mut self) {
         self.taffy.clear();
+        self.fit.clear();
     }
 
     /// Adds a container (or a fixed-size leaf) with the given children.
     pub fn node(&mut self, style: LayoutStyle, children: &[LayoutId]) -> Result<LayoutId, LayoutError> {
-        Ok(self.taffy.new_with_children(style.to_taffy(), children)?)
+        if matches!(style.align, Align::Center | Align::End) {
+            for &child in children {
+                if self.fit.contains(&child) {
+                    let mut own = self.taffy.style(child)?.clone();
+                    own.align_self = None;
+                    self.taffy.set_style(child, own)?;
+                }
+            }
+        }
+        let id = self.taffy.new_with_children(style.to_taffy(), children)?;
+        if style.align_self == Some(Align::Fit) {
+            self.fit.insert(id);
+        }
+        Ok(id)
     }
 
     /// Adds a leaf whose size comes from the measure callback given to [`Self::compute`].

@@ -1,0 +1,15 @@
+[
+  {
+    "versao": "0.1.0",
+    "data": "2026-11-01",
+    "titulo": "Primeira versão: despesas da família, contas a pagar e relatórios, tudo guardado no seu computador.",
+    "importante": false,
+    "novidades": [
+      "Lançamentos com filtros, busca, agrupamento e filtro avançado por expressão.",
+      "Contas a pagar com parcelas, repetição mensal ou anual e pagamento em um clique.",
+      "Orçamento por categoria, com alerta de quando o limite estoura.",
+      "Relatórios para ver na tela e exportar em PDF, Excel e CSV."
+    ],
+    "por_que_atualizar": "É a primeira versão: a partir dela, o app avisa sozinho quando sair outra."
+  }
+]

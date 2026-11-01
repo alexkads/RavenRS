@@ -61,7 +61,8 @@ impl View for Spinner {
                 }
             })),
         );
-        cx.semantics(node, Semantics::new(Role::ProgressIndicator).name("Loading"));
+        let name = cx.labels().loading.clone();
+        cx.semantics(node, Semantics::new(Role::ProgressIndicator).name(name));
         node
     }
 }
@@ -530,7 +531,7 @@ impl View for Menubar {
             LayoutStyle {
                 padding: Insets::uniform(4.0),
                 spacing: 2.0,
-                align_self: Some(Align::Start),
+                align_self: Some(Align::Fit),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &titles,
@@ -607,7 +608,7 @@ impl View for InputOtp {
         let node = cx.container(
             LayoutStyle {
                 spacing: 8.0,
-                align_self: Some(Align::Start),
+                align_self: Some(Align::Fit),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &boxes,
@@ -713,6 +714,7 @@ pub struct FormField<V> {
     value: Option<Binding<String>>,
     rules: Vec<Rule>,
     show_errors: bool,
+    required: bool,
 }
 
 impl<V> fmt::Debug for FormField<V> {
@@ -731,13 +733,14 @@ impl<V: View> FormField<V> {
             value: None,
             rules: Vec::new(),
             show_errors: false,
+            required: false,
         }
     }
 
     /// Marks the label with `*` and adds the [`validate::required`] rule (for the value set by [`FormField::validate`]).
     pub fn required(mut self) -> Self {
         self.label = self.label.required();
-        self.rules.push(Rc::new(validate::required));
+        self.required = true;
         self
     }
 
@@ -767,6 +770,11 @@ impl<V: View> FormField<V> {
     /// The first error for the current value, if any.
     pub fn error(&self) -> Option<String> {
         let v = self.value.as_ref()?.get();
+        if self.required
+            && let Err(e) = validate::required(&v)
+        {
+            return Some(e);
+        }
         self.rules.iter().find_map(|r| r(&v).err())
     }
 }
@@ -778,7 +786,11 @@ impl<V: View> View for FormField<V> {
         let content = cx.child(&self.content);
         let mut children = vec![label, content];
         let value = self.value.as_ref().map(Binding::get).unwrap_or_default();
-        let error = (self.show_errors || !value.is_empty()).then(|| self.error()).flatten();
+        let blank = self.required && self.value.is_some() && value.trim().is_empty();
+        // The same check as `error`, in the words of this part of the app.
+        let error = (self.show_errors || !value.is_empty())
+            .then(|| if blank { Some(cx.labels().required.clone()) } else { self.error() })
+            .flatten();
         cx.label_control(content, self.label.text(), error.as_deref().or(self.hint.as_deref()));
         if let Some(e) = error {
             let icon = util::icon(cx, IconName::CircleAlert, 14.0, theme.color(Semantic::Danger));

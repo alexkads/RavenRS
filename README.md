@@ -77,7 +77,7 @@ The [getting started guide](https://github.com/alexkads/RavenRS/blob/master/docs
 | Layout | `VStack`, `HStack`, `Grid`, `ScrollView`, `Splitter`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `Spacer`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
 | Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Alert`, `ProgressBar`, `Spinner`, `Skeleton`, `Kbd`, `Divider`, `Canvas` |
 
-Every component is in [`examples/component-gallery`](https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery), which runs natively and [in your browser](https://alexkads.github.io/RavenRS/).
+Every component is in [`examples/component-gallery`](https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery), which runs natively and [in your browser](https://alexkads.github.io/RavenRS/). For a whole app, see [`examples/family-finance`](https://github.com/alexkads/RavenRS/blob/master/examples/family-finance): family expenses and bills to pay on SQLite, with reports.
 
 ## Your own components
 

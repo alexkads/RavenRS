@@ -23,7 +23,7 @@ cargo check -p ravenrs --no-default-features
 
 step "minimum supported Rust version (1.88)"
 if rustup toolchain list | grep -q '^1.88'; then
-    cargo +1.88 check --workspace --exclude hello-world --exclude component-gallery --exclude report-designer
+    cargo +1.88 check --workspace --exclude hello-world --exclude component-gallery --exclude report-designer --exclude family-finance
 else
     echo "skipped: install it with 'rustup toolchain install 1.88'"
 fi
@@ -39,7 +39,7 @@ step "benchmarks compile"
 cargo bench --workspace --no-run --quiet
 
 step "API docs (broken links fail)"
-RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --exclude hello-world --exclude component-gallery --exclude report-designer --quiet
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --exclude hello-world --exclude component-gallery --exclude report-designer --exclude family-finance --quiet
 
 step "web builds"
 ./scripts/build-web.sh hello-world

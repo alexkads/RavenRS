@@ -14,7 +14,7 @@ fn row(cx: &mut BuildCx<'_>, children: &[NodeId]) -> NodeId {
     let style = LayoutStyle {
         spacing: 10.0,
         align: Align::Center,
-        align_self: Some(Align::Start),
+        align_self: Some(Align::Fit),
         ..LayoutStyle::stack(Axis::Horizontal)
     };
     cx.container(style, children, Paint::None)
@@ -505,7 +505,7 @@ impl View for Stepper {
         let inc = self.value.clone();
         let minus = cx.child(
             &crate::IconButton::new(IconName::Minus)
-                .label("Decrease")
+                .label(cx.labels().decrease.clone())
                 .size(crate::ButtonSize::Small)
                 .on_click(move || dec.update(|v| *v = (*v - 1).max(min))),
         );
@@ -525,7 +525,7 @@ impl View for Stepper {
         cx.semantics(value, Semantics::hidden());
         let plus = cx.child(
             &crate::IconButton::new(IconName::Plus)
-                .label("Increase")
+                .label(cx.labels().increase.clone())
                 .size(crate::ButtonSize::Small)
                 .on_click(move || inc.update(|v| *v = (*v + 1).min(max))),
         );
@@ -533,7 +533,7 @@ impl View for Stepper {
             padding: Insets::uniform(3.0),
             spacing: 2.0,
             align: Align::Center,
-            align_self: Some(Align::Start),
+            align_self: Some(Align::Fit),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let paint = QuadPaint {
@@ -587,11 +587,11 @@ impl SegmentedControl {
     /// Segments with an icon before each label.
     pub fn with_icons(
         selected: Binding<usize>,
-        options: impl IntoIterator<Item = (IconName, &'static str)>,
+        options: impl IntoIterator<Item = (IconName, impl Into<String>)>,
     ) -> Self {
         Self {
             selected,
-            options: options.into_iter().map(|(i, l)| (Some(i), l.to_owned())).collect(),
+            options: options.into_iter().map(|(i, l)| (Some(i), l.into())).collect(),
             label: None,
         }
     }
@@ -678,7 +678,7 @@ impl View for SegmentedControl {
         let style = LayoutStyle {
             padding: Insets::uniform(3.0),
             spacing: 2.0,
-            align_self: Some(Align::Start),
+            align_self: Some(Align::Fit),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let paint =
@@ -696,6 +696,7 @@ pub struct ThemeSwitcher;
 impl View for ThemeSwitcher {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let themes = [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()];
+        let labels = cx.labels();
         let state = cx.theme_state();
         let read = state.clone();
         let binding = Binding::new(
@@ -705,9 +706,13 @@ impl View for ThemeSwitcher {
         cx.child(
             &SegmentedControl::with_icons(
                 binding,
-                [(IconName::Moon, "Dark"), (IconName::Sun, "Light"), (IconName::Layers, "Glass")],
+                [
+                    (IconName::Moon, labels.theme_dark.as_str()),
+                    (IconName::Sun, labels.theme_light.as_str()),
+                    (IconName::Layers, labels.theme_glass.as_str()),
+                ],
             )
-            .label("Theme"),
+            .label(labels.theme.clone()),
         )
     }
 }

@@ -15,7 +15,7 @@ fi
 ./scripts/build-web.sh hello-world
 ./scripts/build-web.sh component-gallery
 ./scripts/build-web.sh report-designer
-cargo doc --no-deps --workspace --exclude hello-world --exclude component-gallery --exclude report-designer --quiet
+cargo doc --no-deps --workspace --exclude hello-world --exclude component-gallery --exclude report-designer --exclude family-finance --quiet
 ./scripts/check-component-list.py
 
 site="$(mktemp -d)"
@@ -27,6 +27,9 @@ cp -R site/components/. "$site/components/"
 cp -R examples/component-gallery/web/. "$site/demo/"
 cp -R examples/hello-world/web/. "$site/hello/"
 cp -R examples/report-designer/web/. "$site/designer/"
+# What the installed app reads to learn of a new version, when raw.githubusercontent.com does not answer.
+mkdir -p "$site/family-finance"
+cp examples/family-finance/novidades.json examples/family-finance/historico-de-novidades.json "$site/family-finance/"
 cp -R site/assets/. "$site/assets/"
 mkdir -p "$site/api"
 cp -R target/doc/. "$site/api/"

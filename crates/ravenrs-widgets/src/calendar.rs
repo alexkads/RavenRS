@@ -157,10 +157,11 @@ impl View for Day<'_> {
             Paint::Quad(QuadPaint { corner_radius: 9.0, border, ..QuadPaint::new(fill) }),
         );
         // The full date, so the day reads on its own ("31 October 2026").
-        let name = format!("{} {}", self.date.day(), self.date.month_title());
+        let labels = cx.labels();
+        let name = labels.long_date(self.date);
         let mut semantics = Semantics::new(Role::Button).name(name).selected(selected).disabled(!enabled);
         if c.today == Some(self.date) {
-            semantics = semantics.description("Today");
+            semantics = semantics.description(labels.today.clone());
         }
         cx.semantics(node, semantics);
         if self.keys.focus_to.get() == Some(self.date) {
@@ -194,16 +195,17 @@ impl View for Calendar {
         let initial = self.selected.get().map_or(self.initial_month, Date::first_of_month);
         let month: State<Date> = cx.use_state(move || initial);
         let shown = month.get();
+        let labels = cx.labels();
         let (prev, next) = (month.clone(), month.clone());
         let back = cx.child(
             &IconButton::new(IconName::ChevronLeft)
-                .label("Previous month")
+                .label(labels.previous_month.clone())
                 .size(ButtonSize::Small)
                 .on_click(move || prev.update(|m| *m = m.add_months(-1))),
         );
         let title = util::label(
             cx,
-            &shown.month_title(),
+            &labels.month_title(shown),
             TextStyle::Body,
             Some(Weight::SEMIBOLD),
             theme.color(Semantic::Ink),
@@ -215,7 +217,7 @@ impl View for Calendar {
         );
         let forward = cx.child(
             &IconButton::new(IconName::ChevronRight)
-                .label("Next month")
+                .label(labels.next_month.clone())
                 .size(ButtonSize::Small)
                 .on_click(move || next.update(|m| *m = m.add_months(1))),
         );
@@ -228,7 +230,8 @@ impl View for Calendar {
             &[back, title, forward],
             Paint::None,
         );
-        let mut cells: Vec<NodeId> = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+        let mut cells: Vec<NodeId> = labels
+            .weekdays
             .iter()
             .map(|d| {
                 let l = util::label(cx, d, TextStyle::Caption, None, theme.color(Semantic::InkMuted));
@@ -277,7 +280,7 @@ impl View for Calendar {
             LayoutStyle {
                 spacing: 10.0,
                 width: Some(7.0 * 36.0 + 12.0),
-                align_self: Some(Align::Start),
+                align_self: Some(Align::Fit),
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &[header, grid],
@@ -291,7 +294,7 @@ impl View for Calendar {
 pub struct DatePicker {
     value: Binding<Option<Date>>,
     month: Date,
-    placeholder: String,
+    placeholder: Option<String>,
     today: Option<Date>,
     width: f32,
     label: Option<String>,
@@ -300,12 +303,12 @@ pub struct DatePicker {
 impl DatePicker {
     /// `month` is shown when no date is selected yet.
     pub fn new(value: Binding<Option<Date>>, month: Date) -> Self {
-        Self { value, month, placeholder: "Pick a date".into(), today: None, width: 220.0, label: None }
+        Self { value, month, placeholder: None, today: None, width: 220.0, label: None }
     }
 
     /// Text shown while no date is selected ("Pick a date" by default).
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
-        self.placeholder = text.into();
+        self.placeholder = Some(text.into());
         self
     }
 
@@ -365,9 +368,13 @@ impl View for DatePicker {
         let is_open = open.get();
         let hovered = cx.is_hovered();
         let icon = util::icon(cx, IconName::Calendar, 16.0, theme.color(Semantic::InkMuted));
+        let labels = cx.labels();
         let (text, color) = match self.value.get() {
-            Some(d) => (d.short(), theme.color(Semantic::Ink)),
-            None => (self.placeholder.clone(), theme.color(Semantic::InkMuted)),
+            Some(d) => ((labels.short_date)(d), theme.color(Semantic::Ink)),
+            None => {
+                let hint = self.placeholder.clone().unwrap_or_else(|| labels.pick_date.clone());
+                (hint, theme.color(Semantic::InkMuted))
+            }
         };
         let label = util::label(cx, &text, TextStyle::Body, None, color);
         let border = if is_open {
@@ -386,7 +393,7 @@ impl View for DatePicker {
                 padding: Insets::symmetric(0.0, 12.0),
                 spacing: 10.0,
                 align: Align::Center,
-                align_self: Some(Align::Start),
+                align_self: Some(Align::Fit),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[icon, label],
@@ -397,7 +404,7 @@ impl View for DatePicker {
             }),
         );
         cx.semantics(label, Semantics::hidden());
-        let value = self.value.get().map(|d| format!("{} {}", d.day(), d.month_title())).unwrap_or_default();
+        let value = self.value.get().map(|d| labels.long_date(d)).unwrap_or_default();
         let mut semantics = Semantics::new(Role::ComboBox).value(value).expanded(is_open);
         if let Some(label) = &self.label {
             semantics = semantics.name(label.clone());
