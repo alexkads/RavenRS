@@ -1129,6 +1129,23 @@ impl Gallery {
                 .align(Align::Stretch),
             ),
             demo(
+                "StatusBar",
+                "One fixed line at the foot of a window. The sides keep their width, the center gives way, and a notice can tint only the center.",
+                VStack::new((
+                    samples::sample("StatusBar"),
+                    StatusBar::new()
+                        .left((StatusBar::action("Version 27.1"),))
+                        .center((
+                            StatusBar::text("Version 27.2 is available").truncate().grow(1.0),
+                            StatusBar::action("What's new"),
+                            StatusBar::action("Update").style(ButtonStyle::Primary),
+                        ))
+                        .center_tone(Tone::Warning)
+                        .right((StatusBar::text("12 items"),)),
+                ))
+                .align(Align::Stretch),
+            ),
+            demo(
                 "Menubar",
                 "Desktop-style menus.",
                 Menubar::new()
@@ -1636,6 +1653,16 @@ impl Gallery {
     fn feedback(&self, width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Feedback", "Alerts, progress and loading placeholders."),
+            demo(
+                "ReleaseNotes",
+                "An app's versions: the list, what the chosen one brought, and buttons that walk through them. The second block shows a command to copy.",
+                VStack::new((
+                    samples::sample("ReleaseNotes"),
+                    samples::sample("CodeBlock"),
+                ))
+                .spacing(16.0)
+                .align(Align::Stretch),
+            ),
             demo(
                 "Alerts",
                 "Tinted messages with an icon for each tone.",

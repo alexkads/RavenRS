@@ -1,12 +1,12 @@
-//! What the update says on screen: the banner and the news.
+//! What the update says on screen: the status bar and the news.
 
 use ravenrs::prelude::*;
 
 use crate::model::parse_date;
-use crate::update::{self, News, UpdateStatus, Updater};
+use crate::update::{self, News, NoticeAction, UpdateStatus, Updater};
 
-/// Connects the updater to the UI and takes in what its thread finished.
-/// That thread wakes the UI once, when done, so nothing runs while it works.
+/// Connects the updater to the UI and takes in what its threads said. They only
+/// wake the UI when there is something to read, so nothing runs while they work.
 pub(crate) struct UpdatePump(pub Updater);
 
 impl View for UpdatePump {
@@ -17,118 +17,115 @@ impl View for UpdatePump {
     }
 }
 
-/// The banner under the toolbar; absent when there is nothing to say.
-pub(crate) fn banner(updater: &Updater, news_open: &State<bool>) -> Option<impl View + use<>> {
-    let status = updater.status();
-    let (tone, title, message): (Tone, String, String) = match &status {
-        UpdateStatus::Quiet => return None,
-        UpdateStatus::Available(n) => (
-            if n.importante { Tone::Warning } else { Tone::Accent },
-            format!("Versão {} disponível", n.versao),
-            n.titulo.clone(),
-        ),
-        UpdateStatus::Development(n) => (
-            Tone::Neutral,
-            format!("Versão {} no repositório", n.versao),
-            "Esta cópia foi compilada à mão: atualize com git pull.".to_owned(),
-        ),
-        UpdateStatus::Compiling(n) => (
-            Tone::Accent,
-            format!("Instalando a versão {}", n.versao),
-            "Compilando em segundo plano. Pode continuar usando o app.".to_owned(),
-        ),
-        UpdateStatus::Ready(n) => {
-            (Tone::Success, format!("Versão {} instalada", n.versao), "Reabra o app para usar.".to_owned())
-        }
-        UpdateStatus::Failed(n, reason) => (
-            Tone::Danger,
-            format!("A versão {} não foi instalada", n.versao),
-            format!("O app continua funcionando como estava. {reason}"),
-        ),
-    };
-    let compiling = matches!(status, UpdateStatus::Compiling(_));
-    let action: Option<AnyView> = match status {
-        UpdateStatus::Available(n) | UpdateStatus::Failed(n, _) => {
-            let retry = matches!(updater.status(), UpdateStatus::Failed(..));
-            let updater = updater.clone();
-            Some(Box::new(
-                Button::new(if retry { "Tentar de novo" } else { "Atualizar" })
-                    .size(ButtonSize::Small)
-                    .icon(IconName::Download)
-                    .on_click(move || updater.install(n.clone())),
-            ))
-        }
-        UpdateStatus::Ready(_) => {
-            let updater = updater.clone();
-            Some(Box::new(
-                Button::new("Reabrir agora")
-                    .size(ButtonSize::Small)
-                    .icon(IconName::RotateCcw)
-                    .on_click(move || updater.reopen()),
-            ))
-        }
-        _ => None,
-    };
-    let news = news_open.clone();
-    Some(
-        HStack::new((
-            compiling.then(|| Spinner::new().size(16.0)),
-            Badge::new(title).tone(tone),
-            Text::new(message).style(TextStyle::Callout).truncate().grow(1.0),
-            Button::new("Ver novidades")
-                .size(ButtonSize::Small)
-                .style(ButtonStyle::Ghost)
-                .on_click(move || news.set(true)),
-            action,
-        ))
-        .spacing(10.0)
-        .align(Align::Center)
-        .padding((10.0, 24.0))
-        .background(Semantic::Surface),
-    )
+/// The news dialog: whether it is open, and on which version.
+#[derive(Clone)]
+pub(crate) struct NewsDialog {
+    open: State<bool>,
+    at: State<usize>,
 }
 
-fn news_block(news: &News) -> Disclosure {
-    let day = news.data.as_deref().and_then(parse_date).map(crate::model::date_label);
-    let title = match day {
-        Some(day) => format!("Versão {} · {day}", news.versao),
-        None => format!("Versão {}", news.versao),
-    };
-    let items: Vec<AnyView> = news
-        .novidades
-        .iter()
-        .map(|line| Box::new(Text::new(format!("• {line}")).style(TextStyle::Callout)) as AnyView)
-        .collect();
-    Disclosure::new(
-        title,
-        VStack::new((
-            Text::new(news.titulo.clone()),
-            VStack::new(items).spacing(6.0),
-            Text::new(news.por_que_atualizar.clone())
-                .style(TextStyle::Callout)
-                .foreground(Semantic::InkMuted),
-        ))
-        .spacing(10.0),
-    )
-}
-
-/// Every version so far, plus the announced one when it is not in this copy's history.
-pub(crate) fn news_sheet(updater: &Updater, open: &State<bool>) -> impl View + use<> {
-    let mut all = update::history();
-    let announced = match updater.status() {
-        UpdateStatus::Available(n)
-        | UpdateStatus::Compiling(n)
-        | UpdateStatus::Ready(n)
-        | UpdateStatus::Failed(n, _)
-        | UpdateStatus::Development(n) => Some(n),
-        UpdateStatus::Quiet => None,
-    };
-    if let Some(news) = announced
-        && !all.iter().any(|known| known.versao == news.versao)
-    {
-        all.insert(0, news);
+impl NewsDialog {
+    pub(crate) fn new() -> Self {
+        Self { open: State::new(false), at: State::new(0) }
     }
-    let blocks: Vec<Disclosure> =
-        all.iter().enumerate().map(|(i, news)| news_block(news).open(i == 0)).collect();
-    Sheet::new(open.binding(), "Novidades").width(460.0).content(ScrollView::new((Accordion::new(blocks),)))
+
+    /// Opens it on the newest version known, the one a notice talks about.
+    pub(crate) fn show_latest(&self) {
+        self.at.set(0);
+        self.open.set(true);
+    }
+
+    /// Opens it on the version in use.
+    pub(crate) fn show_installed(&self, updater: &Updater) {
+        let at = updater.timeline().iter().position(|news| news.versao == update::CURRENT);
+        self.at.set(at.unwrap_or(0));
+        self.open.set(true);
+    }
+
+    pub(crate) fn view(&self, updater: &Updater) -> impl View + use<> {
+        let notes: Vec<ReleaseNote> = updater.timeline().iter().map(release_note).collect();
+        let open = self.open.clone();
+        let offer = match updater.status() {
+            UpdateStatus::Available(news) => Some(news),
+            _ => None,
+        };
+        let updater = updater.clone();
+        let close = open.clone();
+        let mut dialog = Dialog::new(self.open.binding(), "Novidades")
+            .width(780.0)
+            .content(ReleaseNotes::new(notes, self.at.binding()))
+            .action(Button::new("Fechar").style(ButtonStyle::Secondary).on_click(move || close.set(false)));
+        if let Some(news) = offer {
+            dialog = dialog.action(Button::new("Atualizar").icon(IconName::Download).on_click(move || {
+                updater.install(news.clone());
+                open.set(false);
+            }));
+        }
+        dialog
+    }
+}
+
+fn release_note(news: &News) -> ReleaseNote {
+    let new = update::is_newer(&news.versao, update::CURRENT);
+    let mut note = ReleaseNote::new(format!("Versão {}", news.versao), news.titulo.clone())
+        .changes(news.novidades.iter().cloned())
+        .section(
+            if new { "Por que atualizar" } else { "Por que ela importa" },
+            news.por_que_atualizar.clone(),
+        );
+    if let Some(day) = news.data.as_deref().and_then(parse_date) {
+        note = note.date(crate::model::date_label(day));
+    }
+    if new {
+        note = note
+            .badge("Nova", Tone::Success)
+            .section(
+                "Como atualizar",
+                "1. Clique em Atualizar: o app baixa o código da versão nova e compila neste computador.\n\
+                 2. Leva alguns minutos. Você pode continuar usando o app enquanto isso.\n\
+                 3. No fim, clique em Reabrir agora. Seus dados continuam lá.",
+            )
+            .section("Se a atualização pelo app falhar", "Feche o app e rode no terminal:")
+            .code(update::INSTALL_COMMAND);
+    } else if news.versao == update::CURRENT {
+        note = note.badge("Instalada", Tone::Neutral);
+    }
+    note
+}
+
+fn notice_button(action: NoticeAction, updater: &Updater, news: &NewsDialog) -> Button {
+    let (updater, news) = (updater.clone(), news.clone());
+    let button = StatusBar::action(action.label());
+    let button = if action.is_primary() { button.style(ButtonStyle::Primary) } else { button };
+    button.on_click(move || match action {
+        NoticeAction::News | NoticeAction::HowToUpdate => news.show_latest(),
+        NoticeAction::Update | NoticeAction::Retry => {
+            if let Some(announced) = updater.status().news() {
+                updater.install(announced.clone());
+            }
+        }
+        NoticeAction::Reopen => updater.reopen(),
+        NoticeAction::CheckAgain => updater.ask(),
+        NoticeAction::Later | NoticeAction::Close => updater.dismiss(),
+    })
+}
+
+/// The line at the foot of the window: the version, always, and a notice in the
+/// middle when there is one. Clicking the version shows what it brought.
+pub(crate) fn status_bar(updater: &Updater, news: &NewsDialog) -> impl View + use<> {
+    let (installed_news, installed_updater) = (news.clone(), updater.clone());
+    let bar =
+        StatusBar::new().left((StatusBar::action(format!("Raven Finanças · versão {}", update::CURRENT))
+            .on_click(move || installed_news.show_installed(&installed_updater)),));
+    let Some(notice) = updater.notice() else {
+        return bar;
+    };
+    let buttons: Vec<Button> =
+        notice.actions.iter().map(|action| notice_button(*action, updater, news)).collect();
+    let bar = bar.center((
+        notice.busy.then(|| Spinner::new().size(12.0)),
+        StatusBar::text(notice.text).foreground(Semantic::Ink).truncate().grow(1.0),
+        HStack::new(buttons).spacing(2.0),
+    ));
+    if notice.important { bar.center_tone(Tone::Warning) } else { bar }
 }

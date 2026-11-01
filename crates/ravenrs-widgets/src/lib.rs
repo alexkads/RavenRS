@@ -54,6 +54,7 @@ mod motion;
 mod nav;
 mod overlay;
 mod recurrence;
+mod release_notes;
 mod remote;
 mod ribbon;
 mod scheduler;
@@ -102,12 +103,13 @@ pub use nav::{
 };
 pub use overlay::{Dialog, DropdownMenu, MenuItem, Popover, Select, Tooltip};
 pub use recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
+pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
 pub use remote::UiWaker;
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
 pub use scheduler::{
     Resource, Scheduler, SchedulerChange, SchedulerEvent, SchedulerRange, TimeAxis, TimePoint, TimeScale,
 };
-pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, VStack};
+pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, StatusBar, VStack};
 pub use text::Text;
 pub use text_field::TextField;
 pub use ui::Ui;
