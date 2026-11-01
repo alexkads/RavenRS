@@ -152,3 +152,20 @@ fn links_become_hyperlinks_and_bookmarks_leave_no_trace() {
     assert!(!part(&xlsx, "xl/sharedStrings.xml").contains("marcador"));
     assert_eq!(to_csv(&doc), "Abrir\r\n");
 }
+
+#[test]
+fn barcodes_become_one_picture_and_not_a_grid_of_cells() {
+    use ravenrs_report::barcode::Symbology;
+    let report = Report::new("T").detail(
+        Band::new(60.0)
+            .control(Control::barcode(Symbology::Code128, "'ABC123'").at(0.0, 0.0, 200.0, 60.0))
+            .control(Control::field("[A]").at(210.0, 0.0, 100.0, 20.0)),
+    );
+    let doc = ReportEngine::new().render(&report, &json!([{ "A": "x" }]));
+    let xlsx = to_xlsx(&doc).unwrap();
+    let sheet = part(&xlsx, "xl/worksheets/sheet1.xml");
+    assert!(sheet.contains("<drawing"));
+    assert!(sheet.matches("<col ").count() < 8, "bars must not make columns: {sheet}");
+    let mut archive = zip::ZipArchive::new(Cursor::new(&xlsx)).unwrap();
+    assert!(archive.by_name("xl/media/image1.png").is_ok());
+}

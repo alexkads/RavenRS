@@ -87,6 +87,16 @@ pub enum Item {
         /// The image.
         image: DocumentImage,
     },
+    /// Filled rectangles that belong together, such as the bars of a barcode.
+    /// Spreadsheets place them as one picture and not as cells.
+    Marks {
+        /// The box they are in.
+        rect: Rect,
+        /// Their color.
+        color: Color,
+        /// The rectangles, in the page's coordinates.
+        marks: Vec<Rect>,
+    },
     /// An area that opens an address when clicked. Prints nothing.
     Link {
         /// The clickable area.
@@ -322,6 +332,21 @@ impl Document {
                         rect.width(),
                         rect.height(),
                     );
+                }
+                Item::Marks { color, marks, .. } => {
+                    let _ = write!(s, r#"<path fill="{}" d=""#, css(*color));
+                    for mark in marks {
+                        let _ = write!(
+                            s,
+                            "M{} {}h{}v{}h-{}z",
+                            mark.x(),
+                            mark.y(),
+                            mark.width(),
+                            mark.height(),
+                            mark.width()
+                        );
+                    }
+                    s.push_str(r#""/>"#);
                 }
                 Item::Bookmark { .. } => {}
             }

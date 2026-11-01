@@ -80,6 +80,11 @@ pub fn paint_page(page: &Page, text: &mut TextSystem, scene: &mut Scene, origin:
                 scene.push_image(ImageQuad::new(rect(r), image.pixels().clone()));
                 scene.pop_clip();
             }
+            Item::Marks { color, marks, .. } => {
+                for mark in marks {
+                    scene.push_quad(Quad::new(rect(mark), *color));
+                }
+            }
             // Nothing to print: they matter in the exported file.
             Item::Link { .. } | Item::Bookmark { .. } => {}
         }

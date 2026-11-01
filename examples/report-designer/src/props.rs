@@ -2,6 +2,7 @@
 
 use ravenrs::prelude::*;
 use ravenrs::style::SPACING;
+use ravenrs_report::barcode::Symbology;
 use ravenrs_report::{ControlKind, PageSettings, PictureMode, Style, TextAlign};
 
 use crate::bands::BandRef;
@@ -252,6 +253,74 @@ fn bookmark_props(e: &Editor, rows: &mut Vec<AnyView>) {
     rows.push(Box::new(FormField::new("Expressão", text).hint("O texto no sumário do PDF. Ex.: [Region]")));
 }
 
+const SYMBOLOGIES: [(&str, Symbology); 7] = [
+    ("Code 128", Symbology::Code128),
+    ("Code 39", Symbology::Code39),
+    ("EAN-13", Symbology::Ean13),
+    ("EAN-8", Symbology::Ean8),
+    ("UPC-A", Symbology::UpcA),
+    ("ITF", Symbology::Itf),
+    ("QR Code", Symbology::Qr),
+];
+
+fn barcode_props(e: &Editor, barcode: &ravenrs_report::Barcode, rows: &mut Vec<AnyView>) {
+    let index = SYMBOLOGIES.iter().position(|(_, s)| *s == barcode.symbology).unwrap_or(0);
+    let write = e.clone();
+    let format = Select::new(
+        Binding::new(
+            move || index,
+            move |i: usize| {
+                write.edit_control("barcode-format", |c| {
+                    if let ControlKind::Barcode(b) = &mut c.kind {
+                        b.symbology = SYMBOLOGIES[i.min(SYMBOLOGIES.len() - 1)].1;
+                    }
+                });
+            },
+        ),
+        SYMBOLOGIES.iter().map(|(name, _)| *name),
+    )
+    .width(268.0)
+    .label("Formato");
+    rows.push(Box::new(FormField::new("Formato", format)));
+    let content = control_text(
+        e,
+        "barcode-content",
+        |k| match k {
+            ControlKind::Barcode(b) => b.expression.clone().unwrap_or_else(|| b.text.clone()),
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Barcode(b) = k {
+                if b.expression.is_some() {
+                    b.expression = Some(s);
+                } else {
+                    b.text = s;
+                }
+            }
+        },
+    );
+    rows.push(Box::new(FormField::new("Expressão", content).hint("O conteúdo do código. Ex.: [Sku]")));
+    let (read, write) = (e.clone(), e.clone());
+    rows.push(Box::new(Checkbox::new(
+        "Mostrar o texto",
+        Binding::new(
+            move || {
+                read.selected_control().is_some_and(|(_, _, c)| match c.kind {
+                    ControlKind::Barcode(b) => b.show_text,
+                    _ => false,
+                })
+            },
+            move |show: bool| {
+                write.edit_control("barcode-text", |c| {
+                    if let ControlKind::Barcode(b) = &mut c.kind {
+                        b.show_text = show;
+                    }
+                });
+            },
+        ),
+    )));
+}
+
 fn control_props(e: &Editor) -> impl View + use<> {
     let Some((band, _, control)) = e.selected_control() else { return Box::new(Text::new("")) as AnyView };
     let report = e.report.get();
@@ -264,6 +333,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Shape(_) => "Forma",
         ControlKind::Panel(_) => "Painel",
         ControlKind::Picture(_) => "Imagem",
+        ControlKind::Barcode(_) => "Código de barras",
         ControlKind::Link(_) => "Link",
         ControlKind::Bookmark(_) => "Marcador",
         _ => "Controle",
@@ -333,6 +403,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Picture(picture) => picture_props(e, picture, &mut rows),
         ControlKind::Link(_) => link_props(e, &mut rows),
         ControlKind::Bookmark(_) => bookmark_props(e, &mut rows),
+        ControlKind::Barcode(barcode) => barcode_props(e, barcode, &mut rows),
         _ => {}
     }
     rows.push(Box::new(section("Posição e tamanho (pt)")));

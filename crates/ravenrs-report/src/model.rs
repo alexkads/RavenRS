@@ -350,6 +350,33 @@ pub enum ControlKind {
     Link(LinkLabel),
     /// An invisible entry in the document's outline, at this control's position.
     Bookmark(Bookmark),
+    /// A barcode or QR Code.
+    Barcode(Barcode),
+}
+
+/// A barcode.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Barcode {
+    /// The format.
+    pub symbology: crate::barcode::Symbology,
+    /// Fixed content.
+    pub text: String,
+    /// An expression giving the content, such as `[Sku]`; it wins over `text`.
+    pub expression: Option<String>,
+    /// Prints the content under a linear code.
+    pub show_text: bool,
+}
+
+impl Default for Barcode {
+    fn default() -> Self {
+        Self {
+            symbology: crate::barcode::Symbology::default(),
+            text: String::new(),
+            expression: None,
+            show_text: true,
+        }
+    }
 }
 
 /// A picture.
@@ -895,6 +922,18 @@ impl Control {
     /// A label with fixed text.
     pub fn label(text: impl Into<String>) -> Self {
         Self { kind: ControlKind::Label(Label { text: text.into(), ..Label::default() }), ..Self::default() }
+    }
+
+    /// A barcode showing the value of `expression`.
+    pub fn barcode(symbology: crate::barcode::Symbology, expression: impl Into<String>) -> Self {
+        Self {
+            kind: ControlKind::Barcode(Barcode {
+                symbology,
+                expression: Some(expression.into()),
+                ..Barcode::default()
+            }),
+            ..Self::default()
+        }
     }
 
     /// A picture from a `data:` address or base64 text.

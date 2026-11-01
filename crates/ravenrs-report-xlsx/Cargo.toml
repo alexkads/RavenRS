@@ -14,6 +14,7 @@ keywords = ["report", "xlsx", "excel", "csv", "export"]
 categories = ["template-engine", "encoding"]
 
 [dependencies]
+image.workspace = true
 ravenrs-core.workspace = true
 ravenrs-report.workspace = true
 rust_xlsxwriter = "0.102"
@@ -22,7 +23,6 @@ rust_xlsxwriter = "0.102"
 rust_xlsxwriter = { version = "0.102", features = ["wasm"] }
 
 [dev-dependencies]
-image.workspace = true
 serde_json.workspace = true
 zip = { version = "9", default-features = false, features = ["deflate"] }
 

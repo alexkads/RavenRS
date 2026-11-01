@@ -462,3 +462,13 @@ fn accented_outline_titles_are_utf16() {
         "title not utf-16"
     );
 }
+
+#[test]
+fn barcodes_are_vector_rectangles() {
+    use ravenrs_report::barcode::Symbology;
+    let band = Band::new(60.0).control(Control::barcode(Symbology::Code128, "[N]").at(0.0, 0.0, 200.0, 60.0));
+    let pdf = read(&rows(band, 1));
+    assert!(pdf.with("/Subtype /Image").is_empty(), "no raster");
+    let content = pdf.page_content();
+    assert!(content.matches(" re\n").count() > 10, "{content}");
+}

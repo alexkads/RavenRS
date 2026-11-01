@@ -36,7 +36,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Page info | Page n of N, date, user, per-group numbering | ✅ via `FormatString('Page {0} of {1}', PageNumber(), PageCount())`, `Now()`. Per-group numbering ⬜ [R3] |
 | Subreport | Embeds another report, parameter bindings | ⬜ [R3] |
 | Table of contents, bookmarks | From bookmarks; PDF outline | 🟡 `Bookmark` control builds the PDF outline, nested by level. Table of contents ⬜ [R3] |
-| Barcode | 40+ symbologies (Code 128, EAN, UPC, ITF, GS1, QR, Data Matrix, PDF417, Aztec, postal…) | ⬜ [R3]: Code 128, Code 39, EAN-13/8, UPC-A, ITF-14, QR, Data Matrix, PDF417 first |
+| Barcode | 40+ symbologies (Code 128, EAN, UPC, ITF, GS1, QR, Data Matrix, PDF417, Aztec, postal…) | 🟡 Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF and QR, vector in PDF and SVG. Data Matrix, PDF417 ⬜ [R3] |
 | Chart | 2D/3D, many series types | ⬜ [R3]: bar, line, area, pie, doughnut, scatter |
 | Sparkline | Line/area/bar/win-loss | ⬜ [R3] |
 | Gauge | Linear and circular | ⬜ [R3] |

@@ -116,7 +116,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Gauges (linear, circular, arc) | | ✓ | ✓ | 🟡 `ProgressBar`; circular gauges need paths |
 | Maps | | ✓ | ✓ | ⬜ |
 | Diagram / Org chart | | ✓ | ✓ | ⬜ |
-| QR code / Barcode | | ✓ | ✓ | ⬜ |
+| QR code / Barcode | | ✓ | ✓ | 🟡 in reports (`ravenrs_report::barcode`); no UI component yet |
 
 ## Overlays and feedback
 

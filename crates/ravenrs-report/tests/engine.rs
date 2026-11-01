@@ -610,3 +610,35 @@ fn the_new_controls_survive_a_trip_through_json() {
     let again = Report::from_json(&report.to_json()).expect("reads back");
     assert_eq!(again, report);
 }
+
+#[test]
+fn barcodes_draw_marks_with_their_text_and_report_bad_content() {
+    use ravenrs_report::barcode::Symbology;
+    use ravenrs_report::{Band, Control, Report, ReportEngine};
+    let report = Report::new("T").detail(
+        Band::new(60.0).control(Control::barcode(Symbology::Ean13, "[Sku]").at(0.0, 0.0, 200.0, 60.0)),
+    );
+    let mut engine = ReportEngine::new();
+    let doc = engine.render(&report, &serde_json::json!([{ "Sku": "400638133393" }, { "Sku": "abc" }, {}]));
+    let marks = doc.pages[0].items.iter().filter(|i| matches!(i, ravenrs_report::Item::Marks { .. })).count();
+    assert_eq!(marks, 1, "only the valid row draws");
+    assert_eq!(doc.page_text(0), ["4006381333931"], "the check digit is printed");
+    assert_eq!(doc.errors.len(), 1, "a bad code is reported, an empty one is not: {:?}", doc.errors);
+    assert!(doc.errors[0].contains("EAN-13"), "{:?}", doc.errors);
+    let again = Report::from_json(&report.to_json()).expect("reads back");
+    assert_eq!(again, report);
+}
+
+#[test]
+fn a_qr_code_prints_no_text_and_stays_square() {
+    use ravenrs_report::barcode::Symbology;
+    use ravenrs_report::{Band, Control, Report, ReportEngine};
+    let report =
+        Report::new("T")
+            .detail(Band::new(100.0).control(
+                Control::barcode(Symbology::Qr, "'https://example.com'").at(0.0, 0.0, 200.0, 100.0),
+            ));
+    let doc = ReportEngine::new().render(&report, &serde_json::json!([{}]));
+    assert!(doc.page_text(0).is_empty());
+    assert!(doc.page_svg(0).contains("<path"));
+}

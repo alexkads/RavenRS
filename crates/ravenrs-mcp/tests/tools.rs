@@ -272,7 +272,7 @@ fn parity_status_searches_both_documents() {
 
     let barcode = client.call("parity_status", json!({ "document": "reporting", "query": "barcode" }));
     assert_eq!(barcode["rows"][0]["document"], "reporting");
-    assert_eq!(barcode["rows"][0]["status"], "planned");
+    assert_eq!(barcode["rows"][0]["status"], "partial");
     assert!(barcode["rows"][0]["reference"]["DevExpress"].is_string());
 
     let planned = client.call("parity_status", json!({ "status": "planned", "limit": 2 }));

@@ -284,6 +284,9 @@ pub fn design_text(c: &Control) -> String {
         ControlKind::Bookmark(b) => {
             format!("Marcador: {}", b.expression.clone().unwrap_or_else(|| b.text.clone()))
         }
+        ControlKind::Barcode(b) => {
+            format!("Código: {}", b.expression.clone().unwrap_or_else(|| b.text.clone()))
+        }
         ControlKind::Picture(p) => match p.expression.as_deref().filter(|s| !s.trim().is_empty()) {
             Some(field) => format!("Imagem: {field}"),
             None if p.source.trim().is_empty() => "Imagem".to_owned(),

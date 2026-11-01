@@ -209,6 +209,15 @@ impl Writer {
                     content.x_object(Name(image_name(index).as_bytes()));
                     content.restore_state();
                 }
+                Item::Marks { color, marks, .. } => {
+                    let alpha = self.begin_alpha(&mut content, *color);
+                    content.set_fill_rgb(color.r, color.g, color.b);
+                    for mark in marks {
+                        content.rect(mark.x(), h - mark.max_y(), mark.width(), mark.height());
+                    }
+                    content.fill_nonzero();
+                    end_alpha(&mut content, alpha);
+                }
                 // Links and bookmarks print nothing; they are written with the page.
                 _ => {}
             }

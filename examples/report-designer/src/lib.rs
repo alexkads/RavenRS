@@ -11,6 +11,7 @@ use ravenrs::layout::{Align, Axis, LayoutStyle};
 use ravenrs::prelude::*;
 use ravenrs::style::{RADII, SPACING};
 use ravenrs::widgets::{DragPhase, Paint, Placement, QuadPaint};
+use ravenrs_report::barcode::Symbology;
 use ravenrs_report::wizard::{self, FieldInfo, FieldKind, WizardOptions};
 use ravenrs_report::{
     Control, DataSource, DataSourceKind, DateTime, Line, Report, Style, Table, TableRow, samples,
@@ -320,6 +321,12 @@ impl Designer {
                         .item(
                             insert("Imagem", IconName::Image, || {
                                 Control::picture("").at(0.0, 0.0, 100.0, 60.0)
+                            })
+                            .large(),
+                        )
+                        .item(
+                            insert("Código de barras", IconName::Tag, || {
+                                Control::barcode(Symbology::Code128, "[Id]").at(0.0, 0.0, 160.0, 50.0)
                             })
                             .large(),
                         )

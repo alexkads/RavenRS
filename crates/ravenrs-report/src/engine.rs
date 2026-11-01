@@ -729,6 +729,55 @@ impl<'r> Run<'r> {
                 }
                 c.height
             }
+            ControlKind::Barcode(barcode) => {
+                let rect = Rect::new(at.x, at.y, c.width, c.height);
+                backdrop(&look, rect, items);
+                let content = match barcode.expression.as_deref().filter(|s| !s.trim().is_empty()) {
+                    Some(expression) => self
+                        .eval(ctx, expression, &control_name(c))
+                        .map(|value| format_value(&value, "", self.env.formats()))
+                        .unwrap_or_default(),
+                    None => barcode.text.clone(),
+                };
+                match crate::barcode::encode(barcode.symbology, content.trim()) {
+                    Ok(pattern) => {
+                        let printed = match &pattern {
+                            crate::barcode::Pattern::Linear { text, .. } if barcode.show_text => {
+                                Some(text.clone())
+                            }
+                            _ => None,
+                        };
+                        let text_height = printed.as_ref().map_or(0.0, |_| look.size * 1.4);
+                        let bars = Rect::new(
+                            rect.x(),
+                            rect.y(),
+                            rect.width(),
+                            (rect.height() - text_height).max(1.0),
+                        );
+                        items.push(Item::Marks {
+                            rect: bars,
+                            color: look.color,
+                            marks: crate::barcode::marks(&pattern, bars),
+                        });
+                        if let Some(printed) = printed {
+                            let caption =
+                                Look { align: TextAlign::Center, background: None, border: None, ..look };
+                            self.text_box(
+                                engine,
+                                &printed,
+                                &caption,
+                                Rect::new(rect.x(), bars.max_y(), rect.width(), text_height),
+                                false,
+                                items,
+                            );
+                        }
+                    }
+                    // A row without a code is not a mistake; a code that does not fit its format is.
+                    Err(_) if content.trim().is_empty() => {}
+                    Err(reason) => self.errors.borrow_mut().push(format!("{}: {reason}", control_name(c))),
+                }
+                c.height
+            }
             ControlKind::Link(link) => {
                 let (text, _) = self.label_text(ctx, &link.label, &control_name(c));
                 let rect = Rect::new(at.x, at.y, c.width, c.height);
@@ -1188,6 +1237,9 @@ fn translate(item: &Item, by: Point) -> Item {
             Item::Image { rect: r(rect), clip: r(clip), image: image.clone() }
         }
         Item::Link { rect, url } => Item::Link { rect: r(rect), url: url.clone() },
+        Item::Marks { rect, color, marks } => {
+            Item::Marks { rect: r(rect), color: *color, marks: marks.iter().map(r).collect() }
+        }
         Item::Bookmark { title, level, y } => {
             Item::Bookmark { title: title.clone(), level: *level, y: y + by.y }
         }
