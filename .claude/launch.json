@@ -24,6 +24,18 @@
         "8094"
       ],
       "port": 8094
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "site",
+        "8095"
+      ],
+      "port": 8095
     }
   ]
 }

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Components · RavenRS</title>
+<meta name="description" content="Every RavenRS component, with what it does and its API. Declarative GUI components in Rust for desktop and the web.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d12'/%3E%3Crect x='7' y='7' width='18' height='18' rx='5' fill='%234c66ee'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg-000: #0b0d12; --bg-100: #12151c; --bg-200: #181c25; --bg-300: #222734;
+    --border: #2a3040; --ink: #eef1f7; --ink-muted: #9aa3b5;
+    --accent: #4c66ee; --link: #9db0ff; --focus-ring: #9db0ff;
+    --radius-md: 10px;
+    --font-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --nav-height: 64px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: calc(var(--nav-height) + 16px); }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; background: var(--bg-000); color: var(--ink); font-family: var(--font-sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
+
+  .nav { position: sticky; top: 0; z-index: 20; height: var(--nav-height); display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 max(20px, env(safe-area-inset-left, 0px)); background: rgba(11, 13, 18, 0.85); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--ink); text-decoration: none; }
+  .mark { width: 26px; height: 26px; border-radius: 8px; background: var(--bg-300); display: grid; place-items: center; }
+  .mark i { width: 14px; height: 14px; border-radius: 4px; background: var(--accent); }
+  .nav ul { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+  .nav ul a { display: block; color: var(--ink-muted); text-decoration: none; font-size: 14px; padding: 8px 12px; border-radius: var(--radius-md); }
+  .nav ul a:hover { color: var(--ink); background: var(--bg-200); }
+  .nav ul a[aria-current] { color: var(--ink); font-weight: 500; }
+
+  .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); max-width: 1160px; margin: 0 auto; }
+  .side { position: sticky; top: var(--nav-height); align-self: start; height: calc(100vh - var(--nav-height)); overflow-y: auto; padding: 24px 16px 40px 20px; border-right: 1px solid var(--border); }
+  .side h2 { margin: 0 0 10px 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+  .side ul { list-style: none; margin: 0; padding: 0; }
+  .side a { display: block; padding: 5px 10px; border-radius: 8px; font-size: 14px; color: var(--ink-muted); text-decoration: none; }
+  .side a:hover { color: var(--ink); background: var(--bg-200); }
+
+  main { padding: 40px 48px 96px; min-width: 0; }
+  h1 { margin: 0 0 8px; font-size: 34px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; }
+  .lede { margin: 0 0 24px; color: var(--ink-muted); max-width: 62ch; }
+  .lede a { color: var(--link); }
+  .search { display: block; width: 100%; max-width: 420px; min-height: 44px; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-200); color: var(--ink); font: inherit; font-size: 16px; }
+  .search::placeholder { color: var(--ink-muted); }
+  .count { margin: 10px 0 0; min-height: 22px; font-size: 14px; color: var(--ink-muted); }
+
+  .group { margin-top: 40px; }
+  .group h2 { position: relative; margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -0.3px; }
+  .anchor { position: absolute; left: -22px; color: var(--ink-muted); text-decoration: none; font-weight: 400; opacity: 0; }
+  .group h2:hover .anchor, .anchor:focus-visible { opacity: 1; }
+  .sub { margin: 2px 0 12px; font-size: 15px; color: var(--ink-muted); }
+  .items { margin: 0; padding-left: 20px; }
+  .items li { padding: 4px 0; }
+  .items li::marker { color: var(--ink-muted); }
+  .items a { color: var(--link); text-underline-offset: 3px; }
+  .items a:hover { color: var(--ink); }
+  .sep, .desc { color: var(--ink-muted); }
+  .empty { margin-top: 40px; color: var(--ink-muted); }
+  [hidden] { display: none !important; }
+
+  @media (max-width: 820px) {
+    .layout { display: block; }
+    .side { display: none; }
+    main { padding: 28px max(16px, env(safe-area-inset-left, 0px)) 72px; }
+    .search { max-width: none; }
+    .anchor { display: none; }
+  }
+  @media (max-width: 520px) { .nav ul li.hide-sm { display: none; } }
+</style>
+</head>
+<body>
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="../"><span class="mark"><i></i></span>RavenRS</a>
+  <ul>
+    <li><a href="./" aria-current="page">Components</a></li>
+    <li class="hide-sm"><a href="../demo/">Live demo</a></li>
+    <li class="hide-sm"><a href="../designer/">Reports</a></li>
+    <li><a href="../api/ravenrs/">API</a></li>
+    <li class="hide-sm"><a href="https://github.com/alexkads/RavenRS">GitHub</a></li>
+  </ul>
+</nav>
+<div class="layout">
+  <aside class="side" aria-label="All components" hidden>
+    <h2>A to Z</h2>
+    <ul id="index"></ul>
+  </aside>
+  <main>
+    <h1>Components</h1>
+    <p class="lede">Every component reads the same design tokens, works with the keyboard and runs unchanged on desktop and in the browser. Each name opens its API. To use them, try the <a href="../demo/">live demo</a>.</p>
+    <input class="search" id="search" type="search" placeholder="Filter components" aria-label="Filter components" autocomplete="off" hidden>
+    <p class="count" id="count" role="status"></p>
+    <section class="group" aria-labelledby="actions-and-inputs">
+      <h2 id="actions-and-inputs"><a class="anchor" href="#actions-and-inputs" aria-label="Link to Actions and inputs">#</a>Actions and inputs</h2>
+      <p class="sub">Buttons and controls that take a value.</p>
+      <ul class="items">
+        <li><a href="../api/ravenrs_widgets/struct.Button.html">Button</a><span class="sep"> - </span><span class="desc">Clickable, focusable button with styles, sizes and icons</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.IconButton.html">IconButton</a><span class="sep"> - </span><span class="desc">Square, icon-only button for toolbars</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.ToggleButton.html">ToggleButton</a><span class="sep"> - </span><span class="desc">Button that stays pressed, like bold or mute</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.ToggleGroup.html">ToggleGroup</a><span class="sep"> - </span><span class="desc">Row of toggle buttons where one or several can be on</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.SegmentedControl.html">SegmentedControl</a><span class="sep"> - </span><span class="desc">Row of mutually exclusive segments, like a compact tab bar</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Toggle.html">Toggle</a><span class="sep"> - </span><span class="desc">On/off switch</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Checkbox.html">Checkbox</a><span class="sep"> - </span><span class="desc">Check box with a label</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.RadioGroup.html">RadioGroup</a><span class="sep"> - </span><span class="desc">One choice among several, shown as radio buttons</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Slider.html">Slider</a><span class="sep"> - </span><span class="desc">Draggable value between a minimum and a maximum</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Stepper.html">Stepper</a><span class="sep"> - </span><span class="desc">Decrement, value and increment for small quantities</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.ColorSwatch.html">ColorSwatch</a><span class="sep"> - </span><span class="desc">Round color to pick from a palette</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.ThemeSwitcher.html">ThemeSwitcher</a><span class="sep"> - </span><span class="desc">Switches between Raven Dark, Raven Light and Raven Glass</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="forms">
+      <h2 id="forms"><a class="anchor" href="#forms" aria-label="Link to Forms">#</a>Forms</h2>
+      <p class="sub">Fields, pickers and the layout around them.</p>
+      <ul class="items">
+        <li><a href="../api/ravenrs_widgets/struct.TextField.html">TextField</a><span class="sep"> - </span><span class="desc">Single-line text input with selection and clipboard</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Select.html">Select</a><span class="sep"> - </span><span class="desc">Picks one option from a list in a field-like trigger</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Combobox.html">Combobox</a><span class="sep"> - </span><span class="desc">Select with a search box that filters the options</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.DatePicker.html">DatePicker</a><span class="sep"> - </span><span class="desc">Field that opens a calendar in a popover</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Calendar.html">Calendar</a><span class="sep"> - </span><span class="desc">Month grid to pick a date</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.InputOtp.html">InputOtp</a><span class="sep"> - </span><span class="desc">Separate boxes for a one-time code</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.FormField.html">FormField</a><span class="sep"> - </span><span class="desc">Labeled field with a hint and validation messages</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Label.html">Label</a><span class="sep"> - </span><span class="desc">Form label with an optional required marker and hint</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="navigation">
+      <h2 id="navigation"><a class="anchor" href="#navigation" aria-label="Link to Navigation">#</a>Navigation</h2>
+      <p class="sub">Moving around an application.</p>
+      <ul class="items">
+        <li><a href="../api/ravenrs_widgets/struct.Ribbon.html">Ribbon</a><span class="sep"> - </span><span class="desc">Office-style command bar with tabs, groups and quick access</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Menubar.html">Menubar</a><span class="sep"> - </span><span class="desc">Horizontal bar of menus such as File, Edit and View</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Tabs.html">Tabs</a><span class="sep"> - </span><span class="desc">Tab bar with one content view per tab</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Sidebar.html">Sidebar</a><span class="sep"> - </span><span class="desc">Navigation column with sections, items and counts</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Breadcrumb.html">Breadcrumb</a><span class="sep"> - </span><span class="desc">Path of locations ending at the current page</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Pagination.html">Pagination</a><span class="sep"> - </span><span class="desc">Previous, numbered pages with ellipses, and Next</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Accordion.html">Accordion</a><span class="sep"> - </span><span class="desc">Disclosures separated by hairlines</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Disclosure.html">Disclosure</a><span class="sep"> - </span><span class="desc">Header that shows or hides its content</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="overlays">
+      <h2 id="overlays"><a class="anchor" href="#overlays" aria-label="Link to Overlays">#</a>Overlays</h2>
+      <p class="sub">Content that floats above the page.</p>
+      <ul class="items">
+        <li><a href="../api/ravenrs_widgets/struct.Dialog.html">Dialog</a><span class="sep"> - </span><span class="desc">Modal window over a dimmed backdrop</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Sheet.html">Sheet</a><span class="sep"> - </span><span class="desc">Panel that slides over the UI from one edge</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Popover.html">Popover</a><span class="sep"> - </span><span class="desc">Floating content anchored below a view</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.HoverCard.html">HoverCard</a><span class="sep"> - </span><span class="desc">Rich content shown while the pointer is over a trigger</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Tooltip.html">Tooltip</a><span class="sep"> - </span><span class="desc">Short label shown on hover</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.DropdownMenu.html">DropdownMenu</a><span class="sep"> - </span><span class="desc">Button that opens a list of actions</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.ContextMenu.html">ContextMenu</a><span class="sep"> - </span><span class="desc">Menu opened at the pointer on right click</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.CommandPalette.html">CommandPalette</a><span class="sep"> - </span><span class="desc">Searchable list of commands, opened with Cmd/Ctrl+K</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Toaster.html">Toaster</a><span class="sep"> - </span><span class="desc">Stacked notifications that dismiss themselves</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="data">
+      <h2 id="data"><a class="anchor" href="#data" aria-label="Link to Data">#</a>Data</h2>
+      <p class="sub">Showing records and numbers.</p>
+      <ul class="items">
+        <li><a href="../api/ravenrs_widgets/grid/struct.DataGrid.html">DataGrid</a><span class="sep"> - </span><span class="desc">Virtualized grid for 100,000 rows: sorting, filters, grouping and export</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Table.html">Table</a><span class="sep"> - </span><span class="desc">Simple table with a header, hover rows and numeric columns</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.List.html">List</a><span class="sep"> - </span><span class="desc">Bordered list with icons, titles and trailing text</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Stat.html">Stat</a><span class="sep"> - </span><span class="desc">Headline number with a label and a change indicator</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.BarChart.html">BarChart</a><span class="sep"> - </span><span class="desc">Bar chart with labels and faint gridlines</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.AreaChart.html">AreaChart</a><span class="sep"> - </span><span class="desc">Smooth area chart of evenly spaced values</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="layout">
+      <h2 id="layout"><a class="anchor" href="#layout" aria-label="Link to Layout">#</a>Layout</h2>
+      <p class="sub">Arranging everything else.</p>
+      <ul class="items">
+        <li><a href="../api/ravenrs_widgets/struct.VStack.html">VStack</a><span class="sep"> - </span><span class="desc">Lays children out in a column</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.HStack.html">HStack</a><span class="sep"> - </span><span class="desc">Lays children out in a row</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Grid.html">Grid</a><span class="sep"> - </span><span class="desc">Equal-width columns that wrap into rows</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Spacer.html">Spacer</a><span class="sep"> - </span><span class="desc">Flexible space that pushes its siblings apart</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.ScrollView.html">ScrollView</a><span class="sep"> - </span><span class="desc">Scrolling stack, vertical or horizontal</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Splitter.html">Splitter</a><span class="sep"> - </span><span class="desc">Two panes with a draggable divider</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Card.html">Card</a><span class="sep"> - </span><span class="desc">Grouped surface lifted off the canvas</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.GlassCard.html">GlassCard</a><span class="sep"> - </span><span class="desc">Translucent card for Raven Glass compositions</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Section.html">Section</a><span class="sep"> - </span><span class="desc">Titled group of content with an optional description</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Divider.html">Divider</a><span class="sep"> - </span><span class="desc">Hairline separator</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.AspectRatio.html">AspectRatio</a><span class="sep"> - </span><span class="desc">Keeps content at a width-to-height ratio</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Collapse.html">Collapse</a><span class="sep"> - </span><span class="desc">Animates its content's height as it opens and closes</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="display-and-feedback">
+      <h2 id="display-and-feedback"><a class="anchor" href="#display-and-feedback" aria-label="Link to Display and feedback">#</a>Display and feedback</h2>
+      <p class="sub">Text, status and progress.</p>
+      <ul class="items">
+        <li><a href="../api/ravenrs_widgets/struct.Text.html">Text</a><span class="sep"> - </span><span class="desc">Text in the theme's type scale, with truncation</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Alert.html">Alert</a><span class="sep"> - </span><span class="desc">Tinted message box with an icon, a title and a description</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Badge.html">Badge</a><span class="sep"> - </span><span class="desc">Small pill for status, counts and categories</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Avatar.html">Avatar</a><span class="sep"> - </span><span class="desc">Round avatar with initials colored from the name</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Kbd.html">Kbd</a><span class="sep"> - </span><span class="desc">Keyboard key, for showing shortcuts</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.ProgressBar.html">ProgressBar</a><span class="sep"> - </span><span class="desc">Horizontal progress bar</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Spinner.html">Spinner</a><span class="sep"> - </span><span class="desc">Indeterminate activity indicator</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Skeleton.html">Skeleton</a><span class="sep"> - </span><span class="desc">Placeholder block shown while content loads</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="media">
+      <h2 id="media"><a class="anchor" href="#media" aria-label="Link to Media">#</a>Media</h2>
+      <p class="sub">Pictures and custom drawing.</p>
+      <ul class="items">
+        <li><a href="../api/ravenrs_widgets/struct.Icon.html">Icon</a><span class="sep"> - </span><span class="desc">Vector icon from the built-in Lucide set</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Image.html">Image</a><span class="sep"> - </span><span class="desc">Shows an image, with fit modes</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Carousel.html">Carousel</a><span class="sep"> - </span><span class="desc">Slides with buttons, position dots and optional autoplay</span></li>
+        <li><a href="../api/ravenrs_widgets/struct.Canvas.html">Canvas</a><span class="sep"> - </span><span class="desc">Box that draws whatever its closure appends to the scene</span></li>
+      </ul>
+    </section>
+    <p class="empty" id="empty" hidden>No component matches that filter.</p>
+  </main>
+</div>
+<script>
+  // The lists in the page are the source; the index and the filter are built from them.
+  const rows = [...document.querySelectorAll(".items li")];
+  const groups = [...document.querySelectorAll(".group")];
+  const search = document.getElementById("search");
+  const count = document.getElementById("count");
+  const empty = document.getElementById("empty");
+  const side = document.querySelector(".side");
+  const index = document.getElementById("index");
+
+  for (const link of rows.map((row) => row.querySelector("a")).sort((a, b) => a.textContent.localeCompare(b.textContent))) {
+    const item = document.createElement("li");
+    item.append(link.cloneNode(true));
+    index.append(item);
+  }
+  side.hidden = false;
+  search.hidden = false;
+
+  function filter() {
+    const query = search.value.trim().toLowerCase();
+    let shown = 0;
+    for (const row of rows) {
+      const match = row.textContent.toLowerCase().includes(query);
+      row.hidden = !match;
+      if (match) shown += 1;
+    }
+    for (const group of groups) group.hidden = !group.querySelector("li:not([hidden])");
+    empty.hidden = shown > 0;
+    count.textContent = query ? `${shown} of ${rows.length} components` : `${rows.length} components`;
+  }
+  search.addEventListener("input", filter);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "/" && document.activeElement !== search) {
+      event.preventDefault();
+      search.focus();
+    } else if (event.key === "Escape" && document.activeElement === search) {
+      search.value = "";
+      filter();
+    }
+  });
+  filter();
+</script>
+</body>
+</html>

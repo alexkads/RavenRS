@@ -16,11 +16,13 @@ fi
 ./scripts/build-web.sh component-gallery
 ./scripts/build-web.sh report-designer
 cargo doc --no-deps --workspace --exclude hello-world --exclude component-gallery --exclude report-designer --quiet
+./scripts/check-component-list.py
 
 site="$(mktemp -d)"
 trap 'rm -rf "$site"' EXIT
-mkdir -p "$site/demo" "$site/hello" "$site/designer" "$site/assets"
+mkdir -p "$site/demo" "$site/hello" "$site/designer" "$site/assets" "$site/components"
 cp site/index.html "$site/"
+cp -R site/components/. "$site/components/"
 cp -R examples/component-gallery/web/. "$site/demo/"
 cp -R examples/hello-world/web/. "$site/hello/"
 cp -R examples/report-designer/web/. "$site/designer/"
