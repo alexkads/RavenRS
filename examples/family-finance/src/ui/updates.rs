@@ -1,5 +1,6 @@
 //! What the update says on screen: the status bar and the news.
 
+use ravenrs::movie::BugReporter;
 use ravenrs::prelude::*;
 
 use crate::model::parse_date;
@@ -112,10 +113,14 @@ fn notice_button(action: NoticeAction, updater: &Updater, news: &NewsDialog) -> 
 
 /// The line at the foot of the window: the version, always, and a notice in the
 /// middle when there is one. Clicking the version shows what it brought.
-pub(crate) fn status_bar(updater: &Updater, news: &NewsDialog) -> impl View + use<> {
+pub(crate) fn status_bar(updater: &Updater, news: &NewsDialog, reporter: &BugReporter) -> impl View + use<> {
     let (installed_news, installed_updater) = (news.clone(), updater.clone());
-    let bar =
-        StatusBar::new().left((StatusBar::action(format!("Raven Finanças · versão {}", update::CURRENT))
+    let report = reporter.clone();
+    let bar = StatusBar::new()
+        .right((StatusBar::action("Relatar problema")
+            .icon(IconName::CircleAlert)
+            .on_click(move || report.open()),))
+        .left((StatusBar::action(format!("Raven Finanças · versão {}", update::CURRENT))
             .on_click(move || installed_news.show_installed(&installed_updater)),));
     let Some(notice) = updater.notice() else {
         return bar;

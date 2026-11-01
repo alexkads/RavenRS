@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use ravenrs_core::{Insets, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle};
@@ -577,5 +579,108 @@ impl View for StatusBar {
         );
         cx.semantics(node, Semantics::new(Role::ContentInfo));
         node
+    }
+}
+
+/// A narrow bar of tools with their names under their icons, of which one is
+/// open: what sits along the side of an editor, with the open tool's panel next to it.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{IconName, ToolRail};
+///
+/// let open = State::new(0);
+/// let rail = ToolRail::new(open.binding(), [(IconName::Type, "Text"), (IconName::ZoomIn, "Zoom")]);
+/// ```
+#[derive(Debug)]
+pub struct ToolRail {
+    selected: ravenrs_reactive::Binding<usize>,
+    tools: Vec<(crate::IconName, String)>,
+    width: f32,
+}
+
+impl ToolRail {
+    /// A rail of these tools; `selected` says which one is open.
+    pub fn new<S: Into<String>>(
+        selected: ravenrs_reactive::Binding<usize>,
+        tools: impl IntoIterator<Item = (crate::IconName, S)>,
+    ) -> Self {
+        let tools = tools.into_iter().map(|(icon, name)| (icon, name.into())).collect();
+        Self { selected, tools, width: 76.0 }
+    }
+
+    /// Its width, in logical pixels (76 by default).
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+}
+
+struct RailTool<'a> {
+    icon: crate::IconName,
+    name: &'a str,
+    selected: bool,
+    choose: Rc<dyn Fn()>,
+}
+
+impl View for RailTool<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let hovered = cx.is_hovered();
+        let ink = theme.color(if self.selected { Semantic::Ink } else { Semantic::InkMuted });
+        let icon = crate::util::icon(cx, self.icon, 18.0, ink);
+        let name = crate::util::label(cx, self.name, TextStyle::Caption, None, ink);
+        let fill = if self.selected {
+            theme.color(Semantic::Accent).faded(0.2)
+        } else if hovered {
+            theme.color(Semantic::Ink).faded(0.05)
+        } else {
+            ravenrs_core::Color::TRANSPARENT
+        };
+        let node = cx.container(
+            LayoutStyle {
+                height: Some(56.0),
+                spacing: theme.spacing.s1,
+                align: Align::Center,
+                justify: Justify::Center,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[icon, name],
+            Paint::Quad(QuadPaint { corner_radius: theme.radii.md, ..QuadPaint::new(fill) }),
+        );
+        cx.semantics(node, Semantics::new(Role::Button).name(self.name.to_owned()).selected(self.selected));
+        cx.on_click(node, self.choose.clone());
+        cx.focusable(node, theme.radii.md);
+        cx.cursor(node, ravenrs_core::CursorIcon::Pointer);
+        node
+    }
+}
+
+impl View for ToolRail {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let current = self.selected.get();
+        let mut children = Vec::with_capacity(self.tools.len());
+        for (index, (icon, name)) in self.tools.iter().enumerate() {
+            let selected = self.selected.clone();
+            children.push(cx.child(&RailTool {
+                icon: *icon,
+                name,
+                selected: index == current,
+                choose: Rc::new(move || selected.set(index)),
+            }));
+        }
+        cx.container(
+            LayoutStyle {
+                width: Some(self.width),
+                spacing: 2.0,
+                padding: Insets::uniform(theme.spacing.s1),
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &children,
+            Paint::None,
+        )
     }
 }

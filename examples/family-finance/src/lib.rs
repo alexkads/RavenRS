@@ -6,6 +6,7 @@
     reason = "amounts read as reais_cents: 4_200_00 is R$ 4.200,00"
 )]
 
+pub mod backup;
 pub mod db;
 pub mod filter;
 pub mod model;

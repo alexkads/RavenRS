@@ -29,6 +29,7 @@ ravenrs-text.workspace = true
 ravenrs-style.workspace = true
 ravenrs-render.workspace = true
 ravenrs-widgets.workspace = true
+ravenrs-movie.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ravenrs-platform-native.workspace = true

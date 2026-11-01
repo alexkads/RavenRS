@@ -14,6 +14,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Paint::Rich` draws with a `PaintCx`, for views that shape text while painting or need the device scale.
 - `charts` feature on `ravenrs` and `ravenrs-widgets`, on by default. `ravenrs` also forwards `decode`.
 - `ChartKind::SparkArea`, a smoothed line over a filled area, and `ChartOptions` fields for colors, bar corners and the widest bar.
+- **Training films (`ravenrs::movie`, crate `ravenrs-movie`).** `Recorder` runs the real app from a script and stores what it drew, with no pixels, no GPU and built-in fonts by reference, so films are small enough to ship inside an app and stay sharp at any zoom. `MoviePlayer` plays them with chapters, marks to click and steps that wait. `MovieEditor` edits them on a timeline in the style of screen-recording editors: cuts, speed, title cards, callouts, captions, spotlight, hiding regions, zoom and pan, fades, pointer highlight and clickable spots. There is no sound yet.
+- **`Timeline` and `ToolRail`.** `Timeline` shows blocks along time on named tracks, under a ruler with markers and a playhead, and reports moves and trims. `ToolRail` is a narrow bar of tools with their names under their icons. `IconButton::disabled` makes an icon button inert.
+- **Bug reports with a film.** `FlightRecorder` keeps the last minutes on screen in memory, and `BugReporter` is the dialog that lets someone watch them, cover or cut parts, and describe the problem. Nothing leaves without them, and where it goes is up to the app.
+- `BuildCx::observe_activity` watches painted frames, the pointer and clicks across the whole UI. `ravenrs_text::builtin_font` and `builtin_font_number` name the built-in fonts across runs.
+- `ravenrs::native::OpenDialog` shows the system's dialog for choosing a file to open.
 - `ravenrs::native::run_as` opens the window as an `AppIdentity`, whose id ties it to the app's `.desktop` file. Without it, GNOME on Wayland shows no icon for the window, since Wayland windows cannot carry one.
 - **`StatusBar`.** One fixed line at the foot of an app window: its sides keep their width, the center takes the rest and cuts what does not fit, and `center_tone` tints only the center. `ButtonSize::Mini`, 22 px, is what fits on it, and `Toaster::bottom_inset` lifts toasts above it.
 - **`ReleaseNotes` and `CodeBlock`.** `ReleaseNotes` shows an app's versions, the list on the left and what the chosen one brought on the right, with buttons that walk through them. `CodeBlock` shows a command to copy. `Labels` gains their words.
@@ -33,6 +38,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 - **GPU choice on Linux.** The native window gives wgpu its display, so the GL backend can present on Wayland when no Vulkan driver is usable, instead of leaving only software rendering. A warning now says when the app renders on the CPU, and `RUST_LOG=ravenrs_platform_native=debug` logs how long each frame's update, acquire, render and present took.
+- The wheel over an open `Dialog` or `Sheet` no longer scrolls the page behind it, as a pinch already did not.
 - In the glass theme, the `DataGrid`'s header, footer and group rows and the lines of `DataGrid`, `Ribbon` and `Scheduler` came out far too opaque, with the header text unreadable: `with_alpha` replaced the token's own transparency.
 - A `Select`, `DatePicker` or menu inside a `Dialog` or `Sheet` opened in the window's corner, behind the dialog's backdrop. Overlays opened from inside another now come after it: they sit by their anchor and on top, keep focus, and Escape closes only them.
 

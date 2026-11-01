@@ -27,6 +27,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | App bar / Toolbar | | ✓ | ✓ | 🟡 composable from `HStack` + buttons; no overflow menu |
 | Footer | | | | ✅ `Footer` |
 | Status bar | | ✓ | ✓ | ✅ `StatusBar` |
+| Tool rail | | | | ✅ `ToolRail` |
+| Timeline with tracks | | | ✓ | ✅ `Timeline` |
 
 ## Navigation
 
@@ -136,6 +138,9 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Alert / Callout | ✓ | ✓ | ✓ | ✅ `Alert` |
 | Code snippet with copy | | ✓ | | ✅ `CodeBlock` |
 | Release notes | | | | ✅ `ReleaseNotes` |
+| Training film and player | | | | ✅ `ravenrs::movie`: `Recorder`, `MoviePlayer` |
+| Film editor with timeline | | | | ✅ `MovieEditor`; no sound yet |
+| Bug report with a film | | | | ✅ `FlightRecorder`, `BugReporter` |
 | Progress bar | ✓ | ✓ | ✓ | ✅ |
 | Loader / Spinner | | ✓ | ✓ | ✅ `Spinner` |
 | Skeleton | ✓ | ✓ | ✓ | ✅ |

@@ -1654,6 +1654,21 @@ impl Gallery {
         VStack::new((
             page_header("Feedback", "Alerts, progress and loading placeholders."),
             demo(
+                "Timeline",
+                "Blocks along time on named tracks, under a ruler with markers and a playhead. The app holds the data and gets back what people do.",
+                samples::sample("Timeline"),
+            ),
+            demo(
+                "ToolRail",
+                "A narrow bar of tools with their names under their icons, of which one is open.",
+                samples::sample("ToolRail"),
+            ),
+            demo(
+                "MoviePlayer",
+                "Training films with no pixels: what the app drew, recorded from a script. It has chapters, marks to click and steps that wait, and `MovieEditor` cuts and dresses them.",
+                samples::sample("MoviePlayer"),
+            ),
+            demo(
                 "ReleaseNotes",
                 "An app's versions: the list, what the chosen one brought, and buttons that walk through them. The second block shows a command to copy.",
                 VStack::new((

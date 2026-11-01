@@ -308,6 +308,12 @@ impl IconButton {
         self
     }
 
+    /// Makes it inert and dimmed.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.button = self.button.disabled(disabled);
+        self
+    }
+
     /// Sets the name screen readers announce, such as "Search". Without it,
     /// the icon's name is used, which rarely describes the action well.
     pub fn label(mut self, name: impl Into<String>) -> Self {

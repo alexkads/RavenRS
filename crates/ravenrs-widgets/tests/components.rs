@@ -591,3 +591,52 @@ mod glass_tokens_stay_translucent {
         assert_eq!(too_opaque, 0, "a token's own transparency is kept");
     }
 }
+
+#[test]
+fn a_modal_keeps_the_wheel_from_the_page_behind_it() {
+    let open = State::new(false);
+    let lines = |prefix: &str, count: usize| -> Vec<Text> {
+        (0..count).map(|i| Text::new(format!("{prefix} {i}"))).collect()
+    };
+    let root = VStack::new((
+        ScrollView::new((VStack::new(lines("Page", 200)),)),
+        Dialog::new(open.binding(), "Notes")
+            .content(ScrollView::new((VStack::new(lines("Note", 200)),)).height(200.0)),
+    ))
+    .grow(1.0);
+    let mut ui = ui(root);
+    let y_of = |ui: &mut Ui, name: &str| {
+        let tree = ui.access_tree();
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).map(|n| n.bounds.y()).expect(name)
+    };
+    let wheel = |ui: &mut Ui, x: f32, y: f32, dy: f32| {
+        ui.handle_event(&Event::Scroll { position: Point::new(x, y), delta: Point::new(0.0, dy) })
+    };
+    let page = y_of(&mut ui, "Page 1");
+    assert!(wheel(&mut ui, 50.0, 100.0, -40.0), "the page scrolls while nothing is open");
+    let page = {
+        let now = y_of(&mut ui, "Page 1");
+        assert!(now < page);
+        now
+    };
+
+    open.set(true);
+    ui.update();
+    ui.update();
+    let note = y_of(&mut ui, "Note 1");
+    let center = Point::new(400.0, 300.0);
+    assert!(wheel(&mut ui, center.x, center.y, -40.0), "the dialog's own content scrolls");
+    assert!(y_of(&mut ui, "Note 1") < note);
+
+    // Past the end of its content, the wheel does not carry over to the page.
+    wheel(&mut ui, center.x, center.y, -100_000.0);
+    assert!(!wheel(&mut ui, center.x, center.y, -40.0));
+    // Nor over the backdrop, beside the dialog.
+    assert!(!wheel(&mut ui, 4.0, 4.0, -40.0));
+
+    // The modal hides the page from the tree, so it is measured once it closes.
+    open.set(false);
+    ui.update();
+    ui.update();
+    assert_eq!(y_of(&mut ui, "Page 1"), page, "the page never moved");
+}

@@ -122,7 +122,9 @@ Status against the definition of done. **Behavior** names the test suites that d
 | Layout: stacks, Grid, ScrollView, Splitter, AspectRatio, Card, Section | layout_and_content, components, keyboard_and_basics | ✅ partial | 🟡 Splitter arrows, untested | AspectRatio content now fills its box |
 | Footer | footer | | ✅ no focus stop of its own; its links are buttons (Tab + Enter), tested | `contentinfo` landmark, tested. Stacks by window width, not by its container's |
 | StatusBar | status_bar | | ✅ no focus stop of its own; its actions are buttons (Tab + Enter), tested | `contentinfo` landmark; the center is a `status` |
+| Timeline, ToolRail | timeline | | 🟡 blocks, markers and tools work with Tab + Enter; moving and trimming need the pointer, so apps offer them in fields too | Blocks and markers are named buttons |
 | ReleaseNotes, CodeBlock | release_notes | | ✅ versions and buttons work with Tab + Enter, tested | Lists its versions as buttons; the copy button says when it copied |
+| MoviePlayer, MovieEditor, BugReporter | ravenrs-movie | | ✅ controls, chapters, marks and blocks work with Tab + Enter; dragging on the canvas and the timeline has no keyboard way yet: 🟡 | Marks say what they teach; a film is an image with a name |
 | Media and feedback: Image, Icon, Carousel, Avatar, Badge, Alert, ProgressBar, Spinner, Skeleton, Kbd, Divider | layout_and_content, components, batch_parity | ✅ partial | 🟡 Carousel arrows, untested | |
 
 ✅ means the WAI-ARIA keys for that widget work and a test covers them. 🟡 means it is reachable and activatable but the full pattern is missing or untested.

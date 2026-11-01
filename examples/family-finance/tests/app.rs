@@ -339,3 +339,60 @@ fn asking_in_the_settings_answers_at_the_foot() {
     assert!(says(&mut ui, "Se a atualização pelo app falhar"));
     assert!(says(&mut ui, "install.cmd"), "the command by hand is there to copy");
 }
+
+fn app_on_a_file(name: &str) -> (Ui, std::path::PathBuf) {
+    let folder = std::env::temp_dir().join(format!("family-finance-app-{}-{name}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    let path = folder.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    seed::load_demo(&db, today()).expect("seed");
+    family_finance::backup::keep_daily_copy(&db, &family_finance::backup::copies_folder(&path), today())
+        .expect("copy");
+    let mut ui = Ui::new(App::new(db, today(), Some(path.clone()), Updater::idle()), Theme::raven_light());
+    ui.set_viewport(Size::new(1360.0, 1400.0), 1.0);
+    settle(&mut ui);
+    press(&mut ui, Role::Button, "Ajustes");
+    (ui, folder)
+}
+
+#[test]
+fn the_settings_say_there_is_no_backup_and_offer_both_ways() {
+    let (mut ui, folder) = app_on_a_file("status");
+    assert!(says(&mut ui, "Você ainda não fez nenhum backup"));
+    assert!(says(&mut ui, "Fazer backup"));
+    assert!(says(&mut ui, "Restaurar backup"));
+    assert!(says(&mut ui, "Cópias automáticas"));
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
+#[test]
+fn going_back_to_a_copy_tells_what_changes_and_can_be_undone() {
+    let (mut ui, folder) = app_on_a_file("restore");
+    press(&mut ui, Role::Button, "Começar do zero");
+    press(&mut ui, Role::Button, "Apagar tudo");
+    assert!(says(&mut ui, "Antes de apagar tudo"), "erasing kept a copy");
+
+    // The copy of the day still has the sample family.
+    let tree = ui.access_tree();
+    let names: Vec<String> =
+        tree.nodes.iter().filter(|n| n.role == Role::Button).filter_map(|n| n.name.clone()).collect();
+    let id = tree
+        .nodes
+        .iter()
+        .find(|n| {
+            n.role == Role::Button && n.description.as_deref().unwrap_or("").contains("Cópia do dia")
+                || n.role == Role::Button && n.name.as_deref().unwrap_or("").contains("Cópia do dia")
+        })
+        .unwrap_or_else(|| panic!("no copy of the day in {names:?}"))
+        .id;
+    ui.perform_action(id, AccessAction::Click);
+    settle(&mut ui);
+    assert!(says(&mut ui, "Restaurar este backup?"));
+    assert!(says(&mut ui, "lançamentos"), "it says what the copy holds");
+    press(&mut ui, Role::Button, "Restaurar");
+    assert!(says(&mut ui, "Backup restaurado"));
+    assert!(says(&mut ui, "Antes de restaurar um backup"), "and what was there can come back");
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}

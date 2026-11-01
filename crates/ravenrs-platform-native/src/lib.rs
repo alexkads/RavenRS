@@ -46,7 +46,7 @@ use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
 use winit::window::{Icon, Window, WindowAttributes, WindowId};
 
 pub use diagnostics::diagnose;
-pub use files::{SaveDialog, open_with_system};
+pub use files::{OpenDialog, SaveDialog, open_with_system};
 
 /// Wheel pixels that ask for twice the size, with Ctrl held.
 const WHEEL_PER_ZOOM: f32 = 400.0;

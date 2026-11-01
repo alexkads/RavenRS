@@ -171,6 +171,65 @@ fn draw_every_screen() {
     let mut dark = app(Theme::raven_dark(), 0, Updater::idle());
     capture(&gpu, &mut dark, size, &folder.join("painel-escuro.png"));
 
+    // The training films: the page, moments of the film, and the editor over it.
+    let film =
+        ravenrs::movie::Movie::from_bytes(include_bytes!("../assets/treinamentos.ravenmovie")).expect("film");
+    let mut page = app(Theme::raven_light(), 8, Updater::idle());
+    capture(&gpu, &mut page, size, &folder.join("treinamentos.png"));
+    let total = film.duration_ms();
+    for (name, at) in
+        [("titulo", 1_000), ("filme-a", 12_000), ("filme-b", total / 2), ("filme-c", total - 5_000)]
+    {
+        let mut moment = Ui::new(
+            ravenrs::movie::Composition::new(film.clone(), at).width(size.width),
+            Theme::raven_light(),
+        );
+        capture(&gpu, &mut moment, size, &folder.join(format!("filme-{name}.png")));
+    }
+    let state = ravenrs::movie::EditorState::new(film.clone());
+    state.seek(12_000);
+    state.select_overlay(film.project().overlays[2].id);
+    let editor = ravenrs::movie::MovieEditor::new(state)
+        .labels(ravenrs::movie::EditorLabels::pt_br())
+        .player_labels(ravenrs::movie::MovieLabels::pt_br())
+        .title("O essencial do Raven Finanças")
+        .on_save(|_: &ravenrs::movie::Movie| {});
+    let mut editor = Ui::new(editor, Theme::raven_dark());
+    capture(&gpu, &mut editor, size, &folder.join("editor.png"));
+
+    // Settings on a real file, with the copies it keeps.
+    let data = folder.join("dados-dos-ajustes");
+    let _ = std::fs::remove_dir_all(&data);
+    let path = data.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    let today = Date::new(2026, 11, 15).expect("valid date");
+    seed::load_demo(&db, today).expect("seed");
+    family_finance::backup::keep_daily_copy(&db, &family_finance::backup::copies_folder(&path), today)
+        .expect("copy");
+    let mut ui = Ui::new(App::new(db, today, Some(path), Updater::idle()), Theme::raven_light());
+    ui.set_viewport(size, 1.0);
+    ui.update();
+    let press = |ui: &mut Ui, name: &str| {
+        let tree = ui.access_tree();
+        let id = tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).expect(name).id;
+        ui.perform_action(id, AccessAction::Click);
+        ui.update();
+        ui.update();
+    };
+    press(&mut ui, "Ajustes");
+    capture(&gpu, &mut ui, size, &folder.join("ajustes-backup.png"));
+    let tree = ui.access_tree();
+    let row = tree
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref().is_some_and(|t| t.contains("Cópia do dia")))
+        .expect("row")
+        .id;
+    ui.perform_action(row, AccessAction::Click);
+    ui.update();
+    ui.update();
+    capture(&gpu, &mut ui, size, &folder.join("ajustes-restaurar.png"));
+
     let updater = Updater::idle();
     updater.set_status(UpdateStatus::Available(News {
         versao: "0.2.0".to_owned(),

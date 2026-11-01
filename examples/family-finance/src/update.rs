@@ -108,12 +108,15 @@ pub fn history() -> Vec<News> {
 }
 
 /// One list of versions, newest first, out of several. When a version is in
-/// more than one, the first list's account of it is the one that stays.
+/// more than one, the first list's account of it is the one that stays, with
+/// the date of whichever list has one.
 pub fn join_history(lists: impl IntoIterator<Item = Vec<News>>) -> Vec<News> {
     let mut all: Vec<News> = Vec::new();
     for news in lists.into_iter().flatten() {
-        if !all.iter().any(|known| known.versao == news.versao) {
-            all.push(news);
+        match all.iter_mut().find(|known| known.versao == news.versao) {
+            // The announcement has no date; the history does.
+            Some(known) => known.data = known.data.take().or(news.data),
+            None => all.push(news),
         }
     }
     all.sort_by_key(|news| std::cmp::Reverse(version_numbers(&news.versao)));
@@ -191,8 +194,11 @@ pub fn decide(
 }
 
 /// The step the installer announced on a line of its log: `> text`.
+/// What it adds in parentheses is for a terminal: the status bar's sentence has
+/// no room for it, and its end is what must not get cut.
 pub fn installer_stage(line: &str) -> Option<String> {
     let text = line.trim().strip_prefix("> ")?.trim();
+    let text = text.split(" (").next().unwrap_or(text).trim();
     (!text.is_empty()).then(|| text.to_owned())
 }
 
@@ -1077,6 +1083,7 @@ mod tests {
         assert_eq!(installer_stage("> baixando o codigo"), Some("baixando o codigo".to_owned()));
         assert_eq!(installer_stage("   Compiling ravenrs v27.1.1"), None);
         assert_eq!(installer_stage("> "), None);
+        assert_eq!(installer_stage("> compilando (a primeira vez demora)"), Some("compilando".to_owned()));
         let log = "\n> baixando o codigo\nFrom github\n\n> compilando\n   Compiling x\nwarning: y\n";
         assert_eq!(last_stage(log).as_deref(), Some("compilando"));
         assert_eq!(last_stage("nada anunciado\n"), None);
@@ -1100,6 +1107,12 @@ mod tests {
         let versions: Vec<&str> = joined.iter().map(|n| n.versao.as_str()).collect();
         assert_eq!(versions, ["0.3.0", "0.2.0", "0.1.10", "0.1.9"]);
         assert_eq!(joined[1].titulo, "do repositório");
+
+        let dated =
+            News { data: Some("2026-11-01".to_owned()), titulo: "do histórico".to_owned(), ..news("0.2.0") };
+        let joined = join_history([vec![told_by_repository], vec![dated]]);
+        assert_eq!(joined[0].titulo, "do repositório");
+        assert_eq!(joined[0].data.as_deref(), Some("2026-11-01"), "the announcement has no date of its own");
 
         let updater = Updater::idle();
         updater.set_status(UpdateStatus::Available(news("99.0.0")));

@@ -1,0 +1,28 @@
+[package]
+name = "ravenrs-movie"
+description = "Training videos of a RavenRS app: small vector films recorded from a script, edited on a timeline and played as an interactive manual."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-movie"
+keywords = ["video", "manual", "gui", "wasm"]
+categories = ["gui", "multimedia::video"]
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-layout.workspace = true
+ravenrs-reactive.workspace = true
+ravenrs-style.workspace = true
+ravenrs-text.workspace = true
+ravenrs-widgets.workspace = true
+flate2 = "1.1"
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

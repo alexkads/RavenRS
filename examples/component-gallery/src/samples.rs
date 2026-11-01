@@ -40,8 +40,8 @@ samples! {
     "Chart" => chart, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
-    "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
-    "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
+    "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
+    "MoviePlayer" => movie_player, "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Icon" => icon, "Image" => image, "Carousel" => carousel, "Canvas" => canvas,
 }
@@ -750,6 +750,56 @@ fn status_bar() -> impl View {
         ))
         .center_tone(Tone::Warning)
         .right((StatusBar::text("12 items"),))
+}
+// end
+
+// sample: MoviePlayer, 520
+fn movie_player() -> impl View {
+    use ravenrs::core::Primitive;
+    use ravenrs::movie::{FilmBuilder, MoviePlayer};
+    // Real films come from `Recorder`, which runs the app from a script.
+    let mut film = FilmBuilder::new(Size::new(320.0, 200.0), Color::WHITE);
+    for second in 0..=6_u64 {
+        let square =
+            Quad::new(Rect::new(20.0 + second as f32 * 40.0, 80.0, 40.0, 40.0), Color::hex(0x4f46e5));
+        film.frame(second * 1000, &[Primitive::Quad(square.radius(8.0))]);
+    }
+    film.chapter("A square", "It goes across the screen.", 0);
+    film.finish(6000).map(|film| MoviePlayer::new(film).width(640.0)).ok()
+}
+// end
+
+// sample: ToolRail, 200
+fn tool_rail() -> impl View {
+    let open = State::new(0);
+    ToolRail::new(
+        open.binding(),
+        [(IconName::Type, "Text"), (IconName::ZoomIn, "Zoom"), (IconName::Layers, "Fades")],
+    )
+}
+// end
+
+// sample: Timeline, 190
+fn timeline() -> impl View {
+    Timeline::new(vec![
+        TimelineTrack::new(
+            "Notes",
+            34.0,
+            vec![TimelineItem::new(1, 2_000, 3_000, "Callout").selected(true).movable()],
+        ),
+        TimelineTrack::new(
+            "Screen",
+            34.0,
+            vec![TimelineItem::new(2, 6_000, 4_000, "Zoom").tone(Tone::Success)],
+        ),
+        TimelineTrack::new(
+            "Film",
+            44.0,
+            vec![TimelineItem::new(3, 0, 14_000, "Take 1").tone(Tone::Accent).trimmable()],
+        ),
+    ])
+    .markers(vec![TimelineMarker { at_ms: 6_000, title: "Chapter two".to_owned() }])
+    .position_ms(4_000)
 }
 // end
 

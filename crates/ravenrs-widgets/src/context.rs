@@ -158,6 +158,21 @@ impl Drag {
 /// Called for each phase of a pointer drag on an element.
 pub type DragHandler = Rc<dyn Fn(Drag)>;
 
+/// What just happened in the UI, for something watching it as a whole.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub enum UiActivity<'a> {
+    /// A frame finished painting, and this is it.
+    Painted(&'a Scene),
+    /// The pointer moved here.
+    PointerMoved(Point),
+    /// The primary button went down here.
+    Clicked(Point),
+}
+
+/// Receives what happens in the UI, with the clock; see [`BuildCx::observe_activity`].
+pub type ActivityObserver = Rc<dyn Fn(UiActivity<'_>, f64)>;
+
 /// Where an overlay is placed relative to its anchor.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
@@ -483,6 +498,7 @@ pub struct BuildCx<'a> {
     ui_waker: crate::UiWaker,
     sidebar: Option<Rc<crate::nav::SidebarScope>>,
     pub(crate) shortcuts: Vec<Shortcut>,
+    pub(crate) activity: Option<ActivityObserver>,
     pub(crate) wake: Option<f64>,
     pub(crate) modifiers: Rc<std::cell::Cell<Modifiers>>,
     pub(crate) local: &'a mut LocalStore,
@@ -540,6 +556,7 @@ impl<'a> BuildCx<'a> {
             ui_waker,
             sidebar: None,
             shortcuts: Vec::new(),
+            activity: None,
             wake: None,
             modifiers,
             local,
@@ -867,6 +884,13 @@ impl<'a> BuildCx<'a> {
     /// schedule anything; use [`Self::wake_at`] to be rebuilt later.
     pub fn now(&self) -> f64 {
         self.now
+    }
+
+    /// Watches the whole UI while this view is built: each painted frame, the
+    /// pointer and clicks. For recording what happens, as a flight recorder does.
+    /// It runs on every frame, so it has to be quick. The last call of a build wins.
+    pub fn observe_activity(&mut self, observer: ActivityObserver) {
+        self.activity = Some(observer);
     }
 
     /// Asks for a rebuild at `time` (seconds, the same clock as [`Self::now`]):

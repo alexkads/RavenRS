@@ -63,6 +63,11 @@ impl Store {
         }
     }
 
+    /// Rebuilds the screens after a change outside the database, such as a backup.
+    pub fn refresh(&self) {
+        self.revision.update(|r| *r += 1);
+    }
+
     /// Asks where to save `name` and writes `bytes` there. Saying where is the
     /// user's choice, so cancelling is not a failure and says nothing.
     pub fn save_file(&self, name: &str, kind: (&str, &[&str]), bytes: &[u8]) -> Option<PathBuf> {

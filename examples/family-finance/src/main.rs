@@ -45,6 +45,10 @@ fn main() -> Result<(), PlatformError> {
         .labels(Labels::pt_br());
     match open(&path) {
         Ok(db) => {
+            let copies = family_finance::backup::copies_folder(&path);
+            if let Err(e) = family_finance::backup::keep_daily_copy(&db, &copies, today()) {
+                tracing::warn!(error = %e, "could not keep the copy of the day");
+            }
             let updater = Updater::idle();
             updater.watch();
             let app = App::new(db, today(), Some(path), updater);
