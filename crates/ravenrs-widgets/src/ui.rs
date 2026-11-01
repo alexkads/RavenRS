@@ -69,6 +69,7 @@ pub struct Ui {
     local: LocalStore,
     observer: Observer,
     state_dirty: Rc<Cell<bool>>,
+    ui_waker: crate::UiWaker,
     waker: Waker,
     needs_build: bool,
     viewport: Size,
@@ -148,6 +149,7 @@ impl Ui {
             local: LocalStore::default(),
             observer,
             state_dirty,
+            ui_waker: crate::UiWaker::default(),
             waker,
             needs_build: true,
             viewport: Size::new(800.0, 600.0),
@@ -191,6 +193,17 @@ impl Ui {
     /// Called whenever reactive state the UI depends on changes.
     pub fn set_waker(&mut self, waker: impl Fn() + 'static) {
         *self.waker.borrow_mut() = Some(Rc::new(waker));
+    }
+
+    /// A handle that asks for a rebuild from another thread; see [`UiWaker`](crate::UiWaker).
+    pub fn ui_waker(&self) -> crate::UiWaker {
+        self.ui_waker.clone()
+    }
+
+    /// Tells a platform when a [`UiWaker`](crate::UiWaker) fires, from whichever thread that is,
+    /// so it can leave its sleep. Only the first call counts.
+    pub fn set_remote_waker(&mut self, notify: impl Fn() + Send + Sync + 'static) {
+        self.ui_waker.set_notify(Box::new(notify));
     }
 
     /// Sets the viewport in logical pixels and the device scale factor.
@@ -239,7 +252,10 @@ impl Ui {
     }
 
     fn needs_rebuild(&self) -> bool {
-        self.needs_build || self.state_dirty.get() || self.wake.is_some_and(|w| self.time >= w)
+        self.needs_build
+            || self.state_dirty.get()
+            || self.ui_waker.is_dirty()
+            || self.wake.is_some_and(|w| self.time >= w)
     }
 
     fn live_is_due(&self) -> bool {
@@ -662,6 +678,8 @@ impl Ui {
         let _span = tracing::trace_span!("ravenrs::frame").entered();
         self.needs_build = false;
         self.state_dirty.set(false);
+        // Before the build: a wake during it must cause another one.
+        self.ui_waker.clear();
         if let Err(e) = self.build() {
             tracing::error!(error = %e, "build failed; keeping the previous frame");
             return;
@@ -685,6 +703,7 @@ impl Ui {
         self.local.begin_build();
         let modifiers = self.modifiers.clone();
         let clipboard = self.clipboard.clone();
+        let ui_waker = self.ui_waker.clone();
         let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
             self;
         let now = self.time;
@@ -707,6 +726,7 @@ impl Ui {
                     local,
                     placeholder,
                     clipboard,
+                    ui_waker,
                 );
                 cx.now = now;
                 cx.motion_clock = motion_clock;

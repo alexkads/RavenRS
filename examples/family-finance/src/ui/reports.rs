@@ -2,13 +2,13 @@
 
 use std::rc::Rc;
 
+use ravenrs::native::open_with_system;
 use ravenrs::prelude::*;
 use ravenrs_report::Document;
 use ravenrs_report_export::{ExportFormat, export};
 use ravenrs_report_viewer::{DocumentViewer, ViewerLabels, ViewerState};
 
 use super::store::{Memo, Store, heading, month_nav, screen};
-use crate::paths;
 use crate::reports::{ReportKind, render};
 
 /// What this screen keeps while another one is open.
@@ -32,12 +32,15 @@ impl ReportsState {
 }
 
 fn save(store: &Store, document: &Document, format: ExportFormat) {
-    let saved = export(document, format, Some(&store.today.to_string()))
-        .and_then(|file| paths::save_export(&file.name, &file.bytes).map_err(|e| e.to_string()));
-    match saved {
-        Ok(path) => {
-            store.toasts.show("Arquivo exportado", path.display().to_string(), Tone::Success);
-            paths::open_with_system(&path);
+    match export(document, format, Some(&store.today.to_string())) {
+        Ok(file) => {
+            let extension = format.extension();
+            let saved = store.save_file(&file.name, (extension, &[extension]), &file.bytes);
+            if let Some(path) = saved
+                && let Err(e) = open_with_system(&path)
+            {
+                tracing::warn!(error = %e, "could not open the exported file");
+            }
         }
         Err(e) => store.toasts.show_for("Não foi possível exportar", e, Tone::Danger, 8.0),
     }

@@ -415,3 +415,52 @@ mod from_the_family_finance_example {
         assert_eq!(Labels::default().month_title(date), date.month_title());
     }
 }
+
+mod waking_from_another_thread {
+    use ravenrs_core::Size;
+    use ravenrs_style::Theme;
+    use ravenrs_widgets::{BuildCx, NodeId, Ui, View};
+    use std::cell::Cell;
+    use std::rc::Rc;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct Counting(Rc<Cell<u32>>);
+
+    impl View for Counting {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            self.0.set(self.0.get() + 1);
+            cx.empty()
+        }
+    }
+
+    #[test]
+    fn a_wake_from_a_thread_rebuilds_once_and_tells_the_platform() {
+        let builds = Rc::new(Cell::new(0));
+        let mut ui = Ui::new(Counting(builds.clone()), Theme::raven_light());
+        ui.set_viewport(Size::new(100.0, 100.0), 1.0);
+        let told = Arc::new(AtomicUsize::new(0));
+        let counter = told.clone();
+        ui.set_remote_waker(move || {
+            counter.fetch_add(1, Ordering::SeqCst);
+        });
+        ui.update();
+        let settled = builds.get();
+        assert!(!ui.needs_redraw(), "asleep");
+
+        let waker = ui.ui_waker();
+        let thread = std::thread::spawn(move || {
+            waker.wake();
+            waker.wake();
+        });
+        thread.join().expect("the thread ran");
+        assert_eq!(told.load(Ordering::SeqCst), 2, "the platform hears each one");
+        assert!(ui.needs_redraw());
+
+        ui.update();
+        assert_eq!(builds.get(), settled + 1, "together they cost one build");
+        ui.update();
+        assert_eq!(builds.get(), settled + 1, "and it sleeps again");
+        assert!(!ui.needs_redraw());
+    }
+}

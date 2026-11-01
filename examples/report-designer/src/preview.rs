@@ -98,7 +98,9 @@ fn open_on_desktop(file: &ExportedFile) {
         tracing::warn!(error = %e, "could not write the exported file");
         return;
     }
-    open_path(&path);
+    if let Err(e) = ravenrs::native::open_with_system(&path) {
+        tracing::warn!(error = %e, "could not open the file");
+    }
 }
 
 /// Asks the user for a PNG or JPEG and hands it over as a `data:` address. In
@@ -210,20 +212,7 @@ fn print_on_desktop(html: &str) {
         tracing::warn!(error = %e, "could not write the print page");
         return;
     }
-    open_path(&path);
-}
-
-/// Opens a file with the program the system associates with it.
-#[cfg(not(target_arch = "wasm32"))]
-fn open_path(path: &std::path::Path) {
-    let opener = if cfg!(target_os = "macos") {
-        std::process::Command::new("open").arg(path).spawn()
-    } else if cfg!(target_os = "windows") {
-        std::process::Command::new("cmd").args(["/C", "start", ""]).arg(path).spawn()
-    } else {
-        std::process::Command::new("xdg-open").arg(path).spawn()
-    };
-    if let Err(e) = opener {
+    if let Err(e) = ravenrs::native::open_with_system(&path) {
         tracing::warn!(error = %e, "could not open the file");
     }
 }

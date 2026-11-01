@@ -20,6 +20,8 @@ The first run opens on a sample family, so there is something to explore. **Ajus
 | Relatórios | `ravenrs-report`, `ravenrs-report-viewer`, `ravenrs-report-export`, charts and barcodes from `ravenrs-graphics` |
 | Cadastros | `Tabs`, `ListItem`, `FormField` |
 | Ajustes | `ThemeSwitcher`, `Sheet`, `Accordion` |
+| Exports and backup | `ravenrs::native::SaveDialog`, `open_with_system` |
+| Updates | `UiWaker`, which wakes the UI when a background thread finishes |
 | Everywhere | `Sidebar`, `CommandPalette` (⌘K), `Toaster`, `Tooltip`, `Localized` |
 
 The filter on Lançamentos is the part to read first. What the user types, such as `[Valor] > 100 And [Categoria] = 'Mercado'`, is checked against a schema and translated by `ravenrs-criteria` into SQL with bound parameters, so typed text can never change the query ([src/filter.rs](src/filter.rs)).
@@ -71,12 +73,12 @@ Fixed in the framework:
 * A doughnut chart's legend listed categories with no slice.
 * Component text was fixed in English (`Labels`, `Localized`).
 * `Stat` could not show spending going up as bad (`Stat::delta_toned`).
+* Nothing let a background thread ask for a frame (`UiWaker`).
+* The desktop had no save dialog (`ravenrs::native::SaveDialog`).
+* Each app repeated how to open a file with the system's program (`ravenrs::native::open_with_system`).
 
 Still open:
 
-* **Waking the UI from another thread.** Nothing lets a background thread ask for a frame, so `UpdatePump` comes back once a second while work runs.
-* **Desktop file dialogs.** Exports go to a fixed folder because the native build has no save dialog.
-* **Opening a file with the system's program.** `paths::open_with_system` repeats what `report-designer` has; it belongs in the framework.
 * **Chart axes.** `AreaChart` has no axis labels or tooltips, so the dashboard writes the first and last month by hand.
 * **More text to translate.** `Ribbon`, `Carousel`, `InputOtp`, `validate::email`, `validate::min_length` and a grid's yes/no values are still in English.
 

@@ -8,6 +8,7 @@
 //! built only while one is running.
 
 mod access;
+mod files;
 
 /// The system clipboard through `arboard`. When it cannot be opened (no
 /// display server, say), copy and paste stay inside the app.
@@ -40,6 +41,23 @@ use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
 use winit::window::{Window, WindowId};
+
+pub use files::{SaveDialog, open_with_system};
+
+/// What reaches the event loop from outside it.
+#[derive(Debug)]
+enum UserEvent {
+    /// From the screen reader.
+    Access(accesskit_winit::Event),
+    /// A [`UiWaker`](ravenrs_widgets::UiWaker) fired, on some other thread.
+    Wake,
+}
+
+impl From<accesskit_winit::Event> for UserEvent {
+    fn from(event: accesskit_winit::Event) -> Self {
+        Self::Access(event)
+    }
+}
 
 /// How the main window opens.
 #[derive(Clone, Debug)]
@@ -123,11 +141,16 @@ impl From<GpuError> for PlatformError {
 
 /// Opens a window showing `root` and runs until it is closed.
 pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), PlatformError> {
-    let event_loop = EventLoop::<accesskit_winit::Event>::with_user_event()
+    let event_loop = EventLoop::<UserEvent>::with_user_event()
         .build()
         .map_err(|e| PlatformError::EventLoop(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Wait);
     let mut ui = Ui::new(root, options.theme);
+    let wake = event_loop.create_proxy();
+    ui.set_remote_waker(move || {
+        // It only fails once the loop is gone, when there is nothing left to wake.
+        let _ = wake.send_event(UserEvent::Wake);
+    });
     match arboard::Clipboard::new() {
         Ok(clipboard) => ui.set_clipboard(SystemClipboard(std::cell::RefCell::new(clipboard))),
         Err(e) => tracing::warn!(error = %e, "system clipboard unavailable; using an in-app clipboard"),
@@ -172,7 +195,7 @@ struct Access {
 
 struct App {
     ui: Ui,
-    proxy: EventLoopProxy<accesskit_winit::Event>,
+    proxy: EventLoopProxy<UserEvent>,
     access: Option<Access>,
     options: WindowOptions,
     window: Option<WindowState>,
@@ -362,7 +385,7 @@ fn map_button(button: MouseButton) -> PointerButton {
     }
 }
 
-impl ApplicationHandler<accesskit_winit::Event> for App {
+impl ApplicationHandler<UserEvent> for App {
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
         if let StartCause::ResumeTimeReached { .. } = cause
             && let Some(state) = &self.window
@@ -396,8 +419,18 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
         }
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: accesskit_winit::Event) {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: UserEvent) {
         use accesskit_winit::WindowEvent as A;
+        let event = match event {
+            UserEvent::Access(event) => event,
+            UserEvent::Wake => {
+                tracing::trace!("woken from another thread");
+                if let Some(state) = &self.window {
+                    state.window.request_redraw();
+                }
+                return;
+            }
+        };
         match event.window_event {
             A::InitialTreeRequested => {
                 if let Some(access) = &mut self.access {

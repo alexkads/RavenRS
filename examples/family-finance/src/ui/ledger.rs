@@ -11,7 +11,6 @@ use super::store::{Memo, Store, date_column, heading, money_column, month_nav, r
 use crate::filter;
 use crate::model::Flow;
 use crate::money::format_brl;
-use crate::paths;
 
 /// Ready-made expressions, which also teach the language.
 const PRESETS: [(&str, &str); 5] = [
@@ -221,12 +220,8 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
             activate.start_edit(&activate_store, id);
         }
     })
-    .on_export(move |csv| match paths::save_export("lancamentos.csv", csv.as_bytes()) {
-        Ok(path) => {
-            export_store.toasts.show("CSV exportado", path.display().to_string(), Tone::Success);
-            paths::open_with_system(&path);
-        }
-        Err(e) => export_store.toasts.show("Não foi possível exportar", e.to_string(), Tone::Danger),
+    .on_export(move |csv| {
+        export_store.save_file("lancamentos.csv", ("CSV", &["csv"]), csv.as_bytes());
     });
 
     screen((

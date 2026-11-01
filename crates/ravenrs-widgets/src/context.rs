@@ -456,6 +456,7 @@ pub struct BuildCx<'a> {
     pub(crate) focus_request: Option<WidgetId>,
     pub(crate) now: f64,
     labels: Rc<crate::Labels>,
+    ui_waker: crate::UiWaker,
     pub(crate) shortcuts: Vec<Shortcut>,
     pub(crate) wake: Option<f64>,
     pub(crate) modifiers: Rc<std::cell::Cell<Modifiers>>,
@@ -493,6 +494,7 @@ impl<'a> BuildCx<'a> {
         local: &'a mut LocalStore,
         placeholder: LayoutId,
         clipboard: crate::Clipboard,
+        ui_waker: crate::UiWaker,
     ) -> Self {
         Self {
             // Read through the state so a theme change rebuilds the UI.
@@ -510,6 +512,7 @@ impl<'a> BuildCx<'a> {
             focus_request: None,
             now: 0.0,
             labels: Rc::new(crate::Labels::default()),
+            ui_waker,
             shortcuts: Vec::new(),
             wake: None,
             modifiers,
@@ -529,6 +532,11 @@ impl<'a> BuildCx<'a> {
     /// The theme in effect for this build.
     pub fn theme(&self) -> &Theme {
         &self.theme
+    }
+
+    /// A handle that asks for a rebuild from another thread; see [`UiWaker`](crate::UiWaker).
+    pub fn ui_waker(&self) -> crate::UiWaker {
+        self.ui_waker.clone()
     }
 
     /// The words the components use here; see [`Localized`](crate::Localized).

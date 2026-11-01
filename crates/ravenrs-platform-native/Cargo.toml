@@ -23,6 +23,8 @@ accesskit.workspace = true
 accesskit_winit.workspace = true
 arboard.workspace = true
 pollster.workspace = true
+# Save dialogs: the system's own, on all three systems.
+rfd = "0.17"
 tracing.workspace = true
 
 [lints]
