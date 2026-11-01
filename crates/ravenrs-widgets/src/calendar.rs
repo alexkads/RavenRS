@@ -393,7 +393,7 @@ impl View for DatePicker {
             Paint::Quad(QuadPaint {
                 corner_radius: theme.radii.md,
                 border: Some(border),
-                ..QuadPaint::new(theme.color(Semantic::Surface))
+                ..QuadPaint::new(theme.color(Semantic::Control))
             }),
         );
         cx.semantics(label, Semantics::hidden());

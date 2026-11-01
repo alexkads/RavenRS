@@ -682,7 +682,7 @@ impl DataGrid {
             );
         }
         let query = h.query.peek().clone();
-        let mut group = DropdownMenu::new("Group").icon(IconName::Layers);
+        let mut group = DropdownMenu::new("Group").icon(IconName::Layers).size(ButtonSize::Small);
         for (c, col) in
             self.columns.iter().enumerate().filter(|(c, col)| col.groupable && !query.is_hidden(*c))
         {
@@ -706,7 +706,7 @@ impl DataGrid {
             ));
         }
         items.push(cx.child(&group));
-        let mut chooser = DropdownMenu::new("Columns").icon(IconName::Table);
+        let mut chooser = DropdownMenu::new("Columns").icon(IconName::Table).size(ButtonSize::Small);
         for (c, col) in self.columns.iter().enumerate() {
             let q = h.query.clone();
             let item = MenuItem::new(col.title.clone()).on_select(move || {

@@ -125,6 +125,33 @@ impl TextSystem {
         let layout = builder.build(text);
         TextLayout { layout, broken_at: None }
     }
+
+    /// Shapes `text` on one line, cut at a character boundary and ended with
+    /// `…` so it fits `max_width`. Text that already fits comes back whole.
+    pub fn layout_ellipsized(&mut self, text: &str, attrs: &TextAttrs, max_width: f32) -> TextLayout {
+        let mut whole = self.layout(text, attrs);
+        if whole.measure(None).width <= max_width {
+            return whole;
+        }
+        let ends: Vec<usize> = text.char_indices().map(|(i, _)| i).collect();
+        let cut = |count: usize| {
+            let end = ends.get(count).copied().unwrap_or(text.len());
+            format!("{}…", text[..end].trim_end())
+        };
+        // The most characters that still fit, by bisection: shaping is the costly part.
+        let (mut low, mut high) = (0, ends.len());
+        while low < high {
+            let middle = (low + high).div_ceil(2);
+            if self.layout(&cut(middle), attrs).measure(None).width <= max_width {
+                low = middle;
+            } else {
+                high = middle - 1;
+            }
+        }
+        let mut fitted = self.layout(&cut(low), attrs);
+        fitted.measure(None);
+        fitted
+    }
 }
 
 /// One line of a broken [`TextLayout`], as reported by [`TextLayout::lines`].

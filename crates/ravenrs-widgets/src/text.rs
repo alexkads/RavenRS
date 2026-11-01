@@ -21,6 +21,7 @@ pub struct Text {
     size: Option<f32>,
     weight: Option<Weight>,
     foreground: Fill,
+    truncate: bool,
 }
 
 impl fmt::Debug for Text {
@@ -51,7 +52,14 @@ impl Text {
     }
 
     fn with_content(content: Content) -> Self {
-        Self { content, style: TextStyle::Body, size: None, weight: None, foreground: Semantic::Ink.into() }
+        Self {
+            content,
+            style: TextStyle::Body,
+            size: None,
+            weight: None,
+            foreground: Semantic::Ink.into(),
+            truncate: false,
+        }
     }
 
     /// A step of the type scale (`Body` by default).
@@ -69,6 +77,13 @@ impl Text {
     /// Overrides the style's weight.
     pub fn font_weight(mut self, weight: Weight) -> Self {
         self.weight = Some(weight);
+        self
+    }
+
+    /// Keeps the text on one line, ended with `…` when it does not fit. Screen
+    /// readers still get the whole text.
+    pub fn truncate(mut self) -> Self {
+        self.truncate = true;
         self
     }
 
@@ -92,12 +107,14 @@ impl View for Text {
             family: None,
         };
         let color = self.foreground.resolve(theme);
-        let node = match &self.content {
-            Content::Static(s) => cx.text(s, &attrs, color, LayoutStyle::leaf()),
-            Content::Dynamic(f) => {
-                let s = f();
-                cx.text(&s, &attrs, color, LayoutStyle::leaf())
-            }
+        let content = match &self.content {
+            Content::Static(s) => std::borrow::Cow::Borrowed(s.as_str()),
+            Content::Dynamic(f) => std::borrow::Cow::Owned(f()),
+        };
+        let node = if self.truncate {
+            cx.text_truncated(&content, &attrs, color, LayoutStyle::leaf())
+        } else {
+            cx.text(&content, &attrs, color, LayoutStyle::leaf())
         };
         if let Some(level) = heading_level(self.style) {
             cx.semantics(node, Semantics::new(ravenrs_core::Role::Heading).level(level));

@@ -1,13 +1,15 @@
-use ravenrs_core::{Border, Color, Insets, Shadow};
+use std::fmt;
+use std::rc::Rc;
+
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Role, Shadow};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_style::Semantic;
 
-use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
+use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::{Fill, View};
 
 /// A grouped surface lifted off the canvas: `bg-200` fill, `radius-xl` corners,
 /// `shadow-soft` and a hairline border, padded by `space-6`.
-#[derive(Debug)]
 pub struct Card<V> {
     content: V,
     fill: Fill,
@@ -16,6 +18,13 @@ pub struct Card<V> {
     padding: Option<Insets>,
     border: bool,
     spacing: Option<f32>,
+    on_click: Option<Rc<dyn Fn()>>,
+}
+
+impl<V: fmt::Debug> fmt::Debug for Card<V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Card").field("content", &self.content).finish_non_exhaustive()
+    }
 }
 
 impl<V: View> Card<V> {
@@ -29,6 +38,7 @@ impl<V: View> Card<V> {
             padding: None,
             border: true,
             spacing: None,
+            on_click: None,
         }
     }
 
@@ -68,12 +78,23 @@ impl<V: View> Card<V> {
         self
     }
 
+    /// Makes the whole card a button: it runs `handler` when clicked, or on
+    /// Enter and Space while focused, and marks hover with the accent.
+    pub fn on_click(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_click = Some(Rc::new(handler));
+        self
+    }
+
     fn paint(&self, cx: &BuildCx<'_>, fill: Color) -> QuadPaint {
         let theme = cx.theme();
+        let active = self.on_click.is_some() && (cx.is_hovered() || cx.is_focus_visible());
         QuadPaint {
             fill: fill.into(),
             corner_radius: self.corner_radius.unwrap_or(theme.radii.xl),
-            border: self.border.then(|| Border { width: 1.0, color: theme.color(Semantic::Border) }),
+            border: self.border.then(|| Border {
+                width: 1.0,
+                color: theme.color(if active { Semantic::Accent } else { Semantic::Border }),
+            }),
             shadow: self.shadow.unwrap_or(Some(theme.elevation.soft)),
         }
     }
@@ -86,8 +107,16 @@ impl<V: View> Card<V> {
             align: Align::Stretch,
             ..LayoutStyle::stack(Axis::Vertical)
         };
+        let corner_radius = paint.corner_radius;
         let child = cx.child(&self.content);
-        cx.container(style, &[child], Paint::Quad(paint))
+        let node = cx.container(style, &[child], Paint::Quad(paint));
+        if let Some(handler) = &self.on_click {
+            cx.semantics(node, Semantics::new(Role::Button));
+            cx.on_click(node, handler.clone());
+            cx.focusable(node, corner_radius);
+            cx.cursor(node, CursorIcon::Pointer);
+        }
+        node
     }
 }
 

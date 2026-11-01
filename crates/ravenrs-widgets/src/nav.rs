@@ -215,6 +215,7 @@ pub struct SidebarItem {
     label: String,
     selected: bool,
     count: Option<String>,
+    compact: bool,
     on_click: Option<Rc<dyn Fn()>>,
 }
 
@@ -227,7 +228,7 @@ impl fmt::Debug for SidebarItem {
 impl SidebarItem {
     /// An item with this icon and label.
     pub fn new(icon: IconName, label: impl Into<String>) -> Self {
-        Self { icon, label: label.into(), selected: false, count: None, on_click: None }
+        Self { icon, label: label.into(), selected: false, count: None, compact: false, on_click: None }
     }
 
     /// Highlights the item as the current location.
@@ -239,6 +240,12 @@ impl SidebarItem {
     /// A count badge at the end of the row (e.g. unread items).
     pub fn count(mut self, count: impl Into<String>) -> Self {
         self.count = Some(count.into());
+        self
+    }
+
+    /// A denser row (32 px, `callout` text) for panels with many items.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
         self
     }
 
@@ -256,15 +263,20 @@ impl View for SidebarItem {
         let (ink, muted) = (theme.color(Semantic::Ink), theme.color(Semantic::InkMuted));
         let icon_color = if self.selected { theme.color(Semantic::Accent).lerp(ink, 0.35) } else { muted };
         let icon = util::icon(cx, self.icon, 16.0, icon_color);
-        let label = util::label(
-            cx,
-            &self.label,
-            TextStyle::Body,
+        let text_style = if self.compact { TextStyle::Callout } else { TextStyle::Body };
+        let attrs = util::attrs(
+            &theme,
+            text_style,
             Some(if self.selected { Weight::SEMIBOLD } else { Weight::REGULAR }),
+        );
+        let label = cx.text_truncated(
+            &self.label,
+            &attrs,
             if self.selected || hovered { ink } else { muted },
+            LayoutStyle::leaf(),
         );
         let label = cx.container(
-            LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
+            LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::stack(Axis::Horizontal) },
             &[label],
             Paint::None,
         );
@@ -280,19 +292,19 @@ impl View for SidebarItem {
             ravenrs_core::Color::TRANSPARENT
         };
         let style = LayoutStyle {
-            padding: Insets::symmetric(0.0, 10.0),
-            height: Some(36.0),
-            spacing: 10.0,
+            padding: Insets::symmetric(0.0, if self.compact { theme.spacing.s2 } else { 10.0 }),
+            height: Some(if self.compact { 32.0 } else { 36.0 }),
+            spacing: if self.compact { theme.spacing.s2 } else { 10.0 },
             align: Align::Center,
             ..LayoutStyle::stack(Axis::Horizontal)
         };
-        let paint = Paint::Quad(QuadPaint { corner_radius: 8.0, ..QuadPaint::new(fill) });
+        let paint = Paint::Quad(QuadPaint { corner_radius: theme.radii.md, ..QuadPaint::new(fill) });
         let node = cx.container(style, &children, paint);
         cx.semantics(node, Semantics::new(Role::Button).selected(self.selected));
         if let Some(h) = &self.on_click {
             cx.on_click(node, h.clone());
         }
-        cx.focusable(node, 8.0);
+        cx.focusable(node, theme.radii.md);
         cx.cursor(node, CursorIcon::Pointer);
         node
     }

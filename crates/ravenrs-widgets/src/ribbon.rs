@@ -656,24 +656,29 @@ impl View for Ribbon {
         // Title row: application menu, quick access, tabs, search, collapse.
         let mut row = Vec::new();
         if let Some((label, entries)) = &self.app_menu {
-            let on_accent = theme.color(Semantic::OnAccent);
-            let text = util::label(cx, label, TextStyle::Callout, Some(Weight::SEMIBOLD), on_accent);
+            let ink = theme.color(Semantic::Ink);
+            let text = util::label(cx, label, TextStyle::Callout, Some(Weight::SEMIBOLD), ink);
             let hovered = cx.is_hovered();
-            let fill = theme.color(if hovered { Semantic::AccentHover } else { Semantic::Accent });
+            let control = theme.color(Semantic::Control);
+            let fill = if hovered { control.lerp(ink, 0.08) } else { control };
             let app = cx.container(
                 LayoutStyle {
-                    height: Some(30.0),
-                    padding: Insets::symmetric(0.0, 14.0),
+                    height: Some(32.0),
+                    padding: Insets::symmetric(0.0, theme.spacing.s3),
                     align: Align::Center,
                     ..LayoutStyle::stack(Axis::Horizontal)
                 },
                 &[text],
-                Paint::Quad(QuadPaint { corner_radius: 6.0, ..QuadPaint::new(fill) }),
+                Paint::Quad(QuadPaint {
+                    corner_radius: theme.radii.md,
+                    border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                    ..QuadPaint::new(fill)
+                }),
             );
             cx.semantics(app, Semantics::new(Role::Button).expanded(app_open.get()));
             let o = app_open.clone();
             cx.on_click(app, Rc::new(move || o.update(|v| *v = !*v)));
-            cx.focusable(app, 6.0);
+            cx.focusable(app, theme.radii.md);
             cx.cursor(app, CursorIcon::Pointer);
             if app_open.get() {
                 let close: Rc<dyn Fn()> = {

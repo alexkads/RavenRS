@@ -370,6 +370,8 @@ impl Element {
 /// Layout context of measured leaves.
 pub(crate) struct TextLeaf {
     pub layout: TextLayout,
+    /// One line ended with `…` when it does not fit; holds what to shape again then.
+    pub truncate: Option<(Rc<str>, TextAttrs)>,
 }
 
 /// Which widgets the pointer and keyboard are interacting with.
@@ -615,7 +617,7 @@ impl<'a> BuildCx<'a> {
     /// Creates a text leaf that wraps to the width its parent offers.
     pub fn text(&mut self, text: &str, attrs: &TextAttrs, color: Color, style: LayoutStyle) -> NodeId {
         let layout = self.text.layout(text, attrs);
-        let id = match self.layout.measured_leaf(style, TextLeaf { layout }) {
+        let id = match self.layout.measured_leaf(style, TextLeaf { layout, truncate: None }) {
             Ok(id) => id,
             Err(e) => self.fail(e),
         };
@@ -623,6 +625,23 @@ impl<'a> BuildCx<'a> {
         element.text_color = Some(color);
         element.text = Some(text.into());
         self.push(element)
+    }
+
+    /// Like [`Self::text`], on one line that ends with `…` when it does not fit.
+    /// Screen readers still get the whole text.
+    pub fn text_truncated(
+        &mut self,
+        text: &str,
+        attrs: &TextAttrs,
+        color: Color,
+        style: LayoutStyle,
+    ) -> NodeId {
+        let node = self.text(text, attrs, color, style);
+        let layout = self.elements[node.0 as usize].layout;
+        if let Some(leaf) = self.layout.context_mut(layout) {
+            leaf.truncate = Some((text.into(), attrs.clone()));
+        }
+        node
     }
 
     /// Measures `text` without creating a node, e.g. to place a caret.

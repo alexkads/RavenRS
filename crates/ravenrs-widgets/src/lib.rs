@@ -56,7 +56,7 @@ pub use button::{Button, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
-pub use choice::{AspectRatio, Label, Pagination, ToggleButton, ToggleGroup};
+pub use choice::{AspectRatio, ColorSwatch, Label, Pagination, ToggleButton, ToggleGroup};
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use context::{
     BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, NodeId, Paint, Placement, QuadPaint,

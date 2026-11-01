@@ -4,6 +4,27 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- `ColorSwatch`, a named color to pick from a palette.
+- `Text::truncate` and `BuildCx::text_truncated` keep text on one line that ends with `…`; screen readers still get the whole text. `TextSystem::layout_ellipsized` is the underlying call.
+- `Card::on_click` makes a whole card a button, with hover, focus and keyboard support.
+- `SidebarItem::compact`, `Dialog::width`, `Dialog::close_label`, `DropdownMenu::size`, `Checkbox::leading` and `Pagination::labels`.
+- `Semantic::Scrim` and the `scrim` token, the backdrop behind dialogs, sheets and the command palette.
+- `Report::parameter_label`.
+
+### Changed
+- `TextField`, `Select`, `Combobox`, `DatePicker`, `Stepper` and `InputOtp` fill with the `bg-300` control token, as the design system specifies.
+- Compact text fields are 32 px tall with `radius-md`, the same as small buttons, and the data grid toolbar now has one height throughout.
+- The ribbon's application menu is neutral; the accent is kept for the selection.
+- Sidebar items truncate long labels instead of wrapping them over their neighbors.
+- Dialogs, sheets and the command palette share one backdrop opacity.
+- Sample reports and the report wizard use Raven Light colors.
+- The report designer is built from RavenRS components and tokens, and follows the Dark, Light and Glass themes; only the paper stays light. The preview and JSON screens drop the ribbon and side panels.
+
+### Fixed
+- `Splitter` panes showed nothing: their height was forced to zero.
+- The report preview's back button jumped to the first page instead of the previous one.
+
 ## [26.2.1] - 2026-11-01
 
 ### Fixed

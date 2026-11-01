@@ -112,12 +112,20 @@ impl View for Toggle {
 pub struct Checkbox {
     value: Binding<bool>,
     label: String,
+    leading: Option<f32>,
 }
 
 impl Checkbox {
     /// A check box bound to `value`, with this label.
     pub fn new(label: impl Into<String>, value: Binding<bool>) -> Self {
-        Self { value, label: label.into() }
+        Self { value, label: label.into(), leading: None }
+    }
+
+    /// Reserves this width for the box, so labels line up in a column. A list
+    /// that mixes check boxes with [`Toggle`]s passes the toggle's width, 40.
+    pub fn leading(mut self, width: f32) -> Self {
+        self.leading = Some(width);
+        self
     }
 }
 
@@ -479,7 +487,7 @@ impl View for Stepper {
         let paint = QuadPaint {
             corner_radius: theme.radii.md,
             border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
-            ..QuadPaint::new(theme.color(Semantic::Surface))
+            ..QuadPaint::new(theme.color(Semantic::Control))
         };
         let node = cx.container(style, &[minus, value, plus], Paint::Quad(paint));
         let mut semantics =

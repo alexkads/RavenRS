@@ -455,7 +455,7 @@ impl View for TextField {
         };
         let style = LayoutStyle {
             padding: Insets::symmetric(0.0, if self.compact { 8.0 } else { 12.0 }),
-            height: Some(if self.compact { 30.0 } else { 40.0 }),
+            height: Some(if self.compact { 32.0 } else { 40.0 }),
             width: self.width,
             min_width: Some(if self.compact { 0.0 } else { 160.0 }),
             spacing: 8.0,
@@ -464,9 +464,9 @@ impl View for TextField {
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let paint = QuadPaint {
-            corner_radius: if self.compact { theme.radii.sm } else { theme.radii.md },
+            corner_radius: theme.radii.md,
             border: Some(border),
-            ..QuadPaint::new(theme.color(Semantic::Surface))
+            ..QuadPaint::new(theme.color(Semantic::Control))
         };
         let node = cx.container(style, &children, Paint::Quad(paint));
         // The visible text is exposed as the value; the placeholder names the

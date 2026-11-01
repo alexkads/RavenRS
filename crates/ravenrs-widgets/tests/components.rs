@@ -258,3 +258,72 @@ fn table_list_and_charts_build() {
     assert!(ui.element_count() > 60);
     assert!(quads(&ui).len() > 100, "charts paint many primitives");
 }
+
+#[test]
+fn splitter_panes_show_their_content() {
+    let mut ui = ui(Splitter::horizontal(Text::new("Left pane"), Text::new("Right pane")).height(200.0));
+    let tree = ui.access_tree();
+    for name in ["Left pane", "Right pane"] {
+        let label = tree.find(ravenrs_core::Role::Label, name).expect("pane text");
+        assert!(label.bounds.height() > 0.0 && label.bounds.width() > 0.0, "{name}: {:?}", label.bounds);
+    }
+}
+
+#[test]
+fn long_sidebar_items_stay_on_one_line_and_keep_their_full_name() {
+    let long = "A very long label that could never fit inside this narrow panel at all";
+    let mut ui = ui(VStack::new((SidebarItem::new(IconName::Rows3, long).compact(),)).width(160.0));
+    let tree = ui.access_tree();
+    let item = tree.nodes.iter().find(|n| n.name.as_deref() == Some(long)).expect("whole name is announced");
+    assert!(item.bounds.height() <= 32.0, "{:?}", item.bounds);
+}
+
+#[test]
+fn text_fields_use_the_control_fill() {
+    let ui = ui(TextField::new(State::new(String::new()).binding()).placeholder("Name"));
+    assert!(find_fill(&ui, Semantic::Control).is_some());
+}
+
+#[test]
+fn a_clickable_card_is_a_named_button() {
+    let clicks = State::new(0);
+    let counter = clicks.clone();
+    let mut ui = ui(Card::new(Text::new("Invoice")).on_click(move || counter.update(|c| *c += 1)));
+    let at = ui.access_tree().find(ravenrs_core::Role::Button, "Invoice").expect("button").bounds.center();
+    click(&mut ui, at);
+    assert_eq!(clicks.get(), 1);
+}
+
+#[test]
+fn color_swatch_reports_its_name_and_click() {
+    let clicks = State::new(0);
+    let counter = clicks.clone();
+    let mut ui = ui(ColorSwatch::new(ravenrs_core::Color::WHITE, "White")
+        .selected(true)
+        .on_click(move || counter.update(|c| *c += 1)));
+    let tree = ui.access_tree();
+    let node = tree.find(ravenrs_core::Role::Button, "White").expect("swatch");
+    assert_eq!((node.bounds.width(), node.bounds.height()), (32.0, 32.0));
+    let at = node.bounds.center();
+    click(&mut ui, at);
+    assert_eq!(clicks.get(), 1);
+}
+
+#[test]
+fn pagination_labels_can_be_translated() {
+    let mut ui = ui(Pagination::new(State::new(1usize).binding(), 3).labels("Anterior", "Próxima", "Página"));
+    let tree = ui.access_tree();
+    for name in ["Anterior", "Próxima", "Página 2"] {
+        assert!(tree.find(ravenrs_core::Role::Button, name).is_some(), "{name}");
+    }
+}
+
+#[test]
+fn dialog_width_is_configurable_and_fits_the_window() {
+    let mut ui = ui(Dialog::new(State::new(true).binding(), "Wide").width(10_000.0).close_label("Fechar"));
+    ui.update();
+    let tree = ui.access_tree();
+    assert!(tree.find(ravenrs_core::Role::Button, "Fechar").is_some());
+    let dialog = tree.find(ravenrs_core::Role::Dialog, "Wide").expect("dialog");
+    assert_eq!(dialog.bounds.width(), 768.0, "the 800 px window less its margins");
+}

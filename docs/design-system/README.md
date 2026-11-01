@@ -42,7 +42,7 @@ Spacing is a 4px grid: `space-1` (4) through `space-12` (48). Screens pad by `sp
 
 ## Components
 
-| Component | Status in RavenRS |
+| Family | Components |
 |---|---|
 | Text | Implemented |
 | Button | Implemented (primary; hover, pressed, focus states) |

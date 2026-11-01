@@ -688,11 +688,14 @@ impl Ui {
             let layout_id = self.elements[node.0 as usize].layout;
             self.layout.compute(layout_id, self.viewport, |leaf, input| {
                 let limit = input.known_width.or(input.available_width.limit());
-                let size = leaf.layout.measure(limit);
-                Size::new(
-                    input.known_width.unwrap_or(size.width.ceil()),
-                    input.known_height.unwrap_or(size.height),
-                )
+                // Truncated text never wraps: it takes what it needs, up to the limit.
+                let one_line = leaf.truncate.is_some();
+                let size = leaf.layout.measure(if one_line { None } else { limit });
+                let width = match limit {
+                    Some(limit) if one_line => size.width.ceil().min(limit),
+                    _ => size.width.ceil(),
+                };
+                Size::new(input.known_width.unwrap_or(width), input.known_height.unwrap_or(size.height))
             })?;
         }
         self.content.clear();
@@ -754,8 +757,8 @@ impl Ui {
 
     fn paint(&mut self) {
         let _span = tracing::trace_span!("ravenrs::paint").entered();
-        self.scene.clear();
         let theme = self.theme();
+        self.scene.clear();
         self.scene.set_clear_color(theme.color(Semantic::Canvas));
         self.paint_order.clear();
         self.clips.clear();
@@ -791,9 +794,14 @@ impl Ui {
         if let Some(color) = self.elements[i].text_color {
             let layout_id = self.elements[i].layout;
             if let Some(leaf) = self.layout.context_mut(layout_id) {
-                // Re-break at the final width; the half pixel absorbs rounding.
-                leaf.layout.measure(Some(frame.width() + 0.5));
-                leaf.layout.paint(frame.origin, color, &mut self.scene);
+                if let Some((text, attrs)) = &leaf.truncate {
+                    let fitted = self.text.layout_ellipsized(text, attrs, frame.width() + 0.5);
+                    fitted.paint(frame.origin, color, &mut self.scene);
+                } else {
+                    // Re-break at the final width; the half pixel absorbs rounding.
+                    leaf.layout.measure(Some(frame.width() + 0.5));
+                    leaf.layout.paint(frame.origin, color, &mut self.scene);
+                }
             }
         }
         let clips_children = self.elements[i].clip;

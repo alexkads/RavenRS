@@ -228,7 +228,7 @@ impl View for SheetLayer<'_> {
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[panel],
-            Paint::Quad(QuadPaint::new(Color::rgba(0.0, 0.0, 0.0, 0.5))),
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Scrim))),
         );
         let close = s.open.clone();
         cx.on_click(backdrop, Rc::new(move || close.set(false)));
@@ -654,7 +654,7 @@ impl View for PaletteLayer<'_> {
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &[card],
-            Paint::Quad(QuadPaint::new(Color::rgba(0.0, 0.0, 0.0, 0.5))),
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Scrim))),
         );
         let close = self.palette.open.clone();
         cx.on_click(backdrop, Rc::new(move || close.set(false)));
@@ -875,7 +875,7 @@ impl View for Combobox {
             Paint::Quad(QuadPaint {
                 corner_radius: theme.radii.md,
                 border: Some(border),
-                ..QuadPaint::new(theme.color(Semantic::Surface))
+                ..QuadPaint::new(theme.color(Semantic::Control))
             }),
         );
         cx.semantics(label, Semantics::hidden());

@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -192,12 +192,35 @@ impl View for ToggleGroup {
 pub struct Pagination {
     page: Binding<usize>,
     pages: usize,
+    previous: String,
+    next: String,
+    page_name: String,
 }
 
 impl Pagination {
     /// `page` is zero-based; `pages` is the total count.
     pub fn new(page: Binding<usize>, pages: usize) -> Self {
-        Self { page, pages: pages.max(1) }
+        Self {
+            page,
+            pages: pages.max(1),
+            previous: "Previous".into(),
+            next: "Next".into(),
+            page_name: "Page".into(),
+        }
+    }
+
+    /// The text of the two buttons and the word screen readers say before a
+    /// page number, for apps in other languages.
+    pub fn labels(
+        mut self,
+        previous: impl Into<String>,
+        next: impl Into<String>,
+        page_name: impl Into<String>,
+    ) -> Self {
+        self.previous = previous.into();
+        self.next = next.into();
+        self.page_name = page_name.into();
+        self
     }
 }
 
@@ -233,7 +256,7 @@ impl View for Pagination {
         let prev = self.page.clone();
         items.push(
             cx.child(
-                &crate::Button::new("Previous")
+                &crate::Button::new(self.previous.clone())
                     .style(ButtonStyle::Ghost)
                     .size(ButtonSize::Small)
                     .icon(IconName::ChevronLeft)
@@ -247,7 +270,7 @@ impl View for Pagination {
                     let b = self.page.clone();
                     let style = if p == current { ButtonStyle::Secondary } else { ButtonStyle::Ghost };
                     let button = crate::Button::new((p + 1).to_string())
-                        .accessible_name(format!("Page {}", p + 1))
+                        .accessible_name(format!("{} {}", self.page_name, p + 1))
                         .style(style)
                         .size(ButtonSize::Small)
                         .on_click(move || b.set(p));
@@ -273,7 +296,7 @@ impl View for Pagination {
         let (next, last) = (self.page.clone(), self.pages - 1);
         items.push(
             cx.child(
-                &crate::Button::new("Next")
+                &crate::Button::new(self.next.clone())
                     .style(ButtonStyle::Ghost)
                     .size(ButtonSize::Small)
                     .trailing_icon(IconName::ChevronRight)
@@ -292,6 +315,88 @@ impl View for Pagination {
             Paint::None,
         );
         cx.semantics(node, Semantics::new(Role::Group).name("Pagination"));
+        node
+    }
+}
+
+/// A round color to pick, from a palette of [`ColorSwatch`]es. Its hit target is
+/// 32 px; the color itself is 20 px.
+pub struct ColorSwatch {
+    color: Option<Color>,
+    label: String,
+    selected: bool,
+    on_click: Option<Rc<dyn Fn()>>,
+}
+
+impl std::fmt::Debug for ColorSwatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ColorSwatch").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
+impl ColorSwatch {
+    /// A swatch of `color`. `label` is what screen readers announce, such as "Accent".
+    pub fn new(color: Color, label: impl Into<String>) -> Self {
+        Self { color: Some(color), label: label.into(), selected: false, on_click: None }
+    }
+
+    /// The "no color" choice, drawn empty with a bar across it in `danger`.
+    pub fn none(label: impl Into<String>) -> Self {
+        Self { color: None, label: label.into(), selected: false, on_click: None }
+    }
+
+    /// Marks the swatch as the current choice.
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.selected = selected;
+        self
+    }
+
+    /// Runs `handler` when the swatch is clicked, or on Enter and Space while focused.
+    pub fn on_click(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_click = Some(Rc::new(handler));
+        self
+    }
+}
+
+impl View for ColorSwatch {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let (color, selected) = (self.color, self.selected);
+        let ring = theme.color(if selected { Semantic::Accent } else { Semantic::Border });
+        let strike = theme.color(Semantic::Danger);
+        let dot = cx.container(
+            LayoutStyle { width: Some(20.0), height: Some(20.0), ..LayoutStyle::leaf() },
+            &[],
+            Paint::Custom(Rc::new(move |f: Rect, scene| {
+                let fill = color.unwrap_or(Color::TRANSPARENT);
+                scene.push_quad(
+                    Quad::new(f, fill).radius(10.0).border(if selected { 2.5 } else { 1.0 }, ring),
+                );
+                if color.is_none() {
+                    let bar = Rect::new(f.x() + 3.0, f.center().y - 0.75, f.width() - 6.0, 1.5);
+                    scene.push_quad(Quad::new(bar, strike));
+                }
+            })),
+        );
+        let fill =
+            if cx.is_hovered() { theme.color(Semantic::Ink).with_alpha(0.06) } else { Color::TRANSPARENT };
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(32.0),
+                height: Some(32.0),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[dot],
+            Paint::Quad(QuadPaint { corner_radius: theme.radii.full, ..QuadPaint::new(fill) }),
+        );
+        cx.semantics(node, Semantics::new(Role::Button).name(self.label.clone()).selected(selected));
+        if let Some(handler) = &self.on_click {
+            cx.on_click(node, handler.clone());
+        }
+        cx.focusable(node, theme.radii.full);
+        cx.cursor(node, CursorIcon::Pointer);
         node
     }
 }

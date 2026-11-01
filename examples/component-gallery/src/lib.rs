@@ -65,6 +65,7 @@ pub struct Gallery {
     ribbon_table: State<bool>,
     ribbon_zoom: State<u32>,
     ribbon_search: State<String>,
+    swatch: State<usize>,
 }
 
 impl Default for Gallery {
@@ -87,6 +88,7 @@ impl Gallery {
             terms: State::new(true),
             newsletter: State::new(false),
             density: State::new(1),
+            swatch: State::new(0),
             volume: State::new(0.62),
             seats: State::new(5),
             range: State::new(1),
@@ -420,8 +422,8 @@ impl Gallery {
                         VStack::new((
                             Toggle::new(self.notifications.binding()).label("Push notifications"),
                             Toggle::new(self.autosave.binding()).label("Autosave drafts"),
-                            Checkbox::new("I accept the terms", self.terms.binding()),
-                            Checkbox::new("Send me product news", self.newsletter.binding()),
+                            Checkbox::new("I accept the terms", self.terms.binding()).leading(40.0),
+                            Checkbox::new("Send me product news", self.newsletter.binding()).leading(40.0),
                         ))
                         .spacing(14.0),
                     ),
@@ -457,6 +459,43 @@ impl Gallery {
                         .align(Align::Center)
                         .wrap(),
                     ),
+                    demo("Color swatches", "A palette of named colors, with the current one ringed.", {
+                        let colors = [Semantic::Accent, Semantic::Success, Semantic::Warning, Semantic::Danger];
+                        let names = ["Accent", "Success", "Warning", "Danger"];
+                        let theme = Theme::raven_light();
+                        let swatches: Vec<AnyView> = colors
+                            .iter()
+                            .zip(names)
+                            .enumerate()
+                            .map(|(i, (role, name))| {
+                                let pick = self.swatch.clone();
+                                Box::new(
+                                    ColorSwatch::new(theme.color(*role), name)
+                                        .selected(self.swatch.get() == i)
+                                        .on_click(move || pick.set(i)),
+                                ) as AnyView
+                            })
+                            .collect();
+                        HStack::new(swatches).wrap()
+                    }),
+                    demo("Clickable card", "The whole card is a button. Long text can end with an ellipsis.", {
+                        let clicks = self.clicks.clone();
+                        Card::new(
+                            VStack::new((
+                                Text::new("Quarterly report").style(TextStyle::Headline),
+                                Text::new("A summary far too long to fit on a single line of this small card, so it is cut.")
+                                    .style(TextStyle::Callout)
+                                    .foreground(Semantic::InkMuted)
+                                    .truncate(),
+                            ))
+                            .spacing(4.0)
+                            .align(Align::Stretch),
+                        )
+                        .corner_radius(16.0)
+                        .padding(16.0)
+                        .no_shadow()
+                        .on_click(move || clicks.update(|c| *c += 1))
+                    }),
                 ),
             ),
         ))
@@ -1323,8 +1362,11 @@ impl Gallery {
                 "Alerts",
                 "Tinted messages with an icon for each tone.",
                 VStack::new((
-                    Alert::new("New version available", "RavenRS 0.2 adds images and animations.")
-                        .tone(Tone::Accent),
+                    Alert::new(
+                        "New version available",
+                        "RavenRS 26.2 adds reporting and the criteria language.",
+                    )
+                    .tone(Tone::Accent),
                     Alert::new("Deployment finished", "The site is live on GitHub Pages.")
                         .tone(Tone::Success),
                     Alert::new("Storage almost full", "You are using 92% of your quota.").tone(Tone::Warning),

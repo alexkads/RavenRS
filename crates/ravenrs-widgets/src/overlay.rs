@@ -197,6 +197,7 @@ pub struct DropdownMenu {
     label: String,
     icon: Option<IconName>,
     style: ButtonStyle,
+    size: crate::ButtonSize,
     entries: Vec<Entry>,
 }
 
@@ -209,7 +210,19 @@ impl fmt::Debug for DropdownMenu {
 impl DropdownMenu {
     /// A secondary button labeled `label` with an empty menu.
     pub fn new(label: impl Into<String>) -> Self {
-        Self { label: label.into(), icon: None, style: ButtonStyle::Secondary, entries: Vec::new() }
+        Self {
+            label: label.into(),
+            icon: None,
+            style: ButtonStyle::Secondary,
+            size: crate::ButtonSize::Medium,
+            entries: Vec::new(),
+        }
+    }
+
+    /// The trigger's size (`Medium` by default).
+    pub fn size(mut self, size: crate::ButtonSize) -> Self {
+        self.size = size;
+        self
     }
 
     /// Shows an icon before the label.
@@ -396,6 +409,7 @@ impl View for DropdownMenu {
         let toggle = open.clone();
         let mut trigger = Button::new(self.label.clone())
             .style(self.style)
+            .size(self.size)
             .trailing_icon(IconName::ChevronDown)
             .on_click(move || toggle.update(|o| *o = !*o));
         if let Some(icon) = self.icon {
@@ -534,7 +548,7 @@ impl View for Select {
         let paint = QuadPaint {
             corner_radius: theme.radii.md,
             border: Some(border),
-            ..QuadPaint::new(theme.color(Semantic::Surface))
+            ..QuadPaint::new(theme.color(Semantic::Control))
         };
         let node = cx.container(style, &[label, chevron], Paint::Quad(paint));
         cx.semantics(label, Semantics::hidden());
@@ -590,6 +604,8 @@ pub struct Dialog {
     description: Option<String>,
     content: Option<AnyView>,
     actions: Vec<AnyView>,
+    width: f32,
+    close_label: String,
 }
 
 impl fmt::Debug for Dialog {
@@ -601,7 +617,15 @@ impl fmt::Debug for Dialog {
 impl Dialog {
     /// A dialog shown while `open` is true.
     pub fn new(open: Binding<bool>, title: impl Into<String>) -> Self {
-        Self { open, title: title.into(), description: None, content: None, actions: Vec::new() }
+        Self {
+            open,
+            title: title.into(),
+            description: None,
+            content: None,
+            actions: Vec::new(),
+            width: 460.0,
+            close_label: "Close".into(),
+        }
     }
 
     /// Adds a muted description under the title.
@@ -613,6 +637,19 @@ impl Dialog {
     /// Sets the dialog body.
     pub fn content(mut self, content: impl View + 'static) -> Self {
         self.content = Some(Box::new(content));
+        self
+    }
+
+    /// The widest the dialog gets, in logical pixels (460 by default). It always
+    /// fits the window.
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// The close button's name for screen readers ("Close" by default).
+    pub fn close_label(mut self, label: impl Into<String>) -> Self {
+        self.close_label = label.into();
         self
     }
 
@@ -641,7 +678,7 @@ impl View for DialogLayer<'_> {
         );
         let x = cx.child(
             &IconButton::new(IconName::X)
-                .label("Close")
+                .label(d.close_label.clone())
                 .size(crate::ButtonSize::Small)
                 .on_click(move || close.set(false)),
         );
@@ -673,7 +710,7 @@ impl View for DialogLayer<'_> {
         }
         let card = cx.container(
             LayoutStyle {
-                width: Some((viewport.width - 32.0).clamp(240.0, 460.0)),
+                width: Some((viewport.width - 32.0).clamp(240.0, d.width.max(240.0))),
                 padding: Insets::uniform(24.0),
                 spacing: 14.0,
                 align: Align::Stretch,
@@ -703,7 +740,7 @@ impl View for DialogLayer<'_> {
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &[card],
-            Paint::Quad(QuadPaint::new(Color::rgba(0.0, 0.0, 0.0, 0.55))),
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Scrim))),
         );
         let close = d.open.clone();
         cx.on_click(backdrop, Rc::new(move || close.set(false)));

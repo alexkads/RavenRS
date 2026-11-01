@@ -41,6 +41,8 @@ pub enum Semantic {
     Warning,
     /// `danger`: errors and destructive actions.
     Danger,
+    /// `scrim`: the dimmed backdrop behind dialogs and sheets, the same in every theme.
+    Scrim,
 }
 
 /// The color tokens of one theme.
@@ -97,6 +99,7 @@ impl Palette {
             Semantic::Success => self.success,
             Semantic::Warning => self.warning,
             Semantic::Danger => self.danger,
+            Semantic::Scrim => Color::rgba(0.0, 0.0, 0.0, 0.5),
         }
     }
 }

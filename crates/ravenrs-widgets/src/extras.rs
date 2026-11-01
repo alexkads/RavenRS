@@ -277,8 +277,8 @@ impl<A: View, B: View> View for Splitter<A, B> {
         let r = ratio.get();
         let pane = |grow: f32| LayoutStyle {
             grow,
-            width: Some(0.0),
-            height: Some(0.0),
+            width: (!self.vertical).then_some(0.0),
+            height: self.vertical.then_some(0.0),
             min_width: Some(0.0),
             min_height: Some(0.0),
             align: Align::Stretch,
@@ -567,7 +567,7 @@ impl View for InputOtp {
                 Paint::Quad(QuadPaint {
                     corner_radius: theme.radii.md,
                     border: Some(border),
-                    ..QuadPaint::new(theme.color(Semantic::Surface))
+                    ..QuadPaint::new(theme.color(Semantic::Control))
                 }),
             ));
         }
