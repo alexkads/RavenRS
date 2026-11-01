@@ -69,6 +69,7 @@ pub struct Ui {
     local: LocalStore,
     observer: Observer,
     state_dirty: Rc<Cell<bool>>,
+    ui_waker: crate::UiWaker,
     waker: Waker,
     needs_build: bool,
     viewport: Size,
@@ -151,6 +152,7 @@ impl Ui {
             local: LocalStore::default(),
             observer,
             state_dirty,
+            ui_waker: crate::UiWaker::default(),
             waker,
             needs_build: true,
             viewport: Size::new(800.0, 600.0),
@@ -195,6 +197,17 @@ impl Ui {
     /// Called whenever reactive state the UI depends on changes.
     pub fn set_waker(&mut self, waker: impl Fn() + 'static) {
         *self.waker.borrow_mut() = Some(Rc::new(waker));
+    }
+
+    /// A handle that asks for a rebuild from another thread; see [`UiWaker`](crate::UiWaker).
+    pub fn ui_waker(&self) -> crate::UiWaker {
+        self.ui_waker.clone()
+    }
+
+    /// Tells a platform when a [`UiWaker`](crate::UiWaker) fires, from whichever thread that is,
+    /// so it can leave its sleep. Only the first call counts.
+    pub fn set_remote_waker(&mut self, notify: impl Fn() + Send + Sync + 'static) {
+        self.ui_waker.set_notify(Box::new(notify));
     }
 
     /// Sets the viewport in logical pixels and the device scale factor.
@@ -243,7 +256,10 @@ impl Ui {
     }
 
     fn needs_rebuild(&self) -> bool {
-        self.needs_build || self.state_dirty.get() || self.wake.is_some_and(|w| self.time >= w)
+        self.needs_build
+            || self.state_dirty.get()
+            || self.ui_waker.is_dirty()
+            || self.wake.is_some_and(|w| self.time >= w)
     }
 
     fn live_is_due(&self) -> bool {
@@ -486,6 +502,12 @@ impl Ui {
         self.overlays.iter().rev().find(|o| o.placement == Placement::Fill).map(|o| o.root)
     }
 
+    /// A modal layer and what is above it: a menu opened from it counts as inside it.
+    fn modal_layers(&self, root: NodeId) -> Vec<NodeId> {
+        let from = self.overlays.iter().position(|o| o.root == root).unwrap_or(0);
+        self.overlays[from..].iter().map(|o| o.root).collect()
+    }
+
     fn is_inside(&self, mut node: NodeId, root: NodeId) -> bool {
         loop {
             if node == root {
@@ -517,11 +539,12 @@ impl Ui {
         match self.modal_root() {
             Some(root) => {
                 let focused = self.interaction.focused;
+                let layers = self.modal_layers(root);
                 let inside = (0..self.elements.len()).any(|i| {
                     let e = &self.elements[i];
                     Some(e.widget) == focused
                         && e.focus_radius.is_some()
-                        && self.is_inside(NodeId(i as u32), root)
+                        && layers.iter().any(|layer| self.is_inside(NodeId(i as u32), *layer))
                 });
                 if !inside {
                     self.modal_return.get_or_insert(focused);
@@ -561,11 +584,14 @@ impl Ui {
 
     fn dismiss_overlays_outside(&mut self, p: Point) {
         let mut handlers = Vec::new();
-        for overlay in &self.overlays {
+        for (i, overlay) in self.overlays.iter().enumerate() {
             let Some(dismiss) = &overlay.on_dismiss else { continue };
             let inside = |n: NodeId| self.frames.get(n.0 as usize).is_some_and(|f| f.contains(p));
             let in_anchor = overlay.placement != Placement::Fill && inside(overlay.anchor);
-            if !inside(overlay.root) && !in_anchor {
+            // A menu opened from this layer may stick out of it, and a click there is not outside.
+            let in_popup_above =
+                self.overlays[i + 1..].iter().any(|o| o.placement != Placement::Fill && inside(o.root));
+            if !inside(overlay.root) && !in_anchor && !in_popup_above {
                 handlers.push(dismiss.clone());
             }
         }
@@ -612,11 +638,11 @@ impl Ui {
     }
 
     fn move_focus(&mut self, forward: bool) {
-        let modal = self.modal_root();
+        let layers = self.modal_root().map(|root| self.modal_layers(root));
         let focusable: Vec<WidgetId> = self
             .paint_order
             .iter()
-            .filter(|n| modal.is_none_or(|root| self.is_inside(**n, root)))
+            .filter(|n| layers.as_ref().is_none_or(|l| l.iter().any(|root| self.is_inside(**n, *root))))
             .map(|n| &self.elements[n.0 as usize])
             .filter(|e| e.focus_radius.is_some())
             .map(|e| e.widget)
@@ -670,6 +696,8 @@ impl Ui {
         let _span = tracing::trace_span!("ravenrs::frame").entered();
         self.needs_build = false;
         self.state_dirty.set(false);
+        // Before the build: a wake during it must cause another one.
+        self.ui_waker.clear();
         if let Err(e) = self.build() {
             tracing::error!(error = %e, "build failed; keeping the previous frame");
             return;
@@ -693,6 +721,7 @@ impl Ui {
         self.local.begin_build();
         let modifiers = self.modifiers.clone();
         let clipboard = self.clipboard.clone();
+        let ui_waker = self.ui_waker.clone();
         let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
             self;
         let now = self.time;
@@ -715,6 +744,7 @@ impl Ui {
                     local,
                     placeholder,
                     clipboard,
+                    ui_waker,
                 );
                 cx.now = now;
                 cx.motion_clock = motion_clock;

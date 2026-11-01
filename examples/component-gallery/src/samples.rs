@@ -28,7 +28,8 @@ samples! {
     "Checkbox" => checkbox, "RadioGroup" => radio_group, "Slider" => slider, "Stepper" => stepper,
     "ColorSwatch" => color_swatch, "ThemeSwitcher" => theme_switcher,
     "TextField" => text_field, "Select" => select, "Combobox" => combobox, "DatePicker" => date_picker,
-    "Calendar" => calendar, "InputOtp" => input_otp, "FormField" => form_field, "Label" => label,
+    "Calendar" => calendar, "EventCalendar" => event_calendar, "Scheduler" => scheduler,
+    "RecurrenceEditor" => recurrence_editor, "InputOtp" => input_otp, "FormField" => form_field, "Label" => label,
     "Ribbon" => ribbon, "Menubar" => menubar, "Tabs" => tabs, "Sidebar" => sidebar,
     "Breadcrumb" => breadcrumb, "Pagination" => pagination, "Accordion" => accordion,
     "Disclosure" => disclosure,
@@ -238,6 +239,42 @@ fn calendar() -> impl View {
     let today = Date::new(2026, 11, 1).unwrap_or_else(|| unreachable!("a real date"));
     let date = State::new(Some(today));
     Calendar::new(date.binding(), today).today(today)
+}
+// end
+
+// sample: EventCalendar, 620
+fn event_calendar() -> impl View {
+    let today = Date::new(2026, 11, 16).unwrap_or_else(|| unreachable!("a real date"));
+    let (month, day) = (State::new(today.first_of_month()), State::new(Some(today)));
+    EventCalendar::new(month.binding(), day.binding()).today(today).events([
+        CalendarEvent::new(1, today.add_days(-4), "Rent").done(true),
+        CalendarEvent::new(2, today, "Review").tone(Tone::Warning),
+        CalendarEvent::new(3, today.add_days(3), "Salary").tone(Tone::Success),
+    ])
+}
+// end
+
+// sample: Scheduler, 400
+fn scheduler() -> impl View {
+    let first = Date::new(2026, 11, 1).unwrap_or_else(|| unreachable!("a real date"));
+    let at = |day: i64| TimePoint::from_date(first).plus_days(day);
+    let axis = State::new(TimeAxis::days(first, 30));
+    Scheduler::new(axis.binding())
+        .resources([Resource::new(1, "Ana"), Resource::new(2, "Bruno"), Resource::new(3, "Carla")])
+        .events([
+            SchedulerEvent::new(1, 1, at(1), at(5), "Vacation").tone(Tone::Success),
+            SchedulerEvent::new(2, 1, at(3), at(8), "Workshop"),
+            SchedulerEvent::new(3, 2, at(2), at(6), "On call").tone(Tone::Warning),
+        ])
+        .on_change(|change| println!("{change:?}"))
+}
+// end
+
+// sample: RecurrenceEditor, 280
+fn recurrence_editor() -> impl View {
+    let start = Date::new(2026, 11, 5).unwrap_or_else(|| unreachable!("a real date"));
+    let rule = State::new(RecurrenceRule::new(Frequency::Weekly).on_weekdays([1, 4]));
+    RecurrenceEditor::new(rule.binding(), start)
 }
 // end
 

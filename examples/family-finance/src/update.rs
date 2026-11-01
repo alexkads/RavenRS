@@ -18,12 +18,13 @@
 //! The installer is saved to a file and never piped into a shell: a failed
 //! `curl | sh` hands `sh` an empty script, which exits successfully having done nothing.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::time::Duration;
 
+use ravenrs::prelude::UiWaker;
 use serde::{Deserialize, Serialize};
 
 use crate::paths;
@@ -214,13 +215,15 @@ pub enum UpdateStatus {
     Development(News),
 }
 
-/// Checks for updates and runs the installer on background threads. Results
-/// come through [`Updater::poll`], which the UI calls on each build; while
-/// something runs, [`Updater::is_running`] tells it to keep waking up.
+/// Checks for updates and runs the installer on background threads. When one
+/// finishes it wakes the UI, whose next build calls [`Updater::poll`].
 #[derive(Clone, Debug)]
 pub struct Updater {
     status: Rc<RefCell<UpdateStatus>>,
     inbox: Rc<RefCell<Option<Receiver<Message>>>>,
+    waker: Rc<RefCell<Option<UiWaker>>>,
+    /// A check asked for before the UI existed, which runs once it does.
+    check_when_connected: Rc<Cell<bool>>,
 }
 
 #[derive(Debug)]
@@ -238,14 +241,34 @@ impl Default for Updater {
 impl Updater {
     /// An updater that does nothing until asked; tests use this one.
     pub fn idle() -> Self {
-        Self { status: Rc::new(RefCell::new(UpdateStatus::Quiet)), inbox: Rc::new(RefCell::new(None)) }
+        Self {
+            status: Rc::new(RefCell::new(UpdateStatus::Quiet)),
+            inbox: Rc::new(RefCell::new(None)),
+            waker: Rc::new(RefCell::new(None)),
+            check_when_connected: Rc::new(Cell::new(false)),
+        }
+    }
+
+    /// Gives it what wakes the UI, and runs a check that was waiting for it.
+    pub fn connect(&self, waker: UiWaker) {
+        if self.waker.borrow().is_none() {
+            *self.waker.borrow_mut() = Some(waker);
+        }
+        if self.check_when_connected.take() {
+            self.check();
+        }
     }
 
     /// Asks the network in the background.
     pub fn check(&self) {
+        let Some(waker) = self.waker.borrow().clone() else {
+            self.check_when_connected.set(true);
+            return;
+        };
         let (send, receive) = channel();
         *self.inbox.borrow_mut() = Some(receive);
         std::thread::spawn(move || {
+            let _wake_when_done = WakeOnDrop(waker);
             let news = NEWS_URLS.iter().find_map(|url| download(url).ok().as_deref().and_then(parse_news));
             let home = paths::home();
             let now = seconds_now();
@@ -272,7 +295,7 @@ impl Updater {
         *self.status.borrow_mut() = status;
     }
 
-    /// A background thread is working, so the UI should come back and [`Self::poll`] again.
+    /// A background thread is working.
     pub fn is_running(&self) -> bool {
         self.inbox.borrow().is_some()
     }
@@ -318,7 +341,11 @@ impl Updater {
         self.set_status(UpdateStatus::Compiling(news.clone()));
         let (send, receive) = channel();
         *self.inbox.borrow_mut() = Some(receive);
+        let waker = self.waker.borrow().clone().unwrap_or_default();
         std::thread::spawn(move || {
+            // Dropping this wakes the UI however the thread ends, even in a panic,
+            // so a thread that died cannot leave it waiting.
+            let _wake_when_done = WakeOnDrop(waker);
             let result = run_installer(&news.versao);
             let _ = send.send(Message::Finished(news, result));
         });
@@ -331,6 +358,14 @@ impl Updater {
             Some(Err(e)) => tracing::warn!(error = %e, "could not open the new version"),
             None => tracing::warn!("no installed binary on this system"),
         }
+    }
+}
+
+struct WakeOnDrop(UiWaker);
+
+impl Drop for WakeOnDrop {
+    fn drop(&mut self) {
+        self.0.wake();
     }
 }
 
@@ -487,7 +522,7 @@ mod tests {
     #[test]
     fn a_thread_that_died_stops_the_waiting_and_says_so() {
         let updater = Updater::idle();
-        let (send, receive) = channel();
+        let (send, receive) = channel::<Message>();
         *updater.inbox.borrow_mut() = Some(receive);
         updater.set_status(UpdateStatus::Compiling(news("0.2.0")));
         updater.poll();
@@ -496,6 +531,18 @@ mod tests {
         updater.poll();
         assert!(!updater.is_running());
         assert!(matches!(updater.status(), UpdateStatus::Failed(..)));
+    }
+
+    #[test]
+    fn a_check_asked_for_before_the_window_exists_runs_when_it_does() {
+        let updater = Updater::idle();
+        updater.check();
+        assert!(!updater.is_running(), "nothing could wake the UI yet");
+        assert!(updater.check_when_connected.get());
+        // The thread starts here and asks the network; only whether it started matters.
+        updater.connect(UiWaker::default());
+        assert!(updater.is_running());
+        assert!(!updater.check_when_connected.get());
     }
 
     #[test]

@@ -105,6 +105,9 @@ Status against the definition of done. **Behavior** names the test suites that d
 | InputOtp | batch_parity | | ✅ digits and Backspace, tested | |
 | FormField, Label | batch_parity, keyboard_and_basics | | n/a | |
 | Calendar, DatePicker | batch_parity, keyboard_and_basics | ✅ | ✅ one Tab stop; arrows, Home/End, Page Up/Down, Enter, tested | |
+| EventCalendar | event_calendar | ✅ | ✅ one Tab stop, shared with Calendar; arrows, Home/End, Page Up/Down, Enter, tested | A day's name and description read out its events, tested |
+| Scheduler | scheduler | ✅ | ✅ events are Tab stops; arrows move, Shift resizes, Enter opens, Delete removes, tested | Grid, rows and events named, with dates, tested. Pointer: drag, resize, draw, tested |
+| RecurrenceEditor | event_calendar | ✅ | ✅ made of tested controls | Says the rule and its next days in words, tested |
 | Ribbon | ribbon | ✅ | 🟡 Tab + Enter; its menus are fully keyboard-operable | Key tips planned |
 | DropdownMenu, ContextMenu, Menubar | keyboard_and_basics, components, batch_parity | | ✅ first item focused on open, arrows, Enter, Escape, focus returns; Menubar Left/Right between titles and open menus, tested | |
 | Tabs | components, layout_and_content, keyboard_and_basics | | ✅ arrows open tabs, Home/End, tested | |

@@ -6,6 +6,20 @@ use ravenrs::prelude::*;
 
 pub mod samples;
 
+fn first_of_plan() -> Date {
+    Date::new(2026, 11, 1).unwrap_or_else(|| Date::from_days(0))
+}
+
+fn plan_events() -> Vec<SchedulerEvent> {
+    let at = |day: i64| TimePoint::from_date(first_of_plan()).plus_days(day);
+    vec![
+        SchedulerEvent::new(1, 1, at(1), at(5), "Vacation").tone(Tone::Success),
+        SchedulerEvent::new(2, 1, at(3), at(8), "Workshop"),
+        SchedulerEvent::new(3, 2, at(2), at(6), "On call").tone(Tone::Warning),
+        SchedulerEvent::new(4, 3, at(4), at(5), "Review").tone(Tone::Danger).resizable(false),
+    ]
+}
+
 /// Categories shown in the sidebar, in order.
 const PAGES: &[(IconName, &str)] = &[
     (IconName::LayoutDashboard, "Overview"),
@@ -50,6 +64,10 @@ pub struct Gallery {
     grid_selection: State<std::collections::BTreeSet<usize>>,
     export_info: State<String>,
     date: State<Option<Date>>,
+    plan_axis: State<TimeAxis>,
+    plan_events: State<Vec<SchedulerEvent>>,
+    plan_rule: State<RecurrenceRule>,
+    agenda_month: State<Date>,
     country: State<Option<usize>>,
     otp: State<String>,
     email: State<String>,
@@ -117,6 +135,10 @@ impl Gallery {
             grid_selection: State::new(Default::default()),
             export_info: State::new(String::new()),
             date: State::new(Date::new(2026, 10, 31)),
+            plan_axis: State::new(TimeAxis::days(first_of_plan(), 30)),
+            plan_events: State::new(plan_events()),
+            plan_rule: State::new(RecurrenceRule::new(Frequency::Weekly).on_weekdays([1, 4])),
+            agenda_month: State::new(first_of_plan()),
             country: State::new(None),
             otp: State::new(String::new()),
             email: State::new(String::new()),
@@ -952,6 +974,57 @@ impl Gallery {
                         "Calendar",
                         "Pick a day; the ring marks today.",
                         Calendar::new(self.date.binding(), today).today(today),
+                    ),
+                    demo(
+                        "Event calendar",
+                        "A month with what is on each day.",
+                        EventCalendar::new(self.agenda_month.binding(), self.date.binding()).today(today).events([
+                            CalendarEvent::new(1, first_of_plan().add_days(3), "Rent").done(true),
+                            CalendarEvent::new(2, first_of_plan().add_days(9), "Review").tone(Tone::Warning),
+                            CalendarEvent::new(3, first_of_plan().add_days(14), "Salary").tone(Tone::Success),
+                        ]),
+                    ),
+                    demo(
+                        "Scheduler",
+                        "Drag events along the time and between rows, pull their ends, draw on an empty stretch, zoom.",
+                        {
+                            let (moved, drawn) = (self.plan_events.clone(), self.plan_events.clone());
+                            VStack::new((Scheduler::new(self.plan_axis.binding())
+                                .resources([
+                                    Resource::new(1, "Ana").subtitle("Design").group("Team"),
+                                    Resource::new(2, "Bruno").subtitle("Engineering").group("Team"),
+                                    Resource::new(3, "Meeting room").group("Rooms"),
+                                ])
+                                .events(self.plan_events.get())
+                                .on_change(move |change| {
+                                    moved.update(|events| {
+                                        if let Some(event) = events.iter_mut().find(|e| Some(e.id) == change.id) {
+                                            event.resource = change.resource;
+                                            event.start = change.start;
+                                            event.end = change.end;
+                                        }
+                                    });
+                                })
+                                .on_create(move |change| {
+                                    drawn.update(|events| {
+                                        let id = events.len() as u64 + 1;
+                                        events.push(SchedulerEvent::new(
+                                            id,
+                                            change.resource,
+                                            change.start,
+                                            change.end,
+                                            "New event",
+                                        ));
+                                    });
+                                }),))
+                            .align(Align::Stretch)
+                            .height(380.0)
+                        },
+                    ),
+                    demo(
+                        "Recurrence editor",
+                        "How often, on which days, until when; it says the result in words.",
+                        RecurrenceEditor::new(self.plan_rule.binding(), first_of_plan()),
                     ),
                     demo(
                         "Date picker and combobox",

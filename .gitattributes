@@ -1,0 +1,2 @@
+# `sh` breaks on CRLF, and this file runs on Windows too.
+examples/family-finance/install.cmd text eol=lf

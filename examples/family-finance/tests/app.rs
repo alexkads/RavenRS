@@ -212,3 +212,48 @@ fn an_idle_app_asks_for_nothing() {
         assert_eq!(ui.next_wake(), None, "{name}: asks to be woken");
     }
 }
+
+#[test]
+fn planning_a_receipt_with_a_rule_puts_it_on_the_agenda_to_confirm() {
+    let mut ui = app();
+    press(&mut ui, Role::Button, "Agenda");
+    press(&mut ui, Role::Button, "Programar");
+    assert!(says(&mut ui, "Salvar programação"), "the form opened");
+    press(&mut ui, Role::RadioButton, "Recebimento");
+    type_into(&mut ui, "Descrição", "Venda da bicicleta");
+    type_into(&mut ui, "Valor", "900,00");
+    press(&mut ui, Role::RadioButton, "Semanal");
+    assert!(says(&mut ui, "Toda semana"), "the form says the rule in words");
+    press(&mut ui, Role::Button, "Salvar programação");
+    assert!(says(&mut ui, "Programação salva"));
+    assert!(says(&mut ui, "Venda da bicicleta"), "it shows on the timeline");
+
+    // Today is the first day, so the panel beside the timeline offers to confirm it.
+    press(&mut ui, Role::Button, "Confirmar Venda da bicicleta");
+    assert!(says(&mut ui, "Confirmar recebimento"), "the confirmation opened");
+    press(&mut ui, Role::Button, "Confirmar recebimento");
+    assert!(says(&mut ui, "Confirmado"));
+    assert!(says(&mut ui, "Desfazer Venda da bicicleta"), "and it can be undone");
+}
+
+#[test]
+fn a_planned_day_can_be_skipped() {
+    let mut ui = app();
+    press(&mut ui, Role::Button, "Agenda");
+    press(&mut ui, Role::Button, "Programar");
+    type_into(&mut ui, "Descrição", "Aula de piano");
+    type_into(&mut ui, "Valor", "80");
+    press(&mut ui, Role::Button, "Salvar programação");
+    press(&mut ui, Role::Button, "Pular Aula de piano");
+    assert!(says(&mut ui, "Dia pulado"));
+    assert!(!names(&mut ui, Role::Button).iter().any(|n| n == "Confirmar Aula de piano"), "that day is gone");
+}
+
+#[test]
+fn the_agenda_also_shows_the_month() {
+    let mut ui = app();
+    press(&mut ui, Role::Button, "Agenda");
+    press(&mut ui, Role::RadioButton, "Mês");
+    assert!(says(&mut ui, "novembro de 2026"), "the month in Portuguese");
+    audit(&mut ui, "Agenda, mês");
+}

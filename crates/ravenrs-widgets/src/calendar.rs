@@ -84,16 +84,17 @@ struct Day<'a> {
     keys: &'a GridKeys,
 }
 
+/// The keyboard over a month grid; an [`EventCalendar`](crate::EventCalendar) shares it.
 #[derive(Clone)]
-struct GridKeys {
-    month: State<Date>,
-    cursor: State<Option<Date>>,
-    focus_to: Rc<Cell<Option<Date>>>,
+pub(crate) struct GridKeys {
+    pub month: Binding<Date>,
+    pub cursor: State<Option<Date>>,
+    pub focus_to: Rc<Cell<Option<Date>>>,
 }
 
 impl GridKeys {
     /// Moves the cursor (and the shown month, if needed) for a navigation key.
-    fn handler(&self, from: Date) -> crate::context::KeyHandler {
+    pub fn handler(&self, from: Date) -> crate::context::KeyHandler {
         let keys = self.clone();
         Rc::new(move |key, _| {
             let to = match key {
@@ -251,7 +252,7 @@ impl View for Calendar {
             })
             .collect();
         let keys = GridKeys {
-            month: month.clone(),
+            month: month.binding(),
             cursor: cx.use_state(|| None),
             focus_to: cx.use_state(|| Rc::new(Cell::new(None))).get(),
         };

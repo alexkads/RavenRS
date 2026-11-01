@@ -5,17 +5,14 @@ use ravenrs::prelude::*;
 use crate::model::parse_date;
 use crate::update::{self, News, UpdateStatus, Updater};
 
-/// Takes in what the background thread finished. While it works, the UI comes
-/// back once a second; with nothing running, no frame is asked for.
+/// Connects the updater to the UI and takes in what its thread finished.
+/// That thread wakes the UI once, when done, so nothing runs while it works.
 pub(crate) struct UpdatePump(pub Updater);
 
 impl View for UpdatePump {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        self.0.connect(cx.ui_waker());
         self.0.poll();
-        if self.0.is_running() {
-            let now = cx.now();
-            cx.wake_at(now + 1.0);
-        }
         cx.empty()
     }
 }

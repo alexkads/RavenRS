@@ -13,10 +13,18 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Paint::Rich` draws with a `PaintCx`, for views that shape text while painting or need the device scale.
 - `charts` feature on `ravenrs` and `ravenrs-widgets`, on by default. `ravenrs` also forwards `decode`.
 - `ChartKind::SparkArea`, a smoothed line over a filled area, and `ChartOptions` fields for colors, bar corners and the widest bar.
+- **Waking the UI from another thread.** `UiWaker`, from `BuildCx::ui_waker`, asks for a rebuild from any thread, so background work needs no polling. `Ui::set_remote_waker` connects it to a platform.
+- `ravenrs::native::SaveDialog` shows the system's dialog for choosing where to save, and `ravenrs::native::open_with_system` opens a file with the system's program.
+- **`Scheduler`.** A timeline of resources on the model of Bryntum Scheduler: events as bars that drag along time and between rows, resize by their ends and are drawn on an empty stretch, with `can_drop` to refuse a place, zoom from months to hours, lanes for overlaps, shaded weekends, collapsible groups, keyboard control, and only what is in view built. `TimeAxis` and `TimePoint` describe its time. What is still missing is listed in [docs/PARITY.md](docs/PARITY.md).
+- **`EventCalendar`.** A month with its events inside each day.
+- **Recurrence.** `RecurrenceRule` says on which days something repeats, with no UI, and reads and writes iCalendar's `RRULE`. `RecurrenceEditor` edits one and says it in words.
 
 ### Changed
 - `ravenrs-widgets` now depends on `ravenrs-criteria`, without its JSON feature.
 - A filter-row text that names a column in brackets and parses, such as `[Seats] > 3`, is now an expression instead of a search for those characters. Other text in brackets, such as `[draft]`, is still a search.
+
+### Fixed
+- A `Select`, `DatePicker` or menu inside a `Dialog` or `Sheet` opened in the window's corner, behind the dialog's backdrop. Overlays opened from inside another now come after it: they sit by their anchor and on top, keep focus, and Escape closes only them.
 
 ## [27.1.1] - 2026-11-01
 

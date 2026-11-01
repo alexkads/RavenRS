@@ -478,6 +478,7 @@ pub struct BuildCx<'a> {
     pub(crate) focus_request: Option<WidgetId>,
     pub(crate) now: f64,
     labels: Rc<crate::Labels>,
+    ui_waker: crate::UiWaker,
     sidebar: Option<Rc<crate::nav::SidebarScope>>,
     pub(crate) shortcuts: Vec<Shortcut>,
     pub(crate) wake: Option<f64>,
@@ -516,6 +517,7 @@ impl<'a> BuildCx<'a> {
         local: &'a mut LocalStore,
         placeholder: LayoutId,
         clipboard: crate::Clipboard,
+        ui_waker: crate::UiWaker,
     ) -> Self {
         Self {
             // Read through the state so a theme change rebuilds the UI.
@@ -533,6 +535,7 @@ impl<'a> BuildCx<'a> {
             focus_request: None,
             now: 0.0,
             labels: Rc::new(crate::Labels::default()),
+            ui_waker,
             sidebar: None,
             shortcuts: Vec::new(),
             wake: None,
@@ -553,6 +556,11 @@ impl<'a> BuildCx<'a> {
     /// The theme in effect for this build.
     pub fn theme(&self) -> &Theme {
         &self.theme
+    }
+
+    /// A handle that asks for a rebuild from another thread; see [`UiWaker`](crate::UiWaker).
+    pub fn ui_waker(&self) -> crate::UiWaker {
+        self.ui_waker.clone()
     }
 
     /// The words the components use here; see [`Localized`](crate::Localized).
@@ -1011,10 +1019,15 @@ impl<'a> BuildCx<'a> {
         view: &dyn View,
         on_dismiss: Option<Rc<dyn Fn()>>,
     ) {
-        let key = 0x6f76_6572_6c61_7900 + self.overlays.len() as u64;
-        let root = self.keyed_child(key, view);
+        // The slot comes before the content: overlays are placed and painted in
+        // order, so one opened from inside this one must come after it, or it
+        // would be placed with no anchor yet and painted underneath.
+        let slot = self.overlays.len();
+        let key = 0x6f76_6572_6c61_7900 + slot as u64;
         let gap = self.theme.spacing.s2;
-        self.overlays.push(Overlay { root, anchor, placement, gap, on_dismiss });
+        self.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss });
+        let root = self.keyed_child(key, view);
+        self.overlays[slot].root = root;
     }
 
     fn element_mut(&mut self, node: NodeId) -> Option<&mut Element> {

@@ -4,9 +4,11 @@
 
 use family_finance::db::Database;
 use family_finance::filter;
-use family_finance::model::{AccountKind, BillInput, BillStatus, Flow, Recurrence, TransactionInput};
+use family_finance::model::{
+    AccountKind, BillInput, BillStatus, Flow, Recurrence, ScheduleInput, TransactionInput,
+};
 use family_finance::{reports, seed};
-use ravenrs::prelude::Date;
+use ravenrs::prelude::{Date, Frequency, RecurrenceEnd, RecurrenceRule};
 use ravenrs_report::ReportEngine;
 
 fn date(y: i32, m: u8, d: u8) -> Date {
@@ -270,7 +272,7 @@ fn a_file_database_keeps_its_data_and_migrates_once() {
     let path = folder.join("nested").join("financas.db");
     {
         let db = Database::open(&path).expect("create");
-        assert_eq!(db.schema_version().expect("version"), 1);
+        assert_eq!(db.schema_version().expect("version"), 2);
         assert!(db.is_empty().expect("empty"));
         db.add_account("Banco", AccountKind::Cash, 5_00).expect("account");
         db.backup_to(&folder.join("copia.db")).expect("backup");
@@ -324,4 +326,110 @@ fn every_report_renders_over_the_sample_family_and_exports() {
             assert!(!file.bytes.is_empty(), "{kind:?} {format:?}");
         }
     }
+}
+
+fn plan(f: &Fixture, start: Date, rule: RecurrenceRule) -> i64 {
+    f.db.add_schedule(&ScheduleInput {
+        description: "Aluguel recebido".to_owned(),
+        flow: Flow::Income,
+        amount_cents: 500_00,
+        account_id: f.account,
+        category_id: f.salary,
+        member_id: None,
+        start,
+        rule,
+    })
+    .expect("schedule")
+}
+
+fn days(f: &Fixture, from: Date, to: Date) -> Vec<Date> {
+    f.db.occurrences(from, to).expect("occurrences").iter().map(|o| o.when).collect()
+}
+
+#[test]
+fn a_plan_falls_on_the_days_of_its_rule_and_survives_the_database() {
+    let f = fixture();
+    plan(&f, date(2026, 1, 31), RecurrenceRule::new(Frequency::Monthly).end(RecurrenceEnd::After(3)));
+    assert_eq!(
+        days(&f, date(2026, 1, 1), date(2026, 12, 31)),
+        [date(2026, 1, 31), date(2026, 2, 28), date(2026, 3, 31)]
+    );
+    assert_eq!(balance(&f), 100_00, "what is planned has not happened yet");
+}
+
+#[test]
+fn confirming_a_day_makes_it_a_transaction_only_once() {
+    let f = fixture();
+    let id = plan(&f, date(2026, 3, 10), RecurrenceRule::new(Frequency::Monthly));
+    let tx =
+        f.db.confirm_occurrence(id, date(2026, 3, 10), f.account, date(2026, 3, 12), 480_00)
+            .expect("confirm");
+    assert_eq!(balance(&f), 100_00 + 480_00, "what really came in");
+    assert!(f.db.confirm_occurrence(id, date(2026, 3, 10), f.account, date(2026, 3, 12), 480_00).is_err());
+    assert_eq!(balance(&f), 100_00 + 480_00);
+    let found = f.db.occurrences(date(2026, 3, 1), date(2026, 3, 31)).expect("occurrences");
+    assert_eq!(found.len(), 1);
+    assert_eq!(
+        (found[0].day, found[0].when, found[0].transaction_id),
+        (date(2026, 3, 10), date(2026, 3, 12), Some(tx))
+    );
+    assert_eq!(days(&f, date(2026, 4, 1), date(2026, 4, 30)), [date(2026, 4, 10)], "the rule goes on");
+}
+
+#[test]
+fn deleting_the_transaction_puts_the_day_back() {
+    let f = fixture();
+    let id = plan(&f, date(2026, 3, 10), RecurrenceRule::new(Frequency::Once));
+    let tx =
+        f.db.confirm_occurrence(id, date(2026, 3, 10), f.account, date(2026, 3, 10), 500_00)
+            .expect("confirm");
+    f.db.undo_occurrence(tx).expect("undo");
+    assert_eq!(balance(&f), 100_00);
+    let found = f.db.occurrences(date(2026, 3, 1), date(2026, 3, 31)).expect("occurrences");
+    assert_eq!((found.len(), found[0].transaction_id), (1, None), "pending again");
+}
+
+#[test]
+fn a_day_can_be_skipped_or_moved_without_touching_the_others() {
+    let f = fixture();
+    let id =
+        plan(&f, date(2026, 3, 10), RecurrenceRule::new(Frequency::Monthly).end(RecurrenceEnd::After(3)));
+    f.db.skip_occurrence(id, date(2026, 4, 10)).expect("skip");
+    f.db.move_occurrence(id, date(2026, 5, 10), date(2026, 6, 2)).expect("move");
+    assert_eq!(
+        days(&f, date(2026, 3, 1), date(2026, 5, 31)),
+        [date(2026, 3, 10)],
+        "May moved out of the range"
+    );
+    assert_eq!(days(&f, date(2026, 6, 1), date(2026, 6, 30)), [date(2026, 6, 2)], "and into June");
+}
+
+#[test]
+fn stopping_a_plan_keeps_what_already_happened() {
+    let f = fixture();
+    let id = plan(&f, date(2026, 3, 10), RecurrenceRule::new(Frequency::Monthly));
+    f.db.confirm_occurrence(id, date(2026, 3, 10), f.account, date(2026, 3, 10), 500_00).expect("confirm");
+    f.db.delete_schedule(id).expect("delete");
+    assert_eq!(balance(&f), 600_00);
+    assert!(days(&f, date(2026, 1, 1), date(2026, 12, 31)).is_empty());
+}
+
+#[test]
+fn an_account_with_a_plan_cannot_be_deleted() {
+    let f = fixture();
+    plan(&f, date(2026, 3, 10), RecurrenceRule::new(Frequency::Once));
+    assert!(f.db.delete_account(f.account).is_err());
+}
+
+#[test]
+fn moving_a_bill_changes_its_day_and_person_until_it_is_paid() {
+    let f = fixture();
+    let member = f.db.add_member("Ana").expect("member");
+    let id = bill(&f, date(2026, 3, 10), 40_00, Recurrence::Monthly, 1)[0];
+    f.db.move_bill(id, date(2026, 3, 20), Some(member)).expect("move");
+    let moved = f.db.bill(id).expect("read").expect("bill");
+    assert_eq!((moved.due, moved.anchor_day, moved.member_id), (date(2026, 3, 20), 20, Some(member)));
+    f.db.pay_bill(id, f.account, date(2026, 3, 20), 40_00).expect("pay");
+    f.db.move_bill(id, date(2026, 4, 1), None).expect("no error");
+    assert_eq!(f.db.bill(id).expect("read").expect("bill").due, date(2026, 3, 20), "a paid bill stays");
 }

@@ -1,6 +1,6 @@
 //! The records the app keeps, and the rules that need no database.
 
-use ravenrs::prelude::Date;
+use ravenrs::prelude::{Date, RecurrenceRule};
 use ravenrs::widgets::days_in_month;
 
 /// Whether money leaves or arrives.
@@ -291,6 +291,57 @@ impl Bill {
             self.description.clone()
         }
     }
+}
+
+/// Something planned, as a form fills it in: a payment or a receipt on the days of a rule.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScheduleInput {
+    /// What it is.
+    pub description: String,
+    /// Paying or receiving.
+    pub flow: Flow,
+    /// The amount each time.
+    pub amount_cents: i64,
+    /// The account it moves.
+    pub account_id: i64,
+    /// Its category.
+    pub category_id: i64,
+    /// Who it belongs to.
+    pub member_id: Option<i64>,
+    /// The first day.
+    pub start: Date,
+    /// How it repeats.
+    pub rule: RecurrenceRule,
+}
+
+/// Something planned, with the names of what it refers to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Schedule {
+    /// Primary key.
+    pub id: i64,
+    /// What the form filled in.
+    pub input: ScheduleInput,
+    /// The account's name.
+    pub account: String,
+    /// The category's name.
+    pub category: String,
+    /// The member's name; empty when there is none.
+    pub member: String,
+}
+
+/// One day of something planned.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Occurrence {
+    /// What it is a day of.
+    pub schedule_id: i64,
+    /// The day the rule gives, which identifies it.
+    pub day: Date,
+    /// The day it falls on, if moved from that one.
+    pub when: Date,
+    /// The transaction that confirmed it.
+    pub transaction_id: Option<i64>,
+    /// What is planned.
+    pub schedule: Schedule,
 }
 
 /// A month's totals.

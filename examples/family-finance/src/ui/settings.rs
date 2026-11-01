@@ -1,10 +1,12 @@
 //! The database, backups, the look of the app, and updates.
 
+use std::path::Path;
+
+use ravenrs::native::SaveDialog;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
 use super::store::{Store, heading};
-use crate::paths;
 use crate::seed;
 use crate::update::{self, UpdateStatus};
 
@@ -24,17 +26,27 @@ fn group<V: View + 'static>(title: &str, content: V) -> impl View + use<V> {
 
 fn backup(store: &Store) {
     let name = format!("financas-{}.db", store.today);
-    let folder = paths::exports();
-    if let Err(e) = std::fs::create_dir_all(&folder) {
-        store.toasts.show("Não foi possível criar a pasta", e.to_string(), Tone::Danger);
+    let Some(target) = SaveDialog::new(&name).title("Salvar backup").filter("Banco SQLite", &["db"]).ask()
+    else {
         return;
-    }
-    let target = folder.join(name);
-    // A copy does not change what the screens show, so it stays out of `Store::write`.
-    match store.db.backup_to(&target) {
+    };
+    match write_backup(store, &target) {
         Ok(()) => store.toasts.show_for("Backup salvo", target.display().to_string(), Tone::Success, 8.0),
-        Err(e) => store.toasts.show_for("Não foi possível fazer o backup", e.to_string(), Tone::Danger, 8.0),
+        Err(e) => store.toasts.show_for("Não foi possível fazer o backup", e, Tone::Danger, 8.0),
     }
+}
+
+/// The copy goes to a file beside the target and moves over it at the end, so a
+/// failure leaves a backup that already exists there as it was.
+fn write_backup(store: &Store, target: &Path) -> Result<(), String> {
+    if store.path.as_deref() == Some(target) {
+        return Err("Esse é o próprio banco em uso. Escolha outro arquivo.".to_owned());
+    }
+    let draft = target.with_extension("db.parcial");
+    // Left by a backup that was interrupted; `backup_to` refuses to write over anything.
+    let _ = std::fs::remove_file(&draft);
+    store.db.backup_to(&draft).map_err(|e| e.to_string())?;
+    std::fs::rename(&draft, target).map_err(|e| e.to_string())
 }
 
 pub(crate) fn settings(store: &Store, forms: &Forms, news_open: &State<bool>) -> impl View + use<> {

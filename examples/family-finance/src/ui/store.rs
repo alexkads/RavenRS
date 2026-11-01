@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use ravenrs::layout::{Align, Axis, LayoutStyle};
+use ravenrs::native::SaveDialog;
 use ravenrs::prelude::*;
 use ravenrs::widgets::Paint;
 use ravenrs_report::ReportEngine;
@@ -57,6 +58,22 @@ impl Store {
             }
             Err(e) => {
                 self.toasts.show_for("Não foi possível salvar", e.to_string(), Tone::Danger, 8.0);
+                None
+            }
+        }
+    }
+
+    /// Asks where to save `name` and writes `bytes` there. Saying where is the
+    /// user's choice, so cancelling is not a failure and says nothing.
+    pub fn save_file(&self, name: &str, kind: (&str, &[&str]), bytes: &[u8]) -> Option<PathBuf> {
+        let path = SaveDialog::new(name).filter(kind.0, kind.1).ask()?;
+        match std::fs::write(&path, bytes) {
+            Ok(()) => {
+                self.toasts.show_for("Arquivo salvo", path.display().to_string(), Tone::Success, 8.0);
+                Some(path)
+            }
+            Err(e) => {
+                self.toasts.show_for("Não foi possível salvar o arquivo", e.to_string(), Tone::Danger, 8.0);
                 None
             }
         }

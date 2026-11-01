@@ -111,6 +111,48 @@ fn draw_every_screen() {
     let mut update = app(Theme::raven_light(), 0, updater);
     capture(&gpu, &mut update, size, &folder.join("atualizacao.png"));
 
+    // The agenda's month, and the form that plans something.
+    for (buttons, name) in [
+        (vec![(Role::RadioButton, "Mês")], "agenda-mes"),
+        (vec![(Role::Button, "Programar"), (Role::RadioButton, "Semanal")], "dialogo-programar"),
+    ] {
+        let mut screen = app(Theme::raven_light(), 3, Updater::idle());
+        screen.set_viewport(size, 2.0);
+        screen.update();
+        screen.update();
+        for (role, button) in buttons {
+            let tree = screen.access_tree();
+            let id = tree
+                .nodes
+                .iter()
+                .find(|n| n.role == role && n.name.as_deref() == Some(button))
+                .expect("the control")
+                .id;
+            screen.perform_action(id, AccessAction::Click);
+            screen.update();
+            screen.update();
+        }
+        capture(&gpu, &mut screen, size, &folder.join(format!("{name}.png")));
+    }
+
+    // A menu opened from inside a dialog: it sits under its field, above the backdrop.
+    let mut paying = app(Theme::raven_light(), 0, Updater::idle());
+    paying.set_viewport(size, 2.0);
+    paying.update();
+    for (role, start) in [(Role::Button, "Pagar "), (Role::ComboBox, "Pagar com")] {
+        let tree = paying.access_tree();
+        let id = tree
+            .nodes
+            .iter()
+            .find(|n| n.role == role && n.name.as_deref().is_some_and(|t| t.starts_with(start)))
+            .expect("the control")
+            .id;
+        paying.perform_action(id, AccessAction::Click);
+        paying.update();
+        paying.update();
+    }
+    capture(&gpu, &mut paying, size, &folder.join("dialogo-pagamento-menu.png"));
+
     for (page, button, name) in
         [(1, "Nova despesa", "dialogo-lancamento"), (2, "Nova conta", "dialogo-conta")]
     {
