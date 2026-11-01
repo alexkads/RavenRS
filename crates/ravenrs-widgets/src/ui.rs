@@ -74,6 +74,9 @@ pub struct Ui {
     viewport: Size,
     scale: f32,
     interaction: Interaction,
+    /// The next placement scrolls the focused element into view (the keyboard
+    /// or code moved focus; a click never asks for this).
+    reveal_focus: bool,
     dragging: Option<WidgetId>,
     /// Seconds since start, set by the platform.
     time: f64,
@@ -153,6 +156,7 @@ impl Ui {
             viewport: Size::new(800.0, 600.0),
             scale: 1.0,
             interaction: Interaction::default(),
+            reveal_focus: false,
             dragging: None,
             time: 0.0,
             shortcuts: Vec::new(),
@@ -334,6 +338,7 @@ impl Ui {
             }
             Event::PointerDown { position, button: PointerButton::Primary } => {
                 self.pointer = Some(*position);
+                self.reveal_focus = false;
                 self.dismiss_overlays_outside(*position);
                 self.refresh_hover();
                 let target = self.hit_test(*position);
@@ -520,8 +525,10 @@ impl Ui {
                 });
                 if !inside {
                     self.modal_return.get_or_insert(focused);
-                    if let Some(first) = self.first_focusable(root) {
-                        self.interaction.focused = Some(first);
+                    // With nothing to focus in the layer, focus still leaves the page behind it.
+                    let first = self.first_focusable(root);
+                    if self.interaction.focused != first {
+                        self.interaction.focused = first;
                         self.needs_build = true;
                     }
                 }
@@ -626,6 +633,7 @@ impl Ui {
         };
         self.interaction.focused = Some(focusable[next]);
         self.interaction.focus_visible = true;
+        self.reveal_focus = true;
         self.needs_build = true;
     }
 
@@ -743,6 +751,7 @@ impl Ui {
             // keyboard (arrow keys moving through a radio group, say).
             self.interaction.focus_visible &= self.interaction.focused.is_some();
             self.interaction.focused = Some(widget);
+            self.reveal_focus = true;
             // Rebuild once so the newly focused widget can draw its focus state.
             self.needs_build = true;
         }
@@ -817,6 +826,26 @@ impl Ui {
 
     /// Positions every element (scroll offsets and overlays included) and paints.
     fn place_and_paint(&mut self) {
+        if self.root_node.is_none() {
+            return;
+        }
+        self.place_all();
+        if self.scroll_focus_into_view() {
+            self.place_all();
+        }
+        let snap = std::mem::take(&mut self.snap_layout);
+        for entry in &self.motions {
+            if let Some(t) = entry.motion.layout {
+                let i = entry.node.0 as usize;
+                let unscrolled = self.frames[i].translate(Point::ZERO - self.shifts[i]);
+                self.motion.sync_frame(entry.key, unscrolled, t, snap);
+            }
+        }
+        self.paint();
+    }
+
+    /// Gives every element its absolute frame, scroll offsets and overlays included.
+    fn place_all(&mut self) {
         let Some(root) = self.root_node else { return };
         self.frames.clear();
         self.frames.resize(self.elements.len(), Rect::ZERO);
@@ -832,15 +861,48 @@ impl Ui {
             self.place(overlay.root, origin);
         }
         self.overlays = overlays;
-        let snap = std::mem::take(&mut self.snap_layout);
-        for entry in &self.motions {
-            if let Some(t) = entry.motion.layout {
-                let i = entry.node.0 as usize;
-                let unscrolled = self.frames[i].translate(Point::ZERO - self.shifts[i]);
-                self.motion.sync_frame(entry.key, unscrolled, t, snap);
+    }
+
+    /// If focus just moved, scrolls each container around the focused element,
+    /// innermost first, just far enough to show it with its focus ring. Returns
+    /// true if something scrolled, which makes the frames stale.
+    fn scroll_focus_into_view(&mut self) -> bool {
+        if !std::mem::take(&mut self.reveal_focus) {
+            return false;
+        }
+        let focused = self.interaction.focused;
+        let is_focused = |e: &Element| Some(e.widget) == focused && e.focus_radius.is_some();
+        let Some(start) = self.elements.iter().position(is_focused) else { return false };
+        let ix = self.theme().interaction;
+        let mut target = self.frames[start].inflate(ix.focus_ring_offset + ix.focus_ring_width);
+        let mut scrolled = false;
+        let mut node = NodeId(start as u32);
+        // A floating layer's parent is its anchor, but moving the page behind it shows nothing.
+        while !self.overlays.iter().any(|o| o.root == node) {
+            let Some(parent) = self.parents.get(node.0 as usize).copied().flatten() else { break };
+            node = parent;
+            let i = node.0 as usize;
+            if !self.elements[i].scroll {
+                continue;
+            }
+            let (frame, max, offset) = (self.frames[i], self.max_offset(i), self.clamped_offset(i));
+            let next = Point::new(
+                if self.elements[i].scroll_x {
+                    reveal_offset(offset.x, (target.x(), target.max_x()), (frame.x(), frame.max_x()), max.x)
+                } else {
+                    offset.x
+                },
+                reveal_offset(offset.y, (target.y(), target.max_y()), (frame.y(), frame.max_y()), max.y),
+            );
+            if next != offset {
+                self.scroll.offsets.insert(self.elements[i].widget, next);
+                // Virtualized content depends on the offset: build again at the new position.
+                self.needs_build |= self.elements[i].rebuild_on_scroll;
+                target = target.translate(offset - next);
+                scrolled = true;
             }
         }
-        self.paint();
+        scrolled
     }
 
     /// Sets absolute frames for `node` and its subtree; `origin` is where the
@@ -1084,6 +1146,19 @@ impl Ui {
 }
 
 /// Top-left corner of an overlay of `size`, kept inside the viewport.
+/// The scroll offset along one axis that shows `target` inside `view`, moving
+/// as little as possible. A target larger than the view shows its start.
+fn reveal_offset(offset: f32, target: (f32, f32), view: (f32, f32), max: f32) -> f32 {
+    let next = if target.0 < view.0 || target.1 - target.0 > view.1 - view.0 {
+        offset + target.0 - view.0
+    } else if target.1 > view.1 {
+        offset + target.1 - view.1
+    } else {
+        offset
+    };
+    next.clamp(0.0, max)
+}
+
 fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, viewport: Size) -> Point {
     let mut p = match placement {
         Placement::Below => Point::new(anchor.x(), anchor.max_y() + gap),
@@ -1091,6 +1166,10 @@ fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, view
         Placement::Right => Point::new(anchor.max_x() + gap, anchor.y()),
         Placement::AboveCenter => {
             Point::new(anchor.center().x - size.width / 2.0, anchor.y() - gap - size.height)
+        }
+        Placement::RightCenter => Point::new(anchor.max_x() + gap, anchor.center().y - size.height / 2.0),
+        Placement::LeftCenter => {
+            Point::new(anchor.x() - gap - size.width, anchor.center().y - size.height / 2.0)
         }
         Placement::Fill => return Point::ZERO,
         Placement::At(p) => p,

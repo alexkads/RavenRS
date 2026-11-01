@@ -7,6 +7,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Added
 - **Family finance example.** `examples/family-finance` is a desktop app for a family's expenses and bills to pay on SQLite, with reports, expression filters in SQL and updates that compile on the user's machine. It exists to show the framework and to find what is missing in it; see its [README](examples/family-finance/README.md).
 - **Components in other languages.** `Labels` holds the words the built-in components use and `Localized` applies them to everything inside, so an app sets its language once. `Labels::pt_br` comes ready.
+- **A fuller `Sidebar`.** It closes to a rail of icons or off the screen with `SidebarCollapse`, by Cmd/Ctrl+B or a `SidebarTrigger`, sharing a `SidebarState` that an app can drive with its own binding. It has `header` and `footer` around content that scrolls, `side`, `SidebarVariant::Floating` and `Inset` with `SidebarInset`, and with `narrow_below` small windows show it as a sheet. `SidebarGroup` folds and carries actions; `SidebarItem` gains `text`, `badge`, `disabled`, `action` and submenus with `item`; `SidebarSkeleton` holds the place while items load. On the rail, labels become tooltips, on hover and on keyboard focus. Arrow keys move between rows and fold them. Sidebars that use none of this look as they did.
+- `Role::Navigation`, for navigation landmarks, and `Placement::RightCenter` and `LeftCenter`.
+- `SplashScreen` covers the window while the app loads, with a logo or icon, the app's name, a status that screen readers announce, and a spinner or progress bar. It leaves with a fade, without the zoom under reduced motion.
 - `Footer` ends a page or an app with left, center and right areas and a hairline on top. The center stays centered between uneven sides, and in a narrow window the areas stack. `Role::ContentInfo` is its landmark for screen readers.
 - `Align::Fit` keeps a child's own size without overriding a parent that centers its children.
 - `Stat::delta_toned` separates a change's direction from whether it is good, for numbers such as spending.
@@ -22,6 +25,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Links and outline.** `ControlKind::Link` opens an `https:`, `http:` or `mailto:` address from a PDF, a spreadsheet or SVG; any other scheme is refused and reported. `ControlKind::Bookmark` adds entries, nested by level, to the PDF's outline. `Item` gains `Image`, `Link` and `Bookmark`.
 
 ### Fixed
+- A control that took keyboard focus while scrolled out of view stayed hidden. Tab, arrow keys and `request_focus` now scroll the containers around it, nested ones included, until it shows; a click still does not scroll.
+- A full-window layer with nothing to focus left keyboard focus on the page behind it, where Enter could still press a button.
 - `Button`, `Badge`, `DatePicker` and other controls ignored a stack's `Align::Center` and sat at its start.
 - `None` and other empty views took a gap in their stack.
 - `DocumentViewer` worked out its width from the whole window, so beside a sidebar the page was off center and scrolled sideways.

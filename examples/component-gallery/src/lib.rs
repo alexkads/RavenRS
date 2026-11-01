@@ -56,6 +56,11 @@ pub struct Gallery {
     company: State<String>,
     submitted: State<bool>,
     sheet: State<bool>,
+    sidebar: SidebarState,
+    sidebar_collapse: State<usize>,
+    sidebar_variant: State<usize>,
+    sidebar_side: State<usize>,
+    sidebar_picked: State<String>,
     palette: State<bool>,
     toasts: Toasts,
     text_styles: State<std::collections::BTreeSet<usize>>,
@@ -118,6 +123,11 @@ impl Gallery {
             company: State::new(String::new()),
             submitted: State::new(false),
             sheet: State::new(false),
+            sidebar: SidebarState::new(true),
+            sidebar_collapse: State::new(0),
+            sidebar_variant: State::new(0),
+            sidebar_side: State::new(0),
+            sidebar_picked: State::new("Overview".into()),
             palette: State::new(false),
             toasts: Toasts::new(),
             text_styles: State::new(Default::default()),
@@ -573,9 +583,115 @@ impl Gallery {
         .align(Align::Stretch)
     }
 
+    fn sidebar_demo(&self) -> impl View + use<> {
+        let picked = self.sidebar_picked.get();
+        let row = |icon: IconName, label: &'static str| {
+            let chosen = self.sidebar_picked.clone();
+            SidebarItem::new(icon, label).selected(picked == label).on_click(move || chosen.set(label.into()))
+        };
+        let sub = |label: &'static str| {
+            let chosen = self.sidebar_picked.clone();
+            SidebarItem::text(label)
+                .compact()
+                .selected(picked == label)
+                .on_click(move || chosen.set(label.into()))
+        };
+        let toasts = self.toasts.clone();
+        let invite = move || toasts.show("Invite", "An action beside the row.", Tone::Accent);
+        let toasts = self.toasts.clone();
+        let add = move || toasts.show("New project", "An action on the group.", Tone::Accent);
+        let collapse = match self.sidebar_collapse.get() {
+            0 => SidebarCollapse::Icons,
+            1 => SidebarCollapse::Hidden,
+            _ => SidebarCollapse::Fixed,
+        };
+        let variant = match self.sidebar_variant.get() {
+            0 => SidebarVariant::Standard,
+            1 => SidebarVariant::Floating,
+            _ => SidebarVariant::Inset,
+        };
+        let side = if self.sidebar_side.get() == 0 { Side::Left } else { Side::Right };
+        let sidebar = Sidebar::new((
+            SidebarGroup::new(
+                "Workspace",
+                (
+                    row(IconName::LayoutDashboard, "Overview"),
+                    row(IconName::Users, "Customers").badge(Badge::new("12").tone(Tone::Accent)).action(
+                        IconButton::new(IconName::UserPlus)
+                            .label("Invite a customer")
+                            .size(ButtonSize::Small)
+                            .on_click(invite),
+                    ),
+                    row(IconName::Settings, "Settings")
+                        .item(sub("General"))
+                        .item(sub("Billing"))
+                        .item(sub("Members").count("4")),
+                    row(IconName::Lock, "Audit log").disabled(true),
+                ),
+            )
+            .action(
+                IconButton::new(IconName::Plus).label("New project").size(ButtonSize::Small).on_click(add),
+            ),
+            SidebarGroup::new(
+                "Projects",
+                (row(IconName::FileText, "Reports"), row(IconName::Palette, "Brand")),
+            )
+            .collapsible(),
+            SidebarGroup::new("Loading", (SidebarSkeleton::new(3),)).collapsible().open(false),
+        ))
+        .state(self.sidebar.clone())
+        .collapsible(collapse)
+        .variant(variant)
+        .side(side)
+        .narrow_below(768.0)
+        .header(
+            HStack::new((
+                Icon::new(IconName::Sparkles).color(Semantic::Accent),
+                Text::new("Acme Inc.").style(TextStyle::Headline),
+            ))
+            .spacing(10.0)
+            .align(Align::Center)
+            .padding((0.0, 10.0)),
+        )
+        .footer(
+            HStack::new((Avatar::new("Ana Lima"), Text::new("Ana Lima").style(TextStyle::Callout)))
+                .spacing(10.0)
+                .align(Align::Center),
+        );
+        let page = VStack::new((
+            SidebarTrigger::new(self.sidebar.clone()),
+            Text::new(picked).style(TextStyle::Title),
+            Text::new("The page takes whatever room the sidebar leaves.").foreground(Semantic::InkMuted),
+        ))
+        .spacing(12.0)
+        .padding(16.0)
+        .grow(1.0);
+        let page: AnyView =
+            if variant == SidebarVariant::Inset { Box::new(SidebarInset::new(page)) } else { Box::new(page) };
+        let parts: Vec<AnyView> =
+            if side == Side::Left { vec![Box::new(sidebar), page] } else { vec![page, Box::new(sidebar)] };
+        VStack::new((
+            HStack::new((
+                SegmentedControl::new(self.sidebar_collapse.binding(), ["Icons", "Hidden", "Fixed"]),
+                SegmentedControl::new(self.sidebar_variant.binding(), ["Standard", "Floating", "Inset"]),
+                SegmentedControl::new(self.sidebar_side.binding(), ["Left", "Right"]),
+            ))
+            .spacing(12.0)
+            .wrap(),
+            HStack::new(parts).height(460.0).align(Align::Stretch),
+        ))
+        .spacing(12.0)
+        .align(Align::Stretch)
+    }
+
     fn navigation(&self, _width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Navigation", "Tabs, breadcrumbs, sidebars and disclosures."),
+            demo(
+                "Sidebar",
+                "Closes to icons or off the screen with the button or Cmd/Ctrl+B, with groups, submenus, actions and badges. Below 768 px it opens as a sheet.",
+                self.sidebar_demo(),
+            ),
             demo(
                 "Tabs",
                 "Only the selected tab's content is built.",
@@ -785,6 +901,11 @@ impl Gallery {
                                 .spacing(10.0),
                             ),
                     )),
+                ),
+                demo(
+                    "Splash screen",
+                    "Covers the window while the app loads, then fades out. This one pretends to load for three seconds.",
+                    samples::sample("SplashScreen"),
                 ),
                 demo(
                     "Toasts and command palette",

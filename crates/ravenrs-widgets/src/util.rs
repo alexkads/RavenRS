@@ -66,13 +66,13 @@ impl FocusTarget {
         }
     }
 
-    fn request(&self, index: usize) {
+    pub(crate) fn request(&self, index: usize) {
         self.target.set(Some(index));
         self.tick.update(|t| *t = t.wrapping_add(1));
     }
 
     /// True once if focus should move to `index`; reading subscribes the build.
-    fn take(&self, index: usize) -> bool {
+    pub(crate) fn take(&self, index: usize) -> bool {
         let _ = self.tick.get();
         let hit = self.target.get() == Some(index);
         if hit {

@@ -71,6 +71,10 @@ impl Badge {
         self.icon = Some(icon);
         self
     }
+
+    pub(crate) fn text(&self) -> &str {
+        &self.text
+    }
 }
 
 impl View for Badge {

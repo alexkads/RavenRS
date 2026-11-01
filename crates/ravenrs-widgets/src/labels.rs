@@ -13,6 +13,10 @@ use crate::view::View;
 pub struct Labels {
     /// Closes a dialog or a sheet.
     pub close: String,
+    /// A sidebar's name.
+    pub navigation: String,
+    /// A sidebar trigger's name.
+    pub toggle_sidebar: String,
     /// Dismisses a toast.
     pub dismiss: String,
     /// A spinner's name.
@@ -115,6 +119,8 @@ impl Default for Labels {
     fn default() -> Self {
         Self {
             close: "Close".into(),
+            navigation: "Navigation".into(),
+            toggle_sidebar: "Toggle sidebar".into(),
             dismiss: "Dismiss".into(),
             loading: "Loading".into(),
             decrease: "Decrease".into(),
@@ -179,6 +185,8 @@ impl Labels {
     pub fn pt_br() -> Self {
         Self {
             close: "Fechar".into(),
+            navigation: "Navegação".into(),
+            toggle_sidebar: "Alternar barra lateral".into(),
             dismiss: "Dispensar".into(),
             loading: "Carregando".into(),
             decrease: "Diminuir".into(),

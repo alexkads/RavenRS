@@ -57,7 +57,7 @@ impl<V: View> Tooltip<V> {
     }
 }
 
-struct Bubble<'a>(&'a str);
+pub(crate) struct Bubble<'a>(pub &'a str);
 
 impl View for Bubble<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {

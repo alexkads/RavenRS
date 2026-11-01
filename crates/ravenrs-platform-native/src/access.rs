@@ -50,6 +50,7 @@ pub(crate) fn role(role: Role) -> accesskit::Role {
         Role::ScrollView => A::ScrollView,
         Role::Calendar => A::Grid,
         Role::ContentInfo => A::ContentInfo,
+        Role::Navigation => A::Navigation,
         _ => A::GenericContainer,
     }
 }
@@ -170,6 +171,7 @@ mod tests {
     #[test]
     fn the_footer_landmark_keeps_its_role() {
         assert_eq!(role(Role::ContentInfo), accesskit::Role::ContentInfo);
+        assert_eq!(role(Role::Navigation), accesskit::Role::Navigation);
     }
 
     #[test]
