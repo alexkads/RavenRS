@@ -20,7 +20,7 @@ ravenrs-layout = { version = "27.1.1", path = "crates/ravenrs-layout" }
 ravenrs-text = { version = "27.1.1", path = "crates/ravenrs-text" }
 ravenrs-style = { version = "27.1.1", path = "crates/ravenrs-style" }
 ravenrs-render = { version = "27.1.1", path = "crates/ravenrs-render" }
-ravenrs-widgets = { version = "27.1.1", path = "crates/ravenrs-widgets" }
+ravenrs-widgets = { version = "27.1.1", path = "crates/ravenrs-widgets", default-features = false }
 ravenrs-platform-native = { version = "27.1.1", path = "crates/ravenrs-platform-native" }
 ravenrs-platform-web = { version = "27.1.1", path = "crates/ravenrs-platform-web" }
 ravenrs-graphics = { version = "27.1.1", path = "crates/ravenrs-graphics" }

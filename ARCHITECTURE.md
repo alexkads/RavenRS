@@ -89,7 +89,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-platform-web` | `app` (canvas, events, frames), `access` (ARIA mirror), `error` |
 | `ravenrs-criteria` | `ast`, `parse`, `format`, `eval`, `functions`, `validate`, `sql`, `value` |
 | `ravenrs-report` | `model`, `engine`, `document`, `base64`, `paint`, `wizard`, `samples` |
-| `ravenrs-graphics` | `vector`, `chart`, `barcode` |
+| `ravenrs-graphics` | `vector`, `chart`, `barcode`; also the optional layout behind `Chart` and `Barcode` in `ravenrs-widgets` |
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
@@ -155,7 +155,7 @@ Components can be created at three levels, and the built-in widgets use the same
 3. **`View`** implemented directly, with full access to `BuildCx`:
    * `cx.child(&view)`, `cx.children(&seq)`, `cx.keyed_child(key, &view)` to build children;
    * `cx.container(LayoutStyle, &children, Paint)` and `cx.text(...)` to create layout boxes;
-   * `Paint::Quad(QuadPaint)` or `Paint::Custom(DrawFn)` to draw anything into the `Scene`;
+   * `Paint::Quad(QuadPaint)` or `Paint::Custom(DrawFn)` to draw anything into the `Scene`, or `Paint::Rich(RichFn)` when the drawing also shapes text or needs the device scale;
    * `cx.on_click`, `cx.focusable`, `cx.cursor` for behavior;
    * `cx.is_hovered()`, `cx.is_pressed()`, `cx.is_focused()`, `cx.theme()` to style by state and tokens.
 
@@ -315,7 +315,7 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView`, docking |
 | Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette` | ✓ | | |
 | Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |
-| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `BarChart`, `AreaChart`, `Canvas` | ✓ | | image loading from URLs, line/pie charts |
+| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `Chart` (line, area, bar, pie, doughnut, scatter, sparkline), `BarChart`, `AreaChart`, `Barcode` (QR Code and six linear formats), `Canvas` | ✓ | | image loading from URLs, radar, funnel and financial charts |
 | `GlassCard` | | translucent fill only | backdrop blur |
 | Rounded rects, borders, gradients, soft shadows, text, images (mipmapped, rounded), rectangular clipping | ✓ | | rounded clipping, radial gradients, transforms, layers |
 | Raven Dark / Light / Glass tokens, runtime theme switching, reduced motion from the theme token, `Ui::set_reduced_motion` and the browser's `prefers-reduced-motion` | ✓ | | reading the setting on the desktop (winit does not expose it) |

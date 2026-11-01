@@ -31,7 +31,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Token ou tema | `docs/design-system/tokens.json` e `ravenrs-style`, sempre juntos | `docs/design-system/README.md` |
 | Plataforma | `ravenrs-platform-native` e `ravenrs-platform-web`; confira se a outra precisa do mesmo | §10 do `ARCHITECTURE.md` |
 | Função ou operador de expressão | `crates/ravenrs-criteria/src/`; funções no catálogo de `functions.rs` | Ida e volta em `format.rs`, `eval.rs`, `validate.rs`, `sql.rs` conforme o caso |
-| Formas vetoriais, layout de gráfico, códigos de barras | `crates/ravenrs-graphics/src/`: `vector`, `chart`, `barcode` | Testes no próprio crate; ver quem usa em `ravenrs-report` |
+| Formas vetoriais, layout de gráfico, códigos de barras | `crates/ravenrs-graphics/src/`: `vector`, `chart`, `barcode` | Testes no próprio crate; ver quem usa em `ravenrs-report` e em `crates/ravenrs-widgets/src/chart.rs` (`Chart`, `Barcode`, feature `charts`) |
 | Exportar relatório para arquivo | `crates/ravenrs-report-export/src/lib.rs`, que chama os exportadores | Editor e servidor usam só esse ponto de entrada |
 | Motor de relatórios | `model.rs`, `engine.rs`, `document.rs` em `crates/ravenrs-report/src/` | `docs/REPORTING.md`, `docs/REPORTING-PARITY.md` |
 | Servidor de relatórios | `crates/ravenrs-report-server/src/`: `http`, `scheduler`, `store`, `cron`, `deliver` | `docs/REPORT-SERVER.md`, `crates/ravenrs-report-server/tests/server.rs` |

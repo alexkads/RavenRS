@@ -800,6 +800,10 @@ impl<'r> Run<'r> {
                         muted: CHART_MUTED,
                         grid: CHART_GRID,
                         format: &number,
+                        palette: &[],
+                        separator: Color::WHITE,
+                        bar_radius: 0.0,
+                        max_bar_width: f32::INFINITY,
                     },
                 );
                 items.push(Item::Vector { rect, shapes: drawing.shapes });

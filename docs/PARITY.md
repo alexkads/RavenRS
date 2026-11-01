@@ -109,15 +109,15 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Bar / column chart | ✓ | ✓ | ✓ | ✅ `BarChart` |
-| Area chart, sparkline | ✓ | ✓ | ✓ | ✅ `AreaChart` |
-| Line chart | ✓ | ✓ | ✓ | ⬜ in the UI; layout ready in `ravenrs-graphics`, used by reports |
-| Pie / donut | ✓ | ✓ | ✓ | ⬜ in the UI; layout ready in `ravenrs-graphics`, used by reports |
-| Scatter, bubble, radar, funnel, financial | | ✓ | ✓ | ⬜ |
+| Bar / column chart | ✓ | ✓ | ✓ | ✅ `BarChart`, `Chart` |
+| Area chart, sparkline | ✓ | ✓ | ✓ | ✅ `AreaChart`, `Chart` |
+| Line chart | ✓ | ✓ | ✓ | ✅ `Chart`, with the layout reports use |
+| Pie / donut | ✓ | ✓ | ✓ | ✅ `Chart` |
+| Scatter, bubble, radar, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`; the others ⬜ |
 | Gauges (linear, circular, arc) | | ✓ | ✓ | 🟡 `ProgressBar`; circular gauges need paths |
 | Maps | | ✓ | ✓ | ⬜ |
 | Diagram / Org chart | | ✓ | ✓ | ⬜ |
-| QR code / Barcode | | ✓ | ✓ | 🟡 logic in `ravenrs-graphics`, used by reports; no UI component yet |
+| QR code / Barcode | | ✓ | ✓ | ✅ `Barcode`: QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF |
 
 ## Overlays and feedback
 

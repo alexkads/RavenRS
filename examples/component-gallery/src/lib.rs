@@ -1730,10 +1730,10 @@ impl Gallery {
 
     fn charts(&self, width: f32) -> impl View + use<> {
         VStack::new((
-            page_header("Charts", "Drawn with the same GPU primitives as everything else, through Canvas."),
+            page_header("Charts", "The same layout as reports: shapes in a picture at the screen's density, labels as real text."),
             demo(
                 "Area chart",
-                "Smoothed series with a gradient fill.",
+                "A smoothed series over a filled area.",
                 AreaChart::new([
                     8.0, 11.0, 9.0, 14.0, 13.0, 18.0, 17.0, 22.0, 19.0, 25.0, 24.0, 29.0, 27.0, 33.0,
                 ])
@@ -1762,6 +1762,70 @@ impl Gallery {
                             .height(180.0),
                     ),
                 ),
+            ),
+            demo(
+                "Line chart",
+                "Several series, with a legend to tell them apart.",
+                Chart::new(ChartKind::Line)
+                    .categories(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"])
+                    .series("2025", [12.0, 18.0, 15.0, 21.0, 19.0, 24.0, 23.0, 27.0])
+                    .series("2026", [14.0, 21.0, 26.0, 24.0, 31.0, 35.0, 33.0, 40.0])
+                    .height(260.0),
+            ),
+            Grid::new(
+                columns(width, 2),
+                (
+                    demo(
+                        "Pie chart",
+                        "Slices labeled by their share.",
+                        Chart::new(ChartKind::Pie)
+                            .categories(["Direct", "Search", "Referral", "Social"])
+                            .series("Visits", [46.0, 28.0, 16.0, 10.0])
+                            .height(260.0),
+                    ),
+                    demo(
+                        "Doughnut chart",
+                        "The same slices around a hole.",
+                        Chart::new(ChartKind::Doughnut)
+                            .categories(["Desktop", "Mobile", "Tablet"])
+                            .series("Sessions", [58.0, 34.0, 8.0])
+                            .height(260.0),
+                    ),
+                    demo(
+                        "Scatter chart",
+                        "Dots at numeric positions.",
+                        Chart::new(ChartKind::Scatter)
+                            .categories(["1", "2", "3", "4", "5", "6", "7", "8"])
+                            .positions([1.0, 2.0, 3.5, 4.0, 5.5, 6.0, 7.5, 9.0])
+                            .series("Latency", [12.0, 19.0, 17.0, 26.0, 24.0, 33.0, 30.0, 41.0])
+                            .height(260.0),
+                    ),
+                    demo(
+                        "Sparkline",
+                        "A small line to sit next to a number.",
+                        HStack::new((
+                            Stat::new("Revenue", "R$ 128k").delta("+12.4%", true),
+                            Chart::new(ChartKind::Sparkline)
+                                .series("Revenue", [4.0, 6.0, 5.0, 8.0, 7.0, 10.0, 9.0, 13.0])
+                                .size(140.0, 44.0),
+                        ))
+                        .spacing(24.0)
+                        .align(Align::Center),
+                    ),
+                ),
+            ),
+            demo(
+                "QR Code and barcodes",
+                "Every module lands on whole pixels, and they stay dark on light in every theme.",
+                HStack::new((
+                    Barcode::qr("https://ravenrs.dev").alt("Link to the RavenRS site"),
+                    VStack::new((
+                        Barcode::new(Symbology::Code128, "RAVEN-2711"),
+                        Barcode::new(Symbology::Ean13, "789123456789"),
+                    ))
+                    .spacing(16.0),
+                ))
+                .spacing(24.0),
             ),
         ))
         .spacing(24.0)

@@ -3311,6 +3311,7 @@ dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-graphics",
  "ravenrs-layout",
  "ravenrs-reactive",
  "ravenrs-style",

@@ -255,8 +255,10 @@ fn table_list_and_charts_build() {
         Skeleton::line(12.0),
     )));
     ui.update();
-    assert!(ui.element_count() > 60);
-    assert!(quads(&ui).len() > 100, "charts paint many primitives");
+    assert!(ui.element_count() > 40, "{}", ui.element_count());
+    assert!(quads(&ui).len() > 20, "everything but the charts paints quads");
+    let images = ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Image(_))).count();
+    assert!(images >= 2, "each chart paints a picture");
 }
 
 #[test]
