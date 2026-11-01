@@ -1,6 +1,8 @@
 //! The training films, shipped inside the app, and reporting a problem.
 
-use ravenrs::movie::{BugLabels, BugReporter, FlightRecorder, Movie, MovieLabels, MoviePlayer};
+use ravenrs::movie::{
+    AssistantLabels, BugLabels, BugReporter, FlightRecorder, Movie, MovieAssistant, MovieLibrary,
+};
 use ravenrs::prelude::*;
 
 use super::store::{Store, heading};
@@ -11,30 +13,31 @@ const FILM: &[u8] = include_bytes!("../../assets/treinamentos.ravenmovie");
 /// The room around the player: the sidebar and the page's margins.
 const AROUND_THE_PLAYER: f32 = 340.0;
 
-/// The film, read once: it is small, but views build often.
+/// The films, read once: they are small, but views build often.
 pub(crate) struct TrainingState {
-    film: Option<Movie>,
+    library: Option<MovieLibrary>,
 }
 
 impl TrainingState {
     pub(crate) fn new() -> Self {
-        Self { film: Movie::from_bytes(FILM).ok() }
+        let film = Movie::from_bytes(FILM).ok();
+        Self { library: film.map(|film| MovieLibrary::new().film("O essencial do Raven Finanças", film)) }
     }
 }
 
 /// The page with the films.
 pub(crate) fn training(state: &TrainingState) -> impl View + use<> {
-    let film = state.film.clone();
+    let library = state.library.clone();
     ScrollView::new((VStack::new((
         heading(
             "Treinamentos",
-            "Assista no seu ritmo. Em cada passo o filme para e espera você clicar no ponto marcado.",
+            "Pergunte o que quer aprender, ou assista no seu ritmo. Em cada passo o filme para e espera você clicar no ponto marcado.",
         ),
         responsive(move |size| -> AnyView {
-            match &film {
-                Some(film) => Box::new(
-                    MoviePlayer::new(film.clone())
-                        .labels(MovieLabels::pt_br())
+            match &library {
+                Some(library) => Box::new(
+                    MovieAssistant::new(library.clone())
+                        .labels(AssistantLabels::pt_br())
                         .width((size.width - AROUND_THE_PLAYER).max(480.0)),
                 ),
                 None => Box::new(

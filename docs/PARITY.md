@@ -139,6 +139,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Code snippet with copy | | ✓ | | ✅ `CodeBlock` |
 | Release notes | | | | ✅ `ReleaseNotes` |
 | Training film and player | | | | ✅ `ravenrs::movie`: `Recorder`, `MoviePlayer` |
+| Question that opens a film at the right moment | | | | ✅ `MovieAssistant`, `MovieLibrary`: words the films hold, no model |
 | Film editor with timeline | | | | ✅ `MovieEditor`; no sound yet |
 | Bug report with a film | | | | ✅ `FlightRecorder`, `BugReporter` |
 | Progress bar | ✓ | ✓ | ✓ | ✅ |

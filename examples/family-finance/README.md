@@ -21,7 +21,7 @@ The first run opens on a sample family, so there is something to explore. **Ajus
 | Cadastros | `Tabs`, `ListItem`, `FormField` |
 | Ajustes | `ThemeSwitcher` |
 | Exports and backup | `ravenrs::native::SaveDialog`, `open_with_system` |
-| Treinamentos and reporting a problem | `ravenrs::movie`: `MoviePlayer` with films recorded by `tests/training.rs`, `FlightRecorder`, `BugReporter` |
+| Treinamentos and reporting a problem | `ravenrs::movie`: `MovieAssistant`, where a question opens the right moment of the films recorded by `tests/training.rs`, `FlightRecorder`, `BugReporter` |
 | Updates | `StatusBar`, `ReleaseNotes`, `CodeBlock`, and `UiWaker`, which wakes the UI when a background thread finishes |
 | Everywhere | `Sidebar`, `CommandPalette` (⌘K), `Toaster`, `Tooltip`, `Localized` |
 

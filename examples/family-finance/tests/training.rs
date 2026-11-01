@@ -10,7 +10,7 @@ use family_finance::db::Database;
 use family_finance::seed;
 use family_finance::ui::App;
 use family_finance::update::Updater;
-use ravenrs::movie::{Movie, OverlayKind, RecordError, Recorder, Region};
+use ravenrs::movie::{Movie, MovieLibrary, OverlayKind, RecordError, Recorder, Region};
 use ravenrs::prelude::*;
 
 const SIZE: Size = Size::new(1280.0, 800.0);
@@ -128,6 +128,30 @@ fn the_films_in_the_app_open_and_teach_each_part() {
     assert!(film.hotspots().len() >= 8);
     assert!(film.duration_ms() > 30_000);
     assert!(bytes.len() < 2_000_000, "vectors should stay small: {} bytes", bytes.len());
+}
+
+#[test]
+fn questions_in_plain_words_find_the_right_moment_of_the_film() {
+    let film =
+        Movie::from_bytes(include_bytes!("../assets/treinamentos.ravenmovie")).expect("the film opens");
+    let library = MovieLibrary::new().film("Manual", film);
+    let best = |question: &str| library.ask(question, 4).first().map(|a| a.moment.title.clone());
+    let cases = [
+        ("como lançar uma despesa", "Lançar uma despesa"),
+        ("lancar gasto", "Lançar uma despesa"),
+        ("pagar", "Pagar uma conta"),
+        ("como pago uma conta?", "Pagar uma conta"),
+        ("quitei", "Pague uma conta"),
+        ("trocar de computador", "Restaurar backup"),
+        ("fazer backup", "Fazer backup"),
+        ("restaurar meus dados", "Restaurar backup"),
+        ("ver os relatórios", "Ver para onde foi o dinheiro"),
+    ];
+    for (question, moment) in cases {
+        assert_eq!(best(question).as_deref(), Some(moment), "{question}");
+    }
+    assert_eq!(best("cartão de crédito"), None);
+    assert_eq!(best("como cadastrar uma compra"), None);
 }
 
 #[test]
