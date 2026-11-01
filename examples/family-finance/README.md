@@ -1,4 +1,4 @@
-# Raven Finanças
+<img src="assets/logo.png" alt="Raven Finanças" width="420">
 
 A desktop app for a family's expenses and bills to pay, with its data in one SQLite file on the computer. It has two jobs: to show what RavenRS can do in a real app, and to find what RavenRS is still missing. When a component falls short, the fix goes into the framework, not here.
 
@@ -36,6 +36,7 @@ The filter on Lançamentos is the part to read first. What the user types, such 
 | `src/reports.rs` | The report definitions |
 | `src/update.rs` | Finding and installing a new version |
 | `schedules` and `schedule_days` tables | What is planned: the days come from a `RecurrenceRule`, and only days confirmed, moved or skipped get a row |
+| `assets/` | The logo and the icon: `icon.svg` is the source, and the others are made from it |
 | `src/ui/` | One file per screen; `store.rs` has what they share |
 | `tests/db.rs`, `tests/app.rs` | The rules on a real database, and the app driven through `Ui`, without a window |
 | `tests/screens.rs` | Draws every screen to a PNG file |

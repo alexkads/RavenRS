@@ -30,7 +30,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use ravenrs_core::{AccessTree, CursorIcon, Event, Key, Modifiers, Point, PointerButton, Size};
+use ravenrs_core::{AccessTree, CursorIcon, Event, ImageData, Key, Modifiers, Point, PointerButton, Size};
 use ravenrs_render::{GpuContext, GpuError, Renderer, preferred_surface_format, wgpu};
 use ravenrs_style::Theme;
 use ravenrs_widgets::{Ui, View};
@@ -40,7 +40,7 @@ use winit::event::StartCause;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
-use winit::window::{Window, WindowId};
+use winit::window::{Icon, Window, WindowId};
 
 pub use files::{SaveDialog, open_with_system};
 
@@ -141,6 +141,24 @@ impl From<GpuError> for PlatformError {
 
 /// Opens a window showing `root` and runs until it is closed.
 pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), PlatformError> {
+    run_window(root, options, None)
+}
+
+/// Like [`run`], with an icon for the window's title bar and the task bar on
+/// Windows and Linux. macOS takes an app's icon from its bundle instead.
+pub fn run_with_icon(
+    root: impl View + 'static,
+    options: WindowOptions,
+    icon: ImageData,
+) -> Result<(), PlatformError> {
+    run_window(root, options, Some(icon))
+}
+
+fn run_window(
+    root: impl View + 'static,
+    options: WindowOptions,
+    icon: Option<ImageData>,
+) -> Result<(), PlatformError> {
     let event_loop = EventLoop::<UserEvent>::with_user_event()
         .build()
         .map_err(|e| PlatformError::EventLoop(e.to_string()))?;
@@ -160,6 +178,7 @@ pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), Plat
         access: None,
         ui,
         options,
+        icon,
         window: None,
         pointer: None,
         modifiers: Modifiers::default(),
@@ -198,6 +217,7 @@ struct App {
     proxy: EventLoopProxy<UserEvent>,
     access: Option<Access>,
     options: WindowOptions,
+    icon: Option<ImageData>,
     window: Option<WindowState>,
     /// Last pointer position in logical pixels.
     pointer: Option<Point>,
@@ -217,6 +237,12 @@ impl App {
             .with_inner_size(LogicalSize::new(self.options.size.width, self.options.size.height));
         if let Some(min) = self.options.min_size {
             attributes = attributes.with_min_inner_size(LogicalSize::new(min.width, min.height));
+        }
+        if let Some(image) = &self.icon {
+            match Icon::from_rgba(image.pixels().to_vec(), image.width(), image.height()) {
+                Ok(icon) => attributes = attributes.with_window_icon(Some(icon)),
+                Err(e) => tracing::warn!(error = %e, "could not use the window icon"),
+            }
         }
         let window =
             Arc::new(event_loop.create_window(attributes).map_err(|e| PlatformError::Window(e.to_string()))?);

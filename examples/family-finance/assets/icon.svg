@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Raven Finanças">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5f78f5"/>
+      <stop offset="1" stop-color="#3348bf"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd76a"/>
+      <stop offset="1" stop-color="#f2a93b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <!-- The raven, in one shape, so it still reads at 16 px. -->
+  <circle cx="806" cy="520" r="100" fill="url(#coin)"/>
+  <circle cx="806" cy="520" r="68" fill="none" stroke="#b9791c" stroke-width="16"/>
+  <path fill="#12151c" d="M196 884 C262 772 250 628 276 500 C304 356 424 226 566 232 C640 236 700 274 738 330 L918 408 L728 470 C698 488 682 516 672 566 C646 704 556 816 416 852 C344 870 268 880 196 884 Z"/>
+  <!-- The wing. -->
+  <path fill="#2a3040" d="M322 768 C356 660 366 566 432 490 C468 566 466 700 322 768 Z"/>
+  <!-- The eye. -->
+  <circle cx="584" cy="340" r="28" fill="#ffd76a"/>
+</svg>

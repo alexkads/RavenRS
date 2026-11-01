@@ -61,6 +61,7 @@ pub struct App {
     reports: ReportsState,
     records: RecordsState,
     overdue: Memo<u64, usize>,
+    icon: Memo<u8, Option<ImageData>>,
 }
 
 impl std::fmt::Debug for App {
@@ -86,12 +87,22 @@ impl App {
             reports: ReportsState::new(today),
             records: RecordsState::new(),
             overdue: Memo::new(),
+            icon: Memo::new(),
         }
     }
 
     /// Opens a screen, by its place in the sidebar. Screenshots and tests start here.
     pub fn open_page(&self, page: usize) {
         self.page.set(page);
+    }
+
+    /// The app's icon, decoded once: views build often.
+    fn mark(&self) -> AnyView {
+        match self.icon.get(0, crate::icon) {
+            // Next to the name it says nothing a screen reader has not just read.
+            Some(icon) => Box::new(Image::new(icon).size(26.0, 26.0).corner_radius(6.0).alt("")),
+            None => Box::new(Icon::new(IconName::Wallet).color(Semantic::Accent)),
+        }
     }
 
     fn sidebar(&self) -> impl View + use<> {
@@ -106,13 +117,10 @@ impl App {
         let current = self.page.get();
         let mut items: Vec<AnyView> = vec![
             Box::new(
-                HStack::new((
-                    Icon::new(IconName::Wallet).color(Semantic::Accent),
-                    Text::new("Raven Finanças").style(TextStyle::Headline),
-                ))
-                .spacing(10.0)
-                .align(Align::Center)
-                .padding((6.0, 10.0)),
+                HStack::new((self.mark(), Text::new("Raven Finanças").style(TextStyle::Headline)))
+                    .spacing(10.0)
+                    .align(Align::Center)
+                    .padding((6.0, 10.0)),
             ),
             Box::new(SidebarSection::new("Dia a dia")),
         ];

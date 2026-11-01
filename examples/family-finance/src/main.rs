@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use family_finance::db::{Database, DbResult};
 use family_finance::ui::App;
 use family_finance::update::{self, Updater};
-use family_finance::{paths, seed, today};
-use ravenrs::native::{PlatformError, WindowOptions, run};
+use family_finance::{icon, paths, seed, today};
+use ravenrs::native::{PlatformError, WindowOptions, run, run_with_icon};
 use ravenrs::prelude::*;
 
 fn open(path: &Path) -> DbResult<Database> {
@@ -39,7 +39,11 @@ fn main() -> Result<(), PlatformError> {
         Ok(db) => {
             let updater = Updater::idle();
             updater.check();
-            run(App::new(db, today(), Some(path), updater), options)
+            let app = App::new(db, today(), Some(path), updater);
+            match icon() {
+                Some(icon) => run_with_icon(app, options, icon),
+                None => run(app, options),
+            }
         }
         Err(e) => {
             tracing::error!(error = %e, path = %path.display(), "could not open the database");
