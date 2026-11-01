@@ -3,13 +3,20 @@
 
 use std::fmt::Write as _;
 
+use std::ops::Range;
+
 use ravenrs_core::{Color, Point, Rect};
+use ravenrs_criteria::Value;
+
+use crate::model::TextAlign;
 
 /// A paginated document.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Document {
     /// The title (the report's name).
     pub title: String,
+    /// The culture the document was formatted with (`pt-BR`, `en-US`).
+    pub culture: String,
     /// The pages, in order.
     pub pages: Vec<Page>,
     /// Problems found while rendering (expression errors, missing data), with
@@ -26,6 +33,11 @@ pub struct Page {
     pub height: f32,
     /// What is printed, back to front.
     pub items: Vec<Item>,
+    /// The part of `items` that the page header printed. Exporters that flow
+    /// pages together keep it only once.
+    pub page_header: Range<usize>,
+    /// The part of `items` that the page footer printed.
+    pub page_footer: Range<usize>,
 }
 
 /// A printed primitive.
@@ -82,6 +94,13 @@ pub struct TextBlock {
     pub bold: bool,
     /// Text color.
     pub color: Color,
+    /// How the text is aligned in its box.
+    pub align: TextAlign,
+    /// The value behind the text, when it is one number, date or truth value,
+    /// so data exports can write the value and not its formatted text.
+    pub value: Option<Value>,
+    /// The format specifier that turned `value` into the text (`C2`, `dd/MM/yyyy`).
+    pub format: Option<String>,
 }
 
 /// A line of text at its position on the page.

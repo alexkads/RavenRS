@@ -13,7 +13,7 @@ step "clippy (native)"
 cargo clippy --workspace --all-targets -- -D warnings
 
 step "clippy (wasm32)"
-cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p hello-world -p component-gallery -p report-designer --target wasm32-unknown-unknown -- -D warnings
+cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p hello-world -p component-gallery -p report-designer --target wasm32-unknown-unknown -- -D warnings
 
 step "tests: unit, behavior, property, doc, GPU pixel and golden-image (GPU tests skip without an adapter)"
 cargo test --workspace

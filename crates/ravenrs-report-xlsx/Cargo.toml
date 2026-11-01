@@ -1,0 +1,29 @@
+[package]
+name = "ravenrs-report-xlsx"
+description = "XLSX and CSV export for RavenRS Reporting: real numbers and dates in cells, laid out as on the page."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-report-xlsx"
+keywords = ["report", "xlsx", "excel", "csv", "export"]
+categories = ["template-engine", "encoding"]
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-report.workspace = true
+rust_xlsxwriter = "0.102"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+rust_xlsxwriter = { version = "0.102", features = ["wasm"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+[lints]
+workspace = true

@@ -158,9 +158,28 @@ fn print_report(editor: &Editor, cache: &Rc<RefCell<RenderCache>>, params: &Stat
     preview::print(&doc);
 }
 
+/// Renders the report as it stands and exports it.
+fn export_report(
+    editor: &Editor,
+    cache: &Rc<RefCell<RenderCache>>,
+    params: &State<HashMap<String, String>>,
+    format: preview::Export,
+) {
+    let doc = preview::document(editor, cache, &params.get());
+    preview::export(&doc, format);
+}
+
 impl Designer {
     fn ribbon(&self) -> impl View + use<> {
         let e = self.editor.clone();
+        let exporter = |item: RibbonItem, format: preview::Export| {
+            let (ed, cache, params) = (e.clone(), self.cache.clone(), self.params.clone());
+            item.on_click(move || export_report(&ed, &cache, &params, format))
+        };
+        let export_item = |label: &'static str, icon: IconName, format: preview::Export| {
+            let (ed, cache, params) = (e.clone(), self.cache.clone(), self.params.clone());
+            MenuItem::new(label).icon(icon).on_select(move || export_report(&ed, &cache, &params, format))
+        };
         let printer = |item: RibbonItem| {
             let (ed, cache, params) = (e.clone(), self.cache.clone(), self.params.clone());
             item.on_click(move || print_report(&ed, &cache, &params))
@@ -200,6 +219,9 @@ impl Designer {
                         .icon(IconName::Printer)
                         .shortcut("⌘P")
                         .on_select(move || print_report(&pm_e, &pm_c, &pm_p)),
+                    export_item("Exportar para PDF", IconName::FileText, preview::Export::Pdf),
+                    export_item("Exportar para Excel", IconName::Table, preview::Export::Xlsx),
+                    export_item("Exportar para CSV", IconName::Download, preview::Export::Csv),
                     MenuItem::new("Ver o JSON do relatório")
                         .icon(IconName::Code)
                         .on_select(move || e3.tab.set(2)),
@@ -232,7 +254,19 @@ impl Designer {
                     )
                     .group(
                         RibbonGroup::new("Saída")
-                            .item(printer(RibbonItem::button("Imprimir", IconName::Printer).large())),
+                            .item(printer(RibbonItem::button("Imprimir", IconName::Printer).large()))
+                            .item(exporter(
+                                RibbonItem::button("PDF", IconName::FileText).large(),
+                                preview::Export::Pdf,
+                            ))
+                            .item(exporter(
+                                RibbonItem::button("Excel", IconName::Table).large(),
+                                preview::Export::Xlsx,
+                            ))
+                            .item(exporter(
+                                RibbonItem::button("CSV", IconName::Download).small(),
+                                preview::Export::Csv,
+                            )),
                     )
                     .group(
                         RibbonGroup::new("Zoom")
@@ -672,6 +706,18 @@ impl View for PreviewPane {
                 .size(ButtonSize::Small)
                 .on_click(move || print_report(&pe, &pc, &pp)),
         ));
+        for (label, icon, format) in [
+            ("PDF", IconName::FileText, preview::Export::Pdf),
+            ("Excel", IconName::Table, preview::Export::Xlsx),
+        ] {
+            let (pe, pc, pp) = (e.clone(), self.cache.clone(), self.params.clone());
+            bar.push(Box::new(
+                Button::new(label)
+                    .icon(icon)
+                    .size(ButtonSize::Small)
+                    .on_click(move || export_report(&pe, &pc, &pp, format)),
+            ));
+        }
         let toolbar = cx.child(
             &HStack::new(bar)
                 .spacing(SPACING.s3)

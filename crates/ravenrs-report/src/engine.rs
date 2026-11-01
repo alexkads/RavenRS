@@ -109,7 +109,7 @@ impl ReportEngine {
         let blocks = run.blocks(self, &rows);
         let pages = run.paginate(self, blocks, &rows);
         let errors = run.errors.into_inner();
-        Document { title: report.name.clone(), pages, errors }
+        Document { title: report.name.clone(), culture: report.culture.clone(), pages, errors }
     }
 
     fn measure(&mut self, text: &str, size: f32, bold: bool, width: Option<f32>) -> Rc<Measured> {
@@ -563,15 +563,17 @@ impl<'r> Run<'r> {
         let look = self.look(&[(c.style_name.as_deref(), &c.style)], &c.rules, ctx, zebra);
         match &c.kind {
             ControlKind::Label(label) => {
-                let text = self.label_text(ctx, label, &control_name(c));
-                self.text_box(
+                let (text, value) = self.label_text(ctx, label, &control_name(c));
+                let height = self.text_box(
                     engine,
                     &text,
                     &look,
                     Rect::new(at.x, at.y, c.width, c.height),
                     label.grows(),
                     items,
-                )
+                );
+                keep_value(items, &text, value, label);
+                height
             }
             ControlKind::CheckBox(cb) => {
                 let rect = Rect::new(at.x, at.y, c.width, c.height);
@@ -644,7 +646,7 @@ impl<'r> Run<'r> {
                 let mut y = at.y;
                 for row in &table.rows {
                     // Measure every cell, then draw them at the row's final height.
-                    let mut cells: Vec<(&TableCell, Look, String)> = Vec::new();
+                    let mut cells: Vec<(&TableCell, Look, String, Option<Value>)> = Vec::new();
                     let mut row_h = row.height;
                     for cell in &row.cells {
                         // Cells inherit the table's style; the table's rules apply on top.
@@ -654,16 +656,17 @@ impl<'r> Run<'r> {
                             ctx,
                             zebra,
                         );
-                        let text = self.label_text(ctx, &cell.label, &control_name(c));
+                        let (text, value) = self.label_text(ctx, &cell.label, &control_name(c));
                         let needed = self.text_height(engine, &text, &look, cell.width);
                         if cell.label.grows() {
                             row_h = row_h.max(needed);
                         }
-                        cells.push((cell, look, text));
+                        cells.push((cell, look, text, value));
                     }
                     let mut x = at.x;
-                    for (cell, look, text) in cells {
+                    for (cell, look, text, value) in cells {
                         self.text_box(engine, &text, &look, Rect::new(x, y, cell.width, row_h), false, items);
+                        keep_value(items, &text, value, &cell.label);
                         x += cell.width;
                     }
                     y += row_h;
@@ -681,17 +684,28 @@ impl<'r> Run<'r> {
         }
     }
 
-    fn label_text(&self, ctx: &Scope<'_, Json>, label: &crate::model::Label, what: &str) -> String {
+    /// A label's text and the value behind it, when it has one.
+    fn label_text(
+        &self,
+        ctx: &Scope<'_, Json>,
+        label: &crate::model::Label,
+        what: &str,
+    ) -> (String, Option<Value>) {
         let Some(src) = label.expression.as_deref().filter(|s| !s.trim().is_empty()) else {
-            return label.text.clone();
+            return (label.text.clone(), None);
         };
         match self.eval(ctx, src, what) {
-            Ok(v) => match label.format.as_deref().map(str::trim).filter(|f| !f.is_empty()) {
-                Some(f) if f.contains('{') => format_composite(f, &[v], self.env.formats()),
-                Some(f) => format_value(&v, f, self.env.formats()),
-                None => format_value(&v, "", self.env.formats()),
-            },
-            Err(_) => "#ERRO".to_owned(),
+            Ok(v) => {
+                let text = match label.format.as_deref().map(str::trim).filter(|f| !f.is_empty()) {
+                    Some(f) if f.contains('{') => {
+                        format_composite(f, std::slice::from_ref(&v), self.env.formats())
+                    }
+                    Some(f) => format_value(&v, f, self.env.formats()),
+                    None => format_value(&v, "", self.env.formats()),
+                };
+                (text, Some(v))
+            }
+            Err(_) => ("#ERRO".to_owned(), None),
         }
     }
 
@@ -759,6 +773,9 @@ impl<'r> Run<'r> {
             line_height: (look.size * 1.25).ceil(),
             bold: look.bold,
             color: look.color,
+            align: look.align,
+            value: None,
+            format: None,
         }));
         height
     }
@@ -868,16 +885,38 @@ impl<'r> Run<'r> {
                     let py = page.margin_top + if n == 0 { report_header_h } else { 0.0 };
                     chrome.extend(b.items.iter().map(|it| translate(it, Point::new(x0, py))));
                 }
+                let header_end = chrome.len();
                 if let Some(band) = &report.page_footer
                     && let Some(b) = self.band(engine, band, &ctx, width, None)
                 {
                     let fy = page.height - page.margin_bottom - band.height;
                     chrome.extend(b.items.iter().map(|it| translate(it, Point::new(x0, fy))));
                 }
+                let footer_end = chrome.len();
                 chrome.append(&mut items);
-                Page { width: page.width, height: page.height, items: chrome }
+                Page {
+                    width: page.width,
+                    height: page.height,
+                    items: chrome,
+                    page_header: 0..header_end,
+                    page_footer: header_end..footer_end,
+                }
             })
             .collect()
+    }
+}
+
+/// Records on the text box just drawn the value behind its text. A format with
+/// literal text around the value (`Total: {0:C2}`) keeps it text.
+fn keep_value(items: &mut [Item], text: &str, value: Option<Value>, label: &crate::model::Label) {
+    let format = label.format.as_deref().map(str::trim).filter(|f| !f.is_empty());
+    let (Some(value), false, false) = (value, text.is_empty(), format.is_some_and(|f| f.contains('{')))
+    else {
+        return;
+    };
+    if let Some(Item::Text(block)) = items.last_mut() {
+        block.value = Some(value);
+        block.format = format.map(str::to_owned);
     }
 }
 

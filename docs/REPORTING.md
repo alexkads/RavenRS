@@ -29,7 +29,7 @@ RavenRS Reporting turns data into paginated documents. It covers what the DevExp
         └── ravenrs-report-server  HTTP: POST a definition + data, get PDF/XLSX back
 ```
 
-Today `ravenrs-report`, `ravenrs-criteria` and the designer in `examples/report-designer` exist. The exporters, the `DocumentViewer` widget and the server arrive in the phases below.
+Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV) and the designer in `examples/report-designer` exist. The other exporters, the `DocumentViewer` widget and the server arrive in the phases below.
 
 `ravenrs-report` has no GPU or window dependency, so it runs in servers and tests. Text is measured with the same Parley stack as the UI, so the viewer and the PDF agree to the point.
 
@@ -92,7 +92,7 @@ Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every
 | Phase | Delivers | Status |
 |---|---|---|
 | **R1 — Engine and designer preview** | Report model, JSON format with data sources, Rust builder, expressions, parameters, bands, groups, sorting, filtering, summaries, master-detail, pagination, Label/Table/CheckBox/Line/Shape/Panel, styles, pt-BR formats, table wizard, web designer with preview | ✅ 10,000 rows in 80 ms native, about 200 ms in the browser |
-| **R2 — PDF and viewer** | PDF export with embedded fonts, links and outline; pictures; viewer with thumbnails and search; full parameter panel (lookups, multi-value); the remaining expression functions | Next |
+| **R2 — PDF and viewer** | PDF export with embedded fonts, links and outline; pictures; viewer with thumbnails and search; full parameter panel (lookups, multi-value); the remaining expression functions | In progress: PDF with embedded fonts done (305 pages in about 120 ms, 1 MB); XLSX and CSV moved up from R3 (the same report in about 180 ms) |
 | **R3 — Server, scheduling and more output** | `ravenrs-report-server` (see below); XLSX, CSV, HTML, PNG export; barcodes; charts and sparklines; subreports; table of contents; watermarks; multi-column; the remaining band options | Planned |
 | **R4 — Designer depth** | Expression editor, group and sort panel, snap lines, align and size tools, multi-select, labels wizard, style gallery, drill-down and interactive sorting in preview | Planned |
 | **R5 — Enterprise data and documents** | SQL, CSV/XLSX and federated sources; Cross Tab; DOCX; PDF/A, PDF/UA, signatures; vertical bands; right-to-left; AI prompt-to-report | Planned |
@@ -119,5 +119,6 @@ Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every
 * **Own engine, not a port.** The model follows DevExpress concepts (bands, criteria-style expressions) so users feel at home, but the format is JSON and the code is ours.
 * **`pdf-writer` + `subsetter`** (MIT/Apache, used by Typst) instead of a homemade PDF serializer: proven output, small, no C dependencies.
 * **`rust_xlsxwriter`** (MIT/Apache) for XLSX.
+* **XLSX cells come from the `Document`, not the data.** A text box keeps the value behind its text, so a spreadsheet gets real numbers and dates on a grid that matches the page. Pages flow into one sheet; the page header prints once and page footers, whose page numbers would mean nothing there, are left out.
 * **Points (1/72 in) as the document unit;** the viewer scales to the screen.
 * **Layout separate from rendering:** the paginator produces a `Document` once, and the viewer and every exporter consume it, so they cannot drift apart.

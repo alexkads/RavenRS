@@ -118,6 +118,100 @@ pub fn page_view(scene: Rc<Scene>, width: f32, height: f32) -> Canvas {
     Canvas::new(move |frame, out| draw_at(&scene, frame.origin, out)).size(width, height)
 }
 
+/// A format the document can be exported to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Export {
+    /// PDF, vector pages with embedded fonts.
+    Pdf,
+    /// XLSX, with real numbers and dates in the cells.
+    Xlsx,
+    /// CSV, with the text as printed.
+    Csv,
+}
+
+/// A file ready to be saved.
+#[derive(Debug)]
+pub struct ExportedFile {
+    /// The suggested file name.
+    pub name: String,
+    /// The media type (browsers need it for the download).
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub mime: &'static str,
+    /// The content.
+    pub bytes: Vec<u8>,
+}
+
+/// Writes the document in `format`.
+pub fn exported_file(document: &Document, format: Export) -> Result<ExportedFile, String> {
+    let (extension, mime, bytes) = match format {
+        Export::Pdf => {
+            ("pdf", "application/pdf", ravenrs_report_pdf::to_pdf(document).map_err(|e| e.to_string())?)
+        }
+        Export::Xlsx => (
+            "xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ravenrs_report_xlsx::to_xlsx(document).map_err(|e| e.to_string())?,
+        ),
+        // A byte order mark, so Excel reads the accents as UTF-8.
+        Export::Csv => {
+            ("csv", "text/csv", format!("\u{feff}{}", ravenrs_report_xlsx::to_csv(document)).into_bytes())
+        }
+    };
+    Ok(ExportedFile { name: format!("{}.{extension}", file_stem(&document.title)), mime, bytes })
+}
+
+/// A title as a file name: without the characters file systems refuse.
+fn file_stem(title: &str) -> String {
+    let stem: String =
+        title.chars().map(|c| if c.is_control() || r#"<>:"/\|?*"#.contains(c) { ' ' } else { c }).collect();
+    let stem = stem.trim().trim_end_matches('.').trim();
+    if stem.is_empty() { "relatorio".to_owned() } else { stem.to_owned() }
+}
+
+/// Exports the document and hands the file to the user: a download on the web,
+/// or the program that opens the format on the desktop.
+pub fn export(document: &Document, format: Export) {
+    match exported_file(document, format) {
+        Ok(file) => {
+            #[cfg(target_arch = "wasm32")]
+            download(&file);
+            #[cfg(not(target_arch = "wasm32"))]
+            open_on_desktop(&file);
+        }
+        Err(e) => tracing::warn!(error = %e, "could not export the report"),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn download(file: &ExportedFile) {
+    use wasm_bindgen::JsCast;
+
+    let Some(page) = web_sys::window().and_then(|w| w.document()) else { return };
+    let parts = js_sys::Array::of1(&js_sys::Uint8Array::from(file.bytes.as_slice()));
+    let options = web_sys::BlobPropertyBag::new();
+    options.set_type(file.mime);
+    let Ok(blob) = web_sys::Blob::new_with_u8_array_sequence_and_options(&parts, &options) else { return };
+    let Ok(url) = web_sys::Url::create_object_url_with_blob(&blob) else { return };
+    if let Some(link) =
+        page.create_element("a").ok().and_then(|e| e.dyn_into::<web_sys::HtmlAnchorElement>().ok())
+    {
+        link.set_href(&url);
+        link.set_download(&file.name);
+        link.click();
+    }
+    web_sys::Url::revoke_object_url(&url).ok();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn open_on_desktop(file: &ExportedFile) {
+    let path = std::env::temp_dir().join(&file.name);
+    if let Err(e) = std::fs::write(&path, &file.bytes) {
+        tracing::warn!(error = %e, "could not write the exported file");
+        return;
+    }
+    open_path(&path);
+}
+
 /// Prints the document: through a hidden frame and the browser's print dialog
 /// on the web, or by opening the page in the default browser on the desktop.
 pub fn print(document: &Document) {
@@ -184,14 +278,52 @@ fn print_on_desktop(html: &str) {
         tracing::warn!(error = %e, "could not write the print page");
         return;
     }
+    open_path(&path);
+}
+
+/// Opens a file with the program the system associates with it.
+#[cfg(not(target_arch = "wasm32"))]
+fn open_path(path: &std::path::Path) {
     let opener = if cfg!(target_os = "macos") {
-        std::process::Command::new("open").arg(&path).spawn()
+        std::process::Command::new("open").arg(path).spawn()
     } else if cfg!(target_os = "windows") {
-        std::process::Command::new("cmd").args(["/C", "start", ""]).arg(&path).spawn()
+        std::process::Command::new("cmd").args(["/C", "start", ""]).arg(path).spawn()
     } else {
-        std::process::Command::new("xdg-open").arg(&path).spawn()
+        std::process::Command::new("xdg-open").arg(path).spawn()
     };
     if let Err(e) = opener {
-        tracing::warn!(error = %e, "could not open the print page");
+        tracing::warn!(error = %e, "could not open the file");
+    }
+}
+
+#[cfg(test)]
+mod export_tests {
+    use ravenrs_report::{ReportEngine, samples};
+
+    use super::*;
+
+    fn invoice() -> Document {
+        let report = samples::invoice();
+        let data = report.embedded_data().cloned().unwrap_or_default();
+        ReportEngine::new().render(&report, &data)
+    }
+
+    #[test]
+    fn each_format_gives_a_named_file_of_its_kind() -> Result<(), String> {
+        let doc = invoice();
+        let pdf = exported_file(&doc, Export::Pdf)?;
+        assert!(pdf.name == "Fatura.pdf" && pdf.bytes.starts_with(b"%PDF-"));
+        let xlsx = exported_file(&doc, Export::Xlsx)?;
+        assert!(xlsx.name == "Fatura.xlsx" && xlsx.bytes.starts_with(b"PK"));
+        let csv = exported_file(&doc, Export::Csv)?;
+        assert!(csv.name == "Fatura.csv" && csv.bytes.starts_with("\u{feff}".as_bytes()));
+        Ok(())
+    }
+
+    #[test]
+    fn file_names_are_safe() {
+        assert_eq!(file_stem("Vendas: 2026/11"), "Vendas  2026 11");
+        assert_eq!(file_stem("  ?? "), "relatorio");
+        assert_eq!(file_stem("Relatório."), "Relatório");
     }
 }

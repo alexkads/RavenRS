@@ -169,6 +169,19 @@ pub struct TextLine {
     pub height: f32,
 }
 
+/// One glyph of a [`TextLayout`], as reported by [`TextLayout::glyphs`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShapedGlyph {
+    /// The glyph's index in the font.
+    pub id: u32,
+    /// Horizontal position, from the left of the layout.
+    pub x: f32,
+    /// How far the next glyph advances.
+    pub advance: f32,
+    /// Byte range of the source text this glyph's cluster stands for.
+    pub text: std::ops::Range<usize>,
+}
+
 /// Shaped text, ready to be broken into lines at any width and drawn.
 pub struct TextLayout {
     layout: Layout<()>,
@@ -212,6 +225,31 @@ impl TextLayout {
                 }
             })
             .collect()
+    }
+
+    /// The glyphs of the last [`Self::measure`] in visual order, with the text
+    /// each one stands for (document exporters embed glyphs, not characters).
+    pub fn glyphs(&self) -> Vec<ShapedGlyph> {
+        let mut glyphs = Vec::new();
+        for line in self.layout.lines() {
+            for item in line.items() {
+                let PositionedLayoutItem::GlyphRun(run) = item else { continue };
+                let mut x = run.offset();
+                for cluster in run.run().visual_clusters() {
+                    let text = cluster.text_range();
+                    for g in cluster.glyphs() {
+                        glyphs.push(ShapedGlyph {
+                            id: g.id,
+                            x: x + g.x,
+                            advance: g.advance,
+                            text: text.clone(),
+                        });
+                        x += g.advance;
+                    }
+                }
+            }
+        }
+        glyphs
     }
 
     /// Appends the glyphs, as laid out by the last [`Self::measure`], to `scene`

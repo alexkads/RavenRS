@@ -1,0 +1,29 @@
+[package]
+name = "ravenrs-report-pdf"
+description = "PDF export for RavenRS Reporting: vector pages with embedded, subset fonts, in pure Rust."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-report-pdf"
+keywords = ["report", "pdf", "export", "invoice"]
+categories = ["template-engine", "encoding"]
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-text.workspace = true
+ravenrs-report.workspace = true
+pdf-writer = "0.15"
+subsetter = { version = "0.2", default-features = false }
+miniz_oxide = "0.8"
+skrifa = "0.44"
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

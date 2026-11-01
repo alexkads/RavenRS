@@ -70,7 +70,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Calculated fields | Expression fields usable everywhere | ✅ |
 | Grouping and sorting | Multi-level, sort groups by summary | ✅ multi-level, ascending/descending, report sort. Sort by summary ⬜ [R3] |
 | Filtering | Report filter, query filter | ✅ report filter with parameters. Query-side filtering ⬜ [R5] |
-| Formats | .NET format strings, Excel format | ✅ C/N/F/P/D/X, custom `#,##0.00`, `0.0%`, sections, date patterns, pt-BR and en-US. Excel-native format ⬜ [R3] |
+| Formats | .NET format strings, Excel format | ✅ C/N/F/P/D/X, custom `#,##0.00`, `0.0%`, sections, date patterns, pt-BR and en-US. XLSX export translates them to Excel's own formats |
 
 ## 5. Parameters
 
@@ -109,17 +109,17 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 |---|---|---|
 | Page navigation, zoom, thumbnails, search, document map | | 🟡 designer preview: pages, zoom, navigation. Thumbnails, search, document map ⬜ [R2] |
 | Drill-down, drill-through, interactive sorting, editing in preview | | ⬜ [R4] |
-| Print, export from the viewer, email | | 🟡 print button and Cmd/Ctrl+P through the browser's dialog. Export and email ⬜ [R2/R3] |
+| Print, export from the viewer, email | | 🟡 print button and Cmd/Ctrl+P through the browser's dialog; PDF, Excel and CSV export. Email ⬜ [R3] |
 
 ## 9. Export
 
 | Format | DevExpress options | RavenRS |
 |---|---|---|
-| PDF | PDF/A, PDF/UA, security, signatures, metadata, attachments, AcroForms | ⬜ [R2]: PDF with embedded fonts, links, outline; then PDF/A, signing [R5] |
-| XLSX / XLS | Single file, sheet per page, data-only mode, native formats | ⬜ [R3] |
+| PDF | PDF/A, PDF/UA, security, signatures, metadata, attachments, AcroForms | 🟡 `ravenrs-report-pdf`: PDF 1.7 vector pages, embedded font subsets, selectable text, title. Links and outline ⬜ [R2], PDF/A and signing ⬜ [R5] |
+| XLSX / XLS | Single file, sheet per page, data-only mode, native formats | 🟡 `ravenrs-report-xlsx`: single sheet that follows the page, real numbers and dates, Excel-native formats, fills, borders, merged cells, page header once. Sheet per page, data-only mode ⬜ [R3], XLS not planned |
 | DOCX, RTF | | ⬜ [R5] |
 | HTML, MHT | | ⬜ [R3] HTML |
-| CSV, TXT | | ⬜ [R3] |
+| CSV, TXT | | 🟡 CSV (`ravenrs_report_xlsx::to_csv`), with the culture's separator. TXT ⬜ [R3] |
 | Images (PNG, SVG…) | | 🟡 SVG per page (`Document::page_svg`). PNG ⬜ [R3] |
 
 ## 10. Data
