@@ -8,10 +8,8 @@ This guide builds a small app step by step: a window, then the same app in the b
 cargo new hello-raven && cd hello-raven
 ```
 
-```toml
-# Cargo.toml
-[dependencies]
-ravenrs = { git = "https://github.com/alexkads/RavenRS" }
+```bash
+cargo add ravenrs
 ```
 
 ```rust

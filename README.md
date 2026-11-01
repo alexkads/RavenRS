@@ -30,11 +30,10 @@ RavenRS is a free, open source GUI framework for Rust with a large component lib
 
 ## Quick start
 
-Add RavenRS to your project (until the first crates.io release, use the Git repository):
+Add RavenRS from [crates.io](https://crates.io/crates/ravenrs):
 
-```toml
-[dependencies]
-ravenrs = { git = "https://github.com/alexkads/RavenRS" }
+```bash
+cargo add ravenrs
 ```
 
 Write your UI:
