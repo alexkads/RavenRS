@@ -27,3 +27,9 @@ tracing.workspace = true
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+# Linux pulls in zbus, which nightly 2026-10-31 (the compiler docs.rs uses) cannot
+# compile; stable can. The API is the same on every desktop platform.
+default-target = "x86_64-pc-windows-msvc"
+targets = ["x86_64-pc-windows-msvc", "aarch64-apple-darwin"]

@@ -41,3 +41,4 @@ Breaking changes are the ones that Cargo SemVer and [`cargo semver-checks`](http
 3. Benchmarks are within the budgets in [QUALITY.md](QUALITY.md).
 4. CHANGELOG has an entry, plus a migration guide for a major.
 5. All crates are published in dependency order, then the tag `vYY.R.P`, the GitHub release, and the site and API docs are updated.
+6. Every crate's documentation built on docs.rs (`https://docs.rs/crate/<name>/<version>/status.json`); it uses a recent nightly, so it can fail when stable passes.

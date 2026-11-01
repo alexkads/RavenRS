@@ -4,6 +4,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [26.2.1] - 2026-11-01
+
+### Fixed
+- The documentation of `ravenrs` and `ravenrs-platform-native` builds on docs.rs again. On Linux they depend on `zbus`, which the nightly compiler docs.rs uses cannot compile, so docs.rs now builds them for Windows and macOS. Code and behavior are unchanged, and Linux builds on stable are not affected.
+
 ## [26.2.0] - 2026-11-01
 
 The first release under the `YY.R.P` versioning model. It follows 0.1.0 directly; the jump in the number marks the new model, not a long gap.
