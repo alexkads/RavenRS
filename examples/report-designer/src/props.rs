@@ -1,6 +1,7 @@
 //! The property grid: edits the selected control, band or the report.
 
 use ravenrs::prelude::*;
+use ravenrs::style::SPACING;
 use ravenrs_report::{ControlKind, PageSettings, Style, TextAlign};
 
 use crate::bands::BandRef;
@@ -18,9 +19,18 @@ pub const FORMATS: [(&str, &str); 8] = [
     ("Mês e ano", "MMMM 'de' yyyy"),
 ];
 
-/// Text colors and fills offered as swatches.
-pub const PALETTE: [&str; 8] =
-    ["#1d2433", "#6b7385", "#ffffff", "#4c66ee", "#12a150", "#e5a50a", "#b42318", "#f4f6fb"];
+/// Text colors and fills offered as swatches: Raven Light tokens, since they are
+/// printed on white paper.
+pub const PALETTE: [(&str, &str); 8] = [
+    ("#12151c", "Tinta"),
+    ("#5a6375", "Tinta secundária"),
+    ("#ffffff", "Branco"),
+    ("#3f57db", "Destaque"),
+    ("#1f8a5b", "Sucesso"),
+    ("#b26a00", "Atenção"),
+    ("#c93434", "Perigo"),
+    ("#f4f5f8", "Fundo suave"),
+];
 
 fn section(title: &str) -> Text {
     Text::new(title.to_uppercase()).style(TextStyle::Caption).foreground(Semantic::InkMuted)
@@ -55,70 +65,30 @@ impl View for Swatches {
             .editor
             .selected_control()
             .and_then(|(_, _, c)| if self.background { c.style.background } else { c.style.color });
-        let items: Vec<AnyView> = std::iter::once("")
-            .chain(PALETTE)
-            .map(|hex| {
-                let (e, background) = (self.editor.clone(), self.background);
-                let color = crate::surface::color(Some(hex)).unwrap_or(Color::TRANSPARENT);
-                let on = current.as_deref() == Some(hex) || (hex.is_empty() && current.is_none());
-                let label = if hex.is_empty() { "Padrão".to_owned() } else { hex.to_owned() };
-                let swatch = Button::new("")
-                    .accessible_name(label)
-                    .style(ButtonStyle::Ghost)
-                    .size(ButtonSize::Small)
-                    .on_click(move || {
-                        let value = (!hex.is_empty()).then(|| hex.to_owned());
-                        e.edit_control(if background { "bg" } else { "fg" }, |c| {
-                            if background {
-                                c.style.background = value;
-                            } else {
-                                c.style.color = value;
-                            }
-                        });
-                    });
-                Box::new(ZStackLike(swatch, color, on, hex.is_empty())) as AnyView
-            })
-            .collect();
-        cx.child(&HStack::new(items).spacing(4.0).wrap())
-    }
-}
-
-/// A small round swatch drawn under an invisible button.
-struct ZStackLike(Button, Color, bool, bool);
-
-impl View for ZStackLike {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let (color, on, none) = (self.1, self.2, self.3);
-        let button = cx.child(&self.0);
-        let dot = cx.container(
-            ravenrs::layout::LayoutStyle {
-                absolute: Some((6.0, 6.0)),
-                width: Some(20.0),
-                height: Some(20.0),
-                ..ravenrs::layout::LayoutStyle::leaf()
-            },
-            &[],
-            Paint::Custom(std::rc::Rc::new(move |f: Rect, scene: &mut Scene| {
-                let ring =
-                    if on { Color::rgba(0.298, 0.4, 0.933, 1.0) } else { Color::rgba(0.0, 0.0, 0.0, 0.2) };
-                scene.push_quad(Quad::new(f, color).radius(10.0).border(if on { 2.5 } else { 1.0 }, ring));
-                if none {
-                    scene.push_quad(Quad::new(
-                        Rect::new(f.x() + 3.0, f.center().y - 0.75, f.width() - 6.0, 1.5),
-                        Color::rgba(0.7, 0.1, 0.1, 1.0),
-                    ));
-                }
-            })),
-        );
-        cx.container(
-            ravenrs::layout::LayoutStyle {
-                width: Some(32.0),
-                height: Some(32.0),
-                ..ravenrs::layout::LayoutStyle::stack(ravenrs::layout::Axis::Vertical)
-            },
-            &[button, dot],
-            Paint::None,
-        )
+        let pick = |hex: Option<&'static str>| {
+            let (e, background) = (self.editor.clone(), self.background);
+            move || {
+                let value = hex.map(str::to_owned);
+                e.edit_control(if background { "bg" } else { "fg" }, |c| {
+                    if background {
+                        c.style.background = value;
+                    } else {
+                        c.style.color = value;
+                    }
+                });
+            }
+        };
+        let mut items: Vec<AnyView> =
+            vec![Box::new(ColorSwatch::none("Padrão").selected(current.is_none()).on_click(pick(None)))];
+        for (hex, name) in PALETTE {
+            let color = crate::surface::color(Some(hex)).unwrap_or(Color::TRANSPARENT);
+            items.push(Box::new(
+                ColorSwatch::new(color, name)
+                    .selected(current.as_deref() == Some(hex))
+                    .on_click(pick(Some(hex))),
+            ));
+        }
+        cx.child(&HStack::new(items).spacing(0.0).wrap())
     }
 }
 
@@ -133,7 +103,9 @@ impl View for Properties {
             Selection::Band(b) => Box::new(band_props(e, b)),
             Selection::None => Box::new(report_props(e)),
         };
-        cx.child(&ScrollView::new((VStack::new((content,)).padding(16.0).spacing(14.0),)).grow(1.0))
+        cx.child(
+            &ScrollView::new((VStack::new((content,)).padding(SPACING.s4).spacing(SPACING.s4),)).grow(1.0),
+        )
     }
 }
 
@@ -222,7 +194,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
                 FormField::new("Altura", number_field(e, "h", |c| c.height, |c, v| c.height = v.max(2.0))),
             ),
         )
-        .spacing(10.0),
+        .spacing(SPACING.s3),
     ));
     rows.push(Box::new(section("Aparência")));
     let size_e = e.clone();
@@ -287,7 +259,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
             move |on: bool| {
                 bwrite.edit_control("border", |c| {
                     if on {
-                        c.style = c.style.clone().merged(&Style::new().border("all", 0.75, "#9aa1b2"));
+                        c.style = c.style.clone().merged(&Style::new().border("all", 0.75, "#dadde5"));
                     } else {
                         c.style.border_width = Some(0.0);
                     }
@@ -304,7 +276,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
             .full_width()
             .on_click(move || del.delete_selected()),
     ));
-    Box::new(VStack::new(rows).spacing(14.0).align(Align::Stretch)) as AnyView
+    Box::new(VStack::new(rows).spacing(SPACING.s4).align(Align::Stretch)) as AnyView
 }
 
 fn band_props(e: &Editor, band: BandRef) -> impl View + use<> {
@@ -377,7 +349,7 @@ fn band_props(e: &Editor, band: BandRef) -> impl View + use<> {
                                 .or_insert_with(|| Style::new().background("#ffffff"));
                             r.styles
                                 .entry("even".into())
-                                .or_insert_with(|| Style::new().background("#f4f6fb"));
+                                .or_insert_with(|| Style::new().background("#f4f5f8"));
                             r.detail.odd_style = Some("odd".into());
                             r.detail.even_style = Some("even".into());
                         } else {
@@ -395,7 +367,7 @@ fn band_props(e: &Editor, band: BandRef) -> impl View + use<> {
             .style(TextStyle::Callout)
             .foreground(Semantic::InkMuted),
     ));
-    VStack::new(rows).spacing(14.0).align(Align::Stretch)
+    VStack::new(rows).spacing(SPACING.s4).align(Align::Stretch)
 }
 
 fn report_props(e: &Editor) -> impl View + use<> {
@@ -449,6 +421,6 @@ fn report_props(e: &Editor) -> impl View + use<> {
             .style(TextStyle::Callout)
             .foreground(Semantic::InkMuted),
     ))
-    .spacing(14.0)
+    .spacing(SPACING.s4)
     .align(Align::Stretch)
 }

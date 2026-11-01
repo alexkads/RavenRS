@@ -8,11 +8,12 @@ use crate::model::{
     Style, Table, TableRow, TextAlign, VerticalAlign,
 };
 
-const ACCENT: &str = "#4c66ee";
-const INK: &str = "#1d2433";
-const MUTED: &str = "#6b7385";
-const LINE: &str = "#d9dce3";
-const STRIPE: &str = "#f4f6fb";
+// Raven Light tokens: reports are printed on white paper.
+const ACCENT: &str = "#3f57db";
+const INK: &str = "#12151c";
+const MUTED: &str = "#5a6375";
+const LINE: &str = "#dadde5";
+const STRIPE: &str = "#f4f5f8";
 
 /// A small deterministic random generator, so samples are the same everywhere.
 struct Rng(u64);
@@ -183,6 +184,7 @@ pub fn sales_by_region(rows: usize) -> Report {
         })
         .calculated("Total", "[Quantity] * [UnitPrice]")
         .parameter("MinTotal", ParameterKind::Number, json!(0))
+        .parameter_label("Valor mínimo")
         .filter("[Total] >= ?MinTotal")
         .sort_by("[Date]", false)
         .style("th", header_cell())
@@ -270,7 +272,7 @@ pub fn sales_by_region(rows: usize) -> Report {
                 .control(
                     Control::table(Table::new().row(detail))
                         .at(0.0, 0.0, w, 16.0)
-                        .rule("[Total] >= 20000", Style::new().color("#b42318").bold()),
+                        .rule("[Total] >= 20000", Style::new().color("#c93434").bold()),
                 )
                 .zebra("odd", "even"),
         )

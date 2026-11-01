@@ -677,6 +677,14 @@ impl Report {
         self
     }
 
+    /// Sets what the user is asked for the parameter added last.
+    pub fn parameter_label(mut self, label: &str) -> Self {
+        if let Some(p) = self.parameters.last_mut() {
+            p.label = Some(label.to_owned());
+        }
+        self
+    }
+
     /// Adds a calculated field.
     pub fn calculated(mut self, name: &str, expression: &str) -> Self {
         self.calculated_fields

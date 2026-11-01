@@ -6,9 +6,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use ravenrs::core::{Border, Key};
+use ravenrs::core::Key;
 use ravenrs::layout::{Align, Axis, LayoutStyle};
 use ravenrs::prelude::*;
+use ravenrs::style::{RADII, SPACING};
 use ravenrs::widgets::{DragPhase, Paint, Placement, QuadPaint};
 use ravenrs_report::wizard::{self, FieldInfo, FieldKind, WizardOptions};
 use ravenrs_report::{Control, DataSource, DataSourceKind, Line, Report, Style, Table, TableRow, samples};
@@ -87,18 +88,31 @@ pub fn app() -> impl View {
 const WIZARD_SOURCES: [(&str, usize); 2] =
     [("Vendas (300 pedidos)", 300), ("Vendas (10.000 pedidos)", 10_000)];
 
+/// Width of the field and band panel.
+pub(crate) const LEFT_WIDTH: f32 = 264.0;
+/// Width of the properties panel: nine color swatches and its padding.
+pub(crate) const PROPERTIES_WIDTH: f32 = 320.0;
+
 impl Component for Designer {
     fn body(&self) -> impl View {
         let e = self.editor.clone();
+        // The ribbon and the side panels only serve the design surface.
+        let design = e.tab.get() == 0;
         VStack::new((
-            self.ribbon(),
+            design.then(|| self.ribbon()),
             FillRow((
-                self.left_panel(),
-                Divider::vertical(),
+                design.then(|| self.left_panel()),
+                design.then(Divider::vertical),
                 CenterPane { editor: e.clone(), cache: self.cache.clone(), params: self.params.clone() },
-                Divider::vertical(),
-                VStack::new((props::Properties(e.clone()),)).width(320.0).align(Align::Stretch),
+                design.then(Divider::vertical),
+                design.then(|| {
+                    VStack::new((props::Properties(e.clone()),))
+                        .width(PROPERTIES_WIDTH)
+                        .align(Align::Stretch)
+                        .background(Semantic::Surface)
+                }),
             )),
+            Divider::horizontal(),
             StatusBar { editor: e.clone(), cache: self.cache.clone() },
             Gallery { editor: e.clone() },
             WizardDialog { editor: e.clone(), state: self.wizard.clone() },
@@ -109,6 +123,12 @@ impl Component for Designer {
         .align(Align::Stretch)
         .grow(1.0)
     }
+}
+
+/// Switches between the design surface, the preview and the JSON, for the
+/// screens that have no ribbon.
+fn mode_switch(e: &Editor) -> SegmentedControl {
+    SegmentedControl::new(e.tab.binding(), ["Design", "Visualizar", "JSON"]).label("Exibição")
 }
 
 /// A row that takes the space left and never grows past it, so the panels
@@ -267,7 +287,7 @@ impl Designer {
                             insert("Retângulo", IconName::Square, || {
                                 Control::rect(4.0)
                                     .at(0.0, 0.0, 120.0, 40.0)
-                                    .style(Style::new().background("#f4f6fb").border("all", 0.75, "#9aa1b2"))
+                                    .style(Style::new().background("#f4f5f8").border("all", 0.75, "#dadde5"))
                             })
                             .small(),
                         )
@@ -303,10 +323,11 @@ impl Designer {
             SegmentedControl::new(self.left_tab.binding(), ["Campos", "Bandas"]).label("Painel"),
             LeftContent { editor: e, tab: self.left_tab.clone() },
         ))
-        .spacing(10.0)
-        .padding(12.0)
-        .width(250.0)
+        .spacing(SPACING.s3)
+        .padding(SPACING.s3)
+        .width(LEFT_WIDTH)
         .align(Align::Stretch)
+        .background(Semantic::Surface)
     }
 }
 
@@ -338,7 +359,7 @@ impl View for FieldList {
                 Icon::new(IconName::Database).size(14.0),
                 Text::new(source).font_weight(Weight::SEMIBOLD),
             ))
-            .spacing(6.0)
+            .spacing(SPACING.s2)
             .align(Align::Center),
         )];
         let fields = wizard::fields(&data, report.data_member.as_deref());
@@ -368,13 +389,13 @@ impl View for FieldList {
                 }));
             }
         }
-        sections.push(Box::new(VStack::new(rows).spacing(2.0).align(Align::Stretch)));
+        sections.push(Box::new(VStack::new(rows).spacing(SPACING.s1).align(Align::Stretch)));
         sections.push(Box::new(
             Text::new("Arraste um campo até uma banda, ou clique para inserir na banda selecionada.")
-                .style(TextStyle::Caption)
+                .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
         ));
-        cx.child(&VStack::new(sections).spacing(10.0).align(Align::Stretch))
+        cx.child(&VStack::new(sections).spacing(SPACING.s3).align(Align::Stretch))
     }
 }
 
@@ -386,8 +407,6 @@ struct FieldItem {
 
 impl View for FieldItem {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let theme = *cx.theme();
-        let hovered = cx.is_hovered();
         let icon = match self.field.kind {
             FieldKind::Number => IconName::Sigma,
             FieldKind::Date => IconName::Calendar,
@@ -399,27 +418,32 @@ impl View for FieldItem {
             Some(c) => format!("{c} › {}", self.field.path),
             None => self.field.path.clone(),
         };
-        let row = cx.child(
-            &HStack::new((
-                Icon::new(icon).size(14.0).color(Semantic::Accent),
-                Text::new(label).style(TextStyle::Callout),
-            ))
-            .spacing(8.0)
-            .align(Align::Center)
-            .padding(Insets::symmetric(5.0, 8.0))
-            .background(if hovered {
-                theme.color(Semantic::Ink).with_alpha(0.06)
-            } else {
-                Color::TRANSPARENT
-            })
-            .corner_radius(6.0)
-            .stretch(),
-        );
+        let item = SidebarItem::new(icon, label).compact();
         if self.field.kind == FieldKind::Collection {
-            return row;
+            return cx.child(&item);
         }
-        let (e, path, kind, collection) =
-            (self.editor.clone(), self.field.path.clone(), self.field.kind, self.collection.clone());
+        let (kind, path, collection) = (self.field.kind, self.field.path.clone(), self.collection.clone());
+        // A click, or Enter while focused: into the selected band, or the band that lists this collection.
+        let dragged = Rc::new(std::cell::Cell::new(false));
+        let (e, was_dragged) = (self.editor.clone(), dragged.clone());
+        let add_path = path.clone();
+        let item = item.on_click(move || {
+            if was_dragged.replace(false) {
+                return;
+            }
+            let band = match &collection {
+                Some(c) => e
+                    .report
+                    .with(|r| r.detail_reports.iter().position(|d| &d.data_member == c))
+                    .map_or(e.target_band(), BandRef::DetailReportDetail),
+                None => e.target_band(),
+            };
+            let (x, y) = e.free_spot(band, 18.0);
+            e.add_control(band, field_control(&add_path, kind).at(x, y, 140.0, 18.0));
+            e.tab.set(0);
+        });
+        let row = cx.child(&item);
+        let e = self.editor.clone();
         cx.on_drag(
             row,
             Rc::new(move |d| match d.phase {
@@ -434,35 +458,25 @@ impl View for FieldItem {
                 _ => {
                     let Some(g) = e.drag.get() else { return };
                     e.drag.set(None);
-                    let moved = (g.at.x - g.start.x).hypot(g.at.y - g.start.y) > 4.0;
-                    let control = field_control(&path, kind);
-                    if moved {
-                        if let Some((band, at)) = e.band_at(d.position) {
-                            let c = control.at(
-                                editor::snap(at.x.max(0.0)),
-                                editor::snap((at.y - 9.0).max(0.0)),
-                                140.0,
-                                18.0,
-                            );
-                            e.add_control(band, c);
-                        }
-                    } else {
-                        // A click: into the selected band, or the band that lists this collection.
-                        let band = match &collection {
-                            Some(c) => e
-                                .report
-                                .with(|r| r.detail_reports.iter().position(|d| &d.data_member == c))
-                                .map_or(e.target_band(), BandRef::DetailReportDetail),
-                            None => e.target_band(),
-                        };
-                        let (x, y) = e.free_spot(band, 18.0);
-                        e.add_control(band, control.at(x, y, 140.0, 18.0));
+                    if (g.at.x - g.start.x).hypot(g.at.y - g.start.y) <= 4.0 {
+                        return;
                     }
-                    e.tab.set(0);
+                    // The pointer may come up on this same row: that is no click.
+                    dragged.set(true);
+                    if let Some((band, at)) = e.band_at(d.position) {
+                        dragged.set(false);
+                        let c = field_control(&path, kind).at(
+                            editor::snap(at.x.max(0.0)),
+                            editor::snap((at.y - 9.0).max(0.0)),
+                            140.0,
+                            18.0,
+                        );
+                        e.add_control(band, c);
+                        e.tab.set(0);
+                    }
                 }
             }),
         );
-        cx.cursor(row, CursorIcon::Pointer);
         row
     }
 }
@@ -498,13 +512,14 @@ impl View for BandList {
                 let sel = e.selection.clone();
                 Box::new(
                     SidebarItem::new(IconName::Rows3, b.title(&report))
+                        .compact()
                         .count(count.to_string())
                         .selected(selected)
                         .on_click(move || sel.set(Selection::Band(b))),
                 ) as AnyView
             })
             .collect();
-        cx.child(&VStack::new(items).spacing(2.0).align(Align::Stretch))
+        cx.child(&VStack::new(items).spacing(SPACING.s1).align(Align::Stretch))
     }
 }
 
@@ -516,24 +531,9 @@ impl View for FieldGhost {
         let anchor = cx.empty();
         if let Some(g) = self.0.drag.get().filter(|g| (g.at.x - g.start.x).hypot(g.at.y - g.start.y) > 4.0) {
             let over = self.0.band_at(g.at).is_some();
-            let chip = HStack::new((
-                Icon::new(if over { IconName::Plus } else { IconName::Database })
-                    .size(13.0)
-                    .color(Color::WHITE),
-                Text::new(format!("[{}]", g.path))
-                    .style(TextStyle::Callout)
-                    .font_weight(Weight::SEMIBOLD)
-                    .foreground(Color::WHITE),
-            ))
-            .spacing(6.0)
-            .align(Align::Center)
-            .padding(Insets::symmetric(5.0, 10.0))
-            .background(if over {
-                Color::rgba(0.298, 0.4, 0.933, 1.0)
-            } else {
-                Color::rgba(0.2, 0.22, 0.28, 0.9)
-            })
-            .corner_radius(8.0);
+            let chip = Badge::new(format!("[{}]", g.path))
+                .icon(if over { IconName::Plus } else { IconName::Database })
+                .tone(if over { Tone::Accent } else { Tone::Neutral });
             cx.overlay(anchor, Placement::At(Point::new(g.at.x + 12.0, g.at.y + 8.0)), &chip, None);
         }
         anchor
@@ -592,7 +592,7 @@ impl View for CenterPane {
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &[content],
-            Paint::Quad(QuadPaint::new(theme.color(Semantic::Canvas).lerp(theme.color(Semantic::Ink), 0.04))),
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Canvas))),
         );
         // A click on the empty canvas selects the report itself.
         let sel = e.selection.clone();
@@ -616,37 +616,18 @@ impl View for PreviewPane {
         let current = e.page.get().min(pages - 1);
         let zoom = e.zoom.get();
         let report = e.report.get();
-        let mut bar: Vec<AnyView> = Vec::new();
-        let nav = |label: &'static str, icon: IconName, to: usize, enabled: bool, page: State<usize>| {
-            IconButton::new(icon).label(label).on_click(move || {
-                if enabled {
-                    page.set(to)
-                }
-            })
-        };
-        bar.push(Box::new(nav("Primeira página", IconName::ChevronLeft, 0, current > 0, e.page.clone())));
-        bar.push(Box::new(
-            Text::new(format!("Página {} de {}", current + 1, pages)).font_weight(Weight::SEMIBOLD),
-        ));
-        bar.push(Box::new(nav(
-            "Próxima página",
-            IconName::ChevronRight,
-            (current + 1).min(pages - 1),
-            current + 1 < pages,
-            e.page.clone(),
-        )));
-        bar.push(Box::new(Spacer::new()));
-        let (pe, pc, pp) = (e.clone(), self.cache.clone(), self.params.clone());
-        let print_button = Button::new("Imprimir")
-            .icon(IconName::Printer)
-            .style(ButtonStyle::Secondary)
-            .size(ButtonSize::Small)
-            .on_click(move || print_report(&pe, &pc, &pp));
+        let (zoom_in, zoom_out) = (e.zoom.clone(), e.zoom.clone());
+        let mut bar: Vec<AnyView> = vec![
+            Box::new(mode_switch(e)),
+            Box::new(Pagination::new(e.page.binding(), pages).labels("Anterior", "Próxima", "Página")),
+            Box::new(Spacer::new()),
+        ];
         for p in &report.parameters {
             let name = p.name.clone();
             let (read, write) = (self.params.clone(), self.params.clone());
             let n2 = name.clone();
             let default = p.default.as_ref().map(|d| d.to_string()).unwrap_or_default();
+            let caption = p.label.clone().unwrap_or_else(|| format!("?{}", p.name));
             let field = TextField::new(Binding::new(
                 move || read.with(|m| m.get(&name).cloned()).unwrap_or_else(|| default.clone()),
                 move |s: String| {
@@ -655,19 +636,51 @@ impl View for PreviewPane {
                     })
                 },
             ))
-            .placeholder(format!("Parâmetro {}", p.name))
+            .placeholder(caption.clone())
             .compact()
-            .width(110.0);
+            .width(96.0);
             bar.push(Box::new(
-                HStack::new((Text::new(format!("?{}", p.name)).style(TextStyle::Callout), field))
-                    .spacing(6.0)
-                    .align(Align::Center),
+                HStack::new((
+                    Text::new(caption).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+                    field,
+                ))
+                .spacing(SPACING.s2)
+                .align(Align::Center),
             ));
         }
-        bar.push(Box::new(print_button));
+        bar.push(Box::new(
+            HStack::new((
+                IconButton::new(IconName::ZoomOut)
+                    .label("Afastar")
+                    .size(ButtonSize::Small)
+                    .on_click(move || zoom_out.update(|z| *z = (*z - 0.25).max(0.5))),
+                Text::new(format!("{:.0}%", zoom * 100.0))
+                    .style(TextStyle::Callout)
+                    .font_weight(Weight::SEMIBOLD),
+                IconButton::new(IconName::ZoomIn)
+                    .label("Aproximar")
+                    .size(ButtonSize::Small)
+                    .on_click(move || zoom_in.update(|z| *z = (*z + 0.25).min(3.0))),
+            ))
+            .spacing(SPACING.s1)
+            .align(Align::Center),
+        ));
+        let (pe, pc, pp) = (e.clone(), self.cache.clone(), self.params.clone());
+        bar.push(Box::new(
+            Button::new("Imprimir")
+                .icon(IconName::Printer)
+                .size(ButtonSize::Small)
+                .on_click(move || print_report(&pe, &pc, &pp)),
+        ));
         let toolbar = cx.child(
-            &HStack::new(bar).spacing(10.0).align(Align::Center).padding(Insets::symmetric(8.0, 16.0)),
+            &HStack::new(bar)
+                .spacing(SPACING.s3)
+                .align(Align::Center)
+                .wrap()
+                .padding(Insets::symmetric(SPACING.s2, SPACING.s4))
+                .background(Semantic::Surface),
         );
+        let line = cx.child(&Divider::horizontal());
         let page_views: Vec<AnyView> = doc
             .pages
             .get(current)
@@ -681,6 +694,8 @@ impl View for PreviewPane {
                 }) as AnyView]
             })
             .unwrap_or_default();
+        let viewport_width = cx.viewport().width;
+        let page_width = doc.pages.get(current).map_or(0.0, |p| p.width * zoom);
         let errors: Vec<AnyView> = doc
             .errors
             .iter()
@@ -688,10 +703,15 @@ impl View for PreviewPane {
             .map(|m| Box::new(Alert::new("Erro no relatório", m.clone()).tone(Tone::Danger)) as AnyView)
             .collect();
         let body = cx.child(
-            &ScrollView::new((VStack::new((VStack::new(errors).spacing(8.0), VStack::new(page_views)))
-                .spacing(12.0)
-                .padding(24.0)
-                .align(Align::Center),))
+            &ScrollView::new((VStack::new((
+                VStack::new(errors).spacing(SPACING.s2),
+                VStack::new(page_views),
+            ))
+            .spacing(SPACING.s3)
+            .padding(SPACING.s6)
+            // As wide as the window, so a narrower page sits in its center.
+            .width(viewport_width.max(page_width + 2.0 * SPACING.s6))
+            .align(Align::Center),))
             .horizontal()
             .grow(1.0),
         );
@@ -707,7 +727,7 @@ impl View for PreviewPane {
                 align: Align::Stretch,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
-            &[toolbar, body],
+            &[toolbar, line, body],
             Paint::None,
         )
     }
@@ -755,6 +775,10 @@ impl View for JsonPane {
             .collect();
         cx.child(
             &VStack::new((
+                HStack::new((mode_switch(&self.0),))
+                    .padding(Insets::symmetric(SPACING.s2, SPACING.s4))
+                    .background(Semantic::Surface),
+                Divider::horizontal(),
                 HStack::new((
                     VStack::new((
                         Text::new("Definição do relatório").style(TextStyle::Headline),
@@ -762,7 +786,7 @@ impl View for JsonPane {
                             .style(TextStyle::Callout)
                             .foreground(Semantic::InkMuted),
                     ))
-                    .spacing(4.0)
+                    .spacing(SPACING.s1)
                     .grow(1.0),
                     Button::new(if copied.get() { "Copiado" } else { "Copiar JSON" })
                         .icon(if copied.get() { IconName::Check } else { IconName::Copy })
@@ -773,9 +797,9 @@ impl View for JsonPane {
                         }),
                 ))
                 .align(Align::Center)
-                .spacing(12.0)
-                .padding(Insets::symmetric(12.0, 20.0)),
-                ScrollView::new((VStack::new(lines).padding(Insets::symmetric(8.0, 20.0)),)).horizontal().grow(1.0),
+                .spacing(SPACING.s3)
+                .padding(Insets::symmetric(SPACING.s3, SPACING.s5)),
+                ScrollView::new((VStack::new(lines).padding(Insets::symmetric(SPACING.s2, SPACING.s5)),)).horizontal().grow(1.0),
             ))
             .align(Align::Stretch)
             .grow(1.0),
@@ -793,32 +817,44 @@ impl View for StatusBar {
         let e = &self.editor;
         let report = e.report.get();
         let cache = self.cache.borrow();
-        let render = match (&cache.doc, e.tab.get()) {
-            (Some(doc), 1) => format!("{} páginas geradas em {:.1} ms", doc.pages.len(), cache.millis),
-            _ => "Abra Visualizar para gerar o documento".to_owned(),
+        let (page, render) = match (&cache.doc, e.tab.get()) {
+            (Some(doc), 1) => {
+                let pages = doc.pages.len().max(1);
+                let current = e.page.get().min(pages - 1) + 1;
+                let millis = format!("{:.1}", cache.millis).replace('.', ",");
+                (Some(format!("Página {current} de {pages}")), format!("Gerado em {millis} ms"))
+            }
+            _ => (None, "Abra Visualizar para gerar o documento".to_owned()),
         };
         let rows =
             report.embedded_data().map_or(0, |d| wizard::rows_of(d, report.data_member.as_deref()).len());
         let paper = if report.page.width > report.page.height { "paisagem" } else { "retrato" };
         drop(cache);
+        let muted = |text: String| Text::new(text).style(TextStyle::Callout).foreground(Semantic::InkMuted);
+        let themes = [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()];
+        let state = cx.theme_state();
+        let read = state.clone();
+        let theme = Binding::new(
+            move || read.with(|t| themes.iter().position(|x| x.name == t.name).unwrap_or(0)),
+            move |i: usize| state.set(themes[i.min(themes.len() - 1)]),
+        );
         cx.child(
             &HStack::new((
-                Icon::new(IconName::FileText).size(13.0).color(Semantic::InkMuted),
-                Text::new(format!(
-                    "{} · {} linhas de dados · {} · {}",
-                    report.name, rows, report.culture, paper
-                ))
-                .style(TextStyle::Caption)
-                .foreground(Semantic::InkMuted),
+                muted(format!("{} · {} linhas de dados · {} · {}", report.name, rows, report.culture, paper)),
                 Spacer::new(),
-                Text::new(render).style(TextStyle::Caption).foreground(Semantic::InkMuted),
-                Text::new(format!("Zoom {:.0}%", e.zoom.get() * 100.0))
-                    .style(TextStyle::Caption)
-                    .foreground(Semantic::InkMuted),
+                page.map(muted),
+                muted(render),
+                muted(format!("Zoom {:.0}%", e.zoom.get() * 100.0)),
+                SegmentedControl::with_icons(
+                    theme,
+                    [(IconName::Moon, "Escuro"), (IconName::Sun, "Claro"), (IconName::Layers, "Vidro")],
+                )
+                .label("Tema"),
             ))
-            .spacing(10.0)
+            .spacing(SPACING.s3)
             .align(Align::Center)
-            .padding(Insets::symmetric(6.0, 14.0)),
+            .padding(Insets::symmetric(SPACING.s1, SPACING.s4))
+            .background(Semantic::Surface),
         )
     }
 }
@@ -828,77 +864,31 @@ struct Gallery {
     editor: Editor,
 }
 
+fn template_card<F: Fn() + 'static>(
+    title: &str,
+    text: &str,
+    icon: IconName,
+    on_click: F,
+) -> impl View + use<F> {
+    Card::new(
+        VStack::new((
+            Icon::new(icon).size(22.0).color(Semantic::Accent),
+            Text::new(title).style(TextStyle::Headline),
+            Text::new(text).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+        ))
+        .spacing(SPACING.s2)
+        .align(Align::Stretch),
+    )
+    .corner_radius(RADII.lg)
+    .padding(SPACING.s4)
+    .no_shadow()
+    .fill(Semantic::Surface)
+    .on_click(on_click)
+}
+
 impl View for Gallery {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let anchor = cx.empty();
-        if self.editor.gallery_open.get() {
-            let close = self.editor.gallery_open.clone();
-            cx.overlay(
-                anchor,
-                Placement::Fill,
-                &GalleryLayer(self.editor.clone()),
-                Some(Rc::new(move || close.set(false))),
-            );
-        }
-        anchor
-    }
-}
-
-struct GalleryLayer(Editor);
-
-fn template_card(title: &str, text: &str, icon: IconName, on_click: impl Fn() + 'static) -> Clickable {
-    let card = VStack::new((
-        HStack::new((Icon::new(icon).size(22.0).color(Semantic::Accent), Spacer::new())).align(Align::Center),
-        Text::new(title).style(TextStyle::Headline),
-        Text::new(text).style(TextStyle::Callout).foreground(Semantic::InkMuted),
-    ))
-    .spacing(8.0)
-    .padding(16.0)
-    .align(Align::Stretch);
-    Clickable { child: Box::new(card), on_click: Rc::new(on_click) }
-}
-
-/// A card that is a button.
-struct Clickable {
-    child: AnyView,
-    on_click: Rc<dyn Fn()>,
-}
-
-impl View for Clickable {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let theme = *cx.theme();
-        let hovered = cx.is_hovered();
-        let focused = cx.is_focus_visible();
-        let child = cx.child(self.child.as_ref());
-        let node = cx.container(
-            LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
-            &[child],
-            Paint::Quad(QuadPaint {
-                corner_radius: 12.0,
-                border: Some(Border {
-                    width: if hovered || focused { 1.5 } else { 1.0 },
-                    color: if hovered || focused {
-                        theme.color(Semantic::Accent)
-                    } else {
-                        theme.color(Semantic::Border)
-                    },
-                }),
-                ..QuadPaint::new(theme.color(Semantic::Surface))
-            }),
-        );
-        cx.semantics(node, ravenrs::widgets::Semantics::new(Role::Button));
-        cx.on_click(node, self.on_click.clone());
-        cx.focusable(node, 12.0);
-        cx.cursor(node, CursorIcon::Pointer);
-        node
-    }
-}
-
-impl View for GalleryLayer {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let e = &self.0;
-        let theme = *cx.theme();
-        let viewport = cx.viewport();
+        let e = &self.editor;
         let open = |report: fn() -> Report, tab: usize| {
             let e = e.clone();
             move || {
@@ -930,7 +920,6 @@ impl View for GalleryLayer {
                 e.gallery_open.set(false);
             }
         };
-        let close = e.gallery_open.clone();
         let cards = Grid::new(
             3,
             (
@@ -972,45 +961,14 @@ impl View for GalleryLayer {
                 ),
             ),
         )
-        .spacing(14.0);
-        let card = cx.child(
-            &VStack::new((
-                HStack::new((
-                    VStack::new((
-                        Text::new("Novo relatório").style(TextStyle::Title),
-                        Text::new("Comece por um modelo pronto ou deixe o assistente montar o relatório a partir dos seus dados.")
-                            .foreground(Semantic::InkMuted),
-                    ))
-                    .spacing(4.0)
-                    .grow(1.0),
-                    IconButton::new(IconName::X).label("Fechar").on_click(move || close.set(false)),
-                ))
-                .align(Align::Start),
-                cards,
-            ))
-            .spacing(20.0)
-            .padding(28.0)
-            .width((viewport.width - 48.0).clamp(320.0, 880.0))
-            .background(theme.color(Semantic::SurfaceElevated))
-            .corner_radius(18.0)
-            .shadow(theme.elevation.raised),
-        );
-        cx.semantics(card, ravenrs::widgets::Semantics::new(Role::Dialog).name("Novo relatório").modal());
-        cx.cursor(card, CursorIcon::Default);
-        let backdrop = cx.container(
-            LayoutStyle {
-                width: Some(viewport.width),
-                height: Some(viewport.height),
-                align: Align::Center,
-                justify: ravenrs::layout::Justify::Center,
-                ..LayoutStyle::stack(Axis::Vertical)
-            },
-            &[card],
-            Paint::Quad(QuadPaint::new(Color::rgba(0.0, 0.0, 0.0, 0.45))),
-        );
-        let close = e.gallery_open.clone();
-        cx.on_click(backdrop, Rc::new(move || close.set(false)));
-        backdrop
+        .spacing(SPACING.s4);
+        cx.child(
+            &Dialog::new(e.gallery_open.binding(), "Novo relatório")
+                .description("Comece por um modelo pronto ou deixe o assistente montar o relatório a partir dos seus dados.")
+                .width(880.0)
+                .close_label("Fechar")
+                .content(cards),
+        )
     }
 }
 
@@ -1083,7 +1041,7 @@ impl View for WizardDialog {
             e2.wizard_open.set(false);
         });
         let content = VStack::new((
-            FormField::new("Título", TextField::new(s.title.binding()).compact()),
+            FormField::new("Título", TextField::new(s.title.binding())),
             FormField::new(
                 "Dados",
                 Select::new(s.source.binding(), WIZARD_SOURCES.iter().map(|(n, _)| *n))
@@ -1093,18 +1051,19 @@ impl View for WizardDialog {
             Text::new(format!("Campos ({} escolhidos)", chosen.len()))
                 .style(TextStyle::Callout)
                 .font_weight(Weight::SEMIBOLD),
-            Grid::new(3, checks).spacing(8.0),
+            Grid::new(3, checks).spacing(SPACING.s2),
             FormField::new(
                 "Agrupar por",
                 Select::new(s.group.binding(), groups).width(300.0).label("Agrupar por"),
             ),
             Toggle::new(s.totals.binding()).label("Totais dos campos numéricos"),
         ))
-        .spacing(14.0)
+        .spacing(SPACING.s4)
         .align(Align::Stretch);
         cx.child(
             &Dialog::new(e.wizard_open.binding(), "Assistente de relatório")
                 .description("Escolha os campos e o agrupamento. O resto (cabeçalhos, zebra, totais, numeração de páginas) o assistente faz.")
+                .close_label("Fechar")
                 .content(content)
                 .action(generate),
         )
@@ -1126,8 +1085,7 @@ mod web_entry {
     pub fn start() {
         console_error_panic_hook::set_once();
         wasm_bindgen_futures::spawn_local(async {
-            let options =
-                ravenrs::web::WebOptions::new("raven-canvas").theme(ravenrs::style::Theme::raven_light());
+            let options = ravenrs::web::WebOptions::new("raven-canvas");
             match ravenrs::web::start(super::app(), options).await {
                 Ok(app) => APP.with(|a| *a.borrow_mut() = Some(app)),
                 Err(e) => web_sys::console::error_1(&e.to_string().into()),

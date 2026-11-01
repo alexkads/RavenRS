@@ -9,13 +9,19 @@ use std::rc::Rc;
 use ravenrs::core::Border;
 use ravenrs::layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs::prelude::*;
+use ravenrs::style::Palette;
 use ravenrs::widgets::{DragPhase, Paint, QuadPaint};
 use ravenrs_report::{Control, ControlKind, LineDirection, Report, ShapeKind, Style, TextAlign};
 
 use crate::bands::BandRef;
 use crate::editor::{Editor, Selection, snap};
 
-const ACCENT: Color = Color::rgba(0.298, 0.4, 0.933, 1.0);
+/// The paper is content, not chrome: it stays light in every theme, so all that
+/// is drawn on it comes from Raven Light.
+const PAPER: Palette = Theme::raven_light().palette;
+const ACCENT: Color = PAPER.accent;
+/// What the report engine prints when a control sets no color.
+const DOCUMENT_INK: Color = Color::rgba(0.0, 0.0, 0.0, 1.0);
 
 /// Parses `#rrggbb` for the design view.
 pub fn color(s: Option<&str>) -> Option<Color> {
@@ -36,6 +42,7 @@ pub struct Surface(pub Editor);
 impl View for Surface {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let e = &self.0;
+        let theme = *cx.theme();
         let report = e.report.get();
         let zoom = e.zoom.get();
         let width = report.page.content_width() * zoom;
@@ -53,18 +60,16 @@ impl View for Surface {
             },
             &bands,
             Paint::Quad(QuadPaint {
-                corner_radius: 4.0,
-                shadow: Some(Shadow {
-                    offset: Point::new(0.0, 2.0),
-                    blur: 14.0,
-                    color: Color::rgba(0.0, 0.0, 0.0, 0.18),
-                }),
-                ..QuadPaint::new(Color::WHITE)
+                corner_radius: theme.radii.sm,
+                shadow: Some(theme.elevation.soft),
+                ..QuadPaint::new(PAPER.bg_100)
             }),
         );
         cx.container(
             LayoutStyle {
-                padding: Insets::uniform(28.0),
+                padding: Insets::uniform(theme.spacing.s6),
+                // At least as wide as the pane between the panels, so the page sits in its center.
+                min_width: Some(cx.viewport().width - crate::LEFT_WIDTH - crate::PROPERTIES_WIDTH - 2.0),
                 align: Align::Center,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
@@ -84,7 +89,6 @@ struct BandView {
 impl View for BandView {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let e = &self.editor;
-        let theme = *cx.theme();
         let report = e.report.get();
         let Some(band) = self.band.get(&report).cloned() else { return cx.empty() };
         let selection = e.selection.get();
@@ -93,7 +97,7 @@ impl View for BandView {
         let height = (band.height * zoom).max(8.0);
 
         // Caption strip.
-        let caption_color = if band_selected { Color::WHITE } else { theme.color(Semantic::InkMuted) };
+        let caption_color = if band_selected { PAPER.on_accent } else { PAPER.ink_muted };
         let caption = cx.child(
             &HStack::new((
                 Icon::new(if matches!(self.band, BandRef::Detail | BandRef::DetailReportDetail(_)) {
@@ -103,22 +107,17 @@ impl View for BandView {
                 })
                 .size(12.0)
                 .color(caption_color),
-                Text::new(self.band.title(&report))
-                    .font_size(11.0)
-                    .font_weight(Weight::SEMIBOLD)
-                    .foreground(caption_color),
+                Text::new(self.band.title(&report)).style(TextStyle::Caption).foreground(caption_color),
                 Spacer::new(),
-                Text::new(format!("{:.0} pt", band.height)).font_size(10.0).foreground(caption_color),
+                Text::new(format!("{:.0} pt", band.height))
+                    .style(TextStyle::Caption)
+                    .foreground(caption_color),
             ))
             .spacing(6.0)
             .align(Align::Center)
-            .padding(Insets::symmetric(3.0, 8.0))
+            .padding(Insets::symmetric(4.0, 8.0))
             .width(self.width + 2.0)
-            .background(if band_selected {
-                ACCENT.into()
-            } else {
-                Fill::from(Color::rgba(0.93, 0.94, 0.97, 1.0))
-            }),
+            .background(if band_selected { ACCENT.into() } else { Fill::from(PAPER.bg_000) }),
         );
         let select_band = {
             let (sel, b) = (e.selection.clone(), self.band);
@@ -142,7 +141,7 @@ impl View for BandView {
             Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
                 frames.borrow_mut().push((b, frame));
                 let step = 8.0 * zoom;
-                let dot = Color::rgba(0.0, 0.0, 0.0, 0.10);
+                let dot = PAPER.border;
                 let mut y = frame.y() + step;
                 while y < frame.max_y() {
                     let mut x = frame.x() + step;
@@ -192,11 +191,8 @@ impl View for BandView {
             },
             &children,
             Paint::Quad(QuadPaint {
-                border: Some(Border {
-                    width: 1.0,
-                    color: if band_selected { ACCENT } else { Color::rgba(0.0, 0.0, 0.0, 0.06) },
-                }),
-                ..QuadPaint::new(Color::WHITE)
+                border: Some(Border { width: 1.0, color: if band_selected { ACCENT } else { PAPER.border } }),
+                ..QuadPaint::new(PAPER.bg_100)
             }),
         );
         cx.on_click(body, select_band);
@@ -284,12 +280,15 @@ pub fn design_text(c: &Control) -> String {
     }
 }
 
-fn text_view(text: &str, style: &Style, zoom: f32) -> HStack<(Text,)> {
+fn text_view(text: &str, style: &Style, zoom: f32, one_line: bool) -> HStack<(Text,)> {
     let size = style.font_size.unwrap_or(10.0) * zoom;
-    let color = color(style.color.as_deref()).unwrap_or(Color::rgba(0.0, 0.0, 0.0, 1.0));
+    let color = color(style.color.as_deref()).unwrap_or(DOCUMENT_INK);
     let mut t = Text::new(text).font_size(size).foreground(color);
     if style.bold == Some(true) {
         t = t.font_weight(Weight::SEMIBOLD);
+    }
+    if one_line {
+        t = t.truncate();
     }
     let justify = match style.text_align {
         Some(TextAlign::Center) => Justify::Center,
@@ -330,7 +329,8 @@ impl View for ControlView {
                                     ..Control::default()
                                 });
                                 let bg = color(s.background.as_deref());
-                                let inner = cx.keyed_child((ri * 100 + ci) as u64, &text_view(&text, &s, z));
+                                let inner =
+                                    cx.keyed_child((ri * 100 + ci) as u64, &text_view(&text, &s, z, true));
                                 cx.container(
                                     LayoutStyle {
                                         width: Some(cell.width * z),
@@ -342,10 +342,7 @@ impl View for ControlView {
                                     },
                                     &[inner],
                                     Paint::Quad(QuadPaint {
-                                        border: Some(Border {
-                                            width: 0.5,
-                                            color: Color::rgba(0.0, 0.0, 0.0, 0.12),
-                                        }),
+                                        border: Some(Border { width: 0.5, color: PAPER.border }),
                                         ..QuadPaint::new(bg.unwrap_or(Color::TRANSPARENT))
                                     }),
                                 )
@@ -357,7 +354,7 @@ impl View for ControlView {
                 rows
             }
             ControlKind::Line(line) => {
-                let ink = color(style.color.as_deref()).unwrap_or(Color::rgba(0.0, 0.0, 0.0, 1.0));
+                let ink = color(style.color.as_deref()).unwrap_or(DOCUMENT_INK);
                 let lw = line.thickness.unwrap_or(1.0) * z;
                 let dir = line.direction;
                 vec![cx.container(
@@ -380,7 +377,7 @@ impl View for ControlView {
                     if shape.shape == ShapeKind::Ellipse { w.min(h) / 2.0 } else { shape.radius * z };
                 let border = style.border_width.filter(|w| *w > 0.0).map(|bw| Border {
                     width: bw * z,
-                    color: color(style.border_color.as_deref()).unwrap_or(Color::rgba(0.0, 0.0, 0.0, 1.0)),
+                    color: color(style.border_color.as_deref()).unwrap_or(DOCUMENT_INK),
                 });
                 vec![cx.container(
                     LayoutStyle { width: Some(w), height: Some(h), ..LayoutStyle::leaf() },
@@ -388,7 +385,11 @@ impl View for ControlView {
                     Paint::Quad(QuadPaint { corner_radius: radius, border, ..QuadPaint::new(fill) }),
                 )]
             }
-            _ => vec![cx.child(&text_view(&design_text(c), &style, z))],
+            _ => {
+                // Room for less than two lines: one line that ends with an ellipsis.
+                let one_line = c.height < style.font_size.unwrap_or(10.0) * 2.4;
+                vec![cx.child(&text_view(&design_text(c), &style, z, one_line))]
+            }
         };
         let fill = match &c.kind {
             ControlKind::Shape(_) | ControlKind::Line(_) => Color::TRANSPARENT,
@@ -399,7 +400,7 @@ impl View for ControlView {
         } else if hovered {
             Border { width: 1.0, color: ACCENT.with_alpha(0.6) }
         } else {
-            Border { width: 0.5, color: Color::rgba(0.0, 0.0, 0.0, 0.18) }
+            Border { width: 0.5, color: PAPER.border }
         };
         let node = cx.container(
             LayoutStyle {
@@ -514,7 +515,7 @@ impl View for ResizeHandle {
             &[],
             Paint::Quad(QuadPaint {
                 corner_radius: 2.0,
-                border: Some(Border { width: 1.5, color: Color::WHITE }),
+                border: Some(Border { width: 1.5, color: PAPER.bg_100 }),
                 ..QuadPaint::new(ACCENT)
             }),
         );

@@ -64,7 +64,8 @@ fn opens_with_the_template_gallery_and_every_template_loads() {
         press(&mut ui, Role::Button, template);
         assert!(names(&mut ui, Role::Dialog).is_empty(), "{template} closes the gallery");
         audit(&mut ui, template);
-        // Back to the gallery from the ribbon.
+        // Back to the design surface, and to the gallery from the ribbon.
+        press(&mut ui, Role::RadioButton, "Design");
         press(&mut ui, Role::Button, "Modelos");
     }
 }
@@ -92,9 +93,9 @@ fn dragging_a_field_onto_a_band_adds_it_and_undo_removes_it() {
         ui.access_tree().nodes.iter().filter(|n| n.name.as_deref().is_some_and(|s| s == "[Customer]")).count()
     };
     assert_eq!(fields(&mut ui), 0);
-    // The field list row reads as text; find it and the detail band's caption.
+    // The field list row is a button; find it and the detail band's caption.
     let tree = ui.access_tree();
-    let source = tree.find(Role::Label, "Customer").expect("field in the list").bounds.center();
+    let source = tree.find(Role::Button, "Customer").expect("field in the list").bounds.center();
     let band = tree.find(Role::Label, "Detalhe").expect("detail band caption").bounds;
     let target = Point::new(band.x() + 200.0, band.max_y() + 14.0);
     ui.handle_event(&Event::PointerMove { position: source });
@@ -143,4 +144,43 @@ fn the_large_template_really_has_ten_thousand_rows() {
         .expect("page counter");
     let count: usize = pages.trim_start_matches("Página 1 de ").parse().expect("a number");
     assert!(count > 300, "{pages}");
+}
+
+#[test]
+fn the_preview_has_no_side_panels_and_turns_pages_one_at_a_time() {
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Vendas por região");
+    let has = |ui: &mut Ui, role: Role, name: &str| ui.access_tree().find(role, name).is_some();
+    assert!(!has(&mut ui, Role::Button, "Modelos"), "no ribbon in the preview");
+    assert!(!has(&mut ui, Role::Button, "Customer"), "no field list in the preview");
+    let page = |ui: &mut Ui| {
+        ui.access_tree()
+            .nodes
+            .iter()
+            .filter_map(|n| n.name.clone())
+            .find(|s| s.starts_with("Página ") && s.contains(" de "))
+            .expect("page counter")
+    };
+    press(&mut ui, Role::Button, "Próxima");
+    press(&mut ui, Role::Button, "Próxima");
+    assert!(page(&mut ui).starts_with("Página 3 de "));
+    press(&mut ui, Role::Button, "Anterior");
+    assert!(page(&mut ui).starts_with("Página 2 de "), "back goes one page, not to the first");
+    press(&mut ui, Role::RadioButton, "Design");
+    assert!(has(&mut ui, Role::Button, "Modelos"), "the ribbon comes back");
+}
+
+#[test]
+fn clicking_a_field_adds_it_once_and_every_theme_is_available() {
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    let fields = |ui: &mut Ui| {
+        ui.access_tree().nodes.iter().filter(|n| n.name.as_deref().is_some_and(|s| s == "[Customer]")).count()
+    };
+    press(&mut ui, Role::Button, "Customer");
+    assert_eq!(fields(&mut ui), 1);
+    for theme in ["Escuro", "Vidro", "Claro"] {
+        press(&mut ui, Role::RadioButton, theme);
+        audit(&mut ui, theme);
+    }
 }
