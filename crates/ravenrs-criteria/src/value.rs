@@ -63,6 +63,22 @@ impl DateTime {
         Some(date)
     }
 
+    /// The current local date and time in the browser; the current UTC date
+    /// and time elsewhere (the standard library has no time zones).
+    pub fn now() -> Self {
+        #[cfg(target_arch = "wasm32")]
+        let secs = {
+            let now = js_sys::Date::new_0();
+            // getTimezoneOffset is minutes behind UTC.
+            ((now.get_time() / 1000.0) - now.get_timezone_offset() * 60.0) as i64
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs() as i64);
+        Self { days: secs.div_euclid(86_400), seconds: secs.rem_euclid(86_400) as u32 }
+    }
+
     /// The date `n` days later (earlier for negative `n`).
     pub fn add_days(self, n: i64) -> Self {
         Self { days: self.days + n, ..self }
@@ -147,7 +163,8 @@ pub enum Value {
 
 impl Value {
     /// Converts a JSON scalar; arrays and objects become `Null` (they are
-    /// collections, reached with `[Items][].Sum(...)` and detail reports).
+    /// collections, reached with `[Items][].Sum(...)`).
+    #[cfg(feature = "json")]
     pub fn from_json(json: &serde_json::Value) -> Self {
         match json {
             serde_json::Value::Bool(b) => Self::Bool(*b),

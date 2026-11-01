@@ -10,13 +10,15 @@ use ravenrs_text::{TextAttrs, TextSystem};
 use serde_json::Value as Json;
 
 use crate::document::{Document, Item, Page, PlacedLine, TextBlock, parse_color};
-use crate::expr::{Ctx, Env, Expr, ExprError};
-use crate::format::{Culture, format_composite, format_value};
+use ravenrs_criteria::{
+    Criteria, Culture, CustomFunction, DateTime, Environment, ParseError, Scope, Value, format_composite,
+    format_value,
+};
+
 use crate::model::{
     Band, Control, ControlKind, LineDirection, ParameterKind, Report, ShapeKind, SortField, Style, TableCell,
     TextAlign, VerticalAlign,
 };
-use crate::value::{DateTime, Value};
 
 /// Settings for one run of a report.
 #[derive(Clone, Debug, Default)]
@@ -41,6 +43,7 @@ pub struct RenderOptions {
 pub struct ReportEngine {
     text: TextSystem,
     measured: HashMap<(String, u32, bool, u32), Rc<Measured>>,
+    functions: Vec<(String, CustomFunction)>,
 }
 
 impl std::fmt::Debug for ReportEngine {
@@ -80,7 +83,16 @@ const DEFAULT_SIZE: f32 = 10.0;
 impl ReportEngine {
     /// An engine with the embedded Inter font.
     pub fn new() -> Self {
-        Self { text: TextSystem::new(), measured: HashMap::new() }
+        Self { text: TextSystem::new(), measured: HashMap::new(), functions: Vec::new() }
+    }
+
+    /// Adds a function to the expressions of every report this engine renders.
+    pub fn register_function(
+        &mut self,
+        name: &str,
+        function: impl Fn(&[Value]) -> Result<Value, String> + 'static,
+    ) {
+        self.functions.push((name.to_owned(), Rc::new(function)));
     }
 
     /// Renders `report` over `data` with default parameters.
@@ -91,7 +103,7 @@ impl ReportEngine {
     /// Renders `report` over `data`. Expression errors do not stop the render:
     /// they are listed in [`Document::errors`] and shown in place.
     pub fn render_with(&mut self, report: &Report, data: &Json, options: &RenderOptions) -> Document {
-        let run = Run::new(report, options);
+        let run = Run::new(report, options, &self.functions);
         let rows_owned = run.rows(data);
         let rows: Vec<&Json> = rows_owned.iter().collect();
         let blocks = run.blocks(self, &rows);
@@ -137,8 +149,8 @@ pub(crate) fn text_attrs(size: f32, bold: bool) -> TextAttrs {
 /// Per-render state.
 struct Run<'r> {
     report: &'r Report,
-    env: Env,
-    exprs: RefCell<HashMap<String, Rc<Result<Expr, ExprError>>>>,
+    env: Environment,
+    exprs: RefCell<HashMap<String, Rc<Result<Criteria, ParseError>>>>,
     errors: RefCell<Vec<String>>,
 }
 
@@ -156,9 +168,10 @@ struct Look {
 }
 
 impl<'r> Run<'r> {
-    fn new(report: &'r Report, options: &RenderOptions) -> Self {
-        let culture = Culture::named(&report.culture);
-        let mut params = HashMap::new();
+    fn new(report: &'r Report, options: &RenderOptions, functions: &[(String, CustomFunction)]) -> Self {
+        let mut env = Environment::new()
+            .culture(Culture::named(&report.culture))
+            .at(options.now.unwrap_or_else(DateTime::now));
         for p in &report.parameters {
             let json = options.parameters.get(&p.name).or(p.default.as_ref());
             let v = json.map_or(Value::Null, Value::from_json);
@@ -167,56 +180,60 @@ impl<'r> Run<'r> {
                 (ParameterKind::Number, Value::Text(_)) => v.as_number().map_or(v, Value::Number),
                 _ => v,
             };
-            params.insert(p.name.clone(), v);
+            env = env.parameter(p.name.clone(), v);
         }
         for (k, v) in &options.parameters {
-            params.entry(k.clone()).or_insert_with(|| Value::from_json(v));
+            if !report.parameters.iter().any(|p| &p.name == k) {
+                env = env.parameter(k.clone(), Value::from_json(v));
+            }
+        }
+        for (name, function) in functions {
+            let function = function.clone();
+            env = env.register(name, move |args| function(args));
         }
         let errors = RefCell::new(Vec::new());
-        let mut calculated = HashMap::new();
         for c in &report.calculated_fields {
-            match Expr::parse(&c.expression) {
-                Ok(e) => {
-                    calculated.insert(c.name.clone(), e);
-                }
+            match Criteria::parse(&c.expression) {
+                Ok(e) => env = env.calculated(c.name.clone(), e),
                 Err(e) => errors.borrow_mut().push(format!("calculated field '{}': {e}", c.name)),
             }
         }
-        let now = options.now.unwrap_or_else(system_now);
-        Self {
-            report,
-            env: Env::new(params, calculated, culture, now),
-            exprs: RefCell::new(HashMap::new()),
-            errors,
-        }
+        Self { report, env, exprs: RefCell::new(HashMap::new()), errors }
     }
 
     /// The parsed expression for `src`, cached.
-    fn expr(&self, src: &str) -> Rc<Result<Expr, ExprError>> {
+    fn expr(&self, src: &str) -> Rc<Result<Criteria, ParseError>> {
         if let Some(e) = self.exprs.borrow().get(src) {
             return e.clone();
         }
-        let parsed = Rc::new(Expr::parse(src));
+        let parsed = Rc::new(Criteria::parse(src));
         self.exprs.borrow_mut().insert(src.to_owned(), parsed.clone());
         parsed
     }
 
-    fn eval(&self, ctx: &Ctx<'_>, src: &str, what: &str) -> Result<Value, String> {
-        match &*self.expr(src) {
-            Ok(e) => Ok(ctx.eval(e)),
-            Err(e) => {
-                let msg = format!("{what}: {e} in `{src}`");
-                let mut errors = self.errors.borrow_mut();
-                if !errors.contains(&msg) {
-                    errors.push(msg.clone());
-                }
-                Err(e.message.clone())
-            }
+    fn eval(&self, ctx: &Scope<'_, Json>, src: &str, what: &str) -> Result<Value, String> {
+        let problem = match &*self.expr(src) {
+            Ok(e) => match ctx.evaluate(e) {
+                Ok(v) => return Ok(v),
+                Err(e) => e.to_string(),
+            },
+            Err(e) => e.to_string(),
+        };
+        let msg = format!("{what}: {problem} in `{src}`");
+        let mut errors = self.errors.borrow_mut();
+        if !errors.contains(&msg) {
+            errors.push(msg);
         }
+        Err(problem)
     }
 
-    fn ctx<'a>(&'a self, row: Option<&'a Json>, scope: &'a [&'a Json], position: Option<usize>) -> Ctx<'a> {
-        Ctx { env: &self.env, row, parent: None, scope, position, page: None }
+    fn ctx<'a>(
+        &'a self,
+        row: Option<&'a Json>,
+        scope: &'a [&'a Json],
+        position: Option<usize>,
+    ) -> Scope<'a, Json> {
+        Scope::new(&self.env).maybe_row(row).rows(scope).position(position)
     }
 
     /// The report's rows: located, filtered and sorted (group keys first).
@@ -224,7 +241,7 @@ impl<'r> Run<'r> {
         let base = match &self.report.data_member {
             Some(path) if !path.trim().is_empty() => {
                 let segs: Vec<String> = path.split('.').map(|s| s.trim().to_owned()).collect();
-                match crate::expr::lookup(Some(data), &segs) {
+                match lookup(Some(data), &segs) {
                     Some(v) => v,
                     None => {
                         self.errors
@@ -371,7 +388,7 @@ impl<'r> Run<'r> {
         out: &mut Vec<Block>,
     ) {
         let segs: Vec<String> = dr.data_member.split('.').map(|s| s.trim().to_owned()).collect();
-        let items: Vec<&Json> = match crate::expr::lookup(Some(master), &segs) {
+        let items: Vec<&Json> = match lookup(Some(master), &segs) {
             Some(Json::Array(a)) => a.iter().collect(),
             _ => Vec::new(),
         };
@@ -381,20 +398,20 @@ impl<'r> Run<'r> {
             return;
         }
         if let Some(h) = &dr.header {
-            let ctx = Ctx { parent: Some(master), ..self.ctx(Some(master), &rows, None) };
+            let ctx = self.ctx(Some(master), &rows, None).parent(Some(master));
             if let Some(mut b) = self.band(engine, h, &ctx, width, None) {
                 b.keep_with_next = true;
                 out.push(b);
             }
         }
         for (j, r) in rows.iter().enumerate() {
-            let ctx = Ctx { parent: Some(master), ..self.ctx(Some(r), &rows, Some(j)) };
+            let ctx = self.ctx(Some(r), &rows, Some(j)).parent(Some(master));
             if let Some(b) = self.band(engine, &dr.detail, &ctx, width, Some(j % 2 == 0)) {
                 out.push(b);
             }
         }
         if let Some(f) = &dr.footer {
-            let ctx = Ctx { parent: Some(master), ..self.ctx(Some(master), &rows, None) };
+            let ctx = self.ctx(Some(master), &rows, None).parent(Some(master));
             if let Some(b) = self.band(engine, f, &ctx, width, None) {
                 out.push(b);
             }
@@ -406,7 +423,7 @@ impl<'r> Run<'r> {
         &self,
         engine: &mut ReportEngine,
         band: &Band,
-        ctx: &Ctx<'_>,
+        ctx: &Scope<'_, Json>,
         width: f32,
         odd: Option<bool>,
     ) -> Option<Block> {
@@ -459,7 +476,7 @@ impl<'r> Run<'r> {
         &self,
         engine: &mut ReportEngine,
         controls: &[Control],
-        ctx: &Ctx<'_>,
+        ctx: &Scope<'_, Json>,
         origin: Point,
         zebra: Option<&str>,
         items: &mut Vec<Item>,
@@ -492,7 +509,7 @@ impl<'r> Run<'r> {
         &self,
         layers: &[(Option<&str>, &Style)],
         rules: &[crate::model::FormattingRule],
-        ctx: &Ctx<'_>,
+        ctx: &Scope<'_, Json>,
         zebra: Option<&str>,
     ) -> Look {
         let mut s = Style::default();
@@ -538,7 +555,7 @@ impl<'r> Run<'r> {
         &self,
         engine: &mut ReportEngine,
         c: &Control,
-        ctx: &Ctx<'_>,
+        ctx: &Scope<'_, Json>,
         at: Point,
         zebra: Option<&str>,
         items: &mut Vec<Item>,
@@ -664,15 +681,15 @@ impl<'r> Run<'r> {
         }
     }
 
-    fn label_text(&self, ctx: &Ctx<'_>, label: &crate::model::Label, what: &str) -> String {
+    fn label_text(&self, ctx: &Scope<'_, Json>, label: &crate::model::Label, what: &str) -> String {
         let Some(src) = label.expression.as_deref().filter(|s| !s.trim().is_empty()) else {
             return label.text.clone();
         };
         match self.eval(ctx, src, what) {
             Ok(v) => match label.format.as_deref().map(str::trim).filter(|f| !f.is_empty()) {
-                Some(f) if f.contains('{') => format_composite(f, &[v], &self.env.culture),
-                Some(f) => format_value(&v, f, &self.env.culture),
-                None => format_value(&v, "", &self.env.culture),
+                Some(f) if f.contains('{') => format_composite(f, &[v], self.env.formats()),
+                Some(f) => format_value(&v, f, self.env.formats()),
+                None => format_value(&v, "", self.env.formats()),
             },
             Err(_) => "#ERRO".to_owned(),
         }
@@ -843,7 +860,7 @@ impl<'r> Run<'r> {
             .map(|(n, (mut items, page_rows))| {
                 let scope: Vec<&Json> = page_rows.iter().map(|&r| rows[r]).collect();
                 let first = scope.first().copied();
-                let ctx = Ctx { page: Some((n + 1, count)), ..self.ctx(first, &scope, None) };
+                let ctx = self.ctx(first, &scope, None).page(n + 1, count);
                 let mut chrome = Vec::new();
                 if let Some(band) = &report.page_header
                     && let Some(b) = self.band(engine, band, &ctx, width, None)
@@ -910,7 +927,7 @@ fn filter_and_sort(
             .iter()
             .copied()
             .filter(|r| {
-                let ctx = Ctx { parent, ..run.ctx(Some(r), rows, None) };
+                let ctx = run.ctx(Some(r), rows, None).parent(parent);
                 run.eval(&ctx, f, "filter").map(|v| v.is_true()).unwrap_or(true)
             })
             .collect(),
@@ -920,7 +937,7 @@ fn filter_and_sort(
         let mut keyed: Vec<(Vec<Value>, &Json)> = kept
             .iter()
             .map(|r| {
-                let ctx = Ctx { parent, ..run.ctx(Some(r), rows, None) };
+                let ctx = run.ctx(Some(r), rows, None).parent(parent);
                 (keys.iter().map(|k| run.eval(&ctx, &k.expression, "sort").unwrap_or_default()).collect(), *r)
             })
             .collect();
@@ -967,17 +984,15 @@ fn translate(item: &Item, by: Point) -> Item {
     }
 }
 
-/// The local date and time: the browser's clock in WebAssembly, the system
-/// clock (UTC) elsewhere.
-fn system_now() -> DateTime {
-    #[cfg(target_arch = "wasm32")]
-    let secs = {
-        let now = js_sys::Date::new_0();
-        // getTimezoneOffset is minutes behind UTC.
-        ((now.get_time() / 1000.0) - now.get_timezone_offset() * 60.0) as i64
-    };
-    #[cfg(not(target_arch = "wasm32"))]
-    let secs =
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
-    DateTime { days: secs.div_euclid(86_400), seconds: secs.rem_euclid(86_400) as u32 }
+/// The JSON value at `path` under `base`.
+pub(crate) fn lookup<'j>(base: Option<&'j Json>, path: &[String]) -> Option<&'j Json> {
+    let mut cur = base?;
+    for seg in path {
+        cur = match cur {
+            Json::Object(map) => map.get(seg)?,
+            Json::Array(items) => items.get(seg.parse::<usize>().ok()?)?,
+            _ => return None,
+        };
+    }
+    Some(cur)
 }

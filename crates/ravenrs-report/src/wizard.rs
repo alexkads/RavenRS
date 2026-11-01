@@ -38,7 +38,7 @@ pub fn rows_of<'a>(data: &'a Json, data_member: Option<&str>) -> Vec<&'a Json> {
     let base = match data_member.filter(|m| !m.trim().is_empty()) {
         Some(path) => {
             let segs: Vec<String> = path.split('.').map(|s| s.trim().to_owned()).collect();
-            crate::expr::lookup(Some(data), &segs)
+            crate::engine::lookup(Some(data), &segs)
         }
         None => Some(data),
     };
@@ -71,7 +71,7 @@ fn collect(value: &Json, prefix: &str, out: &mut Vec<FieldInfo>) {
             Json::Number(_) => FieldKind::Number,
             Json::Bool(_) => FieldKind::Boolean,
             Json::Array(_) => FieldKind::Collection,
-            Json::String(s) if crate::value::DateTime::parse(s).is_some() => FieldKind::Date,
+            Json::String(s) if crate::DateTime::parse(s).is_some() => FieldKind::Date,
             Json::Null => continue,
             _ => FieldKind::Text,
         };
@@ -170,7 +170,7 @@ pub fn table_report(source: DataSource, options: &WizardOptions) -> Report {
             c.kind == FieldKind::Number
                 && rows_data.iter().take(200).all(|r| {
                     let segs: Vec<String> = c.path.split('.').map(str::to_owned).collect();
-                    crate::expr::lookup(Some(r), &segs)
+                    crate::engine::lookup(Some(r), &segs)
                         .and_then(Json::as_f64)
                         .is_none_or(|n| n.fract() == 0.0)
                 })

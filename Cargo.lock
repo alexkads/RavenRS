@@ -2532,6 +2532,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-criteria"
+version = "26.2.0"
+dependencies = [
+ "js-sys",
+ "proptest",
+ "serde_json",
+]
+
+[[package]]
 name = "ravenrs-layout"
 version = "26.2.0"
 dependencies = [
@@ -2596,9 +2605,9 @@ name = "ravenrs-report"
 version = "26.2.0"
 dependencies = [
  "criterion",
- "js-sys",
  "proptest",
  "ravenrs-core",
+ "ravenrs-criteria",
  "ravenrs-text",
  "serde",
  "serde_json",

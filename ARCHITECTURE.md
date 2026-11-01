@@ -53,7 +53,7 @@ ravenrs-reactive ───┐      │              │              │        
                               raven  (facade + prelude)
 ```
 
-`ravenrs-report` (the report engine) depends only on `ravenrs-core` and `ravenrs-text`, so it also runs on servers. See [docs/REPORTING.md](docs/REPORTING.md).
+`ravenrs-criteria` (the expression language) depends on nothing else in RavenRS, so any module can use it for filters, rules and validation. `ravenrs-report` (the report engine) adds only `ravenrs-core` and `ravenrs-text`, so it also runs on servers. See [docs/REPORTING.md](docs/REPORTING.md).
 
 There are no cycles. `ravenrs-widgets` never touches the GPU and `ravenrs-render` knows nothing about widgets; they meet only through `ravenrs_core::Scene`, a plain display list. That boundary keeps widgets testable without a GPU (the widget tests run headless) and keeps the renderer replaceable.
 

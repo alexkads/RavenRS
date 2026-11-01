@@ -12,11 +12,17 @@ The first release under the `YY.R.P` versioning model. It follows 0.1.0 directly
 - Enums that will grow are now `#[non_exhaustive]`: `Event`, `Key`, `PointerButton`, `CursorIcon`, `Brush`, `Primitive`, `Semantic`, `TextStyle`, `Material`, `Axis`, `Align`, `Justify`, `Available`, `DragPhase`, `Placement`, `ButtonStyle`, `ButtonSize`, `Tone`, `SelectionMode`, `Value`, `Summary`, `CellAlign`, `ContentMode`, `RibbonSize`, `Side` and `WebError`. Matches on them need a wildcard arm; future variants will then be additions.
 
 ### Added
+- **`ravenrs-criteria`**, a criteria and expression language independent of any UI:
+  - A public tree that parses from text, can be built in code, and prints back to text that parses to the same tree.
+  - Evaluation over any `Record` (JSON, maps, your own rows), with calculated fields, parameters, custom functions and a fixed clock for tests.
+  - Over 130 functions and aggregates, in a catalog with signatures and descriptions.
+  - `validate` checks fields, parameters and functions against a `Schema`.
+  - `to_sql` translates to parameterized SQL for PostgreSQL, MySQL, SQL Server and SQLite.
 - **RavenRS Reporting** (`ravenrs-report`, first phase; export comes next):
   - Reports defined as data: JSON layouts (`Report::from_json`) that carry their data sources, or a Rust builder.
   - Bands: report and page headers and footers, nested groups with subtotals, detail, master-detail reports.
   - Controls: label, table, check box, line, shape, panel.
-  - An expression language close to DevExpress Criteria, with fields, parameters, calculated fields, `Iif`, text, math and date functions, `FormatString`, and aggregates over a group, a page, the report or a nested collection.
+  - Expressions from `ravenrs-criteria`, with aggregates over a group, a page, the report or a nested collection, and `ReportEngine::register_function`.
   - Conditional formatting, named styles, zebra rows, .NET-style formats with pt-BR and en-US cultures.
   - Pagination with growing text, keep-with-next, repeated group headers and page breaks: 10,000 rows in 80 ms natively, about 200 ms in the browser.
   - A wizard that builds a table report from a choice of fields, SVG output per page, and `Document::print_html`, a print-ready page with the fonts embedded.

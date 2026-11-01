@@ -50,22 +50,23 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 | Feature | DevExpress | RavenRS |
 |---|---|---|
-| Literals, `[Field]`, `?param`, relations | `'text'`, `#date#`, `True`, null, `[A].[B]` | ✅ `'text'` (with `''`), `#date#`, `True/False/Null`, `[A.B]` paths, `?param`, `[^.Field]` master row |
-| Operators | Arithmetic, bitwise, comparison, `In`, `Between`, `Is Null`, logic | ✅ arithmetic, comparison, `In`, `Between`, `Is (Not) Null`, `And/Or/Not` (`&& \|\| !`). Bitwise ⬜ |
-| Collection aggregates `[Coll][cond].Func()` | Count, Exists, Avg, Sum, Min, Max, Single, Join | 🟡 `[Coll][].Sum/Count/Avg/Min/Max/…`. Conditions inside `[...]`, Exists, Single, Join ⬜ [R2] |
+| Literals, `[Field]`, `?param`, relations, comments | `'text'`, `#date#`, `True`, null, `{guid}`, `[A].[B]` | ✅ all of them, with numeric suffixes, `?` for null, `[A.B]` paths, `[^.Field]` parent row and `/* comments */` |
+| Operators | Arithmetic, bitwise, comparison, `In`, `Between`, `Is Null`, logic | ✅ all, plus `Like` and `Not In` |
+| Collection aggregates `[Coll][cond].Func()` | Count, Exists, Avg, Sum, Min, Max, Single, Join | ✅ with conditions: `[Coll][[Qty] > 0].Sum([Qty])`, Exists, Single, Join |
 | Logical functions | Iif, IsNull (1 and 2 args), IsNullOrEmpty | ✅ |
-| String functions | Ascii, Char, CharIndex, Concat, Contains, EndsWith, Insert, Len, Lower, PadLeft/Right, Remove, Replace, Reverse, StartsWith, Substring, ToStr, Trim, Upper | 🟡 Concat, Contains, EndsWith, Len, Lower, PadLeft/Right, Replace, StartsWith, Substring, ToStr, Trim, Upper. The rest ⬜ [R2] |
-| Math functions | Abs, trig, Ceiling, Floor, Log, Power, Round, Sign, Sqr, conversions | 🟡 Abs, Ceiling, Floor, Power, Round, Sqrt, Min/Max(a,b), ToNumber. The rest ⬜ [R2] |
-| Date functions | Add*, DateDiff*, Get*, Now/Today/UtcNow, FromParts, relative predicates (IsThisMonth, InDateRange…) | 🟡 AddDays/Months/Years, DateDiffDay, GetYear/Month/Day/DayOfWeek, Today, Now. The rest ⬜ [R2] |
-| Reporting functions | FormatString, NewLine, Rgb, GetDisplayText, CurrentRowIndexInGroup, GroupIndex, Prev/NextRowColumnValue | 🟡 FormatString, PageNumber, PageCount. The rest ⬜ [R2] |
-| Custom functions | Registered by developers | ⬜ [R2] |
+| String functions | Ascii, Char, CharIndex, Concat, Contains, EndsWith, Insert, Len, Lower, PadLeft/Right, Remove, Replace, Reverse, StartsWith, Substring, ToStr, Trim, Upper | ✅ |
+| Math functions | Abs, trig, Ceiling, Floor, Log, Power, Round, Sign, Sqr, conversions | ✅ |
+| Date functions | Add*, DateDiff*, Get*, Now/Today/UtcNow, FromParts, relative predicates (IsThisMonth, InDateRange…) | 🟡 Add*, DateDiff*, Get*, Now/Today, FromParts, LocalDateTime*, Is* and range predicates. Tick precision, time-of-day predicates (IsLunchTime…), DateOnly/TimeOnly ⬜ |
+| Reporting functions | FormatString, NewLine, Rgb, GetDisplayText, CurrentRowIndexInGroup, GroupIndex, Prev/NextRowColumnValue | 🟡 FormatString, NewLine, Rgb, Argb, PageNumber, PageCount, CurrentRowIndexInGroup, Prev/NextRowColumnValue. GetDisplayText, GroupIndex ⬜ [R2] |
+| Custom functions | Registered by developers | ✅ `ReportEngine::register_function`, `Environment::register` |
+| Criteria as a library (XPO) | Parse, print, tree operators, evaluate in memory, translate to SQL | ✅ `ravenrs-criteria`: public tree, printing that parses back, evaluation over any `Record`, schema validation, function catalog, parameterized SQL for 4 databases |
 
 ## 4. Summaries, calculated fields, data shaping
 
 | Feature | DevExpress | RavenRS |
 |---|---|---|
 | Summary scope (report / group / page) | Summary Running | ✅ by band: group footer/header → group, report header/footer → report, page header/footer → page, detail → innermost group |
-| Summary functions | Sum, Count, Avg, Min, Max, Median, StdDev, Var, Percentage, RecordNumber, RunningSum, distinct variants, weighted average, carry-over | 🟡 Sum, Count, Avg, Min, Max, DistinctCount, First, Last, RunningSum (incremental). Median, StdDev, Var, Percentage, RecordNumber, weighted average, carry-over ⬜ [R2] |
+| Summary functions | Sum, Count, Avg, Min, Max, Median, StdDev, Var, Percentage, RecordNumber, RunningSum, distinct variants, weighted average, carry-over | ✅ all, with the `sumSum` spellings, including distinct variants, median, weighted average, percentage. Carry-over ⬜ [R3] |
 | Calculated fields | Expression fields usable everywhere | ✅ |
 | Grouping and sorting | Multi-level, sort groups by summary | ✅ multi-level, ascending/descending, report sort. Sort by summary ⬜ [R3] |
 | Filtering | Report filter, query filter | ✅ report filter with parameters. Query-side filtering ⬜ [R5] |

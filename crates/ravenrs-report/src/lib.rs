@@ -6,8 +6,8 @@
 //!   JSON or built in code.
 //! * [`ReportEngine`] binds data to it and produces a [`Document`]: pages of
 //!   positioned text, lines and shapes, in points.
-//! * Expressions follow DevExpress Criteria: `[Price] * [Quantity]`, `Sum([Total])`,
-//!   `Iif(...)`, `FormatString('{0:C2}', ...)`. See [`Expr`].
+//! * Expressions come from [`ravenrs_criteria`]: `[Price] * [Quantity]`, `Sum([Total])`,
+//!   `Iif(...)`, `FormatString('{0:C2}', ...)`.
 //!
 //! ```
 //! use ravenrs_report::{Band, Control, Group, Report, ReportEngine, Style};
@@ -32,18 +32,14 @@
 
 mod document;
 mod engine;
-pub mod expr;
-mod format;
 mod model;
 mod paint;
 pub mod samples;
-mod value;
 pub mod wizard;
 
 pub use document::{Document, Item, Page, PlacedLine, TextBlock};
 pub use engine::{RenderOptions, ReportEngine};
-pub use expr::{Expr, ExprError};
-pub use format::{Culture, format_composite, format_value};
 pub use model::*;
 pub use paint::paint_page;
-pub use value::{DateTime, Value};
+pub use ravenrs_criteria as criteria;
+pub use ravenrs_criteria::{Criteria, Culture, DateTime, ParseError, Value, format_composite, format_value};

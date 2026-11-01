@@ -366,6 +366,22 @@ fn wizard_output_is_a_working_report() {
 }
 
 #[test]
+fn engines_accept_custom_functions_and_unknown_ones_are_reported() {
+    let report = Report::new("r").detail(
+        Band::new(20.0)
+            .control(field("Discount([V])"))
+            .control(field("Nope([V])").at(0.0, 20.0, 100.0, 18.0)),
+    );
+    let mut engine = ReportEngine::new();
+    engine.register_function("Discount", |args| {
+        Ok(ravenrs_report::Value::Number(args[0].as_number().unwrap_or(0.0) * 0.9))
+    });
+    let doc = engine.render(&report, &json!([{ "V": 100 }]));
+    assert_eq!(doc.page_text(0), ["90", "#ERRO"]);
+    assert!(doc.errors[0].contains("unknown function 'Nope'"), "{:?}", doc.errors);
+}
+
+#[test]
 fn print_html_has_one_sheet_per_page_at_the_paper_size_and_escapes_text() {
     let rows: Vec<Json> = (0..100).map(|i| json!({ "N": format!("<b>{i}</b> & co") })).collect();
     let report = Report::new("A & B").detail(Band::new(30.0).control(field("[N]")));
@@ -403,6 +419,6 @@ proptest! {
     /// Expressions never panic on arbitrary input.
     #[test]
     fn parser_never_panics(src in "\\PC{0,60}") {
-        let _ = ravenrs_report::Expr::parse(&src);
+        let _ = ravenrs_report::Criteria::parse(&src);
     }
 }

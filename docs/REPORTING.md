@@ -17,7 +17,7 @@ RavenRS Reporting turns data into paginated documents. It covers what the DevExp
             report definition (JSON or Rust builder)      data (JSON, Rust structs, SQL, CSV/XLSX)
                               │                                   │
                               ▼                                   ▼
-  ravenrs-report ──── expressions ── data binding ── grouping/sorting/summaries
+  ravenrs-report ──── ravenrs-criteria ── data binding ── grouping/sorting/summaries
         │
         ▼  pagination (Parley text measurement, keep-together, page breaks, can-grow/shrink)
    Document (pages of positioned text, rects, lines, paths, images, links; in points)
@@ -63,7 +63,7 @@ RavenRS Reporting turns data into paginated documents. It covers what the DevExp
     * Sparkline.
     * Gauge.
     * Cross Tab (pivot).
-* **Expressions.** A small, documented language close to DevExpress Criteria:
+* **Expressions.** The [`ravenrs-criteria`](../crates/ravenrs-criteria) language, reusable by other modules:
   * Fields and parameters: `[Price] * [Quantity]`, `?Customer`.
   * Conditionals: `Iif([Total] > 1000, 'VIP', 'Regular')`.
   * Aggregates: `Sum([Total])`, `Count()`, `Avg`, `Min`, `Max`, `RunningSum`, scoped to group, page or report.
