@@ -1,9 +1,13 @@
 {
-  "versao": "0.1.2",
-  "titulo": "O ícone do app aparece no Linux com GNOME, como no Fedora.",
+  "versao": "0.1.3",
+  "titulo": "Treinamentos dentro do app, backup e restauração mais claros, e um jeito fácil de relatar problemas.",
   "importante": false,
   "novidades": [
-    "A janela agora se identifica para o sistema, e o GNOME mostra o ícone do Raven Finanças nela."
+    "Nova página Treinamentos: um filme com capítulos, que para em cada passo e espera o seu clique.",
+    "Os Ajustes mostram quando foi o último backup, e dá para restaurar um arquivo vendo antes o que há nele.",
+    "O app guarda sozinho uma cópia por dia e outra antes de trocar seus dados, e você pode voltar a qualquer uma.",
+    "Relatar problema, no rodapé: você revê os últimos minutos, cobre o que quiser e salva o relato em um arquivo.",
+    "Rolar dentro de uma janela não move mais a tela de trás."
   ],
-  "por_que_atualizar": "Sem esta versão, a janela do app pode aparecer sem ícone no GNOME."
+  "por_que_atualizar": "Seus dados ficam mais protegidos: há cópias automáticas e dá para restaurar um backup com segurança."
 }
