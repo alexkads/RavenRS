@@ -29,6 +29,8 @@ RavenRS Reporting turns data into paginated documents. It covers what the DevExp
         └── ravenrs-report-server  HTTP: POST a definition + data, get PDF/XLSX back
 ```
 
+Today `ravenrs-report`, `ravenrs-criteria` and the designer in `examples/report-designer` exist. The exporters, the `DocumentViewer` widget and the server arrive in the phases below.
+
 `ravenrs-report` has no GPU or window dependency, so it runs in servers and tests. Text is measured with the same Parley stack as the UI, so the viewer and the PDF agree to the point.
 
 ## Report model

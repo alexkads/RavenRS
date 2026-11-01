@@ -41,7 +41,7 @@ ravenrs-core ─────────────┬────────�
                    (Taffy)        (Parley)       (tokens)      (wgpu, swash)
 ravenrs-reactive ───┐      │              │              │             │
  (State, Binding, │      └──────┬───────┴──────────────┘             │
-  Derived)        └────► ravenrs-widgets ◄─────────────────────────────┤
+  Derived)        └────► ravenrs-widgets                               │
                          (View, Component, BuildCx, Ui)              │
                                 │                                    │
                 ┌───────────────┴───────────────┐                    │
@@ -50,12 +50,45 @@ ravenrs-reactive ───┐      │              │              │        
        (winit + wgpu)              (canvas + WebGPU, wasm32 only)
                 └───────────────┬───────────────┘
                                 ▼
-                              raven  (facade + prelude)
+                             ravenrs  (facade + prelude)
+
+ravenrs-criteria  (expression language, no RavenRS dependencies)
+        ▲
+        │
+ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
+        ▲
+        │
+examples/report-designer  ──► ravenrs (the UI)
 ```
 
-`ravenrs-criteria` (the expression language) depends on nothing else in RavenRS, so any module can use it for filters, rules and validation. `ravenrs-report` (the report engine) adds only `ravenrs-core` and `ravenrs-text`, so it also runs on servers. See [docs/REPORTING.md](docs/REPORTING.md).
+`ravenrs-criteria` (the expression language) depends on nothing else in RavenRS, so any module can use it for filters, rules and validation. `ravenrs-report` (the report engine) depends only on `ravenrs-core`, `ravenrs-text` and `ravenrs-criteria`, so it also runs on servers. The `ravenrs` facade re-exports neither of them; apps depend on them directly. See [§6.3](#63-criteria-language), [§6.4](#64-reporting) and [docs/REPORTING.md](docs/REPORTING.md).
 
-There are no cycles. `ravenrs-widgets` never touches the GPU and `ravenrs-render` knows nothing about widgets; they meet only through `ravenrs_core::Scene`, a plain display list. That boundary keeps widgets testable without a GPU (the widget tests run headless) and keeps the renderer replaceable.
+There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform crates are where widgets and the renderer come together. `ravenrs-widgets` never touches the GPU and `ravenrs-render` knows nothing about widgets; they meet only through `ravenrs_core::Scene`, a plain display list. That boundary keeps widgets testable without a GPU (the widget tests run headless) and keeps the renderer replaceable.
+
+## 3.1 Where things live
+
+| Crate | Modules |
+|---|---|
+| `ravenrs-core` | `geometry`, `color`, `event`, `scene` (the display list), `access` (the accessibility tree) |
+| `ravenrs-reactive` | `state`, `binding`, `derived`, `observer` |
+| `ravenrs-render` | `renderer` (batching and passes), `gpu` (surface and device), `atlas` (glyphs), `images` |
+| `ravenrs-platform-native` | `lib` (winit loop), `access` (AccessKit) |
+| `ravenrs-platform-web` | `app` (canvas, events, frames), `access` (ARIA mirror), `error` |
+| `ravenrs-criteria` | `ast`, `parse`, `format`, `eval`, `functions`, `validate`, `sql`, `value` |
+| `ravenrs-report` | `model`, `engine`, `document`, `paint`, `wizard`, `samples` |
+
+`ravenrs-widgets` has two parts. The runtime is `view`, `context` (`BuildCx`), `ui` and `ui/access`, `modifiers`, `clipboard` and `util`. The components are grouped by family:
+
+| Module | Components |
+|---|---|
+| `stack`, `card`, `canvas`, `fill`, `text`, `icon`, `icon_set`, `image` | Layout primitives, cards, custom drawing, text, icons, images |
+| `button`, `inputs`, `text_field`, `choice`, `calendar`, `date` | Buttons, form controls, text input, `ToggleGroup`, `Pagination`, `Label`, `AspectRatio`, `Calendar`, `DatePicker` |
+| `nav`, `ribbon` | `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Ribbon` |
+| `overlay`, `floating` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `Toaster`, `Combobox`, `CommandPalette` |
+| `display`, `data`, `extras` | Badges and alerts; lists, tables and charts; `Spinner`, `Carousel`, `Splitter`, `Menubar`, `InputOtp`, `FormField` |
+| `grid/` | `DataGrid`: `query` (pure pipeline), `model`, `view` |
+
+Three examples use the public API: `hello-world`, `component-gallery` (one demo per component) and `report-designer`. The design tokens are defined in [docs/design-system](docs/design-system), and `ravenrs-style` mirrors them value for value.
 
 ## 4. The frame pipeline
 
@@ -114,11 +147,11 @@ Rich components need more than layout and paint; the runtime provides them gener
 
 * **Widget-local state.** `cx.use_state(init)` returns a `State<T>` owned by that widget instance, keyed by its `WidgetId` and call order. It survives rebuilds and is dropped when the widget is no longer built. `Keyed::new(key, view)` resets it on purpose.
 * **Overlays.** `cx.overlay(anchor, placement, &view, on_dismiss)` builds a floating layer after the main tree. It is laid out as its own Taffy root, placed relative to the anchor's final frame (flipped and clamped to the viewport), painted last, hit-tested first, and dismissed on outside clicks or Escape.
-* **Scrolling and clipping.** `cx.scrollable(node)` makes a vertical scroll container: offsets are kept per `WidgetId`, wheel events move the innermost scrollable under the pointer, children are clipped with scissor rectangles, and a thin scrollbar is drawn. Scrolling only re-places and repaints; it does not rebuild or re-run layout.
+* **Scrolling and clipping.** `cx.scrollable(node)` makes a vertical scroll container (`cx.scroll_horizontally` adds the other axis, which `DataGrid` uses): offsets are kept per `WidgetId`, wheel events move the innermost scrollable under the pointer, children are clipped with scissor rectangles, and a thin scrollbar is drawn. Scrolling only re-places and repaints; it does not rebuild or re-run layout.
 * **Input.** `cx.on_key` (focused element first, default handling otherwise), `cx.on_drag` (start/move/end with the element frame), `cx.on_click`, `cx.focusable`, `cx.cursor`, and `cx.is_hover_within()` for hover over a subtree.
 * **Clipboard.** `cx.clipboard()` reads and writes the system clipboard: `arboard` on desktop, `navigator.clipboard` on the web (where reading is asynchronous, so a paste arrives through the browser's `paste` event as typed text). `Ui::set_clipboard` swaps the provider; tests use an in-memory one.
 * **Theme as state.** The theme is a `State<Theme>`; `ThemeSwitcher` or any component can change it through `cx.theme_state()` and the whole UI rebuilds with the new tokens.
-* **Icons.** A 36 KB subset of Lucide (ISC) is embedded as a font, so icons are glyphs: sharp at any size, colored like text, and batched with text. `scripts/gen-icons.py` regenerates the subset and the `IconName` enum.
+* **Icons.** A subset of Lucide (ISC), about 200 icons in 68 KB, is embedded as a font, so icons are glyphs: sharp at any size, colored like text, and batched with text. `scripts/gen-icons.py` regenerates the subset and the `IconName` enum.
 
 ## 6.2 DataGrid
 
@@ -140,11 +173,39 @@ Parity with the DevExpress DataGrid feature set:
 | Cell editing (double-click, Enter, F2; Enter commits, Escape cancels), typed parsing | ✓ |
 | Cell templates (any view) and custom formats; number/currency formats with separators | ✓ |
 | CSV export (RFC 4180, raw numbers) | ✓ |
+| Copying rows as tab-separated text (Cmd/Ctrl+C) | ✓ |
 | Column reordering by drag, drag-to-group | planned |
 | Fixed (frozen) columns, multi-level (banded) headers | planned |
 | Header filter pop-ups (value checklists), filter builder | planned |
 | Master-detail rows, paging UI, row add/delete UI, validation | planned |
 | Excel export, state persistence, context menus, cell range copy | planned |
+
+## 6.3 Criteria language
+
+`ravenrs-criteria` is one expression language for filters, report totals, rules and SQL `WHERE` clauses, modeled on the behavior of the DevExpress Criteria Language. It knows nothing about reports or UI, and nothing specific to a module belongs in it.
+
+* **Tree.** `Criteria` is public: parse it from text (`parse`), build it in code, walk it, and print it back to text that parses to the same tree (`format`).
+* **Evaluation.** `Scope` interprets the tree in memory over any `Record`, such as JSON, a map or your own rows. `Environment` holds parameters and custom functions.
+* **Function catalog.** One table in `functions` drives parsing, arity checks and expression editors.
+* **Validation.** `validate` checks an expression against a `Schema` before anything runs.
+* **SQL.** `to_sql` translates to parameterized SQL per `Dialect`.
+* **Formatting.** `format_value` and `format_composite` use .NET-style format strings per `Culture`.
+
+`DataGrid` still parses its own filter syntax in `grid::query`; moving it onto this crate is planned.
+
+## 6.4 Reporting
+
+`ravenrs-report` turns a definition plus data into a paginated document. Layout happens once, and every consumer draws the same result, so a preview and an export cannot drift apart.
+
+```
+Report (model: JSON or builder) + data ──► ReportEngine (engine) ──► Document (pages in points)
+                                                                         │
+                                               paint_page ──► Scene ──► on-screen preview
+```
+
+Expressions in a report come from `ravenrs-criteria`, and text is measured with the same Parley stack as the UI. `wizard` builds a finished table report from a data source, and `samples` holds the templates. The designer is `examples/report-designer`, built on `Ribbon` and the other public components: `editor` (shared state), `surface` (bands and controls), `props` (property grid), `preview` (document viewer).
+
+Phase R1 is done. Exporters, the viewer widget, the server and scheduled delivery are not built yet; [docs/REPORTING.md](docs/REPORTING.md) has the design and phases, and [docs/REPORTING-PARITY.md](docs/REPORTING-PARITY.md) tracks each feature.
 
 ## 7. Rendering
 
@@ -154,7 +215,7 @@ Parity with the DevExpress DataGrid feature set:
 * **Soft shadows** are separate instances drawn under their shape: the coverage is an `erf` approximation over the same SDF, which gives a Gaussian-looking falloff in one pass with no blur texture.
 * **Text** is shaped by Parley, rasterized per glyph by `swash` (outline, alpha mask, 4 horizontal sub-pixel positions, no hinting) into an R8 atlas packed with shelves, and drawn as textured quads snapped to the device pixel grid. The atlas grows (×2 up to the device limit) when it fills; at the limit it is cleared.
 * **Color.** Tokens are sRGB. The renderer prefers non-sRGB surface formats so blending happens in sRGB space, as in browsers and design tools; on `*Srgb` targets the shaders linearize colors first. Output is premultiplied alpha.
-* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. The only GPU→CPU readback in the repository is in `crates/ravenrs-render/tests/offscreen.rs`, which renders real scenes on the GPU and checks pixels.
+* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: `crates/ravenrs-render/tests/offscreen.rs` checks pixels of real scenes and `crates/ravenrs/tests/visual.rs` compares golden images.
 
 **Why not Vello (yet).** Vello's main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Vello remains the candidate for arbitrary vector paths (charts, icons, `Canvas` paths) behind the same `Scene` boundary.
 
@@ -162,7 +223,7 @@ Parity with the DevExpress DataGrid feature set:
 
 ## 8. Layout
 
-`ravenrs-layout` exposes a small typed subset of flexbox (`LayoutStyle`: axis, spacing, padding, alignment, justification, sizes, growth) over Taffy. The UI root is a box sized to the viewport; stacks are flex containers; text leaves have zero minimum width so they wrap instead of overflowing. Taffy also offers Grid and Block layout, which `Grid` and `List` will use.
+`ravenrs-layout` exposes a small typed subset of flexbox (`LayoutStyle`: axis, spacing, padding, alignment, justification, sizes, growth) over Taffy. The UI root is a box sized to the viewport; stacks are flex containers; text leaves have zero minimum width so they wrap instead of overflowing. The `Grid` view uses Taffy's Grid layout with equal-width columns (`grid_columns`).
 
 ## 9. Text
 
@@ -201,21 +262,23 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Workspace, local checks (`scripts/check.sh`: desktop + wasm) | ✓ | | Hosted CI (intentionally not used for now) |
 | `State`, `Binding`, `Derived`, dependency tracking | ✓ | | |
 | Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
-| `View`, `Component`, `BuildCx`, `view_fn`, `responsive`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`raven-macros`) |
-| Layout: `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Section`, `Card` | ✓ | | `ZStack`, horizontal scrolling, virtualized lists |
-| Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `TextField`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `Select`, `ThemeSwitcher` | ✓ | | `DatePicker`, multi-line text, text selection |
-| Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion` | ✓ | | `NavigationView`, docking, resizable panels |
-| Overlays: `Tooltip`, `Popover`, `DropdownMenu`, `Dialog` | ✓ | | context menus, command palette, toasts |
+| `View`, `Component`, `BuildCx`, `view_fn`, `responsive`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`ravenrs-macros`) |
+| Layout: `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Section`, `Card`, `Splitter`, `AspectRatio` | ✓ | | `ZStack`, horizontal `ScrollView`, virtualized `List` |
+| Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `TextField`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `Select`, `Combobox`, `ToggleButton`, `ToggleGroup`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher`; text selection in `TextField` | ✓ | | multi-line text |
+| Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView`, docking |
+| Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `Toaster`, `CommandPalette` | ✓ | | |
 | Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |
-| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (112 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Skeleton`, `Alert`, `Stat`, `List`, `Table`, `BarChart`, `AreaChart`, `Canvas` | ✓ | | image loading from URLs, line/pie charts |
+| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `BarChart`, `AreaChart`, `Canvas` | ✓ | | image loading from URLs, line/pie charts |
 | `GlassCard` | | translucent fill only | backdrop blur |
 | Rounded rects, borders, gradients, soft shadows, text, images (mipmapped, rounded), rectangular clipping | ✓ | | rounded clipping, radial gradients, transforms, layers |
-| Raven Dark / Light / Glass tokens | ✓ | | runtime theme switch UI, reduced-motion wiring |
-| Motion engine (springs, transitions) | | | `raven-animation` |
-| Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, device loss | ✓ | | multiple windows, clipboard, IME |
-| Web: canvas, WebGPU, DPR, pointer, wheel, touch scrolling, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | clipboard copy, pinch and momentum scrolling |
+| Raven Dark / Light / Glass tokens, runtime theme switching, `reduced_motion` token (honored by `Spinner`) | ✓ | | reading the system's reduced-motion setting |
+| Motion engine (springs, transitions) | | | `ravenrs-animation` |
+| Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, clipboard, device loss | ✓ | | multiple windows, IME |
+| Web: canvas, WebGPU, DPR, pointer, wheel, touch scrolling, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), clipboard copy, rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | pinch and momentum scrolling |
 | Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web | | caret and selection for screen readers, right-to-left |
-| Benchmarks and profiling | `tracing` spans per phase | | criterion benches, GPU timestamps |
+| Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
+| Reporting: engine, wizard, designer with preview (phase R1, see §6.4) | ✓ | | PDF and other exports, viewer widget, server and scheduled delivery (phases R2 to R5) |
+| Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`, budgets in [docs/QUALITY.md](docs/QUALITY.md)) | | GPU timestamps |
 
 ## 12. Decisions log
 
