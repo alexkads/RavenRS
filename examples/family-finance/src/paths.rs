@@ -20,7 +20,10 @@ pub fn installed_binary() -> Option<PathBuf> {
         std::env::var_os("LOCALAPPDATA")
             .map(|base| PathBuf::from(base).join("Programs").join("RavenFinancas").join("family-finance.exe"))
     } else if cfg!(target_os = "macos") {
-        user_home.map(|h| h.join("Applications/Raven Finanças.app/Contents/MacOS/family-finance"))
+        // The installer uses /Applications when it can write there.
+        const INSIDE: &str = "Raven Finanças.app/Contents/MacOS/family-finance";
+        let system = PathBuf::from("/Applications").join(INSIDE);
+        if system.exists() { Some(system) } else { user_home.map(|h| h.join("Applications").join(INSIDE)) }
     } else {
         user_home.map(|h| h.join(".local/bin/family-finance"))
     }

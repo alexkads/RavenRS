@@ -208,60 +208,100 @@ if [ -z "$RESPOSTA" ]; then
 fi
 
 if [ "$(uname -s)" = Darwin ]; then
-  DESTINO="${FF_DESTINO:-$HOME/Applications}"
+  # /Applications when this user can write there, which is where Launchpad looks first.
+  if [ -n "${FF_DESTINO:-}" ]; then
+    DESTINO="$FF_DESTINO"
+  elif [ -w /Applications ]; then
+    DESTINO=/Applications
+  else
+    DESTINO="$HOME/Applications"
+  fi
   mkdir -p "$DESTINO"
-  NOVO="$DESTINO/.$NOME.app.novo"
-  rm -rf "${NOVO:?}"
-  mkdir -p "$NOVO/Contents/MacOS"
-  cp "$BINARIO" "$NOVO/Contents/MacOS/family-finance"
-  mkdir -p "$NOVO/Contents/Resources"
-  cp "$CODIGO/examples/family-finance/assets/icon.icns" "$NOVO/Contents/Resources/icon.icns"
-  cat > "$NOVO/Contents/Info.plist" <<PLIST
+  MONTADO="$CASA/$NOME.app"
+  rm -rf "${MONTADO:?}"
+  mkdir -p "$MONTADO/Contents/MacOS" "$MONTADO/Contents/Resources"
+  cp "$BINARIO" "$MONTADO/Contents/MacOS/family-finance"
+  cp "$CODIGO/examples/family-finance/assets/icon.icns" "$MONTADO/Contents/Resources/icon.icns"
+  # CFBundleVersion changes on every install: that is what makes macOS read the icon again.
+  cat > "$MONTADO/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleName</key><string>$NOME</string>
+	<key>CFBundleDevelopmentRegion</key><string>Portuguese</string>
 	<key>CFBundleDisplayName</key><string>$NOME</string>
-	<key>CFBundleIdentifier</key><string>dev.ravenrs.family-finance</string>
 	<key>CFBundleExecutable</key><string>family-finance</string>
-	<key>CFBundleIconFile</key><string>icon</string>
-	<key>CFBundleShortVersionString</key><string>$RESPOSTA</string>
-	<key>CFBundleVersion</key><string>$RESPOSTA</string>
+	<key>CFBundleIconFile</key><string>icon.icns</string>
+	<key>CFBundleIdentifier</key><string>dev.ravenrs.family-finance</string>
+	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+	<key>CFBundleName</key><string>$NOME</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
+	<key>CFBundleShortVersionString</key><string>$RESPOSTA</string>
+	<key>CFBundleVersion</key><string>$(date +%Y%m%d.%H%M%S)</string>
 	<key>LSApplicationCategoryType</key><string>public.app-category.finance</string>
+	<key>LSMinimumSystemVersion</key><string>10.15</string>
 	<key>NSHighResolutionCapable</key><true/>
 </dict>
 </plist>
 PLIST
+  # Not from Apple, but it gives the app a stable identity for the system to recognize.
+  codesign --force --sign - "$MONTADO" >/dev/null 2>&1 \
+    || printf '! não consegui assinar ad-hoc; o app funciona, mas o macOS pode tratá-lo como novo a cada versão\n'
+
+  # The new one goes beside it under another name, and moves in only once it is whole.
+  NOVO="$DESTINO/.$NOME.app.novo"
+  rm -rf "${NOVO:?}"
+  ditto "$MONTADO" "$NOVO" || { rm -rf "${NOVO:?}"; erro "não consegui copiar o app novo; o instalado continua como estava"; exit 1; }
+  rm -rf "${MONTADO:?}"
+  # The previous version stays out of the applications folder, where macOS would list it as a second app.
+  ANTERIOR="$CASA/anterior/$NOME.app"
+  mkdir -p "$CASA/anterior"
+  rm -rf "${ANTERIOR:?}"
+  # Where earlier versions of this script left it.
   rm -rf "${DESTINO:?}/${NOME:?}.app.anterior"
   if [ -d "$DESTINO/$NOME.app" ]; then
-    mv "$DESTINO/$NOME.app" "$DESTINO/$NOME.app.anterior" \
+    mv "$DESTINO/$NOME.app" "$ANTERIOR" \
       || { rm -rf "${NOVO:?}"; erro "não consegui afastar o app instalado; ele continua como estava"; exit 1; }
   fi
   if ! mv "$NOVO" "$DESTINO/$NOME.app"; then
-    [ -d "$DESTINO/$NOME.app.anterior" ] && mv "$DESTINO/$NOME.app.anterior" "$DESTINO/$NOME.app"
+    [ -d "$ANTERIOR" ] && mv "$ANTERIOR" "$DESTINO/$NOME.app"
     erro "não consegui colocar o app novo; o anterior voltou"
     exit 1
   fi
-  printf '\nOK %s %s instalado em %s.\n' "$NOME" "$RESPOSTA" "$DESTINO"
+  # A copy from before the app could go to /Applications would show as a second app.
+  if [ "$DESTINO" = /Applications ] && [ -d "$HOME/Applications/$NOME.app" ]; then
+    rm -rf "${HOME:?}/Applications/${NOME:?}.app"
+  fi
+  rm -rf "${HOME:?}/Applications/${NOME:?}.app.anterior"
+  # Same path, so macOS has to be told it changed.
+  LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+  [ -x "$LSREGISTER" ] && "$LSREGISTER" -f "$DESTINO/$NOME.app" || true
+  printf '\nOK %s %s instalado em %s. Abra pelo Launchpad ou com: open -a "%s"\n' "$NOME" "$RESPOSTA" "$DESTINO" "$NOME"
 else
   DESTINO="${FF_DESTINO:-$HOME/.local}"
   mkdir -p "$DESTINO/bin" "$DESTINO/share/applications" "$DESTINO/share/icons/hicolor/256x256/apps"
   cp "$CODIGO/examples/family-finance/assets/icon.png" "$DESTINO/share/icons/hicolor/256x256/apps/family-finance.png"
   INSTALADO="$DESTINO/bin/family-finance"
-  [ -f "$INSTALADO" ] && cp -p "$INSTALADO" "$INSTALADO.anterior"
   # `mv` is atomic on the same disk, so the installed binary is never half written.
-  cp "$BINARIO" "$INSTALADO.novo"
-  mv "$INSTALADO.novo" "$INSTALADO"
+  install -m 755 "$BINARIO" "$INSTALADO.novo" \
+    || { rm -f "$INSTALADO.novo"; erro "não consegui copiar o app novo; o instalado continua como estava"; exit 1; }
+  if [ -f "$INSTALADO" ]; then
+    cp -p "$INSTALADO" "$INSTALADO.anterior" 2>/dev/null || true
+  fi
+  mv -f "$INSTALADO.novo" "$INSTALADO" \
+    || { rm -f "$INSTALADO.novo"; erro "a troca falhou; o instalado continua como estava"; exit 1; }
   cat > "$DESTINO/share/applications/family-finance.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=$NOME
 Exec=$INSTALADO
 Icon=family-finance
+StartupWMClass=family-finance
+Terminal=false
 Categories=Office;Finance;
 DESKTOP
+  command -v update-desktop-database >/dev/null 2>&1 \
+    && update-desktop-database "$DESTINO/share/applications" >/dev/null 2>&1 || true
   printf '\nOK %s %s instalado em %s.\n' "$NOME" "$RESPOSTA" "$INSTALADO"
 fi
 # Fim do instalador. Apagar a pasta de compilação é seguro: ela volta na próxima atualização.
