@@ -49,6 +49,7 @@ pub(crate) fn role(role: Role) -> accesskit::Role {
         Role::Separator => A::Splitter,
         Role::ScrollView => A::ScrollView,
         Role::Calendar => A::Grid,
+        Role::ContentInfo => A::ContentInfo,
         _ => A::GenericContainer,
     }
 }
@@ -164,6 +165,11 @@ mod tests {
 
     fn rect(x: f32, y: f32, w: f32, h: f32) -> ravenrs_core::Rect {
         ravenrs_core::Rect::from_origin_size(Point::new(x, y), Size::new(w, h))
+    }
+
+    #[test]
+    fn the_footer_landmark_keeps_its_role() {
+        assert_eq!(role(Role::ContentInfo), accesskit::Role::ContentInfo);
     }
 
     #[test]

@@ -921,6 +921,20 @@ impl Gallery {
                 "Resizable panels, carousels, menus, toggles, pagination and loaders.",
             ),
             demo(
+                "Footer",
+                "Left, center and right areas under a hairline. Below 640 pixels of window width they stack, as the second one always does.",
+                VStack::new((
+                    samples::sample("Footer"),
+                    Footer::new()
+                        .divider(false)
+                        .stacked()
+                        .left((Footer::text("© 2026 Raven Finance"),))
+                        .center((Footer::link("Privacy"), Footer::link("Terms")))
+                        .right((Footer::text("v27.1"),)),
+                ))
+                .align(Align::Stretch),
+            ),
+            demo(
                 "Menubar",
                 "Desktop-style menus.",
                 Menubar::new()

@@ -25,6 +25,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Docking / Dock manager | | ✓ | ✓ | ⬜ |
 | Window (floating) | | ✓ | ✓ | ⬜ |
 | App bar / Toolbar | | ✓ | ✓ | 🟡 composable from `HStack` + buttons; no overflow menu |
+| Footer | | | | ✅ `Footer` |
 
 ## Navigation
 

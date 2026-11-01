@@ -39,7 +39,7 @@ samples! {
     "BarChart" => bar_chart, "AreaChart" => area_chart,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
-    "Section" => section, "Divider" => divider, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
+    "Section" => section, "Divider" => divider, "Footer" => footer, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
     "Text" => text, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Icon" => icon, "Image" => image, "Carousel" => carousel, "Canvas" => canvas,
@@ -595,6 +595,15 @@ fn divider() -> impl View {
     VStack::new((Text::new("Above"), Divider::horizontal(), Text::new("Below")))
         .spacing(12.0)
         .align(Align::Stretch)
+}
+// end
+
+// sample: Footer, 170
+fn footer() -> impl View {
+    Footer::new()
+        .left((Footer::text("© 2026 Raven Finance"),))
+        .center((Footer::link("Privacy"), Footer::link("Terms"), Footer::link("Help")))
+        .right((Footer::text("v27.1"), Badge::new("Online").tone(Tone::Success)))
 }
 // end
 

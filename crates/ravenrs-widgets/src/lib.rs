@@ -93,7 +93,7 @@ pub use motion::{Collapse, Motion};
 pub use nav::{Accordion, Breadcrumb, Disclosure, Sidebar, SidebarItem, SidebarSection, Tabs};
 pub use overlay::{Dialog, DropdownMenu, MenuItem, Popover, Select, Tooltip};
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
-pub use stack::{Grid, HStack, ScrollView, Spacer, VStack};
+pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, VStack};
 pub use text::Text;
 pub use text_field::TextField;
 pub use ui::Ui;
