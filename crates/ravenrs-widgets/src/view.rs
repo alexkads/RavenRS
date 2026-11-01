@@ -171,6 +171,12 @@ pub trait ViewSeq {
     fn build_each(&self, cx: &mut BuildCx<'_>, out: &mut Vec<NodeId>);
 }
 
+impl<C: ViewSeq + ?Sized> ViewSeq for &C {
+    fn build_each(&self, cx: &mut BuildCx<'_>, out: &mut Vec<NodeId>) {
+        (**self).build_each(cx, out);
+    }
+}
+
 impl<V: View> ViewSeq for Vec<V> {
     fn build_each(&self, cx: &mut BuildCx<'_>, out: &mut Vec<NodeId>) {
         for v in self {

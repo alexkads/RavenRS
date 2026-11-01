@@ -25,13 +25,14 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Docking / Dock manager | | ✓ | ✓ | ⬜ |
 | Window (floating) | | ✓ | ✓ | ⬜ |
 | App bar / Toolbar | | ✓ | ✓ | 🟡 composable from `HStack` + buttons; no overflow menu |
+| Footer | | | | ✅ `Footer` |
 
 ## Navigation
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
 | Tabs / TabStrip | ✓ | ✓ | ✓ | ✅ `Tabs` |
-| Sidebar / Drawer navigation | ✓ | ✓ | ✓ | ✅ `Sidebar` |
+| Sidebar / Drawer navigation | ✓ | ✓ | ✓ | ✅ `Sidebar`: closes to icons or off the screen, header and footer, groups, submenus, actions, badges, skeleton, sheet in narrow windows, floating and inset variants. Drag to resize: `Splitter` |
 | Breadcrumb | ✓ | ✓ | ✓ | ✅ `Breadcrumb` |
 | Pagination / Pager | ✓ | ✓ | ✓ | ✅ `Pagination` |
 | Accordion / PanelBar | ✓ | ✓ | ✓ | ✅ `Accordion`, `Disclosure` |
@@ -126,6 +127,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 |---|---|---|---|---|
 | Dialog / Alert dialog | ✓ | ✓ | ✓ | ✅ `Dialog` |
 | Sheet / Drawer (side panel) | ✓ | ✓ | ✓ | ✅ `Sheet` |
+| Splash screen | | ✓ | ✓ | ✅ `SplashScreen` |
 | Popover | ✓ | ✓ | ✓ | ✅ |
 | Tooltip | ✓ | ✓ | ✓ | ✅ |
 | Hover card | ✓ | | | ✅ `HoverCard` |

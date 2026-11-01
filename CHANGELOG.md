@@ -5,13 +5,24 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ## [Unreleased]
 
 ### Added
-- **Family finance example.** `examples/family-finance` is a desktop app for a family's expenses and bills to pay on SQLite, with reports, expression filters in SQL and updates that compile on the user's machine. It exists to show the framework and to find what is missing in it; see its [README](examples/family-finance/README.md).
-- **Components in other languages.** `Labels` holds the words the built-in components use and `Localized` applies them to everything inside, so an app sets its language once. `Labels::pt_br` comes ready.
 - **Waking the UI from another thread.** `UiWaker`, from `BuildCx::ui_waker`, asks for a rebuild from any thread, so background work needs no polling. `Ui::set_remote_waker` connects it to a platform.
 - `ravenrs::native::SaveDialog` shows the system's dialog for choosing where to save, and `ravenrs::native::open_with_system` opens a file with the system's program.
 - **`Scheduler`.** A timeline of resources on the model of Bryntum Scheduler: events as bars that drag along time and between rows, resize by their ends and are drawn on an empty stretch, with `can_drop` to refuse a place, zoom from months to hours, lanes for overlaps, shaded weekends, collapsible groups, keyboard control, and only what is in view built. `TimeAxis` and `TimePoint` describe its time. What is still missing is listed in [docs/PARITY.md](docs/PARITY.md).
 - **`EventCalendar`.** A month with its events inside each day.
 - **Recurrence.** `RecurrenceRule` says on which days something repeats, with no UI, and reads and writes iCalendar's `RRULE`. `RecurrenceEditor` edits one and says it in words.
+
+### Fixed
+- A `Select`, `DatePicker` or menu inside a `Dialog` or `Sheet` opened in the window's corner, behind the dialog's backdrop. Overlays opened from inside another now come after it: they sit by their anchor and on top, keep focus, and Escape closes only them.
+
+## [27.1.1] - 2026-11-01
+
+### Added
+- **Family finance example.** `examples/family-finance` is a desktop app for a family's expenses and bills to pay on SQLite, with reports, expression filters in SQL and updates that compile on the user's machine. It exists to show the framework and to find what is missing in it; see its [README](examples/family-finance/README.md).
+- **Components in other languages.** `Labels` holds the words the built-in components use and `Localized` applies them to everything inside, so an app sets its language once. `Labels::pt_br` comes ready.
+- **A fuller `Sidebar`.** It closes to a rail of icons or off the screen with `SidebarCollapse`, by Cmd/Ctrl+B or a `SidebarTrigger`, sharing a `SidebarState` that an app can drive with its own binding. It has `header` and `footer` around content that scrolls, `side`, `SidebarVariant::Floating` and `Inset` with `SidebarInset`, and with `narrow_below` small windows show it as a sheet. `SidebarGroup` folds and carries actions; `SidebarItem` gains `text`, `badge`, `disabled`, `action` and submenus with `item`; `SidebarSkeleton` holds the place while items load. On the rail, labels become tooltips, on hover and on keyboard focus. Arrow keys move between rows and fold them. Sidebars that use none of this look as they did.
+- `Role::Navigation`, for navigation landmarks, and `Placement::RightCenter` and `LeftCenter`.
+- `SplashScreen` covers the window while the app loads, with a logo or icon, the app's name, a status that screen readers announce, and a spinner or progress bar. It leaves with a fade, without the zoom under reduced motion.
+- `Footer` ends a page or an app with left, center and right areas and a hairline on top. The center stays centered between uneven sides, and in a narrow window the areas stack. `Role::ContentInfo` is its landmark for screen readers.
 - `Align::Fit` keeps a child's own size without overriding a parent that centers its children.
 - `Stat::delta_toned` separates a change's direction from whether it is good, for numbers such as spending.
 - **Report server.** `ravenrs-report-server` stores layouts with versions, renders them over HTTP, and sends scheduled reports by email or to a folder as PDF, XLSX or CSV. Jobs have cron schedules with time zones, parameters computed by expression, skip if empty, retries that do not send twice, retention, and a history of who received what. See [docs/REPORT-SERVER.md](docs/REPORT-SERVER.md).
@@ -26,7 +37,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Links and outline.** `ControlKind::Link` opens an `https:`, `http:` or `mailto:` address from a PDF, a spreadsheet or SVG; any other scheme is refused and reported. `ControlKind::Bookmark` adds entries, nested by level, to the PDF's outline. `Item` gains `Image`, `Link` and `Bookmark`.
 
 ### Fixed
-- A `Select`, `DatePicker` or menu inside a `Dialog` or `Sheet` opened in the window's corner, behind the dialog's backdrop. Overlays opened from inside another now come after it: they sit by their anchor and on top, keep focus, and Escape closes only them.
+- A control that took keyboard focus while scrolled out of view stayed hidden. Tab, arrow keys and `request_focus` now scroll the containers around it, nested ones included, until it shows; a click still does not scroll.
+- A full-window layer with nothing to focus left keyboard focus on the page behind it, where Enter could still press a button.
 - `Button`, `Badge`, `DatePicker` and other controls ignored a stack's `Align::Center` and sat at its start.
 - `None` and other empty views took a gap in their stack.
 - `DocumentViewer` worked out its width from the whole window, so beside a sidebar the page was off center and scrolled sideways.
@@ -167,7 +179,8 @@ The first public release.
 - `scripts/check.sh` runs formatting, clippy (native and wasm32), the tests and the web builds locally.
 - `scripts/deploy-pages.sh` publishes the landing page, the live gallery and the API docs.
 
-[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.0...HEAD
+[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.1...HEAD
+[27.1.1]: https://github.com/alexkads/RavenRS/compare/v27.1.0...v27.1.1
 [27.1.0]: https://github.com/alexkads/RavenRS/compare/v26.2.1...v27.1.0
 [26.2.1]: https://github.com/alexkads/RavenRS/compare/v26.2.0...v26.2.1
 [26.2.0]: https://github.com/alexkads/RavenRS/compare/v0.1.0...v26.2.0

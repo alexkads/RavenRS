@@ -1,8 +1,10 @@
-//! More floating UI: context menus, hover cards, sheets, toasts, the command
-//! palette and the combobox.
+//! More floating UI: context menus, hover cards, sheets, splash screens, toasts,
+//! the command palette and the combobox.
 
 use std::cell::Cell;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Role};
@@ -166,44 +168,57 @@ impl Sheet {
     }
 }
 
-struct SheetLayer<'a>(&'a Sheet);
+/// The dimmed backdrop and sliding panel of a sheet. `bare` leaves out the title
+/// row and the padding, for content that brings its own (a sidebar).
+pub(crate) struct SheetLayer<'a> {
+    pub open: &'a Binding<bool>,
+    pub title: &'a str,
+    pub description: Option<&'a str>,
+    pub content: Option<&'a dyn View>,
+    pub side: Side,
+    pub width: f32,
+    pub bare: bool,
+}
 
 impl View for SheetLayer<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let s = self.0;
+        let s = self;
         let viewport = cx.viewport();
-        let close = s.open.clone();
-        let title = util::label(cx, &s.title, TextStyle::Title, None, theme.color(Semantic::Ink));
-        let title = cx.container(
-            LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
-            &[title],
-            Paint::None,
-        );
-        let x = cx.child(
-            &IconButton::new(IconName::X)
-                .label(cx.labels().close.clone())
-                .size(ButtonSize::Small)
-                .on_click(move || close.set(false)),
-        );
-        let header = cx.container(
-            LayoutStyle { align: Align::Center, spacing: 12.0, ..LayoutStyle::stack(Axis::Horizontal) },
-            &[title, x],
-            Paint::None,
-        );
-        let mut body = vec![header];
-        if let Some(d) = &s.description {
+        let mut body = Vec::new();
+        if !s.bare {
+            let close = s.open.clone();
+            let title = util::label(cx, s.title, TextStyle::Title, None, theme.color(Semantic::Ink));
+            let title = cx.container(
+                LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
+                &[title],
+                Paint::None,
+            );
+            let x = cx.child(
+                &IconButton::new(IconName::X)
+                    .label(cx.labels().close.clone())
+                    .size(ButtonSize::Small)
+                    .on_click(move || close.set(false)),
+            );
+            let header = cx.container(
+                LayoutStyle { align: Align::Center, spacing: 12.0, ..LayoutStyle::stack(Axis::Horizontal) },
+                &[title, x],
+                Paint::None,
+            );
+            body.push(header);
+        }
+        if let Some(d) = s.description {
             body.push(util::label(cx, d, TextStyle::Body, None, theme.color(Semantic::InkMuted)));
         }
-        if let Some(c) = &s.content {
-            body.push(cx.child(c.as_ref()));
+        if let Some(c) = s.content {
+            body.push(cx.child(c));
         }
         let panel = cx.container(
             LayoutStyle {
                 width: Some(s.width.min(viewport.width)),
                 height: Some(viewport.height),
-                padding: Insets::uniform(24.0),
-                spacing: 16.0,
+                padding: if s.bare { Insets::ZERO } else { Insets::uniform(24.0) },
+                spacing: if s.bare { 0.0 } else { 16.0 },
                 align: Align::Stretch,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
@@ -214,9 +229,9 @@ impl View for SheetLayer<'_> {
                 ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
             }),
         );
-        let mut semantics = Semantics::new(Role::Dialog).name(s.title.clone()).modal();
-        if let Some(d) = &s.description {
-            semantics = semantics.description(d.clone());
+        let mut semantics = Semantics::new(Role::Dialog).name(s.title).modal();
+        if let Some(d) = s.description {
+            semantics = semantics.description(d);
         }
         cx.semantics(panel, semantics);
         cx.cursor(panel, CursorIcon::Default);
@@ -249,7 +264,193 @@ impl View for Sheet {
         let anchor = cx.empty();
         if self.open.get() {
             let close = self.open.clone();
-            cx.overlay(anchor, Placement::Fill, &SheetLayer(self), Some(Rc::new(move || close.set(false))));
+            let layer = SheetLayer {
+                open: &self.open,
+                title: &self.title,
+                description: self.description.as_deref(),
+                content: self.content.as_deref(),
+                side: self.side,
+                width: self.width,
+                bare: false,
+            };
+            cx.overlay(anchor, Placement::Fill, &layer, Some(Rc::new(move || close.set(false))));
+        }
+        anchor
+    }
+}
+
+/// How wide the content of a [`SplashScreen`] gets, in logical pixels.
+const SPLASH_CONTENT_WIDTH: f32 = 320.0;
+/// The size of a [`SplashScreen`]'s icon, in logical pixels.
+const SPLASH_ICON_SIZE: f32 = 64.0;
+
+/// The opening screen that covers the window while the app loads: a logo or
+/// icon, the app's name, a status message and its progress.
+///
+/// It takes no input and has nothing to focus, so the page behind it stays out
+/// of reach until the app sets `visible` to false and the screen fades out. It
+/// is on screen from the very first frame, with no fade in. Without
+/// [`Self::progress`] it shows a [`Spinner`](crate::Spinner).
+///
+/// Status and progress are plain values, so build it where they are read, such
+/// as in a [`Component`](crate::Component) body or a [`view_fn`](crate::view_fn).
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{IconName, SplashScreen, View, view_fn};
+///
+/// let loading = State::new(true);
+/// let progress = State::new(0.25);
+/// let splash = view_fn(move || {
+///     SplashScreen::new(loading.binding(), "Raven Finance")
+///         .icon(IconName::Wallet)
+///         .status("Opening the database")
+///         .progress(progress.get())
+/// });
+/// ```
+pub struct SplashScreen {
+    visible: Binding<bool>,
+    name: String,
+    logo: Option<crate::AnyView>,
+    icon: Option<IconName>,
+    status: Option<String>,
+    progress: Option<f32>,
+}
+
+impl fmt::Debug for SplashScreen {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SplashScreen").field("name", &self.name).finish_non_exhaustive()
+    }
+}
+
+impl SplashScreen {
+    /// A splash screen for the app called `name`, shown while `visible` is true.
+    pub fn new(visible: Binding<bool>, name: impl Into<String>) -> Self {
+        Self { visible, name: name.into(), logo: None, icon: None, status: None, progress: None }
+    }
+
+    /// Shows the app's own artwork above the name, such as an [`Image`](crate::Image).
+    /// It replaces [`Self::icon`].
+    pub fn logo(mut self, logo: impl View + 'static) -> Self {
+        self.logo = Some(Box::new(logo));
+        self
+    }
+
+    /// Shows an icon in the accent color above the name.
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// Sets the one-line message under the name. Screen readers announce each new one.
+    pub fn status(mut self, status: impl Into<String>) -> Self {
+        self.status = Some(status.into());
+        self
+    }
+
+    /// Replaces the spinner with a progress bar at `value`, clamped to 0.0–1.0.
+    pub fn progress(mut self, value: f32) -> Self {
+        self.progress = Some(value);
+        self
+    }
+}
+
+/// The status message, as a live region.
+struct SplashStatus<'a>(&'a str, f32);
+
+impl View for SplashStatus<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let attrs = util::attrs(&theme, TextStyle::Callout, None);
+        let style = LayoutStyle { max_width: Some(self.1), ..LayoutStyle::leaf() };
+        let text = cx.text_truncated(self.0, &attrs, theme.color(Semantic::InkMuted), style);
+        let style = LayoutStyle { max_width: Some(self.1), ..LayoutStyle::stack(Axis::Horizontal) };
+        let node = cx.container(style, &[text], Paint::None);
+        cx.semantics(node, Semantics::new(Role::Status));
+        cx.motion(node, Motion::new().enter(Effect::hidden(), theme.motion.fast));
+        node
+    }
+}
+
+/// A progress bar named for screen readers.
+struct SplashBar(f32);
+
+impl View for SplashBar {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let bar = cx.child(&crate::ProgressBar::new(self.0));
+        let name = cx.labels().loading.clone();
+        cx.label_control(bar, &name, None);
+        bar
+    }
+}
+
+struct SplashLayer<'a>(&'a SplashScreen);
+
+impl View for SplashLayer<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let s = self.0;
+        let viewport = cx.viewport();
+        let width = (viewport.width - theme.spacing.s6 * 2.0).clamp(0.0, SPLASH_CONTENT_WIDTH);
+
+        let mut content = Vec::new();
+        if let Some(logo) = &s.logo {
+            content.push(cx.child(logo.as_ref()));
+        } else if let Some(icon) = s.icon {
+            content.push(util::icon(cx, icon, SPLASH_ICON_SIZE, theme.color(Semantic::Accent)));
+        }
+        let attrs = util::attrs(&theme, TextStyle::Title, None);
+        let style = LayoutStyle { max_width: Some(width), ..LayoutStyle::leaf() };
+        content.push(cx.text_truncated(&s.name, &attrs, theme.color(Semantic::Ink), style));
+
+        // Changing the node's identity is what makes every platform read a new message.
+        if let Some(status) = &s.status {
+            let mut hasher = DefaultHasher::new();
+            status.hash(&mut hasher);
+            content.push(cx.keyed_child(hasher.finish(), &SplashStatus(status, width)));
+        }
+
+        let spinner =
+            crate::VStack::new((crate::Spinner::new().size(theme.spacing.s6),)).align(Align::Center);
+        let spinner = motion::collapse(cx, s.progress.is_none(), &spinner);
+        let bar = motion::collapse(cx, s.progress.is_some(), &SplashBar(s.progress.unwrap_or(1.0)));
+        content.push(cx.container(
+            LayoutStyle { width: Some(width), align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            &[spinner, bar],
+            Paint::None,
+        ));
+
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(viewport.width),
+                height: Some(viewport.height),
+                padding: Insets::uniform(theme.spacing.s6),
+                spacing: theme.spacing.s4,
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &content,
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Canvas))),
+        );
+        cx.semantics(node, Semantics::new(Role::Dialog).name(s.name.clone()).modal());
+        // Takes the clicks that would otherwise reach the page behind it.
+        cx.cursor(node, CursorIcon::Default);
+        cx.motion(
+            node,
+            Motion::new()
+                .enter(Effect::hidden(), theme.motion.base)
+                .exit(Effect::hidden().with_scale(1.02), theme.motion.slow),
+        );
+        node
+    }
+}
+
+impl View for SplashScreen {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let anchor = cx.empty();
+        if self.visible.get() {
+            cx.overlay(anchor, Placement::Fill, &SplashLayer(self), None);
         }
         anchor
     }

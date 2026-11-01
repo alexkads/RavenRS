@@ -15,7 +15,7 @@ links = {
 listed = set(links)
 
 # Parts of a listed component, and plumbing that is not a component on its own.
-NOT_LISTED = {"Command", "ListItem", "SidebarItem", "SidebarSection", "Styled", "Keyed", "Localized", "Responsive", "FnView"}
+NOT_LISTED = {"Command", "ListItem", "SidebarGroup", "SidebarInset", "SidebarItem", "SidebarSection", "SidebarSkeleton", "SidebarTrigger", "Styled", "Keyed", "Localized", "Responsive", "FnView"}
 
 source = "\n".join(p.read_text() for p in (root / "crates/ravenrs-widgets/src").rglob("*.rs"))
 public = set(re.findall(r"^pub struct (\w+)", source, re.M))

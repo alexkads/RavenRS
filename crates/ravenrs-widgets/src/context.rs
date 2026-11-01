@@ -152,6 +152,10 @@ pub enum Placement {
     Right,
     /// Centered above the anchor (tooltips).
     AboveCenter,
+    /// To the right of the anchor, centers aligned (tooltips beside a rail).
+    RightCenter,
+    /// To the left of the anchor, centers aligned (tooltips beside a rail).
+    LeftCenter,
     /// Covers the whole viewport (dialogs, sheets); the anchor is ignored.
     Fill,
     /// At a point in the viewport (context menus); the anchor is ignored.
@@ -457,6 +461,7 @@ pub struct BuildCx<'a> {
     pub(crate) now: f64,
     labels: Rc<crate::Labels>,
     ui_waker: crate::UiWaker,
+    sidebar: Option<Rc<crate::nav::SidebarScope>>,
     pub(crate) shortcuts: Vec<Shortcut>,
     pub(crate) wake: Option<f64>,
     pub(crate) modifiers: Rc<std::cell::Cell<Modifiers>>,
@@ -513,6 +518,7 @@ impl<'a> BuildCx<'a> {
             now: 0.0,
             labels: Rc::new(crate::Labels::default()),
             ui_waker,
+            sidebar: None,
             shortcuts: Vec::new(),
             wake: None,
             modifiers,
@@ -546,6 +552,18 @@ impl<'a> BuildCx<'a> {
 
     pub(crate) fn replace_labels(&mut self, labels: Rc<crate::Labels>) -> Rc<crate::Labels> {
         std::mem::replace(&mut self.labels, labels)
+    }
+
+    /// The sidebar this view is being built inside, if any.
+    pub(crate) fn sidebar(&self) -> Option<Rc<crate::nav::SidebarScope>> {
+        self.sidebar.clone()
+    }
+
+    pub(crate) fn replace_sidebar(
+        &mut self,
+        sidebar: Option<Rc<crate::nav::SidebarScope>>,
+    ) -> Option<Rc<crate::nav::SidebarScope>> {
+        std::mem::replace(&mut self.sidebar, sidebar)
     }
 
     /// The app-wide theme as state: set it to switch themes at runtime.
@@ -910,7 +928,8 @@ impl<'a> BuildCx<'a> {
         }
     }
 
-    /// Moves keyboard focus to this widget's focusable element after the build.
+    /// Moves keyboard focus to this widget's focusable element after the build,
+    /// scrolling the containers around it until it shows.
     pub fn request_focus(&mut self) {
         self.focus_request = Some(self.widget_id());
     }

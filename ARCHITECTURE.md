@@ -100,11 +100,11 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 
 | Module | Components |
 |---|---|
-| `stack`, `card`, `canvas`, `fill`, `text`, `icon`, `icon_set`, `image` | Layout primitives, cards, custom drawing, text, icons, images |
+| `stack`, `card`, `canvas`, `fill`, `text`, `icon`, `icon_set`, `image` | Layout primitives, `Footer`, cards, custom drawing, text, icons, images |
 | `button`, `inputs`, `text_field`, `choice`, `calendar`, `date` | Buttons, form controls, text input, `ToggleGroup`, `Pagination`, `Label`, `AspectRatio`, `Calendar`, `DatePicker`, `EventCalendar`, `RecurrenceEditor` |
 | `scheduler`, `recurrence` | `Scheduler` and its time axis, and `RecurrenceRule`, which needs no UI |
-| `nav`, `ribbon` | `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Ribbon` |
-| `overlay`, `floating` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `Toaster`, `Combobox`, `CommandPalette` |
+| `nav`, `ribbon` | `Tabs`, `Sidebar` and its parts, `Breadcrumb`, `Disclosure`, `Ribbon` |
+| `overlay`, `floating` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `SplashScreen`, `Toaster`, `Combobox`, `CommandPalette` |
 | `display`, `data`, `extras` | Badges and alerts; lists, tables and charts; `Spinner`, `Carousel`, `Splitter`, `Menubar`, `InputOtp`, `FormField` |
 | `grid/` | `DataGrid`: `query` (pure pipeline), `model`, `view` |
 
@@ -167,7 +167,7 @@ Rich components need more than layout and paint; the runtime provides them gener
 
 * **Widget-local state.** `cx.use_state(init)` returns a `State<T>` owned by that widget instance, keyed by its `WidgetId` and call order. It survives rebuilds and is dropped when the widget is no longer built. `Keyed::new(key, view)` resets it on purpose.
 * **Overlays.** `cx.overlay(anchor, placement, &view, on_dismiss)` builds a floating layer after the main tree. It is laid out as its own Taffy root, placed relative to the anchor's final frame (flipped and clamped to the viewport), painted last, hit-tested first, and dismissed on outside clicks or Escape.
-* **Scrolling and clipping.** `cx.scrollable(node)` makes a vertical scroll container (`cx.scroll_horizontally` adds the other axis, which `DataGrid` uses): offsets are kept per `WidgetId`, wheel events move the innermost scrollable under the pointer, children are clipped with scissor rectangles, and a thin scrollbar is drawn. Scrolling only re-places and repaints; it does not rebuild or re-run layout.
+* **Scrolling and clipping.** `cx.scrollable(node)` makes a vertical scroll container (`cx.scroll_horizontally` adds the other axis, which `DataGrid` uses): offsets are kept per `WidgetId`, wheel events move the innermost scrollable under the pointer, children are clipped with scissor rectangles, and a thin scrollbar is drawn. Scrolling only re-places and repaints; it does not rebuild or re-run layout. When Tab or `cx.request_focus` moves focus, the containers around the focused element scroll just far enough to show it, innermost first, stopping at the edge of a floating layer. A click focuses without scrolling.
 * **Input.** `cx.on_key` (focused element first, default handling otherwise), `cx.on_drag` (start/move/end with the element frame), `cx.on_click`, `cx.focusable`, `cx.cursor`, and `cx.is_hover_within()` for hover over a subtree.
 * **Clipboard.** `cx.clipboard()` reads and writes the system clipboard: `arboard` on desktop, `navigator.clipboard` on the web (where reading is asynchronous, so a paste arrives through the browser's `paste` event as typed text). `Ui::set_clipboard` swaps the provider; tests use an in-memory one.
 * **Theme as state.** The theme is a `State<Theme>`; `ThemeSwitcher` or any component can change it through `cx.theme_state()` and the whole UI rebuilds with the new tokens.
@@ -309,10 +309,10 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | `State`, `Binding`, `Derived`, dependency tracking | ✓ | | |
 | Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
 | `View`, `Component`, `BuildCx`, `view_fn`, `responsive`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`ravenrs-macros`) |
-| Layout: `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Section`, `Card`, `Splitter`, `AspectRatio` | ✓ | | `ZStack`, virtualized `List` |
+| Layout: `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Footer`, `Section`, `Card`, `Splitter`, `AspectRatio` | ✓ | | `ZStack`, virtualized `List` |
 | Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `TextField`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `Select`, `Combobox`, `ToggleButton`, `ToggleGroup`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher`; text selection in `TextField` | ✓ | | multi-line text |
 | Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView`, docking |
-| Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `Toaster`, `CommandPalette` | ✓ | | |
+| Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette` | ✓ | | |
 | Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |
 | Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `BarChart`, `AreaChart`, `Canvas` | ✓ | | image loading from URLs, line/pie charts |
 | `GlassCard` | | translucent fill only | backdrop blur |

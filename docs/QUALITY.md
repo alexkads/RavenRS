@@ -85,12 +85,15 @@ Status against the definition of done. **Behavior** names the test suites that d
 | Ribbon | ribbon | ✅ | 🟡 Tab + Enter; its menus are fully keyboard-operable | Key tips planned |
 | DropdownMenu, ContextMenu, Menubar | keyboard_and_basics, components, batch_parity | | ✅ first item focused on open, arrows, Enter, Escape, focus returns; Menubar Left/Right between titles and open menus, tested | |
 | Tabs | components, layout_and_content, keyboard_and_basics | | ✅ arrows open tabs, Home/End, tested | |
-| Sidebar, Breadcrumb, Pagination, Accordion, Disclosure | components, layout_and_content, batch_parity | | 🟡 Tab + Enter | Links and buttons by pattern; untested |
+| Sidebar | sidebar, layout_and_content, components | | ✅ Cmd/Ctrl+B, Tab + Enter, Up/Down/Home/End between rows, Left/Right fold submenus and groups, Escape closes the sheet, tested | `navigation` landmark; rail keeps names and shows tooltips on hover and on keyboard focus, tested. Width eases and is instant under reduced motion. Sheet goes by the window width, not its container's |
+| Breadcrumb, Pagination, Accordion, Disclosure | components, layout_and_content, batch_parity | | 🟡 Tab + Enter | Links and buttons by pattern; untested |
 | CommandPalette | batch_parity | | ✅ ⌘K, type, arrows, Enter, tested | |
 | Dialog, Sheet, Popover, HoverCard, Tooltip, Toaster | components, batch_parity, keyboard_and_basics | | ✅ Escape; Dialog and Sheet trap focus and return it, tested | |
+| SplashScreen | splash | | ✅ no focus stop: takes no input, focus leaves the page and returns on close, tested | Status and progress announced, tested |
 | DataGrid | datagrid, properties, editing_and_clipboard | ✅ | ✅ row navigation, Page Up/Down, Enter edits, Cmd/Ctrl+C copies rows as tab-separated text, Cmd/Ctrl+A, tested | See the DataGrid parity table in ARCHITECTURE.md |
 | Table, List, Stat, BarChart, AreaChart | components | ✅ partial | n/a | |
 | Layout: stacks, Grid, ScrollView, Splitter, AspectRatio, Card, Section | layout_and_content, components, keyboard_and_basics | ✅ partial | 🟡 Splitter arrows, untested | AspectRatio content now fills its box |
+| Footer | footer | | ✅ no focus stop of its own; its links are buttons (Tab + Enter), tested | `contentinfo` landmark, tested. Stacks by window width, not by its container's |
 | Media and feedback: Image, Icon, Carousel, Avatar, Badge, Alert, ProgressBar, Spinner, Skeleton, Kbd, Divider | layout_and_content, components, batch_parity | ✅ partial | 🟡 Carousel arrows, untested | |
 
 ✅ means the WAI-ARIA keys for that widget work and a test covers them. 🟡 means it is reachable and activatable but the full pattern is missing or untested.

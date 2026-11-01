@@ -89,6 +89,10 @@ pub enum Role {
     ScrollView,
     /// A date grid.
     Calendar,
+    /// The band that ends a page: copyright, links, version (a landmark).
+    ContentInfo,
+    /// A set of links or buttons that move around the app (a landmark).
+    Navigation,
 }
 
 impl Role {

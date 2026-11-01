@@ -55,6 +55,8 @@ pub(crate) fn aria_role(role: Role) -> Option<&'static str> {
         Role::ProgressIndicator => "progressbar",
         Role::Separator => "separator",
         Role::ScrollView => "region",
+        Role::ContentInfo => "contentinfo",
+        Role::Navigation => "navigation",
         _ => "group",
     })
 }

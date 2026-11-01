@@ -35,12 +35,12 @@ samples! {
     "Disclosure" => disclosure,
     "Dialog" => dialog, "Sheet" => sheet, "Popover" => popover, "HoverCard" => hover_card,
     "Tooltip" => tooltip, "DropdownMenu" => dropdown_menu, "ContextMenu" => context_menu,
-    "CommandPalette" => command_palette, "Toaster" => toaster,
+    "SplashScreen" => splash_screen, "CommandPalette" => command_palette, "Toaster" => toaster,
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
     "BarChart" => bar_chart, "AreaChart" => area_chart,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
-    "Section" => section, "Divider" => divider, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
+    "Section" => section, "Divider" => divider, "Footer" => footer, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
     "Text" => text, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Icon" => icon, "Image" => image, "Carousel" => carousel, "Canvas" => canvas,
@@ -346,14 +346,37 @@ fn tabs() -> impl View {
 }
 // end
 
-// sample: Sidebar, 240
+// sample: Sidebar, 440
 fn sidebar() -> impl View {
-    Sidebar::new((
-        SidebarSection::new("Workspace"),
-        SidebarItem::new(IconName::LayoutDashboard, "Overview").selected(true),
-        SidebarItem::new(IconName::Users, "Customers"),
-        SidebarItem::new(IconName::Settings, "Settings"),
+    let state = SidebarState::new(true);
+    HStack::new((
+        Sidebar::new((
+            SidebarGroup::new(
+                "Workspace",
+                (
+                    SidebarItem::new(IconName::LayoutDashboard, "Overview").selected(true),
+                    SidebarItem::new(IconName::Users, "Customers").badge(Badge::new("12")),
+                    SidebarItem::new(IconName::Settings, "Settings")
+                        .item(SidebarItem::text("General").compact())
+                        .item(SidebarItem::text("Billing").compact()),
+                ),
+            ),
+            SidebarGroup::new("Projects", (SidebarSkeleton::new(2),)).collapsible(),
+        ))
+        .collapsible(SidebarCollapse::Icons)
+        .state(state.clone())
+        .footer(
+            HStack::new((Avatar::new("Ana Lima"), Text::new("Ana Lima").style(TextStyle::Callout)))
+                .spacing(10.0)
+                .align(Align::Center),
+        ),
+        VStack::new((SidebarTrigger::new(state), Text::new("Or press Cmd/Ctrl+B.")))
+            .spacing(12.0)
+            .padding(16.0)
+            .grow(1.0),
     ))
+    .height(420.0)
+    .align(Align::Stretch)
 }
 // end
 
@@ -411,6 +434,57 @@ fn sheet() -> impl View {
             .description("Narrow down the accounts shown.")
             .content(Toggle::new(active.binding()).label("Only active accounts")),
     ))
+}
+// end
+
+// sample: SplashScreen, 380
+fn splash_screen() -> impl View {
+    /// Pretends to load for three seconds. A real app sets the same values as its work advances.
+    struct Loading;
+
+    impl View for Loading {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            const SECONDS: f64 = 3.0;
+            let visible = cx.use_state(|| false);
+            let started = cx.use_state(|| None::<f64>);
+            let now = cx.now();
+            let elapsed = match (visible.get(), started.get()) {
+                (true, Some(start)) => now - start,
+                (true, None) => {
+                    started.set(Some(now));
+                    0.0
+                }
+                (false, _) => {
+                    started.set_if_changed(None);
+                    0.0
+                }
+            };
+            if elapsed >= SECONDS {
+                visible.set(false);
+            } else if visible.get() {
+                cx.wake_at(now + 0.25);
+            }
+            let status = match elapsed {
+                e if e < 1.0 => "Opening the database",
+                e if e < 2.0 => "Loading your accounts",
+                _ => "Almost there",
+            };
+            let show = visible.clone();
+            let splash =
+                SplashScreen::new(visible.binding(), "Raven Finance").icon(IconName::Wallet).status(status);
+            // A spinner until there is something to measure, then a bar.
+            let splash = if elapsed < 1.0 { splash } else { splash.progress((elapsed / SECONDS) as f32) };
+            let page = VStack::new((
+                Button::new("Show the splash screen")
+                    .style(ButtonStyle::Secondary)
+                    .on_click(move || show.set(true)),
+                splash,
+            ));
+            cx.child(&page)
+        }
+    }
+
+    Loading
 }
 // end
 
@@ -632,6 +706,15 @@ fn divider() -> impl View {
     VStack::new((Text::new("Above"), Divider::horizontal(), Text::new("Below")))
         .spacing(12.0)
         .align(Align::Stretch)
+}
+// end
+
+// sample: Footer, 170
+fn footer() -> impl View {
+    Footer::new()
+        .left((Footer::text("© 2026 Raven Finance"),))
+        .center((Footer::link("Privacy"), Footer::link("Terms"), Footer::link("Help")))
+        .right((Footer::text("v27.1"), Badge::new("Online").tone(Tone::Success)))
 }
 // end
 
