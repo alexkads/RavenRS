@@ -174,7 +174,7 @@
     <div class="cta">
       <a class="btn primary" href="#demo">Try the live demo</a>
       <a class="btn secondary" href="https://github.com/alexkads/RavenRS">Star on GitHub</a>
-      <span class="install"><span>$</span> cargo add ravenrs --git https://github.com/alexkads/RavenRS <button type="button" id="copy" aria-label="Copy install command">Copy</button></span>
+      <span class="install"><span>$</span> cargo add ravenrs <button type="button" id="copy" aria-label="Copy install command">Copy</button></span>
     </div>
 
     <div class="stage" id="demo">
@@ -361,7 +361,7 @@
 <script>
   document.getElementById('copy').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    try { await navigator.clipboard.writeText('cargo add ravenrs --git https://github.com/alexkads/RavenRS'); btn.textContent = 'Copied'; }
+    try { await navigator.clipboard.writeText('cargo add ravenrs'); btn.textContent = 'Copied'; }
     catch { btn.textContent = 'Select'; }
     setTimeout(() => { btn.textContent = 'Copy'; }, 1600);
   });
