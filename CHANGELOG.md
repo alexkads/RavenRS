@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.1] - 2026-11-01
+
 ### Added
 - **Family finance example.** `examples/family-finance` is a desktop app for a family's expenses and bills to pay on SQLite, with reports, expression filters in SQL and updates that compile on the user's machine. It exists to show the framework and to find what is missing in it; see its [README](examples/family-finance/README.md).
 - **Components in other languages.** `Labels` holds the words the built-in components use and `Localized` applies them to everything inside, so an app sets its language once. `Labels::pt_br` comes ready.
@@ -167,7 +169,8 @@ The first public release.
 - `scripts/check.sh` runs formatting, clippy (native and wasm32), the tests and the web builds locally.
 - `scripts/deploy-pages.sh` publishes the landing page, the live gallery and the API docs.
 
-[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.0...HEAD
+[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.1...HEAD
+[27.1.1]: https://github.com/alexkads/RavenRS/compare/v27.1.0...v27.1.1
 [27.1.0]: https://github.com/alexkads/RavenRS/compare/v26.2.1...v27.1.0
 [26.2.1]: https://github.com/alexkads/RavenRS/compare/v26.2.0...v26.2.1
 [26.2.0]: https://github.com/alexkads/RavenRS/compare/v0.1.0...v26.2.0
