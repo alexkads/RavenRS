@@ -13,6 +13,7 @@ use family_finance::seed;
 use family_finance::ui::App;
 use family_finance::update::{News, UpdateStatus, Updater};
 use ravenrs::core::{AdapterReport, DiagnosticReport, FrameSample, GpuReport, SurfaceReport, SystemReport};
+use ravenrs::core::{Event, Key, Modifiers};
 use ravenrs::prelude::*;
 use ravenrs::render::{GpuContext, Renderer, wgpu};
 
@@ -176,6 +177,21 @@ fn draw_every_screen() {
         ravenrs::movie::Movie::from_bytes(include_bytes!("../assets/treinamentos.ravenmovie")).expect("film");
     let mut page = app(Theme::raven_light(), 8, Updater::idle());
     capture(&gpu, &mut page, size, &folder.join("treinamentos.png"));
+    // A question, and the moment it opens.
+    let field =
+        page.access_tree().nodes.iter().find(|n| n.role == Role::TextInput).expect("the question field").id;
+    page.perform_action(field, AccessAction::Focus);
+    for letter in "como pago uma conta".chars() {
+        page.handle_event(&Event::KeyDown {
+            key: Key::Character(letter.to_string()),
+            modifiers: Modifiers::default(),
+        });
+        page.update();
+    }
+    capture(&gpu, &mut page, size, &folder.join("treinamentos-pergunta.png"));
+    page.handle_event(&Event::KeyDown { key: Key::Enter, modifiers: Modifiers::default() });
+    page.update();
+    capture(&gpu, &mut page, size, &folder.join("treinamentos-resposta.png"));
     let total = film.duration_ms();
     for (name, at) in
         [("titulo", 1_000), ("filme-a", 12_000), ("filme-b", total / 2), ("filme-c", total - 5_000)]

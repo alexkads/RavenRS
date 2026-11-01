@@ -34,4 +34,20 @@ timeline, canvas and properties. The edits travel with the film, so there is not
 | `note` | A mark on the screen whose text appears while it plays, and again on a click |
 | `guide` | The film stops and waits for a click on that spot |
 
+**Asking** is `MovieAssistant`. Someone types a question and picks an answer, and the film opens at
+that moment, with the answers out of the way. A step opens waiting for its click; anything else
+plays from there.
+
+```rust,ignore
+use ravenrs_movie::{MovieAssistant, MovieLibrary};
+
+let library = MovieLibrary::new().film("Manual", movie);
+let assistant = MovieAssistant::new(library).width(960.0);
+```
+
+It searches the words the films hold, the chapters and the steps, ignoring accents and case, and it
+accepts near forms of a word ("pago" finds "pagar") and typing slips. There is no model and nothing
+leaves the machine, so it adds nothing to download and works in the browser. It knows no synonyms: a
+question with no word in common with the films gets no answer, and it says so.
+
 There is no sound: RavenRS has no audio yet.

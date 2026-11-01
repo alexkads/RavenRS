@@ -1669,6 +1669,11 @@ impl Gallery {
                 samples::sample("MoviePlayer"),
             ),
             demo(
+                "MovieAssistant",
+                "Someone types a question and the moment of the film that answers it opens. It reads the words the films already hold, on this machine, with no model, and accents do not matter.",
+                samples::sample("MovieAssistant"),
+            ),
+            demo(
                 "ReleaseNotes",
                 "An app's versions: the list, what the chosen one brought, and buttons that walk through them. The second block shows a command to copy.",
                 VStack::new((

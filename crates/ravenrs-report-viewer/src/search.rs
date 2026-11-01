@@ -1,6 +1,7 @@
 //! Finds text in a document, ignoring case and accents: "regiao" finds "Região".
 
 use ravenrs_report::{Document, Item};
+use ravenrs_text::fold;
 
 /// Where a search result is.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -13,22 +14,6 @@ pub struct Match {
     pub line: usize,
     /// Byte range of the match in the line's text.
     pub range: std::ops::Range<usize>,
-}
-
-/// Folds a character to what searches compare: lowercase, without accents.
-fn fold(c: char) -> impl Iterator<Item = char> {
-    c.to_lowercase().map(|c| match c {
-        'á' | 'à' | 'â' | 'ã' | 'ä' | 'å' => 'a',
-        'é' | 'è' | 'ê' | 'ë' => 'e',
-        'í' | 'ì' | 'î' | 'ï' => 'i',
-        'ó' | 'ò' | 'ô' | 'õ' | 'ö' => 'o',
-        'ú' | 'ù' | 'û' | 'ü' => 'u',
-        'ç' => 'c',
-        'ñ' => 'n',
-        // A number formatted with a non-breaking space is found with a plain one.
-        '\u{a0}' => ' ',
-        other => other,
-    })
 }
 
 /// Every match of `query`, in reading order of the document's blocks.

@@ -53,6 +53,23 @@ pub fn inter_font(semibold: bool) -> &'static [u8] {
     if semibold { INTER_SEMIBOLD } else { INTER_REGULAR }
 }
 
+/// Folds a character to what searches compare: lowercase, without accents, so
+/// "regiao" finds "Região". Folding can change how many characters there are.
+pub fn fold(c: char) -> impl Iterator<Item = char> {
+    c.to_lowercase().map(|c| match c {
+        'á' | 'à' | 'â' | 'ã' | 'ä' | 'å' => 'a',
+        'é' | 'è' | 'ê' | 'ë' => 'e',
+        'í' | 'ì' | 'î' | 'ï' => 'i',
+        'ó' | 'ò' | 'ô' | 'õ' | 'ö' => 'o',
+        'ú' | 'ù' | 'û' | 'ü' => 'u',
+        'ç' => 'c',
+        'ñ' => 'n',
+        // A number formatted with a non-breaking space is found with a plain one.
+        '\u{a0}' => ' ',
+        other => other,
+    })
+}
+
 /// Visual attributes of a piece of text.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextAttrs {

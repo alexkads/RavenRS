@@ -41,7 +41,7 @@ samples! {
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
-    "MoviePlayer" => movie_player, "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
+    "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Icon" => icon, "Image" => image, "Carousel" => carousel, "Canvas" => canvas,
 }
@@ -766,6 +766,25 @@ fn movie_player() -> impl View {
     }
     film.chapter("A square", "It goes across the screen.", 0);
     film.finish(6000).map(|film| MoviePlayer::new(film).width(640.0)).ok()
+}
+// end
+
+// sample: MovieAssistant, 760
+fn movie_assistant() -> impl View {
+    use ravenrs::core::Primitive;
+    use ravenrs::movie::{FilmBuilder, MovieAssistant, MovieLibrary};
+    let mut film = FilmBuilder::new(Size::new(320.0, 200.0), Color::WHITE);
+    for second in 0..=9_u64 {
+        let square =
+            Quad::new(Rect::new(20.0 + second as f32 * 25.0, 80.0, 40.0, 40.0), Color::hex(0x4f46e5));
+        film.frame(second * 1000, &[Primitive::Quad(square.radius(8.0))]);
+    }
+    film.chapter("Move a square", "How it goes across the screen.", 0);
+    film.chapter("Save your work", "Keep a copy of what you did.", 5000);
+    // Accents and case do not matter, and near words count: try "saving".
+    film.finish(9000)
+        .map(|film| MovieAssistant::new(MovieLibrary::new().film("Manual", film)).width(640.0))
+        .ok()
 }
 // end
 

@@ -78,9 +78,44 @@ impl MovieLabels {
 }
 
 /// `2:05`.
-fn clock_label(ms: u64) -> String {
+pub(crate) fn clock_label(ms: u64) -> String {
     let seconds = ms / 1000;
     format!("{}:{:02}", seconds / 60, seconds % 60)
+}
+
+/// Tells a [`MoviePlayer`] to open a moment of its film, from outside it, as
+/// [`MovieAssistant`](crate::MovieAssistant) does. Cloning shares it.
+///
+/// ```
+/// use ravenrs_movie::MovieCue;
+///
+/// let cue = MovieCue::new();
+/// cue.go_to(61_500);
+/// ```
+#[derive(Clone, Debug)]
+pub struct MovieCue {
+    request: Rc<Cell<Option<u64>>>,
+    changes: State<u64>,
+}
+
+impl MovieCue {
+    /// A cue that asks for nothing yet.
+    pub fn new() -> Self {
+        Self { request: Rc::new(Cell::new(None)), changes: State::new(0) }
+    }
+
+    /// Opens the film at `ms` of its timeline. It plays from there, unless a step
+    /// that waits for a click is exactly there: then it waits at that step.
+    pub fn go_to(&self, ms: u64) {
+        self.request.set(Some(ms));
+        self.changes.update(|n| *n += 1);
+    }
+}
+
+impl Default for MovieCue {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Where a film is, read and written while building. Clicks raise `changes`, so
@@ -122,6 +157,20 @@ impl Playhead {
         self.waiting.set(None);
         self.opened.set(None);
         self.running.set(Some((f64::NAN, self.position_ms.get())));
+    }
+
+    /// Opens a moment someone asked for, waiting there if it is a step.
+    fn open(&self, movie: &Movie, ms: u64, guided: bool) {
+        self.seek(ms);
+        let stop = guided
+            .then(|| movie.hotspots().iter().position(|s| s.kind == HotspotKind::Stop && s.from_ms == ms))
+            .flatten();
+        if stop.is_some() {
+            self.running.set(None);
+            self.waiting.set(stop);
+        } else {
+            self.play(movie);
+        }
     }
 
     /// Moves to where the clock says it should be. The first stop crossed on the
@@ -278,12 +327,13 @@ pub struct MoviePlayer {
     movie: Movie,
     width: f32,
     labels: MovieLabels,
+    cue: Option<MovieCue>,
 }
 
 impl MoviePlayer {
     /// A player for `movie`, stopped at its first picture.
     pub fn new(movie: Movie) -> Self {
-        Self { movie, width: 960.0, labels: MovieLabels::default() }
+        Self { movie, width: 960.0, labels: MovieLabels::default(), cue: None }
     }
 
     /// The width of the whole player, in logical pixels (960 by default). The
@@ -296,6 +346,12 @@ impl MoviePlayer {
     /// The words it shows.
     pub fn labels(mut self, labels: MovieLabels) -> Self {
         self.labels = labels;
+        self
+    }
+
+    /// Lets something outside the player open a moment of the film.
+    pub fn cue(mut self, cue: MovieCue) -> Self {
+        self.cue = Some(cue);
         self
     }
 
@@ -447,6 +503,13 @@ impl View for MoviePlayer {
         let playhead = playhead.get();
         let movie = &self.movie;
         let now = cx.now();
+        if let Some(cue) = &self.cue {
+            // Read, so that asking for a moment rebuilds this view.
+            let _ = cue.changes.get();
+            if let Some(ms) = cue.request.take() {
+                playhead.open(movie, ms, guided.get());
+            }
+        }
         playhead.advance(movie, guided.get(), now);
 
         if playhead.is_running() {
