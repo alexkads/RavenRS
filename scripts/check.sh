@@ -20,6 +20,11 @@ cargo test --workspace
 
 step "optional features are optional"
 cargo check -p ravenrs --no-default-features
+cargo check -p ravenrs-widgets --no-default-features
+if cargo tree -p ravenrs --no-default-features -e normal | grep -E 'ravenrs-graphics|tiny-skia'; then
+    echo "an app without the charts feature must not build the rasterizer" >&2
+    exit 1
+fi
 
 step "minimum supported Rust version (1.88)"
 if rustup toolchain list | grep -q '^1.88'; then

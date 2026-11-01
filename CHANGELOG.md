@@ -16,8 +16,16 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Pictures in reports.** `ControlKind::Picture` shows a PNG or JPEG from the layout or a field, fitted by `PictureMode`. A PDF keeps a JPEG's original file and stores an image once however often it prints; XLSX and SVG show them too. `decode_picture` and `picture_rect` are public, and the designer inserts and chooses images in the browser.
 - **Links and outline.** `ControlKind::Link` opens an `https:`, `http:` or `mailto:` address from a PDF, a spreadsheet or SVG; any other scheme is refused and reported. `ControlKind::Bookmark` adds entries, nested by level, to the PDF's outline. `Item` gains `Image`, `Link` and `Bookmark`.
 
+- **Charts in the UI.** `Chart` draws line, area, bar, pie, doughnut, scatter and sparkline charts with the layout reports use. The shapes become a picture at the screen's density and the labels are real text. Screen readers hear the values.
+- **Barcodes in the UI.** `Barcode` shows a QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A or Interleaved 2 of 5 with every module on whole pixels. Text a format cannot hold shows why.
+- `Paint::Rich` draws with a `PaintCx`, for views that shape text while painting or need the device scale.
+- `charts` feature on `ravenrs` and `ravenrs-widgets`, on by default. `ravenrs` also forwards `decode`.
+- `ChartKind::SparkArea`, a smoothed line over a filled area, and `ChartOptions` fields for colors, bar corners and the widest bar.
+
 ### Changed
 - The site roadmap, `docs/PARITY.md` and `ARCHITECTURE.md` now reflect what shipped.
+- **`BarChart` and `AreaChart` look different.** Their API is the same, but they now draw through `Chart`. `BarChart` gains a numeric axis and has flat bars instead of a gradient. `AreaChart` has a flat fill instead of a gradient, and it no longer reaches the frame's left and right edges. Their boxes are the same size.
+- `BarChart`, `AreaChart` and the new components need the `charts` feature. Apps that use the default features need no change. If you set `default-features = false` on `ravenrs-widgets` and use these charts, add `features = ["charts"]`. On `ravenrs`, `default-features = false` now also turns off `decode` and `charts`, which it could not do before.
 
 ## [27.1.0] - 2026-11-01
 

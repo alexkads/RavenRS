@@ -68,6 +68,15 @@ pub fn encode(symbology: Symbology, data: &str) -> Result<Pattern, String> {
     }
 }
 
+/// How many modules a pattern spans across, quiet zones included: drawn in a
+/// width that divides by this, every module lands on whole pixels.
+pub fn modules_across(pattern: &Pattern) -> usize {
+    match pattern {
+        Pattern::Linear { modules, .. } => modules.len() + 2 * QUIET_LINEAR as usize,
+        Pattern::Matrix { size, .. } => size + 2 * QUIET_MATRIX as usize,
+    }
+}
+
 /// The shape of a pattern inside `rect`, centered and with its quiet zone.
 pub fn shape(pattern: &Pattern, rect: Rect, color: Color) -> Shape {
     let mut path = Vec::new();

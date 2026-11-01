@@ -13,8 +13,8 @@ use ravenrs_text::TextSystem;
 
 use crate::View;
 use crate::context::{
-    BuildCx, Drag, DragPhase, Element, Interaction, LocalStore, NodeId, Overlay, Paint, Placement, QuadPaint,
-    ScrollState, Shortcut, TextLeaf, WidgetId,
+    BuildCx, Drag, DragPhase, Element, Interaction, LocalStore, NodeId, Overlay, Paint, PaintCx, Placement,
+    QuadPaint, ScrollState, Shortcut, TextLeaf, WidgetId,
 };
 use crate::motion::{GhostLayer, MotionEntry, MotionSystem, NodePaint, Sampled, flipped};
 
@@ -934,6 +934,11 @@ impl Ui {
                 let time = if self.reduced_motion() { 0.0 } else { self.time };
                 self.has_live = true;
                 draw(frame, time, &mut self.scene);
+            }
+            Paint::Rich(draw) => {
+                let draw = draw.clone();
+                let mut cx = PaintCx { scene: &mut self.scene, text: &mut self.text, scale: self.scale };
+                draw(frame, &mut cx);
             }
         }
     }

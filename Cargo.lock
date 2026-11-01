@@ -3258,6 +3258,7 @@ dependencies = [
  "proptest",
  "ravenrs-animation",
  "ravenrs-core",
+ "ravenrs-graphics",
  "ravenrs-layout",
  "ravenrs-reactive",
  "ravenrs-style",

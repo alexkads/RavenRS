@@ -36,7 +36,7 @@ samples! {
     "Tooltip" => tooltip, "DropdownMenu" => dropdown_menu, "ContextMenu" => context_menu,
     "CommandPalette" => command_palette, "Toaster" => toaster,
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
-    "BarChart" => bar_chart, "AreaChart" => area_chart,
+    "Chart" => chart, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
@@ -509,6 +509,17 @@ fn stat() -> impl View {
 }
 // end
 
+// sample: Chart, 280
+fn chart() -> impl View {
+    Chart::new(ChartKind::Line)
+        .title("Sales")
+        .categories(["Jan", "Feb", "Mar", "Apr", "May", "Jun"])
+        .series("2025", [12.0, 18.0, 15.0, 21.0, 19.0, 24.0])
+        .series("2026", [14.0, 21.0, 26.0, 24.0, 31.0, 35.0])
+        .height(260.0)
+}
+// end
+
 // sample: BarChart, 220
 fn bar_chart() -> impl View {
     BarChart::new([("Mon", 42.0), ("Tue", 58.0), ("Wed", 51.0), ("Thu", 73.0), ("Fri", 66.0)]).height(180.0)
@@ -518,6 +529,16 @@ fn bar_chart() -> impl View {
 // sample: AreaChart, 220
 fn area_chart() -> impl View {
     AreaChart::new([12.0, 14.0, 13.0, 17.0, 16.0, 21.0, 19.0, 24.0, 23.0, 27.0]).height(180.0)
+}
+// end
+
+// sample: Barcode, 190
+fn barcode() -> impl View {
+    HStack::new((
+        Barcode::qr("https://ravenrs.dev").alt("Link to the RavenRS site"),
+        Barcode::new(Symbology::Ean13, "789123456789"),
+    ))
+    .spacing(24.0)
 }
 // end
 

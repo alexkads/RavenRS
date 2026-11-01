@@ -22,11 +22,14 @@ ravenrs-text.workspace = true
 ravenrs-style.workspace = true
 tracing.workspace = true
 image = { workspace = true, optional = true }
+ravenrs-graphics = { workspace = true, optional = true }
 
 [features]
-default = ["decode"]
+default = ["decode", "charts"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["dep:image"]
+# `Chart`, `BarChart`, `AreaChart` and `Barcode`, drawn with `ravenrs-graphics`.
+charts = ["dep:ravenrs-graphics"]
 
 [dev-dependencies]
 proptest.workspace = true

@@ -26,6 +26,8 @@ pub enum ChartKind {
     Scatter,
     /// A small line without axes or text, to sit in a row of a table.
     Sparkline,
+    /// A smoothed line over a filled area, without axes or text.
+    SparkArea,
 }
 
 /// How a label sits in its box.
@@ -124,6 +126,16 @@ pub struct ChartOptions<'a> {
     pub grid: Color,
     /// How numbers are shown.
     pub format: &'a dyn Fn(f64) -> String,
+    /// Slice and legend colors of pie and doughnut charts, repeated as needed;
+    /// [`PALETTE`] when empty.
+    pub palette: &'a [Color],
+    /// What separates slices and rings the last dot of a [`ChartKind::SparkArea`]:
+    /// usually the color behind the chart.
+    pub separator: Color,
+    /// Corner radius of bars.
+    pub bar_radius: f32,
+    /// The widest a bar can be, so few bars in a wide chart stay bars.
+    pub max_bar_width: f32,
 }
 
 /// Roughly how wide a character is, as a share of the font size; enough to
@@ -201,8 +213,8 @@ fn arc(path: &mut Vec<PathSegment>, center: Point, radius: f32, from: f32, to: f
 /// Lays a chart out inside `rect`.
 pub fn draw(data: &ChartData, rect: Rect, options: &ChartOptions<'_>) -> ChartDrawing {
     let mut drawing = ChartDrawing::default();
-    if options.kind == ChartKind::Sparkline {
-        sparkline(data, rect, &mut drawing);
+    if matches!(options.kind, ChartKind::Sparkline | ChartKind::SparkArea) {
+        sparkline(data, rect, options, &mut drawing);
         return drawing;
     }
     let mut area = rect;
@@ -221,11 +233,7 @@ pub fn draw(data: &ChartData, rect: Rect, options: &ChartOptions<'_>) -> ChartDr
     }
     let round = matches!(options.kind, ChartKind::Pie | ChartKind::Doughnut);
     let entries: Vec<(String, Color)> = if round {
-        data.categories
-            .iter()
-            .enumerate()
-            .map(|(i, name)| (name.clone(), PALETTE[i % PALETTE.len()]))
-            .collect()
+        data.categories.iter().enumerate().map(|(i, name)| (name.clone(), slice_color(options, i))).collect()
     } else if data.series.len() > 1 {
         data.series.iter().map(|s| (s.name.clone(), s.color)).collect()
     } else {
@@ -240,6 +248,11 @@ pub fn draw(data: &ChartData, rect: Rect, options: &ChartOptions<'_>) -> ChartDr
         cartesian(data, area, options, &mut drawing);
     }
     drawing
+}
+
+fn slice_color(options: &ChartOptions<'_>, index: usize) -> Color {
+    let palette = if options.palette.is_empty() { &PALETTE[..] } else { options.palette };
+    palette[index % palette.len()]
 }
 
 /// Draws the legend at the bottom of `area`; returns what is left above it.
@@ -320,8 +333,8 @@ fn circle(data: &ChartData, area: Rect, options: &ChartOptions<'_>, drawing: &mu
         path.push(PathSegment::Close);
         drawing.shapes.push(Shape {
             path,
-            fill: Some(PALETTE[index % PALETTE.len()]),
-            stroke: Some((1.0, Color::WHITE)),
+            fill: Some(slice_color(options, index)),
+            stroke: Some((1.0, options.separator)),
         });
         if share >= SLICE_LABEL_MIN {
             let middle = (angle + end) / 2.0;
@@ -399,8 +412,8 @@ fn cartesian(data: &ChartData, area: Rect, options: &ChartOptions<'_>, drawing: 
     match options.kind {
         ChartKind::Bar => {
             let series_count = data.series.len().max(1) as f32;
-            let group = band * 0.72;
-            let bar = group / series_count;
+            let bar = (band * 0.72 / series_count).min(options.max_bar_width);
+            let group = bar * series_count;
             let zero = y_of(0.0_f64.clamp(low, high));
             for (s, series) in data.series.iter().enumerate() {
                 for (index, value) in series.values.iter().enumerate() {
@@ -410,10 +423,10 @@ fn cartesian(data: &ChartData, area: Rect, options: &ChartOptions<'_>, drawing: 
                     let x = plot.x() + band * index as f32 + (band - group) / 2.0 + bar * s as f32;
                     let y = y_of(*value);
                     let (top, height) = if y < zero { (y, zero - y) } else { (zero, y - zero) };
-                    drawing.shapes.push(rectangle(
-                        Rect::new(x, top, (bar - 0.5).max(0.5), height.max(0.25)),
-                        series.color,
-                    ));
+                    let rect = Rect::new(x, top, (bar - 0.5).max(0.5), height.max(0.25));
+                    drawing
+                        .shapes
+                        .push(Shape::filled(vector::rectangle(rect, options.bar_radius), series.color));
                 }
             }
         }
@@ -494,7 +507,23 @@ fn polyline(points: &[Point], width: f32, color: Color) -> Shape {
     Shape { path, fill: None, stroke: Some((width, color)) }
 }
 
-fn sparkline(data: &ChartData, rect: Rect, drawing: &mut ChartDrawing) {
+/// A curve through evenly spaced points (Catmull-Rom), without its starting move.
+fn smooth(points: &[Point]) -> Vec<PathSegment> {
+    let last = points.len().saturating_sub(1);
+    (0..last)
+        .map(|i| {
+            let (p0, p1) = (points[i.saturating_sub(1)], points[i]);
+            let (p2, p3) = (points[i + 1], points[(i + 2).min(last)]);
+            PathSegment::Cubic(
+                Point::new(p1.x + (p2.x - p0.x) / 6.0, p1.y + (p2.y - p0.y) / 6.0),
+                Point::new(p2.x - (p3.x - p1.x) / 6.0, p2.y - (p3.y - p1.y) / 6.0),
+                p2,
+            )
+        })
+        .collect()
+}
+
+fn sparkline(data: &ChartData, rect: Rect, options: &ChartOptions<'_>, drawing: &mut ChartDrawing) {
     let Some(series) = data.series.first() else { return };
     let values: Vec<f64> = series.values.iter().copied().filter(|v| v.is_finite()).collect();
     if values.is_empty() {
@@ -503,7 +532,9 @@ fn sparkline(data: &ChartData, rect: Rect, drawing: &mut ChartDrawing) {
     let (min, max) =
         values.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| (a.min(*v), b.max(*v)));
     let span = (max - min).max(f64::EPSILON);
-    let pad = 2.5;
+    let filled = options.kind == ChartKind::SparkArea;
+    // Room for the last dot.
+    let pad = if filled { 6.0 } else { 2.5 };
     let (width, height) = ((rect.width() - 2.0 * pad).max(1.0), (rect.height() - 2.0 * pad).max(1.0));
     let last = values.len().saturating_sub(1).max(1) as f32;
     let points: Vec<Point> = values
@@ -516,9 +547,22 @@ fn sparkline(data: &ChartData, rect: Rect, drawing: &mut ChartDrawing) {
             )
         })
         .collect();
-    drawing.shapes.push(polyline(&points, 1.25, series.color));
-    if let Some(end) = points.last() {
-        drawing.shapes.push(dot(*end, 2.0, series.color));
+    let (Some(first), Some(end)) = (points.first().copied(), points.last().copied()) else { return };
+    if filled {
+        let curve = smooth(&points);
+        let mut area = vec![PathSegment::Move(Point::new(first.x, rect.max_y())), PathSegment::Line(first)];
+        area.extend(curve.iter().copied());
+        area.extend([PathSegment::Line(Point::new(end.x, rect.max_y())), PathSegment::Close]);
+        drawing.shapes.push(Shape::filled(area, with_alpha(series.color, 0.2)));
+        let mut line = vec![PathSegment::Move(first)];
+        line.extend(curve);
+        drawing.shapes.push(Shape { path: line, fill: None, stroke: Some((2.0, series.color)) });
+        let mut last = dot(end, 4.0, series.color);
+        last.stroke = Some((2.0, options.separator));
+        drawing.shapes.push(last);
+    } else {
+        drawing.shapes.push(polyline(&points, 1.25, series.color));
+        drawing.shapes.push(dot(end, 2.0, series.color));
     }
 }
 
@@ -540,6 +584,10 @@ mod tests {
             muted: Color::BLACK,
             grid: Color::BLACK,
             format,
+            palette: &[],
+            separator: Color::WHITE,
+            bar_radius: 0.0,
+            max_bar_width: f32::INFINITY,
         }
     }
 
@@ -585,6 +633,7 @@ mod tests {
             ChartKind::Doughnut,
             ChartKind::Scatter,
             ChartKind::Sparkline,
+            ChartKind::SparkArea,
         ] {
             let drawing = draw(&data(&[3.0, 9.0, 4.0, 12.0]), AREA, &options(kind, &format));
             assert!(!drawing.shapes.is_empty(), "{kind:?}");
@@ -674,6 +723,39 @@ mod tests {
         let format = plain;
         assert!(draw(&data(&[1.0, 2.0]), AREA, &options(ChartKind::Sparkline, &format)).labels.is_empty());
         assert_eq!(draw(&data(&[1.0]), AREA, &options(ChartKind::Sparkline, &format)).shapes.len(), 2);
+    }
+
+    #[test]
+    fn a_spark_area_is_a_curve_over_a_fill_and_has_no_text() {
+        let format = plain;
+        let drawing = draw(&data(&[1.0, 4.0, 2.0]), AREA, &options(ChartKind::SparkArea, &format));
+        assert!(drawing.labels.is_empty());
+        assert_eq!(drawing.shapes.len(), 3, "area, line and last dot");
+        assert!(drawing.shapes[1].path.iter().any(|s| matches!(s, PathSegment::Cubic(..))));
+        assert_eq!(drawing.shapes[2].stroke, Some((2.0, Color::WHITE)));
+    }
+
+    #[test]
+    fn bars_stop_growing_at_their_widest() {
+        let format = plain;
+        let mut narrow = options(ChartKind::Bar, &format);
+        narrow.max_bar_width = 20.0;
+        let drawing = draw(&data(&[5.0]), AREA, &narrow);
+        let bar = drawing.shapes.iter().find(|s| s.fill == Some(PALETTE[0])).expect("a bar");
+        let xs: Vec<f32> = bar.path.iter().flat_map(bounds).map(|p| p.x).collect();
+        let width = xs.iter().copied().fold(f32::MIN, f32::max) - xs.iter().copied().fold(f32::MAX, f32::min);
+        assert!((width - 19.5).abs() < 0.01, "{width}");
+    }
+
+    #[test]
+    fn slices_use_the_colors_they_are_given() {
+        let format = plain;
+        let colors = [Color::BLACK];
+        let mut given = options(ChartKind::Pie, &format);
+        given.palette = &colors;
+        given.separator = Color::BLACK;
+        let drawing = draw(&data(&[1.0, 2.0]), AREA, &given);
+        assert!(drawing.shapes.iter().all(|s| s.fill == Some(Color::BLACK)));
     }
 
     #[test]

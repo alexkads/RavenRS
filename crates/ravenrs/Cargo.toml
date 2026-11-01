@@ -13,6 +13,13 @@ keywords = ["gui", "ui", "wgpu", "webgpu", "wasm"]
 categories = ["gui", "graphics", "wasm"]
 readme = "README.md"
 
+[features]
+default = ["decode", "charts"]
+# PNG and JPEG decoding for `Image::from_bytes`.
+decode = ["ravenrs-widgets/decode"]
+# `Chart`, `BarChart`, `AreaChart` and `Barcode`.
+charts = ["ravenrs-widgets/charts"]
+
 [dependencies]
 ravenrs-core.workspace = true
 ravenrs-animation.workspace = true

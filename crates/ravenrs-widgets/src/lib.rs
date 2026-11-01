@@ -16,6 +16,12 @@
 //!
 //! [`Canvas`] is the shortcut for custom drawing inside a normal layout.
 //!
+//! # Features
+//!
+//! * `decode` (default): PNG and JPEG decoding for [`Image::from_bytes`].
+//! * `charts` (default): `Chart`, `BarChart`, `AreaChart` and `Barcode`. They draw
+//!   the same charts and codes as reports, through `ravenrs-graphics`.
+//!
 //! # Runtime
 //!
 //! [`Ui`] owns the root view and turns it into a [`Scene`](ravenrs_core::Scene):
@@ -33,6 +39,8 @@ mod button;
 mod calendar;
 mod canvas;
 mod card;
+#[cfg(feature = "charts")]
+mod chart;
 mod choice;
 mod clipboard;
 mod context;
@@ -63,13 +71,15 @@ pub use button::{Button, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
+#[cfg(feature = "charts")]
+pub use chart::{AreaChart, BarChart, Barcode, Chart, ChartKind, Symbology};
 pub use choice::{AspectRatio, ColorSwatch, Label, Pagination, ToggleButton, ToggleGroup};
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use context::{
-    BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint, Placement, QuadPaint,
-    Semantics, WidgetId,
+    BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint, PaintCx, Placement,
+    QuadPaint, RichFn, Semantics, WidgetId,
 };
-pub use data::{AreaChart, BarChart, Column, List, ListItem, Table};
+pub use data::{Column, List, ListItem, Table};
 pub use date::{Date, days_in_month, is_leap_year};
 pub use display::{Alert, Avatar, Badge, Divider, Kbd, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use extras::{Carousel, FormField, InputOtp, Menubar, Rule, Spinner, Splitter, validate};

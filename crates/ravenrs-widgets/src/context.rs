@@ -73,6 +73,21 @@ pub type DrawFn = Rc<dyn Fn(Rect, &mut Scene)>;
 /// as the view is built. With reduced motion it runs once, at time zero.
 pub type LiveFn = Rc<dyn Fn(Rect, f64, &mut Scene)>;
 
+/// What [`Paint::Rich`] draws with.
+#[derive(Debug)]
+#[non_exhaustive]
+pub struct PaintCx<'a> {
+    /// The display list.
+    pub scene: &'a mut Scene,
+    /// Shapes text that depends on the frame, which a build does not know yet.
+    pub text: &'a mut TextSystem,
+    /// Physical pixels per logical pixel, to make pictures that stay sharp.
+    pub scale: f32,
+}
+
+/// Draws a node with [`PaintCx`], given its absolute frame.
+pub type RichFn = Rc<dyn Fn(Rect, &mut PaintCx<'_>)>;
+
 /// What an element draws before its children.
 #[derive(Clone, Default)]
 #[non_exhaustive]
@@ -86,6 +101,8 @@ pub enum Paint {
     Custom(DrawFn),
     /// Arbitrary drawing that keeps changing (spinners, pulses), without rebuilding.
     Live(LiveFn),
+    /// Arbitrary drawing that also shapes text or needs the device scale.
+    Rich(RichFn),
 }
 
 impl fmt::Debug for Paint {
@@ -95,6 +112,7 @@ impl fmt::Debug for Paint {
             Self::Quad(q) => f.debug_tuple("Quad").field(q).finish(),
             Self::Custom(_) => f.write_str("Custom"),
             Self::Live(_) => f.write_str("Live"),
+            Self::Rich(_) => f.write_str("Rich"),
         }
     }
 }

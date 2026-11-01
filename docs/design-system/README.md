@@ -58,7 +58,7 @@ Rules for components:
 | Surfaces | `Card`, `GlassCard` (translucent fill; blur needs the compositor), `Section`, `Divider`, `Splitter`, `Accordion`, `Disclosure` |
 | Navigation | `Sidebar`, `SidebarItem`, `Tabs`, `Breadcrumb`, `Pagination`, `CommandPalette` |
 | Overlays | `Dialog`, `Sheet`, `Popover`, `Tooltip`, `HoverCard`, `ContextMenu`, `Toaster` |
-| Data | `DataGrid`, `Table`, `List`, `Stat`, `AreaChart`, `BarChart`, `Avatar`, `Image`, `Carousel` |
+| Data | `DataGrid`, `Table`, `List`, `Stat`, `Chart`, `AreaChart`, `BarChart`, `Barcode`, `Avatar`, `Image`, `Carousel` |
 | Feedback | `Alert`, `ProgressBar`, `Skeleton`, `Spinner` |
 
 Modules of RavenRS itself, such as the report designer, follow the same rule as any app: they use these components and tokens, and what is missing joins the library first. Printed paper is the one surface that stays light in every theme, drawn with Raven Light tokens.

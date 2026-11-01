@@ -59,6 +59,31 @@ Measured with `cargo bench` (criterion) on an Apple M-series laptop, release pro
 | Report: grouped sales over 10,000 rows, 305 pages | < 300 ms | 80 ms native, about 200 ms in the browser |
 | Report: invoice | < 5 ms | 0.05 ms |
 
+Charts are pictures made on the CPU, so their cost is paid when the data or the size changes, and not on other frames: a rebuild that produces the same shapes keeps the same texture. Measured in WebAssembly on Node 24 with the `-Oz` profile, without SIMD, on the same laptop:
+
+| Chart | Median |
+|---|---|
+| 12 bars, 760x260 at 2x | 4.3 ms |
+| Line with 12 points, 760x260 at 2x | 6.1 ms |
+| Pie with 8 slices, 360x260 at 2x | 5.3 ms |
+| `AreaChart`, 14 values, 760x200 at 2x | 10.8 ms |
+| Line with 12 points, 1600x900 at 2x | 22.2 ms |
+| Line with 1000 points, 760x260 at 2x | 55.8 ms |
+| QR Code, 160 at 2x | 2.1 ms |
+
+Dragging a window's edge redraws every visible chart on each frame, so more than a few at once, or a long series, go over 16.7 ms while it lasts.
+
+The size of a WebAssembly build, after `wasm-opt -Oz`:
+
+| Build | Bytes | Gzipped |
+|---|---|---|
+| `hello-world`, `charts` off | 2,805,367 | 1,202,999 |
+| `hello-world`, `charts` on, not using it | 2,806,628 | 1,203,232 |
+| `component-gallery` before charts used it | 3,301,057 | 1,399,745 |
+| `component-gallery` using every chart and code | 3,582,964 | 1,504,909 |
+
+Link-time optimization drops what an app does not call, so the feature costs an app without charts about 0.2 KB gzipped. Turning it off saves compile time, not download size. An app that does use charts pays about 105 KB gzipped, its own demos included.
+
 The DataGrid caches the query result and reruns it only when the data or the query changes, so these costs are paid once per user action, not every frame. Version 0.1 broke the budget in three cases (search at 47 ms, filter at 31 ms, text sort at 23 ms). They were fixed by parsing filters once per query, matching text case-insensitively without allocating, computing sort keys only for matching rows, and replacing text comparisons with precomputed ranks.
 
 ## Component audit
@@ -86,7 +111,8 @@ Status against the definition of done. **Behavior** names the test suites that d
 | CommandPalette | batch_parity | | ✅ ⌘K, type, arrows, Enter, tested | |
 | Dialog, Sheet, Popover, HoverCard, Tooltip, Toaster | components, batch_parity, keyboard_and_basics | | ✅ Escape; Dialog and Sheet trap focus and return it, tested | |
 | DataGrid | datagrid, properties, editing_and_clipboard | ✅ | ✅ row navigation, Page Up/Down, Enter edits, Cmd/Ctrl+C copies rows as tab-separated text, Cmd/Ctrl+A, tested | See the DataGrid parity table in ARCHITECTURE.md |
-| Table, List, Stat, BarChart, AreaChart | components | ✅ partial | n/a | |
+| Table, List, Stat | components | ✅ partial | n/a | |
+| Chart, BarChart, AreaChart, Barcode | charts, components | ✅ a chart reads its values; a code reads its text or `alt` | n/a | The layout's own tests are in `ravenrs-graphics` |
 | Layout: stacks, Grid, ScrollView, Splitter, AspectRatio, Card, Section | layout_and_content, components, keyboard_and_basics | ✅ partial | 🟡 Splitter arrows, untested | AspectRatio content now fills its box |
 | Media and feedback: Image, Icon, Carousel, Avatar, Badge, Alert, ProgressBar, Spinner, Skeleton, Kbd, Divider | layout_and_content, components, batch_parity | ✅ partial | 🟡 Carousel arrows, untested | |
 

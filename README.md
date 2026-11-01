@@ -73,7 +73,7 @@ The [getting started guide](https://github.com/alexkads/RavenRS/blob/master/docs
 | Forms | `FormField` with `validate::{required, email, min_length}` and custom rules, `Label` |
 | Navigation | `Ribbon`, `Menubar`, `Tabs`, `Sidebar`, `Breadcrumb`, `Pagination`, `Disclosure`, `Accordion`, `CommandPalette` (⌘K) |
 | Overlays | `Dialog`, `Sheet`, `Popover`, `HoverCard`, `Tooltip`, `DropdownMenu`, `ContextMenu`, `Toaster` |
-| Data | `DataGrid` (virtualized; multi-sort, filter row, search, grouping, summaries, resize, column chooser, selection, editing, templates, CSV export), `Table`, `List`, `Stat`, `BarChart`, `AreaChart` |
+| Data | `DataGrid` (virtualized; multi-sort, filter row, search, grouping, summaries, resize, column chooser, selection, editing, templates, CSV export), `Table`, `List`, `Stat`, `Chart` (line, area, bar, pie, doughnut, scatter, sparkline), `BarChart`, `AreaChart`, `Barcode` (QR Code and linear codes) |
 | Layout | `VStack`, `HStack`, `Grid`, `ScrollView`, `Splitter`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `Spacer`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
 | Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Alert`, `ProgressBar`, `Spinner`, `Skeleton`, `Kbd`, `Divider`, `Canvas` |
 
