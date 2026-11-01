@@ -74,8 +74,9 @@ The [getting started guide](https://github.com/alexkads/RavenRS/blob/master/docs
 | Navigation | `Ribbon`, `Menubar`, `Tabs`, `Sidebar`, `Breadcrumb`, `Pagination`, `Disclosure`, `Accordion`, `CommandPalette` (⌘K) |
 | Overlays | `Dialog`, `Sheet`, `SplashScreen`, `Popover`, `HoverCard`, `Tooltip`, `DropdownMenu`, `ContextMenu`, `Toaster` |
 | Data | `DataGrid` (virtualized; multi-sort, filter row, search, grouping, summaries, resize, column chooser, selection, editing, templates, CSV export), `Table`, `List`, `Stat`, `BarChart`, `AreaChart` |
-| Layout | `VStack`, `HStack`, `Grid`, `ScrollView`, `Splitter`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `Spacer`, `Footer`, `StatusBar`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
-| Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Alert`, `ProgressBar`, `Spinner`, `Skeleton`, `Kbd`, `Divider`, `Canvas`, `CodeBlock`, `ReleaseNotes` |
+| Layout | `VStack`, `HStack`, `Grid`, `ScrollView`, `Splitter`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `Spacer`, `Footer`, `StatusBar`, `ToolRail`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
+| Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Alert`, `ProgressBar`, `Spinner`, `Skeleton`, `Kbd`, `Divider`, `Canvas`, `CodeBlock`, `ReleaseNotes`, `Timeline` |
+| Training and support (`ravenrs::movie`) | `Recorder`, `MoviePlayer`, `MovieEditor`, `FlightRecorder`, `BugReporter`: vector films of the app that ship inside it, edited on a timeline, and bug reports that show what happened |
 
 Every component is in [`examples/component-gallery`](https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery), which runs natively and [in your browser](https://alexkads.github.io/RavenRS/). For a whole app, see [`examples/family-finance`](https://github.com/alexkads/RavenRS/blob/master/examples/family-finance): family expenses and bills to pay on SQLite, with reports.
 

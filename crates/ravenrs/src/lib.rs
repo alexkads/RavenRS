@@ -13,6 +13,7 @@ struct SkillDoctests;
 pub use ravenrs_animation as animation;
 pub use ravenrs_core as core;
 pub use ravenrs_layout as layout;
+pub use ravenrs_movie as movie;
 pub use ravenrs_reactive as reactive;
 pub use ravenrs_render as render;
 pub use ravenrs_style as style;
@@ -23,7 +24,8 @@ pub use ravenrs_widgets as widgets;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod native {
     pub use ravenrs_platform_native::{
-        AppIdentity, PlatformError, SaveDialog, WindowOptions, open_with_system, run, run_as, run_with_icon,
+        AppIdentity, OpenDialog, PlatformError, SaveDialog, WindowOptions, open_with_system, run, run_as,
+        run_with_icon,
     };
 }
 

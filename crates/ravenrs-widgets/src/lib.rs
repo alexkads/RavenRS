@@ -61,6 +61,7 @@ mod scheduler;
 mod stack;
 mod text;
 mod text_field;
+mod timeline;
 mod ui;
 mod util;
 mod view;
@@ -72,8 +73,8 @@ pub use card::{Card, GlassCard};
 pub use choice::{AspectRatio, ColorSwatch, Label, Pagination, ToggleButton, ToggleGroup};
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use context::{
-    BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint, Placement, QuadPaint,
-    Semantics, WidgetId,
+    ActivityObserver, BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint,
+    Placement, QuadPaint, Semantics, UiActivity, WidgetId,
 };
 pub use data::{AreaChart, BarChart, Column, List, ListItem, Table};
 pub use date::{Date, days_in_month, is_leap_year};
@@ -109,8 +110,9 @@ pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
 pub use scheduler::{
     Resource, Scheduler, SchedulerChange, SchedulerEvent, SchedulerRange, TimeAxis, TimePoint, TimeScale,
 };
-pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, StatusBar, VStack};
+pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, StatusBar, ToolRail, VStack};
 pub use text::Text;
 pub use text_field::TextField;
+pub use timeline::{Timeline, TimelineEdit, TimelineItem, TimelineMarker, TimelineTrack};
 pub use ui::Ui;
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};

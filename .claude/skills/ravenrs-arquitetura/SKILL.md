@@ -36,6 +36,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Motor de relatórios | `model.rs`, `engine.rs`, `document.rs` em `crates/ravenrs-report/src/` | `docs/REPORTING.md`, `docs/REPORTING-PARITY.md` |
 | Servidor de relatórios | `crates/ravenrs-report-server/src/`: `http`, `scheduler`, `store`, `cron`, `deliver` | `docs/REPORT-SERVER.md`, `crates/ravenrs-report-server/tests/server.rs` |
 | Visualizador de relatórios | `crates/ravenrs-report-viewer/src/`: `lib` (`DocumentViewer`), `search`, `parameters` | `crates/ravenrs-report-viewer/tests/viewer.rs` |
+| Filmes de treinamento e relato de bug | `crates/ravenrs-movie/src/`: `movie`, `project`, `composition`, `record`, `player`, `editor`, `flight` | Testes em `crates/ravenrs-movie/tests/`; filme é lista de desenho, nunca pixels |
 | Editor de relatórios | `examples/report-designer/src/` | `examples/report-designer/tests/designer.rs` |
 | Ícones | `scripts/gen-icons.py` regenera a fonte e o `IconName` | Não edite `icon_set.rs` à mão |
 

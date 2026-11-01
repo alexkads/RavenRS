@@ -54,6 +54,55 @@ impl SaveDialog {
     }
 }
 
+/// The system's dialog for choosing a file to open.
+///
+/// It blocks until answered and has to run on the UI thread, which is where
+/// event handlers such as `on_click` run.
+///
+/// ```no_run
+/// use ravenrs_platform_native::OpenDialog;
+///
+/// let chosen = OpenDialog::new().title("Abrir").filter("Texto", &["txt"]).ask();
+/// if let Some(path) = chosen {
+///     let text = std::fs::read_to_string(path)?;
+/// }
+/// # Ok::<(), std::io::Error>(())
+/// ```
+#[derive(Debug, Default)]
+pub struct OpenDialog {
+    dialog: rfd::FileDialog,
+}
+
+impl OpenDialog {
+    /// A dialog that shows every file, until a [`filter`](Self::filter) narrows it.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets the dialog's title.
+    pub fn title(mut self, title: &str) -> Self {
+        self.dialog = self.dialog.set_title(title);
+        self
+    }
+
+    /// Offers a kind of file, such as `("PDF", &["pdf"])`.
+    pub fn filter(mut self, name: &str, extensions: &[&str]) -> Self {
+        self.dialog = self.dialog.add_filter(name, extensions);
+        self
+    }
+
+    /// Opens in this folder, when the system allows it.
+    pub fn folder(mut self, folder: &Path) -> Self {
+        self.dialog = self.dialog.set_directory(folder);
+        self
+    }
+
+    /// Shows the dialog; `None` when the user cancels.
+    pub fn ask(self) -> Option<PathBuf> {
+        self.dialog.pick_file()
+    }
+}
+
 /// Opens a file with the program the system uses for it: a PDF in its viewer, a
 /// web page in the browser. The program runs on its own, so this does not wait for it.
 pub fn open_with_system(path: &Path) -> io::Result<()> {

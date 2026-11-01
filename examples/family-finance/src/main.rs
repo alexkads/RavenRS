@@ -37,6 +37,10 @@ fn main() -> Result<(), PlatformError> {
     let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(Theme::raven_light());
     match open(&path) {
         Ok(db) => {
+            let copies = family_finance::backup::copies_folder(&path);
+            if let Err(e) = family_finance::backup::keep_daily_copy(&db, &copies, today()) {
+                tracing::warn!(error = %e, "could not keep the copy of the day");
+            }
             let updater = Updater::idle();
             updater.watch();
             let app = App::new(db, today(), Some(path), updater);

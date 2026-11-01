@@ -1,0 +1,14 @@
+[package]
+name = "movie-editor"
+description = "RavenRS example: opens a training film or a bug report and edits it on a timeline."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ravenrs.workspace = true
+
+[lints]
+workspace = true

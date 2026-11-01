@@ -82,6 +82,7 @@ pub struct Ui {
     /// Seconds since start, set by the platform.
     time: f64,
     shortcuts: Vec<Shortcut>,
+    activity: Option<crate::context::ActivityObserver>,
     /// Earliest time a widget asked to be rebuilt at.
     wake: Option<f64>,
     pointer: Option<Point>,
@@ -162,6 +163,7 @@ impl Ui {
             dragging: None,
             time: 0.0,
             shortcuts: Vec::new(),
+            activity: None,
             wake: None,
             pointer: None,
             cursor: CursorIcon::Default,
@@ -342,11 +344,18 @@ impl Ui {
         self.elements.len()
     }
 
+    fn tell_activity(&self, activity: crate::context::UiActivity<'_>) {
+        if let Some(observer) = self.activity.clone() {
+            observer(activity, self.time);
+        }
+    }
+
     /// Feeds one input event; returns true when a redraw is needed.
     pub fn handle_event(&mut self, event: &Event) -> bool {
         match event {
             Event::PointerMove { position } => {
                 self.pointer = Some(*position);
+                self.tell_activity(crate::context::UiActivity::PointerMoved(*position));
                 if let Some(widget) = self.dragging {
                     self.drag(widget, DragPhase::Move, *position);
                 }
@@ -354,6 +363,7 @@ impl Ui {
             }
             Event::PointerDown { position, button: PointerButton::Primary } => {
                 self.pointer = Some(*position);
+                self.tell_activity(crate::context::UiActivity::Clicked(*position));
                 self.reveal_focus = false;
                 self.dismiss_overlays_outside(*position);
                 self.refresh_hover();
@@ -620,12 +630,17 @@ impl Ui {
     }
 
     /// Scrolls the innermost scroll container under `p` that can move in the
-    /// direction of `delta`. Returns true if something scrolled.
+    /// direction of `delta`. Returns true if something scrolled. An open modal
+    /// layer keeps it from what is behind, even when its own content is at the end.
     fn scroll(&mut self, p: Point, delta: Point) -> bool {
+        let layers = self.modal_root().map(|root| self.modal_layers(root));
         for &node in self.paint_order.iter().rev() {
             let i = node.0 as usize;
             let e = &self.elements[i];
             if !e.scroll || !self.frames[i].intersect(&self.clips[i]).contains(p) {
+                continue;
+            }
+            if !layers.as_ref().is_none_or(|l| l.iter().any(|root| self.is_inside(node, *root))) {
                 continue;
             }
             let max = self.max_offset(i);
@@ -748,8 +763,8 @@ impl Ui {
         let motion_enabled = self.motion.enabled;
         let reduced_motion = self.system_reduced_motion || theme.peek().interaction.reduced_motion;
         self.motion.reduced = reduced_motion;
-        let (node, overlays, requests, focus, wake, shortcuts, error, motions, moving) =
-            observer.track(|| {
+        let (node, overlays, requests, focus, wake, shortcuts, activity, error, motions, moving) = observer
+            .track(|| {
                 let mut cx = BuildCx::new(
                     theme,
                     viewport,
@@ -785,6 +800,7 @@ impl Ui {
                     cx.focus_request.take(),
                     cx.wake.take(),
                     std::mem::take(&mut cx.shortcuts),
+                    cx.activity.take(),
                     cx.error.take(),
                     std::mem::take(&mut cx.motions),
                     cx.value_moving,
@@ -793,6 +809,7 @@ impl Ui {
         self.wake = wake;
         self.value_moving = moving;
         self.shortcuts = shortcuts;
+        self.activity = activity;
         if let Some(widget) = focus
             && self.interaction.focused != Some(widget)
         {
@@ -1019,6 +1036,7 @@ impl Ui {
         self.motion.paint_ghosts(GhostLayer::Top, &mut self.scene);
         let live = self.has_live && !self.reduced_motion();
         self.next_live = live.then_some(self.time + LIVE_FRAME);
+        self.tell_activity(crate::context::UiActivity::Painted(&self.scene));
     }
 
     fn reduced_motion(&self) -> bool {

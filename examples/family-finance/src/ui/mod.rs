@@ -10,6 +10,7 @@ mod records;
 mod reports;
 mod settings;
 mod store;
+mod training;
 mod updates;
 
 use std::path::PathBuf;
@@ -24,6 +25,7 @@ use budgets::BudgetsState;
 use dashboard::DashboardState;
 use forms::Forms;
 use ledger::LedgerState;
+use ravenrs::movie::{BugReporter, FlightRecorder};
 use records::RecordsState;
 use reports::ReportsState;
 use store::{Memo, Store};
@@ -33,7 +35,7 @@ use crate::model::{BillStatus, Flow};
 use crate::update::Updater;
 
 /// The screens, in the sidebar's order.
-const PAGES: [(IconName, &str); 8] = [
+const PAGES: [(IconName, &str); 9] = [
     (IconName::LayoutDashboard, "Painel"),
     (IconName::ArrowUpDown, "Lançamentos"),
     (IconName::CreditCard, "Contas a pagar"),
@@ -42,9 +44,12 @@ const PAGES: [(IconName, &str); 8] = [
     (IconName::FileText, "Relatórios"),
     (IconName::Users, "Cadastros"),
     (IconName::Settings, "Ajustes"),
+    (IconName::Video, "Treinamentos"),
 ];
 
 const BILLS_PAGE: usize = 2;
+/// How much of the last minutes a bug report can show.
+const FLIGHT_SECONDS: f64 = 240.0;
 
 /// The whole app.
 pub struct App {
@@ -60,6 +65,9 @@ pub struct App {
     budgets: BudgetsState,
     reports: ReportsState,
     records: RecordsState,
+    training: training::TrainingState,
+    recorder: FlightRecorder,
+    reporter: BugReporter,
     overdue: Memo<u64, usize>,
     icon: Memo<u8, Option<ImageData>>,
 }
@@ -73,11 +81,17 @@ impl std::fmt::Debug for App {
 impl App {
     /// An app over this database. `path` is only shown in the settings.
     pub fn new(db: Database, today: Date, path: Option<PathBuf>, updater: Updater) -> Self {
+        let store = Store::new(db, today, path, updater);
+        let recorder = FlightRecorder::new(FLIGHT_SECONDS);
+        let reporter = training::reporter(&store, &recorder);
         Self {
-            store: Store::new(db, today, path, updater),
+            store,
             page: State::new(0),
             palette: State::new(false),
             news: updates::NewsDialog::new(),
+            training: training::TrainingState::new(),
+            recorder,
+            reporter,
             forms: Forms::new(),
             dashboard: DashboardState::new(),
             ledger: LedgerState::new(today),
@@ -130,6 +144,9 @@ impl App {
             }
             if i == 6 {
                 items.push(Box::new(SidebarSection::new("Configuração")));
+            }
+            if i == 8 {
+                items.push(Box::new(SidebarSection::new("Ajuda")));
             }
             let page = self.page.clone();
             let mut item =
@@ -226,7 +243,8 @@ impl App {
             4 => Box::new(budgets::budgets(&self.store, &self.budgets)),
             5 => Box::new(reports::reports(&self.store, &self.reports)),
             6 => Box::new(records::records(&self.store, &self.records, &self.forms)),
-            _ => Box::new(settings::settings(&self.store, &self.forms, &self.news)),
+            7 => Box::new(settings::settings(&self.store, &self.forms, &self.news)),
+            _ => Box::new(training::training(&self.training)),
         }
     }
 }
@@ -249,6 +267,7 @@ impl Component for App {
     fn body(&self) -> impl View {
         let main = VStack::new((
             updates::UpdatePump(self.store.updater.clone()),
+            self.recorder.clone(),
             self.toolbar(),
             Divider::horizontal(),
             // Keyed by screen, so each one opens with fresh local state and scrolled to the top.
@@ -265,14 +284,14 @@ impl Component for App {
             Labels::pt_br(),
             VStack::new((
                 HStack::new((self.sidebar(), main)).spacing(0.0).align(Align::Stretch).grow(1.0),
-                updates::status_bar(&self.store.updater, &self.news),
+                updates::status_bar(&self.store.updater, &self.news, &self.reporter),
                 self.forms.transaction.view(&self.store),
                 self.forms.bill.view(&self.store),
                 self.forms.pay.view(&self.store),
                 self.forms.schedule.view(&self.store),
                 self.forms.occurrence.view(&self.store),
                 self.forms.confirm.view(),
-                self.news.view(&self.store.updater),
+                VStack::new((self.news.view(&self.store.updater), self.reporter.clone())).spacing(0.0),
                 self.palette_view(),
                 Shortcuts { store: self.store.clone(), forms: self.forms.clone() },
                 Toaster::new(self.store.toasts.clone()).bottom_inset(StatusBar::HEIGHT),

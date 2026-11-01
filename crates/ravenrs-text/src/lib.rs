@@ -9,7 +9,7 @@
 //! scale factor, so text stays sharp on HiDPI screens without re-shaping.
 
 use std::fmt;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use parley::fontique::{Blob, Collection, CollectionOptions, FamilyId, GenericFamily, SourceCache};
 use parley::{
@@ -28,6 +28,24 @@ pub const ICON_FAMILY: &str = "RavenIcons";
 
 /// The family name of the embedded default font.
 pub const DEFAULT_FAMILY: &str = "Inter";
+
+/// Which built-in font these bytes are, as a number that does not change between
+/// runs: what a recording stores instead of the font itself.
+pub fn builtin_font_number(bytes: &[u8]) -> Option<u8> {
+    [INTER_REGULAR, INTER_SEMIBOLD, RAVEN_ICONS].iter().position(|font| *font == bytes).map(|i| i as u8)
+}
+
+/// A built-in font by its [`builtin_font_number`], for drawing shaped glyphs back.
+pub fn builtin_font(number: u8) -> Option<FontRef> {
+    static FONTS: OnceLock<[FontRef; 3]> = OnceLock::new();
+    let fonts = FONTS.get_or_init(|| {
+        [INTER_REGULAR, INTER_SEMIBOLD, RAVEN_ICONS].map(|bytes| {
+            let blob = Blob::new(Arc::new(bytes));
+            FontRef { id: blob.id(), data: Arc::new(blob), index: 0 }
+        })
+    });
+    fonts.get(usize::from(number)).cloned()
+}
 
 /// The embedded Inter font file, regular or semibold, for documents that embed
 /// the font they were measured with.
