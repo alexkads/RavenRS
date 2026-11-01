@@ -49,6 +49,21 @@ impl Color {
         )
     }
 
+    /// Returns the same color, `factor` times as opaque as it already is.
+    /// Use this on a theme's tokens: in a glass theme they are translucent to
+    /// begin with, and [`Self::with_alpha`] would make them more opaque, not less.
+    ///
+    /// ```
+    /// use ravenrs_core::Color;
+    ///
+    /// let glass = Color::rgba(1.0, 1.0, 1.0, 0.2);
+    /// assert_eq!(glass.faded(0.5).a, 0.1);
+    /// assert_eq!(glass.with_alpha(0.5).a, 0.5);
+    /// ```
+    pub const fn faded(self, factor: f32) -> Self {
+        Self::rgba(self.r, self.g, self.b, self.a * factor)
+    }
+
     /// Returns the same color with alpha replaced by `a` (`0.0..=1.0`).
     pub const fn with_alpha(self, a: f32) -> Self {
         Self::rgba(self.r, self.g, self.b, a)

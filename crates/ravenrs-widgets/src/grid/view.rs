@@ -527,7 +527,7 @@ impl View for DataRow<'_> {
         } else {
             Color::TRANSPARENT
         };
-        let line = theme.color(Semantic::Border).with_alpha(0.6);
+        let line = theme.color(Semantic::Border).faded(0.6);
         let focus = (s.focus_row == Some(index)).then(|| theme.color(Semantic::Accent));
         let node = cx.container(
             LayoutStyle {
@@ -597,8 +597,8 @@ impl View for GroupRow<'_> {
         }
         let hovered = cx.is_hovered();
         let base = theme.color(Semantic::Control);
-        let fill = if hovered { base.lerp(ink, 0.06) } else { base.with_alpha(0.55) };
-        let line = theme.color(Semantic::Border).with_alpha(0.6);
+        let fill = if hovered { base.lerp(ink, 0.06) } else { base.faded(0.55) };
+        let line = theme.color(Semantic::Border).faded(0.6);
         let node = cx.container(
             LayoutStyle {
                 width: Some(s.total_width),
@@ -1048,7 +1048,7 @@ impl View for DataGrid {
         for &c in &visible {
             header_cells.push(cx.keyed_child(c as u64, &HeaderCell { column: c, shared: &shared }));
         }
-        let header_fill = theme.color(Semantic::Control).with_alpha(0.6);
+        let header_fill = theme.color(Semantic::Control).faded(0.6);
         sections.push(Self::band(cx, header_cells, &shared, offset.x, header_fill, false, 40.0));
 
         if self.filter_row {
@@ -1199,7 +1199,7 @@ impl View for DataGrid {
                     Paint::None,
                 ));
             }
-            let fill = theme.color(Semantic::Control).with_alpha(0.6);
+            let fill = theme.color(Semantic::Control).faded(0.6);
             sections.push(Self::band(cx, cells, &shared, offset.x, fill, true, 52.0));
         }
 

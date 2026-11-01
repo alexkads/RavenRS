@@ -690,8 +690,10 @@ impl View for PreviewPane {
         let report = e.report.get();
         let mode = e.clone();
         let (pe, pc, pp) = (e.clone(), self.cache.clone(), self.params.clone());
+        // The designer has its own print button, which renders the report as it stands.
         let viewer = DocumentViewer::new(doc, &state.get())
             .labels(ViewerLabels::pt_br())
+            .print_button(false)
             .toolbar_leading(move || vec![Box::new(mode_switch(&mode)) as AnyView])
             .toolbar_trailing(move || {
                 let print = (pe.clone(), pc.clone(), pp.clone());

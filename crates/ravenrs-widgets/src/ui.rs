@@ -420,6 +420,9 @@ impl Ui {
                     return true;
                 }
             }
+            Event::Pinch { position, delta } => {
+                self.pinch(*position, *delta);
+            }
             Event::PointerDown { position, button: PointerButton::Secondary } => {
                 self.pointer = Some(*position);
                 self.dismiss_overlays_outside(*position);
@@ -597,6 +600,22 @@ impl Ui {
         }
         for h in handlers {
             h();
+        }
+    }
+
+    /// Hands a zoom gesture to the topmost element under `p` that takes it. An
+    /// open modal layer keeps it from what is behind.
+    fn pinch(&mut self, p: Point, delta: f32) {
+        let layers = self.modal_root().map(|root| self.modal_layers(root));
+        let handler = self.paint_order.iter().rev().find_map(|&node| {
+            let i = node.0 as usize;
+            let e = &self.elements[i];
+            let reachable = layers.as_ref().is_none_or(|l| l.iter().any(|root| self.is_inside(node, *root)));
+            let inside = self.frames[i].intersect(&self.clips[i]).contains(p);
+            if reachable && inside { e.on_pinch.clone() } else { None }
+        });
+        if let Some(handler) = handler {
+            handler(delta);
         }
     }
 

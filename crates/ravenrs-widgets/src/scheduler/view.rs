@@ -1049,7 +1049,7 @@ impl View for Scheduler {
             }
         }
         for tick in &ticks {
-            under.push(band(cx, Rect::new(tick.x, 0.0, 1.0, total_height), line.with_alpha(0.5)));
+            under.push(band(cx, Rect::new(tick.x, 0.0, 1.0, total_height), line.faded(0.5)));
         }
         for range in &self.ranges {
             let (from, to) = (axis.x_of(range.start), axis.x_of(range.end));

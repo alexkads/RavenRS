@@ -245,3 +245,73 @@ fn each_kind_gets_its_control() {
     assert!(tree.nodes.iter().filter(|n| n.role == Role::TextInput).count() >= 2, "text and number");
     assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("From")), "date");
 }
+
+fn sized_ui(state: &ViewerState) -> Ui {
+    let mut ui = Ui::new(DocumentViewer::new(document(2), state), Theme::raven_light());
+    ui.set_viewport(Size::new(1100.0, 800.0), 1.0);
+    ui.update();
+    ui.update();
+    ui
+}
+
+fn pinch(ui: &mut Ui, delta: f32, position: ravenrs_core::Point) {
+    ui.handle_event(&Event::Pinch { position, delta });
+    ui.update();
+}
+
+#[test]
+fn a_pinch_over_the_pages_zooms_by_how_much_it_asks() {
+    let state = ViewerState::new();
+    let mut ui = sized_ui(&state);
+    let over_pages = ravenrs_core::Point::new(550.0, 500.0);
+    let start = state.zoom().get();
+    pinch(&mut ui, 0.5, over_pages);
+    assert!((state.zoom().get() - start * 1.5).abs() < 0.011, "{}", state.zoom().get());
+    pinch(&mut ui, -0.5, over_pages);
+    assert!(state.zoom().get() < start, "and back out");
+}
+
+#[test]
+fn a_pinch_stops_at_the_limits_of_the_zoom() {
+    let state = ViewerState::new();
+    let mut ui = sized_ui(&state);
+    let over_pages = ravenrs_core::Point::new(550.0, 500.0);
+    for _ in 0..20 {
+        pinch(&mut ui, 1.0, over_pages);
+    }
+    assert_eq!(state.zoom().get(), 3.0);
+    for _ in 0..20 {
+        pinch(&mut ui, -0.9, over_pages);
+    }
+    assert_eq!(state.zoom().get(), 0.5);
+}
+
+#[test]
+fn a_pinch_elsewhere_changes_nothing() {
+    let state = ViewerState::new();
+    let mut ui = sized_ui(&state);
+    let start = state.zoom().get();
+    pinch(&mut ui, 0.5, ravenrs_core::Point::new(550.0, 5.0));
+    assert_eq!(state.zoom().get(), start, "the toolbar is not the page");
+}
+
+#[test]
+fn the_toolbar_offers_to_print_unless_told_not_to() {
+    let names = |ui: &mut Ui| -> Vec<String> {
+        ui.access_tree()
+            .nodes
+            .iter()
+            .filter(|n| n.role == Role::Button)
+            .filter_map(|n| n.name.clone())
+            .collect()
+    };
+    let state = ViewerState::new();
+    let mut ui = sized_ui(&state);
+    assert!(names(&mut ui).iter().any(|n| n == "Print"));
+    let mut plain =
+        Ui::new(DocumentViewer::new(document(1), &state).print_button(false), Theme::raven_light());
+    plain.set_viewport(Size::new(1100.0, 800.0), 1.0);
+    plain.update();
+    plain.update();
+    assert!(!names(&mut plain).iter().any(|n| n == "Print"));
+}

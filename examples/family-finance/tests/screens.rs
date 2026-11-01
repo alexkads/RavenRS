@@ -96,6 +96,12 @@ fn draw_every_screen() {
         let mut ui = app(Theme::raven_light(), page, Updater::idle());
         capture(&gpu, &mut ui, size, &folder.join(format!("{name}.png")));
     }
+    // The grid and the timeline on the glass theme, whose tokens are translucent.
+    let mut glass = app(Theme::raven_glass(), 2, Updater::idle());
+    capture(&gpu, &mut glass, size, &folder.join("contas-vidro.png"));
+    let mut glass = app(Theme::raven_glass(), 3, Updater::idle());
+    capture(&gpu, &mut glass, size, &folder.join("agenda-vidro.png"));
+
     let mut dark = app(Theme::raven_dark(), 0, Updater::idle());
     capture(&gpu, &mut dark, size, &folder.join("painel-escuro.png"));
 

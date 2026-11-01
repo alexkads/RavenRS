@@ -820,10 +820,7 @@ impl View for Ribbon {
                 scene.push_quad(Quad::new(f, surface));
                 scene.push_quad(Quad::new(Rect::new(f.x(), f.max_y() - 1.0, f.width(), 1.0), line));
                 // Hairline under the tab strip.
-                scene.push_quad(Quad::new(
-                    Rect::new(f.x(), f.y() + 40.0, f.width(), 1.0),
-                    line.with_alpha(0.6),
-                ));
+                scene.push_quad(Quad::new(Rect::new(f.x(), f.y() + 40.0, f.width(), 1.0), line.faded(0.6)));
             })),
         )
     }

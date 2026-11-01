@@ -20,6 +20,7 @@
 //! ```
 
 mod parameters;
+mod print;
 mod search;
 
 use std::cell::RefCell;
@@ -33,11 +34,13 @@ use ravenrs_report::{Document, Item, TextBlock, paint_page};
 use ravenrs_style::{SPACING, Semantic, TextStyle, Weight};
 use ravenrs_text::{TextAttrs, TextSystem};
 use ravenrs_widgets::{
-    Alert, AnyView, BuildCx, ButtonSize, Canvas, Divider, HStack, IconButton, IconName, NodeId, Pagination,
-    Paint, QuadPaint, ScrollView, Semantics, Spacer, Text, TextField, Tone, VStack, View, ViewExt,
+    Alert, AnyView, BuildCx, Button, ButtonSize, ButtonStyle, Canvas, Divider, HStack, IconButton, IconName,
+    NodeId, Pagination, Paint, QuadPaint, ScrollView, Semantics, Spacer, Text, TextField, Tone, VStack, View,
+    ViewExt,
 };
 
 pub use parameters::{ParameterLabels, ParameterPanel, ParameterValues};
+pub use print::print;
 pub use search::{Match, find_matches};
 
 const ZOOM_STEP: f32 = 0.25;
@@ -106,6 +109,8 @@ pub struct ViewerLabels {
     pub zoom_in: String,
     /// Fits the page to the window's width.
     pub fit_width: String,
+    /// Prints the document.
+    pub print: String,
     /// The title of a problem in the report.
     pub report_error: String,
 }
@@ -127,6 +132,7 @@ impl Default for ViewerLabels {
             zoom_out: text("Zoom out"),
             zoom_in: text("Zoom in"),
             fit_width: text("Fit width"),
+            print: text("Print"),
             report_error: text("Problem in the report"),
         }
     }
@@ -150,6 +156,7 @@ impl ViewerLabels {
             zoom_out: text("Afastar"),
             zoom_in: text("Aproximar"),
             fit_width: text("Ajustar à largura"),
+            print: text("Imprimir"),
             report_error: text("Erro no relatório"),
         }
     }
@@ -322,6 +329,7 @@ pub struct DocumentViewer {
     labels: ViewerLabels,
     leading: Option<ToolbarItems>,
     trailing: Option<ToolbarItems>,
+    print_button: bool,
 }
 
 impl std::fmt::Debug for DocumentViewer {
@@ -339,12 +347,19 @@ impl DocumentViewer {
             labels: ViewerLabels::default(),
             leading: None,
             trailing: None,
+            print_button: true,
         }
     }
 
     /// Sets the text the viewer shows.
     pub fn labels(mut self, labels: ViewerLabels) -> Self {
         self.labels = labels;
+        self
+    }
+
+    /// Whether the toolbar offers to print (on by default).
+    pub fn print_button(mut self, show: bool) -> Self {
+        self.print_button = show;
         self
     }
 
@@ -517,6 +532,16 @@ impl View for DocumentViewer {
         bar.push(Box::new(Spacer::new()));
         bar.push(Box::new(self.search_bar(&matches, current_match)));
         bar.push(Box::new(self.zoom_controls(zoom, fit_width)));
+        if self.print_button {
+            let printed = document.clone();
+            bar.push(Box::new(
+                Button::new(labels.print.clone())
+                    .icon(IconName::Printer)
+                    .style(ButtonStyle::Secondary)
+                    .size(ButtonSize::Small)
+                    .on_click(move || print(&printed)),
+            ));
+        }
         if let Some(trailing) = &self.trailing {
             bar.extend(trailing());
         }
@@ -588,6 +613,17 @@ impl View for DocumentViewer {
         );
 
         let (up, down) = (state.page.clone(), state.page.clone());
+        // Whole percents: each zoom gets its pages drawn again, and a gesture passes through many.
+        let pinched = state.zoom.clone();
+        cx.on_pinch(
+            row,
+            Rc::new(move |delta| {
+                pinched.update(|z| {
+                    let next = (*z * (1.0 + delta) * 100.0).round() / 100.0;
+                    *z = next.clamp(ZOOM_MIN, ZOOM_MAX);
+                });
+            }),
+        );
         cx.shortcut(Key::PageUp, false, Rc::new(move || up.update(|p| *p = p.saturating_sub(1))));
         cx.shortcut(Key::PageDown, false, Rc::new(move || down.update(|p| *p = (*p + 1).min(pages - 1))));
         cx.container(
