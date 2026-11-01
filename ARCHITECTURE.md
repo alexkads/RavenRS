@@ -61,6 +61,7 @@ ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
         ▲
         │
 ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)
+ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
         ▲
         ├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)
         │
@@ -85,6 +86,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-report` | `model`, `engine`, `document`, `paint`, `wizard`, `samples` |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
+| `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |
 | `ravenrs-report-server` | `config`, `store`, `cron`, `job`, `render`, `deliver`, `scheduler`, `http`, `main` |
 | `ravenrs-mcp` | `api` (index of the public API, parsed from embedded sources), `docs`, `expression`, `server` |
 
@@ -216,7 +218,7 @@ Report (model: JSON or builder) + data ──► ReportEngine (engine) ──►
 
 Expressions in a report come from `ravenrs-criteria`, and text is measured with the same Parley stack as the UI. `wizard` builds a finished table report from a data source, and `samples` holds the templates. The designer is `examples/report-designer`, built on `Ribbon` and the other public components: `editor` (shared state), `surface` (bands and controls), `props` (property grid), `preview` (document viewer).
 
-Phase R1 is done. `ravenrs-report-pdf`, `ravenrs-report-xlsx` export the `Document` to PDF, XLSX and CSV, also in the browser. `ravenrs-report-server` stores layouts, renders over HTTP and delivers scheduled reports ([docs/REPORT-SERVER.md](docs/REPORT-SERVER.md)). The viewer widget is not built yet; [docs/REPORTING.md](docs/REPORTING.md) has the design and phases, and [docs/REPORTING-PARITY.md](docs/REPORTING-PARITY.md) tracks each feature.
+Phase R1 is done. `ravenrs-report-pdf`, `ravenrs-report-xlsx` export the `Document` to PDF, XLSX and CSV, also in the browser. `ravenrs-report-server` stores layouts, renders over HTTP and delivers scheduled reports ([docs/REPORT-SERVER.md](docs/REPORT-SERVER.md)). `ravenrs-report-viewer` shows documents with thumbnails and search, and asks for parameters; [docs/REPORTING.md](docs/REPORTING.md) has the design and phases, and [docs/REPORTING-PARITY.md](docs/REPORTING-PARITY.md) tracks each feature.
 
 ## 6.5 Motion
 
@@ -314,7 +316,7 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 | Web: canvas, WebGPU, DPR, pointer, wheel, touch scrolling, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), clipboard copy, rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | pinch and momentum scrolling |
 | Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web | | caret and selection for screen readers, right-to-left |
 | Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
-| Reporting: engine, wizard, designer with preview, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, viewer widget, SQL data sources (phases R2 to R5) |
+| Reporting: engine, wizard, designer with preview, viewer, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`, budgets in [docs/QUALITY.md](docs/QUALITY.md)) | | GPU timestamps |
 
 ## 12. Decisions log

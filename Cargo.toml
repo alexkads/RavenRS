@@ -28,6 +28,7 @@ ravenrs-criteria = { version = "27.1.0", path = "crates/ravenrs-criteria" }
 ravenrs-report-pdf = { version = "27.1.0", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.0", path = "crates/ravenrs-report-xlsx" }
 ravenrs-report-server = { version = "27.1.0", path = "crates/ravenrs-report-server" }
+ravenrs-report-viewer = { version = "27.1.0", path = "crates/ravenrs-report-viewer" }
 
 wgpu = "30.0.1"
 # Without "wayland-csd-adwaita": its font stack (ttf-parser) is unmaintained (RUSTSEC-2026-0192);

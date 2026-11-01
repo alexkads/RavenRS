@@ -12,7 +12,10 @@ use ravenrs::prelude::*;
 use ravenrs::style::{RADII, SPACING};
 use ravenrs::widgets::{DragPhase, Paint, Placement, QuadPaint};
 use ravenrs_report::wizard::{self, FieldInfo, FieldKind, WizardOptions};
-use ravenrs_report::{Control, DataSource, DataSourceKind, Line, Report, Style, Table, TableRow, samples};
+use ravenrs_report::{
+    Control, DataSource, DataSourceKind, DateTime, Line, Report, Style, Table, TableRow, samples,
+};
+use ravenrs_report_viewer::{DocumentViewer, ParameterLabels, ParameterPanel, ViewerLabels, ViewerState};
 
 mod bands;
 mod editor;
@@ -28,7 +31,7 @@ use preview::RenderCache;
 pub struct Designer {
     editor: Editor,
     cache: Rc<RefCell<RenderCache>>,
-    params: State<HashMap<String, String>>,
+    params: State<HashMap<String, serde_json::Value>>,
     left_tab: State<usize>,
     wizard: WizardState,
 }
@@ -153,7 +156,11 @@ impl<C: ViewSeq> View for FillRow<C> {
 }
 
 /// Renders the report as it stands and sends it to the printer.
-fn print_report(editor: &Editor, cache: &Rc<RefCell<RenderCache>>, params: &State<HashMap<String, String>>) {
+fn print_report(
+    editor: &Editor,
+    cache: &Rc<RefCell<RenderCache>>,
+    params: &State<HashMap<String, serde_json::Value>>,
+) {
     let doc = preview::document(editor, cache, &params.get());
     preview::print(&doc);
 }
@@ -162,7 +169,7 @@ fn print_report(editor: &Editor, cache: &Rc<RefCell<RenderCache>>, params: &Stat
 fn export_report(
     editor: &Editor,
     cache: &Rc<RefCell<RenderCache>>,
-    params: &State<HashMap<String, String>>,
+    params: &State<HashMap<String, serde_json::Value>>,
     format: preview::Export,
 ) {
     let doc = preview::document(editor, cache, &params.get());
@@ -596,7 +603,7 @@ impl View for FieldGhost {
 struct Shortcuts {
     editor: Editor,
     cache: Rc<RefCell<RenderCache>>,
-    params: State<HashMap<String, String>>,
+    params: State<HashMap<String, serde_json::Value>>,
 }
 
 impl View for Shortcuts {
@@ -617,7 +624,7 @@ impl View for Shortcuts {
 struct CenterPane {
     editor: Editor,
     cache: Rc<RefCell<RenderCache>>,
-    params: State<HashMap<String, String>>,
+    params: State<HashMap<String, serde_json::Value>>,
 }
 
 impl View for CenterPane {
@@ -656,7 +663,7 @@ impl View for CenterPane {
 struct PreviewPane {
     editor: Editor,
     cache: Rc<RefCell<RenderCache>>,
-    params: State<HashMap<String, String>>,
+    params: State<HashMap<String, serde_json::Value>>,
 }
 
 impl View for PreviewPane {
@@ -664,125 +671,47 @@ impl View for PreviewPane {
         let e = &self.editor;
         let params = self.params.get();
         let doc = preview::document(e, &self.cache, &params);
-        let pages = doc.pages.len().max(1);
-        let current = e.page.get().min(pages - 1);
-        let zoom = e.zoom.get();
+        let state = cx.use_state(|| ViewerState::sharing(e.page.clone(), e.zoom.clone()));
         let report = e.report.get();
-        let (zoom_in, zoom_out) = (e.zoom.clone(), e.zoom.clone());
-        let mut bar: Vec<AnyView> = vec![
-            Box::new(mode_switch(e)),
-            Box::new(Pagination::new(e.page.binding(), pages).labels("Anterior", "Próxima", "Página")),
-            Box::new(Spacer::new()),
-        ];
-        for p in &report.parameters {
-            let name = p.name.clone();
-            let (read, write) = (self.params.clone(), self.params.clone());
-            let n2 = name.clone();
-            let default = p.default.as_ref().map(|d| d.to_string()).unwrap_or_default();
-            let caption = p.label.clone().unwrap_or_else(|| format!("?{}", p.name));
-            let field = TextField::new(Binding::new(
-                move || read.with(|m| m.get(&name).cloned()).unwrap_or_else(|| default.clone()),
-                move |s: String| {
-                    write.update(|m| {
-                        m.insert(n2.clone(), s);
-                    })
-                },
-            ))
-            .placeholder(caption.clone())
-            .compact()
-            .width(96.0);
-            bar.push(Box::new(
-                HStack::new((
-                    Text::new(caption).style(TextStyle::Callout).foreground(Semantic::InkMuted),
-                    field,
-                ))
-                .spacing(SPACING.s2)
-                .align(Align::Center),
-            ));
-        }
-        bar.push(Box::new(
-            HStack::new((
-                IconButton::new(IconName::ZoomOut)
-                    .label("Afastar")
-                    .size(ButtonSize::Small)
-                    .on_click(move || zoom_out.update(|z| *z = (*z - 0.25).max(0.5))),
-                Text::new(format!("{:.0}%", zoom * 100.0))
-                    .style(TextStyle::Callout)
-                    .font_weight(Weight::SEMIBOLD),
-                IconButton::new(IconName::ZoomIn)
-                    .label("Aproximar")
-                    .size(ButtonSize::Small)
-                    .on_click(move || zoom_in.update(|z| *z = (*z + 0.25).min(3.0))),
-            ))
-            .spacing(SPACING.s1)
-            .align(Align::Center),
-        ));
+        let mode = e.clone();
         let (pe, pc, pp) = (e.clone(), self.cache.clone(), self.params.clone());
-        bar.push(Box::new(
-            Button::new("Imprimir")
-                .icon(IconName::Printer)
-                .size(ButtonSize::Small)
-                .on_click(move || print_report(&pe, &pc, &pp)),
-        ));
-        for (label, icon, format) in [
-            ("PDF", IconName::FileText, preview::Export::Pdf),
-            ("Excel", IconName::Table, preview::Export::Xlsx),
-        ] {
-            let (pe, pc, pp) = (e.clone(), self.cache.clone(), self.params.clone());
-            bar.push(Box::new(
-                Button::new(label)
-                    .icon(icon)
-                    .size(ButtonSize::Small)
-                    .on_click(move || export_report(&pe, &pc, &pp, format)),
-            ));
+        let viewer = DocumentViewer::new(doc, &state.get())
+            .labels(ViewerLabels::pt_br())
+            .toolbar_leading(move || vec![Box::new(mode_switch(&mode)) as AnyView])
+            .toolbar_trailing(move || {
+                let print = (pe.clone(), pc.clone(), pp.clone());
+                let mut items: Vec<AnyView> = vec![Box::new(
+                    Button::new("Imprimir")
+                        .icon(IconName::Printer)
+                        .size(ButtonSize::Small)
+                        .on_click(move || print_report(&print.0, &print.1, &print.2)),
+                )];
+                for (label, icon, format) in [
+                    ("PDF", IconName::FileText, preview::Export::Pdf),
+                    ("Excel", IconName::Table, preview::Export::Xlsx),
+                ] {
+                    let (e, c, p) = (pe.clone(), pc.clone(), pp.clone());
+                    items.push(Box::new(
+                        Button::new(label)
+                            .icon(icon)
+                            .size(ButtonSize::Small)
+                            .on_click(move || export_report(&e, &c, &p, format)),
+                    ));
+                }
+                items
+            });
+        let viewer = cx.child(&viewer);
+        let mut children = Vec::new();
+        if !report.parameters.is_empty() {
+            let (year, month, day) = DateTime::now().ymd();
+            if let Some(today) = Date::new(year, month as u8, day as u8) {
+                let panel = ParameterPanel::new(report.parameters.clone(), self.params.clone(), today)
+                    .labels(ParameterLabels::pt_br());
+                children.push(cx.child(&panel));
+                children.push(cx.child(&Divider::horizontal()));
+            }
         }
-        let toolbar = cx.child(
-            &HStack::new(bar)
-                .spacing(SPACING.s3)
-                .align(Align::Center)
-                .wrap()
-                .padding(Insets::symmetric(SPACING.s2, SPACING.s4))
-                .background(Semantic::Surface),
-        );
-        let line = cx.child(&Divider::horizontal());
-        let page_views: Vec<AnyView> = doc
-            .pages
-            .get(current)
-            .map(|p| {
-                let scene = preview::page_scene(e, &self.cache, &doc, current, zoom);
-                // Screen readers get the page's text; everyone else sees the drawing.
-                let text = doc.page_text(current).join(" ");
-                vec![Box::new(PageView {
-                    canvas: preview::page_view(scene, p.width * zoom, p.height * zoom),
-                    text,
-                }) as AnyView]
-            })
-            .unwrap_or_default();
-        let viewport_width = cx.viewport().width;
-        let page_width = doc.pages.get(current).map_or(0.0, |p| p.width * zoom);
-        let errors: Vec<AnyView> = doc
-            .errors
-            .iter()
-            .take(3)
-            .map(|m| Box::new(Alert::new("Erro no relatório", m.clone()).tone(Tone::Danger)) as AnyView)
-            .collect();
-        let body = cx.child(
-            &ScrollView::new((VStack::new((
-                VStack::new(errors).spacing(SPACING.s2),
-                VStack::new(page_views),
-            ))
-            .spacing(SPACING.s3)
-            .padding(SPACING.s6)
-            // As wide as the window, so a narrower page sits in its center.
-            .width(viewport_width.max(page_width + 2.0 * SPACING.s6))
-            .align(Align::Center),))
-            .horizontal()
-            .grow(1.0),
-        );
-        // Page Up and Page Down turn pages.
-        let (up, down) = (e.page.clone(), e.page.clone());
-        cx.shortcut(Key::PageUp, false, Rc::new(move || up.update(|p| *p = p.saturating_sub(1))));
-        cx.shortcut(Key::PageDown, false, Rc::new(move || down.update(|p| *p = (*p + 1).min(pages - 1))));
+        children.push(viewer);
         cx.container(
             LayoutStyle {
                 grow: 1.0,
@@ -791,24 +720,9 @@ impl View for PreviewPane {
                 align: Align::Stretch,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
-            &[toolbar, line, body],
+            &children,
             Paint::None,
         )
-    }
-}
-
-/// A rendered page, described to assistive technology by its text.
-struct PageView {
-    canvas: Canvas,
-    text: String,
-}
-
-impl View for PageView {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let canvas = cx.child(&self.canvas);
-        let node = cx.container(LayoutStyle::stack(Axis::Vertical), &[canvas], Paint::None);
-        cx.semantics(node, ravenrs::widgets::Semantics::new(Role::Image).name(self.text.clone()));
-        node
     }
 }
 

@@ -77,9 +77,9 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Feature | DevExpress | RavenRS |
 |---|---|---|
 | Types | String, dates, times, integers, decimals, Boolean, GUID | 🟡 Text, Number, Date, Boolean |
-| Default (static or expression), visible/enabled expressions, allow null | | 🟡 static default. Expression defaults, visibility ⬜ [R2] |
-| Multi-value, static and dynamic lookups, cascading, ranges | | ⬜ [R2] |
-| Parameters panel in the viewer | Submit, reset, groups | 🟡 designer preview shows parameters. Full panel ⬜ [R2] |
+| Default (static or expression), visible/enabled expressions, allow null | | 🟡 static default. Expression defaults, visibility ⬜ next `YY.1` |
+| Multi-value, static and dynamic lookups, cascading, ranges | | ⬜ next `YY.1`: `Parameter` is a struct with public fields, so adding to it is a breaking change |
+| Parameters panel in the viewer | Submit, reset, groups | 🟡 `ParameterPanel`: a control for each kind, apply and reset. Groups ⬜ [R3] |
 
 ## 6. Appearance
 
@@ -107,7 +107,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 | Feature | DevExpress | RavenRS |
 |---|---|---|
-| Page navigation, zoom, thumbnails, search, document map | | 🟡 designer preview: pages, zoom, navigation. Thumbnails, search, document map ⬜ [R2] |
+| Page navigation, zoom, thumbnails, search, document map | | 🟡 `ravenrs-report-viewer`: pages, zoom, fit to width, thumbnails, search with highlights that ignores case and accents. Document map ⬜ [R3] |
 | Drill-down, drill-through, interactive sorting, editing in preview | | ⬜ [R4] |
 | Print, export from the viewer, email | | 🟡 print button and Cmd/Ctrl+P through the browser's dialog; PDF, Excel and CSV export. Email ⬜ [R3] |
 

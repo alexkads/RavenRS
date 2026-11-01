@@ -24,12 +24,12 @@ RavenRS Reporting turns data into paginated documents. It covers what the DevExp
         │
         ├── ravenrs-report-pdf     PDF 1.7 / PDF/A-2b, embedded font subsets, links, outline (pdf-writer + subsetter)
         ├── ravenrs-report-xlsx    XLSX (rust_xlsxwriter), CSV, HTML, SVG/PNG
-        ├── DocumentViewer widget  (ravenrs-widgets): pages, zoom, thumbnails, search, export, print
+        ├── ravenrs-report-viewer  DocumentViewer and ParameterPanel: pages, zoom, thumbnails, search
         ├── ReportDesigner         (on the Ribbon): bands, field list, properties, drag and drop, undo/redo
         └── ravenrs-report-server  HTTP: POST a definition + data, get PDF/XLSX back
 ```
 
-Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV) and the designer in `examples/report-designer` exist. `ravenrs-report-server` runs them headless ([docs/REPORT-SERVER.md](REPORT-SERVER.md)). The other exporters and the `DocumentViewer` widget arrive in the phases below.
+Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV) and the designer in `examples/report-designer` exist. `ravenrs-report-server` runs them headless ([docs/REPORT-SERVER.md](REPORT-SERVER.md)). `ravenrs-report-viewer` shows documents and asks for parameters. The other exporters arrive in the phases below.
 
 `ravenrs-report` has no GPU or window dependency, so it runs in servers and tests. Text is measured with the same Parley stack as the UI, so the viewer and the PDF agree to the point.
 
@@ -92,7 +92,7 @@ Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every
 | Phase | Delivers | Status |
 |---|---|---|
 | **R1 — Engine and designer preview** | Report model, JSON format with data sources, Rust builder, expressions, parameters, bands, groups, sorting, filtering, summaries, master-detail, pagination, Label/Table/CheckBox/Line/Shape/Panel, styles, pt-BR formats, table wizard, web designer with preview | ✅ 10,000 rows in 80 ms native, about 200 ms in the browser |
-| **R2 — PDF and viewer** | PDF export with embedded fonts, links and outline; pictures; viewer with thumbnails and search; full parameter panel (lookups, multi-value); the remaining expression functions | In progress: PDF with embedded fonts, links and outline, and pictures, done (305 pages in about 120 ms, 1 MB); XLSX and CSV moved up from R3 (the same report in about 180 ms). Next: viewer, parameter panel |
+| **R2 — PDF and viewer** | PDF export with embedded fonts, links and outline; pictures; viewer with thumbnails and search; full parameter panel (lookups, multi-value); the remaining expression functions | In progress: PDF with embedded fonts, links and outline, and pictures, done (305 pages in about 120 ms, 1 MB); XLSX and CSV moved up from R3 (the same report in about 180 ms). Viewer with thumbnails and search, and a parameter panel, done. Parameter lookups and multi-value wait for the next `YY.1`, since they change a public struct |
 | **R3 — Server, scheduling and more output** | `ravenrs-report-server` (see below); XLSX, CSV, HTML, PNG export; barcodes; charts and sparklines; subreports; table of contents; watermarks; multi-column; the remaining band options | In progress: server with storage, render on demand, cron jobs, email and folder delivery, history, retries and retention done |
 | **R4 — Designer depth** | Expression editor, group and sort panel, snap lines, align and size tools, multi-select, labels wizard, style gallery, drill-down and interactive sorting in preview | Planned |
 | **R5 — Enterprise data and documents** | SQL, CSV/XLSX and federated sources; Cross Tab; DOCX; PDF/A, PDF/UA, signatures; vertical bands; right-to-left; AI prompt-to-report | Planned |

@@ -1,0 +1,27 @@
+[package]
+name = "ravenrs-report-viewer"
+description = "Document viewer for RavenRS Reporting: pages, zoom, thumbnails, text search and a parameter panel, on desktop and the web."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-report-viewer"
+keywords = ["report", "viewer", "gui", "wasm"]
+categories = ["gui", "visualization"]
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-layout.workspace = true
+ravenrs-reactive.workspace = true
+ravenrs-style.workspace = true
+ravenrs-text.workspace = true
+ravenrs-widgets.workspace = true
+ravenrs-report.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

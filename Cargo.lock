@@ -3174,6 +3174,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-report-viewer"
+version = "27.1.0"
+dependencies = [
+ "ravenrs-core",
+ "ravenrs-layout",
+ "ravenrs-reactive",
+ "ravenrs-report",
+ "ravenrs-style",
+ "ravenrs-text",
+ "ravenrs-widgets",
+ "serde_json",
+]
+
+[[package]]
 name = "ravenrs-report-xlsx"
 version = "27.1.0"
 dependencies = [
@@ -3338,6 +3352,7 @@ dependencies = [
  "ravenrs",
  "ravenrs-report",
  "ravenrs-report-pdf",
+ "ravenrs-report-viewer",
  "ravenrs-report-xlsx",
  "serde_json",
  "tracing",
