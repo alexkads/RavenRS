@@ -58,10 +58,34 @@ type FrameCallback = RefCell<Option<Closure<dyn FnMut(f64)>>>;
 
 struct Scheduler {
     pending: Cell<bool>,
+    /// The pending `setTimeout` for a timed wake-up, and its target time.
+    timer: Cell<Option<(i32, f64)>>,
+    timer_callback: RefCell<Option<Closure<dyn FnMut()>>>,
     callback: FrameCallback,
 }
 
 impl Scheduler {
+    /// Schedules a frame at `at` seconds (the `Ui` clock), replacing a later timer.
+    fn schedule_at(&self, at: f64) {
+        let Some(window) = web_sys::window() else { return };
+        if let Some((_, existing)) = self.timer.get()
+            && existing <= at
+        {
+            return;
+        }
+        if let Some((id, _)) = self.timer.take() {
+            window.clear_timeout_with_handle(id);
+        }
+        let delay = ((at - now_seconds()) * 1000.0).max(0.0).ceil() as i32;
+        let cb = self.timer_callback.borrow();
+        if let Some(cb) = cb.as_ref()
+            && let Ok(id) = window
+                .set_timeout_with_callback_and_timeout_and_arguments_0(cb.as_ref().unchecked_ref(), delay)
+        {
+            self.timer.set(Some((id, at)));
+        }
+    }
+
     fn schedule(&self) {
         if self.pending.replace(true) {
             return;
@@ -114,7 +138,11 @@ impl Drop for WebApp {
         if let Some(input) = self.text_input.take() {
             input.remove();
         }
+        if let (Some(window), Some((id, _))) = (web_sys::window(), self.scheduler.timer.take()) {
+            window.clear_timeout_with_handle(id);
+        }
         self.scheduler.callback.borrow_mut().take();
+        self.scheduler.timer_callback.borrow_mut().take();
         if let Ok(mut state) = self.state.try_borrow_mut() {
             state.gpu = None;
         }
@@ -197,6 +225,11 @@ fn send_text(state: &Rc<RefCell<State>>, scheduler: &Scheduler, text: &str) {
     }
 }
 
+/// Seconds since the page loaded.
+fn now_seconds() -> f64 {
+    web_sys::window().and_then(|w| w.performance()).map_or(0.0, |p| p.now() / 1000.0)
+}
+
 fn webgpu_available() -> bool {
     web_sys::window()
         .map(|w| w.navigator())
@@ -272,7 +305,21 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         return Err(e);
     }
 
-    let scheduler = Rc::new(Scheduler { pending: Cell::new(false), callback: RefCell::new(None) });
+    let scheduler = Rc::new(Scheduler {
+        pending: Cell::new(false),
+        callback: RefCell::new(None),
+        timer: Cell::new(None),
+        timer_callback: RefCell::new(None),
+    });
+    {
+        let sched = Rc::downgrade(&scheduler);
+        *scheduler.timer_callback.borrow_mut() = Some(Closure::new(move || {
+            if let Some(sched) = sched.upgrade() {
+                sched.timer.set(None);
+                sched.schedule();
+            }
+        }));
+    }
     let gpu = match create_gpu(&canvas, &scheduler).await {
         Ok(gpu) => gpu,
         Err(e) => {
@@ -392,6 +439,12 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     app.listeners.push(pointer("pointerup", |position, button| Event::PointerUp { position, button }));
     app.listeners.push(pointer("pointerleave", |_, _| Event::PointerLeave));
     app.listeners.push(pointer("pointercancel", |_, _| Event::PointerLeave));
+    // The app draws its own context menus.
+    app.listeners.push(Listener {
+        target: target.clone(),
+        kind: "contextmenu",
+        closure: Closure::new(move |e: web_sys::Event| e.prevent_default()),
+    });
     {
         let (state, sched) = (state.clone(), scheduler.clone());
         app.listeners.push(Listener {
@@ -546,6 +599,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
 /// Feeds an event to the UI; returns true when it asked for a redraw.
 fn dispatch(state: &Rc<RefCell<State>>, scheduler: &Scheduler, event: Event) -> bool {
     let Ok(mut s) = state.try_borrow_mut() else { return false };
+    s.ui.set_time(now_seconds());
     let redraw = s.ui.handle_event(&event);
     let cursor = s.ui.cursor();
     if cursor != s.cursor {
@@ -554,6 +608,7 @@ fn dispatch(state: &Rc<RefCell<State>>, scheduler: &Scheduler, event: Event) -> 
             CursorIcon::Pointer => "pointer",
             CursorIcon::Text => "text",
             CursorIcon::ColResize => "col-resize",
+            CursorIcon::RowResize => "row-resize",
         };
         s.canvas.style().set_property("cursor", css).ok();
         s.cursor = cursor;
@@ -603,6 +658,7 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
         gpu.surface.configure(&gpu.context.device, &gpu.config);
     }
 
+    s.ui.set_time(now_seconds());
     let scene = s.ui.update();
     let frame = match gpu.surface.get_current_texture() {
         wgpu::CurrentSurfaceTexture::Success(f) | wgpu::CurrentSurfaceTexture::Suboptimal(f) => f,
@@ -621,6 +677,8 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
     gpu.context.queue.present(frame);
     if s.ui.needs_redraw() {
         scheduler.schedule();
+    } else if let Some(at) = s.ui.next_wake() {
+        scheduler.schedule_at(at);
     }
 }
 

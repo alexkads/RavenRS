@@ -23,6 +23,7 @@ pub struct TextField {
     autofocus: bool,
     on_submit: Option<Rc<dyn Fn(String)>>,
     on_cancel: Option<Rc<dyn Fn()>>,
+    intercept: Option<crate::KeyHandler>,
 }
 
 impl fmt::Debug for TextField {
@@ -43,6 +44,7 @@ impl TextField {
             autofocus: false,
             on_submit: None,
             on_cancel: None,
+            intercept: None,
         }
     }
 
@@ -83,6 +85,13 @@ impl TextField {
     /// Called when Escape is pressed while the field is focused.
     pub fn on_cancel(mut self, handler: impl Fn() + 'static) -> Self {
         self.on_cancel = Some(Rc::new(handler));
+        self
+    }
+
+    /// Sees keys before the field edits; return true to consume them (lists
+    /// navigated from a search field use it for arrows and Enter).
+    pub fn intercept_keys(mut self, handler: crate::KeyHandler) -> Self {
+        self.intercept = Some(handler);
         self
     }
 
@@ -210,9 +219,15 @@ impl View for TextField {
         let node = cx.container(style, &children, Paint::Quad(paint));
 
         let (value, submit, cancel) = (self.value.clone(), self.on_submit.clone(), self.on_cancel.clone());
+        let intercept = self.intercept.clone();
         cx.on_key(
             node,
             Rc::new(move |key, modifiers| {
+                if let Some(i) = &intercept
+                    && i(key, modifiers)
+                {
+                    return true;
+                }
                 if modifiers.ctrl || modifiers.meta {
                     return false;
                 }

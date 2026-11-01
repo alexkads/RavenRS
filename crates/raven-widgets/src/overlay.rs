@@ -23,7 +23,7 @@ fn panel_paint(theme: &Theme) -> Paint {
 
 /// Wraps children in the floating panel surface. Clicks on its background stay
 /// in the panel instead of reaching what is underneath.
-fn panel(cx: &mut BuildCx<'_>, children: &[NodeId], padding: f32, min_width: f32) -> NodeId {
+pub(crate) fn panel(cx: &mut BuildCx<'_>, children: &[NodeId], padding: f32, min_width: f32) -> NodeId {
     let theme = *cx.theme();
     let style = LayoutStyle {
         padding: Insets::uniform(padding),
@@ -107,7 +107,7 @@ impl<A: View, C: View> Popover<A, C> {
     }
 }
 
-struct PanelOf<'a>(&'a dyn View);
+pub(crate) struct PanelOf<'a>(pub &'a dyn View);
 
 impl View for PanelOf<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -173,7 +173,7 @@ impl MenuItem {
     }
 }
 
-enum Entry {
+pub(crate) enum Entry {
     Item(MenuItem),
     Separator,
 }
@@ -285,9 +285,9 @@ impl View for ListRow<'_> {
     }
 }
 
-struct MenuList<'a> {
-    entries: &'a [Entry],
-    close: Rc<dyn Fn()>,
+pub(crate) struct MenuList<'a> {
+    pub entries: &'a [Entry],
+    pub close: Rc<dyn Fn()>,
 }
 
 impl View for MenuList<'_> {

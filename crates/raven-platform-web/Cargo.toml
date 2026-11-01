@@ -18,6 +18,7 @@ wasm-bindgen-futures.workspace = true
 js-sys.workspace = true
 web-sys = { workspace = true, features = [
     "Window",
+    "Performance",
     "Document",
     "Element",
     "HtmlElement",

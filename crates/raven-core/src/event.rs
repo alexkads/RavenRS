@@ -83,4 +83,6 @@ pub enum CursorIcon {
     Text,
     /// Horizontal resize, e.g. a column edge.
     ColResize,
+    /// Vertical resize, e.g. a horizontal splitter bar.
+    RowResize,
 }

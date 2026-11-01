@@ -13,6 +13,9 @@ const PAGES: &[(IconName, &str)] = &[
     (IconName::Table, "Data display"),
     (IconName::Database, "Data grid"),
     (IconName::Image, "Images"),
+    (IconName::Calendar, "Pickers & forms"),
+    (IconName::Columns3, "Layout & navigation"),
+    (IconName::Rows3, "Ribbon"),
     (IconName::Bell, "Feedback"),
     (IconName::ChartBar, "Charts"),
     (IconName::Sparkles, "Icons"),
@@ -42,6 +45,26 @@ pub struct Gallery {
     grid: GridData,
     grid_selection: State<std::collections::BTreeSet<usize>>,
     export_info: State<String>,
+    date: State<Option<Date>>,
+    country: State<Option<usize>>,
+    otp: State<String>,
+    email: State<String>,
+    company: State<String>,
+    submitted: State<bool>,
+    sheet: State<bool>,
+    palette: State<bool>,
+    toasts: Toasts,
+    text_styles: State<std::collections::BTreeSet<usize>>,
+    align: State<usize>,
+    pinned: State<bool>,
+    page_number: State<usize>,
+    ribbon_bold: State<bool>,
+    ribbon_italic: State<bool>,
+    ribbon_ruler: State<bool>,
+    ribbon_grid: State<bool>,
+    ribbon_table: State<bool>,
+    ribbon_zoom: State<u32>,
+    ribbon_search: State<String>,
 }
 
 impl Default for Gallery {
@@ -74,6 +97,26 @@ impl Gallery {
             grid: GridData::new(sample_rows(100_000)),
             grid_selection: State::new(Default::default()),
             export_info: State::new(String::new()),
+            date: State::new(Date::new(2026, 10, 31)),
+            country: State::new(None),
+            otp: State::new(String::new()),
+            email: State::new(String::new()),
+            company: State::new(String::new()),
+            submitted: State::new(false),
+            sheet: State::new(false),
+            palette: State::new(false),
+            toasts: Toasts::new(),
+            text_styles: State::new(Default::default()),
+            align: State::new(0),
+            pinned: State::new(false),
+            page_number: State::new(4),
+            ribbon_bold: State::new(true),
+            ribbon_italic: State::new(false),
+            ribbon_ruler: State::new(true),
+            ribbon_grid: State::new(false),
+            ribbon_table: State::new(true),
+            ribbon_zoom: State::new(100),
+            ribbon_search: State::new(String::new()),
         }
     }
 }
@@ -132,6 +175,25 @@ impl Gallery {
         Sidebar::new(items)
     }
 
+    /// Cmd/Ctrl+K: jump to any page or switch theme.
+    fn palette_view(&self) -> impl View + use<> {
+        let mut palette = CommandPalette::new(self.palette.binding());
+        for (i, (icon, label)) in PAGES.iter().enumerate() {
+            let page = self.page.clone();
+            palette = palette.command(
+                Command::new(format!("Go to {label}"), move || page.set(i)).icon(*icon).group("Pages"),
+            );
+        }
+        let toasts = self.toasts.clone();
+        palette.command(
+            Command::new("Show a toast", move || {
+                toasts.show("Hello from the palette", "Commands can run any code.", Tone::Accent)
+            })
+            .icon(IconName::BellRing)
+            .group("Actions"),
+        )
+    }
+
     fn toolbar(&self, narrow: bool) -> AnyView {
         if narrow {
             let pages: Vec<&str> = PAGES.iter().map(|(_, label)| *label).collect();
@@ -146,7 +208,13 @@ impl Gallery {
             HStack::new((
                 Breadcrumb::new(["Components", title]),
                 Spacer::new(),
-                Tooltip::new(IconButton::new(IconName::Search), "Search (⌘K)"),
+                Tooltip::new(
+                    IconButton::new(IconName::Search).on_click({
+                        let p = self.palette.clone();
+                        move || p.set(true)
+                    }),
+                    "Search (⌘K)",
+                ),
                 Tooltip::new(IconButton::new(IconName::Bell), "Notifications"),
                 ThemeSwitcher,
             ))
@@ -166,8 +234,11 @@ impl Gallery {
             5 => Box::new(self.data_display(width)),
             6 => Box::new(self.data_grid(width)),
             7 => Box::new(self.images(width)),
-            8 => Box::new(self.feedback(width)),
-            9 => Box::new(self.charts(width)),
+            8 => Box::new(self.pickers(width)),
+            9 => Box::new(self.layout_nav(width)),
+            10 => Box::new(self.ribbon_page(width)),
+            11 => Box::new(self.feedback(width)),
+            12 => Box::new(self.charts(width)),
             _ => Box::new(self.icons(width)),
         }
     }
@@ -455,8 +526,10 @@ impl Gallery {
         let close = self.dialog.clone();
         let confirm = self.dialog.clone();
         let done = self.last_action.clone();
+        let more = self.more_overlays(width);
         VStack::new((
             page_header("Overlays", "Floating layers above the UI. Click outside or press Escape to close them."),
+            more,
             Grid::new(
                 columns(width, 2),
                 (
@@ -524,6 +597,512 @@ impl Gallery {
                     ),
                 ),
             ),
+        ))
+        .spacing(24.0)
+        .align(Align::Stretch)
+    }
+
+    fn more_overlays(&self, width: f32) -> impl View + use<> {
+        let (sheet, toasts, palette) = (self.sheet.clone(), self.toasts.clone(), self.palette.clone());
+        let (t1, t2) = (toasts.clone(), toasts.clone());
+        Grid::new(
+            columns(width, 2),
+            (
+                demo(
+                    "Context menu",
+                    "Right-click the area below.",
+                    ContextMenu::new(
+                        Text::new("Right-click anywhere in this box")
+                            .foreground(Semantic::InkMuted)
+                            .centered()
+                            .height(90.0)
+                            .background(Semantic::Control)
+                            .corner_radius(12.0),
+                    )
+                    .item(MenuItem::new("Copy").icon(IconName::Copy).shortcut("⌘C"))
+                    .item(MenuItem::new("Paste").icon(IconName::ClipboardPaste).shortcut("⌘V"))
+                    .separator()
+                    .item(MenuItem::new("Delete").icon(IconName::Trash2).destructive()),
+                ),
+                demo(
+                    "Hover card",
+                    "Rich previews that stay open while you read them.",
+                    HoverCard::new(
+                        Text::new("@ana.lima").foreground(Semantic::Accent),
+                        HStack::new((
+                            Avatar::new("Ana Lima").size(44.0),
+                            VStack::new((
+                                Text::new("Ana Lima").style(TextStyle::Headline),
+                                Text::new("Design lead at Northwind. Building calm interfaces.")
+                                    .style(TextStyle::Callout)
+                                    .foreground(Semantic::InkMuted),
+                                Text::new("Joined October 2024")
+                                    .style(TextStyle::Caption)
+                                    .foreground(Semantic::InkMuted),
+                            ))
+                            .spacing(4.0)
+                            .width(220.0),
+                        ))
+                        .spacing(12.0),
+                    ),
+                ),
+                demo(
+                    "Sheet",
+                    "A side panel over a dimmed backdrop.",
+                    VStack::new((
+                        Button::new("Open filters")
+                            .style(ButtonStyle::Secondary)
+                            .icon(IconName::Filter)
+                            .on_click(move || sheet.set(true)),
+                        Sheet::new(self.sheet.binding(), "Filters")
+                            .description("Narrow down the accounts shown in the dashboard.")
+                            .content(
+                                VStack::new((
+                                    Label::new("Plan"),
+                                    SegmentedControl::new(
+                                        State::new(1).binding(),
+                                        ["All", "Team", "Business"],
+                                    ),
+                                    Label::new("Only active accounts"),
+                                    Toggle::new(State::new(true).binding()).label("Active"),
+                                ))
+                                .spacing(10.0),
+                            ),
+                    )),
+                ),
+                demo(
+                    "Toasts and command palette",
+                    "Toasts disappear after 4 seconds. Press ⌘K or Ctrl+K anywhere for the palette.",
+                    HStack::new((
+                        Button::new("Show toast")
+                            .style(ButtonStyle::Secondary)
+                            .icon(IconName::BellRing)
+                            .on_click(move || {
+                                t1.show(
+                                    "Report exported",
+                                    "sales-q3.pdf is ready to download.",
+                                    Tone::Success,
+                                )
+                            }),
+                        Button::new("Warning").style(ButtonStyle::Ghost).on_click(move || {
+                            t2.show("Storage almost full", "92% of your quota is used.", Tone::Warning)
+                        }),
+                        Button::new("Open palette")
+                            .style(ButtonStyle::Ghost)
+                            .icon(IconName::Command)
+                            .on_click(move || palette.set(true)),
+                    ))
+                    .spacing(8.0)
+                    .wrap(),
+                ),
+            ),
+        )
+    }
+
+    fn pickers(&self, width: f32) -> impl View + use<> {
+        let otp_toasts = self.toasts.clone();
+        let submit = self.submitted.clone();
+        let (email, company) = (self.email.clone(), self.company.clone());
+        let form_toasts = self.toasts.clone();
+        let today = Date::new(2026, 10, 31).unwrap_or_else(|| unreachable!());
+        let show = self.submitted.get();
+        VStack::new((
+            page_header("Pickers & forms", "Dates, searchable selects, one-time codes and validated forms."),
+            Grid::new(
+                columns(width, 2),
+                (
+                    demo(
+                        "Calendar",
+                        "Pick a day; the ring marks today.",
+                        Calendar::new(self.date.binding(), today).today(today),
+                    ),
+                    demo(
+                        "Date picker and combobox",
+                        "A calendar in a popover, and a select you can type into.",
+                        VStack::new((
+                            DatePicker::new(self.date.binding(), today).today(today),
+                            Combobox::new(
+                                self.country.binding(),
+                                [
+                                    "Argentina",
+                                    "Brazil",
+                                    "Canada",
+                                    "Chile",
+                                    "Germany",
+                                    "Japan",
+                                    "Mexico",
+                                    "Portugal",
+                                    "Spain",
+                                    "United States",
+                                ],
+                            )
+                            .placeholder("Choose a country"),
+                            Text::bound(&self.date, |d| {
+                                d.map_or("No date selected".into(), |d| format!("Selected: {d}"))
+                            })
+                            .style(TextStyle::Callout)
+                            .foreground(Semantic::InkMuted),
+                        ))
+                        .spacing(12.0),
+                    ),
+                    demo(
+                        "One-time code",
+                        "Digits only; completes automatically.",
+                        InputOtp::new(self.otp.binding(), 6).on_complete(move |code| {
+                            otp_toasts.show("Code accepted", format!("Verified {code}."), Tone::Success)
+                        }),
+                    ),
+                    demo(
+                        "Form with validation",
+                        "Errors appear as you type, or for every field after submitting.",
+                        VStack::new((
+                            FormField::new(
+                                "Company",
+                                TextField::new(self.company.binding()).placeholder("Northwind Labs"),
+                            )
+                            .required()
+                            .validate(self.company.binding(), validate::min_length(3))
+                            .show_errors(show),
+                            FormField::new(
+                                "Work email",
+                                TextField::new(self.email.binding())
+                                    .placeholder("you@company.com")
+                                    .icon(IconName::Mail),
+                            )
+                            .required()
+                            .hint("We send the invoice here.")
+                            .validate(self.email.binding(), validate::email)
+                            .show_errors(show),
+                            Button::new("Create account").on_click(move || {
+                                submit.set(true);
+                                let ok = validate::required(&company.get()).is_ok()
+                                    && validate::min_length(3)(&company.get()).is_ok()
+                                    && validate::required(&email.get()).is_ok()
+                                    && validate::email(&email.get()).is_ok();
+                                if ok {
+                                    form_toasts.show("Account created", "Welcome aboard.", Tone::Success);
+                                }
+                            }),
+                        ))
+                        .spacing(14.0)
+                        .align(Align::Stretch),
+                    ),
+                ),
+            ),
+        ))
+        .spacing(24.0)
+        .align(Align::Stretch)
+    }
+
+    fn layout_nav(&self, width: f32) -> impl View + use<> {
+        let slides: Vec<AnyView> = (0..4)
+            .map(|i| -> AnyView { Box::new(Image::new(self.images[i].clone()).stretch().height(240.0)) })
+            .collect();
+        VStack::new((
+            page_header(
+                "Layout & navigation",
+                "Resizable panels, carousels, menus, toggles, pagination and loaders.",
+            ),
+            demo(
+                "Menubar",
+                "Desktop-style menus.",
+                Menubar::new()
+                    .menu("File")
+                    .item(MenuItem::new("New").icon(IconName::FilePlus).shortcut("⌘N"))
+                    .item(MenuItem::new("Open…").icon(IconName::FolderOpen).shortcut("⌘O"))
+                    .separator()
+                    .item(MenuItem::new("Print").icon(IconName::Printer).shortcut("⌘P"))
+                    .menu("Edit")
+                    .item(MenuItem::new("Undo").icon(IconName::Undo2).shortcut("⌘Z"))
+                    .item(MenuItem::new("Redo").icon(IconName::Redo2).shortcut("⇧⌘Z"))
+                    .menu("View")
+                    .item(MenuItem::new("Zoom in").icon(IconName::ZoomIn))
+                    .item(MenuItem::new("Zoom out").icon(IconName::ZoomOut)),
+            ),
+            demo(
+                "Splitter",
+                "Drag the handle between the panes.",
+                Splitter::horizontal(
+                    VStack::new((
+                        Text::new("Explorer").style(TextStyle::Headline),
+                        Text::new("src/main.rs").foreground(Semantic::InkMuted),
+                    ))
+                    .padding(16.0),
+                    VStack::new((
+                        Text::new("Editor").style(TextStyle::Headline),
+                        Text::new("fn main() { … }").foreground(Semantic::InkMuted),
+                    ))
+                    .padding(16.0),
+                )
+                .ratio(0.32)
+                .height(200.0),
+            ),
+            demo(
+                "Carousel",
+                "Arrows, dots and autoplay every 5 seconds.",
+                Carousel::new(slides).height(240.0).autoplay(5.0),
+            ),
+            Grid::new(
+                columns(width, 2),
+                (
+                    demo(
+                        "Toggle buttons and groups",
+                        "Single choice for alignment, several for text styles.",
+                        VStack::new((
+                            ToggleGroup::single(
+                                self.align.binding(),
+                                [
+                                    (Some(IconName::AlignLeft), ""),
+                                    (Some(IconName::AlignCenter), ""),
+                                    (Some(IconName::AlignRight), ""),
+                                    (Some(IconName::AlignJustify), ""),
+                                ],
+                            ),
+                            ToggleGroup::multiple(
+                                self.text_styles.binding(),
+                                [
+                                    (Some(IconName::Bold), ""),
+                                    (Some(IconName::Italic), ""),
+                                    (Some(IconName::Underline), ""),
+                                    (Some(IconName::Strikethrough), ""),
+                                ],
+                            ),
+                            ToggleButton::new(self.pinned.binding(), "Pin to top").icon(IconName::Pin),
+                        ))
+                        .spacing(12.0),
+                    ),
+                    demo(
+                        "Pagination, spinner and aspect ratio",
+                        "Page through results; loaders respect reduced motion.",
+                        VStack::new((
+                            Pagination::new(self.page_number.binding(), 24),
+                            HStack::new((
+                                Spinner::new(),
+                                Spinner::new().size(28.0),
+                                Text::new("Loading reports…").foreground(Semantic::InkMuted),
+                            ))
+                            .spacing(14.0)
+                            .align(Align::Center),
+                            AspectRatio::new(
+                                16.0 / 9.0,
+                                Image::new(self.images[2].clone()).stretch().corner_radius(10.0),
+                            ),
+                        ))
+                        .spacing(16.0)
+                        .align(Align::Stretch),
+                    ),
+                ),
+            ),
+        ))
+        .spacing(24.0)
+        .align(Align::Stretch)
+    }
+
+    fn ribbon_page(&self, _width: f32) -> impl View + use<> {
+        let zoom = self.ribbon_zoom.clone();
+        let (zin, zout) = (zoom.clone(), zoom.clone());
+        let toasts = self.toasts.clone();
+        let (t1, t2) = (toasts.clone(), toasts.clone());
+        let align = self.align.clone();
+        let align_toggle = |i: usize, label: &'static str, icon: IconName| {
+            let (read, write) = (align.clone(), align.clone());
+            RibbonItem::toggle(label, icon, Binding::new(move || read.get() == i, move |_| write.set(i)))
+                .icon_only()
+        };
+        let ribbon = Ribbon::new()
+            .app_menu(
+                "File",
+                vec![
+                    MenuItem::new("New report").icon(IconName::FilePlus).shortcut("⌘N"),
+                    MenuItem::new("Open…").icon(IconName::FolderOpen).shortcut("⌘O"),
+                    MenuItem::new("Save").icon(IconName::Save).shortcut("⌘S"),
+                    MenuItem::new("Export to PDF")
+                        .icon(IconName::Download)
+                        .on_select(move || t1.show("Exported", "invoice-1042.pdf", Tone::Success)),
+                    MenuItem::new("Print").icon(IconName::Printer).shortcut("⌘P"),
+                ],
+            )
+            .quick_access(RibbonItem::button("Save", IconName::Save))
+            .quick_access(RibbonItem::button("Undo", IconName::Undo2))
+            .quick_access(RibbonItem::button("Redo", IconName::Redo2))
+            .search(self.ribbon_search.binding())
+            .page(
+                RibbonPage::new("Home")
+                    .group(
+                        RibbonGroup::new("Clipboard")
+                            .item(
+                                RibbonItem::button("Paste", IconName::ClipboardPaste)
+                                    .menu_item(MenuItem::new("Paste").icon(IconName::ClipboardPaste))
+                                    .menu_item(MenuItem::new("Paste values only").icon(IconName::Type)),
+                            )
+                            .item(RibbonItem::button("Cut", IconName::Scissors).small())
+                            .item(RibbonItem::button("Copy", IconName::Copy).small())
+                            .item(RibbonItem::button("Format painter", IconName::Paintbrush).small()),
+                    )
+                    .group(
+                        RibbonGroup::new("Font")
+                            .item(
+                                RibbonItem::toggle("Bold", IconName::Bold, self.ribbon_bold.binding())
+                                    .icon_only(),
+                            )
+                            .item(
+                                RibbonItem::toggle("Italic", IconName::Italic, self.ribbon_italic.binding())
+                                    .icon_only(),
+                            )
+                            .item(RibbonItem::button("Underline", IconName::Underline).icon_only())
+                            .item(RibbonItem::button("Strikethrough", IconName::Strikethrough).icon_only())
+                            .item(RibbonItem::button("Highlight", IconName::Highlighter).icon_only())
+                            .item(RibbonItem::button("Font color", IconName::Baseline).icon_only())
+                            .dialog_launcher(move || {
+                                t2.show("Font", "The font dialog would open here.", Tone::Neutral)
+                            }),
+                    )
+                    .group(
+                        RibbonGroup::new("Alignment")
+                            .item(align_toggle(0, "Align left", IconName::AlignLeft))
+                            .item(align_toggle(1, "Center", IconName::AlignCenter))
+                            .item(align_toggle(2, "Align right", IconName::AlignRight))
+                            .item(align_toggle(3, "Justify", IconName::AlignJustify))
+                            .item(RibbonItem::button("Bulleted list", IconName::List).icon_only())
+                            .item(RibbonItem::button("Numbered list", IconName::ListOrdered).icon_only()),
+                    )
+                    .group(
+                        RibbonGroup::new("Editing")
+                            .item(RibbonItem::button("Find", IconName::Search).small())
+                            .item(RibbonItem::button("Replace", IconName::ArrowUpDown).small())
+                            .item(RibbonItem::button("Select all", IconName::TextCursor).small()),
+                    ),
+            )
+            .page(
+                RibbonPage::new("Insert")
+                    .group(
+                        RibbonGroup::new("Controls")
+                            .item(RibbonItem::button("Label", IconName::Type))
+                            .item(RibbonItem::button("Table", IconName::Table2))
+                            .item(RibbonItem::button("Picture", IconName::ImagePlus))
+                            .item(RibbonItem::button("Chart", IconName::ChartColumn)),
+                    )
+                    .group(
+                        RibbonGroup::new("Elements")
+                            .item(RibbonItem::button("Shapes", IconName::Shapes).small())
+                            .item(RibbonItem::button("Page number", IconName::Pilcrow).small())
+                            .item(RibbonItem::button("Link", IconName::Link2).small()),
+                    ),
+            )
+            .page(
+                RibbonPage::new("Data")
+                    .group(
+                        RibbonGroup::new("Data source")
+                            .item(RibbonItem::button("Add data source", IconName::Database))
+                            .item(RibbonItem::button("Query builder", IconName::Filter)),
+                    )
+                    .group(
+                        RibbonGroup::new("Calculations")
+                            .item(RibbonItem::button("Calculated field", IconName::Calculator).small())
+                            .item(RibbonItem::button("Summary", IconName::Sigma).small())
+                            .item(RibbonItem::button("Parameters", IconName::SlidersHorizontal).small()),
+                    ),
+            )
+            .page(
+                RibbonPage::new("View")
+                    .group(
+                        RibbonGroup::new("Show")
+                            .item(
+                                RibbonItem::toggle("Ruler", IconName::Ruler, self.ribbon_ruler.binding())
+                                    .large(),
+                            )
+                            .item(
+                                RibbonItem::toggle(
+                                    "Gridlines",
+                                    IconName::Grid2x2,
+                                    self.ribbon_grid.binding(),
+                                )
+                                .large(),
+                            )
+                            .item(
+                                RibbonItem::toggle(
+                                    "Table selected",
+                                    IconName::Table,
+                                    self.ribbon_table.binding(),
+                                )
+                                .large(),
+                            ),
+                    )
+                    .group(
+                        RibbonGroup::new("Zoom")
+                            .item(
+                                RibbonItem::button("Zoom in", IconName::ZoomIn)
+                                    .on_click(move || zin.update(|z| *z = (*z + 10).min(400))),
+                            )
+                            .item(
+                                RibbonItem::button("Zoom out", IconName::ZoomOut)
+                                    .on_click(move || zout.update(|z| *z = z.saturating_sub(10).max(10))),
+                            ),
+                    ),
+            )
+            .page(
+                RibbonPage::new("Layout")
+                    .contextual("Table tools", Tone::Warning, self.ribbon_table.get())
+                    .group(
+                        RibbonGroup::new("Rows & columns")
+                            .item(RibbonItem::button("Insert row", IconName::Rows3))
+                            .item(RibbonItem::button("Insert column", IconName::Columns3))
+                            .item(RibbonItem::button("Merge cells", IconName::Merge).small())
+                            .item(RibbonItem::button("Split cells", IconName::Split).small()),
+                    ),
+            );
+        VStack::new((
+            page_header(
+                "Ribbon",
+                "Office-style command surface: File menu, quick access toolbar, pages, groups with large and small commands, toggles, drop-downs, dialog launchers, a contextual \"Table tools\" tab and search. Double-click a tab to collapse it.",
+            ),
+            Card::new(
+                VStack::new((
+                    ribbon,
+                    HStack::new((
+                        VStack::new((
+                            Text::new("FIELD LIST").style(TextStyle::Caption).foreground(Semantic::InkMuted),
+                            List::new((
+                                ListItem::new("InvoiceID").icon(IconName::Pilcrow),
+                                ListItem::new("Customer").icon(IconName::User),
+                                ListItem::new("Amount").icon(IconName::DollarSign),
+                                ListItem::new("Issued").icon(IconName::CalendarDays),
+                            )),
+                        ))
+                        .spacing(8.0)
+                        .width(210.0)
+                        .padding(14.0),
+                        VStack::new((
+                            Text::bound(&self.ribbon_zoom, |z| format!("Invoice report · {z}%"))
+                                .style(TextStyle::Caption)
+                                .foreground(Semantic::InkMuted),
+                            VStack::new((
+                                Text::new("REPORT HEADER").style(TextStyle::Caption).foreground(Semantic::InkMuted),
+                                Text::new("Invoice #1042").style(TextStyle::Title),
+                                Divider::horizontal(),
+                                Text::new("DETAIL").style(TextStyle::Caption).foreground(Semantic::InkMuted),
+                                HStack::new((Text::new("[Customer]").grow(1.0), Text::new("[Amount]"))).spacing(12.0),
+                                Divider::horizontal(),
+                                Text::new("PAGE FOOTER").style(TextStyle::Caption).foreground(Semantic::InkMuted),
+                                Text::new("Page [PageNumber] of [PageCount]").foreground(Semantic::InkMuted),
+                            ))
+                            .spacing(10.0)
+                            .padding(24.0)
+                            .background(Semantic::Surface)
+                            .border(1.0, Semantic::Border)
+                            .corner_radius(4.0),
+                        ))
+                        .spacing(10.0)
+                        .padding(16.0)
+                        .grow(1.0),
+                    ))
+                    .align(Align::Stretch),
+                ))
+                .spacing(0.0)
+                .align(Align::Stretch),
+            )
+            .padding(0.0)
+            .corner_radius(14.0),
         ))
         .spacing(24.0)
         .align(Align::Stretch)
@@ -846,7 +1425,7 @@ impl Gallery {
         VStack::new((
             page_header(
                 "Icons",
-                "112 Lucide icons (ISC license) built in, drawn as font glyphs so they take any size and color.",
+                &format!("{} Lucide icons (ISC license) built in, drawn as font glyphs so they take any size and color.", IconName::ALL.len()),
             ),
             Grid::new(columns(width, 6), tiles).spacing(10.0),
         ))
@@ -993,11 +1572,17 @@ impl Component for Gallery {
             .spacing(0.0)
             .align(Align::Stretch)
             .grow(1.0);
-            if narrow {
+            let shell: AnyView = if narrow {
                 Box::new(main)
             } else {
                 Box::new(HStack::new((self.sidebar(), main)).spacing(0.0).align(Align::Stretch).grow(1.0))
-            }
+            };
+            Box::new(
+                VStack::new((shell, self.palette_view(), Toaster::new(self.toasts.clone())))
+                    .spacing(0.0)
+                    .align(Align::Stretch)
+                    .grow(1.0),
+            )
         })
     }
 }

@@ -24,12 +24,17 @@
 //! interaction state (hover, press, focus) changed, and it never touches the GPU.
 
 mod button;
+mod calendar;
 mod canvas;
 mod card;
+mod choice;
 mod context;
 mod data;
+mod date;
 mod display;
+mod extras;
 mod fill;
+mod floating;
 pub mod grid;
 mod icon;
 mod icon_set;
@@ -38,6 +43,7 @@ mod inputs;
 mod modifiers;
 mod nav;
 mod overlay;
+mod ribbon;
 mod stack;
 mod text;
 mod text_field;
@@ -46,14 +52,21 @@ mod util;
 mod view;
 
 pub use button::{Button, ButtonSize, ButtonStyle, IconButton};
+pub use calendar::{Calendar, DatePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
+pub use choice::{AspectRatio, Label, Pagination, ToggleButton, ToggleGroup};
 pub use context::{
     BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, NodeId, Paint, Placement, QuadPaint, WidgetId,
 };
 pub use data::{AreaChart, BarChart, Column, List, ListItem, Table};
+pub use date::{Date, days_in_month, is_leap_year};
 pub use display::{Alert, Avatar, Badge, Divider, Kbd, ProgressBar, Section, Skeleton, Stat, Tone};
+pub use extras::{Carousel, FormField, InputOtp, Menubar, Rule, Spinner, Splitter, validate};
 pub use fill::Fill;
+pub use floating::{
+    Combobox, Command, CommandPalette, ContextMenu, HoverCard, Sheet, Side, Toast, Toaster, Toasts,
+};
 pub use grid::{
     CellAlign, DataGrid, GridColumn, GridData, NumberFormat, SelectionMode, SortDirection, Summary, Value,
 };
@@ -66,6 +79,7 @@ pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeS
 pub use modifiers::{Styled, ViewExt};
 pub use nav::{Accordion, Breadcrumb, Disclosure, Sidebar, SidebarItem, SidebarSection, Tabs};
 pub use overlay::{Dialog, DropdownMenu, MenuItem, Popover, Select, Tooltip};
+pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
 pub use stack::{Grid, HStack, ScrollView, Spacer, VStack};
 pub use text::Text;
 pub use text_field::TextField;

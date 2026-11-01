@@ -28,6 +28,15 @@ smartphone sun moon palette layers folder file file-text image code terminal
 git-branch globe cloud database server cpu activity trending-up trending-down
 chart-bar chart-line chart-pie dollar-sign credit-card wallet shopping-cart package
 map-pin wifi battery play pause square circle maximize-2 minimize-2 mouse-pointer
+scissors clipboard-paste bold italic underline strikethrough align-left align-center align-right
+align-justify list-ordered undo-2 redo-2 save printer type highlighter paintbrush baseline heading
+quote zoom-in zoom-out file-plus folder-open link-2 table-2 image-plus chart-column shapes
+sigma calculator filter-x arrow-up-down arrow-down-wide-narrow ruler grid-2x2 rows-3 columns-3
+merge split pilcrow text-cursor languages spell-check message-circle share history book-open
+eye-closed lock-keyhole user-plus user-check bell-ring calendar-days clock-3 timer alarm-clock
+map compass navigation phone video camera mic headphones music volume-2 volume-x
+cloud-upload cloud-download hard-drive cpu wifi-off bluetooth plug power refresh-ccw
+thumbs-up thumbs-down smile star-off pin pin-off gift trophy target crosshair flag-triangle-right
 """.split()
 
 
@@ -41,7 +50,8 @@ def main() -> None:
     missing = [n for n in ICONS if n not in codepoints]
     if missing:
         print("not in this Lucide version, skipped:", ", ".join(missing))
-    names = [n for n in ICONS if n in codepoints]
+    # Keep the first occurrence of each name, in order.
+    names = list(dict.fromkeys(n for n in ICONS if n in codepoints))
 
     out_font = root / "crates/raven-text/fonts/RavenIcons.ttf"
     opts = subset.Options()

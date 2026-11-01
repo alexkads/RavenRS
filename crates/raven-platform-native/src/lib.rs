@@ -14,6 +14,7 @@ use raven_style::Theme;
 use raven_widgets::{Ui, View};
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
+use winit::event::StartCause;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
@@ -92,6 +93,7 @@ pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), Plat
         pointer: None,
         modifiers: Modifiers::default(),
         last_click: None,
+        started: std::time::Instant::now(),
         error: None,
     };
     event_loop.run_app(&mut app).map_err(|e| PlatformError::EventLoop(e.to_string()))?;
@@ -121,6 +123,7 @@ struct App {
     modifiers: Modifiers,
     /// Time and place of the last primary release, to detect double clicks.
     last_click: Option<(std::time::Instant, Point)>,
+    started: std::time::Instant,
     error: Option<PlatformError>,
 }
 
@@ -182,6 +185,7 @@ impl App {
     }
 
     fn dispatch(&mut self, event: Event) {
+        self.ui.set_time(self.started.elapsed().as_secs_f64());
         let redraw = self.ui.handle_event(&event);
         if let Some(state) = &mut self.window {
             let cursor = self.ui.cursor();
@@ -191,6 +195,7 @@ impl App {
                     CursorIcon::Pointer => winit::window::CursorIcon::Pointer,
                     CursorIcon::Text => winit::window::CursorIcon::Text,
                     CursorIcon::ColResize => winit::window::CursorIcon::ColResize,
+                    CursorIcon::RowResize => winit::window::CursorIcon::RowResize,
                 });
                 state.cursor = cursor;
             }
@@ -210,6 +215,7 @@ impl App {
                 Err(e) => tracing::error!(error = %e, "GPU recovery failed"),
             }
         }
+        self.ui.set_time(self.started.elapsed().as_secs_f64());
         let Some(state) = &mut self.window else { return };
         let scale = self.ui.scale();
         let scene = self.ui.update();
@@ -273,6 +279,25 @@ fn map_button(button: MouseButton) -> PointerButton {
 }
 
 impl ApplicationHandler for App {
+    fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
+        if let StartCause::ResumeTimeReached { .. } = cause
+            && let Some(state) = &self.window
+        {
+            state.window.request_redraw();
+        }
+    }
+
+    /// Sleeps until input arrives or until the UI's next timed wake-up.
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        match self.ui.next_wake() {
+            Some(at) => {
+                let at = self.started + std::time::Duration::from_secs_f64(at.max(0.0));
+                event_loop.set_control_flow(ControlFlow::WaitUntil(at));
+            }
+            None => event_loop.set_control_flow(ControlFlow::Wait),
+        }
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;

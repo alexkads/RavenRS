@@ -11,7 +11,7 @@ use raven_text::TextSystem;
 use crate::View;
 use crate::context::{
     BuildCx, Drag, DragPhase, Element, Interaction, LocalStore, NodeId, Overlay, Paint, Placement,
-    ScrollState, TextLeaf, WidgetId,
+    ScrollState, Shortcut, TextLeaf, WidgetId,
 };
 
 type Waker = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
@@ -57,6 +57,11 @@ pub struct Ui {
     scale: f32,
     interaction: Interaction,
     dragging: Option<WidgetId>,
+    /// Seconds since start, set by the platform.
+    time: f64,
+    shortcuts: Vec<Shortcut>,
+    /// Earliest time a widget asked to be rebuilt at.
+    wake: Option<f64>,
     pointer: Option<Point>,
     cursor: CursorIcon,
     scene: Scene,
@@ -108,6 +113,9 @@ impl Ui {
             scale: 1.0,
             interaction: Interaction::default(),
             dragging: None,
+            time: 0.0,
+            shortcuts: Vec::new(),
+            wake: None,
             pointer: None,
             cursor: CursorIcon::Default,
             scene: Scene::new(),
@@ -157,7 +165,19 @@ impl Ui {
 
     /// True when the next [`Ui::update`] would produce a different scene.
     pub fn needs_redraw(&self) -> bool {
-        self.needs_build || self.state_dirty.get()
+        self.needs_build || self.state_dirty.get() || self.wake.is_some_and(|w| self.time >= w)
+    }
+
+    /// Sets the clock (seconds since the app started). Platforms call it before
+    /// handling events and before each frame.
+    pub fn set_time(&mut self, seconds: f64) {
+        self.time = seconds;
+    }
+
+    /// When the UI wants its next frame even without input (seconds, same clock
+    /// as [`Ui::set_time`]). Platforms schedule a timer for it.
+    pub fn next_wake(&self) -> Option<f64> {
+        self.wake
     }
 
     /// True while a pointer drag that started on a draggable element (a slider,
@@ -270,6 +290,18 @@ impl Ui {
                     return true;
                 }
             }
+            Event::PointerDown { position, button: PointerButton::Secondary } => {
+                self.pointer = Some(*position);
+                self.dismiss_overlays_outside(*position);
+                let mut node = self.hit_test(*position);
+                while let Some(n) = node {
+                    if let Some(handler) = self.elements[n.0 as usize].on_context_menu.clone() {
+                        handler(*position);
+                        break;
+                    }
+                    node = self.parents.get(n.0 as usize).copied().flatten();
+                }
+            }
             Event::DoubleClick { position } => {
                 if let Some(node) = self.hit_test(*position) {
                     let handler = self.elements[node.0 as usize].on_double_click.clone();
@@ -285,6 +317,18 @@ impl Ui {
                 if let Some(handler) = handler
                     && handler(key, *modifiers)
                 {
+                    return self.needs_redraw();
+                }
+                let command = modifiers.ctrl || modifiers.meta;
+                let shortcut = self.shortcuts.iter().find(|s| {
+                    s.command == command
+                        && match (&s.key, key) {
+                            (Key::Character(a), Key::Character(b)) => a.eq_ignore_ascii_case(b),
+                            (a, b) => a == b,
+                        }
+                });
+                if let Some(s) = shortcut.map(|s| s.handler.clone()) {
+                    s();
                     return self.needs_redraw();
                 }
                 match key {
@@ -328,9 +372,14 @@ impl Ui {
             .iter()
             .enumerate()
             .find(|(_, e)| e.widget == widget && e.on_drag.is_some())
-            .and_then(|(i, e)| Some((e.on_drag.clone()?, self.frames.get(i).copied()?)));
-        if let Some((handler, frame)) = found {
-            handler(Drag { phase, position, frame });
+            .and_then(|(i, e)| {
+                let parent = self.parents.get(i).copied().flatten();
+                let container = parent.and_then(|p| self.frames.get(p.0 as usize).copied());
+                let frame = self.frames.get(i).copied()?;
+                Some((e.on_drag.clone()?, frame, container.unwrap_or(frame)))
+            });
+        if let Some((handler, frame, container)) = found {
+            handler(Drag { phase, position, frame, container });
         }
     }
 
@@ -466,7 +515,8 @@ impl Ui {
         let modifiers = self.modifiers.clone();
         let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
             self;
-        let (node, overlays, requests, focus, error) = observer.track(|| {
+        let now = self.time;
+        let (node, overlays, requests, focus, wake, shortcuts, error) = observer.track(|| {
             let mut cx = BuildCx::new(
                 theme,
                 viewport,
@@ -480,6 +530,7 @@ impl Ui {
                 local,
                 placeholder,
             );
+            cx.now = now;
             let content = cx.child(&**root);
             let style = LayoutStyle {
                 width: Some(viewport.width),
@@ -494,9 +545,13 @@ impl Ui {
                 std::mem::take(&mut cx.overlays),
                 std::mem::take(&mut cx.scroll_requests),
                 cx.focus_request.take(),
+                cx.wake.take(),
+                std::mem::take(&mut cx.shortcuts),
                 cx.error.take(),
             )
         });
+        self.wake = wake;
+        self.shortcuts = shortcuts;
         if let Some(widget) = focus
             && self.interaction.focused != Some(widget)
         {
@@ -522,6 +577,12 @@ impl Ui {
         for (i, e) in self.elements.iter().enumerate() {
             for c in &e.children {
                 self.parents[c.0 as usize] = Some(NodeId(i as u32));
+            }
+        }
+        // Hovering a floating layer counts as hovering its anchor (hover cards stay open).
+        for o in &self.overlays {
+            if o.placement != Placement::Fill {
+                self.parents[o.root.0 as usize] = Some(o.anchor);
             }
         }
         Ok(())
@@ -706,6 +767,10 @@ fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, view
             Point::new(anchor.center().x - size.width / 2.0, anchor.y() - gap - size.height)
         }
         Placement::Fill => return Point::ZERO,
+        Placement::At(p) => p,
+        Placement::BottomRight => {
+            Point::new(viewport.width - size.width - 16.0, viewport.height - size.height - 16.0)
+        }
     };
     // Flip vertically when there is no room, then clamp.
     if placement == Placement::Below && p.y + size.height > viewport.height {

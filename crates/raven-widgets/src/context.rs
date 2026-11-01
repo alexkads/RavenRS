@@ -89,6 +89,8 @@ pub struct Drag {
     pub phase: DragPhase,
     pub position: Point,
     pub frame: Rect,
+    /// The frame of the dragged element's parent (e.g. a splitter's container).
+    pub container: Rect,
 }
 
 impl Drag {
@@ -116,6 +118,20 @@ pub enum Placement {
     AboveCenter,
     /// Covers the whole viewport (dialogs, sheets); the anchor is ignored.
     Fill,
+    /// At a point in the viewport (context menus); the anchor is ignored.
+    At(Point),
+    /// The bottom-right corner of the viewport (toasts).
+    BottomRight,
+}
+
+/// A keyboard shortcut that works wherever focus is (unless the focused
+/// element handles the key first). `command` means Cmd on macOS, Ctrl elsewhere;
+/// both are accepted on every platform.
+#[derive(Clone)]
+pub(crate) struct Shortcut {
+    pub key: Key,
+    pub command: bool,
+    pub handler: Rc<dyn Fn()>,
 }
 
 pub(crate) struct Overlay {
@@ -150,6 +166,7 @@ pub(crate) struct Element {
     /// Visual offset applied to the children's positions.
     pub translate: Point,
     pub on_double_click: Option<Rc<dyn Fn()>>,
+    pub on_context_menu: Option<Rc<dyn Fn(Point)>>,
 }
 
 impl Element {
@@ -171,12 +188,14 @@ impl Element {
             rebuild_on_scroll: false,
             translate: Point::ZERO,
             on_double_click: None,
+            on_context_menu: None,
         }
     }
 
     pub fn is_interactive(&self) -> bool {
         self.on_click.is_some()
             || self.on_double_click.is_some()
+            || self.on_context_menu.is_some()
             || self.cursor.is_some()
             || self.focus_radius.is_some()
             || self.on_drag.is_some()
@@ -247,6 +266,9 @@ pub struct BuildCx<'a> {
     pub(crate) scroll: &'a ScrollState,
     pub(crate) scroll_requests: Vec<(WidgetId, Point)>,
     pub(crate) focus_request: Option<WidgetId>,
+    pub(crate) now: f64,
+    pub(crate) shortcuts: Vec<Shortcut>,
+    pub(crate) wake: Option<f64>,
     pub(crate) modifiers: Rc<std::cell::Cell<Modifiers>>,
     pub(crate) local: &'a mut LocalStore,
     pub(crate) placeholder: LayoutId,
@@ -289,6 +311,9 @@ impl<'a> BuildCx<'a> {
             scroll,
             scroll_requests: Vec::new(),
             focus_request: None,
+            now: 0.0,
+            shortcuts: Vec::new(),
+            wake: None,
             modifiers,
             local,
             placeholder,
@@ -494,6 +519,31 @@ impl<'a> BuildCx<'a> {
     pub fn set_scroll_offset(&mut self, offset: Point) {
         let id = self.widget_id();
         self.scroll_requests.push((id, offset));
+    }
+
+    /// Seconds since the app started, as of this build. Reading it does not
+    /// schedule anything; use [`Self::wake_at`] to be rebuilt later.
+    pub fn now(&self) -> f64 {
+        self.now
+    }
+
+    /// Asks for a rebuild at `time` (seconds, the same clock as [`Self::now`]):
+    /// toasts that expire, carousels that advance, spinners that turn.
+    pub fn wake_at(&mut self, time: f64) {
+        self.wake = Some(self.wake.map_or(time, |w| w.min(time)));
+    }
+
+    /// Registers an app-wide keyboard shortcut for as long as this view is built.
+    /// With `command`, it needs Cmd (macOS) or Ctrl held, e.g. Cmd/Ctrl+K.
+    pub fn shortcut(&mut self, key: Key, command: bool, handler: Rc<dyn Fn()>) {
+        self.shortcuts.push(Shortcut { key, command, handler });
+    }
+
+    /// Calls `handler` with the pointer position on a secondary (right) click.
+    pub fn on_context_menu(&mut self, node: NodeId, handler: Rc<dyn Fn(Point)>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_context_menu = Some(handler);
+        }
     }
 
     /// Moves keyboard focus to this widget's focusable element after the build.
