@@ -4,6 +4,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- **Report server.** `ravenrs-report-server` stores layouts with versions, renders them over HTTP, and sends scheduled reports by email or to a folder as PDF, XLSX or CSV. Jobs have cron schedules with time zones, parameters computed by expression, skip if empty, retries that do not send twice, retention, and a history of who received what. See [docs/REPORT-SERVER.md](docs/REPORT-SERVER.md).
+- `ReportEngine::count_rows` says how many rows a report would print.
+
+### Changed
+- The site roadmap, `docs/PARITY.md` and `ARCHITECTURE.md` now reflect what shipped.
+
 ## [27.1.0] - 2026-11-01
 
 ### Migrating from 26.2

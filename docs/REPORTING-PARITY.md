@@ -151,5 +151,5 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Feature | DevExpress | RavenRS |
 |---|---|---|
 | Headless generation and export | `CreateDocument()` + `ExportTo*` | ✅ the engine has no UI dependency |
-| Scheduled jobs with email (PDF/XLSX attachment, inline HTML, link), shared folder, retention, history | Report and Dashboard Server | ⬜ [R3]: `ravenrs-report-server` with cron schedules, parameters, recipients, skip-if-empty, folder drop, retention and run history |
-| Report storage API | `ReportStorageWebExtension` | ⬜ [R3]: layouts stored by the server, with versions |
+| Scheduled jobs with email (PDF/XLSX attachment, inline HTML, link), shared folder, retention, history | Report and Dashboard Server | 🟡 `ravenrs-report-server`: cron with time zones, parameters by expression, PDF/XLSX/CSV attachments, folder delivery, skip if empty, retention, history of who received what, retries. Inline HTML and links ⬜ [R3] |
+| Report storage API | `ReportStorageWebExtension` | ✅ `ravenrs-report-server`: layouts stored with versions, over HTTP. Opening from the designer ⬜ [R3] |

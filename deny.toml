@@ -35,6 +35,9 @@ allow = [
     "MPL-2.0",
     "OFL-1.1",
     "Unlicense",
+    "0BSD",
+    # The root certificate list the report server uses for TLS (webpki-roots).
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.9
 

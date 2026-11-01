@@ -100,6 +100,12 @@ impl ReportEngine {
         self.render_with(report, data, &RenderOptions::default())
     }
 
+    /// How many rows of `data` the report would print: after its data member and
+    /// filter, before grouping. Lets a scheduled job skip a report with nothing in it.
+    pub fn count_rows(&self, report: &Report, data: &Json, options: &RenderOptions) -> usize {
+        Run::new(report, options, &self.functions).rows(data).len()
+    }
+
     /// Renders `report` over `data`. Expression errors do not stop the render:
     /// they are listed in [`Document::errors`] and shown in place.
     pub fn render_with(&mut self, report: &Report, data: &Json, options: &RenderOptions) -> Document {

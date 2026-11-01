@@ -156,7 +156,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Report engine (bands, groups, summaries, expressions) | | ✓ | ✓ | 🟡 `ravenrs-report`; see [REPORTING-PARITY.md](REPORTING-PARITY.md) |
 | Document viewer (pages, zoom, search, thumbnails) | | ✓ | ✓ | ⬜ |
 | End-user report designer | | ✓ | ✓ | 🟡 `examples/report-designer`, [live](https://alexkads.github.io/RavenRS/designer/) |
-| Export: PDF, XLSX, DOCX, CSV, HTML, images | | ✓ | ✓ | 🟡 CSV from `DataGrid` |
+| Export: PDF, XLSX, DOCX, CSV, HTML, images | | ✓ | ✓ | 🟡 `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV), SVG per page, CSV from `DataGrid`; DOCX, HTML and PNG planned |
 
 ## Platform capabilities
 

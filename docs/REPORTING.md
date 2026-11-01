@@ -29,7 +29,7 @@ RavenRS Reporting turns data into paginated documents. It covers what the DevExp
         └── ravenrs-report-server  HTTP: POST a definition + data, get PDF/XLSX back
 ```
 
-Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV) and the designer in `examples/report-designer` exist. The other exporters, the `DocumentViewer` widget and the server arrive in the phases below.
+Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV) and the designer in `examples/report-designer` exist. `ravenrs-report-server` runs them headless ([docs/REPORT-SERVER.md](REPORT-SERVER.md)). The other exporters and the `DocumentViewer` widget arrive in the phases below.
 
 `ravenrs-report` has no GPU or window dependency, so it runs in servers and tests. Text is measured with the same Parley stack as the UI, so the viewer and the PDF agree to the point.
 
@@ -93,7 +93,7 @@ Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every
 |---|---|---|
 | **R1 — Engine and designer preview** | Report model, JSON format with data sources, Rust builder, expressions, parameters, bands, groups, sorting, filtering, summaries, master-detail, pagination, Label/Table/CheckBox/Line/Shape/Panel, styles, pt-BR formats, table wizard, web designer with preview | ✅ 10,000 rows in 80 ms native, about 200 ms in the browser |
 | **R2 — PDF and viewer** | PDF export with embedded fonts, links and outline; pictures; viewer with thumbnails and search; full parameter panel (lookups, multi-value); the remaining expression functions | In progress: PDF with embedded fonts done (305 pages in about 120 ms, 1 MB); XLSX and CSV moved up from R3 (the same report in about 180 ms) |
-| **R3 — Server, scheduling and more output** | `ravenrs-report-server` (see below); XLSX, CSV, HTML, PNG export; barcodes; charts and sparklines; subreports; table of contents; watermarks; multi-column; the remaining band options | Planned |
+| **R3 — Server, scheduling and more output** | `ravenrs-report-server` (see below); XLSX, CSV, HTML, PNG export; barcodes; charts and sparklines; subreports; table of contents; watermarks; multi-column; the remaining band options | In progress: server with storage, render on demand, cron jobs, email and folder delivery, history, retries and retention done |
 | **R4 — Designer depth** | Expression editor, group and sort panel, snap lines, align and size tools, multi-select, labels wizard, style gallery, drill-down and interactive sorting in preview | Planned |
 | **R5 — Enterprise data and documents** | SQL, CSV/XLSX and federated sources; Cross Tab; DOCX; PDF/A, PDF/UA, signatures; vertical bands; right-to-left; AI prompt-to-report | Planned |
 
@@ -101,16 +101,16 @@ Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every
 
 `ravenrs-report-server` runs reports headless with the same engine and layouts:
 
-* **Storage.** Layouts (`*.rvreport.json`, data sources included) are stored by the server, versioned, and opened and saved by the designer.
+* **Storage.** Layouts (`*.rvreport.json`, data sources included) are stored by the server and versioned; opening and saving them from the designer is planned.
 * **Data at run time.**
-  * The server resolves `url` and `sql` data sources when a report runs.
+  * The server resolves `url` data sources when a report runs, only from hosts in its configuration; `sql` sources are planned.
   * Connections and secrets live in the server's configuration, referred to by name, and never in a layout.
 * **Render on demand.** An HTTP API: `POST /render` with a layout (or its name), parameters and a format returns PDF or XLSX.
 * **Scheduled jobs**, following the job model of DevExpress Report Server:
   * A cron-like schedule.
   * A report and its parameter values, fixed or by expression (for example, last month).
   * Recipients, individually or on one shared email.
-  * Delivery as a PDF or XLSX attachment, inline HTML, a link, or a file in a folder.
+  * Delivery as a PDF, XLSX or CSV attachment or a file in a folder; inline HTML and a link are planned.
   * A skip-if-empty option and document retention.
   * A run history of who received what, and retries on failure.
 
