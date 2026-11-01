@@ -13,6 +13,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Paint::Rich` draws with a `PaintCx`, for views that shape text while painting or need the device scale.
 - `charts` feature on `ravenrs` and `ravenrs-widgets`, on by default. `ravenrs` also forwards `decode`.
 - `ChartKind::SparkArea`, a smoothed line over a filled area, and `ChartOptions` fields for colors, bar corners and the widest bar.
+- `ravenrs::native::run_as` opens the window as an `AppIdentity`, whose id ties it to the app's `.desktop` file. Without it, GNOME on Wayland shows no icon for the window, since Wayland windows cannot carry one.
 - **`StatusBar`.** One fixed line at the foot of an app window: its sides keep their width, the center takes the rest and cuts what does not fit, and `center_tone` tints only the center. `ButtonSize::Mini`, 22 px, is what fits on it, and `Toaster::bottom_inset` lifts toasts above it.
 - **`ReleaseNotes` and `CodeBlock`.** `ReleaseNotes` shows an app's versions, the list on the left and what the chosen one brought on the right, with buttons that walk through them. `CodeBlock` shows a command to copy. `Labels` gains their words.
 - **Waking the UI from another thread.** `UiWaker`, from `BuildCx::ui_waker`, asks for a rebuild from any thread, so background work needs no polling. `Ui::set_remote_waker` connects it to a platform.

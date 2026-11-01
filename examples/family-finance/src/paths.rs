@@ -2,6 +2,9 @@
 
 use std::path::PathBuf;
 
+/// The app's name to the system: on Linux, its `.desktop` file and the window that belongs to it.
+pub const APP_ID: &str = "family-finance";
+
 /// `~/.raven-financas`: the database, the exports and what the installer leaves.
 pub fn home() -> PathBuf {
     let base = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" });

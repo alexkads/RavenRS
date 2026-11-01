@@ -6,7 +6,7 @@ use family_finance::db::{Database, DbResult};
 use family_finance::ui::App;
 use family_finance::update::{self, Updater};
 use family_finance::{icon, paths, seed, today};
-use ravenrs::native::{PlatformError, WindowOptions, run, run_with_icon};
+use ravenrs::native::{AppIdentity, PlatformError, WindowOptions, run, run_as};
 use ravenrs::prelude::*;
 
 fn open(path: &Path) -> DbResult<Database> {
@@ -40,10 +40,12 @@ fn main() -> Result<(), PlatformError> {
             let updater = Updater::idle();
             updater.watch();
             let app = App::new(db, today(), Some(path), updater);
-            match icon() {
-                Some(icon) => run_with_icon(app, options, icon),
-                None => run(app, options),
-            }
+            let identity = AppIdentity::new(paths::APP_ID);
+            let identity = match icon() {
+                Some(icon) => identity.icon(icon),
+                None => identity,
+            };
+            run_as(app, options, identity)
         }
         Err(e) => {
             tracing::error!(error = %e, path = %path.display(), "could not open the database");

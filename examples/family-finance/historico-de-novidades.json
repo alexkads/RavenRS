@@ -1,5 +1,15 @@
 [
   {
+    "versao": "0.1.2",
+    "data": "2026-11-01",
+    "titulo": "O ícone do app aparece no Linux com GNOME, como no Fedora.",
+    "importante": false,
+    "novidades": [
+      "A janela agora se identifica para o sistema, e o GNOME mostra o ícone do Raven Finanças nela."
+    ],
+    "por_que_atualizar": "Sem esta versão, a janela do app pode aparecer sem ícone no GNOME."
+  },
+  {
     "versao": "0.1.1",
     "data": "2026-11-01",
     "titulo": "O app agora avisa de versão nova no rodapé, sem atrapalhar o que você está fazendo.",
