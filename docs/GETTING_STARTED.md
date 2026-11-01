@@ -151,7 +151,7 @@ DataGrid::new(data, [
 .height(480.0)
 ```
 
-Sorting, the filter row (`>100`, `10..20`, `yes`), search, grouping, resizing, the column chooser, editing and CSV export work out of the box; only the visible rows are built, so 100,000+ rows stay smooth.
+Sorting, the filter row (`>100`, `10..20`, `yes`, or an expression such as `[Seats] > 10 And [Country] = 'Brazil'`), search, grouping, resizing, the column chooser, editing and CSV export work out of the box; only the visible rows are built, so 100,000+ rows stay smooth.
 
 ## Next
 

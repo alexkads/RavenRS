@@ -176,23 +176,14 @@ impl NumberFormat {
         if !n.is_finite() {
             return String::new();
         }
-        let fixed = format!("{:.*}", self.decimals, n.abs());
-        let (int, frac) = fixed.split_once('.').unwrap_or((&fixed, ""));
-        let mut grouped = String::with_capacity(int.len() + int.len() / 3);
-        for (i, c) in int.chars().enumerate() {
-            if i > 0 && (int.len() - i) % 3 == 0 {
-                grouped.push(self.thousands);
-            }
-            grouped.push(c);
+        ravenrs_criteria::NumberStyle {
+            decimals: self.decimals,
+            group: Some(self.thousands),
+            decimal: self.decimal,
+            prefix: &self.prefix,
+            suffix: &self.suffix,
         }
-        let sign = if n < 0.0 && fixed.chars().any(|c| c != '0' && c != '.') { "-" } else { "" };
-        let mut out = format!("{sign}{}{grouped}", self.prefix);
-        if !frac.is_empty() {
-            out.push(self.decimal);
-            out.push_str(frac);
-        }
-        out.push_str(&self.suffix);
-        out
+        .format(n)
     }
 }
 

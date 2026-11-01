@@ -51,7 +51,7 @@ mod value;
 
 pub use ast::{AggregateCall, BinaryOp, Criteria, GroupOp, UnaryOp};
 pub use eval::{CustomFunction, Environment, EvalError, Record, Scope};
-pub use format::{Culture, format_composite, format_value};
+pub use format::{Culture, NumberStyle, format_composite, format_value};
 pub use functions::{Aggregate, Category, Function, FunctionInfo};
 pub use parse::ParseError;
 pub use sql::{Dialect, SqlError, SqlParam, SqlQuery, to_sql};

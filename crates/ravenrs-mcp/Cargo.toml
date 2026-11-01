@@ -14,7 +14,7 @@ readme = "README.md"
 publish = false
 
 [dependencies]
-ravenrs-criteria.workspace = true
+ravenrs-criteria = { workspace = true, features = ["json"] }
 rmcp.workspace = true
 tokio.workspace = true
 serde.workspace = true

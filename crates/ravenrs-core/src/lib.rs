@@ -4,10 +4,12 @@
 //! platform-neutral input events, [`Scene`] (the display list that widgets
 //! produce and renderers consume) and [`AccessTree`] (what assistive technology
 //! sees). Keeping them here lets widgets stay independent of any GPU or
-//! operating-system API.
+//! operating-system API. [`csv`] is here because the grid and the report
+//! exporters share nothing else lower down.
 
 mod access;
 mod color;
+pub mod csv;
 mod event;
 mod geometry;
 mod scene;

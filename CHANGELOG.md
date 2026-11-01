@@ -5,6 +5,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ## [Unreleased]
 
 ### Added
+- **Expressions in the grid's filter row.** A `DataGrid` filter can be a `ravenrs-criteria` expression over column titles, such as `[Seats] > 10 And [Country] = 'Brazil'`. The short syntax (`>=15`, `5..12`, `sim`, plain text) works as before.
+- `ravenrs_criteria::NumberStyle` lays out digits with any separators and affixes; `Culture` and the grid's `NumberFormat` both use it.
+- `ravenrs_core::csv::push_field` quotes a CSV field; the grid and report exports both use it.
 - **Report server.** `ravenrs-report-server` stores layouts with versions, renders them over HTTP, and sends scheduled reports by email or to a folder as PDF, XLSX or CSV. Jobs have cron schedules with time zones, parameters computed by expression, skip if empty, retries that do not send twice, retention, and a history of who received what. See [docs/REPORT-SERVER.md](docs/REPORT-SERVER.md).
 - `ReportEngine::count_rows` says how many rows a report would print.
 - **Document viewer.** `ravenrs-report-viewer` has `DocumentViewer`, with pages, zoom, fit to width, thumbnails, and search with highlights that ignores case and accents, and `ParameterPanel`, with a control for each parameter kind and apply and reset. The report designer's preview uses both.
@@ -17,6 +20,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Links and outline.** `ControlKind::Link` opens an `https:`, `http:` or `mailto:` address from a PDF, a spreadsheet or SVG; any other scheme is refused and reported. `ControlKind::Bookmark` adds entries, nested by level, to the PDF's outline. `Item` gains `Image`, `Link` and `Bookmark`.
 
 ### Changed
+- `ravenrs-widgets` now depends on `ravenrs-criteria`, without its JSON feature.
+- A filter-row text that names a column in brackets and parses, such as `[Seats] > 3`, is now an expression instead of a search for those characters. Other text in brackets, such as `[draft]`, is still a search.
 - The site roadmap, `docs/PARITY.md` and `ARCHITECTURE.md` now reflect what shipped.
 
 ## [27.1.0] - 2026-11-01

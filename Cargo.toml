@@ -26,7 +26,7 @@ ravenrs-platform-web = { version = "27.1.0", path = "crates/ravenrs-platform-web
 ravenrs-graphics = { version = "27.1.0", path = "crates/ravenrs-graphics" }
 ravenrs-report = { version = "27.1.0", path = "crates/ravenrs-report" }
 ravenrs-report-export = { version = "27.1.0", path = "crates/ravenrs-report-export" }
-ravenrs-criteria = { version = "27.1.0", path = "crates/ravenrs-criteria" }
+ravenrs-criteria = { version = "27.1.0", path = "crates/ravenrs-criteria", default-features = false }
 ravenrs-report-pdf = { version = "27.1.0", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.0", path = "crates/ravenrs-report-xlsx" }
 ravenrs-report-server = { version = "27.1.0", path = "crates/ravenrs-report-server" }

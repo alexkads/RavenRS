@@ -16,7 +16,7 @@ categories = ["template-engine", "text-processing"]
 [dependencies]
 ravenrs-core.workspace = true
 ravenrs-text.workspace = true
-ravenrs-criteria.workspace = true
+ravenrs-criteria = { workspace = true, features = ["json"] }
 serde.workspace = true
 serde_json.workspace = true
 image.workspace = true

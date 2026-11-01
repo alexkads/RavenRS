@@ -56,6 +56,10 @@ fn bench(c: &mut Criterion) {
             query(|q| q.sort = vec![(1, SortDirection::Ascending), (3, SortDirection::Descending)]),
         ),
         ("filter_range", query(|q| q.set_filter(2, "100..200".into()))),
+        (
+            "filter_expression",
+            query(|q| q.set_filter(2, "[Seats] >= 100 And [Seats] <= 200 And [Country] <> 'Chile'".into())),
+        ),
         ("search", query(|q| q.search = "chile".into())),
         ("group_with_summaries", query(|q| q.group_by = vec![1])),
     ];
