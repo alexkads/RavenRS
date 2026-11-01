@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "ravenrs": {
+      "command": "ravenrs-mcp"
+    }
+  }
+}

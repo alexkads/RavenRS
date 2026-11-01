@@ -50,6 +50,11 @@ web-sys = "0.3.107"
 console_error_panic_hook = "0.1.7"
 proptest = { version = "1", default-features = false, features = ["std"] }
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+# Only for the ravenrs-mcp tool; nothing in the framework depends on these.
+rmcp = { version = "3.8.0", default-features = false, features = ["server", "macros", "transport-io"] }
+tokio = { version = "1.54", default-features = false, features = ["macros", "rt"] }
+syn = { version = "2.0.119", default-features = false, features = ["full", "parsing", "printing", "visit"] }
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -1,0 +1,12 @@
+{
+  "name": "ravenrs",
+  "owner": { "name": "Alex S S Fonseca" },
+  "metadata": { "description": "Tools for developers building with the RavenRS GUI framework." },
+  "plugins": [
+    {
+      "name": "ravenrs",
+      "source": "./plugins/ravenrs",
+      "description": "A skill for building RavenRS apps and an MCP server that answers from the framework's own API, tokens and parity trackers."
+    }
+  ]
+}

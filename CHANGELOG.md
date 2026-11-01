@@ -5,6 +5,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ## [Unreleased]
 
 ### Added
+- **Skill and MCP server for AI assistants.** The Claude Code plugin in `plugins/ravenrs` brings a skill on building with RavenRS and `ravenrs-mcp`, a read-only server that works offline. Its tools are `list_components`, `component_api`, `component_examples`, `design_tokens`, `parity_status`, `validate_expression` and `expression_functions`. It is installed from git, not published to crates.io, and nothing in the framework depends on it. See the [README](README.md#ai-assistants).
 - `ColorSwatch`, a named color to pick from a palette.
 - `Text::truncate` and `BuildCx::text_truncated` keep text on one line that ends with `…`; screen readers still get the whole text. `TextSystem::layout_ellipsized` is the underlying call.
 - `Card::on_click` makes a whole card a button, with hover, focus and keyboard support.

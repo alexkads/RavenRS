@@ -124,6 +124,29 @@ cargo install wasm-bindgen-cli --version 0.2.130 --locked
 
 Then open http://localhost:8080 in a browser with WebGPU (Chrome, Edge, Safari 18+, or Firefox with WebGPU enabled). Without WebGPU, the page explains what is missing.
 
+## AI assistants
+
+RavenRS ships a skill and an MCP server so coding assistants write against the real API instead of guessing it.
+
+- The **skill** teaches how to compose screens, use tokens instead of literal values, meet the [quality bar](https://github.com/alexkads/RavenRS/blob/master/docs/QUALITY.md) and build for the web.
+- The **MCP server** ([`ravenrs-mcp`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp)) is read-only and works offline. It lists components, shows their API and real examples, looks up design tokens, reports parity status and validates expressions.
+
+Install the server, then add the Claude Code plugin, which brings both:
+
+```bash
+cargo install --git https://github.com/alexkads/RavenRS --locked ravenrs-mcp
+```
+
+```bash
+claude plugin marketplace add alexkads/RavenRS
+```
+
+```bash
+claude plugin install ravenrs@ravenrs
+```
+
+For other MCP clients, configure the command `ravenrs-mcp` over stdio. The skill is a plain file: [`plugins/ravenrs/skills/ravenrs/SKILL.md`](https://github.com/alexkads/RavenRS/blob/master/plugins/ravenrs/skills/ravenrs/SKILL.md).
+
 ## Crates
 
 | Crate | What it does |
@@ -138,6 +161,7 @@ Then open http://localhost:8080 in a browser with WebGPU (Chrome, Edge, Safari 1
 | [`ravenrs-core`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-core) | Geometry, colors, input events and the `Scene` display list. |
 | [`ravenrs-platform-native`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-native) | Desktop windows with [winit](https://github.com/rust-windowing/winit). |
 | [`ravenrs-platform-web`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-web) | `<canvas>` + WebGPU in the browser. |
+| [`ravenrs-mcp`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp) | A read-only MCP server for coding assistants. A tool, not a dependency of your app. |
 
 ## Roadmap
 

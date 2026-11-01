@@ -1,0 +1,8 @@
+{
+  "name": "ravenrs",
+  "description": "A skill for building RavenRS apps and an MCP server that answers from the framework's own API, tokens and parity trackers.",
+  "author": { "name": "Alex S S Fonseca" },
+  "homepage": "https://alexkads.github.io/RavenRS/",
+  "repository": "https://github.com/alexkads/RavenRS",
+  "license": "MIT OR Apache-2.0"
+}

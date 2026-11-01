@@ -5,6 +5,11 @@
 //! [`core`], [`reactive`], [`layout`], [`text`], [`style`], [`render`] and [`widgets`]
 //! can also be used on their own.
 
+/// Keeps the code in the skill for AI assistants compiling.
+#[cfg(doctest)]
+#[doc = include_str!("../../../plugins/ravenrs/skills/ravenrs/SKILL.md")]
+struct SkillDoctests;
+
 pub use ravenrs_core as core;
 pub use ravenrs_layout as layout;
 pub use ravenrs_reactive as reactive;

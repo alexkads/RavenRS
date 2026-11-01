@@ -52,6 +52,8 @@ ravenrs-reactive ───┐      │              │              │        
                                 ▼
                              ravenrs  (facade + prelude)
 
+ravenrs-mcp  ──► ravenrs-criteria  (tool for coding assistants; nothing depends on it)
+
 ravenrs-criteria  (expression language, no RavenRS dependencies)
         ▲
         │
@@ -76,6 +78,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-platform-web` | `app` (canvas, events, frames), `access` (ARIA mirror), `error` |
 | `ravenrs-criteria` | `ast`, `parse`, `format`, `eval`, `functions`, `validate`, `sql`, `value` |
 | `ravenrs-report` | `model`, `engine`, `document`, `paint`, `wizard`, `samples` |
+| `ravenrs-mcp` | `api` (index of the public API, parsed from embedded sources), `docs`, `expression`, `server` |
 
 `ravenrs-widgets` has two parts. The runtime is `view`, `context` (`BuildCx`), `ui` and `ui/access`, `modifiers`, `clipboard` and `util`. The components are grouped by family:
 
