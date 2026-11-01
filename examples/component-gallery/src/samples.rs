@@ -40,8 +40,8 @@ samples! {
     "Chart" => chart, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
-    "Section" => section, "Divider" => divider, "Footer" => footer, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
-    "Text" => text, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
+    "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
+    "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Icon" => icon, "Image" => image, "Carousel" => carousel, "Canvas" => canvas,
 }
@@ -736,6 +736,43 @@ fn footer() -> impl View {
         .left((Footer::text("© 2026 Raven Finance"),))
         .center((Footer::link("Privacy"), Footer::link("Terms"), Footer::link("Help")))
         .right((Footer::text("v27.1"), Badge::new("Online").tone(Tone::Success)))
+}
+// end
+
+// sample: StatusBar, 60
+fn status_bar() -> impl View {
+    StatusBar::new()
+        .left((StatusBar::action("Version 27.1"),))
+        .center((
+            StatusBar::text("Version 27.2 is available").truncate().grow(1.0),
+            StatusBar::action("What's new"),
+            StatusBar::action("Update").style(ButtonStyle::Primary),
+        ))
+        .center_tone(Tone::Warning)
+        .right((StatusBar::text("12 items"),))
+}
+// end
+
+// sample: CodeBlock, 70
+fn code_block() -> impl View {
+    CodeBlock::new("cargo add ravenrs")
+}
+// end
+
+// sample: ReleaseNotes, 480
+fn release_notes() -> impl View {
+    let selected = State::new(0);
+    ReleaseNotes::new(
+        vec![
+            ReleaseNote::new("Version 27.2", "Status bars and release notes")
+                .date("Nov 1, 2026")
+                .badge("New", Tone::Success)
+                .changes(["A line at the foot of the window", "What each version brought"])
+                .section("Why update", "Tell people about new versions without getting in their way."),
+            ReleaseNote::new("Version 27.1", "The first of the year").badge("Installed", Tone::Neutral),
+        ],
+        selected.binding(),
+    )
 }
 // end
 

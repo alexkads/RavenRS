@@ -4,7 +4,7 @@
 use family_finance::db::Database;
 use family_finance::seed;
 use family_finance::ui::App;
-use family_finance::update::Updater;
+use family_finance::update::{CURRENT, News, UpdateStatus, Updater};
 use ravenrs::core::{Event, Key, Modifiers};
 use ravenrs::prelude::*;
 
@@ -268,4 +268,74 @@ fn the_icon_ships_with_the_app() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets").join(file);
         assert!(path.exists(), "the installer and the README use {file}");
     }
+}
+
+fn app_with(updater: Updater) -> Ui {
+    let db = Database::in_memory().expect("database");
+    seed::load_demo(&db, today()).expect("seed");
+    let mut ui = Ui::new(App::new(db, today(), None, updater), Theme::raven_light());
+    ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
+    settle(&mut ui);
+    ui
+}
+
+fn news_of(version: &str) -> News {
+    News {
+        versao: version.to_owned(),
+        data: None,
+        titulo: "Boleto anexado".to_owned(),
+        importante: false,
+        novidades: vec!["Anexar boleto".to_owned()],
+        por_que_atualizar: "Para não perder o papel.".to_owned(),
+    }
+}
+
+#[test]
+fn the_foot_of_the_window_always_shows_the_version_and_its_news() {
+    let mut ui = app_with(Updater::idle());
+    let label = format!("Raven Finanças · versão {CURRENT}");
+    assert!(says(&mut ui, &label));
+    assert!(!says(&mut ui, "disponível"), "nothing to say, nothing said");
+    press(&mut ui, Role::Button, &label);
+    assert!(says(&mut ui, "Novidades"));
+    assert!(says(&mut ui, "Instalada"), "it opens on the version in use");
+    assert!(says(&mut ui, "Por que ela importa"));
+}
+
+#[test]
+fn a_new_version_is_told_at_the_foot_and_later_hides_it() {
+    let updater = Updater::idle();
+    updater.set_status(UpdateStatus::Available(news_of("99.0.0")));
+    let mut ui = app_with(updater.clone());
+    assert!(says(&mut ui, "Versão 99.0.0 disponível — Boleto anexado"));
+
+    press(&mut ui, Role::Button, "Ver novidades");
+    assert!(says(&mut ui, "Nova"));
+    assert!(says(&mut ui, "Por que atualizar"));
+    assert!(says(&mut ui, "Como atualizar"));
+    assert!(says(&mut ui, "1 de "), "the announced version comes first");
+    press(&mut ui, Role::Button, "Fechar");
+
+    press(&mut ui, Role::Button, "Depois");
+    assert!(!says(&mut ui, "Versão 99.0.0 disponível"));
+    assert!(says(&mut ui, &format!("versão {CURRENT}")), "the version stays");
+}
+
+#[test]
+fn asking_in_the_settings_answers_at_the_foot() {
+    let updater = Updater::idle();
+    updater.set_status(UpdateStatus::UpToDate);
+    let mut ui = app_with(updater.clone());
+    assert!(says(&mut ui, &format!("Você está na versão mais recente ({CURRENT}).")));
+    press(&mut ui, Role::Button, "Fechar");
+    assert_eq!(updater.status(), UpdateStatus::Quiet);
+    assert!(!says(&mut ui, "versão mais recente ("));
+
+    updater.set_status(UpdateStatus::Failed(news_of("99.0.0"), "sem disco.".to_owned()));
+    settle(&mut ui);
+    let mut ui = app_with(updater);
+    assert!(says(&mut ui, "A atualização não deu certo"));
+    press(&mut ui, Role::Button, "Como atualizar");
+    assert!(says(&mut ui, "Se a atualização pelo app falhar"));
+    assert!(says(&mut ui, "install.cmd"), "the command by hand is there to copy");
 }

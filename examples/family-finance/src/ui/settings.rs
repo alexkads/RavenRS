@@ -7,6 +7,7 @@ use ravenrs::prelude::*;
 
 use super::forms::Forms;
 use super::store::{Store, heading};
+use super::updates;
 use crate::seed;
 use crate::update::{self, UpdateStatus};
 
@@ -49,12 +50,12 @@ fn write_backup(store: &Store, target: &Path) -> Result<(), String> {
     std::fs::rename(&draft, target).map_err(|e| e.to_string())
 }
 
-pub(crate) fn settings(store: &Store, forms: &Forms, news_open: &State<bool>) -> impl View + use<> {
+pub(crate) fn settings(store: &Store, forms: &Forms, news: &updates::NewsDialog) -> impl View + use<> {
     let path = store.path.as_ref().map_or_else(|| "Só na memória".to_owned(), |p| p.display().to_string());
     let version = store.read(|db| db.schema_version());
     let (backup_store, wipe_store, demo_store) = (store.clone(), store.clone(), store.clone());
     let (wipe_confirm, demo_confirm) = (forms.confirm.clone(), forms.confirm.clone());
-    let news = news_open.clone();
+    let news = news.clone();
     let updater = store.updater.clone();
     let update_text = match store.updater.status() {
         UpdateStatus::Quiet => "Você está na versão mais recente que o app conhece.".to_owned(),
@@ -64,6 +65,9 @@ pub(crate) fn settings(store: &Store, forms: &Forms, news_open: &State<bool>) ->
         UpdateStatus::Compiling(n) => format!("Compilando a versão {} em segundo plano.", n.versao),
         UpdateStatus::Ready(n) => format!("A versão {} está instalada; reabra o app para usar.", n.versao),
         UpdateStatus::Failed(n, reason) => format!("A versão {} não foi instalada: {reason}", n.versao),
+        UpdateStatus::Checking => "Procurando versão nova…".to_owned(),
+        UpdateStatus::UpToDate => format!("Você está na versão mais recente ({}).", update::CURRENT),
+        UpdateStatus::NoAnswer(reason) => format!("Não consegui verificar se há versão nova: {reason}"),
     };
 
     ScrollView::new((VStack::new((
@@ -137,8 +141,8 @@ pub(crate) fn settings(store: &Store, forms: &Forms, news_open: &State<bool>) ->
                         Button::new("Procurar atualização")
                             .icon(IconName::RefreshCw)
                             .style(ButtonStyle::Secondary)
-                            .on_click(move || updater.check()),
-                        Button::new("Ver novidades").style(ButtonStyle::Ghost).on_click(move || news.set(true)),
+                            .on_click(move || updater.ask()),
+                        Button::new("Ver novidades").style(ButtonStyle::Ghost).on_click(move || news.show_latest()),
                     ))
                     .spacing(8.0),
                 ))

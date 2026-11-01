@@ -10,19 +10,22 @@
 //! | compile in a folder of its own | nothing was touched |
 //! | run the new binary with `--versao` before swapping | nothing was touched |
 //! | the installed app becomes `.anterior`, the new one moves in | the installer puts the old one back |
-//! | the app checks the version of the installed binary | the banner says so; the open app goes on |
+//! | the app checks the version of the installed binary | the status bar says so; the open app goes on |
 //!
 //! Releasing is one commit: the `version` in `Cargo.toml`, `novidades.json` and
 //! the same entry on top of `historico-de-novidades.json`. Tests hold the three together.
 //!
 //! The installer is saved to a file and never piped into a shell: a failed
 //! `curl | sh` hands `sh` an empty script, which exits successfully having done nothing.
+//!
+//! The app looks when it opens and every hour after that, silently: [`notice`]
+//! only speaks when there is a version, or when someone asked and is waiting for an answer.
 
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ravenrs::prelude::UiWaker;
 use serde::{Deserialize, Serialize};
@@ -40,9 +43,28 @@ pub const NEWS_URLS: [&str; 2] = [
     "https://alexkads.github.io/RavenRS/family-finance/novidades.json",
 ];
 
+/// Where the versions after this one are told, for skipping more than one at a time.
+pub const HISTORY_URLS: [&str; 2] = [
+    "https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/historico-de-novidades.json",
+    "https://alexkads.github.io/RavenRS/family-finance/historico-de-novidades.json",
+];
+
 /// The installer the app downloads and runs, the same one the README shows.
 pub const INSTALLER_URL: &str =
     "https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd";
+
+/// Running the installer by hand, for when updating from inside the app fails.
+pub const INSTALL_COMMAND: &str = if cfg!(target_os = "windows") {
+    "irm https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -OutFile \"$env:TEMP\\install.cmd\"; & \"$env:TEMP\\install.cmd\""
+} else {
+    "curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -o /tmp/install.cmd && sh /tmp/install.cmd"
+};
+
+/// How often an open app looks for a new version.
+pub const CHECK_EVERY: Duration = Duration::from_secs(3600);
+
+/// How often the installer's log is read for the step it is on.
+const STAGE_EVERY: Duration = Duration::from_secs(1);
 
 /// How long before a version that failed is tried again without being asked.
 pub const RETRY_AFTER: Duration = Duration::from_secs(24 * 3600);
@@ -74,11 +96,28 @@ pub fn parse_news(text: &str) -> Option<News> {
     (version_numbers(&news.versao).is_some() && !news.titulo.trim().is_empty()).then_some(news)
 }
 
+/// Reads a history file, skipping an entry it cannot understand.
+pub fn parse_history(text: &str) -> Vec<News> {
+    let items: Vec<serde_json::Value> = serde_json::from_str(text).unwrap_or_default();
+    items.into_iter().filter_map(|item| serde_json::from_value(item).ok()).collect()
+}
+
 /// Every version up to this one, newest first, compiled into the app.
 pub fn history() -> Vec<News> {
-    let items: Vec<serde_json::Value> =
-        serde_json::from_str(include_str!("../historico-de-novidades.json")).unwrap_or_default();
-    items.into_iter().filter_map(|item| serde_json::from_value(item).ok()).collect()
+    parse_history(include_str!("../historico-de-novidades.json"))
+}
+
+/// One list of versions, newest first, out of several. When a version is in
+/// more than one, the first list's account of it is the one that stays.
+pub fn join_history(lists: impl IntoIterator<Item = Vec<News>>) -> Vec<News> {
+    let mut all: Vec<News> = Vec::new();
+    for news in lists.into_iter().flatten() {
+        if !all.iter().any(|known| known.versao == news.versao) {
+            all.push(news);
+        }
+    }
+    all.sort_by_key(|news| std::cmp::Reverse(version_numbers(&news.versao)));
+    all
 }
 
 fn version_numbers(version: &str) -> Option<Vec<u64>> {
@@ -151,6 +190,17 @@ pub fn decide(
     Decision::Announce { news, start }
 }
 
+/// The step the installer announced on a line of its log: `> text`.
+pub fn installer_stage(line: &str) -> Option<String> {
+    let text = line.trim().strip_prefix("> ")?.trim();
+    (!text.is_empty()).then(|| text.to_owned())
+}
+
+/// The last step announced in the log so far.
+fn last_stage(log: &str) -> Option<String> {
+    log.lines().rev().find_map(installer_stage)
+}
+
 /// The downloaded file really is the whole installer. An error page, an empty
 /// file or one cut at any point does not pass, because the end of the file has to be there.
 pub fn installer_is_whole(text: &str) -> bool {
@@ -197,7 +247,7 @@ fn write_memory(file: &Path, memory: &Memory) {
     }
 }
 
-/// Where an update stands, for the banner and the settings page.
+/// Where an update stands, for the status bar and the settings page.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub enum UpdateStatus {
     /// Nothing to say yet, or up to date.
@@ -213,6 +263,167 @@ pub enum UpdateStatus {
     Failed(News, String),
     /// A new version exists, but this copy updates with `git pull`.
     Development(News),
+    /// Someone asked, and the answer has not come yet.
+    Checking,
+    /// Someone asked, and there is nothing newer.
+    UpToDate,
+    /// Someone asked, and the network did not answer.
+    NoAnswer(String),
+}
+
+impl UpdateStatus {
+    /// The version it is about, if any.
+    pub fn news(&self) -> Option<&News> {
+        match self {
+            Self::Available(news)
+            | Self::Compiling(news)
+            | Self::Ready(news)
+            | Self::Failed(news, _)
+            | Self::Development(news) => Some(news),
+            Self::Quiet | Self::Checking | Self::UpToDate | Self::NoAnswer(_) => None,
+        }
+    }
+}
+
+/// What a notice in the status bar offers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoticeAction {
+    /// Opens the news on the announced version.
+    News,
+    /// Installs the announced version.
+    Update,
+    /// Installs it again, after a failure.
+    Retry,
+    /// The news again, where the steps for doing it by hand are.
+    HowToUpdate,
+    /// Opens the installed version.
+    Reopen,
+    /// Asks the network again.
+    CheckAgain,
+    /// Hides the notice for this session.
+    Later,
+    /// Hides a notice that has been read.
+    Close,
+}
+
+impl NoticeAction {
+    /// The button's words.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::News => "Ver novidades",
+            Self::Update => "Atualizar",
+            Self::Retry | Self::CheckAgain => "Tentar de novo",
+            Self::HowToUpdate => "Como atualizar",
+            Self::Reopen => "Reabrir agora",
+            Self::Later => "Depois",
+            Self::Close => "Fechar",
+        }
+    }
+
+    /// The button that moves things forward, drawn as the main one.
+    pub fn is_primary(self) -> bool {
+        matches!(self, Self::Update | Self::Reopen | Self::Retry | Self::CheckAgain)
+    }
+}
+
+/// What the status bar says about updates, in one line.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Notice {
+    /// The sentence.
+    pub text: String,
+    /// Something is under way.
+    pub busy: bool,
+    /// Tint this one: an important version that is waiting for a click.
+    pub important: bool,
+    /// Its buttons, in order.
+    pub actions: Vec<NoticeAction>,
+}
+
+/// The whole rule of what the status bar says, with nothing on screen, as
+/// VintageLightbox words it. `dismissed` is the version hidden for this session;
+/// what is under way and what waits for reopening cannot be hidden.
+pub fn notice(
+    status: &UpdateStatus,
+    current: &str,
+    stage: Option<&str>,
+    dismissed: Option<&str>,
+) -> Option<Notice> {
+    let said = |text: String, busy, important, actions: &[NoticeAction]| {
+        Some(Notice { text, busy, important, actions: actions.to_vec() })
+    };
+    use NoticeAction::{CheckAgain, Close, HowToUpdate, Later, News, Reopen, Retry, Update};
+    match status {
+        UpdateStatus::Quiet => None,
+        UpdateStatus::Checking => said("Procurando versão nova…".to_owned(), true, false, &[]),
+        UpdateStatus::UpToDate => {
+            said(format!("Você está na versão mais recente ({current})."), false, false, &[Close])
+        }
+        UpdateStatus::NoAnswer(reason) => said(
+            format!("Não consegui verificar se há versão nova: {reason}"),
+            false,
+            false,
+            &[CheckAgain, Close],
+        ),
+        UpdateStatus::Available(news) | UpdateStatus::Development(news) | UpdateStatus::Failed(news, _)
+            if dismissed == Some(news.versao.as_str()) =>
+        {
+            None
+        }
+        UpdateStatus::Available(news) => {
+            let opening = if news.importante {
+                format!("Atualização importante: versão {}", news.versao)
+            } else {
+                format!("Versão {} disponível", news.versao)
+            };
+            said(
+                format!("{opening} — {}", news.titulo.trim()),
+                false,
+                news.importante,
+                &[News, Update, Later],
+            )
+        }
+        UpdateStatus::Development(news) => said(
+            format!(
+                "Versão {} no repositório. Esta cópia foi compilada à mão: atualize com git pull.",
+                news.versao
+            ),
+            false,
+            false,
+            &[News, Later],
+        ),
+        UpdateStatus::Compiling(news) => said(
+            format!(
+                "Atualizando para a versão {} em segundo plano — {}. O app continua funcionando.",
+                news.versao,
+                stage.unwrap_or("começando"),
+            ),
+            true,
+            false,
+            &[News],
+        ),
+        UpdateStatus::Ready(news) => said(
+            format!(
+                "Versão {} instalada. Ela entra na próxima vez que o app abrir — ou reabra agora.",
+                news.versao
+            ),
+            false,
+            news.importante,
+            &[Reopen],
+        ),
+        UpdateStatus::Failed(_, reason) => said(
+            format!("A atualização não deu certo, e a versão {current} continua funcionando. {reason}"),
+            false,
+            false,
+            &[Retry, HowToUpdate, Close],
+        ),
+    }
+}
+
+/// The hour has passed, and nothing is under way that a check would get in the way of.
+pub fn check_is_due(since_last: Option<Duration>, status: &UpdateStatus) -> bool {
+    let waiting =
+        matches!(status, UpdateStatus::Compiling(_) | UpdateStatus::Ready(_) | UpdateStatus::Checking);
+    !waiting && since_last.is_none_or(|elapsed| elapsed >= CHECK_EVERY)
 }
 
 /// Checks for updates and runs the installer on background threads. When one
@@ -224,11 +435,29 @@ pub struct Updater {
     waker: Rc<RefCell<Option<UiWaker>>>,
     /// A check asked for before the UI existed, which runs once it does.
     check_when_connected: Rc<Cell<bool>>,
+    /// Looks again every hour. Only the real app does; tests look when told to.
+    watching: Rc<Cell<bool>>,
+    /// The thread that wakes the UI every hour is running.
+    clock_started: Rc<Cell<bool>>,
+    last_check: Rc<Cell<Option<Instant>>>,
+    /// The step the installer is on.
+    stage: Rc<RefCell<Option<String>>>,
+    /// The version hidden for this session.
+    dismissed: Rc<RefCell<Option<String>>>,
+    /// What the repository says about versions this copy does not know.
+    remote_history: Rc<RefCell<Vec<News>>>,
 }
 
 #[derive(Debug)]
 enum Message {
-    Checked(Decision),
+    Checked {
+        decision: Decision,
+        /// Why the network gave no answer, if it did not.
+        failure: Option<String>,
+        /// The repository's history, read only when there is a new version to tell about.
+        history: Vec<News>,
+    },
+    Stage(String),
     Finished(News, Result<(), String>),
 }
 
@@ -246,6 +475,12 @@ impl Updater {
             inbox: Rc::new(RefCell::new(None)),
             waker: Rc::new(RefCell::new(None)),
             check_when_connected: Rc::new(Cell::new(false)),
+            watching: Rc::new(Cell::new(false)),
+            clock_started: Rc::new(Cell::new(false)),
+            last_check: Rc::new(Cell::new(None)),
+            stage: Rc::new(RefCell::new(None)),
+            dismissed: Rc::new(RefCell::new(None)),
+            remote_history: Rc::new(RefCell::new(Vec::new())),
         }
     }
 
@@ -257,6 +492,67 @@ impl Updater {
         if self.check_when_connected.take() {
             self.check();
         }
+        if self.watching.get() && !self.clock_started.replace(true) {
+            let waker = waker_for_clock(&self.waker);
+            // Sleeps between wakes, so an idle app stays idle. [`Self::poll`] does the looking.
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(CHECK_EVERY);
+                    waker.wake();
+                }
+            });
+        }
+    }
+
+    /// Looks now and every hour from now on, silently unless there is a version.
+    pub fn watch(&self) {
+        self.watching.set(true);
+        self.check();
+    }
+
+    /// Someone asked: says it is looking, and answers even when there is nothing new.
+    /// Asking again brings back a version hidden with "Depois". An update under
+    /// way already is the answer, so it stays.
+    pub fn ask(&self) {
+        if matches!(
+            self.status(),
+            UpdateStatus::Compiling(_) | UpdateStatus::Ready(_) | UpdateStatus::Checking
+        ) {
+            return;
+        }
+        *self.dismissed.borrow_mut() = None;
+        self.set_status(UpdateStatus::Checking);
+        self.check();
+        self.refresh();
+    }
+
+    /// Rebuilds the UI after a click. The status is plain cells, which a click's
+    /// handler changes with nobody else being told.
+    fn refresh(&self) {
+        if let Some(waker) = self.waker.borrow().as_ref() {
+            waker.wake();
+        }
+    }
+
+    /// What the status bar says now.
+    pub fn notice(&self) -> Option<Notice> {
+        notice(&self.status(), CURRENT, self.stage.borrow().as_deref(), self.dismissed.borrow().as_deref())
+    }
+
+    /// Hides the notice. A version stays hidden for this session; an answer is just gone.
+    pub fn dismiss(&self) {
+        let status = self.status();
+        match status.news() {
+            Some(news) => *self.dismissed.borrow_mut() = Some(news.versao.clone()),
+            None => self.set_status(UpdateStatus::Quiet),
+        }
+        self.refresh();
+    }
+
+    /// Every version known, newest first: the announced one, the repository's and this copy's.
+    pub fn timeline(&self) -> Vec<News> {
+        let announced: Vec<News> = self.status().news().cloned().into_iter().collect();
+        join_history([announced, self.remote_history.borrow().clone(), history()])
     }
 
     /// Asks the network in the background.
@@ -265,11 +561,15 @@ impl Updater {
             self.check_when_connected.set(true);
             return;
         };
+        self.last_check.set(Some(Instant::now()));
         let (send, receive) = channel();
         *self.inbox.borrow_mut() = Some(receive);
         std::thread::spawn(move || {
             let _wake_when_done = WakeOnDrop(waker);
-            let news = NEWS_URLS.iter().find_map(|url| download(url).ok().as_deref().and_then(parse_news));
+            let (news, failure) = match latest_news() {
+                Ok(news) => (Some(news), None),
+                Err(reason) => (None, Some(reason)),
+            };
             let home = paths::home();
             let now = seconds_now();
             let decision = decide(
@@ -280,8 +580,17 @@ impl Updater {
                 is_locked(&home.join("atualizacao.trava"), now),
                 now,
             );
+            let history = match decision {
+                Decision::Nothing => Vec::new(),
+                Decision::Announce { .. } => HISTORY_URLS
+                    .iter()
+                    .find_map(|url| {
+                        download(url).ok().map(|text| parse_history(&text)).filter(|h| !h.is_empty())
+                    })
+                    .unwrap_or_default(),
+            };
             // The receiver going away only means the window closed.
-            let _ = send.send(Message::Checked(decision));
+            let _ = send.send(Message::Checked { decision, failure, history });
         });
     }
 
@@ -300,53 +609,105 @@ impl Updater {
         self.inbox.borrow().is_some()
     }
 
-    /// Takes in what the background thread finished. Called while building, so it
-    /// writes plain cells: the view that called it reads them right after.
+    /// Takes in what the background thread said, and looks again when the hour
+    /// has passed. Called while building, so it writes plain cells: the view that
+    /// called it reads them right after.
     pub fn poll(&self) {
-        let received = match self.inbox.borrow().as_ref() {
-            Some(inbox) => inbox.try_recv(),
-            None => return,
-        };
-        let message = match received {
-            Ok(message) => message,
-            Err(TryRecvError::Empty) => return,
-            // The thread died without answering. Waiting on would wake the UI forever.
-            Err(TryRecvError::Disconnected) => {
-                *self.inbox.borrow_mut() = None;
-                if let UpdateStatus::Compiling(news) = self.status() {
-                    self.set_status(UpdateStatus::Failed(news, "a atualização parou no meio.".to_owned()));
+        self.receive();
+        let since_last = self.last_check.get().map(|when| when.elapsed());
+        if self.watching.get() && !self.is_running() && check_is_due(since_last, &self.status()) {
+            self.check();
+        }
+    }
+
+    fn receive(&self) {
+        loop {
+            let received = match self.inbox.borrow().as_ref() {
+                Some(inbox) => inbox.try_recv(),
+                None => return,
+            };
+            let message = match received {
+                Ok(Message::Stage(stage)) => {
+                    *self.stage.borrow_mut() = Some(stage);
+                    continue;
                 }
-                return;
-            }
-        };
-        *self.inbox.borrow_mut() = None;
+                Ok(message) => message,
+                Err(TryRecvError::Empty) => return,
+                // The thread died without answering. Waiting on would wake the UI forever.
+                Err(TryRecvError::Disconnected) => {
+                    *self.inbox.borrow_mut() = None;
+                    match self.status() {
+                        UpdateStatus::Compiling(news) => {
+                            self.set_status(UpdateStatus::Failed(
+                                news,
+                                "a atualização parou no meio.".to_owned(),
+                            ));
+                        }
+                        UpdateStatus::Checking => {
+                            self.set_status(UpdateStatus::NoAnswer("a procura parou no meio.".to_owned()));
+                        }
+                        _ => {}
+                    }
+                    return;
+                }
+            };
+            *self.inbox.borrow_mut() = None;
+            self.take_in(message);
+            return;
+        }
+    }
+
+    fn take_in(&self, message: Message) {
         match message {
-            Message::Checked(Decision::Nothing) => {}
-            Message::Checked(Decision::Announce { news, start }) => {
-                if InstallKind::current() == InstallKind::Development {
-                    self.set_status(UpdateStatus::Development(news));
-                } else if start {
-                    self.install(news);
-                } else {
-                    self.set_status(UpdateStatus::Available(news));
+            Message::Checked { decision, failure, history } => {
+                if !history.is_empty() {
+                    *self.remote_history.borrow_mut() = history;
+                }
+                let status = self.status();
+                match decision {
+                    Decision::Nothing if status == UpdateStatus::Checking => self.set_status(match failure {
+                        Some(reason) => UpdateStatus::NoAnswer(reason),
+                        None => UpdateStatus::UpToDate,
+                    }),
+                    Decision::Nothing => {}
+                    Decision::Announce { news, start } => {
+                        // A failure on screen says more than the same version on offer again.
+                        let failed_already = !start
+                            && matches!(&status, UpdateStatus::Failed(failed, _) if failed.versao == news.versao);
+                        if InstallKind::current() == InstallKind::Development {
+                            self.set_status(UpdateStatus::Development(news));
+                        } else if start {
+                            self.install(news);
+                        } else if !failed_already {
+                            self.set_status(UpdateStatus::Available(news));
+                        }
+                    }
                 }
             }
             Message::Finished(news, Ok(())) => self.set_status(UpdateStatus::Ready(news)),
             Message::Finished(news, Err(reason)) => self.set_status(UpdateStatus::Failed(news, reason)),
+            // [`Self::receive`] takes these before they get here.
+            Message::Stage(_) => {}
         }
     }
 
     /// Downloads the installer and runs it in the background.
     pub fn install(&self, news: News) {
         self.set_status(UpdateStatus::Compiling(news.clone()));
+        *self.stage.borrow_mut() = None;
+        self.refresh();
         let (send, receive) = channel();
         *self.inbox.borrow_mut() = Some(receive);
         let waker = self.waker.borrow().clone().unwrap_or_default();
         std::thread::spawn(move || {
             // Dropping this wakes the UI however the thread ends, even in a panic,
             // so a thread that died cannot leave it waiting.
-            let _wake_when_done = WakeOnDrop(waker);
-            let result = run_installer(&news.versao);
+            let _wake_when_done = WakeOnDrop(waker.clone());
+            let stages = send.clone();
+            let result = run_installer(&news.versao, &move |stage| {
+                let _ = stages.send(Message::Stage(stage));
+                waker.wake();
+            });
             let _ = send.send(Message::Finished(news, result));
         });
     }
@@ -359,6 +720,10 @@ impl Updater {
             None => tracing::warn!("no installed binary on this system"),
         }
     }
+}
+
+fn waker_for_clock(waker: &Rc<RefCell<Option<UiWaker>>>) -> UiWaker {
+    waker.borrow().clone().unwrap_or_default()
 }
 
 struct WakeOnDrop(UiWaker);
@@ -376,7 +741,23 @@ fn download(url: &str) -> Result<String, String> {
     response.body_mut().read_to_string().map_err(|e| e.to_string())
 }
 
-fn run_installer(version: &str) -> Result<(), String> {
+/// The latest version the repository announces, or why it could not be known.
+fn latest_news() -> Result<News, String> {
+    let mut reason = "a resposta não veio completa.".to_owned();
+    for url in NEWS_URLS {
+        match download(url) {
+            Ok(text) => {
+                if let Some(news) = parse_news(&text) {
+                    return Ok(news);
+                }
+            }
+            Err(error) => reason = error,
+        }
+    }
+    Err(reason)
+}
+
+fn run_installer(version: &str, on_stage: &dyn Fn(String)) -> Result<(), String> {
     let home = paths::home();
     std::fs::create_dir_all(&home).map_err(|e| e.to_string())?;
     let (lock, memory) = (home.join("atualizacao.trava"), home.join("atualizacao.json"));
@@ -385,7 +766,7 @@ fn run_installer(version: &str) -> Result<(), String> {
         return Err("outra atualização já está em andamento neste computador.".to_owned());
     }
     std::fs::write(&lock, now.to_string()).map_err(|e| e.to_string())?;
-    let result = compile_and_check(&home, version);
+    let result = compile_and_check(&home, version, on_stage);
     // Without this the next start would take it for a running installer until the lock expires.
     let _ = std::fs::remove_file(&lock);
     let remembered = match &result {
@@ -396,7 +777,29 @@ fn run_installer(version: &str) -> Result<(), String> {
     result
 }
 
-fn compile_and_check(home: &Path, version: &str) -> Result<(), String> {
+/// Runs the installer, telling each step it announces in its log as it gets there.
+fn follow_installer(
+    mut command: std::process::Command,
+    log: &Path,
+    on_stage: &dyn Fn(String),
+) -> Result<std::process::ExitStatus, String> {
+    let mut child = command.spawn().map_err(|e| format!("não consegui rodar o instalador: {e}"))?;
+    let mut told = None;
+    loop {
+        // Not `read_to_string`: a line that is not UTF-8 must not hide the steps.
+        let stage = std::fs::read(log).ok().and_then(|text| last_stage(&String::from_utf8_lossy(&text)));
+        if stage.is_some() && stage != told {
+            told.clone_from(&stage);
+            on_stage(stage.unwrap_or_default());
+        }
+        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+            return Ok(status);
+        }
+        std::thread::sleep(STAGE_EVERY);
+    }
+}
+
+fn compile_and_check(home: &Path, version: &str, on_stage: &dyn Fn(String)) -> Result<(), String> {
     let text = download(INSTALLER_URL).map_err(|e| format!("não consegui baixar o instalador: {e}"))?;
     if !installer_is_whole(&text) {
         return Err("o instalador baixado veio incompleto; tente de novo mais tarde.".to_owned());
@@ -404,15 +807,12 @@ fn compile_and_check(home: &Path, version: &str) -> Result<(), String> {
     let file: PathBuf = home.join("install.cmd");
     std::fs::write(&file, text).map_err(|e| e.to_string())?;
     let (program, arguments) = installer_command(&file);
-    let log = std::fs::File::create(home.join("atualizacao.log")).map_err(|e| e.to_string())?;
+    let log_path = home.join("atualizacao.log");
+    let log = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
     let errors = log.try_clone().map_err(|e| e.to_string())?;
-    let status = std::process::Command::new(program)
-        .args(arguments)
-        .env("FF_SEM_PAUSA", "1")
-        .stdout(log)
-        .stderr(errors)
-        .status()
-        .map_err(|e| format!("não consegui rodar o instalador: {e}"))?;
+    let mut command = std::process::Command::new(program);
+    command.args(arguments).env("FF_SEM_PAUSA", "1").stdout(log).stderr(errors);
+    let status = follow_installer(command, &log_path, on_stage)?;
     if !status.success() {
         return Err(format!("a compilação falhou; veja {}.", home.join("atualizacao.log").display()));
     }
@@ -531,6 +931,194 @@ mod tests {
         updater.poll();
         assert!(!updater.is_running());
         assert!(matches!(updater.status(), UpdateStatus::Failed(..)));
+    }
+
+    #[test]
+    fn the_status_bar_says_what_the_other_app_says() {
+        let n = news("0.2.0");
+        let say = |status: &UpdateStatus| notice(status, "0.1.0", Some("compilando"), None);
+        use NoticeAction::*;
+
+        assert_eq!(say(&UpdateStatus::Quiet), None);
+
+        let available = say(&UpdateStatus::Available(n.clone())).unwrap();
+        assert!(available.text.starts_with("Versão 0.2.0 disponível — "));
+        assert_eq!(available.actions, [News, Update, Later]);
+        assert!(!available.important && !available.busy);
+
+        let compiling = say(&UpdateStatus::Compiling(n.clone())).unwrap();
+        assert!(compiling.text.contains("em segundo plano — compilando. O app continua funcionando."));
+        assert!(compiling.busy);
+        assert_eq!(compiling.actions, [News]);
+        let starting = notice(&UpdateStatus::Compiling(n.clone()), "0.1.0", None, None).unwrap();
+        assert!(starting.text.contains("— começando."));
+
+        let ready = say(&UpdateStatus::Ready(n.clone())).unwrap();
+        assert!(ready.text.contains("entra na próxima vez que o app abrir"));
+        assert_eq!(ready.actions, [Reopen]);
+
+        let failed = say(&UpdateStatus::Failed(n.clone(), "sem disco.".to_owned())).unwrap();
+        assert!(failed.text.contains("a versão 0.1.0 continua funcionando. sem disco."));
+        assert_eq!(failed.actions, [Retry, HowToUpdate, Close]);
+
+        let checking = say(&UpdateStatus::Checking).unwrap();
+        assert!(checking.busy && checking.actions.is_empty());
+        assert!(say(&UpdateStatus::UpToDate).unwrap().text.contains("mais recente (0.1.0)"));
+        assert_eq!(say(&UpdateStatus::NoAnswer("sem rede".to_owned())).unwrap().actions, [CheckAgain, Close]);
+    }
+
+    #[test]
+    fn only_an_important_version_stands_out() {
+        let important = News { importante: true, ..news("0.2.0") };
+        let say = |status| notice(&status, "0.1.0", None, None).unwrap();
+        let offered = say(UpdateStatus::Available(important.clone()));
+        assert!(offered.important && offered.text.starts_with("Atualização importante: versão 0.2.0"));
+        assert!(say(UpdateStatus::Ready(important.clone())).important);
+        assert!(!say(UpdateStatus::Compiling(important.clone())).important);
+        assert!(!say(UpdateStatus::Failed(important, String::new())).important);
+    }
+
+    #[test]
+    fn later_hides_that_version_for_the_session_and_nothing_under_way() {
+        let n = news("0.2.0");
+        let hide = Some("0.2.0");
+        assert_eq!(notice(&UpdateStatus::Available(n.clone()), "0.1.0", None, hide), None);
+        assert_eq!(notice(&UpdateStatus::Failed(n.clone(), String::new()), "0.1.0", None, hide), None);
+        assert!(notice(&UpdateStatus::Available(news("0.3.0")), "0.1.0", None, hide).is_some());
+        assert!(notice(&UpdateStatus::Compiling(n.clone()), "0.1.0", None, hide).is_some());
+        assert!(notice(&UpdateStatus::Ready(n), "0.1.0", None, hide).is_some());
+    }
+
+    #[test]
+    fn dismissing_hides_a_version_and_clears_an_answer_and_asking_brings_it_back() {
+        let updater = Updater::idle();
+        updater.set_status(UpdateStatus::Available(news("0.2.0")));
+        updater.dismiss();
+        assert_eq!(updater.notice(), None);
+        assert!(matches!(updater.status(), UpdateStatus::Available(_)), "the version is still known");
+        updater.ask();
+        assert_eq!(updater.status(), UpdateStatus::Checking);
+        assert!(updater.dismissed.borrow().is_none());
+
+        updater.set_status(UpdateStatus::UpToDate);
+        updater.dismiss();
+        assert_eq!(updater.status(), UpdateStatus::Quiet);
+    }
+
+    #[test]
+    fn asking_does_not_get_in_the_way_of_an_update_under_way() {
+        let updater = Updater::idle();
+        for status in [UpdateStatus::Compiling(news("0.2.0")), UpdateStatus::Ready(news("0.2.0"))] {
+            updater.set_status(status.clone());
+            updater.ask();
+            assert_eq!(updater.status(), status);
+        }
+    }
+
+    fn answer(updater: &Updater, decision: Decision, failure: Option<&str>) {
+        let (send, receive) = channel();
+        *updater.inbox.borrow_mut() = Some(receive);
+        send.send(Message::Checked { decision, failure: failure.map(str::to_owned), history: Vec::new() })
+            .unwrap();
+        updater.poll();
+    }
+
+    #[test]
+    fn only_a_check_someone_asked_for_answers_when_there_is_nothing_new() {
+        let updater = Updater::idle();
+        answer(&updater, Decision::Nothing, None);
+        assert_eq!(updater.status(), UpdateStatus::Quiet, "the hourly look says nothing");
+        answer(&updater, Decision::Nothing, Some("sem rede"));
+        assert_eq!(updater.status(), UpdateStatus::Quiet, "nor does it complain about the network");
+
+        updater.set_status(UpdateStatus::Checking);
+        answer(&updater, Decision::Nothing, None);
+        assert_eq!(updater.status(), UpdateStatus::UpToDate);
+
+        updater.set_status(UpdateStatus::Checking);
+        answer(&updater, Decision::Nothing, Some("sem rede"));
+        assert_eq!(updater.status(), UpdateStatus::NoAnswer("sem rede".to_owned()));
+    }
+
+    #[test]
+    fn looking_again_does_not_erase_a_failure_on_the_same_version() {
+        let updater = Updater::idle();
+        let failed = UpdateStatus::Failed(news("0.2.0"), "sem disco.".to_owned());
+        updater.set_status(failed.clone());
+        if InstallKind::current() == InstallKind::Installed {
+            answer(&updater, Decision::Announce { news: news("0.2.0"), start: false }, None);
+            assert_eq!(updater.status(), failed);
+        }
+    }
+
+    #[test]
+    fn it_looks_again_on_the_hour_unless_something_is_under_way() {
+        let hour = CHECK_EVERY;
+        let minute = Duration::from_secs(60);
+        assert!(check_is_due(None, &UpdateStatus::Quiet));
+        assert!(!check_is_due(Some(minute), &UpdateStatus::Quiet));
+        assert!(check_is_due(Some(hour), &UpdateStatus::Quiet));
+        assert!(check_is_due(Some(hour), &UpdateStatus::Available(news("0.2.0"))));
+        assert!(!check_is_due(Some(hour), &UpdateStatus::Compiling(news("0.2.0"))));
+        assert!(!check_is_due(Some(hour), &UpdateStatus::Ready(news("0.2.0"))));
+        assert!(!check_is_due(Some(hour), &UpdateStatus::Checking));
+    }
+
+    #[test]
+    fn a_test_updater_never_looks_by_itself() {
+        let updater = Updater::idle();
+        updater.connect(UiWaker::default());
+        updater.poll();
+        assert!(!updater.is_running());
+    }
+
+    #[test]
+    fn the_steps_come_from_the_lines_the_installer_announces() {
+        assert_eq!(installer_stage("> baixando o codigo"), Some("baixando o codigo".to_owned()));
+        assert_eq!(installer_stage("   Compiling ravenrs v27.1.1"), None);
+        assert_eq!(installer_stage("> "), None);
+        let log = "\n> baixando o codigo\nFrom github\n\n> compilando\n   Compiling x\nwarning: y\n";
+        assert_eq!(last_stage(log).as_deref(), Some("compilando"));
+        assert_eq!(last_stage("nada anunciado\n"), None);
+    }
+
+    #[test]
+    fn the_installer_announces_steps_on_every_system() {
+        let installer = include_str!("../install.cmd");
+        assert!(installer.contains("printf '\\n> %s\\n'"), "sh");
+        assert!(installer.contains("Write-Host \"> compilando"), "PowerShell");
+    }
+
+    #[test]
+    fn the_timeline_joins_what_is_known_with_the_newest_on_top() {
+        let told_by_repository = News { titulo: "do repositório".to_owned(), ..news("0.2.0") };
+        let joined = join_history([
+            vec![news("0.3.0")],
+            vec![told_by_repository.clone(), news("0.1.10")],
+            vec![news("0.1.9"), news("0.1.10")],
+        ]);
+        let versions: Vec<&str> = joined.iter().map(|n| n.versao.as_str()).collect();
+        assert_eq!(versions, ["0.3.0", "0.2.0", "0.1.10", "0.1.9"]);
+        assert_eq!(joined[1].titulo, "do repositório");
+
+        let updater = Updater::idle();
+        updater.set_status(UpdateStatus::Available(news("99.0.0")));
+        let timeline = updater.timeline();
+        assert_eq!(timeline[0].versao, "99.0.0");
+        assert!(timeline.iter().any(|n| n.versao == CURRENT));
+    }
+
+    #[test]
+    fn a_broken_history_entry_is_skipped() {
+        let text = r#"[{"versao":"0.1.0","titulo":"t","novidades":[],"por_que_atualizar":"p"},{"nada":1}]"#;
+        assert_eq!(parse_history(text).len(), 1);
+        assert!(parse_history("<html>erro</html>").is_empty());
+    }
+
+    #[test]
+    fn the_command_by_hand_is_the_one_the_readme_shows() {
+        let readme = include_str!("../README.md");
+        assert!(readme.contains(INSTALL_COMMAND), "{INSTALL_COMMAND}");
     }
 
     #[test]

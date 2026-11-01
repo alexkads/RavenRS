@@ -38,7 +38,7 @@ fn main() -> Result<(), PlatformError> {
     match open(&path) {
         Ok(db) => {
             let updater = Updater::idle();
-            updater.check();
+            updater.watch();
             let app = App::new(db, today(), Some(path), updater);
             match icon() {
                 Some(icon) => run_with_icon(app, options, icon),

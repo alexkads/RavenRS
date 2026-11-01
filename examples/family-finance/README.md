@@ -19,9 +19,9 @@ The first run opens on a sample family, so there is something to explore. **Ajus
 | Orçamentos | `ProgressBar`, `Alert`, `Dialog` |
 | Relatórios | `ravenrs-report`, `ravenrs-report-viewer`, `ravenrs-report-export`, charts and barcodes from `ravenrs-graphics` |
 | Cadastros | `Tabs`, `ListItem`, `FormField` |
-| Ajustes | `ThemeSwitcher`, `Sheet`, `Accordion` |
+| Ajustes | `ThemeSwitcher` |
 | Exports and backup | `ravenrs::native::SaveDialog`, `open_with_system` |
-| Updates | `UiWaker`, which wakes the UI when a background thread finishes |
+| Updates | `StatusBar`, `ReleaseNotes`, `CodeBlock`, and `UiWaker`, which wakes the UI when a background thread finishes |
 | Everywhere | `Sidebar`, `CommandPalette` (⌘K), `Toaster`, `Tooltip`, `Localized` |
 
 The filter on Lançamentos is the part to read first. What the user types, such as `[Valor] > 100 And [Categoria] = 'Mercado'`, is checked against a schema and translated by `ravenrs-criteria` into SQL with bound parameters, so typed text can never change the query ([src/filter.rs](src/filter.rs)).
@@ -67,7 +67,7 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/fa
 | macOS | Apple's command line tools, Rust | `/Applications/Raven Finanças.app`, or `~/Applications` without permission there | Launchpad or Finder |
 | Linux | C compiler and window libraries by `apt`, `dnf`, `pacman` or `zypper`, Rust | `~/.local/bin/family-finance` | Applications menu |
 
-At startup, the app reads `novidades.json` from master. If that version is newer, a banner says what changed and an installed copy starts compiling at low priority. The installed app is only replaced after the new binary answers `--versao`, and the old one is kept: on macOS in `~/.raven-financas/anterior`, elsewhere beside it as `.anterior`. A version that failed is not retried by itself for a day. A copy built with `cargo run` only mentions the new version.
+When it opens and every hour after that, the app reads `novidades.json` from master, silently. If that version is newer, the line at the foot of the window says so and an installed copy starts compiling at low priority, telling each step the installer announces. **Procurar atualização**, in Ajustes, answers there even when there is nothing new. The same line always shows the version in use, and clicking it shows what that version brought. The installed app is only replaced after the new binary answers `--versao`, and the old one is kept: on macOS in `~/.raven-financas/anterior`, elsewhere beside it as `.anterior`. A version that failed is not retried by itself for a day. A copy built with `cargo run` only mentions the new version.
 
 **To release**, make one commit with three changes: `version` in `Cargo.toml`, `novidades.json`, and the same entry with its `data` on top of `historico-de-novidades.json`. A test holds them together. Make it the last commit of the release: anyone who compiled 0.1.N will not compile another 0.1.N.
 

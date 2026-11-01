@@ -2,7 +2,7 @@
 name = "family-finance"
 description = "RavenRS example: a desktop app for family expenses and bills to pay, stored in SQLite."
 # The app has its own version: raising it is what announces an update (see README.md).
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

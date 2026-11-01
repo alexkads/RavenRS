@@ -27,6 +27,8 @@ pub enum ButtonStyle {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ButtonSize {
+    /// 22 px tall, caption text; a [`StatusBar`](crate::StatusBar)'s actions.
+    Mini,
     /// 32 px tall, smaller text; dense toolbars and table rows.
     Small,
     /// 40 px tall; the default.
@@ -39,6 +41,7 @@ pub enum ButtonSize {
 impl ButtonSize {
     fn height(self) -> f32 {
         match self {
+            Self::Mini => 22.0,
             Self::Small => 32.0,
             Self::Medium => 40.0,
             Self::Large => 48.0,
@@ -47,6 +50,7 @@ impl ButtonSize {
 
     fn padding_x(self) -> f32 {
         match self {
+            Self::Mini => 8.0,
             Self::Small => 12.0,
             Self::Medium => 18.0,
             Self::Large => 24.0,
@@ -229,13 +233,21 @@ impl View for Button {
         let pressed = cx.is_pressed() && !self.disabled;
         let (fill, label_color, border) =
             control_colors(&theme, self.style, cx.is_hovered(), pressed, self.disabled);
-        let icon_size = if self.size == ButtonSize::Small { 14.0 } else { 16.0 };
+        let icon_size = match self.size {
+            ButtonSize::Mini => 12.0,
+            ButtonSize::Small => 14.0,
+            _ => 16.0,
+        };
         let mut children = Vec::new();
         if let Some(icon) = self.icon {
             children.push(util::icon(cx, icon, icon_size, label_color));
         }
         if !self.label.is_empty() {
-            let style = if self.size == ButtonSize::Small { TextStyle::Callout } else { TextStyle::Body };
+            let style = match self.size {
+                ButtonSize::Mini => TextStyle::Caption,
+                ButtonSize::Small => TextStyle::Callout,
+                _ => TextStyle::Body,
+            };
             children.push(util::label(cx, &self.label, style, Some(Weight::SEMIBOLD), label_color));
         }
         if let Some(icon) = self.trailing_icon {
@@ -247,7 +259,7 @@ impl View for Button {
             padding: Insets::symmetric(0.0, if icon_only { 0.0 } else { self.size.padding_x() }),
             width: icon_only.then_some(height),
             height: Some(height),
-            spacing: 8.0,
+            spacing: if self.size == ButtonSize::Mini { 4.0 } else { 8.0 },
             align: Align::Center,
             justify: Justify::Center,
             align_self: Some(if self.full_width { Align::Stretch } else { Align::Fit }),

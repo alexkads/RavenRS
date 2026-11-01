@@ -2,7 +2,7 @@ use ravenrs_core::{Insets, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle};
 
-use crate::context::{BuildCx, NodeId, Paint, Semantics};
+use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::{Button, ButtonSize, ButtonStyle, Divider, Text, View, ViewSeq};
 
 macro_rules! stack {
@@ -437,5 +437,145 @@ impl View for FooterArea<'_> {
             &children,
             Paint::None,
         )
+    }
+}
+
+/// The one line at the foot of an app window that is always there: the version,
+/// what is going on in the background, a notice with its actions.
+///
+/// Where a [`Footer`] ends a page and wraps or stacks to show everything, a
+/// status bar keeps one fixed line: its sides keep their width and the center
+/// takes the rest, cutting what does not fit, so it never pushes the app around.
+/// Tinting the center with [`Self::center_tone`] makes a notice stand out without
+/// the whole bar shouting. The center is announced to screen readers as a status.
+///
+/// ```
+/// use ravenrs_widgets::{StatusBar, Tone, ViewExt};
+///
+/// let bar = StatusBar::new()
+///     .left((StatusBar::action("Version 1.2"),))
+///     .center((StatusBar::text("Version 1.3 is available").truncate().grow(1.0), StatusBar::action("Update")))
+///     .center_tone(Tone::Warning)
+///     .right((StatusBar::text("12 items"),));
+/// ```
+#[derive(Default)]
+pub struct StatusBar {
+    left: Option<Box<dyn ViewSeq>>,
+    center: Option<Box<dyn ViewSeq>>,
+    right: Option<Box<dyn ViewSeq>>,
+    center_tone: Option<crate::Tone>,
+}
+
+impl std::fmt::Debug for StatusBar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StatusBar").field("center_tone", &self.center_tone).finish_non_exhaustive()
+    }
+}
+
+impl StatusBar {
+    /// Its height, in logical pixels, for what has to clear it.
+    pub const HEIGHT: f32 = 28.0;
+
+    /// An empty status bar.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Text in a status bar's usual look: small and muted.
+    pub fn text(text: impl Into<String>) -> Text {
+        Text::new(text).style(TextStyle::Caption).foreground(Semantic::InkMuted)
+    }
+
+    /// An action that fits the line: a mini ghost [`Button`], with a focus ring
+    /// and the keyboard. Add `on_click` to it.
+    pub fn action(label: impl Into<String>) -> Button {
+        Button::new(label).style(ButtonStyle::Ghost).size(ButtonSize::Mini)
+    }
+
+    /// The views at the left end.
+    pub fn left(mut self, items: impl ViewSeq + 'static) -> Self {
+        self.left = Some(Box::new(items));
+        self
+    }
+
+    /// The views in the middle, which get the width the sides leave. Give the
+    /// text `.truncate().grow(1.0)` so that it is what gets cut.
+    pub fn center(mut self, items: impl ViewSeq + 'static) -> Self {
+        self.center = Some(Box::new(items));
+        self
+    }
+
+    /// The views at the right end.
+    pub fn right(mut self, items: impl ViewSeq + 'static) -> Self {
+        self.right = Some(Box::new(items));
+        self
+    }
+
+    /// Tints the middle, and only the middle, to make a notice stand out.
+    pub fn center_tone(mut self, tone: crate::Tone) -> Self {
+        self.center_tone = Some(tone);
+        self
+    }
+
+    fn side(cx: &mut BuildCx<'_>, items: Option<&dyn ViewSeq>) -> NodeId {
+        let spacing = cx.theme().spacing.s1;
+        let children = items.map_or_else(Vec::new, |items| cx.children(items));
+        cx.container(
+            LayoutStyle { spacing, align: Align::Center, ..LayoutStyle::stack(Axis::Horizontal) },
+            &children,
+            Paint::None,
+        )
+    }
+}
+
+impl View for StatusBar {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let left = Self::side(cx, self.left.as_deref());
+        let right = Self::side(cx, self.right.as_deref());
+        let items = self.center.as_deref().map_or_else(Vec::new, |items| cx.children(items));
+        let has_center = !items.is_empty();
+        let fill = self.center_tone.filter(|_| has_center).map(|tone| tone.color(&theme).faded(0.16));
+        let center = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s1,
+                padding: Insets::symmetric(0.0, theme.spacing.s2),
+                align: Align::Center,
+                align_self: Some(Align::Stretch),
+                grow: 1.0,
+                min_width: Some(0.0),
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &items,
+            fill.map_or(Paint::None, |fill| Paint::Quad(QuadPaint::new(fill))),
+        );
+        if has_center {
+            cx.semantics(center, Semantics::new(Role::Status));
+        }
+        let line = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s2,
+                padding: Insets::symmetric(0.0, theme.spacing.s2),
+                align: Align::Center,
+                height: Some(Self::HEIGHT),
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[left, center, right],
+            Paint::None,
+        );
+        let divider = cx.child(&Divider::horizontal());
+        let node = cx.container(
+            LayoutStyle {
+                align: Align::Stretch,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[divider, line],
+            Paint::None,
+        );
+        cx.semantics(node, Semantics::new(Role::ContentInfo));
+        node
     }
 }

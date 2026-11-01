@@ -537,12 +537,22 @@ impl Toasts {
 /// Displays [`Toasts`] stacked in the bottom-right corner; each disappears
 /// after its duration or when closed.
 #[derive(Debug)]
-pub struct Toaster(Toasts);
+pub struct Toaster {
+    toasts: Toasts,
+    bottom_inset: f32,
+}
 
 impl Toaster {
     /// Displays the toasts of `toasts`.
     pub fn new(toasts: Toasts) -> Self {
-        Self(toasts)
+        Self { toasts, bottom_inset: 0.0 }
+    }
+
+    /// Lifts the toasts by this much, in logical pixels, to clear something fixed
+    /// along the bottom of the window, such as a [`StatusBar`](crate::StatusBar).
+    pub fn bottom_inset(mut self, inset: f32) -> Self {
+        self.bottom_inset = inset;
+        self
     }
 }
 
@@ -558,7 +568,7 @@ fn tone_color(theme: &Theme, tone: Tone) -> (Color, IconName) {
     }
 }
 
-struct ToastStack<'a>(&'a [Toast], Toasts);
+struct ToastStack<'a>(&'a [Toast], Toasts, f32);
 
 impl View for ToastStack<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -618,7 +628,15 @@ impl View for ToastStack<'_> {
             );
             cards.push(card);
         }
-        cx.container(LayoutStyle { spacing: 10.0, ..LayoutStyle::stack(Axis::Vertical) }, &cards, Paint::None)
+        cx.container(
+            LayoutStyle {
+                spacing: 10.0,
+                padding: Insets { bottom: self.2, ..Insets::uniform(0.0) },
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &cards,
+            Paint::None,
+        )
     }
 }
 
@@ -626,7 +644,7 @@ impl View for Toaster {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let anchor = cx.empty();
         let now = cx.now();
-        let all = self.0.list.get();
+        let all = self.toasts.list.get();
         let mut visible = Vec::new();
         let mut expired = false;
         for t in &all {
@@ -644,10 +662,15 @@ impl View for Toaster {
         }
         if expired {
             let ids: Vec<u64> = visible.iter().map(|t| t.id).collect();
-            self.0.list.update(|l| l.retain(|t| ids.contains(&t.id)));
+            self.toasts.list.update(|l| l.retain(|t| ids.contains(&t.id)));
         }
         if !visible.is_empty() {
-            cx.overlay(anchor, Placement::BottomRight, &ToastStack(&visible, self.0.clone()), None);
+            cx.overlay(
+                anchor,
+                Placement::BottomRight,
+                &ToastStack(&visible, self.toasts.clone(), self.bottom_inset),
+                None,
+            );
         }
         anchor
     }

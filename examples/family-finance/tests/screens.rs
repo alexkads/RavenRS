@@ -117,6 +117,37 @@ fn draw_every_screen() {
     let mut update = app(Theme::raven_light(), 0, updater);
     capture(&gpu, &mut update, size, &folder.join("atualizacao.png"));
 
+    let news = |important, version: &str| News {
+        versao: version.to_owned(),
+        data: Some("2026-11-20".to_owned()),
+        titulo: "Agora dá para anexar o boleto a cada conta.".to_owned(),
+        importante: important,
+        novidades: vec!["Anexar boleto".to_owned(), "Abrir o boleto a partir da conta".to_owned()],
+        por_que_atualizar: "Para não perder o papel.".to_owned(),
+    };
+    let states = [
+        ("rodape-importante", UpdateStatus::Available(news(true, "0.2.0"))),
+        ("rodape-compilando", UpdateStatus::Compiling(news(false, "0.2.0"))),
+        ("rodape-instalada", UpdateStatus::Ready(news(false, "0.2.0"))),
+        ("rodape-falhou", UpdateStatus::Failed(news(false, "0.2.0"), "a compilação falhou.".to_owned())),
+        ("rodape-em-dia", UpdateStatus::UpToDate),
+    ];
+    for (name, status) in states {
+        let updater = Updater::idle();
+        updater.set_status(status);
+        let mut foot = app(Theme::raven_glass(), 0, updater);
+        capture(&gpu, &mut foot, size, &folder.join(format!("{name}.png")));
+    }
+    let updater = Updater::idle();
+    updater.set_status(UpdateStatus::Available(news(false, "0.2.0")));
+    let mut dialog = app(Theme::raven_light(), 0, updater);
+    dialog.set_viewport(size, 2.0);
+    dialog.update();
+    let tree = dialog.access_tree();
+    let id = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Ver novidades")).expect("the button").id;
+    dialog.perform_action(id, AccessAction::Click);
+    capture(&gpu, &mut dialog, size, &folder.join("novidades.png"));
+
     // The agenda's month, and the form that plans something.
     for (buttons, name) in [
         (vec![(Role::RadioButton, "Mês")], "agenda-mes"),

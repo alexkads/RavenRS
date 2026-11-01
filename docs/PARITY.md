@@ -26,6 +26,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Window (floating) | | ✓ | ✓ | ⬜ |
 | App bar / Toolbar | | ✓ | ✓ | 🟡 composable from `HStack` + buttons; no overflow menu |
 | Footer | | | | ✅ `Footer` |
+| Status bar | | ✓ | ✓ | ✅ `StatusBar` |
 
 ## Navigation
 
@@ -133,6 +134,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Hover card | ✓ | | | ✅ `HoverCard` |
 | Toast / Notification | ✓ | ✓ | ✓ | ✅ `Toaster` |
 | Alert / Callout | ✓ | ✓ | ✓ | ✅ `Alert` |
+| Code snippet with copy | | ✓ | | ✅ `CodeBlock` |
+| Release notes | | | | ✅ `ReleaseNotes` |
 | Progress bar | ✓ | ✓ | ✓ | ✅ |
 | Loader / Spinner | | ✓ | ✓ | ✅ `Spinner` |
 | Skeleton | ✓ | ✓ | ✓ | ✅ |

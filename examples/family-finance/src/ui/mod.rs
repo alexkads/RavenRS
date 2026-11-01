@@ -51,7 +51,7 @@ pub struct App {
     store: Store,
     page: State<usize>,
     palette: State<bool>,
-    news: State<bool>,
+    news: updates::NewsDialog,
     forms: Forms,
     dashboard: DashboardState,
     ledger: LedgerState,
@@ -77,7 +77,7 @@ impl App {
             store: Store::new(db, today, path, updater),
             page: State::new(0),
             palette: State::new(false),
-            news: State::new(false),
+            news: updates::NewsDialog::new(),
             forms: Forms::new(),
             dashboard: DashboardState::new(),
             ledger: LedgerState::new(today),
@@ -251,7 +251,6 @@ impl Component for App {
             updates::UpdatePump(self.store.updater.clone()),
             self.toolbar(),
             Divider::horizontal(),
-            updates::banner(&self.store.updater, &self.news),
             // Keyed by screen, so each one opens with fresh local state and scrolled to the top.
             Keyed::new(
                 self.page.get() as u64,
@@ -266,16 +265,17 @@ impl Component for App {
             Labels::pt_br(),
             VStack::new((
                 HStack::new((self.sidebar(), main)).spacing(0.0).align(Align::Stretch).grow(1.0),
+                updates::status_bar(&self.store.updater, &self.news),
                 self.forms.transaction.view(&self.store),
                 self.forms.bill.view(&self.store),
                 self.forms.pay.view(&self.store),
                 self.forms.schedule.view(&self.store),
                 self.forms.occurrence.view(&self.store),
                 self.forms.confirm.view(),
-                updates::news_sheet(&self.store.updater, &self.news),
+                self.news.view(&self.store.updater),
                 self.palette_view(),
                 Shortcuts { store: self.store.clone(), forms: self.forms.clone() },
-                Toaster::new(self.store.toasts.clone()),
+                Toaster::new(self.store.toasts.clone()).bottom_inset(StatusBar::HEIGHT),
             ))
             .spacing(0.0)
             .align(Align::Stretch)

@@ -50,6 +50,18 @@ pub struct Labels {
     pub theme_light: String,
     /// The glass theme.
     pub theme_glass: String,
+    /// A code block's copy button.
+    pub copy: String,
+    /// A code block's copy button, right after copying.
+    pub copied: String,
+    /// The list of versions in a [`ReleaseNotes`](crate::ReleaseNotes).
+    pub release_versions: String,
+    /// Goes to the next newer version in a [`ReleaseNotes`](crate::ReleaseNotes).
+    pub release_newer: String,
+    /// Goes to the next older version in a [`ReleaseNotes`](crate::ReleaseNotes).
+    pub release_older: String,
+    /// Between the position and the total, as in "2 of 5".
+    pub release_of: String,
     /// A calendar's back button.
     pub previous_month: String,
     /// A calendar's forward button.
@@ -170,6 +182,12 @@ impl Default for Labels {
             theme_dark: "Dark".into(),
             theme_light: "Light".into(),
             theme_glass: "Glass".into(),
+            copy: "Copy".into(),
+            copied: "Copied".into(),
+            release_versions: "Versions".into(),
+            release_newer: "Newer".into(),
+            release_older: "Older".into(),
+            release_of: "of".into(),
             previous_month: "Previous month".into(),
             next_month: "Next month".into(),
             today: "Today".into(),
@@ -255,6 +273,12 @@ impl Labels {
             theme_dark: "Escuro".into(),
             theme_light: "Claro".into(),
             theme_glass: "Vidro".into(),
+            copy: "Copiar".into(),
+            copied: "Copiado".into(),
+            release_versions: "Versões".into(),
+            release_newer: "Mais recente".into(),
+            release_older: "Mais antiga".into(),
+            release_of: "de".into(),
             previous_month: "Mês anterior".into(),
             next_month: "Próximo mês".into(),
             today: "Hoje".into(),
