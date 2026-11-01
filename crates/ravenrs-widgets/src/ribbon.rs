@@ -16,6 +16,7 @@ use crate::{IconName, MenuItem, TextField, Tone, Tooltip, View, util};
 
 /// How much room a ribbon command takes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RibbonSize {
     /// A tall button: large icon above a (wrapping) label.
     #[default]
@@ -67,21 +68,25 @@ impl RibbonItem {
         Self { toggle: Some(value), size: RibbonSize::Small, ..Self::button(label, icon) }
     }
 
+    /// Shows the item as a large button.
     pub fn large(mut self) -> Self {
         self.size = RibbonSize::Large;
         self
     }
 
+    /// Shows the item as a small icon-and-label row.
     pub fn small(mut self) -> Self {
         self.size = RibbonSize::Small;
         self
     }
 
+    /// Shows only the icon, with the label as tooltip.
     pub fn icon_only(mut self) -> Self {
         self.size = RibbonSize::IconOnly;
         self
     }
 
+    /// Runs `handler` when the item is clicked.
     pub fn on_click(mut self, handler: impl Fn() + 'static) -> Self {
         self.action = Some(Rc::new(handler));
         self
@@ -93,11 +98,13 @@ impl RibbonItem {
         self
     }
 
+    /// Appends a separator to the drop-down menu.
     pub fn menu_separator(mut self) -> Self {
         self.menu.push(Entry::Separator);
         self
     }
 
+    /// Enables or disables the item; disabled items are dimmed and ignore clicks.
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
         self
@@ -127,10 +134,12 @@ impl fmt::Debug for RibbonGroup {
 }
 
 impl RibbonGroup {
+    /// An empty group with this caption.
     pub fn new(title: impl Into<String>) -> Self {
         Self { title: title.into(), items: Vec::new(), launcher: None }
     }
 
+    /// Appends a command.
     pub fn item(mut self, item: RibbonItem) -> Self {
         self.items.push(item);
         self
@@ -154,10 +163,12 @@ pub struct RibbonPage {
 }
 
 impl RibbonPage {
+    /// An empty page with this tab title.
     pub fn new(title: impl Into<String>) -> Self {
         Self { title: title.into(), groups: Vec::new(), category: None, visible: true }
     }
 
+    /// Appends a group.
     pub fn group(mut self, group: RibbonGroup) -> Self {
         self.groups.push(group);
         self
@@ -172,6 +183,26 @@ impl RibbonPage {
 }
 
 /// The ribbon.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{IconName, MenuItem, Ribbon, RibbonGroup, RibbonItem, RibbonPage, Ui};
+///
+/// let bold = State::new(false);
+/// let ribbon = Ribbon::new()
+///     .app_menu("File", vec![MenuItem::new("Open…"), MenuItem::new("Save")])
+///     .quick_access(RibbonItem::button("Save", IconName::Save))
+///     .page(
+///         RibbonPage::new("Home").group(
+///             RibbonGroup::new("Font")
+///                 .item(RibbonItem::button("Paste", IconName::Clipboard).on_click(|| {}))
+///                 .item(RibbonItem::toggle("Bold", IconName::Bold, bold.binding())),
+///         ),
+///     );
+///
+/// let mut ui = Ui::new(ribbon, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Ribbon {
     pages: Vec<RibbonPage>,
     app_menu: Option<(String, Vec<Entry>)>,
@@ -193,10 +224,12 @@ impl Default for Ribbon {
 }
 
 impl Ribbon {
+    /// An empty ribbon.
     pub fn new() -> Self {
         Self { pages: Vec::new(), app_menu: None, quick_access: Vec::new(), search: None, selected: None }
     }
 
+    /// Appends a page (tab).
     pub fn page(mut self, page: RibbonPage) -> Self {
         self.pages.push(page);
         self

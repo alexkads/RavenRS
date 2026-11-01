@@ -19,6 +19,22 @@ pub struct Observer {
 }
 
 impl Observer {
+    /// Creates a dirty observer that calls `on_invalidate` when a tracked dependency changes.
+    ///
+    /// ```
+    /// use std::cell::Cell;
+    /// use std::rc::Rc;
+    /// use ravenrs_reactive::{Observer, State};
+    ///
+    /// let name = State::new("Ada".to_string());
+    /// let hits = Rc::new(Cell::new(0));
+    /// let h = hits.clone();
+    /// let observer = Observer::new(move || h.set(h.get() + 1));
+    /// observer.track(|| name.get());
+    /// name.set("Grace".to_string());
+    /// assert_eq!(hits.get(), 1);
+    /// assert!(observer.is_dirty());
+    /// ```
     pub fn new(on_invalidate: impl Fn() + 'static) -> Self {
         Self {
             inner: Rc::new(ObserverInner {

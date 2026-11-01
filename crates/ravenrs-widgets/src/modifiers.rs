@@ -24,18 +24,23 @@ pub struct Styled<V> {
 /// let chip = Text::new("New").padding((4.0, 10.0)).background(Semantic::Control).corner_radius(999.0);
 /// ```
 pub trait ViewExt: View + Sized {
+    /// Adds padding inside the box, in logical pixels.
     fn padding(self, padding: impl Into<Insets>) -> Styled<Self> {
         Styled::new(self).padding(padding)
     }
+    /// Paints a background behind the content.
     fn background(self, fill: impl Into<Fill>) -> Styled<Self> {
         Styled::new(self).background(fill)
     }
+    /// Fixes the width and/or height in logical pixels; `None` keeps the content size.
     fn frame(self, width: Option<f32>, height: Option<f32>) -> Styled<Self> {
         Styled::new(self).frame(width, height)
     }
+    /// Fixes the width in logical pixels.
     fn width(self, width: f32) -> Styled<Self> {
         Styled::new(self).width(width)
     }
+    /// Fixes the height in logical pixels.
     fn height(self, height: f32) -> Styled<Self> {
         Styled::new(self).height(height)
     }
@@ -67,52 +72,62 @@ impl<V: View> Styled<V> {
         }
     }
 
+    /// Sets the padding inside the box, in logical pixels.
     pub fn padding(mut self, padding: impl Into<Insets>) -> Self {
         self.style.padding = padding.into();
         self
     }
 
+    /// Paints a background behind the content.
     pub fn background(mut self, fill: impl Into<Fill>) -> Self {
         self.background = Some(fill.into());
         self
     }
 
+    /// Rounds the box corners; radius in logical pixels.
     pub fn corner_radius(mut self, radius: f32) -> Self {
         self.radius = radius;
         self
     }
 
+    /// Draws a border of `width` logical pixels.
     pub fn border(mut self, width: f32, fill: impl Into<Fill>) -> Self {
         self.border = Some((width, fill.into()));
         self
     }
 
+    /// Casts a drop shadow behind the box.
     pub fn shadow(mut self, shadow: Shadow) -> Self {
         self.shadow = Some(shadow);
         self
     }
 
+    /// Fixes the width and/or height in logical pixels; `None` keeps the content size.
     pub fn frame(mut self, width: Option<f32>, height: Option<f32>) -> Self {
         self.style.width = width;
         self.style.height = height;
         self
     }
 
+    /// Fixes the width in logical pixels.
     pub fn width(mut self, width: f32) -> Self {
         self.style.width = Some(width);
         self
     }
 
+    /// Fixes the height in logical pixels.
     pub fn height(mut self, height: f32) -> Self {
         self.style.height = Some(height);
         self
     }
 
+    /// Caps the width in logical pixels.
     pub fn max_width(mut self, width: f32) -> Self {
         self.style.max_width = Some(width);
         self
     }
 
+    /// Takes a share of the free space in the parent stack.
     pub fn grow(mut self, grow: f32) -> Self {
         self.style.grow = grow;
         self.style.min_width.get_or_insert(0.0);
@@ -120,11 +135,13 @@ impl<V: View> Styled<V> {
         self
     }
 
+    /// Stretches across the parent stack's cross axis.
     pub fn stretch(mut self) -> Self {
         self.style.align_self = Some(Align::Stretch);
         self
     }
 
+    /// Centers the content inside the box.
     pub fn centered(mut self) -> Self {
         self.style.align = Align::Center;
         self.style.justify = ravenrs_layout::Justify::Center;

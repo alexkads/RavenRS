@@ -3,205 +3,405 @@
 /// Icons available to [`Icon`](crate::Icon), from the Lucide set.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IconName {
+    /// The Lucide `search` icon.
     Search,
+    /// The Lucide `x` icon.
     X,
+    /// The Lucide `check` icon.
     Check,
+    /// The Lucide `plus` icon.
     Plus,
+    /// The Lucide `minus` icon.
     Minus,
+    /// The Lucide `chevron-down` icon.
     ChevronDown,
+    /// The Lucide `chevron-up` icon.
     ChevronUp,
+    /// The Lucide `chevron-left` icon.
     ChevronLeft,
+    /// The Lucide `chevron-right` icon.
     ChevronRight,
+    /// The Lucide `arrow-up` icon.
     ArrowUp,
+    /// The Lucide `arrow-down` icon.
     ArrowDown,
+    /// The Lucide `arrow-left` icon.
     ArrowLeft,
+    /// The Lucide `arrow-right` icon.
     ArrowRight,
+    /// The Lucide `arrow-up-right` icon.
     ArrowUpRight,
+    /// The Lucide `external-link` icon.
     ExternalLink,
+    /// The Lucide `link` icon.
     Link,
+    /// The Lucide `house` icon.
     House,
+    /// The Lucide `layout-dashboard` icon.
     LayoutDashboard,
+    /// The Lucide `panel-left` icon.
     PanelLeft,
+    /// The Lucide `menu` icon.
     Menu,
+    /// The Lucide `ellipsis` icon.
     Ellipsis,
+    /// The Lucide `ellipsis-vertical` icon.
     EllipsisVertical,
+    /// The Lucide `grid-3x3` icon.
     Grid3x3,
+    /// The Lucide `list` icon.
     List,
+    /// The Lucide `table` icon.
     Table,
+    /// The Lucide `settings` icon.
     Settings,
+    /// The Lucide `sliders-horizontal` icon.
     SlidersHorizontal,
+    /// The Lucide `filter` icon.
     Filter,
+    /// The Lucide `user` icon.
     User,
+    /// The Lucide `users` icon.
     Users,
+    /// The Lucide `bell` icon.
     Bell,
+    /// The Lucide `mail` icon.
     Mail,
+    /// The Lucide `message-square` icon.
     MessageSquare,
+    /// The Lucide `send` icon.
     Send,
+    /// The Lucide `inbox` icon.
     Inbox,
+    /// The Lucide `calendar` icon.
     Calendar,
+    /// The Lucide `clock` icon.
     Clock,
+    /// The Lucide `star` icon.
     Star,
+    /// The Lucide `heart` icon.
     Heart,
+    /// The Lucide `bookmark` icon.
     Bookmark,
+    /// The Lucide `tag` icon.
     Tag,
+    /// The Lucide `flag` icon.
     Flag,
+    /// The Lucide `award` icon.
     Award,
+    /// The Lucide `shield` icon.
     Shield,
+    /// The Lucide `key` icon.
     Key,
+    /// The Lucide `lock` icon.
     Lock,
+    /// The Lucide `lock-open` icon.
     LockOpen,
+    /// The Lucide `trash-2` icon.
     Trash2,
+    /// The Lucide `pencil` icon.
     Pencil,
+    /// The Lucide `copy` icon.
     Copy,
+    /// The Lucide `clipboard` icon.
     Clipboard,
+    /// The Lucide `download` icon.
     Download,
+    /// The Lucide `upload` icon.
     Upload,
+    /// The Lucide `share-2` icon.
     Share2,
+    /// The Lucide `refresh-cw` icon.
     RefreshCw,
+    /// The Lucide `rotate-ccw` icon.
     RotateCcw,
+    /// The Lucide `eye` icon.
     Eye,
+    /// The Lucide `eye-off` icon.
     EyeOff,
+    /// The Lucide `log-out` icon.
     LogOut,
+    /// The Lucide `log-in` icon.
     LogIn,
+    /// The Lucide `plus-circle` icon.
     PlusCircle,
+    /// The Lucide `circle-check` icon.
     CircleCheck,
+    /// The Lucide `circle-alert` icon.
     CircleAlert,
+    /// The Lucide `triangle-alert` icon.
     TriangleAlert,
+    /// The Lucide `info` icon.
     Info,
+    /// The Lucide `circle-help` icon.
     CircleHelp,
+    /// The Lucide `circle-x` icon.
     CircleX,
+    /// The Lucide `loader-circle` icon.
     LoaderCircle,
+    /// The Lucide `sparkles` icon.
     Sparkles,
+    /// The Lucide `zap` icon.
     Zap,
+    /// The Lucide `rocket` icon.
     Rocket,
+    /// The Lucide `command` icon.
     Command,
+    /// The Lucide `keyboard` icon.
     Keyboard,
+    /// The Lucide `monitor` icon.
     Monitor,
+    /// The Lucide `smartphone` icon.
     Smartphone,
+    /// The Lucide `sun` icon.
     Sun,
+    /// The Lucide `moon` icon.
     Moon,
+    /// The Lucide `palette` icon.
     Palette,
+    /// The Lucide `layers` icon.
     Layers,
+    /// The Lucide `folder` icon.
     Folder,
+    /// The Lucide `file` icon.
     File,
+    /// The Lucide `file-text` icon.
     FileText,
+    /// The Lucide `image` icon.
     Image,
+    /// The Lucide `code` icon.
     Code,
+    /// The Lucide `terminal` icon.
     Terminal,
+    /// The Lucide `git-branch` icon.
     GitBranch,
+    /// The Lucide `globe` icon.
     Globe,
+    /// The Lucide `cloud` icon.
     Cloud,
+    /// The Lucide `database` icon.
     Database,
+    /// The Lucide `server` icon.
     Server,
+    /// The Lucide `cpu` icon.
     Cpu,
+    /// The Lucide `activity` icon.
     Activity,
+    /// The Lucide `trending-up` icon.
     TrendingUp,
+    /// The Lucide `trending-down` icon.
     TrendingDown,
+    /// The Lucide `chart-bar` icon.
     ChartBar,
+    /// The Lucide `chart-line` icon.
     ChartLine,
+    /// The Lucide `chart-pie` icon.
     ChartPie,
+    /// The Lucide `dollar-sign` icon.
     DollarSign,
+    /// The Lucide `credit-card` icon.
     CreditCard,
+    /// The Lucide `wallet` icon.
     Wallet,
+    /// The Lucide `shopping-cart` icon.
     ShoppingCart,
+    /// The Lucide `package` icon.
     Package,
+    /// The Lucide `map-pin` icon.
     MapPin,
+    /// The Lucide `wifi` icon.
     Wifi,
+    /// The Lucide `battery` icon.
     Battery,
+    /// The Lucide `play` icon.
     Play,
+    /// The Lucide `pause` icon.
     Pause,
+    /// The Lucide `square` icon.
     Square,
+    /// The Lucide `circle` icon.
     Circle,
+    /// The Lucide `maximize-2` icon.
     Maximize2,
+    /// The Lucide `minimize-2` icon.
     Minimize2,
+    /// The Lucide `mouse-pointer` icon.
     MousePointer,
+    /// The Lucide `scissors` icon.
     Scissors,
+    /// The Lucide `clipboard-paste` icon.
     ClipboardPaste,
+    /// The Lucide `bold` icon.
     Bold,
+    /// The Lucide `italic` icon.
     Italic,
+    /// The Lucide `underline` icon.
     Underline,
+    /// The Lucide `strikethrough` icon.
     Strikethrough,
+    /// The Lucide `align-left` icon.
     AlignLeft,
+    /// The Lucide `align-center` icon.
     AlignCenter,
+    /// The Lucide `align-right` icon.
     AlignRight,
+    /// The Lucide `align-justify` icon.
     AlignJustify,
+    /// The Lucide `list-ordered` icon.
     ListOrdered,
+    /// The Lucide `undo-2` icon.
     Undo2,
+    /// The Lucide `redo-2` icon.
     Redo2,
+    /// The Lucide `save` icon.
     Save,
+    /// The Lucide `printer` icon.
     Printer,
+    /// The Lucide `type` icon.
     Type,
+    /// The Lucide `highlighter` icon.
     Highlighter,
+    /// The Lucide `paintbrush` icon.
     Paintbrush,
+    /// The Lucide `baseline` icon.
     Baseline,
+    /// The Lucide `heading` icon.
     Heading,
+    /// The Lucide `quote` icon.
     Quote,
+    /// The Lucide `zoom-in` icon.
     ZoomIn,
+    /// The Lucide `zoom-out` icon.
     ZoomOut,
+    /// The Lucide `file-plus` icon.
     FilePlus,
+    /// The Lucide `folder-open` icon.
     FolderOpen,
+    /// The Lucide `link-2` icon.
     Link2,
+    /// The Lucide `table-2` icon.
     Table2,
+    /// The Lucide `image-plus` icon.
     ImagePlus,
+    /// The Lucide `chart-column` icon.
     ChartColumn,
+    /// The Lucide `shapes` icon.
     Shapes,
+    /// The Lucide `sigma` icon.
     Sigma,
+    /// The Lucide `calculator` icon.
     Calculator,
+    /// The Lucide `filter-x` icon.
     FilterX,
+    /// The Lucide `arrow-up-down` icon.
     ArrowUpDown,
+    /// The Lucide `arrow-down-wide-narrow` icon.
     ArrowDownWideNarrow,
+    /// The Lucide `ruler` icon.
     Ruler,
+    /// The Lucide `grid-2x2` icon.
     Grid2x2,
+    /// The Lucide `rows-3` icon.
     Rows3,
+    /// The Lucide `columns-3` icon.
     Columns3,
+    /// The Lucide `merge` icon.
     Merge,
+    /// The Lucide `split` icon.
     Split,
+    /// The Lucide `pilcrow` icon.
     Pilcrow,
+    /// The Lucide `text-cursor` icon.
     TextCursor,
+    /// The Lucide `languages` icon.
     Languages,
+    /// The Lucide `spell-check` icon.
     SpellCheck,
+    /// The Lucide `message-circle` icon.
     MessageCircle,
+    /// The Lucide `share` icon.
     Share,
+    /// The Lucide `history` icon.
     History,
+    /// The Lucide `book-open` icon.
     BookOpen,
+    /// The Lucide `eye-closed` icon.
     EyeClosed,
+    /// The Lucide `lock-keyhole` icon.
     LockKeyhole,
+    /// The Lucide `user-plus` icon.
     UserPlus,
+    /// The Lucide `user-check` icon.
     UserCheck,
+    /// The Lucide `bell-ring` icon.
     BellRing,
+    /// The Lucide `calendar-days` icon.
     CalendarDays,
+    /// The Lucide `clock-3` icon.
     Clock3,
+    /// The Lucide `timer` icon.
     Timer,
+    /// The Lucide `alarm-clock` icon.
     AlarmClock,
+    /// The Lucide `map` icon.
     Map,
+    /// The Lucide `compass` icon.
     Compass,
+    /// The Lucide `navigation` icon.
     Navigation,
+    /// The Lucide `phone` icon.
     Phone,
+    /// The Lucide `video` icon.
     Video,
+    /// The Lucide `camera` icon.
     Camera,
+    /// The Lucide `mic` icon.
     Mic,
+    /// The Lucide `headphones` icon.
     Headphones,
+    /// The Lucide `music` icon.
     Music,
+    /// The Lucide `volume-2` icon.
     Volume2,
+    /// The Lucide `volume-x` icon.
     VolumeX,
+    /// The Lucide `cloud-upload` icon.
     CloudUpload,
+    /// The Lucide `cloud-download` icon.
     CloudDownload,
+    /// The Lucide `hard-drive` icon.
     HardDrive,
+    /// The Lucide `wifi-off` icon.
     WifiOff,
+    /// The Lucide `bluetooth` icon.
     Bluetooth,
+    /// The Lucide `plug` icon.
     Plug,
+    /// The Lucide `power` icon.
     Power,
+    /// The Lucide `refresh-ccw` icon.
     RefreshCcw,
+    /// The Lucide `thumbs-up` icon.
     ThumbsUp,
+    /// The Lucide `thumbs-down` icon.
     ThumbsDown,
+    /// The Lucide `smile` icon.
     Smile,
+    /// The Lucide `star-off` icon.
     StarOff,
+    /// The Lucide `pin` icon.
     Pin,
+    /// The Lucide `pin-off` icon.
     PinOff,
+    /// The Lucide `gift` icon.
     Gift,
+    /// The Lucide `trophy` icon.
     Trophy,
+    /// The Lucide `target` icon.
     Target,
+    /// The Lucide `crosshair` icon.
     Crosshair,
+    /// The Lucide `flag-triangle-right` icon.
     FlagTriangleRight,
 }
 

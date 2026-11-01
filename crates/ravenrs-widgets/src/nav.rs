@@ -24,10 +24,12 @@ impl fmt::Debug for Tabs {
 }
 
 impl Tabs {
+    /// Empty tabs; `selected` holds the zero-based index of the open tab.
     pub fn new(selected: Binding<usize>) -> Self {
         Self { selected, tabs: Vec::new() }
     }
 
+    /// Adds a tab with this label and content.
     pub fn tab(mut self, label: impl Into<String>, content: impl View + 'static) -> Self {
         self.tabs.push((label.into(), Box::new(content)));
         self
@@ -120,10 +122,12 @@ impl<C> fmt::Debug for Sidebar<C> {
 }
 
 impl<C: ViewSeq> Sidebar<C> {
+    /// A sidebar of `children`, usually sections and items.
     pub fn new(children: C) -> Self {
         Self { children, width: 248.0 }
     }
 
+    /// Width in logical pixels (default 248).
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
         self
@@ -163,6 +167,7 @@ impl<C: ViewSeq> View for Sidebar<C> {
 pub struct SidebarSection(String);
 
 impl SidebarSection {
+    /// A section caption; shown in upper case.
     pub fn new(title: impl Into<String>) -> Self {
         Self(title.into())
     }
@@ -199,20 +204,24 @@ impl fmt::Debug for SidebarItem {
 }
 
 impl SidebarItem {
+    /// An item with this icon and label.
     pub fn new(icon: IconName, label: impl Into<String>) -> Self {
         Self { icon, label: label.into(), selected: false, count: None, on_click: None }
     }
 
+    /// Highlights the item as the current location.
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
         self
     }
 
+    /// A count badge at the end of the row (e.g. unread items).
     pub fn count(mut self, count: impl Into<String>) -> Self {
         self.count = Some(count.into());
         self
     }
 
+    /// Runs `handler` when the item is clicked.
     pub fn on_click(mut self, handler: impl Fn() + 'static) -> Self {
         self.on_click = Some(Rc::new(handler));
         self
@@ -272,6 +281,7 @@ impl View for SidebarItem {
 pub struct Breadcrumb(Vec<String>);
 
 impl Breadcrumb {
+    /// A breadcrumb of `items`, from the root to the current page.
     pub fn new(items: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self(items.into_iter().map(Into::into).collect())
     }
@@ -312,10 +322,12 @@ impl fmt::Debug for Disclosure {
 }
 
 impl Disclosure {
+    /// A collapsed disclosure with this title and content.
     pub fn new(title: impl Into<String>, content: impl View + 'static) -> Self {
         Self { title: title.into(), content: Box::new(content), open_by_default: false }
     }
 
+    /// Whether it starts open (closed by default).
     pub fn open(mut self, open: bool) -> Self {
         self.open_by_default = open;
         self
@@ -377,6 +389,7 @@ impl View for Disclosure {
 pub struct Accordion(Vec<Disclosure>);
 
 impl Accordion {
+    /// An accordion of these disclosures.
     pub fn new(items: Vec<Disclosure>) -> Self {
         Self(items)
     }

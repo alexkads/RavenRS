@@ -2,21 +2,30 @@
 /// color space (the space design tokens are written in).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Color {
+    /// Red component, `0.0..=1.0`.
     pub r: f32,
+    /// Green component, `0.0..=1.0`.
     pub g: f32,
+    /// Blue component, `0.0..=1.0`.
     pub b: f32,
+    /// Alpha (opacity), `0.0` transparent to `1.0` opaque.
     pub a: f32,
 }
 
 impl Color {
+    /// Fully transparent black.
     pub const TRANSPARENT: Self = Self::rgba(0.0, 0.0, 0.0, 0.0);
+    /// Opaque black.
     pub const BLACK: Self = Self::rgb(0.0, 0.0, 0.0);
+    /// Opaque white.
     pub const WHITE: Self = Self::rgb(1.0, 1.0, 1.0);
 
+    /// Builds a color from sRGB components and alpha, each in `0.0..=1.0`.
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
     }
 
+    /// Builds an opaque color from sRGB components in `0.0..=1.0`.
     pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self::rgba(r, g, b, 1.0)
     }
@@ -40,6 +49,7 @@ impl Color {
         )
     }
 
+    /// Returns the same color with alpha replaced by `a` (`0.0..=1.0`).
     pub const fn with_alpha(self, a: f32) -> Self {
         Self::rgba(self.r, self.g, self.b, a)
     }
@@ -63,6 +73,7 @@ impl Color {
         [channel(self.r), channel(self.g), channel(self.b), self.a]
     }
 
+    /// Returns the sRGB components as `[r, g, b, a]`, without linearization.
     pub fn to_array(self) -> [f32; 4] {
         [self.r, self.g, self.b, self.a]
     }

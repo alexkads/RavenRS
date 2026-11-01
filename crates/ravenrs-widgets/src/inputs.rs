@@ -1,5 +1,6 @@
 //! Form controls bound to state through [`Binding`].
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Point, Quad, Rect, Shadow};
@@ -26,6 +27,44 @@ fn make_interactive(cx: &mut BuildCx<'_>, node: NodeId, radius: f32, on_click: R
     cx.cursor(node, CursorIcon::Pointer);
 }
 
+/// Option `index` of `count` in a single-choice group (radio buttons, segments).
+/// Arrow keys select and focus the neighbor, wrapping around; Home and End
+/// jump to the ends, following the WAI-ARIA radio group pattern.
+struct ChoiceOption {
+    index: usize,
+    count: usize,
+    selected: Binding<usize>,
+    /// The option that takes focus on its next build, after an arrow key.
+    focus_to: Rc<Cell<Option<usize>>>,
+}
+
+impl ChoiceOption {
+    fn wire(&self, cx: &mut BuildCx<'_>, node: NodeId, radius: f32) {
+        if self.focus_to.get() == Some(self.index) {
+            self.focus_to.set(None);
+            cx.request_focus();
+        }
+        let (selected, index, count) = (self.selected.clone(), self.index, self.count);
+        make_interactive(cx, node, radius, Rc::new(move || selected.set(index)));
+        let (selected, focus_to) = (self.selected.clone(), self.focus_to.clone());
+        cx.on_key(
+            node,
+            Rc::new(move |key, _| {
+                let target = match key {
+                    Key::ArrowRight | Key::ArrowDown => (index + 1) % count,
+                    Key::ArrowLeft | Key::ArrowUp => (index + count - 1) % count,
+                    Key::Home => 0,
+                    Key::End => count - 1,
+                    _ => return false,
+                };
+                focus_to.set(Some(target));
+                selected.set(target);
+                true
+            }),
+        );
+    }
+}
+
 /// An on/off switch.
 #[derive(Debug)]
 pub struct Toggle {
@@ -34,10 +73,12 @@ pub struct Toggle {
 }
 
 impl Toggle {
+    /// A switch bound to `value`.
     pub fn new(value: Binding<bool>) -> Self {
         Self { value, label: None }
     }
 
+    /// Text after the switch; clicking it toggles too.
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
@@ -92,6 +133,7 @@ pub struct Checkbox {
 }
 
 impl Checkbox {
+    /// A check box bound to `value`, with this label.
     pub fn new(label: impl Into<String>, value: Binding<bool>) -> Self {
         Self { value, label: label.into() }
     }
@@ -135,7 +177,8 @@ impl View for Checkbox {
     }
 }
 
-/// One choice among several, shown as radio buttons.
+/// One choice among several, shown as radio buttons. Arrow keys move the
+/// selection and the focus together (wrapping); Home and End jump to the ends.
 #[derive(Debug)]
 pub struct RadioGroup {
     selected: Binding<usize>,
@@ -143,21 +186,21 @@ pub struct RadioGroup {
 }
 
 impl RadioGroup {
+    /// Radio buttons for `options`; `selected` holds the zero-based index.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self { selected, options: options.into_iter().map(Into::into).collect() }
     }
 }
 
 struct RadioOption {
-    index: usize,
+    choice: ChoiceOption,
     label: String,
-    selected: Binding<usize>,
 }
 
 impl View for RadioOption {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let on = self.selected.get() == self.index;
+        let on = self.choice.selected.get() == self.choice.index;
         let hovered = cx.is_hovered();
         let dot = if on {
             vec![cx.container(
@@ -194,20 +237,27 @@ impl View for RadioOption {
         );
         let label = util::label(cx, &self.label, TextStyle::Body, None, theme.color(Semantic::Ink));
         let node = row(cx, &[circle, label]);
-        let (selected, index) = (self.selected.clone(), self.index);
-        make_interactive(cx, node, 6.0, Rc::new(move || selected.set(index)));
+        self.choice.wire(cx, node, 6.0);
         node
     }
 }
 
 impl View for RadioGroup {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let focus_to = cx.use_state(|| Rc::new(Cell::new(None))).get();
+        let count = self.options.len();
         let options: Vec<NodeId> = self
             .options
             .iter()
             .enumerate()
             .map(|(index, label)| {
-                cx.child(&RadioOption { index, label: label.clone(), selected: self.selected.clone() })
+                let choice = ChoiceOption {
+                    index,
+                    count,
+                    selected: self.selected.clone(),
+                    focus_to: focus_to.clone(),
+                };
+                cx.child(&RadioOption { choice, label: label.clone() })
             })
             .collect();
         cx.container(
@@ -219,6 +269,16 @@ impl View for RadioGroup {
 }
 
 /// A draggable value between `min` and `max`. Arrow keys adjust it by `step`.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Slider, Ui};
+///
+/// let volume = State::new(40.0_f32);
+/// let slider = Slider::new(volume.binding()).range(0.0, 100.0).step(5.0).width(240.0);
+/// let mut ui = Ui::new(slider, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 #[derive(Debug)]
 pub struct Slider {
     value: Binding<f32>,
@@ -229,10 +289,12 @@ pub struct Slider {
 }
 
 impl Slider {
+    /// A slider over 0.0–1.0 bound to `value`, stepping by 0.01.
     pub fn new(value: Binding<f32>) -> Self {
         Self { value, min: 0.0, max: 1.0, step: 0.01, width: None }
     }
 
+    /// The value range; also resets the step to 1/100 of the range.
     pub fn range(mut self, min: f32, max: f32) -> Self {
         self.min = min;
         self.max = max.max(min + f32::EPSILON);
@@ -240,11 +302,13 @@ impl Slider {
         self
     }
 
+    /// The keyboard increment (call after [`Slider::range`]).
     pub fn step(mut self, step: f32) -> Self {
         self.step = step.max(f32::EPSILON);
         self
     }
 
+    /// Fixed width in logical pixels; by default the slider stretches.
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
         self
@@ -331,7 +395,8 @@ impl View for Slider {
     }
 }
 
-/// Decrement / value / increment, for small integer quantities.
+/// Decrement / value / increment, for small integer quantities. When focused,
+/// arrow keys step by one and Home / End jump to the limits.
 #[derive(Debug)]
 pub struct Stepper {
     value: Binding<i32>,
@@ -340,10 +405,12 @@ pub struct Stepper {
 }
 
 impl Stepper {
+    /// A stepper bound to `value`, unbounded.
     pub fn new(value: Binding<i32>) -> Self {
         Self { value, min: i32::MIN, max: i32::MAX }
     }
 
+    /// Clamps the value to `min..=max`.
     pub fn range(mut self, min: i32, max: i32) -> Self {
         self.min = min;
         self.max = max.max(min);
@@ -392,11 +459,30 @@ impl View for Stepper {
             border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
             ..QuadPaint::new(theme.color(Semantic::Surface))
         };
-        cx.container(style, &[minus, value, plus], Paint::Quad(paint))
+        let node = cx.container(style, &[minus, value, plus], Paint::Quad(paint));
+        let value = self.value.clone();
+        cx.on_key(
+            node,
+            Rc::new(move |key, _| {
+                let next = |v: i32| match key {
+                    Key::ArrowUp | Key::ArrowRight => Some(v.saturating_add(1)),
+                    Key::ArrowDown | Key::ArrowLeft => Some(v.saturating_sub(1)),
+                    Key::Home => Some(min),
+                    Key::End => Some(max),
+                    _ => None,
+                };
+                let Some(v) = next(value.get()) else { return false };
+                value.set(v.clamp(min, max));
+                true
+            }),
+        );
+        cx.focusable(node, theme.radii.md);
+        node
     }
 }
 
-/// A row of mutually exclusive segments, like a compact tab bar.
+/// A row of mutually exclusive segments, like a compact tab bar. Arrow keys
+/// move the selection and the focus together (wrapping); Home and End jump to the ends.
 #[derive(Debug)]
 pub struct SegmentedControl {
     selected: Binding<usize>,
@@ -404,6 +490,7 @@ pub struct SegmentedControl {
 }
 
 impl SegmentedControl {
+    /// Segments for `options`; `selected` holds the zero-based index.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self { selected, options: options.into_iter().map(|o| (None, o.into())).collect() }
     }
@@ -418,16 +505,15 @@ impl SegmentedControl {
 }
 
 struct Segment {
-    index: usize,
+    choice: ChoiceOption,
     icon: Option<IconName>,
     label: String,
-    selected: Binding<usize>,
 }
 
 impl View for Segment {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let on = self.selected.get() == self.index;
+        let on = self.choice.selected.get() == self.choice.index;
         let hovered = cx.is_hovered();
         let color = if on || hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
         let mut children = Vec::new();
@@ -458,8 +544,7 @@ impl View for Segment {
             Paint::None
         };
         let node = cx.container(style, &children, paint);
-        let (selected, index) = (self.selected.clone(), self.index);
-        make_interactive(cx, node, 7.0, Rc::new(move || selected.set(index)));
+        self.choice.wire(cx, node, 7.0);
         node
     }
 }
@@ -467,17 +552,20 @@ impl View for Segment {
 impl View for SegmentedControl {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
+        let focus_to = cx.use_state(|| Rc::new(Cell::new(None))).get();
+        let count = self.options.len();
         let segments: Vec<NodeId> = self
             .options
             .iter()
             .enumerate()
             .map(|(index, (icon, label))| {
-                cx.child(&Segment {
+                let choice = ChoiceOption {
                     index,
-                    icon: *icon,
-                    label: label.clone(),
+                    count,
                     selected: self.selected.clone(),
-                })
+                    focus_to: focus_to.clone(),
+                };
+                cx.child(&Segment { choice, icon: *icon, label: label.clone() })
             })
             .collect();
         let style = LayoutStyle {

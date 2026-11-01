@@ -23,10 +23,13 @@ use winit::window::{Window, WindowId};
 /// How the main window opens.
 #[derive(Clone, Debug)]
 pub struct WindowOptions {
+    /// Window title.
     pub title: String,
     /// Initial inner size in logical pixels.
     pub size: Size,
+    /// Smallest inner size the user can resize to, in logical pixels.
     pub min_size: Option<Size>,
+    /// Theme the UI starts with.
     pub theme: Theme,
 }
 
@@ -42,25 +45,40 @@ impl Default for WindowOptions {
 }
 
 impl WindowOptions {
+    /// Default options with the given window title.
+    ///
+    /// ```
+    /// use ravenrs_platform_native::WindowOptions;
+    /// use ravenrs_style::Theme;
+    ///
+    /// let options = WindowOptions::new("Notes").size(800.0, 600.0).theme(Theme::raven_light());
+    /// assert_eq!(options.size.width, 800.0);
+    /// ```
     pub fn new(title: impl Into<String>) -> Self {
         Self { title: title.into(), ..Self::default() }
     }
 
+    /// Sets the initial inner size in logical pixels.
     pub fn size(mut self, width: f32, height: f32) -> Self {
         self.size = Size::new(width, height);
         self
     }
 
+    /// Sets the theme the UI starts with.
     pub fn theme(mut self, theme: Theme) -> Self {
         self.theme = theme;
         self
     }
 }
 
+/// Failure to start or run the desktop app.
 #[derive(Debug)]
 pub enum PlatformError {
+    /// The event loop could not be created or exited with an error.
     EventLoop(String),
+    /// The window could not be created.
     Window(String),
+    /// GPU setup or surface configuration failed.
     Gpu(GpuError),
 }
 
@@ -196,6 +214,7 @@ impl App {
                     CursorIcon::Text => winit::window::CursorIcon::Text,
                     CursorIcon::ColResize => winit::window::CursorIcon::ColResize,
                     CursorIcon::RowResize => winit::window::CursorIcon::RowResize,
+                    _ => winit::window::CursorIcon::Default,
                 });
                 state.cursor = cursor;
             }
@@ -400,5 +419,48 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => self.redraw(),
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn named_keys_map_to_raven_keys() {
+        let cases = [
+            (NamedKey::Enter, Key::Enter),
+            (NamedKey::Space, Key::Space),
+            (NamedKey::Tab, Key::Tab),
+            (NamedKey::Escape, Key::Escape),
+            (NamedKey::Backspace, Key::Backspace),
+            (NamedKey::Delete, Key::Delete),
+            (NamedKey::Home, Key::Home),
+            (NamedKey::End, Key::End),
+            (NamedKey::ArrowLeft, Key::ArrowLeft),
+            (NamedKey::ArrowRight, Key::ArrowRight),
+            (NamedKey::ArrowUp, Key::ArrowUp),
+            (NamedKey::ArrowDown, Key::ArrowDown),
+        ];
+        for (named, expected) in cases {
+            assert_eq!(map_key(&WinitKey::Named(named)), expected, "{named:?}");
+        }
+    }
+
+    #[test]
+    fn characters_and_unknown_keys() {
+        assert_eq!(map_key(&WinitKey::Character(" ".into())), Key::Space, "a typed space is the Space key");
+        assert_eq!(map_key(&WinitKey::Character("ç".into())), Key::Character("ç".into()));
+        assert!(matches!(map_key(&WinitKey::Named(NamedKey::F5)), Key::Other(name) if name.contains("F5")));
+    }
+
+    #[test]
+    fn mouse_buttons_map_to_pointer_buttons() {
+        assert_eq!(map_button(MouseButton::Left), PointerButton::Primary);
+        assert_eq!(map_button(MouseButton::Right), PointerButton::Secondary);
+        assert_eq!(map_button(MouseButton::Middle), PointerButton::Auxiliary);
+        assert_eq!(map_button(MouseButton::Back), PointerButton::Other(3));
+        assert_eq!(map_button(MouseButton::Forward), PointerButton::Other(4));
+        assert_eq!(map_button(MouseButton::Other(9)), PointerButton::Other(9));
     }
 }

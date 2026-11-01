@@ -9,6 +9,7 @@ use crate::context::{BuildCx, NodeId, Paint};
 
 /// How an image fills its frame when their aspect ratios differ.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ContentMode {
     /// Fills the frame, cropping the overflowing part (CSS `object-fit: cover`).
     #[default]
@@ -53,6 +54,7 @@ pub struct Image {
 }
 
 impl Image {
+    /// An image of decoded RGBA pixels, `Cover` mode.
     pub fn new(data: ImageData) -> Self {
         Self {
             data,
@@ -71,26 +73,31 @@ impl Image {
         decode_image(bytes).map(Self::new)
     }
 
+    /// How the image fills its frame (`Cover` by default).
     pub fn content_mode(mut self, mode: ContentMode) -> Self {
         self.mode = mode;
         self
     }
 
+    /// Corner radius in logical pixels (default 0).
     pub fn corner_radius(mut self, radius: f32) -> Self {
         self.radius = radius;
         self
     }
 
+    /// Width in logical pixels.
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
         self
     }
 
+    /// Height in logical pixels.
     pub fn height(mut self, height: f32) -> Self {
         self.height = Some(height);
         self
     }
 
+    /// Width and height in logical pixels.
     pub fn size(self, width: f32, height: f32) -> Self {
         self.width(width).height(height)
     }
@@ -101,6 +108,7 @@ impl Image {
         self
     }
 
+    /// Opacity, 0.0 (invisible) to 1.0 (opaque, the default).
     pub fn opacity(mut self, opacity: f32) -> Self {
         self.opacity = opacity;
         self

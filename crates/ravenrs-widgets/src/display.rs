@@ -10,12 +10,18 @@ use crate::{IconName, View, ViewSeq, util};
 /// Tone of a badge or alert. Status tones always come with a word or an icon,
 /// never color alone.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Tone {
+    /// Gray, for neutral information.
     #[default]
     Neutral,
+    /// The theme accent color.
     Accent,
+    /// Green, for success.
     Success,
+    /// Amber, for warnings.
     Warning,
+    /// Red, for errors and destructive states.
     Danger,
 }
 
@@ -49,15 +55,18 @@ pub struct Badge {
 }
 
 impl Badge {
+    /// A neutral badge with this text.
     pub fn new(text: impl Into<String>) -> Self {
         Self { text: text.into(), tone: Tone::Neutral, icon: None }
     }
 
+    /// Sets the color tone.
     pub fn tone(mut self, tone: Tone) -> Self {
         self.tone = tone;
         self
     }
 
+    /// Shows an icon before the text.
     pub fn icon(mut self, icon: IconName) -> Self {
         self.icon = Some(icon);
         self
@@ -98,10 +107,12 @@ pub struct Avatar {
 }
 
 impl Avatar {
+    /// An avatar showing the initials of `name`, 36 logical pixels across.
     pub fn new(name: impl Into<String>) -> Self {
         Self { name: name.into(), size: 36.0 }
     }
 
+    /// Sets the diameter in logical pixels.
     pub fn size(mut self, size: f32) -> Self {
         self.size = size;
         self
@@ -155,6 +166,7 @@ impl View for Avatar {
 pub struct Kbd(String);
 
 impl Kbd {
+    /// A key cap showing `keys`.
     pub fn new(keys: impl Into<String>) -> Self {
         Self(keys.into())
     }
@@ -192,10 +204,12 @@ pub struct Divider {
 }
 
 impl Divider {
+    /// A horizontal line that stretches across its stack.
     pub fn horizontal() -> Self {
         Self { vertical: false }
     }
 
+    /// A vertical line.
     pub fn vertical() -> Self {
         Self { vertical: true }
     }
@@ -222,10 +236,12 @@ pub struct ProgressBar {
 }
 
 impl ProgressBar {
+    /// A progress bar at `value`, clamped to 0.0–1.0.
     pub fn new(value: f32) -> Self {
         Self { value: value.clamp(0.0, 1.0), tone: Tone::Accent, height: 6.0 }
     }
 
+    /// Sets the fill color tone (accent by default).
     pub fn tone(mut self, tone: Tone) -> Self {
         self.tone = tone;
         self
@@ -269,10 +285,12 @@ impl Skeleton {
         Self { width: None, height, radius: None }
     }
 
+    /// A rectangle of fixed size in logical pixels.
     pub fn block(width: f32, height: f32) -> Self {
         Self { width: Some(width), height, radius: None }
     }
 
+    /// A circle `size` logical pixels across.
     pub fn circle(size: f32) -> Self {
         Self { width: Some(size), height: size, radius: Some(size / 2.0) }
     }
@@ -304,10 +322,12 @@ pub struct Alert {
 }
 
 impl Alert {
+    /// An accent-toned alert with a title and a message.
     pub fn new(title: impl Into<String>, message: impl Into<String>) -> Self {
         Self { title: title.into(), message: message.into(), tone: Tone::Accent }
     }
 
+    /// Sets the color tone and icon.
     pub fn tone(mut self, tone: Tone) -> Self {
         self.tone = tone;
         self
@@ -353,6 +373,7 @@ pub struct Stat {
 }
 
 impl Stat {
+    /// A stat showing `value` under `label`.
     pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
         Self { label: label.into(), value: value.into(), delta: None }
     }
@@ -407,10 +428,12 @@ impl<C> std::fmt::Debug for Section<C> {
 }
 
 impl<C: ViewSeq> Section<C> {
+    /// A section titled `title` around `content`.
     pub fn new(title: impl Into<String>, content: C) -> Self {
         Self { title: title.into(), description: None, content }
     }
 
+    /// Adds a muted description under the title.
     pub fn description(mut self, text: impl Into<String>) -> Self {
         self.description = Some(text.into());
         self

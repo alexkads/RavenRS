@@ -1,34 +1,9 @@
-//! # RavenRS
+#![doc = include_str!("../README.md")]
 //!
-//! Beautiful native interfaces, powered by Rust. Write the UI once with
-//! declarative views and run it in a native window or in the browser
-//! (WebAssembly + WebGPU), drawn by the same GPU renderer.
+//! ## Crates behind this facade
 //!
-//! ```no_run
-//! use ravenrs::prelude::*;
-//!
-//! fn app() -> impl View {
-//!     let count = State::new(0);
-//!     let c = count.clone();
-//!     VStack::new((
-//!         Text::new("Welcome to RavenRS").style(TextStyle::Display),
-//!         Card::new(Text::bound(&count, |n| format!("Clicks: {n}")).style(TextStyle::Metric)),
-//!         Button::new("Get Started").on_click(move || c.update(|n| *n += 1)),
-//!     ))
-//!     .spacing(24.0)
-//!     .padding(32.0)
-//! }
-//!
-//! # #[cfg(not(target_arch = "wasm32"))]
-//! fn main() -> Result<(), ravenrs::native::PlatformError> {
-//!     ravenrs::native::run(app(), ravenrs::native::WindowOptions::new("Hello"))
-//! }
-//! # #[cfg(target_arch = "wasm32")]
-//! # fn main() {}
-//! ```
-//!
-//! The crates behind this facade can also be used on their own:
-//! [`core`], [`reactive`], [`layout`], [`text`], [`style`], [`render`], [`widgets`].
+//! [`core`], [`reactive`], [`layout`], [`text`], [`style`], [`render`] and [`widgets`]
+//! can also be used on their own.
 
 pub use ravenrs_core as core;
 pub use ravenrs_layout as layout;

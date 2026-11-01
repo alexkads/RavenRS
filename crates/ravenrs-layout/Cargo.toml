@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
+readme = "README.md"
 documentation = "https://docs.rs/ravenrs-layout"
 keywords = ["gui", "layout", "flexbox", "taffy"]
 categories = ["gui"]
@@ -15,6 +16,9 @@ categories = ["gui"]
 [dependencies]
 ravenrs-core.workspace = true
 taffy.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
 
 [lints]
 workspace = true

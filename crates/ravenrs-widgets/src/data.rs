@@ -22,6 +22,7 @@ impl<C> fmt::Debug for List<C> {
 }
 
 impl<C: ViewSeq> List<C> {
+    /// A list of `rows`, usually [`ListItem`]s.
     pub fn new(rows: C) -> Self {
         Self { rows }
     }
@@ -75,6 +76,7 @@ impl fmt::Debug for ListItem {
 }
 
 impl ListItem {
+    /// A row with this title.
     pub fn new(title: impl Into<String>) -> Self {
         Self {
             title: title.into(),
@@ -86,31 +88,37 @@ impl ListItem {
         }
     }
 
+    /// A muted second line under the title.
     pub fn subtitle(mut self, text: impl Into<String>) -> Self {
         self.subtitle = Some(text.into());
         self
     }
 
+    /// A leading icon.
     pub fn icon(mut self, icon: IconName) -> Self {
         self.leading = Leading::Icon(icon);
         self
     }
 
+    /// A leading avatar showing the initials of `name`.
     pub fn avatar(mut self, name: impl Into<String>) -> Self {
         self.leading = Leading::Avatar(name.into());
         self
     }
 
+    /// Muted text at the end of the row.
     pub fn trailing(mut self, text: impl Into<String>) -> Self {
         self.trailing = Some(text.into());
         self
     }
 
+    /// Highlights the row as selected.
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
         self
     }
 
+    /// Runs `handler` when the row is clicked; also makes it hoverable.
     pub fn on_click(mut self, handler: impl Fn() + 'static) -> Self {
         self.on_click = Some(Rc::new(handler));
         self
@@ -205,6 +213,7 @@ pub struct Column {
 }
 
 impl Column {
+    /// A column with this header title, weight 1.0, left-aligned.
     pub fn new(title: impl Into<String>) -> Self {
         Self { title: title.into(), weight: 1.0, align_end: false }
     }
@@ -230,10 +239,12 @@ pub struct Table {
 }
 
 impl Table {
+    /// An empty table with these columns.
     pub fn new(columns: impl IntoIterator<Item = Column>) -> Self {
         Self { columns: columns.into_iter().collect(), rows: Vec::new() }
     }
 
+    /// Appends a row; cells map to columns in order.
     pub fn row(mut self, cells: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.rows.push(cells.into_iter().map(Into::into).collect());
         self
@@ -333,10 +344,12 @@ pub struct BarChart {
 }
 
 impl BarChart {
+    /// A chart of `(label, value)` bars; negative values are clamped to 0.
     pub fn new(data: impl IntoIterator<Item = (impl Into<String>, f32)>) -> Self {
         Self { data: data.into_iter().map(|(l, v)| (l.into(), v.max(0.0))).collect(), height: 180.0 }
     }
 
+    /// Chart height in logical pixels (default 180).
     pub fn height(mut self, height: f32) -> Self {
         self.height = height;
         self
@@ -421,10 +434,12 @@ pub struct AreaChart {
 }
 
 impl AreaChart {
+    /// A chart of these values, evenly spaced from left to right.
     pub fn new(values: impl IntoIterator<Item = f32>) -> Self {
         Self { values: values.into_iter().collect(), height: 120.0, tone: Semantic::Accent }
     }
 
+    /// Chart height in logical pixels (default 120).
     pub fn height(mut self, height: f32) -> Self {
         self.height = height;
         self

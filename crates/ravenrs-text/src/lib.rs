@@ -38,6 +38,7 @@ pub struct TextAttrs {
     pub line_height: f32,
     /// CSS weight (400 regular, 600 semibold).
     pub weight: f32,
+    /// Extra space between characters in logical pixels; may be negative.
     pub letter_spacing: f32,
     /// Font family list in CSS syntax; defaults to the embedded Inter.
     pub family: Option<String>,

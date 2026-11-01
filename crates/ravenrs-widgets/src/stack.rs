@@ -24,6 +24,7 @@ macro_rules! stack {
                 self
             }
 
+            /// Inner padding in logical pixels.
             pub fn padding(mut self, padding: impl Into<Insets>) -> Self {
                 self.style.padding = padding.into();
                 self
@@ -41,16 +42,19 @@ macro_rules! stack {
                 self
             }
 
+            /// Fixed width in logical pixels.
             pub fn width(mut self, width: f32) -> Self {
                 self.style.width = Some(width);
                 self
             }
 
+            /// Fixed height in logical pixels.
             pub fn height(mut self, height: f32) -> Self {
                 self.style.height = Some(height);
                 self
             }
 
+            /// Maximum width in logical pixels.
             pub fn max_width(mut self, width: f32) -> Self {
                 self.style.max_width = Some(width);
                 self
@@ -107,6 +111,7 @@ pub struct Spacer {
 }
 
 impl Spacer {
+    /// A spacer with no minimum size.
     pub fn new() -> Self {
         Self::default()
     }
@@ -145,6 +150,7 @@ impl<C> std::fmt::Debug for ScrollView<C> {
 }
 
 impl<C: ViewSeq> ScrollView<C> {
+    /// A scroll view of `children` (a tuple of up to 12 views or a `Vec`).
     pub fn new(children: C) -> Self {
         Self {
             children,
@@ -159,11 +165,13 @@ impl<C: ViewSeq> ScrollView<C> {
         }
     }
 
+    /// Gap between children, in logical pixels (default 16).
     pub fn spacing(mut self, spacing: f32) -> Self {
         self.style.spacing = spacing;
         self
     }
 
+    /// Inner padding in logical pixels.
     pub fn padding(mut self, padding: impl Into<Insets>) -> Self {
         self.style.padding = padding.into();
         self
@@ -176,6 +184,7 @@ impl<C: ViewSeq> ScrollView<C> {
         self
     }
 
+    /// Cross-axis alignment of the children (`Stretch` by default).
     pub fn align(mut self, align: Align) -> Self {
         self.style.align = align;
         self
@@ -204,6 +213,7 @@ impl<C> std::fmt::Debug for Grid<C> {
 }
 
 impl<C: ViewSeq> Grid<C> {
+    /// A grid of `columns` equal columns (at least 1).
     pub fn new(columns: u16, children: C) -> Self {
         Self {
             children,
@@ -216,6 +226,7 @@ impl<C: ViewSeq> Grid<C> {
         }
     }
 
+    /// Gap between cells, in logical pixels (default 16).
     pub fn spacing(mut self, spacing: f32) -> Self {
         self.style.spacing = spacing;
         self

@@ -1,8 +1,9 @@
 //! The data grid query engine: filter → search → sort → group → summarize.
 //! Pure functions over rows, independent of the UI.
 
+use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use super::model::{GridColumn, Row, SortDirection, Summary, Value};
 
@@ -24,10 +25,12 @@ pub struct GridQuery {
 }
 
 impl GridQuery {
+    /// The filter text of `column` (zero-based), or `""`.
     pub fn filter(&self, column: usize) -> &str {
         self.filters.get(column).map_or("", String::as_str)
     }
 
+    /// Sets the filter text of `column` (zero-based).
     pub fn set_filter(&mut self, column: usize, text: String) {
         if self.filters.len() <= column {
             self.filters.resize(column + 1, String::new());
@@ -35,6 +38,7 @@ impl GridQuery {
         self.filters[column] = text;
     }
 
+    /// The column (zero-based) is hidden.
     pub fn is_hidden(&self, column: usize) -> bool {
         self.hidden.get(column).copied().unwrap_or(false)
     }
@@ -65,6 +69,7 @@ impl GridQuery {
         }
     }
 
+    /// Adds the column to or removes it from the grouping; expands all groups.
     pub fn toggle_group(&mut self, column: usize) {
         if let Some(i) = self.group_by.iter().position(|c| *c == column) {
             self.group_by.remove(i);
@@ -74,6 +79,7 @@ impl GridQuery {
         self.collapsed.clear();
     }
 
+    /// Collapses or expands the group with this key.
     pub fn toggle_collapsed(&mut self, key: &str) {
         if !self.collapsed.remove(key) {
             self.collapsed.insert(key.to_owned());
@@ -84,13 +90,19 @@ impl GridQuery {
 /// A visible row of the grid: a group header or a data row.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ViewRow {
+    /// A group header.
     Group {
+        /// Nesting depth, 0 for the outermost groups.
         level: usize,
+        /// The column grouped by (zero-based).
         column: usize,
+        /// Display text of the group's value.
         label: String,
         /// Unique path of this group, used to collapse it.
         key: String,
+        /// Number of data rows in the group.
         count: usize,
+        /// The group's rows are hidden.
         collapsed: bool,
         /// Aggregates per column over the group's rows.
         summaries: Vec<Option<f64>>,
@@ -99,8 +111,10 @@ pub enum ViewRow {
     Data(usize),
 }
 
+/// The output of [`run_query`]: what the grid shows.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct QueryResult {
+    /// Visible rows in display order.
     pub rows: Vec<ViewRow>,
     /// Matching data rows in display order (collapsed groups included).
     pub matched: Vec<usize>,
@@ -113,58 +127,132 @@ pub struct QueryResult {
 /// Numbers accept `>`, `>=`, `<`, `<=`, `=`, `<>` and ranges `a..b`; everything
 /// else is a case-insensitive "contains".
 pub fn matches_filter(value: &Value, display: &str, filter: &str) -> bool {
-    let f = filter.trim();
-    if f.is_empty() {
-        return true;
-    }
-    if let Value::Number(n) = value {
+    Filter::parse(filter).matches(value, || Cow::Borrowed(display))
+}
+
+type NumTest = fn(f64, f64) -> bool;
+
+/// A filter-row expression parsed once per query instead of once per row.
+#[derive(Debug)]
+struct Filter {
+    /// The comparison applied to numbers, when the text is one.
+    number: Option<NumberTest>,
+    /// The answer for booleans, when the text is a yes/no word.
+    boolean: Option<bool>,
+    /// The lowercased text for the "contains" fallback.
+    text: String,
+}
+
+#[derive(Debug)]
+enum NumberTest {
+    Range(f64, f64),
+    Compare(NumTest, f64),
+}
+
+impl Filter {
+    fn parse(filter: &str) -> Self {
+        let f = filter.trim();
         let num = |s: &str| s.trim().replace(',', "").parse::<f64>().ok();
+        let mut number = None;
         if let Some((a, b)) = f.split_once("..")
             && let (Some(a), Some(b)) = (num(a), num(b))
         {
-            return *n >= a && *n <= b;
+            number = Some(NumberTest::Range(a, b));
         }
-        for (op, test) in [
-            (">=", (|n: f64, x: f64| n >= x) as fn(f64, f64) -> bool),
-            ("<=", |n, x| n <= x),
-            ("<>", |n, x| (n - x).abs() > f64::EPSILON),
-            ("!=", |n, x| (n - x).abs() > f64::EPSILON),
-            (">", |n, x| n > x),
-            ("<", |n, x| n < x),
-            ("=", |n, x| (n - x).abs() < 1e-9),
-        ] {
-            if let Some(rest) = f.strip_prefix(op)
-                && let Some(x) = num(rest)
-            {
-                return test(*n, x);
-            }
+        if number.is_none() {
+            let ops: [(&str, NumTest); 7] = [
+                (">=", |n, x| n >= x),
+                ("<=", |n, x| n <= x),
+                ("<>", |n, x| (n - x).abs() > f64::EPSILON),
+                ("!=", |n, x| (n - x).abs() > f64::EPSILON),
+                (">", |n, x| n > x),
+                ("<", |n, x| n < x),
+                ("=", |n, x| (n - x).abs() < 1e-9),
+            ];
+            number = ops.into_iter().find_map(|(op, test)| {
+                f.strip_prefix(op).and_then(num).map(|x| NumberTest::Compare(test, x))
+            });
+        }
+        let text = f.to_lowercase();
+        let boolean = match text.as_str() {
+            "yes" | "true" | "1" | "y" | "sim" => Some(true),
+            "no" | "false" | "0" | "n" | "não" | "nao" => Some(false),
+            _ => None,
+        };
+        Self { number, boolean, text }
+    }
+
+    /// `display` is only called when the value has to be matched as text.
+    fn matches<'a>(&self, value: &Value, display: impl FnOnce() -> Cow<'a, str>) -> bool {
+        if self.text.is_empty() {
+            return true;
+        }
+        match (value, &self.number, self.boolean) {
+            (Value::Number(n), Some(NumberTest::Range(a, b)), _) => *n >= *a && *n <= *b,
+            (Value::Number(n), Some(NumberTest::Compare(test, x)), _) => test(*n, *x),
+            (Value::Bool(b), _, Some(want)) => *b == want,
+            _ => contains_lowercase(&display(), &self.text),
         }
     }
-    if let Value::Bool(b) = value {
-        match f.to_lowercase().as_str() {
-            "yes" | "true" | "1" | "y" | "sim" => return *b,
-            "no" | "false" | "0" | "n" | "não" | "nao" => return !*b,
-            _ => {}
-        }
+}
+
+/// Case-insensitive "contains" where `needle` is already lowercase. ASCII text,
+/// the common case, is compared in place without allocating.
+fn contains_lowercase(haystack: &str, needle: &str) -> bool {
+    if needle.is_empty() {
+        return true;
     }
-    display.to_lowercase().contains(&f.to_lowercase())
+    if haystack.is_ascii() && needle.is_ascii() {
+        let (h, n) = (haystack.as_bytes(), needle.as_bytes());
+        return h.windows(n.len()).any(|w| w.iter().zip(n).all(|(a, b)| a.to_ascii_lowercase() == *b));
+    }
+    haystack.to_lowercase().contains(needle)
 }
 
 /// A precomputed sort key, so sorting does not format or allocate per comparison.
-#[derive(Clone, Debug, PartialEq)]
+/// Text becomes its rank among the column's distinct lowercase texts.
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum Key {
     Empty,
     Num(f64),
-    Text(String),
+    Text(u32),
 }
 
-fn key_of(column: &GridColumn, value: &Value) -> Key {
-    match value {
-        Value::Empty => Key::Empty,
-        Value::Number(n) => Key::Num(*n),
-        Value::Bool(b) => Key::Num(f64::from(u8::from(*b))),
-        Value::Text(_) => Key::Text(column.display(value).to_lowercase()),
+/// Sort keys of `column` for the rows in `indices`, in the same order.
+fn keys_of(column: &GridColumn, c: usize, rows: &[Row], indices: &[usize]) -> Vec<Key> {
+    let empty = Value::Empty;
+    let mut texts: HashMap<Cow<'_, str>, u32> = HashMap::new();
+    let mut keys: Vec<Key> = indices
+        .iter()
+        .map(|&r| match rows[r].get(c).unwrap_or(&empty) {
+            Value::Number(n) => Key::Num(*n),
+            Value::Bool(b) => Key::Num(f64::from(u8::from(*b))),
+            v @ Value::Text(_) => {
+                let next = texts.len() as u32;
+                Key::Text(*texts.entry(column.display_cow(v)).or_insert(next))
+            }
+            _ => Key::Empty,
+        })
+        .collect();
+    if !texts.is_empty() {
+        // Distinct texts sorted case-insensitively; equal lowercase shares a rank.
+        let mut distinct: Vec<(String, u32)> = texts.iter().map(|(t, &id)| (t.to_lowercase(), id)).collect();
+        distinct.sort_unstable();
+        let mut rank_of = vec![0u32; distinct.len()];
+        let mut rank = 0;
+        for (i, (text, id)) in distinct.iter().enumerate() {
+            if i > 0 && *text != distinct[i - 1].0 {
+                rank += 1;
+            }
+            rank_of[*id as usize] = rank;
+        }
+        for key in &mut keys {
+            if let Key::Text(id) = key {
+                *id = rank_of[*id as usize];
+            }
+        }
     }
+    keys
 }
 
 fn cmp_keys(a: &Key, b: &Key) -> Ordering {
@@ -178,6 +266,21 @@ fn cmp_keys(a: &Key, b: &Key) -> Ordering {
         (Key::Num(_), Key::Text(_)) => Ordering::Less,
         (Key::Text(_), Key::Num(_)) => Ordering::Greater,
     }
+}
+
+/// False when no number this column shows can contain `needle`, so search can
+/// skip formatting its numbers.
+fn numbers_may_contain(column: &GridColumn, needle: &str) -> bool {
+    if column.format.is_some() {
+        return true;
+    }
+    let (extra, thousands, decimal) = match &column.number {
+        Some(f) => (format!("{}{}", f.prefix, f.suffix).to_lowercase(), f.thousands, f.decimal),
+        None => (String::new(), ',', '.'),
+    };
+    needle.chars().all(|ch| {
+        ch.is_ascii_digit() || "-.infa".contains(ch) || ch == thousands || ch == decimal || extra.contains(ch)
+    })
 }
 
 fn summarize(summary: Summary, column: usize, rows: &[Row], indices: &[usize]) -> Option<f64> {
@@ -205,24 +308,31 @@ fn summaries(columns: &[GridColumn], rows: &[Row], indices: &[usize]) -> Vec<Opt
 /// Runs the whole pipeline.
 pub fn run_query(columns: &[GridColumn], rows: &[Row], query: &GridQuery) -> QueryResult {
     let search = query.search.trim().to_lowercase();
-    let active_filters: Vec<(usize, &str)> = (0..columns.len())
+    let active_filters: Vec<(usize, Filter)> = (0..columns.len())
         .map(|c| (c, query.filter(c)))
         .filter(|(c, f)| !f.trim().is_empty() && columns[*c].filterable)
+        .map(|(c, f)| (c, Filter::parse(f)))
+        .collect();
+    let searched: Vec<(usize, bool)> = (0..columns.len())
+        .filter(|&c| !query.is_hidden(c))
+        .map(|c| (c, numbers_may_contain(&columns[c], &search)))
         .collect();
     let empty = Value::Empty;
     let cell = |r: usize, c: usize| rows[r].get(c).unwrap_or(&empty);
 
     let mut indices: Vec<usize> = (0..rows.len())
         .filter(|&r| {
-            active_filters.iter().all(|&(c, f)| {
-                let v = cell(r, c);
-                matches_filter(v, &columns[c].display(v), f)
+            active_filters.iter().all(|(c, f)| {
+                let v = cell(r, *c);
+                f.matches(v, || columns[*c].display_cow(v))
             })
         })
         .filter(|&r| {
             search.is_empty()
-                || columns.iter().enumerate().any(|(c, col)| {
-                    !query.is_hidden(c) && col.display(cell(r, c)).to_lowercase().contains(&search)
+                || searched.iter().any(|&(c, numbers)| {
+                    let v = cell(r, c);
+                    (numbers || !matches!(v, Value::Number(_)))
+                        && contains_lowercase(&columns[c].display_cow(v), &search)
                 })
         })
         .collect();
@@ -236,19 +346,21 @@ pub fn run_query(columns: &[GridColumn], rows: &[Row], query: &GridQuery) -> Que
     order.extend(query.sort.iter().filter(|(c, _)| !query.group_by.contains(c)).copied());
     order.retain(|(c, _)| *c < columns.len());
     if !order.is_empty() {
-        let keys: Vec<Vec<Key>> = order
-            .iter()
-            .map(|&(c, _)| (0..rows.len()).map(|r| key_of(&columns[c], cell(r, c))).collect())
-            .collect();
-        indices.sort_by(|&a, &b| {
+        // Keys only for matching rows, indexed by position in `indices`.
+        let keys: Vec<Vec<Key>> =
+            order.iter().map(|&(c, _)| keys_of(&columns[c], c, rows, &indices)).collect();
+        let mut positions: Vec<usize> = (0..indices.len()).collect();
+        // Ties fall back to the original position, so the result matches a stable sort.
+        positions.sort_unstable_by(|&a, &b| {
             for (k, (_, dir)) in order.iter().enumerate() {
                 let o = cmp_keys(&keys[k][a], &keys[k][b]);
                 if o != Ordering::Equal {
                     return dir.apply(o);
                 }
             }
-            Ordering::Equal
+            a.cmp(&b)
         });
+        indices = positions.into_iter().map(|p| indices[p]).collect();
     }
 
     let totals = summaries(columns, rows, &indices);
@@ -274,12 +386,12 @@ fn emit_groups(
         return;
     };
     let empty = Value::Empty;
-    let label_of = |r: usize| columns[column].display(rows[r].get(column).unwrap_or(&empty));
+    let label_of = |r: usize| columns[column].display_cow(rows[r].get(column).unwrap_or(&empty));
     let mut start = 0;
     while start < indices.len() {
-        let label = label_of(indices[start]);
+        let label = label_of(indices[start]).into_owned();
         let mut end = start + 1;
-        while end < indices.len() && label_of(indices[end]) == label {
+        while end < indices.len() && *label_of(indices[end]) == *label {
             end += 1;
         }
         let run = &indices[start..end];

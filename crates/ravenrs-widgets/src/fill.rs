@@ -5,11 +5,14 @@ use ravenrs_style::{Semantic, Theme};
 /// as a literal color.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Fill {
+    /// A theme color role, resolved against the current theme.
     Semantic(Semantic),
+    /// A fixed color.
     Color(Color),
 }
 
 impl Fill {
+    /// The concrete color under `theme`.
     pub fn resolve(self, theme: &Theme) -> Color {
         match self {
             Self::Semantic(role) => theme.color(role),

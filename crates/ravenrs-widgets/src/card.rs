@@ -19,6 +19,7 @@ pub struct Card<V> {
 }
 
 impl<V: View> Card<V> {
+    /// A card around `content` with the theme's surface, radius, shadow and padding.
     pub fn new(content: V) -> Self {
         Self {
             content,
@@ -31,6 +32,7 @@ impl<V: View> Card<V> {
         }
     }
 
+    /// Corner radius in logical pixels (theme `radius-xl` by default).
     pub fn corner_radius(mut self, radius: f32) -> Self {
         self.corner_radius = Some(radius);
         self
@@ -42,21 +44,25 @@ impl<V: View> Card<V> {
         self
     }
 
+    /// Removes the shadow.
     pub fn no_shadow(mut self) -> Self {
         self.shadow = Some(None);
         self
     }
 
+    /// Replaces the theme's card padding.
     pub fn padding(mut self, padding: impl Into<Insets>) -> Self {
         self.padding = Some(padding.into());
         self
     }
 
+    /// Background, as a theme role (`SurfaceElevated` by default) or a literal color.
     pub fn fill(mut self, fill: impl Into<Fill>) -> Self {
         self.fill = fill.into();
         self
     }
 
+    /// Shows or hides the hairline border (shown by default).
     pub fn border(mut self, visible: bool) -> Self {
         self.border = visible;
         self
@@ -103,20 +109,24 @@ pub struct GlassCard<V> {
 }
 
 impl<V: View> GlassCard<V> {
+    /// A glass card around `content`.
     pub fn new(content: V) -> Self {
         Self { card: Card::new(content).fill(Color::hex_alpha(0xffffff1a)) }
     }
 
+    /// Corner radius in logical pixels (theme `radius-xl` by default).
     pub fn corner_radius(mut self, radius: f32) -> Self {
         self.card = self.card.corner_radius(radius);
         self
     }
 
+    /// Replaces the theme's `shadow-soft`.
     pub fn shadow(mut self, shadow: Shadow) -> Self {
         self.card = self.card.shadow(shadow);
         self
     }
 
+    /// Replaces the theme's card padding.
     pub fn padding(mut self, padding: impl Into<Insets>) -> Self {
         self.card = self.card.padding(padding);
         self

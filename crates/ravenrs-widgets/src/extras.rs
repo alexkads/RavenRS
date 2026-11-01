@@ -25,10 +25,12 @@ impl Default for Spinner {
 }
 
 impl Spinner {
+    /// A 20 px spinner.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Diameter in logical pixels (default 20).
     pub fn size(mut self, size: f32) -> Self {
         self.size = size;
         self
@@ -79,10 +81,12 @@ impl fmt::Debug for Carousel {
 }
 
 impl Carousel {
+    /// A carousel over `slides`, starting at the first.
     pub fn new(slides: Vec<AnyView>) -> Self {
         Self { slides, height: 240.0, autoplay: None }
     }
 
+    /// Slide area height in logical pixels (default 240).
     pub fn height(mut self, height: f32) -> Self {
         self.height = height;
         self
@@ -208,6 +212,16 @@ impl View for Carousel {
 }
 
 /// Two panes with a draggable divider between them.
+///
+/// ```
+/// use ravenrs_widgets::{Splitter, Text, Ui};
+///
+/// let split = Splitter::horizontal(Text::new("Files"), Text::new("Editor"))
+///     .ratio(0.3)
+///     .height(400.0);
+/// let mut ui = Ui::new(split, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Splitter<A, B> {
     first: A,
     second: B,
@@ -239,6 +253,7 @@ impl<A: View, B: View> Splitter<A, B> {
         self
     }
 
+    /// Total height in logical pixels (default 260).
     pub fn height(mut self, height: f32) -> Self {
         self.height = height;
         self
@@ -351,6 +366,7 @@ impl fmt::Debug for Menubar {
 }
 
 impl Menubar {
+    /// An empty menubar; add menus with [`Menubar::menu`].
     pub fn new() -> Self {
         Self::default()
     }
@@ -361,6 +377,7 @@ impl Menubar {
         self
     }
 
+    /// Adds an item to the current menu (ignored before the first `menu`).
     pub fn item(mut self, item: MenuItem) -> Self {
         if let Some((_, e)) = self.menus.last_mut() {
             e.push(Entry::Item(item));
@@ -368,6 +385,7 @@ impl Menubar {
         self
     }
 
+    /// Adds a separator to the current menu (ignored before the first `menu`).
     pub fn separator(mut self) -> Self {
         if let Some((_, e)) = self.menus.last_mut() {
             e.push(Entry::Separator);
@@ -465,6 +483,7 @@ impl fmt::Debug for InputOtp {
 }
 
 impl InputOtp {
+    /// `length` boxes (clamped to 1–12) editing `value`.
     pub fn new(value: Binding<String>, length: usize) -> Self {
         Self { value, length: length.clamp(1, 12), on_complete: None }
     }
@@ -584,6 +603,23 @@ pub type Rule = Rc<dyn Fn(&str) -> Result<(), String>>;
 ///
 /// Errors appear once the value is non-empty or the form was submitted
 /// (see [`FormField::show_errors`]), so empty forms do not start out red.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{FormField, TextField, Ui, validate};
+///
+/// let email = State::new("raven@".to_string());
+/// let field = FormField::new("Email", TextField::new(email.binding()))
+///     .hint("We never share it.")
+///     .validate(email.binding(), validate::email);
+/// assert!(field.error().is_some());
+///
+/// email.set("raven@example.com".into());
+/// assert_eq!(field.error(), None);
+///
+/// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct FormField<V> {
     label: crate::Label,
     content: V,
@@ -600,6 +636,7 @@ impl<V> fmt::Debug for FormField<V> {
 }
 
 impl<V: View> FormField<V> {
+    /// A field with this label above `content`.
     pub fn new(label: impl Into<String>, content: V) -> Self {
         Self {
             label: crate::Label::new(label),
@@ -611,12 +648,14 @@ impl<V: View> FormField<V> {
         }
     }
 
+    /// Marks the label with `*` and adds the [`validate::required`] rule (for the value set by [`FormField::validate`]).
     pub fn required(mut self) -> Self {
         self.label = self.label.required();
         self.rules.push(Rc::new(validate::required));
         self
     }
 
+    /// A muted caption under the content.
     pub fn hint(mut self, hint: impl Into<String>) -> Self {
         self.hint = Some(hint.into());
         self

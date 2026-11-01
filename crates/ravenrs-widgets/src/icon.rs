@@ -13,15 +13,18 @@ pub struct Icon {
 }
 
 impl Icon {
+    /// A 16 px icon in the `Ink` color.
     pub fn new(name: IconName) -> Self {
         Self { name, size: 16.0, color: Semantic::Ink.into() }
     }
 
+    /// Size in logical pixels (default 16).
     pub fn size(mut self, size: f32) -> Self {
         self.size = size;
         self
     }
 
+    /// Color, as a theme role (`Ink` by default) or a literal color.
     pub fn color(mut self, color: impl Into<Fill>) -> Self {
         self.color = color.into();
         self

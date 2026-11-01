@@ -34,6 +34,7 @@ impl fmt::Debug for Text {
 }
 
 impl Text {
+    /// Static text.
     pub fn new(text: impl Into<String>) -> Self {
         Self::with_content(Content::Static(text.into()))
     }
@@ -65,6 +66,7 @@ impl Text {
         self
     }
 
+    /// Overrides the style's weight.
     pub fn font_weight(mut self, weight: Weight) -> Self {
         self.weight = Some(weight);
         self

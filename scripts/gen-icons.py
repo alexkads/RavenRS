@@ -80,7 +80,8 @@ def main() -> None:
         "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]",
         "pub enum IconName {",
     ]
-    lines += [f"    {ident(n)}," for n in names]
+    for n in names:
+        lines += [f"    /// The Lucide `{n}` icon.", f"    {ident(n)},"]
     lines += ["}", "", "impl IconName {", "    /// Every icon, in catalog order.", "    pub const ALL: &[IconName] = &["]
     lines += [f"        IconName::{ident(n)}," for n in names]
     lines += ["    ];", "", "    /// The Lucide name, e.g. `\"chevron-down\"`.", "    pub fn name(self) -> &'static str {", "        match self {"]

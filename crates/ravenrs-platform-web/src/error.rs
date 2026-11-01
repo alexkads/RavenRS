@@ -2,13 +2,18 @@ use std::fmt;
 
 use ravenrs_render::GpuError;
 
+/// Why the app could not start in the browser. `Display` gives a message fit
+/// to show users.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum WebError {
     /// `navigator.gpu` is missing: the browser has no WebGPU or it is disabled.
     WebGpuUnavailable,
     /// No element with the given id, or it is not a `<canvas>`.
     CanvasNotFound(String),
+    /// The GPU adapter, device or canvas surface could not be created.
     Gpu(GpuError),
+    /// A browser API call failed; the text is the browser's message.
     Js(String),
 }
 

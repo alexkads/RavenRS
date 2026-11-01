@@ -1,5 +1,6 @@
 //! Data grid data model: values, columns and the data source.
 
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt;
 use std::rc::Rc;
@@ -10,15 +11,21 @@ use crate::AnyView;
 
 /// A cell value.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[non_exhaustive]
 pub enum Value {
+    /// No value; shown as an empty cell.
     #[default]
     Empty,
+    /// A string.
     Text(String),
+    /// A number.
     Number(f64),
+    /// A yes/no value.
     Bool(bool),
 }
 
 impl Value {
+    /// The numeric value: numbers as is, booleans as 0.0 or 1.0, otherwise `None`.
     pub fn as_f64(&self) -> Option<f64> {
         match self {
             Value::Number(n) => Some(*n),
@@ -27,6 +34,7 @@ impl Value {
         }
     }
 
+    /// The value is [`Value::Empty`].
     pub fn is_empty(&self) -> bool {
         matches!(self, Value::Empty)
     }
@@ -81,9 +89,12 @@ impl From<bool> for Value {
 /// One row: values in column order.
 pub type Row = Vec<Value>;
 
+/// Order of a sorted column.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SortDirection {
+    /// Smallest first.
     Ascending,
+    /// Largest first.
     Descending,
 }
 
@@ -98,15 +109,22 @@ impl SortDirection {
 
 /// An aggregate shown in group rows and in the footer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Summary {
+    /// Number of non-empty cells.
     Count,
+    /// Sum of the numeric values.
     Sum,
+    /// Mean of the numeric values.
     Average,
+    /// Smallest numeric value.
     Min,
+    /// Largest numeric value.
     Max,
 }
 
 impl Summary {
+    /// Short caption shown before the aggregate ("Sum", "Avg"…).
     pub fn label(self) -> &'static str {
         match self {
             Summary::Count => "Count",
@@ -118,21 +136,31 @@ impl Summary {
     }
 }
 
+/// Horizontal alignment of a column's cells.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CellAlign {
+    /// Left-aligned (text default).
     #[default]
     Start,
+    /// Centered.
     Center,
+    /// Right-aligned (number default).
     End,
 }
 
 /// How numbers are written: decimals, affixes and separators.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NumberFormat {
+    /// Digits after the decimal separator.
     pub decimals: usize,
+    /// Text before the number (e.g. a currency symbol).
     pub prefix: String,
+    /// Text after the number (e.g. `"%"`).
     pub suffix: String,
+    /// Thousands separator.
     pub thousands: char,
+    /// Decimal separator.
     pub decimal: char,
 }
 
@@ -143,6 +171,7 @@ impl Default for NumberFormat {
 }
 
 impl NumberFormat {
+    /// Formats `n`; non-finite numbers give an empty string.
     pub fn format(&self, n: f64) -> String {
         if !n.is_finite() {
             return String::new();
@@ -167,7 +196,9 @@ impl NumberFormat {
     }
 }
 
+/// Turns a cell value into its display text.
 pub type CellFormat = Rc<dyn Fn(&Value) -> String>;
+/// Builds a custom view for a cell value.
 pub type CellTemplate = Rc<dyn Fn(&Value) -> AnyView>;
 
 /// A data grid column: title, width, alignment, formatting and capabilities.
@@ -238,11 +269,13 @@ impl GridColumn {
         Self { align: CellAlign::Center, width: 100.0, ..Self::text(title) }
     }
 
+    /// Sets the width in logical pixels, never below the column's minimum.
     pub fn width(mut self, width: f32) -> Self {
         self.width = width.max(self.min_width);
         self
     }
 
+    /// Sets the cell alignment.
     pub fn align(mut self, align: CellAlign) -> Self {
         self.align = align;
         self
@@ -260,16 +293,19 @@ impl GridColumn {
         self
     }
 
+    /// Whether clicking the header sorts by this column (default true).
     pub fn sortable(mut self, sortable: bool) -> Self {
         self.sortable = sortable;
         self
     }
 
+    /// Whether the filter row has a field for this column (default true).
     pub fn filterable(mut self, filterable: bool) -> Self {
         self.filterable = filterable;
         self
     }
 
+    /// Whether rows can be grouped by this column (default true).
     pub fn groupable(mut self, groupable: bool) -> Self {
         self.groupable = groupable;
         self
@@ -299,20 +335,28 @@ impl GridColumn {
         self
     }
 
+    /// The header title.
     pub fn title(&self) -> &str {
         &self.title
     }
 
     /// The text shown for `value`.
     pub fn display(&self, value: &Value) -> String {
+        self.display_cow(value).into_owned()
+    }
+
+    /// [`GridColumn::display`] without copying text that is shown as stored.
+    pub(crate) fn display_cow<'a>(&self, value: &'a Value) -> Cow<'a, str> {
         if let Some(f) = &self.format {
-            return f(value);
+            return Cow::Owned(f(value));
         }
         match value {
-            Value::Empty => String::new(),
-            Value::Text(s) => s.clone(),
-            Value::Number(n) => self.number.as_ref().map_or_else(|| n.to_string(), |f| f.format(*n)),
-            Value::Bool(b) => if *b { "Yes" } else { "No" }.to_owned(),
+            Value::Empty => Cow::Borrowed(""),
+            Value::Text(s) => Cow::Borrowed(s),
+            Value::Number(n) => {
+                Cow::Owned(self.number.as_ref().map_or_else(|| n.to_string(), |f| f.format(*n)))
+            }
+            Value::Bool(b) => Cow::Borrowed(if *b { "Yes" } else { "No" }),
         }
     }
 
@@ -359,6 +403,7 @@ pub struct GridData {
 }
 
 impl GridData {
+    /// Data over these rows.
     pub fn new(rows: Vec<Row>) -> Self {
         Self { rows: State::new(Rc::new(rows)) }
     }
@@ -368,14 +413,17 @@ impl GridData {
         self.rows.get()
     }
 
+    /// Number of rows (untracked).
     pub fn len(&self) -> usize {
         self.rows.peek().len()
     }
 
+    /// There are no rows (untracked).
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Replaces one cell; out-of-range indices are ignored.
     pub fn set_cell(&self, row: usize, column: usize, value: Value) {
         self.rows.update(|rows| {
             if let Some(cell) = Rc::make_mut(rows).get_mut(row).and_then(|r| r.get_mut(column)) {
@@ -384,10 +432,12 @@ impl GridData {
         });
     }
 
+    /// Appends a row.
     pub fn push(&self, row: Row) {
         self.rows.update(|rows| Rc::make_mut(rows).push(row));
     }
 
+    /// Replaces all rows.
     pub fn replace(&self, rows: Vec<Row>) {
         self.rows.set(Rc::new(rows));
     }

@@ -17,6 +17,7 @@ pub struct State<T> {
 }
 
 impl<T: 'static> State<T> {
+    /// Creates a state holding `value`.
     pub fn new(value: T) -> Self {
         Self {
             inner: Rc::new(StateInner { value: RefCell::new(value), subscribers: Subscribers::default() }),

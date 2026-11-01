@@ -74,6 +74,7 @@ impl Default for Gallery {
 }
 
 impl Gallery {
+    /// Creates every page's state, the sample data and the generated images.
     pub fn new() -> Self {
         Self {
             page: State::new(0),

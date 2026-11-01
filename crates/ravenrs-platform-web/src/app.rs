@@ -21,14 +21,17 @@ use crate::WebError;
 pub struct WebOptions {
     /// Id of an existing `<canvas>` element. It should be sized with CSS.
     pub canvas_id: String,
+    /// The theme the app starts with.
     pub theme: Theme,
 }
 
 impl WebOptions {
+    /// Mounts on the `<canvas>` with this id, in the default theme.
     pub fn new(canvas_id: impl Into<String>) -> Self {
         Self { canvas_id: canvas_id.into(), theme: Theme::default() }
     }
 
+    /// Starts in `theme` instead of Raven Dark.
     pub fn theme(mut self, theme: Theme) -> Self {
         self.theme = theme;
         self
@@ -124,6 +127,7 @@ impl std::fmt::Debug for WebApp {
 }
 
 impl WebApp {
+    /// Unmounts the app now; the same as dropping it.
     pub fn destroy(self) {}
 }
 
@@ -609,6 +613,7 @@ fn dispatch(state: &Rc<RefCell<State>>, scheduler: &Scheduler, event: Event) -> 
             CursorIcon::Text => "text",
             CursorIcon::ColResize => "col-resize",
             CursorIcon::RowResize => "row-resize",
+            _ => "default",
         };
         s.canvas.style().set_property("cursor", css).ok();
         s.cursor = cursor;

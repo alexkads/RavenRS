@@ -36,10 +36,12 @@ impl fmt::Debug for Canvas {
 }
 
 impl Canvas {
+    /// A canvas drawn by `draw`, called on every paint with the absolute frame.
     pub fn new(draw: impl Fn(Rect, &mut Scene) + 'static) -> Self {
         Self { draw: Rc::new(draw), style: LayoutStyle::leaf() }
     }
 
+    /// Fixed size in logical pixels.
     pub fn size(mut self, width: f32, height: f32) -> Self {
         self.style.width = Some(width);
         self.style.height = Some(height);

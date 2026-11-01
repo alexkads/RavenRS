@@ -77,6 +77,7 @@ impl fmt::Debug for Ui {
 }
 
 impl Ui {
+    /// A runtime for `root` under `theme`, with an 800×600 viewport at scale 1.
     pub fn new(root: impl View + 'static, theme: Theme) -> Self {
         let state_dirty = Rc::new(Cell::new(true));
         let waker: Waker = Rc::new(RefCell::new(None));
@@ -136,14 +137,17 @@ impl Ui {
         }
     }
 
+    /// The viewport size in logical pixels.
     pub fn viewport(&self) -> Size {
         self.viewport
     }
 
+    /// The device scale factor (physical pixels per logical pixel).
     pub fn scale(&self) -> f32 {
         self.scale
     }
 
+    /// The current theme.
     pub fn theme(&self) -> Theme {
         *self.theme.peek()
     }
@@ -555,8 +559,10 @@ impl Ui {
         if let Some(widget) = focus
             && self.interaction.focused != Some(widget)
         {
+            // Focus moved by code keeps its ring only while the user is on the
+            // keyboard (arrow keys moving through a radio group, say).
+            self.interaction.focus_visible &= self.interaction.focused.is_some();
             self.interaction.focused = Some(widget);
-            self.interaction.focus_visible = false;
             // Rebuild once so the newly focused widget can draw its focus state.
             self.needs_build = true;
         }

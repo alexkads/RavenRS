@@ -65,10 +65,13 @@ struct Batch {
 pub struct RenderStats {
     /// Quad instances drawn, shadows included.
     pub quads: usize,
+    /// Glyphs drawn.
     pub glyphs: usize,
+    /// Draw calls issued for the frame.
     pub draw_calls: usize,
     /// Glyphs resident in the atlas.
     pub atlas_glyphs: usize,
+    /// Image quads drawn.
     pub images: usize,
     /// Image textures resident on the GPU.
     pub cached_images: usize,
@@ -579,6 +582,8 @@ impl Renderer {
                     }
                     self.extend_batch(BatchKind::Glyphs, start, self.glyphs.len() as u32);
                 }
+                // Primitives from a newer ravenrs-core this renderer does not know yet are skipped.
+                _ => {}
             }
         }
         Ok(())
@@ -639,6 +644,8 @@ fn push_quad(out: &mut Vec<QuadInstance>, quad: &Quad) {
         Brush::LinearGradient(g) => {
             (g.from.to_array(), g.to.to_array(), [g.start.x, g.start.y, g.end.x, g.end.y], 1.0)
         }
+        // Brushes from a newer ravenrs-core are drawn transparent rather than wrong.
+        _ => ([0.0; 4], [0.0; 4], [0.0; 4], 0.0),
     };
     let (border_width, border_color) = quad.border.map_or((0.0, [0.0; 4]), |b| (b.width, b.color.to_array()));
     out.push(QuadInstance {

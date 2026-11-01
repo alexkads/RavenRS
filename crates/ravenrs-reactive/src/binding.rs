@@ -12,6 +12,7 @@ pub struct Binding<T> {
 }
 
 impl<T: 'static> Binding<T> {
+    /// Creates a binding from a getter and a setter.
     pub fn new(get: impl Fn() -> T + 'static, set: impl Fn(T) + 'static) -> Self {
         Self { get: Rc::new(get), set: Rc::new(set) }
     }
@@ -24,14 +25,17 @@ impl<T: 'static> Binding<T> {
         Self::new(move || value.clone(), |_| {})
     }
 
+    /// Reads the current value through the getter.
     pub fn get(&self) -> T {
         (self.get)()
     }
 
+    /// Writes `value` through the setter.
     pub fn set(&self, value: T) {
         (self.set)(value)
     }
 
+    /// Reads the value, lets `f` modify it, and writes it back.
     pub fn update(&self, f: impl FnOnce(&mut T)) {
         let mut v = self.get();
         f(&mut v);

@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
+readme = "README.md"
 documentation = "https://docs.rs/ravenrs-text"
 keywords = ["gui", "text", "parley", "fonts"]
 categories = ["gui", "text-processing"]
@@ -16,6 +17,13 @@ include = ["src/**/*", "fonts/**/*", "Cargo.toml"]
 [dependencies]
 ravenrs-core.workspace = true
 parley.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "shaping"
+harness = false
 
 [lints]
 workspace = true

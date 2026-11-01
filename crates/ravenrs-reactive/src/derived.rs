@@ -20,6 +20,18 @@ pub struct Derived<T> {
 }
 
 impl<T: Clone + 'static> Derived<T> {
+    /// Creates a derived value from `compute`, which runs on the first read.
+    ///
+    /// ```
+    /// use ravenrs_reactive::{Derived, State};
+    ///
+    /// let count = State::new(2);
+    /// let c = count.clone();
+    /// let doubled = Derived::new(move || c.get() * 2);
+    /// assert_eq!(doubled.get(), 4);
+    /// count.set(5);
+    /// assert_eq!(doubled.get(), 10);
+    /// ```
     pub fn new(compute: impl Fn() -> T + 'static) -> Self {
         let inner = Rc::new_cyclic(|weak: &Weak<DerivedInner<T>>| {
             let weak = weak.clone();
@@ -37,6 +49,7 @@ impl<T: Clone + 'static> Derived<T> {
         Self { inner }
     }
 
+    /// Returns the cached value, recomputing it first if a dependency changed, and records the read.
     pub fn get(&self) -> T {
         self.inner.subscribers.track_read();
         if self.inner.observer.is_dirty() || self.inner.cache.borrow().is_none() {

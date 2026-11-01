@@ -20,10 +20,12 @@ pub struct ToggleButton {
 }
 
 impl ToggleButton {
+    /// A toggle button bound to `value`; clicking flips it.
     pub fn new(value: Binding<bool>, label: impl Into<String>) -> Self {
         Self { value, label: label.into(), icon: None }
     }
 
+    /// An icon before the label.
     pub fn icon(mut self, icon: IconName) -> Self {
         self.icon = Some(icon);
         self
@@ -281,15 +283,18 @@ pub struct Label {
 }
 
 impl Label {
+    /// A label with this text.
     pub fn new(text: impl Into<String>) -> Self {
         Self { text: text.into(), required: false, hint: None }
     }
 
+    /// Adds a red `*` after the text.
     pub fn required(mut self) -> Self {
         self.required = true;
         self
     }
 
+    /// A muted caption under the text.
     pub fn hint(mut self, hint: impl Into<String>) -> Self {
         self.hint = Some(hint.into());
         self
@@ -340,6 +345,7 @@ pub struct AspectRatio<V> {
 }
 
 impl<V: View> AspectRatio<V> {
+    /// Sizes `content` to `ratio` = width / height (e.g. `16.0 / 9.0`); at least 0.01.
     pub fn new(ratio: f32, content: V) -> Self {
         Self { ratio: ratio.max(0.01), content }
     }
@@ -351,9 +357,11 @@ impl<V: View> View for AspectRatio<V> {
         cx.container(
             LayoutStyle {
                 aspect_ratio: Some(self.ratio),
-                align: Align::Stretch,
                 align_self: Some(Align::Stretch),
                 overflow_hidden: true,
+                // A one-cell grid stretches the content over both axes, so any
+                // view (an image, a styled box) fills the ratio box.
+                grid_columns: Some(1),
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &[child],

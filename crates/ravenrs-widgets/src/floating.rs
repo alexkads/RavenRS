@@ -27,15 +27,18 @@ impl<V> fmt::Debug for ContextMenu<V> {
 }
 
 impl<V: View> ContextMenu<V> {
+    /// Wraps `content` with an initially empty menu.
     pub fn new(content: V) -> Self {
         Self { content, entries: Vec::new() }
     }
 
+    /// Appends a menu item.
     pub fn item(mut self, item: MenuItem) -> Self {
         self.entries.push(Entry::Item(item));
         self
     }
 
+    /// Appends a separator line.
     pub fn separator(mut self) -> Self {
         self.entries.push(Entry::Separator);
         self
@@ -83,6 +86,7 @@ impl<A, C> fmt::Debug for HoverCard<A, C> {
 }
 
 impl<A: View, C: View> HoverCard<A, C> {
+    /// Shows `content` below `trigger` on hover.
     pub fn new(trigger: A, content: C) -> Self {
         Self { trigger, content }
     }
@@ -104,9 +108,13 @@ impl<A: View, C: View> View for HoverCard<A, C> {
     }
 }
 
+/// The edge a [`Sheet`] slides in from.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Side {
+    /// The left edge.
     Left,
+    /// The right edge.
     #[default]
     Right,
 }
@@ -128,25 +136,30 @@ impl fmt::Debug for Sheet {
 }
 
 impl Sheet {
+    /// A sheet shown while `open` is true; slides from the right, 400 logical pixels wide.
     pub fn new(open: Binding<bool>, title: impl Into<String>) -> Self {
         Self { open, title: title.into(), description: None, content: None, side: Side::Right, width: 400.0 }
     }
 
+    /// Adds a muted description under the title.
     pub fn description(mut self, text: impl Into<String>) -> Self {
         self.description = Some(text.into());
         self
     }
 
+    /// Sets the sheet body.
     pub fn content(mut self, content: impl View + 'static) -> Self {
         self.content = Some(Box::new(content));
         self
     }
 
+    /// Sets the edge it slides in from.
     pub fn side(mut self, side: Side) -> Self {
         self.side = side;
         self
     }
 
+    /// Sets the panel width in logical pixels.
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
         self
@@ -239,6 +252,17 @@ pub struct Toast {
 
 /// A handle to show toasts from anywhere (event handlers, async tasks).
 /// Place one [`Toaster`] in the UI to display them.
+///
+/// ```
+/// use ravenrs_widgets::{Toaster, Toasts, Tone, Ui};
+///
+/// let toasts = Toasts::new();
+/// let mut ui = Ui::new(Toaster::new(toasts.clone()), ravenrs_style::Theme::raven_dark());
+///
+/// toasts.show("Saved", "Your changes are stored.", Tone::Success);
+/// assert_eq!(toasts.len(), 1);
+/// ui.update();
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct Toasts {
     list: State<Vec<Toast>>,
@@ -246,6 +270,7 @@ pub struct Toasts {
 }
 
 impl Toasts {
+    /// An empty toast list.
     pub fn new() -> Self {
         Self::default()
     }
@@ -255,6 +280,7 @@ impl Toasts {
         self.show_for(title, message, tone, 4.0);
     }
 
+    /// Shows a toast for `seconds` seconds. At most four are kept; the oldest go first.
     pub fn show_for(&self, title: impl Into<String>, message: impl Into<String>, tone: Tone, seconds: f64) {
         let id = self.next.get();
         self.next.set(id + 1);
@@ -274,14 +300,17 @@ impl Toasts {
         });
     }
 
+    /// Removes the toast with this id, if still shown.
     pub fn dismiss(&self, id: u64) {
         self.list.update(|l| l.retain(|t| t.id != id));
     }
 
+    /// Number of toasts currently shown.
     pub fn len(&self) -> usize {
         self.list.peek().len()
     }
 
+    /// No toast is shown.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -293,6 +322,7 @@ impl Toasts {
 pub struct Toaster(Toasts);
 
 impl Toaster {
+    /// Displays the toasts of `toasts`.
     pub fn new(toasts: Toasts) -> Self {
         Self(toasts)
     }
@@ -406,6 +436,7 @@ impl fmt::Debug for Command {
 }
 
 impl Command {
+    /// A command labeled `label`; `action` runs when it is chosen.
     pub fn new(label: impl Into<String>, action: impl Fn() + 'static) -> Self {
         Self {
             label: label.into(),
@@ -416,16 +447,19 @@ impl Command {
         }
     }
 
+    /// Lists the command under this group heading.
     pub fn group(mut self, group: impl Into<String>) -> Self {
         self.group = group.into();
         self
     }
 
+    /// Shows an icon before the label.
     pub fn icon(mut self, icon: IconName) -> Self {
         self.icon = Some(icon);
         self
     }
 
+    /// Shows a shortcut hint, e.g. `"⌘S"` (display only).
     pub fn shortcut(mut self, shortcut: impl Into<String>) -> Self {
         self.shortcut = Some(shortcut.into());
         self
@@ -441,6 +475,19 @@ pub(crate) fn fuzzy_match(text: &str, query: &str) -> bool {
 
 /// A searchable list of commands in a modal, opened with Cmd/Ctrl+K.
 /// Type to filter (fuzzy), use ↑ ↓ to choose, Enter to run, Escape to close.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Command, CommandPalette, IconName, Ui};
+///
+/// let open = State::new(true);
+/// let palette = CommandPalette::new(open.binding())
+///     .command(Command::new("New file", || {}).group("File").icon(IconName::Plus).shortcut("⌘N"))
+///     .command(Command::new("Toggle theme", || {}).group("View"));
+///
+/// let mut ui = Ui::new(palette, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct CommandPalette {
     open: Binding<bool>,
     commands: Vec<Command>,
@@ -454,15 +501,18 @@ impl fmt::Debug for CommandPalette {
 }
 
 impl CommandPalette {
+    /// A palette shown while `open` is true; Cmd/Ctrl+K toggles it.
     pub fn new(open: Binding<bool>) -> Self {
         Self { open, commands: Vec::new(), placeholder: "Type a command or search…".into() }
     }
 
+    /// Appends a command.
     pub fn command(mut self, command: Command) -> Self {
         self.commands.push(command);
         self
     }
 
+    /// Sets the search box placeholder.
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
         self.placeholder = text.into();
         self
@@ -625,6 +675,7 @@ pub struct Combobox {
 }
 
 impl Combobox {
+    /// A combobox over `options`; `selected` holds the zero-based index of the choice, or `None`.
     pub fn new(
         selected: Binding<Option<usize>>,
         options: impl IntoIterator<Item = impl Into<String>>,
@@ -637,11 +688,13 @@ impl Combobox {
         }
     }
 
+    /// Sets the text shown when nothing is selected.
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
         self.placeholder = text.into();
         self
     }
 
+    /// Sets the width in logical pixels (240 by default).
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
         self

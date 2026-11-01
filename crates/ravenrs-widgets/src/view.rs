@@ -6,6 +6,7 @@ use crate::context::{BuildCx, NodeId};
 /// read state, create layout boxes and paint instructions through `cx`, and
 /// return the node that represents this view.
 pub trait View {
+    /// Creates this view's node for the current build.
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId;
 }
 
@@ -33,6 +34,7 @@ pub trait View {
 /// }
 /// ```
 pub trait Component {
+    /// The views this component is made of; called on every rebuild.
     fn body(&self) -> impl View;
 }
 
@@ -72,6 +74,7 @@ pub struct Keyed<V> {
 }
 
 impl<V: View> Keyed<V> {
+    /// Wraps `view` with identity `key`.
     pub fn new(key: u64, view: V) -> Self {
         Self { key, view }
     }
@@ -164,6 +167,7 @@ where
 /// An ordered collection of child views: tuples of up to 12 views, `Vec<V>`
 /// and `Vec<AnyView>`.
 pub trait ViewSeq {
+    /// Builds each child in order and appends its node to `out`.
     fn build_each(&self, cx: &mut BuildCx<'_>, out: &mut Vec<NodeId>);
 }
 

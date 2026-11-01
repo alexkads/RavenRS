@@ -10,8 +10,11 @@ use crate::{Color, Point, Rect};
 
 /// How a shape is filled.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Brush {
+    /// A single flat color.
     Solid(Color),
+    /// A two-stop linear gradient.
     LinearGradient(LinearGradient),
 }
 
@@ -31,21 +34,29 @@ impl From<LinearGradient> for Brush {
 /// rectangle: `(0, 0)` is its top-left corner and `(1, 1)` its bottom-right.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LinearGradient {
+    /// Gradient start, relative to the shape's rectangle.
     pub start: Point,
+    /// Gradient end, relative to the shape's rectangle.
     pub end: Point,
+    /// Color at `start`.
     pub from: Color,
+    /// Color at `end`.
     pub to: Color,
 }
 
 impl LinearGradient {
+    /// Top-to-bottom gradient from `from` to `to`.
     pub const fn vertical(from: Color, to: Color) -> Self {
         Self { start: Point::new(0.0, 0.0), end: Point::new(0.0, 1.0), from, to }
     }
 }
 
+/// A solid stroke drawn inside a shape's edge.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Border {
+    /// Stroke width in logical pixels.
     pub width: f32,
+    /// Stroke color.
     pub color: Color,
 }
 
@@ -53,8 +64,11 @@ pub struct Border {
 /// matching what CSS `box-shadow` calls the blur radius.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Shadow {
+    /// Shadow offset from the shape, in logical pixels.
     pub offset: Point,
+    /// Blur radius in logical pixels (CSS `box-shadow` semantics).
     pub blur: f32,
+    /// Shadow color, usually translucent black.
     pub color: Color,
 }
 
@@ -74,29 +88,45 @@ impl Shadow {
 /// a signed-distance function, so corners stay crisp at any scale factor.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Quad {
+    /// Bounds of the rectangle, in logical pixels.
     pub rect: Rect,
     /// Corner radii: top-left, top-right, bottom-right, bottom-left.
     pub corner_radii: [f32; 4],
+    /// Interior fill.
     pub fill: Brush,
+    /// Optional stroke along the edge.
     pub border: Option<Border>,
+    /// Optional drop shadow drawn behind the shape.
     pub shadow: Option<Shadow>,
 }
 
 impl Quad {
+    /// Creates a sharp-cornered quad with no border or shadow.
+    ///
+    /// ```
+    /// use ravenrs_core::{Color, Quad, Rect, Scene};
+    ///
+    /// let mut scene = Scene::new();
+    /// scene.push_quad(Quad::new(Rect::new(0.0, 0.0, 120.0, 32.0), Color::hex(0x3b82f6)).radius(6.0));
+    /// assert_eq!(scene.len(), 1);
+    /// ```
     pub fn new(rect: Rect, fill: impl Into<Brush>) -> Self {
         Self { rect, corner_radii: [0.0; 4], fill: fill.into(), border: None, shadow: None }
     }
 
+    /// Sets all four corner radii to `r` logical pixels.
     pub fn radius(mut self, r: f32) -> Self {
         self.corner_radii = [r; 4];
         self
     }
 
+    /// Adds a border of `width` logical pixels.
     pub fn border(mut self, width: f32, color: Color) -> Self {
         self.border = Some(Border { width, color });
         self
     }
 
+    /// Adds a drop shadow.
     pub fn shadow(mut self, shadow: Shadow) -> Self {
         self.shadow = Some(shadow);
         self
@@ -106,13 +136,16 @@ impl Quad {
 /// Font bytes plus a stable identity used as a cache key by the glyph atlas.
 #[derive(Clone)]
 pub struct FontRef {
+    /// Unique identity of these font bytes; equal ids must mean equal data.
     pub id: u64,
+    /// Raw font file bytes (TTF, OTF or a collection).
     pub data: Arc<dyn AsRef<[u8]> + Send + Sync>,
     /// Index inside a font collection; 0 for single-font files.
     pub index: u32,
 }
 
 impl FontRef {
+    /// Borrows the raw font file bytes.
     pub fn bytes(&self) -> &[u8] {
         (*self.data).as_ref()
     }
@@ -130,21 +163,27 @@ impl PartialEq for FontRef {
     }
 }
 
+/// One shaped glyph and its pen position.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PositionedGlyph {
+    /// Glyph index inside the font.
     pub id: u32,
     /// Pen position on the baseline, in logical pixels.
     pub x: f32,
+    /// Baseline position in logical pixels.
     pub y: f32,
 }
 
 /// Shaped glyphs sharing one font, size and color.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GlyphRun {
+    /// Font the glyphs come from.
     pub font: FontRef,
     /// Font size in logical pixels.
     pub size: f32,
+    /// Text color.
     pub color: Color,
+    /// Glyphs in drawing order.
     pub glyphs: Vec<PositionedGlyph>,
 }
 
@@ -188,18 +227,22 @@ impl ImageData {
         self.id
     }
 
+    /// Width in pixels.
     pub fn width(&self) -> u32 {
         self.width
     }
 
+    /// Height in pixels.
     pub fn height(&self) -> u32 {
         self.height
     }
 
+    /// RGBA8 pixel bytes, row-major, `width * height * 4` long.
     pub fn pixels(&self) -> &[u8] {
         &self.pixels
     }
 
+    /// Width divided by height.
     pub fn aspect_ratio(&self) -> f32 {
         self.width as f32 / self.height as f32
     }
@@ -220,33 +263,45 @@ impl PartialEq for ImageData {
 /// An image drawn into a rectangle, with optional rounded corners.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImageQuad {
+    /// Destination rectangle in logical pixels.
     pub rect: Rect,
+    /// Image to draw.
     pub image: ImageData,
     /// The part of the image to show, in normalized coordinates (u0, v0, u1, v1).
     pub uv: [f32; 4],
+    /// Corner radii in logical pixels: top-left, top-right, bottom-right, bottom-left.
     pub corner_radii: [f32; 4],
+    /// Opacity multiplier, `0.0` to `1.0`.
     pub opacity: f32,
 }
 
 impl ImageQuad {
+    /// Draws the whole image stretched into `rect`, opaque and sharp-cornered.
     pub fn new(rect: Rect, image: ImageData) -> Self {
         Self { rect, image, uv: [0.0, 0.0, 1.0, 1.0], corner_radii: [0.0; 4], opacity: 1.0 }
     }
 
+    /// Sets all four corner radii to `r` logical pixels.
     pub fn radius(mut self, r: f32) -> Self {
         self.corner_radii = [r; 4];
         self
     }
 }
 
+/// One entry of the display list.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Primitive {
+    /// A rounded rectangle.
     Quad(Quad),
+    /// A run of shaped glyphs.
     Glyphs(GlyphRun),
+    /// A textured rectangle.
     Image(ImageQuad),
     /// Restricts everything until the matching [`Primitive::PopClip`] to the
     /// intersection of this rectangle and the enclosing clip.
     PushClip(Rect),
+    /// Restores the clip active before the matching [`Primitive::PushClip`].
     PopClip,
 }
 
@@ -258,6 +313,7 @@ pub struct Scene {
 }
 
 impl Scene {
+    /// Creates an empty display list with a transparent clear color.
     pub fn new() -> Self {
         Self::default()
     }
@@ -267,24 +323,29 @@ impl Scene {
         self.primitives.clear();
     }
 
+    /// Sets the color the frame is cleared to before drawing.
     pub fn set_clear_color(&mut self, color: Color) {
         self.clear_color = color;
     }
 
+    /// Color the frame is cleared to before drawing.
     pub fn clear_color(&self) -> Color {
         self.clear_color
     }
 
+    /// Appends a rounded rectangle.
     pub fn push_quad(&mut self, quad: Quad) {
         self.primitives.push(Primitive::Quad(quad));
     }
 
+    /// Appends a glyph run; empty runs are skipped.
     pub fn push_glyphs(&mut self, run: GlyphRun) {
         if !run.glyphs.is_empty() {
             self.primitives.push(Primitive::Glyphs(run));
         }
     }
 
+    /// Appends an image.
     pub fn push_image(&mut self, image: ImageQuad) {
         self.primitives.push(Primitive::Image(image));
     }
@@ -295,18 +356,22 @@ impl Scene {
         self.primitives.push(Primitive::PushClip(rect));
     }
 
+    /// Ends the clip started by the matching [`Scene::push_clip`].
     pub fn pop_clip(&mut self) {
         self.primitives.push(Primitive::PopClip);
     }
 
+    /// All primitives in painter's order.
     pub fn primitives(&self) -> &[Primitive] {
         &self.primitives
     }
 
+    /// Number of primitives.
     pub fn len(&self) -> usize {
         self.primitives.len()
     }
 
+    /// Returns `true` when no primitives have been pushed.
     pub fn is_empty(&self) -> bool {
         self.primitives.is_empty()
     }

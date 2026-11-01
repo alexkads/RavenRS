@@ -12,6 +12,17 @@ use crate::date::Date;
 use crate::{ButtonSize, IconButton, IconName, View, util};
 
 /// A month grid to pick a date. Use ‹ › to change month.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Calendar, Date, Ui};
+///
+/// let today = Date::new(2026, 10, 31).unwrap();
+/// let picked = State::new(None::<Date>);
+/// let calendar = Calendar::new(picked.binding(), today).today(today);
+/// let mut ui = Ui::new(calendar, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Calendar {
     selected: Binding<Option<Date>>,
     initial_month: Date,
@@ -216,16 +227,19 @@ impl DatePicker {
         Self { value, month, placeholder: "Pick a date".into(), today: None, width: 220.0 }
     }
 
+    /// Text shown while no date is selected ("Pick a date" by default).
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
         self.placeholder = text.into();
         self
     }
 
+    /// Marks this day with a ring in the calendar.
     pub fn today(mut self, today: Date) -> Self {
         self.today = Some(today);
         self
     }
 
+    /// Field width in logical pixels (default 220).
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
         self

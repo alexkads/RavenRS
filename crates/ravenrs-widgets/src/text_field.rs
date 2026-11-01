@@ -13,6 +13,16 @@ use crate::{IconName, View, util};
 ///
 /// Supports typing, Backspace/Delete, arrows, Home/End and Enter (submit).
 /// Clipboard and IME composition are planned.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{IconName, TextField, Ui};
+///
+/// let query = State::new(String::new());
+/// let field = TextField::new(query.binding()).placeholder("Search").icon(IconName::Search);
+/// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct TextField {
     value: Binding<String>,
     placeholder: String,
@@ -33,6 +43,7 @@ impl fmt::Debug for TextField {
 }
 
 impl TextField {
+    /// An empty-placeholder field bound to `value`.
     pub fn new(value: Binding<String>) -> Self {
         Self {
             value,
@@ -48,6 +59,7 @@ impl TextField {
         }
     }
 
+    /// Muted text shown while the value is empty.
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
         self.placeholder = text.into();
         self
@@ -65,6 +77,7 @@ impl TextField {
         self
     }
 
+    /// Fixed width in logical pixels; by default the field stretches.
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
         self

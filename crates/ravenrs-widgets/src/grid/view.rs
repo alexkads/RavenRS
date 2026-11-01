@@ -20,7 +20,9 @@ use crate::{
 
 /// How rows can be selected.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SelectionMode {
+    /// Rows cannot be selected.
     None,
     /// One row at a time; arrow keys move the selection.
     #[default]
@@ -34,6 +36,24 @@ pub enum SelectionMode {
 /// group summaries, footer totals, column resizing and visibility, single or
 /// multiple selection, keyboard navigation, in-place editing, cell templates and
 /// CSV export. Only the visible rows are built, so 100,000+ rows stay smooth.
+///
+/// ```
+/// use ravenrs_widgets::{DataGrid, GridColumn, GridData, SortDirection, Summary, Ui};
+///
+/// let data = GridData::new(vec![
+///     vec!["Acme".into(), 1200.0.into()],
+///     vec!["Globex".into(), 860.5.into()],
+/// ]);
+/// let grid = DataGrid::new(
+///     data,
+///     [GridColumn::text("Customer"), GridColumn::currency("MRR", "$", 2).summary(Summary::Sum)],
+/// )
+/// .sort_by(1, SortDirection::Descending)
+/// .height(320.0);
+///
+/// let mut ui = Ui::new(grid, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct DataGrid {
     data: GridData,
     columns: Vec<GridColumn>,
@@ -61,6 +81,7 @@ impl fmt::Debug for DataGrid {
 }
 
 impl DataGrid {
+    /// A grid over `data` with these columns; single selection, filter row, toolbar and footer on.
     pub fn new(data: GridData, columns: impl IntoIterator<Item = GridColumn>) -> Self {
         Self {
             data,
@@ -80,6 +101,7 @@ impl DataGrid {
         }
     }
 
+    /// Sets how rows can be selected (single by default).
     pub fn selection_mode(mut self, mode: SelectionMode) -> Self {
         self.selection_mode = mode;
         self
@@ -103,11 +125,13 @@ impl DataGrid {
         self
     }
 
+    /// Shows or hides the filter row under the header.
     pub fn filter_row(mut self, show: bool) -> Self {
         self.filter_row = show;
         self
     }
 
+    /// Shows or hides the search box in the toolbar.
     pub fn search_panel(mut self, show: bool) -> Self {
         self.search_panel = show;
         self
@@ -131,11 +155,13 @@ impl DataGrid {
         self
     }
 
+    /// Sets the row height in logical pixels (36 by default, at least 24).
     pub fn row_height(mut self, height: f32) -> Self {
         self.row_height = height.max(24.0);
         self
     }
 
+    /// Shades every other row.
     pub fn striped(mut self, striped: bool) -> Self {
         self.striped = striped;
         self

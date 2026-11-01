@@ -11,7 +11,7 @@ authors.workspace = true
 documentation = "https://docs.rs/ravenrs"
 keywords = ["gui", "ui", "wgpu", "webgpu", "wasm"]
 categories = ["gui", "graphics", "wasm"]
-readme = "../../README.md"
+readme = "README.md"
 
 [dependencies]
 ravenrs-core.workspace = true
@@ -27,6 +27,10 @@ ravenrs-platform-native.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 ravenrs-platform-web.workspace = true
+
+[dev-dependencies]
+pollster.workspace = true
+image = { workspace = true }
 
 [lints]
 workspace = true

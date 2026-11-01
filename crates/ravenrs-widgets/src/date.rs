@@ -3,6 +3,16 @@
 
 use std::fmt;
 
+/// A calendar date (year, month, day), always valid.
+///
+/// ```
+/// use ravenrs_widgets::Date;
+///
+/// let d = Date::new(2026, 1, 31).unwrap();
+/// assert_eq!(d.add_months(1).to_string(), "2026-02-28");
+/// assert_eq!(d.add_days(1).short(), "Feb 1, 2026");
+/// assert!(Date::new(2026, 2, 30).is_none());
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Date {
     year: i32,
@@ -35,14 +45,17 @@ impl Date {
             .map(|_| Self { year, month, day })
     }
 
+    /// The year, e.g. 2026.
     pub fn year(self) -> i32 {
         self.year
     }
 
+    /// The month, 1 = January … 12 = December.
     pub fn month(self) -> u8 {
         self.month
     }
 
+    /// The day of the month, starting at 1.
     pub fn day(self) -> u8 {
         self.day
     }
@@ -72,6 +85,7 @@ impl Date {
         Self { year, month, day: self.day.min(days_in_month(year, month)) }
     }
 
+    /// Moves by `days` (negative goes back).
     pub fn add_days(self, days: i32) -> Self {
         Self::from_days(self.to_days() + i64::from(days))
     }
@@ -88,6 +102,7 @@ impl Date {
         era * 146_097 + doe - 719_468
     }
 
+    /// The date `days` days after 1970-01-01 (inverse of [`Date::to_days`]).
     pub fn from_days(days: i64) -> Self {
         let z = days + 719_468;
         let era = z.div_euclid(146_097);
@@ -119,10 +134,12 @@ impl fmt::Display for Date {
     }
 }
 
+/// Whether `year` has a February 29 (Gregorian rules).
 pub fn is_leap_year(year: i32) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
+/// Number of days in `month` (1–12) of `year`.
 pub fn days_in_month(year: i32, month: u8) -> u8 {
     match month {
         2 if is_leap_year(year) => 29,

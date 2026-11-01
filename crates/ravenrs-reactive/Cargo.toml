@@ -8,11 +8,15 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
+readme = "README.md"
 documentation = "https://docs.rs/ravenrs-reactive"
 keywords = ["reactive", "state", "signals", "gui"]
 categories = ["gui"]
 
 [dependencies]
+
+[dev-dependencies]
+proptest.workspace = true
 
 [lints]
 workspace = true

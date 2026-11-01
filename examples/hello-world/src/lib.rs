@@ -20,6 +20,7 @@ impl std::fmt::Debug for MetricCard {
 }
 
 impl MetricCard {
+    /// A card titled `label` showing `value`, with a note recomputed on every build.
     pub fn new(label: &'static str, value: &'static str, note: impl Fn() -> String + 'static) -> Self {
         Self { label, value, note: Rc::new(note) }
     }

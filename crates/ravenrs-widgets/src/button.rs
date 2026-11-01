@@ -8,7 +8,9 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
 use crate::{IconName, View, util};
 
+/// Visual emphasis of a [`Button`] or other control.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ButtonStyle {
     /// Accent fill; one per view.
     #[default]
@@ -21,11 +23,16 @@ pub enum ButtonStyle {
     Danger,
 }
 
+/// Height and horizontal padding of a [`Button`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ButtonSize {
+    /// 32 px tall, smaller text; dense toolbars and table rows.
     Small,
+    /// 40 px tall; the default.
     #[default]
     Medium,
+    /// 48 px tall; prominent calls to action.
     Large,
 }
 
@@ -117,6 +124,21 @@ pub(crate) fn control_colors(
 }
 
 /// A clickable, focusable button. Activates on click, Enter or Space.
+///
+/// ```
+/// use std::cell::Cell;
+/// use std::rc::Rc;
+/// use ravenrs_widgets::{Button, ButtonStyle, IconName, Ui};
+///
+/// let saved = Rc::new(Cell::new(false));
+/// let flag = saved.clone();
+/// let button = Button::new("Save")
+///     .icon(IconName::Check)
+///     .style(ButtonStyle::Secondary)
+///     .on_click(move || flag.set(true));
+/// let mut ui = Ui::new(button, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Button {
     label: String,
     on_click: Option<Rc<dyn Fn()>>,
@@ -135,6 +157,7 @@ impl fmt::Debug for Button {
 }
 
 impl Button {
+    /// A primary, medium button with this label. An empty label makes it icon-only.
     pub fn new(label: impl Into<String>) -> Self {
         Self {
             label: label.into(),
@@ -148,16 +171,19 @@ impl Button {
         }
     }
 
+    /// Runs `handler` when the button is clicked or activated with Enter or Space.
     pub fn on_click(mut self, handler: impl Fn() + 'static) -> Self {
         self.on_click = Some(Rc::new(handler));
         self
     }
 
+    /// Sets the visual emphasis (`Primary` by default).
     pub fn style(mut self, style: ButtonStyle) -> Self {
         self.style = style;
         self
     }
 
+    /// Sets the height and padding (`Medium` by default).
     pub fn size(mut self, size: ButtonSize) -> Self {
         self.size = size;
         self
@@ -175,6 +201,7 @@ impl Button {
         self
     }
 
+    /// Greys the button out and ignores clicks and focus.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
@@ -237,20 +264,24 @@ pub struct IconButton {
 }
 
 impl IconButton {
+    /// A ghost icon button showing `icon`.
     pub fn new(icon: IconName) -> Self {
         Self { button: Button::new("").icon(icon).style(ButtonStyle::Ghost) }
     }
 
+    /// Runs `handler` when the button is clicked or activated with Enter or Space.
     pub fn on_click(mut self, handler: impl Fn() + 'static) -> Self {
         self.button = self.button.on_click(handler);
         self
     }
 
+    /// Sets the visual emphasis (`Ghost` by default).
     pub fn style(mut self, style: ButtonStyle) -> Self {
         self.button = self.button.style(style);
         self
     }
 
+    /// Sets the size; the button stays square (`Medium`, 40 px, by default).
     pub fn size(mut self, size: ButtonSize) -> Self {
         self.button = self.button.size(size);
         self

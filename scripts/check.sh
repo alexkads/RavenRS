@@ -15,8 +15,28 @@ cargo clippy --workspace --all-targets -- -D warnings
 step "clippy (wasm32)"
 cargo clippy -p ravenrs -p ravenrs-platform-web -p hello-world -p component-gallery --target wasm32-unknown-unknown -- -D warnings
 
-step "tests (GPU tests skip themselves without an adapter)"
+step "tests: unit, behavior, property, doc, GPU pixel and golden-image (GPU tests skip without an adapter)"
 cargo test --workspace
+
+step "optional features are optional"
+cargo check -p ravenrs --no-default-features
+
+step "minimum supported Rust version (1.88)"
+if rustup toolchain list | grep -q '^1.88'; then
+    cargo +1.88 check --workspace --exclude hello-world --exclude component-gallery
+else
+    echo "skipped: install it with 'rustup toolchain install 1.88'"
+fi
+
+step "dependencies: advisories, licenses, sources (cargo-deny)"
+if command -v cargo-deny >/dev/null; then
+    cargo deny check
+else
+    echo "skipped: install it with 'cargo install cargo-deny --locked'"
+fi
+
+step "benchmarks compile"
+cargo bench --workspace --no-run --quiet
 
 step "API docs (broken links fail)"
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --exclude hello-world --exclude component-gallery --quiet

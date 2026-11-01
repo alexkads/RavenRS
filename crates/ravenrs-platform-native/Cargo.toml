@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
+readme = "README.md"
 documentation = "https://docs.rs/ravenrs-platform-native"
 keywords = ["gui", "winit", "wgpu", "desktop"]
 categories = ["gui"]

@@ -37,13 +37,18 @@ pub struct NodeId(pub(crate) u32);
 /// A rounded rectangle painted behind an element's children.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct QuadPaint {
+    /// Fill color or gradient.
     pub fill: Brush,
+    /// Corner radius in logical pixels.
     pub corner_radius: f32,
+    /// Optional border stroke.
     pub border: Option<Border>,
+    /// Optional drop shadow.
     pub shadow: Option<Shadow>,
 }
 
 impl QuadPaint {
+    /// A square-cornered quad with this fill, no border and no shadow.
     pub fn new(fill: impl Into<Brush>) -> Self {
         Self { fill: fill.into(), corner_radius: 0.0, border: None, shadow: None }
     }
@@ -55,8 +60,10 @@ pub type DrawFn = Rc<dyn Fn(Rect, &mut Scene)>;
 /// What an element draws before its children.
 #[derive(Clone, Default)]
 pub enum Paint {
+    /// Draws nothing.
     #[default]
     None,
+    /// A rounded rectangle.
     Quad(QuadPaint),
     /// Arbitrary drawing into the scene, given the element's absolute frame.
     Custom(DrawFn),
@@ -77,17 +84,24 @@ pub type KeyHandler = Rc<dyn Fn(&Key, Modifiers) -> bool>;
 
 /// Phase of a pointer drag that started on an element.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DragPhase {
+    /// The pointer went down and started moving.
     Start,
+    /// The pointer moved while dragging.
     Move,
+    /// The pointer was released.
     End,
 }
 
 /// A pointer drag on an element, in absolute logical pixels, with the element's frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Drag {
+    /// Which part of the drag this event is.
     pub phase: DragPhase,
+    /// Pointer position in absolute logical pixels.
     pub position: Point,
+    /// The dragged element's absolute frame.
     pub frame: Rect,
     /// The frame of the dragged element's parent (e.g. a splitter's container).
     pub container: Rect,
@@ -103,10 +117,12 @@ impl Drag {
     }
 }
 
+/// Called for each phase of a pointer drag on an element.
 pub type DragHandler = Rc<dyn Fn(Drag)>;
 
 /// Where an overlay is placed relative to its anchor.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Placement {
     /// Below the anchor, left edges aligned.
     Below,
@@ -322,6 +338,7 @@ impl<'a> BuildCx<'a> {
         }
     }
 
+    /// The theme in effect for this build.
     pub fn theme(&self) -> &Theme {
         &self.theme
     }
@@ -379,6 +396,7 @@ impl<'a> BuildCx<'a> {
         self.interaction.pressed == Some(self.widget_id())
     }
 
+    /// Keyboard focus is on this view.
     pub fn is_focused(&self) -> bool {
         self.interaction.focused == Some(self.widget_id())
     }

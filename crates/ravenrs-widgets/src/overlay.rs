@@ -49,6 +49,7 @@ impl<V> fmt::Debug for Tooltip<V> {
 }
 
 impl<V: View> Tooltip<V> {
+    /// Shows `text` over `content` on hover.
     pub fn new(content: V, text: impl Into<String>) -> Self {
         Self { content, text: text.into() }
     }
@@ -102,6 +103,7 @@ impl<A, C> fmt::Debug for Popover<A, C> {
 }
 
 impl<A: View, C: View> Popover<A, C> {
+    /// Shows `content` below `anchor` while `open` is true.
     pub fn new(open: Binding<bool>, anchor: A, content: C) -> Self {
         Self { open, anchor, content }
     }
@@ -148,25 +150,30 @@ impl fmt::Debug for MenuItem {
 }
 
 impl MenuItem {
+    /// A menu item labeled `label`.
     pub fn new(label: impl Into<String>) -> Self {
         Self { label: label.into(), icon: None, shortcut: None, destructive: false, on_select: None }
     }
 
+    /// Shows an icon before the label.
     pub fn icon(mut self, icon: IconName) -> Self {
         self.icon = Some(icon);
         self
     }
 
+    /// Shows a shortcut hint at the trailing edge, e.g. `"⌘C"` (display only).
     pub fn shortcut(mut self, shortcut: impl Into<String>) -> Self {
         self.shortcut = Some(shortcut.into());
         self
     }
 
+    /// Paints the item in the danger color (Delete, Remove…).
     pub fn destructive(mut self) -> Self {
         self.destructive = true;
         self
     }
 
+    /// Runs `handler` when the item is chosen; the menu closes first.
     pub fn on_select(mut self, handler: impl Fn() + 'static) -> Self {
         self.on_select = Some(Rc::new(handler));
         self
@@ -193,25 +200,30 @@ impl fmt::Debug for DropdownMenu {
 }
 
 impl DropdownMenu {
+    /// A secondary button labeled `label` with an empty menu.
     pub fn new(label: impl Into<String>) -> Self {
         Self { label: label.into(), icon: None, style: ButtonStyle::Secondary, entries: Vec::new() }
     }
 
+    /// Shows an icon before the label.
     pub fn icon(mut self, icon: IconName) -> Self {
         self.icon = Some(icon);
         self
     }
 
+    /// Sets the trigger button style.
     pub fn style(mut self, style: ButtonStyle) -> Self {
         self.style = style;
         self
     }
 
+    /// Appends a menu item.
     pub fn item(mut self, item: MenuItem) -> Self {
         self.entries.push(Entry::Item(item));
         self
     }
 
+    /// Appends a separator line.
     pub fn separator(mut self) -> Self {
         self.entries.push(Entry::Separator);
         self
@@ -362,10 +374,12 @@ pub struct Select {
 }
 
 impl Select {
+    /// A select over `options`; `selected` holds the zero-based index of the choice.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self { selected, options: options.into_iter().map(Into::into).collect(), width: 220.0 }
     }
 
+    /// Sets the width in logical pixels (220 by default).
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
         self
@@ -485,15 +499,18 @@ impl fmt::Debug for Dialog {
 }
 
 impl Dialog {
+    /// A dialog shown while `open` is true.
     pub fn new(open: Binding<bool>, title: impl Into<String>) -> Self {
         Self { open, title: title.into(), description: None, content: None, actions: Vec::new() }
     }
 
+    /// Adds a muted description under the title.
     pub fn description(mut self, text: impl Into<String>) -> Self {
         self.description = Some(text.into());
         self
     }
 
+    /// Sets the dialog body.
     pub fn content(mut self, content: impl View + 'static) -> Self {
         self.content = Some(Box::new(content));
         self

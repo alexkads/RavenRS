@@ -3,16 +3,22 @@ use std::fmt;
 /// A device and queue ready for rendering.
 #[derive(Debug, Clone)]
 pub struct GpuContext {
+    /// Physical GPU the device was created on.
     pub adapter: wgpu::Adapter,
+    /// Logical device that owns all GPU resources.
     pub device: wgpu::Device,
+    /// Command queue for uploads and submissions.
     pub queue: wgpu::Queue,
 }
 
+/// Failure to set up the GPU for rendering.
 #[derive(Debug)]
 pub enum GpuError {
     /// No adapter matched; on the web this usually means WebGPU is disabled.
     NoAdapter(String),
+    /// The device request was rejected by the adapter.
     Device(String),
+    /// The window or canvas surface could not be created or configured.
     Surface(String),
 }
 

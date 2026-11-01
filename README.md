@@ -6,19 +6,19 @@
 
 One declarative UI, drawn on the GPU, in a native window on Windows, macOS and Linux, and in the browser through WebAssembly + WebGPU.
 
-[**Live gallery**](https://alexkads.github.io/RavenRS/) · [Getting started](docs/GETTING_STARTED.md) · [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/) · [Components](#components) · [Parity tracker](docs/PARITY.md) · [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
+[**Live gallery**](https://alexkads.github.io/RavenRS/) · [Getting started](https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md) · [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/) · [Components](#components) · [Parity tracker](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) · [Architecture](https://github.com/alexkads/RavenRS/blob/master/ARCHITECTURE.md) · [Contributing](https://github.com/alexkads/RavenRS/blob/master/CONTRIBUTING.md)
 
 ![License: MIT or Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-4c66ee)
 ![Rust 1.88+](https://img.shields.io/badge/rust-1.88%2B-4c66ee)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-4c66ee)
 
-![The RavenRS component gallery running natively on macOS](docs/media/component-gallery.png)
+![The RavenRS component gallery running natively on macOS](https://raw.githubusercontent.com/alexkads/RavenRS/master/docs/media/component-gallery.png)
 
 </div>
 
 RavenRS is a free, open source GUI framework for Rust with a large component library: 60+ components including a virtualized **DataGrid** for 100,000+ rows, an Office-style **Ribbon**, a **command palette**, calendars, menus, dialogs, charts and 200 icons. Everything is drawn by RavenRS itself with `wgpu`, so the same code looks the same on the desktop and on the web.
 
-> **Status: 0.1, early and moving fast.** The component library is broad and tested, but the API can still change between minor versions. [docs/PARITY.md](docs/PARITY.md) tracks every component family of shadcn/ui, DevExpress and Telerik and where RavenRS stands.
+> **Status: 0.1, early and moving fast.** The component library is broad and tested, but the API can still change between minor versions. [docs/PARITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) tracks every component family of shadcn/ui, DevExpress and Telerik and where RavenRS stands.
 
 ## Why RavenRS
 
@@ -39,7 +39,7 @@ ravenrs = { git = "https://github.com/alexkads/RavenRS" }
 
 Write your UI:
 
-```rust
+```rust,no_run
 use ravenrs::prelude::*;
 
 fn app() -> impl View {
@@ -64,7 +64,7 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
 }
 ```
 
-The [getting started guide](docs/GETTING_STARTED.md) covers the browser build, state, components of your own, themes and the data grid.
+The [getting started guide](https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md) covers the browser build, state, components of your own, themes and the data grid.
 
 ## Components
 
@@ -78,11 +78,11 @@ The [getting started guide](docs/GETTING_STARTED.md) covers the browser build, s
 | Layout | `VStack`, `HStack`, `Grid`, `ScrollView`, `Splitter`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `Spacer`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
 | Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Alert`, `ProgressBar`, `Spinner`, `Skeleton`, `Kbd`, `Divider`, `Canvas` |
 
-Every component is in [`examples/component-gallery`](examples/component-gallery), which runs natively and [in your browser](https://alexkads.github.io/RavenRS/).
+Every component is in [`examples/component-gallery`](https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery), which runs natively and [in your browser](https://alexkads.github.io/RavenRS/).
 
 ## Your own components
 
-```rust
+```rust,no_run
 use ravenrs::prelude::*;
 
 /// State lives in the struct; `body` composes views and runs on every rebuild.
@@ -129,16 +129,16 @@ Then open http://localhost:8080 in a browser with WebGPU (Chrome, Edge, Safari 1
 
 | Crate | What it does |
 |---|---|
-| [`ravenrs`](crates/ravenrs) | The facade and `prelude`. Start here. |
-| [`ravenrs-widgets`](crates/ravenrs-widgets) | Every component, the `View`/`Component`/`BuildCx` API and the `Ui` runtime. |
-| [`ravenrs-reactive`](crates/ravenrs-reactive) | `State`, `Binding`, `Derived` and dependency-tracking observers. |
-| [`ravenrs-style`](crates/ravenrs-style) | Design tokens and the Raven Dark, Light and Glass themes. |
-| [`ravenrs-layout`](crates/ravenrs-layout) | Flexbox and grid layout on [Taffy](https://github.com/DioxusLabs/taffy). |
-| [`ravenrs-text`](crates/ravenrs-text) | Text with [Parley](https://github.com/linebender/parley); Inter and the icon font embedded. |
-| [`ravenrs-render`](crates/ravenrs-render) | The `wgpu` renderer: SDF shapes, shadows, gradients, images, glyph atlas, clipping. |
-| [`ravenrs-core`](crates/ravenrs-core) | Geometry, colors, input events and the `Scene` display list. |
-| [`ravenrs-platform-native`](crates/ravenrs-platform-native) | Desktop windows with [winit](https://github.com/rust-windowing/winit). |
-| [`ravenrs-platform-web`](crates/ravenrs-platform-web) | `<canvas>` + WebGPU in the browser. |
+| [`ravenrs`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs) | The facade and `prelude`. Start here. |
+| [`ravenrs-widgets`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-widgets) | Every component, the `View`/`Component`/`BuildCx` API and the `Ui` runtime. |
+| [`ravenrs-reactive`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-reactive) | `State`, `Binding`, `Derived` and dependency-tracking observers. |
+| [`ravenrs-style`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-style) | Design tokens and the Raven Dark, Light and Glass themes. |
+| [`ravenrs-layout`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-layout) | Flexbox and grid layout on [Taffy](https://github.com/DioxusLabs/taffy). |
+| [`ravenrs-text`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-text) | Text with [Parley](https://github.com/linebender/parley); Inter and the icon font embedded. |
+| [`ravenrs-render`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-render) | The `wgpu` renderer: SDF shapes, shadows, gradients, images, glyph atlas, clipping. |
+| [`ravenrs-core`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-core) | Geometry, colors, input events and the `Scene` display list. |
+| [`ravenrs-platform-native`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-native) | Desktop windows with [winit](https://github.com/rust-windowing/winit). |
+| [`ravenrs-platform-web`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-web) | `<canvas>` + WebGPU in the browser. |
 
 ## Roadmap
 
@@ -148,14 +148,14 @@ Then open http://localhost:8080 in a browser with WebGPU (Chrome, Edge, Safari 1
 - **Platform**: clipboard, IME composition display, AccessKit screen reader support, right-to-left layout.
 - **Motion**: spring animations and transitions.
 
-See [docs/PARITY.md](docs/PARITY.md) for the full list and [CHANGELOG.md](CHANGELOG.md) for what changed.
+See [docs/PARITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) for the full list and [CHANGELOG.md](https://github.com/alexkads/RavenRS/blob/master/CHANGELOG.md) for what changed.
 
 ## Contributing
 
-Issues, ideas and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to build, test and add a component. Please follow the [code of conduct](CODE_OF_CONDUCT.md).
+Issues, ideas and pull requests are welcome. [CONTRIBUTING.md](https://github.com/alexkads/RavenRS/blob/master/CONTRIBUTING.md) explains how to build, test and add a component. Please follow the [code of conduct](https://github.com/alexkads/RavenRS/blob/master/CODE_OF_CONDUCT.md).
 
 ## License
 
-Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your option. The embedded Inter font is under the [SIL Open Font License 1.1](crates/ravenrs-text/fonts/Inter-LICENSE.txt); the icons come from [Lucide](https://lucide.dev) under the [ISC License](crates/ravenrs-text/fonts/RavenIcons-LICENSE.txt).
+Licensed under either of [Apache License 2.0](https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE) or [MIT](https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT), at your option. The embedded Inter font is under the [SIL Open Font License 1.1](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-text/fonts/Inter-LICENSE.txt); the icons come from [Lucide](https://lucide.dev) under the [ISC License](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-text/fonts/RavenIcons-LICENSE.txt).
 
 Unless you state otherwise, any contribution you submit is dual-licensed as above, without additional terms.

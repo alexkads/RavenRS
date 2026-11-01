@@ -9,6 +9,7 @@ use ravenrs_core::{Color, Insets, Point, Shadow};
 /// Semantic color roles. Widgets refer to roles, never to raw colors, so every
 /// component follows the active theme.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Semantic {
     /// `bg-000`: the canvas behind everything.
     Canvas,
@@ -18,40 +19,67 @@ pub enum Semantic {
     SurfaceElevated,
     /// `bg-300`: control fills.
     Control,
+    /// `border`: hairlines and control outlines.
     Border,
+    /// `ink`: primary text and icons.
     Ink,
+    /// `ink-muted`: secondary text, captions and placeholders.
     InkMuted,
+    /// `accent`: primary actions and selection.
     Accent,
+    /// `accent-hover`: accent fill while hovered.
     AccentHover,
+    /// `accent-pressed`: accent fill while pressed.
     AccentPressed,
+    /// `on-accent`: text and icons drawn on an accent fill.
     OnAccent,
+    /// `focus-ring`: keyboard focus indicator.
     FocusRing,
+    /// `success`: positive status.
     Success,
+    /// `warning`: cautionary status.
     Warning,
+    /// `danger`: errors and destructive actions.
     Danger,
 }
 
 /// The color tokens of one theme.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Palette {
+    /// `bg-000`: the canvas behind everything.
     pub bg_000: Color,
+    /// `bg-100`: panels and sidebars.
     pub bg_100: Color,
+    /// `bg-200`: cards.
     pub bg_200: Color,
+    /// `bg-300`: control fills.
     pub bg_300: Color,
+    /// `border`: hairlines and control outlines.
     pub border: Color,
+    /// `ink`: primary text and icons.
     pub ink: Color,
+    /// `ink-muted`: secondary text, captions and placeholders.
     pub ink_muted: Color,
+    /// `accent`: primary actions and selection.
     pub accent: Color,
+    /// `accent-hover`: accent fill while hovered.
     pub accent_hover: Color,
+    /// `accent-pressed`: accent fill while pressed.
     pub accent_pressed: Color,
+    /// `on-accent`: text and icons drawn on an accent fill.
     pub on_accent: Color,
+    /// `focus-ring`: keyboard focus indicator.
     pub focus_ring: Color,
+    /// `success`: positive status.
     pub success: Color,
+    /// `warning`: cautionary status.
     pub warning: Color,
+    /// `danger`: errors and destructive actions.
     pub danger: Color,
 }
 
 impl Palette {
+    /// Resolves a semantic role to this palette's color.
     pub fn get(&self, role: Semantic) -> Color {
         match role {
             Semantic::Canvas => self.bg_000,
@@ -78,46 +106,71 @@ impl Palette {
 pub struct Weight(pub f32);
 
 impl Weight {
+    /// Regular weight (400).
     pub const REGULAR: Self = Self(400.0);
+    /// Medium weight (500).
     pub const MEDIUM: Self = Self(500.0);
+    /// Semibold weight (600).
     pub const SEMIBOLD: Self = Self(600.0);
+    /// Bold weight (700).
     pub const BOLD: Self = Self(700.0);
 }
 
 /// One step of the type scale.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TypeStyle {
+    /// Font size in logical pixels.
     pub size: f32,
+    /// Line height in logical pixels.
     pub line_height: f32,
+    /// Font weight.
     pub weight: Weight,
+    /// Extra space between characters in logical pixels; may be negative.
     pub letter_spacing: f32,
 }
 
 /// Named steps of the type scale.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum TextStyle {
+    /// Large dashboard numbers (42px).
     Metric,
+    /// Page and hero headings (32px).
     Display,
+    /// Section titles (22px).
     Title,
+    /// Emphasized headings inside content (17px).
     Headline,
+    /// Default running text (15px).
     #[default]
     Body,
+    /// Secondary, denser text (13px).
     Callout,
+    /// Small labels and metadata (12px).
     Caption,
 }
 
+/// The type scale: one [`TypeStyle`] per [`TextStyle`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Typography {
+    /// Style for [`TextStyle::Metric`].
     pub metric: TypeStyle,
+    /// Style for [`TextStyle::Display`].
     pub display: TypeStyle,
+    /// Style for [`TextStyle::Title`].
     pub title: TypeStyle,
+    /// Style for [`TextStyle::Headline`].
     pub headline: TypeStyle,
+    /// Style for [`TextStyle::Body`].
     pub body: TypeStyle,
+    /// Style for [`TextStyle::Callout`].
     pub callout: TypeStyle,
+    /// Style for [`TextStyle::Caption`].
     pub caption: TypeStyle,
 }
 
 impl Typography {
+    /// Returns the type style for a named step.
     pub fn get(&self, style: TextStyle) -> TypeStyle {
         match style {
             TextStyle::Metric => self.metric,
@@ -149,42 +202,63 @@ pub const TYPOGRAPHY: Typography = Typography {
 /// The 4px spacing grid (`space-*` tokens).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Spacing {
+    /// `space-1`: 4 logical pixels.
     pub s1: f32,
+    /// `space-2`: 8 logical pixels.
     pub s2: f32,
+    /// `space-3`: 12 logical pixels.
     pub s3: f32,
+    /// `space-4`: 16 logical pixels.
     pub s4: f32,
+    /// `space-5`: 20 logical pixels.
     pub s5: f32,
+    /// `space-6`: 24 logical pixels.
     pub s6: f32,
+    /// `space-8`: 32 logical pixels.
     pub s8: f32,
+    /// `space-12`: 48 logical pixels.
     pub s12: f32,
 }
 
+/// The spacing scale shared by all themes.
 pub const SPACING: Spacing =
     Spacing { s1: 4.0, s2: 8.0, s3: 12.0, s4: 16.0, s5: 20.0, s6: 24.0, s8: 32.0, s12: 48.0 };
 
 /// Corner radii (`radius-*` tokens).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Radii {
+    /// `radius-sm`: small controls, in logical pixels.
     pub sm: f32,
+    /// `radius-md`: buttons and inputs, in logical pixels.
     pub md: f32,
+    /// `radius-lg`: cards, in logical pixels.
     pub lg: f32,
+    /// `radius-xl`: sheets and large panels, in logical pixels.
     pub xl: f32,
+    /// `radius-full`: pill and circle shapes.
     pub full: f32,
 }
 
+/// The corner radii shared by all themes.
 pub const RADII: Radii = Radii { sm: 6.0, md: 10.0, lg: 16.0, xl: 24.0, full: 9999.0 };
 
+/// Shadow tokens (`shadow-*`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Elevation {
+    /// `shadow-soft`: cards and resting surfaces.
     pub soft: Shadow,
+    /// `shadow-raised`: popovers, menus and dialogs.
     pub raised: Shadow,
 }
 
 /// What surfaces are made of. Glass surfaces are translucent and ask the
 /// renderer for a backdrop blur where available.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Material {
+    /// Opaque fills.
     Solid,
+    /// Translucent fills with backdrop blur where supported.
     Glass,
 }
 
@@ -204,13 +278,21 @@ pub struct Interaction {
 /// A complete theme: palette plus the shared scales.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Theme {
+    /// Display name, e.g. `"Raven Dark"`.
     pub name: &'static str,
+    /// Color tokens.
     pub palette: Palette,
+    /// Type scale.
     pub typography: Typography,
+    /// Spacing scale.
     pub spacing: Spacing,
+    /// Corner radii.
     pub radii: Radii,
+    /// Shadow tokens.
     pub elevation: Elevation,
+    /// Surface material.
     pub material: Material,
+    /// Interaction sizing and motion preferences.
     pub interaction: Interaction,
 }
 
@@ -255,6 +337,7 @@ impl Theme {
         }
     }
 
+    /// Light theme: near-white surfaces with the same blue-violet accent.
     pub const fn raven_light() -> Self {
         Self {
             name: "Raven Light",
@@ -321,10 +404,19 @@ impl Theme {
         }
     }
 
+    /// Resolves a semantic color role in this theme.
+    ///
+    /// ```
+    /// use ravenrs_style::{Semantic, Theme};
+    ///
+    /// let theme = Theme::raven_dark();
+    /// assert_eq!(theme.color(Semantic::Accent), theme.palette.accent);
+    /// ```
     pub fn color(&self, role: Semantic) -> Color {
         self.palette.get(role)
     }
 
+    /// Returns the type style for a named step of the scale.
     pub fn text(&self, style: TextStyle) -> TypeStyle {
         self.typography.get(style)
     }

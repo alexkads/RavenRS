@@ -14,45 +14,69 @@ use taffy::prelude::{
 
 pub use taffy::NodeId as LayoutId;
 
+/// Direction in which a stack places its children.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Axis {
+    /// Children top to bottom.
     #[default]
     Vertical,
+    /// Children left to right.
     Horizontal,
 }
 
 /// Cross-axis alignment of a stack's children.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Align {
+    /// Align to the leading edge of the cross axis.
     #[default]
     Start,
+    /// Center on the cross axis.
     Center,
+    /// Align to the trailing edge of the cross axis.
     End,
+    /// Fill the whole cross axis.
     Stretch,
 }
 
 /// Main-axis distribution of a stack's children.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Justify {
+    /// Pack children at the start of the main axis.
     #[default]
     Start,
+    /// Center children on the main axis.
     Center,
+    /// Pack children at the end of the main axis.
     End,
+    /// Put free space evenly between children, none at the ends.
     SpaceBetween,
 }
 
 /// The box model a widget asks for. `axis: None` makes a leaf.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct LayoutStyle {
+    /// Stack direction, or `None` for a leaf.
     pub axis: Option<Axis>,
+    /// Gap between consecutive children, in logical pixels.
     pub spacing: f32,
+    /// Inner padding, in logical pixels.
     pub padding: Insets,
+    /// Cross-axis alignment of children.
     pub align: Align,
+    /// Main-axis distribution of children.
     pub justify: Justify,
+    /// Fixed width in logical pixels; `None` sizes to content.
     pub width: Option<f32>,
+    /// Fixed height in logical pixels; `None` sizes to content.
     pub height: Option<f32>,
+    /// Minimum width in logical pixels.
     pub min_width: Option<f32>,
+    /// Minimum height in logical pixels.
     pub min_height: Option<f32>,
+    /// Maximum width in logical pixels.
     pub max_width: Option<f32>,
     /// Share of free main-axis space this box takes inside its parent stack.
     pub grow: f32,
@@ -70,10 +94,12 @@ pub struct LayoutStyle {
 }
 
 impl LayoutStyle {
+    /// A stack along `axis` with default spacing, padding and alignment.
     pub fn stack(axis: Axis) -> Self {
         Self { axis: Some(axis), ..Self::default() }
     }
 
+    /// A leaf box with no children and default sizing.
     pub fn leaf() -> Self {
         Self::default()
     }
@@ -150,6 +176,7 @@ impl LayoutStyle {
 
 /// Space offered to a measured leaf along one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Available {
     /// A definite number of logical pixels.
     Definite(f32),
@@ -175,11 +202,15 @@ impl Available {
 pub struct MeasureInput {
     /// Dimensions already fixed by the parent.
     pub known_width: Option<f32>,
+    /// Height already fixed by the parent, if any.
     pub known_height: Option<f32>,
+    /// Horizontal space offered by the parent.
     pub available_width: Available,
+    /// Vertical space offered by the parent.
     pub available_height: Available,
 }
 
+/// A failure reported by the underlying Taffy tree, e.g. an unknown node id.
 #[derive(Debug)]
 pub struct LayoutError(taffy::TaffyError);
 
@@ -223,6 +254,18 @@ fn to_available(a: AvailableSpace) -> Available {
 }
 
 impl<C> LayoutTree<C> {
+    /// Creates an empty tree.
+    ///
+    /// ```
+    /// use ravenrs_core::Size;
+    /// use ravenrs_layout::{Axis, LayoutStyle, LayoutTree};
+    ///
+    /// let mut tree = LayoutTree::<()>::new();
+    /// let child = tree.node(LayoutStyle { height: Some(20.0), ..LayoutStyle::leaf() }, &[]).unwrap();
+    /// let root = tree.node(LayoutStyle { spacing: 8.0, ..LayoutStyle::stack(Axis::Vertical) }, &[child]).unwrap();
+    /// tree.compute(root, Size::new(200.0, 100.0), |_, _| Size::ZERO).unwrap();
+    /// assert_eq!(tree.frame(child).unwrap().height(), 20.0);
+    /// ```
     pub fn new() -> Self {
         Self { taffy: TaffyTree::new() }
     }
@@ -305,10 +348,12 @@ impl<C> LayoutTree<C> {
         Ok(Size::new(r.right.max(0.0), r.bottom.max(0.0)))
     }
 
+    /// Mutable access to a measured leaf's context, or `None` for nodes without one.
     pub fn context_mut(&mut self, node: LayoutId) -> Option<&mut C> {
         self.taffy.get_node_context_mut(node)
     }
 
+    /// Total number of nodes in the tree.
     pub fn node_count(&self) -> usize {
         self.taffy.total_node_count()
     }
