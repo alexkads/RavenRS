@@ -62,6 +62,28 @@ pub struct Labels {
     pub release_older: String,
     /// Between the position and the total, as in "2 of 5".
     pub release_of: String,
+    /// The diagnostics panel's title.
+    pub diagnostics: String,
+    /// Diagnostics: frames are drawn on the CPU.
+    pub diagnostics_software: String,
+    /// What drawing on the CPU means, and what to do about it.
+    pub diagnostics_software_detail: String,
+    /// Diagnostics: the app was built without optimizations.
+    pub diagnostics_unoptimized: String,
+    /// What a build without optimizations means, and what to do about it.
+    pub diagnostics_unoptimized_detail: String,
+    /// Diagnostics: GPUs left out because their drivers are not conformant.
+    pub diagnostics_hidden: String,
+    /// Diagnostics: no GPU could be used.
+    pub diagnostics_no_gpu: String,
+    /// Diagnostics: the time of a whole frame.
+    pub diagnostics_frame: String,
+    /// Diagnostics: the time spent rebuilding and laying out the UI.
+    pub diagnostics_update: String,
+    /// Diagnostics: the time spent waiting for a texture to draw on.
+    pub diagnostics_acquire: String,
+    /// Diagnostics: the time spent recording and submitting GPU work.
+    pub diagnostics_render: String,
     /// A calendar's back button.
     pub previous_month: String,
     /// A calendar's forward button.
@@ -184,6 +206,18 @@ impl Default for Labels {
             theme_glass: "Glass".into(),
             copy: "Copy".into(),
             copied: "Copied".into(),
+            diagnostics: "Diagnostics".into(),
+            diagnostics_software: "Drawing on the CPU".into(),
+            diagnostics_software_detail: "No usable GPU driver was found, so the interface will be slow."
+                .into(),
+            diagnostics_unoptimized: "Built without optimizations".into(),
+            diagnostics_unoptimized_detail: "Everything runs many times slower. Build with --release.".into(),
+            diagnostics_hidden: "GPU left out for its driver".into(),
+            diagnostics_no_gpu: "No usable GPU".into(),
+            diagnostics_frame: "Frame".into(),
+            diagnostics_update: "Update".into(),
+            diagnostics_acquire: "Acquire".into(),
+            diagnostics_render: "Render".into(),
             release_versions: "Versions".into(),
             release_newer: "Newer".into(),
             release_older: "Older".into(),
@@ -275,6 +309,19 @@ impl Labels {
             theme_glass: "Vidro".into(),
             copy: "Copiar".into(),
             copied: "Copiado".into(),
+            diagnostics: "Diagnóstico".into(),
+            diagnostics_software: "Desenhando na CPU".into(),
+            diagnostics_software_detail:
+                "Nenhum driver de GPU utilizável foi encontrado, então a interface ficará lenta.".into(),
+            diagnostics_unoptimized: "Compilado sem otimizações".into(),
+            diagnostics_unoptimized_detail: "Tudo roda muitas vezes mais devagar. Compile com --release."
+                .into(),
+            diagnostics_hidden: "GPU deixada de fora pelo driver".into(),
+            diagnostics_no_gpu: "Nenhuma GPU utilizável".into(),
+            diagnostics_frame: "Quadro".into(),
+            diagnostics_update: "Atualização".into(),
+            diagnostics_acquire: "Aquisição".into(),
+            diagnostics_render: "Render".into(),
             release_versions: "Versões".into(),
             release_newer: "Mais recente".into(),
             release_older: "Mais antiga".into(),

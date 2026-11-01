@@ -23,7 +23,8 @@ pub use ravenrs_widgets as widgets;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod native {
     pub use ravenrs_platform_native::{
-        AppIdentity, PlatformError, SaveDialog, WindowOptions, open_with_system, run, run_as, run_with_icon,
+        AppIdentity, PlatformError, SaveDialog, WindowOptions, diagnose, open_with_system, run, run_as,
+        run_with_icon,
     };
 }
 

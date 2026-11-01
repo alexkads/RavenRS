@@ -10,12 +10,17 @@
 mod access;
 mod color;
 pub mod csv;
+mod diagnostics;
 mod event;
 mod geometry;
 mod scene;
 
 pub use access::{AccessAction, AccessNode, AccessTree, NumericValue, Role, Toggled};
 pub use color::Color;
+pub use diagnostics::{
+    AdapterReport, DiagnosticFinding, DiagnosticReport, FrameLog, FrameSample, FrameSummary, GpuReport,
+    Percentiles, SurfaceReport, SystemReport,
+};
 pub use event::{CursorIcon, Event, Key, Modifiers, PointerButton};
 pub use geometry::{Insets, Point, Rect, Size};
 pub use scene::{

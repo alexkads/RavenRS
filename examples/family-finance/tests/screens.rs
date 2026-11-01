@@ -12,6 +12,7 @@ use family_finance::db::Database;
 use family_finance::seed;
 use family_finance::ui::App;
 use family_finance::update::{News, UpdateStatus, Updater};
+use ravenrs::core::{AdapterReport, DiagnosticReport, FrameSample, GpuReport, SurfaceReport, SystemReport};
 use ravenrs::prelude::*;
 use ravenrs::render::{GpuContext, Renderer, wgpu};
 
@@ -81,6 +82,63 @@ fn app(theme: Theme, page: usize, updater: Updater) -> Ui {
     Ui::new(app, theme)
 }
 
+/// The panel with a made-up report of an old GPU left without its driver.
+fn diagnostics_panel() -> Ui {
+    let today = Date::new(2026, 11, 15).expect("valid date");
+    let db = Database::in_memory().expect("database");
+    seed::load_demo(&db, today).expect("seed");
+    let app = App::new(db, today, None, Updater::idle());
+    let diagnostics = Diagnostics::default();
+    diagnostics.set_report_source(|| {
+        let adapter = |name: &str, device_type: &str, software| AdapterReport {
+            name: name.into(),
+            backend: "vulkan".into(),
+            device_type: device_type.into(),
+            driver: "Mesa".into(),
+            driver_info: "26.1.3".into(),
+            software,
+        };
+        let cpu = adapter("llvmpipe (LLVM 21, 256 bits)", "Cpu", true);
+        DiagnosticReport {
+            gpu: Ok(GpuReport {
+                active: cpu.clone(),
+                available: vec![cpu],
+                hidden: vec![adapter("Intel(R) Haswell Mobile", "IntegratedGpu", false)],
+                surface: Some(SurfaceReport {
+                    format: "Bgra8Unorm".into(),
+                    present_mode: "AutoVsync".into(),
+                    supported_present_modes: vec!["Fifo".into(), "Mailbox".into()],
+                }),
+            }),
+            system: SystemReport {
+                version: "27.1.1".into(),
+                os: "Fedora Linux 44 (Workstation Edition)".into(),
+                session: Some("wayland".into()),
+                desktop: Some("GNOME".into()),
+                vulkan_drivers: vec!["intel_hasvk_icd.x86_64.json".into(), "lvp_icd.x86_64.json".into()],
+                overrides: vec![],
+                optimized: true,
+            },
+        }
+    });
+    let ms = std::time::Duration::from_millis;
+    for i in 0..60 {
+        diagnostics.record(FrameSample {
+            update: ms(9 + i % 5),
+            acquire: ms(2),
+            render: ms(38 + i % 21),
+            present: ms(1),
+            quads: 840,
+            glyphs: 2310,
+            draw_calls: 46,
+            size: (2720, 1720),
+            scale: 2.0,
+        });
+    }
+    diagnostics.set_open(true);
+    Ui::new(Localized::new(Labels::pt_br(), DiagnosticsHost::new(app, diagnostics)), Theme::raven_light())
+}
+
 #[test]
 fn draw_every_screen() {
     let Some(folder) = std::env::var_os("FF_SCREENSHOTS") else { return };
@@ -101,6 +159,14 @@ fn draw_every_screen() {
     capture(&gpu, &mut glass, size, &folder.join("contas-vidro.png"));
     let mut glass = app(Theme::raven_glass(), 3, Updater::idle());
     capture(&gpu, &mut glass, size, &folder.join("agenda-vidro.png"));
+
+    let mut panel = diagnostics_panel();
+    for frame in 0..120 {
+        panel.set_viewport(size, 2.0);
+        panel.set_time(f64::from(frame) / 60.0);
+        panel.update();
+    }
+    capture(&gpu, &mut panel, size, &folder.join("diagnostico.png"));
 
     let mut dark = app(Theme::raven_dark(), 0, Updater::idle());
     capture(&gpu, &mut dark, size, &folder.join("painel-escuro.png"));

@@ -21,6 +21,6 @@ mod gpu;
 mod images;
 mod renderer;
 
-pub use gpu::{GpuContext, GpuError, preferred_surface_format};
+pub use gpu::{GpuContext, GpuError, gpu_report, preferred_surface_format, surface_report};
 pub use renderer::{RenderStats, Renderer};
 pub use wgpu;

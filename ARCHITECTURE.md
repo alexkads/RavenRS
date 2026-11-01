@@ -281,6 +281,8 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 
 **Desktop (`ravenrs-platform-native`).** winit 0.30 (`ApplicationHandler`), one window, `ControlFlow::Wait`. Surface reconfiguration on resize and scale-factor changes, logical-pixel input, cursor icons, keyboard focus traversal, and GPU device-loss recovery (the device, surface and renderer are recreated on the next frame).
 
+**Diagnostics (desktop only for now).** The native platform wraps every root in `DiagnosticsHost`, which adds no element and no wake-up while closed. Ctrl+Shift+D (Cmd+Shift+D on a Mac) or the `RAVENRS_DIAG` variable opens a panel with the GPU in use, the alternatives, what is wrong and what recent frames cost, with text to copy. `ravenrs::native::diagnose` gives the same GPU report without a window, for a command line option. The data is plain types in `ravenrs-core`, so widgets and the renderer still only meet through it. The durations are CPU time: there are no GPU timestamps, so a busy GPU only shows as waiting in acquire or present. The web platform does not record frames yet.
+
 **Web (`ravenrs-platform-web`).** Plain `web-sys` on a `<canvas>`:
 
 * async adapter and device creation (`wasm-bindgen-futures`), never blocking the main thread;

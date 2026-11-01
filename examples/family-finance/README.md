@@ -69,6 +69,8 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/fa
 
 When it opens and every hour after that, the app reads `novidades.json` from master, silently. If that version is newer, the line at the foot of the window says so and an installed copy starts compiling at low priority, telling each step the installer announces. **Procurar atualização**, in Ajustes, answers there even when there is nothing new. The same line always shows the version in use, and clicking it shows what that version brought. The installed app is only replaced after the new binary answers `--versao`, and the old one is kept: on macOS in `~/.raven-financas/anterior`, elsewhere beside it as `.anterior`. A version that failed is not retried by itself for a day. A copy built with `cargo run` only mentions the new version.
 
+**If the app is slow**, press Ctrl+Shift+D (Cmd+Shift+D on a Mac) to see which GPU it is on and what its frames cost, or run `family-finance --diagnostico` for the GPU report in the terminal, which also works when the window will not open. Both give text to paste into a bug report.
+
 **To release**, make one commit with three changes: `version` in `Cargo.toml`, `novidades.json`, and the same entry with its `data` on top of `historico-de-novidades.json`. A test holds them together. Make it the last commit of the release: anyone who compiled 0.1.N will not compile another 0.1.N.
 
 Updates come over HTTPS from this repository, with no signature of their own.

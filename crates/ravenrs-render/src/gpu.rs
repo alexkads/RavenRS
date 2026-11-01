@@ -1,5 +1,7 @@
 use std::fmt;
 
+use ravenrs_core::{AdapterReport, GpuReport, SurfaceReport};
+
 /// A device and queue ready for rendering.
 #[derive(Debug, Clone)]
 pub struct GpuContext {
@@ -63,9 +65,58 @@ impl GpuContext {
             })
             .await
             .map_err(|e| GpuError::Device(e.to_string()))?;
-        tracing::info!(adapter = ?adapter.get_info(), "GPU ready");
+        let info = adapter.get_info();
+        if info.device_type == wgpu::DeviceType::Cpu {
+            tracing::warn!(
+                adapter = %info.name,
+                driver = %info.driver,
+                "rendering on the CPU, so the interface will be slow; no usable GPU driver was found"
+            );
+        }
+        tracing::info!(adapter = ?info, "GPU ready");
         Ok(Self { adapter, device, queue })
     }
+}
+
+fn adapter_report(adapter: &wgpu::Adapter) -> AdapterReport {
+    let info = adapter.get_info();
+    AdapterReport {
+        name: info.name,
+        backend: info.backend.to_string(),
+        device_type: format!("{:?}", info.device_type),
+        driver: info.driver,
+        driver_info: info.driver_info,
+        software: info.device_type == wgpu::DeviceType::Cpu,
+    }
+}
+
+/// Describes `format` and `present_mode` on a surface with these capabilities.
+pub fn surface_report(
+    capabilities: &wgpu::SurfaceCapabilities,
+    format: wgpu::TextureFormat,
+    present_mode: wgpu::PresentMode,
+) -> SurfaceReport {
+    SurfaceReport {
+        format: format!("{format:?}"),
+        present_mode: format!("{present_mode:?}"),
+        supported_present_modes: capabilities.present_modes.iter().map(|m| format!("{m:?}")).collect(),
+    }
+}
+
+/// Describes the adapter in use and the alternatives. `permissive` is an instance
+/// that also accepts non-conformant drivers, since `instance` never shows those.
+pub async fn gpu_report(
+    active: &wgpu::Adapter,
+    instance: &wgpu::Instance,
+    permissive: &wgpu::Instance,
+    surface: Option<SurfaceReport>,
+) -> GpuReport {
+    let list = async |instance: &wgpu::Instance| -> Vec<AdapterReport> {
+        instance.enumerate_adapters(wgpu::Backends::all()).await.iter().map(adapter_report).collect()
+    };
+    let available = list(instance).await;
+    let hidden = list(permissive).await.into_iter().filter(|adapter| !available.contains(adapter)).collect();
+    GpuReport { active: adapter_report(active), available, hidden, surface }
 }
 
 /// Picks the surface format. Non-sRGB formats are preferred so blending happens

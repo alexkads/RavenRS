@@ -8,6 +8,7 @@
 //! built only while one is running.
 
 mod access;
+mod diagnostics;
 mod files;
 
 /// The system clipboard through `arboard`. When it cannot be opened (no
@@ -30,22 +31,27 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use ravenrs_core::{AccessTree, CursorIcon, Event, ImageData, Key, Modifiers, Point, PointerButton, Size};
-use ravenrs_render::{GpuContext, GpuError, Renderer, preferred_surface_format, wgpu};
+use ravenrs_core::{
+    AccessTree, CursorIcon, Event, FrameSample, ImageData, Key, Modifiers, Point, PointerButton, Size,
+};
+use ravenrs_render::{GpuContext, GpuError, Renderer, preferred_surface_format, surface_report, wgpu};
 use ravenrs_style::Theme;
-use ravenrs_widgets::{Ui, View};
+use ravenrs_widgets::{Diagnostics, DiagnosticsHost, Labels, Localized, Ui, View};
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event::StartCause;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy, OwnedDisplayHandle};
 use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
 use winit::window::{Icon, Window, WindowAttributes, WindowId};
 
+pub use diagnostics::diagnose;
 pub use files::{SaveDialog, open_with_system};
 
 /// Wheel pixels that ask for twice the size, with Ctrl held.
 const WHEEL_PER_ZOOM: f32 = 400.0;
+/// Set to anything, the diagnostics panel is open from the start.
+const DIAGNOSTICS_VARIABLE: &str = "RAVENRS_DIAG";
 
 /// What reaches the event loop from outside it.
 #[derive(Debug)]
@@ -73,6 +79,9 @@ pub struct WindowOptions {
     pub min_size: Option<Size>,
     /// Theme the UI starts with.
     pub theme: Theme,
+    /// The words of the whole UI, including what the platform adds to it such as
+    /// the diagnostics panel. `None` is English.
+    pub labels: Option<Labels>,
 }
 
 impl Default for WindowOptions {
@@ -82,6 +91,7 @@ impl Default for WindowOptions {
             size: Size::new(960.0, 640.0),
             min_size: Some(Size::new(320.0, 240.0)),
             theme: Theme::default(),
+            labels: None,
         }
     }
 }
@@ -109,6 +119,12 @@ impl WindowOptions {
     /// Sets the theme the UI starts with.
     pub fn theme(mut self, theme: Theme) -> Self {
         self.theme = theme;
+        self
+    }
+
+    /// Sets the words of the whole UI, including the diagnostics panel.
+    pub fn labels(mut self, labels: Labels) -> Self {
+        self.labels = Some(labels);
         self
     }
 }
@@ -209,7 +225,13 @@ fn run_window(
         .build()
         .map_err(|e| PlatformError::EventLoop(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Wait);
-    let mut ui = Ui::new(root, options.theme);
+    let diagnostics = Diagnostics::default();
+    diagnostics.set_open(std::env::var_os(DIAGNOSTICS_VARIABLE).is_some());
+    let root = DiagnosticsHost::new(root, diagnostics.clone());
+    let mut ui = match options.labels.clone() {
+        Some(labels) => Ui::new(Localized::new(labels, root), options.theme),
+        None => Ui::new(root, options.theme),
+    };
     let wake = event_loop.create_proxy();
     ui.set_remote_waker(move || {
         // It only fails once the loop is gone, when there is nothing left to wake.
@@ -220,6 +242,8 @@ fn run_window(
         Err(e) => tracing::warn!(error = %e, "system clipboard unavailable; using an in-app clipboard"),
     }
     let mut app = App {
+        display: event_loop.owned_display_handle(),
+        diagnostics,
         proxy: event_loop.create_proxy(),
         access: None,
         ui,
@@ -260,6 +284,10 @@ struct Access {
 }
 
 struct App {
+    /// Lets the GL backend reach the window system; without it, EGL has no
+    /// display to present on and only software rendering may be left on Wayland.
+    display: OwnedDisplayHandle,
+    diagnostics: Diagnostics,
     ui: Ui,
     proxy: EventLoopProxy<UserEvent>,
     access: Option<Access>,
@@ -346,7 +374,7 @@ impl App {
     }
 
     fn init_gpu(&mut self, window: Arc<Window>) -> Result<WindowState, PlatformError> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
+        let instance = diagnostics::new_instance(Some(&self.display), false);
         let surface =
             instance.create_surface(window.clone()).map_err(|e| GpuError::Surface(e.to_string()))?;
         let gpu = pollster::block_on(GpuContext::new(&instance, Some(&surface)))?;
@@ -366,6 +394,11 @@ impl App {
             color_space: wgpu::SurfaceColorSpace::Auto,
         };
         surface.configure(&gpu.device, &config);
+        let described = surface_report(&caps, format, config.present_mode);
+        let (display, adapter) = (self.display.clone(), gpu.adapter.clone());
+        self.diagnostics.set_report_source(move || {
+            diagnostics::gather(Some(&display), &adapter, Some(described.clone()))
+        });
         let device_lost = Arc::new(AtomicBool::new(false));
         let (lost, lost_window) = (device_lost.clone(), window.clone());
         gpu.device.set_device_lost_callback(move |reason, message| {
@@ -424,7 +457,9 @@ impl App {
         self.ui.set_time(self.started.elapsed().as_secs_f64());
         let Some(state) = &mut self.window else { return };
         let scale = self.ui.scale();
+        let started = std::time::Instant::now();
         let scene = self.ui.update();
+        let updated = started.elapsed();
         let frame = match state.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame) => frame,
             wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
@@ -442,16 +477,44 @@ impl App {
                 return;
             }
         };
+        let acquired = started.elapsed();
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let stats = state.renderer.render(scene, &view, (state.config.width, state.config.height), scale);
-        tracing::trace!(?stats, "frame rendered");
+        let rendered = started.elapsed();
         state.window.pre_present_notify();
         state.gpu.queue.present(frame);
+        tracing::debug!(
+            update = ?updated,
+            acquire = ?acquired - updated,
+            render = ?rendered - acquired,
+            present = ?started.elapsed() - rendered,
+            ?stats,
+            "frame rendered"
+        );
+        let total = started.elapsed();
+        self.diagnostics.record(FrameSample {
+            update: updated,
+            acquire: acquired - updated,
+            render: rendered - acquired,
+            present: total - rendered,
+            quads: stats.quads,
+            glyphs: stats.glyphs,
+            draw_calls: stats.draw_calls,
+            size: (state.config.width, state.config.height),
+            scale,
+        });
         if self.ui.needs_redraw() {
             state.window.request_redraw();
         }
         self.update_access();
     }
+}
+
+/// Ctrl+Shift+D, or Cmd+Shift+D on a Mac, opens the diagnostics panel.
+fn is_diagnostics_shortcut(key: &WinitKey, modifiers: Modifiers) -> bool {
+    (modifiers.ctrl || modifiers.meta)
+        && modifiers.shift
+        && matches!(key, WinitKey::Character(c) if c.eq_ignore_ascii_case("d"))
 }
 
 fn map_key(key: &WinitKey) -> Key {
@@ -650,6 +713,12 @@ impl ApplicationHandler<UserEvent> for App {
                 };
             }
             WindowEvent::KeyboardInput { event, .. } => {
+                if is_diagnostics_shortcut(&event.logical_key, self.modifiers) {
+                    if event.state == ElementState::Pressed && !event.repeat {
+                        self.diagnostics.toggle();
+                    }
+                    return;
+                }
                 let key = map_key(&event.logical_key);
                 let modifiers = self.modifiers;
                 self.dispatch(match event.state {
@@ -667,6 +736,17 @@ impl ApplicationHandler<UserEvent> for App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_diagnostics_shortcut_needs_both_modifiers() {
+        let key = WinitKey::Character("D".into());
+        let held = |ctrl, shift, meta| Modifiers { ctrl, shift, meta, alt: false };
+        assert!(is_diagnostics_shortcut(&key, held(true, true, false)));
+        assert!(is_diagnostics_shortcut(&key, held(false, true, true)));
+        assert!(!is_diagnostics_shortcut(&key, held(true, false, false)));
+        assert!(!is_diagnostics_shortcut(&key, held(false, true, false)));
+        assert!(!is_diagnostics_shortcut(&WinitKey::Character("e".into()), held(true, true, false)));
+    }
 
     #[test]
     fn named_keys_map_to_raven_keys() {

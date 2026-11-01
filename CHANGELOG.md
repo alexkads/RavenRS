@@ -5,6 +5,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ## [Unreleased]
 
 ### Added
+- **Diagnostics on the desktop.** Ctrl+Shift+D (Cmd+Shift+D on a Mac) or `RAVENRS_DIAG=1` opens a panel in any app with the GPU in use, GPUs left out for their drivers, what is wrong and what recent frames cost, with a report to copy into a bug report. `ravenrs::native::diagnose` gives the same GPU report without showing a window. Closed, the panel costs nothing. `WindowOptions::labels` sets the words of the whole UI, this panel included.
 - **Expressions in the grid's filter row.** A `DataGrid` filter can be a `ravenrs-criteria` expression over column titles, such as `[Seats] > 10 And [Country] = 'Brazil'`. The short syntax (`>=15`, `5..12`, `sim`, plain text) works as before.
 - `ravenrs_criteria::NumberStyle` lays out digits with any separators and affixes; `Culture` and the grid's `NumberFormat` both use it.
 - `ravenrs_core::csv::push_field` quotes a CSV field; the grid and report exports both use it.
@@ -31,6 +32,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - A filter-row text that names a column in brackets and parses, such as `[Seats] > 3`, is now an expression instead of a search for those characters. Other text in brackets, such as `[draft]`, is still a search.
 
 ### Fixed
+- **GPU choice on Linux.** The native window gives wgpu its display, so the GL backend can present on Wayland when no Vulkan driver is usable, instead of leaving only software rendering. A warning now says when the app renders on the CPU, and `RUST_LOG=ravenrs_platform_native=debug` logs how long each frame's update, acquire, render and present took.
 - In the glass theme, the `DataGrid`'s header, footer and group rows and the lines of `DataGrid`, `Ribbon` and `Scheduler` came out far too opaque, with the header text unreadable: `with_alpha` replaced the token's own transparency.
 - A `Select`, `DatePicker` or menu inside a `Dialog` or `Sheet` opened in the window's corner, behind the dialog's backdrop. Overlays opened from inside another now come after it: they sit by their anchor and on top, keep focus, and Escape closes only them.
 

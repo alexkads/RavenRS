@@ -6,7 +6,7 @@ use family_finance::db::{Database, DbResult};
 use family_finance::ui::App;
 use family_finance::update::{self, Updater};
 use family_finance::{icon, paths, seed, today};
-use ravenrs::native::{AppIdentity, PlatformError, WindowOptions, run, run_as};
+use ravenrs::native::{AppIdentity, PlatformError, WindowOptions, diagnose, run, run_as};
 use ravenrs::prelude::*;
 
 fn open(path: &Path) -> DbResult<Database> {
@@ -27,6 +27,11 @@ fn main() -> Result<(), PlatformError> {
         println!("{}", update::CURRENT);
         return Ok(());
     }
+    // Sem janela nem banco, para responder mesmo quando a app não abre.
+    if first.as_deref() == Some("--diagnostico") {
+        print!("{}", diagnose());
+        return Ok(());
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -34,7 +39,10 @@ fn main() -> Result<(), PlatformError> {
         )
         .init();
     let path = first.map_or_else(paths::database, PathBuf::from);
-    let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(Theme::raven_light());
+    let options = WindowOptions::new("Raven Finanças")
+        .size(1360.0, 860.0)
+        .theme(Theme::raven_light())
+        .labels(Labels::pt_br());
     match open(&path) {
         Ok(db) => {
             let updater = Updater::idle();

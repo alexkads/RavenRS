@@ -46,6 +46,7 @@ mod clipboard;
 mod context;
 mod data;
 mod date;
+mod diagnostics;
 mod display;
 mod event_calendar;
 mod extras;
@@ -87,6 +88,7 @@ pub use context::{
 };
 pub use data::{Column, List, ListItem, Table};
 pub use date::{Date, days_in_month, is_leap_year};
+pub use diagnostics::{Diagnostics, DiagnosticsHost};
 pub use display::{Alert, Avatar, Badge, Divider, Kbd, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
 pub use extras::{Carousel, FormField, InputOtp, Menubar, Rule, Spinner, Splitter, validate};
