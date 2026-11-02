@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.1.16",
+    "data": "2026-11-02",
+    "titulo": "Zoom com gesto de pinça nos relatórios, e valores dos gráficos que deslizam.",
+    "importante": false,
+    "novidades": [
+      "Nos relatórios, o gesto de pinça no touchpad agora também faz zoom no Linux com Wayland, e responde a movimentos pequenos em qualquer sistema.",
+      "Nos gráficos, o quadro com os valores desliza até a posição nova e acompanha o ponteiro."
+    ],
+    "por_que_atualizar": "Para dar zoom nos relatórios com o touchpad e acompanhar os valores dos gráficos com mais conforto."
+  },
+  {
     "versao": "0.1.15",
     "data": "2026-11-02",
     "titulo": "Gráficos novos no Painel e grades que você organiza do seu jeito.",
