@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap};
 
 use ravenrs_core::csv::push_field;
-use ravenrs_criteria::{Criteria, Environment, Record, Scope};
+use ravenrs_criteria::{Criteria, Environment, FieldType, Record, Schema, Scope, validate};
 
 use super::model::{GridColumn, Row, SortDirection, Summary, Value};
 
@@ -349,6 +349,68 @@ fn summaries(columns: &[GridColumn], rows: &[Row], indices: &[usize]) -> Vec<Opt
         .iter()
         .enumerate()
         .map(|(c, col)| col.summary.and_then(|s| summarize(s, c, rows, indices)))
+        .collect()
+}
+
+/// A formula read and checked against the columns, or what is wrong with it.
+pub fn check_formula(columns: &[GridColumn], text: &str) -> Result<Criteria, String> {
+    let criteria = Criteria::parse(text).map_err(|e| e.to_string())?;
+    let mut schema = Schema::new();
+    for column in columns {
+        let kind = if column.number.is_some() { FieldType::Number } else { FieldType::Any };
+        schema = schema.field(&column.title, kind);
+    }
+    match validate(&criteria, &schema).first() {
+        Some(problem) => Err(problem.to_string()),
+        None => Ok(criteria),
+    }
+}
+
+/// What a formula comes to over these rows.
+pub fn formula_value(
+    columns: &[GridColumn],
+    rows: &[Row],
+    indices: &[usize],
+    formula: &Criteria,
+) -> Result<ravenrs_criteria::Value, String> {
+    let titles: HashMap<&str, usize> =
+        columns.iter().enumerate().rev().map(|(c, col)| (col.title.as_str(), c)).collect();
+    let records: Vec<GridRecord<'_>> =
+        indices.iter().map(|&r| GridRecord { titles: &titles, row: &rows[r] }).collect();
+    let scope: Vec<&GridRecord<'_>> = records.iter().collect();
+    let env = Environment::new();
+    Scope::new(&env).rows(&scope).evaluate(formula).map_err(|e| e.to_string())
+}
+
+/// Where each group of `result` starts in its `matched` rows, and how many it has.
+pub(crate) fn group_ranges(result: &QueryResult) -> Vec<(usize, usize)> {
+    let mut next = 0;
+    result
+        .rows
+        .iter()
+        .map(|row| match row {
+            ViewRow::Data(_) => {
+                next += 1;
+                (next - 1, 1)
+            }
+            ViewRow::Group { count, collapsed, .. } => {
+                let range = (next, *count);
+                if *collapsed {
+                    next += *count;
+                }
+                range
+            }
+        })
+        .collect()
+}
+
+/// Every group's key under this query, as if all were open: what collapsing all of them means.
+pub fn group_keys(columns: &[GridColumn], rows: &[Row], query: &GridQuery) -> BTreeSet<String> {
+    let open = GridQuery { collapsed: BTreeSet::new(), ..query.clone() };
+    run_query(columns, rows, &open)
+        .rows
+        .into_iter()
+        .filter_map(|row| if let ViewRow::Group { key, .. } = row { Some(key) } else { None })
         .collect()
 }
 

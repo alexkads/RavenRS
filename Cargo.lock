@@ -1987,6 +1987,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "grid-poc"
+version = "27.1.4"
+dependencies = [
+ "ravenrs",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "half"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4215,6 +4223,8 @@ dependencies = [
  "ravenrs-reactive",
  "ravenrs-style",
  "ravenrs-text",
+ "serde",
+ "serde_json",
  "tracing",
 ]
 

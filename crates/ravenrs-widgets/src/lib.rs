@@ -108,7 +108,9 @@ pub use floating::{
     Toasts,
 };
 pub use grid::{
-    CellAlign, DataGrid, GridColumn, GridData, NumberFormat, SelectionMode, SortDirection, Summary, Value,
+    CellAlign, ColumnLayout, DataGrid, FilterLayout, GridColumn, GridData, GridLayout, GridPage, GridRequest,
+    GridResponder, GridScenario, NumberFormat, RemoteRows, SelectionMode, SortDirection, SortLayout, Summary,
+    Value,
 };
 pub use icon::Icon;
 pub use icon_set::IconName;

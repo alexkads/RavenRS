@@ -22,6 +22,8 @@ ravenrs-text.workspace = true
 ravenrs-style.workspace = true
 ravenrs-criteria.workspace = true
 tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 image = { workspace = true, optional = true }
 ravenrs-graphics = { workspace = true, optional = true }
 

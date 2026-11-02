@@ -207,6 +207,8 @@ pub struct GridColumn {
     pub(crate) editable: bool,
     pub(crate) visible: bool,
     pub(crate) fill: bool,
+    pub(crate) pinned: bool,
+    pub(crate) formula: Option<String>,
     pub(crate) format: Option<CellFormat>,
     pub(crate) template: Option<CellTemplate>,
 }
@@ -236,6 +238,8 @@ impl GridColumn {
             editable: false,
             visible: true,
             fill: false,
+            pinned: false,
+            formula: None,
             format: None,
             template: None,
         }
@@ -307,6 +311,20 @@ impl GridColumn {
     /// Cells can be edited (double-click, Enter or F2).
     pub fn editable(mut self) -> Self {
         self.editable = true;
+        self
+    }
+
+    /// Works out the summary of the group rows and the footer with a formula over their
+    /// rows, in place of [`summary`](Self::summary), such as
+    /// `Sum([Seats]) / Count()`. Columns go by their titles.
+    pub fn summary_formula(mut self, formula: impl Into<String>) -> Self {
+        self.formula = Some(formula.into());
+        self
+    }
+
+    /// Stays in place at the left while the others scroll sideways.
+    pub fn pinned(mut self, pinned: bool) -> Self {
+        self.pinned = pinned;
         self
     }
 

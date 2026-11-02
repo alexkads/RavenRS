@@ -13,10 +13,17 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `ravenrs_graphics::plot` lays these charts out, and says where each value landed. `vector::rasterize_layers` adds gradients and dashes to what a picture can have.
 - `BuildCx::on_pointer_move` says where the pointer is over an element.
 - `Pagination::compact` shows "1 / 12", so its buttons stay in place.
+- **`DataGrid` grouped by dragging.** A header dropped on the group panel groups by that column; chips change places by dragging, and leave by dragging off the panel. Expand all and collapse all. Group rows line their summaries up under their columns, and a grouped column shows in its groups.
+- `DataGrid` columns move by dragging, stay in place with `GridColumn::pinned`, and have a menu on a right click or from their header. A filter by value lists what is in a column, and a panel says what is being filtered.
+- **Scenarios.** `DataGrid::scenarios` saves how a grid is arranged under a name, with `GridScenario` and `GridLayout` as JSON; `DataGrid::layout` keeps the arrangement outside.
+- **Summaries with formulas.** A click on a total changes what it sums up, or takes a formula such as `Sum([Seats]) / Count()`, checked as it is typed, over each group's rows. `GridColumn::summary_formula` gives one in code.
+- **Pages and rows on a server.** `DataGrid::page_size` shows pages. `DataGrid::remote` with `RemoteRows` asks for what is on the screen once scrolling rests, keeps a limited number of chunks, drops late answers, needs no total, and hands the loader the row before a chunk so that a query can continue from it.
+- `examples/grid-poc` shows all of this working.
 
 ### Changed
 - The legend of a `Chart` is real text under or over it, and numbers on the axis are optional: `show_value_axis`.
 - A screen reader hears every series of a `Chart`, not only the first.
+- `DataGrid` has a quieter look: lower header and footer, gridlines only between rows, column dividers only in use, and rows that go in under their groups.
 - `DocumentViewer` uses the compact pagination, so another document moves nothing in its toolbar.
 
 ## [27.1.4] - 2026-11-02

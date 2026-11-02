@@ -192,7 +192,7 @@ Parity with the DevExpress DataGrid feature set:
 | Filter row with operators (`>`, `>=`, `<`, `<=`, `=`, `<>`, `a..b`), text and yes/no | ✓ |
 | Filter row expressions over column titles (`[Seats] > 10 And [Country] = 'Brazil'`), from `ravenrs-criteria` | ✓ |
 | Search panel across visible columns | ✓ |
-| Grouping, nested, expand/collapse (click or arrows), group panel chips | ✓ (from the Group menu; drag-to-group planned) |
+| Grouping, nested, expand/collapse (click or arrows), group panel chips | ✓ (by dragging headers to the panel, reorder or ungroup by dragging chips, expand and collapse all) |
 | Group summaries and footer totals (sum, average, min, max, count) | ✓ |
 | Column resizing (drag), column chooser (show/hide), min widths | ✓ |
 | Selection: single, multiple with check boxes, Shift ranges, Ctrl toggle, select all | ✓ |
@@ -201,11 +201,16 @@ Parity with the DevExpress DataGrid feature set:
 | Cell templates (any view) and custom formats; number/currency formats with separators (digits from `ravenrs_criteria::NumberStyle`) | ✓ |
 | CSV export (RFC 4180, raw numbers; quoting from `ravenrs_core::csv`, shared with reports) | ✓ |
 | Copying rows as tab-separated text (Cmd/Ctrl+C) | ✓ |
-| Column reordering by drag, drag-to-group | planned |
-| Fixed (frozen) columns, multi-level (banded) headers | planned |
-| Header filter pop-ups (value checklists), filter builder | planned |
-| Master-detail rows, paging UI, row add/delete UI, validation | planned |
-| Excel export, state persistence, context menus, cell range copy | planned |
+| Column reordering by drag, menu on each column, fit width | ✓ |
+| Columns pinned to the left | ✓ |
+| Multi-level (banded) headers, columns pinned to the right | planned |
+| Filter by value (checklists) with a filter panel | ✓ |
+| Filter builder | planned |
+| Paging UI, infinite scroll and rows on a server (`RemoteRows`: bounded memory, settled requests, no totals needed, keyset by `after`) | ✓ |
+| Summaries changed at run time, with formulas over `ravenrs-criteria` | ✓ |
+| Master-detail rows, row add/delete UI, validation, row drag and drop | planned |
+| Saved layouts and named scenarios (`GridLayout`, `GridScenario`, JSON) | ✓ |
+| Excel and PDF export, cell range copy | planned |
 
 ## 6.3 Criteria language
 

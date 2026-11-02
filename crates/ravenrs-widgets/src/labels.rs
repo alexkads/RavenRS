@@ -166,6 +166,92 @@ pub struct Labels {
     pub recurrence_until: String,
     /// Before the next days, in words.
     pub recurrence_next: String,
+    /// What a grid's group panel says while nothing is grouped.
+    pub grid_drag_hint: String,
+    /// Before a column a grid is grouped by.
+    pub grid_grouped_by: String,
+    /// Stops grouping a grid by a column.
+    pub grid_remove_group: String,
+    /// Opens every group of a grid.
+    pub grid_expand_all: String,
+    /// Closes every group of a grid.
+    pub grid_collapse_all: String,
+    /// Sorts a grid's column from smallest to largest.
+    pub grid_sort_ascending: String,
+    /// Sorts a grid's column from largest to smallest.
+    pub grid_sort_descending: String,
+    /// Stops sorting by a grid's column.
+    pub grid_clear_sort: String,
+    /// Groups a grid by a column.
+    pub grid_group_by_column: String,
+    /// Stops grouping a grid by a column, in its menu.
+    pub grid_ungroup_column: String,
+    /// Keeps a grid's column in place.
+    pub grid_pin_column: String,
+    /// Lets a grid's column scroll again.
+    pub grid_unpin_column: String,
+    /// Hides a grid's column.
+    pub grid_hide_column: String,
+    /// Fits a grid's column to its content.
+    pub grid_fit_column: String,
+    /// Shows a grid's group panel.
+    pub grid_show_panel: String,
+    /// Hides a grid's group panel.
+    pub grid_hide_panel: String,
+    /// Opens a grid's column menu.
+    pub grid_column_menu: String,
+    /// Filters a grid's column by its values.
+    pub grid_filter_values: String,
+    /// Removes a grid's filters.
+    pub grid_clear_filter: String,
+    /// Before what a grid is filtering by.
+    pub grid_filter_label: String,
+    /// Every value of a grid's column, in its filter.
+    pub grid_all_values: String,
+    /// A grid's menu of saved arrangements.
+    pub grid_scenario: String,
+    /// Saves how a grid is arranged, under a new name.
+    pub grid_scenario_save: String,
+    /// Saves over the scenario in use.
+    pub grid_scenario_update: String,
+    /// Deletes the scenario in use.
+    pub grid_scenario_delete: String,
+    /// Puts a grid back as it first was.
+    pub grid_scenario_original: String,
+    /// What to call a scenario.
+    pub grid_scenario_name: String,
+    /// Confirms a new scenario.
+    pub grid_save: String,
+    /// Before how many rows a grid has per page.
+    pub grid_rows_per_page: String,
+    /// Asks a server for a grid's rows again.
+    pub grid_try_again: String,
+    /// Before a page's number in a grid's pager.
+    pub grid_page: String,
+    /// A grid's pager goes back.
+    pub grid_previous: String,
+    /// A grid's pager goes on.
+    pub grid_next: String,
+    /// Opens the editor of a column's summary.
+    pub grid_edit_summary: String,
+    /// Before the column whose summary is being edited.
+    pub grid_summary_of: String,
+    /// No summary for a column.
+    pub grid_summary_none: String,
+    /// A column's summary from a formula.
+    pub grid_summary_formula: String,
+    /// What a formula looks like.
+    pub grid_formula_hint: String,
+    /// Before what a formula comes to.
+    pub grid_formula_result: String,
+    /// Where a formula could not be worked out.
+    pub grid_formula_error: String,
+    /// Before the columns a formula can use.
+    pub grid_formula_columns: String,
+    /// Before the functions a formula can use.
+    pub grid_formula_functions: String,
+    /// Puts a formula to use.
+    pub grid_apply: String,
     /// A grid's search field.
     pub grid_search: String,
     /// A grid's grouping menu.
@@ -332,6 +418,49 @@ impl Default for Labels {
             recurrence_times: "times".into(),
             recurrence_until: "until".into(),
             recurrence_next: "Next".into(),
+            grid_edit_summary: "Edit summary".into(),
+            grid_summary_of: "Summary of".into(),
+            grid_summary_none: "None".into(),
+            grid_summary_formula: "Formula".into(),
+            grid_formula_hint: "Sum([Seats]) / Count()".into(),
+            grid_formula_result: "Result".into(),
+            grid_formula_error: "Error".into(),
+            grid_formula_columns: "Columns".into(),
+            grid_formula_functions: "Functions".into(),
+            grid_apply: "Apply".into(),
+            grid_page: "Page".into(),
+            grid_previous: "Previous".into(),
+            grid_next: "Next".into(),
+            grid_drag_hint: "Drag a column here to group by it".into(),
+            grid_grouped_by: "Grouped by".into(),
+            grid_remove_group: "Remove grouping by".into(),
+            grid_expand_all: "Expand all".into(),
+            grid_collapse_all: "Collapse all".into(),
+            grid_sort_ascending: "Sort ascending".into(),
+            grid_sort_descending: "Sort descending".into(),
+            grid_clear_sort: "Clear sorting".into(),
+            grid_group_by_column: "Group by this column".into(),
+            grid_ungroup_column: "Ungroup".into(),
+            grid_pin_column: "Pin to the left".into(),
+            grid_unpin_column: "Unpin".into(),
+            grid_hide_column: "Hide column".into(),
+            grid_fit_column: "Fit width".into(),
+            grid_show_panel: "Show group panel".into(),
+            grid_hide_panel: "Hide group panel".into(),
+            grid_column_menu: "Column menu".into(),
+            grid_filter_values: "Filter by value".into(),
+            grid_clear_filter: "Clear filter".into(),
+            grid_filter_label: "Filter".into(),
+            grid_all_values: "All".into(),
+            grid_scenario: "Scenario".into(),
+            grid_scenario_save: "Save scenario…".into(),
+            grid_scenario_update: "Update".into(),
+            grid_scenario_delete: "Delete".into(),
+            grid_scenario_original: "Original layout".into(),
+            grid_scenario_name: "Scenario name".into(),
+            grid_save: "Save".into(),
+            grid_rows_per_page: "Rows per page".into(),
+            grid_try_again: "Try again".into(),
             grid_search: "Search all columns".into(),
             grid_group: "Group".into(),
             grid_clear_grouping: "Clear grouping".into(),
@@ -463,6 +592,49 @@ impl Labels {
             recurrence_times: "vezes".into(),
             recurrence_until: "até".into(),
             recurrence_next: "Próximas".into(),
+            grid_edit_summary: "Editar resumo".into(),
+            grid_summary_of: "Resumo de".into(),
+            grid_summary_none: "Nenhum".into(),
+            grid_summary_formula: "Fórmula".into(),
+            grid_formula_hint: "Sum([Licenças]) / Count()".into(),
+            grid_formula_result: "Resultado".into(),
+            grid_formula_error: "Erro".into(),
+            grid_formula_columns: "Colunas".into(),
+            grid_formula_functions: "Funções".into(),
+            grid_apply: "Aplicar".into(),
+            grid_page: "Página".into(),
+            grid_previous: "Anterior".into(),
+            grid_next: "Próxima".into(),
+            grid_drag_hint: "Arraste uma coluna para cá para agrupar".into(),
+            grid_grouped_by: "Agrupado por".into(),
+            grid_remove_group: "Desagrupar".into(),
+            grid_expand_all: "Expandir tudo".into(),
+            grid_collapse_all: "Recolher tudo".into(),
+            grid_sort_ascending: "Ordenar crescente".into(),
+            grid_sort_descending: "Ordenar decrescente".into(),
+            grid_clear_sort: "Limpar ordenação".into(),
+            grid_group_by_column: "Agrupar por esta coluna".into(),
+            grid_ungroup_column: "Desagrupar esta coluna".into(),
+            grid_pin_column: "Fixar à esquerda".into(),
+            grid_unpin_column: "Desafixar".into(),
+            grid_hide_column: "Ocultar coluna".into(),
+            grid_fit_column: "Ajustar largura".into(),
+            grid_show_panel: "Mostrar painel de agrupamento".into(),
+            grid_hide_panel: "Ocultar painel de agrupamento".into(),
+            grid_column_menu: "Menu da coluna".into(),
+            grid_filter_values: "Filtrar por valor".into(),
+            grid_clear_filter: "Limpar filtro".into(),
+            grid_filter_label: "Filtro".into(),
+            grid_all_values: "Todos".into(),
+            grid_scenario: "Cenário".into(),
+            grid_scenario_save: "Gravar cenário…".into(),
+            grid_scenario_update: "Atualizar".into(),
+            grid_scenario_delete: "Excluir".into(),
+            grid_scenario_original: "Layout original".into(),
+            grid_scenario_name: "Nome do cenário".into(),
+            grid_save: "Gravar".into(),
+            grid_rows_per_page: "Linhas por página".into(),
+            grid_try_again: "Tentar de novo".into(),
             grid_search: "Buscar em todas as colunas".into(),
             grid_group: "Agrupar".into(),
             grid_clear_grouping: "Desfazer agrupamento".into(),
