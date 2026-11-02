@@ -1,12 +1,13 @@
 {
-  "versao": "0.1.12",
-  "titulo": "O assistente agora pode falar, com uma voz gerada neste computador.",
+  "versao": "0.1.13",
+  "titulo": "Um visual novo em todas as telas, com a Agenda redesenhada e treinamentos mais fáceis de acompanhar.",
   "importante": false,
   "novidades": [
-    "Em Ajustes, o cartão Voz do assistente permite baixar o LFM3 Audio, escolher idioma e voz, e ouvir um exemplo. São cerca de 1,3 GB para baixar e 3,7 GB de memória quando está em uso.",
-    "As respostas do chat têm um botão para ouvir e podem ser lidas em voz alta assim que chegam.",
-    "O assistente não atrapalha mais listas e janelas: elas abrem por cima dele, o que você escreveu continua lá e o Esc fecha primeiro a lista.",
-    "Em computadores mais lentos, o assistente não fica pensando sem fim: depois de um minuto, ele avisa e continua respondendo sem a IA."
+    "A Agenda virou uma linha do tempo por pessoa: arraste para remarcar, desfaça com Ctrl+Z, filtre pelo nome e use o botão direito para ver as ações.",
+    "O menu lateral agora tem submenus e a busca de comandos, e pode ser recolhido com o botão Recolher menu ou com ⌘B. Ele lembra como você deixou.",
+    "Os botões \"?\" explicam o que cada parte da tela faz e como usar.",
+    "Nos treinamentos, a imagem se aproxima de cada passo e o ponteiro mostra onde clicar. O filme pode ser mais rápido, as setas pulam 5 segundos e, no final, ele oferece o próximo assunto.",
+    "A barra de rolagem some quando não está em uso e não passa mais por cima dos campos, e as janelas abrem sem aquele efeito acinzentado no tema claro."
   ],
-  "por_que_atualizar": "Para ouvir as respostas do assistente e usá-lo sem que ele atrapalhe o resto da tela."
+  "por_que_atualizar": "Para usar a nova Agenda e aprender o app com treinamentos mais claros."
 }

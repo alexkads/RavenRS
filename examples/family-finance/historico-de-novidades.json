@@ -1,5 +1,19 @@
 [
   {
+    "versao": "0.1.13",
+    "data": "2026-11-02",
+    "titulo": "Um visual novo em todas as telas, com a Agenda redesenhada e treinamentos mais fáceis de acompanhar.",
+    "importante": false,
+    "novidades": [
+      "A Agenda virou uma linha do tempo por pessoa: arraste para remarcar, desfaça com Ctrl+Z, filtre pelo nome e use o botão direito para ver as ações.",
+      "O menu lateral agora tem submenus e a busca de comandos, e pode ser recolhido com o botão Recolher menu ou com ⌘B. Ele lembra como você deixou.",
+      "Os botões \"?\" explicam o que cada parte da tela faz e como usar.",
+      "Nos treinamentos, a imagem se aproxima de cada passo e o ponteiro mostra onde clicar. O filme pode ser mais rápido, as setas pulam 5 segundos e, no final, ele oferece o próximo assunto.",
+      "A barra de rolagem some quando não está em uso e não passa mais por cima dos campos, e as janelas abrem sem aquele efeito acinzentado no tema claro."
+    ],
+    "por_que_atualizar": "Para usar a nova Agenda e aprender o app com treinamentos mais claros."
+  },
+  {
     "versao": "0.1.12",
     "data": "2026-11-02",
     "titulo": "O assistente agora pode falar, com uma voz gerada neste computador.",
