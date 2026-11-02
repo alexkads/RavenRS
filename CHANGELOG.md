@@ -24,6 +24,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - A film's chapters show how long each one takes, and the current one what it teaches; a player with boxes over its film no longer repeats that under it.
 - `Badge` text moves toward the ink, to keep 4.5:1 on its tint.
 - `read_tool_call` accepts a tool's name written with accents or capitals, as models do.
+- `LocalAssistant` stops waiting after a minute, and `too_slow` says so: from then on it answers nothing, at once, so an app can go on without it. A choice also ends as soon as its JSON closes.
 
 ## [27.1.2] - 2026-11-01
 

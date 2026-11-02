@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use ravenrs::movie::{Moment, MovieAnswers, MovieChatLabels, MovieWriter};
 use ravenrs::prelude::*;
-use ravenrs_ai::{ModelManager, Tool, ToolCall, read_tool_call, tool_rules};
+use ravenrs_ai::{LocalAssistant, ModelManager, Tool, ToolCall, read_tool_call, tool_rules};
 
 use super::forms::Forms;
 use super::request::{Prefill, When, folded, read_request};
@@ -74,6 +74,9 @@ const SCREENS: [(&str, &str); 9] = [
 const FOLLOW_UP_WORDS: usize = 5;
 /// How many rows an answer lists.
 const ROWS: usize = 6;
+
+/// Said once, when a model took too long: from then on it answers without one.
+const TOO_SLOW: &str = "Esta IA demorou demais neste computador, então continuo respondendo sem ela. Em Ajustes, você pode escolher uma IA menor.";
 
 /// A question the model is thinking about.
 pub(crate) struct Pending {
@@ -148,7 +151,7 @@ struct Replies {
 impl Replies {
     /// Takes a question from the chat.
     fn send(&self, question: String, waker: UiWaker) {
-        let assistant = self.models.as_ref().and_then(ModelManager::assistant);
+        let assistant = self.assistant().filter(|assistant| !assistant.too_slow());
         let Some(assistant) = assistant else {
             let reply = self.about_films(&question, &waker);
             self.messages.update(|all| all.push(reply));
@@ -199,10 +202,18 @@ impl Replies {
         let chosen = pending.choice.lock().map(|text| text.clone()).unwrap_or_default();
         let reply =
             self.reply(read_tool_call(&chosen, ASSISTANT_TOOLS).as_ref(), &pending.question, &pending.waker);
+        let too_slow = self.assistant().is_some_and(|assistant| assistant.too_slow());
         self.messages.update(|all| {
             all.pop();
             all.push(reply);
+            if too_slow {
+                all.push(ChatMessage::assistant(TOO_SLOW));
+            }
         });
+    }
+
+    fn assistant(&self) -> Option<LocalAssistant> {
+        self.models.as_ref().and_then(ModelManager::assistant)
     }
 
     /// Does what was chosen. Anything it cannot do goes to the films, as with no model.
