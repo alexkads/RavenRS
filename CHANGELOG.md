@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.3] - 2026-11-01
+
 ### Added
 - **`Chat` and `FloatingPanel`.** `Chat` is a conversation over a field to write in, with examples and cards to act on; it does not know who answers. `FloatingPanel` is a glowing sphere in the corner of the window that opens a panel over the app, which stays usable behind it. Dragging it or pressing an arrow key sends it to another corner, and it asks for frames only while the pointer or the focus is on it. `Labels` gains `send`.
 - **Local AI models.** `ModelPicker` lists models to download, try, use and remove. The new crate `ravenrs-ai`, desktop only, does the work: `ModelManager` offers only the models that fit the machine's memory and disk and tests their speed, `ModelFolder` downloads each when someone asks, checking its hash, and removes it, `LocalEngine` runs one on the CPU with no extra build tools, and `LocalAssistant` keeps it on its own thread, and `tool_rules` and `read_tool_call` let it choose among what the app offers, which is all it can do. Nothing else talks to the network.
@@ -222,7 +224,8 @@ The first public release.
 - `scripts/check.sh` runs formatting, clippy (native and wasm32), the tests and the web builds locally.
 - `scripts/deploy-pages.sh` publishes the landing page, the live gallery and the API docs.
 
-[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.2...HEAD
+[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.3...HEAD
+[27.1.3]: https://github.com/alexkads/RavenRS/compare/v27.1.2...v27.1.3
 [27.1.2]: https://github.com/alexkads/RavenRS/compare/v27.1.1...v27.1.2
 [27.1.1]: https://github.com/alexkads/RavenRS/compare/v27.1.0...v27.1.1
 [27.1.0]: https://github.com/alexkads/RavenRS/compare/v26.2.1...v27.1.0
