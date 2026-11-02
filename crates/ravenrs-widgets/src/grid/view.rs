@@ -959,6 +959,7 @@ impl View for FooterCell<'_> {
         style.padding = Insets { left: 2.0, right: 12.0, ..Insets::ZERO };
         style.absolute = fixed.map(|x| (x, 0.0));
         let surface = theme.color(Semantic::Surface);
+        let band = theme.color(Semantic::Control).faded(0.6);
         let tint = if hovered && editable { ink.with_alpha(0.04) } else { Color::TRANSPARENT };
         let solid = fixed.is_some();
         let node = cx.container(
@@ -967,6 +968,7 @@ impl View for FooterCell<'_> {
             Paint::Custom(Rc::new(move |f: Rect, scene| {
                 if solid {
                     scene.push_quad(Quad::new(f, surface));
+                    scene.push_quad(Quad::new(f, band));
                 }
                 scene.push_quad(Quad::new(f, tint));
             })),
@@ -1313,6 +1315,7 @@ impl View for HeaderCell<'_> {
         let hover_fill =
             if hovered { theme.color(Semantic::Ink).with_alpha(0.03) } else { Color::TRANSPARENT };
         let solid = fixed.map(|_| theme.color(Semantic::Surface));
+        let band = theme.color(Semantic::Control).faded(0.6);
         let edge = (s.last_fixed == Some(c)).then(|| theme.color(Semantic::Border));
         let node = cx.container(
             LayoutStyle {
@@ -1327,6 +1330,7 @@ impl View for HeaderCell<'_> {
                 zones.borrow_mut().cells.insert(c, f);
                 if let Some(solid) = solid {
                     scene.push_quad(Quad::new(f, solid));
+                    scene.push_quad(Quad::new(f, band));
                 }
                 scene.push_quad(Quad::new(f, hover_fill));
                 if let Some(edge) = edge {
@@ -1392,7 +1396,12 @@ impl View for FilterCell<'_> {
             let labels = cx.labels();
             let hint =
                 if col.number.is_some() { &labels.grid_number_filter_hint } else { &labels.grid_filter_hint };
-            let field = cx.child(&TextField::new(binding).placeholder(hint.clone()).compact());
+            let field = cx.child(
+                &TextField::new(binding)
+                    .placeholder(hint.clone())
+                    .compact()
+                    .width((s.widths[c] - 12.0).max(40.0)),
+            );
             cx.label_control(field, &format!("{} {}", labels.grid_filter_column, col.title), Some(hint));
             children.push(field);
         }
@@ -2704,8 +2713,8 @@ impl View for DataGrid {
             header_cells.push(cx.keyed_child(c as u64, &HeaderCell { column: c, shared: &shared }));
         }
         let zones = h.zones.clone();
-        let header =
-            Self::band(cx, header_cells, &shared, offset.x, Color::TRANSPARENT, false, HEADER_HEIGHT);
+        let band_fill = theme.color(Semantic::Control).faded(0.6);
+        let header = Self::band(cx, header_cells, &shared, offset.x, band_fill, false, HEADER_HEIGHT);
         let header_zone = cx.container(
             LayoutStyle {
                 align: Align::Stretch,
@@ -2938,11 +2947,10 @@ impl View for DataGrid {
                     Paint::None,
                 ));
             }
-            let surface = theme.color(Semantic::Surface);
             for &c in flowing.iter().chain(shared.fixed.iter().map(|(c, _)| c)) {
                 cells.push(cx.keyed_child(2000 + c as u64, &FooterCell { column: c, shared: &shared }));
             }
-            sections.push(Self::band(cx, cells, &shared, offset.x, surface, true, FOOTER_HEIGHT));
+            sections.push(Self::band(cx, cells, &shared, offset.x, band_fill, true, FOOTER_HEIGHT));
         }
 
         // The pager.

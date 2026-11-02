@@ -209,7 +209,7 @@ fn ledger(take: &mut Recorder) -> Result<(), RecordError> {
     }
     take.wait(0.5);
     take.explain(
-        "Agrupar",
+        "Arraste uma coluna para cá para agrupar",
         "Agrupar",
         "Agrupar junta as linhas por categoria, conta ou pessoa, com o total de cada grupo. Clicar no título de uma coluna ordena a lista por ela.",
     )?;
