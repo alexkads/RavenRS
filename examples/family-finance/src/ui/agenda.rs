@@ -7,6 +7,7 @@ use ravenrs::core::Key;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
+use super::help;
 use super::store::{Memo, Page, Store, content_width, screen};
 use crate::model::{Bill, Flow, Member, Occurrence, date_label};
 use crate::money::format_brl;
@@ -680,6 +681,7 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms, window: 
     };
 
     Page::new(
+        help::AGENDA,
         format!("Previsto no período: entra {} · sai {}", format_brl(incoming), format_brl(outgoing)),
         screen((
             HistoryKeys { history: state.history.clone(), store: store.clone() },

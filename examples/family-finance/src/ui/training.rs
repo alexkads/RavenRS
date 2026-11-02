@@ -11,6 +11,7 @@ use ravenrs::prelude::*;
 use ravenrs_ai::{CATALOG, ModelFolder, ModelManager, ModelManagerLabels};
 
 use super::assistant::Pending;
+use super::help;
 use super::store::{PAGE_INSETS, Page, Store, content_width};
 use crate::update;
 
@@ -66,6 +67,7 @@ impl TrainingState {
 pub(crate) fn training(state: &TrainingState) -> Page {
     let (library, cue) = (state.library.clone(), state.cue.clone());
     Page::new(
+        help::TREINAMENTOS,
         "Pergunte o que quer aprender, ou escolha um assunto e assista no seu ritmo.",
         ScrollView::new((VStack::new((responsive(move |size| -> AnyView {
             match &library {

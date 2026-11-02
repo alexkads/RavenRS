@@ -1,5 +1,6 @@
 //! What every screen shares: the database, a change counter, and small helpers.
 
+use super::help::{Help, tip};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -178,22 +179,26 @@ pub(crate) fn filling(grid: DataGrid) -> FillColumn<(DataGrid,)> {
 /// A screen: what it says about itself in the top bar, and what it shows.
 pub(crate) struct Page {
     pub subtitle: String,
+    pub help: Help,
     pub body: AnyView,
 }
 
 impl Page {
-    pub fn new(subtitle: impl Into<String>, body: impl View + 'static) -> Self {
-        Self { subtitle: subtitle.into(), body: Box::new(body) }
+    pub fn new(help: Help, subtitle: impl Into<String>, body: impl View + 'static) -> Self {
+        Self { subtitle: subtitle.into(), help, body: Box::new(body) }
     }
 }
 
+/// A title with its "?" beside it.
+pub(crate) fn titled(title: &str, help: Help) -> impl View + use<> {
+    HStack::new((Text::new(title.to_owned()).style(TextStyle::Headline), tip(help)))
+        .spacing(4.0)
+        .align(Align::Center)
+}
+
 /// A card with its title inside.
-pub(crate) fn titled_card<V: View + 'static>(title: &str, content: V) -> impl View + use<V> {
-    Card::new(
-        VStack::new((Text::new(title.to_owned()).style(TextStyle::Headline), content))
-            .spacing(14.0)
-            .align(Align::Stretch),
-    )
+pub(crate) fn titled_card<V: View + 'static>(title: &str, help: Help, content: V) -> impl View + use<V> {
+    Card::new(VStack::new((titled(title, help), content)).spacing(14.0).align(Align::Stretch))
 }
 
 /// Moves between months.

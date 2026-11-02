@@ -6,6 +6,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
+use super::help;
 use super::store::{Memo, Page, Store, content_width, date_column, filling, money_column, row_id, screen};
 use crate::model::{Bill, BillStatus};
 use crate::money::format_brl;
@@ -21,7 +22,7 @@ struct BillRows {
 /// What this screen keeps while another one is open.
 #[derive(Clone)]
 pub(crate) struct BillsState {
-    view: State<usize>,
+    pub(crate) view: State<usize>,
     selection: State<BTreeSet<usize>>,
     rows: Memo<(u64, usize), Rc<BillRows>>,
 }
@@ -228,6 +229,7 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms, window: Si
     });
 
     Page::new(
+        help::CONTAS,
         if rows.open_count == 0 {
             "Nenhuma conta em aberto.".to_owned()
         } else {
