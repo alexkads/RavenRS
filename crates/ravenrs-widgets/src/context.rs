@@ -505,6 +505,7 @@ pub struct BuildCx<'a> {
     pub(crate) placeholder: LayoutId,
     pub(crate) error: Option<LayoutError>,
     pub(crate) clipboard: crate::Clipboard,
+    pub(crate) sound: crate::Sound,
     pub(crate) motions: Vec<MotionEntry>,
     pub(crate) motion_clock: f64,
     pub(crate) motion_enabled: bool,
@@ -563,6 +564,7 @@ impl<'a> BuildCx<'a> {
             placeholder,
             error: None,
             clipboard,
+            sound: crate::Sound::default(),
             motions: Vec::new(),
             motion_clock: 0.0,
             motion_enabled: false,
@@ -611,6 +613,11 @@ impl<'a> BuildCx<'a> {
     /// The system clipboard, for copy and paste handlers.
     pub fn clipboard(&self) -> crate::Clipboard {
         self.clipboard.clone()
+    }
+
+    /// The system's sound and voice.
+    pub fn sound(&self) -> crate::Sound {
+        self.sound.clone()
     }
 
     /// The viewport size in logical pixels.

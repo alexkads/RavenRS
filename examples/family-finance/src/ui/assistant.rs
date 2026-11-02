@@ -454,7 +454,7 @@ pub(crate) fn chat(
         labels,
         on_open: Rc::new(move |moment: &Moment| {
             going.set(TRAINING_PAGE);
-            cue.go_to(moment.at_ms);
+            cue.go_to_film(moment.film, moment.at_ms);
             closing.set(false);
         }),
         writer: writer(models.as_ref()),

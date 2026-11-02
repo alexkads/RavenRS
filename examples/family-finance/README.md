@@ -22,7 +22,7 @@ The first run opens on a sample family, so there is something to explore. **Ajus
 | Ajustes | `ThemeSwitcher` |
 | Exports and backup | `ravenrs::native::SaveDialog`, `open_with_system` |
 | An optional local AI model | `ravenrs_ai::ModelManager` in Ajustes offers only what fits this machine, to download, test, use and remove. With one in use, the assistant in `src/ui/assistant.rs` answers about the money, opens screens and prepares entries: the model only chooses a tool, `src/ui/request.rs` reads amounts, dates, names, repetition, installments and barcodes from the person's words, the numbers come from the database, and nothing is saved until the person confirms |
-| Treinamentos and reporting a problem | `ravenrs::movie`: `MovieChat` in a `FloatingPanel` on every screen and `MovieAssistant`, where a question opens the right moment of the films recorded by `tests/training.rs`, `FlightRecorder`, `BugReporter` |
+| Treinamentos and reporting a problem | `ravenrs::movie`: `MovieChat` in a `FloatingPanel` on every screen and `MovieAssistant`, where a question opens the right moment of the six films recorded by `tests/training.rs`, with sound, a voice and boxes that explain each step, `FlightRecorder`, `BugReporter` |
 | Updates | `StatusBar`, `ReleaseNotes`, `CodeBlock`, and `UiWaker`, which wakes the UI when a background thread finishes |
 | Everywhere | `Sidebar`, `CommandPalette` (⌘K), `Toaster`, `Tooltip`, `Localized` |
 
@@ -67,13 +67,13 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/fa
 |---|---|---|---|
 | Windows 11 | Visual Studio Build Tools by `winget`, Rust | `%LOCALAPPDATA%\Programs\RavenFinancas` | Start menu |
 | macOS | Apple's command line tools, Rust | `/Applications/Raven Finanças.app`, or `~/Applications` without permission there | Launchpad or Finder |
-| Linux | C compiler and window libraries by `apt`, `dnf`, `pacman` or `zypper`, Rust | `~/.local/bin/family-finance` | Applications menu |
+| Linux | C compiler, ALSA and window libraries by `apt`, `dnf`, `pacman` or `zypper`, Rust | `~/.local/bin/family-finance` | Applications menu |
 
 When it opens and every hour after that, the app reads `novidades.json` from master, silently. If that version is newer, the line at the foot of the window says so and an installed copy starts compiling at low priority, telling each step the installer announces. **Procurar atualização**, in Ajustes, answers there even when there is nothing new. The same line always shows the version in use, and clicking it shows what that version brought. The installed app is only replaced after the new binary answers `--versao`, and the old one is kept: on macOS in `~/.raven-financas/anterior`, elsewhere beside it as `.anterior`. A version that failed is not retried by itself for a day. A copy built with `cargo run` only mentions the new version.
 
 **If the app is slow**, open Ajustes and press **Testar desempenho**: in 5 seconds it says how the app runs on this computer and why. For the details, press Ctrl+Shift+D (Cmd+Shift+D on a Mac) to see which GPU it is on and what its frames cost, or run `family-finance --diagnostico` for the GPU report in the terminal, which also works when the window will not open. Both give text to paste into a bug report, and the panel's **Relatar bug** button opens a new GitHub issue with that text in the browser, for you to review and send.
 
-The training film is `assets/treinamentos.ravenmovie`, recorded from the app itself, about 300 KB. After screens change, a test fails if the script no longer fits, and `FF_RECORD_TRAINING=1 cargo test -p family-finance --test training` records it again.
+The training films are in `assets/treinamentos/`, recorded from the app itself: six films, about 16 minutes and 700 KB in all, since a film stores no pixels and no sound. After screens change, a test fails if a script no longer fits, and `FF_RECORD_TRAINING=1 cargo test -p family-finance --test training` records them again.
 
 **To release**, make one commit with three changes: `version` in `Cargo.toml`, `novidades.json`, and the same entry with its `data` on top of `historico-de-novidades.json`. A test holds them together. Make it the last commit of the release: anyone who compiled 0.1.N will not compile another 0.1.N.
 

@@ -181,7 +181,8 @@ fn draw_every_screen() {
 
     // The training films: the page, moments of the film, and the editor over it.
     let film =
-        ravenrs::movie::Movie::from_bytes(include_bytes!("../assets/treinamentos.ravenmovie")).expect("film");
+        ravenrs::movie::Movie::from_bytes(include_bytes!("../assets/treinamentos/lancamentos.ravenmovie"))
+            .expect("film");
     let mut page = app(Theme::raven_light(), 8, Updater::idle());
     capture(&gpu, &mut page, size, &folder.join("treinamentos.png"));
     // A question, and the moment it opens.

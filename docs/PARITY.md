@@ -139,9 +139,9 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Alert / Callout | ✓ | ✓ | ✓ | ✅ `Alert` |
 | Code snippet with copy | | ✓ | | ✅ `CodeBlock` |
 | Release notes | | | | ✅ `ReleaseNotes` |
-| Training film and player | | | | ✅ `ravenrs::movie`: `Recorder`, `MoviePlayer` |
+| Training film and player | | | | ✅ `ravenrs::movie`: `Recorder`, `MoviePlayer`, with click and key sounds, a voice and boxes that explain each step |
 | Question that opens a film at the right moment | | | | ✅ `MovieAssistant`, `MovieLibrary`: words the films hold, no model |
-| Film editor with timeline | | | | ✅ `MovieEditor`; no sound yet |
+| Film editor with timeline | | | | ✅ `MovieEditor`; its preview has no sound |
 | Bug report with a film | | | | ✅ `FlightRecorder`, `BugReporter` |
 | Progress bar | ✓ | ✓ | ✓ | ✅ |
 | Loader / Spinner | | ✓ | ✓ | ✅ `Spinner` |

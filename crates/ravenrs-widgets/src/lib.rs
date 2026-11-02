@@ -69,6 +69,7 @@ mod release_notes;
 mod remote;
 mod ribbon;
 mod scheduler;
+mod sound;
 mod stack;
 mod text;
 mod text_field;
@@ -126,6 +127,7 @@ pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
 pub use scheduler::{
     Resource, Scheduler, SchedulerChange, SchedulerEvent, SchedulerRange, TimeAxis, TimePoint, TimeScale,
 };
+pub use sound::{Silence, Sound, SoundClip, SoundProvider};
 pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, StatusBar, ToolRail, VStack};
 pub use text::Text;
 pub use text_field::TextField;

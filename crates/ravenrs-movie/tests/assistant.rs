@@ -302,3 +302,15 @@ fn a_question_that_finds_nothing_does_not_reach_the_writer() {
     press(&mut ui, Key::Enter);
     assert!(says(&mut ui, "No film talks about that"));
 }
+
+#[test]
+fn a_cue_from_outside_can_change_the_film() {
+    let other = film(&[("Importar um extrato", "Traga o arquivo do banco.", 3000)], Vec::new());
+    let library = MovieLibrary::new().film("Manual", manual()).film("Banco", other);
+    let cue = MovieCue::new();
+    let mut ui = ui_of(MovieAssistant::new(library).cue(cue.clone()));
+    cue.go_to_film(1, 3000);
+    ui.update();
+    assert!(says(&mut ui, "0:03 / 0:20"), "{:?}", names(&mut ui));
+    assert!(says(&mut ui, "Importar um extrato"));
+}

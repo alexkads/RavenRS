@@ -39,43 +39,73 @@ impl std::error::Error for GpuError {}
 impl GpuContext {
     /// Requests an adapter (compatible with `surface`, when given) and a device
     /// with default limits, which every WebGPU implementation supports.
+    ///
+    /// A power preference is what makes wgpu rank adapters: without one it takes
+    /// the first it finds, which on Linux can be Vulkan on the CPU with the real
+    /// GPU right there on GL. An interface needs little, so it asks for the GPU
+    /// that spends the least; `WGPU_POWER_PREF` overrides that. When the adapter
+    /// cannot give the limits needed, as an old GPU may not, the others get a turn.
     pub async fn new(
         instance: &wgpu::Instance,
         surface: Option<&wgpu::Surface<'_>>,
     ) -> Result<Self, GpuError> {
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
+                power_preference: wgpu::PowerPreference::from_env()
+                    .unwrap_or(wgpu::PowerPreference::LowPower),
                 force_fallback_adapter: false,
                 compatible_surface: surface,
                 ..Default::default()
             })
             .await
             .map_err(|e| GpuError::NoAdapter(e.to_string()))?;
-        let limits = if cfg!(target_arch = "wasm32") {
-            wgpu::Limits::default().using_resolution(adapter.limits())
-        } else {
-            wgpu::Limits::default()
+        let (adapter, device, queue) = match request_device(&adapter).await {
+            Ok((device, queue)) => (adapter, device, queue),
+            Err(first) => {
+                tracing::warn!(adapter = %adapter.get_info().name, error = %first, "GPU refused; trying others");
+                let mut others = instance.enumerate_adapters(wgpu::Backends::all()).await;
+                others.retain(|other| {
+                    other.get_info() != adapter.get_info()
+                        && surface.is_none_or(|surface| other.is_surface_supported(surface))
+                });
+                others.sort_by_key(|other| other.get_info().device_type == wgpu::DeviceType::Cpu);
+                let mut found = None;
+                for other in others {
+                    if let Ok((device, queue)) = request_device(&other).await {
+                        found = Some((other, device, queue));
+                        break;
+                    }
+                }
+                found.ok_or(GpuError::Device(first))?
+            }
         };
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: Some("raven device"),
-                required_limits: limits,
-                ..Default::default()
-            })
-            .await
-            .map_err(|e| GpuError::Device(e.to_string()))?;
         let info = adapter.get_info();
         if info.device_type == wgpu::DeviceType::Cpu {
             tracing::warn!(
                 adapter = %info.name,
                 driver = %info.driver,
-                "rendering on the CPU, so the interface will be slow; no usable GPU driver was found"
+                "rendering on the CPU, so the interface will be slow; the GPU is not being used"
             );
         }
         tracing::info!(adapter = ?info, "GPU ready");
         Ok(Self { adapter, device, queue })
     }
+}
+
+async fn request_device(adapter: &wgpu::Adapter) -> Result<(wgpu::Device, wgpu::Queue), String> {
+    let limits = if cfg!(target_arch = "wasm32") {
+        wgpu::Limits::default().using_resolution(adapter.limits())
+    } else {
+        wgpu::Limits::default()
+    };
+    adapter
+        .request_device(&wgpu::DeviceDescriptor {
+            label: Some("raven device"),
+            required_limits: limits,
+            ..Default::default()
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 fn adapter_report(adapter: &wgpu::Adapter) -> AdapterReport {

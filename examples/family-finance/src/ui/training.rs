@@ -15,7 +15,14 @@ use super::store::{Store, heading};
 use crate::update;
 
 /// The films, recorded by `tests/training.rs` from the real app.
-const FILM: &[u8] = include_bytes!("../../assets/treinamentos.ravenmovie");
+const FILMS: [(&str, &[u8]); 6] = [
+    ("Visão geral", include_bytes!("../../assets/treinamentos/visao-geral.ravenmovie")),
+    ("Lançamentos", include_bytes!("../../assets/treinamentos/lancamentos.ravenmovie")),
+    ("Contas a pagar", include_bytes!("../../assets/treinamentos/contas.ravenmovie")),
+    ("Agenda", include_bytes!("../../assets/treinamentos/agenda.ravenmovie")),
+    ("Orçamentos e relatórios", include_bytes!("../../assets/treinamentos/planejamento.ravenmovie")),
+    ("Cadastros e backup", include_bytes!("../../assets/treinamentos/cadastros.ravenmovie")),
+];
 /// The Treinamentos page, in the app's list of pages.
 pub(crate) const TRAINING_PAGE: usize = 8;
 /// The room around the player: the sidebar and the page's margins.
@@ -35,9 +42,12 @@ pub(crate) struct TrainingState {
 
 impl TrainingState {
     pub(crate) fn new(database: Option<&Path>) -> Self {
-        let film = Movie::from_bytes(FILM).ok();
+        // One film that does not open hides the page: they were recorded together.
+        let library = FILMS.iter().try_fold(MovieLibrary::new(), |library, (title, bytes)| {
+            Movie::from_bytes(bytes).ok().map(|film| library.film(*title, film))
+        });
         Self {
-            library: film.map(|film| MovieLibrary::new().film("O essencial do Raven Finanças", film)),
+            library,
             cue: MovieCue::new(),
             chat_open: State::new(false),
             messages: State::new(Vec::new()),
@@ -56,7 +66,7 @@ pub(crate) fn training(state: &TrainingState) -> impl View + use<> {
     ScrollView::new((VStack::new((
         heading(
             "Treinamentos",
-            "Pergunte o que quer aprender, ou assista no seu ritmo. Em cada passo o filme para e espera você clicar no ponto marcado.",
+            "Pergunte o que quer aprender, ou escolha um assunto e assista no seu ritmo. O filme explica cada ação em voz alta e em uma caixa na tela, e em cada passo espera você clicar no ponto marcado.",
         ),
         responsive(move |size| -> AnyView {
             match &library {

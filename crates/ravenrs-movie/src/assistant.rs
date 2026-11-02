@@ -140,6 +140,9 @@ impl View for MovieAssistant {
         let answered: State<Option<String>> = cx.use_state(|| None);
         let own_cue = cx.use_state(MovieCue::new).get();
         let cue = self.cue.clone().unwrap_or(own_cue);
+        if let Some(asked) = cue.take_film() {
+            film.set(asked);
+        }
         let open = Open {
             film: film.clone(),
             question: question.clone(),

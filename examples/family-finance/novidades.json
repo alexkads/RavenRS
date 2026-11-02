@@ -1,11 +1,11 @@
 {
-  "versao": "0.1.5",
-  "titulo": "Achou o app lento? Agora ele mesmo testa e diz o que está acontecendo.",
+  "versao": "0.1.7",
+  "titulo": "Os treinamentos agora falam, fazem som e explicam cada passo na tela.",
   "importante": false,
   "novidades": [
-    "Em Ajustes, o botão Testar desempenho mede o app por 5 segundos e diz se está bom, razoável ou ruim, sem precisar de atalho nem de terminal.",
-    "O resultado mostra quantos quadros por segundo este computador desenha e onde o tempo vai: no desenho ou em montar a tela.",
-    "Quando o app não consegue usar a placa de vídeo, o resultado avisa."
+    "Os treinamentos passaram de um filme curto para seis filmes, cerca de 16 minutos, sobre cada parte do app e as regras de cada tela.",
+    "Uma voz lê em voz alta o que está sendo feito, e dá para ouvir os cliques e a digitação. Som e narração têm cada um seu botão de desligar.",
+    "Uma caixa aparece junto de cada ação, explicando o que fazer e por quê."
   ],
-  "por_que_atualizar": "Para saber em 5 segundos como o app roda neste computador e por quê."
+  "por_que_atualizar": "Para aprender a usar o app assistindo e ouvindo, no seu ritmo."
 }
