@@ -220,6 +220,22 @@ fn reopening_during_the_exit_continues_from_where_it_was() {
 }
 
 #[test]
+fn a_closing_dialog_stays_over_its_backdrop() {
+    // The order that broke this came from a map, different from one run to another.
+    for _ in 0..32 {
+        let open = State::new(true);
+        let mut ui = running(VStack::new((Dialog::new(open.binding(), "Hello"),)));
+        let mut t = 0.0;
+        settle(&mut ui, &mut t);
+        open.set(false);
+        ui.update();
+        frames(&mut ui, &mut t, 3);
+        let backdrop = quads(&ui).iter().position(|q| q.rect.width() >= 800.0);
+        assert_eq!(backdrop, Some(0), "the backdrop goes under the card");
+    }
+}
+
+#[test]
 fn popups_grow_from_their_anchor() {
     let open = State::new(false);
     let mut ui = running(VStack::new((Popover::new(open.binding(), Button::new("Open"), Text::new("Hi")),)));

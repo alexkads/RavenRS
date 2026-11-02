@@ -254,6 +254,8 @@ struct Snapshot {
     pivot: Point,
     flip: bool,
     layer: GhostLayer,
+    /// When it was painted among the others, so that exits keep their stacking.
+    order: u64,
     valid: bool,
 }
 
@@ -314,6 +316,7 @@ pub(crate) struct Sampled {
 pub(crate) struct MotionSystem {
     tracks: HashMap<MotionKey, Track>,
     ghosts: Vec<Ghost>,
+    captures: u64,
     build: u64,
     /// The latest paint found something still moving.
     pub active: bool,
@@ -357,7 +360,7 @@ impl MotionSystem {
                 None => {
                     let revived = self.ghosts.iter().position(|g| g.key == Some(entry.key));
                     let (from, t) = match (revived, m.enter) {
-                        (Some(i), _) => (self.ghosts.swap_remove(i).effect.value(now), m.enter.map(|e| e.1)),
+                        (Some(i), _) => (self.ghosts.remove(i).effect.value(now), m.enter.map(|e| e.1)),
                         (None, Some((from, t))) if started => {
                             let (from, t) = self.adapt(from, t);
                             (from, Some(t))
@@ -407,9 +410,14 @@ impl MotionSystem {
             }
         }
         // Whatever was not built starts its exit, from the picture it left.
-        let gone: Vec<MotionKey> =
-            self.tracks.iter().filter(|(_, t)| t.seen != build).map(|(k, _)| *k).collect();
-        for key in gone {
+        let mut gone: Vec<(u64, MotionKey)> = self
+            .tracks
+            .iter()
+            .filter(|(_, t)| t.seen != build)
+            .map(|(k, t)| (t.snapshot.order, *k))
+            .collect();
+        gone.sort_unstable_by_key(|(order, _)| *order);
+        for (_, key) in gone {
             let Some(track) = self.tracks.remove(&key) else { continue };
             let Some((to, t)) = track.exit else { continue };
             if !self.enabled || !track.snapshot.valid {
@@ -516,6 +524,8 @@ impl MotionSystem {
         s.pivot = pivot;
         s.flip = flip;
         s.layer = layer;
+        self.captures += 1;
+        s.order = self.captures;
         s.valid = true;
     }
 
