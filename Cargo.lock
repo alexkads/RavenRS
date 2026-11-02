@@ -767,7 +767,7 @@ dependencies = [
 
 [[package]]
 name = "component-gallery"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -1196,7 +1196,7 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "family-finance"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "image",
  "jiff",
@@ -1581,7 +1581,7 @@ dependencies = [
 
 [[package]]
 name = "hello-world"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -2288,7 +2288,7 @@ dependencies = [
 
 [[package]]
 name = "movie-editor"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "ravenrs",
 ]
@@ -3252,7 +3252,7 @@ checksum = "ca45419789ae5a7899559e9512e58ca889e41f04f1f2445e9f4b290ceccd1d08"
 
 [[package]]
 name = "ravenrs"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "image",
  "pollster",
@@ -3271,7 +3271,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-animation"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "proptest",
  "ravenrs-core",
@@ -3279,14 +3279,14 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-core"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "proptest",
 ]
 
 [[package]]
 name = "ravenrs-criteria"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "js-sys",
  "proptest",
@@ -3295,7 +3295,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-graphics"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "qrcodegen",
  "ravenrs-core",
@@ -3305,7 +3305,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-layout"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "proptest",
  "ravenrs-core",
@@ -3314,7 +3314,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-mcp"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "proc-macro2",
  "ravenrs-criteria",
@@ -3327,7 +3327,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-movie"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "flate2",
  "ravenrs-core",
@@ -3342,7 +3342,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-platform-native"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -3360,7 +3360,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-platform-web"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "js-sys",
  "ravenrs-core",
@@ -3375,14 +3375,14 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-reactive"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "proptest",
 ]
 
 [[package]]
 name = "ravenrs-render"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "bytemuck",
  "pollster",
@@ -3395,7 +3395,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "criterion",
  "image",
@@ -3410,7 +3410,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-export"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "ravenrs-report",
  "ravenrs-report-pdf",
@@ -3421,7 +3421,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-pdf"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "image",
  "miniz_oxide 0.8.9",
@@ -3436,7 +3436,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-server"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "axum",
  "jiff",
@@ -3454,7 +3454,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-viewer"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "ravenrs-core",
  "ravenrs-layout",
@@ -3473,7 +3473,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-xlsx"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "image",
  "ravenrs-core",
@@ -3485,7 +3485,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-style"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
@@ -3493,7 +3493,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-text"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "criterion",
  "parley",
@@ -3502,7 +3502,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-widgets"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "criterion",
  "image",
@@ -3631,7 +3631,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
 name = "report-designer"
-version = "27.1.1"
+version = "27.1.2"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",

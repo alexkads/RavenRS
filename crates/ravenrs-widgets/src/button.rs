@@ -27,8 +27,6 @@ pub enum ButtonStyle {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ButtonSize {
-    /// 22 px tall, caption text; a [`StatusBar`](crate::StatusBar)'s actions.
-    Mini,
     /// 32 px tall, smaller text; dense toolbars and table rows.
     Small,
     /// 40 px tall; the default.
@@ -36,6 +34,8 @@ pub enum ButtonSize {
     Medium,
     /// 48 px tall; prominent calls to action.
     Large,
+    /// 22 px tall, caption text; a [`StatusBar`](crate::StatusBar)'s actions.
+    Mini,
 }
 
 impl ButtonSize {

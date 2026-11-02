@@ -4,10 +4,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.2] - 2026-11-01
+
 ### Added
 - **Sound.** `Sound` plays short clips and speaks with the system's voice, through `BuildCx::sound` and `Ui::set_sound`, on the desktop and in the browser. `SoundClip::click` and `SoundClip::key` are computed, so they add nothing to an app's size. On Linux, compiling now needs ALSA's headers.
 - **Films that talk.** `MoviePlayer` plays the clicks and keys of a film, reads what it says aloud, and shows it in a box next to what it talks about, with a switch for each sound. `Recorder::intro` and `Recorder::explain` time their boxes to the text. `Recorder::guide` now also waits for its text to be read, which the player skips while it stops at steps; a film recorded before this plays as it did, with no key sounds.
-- **Bug reports from the diagnostics panel.** `WindowOptions::new_issue_url` adds a button that opens a new issue in the browser with the report filled in, cut to a safe length, for the person to review and send. Nothing is sent by the app, and the panel says what the report has before it opens. `ravenrs::native::open_url` opens a web page, and `ravenrs_core::new_issue_url` and `redact_user_paths` are the plain functions behind the button.
+- **Bug reports from the diagnostics panel.** `AppIdentity::new_issue_url` adds a button that opens a new issue in the browser with the report filled in, cut to a safe length, for the person to review and send. Nothing is sent by the app, and the panel says what the report has before it opens. `ravenrs::native::open_url` opens a web page, and `ravenrs_core::new_issue_url` and `redact_user_paths` are the plain functions behind the button.
 - **Performance test.** The diagnostics panel has a "Test performance" button, and `Diagnostics::start_test` starts it from an app's own screen: it redraws the window for 5 seconds and says in plain words whether the app is fluid, how many frames per second it drew, and whether the time goes to drawing or to building the screen. `WindowOptions::diagnostics` shares the panel with the app.
 - **Diagnostics on the desktop.** Ctrl+Shift+D (Cmd+Shift+D on a Mac) or `RAVENRS_DIAG=1` opens a panel in any app with the GPU in use, GPUs left out for their drivers, what is wrong and what recent frames cost, with a report to copy into a bug report. `ravenrs::native::diagnose` gives the same GPU report without showing a window. Closed, the panel costs nothing. `WindowOptions::labels` sets the words of the whole UI, this panel included.
 - **Expressions in the grid's filter row.** A `DataGrid` filter can be a `ravenrs-criteria` expression over column titles, such as `[Seats] > 10 And [Country] = 'Brazil'`. The short syntax (`>=15`, `5..12`, `sim`, plain text) works as before.
@@ -17,7 +19,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Barcodes in the UI.** `Barcode` shows a QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A or Interleaved 2 of 5 with every module on whole pixels. Text a format cannot hold shows why.
 - `Paint::Rich` draws with a `PaintCx`, for views that shape text while painting or need the device scale.
 - `charts` feature on `ravenrs` and `ravenrs-widgets`, on by default. `ravenrs` also forwards `decode`.
-- `ChartKind::SparkArea`, a smoothed line over a filled area, and `ChartOptions` fields for colors, bar corners and the widest bar.
+- `ChartKind::SparkArea`, a smoothed line over a filled area, and `ChartStyle` with `chart::draw_styled` for colors, bar corners and the widest bar.
 - **`MovieAssistant`.** Someone types a question and the moment of a training film that answers it opens. `MovieLibrary` searches the chapters and steps the films already hold, ignoring accents and case and accepting near forms of a word and typing slips, with no model and no network, on the desktop and in the browser. `MovieCue` opens a moment of a `MoviePlayer` from outside it. `ravenrs_text::fold` is the folding that searches compare with, shared with `DocumentViewer`.
 - **Training films (`ravenrs::movie`, crate `ravenrs-movie`).** `Recorder` runs the real app from a script and stores what it drew, with no pixels, no GPU and built-in fonts by reference, so films are small enough to ship inside an app and stay sharp at any zoom. `MoviePlayer` plays them with chapters, marks to click and steps that wait. `MovieEditor` edits them on a timeline in the style of screen-recording editors: cuts, speed, title cards, callouts, captions, spotlight, hiding regions, zoom and pan, fades, pointer highlight and clickable spots. There is no sound yet.
 - **`Timeline` and `ToolRail`.** `Timeline` shows blocks along time on named tracks, under a ruler with markers and a playhead, and reports moves and trims. `ToolRail` is a narrow bar of tools with their names under their icons. `IconButton::disabled` makes an icon button inert.
@@ -43,6 +45,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 - **GPU choice on Linux.** The native window gives wgpu its display, so the GL backend can present on Wayland when no Vulkan driver is usable, instead of leaving only software rendering. A warning now says when the app renders on the CPU, and `RUST_LOG=ravenrs_platform_native=debug` logs how long each frame's update, acquire, render and present took.
+- **The app could draw on the CPU with a real GPU present.** No power preference was asked for, so wgpu took the first adapter it found: on an old Intel GPU on Linux, whose Vulkan driver it hides, that was software Vulkan, at about 11 frames per second, instead of the GPU on GL. It now asks for the GPU that spends the least, and `WGPU_POWER_PREF` overrides that. An adapter that refuses the limits no longer stops the app while another one works.
 - The wheel over an open `Dialog` or `Sheet` no longer scrolls the page behind it, as a pinch already did not.
 - In the glass theme, the `DataGrid`'s header, footer and group rows and the lines of `DataGrid`, `Ribbon` and `Scheduler` came out far too opaque, with the header text unreadable: `with_alpha` replaced the token's own transparency.
 - A `Select`, `DatePicker` or menu inside a `Dialog` or `Sheet` opened in the window's corner, behind the dialog's backdrop. Overlays opened from inside another now come after it: they sit by their anchor and on top, keep focus, and Escape closes only them.
@@ -214,7 +217,8 @@ The first public release.
 - `scripts/check.sh` runs formatting, clippy (native and wasm32), the tests and the web builds locally.
 - `scripts/deploy-pages.sh` publishes the landing page, the live gallery and the API docs.
 
-[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.1...HEAD
+[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.2...HEAD
+[27.1.2]: https://github.com/alexkads/RavenRS/compare/v27.1.1...v27.1.2
 [27.1.1]: https://github.com/alexkads/RavenRS/compare/v27.1.0...v27.1.1
 [27.1.0]: https://github.com/alexkads/RavenRS/compare/v26.2.1...v27.1.0
 [26.2.1]: https://github.com/alexkads/RavenRS/compare/v26.2.0...v26.2.1

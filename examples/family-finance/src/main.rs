@@ -39,11 +39,7 @@ fn main() -> Result<(), PlatformError> {
         )
         .init();
     let path = first.map_or_else(paths::database, PathBuf::from);
-    let options = WindowOptions::new("Raven Finanças")
-        .size(1360.0, 860.0)
-        .theme(Theme::raven_light())
-        .labels(Labels::pt_br())
-        .new_issue_url("https://github.com/alexkads/RavenRS/issues/new");
+    let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(Theme::raven_light());
     match open(&path) {
         Ok(db) => {
             let copies = family_finance::backup::copies_folder(&path);
@@ -53,12 +49,14 @@ fn main() -> Result<(), PlatformError> {
             let updater = Updater::idle();
             updater.watch();
             let app = App::new(db, today(), Some(path), updater);
-            let identity = AppIdentity::new(paths::APP_ID);
+            let identity = AppIdentity::new(paths::APP_ID)
+                .labels(Labels::pt_br())
+                .diagnostics(app.diagnostics())
+                .new_issue_url("https://github.com/alexkads/RavenRS/issues/new");
             let identity = match icon() {
                 Some(icon) => identity.icon(icon),
                 None => identity,
             };
-            let options = options.diagnostics(app.diagnostics());
             run_as(app, options, identity)
         }
         Err(e) => {
