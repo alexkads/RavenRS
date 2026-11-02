@@ -2,6 +2,7 @@
 """Checks site/components/index.html against the code: every component's API link
 opens a page of the generated docs, and every public component is listed. Run after
 `cargo doc`. scripts/gen-component-pages.py checks that each one has an example."""
+import os
 import pathlib
 import re
 import sys
@@ -23,7 +24,7 @@ views = {name for name in public if re.search(rf"impl(<[^>]*>)? (View|Component)
 
 problems = []
 for name, path in sorted(links.items()):
-    if not (root / "target/doc" / path).exists():
+    if not (pathlib.Path(os.environ.get("CARGO_TARGET_DIR", root / "target")) / "doc" / path).exists():
         problems.append(f"{name}: no API page; run cargo doc, or fix the link")
 for name in sorted(views - listed - NOT_LISTED):
     problems.append(f"{name}: public component missing from the list")
