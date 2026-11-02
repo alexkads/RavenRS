@@ -1,5 +1,17 @@
 [
   {
+    "versao": "0.1.5",
+    "data": "2026-11-01",
+    "titulo": "Achou o app lento? Agora ele mesmo testa e diz o que está acontecendo.",
+    "importante": false,
+    "novidades": [
+      "Em Ajustes, o botão Testar desempenho mede o app por 5 segundos e diz se está bom, razoável ou ruim, sem precisar de atalho nem de terminal.",
+      "O resultado mostra quantos quadros por segundo este computador desenha e onde o tempo vai: no desenho ou em montar a tela.",
+      "Quando o app não consegue usar a placa de vídeo, o resultado avisa."
+    ],
+    "por_que_atualizar": "Para saber em 5 segundos como o app roda neste computador e por quê."
+  },
+  {
     "versao": "0.1.4",
     "data": "2026-11-01",
     "titulo": "Tire dúvidas na página Treinamentos: você pergunta e o filme abre no ponto certo.",

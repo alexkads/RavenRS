@@ -64,6 +64,26 @@ pub struct Labels {
     pub release_of: String,
     /// The diagnostics panel's title.
     pub diagnostics: String,
+    /// The button that starts a performance test.
+    pub diagnostics_test: String,
+    /// A performance test is running.
+    pub diagnostics_testing: String,
+    /// What to do while a performance test runs.
+    pub diagnostics_testing_detail: String,
+    /// A performance test found the app fluid.
+    pub diagnostics_test_good: String,
+    /// A performance test found visible stutter.
+    pub diagnostics_test_fair: String,
+    /// A performance test found the app slow.
+    pub diagnostics_test_poor: String,
+    /// After the rate a performance test measured.
+    pub diagnostics_test_fps: String,
+    /// A performance test found nothing to blame.
+    pub diagnostics_test_cause_none: String,
+    /// A performance test blames drawing.
+    pub diagnostics_test_cause_gpu: String,
+    /// A performance test blames building the screen.
+    pub diagnostics_test_cause_interface: String,
     /// Diagnostics: frames are drawn on the CPU.
     pub diagnostics_software: String,
     /// What drawing on the CPU means, and what to do about it.
@@ -221,6 +241,19 @@ impl Default for Labels {
             copy: "Copy".into(),
             copied: "Copied".into(),
             diagnostics: "Diagnostics".into(),
+            diagnostics_test: "Test performance".into(),
+            diagnostics_testing: "Measuring performance".into(),
+            diagnostics_testing_detail: "This takes 5 seconds. Leave the window as it is.".into(),
+            diagnostics_test_good: "Performance is good".into(),
+            diagnostics_test_fair: "Performance is fair".into(),
+            diagnostics_test_poor: "Performance is poor".into(),
+            diagnostics_test_fps: "frames per second".into(),
+            diagnostics_test_cause_none: "The app should feel fluid on this computer.".into(),
+            diagnostics_test_cause_gpu:
+                "The time goes into drawing: this computer's graphics cannot redraw the window in time."
+                    .into(),
+            diagnostics_test_cause_interface: "The time goes into building the screen, on the processor."
+                .into(),
             diagnostics_software: "Drawing on the CPU".into(),
             diagnostics_software_detail: "No usable GPU driver was found, so the interface will be slow."
                 .into(),
@@ -339,6 +372,16 @@ impl Labels {
             copy: "Copiar".into(),
             copied: "Copiado".into(),
             diagnostics: "Diagnóstico".into(),
+            diagnostics_test: "Testar desempenho".into(),
+            diagnostics_testing: "Medindo o desempenho".into(),
+            diagnostics_testing_detail: "Leva 5 segundos. Deixe a janela como está.".into(),
+            diagnostics_test_good: "Desempenho bom".into(),
+            diagnostics_test_fair: "Desempenho razoável".into(),
+            diagnostics_test_poor: "Desempenho ruim".into(),
+            diagnostics_test_fps: "quadros por segundo".into(),
+            diagnostics_test_cause_none: "O app deve parecer fluido neste computador.".into(),
+            diagnostics_test_cause_gpu: "O tempo vai no desenho: a parte gráfica deste computador não consegue redesenhar a janela a tempo.".into(),
+            diagnostics_test_cause_interface: "O tempo vai em montar a tela, no processador.".into(),
             diagnostics_software: "Desenhando na CPU".into(),
             diagnostics_software_detail:
                 "Nenhum driver de GPU utilizável foi encontrado, então a interface ficará lenta.".into(),

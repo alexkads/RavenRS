@@ -171,23 +171,31 @@ pub struct AppIdentity {
     id: String,
     icon: Option<ImageData>,
     labels: Option<Labels>,
+    diagnostics: Option<Diagnostics>,
     new_issue_url: Option<String>,
 }
 
 impl AppIdentity {
     /// No name: what [`run`] and [`run_with_icon`] open as.
     fn anonymous(icon: Option<ImageData>) -> Self {
-        Self { id: String::new(), icon, labels: None, new_issue_url: None }
+        Self { id: String::new(), icon, labels: None, diagnostics: None, new_issue_url: None }
     }
 
     /// The app known as `id`, which is the name of its `.desktop` file on Linux.
     pub fn new(id: impl Into<String>) -> Self {
-        Self { id: id.into(), icon: None, labels: None, new_issue_url: None }
+        Self { id: id.into(), icon: None, labels: None, diagnostics: None, new_issue_url: None }
     }
 
     /// Sets the words of the whole UI, including the diagnostics panel.
     pub fn labels(mut self, labels: Labels) -> Self {
         self.labels = Some(labels);
+        self
+    }
+
+    /// Shares `diagnostics` with the app, for a button of its own that opens the
+    /// panel or starts a performance test.
+    pub fn diagnostics(mut self, diagnostics: Diagnostics) -> Self {
+        self.diagnostics = Some(diagnostics);
         self
     }
 
@@ -230,13 +238,13 @@ fn run_window(
     options: WindowOptions,
     identity: AppIdentity,
 ) -> Result<(), PlatformError> {
-    let AppIdentity { id, icon, labels, new_issue_url } = identity;
+    let AppIdentity { id, icon, labels, diagnostics, new_issue_url } = identity;
     let app_id = (!id.is_empty()).then_some(id);
     let event_loop = EventLoop::<UserEvent>::with_user_event()
         .build()
         .map_err(|e| PlatformError::EventLoop(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Wait);
-    let diagnostics = Diagnostics::default();
+    let diagnostics = diagnostics.unwrap_or_default();
     diagnostics.set_open(std::env::var_os(DIAGNOSTICS_VARIABLE).is_some());
     if let Some(url) = new_issue_url {
         diagnostics.set_bug_reporter(url, |url| open_url(url).map_err(|e| e.to_string()));

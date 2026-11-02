@@ -1,12 +1,11 @@
 {
-  "versao": "0.1.4",
-  "titulo": "Tire dúvidas na página Treinamentos: você pergunta e o filme abre no ponto certo.",
+  "versao": "0.1.5",
+  "titulo": "Achou o app lento? Agora ele mesmo testa e diz o que está acontecendo.",
   "importante": false,
   "novidades": [
-    "Em Treinamentos, digite sua dúvida e o filme abre no momento que explica aquilo.",
-    "A busca entende as palavras dos capítulos e dos passos, com ou sem acento, e funciona sem internet.",
-    "Novo painel de diagnóstico, com Ctrl+Shift+D (Cmd+Shift+D no Mac), que mostra como o app está usando a placa de vídeo.",
-    "O painel de diagnóstico tem um botão que abre um relato de bug já preenchido na página do projeto."
+    "Em Ajustes, o botão Testar desempenho mede o app por 5 segundos e diz se está bom, razoável ou ruim, sem precisar de atalho nem de terminal.",
+    "O resultado mostra quantos quadros por segundo este computador desenha e onde o tempo vai: no desenho ou em montar a tela.",
+    "Quando o app não consegue usar a placa de vídeo, o resultado avisa."
   ],
-  "por_que_atualizar": "Para achar a resposta de uma dúvida sem precisar assistir ao filme inteiro."
+  "por_que_atualizar": "Para saber em 5 segundos como o app roda neste computador e por quê."
 }

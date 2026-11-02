@@ -51,6 +51,33 @@ fn opening_shows_the_panel_and_refreshes_slowly() {
 }
 
 #[test]
+fn a_performance_test_redraws_nonstop_then_says_how_it_went() {
+    let diagnostics = Diagnostics::default();
+    let mut ui = running(Localized::new(
+        Labels::pt_br(),
+        DiagnosticsHost::new(Text::new("Page"), diagnostics.clone()),
+    ));
+    diagnostics.record(FrameSample::default());
+    diagnostics.start_test();
+    assert!(diagnostics.is_open());
+    assert!(ui.needs_redraw());
+    ui.update();
+    assert!(names(&ui.access_tree()).iter().any(|n| n.contains("Medindo")));
+
+    // Thirty frames a second for five seconds, none of them asked for from outside.
+    for frame in 1..=150 {
+        ui.set_time(f64::from(frame) / 30.0);
+        assert!(ui.needs_redraw(), "frame {frame} should follow by itself");
+        ui.update();
+        diagnostics.record(FrameSample::default());
+    }
+    let names = names(&ui.access_tree());
+    assert!(names.iter().any(|n| n.contains("Desempenho razoável")), "{names:?}");
+    assert!(names.iter().any(|n| n.contains("Testar desempenho")), "{names:?}");
+    assert_eq!(ui.next_wake(), Some(5.5), "back to the slow refresh");
+}
+
+#[test]
 fn recording_a_frame_asks_for_no_other() {
     let diagnostics = Diagnostics::default();
     diagnostics.set_open(true);

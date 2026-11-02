@@ -51,6 +51,7 @@ fn main() -> Result<(), PlatformError> {
             let app = App::new(db, today(), Some(path), updater);
             let identity = AppIdentity::new(paths::APP_ID)
                 .labels(Labels::pt_br())
+                .diagnostics(app.diagnostics())
                 .new_issue_url("https://github.com/alexkads/RavenRS/issues/new");
             let identity = match icon() {
                 Some(icon) => identity.icon(icon),

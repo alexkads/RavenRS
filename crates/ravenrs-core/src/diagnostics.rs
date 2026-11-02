@@ -379,6 +379,61 @@ impl fmt::Display for FrameSummary {
     }
 }
 
+/// Frames per second from which a window feels fluid.
+const GOOD_FPS: f64 = 45.0;
+/// Frames per second under which a window feels slow.
+const FAIR_FPS: f64 = 24.0;
+
+/// How a [`PerformanceResult`] feels to the person using the app.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PerformanceVerdict {
+    /// Fluid.
+    Good,
+    /// Usable, with visible stutter.
+    Fair,
+    /// Slow enough to get in the way.
+    Poor,
+}
+
+/// Where the time of a slow frame goes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Bottleneck {
+    /// Drawing: the GPU cannot fill the window in time, or there is none.
+    Gpu,
+    /// Rebuilding and laying out the UI, on the processor.
+    Interface,
+}
+
+/// What redrawing the window nonstop for a few seconds showed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PerformanceResult {
+    /// Frames drawn per second. Unlike the durations of a [`FrameSummary`], this
+    /// does count all the GPU's work: a busy GPU holds back the next frame.
+    pub fps: f64,
+    /// Frames drawn.
+    pub frames: u64,
+    /// How long it ran.
+    pub seconds: f64,
+    /// How that feels.
+    pub verdict: PerformanceVerdict,
+    /// Where the time goes; `None` when the verdict is good.
+    pub bottleneck: Option<Bottleneck>,
+}
+
+impl fmt::Display for PerformanceResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Performance test: {:.0} frames per second, {} frames in {:.1} s, {:?}",
+            self.fps, self.frames, self.seconds, self.verdict
+        )?;
+        match self.bottleneck {
+            Some(bottleneck) => writeln!(f, ", limited by {bottleneck:?}"),
+            None => writeln!(f),
+        }
+    }
+}
+
 /// The latest frames an app drew. Recording one is a push into a fixed buffer,
 /// so it can stay on while nobody is looking.
 ///
@@ -393,6 +448,7 @@ impl fmt::Display for FrameSummary {
 #[derive(Clone, Debug, Default)]
 pub struct FrameLog {
     samples: VecDeque<FrameSample>,
+    recorded: u64,
 }
 
 impl FrameLog {
@@ -402,6 +458,30 @@ impl FrameLog {
             self.samples.pop_front();
         }
         self.samples.push_back(sample);
+        self.recorded += 1;
+    }
+
+    /// Forgets every frame, to measure from here on.
+    pub fn clear(&mut self) {
+        self.samples.clear();
+        self.recorded = 0;
+    }
+
+    /// Judges the frames recorded since the log was cleared, `seconds` ago.
+    pub fn measure(&self, seconds: f64) -> PerformanceResult {
+        let fps = if seconds > 0.0 { self.recorded as f64 / seconds } else { 0.0 };
+        let verdict = if fps >= GOOD_FPS {
+            PerformanceVerdict::Good
+        } else if fps >= FAIR_FPS {
+            PerformanceVerdict::Fair
+        } else {
+            PerformanceVerdict::Poor
+        };
+        let summary = self.summary();
+        let drawing = summary.acquire.median + summary.render.median + summary.present.median;
+        let bottleneck = (verdict != PerformanceVerdict::Good)
+            .then_some(if summary.update.median > drawing { Bottleneck::Interface } else { Bottleneck::Gpu });
+        PerformanceResult { fps, frames: self.recorded, seconds, verdict, bottleneck }
     }
 
     /// The frames in the log, summed up.
@@ -482,6 +562,53 @@ mod tests {
             log.record(FrameSample::default());
         }
         assert_eq!(log.summary().frames, FRAME_LOG_SIZE);
+    }
+
+    fn log_of(frames: u64, sample: FrameSample) -> FrameLog {
+        let mut log = FrameLog::default();
+        for _ in 0..frames {
+            log.record(sample);
+        }
+        log
+    }
+
+    #[test]
+    fn a_fluid_window_has_nothing_to_blame() {
+        let result = log_of(300, FrameSample::default()).measure(5.0);
+        assert_eq!(result.fps, 60.0);
+        assert_eq!(result.verdict, PerformanceVerdict::Good);
+        assert_eq!(result.bottleneck, None);
+    }
+
+    #[test]
+    fn the_rate_counts_more_frames_than_the_log_keeps() {
+        let log = log_of(FRAME_LOG_SIZE as u64 + 60, FrameSample::default());
+        assert_eq!(log.measure(5.0).frames, FRAME_LOG_SIZE as u64 + 60);
+    }
+
+    #[test]
+    fn a_slow_window_blames_where_the_time_goes() {
+        let drawing = FrameSample { render: Duration::from_millis(40), ..Default::default() };
+        let result = log_of(50, drawing).measure(5.0);
+        assert_eq!(result.verdict, PerformanceVerdict::Poor);
+        assert_eq!(result.bottleneck, Some(Bottleneck::Gpu));
+
+        let building = FrameSample { update: Duration::from_millis(40), ..Default::default() };
+        let result = log_of(150, building).measure(5.0);
+        assert_eq!(result.verdict, PerformanceVerdict::Fair);
+        assert_eq!(result.bottleneck, Some(Bottleneck::Interface));
+    }
+
+    #[test]
+    fn nothing_drawn_is_a_poor_result_not_a_division_by_zero() {
+        assert_eq!(FrameLog::default().measure(0.0).verdict, PerformanceVerdict::Poor);
+    }
+
+    #[test]
+    fn clearing_starts_the_count_over() {
+        let mut log = log_of(10, FrameSample::default());
+        log.clear();
+        assert_eq!(log.measure(1.0).frames, 0);
     }
 
     #[test]

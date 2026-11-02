@@ -79,6 +79,11 @@ impl std::fmt::Debug for App {
 }
 
 impl App {
+    /// The panel to give the window, so that Ajustes can open it.
+    pub fn diagnostics(&self) -> Diagnostics {
+        self.store.diagnostics.clone()
+    }
+
     /// An app over this database. `path` is only shown in the settings.
     pub fn new(db: Database, today: Date, path: Option<PathBuf>, updater: Updater) -> Self {
         let store = Store::new(db, today, path, updater);
@@ -243,7 +248,7 @@ impl App {
             4 => Box::new(budgets::budgets(&self.store, &self.budgets)),
             5 => Box::new(reports::reports(&self.store, &self.reports)),
             6 => Box::new(records::records(&self.store, &self.records, &self.forms)),
-            7 => Box::new(settings::settings(&self.store, &self.forms, &self.news)),
+            7 => Box::new(settings::settings(&self.store, &self.forms, &self.news, &self.page)),
             _ => Box::new(training::training(&self.training)),
         }
     }
