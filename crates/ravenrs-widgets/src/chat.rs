@@ -109,6 +109,7 @@ pub struct Chat {
     examples: Vec<String>,
     on_send: Option<Rc<dyn Fn(String)>>,
     on_listen: Option<Rc<dyn Fn(String)>>,
+    busy: bool,
 }
 
 impl fmt::Debug for Chat {
@@ -127,6 +128,7 @@ impl Chat {
             examples: Vec::new(),
             on_send: None,
             on_listen: None,
+            busy: false,
         }
     }
 
@@ -151,6 +153,14 @@ impl Chat {
         self
     }
 
+    /// Whether an answer is on its way: nothing is sent until it arrives, and what is
+    /// being written stays in the field.
+    #[must_use]
+    pub fn busy(mut self, busy: bool) -> Self {
+        self.busy = busy;
+        self
+    }
+
     /// Puts a button to hear each answer, which `handler` gets as text.
     #[must_use]
     pub fn on_listen(mut self, handler: impl Fn(String) + 'static) -> Self {
@@ -172,12 +182,13 @@ struct Send {
     messages: Binding<Vec<ChatMessage>>,
     draft: State<String>,
     on_send: Option<Rc<dyn Fn(String)>>,
+    busy: bool,
 }
 
 impl Send {
     fn text(&self, text: &str) {
         let text = text.trim();
-        if text.is_empty() {
+        if text.is_empty() || self.busy {
             return;
         }
         self.draft.set(String::new());
@@ -307,8 +318,12 @@ impl View for Chat {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let draft: State<String> = cx.use_state(String::new);
-        let send =
-            Send { messages: self.messages.clone(), draft: draft.clone(), on_send: self.on_send.clone() };
+        let send = Send {
+            messages: self.messages.clone(),
+            draft: draft.clone(),
+            on_send: self.on_send.clone(),
+            busy: self.busy,
+        };
         let messages = self.messages.get();
         let empty = messages.is_empty().then(|| -> AnyView {
             let examples: Vec<Button> = self
@@ -344,6 +359,7 @@ impl View for Chat {
             IconButton::new(IconName::Send)
                 .label(cx.labels().send.clone())
                 .style(ButtonStyle::Primary)
+                .disabled(self.busy)
                 .on_click(move || on_button.text(&written.get())),
         ))
         .spacing(theme.spacing.s2)

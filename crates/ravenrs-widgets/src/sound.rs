@@ -91,6 +91,11 @@ pub trait SoundProvider {
     fn speak(&self, text: &str, language: &str);
     /// Stops what is being said.
     fn stop_speaking(&self);
+    /// Says a recording, in place of anything still being said, so that
+    /// [`SoundProvider::stop_speaking`] stops it. By default it only plays.
+    fn speak_clip(&self, clip: &SoundClip) {
+        self.play(clip);
+    }
 }
 
 /// A provider that makes no sound (tests, headless use).
@@ -133,6 +138,11 @@ impl Sound {
     /// still being said.
     pub fn speak(&self, text: &str, language: &str) {
         self.0.speak(text, language);
+    }
+
+    /// Says a recording, in place of anything still being said.
+    pub fn speak_clip(&self, clip: &SoundClip) {
+        self.0.speak_clip(clip);
     }
 
     /// Stops what is being said.

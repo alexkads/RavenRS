@@ -16,6 +16,7 @@ mod store;
 mod training;
 
 pub use assistant::{ASSISTANT_INTRO, ASSISTANT_TOOLS};
+pub use spoken::spoken;
 mod updates;
 
 use std::path::PathBuf;

@@ -17,6 +17,7 @@ const QUIET_BEFORE_CLOSING: Duration = Duration::from_secs(2);
 enum Order {
     Play(SoundClip),
     Speak { text: String, language: String },
+    SpeakClip(SoundClip),
     Stop,
 }
 
@@ -52,8 +53,19 @@ impl SystemSound {
                     };
                     match order {
                         Order::Play(clip) => output.play(clip),
-                        Order::Speak { text, language } => voice.speak(&text, &language),
-                        Order::Stop => voice.stop(),
+                        Order::Speak { text, language } => {
+                            output.stop_voice();
+                            voice.speak(&text, &language);
+                        }
+                        Order::SpeakClip(clip) => {
+                            voice.stop();
+                            output.stop_voice();
+                            output.play_voice(clip);
+                        }
+                        Order::Stop => {
+                            voice.stop();
+                            output.stop_voice();
+                        }
                     }
                 }
                 voice.stop();
@@ -82,6 +94,10 @@ impl SoundProvider for SystemSound {
         self.send(Order::Speak { text: text.to_owned(), language: language.to_owned() });
     }
 
+    fn speak_clip(&self, clip: &SoundClip) {
+        self.send(Order::SpeakClip(clip.clone()));
+    }
+
     fn stop_speaking(&self) {
         // With no thread yet, nothing was said, and there is no reason to start one.
         if self.orders.get().is_some() {
@@ -94,6 +110,8 @@ impl SoundProvider for SystemSound {
 struct Playing {
     clip: SoundClip,
     at: f64,
+    /// Whether it is what the voice is saying.
+    voice: bool,
 }
 
 /// The sounds playing now, mixed into whatever the device takes.
@@ -115,13 +133,27 @@ impl Output {
     }
 
     fn play(&mut self, clip: SoundClip) {
+        self.add(clip, false);
+    }
+
+    fn play_voice(&mut self, clip: SoundClip) {
+        self.add(clip, true);
+    }
+
+    fn stop_voice(&mut self) {
+        if let Ok(mut playing) = self.playing.lock() {
+            playing.retain(|sound| !sound.voice);
+        }
+    }
+
+    fn add(&mut self, clip: SoundClip, voice: bool) {
         if self.stream.is_none() {
             self.stream = open_stream(&self.playing);
         }
         if self.stream.is_some()
             && let Ok(mut playing) = self.playing.lock()
         {
-            playing.push(Playing { clip, at: 0.0 });
+            playing.push(Playing { clip, at: 0.0, voice });
         }
     }
 }

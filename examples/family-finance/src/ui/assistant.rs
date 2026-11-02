@@ -104,6 +104,28 @@ fn writer(models: Option<&ModelManager>) -> Option<MovieWriter> {
     }))
 }
 
+/// An answer with a button that does something once: when `act` tells it that it is done,
+/// the button gives way to `done`, so the same thing cannot be saved again by accident.
+fn act_once(
+    text: String,
+    label: &'static str,
+    done: &'static str,
+    style: ButtonStyle,
+    act: impl Fn(Rc<dyn Fn()>) + 'static,
+) -> ChatMessage {
+    let (finished, act) = (State::new(false), Rc::new(act));
+    ChatMessage::assistant(text).card(move || -> AnyView {
+        if finished.get() {
+            return Box::new(HStack::new((Badge::new(done).tone(Tone::Success).icon(IconName::Check),)));
+        }
+        let (finished, act) = (finished.clone(), act.clone());
+        Box::new(Button::new(label).style(style).size(ButtonSize::Small).on_click(move || {
+            let finished = finished.clone();
+            act(Rc::new(move || finished.set(true)));
+        }))
+    })
+}
+
 /// What was understood, in words, so the person sees it before opening the form.
 fn summary(fill: &Prefill) -> String {
     let mut parts = vec![fill.description.clone()];
@@ -349,32 +371,20 @@ impl Replies {
         let fill = self.prefill(Some(call), question, When::Behind);
         let text = format!("Preparei a despesa {}. Confira e salve.", summary(&fill));
         let (store, form) = (self.store.clone(), self.forms.transaction.clone());
-        ChatMessage::assistant(text).card(move || {
-            let (store, form, fill) = (store.clone(), form.clone(), fill.clone());
-            Box::new(
-                Button::new("Conferir e salvar")
-                    .size(ButtonSize::Small)
-                    .on_click(move || form.start_with(&store, &fill)),
-            )
+        act_once(text, "Conferir e salvar", "Salvo", ButtonStyle::Primary, move |done| {
+            form.start_with(&store, &fill, done);
         })
     }
 
-    /// Prepares a bill. Only the form's own button saves it.
     fn new_bill(&self, call: &ToolCall, question: &str) -> ChatMessage {
         let fill = self.prefill(Some(call), question, When::Ahead);
         let text = format!("Preparei a conta {}. Confira e salve.", summary(&fill));
         let (store, form) = (self.store.clone(), self.forms.bill.clone());
-        ChatMessage::assistant(text).card(move || {
-            let (store, form, fill) = (store.clone(), form.clone(), fill.clone());
-            Box::new(
-                Button::new("Conferir e salvar")
-                    .size(ButtonSize::Small)
-                    .on_click(move || form.start_with(&store, &fill)),
-            )
+        act_once(text, "Conferir e salvar", "Salvo", ButtonStyle::Primary, move |done| {
+            form.start_with(&store, &fill, done);
         })
     }
 
-    /// Finds a bill by name. Only the payment form's own button pays it.
     fn pay(&self, name: &str, question: &str) -> ChatMessage {
         let wanted = folded(name);
         let bills = self.store.read(|db| db.open_bills());
@@ -394,33 +404,17 @@ impl Replies {
             }
             // It may be that the person wants one: offer it rather than a dead end.
             let (store, form, name) = (self.store.clone(), self.forms.bill.clone(), name.to_owned());
-            return ChatMessage::assistant(format!("Não achei uma conta em aberto chamada {name}.")).card(
-                move || {
-                    let (store, form, name) = (store.clone(), form.clone(), name.clone());
-                    Box::new(
-                        Button::new("Criar esta conta")
-                            .style(ButtonStyle::Secondary)
-                            .size(ButtonSize::Small)
-                            .on_click(move || {
-                                form.start_with(
-                                    &store,
-                                    &Prefill { description: name.clone(), ..Prefill::default() },
-                                );
-                            }),
-                    )
-                },
-            );
+            let fill = Prefill { description: name, ..Prefill::default() };
+            let text = format!("Não achei uma conta em aberto chamada {}.", fill.description);
+            return act_once(text, "Criar esta conta", "Criada", ButtonStyle::Secondary, move |done| {
+                form.start_with(&store, &fill, done);
+            });
         };
         let text =
             format!("Achei {}, de {}. Confira e pague:", bill.description, format_brl(bill.amount_cents));
         let (store, form, id) = (self.store.clone(), self.forms.pay.clone(), bill.id);
-        ChatMessage::assistant(text).card(move || {
-            let (store, form) = (store.clone(), form.clone());
-            Box::new(
-                Button::new("Conferir e pagar")
-                    .size(ButtonSize::Small)
-                    .on_click(move || form.start(&store, id)),
-            )
+        act_once(text, "Conferir e pagar", "Paga", ButtonStyle::Primary, move |done| {
+            form.start_then(&store, id, done);
         })
     }
 }
@@ -457,6 +451,7 @@ impl View for AssistantChat {
             .placeholder("Pergunte alguma coisa")
             .intro(intro)
             .examples(examples.iter().copied())
+            .busy(self.replies.pending.borrow().is_some())
             .on_send(move |question| replies.send(question, waker.clone()));
         let chat = match self.replies.voices.clone().filter(|voices| voices.voice().is_some()) {
             Some(voices) => {
@@ -688,5 +683,118 @@ mod tests {
         let text = said(&replies, r#"{"tool":"apagar_tudo","args":{}}"#);
         assert!(text.starts_with("Nenhum filme"), "{text}");
         assert_eq!(contents(&replies), before);
+    }
+
+    /// The conversation on a screen, for clicking its buttons.
+    fn on_screen(replies: &Replies) -> Ui {
+        let mut ui = Ui::new(AssistantChat { replies: replies.clone() }, Theme::raven_light());
+        ui.set_viewport(Size::new(500.0, 700.0), 1.0);
+        ui.update();
+        ui
+    }
+
+    fn names(ui: &mut Ui) -> Vec<String> {
+        ui.access_tree().nodes.iter().filter_map(|node| node.name.clone()).collect()
+    }
+
+    fn click(ui: &mut Ui, name: &str) {
+        let tree = ui.access_tree();
+        let node = tree.nodes.iter().find(|node| node.name.as_deref() == Some(name));
+        ui.perform_action(node.unwrap_or_else(|| panic!("no {name}")).id, AccessAction::Click);
+        ui.update();
+    }
+
+    fn spending(replies: &Replies) -> usize {
+        let today = replies.store.today;
+        replies
+            .store
+            .read(|db| db.ledger(today, None))
+            .iter()
+            .filter(|row| row.description == "padaria")
+            .count()
+    }
+
+    fn ask_for_a_spending(replies: &Replies) -> ChatMessage {
+        let call =
+            read_tool_call(r#"{"tool":"lancar_despesa","args":{"descricao":"padaria"}}"#, ASSISTANT_TOOLS);
+        replies.reply(call.as_ref(), "gastei 50 na padaria", &UiWaker::default())
+    }
+
+    #[test]
+    fn a_spending_can_be_saved_only_once_from_its_answer() {
+        let replies = replies();
+        let answer = ask_for_a_spending(&replies);
+        replies.messages.update(|all| all.push(answer));
+        let mut ui = on_screen(&replies);
+        click(&mut ui, "Conferir e salvar");
+        assert_eq!(spending(&replies), 0, "opening the form saves nothing");
+        replies.forms.transaction.save(&replies.store);
+        ui.update();
+        assert_eq!(spending(&replies), 1);
+        let shown = names(&mut ui);
+        assert!(shown.iter().any(|name| name == "Salvo"), "{shown:?}");
+        assert!(!shown.iter().any(|name| name == "Conferir e salvar"), "{shown:?}");
+    }
+
+    #[test]
+    fn a_second_click_on_save_saves_nothing_more() {
+        let replies = replies();
+        let answer = ask_for_a_spending(&replies);
+        replies.messages.update(|all| all.push(answer));
+        let mut ui = on_screen(&replies);
+        click(&mut ui, "Conferir e salvar");
+        replies.forms.transaction.save(&replies.store);
+        replies.forms.transaction.save(&replies.store);
+        assert_eq!(spending(&replies), 1);
+    }
+
+    #[test]
+    fn cancelling_leaves_the_answer_ready_to_save() {
+        let replies = replies();
+        let answer = ask_for_a_spending(&replies);
+        replies.messages.update(|all| all.push(answer));
+        let mut ui = on_screen(&replies);
+        click(&mut ui, "Conferir e salvar");
+        // Another way into the same form forgets what the answer asked.
+        replies.forms.transaction.start_new(&replies.store, Flow::Expense);
+        ui.update();
+        assert!(names(&mut ui).iter().any(|name| name == "Conferir e salvar"));
+        assert!(!names(&mut ui).iter().any(|name| name == "Salvo"));
+    }
+
+    #[test]
+    fn a_bill_paid_from_its_answer_says_so() {
+        let replies = replies();
+        let open = replies.store.read(|db| db.open_bills());
+        let bill = open.first().expect("a bill in the demo");
+        let answer = replies.pay(&bill.description, "paguei a conta");
+        replies.messages.update(|all| all.push(answer));
+        let mut ui = on_screen(&replies);
+        click(&mut ui, "Conferir e pagar");
+        replies.forms.pay.save(&replies.store);
+        ui.update();
+        let paid = replies.store.read(|db| db.bill(bill.id)).expect("the bill");
+        assert!(paid.paid_on.is_some(), "paid once");
+        let shown = names(&mut ui);
+        assert!(shown.iter().any(|name| name == "Paga"), "{shown:?}");
+        assert!(!shown.iter().any(|name| name == "Conferir e pagar"), "{shown:?}");
+    }
+
+    #[test]
+    fn a_bill_created_from_its_answer_can_be_saved_only_once() {
+        let replies = replies();
+        let call = read_tool_call(
+            r#"{"tool":"criar_conta","args":{"descricao":"Dragão","categoria":"Moradia"}}"#,
+            ASSISTANT_TOOLS,
+        );
+        let answer = replies.reply(call.as_ref(), "criar conta de 330 para o dia 20", &UiWaker::default());
+        replies.messages.update(|all| all.push(answer));
+        let mut ui = on_screen(&replies);
+        click(&mut ui, "Conferir e salvar");
+        replies.forms.bill.save(&replies.store);
+        ui.update();
+        let shown = names(&mut ui);
+        assert!(shown.iter().any(|name| name == "Salvo"), "{shown:?}");
+        assert!(!shown.iter().any(|name| name == "Conferir e salvar"), "{shown:?}");
     }
 }

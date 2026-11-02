@@ -274,6 +274,9 @@ impl ModelManager {
     fn test(&self, index: usize, waker: UiWaker) {
         let mut entries = self.entries.borrow_mut();
         let Some(entry) = entries.get_mut(index) else { return };
+        if entry.test.is_some() {
+            return;
+        }
         let run: TestRun = Arc::new(Mutex::new(None));
         entry.test = Some(run.clone());
         entry.tested = None;
@@ -302,6 +305,9 @@ impl ModelManager {
     fn start(&self, index: usize, waker: UiWaker) {
         let mut entries = self.entries.borrow_mut();
         let Some(entry) = entries.get_mut(index) else { return };
+        if entry.download.is_some() {
+            return;
+        }
         let download = Arc::new(Download::default());
         entry.download = Some(download.clone());
         entry.error = None;

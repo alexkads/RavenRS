@@ -84,6 +84,8 @@ pub struct SpeechSettings {
     pub repetition_penalty: f32,
     /// How many frames back it looks to avoid them.
     pub repetition_window: usize,
+    /// Where its choices start: the same text with the same seed sounds the same.
+    pub seed: u64,
 }
 
 impl Default for SpeechSettings {
@@ -95,6 +97,7 @@ impl Default for SpeechSettings {
             top_k: 128,
             repetition_penalty: 1.1,
             repetition_window: 4096,
+            seed: SEED,
         }
     }
 }
@@ -209,10 +212,10 @@ struct Sampler {
 impl Sampler {
     fn new(settings: &SpeechSettings) -> Self {
         Self {
-            logits: LogitsProcessor::from_sampling(SEED, settings.sampling()),
+            logits: LogitsProcessor::from_sampling(settings.seed, settings.sampling()),
             penalty: settings.repetition_penalty,
             window: settings.repetition_window,
-            state: SEED,
+            state: settings.seed | 1,
         }
     }
 

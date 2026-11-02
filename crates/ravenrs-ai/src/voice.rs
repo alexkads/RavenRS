@@ -137,8 +137,8 @@ impl LocalVoice {
     }
 }
 
-/// The sentences of `text`, for the first to be heard while the next is on its way.
-fn sentences(text: &str) -> Vec<String> {
+/// The sentences of `text`, which is how the model says long texts best.
+pub fn sentences(text: &str) -> Vec<String> {
     let mut all = Vec::new();
     let mut sentence = String::new();
     let mut letters = text.chars().peekable();
@@ -398,6 +398,7 @@ impl VoiceManager {
             top_k: self.top_k.get().round() as usize,
             repetition_penalty: self.repetition_penalty.get(),
             repetition_window: self.repetition_window.get().round() as usize,
+            ..SpeechSettings::default()
         }
     }
 
@@ -559,6 +560,7 @@ mod tests {
             top_k: 64,
             repetition_penalty: 1.2,
             repetition_window: 128,
+            ..SpeechSettings::default()
         };
         assert_eq!(from_json(&to_json(&settings, false)), (settings, false));
     }

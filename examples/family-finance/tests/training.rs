@@ -776,3 +776,173 @@ fn real_model_answers_in_the_chat_with_the_numbers_of_the_database() {
     }
     let _ = std::fs::remove_dir_all(folder);
 }
+
+/// Records what the films say with LFM3 Audio, into wave files for `pack_narration` when
+/// `FF_NARRATION_WAVS` says where: `FF_AI_MODELS=folder cargo test --release -p family-finance --test training record_narration -- --ignored --nocapture`.
+#[test]
+#[ignore = "needs the real voice model"]
+fn record_narration() {
+    use ravenrs::movie::Narration;
+    use ravenrs_ai::{ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, model_by_id, sentences};
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/treinamentos");
+    let mut said: Vec<String> = Vec::new();
+    for file in std::fs::read_dir(&folder).expect("films") {
+        let path = file.expect("film").path();
+        if path.extension().is_some_and(|extension| extension == "ravenmovie") {
+            let movie =
+                ravenrs::movie::Movie::from_bytes(&std::fs::read(path).expect("film")).expect("a film");
+            said.extend(movie.hotspots().iter().map(|spot| format!("{}. {}", spot.title, spot.text)));
+        }
+    }
+    said.sort();
+    said.dedup();
+    let limit = std::env::var("FF_NARRATION_LIMIT").ok().and_then(|limit| limit.parse().ok());
+    let settings = if std::env::var("FF_NARRATION_STEADIER").is_ok() {
+        SpeechSettings::steadier()
+    } else {
+        SpeechSettings::default()
+    };
+    let out = std::env::var("FF_NARRATION_OUT").map_or_else(|_| folder.join("narracao.voz"), Into::into);
+    let root = std::env::var("FF_AI_MODELS").expect("FF_AI_MODELS");
+    let model = model_by_id("lfm3-audio-2b-q4").expect("known");
+    let mut engine = SpeechEngine::load(&ModelFolder::new(root), &model).expect("the model");
+    let silence = vec![0.0_f32; (SPEECH_RATE / 4) as usize];
+    let mut recordings: Vec<(String, Vec<f32>)> = Vec::new();
+    let started = std::time::Instant::now();
+    let total: usize = said.iter().map(String::len).sum();
+    println!("{} texts, {total} letters", said.len());
+    // More takes of some texts, for choosing the best by ear or by a recognizer.
+    if let Ok(only) = std::env::var("FF_NARRATION_TAKES") {
+        let wavs = std::env::var("FF_NARRATION_WAVS").expect("FF_NARRATION_WAVS");
+        for index in only.split(',').filter_map(|index| index.parse::<usize>().ok()) {
+            let text = family_finance::ui::spoken(&said[index]);
+            for take in 1..=6_u64 {
+                let settings = SpeechSettings { seed: take * 7919, ..settings.clone() };
+                let parts = if take % 2 == 0 { vec![text.clone()] } else { sentences(&text) };
+                let mut sound = Vec::new();
+                for part in &parts {
+                    sound.extend(engine.speak(part, &settings, &mut |_| true).expect("sound"));
+                    sound.extend_from_slice(&silence);
+                }
+                std::fs::write(format!("{wavs}/{index:03}-{take}.wav"), wav_of(&sound)).expect("wav");
+            }
+        }
+        return;
+    }
+    for text in said.iter().take(limit.unwrap_or(usize::MAX)) {
+        let mut sound = Vec::new();
+        for sentence in sentences(&family_finance::ui::spoken(text)) {
+            sound.extend(engine.speak(&sentence, &settings, &mut |_| true).expect("sound"));
+            sound.extend_from_slice(&silence);
+        }
+        let seconds = sound.len() as f32 / SPEECH_RATE as f32;
+        let allowed = 0.8 + text.chars().count() as f32 * 0.075;
+        println!("{seconds:.1}s of {allowed:.1}s | {:.0}Hz | {text}", pitch(&sound));
+        recordings.push((text.clone(), sound));
+    }
+    std::fs::write(&out, Narration::pack(&recordings, SPEECH_RATE)).expect("the file");
+    if let Ok(wavs) = std::env::var("FF_NARRATION_WAVS") {
+        for (index, (text, sound)) in recordings.iter().enumerate() {
+            std::fs::write(format!("{wavs}/{index:03}.wav"), wav_of(sound)).expect("wav");
+            std::fs::write(format!("{wavs}/{index:03}.txt"), text).expect("text");
+        }
+    }
+    println!("took {:.0}s", started.elapsed().as_secs_f32());
+}
+
+/// The median pitch of voiced stretches, to see whether the voice stays the same.
+fn pitch(sound: &[f32]) -> f32 {
+    let rate = ravenrs_ai::SPEECH_RATE as usize;
+    let (least, most) = (rate / 400, rate / 70);
+    let mut found: Vec<f32> = sound
+        .chunks(rate / 10)
+        .filter(|part| part.len() > most * 2)
+        .filter_map(|part| {
+            let energy: f32 = part.iter().map(|sample| sample * sample).sum();
+            if energy / (part.len() as f32) < 1e-4 {
+                return None;
+            }
+            let (lag, best) = (least..most)
+                .map(|lag| {
+                    let score: f32 = part.iter().zip(&part[lag..]).map(|(a, b)| a * b).sum();
+                    (lag, score)
+                })
+                .max_by(|a, b| a.1.total_cmp(&b.1))?;
+            (best > energy * 0.4).then_some(rate as f32 / lag as f32)
+        })
+        .collect();
+    found.sort_by(f32::total_cmp);
+    found.get(found.len() / 2).copied().unwrap_or(0.0)
+}
+
+fn wav_of(sound: &[f32]) -> Vec<u8> {
+    let rate = ravenrs_ai::SPEECH_RATE;
+    let mut wav = Vec::with_capacity(44 + sound.len() * 2);
+    wav.extend_from_slice(b"RIFF");
+    wav.extend_from_slice(&(36 + sound.len() as u32 * 2).to_le_bytes());
+    wav.extend_from_slice(b"WAVEfmt ");
+    wav.extend_from_slice(&16_u32.to_le_bytes());
+    wav.extend_from_slice(&1_u16.to_le_bytes());
+    wav.extend_from_slice(&1_u16.to_le_bytes());
+    wav.extend_from_slice(&rate.to_le_bytes());
+    wav.extend_from_slice(&(rate * 2).to_le_bytes());
+    wav.extend_from_slice(&2_u16.to_le_bytes());
+    wav.extend_from_slice(&16_u16.to_le_bytes());
+    wav.extend_from_slice(b"data");
+    wav.extend_from_slice(&(sound.len() as u32 * 2).to_le_bytes());
+    for sample in sound {
+        wav.extend_from_slice(&((sample.clamp(-1.0, 1.0) * 32767.0) as i16).to_le_bytes());
+    }
+    wav
+}
+
+/// Packs the recordings chosen in a folder: `FF_NARRATION_WAVS=folder cargo test --release -p family-finance --test training pack_narration -- --ignored`.
+#[test]
+#[ignore = "needs the recordings"]
+fn pack_narration() {
+    let wavs = std::env::var("FF_NARRATION_WAVS").expect("FF_NARRATION_WAVS");
+    let mut recordings = Vec::new();
+    for file in std::fs::read_dir(&wavs).expect("folder") {
+        let path = file.expect("file").path();
+        if path.extension().is_some_and(|extension| extension == "txt") {
+            let text = std::fs::read_to_string(&path).expect("text");
+            let wav = std::fs::read(path.with_extension("wav")).expect("wav");
+            let mut sound: Vec<f32> = wav[44..]
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|bytes| f32::from(i16::from_le_bytes(*bytes)) / 32768.0)
+                .collect();
+            // The pause after the last sentence only makes the next box wait.
+            while sound.last().is_some_and(|sample| sample.abs() < 0.002) {
+                sound.pop();
+            }
+            recordings.push((text, sound));
+        }
+    }
+    let bytes = ravenrs::movie::Narration::pack(&recordings, ravenrs_ai::SPEECH_RATE);
+    let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/treinamentos/narracao.voz");
+    std::fs::write(out, &bytes).expect("the file");
+    println!("{} recordings, {} bytes", recordings.len(), bytes.len());
+}
+
+/// A film may be recorded again by someone without the voice model: what is new is said by
+/// the system's voice, until the narration is recorded again.
+#[test]
+fn most_of_what_the_films_say_is_recorded() {
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/treinamentos");
+    let bytes = std::fs::read(folder.join("narracao.voz")).expect("the narration");
+    let narration = ravenrs::movie::Narration::new(Box::leak(bytes.into_boxed_slice()));
+    let (mut all, mut recorded) = (0, 0);
+    for file in std::fs::read_dir(&folder).expect("films") {
+        let path = file.expect("film").path();
+        if path.extension().is_some_and(|extension| extension == "ravenmovie") {
+            let movie = Movie::from_bytes(&std::fs::read(path).expect("film")).expect("a film");
+            for spot in movie.hotspots() {
+                all += 1;
+                recorded += usize::from(narration.clip(&format!("{}. {}", spot.title, spot.text)).is_some());
+            }
+        }
+    }
+    assert!(all > 0 && recorded * 10 >= all * 9, "{recorded} of {all} are recorded");
+}
