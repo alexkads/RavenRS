@@ -32,7 +32,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Plataforma | `ravenrs-platform-native` e `ravenrs-platform-web`; confira se a outra precisa do mesmo | §10 do `ARCHITECTURE.md` |
 | Função ou operador de expressão | `crates/ravenrs-criteria/src/`; funções no catálogo de `functions.rs` | Ida e volta em `format.rs`, `eval.rs`, `validate.rs`, `sql.rs` conforme o caso |
 | Formas vetoriais, layout de gráfico, códigos de barras | `crates/ravenrs-graphics/src/`: `vector`, `chart`, `barcode` | Testes no próprio crate; ver quem usa em `ravenrs-report` e em `crates/ravenrs-widgets/src/chart.rs` (`Chart`, `Barcode`, feature `charts`) |
-| Modelo da aplicação, sem GUI | `crates/ravenrs-app/src/`: `entity`, `model/`, `space` | Testes no próprio crate e `tests/layers_properties.rs`; plano em `~/.claude/plans/agora-no-est-gio-que-iridescent-cray.md` |
+| Modelo da aplicação, sem GUI | `crates/ravenrs-app/src/`: `entity`, `model/`, `space`, `action`, `controller`, `frame`, `module` | Testes no próprio crate, `tests/layers_properties.rs` e `tests/behavior.rs`; plano em `~/.claude/plans/agora-no-est-gio-que-iridescent-cray.md` |
 | Exportar o que um `DataGrid` mostra | `crates/ravenrs-grid-export/src/lib.rs`, sobre `GridTable` e `ravenrs-report-export` | Widgets não conhecem relatórios; este crate é a única ponte |
 | Exportar relatório para arquivo | `crates/ravenrs-report-export/src/lib.rs`, que chama os exportadores | Editor e servidor usam só esse ponto de entrada |
 | Motor de relatórios | `model.rs`, `engine.rs`, `document.rs` em `crates/ravenrs-report/src/` | `docs/REPORTING.md`, `docs/REPORTING-PARITY.md` |

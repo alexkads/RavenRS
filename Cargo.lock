@@ -3992,6 +3992,7 @@ version = "27.1.6"
 dependencies = [
  "proptest",
  "ravenrs-criteria",
+ "ravenrs-reactive",
  "serde_json",
 ]
 

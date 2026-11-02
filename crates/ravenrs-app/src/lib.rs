@@ -1,5 +1,5 @@
-//! The model of a business application, with no GUI: entities, a layered
-//! application model and object spaces.
+//! The model of a business application, with no GUI: entities, a layered application
+//! model, object spaces, actions, controllers, frames and modules.
 //!
 //! ```
 //! use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, MemoryDatabase, ModelLayers, ModelLayer, ObjectSpace, generate_model};
@@ -26,17 +26,29 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+mod action;
+mod controller;
 mod entity;
+mod frame;
 mod model;
+mod module;
 mod space;
 
+pub use action::{
+    Action, ActionCategory, ActionContext, ActionError, ActionInput, ActionKind, ActionResult, ChoiceItem,
+    CriteriaMode, Nesting, REASON_CONTROLLER, REASON_CRITERIA, REASON_SCOPE, REASON_SELECTION, Reasons,
+    Selection, TargetScope,
+};
+pub use controller::{ViewController, WindowController};
 pub use entity::{EntityInfo, EnumOption, FieldInfo, FieldKind, ModelError, Object};
+pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
 #[cfg(not(target_arch = "wasm32"))]
 pub use model::FileStore;
 pub use model::{
     Diff, EmbeddedStore, MemoryModelStore, MergedModel, ModelLayer, ModelLayers, ModelNode, ModelStore,
     UnusableNode, check_model, generate_model,
 };
+pub use module::{Application, ApplicationBuilder, Module};
 pub use ravenrs_criteria::{Criteria, Value};
 pub use space::{
     Change, MemoryDatabase, MemoryObjectSpace, ObjectSpace, Query, SpaceError, SpaceEvent, SpaceWatcher,
