@@ -191,6 +191,24 @@ fn draw_the_states() {
         let mut ui = app(theme, 8, Updater::idle());
         capture(&gpu, &mut ui, size, &folder.join(format!("{label}-treinamentos.png")));
     }
+    // The agenda under the pointer: the tooltip with its row lit, and a right click.
+    let mut agenda = app(Theme::raven_light(), 3, Updater::idle());
+    agenda.set_viewport(size, 2.0);
+    for _ in 0..4 {
+        agenda.update();
+    }
+    let tree = agenda.access_tree();
+    let bar = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Aula de natação")).expect("a bar").bounds;
+    agenda.handle_event(&Event::PointerMove { position: bar.center() });
+    agenda.update();
+    capture(&gpu, &mut agenda, size, &folder.join("agenda-dica.png"));
+    agenda.handle_event(&Event::PointerDown {
+        position: bar.center(),
+        button: ravenrs::core::PointerButton::Secondary,
+    });
+    agenda.update();
+    capture(&gpu, &mut agenda, size, &folder.join("agenda-menu.png"));
+
     // The assistant, with an answer, and the sidebar as a sheet in a small window.
     let mut chat = app(Theme::raven_light(), 0, Updater::idle());
     chat.set_viewport(size, 2.0);

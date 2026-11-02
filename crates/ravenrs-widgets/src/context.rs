@@ -376,6 +376,7 @@ pub(crate) struct Element {
     pub on_double_click: Option<Rc<dyn Fn()>>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
     pub on_context_menu: Option<Rc<dyn Fn(Point)>>,
+    pub on_context_menu_in: Option<Rc<dyn Fn(Point, Rect)>>,
     /// How the element appears to assistive technology.
     pub semantics: Option<Box<Semantics>>,
     /// The string a text leaf shows.
@@ -407,6 +408,7 @@ impl Element {
             on_double_click: None,
             on_pinch: None,
             on_context_menu: None,
+            on_context_menu_in: None,
             semantics: None,
             text: None,
             motion: None,
@@ -418,6 +420,7 @@ impl Element {
         self.on_click.is_some()
             || self.on_double_click.is_some()
             || self.on_context_menu.is_some()
+            || self.on_context_menu_in.is_some()
             || self.cursor.is_some()
             || self.focus_radius.is_some()
             || self.on_drag.is_some()
@@ -976,6 +979,14 @@ impl<'a> BuildCx<'a> {
     pub fn on_context_menu(&mut self, node: NodeId, handler: Rc<dyn Fn(Point)>) {
         if let Some(e) = self.element_mut(node) {
             e.on_context_menu = Some(handler);
+        }
+    }
+
+    /// The same, also saying the element's absolute frame, for a menu that depends
+    /// on where inside the element it was opened.
+    pub fn on_context_menu_in(&mut self, node: NodeId, handler: Rc<dyn Fn(Point, Rect)>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_context_menu_in = Some(handler);
         }
     }
 

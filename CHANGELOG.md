@@ -4,6 +4,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- `Scheduler::card` is the look of a full scheduler, as a card among other cards: a tinted header with the month over the days of the week, a line between the rows' names and the timeline, today's column marked, and bars in a soft tint with a stripe of their color. `Scheduler::event_detail` puts a second line on the bars, and `Scheduler::avatars` the initials beside the rows' names.
+- `Scheduler` scrolls by itself while a drag is near an edge, and zooms with a pinch. `Scheduler::event_menu` and `lane_menu` offer menus on a right click, and with `card` a tooltip shows an event's whole name and where a drag is taking it, and the row under the pointer lights up.
+
+### Fixed
+- `Avatar`'s initials can be read in a light theme.
+
 ## [27.1.3] - 2026-11-02
 
 ### Added

@@ -455,6 +455,10 @@ impl Ui {
                         handler(*position);
                         break;
                     }
+                    if let Some(handler) = self.elements[n.0 as usize].on_context_menu_in.clone() {
+                        handler(*position, self.frames[n.0 as usize]);
+                        break;
+                    }
                     node = self.parents.get(n.0 as usize).copied().flatten();
                 }
             }

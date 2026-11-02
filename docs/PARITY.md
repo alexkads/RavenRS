@@ -197,19 +197,21 @@ The reference is [Bryntum Scheduler](https://bryntum.com/products/scheduler/). T
 | Snap to the scale, refusal through `can_drop`, locked and fixed-length events | ✅ |
 | Overlapping events on lanes, with the row growing | ✅ |
 | Rows sharing the height left over (`fill_rows`) | ✅ |
+| A full look: tinted bars with a stripe, a second line on bars, avatars, today's column (`card`, `event_detail`, `avatars`) | ✅ |
 | Weekend shading, marked time ranges, a line at now, opening at now | ✅ |
 | Collapsible groups of resources | ✅ |
 | Keyboard for events; names and dates for screen readers | ✅ |
 | Only what is in view is built | ✅ tested with 5,000 rows |
 | Recurring events | ✅ `RecurrenceRule`; the app expands the days |
 | Scrolling the wheel over the resources column | ⬜ |
-| Scrolling by itself while dragging near an edge | ⬜ |
-| Tooltip while hovering over or dragging an event | ⬜ |
+| Scrolling by itself while dragging near an edge | ✅ |
+| Tooltip while hovering over or dragging an event | ✅ with `card` |
 | Scrolling a bar into view when keyboard focus moves to it | ⬜ |
 | Dependencies between events | ⬜ |
 | Resource tree of any depth, multiple assignment, extra columns | ⬜ |
 | Working hours, non-continuous axis, vertical mode, nested events | ⬜ |
 | Summaries and histograms per row or period | ⬜ |
 | Dragging from a list or grid onto the timeline, or between schedulers | ⬜ |
-| Undo and redo, built-in event editor and menu | ⬜ |
+| Menus on events and on empty stretches (`event_menu`, `lane_menu`), pinch to zoom | ✅ |
+| Undo and redo, built-in event editor | ⬜ |
 | Export to PDF, PNG, Excel and ICS, printing | ⬜ |

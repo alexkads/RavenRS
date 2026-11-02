@@ -8,7 +8,7 @@ use ravenrs_core::{AccessAction, Event, Key, Modifiers, Point, PointerButton, Re
 use ravenrs_reactive::State;
 use ravenrs_style::Theme;
 use ravenrs_widgets::{
-    Date, Resource, Scheduler, SchedulerChange, SchedulerEvent, TimeAxis, TimePoint, TimeScale, Ui,
+    Date, MenuItem, Resource, Scheduler, SchedulerChange, SchedulerEvent, TimeAxis, TimePoint, TimeScale, Ui,
 };
 
 fn date(d: u8) -> Date {
@@ -350,4 +350,128 @@ fn first_bar_with(fill: bool) -> f32 {
 fn rows_can_share_the_height_left() {
     // Bruno's row starts further down once the two rows split the window.
     assert!(first_bar_with(true) > first_bar_with(false) + 100.0);
+}
+
+#[test]
+fn a_card_has_taller_bars_with_a_second_line_and_the_month_on_its_header() {
+    let axis = State::new(TimeAxis::days(date(1), 30));
+    let event = SchedulerEvent::new(7, 1, day(2), day(3), "Consulta");
+    let scheduler = Scheduler::new(axis.binding())
+        .resources([Resource::new(1, "Ana")])
+        .events([event])
+        .now(day(2))
+        .event_detail(|_| Some("R$ 90,00".to_owned()))
+        .card(true);
+    let mut ui = Ui::new(scheduler, Theme::raven_light());
+    ui.set_viewport(Size::new(900.0, 700.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    let tree = ui.access_tree();
+    let names: Vec<_> = tree.nodes.iter().filter_map(|n| n.name.clone()).collect();
+    let bar = tree.nodes.iter().find(|n| n.name.as_deref().is_some_and(|name| name.starts_with("Consulta")));
+    assert!(bar.expect("the bar").bounds.height() >= 40.0);
+    assert!(names.iter().any(|name| name == "Resources"), "{names:?}");
+    assert!(names.iter().any(|name| name.contains("2026")), "the month in view: {names:?}");
+}
+
+/// A card with one bar on the second day and menus on it and on the empty stretches.
+fn with_menus() -> Ui {
+    let axis = State::new(TimeAxis::days(date(1), 30));
+    let event = SchedulerEvent::new(7, 1, day(2), day(3), "Consulta");
+    let scheduler = Scheduler::new(axis.binding())
+        .resources([Resource::new(1, "Ana")])
+        .events([event])
+        .card(true)
+        .event_menu(|id| vec![MenuItem::new(format!("Abrir {id}"))])
+        .lane_menu(|change| vec![MenuItem::new(format!("Criar {}", change.start.date()))]);
+    let mut ui = Ui::new(scheduler, Theme::raven_light());
+    ui.set_viewport(Size::new(900.0, 400.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    ui
+}
+
+fn right_click(ui: &mut Ui, at: Point) {
+    ui.handle_event(&Event::PointerDown { position: at, button: PointerButton::Secondary });
+    ui.update();
+}
+
+fn shows(ui: &mut Ui, wanted: &str) -> bool {
+    ui.access_tree().nodes.iter().any(|n| n.name.as_deref().is_some_and(|name| name.starts_with(wanted)))
+}
+
+#[test]
+fn a_right_click_on_a_bar_offers_its_menu() {
+    let mut ui = with_menus();
+    let bar = bounds(&mut ui, Role::Button, "Consulta");
+    right_click(&mut ui, bar.center());
+    assert!(shows(&mut ui, "Abrir 7"));
+}
+
+#[test]
+fn a_right_click_on_an_empty_stretch_offers_that_day() {
+    let mut ui = with_menus();
+    let bar = bounds(&mut ui, Role::Button, "Consulta");
+    let day_width = bar.width() + 4.0;
+    right_click(&mut ui, Point::new(bar.center().x + 3.0 * day_width, bar.center().y));
+    assert!(shows(&mut ui, &format!("Criar {}", date(5))));
+}
+
+#[test]
+fn a_drag_held_at_the_edge_scrolls_and_goes_on() {
+    let moved = Rc::new(RefCell::new(None));
+    let seen = moved.clone();
+    let axis = State::new(TimeAxis::days(date(1), 30));
+    let event = SchedulerEvent::new(7, 1, day(1), day(2), "Consulta");
+    let scheduler = Scheduler::new(axis.binding())
+        .resources([Resource::new(1, "Ana")])
+        .events([event])
+        .on_change(move |change| *seen.borrow_mut() = Some(change));
+    let mut ui = Ui::new(scheduler, Theme::raven_light());
+    ui.set_viewport(Size::new(700.0, 400.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    let from = bounds(&mut ui, Role::Button, "Consulta").center();
+    let edge = Point::new(695.0, from.y);
+    ui.handle_event(&Event::PointerMove { position: from });
+    ui.update();
+    ui.handle_event(&Event::PointerDown { position: from, button: PointerButton::Primary });
+    ui.update();
+    ui.handle_event(&Event::PointerMove { position: edge });
+    for frame in 0..60 {
+        ui.set_time(f64::from(frame) / 60.0);
+        ui.update();
+    }
+    ui.handle_event(&Event::PointerUp { position: edge, button: PointerButton::Primary });
+    ui.update();
+    ui.update();
+    let change: SchedulerChange = moved.borrow().expect("it moved");
+    let at_the_edge_without_scrolling = (695.0 - 200.0) / axis.get().tick_width;
+    let reached = (change.start.date().to_days() - date(1).to_days()) as f32;
+    assert!(reached > at_the_edge_without_scrolling + 2.0, "it reached day {reached}");
+}
+
+#[test]
+fn drawing_on_an_empty_stretch_of_a_card_still_creates() {
+    let created = Rc::new(RefCell::new(None));
+    let seen = created.clone();
+    let axis = State::new(TimeAxis::days(date(1), 30));
+    let event = SchedulerEvent::new(7, 1, day(2), day(3), "Consulta");
+    let scheduler = Scheduler::new(axis.binding())
+        .resources([Resource::new(1, "Ana")])
+        .events([event])
+        .card(true)
+        .on_create(move |change| *seen.borrow_mut() = Some(change));
+    let mut ui = Ui::new(scheduler, Theme::raven_light());
+    ui.set_viewport(Size::new(900.0, 400.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    let bar = bounds(&mut ui, Role::Button, "Consulta");
+    let (y, width) = (bar.center().y, bar.width() + 4.0);
+    drag(&mut ui, Point::new(bar.center().x + 2.0 * width, y), Point::new(bar.center().x + 4.0 * width, y));
+    assert!(created.borrow().is_some(), "the row's background lets the drag through");
 }
