@@ -33,6 +33,7 @@ struct LedgerRows {
 pub(crate) struct LedgerState {
     month: State<Date>,
     kind: State<usize>,
+    advanced: State<bool>,
     typed: State<String>,
     applied: State<String>,
     selection: State<BTreeSet<usize>>,
@@ -44,6 +45,7 @@ impl LedgerState {
         Self {
             month: State::new(today.first_of_month()),
             kind: State::new(0),
+            advanced: State::new(false),
             typed: State::new(String::new()),
             applied: State::new(String::new()),
             selection: State::new(BTreeSet::new()),
@@ -133,10 +135,10 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
             applied.set(text);
         }
     };
+    let rows_error = rows.error.is_some();
     let (clear_typed, clear_applied) = (state.typed.clone(), state.applied.clone());
     let has_filter = !state.applied.get().is_empty();
-    let mut presets =
-        DropdownMenu::new("Filtros prontos").icon(IconName::Filter).style(ButtonStyle::Secondary);
+    let mut presets = DropdownMenu::new("Filtrar").icon(IconName::Filter).style(ButtonStyle::Secondary);
     for (label, expression) in PRESETS {
         let (t, a, s) = (state.typed.clone(), state.applied.clone(), state.selection.clone());
         presets = presets.item(MenuItem::new(label).on_select(move || {
@@ -145,24 +147,36 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
             a.set(expression.to_owned());
         }));
     }
+    let advanced_open = state.advanced.get() || rows_error;
+    let advanced = advanced_open.then(|| {
+        HStack::new((
+            TextField::new(typed.binding())
+                .placeholder("Ex.: [Valor] > 100 And [Categoria] = 'Mercado'")
+                .icon(IconName::SlidersHorizontal)
+                .on_submit(apply_submit)
+                .stretch()
+                .grow(1.0),
+            Button::new("Aplicar").style(ButtonStyle::Secondary).on_click(move || {
+                sel_1.set(BTreeSet::new());
+                apply_write.set(apply_read.get());
+            }),
+        ))
+        .spacing(8.0)
+        .align(Align::Center)
+    });
+    let toggle_advanced = state.advanced.clone();
+    let presets = presets.item(
+        MenuItem::new("Filtro avançado…").on_select(move || toggle_advanced.update(|open| *open = !*open)),
+    );
     let filter_bar = HStack::new((
-        TextField::new(typed.binding())
-            .placeholder("Filtro avançado, ex.: [Valor] > 100 And [Categoria] = 'Mercado'")
-            .icon(IconName::SlidersHorizontal)
-            .on_submit(apply_submit)
-            .stretch()
-            .grow(1.0),
-        Button::new("Aplicar").style(ButtonStyle::Secondary).on_click(move || {
-            sel_1.set(BTreeSet::new());
-            apply_write.set(apply_read.get());
-        }),
+        presets,
         has_filter.then(|| {
             Button::new("Limpar").icon(IconName::FilterX).style(ButtonStyle::Ghost).on_click(move || {
                 clear_typed.set(String::new());
                 clear_applied.set(String::new());
             })
         }),
-        presets,
+        Spacer::new(),
         Button::new("Alterar")
             .icon(IconName::Pencil)
             .style(ButtonStyle::Ghost)
@@ -202,11 +216,11 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
         [
             GridColumn::number("Id").hidden(),
             date_column("Data"),
-            GridColumn::text("Descrição").width(250.0),
-            GridColumn::text("Categoria").width(140.0),
-            GridColumn::text("Conta").width(140.0),
-            GridColumn::text("De quem").width(100.0),
-            GridColumn::text("Tipo").width(96.0).template(|value| {
+            GridColumn::text("Descrição").width(300.0),
+            GridColumn::text("Categoria").width(160.0),
+            GridColumn::text("Conta").width(160.0),
+            GridColumn::text("De quem").width(120.0),
+            GridColumn::text("Tipo").hidden().width(96.0).template(|value| {
                 let text = if let Value::Text(text) = value { text.as_str() } else { "" };
                 let tone = if text == Flow::Income.label() { Tone::Success } else { Tone::Neutral };
                 Box::new(Badge::new(text).tone(tone)) as AnyView
@@ -214,6 +228,7 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
             money_column("Valor").summary(Summary::Sum),
         ],
     )
+    .filter_row(false)
     .selection(state.selection.binding())
     .on_row_activate(move |row| {
         if let Some(id) = row_id(&activate_data, row) {
@@ -236,6 +251,7 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
         ),
         toolbar,
         filter_bar,
+        advanced,
         error,
         grid,
     ))

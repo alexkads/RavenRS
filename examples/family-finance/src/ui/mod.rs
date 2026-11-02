@@ -170,13 +170,11 @@ impl App {
     }
 
     fn toolbar(&self) -> impl View + use<> {
-        let (_, title) = PAGES[self.page.get().min(PAGES.len() - 1)];
         let palette = self.palette.clone();
         let (expense_store, expense) = (self.store.clone(), self.forms.transaction.clone());
         let (income_store, income) = (self.store.clone(), self.forms.transaction.clone());
         let (bill_store, bill) = (self.store.clone(), self.forms.bill.clone());
         HStack::new((
-            Breadcrumb::new(["Raven Finanças", title]),
             Spacer::new(),
             Tooltip::new(
                 IconButton::new(IconName::Search)
@@ -202,7 +200,6 @@ impl App {
                         .icon(IconName::CreditCard)
                         .on_select(move || bill.start_new(&bill_store)),
                 ),
-            ThemeSwitcher,
         ))
         .spacing(10.0)
         .align(Align::Center)
@@ -289,7 +286,7 @@ impl Component for App {
             // Keyed by screen, so each one opens with fresh local state and scrolled to the top.
             Keyed::new(
                 self.page.get() as u64,
-                store::FillColumn { children: (self.page_view(),), spacing: 0.0, padding: 0.0 },
+                store::FillColumn { children: (self.page_view(),), spacing: 0.0, padding: 0.0.into() },
             ),
         ))
         .spacing(0.0)

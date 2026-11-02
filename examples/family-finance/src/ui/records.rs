@@ -3,7 +3,7 @@
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Store, heading};
+use super::store::{PAGE_INSETS, Store, heading};
 use crate::model::{AccountKind, Flow};
 use crate::money::{format_brl, format_input, parse_brl};
 
@@ -365,5 +365,5 @@ pub(crate) fn records(store: &Store, state: &RecordsState, forms: &Forms) -> imp
     ))
     .spacing(16.0)
     .align(Align::Stretch),))
-    .padding(24.0)
+    .padding(PAGE_INSETS)
 }

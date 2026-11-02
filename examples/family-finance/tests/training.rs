@@ -88,6 +88,9 @@ fn overview(take: &mut Recorder) -> Result<(), RecordError> {
         "Deixar com a sua cara",
         "O tema muda só a aparência do aplicativo. Os seus dados continuam iguais.",
     );
+    take.guide("Ajustes", "Abra os Ajustes", "O tema fica nos Ajustes.")?;
+    take.click("Ajustes")?;
+    take.wait(0.8);
     take.guide("Escuro", "Tema escuro", "Clique em Escuro para descansar a vista à noite.")?;
     take.click("Escuro")?;
     take.wait(1.2);
@@ -176,25 +179,16 @@ fn ledger(take: &mut Recorder) -> Result<(), RecordError> {
         "Filtrar os lançamentos",
         "Quando a lista é grande, os filtros encontram exatamente o que você procura. Comece pelos filtros prontos.",
     );
-    take.guide(
-        "Filtros prontos",
-        "Filtros prontos",
-        "Clique em Filtros prontos e escolha um. Ele é aplicado na hora.",
-    )?;
-    take.click("Filtros prontos")?;
+    take.guide("Filtrar", "Filtrar", "Clique em Filtrar e escolha um filtro. Ele é aplicado na hora.")?;
+    take.click("Filtrar")?;
     take.wait(0.8);
     take.guide(
         "Acima de R$ 500",
         "Acima de quinhentos reais",
-        "Este filtro mostra só os lançamentos maiores que quinhentos reais.",
+        "Este filtro mostra só os lançamentos maiores que quinhentos reais. No mesmo menu, Filtro avançado deixa escrever a sua própria regra.",
     )?;
     take.click("Acima de R$ 500")?;
     take.wait(1.2);
-    take.explain(
-        "Filtro avançado",
-        "Filtro avançado",
-        "Aqui você escreve a sua própria regra, com o nome da coluna entre colchetes, como Valor maior que cem e Categoria igual a Mercado. Se a regra tiver erro, o aplicativo avisa e mostra tudo sem filtrar.",
-    )?;
     take.guide("Limpar", "Tire o filtro", "Clique em Limpar para voltar a ver tudo.")?;
     take.click("Limpar")?;
     take.wait(1.0);
@@ -615,7 +609,7 @@ fn questions_in_plain_words_find_the_right_moment_of_the_film() {
         ("desfazer pagamento", "Desfazer um pagamento"),
         ("compra parcelada", "Parcelas"),
         ("juros", "Juros ou desconto"),
-        ("filtro avançado", "Filtro avançado"),
+        ("filtro avançado", "Acima de quinhentos reais"),
         ("exportar para planilha", "Exportar"),
         ("programar mesada", "Programar um pagamento ou recebimento"),
         ("limite de gastos", "Definir limites por categoria"),

@@ -100,5 +100,5 @@ pub(crate) fn reports(store: &Store, state: &ReportsState) -> impl View + use<> 
             Box::new(Alert::new("Não foi possível montar o relatório", message).tone(Tone::Danger))
         }
     };
-    screen((heading("Relatórios", "O mesmo documento na tela, no PDF e na planilha."), controls, body))
+    screen((heading("Relatórios", "Veja na tela, imprima ou exporte em PDF e planilha."), controls, body))
 }

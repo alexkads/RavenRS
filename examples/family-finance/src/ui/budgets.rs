@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use ravenrs::prelude::*;
 
-use super::store::{Memo, Store, heading, month_nav};
+use super::store::{Memo, PAGE_INSETS, Store, heading, month_nav};
 use crate::model::BudgetLine;
 use crate::money::{format_brl, format_input, parse_brl};
 
@@ -83,6 +83,7 @@ pub(crate) fn budgets(store: &Store, state: &BudgetsState) -> impl View + use<> 
                         })
                         .style(TextStyle::Callout),
                         Button::new("Definir limite")
+                            .icon(IconName::Pencil)
                             .accessible_name(format!("Definir limite de {name}"))
                             .size(ButtonSize::Small)
                             .style(ButtonStyle::Ghost)
@@ -154,5 +155,5 @@ pub(crate) fn budgets(store: &Store, state: &BudgetsState) -> impl View + use<> 
     ))
     .spacing(16.0)
     .align(Align::Stretch),))
-    .padding(24.0)
+    .padding(PAGE_INSETS)
 }

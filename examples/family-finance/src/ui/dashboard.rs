@@ -5,7 +5,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Memo, Store, heading};
+use super::store::{Memo, PAGE_INSETS, Store, heading};
 use crate::model::{
     Account, Bill, BillStatus, BudgetLine, Flow, MonthTotals, date_label, month_label, month_short,
     parse_date, shift_months,
@@ -57,8 +57,11 @@ fn tone_of(status: BillStatus) -> Tone {
 }
 
 fn percent_change(now: i64, before: i64) -> Option<String> {
-    (before > 0)
-        .then(|| format!("{:+.0}% sobre o mesmo período", (now - before) as f64 / before as f64 * 100.0))
+    // No change is nothing to point out.
+    if now == before {
+        return None;
+    }
+    (before > 0).then(|| format!("{:+.0}% vs. mês passado", (now - before) as f64 / before as f64 * 100.0))
 }
 
 pub(crate) fn dashboard(
@@ -135,9 +138,13 @@ pub(crate) fn dashboard(
                     if overdue.len() == 1 { "conta" } else { "contas" },
                     if overdue.len() == 1 { "" } else { "s" }
                 ),
-                format!("{} em atraso. Abra Contas a pagar para resolver.", format_brl(overdue_total)),
+                format!("{} em atraso.", format_brl(overdue_total)),
             )
             .tone(Tone::Danger)
+            .action("Ver contas", {
+                let open_page = open_page.clone();
+                move || open_page(2)
+            })
         });
 
         let months: Vec<String> = numbers
@@ -237,18 +244,19 @@ pub(crate) fn dashboard(
                 .icon(IconName::Wallet)
                 .trailing(format_brl(a.balance_cents))
         });
-        let accounts_card = card("Contas", List::new(accounts.collect::<Vec<_>>()));
+        let accounts_card = card("Saldo por conta", List::new(accounts.collect::<Vec<_>>()));
         let bottom = Grid::new(if wide { 2 } else { 1 }, (bills_card, accounts_card)).spacing(16.0);
 
         ScrollView::new((VStack::new((
             heading("Painel", format!("Hoje é {}", date_label(today))),
             warning,
             stats,
-            charts,
+            // What needs doing comes before how things have been going.
             bottom,
+            charts,
         ))
         .spacing(16.0)
         .align(Align::Stretch),))
-        .padding(24.0)
+        .padding(PAGE_INSETS)
     })
 }

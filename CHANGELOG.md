@@ -4,6 +4,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- `Alert::action` puts a button beside the message.
+
+### Changed
+- `FloatingPanel`'s sphere is smaller, so it covers less of the page.
+
 ## [27.1.3] - 2026-11-01
 
 ### Added

@@ -149,8 +149,8 @@ fn the_app_behind_the_panel_stays_usable() {
 }
 
 /// Where the sphere is in each corner of the 900 by 700 window of these tests.
-const BOTTOM_RIGHT: Point = Point::new(856.0, 656.0);
-const TOP_LEFT: Point = Point::new(44.0, 44.0);
+const BOTTOM_RIGHT: Point = Point::new(866.0, 666.0);
+const TOP_LEFT: Point = Point::new(34.0, 34.0);
 
 fn pointer(ui: &mut Ui, event: Event) {
     ui.handle_event(&event);

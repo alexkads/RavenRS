@@ -443,11 +443,11 @@ impl FloatingPanel {
 }
 
 /// The room the sphere and its glow take, in logical pixels.
-const ORB_BOX: f32 = 76.0;
+const ORB_BOX: f32 = 60.0;
 /// The sphere itself.
-const ORB_SPHERE: f32 = 52.0;
+const ORB_SPHERE: f32 = 42.0;
 /// How far the sphere's box keeps from the edges of the window.
-const ORB_EDGE: f32 = 6.0;
+const ORB_EDGE: f32 = 4.0;
 /// How far the pointer has to go for a press to become a drag, in logical pixels.
 const ORB_DRAG_FROM: f32 = 5.0;
 /// The moment of its motion it holds when still.
@@ -466,14 +466,14 @@ fn paint_orb(scene: &mut Scene, frame: Rect, time: f64, accent: Color, moving: b
     // The glow around it, breathing.
     for ring in 0..6 {
         let ring = ring as f32;
-        let r = radius + 1.5 + ring * 1.7 + breath * 1.5;
+        let r = radius + 1.0 + ring * 1.2 + breath * 1.0;
         let alpha = (0.17 - ring * 0.026) * (0.6 + 0.4 * breath);
         scene.push_quad(Quad::new(circle(center.x, center.y, r), accent.with_alpha(alpha)).radius(r));
     }
     // A ring going out, like a sonar, only while it moves.
     if moving {
         let progress = (time / 2.4).fract();
-        let r = radius + progress * 10.0;
+        let r = radius + progress * 8.0;
         let ring = Quad {
             border: Some(Border { width: 1.5, color: light.with_alpha((1.0 - progress) * 0.55) }),
             ..Quad::new(circle(center.x, center.y, r), Color::TRANSPARENT).radius(r)

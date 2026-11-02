@@ -7,7 +7,7 @@ use ravenrs::native::{OpenDialog, SaveDialog, open_with_system};
 use ravenrs::prelude::*;
 
 use super::forms::{Confirm, Forms};
-use super::store::{Store, heading};
+use super::store::{PAGE_INSETS, Store, heading};
 use super::updates;
 use crate::backup::{self, CopyReason};
 use crate::db::{Database, DbResult};
@@ -368,5 +368,5 @@ pub(crate) fn settings(
     ))
     .spacing(24.0)
     .align(Align::Stretch),))
-    .padding(24.0)
+    .padding(PAGE_INSETS)
 }

@@ -158,7 +158,7 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> impl Vi
         [
             GridColumn::number("Id").hidden(),
             date_column("Vencimento"),
-            GridColumn::text("Conta").width(240.0),
+            GridColumn::text("Conta").width(300.0),
             GridColumn::text("Categoria").width(130.0),
             GridColumn::text("De quem").width(100.0),
             GridColumn::text("Repete").width(110.0),
@@ -173,9 +173,10 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> impl Vi
                 Box::new(Badge::new(text).tone(tone)) as AnyView
             }),
             money_column("Valor").summary(Summary::Sum),
-            date_column("Paga em"),
+            if view >= 2 { date_column("Paga em") } else { date_column("Paga em").hidden() },
         ],
     )
+    .filter_row(false)
     .selection(state.selection.binding())
     .on_row_activate(move |row| {
         let Some(id) = row_id(&activate_data, row) else { return };
@@ -188,7 +189,7 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> impl Vi
         heading(
             "Contas a pagar",
             format!(
-                "{} em aberto somando {}, das quais {} em atraso",
+                "{} em aberto somando {}, das quais {} em atraso. Clique duas vezes em uma conta para pagar.",
                 rows.open_count,
                 format_brl(rows.open),
                 format_brl(rows.overdue)

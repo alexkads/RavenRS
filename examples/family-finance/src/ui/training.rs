@@ -11,7 +11,7 @@ use ravenrs::prelude::*;
 use ravenrs_ai::{CATALOG, ModelFolder, ModelManager, ModelManagerLabels};
 
 use super::assistant::Pending;
-use super::store::{Store, heading};
+use super::store::{PAGE_INSETS, Store, heading};
 use crate::update;
 
 /// The films, recorded by `tests/training.rs` from the real app.
@@ -85,7 +85,7 @@ pub(crate) fn training(state: &TrainingState) -> impl View + use<> {
     ))
     .spacing(16.0)
     .align(Align::Stretch),))
-    .padding(24.0)
+    .padding(PAGE_INSETS)
 }
 
 /// Saves the report to a file the person sends to the team: nothing here goes

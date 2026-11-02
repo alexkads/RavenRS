@@ -153,7 +153,9 @@ fn paying_from_the_dashboard_clears_the_warning_count() {
 fn a_bad_filter_explains_itself_and_a_good_one_applies() {
     let mut ui = app();
     press(&mut ui, Role::Button, "Lançamentos");
-    type_into(&mut ui, "Filtro avançado", "[Nada] > 1");
+    press(&mut ui, Role::Button, "Filtrar");
+    press(&mut ui, Role::MenuItem, "Filtro avançado…");
+    type_into(&mut ui, "Ex.:", "[Nada] > 1");
     press(&mut ui, Role::Button, "Aplicar");
     assert!(says(&mut ui, "Filtro não aplicado"));
     press(&mut ui, Role::Button, "Limpar");
@@ -184,6 +186,7 @@ fn deleting_a_register_in_use_says_so() {
 #[test]
 fn the_components_speak_portuguese() {
     let mut ui = app();
+    press(&mut ui, Role::Button, "Ajustes");
     assert!(says(&mut ui, "Escuro"), "the theme switcher");
     press(&mut ui, Role::Button, "Lançamentos");
     for words in ["Agrupar", "Colunas", "Exportar CSV", "linhas"] {

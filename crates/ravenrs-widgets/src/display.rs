@@ -1,11 +1,13 @@
 //! Components that present information: badges, avatars, alerts, stats, progress.
 
+use std::rc::Rc;
+
 use ravenrs_core::{Border, Color, Insets, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{IconName, View, ViewSeq, util};
+use crate::{Button, ButtonSize, ButtonStyle, IconName, View, ViewSeq, util};
 
 /// Tone of a badge or alert. Status tones always come with a word or an icon,
 /// never color alone.
@@ -340,22 +342,36 @@ impl View for Skeleton {
 }
 
 /// A tinted message box with an icon, a title and a description.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Alert {
     title: String,
     message: String,
     tone: Tone,
+    action: Option<(String, Rc<dyn Fn()>)>,
+}
+
+impl std::fmt::Debug for Alert {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Alert").field("title", &self.title).field("tone", &self.tone).finish_non_exhaustive()
+    }
 }
 
 impl Alert {
     /// An accent-toned alert with a title and a message.
     pub fn new(title: impl Into<String>, message: impl Into<String>) -> Self {
-        Self { title: title.into(), message: message.into(), tone: Tone::Accent }
+        Self { title: title.into(), message: message.into(), tone: Tone::Accent, action: None }
     }
 
     /// Sets the color tone and icon.
     pub fn tone(mut self, tone: Tone) -> Self {
         self.tone = tone;
+        self
+    }
+
+    /// A button beside the message, so that what it asks for is one click away.
+    #[must_use]
+    pub fn action(mut self, label: impl Into<String>, on_click: impl Fn() + 'static) -> Self {
+        self.action = Some((label.into(), Rc::new(on_click)));
         self
     }
 }
@@ -386,7 +402,16 @@ impl View for Alert {
             border: Some(Border { width: 1.0, color: color.with_alpha(0.30) }),
             shadow: None,
         };
-        let node = cx.container(style, &[icon, text], Paint::Quad(paint));
+        let mut children = vec![icon, text];
+        if let Some((label, on_click)) = &self.action {
+            let on_click = on_click.clone();
+            let button = Button::new(label.clone())
+                .style(ButtonStyle::Secondary)
+                .size(ButtonSize::Small)
+                .on_click(move || on_click());
+            children.push(cx.child(&button));
+        }
+        let node = cx.container(style, &children, Paint::Quad(paint));
         let role = if self.tone == Tone::Danger { Role::Alert } else { Role::Status };
         cx.semantics(node, Semantics::new(role));
         node

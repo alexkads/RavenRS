@@ -129,7 +129,7 @@ impl<K: PartialEq, V: Clone> Memo<K, V> {
 pub(crate) struct FillColumn<C> {
     pub children: C,
     pub spacing: f32,
-    pub padding: f32,
+    pub padding: Insets,
 }
 
 impl<C: ViewSeq> View for FillColumn<C> {
@@ -142,7 +142,7 @@ impl<C: ViewSeq> View for FillColumn<C> {
                 overflow_hidden: true,
                 align: Align::Stretch,
                 spacing: self.spacing,
-                padding: self.padding.into(),
+                padding: self.padding,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &children,
@@ -151,9 +151,13 @@ impl<C: ViewSeq> View for FillColumn<C> {
     }
 }
 
+/// A screen's margins. The bottom one leaves the assistant's sphere clear of what is on
+/// the screen, so that it never covers a button.
+pub(crate) const PAGE_INSETS: Insets = Insets { top: 24.0, right: 24.0, bottom: 64.0, left: 24.0 };
+
 /// The same, with a screen's usual space.
 pub(crate) fn screen<C: ViewSeq>(children: C) -> FillColumn<C> {
-    FillColumn { children, spacing: 16.0, padding: 24.0 }
+    FillColumn { children, spacing: 16.0, padding: PAGE_INSETS }
 }
 
 /// A screen's title and what it is about.
