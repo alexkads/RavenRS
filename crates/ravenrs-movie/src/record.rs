@@ -11,6 +11,10 @@ const FRAME: f64 = 1.0 / 30.0;
 const POINTER_SPEED: f32 = 900.0;
 const POINTER_TRAVEL: (f64, f64) = (0.25, 0.8);
 const SECONDS_PER_LETTER: f64 = 0.06;
+/// How long reading or hearing a text takes, at an easy pace.
+const READING_PER_LETTER: f64 = 0.075;
+const READING_LEAST: f64 = 2.0;
+const READING_START: f64 = 0.8;
 
 /// What can stop a recording.
 #[derive(Debug)]
@@ -44,6 +48,12 @@ impl From<MovieError> for RecordError {
     fn from(e: MovieError) -> Self {
         Self::Movie(e)
     }
+}
+
+/// How long it takes to read or hear a box: the voice says its title too.
+fn reading_seconds(title: &str, text: &str) -> f64 {
+    let letters = title.chars().count() + text.chars().count();
+    (READING_START + letters as f64 * READING_PER_LETTER).max(READING_LEAST)
 }
 
 /// Runs an app from a script and films it: the steps are the ones a person would
@@ -123,6 +133,30 @@ impl Recorder {
         self
     }
 
+    /// Starts a chapter here and explains it in a box in the middle of the film,
+    /// for as long as it takes to read or hear.
+    pub fn intro(&mut self, title: &str, text: &str) -> &mut Self {
+        self.chapter(title, text);
+        let seconds = reading_seconds(title, text);
+        self.film.hotspot(Hotspot {
+            kind: HotspotKind::Note,
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+            title: title.to_owned(),
+            text: text.to_owned(),
+            from_ms: self.milliseconds(),
+            until_ms: self.milliseconds() + (seconds * 1000.0) as u64,
+        });
+        self.wait(seconds)
+    }
+
+    /// A [`Self::note`] that lasts as long as `text` takes to read or hear.
+    pub fn explain(&mut self, name: &str, title: &str, text: &str) -> Result<&mut Self, RecordError> {
+        self.note(name, title, text, reading_seconds(title, text))
+    }
+
     /// Slides the pointer to the middle of what is called `name`.
     pub fn move_to(&mut self, name: &str) -> Result<&mut Self, RecordError> {
         let target = self.find(name)?.bounds.center();
@@ -175,6 +209,7 @@ impl Recorder {
 
     /// Presses a key.
     pub fn press(&mut self, key: Key) -> &mut Self {
+        self.film.key(self.milliseconds());
         self.ui.handle_event(&Event::KeyDown { key, modifiers: Modifiers::default() });
         self.tick();
         self
@@ -208,12 +243,14 @@ impl Recorder {
 
     /// The film stops here, with what is called `name` marked and `text` saying
     /// what to do, until someone clicks the mark. Follow it with the step itself,
-    /// such as [`Self::click`], which is what the film shows next.
+    /// such as [`Self::click`], which is what the film shows next. When the
+    /// player is not stopping at steps, the box stays for as long as it takes to
+    /// read or hear; when it is, that time is skipped.
     pub fn guide(&mut self, name: &str, title: &str, text: &str) -> Result<&mut Self, RecordError> {
-        let hotspot = self.hotspot(name, HotspotKind::Stop, title, text, 0.0)?;
+        let seconds = reading_seconds(title, text);
+        let hotspot = self.hotspot(name, HotspotKind::Stop, title, text, seconds)?;
         self.film.hotspot(hotspot);
-        self.tick();
-        Ok(self)
+        Ok(self.wait(seconds))
     }
 
     fn hotspot(

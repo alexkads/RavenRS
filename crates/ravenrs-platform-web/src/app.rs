@@ -267,6 +267,58 @@ impl ravenrs_widgets::ClipboardProvider for BrowserClipboard {
     }
 }
 
+/// Sound through Web Audio, and the voice through the browser's speech. Browsers
+/// let a page make sound only after someone clicked in it, which is how a film
+/// starts; before that, nothing is heard and nothing breaks.
+#[derive(Default)]
+struct BrowserSound {
+    context: std::cell::RefCell<Option<web_sys::AudioContext>>,
+}
+
+impl BrowserSound {
+    fn start(&self, clip: &ravenrs_widgets::SoundClip) -> Result<(), wasm_bindgen::JsValue> {
+        let mut context = self.context.borrow_mut();
+        let context = match &mut *context {
+            Some(context) => context,
+            none => none.insert(web_sys::AudioContext::new()?),
+        };
+        // A context made before the first click starts suspended.
+        let _ = context.resume()?;
+        let samples = clip.samples();
+        let buffer = context.create_buffer(1, samples.len() as u32, clip.rate() as f32)?;
+        buffer.copy_to_channel(samples, 0)?;
+        let source = context.create_buffer_source()?;
+        source.set_buffer(Some(&buffer));
+        source.connect_with_audio_node(&context.destination())?;
+        source.start()
+    }
+}
+
+impl ravenrs_widgets::SoundProvider for BrowserSound {
+    fn play(&self, clip: &ravenrs_widgets::SoundClip) {
+        if self.start(clip).is_err() {
+            tracing::warn!("the browser refused to play a sound");
+        }
+    }
+
+    fn speak(&self, text: &str, language: &str) {
+        let Some(speech) = web_sys::window().and_then(|w| w.speech_synthesis().ok()) else {
+            return;
+        };
+        speech.cancel();
+        if let Ok(utterance) = web_sys::SpeechSynthesisUtterance::new_with_text(text) {
+            utterance.set_lang(language);
+            speech.speak(&utterance);
+        }
+    }
+
+    fn stop_speaking(&self) {
+        if let Some(speech) = web_sys::window().and_then(|w| w.speech_synthesis().ok()) {
+            speech.cancel();
+        }
+    }
+}
+
 /// Seconds since the page loaded.
 fn now_seconds() -> f64 {
     web_sys::window().and_then(|w| w.performance()).map_or(0.0, |p| p.now() / 1000.0)
@@ -372,6 +424,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
 
     let mut ui = Ui::new(root, options.theme);
     ui.set_clipboard(BrowserClipboard);
+    ui.set_sound(BrowserSound::default());
     let (css, dpr) = measure(&canvas);
     ui.set_viewport(css, dpr);
     let waker = scheduler.clone();

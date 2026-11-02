@@ -90,6 +90,7 @@ pub struct Ui {
     scene: Scene,
     access_map: access::AccessMap,
     clipboard: crate::Clipboard,
+    sound: crate::Sound,
     motion: MotionSystem,
     motions: Vec<MotionEntry>,
     /// What scrolling added to each element's frame.
@@ -170,6 +171,7 @@ impl Ui {
             scene: Scene::new(),
             access_map: access::AccessMap::default(),
             clipboard: crate::Clipboard::default(),
+            sound: crate::Sound::default(),
             motion: MotionSystem::default(),
             motions: Vec::new(),
             shifts: Vec::new(),
@@ -194,6 +196,17 @@ impl Ui {
     /// The clipboard widgets copy to and paste from.
     pub fn clipboard(&self) -> crate::Clipboard {
         self.clipboard.clone()
+    }
+
+    /// Installs the system's sound (platform layers do this); the default is silence.
+    pub fn set_sound(&mut self, provider: impl crate::SoundProvider + 'static) {
+        self.sound = crate::Sound::new(provider);
+        self.needs_build = true;
+    }
+
+    /// The sound system views play through.
+    pub fn sound(&self) -> crate::Sound {
+        self.sound.clone()
     }
 
     /// Called whenever reactive state the UI depends on changes.
@@ -755,6 +768,7 @@ impl Ui {
         self.local.begin_build();
         let modifiers = self.modifiers.clone();
         let clipboard = self.clipboard.clone();
+        let sound = self.sound.clone();
         let ui_waker = self.ui_waker.clone();
         let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
             self;
@@ -781,6 +795,7 @@ impl Ui {
                     ui_waker,
                 );
                 cx.now = now;
+                cx.sound = sound;
                 cx.motion_clock = motion_clock;
                 cx.motion_enabled = motion_enabled;
                 cx.reduced_motion = reduced_motion;

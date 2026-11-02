@@ -10,6 +10,7 @@
 mod access;
 mod diagnostics;
 mod files;
+mod sound;
 
 /// The system clipboard through `arboard`. When it cannot be opened (no
 /// display server, say), copy and paste stay inside the app.
@@ -266,6 +267,7 @@ fn run_window(
         Ok(clipboard) => ui.set_clipboard(SystemClipboard(std::cell::RefCell::new(clipboard))),
         Err(e) => tracing::warn!(error = %e, "system clipboard unavailable; using an in-app clipboard"),
     }
+    ui.set_sound(sound::SystemSound::default());
     let mut app = App {
         display: event_loop.owned_display_handle(),
         diagnostics,

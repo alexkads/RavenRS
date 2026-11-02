@@ -135,16 +135,16 @@ if ! command -v cargo >/dev/null 2>&1 && [ -x "$HOME/.cargo/bin/cargo" ]; then
   PATH="$HOME/.cargo/bin:$PATH"
 fi
 # What Linux needs to compile the app and then open its window: a C compiler,
-# for SQLite, and the libraries the window loads when it starts.
+# for SQLite, ALSA, for sound, and the libraries the window loads when it starts.
 pacotes_do_linux() {
   if command -v apt-get >/dev/null 2>&1; then
-    echo "apt-get install -y build-essential curl libxkbcommon-x11-0 libvulkan1 mesa-vulkan-drivers"
+    echo "apt-get install -y build-essential curl pkg-config libasound2-dev libxkbcommon-x11-0 libvulkan1 mesa-vulkan-drivers"
   elif command -v dnf >/dev/null 2>&1; then
-    echo "dnf install -y gcc curl libxkbcommon-x11 vulkan-loader mesa-vulkan-drivers"
+    echo "dnf install -y gcc curl pkgconf-pkg-config alsa-lib-devel libxkbcommon-x11 vulkan-loader mesa-vulkan-drivers"
   elif command -v pacman >/dev/null 2>&1; then
-    echo "pacman -S --needed --noconfirm base-devel curl libxkbcommon-x11 vulkan-icd-loader"
+    echo "pacman -S --needed --noconfirm base-devel curl alsa-lib libxkbcommon-x11 vulkan-icd-loader"
   elif command -v zypper >/dev/null 2>&1; then
-    echo "zypper install -y gcc curl libxkbcommon-x11-0 libvulkan1"
+    echo "zypper install -y gcc curl pkg-config alsa-devel libxkbcommon-x11-0 libvulkan1"
   fi
 }
 

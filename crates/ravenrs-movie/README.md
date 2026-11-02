@@ -33,6 +33,17 @@ timeline, canvas and properties. The edits travel with the film, so there is not
 | `chapter` | An entry in the list of chapters |
 | `note` | A mark on the screen whose text appears while it plays, and again on a click |
 | `guide` | The film stops and waits for a click on that spot |
+| `intro` | A chapter, with a box in the middle of the film saying what it teaches |
+| `explain` | A `note` that lasts as long as its text takes to read or hear |
+
+Whatever the film is saying shows in a box next to what it talks about, and a film too small for the
+box has the words under it.
+
+**Hearing** needs nothing in the file. Clicks and keys are noted while recording and their sounds are
+computed, and the system's own voice reads each box in the language of the labels, so a film weighs
+the same with sound as without. `MoviePlayer` has a switch for each. Recording runs with no window,
+so the click is not captured from a real mouse: it is a click sound made to fit. On Linux the voice
+needs `espeak-ng`; without it, the boxes still say it all.
 
 **Asking** is `MovieAssistant`. Someone types a question and picks an answer, and the film opens at
 that moment, with the answers out of the way. A step opens waiting for its click; anything else
@@ -50,4 +61,4 @@ accepts near forms of a word ("pago" finds "pagar") and typing slips. There is n
 leaves the machine, so it adds nothing to download and works in the browser. It knows no synonyms: a
 question with no word in common with the films gets no answer, and it says so.
 
-There is no sound: RavenRS has no audio yet.
+`MovieEditor` previews the picture only, with no sound.

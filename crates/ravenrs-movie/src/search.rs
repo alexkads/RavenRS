@@ -226,7 +226,8 @@ fn moments_of(film: usize, movie: &Movie) -> Vec<Indexed> {
         };
         indexed(moment, Vec::new())
     });
-    let spots = movie.hotspots().iter().map(|spot| {
+    // A box about the whole screen says what its chapter says.
+    let spots = movie.hotspots().iter().filter(|spot| !spot.is_general()).map(|spot| {
         let moment = Moment {
             film,
             at_ms: spot.from_ms,

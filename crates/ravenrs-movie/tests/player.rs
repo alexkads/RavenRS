@@ -1,10 +1,14 @@
 //! `MoviePlayer`: plays by the clock, stops where it teaches, and jumps around.
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
-use ravenrs_core::{AccessAction, AccessNode, Color, Primitive, Quad, Rect, Role, Size};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use ravenrs_core::{AccessAction, AccessNode, Color, Point, Primitive, Quad, Rect, Role, Size};
 use ravenrs_movie::{FilmBuilder, Hotspot, HotspotKind, Movie, MovieLabels, MoviePlayer};
+use ravenrs_reactive::State;
 use ravenrs_style::Theme;
-use ravenrs_widgets::{Ui, View};
+use ravenrs_widgets::{AnyView, SoundClip, SoundProvider, Text, Ui, View, responsive};
 
 const W: u32 = 400;
 const H: u32 = 300;
@@ -163,4 +167,164 @@ fn a_note_clicked_again_brings_its_text_back_and_words_can_be_changed() {
     click(&mut ui, "A note");
     assert!(has(&mut ui, "A note text"));
     assert!(ui.access_tree().nodes.iter().any(|n| n.role == Role::Image));
+}
+
+/// What a player asked the sound system to do.
+#[derive(Clone, Default)]
+struct Heard(Rc<RefCell<Vec<String>>>);
+
+impl SoundProvider for Heard {
+    fn play(&self, clip: &SoundClip) {
+        let name = if *clip == SoundClip::click() { "click" } else { "key" };
+        self.0.borrow_mut().push(name.to_owned());
+    }
+
+    fn speak(&self, text: &str, language: &str) {
+        self.0.borrow_mut().push(format!("{language}: {text}"));
+    }
+
+    fn stop_speaking(&self) {
+        self.0.borrow_mut().push("quiet".to_owned());
+    }
+}
+
+impl Heard {
+    fn count(&self, what: &str) -> usize {
+        self.0.borrow().iter().filter(|heard| heard.as_str() == what).count()
+    }
+
+    fn said(&self, what: &str) -> bool {
+        self.0.borrow().iter().any(|heard| heard.contains(what))
+    }
+}
+
+fn noisy_film() -> Movie {
+    let mut film = FilmBuilder::new(Size::new(W as f32, H as f32), Color::WHITE);
+    for i in 0..=10u64 {
+        let square = Quad::new(Rect::new(i as f32, 0.0, 4.0, 4.0), Color::BLACK);
+        film.frame(i * 1000, &[Primitive::Quad(square)]);
+    }
+    film.click(1000, Point::new(1.0, 1.0));
+    film.key(2000);
+    film.key(2100);
+    film.click(7000, Point::new(1.0, 1.0));
+    film.hotspot(spot(HotspotKind::Note, "A note", 3000, 4000));
+    film.finish(10_000).expect("film")
+}
+
+fn heard_player(movie: Movie) -> (Ui, Heard) {
+    let heard = Heard::default();
+    let mut ui = player(MoviePlayer::new(movie));
+    ui.set_sound(heard.clone());
+    ui.update();
+    (ui, heard)
+}
+
+#[test]
+fn it_plays_each_click_and_key_once_as_the_film_goes_past() {
+    let (mut ui, heard) = heard_player(noisy_film());
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 2.5);
+    assert_eq!(heard.count("click"), 1);
+    assert_eq!(heard.count("key"), 2);
+    run_to(&mut ui, 2.5, 7.5);
+    assert_eq!(heard.count("click"), 2);
+}
+
+#[test]
+fn jumping_over_clicks_makes_no_sound_and_a_switch_silences_them() {
+    let (mut ui, heard) = heard_player(noisy_film());
+    click(&mut ui, "Play");
+    ui.set_time(5.0);
+    ui.update();
+    assert_eq!(heard.count("click"), 0, "a late frame does not play what it skipped");
+
+    let (mut ui, heard) = heard_player(noisy_film());
+    click(&mut ui, "Sound");
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 2.5);
+    assert_eq!(heard.count("click"), 0);
+}
+
+#[test]
+fn the_voice_says_each_note_once_in_the_language_of_the_labels() {
+    let (mut ui, heard) = heard_player(noisy_film());
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 3.8);
+    assert!(heard.said("en-US: A note. A note text"));
+    let times = heard.0.borrow().iter().filter(|h| h.contains("A note text")).count();
+    assert_eq!(times, 1);
+}
+
+#[test]
+fn the_voice_stops_on_a_pause_on_turning_it_off_and_on_leaving() {
+    let (mut ui, heard) = heard_player(noisy_film());
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 3.5);
+    click(&mut ui, "Pause");
+    assert!(heard.count("quiet") >= 1, "pausing stops it");
+
+    let heard = Heard::default();
+    let on_screen = State::new(true);
+    let (shown, movie) = (on_screen.clone(), noisy_film());
+    let view = responsive(move |_| -> AnyView {
+        if shown.get() { Box::new(MoviePlayer::new(movie.clone())) } else { Box::new(Text::new("Elsewhere")) }
+    });
+    let mut ui = Ui::new(view, Theme::raven_light());
+    ui.set_sound(heard.clone());
+    ui.set_viewport(Size::new(1200.0, 900.0), 1.0);
+    ui.set_time(0.0);
+    ui.update();
+    let before = heard.count("quiet");
+    on_screen.set(false);
+    ui.update();
+    assert!(heard.count("quiet") > before, "leaving the screen stops it");
+}
+
+#[test]
+fn a_step_says_what_to_do_and_a_click_goes_past_its_reading_time() {
+    let mut film = FilmBuilder::new(Size::new(W as f32, H as f32), Color::WHITE);
+    for i in 0..=10u64 {
+        film.frame(i * 1000, &[Primitive::Quad(Quad::new(Rect::new(i as f32, 0.0, 4.0, 4.0), Color::BLACK))]);
+    }
+    film.hotspot(spot(HotspotKind::Stop, "Click here", 2000, 5000));
+    let film = film.finish(10_000).expect("film");
+
+    let (mut ui, heard) = heard_player(film.clone());
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 3.0);
+    assert!(says_time(&mut ui, "0:02"), "it waits at the start of the step");
+    assert!(heard.said("Click here text"), "and the voice says what to do");
+    click(&mut ui, "Click here");
+    run_to(&mut ui, 3.0, 3.2);
+    assert!(says_time(&mut ui, "0:05"), "a click skips the time meant for reading");
+
+    let (mut ui, heard) = heard_player(film);
+    click(&mut ui, "Stop at each step");
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 3.0);
+    assert!(says_time(&mut ui, "0:03"), "with the steps off it runs on");
+    assert!(has(&mut ui, "Click here text"), "with its box up while there is time to read");
+    assert!(heard.said("Click here text"));
+}
+
+#[test]
+fn a_box_about_the_whole_screen_has_no_mark_and_a_small_film_says_it_below() {
+    let mut film = FilmBuilder::new(Size::new(W as f32, H as f32), Color::WHITE);
+    film.frame(0, &[]);
+    let general = Hotspot { width: 0.0, height: 0.0, ..spot(HotspotKind::Note, "All of it", 0, 5000) };
+    assert!(general.is_general());
+    film.hotspot(general);
+    let film = film.finish(10_000).expect("film");
+    let mut ui = player(MoviePlayer::new(film.clone()));
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 1.0);
+    assert!(has(&mut ui, "All of it text"));
+    let tree = ui.access_tree();
+    assert!(!tree.nodes.iter().any(|n| n.role == Role::Button && n.name.as_deref() == Some("All of it")));
+
+    let mut ui = player(MoviePlayer::new(film).width(400.0));
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 1.0);
+    assert!(has(&mut ui, "All of it text"), "too small for a box, it goes under the film");
 }

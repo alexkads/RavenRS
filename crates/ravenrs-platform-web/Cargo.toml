@@ -49,6 +49,15 @@ web-sys = { workspace = true, features = [
     "ClipboardEvent",
     "DataTransfer",
     "console",
+    "AudioContext",
+    "AudioBuffer",
+    "AudioBufferSourceNode",
+    "AudioDestinationNode",
+    "AudioNode",
+    "AudioScheduledSourceNode",
+    "BaseAudioContext",
+    "SpeechSynthesis",
+    "SpeechSynthesisUtterance",
 ] }
 
 [lints]

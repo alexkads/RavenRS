@@ -9,11 +9,11 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
     BuildCx, Button, ButtonSize, ButtonStyle, Card, HStack, Icon, IconName, List, ListItem, NodeId, Paint,
-    QuadPaint, ScrollView, Semantics, Slider, Spacer, Text, Toggle, VStack, View, ViewExt,
+    QuadPaint, ScrollView, Semantics, Slider, Sound, SoundClip, Text, Toggle, VStack, View, ViewExt,
 };
 
 use crate::composition::{Composition, camera_at};
-use crate::movie::{Hotspot, HotspotKind, Movie};
+use crate::movie::{FilmSound, Hotspot, HotspotKind, Movie};
 use crate::project::Region;
 
 /// How often it draws while playing, in seconds. The pointer and the zooms have
@@ -23,6 +23,18 @@ const CHAPTERS_WIDTH: f32 = 260.0;
 const COLUMN_GAP: f32 = 16.0;
 /// Below this total width, the chapters go under the film.
 const SIDE_BY_SIDE_FROM: f32 = 720.0;
+/// The box that explains what is being done, and the film width it needs to fit:
+/// on a smaller film the same words go under it.
+const BOX_WIDTH: f32 = 340.0;
+const BOX_FROM: f32 = 560.0;
+const BOX_GAP: f32 = 12.0;
+/// What a box takes besides its lines of text, and a line of its text.
+const BOX_FRAME_HEIGHT: f32 = 84.0;
+const BOX_LINE_HEIGHT: f32 = 20.0;
+const BOX_LETTERS_PER_LINE: usize = 42;
+/// A frame that came late plays only what is this recent: a burst of clicks
+/// after a pause would tell nothing.
+const SOUNDS_AT_MOST_MS: u64 = 400;
 
 /// The words a [`MoviePlayer`] shows. English by default.
 #[derive(Clone, Debug)]
@@ -44,6 +56,12 @@ pub struct MovieLabels {
     pub position: String,
     /// The film itself, for screen readers.
     pub movie: String,
+    /// Turns on the sound of clicks and keys.
+    pub sound: String,
+    /// Turns on the voice that reads what the film says.
+    pub narration: String,
+    /// The language of the voice, such as `pt-BR`.
+    pub language: String,
 }
 
 impl Default for MovieLabels {
@@ -57,6 +75,9 @@ impl Default for MovieLabels {
             chapters: "Chapters".into(),
             position: "Position".into(),
             movie: "Film".into(),
+            sound: "Sound".into(),
+            narration: "Narration".into(),
+            language: "en-US".into(),
         }
     }
 }
@@ -73,6 +94,9 @@ impl MovieLabels {
             chapters: "Capítulos".into(),
             position: "Posição".into(),
             movie: "Filme".into(),
+            sound: "Som".into(),
+            narration: "Narração".into(),
+            language: "pt-BR".into(),
         }
     }
 }
@@ -129,6 +153,10 @@ struct Playhead {
     waiting: Cell<Option<usize>>,
     /// The note someone clicked, shown until the film moves on.
     opened: Cell<Option<usize>>,
+    /// What the voice last started saying, so that it says each thing once.
+    spoken: Cell<Option<usize>>,
+    /// The film jumped: what the voice was saying no longer applies.
+    jumped: Cell<bool>,
 }
 
 impl Playhead {
@@ -140,10 +168,20 @@ impl Playhead {
         self.running.set(None);
     }
 
+    /// Goes on from the step it is waiting at, past the time the step would take
+    /// for whoever is not stopping at steps.
+    fn go_on(&self, movie: &Movie) {
+        if let Some(spot) = self.waiting.get().and_then(|i| movie.hotspots().get(i)) {
+            self.position_ms.set(spot.until_ms.min(movie.duration_ms()));
+        }
+        self.play(movie);
+    }
+
     fn seek(&self, ms: u64) {
         self.position_ms.set(ms);
         self.waiting.set(None);
         self.opened.set(None);
+        self.jumped.set(true);
         if self.is_running() {
             self.running.set(Some((f64::NAN, ms)));
         }
@@ -206,6 +244,47 @@ impl Playhead {
     }
 }
 
+/// Stops the voice when the player leaves the screen.
+struct Narrator(Sound);
+
+impl Drop for Narrator {
+    fn drop(&mut self) {
+        self.0.stop_speaking();
+    }
+}
+
+/// The sounds a film makes, computed once for each player.
+struct FilmSounds {
+    click: SoundClip,
+    key: SoundClip,
+}
+
+/// Where the box about `spot` goes on a film `area` big: under what it marks, or
+/// above, or beside it, and always whole. A box about the whole screen is centered.
+fn box_place(spot: Option<ravenrs_core::Rect>, area: ravenrs_core::Size, height: f32) -> (f32, f32) {
+    let width = BOX_WIDTH;
+    let inside = |x: f32, y: f32| {
+        (
+            x.clamp(BOX_GAP, (area.width - width - BOX_GAP).max(BOX_GAP)),
+            y.clamp(BOX_GAP, (area.height - height - BOX_GAP).max(BOX_GAP)),
+        )
+    };
+    let Some(spot) = spot else {
+        return inside((area.width - width) / 2.0, (area.height - height) / 2.0);
+    };
+    let middle = spot.x() + spot.width() / 2.0 - width / 2.0;
+    if spot.y() + spot.height() + BOX_GAP + height <= area.height {
+        return inside(middle, spot.y() + spot.height() + BOX_GAP);
+    }
+    if spot.y() - BOX_GAP - height >= 0.0 {
+        return inside(middle, spot.y() - BOX_GAP - height);
+    }
+    if spot.x() + spot.width() + BOX_GAP + width <= area.width {
+        return inside(spot.x() + spot.width() + BOX_GAP, spot.y());
+    }
+    inside(spot.x() - BOX_GAP - width, spot.y())
+}
+
 /// The mark over a spot on the film.
 struct HotspotMark {
     hotspot: Hotspot,
@@ -247,6 +326,11 @@ impl View for HotspotMark {
     }
 }
 
+/// How tall a film `width` wide is.
+fn height_of(width: f32, logical: ravenrs_core::Size) -> f32 {
+    width * logical.height / logical.width.max(1.0)
+}
+
 /// The film and the marks over it.
 struct Stage<'a> {
     movie: &'a Movie,
@@ -255,6 +339,8 @@ struct Stage<'a> {
     marks: Vec<Hotspot>,
     changes: State<u64>,
     labels: &'a MovieLabels,
+    /// The explanation over the film, and whether it waits for a click.
+    explaining: Option<Hotspot>,
 }
 
 impl View for Stage<'_> {
@@ -265,22 +351,22 @@ impl View for Stage<'_> {
             at = self.movie.poster_ms();
         }
         let logical = self.movie.logical_size();
-        let height = self.width * logical.height / logical.width.max(1.0);
+        let height = height_of(self.width, logical);
         let camera = camera_at(self.movie, at, self.width, false);
         let film = Composition::new(self.movie.clone(), at).width(self.width);
         let film = cx.child(&film);
         cx.semantics(film, Semantics::new(Role::Image).name(self.labels.movie.clone()));
         let mut children = vec![film];
-        for hotspot in &self.marks {
+        for hotspot in self.marks.iter().filter(|hotspot| !hotspot.is_general()) {
             let waiting = hotspot.kind == HotspotKind::Stop;
             let index = self.movie.hotspots().iter().position(|spot| spot == hotspot);
-            let (playhead, changes, duration) =
-                (self.playhead.clone(), self.changes.clone(), self.movie.duration_ms());
+            let (playhead, changes, movie) =
+                (self.playhead.clone(), self.changes.clone(), self.movie.clone());
             let on_click: Rc<dyn Fn()> = Rc::new(move || {
                 if waiting {
-                    let at = playhead.position_ms.get();
-                    playhead.waiting.set(None);
-                    playhead.running.set(Some((f64::NAN, at.min(duration))));
+                    if playhead.waiting.get().is_some() {
+                        playhead.go_on(&movie);
+                    }
                 } else {
                     playhead.opened.set(index);
                 }
@@ -290,6 +376,52 @@ impl View for Stage<'_> {
             let mark =
                 HotspotMark { hotspot: hotspot.clone(), frame: camera.region(region), waiting, on_click };
             children.push(cx.child(&mark));
+        }
+        if let Some(spot) = &self.explaining {
+            let chapter = self.movie.chapter_at(at).and_then(|i| self.movie.chapters().get(i));
+            let lines = spot.text.chars().count().div_ceil(BOX_LETTERS_PER_LINE).max(1) as f32;
+            let waiting = self.playhead.waiting.get().is_some();
+            let height = BOX_FRAME_HEIGHT + lines * BOX_LINE_HEIGHT + if waiting { 36.0 } else { 0.0 };
+            let target = (!spot.is_general())
+                .then(|| camera.region(Region::new(spot.x, spot.y, spot.width, spot.height)));
+            let (x, y) = box_place(
+                target,
+                ravenrs_core::Size::new(self.width, height_of(self.width, logical)),
+                height,
+            );
+            let eyebrow = chapter.filter(|chapter| chapter.title != spot.title).map(|chapter| {
+                Text::new(chapter.title.clone()).style(TextStyle::Caption).foreground(Semantic::Accent)
+            });
+            let go_on = waiting.then(|| {
+                let (playhead, changes, movie) =
+                    (self.playhead.clone(), self.changes.clone(), self.movie.clone());
+                Button::new(self.labels.next_step.clone())
+                    .style(ButtonStyle::Secondary)
+                    .size(ButtonSize::Small)
+                    .icon(IconName::ArrowRight)
+                    .on_click(move || {
+                        playhead.go_on(&movie);
+                        changes.update(|n| *n += 1);
+                    })
+            });
+            let content = VStack::new((
+                eyebrow,
+                Text::new(spot.title.clone()).font_weight(Weight::SEMIBOLD),
+                Text::new(spot.text.clone()).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+                go_on,
+            ))
+            .spacing(4.0)
+            .align(Align::Start);
+            let card = cx.child(&Card::new(content).width(BOX_WIDTH));
+            children.push(cx.container(
+                LayoutStyle {
+                    absolute: Some((x, y)),
+                    width: Some(BOX_WIDTH),
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[card],
+                Paint::None,
+            ));
         }
         let node = cx.container(
             LayoutStyle {
@@ -390,24 +522,25 @@ impl MoviePlayer {
 
     /// What the film is saying right now: the waiting step, an opened or running
     /// note, or what the chapter teaches.
-    fn caption(&self, playhead: &Rc<Playhead>, changes: &State<u64>) -> Option<impl View + use<>> {
+    fn caption(
+        &self,
+        playhead: &Rc<Playhead>,
+        changes: &State<u64>,
+        explaining: Option<&Hotspot>,
+        boxes: bool,
+    ) -> Option<impl View + use<>> {
         let movie = self.movie.clone();
         let at = playhead.position_ms.get();
-        let spots = movie.hotspots();
-        let waiting = playhead.waiting.get().and_then(|i| spots.get(i));
-        let opened = playhead.opened.get().and_then(|i| spots.get(i));
-        let running = spots
-            .iter()
-            .find(|spot| spot.kind == HotspotKind::Note && spot.from_ms <= at && at < spot.until_ms);
-        let said =
-            waiting.or(opened).or(running).map(|spot| (spot.title.clone(), spot.text.clone())).or_else(
-                || {
-                    movie
-                        .chapter_at(at)
-                        .and_then(|i| movie.chapters().get(i))
-                        .map(|c| (c.title.clone(), c.text.clone()))
-                },
-            )?;
+        let waiting = playhead.waiting.get().and_then(|i| movie.hotspots().get(i)).filter(|_| !boxes);
+        let said = explaining
+            .filter(|_| !boxes)
+            .map(|spot| (spot.title.clone(), spot.text.clone()))
+            .or_else(|| {
+                movie
+                    .chapter_at(at)
+                    .and_then(|i| movie.chapters().get(i))
+                    .map(|c| (c.title.clone(), c.text.clone()))
+            })?;
         let go_on = waiting.map(|_| {
             let (playhead, changes, player) = (playhead.clone(), changes.clone(), movie.clone());
             Button::new(self.labels.next_step.clone())
@@ -415,7 +548,7 @@ impl MoviePlayer {
                 .size(ButtonSize::Small)
                 .icon(IconName::ArrowRight)
                 .on_click(move || {
-                    playhead.play(&player);
+                    playhead.go_on(&player);
                     changes.update(|n| *n += 1);
                 })
         });
@@ -441,6 +574,7 @@ impl MoviePlayer {
         playhead: &Rc<Playhead>,
         changes: &State<u64>,
         guided: &State<bool>,
+        audio: (&State<bool>, &State<bool>),
         film_width: f32,
     ) -> impl View + use<> {
         let duration = self.movie.duration_ms();
@@ -456,7 +590,7 @@ impl MoviePlayer {
                 moved.update(|n| *n += 1);
             },
         );
-        HStack::new((
+        let playing = HStack::new((
             Button::new(if running { self.labels.pause.clone() } else { self.labels.play.clone() })
                 .icon(if running { IconName::Pause } else { IconName::Play })
                 .size(ButtonSize::Small)
@@ -484,12 +618,51 @@ impl MoviePlayer {
             Text::new(format!("{} / {}", clock_label(playhead.position_ms.get()), clock_label(duration)))
                 .style(TextStyle::Caption)
                 .foreground(Semantic::InkMuted),
-            Spacer::new().width(4.0),
-            Toggle::new(guided.binding()).label(self.labels.guided.clone()),
         ))
         .spacing(8.0)
-        .align(Align::Center)
-        .width(film_width)
+        .align(Align::Center);
+        let options = HStack::new((
+            Toggle::new(guided.binding()).label(self.labels.guided.clone()),
+            Toggle::new(audio.0.binding()).label(self.labels.sound.clone()),
+            Toggle::new(audio.1.binding()).label(self.labels.narration.clone()),
+        ))
+        .spacing(16.0)
+        .align(Align::Center);
+        VStack::new((playing, options)).spacing(8.0).align(Align::Stretch).width(film_width)
+    }
+
+    /// Plays the clicks and keys the film just went past, and has the voice start
+    /// on what the film says now, leaving what it said behind when the film
+    /// jumped, paused or lost its voice.
+    fn make_sound(
+        &self,
+        sound: &Sound,
+        clips: &FilmSounds,
+        playhead: &Rc<Playhead>,
+        before: u64,
+        explaining: Option<(usize, &Hotspot)>,
+        audio: (bool, bool),
+    ) {
+        let at = playhead.position_ms.get();
+        if audio.0 && (playhead.is_running() || playhead.waiting.get().is_some()) {
+            let recent = at.saturating_sub(SOUNDS_AT_MOST_MS).max(before);
+            for (_, kind) in self.movie.sounds_between(recent, at) {
+                sound.play(match kind {
+                    FilmSound::Click => &clips.click,
+                    FilmSound::Key => &clips.key,
+                });
+            }
+        }
+        let speaking = audio.1 && (playhead.is_running() || playhead.waiting.get().is_some());
+        if (playhead.jumped.take() || !speaking) && playhead.spoken.take().is_some() {
+            sound.stop_speaking();
+        }
+        if let Some((index, spot)) = explaining.filter(|_| speaking)
+            && playhead.spoken.get() != Some(index)
+        {
+            playhead.spoken.set(Some(index));
+            sound.speak(&format!("{}. {}", spot.title, spot.text), &self.labels.language);
+        }
     }
 }
 
@@ -500,6 +673,13 @@ impl View for MoviePlayer {
         let playhead: State<Rc<Playhead>> = cx.use_state(|| Rc::new(Playhead::default()));
         // Read, so that a click rebuilds this view.
         let _ = changes.get();
+        let sound_on: State<bool> = cx.use_state(|| true);
+        let narration_on: State<bool> = cx.use_state(|| true);
+        let sound = cx.sound();
+        let clips =
+            cx.use_state(|| Rc::new(FilmSounds { click: SoundClip::click(), key: SoundClip::key() })).get();
+        let narrator = sound.clone();
+        let _narrator = cx.use_state(move || Rc::new(Narrator(narrator)));
         let playhead = playhead.get();
         let movie = &self.movie;
         let now = cx.now();
@@ -510,6 +690,7 @@ impl View for MoviePlayer {
                 playhead.open(movie, ms, guided.get());
             }
         }
+        let before = playhead.position_ms.get();
         playhead.advance(movie, guided.get(), now);
 
         if playhead.is_running() {
@@ -525,11 +706,27 @@ impl View for MoviePlayer {
             .iter()
             .enumerate()
             .filter(|(i, spot)| match spot.kind {
-                HotspotKind::Stop => waiting == Some(*i),
-                HotspotKind::Note => spot.from_ms <= at && at < spot.until_ms,
+                HotspotKind::Stop if guided.get() => waiting == Some(*i),
+                _ => spot.from_ms <= at && at < spot.until_ms,
             })
             .map(|(_, spot)| spot.clone())
             .collect();
+        // What the film is explaining now: the step it waits at, then the note
+        // someone clicked, then whatever is on, the most recent first.
+        let spots = movie.hotspots();
+        let explaining = waiting
+            .or(playhead.opened.get())
+            .or_else(|| {
+                spots.iter().enumerate().rev().find_map(|(i, spot)| {
+                    let shown = spot.from_ms <= at && at < spot.until_ms;
+                    let stops_instead = spot.kind == HotspotKind::Stop && guided.get();
+                    (shown && !stops_instead).then_some(i)
+                })
+            })
+            .and_then(|i| spots.get(i).map(|spot| (i, spot)));
+        self.make_sound(&sound, &clips, &playhead, before, explaining, (sound_on.get(), narration_on.get()));
+        let boxes = film_width >= BOX_FROM;
+        let explained = explaining.map(|(_, spot)| spot.clone());
 
         let stage = Stage {
             movie,
@@ -538,11 +735,13 @@ impl View for MoviePlayer {
             marks,
             changes: changes.clone(),
             labels: &self.labels,
+            explaining: explained.clone().filter(|_| boxes),
         };
         let stage = cx.child(&stage);
-        let controls = cx.child(&self.controls(&playhead, &changes, &guided, film_width));
+        let audio = (&sound_on, &narration_on);
+        let controls = cx.child(&self.controls(&playhead, &changes, &guided, audio, film_width));
         let mut column = vec![stage, controls];
-        if let Some(caption) = self.caption(&playhead, &changes) {
+        if let Some(caption) = self.caption(&playhead, &changes, explained.as_ref(), boxes) {
             let caption = cx.child(&caption.width(film_width));
             column.push(caption);
         }

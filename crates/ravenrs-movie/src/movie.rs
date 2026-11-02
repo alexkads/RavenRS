@@ -91,6 +91,19 @@ impl Hotspot {
     pub fn bounds(&self) -> Rect {
         Rect::new(self.x, self.y, self.width, self.height)
     }
+
+    /// Whether it talks about the screen as a whole, with no spot to mark. It
+    /// has no size, and its box shows in the middle of the film.
+    pub fn is_general(&self) -> bool {
+        self.width <= 0.0 || self.height <= 0.0
+    }
+}
+
+/// A sound a film makes by itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FilmSound {
+    Click,
+    Key,
 }
 
 /// Where the pointer was at a moment.
@@ -194,6 +207,9 @@ struct Header {
     frames: Vec<StoredFrame>,
     pointer: Vec<PointerKey>,
     clicks: Vec<PointerKey>,
+    /// When a key was pressed. Films recorded before there was sound have none.
+    #[serde(default)]
+    keys: Vec<u64>,
     chapters: Vec<Chapter>,
     hotspots: Vec<Hotspot>,
     blob_lengths: Vec<u64>,
@@ -214,12 +230,14 @@ pub struct Movie {
     project: Project,
     chapters: Rc<[Chapter]>,
     hotspots: Rc<[Hotspot]>,
+    sounds: Rc<[(u64, FilmSound)]>,
 }
 
 impl Movie {
     fn with(film: Rc<Film>, project: Project) -> Self {
         let (chapters, hotspots) = edited_marks(&film.header, &project);
-        Self { film, project, chapters: chapters.into(), hotspots: hotspots.into() }
+        let sounds = edited_sounds(&film.header, &project);
+        Self { film, project, chapters: chapters.into(), hotspots: hotspots.into(), sounds: sounds.into() }
     }
 
     /// The same film with these edits.
@@ -278,6 +296,13 @@ impl Movie {
     /// Its hotspots, on the edited timeline.
     pub fn hotspots(&self) -> &[Hotspot] {
         &self.hotspots
+    }
+
+    /// The clicks and keys after `from_ms` and up to `to_ms` of the timeline.
+    pub(crate) fn sounds_between(&self, from_ms: u64, to_ms: u64) -> &[(u64, FilmSound)] {
+        let start = self.sounds.partition_point(|(at, _)| *at <= from_ms);
+        let end = self.sounds.partition_point(|(at, _)| *at <= to_ms);
+        self.sounds.get(start..end).unwrap_or(&[])
     }
 
     /// What the app drew at this moment of the film.
@@ -437,6 +462,16 @@ fn edited_marks(header: &Header, project: &Project) -> (Vec<Chapter>, Vec<Hotspo
     }
     hotspots.sort_by_key(|spot| spot.from_ms);
     (chapters, hotspots)
+}
+
+/// Clicks and keys on the edited timeline: a part that was cut makes no sound.
+fn edited_sounds(header: &Header, project: &Project) -> Vec<(u64, FilmSound)> {
+    let clicks = header.clicks.iter().map(|click| (click.at_ms, FilmSound::Click));
+    let keys = header.keys.iter().map(|at| (*at, FilmSound::Key));
+    let mut sounds: Vec<(u64, FilmSound)> =
+        clicks.chain(keys).filter_map(|(at, sound)| Some((project.film_to_timeline(at)?, sound))).collect();
+    sounds.sort_by_key(|(at, _)| *at);
+    sounds
 }
 
 impl Film {
@@ -611,6 +646,7 @@ impl FilmBuilder {
                 frames: Vec::new(),
                 pointer: Vec::new(),
                 clicks: Vec::new(),
+                keys: Vec::new(),
                 chapters: Vec::new(),
                 hotspots: Vec::new(),
                 blob_lengths: Vec::new(),
@@ -741,6 +777,11 @@ impl FilmBuilder {
     /// Notes a click.
     pub fn click(&mut self, at_ms: u64, position: Point) {
         self.header.clicks.push(PointerKey { at_ms, x: tidy(position.x), y: tidy(position.y) });
+    }
+
+    /// Notes a key being pressed, for its sound.
+    pub fn key(&mut self, at_ms: u64) {
+        self.header.keys.push(at_ms);
     }
 
     /// Starts a chapter at `at_ms`.
