@@ -108,6 +108,7 @@ pub struct Chat {
     intro: Option<String>,
     examples: Vec<String>,
     on_send: Option<Rc<dyn Fn(String)>>,
+    on_listen: Option<Rc<dyn Fn(String)>>,
 }
 
 impl fmt::Debug for Chat {
@@ -119,7 +120,14 @@ impl fmt::Debug for Chat {
 impl Chat {
     /// A conversation over `messages`.
     pub fn new(messages: Binding<Vec<ChatMessage>>) -> Self {
-        Self { messages, placeholder: String::new(), intro: None, examples: Vec::new(), on_send: None }
+        Self {
+            messages,
+            placeholder: String::new(),
+            intro: None,
+            examples: Vec::new(),
+            on_send: None,
+            on_listen: None,
+        }
     }
 
     /// Muted text inside the empty field.
@@ -140,6 +148,13 @@ impl Chat {
     #[must_use]
     pub fn examples(mut self, examples: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.examples = examples.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// Puts a button to hear each answer, which `handler` gets as text.
+    #[must_use]
+    pub fn on_listen(mut self, handler: impl Fn(String) + 'static) -> Self {
+        self.on_listen = Some(Rc::new(handler));
         self
     }
 
@@ -177,6 +192,7 @@ impl Send {
 struct Conversation {
     messages: Vec<ChatMessage>,
     empty: Option<AnyView>,
+    on_listen: Option<Rc<dyn Fn(String)>>,
 }
 
 impl View for Conversation {
@@ -188,7 +204,7 @@ impl View for Conversation {
             children.push(cx.child(empty.as_ref()));
         }
         for (i, message) in self.messages.iter().enumerate() {
-            children.push(cx.keyed_child(i as u64, &Bubble(message.clone())));
+            children.push(cx.keyed_child(i as u64, &Bubble(message.clone(), self.on_listen.clone())));
         }
         let node = cx.container(
             LayoutStyle {
@@ -219,13 +235,14 @@ impl View for Conversation {
 }
 
 /// One message.
-struct Bubble(ChatMessage);
+struct Bubble(ChatMessage, Option<Rc<dyn Fn(String)>>);
 
 impl View for Bubble {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let person = self.0.author == ChatAuthor::Person;
-        let text = self.0.text();
+        let words = self.0.text();
+        let text = words.clone();
         let text = if text.is_empty() {
             cx.child(&Spinner::new().size(16.0))
         } else {
@@ -256,6 +273,15 @@ impl View for Bubble {
         );
         // A card takes the whole width, outside the bubble: it has its own surface.
         let mut children = vec![bubble];
+        if let Some(on_listen) = self.1.clone().filter(|_| !person && !words.is_empty()) {
+            let listen = IconButton::new(IconName::Volume2)
+                .label(cx.labels().listen.clone())
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Small)
+                .on_click(move || on_listen(words.clone()));
+            let listen = HStack::new((listen,));
+            children.push(cx.child(&listen));
+        }
         if let Some(card) = &self.0.card {
             let card = card();
             children.push(cx.child(card.as_ref()));
@@ -307,7 +333,7 @@ impl View for Chat {
                 .align(Align::Stretch),
             )
         });
-        let conversation = cx.child(&Conversation { messages, empty });
+        let conversation = cx.child(&Conversation { messages, empty, on_listen: self.on_listen.clone() });
 
         let (on_field, on_button, written) = (send.clone(), send, draft.clone());
         let writing = HStack::new((
@@ -734,7 +760,7 @@ impl View for FloatingPanel {
             height,
             orb: Orb { title: self.title.clone(), open: self.open.clone(), corner, dragging },
         };
-        cx.overlay(anchor, Placement::At(place), &layer, None);
+        cx.floating_overlay(anchor, Placement::At(place), &layer);
         anchor
     }
 }

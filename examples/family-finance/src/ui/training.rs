@@ -8,7 +8,9 @@ use ravenrs::movie::{
     AssistantLabels, BugLabels, BugReporter, FlightRecorder, Movie, MovieAssistant, MovieCue, MovieLibrary,
 };
 use ravenrs::prelude::*;
-use ravenrs_ai::{CATALOG, ModelFolder, ModelManager, ModelManagerLabels};
+use ravenrs_ai::{
+    CATALOG, ModelFolder, ModelManager, ModelManagerLabels, VOICE_CATALOG, VoiceLabels, VoiceManager,
+};
 
 use super::assistant::Pending;
 use super::store::{PAGE_INSETS, Page, Store, content_width};
@@ -40,6 +42,7 @@ pub(crate) struct TrainingState {
     /// The optional AI models, kept beside the database. None with no file to keep
     /// them by, as in a database in memory.
     pub(crate) models: Option<ModelManager>,
+    pub(crate) voices: Option<VoiceManager>,
 }
 
 impl TrainingState {
@@ -57,6 +60,10 @@ impl TrainingState {
             models: database.and_then(Path::parent).map(|folder| {
                 ModelManager::new(CATALOG, ModelFolder::new(folder.join("modelos")))
                     .labels(ModelManagerLabels::pt_br())
+            }),
+            voices: database.and_then(Path::parent).map(|folder| {
+                VoiceManager::new(VOICE_CATALOG, folder.join("modelos").join("voz"))
+                    .labels(VoiceLabels::pt_br())
             }),
         }
     }

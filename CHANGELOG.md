@@ -12,12 +12,14 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **`MovieChat`.** A `Chat` that answers from the training films: each answer is a card with the moments that open. It looks only at the words the films hold, on this machine, and `MovieChat::writer` can have a local model write the answer about what it found. `ChatMessage::assistant_writing` shows an answer as it arrives, and `MovieAnswers` answers about the films for a chat that also does other things. `MovieAssistant::cue` lets it open a moment on the same player.
 - `Alert::action` puts a button beside the message, giving an `Alert<AlertAction>`; an alert without one stays `Send`.
 - **LFM3 in `ravenrs-ai`.** The catalog offers LFM3 1.7B, which `LocalEngine` runs with its own implementation, since candle stops at LFM2. It needs 4 GB of memory at the peak and chose the right tool in 27 of 32 requests. Its license allows commercial use only below 10 million dollars of annual revenue.
+- **Speech with LFM3 Audio.** `SpeechEngine` runs the 2B model on the CPU in plain Rust, as its model card says: 19 languages and locales, two voices, and the card's sampling values. `LocalVoice` says text a sentence at a time on its own thread, `VoiceManager` is the screen to choose the model, language, voice and fine settings, and `Chat::on_listen` puts a button to hear each answer.
 - `GridColumn::fill` takes the width the columns leave, and `DataGrid::empty_text` says what no data means, apart from filters leaving nothing.
 - `Scheduler::fill_rows` shares the height left among the rows.
 - `Stat::large` for the one number a screen is about.
 - `MovieAssistant::height` and `MoviePlayer::max_film_height` keep a film and its controls in view; the film's choice becomes a select when its names do not fit. A film that has not started shows a play button over its picture.
 
 ### Changed
+- `FloatingPanel` no longer gets in the way of what is on the page: `BuildCx::floating_overlay` keeps it under every menu and dialog, wherever it is built, and it keeps what is written when they open. Escape closes the last menu or dialog before anything that listens for it.
 - `FloatingPanel`'s button is smaller and calm: the theme's surface with an accent icon, in line with its panel, which lines up with the page's margin.
 - `Chat` sets apart only what the person asked; the answer sits on the panel, and a card takes the whole width.
 - `MovieChat` answers in words first, then the moments; it and `MovieAssistant` leave out the steps inside the chapters they found. Answers open over the film instead of pushing it down.

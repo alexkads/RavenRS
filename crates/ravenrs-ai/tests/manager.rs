@@ -292,3 +292,146 @@ fn the_real_model_tests_and_answers() {
         }
     }
 }
+
+/// Runs only where the real voice model is:
+/// `RAVENRS_AI_MODELS=folder cargo test --release -p ravenrs-ai --test manager real_speech -- --ignored --nocapture`.
+#[test]
+#[ignore = "needs the real model"]
+fn real_speech_is_written_to_a_file() {
+    use ravenrs_ai::{ModelFolder, SpeechEngine, SpeechSettings, SpeechVoice};
+    let root = std::env::var("RAVENRS_AI_MODELS").expect("RAVENRS_AI_MODELS");
+    let model = ravenrs_ai::model_by_id("lfm3-audio-2b-q4").expect("known");
+    let started = Instant::now();
+    let mut engine = SpeechEngine::load(&ModelFolder::new(root.clone()), &model).expect("the model");
+    eprintln!("loaded in {:.1}s", started.elapsed().as_secs_f32());
+    let cases = [
+        ("Você tem cinquenta reais de saldo nas contas.", SpeechVoice::Female),
+        ("Para pagar uma conta, clique em Pagar e confira o valor.", SpeechVoice::Male),
+        (
+            "Você tem mil duzentos e trinta e quatro reais e cinquenta e seis centavos nas contas. A conta vence em quinze de novembro.",
+            SpeechVoice::Female,
+        ),
+    ];
+    for (index, (text, voice)) in cases.iter().enumerate() {
+        let settings = SpeechSettings { voice: *voice, ..SpeechSettings::default() };
+        let started = Instant::now();
+        let sound = engine.speak(text, &settings, &mut |_| true).expect("sound");
+        let seconds = sound.len() as f32 / ravenrs_ai::SPEECH_RATE as f32;
+        let took = started.elapsed().as_secs_f32();
+        eprintln!("{text:?}: {seconds:.1}s of sound in {took:.1}s, {:.2}x real time", seconds / took);
+        let peak = sound.iter().fold(0.0_f32, |peak, sample| peak.max(sample.abs()));
+        eprintln!("peak {peak:.3}");
+        let mut wav = Vec::new();
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&(36 + sound.len() as u32 * 2).to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        wav.extend_from_slice(&16_u32.to_le_bytes());
+        wav.extend_from_slice(&1_u16.to_le_bytes());
+        wav.extend_from_slice(&1_u16.to_le_bytes());
+        wav.extend_from_slice(&ravenrs_ai::SPEECH_RATE.to_le_bytes());
+        wav.extend_from_slice(&(ravenrs_ai::SPEECH_RATE * 2).to_le_bytes());
+        wav.extend_from_slice(&2_u16.to_le_bytes());
+        wav.extend_from_slice(&16_u16.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&(sound.len() as u32 * 2).to_le_bytes());
+        for sample in &sound {
+            wav.extend_from_slice(&((sample.clamp(-1.0, 1.0) * 32767.0) as i16).to_le_bytes());
+        }
+        std::fs::write(format!("{root}/fala-{index}.wav"), wav).expect("file");
+        assert!(seconds > 0.5 && peak > 0.01 && peak.is_finite(), "no sound");
+    }
+}
+
+/// A folder with a model already there and in use, as after downloading it.
+fn voice_in_use(dir: &tempfile::TempDir) -> ravenrs_ai::VoiceManager {
+    let installed = served();
+    let folder = dir.path().join(installed.id);
+    std::fs::create_dir_all(&folder).expect("folder");
+    std::fs::write(folder.join("model.gguf"), vec![7_u8; 200_000]).expect("file");
+    std::fs::write(dir.path().join("in-use"), installed.id).expect("in use");
+    let catalog: &'static [LocalModel] = Box::leak(Box::new([installed]));
+    ravenrs_ai::VoiceManager::for_machine(catalog, dir.path(), &ROOMY)
+}
+
+fn ui_of_voice(manager: ravenrs_ai::VoiceManager) -> Ui {
+    let mut ui = Ui::new(manager, Theme::raven_light());
+    ui.set_viewport(Size::new(800.0, 900.0), 1.0);
+    ui.update();
+    ui
+}
+
+#[test]
+fn the_voice_settings_show_only_with_a_voice_in_use() {
+    let dir = tempfile::tempdir().expect("folder");
+    let nothing: &'static [LocalModel] = Box::leak(Box::new([served()]));
+    let mut ui = ui_of_voice(ravenrs_ai::VoiceManager::for_machine(nothing, dir.path(), &ROOMY));
+    assert!(!says(&mut ui, "Hear a sample"));
+
+    let dir = tempfile::tempdir().expect("folder");
+    let mut ui = ui_of_voice(voice_in_use(&dir));
+    assert!(says(&mut ui, "Hear a sample"));
+    assert!(says(&mut ui, "Read answers aloud"));
+    click(&mut ui, "Fine settings");
+    assert!(says(&mut ui, "Temperature"));
+    assert!(says(&mut ui, "Use the recommended values"));
+}
+
+#[test]
+fn the_voice_settings_are_kept_and_can_go_back_to_the_recommended() {
+    let dir = tempfile::tempdir().expect("folder");
+    let manager = voice_in_use(&dir);
+    assert_eq!(manager.settings(), ravenrs_ai::SpeechSettings::default());
+    let mut ui = ui_of_voice(manager.clone());
+    click_option(&mut ui, "Male");
+    click(&mut ui, "Fine settings");
+    click(&mut ui, "Steadier");
+    assert_eq!(manager.settings().voice, ravenrs_ai::SpeechVoice::Male);
+    assert_eq!(manager.settings().temperature, 0.4);
+    assert_eq!(manager.settings().repetition_window, 64);
+    ui.update();
+
+    let again = voice_in_use(&dir);
+    assert_eq!(again.settings().voice, ravenrs_ai::SpeechVoice::Male, "kept in the folder");
+    assert_eq!(again.settings().temperature, 0.4);
+
+    click(&mut ui, "Use the recommended values");
+    assert_eq!(manager.settings().temperature, 1.0);
+    assert_eq!(manager.settings().top_k, 128);
+}
+
+/// Runs only where the real voice model is, and hears what a chat would play:
+/// the same command as above, with `real_voice`.
+#[test]
+#[ignore = "needs the real model"]
+fn real_voice_plays_sentence_after_sentence() {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    struct Heard(Rc<RefCell<Vec<f32>>>);
+    impl ravenrs_widgets::SoundProvider for Heard {
+        fn play(&self, clip: &ravenrs_widgets::SoundClip) {
+            self.0.borrow_mut().push(clip.seconds());
+        }
+        fn speak(&self, _text: &str, _language: &str) {}
+        fn stop_speaking(&self) {}
+    }
+    let root = std::env::var("RAVENRS_AI_MODELS").expect("RAVENRS_AI_MODELS");
+    let model = ravenrs_ai::model_by_id("lfm3-audio-2b-q4").expect("known");
+    let voice = ravenrs_ai::LocalVoice::new(ModelFolder::new(root), model);
+    let heard = Rc::new(RefCell::new(Vec::new()));
+    let sound = ravenrs_widgets::Sound::new(Heard(heard.clone()));
+    let started = Instant::now();
+    voice.say(
+        "Você tem mil e duzentos reais nas contas. Quer ver os gastos do mês?".into(),
+        ravenrs_ai::SpeechSettings::default(),
+        ravenrs_widgets::UiWaker::default(),
+    );
+    while heard.borrow().len() < 2 {
+        assert!(started.elapsed() < Duration::from_secs(60), "no sound");
+        std::thread::sleep(Duration::from_millis(50));
+        voice.play_ready(&sound);
+        if heard.borrow().len() == 1 {
+            eprintln!("first sentence after {:.1}s", started.elapsed().as_secs_f32());
+        }
+    }
+    eprintln!("{:?}", heard.borrow());
+}

@@ -300,5 +300,36 @@ pub const CATALOG: &[LocalModel] = &[
 
 /// A model of [`CATALOG`] by its id.
 pub fn model_by_id(id: &str) -> Option<LocalModel> {
-    CATALOG.iter().find(|model| model.id == id).copied()
+    CATALOG.iter().chain(VOICE_CATALOG).find(|model| model.id == id).copied()
 }
+
+/// The models that speak. They are offered apart from [`CATALOG`], since an app uses one
+/// of each.
+pub const VOICE_CATALOG: &[LocalModel] = &[LocalModel {
+    id: "lfm3-audio-2b-q4",
+    name: "LFM3 Audio 2B",
+    license: "LFM Open 1.0",
+    family: ModelFamily::Lfm3,
+    memory: 4_500_000_000,
+    understood: None,
+    files: &[
+        ModelFile {
+            name: "model.gguf",
+            url: "https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/02355c1a141e464a064f2ab2c276638dbcb7f38a/LFM3-Audio-2B-Q4_K_M.gguf",
+            bytes: 1_099_626_016,
+            sha256: "9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2",
+        },
+        ModelFile {
+            name: "projector.gguf",
+            url: "https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/02355c1a141e464a064f2ab2c276638dbcb7f38a/mmproj-LFM3-Audio-2B-Q4_K_M.gguf",
+            bytes: 172_418_048,
+            sha256: "1a3a895160aad17c1f52117a6ee4cea8e68988651ea5a33c5b990539e8eae81d",
+        },
+        ModelFile {
+            name: "tokenizer.json",
+            url: "https://huggingface.co/LiquidAI/LFM3-Audio-2B/resolve/0295e4130594c06800fd25451d97139ac2da1aff/tokenizer.json",
+            bytes: 17_908_634,
+            sha256: "41927bd314d17d7d7fadb44e10cd0919f7b71528d7741596d8cbd15c6945ec44",
+        },
+    ],
+}];

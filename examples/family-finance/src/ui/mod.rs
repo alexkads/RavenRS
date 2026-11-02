@@ -11,6 +11,7 @@ mod records;
 mod reports;
 mod request;
 mod settings;
+mod spoken;
 mod store;
 mod training;
 
@@ -269,6 +270,7 @@ impl App {
                 &self.news,
                 &self.page,
                 self.training.models.clone(),
+                self.training.voices.clone(),
                 window,
             ),
             _ => training::training(&self.training),
