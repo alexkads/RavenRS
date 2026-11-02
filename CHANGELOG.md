@@ -4,6 +4,15 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- **Touchpad pinches on Wayland.** winit 0.30 delivers them only on macOS and iOS, so the new crate `ravenrs-wayland-gestures` listens on winit's own connection. It holds the workspace's only `unsafe` call, and goes away with a winit that delivers them.
+
+### Changed
+- `Chart`'s tooltip glides from one place to the next, and follows the pointer along what is free, instead of jumping.
+
+### Fixed
+- `DocumentViewer` adds up pinch movements too small to change a whole percent, which a touchpad can send and were being lost.
+
 ## [27.1.5] - 2026-11-02
 
 ### Added

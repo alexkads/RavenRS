@@ -1,0 +1,29 @@
+[package]
+name = "ravenrs-wayland-gestures"
+description = "Touchpad pinches on Wayland for RavenRS, until winit delivers them. The one place in the workspace with unsafe code."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-wayland-gestures"
+keywords = ["wayland", "gesture", "touchpad", "pinch", "gui"]
+categories = ["gui"]
+
+[target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
+wayland-backend = { version = "0.3.17", features = ["client_system", "dlopen"] }
+wayland-client = "0.31.15"
+wayland-protocols = { version = "0.32.13", features = ["client", "unstable"] }
+
+# Not the workspace's lints: they forbid unsafe code, and this crate exists for one call.
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+
+[lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"

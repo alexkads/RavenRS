@@ -88,6 +88,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-reactive` | `state`, `binding`, `derived`, `observer` |
 | `ravenrs-render` | `renderer` (batching and passes), `gpu` (surface and device), `atlas` (glyphs), `images` |
 | `ravenrs-platform-native` | `lib` (winit loop), `access` (AccessKit) |
+| `ravenrs-wayland-gestures` | Touchpad pinches on Wayland, until winit delivers them; the only `unsafe` call |
+| `ravenrs-wayland-gestures` | Touchpad pinches on Wayland, until winit delivers them; the only `unsafe` call |
 | `ravenrs-platform-web` | `app` (canvas, events, frames), `access` (ARIA mirror), `error` |
 | `ravenrs-criteria` | `ast`, `parse`, `format`, `eval`, `functions`, `validate`, `sql`, `value` |
 | `ravenrs-report` | `model`, `engine`, `document`, `base64`, `paint`, `wizard`, `samples` |

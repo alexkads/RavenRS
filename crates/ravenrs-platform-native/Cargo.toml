@@ -18,6 +18,7 @@ ravenrs-core.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets.workspace = true
 ravenrs-render.workspace = true
+ravenrs-wayland-gestures.workspace = true
 winit.workspace = true
 accesskit.workspace = true
 accesskit_winit.workspace = true

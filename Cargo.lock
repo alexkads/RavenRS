@@ -4060,6 +4060,7 @@ dependencies = [
  "ravenrs-core",
  "ravenrs-render",
  "ravenrs-style",
+ "ravenrs-wayland-gestures",
  "ravenrs-widgets",
  "rfd",
  "tracing",
@@ -4206,6 +4207,15 @@ dependencies = [
  "criterion",
  "parley",
  "ravenrs-core",
+]
+
+[[package]]
+name = "ravenrs-wayland-gestures"
+version = "27.1.5"
+dependencies = [
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols",
 ]
 
 [[package]]

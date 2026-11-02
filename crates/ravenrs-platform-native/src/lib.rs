@@ -61,6 +61,8 @@ enum UserEvent {
     Access(accesskit_winit::Event),
     /// A [`UiWaker`](ravenrs_widgets::UiWaker) fired, on some other thread.
     Wake,
+    /// A touchpad pinch on Wayland, which winit does not deliver.
+    Pinch(f32),
 }
 
 impl From<accesskit_winit::Event> for UserEvent {
@@ -574,6 +576,22 @@ fn map_button(button: MouseButton) -> PointerButton {
     }
 }
 
+impl App {
+    /// On Wayland, winit does not deliver a touchpad's pinch, so it is heard apart.
+    fn listen_for_wayland_pinches(&self) {
+        use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
+        let Ok(handle) = self.display.display_handle() else { return };
+        let RawDisplayHandle::Wayland(wayland) = handle.as_raw() else { return };
+        let proxy = self.proxy.clone();
+        let heard = ravenrs_wayland_gestures::listen(wayland.display, move |delta| {
+            let _ = proxy.send_event(UserEvent::Pinch(delta));
+        });
+        if let Err(e) = heard {
+            tracing::info!(error = %e, "no touchpad pinches on this Wayland");
+        }
+    }
+}
+
 impl ApplicationHandler<UserEvent> for App {
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
         if let StartCause::ResumeTimeReached { .. } = cause
@@ -599,7 +617,10 @@ impl ApplicationHandler<UserEvent> for App {
             return;
         }
         match self.create_window(event_loop) {
-            Ok(state) => self.window = Some(state),
+            Ok(state) => {
+                self.window = Some(state);
+                self.listen_for_wayland_pinches();
+            }
             Err(e) => {
                 tracing::error!(error = %e, "could not start");
                 self.error = Some(e);
@@ -612,6 +633,12 @@ impl ApplicationHandler<UserEvent> for App {
         use accesskit_winit::WindowEvent as A;
         let event = match event {
             UserEvent::Access(event) => event,
+            UserEvent::Pinch(delta) => {
+                if let Some(position) = self.pointer {
+                    self.dispatch(Event::Pinch { position, delta });
+                }
+                return;
+            }
             UserEvent::Wake => {
                 tracing::trace!("woken from another thread");
                 if let Some(state) = &self.window {
@@ -715,7 +742,7 @@ impl ApplicationHandler<UserEvent> for App {
                         }
                     };
                     if self.modifiers.ctrl {
-                        // How touchpads on Windows and Linux send a pinch, and how a mouse asks to zoom.
+                        // How touchpads on Windows send a pinch, and how a mouse asks to zoom.
                         self.dispatch(Event::Pinch { position, delta: delta.y / WHEEL_PER_ZOOM });
                     } else {
                         self.dispatch(Event::Scroll { position, delta });

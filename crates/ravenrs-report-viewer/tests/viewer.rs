@@ -272,6 +272,19 @@ fn a_pinch_over_the_pages_zooms_by_how_much_it_asks() {
 }
 
 #[test]
+fn many_small_movements_of_a_pinch_add_up() {
+    let state = ViewerState::new();
+    let mut ui = sized_ui(&state);
+    let over_pages = ravenrs_core::Point::new(550.0, 500.0);
+    let start = state.zoom().get();
+    for _ in 0..50 {
+        pinch(&mut ui, 0.002, over_pages);
+    }
+    let zoom = state.zoom().get();
+    assert!(zoom > start * 1.08 && zoom < start * 1.13, "{start} to {zoom}");
+}
+
+#[test]
 fn a_pinch_stops_at_the_limits_of_the_zoom() {
     let state = ViewerState::new();
     let mut ui = sized_ui(&state);

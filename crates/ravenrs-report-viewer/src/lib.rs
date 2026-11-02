@@ -616,13 +616,20 @@ impl View for DocumentViewer {
         let (up, down) = (state.page.clone(), state.page.clone());
         // Whole percents: each zoom gets its pages drawn again, and a gesture passes through many.
         let pinched = state.zoom.clone();
+        // A touchpad can send movements too small to change a whole percent. They add up.
+        let exact: Rc<std::cell::Cell<f32>> = cx.use_state(|| Rc::new(std::cell::Cell::new(0.0))).get();
         cx.on_pinch(
             row,
             Rc::new(move |delta| {
-                pinched.update(|z| {
-                    let next = (*z * (1.0 + delta) * 100.0).round() / 100.0;
-                    *z = next.clamp(ZOOM_MIN, ZOOM_MAX);
-                });
+                let shown = pinched.get();
+                // The buttons may have changed the zoom since the last pinch.
+                let from = if (exact.get() - shown).abs() <= 0.005 { exact.get() } else { shown };
+                let next = (from * (1.0 + delta)).clamp(ZOOM_MIN, ZOOM_MAX);
+                exact.set(next);
+                let rounded = (next * 100.0).round() / 100.0;
+                if rounded != shown {
+                    pinched.set(rounded);
+                }
             }),
         );
         cx.shortcut(Key::PageUp, false, Rc::new(move || up.update(|p| *p = p.saturating_sub(1))));

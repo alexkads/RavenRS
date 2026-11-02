@@ -39,7 +39,7 @@ A component is done when it:
 ## Code style
 
 - `cargo fmt` formatting (see `rustfmt.toml`) and no clippy warnings.
-- No `unsafe` (the workspace forbids it) and no `unwrap()`/`expect()` outside tests.
+- No `unsafe` (the workspace forbids it; the one exception is the single call in `ravenrs-wayland-gestures`) and no `unwrap()`/`expect()` outside tests.
 - Comments explain why, not what. Keep functions small and names plain.
 - Public API: builder methods that take `self` and return `Self`, `Binding<T>` for values a control edits.
 
