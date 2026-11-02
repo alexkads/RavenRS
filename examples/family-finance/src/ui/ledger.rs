@@ -7,10 +7,17 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Memo, Page, Store, date_column, money_column, month_nav, row_id, screen};
+use super::store::{
+    Memo, Page, Store, content_width, date_column, filling, money_column, month_nav, row_id, screen,
+};
 use crate::filter;
 use crate::model::Flow;
 use crate::money::format_brl;
+
+/// What a window narrower than each of these leaves out, so that the amount stays.
+const ROOM_FOR_ALL_COLUMNS: f32 = 860.0;
+const ROOM_FOR_THE_CATEGORY: f32 = 640.0;
+const ROOM_FOR_BOTH_ACTIONS: f32 = 860.0;
 
 /// Ready-made expressions, which also teach the language.
 const PRESETS: [(&str, &str); 5] = [
@@ -108,7 +115,10 @@ fn combine(typed: &str, condition: &str) -> String {
     if typed.trim().is_empty() { condition.to_owned() } else { format!("({typed}) And {condition}") }
 }
 
-pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> Page {
+pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms, window: Size) -> Page {
+    let content = content_width(window);
+    let all_columns = content >= ROOM_FOR_ALL_COLUMNS;
+    let category = content >= ROOM_FOR_THE_CATEGORY;
     let (month, kind, applied) = (state.month.get(), state.kind.get(), state.applied.get());
     let rows = state
         .rows
@@ -126,18 +136,22 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> Page 
         month_nav(&state.month, store.today),
         SegmentedControl::new(state.kind.binding(), ["Todos", "Despesas", "Receitas"]).label("Mostrar"),
         Spacer::new(),
-        Button::new("Nova receita")
-            .icon(IconName::TrendingUp)
-            .size(ButtonSize::Small)
-            .style(ButtonStyle::Secondary)
-            .on_click(move || new_income.start_new(&new_store_2, Flow::Income)),
+        // With little room the main action stays on the line; Novo also has this one.
+        (content >= ROOM_FOR_BOTH_ACTIONS).then(|| {
+            Button::new("Nova receita")
+                .icon(IconName::TrendingUp)
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Secondary)
+                .on_click(move || new_income.start_new(&new_store_2, Flow::Income))
+        }),
         Button::new("Nova despesa")
             .icon(IconName::Plus)
             .size(ButtonSize::Small)
             .on_click(move || new_expense.start_new(&new_store, Flow::Expense)),
     ))
     .spacing(8.0)
-    .align(Align::Center);
+    .align(Align::Center)
+    .wrap();
 
     let (typed, apply_read, apply_write, sel_1) =
         (state.typed.clone(), state.typed.clone(), state.applied.clone(), state.selection.clone());
@@ -231,7 +245,8 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> Page 
             }),
     ))
     .spacing(8.0)
-    .align(Align::Center);
+    .align(Align::Center)
+    .wrap();
 
     let error =
         rows.error.clone().map(|message| Alert::new("Filtro não aplicado", message).tone(Tone::Warning));
@@ -242,16 +257,29 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> Page 
         [
             GridColumn::number("Id").hidden(),
             date_column("Data"),
-            GridColumn::text("Descrição").width(410.0),
-            GridColumn::text("Categoria").width(140.0),
-            GridColumn::text("Conta").width(150.0),
-            GridColumn::text("De quem").width(100.0),
+            GridColumn::text("Descrição").width(220.0).fill(),
+            if category {
+                GridColumn::text("Categoria").width(140.0)
+            } else {
+                GridColumn::text("Categoria").width(140.0).hidden()
+            },
+            if all_columns {
+                GridColumn::text("Conta").width(150.0)
+            } else {
+                GridColumn::text("Conta").width(150.0).hidden()
+            },
+            if all_columns {
+                GridColumn::text("De quem").width(100.0)
+            } else {
+                GridColumn::text("De quem").width(100.0).hidden()
+            },
             // The sign and the color of the value already say it; the column chooser brings it back.
             GridColumn::text("Tipo").width(96.0).hidden(),
             money_column("Valor").summary(Summary::Sum).template(signed_amount),
         ],
     )
     .filter_row(false)
+    .empty_text("Nenhum lançamento neste mês. Comece em Nova despesa.")
     .selection(state.selection.binding())
     .on_row_activate(move |row| {
         if let Some(id) = row_id(&activate_data, row) {
@@ -269,6 +297,12 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> Page 
             format_brl(rows.expense),
             format_brl(rows.income - rows.expense)
         ),
-        screen((toolbar, filter_bar, advanced, error, grid)),
+        screen((
+            toolbar,
+            filter_bar,
+            advanced,
+            error,
+            Keyed::new(u64::from(all_columns) + u64::from(category) * 2, filling(grid)),
+        )),
     )
 }

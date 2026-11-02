@@ -208,3 +208,32 @@ fn grouping_and_export() {
     assert!(csv.starts_with("Name,Country,Seats\r\n"));
     assert_eq!(csv.lines().count(), 10);
 }
+
+/// Where the last column's header starts in a wide window.
+fn seats_at(columns: Vec<GridColumn>) -> f32 {
+    let mut ui = Ui::new(DataGrid::new(data(3), columns), Theme::raven_light());
+    ui.set_viewport(Size::new(1400.0, 600.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    let tree = ui.access_tree();
+    let header = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Seats"));
+    header.map_or(0.0, |n| n.bounds.x())
+}
+
+#[test]
+fn a_filling_column_takes_what_the_others_leave() {
+    let filling = vec![
+        GridColumn::text("Name").width(200.0).fill(),
+        GridColumn::text("Country"),
+        GridColumn::number("Seats"),
+    ];
+    assert!(seats_at(filling) > seats_at(columns()) + 400.0);
+}
+
+#[test]
+fn no_data_says_its_own_words_and_not_that_filters_left_nothing() {
+    let mut ui = ui_with(DataGrid::new(GridData::new(Vec::new()), columns()).empty_text("Nothing yet"));
+    let tree = ui.access_tree();
+    assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("Nothing yet")));
+}

@@ -3,6 +3,8 @@
 //!
 //! ```text
 //! FF_SCREENSHOTS=target/screens cargo test -p family-finance --test screens
+//! FF_SCREENSHOTS_SIZES=target/sizes cargo test -p family-finance --test screens draw_at_other_sizes
+//! FF_SCREENSHOTS_STATES=target/states cargo test -p family-finance --test screens draw_the_states
 //! ```
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
@@ -125,6 +127,123 @@ fn diagnostics_panel() -> (Ui, Diagnostics) {
     diagnostics.start_test();
     let host = DiagnosticsHost::new(app, diagnostics.clone());
     (Ui::new(Localized::new(Labels::pt_br(), host), Theme::raven_light()), diagnostics)
+}
+
+/// What a screen looks like beyond opening it: forms, menus, an empty database and the themes.
+#[test]
+fn draw_the_states() {
+    let Some(folder) = std::env::var_os("FF_SCREENSHOTS_STATES") else { return };
+    let folder = Path::new(&folder);
+    std::fs::create_dir_all(folder).expect("folder");
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
+    let Ok(gpu) = pollster::block_on(GpuContext::new(&instance, None)) else {
+        eprintln!("no GPU adapter: nothing drawn");
+        return;
+    };
+    let size = Size::new(1360.0, 860.0);
+    let press = |ui: &mut Ui, name: &str| {
+        let tree = ui.access_tree();
+        let found = tree.nodes.iter().find(|n| n.name.as_deref().is_some_and(|t| t.starts_with(name)));
+        let id = found.unwrap_or_else(|| panic!("no {name}")).id;
+        ui.perform_action(id, AccessAction::Click);
+        ui.update();
+        ui.update();
+    };
+    let shots: [(&str, usize, &[&str]); 11] = [
+        ("novo-menu", 0, &["Novo"]),
+        ("nova-despesa", 1, &["Nova despesa"]),
+        ("nova-receita", 1, &["Nova receita"]),
+        ("filtrar-menu", 1, &["Filtrar"]),
+        ("filtro-avancado", 1, &["Filtrar", "Filtro avançado"]),
+        ("nova-conta", 2, &["Nova conta"]),
+        ("pagar-conta", 0, &["Pagar Plano"]),
+        ("programar", 3, &["Programar"]),
+        ("agenda-mes", 3, &["Mês"]),
+        ("limite", 4, &["Definir limite de Mercado"]),
+        ("comandos", 0, &["Procurar comando"]),
+    ];
+    for (name, page, steps) in shots {
+        let mut ui = app(Theme::raven_light(), page, Updater::idle());
+        ui.set_viewport(size, 2.0);
+        ui.update();
+        ui.update();
+        for step in steps {
+            press(&mut ui, step);
+        }
+        capture(&gpu, &mut ui, size, &folder.join(format!("{name}.png")));
+    }
+    // Nothing yet: what someone who starts from zero sees.
+    let today = Date::new(2026, 11, 15).expect("valid date");
+    for (page, name) in NAMES.iter().enumerate() {
+        let db = Database::in_memory().expect("database");
+        seed::load_defaults(&db).expect("defaults");
+        let app = App::new(db, today, None, Updater::idle());
+        app.open_page(page);
+        let mut ui = Ui::new(app, Theme::raven_light());
+        capture(&gpu, &mut ui, size, &folder.join(format!("vazio-{name}.png")));
+    }
+    // The themes.
+    for (theme, label) in [(Theme::raven_dark(), "escuro"), (Theme::raven_glass(), "vidro")] {
+        for (page, name) in NAMES.iter().enumerate() {
+            let mut ui = app(theme, page, Updater::idle());
+            capture(&gpu, &mut ui, size, &folder.join(format!("{label}-{name}.png")));
+        }
+        let mut ui = app(theme, 8, Updater::idle());
+        capture(&gpu, &mut ui, size, &folder.join(format!("{label}-treinamentos.png")));
+    }
+    // The assistant, with an answer, and the sidebar as a sheet in a small window.
+    let mut chat = app(Theme::raven_light(), 0, Updater::idle());
+    chat.set_viewport(size, 2.0);
+    chat.update();
+    press(&mut chat, "Assistente");
+    press(&mut chat, "Como pagar uma conta?");
+    capture(&gpu, &mut chat, size, &folder.join("assistente-resposta.png"));
+    let small = Size::new(800.0, 640.0);
+    let mut sheet = app(Theme::raven_light(), 0, Updater::idle());
+    sheet.set_viewport(small, 2.0);
+    sheet.update();
+    sheet.update();
+    let tree = sheet.access_tree();
+    let names: Vec<_> = tree.nodes.iter().filter_map(|n| n.name.clone()).take(12).collect();
+    println!("{names:?}");
+    capture(&gpu, &mut sheet, small, &folder.join("pequena-painel.png"));
+}
+
+/// The screens at other window sizes, to see how they adapt.
+#[test]
+fn draw_at_other_sizes() {
+    let Some(folder) = std::env::var_os("FF_SCREENSHOTS_SIZES") else { return };
+    let folder = Path::new(&folder);
+    std::fs::create_dir_all(folder).expect("folder");
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
+    let Ok(gpu) = pollster::block_on(GpuContext::new(&instance, None)) else {
+        eprintln!("no GPU adapter: nothing drawn");
+        return;
+    };
+    for (width, height) in [(800.0, 640.0), (1100.0, 720.0), (1360.0, 860.0), (1920.0, 1080.0)] {
+        let size = Size::new(width, height);
+        for (page, name) in NAMES.iter().enumerate() {
+            let mut ui = app(Theme::raven_light(), page, Updater::idle());
+            capture(&gpu, &mut ui, size, &folder.join(format!("{name}-{width}.png")));
+        }
+        // Training: the page, a question, and the moment it opens, with its box.
+        let mut page = app(Theme::raven_light(), 8, Updater::idle());
+        capture(&gpu, &mut page, size, &folder.join(format!("treinamentos-{width}.png")));
+        let tree = page.access_tree();
+        let field = tree.nodes.iter().find(|n| n.role == Role::TextInput).expect("the question field").id;
+        page.perform_action(field, AccessAction::Focus);
+        for letter in "como pago uma conta".chars() {
+            page.handle_event(&Event::KeyDown {
+                key: Key::Character(letter.to_string()),
+                modifiers: Modifiers::default(),
+            });
+            page.update();
+        }
+        capture(&gpu, &mut page, size, &folder.join(format!("treino-pergunta-{width}.png")));
+        page.handle_event(&Event::KeyDown { key: Key::Enter, modifiers: Modifiers::default() });
+        page.update();
+        capture(&gpu, &mut page, size, &folder.join(format!("treino-resposta-{width}.png")));
+    }
 }
 
 #[test]

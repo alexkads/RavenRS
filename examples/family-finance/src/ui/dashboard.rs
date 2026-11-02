@@ -5,7 +5,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Memo, PAGE_INSETS, Page, Store, titled_card};
+use super::store::{Memo, PAGE_INSETS, Page, Store, content_width, titled_card};
 use crate::model::{
     Account, Bill, BillStatus, BudgetLine, Flow, MonthTotals, date_label, month_label, month_short,
     parse_date, shift_months,
@@ -14,6 +14,10 @@ use crate::money::format_brl;
 
 /// How many days ahead count as "coming up".
 const SOON_DAYS: i32 = 30;
+/// From this width the balance and the next bills fit side by side, and so do three numbers.
+const WIDE_FROM: f32 = 900.0;
+/// A big number in reais needs half of this.
+const TWO_STATS_FROM: f32 = 600.0;
 /// The next bills, beside the balance on a wide window.
 const BILLS_WIDTH: f32 = 400.0;
 /// The height of that row, which fits the chart and five bills.
@@ -87,7 +91,8 @@ pub(crate) fn dashboard(
     let (store, forms) = (store.clone(), forms.clone());
     let body = responsive(move |size| {
         let numbers = numbers.clone();
-        let wide = size.width >= 1180.0;
+        let content = content_width(size);
+        let wide = content >= WIDE_FROM;
         let total: i64 = numbers.accounts.iter().map(|a| a.balance_cents).sum();
         let empty = MonthTotals::default();
         let now = numbers.months.last().unwrap_or(&empty);
@@ -113,7 +118,13 @@ pub(crate) fn dashboard(
             );
         }
         let stats = Grid::new(
-            if wide { 3 } else { 1 },
+            if wide {
+                3
+            } else if content >= TWO_STATS_FROM {
+                2
+            } else {
+                1
+            },
             (
                 Card::new(income),
                 Card::new(expense),
@@ -128,11 +139,14 @@ pub(crate) fn dashboard(
             .filter_map(|m| parse_date(&format!("{}-01", m.month)))
             .map(month_short)
             .collect();
-        let wide_chart = if wide { 256.0 } else { 170.0 };
         let balance = Card::new(
             VStack::new((
-                Stat::new("Saldo das contas", format_brl(total)),
-                AreaChart::new(numbers.balances.iter().map(|c| *c as f32 / 100.0)).height(wide_chart),
+                Stat::new("Saldo das contas", format_brl(total)).large(),
+                AreaChart::new(numbers.balances.iter().map(|c| *c as f32 / 100.0)).height(if wide {
+                    250.0
+                } else {
+                    170.0
+                }),
                 HStack::new((
                     Text::new(months.first().cloned().unwrap_or_default())
                         .style(TextStyle::Caption)
@@ -264,7 +278,8 @@ pub(crate) fn dashboard(
                     .height(TOP_HEIGHT),
             )
         } else {
-            Box::new(VStack::new((balance, bills_card)).spacing(16.0).align(Align::Stretch))
+            // With little room, what needs doing comes first.
+            Box::new(VStack::new((bills_card, balance)).spacing(16.0).align(Align::Stretch))
         };
         let bottom = Grid::new(if wide { 2 } else { 1 }, (category_card, accounts_card)).spacing(16.0);
 

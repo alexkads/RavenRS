@@ -6,8 +6,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::FillColumn;
-use super::store::{Memo, Page, Store, date_column, money_column, row_id, screen};
+use super::store::{Memo, Page, Store, content_width, date_column, filling, money_column, row_id, screen};
 use crate::model::{Bill, BillStatus};
 use crate::money::format_brl;
 
@@ -73,12 +72,14 @@ fn load(store: &Store, view: usize) -> BillRows {
     BillRows { data: GridData::new(cells), overdue, open: open_total, open_count, bills: shown }
 }
 
-/// Lets the grid keep the room left, inside the key that gives each view its columns.
-fn store_fill(grid: DataGrid) -> FillColumn<(DataGrid,)> {
-    FillColumn { children: (grid,), spacing: 0.0, padding: 0.0.into() }
-}
+/// What a window narrower than each of these leaves out, so that the amount stays.
+const ROOM_FOR_ALL_COLUMNS: f32 = 900.0;
+const ROOM_FOR_THE_CATEGORY: f32 = 700.0;
 
-pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> Page {
+pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms, window: Size) -> Page {
+    let content = content_width(window);
+    let all_columns = content >= ROOM_FOR_ALL_COLUMNS;
+    let category = content >= ROOM_FOR_THE_CATEGORY;
     let view = state.view.get();
     let rows = state.rows.get((store.version(), view), || Rc::new(load(store, view)));
     let data = rows.data.clone();
@@ -169,7 +170,8 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> Page {
             .on_click(move || new.start_new(&new_store)),
     ))
     .spacing(8.0)
-    .align(Align::Center);
+    .align(Align::Center)
+    .wrap();
 
     let (activate_store, activate, activate_data) = (store.clone(), forms.pay.clone(), data.clone());
     let activate_bills = rows.clone();
@@ -181,10 +183,22 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> Page {
         [
             GridColumn::number("Id").hidden(),
             date_column("Vencimento"),
-            GridColumn::text("Conta").width(if shows_paid { 240.0 } else { 340.0 }),
-            GridColumn::text("Categoria").width(130.0),
-            GridColumn::text("De quem").width(100.0),
-            GridColumn::text("Repete").width(110.0),
+            GridColumn::text("Descrição").width(200.0).fill(),
+            if category {
+                GridColumn::text("Categoria").width(130.0)
+            } else {
+                GridColumn::text("Categoria").width(130.0).hidden()
+            },
+            if all_columns {
+                GridColumn::text("De quem").width(100.0)
+            } else {
+                GridColumn::text("De quem").width(100.0).hidden()
+            },
+            if all_columns {
+                GridColumn::text("Repete").width(110.0)
+            } else {
+                GridColumn::text("Repete").width(110.0).hidden()
+            },
             GridColumn::text("Situação").width(116.0).template(|value| {
                 let text = if let Value::Text(text) = value { text.as_str() } else { "" };
                 let tone = match text {
@@ -200,6 +214,11 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> Page {
         ],
     )
     .filter_row(false)
+    .empty_text(match view {
+        1 => "Nenhuma conta vencida.",
+        2 => "Nenhuma conta paga ainda.",
+        _ => "Nenhuma conta por aqui. Cadastre a primeira em Nova conta.",
+    })
     .selection(state.selection.binding())
     .on_row_activate(move |row| {
         let Some(id) = row_id(&activate_data, row) else { return };
@@ -209,12 +228,22 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> Page {
     });
 
     Page::new(
-        format!(
-            "{} em aberto somando {}, das quais {} em atraso. Clique duas vezes em uma conta para pagar.",
-            rows.open_count,
-            format_brl(rows.open),
-            format_brl(rows.overdue)
-        ),
-        screen((toolbar, Keyed::new(u64::from(shows_paid), store_fill(grid)))),
+        if rows.open_count == 0 {
+            "Nenhuma conta em aberto.".to_owned()
+        } else {
+            format!(
+                "{} em aberto somando {}, das quais {} em atraso. Clique duas vezes em uma conta para pagar.",
+                rows.open_count,
+                format_brl(rows.open),
+                format_brl(rows.overdue)
+            )
+        },
+        screen((
+            toolbar,
+            Keyed::new(
+                u64::from(shows_paid) + u64::from(all_columns) * 2 + u64::from(category) * 4,
+                filling(grid),
+            ),
+        )),
     )
 }

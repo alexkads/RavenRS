@@ -6,9 +6,17 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 - `Alert::action` puts a button beside the message.
+- `GridColumn::fill` takes the width the columns leave, and `DataGrid::empty_text` says what no data means, apart from filters leaving nothing.
+- `Scheduler::fill_rows` shares the height left among the rows.
+- `Stat::large` for the one number a screen is about.
+- `MovieAssistant::height` and `MoviePlayer::max_film_height` keep a film and its controls in view; the film's choice becomes a select when its names do not fit. A film that has not started shows a play button over its picture.
 
 ### Changed
-- `FloatingPanel`'s sphere is smaller, so it covers less of the page.
+- `FloatingPanel`'s button is smaller and calm: the theme's surface with an accent icon, in line with its panel, which lines up with the page's margin.
+- `Chat` sets apart only what the person asked; the answer sits on the panel, and a card takes the whole width.
+- `MovieChat` answers in words first, then the moments; it and `MovieAssistant` leave out the steps inside the chapters they found. Answers open over the film instead of pushing it down.
+- A film's chapters show how long each one takes, and the current one what it teaches; a player with boxes over its film no longer repeats that under it.
+- `Badge` text moves toward the ink, to keep 4.5:1 on its tint.
 
 ## [27.1.3] - 2026-11-01
 

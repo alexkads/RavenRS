@@ -206,6 +206,7 @@ pub struct GridColumn {
     pub(crate) groupable: bool,
     pub(crate) editable: bool,
     pub(crate) visible: bool,
+    pub(crate) fill: bool,
     pub(crate) format: Option<CellFormat>,
     pub(crate) template: Option<CellTemplate>,
 }
@@ -234,6 +235,7 @@ impl GridColumn {
             groupable: true,
             editable: false,
             visible: true,
+            fill: false,
             format: None,
             template: None,
         }
@@ -305,6 +307,13 @@ impl GridColumn {
     /// Cells can be edited (double-click, Enter or F2).
     pub fn editable(mut self) -> Self {
         self.editable = true;
+        self
+    }
+
+    /// Takes the width the columns leave over, so a wide window has no empty stretch
+    /// at the end of the rows. Its [`Self::width`] is what it never goes below.
+    pub fn fill(mut self) -> Self {
+        self.fill = true;
         self
     }
 

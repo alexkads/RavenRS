@@ -70,7 +70,8 @@ pub(crate) fn reports(store: &Store, state: &ReportsState) -> Page {
         uses_month.then(|| month_nav(&state.month, store.today)),
     ))
     .spacing(16.0)
-    .align(Align::Center);
+    .align(Align::Center)
+    .wrap();
 
     let body: AnyView = match document {
         Ok(document) => {

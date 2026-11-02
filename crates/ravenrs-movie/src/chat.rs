@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use ravenrs_reactive::Binding;
 use ravenrs_widgets::{BuildCx, Chat, ChatMessage, List, ListItem, NodeId, UiWaker, View};
 
-use crate::assistant::moment_row;
+use crate::assistant::{short_moment_row, whole_answers};
 use crate::search::{Answer, Moment, MovieLibrary};
 
 /// Writes an answer about the moments that a question found. It gets the question,
@@ -135,7 +135,7 @@ impl MovieAnswers {
     /// What to say to a question: the moments that answer it, or that nothing does.
     /// For an app whose chat does more than talk about films.
     pub fn answer(&self, question: &str, waker: &UiWaker) -> ChatMessage {
-        let answers: Vec<Answer> = self.library.ask(question, MOMENTS);
+        let answers: Vec<Answer> = whole_answers(self.library.ask(question, MOMENTS));
         if answers.is_empty() {
             return ChatMessage::assistant(self.labels.nothing_found.clone());
         }
@@ -145,7 +145,8 @@ impl MovieAnswers {
             writer(question, &moments, text.clone(), waker.clone(), self.labels.found.clone());
             ChatMessage::assistant_writing(text)
         } else {
-            ChatMessage::assistant(self.labels.found.clone())
+            // The answer itself, in words; the film is there to see it done.
+            ChatMessage::assistant(answers[0].moment.text.clone())
         };
         let (library, on_open) = (self.library.clone(), self.on_open.clone());
         message.card(move || {
@@ -153,7 +154,7 @@ impl MovieAnswers {
                 .iter()
                 .map(|answer| {
                     let on_open = on_open.clone();
-                    moment_row(&library, answer, move |moment| on_open(moment))
+                    short_moment_row(&library, answer, move |moment| on_open(moment))
                 })
                 .collect();
             Box::new(List::new(rows))

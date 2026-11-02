@@ -658,14 +658,15 @@ fn the_assistant_opens_the_film_from_any_screen() {
     };
     click(&mut ui, "Assistente");
     click(&mut ui, "Como pagar uma conta?");
-    assert!(named(&ui.access_tree(), "Estes momentos").is_some());
+    assert!(named(&ui.access_tree(), "Pagar dá baixa").is_some(), "the answer, in words");
     click(&mut ui, "Pagar uma conta");
     let tree = ui.access_tree();
     let clock = tree.nodes.iter().filter_map(|n| n.name.as_deref()).find(|name| name.contains(" / "));
     let names: Vec<_> = tree.nodes.iter().filter_map(|n| n.name.clone()).collect();
     let clock = clock.unwrap_or_else(|| panic!("no film: {names:?}"));
     assert!(!clock.starts_with("0:00"), "the film opened at that moment, not at the start: {clock}");
-    assert!(named(&tree, "Estes momentos").is_none(), "and the panel closed");
+    let assistant = tree.nodes.iter().filter(|n| n.name.as_deref() == Some("Assistente")).count();
+    assert_eq!(assistant, 1, "and the panel closed, with only its sphere left");
 }
 
 /// Runs only where the real model is, as it is more than a gigabyte:

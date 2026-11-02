@@ -1,14 +1,11 @@
 //! A conversation with a field to write in, and a panel that floats over an app.
 
 use std::cell::Cell;
-use std::f32::consts::TAU;
 use std::fmt;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-use ravenrs_core::{
-    Border, Color, CursorIcon, Effect, Insets, Key, LinearGradient, Point, Quad, Rect, Role, Scene, Size,
-};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Quad, Rect, Role, Scene, Size};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -228,15 +225,37 @@ impl View for Bubble {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let person = self.0.author == ChatAuthor::Person;
-        let (fill, ink) =
-            if person { (Semantic::Accent, Semantic::OnAccent) } else { (Semantic::Control, Semantic::Ink) };
         let text = self.0.text();
         let text = if text.is_empty() {
             cx.child(&Spinner::new().size(16.0))
         } else {
-            cx.child(&Text::new(text).foreground(ink))
+            cx.child(&Text::new(text).foreground(Semantic::Ink))
         };
-        let mut children = vec![text];
+        let bubble = cx.container(
+            LayoutStyle {
+                padding: if person {
+                    Insets::symmetric(theme.spacing.s2, theme.spacing.s3)
+                } else {
+                    Insets::symmetric(theme.spacing.s1, 0.0)
+                },
+                max_width: Some(MESSAGE_WIDTH),
+                align: Align::Stretch,
+                align_self: Some(if person { Align::End } else { Align::Start }),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[text],
+            // What someone asked is set apart; the answer is the page itself.
+            if person {
+                Paint::Quad(QuadPaint {
+                    corner_radius: theme.radii.lg,
+                    ..QuadPaint::new(theme.color(Semantic::Control))
+                })
+            } else {
+                Paint::None
+            },
+        );
+        // A card takes the whole width, outside the bubble: it has its own surface.
+        let mut children = vec![bubble];
         if let Some(card) = &self.0.card {
             let card = card();
             children.push(cx.child(card.as_ref()));
@@ -244,14 +263,11 @@ impl View for Bubble {
         let node = cx.container(
             LayoutStyle {
                 spacing: theme.spacing.s2,
-                padding: Insets::symmetric(theme.spacing.s2, theme.spacing.s3),
-                max_width: Some(MESSAGE_WIDTH),
                 align: Align::Stretch,
-                align_self: Some(if person { Align::End } else { Align::Start }),
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &children,
-            Paint::Quad(QuadPaint { corner_radius: theme.radii.lg, ..QuadPaint::new(theme.color(fill)) }),
+            Paint::None,
         );
         if !person {
             // Announced as it appears.
@@ -373,7 +389,7 @@ impl FloatingCorner {
     }
 }
 
-/// A glowing sphere in the corner of the window that opens a panel over the app.
+/// A round button in the corner of the window that opens a panel over the app.
 /// The app stays usable behind it, and Escape or the sphere closes it. Dragging it
 /// or pressing an arrow key sends it to another corner, and it stays there while
 /// the app runs.
@@ -446,74 +462,50 @@ impl FloatingPanel {
 const ORB_BOX: f32 = 60.0;
 /// The sphere itself.
 const ORB_SPHERE: f32 = 42.0;
+/// What surrounds the sphere inside its box: the panel lines up with the sphere, not the box.
+const ORB_MARGIN: f32 = (ORB_BOX - ORB_SPHERE) / 2.0;
 /// How far the sphere's box keeps from the edges of the window.
-const ORB_EDGE: f32 = 4.0;
+const ORB_EDGE: f32 = 15.0;
 /// How far the pointer has to go for a press to become a drag, in logical pixels.
 const ORB_DRAG_FROM: f32 = 5.0;
 /// The moment of its motion it holds when still.
 const ORB_REST: f64 = 0.8;
 
-/// Paints the sphere. All of it is translucent circles and gradients, so it needs
-/// nothing from the renderer and looks the same in the browser.
-fn paint_orb(scene: &mut Scene, frame: Rect, time: f64, accent: Color, moving: bool) {
+/// The theme's colors, for painting the sphere.
+#[derive(Clone, Copy)]
+struct OrbColors {
+    surface: Color,
+    border: Color,
+    accent: Color,
+}
+
+/// Paints the sphere: a calm disc over the page, leaving the accent to the icon and
+/// to the screen's one main action. All of it is circles, so it needs nothing from the
+/// renderer and looks the same in the browser.
+fn paint_orb(scene: &mut Scene, frame: Rect, time: f64, colors: OrbColors, moving: bool) {
     let center = frame.center();
     let radius = ORB_SPHERE / 2.0;
-    let time = time as f32;
     let circle = |x: f32, y: f32, r: f32| Rect::new(x - r, y - r, r * 2.0, r * 2.0);
-    let (light, deep) = (accent.lerp(Color::WHITE, 0.45), accent.lerp(Color::BLACK, 0.4));
-    let breath = (time * TAU / 3.2).sin() * 0.5 + 0.5;
 
-    // The glow around it, breathing.
-    for ring in 0..6 {
+    // A soft shadow under it, to lift it from whatever is on the page.
+    for ring in 0..4 {
         let ring = ring as f32;
-        let r = radius + 1.0 + ring * 1.2 + breath * 1.0;
-        let alpha = (0.17 - ring * 0.026) * (0.6 + 0.4 * breath);
-        scene.push_quad(Quad::new(circle(center.x, center.y, r), accent.with_alpha(alpha)).radius(r));
+        let r = radius + 1.0 + ring * 1.4;
+        let shadow = Color::BLACK.with_alpha(0.07 - ring * 0.015);
+        scene.push_quad(Quad::new(circle(center.x, center.y + 2.0, r), shadow).radius(r));
     }
-    // A ring going out, like a sonar, only while it moves.
+    // A ring going out, only while the pointer or the focus is on it.
     if moving {
-        let progress = (time / 2.4).fract();
-        let r = radius + progress * 8.0;
-        let ring = Quad {
-            border: Some(Border { width: 1.5, color: light.with_alpha((1.0 - progress) * 0.55) }),
+        let progress = (time as f32 / 1.8).fract();
+        let r = radius + 1.0 + progress * 7.0;
+        scene.push_quad(Quad {
+            border: Some(Border { width: 1.5, color: colors.accent.with_alpha((1.0 - progress) * 0.5) }),
             ..Quad::new(circle(center.x, center.y, r), Color::TRANSPARENT).radius(r)
-        };
-        scene.push_quad(ring);
+        });
     }
-    // The glass, with its light going around.
-    let angle = time * 0.6 + 0.8;
-    let (dx, dy) = (angle.cos() * 0.5, angle.sin() * 0.5);
-    let glass = LinearGradient {
-        start: Point::new(0.5 - dx, 0.5 - dy),
-        end: Point::new(0.5 + dx, 0.5 + dy),
-        from: light,
-        to: deep,
-    };
     scene.push_quad(Quad {
-        fill: glass.into(),
-        border: Some(Border { width: 1.0, color: Color::WHITE.with_alpha(0.28) }),
-        ..Quad::new(circle(center.x, center.y, radius), accent).radius(radius)
-    });
-    // What flows inside it: soft blobs that never reach the edge.
-    for (i, (speed, size, color)) in [
-        (0.9_f32, 0.42_f32, light.with_alpha(0.34)),
-        (-0.7, 0.34, deep.with_alpha(0.42)),
-        (1.3, 0.24, Color::WHITE.with_alpha(0.2)),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let turn = time * speed + i as f32 * 2.1;
-        let r = radius * size;
-        let orbit = radius * 0.92 - r;
-        let (x, y) = (center.x + turn.cos() * orbit, center.y + turn.sin() * orbit);
-        scene.push_quad(Quad::new(circle(x, y, r), color).radius(r));
-    }
-    // The shine on the glass.
-    let shine = Rect::new(center.x - radius * 0.58, center.y - radius * 0.84, radius * 1.16, radius * 0.72);
-    scene.push_quad(Quad {
-        fill: LinearGradient::vertical(Color::WHITE.with_alpha(0.5), Color::WHITE.with_alpha(0.0)).into(),
-        ..Quad::new(shine, Color::WHITE).radius(radius * 0.36)
+        border: Some(Border { width: 1.0, color: colors.border }),
+        ..Quad::new(circle(center.x, center.y, radius), colors.surface).radius(radius)
     });
 }
 
@@ -528,20 +520,31 @@ struct Orb {
 impl View for Orb {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let accent = theme.color(Semantic::Accent);
+        let colors = OrbColors {
+            surface: theme.color(Semantic::SurfaceElevated),
+            border: theme.color(Semantic::Border),
+            accent: theme.color(Semantic::Accent),
+        };
         let moving = cx.is_hovered() || cx.is_focus_visible() || self.dragging.peek().is_some();
         let paint = if moving {
             Paint::Live(Rc::new(move |frame: Rect, time, scene: &mut Scene| {
-                paint_orb(scene, frame, time, accent, true);
+                paint_orb(scene, frame, time, colors, true);
             }))
         } else {
             Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
-                paint_orb(scene, frame, ORB_REST, accent, false);
+                paint_orb(scene, frame, ORB_REST, colors, false);
             }))
         };
+        let icon = cx.child(&crate::Icon::new(IconName::Sparkles).color(Semantic::Accent));
         let node = cx.container(
-            LayoutStyle { width: Some(ORB_BOX), height: Some(ORB_BOX), ..LayoutStyle::leaf() },
-            &[],
+            LayoutStyle {
+                width: Some(ORB_BOX),
+                height: Some(ORB_BOX),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[icon],
             paint,
         );
         cx.semantics(node, Semantics::new(Role::Button).name(self.title.clone()).expanded(self.open.get()));
@@ -617,7 +620,7 @@ impl View for Layer<'_> {
             let title = util::label(
                 cx,
                 &panel.title,
-                TextStyle::Body,
+                TextStyle::Headline,
                 Some(Weight::SEMIBOLD),
                 theme.color(Semantic::Ink),
             );
@@ -663,6 +666,15 @@ impl View for Layer<'_> {
                     .enter(Effect::moved(0.0, 12.0).with_opacity(0.0), theme.motion.gentle)
                     .exit(Effect::moved(0.0, 12.0).with_opacity(0.0), theme.motion.fast),
             );
+            let (left, right) = if self.corner.is_right() { (0.0, ORB_MARGIN) } else { (ORB_MARGIN, 0.0) };
+            let node = cx.container(
+                LayoutStyle {
+                    padding: Insets { top: 0.0, bottom: 0.0, left, right },
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[node],
+                Paint::None,
+            );
             // The panel opens toward the middle of the window.
             if self.corner.is_bottom() {
                 children.insert(0, node);
@@ -702,7 +714,7 @@ impl View for FloatingPanel {
         let free = window.height - self.bottom_inset - ORB_BOX - PANEL_GAP - ORB_EDGE * 2.0;
         let height = self.height.min(free.max(0.0));
         let tall = if open && held.is_none() { height + PANEL_GAP + ORB_BOX } else { ORB_BOX };
-        let wide = if open && held.is_none() { self.width.max(ORB_BOX) } else { ORB_BOX };
+        let wide = if open && held.is_none() { (self.width + ORB_MARGIN).max(ORB_BOX) } else { ORB_BOX };
         let place = held.map_or_else(
             || {
                 Point::new(

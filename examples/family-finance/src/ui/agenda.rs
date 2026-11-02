@@ -5,9 +5,16 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Memo, Page, Store, screen};
+use super::store::{Memo, Page, Store, content_width, screen};
 use crate::model::{Bill, Flow, Member, Occurrence, date_label};
 use crate::money::format_brl;
+
+/// The hint beside the view's choice needs this much width.
+const ROOM_FOR_THE_HINT: f32 = 860.0;
+/// Below this width the chosen day goes under the timeline.
+const SIDE_BY_SIDE_FROM: f32 = 700.0;
+const DAY_PANEL_WIDTH: f32 = 300.0;
+const DAY_PANEL_HEIGHT: f32 = 170.0;
 
 /// Something on a day of the agenda.
 #[derive(Clone)]
@@ -60,6 +67,9 @@ impl Item {
     fn tone(&self, today: Date) -> Tone {
         if !self.done() && self.day() < today {
             Tone::Danger
+        } else if !self.done() && !self.incoming() && self.day() == today {
+            // The same as on the other screens.
+            Tone::Warning
         } else if self.incoming() {
             Tone::Success
         } else {
@@ -231,7 +241,7 @@ fn item_actions(item: &Item, store: &Store, forms: &Forms) -> Vec<AnyView> {
 }
 
 /// The chosen day, on the side of the timeline or the month.
-fn day_panel(data: &AgendaData, day: Date, store: &Store, forms: &Forms) -> impl View + use<> {
+fn day_panel(data: &AgendaData, day: Date, store: &Store, forms: &Forms, beside: bool) -> AnyView {
     let rows: Vec<AnyView> = data
         .items
         .iter()
@@ -255,7 +265,7 @@ fn day_panel(data: &AgendaData, day: Date, store: &Store, forms: &Forms) -> impl
         })
         .collect();
     let empty = rows.is_empty();
-    Card::new(
+    let card = Card::new(
         ScrollView::new((VStack::new((
             Text::new(date_label(day)).style(TextStyle::Headline),
             empty.then(|| {
@@ -266,12 +276,12 @@ fn day_panel(data: &AgendaData, day: Date, store: &Store, forms: &Forms) -> impl
         .spacing(12.0)
         .align(Align::Stretch),))
         .spacing(0.0),
-    )
-    .padding(16.0)
-    .width(300.0)
+    );
+    if beside { Box::new(card.width(DAY_PANEL_WIDTH)) } else { Box::new(card.height(DAY_PANEL_HEIGHT)) }
 }
 
-pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms) -> Page {
+pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms, window: Size) -> Page {
+    let content = content_width(window);
     let timeline = state.view.get() == 0;
     let axis = state.axis.get();
     let month = state.month.get().first_of_month();
@@ -295,9 +305,11 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms) -> Page 
             [(IconName::Rows3, "Linha do tempo"), (IconName::CalendarDays, "Mês")],
         )
         .label("Exibição"),
-        Text::new("Arraste para remarcar. Arraste em um espaço vazio para programar.")
-            .style(TextStyle::Callout)
-            .foreground(Semantic::InkMuted),
+        (content >= ROOM_FOR_THE_HINT).then(|| {
+            Text::new("Arraste para remarcar. Arraste em um espaço vazio para programar.")
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted)
+        }),
         Spacer::new(),
         Button::new("Programar").icon(IconName::Plus).size(ButtonSize::Small).on_click(move || {
             let start = plan_day.get().unwrap_or(plan_store.today);
@@ -305,7 +317,8 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms) -> Page 
         }),
     ))
     .spacing(12.0)
-    .align(Align::Center);
+    .align(Align::Center)
+    .wrap();
 
     let main: AnyView = if timeline {
         let items = Rc::new(data.items.clone());
@@ -393,8 +406,15 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms) -> Page 
     };
 
     Page::new(
-        format!("Previsto aqui: entra {} · sai {}", format_brl(incoming), format_brl(outgoing)),
-        screen((toolbar, Fill2 { main, side: Box::new(day_panel(&data, day, store, forms)) })),
+        format!("Previsto no período: entra {} · sai {}", format_brl(incoming), format_brl(outgoing)),
+        screen((
+            toolbar,
+            Fill2 {
+                main,
+                side: Box::new(day_panel(&data, day, store, forms, content >= SIDE_BY_SIDE_FROM)),
+                beside: content >= SIDE_BY_SIDE_FROM,
+            },
+        )),
     )
 }
 
@@ -402,6 +422,7 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms) -> Page 
 struct Fill2 {
     main: AnyView,
     side: AnyView,
+    beside: bool,
 }
 
 impl View for Fill2 {
@@ -415,7 +436,11 @@ impl View for Fill2 {
                 spacing: 16.0,
                 align: Align::Stretch,
                 overflow_hidden: true,
-                ..ravenrs::layout::LayoutStyle::stack(ravenrs::layout::Axis::Horizontal)
+                ..ravenrs::layout::LayoutStyle::stack(if self.beside {
+                    ravenrs::layout::Axis::Horizontal
+                } else {
+                    ravenrs::layout::Axis::Vertical
+                })
             },
             &[main, side],
             ravenrs::widgets::Paint::None,

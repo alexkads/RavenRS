@@ -9,6 +9,9 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::{Button, ButtonSize, ButtonStyle, IconName, View, ViewSeq, util};
 
+/// How far a badge's text goes from its tone toward the ink.
+const BADGE_TEXT_TOWARD_INK: f32 = 0.3;
+
 /// Tone of a badge or alert. Status tones always come with a word or an icon,
 /// never color alone.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -83,11 +86,13 @@ impl View for Badge {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let color = self.tone.color(&theme);
+        // Toward the ink, so that small text on its own tint keeps 4.5:1 in every theme.
+        let ink = color.lerp(theme.color(Semantic::Ink), BADGE_TEXT_TOWARD_INK);
         let mut children = Vec::new();
         if let Some(icon) = self.icon {
-            children.push(util::icon(cx, icon, 12.0, color));
+            children.push(util::icon(cx, icon, 12.0, ink));
         }
-        children.push(util::label(cx, &self.text, TextStyle::Caption, Some(Weight::SEMIBOLD), color));
+        children.push(util::label(cx, &self.text, TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
         let style = LayoutStyle {
             padding: Insets::symmetric(3.0, 9.0),
             spacing: 4.0,
@@ -424,12 +429,19 @@ pub struct Stat {
     label: String,
     value: String,
     delta: Option<(String, bool, bool)>,
+    large: bool,
 }
 
 impl Stat {
     /// A stat showing `value` under `label`.
     pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
-        Self { label: label.into(), value: value.into(), delta: None }
+        Self { label: label.into(), value: value.into(), delta: None, large: false }
+    }
+
+    /// The one number a screen is about, in the `metric` size.
+    pub fn large(mut self) -> Self {
+        self.large = true;
+        self
     }
 
     /// A change such as `"+12.4%"`; `up` picks the color and arrow.
@@ -457,8 +469,10 @@ impl View for Stat {
             theme.color(Semantic::InkMuted),
         );
         let mut value_attrs = util::attrs(&theme, TextStyle::Metric, None);
-        value_attrs.size = 30.0;
-        value_attrs.line_height = 36.0;
+        if !self.large {
+            value_attrs.size = 30.0;
+            value_attrs.line_height = 36.0;
+        }
         let value = cx.text(&self.value, &value_attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
         let mut children = vec![label, value];
         if let Some((text, up, good)) = &self.delta {
