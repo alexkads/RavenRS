@@ -5,8 +5,8 @@ use crate::{LocalModel, ModelFamily, ModelFile};
 /// The models that can be offered, smallest first. Only their files are listed: a
 /// model comes to the machine only when someone asks for it.
 ///
-/// Memory was measured at its peak on an Apple M2 Pro for Qwen3 1.7B, Qwen 2.5 0.5B and
-/// Llama 3.2 1B; the others are scaled from their family, and
+/// Memory was measured at its peak on an Apple M2 Pro for LFM3 1.7B, Qwen3 1.7B, Qwen 2.5 0.5B
+/// and Llama 3.2 1B; the others are scaled from their family, and
 /// [`ModelManager`](crate::ModelManager)'s speed test lets each machine check them.
 /// Gemma 3 270M is not here on purpose: it ran, and understood none of the requests.
 pub const CATALOG: &[LocalModel] = &[
@@ -95,6 +95,28 @@ pub const CATALOG: &[LocalModel] = &[
                 url: "https://huggingface.co/unsloth/gemma-3-1b-it/resolve/5b11413a10db4e486ef16a20101fd028f8f2499c/tokenizer.json",
                 bytes: 33_384_568,
                 sha256: "4667f2089529e8e7657cfb6d1c19910ae71ff5f28aa7ab2ff2763330affad795",
+            },
+        ],
+    },
+    LocalModel {
+        id: "lfm3-1.7b-q4",
+        name: "LFM3 1.7B",
+        license: "LFM Open 1.0",
+        family: ModelFamily::Lfm3,
+        memory: 3_969_552_296,
+        understood: Some(84),
+        files: &[
+            ModelFile {
+                name: "model.gguf",
+                url: "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/resolve/bad5729bba61d076fff20d2548e62526665af215/LFM3-1.7B-Q4_K_M.gguf",
+                bytes: 1_099_627_808,
+                sha256: "3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4",
+            },
+            ModelFile {
+                name: "tokenizer.json",
+                url: "https://huggingface.co/LiquidAI/LFM3-1.7B/resolve/ac2586a34f1a1c03329dbdcdefabd8b6478ddaa7/tokenizer.json",
+                bytes: 17_908_635,
+                sha256: "7e226e34bface23ccf6e495d157bf77186c1c30a7659880e1a8994db528c3701",
             },
         ],
     },

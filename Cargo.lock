@@ -3932,10 +3932,12 @@ name = "ravenrs-ai"
 version = "27.1.3"
 dependencies = [
  "candle-core",
+ "candle-nn",
  "candle-transformers",
  "ravenrs-core",
  "ravenrs-reactive",
  "ravenrs-style",
+ "ravenrs-text",
  "ravenrs-widgets",
  "serde_json",
  "sha2",

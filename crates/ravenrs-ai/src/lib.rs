@@ -3,6 +3,7 @@
 mod assistant;
 mod catalog;
 mod engine;
+mod lfm3;
 mod machine;
 mod manager;
 mod models;

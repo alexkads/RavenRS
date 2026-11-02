@@ -13,9 +13,11 @@ for, and what is asked of a model stays on the machine.
   is plain Rust, so building an app needs nothing but Cargo. `LocalAssistant` keeps one on its own
   thread and lets go of its memory after two minutes without a question.
 
-The catalog has Gemma 3, Qwen 2.5, Qwen3, Llama 3.2, Phi-3 and Mistral, from 0.4 to 5 GB, and says how many requests each understood when that was measured. Measured with Qwen3 1.7B on an Apple M2 Pro: 1.1 GB to download, 4.3 GB of memory at the peak, about
+The catalog has LFM3, Gemma 3, Qwen 2.5, Qwen3, Llama 3.2, Phi-3 and Mistral, from 0.4 to 5 GB, and says how many requests each understood when that was measured. Measured with Qwen3 1.7B on an Apple M2 Pro: 1.1 GB to download, 4.3 GB of memory at the peak, about
 1 second for a short answer, and about 3.3 MB more in the app. Asked to choose the right moment among
 16 passages, it did worse than the text search, so it writes answers about what the search found. Asked to choose one of eight tools, it got most
 requests right, so `tool_rules` and `read_tool_call` let it choose what the app should do. It only
 chooses: the app reads the data and does the work, so a model never makes up a number, and whatever
 it answers beyond the tools offered is no choice at all.
+
+LFM3 is not in candle yet, so this crate reads it itself. LFM3 1.7B needs 4 GB of memory at the peak and chose the right tool in 27 of 32 requests. Its license, LFM Open 1.0, allows commercial use only below 10 million dollars of annual revenue.

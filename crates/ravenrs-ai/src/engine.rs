@@ -12,7 +12,7 @@ use candle_transformers::models::{
 };
 use tokenizers::Tokenizer;
 
-use crate::{LocalModel, ModelFamily, ModelFolder};
+use crate::{LocalModel, ModelFamily, ModelFolder, lfm3};
 
 /// How sure it answers: low, because it should stick to what it is given.
 const TEMPERATURE: f64 = 0.2;
@@ -25,6 +25,7 @@ enum Weights {
     Gemma3(quantized_gemma3::ModelWeights),
     Llama(quantized_llama::ModelWeights),
     Phi3(quantized_phi3::ModelWeights),
+    Lfm3(lfm3::ModelWeights),
 }
 
 impl Weights {
@@ -36,6 +37,7 @@ impl Weights {
             Self::Gemma3(model) => model.forward(input, offset),
             Self::Llama(model) => model.forward(input, offset),
             Self::Phi3(model) => model.forward(input, offset),
+            Self::Lfm3(model) => model.forward(input, offset),
         }?;
         // Some give one row per token read, others only the last.
         let logits = logits.squeeze(0)?;
@@ -52,6 +54,7 @@ impl Weights {
             Self::Qwen3(model) => model.clear_kv_cache(),
             Self::Qwen2(model) => model.clear_kv_cache(),
             Self::Llama(model) => model.clear_kv_cache(),
+            Self::Lfm3(model) => model.clear_kv_cache(),
             Self::Gemma3(_) | Self::Phi3(_) => {}
         }
     }
@@ -87,6 +90,12 @@ pub(crate) fn prompt_of(family: ModelFamily, system: &str, user: &str) -> (Strin
             &["<|end|>", "<|endoftext|>"],
         ),
         ModelFamily::Mistral => (format!("<s>[INST] {system}\n\n{user} [/INST]"), &["</s>"]),
+        ModelFamily::Lfm3 => (
+            format!(
+                "<|startoftext|><|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n<think></think>"
+            ),
+            &["<|im_end|>"],
+        ),
     }
 }
 
@@ -125,6 +134,7 @@ mod tests {
             ModelFamily::Llama3,
             ModelFamily::Phi3,
             ModelFamily::Mistral,
+            ModelFamily::Lfm3,
         ];
         for family in families {
             let (prompt, ends) = prompt_of(family, "RULES", "QUESTION");
@@ -202,6 +212,9 @@ impl LocalEngine {
             }
             ModelFamily::Phi3 => {
                 quantized_phi3::ModelWeights::from_gguf(false, content, &mut file, &device).map(Weights::Phi3)
+            }
+            ModelFamily::Lfm3 => {
+                lfm3::ModelWeights::from_gguf(&content, &mut file, &device).map(Weights::Lfm3)
             }
         }
         .map_err(|e| load(e.to_string()))?;

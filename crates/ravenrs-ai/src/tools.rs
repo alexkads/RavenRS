@@ -42,8 +42,9 @@ pub fn tool_rules(intro: &str, tools: &[Tool]) -> String {
 pub fn read_tool_call(answer: &str, tools: &[Tool]) -> Option<ToolCall> {
     let (start, end) = (answer.find('{')?, answer.rfind('}')?);
     let value: Value = serde_json::from_str(answer.get(start..=end)?).ok()?;
-    let name = value.get("tool")?.as_str()?;
-    tools.iter().find(|tool| tool.name == name)?;
+    let folded = |name: &str| name.chars().flat_map(ravenrs_text::fold).collect::<String>();
+    let written = folded(value.get("tool")?.as_str()?);
+    let name = tools.iter().find(|tool| folded(tool.name) == written)?.name;
     let arguments = value
         .get("args")
         .and_then(Value::as_object)
@@ -85,6 +86,12 @@ mod tests {
     fn it_finds_the_json_among_other_words() {
         let call = read_tool_call("Sure:\n{\"tool\":\"balance\",\"args\":{}}\nDone", TOOLS);
         assert_eq!(call.expect("a choice").name, "balance");
+    }
+
+    #[test]
+    fn a_name_with_accents_is_the_same_tool() {
+        let call = read_tool_call(r#"{"tool":"Spênd","args":{}}"#, TOOLS);
+        assert_eq!(call.expect("a choice").name, "spend");
     }
 
     #[test]

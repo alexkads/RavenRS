@@ -47,6 +47,8 @@ pub enum ModelFamily {
     Phi3,
     /// Mistral.
     Mistral,
+    /// LFM3, from Liquid AI.
+    Lfm3,
 }
 
 /// A model an app knows how to use.

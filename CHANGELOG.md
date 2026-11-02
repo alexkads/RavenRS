@@ -6,9 +6,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 - `Alert::action` puts a button beside the message.
+- **LFM3 in `ravenrs-ai`.** The catalog offers LFM3 1.7B, which `LocalEngine` runs with its own implementation, since candle stops at LFM2. It needs 4 GB of memory at the peak and chose the right tool in 27 of 32 requests. Its license allows commercial use only below 10 million dollars of annual revenue.
 
 ### Changed
 - `FloatingPanel`'s sphere is smaller, so it covers less of the page.
+- `read_tool_call` accepts a tool's name written with accents or capitals, as models do.
 
 ## [27.1.3] - 2026-11-01
 
