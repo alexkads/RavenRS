@@ -1,11 +1,11 @@
 {
-  "versao": "0.1.5",
-  "titulo": "Achou o app lento? Agora ele mesmo testa e diz o que está acontecendo.",
+  "versao": "0.1.6",
+  "titulo": "O app agora usa a placa de vídeo do computador sempre que ela está disponível.",
   "importante": false,
   "novidades": [
-    "Em Ajustes, o botão Testar desempenho mede o app por 5 segundos e diz se está bom, razoável ou ruim, sem precisar de atalho nem de terminal.",
-    "O resultado mostra quantos quadros por segundo este computador desenha e onde o tempo vai: no desenho ou em montar a tela.",
-    "Quando o app não consegue usar a placa de vídeo, o resultado avisa."
+    "Em computadores mais antigos com Linux, o app podia desenhar pelo processador mesmo havendo placa de vídeo, o que o deixava lento. Agora ele usa a placa.",
+    "Se a placa de vídeo não aceitar o que o app precisa, ele tenta as outras opções em vez de não abrir.",
+    "O painel de diagnóstico explica melhor quando a placa de vídeo não está sendo usada."
   ],
-  "por_que_atualizar": "Para saber em 5 segundos como o app roda neste computador e por quê."
+  "por_que_atualizar": "Para o app ficar mais rápido em computadores mais antigos."
 }
