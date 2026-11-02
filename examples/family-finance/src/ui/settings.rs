@@ -7,7 +7,7 @@ use ravenrs::native::{OpenDialog, SaveDialog, open_with_system};
 use ravenrs::prelude::*;
 
 use super::forms::{Confirm, Forms};
-use super::store::{Page, Store, titled_card};
+use super::store::{PAGE_INSETS, Page, Store, titled_card};
 use super::updates;
 use crate::backup::{self, CopyReason};
 use crate::db::{Database, DbResult};
@@ -154,6 +154,7 @@ pub(crate) fn settings(
     forms: &Forms,
     news: &updates::NewsDialog,
     page: &State<usize>,
+    models: Option<ravenrs_ai::ModelManager>,
 ) -> Page {
     let (diagnostics, painel) = (store.diagnostics.clone(), page.clone());
     let path = store.path.as_ref().map_or_else(|| "Só na memória".to_owned(), |p| p.display().to_string());
@@ -200,6 +201,21 @@ pub(crate) fn settings(
         .spacing(10.0)
         .align(Align::Start),
     );
+    let assistant = models.map(|models| {
+        titled_card(
+            "Assistente com IA",
+            VStack::new((
+                Text::new(
+                    "Opcional. Sem modelo, o assistente acha os momentos dos filmes. Com um modelo, ele também responde sobre saldo, gastos e contas, abre telas e prepara lançamentos, que só são gravados quando você confere e salva. Ele roda neste computador, nada sai daqui, e os números vêm direto do seu banco de dados. Aparece só o que cabe nesta máquina: baixe, teste e remova se ficar lento. Acerto é quantos pedidos o modelo entendeu nos nossos testes; quando ele não entende, o assistente procura nos filmes.",
+                )
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted),
+                models,
+            ))
+            .spacing(10.0)
+            .align(Align::Stretch),
+        )
+    });
     let backups = titled_card(
         "Backup",
         VStack::new((
@@ -349,12 +365,13 @@ pub(crate) fn settings(
         ScrollView::new((VStack::new((
             backups,
             Grid::new(2, (appearance, performance)).spacing(16.0),
+            assistant,
             copies,
             Grid::new(2, (data, updates_card)).spacing(16.0),
             start_over,
         ))
         .spacing(16.0)
         .align(Align::Stretch),))
-        .padding(24.0),
+        .padding(PAGE_INSETS),
     )
 }

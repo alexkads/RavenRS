@@ -1,5 +1,30 @@
 [
   {
+    "versao": "0.1.9",
+    "data": "2026-11-02",
+    "titulo": "Telas mais limpas, com o que precisa de atenção em primeiro lugar.",
+    "importante": false,
+    "novidades": [
+      "O painel mostra as próximas contas antes dos gráficos, e o alerta de contas tem um botão que leva direto a elas.",
+      "Em Lançamentos e Contas a pagar, a tabela ficou com menos colunas e sem a linha de filtros fixa. Os filtros estão no menu Filtrar.",
+      "A esfera do assistente ficou menor e não cobre mais os botões, e uma despesa nova já começa na categoria que você mais usa.",
+      "Os treinamentos foram regravados com as telas novas."
+    ],
+    "por_que_atualizar": "Para ver primeiro o que precisa de atenção e lançar despesas com menos cliques."
+  },
+  {
+    "versao": "0.1.8",
+    "data": "2026-11-01",
+    "titulo": "Um assistente no canto da tela, que pode usar uma IA rodando neste computador.",
+    "importante": false,
+    "novidades": [
+      "A esfera no canto da tela abre o assistente: pergunte como fazer alguma coisa, e ele abre o momento certo do filme. Dá para arrastá-la para outro canto.",
+      "Em Ajustes, você pode baixar uma IA que roda neste computador. Aparecem só as que cabem aqui, e dá para testar a velocidade e remover.",
+      "Com uma IA em uso, o assistente responde sobre saldo, gastos e contas, abre telas e prepara despesas e contas a partir de uma frase. Nada é gravado sem você conferir e salvar, e nada sai do computador."
+    ],
+    "por_que_atualizar": "Para achar o que precisa perguntando, e lançar despesas e contas escrevendo uma frase."
+  },
+  {
     "versao": "0.1.7",
     "data": "2026-11-01",
     "titulo": "Os treinamentos agora falam, fazem som e explicam cada passo na tela.",

@@ -41,7 +41,7 @@ samples! {
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
-    "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
+    "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Icon" => icon, "Image" => image, "Carousel" => carousel, "Canvas" => canvas,
 }
@@ -785,6 +785,72 @@ fn movie_assistant() -> impl View {
     film.finish(9000)
         .map(|film| MovieAssistant::new(MovieLibrary::new().film("Manual", film)).width(640.0))
         .ok()
+}
+// end
+
+// sample: Chat, 420
+fn chat() -> impl View {
+    /// Keeps the messages, here while the page rebuilds. A real app keeps them in its state.
+    struct Conversation;
+
+    impl View for Conversation {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            let messages = cx.use_state(Vec::<ChatMessage>::new);
+            let answers = messages.clone();
+            let chat = Chat::new(messages.binding())
+                .placeholder("Ask something")
+                .intro("It does not know who answers: yours adds to the messages, now or later.")
+                .examples(["How do I start?", "Where are my files?"])
+                .on_send(move |text| {
+                    let reply = ChatMessage::assistant(format!("You asked: {text}"))
+                        .card(|| Box::new(Button::new("Open it").size(ButtonSize::Small)));
+                    answers.update(|all| all.push(reply));
+                });
+            cx.child(&VStack::new((chat,)).height(380.0).width(420.0))
+        }
+    }
+    Conversation
+}
+// end
+
+// sample: FloatingPanel, 80
+fn floating_panel() -> impl View {
+    /// Keeps whether it is open, here while the page rebuilds.
+    struct Corner;
+
+    impl View for Corner {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            let open = cx.use_state(|| false);
+            cx.child(&FloatingPanel::new(open.binding(), "Assistant", || {
+                Box::new(Text::new("The app stays usable behind this panel."))
+            }))
+        }
+    }
+    Corner
+}
+// end
+
+// sample: ModelPicker, 360
+fn model_picker() -> impl View {
+    let choice = |name: &str, status| ModelChoice {
+        name: name.into(),
+        details: "1.1 GB · License: Apache 2.0".into(),
+        status,
+        in_use: false,
+        result: None,
+        error: None,
+    };
+    // It shows what it is given. `ravenrs_ai::ModelManager` does the work on the desktop.
+    ModelPicker::new(vec![
+        choice("To download", ModelStatus::Available),
+        choice("Arriving", ModelStatus::Downloading(0.4)),
+        ModelChoice {
+            result: Some("About 20 words per second.".into()),
+            ..choice("On this machine", ModelStatus::Installed)
+        },
+    ])
+    .on_test(|_| {})
+    .on_use(|_| {})
 }
 // end
 

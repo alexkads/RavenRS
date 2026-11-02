@@ -3,7 +3,7 @@
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Page, Store};
+use super::store::{PAGE_INSETS, Page, Store};
 use crate::model::{AccountKind, Flow};
 use crate::money::{format_brl, format_input, parse_brl};
 
@@ -365,6 +365,6 @@ pub(crate) fn records(store: &Store, state: &RecordsState, forms: &Forms) -> Pag
             .tab("Família", members_tab(store, state, forms)),))
         .spacing(16.0)
         .align(Align::Stretch),))
-        .padding(24.0),
+        .padding(PAGE_INSETS),
     )
 }

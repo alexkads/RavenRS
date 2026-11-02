@@ -119,13 +119,14 @@ pub(crate) fn clock_label(ms: u64) -> String {
 #[derive(Clone, Debug)]
 pub struct MovieCue {
     request: Rc<Cell<Option<u64>>>,
+    film: Rc<Cell<Option<usize>>>,
     changes: State<u64>,
 }
 
 impl MovieCue {
     /// A cue that asks for nothing yet.
     pub fn new() -> Self {
-        Self { request: Rc::new(Cell::new(None)), changes: State::new(0) }
+        Self { request: Rc::new(Cell::new(None)), film: Rc::new(Cell::new(None)), changes: State::new(0) }
     }
 
     /// Opens the film at `ms` of its timeline. It plays from there, unless a step
@@ -133,6 +134,18 @@ impl MovieCue {
     pub fn go_to(&self, ms: u64) {
         self.request.set(Some(ms));
         self.changes.update(|n| *n += 1);
+    }
+
+    /// Opens a film of a [`MovieAssistant`](crate::MovieAssistant)'s library at `ms`.
+    pub fn go_to_film(&self, film: usize, ms: u64) {
+        self.film.set(Some(film));
+        self.go_to(ms);
+    }
+
+    /// The film someone asked for, once.
+    pub(crate) fn take_film(&self) -> Option<usize> {
+        let _ = self.changes.get();
+        self.film.take()
     }
 }
 

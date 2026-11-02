@@ -33,6 +33,7 @@ struct LedgerRows {
 pub(crate) struct LedgerState {
     month: State<Date>,
     kind: State<usize>,
+    advanced: State<bool>,
     typed: State<String>,
     applied: State<String>,
     selection: State<BTreeSet<usize>>,
@@ -44,6 +45,7 @@ impl LedgerState {
         Self {
             month: State::new(today.first_of_month()),
             kind: State::new(0),
+            advanced: State::new(false),
             typed: State::new(String::new()),
             applied: State::new(String::new()),
             selection: State::new(BTreeSet::new()),
@@ -147,9 +149,10 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> Page 
             applied.set(text);
         }
     };
+    let rows_error = rows.error.is_some();
     let (clear_typed, clear_applied) = (state.typed.clone(), state.applied.clone());
     let has_filter = !state.applied.get().is_empty();
-    let mut presets = DropdownMenu::new("Filtros prontos")
+    let mut presets = DropdownMenu::new("Filtrar")
         .icon(IconName::Filter)
         .size(ButtonSize::Small)
         .style(ButtonStyle::Secondary);
@@ -161,18 +164,32 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> Page 
             a.set(expression.to_owned());
         }));
     }
+    let advanced_open = state.advanced.get() || rows_error;
+    let advanced = advanced_open.then(|| {
+        HStack::new((
+            TextField::new(typed.binding())
+                .placeholder("Ex.: [Valor] > 100 And [Categoria] = 'Mercado'")
+                .icon(IconName::SlidersHorizontal)
+                .compact()
+                .on_submit(apply_submit)
+                .stretch()
+                .grow(1.0),
+            Button::new("Aplicar").size(ButtonSize::Small).style(ButtonStyle::Secondary).on_click(
+                move || {
+                    sel_1.set(BTreeSet::new());
+                    apply_write.set(apply_read.get());
+                },
+            ),
+        ))
+        .spacing(8.0)
+        .align(Align::Center)
+    });
+    let toggle_advanced = state.advanced.clone();
+    let presets = presets.item(
+        MenuItem::new("Filtro avançado…").on_select(move || toggle_advanced.update(|open| *open = !*open)),
+    );
     let filter_bar = HStack::new((
-        TextField::new(typed.binding())
-            .placeholder("Filtro avançado, ex.: [Valor] > 100 And [Categoria] = 'Mercado'")
-            .icon(IconName::SlidersHorizontal)
-            .compact()
-            .on_submit(apply_submit)
-            .stretch()
-            .grow(1.0),
-        Button::new("Aplicar").size(ButtonSize::Small).style(ButtonStyle::Secondary).on_click(move || {
-            sel_1.set(BTreeSet::new());
-            apply_write.set(apply_read.get());
-        }),
+        presets,
         has_filter.then(|| {
             Button::new("Limpar")
                 .icon(IconName::FilterX)
@@ -183,7 +200,7 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> Page 
                     clear_applied.set(String::new());
                 })
         }),
-        presets,
+        Spacer::new(),
         Button::new("Alterar")
             .icon(IconName::Pencil)
             .size(ButtonSize::Small)
@@ -252,6 +269,6 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> Page 
             format_brl(rows.expense),
             format_brl(rows.income - rows.expense)
         ),
-        screen((toolbar, filter_bar, error, grid)),
+        screen((toolbar, filter_bar, advanced, error, grid)),
     )
 }

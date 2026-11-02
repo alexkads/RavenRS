@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod assistant;
+mod chat;
 mod composition;
 mod editor;
 mod flight;
@@ -11,6 +12,7 @@ mod record;
 mod search;
 
 pub use assistant::{AssistantLabels, MovieAssistant};
+pub use chat::{MovieAnswers, MovieChat, MovieChatLabels, MovieWriter};
 pub use composition::Composition;
 pub use editor::{EditorLabels, EditorState, MovieEditor};
 pub use flight::{BugLabels, BugReport, BugReporter, FlightRecorder};

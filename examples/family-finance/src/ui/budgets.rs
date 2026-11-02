@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use ravenrs::prelude::*;
 
-use super::store::{Memo, Page, Store, month_nav};
+use super::store::{Memo, PAGE_INSETS, Page, Store, month_nav};
 use crate::model::BudgetLine;
 use crate::money::{format_brl, format_input, parse_brl};
 
@@ -179,6 +179,6 @@ pub(crate) fn budgets(store: &Store, state: &BudgetsState) -> Page {
         ))
         .spacing(16.0)
         .align(Align::Stretch),))
-        .padding(24.0),
+        .padding(PAGE_INSETS),
     )
 }

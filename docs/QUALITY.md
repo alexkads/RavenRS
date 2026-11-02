@@ -123,6 +123,8 @@ Status against the definition of done. **Behavior** names the test suites that d
 | Footer | footer | | ✅ no focus stop of its own; its links are buttons (Tab + Enter), tested | `contentinfo` landmark, tested. Stacks by window width, not by its container's |
 | StatusBar | status_bar | | ✅ no focus stop of its own; its actions are buttons (Tab + Enter), tested | `contentinfo` landmark; the center is a `status` |
 | Timeline, ToolRail | timeline | | 🟡 blocks, markers and tools work with Tab + Enter; moving and trimming need the pointer, so apps offer them in fields too | Blocks and markers are named buttons |
+| ModelPicker | model_picker | | ✅ every action is a button (Tab + Enter), tested through `ravenrs-ai` | Actions are named buttons; the progress bar reads its value |
+| Chat, FloatingPanel | chat | | ✅ field, examples, send and sphere work with Tab + Enter, arrow keys move the sphere between corners and Escape closes the panel, tested | Answers are a `status`, announced as they appear; the panel is a named group |
 | ReleaseNotes, CodeBlock | release_notes | | ✅ versions and buttons work with Tab + Enter, tested | Lists its versions as buttons; the copy button says when it copied |
 | MoviePlayer, MovieAssistant, MovieEditor, BugReporter | ravenrs-movie | | ✅ controls, chapters, marks and blocks work with Tab + Enter; dragging on the canvas and the timeline has no keyboard way yet: 🟡 | Marks say what they teach; a film is an image with a name |
 | Media and feedback: Image, Icon, Carousel, Avatar, Badge, Alert, ProgressBar, Spinner, Skeleton, Kbd, Divider | layout_and_content, components, batch_parity | ✅ partial | 🟡 Carousel arrows, untested | |

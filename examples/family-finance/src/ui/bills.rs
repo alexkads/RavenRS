@@ -75,7 +75,7 @@ fn load(store: &Store, view: usize) -> BillRows {
 
 /// Lets the grid keep the room left, inside the key that gives each view its columns.
 fn store_fill(grid: DataGrid) -> FillColumn<(DataGrid,)> {
-    FillColumn { children: (grid,), spacing: 0.0, padding: 0.0 }
+    FillColumn { children: (grid,), spacing: 0.0, padding: 0.0.into() }
 }
 
 pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> Page {
@@ -210,7 +210,7 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> Page {
 
     Page::new(
         format!(
-            "{} em aberto somando {}, das quais {} em atraso",
+            "{} em aberto somando {}, das quais {} em atraso. Clique duas vezes em uma conta para pagar.",
             rows.open_count,
             format_brl(rows.open),
             format_brl(rows.overdue)

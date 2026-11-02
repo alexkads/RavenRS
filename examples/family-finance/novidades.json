@@ -1,11 +1,12 @@
 {
-  "versao": "0.1.7",
-  "titulo": "Os treinamentos agora falam, fazem som e explicam cada passo na tela.",
+  "versao": "0.1.9",
+  "titulo": "Telas mais limpas, com o que precisa de atenção em primeiro lugar.",
   "importante": false,
   "novidades": [
-    "Os treinamentos passaram de um filme curto para seis filmes, cerca de 16 minutos, sobre cada parte do app e as regras de cada tela.",
-    "Uma voz lê em voz alta o que está sendo feito, e dá para ouvir os cliques e a digitação. Som e narração têm cada um seu botão de desligar.",
-    "Uma caixa aparece junto de cada ação, explicando o que fazer e por quê."
+    "O painel mostra as próximas contas antes dos gráficos, e o alerta de contas tem um botão que leva direto a elas.",
+    "Em Lançamentos e Contas a pagar, a tabela ficou com menos colunas e sem a linha de filtros fixa. Os filtros estão no menu Filtrar.",
+    "A esfera do assistente ficou menor e não cobre mais os botões, e uma despesa nova já começa na categoria que você mais usa.",
+    "Os treinamentos foram regravados com as telas novas."
   ],
-  "por_que_atualizar": "Para aprender a usar o app assistindo e ouvindo, no seu ritmo."
+  "por_que_atualizar": "Para ver primeiro o que precisa de atenção e lançar despesas com menos cliques."
 }

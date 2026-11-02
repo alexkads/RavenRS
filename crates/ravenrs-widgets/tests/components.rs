@@ -640,3 +640,16 @@ fn a_modal_keeps_the_wheel_from_the_page_behind_it() {
     ui.update();
     assert_eq!(y_of(&mut ui, "Page 1"), page, "the page never moved");
 }
+
+#[test]
+fn an_alert_can_offer_what_it_asks_for() {
+    let clicks = State::new(0);
+    let counted = clicks.clone();
+    let alert = Alert::new("Late", "Two bills").action("See bills", move || counted.update(|n| *n += 1));
+    let mut ui = ui(alert);
+    let tree = ui.access_tree();
+    let button = tree.nodes.iter().find(|n| n.name.as_deref() == Some("See bills")).expect("the button");
+    ui.perform_action(button.id, ravenrs_core::AccessAction::Click);
+    ui.update();
+    assert_eq!(clicks.get(), 1);
+}

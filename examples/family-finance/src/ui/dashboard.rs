@@ -5,7 +5,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Memo, Page, Store, titled_card};
+use super::store::{Memo, PAGE_INSETS, Page, Store, titled_card};
 use crate::model::{
     Account, Bill, BillStatus, BudgetLine, Flow, MonthTotals, date_label, month_label, month_short,
     parse_date, shift_months,
@@ -54,7 +54,7 @@ fn tone_of(status: BillStatus) -> Tone {
 fn percent_change(now: i64, before: i64) -> Option<String> {
     let change = (now - before) as f64 / before.max(1) as f64 * 100.0;
     // Nothing changed is nothing to point out.
-    (before > 0 && change.abs() >= 0.5).then(|| format!("{change:+.0}% sobre o mesmo período"))
+    (before > 0 && change.abs() >= 0.5).then(|| format!("{change:+.0}% vs. mês passado"))
 }
 
 pub(crate) fn dashboard(
@@ -253,7 +253,8 @@ pub(crate) fn dashboard(
                 ) as AnyView
             })
             .collect();
-        let accounts_card = titled_card("Contas", VStack::new(accounts).spacing(14.0).align(Align::Stretch));
+        let accounts_card =
+            titled_card("Saldo por conta", VStack::new(accounts).spacing(14.0).align(Align::Stretch));
 
         let top: AnyView = if wide {
             Box::new(
@@ -268,7 +269,7 @@ pub(crate) fn dashboard(
         let bottom = Grid::new(if wide { 2 } else { 1 }, (category_card, accounts_card)).spacing(16.0);
 
         ScrollView::new((VStack::new((top, stats, bottom)).spacing(16.0).align(Align::Stretch),))
-            .padding(24.0)
+            .padding(PAGE_INSETS)
     });
     Page::new(format!("Hoje é {}", date_label(today)), body)
 }

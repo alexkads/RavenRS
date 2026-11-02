@@ -38,7 +38,9 @@ rows = [(slug, api, name, description) for slug, api, name, description in ROW.f
 ordered = sorted(rows, key=lambda row: row[2].lower())
 
 missing = [row[2] for row in rows if row[2] not in samples]
-extra = sorted(set(samples) - {row[2] for row in rows})
+# These live in ravenrs-movie, and this list is of ravenrs-widgets.
+elsewhere = {"MovieAssistant", "MoviePlayer"}
+extra = sorted(set(samples) - {row[2] for row in rows} - elsewhere)
 if missing or extra or not rows:
     sys.exit(f"the list and the examples disagree: without an example {missing}, not listed {extra}")
 

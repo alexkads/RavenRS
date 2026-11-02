@@ -1674,6 +1674,21 @@ impl Gallery {
                 samples::sample("MovieAssistant"),
             ),
             demo(
+                "Chat",
+                "A conversation over a field to write in, with examples and cards to act on. It does not know who answers, so the same one serves a search, a person or a local model.",
+                samples::sample("Chat"),
+            ),
+            demo(
+                "ModelPicker",
+                "Local AI models to download, try, use and remove. It shows what it is given, so the app decides which ones fit the machine.",
+                samples::sample("ModelPicker"),
+            ),
+            demo(
+                "FloatingPanel",
+                "The sphere in the corner of this window: it opens a panel over the page, which stays usable behind it. Drag it, or press an arrow key on it, to send it to another corner. Escape closes the panel.",
+                samples::sample("FloatingPanel"),
+            ),
+            demo(
                 "ReleaseNotes",
                 "An app's versions: the list, what the chosen one brought, and buttons that walk through them. The second block shows a command to copy.",
                 VStack::new((

@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use ravenrs::prelude::*;
 
+use super::request::Prefill;
 use super::store::Store;
 use crate::model::{
     Account, AccountKind, BillInput, Category, Flow, Member, Occurrence, Recurrence, ScheduleInput,
@@ -18,6 +19,32 @@ fn usual_account(accounts: &[Account]) -> usize {
 
 fn categories_of(categories: &[Category], flow: Flow) -> Vec<Category> {
     categories.iter().filter(|c| c.flow == flow).cloned().collect()
+}
+
+/// Where a request's category is among a form's choices, which are only expenses.
+fn category_index(categories: &[Category], fill: &Prefill, usual: usize) -> usize {
+    let wanted = fill.category.as_ref().map(|category| category.id);
+    categories_of(categories, Flow::Expense)
+        .iter()
+        .position(|category| Some(category.id) == wanted)
+        .unwrap_or(usual)
+}
+
+/// The category most used in these names, as the form's first choice: the first in
+/// alphabetical order would quietly put everything in the wrong place.
+fn usual_category(categories: &[Category], used: impl Iterator<Item = String>) -> usize {
+    let expenses = categories_of(categories, Flow::Expense);
+    let mut counts = vec![0_usize; expenses.len()];
+    for name in used {
+        if let Some(index) = expenses.iter().position(|category| category.name == name) {
+            counts[index] += 1;
+        }
+    }
+    counts
+        .iter()
+        .enumerate()
+        .max_by_key(|(index, count)| (**count, std::cmp::Reverse(*index)))
+        .map_or(0, |(index, _)| index)
 }
 
 fn member_options(members: &[Member]) -> Vec<String> {
@@ -70,10 +97,31 @@ impl TransactionForm {
         self.amount.set(String::new());
         self.flow.set(usize::from(flow == Flow::Income));
         self.account.set(usual_account(&store.read(|db| db.accounts())));
-        self.category.set(0);
+        let (categories, rows) = store.read(|db| Ok((db.categories()?, db.ledger(store.today, None)?)));
+        let usual = usual_category(&categories, rows.into_iter().map(|row| row.category));
+        self.category.set(if flow == Flow::Expense { usual } else { 0 });
         self.member.set(0);
         self.tried.set(false);
         self.open.set(true);
+    }
+
+    /// A new spending already filled in, for the person to check and save.
+    pub fn start_with(&self, store: &Store, fill: &Prefill) {
+        self.start_new(store, Flow::Expense);
+        self.description.set(fill.description.clone());
+        self.amount.set(fill.cents.map_or_else(String::new, format_input));
+        if fill.date.is_some() {
+            self.date.set(fill.date);
+        }
+        let (categories, members, accounts) =
+            store.read(|db| Ok((db.categories()?, db.members()?, db.accounts()?)));
+        self.category.set(category_index(&categories, fill, self.category.get()));
+        self.member.set(member_index(&members, fill.member.as_ref().map(|member| member.id)));
+        if let Some(account) = &fill.account
+            && let Some(index) = accounts.iter().position(|found| found.id == account.id)
+        {
+            self.account.set(index);
+        }
     }
 
     pub fn start_edit(&self, store: &Store, id: i64) {
@@ -257,13 +305,36 @@ impl BillForm {
         self.description.set(String::new());
         self.amount.set(String::new());
         self.due.set(Some(store.today));
-        self.category.set(0);
+        let (categories, bills) = store.read(|db| Ok((db.categories()?, db.open_bills()?)));
+        self.category.set(usual_category(&categories, bills.into_iter().map(|bill| bill.category)));
         self.member.set(0);
         self.recurrence.set(0);
         self.installments.set(1);
         self.barcode.set(String::new());
         self.tried.set(false);
         self.open.set(true);
+    }
+
+    /// A new bill already filled in, for the person to check and save.
+    pub fn start_with(&self, store: &Store, fill: &Prefill) {
+        self.start_new(store);
+        self.description.set(fill.description.clone());
+        self.amount.set(fill.cents.map_or_else(String::new, format_input));
+        if fill.date.is_some() {
+            self.due.set(fill.date);
+        }
+        let (categories, members) = store.read(|db| Ok((db.categories()?, db.members()?)));
+        self.category.set(category_index(&categories, fill, self.category.get()));
+        self.member.set(member_index(&members, fill.member.as_ref().map(|member| member.id)));
+        self.recurrence.set(match fill.recurrence {
+            Some(Recurrence::Monthly) => 1,
+            Some(Recurrence::Yearly) => 2,
+            _ => 0,
+        });
+        if let Some(installments) = fill.installments {
+            self.installments.set(installments);
+        }
+        self.barcode.set(fill.barcode.clone().unwrap_or_default());
     }
 
     pub fn start_edit(&self, store: &Store, id: i64) {
