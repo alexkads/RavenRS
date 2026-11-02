@@ -255,8 +255,8 @@ impl Default for Labels {
             diagnostics_test_cause_interface: "The time goes into building the screen, on the processor."
                 .into(),
             diagnostics_software: "Drawing on the CPU".into(),
-            diagnostics_software_detail: "No usable GPU driver was found, so the interface will be slow."
-                .into(),
+            diagnostics_software_detail:
+                "The graphics card is not being used, so the interface will be slow.".into(),
             diagnostics_unoptimized: "Built without optimizations".into(),
             diagnostics_unoptimized_detail: "Everything runs many times slower. Build with --release.".into(),
             diagnostics_hidden: "GPU left out for its driver".into(),
@@ -384,7 +384,7 @@ impl Labels {
             diagnostics_test_cause_interface: "O tempo vai em montar a tela, no processador.".into(),
             diagnostics_software: "Desenhando na CPU".into(),
             diagnostics_software_detail:
-                "Nenhum driver de GPU utilizável foi encontrado, então a interface ficará lenta.".into(),
+                "A placa de vídeo não está sendo usada, então a interface fica lenta.".into(),
             diagnostics_unoptimized: "Compilado sem otimizações".into(),
             diagnostics_unoptimized_detail: "Tudo roda muitas vezes mais devagar. Compile com --release."
                 .into(),

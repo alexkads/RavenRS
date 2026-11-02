@@ -41,6 +41,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 - **GPU choice on Linux.** The native window gives wgpu its display, so the GL backend can present on Wayland when no Vulkan driver is usable, instead of leaving only software rendering. A warning now says when the app renders on the CPU, and `RUST_LOG=ravenrs_platform_native=debug` logs how long each frame's update, acquire, render and present took.
+- **The app could draw on the CPU with a real GPU present.** No power preference was asked for, so wgpu took the first adapter it found: on an old Intel GPU on Linux, whose Vulkan driver it hides, that was software Vulkan, at about 11 frames per second, instead of the GPU on GL. It now asks for the GPU that spends the least, and `WGPU_POWER_PREF` overrides that. An adapter that refuses the limits no longer stops the app while another one works.
 - The wheel over an open `Dialog` or `Sheet` no longer scrolls the page behind it, as a pinch already did not.
 - In the glass theme, the `DataGrid`'s header, footer and group rows and the lines of `DataGrid`, `Ribbon` and `Scheduler` came out far too opaque, with the header text unreadable: `with_alpha` replaced the token's own transparency.
 - A `Select`, `DatePicker` or menu inside a `Dialog` or `Sheet` opened in the window's corner, behind the dialog's backdrop. Overlays opened from inside another now come after it: they sit by their anchor and on top, keep focus, and Escape closes only them.
