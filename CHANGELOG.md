@@ -7,7 +7,6 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Added
 - `Chat::busy` holds what is sent until an answer arrives.
 - **Narration recorded ahead of time.** `Narration` holds recordings of what films say, compressed to about 8 KB a second, and `MoviePlayer::narration` plays them in place of the system's voice, which still says whatever has no recording. `Sound::speak_clip` says a recording that `stop_speaking` can stop.
-- **Speech with LFM3 Audio.** `SpeechEngine` runs the 2B model on the CPU in plain Rust, as its model card says: 19 languages and locales, two voices, and the card's sampling values. `LocalVoice` says text a sentence at a time on its own thread, `VoiceManager` is the screen to choose the model, language, voice and fine settings, and `Chat::on_listen` puts a button to hear each answer.
 
 ## [27.1.4] - 2026-11-02
 

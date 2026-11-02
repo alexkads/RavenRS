@@ -847,6 +847,34 @@ fn record_narration() {
         }
         return;
     }
+    // Only what no recording in the folder has yet, after a film changed.
+    if std::env::var("FF_NARRATION_MISSING").is_ok() {
+        let wavs = std::env::var("FF_NARRATION_WAVS").expect("FF_NARRATION_WAVS");
+        let mut have = std::collections::HashSet::new();
+        for file in std::fs::read_dir(&wavs).expect("folder") {
+            let path = file.expect("file").path();
+            if path.extension().is_some_and(|extension| extension == "txt") {
+                let text = std::fs::read_to_string(&path).expect("text");
+                if !said.contains(&text) {
+                    // It is no longer in any film.
+                    std::fs::remove_file(path.with_extension("wav")).expect("old");
+                    std::fs::remove_file(&path).expect("old");
+                }
+                have.insert(text);
+            }
+        }
+        for (index, text) in said.iter().filter(|text| !have.contains(*text)).enumerate() {
+            let mut sound = Vec::new();
+            for sentence in sentences(&family_finance::ui::spoken(text)) {
+                sound.extend(engine.speak(&sentence, &settings, &mut |_| true).expect("sound"));
+                sound.extend_from_slice(&silence);
+            }
+            println!("new: {text}");
+            std::fs::write(format!("{wavs}/n{index:03}.wav"), wav_of(&sound)).expect("wav");
+            std::fs::write(format!("{wavs}/n{index:03}.txt"), text).expect("text");
+        }
+        return;
+    }
     for text in said.iter().take(limit.unwrap_or(usize::MAX)) {
         let mut sound = Vec::new();
         for sentence in sentences(&family_finance::ui::spoken(text)) {
@@ -962,5 +990,6 @@ fn most_of_what_the_films_say_is_recorded() {
             }
         }
     }
+    println!("{recorded} of {all} are recorded");
     assert!(all > 0 && recorded * 10 >= all * 9, "{recorded} of {all} are recorded");
 }
