@@ -4,8 +4,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.3] - 2026-11-02
+
 ### Added
-- `Alert::action` puts a button beside the message.
+- **`Chat` and `FloatingPanel`.** `Chat` is a conversation over a field to write in, with examples and cards to act on; it does not know who answers. `FloatingPanel` is a round button in the corner of the window that opens a panel over the app, which stays usable behind it. Dragging it or pressing an arrow key sends it to another corner, and it asks for frames only while the pointer or the focus is on it. `Labels` gains `send`.
+- **Local AI models.** `ModelPicker` lists models to download, try, use and remove. The new crate `ravenrs-ai`, desktop only, does the work: `ModelManager` offers only the models that fit the machine's memory and disk and tests their speed, `ModelFolder` downloads each when someone asks, checking its hash, and removes it, `LocalEngine` runs one on the CPU with no extra build tools, and `LocalAssistant` keeps it on its own thread, and `tool_rules` and `read_tool_call` let it choose among what the app offers, which is all it can do. Nothing else talks to the network.
+- **`MovieChat`.** A `Chat` that answers from the training films: each answer is a card with the moments that open. It looks only at the words the films hold, on this machine, and `MovieChat::writer` can have a local model write the answer about what it found. `ChatMessage::assistant_writing` shows an answer as it arrives, and `MovieAnswers` answers about the films for a chat that also does other things. `MovieAssistant::cue` lets it open a moment on the same player.
+- `Alert::action` puts a button beside the message, giving an `Alert<AlertAction>`; an alert without one stays `Send`.
 - **LFM3 in `ravenrs-ai`.** The catalog offers LFM3 1.7B, which `LocalEngine` runs with its own implementation, since candle stops at LFM2. It needs 4 GB of memory at the peak and chose the right tool in 27 of 32 requests. Its license allows commercial use only below 10 million dollars of annual revenue.
 - `GridColumn::fill` takes the width the columns leave, and `DataGrid::empty_text` says what no data means, apart from filters leaving nothing.
 - `Scheduler::fill_rows` shares the height left among the rows.
@@ -19,13 +24,6 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - A film's chapters show how long each one takes, and the current one what it teaches; a player with boxes over its film no longer repeats that under it.
 - `Badge` text moves toward the ink, to keep 4.5:1 on its tint.
 - `read_tool_call` accepts a tool's name written with accents or capitals, as models do.
-
-## [27.1.3] - 2026-11-01
-
-### Added
-- **`Chat` and `FloatingPanel`.** `Chat` is a conversation over a field to write in, with examples and cards to act on; it does not know who answers. `FloatingPanel` is a glowing sphere in the corner of the window that opens a panel over the app, which stays usable behind it. Dragging it or pressing an arrow key sends it to another corner, and it asks for frames only while the pointer or the focus is on it. `Labels` gains `send`.
-- **Local AI models.** `ModelPicker` lists models to download, try, use and remove. The new crate `ravenrs-ai`, desktop only, does the work: `ModelManager` offers only the models that fit the machine's memory and disk and tests their speed, `ModelFolder` downloads each when someone asks, checking its hash, and removes it, `LocalEngine` runs one on the CPU with no extra build tools, and `LocalAssistant` keeps it on its own thread, and `tool_rules` and `read_tool_call` let it choose among what the app offers, which is all it can do. Nothing else talks to the network.
-- **`MovieChat`.** A `Chat` that answers from the training films: each answer is a card with the moments that open. It looks only at the words the films hold, on this machine, and `MovieChat::writer` can have a local model write the answer about what it found. `ChatMessage::assistant_writing` shows an answer as it arrives, and `MovieAnswers` answers about the films for a chat that also does other things. `MovieAssistant::cue` lets it open a moment on the same player.
 
 ## [27.1.2] - 2026-11-01
 

@@ -348,14 +348,28 @@ impl View for Skeleton {
 
 /// A tinted message box with an icon, a title and a description.
 #[derive(Clone)]
-pub struct Alert {
+pub struct Alert<A = ()> {
     title: String,
     message: String,
     tone: Tone,
-    action: Option<(String, Rc<dyn Fn()>)>,
+    action: A,
 }
 
-impl std::fmt::Debug for Alert {
+/// What [`Alert::action`] adds to an alert. Its own type parameter, so an alert
+/// without a button stays `Send`.
+#[derive(Clone)]
+pub struct AlertAction {
+    label: String,
+    on_click: Rc<dyn Fn()>,
+}
+
+impl std::fmt::Debug for AlertAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AlertAction").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
+impl<A> std::fmt::Debug for Alert<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Alert").field("title", &self.title).field("tone", &self.tone).finish_non_exhaustive()
     }
@@ -364,25 +378,29 @@ impl std::fmt::Debug for Alert {
 impl Alert {
     /// An accent-toned alert with a title and a message.
     pub fn new(title: impl Into<String>, message: impl Into<String>) -> Self {
-        Self { title: title.into(), message: message.into(), tone: Tone::Accent, action: None }
+        Self { title: title.into(), message: message.into(), tone: Tone::Accent, action: () }
     }
 
+    /// A button beside the message, so that what it asks for is one click away.
+    #[must_use]
+    pub fn action(self, label: impl Into<String>, on_click: impl Fn() + 'static) -> Alert<AlertAction> {
+        Alert {
+            title: self.title,
+            message: self.message,
+            tone: self.tone,
+            action: AlertAction { label: label.into(), on_click: Rc::new(on_click) },
+        }
+    }
+}
+
+impl<A> Alert<A> {
     /// Sets the color tone and icon.
     pub fn tone(mut self, tone: Tone) -> Self {
         self.tone = tone;
         self
     }
 
-    /// A button beside the message, so that what it asks for is one click away.
-    #[must_use]
-    pub fn action(mut self, label: impl Into<String>, on_click: impl Fn() + 'static) -> Self {
-        self.action = Some((label.into(), Rc::new(on_click)));
-        self
-    }
-}
-
-impl View for Alert {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+    fn draw(&self, cx: &mut BuildCx<'_>, action: Option<&AlertAction>) -> NodeId {
         let theme = *cx.theme();
         let color = self.tone.color(&theme);
         let icon = util::icon(cx, self.tone.icon(), 18.0, color);
@@ -408,9 +426,9 @@ impl View for Alert {
             shadow: None,
         };
         let mut children = vec![icon, text];
-        if let Some((label, on_click)) = &self.action {
-            let on_click = on_click.clone();
-            let button = Button::new(label.clone())
+        if let Some(action) = action {
+            let on_click = action.on_click.clone();
+            let button = Button::new(action.label.clone())
                 .style(ButtonStyle::Secondary)
                 .size(ButtonSize::Small)
                 .on_click(move || on_click());
@@ -420,6 +438,18 @@ impl View for Alert {
         let role = if self.tone == Tone::Danger { Role::Alert } else { Role::Status };
         cx.semantics(node, Semantics::new(role));
         node
+    }
+}
+
+impl View for Alert {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        self.draw(cx, None)
+    }
+}
+
+impl View for Alert<AlertAction> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        self.draw(cx, Some(&self.action))
     }
 }
 
