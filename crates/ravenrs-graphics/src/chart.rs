@@ -28,6 +28,10 @@ pub enum ChartKind {
     Sparkline,
     /// A smoothed line over a filled area, without axes or text.
     SparkArea,
+    /// Series as polygons over spokes, one spoke per category.
+    Radar,
+    /// One ring per category, as long as its value.
+    RadialBar,
 }
 
 /// How a label sits in its box.
@@ -204,7 +208,7 @@ fn dot(center: Point, radius: f32, fill: Color) -> Shape {
 }
 
 /// Appends an arc around `center`, from one angle to another (radians, clockwise on the page).
-fn arc(path: &mut Vec<PathSegment>, center: Point, radius: f32, from: f32, to: f32) {
+pub(crate) fn arc(path: &mut Vec<PathSegment>, center: Point, radius: f32, from: f32, to: f32) {
     let segments = ((to - from).abs() / std::f32::consts::FRAC_PI_2).ceil().max(1.0) as usize;
     let step = (to - from) / segments as f32;
     let handle = 4.0 / 3.0 * (step / 4.0).tan() * radius;
@@ -233,6 +237,9 @@ pub fn draw_styled(
     options: &ChartOptions<'_>,
     style: &ChartStyle<'_>,
 ) -> ChartDrawing {
+    if matches!(options.kind, ChartKind::Radar | ChartKind::RadialBar) {
+        return plain_plot(data, rect, options, style);
+    }
     let mut drawing = ChartDrawing::default();
     if matches!(options.kind, ChartKind::Sparkline | ChartKind::SparkArea) {
         sparkline(data, rect, options, style, &mut drawing);
@@ -276,6 +283,26 @@ pub fn draw_styled(
         cartesian(data, area, options, style, &mut drawing);
     }
     drawing
+}
+
+/// A kind only [`crate::plot`] knows, in the shapes reports and exports write.
+fn plain_plot(
+    data: &ChartData,
+    rect: Rect,
+    options: &ChartOptions<'_>,
+    style: &ChartStyle<'_>,
+) -> ChartDrawing {
+    let plot_style = crate::plot::PlotStyle {
+        colors: if style.palette.is_empty() { PALETTE.to_vec() } else { style.palette.to_vec() },
+        ink: options.ink,
+        muted: options.muted,
+        grid: options.grid,
+        surface: style.separator,
+        size: options.size * 0.85,
+        ..crate::plot::PlotStyle::new(options.kind)
+    };
+    let plot = crate::plot::draw(data, rect, &plot_style);
+    ChartDrawing { shapes: plot.layers.iter().map(vector::Layer::to_shape).collect(), labels: plot.labels }
 }
 
 fn slice_color(style: &ChartStyle<'_>, index: usize) -> Color {

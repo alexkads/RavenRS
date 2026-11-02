@@ -28,6 +28,53 @@ pub struct Shape {
     pub stroke: Option<(f32, Color)>,
 }
 
+/// What a picture is made of, for [`rasterize_layers`]: [`Shape`]s, plus what only
+/// a picture can show.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum Layer {
+    /// A filled and/or outlined shape.
+    Shape(Shape),
+    /// An outline filled from one color at the `top` to another at the `bottom`.
+    Gradient {
+        /// Its outline.
+        path: Vec<PathSegment>,
+        /// Where the first color is whole, and that color.
+        top: (f32, Color),
+        /// Where the last color is whole, and that color.
+        bottom: (f32, Color),
+    },
+    /// An outline drawn in dashes.
+    Dashed {
+        /// Its outline.
+        path: Vec<PathSegment>,
+        /// How wide the line is.
+        width: f32,
+        /// How long each dash and each gap is.
+        dash: f32,
+        /// Its color.
+        color: Color,
+    },
+}
+
+impl Layer {
+    /// The closest a plain [`Shape`] gets, for outputs that only write shapes.
+    pub fn to_shape(&self) -> Shape {
+        match self {
+            Self::Shape(shape) => shape.clone(),
+            Self::Gradient { path, top, bottom } => {
+                let (a, b) = (top.1, bottom.1);
+                let middle =
+                    Color::rgba((a.r + b.r) / 2.0, (a.g + b.g) / 2.0, (a.b + b.b) / 2.0, (a.a + b.a) / 2.0);
+                Shape::filled(path.clone(), middle)
+            }
+            Self::Dashed { path, width, color, .. } => {
+                Shape { path: path.clone(), fill: None, stroke: Some((*width, *color)) }
+            }
+        }
+    }
+}
+
 /// A quarter circle as a Bézier curve: the handle's length for radius 1.
 const KAPPA: f32 = 0.552_284_8;
 
@@ -113,26 +160,97 @@ const MAX_SIDE: f32 = 4096.0;
 
 /// Draws shapes into a picture of `rect` at `scale` pixels per point, smoothed.
 pub fn rasterize(shapes: &[Shape], rect: Rect, scale: f32) -> Option<ImageData> {
+    rasterize_all(shapes.iter().map(LayerRef::Shape), rect, scale)
+}
+
+/// Draws layers into a picture of `rect` at `scale` pixels per point, smoothed.
+pub fn rasterize_layers(layers: &[Layer], rect: Rect, scale: f32) -> Option<ImageData> {
+    rasterize_all(layers.iter().map(LayerRef::Layer), rect, scale)
+}
+
+enum LayerRef<'a> {
+    Shape(&'a Shape),
+    Layer(&'a Layer),
+}
+
+fn draw_shape(pixmap: &mut tiny_skia::Pixmap, shape: &Shape, transform: tiny_skia::Transform) {
+    let Some(path) = build_path(&shape.path) else { return };
+    if let Some(fill) = shape.fill {
+        let paint = paint_of(fill);
+        pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, transform, None);
+    }
+    if let Some((width, color)) = shape.stroke {
+        let paint = paint_of(color);
+        pixmap.stroke_path(&path, &paint, &round_stroke(width), transform, None);
+    }
+}
+
+fn round_stroke(width: f32) -> tiny_skia::Stroke {
+    tiny_skia::Stroke {
+        width,
+        line_join: tiny_skia::LineJoin::Round,
+        line_cap: tiny_skia::LineCap::Round,
+        ..tiny_skia::Stroke::default()
+    }
+}
+
+fn skia_color(color: Color) -> tiny_skia::Color {
+    tiny_skia::Color::from_rgba(
+        color.r.clamp(0.0, 1.0),
+        color.g.clamp(0.0, 1.0),
+        color.b.clamp(0.0, 1.0),
+        color.a.clamp(0.0, 1.0),
+    )
+    .unwrap_or(tiny_skia::Color::TRANSPARENT)
+}
+
+fn draw_layer(pixmap: &mut tiny_skia::Pixmap, layer: &Layer, transform: tiny_skia::Transform) {
+    match layer {
+        Layer::Shape(shape) => draw_shape(pixmap, shape, transform),
+        Layer::Gradient { path, top, bottom } => {
+            let Some(path) = build_path(path) else { return };
+            let stops = vec![
+                tiny_skia::GradientStop::new(0.0, skia_color(top.1)),
+                tiny_skia::GradientStop::new(1.0, skia_color(bottom.1)),
+            ];
+            let Some(shader) = tiny_skia::LinearGradient::new(
+                tiny_skia::Point::from_xy(0.0, top.0),
+                tiny_skia::Point::from_xy(0.0, bottom.0),
+                stops,
+                tiny_skia::SpreadMode::Pad,
+                tiny_skia::Transform::identity(),
+            ) else {
+                return;
+            };
+            let paint = tiny_skia::Paint { anti_alias: true, shader, ..tiny_skia::Paint::default() };
+            pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, transform, None);
+        }
+        Layer::Dashed { path, width, dash, color } => {
+            let Some(path) = build_path(path) else { return };
+            let paint = paint_of(*color);
+            let stroke = tiny_skia::Stroke {
+                dash: tiny_skia::StrokeDash::new(vec![*dash, *dash], 0.0),
+                ..round_stroke(*width)
+            };
+            pixmap.stroke_path(&path, &paint, &stroke, transform, None);
+        }
+    }
+}
+
+fn rasterize_all<'a>(
+    layers: impl Iterator<Item = LayerRef<'a>>,
+    rect: Rect,
+    scale: f32,
+) -> Option<ImageData> {
     let scale = scale.min(MAX_SIDE / rect.width().max(1.0)).min(MAX_SIDE / rect.height().max(1.0));
     let width = (rect.width() * scale).ceil().max(1.0) as u32;
     let height = (rect.height() * scale).ceil().max(1.0) as u32;
     let mut pixmap = tiny_skia::Pixmap::new(width, height)?;
     let transform = tiny_skia::Transform::from_translate(-rect.x(), -rect.y()).post_scale(scale, scale);
-    for shape in shapes {
-        let Some(path) = build_path(&shape.path) else { continue };
-        if let Some(fill) = shape.fill {
-            let paint = paint_of(fill);
-            pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, transform, None);
-        }
-        if let Some((width, color)) = shape.stroke {
-            let paint = paint_of(color);
-            let stroke = tiny_skia::Stroke {
-                width,
-                line_join: tiny_skia::LineJoin::Round,
-                line_cap: tiny_skia::LineCap::Round,
-                ..tiny_skia::Stroke::default()
-            };
-            pixmap.stroke_path(&path, &paint, &stroke, transform, None);
+    for layer in layers {
+        match layer {
+            LayerRef::Shape(shape) => draw_shape(&mut pixmap, shape, transform),
+            LayerRef::Layer(layer) => draw_layer(&mut pixmap, layer, transform),
         }
     }
     // The pixmap is premultiplied; images hold straight alpha.
@@ -220,6 +338,31 @@ mod tests {
     fn a_huge_scale_is_held_back() {
         let image = rasterize(&[square()], Rect::new(0.0, 0.0, 800.0, 800.0), 100.0).expect("an image");
         assert!(image.width() <= 4096);
+    }
+
+    #[test]
+    fn a_gradient_goes_from_its_top_color_to_its_bottom_color() {
+        let layer = Layer::Gradient {
+            path: rectangle(Rect::new(0.0, 0.0, 10.0, 100.0), 0.0),
+            top: (0.0, Color::rgba(1.0, 0.0, 0.0, 0.8)),
+            bottom: (100.0, Color::rgba(1.0, 0.0, 0.0, 0.1)),
+        };
+        let image = rasterize_layers(&[layer], Rect::new(0.0, 0.0, 10.0, 100.0), 1.0).expect("an image");
+        let (high, low) = (pixel(&image, 5, 2)[3], pixel(&image, 5, 97)[3]);
+        assert!(high > 190 && low < 40, "{high} and {low}");
+    }
+
+    #[test]
+    fn a_dashed_line_has_gaps() {
+        let layer = Layer::Dashed {
+            path: vec![PathSegment::Move(Point::new(0.0, 5.0)), PathSegment::Line(Point::new(40.0, 5.0))],
+            width: 2.0,
+            dash: 8.0,
+            color: RED,
+        };
+        let image = rasterize_layers(&[layer], Rect::new(0.0, 0.0, 40.0, 10.0), 1.0).expect("an image");
+        assert!(pixel(&image, 4, 5)[3] > 200, "a dash");
+        assert_eq!(pixel(&image, 12, 5)[3], 0, "a gap");
     }
 
     #[test]

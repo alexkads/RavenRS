@@ -893,6 +893,8 @@ name = "component-gallery"
 version = "27.1.4"
 dependencies = [
  "console_error_panic_hook",
+ "image",
+ "pollster",
  "ravenrs",
  "tracing-subscriber",
  "wasm-bindgen",

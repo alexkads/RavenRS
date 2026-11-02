@@ -385,6 +385,7 @@ pub(crate) struct Element {
     pub scrolls_with_widget: bool,
     pub on_context_menu: Option<Rc<dyn Fn(Point)>>,
     pub on_context_menu_in: Option<Rc<dyn Fn(Point, Rect)>>,
+    pub on_pointer_move: Option<Rc<dyn Fn(Point, Rect)>>,
     /// How the element appears to assistive technology.
     pub semantics: Option<Box<Semantics>>,
     /// The string a text leaf shows.
@@ -419,6 +420,7 @@ impl Element {
             scrolls_with_widget: false,
             on_context_menu: None,
             on_context_menu_in: None,
+            on_pointer_move: None,
             semantics: None,
             text: None,
             motion: None,
@@ -431,6 +433,7 @@ impl Element {
             || self.on_double_click.is_some()
             || self.on_context_menu.is_some()
             || self.on_context_menu_in.is_some()
+            || self.on_pointer_move.is_some()
             || self.cursor.is_some()
             || self.focus_radius.is_some()
             || self.on_drag.is_some()
@@ -1013,6 +1016,15 @@ impl<'a> BuildCx<'a> {
     pub fn on_context_menu_in(&mut self, node: NodeId, handler: Rc<dyn Fn(Point, Rect)>) {
         if let Some(e) = self.element_mut(node) {
             e.on_context_menu_in = Some(handler);
+        }
+    }
+
+    /// Calls `handler` with the pointer position and the element's absolute frame
+    /// whenever the pointer moves over it, for something that depends on where inside
+    /// it the pointer is. [`is_hover_within`](Self::is_hover_within) says when it left.
+    pub fn on_pointer_move(&mut self, node: NodeId, handler: Rc<dyn Fn(Point, Rect)>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_pointer_move = Some(handler);
         }
     }
 

@@ -195,6 +195,7 @@ pub struct Pagination {
     previous: String,
     next: String,
     page_name: String,
+    compact: bool,
 }
 
 impl Pagination {
@@ -206,7 +207,15 @@ impl Pagination {
             previous: "Previous".into(),
             next: "Next".into(),
             page_name: "Page".into(),
+            compact: false,
         }
+    }
+
+    /// Shows "1 / 12" between the buttons instead of the page numbers, so that the
+    /// buttons stay in the same place whatever the number of pages.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
     }
 
     /// The text of the two buttons and the word screen readers say before a
@@ -223,6 +232,9 @@ impl Pagination {
         self
     }
 }
+
+/// Room for "123 / 456" in a compact [`Pagination`].
+const COMPACT_PAGE_WIDTH: f32 = 72.0;
 
 /// The page numbers to show (zero-based), with `None` for an ellipsis.
 pub(crate) fn page_window(current: usize, pages: usize) -> Vec<Option<usize>> {
@@ -264,7 +276,24 @@ impl View for Pagination {
                     .on_click(move || prev.update(|p| *p = p.saturating_sub(1))),
             ),
         );
-        for (k, entry) in page_window(current, self.pages).into_iter().enumerate() {
+        if self.compact {
+            let color = theme.color(Semantic::Ink);
+            let text = format!("{} / {}", current + 1, self.pages);
+            let label = util::label(cx, &text, TextStyle::Callout, Some(Weight::MEDIUM), color);
+            let node = cx.container(
+                LayoutStyle {
+                    width: Some(COMPACT_PAGE_WIDTH),
+                    justify: Justify::Center,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &[label],
+                Paint::None,
+            );
+            cx.semantics(node, Semantics::new(Role::Label).name(format!("{} {text}", self.page_name)));
+            items.push(node);
+        }
+        let window = if self.compact { Vec::new() } else { page_window(current, self.pages) };
+        for (k, entry) in window.into_iter().enumerate() {
             match entry {
                 Some(p) => {
                     let b = self.page.clone();

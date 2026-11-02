@@ -4,6 +4,7 @@
 use ravenrs::layout::{Axis, LayoutStyle};
 use ravenrs::prelude::*;
 
+pub mod charts;
 pub mod samples;
 
 fn first_of_plan() -> Date {
@@ -1865,7 +1866,8 @@ impl Gallery {
 
     fn charts(&self, width: f32) -> impl View + use<> {
         VStack::new((
-            page_header("Charts", "The same layout as reports: shapes in a picture at the screen's density, labels as real text."),
+            page_header("Charts", "Every pattern of the shadcn/ui catalog. Shapes in a picture at the screen's density, labels as real text."),
+            charts::ChartCatalog { columns: columns(width, 2) },
             demo(
                 "Area chart",
                 "A smoothed series over a filled area.",

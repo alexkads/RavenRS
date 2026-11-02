@@ -37,7 +37,7 @@ samples! {
     "Tooltip" => tooltip, "DropdownMenu" => dropdown_menu, "ContextMenu" => context_menu,
     "SplashScreen" => splash_screen, "CommandPalette" => command_palette, "Toaster" => toaster,
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
-    "Chart" => chart, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
+    "Chart" => chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
@@ -628,6 +628,24 @@ fn chart() -> impl View {
         .series("2025", [12.0, 18.0, 15.0, 21.0, 19.0, 24.0])
         .series("2026", [14.0, 21.0, 26.0, 24.0, 31.0, 35.0])
         .height(260.0)
+}
+// end
+
+// sample: ChartCard, 420
+fn chart_card() -> impl View {
+    ChartCard::new(
+        Chart::new(ChartKind::Area)
+            .categories(["Jan", "Feb", "Mar", "Apr", "May", "Jun"])
+            .series("Desktop", [186.0, 305.0, 237.0, 73.0, 209.0, 214.0])
+            .series("Mobile", [80.0, 200.0, 120.0, 190.0, 130.0, 140.0])
+            .stack(ChartStack::Normal)
+            .gradient()
+            .height(220.0),
+    )
+    .title("Visitors")
+    .description("January to June")
+    .trend("Up by 5.2% this month", IconName::TrendingUp)
+    .note("All channels")
 }
 // end
 

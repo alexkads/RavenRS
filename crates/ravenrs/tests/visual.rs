@@ -231,6 +231,26 @@ fn ribbon() -> impl View {
         .page(RibbonPage::new("Layout").contextual("Table tools", Tone::Warning, true)),))
 }
 
+fn charts() -> impl View {
+    let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+    let (first, second) =
+        ([186.0, 305.0, 237.0, 73.0, 209.0, 214.0], [80.0, 200.0, 120.0, 190.0, 130.0, 140.0]);
+    let chart = |kind| Chart::new(kind).categories(months).series("First", first).height(150.0);
+    let padded = |view: Chart| Card::new(view).padding(10.0);
+    Grid::new(
+        3,
+        (
+            padded(chart(ChartKind::Area).series("Second", second).stack(ChartStack::Normal).gradient()),
+            padded(chart(ChartKind::Bar).series("Second", second)),
+            padded(chart(ChartKind::Line).dots().hide_legend()),
+            padded(chart(ChartKind::Doughnut).hide_legend().center_text("1,224", "Total")),
+            padded(chart(ChartKind::Radar).dots().hide_legend()),
+            padded(chart(ChartKind::RadialBar).tracks().hide_legend()),
+        ),
+    )
+    .spacing(8.0)
+}
+
 macro_rules! visual {
     ($name:ident, $view:expr, $w:expr, $h:expr) => {
         #[test]
@@ -250,3 +270,4 @@ visual!(cards_alerts_badges, cards_and_feedback(), 480.0, 330.0);
 visual!(calendar_month, calendar(), 300.0, 340.0);
 visual!(data_grid_sorted_selected, data_grid(), 520.0, 404.0);
 visual!(ribbon_home_page, ribbon(), 700.0, 160.0);
+visual!(charts_of_every_family, charts(), 720.0, 500.0);

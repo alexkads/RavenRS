@@ -4,6 +4,21 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- **Every pattern of the shadcn/ui chart catalog.** `Chart` draws all 70 of them, in the gallery under their names: `curve`, `stack`, `gradient`, `horizontal`, `vary_colors`, `negative_color`, `active`, `dots`, `dot_icon`, `value_labels`, `category_labels`, `grid`, `center_text`, `concentric`, and more.
+- `ChartKind::Radar` and `ChartKind::RadialBar`, in charts and in what reports draw.
+- `ChartTooltip` says what is under the pointer or the arrow keys, with indicators, formats, icons and a total. `Chart` takes keyboard focus for it; `hide_tooltip` turns it off.
+- `ChartCard` is a chart's card: title, description, what changes it, tabs with totals, and how it trends.
+- `Semantic::Chart1` to `Chart5` are series colors for each theme. Charts no longer use status colors, so a series does not look like an error.
+- `ravenrs_graphics::plot` lays these charts out, and says where each value landed. `vector::rasterize_layers` adds gradients and dashes to what a picture can have.
+- `BuildCx::on_pointer_move` says where the pointer is over an element.
+- `Pagination::compact` shows "1 / 12", so its buttons stay in place.
+
+### Changed
+- The legend of a `Chart` is real text under or over it, and numbers on the axis are optional: `show_value_axis`.
+- A screen reader hears every series of a `Chart`, not only the first.
+- `DocumentViewer` uses the compact pagination, so another document moves nothing in its toolbar.
+
 ## [27.1.4] - 2026-11-02
 
 ### Added

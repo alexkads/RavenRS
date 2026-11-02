@@ -524,7 +524,8 @@ impl View for DocumentViewer {
         if let Some(leading) = &self.leading {
             bar.extend(leading());
         }
-        bar.push(Box::new(Pagination::new(state.page.binding(), pages).labels(
+        // Compact: another document must not move what is beside it.
+        bar.push(Box::new(Pagination::new(state.page.binding(), pages).compact().labels(
             labels.previous.clone(),
             labels.next.clone(),
             labels.page.clone(),

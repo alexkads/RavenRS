@@ -1,6 +1,7 @@
 //! Charts and barcodes: the layout comes from `ravenrs-graphics`, so these check
 //! what the component adds. It paints a picture and text, and keeps them.
 #![cfg(feature = "charts")]
+#![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
 use ravenrs_core::{ImageData, ImageQuad, Point, Primitive, Rect, Size};
 use ravenrs_layout::Align;
@@ -202,4 +203,167 @@ fn a_code_stays_where_its_box_is() {
     let ui = ui(VStack::new((Spacer::new().height(30.0), Barcode::qr("x"))).spacing(0.0));
     assert_eq!(images(&ui)[0].rect.origin, Point::new(0.0, 30.0));
     assert_eq!(images(&ui)[0].rect, Rect::new(0.0, 30.0, 160.0, 160.0));
+}
+
+fn bars() -> Chart {
+    Chart::new(ChartKind::Bar)
+        .categories(["A", "B", "C", "D"])
+        .series("First", [1.0, 2.0, 3.0, 4.0])
+        .series("Second", [5.0, 6.0, 7.0, 8.0])
+        .alt("Sales")
+}
+
+fn chart_ui(chart: Chart) -> Ui {
+    ui(VStack::new((chart,)).align(Align::Stretch))
+}
+
+fn image_node(ui: &mut Ui) -> ravenrs_core::AccessNode {
+    let tree = ui.access_tree();
+    let found = tree.nodes.iter().find(|n| n.role == ravenrs_core::Role::Image);
+    found.expect("the chart").clone()
+}
+
+fn hover(ui: &mut Ui, x: f32, y: f32) {
+    ui.handle_event(&ravenrs_core::Event::PointerMove { position: Point::new(x, y) });
+    ui.update();
+    ui.update();
+}
+
+fn key(ui: &mut Ui, key: ravenrs_core::Key) {
+    ui.handle_event(&ravenrs_core::Event::KeyDown { key, modifiers: ravenrs_core::Modifiers::default() });
+    ui.update();
+    ui.update();
+}
+
+#[test]
+fn the_pointer_says_what_is_under_it() {
+    let mut ui = chart_ui(bars());
+    let before = glyph_runs(&ui);
+    hover(&mut ui, 700.0, 100.0);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("D, First: 4, Second: 8"));
+    assert!(glyph_runs(&ui) > before, "the tooltip is on the screen");
+    hover(&mut ui, 100.0, 100.0);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("A, First: 1, Second: 5"));
+    hover(&mut ui, 400.0, 500.0);
+    assert_eq!(image_node(&mut ui).value, None, "the pointer left");
+}
+
+#[test]
+fn a_tooltip_shows_what_it_was_asked_to() {
+    let tooltip = ChartTooltip::new()
+        .label_format(|name| format!("Week {name}"))
+        .value_format(|value| format!("{value:.0} kcal"))
+        .show_total("Total");
+    let mut ui = chart_ui(bars().tooltip(tooltip));
+    hover(&mut ui, 100.0, 100.0);
+    assert_eq!(
+        image_node(&mut ui).value.as_deref(),
+        Some("Week A, First: 1 kcal, Second: 5 kcal, Total: 6 kcal")
+    );
+}
+
+#[test]
+fn the_arrow_keys_walk_the_categories() {
+    let mut ui = chart_ui(bars());
+    key(&mut ui, ravenrs_core::Key::Tab);
+    key(&mut ui, ravenrs_core::Key::ArrowRight);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("A, First: 1, Second: 5"));
+    key(&mut ui, ravenrs_core::Key::ArrowRight);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("B, First: 2, Second: 6"));
+    key(&mut ui, ravenrs_core::Key::End);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("D, First: 4, Second: 8"));
+    key(&mut ui, ravenrs_core::Key::Escape);
+    assert_eq!(image_node(&mut ui).value, None);
+}
+
+#[test]
+fn a_screen_reader_hears_every_series() {
+    let mut ui = chart_ui(bars());
+    let description = image_node(&mut ui).description.expect("the values");
+    assert!(description.contains("First: A: 1") && description.contains("Second: A: 5"), "{description}");
+}
+
+#[test]
+fn the_pointer_does_not_draw_the_picture_again() {
+    let mut ui = chart_ui(bars());
+    let first = images(&ui)[0].image.clone();
+    hover(&mut ui, 100.0, 100.0);
+    hover(&mut ui, 700.0, 100.0);
+    assert_eq!(images(&ui)[0].image, first);
+}
+
+#[test]
+fn a_still_chart_asks_for_no_frames() {
+    let mut ui = chart_ui(bars());
+    ui.update();
+    assert!(!ui.needs_redraw());
+    hover(&mut ui, 100.0, 100.0);
+    let mut time = 0.0;
+    while ui.is_animating() && time < 3.0 {
+        time += 0.1;
+        ui.set_time(time);
+        ui.update();
+    }
+    assert!(!ui.needs_redraw());
+}
+
+#[test]
+fn without_a_tooltip_it_is_only_a_picture() {
+    let mut ui = chart_ui(bars().hide_tooltip());
+    key(&mut ui, ravenrs_core::Key::Tab);
+    key(&mut ui, ravenrs_core::Key::ArrowRight);
+    hover(&mut ui, 100.0, 100.0);
+    assert_eq!(image_node(&mut ui).value, None);
+}
+
+#[test]
+fn the_new_kinds_paint_a_picture_and_say_what_is_under_the_pointer() {
+    for kind in [ChartKind::Radar, ChartKind::RadialBar] {
+        let chart = Chart::new(kind).categories(["A", "B", "C"]).series("S", [1.0, 3.0, 2.0]);
+        let mut ui = chart_ui(chart);
+        assert!(images(&ui)[0].image.pixels().chunks(4).any(|p| p[3] > 0), "{kind:?}");
+        hover(&mut ui, 460.0, 80.0);
+        assert!(image_node(&mut ui).value.is_some(), "{kind:?}");
+    }
+}
+
+#[test]
+fn icons_stand_in_for_dots() {
+    let plain = chart_ui(line());
+    let with_icons = chart_ui(line().dot_icon(IconName::Star));
+    assert_eq!(glyph_runs(&with_icons), glyph_runs(&plain) + 3);
+}
+
+#[test]
+fn the_series_colors_are_the_themes_and_not_status_colors() {
+    let theme = Theme::raven_light();
+    let colors = [Semantic::Chart1, Semantic::Chart2, Semantic::Chart3, Semantic::Chart4, Semantic::Chart5]
+        .map(|role| theme.color(role));
+    assert_eq!(colors[0], theme.color(Semantic::Accent));
+    for color in &colors[1..] {
+        assert_ne!(*color, theme.color(Semantic::Danger));
+        assert_ne!(*color, theme.color(Semantic::Success));
+    }
+    assert_ne!(colors[1], Theme::raven_dark().color(Semantic::Chart2), "each theme has its own");
+}
+
+#[test]
+fn a_chart_card_says_what_it_is_and_switches_its_tabs() {
+    let tab = State::new(0_usize);
+    let card = ChartCard::new(line())
+        .title("Sales")
+        .description("Half a year")
+        .trend("Up by 5%", IconName::TrendingUp)
+        .note("All channels")
+        .tabs(tab.binding(), [("Desktop", "120"), ("Mobile", "80")]);
+    let mut ui = ui(VStack::new((card,)).align(Align::Stretch));
+    let tree = ui.access_tree();
+    let names: Vec<&str> = tree.nodes.iter().filter_map(|n| n.name.as_deref()).collect();
+    for text in ["Sales", "Half a year", "Up by 5%", "All channels", "Mobile: 80"] {
+        assert!(names.contains(&text), "{text} in {names:?}");
+    }
+    let id = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Mobile: 80")).expect("the tab").id;
+    ui.perform_action(id, ravenrs_core::AccessAction::Click);
+    ui.update();
+    assert_eq!(tab.get(), 1);
 }

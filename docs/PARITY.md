@@ -115,12 +115,16 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Bar / column chart | ✓ | ✓ | ✓ | ✅ `BarChart`, `Chart` |
-| Area chart, sparkline | ✓ | ✓ | ✓ | ✅ `AreaChart`, `Chart` |
-| Line chart | ✓ | ✓ | ✓ | ✅ `Chart`, with the layout reports use |
-| Pie / donut | ✓ | ✓ | ✓ | ✅ `Chart` |
-| Scatter, bubble, radar, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`; the others ⬜ |
-| Gauges (linear, circular, arc) | | ✓ | ✓ | 🟡 `ProgressBar`; circular gauges need paths |
+| Bar / column chart | ✓ | ✓ | ✓ | ✅ `Chart`, `BarChart`: horizontal, grouped, stacked, negative, labels, active |
+| Area chart, sparkline | ✓ | ✓ | ✓ | ✅ `Chart`, `AreaChart`: stacked, expanded, gradient, curves |
+| Line chart | ✓ | ✓ | ✓ | ✅ `Chart`: natural, monotone, linear and step curves, dots, icons, labels |
+| Pie / donut | ✓ | ✓ | ✓ | ✅ `Chart`: rings, active slice, center text, labels |
+| Radar, radial | | ✓ | ✓ | ✅ `Chart`: polygon and circle grids, filled, tracks, stacked |
+| Chart tooltip, legend, keyboard | ✓ | ✓ | ✓ | ✅ `ChartTooltip`, `ChartLegend`, arrow keys |
+| Scatter, bubble, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`; the others ⬜ |
+| Gauges (linear, circular, arc) | | ✓ | ✓ | ✅ `ProgressBar`, `Chart` with `RadialBar` |
+
+The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built with `Chart` and `ChartCard`: all 70 patterns are in the gallery's Charts page, under their names (`examples/component-gallery/src/charts.rs`).
 | Maps | | ✓ | ✓ | ⬜ |
 | Diagram / Org chart | | ✓ | ✓ | ⬜ |
 | QR code / Barcode | | ✓ | ✓ | ✅ `Barcode`: QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF |

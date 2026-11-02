@@ -384,6 +384,12 @@ impl Ui {
                     self.drag(widget, DragPhase::Move, *position);
                 }
                 self.refresh_hover();
+                if let Some(node) = self.hit_test(*position) {
+                    let i = node.0 as usize;
+                    if let Some(handler) = self.elements[i].on_pointer_move.clone() {
+                        handler(*position, self.frames[i]);
+                    }
+                }
             }
             Event::PointerDown { position, button: PointerButton::Primary } => {
                 self.pointer = Some(*position);

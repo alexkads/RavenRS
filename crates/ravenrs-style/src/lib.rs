@@ -44,6 +44,16 @@ pub enum Semantic {
     Danger,
     /// `scrim`: the dimmed backdrop behind dialogs and sheets, the same in every theme.
     Scrim,
+    /// `chart-1`: the first series of a chart, the theme's accent.
+    Chart1,
+    /// `chart-2`: the second series of a chart.
+    Chart2,
+    /// `chart-3`: the third series of a chart.
+    Chart3,
+    /// `chart-4`: the fourth series of a chart.
+    Chart4,
+    /// `chart-5`: the fifth series of a chart.
+    Chart5,
 }
 
 /// The color tokens of one theme.
@@ -101,7 +111,21 @@ impl Palette {
             Semantic::Warning => self.warning,
             Semantic::Danger => self.danger,
             Semantic::Scrim => Color::rgba(0.0, 0.0, 0.0, 0.5),
+            Semantic::Chart1 => self.accent,
+            Semantic::Chart2 => self.chart_color(0x0f9f8f, 0x2dd4bf),
+            Semantic::Chart3 => self.chart_color(0x8b5cf6, 0xa78bfa),
+            Semantic::Chart4 => self.chart_color(0xe08a00, 0xfbbf24),
+            Semantic::Chart5 => self.chart_color(0xdb2777, 0xf472b6),
         }
+    }
+
+    /// A series color: none of them means anything, unlike the status colors, and
+    /// each theme needs its own to read on its background. Ink tells them apart.
+    fn chart_color(&self, on_light: u32, on_dark: u32) -> Color {
+        let on_dark_theme = self.ink.r + self.ink.g + self.ink.b > 1.5;
+        let rgb = if on_dark_theme { on_dark } else { on_light };
+        let channel = |shift: u32| ((rgb >> shift) & 0xff) as f32 / 255.0;
+        Color::rgba(channel(16), channel(8), channel(0), 1.0)
     }
 }
 

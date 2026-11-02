@@ -144,5 +144,5 @@ These block a "commercial-grade" label and are prioritized ahead of new componen
 
 1. **Right-to-left layout.** Parley shapes bidirectional text, but layouts do not mirror.
 2. **Remaining keyboard patterns** in the 🟡 rows above: Ribbon key tips.
-3. **Visual coverage.** Golden images exist for 6 scenes. Overlays, navigation and charts have none yet.
-4. **Screen reader depth.** Text fields do not expose caret position or selection, charts expose only their labels, and the web mirror is rebuilt whole when the tree changes. Tested with macOS VoiceOver's API (System Events) and the browser's DOM; not yet with NVDA, Narrator or Orca.
+3. **Visual coverage.** Golden images exist for 7 scenes. Overlays and navigation have none yet.
+4. **Screen reader depth.** Text fields do not expose caret position or selection, and the web mirror is rebuilt whole when the tree changes. Tested with macOS VoiceOver's API (System Events) and the browser's DOM; not yet with NVDA, Narrator or Orca.
