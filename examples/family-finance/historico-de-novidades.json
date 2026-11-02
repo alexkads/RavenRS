@@ -1,5 +1,18 @@
 [
   {
+    "versao": "0.1.9",
+    "data": "2026-11-02",
+    "titulo": "Telas mais limpas, com o que precisa de atenção em primeiro lugar.",
+    "importante": false,
+    "novidades": [
+      "O painel mostra as próximas contas antes dos gráficos, e o alerta de contas tem um botão que leva direto a elas.",
+      "Em Lançamentos e Contas a pagar, a tabela ficou com menos colunas e sem a linha de filtros fixa. Os filtros estão no menu Filtrar.",
+      "A esfera do assistente ficou menor e não cobre mais os botões, e uma despesa nova já começa na categoria que você mais usa.",
+      "Os treinamentos foram regravados com as telas novas."
+    ],
+    "por_que_atualizar": "Para ver primeiro o que precisa de atenção e lançar despesas com menos cliques."
+  },
+  {
     "versao": "0.1.8",
     "data": "2026-11-01",
     "titulo": "Um assistente no canto da tela, que pode usar uma IA rodando neste computador.",
