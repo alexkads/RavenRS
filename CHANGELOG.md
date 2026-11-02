@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.6] - 2026-11-02
+
 ### Added
 - **Touchpad pinches on Wayland.** winit 0.30 delivers them only on macOS and iOS, so the new crate `ravenrs-wayland-gestures` listens on winit's own connection. It holds the workspace's only `unsafe` call, and goes away with a winit that delivers them.
 
