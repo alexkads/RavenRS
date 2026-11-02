@@ -367,3 +367,57 @@ fn a_chart_card_says_what_it_is_and_switches_its_tabs() {
     ui.update();
     assert_eq!(tab.get(), 1);
 }
+
+/// Where the tooltip's panel is: the one thing in a chart with a shadow.
+fn panel_of(ui: &Ui) -> Option<Rect> {
+    ui.scene().primitives().iter().find_map(|p| match p {
+        Primitive::Quad(q) if q.shadow.is_some() => Some(q.rect),
+        _ => None,
+    })
+}
+
+fn at_time(ui: &mut Ui, time: f64) {
+    ui.set_time(time);
+    ui.update();
+}
+
+#[test]
+fn the_tooltip_glides_from_one_place_to_the_next() {
+    let mut ui = chart_ui(bars());
+    at_time(&mut ui, 0.0);
+    ui.handle_event(&ravenrs_core::Event::PointerMove { position: Point::new(100.0, 100.0) });
+    ui.update();
+    ui.update();
+    at_time(&mut ui, 3.0);
+    let start = panel_of(&ui).expect("the panel").x();
+    ui.handle_event(&ravenrs_core::Event::PointerMove { position: Point::new(300.0, 100.0) });
+    ui.update();
+    ui.update();
+    at_time(&mut ui, 3.05);
+    let moving = panel_of(&ui).expect("the panel").x();
+    for frame in 2..=120 {
+        at_time(&mut ui, 3.0 + f64::from(frame) / 30.0);
+    }
+    let end = panel_of(&ui).expect("the panel").x();
+    assert!(end > start + 50.0, "{start} to {end}");
+    assert!(moving > start && moving < end, "{start}, {moving}, {end}: on its way, not there yet");
+}
+
+#[test]
+fn the_tooltip_follows_the_pointer_up_and_down_a_column() {
+    let mut ui = chart_ui(bars());
+    at_time(&mut ui, 0.0);
+    ui.handle_event(&ravenrs_core::Event::PointerMove { position: Point::new(100.0, 60.0) });
+    ui.update();
+    ui.update();
+    at_time(&mut ui, 3.0);
+    let high = panel_of(&ui).expect("the panel").center().y;
+    ui.handle_event(&ravenrs_core::Event::PointerMove { position: Point::new(100.0, 180.0) });
+    ui.update();
+    ui.update();
+    for frame in 1..=120 {
+        at_time(&mut ui, 3.0 + f64::from(frame) / 30.0);
+    }
+    let low = panel_of(&ui).expect("the panel").center().y;
+    assert!(low > high + 60.0, "{high} to {low}");
+}

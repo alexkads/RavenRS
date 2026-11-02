@@ -659,8 +659,8 @@ pub(crate) fn collapse(cx: &mut BuildCx<'_>, open: bool, content: &dyn View) -> 
     cx.child(&Body(open, content))
 }
 
-const SURFACE_ENTER_SCALE: f32 = 0.96;
-const SURFACE_EXIT_SCALE: f32 = 0.98;
+pub(crate) const SURFACE_ENTER_SCALE: f32 = 0.96;
+pub(crate) const SURFACE_EXIT_SCALE: f32 = 0.98;
 
 /// How floating panels appear: from the side of their anchor.
 ///

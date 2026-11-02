@@ -441,7 +441,17 @@ impl View for TooltipPanel {
         );
         // The chart says the same to a screen reader.
         cx.semantics(node, Semantics::hidden());
-        motion::popup(cx, node);
+        // One panel that glides from place to place, and picks up from wherever it is
+        // when the pointer changes its mind.
+        let m = theme.motion;
+        cx.motion(
+            node,
+            Motion::new()
+                .anchored()
+                .layout(m.gentle)
+                .enter(Effect::scaled(motion::SURFACE_ENTER_SCALE), m.snappy)
+                .exit(Effect::scaled(motion::SURFACE_EXIT_SCALE), m.fast),
+        );
         node
     }
 }
@@ -1161,12 +1171,21 @@ impl Chart {
         let hovered = cx.is_hover_within();
         let focused = cx.is_focused();
         let shown = active.get().filter(|_| (hovered || focused) && self.tooltip.is_some());
+        let pointer: State<Option<Point>> = cx.use_state(|| None::<Point>);
 
         // The anchor of the tooltip is where the last picture put this category.
         let mut children = Vec::new();
         let spot = shown.and_then(|index| {
             let picture = picture.borrow();
-            let at = picture.drawing.anchor_of(index)?;
+            let place = picture.drawing.anchor_of(index)?;
+            // It follows the pointer along what is free: up and down a column, along a
+            // row, or anywhere over a slice. With the keyboard it stays on the category.
+            let at = match pointer.get().filter(|_| hovered) {
+                Some(p) if picture.drawing.spots.is_empty() => p,
+                Some(p) if self.look.horizontal => Point::new(p.x, place.y),
+                Some(p) => Point::new(place.x, p.y),
+                None => place,
+            };
             Some((at, at.x > picture.size.width / 2.0))
         });
         let anchor = spot.map(|(at, _)| {
@@ -1200,11 +1219,12 @@ impl Chart {
         let node = plot_node(cx, node_style, picture.clone(), drawing, self.dot_icon, highlight, &children);
 
         if self.tooltip.is_some() {
-            let (write, seen) = (active.clone(), picture.clone());
+            let (write, seen, follow) = (active.clone(), picture.clone(), pointer.clone());
             cx.on_pointer_move(
                 node,
                 Rc::new(move |position, frame| {
                     let local = Point::new(position.x - frame.x(), position.y - frame.y());
+                    follow.set(Some(local));
                     let hit = seen.borrow().drawing.hit(local).map(|hit| hit.index);
                     if write.get() != hit {
                         write.set(hit);
