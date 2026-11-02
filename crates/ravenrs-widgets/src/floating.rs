@@ -242,6 +242,7 @@ impl View for SheetLayer<'_> {
                 .enter(Effect::moved(away, 0.0), theme.motion.gentle)
                 .exit(Effect::moved(away, 0.0), theme.motion.base),
         );
+        let scrim = motion::scrim(cx, viewport);
         let backdrop = cx.container(
             LayoutStyle {
                 width: Some(viewport.width),
@@ -249,12 +250,11 @@ impl View for SheetLayer<'_> {
                 justify: if s.side == Side::Right { Justify::End } else { Justify::Start },
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
-            &[panel],
-            Paint::Quad(QuadPaint::new(theme.color(Semantic::Scrim))),
+            &[scrim, panel],
+            Paint::None,
         );
         let close = s.open.clone();
         cx.on_click(backdrop, Rc::new(move || close.set(false)));
-        motion::scrim(cx, backdrop);
         backdrop
     }
 }
@@ -623,8 +623,8 @@ impl View for ToastStack<'_> {
                 Motion::new()
                     .key(t.id)
                     .layout(theme.motion.snappy)
-                    .enter(Effect::moved(32.0, 0.0).with_opacity(0.0), theme.motion.gentle)
-                    .exit(Effect::moved(32.0, 0.0).with_opacity(0.0), theme.motion.fast),
+                    .enter(Effect::moved(32.0, 0.0), theme.motion.gentle)
+                    .exit(Effect::moved(32.0, 0.0), theme.motion.fast),
             );
             cards.push(card);
         }
@@ -889,6 +889,7 @@ impl View for PaletteLayer<'_> {
         cx.label_control(field, &palette_name, None);
         let card = panel(cx, &rows, 10.0, (viewport.width - 32.0).clamp(280.0, 560.0));
         cx.semantics(card, Semantics::new(Role::Dialog).name(palette_name).modal());
+        let scrim = motion::scrim(cx, viewport);
         let backdrop = cx.container(
             LayoutStyle {
                 width: Some(viewport.width),
@@ -897,12 +898,11 @@ impl View for PaletteLayer<'_> {
                 align: Align::Center,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
-            &[card],
-            Paint::Quad(QuadPaint::new(theme.color(Semantic::Scrim))),
+            &[scrim, card],
+            Paint::None,
         );
         let close = self.palette.open.clone();
         cx.on_click(backdrop, Rc::new(move || close.set(false)));
-        motion::scrim(cx, backdrop);
         backdrop
     }
 }

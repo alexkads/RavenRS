@@ -649,22 +649,41 @@ pub(crate) fn collapse(cx: &mut BuildCx<'_>, open: bool, content: &dyn View) -> 
     cx.child(&Body(open, content))
 }
 
+const SURFACE_ENTER_SCALE: f32 = 0.96;
+const SURFACE_EXIT_SCALE: f32 = 0.98;
+
 /// How floating panels appear: from the side of their anchor.
+///
+/// It stays solid while it moves. Opacity applies to each shape on its own, so a panel
+/// fading in would show what is behind it through its fields, in a gray like metal.
 pub(crate) fn popup(cx: &mut BuildCx<'_>, node: NodeId) {
     let m = cx.theme().motion;
     cx.motion(
         node,
         Motion::new()
             .anchored()
-            .enter(Effect::hidden().with_scale(0.96), m.snappy)
-            .exit(Effect::hidden().with_scale(0.98), m.fast),
+            .enter(Effect::scaled(SURFACE_ENTER_SCALE), m.snappy)
+            .exit(Effect::scaled(SURFACE_EXIT_SCALE), m.fast),
     );
 }
 
-/// How the dimmed backdrop of a modal layer comes and goes.
-pub(crate) fn scrim(cx: &mut BuildCx<'_>, node: NodeId) {
-    let m = cx.theme().motion;
+/// The dimmed backdrop of a modal layer, which fades. It goes behind the panel as its
+/// sibling: a fade on the panel's parent would reach the panel too.
+pub(crate) fn scrim(cx: &mut BuildCx<'_>, viewport: ravenrs_core::Size) -> NodeId {
+    let theme = *cx.theme();
+    let node = cx.container(
+        LayoutStyle {
+            absolute: Some((0.0, 0.0)),
+            width: Some(viewport.width),
+            height: Some(viewport.height),
+            ..LayoutStyle::leaf()
+        },
+        &[],
+        Paint::Quad(QuadPaint::new(theme.color(ravenrs_style::Semantic::Scrim))),
+    );
+    let m = theme.motion;
     cx.motion(node, Motion::new().enter(Effect::hidden(), m.base).exit(Effect::hidden(), m.base));
+    node
 }
 
 /// How a control acknowledges hover and press.

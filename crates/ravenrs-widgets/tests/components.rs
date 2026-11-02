@@ -256,7 +256,7 @@ fn table_list_and_charts_build() {
     )));
     ui.update();
     assert!(ui.element_count() > 40, "{}", ui.element_count());
-    assert!(quads(&ui).len() > 20, "everything but the charts paints quads");
+    assert!(quads(&ui).len() > 19, "everything but the charts paints quads");
     let images = ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Image(_))).count();
     assert!(images >= 2, "each chart paints a picture");
 }
@@ -652,4 +652,50 @@ fn an_alert_can_offer_what_it_asks_for() {
     ui.perform_action(button.id, ravenrs_core::AccessAction::Click);
     ui.update();
     assert_eq!(clicks.get(), 1);
+}
+
+#[test]
+fn a_help_tip_opens_under_the_pointer_and_a_click_keeps_it_open() {
+    let tip =
+        VStack::new((HelpTip::new("Saldo", "A soma das contas.").how("Veja o gráfico."),)).padding(40.0);
+    let mut ui = Ui::new(tip, Theme::raven_light());
+    ui.set_viewport(Size::new(600.0, 400.0), 1.0);
+    ui.update();
+    let says = |ui: &mut Ui, wanted: &str| {
+        ui.access_tree().nodes.iter().any(|n| n.name.as_deref().is_some_and(|name| name.starts_with(wanted)))
+    };
+    assert!(says(&mut ui, "Help: Saldo"));
+    assert!(!says(&mut ui, "A soma das contas."));
+    let button = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref() == Some("Help: Saldo"))
+        .map(|n| (n.id, n.bounds))
+        .expect("the button");
+    assert_eq!(
+        ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.id == button.0)
+            .and_then(|n| n.description.clone())
+            .as_deref(),
+        Some("A soma das contas. Veja o gráfico."),
+        "screen readers get the same words"
+    );
+    ui.handle_event(&Event::PointerMove { position: button.1.center() });
+    ui.update();
+    assert!(says(&mut ui, "A soma das contas."));
+    ui.handle_event(&Event::PointerMove { position: Point::new(500.0, 350.0) });
+    ui.update();
+    assert!(!says(&mut ui, "A soma das contas."), "it leaves with the pointer");
+    ui.perform_action(button.0, ravenrs_core::AccessAction::Click);
+    ui.update();
+    assert!(says(&mut ui, "A soma das contas."), "a click keeps it");
+    ui.handle_event(&Event::PointerDown {
+        position: Point::new(500.0, 350.0),
+        button: PointerButton::Primary,
+    });
+    ui.update();
+    assert!(!says(&mut ui, "A soma das contas."), "until a click elsewhere");
 }

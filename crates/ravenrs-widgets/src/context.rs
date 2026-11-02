@@ -371,6 +371,8 @@ pub(crate) struct Element {
     pub scroll: bool,
     /// Children also scroll horizontally.
     pub scroll_x: bool,
+    /// How far past its edge the scrollbar goes.
+    pub scrollbar_outside: f32,
     /// Scrolling rebuilds the UI (virtualized content that depends on the offset).
     pub rebuild_on_scroll: bool,
     /// Visual offset applied to the children's positions.
@@ -406,6 +408,7 @@ impl Element {
             on_drag: None,
             clip: false,
             scroll: false,
+            scrollbar_outside: 0.0,
             scroll_x: false,
             rebuild_on_scroll: false,
             translate: Point::ZERO,
@@ -1071,12 +1074,19 @@ impl<'a> BuildCx<'a> {
     }
 
     /// Makes the node a vertical scroll container: its children scroll with the
-    /// wheel or trackpad, are clipped, and a scrollbar is drawn when they overflow.
+    /// wheel or trackpad, are clipped, and a scrollbar shows while they move.
     /// Give the node `LayoutStyle::overflow_hidden` so it does not grow to fit.
     pub fn scrollable(&mut self, node: NodeId) {
         if let Some(e) = self.element_mut(node) {
             e.scroll = true;
             e.clip = true;
+        }
+    }
+
+    /// Puts this scroll container's scrollbar `by` past its right edge, in the room around it.
+    pub fn scrollbar_outside(&mut self, node: NodeId, by: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.scrollbar_outside = by;
         }
     }
 

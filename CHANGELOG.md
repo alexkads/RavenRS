@@ -9,8 +9,18 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Scheduler` scrolls by itself while a drag is near an edge, zooms with a pinch or Ctrl and the wheel, scrolls with the wheel over its names, and brings into view the event keyboard focus reaches. `BuildCx::scroll_with_widget` and `shortcut_with_shift` are new.
 - `Scheduler::event_menu` and `lane_menu` offer menus on a right click, and with `card` a tooltip shows an event's whole name and where a drag is taking it, and the row under the pointer lights up.
 
+- `HelpTip` is a small "?" that explains what something is and how to use it, under the pointer, on keyboard focus and, after a click, until a click elsewhere.
+- `Sidebar::rail` opens and closes it from a strip along its edge, `SidebarBrand` is an app's name that keeps only its mark when reduced to icons, and `SidebarItem::shortcut` shows the keys that do the same.
+
+- `MoviePlayer` plays at three speeds, jumps with the arrow keys, shows where chapters begin on its timeline, which step of how many it is at, the chapters already passed, and at the end offers to watch again or `next`. `Slider::marks` draws the notches.
+
+### Changed
+- `Recorder::guide` brings the pointer to what a step asks for before stopping there.
+- A scrollbar shows only around a scroll and then fades, so it no longer sits over what it scrolls at rest. `ScrollView::scrollbar_outside` puts it in the margin around the view.
+
 ### Fixed
 - `Avatar`'s initials can be read in a light theme.
+- Dialogs, menus, panels and toasts stay solid while they come and go: fading, they showed the page through their fields, in a gray like metal that stands out in a light theme.
 
 ## [27.1.3] - 2026-11-02
 

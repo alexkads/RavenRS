@@ -95,6 +95,99 @@ impl<V: View> View for Tooltip<V> {
     }
 }
 
+/// What a [`HelpTip`] opens: what something is and, if it helps, how to use it.
+struct HelpPanel<'a> {
+    title: &'a str,
+    text: &'a str,
+    how: Option<&'a str>,
+}
+
+impl View for HelpPanel<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let (ink, muted) = (theme.color(Semantic::Ink), theme.color(Semantic::InkMuted));
+        let wrapped = |cx: &mut BuildCx<'_>, text: &str, weight, color| {
+            cx.child(
+                &crate::Text::new(text.to_owned())
+                    .style(TextStyle::Callout)
+                    .font_weight(weight)
+                    .foreground(color),
+            )
+        };
+        let mut lines = vec![
+            wrapped(cx, self.title, Weight::SEMIBOLD, ink),
+            wrapped(cx, self.text, Weight::REGULAR, muted),
+        ];
+        if let Some(how) = self.how {
+            lines.push(cx.child(&crate::Divider::horizontal()));
+            lines.push(wrapped(cx, how, Weight::REGULAR, ink));
+        }
+        let column = cx.container(
+            LayoutStyle {
+                width: Some(HELP_WIDTH),
+                spacing: theme.spacing.s2,
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &lines,
+            Paint::None,
+        );
+        panel(cx, &[column], theme.spacing.s3, 0.0)
+    }
+}
+
+const HELP_WIDTH: f32 = 280.0;
+
+/// A small "?" beside something that needs explaining. Its panel opens under the
+/// pointer and on keyboard focus, and a click keeps it open until a click elsewhere.
+/// Screen readers get the same words as the button's description.
+#[derive(Clone, Debug)]
+pub struct HelpTip {
+    title: String,
+    text: String,
+    how: Option<String>,
+}
+
+impl HelpTip {
+    /// Explains what `title` is.
+    pub fn new(title: impl Into<String>, text: impl Into<String>) -> Self {
+        Self { title: title.into(), text: text.into(), how: None }
+    }
+
+    /// Adds how to use it, set apart from what it is.
+    #[must_use]
+    pub fn how(mut self, how: impl Into<String>) -> Self {
+        self.how = Some(how.into());
+        self
+    }
+}
+
+impl View for HelpTip {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let pinned: State<bool> = cx.use_state(|| false);
+        let toggle = pinned.clone();
+        let button = IconButton::new(IconName::CircleHelp)
+            .label(format!("{}: {}", cx.labels().help, self.title))
+            .size(crate::ButtonSize::Small)
+            .style(ButtonStyle::Ghost)
+            .on_click(move || toggle.update(|open| *open = !*open));
+        // Built as this view, so that hover and focus on the button are this view's.
+        let node = button.build(cx);
+        let description = match &self.how {
+            Some(how) => format!("{} {how}", self.text),
+            None => self.text.clone(),
+        };
+        cx.update_semantics(node, |s| s.description = Some(description.clone()));
+        if pinned.get() || cx.is_hovered() || cx.is_focus_visible() {
+            let panel = HelpPanel { title: &self.title, text: &self.text, how: self.how.as_deref() };
+            let close = pinned.clone();
+            let dismiss: Rc<dyn Fn()> = Rc::new(move || close.set(false));
+            cx.overlay(node, Placement::Below, &panel, pinned.get().then_some(dismiss));
+        }
+        node
+    }
+}
+
 /// Floating content anchored below a view, open while `open` is true. Clicking
 /// outside or pressing Escape closes it.
 pub struct Popover<A, C> {
@@ -737,9 +830,10 @@ impl View for DialogLayer<'_> {
         cx.motion(
             card,
             Motion::new()
-                .enter(Effect::moved(0.0, 8.0).with_opacity(0.0).with_scale(0.96), theme.motion.gentle)
+                .enter(Effect::moved(0.0, 8.0).with_scale(0.96), theme.motion.gentle)
                 .exit(Effect::IDENTITY.with_scale(0.98), theme.motion.fast),
         );
+        let scrim = motion::scrim(cx, viewport);
         let backdrop = cx.container(
             LayoutStyle {
                 width: Some(viewport.width),
@@ -748,12 +842,11 @@ impl View for DialogLayer<'_> {
                 justify: Justify::Center,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
-            &[card],
-            Paint::Quad(QuadPaint::new(theme.color(Semantic::Scrim))),
+            &[scrim, card],
+            Paint::None,
         );
         let close = d.open.clone();
         cx.on_click(backdrop, Rc::new(move || close.set(false)));
-        motion::scrim(cx, backdrop);
         backdrop
     }
 }

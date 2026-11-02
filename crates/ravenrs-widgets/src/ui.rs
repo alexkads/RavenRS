@@ -1,4 +1,5 @@
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
@@ -25,6 +26,10 @@ type Waker = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 /// Lines scrolled per wheel notch are converted to pixels by the platform; this
 /// is the width of the overlay scrollbar.
 const SCROLLBAR_WIDTH: f32 = 4.0;
+/// How long a scrollbar stays after the last scroll, and how long it takes to go.
+const SCROLLBAR_HOLD: f64 = 0.9;
+const SCROLLBAR_FADE: f64 = 0.25;
+const SCROLLBAR_ALPHA: f32 = 0.45;
 
 /// Longest time between frames that animations treat as having really passed.
 const MAX_FRAME_GAP: f64 = 0.25;
@@ -79,6 +84,10 @@ pub struct Ui {
     /// or code moved focus; a click never asks for this).
     reveal_focus: bool,
     dragging: Option<WidgetId>,
+    /// When each scroll container last moved: its scrollbar shows only around that.
+    scrolled_at: HashMap<WidgetId, f64>,
+    /// A scrollbar was on the last frame, so another one has to follow.
+    scrollbar_showing: bool,
     /// Seconds since start, set by the platform.
     time: f64,
     shortcuts: Vec<Shortcut>,
@@ -162,6 +171,8 @@ impl Ui {
             interaction: Interaction::default(),
             reveal_focus: false,
             dragging: None,
+            scrolled_at: HashMap::new(),
+            scrollbar_showing: false,
             time: 0.0,
             shortcuts: Vec::new(),
             activity: None,
@@ -680,6 +691,10 @@ impl Ui {
             );
             if (next.x - current.x).abs() > f32::EPSILON || (next.y - current.y).abs() > f32::EPSILON {
                 self.scroll.offsets.insert(e.widget, next);
+                self.scrolled_at.insert(e.widget, self.time);
+                self.scrollbar_showing = true;
+                self.next_live = Some(self.time);
+                let e = &self.elements[i];
                 if e.rebuild_on_scroll {
                     self.needs_build = true;
                 }
@@ -1037,6 +1052,7 @@ impl Ui {
     fn paint(&mut self) {
         let _span = tracing::trace_span!("ravenrs::paint").entered();
         let theme = self.theme();
+        self.scrollbar_showing = false;
         let viewport = Rect::from_origin_size(Point::ZERO, self.viewport);
         if self.crossfade {
             let mut old = Vec::with_capacity(self.scene.len() + 1);
@@ -1066,7 +1082,7 @@ impl Ui {
         self.motion.paint_ghosts(GhostLayer::Overlay, &mut self.scene);
         self.motion.paint_ghosts(GhostLayer::Top, &mut self.scene);
         let live = self.has_live && !self.reduced_motion();
-        self.next_live = live.then_some(self.time + LIVE_FRAME);
+        self.next_live = (live || self.scrollbar_showing).then_some(self.time + LIVE_FRAME);
         self.tell_activity(crate::context::UiActivity::Painted(&self.scene));
     }
 
@@ -1175,11 +1191,15 @@ impl Ui {
         for child in children {
             self.paint_node(child, child_clip, theme);
         }
-        if self.elements[i].scroll {
-            self.paint_scrollbar(i, theme);
+        let outside = self.elements[i].scrollbar_outside;
+        if self.elements[i].scroll && outside == 0.0 {
+            self.paint_scrollbar(i, theme, 0.0);
         }
         if clips_children {
             self.scene.pop_clip();
+        }
+        if self.elements[i].scroll && outside != 0.0 {
+            self.paint_scrollbar(i, theme, outside);
         }
         let element = &self.elements[i];
         if let Some(radius) = element.focus_radius
@@ -1226,16 +1246,26 @@ impl Ui {
         self.scene.apply_effect(start..end, effect, pivot);
     }
 
-    fn paint_scrollbar(&mut self, i: usize, theme: &Theme) {
+    /// Draws the scrollbar around a scroll, and lets it fade. `outside` puts it that far
+    /// past the container's edge, in the room around what it scrolls.
+    fn paint_scrollbar(&mut self, i: usize, theme: &Theme, outside: f32) {
         let frame = self.frames[i];
         let (content, max) = (self.content[i], self.max_offset(i));
         let offset = self.clamped_offset(i);
-        let color = theme.color(Semantic::InkMuted).with_alpha(0.45);
+        let Some(&moved) = self.scrolled_at.get(&self.elements[i].widget) else { return };
+        let age = self.time - moved;
+        if age >= SCROLLBAR_HOLD + SCROLLBAR_FADE {
+            return;
+        }
+        self.scrollbar_showing = true;
+        let fading = ((age - SCROLLBAR_HOLD) / SCROLLBAR_FADE).clamp(0.0, 1.0) as f32;
+        let alpha = if self.reduced_motion() { SCROLLBAR_ALPHA } else { SCROLLBAR_ALPHA * (1.0 - fading) };
+        let color = theme.color(Semantic::InkMuted).with_alpha(alpha);
         if max.y > 0.5 && frame.height() > 0.0 {
             let track = frame.height() - 8.0;
             let thumb = (track * frame.height() / content.height).max(24.0).min(track);
             let y = frame.y() + 4.0 + (track - thumb) * (offset.y / max.y);
-            let rect = Rect::new(frame.max_x() - SCROLLBAR_WIDTH - 3.0, y, SCROLLBAR_WIDTH, thumb);
+            let rect = Rect::new(frame.max_x() - SCROLLBAR_WIDTH - 3.0 + outside, y, SCROLLBAR_WIDTH, thumb);
             self.scene.push_quad(Quad::new(rect, color).radius(SCROLLBAR_WIDTH / 2.0));
         }
         if self.elements[i].scroll_x && max.x > 0.5 && frame.width() > 0.0 {

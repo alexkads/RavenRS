@@ -118,10 +118,11 @@ pub use model_picker::{ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus}
 pub use modifiers::{Styled, ViewExt};
 pub use motion::{Collapse, Motion};
 pub use nav::{
-    Accordion, Breadcrumb, Disclosure, Sidebar, SidebarCollapse, SidebarGroup, SidebarInset, SidebarItem,
-    SidebarParts, SidebarSection, SidebarSkeleton, SidebarState, SidebarTrigger, SidebarVariant, Tabs,
+    Accordion, Breadcrumb, Disclosure, Sidebar, SidebarBrand, SidebarCollapse, SidebarGroup, SidebarInset,
+    SidebarItem, SidebarParts, SidebarSection, SidebarSkeleton, SidebarState, SidebarTrigger, SidebarVariant,
+    Tabs,
 };
-pub use overlay::{Dialog, DropdownMenu, MenuItem, Popover, Select, Tooltip};
+pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
 pub use recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
 pub use remote::UiWaker;

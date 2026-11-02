@@ -181,3 +181,30 @@ fn focus_in_a_popover_leaves_the_page_behind_it_alone() {
     assert_eq!(focused(&mut ui).as_deref(), Some("Inside 5"));
     assert_eq!(bounds(&mut ui, "Item 0"), before);
 }
+
+#[test]
+fn a_scrollbar_shows_while_scrolling_and_then_goes_away() {
+    use ravenrs_core::Primitive;
+    let rows: Vec<AnyView> = (0..40).map(|i| Box::new(Text::new(format!("Row {i}"))) as AnyView).collect();
+    let mut ui = Ui::new(ScrollView::new(rows), Theme::raven_light());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    ui.update();
+    let thin_quads = |ui: &Ui| {
+        ui.scene()
+            .primitives()
+            .iter()
+            .filter(|p| matches!(p, Primitive::Quad(q) if q.rect.width() <= 4.0 && q.rect.height() >= 24.0))
+            .count()
+    };
+    assert_eq!(thin_quads(&ui), 0, "nothing at rest");
+    wheel(&mut ui, Point::new(100.0, 100.0), -120.0);
+    ui.update();
+    assert_eq!(thin_quads(&ui), 1, "there while it moves");
+    assert!(ui.next_wake().is_some(), "and it asks for the frames that take it away");
+    ui.set_time(5.0);
+    ui.update();
+    ui.set_time(5.1);
+    ui.update();
+    assert_eq!(thin_quads(&ui), 0, "gone after a moment");
+    assert!(ui.next_wake().is_none(), "and asks for nothing");
+}

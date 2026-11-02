@@ -14,6 +14,8 @@ use crate::view::View;
 pub struct Labels {
     /// Closes a dialog or a sheet.
     pub close: String,
+    /// The name of a [`HelpTip`](crate::HelpTip), before what it explains.
+    pub help: String,
     /// A sidebar's name.
     pub navigation: String,
     /// A sidebar trigger's name.
@@ -222,6 +224,7 @@ impl Default for Labels {
     fn default() -> Self {
         Self {
             close: "Close".into(),
+            help: "Help".into(),
             navigation: "Navigation".into(),
             toggle_sidebar: "Toggle sidebar".into(),
             dismiss: "Dismiss".into(),
@@ -354,6 +357,7 @@ impl Labels {
     pub fn pt_br() -> Self {
         Self {
             close: "Fechar".into(),
+            help: "Ajuda".into(),
             navigation: "Navegação".into(),
             toggle_sidebar: "Alternar barra lateral".into(),
             dismiss: "Dispensar".into(),

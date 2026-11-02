@@ -35,7 +35,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
 | Tabs / TabStrip | ✓ | ✓ | ✓ | ✅ `Tabs` |
-| Sidebar / Drawer navigation | ✓ | ✓ | ✓ | ✅ `Sidebar`: closes to icons or off the screen, header and footer, groups, submenus, actions, badges, skeleton, sheet in narrow windows, floating and inset variants. Drag to resize: `Splitter` |
+| Sidebar / Drawer navigation | ✓ | ✓ | ✓ | ✅ `Sidebar`: closes to icons or off the screen, a rail along its edge, a brand, keys on a row, header and footer, groups, submenus, actions, badges, skeleton, sheet in narrow windows, floating and inset variants. Drag to resize: `Splitter` |
 | Breadcrumb | ✓ | ✓ | ✓ | ✅ `Breadcrumb` |
 | Pagination / Pager | ✓ | ✓ | ✓ | ✅ `Pagination` |
 | Accordion / PanelBar | ✓ | ✓ | ✓ | ✅ `Accordion`, `Disclosure` |

@@ -46,6 +46,7 @@ Rules for components:
 - Use `theme.motion`, not numbers of your own, and declare motion with `cx.motion`.
 - Exits are shorter than entrances: the user has already moved on.
 - Scale subtly (0.96 and up). Popups grow from their anchor, with `Motion::anchored`.
+- A surface with content stays solid while it moves: dialogs, menus and panels never fade. Opacity applies to each shape on its own, so a fading panel shows the page through its fields. Only its backdrop fades.
 - A row in a virtualized list has no enter animation, because scrolling would set it off.
 
 ## Components

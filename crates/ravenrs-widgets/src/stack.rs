@@ -140,11 +140,12 @@ impl View for Spacer {
 
 /// A vertically scrolling stack. It fills the space its parent gives it (or
 /// `height`) and scrolls its children with the wheel or trackpad, showing a
-/// thin scrollbar when they overflow.
+/// thin scrollbar while they move.
 pub struct ScrollView<C> {
     children: C,
     style: LayoutStyle,
     horizontal: bool,
+    scrollbar_outside: f32,
 }
 
 impl<C> std::fmt::Debug for ScrollView<C> {
@@ -167,7 +168,16 @@ impl<C: ViewSeq> ScrollView<C> {
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             horizontal: false,
+            scrollbar_outside: 0.0,
         }
+    }
+
+    /// Puts the scrollbar this far past the view's right edge, for a view inside a
+    /// padded surface such as a dialog, so that it never passes over what it scrolls.
+    #[must_use]
+    pub fn scrollbar_outside(mut self, by: f32) -> Self {
+        self.scrollbar_outside = by;
+        self
     }
 
     /// Also scrolls sideways, for content wider than the view (a zoomed page,
@@ -210,6 +220,9 @@ impl<C: ViewSeq> View for ScrollView<C> {
         let children = cx.children(&self.children);
         let node = cx.container(self.style, &children, Paint::None);
         cx.scrollable(node);
+        if self.scrollbar_outside != 0.0 {
+            cx.scrollbar_outside(node, self.scrollbar_outside);
+        }
         if self.horizontal {
             cx.scroll_horizontally(node);
         }
