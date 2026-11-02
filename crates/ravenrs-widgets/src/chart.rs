@@ -9,7 +9,7 @@ use std::rc::Rc;
 use ravenrs_core::{Color, ImageData, ImageQuad, Point, Rect, Role, Size};
 use ravenrs_graphics::barcode::{self, Pattern};
 use ravenrs_graphics::chart::{
-    self, ChartData, ChartDrawing, ChartLabel, ChartOptions, LabelAlign, SeriesData,
+    self, ChartData, ChartDrawing, ChartLabel, ChartOptions, ChartStyle, LabelAlign, SeriesData,
 };
 use ravenrs_graphics::vector::{self, Shape};
 use ravenrs_layout::{Align, LayoutStyle};
@@ -307,23 +307,11 @@ impl View for Chart {
         let (grid, separator) = (theme.color(Semantic::Border), theme.color(Semantic::SurfaceElevated));
         let bar_radius = theme.radii.sm;
         let drawing: DrawingFn = Rc::new(move |rect, _| {
-            chart::draw(
+            chart::draw_styled(
                 &data,
                 rect,
-                &ChartOptions {
-                    kind,
-                    title: &title,
-                    legend,
-                    size,
-                    ink,
-                    muted,
-                    grid,
-                    format: &*format,
-                    palette: &colors,
-                    separator,
-                    bar_radius,
-                    max_bar_width: MAX_BAR_WIDTH,
-                },
+                &ChartOptions { kind, title: &title, legend, size, ink, muted, grid, format: &*format },
+                &ChartStyle { palette: &colors, separator, bar_radius, max_bar_width: MAX_BAR_WIDTH },
             )
         });
         let style = LayoutStyle {
