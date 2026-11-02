@@ -5,7 +5,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Memo, PAGE_INSETS, Store, heading};
+use super::store::{Memo, PAGE_INSETS, Page, Store, titled_card};
 use crate::model::{
     Account, Bill, BillStatus, BudgetLine, Flow, MonthTotals, date_label, month_label, month_short,
     parse_date, shift_months,
@@ -14,6 +14,10 @@ use crate::money::format_brl;
 
 /// How many days ahead count as "coming up".
 const SOON_DAYS: i32 = 30;
+/// The next bills, beside the balance on a wide window.
+const BILLS_WIDTH: f32 = 400.0;
+/// The height of that row, which fits the chart and five bills.
+const TOP_HEIGHT: f32 = 400.0;
 
 #[derive(Default)]
 struct Numbers {
@@ -38,15 +42,6 @@ impl DashboardState {
     }
 }
 
-fn card<V: View + 'static>(title: &str, content: V) -> impl View + use<V> {
-    let title = title.to_owned();
-    Card::new(
-        VStack::new((Text::new(title).style(TextStyle::Headline), content))
-            .spacing(14.0)
-            .align(Align::Stretch),
-    )
-}
-
 fn tone_of(status: BillStatus) -> Tone {
     match status {
         BillStatus::Overdue => Tone::Danger,
@@ -57,11 +52,9 @@ fn tone_of(status: BillStatus) -> Tone {
 }
 
 fn percent_change(now: i64, before: i64) -> Option<String> {
-    // No change is nothing to point out.
-    if now == before {
-        return None;
-    }
-    (before > 0).then(|| format!("{:+.0}% vs. mês passado", (now - before) as f64 / before as f64 * 100.0))
+    let change = (now - before) as f64 / before.max(1) as f64 * 100.0;
+    // Nothing changed is nothing to point out.
+    (before > 0 && change.abs() >= 0.5).then(|| format!("{change:+.0}% vs. mês passado"))
 }
 
 pub(crate) fn dashboard(
@@ -69,7 +62,7 @@ pub(crate) fn dashboard(
     state: &DashboardState,
     forms: &Forms,
     open_page: Rc<dyn Fn(usize)>,
-) -> impl View + use<> {
+) -> Page {
     let numbers = state.0.get(store.version(), || {
         let today = store.today;
         Rc::new(Numbers {
@@ -92,7 +85,7 @@ pub(crate) fn dashboard(
     });
     let today = store.today;
     let (store, forms) = (store.clone(), forms.clone());
-    responsive(move |size| {
+    let body = responsive(move |size| {
         let numbers = numbers.clone();
         let wide = size.width >= 1180.0;
         let total: i64 = numbers.accounts.iter().map(|a| a.balance_cents).sum();
@@ -120,9 +113,8 @@ pub(crate) fn dashboard(
             );
         }
         let stats = Grid::new(
-            if wide { 4 } else { 2 },
+            if wide { 3 } else { 1 },
             (
-                Card::new(Stat::new("Saldo das contas", format_brl(total))),
                 Card::new(income),
                 Card::new(expense),
                 Card::new(Stat::new("A pagar em 30 dias", format_brl(soon_total))),
@@ -130,33 +122,17 @@ pub(crate) fn dashboard(
         )
         .spacing(16.0);
 
-        let warning = (!overdue.is_empty()).then(|| {
-            Alert::new(
-                format!(
-                    "{} {} vencida{}",
-                    overdue.len(),
-                    if overdue.len() == 1 { "conta" } else { "contas" },
-                    if overdue.len() == 1 { "" } else { "s" }
-                ),
-                format!("{} em atraso.", format_brl(overdue_total)),
-            )
-            .tone(Tone::Danger)
-            .action("Ver contas", {
-                let open_page = open_page.clone();
-                move || open_page(2)
-            })
-        });
-
         let months: Vec<String> = numbers
             .months
             .iter()
             .filter_map(|m| parse_date(&format!("{}-01", m.month)))
             .map(month_short)
             .collect();
-        let balance_chart = card(
-            "Saldo nos últimos 12 meses",
+        let wide_chart = if wide { 256.0 } else { 170.0 };
+        let balance = Card::new(
             VStack::new((
-                AreaChart::new(numbers.balances.iter().map(|c| *c as f32 / 100.0)).height(190.0),
+                Stat::new("Saldo das contas", format_brl(total)),
+                AreaChart::new(numbers.balances.iter().map(|c| *c as f32 / 100.0)).height(wide_chart),
                 HStack::new((
                     Text::new(months.first().cloned().unwrap_or_default())
                         .style(TextStyle::Caption)
@@ -167,54 +143,71 @@ pub(crate) fn dashboard(
                         .foreground(Semantic::InkMuted),
                 )),
             ))
-            .spacing(6.0)
+            .spacing(8.0)
             .align(Align::Stretch),
-        );
-        let spending: Vec<(String, f32)> = numbers
+        )
+        .grow(1.0);
+
+        let largest = numbers.budget.iter().map(|l| l.spent_cents).max().unwrap_or(0).max(1);
+        let spending: Vec<AnyView> = numbers
             .budget
             .iter()
             .filter(|l| l.spent_cents > 0)
-            .take(8)
-            .map(|l| (l.category.clone(), l.spent_cents as f32 / 100.0))
+            .take(6)
+            .map(|l| {
+                Box::new(
+                    VStack::new((
+                        HStack::new((
+                            Text::new(l.category.clone()).style(TextStyle::Callout),
+                            Spacer::new(),
+                            Text::new(format_brl(l.spent_cents)).style(TextStyle::Callout),
+                        )),
+                        ProgressBar::new(l.spent_cents as f32 / largest as f32),
+                    ))
+                    .spacing(4.0)
+                    .align(Align::Stretch),
+                ) as AnyView
+            })
             .collect();
-        let category_chart: AnyView = if spending.is_empty() {
-            Box::new(card(
-                &format!("Despesas de {}", month_label(today)),
+        let spending_title = format!("Despesas de {}", month_label(today));
+        let category_card: AnyView = if spending.is_empty() {
+            Box::new(titled_card(
+                &spending_title,
                 Text::new("Nenhuma despesa neste mês.").foreground(Semantic::InkMuted),
             ))
         } else {
-            Box::new(card(
-                &format!("Despesas de {}", month_label(today)),
-                BarChart::new(spending).height(214.0),
-            ))
+            Box::new(titled_card(&spending_title, VStack::new(spending).spacing(12.0).align(Align::Stretch)))
         };
-        let charts = Grid::new(if wide { 2 } else { 1 }, (balance_chart, category_chart)).spacing(16.0);
 
         let mut rows: Vec<AnyView> = soon
             .iter()
-            .take(7)
+            .take(5)
             .map(|bill| {
                 let status = bill.status(today);
                 let (id, pay_store, pay) = (bill.id, store.clone(), forms.pay.clone());
                 Box::new(
                     HStack::new((
                         VStack::new((
-                            Text::new(bill.title()).style(TextStyle::Body).truncate(),
-                            Text::new(format!("{} · {}", date_label(bill.due), bill.category))
-                                .style(TextStyle::Caption)
-                                .foreground(Semantic::InkMuted),
+                            Text::new(bill.title()).style(TextStyle::Callout).truncate(),
+                            HStack::new((
+                                Badge::new(status.label()).tone(tone_of(status)),
+                                Text::new(date_label(bill.due))
+                                    .style(TextStyle::Callout)
+                                    .foreground(Semantic::InkMuted),
+                            ))
+                            .spacing(6.0)
+                            .align(Align::Center),
                         ))
-                        .spacing(2.0)
+                        .spacing(4.0)
                         .grow(1.0),
-                        Badge::new(status.label()).tone(tone_of(status)),
-                        Text::new(format_brl(bill.amount_cents)).style(TextStyle::Body),
+                        Text::new(format_brl(bill.amount_cents)).style(TextStyle::Callout),
                         Button::new("Pagar")
                             .accessible_name(format!("Pagar {}", bill.title()))
                             .size(ButtonSize::Small)
                             .style(ButtonStyle::Secondary)
                             .on_click(move || pay.start(&pay_store, id)),
                     ))
-                    .spacing(12.0)
+                    .spacing(10.0)
                     .align(Align::Center),
                 ) as AnyView
             })
@@ -225,38 +218,58 @@ pub(crate) fn dashboard(
             ));
         }
         let go_bills = open_page.clone();
-        let bills_card = card(
-            "Próximas contas",
+        let late = (!overdue.is_empty()).then(|| {
+            let word = if overdue.len() == 1 { "vencida" } else { "vencidas" };
+            Badge::new(format!("{} {word} · {}", overdue.len(), format_brl(overdue_total))).tone(Tone::Danger)
+        });
+        let bills_card = Card::new(
             VStack::new((
+                HStack::new((Text::new("Próximas contas").style(TextStyle::Headline).grow(1.0), late))
+                    .spacing(8.0)
+                    .align(Align::Center),
                 VStack::new(rows).spacing(12.0).align(Align::Stretch),
                 Button::new("Ver todas as contas")
                     .style(ButtonStyle::Ghost)
+                    .size(ButtonSize::Small)
                     .trailing_icon(IconName::ArrowRight)
                     .on_click(move || go_bills(2)),
             ))
-            .spacing(10.0)
+            .spacing(12.0)
             .align(Align::Stretch),
         );
 
-        let accounts = numbers.accounts.iter().map(|a| {
-            ListItem::new(a.name.clone())
-                .subtitle(a.kind.label())
-                .icon(IconName::Wallet)
-                .trailing(format_brl(a.balance_cents))
-        });
-        let accounts_card = card("Saldo por conta", List::new(accounts.collect::<Vec<_>>()));
-        let bottom = Grid::new(if wide { 2 } else { 1 }, (bills_card, accounts_card)).spacing(16.0);
+        let accounts: Vec<AnyView> = numbers
+            .accounts
+            .iter()
+            .map(|a| {
+                Box::new(
+                    HStack::new((
+                        Icon::new(IconName::Wallet).color(Semantic::InkMuted),
+                        Text::new(a.name.clone()).style(TextStyle::Body).grow(1.0),
+                        Text::new(format_brl(a.balance_cents)).style(TextStyle::Body),
+                    ))
+                    .spacing(10.0)
+                    .align(Align::Center),
+                ) as AnyView
+            })
+            .collect();
+        let accounts_card =
+            titled_card("Saldo por conta", VStack::new(accounts).spacing(14.0).align(Align::Stretch));
 
-        ScrollView::new((VStack::new((
-            heading("Painel", format!("Hoje é {}", date_label(today))),
-            warning,
-            stats,
-            // What needs doing comes before how things have been going.
-            bottom,
-            charts,
-        ))
-        .spacing(16.0)
-        .align(Align::Stretch),))
-        .padding(PAGE_INSETS)
-    })
+        let top: AnyView = if wide {
+            Box::new(
+                HStack::new((balance, bills_card.width(BILLS_WIDTH)))
+                    .spacing(16.0)
+                    .align(Align::Stretch)
+                    .height(TOP_HEIGHT),
+            )
+        } else {
+            Box::new(VStack::new((balance, bills_card)).spacing(16.0).align(Align::Stretch))
+        };
+        let bottom = Grid::new(if wide { 2 } else { 1 }, (category_card, accounts_card)).spacing(16.0);
+
+        ScrollView::new((VStack::new((top, stats, bottom)).spacing(16.0).align(Align::Stretch),))
+            .padding(PAGE_INSETS)
+    });
+    Page::new(format!("Hoje é {}", date_label(today)), body)
 }

@@ -160,13 +160,25 @@ pub(crate) fn screen<C: ViewSeq>(children: C) -> FillColumn<C> {
     FillColumn { children, spacing: 16.0, padding: PAGE_INSETS }
 }
 
-/// A screen's title and what it is about.
-pub(crate) fn heading<S: Into<String>>(title: &str, subtitle: S) -> impl View + use<S> {
-    VStack::new((
-        Text::new(title.to_owned()).style(TextStyle::Title),
-        Text::new(subtitle.into()).style(TextStyle::Callout).foreground(Semantic::InkMuted),
-    ))
-    .spacing(4.0)
+/// A screen: what it says about itself in the top bar, and what it shows.
+pub(crate) struct Page {
+    pub subtitle: String,
+    pub body: AnyView,
+}
+
+impl Page {
+    pub fn new(subtitle: impl Into<String>, body: impl View + 'static) -> Self {
+        Self { subtitle: subtitle.into(), body: Box::new(body) }
+    }
+}
+
+/// A card with its title inside.
+pub(crate) fn titled_card<V: View + 'static>(title: &str, content: V) -> impl View + use<V> {
+    Card::new(
+        VStack::new((Text::new(title.to_owned()).style(TextStyle::Headline), content))
+            .spacing(14.0)
+            .align(Align::Stretch),
+    )
 }
 
 /// Moves between months.

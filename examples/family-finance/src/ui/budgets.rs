@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use ravenrs::prelude::*;
 
-use super::store::{Memo, PAGE_INSETS, Store, heading, month_nav};
+use super::store::{Memo, PAGE_INSETS, Page, Store, month_nav};
 use crate::model::BudgetLine;
 use crate::money::{format_brl, format_input, parse_brl};
 
@@ -32,7 +32,7 @@ fn accepts_zero(text: &str) -> Result<(), String> {
     if text.trim().is_empty() { Ok(()) } else { parse_brl(text).map(|_| ()) }
 }
 
-pub(crate) fn budgets(store: &Store, state: &BudgetsState) -> impl View + use<> {
+pub(crate) fn budgets(store: &Store, state: &BudgetsState) -> Page {
     let month = state.month.get();
     let lines =
         state.lines.get((store.version(), month), || Rc::new(store.read(|db| db.budget_lines(month))));
@@ -40,11 +40,36 @@ pub(crate) fn budgets(store: &Store, state: &BudgetsState) -> impl View + use<> 
         lines.iter().fold((0, 0), |(l, s), line| (l + line.budget_cents, s + line.spent_cents));
     let over: Vec<&BudgetLine> =
         lines.iter().filter(|l| l.budget_cents > 0 && l.spent_cents > l.budget_cents).collect();
-    let warning = (!over.is_empty()).then(|| {
-        let names: Vec<&str> = over.iter().map(|l| l.category.as_str()).collect();
-        Alert::new("Limite estourado", format!("Passaram do limite: {}.", names.join(", ")))
-            .tone(Tone::Warning)
-    });
+    let share = if limit_total > 0 { spent_total as f32 / limit_total as f32 } else { 0.0 };
+    let summary = Card::new(
+        HStack::new((
+            Stat::new("Gasto no mês", format_brl(spent_total)),
+            VStack::new((
+                ProgressBar::new(share.min(1.0)).tone(if over.is_empty() {
+                    Tone::Accent
+                } else {
+                    Tone::Warning
+                }),
+                HStack::new((
+                    Text::new(format!("{:.0}% do limite de {}", share * 100.0, format_brl(limit_total)))
+                        .style(TextStyle::Callout)
+                        .foreground(Semantic::InkMuted),
+                    Spacer::new(),
+                    (!over.is_empty()).then(|| {
+                        let names: Vec<&str> = over.iter().map(|l| l.category.as_str()).collect();
+                        Badge::new(format!("Passaram do limite: {}", names.join(", "))).tone(Tone::Warning)
+                    }),
+                ))
+                .spacing(8.0)
+                .align(Align::Center),
+            ))
+            .spacing(10.0)
+            .align(Align::Stretch)
+            .grow(1.0),
+        ))
+        .spacing(32.0)
+        .align(Align::Center),
+    );
 
     let mut rows: Vec<AnyView> = lines
         .iter()
@@ -70,35 +95,36 @@ pub(crate) fn budgets(store: &Store, state: &BudgetsState) -> impl View + use<> 
                 line.budget_cents,
             );
             let open_name = name.clone();
-            Box::new(Card::new(
-                VStack::new((
-                    HStack::new((
-                        Text::new(line.category.clone()).style(TextStyle::Headline),
-                        Badge::new(status).tone(tone),
-                        Spacer::new(),
+            Box::new(
+                Card::new(
+                    VStack::new((
+                        HStack::new((
+                            Text::new(line.category.clone()).style(TextStyle::Headline).truncate().grow(1.0),
+                            Badge::new(status).tone(tone),
+                            IconButton::new(IconName::Pencil)
+                                .label(format!("Definir limite de {name}"))
+                                .size(ButtonSize::Small)
+                                .on_click(move || {
+                                    limit.set(if cents > 0 { format_input(cents) } else { String::new() });
+                                    editing.set(Some((id, open_name.clone())));
+                                }),
+                        ))
+                        .spacing(8.0)
+                        .align(Align::Center),
+                        ProgressBar::new(ratio.min(1.0)).tone(tone),
                         Text::new(if line.budget_cents > 0 {
                             format!("{} de {}", format_brl(line.spent_cents), format_brl(line.budget_cents))
                         } else {
                             format_brl(line.spent_cents)
                         })
-                        .style(TextStyle::Callout),
-                        Button::new("Definir limite")
-                            .icon(IconName::Pencil)
-                            .accessible_name(format!("Definir limite de {name}"))
-                            .size(ButtonSize::Small)
-                            .style(ButtonStyle::Ghost)
-                            .on_click(move || {
-                                limit.set(if cents > 0 { format_input(cents) } else { String::new() });
-                                editing.set(Some((id, open_name.clone())));
-                            }),
+                        .style(TextStyle::Callout)
+                        .foreground(Semantic::InkMuted),
                     ))
-                    .spacing(10.0)
-                    .align(Align::Center),
-                    ProgressBar::new(ratio.min(1.0)).tone(tone),
-                ))
-                .spacing(10.0)
-                .align(Align::Stretch),
-            )) as AnyView
+                    .spacing(8.0)
+                    .align(Align::Stretch),
+                )
+                .padding(16.0),
+            ) as AnyView
         })
         .collect();
     if rows.is_empty() {
@@ -143,17 +169,16 @@ pub(crate) fn budgets(store: &Store, state: &BudgetsState) -> impl View + use<> 
             }))
     });
 
-    ScrollView::new((VStack::new((
-        heading(
-            "Orçamentos",
-            format!("Gasto {} de um limite de {}", format_brl(spent_total), format_brl(limit_total)),
-        ),
-        month_nav(&state.month, store.today),
-        warning,
-        VStack::new(rows).spacing(12.0).align(Align::Stretch),
-        dialog,
-    ))
-    .spacing(16.0)
-    .align(Align::Stretch),))
-    .padding(PAGE_INSETS)
+    Page::new(
+        "Quanto a família gastou de cada limite no mês.",
+        ScrollView::new((VStack::new((
+            month_nav(&state.month, store.today),
+            summary,
+            Grid::new(2, rows).spacing(12.0),
+            dialog,
+        ))
+        .spacing(16.0)
+        .align(Align::Stretch),))
+        .padding(PAGE_INSETS),
+    )
 }

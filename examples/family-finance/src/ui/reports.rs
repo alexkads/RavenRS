@@ -8,7 +8,7 @@ use ravenrs_report::Document;
 use ravenrs_report_export::{ExportFormat, export};
 use ravenrs_report_viewer::{DocumentViewer, ViewerLabels, ViewerState};
 
-use super::store::{Memo, Store, heading, month_nav, screen};
+use super::store::{Memo, Page, Store, month_nav, screen};
 use crate::reports::{ReportKind, render};
 
 /// What this screen keeps while another one is open.
@@ -46,7 +46,7 @@ fn save(store: &Store, document: &Document, format: ExportFormat) {
     }
 }
 
-pub(crate) fn reports(store: &Store, state: &ReportsState) -> impl View + use<> {
+pub(crate) fn reports(store: &Store, state: &ReportsState) -> Page {
     let (kind_index, month) = (state.kind.get(), state.month.get());
     let kind = ReportKind::ALL[kind_index.min(ReportKind::ALL.len() - 1)];
     let document = state.document.get((store.version(), kind_index, month), || {
@@ -66,6 +66,7 @@ pub(crate) fn reports(store: &Store, state: &ReportsState) -> impl View + use<> 
     let uses_month = kind != ReportKind::Bills;
     let controls = HStack::new((
         SegmentedControl::new(kind_binding, ReportKind::ALL.map(ReportKind::label)).label("Relatório"),
+        Spacer::new(),
         uses_month.then(|| month_nav(&state.month, store.today)),
     ))
     .spacing(16.0)
@@ -100,5 +101,5 @@ pub(crate) fn reports(store: &Store, state: &ReportsState) -> impl View + use<> 
             Box::new(Alert::new("Não foi possível montar o relatório", message).tone(Tone::Danger))
         }
     };
-    screen((heading("Relatórios", "Veja na tela, imprima ou exporte em PDF e planilha."), controls, body))
+    Page::new("Veja na tela, imprima ou exporte em PDF e planilha.", screen((controls, body)))
 }

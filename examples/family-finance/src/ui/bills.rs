@@ -6,7 +6,8 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Memo, Store, date_column, heading, money_column, row_id, screen};
+use super::store::FillColumn;
+use super::store::{Memo, Page, Store, date_column, money_column, row_id, screen};
 use crate::model::{Bill, BillStatus};
 use crate::money::format_brl;
 
@@ -72,7 +73,12 @@ fn load(store: &Store, view: usize) -> BillRows {
     BillRows { data: GridData::new(cells), overdue, open: open_total, open_count, bills: shown }
 }
 
-pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> impl View + use<> {
+/// Lets the grid keep the room left, inside the key that gives each view its columns.
+fn store_fill(grid: DataGrid) -> FillColumn<(DataGrid,)> {
+    FillColumn { children: (grid,), spacing: 0.0, padding: 0.0.into() }
+}
+
+pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> Page {
     let view = state.view.get();
     let rows = state.rows.get((store.version(), view), || Rc::new(load(store, view)));
     let data = rows.data.clone();
@@ -101,8 +107,11 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> impl Vi
         SegmentedControl::new(view_binding, ["Em aberto", "Vencidas", "Pagas", "Todas"]).label("Mostrar"),
         Spacer::new(),
         is_paid.then(|| {
-            Button::new("Desfazer pagamento").icon(IconName::Undo2).style(ButtonStyle::Ghost).on_click(
-                move || {
+            Button::new("Desfazer pagamento")
+                .icon(IconName::Undo2)
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .on_click(move || {
                     let Some(id) = selected else { return };
                     let (store, selection) = (undo_store.clone(), undo_selection.clone());
                     undo_confirm.ask(
@@ -114,18 +123,24 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> impl Vi
                             store.write("Pagamento desfeito", |db| db.reopen_bill(id));
                         },
                     );
-                },
-            )
+                })
         }),
-        Button::new("Alterar").icon(IconName::Pencil).style(ButtonStyle::Ghost).disabled(!is_open).on_click(
-            move || {
+        Button::new("Alterar")
+            .icon(IconName::Pencil)
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Ghost)
+            .disabled(!is_open)
+            .on_click(move || {
                 if let Some(id) = selected {
                     edit.start_edit(&edit_store, id);
                 }
-            },
-        ),
-        Button::new("Excluir").icon(IconName::Trash2).style(ButtonStyle::Ghost).disabled(!is_open).on_click(
-            move || {
+            }),
+        Button::new("Excluir")
+            .icon(IconName::Trash2)
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Ghost)
+            .disabled(!is_open)
+            .on_click(move || {
                 let Some(id) = selected else { return };
                 let (store, selection) = (delete_store.clone(), delete_selection.clone());
                 delete_confirm.ask(
@@ -137,28 +152,36 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> impl Vi
                         store.write("Conta excluída", |db| db.delete_bill(id));
                     },
                 );
-            },
-        ),
-        Button::new("Pagar").icon(IconName::Check).style(ButtonStyle::Secondary).disabled(!is_open).on_click(
-            move || {
+            }),
+        Button::new("Pagar")
+            .icon(IconName::Check)
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Secondary)
+            .disabled(!is_open)
+            .on_click(move || {
                 if let Some(id) = selected {
                     pay.start(&pay_store, id);
                 }
-            },
-        ),
-        Button::new("Nova conta").icon(IconName::Plus).on_click(move || new.start_new(&new_store)),
+            }),
+        Button::new("Nova conta")
+            .icon(IconName::Plus)
+            .size(ButtonSize::Small)
+            .on_click(move || new.start_new(&new_store)),
     ))
     .spacing(8.0)
     .align(Align::Center);
 
     let (activate_store, activate, activate_data) = (store.clone(), forms.pay.clone(), data.clone());
     let activate_bills = rows.clone();
+    // Only what was paid has a payment date; each view opens with its own columns.
+    let shows_paid = view >= 2;
+    let paid_on = date_column("Paga em");
     let grid = DataGrid::new(
         data,
         [
             GridColumn::number("Id").hidden(),
             date_column("Vencimento"),
-            GridColumn::text("Conta").width(300.0),
+            GridColumn::text("Conta").width(if shows_paid { 240.0 } else { 340.0 }),
             GridColumn::text("Categoria").width(130.0),
             GridColumn::text("De quem").width(100.0),
             GridColumn::text("Repete").width(110.0),
@@ -173,7 +196,7 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> impl Vi
                 Box::new(Badge::new(text).tone(tone)) as AnyView
             }),
             money_column("Valor").summary(Summary::Sum),
-            if view >= 2 { date_column("Paga em") } else { date_column("Paga em").hidden() },
+            if shows_paid { paid_on } else { paid_on.hidden() },
         ],
     )
     .filter_row(false)
@@ -185,17 +208,13 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms) -> impl Vi
         }
     });
 
-    screen((
-        heading(
-            "Contas a pagar",
-            format!(
-                "{} em aberto somando {}, das quais {} em atraso. Clique duas vezes em uma conta para pagar.",
-                rows.open_count,
-                format_brl(rows.open),
-                format_brl(rows.overdue)
-            ),
+    Page::new(
+        format!(
+            "{} em aberto somando {}, das quais {} em atraso. Clique duas vezes em uma conta para pagar.",
+            rows.open_count,
+            format_brl(rows.open),
+            format_brl(rows.overdue)
         ),
-        toolbar,
-        grid,
-    ))
+        screen((toolbar, Keyed::new(u64::from(shows_paid), store_fill(grid)))),
+    )
 }

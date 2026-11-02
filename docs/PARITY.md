@@ -196,6 +196,7 @@ The reference is [Bryntum Scheduler](https://bryntum.com/products/scheduler/). T
 | Drag along time and between rows, resize by the ends, draw on an empty stretch | ✅ |
 | Snap to the scale, refusal through `can_drop`, locked and fixed-length events | ✅ |
 | Overlapping events on lanes, with the row growing | ✅ |
+| Rows sharing the height left over (`fill_rows`) | ✅ |
 | Weekend shading, marked time ranges, a line at now, opening at now | ✅ |
 | Collapsible groups of resources | ✅ |
 | Keyboard for events; names and dates for screen readers | ✅ |
