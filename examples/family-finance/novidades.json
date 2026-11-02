@@ -1,11 +1,11 @@
 {
-  "versao": "0.1.6",
-  "titulo": "O app agora usa a placa de vídeo do computador sempre que ela está disponível.",
+  "versao": "0.1.7",
+  "titulo": "Os treinamentos agora falam, fazem som e explicam cada passo na tela.",
   "importante": false,
   "novidades": [
-    "Em computadores mais antigos com Linux, o app podia desenhar pelo processador mesmo havendo placa de vídeo, o que o deixava lento. Agora ele usa a placa.",
-    "Se a placa de vídeo não aceitar o que o app precisa, ele tenta as outras opções em vez de não abrir.",
-    "O painel de diagnóstico explica melhor quando a placa de vídeo não está sendo usada."
+    "Os treinamentos passaram de um filme curto para seis filmes, cerca de 16 minutos, sobre cada parte do app e as regras de cada tela.",
+    "Uma voz lê em voz alta o que está sendo feito, e dá para ouvir os cliques e a digitação. Som e narração têm cada um seu botão de desligar.",
+    "Uma caixa aparece junto de cada ação, explicando o que fazer e por quê."
   ],
-  "por_que_atualizar": "Para o app ficar mais rápido em computadores mais antigos."
+  "por_que_atualizar": "Para aprender a usar o app assistindo e ouvindo, no seu ritmo."
 }
