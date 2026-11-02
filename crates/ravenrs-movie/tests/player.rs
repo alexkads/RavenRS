@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use ravenrs_core::{AccessAction, AccessNode, Color, Point, Primitive, Quad, Rect, Role, Size};
-use ravenrs_movie::{FilmBuilder, Hotspot, HotspotKind, Movie, MovieLabels, MoviePlayer};
+use ravenrs_movie::{FilmBuilder, Hotspot, HotspotKind, Movie, MovieLabels, MoviePlayer, Narration};
 use ravenrs_reactive::State;
 use ravenrs_style::Theme;
 use ravenrs_widgets::{AnyView, SoundClip, SoundProvider, Text, Ui, View, responsive};
@@ -186,6 +186,10 @@ impl SoundProvider for Heard {
     fn stop_speaking(&self) {
         self.0.borrow_mut().push("quiet".to_owned());
     }
+
+    fn speak_clip(&self, _clip: &SoundClip) {
+        self.0.borrow_mut().push("recording".to_owned());
+    }
 }
 
 impl Heard {
@@ -327,6 +331,41 @@ fn a_box_about_the_whole_screen_has_no_mark_and_a_small_film_says_it_below() {
     click(&mut ui, "Play");
     run_to(&mut ui, 0.0, 1.0);
     assert!(has(&mut ui, "All of it text"), "too small for a box, it goes under the film");
+}
+
+fn recorded_player(narration: Narration) -> (Ui, Heard) {
+    let heard = Heard::default();
+    let mut ui = Ui::new(MoviePlayer::new(noisy_film()).narration(narration), Theme::raven_light());
+    ui.set_sound(heard.clone());
+    ui.set_viewport(Size::new(1200.0, 900.0), 1.0);
+    ui.set_time(0.0);
+    ui.update();
+    (ui, heard)
+}
+
+fn narration_of(text: &str) -> Narration {
+    let bytes = Narration::pack(&[(text.to_owned(), vec![0.1; 1600])], 16_000);
+    Narration::new(Box::leak(bytes.into_boxed_slice()))
+}
+
+#[test]
+fn a_recording_is_said_in_place_of_the_system_voice_and_stops_with_the_film() {
+    let (mut ui, heard) = recorded_player(narration_of("A note. A note text"));
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 3.5);
+    assert_eq!(heard.count("recording"), 1);
+    assert!(!heard.said("en-US: A note. A note text"), "the system stays quiet");
+    click(&mut ui, "Pause");
+    assert!(heard.count("quiet") >= 1, "pausing stops it");
+}
+
+#[test]
+fn what_has_no_recording_is_said_by_the_system_voice() {
+    let (mut ui, heard) = recorded_player(narration_of("Something else"));
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 3.8);
+    assert_eq!(heard.count("recording"), 0);
+    assert!(heard.said("en-US: A note. A note text"));
 }
 
 #[test]

@@ -34,7 +34,7 @@ samples! {
     "Breadcrumb" => breadcrumb, "Pagination" => pagination, "Accordion" => accordion,
     "Disclosure" => disclosure,
     "Dialog" => dialog, "Sheet" => sheet, "Popover" => popover, "HoverCard" => hover_card,
-    "Tooltip" => tooltip, "DropdownMenu" => dropdown_menu, "ContextMenu" => context_menu,
+    "Tooltip" => tooltip, "HelpTip" => help_tip, "SidebarBrand" => sidebar_brand, "DropdownMenu" => dropdown_menu, "ContextMenu" => context_menu,
     "SplashScreen" => splash_screen, "CommandPalette" => command_palette, "Toaster" => toaster,
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
     "Chart" => chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
@@ -517,6 +517,23 @@ fn tooltip() -> impl View {
         Spacer::new().min(40.0),
         Tooltip::new(Button::new("Hover me").style(ButtonStyle::Secondary), "It stays out of the way"),
     ))
+}
+// end
+
+// sample: HelpTip, 130
+fn help_tip() -> impl View {
+    HStack::new((
+        Text::new("Recurring"),
+        HelpTip::new("Recurring", "It comes back on the same day of each month.")
+            .how("Choose it when you save."),
+    ))
+    .spacing(6.0)
+}
+// end
+
+// sample: SidebarBrand, 90
+fn sidebar_brand() -> impl View {
+    SidebarBrand::new(Icon::new(IconName::Wallet), "Raven").subtitle("Family finances")
 }
 // end
 

@@ -10,6 +10,7 @@ use ravenrs_widgets::{
     VStack, View, ViewExt,
 };
 
+use crate::narration::Narration;
 use crate::player::{MovieCue, MovieLabels, MoviePlayer, clock_label};
 use crate::search::{Answer, Moment, MomentKind, MovieLibrary};
 
@@ -76,12 +77,20 @@ pub struct MovieAssistant {
     height: Option<f32>,
     labels: AssistantLabels,
     cue: Option<MovieCue>,
+    narration: Option<Narration>,
 }
 
 impl MovieAssistant {
     /// An assistant over `library`, with an empty question.
     pub fn new(library: MovieLibrary) -> Self {
-        Self { library, width: 960.0, height: None, labels: AssistantLabels::default(), cue: None }
+        Self {
+            library,
+            width: 960.0,
+            height: None,
+            labels: AssistantLabels::default(),
+            cue: None,
+            narration: None,
+        }
     }
 
     /// The width of the whole assistant, in logical pixels (960 by default).
@@ -94,6 +103,13 @@ impl MovieAssistant {
     /// controls out of view. With none, the film takes the whole width.
     pub fn height(mut self, height: f32) -> Self {
         self.height = Some(height);
+        self
+    }
+
+    /// Recordings of what the films say, in place of the system's voice.
+    #[must_use]
+    pub fn narration(mut self, narration: Narration) -> Self {
+        self.narration = Some(narration);
         self
     }
 
@@ -252,6 +268,9 @@ impl View for MovieAssistant {
                 MoviePlayer::new(movie.clone()).width(self.width).labels(self.labels.player.clone()).cue(cue);
             if let Some(height) = self.height {
                 player = player.max_film_height(height - AROUND_THE_FILM);
+            }
+            if let Some(narration) = &self.narration {
+                player = player.narration(narration.clone());
             }
             let mark = finished.clone();
             player = player.on_finished(move || {

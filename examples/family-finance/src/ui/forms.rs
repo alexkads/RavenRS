@@ -1,5 +1,6 @@
 //! The dialogs: transactions, bills, paying a bill and confirming.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use ravenrs::prelude::*;
@@ -11,6 +12,30 @@ use crate::model::{
     TransactionInput, date_label,
 };
 use crate::money::{format_brl, format_input, parse_brl, validate_positive};
+
+/// What to do once, when a form opened for it saves. Opening the form for anything
+/// else forgets it, so cancelling leaves whoever asked as it was.
+#[derive(Clone, Default)]
+struct AfterSave(Rc<RefCell<Option<Saved>>>);
+
+type Saved = Rc<dyn Fn()>;
+
+impl AfterSave {
+    fn set(&self, then: Saved) {
+        *self.0.borrow_mut() = Some(then);
+    }
+
+    fn forget(&self) {
+        self.0.borrow_mut().take();
+    }
+
+    fn run(&self) {
+        let then = self.0.borrow_mut().take();
+        if let Some(then) = then {
+            then();
+        }
+    }
+}
 
 /// The account most money moves through, which forms start on.
 fn usual_account(accounts: &[Account]) -> usize {
@@ -72,6 +97,7 @@ pub(crate) struct TransactionForm {
     category: State<usize>,
     member: State<usize>,
     tried: State<bool>,
+    after_save: AfterSave,
 }
 
 impl TransactionForm {
@@ -87,10 +113,12 @@ impl TransactionForm {
             category: State::new(0),
             member: State::new(0),
             tried: State::new(false),
+            after_save: AfterSave::default(),
         }
     }
 
     pub fn start_new(&self, store: &Store, flow: Flow) {
+        self.after_save.forget();
         self.editing.set(None);
         self.date.set(Some(store.today));
         self.description.set(String::new());
@@ -105,9 +133,11 @@ impl TransactionForm {
         self.open.set(true);
     }
 
-    /// A new spending already filled in, for the person to check and save.
-    pub fn start_with(&self, store: &Store, fill: &Prefill) {
+    /// A new spending already filled in, for the person to check and save. `saved` runs
+    /// if they do.
+    pub fn start_with(&self, store: &Store, fill: &Prefill, saved: Rc<dyn Fn()>) {
         self.start_new(store, Flow::Expense);
+        self.after_save.set(saved);
         self.description.set(fill.description.clone());
         self.amount.set(fill.cents.map_or_else(String::new, format_input));
         if fill.date.is_some() {
@@ -141,7 +171,11 @@ impl TransactionForm {
         self.open.set(true);
     }
 
-    fn save(&self, store: &Store) {
+    pub(crate) fn save(&self, store: &Store) {
+        // A second click can arrive before the form is gone.
+        if !self.open.get() {
+            return;
+        }
         self.tried.set(true);
         let flow = if self.flow.get() == 1 { Flow::Income } else { Flow::Expense };
         let accounts = store.read(|db| db.accounts());
@@ -176,6 +210,7 @@ impl TransactionForm {
             });
         if saved.is_some() {
             self.open.set(false);
+            self.after_save.run();
         }
     }
 
@@ -281,6 +316,7 @@ pub(crate) struct BillForm {
     installments: State<i32>,
     barcode: State<String>,
     tried: State<bool>,
+    after_save: AfterSave,
 }
 
 impl BillForm {
@@ -297,10 +333,12 @@ impl BillForm {
             installments: State::new(1),
             barcode: State::new(String::new()),
             tried: State::new(false),
+            after_save: AfterSave::default(),
         }
     }
 
     pub fn start_new(&self, store: &Store) {
+        self.after_save.forget();
         self.editing.set(None);
         self.description.set(String::new());
         self.amount.set(String::new());
@@ -315,9 +353,11 @@ impl BillForm {
         self.open.set(true);
     }
 
-    /// A new bill already filled in, for the person to check and save.
-    pub fn start_with(&self, store: &Store, fill: &Prefill) {
+    /// A new bill already filled in, for the person to check and save. `saved` runs if
+    /// they do.
+    pub fn start_with(&self, store: &Store, fill: &Prefill, saved: Rc<dyn Fn()>) {
         self.start_new(store);
+        self.after_save.set(saved);
         self.description.set(fill.description.clone());
         self.amount.set(fill.cents.map_or_else(String::new, format_input));
         if fill.date.is_some() {
@@ -338,6 +378,7 @@ impl BillForm {
     }
 
     pub fn start_edit(&self, store: &Store, id: i64) {
+        self.after_save.forget();
         let Some(bill) = store.read(|db| db.bill(id)) else { return };
         let categories = categories_of(&store.read(|db| db.categories()), Flow::Expense);
         let members = store.read(|db| db.members());
@@ -354,7 +395,11 @@ impl BillForm {
         self.open.set(true);
     }
 
-    fn save(&self, store: &Store) {
+    pub(crate) fn save(&self, store: &Store) {
+        // A second click can arrive before the form is gone.
+        if !self.open.get() {
+            return;
+        }
         self.tried.set(true);
         let categories = categories_of(&store.read(|db| db.categories()), Flow::Expense);
         let members = store.read(|db| db.members());
@@ -392,6 +437,7 @@ impl BillForm {
         );
         if saved.is_some() {
             self.open.set(false);
+            self.after_save.run();
         }
     }
 
@@ -503,6 +549,7 @@ pub(crate) struct PayForm {
     date: State<Option<Date>>,
     amount: State<String>,
     tried: State<bool>,
+    after_save: AfterSave,
 }
 
 impl PayForm {
@@ -514,10 +561,18 @@ impl PayForm {
             date: State::new(None),
             amount: State::new(String::new()),
             tried: State::new(false),
+            after_save: AfterSave::default(),
         }
     }
 
+    /// Paying a bill, for the person to check. `paid` runs if they do.
+    pub fn start_then(&self, store: &Store, id: i64, paid: Rc<dyn Fn()>) {
+        self.start(store, id);
+        self.after_save.set(paid);
+    }
+
     pub fn start(&self, store: &Store, id: i64) {
+        self.after_save.forget();
         let Some(bill) = store.read(|db| db.bill(id)) else { return };
         self.bill.set(Some(id));
         self.account.set(usual_account(&store.read(|db| db.accounts())));
@@ -527,7 +582,11 @@ impl PayForm {
         self.open.set(true);
     }
 
-    fn save(&self, store: &Store) {
+    pub(crate) fn save(&self, store: &Store) {
+        // A second click can arrive before the form is gone.
+        if !self.open.get() {
+            return;
+        }
         self.tried.set(true);
         let accounts = store.read(|db| db.accounts());
         let (Some(id), Some(date), Ok(amount), Some(account)) = (
@@ -540,6 +599,7 @@ impl PayForm {
         };
         if store.write("Conta paga", |db| db.pay_bill(id, account.id, date, amount)).is_some() {
             self.open.set(false);
+            self.after_save.run();
         }
     }
 
@@ -663,7 +723,11 @@ impl ScheduleForm {
         self.open.set(true);
     }
 
-    fn save(&self, store: &Store) {
+    pub(crate) fn save(&self, store: &Store) {
+        // A second click can arrive before the form is gone.
+        if !self.open.get() {
+            return;
+        }
         self.tried.set(true);
         let flow = if self.flow.get() == 1 { Flow::Income } else { Flow::Expense };
         let accounts = store.read(|db| db.accounts());
@@ -826,7 +890,11 @@ impl ConfirmForm {
         self.open.set(true);
     }
 
-    fn save(&self, store: &Store) {
+    pub(crate) fn save(&self, store: &Store) {
+        // A second click can arrive before the form is gone.
+        if !self.open.get() {
+            return;
+        }
         self.tried.set(true);
         let accounts = store.read(|db| db.accounts());
         let (Some((id, day)), Some(when), Ok(amount), Some(account)) = (

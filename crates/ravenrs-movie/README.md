@@ -67,3 +67,5 @@ model write the answer about what the search found; finding stays with the searc
 that finds nothing never reaches the model.
 
 `MovieEditor` previews the picture only, with no sound.
+
+`Narration` holds what the films say, recorded ahead of time and compressed to about 8 KB a second, so that nobody who watches needs a voice model. `MoviePlayer::narration` and `MovieAssistant::narration` play it in place of the system's voice, which still says whatever has no recording.

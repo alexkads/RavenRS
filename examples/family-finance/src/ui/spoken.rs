@@ -1,5 +1,7 @@
 //! Writes money, dates and numbers in words, since the voice model misreads digits.
 
+/// Names the voice would read as a word, or misread.
+const LETTERS: [(&str, &str); 2] = [("PDF", "pê dê éfe"), ("CSV", "cê ésse vê")];
 const MONTHS: [&str; 12] = [
     "janeiro",
     "fevereiro",
@@ -124,7 +126,11 @@ fn money(reais: u64, centavos: u64) -> String {
 }
 
 /// How `text` should be read: digits in words, so that the voice says them right.
-pub(crate) fn spoken(text: &str) -> String {
+pub fn spoken(text: &str) -> String {
+    let mut text = text.to_owned();
+    for (written, said) in LETTERS {
+        text = text.replace(written, said);
+    }
     let letters: Vec<char> = text.chars().collect();
     let mut out = String::with_capacity(text.len());
     let mut at = 0;
@@ -245,6 +251,11 @@ mod tests {
         assert_eq!(spoken("Vence em 15/11."), "Vence em quinze de novembro.");
         assert_eq!(spoken("Em 01/02/2026"), "Em primeiro de fevereiro de dois mil e vinte e seis");
         assert_eq!(spoken("Dia 3, em 10x"), "Dia três, em dez vezes");
+    }
+
+    #[test]
+    fn letter_names_are_said_letter_by_letter() {
+        assert_eq!(spoken("Em PDF ou CSV"), "Em pê dê éfe ou cê ésse vê");
     }
 
     #[test]

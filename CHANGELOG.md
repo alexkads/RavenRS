@@ -19,6 +19,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Summaries with formulas.** A click on a total changes what it sums up, or takes a formula such as `Sum([Seats]) / Count()`, checked as it is typed, over each group's rows. `GridColumn::summary_formula` gives one in code.
 - **Pages and rows on a server.** `DataGrid::page_size` shows pages. `DataGrid::remote` with `RemoteRows` asks for what is on the screen once scrolling rests, keeps a limited number of chunks, drops late answers, needs no total, and hands the loader the row before a chunk so that a query can continue from it.
 - `examples/grid-poc` shows all of this working.
+- `Chat::busy` holds what is sent until an answer arrives.
+- **Narration recorded ahead of time.** `Narration` holds recordings of what films say, compressed to about 8 KB a second, and `MoviePlayer::narration` plays them in place of the system's voice, which still says whatever has no recording. `Sound::speak_clip` says a recording that `stop_speaking` can stop.
 
 ### Changed
 - The legend of a `Chart` is real text under or over it, and numbers on the axis are optional: `show_value_axis`.

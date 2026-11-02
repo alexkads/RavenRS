@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use ravenrs::movie::{
     AssistantLabels, BugLabels, BugReporter, FlightRecorder, Movie, MovieAssistant, MovieCue, MovieLibrary,
+    Narration,
 };
 use ravenrs::prelude::*;
 use ravenrs_ai::{
@@ -70,6 +71,9 @@ impl TrainingState {
     }
 }
 
+/// What the films say, recorded with LFM3 Audio, so that nobody needs the model to hear it.
+const NARRATION: &[u8] = include_bytes!("../../assets/treinamentos/narracao.voz");
+
 /// The page with the films.
 pub(crate) fn training(state: &TrainingState) -> Page {
     let (library, cue) = (state.library.clone(), state.cue.clone());
@@ -82,6 +86,7 @@ pub(crate) fn training(state: &TrainingState) -> Page {
                     MovieAssistant::new(library.clone())
                         .labels(AssistantLabels::pt_br())
                         .cue(cue.clone())
+                        .narration(Narration::new(NARRATION))
                         .width((content_width(size) - SCROLLBAR).max(320.0))
                         .height(size.height - AROUND_THE_PAGE - PAGE_INSETS.top - PAGE_INSETS.bottom),
                 ),

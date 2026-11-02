@@ -358,3 +358,29 @@ fn field_says(ui: &mut Ui, wanted: &str) -> bool {
         .iter()
         .any(|node| node.role == Role::TextInput && node.value.as_deref() == Some(wanted))
 }
+
+#[test]
+fn while_an_answer_is_on_its_way_nothing_is_sent() {
+    struct Busy(State<Vec<ChatMessage>>, State<bool>, Rc<RefCell<Vec<String>>>);
+    impl View for Busy {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            let sent = self.2.clone();
+            cx.child(
+                &Chat::new(self.0.binding())
+                    .busy(self.1.get())
+                    .on_send(move |text| sent.borrow_mut().push(text)),
+            )
+        }
+    }
+    let busy = State::new(true);
+    let sent = Rc::new(RefCell::new(Vec::new()));
+    let mut ui = running(Busy(State::new(Vec::new()), busy.clone(), sent.clone()));
+    write(&mut ui, "Oi");
+    press(&mut ui, Key::Enter);
+    assert!(sent.borrow().is_empty(), "it waits");
+    assert!(field_says(&mut ui, "Oi"), "and what was written stays");
+    busy.set(false);
+    ui.update();
+    press(&mut ui, Key::Enter);
+    assert_eq!(*sent.borrow(), ["Oi"]);
+}

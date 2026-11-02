@@ -15,6 +15,7 @@ use ravenrs_widgets::{
 
 use crate::composition::{Composition, camera_at};
 use crate::movie::{FilmSound, Hotspot, HotspotKind, Movie};
+use crate::narration::Narration;
 use crate::project::Region;
 
 /// The film offered at the end: its name and what opening it does.
@@ -591,6 +592,7 @@ pub struct MoviePlayer {
     max_film_height: Option<f32>,
     labels: MovieLabels,
     cue: Option<MovieCue>,
+    narration: Option<Narration>,
     next: Option<NextFilm>,
     on_finished: Option<Rc<dyn Fn()>>,
 }
@@ -610,6 +612,7 @@ impl MoviePlayer {
             max_film_height: None,
             labels: MovieLabels::default(),
             cue: None,
+            narration: None,
             next: None,
             on_finished: None,
         }
@@ -640,6 +643,14 @@ impl MoviePlayer {
     /// film gets what its chapters leave.
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
+        self
+    }
+
+    /// Recordings of what the film says, in place of the system's voice. What is not
+    /// among them is still said by the system's voice.
+    #[must_use]
+    pub fn narration(mut self, narration: Narration) -> Self {
+        self.narration = Some(narration);
         self
     }
 
@@ -863,7 +874,11 @@ impl MoviePlayer {
             && playhead.spoken.get() != Some(index)
         {
             playhead.spoken.set(Some(index));
-            sound.speak(&format!("{}. {}", spot.title, spot.text), &self.labels.language);
+            let said = format!("{}. {}", spot.title, spot.text);
+            match self.narration.as_ref().and_then(|narration| narration.clip(&said)) {
+                Some(clip) => sound.speak_clip(&clip),
+                None => sound.speak(&said, &self.labels.language),
+            }
         }
     }
 }
