@@ -11,6 +11,14 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **`FilterBuilder`** writes filters from lines of field, comparison and value, in the expression language, and keeps what it cannot show as a line.
 - **`DataGrid` over records.** Columns can name their field (`GridColumn::field`) and hold dates (`GridColumn::date`, `Value::Date`). `key_column` and `selected_keys` keep a selection across data changes, `on_row_open` gives the row's values, `on_cell_edit` can refuse an edit and say why, and `row_action`, `on_add_row` and `on_delete_rows` add commands for rows. `GridData` gains `insert` and `remove`.
 - **`Hotkey`** makes a key combination run a command, as `ToolbarAction::hotkey`, also from a folded toolbar.
+- **`TreeView`** opens, selects, checks in three states, filters, brings items on demand and builds only the lines in sight. Screen readers hear it through `Role::Tree` and `Role::TreeItem`.
+- **`TagBox`** picks several values as tags, **`ColorPicker`** offers a palette, a shade square, hue and opacity bars and hexadecimal, and **`DateRangePicker`** takes a period in two clicks or ready-made.
+- **`Wizard`** goes through a task in steps, each able to refuse to be left and say why.
+- **Files.** `FileUpload` and `ImageField` take files from the system's chooser or dropped on them, on desktop and web, and say why they refuse one. `BuildCx::file_picker`, `BuildCx::on_file_drop` and `Ui::set_file_picker` let any view do the same.
+- **`TileLayout`** arranges a dashboard of tiles to drag and resize, also from the keyboard. **`CardView`** shows records as cards in as many columns as fit, and builds only those in sight.
+- **`DataGrid` row details.** `row_detail` opens a view below a row, with the arrow or the Right key.
+- **`DataGrid` to Excel and PDF.** `on_export_file` shows a menu of formats and hands over what the grid shows; the new `ravenrs-grid-export` turns it into a file through the same exporters as reports. `wizard::table_report_with` lets a table report take captions and formats from the caller.
+- `BuildCx::report_frame` tells a view the room it got, for those that arrange themselves by it.
 - `disabled` and `read_only` on `TextField`, `Select`, `Combobox`, `DatePicker`, `Checkbox`, `Toggle` and `Stepper`. Screen readers hear about read-only controls through `AccessNode::read_only`.
 
 ### Changed

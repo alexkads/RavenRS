@@ -45,6 +45,8 @@ pub(crate) fn aria_role(role: Role) -> Option<&'static str> {
         Role::Tooltip => "tooltip",
         Role::Toolbar => "toolbar",
         Role::Grid | Role::Calendar => "grid",
+        Role::Tree => "tree",
+        Role::TreeItem => "treeitem",
         Role::Table => "table",
         Role::Row => "row",
         Role::Cell => "cell",

@@ -102,6 +102,8 @@ pub struct Ui {
     access_map: access::AccessMap,
     clipboard: crate::Clipboard,
     sound: crate::Sound,
+    file_picker: crate::FilePicker,
+    files_over: State<bool>,
     motion: MotionSystem,
     motions: Vec<MotionEntry>,
     /// What scrolling added to each element's frame.
@@ -186,6 +188,8 @@ impl Ui {
             access_map: access::AccessMap::default(),
             clipboard: crate::Clipboard::default(),
             sound: crate::Sound::default(),
+            file_picker: crate::FilePicker::default(),
+            files_over: State::new(false),
             motion: MotionSystem::default(),
             motions: Vec::new(),
             shifts: Vec::new(),
@@ -221,6 +225,41 @@ impl Ui {
     /// The sound system views play through.
     pub fn sound(&self) -> crate::Sound {
         self.sound.clone()
+    }
+
+    /// Installs the system's chooser of files (platform layers do this); the default
+    /// chooses nothing.
+    pub fn set_file_picker(&mut self, provider: impl crate::FilePickerProvider + 'static) {
+        self.file_picker = crate::FilePicker::new(provider);
+        self.needs_build = true;
+    }
+
+    /// Says whether files are being dragged over the window (platform layers do this).
+    pub fn set_files_over(&mut self, over: bool) {
+        self.files_over.set_if_changed(over);
+    }
+
+    /// Hands dropped files to the place under `position`. When no place is there, and the
+    /// screen has only one, it goes there: not every system says where a drop landed.
+    /// Whether anything took them.
+    pub fn drop_files(&mut self, position: Option<Point>, files: Vec<crate::PickedFile>) -> bool {
+        self.files_over.set_if_changed(false);
+        let mut node = position.and_then(|p| self.hit_test(p));
+        while let Some(n) = node {
+            if let Some(handler) = self.elements[n.0 as usize].on_file_drop.clone() {
+                handler(files);
+                return true;
+            }
+            node = self.parents.get(n.0 as usize).copied().flatten();
+        }
+        let mut places = self.elements.iter().filter_map(|e| e.on_file_drop.clone());
+        match (places.next(), places.next()) {
+            (Some(only), None) => {
+                only(files);
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Called whenever reactive state the UI depends on changes.
@@ -822,6 +861,8 @@ impl Ui {
         let modifiers = self.modifiers.clone();
         let clipboard = self.clipboard.clone();
         let sound = self.sound.clone();
+        let file_picker = self.file_picker.clone();
+        let files_over = self.files_over.clone();
         let ui_waker = self.ui_waker.clone();
         let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
             self;
@@ -849,6 +890,8 @@ impl Ui {
                 );
                 cx.now = now;
                 cx.sound = sound;
+                cx.file_picker = file_picker;
+                cx.files_over = files_over;
                 cx.motion_clock = motion_clock;
                 cx.motion_enabled = motion_enabled;
                 cx.reduced_motion = reduced_motion;
@@ -1066,6 +1109,9 @@ impl Ui {
                 self.viewport_moved |= self.elements[i].rebuild_on_scroll && before != Some(frame.size);
                 // Store the clamped value so builds see where the content really is.
                 self.scroll.offsets.insert(widget, offset);
+            } else if self.elements[i].report_frame {
+                let before = self.scroll.viewports.insert(self.elements[i].widget, frame.size);
+                self.viewport_moved |= before != Some(frame.size);
             }
             let element = &self.elements[i];
             for child in &element.children {

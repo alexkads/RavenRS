@@ -392,6 +392,7 @@ pub(crate) struct Element {
     /// The wheel over it moves what this widget scrolls.
     pub scrolls_with_widget: bool,
     pub on_context_menu: Option<Rc<dyn Fn(Point)>>,
+    pub on_file_drop: Option<Rc<dyn Fn(Vec<crate::PickedFile>)>>,
     pub on_context_menu_in: Option<Rc<dyn Fn(Point, Rect)>>,
     pub on_pointer_move: Option<Rc<dyn Fn(Point, Rect)>>,
     /// How the element appears to assistive technology.
@@ -402,6 +403,7 @@ pub(crate) struct Element {
     pub motion: Option<u32>,
     /// Report the size of the content (see [`BuildCx::measured_content`]).
     pub measure: bool,
+    pub report_frame: bool,
 }
 
 impl Element {
@@ -427,12 +429,14 @@ impl Element {
             on_pinch: None,
             scrolls_with_widget: false,
             on_context_menu: None,
+            on_file_drop: None,
             on_context_menu_in: None,
             on_pointer_move: None,
             semantics: None,
             text: None,
             motion: None,
             measure: false,
+            report_frame: false,
         }
     }
 
@@ -531,6 +535,8 @@ pub struct BuildCx<'a> {
     pub(crate) error: Option<LayoutError>,
     pub(crate) clipboard: crate::Clipboard,
     pub(crate) sound: crate::Sound,
+    pub(crate) file_picker: crate::FilePicker,
+    pub(crate) files_over: State<bool>,
     pub(crate) motions: Vec<MotionEntry>,
     pub(crate) motion_clock: f64,
     pub(crate) motion_enabled: bool,
@@ -591,6 +597,8 @@ impl<'a> BuildCx<'a> {
             error: None,
             clipboard,
             sound: crate::Sound::default(),
+            file_picker: crate::FilePicker::default(),
+            files_over: State::new(false),
             motions: Vec::new(),
             motion_clock: 0.0,
             motion_enabled: false,
@@ -644,6 +652,23 @@ impl<'a> BuildCx<'a> {
     /// The system's sound and voice.
     pub fn sound(&self) -> crate::Sound {
         self.sound.clone()
+    }
+
+    /// The system's chooser of files.
+    pub fn file_picker(&self) -> crate::FilePicker {
+        self.file_picker.clone()
+    }
+
+    /// Whether files are being dragged over the window, for places that take them to show it.
+    pub fn files_over(&self) -> bool {
+        self.files_over.get()
+    }
+
+    /// Makes the node take files dropped on it.
+    pub fn on_file_drop(&mut self, node: NodeId, handler: Rc<dyn Fn(Vec<crate::PickedFile>)>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_file_drop = Some(handler);
+        }
     }
 
     /// The viewport size in logical pixels.
@@ -984,6 +1009,15 @@ impl<'a> BuildCx<'a> {
     pub fn measure_content(&mut self, node: NodeId) {
         if let Some(e) = self.element_mut(node) {
             e.measure = true;
+        }
+    }
+
+    /// Makes the size this node ended up with readable on the next build, with
+    /// [`Self::scroll_viewport`], and builds again when it changes: for a view that
+    /// arranges itself by the room it got.
+    pub fn report_frame(&mut self, node: NodeId) {
+        if let Some(e) = self.element_mut(node) {
+            e.report_frame = true;
         }
     }
 

@@ -14,5 +14,8 @@ pub use model::{
     CellAlign, CellFormat, CellTemplate, GridColumn, GridData, NumberFormat, Row, SortDirection, Summary,
     Value,
 };
-pub use query::{GridQuery, QueryResult, ViewRow, to_tsv};
+pub use query::{
+    GridExportFormat, GridQuery, GridTable, GridTableColumn, GridTableKind, QueryResult, ViewRow, to_table,
+    to_tsv,
+};
 pub use view::{CellEdit, DataGrid, GridRowAction, SelectionMode};

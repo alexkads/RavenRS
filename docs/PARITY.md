@@ -8,7 +8,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | | Families tracked | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
-| All | 113 | 65 | 7 | 41 |
+| All | 113 | 72 | 7 | 34 |
 
 ## Layout and structure
 
@@ -21,7 +21,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Aspect ratio | ✓ | | | ✅ `AspectRatio` |
 | Scroll area | ✓ | ✓ | ✓ | ✅ `ScrollView` (vertical; horizontal inside DataGrid) |
 | Resizable panels / Splitter | ✓ | ✓ | ✓ | ✅ `Splitter` |
-| Tile layout / Dashboard layout | | ✓ | ✓ | ⬜ |
+| Tile layout / Dashboard layout | | ✓ | ✓ | ✅ `TileLayout`: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep |
 | Docking / Dock manager | | ✓ | ✓ | ⬜ |
 | Window (floating) | | ✓ | ✓ | ⬜ |
 | App bar / Toolbar | | ✓ | ✓ | ✅ `Toolbar`, `ToolbarAction`: what does not fit folds into a menu |
@@ -43,9 +43,9 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Ribbon (Office-style command bar) | | ✓ | ✓ | ✅ `Ribbon` (app menu, quick access, contextual tabs, collapse; key tips and gallery items planned) |
 | Navigation menu (mega menu) | ✓ | | ✓ | ⬜ |
 | Context menu | ✓ | ✓ | ✓ | ✅ `ContextMenu` |
-| Stepper / Wizard | | ✓ | ✓ | ⬜ |
+| Stepper / Wizard | | ✓ | ✓ | ✅ `Wizard`: a step can refuse to be left; steps done can be reopened |
 | Bottom navigation | | | ✓ | ⬜ |
-| TreeView | | ✓ | ✓ | ⬜ |
+| TreeView | | ✓ | ✓ | ✅ `TreeView`: keyboard, selection, three-state checks, filter, items on demand, virtualized |
 | Command palette | ✓ | | | ✅ `CommandPalette` |
 
 ## Buttons and actions
@@ -79,17 +79,17 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Combobox / Autocomplete | ✓ | ✓ | ✓ | ✅ `Combobox` |
 | Filter builder | | ✓ | ✓ | ✅ `FilterBuilder`: lines and groups over the expression language; what it cannot show stays as text |
 | Lookup (records loaded on demand) | | ✓ | ✓ | ✅ `LookupField`: from memory or a callback, ignores stale answers |
-| Multi-select / Tag box | | ✓ | ✓ | ⬜ |
+| Multi-select / Tag box | | ✓ | ✓ | ✅ `TagBox`: search, new values, a limit |
 | Numeric input / Spin editor | | ✓ | ✓ | ✅ `NumberField` (range, step, separators, money in whole cents), `Stepper` |
 | Masked input | | ✓ | ✓ | ✅ `MaskedField` |
 | One-time code (OTP) | ✓ | | ✓ | ✅ `InputOtp` |
 | Calendar | ✓ | ✓ | ✓ | ✅ `Calendar` |
 | Date picker | ✓ | ✓ | ✓ | ✅ `DatePicker` |
-| Date range picker | ✓ | ✓ | ✓ | ⬜ |
+| Date range picker | ✓ | ✓ | ✓ | ✅ `DateRangePicker`: two months, ready-made periods |
 | Time picker / DateTime picker | | ✓ | ✓ | ✅ `TimePicker`, `DateTimePicker` |
-| Color picker / palette / gradient | | ✓ | ✓ | ⬜ |
+| Color picker / palette / gradient | | ✓ | ✓ | 🟡 `ColorPicker`: palette, shade square, hue and opacity bars, hexadecimal; gradients planned |
 | Rating | | ✓ | ✓ | ⬜ |
-| File upload | | ✓ | ✓ | ⬜ |
+| File upload | | ✓ | ✓ | ✅ `FileUpload`, `ImageField`: the system's chooser and drops, on desktop and web; sending is up to the app |
 | Signature | | | ✓ | ⬜ |
 | Rich text editor | | ✓ | ✓ | ⬜ |
 | Code editor | | ✓ | | ⬜ |
@@ -105,7 +105,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Pivot grid | | ✓ | ✓ | ⬜ |
 | List / List view | | ✓ | ✓ | ✅ `List`, `ListItem` |
 | List box (with reordering) | | ✓ | ✓ | ⬜ |
-| Card view / Tile view | | ✓ | ✓ | 🟡 `Grid` of cards; no virtualization |
+| Card view / Tile view | | ✓ | ✓ | ✅ `CardView`: virtualized, as many columns as fit, keyboard and selection |
 | Scheduler (resource timeline) | | ✓ | ✓ | 🟡 `Scheduler`; gaps listed under "Scheduler" below |
 | Calendar with events | | ✓ | ✓ | ✅ `EventCalendar` |
 | Recurrence editor | | ✓ | ✓ | ✅ `RecurrenceEditor`, `RecurrenceRule` (reads and writes iCalendar's `RRULE`) |
@@ -178,7 +178,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Report engine (bands, groups, summaries, expressions) | | ✓ | ✓ | 🟡 `ravenrs-report`; see [REPORTING-PARITY.md](REPORTING-PARITY.md) |
 | Document viewer (pages, zoom, search, thumbnails) | | ✓ | ✓ | ✅ `ravenrs-report-viewer` |
 | End-user report designer | | ✓ | ✓ | 🟡 `examples/report-designer`, [live](https://alexkads.github.io/RavenRS/designer/) |
-| Export: PDF, XLSX, DOCX, CSV, HTML, images | | ✓ | ✓ | 🟡 `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV), SVG per page, CSV from `DataGrid`; DOCX, HTML and PNG planned |
+| Export: PDF, XLSX, DOCX, CSV, HTML, images | | ✓ | ✓ | 🟡 `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV), SVG per page, Excel, PDF and CSV from `DataGrid`; DOCX, HTML and PNG planned |
 
 ## Platform capabilities
 

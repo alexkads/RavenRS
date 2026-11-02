@@ -66,6 +66,7 @@ ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
         │
 ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)
 ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)
+ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
@@ -95,6 +96,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-report` | `model`, `engine`, `document`, `base64`, `paint`, `wizard`, `samples` |
 | `ravenrs-graphics` | `vector`, `chart`, `barcode`; also the optional layout behind `Chart` and `Barcode` in `ravenrs-widgets` |
 | `ravenrs-report-export` | `lib` |
+| `ravenrs-grid-export` | `lib` |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |
@@ -212,9 +214,11 @@ Parity with the DevExpress DataGrid feature set:
 | Summaries changed at run time, with formulas over `ravenrs-criteria` | ✓ |
 | Row add and delete (`on_add_row`, `on_delete_rows`), buttons on rows (`row_action`), edits that can be refused (`on_cell_edit`) | ✓ |
 | Keys that survive data changes (`key_column`, `selected_keys`), dates (`GridColumn::date`), field names (`GridColumn::field`) | ✓ |
-| Master-detail rows, row drag and drop | planned |
+| Master-detail rows (`row_detail`, a fixed height for each, so the rows stay virtualized) | ✓ |
+| Row drag and drop | planned |
 | Saved layouts and named scenarios (`GridLayout`, `GridScenario`, JSON) | ✓ |
-| Excel and PDF export, cell range copy | planned |
+| Excel and PDF export (`on_export_file`, with `ravenrs-grid-export`) | ✓ |
+| Cell range copy | planned |
 
 ## 6.3 Criteria language
 

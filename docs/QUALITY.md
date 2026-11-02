@@ -105,6 +105,11 @@ Status against the definition of done. **Behavior** names the test suites that d
 | TextArea, NumberField, MaskedField, TimePicker, DateTimePicker | editors | | ✅ typing, arrows, tested | |
 | LookupField, FormLayout, FilterBuilder | components | | ✅ type, arrows, Enter, tested | |
 | Toolbar, SplitButton, ConfirmDialog | components | | ✅ buttons and menus, tested | |
+| TreeView, CardView | app_components | | ✅ one Tab stop; arrows, Home/End, Enter, Space, tested | Virtualized |
+| TagBox, ColorPicker, DateRangePicker | app_components | | ✅ arrows, type, Enter, Escape, tested | |
+| Wizard, FileUpload, ImageField | app_components | | ✅ buttons, tested | Dropping files has no keyboard way; the chooser is the way |
+| TileLayout | app_components | | ✅ arrows move, Shift with arrows resizes, tested | |
+| DataGrid row details and Export menu | app_components | | ✅ Right and Left, menu, tested | |
 | Disabled and read-only editors | components | | ✅ out of the tab order, or readable, tested | |
 | InputOtp | batch_parity | | ✅ digits and Backspace, tested | |
 | FormField, Label | batch_parity, keyboard_and_basics | | n/a | |

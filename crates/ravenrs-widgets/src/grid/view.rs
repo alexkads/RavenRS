@@ -14,14 +14,15 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use super::layout::{self, Arrangement, GridLayout, GridScenario};
 use super::model::{CellAlign, GridColumn, GridData, Row, SortDirection, Summary, Value};
 use super::query::{
-    GridQuery, QueryResult, ViewRow, check_formula, formula_value, group_ranges, run_query, to_csv, to_tsv,
+    GridExportFormat, GridQuery, GridTable, QueryResult, ViewRow, check_formula, formula_value, group_ranges,
+    run_query, to_csv, to_table, to_tsv,
 };
 use super::remote::RemoteRows;
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::overlay::{Entry, MenuList, PanelOf};
 use crate::{
-    Badge, Button, ButtonSize, ButtonStyle, Dialog, DropdownMenu, IconName, MenuItem, Pagination, Select,
-    Spacer, TextField, View, util,
+    AnyView, Badge, Button, ButtonSize, ButtonStyle, Dialog, DropdownMenu, IconName, MenuItem, Pagination,
+    Select, Spacer, TextField, View, util,
 };
 
 /// How rows can be selected.
@@ -90,13 +91,52 @@ pub struct DataGrid {
     row_actions: Vec<GridRowAction>,
     on_add_row: Option<Rc<dyn Fn()>>,
     on_delete_rows: Option<Rc<dyn Fn(Vec<usize>)>>,
+    row_detail: Option<RowDetail>,
+    detail_height: f32,
+    expanded_rows: Option<Binding<BTreeSet<usize>>>,
+    on_export_file: Option<Rc<dyn Fn(GridExportFormat, GridTable)>>,
+    export_title: Option<String>,
 }
 
+type RowDetail = Rc<dyn Fn(&Row, usize) -> AnyView>;
 type CellEditHandler = Rc<dyn Fn(&CellEdit) -> Result<(), String>>;
 type RowTest = Rc<dyn Fn(&Row) -> bool>;
 
 /// Room for one button of a [`GridRowAction`].
 const ROW_ACTION_WIDTH: f32 = 34.0;
+/// Room for the arrow that opens a row's details, and for a row's check box.
+const DETAIL_ARROW_WIDTH: f32 = 32.0;
+const CHECK_WIDTH: f32 = 44.0;
+
+/// Where rows stand when some have their details open below them. With none open, a
+/// row is just its number of row heights down.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct RowTops {
+    row_height: f32,
+    detail_height: f32,
+    /// The rows with details open, in order.
+    open: Vec<usize>,
+}
+
+impl RowTops {
+    fn top(&self, row: usize) -> f32 {
+        row as f32 * self.row_height + self.open.partition_point(|&o| o < row) as f32 * self.detail_height
+    }
+
+    /// The row covering this height, or the one its details belong to.
+    fn row_at(&self, y: f32, len: usize) -> usize {
+        let (mut low, mut high) = (0, len);
+        while low < high {
+            let middle = (low + high) / 2;
+            if self.top(middle + 1) <= y {
+                low = middle + 1;
+            } else {
+                high = middle;
+            }
+        }
+        low
+    }
+}
 
 /// A change someone made in a cell, before it is kept.
 #[derive(Clone, Debug, PartialEq)]
@@ -188,7 +228,45 @@ impl DataGrid {
             row_actions: Vec::new(),
             on_add_row: None,
             on_delete_rows: None,
+            row_detail: None,
+            detail_height: 240.0,
+            expanded_rows: None,
+            on_export_file: None,
+            export_title: None,
         }
+    }
+
+    /// Gives every row details of its own, opened by an arrow at its start or with the Right
+    /// key: a nested list, a form, a chart. The view is built only while it is open,
+    /// with the row and its index in the data.
+    pub fn row_detail(mut self, detail: impl Fn(&Row, usize) -> AnyView + 'static) -> Self {
+        self.row_detail = Some(Rc::new(detail));
+        self
+    }
+
+    /// The height of a row's details in logical pixels. 240 by default.
+    pub fn detail_height(mut self, height: f32) -> Self {
+        self.detail_height = height.max(1.0);
+        self
+    }
+
+    /// The rows with details open, by index in the data, to keep or to set from outside.
+    pub fn expanded_rows(mut self, rows: Binding<BTreeSet<usize>>) -> Self {
+        self.expanded_rows = Some(rows);
+        self
+    }
+
+    /// Shows an Export menu with Excel, PDF and CSV; `handler` receives the format and the rows
+    /// that match, as shown. `ravenrs-grid-export` turns these into a file.
+    pub fn on_export_file(mut self, handler: impl Fn(GridExportFormat, GridTable) + 'static) -> Self {
+        self.on_export_file = Some(Rc::new(handler));
+        self
+    }
+
+    /// The title of the files the Export menu makes. The grid's name by default.
+    pub fn export_title(mut self, title: impl Into<String>) -> Self {
+        self.export_title = Some(title.into());
+        self
     }
 
     /// A grid over rows that stay on a server. It asks for what is on the screen, keeps
@@ -384,6 +462,7 @@ struct Cached {
 /// not trigger an extra rebuild.
 #[derive(Clone)]
 struct Handles {
+    expanded: Binding<BTreeSet<usize>>,
     query: State<GridQuery>,
     widths: State<Vec<f32>>,
     selection: Binding<BTreeSet<usize>>,
@@ -1810,35 +1889,81 @@ impl View for DataRow<'_> {
         };
         let select_fixed = s.fixed_width > 0.0;
         if s.select_width > 0.0 {
-            let b = crate::inputs::check_box(cx, &theme, selected, false);
+            let mut leading = Vec::with_capacity(2);
+            if s.grid.row_detail.is_some() {
+                let open = s.h.expanded.get().contains(&row);
+                let chevron = if open { IconName::ChevronDown } else { IconName::ChevronRight };
+                let glyph = util::icon(cx, chevron, 16.0, theme.color(Semantic::InkMuted));
+                let arrow = cx.container(
+                    LayoutStyle {
+                        width: Some(DETAIL_ARROW_WIDTH),
+                        height: Some(rh),
+                        align: Align::Center,
+                        justify: Justify::Center,
+                        ..LayoutStyle::stack(Axis::Horizontal)
+                    },
+                    &[glyph],
+                    Paint::None,
+                );
+                let labels = cx.labels();
+                let name = if open { &labels.grid_collapse_row } else { &labels.grid_expand_row };
+                cx.semantics(arrow, Semantics::new(Role::Button).name(name.clone()).expanded(open));
+                let (expanded, h) = (s.h.expanded.clone(), s.h.clone());
+                cx.on_click(
+                    arrow,
+                    Rc::new(move || {
+                        h.focus_row.set(Some(index));
+                        expanded.update(|set| {
+                            if !set.remove(&row) {
+                                set.insert(row);
+                            }
+                        });
+                    }),
+                );
+                cx.cursor(arrow, CursorIcon::Pointer);
+                leading.push(arrow);
+            }
+            if mode == SelectionMode::Multiple {
+                let b = crate::inputs::check_box(cx, &theme, selected, false);
+                let check = cx.container(
+                    LayoutStyle {
+                        width: Some(CHECK_WIDTH),
+                        height: Some(rh),
+                        align: Align::Center,
+                        justify: Justify::Center,
+                        ..LayoutStyle::stack(Axis::Horizontal)
+                    },
+                    &[b],
+                    Paint::None,
+                );
+                let name = cx.labels().grid_select_row.clone();
+                cx.semantics(check, Semantics::new(Role::CheckBox).name(name).toggled(selected));
+                let (sel, h) = (s.h.selection.clone(), s.h.clone());
+                cx.on_click(
+                    check,
+                    Rc::new(move || {
+                        sel.update(|set| {
+                            if !set.remove(&row) {
+                                set.insert(row);
+                            }
+                        });
+                        h.focus_row.set(Some(index));
+                        h.anchor.set(Some(index));
+                    }),
+                );
+                cx.cursor(check, CursorIcon::Pointer);
+                leading.push(check);
+            }
             let cell = cx.container(
                 LayoutStyle {
                     width: Some(s.select_width),
                     height: Some(rh),
-                    align: Align::Center,
-                    justify: Justify::Center,
                     absolute: select_fixed.then_some((0.0, 0.0)),
                     ..LayoutStyle::stack(Axis::Horizontal)
                 },
-                &[b],
+                &leading,
                 if select_fixed { solid(None) } else { Paint::None },
             );
-            let name = cx.labels().grid_select_row.clone();
-            cx.semantics(cell, Semantics::new(Role::CheckBox).name(name).toggled(selected));
-            let (sel, h) = (s.h.selection.clone(), s.h.clone());
-            cx.on_click(
-                cell,
-                Rc::new(move || {
-                    sel.update(|set| {
-                        if !set.remove(&row) {
-                            set.insert(row);
-                        }
-                    });
-                    h.focus_row.set(Some(index));
-                    h.anchor.set(Some(index));
-                }),
-            );
-            cx.cursor(cell, CursorIcon::Pointer);
             if select_fixed {
                 cx.translate(cell, Point::new(s.offset_x, 0.0));
                 fixed_cells.push(cell);
@@ -2022,6 +2147,51 @@ impl View for DataRow<'_> {
     }
 }
 
+/// What a row shows below itself when open. It stays in sight while the columns scroll.
+struct DetailRow<'a> {
+    row: usize,
+    values: &'a Row,
+    shared: &'a Shared<'a>,
+    width: f32,
+}
+
+impl View for DetailRow<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let s = self.shared;
+        let Some(detail) = &s.grid.row_detail else { return cx.empty() };
+        let content = detail(self.values, self.row);
+        let inner = cx.child(content.as_ref());
+        let holder = cx.container(
+            LayoutStyle {
+                width: Some(self.width),
+                height: Some(s.grid.detail_height),
+                padding: Insets::uniform(12.0),
+                overflow_hidden: true,
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[inner],
+            Paint::None,
+        );
+        cx.clip(holder);
+        cx.translate(holder, Point::new(s.offset_x, 0.0));
+        let (base, line) = (theme.color(Semantic::Canvas), theme.color(Semantic::Border).faded(0.6));
+        cx.container(
+            LayoutStyle {
+                width: Some(s.total_width),
+                height: Some(s.grid.detail_height),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[holder],
+            Paint::Custom(Rc::new(move |f: Rect, scene| {
+                scene.push_quad(Quad::new(f, base));
+                scene.push_quad(Quad::new(Rect::new(f.x(), f.max_y() - 1.0, f.width(), 1.0), line));
+            })),
+        )
+    }
+}
+
 struct GroupRow<'a> {
     index: usize,
     shared: &'a Shared<'a>,
@@ -2168,6 +2338,10 @@ impl DataGrid {
             edit_error,
             resize,
             modifiers: cx.modifiers(),
+            expanded: {
+                let local = cx.use_state(BTreeSet::new);
+                self.expanded_rows.clone().unwrap_or_else(|| local.binding())
+            },
             arrange,
             drag: cx.use_state(|| None),
             press: cx.use_state(|| Rc::new(Cell::new((Point::ZERO, false)))).get(),
@@ -2343,6 +2517,36 @@ impl DataGrid {
                         .on_click(move || export(to_csv(&columns, &rows, &q, &matched))),
                 ),
             );
+        }
+        if let Some(export) = &self.on_export_file {
+            let title = self.export_title.clone().unwrap_or_else(|| labels.grid_name.clone());
+            let culture = labels.culture.clone();
+            let table = Rc::new(move |columns: &[GridColumn], rows: &[Row], q: &GridQuery, m: &[usize]| {
+                to_table(&title, &culture, columns, rows, q, m)
+            });
+            let mut menu = DropdownMenu::new(labels.grid_export_file.clone())
+                .icon(IconName::Download)
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Secondary);
+            for (format, text) in [
+                (GridExportFormat::Xlsx, "Excel (.xlsx)"),
+                (GridExportFormat::Pdf, "PDF (.pdf)"),
+                (GridExportFormat::Csv, "CSV (.csv)"),
+            ] {
+                let (export, table, columns, rows, q, matched) = (
+                    export.clone(),
+                    table.clone(),
+                    self.columns.clone(),
+                    rows.clone(),
+                    query.clone(),
+                    result.matched.clone(),
+                );
+                menu = menu.item(
+                    MenuItem::new(text)
+                        .on_select(move || export(format, table(&columns, &rows, &q, &matched))),
+                );
+            }
+            items.push(cx.child(&menu));
         }
         cx.container(
             LayoutStyle {
@@ -2611,6 +2815,7 @@ fn key_handler(s: &Shared<'_>, mode: SelectionMode, clipboard: crate::Clipboard)
     let activate_row = s.grid.on_row_activate.clone();
     let delete_rows = s.grid.on_delete_rows.clone();
     let page_size = s.arrangement.page_size;
+    let has_details = s.grid.row_detail.is_some();
     Rc::new(move |key, mods| {
         let len = result.rows.len();
         if len == 0 {
@@ -2694,6 +2899,9 @@ fn key_handler(s: &Shared<'_>, mode: SelectionMode, clipboard: crate::Clipboard)
                         h.query.update(|q| q.toggle_collapsed(group_key));
                     }
                 }
+                ViewRow::Data(row) if has_details => {
+                    set_details(&h.expanded, *row, matches!(key, Key::ArrowRight));
+                }
                 _ => return false,
             },
             Key::Enter => activate(current),
@@ -2724,7 +2932,17 @@ fn apply_layout(h: &Handles, columns: &[GridColumn], wanted: &GridLayout) {
 }
 
 /// The keys of rows that stay on a server: there is no list of them to walk.
-fn remote_key_handler(h: &Handles, len: usize, mode: SelectionMode) -> crate::KeyHandler {
+fn set_details(expanded: &Binding<BTreeSet<usize>>, row: usize, open: bool) {
+    expanded.update(|set| {
+        if open {
+            set.insert(row);
+        } else {
+            set.remove(&row);
+        }
+    });
+}
+
+fn remote_key_handler(h: &Handles, len: usize, mode: SelectionMode, details: bool) -> crate::KeyHandler {
     let h = h.clone();
     Rc::new(move |key, _| {
         if len == 0 {
@@ -2732,6 +2950,10 @@ fn remote_key_handler(h: &Handles, len: usize, mode: SelectionMode) -> crate::Ke
         }
         let current = h.focus_row.get().unwrap_or(0).min(len - 1);
         let next = match key {
+            Key::ArrowLeft | Key::ArrowRight if details => {
+                set_details(&h.expanded, current, matches!(key, Key::ArrowRight));
+                return true;
+            }
             Key::ArrowDown => (current + 1).min(len - 1),
             Key::ArrowUp => current.saturating_sub(1),
             Key::Home => 0,
@@ -2822,7 +3044,8 @@ impl View for DataGrid {
         if let Some(&first) = visible.first() {
             widths[first] += query.group_by.len() as f32 * GROUP_INDENT;
         }
-        let select_width = if self.selection_mode == SelectionMode::Multiple { 44.0 } else { 0.0 };
+        let select_width = if self.selection_mode == SelectionMode::Multiple { CHECK_WIDTH } else { 0.0 }
+            + if self.row_detail.is_some() { DETAIL_ARROW_WIDTH } else { 0.0 };
         let fill_seen: Rc<Cell<(f32, f32)>> = cx.use_state(|| Rc::new(Cell::new((0.0, 0.0)))).get();
         if let Some(&fill) = visible.iter().find(|&&c| self.columns[c].fill) {
             match cx.scroll_viewport() {
@@ -2934,7 +3157,17 @@ impl View for DataGrid {
                 Paint::None,
             ));
         }
-        if select_width > 0.0 {
+        if select_width > 0.0 && self.selection_mode != SelectionMode::Multiple {
+            header_cells.push(cx.container(
+                LayoutStyle {
+                    width: Some(select_width),
+                    absolute: select_fixed.then_some((0.0, 0.0)),
+                    ..LayoutStyle::leaf()
+                },
+                &[],
+                Paint::None,
+            ));
+        } else if select_width > 0.0 {
             let all = !result.matched.is_empty() && result.matched.iter().all(|r| selected.contains(r));
             let b = crate::inputs::check_box(cx, &theme, all, false);
             let surface = theme.color(Semantic::Surface);
@@ -3008,11 +3241,28 @@ impl View for DataGrid {
         let rh = self.row_height;
         let viewport_h =
             cx.scroll_viewport().map_or(self.height.unwrap_or(cx.viewport().height), |s| s.height);
+        let viewport_w = cx.scroll_viewport().map_or(cx.viewport().width, |s| s.width);
+        let expanded = if self.row_detail.is_some() { h.expanded.get() } else { BTreeSet::new() };
+        let tops = RowTops {
+            row_height: rh,
+            detail_height: self.detail_height,
+            open: if expanded.is_empty() {
+                Vec::new()
+            } else {
+                (0..len)
+                    .filter(|&i| match result.rows.get(base + i) {
+                        Some(ViewRow::Data(r)) => expanded.contains(r),
+                        Some(_) => false,
+                        None => self.remote.is_some() && expanded.contains(&(base + i)),
+                    })
+                    .collect()
+            },
+        };
         if shown_page.replace(page) != page {
             cx.set_scroll_offset(Point::new(offset.x, 0.0));
         }
         if let Some(i) = h.reveal.take() {
-            let top = i.saturating_sub(base) as f32 * rh;
+            let top = tops.top(i.saturating_sub(base));
             let y = if top < offset.y {
                 Some(top)
             } else if top + rh > offset.y + viewport_h {
@@ -3025,8 +3275,8 @@ impl View for DataGrid {
             }
         }
         let overscan = 6;
-        let first = ((offset.y / rh).floor() as usize).saturating_sub(overscan).min(len);
-        let last = (((offset.y + viewport_h) / rh).ceil() as usize + overscan).min(len);
+        let first = tops.row_at(offset.y, len).saturating_sub(overscan).min(len);
+        let last = (tops.row_at(offset.y + viewport_h, len) + 1 + overscan).min(len);
         if let Some(remote) = &self.remote {
             let (from, to) = (base + first, base + last.max(first + 1));
             let now = cx.now();
@@ -3036,7 +3286,7 @@ impl View for DataGrid {
         }
         let mut body_rows = Vec::with_capacity(last - first + 2);
         body_rows.push(cx.container(
-            LayoutStyle { height: Some(first as f32 * rh), width: Some(total_width), ..LayoutStyle::leaf() },
+            LayoutStyle { height: Some(tops.top(first)), width: Some(total_width), ..LayoutStyle::leaf() },
             &[],
             Paint::None,
         ));
@@ -3049,6 +3299,12 @@ impl View for DataGrid {
                     None => cx.keyed_child(i as u64 | (1 << 61), &WaitingRow { shared: &shared }),
                 };
                 body_rows.push(node);
+                if expanded.contains(&i)
+                    && let Some(values) = remote.row(i)
+                {
+                    let detail = DetailRow { row: i, values: &values, shared: &shared, width: viewport_w };
+                    body_rows.push(cx.keyed_child(i as u64 | (1 << 60), &detail));
+                }
                 continue;
             }
             let node = match &result.rows[i] {
@@ -3061,10 +3317,16 @@ impl View for DataGrid {
                 }
             };
             body_rows.push(node);
+            if let ViewRow::Data(r) = &result.rows[i]
+                && expanded.contains(r)
+            {
+                let detail = DetailRow { row: *r, values: &rows[*r], shared: &shared, width: viewport_w };
+                body_rows.push(cx.keyed_child(*r as u64 | (1 << 60), &detail));
+            }
         }
         body_rows.push(cx.container(
             LayoutStyle {
-                height: Some((len - last) as f32 * rh),
+                height: Some(tops.top(len) - tops.top(last)),
                 width: Some(total_width),
                 ..LayoutStyle::leaf()
             },
@@ -3137,7 +3399,7 @@ impl View for DataGrid {
         cx.focusable(body, 0.0);
         let clipboard = cx.clipboard();
         let keys = if self.remote.is_some() {
-            remote_key_handler(&h, total, self.selection_mode)
+            remote_key_handler(&h, total, self.selection_mode, self.row_detail.is_some())
         } else {
             key_handler(&shared, self.selection_mode, clipboard)
         };
@@ -3340,5 +3602,33 @@ impl View for DataGrid {
             }
         }
         root
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rows_stand_lower_after_open_details() {
+        let tops = RowTops { row_height: 10.0, detail_height: 100.0, open: vec![1, 3] };
+        assert_eq!(tops.top(0), 0.0);
+        assert_eq!(tops.top(1), 10.0);
+        assert_eq!(tops.top(2), 120.0, "row 1 and its details");
+        assert_eq!(tops.top(4), 240.0);
+        assert_eq!(tops.row_at(0.0, 6), 0);
+        assert_eq!(tops.row_at(15.0, 6), 1);
+        assert_eq!(tops.row_at(119.0, 6), 1, "inside the details of row 1");
+        assert_eq!(tops.row_at(120.0, 6), 2);
+        assert_eq!(tops.row_at(10_000.0, 6), 6, "past the end");
+    }
+
+    #[test]
+    fn with_nothing_open_a_row_is_its_number_of_heights_down() {
+        let tops = RowTops { row_height: 36.0, detail_height: 240.0, open: vec![] };
+        for row in [0, 1, 5, 100_000] {
+            assert_eq!(tops.top(row), row as f32 * 36.0);
+            assert_eq!(tops.row_at(row as f32 * 36.0 + 1.0, 200_000), row);
+        }
     }
 }

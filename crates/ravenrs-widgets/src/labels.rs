@@ -26,6 +26,70 @@ pub struct Labels {
     pub send: String,
     /// A [`Chat`](crate::Chat)'s button to hear an answer.
     pub listen: String,
+    /// A [`TreeView`](crate::TreeView)'s name.
+    pub tree_name: String,
+    /// Before the tag a [`TagBox`](crate::TagBox) button takes off.
+    pub tag_remove: String,
+    /// A [`ColorPicker`](crate::ColorPicker)'s panel.
+    pub pick_color: String,
+    /// A [`ColorPicker`](crate::ColorPicker) with no color.
+    pub no_color: String,
+    /// The shade square of a [`ColorPicker`](crate::ColorPicker).
+    pub color_shade: String,
+    /// The hue bar of a [`ColorPicker`](crate::ColorPicker).
+    pub color_hue: String,
+    /// The opacity bar of a [`ColorPicker`](crate::ColorPicker).
+    pub color_alpha: String,
+    /// The typed color of a [`ColorPicker`](crate::ColorPicker).
+    pub color_hex: String,
+    /// A [`DateRangePicker`](crate::DateRangePicker) with no period.
+    pub pick_date_range: String,
+    /// Goes to the previous step of a [`Wizard`](crate::Wizard).
+    pub wizard_back: String,
+    /// Goes to the next step of a [`Wizard`](crate::Wizard).
+    pub wizard_next: String,
+    /// Ends a [`Wizard`](crate::Wizard).
+    pub wizard_finish: String,
+    /// Leaves a [`Wizard`](crate::Wizard).
+    pub wizard_cancel: String,
+    /// A step of a [`Wizard`](crate::Wizard) already done.
+    pub wizard_done: String,
+    /// What a [`FileUpload`](crate::FileUpload) asks for.
+    pub file_drop: String,
+    /// Opens the chooser of a [`FileUpload`](crate::FileUpload).
+    pub file_choose: String,
+    /// Takes a file off.
+    pub file_remove: String,
+    /// Why a file was refused.
+    pub file_wrong_kind: String,
+    /// Why a file was refused.
+    pub file_too_large: String,
+    /// Why a file was refused.
+    pub file_too_many: String,
+    /// Opens the chooser of an [`ImageField`](crate::ImageField).
+    pub image_choose: String,
+    /// Opens the chooser of an [`ImageField`](crate::ImageField) that has a picture.
+    pub image_replace: String,
+    /// An [`ImageField`](crate::ImageField) with no picture.
+    pub image_none: String,
+    /// A file an [`ImageField`](crate::ImageField) cannot show.
+    pub image_invalid: String,
+    /// The handle that moves a tile of a [`TileLayout`](crate::TileLayout).
+    pub tile_move: String,
+    /// The handle that resizes a tile of a [`TileLayout`](crate::TileLayout).
+    pub tile_resize: String,
+    /// A [`CardView`](crate::CardView)'s name.
+    pub cards_name: String,
+    /// Opens the details of a row of a [`DataGrid`](crate::DataGrid).
+    pub grid_expand_row: String,
+    /// Closes the details of a row of a [`DataGrid`](crate::DataGrid).
+    pub grid_collapse_row: String,
+    /// What an option of a [`TagBox`](crate::TagBox) says when it adds what was typed.
+    pub tag_add: fn(&str) -> String,
+    /// Where a [`Wizard`](crate::Wizard) stands, from its step and its count.
+    pub wizard_progress: fn(usize, usize) -> String,
+    /// The language and region of numbers and dates in files, such as `pt-BR`.
+    pub culture: String,
     /// A spinner's name.
     pub loading: String,
     /// A stepper's minus button.
@@ -342,6 +406,8 @@ pub struct Labels {
     pub grid_reset: String,
     /// A grid's export button.
     pub grid_export: String,
+    /// A grid's menu of file formats.
+    pub grid_export_file: String,
     /// A data grid's button that adds a row.
     pub grid_add_row: String,
     /// A data grid's button that removes the selected rows.
@@ -512,6 +578,38 @@ impl Default for Labels {
             carousel_previous: "Previous slide".into(),
             carousel_next: "Next slide".into(),
             carousel_slide: "Slide".into(),
+            tree_name: "Tree".into(),
+            tag_remove: "Remove".into(),
+            pick_color: "Pick a color".into(),
+            no_color: "No color".into(),
+            color_shade: "Saturation and brightness".into(),
+            color_hue: "Hue".into(),
+            color_alpha: "Opacity".into(),
+            color_hex: "Hexadecimal color".into(),
+            pick_date_range: "Pick a period".into(),
+            wizard_back: "Back".into(),
+            wizard_next: "Next".into(),
+            wizard_finish: "Finish".into(),
+            wizard_cancel: "Cancel".into(),
+            wizard_done: "Done".into(),
+            file_drop: "Drop files here".into(),
+            file_choose: "Choose files".into(),
+            file_remove: "Remove".into(),
+            file_wrong_kind: "this kind of file is not accepted".into(),
+            file_too_large: "the file is too large".into(),
+            file_too_many: "there is no room for more files".into(),
+            image_choose: "Choose image".into(),
+            image_replace: "Replace".into(),
+            image_none: "No image".into(),
+            image_invalid: "Cannot show this image".into(),
+            tile_move: "Move".into(),
+            tile_resize: "Resize".into(),
+            cards_name: "Cards".into(),
+            grid_expand_row: "Show details".into(),
+            grid_collapse_row: "Hide details".into(),
+            tag_add: |text| format!("Add \"{text}\""),
+            wizard_progress: |step, count| format!("Step {step} of {count}"),
+            culture: "en-US".into(),
             verification_code: "Verification code".into(),
             cancel: "Cancel".into(),
             more_commands: "More".into(),
@@ -588,6 +686,7 @@ impl Default for Labels {
             grid_columns: "Columns".into(),
             grid_reset: "Reset".into(),
             grid_export: "Export CSV".into(),
+            grid_export_file: "Export".into(),
             grid_add_row: "Add".into(),
             grid_delete_rows: "Delete".into(),
             grid_no_rows: "No rows match the current filters.".into(),
@@ -727,6 +826,38 @@ impl Labels {
             carousel_previous: "Slide anterior".into(),
             carousel_next: "Próximo slide".into(),
             carousel_slide: "Slide".into(),
+            tree_name: "Árvore".into(),
+            tag_remove: "Remover".into(),
+            pick_color: "Escolher cor".into(),
+            no_color: "Sem cor".into(),
+            color_shade: "Saturação e brilho".into(),
+            color_hue: "Matiz".into(),
+            color_alpha: "Opacidade".into(),
+            color_hex: "Cor em hexadecimal".into(),
+            pick_date_range: "Escolher período".into(),
+            wizard_back: "Voltar".into(),
+            wizard_next: "Avançar".into(),
+            wizard_finish: "Concluir".into(),
+            wizard_cancel: "Cancelar".into(),
+            wizard_done: "Concluída".into(),
+            file_drop: "Solte os arquivos aqui".into(),
+            file_choose: "Escolher arquivos".into(),
+            file_remove: "Remover".into(),
+            file_wrong_kind: "este tipo de arquivo não é aceito".into(),
+            file_too_large: "o arquivo é grande demais".into(),
+            file_too_many: "não cabem mais arquivos".into(),
+            image_choose: "Escolher imagem".into(),
+            image_replace: "Trocar".into(),
+            image_none: "Sem imagem".into(),
+            image_invalid: "Não foi possível mostrar a imagem".into(),
+            tile_move: "Mover".into(),
+            tile_resize: "Redimensionar".into(),
+            cards_name: "Cartões".into(),
+            grid_expand_row: "Mostrar detalhes".into(),
+            grid_collapse_row: "Ocultar detalhes".into(),
+            tag_add: |text| format!("Adicionar \"{text}\""),
+            wizard_progress: |step, count| format!("Etapa {step} de {count}"),
+            culture: "pt-BR".into(),
             verification_code: "Código de verificação".into(),
             cancel: "Cancelar".into(),
             more_commands: "Mais".into(),
@@ -803,6 +934,7 @@ impl Labels {
             grid_columns: "Colunas".into(),
             grid_reset: "Limpar".into(),
             grid_export: "Exportar CSV".into(),
+            grid_export_file: "Exportar".into(),
             grid_add_row: "Adicionar".into(),
             grid_delete_rows: "Excluir".into(),
             grid_no_rows: "Nenhuma linha atende aos filtros.".into(),

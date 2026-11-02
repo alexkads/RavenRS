@@ -142,9 +142,25 @@ impl Default for WizardOptions {
     }
 }
 
+/// What a column of a table report says besides its field. Anything left out follows
+/// from the field.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ColumnWords {
+    /// The text of its header.
+    pub caption: Option<String>,
+    /// The format of its values, such as `R$ #,##0.00`.
+    pub format: Option<String>,
+}
+
 /// Builds a table report: title, column headers repeated on each page, zebra
 /// rows, optional grouping with subtotals, grand totals, page numbers.
 pub fn table_report(source: DataSource, options: &WizardOptions) -> Report {
+    table_report_with(source, options, &[])
+}
+
+/// Like [`table_report`], with what each column says given by the caller, in the order
+/// of [`WizardOptions::columns`].
+pub fn table_report_with(source: DataSource, options: &WizardOptions, words: &[ColumnWords]) -> Report {
     let page = if options.columns.len() > 6 { options.page.landscape() } else { options.page };
     let width = page.content_width();
     // Text columns get more room than numbers and dates.
@@ -177,21 +193,22 @@ pub fn table_report(source: DataSource, options: &WizardOptions) -> Report {
         })
         .map(|c| c.path.clone())
         .collect();
+    let told_format = |i: usize| words.get(i).and_then(|w| w.format.as_deref());
     let number_format = |path: &str| if whole.iter().any(|w| w == path) { "N0" } else { "N2" };
     let mut header = TableRow::new(22.0);
     let mut detail = TableRow::new(18.0);
-    for (c, w) in options.columns.iter().zip(&widths) {
-        header =
-            header.text(*w, &caption(&c.path).to_uppercase()).cell_style(Style::new().align(align(c.kind)));
+    for (i, (c, w)) in options.columns.iter().zip(&widths).enumerate() {
+        let title = words.get(i).and_then(|w| w.caption.clone()).unwrap_or_else(|| caption(&c.path));
+        header = header.text(*w, &title.to_uppercase()).cell_style(Style::new().align(align(c.kind)));
         let expr = match c.kind {
             FieldKind::Boolean if pt => format!("Iif([{}], 'Sim', 'Não')", c.path),
             FieldKind::Boolean => format!("Iif([{}], 'Yes', 'No')", c.path),
             _ => format!("[{}]", c.path),
         };
-        let format = match c.kind {
+        let format = told_format(i).or(match c.kind {
             FieldKind::Number => Some(number_format(&c.path)),
             kind => default_format(kind),
-        };
+        });
         detail = detail.field(*w, &expr, format).cell_style(Style::new().align(align(c.kind)));
     }
     let header = header.style_name("th");
@@ -200,7 +217,8 @@ pub fn table_report(source: DataSource, options: &WizardOptions) -> Report {
         let mut row = TableRow::new(20.0);
         for (i, (c, w)) in options.columns.iter().zip(&widths).enumerate() {
             row = if options.totals.contains(&c.path) {
-                row.field(*w, &format!("Sum([{}])", c.path), Some(number_format(&c.path)))
+                let format = told_format(i).unwrap_or_else(|| number_format(&c.path));
+                row.field(*w, &format!("Sum([{}])", c.path), Some(format))
                     .cell_style(Style::new().align(TextAlign::Right))
             } else if i == 0 {
                 row.text(*w, label)

@@ -267,6 +267,7 @@ fn run_window(
         Err(e) => tracing::warn!(error = %e, "system clipboard unavailable; using an in-app clipboard"),
     }
     ui.set_sound(sound::SystemSound::default());
+    ui.set_file_picker(files::SystemFilePicker);
     let mut app = App {
         display: event_loop.owned_display_handle(),
         diagnostics,
@@ -703,6 +704,15 @@ impl ApplicationHandler<UserEvent> for App {
                 let p = Point::new((x / scale) as f32, (y / scale) as f32);
                 self.pointer = Some(p);
                 self.dispatch(Event::PointerMove { position: p });
+            }
+            WindowEvent::HoveredFile(_) => self.ui.set_files_over(true),
+            WindowEvent::HoveredFileCancelled => self.ui.set_files_over(false),
+            WindowEvent::DroppedFile(path) => {
+                // Nothing here knows how large a place will take; this keeps a drop
+                // from filling the memory with something no place would keep.
+                if let Some(file) = files::read_picked(&path, Some(files::MOST_DROPPED_BYTES)) {
+                    self.ui.drop_files(self.pointer, vec![file]);
+                }
             }
             WindowEvent::CursorLeft { .. } => {
                 self.pointer = None;

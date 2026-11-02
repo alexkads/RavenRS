@@ -49,6 +49,8 @@ pub(crate) fn role(role: Role) -> accesskit::Role {
         Role::Separator => A::Splitter,
         Role::ScrollView => A::ScrollView,
         Role::Calendar => A::Grid,
+        Role::Tree => A::Tree,
+        Role::TreeItem => A::TreeItem,
         Role::ContentInfo => A::ContentInfo,
         Role::Navigation => A::Navigation,
         _ => A::GenericContainer,

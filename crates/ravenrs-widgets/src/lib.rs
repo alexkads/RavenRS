@@ -44,6 +44,7 @@ mod chart;
 mod chat;
 mod choice;
 mod clipboard;
+mod color_picker;
 mod commands;
 mod context;
 mod data;
@@ -53,6 +54,7 @@ mod display;
 mod editors;
 mod event_calendar;
 mod extras;
+mod files;
 mod fill;
 mod filter_builder;
 mod floating;
@@ -76,15 +78,19 @@ mod ribbon;
 mod scheduler;
 mod sound;
 mod stack;
+mod tag_box;
 mod text;
 mod text_field;
+mod tiles;
 mod timeline;
+mod tree;
 mod ui;
 mod util;
 mod view;
+mod wizard;
 
 pub use button::{Button, ButtonSize, ButtonStyle, IconButton};
-pub use calendar::{Calendar, DatePicker};
+pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
 #[cfg(feature = "charts")]
@@ -95,6 +101,7 @@ pub use chart::{
 pub use chat::{Chat, ChatAuthor, ChatMessage, FloatingCorner, FloatingPanel};
 pub use choice::{AspectRatio, ColorSwatch, Label, Pagination, ToggleButton, ToggleGroup};
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
+pub use color_picker::ColorPicker;
 pub use commands::{ConfirmDialog, Hotkey, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
     ActivityObserver, BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint,
@@ -109,6 +116,9 @@ pub use display::{
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
 pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
 pub use extras::{Carousel, FormField, InputOtp, Menubar, Rule, Spinner, Splitter, validate};
+#[cfg(feature = "decode")]
+pub use files::ImageField;
+pub use files::{FilePicker, FilePickerProvider, FileRequest, FileUpload, NoFilePicker, PickedFile};
 pub use fill::Fill;
 pub use filter_builder::{FilterBuilder, FilterField, FilterFieldKind};
 pub use floating::{
@@ -117,9 +127,10 @@ pub use floating::{
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use grid::{
-    CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridColumn, GridData, GridLayout, GridPage,
-    GridRequest, GridResponder, GridRowAction, GridScenario, NumberFormat, RemoteRows, SelectionMode,
-    SortDirection, SortLayout, Summary, Value,
+    CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridColumn, GridData, GridExportFormat,
+    GridLayout, GridPage, GridRequest, GridResponder, GridRowAction, GridScenario, GridTable,
+    GridTableColumn, GridTableKind, NumberFormat, RemoteRows, SelectionMode, SortDirection, SortLayout,
+    Summary, Value,
 };
 pub use icon::Icon;
 pub use icon_set::IconName;
@@ -147,8 +158,12 @@ pub use scheduler::{
 };
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
 pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, StatusBar, ToolRail, VStack};
+pub use tag_box::TagBox;
 pub use text::Text;
 pub use text_field::TextField;
+pub use tiles::{CardView, Tile, TileLayout, TileSpot};
 pub use timeline::{Timeline, TimelineEdit, TimelineItem, TimelineMarker, TimelineTrack};
+pub use tree::{TreeNode, TreeView};
 pub use ui::Ui;
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};
+pub use wizard::{Wizard, WizardStep};

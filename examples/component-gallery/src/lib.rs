@@ -659,6 +659,36 @@ impl Gallery {
                     }),
                 ),
             ),
+            Grid::new(
+                columns(width, 2),
+                (
+                    demo(
+                        "Trees and tags",
+                        "Items inside items, with the keyboard; several values as tags, adding new ones.",
+                        VStack::new((samples::sample("TreeView"), samples::sample("TagBox")))
+                            .spacing(16.0)
+                            .align(Align::Stretch),
+                    ),
+                    demo(
+                        "Colors and periods",
+                        "A palette, a shade square and a hue bar; a period in two clicks, or ready-made.",
+                        VStack::new((samples::sample("ColorPicker"), samples::sample("DateRangePicker")))
+                            .spacing(12.0),
+                    ),
+                    demo(
+                        "Steps",
+                        "A step can refuse to be left, saying why; steps already done can be reopened.",
+                        samples::sample("Wizard"),
+                    ),
+                    demo(
+                        "Files",
+                        "From the system's chooser or dropped on the place, refused with a reason when they do not fit.",
+                        VStack::new((samples::sample("FileUpload"), samples::sample("ImageField")))
+                            .spacing(16.0)
+                            .align(Align::Stretch),
+                    ),
+                ),
+            ),
         ))
         .spacing(24.0)
         .align(Align::Stretch)
@@ -1174,6 +1204,16 @@ impl Gallery {
                 "Resizable panels, carousels, menus, toggles, pagination and loaders.",
             ),
             demo(
+                "Tiles",
+                "A dashboard to rearrange: drag by the grip, resize by the corner, or use the arrows on the grip.",
+                samples::sample("TileLayout"),
+            ),
+            demo(
+                "Cards",
+                "Ten thousand records as cards, in as many columns as fit. Only those in sight are built.",
+                samples::sample("CardView"),
+            ),
+            demo(
                 "Footer",
                 "Left, center and right areas under a hairline. Below 640 pixels of window width they stack, as the second one always does.",
                 VStack::new((
@@ -1632,6 +1672,52 @@ impl Gallery {
                 info.set(format!("Exported {lines} rows as CSV ({} KB).", csv.len() / 1024));
             }),
             Text::bound(&self.export_info, Clone::clone).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+            demo(
+                "Row details and files",
+                "An arrow, or the Right key, opens what is below a row. The Export menu makes a real workbook or PDF, here only measured.",
+                DataGrid::new(
+                    GridData::new(
+                        (1..=200)
+                            .map(|i| vec![format!("Account {i}").into(), (f64::from(i) * 37.5).into()])
+                            .collect(),
+                    ),
+                    [
+                        GridColumn::text("Account").fill(),
+                        GridColumn::currency("Balance", "R$ ", 2).width(180.0).summary(Summary::Sum),
+                    ],
+                )
+                .row_detail(|row, _| -> AnyView {
+                    Box::new(
+                        DataGrid::new(
+                            GridData::new(
+                                (1..=20)
+                                    .map(|i| vec![format!("Entry {i}").into(), (f64::from(i) * 2.5).into()])
+                                    .collect(),
+                            ),
+                            [
+                                GridColumn::text(row[0].key_text()).fill(),
+                                GridColumn::currency("Amount", "R$ ", 2).width(160.0),
+                            ],
+                        )
+                        .toolbar(false)
+                        .filter_row(false)
+                        .footer(false)
+                        .height(180.0),
+                    )
+                })
+                .detail_height(204.0)
+                .export_title("Accounts")
+                .on_export_file({
+                    let info = self.export_info.clone();
+                    move |format, table| {
+                        info.set(match ravenrs_grid_export::export(&table, format, None) {
+                            Ok(file) => format!("{}: {} KB.", file.name, file.bytes.len() / 1024),
+                            Err(e) => e,
+                        });
+                    }
+                })
+                .height(360.0),
+            ),
             demo(
                 "Rows on a server: infinite scroll",
                 "Five million rows that stay on the server. The grid asks for what is on the screen, once scrolling rests, at most two chunks at a time, and holds eight.",

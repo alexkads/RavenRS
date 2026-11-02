@@ -1,0 +1,23 @@
+[package]
+name = "ravenrs-grid-export"
+description = "Turns what a RavenRS DataGrid shows into an Excel, PDF or CSV file, through the same exporters as reports."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-grid-export"
+keywords = ["datagrid", "export", "pdf", "xlsx", "csv"]
+categories = ["gui", "encoding"]
+
+[dependencies]
+ravenrs-widgets.workspace = true
+ravenrs-report.workspace = true
+ravenrs-report-export.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -34,6 +34,9 @@ samples! {
     "TimePicker" => time_picker, "DateTimePicker" => date_time_picker, "LookupField" => lookup_field,
     "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "Toolbar" => toolbar, "SplitButton" => split_button,
     "ConfirmDialog" => confirm_dialog,
+    "TreeView" => tree_view, "TagBox" => tag_box, "ColorPicker" => color_picker,
+    "DateRangePicker" => date_range_picker, "Wizard" => wizard, "FileUpload" => file_upload,
+    "ImageField" => image_field, "TileLayout" => tile_layout, "CardView" => card_view,
     "Ribbon" => ribbon, "Menubar" => menubar, "Tabs" => tabs, "Sidebar" => sidebar,
     "Breadcrumb" => breadcrumb, "Pagination" => pagination, "Accordion" => accordion,
     "Disclosure" => disclosure,
@@ -286,6 +289,136 @@ fn filter_builder() -> impl View {
             FilterField::new("Active", "Active", FilterFieldKind::Boolean),
         ],
     )
+}
+// end
+
+// sample: TreeView, 260
+fn tree_view() -> impl View {
+    let selected = State::new(Some(String::from("invoices")));
+    let opened = State::new(std::collections::BTreeSet::from([String::from("sales")]));
+    TreeView::new(vec![
+        TreeNode::new("sales", "Sales")
+            .icon(IconName::Folder)
+            .child(TreeNode::new("invoices", "Invoices").icon(IconName::FileText))
+            .child(TreeNode::new("quotes", "Quotes").icon(IconName::FileText)),
+        TreeNode::new("stock", "Stock")
+            .icon(IconName::Folder)
+            .child(TreeNode::new("items", "Items").icon(IconName::FileText)),
+        TreeNode::new("reports", "Reports").icon(IconName::FileText),
+    ])
+    .selected(selected.binding())
+    .expanded(opened.binding())
+}
+// end
+
+// sample: TagBox, 300
+fn tag_box() -> impl View {
+    let tags = State::new(vec![String::from("urgent")]);
+    TagBox::new(
+        tags.binding(),
+        vec![
+            LookupItem::new("urgent", "Urgent"),
+            LookupItem::new("review", "To review"),
+            LookupItem::new("paid", "Paid"),
+        ],
+    )
+    .allow_new(true)
+    .label("Tags")
+}
+// end
+
+// sample: ColorPicker, 420
+fn color_picker() -> impl View {
+    let color = State::new(Some(Color::hex(0x2563EB)));
+    ColorPicker::new(color.binding())
+        .alpha(true)
+        .palette([
+            (Color::hex(0x2563EB), "Blue"),
+            (Color::hex(0x16A34A), "Green"),
+            (Color::hex(0xDC2626), "Red"),
+            (Color::hex(0xF59E0B), "Amber"),
+        ])
+        .label("Category color")
+}
+// end
+
+// sample: DateRangePicker, 420
+fn date_range_picker() -> impl View {
+    let today = Date::new(2026, 11, 2).unwrap_or_else(|| unreachable!("a valid date"));
+    let period = State::new(Some(DateRange::new(today, today.add_days(6))));
+    DateRangePicker::new(period.binding(), today)
+        .today(today)
+        .preset("Last 7 days", DateRange::new(today.add_days(-6), today))
+        .preset("Last 30 days", DateRange::new(today.add_days(-29), today))
+        .label("Period")
+}
+// end
+
+// sample: Wizard, 280
+fn wizard() -> impl View {
+    let step = State::new(0);
+    let name = State::new(String::new());
+    let filled = name.clone();
+    Wizard::new(
+        step.binding(),
+        vec![
+            WizardStep::new("Account", FormField::new("Name", TextField::new(name.binding()))).check(
+                move || {
+                    if filled.get().trim().is_empty() { Err("Fill in the name".to_owned()) } else { Ok(()) }
+                },
+            ),
+            WizardStep::new("Opening balance", Text::new("How much it holds today")),
+            WizardStep::new("Review", Text::new("Everything is ready")),
+        ],
+    )
+    .on_finish(|| {})
+}
+// end
+
+// sample: FileUpload, 240
+fn file_upload() -> impl View {
+    let files = State::new(Vec::<PickedFile>::new());
+    FileUpload::new(files.binding()).accept(["pdf", "png", "jpg"]).most_files(5).label("Receipts")
+}
+// end
+
+// sample: ImageField, 220
+fn image_field() -> impl View {
+    let photo = State::new(None::<PickedFile>);
+    ImageField::new(photo.binding()).size(180.0, 120.0).label("Photo")
+}
+// end
+
+// sample: TileLayout, 400
+fn tile_layout() -> impl View {
+    let spots = State::new(vec![TileSpot::new("sales", 2, 1)]);
+    TileLayout::new(spots.binding())
+        .columns(3)
+        .row_height(110.0)
+        .tile(Tile::new("sales", "Sales", Stat::new("This month", "R$ 48,200")))
+        .tile(Tile::new("bills", "Bills", Stat::new("Open", "12")))
+        .tile(Tile::new("stock", "Stock", Stat::new("Items", "1,204")))
+        .tile(Tile::new("people", "People", Stat::new("Active", "37")))
+}
+// end
+
+// sample: CardView, 340
+fn card_view() -> impl View {
+    let selected = State::new(std::collections::BTreeSet::from([1]));
+    CardView::new(10_000, |i| -> AnyView {
+        Box::new(
+            VStack::new((
+                Text::new(format!("Customer {i}")).font_weight(Weight::SEMIBOLD),
+                Text::new(format!("R$ {},00", 100 + i * 7)).foreground(Semantic::InkMuted),
+            ))
+            .spacing(4.0),
+        )
+    })
+    .card_name(|i| format!("Customer {i}"))
+    .card_width(180.0)
+    .card_height(84.0)
+    .selection(selected.binding())
+    .height(300.0)
 }
 // end
 

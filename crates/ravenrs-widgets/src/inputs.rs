@@ -190,7 +190,7 @@ pub(crate) fn check_box(cx: &mut BuildCx<'_>, theme: &Theme, checked: bool, hove
     check_box_around(cx, theme, checked, hovered, util::EditorState::default(), &mark)
 }
 
-fn check_box_around(
+pub(crate) fn check_box_around(
     cx: &mut BuildCx<'_>,
     theme: &Theme,
     checked: bool,

@@ -896,6 +896,7 @@ dependencies = [
  "image",
  "pollster",
  "ravenrs",
+ "ravenrs-grid-export",
  "tracing-subscriber",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -4009,6 +4010,16 @@ dependencies = [
  "ravenrs-core",
  "serde",
  "tiny-skia",
+]
+
+[[package]]
+name = "ravenrs-grid-export"
+version = "27.1.6"
+dependencies = [
+ "ravenrs-report",
+ "ravenrs-report-export",
+ "ravenrs-widgets",
+ "serde_json",
 ]
 
 [[package]]

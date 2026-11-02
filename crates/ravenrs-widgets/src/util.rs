@@ -8,6 +8,11 @@ use ravenrs_text::{ICON_FAMILY, TextAttrs};
 use crate::IconName;
 use crate::context::{BuildCx, NodeId, Semantics};
 
+/// A stable number for a text key, for [`BuildCx::keyed_child`].
+pub(crate) fn hash_text(text: &str) -> u64 {
+    text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3))
+}
+
 /// A disabled control's color.
 pub(crate) fn faded(color: Color) -> Color {
     color.with_alpha(color.a * 0.45)

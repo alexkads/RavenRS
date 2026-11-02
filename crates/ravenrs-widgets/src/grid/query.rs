@@ -561,6 +561,127 @@ pub fn to_tsv(columns: &[GridColumn], rows: &[Row], visible: &[usize], selected:
         .join("\n")
 }
 
+/// A file format of a grid's Export menu.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum GridExportFormat {
+    /// An Excel workbook, with real numbers and dates.
+    Xlsx,
+    /// A PDF, in pages.
+    Pdf,
+    /// Comma-separated text.
+    Csv,
+}
+
+/// What a column holds, for a file to show it well.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum GridTableKind {
+    /// Text, already as shown.
+    Text,
+    /// A number, with its decimals and the text around it.
+    Number {
+        /// Decimal places.
+        decimals: usize,
+        /// Text before it, such as a currency sign.
+        prefix: String,
+        /// Text after it.
+        suffix: String,
+    },
+    /// A date.
+    Date,
+    /// Yes or no.
+    Boolean,
+}
+
+/// A column of a [`GridTable`].
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct GridTableColumn {
+    /// Its title.
+    pub title: String,
+    /// What it holds.
+    pub kind: GridTableKind,
+    /// Whether the grid sums it.
+    pub total: bool,
+}
+
+/// The rows of a grid as it stands: the columns showing, the rows matching, in order.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct GridTable {
+    /// The title of the file.
+    pub title: String,
+    /// The language and region of numbers and dates, such as `pt-BR`.
+    pub culture: String,
+    /// The columns, in the order they show.
+    pub columns: Vec<GridTableColumn>,
+    /// The values, one per column.
+    pub rows: Vec<Vec<Value>>,
+    /// The column rows are grouped by, by its index in [`columns`](Self::columns).
+    pub group_by: Option<usize>,
+}
+
+/// Takes what the grid shows into a table for a file. A column with a format of its own
+/// goes as the text it shows, since only that format knows what it means.
+pub fn to_table(
+    title: &str,
+    culture: &str,
+    columns: &[GridColumn],
+    rows: &[Row],
+    query: &GridQuery,
+    matched: &[usize],
+) -> GridTable {
+    let visible: Vec<usize> = (0..columns.len()).filter(|&c| !query.is_hidden(c)).collect();
+    let plain = |c: usize| columns[c].format.is_none();
+    let empty = Value::Empty;
+    let kind = |c: usize| {
+        let cells = || matched.iter().filter_map(|&r| rows[r].get(c)).filter(|v| !v.is_empty());
+        if !plain(c) {
+            GridTableKind::Text
+        } else if cells().next().is_some() && cells().all(|v| matches!(v, Value::Number(_))) {
+            let format = columns[c].number.clone().unwrap_or_default();
+            GridTableKind::Number {
+                decimals: format.decimals,
+                prefix: format.prefix.clone(),
+                suffix: format.suffix.clone(),
+            }
+        } else if cells().next().is_some() && cells().all(|v| matches!(v, Value::Date(_))) {
+            GridTableKind::Date
+        } else if cells().next().is_some() && cells().all(|v| matches!(v, Value::Bool(_))) {
+            GridTableKind::Boolean
+        } else {
+            GridTableKind::Text
+        }
+    };
+    GridTable {
+        title: title.to_owned(),
+        culture: culture.to_owned(),
+        columns: visible
+            .iter()
+            .map(|&c| {
+                let kind = kind(c);
+                let total =
+                    matches!(kind, GridTableKind::Number { .. }) && columns[c].summary == Some(Summary::Sum);
+                GridTableColumn { title: columns[c].title.clone(), kind, total }
+            })
+            .collect(),
+        rows: matched
+            .iter()
+            .map(|&r| {
+                visible
+                    .iter()
+                    .map(|&c| {
+                        let value = rows[r].get(c).unwrap_or(&empty);
+                        if plain(c) { value.clone() } else { Value::Text(columns[c].display(value)) }
+                    })
+                    .collect()
+            })
+            .collect(),
+        group_by: query.group_by.first().and_then(|g| visible.iter().position(|c| c == g)),
+    }
+}
+
 /// Matching rows as CSV (RFC 4180), visible columns only, in display order.
 pub fn to_csv(columns: &[GridColumn], rows: &[Row], query: &GridQuery, matched: &[usize]) -> String {
     let visible: Vec<usize> = (0..columns.len()).filter(|&c| !query.is_hidden(c)).collect();

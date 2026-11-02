@@ -93,6 +93,10 @@ pub enum Role {
     ContentInfo,
     /// A set of links or buttons that move around the app (a landmark).
     Navigation,
+    /// A list of items that can open to show more items.
+    Tree,
+    /// One item of a tree; see [`AccessNode::level`].
+    TreeItem,
 }
 
 impl Role {
@@ -113,6 +117,7 @@ impl Role {
                 | Self::Cell
                 | Self::ColumnHeader
                 | Self::ListItem
+                | Self::TreeItem
                 | Self::Tooltip
                 | Self::Label
         )

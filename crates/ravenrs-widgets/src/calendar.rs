@@ -12,6 +12,32 @@ use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::date::Date;
 use crate::{ButtonSize, IconButton, IconName, View, util};
 
+/// Two days and the days between them, both included.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DateRange {
+    /// The first day.
+    pub start: Date,
+    /// The last day.
+    pub end: Date,
+}
+
+impl DateRange {
+    /// The days between these two, in whichever order they come.
+    pub fn new(a: Date, b: Date) -> Self {
+        if a <= b { Self { start: a, end: b } } else { Self { start: b, end: a } }
+    }
+
+    /// Whether this day is in the range.
+    pub fn contains(self, date: Date) -> bool {
+        self.start <= date && date <= self.end
+    }
+
+    /// How many days it covers.
+    pub fn days(self) -> i32 {
+        (self.end.to_days() - self.start.to_days()) as i32 + 1
+    }
+}
+
 /// A month grid to pick a date. Use ‹ › to change month. From the keyboard the
 /// grid is one Tab stop: arrows move by day and week, Home and End to the ends
 /// of the week, Page Up and Page Down by month, and Enter or Space picks.
@@ -33,6 +59,7 @@ pub struct Calendar {
     min: Option<Date>,
     max: Option<Date>,
     on_pick: Option<Rc<dyn Fn(Date)>>,
+    span: Option<DateRange>,
 }
 
 impl std::fmt::Debug for Calendar {
@@ -51,6 +78,7 @@ impl Calendar {
             min: None,
             max: None,
             on_pick: None,
+            span: None,
         }
     }
 
@@ -69,6 +97,12 @@ impl Calendar {
 
     pub(crate) fn on_pick(mut self, f: Rc<dyn Fn(Date)>) -> Self {
         self.on_pick = Some(f);
+        self
+    }
+
+    /// Shades these days, with both ends as if selected.
+    fn span(mut self, span: Option<DateRange>) -> Self {
+        self.span = span;
         self
     }
 }
@@ -122,7 +156,9 @@ impl View for Day<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let c = self.calendar;
-        let selected = c.selected.get() == Some(self.date);
+        let is_end = c.span.is_some_and(|s| s.start == self.date || s.end == self.date);
+        let inside = c.span.is_some_and(|s| s.contains(self.date));
+        let selected = c.selected.get() == Some(self.date) || is_end;
         let enabled = c.min.is_none_or(|m| self.date >= m) && c.max.is_none_or(|m| self.date <= m);
         let hovered = (cx.is_hovered() && enabled) || cx.is_focus_visible();
         let ink = theme.color(Semantic::Ink);
@@ -141,6 +177,8 @@ impl View for Day<'_> {
             theme.color(Semantic::Accent)
         } else if hovered {
             ink.with_alpha(0.08)
+        } else if inside {
+            theme.color(Semantic::Accent).with_alpha(0.14)
         } else {
             Color::TRANSPARENT
         };
@@ -160,7 +198,8 @@ impl View for Day<'_> {
         // The full date, so the day reads on its own ("31 October 2026").
         let labels = cx.labels();
         let name = labels.long_date(self.date);
-        let mut semantics = Semantics::new(Role::Button).name(name).selected(selected).disabled(!enabled);
+        let mut semantics =
+            Semantics::new(Role::Button).name(name).selected(selected || inside).disabled(!enabled);
         if c.today == Some(self.date) {
             semantics = semantics.description(labels.today.clone());
         }
@@ -452,6 +491,293 @@ impl View for DatePicker {
                 &CalendarPanel(self, open.clone()),
                 Some(Rc::new(move || close.set(false))),
             );
+        }
+        node
+    }
+}
+
+/// A field that opens two months to pick where a period starts and ends, with
+/// ready-made periods on the side. The first click starts the period, the second ends it.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Date, DateRange, DateRangePicker, Ui};
+///
+/// let today = Date::new(2026, 11, 2).unwrap();
+/// let period = State::new(None::<DateRange>);
+/// let picker = DateRangePicker::new(period.binding(), today)
+///     .preset("Last 7 days", DateRange::new(today.add_days(-6), today));
+/// let mut ui = Ui::new(picker, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+pub struct DateRangePicker {
+    value: Binding<Option<DateRange>>,
+    month: Date,
+    today: Option<Date>,
+    min: Option<Date>,
+    max: Option<Date>,
+    presets: Vec<(String, DateRange)>,
+    placeholder: Option<String>,
+    width: f32,
+    label: Option<String>,
+    state: util::EditorState,
+}
+
+impl std::fmt::Debug for DateRangePicker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DateRangePicker").field("month", &self.month).finish_non_exhaustive()
+    }
+}
+
+impl DateRangePicker {
+    /// `month` is shown when no period is chosen yet.
+    pub fn new(value: Binding<Option<DateRange>>, month: Date) -> Self {
+        Self {
+            value,
+            month,
+            today: None,
+            min: None,
+            max: None,
+            presets: Vec::new(),
+            placeholder: None,
+            width: 340.0,
+            label: None,
+            state: util::EditorState::default(),
+        }
+    }
+
+    /// A ready-made period, picked with one click.
+    pub fn preset(mut self, name: impl Into<String>, range: DateRange) -> Self {
+        self.presets.push((name.into(), range));
+        self
+    }
+
+    /// Marks this day with a ring in the calendars.
+    pub fn today(mut self, today: Date) -> Self {
+        self.today = Some(today);
+        self
+    }
+
+    /// Days outside `min..=max` cannot be picked.
+    pub fn range(mut self, min: Option<Date>, max: Option<Date>) -> Self {
+        self.min = min;
+        self.max = max;
+        self
+    }
+
+    /// Text shown while no period is chosen.
+    pub fn placeholder(mut self, text: impl Into<String>) -> Self {
+        self.placeholder = Some(text.into());
+        self
+    }
+
+    /// Field width in logical pixels (default 340).
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// The name screen readers announce. Inside a [`crate::FormField`], its label is used instead.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Turns the control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the value without letting it change; it can still be focused and read.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
+        self
+    }
+}
+
+struct RangePanel<'a>(&'a DateRangePicker, State<bool>);
+
+impl View for RangePanel<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let picker = self.0;
+        let started: State<Option<Date>> = cx.use_state(|| None);
+        let pending = started.get();
+        let chosen = picker.value.get();
+        let span = match pending {
+            Some(day) => Some(DateRange::new(day, day)),
+            None => chosen,
+        };
+        let first = chosen.map_or(picker.month, |r| r.start).first_of_month();
+        let pick: Rc<dyn Fn(Date)> = {
+            let (started, value, close) = (started.clone(), picker.value.clone(), self.1.clone());
+            Rc::new(move |day| match started.get() {
+                None => started.set(Some(day)),
+                Some(from) => {
+                    started.set(None);
+                    value.set(Some(DateRange::new(from, day)));
+                    close.set(false);
+                }
+            })
+        };
+        // A calendar's selection is the period's, which its own binding must not change.
+        let inert = || Binding::new(|| None, |_: Option<Date>| {});
+        let calendar = |month: Date| {
+            let mut calendar =
+                Calendar::new(inert(), month).range(picker.min, picker.max).on_pick(pick.clone()).span(span);
+            if let Some(today) = picker.today {
+                calendar = calendar.today(today);
+            }
+            calendar
+        };
+        let mut parts = Vec::new();
+        if !picker.presets.is_empty() {
+            let mut rows = Vec::with_capacity(picker.presets.len());
+            for (i, (name, range)) in picker.presets.iter().enumerate() {
+                let (value, close, range) = (picker.value.clone(), self.1.clone(), *range);
+                let button = crate::Button::new(name.clone())
+                    .style(crate::ButtonStyle::Ghost)
+                    .size(ButtonSize::Small)
+                    .on_click(move || {
+                        value.set(Some(range));
+                        close.set(false);
+                    });
+                rows.push(cx.keyed_child(i as u64, &button));
+            }
+            parts.push(cx.container(
+                LayoutStyle { spacing: 2.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+                &rows,
+                Paint::None,
+            ));
+        }
+        parts.push(cx.keyed_child(1 << 32, &calendar(first)));
+        // The second month needs room, which a phone does not have.
+        if cx.viewport().width >= 720.0 {
+            parts.push(cx.keyed_child(1 << 33, &calendar(first.add_months(1))));
+        }
+        let node = cx.container(
+            LayoutStyle {
+                padding: Insets::uniform(12.0),
+                spacing: 16.0,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &parts,
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.lg,
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                shadow: Some(theme.elevation.raised),
+                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+            }),
+        );
+        cx.cursor(node, CursorIcon::Default);
+        node
+    }
+}
+
+impl View for DateRangePicker {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let open: State<bool> = cx.use_state(|| false);
+        let state = self.state;
+        let is_open = open.get() && state.accepts_input();
+        let hovered = cx.is_hovered() && state.accepts_input();
+        let icon = util::icon(cx, IconName::Calendar, 16.0, state.ink(theme.color(Semantic::InkMuted)));
+        let labels = cx.labels();
+        let chosen = self.value.get();
+        let (text, color) = match chosen {
+            Some(r) => (
+                format!("{} – {}", (labels.short_date)(r.start), (labels.short_date)(r.end)),
+                theme.color(Semantic::Ink),
+            ),
+            None => (
+                self.placeholder.clone().unwrap_or_else(|| labels.pick_date_range.clone()),
+                theme.color(Semantic::InkMuted),
+            ),
+        };
+        let label = cx.text_truncated(
+            &text,
+            &util::attrs(&theme, TextStyle::Body, None),
+            state.ink(color),
+            LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::leaf() },
+        );
+        cx.semantics(label, Semantics::hidden());
+        let mut children = vec![icon, label];
+        if chosen.is_some() && state.accepts_input() {
+            let value = self.value.clone();
+            children.push(
+                cx.child(
+                    &IconButton::new(IconName::X)
+                        .label(labels.clear.clone())
+                        .size(ButtonSize::Small)
+                        .on_click(move || value.set(None)),
+                ),
+            );
+        }
+        let border = if is_open {
+            Border { width: 1.5, color: theme.color(Semantic::Accent) }
+        } else {
+            let base = theme.color(Semantic::Border);
+            Border {
+                width: 1.0,
+                color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
+            }
+        };
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(self.width),
+                height: Some(40.0),
+                padding: Insets::symmetric(0.0, 12.0),
+                spacing: 10.0,
+                align: Align::Center,
+                align_self: Some(Align::Fit),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &children,
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.md,
+                border: Some(border),
+                ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
+            }),
+        );
+        let mut semantics = Semantics::new(Role::ComboBox).value(text).expanded(is_open);
+        if let Some(label) = &self.label {
+            semantics = semantics.name(label.clone());
+        }
+        cx.semantics(node, state.semantics(semantics));
+        if state.disabled {
+            return node;
+        }
+        cx.focusable(node, theme.radii.md);
+        if !state.accepts_input() {
+            return node;
+        }
+        let toggle = open.clone();
+        cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
+        let opener = open.clone();
+        cx.on_key(
+            node,
+            Rc::new(move |key, _| {
+                let opens = matches!(key, Key::ArrowDown | Key::ArrowUp);
+                if opens {
+                    opener.set(true);
+                }
+                opens
+            }),
+        );
+        cx.cursor(node, CursorIcon::Pointer);
+        let was_open = cx.use_state(|| Rc::new(Cell::new(false))).get();
+        if is_open {
+            was_open.set(true);
+            let close = open.clone();
+            cx.overlay(
+                node,
+                Placement::Below,
+                &RangePanel(self, open.clone()),
+                Some(Rc::new(move || close.set(false))),
+            );
+        } else if was_open.replace(false) {
+            cx.request_focus();
         }
         node
     }

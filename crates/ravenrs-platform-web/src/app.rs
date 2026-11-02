@@ -245,6 +245,81 @@ fn send_text(state: &Rc<RefCell<State>>, scheduler: &Scheduler, text: &str) {
     }
 }
 
+/// The largest file a drop reads into memory: 1 GiB.
+const MOST_DROPPED_BYTES: u64 = 1024 * 1024 * 1024;
+
+/// Reads `files` one after another and hands them all to `done`. A file above
+/// `most_bytes` keeps its name and size, with no bytes, so the place that asked can
+/// say why it refused it.
+fn read_files(
+    mut files: Vec<web_sys::File>,
+    most_bytes: Option<u64>,
+    mut read: Vec<ravenrs_widgets::PickedFile>,
+    done: Box<dyn FnOnce(Vec<ravenrs_widgets::PickedFile>)>,
+) {
+    if files.is_empty() {
+        done(read);
+        return;
+    }
+    let file = files.remove(0);
+    let (name, size) = (file.name(), file.size() as u64);
+    if most_bytes.is_some_and(|most| size > most) {
+        read.push(ravenrs_widgets::PickedFile { name, size, bytes: Vec::new().into() });
+        read_files(files, most_bytes, read, done);
+        return;
+    }
+    let Ok(reader) = web_sys::FileReader::new() else {
+        done(read);
+        return;
+    };
+    let finished = reader.clone();
+    let on_load = Closure::once_into_js(move || {
+        if let Ok(buffer) = finished.result() {
+            let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
+            read.push(ravenrs_widgets::PickedFile::new(name, bytes));
+        }
+        read_files(files, most_bytes, read, done);
+    });
+    reader.set_onload(Some(on_load.unchecked_ref()));
+    if reader.read_as_array_buffer(&file).is_err() {
+        tracing::warn!("could not read a file");
+    }
+}
+
+fn file_list(list: Option<web_sys::FileList>) -> Vec<web_sys::File> {
+    let Some(list) = list else { return Vec::new() };
+    (0..list.length()).filter_map(|i| list.get(i)).collect()
+}
+
+/// The browser's file chooser. It says nothing on cancel, so then `done` never runs.
+struct BrowserFilePicker;
+
+impl ravenrs_widgets::FilePickerProvider for BrowserFilePicker {
+    fn pick(
+        &self,
+        request: &ravenrs_widgets::FileRequest,
+        done: Box<dyn FnOnce(Vec<ravenrs_widgets::PickedFile>)>,
+    ) {
+        let Some(page) = web_sys::window().and_then(|w| w.document()) else { return };
+        let Some(input) =
+            page.create_element("input").ok().and_then(|e| e.dyn_into::<web_sys::HtmlInputElement>().ok())
+        else {
+            return;
+        };
+        input.set_type("file");
+        input.set_multiple(request.multiple);
+        let accept: Vec<String> = request.extensions.iter().map(|e| format!(".{e}")).collect();
+        input.set_accept(&accept.join(","));
+        let chosen = input.clone();
+        let most_bytes = request.most_bytes;
+        let on_change = Closure::once_into_js(move || {
+            read_files(file_list(chosen.files()), most_bytes, Vec::new(), done);
+        });
+        input.set_onchange(Some(on_change.unchecked_ref()));
+        input.click();
+    }
+}
+
 /// Copies through `navigator.clipboard`. Reading is asynchronous in the
 /// browser, so pasting is left to the browser: it arrives as typed text.
 struct BrowserClipboard;
@@ -424,6 +499,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
 
     let mut ui = Ui::new(root, options.theme);
     ui.set_clipboard(BrowserClipboard);
+    ui.set_file_picker(BrowserFilePicker);
     ui.set_sound(BrowserSound::default());
     let (css, dpr) = measure(&canvas);
     ui.set_viewport(css, dpr);
@@ -553,6 +629,57 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     app.listeners.push(pointer("pointerup", |position, button| Event::PointerUp { position, button }));
     app.listeners.push(pointer("pointerleave", |_, _| Event::PointerLeave));
     app.listeners.push(pointer("pointercancel", |_, _| Event::PointerLeave));
+    // Files dragged in from the system.
+    {
+        let state = state.clone();
+        app.listeners.push(Listener {
+            target: target.clone(),
+            kind: "dragover",
+            closure: Closure::new(move |e: web_sys::Event| {
+                // Without this, the browser opens the file instead of dropping it here.
+                e.prevent_default();
+                if let Ok(mut s) = state.try_borrow_mut() {
+                    s.ui.set_files_over(true);
+                }
+            }),
+        });
+    }
+    {
+        let state = state.clone();
+        app.listeners.push(Listener {
+            target: target.clone(),
+            kind: "dragleave",
+            closure: Closure::new(move |_e: web_sys::Event| {
+                if let Ok(mut s) = state.try_borrow_mut() {
+                    s.ui.set_files_over(false);
+                }
+            }),
+        });
+    }
+    {
+        let state = state.clone();
+        app.listeners.push(Listener {
+            target: target.clone(),
+            kind: "drop",
+            closure: Closure::new(move |e: web_sys::Event| {
+                e.prevent_default();
+                let Some(e) = e.dyn_ref::<web_sys::DragEvent>() else { return };
+                let at = Point::new(e.offset_x() as f32, e.offset_y() as f32);
+                let files = file_list(e.data_transfer().and_then(|d| d.files()));
+                let state = state.clone();
+                read_files(
+                    files,
+                    Some(MOST_DROPPED_BYTES),
+                    Vec::new(),
+                    Box::new(move |files| {
+                        if let Ok(mut s) = state.try_borrow_mut() {
+                            s.ui.drop_files(Some(at), files);
+                        }
+                    }),
+                );
+            }),
+        });
+    }
     // The app draws its own context menus.
     app.listeners.push(Listener {
         target: target.clone(),

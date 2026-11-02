@@ -103,6 +103,50 @@ impl OpenDialog {
     }
 }
 
+/// The largest file a drop reads into memory: 1 GiB.
+pub(crate) const MOST_DROPPED_BYTES: u64 = 1024 * 1024 * 1024;
+
+/// Reads what the system's dialogs and drops bring. A file above `most_bytes` keeps its
+/// name and size, with no bytes, so the place that asked can say why it refused it.
+pub(crate) fn read_picked(path: &Path, most_bytes: Option<u64>) -> Option<ravenrs_widgets::PickedFile> {
+    let name = path.file_name()?.to_string_lossy().into_owned();
+    let size = std::fs::metadata(path).ok()?.len();
+    if most_bytes.is_some_and(|most| size > most) {
+        return Some(ravenrs_widgets::PickedFile { name, size, bytes: Vec::new().into() });
+    }
+    match std::fs::read(path) {
+        Ok(bytes) => Some(ravenrs_widgets::PickedFile::new(name, bytes)),
+        Err(e) => {
+            tracing::warn!(error = %e, "could not read the chosen file");
+            None
+        }
+    }
+}
+
+/// The system's dialog, as what views ask for files through.
+#[derive(Debug, Default)]
+pub(crate) struct SystemFilePicker;
+
+impl ravenrs_widgets::FilePickerProvider for SystemFilePicker {
+    fn pick(
+        &self,
+        request: &ravenrs_widgets::FileRequest,
+        done: Box<dyn FnOnce(Vec<ravenrs_widgets::PickedFile>)>,
+    ) {
+        let mut dialog = rfd::FileDialog::new();
+        if !request.extensions.is_empty() {
+            let kinds: Vec<&str> = request.extensions.iter().map(String::as_str).collect();
+            dialog = dialog.add_filter(kinds.join(", "), &kinds);
+        }
+        let paths = if request.multiple {
+            dialog.pick_files().unwrap_or_default()
+        } else {
+            dialog.pick_file().into_iter().collect()
+        };
+        done(paths.iter().filter_map(|p| read_picked(p, request.most_bytes)).collect());
+    }
+}
+
 /// Opens a file with the program the system uses for it: a PDF in its viewer, a
 /// web page in the browser. The program runs on its own, so this does not wait for it.
 pub fn open_with_system(path: &Path) -> io::Result<()> {
