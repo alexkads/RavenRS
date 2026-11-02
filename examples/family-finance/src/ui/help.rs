@@ -99,6 +99,11 @@ pub(crate) const ASSISTENTE: Help = (
     "Opcional. Com um modelo, o assistente responde sobre saldo, gastos e contas. Tudo roda neste computador.",
     "Baixe, teste e remova se ficar lento.",
 );
+pub(crate) const VOZ: Help = (
+    "Voz do assistente",
+    "Faz o assistente ler as respostas em voz alta. A fala é gerada neste computador, sem enviar nada para fora.",
+    "Baixe o modelo, escolha idioma e voz, e ouça um exemplo.",
+);
 pub(crate) const COPIAS: Help = (
     "Cópias automáticas",
     "Uma cópia por dia e outra antes de trocar seus dados. Ficam neste computador, então não substituem um backup.",

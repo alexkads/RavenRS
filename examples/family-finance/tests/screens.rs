@@ -321,7 +321,7 @@ fn draw_the_film() {
         at += 1.0 / 30.0;
         ui.set_time(at);
         ui.update();
-        if (at * 30.0).round() as u64 % 150 == 0 {
+        if ((at * 30.0).round() as u64).is_multiple_of(150) {
             capture_now(&gpu, &ui, size, &folder.join(format!("tocando-{shot}.png")));
             shot += 1;
         }

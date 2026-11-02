@@ -227,6 +227,7 @@ pub(crate) fn settings(
     let voice = voices.map(|voices| {
         titled_card(
             "Voz do assistente",
+            help::VOZ,
             VStack::new((
                 Text::new(
                     "Opcional. Com o LFM3 Audio, o assistente lê as respostas em voz alta, gerando a fala neste computador. Nada sai daqui.",
