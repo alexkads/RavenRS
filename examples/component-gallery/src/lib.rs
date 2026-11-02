@@ -571,6 +571,43 @@ impl Gallery {
                         .align(Align::Stretch),
                     ),
                     demo(
+                        "Long text, numbers and masks",
+                        "Notes on several lines, numbers formatted when you leave, a phone number that follows its pattern.",
+                        VStack::new((
+                            samples::sample("TextArea"),
+                            samples::sample("NumberField"),
+                            samples::sample("MaskedField"),
+                        ))
+                        .spacing(12.0)
+                        .align(Align::Stretch),
+                    ),
+                    demo(
+                        "Times and records",
+                        "Type a time or pick from the list; search a record loaded on demand.",
+                        VStack::new((
+                            samples::sample("DateTimePicker"),
+                            samples::sample("LookupField"),
+                        ))
+                        .spacing(12.0),
+                    ),
+                    demo(
+                        "Form layout",
+                        "Groups in columns that collapse when there is no room.",
+                        samples::sample("FormLayout"),
+                    ),
+                    demo(
+                        "Commands",
+                        "A toolbar folds into a menu when it runs out of room; a button with alternatives; a question first.",
+                        VStack::new((
+                            samples::sample("Toolbar"),
+                            HStack::new((samples::sample("SplitButton"), samples::sample("ConfirmDialog")))
+                                .spacing(12.0)
+                                .align(Align::Center),
+                        ))
+                        .spacing(12.0)
+                        .align(Align::Stretch),
+                    ),
+                    demo(
                         "Stepper",
                         "Small integer quantities with bounds.",
                         HStack::new((

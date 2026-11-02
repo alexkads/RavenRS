@@ -940,6 +940,7 @@ pub struct Combobox {
     placeholder: Option<String>,
     width: f32,
     label: Option<String>,
+    state: util::EditorState,
 }
 
 impl Combobox {
@@ -954,6 +955,7 @@ impl Combobox {
             placeholder: None,
             width: 240.0,
             label: None,
+            state: util::EditorState::default(),
         }
     }
 
@@ -975,6 +977,54 @@ impl Combobox {
         self.label = Some(label.into());
         self
     }
+
+    /// Turns the control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the value without letting it change; it can still be focused and read.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
+        self
+    }
+}
+
+/// One option under a search box: what a [`Combobox`] and a lookup list show.
+pub(crate) fn search_row(
+    cx: &mut BuildCx<'_>,
+    text: &str,
+    selected: bool,
+    highlighted: bool,
+    on_pick: Rc<dyn Fn()>,
+) -> NodeId {
+    let theme = *cx.theme();
+    let ink = theme.color(Semantic::Ink);
+    let label = util::label(cx, text, TextStyle::Body, selected.then_some(Weight::SEMIBOLD), ink);
+    let mut items = vec![cx.container(
+        LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
+        &[label],
+        Paint::None,
+    )];
+    if selected {
+        items.push(util::icon(cx, IconName::Check, 16.0, theme.color(Semantic::Accent).lerp(ink, 0.3)));
+    }
+    let fill = if highlighted { ink.with_alpha(0.07) } else { Color::TRANSPARENT };
+    let row = cx.container(
+        LayoutStyle {
+            height: Some(34.0),
+            padding: Insets::symmetric(0.0, 10.0),
+            align: Align::Center,
+            ..LayoutStyle::stack(Axis::Horizontal)
+        },
+        &items,
+        Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(fill) }),
+    );
+    cx.semantics(row, Semantics::new(Role::ListBoxOption).selected(selected).active(highlighted));
+    cx.on_click(row, on_pick);
+    cx.cursor(row, CursorIcon::Pointer);
+    row
 }
 
 struct ComboPanel<'a> {
@@ -1024,44 +1074,14 @@ impl View for ComboPanel<'_> {
         );
         let mut rows = vec![field];
         for (n, &i) in matches.iter().enumerate().take(50) {
-            let on = n == hl;
-            let ink = theme.color(Semantic::Ink);
-            let label = util::label(
+            let p = pick.clone();
+            rows.push(search_row(
                 cx,
                 &self.combo.options[i],
-                TextStyle::Body,
-                (current == Some(i)).then_some(Weight::SEMIBOLD),
-                ink,
-            );
-            let mut items = vec![cx.container(
-                LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
-                &[label],
-                Paint::None,
-            )];
-            if current == Some(i) {
-                items.push(util::icon(
-                    cx,
-                    IconName::Check,
-                    16.0,
-                    theme.color(Semantic::Accent).lerp(ink, 0.3),
-                ));
-            }
-            let fill = if on { ink.with_alpha(0.07) } else { Color::TRANSPARENT };
-            let row = cx.container(
-                LayoutStyle {
-                    height: Some(34.0),
-                    padding: Insets::symmetric(0.0, 10.0),
-                    align: Align::Center,
-                    ..LayoutStyle::stack(Axis::Horizontal)
-                },
-                &items,
-                Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(fill) }),
-            );
-            cx.semantics(row, Semantics::new(Role::ListBoxOption).selected(current == Some(i)).active(on));
-            let p = pick.clone();
-            cx.on_click(row, Rc::new(move || p(i)));
-            cx.cursor(row, CursorIcon::Pointer);
-            rows.push(row);
+                current == Some(i),
+                n == hl,
+                Rc::new(move || p(i)),
+            ));
         }
         if matches.is_empty() {
             rows.push(util::label(
@@ -1084,8 +1104,9 @@ impl View for Combobox {
         let open: State<bool> = cx.use_state(|| false);
         let query: State<String> = cx.use_state(String::new);
         let highlight: State<usize> = cx.use_state(|| 0);
-        let is_open = open.get();
-        let hovered = cx.is_hovered();
+        let state = self.state;
+        let is_open = open.get() && state.accepts_input();
+        let hovered = cx.is_hovered() && state.accepts_input();
         let (text, color) = match self.selected.get().and_then(|i| self.options.get(i)) {
             Some(t) => (t.clone(), theme.color(Semantic::Ink)),
             None => (
@@ -1093,20 +1114,21 @@ impl View for Combobox {
                 theme.color(Semantic::InkMuted),
             ),
         };
-        let label = util::label(cx, &text, TextStyle::Body, None, color);
+        let label = util::label(cx, &text, TextStyle::Body, None, state.ink(color));
         let label = cx.container(
             LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
             &[label],
             Paint::None,
         );
-        let chevrons = util::icon(cx, IconName::ChevronDown, 16.0, theme.color(Semantic::InkMuted));
+        let chevrons =
+            util::icon(cx, IconName::ChevronDown, 16.0, state.ink(theme.color(Semantic::InkMuted)));
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
         } else {
             let base = theme.color(Semantic::Border);
             Border {
                 width: 1.0,
-                color: if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base },
+                color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
             }
         };
         let node = cx.container(
@@ -1123,7 +1145,7 @@ impl View for Combobox {
             Paint::Quad(QuadPaint {
                 corner_radius: theme.radii.md,
                 border: Some(border),
-                ..QuadPaint::new(theme.color(Semantic::Control))
+                ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
             }),
         );
         cx.semantics(label, Semantics::hidden());
@@ -1132,7 +1154,14 @@ impl View for Combobox {
         if let Some(label) = &self.label {
             semantics = semantics.name(label.clone());
         }
-        cx.semantics(node, semantics);
+        cx.semantics(node, state.semantics(semantics));
+        if state.disabled {
+            return node;
+        }
+        if !state.accepts_input() {
+            cx.focusable(node, theme.radii.md);
+            return node;
+        }
         let (o, q, h) = (open.clone(), query.clone(), highlight.clone());
         cx.on_click(
             node,

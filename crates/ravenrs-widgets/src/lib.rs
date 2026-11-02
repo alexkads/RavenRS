@@ -44,21 +44,25 @@ mod chart;
 mod chat;
 mod choice;
 mod clipboard;
+mod commands;
 mod context;
 mod data;
 mod date;
 mod diagnostics;
 mod display;
+mod editors;
 mod event_calendar;
 mod extras;
 mod fill;
 mod floating;
+mod form_layout;
 pub mod grid;
 mod icon;
 mod icon_set;
 mod image;
 mod inputs;
 mod labels;
+mod lookup;
 mod model_picker;
 mod modifiers;
 mod motion;
@@ -90,6 +94,7 @@ pub use chart::{
 pub use chat::{Chat, ChatAuthor, ChatMessage, FloatingCorner, FloatingPanel};
 pub use choice::{AspectRatio, ColorSwatch, Label, Pagination, ToggleButton, ToggleGroup};
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
+pub use commands::{ConfirmDialog, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
     ActivityObserver, BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint,
     PaintCx, Placement, QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
@@ -100,6 +105,7 @@ pub use diagnostics::{Diagnostics, DiagnosticsHost};
 pub use display::{
     Alert, AlertAction, Avatar, Badge, Divider, Kbd, ProgressBar, Section, Skeleton, Stat, Tone,
 };
+pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
 pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
 pub use extras::{Carousel, FormField, InputOtp, Menubar, Rule, Spinner, Splitter, validate};
 pub use fill::Fill;
@@ -107,6 +113,7 @@ pub use floating::{
     Combobox, Command, CommandPalette, ContextMenu, HoverCard, Sheet, Side, SplashScreen, Toast, Toaster,
     Toasts,
 };
+pub use form_layout::{FormGroup, FormLayout};
 pub use grid::{
     CellAlign, ColumnLayout, DataGrid, FilterLayout, GridColumn, GridData, GridLayout, GridPage, GridRequest,
     GridResponder, GridScenario, NumberFormat, RemoteRows, SelectionMode, SortDirection, SortLayout, Summary,
@@ -119,6 +126,7 @@ pub use image::decode_image;
 pub use image::{ContentMode, DecodeError, Image};
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};
+pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
 pub use model_picker::{ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus};
 pub use modifiers::{Styled, ViewExt};
 pub use motion::{Collapse, Motion};

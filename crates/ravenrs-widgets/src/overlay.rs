@@ -544,12 +544,19 @@ pub struct Select {
     options: Vec<String>,
     width: f32,
     label: Option<String>,
+    state: util::EditorState,
 }
 
 impl Select {
     /// A select over `options`; `selected` holds the zero-based index of the choice.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self { selected, options: options.into_iter().map(Into::into).collect(), width: 220.0, label: None }
+        Self {
+            selected,
+            options: options.into_iter().map(Into::into).collect(),
+            width: 220.0,
+            label: None,
+            state: util::EditorState::default(),
+        }
     }
 
     /// Sets the width in logical pixels (220 by default).
@@ -564,13 +571,25 @@ impl Select {
         self.label = Some(label.into());
         self
     }
+
+    /// Turns the control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the value without letting it change; it can still be focused and read.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
+        self
+    }
 }
 
-struct Options<'a> {
-    options: &'a [String],
-    selected: Binding<usize>,
-    close: Rc<dyn Fn()>,
-    width: f32,
+pub(crate) struct Options<'a> {
+    pub options: &'a [String],
+    pub selected: Binding<usize>,
+    pub close: Rc<dyn Fn()>,
+    pub width: f32,
 }
 
 impl View for Options<'_> {
@@ -608,10 +627,11 @@ impl View for Select {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let open: State<bool> = cx.use_state(|| false);
-        let is_open = open.get();
-        let hovered = cx.is_hovered();
+        let state = self.state;
+        let is_open = open.get() && state.accepts_input();
+        let hovered = cx.is_hovered() && state.accepts_input();
         let current = self.options.get(self.selected.get()).map_or("", String::as_str);
-        let label = util::label(cx, current, TextStyle::Body, None, theme.color(Semantic::Ink));
+        let label = util::label(cx, current, TextStyle::Body, None, state.ink(theme.color(Semantic::Ink)));
         let label = cx.container(
             LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
             &[label],
@@ -621,7 +641,7 @@ impl View for Select {
             cx,
             if is_open { IconName::ChevronUp } else { IconName::ChevronDown },
             16.0,
-            theme.color(Semantic::InkMuted),
+            state.ink(theme.color(Semantic::InkMuted)),
         );
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
@@ -629,7 +649,7 @@ impl View for Select {
             let base = theme.color(Semantic::Border);
             Border {
                 width: 1.0,
-                color: if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base },
+                color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
             }
         };
         let style = LayoutStyle {
@@ -644,7 +664,7 @@ impl View for Select {
         let paint = QuadPaint {
             corner_radius: theme.radii.md,
             border: Some(border),
-            ..QuadPaint::new(theme.color(Semantic::Control))
+            ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
         };
         let node = cx.container(style, &[label, chevron], Paint::Quad(paint));
         cx.semantics(label, Semantics::hidden());
@@ -652,7 +672,14 @@ impl View for Select {
         if let Some(label) = &self.label {
             semantics = semantics.name(label.clone());
         }
-        cx.semantics(node, semantics);
+        cx.semantics(node, state.semantics(semantics));
+        if state.disabled {
+            return node;
+        }
+        if !state.accepts_input() {
+            cx.focusable(node, theme.radii.md);
+            return node;
+        }
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
         // Arrow keys open the list too, like a native select.

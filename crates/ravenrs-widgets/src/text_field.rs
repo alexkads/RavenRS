@@ -35,6 +35,11 @@ pub struct TextField {
     on_submit: Option<Rc<dyn Fn(String)>>,
     on_cancel: Option<Rc<dyn Fn()>>,
     intercept: Option<crate::KeyHandler>,
+    state: util::EditorState,
+    /// Shown instead of the value while the field does not have focus.
+    pub(crate) idle_text: Option<String>,
+    /// A caret at the end stays there when a change makes the text longer.
+    pub(crate) caret_follows_end: bool,
 }
 
 impl fmt::Debug for TextField {
@@ -57,6 +62,9 @@ impl TextField {
             on_submit: None,
             on_cancel: None,
             intercept: None,
+            state: util::EditorState::default(),
+            idle_text: None,
+            caret_follows_end: false,
         }
     }
 
@@ -114,9 +122,21 @@ impl TextField {
         self.on_submit = Some(Rc::new(handler));
         self
     }
+
+    /// Turns the control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the value without letting it change; it can still be focused, selected and copied.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
+        self
+    }
 }
 
-fn byte_index(s: &str, char_index: usize) -> usize {
+pub(crate) fn byte_index(s: &str, char_index: usize) -> usize {
     s.char_indices().nth(char_index).map_or(s.len(), |(i, _)| i)
 }
 
@@ -141,7 +161,7 @@ impl Cursor {
     }
 
     /// Moves the caret, extending the selection when `extend` is true.
-    fn move_to(&mut self, to: usize, extend: bool) {
+    pub(crate) fn move_to(&mut self, to: usize, extend: bool) {
         if extend {
             self.anchor.get_or_insert(self.caret);
         } else {
@@ -207,7 +227,7 @@ fn delete_selection(text: &mut String, cursor: &mut Cursor) -> bool {
     true
 }
 
-fn insert(text: &mut String, cursor: &mut Cursor, s: &str) {
+pub(crate) fn insert(text: &mut String, cursor: &mut Cursor, s: &str) {
     delete_selection(text, cursor);
     let at = byte_index(text, cursor.caret);
     text.insert_str(at, s);
@@ -219,6 +239,8 @@ pub(crate) struct ClipboardAccess<'a> {
     pub clipboard: &'a crate::Clipboard,
     /// Passwords can be pasted into but never copied out of.
     pub secure: bool,
+    /// Pasted text keeps its line breaks.
+    pub multiline: bool,
 }
 
 /// Applies a key to `text` and the cursor: typing, deleting, moving (Shift
@@ -240,6 +262,7 @@ pub(crate) fn edit(
     let shift = modifiers.shift;
     let word = modifiers.alt || modifiers.ctrl;
     let command = modifiers.ctrl || modifiers.meta;
+    let multiline = clipboard.as_ref().is_some_and(|access| access.multiline);
     if command && let Key::Character(c) = key {
         match c.to_ascii_lowercase().as_str() {
             "a" => *cursor = Cursor { caret: len, anchor: Some(0) },
@@ -256,9 +279,13 @@ pub(crate) fn edit(
             }
             "v" => {
                 let Some(pasted) = clipboard.and_then(|access| access.clipboard.read()) else { return false };
-                // A single-line field keeps the first line.
-                let line = pasted.lines().next().unwrap_or_default();
-                insert(text, cursor, line);
+                if multiline {
+                    insert(text, cursor, &pasted.replace("\r\n", "\n").replace('\r', "\n"));
+                } else {
+                    // A single-line field keeps the first line.
+                    let line = pasted.lines().next().unwrap_or_default();
+                    insert(text, cursor, line);
+                }
             }
             _ => return false,
         }
@@ -347,23 +374,25 @@ impl View for TextField {
         let theme = *cx.theme();
         let cursor: State<Cursor> = cx.use_state(|| Cursor::at(usize::MAX));
         let focus_requested: State<bool> = cx.use_state(|| false);
-        if self.autofocus && !*focus_requested.peek() {
+        let state = self.state;
+        if self.autofocus && !state.disabled && !*focus_requested.peek() {
             focus_requested.set_if_changed(true);
             cx.request_focus();
         }
-        let focused = cx.is_focused();
-        let hovered = cx.is_hovered();
+        let focused = cx.is_focused() && !state.disabled;
+        let hovered = cx.is_hovered() && !state.disabled;
         let text = self.value.get();
         let len = text.chars().count();
         let cur = cursor.get();
         let caret_at = cur.caret.min(len);
-        let shown: String = if self.secure { "•".repeat(len) } else { text.clone() };
+        let visible = self.idle_text.as_ref().filter(|_| !focused).unwrap_or(&text);
+        let shown: String = if self.secure { "•".repeat(len) } else { visible.clone() };
         let attrs =
             util::attrs(&theme, if self.compact { TextStyle::Callout } else { TextStyle::Body }, None);
 
         let mut children = Vec::new();
         if let Some(icon) = self.icon {
-            children.push(util::icon(cx, icon, 16.0, theme.color(Semantic::InkMuted)));
+            children.push(util::icon(cx, icon, 16.0, state.ink(theme.color(Semantic::InkMuted))));
         }
         // Where each char boundary falls, for the caret, the selection and clicks.
         let boundaries: Rc<Vec<f32>> = Rc::new(if shown.chars().count() <= 512 {
@@ -384,9 +413,14 @@ impl View for TextField {
         });
         let highlight = theme.color(Semantic::Accent).with_alpha(if focused { 0.32 } else { 0.16 });
         let content = if shown.is_empty() {
-            cx.text(&self.placeholder, &attrs, theme.color(Semantic::InkMuted), LayoutStyle::leaf())
+            cx.text(
+                &self.placeholder,
+                &attrs,
+                state.ink(theme.color(Semantic::InkMuted)),
+                LayoutStyle::leaf(),
+            )
         } else {
-            cx.text(&shown, &attrs, theme.color(Semantic::Ink), LayoutStyle::leaf())
+            cx.text(&shown, &attrs, state.ink(theme.color(Semantic::Ink)), LayoutStyle::leaf())
         };
         let accent = theme.color(Semantic::Accent);
         let line = attrs.line_height;
@@ -406,7 +440,7 @@ impl View for TextField {
                         Quad::new(Rect::new(f.x() + a, y, b - a, line - 4.0), highlight).radius(2.0),
                     );
                 }
-                if focused && selection.is_none() {
+                if focused && selection.is_none() && state.accepts_input() {
                     let x = (f.x() + caret_x).min(f.max_x() - 1.5);
                     scene.push_quad(Quad::new(Rect::new(x, y, 1.5, line - 4.0), accent).radius(0.75));
                 }
@@ -414,34 +448,36 @@ impl View for TextField {
         );
         cx.clip(text_area);
         // Press places the caret, dragging selects, Shift-click extends.
-        let (drag_cursor, mods, b) = (cursor.clone(), cx.modifiers(), boundaries.clone());
-        cx.on_drag(
-            text_area,
-            Rc::new(move |d| {
-                let at = index_at(&b, d.position.x - d.frame.x());
-                match d.phase {
-                    DragPhase::Start => drag_cursor.update(|c| {
-                        if mods.get().shift {
-                            c.move_to(at, true);
-                        } else {
-                            *c = Cursor { caret: at, anchor: Some(at) };
-                        }
-                    }),
-                    DragPhase::Move => drag_cursor.update(|c| c.move_to(at, true)),
-                    _ => {}
-                }
-            }),
-        );
-        let (word_cursor, word_value) = (cursor.clone(), self.value.clone());
-        cx.on_double_click(
-            text_area,
-            Rc::new(move || {
-                let caret = word_cursor.get().caret;
-                let (a, b) = word_at(&word_value.get(), caret);
-                word_cursor.set(Cursor { caret: b, anchor: Some(a) });
-            }),
-        );
-        cx.cursor(text_area, CursorIcon::Text);
+        if !state.disabled {
+            let (drag_cursor, mods, b) = (cursor.clone(), cx.modifiers(), boundaries.clone());
+            cx.on_drag(
+                text_area,
+                Rc::new(move |d| {
+                    let at = index_at(&b, d.position.x - d.frame.x());
+                    match d.phase {
+                        DragPhase::Start => drag_cursor.update(|c| {
+                            if mods.get().shift {
+                                c.move_to(at, true);
+                            } else {
+                                *c = Cursor { caret: at, anchor: Some(at) };
+                            }
+                        }),
+                        DragPhase::Move => drag_cursor.update(|c| c.move_to(at, true)),
+                        _ => {}
+                    }
+                }),
+            );
+            let (word_cursor, word_value) = (cursor.clone(), self.value.clone());
+            cx.on_double_click(
+                text_area,
+                Rc::new(move || {
+                    let caret = word_cursor.get().caret;
+                    let (a, b) = word_at(&word_value.get(), caret);
+                    word_cursor.set(Cursor { caret: b, anchor: Some(a) });
+                }),
+            );
+            cx.cursor(text_area, CursorIcon::Text);
+        }
         children.push(text_area);
 
         let border = if focused {
@@ -450,7 +486,7 @@ impl View for TextField {
             let base = theme.color(Semantic::Border);
             Border {
                 width: 1.0,
-                color: if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base },
+                color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
             }
         };
         let style = LayoutStyle {
@@ -466,7 +502,7 @@ impl View for TextField {
         let paint = QuadPaint {
             corner_radius: theme.radii.md,
             border: Some(border),
-            ..QuadPaint::new(theme.color(Semantic::Control))
+            ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
         };
         let node = cx.container(style, &children, Paint::Quad(paint));
         crate::motion::control(cx, node);
@@ -478,10 +514,14 @@ impl View for TextField {
             semantics = semantics.name(self.placeholder.clone());
             semantics.fallback_name = true;
         }
-        cx.semantics(node, semantics);
+        cx.semantics(node, state.semantics(semantics));
+        if state.disabled {
+            return node;
+        }
 
         let (value, submit, cancel) = (self.value.clone(), self.on_submit.clone(), self.on_cancel.clone());
         let (intercept, clipboard, secure) = (self.intercept.clone(), cx.clipboard(), self.secure);
+        let follows_end = self.caret_follows_end;
         cx.on_key(
             node,
             Rc::new(move |key, modifiers| {
@@ -497,18 +537,26 @@ impl View for TextField {
                     return true;
                 }
                 if *key == Key::Enter {
-                    if let Some(submit) = &submit {
+                    if let (Some(submit), true) = (&submit, state.accepts_input()) {
                         submit(value.get());
                     }
                     return true;
                 }
                 let mut text = value.get();
                 let mut c = cursor.get();
-                let access = ClipboardAccess { clipboard: &clipboard, secure };
+                let access = ClipboardAccess { clipboard: &clipboard, secure, multiline: false };
                 let handled = edit(&mut text, &mut c, key, modifiers, Some(access));
                 if handled {
+                    let changed = text != value.get();
+                    if changed && !state.accepts_input() {
+                        // Copying still works; the text stays as it was.
+                        return true;
+                    }
+                    if follows_end && c.caret == text.chars().count() {
+                        c.caret = usize::MAX;
+                    }
                     cursor.set(c);
-                    if text != value.get() {
+                    if changed {
                         value.set(text);
                     }
                 }
@@ -595,7 +643,7 @@ mod tests {
     #[test]
     fn select_all_copy_cut_and_paste() {
         let clipboard = crate::Clipboard::default();
-        let access = || Some(ClipboardAccess { clipboard: &clipboard, secure: false });
+        let access = || Some(ClipboardAccess { clipboard: &clipboard, secure: false, multiline: false });
         let (mut text, mut c) = (String::from("draft"), Cursor::at(0));
         assert!(edit(&mut text, &mut c, &Key::Character("a".into()), CMD, access()));
         assert_eq!(c.selection(), Some((0, 5)));
@@ -614,7 +662,7 @@ mod tests {
     fn passwords_are_never_copied() {
         let clipboard = crate::Clipboard::default();
         let (mut text, mut c) = (String::from("secret"), Cursor { caret: 6, anchor: Some(0) });
-        let access = Some(ClipboardAccess { clipboard: &clipboard, secure: true });
+        let access = Some(ClipboardAccess { clipboard: &clipboard, secure: true, multiline: false });
         assert!(edit(&mut text, &mut c, &Key::Character("x".into()), CMD, access));
         assert_eq!((text.as_str(), clipboard.read()), ("secret", None));
     }
@@ -630,7 +678,7 @@ mod tests {
         }
         let clipboard = crate::Clipboard::new(WriteOnly);
         let (mut text, mut c) = (String::new(), Cursor::at(0));
-        let access = Some(ClipboardAccess { clipboard: &clipboard, secure: false });
+        let access = Some(ClipboardAccess { clipboard: &clipboard, secure: false, multiline: false });
         assert!(!edit(&mut text, &mut c, &Key::Character("v".into()), CMD, access));
     }
 

@@ -30,6 +30,10 @@ samples! {
     "TextField" => text_field, "Select" => select, "Combobox" => combobox, "DatePicker" => date_picker,
     "Calendar" => calendar, "EventCalendar" => event_calendar, "Scheduler" => scheduler,
     "RecurrenceEditor" => recurrence_editor, "InputOtp" => input_otp, "FormField" => form_field, "Label" => label,
+    "TextArea" => text_area, "NumberField" => number_field, "MaskedField" => masked_field,
+    "TimePicker" => time_picker, "DateTimePicker" => date_time_picker, "LookupField" => lookup_field,
+    "FormLayout" => form_layout, "Toolbar" => toolbar, "SplitButton" => split_button,
+    "ConfirmDialog" => confirm_dialog,
     "Ribbon" => ribbon, "Menubar" => menubar, "Tabs" => tabs, "Sidebar" => sidebar,
     "Breadcrumb" => breadcrumb, "Pagination" => pagination, "Accordion" => accordion,
     "Disclosure" => disclosure,
@@ -157,6 +161,111 @@ fn slider() -> impl View {
     ))
     .spacing(12.0)
     .align(Align::Stretch)
+}
+// end
+
+// sample: TextArea, 170
+fn text_area() -> impl View {
+    let notes = State::new(String::from("Two lines\nto start with."));
+    TextArea::new(notes.binding()).placeholder("Notes").rows(4)
+}
+// end
+
+// sample: NumberField, 110
+fn number_field() -> impl View {
+    let (seats, price) = (State::new(Some(12.0)), State::new(Some(129_990_i64)));
+    VStack::new((
+        NumberField::new(seats.binding()).range(0.0, 100.0).spin_buttons().label("Seats"),
+        NumberField::money(price.binding(), "R$ ").label("Price"),
+    ))
+    .spacing(12.0)
+    .align(Align::Stretch)
+}
+// end
+
+// sample: MaskedField, 90
+fn masked_field() -> impl View {
+    let phone = State::new(String::from("11987654321"));
+    MaskedField::new(phone.binding(), "(00) 00000-0000").label("Phone")
+}
+// end
+
+// sample: TimePicker, 90
+fn time_picker() -> impl View {
+    let at = State::new(Time::new(9, 30));
+    TimePicker::new(at.binding()).step_minutes(15).label("Starts at")
+}
+// end
+
+// sample: DateTimePicker, 90
+fn date_time_picker() -> impl View {
+    let month = Date::new(2026, 11, 1).unwrap_or_else(|| Date::from_days(0));
+    let at = State::new(Time::new(14, 0).map(|time| DateTime { date: month, time }));
+    DateTimePicker::new(at.binding(), month).label("Starts")
+}
+// end
+
+// sample: LookupField, 90
+fn lookup_field() -> impl View {
+    let city = State::new(None);
+    LookupField::remote(city.binding(), |request, responder| {
+        // Ask a database or a server here; a clone of the responder can answer later.
+        let cities = ["Belo Horizonte", "Recife", "Salvador", "São Paulo"];
+        let needle = request.query.to_lowercase();
+        let found = cities.iter().filter(|c| c.to_lowercase().contains(&needle));
+        responder.respond(found.map(|c| LookupItem::new(*c, *c)).collect());
+    })
+    .placeholder("Choose a city")
+    .width(220.0)
+    .label("City")
+}
+// end
+
+// sample: FormLayout, 260
+fn form_layout() -> impl View {
+    let (name, city, notes) =
+        (State::new(String::new()), State::new(String::new()), State::new(String::new()));
+    FormLayout::new().columns(2).group(
+        FormGroup::titled("Contact")
+            .field(FormField::new("Name", TextField::new(name.binding())).required())
+            .field(FormField::new("City", TextField::new(city.binding())))
+            .wide(FormField::new("Notes", TextArea::new(notes.binding()).rows(2))),
+    )
+}
+// end
+
+// sample: Toolbar, 90
+fn toolbar() -> impl View {
+    Toolbar::new()
+        .label("Records")
+        .action(ToolbarAction::new("New").icon(IconName::Plus).style(ButtonStyle::Primary).on_click(|| {}))
+        .action(ToolbarAction::new("Refresh").icon(IconName::RefreshCw).on_click(|| {}))
+        .separator()
+        .action(ToolbarAction::new("Export").icon(IconName::Download).on_click(|| {}))
+        .action(ToolbarAction::new("Delete").icon(IconName::Trash2).style(ButtonStyle::Danger).disabled(true))
+}
+// end
+
+// sample: SplitButton, 90
+fn split_button() -> impl View {
+    SplitButton::new("Save")
+        .icon(IconName::Check)
+        .on_click(|| {})
+        .item(MenuItem::new("Save and close").on_select(|| {}))
+        .item(MenuItem::new("Save and new").on_select(|| {}))
+}
+// end
+
+// sample: ConfirmDialog, 90
+fn confirm_dialog() -> impl View {
+    let confirm = ConfirmDialog::new();
+    let asker = confirm.clone();
+    VStack::new((
+        Button::new("Delete").style(ButtonStyle::Danger).on_click(move || {
+            asker.ask("Delete this record?", "This cannot be undone.", "Delete", || {});
+        }),
+        confirm,
+    ))
 }
 // end
 

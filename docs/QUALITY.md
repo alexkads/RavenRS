@@ -102,6 +102,10 @@ Status against the definition of done. **Behavior** names the test suites that d
 | RadioGroup, SegmentedControl | keyboard_and_basics | ✅ | ✅ arrows, Home/End, wrap, tested | Keyboard added in this pass |
 | Slider | components | ✅ | ✅ arrows, Home/End, tested | |
 | Stepper | keyboard_and_basics | | ✅ arrows, Home/End, tested | Keyboard added in this pass |
+| TextArea, NumberField, MaskedField, TimePicker, DateTimePicker | editors | | ✅ typing, arrows, tested | |
+| LookupField, FormLayout | components | | ✅ type, arrows, Enter, tested | |
+| Toolbar, SplitButton, ConfirmDialog | components | | ✅ buttons and menus, tested | |
+| Disabled and read-only editors | components | | ✅ out of the tab order, or readable, tested | |
 | InputOtp | batch_parity | | ✅ digits and Backspace, tested | |
 | FormField, Label | batch_parity, keyboard_and_basics | | n/a | |
 | Calendar, DatePicker | batch_parity, keyboard_and_basics | ✅ | ✅ one Tab stop; arrows, Home/End, Page Up/Down, Enter, tested | |

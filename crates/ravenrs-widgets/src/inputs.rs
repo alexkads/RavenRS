@@ -51,17 +51,30 @@ impl ChoiceOption {
 pub struct Toggle {
     value: Binding<bool>,
     label: Option<String>,
+    state: util::EditorState,
 }
 
 impl Toggle {
     /// A switch bound to `value`.
     pub fn new(value: Binding<bool>) -> Self {
-        Self { value, label: None }
+        Self { value, label: None, state: util::EditorState::default() }
     }
 
     /// Text after the switch; clicking it toggles too.
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    /// Turns the control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the value without letting it change; it can still be focused and read.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
         self
     }
 }
@@ -70,18 +83,20 @@ impl View for Toggle {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let on = self.value.get();
-        let hovered = cx.is_hovered();
+        let state = self.state;
+        let hovered = cx.is_hovered() && state.accepts_input();
         let track = if on {
             theme.color(if hovered { Semantic::AccentHover } else { Semantic::Accent })
         } else {
             theme.color(Semantic::Control).lerp(theme.color(Semantic::Ink), if hovered { 0.08 } else { 0.0 })
         };
-        let border = (!on).then(|| Border { width: 1.0, color: theme.color(Semantic::Border) });
+        let track = state.fill(track);
+        let border = (!on).then(|| Border { width: 1.0, color: state.ink(theme.color(Semantic::Border)) });
         // The thumb stretches while held and is kept apart from the track so it
         // can glide from one end to the other.
         let thumb = cx.container(
             LayoutStyle {
-                width: Some(if cx.is_pressed() { 22.0 } else { 18.0 }),
+                width: Some(if cx.is_pressed() && state.accepts_input() { 22.0 } else { 18.0 }),
                 height: Some(18.0),
                 ..LayoutStyle::leaf()
             },
@@ -93,7 +108,7 @@ impl View for Toggle {
                     blur: 3.0,
                     color: Color::rgba(0.0, 0.0, 0.0, 0.3),
                 }),
-                ..QuadPaint::new(Color::WHITE)
+                ..QuadPaint::new(state.ink(Color::WHITE))
             }),
         );
         let switch = cx.container(
@@ -111,12 +126,22 @@ impl View for Toggle {
         motion::control(cx, switch);
         let mut children = vec![switch];
         if let Some(label) = &self.label {
-            children.push(util::label(cx, label, TextStyle::Body, None, theme.color(Semantic::Ink)));
+            children.push(util::label(
+                cx,
+                label,
+                TextStyle::Body,
+                None,
+                state.ink(theme.color(Semantic::Ink)),
+            ));
         }
         let node = row(cx, &children);
-        cx.semantics(node, Semantics::new(Role::Switch).toggled(on));
-        let value = self.value.clone();
-        make_interactive(cx, node, 8.0, Rc::new(move || value.update(|v| *v = !*v)));
+        cx.semantics(node, state.semantics(Semantics::new(Role::Switch).toggled(on)));
+        if state.accepts_input() {
+            let value = self.value.clone();
+            make_interactive(cx, node, 8.0, Rc::new(move || value.update(|v| *v = !*v)));
+        } else if !state.disabled {
+            cx.focusable(node, 8.0);
+        }
         node
     }
 }
@@ -127,18 +152,31 @@ pub struct Checkbox {
     value: Binding<bool>,
     label: String,
     leading: Option<f32>,
+    state: util::EditorState,
 }
 
 impl Checkbox {
     /// A check box bound to `value`, with this label.
     pub fn new(label: impl Into<String>, value: Binding<bool>) -> Self {
-        Self { value, label: label.into(), leading: None }
+        Self { value, label: label.into(), leading: None, state: util::EditorState::default() }
     }
 
     /// Reserves this width for the box, so labels line up in a column. A list
     /// that mixes check boxes with [`Toggle`]s passes the toggle's width, 40.
     pub fn leading(mut self, width: f32) -> Self {
         self.leading = Some(width);
+        self
+    }
+
+    /// Turns the control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the value without letting it change; it can still be focused and read.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
         self
     }
 }
@@ -149,7 +187,7 @@ pub(crate) fn check_box(cx: &mut BuildCx<'_>, theme: &Theme, checked: bool, hove
     } else {
         vec![]
     };
-    check_box_around(cx, theme, checked, hovered, &mark)
+    check_box_around(cx, theme, checked, hovered, util::EditorState::default(), &mark)
 }
 
 fn check_box_around(
@@ -157,15 +195,16 @@ fn check_box_around(
     theme: &Theme,
     checked: bool,
     hovered: bool,
+    state: util::EditorState,
     mark: &[NodeId],
 ) -> NodeId {
     let paint = if checked {
-        QuadPaint { corner_radius: 5.0, ..QuadPaint::new(theme.color(Semantic::Accent)) }
+        QuadPaint { corner_radius: 5.0, ..QuadPaint::new(state.fill(theme.color(Semantic::Accent))) }
     } else {
         let edge = if hovered { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
         QuadPaint {
             corner_radius: 5.0,
-            border: Some(Border { width: 1.5, color: edge.with_alpha(0.7) }),
+            border: Some(Border { width: 1.5, color: state.ink(edge.with_alpha(0.7)) }),
             ..QuadPaint::new(Color::TRANSPARENT)
         }
     };
@@ -194,9 +233,10 @@ impl View for Checkbox {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let checked = self.value.get();
+        let state = self.state;
         let mark = checked.then(|| util::icon(cx, IconName::Check, 14.0, theme.color(Semantic::OnAccent)));
-        let hovered = cx.is_hovered();
-        let mut b = check_box_around(cx, &theme, checked, hovered, mark.as_slice());
+        let hovered = cx.is_hovered() && state.accepts_input();
+        let mut b = check_box_around(cx, &theme, checked, hovered, state, mark.as_slice());
         motion::control(cx, b);
         if let Some(mark) = mark {
             pop_mark(cx, mark);
@@ -208,11 +248,16 @@ impl View for Checkbox {
                 Paint::None,
             );
         }
-        let label = util::label(cx, &self.label, TextStyle::Body, None, theme.color(Semantic::Ink));
+        let label =
+            util::label(cx, &self.label, TextStyle::Body, None, state.ink(theme.color(Semantic::Ink)));
         let node = row(cx, &[b, label]);
-        cx.semantics(node, Semantics::new(Role::CheckBox).toggled(checked));
-        let value = self.value.clone();
-        make_interactive(cx, node, 6.0, Rc::new(move || value.update(|v| *v = !*v)));
+        cx.semantics(node, state.semantics(Semantics::new(Role::CheckBox).toggled(checked)));
+        if state.accepts_input() {
+            let value = self.value.clone();
+            make_interactive(cx, node, 6.0, Rc::new(move || value.update(|v| *v = !*v)));
+        } else if !state.disabled {
+            cx.focusable(node, 6.0);
+        }
         node
     }
 }
@@ -487,12 +532,13 @@ pub struct Stepper {
     min: i32,
     max: i32,
     label: Option<String>,
+    state: util::EditorState,
 }
 
 impl Stepper {
     /// A stepper bound to `value`, unbounded.
     pub fn new(value: Binding<i32>) -> Self {
-        Self { value, min: i32::MIN, max: i32::MAX, label: None }
+        Self { value, min: i32::MIN, max: i32::MAX, label: None, state: util::EditorState::default() }
     }
 
     /// Clamps the value to `min..=max`.
@@ -507,24 +553,38 @@ impl Stepper {
         self.label = Some(label.into());
         self
     }
+
+    /// Turns the control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the value without letting it change; it can still be focused and read.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
+        self
+    }
 }
 
 impl View for Stepper {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let v = self.value.get();
-        let (min, max) = (self.min, self.max);
+        let (min, max, state) = (self.min, self.max, self.state);
         let dec = self.value.clone();
         let inc = self.value.clone();
         let minus = cx.child(
             &crate::IconButton::new(IconName::Minus)
                 .label(cx.labels().decrease.clone())
                 .size(crate::ButtonSize::Small)
+                .disabled(!state.accepts_input())
                 .on_click(move || dec.update(|v| *v = (*v - 1).max(min))),
         );
         let mut attrs = util::attrs(&theme, TextStyle::Body, Some(Weight::SEMIBOLD));
         attrs.size = 15.0;
-        let text = cx.text(&v.to_string(), &attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
+        let text =
+            cx.text(&v.to_string(), &attrs, state.ink(theme.color(Semantic::Ink)), LayoutStyle::leaf());
         let value = cx.container(
             LayoutStyle {
                 min_width: Some(36.0),
@@ -540,6 +600,7 @@ impl View for Stepper {
             &crate::IconButton::new(IconName::Plus)
                 .label(cx.labels().increase.clone())
                 .size(crate::ButtonSize::Small)
+                .disabled(!state.accepts_input())
                 .on_click(move || inc.update(|v| *v = (*v + 1).min(max))),
         );
         let style = LayoutStyle {
@@ -551,8 +612,8 @@ impl View for Stepper {
         };
         let paint = QuadPaint {
             corner_radius: theme.radii.md,
-            border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
-            ..QuadPaint::new(theme.color(Semantic::Control))
+            border: Some(Border { width: 1.0, color: state.ink(theme.color(Semantic::Border)) }),
+            ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
         };
         let node = cx.container(style, &[minus, value, plus], Paint::Quad(paint));
         let mut semantics =
@@ -560,11 +621,17 @@ impl View for Stepper {
         if let Some(label) = &self.label {
             semantics = semantics.name(label.clone());
         }
-        cx.semantics(node, semantics);
+        cx.semantics(node, state.semantics(semantics));
+        if state.disabled {
+            return node;
+        }
         let value = self.value.clone();
         cx.on_key(
             node,
             Rc::new(move |key, _| {
+                if !state.accepts_input() {
+                    return false;
+                }
                 let next = |v: i32| match key {
                     Key::ArrowUp | Key::ArrowRight => Some(v.saturating_add(1)),
                     Key::ArrowDown | Key::ArrowLeft => Some(v.saturating_sub(1)),

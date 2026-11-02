@@ -103,6 +103,9 @@ pub(crate) fn aria_attributes(n: &AccessNode) -> Vec<(&'static str, String)> {
     if n.disabled {
         out.push(("aria-disabled", "true".to_owned()));
     }
+    if n.read_only {
+        out.push(("aria-readonly", "true".to_owned()));
+    }
     if n.modal {
         out.push(("aria-modal", "true".to_owned()));
     }

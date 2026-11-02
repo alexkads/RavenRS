@@ -1,0 +1,554 @@
+//! Where commands live: a toolbar that folds into a menu when it runs out of
+//! room, a button with alternatives, and a question before something final.
+
+use std::cell::Cell;
+use std::fmt;
+use std::rc::Rc;
+
+use ravenrs_layout::{Align, Axis, LayoutStyle};
+use ravenrs_reactive::{Binding, State};
+use ravenrs_style::{Semantic, TextStyle};
+
+use crate::context::{BuildCx, NodeId, Paint, Placement, Semantics};
+use crate::overlay::{Entry, MenuList};
+use crate::{AnyView, Button, ButtonSize, ButtonStyle, Dialog, IconButton, IconName, MenuItem, View, util};
+
+/// Room a button takes besides its label: its padding, and the icon if it has one.
+const BUTTON_PADDING: f32 = 26.0;
+const ICON_ROOM: f32 = 22.0;
+const TOOLBAR_GAP: f32 = 4.0;
+const SEPARATOR_ROOM: f32 = 9.0;
+const MORE_ROOM: f32 = 36.0;
+
+/// One command of a [`Toolbar`].
+pub struct ToolbarAction {
+    label: String,
+    icon: Option<IconName>,
+    style: ButtonStyle,
+    disabled: bool,
+    icon_only: bool,
+    on_click: Option<Rc<dyn Fn()>>,
+}
+
+impl fmt::Debug for ToolbarAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ToolbarAction").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
+impl ToolbarAction {
+    /// A ghost button with this text.
+    pub fn new(label: impl Into<String>) -> Self {
+        Self {
+            label: label.into(),
+            icon: None,
+            style: ButtonStyle::Ghost,
+            disabled: false,
+            icon_only: false,
+            on_click: None,
+        }
+    }
+
+    /// An icon before the label.
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// Shows only the icon; the label stays as its name, and in the overflow menu.
+    pub fn icon_only(mut self) -> Self {
+        self.icon_only = true;
+        self
+    }
+
+    /// The button's style. `Ghost` by default.
+    pub fn style(mut self, style: ButtonStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// Greys the command out. It keeps its place, so its neighbors do not move
+    /// under the pointer, but it is left out of the overflow menu.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    /// Runs `handler` when the command is chosen.
+    pub fn on_click(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_click = Some(Rc::new(handler));
+        self
+    }
+
+    fn room(&self, cx: &mut BuildCx<'_>) -> f32 {
+        if self.icon_only && self.icon.is_some() {
+            return MORE_ROOM;
+        }
+        let theme = *cx.theme();
+        let attrs = util::attrs(&theme, TextStyle::Callout, None);
+        let text = cx.measure_text(&self.label, &attrs).width;
+        text + BUTTON_PADDING + if self.icon.is_some() { ICON_ROOM } else { 0.0 }
+    }
+
+    fn view(&self) -> AnyView {
+        let handler = self.on_click.clone();
+        let click = move || {
+            if let Some(handler) = &handler {
+                handler();
+            }
+        };
+        match (self.icon_only, self.icon) {
+            (true, Some(icon)) => Box::new(
+                IconButton::new(icon)
+                    .label(self.label.clone())
+                    .style(self.style)
+                    .size(ButtonSize::Small)
+                    .disabled(self.disabled)
+                    .on_click(click),
+            ),
+            (_, icon) => {
+                let mut button = Button::new(self.label.clone())
+                    .style(self.style)
+                    .size(ButtonSize::Small)
+                    .disabled(self.disabled)
+                    .on_click(click);
+                if let Some(icon) = icon {
+                    button = button.icon(icon);
+                }
+                Box::new(button)
+            }
+        }
+    }
+
+    fn menu_item(&self) -> MenuItem {
+        let mut item = MenuItem::new(self.label.clone());
+        if let Some(icon) = self.icon {
+            item = item.icon(icon);
+        }
+        if self.style == ButtonStyle::Danger {
+            item = item.destructive();
+        }
+        if let Some(handler) = self.on_click.clone() {
+            item = item.on_select(move || handler());
+        }
+        item
+    }
+}
+
+enum ToolbarEntry {
+    Action(ToolbarAction),
+    Separator,
+    View(AnyView, f32),
+}
+
+/// A row of commands. What does not fit moves to a menu at its end, from the
+/// last command back, so the order never changes.
+///
+/// ```
+/// use ravenrs_widgets::{IconName, Toolbar, ToolbarAction, Ui};
+///
+/// let bar = Toolbar::new()
+///     .action(ToolbarAction::new("New").icon(IconName::Plus).on_click(|| {}))
+///     .separator()
+///     .action(ToolbarAction::new("Delete").icon(IconName::Trash2).disabled(true));
+/// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+#[derive(Default)]
+pub struct Toolbar {
+    entries: Vec<ToolbarEntry>,
+    label: Option<String>,
+}
+
+impl fmt::Debug for Toolbar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Toolbar").field("entries", &self.entries.len()).finish_non_exhaustive()
+    }
+}
+
+impl Toolbar {
+    /// An empty toolbar.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Appends a command.
+    pub fn action(mut self, action: ToolbarAction) -> Self {
+        self.entries.push(ToolbarEntry::Action(action));
+        self
+    }
+
+    /// Appends a line between groups of commands.
+    pub fn separator(mut self) -> Self {
+        self.entries.push(ToolbarEntry::Separator);
+        self
+    }
+
+    /// Appends any view, such as a search field, that needs `width` logical
+    /// pixels. It stays on the bar while there is room, and is dropped after that.
+    pub fn view(mut self, width: f32, view: impl View + 'static) -> Self {
+        self.entries.push(ToolbarEntry::View(Box::new(view), width));
+        self
+    }
+
+    /// The name screen readers announce.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
+/// How many entries of these widths fit in `available`, leaving room for the
+/// overflow menu if some have to go.
+pub(crate) fn entries_that_fit(widths: &[f32], available: f32, more: f32, gap: f32) -> usize {
+    let total: f32 = widths.iter().map(|w| w + gap).sum();
+    if total - gap <= available {
+        return widths.len();
+    }
+    let mut used = 0.0;
+    for (i, w) in widths.iter().enumerate() {
+        used += w + gap;
+        if used + more > available {
+            return i;
+        }
+    }
+    widths.len()
+}
+
+impl View for Toolbar {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let widths: Vec<f32> = self
+            .entries
+            .iter()
+            .map(|entry| match entry {
+                ToolbarEntry::Action(action) => action.room(cx),
+                ToolbarEntry::Separator => SEPARATOR_ROOM,
+                ToolbarEntry::View(_, width) => *width,
+            })
+            .collect();
+        let fits = cx
+            .scroll_viewport()
+            .map_or(widths.len(), |v| entries_that_fit(&widths, v.width, MORE_ROOM, TOOLBAR_GAP));
+        // A line with nothing after it says nothing.
+        let shown = if fits < widths.len()
+            && matches!(self.entries.get(fits.wrapping_sub(1)), Some(ToolbarEntry::Separator))
+        {
+            fits - 1
+        } else {
+            fits
+        };
+
+        let mut children = Vec::with_capacity(shown + 1);
+        for (i, entry) in self.entries[..shown].iter().enumerate() {
+            children.push(match entry {
+                ToolbarEntry::Action(action) => cx.keyed_child(i as u64, action.view().as_ref()),
+                ToolbarEntry::View(view, _) => cx.keyed_child(i as u64, view.as_ref()),
+                ToolbarEntry::Separator => cx.container(
+                    LayoutStyle { width: Some(1.0), height: Some(18.0), ..LayoutStyle::leaf() },
+                    &[],
+                    Paint::Quad(crate::context::QuadPaint::new(theme.color(Semantic::Border))),
+                ),
+            });
+        }
+        let hidden = self.entries[shown..]
+            .iter()
+            .filter_map(|entry| match entry {
+                ToolbarEntry::Action(action) if !action.disabled => Some(Entry::Item(action.menu_item())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if !hidden.is_empty() {
+            children.push(cx.keyed_child(u64::MAX, &MoreMenu(hidden)));
+        }
+        let node = cx.container(
+            LayoutStyle {
+                spacing: TOOLBAR_GAP,
+                align: Align::Center,
+                align_self: Some(Align::Stretch),
+                height: Some(36.0),
+                min_width: Some(0.0),
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &children,
+            Paint::None,
+        );
+        // Being a scroll container is what tells the next build how wide it is.
+        cx.scrollable_virtual(node, false);
+        let mut semantics = Semantics::new(ravenrs_core::Role::Group);
+        if let Some(label) = &self.label {
+            semantics = semantics.name(label.clone());
+        }
+        cx.semantics(node, semantics);
+        node
+    }
+}
+
+struct MoreMenu(Vec<Entry>);
+
+impl View for MoreMenu {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        menu_trigger(
+            cx,
+            &self.0,
+            IconName::Ellipsis,
+            ButtonStyle::Ghost,
+            ButtonSize::Small,
+            cx.labels().more_commands.clone(),
+        )
+    }
+}
+
+/// A square button that opens `entries` under it, and takes focus back after.
+fn menu_trigger(
+    cx: &mut BuildCx<'_>,
+    entries: &[Entry],
+    icon: IconName,
+    style: ButtonStyle,
+    size: ButtonSize,
+    name: String,
+) -> NodeId {
+    let open: State<bool> = cx.use_state(|| false);
+    let toggle = open.clone();
+    let anchor = cx.child(
+        &IconButton::new(icon)
+            .label(name)
+            .style(style)
+            .size(size)
+            .on_click(move || toggle.update(|o| *o = !*o)),
+    );
+    let is_open = open.get();
+    cx.update_semantics(anchor, |s| s.expanded = Some(is_open));
+    let was_open = cx.use_state(|| Rc::new(Cell::new(false))).get();
+    if is_open {
+        was_open.set(true);
+        let close: Rc<dyn Fn()> = Rc::new(move || open.set(false));
+        cx.overlay(
+            anchor,
+            Placement::Below,
+            &MenuList { entries, close: close.clone(), on_side: None },
+            Some(close),
+        );
+    } else if was_open.replace(false) {
+        cx.request_focus_node(anchor);
+    }
+    anchor
+}
+
+/// A button with a main command and, beside it, a menu of alternatives, such as
+/// Save, with Save and Close and Save and New.
+///
+/// ```
+/// use ravenrs_widgets::{MenuItem, SplitButton, Ui};
+///
+/// let save = SplitButton::new("Save")
+///     .on_click(|| {})
+///     .item(MenuItem::new("Save and close").on_select(|| {}));
+/// let mut ui = Ui::new(save, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+pub struct SplitButton {
+    label: String,
+    icon: Option<IconName>,
+    style: ButtonStyle,
+    size: ButtonSize,
+    disabled: bool,
+    on_click: Option<Rc<dyn Fn()>>,
+    entries: Vec<Entry>,
+}
+
+impl fmt::Debug for SplitButton {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SplitButton").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
+impl SplitButton {
+    /// A primary button with this text and an empty menu.
+    pub fn new(label: impl Into<String>) -> Self {
+        Self {
+            label: label.into(),
+            icon: None,
+            style: ButtonStyle::Primary,
+            size: ButtonSize::Medium,
+            disabled: false,
+            on_click: None,
+            entries: Vec::new(),
+        }
+    }
+
+    /// An icon before the label.
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// The buttons' style. `Primary` by default.
+    pub fn style(mut self, style: ButtonStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// The buttons' size. `Medium` by default.
+    pub fn size(mut self, size: ButtonSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Turns off the main command and the menu.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    /// Runs `handler` when the main button is clicked.
+    pub fn on_click(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_click = Some(Rc::new(handler));
+        self
+    }
+
+    /// Appends an alternative to the menu.
+    pub fn item(mut self, item: MenuItem) -> Self {
+        self.entries.push(Entry::Item(item));
+        self
+    }
+}
+
+impl View for SplitButton {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let handler = self.on_click.clone();
+        let mut main = Button::new(self.label.clone())
+            .style(self.style)
+            .size(self.size)
+            .disabled(self.disabled)
+            .on_click(move || {
+                if let Some(handler) = &handler {
+                    handler();
+                }
+            });
+        if let Some(icon) = self.icon {
+            main = main.icon(icon);
+        }
+        let main = cx.child(&main);
+        let name = format!("{}: {}", self.label, cx.labels().more_commands);
+        let trigger = if self.disabled {
+            cx.child(
+                &IconButton::new(IconName::ChevronDown)
+                    .label(name)
+                    .style(self.style)
+                    .size(self.size)
+                    .disabled(true),
+            )
+        } else {
+            menu_trigger(cx, &self.entries, IconName::ChevronDown, self.style, self.size, name)
+        };
+        cx.container(
+            LayoutStyle {
+                spacing: 1.0,
+                align: Align::Center,
+                align_self: Some(Align::Fit),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[main, trigger],
+            Paint::None,
+        )
+    }
+}
+
+/// A question before something that cannot be undone. Holds what is being asked
+/// until it is answered; show [`ConfirmDialog`] once, and call
+/// [`ask`](Self::ask) from anywhere.
+#[derive(Clone)]
+pub struct ConfirmDialog(State<Option<Rc<Question>>>);
+
+struct Question {
+    title: String,
+    message: String,
+    action: String,
+    run: Rc<dyn Fn()>,
+}
+
+impl fmt::Debug for ConfirmDialog {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ConfirmDialog").field("asking", &self.0.peek().is_some()).finish()
+    }
+}
+
+impl Default for ConfirmDialog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ConfirmDialog {
+    /// A dialog with nothing to ask yet.
+    pub fn new() -> Self {
+        Self(State::new(None))
+    }
+
+    /// Asks `title`, explaining with `message`. The button called `action` runs `run`.
+    pub fn ask(
+        &self,
+        title: impl Into<String>,
+        message: impl Into<String>,
+        action: impl Into<String>,
+        run: impl Fn() + 'static,
+    ) {
+        self.0.set(Some(Rc::new(Question {
+            title: title.into(),
+            message: message.into(),
+            action: action.into(),
+            run: Rc::new(run),
+        })));
+    }
+}
+
+impl View for ConfirmDialog {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let Some(question) = self.0.get() else { return cx.empty() };
+        let (read, write) = (self.0.clone(), self.0.clone());
+        let open = Binding::new(
+            move || read.get().is_some(),
+            move |open: bool| {
+                if !open {
+                    write.set(None);
+                }
+            },
+        );
+        let (cancel, done, run) = (self.0.clone(), self.0.clone(), question.run.clone());
+        let labels = cx.labels();
+        cx.child(
+            &Dialog::new(open, question.title.clone())
+                .description(question.message.clone())
+                .action(
+                    Button::new(labels.cancel.clone())
+                        .style(ButtonStyle::Secondary)
+                        .on_click(move || cancel.set(None)),
+                )
+                .action(Button::new(question.action.clone()).style(ButtonStyle::Danger).on_click(
+                    move || {
+                        done.set(None);
+                        run();
+                    },
+                )),
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::entries_that_fit;
+
+    #[test]
+    fn everything_fits_or_the_menu_takes_room() {
+        let w = [50.0, 50.0, 50.0];
+        assert_eq!(entries_that_fit(&w, 160.0, 30.0, 0.0), 3, "no menu is needed");
+        assert_eq!(entries_that_fit(&w, 150.0, 30.0, 0.0), 3, "exactly enough");
+        assert_eq!(entries_that_fit(&w, 149.0, 30.0, 0.0), 2, "the menu pushes one out");
+        assert_eq!(entries_that_fit(&w, 100.0, 30.0, 0.0), 1);
+        assert_eq!(entries_that_fit(&w, 20.0, 30.0, 0.0), 0);
+        assert_eq!(entries_that_fit(&[], 0.0, 30.0, 0.0), 0);
+        assert_eq!(entries_that_fit(&w, 158.0, 30.0, 4.0), 3, "gaps only between entries");
+    }
+}

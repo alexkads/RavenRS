@@ -8,7 +8,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | | Families tracked | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
-| All | 110 | 56 | 9 | 45 |
+| All | 112 | 64 | 7 | 41 |
 
 ## Layout and structure
 
@@ -24,7 +24,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Tile layout / Dashboard layout | | ✓ | ✓ | ⬜ |
 | Docking / Dock manager | | ✓ | ✓ | ⬜ |
 | Window (floating) | | ✓ | ✓ | ⬜ |
-| App bar / Toolbar | | ✓ | ✓ | 🟡 composable from `HStack` + buttons; no overflow menu |
+| App bar / Toolbar | | ✓ | ✓ | ✅ `Toolbar`, `ToolbarAction`: what does not fit folds into a menu |
 | Footer | | | | ✅ `Footer` |
 | Status bar | | ✓ | ✓ | ✅ `StatusBar` |
 | Tool rail | | | | ✅ `ToolRail` |
@@ -56,7 +56,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Toggle button | ✓ | | ✓ | ✅ `ToggleButton` |
 | Toggle group / Button group | ✓ | ✓ | ✓ | ✅ `ToggleGroup` |
 | Dropdown button | ✓ | ✓ | ✓ | ✅ `DropdownMenu` |
-| Split button | | ✓ | ✓ | ⬜ |
+| Split button | | ✓ | ✓ | ✅ `SplitButton` |
 | Floating action button | | ✓ | ✓ | ⬜ |
 | Speed dial | | ✓ | ✓ | ⬜ |
 | Floating action button with a panel | | ✓ | ✓ | ✅ `FloatingPanel`: a round button that drags between corners |
@@ -66,9 +66,10 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
 | Text box | ✓ | ✓ | ✓ | ✅ `TextField` (selection, clipboard) |
-| Text area (multi-line) | ✓ | ✓ | ✓ | ⬜ |
+| Text area (multi-line) | ✓ | ✓ | ✓ | ✅ `TextArea`: wraps, scrolls, builds only the lines in view |
 | Label | ✓ | ✓ | ✓ | ✅ `Label` |
 | Form, field validation | ✓ | ✓ | ✓ | ✅ `FormField` + validators |
+| Form layout (groups, columns, tabs, error list) | | ✓ | ✓ | ✅ `FormLayout`, `FormGroup` |
 | Checkbox | ✓ | ✓ | ✓ | ✅ |
 | Radio group | ✓ | ✓ | ✓ | ✅ |
 | Switch | ✓ | ✓ | ✓ | ✅ `Toggle` |
@@ -76,14 +77,15 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Range slider | | ✓ | ✓ | ⬜ |
 | Select / Drop-down list | ✓ | ✓ | ✓ | ✅ `Select` |
 | Combobox / Autocomplete | ✓ | ✓ | ✓ | ✅ `Combobox` |
+| Lookup (records loaded on demand) | | ✓ | ✓ | ✅ `LookupField`: from memory or a callback, ignores stale answers |
 | Multi-select / Tag box | | ✓ | ✓ | ⬜ |
-| Numeric input / Spin editor | | ✓ | ✓ | 🟡 `Stepper`; a typed numeric field is planned |
-| Masked input | | ✓ | ✓ | ⬜ |
+| Numeric input / Spin editor | | ✓ | ✓ | ✅ `NumberField` (range, step, separators, money in whole cents), `Stepper` |
+| Masked input | | ✓ | ✓ | ✅ `MaskedField` |
 | One-time code (OTP) | ✓ | | ✓ | ✅ `InputOtp` |
 | Calendar | ✓ | ✓ | ✓ | ✅ `Calendar` |
 | Date picker | ✓ | ✓ | ✓ | ✅ `DatePicker` |
 | Date range picker | ✓ | ✓ | ✓ | ⬜ |
-| Time picker / DateTime picker | | ✓ | ✓ | ⬜ |
+| Time picker / DateTime picker | | ✓ | ✓ | ✅ `TimePicker`, `DateTimePicker` |
 | Color picker / palette / gradient | | ✓ | ✓ | ⬜ |
 | Rating | | ✓ | ✓ | ⬜ |
 | File upload | | ✓ | ✓ | ⬜ |
@@ -133,7 +135,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Dialog / Alert dialog | ✓ | ✓ | ✓ | ✅ `Dialog` |
+| Dialog / Alert dialog | ✓ | ✓ | ✓ | ✅ `Dialog`, `ConfirmDialog` |
 | Sheet / Drawer (side panel) | ✓ | ✓ | ✓ | ✅ `Sheet` |
 | Splash screen | | ✓ | ✓ | ✅ `SplashScreen` |
 | Popover | ✓ | ✓ | ✓ | ✅ |

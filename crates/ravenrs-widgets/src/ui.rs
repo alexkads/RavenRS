@@ -77,6 +77,8 @@ pub struct Ui {
     ui_waker: crate::UiWaker,
     waker: Waker,
     needs_build: bool,
+    /// A view that builds from its own size got a new one in the last layout.
+    viewport_moved: bool,
     viewport: Size,
     scale: f32,
     interaction: Interaction,
@@ -166,6 +168,7 @@ impl Ui {
             ui_waker: crate::UiWaker::default(),
             waker,
             needs_build: true,
+            viewport_moved: false,
             viewport: Size::new(800.0, 600.0),
             scale: 1.0,
             interaction: Interaction::default(),
@@ -349,6 +352,12 @@ impl Ui {
             // The tree changed under a stationary pointer: refresh hover once.
             if self.refresh_hover() {
                 self.rebuild();
+            }
+            // Those views were built for their old size. Their new build can move
+            // others, but a second round of that waits for the next frame.
+            if std::mem::take(&mut self.viewport_moved) {
+                self.rebuild();
+                self.viewport_moved = false;
             }
         } else if self.motion.active || self.live_is_due() {
             // Only animations are due: the tree and its layout are still valid.
@@ -1053,7 +1062,8 @@ impl Ui {
                 child_origin = child_origin - offset;
                 child_shift = child_shift - offset;
                 let widget = self.elements[i].widget;
-                self.scroll.viewports.insert(widget, frame.size);
+                let before = self.scroll.viewports.insert(widget, frame.size);
+                self.viewport_moved |= self.elements[i].rebuild_on_scroll && before != Some(frame.size);
                 // Store the clamped value so builds see where the content really is.
                 self.scroll.offsets.insert(widget, offset);
             }

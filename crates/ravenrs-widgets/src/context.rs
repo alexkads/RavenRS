@@ -236,6 +236,7 @@ pub struct Semantics {
     pub(crate) selected: Option<bool>,
     pub(crate) expanded: Option<bool>,
     pub(crate) disabled: bool,
+    pub(crate) read_only: bool,
     pub(crate) modal: bool,
     pub(crate) level: Option<u32>,
     pub(crate) hidden: bool,
@@ -257,6 +258,7 @@ impl Semantics {
             selected: None,
             expanded: None,
             disabled: false,
+            read_only: false,
             modal: false,
             level: None,
             hidden: false,
@@ -321,6 +323,12 @@ impl Semantics {
     /// Marks the control as not responding to input.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    /// Marks the control's value as readable but not changeable.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.read_only = read_only;
         self
     }
 

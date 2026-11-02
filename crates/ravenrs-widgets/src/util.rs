@@ -6,7 +6,44 @@ use ravenrs_style::{TextStyle, Theme, Weight};
 use ravenrs_text::{ICON_FAMILY, TextAttrs};
 
 use crate::IconName;
-use crate::context::{BuildCx, NodeId};
+use crate::context::{BuildCx, NodeId, Semantics};
+
+/// A disabled control's color.
+pub(crate) fn faded(color: Color) -> Color {
+    color.with_alpha(color.a * 0.45)
+}
+
+/// Whether an editor takes input. Disabled ones are out of the tab order and
+/// fade; read-only ones can still be focused and read, on a lighter fill.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct EditorState {
+    pub disabled: bool,
+    pub read_only: bool,
+}
+
+impl EditorState {
+    pub fn accepts_input(self) -> bool {
+        !self.disabled && !self.read_only
+    }
+
+    pub fn ink(self, color: Color) -> Color {
+        if self.disabled { faded(color) } else { color }
+    }
+
+    pub fn fill(self, color: Color) -> Color {
+        if self.disabled {
+            faded(color)
+        } else if self.read_only {
+            color.with_alpha(color.a * 0.5)
+        } else {
+            color
+        }
+    }
+
+    pub fn semantics(self, semantics: Semantics) -> Semantics {
+        semantics.disabled(self.disabled).read_only(self.read_only)
+    }
+}
 
 pub(crate) fn attrs(theme: &Theme, style: TextStyle, weight: Option<Weight>) -> TextAttrs {
     let t = theme.text(style);

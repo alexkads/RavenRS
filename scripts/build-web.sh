@@ -14,7 +14,7 @@ out="$root/examples/$name/web/pkg"
 cd "$root"
 cargo build -p "$name" --lib --target wasm32-unknown-unknown --profile wasm-release
 wasm-bindgen --target web --no-typescript --out-dir "$out" \
-  "target/wasm32-unknown-unknown/wasm-release/$crate.wasm"
+  "${CARGO_TARGET_DIR:-target}/wasm32-unknown-unknown/wasm-release/$crate.wasm"
 
 if command -v wasm-opt >/dev/null 2>&1; then
   # The feature list matches what rustc enables by default for wasm32-unknown-unknown;

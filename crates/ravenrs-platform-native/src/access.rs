@@ -114,6 +114,9 @@ fn node(n: &AccessNode, scale: f64, is_root: bool) -> Node {
     if n.disabled {
         node.set_disabled();
     }
+    if n.read_only {
+        node.set_read_only();
+    }
     if n.modal {
         node.set_modal();
     }

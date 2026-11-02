@@ -138,6 +138,24 @@ pub struct Labels {
     pub month_year: String,
     /// Writes a date the way people here do, for a date picker.
     pub short_date: fn(Date) -> String,
+    /// Above the errors that keep a form from being saved.
+    pub form_errors: String,
+    /// A [`LookupField`](crate::LookupField)'s button that empties it.
+    pub clear: String,
+    /// A question's button that gives up on it.
+    pub cancel: String,
+    /// The menu of commands that did not fit.
+    pub more_commands: String,
+    /// A number's decimal separator.
+    pub decimal_separator: char,
+    /// A number's thousands separator.
+    pub group_separator: char,
+    /// A [`TimePicker`](crate::TimePicker)'s hint and button.
+    pub pick_time: String,
+    /// A number field's button that adds a step.
+    pub step_up: String,
+    /// A number field's button that takes a step away.
+    pub step_down: String,
     /// After the count of events an [`EventCalendar`](crate::EventCalendar) day has no room for.
     pub calendar_more: String,
     /// The header over a [`Scheduler`](crate::Scheduler)'s resources.
@@ -399,6 +417,15 @@ impl Default for Labels {
             ]),
             month_year: " ".into(),
             short_date: english_date,
+            form_errors: "Please review the form".into(),
+            clear: "Clear".into(),
+            cancel: "Cancel".into(),
+            more_commands: "More".into(),
+            decimal_separator: '.',
+            group_separator: ',',
+            pick_time: "Pick a time".into(),
+            step_up: "Increase".into(),
+            step_down: "Decrease".into(),
             calendar_more: "more".into(),
             scheduler_resources: "Resources".into(),
             zoom_in: "Zoom in".into(),
@@ -573,6 +600,15 @@ impl Labels {
             ]),
             month_year: " de ".into(),
             short_date: brazilian_date,
+            form_errors: "Revise o formulário".into(),
+            clear: "Limpar".into(),
+            cancel: "Cancelar".into(),
+            more_commands: "Mais".into(),
+            decimal_separator: ',',
+            group_separator: '.',
+            pick_time: "Escolher horário".into(),
+            step_up: "Aumentar".into(),
+            step_down: "Diminuir".into(),
             calendar_more: "mais".into(),
             scheduler_resources: "Recursos".into(),
             zoom_in: "Aproximar".into(),

@@ -4,6 +4,15 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- **Editors for business forms.** `TextArea`, `NumberField` (also money in whole cents), `MaskedField`, `TimePicker`, `DateTimePicker` and `LookupField`, whose options can come from a database or a server.
+- **`FormLayout`** arranges fields in groups and columns that collapse on narrow windows, with tabs and a list of errors.
+- **Commands.** `Toolbar` folds what does not fit into a menu, `SplitButton` offers alternatives to a main command, and `ConfirmDialog` asks before something final.
+- `disabled` and `read_only` on `TextField`, `Select`, `Combobox`, `DatePicker`, `Checkbox`, `Toggle` and `Stepper`. Screen readers hear about read-only controls through `AccessNode::read_only`.
+
+### Fixed
+- A view that builds from the size of its scroll container, as `DataGrid` does, gets a new build in the same frame when that size changes, instead of waiting for the next input.
+
 ## [27.1.6] - 2026-11-02
 
 ### Added

@@ -179,6 +179,7 @@ impl Builder<'_> {
             a.selected = s.selected;
             a.expanded = s.expanded;
             a.disabled = s.disabled;
+            a.read_only = s.read_only;
             a.modal = s.modal;
             a.level = s.level;
             if s.active {

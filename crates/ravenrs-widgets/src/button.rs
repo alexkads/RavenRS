@@ -120,8 +120,7 @@ pub(crate) fn control_colors(
         }
     };
     if disabled {
-        let fade = |c: Color| c.with_alpha(c.a * 0.45);
-        (fade(fill), fade(label), border)
+        (crate::util::faded(fill), crate::util::faded(label), border)
     } else {
         (fill, label, border)
     }

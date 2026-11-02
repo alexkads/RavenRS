@@ -299,12 +299,21 @@ pub struct DatePicker {
     today: Option<Date>,
     width: f32,
     label: Option<String>,
+    state: util::EditorState,
 }
 
 impl DatePicker {
     /// `month` is shown when no date is selected yet.
     pub fn new(value: Binding<Option<Date>>, month: Date) -> Self {
-        Self { value, month, placeholder: None, today: None, width: 220.0, label: None }
+        Self {
+            value,
+            month,
+            placeholder: None,
+            today: None,
+            width: 220.0,
+            label: None,
+            state: util::EditorState::default(),
+        }
     }
 
     /// Text shown while no date is selected ("Pick a date" by default).
@@ -322,6 +331,18 @@ impl DatePicker {
     /// Field width in logical pixels (default 220).
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
+        self
+    }
+
+    /// Turns the control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.state.disabled = disabled;
+        self
+    }
+
+    /// Shows the value without letting it change; it can still be focused and read.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.state.read_only = read_only;
         self
     }
 }
@@ -366,9 +387,10 @@ impl View for DatePicker {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let open: State<bool> = cx.use_state(|| false);
-        let is_open = open.get();
-        let hovered = cx.is_hovered();
-        let icon = util::icon(cx, IconName::Calendar, 16.0, theme.color(Semantic::InkMuted));
+        let state = self.state;
+        let is_open = open.get() && state.accepts_input();
+        let hovered = cx.is_hovered() && state.accepts_input();
+        let icon = util::icon(cx, IconName::Calendar, 16.0, state.ink(theme.color(Semantic::InkMuted)));
         let labels = cx.labels();
         let (text, color) = match self.value.get() {
             Some(d) => ((labels.short_date)(d), theme.color(Semantic::Ink)),
@@ -377,14 +399,14 @@ impl View for DatePicker {
                 (hint, theme.color(Semantic::InkMuted))
             }
         };
-        let label = util::label(cx, &text, TextStyle::Body, None, color);
+        let label = util::label(cx, &text, TextStyle::Body, None, state.ink(color));
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
         } else {
             let base = theme.color(Semantic::Border);
             Border {
                 width: 1.0,
-                color: if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base },
+                color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
             }
         };
         let node = cx.container(
@@ -401,7 +423,7 @@ impl View for DatePicker {
             Paint::Quad(QuadPaint {
                 corner_radius: theme.radii.md,
                 border: Some(border),
-                ..QuadPaint::new(theme.color(Semantic::Control))
+                ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
             }),
         );
         cx.semantics(label, Semantics::hidden());
@@ -410,7 +432,14 @@ impl View for DatePicker {
         if let Some(label) = &self.label {
             semantics = semantics.name(label.clone());
         }
-        cx.semantics(node, semantics);
+        cx.semantics(node, state.semantics(semantics));
+        if state.disabled {
+            return node;
+        }
+        if !state.accepts_input() {
+            cx.focusable(node, theme.radii.md);
+            return node;
+        }
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
         cx.focusable(node, theme.radii.md);

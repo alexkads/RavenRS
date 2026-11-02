@@ -188,6 +188,8 @@ pub struct AccessNode {
     pub expanded: Option<bool>,
     /// The control does not respond to input.
     pub disabled: bool,
+    /// The value can be read and selected, but not changed.
+    pub read_only: bool,
     /// Keyboard focus can be on it.
     pub focusable: bool,
     /// While it is open, the rest of the app is inert (dialogs).
@@ -219,6 +221,7 @@ impl AccessNode {
             selected: None,
             expanded: None,
             disabled: false,
+            read_only: false,
             focusable: false,
             modal: false,
             level: None,
