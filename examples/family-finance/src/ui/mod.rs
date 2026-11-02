@@ -97,6 +97,7 @@ impl App {
     pub fn new(db: Database, today: Date, path: Option<PathBuf>, updater: Updater) -> Self {
         let training = training::TrainingState::new(path.as_deref());
         let sidebar = Self::remembered_menu(path.as_deref());
+        let (ledger, bills) = (LedgerState::new(today, path.as_deref()), BillsState::new(path.as_deref()));
         let store = Store::new(db, today, path, updater);
         let recorder = FlightRecorder::new(FLIGHT_SECONDS);
         let reporter = training::reporter(&store, &recorder);
@@ -111,8 +112,8 @@ impl App {
             reporter,
             forms: Forms::new(),
             dashboard: DashboardState::new(),
-            ledger: LedgerState::new(today),
-            bills: BillsState::new(),
+            ledger,
+            bills,
             agenda: AgendaState::new(today),
             budgets: BudgetsState::new(today),
             reports: ReportsState::new(today),

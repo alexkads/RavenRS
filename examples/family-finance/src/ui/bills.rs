@@ -7,7 +7,10 @@ use ravenrs::prelude::*;
 
 use super::forms::Forms;
 use super::help;
-use super::store::{Memo, Page, Store, content_width, date_column, filling, money_column, row_id, screen};
+use super::store::{
+    Memo, Page, Store, content_width, date_column, filling, money_column, remembered_scenarios, row_id,
+    screen,
+};
 use crate::model::{Bill, BillStatus};
 use crate::money::format_brl;
 
@@ -24,12 +27,18 @@ struct BillRows {
 pub(crate) struct BillsState {
     pub(crate) view: State<usize>,
     selection: State<BTreeSet<usize>>,
+    scenarios: Binding<Vec<GridScenario>>,
     rows: Memo<(u64, usize), Rc<BillRows>>,
 }
 
 impl BillsState {
-    pub fn new() -> Self {
-        Self { view: State::new(0), selection: State::new(BTreeSet::new()), rows: Memo::new() }
+    pub fn new(path: Option<&std::path::Path>) -> Self {
+        Self {
+            scenarios: remembered_scenarios(path, "contas"),
+            view: State::new(0),
+            selection: State::new(BTreeSet::new()),
+            rows: Memo::new(),
+        }
     }
 }
 
@@ -221,6 +230,7 @@ pub(crate) fn bills(store: &Store, state: &BillsState, forms: &Forms, window: Si
         _ => "Nenhuma conta por aqui. Cadastre a primeira em Nova conta.",
     })
     .selection(state.selection.binding())
+    .scenarios(state.scenarios.clone())
     .on_row_activate(move |row| {
         let Some(id) = row_id(&activate_data, row) else { return };
         if activate_bills.bills.iter().any(|b| b.id == id && b.paid_on.is_none()) {

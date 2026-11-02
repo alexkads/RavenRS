@@ -21,6 +21,19 @@ fn plan_events() -> Vec<SchedulerEvent> {
     ]
 }
 
+/// What a table of five million rows on a server would answer.
+fn server_rows(with_total: bool) -> RemoteRows {
+    const ROWS: usize = 5_000_000;
+    RemoteRows::new(move |request, answer| {
+        let end = (request.offset + request.limit).min(ROWS);
+        let rows = (request.offset..end)
+            .map(|n| vec![Value::Number(n as f64), Value::Text(format!("Customer {n}"))])
+            .collect();
+        let page = GridPage::new(rows, end < ROWS);
+        answer.send(if with_total { page.total(ROWS) } else { page });
+    })
+}
+
 /// Categories shown in the sidebar, in order.
 const PAGES: &[(IconName, &str)] = &[
     (IconName::LayoutDashboard, "Overview"),
@@ -43,6 +56,9 @@ const PAGES: &[(IconName, &str)] = &[
 /// All gallery state, created once; pages are rebuilt from it.
 #[derive(Debug)]
 pub struct Gallery {
+    grid_scenarios: State<Vec<GridScenario>>,
+    grid_remote: RemoteRows,
+    grid_remote_pages: RemoteRows,
     page: State<usize>,
     clicks: State<u32>,
     name: State<String>,
@@ -113,6 +129,9 @@ impl Gallery {
     /// Creates every page's state, the sample data and the generated images.
     pub fn new() -> Self {
         Self {
+            grid_scenarios: State::new(Vec::new()),
+            grid_remote: server_rows(false),
+            grid_remote_pages: server_rows(true),
             page: State::new(0),
             clicks: State::new(0),
             name: State::new(String::new()),
@@ -1566,12 +1585,33 @@ impl Gallery {
             .selection_mode(SelectionMode::Multiple)
             .selection(self.grid_selection.binding())
             .sort_by(5, SortDirection::Descending)
+            .vertical_lines(false)
+            .scenarios(self.grid_scenarios.binding())
             .height(620.0)
             .on_export(move |csv| {
                 let lines = csv.lines().count().saturating_sub(1);
                 info.set(format!("Exported {lines} rows as CSV ({} KB).", csv.len() / 1024));
             }),
             Text::bound(&self.export_info, Clone::clone).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+            demo(
+                "Rows on a server: infinite scroll",
+                "Five million rows that stay on the server. The grid asks for what is on the screen, once scrolling rests, at most two chunks at a time, and holds eight.",
+                DataGrid::remote(
+                    self.grid_remote.clone(),
+                    [GridColumn::number("Id").width(120.0), GridColumn::text("Customer").fill()],
+                )
+                .height(320.0),
+            ),
+            demo(
+                "Rows on a server: pages",
+                "The same rows, a page at a time. The first answer says how many there are; no other asks.",
+                DataGrid::remote(
+                    self.grid_remote_pages.clone(),
+                    [GridColumn::number("Id").width(120.0), GridColumn::text("Customer").fill()],
+                )
+                .page_size(25)
+                .height(360.0),
+            ),
         ))
         .spacing(18.0)
         .align(Align::Stretch)

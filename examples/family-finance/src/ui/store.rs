@@ -166,6 +166,29 @@ pub(crate) fn screen_to_the_edge<C: ViewSeq>(children: C) -> FillColumn<C> {
     FillColumn { children, spacing: 16.0, padding: Insets { bottom: 0.0, ..PAGE_INSETS } }
 }
 
+/// The scenarios of a grid, kept in a file beside the database.
+pub(crate) fn remembered_scenarios(path: Option<&std::path::Path>, grid: &str) -> Binding<Vec<GridScenario>> {
+    let file = path.map(|path| path.with_extension(format!("cenarios-{grid}.json")));
+    let kept = file
+        .as_ref()
+        .and_then(|file| std::fs::read_to_string(file).ok())
+        .and_then(|text| GridScenario::list_from_json(&text).ok())
+        .unwrap_or_default();
+    let list = State::new(kept);
+    let (read, write) = (list.clone(), list);
+    Binding::new(
+        move || read.get(),
+        move |value: Vec<GridScenario>| {
+            if let Some(file) = &file
+                && let Err(e) = std::fs::write(file, GridScenario::list_to_json(&value))
+            {
+                tracing::warn!(error = %e, "could not keep the scenarios");
+            }
+            write.set(value);
+        },
+    )
+}
+
 /// Below this window width the sidebar leaves the page and opens as a sheet.
 pub(crate) const NARROW_WINDOW: f32 = 900.0;
 const SIDEBAR_WIDTH: f32 = 248.0;

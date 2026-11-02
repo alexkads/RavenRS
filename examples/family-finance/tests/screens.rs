@@ -16,7 +16,7 @@ use family_finance::seed;
 use family_finance::ui::App;
 use family_finance::update::{News, UpdateStatus, Updater};
 use ravenrs::core::{AdapterReport, DiagnosticReport, FrameSample, GpuReport, SurfaceReport, SystemReport};
-use ravenrs::core::{Event, Key, Modifiers};
+use ravenrs::core::{Event, Key, Modifiers, PointerButton};
 use ravenrs::prelude::*;
 use ravenrs::render::{GpuContext, Renderer, wgpu};
 
@@ -399,6 +399,48 @@ fn draw_every_screen() {
         let mut ui = app(Theme::raven_light(), page, Updater::idle());
         capture(&gpu, &mut ui, size, &folder.join(format!("{name}.png")));
     }
+    // The grid, grouped by dragging columns to its panel, one group inside the other.
+    let header = |ui: &mut Ui, name: &str| {
+        let tree = ui.access_tree();
+        let found =
+            tree.nodes.iter().find(|n| n.role == Role::ColumnHeader && n.name.as_deref() == Some(name));
+        found.unwrap_or_else(|| panic!("no {name}")).bounds
+    };
+    let mut ui = app(Theme::raven_light(), 1, Updater::idle());
+    capture(&gpu, &mut ui, size, &folder.join("grade-1-inicial.png"));
+    for (name, nudge) in [("Conta", 0.0), ("Categoria", 200.0)] {
+        let from = header(&mut ui, name).center();
+        let panel = header(&mut ui, "Data");
+        let to = Point::new(panel.x() + 400.0 + nudge, panel.y() - 20.0);
+        ui.handle_event(&Event::PointerMove { position: from });
+        ui.handle_event(&Event::PointerDown { position: from, button: PointerButton::Primary });
+        ui.update();
+        ui.handle_event(&Event::PointerMove { position: to });
+        ui.update();
+        ui.update();
+        capture(&gpu, &mut ui, size, &folder.join(format!("grade-2-arrastando-{name}.png")));
+        ui.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
+        ui.update();
+        ui.update();
+    }
+    capture(&gpu, &mut ui, size, &folder.join("grade-3-agrupada.png"));
+    let at = header(&mut ui, "Valor").center();
+    ui.handle_event(&Event::PointerDown { position: at, button: PointerButton::Secondary });
+    capture(&gpu, &mut ui, size, &folder.join("grade-4-menu.png"));
+    ui.handle_event(&Event::KeyDown { key: Key::Escape, modifiers: Modifiers::default() });
+    ui.update();
+    let press = |ui: &mut Ui, role: Role, name: &str| {
+        let tree = ui.access_tree();
+        let found = tree.nodes.iter().find(|n| n.role == role && n.name.as_deref() == Some(name));
+        let id = found.unwrap_or_else(|| panic!("no {name}")).id;
+        ui.perform_action(id, AccessAction::Click);
+        ui.update();
+        ui.update();
+    };
+    press(&mut ui, Role::Button, "Editar resumo Valor");
+    capture(&gpu, &mut ui, size, &folder.join("grade-5-resumo.png"));
+    press(&mut ui, Role::RadioButton, "Fórmula");
+    capture(&gpu, &mut ui, size, &folder.join("grade-6-formula.png"));
     // A report whose rows have no barcode to leave room for.
     let mut ui = app(Theme::raven_light(), 5, Updater::idle());
     capture(&gpu, &mut ui, size, &folder.join("relatorio-extrato.png"));

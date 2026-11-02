@@ -9,7 +9,8 @@ use ravenrs::prelude::*;
 use super::forms::Forms;
 use super::help;
 use super::store::{
-    Memo, Page, Store, content_width, date_column, filling, money_column, month_nav, row_id, screen,
+    Memo, Page, Store, content_width, date_column, filling, money_column, month_nav, remembered_scenarios,
+    row_id, screen,
 };
 use crate::filter;
 use crate::model::Flow;
@@ -45,12 +46,14 @@ pub(crate) struct LedgerState {
     typed: State<String>,
     applied: State<String>,
     selection: State<BTreeSet<usize>>,
+    scenarios: Binding<Vec<GridScenario>>,
     rows: Memo<(u64, Date, usize, String), Rc<LedgerRows>>,
 }
 
 impl LedgerState {
-    pub fn new(today: Date) -> Self {
+    pub fn new(today: Date, path: Option<&std::path::Path>) -> Self {
         Self {
+            scenarios: remembered_scenarios(path, "lancamentos"),
             month: State::new(today.first_of_month()),
             kind: State::new(0),
             advanced: State::new(false),
@@ -283,6 +286,7 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms, window: 
     .filter_row(false)
     .empty_text("Nenhum lançamento neste mês. Comece em Nova despesa.")
     .selection(state.selection.binding())
+    .scenarios(state.scenarios.clone())
     .on_row_activate(move |row| {
         if let Some(id) = row_id(&activate_data, row) {
             activate.start_edit(&activate_store, id);
