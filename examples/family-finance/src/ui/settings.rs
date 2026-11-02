@@ -7,6 +7,7 @@ use ravenrs::native::{OpenDialog, SaveDialog, open_with_system};
 use ravenrs::prelude::*;
 
 use super::forms::{Confirm, Forms};
+use super::help;
 use super::store::{PAGE_INSETS, Page, Store, content_width, titled_card};
 use super::updates;
 use crate::backup::{self, CopyReason};
@@ -185,9 +186,10 @@ pub(crate) fn settings(
         UpdateStatus::NoAnswer(reason) => format!("Não consegui verificar se há versão nova: {reason}"),
     };
 
-    let appearance = titled_card("Aparência", ThemeSwitcher);
+    let appearance = titled_card("Aparência", help::APARENCIA, ThemeSwitcher);
     let performance = titled_card(
         "Desempenho",
+        help::DESEMPENHO,
         VStack::new((
             Text::new(
                 "Está achando o app lento? O teste abre o Painel, redesenha a janela por 5 segundos e diz o resultado.",
@@ -209,6 +211,7 @@ pub(crate) fn settings(
     let assistant = models.map(|models| {
         titled_card(
             "Assistente com IA",
+            help::ASSISTENTE,
             VStack::new((
                 Text::new(
                     "Opcional. Sem modelo, o assistente acha os momentos dos filmes. Com um modelo, ele também responde sobre saldo, gastos e contas, abre telas e prepara lançamentos, que só são gravados quando você confere e salva. Ele roda neste computador, nada sai daqui, e os números vêm direto do seu banco de dados. Aparece só o que cabe nesta máquina: baixe, teste e remova se ficar lento. Acerto é quantos pedidos o modelo entendeu nos nossos testes; quando ele não entende, o assistente procura nos filmes.",
@@ -224,6 +227,7 @@ pub(crate) fn settings(
     let voice = voices.map(|voices| {
         titled_card(
             "Voz do assistente",
+            help::VOZ,
             VStack::new((
                 Text::new(
                     "Opcional. Com o LFM3 Audio, o assistente lê as respostas em voz alta, gerando a fala neste computador. Nada sai daqui.",
@@ -238,6 +242,7 @@ pub(crate) fn settings(
     });
     let backups = titled_card(
         "Backup",
+        help::BACKUP,
         VStack::new((
             backup_status(store),
             Text::new(
@@ -273,6 +278,7 @@ pub(crate) fn settings(
     let copies = (!rows.is_empty()).then(|| {
         titled_card(
             "Cópias automáticas",
+            help::COPIAS,
             VStack::new((
                 Text::new(
                     "O app guarda sozinho uma cópia por dia e outra antes de trocar seus dados. Elas ficam neste computador, então não substituem um backup. Clique em uma para voltar a ela.",
@@ -287,6 +293,7 @@ pub(crate) fn settings(
     });
     let data = titled_card(
         "Onde seus dados ficam",
+        help::DADOS,
         VStack::new((
             info_row("Arquivo", path),
             Disclosure::new(
@@ -314,6 +321,7 @@ pub(crate) fn settings(
     );
     let updates_card = titled_card(
         "Atualização",
+        help::ATUALIZACAO,
         VStack::new((
             info_row("Versão instalada", update::CURRENT.to_owned()),
             Text::new(update_text).style(TextStyle::Callout),
@@ -340,6 +348,7 @@ pub(crate) fn settings(
     );
     let start_over = titled_card(
         "Recomeçar",
+        help::RECOMECAR,
         VStack::new((
             Text::new("Trocam tudo o que está no app. Antes, ele guarda uma cópia, que aparece em Cópias automáticas.")
                 .style(TextStyle::Callout)
@@ -387,6 +396,7 @@ pub(crate) fn settings(
     );
 
     Page::new(
+        help::AJUSTES,
         "Onde seus dados ficam e como o app se atualiza.",
         ScrollView::new((VStack::new((
             backups,

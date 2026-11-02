@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use ravenrs::prelude::*;
 
+use super::help;
 use super::store::{Memo, PAGE_INSETS, Page, Store, content_width, month_nav};
 use crate::model::BudgetLine;
 use crate::money::{format_brl, format_input, parse_brl};
@@ -170,6 +171,7 @@ pub(crate) fn budgets(store: &Store, state: &BudgetsState, window: Size) -> Page
     });
 
     Page::new(
+        help::ORCAMENTOS,
         "Quanto a família gastou de cada limite no mês.",
         ScrollView::new((VStack::new((
             month_nav(&state.month, store.today),

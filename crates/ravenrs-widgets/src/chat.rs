@@ -705,8 +705,8 @@ impl View for Layer<'_> {
             cx.motion(
                 node,
                 Motion::new()
-                    .enter(Effect::moved(0.0, 12.0).with_opacity(0.0), theme.motion.gentle)
-                    .exit(Effect::moved(0.0, 12.0).with_opacity(0.0), theme.motion.fast),
+                    .enter(Effect::moved(0.0, 12.0), theme.motion.gentle)
+                    .exit(Effect::moved(0.0, 12.0), theme.motion.fast),
             );
             let (left, right) = if self.corner.is_right() { (0.0, ORB_MARGIN) } else { (ORB_MARGIN, 0.0) };
             let node = cx.container(

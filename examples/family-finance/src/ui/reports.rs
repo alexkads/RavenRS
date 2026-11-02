@@ -8,6 +8,7 @@ use ravenrs_report::Document;
 use ravenrs_report_export::{ExportFormat, export};
 use ravenrs_report_viewer::{DocumentViewer, ViewerLabels, ViewerState};
 
+use super::help;
 use super::store::{Memo, Page, Store, month_nav, screen};
 use crate::reports::{ReportKind, render};
 
@@ -28,6 +29,18 @@ impl ReportsState {
             viewer: ViewerState::new(),
             document: Memo::new(),
         }
+    }
+}
+
+impl ReportsState {
+    /// Opens a report, by its place in the list, on its first page.
+    pub(crate) fn open(&self, kind: usize) {
+        self.viewer.page().set(0);
+        self.kind.set(kind);
+    }
+
+    pub(crate) fn current(&self) -> usize {
+        self.kind.get()
     }
 }
 
@@ -102,5 +115,9 @@ pub(crate) fn reports(store: &Store, state: &ReportsState) -> Page {
             Box::new(Alert::new("Não foi possível montar o relatório", message).tone(Tone::Danger))
         }
     };
-    Page::new("Veja na tela, imprima ou exporte em PDF e planilha.", screen((controls, body)))
+    Page::new(
+        help::RELATORIOS,
+        "Veja na tela, imprima ou exporte em PDF e planilha.",
+        screen((controls, body)),
+    )
 }

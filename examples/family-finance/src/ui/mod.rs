@@ -6,6 +6,7 @@ mod bills;
 mod budgets;
 mod dashboard;
 mod forms;
+mod help;
 mod ledger;
 mod records;
 mod reports;
@@ -54,6 +55,8 @@ const PAGES: [(IconName, &str); 9] = [
 ];
 
 const BILLS_PAGE: usize = 2;
+/// Beside the database, this file says the menu was left reduced to icons.
+const MENU_FILE: &str = "menu-recolhido";
 /// How much of the last minutes a bug report can show.
 const FLIGHT_SECONDS: f64 = 240.0;
 
@@ -94,6 +97,7 @@ impl App {
     /// An app over this database. `path` is only shown in the settings.
     pub fn new(db: Database, today: Date, path: Option<PathBuf>, updater: Updater) -> Self {
         let training = training::TrainingState::new(path.as_deref());
+        let sidebar = Self::remembered_menu(path.as_deref());
         let store = Store::new(db, today, path, updater);
         let recorder = FlightRecorder::new(FLIGHT_SECONDS);
         let reporter = training::reporter(&store, &recorder);
@@ -101,7 +105,7 @@ impl App {
             store,
             page: State::new(0),
             palette: State::new(false),
-            sidebar: SidebarState::new(true),
+            sidebar,
             news: updates::NewsDialog::new(),
             training,
             recorder,
@@ -133,6 +137,57 @@ impl App {
         }
     }
 
+    /// Reads whether the menu was left open, and keeps it beside the database.
+    fn remembered_menu(path: Option<&std::path::Path>) -> SidebarState {
+        let file = path.map(|path| path.with_extension(MENU_FILE));
+        let closed = file.as_ref().is_some_and(|file| file.exists());
+        let open = State::new(!closed);
+        let (read, write) = (open.clone(), open);
+        SidebarState::controlled(Binding::new(
+            move || read.get(),
+            move |value: bool| {
+                write.set(value);
+                if let Some(file) = &file {
+                    let saved = if value { std::fs::remove_file(file) } else { std::fs::write(file, b"") };
+                    if let Err(e) = saved {
+                        tracing::warn!(error = %e, "could not remember the menu");
+                    }
+                }
+            },
+        ))
+    }
+
+    /// A row of the menu, by its place in the list of screens.
+    fn menu_row(&self, i: usize) -> SidebarItem {
+        let (icon, label) = PAGES[i];
+        let page = self.page.clone();
+        SidebarItem::new(icon, label).compact().selected(self.page.get() == i).on_click(move || page.set(i))
+    }
+
+    /// A row with the parts of a screen, unfolded while that screen is open.
+    fn menu_parts<'a>(
+        &self,
+        i: usize,
+        selected: Option<usize>,
+        parts: impl IntoIterator<Item = (&'a str, Rc<dyn Fn()>)>,
+    ) -> SidebarItem {
+        let current = self.page.get() == i;
+        let read = self.page.clone();
+        let mut row = self.menu_row(i).expanded_binding(Binding::new(move || read.get() == i, |_: bool| {}));
+        for (place, (label, open)) in parts.into_iter().enumerate() {
+            let page = self.page.clone();
+            row = row.item(
+                SidebarItem::text(label).compact().selected(current && selected == Some(place)).on_click(
+                    move || {
+                        page.set(i);
+                        open();
+                    },
+                ),
+            );
+        }
+        row
+    }
+
     fn sidebar(&self) -> impl View + use<> {
         let today = self.store.today;
         let overdue = self.overdue.get(self.store.version(), || {
@@ -142,58 +197,93 @@ impl App {
                 .filter(|b| b.status(today) == BillStatus::Overdue)
                 .count()
         });
-        let current = self.page.get();
-        let mut items: Vec<AnyView> = vec![
+        let palette = self.palette.clone();
+        let (collapse, open) = (self.sidebar.clone(), self.sidebar.is_open());
+        let setter = |state: &State<usize>, value: usize| -> Rc<dyn Fn()> {
+            let state = state.clone();
+            Rc::new(move || state.set(value))
+        };
+        let view = |value| setter(&self.bills.view, value);
+        let tab = |value| setter(&self.records.tab, value);
+        let report = |value: usize| -> Rc<dyn Fn()> {
+            let reports = self.reports.clone();
+            Rc::new(move || reports.open(value))
+        };
+        let mut bills = self.menu_parts(
+            BILLS_PAGE,
+            Some(self.bills.view.get()),
+            [("Em aberto", view(0)), ("Vencidas", view(1)), ("Pagas", view(2)), ("Todas", view(3))],
+        );
+        if overdue > 0 {
+            bills = bills.badge(Badge::new(overdue.to_string()).tone(Tone::Danger));
+        }
+        let content: Vec<AnyView> = vec![
             Box::new(
-                HStack::new((self.mark(), Text::new("Raven Finanças").style(TextStyle::Headline)))
-                    .spacing(10.0)
-                    .align(Align::Center)
-                    .padding((6.0, 10.0)),
+                SidebarItem::new(IconName::Search, "Procurar comando")
+                    .compact()
+                    .shortcut("⌘K")
+                    .on_click(move || palette.set(true)),
             ),
             Box::new(SidebarSection::new("Dia a dia")),
+            Box::new(self.menu_row(0)),
+            Box::new(self.menu_row(1)),
+            Box::new(bills),
+            Box::new(self.menu_row(3)),
+            Box::new(self.menu_row(4)),
+            Box::new(SidebarSection::new("Consultas")),
+            Box::new(self.menu_parts(
+                5,
+                Some(self.reports.current()),
+                [
+                    ("Extrato do mês", report(0)),
+                    ("Contas a pagar", report(1)),
+                    ("Orçamento", report(2)),
+                    ("Resumo de 12 meses", report(3)),
+                ],
+            )),
+            Box::new(SidebarSection::new("Configuração")),
+            Box::new(self.menu_parts(
+                6,
+                Some(self.records.tab.get()),
+                [("Contas", tab(0)), ("Categorias", tab(1)), ("Família", tab(2))],
+            )),
         ];
-        for (i, (icon, label)) in PAGES.iter().enumerate() {
-            if i == 5 {
-                items.push(Box::new(SidebarSection::new("Consultas")));
-            }
-            if i == 6 {
-                items.push(Box::new(SidebarSection::new("Configuração")));
-            }
-            if i == 8 {
-                items.push(Box::new(SidebarSection::new("Ajuda")));
-            }
-            let page = self.page.clone();
-            let mut item =
-                SidebarItem::new(*icon, *label).selected(current == i).on_click(move || page.set(i));
-            if i == BILLS_PAGE && overdue > 0 {
-                item = item.badge(Badge::new(overdue.to_string()).tone(Tone::Danger));
-            }
-            items.push(Box::new(item));
-        }
-        Sidebar::new(items).narrow_below(NARROW_WINDOW).state(self.sidebar.clone())
+        Sidebar::new(content)
+            .collapsible(SidebarCollapse::Icons)
+            .rail(true)
+            .narrow_below(NARROW_WINDOW)
+            .state(self.sidebar.clone())
+            .header(SidebarBrand::new(self.mark(), "Raven Finanças").subtitle("Finanças da família"))
+            .footer(
+                VStack::new((
+                    self.menu_row(8),
+                    self.menu_row(7),
+                    SidebarItem::new(IconName::PanelLeft, if open { "Recolher menu" } else { "Abrir menu" })
+                        .compact()
+                        .shortcut("⌘B")
+                        .on_click(move || collapse.toggle()),
+                ))
+                .spacing(2.0)
+                .align(Align::Stretch),
+            )
     }
 
-    fn toolbar(&self, subtitle: String, window: Size) -> impl View + use<> {
+    fn toolbar(&self, subtitle: String, page_help: help::Help, window: Size) -> impl View + use<> {
         let (_, title) = PAGES[self.page.get().min(PAGES.len() - 1)];
-        let palette = self.palette.clone();
         let (expense_store, expense) = (self.store.clone(), self.forms.transaction.clone());
         let (income_store, income) = (self.store.clone(), self.forms.transaction.clone());
         let (bill_store, bill) = (self.store.clone(), self.forms.bill.clone());
-        let trigger = (window.width < NARROW_WINDOW).then(|| SidebarTrigger::new(self.sidebar.clone()));
         HStack::new((
-            trigger,
+            // In a small window the menu is a sheet, and this is the way to it.
+            (window.width < NARROW_WINDOW).then(|| SidebarTrigger::new(self.sidebar.clone())),
             VStack::new((
-                Text::new(title).style(TextStyle::Title),
+                HStack::new((Text::new(title).style(TextStyle::Title), help::tip(page_help)))
+                    .spacing(4.0)
+                    .align(Align::Center),
                 Text::new(subtitle).style(TextStyle::Callout).foreground(Semantic::InkMuted).truncate(),
             ))
             .spacing(2.0)
             .grow(1.0),
-            Tooltip::new(
-                IconButton::new(IconName::Search)
-                    .label("Procurar comando")
-                    .on_click(move || palette.set(true)),
-                "Procurar comando (⌘K)",
-            ),
             DropdownMenu::new("Novo")
                 .icon(IconName::Plus)
                 .size(ButtonSize::Small)
@@ -312,7 +402,7 @@ impl App {
         let main = VStack::new((
             updates::UpdatePump(self.store.updater.clone()),
             self.recorder.clone(),
-            self.toolbar(page.subtitle, window),
+            self.toolbar(page.subtitle, page.help, window),
             Divider::horizontal(),
             // Keyed by screen, so each one opens with fresh local state and scrolled to the top.
             Keyed::new(

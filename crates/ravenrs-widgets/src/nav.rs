@@ -151,6 +151,10 @@ impl View for Tabs {
 /// Width of a sidebar reduced to icons, in logical pixels. It keeps each icon
 /// where it was when the sidebar is open: padding, row padding, icon, and back.
 const SIDEBAR_RAIL: f32 = 60.0;
+/// How wide the strip of a [`Sidebar::rail`] is.
+const SIDEBAR_RAIL_STRIP: f32 = 8.0;
+/// Puts a brand's 26px mark in line with the icons of a rail.
+const SIDEBAR_BRAND_INSET: f32 = 5.0;
 
 /// What a [`Sidebar`] does when it closes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -325,6 +329,7 @@ pub struct Sidebar<C, P = ()> {
     side: Side,
     narrow_below: Option<f32>,
     shortcut: bool,
+    rail: bool,
     label: Option<String>,
     parts: P,
 }
@@ -367,6 +372,7 @@ impl<C: ViewSeq> Sidebar<C> {
             side: Side::Left,
             narrow_below: None,
             shortcut: true,
+            rail: false,
             label: None,
             parts: (),
         }
@@ -416,6 +422,13 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
         self
     }
 
+    /// A strip along its inner edge that opens and closes it with a click, for a
+    /// sidebar that can close.
+    pub fn rail(mut self, rail: bool) -> Self {
+        self.rail = rail;
+        self
+    }
+
     /// The name screen readers announce for this landmark (the `navigation`
     /// word of [`Labels`](crate::Labels) by default).
     pub fn label(mut self, label: impl Into<String>) -> Self {
@@ -436,6 +449,7 @@ impl<C: ViewSeq, P: Into<SidebarParts>> Sidebar<C, P> {
             side: self.side,
             narrow_below: self.narrow_below,
             shortcut: self.shortcut,
+            rail: self.rail,
             label: self.label,
             parts,
         }
@@ -654,6 +668,11 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
                 scene.push_quad(Quad::new(Rect::new(x, f.y(), 1.0, f.height()), border));
             })),
         };
+        let mut card_parts = vec![column];
+        if self.rail && self.collapse != SidebarCollapse::Fixed {
+            let x = if side == Side::Left { (card_width - SIDEBAR_RAIL_STRIP).max(0.0) } else { 0.0 };
+            card_parts.push(cx.child(&SidebarRailStrip { state: state.clone(), x, height: viewport.height }));
+        }
         let card = cx.container(
             LayoutStyle {
                 width: Some(card_width),
@@ -662,7 +681,7 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
                 overflow_hidden: true,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
-            &[column],
+            &card_parts,
             paint,
         );
         cx.clip(card);
@@ -679,6 +698,110 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[card],
+            Paint::None,
+        )
+    }
+}
+
+/// The strip of a [`Sidebar::rail`], which shows a line under the pointer.
+struct SidebarRailStrip {
+    state: SidebarState,
+    x: f32,
+    height: f32,
+}
+
+impl View for SidebarRailStrip {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let paint = if cx.is_hovered() {
+            let line = theme.color(Semantic::Border).lerp(theme.color(Semantic::Ink), 0.25);
+            Paint::Custom(Rc::new(move |f: Rect, scene| {
+                let x = f.x() + (f.width() - 2.0) / 2.0;
+                scene.push_quad(Quad::new(Rect::new(x, f.y(), 2.0, f.height()), line));
+            }))
+        } else {
+            Paint::None
+        };
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((self.x, 0.0)),
+                width: Some(SIDEBAR_RAIL_STRIP),
+                height: Some(self.height),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            paint,
+        );
+        let state = self.state.clone();
+        cx.on_click(node, Rc::new(move || state.toggle()));
+        cx.cursor(node, CursorIcon::ColResize);
+        // SidebarTrigger is the way in for the keyboard and for screen readers.
+        cx.semantics(node, Semantics::hidden());
+        node
+    }
+}
+
+/// The name of an app at the top of a [`Sidebar`], with its mark. Reduced to icons,
+/// only the mark stays, in line with the icons.
+pub struct SidebarBrand {
+    mark: AnyView,
+    title: String,
+    subtitle: Option<String>,
+}
+
+impl fmt::Debug for SidebarBrand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SidebarBrand").field("title", &self.title).finish_non_exhaustive()
+    }
+}
+
+impl SidebarBrand {
+    /// The name `title` beside `mark`.
+    pub fn new(mark: impl View + 'static, title: impl Into<String>) -> Self {
+        Self { mark: Box::new(mark), title: title.into(), subtitle: None }
+    }
+
+    /// A second line, such as what the app is for.
+    #[must_use]
+    pub fn subtitle(mut self, subtitle: impl Into<String>) -> Self {
+        self.subtitle = Some(subtitle.into());
+        self
+    }
+}
+
+impl View for SidebarBrand {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let mark = cx.child(self.mark.as_ref());
+        let mut parts = vec![mark];
+        if !cx.sidebar().is_some_and(|s| s.icons) {
+            let title = cx.child(
+                &crate::Text::new(self.title.clone()).style(TextStyle::Body).font_weight(Weight::SEMIBOLD),
+            );
+            let mut lines = vec![title];
+            if let Some(subtitle) = &self.subtitle {
+                lines.push(
+                    cx.child(
+                        &crate::Text::new(subtitle.clone())
+                            .style(TextStyle::Callout)
+                            .foreground(Semantic::InkMuted)
+                            .truncate(),
+                    ),
+                );
+            }
+            parts.push(cx.container(
+                LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::stack(Axis::Vertical) },
+                &lines,
+                Paint::None,
+            ));
+        }
+        cx.container(
+            LayoutStyle {
+                padding: Insets::symmetric(2.0, SIDEBAR_BRAND_INSET),
+                spacing: 10.0,
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &parts,
             Paint::None,
         )
     }
@@ -989,6 +1112,7 @@ pub struct SidebarItem {
     disabled: bool,
     count: Option<String>,
     badge: Option<Badge>,
+    shortcut: Option<String>,
     compact: bool,
     on_click: Option<Rc<dyn Fn()>>,
     actions: Vec<AnyView>,
@@ -1021,6 +1145,7 @@ impl SidebarItem {
             disabled: false,
             count: None,
             badge: None,
+            shortcut: None,
             compact: false,
             on_click: None,
             actions: Vec::new(),
@@ -1053,6 +1178,12 @@ impl SidebarItem {
     /// tone or a word such as "New".
     pub fn badge(mut self, badge: Badge) -> Self {
         self.badge = Some(badge);
+        self
+    }
+
+    /// Shows the keys that do the same, at the end of the row.
+    pub fn shortcut(mut self, keys: impl Into<String>) -> Self {
+        self.shortcut = Some(keys.into());
         self
     }
 
@@ -1178,6 +1309,9 @@ impl View for SidebarButton<'_> {
             if let Some(badge) = &item.badge {
                 children.push(cx.child(badge));
             }
+            if let Some(keys) = &item.shortcut {
+                children.push(cx.child(&crate::Kbd::new(keys.clone())));
+            }
             if let Some(expanded) = &self.expanded {
                 let chevron = if expanded.get() { IconName::ChevronDown } else { IconName::ChevronRight };
                 children.push(util::icon(cx, chevron, 14.0, dim(muted)));
@@ -1209,6 +1343,9 @@ impl View for SidebarButton<'_> {
             .disabled(item.disabled);
         if let Some(note) = note {
             semantics = semantics.description(note);
+        }
+        if let Some(keys) = &item.shortcut {
+            semantics = semantics.description(keys.clone());
         }
         if let Some(expanded) = &self.expanded {
             semantics = semantics.expanded(expanded.get());

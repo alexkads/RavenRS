@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use ravenrs_core::{Border, Color, Effect, Point, Primitive, Quad, Rect, Role, Scene};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
-use ravenrs_style::{Semantic, TextStyle, Weight};
+use ravenrs_style::{Semantic, TextStyle};
 use ravenrs_widgets::{
     BuildCx, Icon, IconName, NodeId, Paint, QuadPaint, Semantics, Text, VStack, View, ViewExt,
 };
@@ -192,8 +192,8 @@ impl Composition {
             _ => (String::new(), String::new()),
         };
         let words = VStack::new((
-            Text::new(title).style(TextStyle::Title).font_weight(Weight::SEMIBOLD),
-            Text::new(subtitle).foreground(Semantic::InkMuted),
+            Text::new(title).style(TextStyle::Display).foreground(Semantic::OnAccent),
+            Text::new(subtitle).foreground(Semantic::OnAccent),
         ))
         .spacing(8.0)
         .align(Align::Center);
@@ -208,7 +208,8 @@ impl Composition {
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &[words],
-            Paint::Quad(QuadPaint::new(theme.color(Semantic::Surface))),
+            // The app's color, so that a film opens as something and not as an empty page.
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Accent))),
         )
     }
 

@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 use std::fmt;
 use std::rc::Rc;
@@ -9,13 +9,37 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use super::time::{TimeAxis, TimePoint, TimeScale, assign_lanes};
-use crate::context::{BuildCx, Drag, DragPhase, NodeId, Paint, QuadPaint, Semantics};
+use crate::context::{BuildCx, Drag, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::display::Tone;
-use crate::{Button, ButtonSize, ButtonStyle, IconButton, IconName, Labels, Text, View, util};
+use crate::overlay::{Entry, MenuList};
+use crate::{Button, ButtonSize, ButtonStyle, IconButton, IconName, Labels, MenuItem, Text, View, util};
 
 const LANE_HEIGHT: f32 = 30.0;
+/// A lane whose bars have a second line.
+const TALL_LANE_HEIGHT: f32 = 48.0;
+const CARD_BAR_GAP: f32 = 2.0;
+/// A drag this close to an edge of the timeline scrolls it.
+const AUTO_SCROLL_EDGE: f32 = 32.0;
+const REVEAL_MARGIN: f32 = 16.0;
+const AUTO_SCROLL_STEP: f32 = 12.0;
+const AUTO_SCROLL_EVERY: f64 = 1.0 / 60.0;
+/// How much of the row under the pointer is tinted.
+const ROW_HOVER_TINT: f32 = 0.03;
+/// How far a pinch goes before it zooms one step.
+const PINCH_STEP: f32 = 0.2;
+const AVATAR_SIZE: f32 = 28.0;
+const AVATAR_GAP: f32 = 10.0;
+const TINT_REST: f32 = 0.13;
+const TINT_HOVERED: f32 = 0.22;
+const TINT_SELECTED: f32 = 0.3;
+const TINT_DONE: f32 = 0.06;
+const TINT_TEXT_TOWARD_INK: f32 = 0.4;
+const STRIPE_WIDTH: f32 = 3.0;
+const STRIPE_INSET: f32 = 3.0;
+/// How much of today's column is tinted.
+const TODAY_TINT: f32 = 0.05;
 /// Where a name starts in a row taller than its bars: in line with the first bar.
-const NAME_TOP: f32 = 10.0;
+const NAME_TOP: f32 = 12.0;
 const ROW_PADDING: f32 = 4.0;
 const GROUP_HEIGHT: f32 = 30.0;
 const HEADER_ROW_HEIGHT: f32 = 26.0;
@@ -184,6 +208,11 @@ pub struct Scheduler {
     read_only: bool,
     toolbar: bool,
     fill_rows: bool,
+    card: bool,
+    avatars: bool,
+    event_detail: Option<EventDetail>,
+    event_menu: Option<EventMenu>,
+    lane_menu: Option<LaneMenu>,
     on_change: Option<OnChange>,
     on_create: Option<OnChange>,
     on_open: Option<Rc<dyn Fn(u64)>>,
@@ -214,6 +243,11 @@ impl Scheduler {
             read_only: false,
             toolbar: true,
             fill_rows: false,
+            card: false,
+            avatars: false,
+            event_detail: None,
+            event_menu: None,
+            lane_menu: None,
             on_change: None,
             on_create: None,
             on_open: None,
@@ -262,6 +296,39 @@ impl Scheduler {
     /// timeline half empty. Off by default; a row never gets shorter than its bars.
     pub fn fill_rows(mut self, fill: bool) -> Self {
         self.fill_rows = fill;
+        self
+    }
+
+    /// The look of a full scheduler, as a card among other cards: rounded and with a
+    /// soft shadow, a tinted header with the month over the days of the week, a line
+    /// between the rows' names and the timeline, and today's column marked. Bars are a
+    /// soft tint with a stripe of their color. Opens with today in the first column.
+    pub fn card(mut self, card: bool) -> Self {
+        self.card = card;
+        self
+    }
+
+    /// Shows the initials of each row's name beside it, for rows that are people.
+    pub fn avatars(mut self, avatars: bool) -> Self {
+        self.avatars = avatars;
+        self
+    }
+
+    /// A second line on the bars, such as an amount, by the event's id. Rows get taller.
+    pub fn event_detail(mut self, detail: impl Fn(u64) -> Option<String> + 'static) -> Self {
+        self.event_detail = Some(Rc::new(detail));
+        self
+    }
+
+    /// What a right click on a bar offers, by the event's id.
+    pub fn event_menu(mut self, menu: impl Fn(u64) -> Vec<MenuItem> + 'static) -> Self {
+        self.event_menu = Some(Rc::new(menu));
+        self
+    }
+
+    /// What a right click on an empty stretch offers, given the row and the time there.
+    pub fn lane_menu(mut self, menu: impl Fn(SchedulerChange) -> Vec<MenuItem> + 'static) -> Self {
+        self.lane_menu = Some(Rc::new(menu));
         self
     }
 
@@ -330,6 +397,23 @@ impl Row {
     }
 }
 
+/// Goes on with a drag, given where the pointer now is in the timeline's content.
+type FollowOn = Rc<RefCell<Option<Rc<dyn Fn(Point)>>>>;
+type EventDetail = Rc<dyn Fn(u64) -> Option<String>>;
+type EventMenu = Rc<dyn Fn(u64) -> Vec<MenuItem>>;
+type LaneMenu = Rc<dyn Fn(SchedulerChange) -> Vec<MenuItem>>;
+
+/// Opens a menu of these items at this place, until something closes it.
+fn open_menu(cx: &mut BuildCx<'_>, anchor: NodeId, at: Point, items: Vec<MenuItem>, close: Rc<dyn Fn()>) {
+    let entries: Vec<Entry> = items.into_iter().map(Entry::Item).collect();
+    cx.overlay(
+        anchor,
+        Placement::At(at),
+        &MenuList { entries: &entries, close: close.clone(), on_side: None },
+        Some(close),
+    );
+}
+
 /// What a drag is doing to an event.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum DragKind {
@@ -357,6 +441,16 @@ struct Editing {
     on_change: Option<OnChange>,
     on_create: Option<OnChange>,
     can_drop: Option<CanDrop>,
+    /// How far the timeline has scrolled, as of the last build.
+    scroll: Rc<Cell<f32>>,
+    /// Where a drag is: across the timeline in view, and down its content.
+    pointer: Rc<Cell<Option<(f32, f32)>>>,
+    /// Goes on with the drag where the timeline scrolled to, with the pointer still.
+    follow_on: FollowOn,
+    /// How wide the timeline in view is, as of the last build.
+    view_width: Rc<Cell<f32>>,
+    /// A stretch of the content that has to come into view.
+    reveal: Rc<Cell<Option<(f32, f32)>>>,
 }
 
 impl Editing {
@@ -386,12 +480,8 @@ impl Editing {
         }
     }
 
-    /// Follows a drag on an event or on one of its ends.
-    fn follow(&self, event: &SchedulerEvent, kind: DragKind, origin: &Cell<Point>, drag: Drag, bar: Point) {
-        if drag.phase == DragPhase::Start {
-            origin.set(Point::new(drag.container.x() - bar.x, drag.container.y() - bar.y));
-        }
-        let at = Point::new(drag.position.x - origin.get().x, drag.position.y - origin.get().y);
+    /// The change a drag makes with the pointer here, in the timeline's content.
+    fn placed(&self, event: &SchedulerEvent, kind: DragKind, at: Point) -> SchedulerChange {
         let time = self.axis.snap(self.axis.time_at(at.x));
         let original = SchedulerChange {
             id: Some(event.id),
@@ -400,7 +490,7 @@ impl Editing {
             end: event.end,
         };
         let step = self.axis.snap_minutes();
-        let change = match kind {
+        match kind {
             DragKind::Move { grab } => {
                 let start = self.axis.snap(self.axis.time_at(at.x).plus_minutes(-grab));
                 let length = event.end.minutes() - event.start.minutes();
@@ -413,13 +503,48 @@ impl Editing {
             DragKind::ResizeEnd => {
                 SchedulerChange { end: time.max(event.start.plus_minutes(step)), ..original }
             }
-        };
+        }
+    }
+
+    /// Remembers where a drag is, for scrolling when it nears an edge.
+    fn track(&self, at: Point, follow_on: Rc<dyn Fn(Point)>) {
+        self.pointer.set(Some((at.x - self.scroll.get(), at.y)));
+        *self.follow_on.borrow_mut() = Some(follow_on);
+    }
+
+    fn stop_tracking(&self) {
+        self.pointer.set(None);
+        *self.follow_on.borrow_mut() = None;
+    }
+
+    /// Follows a drag on an event or on one of its ends.
+    fn follow(&self, event: &SchedulerEvent, kind: DragKind, origin: &Cell<Point>, drag: Drag, bar: Point) {
+        // Where the timeline's start was when the drag began, had it not scrolled.
+        if drag.phase == DragPhase::Start {
+            origin
+                .set(Point::new(drag.container.x() - bar.x + self.scroll.get(), drag.container.y() - bar.y));
+        }
+        let at = Point::new(
+            drag.position.x - origin.get().x + self.scroll.get(),
+            drag.position.y - origin.get().y,
+        );
+        let change = self.placed(event, kind, at);
         match drag.phase {
             DragPhase::End => {
+                self.stop_tracking();
                 self.propose(change);
-                self.commit(Some(original));
+                self.commit(Some(SchedulerChange {
+                    id: Some(event.id),
+                    resource: event.resource,
+                    start: event.start,
+                    end: event.end,
+                }));
             }
-            _ => self.propose(change),
+            _ => {
+                let (editor, event) = (self.clone(), event.clone());
+                self.track(at, Rc::new(move |at| editor.propose(editor.placed(&event, kind, at))));
+                self.propose(change);
+            }
         }
     }
 }
@@ -430,6 +555,7 @@ struct EndHandle {
     editing: Editing,
     bar: Point,
     width: f32,
+    height: f32,
 }
 
 impl View for EndHandle {
@@ -440,7 +566,7 @@ impl View for EndHandle {
             LayoutStyle {
                 absolute: Some((x, 0.0)),
                 width: Some(HANDLE_WIDTH),
-                height: Some(LANE_HEIGHT - 4.0),
+                height: Some(self.height),
                 ..LayoutStyle::leaf()
             },
             &[],
@@ -459,8 +585,83 @@ impl View for EndHandle {
     }
 }
 
+/// The bubble over a bar: its whole name, when it is and its second line.
+struct EventTip<'a> {
+    title: &'a str,
+    when: String,
+    detail: Option<&'a str>,
+}
+
+impl View for EventTip<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        // Inverted colors read as a tooltip in every theme.
+        let ink = theme.color(Semantic::Canvas);
+        let title = util::label(cx, self.title, TextStyle::Callout, Some(Weight::SEMIBOLD), ink);
+        let line = match self.detail {
+            Some(detail) => format!("{} · {detail}", self.when),
+            None => self.when.clone(),
+        };
+        let line = util::label(cx, &line, TextStyle::Callout, None, ink.with_alpha(0.8));
+        let node = cx.container(
+            LayoutStyle {
+                padding: Insets::symmetric(6.0, 10.0),
+                spacing: 2.0,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[title, line],
+            Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(theme.color(Semantic::Ink)) }),
+        );
+        // The bar already says this to screen readers.
+        cx.semantics(node, Semantics::hidden());
+        crate::motion::popup(cx, node);
+        node
+    }
+}
+
+/// A row's background, which lights up under the pointer.
+struct RowBand {
+    frame: Rect,
+    draw: Option<Rc<dyn Fn(Drag)>>,
+}
+
+impl View for RowBand {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let ink = cx.theme().color(Semantic::Ink);
+        let paint = if cx.is_hovered() {
+            Paint::Quad(QuadPaint::new(ink.with_alpha(ROW_HOVER_TINT)))
+        } else {
+            Paint::None
+        };
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((self.frame.x(), self.frame.y())),
+                width: Some(self.frame.width()),
+                height: Some(self.frame.height()),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            paint,
+        );
+        // Hoverable though it does nothing else: right clicks go on to the timeline by
+        // themselves, and a drag has to be handed over, as coming from the timeline.
+        cx.cursor(node, CursorIcon::Default);
+        if let Some(draw) = self.draw.clone() {
+            cx.on_drag(node, Rc::new(move |drag: Drag| draw(Drag { frame: drag.container, ..drag })));
+        }
+        node
+    }
+}
+
 struct Bar<'a> {
     event: &'a SchedulerEvent,
+    /// Its second line.
+    detail: Option<String>,
+    /// Where it is now, which a drag may have changed.
+    at: (TimePoint, TimePoint),
+    menu: Option<EventMenu>,
+    /// A tint over this surface with a stripe of its color, instead of a solid bar.
+    tinted: Option<ravenrs_core::Color>,
     /// Where it is drawn, in the timeline's content.
     frame: Rect,
     title: String,
@@ -550,28 +751,68 @@ impl View for Bar<'_> {
         let color = self.color(&theme);
         let hovered = cx.is_hovered() || cx.is_focus_visible();
         let solid = !e.done && self.dragging.is_none();
-        let fill = if self.selected || hovered && solid {
-            color
-        } else {
-            color.with_alpha(if e.done { 0.16 } else { 0.8 })
+        let fill = match self.tinted {
+            // Solid over the lines behind it, so its text keeps its contrast.
+            Some(surface) => {
+                let strength = if self.selected {
+                    TINT_SELECTED
+                } else if hovered && solid {
+                    TINT_HOVERED
+                } else if e.done {
+                    TINT_DONE
+                } else {
+                    TINT_REST
+                };
+                surface.lerp(color, strength)
+            }
+            None if self.selected || hovered && solid => color,
+            None => color.with_alpha(if e.done { 0.16 } else { 0.8 }),
         };
-        let ink = if e.done { theme.color(Semantic::Ink) } else { theme.color(Semantic::OnAccent) };
+        let ink = match self.tinted {
+            Some(_) => color.lerp(theme.color(Semantic::Ink), TINT_TEXT_TOWARD_INK),
+            None if e.done => theme.color(Semantic::Ink),
+            None => theme.color(Semantic::OnAccent),
+        };
         let mut children = Vec::new();
         if e.done {
             children.push(util::icon(cx, IconName::Check, 12.0, color));
         }
         let title =
             cx.child(&Text::new(self.title.clone()).style(TextStyle::Caption).foreground(ink).truncate());
+        let mut lines = vec![title];
+        if let Some(subtitle) = &self.detail {
+            lines.push(
+                cx.child(
+                    &Text::new(subtitle.clone())
+                        .style(TextStyle::Caption)
+                        .font_weight(Weight::REGULAR)
+                        .foreground(ink)
+                        .truncate(),
+                ),
+            );
+        }
         children.push(cx.container(
             LayoutStyle {
                 grow: 1.0,
                 min_width: Some(0.0),
                 overflow_hidden: true,
-                ..LayoutStyle::stack(Axis::Horizontal)
+                ..LayoutStyle::stack(Axis::Vertical)
             },
-            &[title],
+            &lines,
             Paint::None,
         ));
+        if self.tinted.is_some() {
+            children.push(cx.container(
+                LayoutStyle {
+                    absolute: Some((STRIPE_INSET, STRIPE_INSET)),
+                    width: Some(STRIPE_WIDTH),
+                    height: Some((self.frame.height() - 2.0 * STRIPE_INSET).max(0.0)),
+                    ..LayoutStyle::leaf()
+                },
+                &[],
+                Paint::Quad(QuadPaint { corner_radius: STRIPE_WIDTH / 2.0, ..QuadPaint::new(color) }),
+            ));
+        }
         let bar_point = Point::new(self.frame.x(), self.frame.y());
         if self.editable && !e.locked && e.resizable {
             for kind in [DragKind::ResizeStart, DragKind::ResizeEnd] {
@@ -581,6 +822,7 @@ impl View for Bar<'_> {
                     editing: self.editing.clone(),
                     bar: bar_point,
                     width: self.frame.width(),
+                    height: self.frame.height(),
                 };
                 children.push(cx.child(&handle));
             }
@@ -592,7 +834,11 @@ impl View for Bar<'_> {
                 absolute: Some((self.frame.x(), self.frame.y())),
                 width: Some(self.frame.width()),
                 height: Some(self.frame.height()),
-                padding: Insets::symmetric(0.0, 8.0),
+                padding: if self.tinted.is_some() {
+                    Insets { top: 0.0, bottom: 0.0, left: 11.0, right: 6.0 }
+                } else {
+                    Insets::symmetric(0.0, 8.0)
+                },
                 spacing: 4.0,
                 align: Align::Center,
                 overflow_hidden: true,
@@ -607,6 +853,41 @@ impl View for Bar<'_> {
             node,
             Semantics::new(Role::Button).name(e.title.clone()).description(range).selected(self.selected),
         );
+        let menu_at: State<Option<Point>> = cx.use_state(|| None);
+        if let Some(menu) = self.menu.clone() {
+            let (write, selection, id) = (menu_at.clone(), self.selection.clone(), e.id);
+            cx.on_context_menu(
+                node,
+                Rc::new(move |at| {
+                    if let Some(selection) = &selection {
+                        selection.set(Some(id));
+                    }
+                    write.set(Some(at));
+                }),
+            );
+            if let Some(at) = menu_at.get() {
+                let close = menu_at.clone();
+                open_menu(cx, node, at, menu(e.id), Rc::new(move || close.set(None)));
+            }
+        }
+        // What the bar has no room to say, and where a drag is taking it.
+        if self.tinted.is_some() && menu_at.get().is_none() && (cx.is_hovered() || self.dragging.is_some()) {
+            let tip = EventTip {
+                title: &e.title,
+                when: time_range(&labels, self.editing.axis.scale, self.at.0, self.at.1),
+                detail: self.detail.as_deref(),
+            };
+            cx.overlay(node, Placement::AboveCenter, &tip, None);
+        }
+        if cx.is_focus_visible() {
+            let (from, to) = (self.frame.x(), self.frame.x() + self.frame.width());
+            let scrolled = self.editing.scroll.get();
+            if from < scrolled || to > scrolled + self.editing.view_width.get() {
+                self.editing.reveal.set(Some((from, to)));
+                let now = cx.now();
+                cx.wake_at(now);
+            }
+        }
         if self.tab_stop {
             cx.focusable(node, theme.radii.sm);
             cx.on_key(node, self.key_handler());
@@ -655,6 +936,7 @@ struct Lanes {
     width: f32,
     height: f32,
     children: Rc<Vec<NodeId>>,
+    draw: Option<Rc<dyn Fn(Drag)>>,
 }
 
 impl Lanes {
@@ -668,36 +950,73 @@ impl Lanes {
             &self.children,
             Paint::None,
         );
-        if !s.read_only && s.on_create.is_some() {
-            let from: Rc<Cell<Option<(TimePoint, u64)>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
-            let editor = editing.clone();
-            cx.on_drag(
+        if let Some(menu) = s.lane_menu.clone() {
+            let open: State<Option<(Point, SchedulerChange)>> = cx.use_state(|| None);
+            let (write, editor) = (open.clone(), editing.clone());
+            cx.on_context_menu_in(
                 node,
-                Rc::new(move |drag: Drag| {
-                    let at = Point::new(drag.position.x - drag.frame.x(), drag.position.y - drag.frame.y());
-                    let time = editor.axis.snap(editor.axis.time_at(at.x));
-                    if drag.phase == DragPhase::Start
-                        && let Some(resource) = editor.resource_at(at.y)
-                    {
-                        from.set(Some((time, resource)));
-                    }
-                    let Some((begin, resource)) = from.get() else { return };
+                Rc::new(move |position, frame| {
+                    let at = Point::new(position.x - frame.x(), position.y - frame.y());
+                    // The stretch the click is in, not the nearest edge of one.
                     let step = editor.axis.snap_minutes();
-                    let (start, end) = if time >= begin {
-                        (begin, time.max(begin.plus_minutes(step)))
-                    } else {
-                        (time, begin)
-                    };
-                    editor.propose(SchedulerChange { id: None, resource, start, end });
-                    if drag.phase == DragPhase::End {
-                        from.set(None);
-                        editor.commit(None);
-                    }
+                    let start = editor.axis.snap(editor.axis.time_at(at.x).plus_minutes(-step / 2));
+                    let Some(resource) = editor.resource_at(at.y) else { return };
+                    let end = start.plus_minutes(step);
+                    write.set(Some((position, SchedulerChange { id: None, resource, start, end })));
                 }),
             );
+            if let Some((at, change)) = open.get() {
+                let close = open.clone();
+                open_menu(cx, node, at, menu(change), Rc::new(move || close.set(None)));
+            }
+        }
+        if let Some(draw) = self.draw.clone() {
+            cx.on_drag(node, draw);
         }
         node
     }
+}
+
+/// What drawing from `begin` to `time` on a row proposes.
+fn drawn(editor: &Editing, begin: TimePoint, resource: u64, time: TimePoint) -> SchedulerChange {
+    let step = editor.axis.snap_minutes();
+    let (start, end) =
+        if time >= begin { (begin, time.max(begin.plus_minutes(step))) } else { (time, begin) };
+    SchedulerChange { id: None, resource, start, end }
+}
+
+/// What drawing on an empty stretch does, if the scheduler can create.
+fn draw_handler(cx: &mut BuildCx<'_>, s: &Scheduler, editing: &Editing) -> Option<Rc<dyn Fn(Drag)>> {
+    if s.read_only || s.on_create.is_none() {
+        return None;
+    }
+    let from: Rc<Cell<Option<(TimePoint, u64)>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
+    let editor = editing.clone();
+    Some(Rc::new(move |drag: Drag| {
+        let at = Point::new(drag.position.x - drag.frame.x(), drag.position.y - drag.frame.y());
+        let time = editor.axis.snap(editor.axis.time_at(at.x));
+        if drag.phase == DragPhase::Start
+            && let Some(resource) = editor.resource_at(at.y)
+        {
+            from.set(Some((time, resource)));
+        }
+        let Some((begin, resource)) = from.get() else { return };
+        editor.propose(drawn(&editor, begin, resource, time));
+        if drag.phase == DragPhase::End {
+            from.set(None);
+            editor.stop_tracking();
+            editor.commit(None);
+        } else {
+            let again = editor.clone();
+            editor.track(
+                at,
+                Rc::new(move |at| {
+                    let time = again.axis.snap(again.axis.time_at(at.x));
+                    again.propose(drawn(&again, begin, resource, time));
+                }),
+            );
+        }
+    }))
 }
 
 /// A moment as a person reads it on this scale.
@@ -783,6 +1102,10 @@ fn placed_text(
 
 impl Scheduler {
     /// Groups stay together, in the order their first resource appears.
+    fn lane_height(&self) -> f32 {
+        if self.event_detail.is_some() { TALL_LANE_HEIGHT } else { LANE_HEIGHT }
+    }
+
     fn rows(&self, lanes_of: &HashMap<u64, usize>, collapsed: &BTreeSet<String>) -> (Vec<Row>, f32) {
         let mut order: Vec<Option<&str>> = Vec::new();
         for resource in &self.resources {
@@ -807,7 +1130,7 @@ impl Scheduler {
             }
             for index in members {
                 let lanes = lanes_of.get(&self.resources[index].id).copied().unwrap_or(1);
-                let height = lanes as f32 * LANE_HEIGHT + 2.0 * ROW_PADDING;
+                let height = lanes as f32 * self.lane_height() + 2.0 * ROW_PADDING;
                 rows.push(Row::Resource { index, y, height });
                 y += height;
             }
@@ -819,40 +1142,48 @@ impl Scheduler {
         let labels = cx.labels();
         let (back, ahead, zoom_in, zoom_out) =
             (self.axis.clone(), self.axis.clone(), self.axis.clone(), self.axis.clone());
-        let mut items = vec![
+        let mut items = Vec::new();
+        let today_button = self.now.map(|now| {
+            let today = self.axis.clone();
+            cx.child(
+                &Button::new(labels.today.clone())
+                    .style(if self.card { ButtonStyle::Secondary } else { ButtonStyle::Ghost })
+                    .size(ButtonSize::Small)
+                    .on_click(move || {
+                        let length = axis.end.minutes() - axis.start.minutes();
+                        let start = axis.snap(now.plus_minutes(-length / 8));
+                        today.set(TimeAxis { start, end: start.plus_minutes(length), ..axis });
+                    }),
+            )
+        });
+        // In a card the month is on the header, and today comes first.
+        if self.card {
+            items.extend(today_button);
+        }
+        items.push(
             cx.child(
                 &IconButton::new(IconName::ChevronLeft)
                     .label(labels.previous_month.clone())
                     .size(ButtonSize::Small)
                     .on_click(move || back.set(axis.shifted(-1))),
             ),
+        );
+        items.push(
             cx.child(
                 &IconButton::new(IconName::ChevronRight)
                     .label(labels.next_month.clone())
                     .size(ButtonSize::Small)
                     .on_click(move || ahead.set(axis.shifted(1))),
             ),
-        ];
-        let title = format!(
-            "{} – {}",
-            (labels.short_date)(axis.start.date()),
-            (labels.short_date)(axis.end.plus_minutes(-1).date())
         );
-        items.push(util::label(cx, &title, TextStyle::Headline, None, cx.theme().color(Semantic::Ink)));
-        if let Some(now) = self.now {
-            let today = self.axis.clone();
-            items.push(
-                cx.child(
-                    &Button::new(labels.today.clone())
-                        .style(ButtonStyle::Ghost)
-                        .size(ButtonSize::Small)
-                        .on_click(move || {
-                            let length = axis.end.minutes() - axis.start.minutes();
-                            let start = axis.snap(now.plus_minutes(-length / 8));
-                            today.set(TimeAxis { start, end: start.plus_minutes(length), ..axis });
-                        }),
-                ),
+        if !self.card {
+            let title = format!(
+                "{} – {}",
+                (labels.short_date)(axis.start.date()),
+                (labels.short_date)(axis.end.plus_minutes(-1).date())
             );
+            items.push(util::label(cx, &title, TextStyle::Headline, None, cx.theme().color(Semantic::Ink)));
+            items.extend(today_button);
         }
         items.push(cx.container(LayoutStyle { grow: 1.0, ..LayoutStyle::leaf() }, &[], Paint::None));
         let mut out =
@@ -871,7 +1202,7 @@ impl Scheduler {
             LayoutStyle {
                 spacing: 6.0,
                 align: Align::Center,
-                padding: Insets::symmetric(8.0, 8.0),
+                padding: if self.card { Insets::symmetric(10.0, 16.0) } else { Insets::symmetric(8.0, 8.0) },
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &items,
@@ -918,6 +1249,7 @@ impl View for Scheduler {
             }
             lanes_of.insert(*resource, count);
         }
+        let lane_height = self.lane_height();
         let (mut rows, mut total_height) = self.rows(&lanes_of, &collapsed.get());
         if self.fill_rows {
             match cx.scroll_viewport() {
@@ -947,6 +1279,12 @@ impl View for Scheduler {
 
         let scroll = cx.scroll_offset();
         let window = cx.viewport();
+        let drag_scroll: Rc<Cell<f32>> = cx.use_state(|| Rc::new(Cell::new(0.0))).get();
+        drag_scroll.set(scroll.x);
+        let view_width: Rc<Cell<f32>> = cx.use_state(|| Rc::new(Cell::new(0.0))).get();
+        let reveal: Rc<Cell<Option<(f32, f32)>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
+        let drag_pointer: Rc<Cell<Option<(f32, f32)>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
+        let drag_follow: FollowOn = cx.use_state(|| Rc::new(RefCell::new(None))).get();
         // Opens at now, once its size is known, with some of what came before in view.
         let opened: Rc<Cell<bool>> = cx.use_state(|| Rc::new(Cell::new(false))).get();
         if !opened.get() && self.now.is_some() {
@@ -954,7 +1292,8 @@ impl View for Scheduler {
                 Some(size) => {
                     opened.set(true);
                     if let Some(now) = self.now {
-                        cx.set_scroll_offset(Point::new((axis.x_of(now) - size.width / 4.0).max(0.0), 0.0));
+                        let lead = if self.card { 0.0 } else { size.width / 4.0 };
+                        cx.set_scroll_offset(Point::new((axis.x_of(now) - lead).max(0.0), 0.0));
                     }
                 }
                 // The size comes from the first layout, and nothing else asks for a second build.
@@ -979,12 +1318,49 @@ impl View for Scheduler {
             on_change: self.on_change.clone(),
             on_create: self.on_create.clone(),
             can_drop: self.can_drop.clone(),
+            scroll: drag_scroll.clone(),
+            pointer: drag_pointer.clone(),
+            follow_on: drag_follow.clone(),
+            view_width: view_width.clone(),
+            reveal: reveal.clone(),
         };
+
+        view_width.set(view.width);
+        // What keyboard focus reached comes into view, with some air around it.
+        if let Some((from, to)) = reveal.take() {
+            let wanted = if from < scroll.x { from - REVEAL_MARGIN } else { to + REVEAL_MARGIN - view.width };
+            cx.set_scroll_offset(Point::new(wanted.clamp(0.0, (width - view.width).max(0.0)), scroll.y));
+        }
+
+        // A drag near an edge takes the timeline with it, also with the pointer still.
+        if let Some((x, y)) = drag_pointer.get() {
+            let push = if x > view.width - AUTO_SCROLL_EDGE {
+                AUTO_SCROLL_STEP
+            } else if x < AUTO_SCROLL_EDGE {
+                -AUTO_SCROLL_STEP
+            } else {
+                0.0
+            };
+            let moved = (scroll.x + push).clamp(0.0, (width - view.width).max(0.0));
+            if moved != scroll.x {
+                cx.set_scroll_offset(Point::new(moved, scroll.y));
+                drag_scroll.set(moved);
+                let follow_on = drag_follow.borrow().clone();
+                if let Some(follow_on) = follow_on {
+                    follow_on(Point::new(x + moved, y));
+                }
+                let now = cx.now();
+                cx.wake_at(now + AUTO_SCROLL_EVERY);
+            }
+        }
 
         // The header: months or days above, ticks below; it follows the sideways scroll.
         let ticks = axis.ticks(left, right);
         let mut header_cells = Vec::new();
         let mut previous = None;
+        let accent = theme.color(Semantic::Accent);
+        let today = self.now.map(|now| now.date());
+        let header_height = 2.0 * HEADER_ROW_HEIGHT;
         for (i, tick) in ticks.iter().enumerate() {
             if axis.starts_group(tick.start, previous) {
                 let until = ticks[i + 1..]
@@ -1009,15 +1385,37 @@ impl View for Scheduler {
                 ));
             }
             previous = Some(tick.start);
-            let text = tick_text(&labels, axis.scale, tick.start);
+            let text = if self.card && axis.scale == TimeScale::Days {
+                let date = tick.start.date();
+                format!("{} {}", labels.weekdays[usize::from(date.weekday()).min(6)], date.day())
+            } else {
+                tick_text(&labels, axis.scale, tick.start)
+            };
             let frame = Rect::new(tick.x, HEADER_ROW_HEIGHT, tick.width, HEADER_ROW_HEIGHT);
-            header_cells.push(placed_text(cx, frame, &text, TextStyle::Caption, muted));
+            let is_today = self.card && axis.scale == TimeScale::Days && today == Some(tick.start.date());
+            header_cells.push(placed_text(
+                cx,
+                frame,
+                &text,
+                TextStyle::Caption,
+                if is_today { accent } else { muted },
+            ));
+            if is_today {
+                // A mark under today's name, where the eye looks for it.
+                header_cells.push(band(cx, Rect::new(tick.x, header_height - 2.0, tick.width, 2.0), accent));
+            }
             header_cells.push(band(cx, Rect::new(tick.x, HEADER_ROW_HEIGHT, 1.0, HEADER_ROW_HEIGHT), line));
         }
+        // A tinted band, in a card, under its toolbar.
+        let header_paint = Paint::Quad(QuadPaint::new(theme.color(if self.card {
+            Semantic::Canvas
+        } else {
+            Semantic::Surface
+        })));
         let header_row = cx.container(
             LayoutStyle {
                 width: Some(width),
-                height: Some(2.0 * HEADER_ROW_HEIGHT),
+                height: Some(header_height),
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &header_cells,
@@ -1028,12 +1426,12 @@ impl View for Scheduler {
             LayoutStyle {
                 grow: 1.0,
                 min_width: Some(0.0),
-                height: Some(2.0 * HEADER_ROW_HEIGHT),
+                height: Some(header_height),
                 overflow_hidden: true,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[header_row],
-            Paint::Quad(QuadPaint::new(theme.color(Semantic::Surface))),
+            header_paint.clone(),
         );
         cx.clip(header_view);
         let corner_text =
@@ -1041,36 +1439,63 @@ impl View for Scheduler {
         let corner = cx.container(
             LayoutStyle {
                 width: Some(self.resource_width),
-                height: Some(2.0 * HEADER_ROW_HEIGHT),
+                height: Some(header_height),
                 padding: Insets::symmetric(0.0, 10.0),
                 align: Align::Center,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[corner_text],
-            Paint::Quad(QuadPaint::new(theme.color(Semantic::Surface))),
+            header_paint,
         );
+        // A card draws the line between the names and the timeline all the way down.
+        let divider = |cx: &mut BuildCx<'_>| {
+            cx.container(
+                LayoutStyle { width: Some(1.0), ..LayoutStyle::leaf() },
+                &[],
+                Paint::Quad(QuadPaint::new(line)),
+            )
+        };
+        let mut header_parts = vec![corner];
+        if self.card {
+            header_parts.push(divider(cx));
+        }
+        header_parts.push(header_view);
         let header = cx.container(
             LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Horizontal) },
-            &[corner, header_view],
+            &header_parts,
             Paint::None,
         );
 
+        let draw = draw_handler(cx, self, &editing);
         // Behind the bars: weekends, marked stretches, row lines.
         let mut under = Vec::new();
+        // In a card the lines go on below the last row, and stop short of the round corners.
+        let area = if self.card { total_height.max(view.height) } else { total_height };
+        let lines_height = if self.card { area - theme.radii.xl } else { area };
+        if self.card && axis.scale == TimeScale::Days {
+            for tick in ticks.iter().filter(|tick| today == Some(tick.start.date())) {
+                under.push(band(
+                    cx,
+                    Rect::new(tick.x, 0.0, tick.width, lines_height),
+                    accent.with_alpha(TODAY_TINT),
+                ));
+            }
+        }
         if axis.scale == TimeScale::Days || axis.scale == TimeScale::Hours {
             for tick in &ticks {
                 let weekday = tick.start.date().weekday();
                 if weekday == 0 || weekday == 6 {
                     under.push(band(
                         cx,
-                        Rect::new(tick.x, 0.0, tick.width, total_height),
+                        Rect::new(tick.x, 0.0, tick.width, lines_height),
                         ink.with_alpha(0.035),
                     ));
                 }
             }
         }
+
         for tick in &ticks {
-            under.push(band(cx, Rect::new(tick.x, 0.0, 1.0, total_height), line.faded(0.5)));
+            under.push(band(cx, Rect::new(tick.x, 0.0, 1.0, lines_height), line.faded(0.5)));
         }
         for range in &self.ranges {
             let (from, to) = (axis.x_of(range.start), axis.x_of(range.end));
@@ -1082,7 +1507,16 @@ impl View for Scheduler {
         let mut names = Vec::new();
         for row in rows.iter().filter(|r| r.y() + r.height() > top && r.y() < bottom) {
             let y = row.y();
-            under.push(band(cx, Rect::new(0.0, y + row.height() - 1.0, width, 1.0), line));
+            if self.card
+                && let Row::Resource { index, height, .. } = row
+            {
+                let band = RowBand { frame: Rect::new(0.0, y, width, *height), draw: draw.clone() };
+                let key = 0x726f_7700_0000_0000 ^ self.resources[*index].id;
+                under.insert(0, cx.keyed_child(key, &band));
+            }
+            if !self.card || y + row.height() < area {
+                under.push(band(cx, Rect::new(0.0, y + row.height() - 1.0, width, 1.0), line));
+            }
             match row {
                 Row::Group { name, count, collapsed: is_collapsed, .. } => {
                     under.push(band(cx, Rect::new(0.0, y, width, GROUP_HEIGHT), ink.with_alpha(0.03)));
@@ -1104,8 +1538,14 @@ impl View for Scheduler {
                 }
                 Row::Resource { index, height, .. } => {
                     let resource = &self.resources[*index];
-                    let name =
-                        cx.child(&Text::new(resource.name.clone()).style(TextStyle::Callout).truncate());
+                    let mut name = Text::new(resource.name.clone()).style(TextStyle::Callout).truncate();
+                    if self.card {
+                        name = name.font_weight(Weight::SEMIBOLD);
+                    }
+                    let name = cx.child(&name);
+                    let avatar = self
+                        .avatars
+                        .then(|| cx.child(&crate::Avatar::new(resource.name.clone()).size(AVATAR_SIZE)));
                     let mut lines = vec![name];
                     if let Some(subtitle) = &resource.subtitle {
                         lines.push(
@@ -1117,6 +1557,22 @@ impl View for Scheduler {
                             ),
                         );
                     }
+                    let row_parts = match avatar {
+                        Some(avatar) => {
+                            let text = cx.container(
+                                LayoutStyle {
+                                    grow: 1.0,
+                                    min_width: Some(0.0),
+                                    align: Align::Stretch,
+                                    ..LayoutStyle::stack(Axis::Vertical)
+                                },
+                                &lines,
+                                Paint::None,
+                            );
+                            vec![avatar, text]
+                        }
+                        None => lines,
+                    };
                     let node = cx.container(
                         LayoutStyle {
                             absolute: Some((0.0, y)),
@@ -1127,17 +1583,28 @@ impl View for Scheduler {
                             } else {
                                 Insets::symmetric(0.0, 10.0)
                             },
-                            justify: if self.fill_rows { Justify::Start } else { Justify::Center },
-                            align: Align::Stretch,
+                            justify: if self.fill_rows || self.avatars {
+                                Justify::Start
+                            } else {
+                                Justify::Center
+                            },
+                            spacing: AVATAR_GAP,
+                            align: if self.avatars { Align::Center } else { Align::Stretch },
                             overflow_hidden: true,
-                            ..LayoutStyle::stack(Axis::Vertical)
+                            ..LayoutStyle::stack(if self.avatars { Axis::Horizontal } else { Axis::Vertical })
                         },
-                        &lines,
+                        &row_parts,
                         Paint::None,
                     );
                     cx.semantics(node, Semantics::new(Role::Row).name(resource.name.clone()));
                     names.push(node);
-                    names.push(band(cx, Rect::new(0.0, y + height - 1.0, self.resource_width, 1.0), line));
+                    if !self.card || y + height < area {
+                        names.push(band(
+                            cx,
+                            Rect::new(0.0, y + height - 1.0, self.resource_width, 1.0),
+                            line,
+                        ));
+                    }
                 }
             }
         }
@@ -1152,9 +1619,9 @@ impl View for Scheduler {
             let event = &self.events[*index];
             let x = axis.x_of(change.start);
             let bar_width = (axis.x_of(change.end) - x).max(MIN_BAR_WIDTH);
-            let y = row_top + ROW_PADDING + lane_of[slot] as f32 * LANE_HEIGHT + 2.0;
+            let y = row_top + ROW_PADDING + lane_of[slot] as f32 * lane_height + 2.0;
             let is_tab_stop = tab_stop == Some(event.id);
-            let in_view = x + bar_width > left && x < right && y + LANE_HEIGHT > top && y < bottom;
+            let in_view = x + bar_width > left && x < right && y + lane_height > top && y < bottom;
             // The keyboard's way in stays built, or Tab could not reach the plan.
             if !in_view && !is_tab_stop {
                 continue;
@@ -1165,8 +1632,22 @@ impl View for Scheduler {
                 None => event.title.clone(),
             };
             let bar = Bar {
+                detail: self.event_detail.as_ref().and_then(|detail| detail(event.id)),
+                at: (change.start, change.end),
+                menu: self.event_menu.clone(),
+                tinted: self.card.then(|| theme.color(Semantic::SurfaceElevated)),
                 event,
-                frame: Rect::new(x, y, bar_width, LANE_HEIGHT - 4.0),
+                frame: if self.card {
+                    // A little air between the bars of neighboring days.
+                    Rect::new(
+                        x + CARD_BAR_GAP,
+                        y,
+                        (bar_width - 2.0 * CARD_BAR_GAP).max(MIN_BAR_WIDTH),
+                        lane_height - 4.0,
+                    )
+                } else {
+                    Rect::new(x, y, bar_width, lane_height - 4.0)
+                },
                 title,
                 dragging,
                 selected: selected == Some(event.id),
@@ -1188,12 +1669,12 @@ impl View for Scheduler {
                 x,
                 row_top + ROW_PADDING + 2.0,
                 (axis.x_of(change.end) - x).max(MIN_BAR_WIDTH),
-                LANE_HEIGHT - 4.0,
+                lane_height - 4.0,
             );
             let color = if allowed { theme.color(Semantic::Accent) } else { theme.color(Semantic::Danger) };
             bars.push(band(cx, frame, color.with_alpha(0.45)));
         }
-        if let Some(now) = self.now {
+        if let Some(now) = self.now.filter(|_| !self.card) {
             let x = axis.x_of(now);
             if x >= 0.0 && x <= width {
                 bars.push(band(cx, Rect::new(x, 0.0, 2.0, total_height), theme.color(Semantic::Danger)));
@@ -1201,7 +1682,7 @@ impl View for Scheduler {
         }
         under.extend(bars);
 
-        let lanes = Lanes { width, height: total_height, children: Rc::new(under) };
+        let lanes = Lanes { width, height: area, children: Rc::new(under), draw };
         let content = lanes.build(cx, self, &editing);
         let body = cx.container(
             LayoutStyle {
@@ -1215,6 +1696,23 @@ impl View for Scheduler {
             Paint::None,
         );
         cx.scrollable_virtual(body, true);
+        let (pinched, zooming): (Rc<Cell<f32>>, _) =
+            (cx.use_state(|| Rc::new(Cell::new(0.0))).get(), self.axis.clone());
+        cx.on_pinch(
+            body,
+            Rc::new(move |delta| {
+                pinched.set(pinched.get() + delta);
+                if pinched.get().abs() < PINCH_STEP {
+                    return;
+                }
+                let current = zooming.get();
+                let next = if pinched.get() > 0.0 { current.zoomed_in() } else { current.zoomed_out() };
+                pinched.set(0.0);
+                if let Some(next) = next {
+                    zooming.set(next);
+                }
+            }),
+        );
         cx.semantics(body, Semantics::new(Role::Grid).name(labels.scheduler_resources.clone()));
 
         // The names follow the vertical scroll.
@@ -1239,6 +1737,12 @@ impl View for Scheduler {
             Paint::None,
         );
         cx.clip(names_view);
+        cx.scroll_with_widget(names_view);
+        let mut middle_parts = vec![names_view];
+        if self.card {
+            middle_parts.push(divider(cx));
+        }
+        middle_parts.push(body);
         let middle = cx.container(
             LayoutStyle {
                 grow: 1.0,
@@ -1247,15 +1751,28 @@ impl View for Scheduler {
                 overflow_hidden: true,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
-            &[names_view, body],
+            &middle_parts,
             Paint::None,
         );
 
+        let hairline = |cx: &mut BuildCx<'_>| {
+            cx.container(
+                LayoutStyle { height: Some(1.0), ..LayoutStyle::leaf() },
+                &[],
+                Paint::Quad(QuadPaint::new(line)),
+            )
+        };
         let mut parts = Vec::new();
         if self.toolbar {
             parts.push(self.toolbar_view(cx, axis));
+            if self.card {
+                parts.push(hairline(cx));
+            }
         }
         parts.push(header);
+        if self.card {
+            parts.push(hairline(cx));
+        }
         parts.push(middle);
         let root = cx.container(
             LayoutStyle {
@@ -1267,8 +1784,9 @@ impl View for Scheduler {
             },
             &parts,
             Paint::Quad(QuadPaint {
-                corner_radius: theme.radii.md,
+                corner_radius: if self.card { theme.radii.xl } else { theme.radii.md },
                 border: Some(Border { width: 1.0, color: line }),
+                shadow: self.card.then_some(theme.elevation.soft),
                 ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
             }),
         );

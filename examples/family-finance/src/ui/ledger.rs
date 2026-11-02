@@ -7,6 +7,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
+use super::help;
 use super::store::{
     Memo, Page, Store, content_width, date_column, filling, money_column, month_nav, row_id, screen,
 };
@@ -204,6 +205,7 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms, window: 
     );
     let filter_bar = HStack::new((
         presets,
+        help::tip(help::FILTROS),
         has_filter.then(|| {
             Button::new("Limpar")
                 .icon(IconName::FilterX)
@@ -291,6 +293,7 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms, window: 
     });
 
     Page::new(
+        help::LANCAMENTOS,
         format!(
             "Entrou {} · saiu {} · sobrou {}",
             format_brl(rows.income),

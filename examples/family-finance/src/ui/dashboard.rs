@@ -5,6 +5,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
+use super::help::{self, Help, tip};
 use super::store::{Memo, PAGE_INSETS, Page, Store, content_width, titled_card};
 use crate::model::{
     Account, Bill, BillStatus, BudgetLine, Flow, MonthTotals, date_label, month_label, month_short,
@@ -44,6 +45,11 @@ impl DashboardState {
     pub fn new() -> Self {
         Self(Memo::new())
     }
+}
+
+/// A big number in a card, with its "?" in the corner.
+fn stat_card(stat: Stat, help: Help) -> impl View {
+    Card::new(HStack::new((stat.grow(1.0), tip(help))).align(Align::Start))
 }
 
 fn tone_of(status: BillStatus) -> Tone {
@@ -126,9 +132,9 @@ pub(crate) fn dashboard(
                 1
             },
             (
-                Card::new(income),
-                Card::new(expense),
-                Card::new(Stat::new("A pagar em 30 dias", format_brl(soon_total))),
+                stat_card(income, help::RECEITAS),
+                stat_card(expense, help::DESPESAS),
+                stat_card(Stat::new("A pagar em 30 dias", format_brl(soon_total)), help::A_PAGAR),
             ),
         )
         .spacing(16.0);
@@ -141,7 +147,11 @@ pub(crate) fn dashboard(
             .collect();
         let balance = Card::new(
             VStack::new((
-                Stat::new("Saldo das contas", format_brl(total)).large(),
+                HStack::new((
+                    Stat::new("Saldo das contas", format_brl(total)).large().grow(1.0),
+                    tip(help::SALDO),
+                ))
+                .align(Align::Start),
                 AreaChart::new(numbers.balances.iter().map(|c| *c as f32 / 100.0)).height(if wide {
                     250.0
                 } else {
@@ -187,10 +197,15 @@ pub(crate) fn dashboard(
         let category_card: AnyView = if spending.is_empty() {
             Box::new(titled_card(
                 &spending_title,
+                help::POR_CATEGORIA,
                 Text::new("Nenhuma despesa neste mês.").foreground(Semantic::InkMuted),
             ))
         } else {
-            Box::new(titled_card(&spending_title, VStack::new(spending).spacing(12.0).align(Align::Stretch)))
+            Box::new(titled_card(
+                &spending_title,
+                help::POR_CATEGORIA,
+                VStack::new(spending).spacing(12.0).align(Align::Stretch),
+            ))
         };
 
         let mut rows: Vec<AnyView> = soon
@@ -238,9 +253,14 @@ pub(crate) fn dashboard(
         });
         let bills_card = Card::new(
             VStack::new((
-                HStack::new((Text::new("Próximas contas").style(TextStyle::Headline).grow(1.0), late))
-                    .spacing(8.0)
-                    .align(Align::Center),
+                HStack::new((
+                    Text::new("Próximas contas").style(TextStyle::Headline),
+                    tip(help::PROXIMAS),
+                    Spacer::new(),
+                    late,
+                ))
+                .spacing(8.0)
+                .align(Align::Center),
                 VStack::new(rows).spacing(12.0).align(Align::Stretch),
                 Button::new("Ver todas as contas")
                     .style(ButtonStyle::Ghost)
@@ -267,8 +287,11 @@ pub(crate) fn dashboard(
                 ) as AnyView
             })
             .collect();
-        let accounts_card =
-            titled_card("Saldo por conta", VStack::new(accounts).spacing(14.0).align(Align::Stretch));
+        let accounts_card = titled_card(
+            "Saldo por conta",
+            help::POR_CONTA,
+            VStack::new(accounts).spacing(14.0).align(Align::Stretch),
+        );
 
         let top: AnyView = if wide {
             Box::new(
@@ -286,5 +309,5 @@ pub(crate) fn dashboard(
         ScrollView::new((VStack::new((top, stats, bottom)).spacing(16.0).align(Align::Stretch),))
             .padding(PAGE_INSETS)
     });
-    Page::new(format!("Hoje é {}", date_label(today)), body)
+    Page::new(help::PAINEL, format!("Hoje é {}", date_label(today)), body)
 }

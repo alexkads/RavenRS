@@ -237,3 +237,27 @@ fn no_data_says_its_own_words_and_not_that_filters_left_nothing() {
     let tree = ui.access_tree();
     assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("Nothing yet")));
 }
+
+#[test]
+fn a_filling_column_follows_a_wider_window() {
+    let filling = vec![
+        GridColumn::text("Name").width(200.0).fill(),
+        GridColumn::text("Country"),
+        GridColumn::number("Seats"),
+    ];
+    let mut ui = Ui::new(DataGrid::new(data(3), filling), Theme::raven_light());
+    let seats = |ui: &mut Ui| {
+        let tree = ui.access_tree();
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some("Seats")).map_or(0.0, |n| n.bounds.x())
+    };
+    ui.set_viewport(Size::new(800.0, 500.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    let before = seats(&mut ui);
+    ui.set_viewport(Size::new(1200.0, 500.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    assert!(seats(&mut ui) > before + 300.0);
+}

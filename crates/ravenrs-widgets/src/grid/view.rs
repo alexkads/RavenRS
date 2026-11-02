@@ -1002,11 +1002,20 @@ impl View for DataGrid {
         let mut widths = h.widths.get();
         let visible: Vec<usize> = (0..self.columns.len()).filter(|&c| !query.is_hidden(c)).collect();
         let select_width = if self.selection_mode == SelectionMode::Multiple { 44.0 } else { 0.0 };
+        let fill_seen: Rc<Cell<(f32, f32)>> = cx.use_state(|| Rc::new(Cell::new((0.0, 0.0)))).get();
         if let Some(&fill) = visible.iter().find(|&&c| self.columns[c].fill) {
             match cx.scroll_viewport() {
                 Some(view) => {
                     let used = select_width + visible.iter().map(|&c| widths[c]).sum::<f32>();
                     widths[fill] += (view.width - used - SCROLLBAR_ROOM).max(0.0);
+                    // This build saw the last layout's width. Nothing else asks for a build
+                    // after a layout that changed it, as when a sidebar closes or the
+                    // window grows.
+                    let seen = (view.width, cx.viewport().width);
+                    if fill_seen.replace(seen) != seen {
+                        let now = cx.now();
+                        cx.wake_at(now);
+                    }
                 }
                 // The width comes from the first layout, and nothing else asks for a second build.
                 None => {

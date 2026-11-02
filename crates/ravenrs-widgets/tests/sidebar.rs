@@ -471,3 +471,42 @@ fn closing_animates_the_width_and_keeps_the_labels_until_it_has_narrowed() {
     assert!(widths.iter().any(|w| *w > 60.0 && *w < 248.0), "it moves: {widths:?}");
     assert_eq!(widths.last(), Some(&60.0), "and it arrives");
 }
+
+#[test]
+fn the_rail_along_the_edge_closes_and_opens_it() {
+    let state = SidebarState::new(true);
+    let (one, two) = rows();
+    let sidebar =
+        Sidebar::new((one, two)).collapsible(SidebarCollapse::Icons).rail(true).state(state.clone());
+    let mut ui = ui(page(sidebar), 900.0);
+    let edge = bounds(&mut ui, "Navigation");
+    let on_the_rail = Point::new(edge.max_x() - 3.0, edge.y() + 200.0);
+    click(&mut ui, on_the_rail);
+    assert!(!state.is_open());
+}
+
+#[test]
+fn a_brand_keeps_only_its_mark_when_reduced_to_icons() {
+    let state = SidebarState::new(true);
+    let (one, two) = rows();
+    let brand = SidebarBrand::new(Icon::new(IconName::Wallet), "Raven").subtitle("Finanças");
+    let sidebar =
+        Sidebar::new((one, two)).collapsible(SidebarCollapse::Icons).state(state.clone()).header(brand);
+    let mut ui = ui(page(sidebar), 900.0);
+    assert!(exists(&mut ui, "Raven"));
+    state.set_open(false);
+    for frame in 0..90 {
+        ui.set_time(f64::from(frame) / 60.0);
+        ui.update();
+    }
+    assert!(!exists(&mut ui, "Raven"));
+}
+
+#[test]
+fn a_row_shows_the_keys_that_do_the_same() {
+    let row = SidebarItem::new(IconName::Search, "Procurar").shortcut("⌘K");
+    let mut ui = ui(page(Sidebar::new((row,))), 900.0);
+    let tree = ui.access_tree();
+    let found = node(&tree, "Procurar").and_then(|row| row.description.clone());
+    assert_eq!(found.as_deref(), Some("⌘K"), "the keys are read with the row");
+}

@@ -834,12 +834,14 @@ impl ScheduleForm {
         ))
         .spacing(12.0)
         .align(Align::Stretch),))
-        .height(540.0);
+        .height(540.0)
+        // In the dialog's margin, and not over the fields.
+        .scrollbar_outside(14.0);
         let (save, save_store, cancel) = (self.clone(), store.clone(), self.open.clone());
         let title = if self.editing.get().is_some() { "Alterar programação" } else { "Programar" };
         Some(
             Dialog::new(self.open.binding(), title)
-                .width(480.0)
+                .width(440.0)
                 .content(content)
                 .action(
                     Button::new("Cancelar").style(ButtonStyle::Secondary).on_click(move || cancel.set(false)),

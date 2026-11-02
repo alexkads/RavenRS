@@ -11,10 +11,15 @@ use family_finance::seed;
 use family_finance::ui::App;
 use family_finance::update::Updater;
 use ravenrs::core::{AccessAction, AccessNode, AccessTree, Key};
-use ravenrs::movie::{Movie, MovieLibrary, OverlayKind, RecordError, Recorder};
+use ravenrs::movie::{HotspotKind, Movie, MovieLibrary, OverlayKind, RecordError, Recorder, Region};
 use ravenrs::prelude::*;
 
 const SIZE: Size = Size::new(1280.0, 800.0);
+/// What the camera shows of the app around a step, and for how long around it.
+const ZOOM_WIDTH: f32 = 800.0;
+const ZOOM_HEIGHT: f32 = 500.0;
+const ZOOM_BEFORE_MS: u64 = 1_100;
+const ZOOM_AFTER_MS: u64 = 1_400;
 
 type Script = fn(&mut Recorder) -> Result<(), RecordError>;
 
@@ -539,6 +544,19 @@ fn records(take: &mut Recorder) -> Result<(), RecordError> {
 fn edit(film: Movie, title: &str) -> Movie {
     let mut project = film.project().clone();
     let total = project.duration_ms();
+    // The camera goes to where each step happens, so that it can be read. A step close
+    // after another stays on what is already in view.
+    let mut zoomed_until = 0;
+    for step in film.hotspots().iter().filter(|spot| spot.kind == HotspotKind::Stop) {
+        let start = step.from_ms.saturating_sub(ZOOM_BEFORE_MS);
+        if start < zoomed_until || step.is_general() {
+            continue;
+        }
+        let (x, y) = (step.x + step.width / 2.0, step.y + step.height / 2.0);
+        let region = Region::new(x - ZOOM_WIDTH / 2.0, y - ZOOM_HEIGHT / 2.0, ZOOM_WIDTH, ZOOM_HEIGHT);
+        project.add_overlay(OverlayKind::Zoom { region }, start, ZOOM_BEFORE_MS + ZOOM_AFTER_MS);
+        zoomed_until = step.from_ms + ZOOM_AFTER_MS;
+    }
     project.add_overlay(OverlayKind::FadeOut, total.saturating_sub(800), 800);
     project.add_overlay(OverlayKind::PointerHighlight, 0, total);
     project.insert_title(0, title, "Treinamento do Raven Finanças", 2500);

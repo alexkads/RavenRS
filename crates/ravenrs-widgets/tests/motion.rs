@@ -220,6 +220,22 @@ fn reopening_during_the_exit_continues_from_where_it_was() {
 }
 
 #[test]
+fn a_closing_dialog_stays_over_its_backdrop() {
+    // The order that broke this came from a map, different from one run to another.
+    for _ in 0..32 {
+        let open = State::new(true);
+        let mut ui = running(VStack::new((Dialog::new(open.binding(), "Hello"),)));
+        let mut t = 0.0;
+        settle(&mut ui, &mut t);
+        open.set(false);
+        ui.update();
+        frames(&mut ui, &mut t, 3);
+        let backdrop = quads(&ui).iter().position(|q| q.rect.width() >= 800.0);
+        assert_eq!(backdrop, Some(0), "the backdrop goes under the card");
+    }
+}
+
+#[test]
 fn popups_grow_from_their_anchor() {
     let open = State::new(false);
     let mut ui = running(VStack::new((Popover::new(open.binding(), Button::new("Open"), Text::new("Hi")),)));
@@ -443,4 +459,26 @@ fn effects_and_exits_are_available_to_third_party_views() {
     assert!(x(&ui) > start && x(&ui) < start + 100.0);
     settle(&mut ui, &mut t);
     assert_eq!(x(&ui), start + 100.0);
+}
+
+#[test]
+fn a_dialog_stays_solid_while_it_opens_and_only_its_backdrop_fades() {
+    let theme = Theme::raven_light();
+    let white = theme.color(Semantic::SurfaceElevated);
+    let open = State::new(false);
+    let dialog = Dialog::new(open.binding(), "Title").content(Text::new("Body"));
+    let mut ui = Ui::new(dialog, theme);
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    ui.set_time(0.0);
+    ui.update();
+    open.set(true);
+    ui.update();
+    ui.set_time(0.05);
+    ui.update();
+    let panels: Vec<Color> = quads(&ui)
+        .iter()
+        .filter(|q| q.rect.width() > 200.0 && q.rect.width() < 700.0)
+        .filter_map(|q| if let Brush::Solid(c) = q.fill { Some(c) } else { None })
+        .collect();
+    assert!(panels.contains(&white), "the panel is at full strength in mid-flight: {panels:?}");
 }

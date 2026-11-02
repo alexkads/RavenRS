@@ -204,6 +204,8 @@ pub enum Placement {
 pub(crate) struct Shortcut {
     pub key: Key,
     pub command: bool,
+    /// It also needs Shift; without this, Shift does not matter.
+    pub shift: bool,
     pub handler: Rc<dyn Fn()>,
 }
 
@@ -371,13 +373,18 @@ pub(crate) struct Element {
     pub scroll: bool,
     /// Children also scroll horizontally.
     pub scroll_x: bool,
+    /// How far past its edge the scrollbar goes.
+    pub scrollbar_outside: f32,
     /// Scrolling rebuilds the UI (virtualized content that depends on the offset).
     pub rebuild_on_scroll: bool,
     /// Visual offset applied to the children's positions.
     pub translate: Point,
     pub on_double_click: Option<Rc<dyn Fn()>>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
+    /// The wheel over it moves what this widget scrolls.
+    pub scrolls_with_widget: bool,
     pub on_context_menu: Option<Rc<dyn Fn(Point)>>,
+    pub on_context_menu_in: Option<Rc<dyn Fn(Point, Rect)>>,
     /// How the element appears to assistive technology.
     pub semantics: Option<Box<Semantics>>,
     /// The string a text leaf shows.
@@ -403,12 +410,15 @@ impl Element {
             on_drag: None,
             clip: false,
             scroll: false,
+            scrollbar_outside: 0.0,
             scroll_x: false,
             rebuild_on_scroll: false,
             translate: Point::ZERO,
             on_double_click: None,
             on_pinch: None,
+            scrolls_with_widget: false,
             on_context_menu: None,
+            on_context_menu_in: None,
             semantics: None,
             text: None,
             motion: None,
@@ -420,6 +430,7 @@ impl Element {
         self.on_click.is_some()
             || self.on_double_click.is_some()
             || self.on_context_menu.is_some()
+            || self.on_context_menu_in.is_some()
             || self.cursor.is_some()
             || self.focus_radius.is_some()
             || self.on_drag.is_some()
@@ -973,13 +984,35 @@ impl<'a> BuildCx<'a> {
     /// Registers an app-wide keyboard shortcut for as long as this view is built.
     /// With `command`, it needs Cmd (macOS) or Ctrl held, e.g. Cmd/Ctrl+K.
     pub fn shortcut(&mut self, key: Key, command: bool, handler: Rc<dyn Fn()>) {
-        self.shortcuts.push(Shortcut { key, command, handler });
+        self.shortcuts.push(Shortcut { key, command, shift: false, handler });
+    }
+
+    /// Makes the wheel over `node` move what this widget scrolls, for a part that
+    /// follows the scroll without being inside it, such as frozen row names.
+    pub fn scroll_with_widget(&mut self, node: NodeId) {
+        if let Some(e) = self.element_mut(node) {
+            e.scrolls_with_widget = true;
+        }
+    }
+
+    /// Like [`Self::shortcut`], for a key that also needs Shift. Register it before the
+    /// same key without Shift, which would otherwise answer first.
+    pub fn shortcut_with_shift(&mut self, key: Key, command: bool, handler: Rc<dyn Fn()>) {
+        self.shortcuts.push(Shortcut { key, command, shift: true, handler });
     }
 
     /// Calls `handler` with the pointer position on a secondary (right) click.
     pub fn on_context_menu(&mut self, node: NodeId, handler: Rc<dyn Fn(Point)>) {
         if let Some(e) = self.element_mut(node) {
             e.on_context_menu = Some(handler);
+        }
+    }
+
+    /// The same, also saying the element's absolute frame, for a menu that depends
+    /// on where inside the element it was opened.
+    pub fn on_context_menu_in(&mut self, node: NodeId, handler: Rc<dyn Fn(Point, Rect)>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_context_menu_in = Some(handler);
         }
     }
 
@@ -1045,12 +1078,19 @@ impl<'a> BuildCx<'a> {
     }
 
     /// Makes the node a vertical scroll container: its children scroll with the
-    /// wheel or trackpad, are clipped, and a scrollbar is drawn when they overflow.
+    /// wheel or trackpad, are clipped, and a scrollbar shows while they move.
     /// Give the node `LayoutStyle::overflow_hidden` so it does not grow to fit.
     pub fn scrollable(&mut self, node: NodeId) {
         if let Some(e) = self.element_mut(node) {
             e.scroll = true;
             e.clip = true;
+        }
+    }
+
+    /// Puts this scroll container's scrollbar `by` past its right edge, in the room around it.
+    pub fn scrollbar_outside(&mut self, node: NodeId, by: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.scrollbar_outside = by;
         }
     }
 

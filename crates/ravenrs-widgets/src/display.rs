@@ -11,6 +11,8 @@ use crate::{Button, ButtonSize, ButtonStyle, IconName, View, ViewSeq, util};
 
 /// How far a badge's text goes from its tone toward the ink.
 const BADGE_TEXT_TOWARD_INK: f32 = 0.3;
+/// How far an avatar's initials go from its color toward the ink.
+const AVATAR_TEXT_TOWARD_INK: f32 = 0.5;
 
 /// Tone of a badge or alert. Status tones always come with a word or an icon,
 /// never color alone.
@@ -154,7 +156,12 @@ impl View for Avatar {
         let mut attrs = util::attrs(&theme, TextStyle::Body, Some(Weight::SEMIBOLD));
         attrs.size = (self.size * 0.4).round();
         attrs.line_height = attrs.size * 1.2;
-        let text = cx.text(&self.initials(), &attrs, base.lerp(Color::WHITE, 0.75), LayoutStyle::leaf());
+        let text = cx.text(
+            &self.initials(),
+            &attrs,
+            base.lerp(theme.color(Semantic::Ink), AVATAR_TEXT_TOWARD_INK),
+            LayoutStyle::leaf(),
+        );
         let style = LayoutStyle {
             width: Some(self.size),
             height: Some(self.size),

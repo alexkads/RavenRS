@@ -3,7 +3,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, CursorIcon, Role};
+use ravenrs_core::{Border, CursorIcon, Key, Role};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -18,9 +18,17 @@ use crate::movie::{FilmSound, Hotspot, HotspotKind, Movie};
 use crate::narration::Narration;
 use crate::project::Region;
 
+/// The film offered at the end: its name and what opening it does.
+type NextFilm = (String, Rc<dyn Fn()>);
+
 /// How often it draws while playing, in seconds. The pointer and the zooms have
 /// no frames of their own, so they move at this pace.
 const FRAME: f64 = 1.0 / 30.0;
+/// How fast a film can play.
+const SPEEDS: [f64; 3] = [1.0, 1.25, 1.5];
+const SPEED_NAMES: [&str; 3] = ["1×", "1,25×", "1,5×"];
+/// How far the arrow keys jump.
+const ARROW_JUMP_MS: u64 = 5_000;
 const CHAPTERS_WIDTH: f32 = 260.0;
 /// A film is never smaller than this, however little height there is.
 const SMALLEST_FILM_WIDTH: f32 = 320.0;
@@ -70,6 +78,14 @@ pub struct MovieLabels {
     pub narration: String,
     /// The language of the voice, such as `pt-BR`.
     pub language: String,
+    /// Which step of how many, where `{}` goes for each number.
+    pub step_of: String,
+    /// What the end of a film says.
+    pub finished: String,
+    /// Plays a finished film again.
+    pub watch_again: String,
+    /// Goes to the next film, whose name goes where `{}` is.
+    pub next_film: String,
 }
 
 impl Default for MovieLabels {
@@ -86,6 +102,10 @@ impl Default for MovieLabels {
             sound: "Sound".into(),
             narration: "Narration".into(),
             language: "en-US".into(),
+            step_of: "Step {} of {}".into(),
+            finished: "You finished this film".into(),
+            watch_again: "Watch again".into(),
+            next_film: "Next: {}".into(),
         }
     }
 }
@@ -104,6 +124,10 @@ impl MovieLabels {
             movie: "Filme".into(),
             sound: "Som".into(),
             narration: "Narração".into(),
+            step_of: "Passo {} de {}".into(),
+            finished: "Você terminou este filme".into(),
+            watch_again: "Ver de novo".into(),
+            next_film: "Próximo: {}".into(),
             language: "pt-BR".into(),
         }
     }
@@ -178,6 +202,8 @@ struct Playhead {
     spoken: Cell<Option<usize>>,
     /// The film jumped: what the voice was saying no longer applies.
     jumped: Cell<bool>,
+    /// Which of the speeds it plays at.
+    speed: Cell<usize>,
 }
 
 impl Playhead {
@@ -205,6 +231,14 @@ impl Playhead {
         self.jumped.set(true);
         if self.is_running() {
             self.running.set(Some((f64::NAN, ms)));
+        }
+    }
+
+    /// Goes to the next speed, from where it is.
+    fn next_speed(&self) {
+        self.speed.set((self.speed.get() + 1) % SPEEDS.len());
+        if self.is_running() {
+            self.running.set(Some((f64::NAN, self.position_ms.get())));
         }
     }
 
@@ -243,7 +277,8 @@ impl Playhead {
             self.running.set(Some((now, from)));
             return;
         }
-        let target = from + ((now - since).max(0.0) * 1000.0) as u64;
+        let speed = SPEEDS[self.speed.get().min(SPEEDS.len() - 1)];
+        let target = from + ((now - since).max(0.0) * 1000.0 * speed) as u64;
         let before = self.position_ms.get();
         let stop = guided
             .then(|| {
@@ -347,6 +382,21 @@ impl View for HotspotMark {
     }
 }
 
+/// "Step 2 of 5": where a step stands among those of its chapter.
+fn step_in_chapter(movie: &Movie, spot: &Hotspot, words: &str) -> Option<String> {
+    if spot.kind != HotspotKind::Stop {
+        return None;
+    }
+    let chapter = movie.chapter_at(spot.from_ms);
+    let stops: Vec<&Hotspot> = movie
+        .hotspots()
+        .iter()
+        .filter(|other| other.kind == HotspotKind::Stop && movie.chapter_at(other.from_ms) == chapter)
+        .collect();
+    let place = stops.iter().position(|other| other.from_ms == spot.from_ms)?;
+    Some(words.replacen("{}", &(place + 1).to_string(), 1).replacen("{}", &stops.len().to_string(), 1))
+}
+
 /// How tall a film `width` wide is.
 fn height_of(width: f32, logical: ravenrs_core::Size) -> f32 {
     width * logical.height / logical.width.max(1.0)
@@ -362,6 +412,7 @@ struct Stage<'a> {
     labels: &'a MovieLabels,
     /// The explanation over the film, and whether it waits for a click.
     explaining: Option<Hotspot>,
+    next: Option<&'a NextFilm>,
 }
 
 impl View for Stage<'_> {
@@ -398,6 +449,43 @@ impl View for Stage<'_> {
                 HotspotMark { hotspot: hotspot.clone(), frame: camera.region(region), waiting, on_click };
             children.push(cx.child(&mark));
         }
+        // Its end says so, and offers what comes next.
+        if at >= self.movie.duration_ms() && !self.playhead.is_running() && self.movie.duration_ms() > 0 {
+            let (playhead, changes, movie) =
+                (self.playhead.clone(), self.changes.clone(), self.movie.clone());
+            let again = Button::new(self.labels.watch_again.clone())
+                .icon(IconName::RotateCcw)
+                .style(ButtonStyle::Secondary)
+                .on_click(move || {
+                    playhead.play(&movie);
+                    changes.update(|n| *n += 1);
+                });
+            let next = self.next.map(|(title, open)| {
+                let open = open.clone();
+                Button::new(self.labels.next_film.replacen("{}", title, 1))
+                    .trailing_icon(IconName::ArrowRight)
+                    .on_click(move || open())
+            });
+            let content = VStack::new((
+                Text::new(self.labels.finished.clone()).style(TextStyle::Headline),
+                HStack::new((again, next)).spacing(8.0).wrap(),
+            ))
+            .spacing(12.0)
+            .align(Align::Center);
+            let card = cx.child(&Card::new(content));
+            children.push(cx.container(
+                LayoutStyle {
+                    absolute: Some((0.0, 0.0)),
+                    width: Some(self.width),
+                    height: Some(height),
+                    align: Align::Center,
+                    justify: ravenrs_layout::Justify::Center,
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[card],
+                Paint::Quad(QuadPaint::new(cx.theme().color(Semantic::Scrim))),
+            ));
+        }
         // A film that has not started says that it is one.
         if self.playhead.position_ms.get() == 0 && !self.playhead.is_running() {
             let (playhead, changes, movie) =
@@ -405,7 +493,7 @@ impl View for Stage<'_> {
             let play = cx.child(
                 &IconButton::new(IconName::Play)
                     .label(self.labels.play.clone())
-                    .style(ButtonStyle::Primary)
+                    .style(ButtonStyle::Secondary)
                     .on_click(move || {
                         playhead.play(&movie);
                         changes.update(|n| *n += 1);
@@ -432,9 +520,10 @@ impl View for Stage<'_> {
                 ravenrs_core::Size::new(self.width, height_of(self.width, logical)),
                 height,
             );
-            let eyebrow = chapter.filter(|chapter| chapter.title != spot.title).map(|chapter| {
-                Text::new(chapter.title.clone()).style(TextStyle::Caption).foreground(Semantic::Accent)
-            });
+            let step = step_in_chapter(self.movie, spot, &self.labels.step_of);
+            let eyebrow = step
+                .or_else(|| chapter.filter(|chapter| chapter.title != spot.title).map(|c| c.title.clone()))
+                .map(|said| Text::new(said).style(TextStyle::Caption).foreground(Semantic::Accent));
             let go_on = waiting.then(|| {
                 let (playhead, changes, movie) =
                     (self.playhead.clone(), self.changes.clone(), self.movie.clone());
@@ -497,7 +586,6 @@ impl View for Stage<'_> {
 /// let player = MoviePlayer::new(movie).width(960.0);
 /// # Ok::<(), ravenrs_movie::MovieError>(())
 /// ```
-#[derive(Debug)]
 pub struct MoviePlayer {
     movie: Movie,
     width: f32,
@@ -505,6 +593,14 @@ pub struct MoviePlayer {
     labels: MovieLabels,
     cue: Option<MovieCue>,
     narration: Option<Narration>,
+    next: Option<NextFilm>,
+    on_finished: Option<Rc<dyn Fn()>>,
+}
+
+impl std::fmt::Debug for MoviePlayer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MoviePlayer").field("width", &self.width).finish_non_exhaustive()
+    }
 }
 
 impl MoviePlayer {
@@ -517,7 +613,23 @@ impl MoviePlayer {
             labels: MovieLabels::default(),
             cue: None,
             narration: None,
+            next: None,
+            on_finished: None,
         }
+    }
+
+    /// What comes after this film, offered when it ends.
+    #[must_use]
+    pub fn next(mut self, title: impl Into<String>, open: impl Fn() + 'static) -> Self {
+        self.next = Some((title.into(), Rc::new(open)));
+        self
+    }
+
+    /// Runs when the film reaches its end.
+    #[must_use]
+    pub fn on_finished(mut self, finished: impl Fn() + 'static) -> Self {
+        self.on_finished = Some(Rc::new(finished));
+        self
     }
 
     /// The film is no taller than this, and the chapters take the width it leaves.
@@ -573,6 +685,7 @@ impl MoviePlayer {
                 let (playhead, changes, at) = (playhead.clone(), changes.clone(), chapter.at_ms);
                 let next = movie.chapters().get(i + 1).map_or(movie.duration_ms(), |next| next.at_ms);
                 ListItem::new(chapter.title.clone())
+                    .icon(if current.is_some_and(|now| i < now) { IconName::Check } else { IconName::Play })
                     // What the current one teaches; for the others how long they take,
                     // since where they start would read as that.
                     .subtitle(if current == Some(i) {
@@ -671,6 +784,7 @@ impl MoviePlayer {
         let (toggle_head, toggle_changes, toggle_movie) =
             (playhead.clone(), changes.clone(), self.movie.clone());
         let (back_head, back_changes) = (playhead.clone(), changes.clone());
+        let (speed_head, speed_changes) = (playhead.clone(), changes.clone());
         let (read, write, moved) = (playhead.clone(), playhead.clone(), changes.clone());
         let position = Binding::new(
             move || read.position_ms.get() as f32,
@@ -704,7 +818,15 @@ impl MoviePlayer {
                 .range(0.0, duration.max(1) as f32)
                 .step(100.0)
                 .label(self.labels.position.clone())
+                .marks(self.movie.chapters().iter().skip(1).map(|chapter| chapter.at_ms as f32))
                 .grow(1.0),
+            Button::new(SPEED_NAMES[playhead.speed.get().min(SPEEDS.len() - 1)])
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Small)
+                .on_click(move || {
+                    speed_head.next_speed();
+                    speed_changes.update(|n| *n += 1);
+                }),
             Text::new(format!("{} / {}", clock_label(playhead.position_ms.get()), clock_label(duration)))
                 .style(TextStyle::Caption)
                 .foreground(Semantic::InkMuted),
@@ -787,6 +909,32 @@ impl View for MoviePlayer {
         }
         let before = playhead.position_ms.get();
         playhead.advance(movie, guided.get(), now);
+        let told = cx.use_state(|| Rc::new(Cell::new(false))).get();
+        let ended = movie.duration_ms() > 0 && playhead.position_ms.get() >= movie.duration_ms();
+        if ended && !told.replace(true) {
+            if let Some(finished) = &self.on_finished {
+                finished();
+            }
+        } else if !ended {
+            told.set(false);
+        }
+        for (key, forward) in [(Key::ArrowLeft, false), (Key::ArrowRight, true)] {
+            let (head, moved, length) = (playhead.clone(), changes.clone(), movie.duration_ms());
+            cx.shortcut(
+                key,
+                false,
+                Rc::new(move || {
+                    let at = head.position_ms.get();
+                    let to = if forward {
+                        (at + ARROW_JUMP_MS).min(length)
+                    } else {
+                        at.saturating_sub(ARROW_JUMP_MS)
+                    };
+                    head.seek(to);
+                    moved.update(|n| *n += 1);
+                }),
+            );
+        }
 
         if playhead.is_running() {
             cx.wake_at(now + FRAME);
@@ -839,6 +987,7 @@ impl View for MoviePlayer {
             changes: changes.clone(),
             labels: &self.labels,
             explaining: explained.clone().filter(|_| boxes),
+            next: self.next.as_ref(),
         };
         let stage = cx.child(&stage);
         // A hairline and a shadow, so a film that opens on white still has an edge.

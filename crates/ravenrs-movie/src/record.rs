@@ -247,6 +247,8 @@ impl Recorder {
     /// player is not stopping at steps, the box stays for as long as it takes to
     /// read or hear; when it is, that time is skipped.
     pub fn guide(&mut self, name: &str, title: &str, text: &str) -> Result<&mut Self, RecordError> {
+        // The pointer gets there first: the step asks for what it is already on.
+        self.move_to(name)?;
         let seconds = reading_seconds(title, text);
         let hotspot = self.hotspot(name, HotspotKind::Stop, title, text, seconds)?;
         self.film.hotspot(hotspot);

@@ -345,12 +345,13 @@ pub struct Slider {
     step: f32,
     width: Option<f32>,
     label: Option<String>,
+    marks: Vec<f32>,
 }
 
 impl Slider {
     /// A slider over 0.0–1.0 bound to `value`, stepping by 0.01.
     pub fn new(value: Binding<f32>) -> Self {
-        Self { value, min: 0.0, max: 1.0, step: 0.01, width: None, label: None }
+        Self { value, min: 0.0, max: 1.0, step: 0.01, width: None, label: None, marks: Vec::new() }
     }
 
     /// The value range; also resets the step to 1/100 of the range.
@@ -378,6 +379,12 @@ impl Slider {
         self.label = Some(label.into());
         self
     }
+
+    /// Notches on the track at these values, such as where chapters begin.
+    pub fn marks(mut self, marks: impl IntoIterator<Item = f32>) -> Self {
+        self.marks = marks.into_iter().collect();
+        self
+    }
 }
 
 impl View for Slider {
@@ -399,6 +406,8 @@ impl View for Slider {
             align_self: Some(if self.width.is_some() { Align::Start } else { Align::Stretch }),
             ..LayoutStyle::leaf()
         };
+        let notch = theme.color(Semantic::InkMuted);
+        let marks: Vec<f32> = self.marks.iter().map(|m| ((m - min) / (max - min)).clamp(0.0, 1.0)).collect();
         let node = cx.container(
             style,
             &[],
@@ -409,6 +418,10 @@ impl View for Slider {
                 scene.push_quad(
                     Quad::new(Rect::new(f.x() + 9.0, cy - 2.0, usable * t, 4.0), fill).radius(2.0),
                 );
+                for mark in &marks {
+                    let x = f.x() + 9.0 + usable * mark;
+                    scene.push_quad(Quad::new(Rect::new(x - 1.0, cy - 5.0, 2.0, 10.0), notch).radius(1.0));
+                }
                 let cx_ = f.x() + 9.0 + usable * t;
                 if ring.a > 0.0 {
                     scene.push_quad(

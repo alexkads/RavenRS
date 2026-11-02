@@ -3,6 +3,7 @@
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
+use super::help;
 use super::store::{PAGE_INSETS, Page, Store, content_width};
 use crate::model::{AccountKind, Flow};
 use crate::money::{format_brl, format_input, parse_brl};
@@ -22,7 +23,7 @@ fn cents_or_zero(text: &str) -> Option<i64> {
 /// What this screen keeps while another one is open.
 #[derive(Clone)]
 pub(crate) struct RecordsState {
-    tab: State<usize>,
+    pub(crate) tab: State<usize>,
     account_id: State<Option<i64>>,
     account_name: State<String>,
     account_kind: State<usize>,
@@ -373,6 +374,7 @@ pub(crate) fn records(store: &Store, state: &RecordsState, forms: &Forms, window
     let beside = content_width(window) >= SIDE_BY_SIDE_FROM;
     store.version();
     Page::new(
+        help::CADASTROS,
         "As contas, as categorias e as pessoas que os lançamentos usam.",
         ScrollView::new((VStack::new((Tabs::new(state.tab.binding())
             .tab("Contas", accounts_tab(store, state, forms, beside))

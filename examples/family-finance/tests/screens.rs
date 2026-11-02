@@ -5,6 +5,7 @@
 //! FF_SCREENSHOTS=target/screens cargo test -p family-finance --test screens
 //! FF_SCREENSHOTS_SIZES=target/sizes cargo test -p family-finance --test screens draw_at_other_sizes
 //! FF_SCREENSHOTS_STATES=target/states cargo test -p family-finance --test screens draw_the_states
+//! FF_SCREENSHOTS_FILM=target/film cargo test -p family-finance --test screens draw_the_film
 //! ```
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
@@ -29,6 +30,12 @@ fn capture(gpu: &GpuContext, ui: &mut Ui, size: Size, file: &Path) {
     for _ in 0..4 {
         ui.update();
     }
+    capture_now(gpu, ui, size, file);
+}
+
+/// Draws the scene as it is, without giving it more frames.
+fn capture_now(gpu: &GpuContext, ui: &Ui, size: Size, file: &Path) {
+    let scale = 2.0;
     let (w, h) = ((size.width * scale) as u32, (size.height * scale) as u32);
     let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("screen"),
@@ -191,6 +198,47 @@ fn draw_the_states() {
         let mut ui = app(theme, 8, Updater::idle());
         capture(&gpu, &mut ui, size, &folder.join(format!("{label}-treinamentos.png")));
     }
+    // The agenda under the pointer: the tooltip with its row lit, and a right click.
+    let mut agenda = app(Theme::raven_light(), 3, Updater::idle());
+    agenda.set_viewport(size, 2.0);
+    for _ in 0..4 {
+        agenda.update();
+    }
+    let tree = agenda.access_tree();
+    let bar = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Aula de natação")).expect("a bar").bounds;
+    agenda.handle_event(&Event::PointerMove { position: bar.center() });
+    agenda.update();
+    capture(&gpu, &mut agenda, size, &folder.join("agenda-dica.png"));
+    agenda.handle_event(&Event::PointerDown {
+        position: bar.center(),
+        button: ravenrs::core::PointerButton::Secondary,
+    });
+    agenda.update();
+    capture(&gpu, &mut agenda, size, &folder.join("agenda-menu.png"));
+
+    // The menu reduced to icons, and a "?" open.
+    let mut menu = app(Theme::raven_light(), 2, Updater::idle());
+    menu.set_viewport(size, 2.0);
+    menu.update();
+    menu.update();
+    let tree = menu.access_tree();
+    let tip = tree
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref().is_some_and(|t| t.starts_with("Ajuda: Contas")))
+        .expect("?");
+    let at = tip.bounds.center();
+    menu.handle_event(&Event::PointerMove { position: at });
+    menu.update();
+    capture(&gpu, &mut menu, size, &folder.join("ajuda-aberta.png"));
+    menu.handle_event(&Event::PointerMove { position: ravenrs::core::Point::new(800.0, 700.0) });
+    press(&mut menu, "Recolher menu");
+    for frame in 0..90 {
+        menu.set_time(f64::from(frame) / 60.0);
+        menu.update();
+    }
+    capture(&gpu, &mut menu, size, &folder.join("menu-recolhido.png"));
+
     // The assistant, with an answer, and the sidebar as a sheet in a small window.
     let mut chat = app(Theme::raven_light(), 0, Updater::idle());
     chat.set_viewport(size, 2.0);
@@ -207,6 +255,96 @@ fn draw_the_states() {
     let names: Vec<_> = tree.nodes.iter().filter_map(|n| n.name.clone()).take(12).collect();
     println!("{names:?}");
     capture(&gpu, &mut sheet, small, &folder.join("pequena-painel.png"));
+}
+
+/// The first frames of the window and of a change of screen, frame by frame.
+#[test]
+fn draw_the_opening() {
+    let Some(folder) = std::env::var_os("FF_SCREENSHOTS_OPENING") else { return };
+    let folder = Path::new(&folder);
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
+    let Ok(gpu) = pollster::block_on(GpuContext::new(&instance, None)) else { return };
+    let size = Size::new(1360.0, 860.0);
+    let frames = [0.0, 0.03, 0.08, 0.15, 0.3, 0.6];
+    let mut ui = app(Theme::raven_light(), 0, Updater::idle());
+    ui.set_viewport(size, 2.0);
+    for (i, at) in frames.iter().enumerate() {
+        ui.set_time(*at);
+        ui.update();
+        capture_now(&gpu, &ui, size, &folder.join(format!("abrir-{i}.png")));
+    }
+    let tree = ui.access_tree();
+    let row = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Agenda")).expect("row").id;
+    ui.perform_action(row, AccessAction::Click);
+    for (i, at) in frames.iter().enumerate() {
+        ui.set_time(1.0 + *at);
+        ui.update();
+        capture_now(&gpu, &ui, size, &folder.join(format!("trocar-{i}.png")));
+    }
+    let tree = ui.access_tree();
+    let button = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Programar")).expect("button").id;
+    ui.perform_action(button, AccessAction::Click);
+    for (i, at) in frames.iter().enumerate() {
+        ui.set_time(2.0 + *at);
+        ui.update();
+        capture_now(&gpu, &ui, size, &folder.join(format!("dialogo-{i}.png")));
+    }
+}
+
+/// A film as it plays: the zoom on the way to a step, the step, and the end.
+#[test]
+fn draw_the_film() {
+    let Some(folder) = std::env::var_os("FF_SCREENSHOTS_FILM") else { return };
+    let folder = Path::new(&folder);
+    std::fs::create_dir_all(folder).expect("folder");
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
+    let Ok(gpu) = pollster::block_on(GpuContext::new(&instance, None)) else { return };
+    let size = Size::new(1360.0, 860.0);
+    let mut ui = app(Theme::raven_light(), 8, Updater::idle());
+    ui.set_viewport(size, 2.0);
+    ui.set_time(0.0);
+    ui.update();
+    let click = |ui: &mut Ui, prefix: &str| {
+        let tree = ui.access_tree();
+        let node = tree.nodes.iter().find(|n| n.name.as_deref().is_some_and(|t| t.starts_with(prefix)));
+        let id = node.unwrap_or_else(|| panic!("no {prefix}")).id;
+        ui.perform_action(id, AccessAction::Click);
+        ui.update();
+    };
+    let says = |ui: &mut Ui, prefix: &str| {
+        ui.access_tree().nodes.iter().any(|n| n.name.as_deref().is_some_and(|t| t.starts_with(prefix)))
+    };
+    click(&mut ui, "Reproduzir");
+    let mut at = 0.0;
+    let mut shot = 0;
+    while at < 240.0 && !says(&mut ui, "Passo ") {
+        at += 1.0 / 30.0;
+        ui.set_time(at);
+        ui.update();
+        if ((at * 30.0).round() as u64).is_multiple_of(150) {
+            capture_now(&gpu, &ui, size, &folder.join(format!("tocando-{shot}.png")));
+            shot += 1;
+        }
+    }
+    for _ in 0..30 {
+        at += 1.0 / 30.0;
+        ui.set_time(at);
+        ui.update();
+    }
+    capture_now(&gpu, &ui, size, &folder.join("passo.png"));
+    click(&mut ui, "Parar em cada passo");
+    click(&mut ui, "Reproduzir");
+    while at < 480.0 && !says(&mut ui, "Você terminou") {
+        at += 1.0 / 30.0;
+        ui.set_time(at);
+        ui.update();
+    }
+    for _ in 0..30 {
+        at += 1.0 / 30.0;
+        ui.set_time(at);
+        ui.update();
+    }
+    capture_now(&gpu, &ui, size, &folder.join("fim.png"));
 }
 
 /// The screens at other window sizes, to see how they adapt.
