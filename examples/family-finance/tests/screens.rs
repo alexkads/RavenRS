@@ -399,6 +399,26 @@ fn draw_every_screen() {
         let mut ui = app(Theme::raven_light(), page, Updater::idle());
         capture(&gpu, &mut ui, size, &folder.join(format!("{name}.png")));
     }
+    // A report whose rows have no barcode to leave room for.
+    let mut ui = app(Theme::raven_light(), 5, Updater::idle());
+    capture(&gpu, &mut ui, size, &folder.join("relatorio-extrato.png"));
+    let tree = ui.access_tree();
+    let tab = tree
+        .nodes
+        .iter()
+        .find(|n| n.role == Role::RadioButton && n.name.as_deref() == Some("Contas a pagar"));
+    ui.perform_action(tab.expect("the tab").id, AccessAction::Click);
+    capture(&gpu, &mut ui, size, &folder.join("relatorio-contas.png"));
+    // The whole of the first screen, with the pointer over its charts.
+    let tall = Size::new(1360.0, 1560.0);
+    for (theme, name) in [(Theme::raven_light(), "painel-inteiro"), (Theme::raven_dark(), "painel-escuro")] {
+        let mut ui = app(theme, 0, Updater::idle());
+        capture(&gpu, &mut ui, tall, &folder.join(format!("{name}.png")));
+        ui.handle_event(&Event::PointerMove { position: Point::new(800.0, 900.0) });
+        ui.update();
+        ui.update();
+        capture(&gpu, &mut ui, tall, &folder.join(format!("{name}-apontado.png")));
+    }
     // The grid and the timeline on the glass theme, whose tokens are translucent.
     let mut glass = app(Theme::raven_glass(), 2, Updater::idle());
     capture(&gpu, &mut glass, size, &folder.join("contas-vidro.png"));

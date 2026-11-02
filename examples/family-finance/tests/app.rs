@@ -399,3 +399,30 @@ fn going_back_to_a_copy_tells_what_changes_and_can_be_undone() {
     drop(ui);
     std::fs::remove_dir_all(&folder).expect("clean up");
 }
+
+#[test]
+fn another_report_moves_nothing_around_the_document() {
+    let mut ui = app();
+    press(&mut ui, Role::Button, "Relatórios");
+    let place = |ui: &mut Ui, role: Role, name: &str| {
+        let tree = ui.access_tree();
+        let found = tree.nodes.iter().find(|n| n.role == role && n.name.as_deref() == Some(name));
+        found.unwrap_or_else(|| panic!("no {name}")).bounds
+    };
+    let first: Vec<Rect> =
+        ["Anterior", "Próxima", "Imprimir"].iter().map(|name| place(&mut ui, Role::Button, name)).collect();
+    for report in ["Contas a pagar", "Orçamento", "Resumo de 12 meses", "Extrato do mês"] {
+        let tree = ui.access_tree();
+        let tab = tree
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::RadioButton && n.name.as_deref() == Some(report))
+            .unwrap_or_else(|| panic!("no {report}"))
+            .id;
+        ui.perform_action(tab, AccessAction::Click);
+        settle(&mut ui);
+        for (name, before) in ["Anterior", "Próxima", "Imprimir"].iter().zip(&first) {
+            assert_eq!(place(&mut ui, Role::Button, name), *before, "{name} in {report}");
+        }
+    }
+}

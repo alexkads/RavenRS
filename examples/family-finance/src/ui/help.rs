@@ -39,7 +39,12 @@ pub(crate) const A_PAGAR: Help = (
 pub(crate) const POR_CATEGORIA: Help = (
     "Despesas por categoria",
     "Para onde foi o dinheiro neste mês, da categoria que mais gastou para a que menos gastou.",
-    "",
+    "Passe o ponteiro sobre o anel para ver quanto foi cada categoria.",
+);
+pub(crate) const ENTRADAS_E_SAIDAS: Help = (
+    "Receitas e despesas",
+    "O que entrou e o que saiu em cada um dos últimos 6 meses, para ver se a família gastou menos do que ganhou.",
+    "Passe o ponteiro sobre um mês, ou use as setas do teclado, para ver os valores.",
 );
 pub(crate) const POR_CONTA: Help = (
     "Saldo por conta",

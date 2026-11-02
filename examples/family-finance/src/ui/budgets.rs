@@ -31,6 +31,7 @@ impl BudgetsState {
 
 /// Below this width a category's name and how it stands no longer fit in half of it.
 const TWO_COLUMNS_FROM: f32 = 700.0;
+const RING_SIZE: f32 = 160.0;
 
 fn accepts_zero(text: &str) -> Result<(), String> {
     if text.trim().is_empty() { Ok(()) } else { parse_brl(text).map(|_| ()) }
@@ -47,8 +48,20 @@ pub(crate) fn budgets(store: &Store, state: &BudgetsState, window: Size) -> Page
         lines.iter().filter(|l| l.budget_cents > 0 && l.spent_cents > l.budget_cents).collect();
     let share = if limit_total > 0 { spent_total as f32 / limit_total as f32 } else { 0.0 };
     let spent = Stat::new("Gasto no mês", format_brl(spent_total)).large();
+    let ring = Chart::new(ChartKind::RadialBar)
+        .categories(["Gasto no mês"])
+        .series("Gasto no mês", [if share > 0.0 { 1.0 } else { 0.0 }])
+        .item_colors([if share > 1.0 { Semantic::Danger } else { Semantic::Chart1 }])
+        .angles(0.0, share.min(1.0) * 360.0)
+        .tracks()
+        .hole(0.74)
+        .center_text(format!("{:.0}%", share * 100.0), "do limite")
+        .hide_legend()
+        .hide_tooltip()
+        .alt(format!("{:.0}% do limite gasto no mês", share * 100.0))
+        .size(RING_SIZE, RING_SIZE);
     let progress = VStack::new((
-        ProgressBar::new(share.min(1.0)).tone(if share > 1.0 { Tone::Danger } else { Tone::Accent }),
+        spent,
         HStack::new((
             Text::new(format!("{:.0}% do limite de {}", share * 100.0, format_brl(limit_total)))
                 .style(TextStyle::Callout)
@@ -67,9 +80,9 @@ pub(crate) fn budgets(store: &Store, state: &BudgetsState, window: Size) -> Page
     .align(Align::Stretch)
     .grow(1.0);
     let summary: AnyView = if content < TWO_COLUMNS_FROM {
-        Box::new(Card::new(VStack::new((spent, progress)).spacing(16.0).align(Align::Stretch)))
+        Box::new(Card::new(VStack::new((ring, progress)).spacing(16.0).align(Align::Center)))
     } else {
-        Box::new(Card::new(HStack::new((spent, progress)).spacing(32.0).align(Align::Center)))
+        Box::new(Card::new(HStack::new((ring, progress)).spacing(32.0).align(Align::Center)))
     };
 
     let mut rows: Vec<AnyView> = lines

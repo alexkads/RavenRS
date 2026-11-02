@@ -161,6 +161,11 @@ pub(crate) fn screen<C: ViewSeq>(children: C) -> FillColumn<C> {
     FillColumn { children, spacing: 16.0, padding: PAGE_INSETS }
 }
 
+/// The same, for a screen whose content goes on past the bottom of the window.
+pub(crate) fn screen_to_the_edge<C: ViewSeq>(children: C) -> FillColumn<C> {
+    FillColumn { children, spacing: 16.0, padding: Insets { bottom: 0.0, ..PAGE_INSETS } }
+}
+
 /// Below this window width the sidebar leaves the page and opens as a sheet.
 pub(crate) const NARROW_WINDOW: f32 = 900.0;
 const SIDEBAR_WIDTH: f32 = 248.0;

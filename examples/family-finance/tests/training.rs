@@ -44,6 +44,11 @@ fn overview(take: &mut Recorder) -> Result<(), RecordError> {
         "É a soma do dinheiro em todas as suas contas, com o que já foi lançado até hoje. O gráfico abaixo mostra se a sua reserva está crescendo ou diminuindo nos últimos 12 meses.",
     )?;
     take.explain(
+        "Saldo das contas por mês",
+        "O gráfico do saldo",
+        "Passe o ponteiro sobre um mês para ver o valor exato. O período muda no seletor acima do gráfico.",
+    )?;
+    take.explain(
         "RECEITAS DO MÊS",
         "Receitas e despesas do mês",
         "Mostram o que entrou e o que saiu neste mês, comparados com o mesmo período do mês anterior.",

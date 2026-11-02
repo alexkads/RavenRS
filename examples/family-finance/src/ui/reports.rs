@@ -9,7 +9,7 @@ use ravenrs_report_export::{ExportFormat, export};
 use ravenrs_report_viewer::{DocumentViewer, ViewerLabels, ViewerState};
 
 use super::help;
-use super::store::{Memo, Page, Store, month_nav, screen};
+use super::store::{Memo, Page, Store, month_nav, screen_to_the_edge};
 use crate::reports::{ReportKind, render};
 
 /// What this screen keeps while another one is open.
@@ -43,6 +43,9 @@ impl ReportsState {
         self.kind.get()
     }
 }
+
+/// As tall as the row with [`month_nav`].
+const MONTH_NAV_HEIGHT: f32 = 40.0;
 
 fn save(store: &Store, document: &Document, format: ExportFormat) {
     match export(document, format, Some(&store.today.to_string())) {
@@ -79,7 +82,8 @@ pub(crate) fn reports(store: &Store, state: &ReportsState) -> Page {
     let uses_month = kind != ReportKind::Bills;
     let controls = HStack::new((
         SegmentedControl::new(kind_binding, ReportKind::ALL.map(ReportKind::label)).label("Relatório"),
-        Spacer::new(),
+        // Without the month, the row keeps its height: the document must not move.
+        Spacer::new().height(MONTH_NAV_HEIGHT),
         uses_month.then(|| month_nav(&state.month, store.today)),
     ))
     .spacing(16.0)
@@ -118,6 +122,6 @@ pub(crate) fn reports(store: &Store, state: &ReportsState) -> Page {
     Page::new(
         help::RELATORIOS,
         "Veja na tela, imprima ou exporte em PDF e planilha.",
-        screen((controls, body)),
+        screen_to_the_edge((controls, body)),
     )
 }

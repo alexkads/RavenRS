@@ -261,6 +261,8 @@ fn bills_data(db: &Database, today: Date) -> DbResult<Json> {
                         _ => 2,
                     },
                     "Codigo": bill.barcode,
+                    // Sorts as the due date does, and tells bills apart.
+                    "Chave": format!("{}-{:010}", bill.due, bill.id),
                 })
             })
             .collect(),
@@ -300,7 +302,14 @@ pub fn bills(today: Date) -> Report {
                         .control(
                             Control::rect(3.0)
                                 .at(0.0, 10.0, 4.0, 16.0)
-                                .style(Style::new().background(DANGER)),
+                                .style(Style::new().background(ACCENT))
+                                .visible("[Ordem] <> 0"),
+                        )
+                        .control(
+                            Control::rect(3.0)
+                                .at(0.0, 10.0, 4.0, 16.0)
+                                .style(Style::new().background(DANGER))
+                                .visible("[Ordem] = 0"),
                         )
                         .control(
                             Control::field(
@@ -315,13 +324,15 @@ pub fn bills(today: Date) -> Report {
                 .footer(total_band("Total", "Sum([Valor])"))
                 .repeat_header(),
         )
-        .detail(
-            Band::new(58.0).control(Control::table(Table::new().row(row)).at(0.0, 0.0, w, 16.0)).control(
-                Control::barcode(Symbology::Itf, "[Codigo]")
-                    .at(cols[0], 19.0, 300.0, 34.0)
-                    .visible("Len([Codigo]) > 0"),
-            ),
+        // Each bill is a group, so that one without a slip takes no room for its barcode.
+        .group(
+            Group::new("[Chave]").footer(Band {
+                visible: Some("Len([Codigo]) > 0".to_owned()),
+                ..Band::new(42.0)
+                    .control(Control::barcode(Symbology::Itf, "[Codigo]").at(cols[0], 3.0, 300.0, 34.0))
+            }),
         )
+        .detail(Band::new(18.0).control(Control::table(Table::new().row(row)).at(0.0, 0.0, w, 16.0)))
 }
 
 // Budget
