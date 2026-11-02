@@ -32,6 +32,7 @@ mod entity;
 mod frame;
 mod model;
 mod module;
+mod object;
 mod space;
 
 pub use action::{
@@ -49,6 +50,8 @@ pub use model::{
     UnusableNode, check_model, generate_model,
 };
 pub use module::{Application, ApplicationBuilder, Module};
+pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
+pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 pub use ravenrs_criteria::{Criteria, Value};
 pub use space::{
     Change, MemoryDatabase, MemoryObjectSpace, ObjectSpace, Query, SpaceError, SpaceEvent, SpaceWatcher,

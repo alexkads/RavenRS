@@ -318,6 +318,21 @@ impl ravenrs_widgets::FilePickerProvider for BrowserFilePicker {
         input.set_onchange(Some(on_change.unchecked_ref()));
         input.click();
     }
+
+    fn save(&self, name: &str, bytes: &[u8]) {
+        let Some(page) = web_sys::window().and_then(|w| w.document()) else { return };
+        let parts = js_sys::Array::of1(&js_sys::Uint8Array::from(bytes));
+        let Ok(blob) = web_sys::Blob::new_with_u8_array_sequence(&parts) else { return };
+        let Ok(url) = web_sys::Url::create_object_url_with_blob(&blob) else { return };
+        if let Some(link) =
+            page.create_element("a").ok().and_then(|e| e.dyn_into::<web_sys::HtmlAnchorElement>().ok())
+        {
+            link.set_href(&url);
+            link.set_download(name);
+            link.click();
+        }
+        web_sys::Url::revoke_object_url(&url).ok();
+    }
 }
 
 /// Copies through `navigator.clipboard`. Reading is asynchronous in the

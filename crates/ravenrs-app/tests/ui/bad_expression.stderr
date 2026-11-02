@@ -1,0 +1,5 @@
+error: this expression does not parse: unexpected end of expression (at 6)
+ --> tests/ui/bad_expression.rs:7:26
+  |
+7 |     #[field(calculated = "[id] +")]
+  |                          ^^^^^^^^

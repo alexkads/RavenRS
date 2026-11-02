@@ -145,6 +145,13 @@ impl ravenrs_widgets::FilePickerProvider for SystemFilePicker {
         };
         done(paths.iter().filter_map(|p| read_picked(p, request.most_bytes)).collect());
     }
+
+    fn save(&self, name: &str, bytes: &[u8]) {
+        let Some(path) = SaveDialog::new(name).ask() else { return };
+        if let Err(e) = std::fs::write(path, bytes) {
+            tracing::warn!(error = %e, "could not save the file");
+        }
+    }
 }
 
 /// Opens a file with the program the system uses for it: a PDF in its viewer, a

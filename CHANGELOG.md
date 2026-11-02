@@ -4,6 +4,14 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- **`#[derive(BusinessObject)]`** and **`#[derive(BusinessEnum)]`** declare records as Rust structs and options as enums, in the new `ravenrs-app-derive`. A wrong attribute is a compile error that points at it, and a calculated field's expression is checked there too. `ObjectSpaceExt` reads and writes these structs.
+- **`App`** in `ravenrs-app-ui` puts an application together from its records in a few lines, with the language of everything in it. [`examples/quick-app`](examples/quick-app) is a whole one in under 100 lines, on desktop and in the browser. The guide is [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md), and [docs/APP-PARITY.md](docs/APP-PARITY.md) says what exists.
+- `FilePicker::save` hands a file to the person: the system's dialog on a desktop, a download in a browser. Exports from generated lists use it unless the app takes them.
+
+### Fixed
+- A field with options starts on the first one, which is what it shows, instead of holding nothing.
+
 ## [27.1.7] - 2026-11-02
 
 ### Added

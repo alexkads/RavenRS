@@ -172,10 +172,14 @@ impl View for ListView {
         };
         let key_at = fields.iter().position(|(field, ..)| field.is_key).unwrap_or(0);
         let words = session.words();
+        let default_property = entity.default_property().map(|f| f.name.clone());
+        let names_the_record = |field: &FieldInfo| default_property.as_deref() == Some(field.name.as_str());
         let columns: Vec<GridColumn> = fields
             .iter()
             .map(|(field, caption, visible)| {
                 let column = column_of(field, caption, words);
+                // What names a record takes the room left over, so rows reach across.
+                let column = if names_the_record(field) { column.fill() } else { column };
                 if *visible { column } else { column.hidden() }
             })
             .collect();
@@ -192,6 +196,7 @@ impl View for ListView {
         };
         let (opener, open_entity, delete) = (session.clone(), entity.clone(), session.clone());
         let on_open = self.on_open.clone();
+        let saver = cx.file_picker();
         let (exporter, caption) =
             (session.clone(), node.text("Caption").unwrap_or(&entity.caption).to_owned());
         let grid = DataGrid::new(current.data.clone(), columns)
@@ -202,7 +207,7 @@ impl View for ListView {
             .empty_text(caption.clone())
             .export_title(caption)
             .on_export_file(move |format, table| match export(&table, format, None) {
-                Ok(file) => exporter.hand_file(file.name, file.bytes),
+                Ok(file) => exporter.hand_file(file.name, file.bytes, &saver),
                 Err(error) => exporter.set_error(Some(error)),
             })
             .on_row_open(move |row| {

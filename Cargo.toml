@@ -30,6 +30,7 @@ ravenrs-report-export = { version = "27.1.7", path = "crates/ravenrs-report-expo
 ravenrs-grid-export = { version = "27.1.7", path = "crates/ravenrs-grid-export" }
 ravenrs-app = { version = "27.1.7", path = "crates/ravenrs-app" }
 ravenrs-app-ui = { version = "27.1.7", path = "crates/ravenrs-app-ui" }
+ravenrs-app-derive = { version = "27.1.7", path = "crates/ravenrs-app-derive" }
 ravenrs-report-pdf = { version = "27.1.7", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.7", path = "crates/ravenrs-report-xlsx" }
 ravenrs-report-server = { version = "27.1.7", path = "crates/ravenrs-report-server" }
@@ -68,6 +69,8 @@ rmcp = { version = "3.8.0", default-features = false, features = ["server", "mac
 tokio = { version = "1.54", default-features = false, features = ["macros", "rt"] }
 syn = { version = "2.0.119", default-features = false, features = ["full", "parsing", "printing", "visit"] }
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+quote = "1.0.47"
+trybuild = "1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

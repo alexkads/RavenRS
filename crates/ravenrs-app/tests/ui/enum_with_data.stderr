@@ -1,0 +1,5 @@
+error: an option of a business enum cannot hold data
+ --> tests/ui/enum_with_data.rs:6:5
+  |
+6 |     Holding(i64),
+  |     ^^^^^^^

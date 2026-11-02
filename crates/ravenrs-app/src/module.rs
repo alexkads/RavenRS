@@ -181,6 +181,11 @@ impl ApplicationBuilder {
         self
     }
 
+    /// Adds an entity declared as a Rust struct.
+    pub fn entity_of<T: crate::BusinessObject>(self) -> Self {
+        self.entity(T::entity_info())
+    }
+
     /// Puts it together: orders the modules, generates the model, lets the modules change it,
     /// applies their layers and checks the result. What is wrong comes out here, and not when
     /// someone reaches that screen.

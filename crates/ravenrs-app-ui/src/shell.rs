@@ -91,6 +91,15 @@ impl AppShell {
     ) -> Self {
         let factory: Rc<dyn Fn() -> Rc<RefCell<dyn ObjectSpace>>> =
             Rc::new(move || Rc::new(RefCell::new(space())) as Rc<RefCell<dyn ObjectSpace>>);
+        Self::from_factory(application, factory, words, editors)
+    }
+
+    pub(crate) fn from_factory(
+        application: Application,
+        factory: crate::session::SpaceFactory,
+        words: Words,
+        editors: EditorRegistry,
+    ) -> Self {
         let today = Date::from_days(DateTime::now().days);
         let session = Session::new(application, factory, words, editors, today);
         if let Some(first) = session.first_view() {
@@ -105,8 +114,8 @@ impl AppShell {
         self
     }
 
-    /// Hands exported files over to this, with their name and bytes: saving them is up to
-    /// the platform.
+    /// Hands exported files over to this, with their name and bytes, instead of asking the
+    /// person where to save them.
     pub fn on_file(self, handler: impl Fn(String, Vec<u8>) + 'static) -> Self {
         self.session.set_on_file(Rc::new(handler));
         self

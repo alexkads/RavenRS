@@ -1,0 +1,26 @@
+[package]
+name = "ravenrs-app-derive"
+description = "The derives of ravenrs-app: declare a business object as a Rust struct."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-derive"
+keywords = ["derive", "application", "framework", "model"]
+categories = ["development-tools::procedural-macro-helpers"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2.workspace = true
+quote.workspace = true
+ravenrs-criteria.workspace = true
+syn = { workspace = true, features = ["derive", "proc-macro"] }
+
+[lints]
+workspace = true

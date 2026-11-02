@@ -1,0 +1,5 @@
+error: unknown setting: use caption, navigation or icon
+ --> tests/ui/unknown_object_setting.rs:4:10
+  |
+4 | #[object(captions = "x")]
+  |          ^^^^^^^^

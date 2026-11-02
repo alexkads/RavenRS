@@ -1,0 +1,5 @@
+error: a field holds one kind of thing: this says a second
+ --> tests/ui/two_kinds.rs:7:20
+  |
+7 |     #[field(money, long)]
+  |                    ^^^^

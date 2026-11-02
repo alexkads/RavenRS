@@ -65,6 +65,10 @@ pub trait FilePickerProvider {
     /// Shows the system's chooser, and calls `done` with what was chosen, now or later
     /// on the UI thread. Canceling gives an empty list.
     fn pick(&self, request: &FileRequest, done: Box<dyn FnOnce(Vec<PickedFile>)>);
+
+    /// Hands a file over to the person: the system's dialog on a desktop, a download in a
+    /// browser. Nothing happens where there is no system to ask.
+    fn save(&self, _name: &str, _bytes: &[u8]) {}
 }
 
 /// A picker that chooses nothing, for where there is no system to ask (tests, headless use).
@@ -90,6 +94,11 @@ impl FilePicker {
     /// Asks for files; `done` runs with what was chosen.
     pub fn pick(&self, request: &FileRequest, done: impl FnOnce(Vec<PickedFile>) + 'static) {
         self.0.pick(request, Box::new(done));
+    }
+
+    /// Hands a file over to the person.
+    pub fn save(&self, name: &str, bytes: &[u8]) {
+        self.0.save(name, bytes);
     }
 }
 

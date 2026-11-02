@@ -1,0 +1,5 @@
+error: only one field can be the key, and another one already is
+ --> tests/ui/two_keys.rs:8:5
+  |
+8 |     code: String,
+  |     ^^^^

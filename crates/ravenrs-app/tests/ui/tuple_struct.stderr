@@ -1,0 +1,5 @@
+error: a business object is a struct with named fields
+ --> tests/ui/tuple_struct.rs:4:8
+  |
+4 | struct Account(i64);
+  |        ^^^^^^^

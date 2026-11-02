@@ -1,0 +1,5 @@
+error: a business object needs a key: mark a field with #[field(key)] or #[field(typed_key)]
+ --> tests/ui/no_key.rs:4:8
+  |
+4 | struct Account {
+  |        ^^^^^^^

@@ -138,6 +138,11 @@ impl FieldInfo {
     /// A field shown in lists and on the form.
     pub fn new(name: impl Into<String>, kind: FieldKind) -> Self {
         let name = name.into();
+        // A list of options always shows one, so a new record has to hold it.
+        let default_value = match &kind {
+            FieldKind::Enum(options) => options.first().map_or(Value::Null, |o| Value::Text(o.code.clone())),
+            _ => Value::Null,
+        };
         Self {
             caption: caption_of(&name),
             name,
@@ -147,7 +152,7 @@ impl FieldInfo {
             is_key: false,
             read_only: false,
             calculated: None,
-            default_value: Value::Null,
+            default_value,
             kind,
         }
     }

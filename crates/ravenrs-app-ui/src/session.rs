@@ -9,7 +9,7 @@ use ravenrs_app::{
     ModelNode, Object, ObjectSpace, Query, Value, ViewInfo, ViewKind,
 };
 use ravenrs_reactive::State;
-use ravenrs_widgets::{ConfirmDialog, Date};
+use ravenrs_widgets::{ConfirmDialog, Date, FilePicker};
 
 use crate::editors::EditorRegistry;
 use crate::values::key_text;
@@ -301,10 +301,12 @@ impl Session {
         *self.0.on_url.borrow_mut() = Some(handler);
     }
 
-    pub(crate) fn hand_file(&self, name: String, bytes: Vec<u8>) {
+    /// Hands a file over to whoever asked for them, or else to the person.
+    pub(crate) fn hand_file(&self, name: String, bytes: Vec<u8>, picker: &FilePicker) {
         let handler = self.0.on_file.borrow().clone();
-        if let Some(handler) = handler {
-            handler(name, bytes);
+        match handler {
+            Some(handler) => handler(name, bytes),
+            None => picker.save(&name, &bytes),
         }
     }
 

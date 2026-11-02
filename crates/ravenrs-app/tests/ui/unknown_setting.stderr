@@ -1,0 +1,5 @@
+error: unknown setting: use key, typed_key, caption, default_property, read_only, no_list, no_detail, lookup, money, long, color, date, decimals, reference, collection, calculated or default
+ --> tests/ui/unknown_setting.rs:7:13
+  |
+7 |     #[field(captoin = "Nome")]
+  |             ^^^^^^^
