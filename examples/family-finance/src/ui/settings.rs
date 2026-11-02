@@ -158,6 +158,7 @@ pub(crate) fn settings(
     news: &updates::NewsDialog,
     page: &State<usize>,
     models: Option<ravenrs_ai::ModelManager>,
+    voices: Option<ravenrs_ai::VoiceManager>,
     window: Size,
 ) -> Page {
     let columns = if content_width(window) < TWO_COLUMNS_FROM { 1 } else { 2 };
@@ -218,6 +219,21 @@ pub(crate) fn settings(
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
                 models,
+            ))
+            .spacing(10.0)
+            .align(Align::Stretch),
+        )
+    });
+    let voice = voices.map(|voices| {
+        titled_card(
+            "Voz do assistente",
+            VStack::new((
+                Text::new(
+                    "Opcional. Com o LFM3 Audio, o assistente lê as respostas em voz alta, gerando a fala neste computador. Nada sai daqui.",
+                )
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted),
+                voices,
             ))
             .spacing(10.0)
             .align(Align::Stretch),
@@ -385,6 +401,7 @@ pub(crate) fn settings(
             backups,
             Grid::new(columns, (appearance, performance)).spacing(16.0),
             assistant,
+            voice,
             copies,
             Grid::new(columns, (data, updates_card)).spacing(16.0),
             start_over,

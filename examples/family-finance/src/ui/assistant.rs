@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use ravenrs::movie::{Moment, MovieAnswers, MovieChatLabels, MovieWriter};
 use ravenrs::prelude::*;
-use ravenrs_ai::{ModelManager, Tool, ToolCall, read_tool_call, tool_rules};
+use ravenrs_ai::{LocalAssistant, ModelManager, Tool, ToolCall, VoiceManager, read_tool_call, tool_rules};
 
 use super::forms::Forms;
 use super::request::{Prefill, When, folded, read_request};
@@ -19,6 +19,7 @@ use super::store::Store;
 use super::training::{TRAINING_PAGE, TrainingState};
 use crate::model::{Category, Flow, Recurrence, date_label};
 use crate::money::format_brl;
+use crate::ui::spoken::spoken;
 
 /// What tells the model it is choosing.
 pub const ASSISTANT_INTRO: &str =
@@ -74,6 +75,9 @@ const SCREENS: [(&str, &str); 9] = [
 const FOLLOW_UP_WORDS: usize = 5;
 /// How many rows an answer lists.
 const ROWS: usize = 6;
+
+/// Said once, when a model took too long: from then on it answers without one.
+const TOO_SLOW: &str = "Esta IA demorou demais neste computador, então continuo respondendo sem ela. Em Ajustes, você pode escolher uma IA menor.";
 
 /// A question the model is thinking about.
 pub(crate) struct Pending {
@@ -143,14 +147,16 @@ struct Replies {
     pending: Rc<RefCell<Option<Pending>>>,
     films: Option<MovieAnswers>,
     models: Option<ModelManager>,
+    voices: Option<VoiceManager>,
 }
 
 impl Replies {
     /// Takes a question from the chat.
     fn send(&self, question: String, waker: UiWaker) {
-        let assistant = self.models.as_ref().and_then(ModelManager::assistant);
+        let assistant = self.assistant().filter(|assistant| !assistant.too_slow());
         let Some(assistant) = assistant else {
             let reply = self.about_films(&question, &waker);
+            self.read_aloud(&reply.text(), &waker);
             self.messages.update(|all| all.push(reply));
             return;
         };
@@ -199,10 +205,28 @@ impl Replies {
         let chosen = pending.choice.lock().map(|text| text.clone()).unwrap_or_default();
         let reply =
             self.reply(read_tool_call(&chosen, ASSISTANT_TOOLS).as_ref(), &pending.question, &pending.waker);
+        self.read_aloud(&reply.text(), &pending.waker);
+        let too_slow = self.assistant().is_some_and(|assistant| assistant.too_slow());
         self.messages.update(|all| {
             all.pop();
             all.push(reply);
+            if too_slow {
+                all.push(ChatMessage::assistant(TOO_SLOW));
+            }
         });
+    }
+
+    /// Reads an answer when it arrives, if the person asked for that.
+    fn read_aloud(&self, text: &str, waker: &UiWaker) {
+        if let Some(voices) = self.voices.as_ref().filter(|voices| voices.reads_aloud())
+            && !text.is_empty()
+        {
+            voices.say(spoken(text), waker.clone());
+        }
+    }
+
+    fn assistant(&self) -> Option<LocalAssistant> {
+        self.models.as_ref().and_then(ModelManager::assistant)
     }
 
     /// Does what was chosen. Anything it cannot do goes to the films, as with no model.
@@ -409,6 +433,9 @@ struct AssistantChat {
 impl View for AssistantChat {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let (replies, waker) = (self.replies.clone(), cx.ui_waker());
+        if let Some(voices) = &self.replies.voices {
+            voices.play_ready(&cx.sound());
+        }
         let thinking = self.replies.models.as_ref().and_then(ModelManager::assistant).is_some();
         let (intro, examples): (&str, &[&str]) = if thinking {
             (
@@ -431,6 +458,13 @@ impl View for AssistantChat {
             .intro(intro)
             .examples(examples.iter().copied())
             .on_send(move |question| replies.send(question, waker.clone()));
+        let chat = match self.replies.voices.clone().filter(|voices| voices.voice().is_some()) {
+            Some(voices) => {
+                let waker = cx.ui_waker();
+                chat.on_listen(move |text| voices.say(spoken(&text), waker.clone()))
+            }
+            None => chat,
+        };
         chat.build(cx)
     }
 }
@@ -468,6 +502,7 @@ pub(crate) fn chat(
         pending: state.pending.clone(),
         films: Some(films),
         models,
+        voices: state.voices.clone(),
     };
     replies.poll();
     Some(
@@ -499,6 +534,7 @@ mod tests {
             pending: Rc::new(RefCell::new(None)),
             films: None,
             models: None,
+            voices: None,
         }
     }
 

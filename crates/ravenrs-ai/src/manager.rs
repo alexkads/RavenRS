@@ -245,6 +245,11 @@ impl ModelManager {
         self.in_use.borrow().as_ref().map(|(_, assistant)| assistant.clone())
     }
 
+    /// The model in use, if any.
+    pub fn model_in_use(&self) -> Option<LocalModel> {
+        self.in_use.borrow().as_ref().map(|(model, _)| *model)
+    }
+
     fn is_in_use(&self, model: &LocalModel) -> bool {
         self.in_use.borrow().as_ref().is_some_and(|(used, _)| used.id == model.id)
     }

@@ -64,9 +64,30 @@ pub fn read_tool_call(answer: &str, tools: &[Tool]) -> Option<ToolCall> {
     Some(ToolCall { name: name.to_owned(), arguments })
 }
 
+/// Whether `text` has a whole JSON object: the braces it opened are all closed.
+pub(crate) fn json_closed(text: &str) -> bool {
+    let (mut depth, mut in_text, mut escaped) = (0_usize, false, false);
+    for letter in text.chars() {
+        match letter {
+            _ if escaped => escaped = false,
+            '\\' if in_text => escaped = true,
+            '"' => in_text = !in_text,
+            '{' if !in_text => depth += 1,
+            '}' if !in_text && depth > 0 => {
+                depth -= 1;
+                if depth == 0 {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Tool, read_tool_call, tool_rules};
+    use super::{Tool, json_closed, read_tool_call, tool_rules};
 
     const TOOLS: &[Tool] = &[
         Tool { name: "balance", description: "the balance" },
@@ -86,6 +107,14 @@ mod tests {
     fn it_finds_the_json_among_other_words() {
         let call = read_tool_call("Sure:\n{\"tool\":\"balance\",\"args\":{}}\nDone", TOOLS);
         assert_eq!(call.expect("a choice").name, "balance");
+    }
+
+    #[test]
+    fn it_sees_when_the_json_is_whole() {
+        assert!(!json_closed("Sure: {\"tool\":\"a\",\"args\":{}"));
+        assert!(json_closed("Sure: {\"tool\":\"a\",\"args\":{}}"));
+        assert!(!json_closed("{\"tool\":\"}\""));
+        assert!(!json_closed("no json"));
     }
 
     #[test]

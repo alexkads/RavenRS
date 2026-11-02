@@ -491,6 +491,13 @@ impl Ui {
                     return self.needs_redraw();
                 }
                 let command = modifiers.ctrl || modifiers.meta;
+                // Escape closes what opened last: a menu before anything that listens for it.
+                if *key == Key::Escape
+                    && let Some(dismiss) = self.overlays.iter().rev().find_map(|o| o.on_dismiss.clone())
+                {
+                    dismiss();
+                    return self.needs_redraw();
+                }
                 let shortcut = self.shortcuts.iter().find(|s| {
                     s.command == command
                         && (!s.shift || modifiers.shift)
@@ -878,6 +885,8 @@ impl Ui {
             return Err(e);
         }
         self.root_node = Some(node);
+        let mut overlays = overlays;
+        overlays.sort_by_key(|overlay| !overlay.floating);
         self.overlays = overlays;
         self.motions = motions;
         let palette = self.theme.peek().palette;

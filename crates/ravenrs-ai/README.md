@@ -21,3 +21,5 @@ chooses: the app reads the data and does the work, so a model never makes up a n
 it answers beyond the tools offered is no choice at all.
 
 LFM3 is not in candle yet, so this crate reads it itself. LFM3 1.7B needs 4 GB of memory at the peak and chose the right tool in 27 of 32 requests. Its license, LFM Open 1.0, allows commercial use only below 10 million dollars of annual revenue.
+
+`VOICE_CATALOG` has LFM3 Audio 2B, which speaks. `SpeechEngine` follows its model card, with the prompt `Perform TTS in <language> using a <female|male> voice.` and the card's sampling values as `SpeechSettings::default`. On an Apple M2 Pro it writes speech at about the speed of speech, so `LocalVoice` says one sentence at a time. Speech recognition and voice chat are not here yet.

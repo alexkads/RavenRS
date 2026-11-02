@@ -350,6 +350,8 @@ pub(crate) struct Overlay {
     pub placement: Placement,
     pub gap: f32,
     pub on_dismiss: Option<Rc<dyn Fn()>>,
+    /// Stays below every other layer, whenever it was built.
+    pub floating: bool,
 }
 
 pub(crate) struct Element {
@@ -496,6 +498,7 @@ pub struct BuildCx<'a> {
     pub(crate) theme_state: State<Theme>,
     pub(crate) viewport: Size,
     pub(crate) overlays: Vec<Overlay>,
+    floating_overlays: u64,
     pub(crate) text: &'a mut TextSystem,
     pub(crate) layout: &'a mut LayoutTree<TextLeaf>,
     pub(crate) elements: &'a mut Vec<Element>,
@@ -555,6 +558,7 @@ impl<'a> BuildCx<'a> {
             theme_state,
             viewport,
             overlays: Vec::new(),
+            floating_overlays: 0,
             text,
             layout,
             elements,
@@ -1106,7 +1110,28 @@ impl<'a> BuildCx<'a> {
         let slot = self.overlays.len();
         let key = 0x6f76_6572_6c61_7900 + slot as u64;
         let gap = self.theme.spacing.s2;
-        self.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss });
+        self.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss, floating: false });
+        let root = self.keyed_child(key, view);
+        self.overlays[slot].root = root;
+    }
+
+    /// Builds `view` as a layer that stays open beside the UI, like a chat in a
+    /// corner: it is under every menu and dialog, wherever it is built, keeps its state
+    /// when they open, and is not closed by a click outside it.
+    pub fn floating_overlay(&mut self, anchor: NodeId, placement: Placement, view: &dyn View) {
+        // Its key does not depend on the other layers, which come and go.
+        let key = 0x666c_6f61_7400_0000 + self.floating_overlays;
+        self.floating_overlays += 1;
+        let slot = self.overlays.len();
+        let gap = self.theme.spacing.s2;
+        self.overlays.push(Overlay {
+            root: anchor,
+            anchor,
+            placement,
+            gap,
+            on_dismiss: None,
+            floating: true,
+        });
         let root = self.keyed_child(key, view);
         self.overlays[slot].root = root;
     }

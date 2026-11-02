@@ -247,3 +247,114 @@ fn an_answer_can_arrive_while_it_is_written() {
     ui.update();
     assert!(says(&mut ui, "Almost there"));
 }
+
+#[test]
+fn an_answer_can_be_heard_when_someone_listens() {
+    struct Listening(State<Vec<ChatMessage>>, Rc<RefCell<Vec<String>>>);
+    impl View for Listening {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            let heard = self.1.clone();
+            cx.child(&Chat::new(self.0.binding()).on_listen(move |text| heard.borrow_mut().push(text)))
+        }
+    }
+    let messages = State::new(vec![ChatMessage::person("Oi"), ChatMessage::assistant("Olá!")]);
+    let heard = Rc::new(RefCell::new(Vec::new()));
+    let mut ui = running(Listening(messages, heard.clone()));
+    let tree = ui.access_tree();
+    let listen: Vec<_> = tree.nodes.iter().filter(|node| node.name.as_deref() == Some("Listen")).collect();
+    assert_eq!(listen.len(), 1, "only the answer can be heard");
+    ui.perform_action(listen[0].id, AccessAction::Click);
+    ui.update();
+    assert_eq!(*heard.borrow(), ["Olá!"]);
+}
+
+/// A page with a select and a dialog, and the panel built after them.
+struct PageWithPanel {
+    panel_open: State<bool>,
+    chosen: State<usize>,
+    dialog_open: State<bool>,
+    messages: State<Vec<ChatMessage>>,
+}
+
+impl View for PageWithPanel {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let messages = self.messages.clone();
+        let page = VStack::new((
+            Select::new(self.chosen.binding(), ["First", "Second"]).label("Choice"),
+            Dialog::new(self.dialog_open.binding(), "Form").content(Text::new("In the form")),
+            FloatingPanel::new(self.panel_open.binding(), "Assistant", move || {
+                Box::new(Chat::new(messages.binding()).placeholder("Ask"))
+            }),
+        ));
+        cx.child(&page)
+    }
+}
+
+fn page_with_panel() -> (Ui, State<bool>, State<bool>) {
+    let page = PageWithPanel {
+        panel_open: State::new(true),
+        chosen: State::new(0),
+        dialog_open: State::new(false),
+        messages: State::new(Vec::new()),
+    };
+    let (panel, dialog) = (page.panel_open.clone(), page.dialog_open.clone());
+    (running(page), panel, dialog)
+}
+
+fn place_of(ui: &mut Ui, name: &str) -> Option<usize> {
+    ui.access_tree().nodes.iter().position(|node| node.name.as_deref() == Some(name))
+}
+
+fn open_choice(ui: &mut Ui) {
+    let tree = ui.access_tree();
+    let select = tree.nodes.iter().find(|node| node.role == Role::ComboBox).expect("the select").id;
+    ui.perform_action(select, AccessAction::Click);
+    ui.update();
+}
+
+#[test]
+fn a_menu_opens_above_the_panel_built_after_it() {
+    let (mut ui, _, _) = page_with_panel();
+    open_choice(&mut ui);
+    let close = place_of(&mut ui, "Close").expect("the panel");
+    let option = place_of(&mut ui, "Second").expect("the option");
+    assert!(close < option, "the menu is above the panel");
+}
+
+#[test]
+fn opening_a_menu_keeps_what_is_written_in_the_panel() {
+    let (mut ui, _, _) = page_with_panel();
+    write(&mut ui, "half a question");
+    assert!(says(&mut ui, "half a question") || field_says(&mut ui, "half a question"));
+    open_choice(&mut ui);
+    assert!(field_says(&mut ui, "half a question"), "the panel kept its state");
+}
+
+#[test]
+fn escape_closes_the_menu_before_the_panel() {
+    let (mut ui, panel, _) = page_with_panel();
+    open_choice(&mut ui);
+    assert!(place_of(&mut ui, "Second").is_some());
+    press(&mut ui, Key::Escape);
+    assert!(place_of(&mut ui, "Second").is_none(), "the menu closed");
+    assert!(panel.get(), "the panel stayed");
+    press(&mut ui, Key::Escape);
+    assert!(!panel.get(), "and then the panel closes");
+}
+
+#[test]
+fn a_dialog_covers_the_panel() {
+    let (mut ui, panel, dialog) = page_with_panel();
+    dialog.set(true);
+    ui.update();
+    assert!(says(&mut ui, "In the form"));
+    assert_eq!(place_of(&mut ui, "Assistant"), None, "what is behind a dialog cannot be reached");
+    assert!(panel.get(), "and stays open behind it");
+}
+
+fn field_says(ui: &mut Ui, wanted: &str) -> bool {
+    ui.access_tree()
+        .nodes
+        .iter()
+        .any(|node| node.role == Role::TextInput && node.value.as_deref() == Some(wanted))
+}

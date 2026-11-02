@@ -13,16 +13,16 @@ use candle_transformers::quantized_nn::RmsNorm;
 const CONV_WIDTH: usize = 7;
 
 /// The cosines and sines of a kind of attention, at the positions being read.
-struct Rotation {
+pub(crate) struct Rotation {
     cos: Tensor,
     sin: Tensor,
 }
 
 /// Which tokens a kind of attention may read while going through the prompt.
 #[derive(Clone, Copy)]
-struct Reach<'a> {
-    rotation: &'a Rotation,
-    mask: Option<&'a Tensor>,
+pub(crate) struct Reach<'a> {
+    pub(crate) rotation: &'a Rotation,
+    pub(crate) mask: Option<&'a Tensor>,
 }
 
 struct Feed {
@@ -50,6 +50,8 @@ struct Attention {
     head_size: usize,
     /// The keys and values to keep, when this one looks only at a sliding window.
     keep: Option<usize>,
+    /// Whether it reads token by token, keeping what it read.
+    remembers: bool,
     cache: Option<(Tensor, Tensor)>,
 }
 
@@ -72,12 +74,14 @@ impl Attention {
             None => (key, value),
         };
         let seen = key.dim(2)?;
-        self.cache = Some(match self.keep {
-            Some(keep) if seen > keep => {
-                (key.narrow(2, seen - keep, keep)?, value.narrow(2, seen - keep, keep)?)
-            }
-            _ => (key.clone(), value.clone()),
-        });
+        if self.remembers {
+            self.cache = Some(match self.keep {
+                Some(keep) if seen > keep => {
+                    (key.narrow(2, seen - keep, keep)?, value.narrow(2, seen - keep, keep)?)
+                }
+                _ => (key.clone(), value.clone()),
+            });
+        }
 
         let groups = self.heads / self.key_heads;
         let key = candle_transformers::utils::repeat_kv(key, groups)?;
@@ -131,15 +135,180 @@ struct Layer {
     operator: Operator,
     feed: Feed,
     operator_norm: RmsNorm,
-    after_operator_norm: RmsNorm,
+    after_operator_norm: Option<RmsNorm>,
     feed_norm: RmsNorm,
-    after_feed_norm: RmsNorm,
+    after_feed_norm: Option<RmsNorm>,
+}
+
+/// What each kind of file calls the parts of a layer.
+pub(crate) struct LayerNames {
+    pub(crate) attention_out: &'static str,
+    pub(crate) operator_norm: &'static str,
+    pub(crate) after_operator_norm: Option<&'static str>,
+    pub(crate) feed_norm: &'static str,
+    pub(crate) after_feed_norm: Option<&'static str>,
+    pub(crate) conv_in: &'static str,
+    pub(crate) conv_out: &'static str,
+    pub(crate) conv: &'static str,
+}
+
+/// The names in an LFM3 model's own file.
+const MODEL_NAMES: LayerNames = LayerNames {
+    attention_out: "attn_output",
+    operator_norm: "attn_norm",
+    after_operator_norm: Some("post_attention_norm"),
+    feed_norm: "ffn_norm",
+    after_feed_norm: Some("post_ffw_norm"),
+    conv_in: "shortconv.in_proj",
+    conv_out: "shortconv.out_proj",
+    conv: "shortconv.conv",
+};
+
+/// What a layer of a stack is.
+#[derive(Clone, Copy)]
+pub(crate) enum LayerKind {
+    Conv,
+    Full,
+    Window,
+}
+
+/// The sizes of a stack's attention.
+#[derive(Clone, Copy)]
+pub(crate) struct Heads {
+    pub(crate) heads: usize,
+    pub(crate) key_heads: usize,
+    pub(crate) head_size: usize,
+    pub(crate) keep: usize,
+    pub(crate) remembers: bool,
+    pub(crate) eps: f64,
+}
+
+/// A stack of layers. The depth decoder and the codec of LFM3 Audio are made of the same.
+pub(crate) struct Stack {
+    layers: Vec<Layer>,
+}
+
+impl Stack {
+    /// Reads the layers called `{prefix}.{index}.{part}.weight`, of each `kinds`.
+    pub(crate) fn from_gguf<R: std::io::Seek + std::io::Read>(
+        content: &gguf_file::Content,
+        reader: &mut R,
+        device: &Device,
+        prefix: &str,
+        names: &LayerNames,
+        sizes: Heads,
+        kinds: &[LayerKind],
+    ) -> Result<Self> {
+        let eps = sizes.eps;
+        let mut tensor = |name: &str| -> Result<QTensor> { content.tensor(reader, name, device) };
+        let mut layers = Vec::with_capacity(kinds.len());
+        for (layer, kind) in kinds.iter().enumerate() {
+            let mut matrix = |name: &str| -> Result<QMatMul> {
+                QMatMul::from_qtensor(tensor(&format!("{prefix}.{layer}.{name}.weight"))?)
+            };
+            let feed = Feed { gate: matrix("ffn_gate")?, up: matrix("ffn_up")?, down: matrix("ffn_down")? };
+            let operator = if matches!(kind, LayerKind::Conv) {
+                let into = matrix(names.conv_in)?;
+                let out = matrix(names.conv_out)?;
+                let weights =
+                    tensor(&format!("{prefix}.{layer}.{}.weight", names.conv))?.dequantize(device)?;
+                let (_, width) = weights.dims2()?;
+                if width != CONV_WIDTH {
+                    bail!("unexpected convolution of {:?}", weights.dims());
+                }
+                let weights = (0..CONV_WIDTH)
+                    .map(|place| weights.narrow(1, place, 1)?.contiguous())
+                    .collect::<Result<Vec<_>>>()?;
+                Operator::Conv(ShortConv { into, out, weights, cache: None })
+            } else {
+                let query = matrix("attn_q")?;
+                let key = matrix("attn_k")?;
+                let value = matrix("attn_v")?;
+                let out = matrix(names.attention_out)?;
+                let gate = matrix("attn_gate")?;
+                let in_window = matches!(kind, LayerKind::Window);
+                let attention = Attention {
+                    query,
+                    key,
+                    value,
+                    out,
+                    gate,
+                    query_norm: RmsNorm::from_qtensor(
+                        tensor(&format!("{prefix}.{layer}.attn_q_norm.weight"))?,
+                        eps,
+                    )?,
+                    key_norm: RmsNorm::from_qtensor(
+                        tensor(&format!("{prefix}.{layer}.attn_k_norm.weight"))?,
+                        eps,
+                    )?,
+                    heads: sizes.heads,
+                    key_heads: sizes.key_heads,
+                    head_size: sizes.head_size,
+                    keep: in_window.then_some(sizes.keep),
+                    remembers: sizes.remembers,
+                    cache: None,
+                };
+                if in_window { Operator::Window(attention) } else { Operator::Full(attention) }
+            };
+            let mut norm = |name: &str| -> Result<RmsNorm> {
+                RmsNorm::from_qtensor(tensor(&format!("{prefix}.{layer}.{name}.weight"))?, eps)
+            };
+            layers.push(Layer {
+                operator,
+                feed,
+                operator_norm: norm(names.operator_norm)?,
+                after_operator_norm: names.after_operator_norm.map(&mut norm).transpose()?,
+                feed_norm: norm(names.feed_norm)?,
+                after_feed_norm: names.after_feed_norm.map(&mut norm).transpose()?,
+            });
+        }
+        Ok(Self { layers })
+    }
+
+    /// Passes `hidden` through the layers.
+    pub(crate) fn forward(
+        &mut self,
+        mut hidden: Tensor,
+        full: Reach<'_>,
+        in_window: Reach<'_>,
+    ) -> Result<Tensor> {
+        for layer in &mut self.layers {
+            let normed = layer.operator_norm.forward(&hidden)?;
+            let done = match &mut layer.operator {
+                Operator::Conv(conv) => conv.forward(&normed)?,
+                Operator::Full(attention) => attention.forward(&normed, full)?,
+                Operator::Window(attention) => attention.forward(&normed, in_window)?,
+            };
+            let done = match &layer.after_operator_norm {
+                Some(norm) => norm.forward(&done)?,
+                None => done,
+            };
+            hidden = (done + hidden)?;
+            let fed = layer.feed.forward(&layer.feed_norm.forward(&hidden)?)?;
+            let fed = match &layer.after_feed_norm {
+                Some(norm) => norm.forward(&fed)?,
+                None => fed,
+            };
+            hidden = (fed + hidden)?;
+        }
+        Ok(hidden)
+    }
+
+    /// Forgets what it has read.
+    pub(crate) fn clear(&mut self) {
+        for layer in &mut self.layers {
+            match &mut layer.operator {
+                Operator::Conv(conv) => conv.cache = None,
+                Operator::Full(attention) | Operator::Window(attention) => attention.cache = None,
+            }
+        }
+    }
 }
 
 /// An LFM3 model with its weights, reading one sequence at a time.
 pub(crate) struct ModelWeights {
     embeddings: Embedding,
-    layers: Vec<Layer>,
+    stack: Stack,
     norm: RmsNorm,
     output: QMatMul,
     full_frequencies: Vec<f32>,
@@ -194,67 +363,21 @@ impl ModelWeights {
             .collect();
         let window_frequencies = frequencies(window_base);
 
-        let mut layers = Vec::with_capacity(key_heads.len());
-        for (layer, key_heads) in key_heads.into_iter().enumerate() {
-            let mut matrix = |name: &str| -> Result<QMatMul> {
-                QMatMul::from_qtensor(tensor(&format!("blk.{layer}.{name}.weight"))?)
-            };
-            let feed = Feed { gate: matrix("ffn_gate")?, up: matrix("ffn_up")?, down: matrix("ffn_down")? };
-            let operator = if key_heads == 0 {
-                let into = matrix("shortconv.in_proj")?;
-                let out = matrix("shortconv.out_proj")?;
-                let weights = tensor(&format!("blk.{layer}.shortconv.conv.weight"))?.dequantize(device)?;
-                if weights.dims2()? != (size, CONV_WIDTH) {
-                    bail!("unexpected convolution of {:?}", weights.dims());
-                }
-                let weights = (0..CONV_WIDTH)
-                    .map(|place| weights.narrow(1, place, 1)?.contiguous())
-                    .collect::<Result<Vec<_>>>()?;
-                Operator::Conv(ShortConv { into, out, weights, cache: None })
-            } else {
-                let in_window = windowed.get(layer).copied().unwrap_or(false);
-                let query = matrix("attn_q")?;
-                let key = matrix("attn_k")?;
-                let value = matrix("attn_v")?;
-                let out = matrix("attn_output")?;
-                let gate = matrix("attn_gate")?;
-                let attention = Attention {
-                    query,
-                    key,
-                    value,
-                    out,
-                    gate,
-                    query_norm: RmsNorm::from_qtensor(
-                        tensor(&format!("blk.{layer}.attn_q_norm.weight"))?,
-                        eps,
-                    )?,
-                    key_norm: RmsNorm::from_qtensor(
-                        tensor(&format!("blk.{layer}.attn_k_norm.weight"))?,
-                        eps,
-                    )?,
-                    heads,
-                    key_heads,
-                    head_size,
-                    keep: in_window.then(|| window - 1),
-                    cache: None,
-                };
-                if in_window { Operator::Window(attention) } else { Operator::Full(attention) }
-            };
-            let mut layer_norm = |name: &str| -> Result<RmsNorm> {
-                RmsNorm::from_qtensor(tensor(&format!("blk.{layer}.{name}.weight"))?, eps)
-            };
-            layers.push(Layer {
-                operator,
-                feed,
-                operator_norm: layer_norm("attn_norm")?,
-                after_operator_norm: layer_norm("post_attention_norm")?,
-                feed_norm: layer_norm("ffn_norm")?,
-                after_feed_norm: layer_norm("post_ffw_norm")?,
-            });
-        }
+        let kinds: Vec<LayerKind> = key_heads
+            .iter()
+            .enumerate()
+            .map(|(layer, key_heads)| match (key_heads, windowed.get(layer)) {
+                (0, _) => LayerKind::Conv,
+                (_, Some(true)) => LayerKind::Window,
+                _ => LayerKind::Full,
+            })
+            .collect();
+        let key_heads = key_heads.iter().copied().find(|heads| *heads > 0).unwrap_or(heads);
+        let sizes = Heads { heads, key_heads, head_size, keep: window - 1, remembers: true, eps };
+        let stack = Stack::from_gguf(content, reader, device, "blk", &MODEL_NAMES, sizes, &kinds)?;
         Ok(Self {
             embeddings,
-            layers,
+            stack,
             norm,
             output,
             full_frequencies,
@@ -266,7 +389,18 @@ impl ModelWeights {
 
     /// The logits for the token after `input`, which starts at position `offset`.
     pub(crate) fn forward(&mut self, input: &Tensor, offset: usize) -> Result<Tensor> {
-        let (_, tokens) = input.dims2()?;
+        let last = self.last_hidden(&self.embed(input)?, offset)?;
+        self.output.forward(&last)
+    }
+
+    /// What the tokens of `input` read as.
+    pub(crate) fn embed(&self, input: &Tensor) -> Result<Tensor> {
+        self.embeddings.forward(input)
+    }
+
+    /// What the model holds after reading `embeds`, which starts at position `offset`.
+    pub(crate) fn last_hidden(&mut self, embeds: &Tensor, offset: usize) -> Result<Tensor> {
+        let (_, tokens, _) = embeds.dims3()?;
         let full = rotation(&self.full_frequencies, offset, tokens, &self.device)?;
         let in_window = rotation(&self.window_frequencies, offset, tokens, &self.device)?;
         // Only the prompt comes in more than one token at a time.
@@ -277,35 +411,22 @@ impl ModelWeights {
         };
         let full = Reach { rotation: &full, mask: full_mask.as_ref() };
         let in_window = Reach { rotation: &in_window, mask: window_mask.as_ref() };
-
-        let mut hidden = self.embeddings.forward(input)?;
-        for layer in &mut self.layers {
-            let normed = layer.operator_norm.forward(&hidden)?;
-            let done = match &mut layer.operator {
-                Operator::Conv(conv) => conv.forward(&normed)?,
-                Operator::Full(attention) => attention.forward(&normed, full)?,
-                Operator::Window(attention) => attention.forward(&normed, in_window)?,
-            };
-            hidden = (layer.after_operator_norm.forward(&done)? + hidden)?;
-            let fed = layer.feed.forward(&layer.feed_norm.forward(&hidden)?)?;
-            hidden = (layer.after_feed_norm.forward(&fed)? + hidden)?;
-        }
-        let last = self.norm.forward(&hidden)?.narrow(1, tokens - 1, 1)?.squeeze(1)?;
-        self.output.forward(&last)
+        let hidden = self.stack.forward(embeds.clone(), full, in_window)?;
+        self.norm.forward(&hidden)?.narrow(1, tokens - 1, 1)?.squeeze(1)
     }
 
     /// Forgets what it has read.
     pub(crate) fn clear_kv_cache(&mut self) {
-        for layer in &mut self.layers {
-            match &mut layer.operator {
-                Operator::Conv(conv) => conv.cache = None,
-                Operator::Full(attention) | Operator::Window(attention) => attention.cache = None,
-            }
-        }
+        self.stack.clear();
     }
 }
 
-fn rotation(frequencies: &[f32], offset: usize, tokens: usize, device: &Device) -> Result<Rotation> {
+pub(crate) fn rotation(
+    frequencies: &[f32],
+    offset: usize,
+    tokens: usize,
+    device: &Device,
+) -> Result<Rotation> {
     let angles: Vec<f32> = (offset..offset + tokens)
         .flat_map(|position| frequencies.iter().map(move |frequency| position as f32 * frequency))
         .collect();
@@ -315,7 +436,7 @@ fn rotation(frequencies: &[f32], offset: usize, tokens: usize, device: &Device) 
 
 /// What to add to the scores of `tokens` tokens, so that each reads only itself and the
 /// ones before it, `reach` tokens at most.
-fn mask(tokens: usize, reach: usize, device: &Device) -> Result<Tensor> {
+pub(crate) fn mask(tokens: usize, reach: usize, device: &Device) -> Result<Tensor> {
     let values: Vec<f32> = (0..tokens)
         .flat_map(|row| {
             (0..tokens).map(
