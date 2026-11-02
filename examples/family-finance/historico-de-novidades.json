@@ -1,5 +1,19 @@
 [
   {
+    "versao": "0.1.15",
+    "data": "2026-11-02",
+    "titulo": "Gráficos novos no Painel e grades que você organiza do seu jeito.",
+    "importante": false,
+    "novidades": [
+      "O Painel ganhou gráficos novos: o saldo por período, receitas e despesas lado a lado, e para onde foi o dinheiro. Passe o ponteiro para ver os valores.",
+      "Em Lançamentos e Contas a pagar, arraste uma coluna para o espaço acima dela para agrupar, e arraste os grupos para trocar a ordem.",
+      "Grave o arranjo da tela em Cenário e volte a ele com um clique, mesmo depois de fechar o app.",
+      "Clique em um total no rodapé para trocar a soma por média, mínimo, máximo ou uma fórmula sua.",
+      "Trocar de relatório não muda mais as coisas de lugar, e Contas a pagar ficou mais fácil de ler."
+    ],
+    "por_que_atualizar": "Para organizar suas listas do seu jeito e entender melhor para onde vai o dinheiro."
+  },
+  {
     "versao": "0.1.14",
     "data": "2026-11-02",
     "titulo": "Os treinamentos ganharam uma voz nova, e o assistente não duplica mais o que você salva.",
