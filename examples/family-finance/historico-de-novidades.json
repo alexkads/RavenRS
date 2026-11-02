@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.1.11",
+    "data": "2026-11-02",
+    "titulo": "Agora você pode usar o LFM3 como IA do assistente.",
+    "importante": false,
+    "novidades": [
+      "Em Ajustes, a lista de IAs que rodam neste computador ganhou o LFM3 1.7B: cerca de 1,1 GB para baixar e 4 GB de memória quando está em uso.",
+      "O assistente entende melhor o que a IA escolheu, mesmo quando ela escreve o nome de uma ação com acento."
+    ],
+    "por_que_atualizar": "Para experimentar o LFM3 no assistente, ainda sem nada sair do computador."
+  },
+  {
     "versao": "0.1.10",
     "data": "2026-11-02",
     "titulo": "Treinamentos e assistente repaginados, e telas que se adaptam a qualquer janela.",

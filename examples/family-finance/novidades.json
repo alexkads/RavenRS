@@ -1,12 +1,10 @@
 {
-  "versao": "0.1.10",
-  "titulo": "Treinamentos e assistente repaginados, e telas que se adaptam a qualquer janela.",
+  "versao": "0.1.11",
+  "titulo": "Agora você pode usar o LFM3 como IA do assistente.",
   "importante": false,
   "novidades": [
-    "Em Treinamentos, o filme cabe na janela com os controles sempre à vista, e as respostas abrem sobre o filme sem empurrá-lo.",
-    "O assistente responde primeiro em palavras e depois oferece o filme, e o botão no canto ficou mais discreto.",
-    "Em janelas pequenas, a barra lateral abre por um botão e as telas se reorganizam sem sobrepor nada. O valor nunca some das tabelas.",
-    "As cores de situação agora são as mesmas em todas as telas, com selos mais fáceis de ler, e os treinamentos foram regravados."
+    "Em Ajustes, a lista de IAs que rodam neste computador ganhou o LFM3 1.7B: cerca de 1,1 GB para baixar e 4 GB de memória quando está em uso.",
+    "O assistente entende melhor o que a IA escolheu, mesmo quando ela escreve o nome de uma ação com acento."
   ],
-  "por_que_atualizar": "Para aprender e consultar com menos bagunça, em qualquer tamanho de janela."
+  "por_que_atualizar": "Para experimentar o LFM3 no assistente, ainda sem nada sair do computador."
 }
