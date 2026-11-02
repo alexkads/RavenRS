@@ -153,11 +153,26 @@ impl<C: ViewSeq> View for FillColumn<C> {
 
 /// A screen's margins. The bottom one leaves the assistant's sphere clear of what is on
 /// the screen, so that it never covers a button.
-pub(crate) const PAGE_INSETS: Insets = Insets { top: 24.0, right: 24.0, bottom: 64.0, left: 24.0 };
+pub(crate) const PAGE_INSETS: Insets = Insets { top: 24.0, right: 24.0, bottom: 72.0, left: 24.0 };
 
 /// The same, with a screen's usual space.
 pub(crate) fn screen<C: ViewSeq>(children: C) -> FillColumn<C> {
     FillColumn { children, spacing: 16.0, padding: PAGE_INSETS }
+}
+
+/// Below this window width the sidebar leaves the page and opens as a sheet.
+pub(crate) const NARROW_WINDOW: f32 = 900.0;
+const SIDEBAR_WIDTH: f32 = 248.0;
+
+/// The width of a page's content in a window this big, without its margins.
+pub(crate) fn content_width(window: Size) -> f32 {
+    let sidebar = if window.width < NARROW_WINDOW { 0.0 } else { SIDEBAR_WIDTH };
+    window.width - sidebar - PAGE_INSETS.left - PAGE_INSETS.right
+}
+
+/// A grid that keeps the room left, inside a key that gives it its columns again.
+pub(crate) fn filling(grid: DataGrid) -> FillColumn<(DataGrid,)> {
+    FillColumn { children: (grid,), spacing: 0.0, padding: 0.0.into() }
 }
 
 /// A screen: what it says about itself in the top bar, and what it shows.

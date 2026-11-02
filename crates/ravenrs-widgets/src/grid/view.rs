@@ -55,6 +55,7 @@ pub enum SelectionMode {
 /// ui.update();
 /// ```
 pub struct DataGrid {
+    empty_text: Option<String>,
     data: GridData,
     columns: Vec<GridColumn>,
     selection_mode: SelectionMode,
@@ -81,9 +82,16 @@ impl fmt::Debug for DataGrid {
 }
 
 impl DataGrid {
+    /// What it says when there is no data at all, as opposed to filters leaving nothing.
+    pub fn empty_text(mut self, text: impl Into<String>) -> Self {
+        self.empty_text = Some(text.into());
+        self
+    }
+
     /// A grid over `data` with these columns; single selection, filter row, toolbar and footer on.
     pub fn new(data: GridData, columns: impl IntoIterator<Item = GridColumn>) -> Self {
         Self {
+            empty_text: None,
             data,
             columns: columns.into_iter().collect(),
             selection_mode: SelectionMode::Single,
@@ -233,6 +241,9 @@ fn justify(align: CellAlign) -> Justify {
         CellAlign::End => Justify::End,
     }
 }
+
+/// What a column that fills leaves at the end of the rows for the scrollbar.
+const SCROLLBAR_ROOM: f32 = 12.0;
 
 /// A fixed-width cell box.
 fn cell_style(width: f32, height: f32, align: CellAlign) -> LayoutStyle {
@@ -988,9 +999,22 @@ impl View for DataGrid {
                 }
             }
         };
-        let widths = h.widths.get();
+        let mut widths = h.widths.get();
         let visible: Vec<usize> = (0..self.columns.len()).filter(|&c| !query.is_hidden(c)).collect();
         let select_width = if self.selection_mode == SelectionMode::Multiple { 44.0 } else { 0.0 };
+        if let Some(&fill) = visible.iter().find(|&&c| self.columns[c].fill) {
+            match cx.scroll_viewport() {
+                Some(view) => {
+                    let used = select_width + visible.iter().map(|&c| widths[c]).sum::<f32>();
+                    widths[fill] += (view.width - used - SCROLLBAR_ROOM).max(0.0);
+                }
+                // The width comes from the first layout, and nothing else asks for a second build.
+                None => {
+                    let now = cx.now();
+                    cx.wake_at(now);
+                }
+            }
+        }
         let total_width = select_width + visible.iter().map(|&c| widths[c]).sum::<f32>();
         let selected = h.selection.get();
         let focus_row = h.focus_row.get();
@@ -1117,7 +1141,11 @@ impl View for DataGrid {
             Paint::None,
         ));
         if len == 0 {
-            let empty = cx.labels().grid_no_rows.clone();
+            let empty = self
+                .empty_text
+                .clone()
+                .filter(|_| self.data.rows().is_empty())
+                .unwrap_or_else(|| cx.labels().grid_no_rows.clone());
             let msg = util::label(cx, &empty, TextStyle::Body, None, theme.color(Semantic::InkMuted));
             body_rows.push(cx.container(
                 LayoutStyle { padding: Insets::uniform(24.0), ..LayoutStyle::stack(Axis::Horizontal) },

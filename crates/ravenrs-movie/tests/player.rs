@@ -148,7 +148,7 @@ fn chapters_jump_and_the_end_stops_and_plays_again() {
     let mut ui = player(MoviePlayer::new(film()));
     click(&mut ui, "Second part");
     assert!(says_time(&mut ui, "0:06"));
-    assert!(has(&mut ui, "What comes next"));
+    assert!(has(&mut ui, "Second part What comes next"), "the chapter says what it teaches");
     click(&mut ui, "Play");
     run_to(&mut ui, 0.0, 5.0);
     assert!(says_time(&mut ui, "0:10"));

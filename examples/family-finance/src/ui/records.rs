@@ -3,9 +3,13 @@
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{PAGE_INSETS, Page, Store};
+use super::store::{PAGE_INSETS, Page, Store, content_width};
 use crate::model::{AccountKind, Flow};
 use crate::money::{format_brl, format_input, parse_brl};
+
+const FORM_WIDTH: f32 = 340.0;
+/// Below this width a list and the form no longer fit side by side.
+const SIDE_BY_SIDE_FROM: f32 = 760.0;
 
 fn accepts_zero(text: &str) -> Result<(), String> {
     if text.trim().is_empty() { Ok(()) } else { parse_brl(text).map(|_| ()) }
@@ -92,14 +96,21 @@ fn record_row(
     )
 }
 
-fn two_panes(list: Vec<AnyView>, form: impl View + 'static) -> impl View {
-    HStack::new((
-        Card::new(VStack::new(list).spacing(8.0).align(Align::Stretch)).grow(1.0),
-        Card::new(form).width(340.0),
-    ))
-    .spacing(16.0)
-    .align(Align::Start)
-    .padding((16.0, 0.0))
+/// The list beside its form, or over it when there is no room.
+fn two_panes(list: Vec<AnyView>, form: impl View + 'static, beside: bool) -> AnyView {
+    let list = Card::new(VStack::new(list).spacing(8.0).align(Align::Stretch));
+    if beside {
+        Box::new(
+            HStack::new((list.grow(1.0), Card::new(form).width(FORM_WIDTH)))
+                .spacing(16.0)
+                .align(Align::Start)
+                .padding((16.0, 0.0)),
+        )
+    } else {
+        Box::new(
+            VStack::new((list, Card::new(form))).spacing(16.0).align(Align::Stretch).padding((16.0, 0.0)),
+        )
+    }
 }
 
 fn form_buttons(
@@ -117,7 +128,7 @@ fn form_buttons(
     .spacing(8.0)
 }
 
-fn accounts_tab(store: &Store, state: &RecordsState, forms: &Forms) -> impl View + use<> {
+fn accounts_tab(store: &Store, state: &RecordsState, forms: &Forms, beside: bool) -> AnyView {
     let accounts = store.read(|db| db.accounts());
     let list = accounts
         .iter()
@@ -202,10 +213,11 @@ fn accounts_tab(store: &Store, state: &RecordsState, forms: &Forms) -> impl View
         ))
         .spacing(12.0)
         .align(Align::Stretch),
+        beside,
     )
 }
 
-fn categories_tab(store: &Store, state: &RecordsState, forms: &Forms) -> impl View + use<> {
+fn categories_tab(store: &Store, state: &RecordsState, forms: &Forms, beside: bool) -> AnyView {
     let categories = store.read(|db| db.categories());
     let list = categories
         .iter()
@@ -288,10 +300,11 @@ fn categories_tab(store: &Store, state: &RecordsState, forms: &Forms) -> impl Vi
         ))
         .spacing(12.0)
         .align(Align::Stretch),
+        beside,
     )
 }
 
-fn members_tab(store: &Store, state: &RecordsState, forms: &Forms) -> impl View + use<> {
+fn members_tab(store: &Store, state: &RecordsState, forms: &Forms, beside: bool) -> AnyView {
     let members = store.read(|db| db.members());
     let list = members
         .iter()
@@ -352,17 +365,19 @@ fn members_tab(store: &Store, state: &RecordsState, forms: &Forms) -> impl View 
         ))
         .spacing(12.0)
         .align(Align::Stretch),
+        beside,
     )
 }
 
-pub(crate) fn records(store: &Store, state: &RecordsState, forms: &Forms) -> Page {
+pub(crate) fn records(store: &Store, state: &RecordsState, forms: &Forms, window: Size) -> Page {
+    let beside = content_width(window) >= SIDE_BY_SIDE_FROM;
     store.version();
     Page::new(
         "As contas, as categorias e as pessoas que os lançamentos usam.",
         ScrollView::new((VStack::new((Tabs::new(state.tab.binding())
-            .tab("Contas", accounts_tab(store, state, forms))
-            .tab("Categorias", categories_tab(store, state, forms))
-            .tab("Família", members_tab(store, state, forms)),))
+            .tab("Contas", accounts_tab(store, state, forms, beside))
+            .tab("Categorias", categories_tab(store, state, forms, beside))
+            .tab("Família", members_tab(store, state, forms, beside)),))
         .spacing(16.0)
         .align(Align::Stretch),))
         .padding(PAGE_INSETS),

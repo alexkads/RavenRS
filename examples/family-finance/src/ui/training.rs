@@ -11,7 +11,7 @@ use ravenrs::prelude::*;
 use ravenrs_ai::{CATALOG, ModelFolder, ModelManager, ModelManagerLabels};
 
 use super::assistant::Pending;
-use super::store::{PAGE_INSETS, Page, Store};
+use super::store::{PAGE_INSETS, Page, Store, content_width};
 use crate::update;
 
 /// The films, recorded by `tests/training.rs` from the real app.
@@ -25,8 +25,10 @@ const FILMS: [(&str, &[u8]); 6] = [
 ];
 /// The Treinamentos page, in the app's list of pages.
 pub(crate) const TRAINING_PAGE: usize = 8;
-/// The room around the player: the sidebar and the page's margins.
-const AROUND_THE_PLAYER: f32 = 306.0;
+/// What takes height outside the page: the top bar and the foot of the window.
+const AROUND_THE_PAGE: f32 = 92.0;
+/// The room the page's scrollbar takes.
+const SCROLLBAR: f32 = 12.0;
 
 /// The films, read once: they are small, but views build often.
 pub(crate) struct TrainingState {
@@ -71,7 +73,8 @@ pub(crate) fn training(state: &TrainingState) -> Page {
                     MovieAssistant::new(library.clone())
                         .labels(AssistantLabels::pt_br())
                         .cue(cue.clone())
-                        .width((size.width - AROUND_THE_PLAYER).max(480.0)),
+                        .width((content_width(size) - SCROLLBAR).max(320.0))
+                        .height(size.height - AROUND_THE_PAGE - PAGE_INSETS.top - PAGE_INSETS.bottom),
                 ),
                 None => Box::new(
                     Alert::new("Treinamentos indisponíveis", "O arquivo dos filmes não pôde ser lido.")

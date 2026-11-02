@@ -59,7 +59,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Split button | | ✓ | ✓ | ⬜ |
 | Floating action button | | ✓ | ✓ | ⬜ |
 | Speed dial | | ✓ | ✓ | ⬜ |
-| Floating action button with a panel | | ✓ | ✓ | ✅ `FloatingPanel`: a glowing sphere that drags between corners |
+| Floating action button with a panel | | ✓ | ✓ | ✅ `FloatingPanel`: a round button that drags between corners |
 
 ## Inputs and editors
 

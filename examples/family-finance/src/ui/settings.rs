@@ -7,7 +7,7 @@ use ravenrs::native::{OpenDialog, SaveDialog, open_with_system};
 use ravenrs::prelude::*;
 
 use super::forms::{Confirm, Forms};
-use super::store::{PAGE_INSETS, Page, Store, titled_card};
+use super::store::{PAGE_INSETS, Page, Store, content_width, titled_card};
 use super::updates;
 use crate::backup::{self, CopyReason};
 use crate::db::{Database, DbResult};
@@ -15,6 +15,8 @@ use crate::model::{date_label, parse_date};
 use crate::seed;
 use crate::update::{self, UpdateStatus};
 
+/// Below this width the theme's three choices no longer fit in half of it.
+const TWO_COLUMNS_FROM: f32 = 760.0;
 /// How many of the kept copies the page lists; the newest are the ones that matter.
 const COPIES_SHOWN: usize = 5;
 
@@ -155,7 +157,9 @@ pub(crate) fn settings(
     news: &updates::NewsDialog,
     page: &State<usize>,
     models: Option<ravenrs_ai::ModelManager>,
+    window: Size,
 ) -> Page {
+    let columns = if content_width(window) < TWO_COLUMNS_FROM { 1 } else { 2 };
     let (diagnostics, painel) = (store.diagnostics.clone(), page.clone());
     let path = store.path.as_ref().map_or_else(|| "Só na memória".to_owned(), |p| p.display().to_string());
     let version = store.read(|db| db.schema_version());
@@ -269,8 +273,14 @@ pub(crate) fn settings(
         "Onde seus dados ficam",
         VStack::new((
             info_row("Arquivo", path),
-            info_row("Versão do esquema", version.to_string()),
-            info_row("Motor", "SQLite, compilado dentro do app".to_owned()),
+            Disclosure::new(
+                "Detalhes técnicos",
+                VStack::new((
+                    info_row("Versão do esquema", version.to_string()),
+                    info_row("Motor", "SQLite, compilado dentro do app".to_owned()),
+                ))
+                .spacing(10.0),
+            ),
             folder.map(|folder| {
                 Button::new("Abrir a pasta")
                     .icon(IconName::FolderOpen)
@@ -364,10 +374,10 @@ pub(crate) fn settings(
         "Onde seus dados ficam e como o app se atualiza.",
         ScrollView::new((VStack::new((
             backups,
-            Grid::new(2, (appearance, performance)).spacing(16.0),
+            Grid::new(columns, (appearance, performance)).spacing(16.0),
             assistant,
             copies,
-            Grid::new(2, (data, updates_card)).spacing(16.0),
+            Grid::new(columns, (data, updates_card)).spacing(16.0),
             start_over,
         ))
         .spacing(16.0)

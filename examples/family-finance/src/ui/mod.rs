@@ -32,7 +32,7 @@ use ledger::LedgerState;
 use ravenrs::movie::{BugReporter, FlightRecorder};
 use records::RecordsState;
 use reports::ReportsState;
-use store::{Memo, Page, Store};
+use store::{Memo, NARROW_WINDOW, Page, Store};
 
 use crate::db::Database;
 use crate::model::{BillStatus, Flow};
@@ -60,6 +60,7 @@ pub struct App {
     store: Store,
     page: State<usize>,
     palette: State<bool>,
+    sidebar: SidebarState,
     news: updates::NewsDialog,
     forms: Forms,
     dashboard: DashboardState,
@@ -98,6 +99,7 @@ impl App {
             store,
             page: State::new(0),
             palette: State::new(false),
+            sidebar: SidebarState::new(true),
             news: updates::NewsDialog::new(),
             training,
             recorder,
@@ -166,16 +168,18 @@ impl App {
             }
             items.push(Box::new(item));
         }
-        Sidebar::new(items)
+        Sidebar::new(items).narrow_below(NARROW_WINDOW).state(self.sidebar.clone())
     }
 
-    fn toolbar(&self, subtitle: String) -> impl View + use<> {
+    fn toolbar(&self, subtitle: String, window: Size) -> impl View + use<> {
         let (_, title) = PAGES[self.page.get().min(PAGES.len() - 1)];
         let palette = self.palette.clone();
         let (expense_store, expense) = (self.store.clone(), self.forms.transaction.clone());
         let (income_store, income) = (self.store.clone(), self.forms.transaction.clone());
         let (bill_store, bill) = (self.store.clone(), self.forms.bill.clone());
+        let trigger = (window.width < NARROW_WINDOW).then(|| SidebarTrigger::new(self.sidebar.clone()));
         HStack::new((
+            trigger,
             VStack::new((
                 Text::new(title).style(TextStyle::Title),
                 Text::new(subtitle).style(TextStyle::Callout).foreground(Semantic::InkMuted).truncate(),
@@ -246,25 +250,26 @@ impl App {
             )
     }
 
-    fn page_view(&self) -> Page {
+    fn page_view(&self, window: Size) -> Page {
         let opener = {
             let page = self.page.clone();
             Rc::new(move |i: usize| page.set(i)) as Rc<dyn Fn(usize)>
         };
         match self.page.get() {
             0 => dashboard::dashboard(&self.store, &self.dashboard, &self.forms, opener),
-            1 => ledger::ledger(&self.store, &self.ledger, &self.forms),
-            2 => bills::bills(&self.store, &self.bills, &self.forms),
-            3 => agenda::agenda(&self.store, &self.agenda, &self.forms),
-            4 => budgets::budgets(&self.store, &self.budgets),
+            1 => ledger::ledger(&self.store, &self.ledger, &self.forms, window),
+            2 => bills::bills(&self.store, &self.bills, &self.forms, window),
+            3 => agenda::agenda(&self.store, &self.agenda, &self.forms, window),
+            4 => budgets::budgets(&self.store, &self.budgets, window),
             5 => reports::reports(&self.store, &self.reports),
-            6 => records::records(&self.store, &self.records, &self.forms),
+            6 => records::records(&self.store, &self.records, &self.forms, window),
             7 => settings::settings(
                 &self.store,
                 &self.forms,
                 &self.news,
                 &self.page,
                 self.training.models.clone(),
+                window,
             ),
             _ => training::training(&self.training),
         }
@@ -294,11 +299,17 @@ impl View for Shortcuts {
 
 impl Component for App {
     fn body(&self) -> impl View {
-        let page = self.page_view();
+        responsive(|window| self.window_view(window))
+    }
+}
+
+impl App {
+    fn window_view(&self, window: Size) -> impl View + use<> {
+        let page = self.page_view(window);
         let main = VStack::new((
             updates::UpdatePump(self.store.updater.clone()),
             self.recorder.clone(),
-            self.toolbar(page.subtitle),
+            self.toolbar(page.subtitle, window),
             Divider::horizontal(),
             // Keyed by screen, so each one opens with fresh local state and scrolled to the top.
             Keyed::new(

@@ -14,6 +14,8 @@ use crate::display::Tone;
 use crate::{Button, ButtonSize, ButtonStyle, IconButton, IconName, Labels, Text, View, util};
 
 const LANE_HEIGHT: f32 = 30.0;
+/// Where a name starts in a row taller than its bars: in line with the first bar.
+const NAME_TOP: f32 = 10.0;
 const ROW_PADDING: f32 = 4.0;
 const GROUP_HEIGHT: f32 = 30.0;
 const HEADER_ROW_HEIGHT: f32 = 26.0;
@@ -1120,8 +1122,12 @@ impl View for Scheduler {
                             absolute: Some((0.0, y)),
                             width: Some(self.resource_width),
                             height: Some(*height),
-                            padding: Insets::symmetric(0.0, 10.0),
-                            justify: Justify::Center,
+                            padding: if self.fill_rows {
+                                Insets { top: NAME_TOP, right: 10.0, bottom: 0.0, left: 10.0 }
+                            } else {
+                                Insets::symmetric(0.0, 10.0)
+                            },
+                            justify: if self.fill_rows { Justify::Start } else { Justify::Center },
                             align: Align::Stretch,
                             overflow_hidden: true,
                             ..LayoutStyle::stack(Axis::Vertical)

@@ -8,8 +8,9 @@ use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
-    BuildCx, Button, ButtonSize, ButtonStyle, Card, HStack, Icon, IconName, List, ListItem, NodeId, Paint,
-    QuadPaint, ScrollView, Semantics, Slider, Sound, SoundClip, Text, Toggle, VStack, View, ViewExt,
+    BuildCx, Button, ButtonSize, ButtonStyle, Card, HStack, Icon, IconButton, IconName, List, ListItem,
+    NodeId, Paint, QuadPaint, ScrollView, Semantics, Slider, Sound, SoundClip, Text, Toggle, VStack, View,
+    ViewExt,
 };
 
 use crate::composition::{Composition, camera_at};
@@ -20,13 +21,19 @@ use crate::project::Region;
 /// no frames of their own, so they move at this pace.
 const FRAME: f64 = 1.0 / 30.0;
 const CHAPTERS_WIDTH: f32 = 260.0;
+/// A film is never smaller than this, however little height there is.
+const SMALLEST_FILM_WIDTH: f32 = 320.0;
+/// The title over the chapters and the gap under it.
+const CHAPTERS_TITLE: f32 = 28.0;
 const COLUMN_GAP: f32 = 16.0;
 /// Below this total width, the chapters go under the film.
 const SIDE_BY_SIDE_FROM: f32 = 720.0;
 /// The box that explains what is being done, and the film width it needs to fit:
 /// on a smaller film the same words go under it.
 const BOX_WIDTH: f32 = 340.0;
-const BOX_FROM: f32 = 560.0;
+const BOX_FROM: f32 = 480.0;
+const POSTER_PLAY_AT: f32 = 0.66;
+const POSTER_PLAY_SIZE: f32 = 32.0;
 const BOX_GAP: f32 = 12.0;
 /// What a box takes besides its lines of text, and a line of its text.
 const BOX_FRAME_HEIGHT: f32 = 84.0;
@@ -390,6 +397,28 @@ impl View for Stage<'_> {
                 HotspotMark { hotspot: hotspot.clone(), frame: camera.region(region), waiting, on_click };
             children.push(cx.child(&mark));
         }
+        // A film that has not started says that it is one.
+        if self.playhead.position_ms.get() == 0 && !self.playhead.is_running() {
+            let (playhead, changes, movie) =
+                (self.playhead.clone(), self.changes.clone(), self.movie.clone());
+            let play = cx.child(
+                &IconButton::new(IconName::Play)
+                    .label(self.labels.play.clone())
+                    .style(ButtonStyle::Primary)
+                    .on_click(move || {
+                        playhead.play(&movie);
+                        changes.update(|n| *n += 1);
+                    }),
+            );
+            children.push(cx.container(
+                LayoutStyle {
+                    absolute: Some(((self.width - POSTER_PLAY_SIZE) / 2.0, height * POSTER_PLAY_AT)),
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[play],
+                Paint::None,
+            ));
+        }
         if let Some(spot) = &self.explaining {
             let chapter = self.movie.chapter_at(at).and_then(|i| self.movie.chapters().get(i));
             let lines = spot.text.chars().count().div_ceil(BOX_LETTERS_PER_LINE).max(1) as f32;
@@ -425,7 +454,7 @@ impl View for Stage<'_> {
             ))
             .spacing(4.0)
             .align(Align::Start);
-            let card = cx.child(&Card::new(content).width(BOX_WIDTH));
+            let card = cx.child(&Card::new(content).padding(16.0).width(BOX_WIDTH));
             children.push(cx.container(
                 LayoutStyle {
                     absolute: Some((x, y)),
@@ -471,6 +500,7 @@ impl View for Stage<'_> {
 pub struct MoviePlayer {
     movie: Movie,
     width: f32,
+    max_film_height: Option<f32>,
     labels: MovieLabels,
     cue: Option<MovieCue>,
 }
@@ -478,7 +508,14 @@ pub struct MoviePlayer {
 impl MoviePlayer {
     /// A player for `movie`, stopped at its first picture.
     pub fn new(movie: Movie) -> Self {
-        Self { movie, width: 960.0, labels: MovieLabels::default(), cue: None }
+        Self { movie, width: 960.0, max_film_height: None, labels: MovieLabels::default(), cue: None }
+    }
+
+    /// The film is no taller than this, and the chapters take the width it leaves.
+    /// For a player that should fit a window with its controls in view.
+    pub fn max_film_height(mut self, height: f32) -> Self {
+        self.max_film_height = Some(height);
+        self
     }
 
     /// The width of the whole player, in logical pixels (960 by default). The
@@ -500,7 +537,12 @@ impl MoviePlayer {
         self
     }
 
-    fn chapters(&self, playhead: &Rc<Playhead>, changes: &State<u64>) -> Option<impl View + use<>> {
+    fn chapters(
+        &self,
+        playhead: &Rc<Playhead>,
+        changes: &State<u64>,
+        list_height: Option<f32>,
+    ) -> Option<impl View + use<>> {
         let movie = &self.movie;
         if movie.chapters().is_empty() {
             return None;
@@ -512,8 +554,15 @@ impl MoviePlayer {
             .enumerate()
             .map(|(i, chapter)| {
                 let (playhead, changes, at) = (playhead.clone(), changes.clone(), chapter.at_ms);
+                let next = movie.chapters().get(i + 1).map_or(movie.duration_ms(), |next| next.at_ms);
                 ListItem::new(chapter.title.clone())
-                    .subtitle(clock_label(chapter.at_ms))
+                    // What the current one teaches; for the others how long they take,
+                    // since where they start would read as that.
+                    .subtitle(if current == Some(i) {
+                        chapter.text.clone()
+                    } else {
+                        clock_label(next.saturating_sub(chapter.at_ms))
+                    })
                     .selected(current == Some(i))
                     .on_click(move || {
                         playhead.seek(at);
@@ -521,12 +570,18 @@ impl MoviePlayer {
                     })
             })
             .collect();
+        let list = ScrollView::new((List::new(rows),));
+        // Beside the film, it scrolls rather than going past it.
+        let list = match list_height {
+            Some(height) => list.height(height),
+            None => list,
+        };
         Some(
             VStack::new((
                 Text::new(self.labels.chapters.clone())
                     .style(TextStyle::Callout)
                     .font_weight(Weight::SEMIBOLD),
-                ScrollView::new((List::new(rows),)),
+                list,
             ))
             .spacing(8.0)
             .align(Align::Stretch),
@@ -542,6 +597,10 @@ impl MoviePlayer {
         explaining: Option<&Hotspot>,
         boxes: bool,
     ) -> Option<impl View + use<>> {
+        // The box over the film already says it.
+        if boxes {
+            return None;
+        }
         let movie = self.movie.clone();
         let at = playhead.position_ms.get();
         let waiting = playhead.waiting.get().and_then(|i| movie.hotspots().get(i)).filter(|_| !boxes);
@@ -607,6 +666,7 @@ impl MoviePlayer {
             Button::new(if running { self.labels.pause.clone() } else { self.labels.play.clone() })
                 .icon(if running { IconName::Pause } else { IconName::Play })
                 .size(ButtonSize::Small)
+                .style(if running { ButtonStyle::Secondary } else { ButtonStyle::Primary })
                 .on_click(move || {
                     if toggle_head.is_running() {
                         toggle_head.pause();
@@ -640,7 +700,8 @@ impl MoviePlayer {
             Toggle::new(audio.1.binding()).label(self.labels.narration.clone()),
         ))
         .spacing(16.0)
-        .align(Align::Center);
+        .align(Align::Center)
+        .wrap();
         VStack::new((playing, options)).spacing(8.0).align(Align::Stretch).width(film_width)
     }
 
@@ -711,7 +772,15 @@ impl View for MoviePlayer {
         }
 
         let side_by_side = self.width >= SIDE_BY_SIDE_FROM && !movie.chapters().is_empty();
-        let film_width = if side_by_side { self.width - CHAPTERS_WIDTH - COLUMN_GAP } else { self.width };
+        let room = if side_by_side { self.width - CHAPTERS_WIDTH - COLUMN_GAP } else { self.width };
+        let logical = movie.logical_size();
+        // The film's frame takes a pixel on each side.
+        let film_width = self.max_film_height.map_or(room, |height| {
+            room.min((height * logical.width / logical.height.max(1.0)).max(SMALLEST_FILM_WIDTH))
+        }) - 2.0;
+        let chapters_width =
+            if side_by_side { self.width - film_width - 2.0 - COLUMN_GAP } else { self.width };
+        let film_height = height_of(film_width, logical);
         let at = playhead.position_ms.get();
         let waiting = playhead.waiting.get();
         let marks: Vec<Hotspot> = movie
@@ -751,6 +820,17 @@ impl View for MoviePlayer {
             explaining: explained.clone().filter(|_| boxes),
         };
         let stage = cx.child(&stage);
+        // A hairline and a shadow, so a film that opens on white still has an edge.
+        let theme = *cx.theme();
+        let stage = cx.container(
+            LayoutStyle { padding: 1.0.into(), ..LayoutStyle::stack(Axis::Vertical) },
+            &[stage],
+            Paint::Quad(QuadPaint {
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                shadow: Some(theme.elevation.soft),
+                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+            }),
+        );
         let audio = (&sound_on, &narration_on);
         let controls = cx.child(&self.controls(&playhead, &changes, &guided, audio, film_width));
         let mut column = vec![stage, controls];
@@ -763,8 +843,9 @@ impl View for MoviePlayer {
             &column,
             Paint::None,
         );
-        let chapters = self.chapters(&playhead, &changes).map(|chapters| {
-            let view = chapters.width(if side_by_side { CHAPTERS_WIDTH } else { self.width });
+        let list_height = side_by_side.then_some(film_height - CHAPTERS_TITLE);
+        let chapters = self.chapters(&playhead, &changes, list_height).map(|chapters| {
+            let view = chapters.width(chapters_width);
             cx.child(&view)
         });
         let children: Vec<NodeId> = [Some(column), chapters].into_iter().flatten().collect();

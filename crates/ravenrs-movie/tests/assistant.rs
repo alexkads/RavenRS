@@ -159,9 +159,10 @@ fn choosing_an_answer_opens_the_film_there_and_plays() {
     let mut ui = ui_of(MovieAssistant::new(library()));
     ask(&mut ui, "guardar meus dados");
     assert!(says(&mut ui, "Guardar seus dados"));
-    click(&mut ui, "Guardar seus dados");
+    // The answer, whose name goes on with what it says, and not the chapter behind it.
+    click(&mut ui, "Guardar seus dados Faça");
     assert!(says(&mut ui, "0:15 / 0:20"), "{:?}", names(&mut ui));
-    assert!(says(&mut ui, "Pause"), "it plays from there");
+    assert!(says(&mut ui, "Pause"), "it plays from there: {:?}", names(&mut ui));
 }
 
 #[test]
@@ -186,11 +187,12 @@ fn enter_opens_the_best_answer() {
 fn the_answers_step_aside_until_the_question_changes() {
     let mut ui = ui_of(MovieAssistant::new(library()));
     ask(&mut ui, "pagar conta");
-    assert!(says(&mut ui, "Pague"));
-    click(&mut ui, "Pagar uma conta");
-    assert!(!says(&mut ui, "Pague"), "the film is what matters now");
+    let answer = "Pagar uma conta Como dar baixa no que venceu. 0:08";
+    assert!(says(&mut ui, answer));
+    click(&mut ui, answer);
+    assert!(!says(&mut ui, answer), "the film is what matters now");
     ask(&mut ui, "s");
-    assert!(says(&mut ui, "Pague"), "another question, other answers");
+    assert!(says(&mut ui, answer), "another question, other answers");
 }
 
 #[test]
@@ -251,9 +253,9 @@ fn the_chat_answers_with_moments_that_open() {
     let mut ui = chat_about(library(), &opened);
     ask(&mut ui, "pagar conta");
     press(&mut ui, Key::Enter);
-    assert!(says(&mut ui, "These moments"));
-    click(&mut ui, "Pague");
-    assert_eq!(opened.get(), [10_000]);
+    assert!(says(&mut ui, "Como dar baixa"), "the answer, in words");
+    click(&mut ui, "Pagar uma conta");
+    assert_eq!(opened.get(), [8000]);
 }
 
 #[test]
@@ -288,7 +290,7 @@ fn a_writer_answers_in_its_own_words_and_the_moments_stay() {
     press(&mut ui, Key::Enter);
     ui.update();
     assert!(says(&mut ui, "pagar conta: see Pagar uma conta"));
-    assert!(says(&mut ui, "Pague"), "the moments are still there");
+    assert!(says(&mut ui, "Pagar uma conta 0:08"), "the moments are still there");
 }
 
 #[test]
