@@ -4,7 +4,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.4] - 2026-11-02
+
 ### Added
+- **Speech with LFM3 Audio.** `SpeechEngine` runs the 2B model on the CPU in plain Rust, as its model card says: 19 languages and locales, two voices, and the card's sampling values. `LocalVoice` says text a sentence at a time on its own thread, `VoiceManager` is the screen to choose the model, language, voice and fine settings, and `Chat::on_listen` puts a button to hear each answer.
 - `Scheduler::card` is the look of a full scheduler, as a card among other cards: a tinted header with the month over the days of the week, a line between the rows' names and the timeline, today's column marked, and bars in a soft tint with a stripe of their color. `Scheduler::event_detail` puts a second line on the bars, and `Scheduler::avatars` the initials beside the rows' names.
 - `Scheduler` scrolls by itself while a drag is near an edge, zooms with a pinch or Ctrl and the wheel, scrolls with the wheel over its names, and brings into view the event keyboard focus reaches. `BuildCx::scroll_with_widget` and `shortcut_with_shift` are new.
 - `Scheduler::event_menu` and `lane_menu` offer menus on a right click, and with `card` a tooltip shows an event's whole name and where a drag is taking it, and the row under the pointer lights up.
@@ -15,10 +18,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `MoviePlayer` plays at three speeds, jumps with the arrow keys, shows where chapters begin on its timeline, which step of how many it is at, the chapters already passed, and at the end offers to watch again or `next`. `Slider::marks` draws the notches.
 
 ### Changed
+- `FloatingPanel` no longer gets in the way of what is on the page: `BuildCx::floating_overlay` keeps it under every menu and dialog, wherever it is built, and it keeps what is written when they open. Escape closes the last menu or dialog before anything that listens for it.
+- `LocalAssistant` stops waiting after a minute, and `too_slow` says so: from then on it answers nothing, at once, so an app can go on without it. A choice also ends as soon as its JSON closes.
 - `Recorder::guide` brings the pointer to what a step asks for before stopping there.
 - A scrollbar shows only around a scroll and then fades, so it no longer sits over what it scrolls at rest. `ScrollView::scrollbar_outside` puts it in the margin around the view.
 
 ### Fixed
+- What leaves the screen keeps its stacking: a closing dialog could pass under its own backdrop, depending on the run.
 - `Avatar`'s initials can be read in a light theme.
 - Dialogs, menus, panels and toasts stay solid while they come and go: fading, they showed the page through their fields, in a gray like metal that stands out in a light theme.
 
@@ -30,21 +36,18 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **`MovieChat`.** A `Chat` that answers from the training films: each answer is a card with the moments that open. It looks only at the words the films hold, on this machine, and `MovieChat::writer` can have a local model write the answer about what it found. `ChatMessage::assistant_writing` shows an answer as it arrives, and `MovieAnswers` answers about the films for a chat that also does other things. `MovieAssistant::cue` lets it open a moment on the same player.
 - `Alert::action` puts a button beside the message, giving an `Alert<AlertAction>`; an alert without one stays `Send`.
 - **LFM3 in `ravenrs-ai`.** The catalog offers LFM3 1.7B, which `LocalEngine` runs with its own implementation, since candle stops at LFM2. It needs 4 GB of memory at the peak and chose the right tool in 27 of 32 requests. Its license allows commercial use only below 10 million dollars of annual revenue.
-- **Speech with LFM3 Audio.** `SpeechEngine` runs the 2B model on the CPU in plain Rust, as its model card says: 19 languages and locales, two voices, and the card's sampling values. `LocalVoice` says text a sentence at a time on its own thread, `VoiceManager` is the screen to choose the model, language, voice and fine settings, and `Chat::on_listen` puts a button to hear each answer.
 - `GridColumn::fill` takes the width the columns leave, and `DataGrid::empty_text` says what no data means, apart from filters leaving nothing.
 - `Scheduler::fill_rows` shares the height left among the rows.
 - `Stat::large` for the one number a screen is about.
 - `MovieAssistant::height` and `MoviePlayer::max_film_height` keep a film and its controls in view; the film's choice becomes a select when its names do not fit. A film that has not started shows a play button over its picture.
 
 ### Changed
-- `FloatingPanel` no longer gets in the way of what is on the page: `BuildCx::floating_overlay` keeps it under every menu and dialog, wherever it is built, and it keeps what is written when they open. Escape closes the last menu or dialog before anything that listens for it.
 - `FloatingPanel`'s button is smaller and calm: the theme's surface with an accent icon, in line with its panel, which lines up with the page's margin.
 - `Chat` sets apart only what the person asked; the answer sits on the panel, and a card takes the whole width.
 - `MovieChat` answers in words first, then the moments; it and `MovieAssistant` leave out the steps inside the chapters they found. Answers open over the film instead of pushing it down.
 - A film's chapters show how long each one takes, and the current one what it teaches; a player with boxes over its film no longer repeats that under it.
 - `Badge` text moves toward the ink, to keep 4.5:1 on its tint.
 - `read_tool_call` accepts a tool's name written with accents or capitals, as models do.
-- `LocalAssistant` stops waiting after a minute, and `too_slow` says so: from then on it answers nothing, at once, so an app can go on without it. A choice also ends as soon as its JSON closes.
 
 ## [27.1.2] - 2026-11-01
 
