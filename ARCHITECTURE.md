@@ -68,6 +68,7 @@ ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)
 ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)
 ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
 ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
+ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export  (the screens, from the model)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
@@ -98,6 +99,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-graphics` | `vector`, `chart`, `barcode`; also the optional layout behind `Chart` and `Barcode` in `ravenrs-widgets` |
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-grid-export` | `lib` |
+| `ravenrs-app-ui` | `session`, `shell`, `list_view`, `detail_view`, `editors`, `container`, `system`, `values` |
 | `ravenrs-app` | `entity`, `model` (`node`, `layers`, `store`, `generate`), `space`, `action`, `controller`, `frame`, `module` |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |

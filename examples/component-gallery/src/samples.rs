@@ -37,6 +37,7 @@ samples! {
     "TreeView" => tree_view, "TagBox" => tag_box, "ColorPicker" => color_picker,
     "DateRangePicker" => date_range_picker, "Wizard" => wizard, "FileUpload" => file_upload,
     "ImageField" => image_field, "TileLayout" => tile_layout, "CardView" => card_view,
+    "AppShell" => app_shell,
     "Ribbon" => ribbon, "Menubar" => menubar, "Tabs" => tabs, "Sidebar" => sidebar,
     "Breadcrumb" => breadcrumb, "Pagination" => pagination, "Accordion" => accordion,
     "Disclosure" => disclosure,
@@ -289,6 +290,78 @@ fn filter_builder() -> impl View {
             FilterField::new("Active", "Active", FilterFieldKind::Boolean),
         ],
     )
+}
+// end
+
+// sample: AppShell, 620
+fn app_shell() -> impl View {
+    use ravenrs_app::{
+        Application, EntityInfo, EnumOption, FieldInfo, FieldKind, MemoryDatabase, ObjectSpace,
+    };
+    use ravenrs_app_ui::{AppShell, EditorRegistry, SystemModule, Words};
+
+    let bank = EntityInfo::new("Bank")
+        .caption("Bancos")
+        .navigation("Cadastros")
+        .icon("landmark")
+        .field(FieldInfo::new("code", FieldKind::Text).caption("Código").typed_key())
+        .field(FieldInfo::new("name", FieldKind::Text).caption("Nome").default_property());
+    let account = EntityInfo::new("Account")
+        .caption("Contas")
+        .navigation("Cadastros")
+        .icon("wallet")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("name", FieldKind::Text).caption("Nome").default_property())
+        .field(
+            FieldInfo::new(
+                "kind",
+                FieldKind::Enum(vec![
+                    EnumOption::new("checking", "Corrente"),
+                    EnumOption::new("savings", "Poupança"),
+                ]),
+            )
+            .caption("Tipo")
+            .default_value("checking"),
+        )
+        .field(FieldInfo::new("bank", FieldKind::Reference("Bank".into())).caption("Banco"))
+        .field(FieldInfo::new("opening", FieldKind::Money).caption("Saldo inicial").default_value(0.0))
+        .field(FieldInfo::new("opened", FieldKind::Date).caption("Aberta em"))
+        .field(FieldInfo::new("active", FieldKind::Boolean).caption("Ativa").default_value(true))
+        .field(FieldInfo::new("notes", FieldKind::LongText).caption("Observações"));
+    let entities = vec![account, bank];
+    let Ok(database) = MemoryDatabase::new(entities.clone()) else {
+        unreachable!("the entities are declared right above");
+    };
+    let mut setup = database.space();
+    for (code, name) in [("001", "Banco do Brasil"), ("341", "Itaú")] {
+        if let Ok(mut object) = setup.new_object("Bank") {
+            object.set("code", code);
+            object.set("name", name);
+            let _ = setup.save(object);
+        }
+    }
+    for (name, cents) in [("Conta corrente", 125_050.0), ("Poupança", 980_000.0), ("Carteira", 12_000.0)] {
+        if let Ok(mut object) = setup.new_object("Account") {
+            object.set("name", name);
+            object.set("opening", cents);
+            object.set("bank", "341");
+            let _ = setup.save(object);
+        }
+    }
+    let _ = setup.commit();
+    let builder = Application::builder("Raven Contas").module(SystemModule::with_words(Words::pt_br()));
+    let application = entities.into_iter().fold(builder, |builder, entity| builder.entity(entity)).build();
+    application.ok().map(|application| {
+        Localized::new(
+            Labels::pt_br(),
+            AppShell::with_options(
+                application,
+                move || database.space(),
+                Words::pt_br(),
+                EditorRegistry::default(),
+            ),
+        )
+    })
 }
 // end
 

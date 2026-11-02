@@ -137,6 +137,9 @@ pub trait ObjectSpace {
     fn new_object(&mut self, entity: &str) -> Result<Object, SpaceError>;
     /// Marks a record as new or changed, by its key.
     fn save(&mut self, object: Object) -> Result<(), SpaceError>;
+    /// Marks a record as new, refusing a key already in use, as a form creating
+    /// a record has to: it must not take over the record with that key.
+    fn insert(&mut self, object: Object) -> Result<(), SpaceError>;
     /// Marks a record to go away.
     fn delete(&mut self, entity: &str, key: &Value) -> Result<(), SpaceError>;
     /// What waits for a commit.
@@ -422,6 +425,26 @@ impl ObjectSpace for MemoryObjectSpace {
         Ok(())
     }
 
+    fn insert(&mut self, mut object: Object) -> Result<(), SpaceError> {
+        let info = self.entity(object.entity())?.clone();
+        info.strip_calculated(&mut object);
+        let key = self.key_of(&info, &object).ok_or_else(|| SpaceError::MissingKey(info.name.clone()))?;
+        let waiting = self.change_at(&info, &key);
+        let taken = match waiting {
+            Some(at) => !matches!(self.changes[at], Change::Deleted { .. }),
+            None => self.committed_has(&info.name, &key),
+        };
+        if taken {
+            return Err(SpaceError::DuplicateKey { entity: info.name, key });
+        }
+        match waiting {
+            // What was going away comes back as a change to it.
+            Some(at) => self.changes[at] = Change::Updated(object),
+            None => self.changes.push(Change::New(object)),
+        }
+        Ok(())
+    }
+
     fn delete(&mut self, entity: &str, key: &Value) -> Result<(), SpaceError> {
         let info = self.entity(entity)?.clone();
         let Some(text) = key_text(key) else { return Ok(()) };
@@ -592,6 +615,35 @@ mod tests {
             Err(SpaceError::DuplicateKey { entity: "Bank".into(), key: "001".into() })
         );
         assert!(other.is_modified(), "the changes wait for a decision");
+    }
+
+    #[test]
+    fn inserting_does_not_take_over_a_record() {
+        let db = database();
+        let mut space = db.space();
+        let bank = |name: &str| {
+            let mut object = db.space().new_object("Bank").expect("the entity");
+            object.set("code", "001");
+            object.set("name", name);
+            object
+        };
+        space.insert(bank("Um")).expect("a new key");
+        let waiting = SpaceError::DuplicateKey { entity: "Bank".into(), key: "001".into() };
+        assert_eq!(space.insert(bank("Dois")), Err(waiting.clone()), "waiting for the commit");
+        space.commit().expect("commits");
+        assert_eq!(space.insert(bank("Dois")), Err(waiting), "already kept");
+        let key = Value::Text("001".into());
+        assert_eq!(
+            space.find("Bank", &key).expect("reads").expect("there").get("name"),
+            Value::Text("Um".into())
+        );
+        space.delete("Bank", &key).expect("deletes");
+        space.insert(bank("Tres")).expect("free again");
+        space.commit().expect("commits");
+        assert_eq!(
+            space.find("Bank", &key).expect("reads").expect("there").get("name"),
+            Value::Text("Tres".into())
+        );
     }
 
     #[test]

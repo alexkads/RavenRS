@@ -255,6 +255,8 @@ pub enum ActionInput {
 
 /// What an action sees while running.
 pub struct ActionContext {
+    /// The frame it runs in.
+    pub frame: crate::Frame,
     /// The records to read and write. A handler commits when it means to.
     pub space: Rc<RefCell<dyn ObjectSpace>>,
     /// The records selected.
@@ -274,12 +276,13 @@ impl fmt::Debug for ActionContext {
 
 impl ActionContext {
     pub(crate) fn new(
+        frame: crate::Frame,
         space: Rc<RefCell<dyn ObjectSpace>>,
         selected: Vec<Object>,
         view: Option<ViewInfo>,
         input: ActionInput,
     ) -> Self {
-        Self { space, selected, view, input, next: RefCell::new(None) }
+        Self { frame, space, selected, view, input, next: RefCell::new(None) }
     }
 
     /// Asks the frame to show this view when the action ends.

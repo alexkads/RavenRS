@@ -1,0 +1,27 @@
+[package]
+name = "ravenrs-app-ui"
+description = "Screens for a RavenRS business application: lists, forms, commands and the shell, generated from the application model."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-ui"
+keywords = ["application", "framework", "crud", "gui"]
+categories = ["gui"]
+
+[dependencies]
+ravenrs-app.workspace = true
+ravenrs-core.workspace = true
+ravenrs-criteria.workspace = true
+ravenrs-grid-export.workspace = true
+ravenrs-layout.workspace = true
+ravenrs-reactive.workspace = true
+ravenrs-style.workspace = true
+ravenrs-widgets.workspace = true
+
+[lints]
+workspace = true

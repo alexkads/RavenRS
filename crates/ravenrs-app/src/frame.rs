@@ -1,5 +1,6 @@
 //! Where a view lives: its controllers, its actions and its records.
 
+use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::fmt;
@@ -83,6 +84,9 @@ pub enum FrameEvent {
 type Validator = Rc<dyn Fn(&[String], &ActionContext) -> Result<(), String>>;
 type FrameWatcher = Rc<dyn Fn(&FrameEvent)>;
 
+/// A view waiting for its turn, with the unit of work to take on, if a new one.
+type PendingView = (Option<ViewInfo>, Option<Rc<RefCell<dyn ObjectSpace>>>);
+
 struct ViewSlot {
     controller: RefCell<Box<dyn ViewController>>,
     id: String,
@@ -99,8 +103,9 @@ struct WindowSlot {
 
 struct FrameInner {
     context: FrameContext,
-    space: Rc<RefCell<dyn ObjectSpace>>,
+    space: RefCell<Rc<RefCell<dyn ObjectSpace>>>,
     model: Option<Rc<ModelNode>>,
+    extensions: RefCell<Vec<Rc<dyn Any>>>,
     environment: Environment,
     view: State<Option<ViewInfo>>,
     selected: State<Vec<Object>>,
@@ -110,7 +115,7 @@ struct FrameInner {
     watchers: RefCell<Vec<FrameWatcher>>,
     validator: RefCell<Option<Validator>>,
     /// Views asked for while one was being changed to, which wait for it to end.
-    pending: RefCell<VecDeque<Option<ViewInfo>>>,
+    pending: RefCell<VecDeque<PendingView>>,
     changing: Cell<bool>,
 }
 
@@ -157,8 +162,9 @@ impl Frame {
             .collect();
         let frame = Self(Rc::new(FrameInner {
             context,
-            space,
+            space: RefCell::new(space),
             model,
+            extensions: RefCell::default(),
             environment: Environment::new(),
             view: State::new(None),
             selected: State::new(Vec::new()),
@@ -191,7 +197,20 @@ impl Frame {
 
     /// The unit of work of its view.
     pub fn space(&self) -> Rc<RefCell<dyn ObjectSpace>> {
-        self.0.space.clone()
+        self.0.space.borrow().clone()
+    }
+
+    /// Keeps something for whoever holds the frame to find by its type, as what shows it
+    /// does for its controllers and actions.
+    pub fn set_extension<T: 'static>(&self, value: Rc<T>) {
+        self.0.extensions.borrow_mut().retain(|kept| !kept.is::<T>());
+        self.0.extensions.borrow_mut().push(value);
+    }
+
+    /// What was kept of this type.
+    pub fn extension<T: 'static>(&self) -> Option<Rc<T>> {
+        let kept = self.0.extensions.borrow().iter().find(|kept| kept.is::<T>()).cloned();
+        kept.and_then(|kept| kept.downcast().ok())
     }
 
     /// The application model, when it was given one.
@@ -244,23 +263,36 @@ impl Frame {
     /// Changes the view. Asked while a change is under way, as from a controller turning on,
     /// it happens after that one ends.
     pub fn set_view(&self, view: Option<ViewInfo>) {
-        self.0.pending.borrow_mut().push_back(view);
+        self.queue_view(view, None);
+    }
+
+    /// Changes the view and takes on a new unit of work with it, as each view has its own.
+    /// The controllers that turn on already see it.
+    pub fn set_view_in(&self, view: Option<ViewInfo>, space: Rc<RefCell<dyn ObjectSpace>>) {
+        self.queue_view(view, Some(space));
+    }
+
+    fn queue_view(&self, view: Option<ViewInfo>, space: Option<Rc<RefCell<dyn ObjectSpace>>>) {
+        self.0.pending.borrow_mut().push_back((view, space));
         if self.0.changing.replace(true) {
             return;
         }
         loop {
             let next = self.0.pending.borrow_mut().pop_front();
-            let Some(next) = next else { break };
-            self.change_view(next);
+            let Some((next, space)) = next else { break };
+            self.change_view(next, space);
         }
         self.0.changing.set(false);
     }
 
-    fn change_view(&self, view: Option<ViewInfo>) {
+    fn change_view(&self, view: Option<ViewInfo>, space: Option<Rc<RefCell<dyn ObjectSpace>>>) {
         let id = view.as_ref().map(|v| v.id.clone());
         self.tell(&FrameEvent::ViewChanging(id.clone()));
         for slot in &self.0.views {
             self.turn(slot, false);
+        }
+        if let Some(space) = space {
+            *self.0.space.borrow_mut() = space;
         }
         self.0.view.set(view);
         self.0.selected.set(Vec::new());
@@ -338,7 +370,7 @@ impl Frame {
     }
 
     fn context_for(&self, input: ActionInput) -> ActionContext {
-        ActionContext::new(self.0.space.clone(), self.0.selected.get(), self.0.view.get(), input)
+        ActionContext::new(self.clone(), self.space(), self.0.selected.get(), self.0.view.get(), input)
     }
 
     /// Runs an action, if it is on: asks whoever guards it, passes its validation contexts, runs

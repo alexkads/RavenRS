@@ -340,7 +340,7 @@ impl EntityInfo {
     }
 
     /// Fills in the calculated fields, in the order declared, so one can read another.
-    pub(crate) fn compute(&self, object: &mut Object, environment: &Environment) {
+    pub fn compute(&self, object: &mut Object, environment: &Environment) {
         for field in &self.fields {
             let Some(expression) = &field.calculated else { continue };
             // `check` already refused what does not parse.

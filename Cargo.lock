@@ -896,6 +896,8 @@ dependencies = [
  "image",
  "pollster",
  "ravenrs",
+ "ravenrs-app",
+ "ravenrs-app-ui",
  "ravenrs-grid-export",
  "tracing-subscriber",
  "wasm-bindgen",
@@ -3994,6 +3996,20 @@ dependencies = [
  "ravenrs-criteria",
  "ravenrs-reactive",
  "serde_json",
+]
+
+[[package]]
+name = "ravenrs-app-ui"
+version = "27.1.6"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-core",
+ "ravenrs-criteria",
+ "ravenrs-grid-export",
+ "ravenrs-layout",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
 ]
 
 [[package]]
