@@ -28,7 +28,7 @@ use ledger::LedgerState;
 use ravenrs::movie::{BugReporter, FlightRecorder};
 use records::RecordsState;
 use reports::ReportsState;
-use store::{Memo, Store};
+use store::{Memo, Page, Store};
 
 use crate::db::Database;
 use crate::model::{BillStatus, Flow};
@@ -157,22 +157,26 @@ impl App {
             let mut item =
                 SidebarItem::new(*icon, *label).selected(current == i).on_click(move || page.set(i));
             if i == BILLS_PAGE && overdue > 0 {
-                item = item.count(overdue.to_string());
+                item = item.badge(Badge::new(overdue.to_string()).tone(Tone::Danger));
             }
             items.push(Box::new(item));
         }
         Sidebar::new(items)
     }
 
-    fn toolbar(&self) -> impl View + use<> {
+    fn toolbar(&self, subtitle: String) -> impl View + use<> {
         let (_, title) = PAGES[self.page.get().min(PAGES.len() - 1)];
         let palette = self.palette.clone();
         let (expense_store, expense) = (self.store.clone(), self.forms.transaction.clone());
         let (income_store, income) = (self.store.clone(), self.forms.transaction.clone());
         let (bill_store, bill) = (self.store.clone(), self.forms.bill.clone());
         HStack::new((
-            Breadcrumb::new(["Raven Finanças", title]),
-            Spacer::new(),
+            VStack::new((
+                Text::new(title).style(TextStyle::Title),
+                Text::new(subtitle).style(TextStyle::Callout).foreground(Semantic::InkMuted).truncate(),
+            ))
+            .spacing(2.0)
+            .grow(1.0),
             Tooltip::new(
                 IconButton::new(IconName::Search)
                     .label("Procurar comando")
@@ -181,6 +185,8 @@ impl App {
             ),
             DropdownMenu::new("Novo")
                 .icon(IconName::Plus)
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Secondary)
                 .item(
                     MenuItem::new("Despesa")
                         .icon(IconName::TrendingDown)
@@ -197,11 +203,11 @@ impl App {
                         .icon(IconName::CreditCard)
                         .on_select(move || bill.start_new(&bill_store)),
                 ),
-            ThemeSwitcher,
         ))
         .spacing(10.0)
         .align(Align::Center)
-        .padding((10.0, 24.0))
+        .padding((12.0, 24.0))
+        .background(Semantic::Surface)
     }
 
     fn palette_view(&self) -> impl View + use<> {
@@ -235,23 +241,30 @@ impl App {
             )
     }
 
-    fn page_view(&self) -> AnyView {
+    fn page_view(&self) -> Page {
         let opener = {
             let page = self.page.clone();
             Rc::new(move |i: usize| page.set(i)) as Rc<dyn Fn(usize)>
         };
         match self.page.get() {
-            0 => Box::new(dashboard::dashboard(&self.store, &self.dashboard, &self.forms, opener)),
-            1 => Box::new(ledger::ledger(&self.store, &self.ledger, &self.forms)),
-            2 => Box::new(bills::bills(&self.store, &self.bills, &self.forms)),
-            3 => Box::new(agenda::agenda(&self.store, &self.agenda, &self.forms)),
-            4 => Box::new(budgets::budgets(&self.store, &self.budgets)),
-            5 => Box::new(reports::reports(&self.store, &self.reports)),
-            6 => Box::new(records::records(&self.store, &self.records, &self.forms)),
-            7 => Box::new(settings::settings(&self.store, &self.forms, &self.news, &self.page)),
-            _ => Box::new(training::training(&self.training)),
+            0 => dashboard::dashboard(&self.store, &self.dashboard, &self.forms, opener),
+            1 => ledger::ledger(&self.store, &self.ledger, &self.forms),
+            2 => bills::bills(&self.store, &self.bills, &self.forms),
+            3 => agenda::agenda(&self.store, &self.agenda, &self.forms),
+            4 => budgets::budgets(&self.store, &self.budgets),
+            5 => reports::reports(&self.store, &self.reports),
+            6 => records::records(&self.store, &self.records, &self.forms),
+            7 => settings::settings(&self.store, &self.forms, &self.news, &self.page),
+            _ => training::training(&self.training),
         }
     }
+}
+
+/// The components' own words in Portuguese. On the agenda, the rows are the people.
+fn labels() -> Labels {
+    let mut labels = Labels::pt_br();
+    labels.scheduler_resources = "Quem".into();
+    labels
 }
 
 /// Keyboard shortcuts that work on every screen.
@@ -270,15 +283,16 @@ impl View for Shortcuts {
 
 impl Component for App {
     fn body(&self) -> impl View {
+        let page = self.page_view();
         let main = VStack::new((
             updates::UpdatePump(self.store.updater.clone()),
             self.recorder.clone(),
-            self.toolbar(),
+            self.toolbar(page.subtitle),
             Divider::horizontal(),
             // Keyed by screen, so each one opens with fresh local state and scrolled to the top.
             Keyed::new(
                 self.page.get() as u64,
-                store::FillColumn { children: (self.page_view(),), spacing: 0.0, padding: 0.0 },
+                store::FillColumn { children: (page.body,), spacing: 0.0, padding: 0.0 },
             ),
         ))
         .spacing(0.0)
@@ -286,7 +300,7 @@ impl Component for App {
         .grow(1.0);
         // Everything inside speaks Portuguese, the components' own words included.
         Localized::new(
-            Labels::pt_br(),
+            labels(),
             VStack::new((
                 HStack::new((self.sidebar(), main)).spacing(0.0).align(Align::Stretch).grow(1.0),
                 updates::status_bar(&self.store.updater, &self.news, &self.reporter),

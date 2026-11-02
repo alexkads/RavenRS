@@ -5,7 +5,7 @@ use ravenrs::movie::{
 };
 use ravenrs::prelude::*;
 
-use super::store::{Store, heading};
+use super::store::{Page, Store};
 use crate::update;
 
 /// The films, recorded by `tests/training.rs` from the real app.
@@ -18,7 +18,7 @@ const FILMS: [(&str, &[u8]); 6] = [
     ("Cadastros e backup", include_bytes!("../../assets/treinamentos/cadastros.ravenmovie")),
 ];
 /// The room around the player: the sidebar and the page's margins.
-const AROUND_THE_PLAYER: f32 = 340.0;
+const AROUND_THE_PLAYER: f32 = 306.0;
 
 /// The films, read once: they are small, but views build often.
 pub(crate) struct TrainingState {
@@ -36,14 +36,11 @@ impl TrainingState {
 }
 
 /// The page with the films.
-pub(crate) fn training(state: &TrainingState) -> impl View + use<> {
+pub(crate) fn training(state: &TrainingState) -> Page {
     let library = state.library.clone();
-    ScrollView::new((VStack::new((
-        heading(
-            "Treinamentos",
-            "Pergunte o que quer aprender, ou escolha um assunto e assista no seu ritmo. O filme explica cada ação em voz alta e em uma caixa na tela, e em cada passo espera você clicar no ponto marcado.",
-        ),
-        responsive(move |size| -> AnyView {
+    Page::new(
+        "Pergunte o que quer aprender, ou escolha um assunto e assista no seu ritmo.",
+        ScrollView::new((VStack::new((responsive(move |size| -> AnyView {
             match &library {
                 Some(library) => Box::new(
                     MovieAssistant::new(library.clone())
@@ -55,11 +52,11 @@ pub(crate) fn training(state: &TrainingState) -> impl View + use<> {
                         .tone(Tone::Danger),
                 ),
             }
-        }),
-    ))
-    .spacing(16.0)
-    .align(Align::Stretch),))
-    .padding(24.0)
+        }),))
+        .spacing(16.0)
+        .align(Align::Stretch),))
+        .padding(24.0),
+    )
 }
 
 /// Saves the report to a file the person sends to the team: nothing here goes

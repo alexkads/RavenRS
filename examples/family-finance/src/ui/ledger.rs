@@ -7,7 +7,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Memo, Store, date_column, heading, money_column, month_nav, row_id, screen};
+use super::store::{Memo, Page, Store, date_column, money_column, month_nav, row_id, screen};
 use crate::filter;
 use crate::model::Flow;
 use crate::money::format_brl;
@@ -90,11 +90,23 @@ fn load(store: &Store, month: Date, kind: usize, text: &str) -> LedgerRows {
     LedgerRows { data: GridData::new(cells), error, income, expense }
 }
 
+/// What came in stands out from what went out.
+fn signed_amount(value: &Value) -> AnyView {
+    let cents = (value.as_f64().unwrap_or(0.0) * 100.0).round() as i64;
+    if cents > 0 {
+        Box::new(
+            Text::new(format!("+{}", format_brl(cents))).style(TextStyle::Body).foreground(Semantic::Success),
+        )
+    } else {
+        Box::new(Text::new(format!("-{}", format_brl(-cents))).style(TextStyle::Body))
+    }
+}
+
 fn combine(typed: &str, condition: &str) -> String {
     if typed.trim().is_empty() { condition.to_owned() } else { format!("({typed}) And {condition}") }
 }
 
-pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl View + use<> {
+pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> Page {
     let (month, kind, applied) = (state.month.get(), state.kind.get(), state.applied.get());
     let rows = state
         .rows
@@ -114,10 +126,12 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
         Spacer::new(),
         Button::new("Nova receita")
             .icon(IconName::TrendingUp)
+            .size(ButtonSize::Small)
             .style(ButtonStyle::Secondary)
             .on_click(move || new_income.start_new(&new_store_2, Flow::Income)),
         Button::new("Nova despesa")
             .icon(IconName::Plus)
+            .size(ButtonSize::Small)
             .on_click(move || new_expense.start_new(&new_store, Flow::Expense)),
     ))
     .spacing(8.0)
@@ -135,8 +149,10 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
     };
     let (clear_typed, clear_applied) = (state.typed.clone(), state.applied.clone());
     let has_filter = !state.applied.get().is_empty();
-    let mut presets =
-        DropdownMenu::new("Filtros prontos").icon(IconName::Filter).style(ButtonStyle::Secondary);
+    let mut presets = DropdownMenu::new("Filtros prontos")
+        .icon(IconName::Filter)
+        .size(ButtonSize::Small)
+        .style(ButtonStyle::Secondary);
     for (label, expression) in PRESETS {
         let (t, a, s) = (state.typed.clone(), state.applied.clone(), state.selection.clone());
         presets = presets.item(MenuItem::new(label).on_select(move || {
@@ -149,22 +165,28 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
         TextField::new(typed.binding())
             .placeholder("Filtro avançado, ex.: [Valor] > 100 And [Categoria] = 'Mercado'")
             .icon(IconName::SlidersHorizontal)
+            .compact()
             .on_submit(apply_submit)
             .stretch()
             .grow(1.0),
-        Button::new("Aplicar").style(ButtonStyle::Secondary).on_click(move || {
+        Button::new("Aplicar").size(ButtonSize::Small).style(ButtonStyle::Secondary).on_click(move || {
             sel_1.set(BTreeSet::new());
             apply_write.set(apply_read.get());
         }),
         has_filter.then(|| {
-            Button::new("Limpar").icon(IconName::FilterX).style(ButtonStyle::Ghost).on_click(move || {
-                clear_typed.set(String::new());
-                clear_applied.set(String::new());
-            })
+            Button::new("Limpar")
+                .icon(IconName::FilterX)
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .on_click(move || {
+                    clear_typed.set(String::new());
+                    clear_applied.set(String::new());
+                })
         }),
         presets,
         Button::new("Alterar")
             .icon(IconName::Pencil)
+            .size(ButtonSize::Small)
             .style(ButtonStyle::Ghost)
             .disabled(selected.is_none())
             .on_click(move || {
@@ -174,6 +196,7 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
             }),
         Button::new("Excluir")
             .icon(IconName::Trash2)
+            .size(ButtonSize::Small)
             .style(ButtonStyle::Ghost)
             .disabled(selected.is_none())
             .on_click(move || {
@@ -202,18 +225,16 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
         [
             GridColumn::number("Id").hidden(),
             date_column("Data"),
-            GridColumn::text("Descrição").width(250.0),
+            GridColumn::text("Descrição").width(410.0),
             GridColumn::text("Categoria").width(140.0),
-            GridColumn::text("Conta").width(140.0),
+            GridColumn::text("Conta").width(150.0),
             GridColumn::text("De quem").width(100.0),
-            GridColumn::text("Tipo").width(96.0).template(|value| {
-                let text = if let Value::Text(text) = value { text.as_str() } else { "" };
-                let tone = if text == Flow::Income.label() { Tone::Success } else { Tone::Neutral };
-                Box::new(Badge::new(text).tone(tone)) as AnyView
-            }),
-            money_column("Valor").summary(Summary::Sum),
+            // The sign and the color of the value already say it; the column chooser brings it back.
+            GridColumn::text("Tipo").width(96.0).hidden(),
+            money_column("Valor").summary(Summary::Sum).template(signed_amount),
         ],
     )
+    .filter_row(false)
     .selection(state.selection.binding())
     .on_row_activate(move |row| {
         if let Some(id) = row_id(&activate_data, row) {
@@ -224,19 +245,13 @@ pub(crate) fn ledger(store: &Store, state: &LedgerState, forms: &Forms) -> impl 
         export_store.save_file("lancamentos.csv", ("CSV", &["csv"]), csv.as_bytes());
     });
 
-    screen((
-        heading(
-            "Lançamentos",
-            format!(
-                "Entrou {} · saiu {} · sobrou {}",
-                format_brl(rows.income),
-                format_brl(rows.expense),
-                format_brl(rows.income - rows.expense)
-            ),
+    Page::new(
+        format!(
+            "Entrou {} · saiu {} · sobrou {}",
+            format_brl(rows.income),
+            format_brl(rows.expense),
+            format_brl(rows.income - rows.expense)
         ),
-        toolbar,
-        filter_bar,
-        error,
-        grid,
-    ))
+        screen((toolbar, filter_bar, error, grid)),
+    )
 }

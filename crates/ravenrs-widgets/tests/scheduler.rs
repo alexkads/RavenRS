@@ -324,3 +324,30 @@ fn only_what_is_in_view_gets_built() {
         tree.nodes.iter().filter(|n| n.name.as_deref().is_some_and(|t| t.starts_with("Evento "))).count();
     assert!(bars > 5 && bars < 60, "{bars} bars built out of 5000");
 }
+
+/// The rows of a scheduler in a tall window, and where the first bar lands.
+fn first_bar_with(fill: bool) -> f32 {
+    let axis = State::new(TimeAxis::days(date(1), 30));
+    let scheduler = Scheduler::new(axis.binding())
+        .resources([Resource::new(1, "Ana"), Resource::new(2, "Bruno")])
+        .events([SchedulerEvent::new(7, 2, day(1), day(2), "Consulta")])
+        .fill_rows(fill);
+    let mut ui = Ui::new(scheduler, Theme::raven_light());
+    ui.set_viewport(Size::new(900.0, 700.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    let tree = ui.access_tree();
+    let bar = tree
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref().is_some_and(|name| name.starts_with("Consulta")))
+        .expect("the bar");
+    bar.bounds.y()
+}
+
+#[test]
+fn rows_can_share_the_height_left() {
+    // Bruno's row starts further down once the two rows split the window.
+    assert!(first_bar_with(true) > first_bar_with(false) + 100.0);
+}

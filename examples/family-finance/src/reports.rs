@@ -70,7 +70,7 @@ pub fn render(
 fn base(title: String) -> Report {
     Report::new(title)
         .culture("pt-BR")
-        .style("th", Style::new().font_size(8.0).bold().color("#ffffff").background(ACCENT).padding(4.0))
+        .style("th", Style::new().font_size(8.0).bold().color("#12151c").background("#ebedf2").padding(4.0))
         .style("td", Style::new().font_size(9.0).color(INK).padding(4.0))
         .style("odd", Style::new().background("#ffffff"))
         .style("even", Style::new().background(STRIPE))

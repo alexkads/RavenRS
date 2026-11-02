@@ -3,7 +3,7 @@
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Store, heading};
+use super::store::{Page, Store};
 use crate::model::{AccountKind, Flow};
 use crate::money::{format_brl, format_input, parse_brl};
 
@@ -127,12 +127,13 @@ fn accounts_tab(store: &Store, state: &RecordsState, forms: &Forms) -> impl View
                 (account.id, account.name.clone(), account.kind, account.opening_cents);
             let delete_store = store.clone();
             let row_name = name.clone();
+            // An account named after its kind has nothing more to say.
+            let item = ListItem::new(name.clone())
+                .icon(IconName::Wallet)
+                .trailing(format_brl(account.balance_cents));
+            let item = if name == kind.label() { item } else { item.subtitle(kind.label()) };
             record_row(
-                ListItem::new(name.clone())
-                    .subtitle(kind.label())
-                    .icon(IconName::Wallet)
-                    .trailing(format_brl(account.balance_cents))
-                    .grow(1.0),
+                item.grow(1.0),
                 &row_name,
                 move || {
                     edit.account_id.set(Some(id));
@@ -354,16 +355,16 @@ fn members_tab(store: &Store, state: &RecordsState, forms: &Forms) -> impl View 
     )
 }
 
-pub(crate) fn records(store: &Store, state: &RecordsState, forms: &Forms) -> impl View + use<> {
+pub(crate) fn records(store: &Store, state: &RecordsState, forms: &Forms) -> Page {
     store.version();
-    ScrollView::new((VStack::new((
-        heading("Cadastros", "As contas, as categorias e as pessoas que os lançamentos usam."),
-        Tabs::new(state.tab.binding())
+    Page::new(
+        "As contas, as categorias e as pessoas que os lançamentos usam.",
+        ScrollView::new((VStack::new((Tabs::new(state.tab.binding())
             .tab("Contas", accounts_tab(store, state, forms))
             .tab("Categorias", categories_tab(store, state, forms))
-            .tab("Família", members_tab(store, state, forms)),
-    ))
-    .spacing(16.0)
-    .align(Align::Stretch),))
-    .padding(24.0)
+            .tab("Família", members_tab(store, state, forms)),))
+        .spacing(16.0)
+        .align(Align::Stretch),))
+        .padding(24.0),
+    )
 }

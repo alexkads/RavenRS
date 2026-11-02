@@ -5,7 +5,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::store::{Memo, Store, heading, screen};
+use super::store::{Memo, Page, Store, screen};
 use crate::model::{Bill, Flow, Member, Occurrence, date_label};
 use crate::money::format_brl;
 
@@ -100,7 +100,7 @@ impl AgendaState {
         Self {
             view: State::new(0),
             // Wide enough to read what a one-day bar says.
-            axis: State::new(TimeAxis { tick_width: 80.0, ..TimeAxis::days(today.first_of_month(), 62) }),
+            axis: State::new(TimeAxis { tick_width: 96.0, ..TimeAxis::days(today.first_of_month(), 62) }),
             month: State::new(today.first_of_month()),
             day: State::new(Some(today)),
             data: Memo::new(),
@@ -271,7 +271,7 @@ fn day_panel(data: &AgendaData, day: Date, store: &Store, forms: &Forms) -> impl
     .width(300.0)
 }
 
-pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms) -> impl View + use<> {
+pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms) -> Page {
     let timeline = state.view.get() == 0;
     let axis = state.axis.get();
     let month = state.month.get().first_of_month();
@@ -295,11 +295,11 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms) -> impl 
             [(IconName::Rows3, "Linha do tempo"), (IconName::CalendarDays, "Mês")],
         )
         .label("Exibição"),
-        Text::new(format!("Previsto aqui: entra {} · sai {}", format_brl(incoming), format_brl(outgoing)))
+        Text::new("Arraste para remarcar. Arraste em um espaço vazio para programar.")
             .style(TextStyle::Callout)
             .foreground(Semantic::InkMuted),
         Spacer::new(),
-        Button::new("Programar").icon(IconName::Plus).on_click(move || {
+        Button::new("Programar").icon(IconName::Plus).size(ButtonSize::Small).on_click(move || {
             let start = plan_day.get().unwrap_or(plan_store.today);
             plan_form.start_new(&plan_store, start, None);
         }),
@@ -345,7 +345,8 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms) -> impl 
                 .resources(resources)
                 .events(events)
                 .now(TimePoint::from_date(today))
-                .resource_width(150.0)
+                .resource_width(110.0)
+                .fill_rows(true)
                 .selection(selected)
                 .can_drop(move |change| {
                     // Changing whose it is belongs to the whole plan, so a single day stays on its row.
@@ -391,14 +392,10 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms) -> impl 
             .events(events),)))
     };
 
-    screen((
-        heading(
-            "Agenda",
-            "Arraste para remarcar. Arraste em um espaço vazio para programar um recebimento ou um pagamento.",
-        ),
-        toolbar,
-        Fill2 { main, side: Box::new(day_panel(&data, day, store, forms)) },
-    ))
+    Page::new(
+        format!("Previsto aqui: entra {} · sai {}", format_brl(incoming), format_brl(outgoing)),
+        screen((toolbar, Fill2 { main, side: Box::new(day_panel(&data, day, store, forms)) })),
+    )
 }
 
 /// The timeline or the month, taking the room left, beside the chosen day.

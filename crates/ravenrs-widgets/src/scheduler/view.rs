@@ -181,6 +181,7 @@ pub struct Scheduler {
     resource_width: f32,
     read_only: bool,
     toolbar: bool,
+    fill_rows: bool,
     on_change: Option<OnChange>,
     on_create: Option<OnChange>,
     on_open: Option<Rc<dyn Fn(u64)>>,
@@ -210,6 +211,7 @@ impl Scheduler {
             resource_width: 200.0,
             read_only: false,
             toolbar: true,
+            fill_rows: false,
             on_change: None,
             on_create: None,
             on_open: None,
@@ -251,6 +253,13 @@ impl Scheduler {
     /// The width of the resources column (200 by default).
     pub fn resource_width(mut self, width: f32) -> Self {
         self.resource_width = width.max(80.0);
+        self
+    }
+
+    /// Rows share the height left over, so a few of them do not leave the
+    /// timeline half empty. Off by default; a row never gets shorter than its bars.
+    pub fn fill_rows(mut self, fill: bool) -> Self {
+        self.fill_rows = fill;
         self
     }
 
@@ -907,7 +916,17 @@ impl View for Scheduler {
             }
             lanes_of.insert(*resource, count);
         }
-        let (rows, total_height) = self.rows(&lanes_of, &collapsed.get());
+        let (mut rows, mut total_height) = self.rows(&lanes_of, &collapsed.get());
+        if self.fill_rows {
+            match cx.scroll_viewport() {
+                Some(view) => total_height = share_height(&mut rows, total_height, view.height),
+                // The height comes from the first layout, and nothing else asks for a second build.
+                None => {
+                    let now = cx.now();
+                    cx.wake_at(now);
+                }
+            }
+        }
         let top_of: HashMap<u64, f32> = rows
             .iter()
             .filter_map(|row| match row {
@@ -1250,6 +1269,27 @@ impl View for Scheduler {
         cx.clip(root);
         root
     }
+}
+
+/// Hands the height left over to the resource rows, evenly, and says the new total.
+fn share_height(rows: &mut [Row], total: f32, available: f32) -> f32 {
+    let count = rows.iter().filter(|row| matches!(row, Row::Resource { .. })).count();
+    if count == 0 || available <= total {
+        return total;
+    }
+    let extra = (available - total) / count as f32;
+    let mut shift = 0.0;
+    for row in rows {
+        match row {
+            Row::Group { y, .. } => *y += shift,
+            Row::Resource { y, height, .. } => {
+                *y += shift;
+                *height += extra;
+                shift += extra;
+            }
+        }
+    }
+    available
 }
 
 fn hash_text(text: &str) -> u64 {

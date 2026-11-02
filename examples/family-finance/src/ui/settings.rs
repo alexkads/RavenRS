@@ -7,7 +7,7 @@ use ravenrs::native::{OpenDialog, SaveDialog, open_with_system};
 use ravenrs::prelude::*;
 
 use super::forms::{Confirm, Forms};
-use super::store::{Store, heading};
+use super::store::{Page, Store, titled_card};
 use super::updates;
 use crate::backup::{self, CopyReason};
 use crate::db::{Database, DbResult};
@@ -24,12 +24,6 @@ fn info_row(label: &str, value: String) -> impl View + use<> {
         Text::new(value).style(TextStyle::Callout),
     ))
     .spacing(8.0)
-}
-
-fn group<V: View + 'static>(title: &str, content: V) -> impl View + use<V> {
-    VStack::new((Text::new(title.to_owned()).style(TextStyle::Headline), content))
-        .spacing(10.0)
-        .align(Align::Stretch)
 }
 
 fn make_backup(store: &Store) {
@@ -160,7 +154,7 @@ pub(crate) fn settings(
     forms: &Forms,
     news: &updates::NewsDialog,
     page: &State<usize>,
-) -> impl View + use<> {
+) -> Page {
     let (diagnostics, painel) = (store.diagnostics.clone(), page.clone());
     let path = store.path.as_ref().map_or_else(|| "Só na memória".to_owned(), |p| p.display().to_string());
     let version = store.read(|db| db.schema_version());
@@ -185,172 +179,182 @@ pub(crate) fn settings(
         UpdateStatus::NoAnswer(reason) => format!("Não consegui verificar se há versão nova: {reason}"),
     };
 
-    ScrollView::new((VStack::new((
-        heading("Ajustes", "Onde seus dados ficam e como o app se atualiza."),
-        group("Aparência", ThemeSwitcher),
-        group(
-            "Desempenho",
-            Card::new(
-                VStack::new((
-                    Text::new(
-                        "Está achando o app lento? O teste abre o Painel, redesenha a janela por 5 segundos e diz o resultado.",
-                    )
-                    .style(TextStyle::Callout),
-                    Button::new("Testar desempenho").icon(IconName::Activity).style(ButtonStyle::Secondary).on_click(
-                        move || {
-                            painel.set(0);
-                            diagnostics.start_test();
-                        },
-                    ),
-                ))
-                .spacing(10.0)
-                .align(Align::Start),
-            ),
-        ),
-        group(
-            "Backup",
-            Card::new(
-                VStack::new((
-                    backup_status(store),
-                    Text::new(
-                        "Um backup é um arquivo com todos os seus dados. Guarde-o fora deste computador, em um pen drive ou na nuvem. Para trazer os dados de volta, aqui ou em outro computador, escolha esse arquivo em Restaurar backup.",
-                    )
-                    .style(TextStyle::Callout)
-                    .foreground(Semantic::InkMuted),
-                    HStack::new((
-                        Button::new("Fazer backup")
-                            .icon(IconName::Download)
-                            .on_click(move || make_backup(&backup_store)),
-                        Button::new("Restaurar backup").icon(IconName::Upload).style(ButtonStyle::Secondary).on_click(
-                            move || {
-                                let chosen = OpenDialog::new()
-                                    .title("Escolha o arquivo de backup")
-                                    .filter("Backup do Raven Finanças", &["db"])
-                                    .ask();
-                                if let Some(file) = chosen {
-                                    ask_to_restore(&restore_store, &restore_confirm, file, "Esse backup");
-                                }
-                            },
-                        ),
-                    ))
-                    .spacing(8.0)
-                    .wrap(),
-                ))
-                .spacing(14.0)
-                .align(Align::Stretch),
-            ),
-        ),
-        (!rows.is_empty()).then(|| {
-            group(
-                "Cópias automáticas",
-                VStack::new((
-                    Text::new(
-                        "O app guarda sozinho uma cópia por dia e outra antes de trocar seus dados. Elas ficam neste computador, então não substituem um backup. Clique em uma para voltar a ela.",
-                    )
-                    .style(TextStyle::Callout)
-                    .foreground(Semantic::InkMuted),
-                    List::new(rows),
-                ))
-                .spacing(10.0)
-                .align(Align::Stretch),
+    let appearance = titled_card("Aparência", ThemeSwitcher);
+    let performance = titled_card(
+        "Desempenho",
+        VStack::new((
+            Text::new(
+                "Está achando o app lento? O teste abre o Painel, redesenha a janela por 5 segundos e diz o resultado.",
             )
-        }),
-        group(
-            "Onde seus dados ficam",
-            Card::new(
-                VStack::new((
-                    info_row("Arquivo", path),
-                    info_row("Versão do esquema", version.to_string()),
-                    info_row("Motor", "SQLite, compilado dentro do app".to_owned()),
-                    folder.map(|folder| {
-                        Button::new("Abrir a pasta").icon(IconName::FolderOpen).style(ButtonStyle::Ghost).on_click(
-                            move || {
-                                if let Err(e) = open_with_system(&folder) {
-                                    tracing::warn!(error = %e, "could not open the folder");
-                                }
-                            },
-                        )
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
+            Button::new("Testar desempenho")
+                .icon(IconName::Activity)
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Secondary)
+                .on_click(move || {
+                    painel.set(0);
+                    diagnostics.start_test();
+                }),
+        ))
+        .spacing(10.0)
+        .align(Align::Start),
+    );
+    let backups = titled_card(
+        "Backup",
+        VStack::new((
+            backup_status(store),
+            Text::new(
+                "Um backup é um arquivo com todos os seus dados. Guarde-o fora deste computador, em um pen drive ou na nuvem. Para trazer os dados de volta, aqui ou em outro computador, escolha esse arquivo em Restaurar backup.",
+            )
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
+            HStack::new((
+                Button::new("Fazer backup")
+                    .icon(IconName::Download)
+                    .size(ButtonSize::Small)
+                    .on_click(move || make_backup(&backup_store)),
+                Button::new("Restaurar backup")
+                    .icon(IconName::Upload)
+                    .size(ButtonSize::Small)
+                    .style(ButtonStyle::Secondary)
+                    .on_click(move || {
+                        let chosen = OpenDialog::new()
+                            .title("Escolha o arquivo de backup")
+                            .filter("Backup do Raven Finanças", &["db"])
+                            .ask();
+                        if let Some(file) = chosen {
+                            ask_to_restore(&restore_store, &restore_confirm, file, "Esse backup");
+                        }
                     }),
-                ))
-                .spacing(10.0)
-                .align(Align::Stretch),
-            ),
-        ),
-        group(
-            "Recomeçar",
-            Card::new(
-                VStack::new((
-                    Text::new("Trocam tudo o que está no app. Antes, ele guarda uma cópia, que aparece em Cópias automáticas.")
-                        .style(TextStyle::Callout)
-                        .foreground(Semantic::InkMuted),
-                    HStack::new((
-                        Button::new("Carregar dados de exemplo").style(ButtonStyle::Secondary).on_click(move || {
-                            let store = demo_store.clone();
-                            demo_confirm.ask(
-                                "Trocar tudo pelos dados de exemplo?",
-                                "Tudo o que está no app dará lugar a uma família de exemplo. Uma cópia dos dados de agora fica guardada.",
-                                "Trocar pelos dados de exemplo",
-                                move || {
-                                    let today = store.today;
-                                    replace_keeping_a_copy(&store, CopyReason::BeforeSample, "Dados de exemplo carregados", |db| {
-                                        db.atomically(|db| {
-                                            db.clear()?;
-                                            seed::load_demo(db, today)
-                                        })
-                                    });
-                                },
-                            );
-                        }),
-                        Button::new("Começar do zero").icon(IconName::Trash2).style(ButtonStyle::Secondary).on_click(move || {
-                            let store = wipe_store.clone();
-                            wipe_confirm.ask(
-                                "Apagar todos os dados?",
-                                "Lançamentos, contas e cadastros serão apagados. Uma cópia dos dados de agora fica guardada.",
-                                "Apagar tudo",
-                                move || {
-                                    replace_keeping_a_copy(&store, CopyReason::BeforeErase, "Dados apagados", |db| {
-                                        db.atomically(|db| {
-                                            db.clear()?;
-                                            seed::load_defaults(db)
-                                        })
-                                    });
-                                },
-                            );
-                        }),
-                    ))
-                    .spacing(8.0)
-                    .wrap(),
-                ))
-                .spacing(10.0)
-                .align(Align::Stretch),
-            ),
-        ),
-        group(
-            "Atualização",
-            Card::new(
-                VStack::new((
-                    info_row("Versão instalada", update::CURRENT.to_owned()),
-                    Text::new(update_text).style(TextStyle::Callout),
-                    Text::new(
-                        "O app baixa o código e compila neste computador. A versão atual só é trocada depois de a nova provar que abre.",
-                    )
-                    .style(TextStyle::Caption)
-                    .foreground(Semantic::InkMuted),
-                    HStack::new((
-                        Button::new("Procurar atualização")
-                            .icon(IconName::RefreshCw)
-                            .style(ButtonStyle::Secondary)
-                            .on_click(move || updater.ask()),
-                        Button::new("Ver novidades").style(ButtonStyle::Ghost).on_click(move || news.show_latest()),
-                    ))
-                    .spacing(8.0),
-                ))
-                .spacing(10.0)
-                .align(Align::Stretch),
-            ),
-        ),
-    ))
-    .spacing(24.0)
-    .align(Align::Stretch),))
-    .padding(24.0)
+            ))
+            .spacing(8.0)
+            .wrap(),
+        ))
+        .spacing(12.0)
+        .align(Align::Stretch),
+    );
+    let copies = (!rows.is_empty()).then(|| {
+        titled_card(
+            "Cópias automáticas",
+            VStack::new((
+                Text::new(
+                    "O app guarda sozinho uma cópia por dia e outra antes de trocar seus dados. Elas ficam neste computador, então não substituem um backup. Clique em uma para voltar a ela.",
+                )
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted),
+                List::new(rows),
+            ))
+            .spacing(10.0)
+            .align(Align::Stretch),
+        )
+    });
+    let data = titled_card(
+        "Onde seus dados ficam",
+        VStack::new((
+            info_row("Arquivo", path),
+            info_row("Versão do esquema", version.to_string()),
+            info_row("Motor", "SQLite, compilado dentro do app".to_owned()),
+            folder.map(|folder| {
+                Button::new("Abrir a pasta")
+                    .icon(IconName::FolderOpen)
+                    .size(ButtonSize::Small)
+                    .style(ButtonStyle::Ghost)
+                    .on_click(move || {
+                        if let Err(e) = open_with_system(&folder) {
+                            tracing::warn!(error = %e, "could not open the folder");
+                        }
+                    })
+            }),
+        ))
+        .spacing(10.0)
+        .align(Align::Start),
+    );
+    let updates_card = titled_card(
+        "Atualização",
+        VStack::new((
+            info_row("Versão instalada", update::CURRENT.to_owned()),
+            Text::new(update_text).style(TextStyle::Callout),
+            Text::new(
+                "O app baixa o código e compila neste computador. A versão atual só é trocada depois de a nova provar que abre.",
+            )
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
+            HStack::new((
+                Button::new("Procurar atualização")
+                    .icon(IconName::RefreshCw)
+                    .size(ButtonSize::Small)
+                    .style(ButtonStyle::Secondary)
+                    .on_click(move || updater.ask()),
+                Button::new("Ver novidades")
+                    .size(ButtonSize::Small)
+                    .style(ButtonStyle::Ghost)
+                    .on_click(move || news.show_latest()),
+            ))
+            .spacing(8.0),
+        ))
+        .spacing(10.0)
+        .align(Align::Stretch),
+    );
+    let start_over = titled_card(
+        "Recomeçar",
+        VStack::new((
+            Text::new("Trocam tudo o que está no app. Antes, ele guarda uma cópia, que aparece em Cópias automáticas.")
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted),
+            HStack::new((
+                Button::new("Carregar dados de exemplo").size(ButtonSize::Small).style(ButtonStyle::Secondary).on_click(move || {
+                    let store = demo_store.clone();
+                    demo_confirm.ask(
+                        "Trocar tudo pelos dados de exemplo?",
+                        "Tudo o que está no app dará lugar a uma família de exemplo. Uma cópia dos dados de agora fica guardada.",
+                        "Trocar pelos dados de exemplo",
+                        move || {
+                            let today = store.today;
+                            replace_keeping_a_copy(&store, CopyReason::BeforeSample, "Dados de exemplo carregados", |db| {
+                                db.atomically(|db| {
+                                    db.clear()?;
+                                    seed::load_demo(db, today)
+                                })
+                            });
+                        },
+                    );
+                }),
+                Button::new("Começar do zero").icon(IconName::Trash2).size(ButtonSize::Small).style(ButtonStyle::Secondary).on_click(move || {
+                    let store = wipe_store.clone();
+                    wipe_confirm.ask(
+                        "Apagar todos os dados?",
+                        "Lançamentos, contas e cadastros serão apagados. Uma cópia dos dados de agora fica guardada.",
+                        "Apagar tudo",
+                        move || {
+                            replace_keeping_a_copy(&store, CopyReason::BeforeErase, "Dados apagados", |db| {
+                                db.atomically(|db| {
+                                    db.clear()?;
+                                    seed::load_defaults(db)
+                                })
+                            });
+                        },
+                    );
+                }),
+            ))
+            .spacing(8.0)
+            .wrap(),
+        ))
+        .spacing(10.0)
+        .align(Align::Stretch),
+    );
+
+    Page::new(
+        "Onde seus dados ficam e como o app se atualiza.",
+        ScrollView::new((VStack::new((
+            backups,
+            Grid::new(2, (appearance, performance)).spacing(16.0),
+            copies,
+            Grid::new(2, (data, updates_card)).spacing(16.0),
+            start_over,
+        ))
+        .spacing(16.0)
+        .align(Align::Stretch),))
+        .padding(24.0),
+    )
 }

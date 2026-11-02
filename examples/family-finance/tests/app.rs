@@ -184,6 +184,7 @@ fn deleting_a_register_in_use_says_so() {
 #[test]
 fn the_components_speak_portuguese() {
     let mut ui = app();
+    press(&mut ui, Role::Button, "Ajustes");
     assert!(says(&mut ui, "Escuro"), "the theme switcher");
     press(&mut ui, Role::Button, "Lançamentos");
     for words in ["Agrupar", "Colunas", "Exportar CSV", "linhas"] {

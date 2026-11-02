@@ -36,7 +36,7 @@ fn overview(take: &mut Recorder) -> Result<(), RecordError> {
     take.explain(
         "SALDO DAS CONTAS",
         "Saldo das contas",
-        "É a soma do dinheiro em todas as suas contas, com o que já foi lançado até hoje.",
+        "É a soma do dinheiro em todas as suas contas, com o que já foi lançado até hoje. O gráfico abaixo mostra se a sua reserva está crescendo ou diminuindo nos últimos 12 meses.",
     )?;
     take.explain(
         "RECEITAS DO MÊS",
@@ -47,11 +47,6 @@ fn overview(take: &mut Recorder) -> Result<(), RecordError> {
         "A PAGAR EM 30 DIAS",
         "A pagar em 30 dias",
         "É o que vai sair nos próximos 30 dias, somando as contas em aberto e os pagamentos programados na Agenda.",
-    )?;
-    take.explain(
-        "Saldo nos últimos 12 meses",
-        "Saldo nos últimos 12 meses",
-        "O gráfico mostra se a sua reserva está crescendo ou diminuindo com o tempo. O outro gráfico separa as despesas do mês por categoria.",
     )?;
 
     take.intro(
@@ -88,6 +83,9 @@ fn overview(take: &mut Recorder) -> Result<(), RecordError> {
         "Deixar com a sua cara",
         "O tema muda só a aparência do aplicativo. Os seus dados continuam iguais.",
     );
+    take.guide("Ajustes", "Abra Ajustes", "O tema fica em Ajustes.")?;
+    take.click("Ajustes")?;
+    take.wait(0.8);
     take.guide("Escuro", "Tema escuro", "Clique em Escuro para descansar a vista à noite.")?;
     take.click("Escuro")?;
     take.wait(1.2);
@@ -334,8 +332,6 @@ fn bills(take: &mut Recorder) -> Result<(), RecordError> {
     take.guide("Painel", "Volte ao Painel", "Clique em Painel.")?;
     take.click("Painel")?;
     take.wait(0.8);
-    take.move_to("Saldo nos últimos 12 meses")?;
-    take.scroll(420.0);
     take.guide("Pagar", "Pague uma conta", "Clique em Pagar na conta que você quitou.")?;
     take.click("Pagar")?;
     take.wait(1.0);
