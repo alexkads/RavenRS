@@ -20,6 +20,7 @@ const TALL_LANE_HEIGHT: f32 = 48.0;
 const CARD_BAR_GAP: f32 = 2.0;
 /// A drag this close to an edge of the timeline scrolls it.
 const AUTO_SCROLL_EDGE: f32 = 32.0;
+const REVEAL_MARGIN: f32 = 16.0;
 const AUTO_SCROLL_STEP: f32 = 12.0;
 const AUTO_SCROLL_EVERY: f64 = 1.0 / 60.0;
 /// How much of the row under the pointer is tinted.
@@ -446,6 +447,10 @@ struct Editing {
     pointer: Rc<Cell<Option<(f32, f32)>>>,
     /// Goes on with the drag where the timeline scrolled to, with the pointer still.
     follow_on: FollowOn,
+    /// How wide the timeline in view is, as of the last build.
+    view_width: Rc<Cell<f32>>,
+    /// A stretch of the content that has to come into view.
+    reveal: Rc<Cell<Option<(f32, f32)>>>,
 }
 
 impl Editing {
@@ -874,6 +879,15 @@ impl View for Bar<'_> {
             };
             cx.overlay(node, Placement::AboveCenter, &tip, None);
         }
+        if cx.is_focus_visible() {
+            let (from, to) = (self.frame.x(), self.frame.x() + self.frame.width());
+            let scrolled = self.editing.scroll.get();
+            if from < scrolled || to > scrolled + self.editing.view_width.get() {
+                self.editing.reveal.set(Some((from, to)));
+                let now = cx.now();
+                cx.wake_at(now);
+            }
+        }
         if self.tab_stop {
             cx.focusable(node, theme.radii.sm);
             cx.on_key(node, self.key_handler());
@@ -1267,6 +1281,8 @@ impl View for Scheduler {
         let window = cx.viewport();
         let drag_scroll: Rc<Cell<f32>> = cx.use_state(|| Rc::new(Cell::new(0.0))).get();
         drag_scroll.set(scroll.x);
+        let view_width: Rc<Cell<f32>> = cx.use_state(|| Rc::new(Cell::new(0.0))).get();
+        let reveal: Rc<Cell<Option<(f32, f32)>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
         let drag_pointer: Rc<Cell<Option<(f32, f32)>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
         let drag_follow: FollowOn = cx.use_state(|| Rc::new(RefCell::new(None))).get();
         // Opens at now, once its size is known, with some of what came before in view.
@@ -1305,7 +1321,16 @@ impl View for Scheduler {
             scroll: drag_scroll.clone(),
             pointer: drag_pointer.clone(),
             follow_on: drag_follow.clone(),
+            view_width: view_width.clone(),
+            reveal: reveal.clone(),
         };
+
+        view_width.set(view.width);
+        // What keyboard focus reached comes into view, with some air around it.
+        if let Some((from, to)) = reveal.take() {
+            let wanted = if from < scroll.x { from - REVEAL_MARGIN } else { to + REVEAL_MARGIN - view.width };
+            cx.set_scroll_offset(Point::new(wanted.clamp(0.0, (width - view.width).max(0.0)), scroll.y));
+        }
 
         // A drag near an edge takes the timeline with it, also with the pointer still.
         if let Some((x, y)) = drag_pointer.get() {
@@ -1712,6 +1737,7 @@ impl View for Scheduler {
             Paint::None,
         );
         cx.clip(names_view);
+        cx.scroll_with_widget(names_view);
         let mut middle_parts = vec![names_view];
         if self.card {
             middle_parts.push(divider(cx));

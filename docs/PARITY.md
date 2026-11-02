@@ -203,15 +203,16 @@ The reference is [Bryntum Scheduler](https://bryntum.com/products/scheduler/). T
 | Keyboard for events; names and dates for screen readers | ✅ |
 | Only what is in view is built | ✅ tested with 5,000 rows |
 | Recurring events | ✅ `RecurrenceRule`; the app expands the days |
-| Scrolling the wheel over the resources column | ⬜ |
+| Scrolling the wheel over the resources column | ✅ |
 | Scrolling by itself while dragging near an edge | ✅ |
 | Tooltip while hovering over or dragging an event | ✅ with `card` |
-| Scrolling a bar into view when keyboard focus moves to it | ⬜ |
+| Scrolling a bar into view when keyboard focus moves to it | ✅ |
 | Dependencies between events | ⬜ |
 | Resource tree of any depth, multiple assignment, extra columns | ⬜ |
 | Working hours, non-continuous axis, vertical mode, nested events | ⬜ |
 | Summaries and histograms per row or period | ⬜ |
 | Dragging from a list or grid onto the timeline, or between schedulers | ⬜ |
-| Menus on events and on empty stretches (`event_menu`, `lane_menu`), pinch to zoom | ✅ |
-| Undo and redo, built-in event editor | ⬜ |
+| Menus on events and on empty stretches (`event_menu`, `lane_menu`), zoom with a pinch or Ctrl and the wheel | ✅ |
+| Undo and redo | 🟡 the app keeps the moves, as in Raven Finanças' agenda; none built in |
+| Built-in event editor | ⬜ |
 | Export to PDF, PNG, Excel and ICS, printing | ⬜ |

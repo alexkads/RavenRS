@@ -3,6 +3,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use ravenrs::core::Key;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
@@ -108,6 +109,7 @@ pub(crate) struct AgendaState {
     day: State<Option<Date>>,
     /// Only what has this in its name shows on the timeline and the month.
     filter: State<String>,
+    history: MoveHistory,
     /// The width of a day last fitted to the window. Once zoom changes it, it stays.
     fitted: Rc<Cell<f32>>,
     data: Memo<(u64, Date, Date), Rc<AgendaData>>,
@@ -125,6 +127,7 @@ impl AgendaState {
             month: State::new(today.first_of_month()),
             day: State::new(Some(today)),
             filter: State::new(String::new()),
+            history: MoveHistory::new(),
             fitted: Rc::new(Cell::new(FIRST_DAY_WIDTH)),
             data: Memo::new(),
         }
@@ -155,16 +158,113 @@ fn member_of(row: u64) -> Option<i64> {
     (row != 0).then_some(row as i64)
 }
 
+/// A move on the timeline, which can be taken back.
+#[derive(Clone, Copy)]
+enum Moved {
+    Bill { id: i64, from: (Date, Option<i64>), to: (Date, Option<i64>) },
+    Planned { schedule: i64, day: Date, from: Date, to: Date },
+}
+
+impl Moved {
+    /// The same move the other way.
+    fn reversed(self) -> Self {
+        match self {
+            Self::Bill { id, from, to } => Self::Bill { id, from: to, to: from },
+            Self::Planned { schedule, day, from, to } => Self::Planned { schedule, day, from: to, to: from },
+        }
+    }
+
+    fn apply(self, store: &Store, done: &str) -> bool {
+        match self {
+            Self::Bill { id, to, .. } => store.write(done, |db| db.move_bill(id, to.0, to.1)),
+            Self::Planned { schedule, day, to, .. } => {
+                store.write(done, |db| db.move_occurrence(schedule, day, to))
+            }
+        }
+        .is_some()
+    }
+}
+
+/// The moves that can be undone and those that can be done again.
+#[derive(Clone)]
+struct MoveHistory {
+    undo: State<Vec<Moved>>,
+    redo: State<Vec<Moved>>,
+}
+
+impl MoveHistory {
+    fn new() -> Self {
+        Self { undo: State::new(Vec::new()), redo: State::new(Vec::new()) }
+    }
+
+    /// Makes a new move, after which nothing undone can be done again.
+    fn make(&self, store: &Store, moved: Moved, done: &str) {
+        if moved.apply(store, done) {
+            self.undo.update(|moves| moves.push(moved));
+            self.redo.set(Vec::new());
+        }
+    }
+
+    fn undo(&self, store: &Store) {
+        let Some(moved) = self.undo.get().last().copied() else { return };
+        if moved.reversed().apply(store, "Remarcação desfeita") {
+            self.undo.update(|moves| {
+                moves.pop();
+            });
+            self.redo.update(|moves| moves.push(moved));
+        }
+    }
+
+    fn redo(&self, store: &Store) {
+        let Some(moved) = self.redo.get().last().copied() else { return };
+        if moved.apply(store, "Remarcação refeita") {
+            self.redo.update(|moves| {
+                moves.pop();
+            });
+            self.undo.update(|moves| moves.push(moved));
+        }
+    }
+}
+
+/// Undo and redo from the keyboard, on this screen.
+struct HistoryKeys {
+    history: MoveHistory,
+    store: Store,
+}
+
+impl View for HistoryKeys {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let z = || Key::Character("z".into());
+        let (redo, redo_store) = (self.history.clone(), self.store.clone());
+        cx.shortcut_with_shift(z(), true, Rc::new(move || redo.redo(&redo_store)));
+        let (again, again_store) = (self.history.clone(), self.store.clone());
+        cx.shortcut(Key::Character("y".into()), true, Rc::new(move || again.redo(&again_store)));
+        let (undo, undo_store) = (self.history.clone(), self.store.clone());
+        cx.shortcut(z(), true, Rc::new(move || undo.undo(&undo_store)));
+        cx.empty()
+    }
+}
+
 /// Places a change from the timeline in the database.
-fn apply_move(store: &Store, item: &Item, change: SchedulerChange) {
+fn apply_move(store: &Store, history: &MoveHistory, item: &Item, change: SchedulerChange) {
     let day = change.start.date();
     match item {
         Item::Bill(bill) => {
-            store.write("Conta remarcada", |db| db.move_bill(bill.id, day, member_of(change.resource)));
+            let moved = Moved::Bill {
+                id: bill.id,
+                from: (bill.due, bill.member_id),
+                to: (day, member_of(change.resource)),
+            };
+            history.make(store, moved, "Conta remarcada");
         }
         Item::Planned(occurrence) => {
-            store
-                .write("Dia remarcado", |db| db.move_occurrence(occurrence.schedule_id, occurrence.day, day));
+            let moved = Moved::Planned {
+                schedule: occurrence.schedule_id,
+                day: occurrence.day,
+                from: occurrence.when,
+                to: day,
+            };
+            history.make(store, moved, "Dia remarcado");
         }
     }
 }
@@ -251,6 +351,17 @@ fn item_actions(item: &Item, store: &Store, forms: &Forms) -> Vec<AnyView> {
         }
     }
     actions
+}
+
+/// What the colors on the agenda mean.
+fn legend() -> impl View {
+    HStack::new((
+        Badge::new("A pagar").tone(Tone::Accent),
+        Badge::new("A receber").tone(Tone::Success),
+        Badge::new("Atrasado").tone(Tone::Danger),
+    ))
+    .spacing(6.0)
+    .wrap()
 }
 
 /// What a right click on something of the agenda offers, as the day beside it does.
@@ -415,6 +526,18 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms, window: 
         if item.incoming() { (i + item.cents(), o) } else { (i, o + item.cents()) }
     });
 
+    let (undo_history, undo_store) = (state.history.clone(), store.clone());
+    let mut undo_button =
+        IconButton::new(IconName::Undo2).label("Desfazer remarcação").size(ButtonSize::Small);
+    if !state.history.undo.get().is_empty() {
+        undo_button = undo_button.on_click(move || undo_history.undo(&undo_store));
+    }
+    let (redo_history, redo_store) = (state.history.clone(), store.clone());
+    let mut redo_button =
+        IconButton::new(IconName::Redo2).label("Refazer remarcação").size(ButtonSize::Small);
+    if !state.history.redo.get().is_empty() {
+        redo_button = redo_button.on_click(move || redo_history.redo(&redo_store));
+    }
     let (plan_store, plan_form, plan_day) = (store.clone(), forms.schedule.clone(), state.day.clone());
     let toolbar = HStack::new((
         SegmentedControl::with_icons(
@@ -428,6 +551,8 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms, window: 
             .compact()
             .width(FILTER_WIDTH),
         Spacer::new(),
+        Tooltip::new(undo_button, "Desfazer remarcação (⌘Z)"),
+        Tooltip::new(redo_button, "Refazer remarcação (⌘⇧Z)"),
         Button::new("Programar").icon(IconName::Plus).size(ButtonSize::Small).on_click(move || {
             let start = plan_day.get().unwrap_or(plan_store.today);
             plan_form.start_new(&plan_store, start, None);
@@ -463,7 +588,8 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms, window: 
                 .locked(item.done())
                 .resizable(false)
         });
-        let (change_store, change_items) = (store.clone(), items.clone());
+        let (change_store, change_items, change_history) =
+            (store.clone(), items.clone(), state.history.clone());
         let rule_items = items.clone();
         let (pick_items, pick_day) = (items.clone(), state.day.clone());
         let selected = {
@@ -516,7 +642,7 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms, window: 
                 })
                 .on_change(move |change| {
                     if let Some(item) = change.id.and_then(|id| change_items.get(id as usize)) {
-                        apply_move(&change_store, item, change);
+                        apply_move(&change_store, &change_history, item, change);
                     }
                 })
                 .on_create(move |change| {
@@ -556,8 +682,17 @@ pub(crate) fn agenda(store: &Store, state: &AgendaState, forms: &Forms, window: 
     Page::new(
         format!("Previsto no período: entra {} · sai {}", format_brl(incoming), format_brl(outgoing)),
         screen((
+            HistoryKeys { history: state.history.clone(), store: store.clone() },
             toolbar,
-            Fill2 { main, side: Box::new(day_panel(&data, day, store, forms, beside)), beside },
+            Fill2 {
+                main,
+                side: Box::new(
+                    VStack::new((day_panel(&data, day, store, forms, beside), legend()))
+                        .spacing(PANEL_GAP)
+                        .align(Align::Stretch),
+                ),
+                beside,
+            },
         )),
     )
 }
@@ -589,5 +724,41 @@ impl View for Fill2 {
             &[main, side],
             ravenrs::widgets::Paint::None,
         )
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, reason = "test helpers fail loudly")]
+mod tests {
+    use super::*;
+    use crate::db::Database;
+    use crate::seed;
+    use crate::update::Updater;
+
+    #[test]
+    fn a_move_can_be_undone_and_done_again_and_a_new_one_clears_what_was_undone() {
+        let today = Date::new(2026, 11, 15).expect("valid date");
+        let db = Database::in_memory().expect("database");
+        seed::load_demo(&db, today).expect("seed");
+        let store = Store::new(db, today, None, Updater::idle());
+        let history = MoveHistory::new();
+        let bill = store.read(|db| db.open_bills()).into_iter().next().expect("a bill");
+        let due = |store: &Store| {
+            store.read(|db| db.open_bills()).iter().find(|b| b.id == bill.id).expect("the bill").due
+        };
+        let (from, to) = (bill.due, bill.due.add_days(3));
+        let moved = Moved::Bill { id: bill.id, from: (from, bill.member_id), to: (to, bill.member_id) };
+
+        history.make(&store, moved, "");
+        assert_eq!(due(&store), to);
+        history.undo(&store);
+        assert_eq!(due(&store), from);
+        history.redo(&store);
+        assert_eq!(due(&store), to);
+        history.undo(&store);
+        assert_eq!(history.redo.get().len(), 1);
+        history.make(&store, moved, "");
+        assert!(history.redo.get().is_empty());
+        assert_eq!(history.undo.get().len(), 1);
     }
 }

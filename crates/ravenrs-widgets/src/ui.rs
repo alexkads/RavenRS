@@ -482,6 +482,7 @@ impl Ui {
                 let command = modifiers.ctrl || modifiers.meta;
                 let shortcut = self.shortcuts.iter().find(|s| {
                     s.command == command
+                        && (!s.shift || modifiers.shift)
                         && match (&s.key, key) {
                             (Key::Character(a), Key::Character(b)) => a.eq_ignore_ascii_case(b),
                             (a, b) => a == b,
@@ -654,12 +655,23 @@ impl Ui {
         for &node in self.paint_order.iter().rev() {
             let i = node.0 as usize;
             let e = &self.elements[i];
-            if !e.scroll || !self.frames[i].intersect(&self.clips[i]).contains(p) {
+            if !(e.scroll || e.scrolls_with_widget) || !self.frames[i].intersect(&self.clips[i]).contains(p) {
                 continue;
             }
             if !layers.as_ref().is_none_or(|l| l.iter().any(|root| self.is_inside(node, *root))) {
                 continue;
             }
+            // Part of a view that scrolls moves what scrolls, such as frozen row names.
+            let i = if e.scroll {
+                i
+            } else {
+                let widget = e.widget;
+                match self.elements.iter().position(|other| other.scroll && other.widget == widget) {
+                    Some(found) => found,
+                    None => continue,
+                }
+            };
+            let e = &self.elements[i];
             let max = self.max_offset(i);
             let current = self.scroll.offsets.get(&e.widget).copied().unwrap_or(Point::ZERO);
             let next = Point::new(

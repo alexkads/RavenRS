@@ -475,3 +475,52 @@ fn drawing_on_an_empty_stretch_of_a_card_still_creates() {
     drag(&mut ui, Point::new(bar.center().x + 2.0 * width, y), Point::new(bar.center().x + 4.0 * width, y));
     assert!(created.borrow().is_some(), "the row's background lets the drag through");
 }
+
+/// Many rows, with one event far along the time, in a small window.
+fn long_plan(axis: &State<TimeAxis>) -> Ui {
+    let resources = (1..=30).map(|id| Resource::new(id, format!("Row {id}")));
+    let scheduler = Scheduler::new(axis.binding())
+        .resources(resources)
+        .events([SchedulerEvent::new(7, 1, day(28), day(29), "Longe")])
+        .on_change(|_| {});
+    let mut ui = Ui::new(scheduler, Theme::raven_light());
+    ui.set_viewport(Size::new(600.0, 300.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    ui
+}
+
+#[test]
+fn the_wheel_over_the_names_scrolls_the_rows() {
+    let axis = State::new(TimeAxis::days(date(1), 30));
+    let mut ui = long_plan(&axis);
+    let before = bounds(&mut ui, Role::Row, "Row 1").y();
+    let over_the_names = Point::new(before.max(0.0) + 40.0, 220.0);
+    ui.handle_event(&Event::Scroll { position: over_the_names, delta: Point::new(0.0, -120.0) });
+    ui.update();
+    ui.update();
+    assert!(bounds(&mut ui, Role::Row, "Row 1").y() < before, "the rows moved up");
+}
+
+#[test]
+fn a_pinch_or_ctrl_and_the_wheel_zooms() {
+    let axis = State::new(TimeAxis::days(date(1), 30));
+    let mut ui = long_plan(&axis);
+    let before = axis.get();
+    ui.handle_event(&Event::Pinch { position: Point::new(400.0, 220.0), delta: 1.0 });
+    ui.update();
+    assert_ne!(axis.get(), before);
+}
+
+#[test]
+fn keyboard_focus_brings_an_event_into_view() {
+    let axis = State::new(TimeAxis::days(date(1), 30));
+    let mut ui = long_plan(&axis);
+    focus(&mut ui, "Longe");
+    for _ in 0..4 {
+        ui.update();
+    }
+    let bar = bounds(&mut ui, Role::Button, "Longe");
+    assert!(bar.x() + bar.width() <= 600.0 && bar.x() >= 0.0, "{bar:?}");
+}

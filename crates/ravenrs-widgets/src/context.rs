@@ -204,6 +204,8 @@ pub enum Placement {
 pub(crate) struct Shortcut {
     pub key: Key,
     pub command: bool,
+    /// It also needs Shift; without this, Shift does not matter.
+    pub shift: bool,
     pub handler: Rc<dyn Fn()>,
 }
 
@@ -375,6 +377,8 @@ pub(crate) struct Element {
     pub translate: Point,
     pub on_double_click: Option<Rc<dyn Fn()>>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
+    /// The wheel over it moves what this widget scrolls.
+    pub scrolls_with_widget: bool,
     pub on_context_menu: Option<Rc<dyn Fn(Point)>>,
     pub on_context_menu_in: Option<Rc<dyn Fn(Point, Rect)>>,
     /// How the element appears to assistive technology.
@@ -407,6 +411,7 @@ impl Element {
             translate: Point::ZERO,
             on_double_click: None,
             on_pinch: None,
+            scrolls_with_widget: false,
             on_context_menu: None,
             on_context_menu_in: None,
             semantics: None,
@@ -972,7 +977,21 @@ impl<'a> BuildCx<'a> {
     /// Registers an app-wide keyboard shortcut for as long as this view is built.
     /// With `command`, it needs Cmd (macOS) or Ctrl held, e.g. Cmd/Ctrl+K.
     pub fn shortcut(&mut self, key: Key, command: bool, handler: Rc<dyn Fn()>) {
-        self.shortcuts.push(Shortcut { key, command, handler });
+        self.shortcuts.push(Shortcut { key, command, shift: false, handler });
+    }
+
+    /// Makes the wheel over `node` move what this widget scrolls, for a part that
+    /// follows the scroll without being inside it, such as frozen row names.
+    pub fn scroll_with_widget(&mut self, node: NodeId) {
+        if let Some(e) = self.element_mut(node) {
+            e.scrolls_with_widget = true;
+        }
+    }
+
+    /// Like [`Self::shortcut`], for a key that also needs Shift. Register it before the
+    /// same key without Shift, which would otherwise answer first.
+    pub fn shortcut_with_shift(&mut self, key: Key, command: bool, handler: Rc<dyn Fn()>) {
+        self.shortcuts.push(Shortcut { key, command, shift: true, handler });
     }
 
     /// Calls `handler` with the pointer position on a secondary (right) click.
