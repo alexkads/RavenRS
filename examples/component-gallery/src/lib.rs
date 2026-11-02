@@ -591,9 +591,11 @@ impl Gallery {
                         .spacing(12.0),
                     ),
                     demo(
-                        "Form layout",
-                        "Groups in columns that collapse when there is no room.",
-                        samples::sample("FormLayout"),
+                        "Form layout and filter builder",
+                        "Groups in columns that collapse when there is no room; a filter made of lines.",
+                        VStack::new((samples::sample("FormLayout"), samples::sample("FilterBuilder")))
+                            .spacing(16.0)
+                            .align(Align::Stretch),
                     ),
                     demo(
                         "Commands",

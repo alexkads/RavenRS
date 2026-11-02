@@ -32,7 +32,7 @@ samples! {
     "RecurrenceEditor" => recurrence_editor, "InputOtp" => input_otp, "FormField" => form_field, "Label" => label,
     "TextArea" => text_area, "NumberField" => number_field, "MaskedField" => masked_field,
     "TimePicker" => time_picker, "DateTimePicker" => date_time_picker, "LookupField" => lookup_field,
-    "FormLayout" => form_layout, "Toolbar" => toolbar, "SplitButton" => split_button,
+    "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "Toolbar" => toolbar, "SplitButton" => split_button,
     "ConfirmDialog" => confirm_dialog,
     "Ribbon" => ribbon, "Menubar" => menubar, "Tabs" => tabs, "Sidebar" => sidebar,
     "Breadcrumb" => breadcrumb, "Pagination" => pagination, "Accordion" => accordion,
@@ -238,7 +238,13 @@ fn form_layout() -> impl View {
 fn toolbar() -> impl View {
     Toolbar::new()
         .label("Records")
-        .action(ToolbarAction::new("New").icon(IconName::Plus).style(ButtonStyle::Primary).on_click(|| {}))
+        .action(
+            ToolbarAction::new("New")
+                .icon(IconName::Plus)
+                .style(ButtonStyle::Primary)
+                .hotkey(Hotkey::command("n"))
+                .on_click(|| {}),
+        )
         .action(ToolbarAction::new("Refresh").icon(IconName::RefreshCw).on_click(|| {}))
         .separator()
         .action(ToolbarAction::new("Export").icon(IconName::Download).on_click(|| {}))
@@ -266,6 +272,20 @@ fn confirm_dialog() -> impl View {
         }),
         confirm,
     ))
+}
+// end
+
+// sample: FilterBuilder, 240
+fn filter_builder() -> impl View {
+    let filter = State::new(String::from("[Price] > 10 And Contains([Name], 'pro')"));
+    FilterBuilder::new(
+        filter.binding(),
+        [
+            FilterField::new("Name", "Name", FilterFieldKind::Text),
+            FilterField::new("Price", "Price", FilterFieldKind::Number),
+            FilterField::new("Active", "Active", FilterFieldKind::Boolean),
+        ],
+    )
 }
 // end
 

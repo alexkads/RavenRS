@@ -1106,3 +1106,136 @@ mod forms {
         assert!(!has("second body"));
     }
 }
+
+#[allow(clippy::expect_used)]
+mod filter_builder {
+    use ravenrs_core::Role;
+
+    use super::*;
+
+    fn fields() -> Vec<FilterField> {
+        vec![
+            FilterField::new("Name", "Name", FilterFieldKind::Text),
+            FilterField::new("Price", "Price", FilterFieldKind::Number),
+        ]
+    }
+
+    fn press(ui: &mut Ui, name: &str) {
+        let spot = {
+            let tree = ui.access_tree();
+            tree.nodes
+                .iter()
+                .find(|n| n.role == Role::Button && n.name.as_deref() == Some(name))
+                .expect("the button")
+                .bounds
+                .center()
+        };
+        click(ui, spot);
+    }
+
+    fn focus_value(ui: &mut Ui) {
+        let spot = {
+            let tree = ui.access_tree();
+            tree.nodes.iter().find(|n| n.role == Role::TextInput).expect("the value").bounds.center()
+        };
+        click(ui, spot);
+    }
+
+    #[test]
+    fn adding_a_line_writes_the_expression_when_it_has_a_value() {
+        let filter = State::new(String::new());
+        let mut ui = ui(FilterBuilder::new(filter.binding(), fields()));
+        press(&mut ui, "Condition");
+        assert_eq!(filter.get(), "", "no value yet");
+        focus_value(&mut ui);
+        key(&mut ui, Key::Character("ac".to_owned()));
+        assert_eq!(filter.get(), "Contains([Name], 'ac')");
+        press(&mut ui, "Remove");
+        assert_eq!(filter.get(), "");
+    }
+
+    #[test]
+    fn it_shows_an_expression_that_changes_from_outside() {
+        let filter = State::new("[Price] > 10".to_owned());
+        let mut ui = ui(FilterBuilder::new(filter.binding(), fields()));
+        let shown = |ui: &mut Ui| {
+            let tree = ui.access_tree();
+            tree.nodes.iter().find(|n| n.role == Role::TextInput).and_then(|n| n.value.clone())
+        };
+        assert_eq!(shown(&mut ui).as_deref(), Some("10"));
+        filter.set("[Price] > 20".to_owned());
+        ui.update();
+        assert_eq!(shown(&mut ui).as_deref(), Some("20"));
+    }
+
+    #[test]
+    fn a_line_being_written_is_not_lost_while_it_says_nothing() {
+        let filter = State::new("[Price] > 10".to_owned());
+        let mut ui = ui(FilterBuilder::new(filter.binding(), fields()));
+        press(&mut ui, "Condition");
+        let lines = {
+            let tree = ui.access_tree();
+            tree.nodes.iter().filter(|n| n.role == Role::TextInput).count()
+        };
+        assert_eq!(lines, 2, "the new line stays although the expression did not change");
+        assert_eq!(filter.get(), "[Price] > 10");
+    }
+}
+
+mod hotkeys {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    use super::*;
+
+    fn press(ui: &mut Ui, key: Key, modifiers: Modifiers) {
+        ui.handle_event(&Event::KeyDown { key, modifiers });
+        ui.update();
+    }
+
+    #[test]
+    fn a_toolbar_command_answers_to_its_keys_and_stops_when_disabled() {
+        let (save, all) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+        let (s, a) = (save.clone(), all.clone());
+        let off = Rc::new(Cell::new(0));
+        let o = off.clone();
+        let mut ui = ui(Toolbar::new()
+            .action(
+                ToolbarAction::new("Save").hotkey(Hotkey::command("s")).on_click(move || s.set(s.get() + 1)),
+            )
+            .action(
+                ToolbarAction::new("Save all")
+                    .hotkey(Hotkey::command("s").shift())
+                    .on_click(move || a.set(a.get() + 1)),
+            )
+            .action(
+                ToolbarAction::new("Off")
+                    .hotkey(Hotkey::command("d"))
+                    .disabled(true)
+                    .on_click(move || o.set(1)),
+            ));
+        let command = Modifiers { meta: true, ..Modifiers::default() };
+        press(&mut ui, Key::Character("s".to_owned()), command);
+        assert_eq!((save.get(), all.get()), (1, 0));
+        press(&mut ui, Key::Character("S".to_owned()), Modifiers { shift: true, ..command });
+        assert_eq!((save.get(), all.get()), (1, 1), "with Shift it is the other command");
+        press(&mut ui, Key::Character("d".to_owned()), command);
+        assert_eq!(off.get(), 0);
+    }
+
+    #[test]
+    fn a_hotkey_writes_itself() {
+        let label = Hotkey::command("s").shift().label();
+        assert!(label.contains('S'));
+        assert!(label.contains('⇧') || label.contains("Shift"));
+        assert!(Hotkey::key(Key::Escape).label().contains("Esc"));
+    }
+
+    #[test]
+    fn labels_reach_the_words_that_were_fixed() {
+        let code = State::new(String::new());
+        let mut ui = ui(Localized::new(Labels::pt_br(), InputOtp::new(code.binding(), 4)));
+        let tree = ui.access_tree();
+        assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("Código de verificação")));
+    }
+}

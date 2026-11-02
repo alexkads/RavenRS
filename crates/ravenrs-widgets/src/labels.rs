@@ -142,6 +142,66 @@ pub struct Labels {
     pub form_errors: String,
     /// A [`LookupField`](crate::LookupField)'s button that empties it.
     pub clear: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: all of these.
+    pub filter_all: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: any of these.
+    pub filter_any: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: how lines combine.
+    pub filter_match: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: condition.
+    pub filter_add_condition: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: group.
+    pub filter_add_group: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: remove.
+    pub filter_remove: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: field.
+    pub filter_field: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: comparison.
+    pub filter_comparison: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: value.
+    pub filter_value: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: expression.
+    pub filter_expression: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: yes.
+    pub filter_yes: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: no.
+    pub filter_no: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: is.
+    pub filter_equal: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: is not.
+    pub filter_not_equal: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: greater than.
+    pub filter_greater: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: at least.
+    pub filter_greater_or_equal: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: less than.
+    pub filter_less: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: at most.
+    pub filter_less_or_equal: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: contains.
+    pub filter_contains: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: starts with.
+    pub filter_starts_with: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: is empty.
+    pub filter_is_empty: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: is not empty.
+    pub filter_is_not_empty: String,
+    /// A [`Ribbon`](crate::Ribbon)'s name.
+    pub ribbon: String,
+    /// A [`Ribbon`](crate::Ribbon)'s search box.
+    pub ribbon_search: String,
+    /// Keeps a [`Ribbon`](crate::Ribbon) open.
+    pub ribbon_pin: String,
+    /// Folds a [`Ribbon`](crate::Ribbon).
+    pub ribbon_collapse: String,
+    /// A [`Carousel`](crate::Carousel)'s button back.
+    pub carousel_previous: String,
+    /// A [`Carousel`](crate::Carousel)'s button forward.
+    pub carousel_next: String,
+    /// A [`Carousel`](crate::Carousel)'s dot, before its number.
+    pub carousel_slide: String,
+    /// An [`InputOtp`](crate::InputOtp)'s name.
+    pub verification_code: String,
     /// A question's button that gives up on it.
     pub cancel: String,
     /// The menu of commands that did not fit.
@@ -282,6 +342,10 @@ pub struct Labels {
     pub grid_reset: String,
     /// A grid's export button.
     pub grid_export: String,
+    /// A data grid's button that adds a row.
+    pub grid_add_row: String,
+    /// A data grid's button that removes the selected rows.
+    pub grid_delete_rows: String,
     /// A grid with nothing to show.
     pub grid_no_rows: String,
     /// A grid's name.
@@ -419,6 +483,36 @@ impl Default for Labels {
             short_date: english_date,
             form_errors: "Please review the form".into(),
             clear: "Clear".into(),
+            filter_all: "All of these".into(),
+            filter_any: "Any of these".into(),
+            filter_match: "How lines combine".into(),
+            filter_add_condition: "Condition".into(),
+            filter_add_group: "Group".into(),
+            filter_remove: "Remove".into(),
+            filter_field: "Field".into(),
+            filter_comparison: "Comparison".into(),
+            filter_value: "Value".into(),
+            filter_expression: "Expression".into(),
+            filter_yes: "Yes".into(),
+            filter_no: "No".into(),
+            filter_equal: "is".into(),
+            filter_not_equal: "is not".into(),
+            filter_greater: "greater than".into(),
+            filter_greater_or_equal: "at least".into(),
+            filter_less: "less than".into(),
+            filter_less_or_equal: "at most".into(),
+            filter_contains: "contains".into(),
+            filter_starts_with: "starts with".into(),
+            filter_is_empty: "is empty".into(),
+            filter_is_not_empty: "is not empty".into(),
+            ribbon: "Ribbon".into(),
+            ribbon_search: "Tell me what you want to do".into(),
+            ribbon_pin: "Pin the ribbon".into(),
+            ribbon_collapse: "Collapse the ribbon".into(),
+            carousel_previous: "Previous slide".into(),
+            carousel_next: "Next slide".into(),
+            carousel_slide: "Slide".into(),
+            verification_code: "Verification code".into(),
             cancel: "Cancel".into(),
             more_commands: "More".into(),
             decimal_separator: '.',
@@ -494,6 +588,8 @@ impl Default for Labels {
             grid_columns: "Columns".into(),
             grid_reset: "Reset".into(),
             grid_export: "Export CSV".into(),
+            grid_add_row: "Add".into(),
+            grid_delete_rows: "Delete".into(),
             grid_no_rows: "No rows match the current filters.".into(),
             grid_name: "Data grid".into(),
             grid_select_row: "Select row".into(),
@@ -602,6 +698,36 @@ impl Labels {
             short_date: brazilian_date,
             form_errors: "Revise o formulário".into(),
             clear: "Limpar".into(),
+            filter_all: "Todas estas".into(),
+            filter_any: "Qualquer uma destas".into(),
+            filter_match: "Como as linhas se combinam".into(),
+            filter_add_condition: "Condição".into(),
+            filter_add_group: "Grupo".into(),
+            filter_remove: "Remover".into(),
+            filter_field: "Campo".into(),
+            filter_comparison: "Comparação".into(),
+            filter_value: "Valor".into(),
+            filter_expression: "Expressão".into(),
+            filter_yes: "Sim".into(),
+            filter_no: "Não".into(),
+            filter_equal: "é".into(),
+            filter_not_equal: "não é".into(),
+            filter_greater: "maior que".into(),
+            filter_greater_or_equal: "pelo menos".into(),
+            filter_less: "menor que".into(),
+            filter_less_or_equal: "no máximo".into(),
+            filter_contains: "contém".into(),
+            filter_starts_with: "começa com".into(),
+            filter_is_empty: "está vazio".into(),
+            filter_is_not_empty: "não está vazio".into(),
+            ribbon: "Faixa de opções".into(),
+            ribbon_search: "Diga o que você deseja fazer".into(),
+            ribbon_pin: "Fixar a faixa de opções".into(),
+            ribbon_collapse: "Recolher a faixa de opções".into(),
+            carousel_previous: "Slide anterior".into(),
+            carousel_next: "Próximo slide".into(),
+            carousel_slide: "Slide".into(),
+            verification_code: "Código de verificação".into(),
             cancel: "Cancelar".into(),
             more_commands: "Mais".into(),
             decimal_separator: ',',
@@ -677,6 +803,8 @@ impl Labels {
             grid_columns: "Colunas".into(),
             grid_reset: "Limpar".into(),
             grid_export: "Exportar CSV".into(),
+            grid_add_row: "Adicionar".into(),
+            grid_delete_rows: "Excluir".into(),
             grid_no_rows: "Nenhuma linha atende aos filtros.".into(),
             grid_name: "Grade de dados".into(),
             grid_select_row: "Selecionar linha".into(),

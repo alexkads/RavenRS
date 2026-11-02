@@ -5,6 +5,7 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
+use ravenrs_core::Key;
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
@@ -20,6 +21,69 @@ const TOOLBAR_GAP: f32 = 4.0;
 const SEPARATOR_ROOM: f32 = 9.0;
 const MORE_ROOM: f32 = 36.0;
 
+/// A key combination that runs a command: a key, with Cmd (macOS) or Ctrl, and Shift.
+///
+/// ```
+/// use ravenrs_widgets::Hotkey;
+///
+/// assert_eq!(Hotkey::command("s").shift().label(), Hotkey::command("S").shift().label());
+/// assert!(Hotkey::key(ravenrs_core::Key::Delete).label().contains("Del"));
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Hotkey {
+    key: Key,
+    command: bool,
+    shift: bool,
+}
+
+impl Hotkey {
+    /// This key alone.
+    pub fn key(key: Key) -> Self {
+        Self { key, command: false, shift: false }
+    }
+
+    /// This letter or digit with Cmd or Ctrl.
+    pub fn command(character: &str) -> Self {
+        Self { key: Key::Character(character.to_lowercase()), command: true, shift: false }
+    }
+
+    /// Needs Shift too.
+    pub fn shift(mut self) -> Self {
+        self.shift = true;
+        self
+    }
+
+    /// How it is written next to a command, such as `⌘S` or `Ctrl+S`.
+    pub fn label(&self) -> String {
+        let key = match &self.key {
+            Key::Character(c) => c.to_uppercase(),
+            Key::Delete => "Del".to_owned(),
+            Key::Enter => "Enter".to_owned(),
+            Key::Escape => "Esc".to_owned(),
+            Key::Space => "Space".to_owned(),
+            other => format!("{other:?}"),
+        };
+        if cfg!(target_os = "macos") {
+            let shift = if self.shift { "⇧" } else { "" };
+            let command = if self.command { "⌘" } else { "" };
+            format!("{shift}{command}{key}")
+        } else {
+            let shift = if self.shift { "Shift+" } else { "" };
+            let command = if self.command { "Ctrl+" } else { "" };
+            format!("{command}{shift}{key}")
+        }
+    }
+
+    /// Makes it run `handler` for as long as the view building now is built.
+    pub fn register(&self, cx: &mut BuildCx<'_>, handler: Rc<dyn Fn()>) {
+        if self.shift {
+            cx.shortcut_with_shift(self.key.clone(), self.command, handler);
+        } else {
+            cx.shortcut(self.key.clone(), self.command, handler);
+        }
+    }
+}
+
 /// One command of a [`Toolbar`].
 pub struct ToolbarAction {
     label: String,
@@ -27,6 +91,7 @@ pub struct ToolbarAction {
     style: ButtonStyle,
     disabled: bool,
     icon_only: bool,
+    hotkey: Option<Hotkey>,
     on_click: Option<Rc<dyn Fn()>>,
 }
 
@@ -45,6 +110,7 @@ impl ToolbarAction {
             style: ButtonStyle::Ghost,
             disabled: false,
             icon_only: false,
+            hotkey: None,
             on_click: None,
         }
     }
@@ -71,6 +137,13 @@ impl ToolbarAction {
     /// under the pointer, but it is left out of the overflow menu.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    /// Runs the command with these keys, also from the overflow menu's place, and
+    /// shows them there. Off while the command is disabled.
+    pub fn hotkey(mut self, hotkey: Hotkey) -> Self {
+        self.hotkey = Some(hotkey);
         self
     }
 
@@ -127,6 +200,9 @@ impl ToolbarAction {
         }
         if self.style == ButtonStyle::Danger {
             item = item.destructive();
+        }
+        if let Some(hotkey) = &self.hotkey {
+            item = item.shortcut(hotkey.label());
         }
         if let Some(handler) = self.on_click.clone() {
             item = item.on_select(move || handler());
@@ -218,6 +294,21 @@ pub(crate) fn entries_that_fit(widths: &[f32], available: f32, more: f32, gap: f
 impl View for Toolbar {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
+        // Shift first: without it, the same key would answer before.
+        for wants_shift in [true, false] {
+            for entry in &self.entries {
+                if let ToolbarEntry::Action(ToolbarAction {
+                    hotkey: Some(hotkey),
+                    on_click: Some(handler),
+                    disabled: false,
+                    ..
+                }) = entry
+                    && hotkey.shift == wants_shift
+                {
+                    hotkey.register(cx, handler.clone());
+                }
+            }
+        }
         let widths: Vec<f32> = self
             .entries
             .iter()

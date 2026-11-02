@@ -54,6 +54,7 @@ mod editors;
 mod event_calendar;
 mod extras;
 mod fill;
+mod filter_builder;
 mod floating;
 mod form_layout;
 pub mod grid;
@@ -94,7 +95,7 @@ pub use chart::{
 pub use chat::{Chat, ChatAuthor, ChatMessage, FloatingCorner, FloatingPanel};
 pub use choice::{AspectRatio, ColorSwatch, Label, Pagination, ToggleButton, ToggleGroup};
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
-pub use commands::{ConfirmDialog, SplitButton, Toolbar, ToolbarAction};
+pub use commands::{ConfirmDialog, Hotkey, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
     ActivityObserver, BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint,
     PaintCx, Placement, QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
@@ -109,15 +110,16 @@ pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, 
 pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
 pub use extras::{Carousel, FormField, InputOtp, Menubar, Rule, Spinner, Splitter, validate};
 pub use fill::Fill;
+pub use filter_builder::{FilterBuilder, FilterField, FilterFieldKind};
 pub use floating::{
     Combobox, Command, CommandPalette, ContextMenu, HoverCard, Sheet, Side, SplashScreen, Toast, Toaster,
     Toasts,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use grid::{
-    CellAlign, ColumnLayout, DataGrid, FilterLayout, GridColumn, GridData, GridLayout, GridPage, GridRequest,
-    GridResponder, GridScenario, NumberFormat, RemoteRows, SelectionMode, SortDirection, SortLayout, Summary,
-    Value,
+    CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridColumn, GridData, GridLayout, GridPage,
+    GridRequest, GridResponder, GridRowAction, GridScenario, NumberFormat, RemoteRows, SelectionMode,
+    SortDirection, SortLayout, Summary, Value,
 };
 pub use icon::Icon;
 pub use icon_set::IconName;

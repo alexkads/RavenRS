@@ -8,7 +8,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Editors for business forms.** `TextArea`, `NumberField` (also money in whole cents), `MaskedField`, `TimePicker`, `DateTimePicker` and `LookupField`, whose options can come from a database or a server.
 - **`FormLayout`** arranges fields in groups and columns that collapse on narrow windows, with tabs and a list of errors.
 - **Commands.** `Toolbar` folds what does not fit into a menu, `SplitButton` offers alternatives to a main command, and `ConfirmDialog` asks before something final.
+- **`FilterBuilder`** writes filters from lines of field, comparison and value, in the expression language, and keeps what it cannot show as a line.
+- **`DataGrid` over records.** Columns can name their field (`GridColumn::field`) and hold dates (`GridColumn::date`, `Value::Date`). `key_column` and `selected_keys` keep a selection across data changes, `on_row_open` gives the row's values, `on_cell_edit` can refuse an edit and say why, and `row_action`, `on_add_row` and `on_delete_rows` add commands for rows. `GridData` gains `insert` and `remove`.
+- **`Hotkey`** makes a key combination run a command, as `ToolbarAction::hotkey`, also from a folded toolbar.
 - `disabled` and `read_only` on `TextField`, `Select`, `Combobox`, `DatePicker`, `Checkbox`, `Toggle` and `Stepper`. Screen readers hear about read-only controls through `AccessNode::read_only`.
+
+### Changed
+- `Ribbon`, `Carousel` and `InputOtp` take their words from `Labels`, so they follow `Localized`.
 
 ### Fixed
 - A view that builds from the size of its scroll container, as `DataGrid` does, gets a new build in the same frame when that size changes, instead of waiting for the next input.

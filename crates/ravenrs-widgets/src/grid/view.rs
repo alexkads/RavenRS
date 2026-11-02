@@ -84,6 +84,62 @@ pub struct DataGrid {
     vertical_lines: bool,
     layout: Option<Binding<GridLayout>>,
     scenarios: Option<Binding<Vec<GridScenario>>>,
+    key_column: Option<usize>,
+    selected_keys: Option<Binding<BTreeSet<String>>>,
+    on_cell_edit: Option<CellEditHandler>,
+    row_actions: Vec<GridRowAction>,
+    on_add_row: Option<Rc<dyn Fn()>>,
+    on_delete_rows: Option<Rc<dyn Fn(Vec<usize>)>>,
+}
+
+type CellEditHandler = Rc<dyn Fn(&CellEdit) -> Result<(), String>>;
+type RowTest = Rc<dyn Fn(&Row) -> bool>;
+
+/// Room for one button of a [`GridRowAction`].
+const ROW_ACTION_WIDTH: f32 = 34.0;
+
+/// A change someone made in a cell, before it is kept.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct CellEdit {
+    /// The row in the data.
+    pub row: usize,
+    /// The column.
+    pub column: usize,
+    /// What the cell held.
+    pub previous: Value,
+    /// What it would hold now.
+    pub value: Value,
+}
+
+/// A button at the end of every row, such as Edit or Delete.
+#[derive(Clone)]
+pub struct GridRowAction {
+    label: String,
+    icon: IconName,
+    on_click: Rc<dyn Fn(&Row)>,
+    enabled: Option<RowTest>,
+}
+
+impl fmt::Debug for GridRowAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GridRowAction").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
+impl GridRowAction {
+    /// A button with this icon that runs `on_click` with its row. Screen readers hear
+    /// `label` and the row, such as "Delete Acme", from
+    /// [`key_column`](DataGrid::key_column) or else the first column.
+    pub fn new(label: impl Into<String>, icon: IconName, on_click: impl Fn(&Row) + 'static) -> Self {
+        Self { label: label.into(), icon, on_click: Rc::new(on_click), enabled: None }
+    }
+
+    /// Turns the button off on the rows where this says false.
+    pub fn enabled(mut self, enabled: impl Fn(&Row) -> bool + 'static) -> Self {
+        self.enabled = Some(Rc::new(enabled));
+        self
+    }
 }
 
 impl fmt::Debug for DataGrid {
@@ -126,6 +182,12 @@ impl DataGrid {
             vertical_lines: false,
             layout: None,
             scenarios: None,
+            key_column: None,
+            selected_keys: None,
+            on_cell_edit: None,
+            row_actions: Vec::new(),
+            on_add_row: None,
+            on_delete_rows: None,
         }
     }
 
@@ -182,6 +244,64 @@ impl DataGrid {
     /// Where the selected row indices live (otherwise the grid keeps them).
     pub fn selection(mut self, selection: Binding<BTreeSet<usize>>) -> Self {
         self.selection = Some(selection);
+        self
+    }
+
+    /// The column that identifies a record, for [`selected_keys`](Self::selected_keys)
+    /// and the names of [`GridRowAction`]s.
+    pub fn key_column(mut self, column: usize) -> Self {
+        self.key_column = Some(column);
+        self
+    }
+
+    /// Where the keys of the selected rows live, with
+    /// [`key_column`](Self::key_column). Unlike row indices, keys still mean the same
+    /// records after the data is replaced.
+    pub fn selected_keys(mut self, keys: Binding<BTreeSet<String>>) -> Self {
+        self.selected_keys = Some(keys);
+        self
+    }
+
+    /// Double-click or Enter on a row, with the row's values. Works the same over
+    /// rows at hand and rows on a server.
+    pub fn on_row_open(mut self, handler: impl Fn(&Row) + 'static) -> Self {
+        let (data, remote) = (self.data.clone(), self.remote.clone());
+        self.on_row_activate = Some(Rc::new(move |index| {
+            let row = match &remote {
+                Some(remote) => remote.row(index),
+                None => data.rows().get(index).cloned(),
+            };
+            if let Some(row) = row {
+                handler(&row);
+            }
+        }));
+        self
+    }
+
+    /// Sees each edit before it is kept. An error stays on show, in the toolbar, and the
+    /// cell stays open. With it, columns marked [`editable`](GridColumn::editable) can
+    /// be edited with a double-click over rows on a server too: the handler saves them.
+    pub fn on_cell_edit(mut self, handler: impl Fn(&CellEdit) -> Result<(), String> + 'static) -> Self {
+        self.on_cell_edit = Some(Rc::new(handler));
+        self
+    }
+
+    /// Adds a button at the end of every row.
+    pub fn row_action(mut self, action: GridRowAction) -> Self {
+        self.row_actions.push(action);
+        self
+    }
+
+    /// Shows an Add button in the toolbar. The handler adds the row, or opens a form to.
+    pub fn on_add_row(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_add_row = Some(Rc::new(handler));
+        self
+    }
+
+    /// Lets the Delete key and a toolbar button remove the selected rows. The handler
+    /// receives them, and it decides: it may ask first.
+    pub fn on_delete_rows(mut self, handler: impl Fn(Vec<usize>) + 'static) -> Self {
+        self.on_delete_rows = Some(Rc::new(handler));
         self
     }
 
@@ -272,6 +392,7 @@ struct Handles {
     reveal: Rc<Cell<Option<usize>>>,
     editing: State<Option<(usize, usize)>>,
     edit_buffer: State<String>,
+    edit_error: State<Option<String>>,
     resize: Rc<Cell<Option<(usize, f32, f32)>>>,
     modifiers: Rc<Cell<ravenrs_core::Modifiers>>,
     arrange: State<Arrangement>,
@@ -999,12 +1120,48 @@ impl View for FooterCell<'_> {
     }
 }
 
+/// Selection by the row indices the grid works with, kept as the keys of those rows.
+fn keyed_selection(
+    keys: Binding<BTreeSet<String>>,
+    column: usize,
+    data: GridData,
+    remote: Option<RemoteRows>,
+) -> Binding<BTreeSet<usize>> {
+    let held = move || -> Vec<(usize, Row)> {
+        match &remote {
+            Some(remote) => remote.held_rows(),
+            None => data.rows().iter().cloned().enumerate().collect(),
+        }
+    };
+    let key_of = move |row: &Row| row.get(column).map(Value::key_text).unwrap_or_default();
+    let (read, write, rows_read, rows_write) = (keys.clone(), keys, held.clone(), held);
+    Binding::new(
+        move || {
+            let wanted = read.get();
+            if wanted.is_empty() {
+                return BTreeSet::new();
+            }
+            rows_read().iter().filter(|(_, row)| wanted.contains(&key_of(row))).map(|(i, _)| *i).collect()
+        },
+        move |picked: BTreeSet<usize>| {
+            let rows = rows_write();
+            // A record out of reach, on a server, stays selected until someone changes it.
+            let at_hand: BTreeSet<String> = rows.iter().map(|(_, row)| key_of(row)).collect();
+            let mut next: BTreeSet<String> =
+                write.get().into_iter().filter(|key| !at_hand.contains(key)).collect();
+            next.extend(rows.iter().filter(|(i, _)| picked.contains(i)).map(|(_, row)| key_of(row)));
+            write.set(next);
+        },
+    )
+}
+
 /// A value as the filter expression language writes it.
 fn value_literal(value: &Value) -> Option<String> {
     match value {
         Value::Text(text) => Some(format!("'{}'", text.replace('\'', "''"))),
         Value::Number(n) => Some(n.to_string()),
         Value::Bool(b) => Some(if *b { "True" } else { "False" }.to_owned()),
+        Value::Date(date) => Some(format!("#{date}#")),
         _ => None,
     }
 }
@@ -1698,17 +1855,41 @@ impl View for DataRow<'_> {
                 let (data, buffer, editing, column) =
                     (s.grid.data.clone(), s.h.edit_buffer.clone(), s.h.editing.clone(), col.clone());
                 let previous = value.clone();
-                let cancel = s.h.editing.clone();
+                let (cancel, wrong, right) =
+                    (s.h.editing.clone(), s.h.edit_error.clone(), s.h.edit_error.clone());
+                let (check, local) = (s.grid.on_cell_edit.clone(), s.grid.remote.is_none());
                 cx.child(
                     &TextField::new(s.h.edit_buffer.binding())
                         .compact()
                         .autofocus()
                         .on_submit(move |text| {
-                            data.set_cell(row, c, column.parse(&text, &previous));
+                            let value = column.parse(&text, &previous);
+                            if let Some(check) = &check {
+                                let edit = CellEdit {
+                                    row,
+                                    column: c,
+                                    previous: previous.clone(),
+                                    value: value.clone(),
+                                };
+                                if let Err(message) = check(&edit) {
+                                    wrong.set(Some(message));
+                                    return;
+                                }
+                            }
+                            right.set(None);
+                            if local {
+                                data.set_cell(row, c, value);
+                            }
                             buffer.set(String::new());
                             editing.set(None);
                         })
-                        .on_cancel(move || cancel.set(None)),
+                        .on_cancel({
+                            let wrong = s.h.edit_error.clone();
+                            move || {
+                                wrong.set(None);
+                                cancel.set(None);
+                            }
+                        }),
                 )
             } else if let Some(template) = &col.template {
                 let view = template(&value);
@@ -1746,8 +1927,11 @@ impl View for DataRow<'_> {
             let result = s.result.clone();
             let h = s.h.clone();
             cx.on_click(cell, Rc::new(move || click_row(&result, &h, mode, row, index)));
-            let (editable, h2, activate) =
-                (col.editable && s.grid.remote.is_none(), s.h.clone(), s.grid.on_row_activate.clone());
+            let (editable, h2, activate) = (
+                col.editable && (s.grid.remote.is_none() || s.grid.on_cell_edit.is_some()),
+                s.h.clone(),
+                s.grid.on_row_activate.clone(),
+            );
             let rows_value = col.display(&value);
             cx.on_double_click(
                 cell,
@@ -1766,6 +1950,38 @@ impl View for DataRow<'_> {
             } else {
                 cells.push(cell);
             }
+        }
+        if !s.grid.row_actions.is_empty() {
+            let name_column = s.grid.key_column.or(first_column).unwrap_or(0);
+            let row_name = match (s.grid.columns.get(name_column), self.values.get(name_column)) {
+                (Some(column), Some(value)) => column.display(value),
+                _ => String::new(),
+            };
+            let mut buttons = Vec::with_capacity(s.grid.row_actions.len());
+            for (i, action) in s.grid.row_actions.iter().enumerate() {
+                let (run, values) = (action.on_click.clone(), self.values.clone());
+                let enabled = action.enabled.as_ref().is_none_or(|f| f(&self.values));
+                buttons.push(
+                    cx.keyed_child(
+                        (1 << 40) + i as u64,
+                        &crate::IconButton::new(action.icon)
+                            .label(format!("{} {row_name}", action.label))
+                            .size(ButtonSize::Small)
+                            .disabled(!enabled)
+                            .on_click(move || run(&values)),
+                    ),
+                );
+            }
+            cells.push(cx.container(
+                LayoutStyle {
+                    width: Some(s.grid.row_actions.len() as f32 * ROW_ACTION_WIDTH),
+                    height: Some(rh),
+                    align: Align::Center,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &buttons,
+                Paint::None,
+            ));
         }
         if s.fixed_width > 0.0 {
             let room = cx.container(
@@ -1933,16 +2149,23 @@ impl DataGrid {
         let reveal = cx.use_state(|| Rc::new(Cell::new(None))).get();
         let editing = cx.use_state(|| None);
         let edit_buffer = cx.use_state(String::new);
+        let edit_error = cx.use_state(|| None);
         let resize = cx.use_state(|| Rc::new(Cell::new(None))).get();
         Handles {
             query,
             widths,
-            selection: self.selection.clone().unwrap_or_else(|| own_selection.binding()),
+            selection: match (&self.selected_keys, self.key_column) {
+                (Some(keys), Some(column)) => {
+                    keyed_selection(keys.clone(), column, self.data.clone(), self.remote.clone())
+                }
+                _ => self.selection.clone().unwrap_or_else(|| own_selection.binding()),
+            },
             focus_row,
             anchor,
             reveal,
             editing,
             edit_buffer,
+            edit_error,
             resize,
             modifiers: cx.modifiers(),
             arrange,
@@ -2065,7 +2288,33 @@ impl DataGrid {
                 ),
             );
         }
+        if let Some(add) = self.on_add_row.clone() {
+            items.push(
+                cx.child(
+                    &Button::new(labels.grid_add_row.clone())
+                        .style(ButtonStyle::Secondary)
+                        .size(ButtonSize::Small)
+                        .icon(IconName::Plus)
+                        .on_click(move || add()),
+                ),
+            );
+        }
+        if let (Some(delete), false) = (self.on_delete_rows.clone(), h.selection.get().is_empty()) {
+            let selection = h.selection.clone();
+            items.push(
+                cx.child(
+                    &Button::new(labels.grid_delete_rows.clone())
+                        .style(ButtonStyle::Ghost)
+                        .size(ButtonSize::Small)
+                        .icon(IconName::Trash2)
+                        .on_click(move || delete(selection.get().into_iter().collect())),
+                ),
+            );
+        }
         items.push(cx.child(&Spacer::new()));
+        if let Some(message) = h.edit_error.get() {
+            items.push(util::label(cx, &message, TextStyle::Callout, None, theme.color(Semantic::Danger)));
+        }
         let selected = h.selection.get().len();
         let fmt = crate::grid::model::NumberFormat::default();
         let mut status = format!(
@@ -2360,6 +2609,7 @@ fn key_handler(s: &Shared<'_>, mode: SelectionMode, clipboard: crate::Clipboard)
     let rows = s.rows_rc.clone();
     let display: Vec<GridColumn> = s.grid.columns.clone();
     let activate_row = s.grid.on_row_activate.clone();
+    let delete_rows = s.grid.on_delete_rows.clone();
     let page_size = s.arrangement.page_size;
     Rc::new(move |key, mods| {
         let len = result.rows.len();
@@ -2447,6 +2697,11 @@ fn key_handler(s: &Shared<'_>, mode: SelectionMode, clipboard: crate::Clipboard)
                 _ => return false,
             },
             Key::Enter => activate(current),
+            Key::Delete if delete_rows.is_some() && !h.selection.get().is_empty() => {
+                if let Some(delete) = &delete_rows {
+                    delete(h.selection.get().into_iter().collect());
+                }
+            }
             Key::Other(k) if k.contains("F2") => activate(current),
             _ => return false,
         }
@@ -2590,7 +2845,9 @@ impl View for DataGrid {
                 }
             }
         }
-        let total_width = select_width + visible.iter().map(|&c| widths[c]).sum::<f32>();
+        let total_width = select_width
+            + visible.iter().map(|&c| widths[c]).sum::<f32>()
+            + self.row_actions.len() as f32 * ROW_ACTION_WIDTH;
         let selected = h.selection.get();
         let focus_row = h.focus_row.get();
         let editing = h.editing.get();

@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 use ravenrs::native::{OpenDialog, SaveDialog, open_with_system};
 use ravenrs::prelude::*;
 
-use super::forms::{Confirm, Forms};
+use super::forms::Forms;
 use super::help;
 use super::store::{PAGE_INSETS, Page, Store, content_width, titled_card};
 use super::updates;
@@ -48,7 +48,7 @@ fn make_backup(store: &Store) {
 
 /// What the file holds and what would be lost, before anything changes. A file
 /// that cannot be restored stops here, with the reason.
-fn ask_to_restore(store: &Store, confirm: &Confirm, file: PathBuf, from: &str) {
+fn ask_to_restore(store: &Store, confirm: &ConfirmDialog, file: PathBuf, from: &str) {
     if store.path.as_deref() == Some(file.as_path()) {
         let why = "Esse é o próprio banco em uso. Escolha um arquivo de backup.";
         store.toasts.show_for("Não foi possível restaurar", why, Tone::Danger, 8.0);
@@ -134,7 +134,7 @@ fn replace_keeping_a_copy(
     store.write(done, work);
 }
 
-fn copy_rows(store: &Store, confirm: &Confirm) -> Vec<ListItem> {
+fn copy_rows(store: &Store, confirm: &ConfirmDialog) -> Vec<ListItem> {
     let Some(path) = &store.path else {
         return Vec::new();
     };

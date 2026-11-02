@@ -751,13 +751,13 @@ impl View for Ribbon {
             &tabs,
             Paint::None,
         );
-        cx.semantics(tab_list, Semantics::new(Role::TabList).name("Ribbon"));
+        cx.semantics(tab_list, Semantics::new(Role::TabList).name(cx.labels().ribbon.clone()));
         row.push(tab_list);
         if let Some(q) = &self.search {
             row.push(
                 cx.child(
                     &TextField::new(q.clone())
-                        .placeholder("Tell me what you want to do")
+                        .placeholder(cx.labels().ribbon_search.clone())
                         .icon(IconName::Search)
                         .compact()
                         .width(240.0),
@@ -778,7 +778,11 @@ impl View for Ribbon {
                     p.set(false);
                     c.update(|v| *v = !*v);
                 }),
-                if is_collapsed { "Pin the ribbon" } else { "Collapse the ribbon" },
+                if is_collapsed {
+                    cx.labels().ribbon_pin.clone()
+                } else {
+                    cx.labels().ribbon_collapse.clone()
+                },
             )),
         );
         let title_row = cx.container(

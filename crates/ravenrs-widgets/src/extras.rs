@@ -173,10 +173,11 @@ impl View for Carousel {
             }),
         );
         cx.clip(stage);
+        let labels = cx.labels();
         let (prev, next, s1, s2) = (index.clone(), index.clone(), since.clone(), since.clone());
         let back = cx.child(
             &IconButton::new(IconName::ChevronLeft)
-                .label("Previous slide")
+                .label(cx.labels().carousel_previous.clone())
                 .style(ButtonStyle::Secondary)
                 .size(ButtonSize::Small)
                 .on_click(move || {
@@ -186,7 +187,7 @@ impl View for Carousel {
         );
         let forward = cx.child(
             &IconButton::new(IconName::ChevronRight)
-                .label("Next slide")
+                .label(cx.labels().carousel_next.clone())
                 .style(ButtonStyle::Secondary)
                 .size(ButtonSize::Small)
                 .on_click(move || {
@@ -213,7 +214,9 @@ impl View for Carousel {
             );
             cx.semantics(
                 dot,
-                Semantics::new(Role::Button).name(format!("Slide {} of {n}", i + 1)).selected(on),
+                Semantics::new(Role::Button)
+                    .name(format!("{} {} {} {n}", labels.carousel_slide, i + 1, labels.grid_of))
+                    .selected(on),
             );
             let idx = index.clone();
             cx.on_click(dot, Rc::new(move || idx.set(i)));
@@ -619,7 +622,7 @@ impl View for InputOtp {
         }
         let typed: String = self.value.get().chars().take(self.length).collect();
         let mut semantics = Semantics::new(Role::TextInput)
-            .name("Verification code")
+            .name(cx.labels().verification_code.clone())
             .value(typed)
             .description(format!("{} digits", self.length));
         semantics.fallback_name = true;

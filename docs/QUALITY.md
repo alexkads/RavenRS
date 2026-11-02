@@ -103,7 +103,7 @@ Status against the definition of done. **Behavior** names the test suites that d
 | Slider | components | ✅ | ✅ arrows, Home/End, tested | |
 | Stepper | keyboard_and_basics | | ✅ arrows, Home/End, tested | Keyboard added in this pass |
 | TextArea, NumberField, MaskedField, TimePicker, DateTimePicker | editors | | ✅ typing, arrows, tested | |
-| LookupField, FormLayout | components | | ✅ type, arrows, Enter, tested | |
+| LookupField, FormLayout, FilterBuilder | components | | ✅ type, arrows, Enter, tested | |
 | Toolbar, SplitButton, ConfirmDialog | components | | ✅ buttons and menus, tested | |
 | Disabled and read-only editors | components | | ✅ out of the tab order, or readable, tested | |
 | InputOtp | batch_parity | | ✅ digits and Backspace, tested | |

@@ -8,6 +8,7 @@ use std::rc::Rc;
 use ravenrs_reactive::State;
 
 use crate::AnyView;
+use crate::date::Date;
 
 /// A cell value.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -22,6 +23,8 @@ pub enum Value {
     Number(f64),
     /// A yes/no value.
     Bool(bool),
+    /// A calendar date.
+    Date(Date),
 }
 
 impl Value {
@@ -34,12 +37,34 @@ impl Value {
         }
     }
 
+    /// The date, for a [`Value::Date`].
+    pub fn as_date(&self) -> Option<Date> {
+        if let Value::Date(date) = self { Some(*date) } else { None }
+    }
+
+    /// The text that identifies a row by this value, in
+    /// [`DataGrid::key_column`](crate::DataGrid::key_column).
+    pub fn key_text(&self) -> String {
+        match self {
+            Value::Empty => String::new(),
+            Value::Text(text) => text.clone(),
+            Value::Number(n) => n.to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Date(date) => date.to_string(),
+        }
+    }
+
     /// The value is [`Value::Empty`].
     pub fn is_empty(&self) -> bool {
         matches!(self, Value::Empty)
     }
 }
 
+impl From<Date> for Value {
+    fn from(date: Date) -> Self {
+        Value::Date(date)
+    }
+}
 impl From<&str> for Value {
     fn from(s: &str) -> Self {
         Value::Text(s.to_owned())
@@ -196,6 +221,7 @@ pub type CellTemplate = Rc<dyn Fn(&Value) -> AnyView>;
 #[derive(Clone)]
 pub struct GridColumn {
     pub(crate) title: String,
+    pub(crate) field: Option<String>,
     pub(crate) width: f32,
     pub(crate) min_width: f32,
     pub(crate) align: CellAlign,
@@ -227,6 +253,7 @@ impl GridColumn {
     pub fn text(title: impl Into<String>) -> Self {
         Self {
             title: title.into(),
+            field: None,
             width: 160.0,
             min_width: 60.0,
             align: CellAlign::Start,
@@ -264,6 +291,22 @@ impl GridColumn {
     /// A yes/no column.
     pub fn boolean(title: impl Into<String>) -> Self {
         Self { align: CellAlign::Center, width: 100.0, ..Self::text(title) }
+    }
+
+    /// A date column, written `2026-11-02` unless [`format`](Self::format) says otherwise.
+    pub fn date(title: impl Into<String>) -> Self {
+        Self { width: 120.0, ..Self::text(title) }
+    }
+
+    /// The name of the field this column shows, which stays when the title is translated.
+    pub fn field(mut self, field: impl Into<String>) -> Self {
+        self.field = Some(field.into());
+        self
+    }
+
+    /// The name given by [`field`](Self::field).
+    pub fn field_name(&self) -> Option<&str> {
+        self.field.as_deref()
     }
 
     /// Sets the width in logical pixels, never below the column's minimum.
@@ -375,6 +418,7 @@ impl GridColumn {
                 Cow::Owned(self.number.as_ref().map_or_else(|| n.to_string(), |f| f.format(*n)))
             }
             Value::Bool(b) => Cow::Borrowed(if *b { "Yes" } else { "No" }),
+            Value::Date(date) => Cow::Owned(date.to_string()),
         }
     }
 
@@ -404,6 +448,7 @@ impl GridColumn {
                     .collect();
                 cleaned.trim().parse::<f64>().map_or(previous.clone(), Value::Number)
             }
+            Value::Date(_) if !t.is_empty() => parse_date(t).map_or(previous.clone(), Value::Date),
             Value::Bool(_) => {
                 Value::Bool(matches!(t.to_lowercase().as_str(), "yes" | "true" | "1" | "y" | "sim"))
             }
@@ -411,6 +456,18 @@ impl GridColumn {
             _ => Value::Text(t.to_owned()),
         }
     }
+}
+
+/// Reads `2026-11-02` or `02/11/2026`.
+fn parse_date(text: &str) -> Option<Date> {
+    let number = |part: &str| part.trim().parse::<u32>().ok();
+    if let Some((year, rest)) = text.split_once('-') {
+        let (month, day) = rest.split_once('-')?;
+        return Date::new(year.parse().ok()?, number(month)? as u8, number(day)? as u8);
+    }
+    let (day, rest) = text.split_once('/')?;
+    let (month, year) = rest.split_once('/')?;
+    Date::new(year.trim().parse().ok()?, number(month)? as u8, number(day)? as u8)
 }
 
 /// The rows behind a data grid. Cloning shares the same data; editing replaces
@@ -455,6 +512,26 @@ impl GridData {
         self.rows.update(|rows| Rc::make_mut(rows).push(row));
     }
 
+    /// Inserts a row at `index`, or at the end when it is past the end.
+    pub fn insert(&self, index: usize, row: Row) {
+        self.rows.update(|rows| {
+            let rows = Rc::make_mut(rows);
+            rows.insert(index.min(rows.len()), row);
+        });
+    }
+
+    /// Removes a row and returns it; an out-of-range index does nothing.
+    pub fn remove(&self, index: usize) -> Option<Row> {
+        let mut removed = None;
+        self.rows.update(|rows| {
+            let rows = Rc::make_mut(rows);
+            if index < rows.len() {
+                removed = Some(rows.remove(index));
+            }
+        });
+        removed
+    }
+
     /// Replaces all rows.
     pub fn replace(&self, rows: Vec<Row>) {
         self.rows.set(Rc::new(rows));
@@ -490,6 +567,12 @@ mod tests {
             Value::Number(7.0),
             "invalid input keeps the old value"
         );
+        let due = GridColumn::date("Due");
+        let day = Date::new(2026, 11, 2).map(Value::Date).unwrap_or_default();
+        assert_eq!(due.parse("2026-11-02", &Value::Date(Date::from_days(0))), day);
+        assert_eq!(due.parse("02/11/2026", &Value::Date(Date::from_days(0))), day);
+        assert_eq!(due.parse("soon", &day), day, "invalid input keeps the old value");
+        assert_eq!(due.display(&day), "2026-11-02");
         assert_eq!(GridColumn::boolean("Active").parse("yes", &Value::Bool(false)), Value::Bool(true));
     }
 }

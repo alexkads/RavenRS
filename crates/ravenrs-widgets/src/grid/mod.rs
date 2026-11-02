@@ -15,4 +15,4 @@ pub use model::{
     Value,
 };
 pub use query::{GridQuery, QueryResult, ViewRow, to_tsv};
-pub use view::{DataGrid, SelectionMode};
+pub use view::{CellEdit, DataGrid, GridRowAction, SelectionMode};

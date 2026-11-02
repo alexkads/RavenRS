@@ -432,7 +432,7 @@ impl App {
                 self.forms.pay.view(&self.store),
                 self.forms.schedule.view(&self.store),
                 self.forms.occurrence.view(&self.store),
-                self.forms.confirm.view(),
+                self.forms.confirm.clone(),
                 VStack::new((self.news.view(&self.store.updater), self.reporter.clone())).spacing(0.0),
                 self.palette_view(),
                 Shortcuts { store: self.store.clone(), forms: self.forms.clone() },

@@ -297,6 +297,17 @@ impl RemoteRows {
     }
 
     /// The row at `index`, if it is here.
+    /// Every row at hand, with its index.
+    pub(crate) fn held_rows(&self) -> Vec<(usize, Row)> {
+        let held = self.held.borrow();
+        let mut rows = Vec::new();
+        for (chunk, content) in &held.chunks {
+            let start = chunk * self.chunk_size;
+            rows.extend(content.rows.iter().enumerate().map(|(i, row)| (start + i, row.clone())));
+        }
+        rows
+    }
+
     pub(crate) fn row(&self, index: usize) -> Option<Row> {
         let mut held = self.held.borrow_mut();
         held.clock += 1;

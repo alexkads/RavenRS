@@ -957,61 +957,6 @@ impl ConfirmForm {
     }
 }
 
-/// A question before doing something that cannot be undone.
-pub(crate) struct Confirmation {
-    pub title: String,
-    pub message: String,
-    pub action: String,
-    pub run: Rc<dyn Fn()>,
-}
-
-/// Holds the question being asked.
-#[derive(Clone)]
-pub(crate) struct Confirm(State<Option<Rc<Confirmation>>>);
-
-impl Confirm {
-    pub fn new() -> Self {
-        Self(State::new(None))
-    }
-
-    pub fn ask(&self, title: &str, message: &str, action: &str, run: impl Fn() + 'static) {
-        self.0.set(Some(Rc::new(Confirmation {
-            title: title.to_owned(),
-            message: message.to_owned(),
-            action: action.to_owned(),
-            run: Rc::new(run),
-        })));
-    }
-
-    pub fn view(&self) -> Option<Dialog> {
-        let question = self.0.get()?;
-        let (read, write) = (self.0.clone(), self.0.clone());
-        let open = Binding::new(
-            move || read.get().is_some(),
-            move |open: bool| {
-                if !open {
-                    write.set(None);
-                }
-            },
-        );
-        let (cancel, done) = (self.0.clone(), self.0.clone());
-        let run = question.run.clone();
-        Some(
-            Dialog::new(open, question.title.clone())
-                .description(question.message.clone())
-                .action(
-                    Button::new("Cancelar").style(ButtonStyle::Secondary).on_click(move || cancel.set(None)),
-                )
-                .action(Button::new(question.action.clone()).style(ButtonStyle::Danger).on_click(
-                    move || {
-                        done.set(None);
-                        run();
-                    },
-                )),
-        )
-    }
-}
-
 /// All the dialogs, for the screens that open them.
 #[derive(Clone)]
 pub(crate) struct Forms {
@@ -1020,7 +965,7 @@ pub(crate) struct Forms {
     pub pay: PayForm,
     pub schedule: ScheduleForm,
     pub occurrence: ConfirmForm,
-    pub confirm: Confirm,
+    pub confirm: ConfirmDialog,
 }
 
 impl Forms {
@@ -1031,7 +976,7 @@ impl Forms {
             pay: PayForm::new(),
             schedule: ScheduleForm::new(),
             occurrence: ConfirmForm::new(),
-            confirm: Confirm::new(),
+            confirm: ConfirmDialog::new(),
         }
     }
 }

@@ -234,6 +234,9 @@ impl Record for GridRecord<'_> {
             Some(Value::Text(s)) => Field::Text(s.clone()),
             Some(Value::Number(n)) => Field::Number(*n),
             Some(Value::Bool(b)) => Field::Bool(*b),
+            Some(Value::Date(date)) => {
+                Field::Date(ravenrs_criteria::DateTime { days: date.to_days(), seconds: 0 })
+            }
             Some(Value::Empty) | None => Field::Null,
         })
     }
@@ -274,6 +277,7 @@ fn keys_of(column: &GridColumn, c: usize, rows: &[Row], indices: &[usize]) -> Ve
         .map(|&r| match rows[r].get(c).unwrap_or(&empty) {
             Value::Number(n) => Key::Num(*n),
             Value::Bool(b) => Key::Num(f64::from(u8::from(*b))),
+            Value::Date(date) => Key::Num(date.to_days() as f64),
             v @ Value::Text(_) => {
                 let next = texts.len() as u32;
                 Key::Text(*texts.entry(column.display_cow(v)).or_insert(next))

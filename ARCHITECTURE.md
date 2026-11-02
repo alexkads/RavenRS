@@ -207,10 +207,12 @@ Parity with the DevExpress DataGrid feature set:
 | Columns pinned to the left | ✓ |
 | Multi-level (banded) headers, columns pinned to the right | planned |
 | Filter by value (checklists) with a filter panel | ✓ |
-| Filter builder | planned |
+| Filter builder | ✓ `FilterBuilder`, on its own; not yet in the grid's toolbar |
 | Paging UI, infinite scroll and rows on a server (`RemoteRows`: bounded memory, settled requests, no totals needed, keyset by `after`) | ✓ |
 | Summaries changed at run time, with formulas over `ravenrs-criteria` | ✓ |
-| Master-detail rows, row add/delete UI, validation, row drag and drop | planned |
+| Row add and delete (`on_add_row`, `on_delete_rows`), buttons on rows (`row_action`), edits that can be refused (`on_cell_edit`) | ✓ |
+| Keys that survive data changes (`key_column`, `selected_keys`), dates (`GridColumn::date`), field names (`GridColumn::field`) | ✓ |
+| Master-detail rows, row drag and drop | planned |
 | Saved layouts and named scenarios (`GridLayout`, `GridScenario`, JSON) | ✓ |
 | Excel and PDF export, cell range copy | planned |
 

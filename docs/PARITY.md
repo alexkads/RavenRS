@@ -8,7 +8,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | | Families tracked | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
-| All | 112 | 64 | 7 | 41 |
+| All | 113 | 65 | 7 | 41 |
 
 ## Layout and structure
 
@@ -77,6 +77,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Range slider | | ✓ | ✓ | ⬜ |
 | Select / Drop-down list | ✓ | ✓ | ✓ | ✅ `Select` |
 | Combobox / Autocomplete | ✓ | ✓ | ✓ | ✅ `Combobox` |
+| Filter builder | | ✓ | ✓ | ✅ `FilterBuilder`: lines and groups over the expression language; what it cannot show stays as text |
 | Lookup (records loaded on demand) | | ✓ | ✓ | ✅ `LookupField`: from memory or a callback, ignores stale answers |
 | Multi-select / Tag box | | ✓ | ✓ | ⬜ |
 | Numeric input / Spin editor | | ✓ | ✓ | ✅ `NumberField` (range, step, separators, money in whole cents), `Stepper` |
