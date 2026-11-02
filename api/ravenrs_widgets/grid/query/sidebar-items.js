@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ViewRow"],"fn":["matches_filter","run_query","to_csv","to_tsv"],"struct":["GridQuery","QueryResult"]};

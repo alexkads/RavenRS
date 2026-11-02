@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CATALOG"],"enum":["EngineError","ModelError","ModelFamily","ModelState"],"fn":["model_by_id","read_tool_call","tool_rules"],"struct":["Generated","LocalAssistant","LocalEngine","LocalModel","Machine","ModelFile","ModelFolder","ModelManager","ModelManagerLabels","Tool","ToolCall"]};

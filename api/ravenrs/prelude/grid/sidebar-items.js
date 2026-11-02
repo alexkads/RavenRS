@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CellAlign","SelectionMode","SortDirection","Summary","Value","ViewRow"],"fn":["to_tsv"],"mod":["query"],"struct":["DataGrid","GridColumn","GridData","GridQuery","NumberFormat","QueryResult"],"type":["CellFormat","CellTemplate","Row"]};

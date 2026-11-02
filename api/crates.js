@@ -1,0 +1,2 @@
+window.ALL_CRATES = ["movie_editor","ravenrs","ravenrs_ai","ravenrs_animation","ravenrs_core","ravenrs_criteria","ravenrs_graphics","ravenrs_layout","ravenrs_mcp","ravenrs_movie","ravenrs_platform_native","ravenrs_platform_web","ravenrs_reactive","ravenrs_render","ravenrs_report","ravenrs_report_export","ravenrs_report_pdf","ravenrs_report_server","ravenrs_report_viewer","ravenrs_report_xlsx","ravenrs_style","ravenrs_text","ravenrs_widgets"];
+//{"start":21,"fragment_lengths":[14,10,13,20,15,19,19,17,14,16,26,23,19,17,17,24,21,24,24,22,16,15,18]}

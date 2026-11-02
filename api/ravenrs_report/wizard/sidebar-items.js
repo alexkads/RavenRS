@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FieldKind"],"fn":["caption","default_format","fields","rows_of","table_report"],"struct":["FieldInfo","WizardOptions"]};

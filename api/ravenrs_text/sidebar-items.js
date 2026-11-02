@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_FAMILY","ICON_FAMILY"],"fn":["builtin_font","builtin_font_number","fold","inter_font"],"struct":["ShapedGlyph","TextAttrs","TextLayout","TextLine","TextSystem"]};

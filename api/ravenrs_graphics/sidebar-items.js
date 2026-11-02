@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["barcode","chart","vector"]};

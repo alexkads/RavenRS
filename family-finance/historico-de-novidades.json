@@ -1,0 +1,114 @@
+[
+  {
+    "versao": "0.1.8",
+    "data": "2026-11-01",
+    "titulo": "Um assistente no canto da tela, que pode usar uma IA rodando neste computador.",
+    "importante": false,
+    "novidades": [
+      "A esfera no canto da tela abre o assistente: pergunte como fazer alguma coisa, e ele abre o momento certo do filme. Dá para arrastá-la para outro canto.",
+      "Em Ajustes, você pode baixar uma IA que roda neste computador. Aparecem só as que cabem aqui, e dá para testar a velocidade e remover.",
+      "Com uma IA em uso, o assistente responde sobre saldo, gastos e contas, abre telas e prepara despesas e contas a partir de uma frase. Nada é gravado sem você conferir e salvar, e nada sai do computador."
+    ],
+    "por_que_atualizar": "Para achar o que precisa perguntando, e lançar despesas e contas escrevendo uma frase."
+  },
+  {
+    "versao": "0.1.7",
+    "data": "2026-11-01",
+    "titulo": "Os treinamentos agora falam, fazem som e explicam cada passo na tela.",
+    "importante": false,
+    "novidades": [
+      "Os treinamentos passaram de um filme curto para seis filmes, cerca de 16 minutos, sobre cada parte do app e as regras de cada tela.",
+      "Uma voz lê em voz alta o que está sendo feito, e dá para ouvir os cliques e a digitação. Som e narração têm cada um seu botão de desligar.",
+      "Uma caixa aparece junto de cada ação, explicando o que fazer e por quê."
+    ],
+    "por_que_atualizar": "Para aprender a usar o app assistindo e ouvindo, no seu ritmo."
+  },
+  {
+    "versao": "0.1.6",
+    "data": "2026-11-01",
+    "titulo": "O app agora usa a placa de vídeo do computador sempre que ela está disponível.",
+    "importante": false,
+    "novidades": [
+      "Em computadores mais antigos com Linux, o app podia desenhar pelo processador mesmo havendo placa de vídeo, o que o deixava lento. Agora ele usa a placa.",
+      "Se a placa de vídeo não aceitar o que o app precisa, ele tenta as outras opções em vez de não abrir.",
+      "O painel de diagnóstico explica melhor quando a placa de vídeo não está sendo usada."
+    ],
+    "por_que_atualizar": "Para o app ficar mais rápido em computadores mais antigos."
+  },
+  {
+    "versao": "0.1.5",
+    "data": "2026-11-01",
+    "titulo": "Achou o app lento? Agora ele mesmo testa e diz o que está acontecendo.",
+    "importante": false,
+    "novidades": [
+      "Em Ajustes, o botão Testar desempenho mede o app por 5 segundos e diz se está bom, razoável ou ruim, sem precisar de atalho nem de terminal.",
+      "O resultado mostra quantos quadros por segundo este computador desenha e onde o tempo vai: no desenho ou em montar a tela.",
+      "Quando o app não consegue usar a placa de vídeo, o resultado avisa."
+    ],
+    "por_que_atualizar": "Para saber em 5 segundos como o app roda neste computador e por quê."
+  },
+  {
+    "versao": "0.1.4",
+    "data": "2026-11-01",
+    "titulo": "Tire dúvidas na página Treinamentos: você pergunta e o filme abre no ponto certo.",
+    "importante": false,
+    "novidades": [
+      "Em Treinamentos, digite sua dúvida e o filme abre no momento que explica aquilo.",
+      "A busca entende as palavras dos capítulos e dos passos, com ou sem acento, e funciona sem internet.",
+      "Novo painel de diagnóstico, com Ctrl+Shift+D (Cmd+Shift+D no Mac), que mostra como o app está usando a placa de vídeo.",
+      "O painel de diagnóstico tem um botão que abre um relato de bug já preenchido na página do projeto."
+    ],
+    "por_que_atualizar": "Para achar a resposta de uma dúvida sem precisar assistir ao filme inteiro."
+  },
+  {
+    "versao": "0.1.3",
+    "data": "2026-11-01",
+    "titulo": "Treinamentos dentro do app, backup e restauração mais claros, e um jeito fácil de relatar problemas.",
+    "importante": false,
+    "novidades": [
+      "Nova página Treinamentos: um filme com capítulos, que para em cada passo e espera o seu clique.",
+      "Os Ajustes mostram quando foi o último backup, e dá para restaurar um arquivo vendo antes o que há nele.",
+      "O app guarda sozinho uma cópia por dia e outra antes de trocar seus dados, e você pode voltar a qualquer uma.",
+      "Relatar problema, no rodapé: você revê os últimos minutos, cobre o que quiser e salva o relato em um arquivo.",
+      "Rolar dentro de uma janela não move mais a tela de trás."
+    ],
+    "por_que_atualizar": "Seus dados ficam mais protegidos: há cópias automáticas e dá para restaurar um backup com segurança."
+  },
+  {
+    "versao": "0.1.2",
+    "data": "2026-11-01",
+    "titulo": "O ícone do app aparece no Linux com GNOME, como no Fedora.",
+    "importante": false,
+    "novidades": [
+      "A janela agora se identifica para o sistema, e o GNOME mostra o ícone do Raven Finanças nela."
+    ],
+    "por_que_atualizar": "Sem esta versão, a janela do app pode aparecer sem ícone no GNOME."
+  },
+  {
+    "versao": "0.1.1",
+    "data": "2026-11-01",
+    "titulo": "O app agora avisa de versão nova no rodapé, sem atrapalhar o que você está fazendo.",
+    "importante": false,
+    "novidades": [
+      "Um rodapé sempre mostra a versão em uso; um clique nela mostra o que aquela versão trouxe.",
+      "O app procura versão nova ao abrir e de hora em hora, e mostra em que etapa a atualização está.",
+      "As novidades agora têm a lista de versões e o comando para instalar à mão, se precisar.",
+      "Gesto de pinça para dar zoom nos relatórios e botão de imprimir.",
+      "A tabela de dados ficou legível no tema Vidro."
+    ],
+    "por_que_atualizar": "Sem esta versão, você só fica sabendo de uma atualização ao abrir o app."
+  },
+  {
+    "versao": "0.1.0",
+    "data": "2026-11-01",
+    "titulo": "Primeira versão: despesas da família, contas a pagar e relatórios, tudo guardado no seu computador.",
+    "importante": false,
+    "novidades": [
+      "Lançamentos com filtros, busca, agrupamento e filtro avançado por expressão.",
+      "Contas a pagar com parcelas, repetição mensal ou anual e pagamento em um clique.",
+      "Orçamento por categoria, com alerta de quando o limite estoura.",
+      "Relatórios para ver na tela e exportar em PDF, Excel e CSV."
+    ],
+    "por_que_atualizar": "É a primeira versão: a partir dela, o app avisa sozinho quando sair outra."
+  }
+]

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PathSegment"],"fn":["append_rectangle","ellipse","rasterize","rectangle"],"struct":["Shape"]};

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RecurrenceEditor · RavenRS</title>
+<meta name="description" content="Edits how something repeats: how often, on which days, until when">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="../../"><span class="mark"><i></i></span>RavenRS</a>
+  <ul>
+    <li><a href="../" aria-current="page">Components</a></li>
+    <li class="hide-sm"><a href="../../demo/">Live demo</a></li>
+    <li class="hide-sm"><a href="../../designer/">Reports</a></li>
+    <li><a href="../../api/ravenrs/">API</a></li>
+    <li class="hide-sm"><a href="https://github.com/alexkads/RavenRS">GitHub</a></li>
+  </ul>
+</nav>
+<div class="layout">
+  <aside class="side" aria-label="All components">
+    <h2>A to Z</h2>
+    <ul><li><a href="../accordion/">Accordion</a></li><li><a href="../alert/">Alert</a></li><li><a href="../areachart/">AreaChart</a></li><li><a href="../aspectratio/">AspectRatio</a></li><li><a href="../avatar/">Avatar</a></li><li><a href="../badge/">Badge</a></li><li><a href="../barchart/">BarChart</a></li><li><a href="../barcode/">Barcode</a></li><li><a href="../breadcrumb/">Breadcrumb</a></li><li><a href="../button/">Button</a></li><li><a href="../calendar/">Calendar</a></li><li><a href="../canvas/">Canvas</a></li><li><a href="../card/">Card</a></li><li><a href="../carousel/">Carousel</a></li><li><a href="../chart/">Chart</a></li><li><a href="../chat/">Chat</a></li><li><a href="../checkbox/">Checkbox</a></li><li><a href="../codeblock/">CodeBlock</a></li><li><a href="../collapse/">Collapse</a></li><li><a href="../colorswatch/">ColorSwatch</a></li><li><a href="../combobox/">Combobox</a></li><li><a href="../commandpalette/">CommandPalette</a></li><li><a href="../contextmenu/">ContextMenu</a></li><li><a href="../datagrid/">DataGrid</a></li><li><a href="../datepicker/">DatePicker</a></li><li><a href="../dialog/">Dialog</a></li><li><a href="../disclosure/">Disclosure</a></li><li><a href="../divider/">Divider</a></li><li><a href="../dropdownmenu/">DropdownMenu</a></li><li><a href="../eventcalendar/">EventCalendar</a></li><li><a href="../floatingpanel/">FloatingPanel</a></li><li><a href="../footer/">Footer</a></li><li><a href="../formfield/">FormField</a></li><li><a href="../glasscard/">GlassCard</a></li><li><a href="../grid/">Grid</a></li><li><a href="../hovercard/">HoverCard</a></li><li><a href="../hstack/">HStack</a></li><li><a href="../icon/">Icon</a></li><li><a href="../iconbutton/">IconButton</a></li><li><a href="../image/">Image</a></li><li><a href="../inputotp/">InputOtp</a></li><li><a href="../kbd/">Kbd</a></li><li><a href="../label/">Label</a></li><li><a href="../list/">List</a></li><li><a href="../menubar/">Menubar</a></li><li><a href="../modelpicker/">ModelPicker</a></li><li><a href="../pagination/">Pagination</a></li><li><a href="../popover/">Popover</a></li><li><a href="../progressbar/">ProgressBar</a></li><li><a href="../radiogroup/">RadioGroup</a></li><li><a href="../recurrenceeditor/" aria-current="page">RecurrenceEditor</a></li><li><a href="../releasenotes/">ReleaseNotes</a></li><li><a href="../ribbon/">Ribbon</a></li><li><a href="../scheduler/">Scheduler</a></li><li><a href="../scrollview/">ScrollView</a></li><li><a href="../section/">Section</a></li><li><a href="../segmentedcontrol/">SegmentedControl</a></li><li><a href="../select/">Select</a></li><li><a href="../sheet/">Sheet</a></li><li><a href="../sidebar/">Sidebar</a></li><li><a href="../skeleton/">Skeleton</a></li><li><a href="../slider/">Slider</a></li><li><a href="../spacer/">Spacer</a></li><li><a href="../spinner/">Spinner</a></li><li><a href="../splashscreen/">SplashScreen</a></li><li><a href="../splitter/">Splitter</a></li><li><a href="../stat/">Stat</a></li><li><a href="../statusbar/">StatusBar</a></li><li><a href="../stepper/">Stepper</a></li><li><a href="../table/">Table</a></li><li><a href="../tabs/">Tabs</a></li><li><a href="../text/">Text</a></li><li><a href="../textfield/">TextField</a></li><li><a href="../themeswitcher/">ThemeSwitcher</a></li><li><a href="../timeline/">Timeline</a></li><li><a href="../toaster/">Toaster</a></li><li><a href="../toggle/">Toggle</a></li><li><a href="../togglebutton/">ToggleButton</a></li><li><a href="../togglegroup/">ToggleGroup</a></li><li><a href="../toolrail/">ToolRail</a></li><li><a href="../tooltip/">Tooltip</a></li><li><a href="../vstack/">VStack</a></li></ul>
+  </aside>
+  <main>
+    <p class="crumb"><a href="../">Components</a> / RecurrenceEditor</p>
+    <h1>RecurrenceEditor</h1>
+    <p class="lede">Edits how something repeats: how often, on which days, until when.</p>
+    <h2 class="block">Example</h2>
+    <p class="sub">This is the component itself, running in WebAssembly. Try it.</p>
+    <iframe class="stage" src="../../demo/?component=RecurrenceEditor" title="Live example of RecurrenceEditor" height="328"></iframe>
+    <div class="block-head">
+      <h2 class="block">Code</h2>
+      <button class="copy" type="button" hidden>Copy</button>
+    </div>
+    <pre class="code" tabindex="0"><code><span class="t-keyword">use</span> ravenrs::prelude::*;
+
+<span class="t-keyword">fn</span> recurrence_editor() -&gt; <span class="t-keyword">impl</span> <span class="t-type">View</span> {
+    <span class="t-keyword">let</span> start = <span class="t-type">Date</span>::new(<span class="t-number">2026</span>, <span class="t-number">11</span>, <span class="t-number">5</span>).unwrap_or_else(|| unreachable!(<span class="t-string">"a real date"</span>));
+    <span class="t-keyword">let</span> rule = <span class="t-type">State</span>::new(<span class="t-type">RecurrenceRule</span>::new(<span class="t-type">Frequency</span>::<span class="t-type">Weekly</span>).on_weekdays([<span class="t-number">1</span>, <span class="t-number">4</span>]));
+    <span class="t-type">RecurrenceEditor</span>::new(rule.binding(), start)
+}
+</code></pre>
+    <p><a class="more" href="../../api/ravenrs_widgets/struct.RecurrenceEditor.html">Full API of RecurrenceEditor →</a></p>
+    <nav class="pager" aria-label="Other components"><a href="../radiogroup/">← RadioGroup</a><a href="../releasenotes/">ReleaseNotes →</a></nav>
+  </main>
+</div>
+<script>
+  const copy = document.querySelector(".copy");
+  if (navigator.clipboard) {
+    copy.hidden = false;
+    copy.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(document.querySelector(".code").textContent);
+      copy.textContent = "Copied";
+      setTimeout(() => (copy.textContent = "Copy"), 1500);
+    });
+  }
+</script>
+</body>
+</html>

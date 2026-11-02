@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Components · RavenRS</title>
+<meta name="description" content="Every RavenRS component, with a live example, its code and its API. Declarative GUI components in Rust for desktop and the web.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d12'/%3E%3Crect x='7' y='7' width='18' height='18' rx='5' fill='%234c66ee'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="../"><span class="mark"><i></i></span>RavenRS</a>
+  <ul>
+    <li><a href="./" aria-current="page">Components</a></li>
+    <li class="hide-sm"><a href="../demo/">Live demo</a></li>
+    <li class="hide-sm"><a href="../designer/">Reports</a></li>
+    <li><a href="../api/ravenrs/">API</a></li>
+    <li class="hide-sm"><a href="https://github.com/alexkads/RavenRS">GitHub</a></li>
+  </ul>
+</nav>
+<div class="layout">
+  <aside class="side" aria-label="All components" hidden>
+    <h2>A to Z</h2>
+    <ul id="index"></ul>
+  </aside>
+  <main>
+    <h1>Components</h1>
+    <p class="lede">Every component reads the same design tokens, works with the keyboard and runs unchanged on desktop and in the browser. Open any of them for a live example, its code and its API.</p>
+    <input class="search" id="search" type="search" placeholder="Filter components" aria-label="Filter components" autocomplete="off" hidden>
+    <p class="count" id="count" role="status"></p>
+    <section class="group" aria-labelledby="actions-and-inputs">
+      <h2 id="actions-and-inputs"><a class="anchor" href="#actions-and-inputs" aria-label="Link to Actions and inputs">#</a>Actions and inputs</h2>
+      <p class="sub">Buttons and controls that take a value.</p>
+      <ul class="items">
+        <li><a href="button/" data-api="struct.Button.html">Button</a><span class="sep"> - </span><span class="desc">Clickable, focusable button with styles, sizes and icons</span></li>
+        <li><a href="iconbutton/" data-api="struct.IconButton.html">IconButton</a><span class="sep"> - </span><span class="desc">Square, icon-only button for toolbars</span></li>
+        <li><a href="togglebutton/" data-api="struct.ToggleButton.html">ToggleButton</a><span class="sep"> - </span><span class="desc">Button that stays pressed, like bold or mute</span></li>
+        <li><a href="togglegroup/" data-api="struct.ToggleGroup.html">ToggleGroup</a><span class="sep"> - </span><span class="desc">Row of toggle buttons where one or several can be on</span></li>
+        <li><a href="segmentedcontrol/" data-api="struct.SegmentedControl.html">SegmentedControl</a><span class="sep"> - </span><span class="desc">Row of mutually exclusive segments, like a compact tab bar</span></li>
+        <li><a href="toggle/" data-api="struct.Toggle.html">Toggle</a><span class="sep"> - </span><span class="desc">On/off switch</span></li>
+        <li><a href="checkbox/" data-api="struct.Checkbox.html">Checkbox</a><span class="sep"> - </span><span class="desc">Check box with a label</span></li>
+        <li><a href="radiogroup/" data-api="struct.RadioGroup.html">RadioGroup</a><span class="sep"> - </span><span class="desc">One choice among several, shown as radio buttons</span></li>
+        <li><a href="slider/" data-api="struct.Slider.html">Slider</a><span class="sep"> - </span><span class="desc">Draggable value between a minimum and a maximum</span></li>
+        <li><a href="stepper/" data-api="struct.Stepper.html">Stepper</a><span class="sep"> - </span><span class="desc">Decrement, value and increment for small quantities</span></li>
+        <li><a href="colorswatch/" data-api="struct.ColorSwatch.html">ColorSwatch</a><span class="sep"> - </span><span class="desc">Round color to pick from a palette</span></li>
+        <li><a href="themeswitcher/" data-api="struct.ThemeSwitcher.html">ThemeSwitcher</a><span class="sep"> - </span><span class="desc">Switches between Raven Dark, Raven Light and Raven Glass</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="forms">
+      <h2 id="forms"><a class="anchor" href="#forms" aria-label="Link to Forms">#</a>Forms</h2>
+      <p class="sub">Fields, pickers and the layout around them.</p>
+      <ul class="items">
+        <li><a href="textfield/" data-api="struct.TextField.html">TextField</a><span class="sep"> - </span><span class="desc">Single-line text input with selection and clipboard</span></li>
+        <li><a href="select/" data-api="struct.Select.html">Select</a><span class="sep"> - </span><span class="desc">Picks one option from a list in a field-like trigger</span></li>
+        <li><a href="combobox/" data-api="struct.Combobox.html">Combobox</a><span class="sep"> - </span><span class="desc">Select with a search box that filters the options</span></li>
+        <li><a href="datepicker/" data-api="struct.DatePicker.html">DatePicker</a><span class="sep"> - </span><span class="desc">Field that opens a calendar in a popover</span></li>
+        <li><a href="calendar/" data-api="struct.Calendar.html">Calendar</a><span class="sep"> - </span><span class="desc">Month grid to pick a date</span></li>
+        <li><a href="eventcalendar/" data-api="struct.EventCalendar.html">EventCalendar</a><span class="sep"> - </span><span class="desc">A month with its events inside each day</span></li>
+        <li><a href="chat/" data-api="struct.Chat.html">Chat</a><span class="sep"> - </span><span class="desc">Conversation over a field to write in, with examples and cards to act on</span></li>
+        <li><a href="floatingpanel/" data-api="struct.FloatingPanel.html">FloatingPanel</a><span class="sep"> - </span><span class="desc">Glowing sphere in a corner that opens a panel over the app and drags between corners</span></li>
+        <li><a href="modelpicker/" data-api="struct.ModelPicker.html">ModelPicker</a><span class="sep"> - </span><span class="desc">Local AI models to download, try, use and remove</span></li>
+        <li><a href="codeblock/" data-api="struct.CodeBlock.html">CodeBlock</a><span class="sep"> - </span><span class="desc">A command to copy</span></li>
+        <li><a href="releasenotes/" data-api="struct.ReleaseNotes.html">ReleaseNotes</a><span class="sep"> - </span><span class="desc">An app's versions and what each one brought</span></li>
+        <li><a href="statusbar/" data-api="struct.StatusBar.html">StatusBar</a><span class="sep"> - </span><span class="desc">One fixed line at the foot of an app window</span></li>
+        <li><a href="timeline/" data-api="struct.Timeline.html">Timeline</a><span class="sep"> - </span><span class="desc">Blocks along time on named tracks</span></li>
+        <li><a href="toolrail/" data-api="struct.ToolRail.html">ToolRail</a><span class="sep"> - </span><span class="desc">A narrow bar of tools with their names under their icons</span></li>
+        <li><a href="scheduler/" data-api="struct.Scheduler.html">Scheduler</a><span class="sep"> - </span><span class="desc">Timeline of resources: drag, resize and draw events, zoom the time axis</span></li>
+        <li><a href="recurrenceeditor/" data-api="struct.RecurrenceEditor.html">RecurrenceEditor</a><span class="sep"> - </span><span class="desc">Edits how something repeats: how often, on which days, until when</span></li>
+        <li><a href="inputotp/" data-api="struct.InputOtp.html">InputOtp</a><span class="sep"> - </span><span class="desc">Separate boxes for a one-time code</span></li>
+        <li><a href="formfield/" data-api="struct.FormField.html">FormField</a><span class="sep"> - </span><span class="desc">Labeled field with a hint and validation messages</span></li>
+        <li><a href="label/" data-api="struct.Label.html">Label</a><span class="sep"> - </span><span class="desc">Form label with an optional required marker and hint</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="navigation">
+      <h2 id="navigation"><a class="anchor" href="#navigation" aria-label="Link to Navigation">#</a>Navigation</h2>
+      <p class="sub">Moving around an application.</p>
+      <ul class="items">
+        <li><a href="ribbon/" data-api="struct.Ribbon.html">Ribbon</a><span class="sep"> - </span><span class="desc">Office-style command bar with tabs, groups and quick access</span></li>
+        <li><a href="menubar/" data-api="struct.Menubar.html">Menubar</a><span class="sep"> - </span><span class="desc">Horizontal bar of menus such as File, Edit and View</span></li>
+        <li><a href="tabs/" data-api="struct.Tabs.html">Tabs</a><span class="sep"> - </span><span class="desc">Tab bar with one content view per tab</span></li>
+        <li><a href="sidebar/" data-api="struct.Sidebar.html">Sidebar</a><span class="sep"> - </span><span class="desc">Navigation column with sections, items and counts</span></li>
+        <li><a href="breadcrumb/" data-api="struct.Breadcrumb.html">Breadcrumb</a><span class="sep"> - </span><span class="desc">Path of locations ending at the current page</span></li>
+        <li><a href="pagination/" data-api="struct.Pagination.html">Pagination</a><span class="sep"> - </span><span class="desc">Previous, numbered pages with ellipses, and Next</span></li>
+        <li><a href="accordion/" data-api="struct.Accordion.html">Accordion</a><span class="sep"> - </span><span class="desc">Disclosures separated by hairlines</span></li>
+        <li><a href="disclosure/" data-api="struct.Disclosure.html">Disclosure</a><span class="sep"> - </span><span class="desc">Header that shows or hides its content</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="overlays">
+      <h2 id="overlays"><a class="anchor" href="#overlays" aria-label="Link to Overlays">#</a>Overlays</h2>
+      <p class="sub">Content that floats above the page.</p>
+      <ul class="items">
+        <li><a href="dialog/" data-api="struct.Dialog.html">Dialog</a><span class="sep"> - </span><span class="desc">Modal window over a dimmed backdrop</span></li>
+        <li><a href="sheet/" data-api="struct.Sheet.html">Sheet</a><span class="sep"> - </span><span class="desc">Panel that slides over the UI from one edge</span></li>
+        <li><a href="splashscreen/" data-api="struct.SplashScreen.html">SplashScreen</a><span class="sep"> - </span><span class="desc">Opening screen that covers the window while the app loads</span></li>
+        <li><a href="popover/" data-api="struct.Popover.html">Popover</a><span class="sep"> - </span><span class="desc">Floating content anchored below a view</span></li>
+        <li><a href="hovercard/" data-api="struct.HoverCard.html">HoverCard</a><span class="sep"> - </span><span class="desc">Rich content shown while the pointer is over a trigger</span></li>
+        <li><a href="tooltip/" data-api="struct.Tooltip.html">Tooltip</a><span class="sep"> - </span><span class="desc">Short label shown on hover</span></li>
+        <li><a href="dropdownmenu/" data-api="struct.DropdownMenu.html">DropdownMenu</a><span class="sep"> - </span><span class="desc">Button that opens a list of actions</span></li>
+        <li><a href="contextmenu/" data-api="struct.ContextMenu.html">ContextMenu</a><span class="sep"> - </span><span class="desc">Menu opened at the pointer on right click</span></li>
+        <li><a href="commandpalette/" data-api="struct.CommandPalette.html">CommandPalette</a><span class="sep"> - </span><span class="desc">Searchable list of commands, opened with Cmd/Ctrl+K</span></li>
+        <li><a href="toaster/" data-api="struct.Toaster.html">Toaster</a><span class="sep"> - </span><span class="desc">Stacked notifications that dismiss themselves</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="data">
+      <h2 id="data"><a class="anchor" href="#data" aria-label="Link to Data">#</a>Data</h2>
+      <p class="sub">Showing records and numbers.</p>
+      <ul class="items">
+        <li><a href="datagrid/" data-api="grid/struct.DataGrid.html">DataGrid</a><span class="sep"> - </span><span class="desc">Virtualized grid for 100,000 rows: sorting, filters, grouping and export</span></li>
+        <li><a href="table/" data-api="struct.Table.html">Table</a><span class="sep"> - </span><span class="desc">Simple table with a header, hover rows and numeric columns</span></li>
+        <li><a href="list/" data-api="struct.List.html">List</a><span class="sep"> - </span><span class="desc">Bordered list with icons, titles and trailing text</span></li>
+        <li><a href="stat/" data-api="struct.Stat.html">Stat</a><span class="sep"> - </span><span class="desc">Headline number with a label and a change indicator</span></li>
+        <li><a href="chart/" data-api="struct.Chart.html">Chart</a><span class="sep"> - </span><span class="desc">Line, area, bar, pie, doughnut, scatter and sparkline charts, laid out as in reports</span></li>
+        <li><a href="barchart/" data-api="struct.BarChart.html">BarChart</a><span class="sep"> - </span><span class="desc">Bar chart with labels and faint gridlines</span></li>
+        <li><a href="areachart/" data-api="struct.AreaChart.html">AreaChart</a><span class="sep"> - </span><span class="desc">Smooth area chart of evenly spaced values</span></li>
+        <li><a href="barcode/" data-api="struct.Barcode.html">Barcode</a><span class="sep"> - </span><span class="desc">QR Code and linear barcodes that scanners can read</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="layout">
+      <h2 id="layout"><a class="anchor" href="#layout" aria-label="Link to Layout">#</a>Layout</h2>
+      <p class="sub">Arranging everything else.</p>
+      <ul class="items">
+        <li><a href="vstack/" data-api="struct.VStack.html">VStack</a><span class="sep"> - </span><span class="desc">Lays children out in a column</span></li>
+        <li><a href="hstack/" data-api="struct.HStack.html">HStack</a><span class="sep"> - </span><span class="desc">Lays children out in a row</span></li>
+        <li><a href="grid/" data-api="struct.Grid.html">Grid</a><span class="sep"> - </span><span class="desc">Equal-width columns that wrap into rows</span></li>
+        <li><a href="spacer/" data-api="struct.Spacer.html">Spacer</a><span class="sep"> - </span><span class="desc">Flexible space that pushes its siblings apart</span></li>
+        <li><a href="scrollview/" data-api="struct.ScrollView.html">ScrollView</a><span class="sep"> - </span><span class="desc">Scrolling stack, vertical or horizontal</span></li>
+        <li><a href="splitter/" data-api="struct.Splitter.html">Splitter</a><span class="sep"> - </span><span class="desc">Two panes with a draggable divider</span></li>
+        <li><a href="card/" data-api="struct.Card.html">Card</a><span class="sep"> - </span><span class="desc">Grouped surface lifted off the canvas</span></li>
+        <li><a href="glasscard/" data-api="struct.GlassCard.html">GlassCard</a><span class="sep"> - </span><span class="desc">Translucent card for Raven Glass compositions</span></li>
+        <li><a href="section/" data-api="struct.Section.html">Section</a><span class="sep"> - </span><span class="desc">Titled group of content with an optional description</span></li>
+        <li><a href="divider/" data-api="struct.Divider.html">Divider</a><span class="sep"> - </span><span class="desc">Hairline separator</span></li>
+        <li><a href="footer/" data-api="struct.Footer.html">Footer</a><span class="sep"> - </span><span class="desc">Band that ends a page or app, with left, center and right areas</span></li>
+        <li><a href="aspectratio/" data-api="struct.AspectRatio.html">AspectRatio</a><span class="sep"> - </span><span class="desc">Keeps content at a width-to-height ratio</span></li>
+        <li><a href="collapse/" data-api="struct.Collapse.html">Collapse</a><span class="sep"> - </span><span class="desc">Animates its content's height as it opens and closes</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="display-and-feedback">
+      <h2 id="display-and-feedback"><a class="anchor" href="#display-and-feedback" aria-label="Link to Display and feedback">#</a>Display and feedback</h2>
+      <p class="sub">Text, status and progress.</p>
+      <ul class="items">
+        <li><a href="text/" data-api="struct.Text.html">Text</a><span class="sep"> - </span><span class="desc">Text in the theme's type scale, with truncation</span></li>
+        <li><a href="alert/" data-api="struct.Alert.html">Alert</a><span class="sep"> - </span><span class="desc">Tinted message box with an icon, a title and a description</span></li>
+        <li><a href="badge/" data-api="struct.Badge.html">Badge</a><span class="sep"> - </span><span class="desc">Small pill for status, counts and categories</span></li>
+        <li><a href="avatar/" data-api="struct.Avatar.html">Avatar</a><span class="sep"> - </span><span class="desc">Round avatar with initials colored from the name</span></li>
+        <li><a href="kbd/" data-api="struct.Kbd.html">Kbd</a><span class="sep"> - </span><span class="desc">Keyboard key, for showing shortcuts</span></li>
+        <li><a href="progressbar/" data-api="struct.ProgressBar.html">ProgressBar</a><span class="sep"> - </span><span class="desc">Horizontal progress bar</span></li>
+        <li><a href="spinner/" data-api="struct.Spinner.html">Spinner</a><span class="sep"> - </span><span class="desc">Indeterminate activity indicator</span></li>
+        <li><a href="skeleton/" data-api="struct.Skeleton.html">Skeleton</a><span class="sep"> - </span><span class="desc">Placeholder block shown while content loads</span></li>
+      </ul>
+    </section>
+    <section class="group" aria-labelledby="media">
+      <h2 id="media"><a class="anchor" href="#media" aria-label="Link to Media">#</a>Media</h2>
+      <p class="sub">Pictures and custom drawing.</p>
+      <ul class="items">
+        <li><a href="icon/" data-api="struct.Icon.html">Icon</a><span class="sep"> - </span><span class="desc">Vector icon from the built-in Lucide set</span></li>
+        <li><a href="image/" data-api="struct.Image.html">Image</a><span class="sep"> - </span><span class="desc">Shows an image, with fit modes</span></li>
+        <li><a href="carousel/" data-api="struct.Carousel.html">Carousel</a><span class="sep"> - </span><span class="desc">Slides with buttons, position dots and optional autoplay</span></li>
+        <li><a href="canvas/" data-api="struct.Canvas.html">Canvas</a><span class="sep"> - </span><span class="desc">Box that draws whatever its closure appends to the scene</span></li>
+      </ul>
+    </section>
+    <p class="empty" id="empty" hidden>No component matches that filter.</p>
+  </main>
+</div>
+<script>
+  // The lists in the page are the source; the index and the filter are built from them.
+  const rows = [...document.querySelectorAll(".items li")];
+  const groups = [...document.querySelectorAll(".group")];
+  const search = document.getElementById("search");
+  const count = document.getElementById("count");
+  const empty = document.getElementById("empty");
+  const side = document.querySelector(".side");
+  const index = document.getElementById("index");
+
+  for (const link of rows.map((row) => row.querySelector("a")).sort((a, b) => a.textContent.localeCompare(b.textContent))) {
+    const item = document.createElement("li");
+    item.append(link.cloneNode(true));
+    index.append(item);
+  }
+  side.hidden = false;
+  search.hidden = false;
+
+  function filter() {
+    const query = search.value.trim().toLowerCase();
+    let shown = 0;
+    for (const row of rows) {
+      const match = row.textContent.toLowerCase().includes(query);
+      row.hidden = !match;
+      if (match) shown += 1;
+    }
+    for (const group of groups) group.hidden = !group.querySelector("li:not([hidden])");
+    empty.hidden = shown > 0;
+    count.textContent = query ? `${shown} of ${rows.length} components` : `${rows.length} components`;
+  }
+  search.addEventListener("input", filter);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "/" && document.activeElement !== search) {
+      event.preventDefault();
+      search.focus();
+    } else if (event.key === "Escape" && document.activeElement === search) {
+      search.value = "";
+      filter();
+    }
+  });
+  filter();
+</script>
+</body>
+</html>

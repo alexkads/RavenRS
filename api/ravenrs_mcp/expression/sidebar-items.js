@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["check","field_type","functions"],"struct":["SchemaInput"]};

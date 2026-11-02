@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PALETTE"],"enum":["ChartKind","LabelAlign"],"fn":["draw","draw_styled","nice_ticks"],"struct":["ChartData","ChartDrawing","ChartLabel","ChartOptions","ChartStyle","SeriesData"]};

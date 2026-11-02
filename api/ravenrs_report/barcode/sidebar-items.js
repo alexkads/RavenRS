@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Pattern","Symbology"],"fn":["encode","modules_across","shape"]};

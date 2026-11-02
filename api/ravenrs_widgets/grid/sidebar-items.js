@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CellAlign","SelectionMode","SortDirection","Summary","Value"],"mod":["query"],"struct":["DataGrid","GridColumn","GridData","NumberFormat"],"type":["CellFormat","CellTemplate","Row"]};

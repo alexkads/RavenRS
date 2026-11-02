@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["GETTING_STARTED","PARITY","QUALITY","README","REPORTING_PARITY","TOKENS","TOKEN_CATEGORIES"],"fn":["backticked_names","category_tokens","component_group","parity","quality_row","row_status","rust_name","split_row","table_rows","tokens"],"struct":["Row"]};

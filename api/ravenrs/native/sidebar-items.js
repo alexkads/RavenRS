@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PlatformError"],"fn":["diagnose","open_url","open_with_system","run","run_as","run_with_icon"],"struct":["AppIdentity","OpenDialog","SaveDialog","WindowOptions"]};

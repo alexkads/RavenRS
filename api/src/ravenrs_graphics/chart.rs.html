@@ -1,0 +1,809 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/ravenrs-graphics/src/chart.rs`."><title>chart.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ravenrs_graphics" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_graphics/</div>chart.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Chart layout: turns aggregated numbers into shapes and labels. Pure logic,
+<a href=#2 id=2 data-nosnippet>2</a>//! kept apart from the engine so it can be tested without rendering a report.
+<a href=#3 id=3 data-nosnippet>3</a>
+<a href=#4 id=4 data-nosnippet>4</a></span><span class="kw">use </span>ravenrs_core::{Color, Point, Rect};
+<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>serde::{Deserialize, Serialize};
+<a href=#6 id=6 data-nosnippet>6</a>
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span><span class="kw">crate</span>::vector::{<span class="self">self</span>, PathSegment, Shape};
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a><span class="doccomment">/// The kind of a chart.
+<a href=#10 id=10 data-nosnippet>10</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+<a href=#11 id=11 data-nosnippet>11</a>#[serde(rename_all = <span class="string">"camelCase"</span>)]
+<a href=#12 id=12 data-nosnippet>12</a>#[non_exhaustive]
+<a href=#13 id=13 data-nosnippet>13</a></span><span class="kw">pub enum </span>ChartKind {
+<a href=#14 id=14 data-nosnippet>14</a>    <span class="doccomment">/// Vertical bars, side by side per series.
+<a href=#15 id=15 data-nosnippet>15</a>    </span><span class="attr">#[default]
+<a href=#16 id=16 data-nosnippet>16</a>    </span>Bar,
+<a href=#17 id=17 data-nosnippet>17</a>    <span class="doccomment">/// Lines with a dot at each point.
+<a href=#18 id=18 data-nosnippet>18</a>    </span>Line,
+<a href=#19 id=19 data-nosnippet>19</a>    <span class="doccomment">/// Lines with the area under them filled.
+<a href=#20 id=20 data-nosnippet>20</a>    </span>Area,
+<a href=#21 id=21 data-nosnippet>21</a>    <span class="doccomment">/// Slices of a circle; uses the first series.
+<a href=#22 id=22 data-nosnippet>22</a>    </span>Pie,
+<a href=#23 id=23 data-nosnippet>23</a>    <span class="doccomment">/// Slices of a ring; uses the first series.
+<a href=#24 id=24 data-nosnippet>24</a>    </span>Doughnut,
+<a href=#25 id=25 data-nosnippet>25</a>    <span class="doccomment">/// Dots at numeric positions.
+<a href=#26 id=26 data-nosnippet>26</a>    </span>Scatter,
+<a href=#27 id=27 data-nosnippet>27</a>    <span class="doccomment">/// A small line without axes or text, to sit in a row of a table.
+<a href=#28 id=28 data-nosnippet>28</a>    </span>Sparkline,
+<a href=#29 id=29 data-nosnippet>29</a>    <span class="doccomment">/// A smoothed line over a filled area, without axes or text.
+<a href=#30 id=30 data-nosnippet>30</a>    </span>SparkArea,
+<a href=#31 id=31 data-nosnippet>31</a>}
+<a href=#32 id=32 data-nosnippet>32</a>
+<a href=#33 id=33 data-nosnippet>33</a><span class="doccomment">/// How a label sits in its box.
+<a href=#34 id=34 data-nosnippet>34</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+<a href=#35 id=35 data-nosnippet>35</a>#[non_exhaustive]
+<a href=#36 id=36 data-nosnippet>36</a></span><span class="kw">pub enum </span>LabelAlign {
+<a href=#37 id=37 data-nosnippet>37</a>    <span class="doccomment">/// Left.
+<a href=#38 id=38 data-nosnippet>38</a>    </span><span class="attr">#[default]
+<a href=#39 id=39 data-nosnippet>39</a>    </span>Left,
+<a href=#40 id=40 data-nosnippet>40</a>    <span class="doccomment">/// Centered.
+<a href=#41 id=41 data-nosnippet>41</a>    </span>Center,
+<a href=#42 id=42 data-nosnippet>42</a>    <span class="doccomment">/// Right.
+<a href=#43 id=43 data-nosnippet>43</a>    </span>Right,
+<a href=#44 id=44 data-nosnippet>44</a>}
+<a href=#45 id=45 data-nosnippet>45</a>
+<a href=#46 id=46 data-nosnippet>46</a><span class="doccomment">/// The default series and slice colors.
+<a href=#47 id=47 data-nosnippet>47</a></span><span class="kw">pub const </span>PALETTE: [Color; <span class="number">12</span>] = [
+<a href=#48 id=48 data-nosnippet>48</a>    Color::rgba(<span class="number">0.247</span>, <span class="number">0.341</span>, <span class="number">0.859</span>, <span class="number">1.0</span>),
+<a href=#49 id=49 data-nosnippet>49</a>    Color::rgba(<span class="number">0.086</span>, <span class="number">0.651</span>, <span class="number">0.588</span>, <span class="number">1.0</span>),
+<a href=#50 id=50 data-nosnippet>50</a>    Color::rgba(<span class="number">0.961</span>, <span class="number">0.620</span>, <span class="number">0.043</span>, <span class="number">1.0</span>),
+<a href=#51 id=51 data-nosnippet>51</a>    Color::rgba(<span class="number">0.863</span>, <span class="number">0.208</span>, <span class="number">0.271</span>, <span class="number">1.0</span>),
+<a href=#52 id=52 data-nosnippet>52</a>    Color::rgba(<span class="number">0.545</span>, <span class="number">0.361</span>, <span class="number">0.965</span>, <span class="number">1.0</span>),
+<a href=#53 id=53 data-nosnippet>53</a>    Color::rgba(<span class="number">0.055</span>, <span class="number">0.647</span>, <span class="number">0.914</span>, <span class="number">1.0</span>),
+<a href=#54 id=54 data-nosnippet>54</a>    Color::rgba(<span class="number">0.518</span>, <span class="number">0.800</span>, <span class="number">0.086</span>, <span class="number">1.0</span>),
+<a href=#55 id=55 data-nosnippet>55</a>    Color::rgba(<span class="number">0.925</span>, <span class="number">0.282</span>, <span class="number">0.600</span>, <span class="number">1.0</span>),
+<a href=#56 id=56 data-nosnippet>56</a>    Color::rgba(<span class="number">0.471</span>, <span class="number">0.333</span>, <span class="number">0.282</span>, <span class="number">1.0</span>),
+<a href=#57 id=57 data-nosnippet>57</a>    Color::rgba(<span class="number">0.392</span>, <span class="number">0.455</span>, <span class="number">0.545</span>, <span class="number">1.0</span>),
+<a href=#58 id=58 data-nosnippet>58</a>    Color::rgba(<span class="number">0.706</span>, <span class="number">0.325</span>, <span class="number">0.035</span>, <span class="number">1.0</span>),
+<a href=#59 id=59 data-nosnippet>59</a>    Color::rgba(<span class="number">0.051</span>, <span class="number">0.380</span>, <span class="number">0.490</span>, <span class="number">1.0</span>),
+<a href=#60 id=60 data-nosnippet>60</a>];
+<a href=#61 id=61 data-nosnippet>61</a>
+<a href=#62 id=62 data-nosnippet>62</a><span class="doccomment">/// One series' numbers, one per category.
+<a href=#63 id=63 data-nosnippet>63</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href=#64 id=64 data-nosnippet>64</a></span><span class="kw">pub struct </span>SeriesData {
+<a href=#65 id=65 data-nosnippet>65</a>    <span class="doccomment">/// Its name in the legend.
+<a href=#66 id=66 data-nosnippet>66</a>    </span><span class="kw">pub </span>name: String,
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="doccomment">/// Its color.
+<a href=#68 id=68 data-nosnippet>68</a>    </span><span class="kw">pub </span>color: Color,
+<a href=#69 id=69 data-nosnippet>69</a>    <span class="doccomment">/// One number per category.
+<a href=#70 id=70 data-nosnippet>70</a>    </span><span class="kw">pub </span>values: Vec&lt;f64&gt;,
+<a href=#71 id=71 data-nosnippet>71</a>}
+<a href=#72 id=72 data-nosnippet>72</a>
+<a href=#73 id=73 data-nosnippet>73</a><span class="doccomment">/// What a chart draws, aggregated from the rows.
+<a href=#74 id=74 data-nosnippet>74</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq)]
+<a href=#75 id=75 data-nosnippet>75</a></span><span class="kw">pub struct </span>ChartData {
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="doccomment">/// What each point is about.
+<a href=#77 id=77 data-nosnippet>77</a>    </span><span class="kw">pub </span>categories: Vec&lt;String&gt;,
+<a href=#78 id=78 data-nosnippet>78</a>    <span class="doccomment">/// Numeric positions of the categories, for scatter charts.
+<a href=#79 id=79 data-nosnippet>79</a>    </span><span class="kw">pub </span>positions: Vec&lt;f64&gt;,
+<a href=#80 id=80 data-nosnippet>80</a>    <span class="doccomment">/// The numbers.
+<a href=#81 id=81 data-nosnippet>81</a>    </span><span class="kw">pub </span>series: Vec&lt;SeriesData&gt;,
+<a href=#82 id=82 data-nosnippet>82</a>}
+<a href=#83 id=83 data-nosnippet>83</a>
+<a href=#84 id=84 data-nosnippet>84</a><span class="doccomment">/// Text a chart prints.
+<a href=#85 id=85 data-nosnippet>85</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href=#86 id=86 data-nosnippet>86</a></span><span class="kw">pub struct </span>ChartLabel {
+<a href=#87 id=87 data-nosnippet>87</a>    <span class="doccomment">/// The text.
+<a href=#88 id=88 data-nosnippet>88</a>    </span><span class="kw">pub </span>text: String,
+<a href=#89 id=89 data-nosnippet>89</a>    <span class="doccomment">/// The box it sits in, vertically centered.
+<a href=#90 id=90 data-nosnippet>90</a>    </span><span class="kw">pub </span>rect: Rect,
+<a href=#91 id=91 data-nosnippet>91</a>    <span class="doccomment">/// How it sits in the box.
+<a href=#92 id=92 data-nosnippet>92</a>    </span><span class="kw">pub </span>align: LabelAlign,
+<a href=#93 id=93 data-nosnippet>93</a>    <span class="doccomment">/// Font size.
+<a href=#94 id=94 data-nosnippet>94</a>    </span><span class="kw">pub </span>size: f32,
+<a href=#95 id=95 data-nosnippet>95</a>    <span class="doccomment">/// Bold weight.
+<a href=#96 id=96 data-nosnippet>96</a>    </span><span class="kw">pub </span>bold: bool,
+<a href=#97 id=97 data-nosnippet>97</a>    <span class="doccomment">/// Color.
+<a href=#98 id=98 data-nosnippet>98</a>    </span><span class="kw">pub </span>color: Color,
+<a href=#99 id=99 data-nosnippet>99</a>}
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a><span class="doccomment">/// What a chart draws.
+<a href=#102 id=102 data-nosnippet>102</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq)]
+<a href=#103 id=103 data-nosnippet>103</a></span><span class="kw">pub struct </span>ChartDrawing {
+<a href=#104 id=104 data-nosnippet>104</a>    <span class="doccomment">/// The shapes, back to front.
+<a href=#105 id=105 data-nosnippet>105</a>    </span><span class="kw">pub </span>shapes: Vec&lt;Shape&gt;,
+<a href=#106 id=106 data-nosnippet>106</a>    <span class="doccomment">/// The text, to draw over the shapes.
+<a href=#107 id=107 data-nosnippet>107</a>    </span><span class="kw">pub </span>labels: Vec&lt;ChartLabel&gt;,
+<a href=#108 id=108 data-nosnippet>108</a>}
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a><span class="doccomment">/// The look of a chart.
+<a href=#111 id=111 data-nosnippet>111</a></span><span class="attr">#[allow(missing_debug_implementations, reason = <span class="string">"holds a closure"</span>)]
+<a href=#112 id=112 data-nosnippet>112</a></span><span class="kw">pub struct </span>ChartOptions&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#113 id=113 data-nosnippet>113</a>    <span class="doccomment">/// The kind of chart.
+<a href=#114 id=114 data-nosnippet>114</a>    </span><span class="kw">pub </span>kind: ChartKind,
+<a href=#115 id=115 data-nosnippet>115</a>    <span class="doccomment">/// A title above it.
+<a href=#116 id=116 data-nosnippet>116</a>    </span><span class="kw">pub </span>title: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="doccomment">/// Whether to draw a legend when there is something to tell apart.
+<a href=#118 id=118 data-nosnippet>118</a>    </span><span class="kw">pub </span>legend: bool,
+<a href=#119 id=119 data-nosnippet>119</a>    <span class="doccomment">/// The font size everything is sized from.
+<a href=#120 id=120 data-nosnippet>120</a>    </span><span class="kw">pub </span>size: f32,
+<a href=#121 id=121 data-nosnippet>121</a>    <span class="doccomment">/// Title color.
+<a href=#122 id=122 data-nosnippet>122</a>    </span><span class="kw">pub </span>ink: Color,
+<a href=#123 id=123 data-nosnippet>123</a>    <span class="doccomment">/// Axis and legend text color.
+<a href=#124 id=124 data-nosnippet>124</a>    </span><span class="kw">pub </span>muted: Color,
+<a href=#125 id=125 data-nosnippet>125</a>    <span class="doccomment">/// Gridline color.
+<a href=#126 id=126 data-nosnippet>126</a>    </span><span class="kw">pub </span>grid: Color,
+<a href=#127 id=127 data-nosnippet>127</a>    <span class="doccomment">/// How numbers are shown.
+<a href=#128 id=128 data-nosnippet>128</a>    </span><span class="kw">pub </span>format: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Fn(f64) -&gt; String,
+<a href=#129 id=129 data-nosnippet>129</a>}
+<a href=#130 id=130 data-nosnippet>130</a>
+<a href=#131 id=131 data-nosnippet>131</a><span class="doccomment">/// More about the look of a chart, for [`draw_styled`].
+<a href=#132 id=132 data-nosnippet>132</a></span><span class="attr">#[derive(Clone, Copy, Debug)]
+<a href=#133 id=133 data-nosnippet>133</a></span><span class="kw">pub struct </span>ChartStyle&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#134 id=134 data-nosnippet>134</a>    <span class="doccomment">/// Slice and legend colors of pie and doughnut charts, repeated as needed;
+<a href=#135 id=135 data-nosnippet>135</a>    /// [`PALETTE`] when empty.
+<a href=#136 id=136 data-nosnippet>136</a>    </span><span class="kw">pub </span>palette: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[Color],
+<a href=#137 id=137 data-nosnippet>137</a>    <span class="doccomment">/// What separates slices and rings the last dot of a [`ChartKind::SparkArea`]:
+<a href=#138 id=138 data-nosnippet>138</a>    /// usually the color behind the chart.
+<a href=#139 id=139 data-nosnippet>139</a>    </span><span class="kw">pub </span>separator: Color,
+<a href=#140 id=140 data-nosnippet>140</a>    <span class="doccomment">/// Corner radius of bars.
+<a href=#141 id=141 data-nosnippet>141</a>    </span><span class="kw">pub </span>bar_radius: f32,
+<a href=#142 id=142 data-nosnippet>142</a>    <span class="doccomment">/// The widest a bar can be, so few bars in a wide chart stay bars.
+<a href=#143 id=143 data-nosnippet>143</a>    </span><span class="kw">pub </span>max_bar_width: f32,
+<a href=#144 id=144 data-nosnippet>144</a>}
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a><span class="kw">impl </span>Default <span class="kw">for </span>ChartStyle&lt;<span class="lifetime">'_</span>&gt; {
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#148 id=148 data-nosnippet>148</a>        <span class="self">Self </span>{ palette: <span class="kw-2">&amp;</span>[], separator: Color::WHITE, bar_radius: <span class="number">0.0</span>, max_bar_width: f32::INFINITY }
+<a href=#149 id=149 data-nosnippet>149</a>    }
+<a href=#150 id=150 data-nosnippet>150</a>}
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a><span class="doccomment">/// Roughly how wide a character is, as a share of the font size; enough to
+<a href=#153 id=153 data-nosnippet>153</a>/// decide how many labels fit.
+<a href=#154 id=154 data-nosnippet>154</a></span><span class="kw">const </span>CHAR_WIDTH: f32 = <span class="number">0.56</span>;
+<a href=#155 id=155 data-nosnippet>155</a><span class="doccomment">/// A slice smaller than this share of the circle has no percentage on it.
+<a href=#156 id=156 data-nosnippet>156</a></span><span class="kw">const </span>SLICE_LABEL_MIN: f64 = <span class="number">0.05</span>;
+<a href=#157 id=157 data-nosnippet>157</a><span class="kw">const </span>TICKS: usize = <span class="number">5</span>;
+<a href=#158 id=158 data-nosnippet>158</a><span class="doccomment">/// The radius of a dot in a scatter chart.
+<a href=#159 id=159 data-nosnippet>159</a></span><span class="kw">const </span>SCATTER_DOT: f32 = <span class="number">2.5</span>;
+<a href=#160 id=160 data-nosnippet>160</a><span class="kw">const </span>GAP: f32 = <span class="number">6.0</span>;
+<a href=#161 id=161 data-nosnippet>161</a>
+<a href=#162 id=162 data-nosnippet>162</a><span class="doccomment">/// Round numbers for an axis: lower bound, step and how many ticks.
+<a href=#163 id=163 data-nosnippet>163</a></span><span class="kw">pub fn </span>nice_ticks(min: f64, max: f64, wanted: usize) -&gt; (f64, f64, usize) {
+<a href=#164 id=164 data-nosnippet>164</a>    <span class="kw">let </span>(min, max) = <span class="kw">if </span>(max - min).abs() &lt; f64::EPSILON {
+<a href=#165 id=165 data-nosnippet>165</a>        <span class="kw">if </span>min == <span class="number">0.0 </span>{ (<span class="number">0.0</span>, <span class="number">1.0</span>) } <span class="kw">else </span>{ (min.min(<span class="number">0.0</span>), max.max(<span class="number">0.0</span>)) }
+<a href=#166 id=166 data-nosnippet>166</a>    } <span class="kw">else </span>{
+<a href=#167 id=167 data-nosnippet>167</a>        (min, max)
+<a href=#168 id=168 data-nosnippet>168</a>    };
+<a href=#169 id=169 data-nosnippet>169</a>    <span class="kw">let </span>rough = (max - min) / wanted.max(<span class="number">1</span>) <span class="kw">as </span>f64;
+<a href=#170 id=170 data-nosnippet>170</a>    <span class="kw">let </span>magnitude = <span class="number">10f64</span>.powf(rough.log10().floor());
+<a href=#171 id=171 data-nosnippet>171</a>    <span class="kw">let </span>residual = rough / magnitude;
+<a href=#172 id=172 data-nosnippet>172</a>    <span class="kw">let </span>step = magnitude
+<a href=#173 id=173 data-nosnippet>173</a>        * <span class="kw">if </span>residual &lt;= <span class="number">1.0 </span>{
+<a href=#174 id=174 data-nosnippet>174</a>            <span class="number">1.0
+<a href=#175 id=175 data-nosnippet>175</a>        </span>} <span class="kw">else if </span>residual &lt;= <span class="number">2.0 </span>{
+<a href=#176 id=176 data-nosnippet>176</a>            <span class="number">2.0
+<a href=#177 id=177 data-nosnippet>177</a>        </span>} <span class="kw">else if </span>residual &lt;= <span class="number">2.5 </span>{
+<a href=#178 id=178 data-nosnippet>178</a>            <span class="number">2.5
+<a href=#179 id=179 data-nosnippet>179</a>        </span>} <span class="kw">else if </span>residual &lt;= <span class="number">5.0 </span>{
+<a href=#180 id=180 data-nosnippet>180</a>            <span class="number">5.0
+<a href=#181 id=181 data-nosnippet>181</a>        </span>} <span class="kw">else </span>{
+<a href=#182 id=182 data-nosnippet>182</a>            <span class="number">10.0
+<a href=#183 id=183 data-nosnippet>183</a>        </span>};
+<a href=#184 id=184 data-nosnippet>184</a>    <span class="kw">let </span>low = (min / step).floor() * step;
+<a href=#185 id=185 data-nosnippet>185</a>    <span class="kw">let </span>high = (max / step).ceil() * step;
+<a href=#186 id=186 data-nosnippet>186</a>    (low, step, ((high - low) / step).round() <span class="kw">as </span>usize + <span class="number">1</span>)
+<a href=#187 id=187 data-nosnippet>187</a>}
+<a href=#188 id=188 data-nosnippet>188</a>
+<a href=#189 id=189 data-nosnippet>189</a><span class="kw">fn </span>label(text: <span class="kw">impl </span>Into&lt;String&gt;, rect: Rect, align: LabelAlign, size: f32, color: Color) -&gt; ChartLabel {
+<a href=#190 id=190 data-nosnippet>190</a>    ChartLabel { text: text.into(), rect, align, size, bold: <span class="bool-val">false</span>, color }
+<a href=#191 id=191 data-nosnippet>191</a>}
+<a href=#192 id=192 data-nosnippet>192</a>
+<a href=#193 id=193 data-nosnippet>193</a><span class="kw">fn </span>with_alpha(color: Color, alpha: f32) -&gt; Color {
+<a href=#194 id=194 data-nosnippet>194</a>    Color::rgba(color.r, color.g, color.b, alpha)
+<a href=#195 id=195 data-nosnippet>195</a>}
+<a href=#196 id=196 data-nosnippet>196</a>
+<a href=#197 id=197 data-nosnippet>197</a><span class="kw">fn </span>rectangle(rect: Rect, fill: Color) -&gt; Shape {
+<a href=#198 id=198 data-nosnippet>198</a>    Shape::filled(vector::rectangle(rect, <span class="number">0.0</span>), fill)
+<a href=#199 id=199 data-nosnippet>199</a>}
+<a href=#200 id=200 data-nosnippet>200</a>
+<a href=#201 id=201 data-nosnippet>201</a><span class="kw">fn </span>dot(center: Point, radius: f32, fill: Color) -&gt; Shape {
+<a href=#202 id=202 data-nosnippet>202</a>    <span class="kw">let </span>diameter = radius * <span class="number">2.0</span>;
+<a href=#203 id=203 data-nosnippet>203</a>    Shape::filled(vector::ellipse(Rect::new(center.x - radius, center.y - radius, diameter, diameter)), fill)
+<a href=#204 id=204 data-nosnippet>204</a>}
+<a href=#205 id=205 data-nosnippet>205</a>
+<a href=#206 id=206 data-nosnippet>206</a><span class="doccomment">/// Appends an arc around `center`, from one angle to another (radians, clockwise on the page).
+<a href=#207 id=207 data-nosnippet>207</a></span><span class="kw">fn </span>arc(path: <span class="kw-2">&amp;mut </span>Vec&lt;PathSegment&gt;, center: Point, radius: f32, from: f32, to: f32) {
+<a href=#208 id=208 data-nosnippet>208</a>    <span class="kw">let </span>segments = ((to - from).abs() / std::f32::consts::FRAC_PI_2).ceil().max(<span class="number">1.0</span>) <span class="kw">as </span>usize;
+<a href=#209 id=209 data-nosnippet>209</a>    <span class="kw">let </span>step = (to - from) / segments <span class="kw">as </span>f32;
+<a href=#210 id=210 data-nosnippet>210</a>    <span class="kw">let </span>handle = <span class="number">4.0 </span>/ <span class="number">3.0 </span>* (step / <span class="number">4.0</span>).tan() * radius;
+<a href=#211 id=211 data-nosnippet>211</a>    <span class="kw">let </span>at = |angle: f32| Point::new(center.x + radius * angle.cos(), center.y + radius * angle.sin());
+<a href=#212 id=212 data-nosnippet>212</a>    <span class="kw">for </span>index <span class="kw">in </span><span class="number">0</span>..segments {
+<a href=#213 id=213 data-nosnippet>213</a>        <span class="kw">let </span>a = from + step * index <span class="kw">as </span>f32;
+<a href=#214 id=214 data-nosnippet>214</a>        <span class="kw">let </span>b = a + step;
+<a href=#215 id=215 data-nosnippet>215</a>        <span class="kw">let </span>(start, end) = (at(a), at(b));
+<a href=#216 id=216 data-nosnippet>216</a>        path.push(PathSegment::Cubic(
+<a href=#217 id=217 data-nosnippet>217</a>            Point::new(start.x - handle * a.sin(), start.y + handle * a.cos()),
+<a href=#218 id=218 data-nosnippet>218</a>            Point::new(end.x + handle * b.sin(), end.y - handle * b.cos()),
+<a href=#219 id=219 data-nosnippet>219</a>            end,
+<a href=#220 id=220 data-nosnippet>220</a>        ));
+<a href=#221 id=221 data-nosnippet>221</a>    }
+<a href=#222 id=222 data-nosnippet>222</a>}
+<a href=#223 id=223 data-nosnippet>223</a>
+<a href=#224 id=224 data-nosnippet>224</a><span class="doccomment">/// Lays a chart out inside `rect`, in the default [`ChartStyle`].
+<a href=#225 id=225 data-nosnippet>225</a></span><span class="kw">pub fn </span>draw(data: <span class="kw-2">&amp;</span>ChartData, rect: Rect, options: <span class="kw-2">&amp;</span>ChartOptions&lt;<span class="lifetime">'_</span>&gt;) -&gt; ChartDrawing {
+<a href=#226 id=226 data-nosnippet>226</a>    draw_styled(data, rect, options, <span class="kw-2">&amp;</span>ChartStyle::default())
+<a href=#227 id=227 data-nosnippet>227</a>}
+<a href=#228 id=228 data-nosnippet>228</a>
+<a href=#229 id=229 data-nosnippet>229</a><span class="doccomment">/// Lays a chart out inside `rect`, in this style.
+<a href=#230 id=230 data-nosnippet>230</a></span><span class="kw">pub fn </span>draw_styled(
+<a href=#231 id=231 data-nosnippet>231</a>    data: <span class="kw-2">&amp;</span>ChartData,
+<a href=#232 id=232 data-nosnippet>232</a>    rect: Rect,
+<a href=#233 id=233 data-nosnippet>233</a>    options: <span class="kw-2">&amp;</span>ChartOptions&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#234 id=234 data-nosnippet>234</a>    style: <span class="kw-2">&amp;</span>ChartStyle&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#235 id=235 data-nosnippet>235</a>) -&gt; ChartDrawing {
+<a href=#236 id=236 data-nosnippet>236</a>    <span class="kw">let </span><span class="kw-2">mut </span>drawing = ChartDrawing::default();
+<a href=#237 id=237 data-nosnippet>237</a>    <span class="kw">if </span><span class="macro">matches!</span>(options.kind, ChartKind::Sparkline | ChartKind::SparkArea) {
+<a href=#238 id=238 data-nosnippet>238</a>        sparkline(data, rect, options, style, <span class="kw-2">&amp;mut </span>drawing);
+<a href=#239 id=239 data-nosnippet>239</a>        <span class="kw">return </span>drawing;
+<a href=#240 id=240 data-nosnippet>240</a>    }
+<a href=#241 id=241 data-nosnippet>241</a>    <span class="kw">let </span><span class="kw-2">mut </span>area = rect;
+<a href=#242 id=242 data-nosnippet>242</a>    <span class="kw">if </span>!options.title.trim().is_empty() {
+<a href=#243 id=243 data-nosnippet>243</a>        <span class="kw">let </span>height = options.size * <span class="number">2.0</span>;
+<a href=#244 id=244 data-nosnippet>244</a>        <span class="kw">let </span><span class="kw-2">mut </span>title = label(
+<a href=#245 id=245 data-nosnippet>245</a>            options.title,
+<a href=#246 id=246 data-nosnippet>246</a>            Rect::new(area.x(), area.y(), area.width(), height),
+<a href=#247 id=247 data-nosnippet>247</a>            LabelAlign::Left,
+<a href=#248 id=248 data-nosnippet>248</a>            options.size * <span class="number">1.25</span>,
+<a href=#249 id=249 data-nosnippet>249</a>            options.ink,
+<a href=#250 id=250 data-nosnippet>250</a>        );
+<a href=#251 id=251 data-nosnippet>251</a>        title.bold = <span class="bool-val">true</span>;
+<a href=#252 id=252 data-nosnippet>252</a>        drawing.labels.push(title);
+<a href=#253 id=253 data-nosnippet>253</a>        area = Rect::new(area.x(), area.y() + height, area.width(), (area.height() - height).max(<span class="number">0.0</span>));
+<a href=#254 id=254 data-nosnippet>254</a>    }
+<a href=#255 id=255 data-nosnippet>255</a>    <span class="kw">let </span>round = <span class="macro">matches!</span>(options.kind, ChartKind::Pie | ChartKind::Doughnut);
+<a href=#256 id=256 data-nosnippet>256</a>    <span class="kw">let </span>entries: Vec&lt;(String, Color)&gt; = <span class="kw">if </span>round {
+<a href=#257 id=257 data-nosnippet>257</a>        <span class="comment">// A category with nothing to show has no slice, so it has no place in the legend.
+<a href=#258 id=258 data-nosnippet>258</a>        </span><span class="kw">let </span>values = data.series.first().map(|s| s.values.as_slice());
+<a href=#259 id=259 data-nosnippet>259</a>        data.categories
+<a href=#260 id=260 data-nosnippet>260</a>            .iter()
+<a href=#261 id=261 data-nosnippet>261</a>            .enumerate()
+<a href=#262 id=262 data-nosnippet>262</a>            .filter(|(i, <span class="kw">_</span>)| values.is_none_or(|v| v.get(<span class="kw-2">*</span>i).is_some_and(|value| <span class="kw-2">*</span>value &gt; <span class="number">0.0</span>)))
+<a href=#263 id=263 data-nosnippet>263</a>            .map(|(i, name)| (name.clone(), slice_color(style, i)))
+<a href=#264 id=264 data-nosnippet>264</a>            .collect()
+<a href=#265 id=265 data-nosnippet>265</a>    } <span class="kw">else if </span>data.series.len() &gt; <span class="number">1 </span>{
+<a href=#266 id=266 data-nosnippet>266</a>        data.series.iter().map(|s| (s.name.clone(), s.color)).collect()
+<a href=#267 id=267 data-nosnippet>267</a>    } <span class="kw">else </span>{
+<a href=#268 id=268 data-nosnippet>268</a>        Vec::new()
+<a href=#269 id=269 data-nosnippet>269</a>    };
+<a href=#270 id=270 data-nosnippet>270</a>    <span class="kw">if </span>options.legend &amp;&amp; !entries.is_empty() {
+<a href=#271 id=271 data-nosnippet>271</a>        area = legend(<span class="kw-2">&amp;</span>entries, area, options, <span class="kw-2">&amp;mut </span>drawing);
+<a href=#272 id=272 data-nosnippet>272</a>    }
+<a href=#273 id=273 data-nosnippet>273</a>    <span class="kw">if </span>round {
+<a href=#274 id=274 data-nosnippet>274</a>        circle(data, area, options, style, <span class="kw-2">&amp;mut </span>drawing);
+<a href=#275 id=275 data-nosnippet>275</a>    } <span class="kw">else </span>{
+<a href=#276 id=276 data-nosnippet>276</a>        cartesian(data, area, options, style, <span class="kw-2">&amp;mut </span>drawing);
+<a href=#277 id=277 data-nosnippet>277</a>    }
+<a href=#278 id=278 data-nosnippet>278</a>    drawing
+<a href=#279 id=279 data-nosnippet>279</a>}
+<a href=#280 id=280 data-nosnippet>280</a>
+<a href=#281 id=281 data-nosnippet>281</a><span class="kw">fn </span>slice_color(style: <span class="kw-2">&amp;</span>ChartStyle&lt;<span class="lifetime">'_</span>&gt;, index: usize) -&gt; Color {
+<a href=#282 id=282 data-nosnippet>282</a>    <span class="kw">let </span>palette = <span class="kw">if </span>style.palette.is_empty() { <span class="kw-2">&amp;</span>PALETTE[..] } <span class="kw">else </span>{ style.palette };
+<a href=#283 id=283 data-nosnippet>283</a>    palette[index % palette.len()]
+<a href=#284 id=284 data-nosnippet>284</a>}
+<a href=#285 id=285 data-nosnippet>285</a>
+<a href=#286 id=286 data-nosnippet>286</a><span class="doccomment">/// Draws the legend at the bottom of `area`; returns what is left above it.
+<a href=#287 id=287 data-nosnippet>287</a></span><span class="kw">fn </span>legend(
+<a href=#288 id=288 data-nosnippet>288</a>    entries: <span class="kw-2">&amp;</span>[(String, Color)],
+<a href=#289 id=289 data-nosnippet>289</a>    area: Rect,
+<a href=#290 id=290 data-nosnippet>290</a>    options: <span class="kw-2">&amp;</span>ChartOptions&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#291 id=291 data-nosnippet>291</a>    drawing: <span class="kw-2">&amp;mut </span>ChartDrawing,
+<a href=#292 id=292 data-nosnippet>292</a>) -&gt; Rect {
+<a href=#293 id=293 data-nosnippet>293</a>    <span class="kw">let </span>size = options.size * <span class="number">0.85</span>;
+<a href=#294 id=294 data-nosnippet>294</a>    <span class="kw">let </span>line = size * <span class="number">1.6</span>;
+<a href=#295 id=295 data-nosnippet>295</a>    <span class="kw">let </span>swatch = size * <span class="number">0.75</span>;
+<a href=#296 id=296 data-nosnippet>296</a>    <span class="kw">let </span>widths: Vec&lt;f32&gt; = entries
+<a href=#297 id=297 data-nosnippet>297</a>        .iter()
+<a href=#298 id=298 data-nosnippet>298</a>        .map(|(name, <span class="kw">_</span>)| swatch + <span class="number">4.0 </span>+ name.chars().count() <span class="kw">as </span>f32 * size * CHAR_WIDTH + <span class="number">10.0</span>)
+<a href=#299 id=299 data-nosnippet>299</a>        .collect();
+<a href=#300 id=300 data-nosnippet>300</a>    <span class="comment">// How many lines the entries wrap to.
+<a href=#301 id=301 data-nosnippet>301</a>    </span><span class="kw">let </span>(<span class="kw-2">mut </span>lines, <span class="kw-2">mut </span>used) = (<span class="number">1</span>, <span class="number">0.0</span>);
+<a href=#302 id=302 data-nosnippet>302</a>    <span class="kw">for </span>width <span class="kw">in </span><span class="kw-2">&amp;</span>widths {
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">if </span>used + width &gt; area.width() &amp;&amp; used &gt; <span class="number">0.0 </span>{
+<a href=#304 id=304 data-nosnippet>304</a>            lines += <span class="number">1</span>;
+<a href=#305 id=305 data-nosnippet>305</a>            used = <span class="number">0.0</span>;
+<a href=#306 id=306 data-nosnippet>306</a>        }
+<a href=#307 id=307 data-nosnippet>307</a>        used += width;
+<a href=#308 id=308 data-nosnippet>308</a>    }
+<a href=#309 id=309 data-nosnippet>309</a>    <span class="comment">// A legend can take up to half the room; past that, the last entries are left out.
+<a href=#310 id=310 data-nosnippet>310</a>    </span><span class="kw">let </span>room = ((area.height() / <span class="number">2.0 </span>/ line).floor() <span class="kw">as </span>usize).max(<span class="number">1</span>);
+<a href=#311 id=311 data-nosnippet>311</a>    <span class="kw">let </span>lines = lines.min(room);
+<a href=#312 id=312 data-nosnippet>312</a>    <span class="kw">let </span>top = area.max_y() - line * lines <span class="kw">as </span>f32;
+<a href=#313 id=313 data-nosnippet>313</a>    <span class="kw">let </span>(<span class="kw-2">mut </span>x, <span class="kw-2">mut </span>row) = (area.x(), <span class="number">0</span>);
+<a href=#314 id=314 data-nosnippet>314</a>    <span class="kw">for </span>((name, color), width) <span class="kw">in </span>entries.iter().zip(<span class="kw-2">&amp;</span>widths) {
+<a href=#315 id=315 data-nosnippet>315</a>        <span class="kw">if </span>x + width &gt; area.max_x() &amp;&amp; x &gt; area.x() {
+<a href=#316 id=316 data-nosnippet>316</a>            x = area.x();
+<a href=#317 id=317 data-nosnippet>317</a>            row += <span class="number">1</span>;
+<a href=#318 id=318 data-nosnippet>318</a>            <span class="kw">if </span>row &gt;= lines {
+<a href=#319 id=319 data-nosnippet>319</a>                <span class="kw">break</span>;
+<a href=#320 id=320 data-nosnippet>320</a>            }
+<a href=#321 id=321 data-nosnippet>321</a>        }
+<a href=#322 id=322 data-nosnippet>322</a>        <span class="kw">let </span>y = top + row <span class="kw">as </span>f32 * line;
+<a href=#323 id=323 data-nosnippet>323</a>        drawing.shapes.push(rectangle(Rect::new(x, y + (line - swatch) / <span class="number">2.0</span>, swatch, swatch), <span class="kw-2">*</span>color));
+<a href=#324 id=324 data-nosnippet>324</a>        drawing.labels.push(label(
+<a href=#325 id=325 data-nosnippet>325</a>            name.clone(),
+<a href=#326 id=326 data-nosnippet>326</a>            Rect::new(x + swatch + <span class="number">4.0</span>, y, (width - swatch - <span class="number">4.0</span>).max(<span class="number">1.0</span>), line),
+<a href=#327 id=327 data-nosnippet>327</a>            LabelAlign::Left,
+<a href=#328 id=328 data-nosnippet>328</a>            size,
+<a href=#329 id=329 data-nosnippet>329</a>            options.muted,
+<a href=#330 id=330 data-nosnippet>330</a>        ));
+<a href=#331 id=331 data-nosnippet>331</a>        x += width;
+<a href=#332 id=332 data-nosnippet>332</a>    }
+<a href=#333 id=333 data-nosnippet>333</a>    Rect::new(area.x(), area.y(), area.width(), (top - area.y() - GAP).max(<span class="number">0.0</span>))
+<a href=#334 id=334 data-nosnippet>334</a>}
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a><span class="kw">fn </span>circle(
+<a href=#337 id=337 data-nosnippet>337</a>    data: <span class="kw-2">&amp;</span>ChartData,
+<a href=#338 id=338 data-nosnippet>338</a>    area: Rect,
+<a href=#339 id=339 data-nosnippet>339</a>    options: <span class="kw-2">&amp;</span>ChartOptions&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#340 id=340 data-nosnippet>340</a>    style: <span class="kw-2">&amp;</span>ChartStyle&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#341 id=341 data-nosnippet>341</a>    drawing: <span class="kw-2">&amp;mut </span>ChartDrawing,
+<a href=#342 id=342 data-nosnippet>342</a>) {
+<a href=#343 id=343 data-nosnippet>343</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(series) = data.series.first() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#344 id=344 data-nosnippet>344</a>    <span class="kw">let </span>total: f64 = series.values.iter().filter(|v| <span class="kw-2">**</span>v &gt; <span class="number">0.0</span>).sum();
+<a href=#345 id=345 data-nosnippet>345</a>    <span class="kw">if </span>total &lt;= <span class="number">0.0 </span>|| area.width() &lt;= <span class="number">0.0 </span>|| area.height() &lt;= <span class="number">0.0 </span>{
+<a href=#346 id=346 data-nosnippet>346</a>        <span class="kw">return</span>;
+<a href=#347 id=347 data-nosnippet>347</a>    }
+<a href=#348 id=348 data-nosnippet>348</a>    <span class="kw">let </span>center = area.center();
+<a href=#349 id=349 data-nosnippet>349</a>    <span class="kw">let </span>radius = area.width().min(area.height()) / <span class="number">2.0 </span>- <span class="number">1.0</span>;
+<a href=#350 id=350 data-nosnippet>350</a>    <span class="kw">let </span>hole = <span class="kw">if </span>options.kind == ChartKind::Doughnut { radius * <span class="number">0.58 </span>} <span class="kw">else </span>{ <span class="number">0.0 </span>};
+<a href=#351 id=351 data-nosnippet>351</a>    <span class="kw">let </span><span class="kw-2">mut </span>angle = -std::f32::consts::FRAC_PI_2;
+<a href=#352 id=352 data-nosnippet>352</a>    <span class="kw">for </span>(index, value) <span class="kw">in </span>series.values.iter().enumerate() {
+<a href=#353 id=353 data-nosnippet>353</a>        <span class="kw">if </span><span class="kw-2">*</span>value &lt;= <span class="number">0.0 </span>{
+<a href=#354 id=354 data-nosnippet>354</a>            <span class="kw">continue</span>;
+<a href=#355 id=355 data-nosnippet>355</a>        }
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="kw">let </span>share = <span class="kw-2">*</span>value / total;
+<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw">let </span>end = angle + share <span class="kw">as </span>f32 * std::f32::consts::TAU;
+<a href=#358 id=358 data-nosnippet>358</a>        <span class="kw">let </span>at = |r: f32, a: f32| Point::new(center.x + r * a.cos(), center.y + r * a.sin());
+<a href=#359 id=359 data-nosnippet>359</a>        <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="macro">vec!</span>[PathSegment::Move(at(radius, angle))];
+<a href=#360 id=360 data-nosnippet>360</a>        arc(<span class="kw-2">&amp;mut </span>path, center, radius, angle, end);
+<a href=#361 id=361 data-nosnippet>361</a>        <span class="kw">if </span>hole &gt; <span class="number">0.0 </span>{
+<a href=#362 id=362 data-nosnippet>362</a>            path.push(PathSegment::Line(at(hole, end)));
+<a href=#363 id=363 data-nosnippet>363</a>            arc(<span class="kw-2">&amp;mut </span>path, center, hole, end, angle);
+<a href=#364 id=364 data-nosnippet>364</a>        } <span class="kw">else </span>{
+<a href=#365 id=365 data-nosnippet>365</a>            path.push(PathSegment::Line(center));
+<a href=#366 id=366 data-nosnippet>366</a>        }
+<a href=#367 id=367 data-nosnippet>367</a>        path.push(PathSegment::Close);
+<a href=#368 id=368 data-nosnippet>368</a>        drawing.shapes.push(Shape {
+<a href=#369 id=369 data-nosnippet>369</a>            path,
+<a href=#370 id=370 data-nosnippet>370</a>            fill: <span class="prelude-val">Some</span>(slice_color(style, index)),
+<a href=#371 id=371 data-nosnippet>371</a>            stroke: <span class="prelude-val">Some</span>((<span class="number">1.0</span>, style.separator)),
+<a href=#372 id=372 data-nosnippet>372</a>        });
+<a href=#373 id=373 data-nosnippet>373</a>        <span class="kw">if </span>share &gt;= SLICE_LABEL_MIN {
+<a href=#374 id=374 data-nosnippet>374</a>            <span class="kw">let </span>middle = (angle + end) / <span class="number">2.0</span>;
+<a href=#375 id=375 data-nosnippet>375</a>            <span class="kw">let </span>position = at(<span class="kw">if </span>hole &gt; <span class="number">0.0 </span>{ (radius + hole) / <span class="number">2.0 </span>} <span class="kw">else </span>{ radius * <span class="number">0.66 </span>}, middle);
+<a href=#376 id=376 data-nosnippet>376</a>            <span class="kw">let </span>size = options.size * <span class="number">0.85</span>;
+<a href=#377 id=377 data-nosnippet>377</a>            drawing.labels.push(label(
+<a href=#378 id=378 data-nosnippet>378</a>                <span class="macro">format!</span>(<span class="string">"{:.0}%"</span>, share * <span class="number">100.0</span>),
+<a href=#379 id=379 data-nosnippet>379</a>                Rect::new(position.x - <span class="number">30.0</span>, position.y - size, <span class="number">60.0</span>, size * <span class="number">2.0</span>),
+<a href=#380 id=380 data-nosnippet>380</a>                LabelAlign::Center,
+<a href=#381 id=381 data-nosnippet>381</a>                size,
+<a href=#382 id=382 data-nosnippet>382</a>                Color::WHITE,
+<a href=#383 id=383 data-nosnippet>383</a>            ));
+<a href=#384 id=384 data-nosnippet>384</a>        }
+<a href=#385 id=385 data-nosnippet>385</a>        angle = end;
+<a href=#386 id=386 data-nosnippet>386</a>    }
+<a href=#387 id=387 data-nosnippet>387</a>}
+<a href=#388 id=388 data-nosnippet>388</a>
+<a href=#389 id=389 data-nosnippet>389</a><span class="kw">fn </span>cartesian(
+<a href=#390 id=390 data-nosnippet>390</a>    data: <span class="kw-2">&amp;</span>ChartData,
+<a href=#391 id=391 data-nosnippet>391</a>    area: Rect,
+<a href=#392 id=392 data-nosnippet>392</a>    options: <span class="kw-2">&amp;</span>ChartOptions&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#393 id=393 data-nosnippet>393</a>    style: <span class="kw-2">&amp;</span>ChartStyle&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#394 id=394 data-nosnippet>394</a>    drawing: <span class="kw-2">&amp;mut </span>ChartDrawing,
+<a href=#395 id=395 data-nosnippet>395</a>) {
+<a href=#396 id=396 data-nosnippet>396</a>    <span class="kw">let </span>values = data.series.iter().flat_map(|s| s.values.iter().copied()).filter(|v| v.is_finite());
+<a href=#397 id=397 data-nosnippet>397</a>    <span class="kw">let </span>(<span class="kw-2">mut </span>min, <span class="kw-2">mut </span>max) =
+<a href=#398 id=398 data-nosnippet>398</a>        values.fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| (a.min(v), b.max(v)));
+<a href=#399 id=399 data-nosnippet>399</a>    <span class="kw">if </span>!min.is_finite() || data.categories.is_empty() {
+<a href=#400 id=400 data-nosnippet>400</a>        <span class="kw">return</span>;
+<a href=#401 id=401 data-nosnippet>401</a>    }
+<a href=#402 id=402 data-nosnippet>402</a>    <span class="comment">// Bars and areas start from zero, or their sizes would mislead.
+<a href=#403 id=403 data-nosnippet>403</a>    </span><span class="kw">if </span><span class="macro">matches!</span>(options.kind, ChartKind::Bar | ChartKind::Area) {
+<a href=#404 id=404 data-nosnippet>404</a>        min = min.min(<span class="number">0.0</span>);
+<a href=#405 id=405 data-nosnippet>405</a>        max = max.max(<span class="number">0.0</span>);
+<a href=#406 id=406 data-nosnippet>406</a>    }
+<a href=#407 id=407 data-nosnippet>407</a>    <span class="kw">let </span>(low, step, ticks) = nice_ticks(min, max, TICKS);
+<a href=#408 id=408 data-nosnippet>408</a>    <span class="kw">let </span>high = low + step * (ticks.saturating_sub(<span class="number">1</span>)) <span class="kw">as </span>f64;
+<a href=#409 id=409 data-nosnippet>409</a>    <span class="kw">let </span>span = (high - low).max(f64::EPSILON);
+<a href=#410 id=410 data-nosnippet>410</a>    <span class="kw">let </span>size = options.size * <span class="number">0.85</span>;
+<a href=#411 id=411 data-nosnippet>411</a>    <span class="kw">let </span>axis_labels: Vec&lt;String&gt; = (<span class="number">0</span>..ticks).map(|i| (options.format)(low + step * i <span class="kw">as </span>f64)).collect();
+<a href=#412 id=412 data-nosnippet>412</a>    <span class="kw">let </span>axis_width =
+<a href=#413 id=413 data-nosnippet>413</a>        axis_labels.iter().map(|t| t.chars().count()).max().unwrap_or(<span class="number">0</span>) <span class="kw">as </span>f32 * size * CHAR_WIDTH + GAP;
+<a href=#414 id=414 data-nosnippet>414</a>    <span class="kw">let </span>bottom_room = size * <span class="number">1.8</span>;
+<a href=#415 id=415 data-nosnippet>415</a>    <span class="kw">let </span>plot = Rect::new(
+<a href=#416 id=416 data-nosnippet>416</a>        area.x() + axis_width,
+<a href=#417 id=417 data-nosnippet>417</a>        area.y() + size / <span class="number">2.0</span>,
+<a href=#418 id=418 data-nosnippet>418</a>        (area.width() - axis_width).max(<span class="number">1.0</span>),
+<a href=#419 id=419 data-nosnippet>419</a>        (area.height() - bottom_room - size / <span class="number">2.0</span>).max(<span class="number">1.0</span>),
+<a href=#420 id=420 data-nosnippet>420</a>    );
+<a href=#421 id=421 data-nosnippet>421</a>    <span class="kw">let </span>y_of = |value: f64| plot.max_y() - ((value - low) / span) <span class="kw">as </span>f32 * plot.height();
+<a href=#422 id=422 data-nosnippet>422</a>    <span class="kw">for </span>(index, text) <span class="kw">in </span>axis_labels.iter().enumerate() {
+<a href=#423 id=423 data-nosnippet>423</a>        <span class="kw">let </span>y = y_of(low + step * index <span class="kw">as </span>f64);
+<a href=#424 id=424 data-nosnippet>424</a>        drawing.shapes.push(rectangle(Rect::new(plot.x(), y - <span class="number">0.25</span>, plot.width(), <span class="number">0.5</span>), options.grid));
+<a href=#425 id=425 data-nosnippet>425</a>        drawing.labels.push(label(
+<a href=#426 id=426 data-nosnippet>426</a>            text.clone(),
+<a href=#427 id=427 data-nosnippet>427</a>            Rect::new(area.x(), y - size, axis_width - GAP / <span class="number">2.0</span>, size * <span class="number">2.0</span>),
+<a href=#428 id=428 data-nosnippet>428</a>            LabelAlign::Right,
+<a href=#429 id=429 data-nosnippet>429</a>            size,
+<a href=#430 id=430 data-nosnippet>430</a>            options.muted,
+<a href=#431 id=431 data-nosnippet>431</a>        ));
+<a href=#432 id=432 data-nosnippet>432</a>    }
+<a href=#433 id=433 data-nosnippet>433</a>    <span class="kw">let </span>count = data.categories.len();
+<a href=#434 id=434 data-nosnippet>434</a>    <span class="kw">let </span>band = plot.width() / count <span class="kw">as </span>f32;
+<a href=#435 id=435 data-nosnippet>435</a>    <span class="comment">// Only as many category labels as fit, evenly spaced.
+<a href=#436 id=436 data-nosnippet>436</a>    </span><span class="kw">let </span>longest =
+<a href=#437 id=437 data-nosnippet>437</a>        data.categories.iter().map(|c| c.chars().count()).max().unwrap_or(<span class="number">1</span>) <span class="kw">as </span>f32 * size * CHAR_WIDTH + <span class="number">4.0</span>;
+<a href=#438 id=438 data-nosnippet>438</a>    <span class="kw">let </span>every = (longest / band.max(<span class="number">1.0</span>)).ceil().max(<span class="number">1.0</span>) <span class="kw">as </span>usize;
+<a href=#439 id=439 data-nosnippet>439</a>    <span class="kw">if </span>options.kind != ChartKind::Scatter {
+<a href=#440 id=440 data-nosnippet>440</a>        <span class="kw">for </span>(index, name) <span class="kw">in </span>data.categories.iter().enumerate().step_by(every) {
+<a href=#441 id=441 data-nosnippet>441</a>            <span class="kw">let </span>width = band * every <span class="kw">as </span>f32;
+<a href=#442 id=442 data-nosnippet>442</a>            <span class="kw">let </span>center = plot.x() + band * (index <span class="kw">as </span>f32 + <span class="number">0.5</span>);
+<a href=#443 id=443 data-nosnippet>443</a>            drawing.labels.push(label(
+<a href=#444 id=444 data-nosnippet>444</a>                name.clone(),
+<a href=#445 id=445 data-nosnippet>445</a>                Rect::new(center - width / <span class="number">2.0</span>, plot.max_y() + <span class="number">2.0</span>, width, bottom_room - <span class="number">2.0</span>),
+<a href=#446 id=446 data-nosnippet>446</a>                LabelAlign::Center,
+<a href=#447 id=447 data-nosnippet>447</a>                size,
+<a href=#448 id=448 data-nosnippet>448</a>                options.muted,
+<a href=#449 id=449 data-nosnippet>449</a>            ));
+<a href=#450 id=450 data-nosnippet>450</a>        }
+<a href=#451 id=451 data-nosnippet>451</a>    }
+<a href=#452 id=452 data-nosnippet>452</a>    <span class="kw">match </span>options.kind {
+<a href=#453 id=453 data-nosnippet>453</a>        ChartKind::Bar =&gt; {
+<a href=#454 id=454 data-nosnippet>454</a>            <span class="kw">let </span>series_count = data.series.len().max(<span class="number">1</span>) <span class="kw">as </span>f32;
+<a href=#455 id=455 data-nosnippet>455</a>            <span class="kw">let </span>bar = (band * <span class="number">0.72 </span>/ series_count).min(style.max_bar_width);
+<a href=#456 id=456 data-nosnippet>456</a>            <span class="kw">let </span>group = bar * series_count;
+<a href=#457 id=457 data-nosnippet>457</a>            <span class="kw">let </span>zero = y_of(<span class="number">0.0_f64</span>.clamp(low, high));
+<a href=#458 id=458 data-nosnippet>458</a>            <span class="kw">for </span>(s, series) <span class="kw">in </span>data.series.iter().enumerate() {
+<a href=#459 id=459 data-nosnippet>459</a>                <span class="kw">for </span>(index, value) <span class="kw">in </span>series.values.iter().enumerate() {
+<a href=#460 id=460 data-nosnippet>460</a>                    <span class="kw">if </span>!value.is_finite() {
+<a href=#461 id=461 data-nosnippet>461</a>                        <span class="kw">continue</span>;
+<a href=#462 id=462 data-nosnippet>462</a>                    }
+<a href=#463 id=463 data-nosnippet>463</a>                    <span class="kw">let </span>x = plot.x() + band * index <span class="kw">as </span>f32 + (band - group) / <span class="number">2.0 </span>+ bar * s <span class="kw">as </span>f32;
+<a href=#464 id=464 data-nosnippet>464</a>                    <span class="kw">let </span>y = y_of(<span class="kw-2">*</span>value);
+<a href=#465 id=465 data-nosnippet>465</a>                    <span class="kw">let </span>(top, height) = <span class="kw">if </span>y &lt; zero { (y, zero - y) } <span class="kw">else </span>{ (zero, y - zero) };
+<a href=#466 id=466 data-nosnippet>466</a>                    <span class="kw">let </span>rect = Rect::new(x, top, (bar - <span class="number">0.5</span>).max(<span class="number">0.5</span>), height.max(<span class="number">0.25</span>));
+<a href=#467 id=467 data-nosnippet>467</a>                    drawing
+<a href=#468 id=468 data-nosnippet>468</a>                        .shapes
+<a href=#469 id=469 data-nosnippet>469</a>                        .push(Shape::filled(vector::rectangle(rect, style.bar_radius), series.color));
+<a href=#470 id=470 data-nosnippet>470</a>                }
+<a href=#471 id=471 data-nosnippet>471</a>            }
+<a href=#472 id=472 data-nosnippet>472</a>        }
+<a href=#473 id=473 data-nosnippet>473</a>        ChartKind::Scatter =&gt; {
+<a href=#474 id=474 data-nosnippet>474</a>            <span class="kw">let </span>(x_low, x_step, x_ticks) = {
+<a href=#475 id=475 data-nosnippet>475</a>                <span class="kw">let </span>(a, b) = data
+<a href=#476 id=476 data-nosnippet>476</a>                    .positions
+<a href=#477 id=477 data-nosnippet>477</a>                    .iter()
+<a href=#478 id=478 data-nosnippet>478</a>                    .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| (a.min(<span class="kw-2">*</span>v), b.max(<span class="kw-2">*</span>v)));
+<a href=#479 id=479 data-nosnippet>479</a>                nice_ticks(<span class="kw">if </span>a.is_finite() { a } <span class="kw">else </span>{ <span class="number">0.0 </span>}, <span class="kw">if </span>b.is_finite() { b } <span class="kw">else </span>{ <span class="number">1.0 </span>}, TICKS)
+<a href=#480 id=480 data-nosnippet>480</a>            };
+<a href=#481 id=481 data-nosnippet>481</a>            <span class="kw">let </span>x_span = (x_step * x_ticks.saturating_sub(<span class="number">1</span>) <span class="kw">as </span>f64).max(f64::EPSILON);
+<a href=#482 id=482 data-nosnippet>482</a>            <span class="comment">// Inset by a dot's radius, so a dot at either end stays inside the plot.
+<a href=#483 id=483 data-nosnippet>483</a>            </span><span class="kw">let </span>x_of = |value: f64| {
+<a href=#484 id=484 data-nosnippet>484</a>                plot.x()
+<a href=#485 id=485 data-nosnippet>485</a>                    + SCATTER_DOT
+<a href=#486 id=486 data-nosnippet>486</a>                    + ((value - x_low) / x_span) <span class="kw">as </span>f32 * (plot.width() - <span class="number">2.0 </span>* SCATTER_DOT)
+<a href=#487 id=487 data-nosnippet>487</a>            };
+<a href=#488 id=488 data-nosnippet>488</a>            <span class="kw">for </span>index <span class="kw">in </span><span class="number">0</span>..x_ticks {
+<a href=#489 id=489 data-nosnippet>489</a>                <span class="kw">let </span>value = x_low + x_step * index <span class="kw">as </span>f64;
+<a href=#490 id=490 data-nosnippet>490</a>                drawing.labels.push(label(
+<a href=#491 id=491 data-nosnippet>491</a>                    (options.format)(value),
+<a href=#492 id=492 data-nosnippet>492</a>                    Rect::new(x_of(value) - <span class="number">40.0</span>, plot.max_y() + <span class="number">2.0</span>, <span class="number">80.0</span>, bottom_room - <span class="number">2.0</span>),
+<a href=#493 id=493 data-nosnippet>493</a>                    LabelAlign::Center,
+<a href=#494 id=494 data-nosnippet>494</a>                    size,
+<a href=#495 id=495 data-nosnippet>495</a>                    options.muted,
+<a href=#496 id=496 data-nosnippet>496</a>                ));
+<a href=#497 id=497 data-nosnippet>497</a>            }
+<a href=#498 id=498 data-nosnippet>498</a>            <span class="kw">for </span>series <span class="kw">in </span><span class="kw-2">&amp;</span>data.series {
+<a href=#499 id=499 data-nosnippet>499</a>                <span class="kw">for </span>(position, value) <span class="kw">in </span>data.positions.iter().zip(<span class="kw-2">&amp;</span>series.values) {
+<a href=#500 id=500 data-nosnippet>500</a>                    <span class="kw">if </span>value.is_finite() {
+<a href=#501 id=501 data-nosnippet>501</a>                        drawing.shapes.push(dot(
+<a href=#502 id=502 data-nosnippet>502</a>                            Point::new(x_of(<span class="kw-2">*</span>position), y_of(<span class="kw-2">*</span>value)),
+<a href=#503 id=503 data-nosnippet>503</a>                            SCATTER_DOT,
+<a href=#504 id=504 data-nosnippet>504</a>                            series.color,
+<a href=#505 id=505 data-nosnippet>505</a>                        ));
+<a href=#506 id=506 data-nosnippet>506</a>                    }
+<a href=#507 id=507 data-nosnippet>507</a>                }
+<a href=#508 id=508 data-nosnippet>508</a>            }
+<a href=#509 id=509 data-nosnippet>509</a>        }
+<a href=#510 id=510 data-nosnippet>510</a>        <span class="kw">_ </span>=&gt; {
+<a href=#511 id=511 data-nosnippet>511</a>            <span class="kw">let </span>filled = options.kind == ChartKind::Area;
+<a href=#512 id=512 data-nosnippet>512</a>            <span class="kw">for </span>series <span class="kw">in </span><span class="kw-2">&amp;</span>data.series {
+<a href=#513 id=513 data-nosnippet>513</a>                <span class="kw">let </span>points: Vec&lt;Point&gt; = series
+<a href=#514 id=514 data-nosnippet>514</a>                    .values
+<a href=#515 id=515 data-nosnippet>515</a>                    .iter()
+<a href=#516 id=516 data-nosnippet>516</a>                    .enumerate()
+<a href=#517 id=517 data-nosnippet>517</a>                    .filter(|(<span class="kw">_</span>, v)| v.is_finite())
+<a href=#518 id=518 data-nosnippet>518</a>                    .map(|(i, v)| Point::new(plot.x() + band * (i <span class="kw">as </span>f32 + <span class="number">0.5</span>), y_of(<span class="kw-2">*</span>v)))
+<a href=#519 id=519 data-nosnippet>519</a>                    .collect();
+<a href=#520 id=520 data-nosnippet>520</a>                <span class="kw">if </span>filled &amp;&amp; <span class="kw">let </span>(<span class="prelude-val">Some</span>(first), <span class="prelude-val">Some</span>(last)) = (points.first(), points.last()) {
+<a href=#521 id=521 data-nosnippet>521</a>                    <span class="kw">let </span>zero = y_of(<span class="number">0.0_f64</span>.clamp(low, high));
+<a href=#522 id=522 data-nosnippet>522</a>                    <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="macro">vec!</span>[PathSegment::Move(Point::new(first.x, zero))];
+<a href=#523 id=523 data-nosnippet>523</a>                    path.extend(points.iter().map(|p| PathSegment::Line(<span class="kw-2">*</span>p)));
+<a href=#524 id=524 data-nosnippet>524</a>                    path.push(PathSegment::Line(Point::new(last.x, zero)));
+<a href=#525 id=525 data-nosnippet>525</a>                    path.push(PathSegment::Close);
+<a href=#526 id=526 data-nosnippet>526</a>                    drawing.shapes.push(Shape {
+<a href=#527 id=527 data-nosnippet>527</a>                        path,
+<a href=#528 id=528 data-nosnippet>528</a>                        fill: <span class="prelude-val">Some</span>(with_alpha(series.color, <span class="number">0.25</span>)),
+<a href=#529 id=529 data-nosnippet>529</a>                        stroke: <span class="prelude-val">None</span>,
+<a href=#530 id=530 data-nosnippet>530</a>                    });
+<a href=#531 id=531 data-nosnippet>531</a>                }
+<a href=#532 id=532 data-nosnippet>532</a>                drawing.shapes.push(polyline(<span class="kw-2">&amp;</span>points, <span class="number">1.75</span>, series.color));
+<a href=#533 id=533 data-nosnippet>533</a>                <span class="kw">if </span>band &gt; <span class="number">8.0 </span>{
+<a href=#534 id=534 data-nosnippet>534</a>                    drawing.shapes.extend(points.iter().map(|p| dot(<span class="kw-2">*</span>p, <span class="number">2.25</span>, series.color)));
+<a href=#535 id=535 data-nosnippet>535</a>                }
+<a href=#536 id=536 data-nosnippet>536</a>            }
+<a href=#537 id=537 data-nosnippet>537</a>        }
+<a href=#538 id=538 data-nosnippet>538</a>    }
+<a href=#539 id=539 data-nosnippet>539</a>}
+<a href=#540 id=540 data-nosnippet>540</a>
+<a href=#541 id=541 data-nosnippet>541</a><span class="kw">fn </span>polyline(points: <span class="kw-2">&amp;</span>[Point], width: f32, color: Color) -&gt; Shape {
+<a href=#542 id=542 data-nosnippet>542</a>    <span class="kw">let </span>path = points
+<a href=#543 id=543 data-nosnippet>543</a>        .iter()
+<a href=#544 id=544 data-nosnippet>544</a>        .enumerate()
+<a href=#545 id=545 data-nosnippet>545</a>        .map(|(i, p)| <span class="kw">if </span>i == <span class="number">0 </span>{ PathSegment::Move(<span class="kw-2">*</span>p) } <span class="kw">else </span>{ PathSegment::Line(<span class="kw-2">*</span>p) })
+<a href=#546 id=546 data-nosnippet>546</a>        .collect();
+<a href=#547 id=547 data-nosnippet>547</a>    Shape { path, fill: <span class="prelude-val">None</span>, stroke: <span class="prelude-val">Some</span>((width, color)) }
+<a href=#548 id=548 data-nosnippet>548</a>}
+<a href=#549 id=549 data-nosnippet>549</a>
+<a href=#550 id=550 data-nosnippet>550</a><span class="doccomment">/// A curve through evenly spaced points (Catmull-Rom), without its starting move.
+<a href=#551 id=551 data-nosnippet>551</a></span><span class="kw">fn </span>smooth(points: <span class="kw-2">&amp;</span>[Point]) -&gt; Vec&lt;PathSegment&gt; {
+<a href=#552 id=552 data-nosnippet>552</a>    <span class="kw">let </span>last = points.len().saturating_sub(<span class="number">1</span>);
+<a href=#553 id=553 data-nosnippet>553</a>    (<span class="number">0</span>..last)
+<a href=#554 id=554 data-nosnippet>554</a>        .map(|i| {
+<a href=#555 id=555 data-nosnippet>555</a>            <span class="kw">let </span>(p0, p1) = (points[i.saturating_sub(<span class="number">1</span>)], points[i]);
+<a href=#556 id=556 data-nosnippet>556</a>            <span class="kw">let </span>(p2, p3) = (points[i + <span class="number">1</span>], points[(i + <span class="number">2</span>).min(last)]);
+<a href=#557 id=557 data-nosnippet>557</a>            PathSegment::Cubic(
+<a href=#558 id=558 data-nosnippet>558</a>                Point::new(p1.x + (p2.x - p0.x) / <span class="number">6.0</span>, p1.y + (p2.y - p0.y) / <span class="number">6.0</span>),
+<a href=#559 id=559 data-nosnippet>559</a>                Point::new(p2.x - (p3.x - p1.x) / <span class="number">6.0</span>, p2.y - (p3.y - p1.y) / <span class="number">6.0</span>),
+<a href=#560 id=560 data-nosnippet>560</a>                p2,
+<a href=#561 id=561 data-nosnippet>561</a>            )
+<a href=#562 id=562 data-nosnippet>562</a>        })
+<a href=#563 id=563 data-nosnippet>563</a>        .collect()
+<a href=#564 id=564 data-nosnippet>564</a>}
+<a href=#565 id=565 data-nosnippet>565</a>
+<a href=#566 id=566 data-nosnippet>566</a><span class="kw">fn </span>sparkline(
+<a href=#567 id=567 data-nosnippet>567</a>    data: <span class="kw-2">&amp;</span>ChartData,
+<a href=#568 id=568 data-nosnippet>568</a>    rect: Rect,
+<a href=#569 id=569 data-nosnippet>569</a>    options: <span class="kw-2">&amp;</span>ChartOptions&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#570 id=570 data-nosnippet>570</a>    style: <span class="kw-2">&amp;</span>ChartStyle&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#571 id=571 data-nosnippet>571</a>    drawing: <span class="kw-2">&amp;mut </span>ChartDrawing,
+<a href=#572 id=572 data-nosnippet>572</a>) {
+<a href=#573 id=573 data-nosnippet>573</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(series) = data.series.first() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#574 id=574 data-nosnippet>574</a>    <span class="kw">let </span>values: Vec&lt;f64&gt; = series.values.iter().copied().filter(|v| v.is_finite()).collect();
+<a href=#575 id=575 data-nosnippet>575</a>    <span class="kw">if </span>values.is_empty() {
+<a href=#576 id=576 data-nosnippet>576</a>        <span class="kw">return</span>;
+<a href=#577 id=577 data-nosnippet>577</a>    }
+<a href=#578 id=578 data-nosnippet>578</a>    <span class="kw">let </span>(min, max) =
+<a href=#579 id=579 data-nosnippet>579</a>        values.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| (a.min(<span class="kw-2">*</span>v), b.max(<span class="kw-2">*</span>v)));
+<a href=#580 id=580 data-nosnippet>580</a>    <span class="kw">let </span>span = (max - min).max(f64::EPSILON);
+<a href=#581 id=581 data-nosnippet>581</a>    <span class="kw">let </span>filled = options.kind == ChartKind::SparkArea;
+<a href=#582 id=582 data-nosnippet>582</a>    <span class="comment">// Room for the last dot.
+<a href=#583 id=583 data-nosnippet>583</a>    </span><span class="kw">let </span>pad = <span class="kw">if </span>filled { <span class="number">6.0 </span>} <span class="kw">else </span>{ <span class="number">2.5 </span>};
+<a href=#584 id=584 data-nosnippet>584</a>    <span class="kw">let </span>(width, height) = ((rect.width() - <span class="number">2.0 </span>* pad).max(<span class="number">1.0</span>), (rect.height() - <span class="number">2.0 </span>* pad).max(<span class="number">1.0</span>));
+<a href=#585 id=585 data-nosnippet>585</a>    <span class="kw">let </span>last = values.len().saturating_sub(<span class="number">1</span>).max(<span class="number">1</span>) <span class="kw">as </span>f32;
+<a href=#586 id=586 data-nosnippet>586</a>    <span class="kw">let </span>points: Vec&lt;Point&gt; = values
+<a href=#587 id=587 data-nosnippet>587</a>        .iter()
+<a href=#588 id=588 data-nosnippet>588</a>        .enumerate()
+<a href=#589 id=589 data-nosnippet>589</a>        .map(|(i, v)| {
+<a href=#590 id=590 data-nosnippet>590</a>            Point::new(
+<a href=#591 id=591 data-nosnippet>591</a>                rect.x() + pad + width * i <span class="kw">as </span>f32 / last,
+<a href=#592 id=592 data-nosnippet>592</a>                rect.y() + pad + height * (<span class="number">1.0 </span>- ((<span class="kw-2">*</span>v - min) / span) <span class="kw">as </span>f32),
+<a href=#593 id=593 data-nosnippet>593</a>            )
+<a href=#594 id=594 data-nosnippet>594</a>        })
+<a href=#595 id=595 data-nosnippet>595</a>        .collect();
+<a href=#596 id=596 data-nosnippet>596</a>    <span class="kw">let </span>(<span class="prelude-val">Some</span>(first), <span class="prelude-val">Some</span>(end)) = (points.first().copied(), points.last().copied()) <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#597 id=597 data-nosnippet>597</a>    <span class="kw">if </span>filled {
+<a href=#598 id=598 data-nosnippet>598</a>        <span class="kw">let </span>curve = smooth(<span class="kw-2">&amp;</span>points);
+<a href=#599 id=599 data-nosnippet>599</a>        <span class="kw">let </span><span class="kw-2">mut </span>area = <span class="macro">vec!</span>[PathSegment::Move(Point::new(first.x, rect.max_y())), PathSegment::Line(first)];
+<a href=#600 id=600 data-nosnippet>600</a>        area.extend(curve.iter().copied());
+<a href=#601 id=601 data-nosnippet>601</a>        area.extend([PathSegment::Line(Point::new(end.x, rect.max_y())), PathSegment::Close]);
+<a href=#602 id=602 data-nosnippet>602</a>        drawing.shapes.push(Shape::filled(area, with_alpha(series.color, <span class="number">0.2</span>)));
+<a href=#603 id=603 data-nosnippet>603</a>        <span class="kw">let </span><span class="kw-2">mut </span>line = <span class="macro">vec!</span>[PathSegment::Move(first)];
+<a href=#604 id=604 data-nosnippet>604</a>        line.extend(curve);
+<a href=#605 id=605 data-nosnippet>605</a>        drawing.shapes.push(Shape { path: line, fill: <span class="prelude-val">None</span>, stroke: <span class="prelude-val">Some</span>((<span class="number">2.0</span>, series.color)) });
+<a href=#606 id=606 data-nosnippet>606</a>        <span class="kw">let </span><span class="kw-2">mut </span>last = dot(end, <span class="number">4.0</span>, series.color);
+<a href=#607 id=607 data-nosnippet>607</a>        last.stroke = <span class="prelude-val">Some</span>((<span class="number">2.0</span>, style.separator));
+<a href=#608 id=608 data-nosnippet>608</a>        drawing.shapes.push(last);
+<a href=#609 id=609 data-nosnippet>609</a>    } <span class="kw">else </span>{
+<a href=#610 id=610 data-nosnippet>610</a>        drawing.shapes.push(polyline(<span class="kw-2">&amp;</span>points, <span class="number">1.25</span>, series.color));
+<a href=#611 id=611 data-nosnippet>611</a>        drawing.shapes.push(dot(end, <span class="number">2.0</span>, series.color));
+<a href=#612 id=612 data-nosnippet>612</a>    }
+<a href=#613 id=613 data-nosnippet>613</a>}
+<a href=#614 id=614 data-nosnippet>614</a>
+<a href=#615 id=615 data-nosnippet>615</a><span class="attr">#[cfg(test)]
+<a href=#616 id=616 data-nosnippet>616</a></span><span class="kw">mod </span>tests {
+<a href=#617 id=617 data-nosnippet>617</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#618 id=618 data-nosnippet>618</a>
+<a href=#619 id=619 data-nosnippet>619</a>    <span class="kw">fn </span>plain(value: f64) -&gt; String {
+<a href=#620 id=620 data-nosnippet>620</a>        <span class="macro">format!</span>(<span class="string">"{value}"</span>)
+<a href=#621 id=621 data-nosnippet>621</a>    }
+<a href=#622 id=622 data-nosnippet>622</a>
+<a href=#623 id=623 data-nosnippet>623</a>    <span class="kw">fn </span>options&lt;<span class="lifetime">'a</span>&gt;(kind: ChartKind, format: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Fn(f64) -&gt; String) -&gt; ChartOptions&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#624 id=624 data-nosnippet>624</a>        ChartOptions {
+<a href=#625 id=625 data-nosnippet>625</a>            kind,
+<a href=#626 id=626 data-nosnippet>626</a>            title: <span class="string">""</span>,
+<a href=#627 id=627 data-nosnippet>627</a>            legend: <span class="bool-val">true</span>,
+<a href=#628 id=628 data-nosnippet>628</a>            size: <span class="number">10.0</span>,
+<a href=#629 id=629 data-nosnippet>629</a>            ink: Color::BLACK,
+<a href=#630 id=630 data-nosnippet>630</a>            muted: Color::BLACK,
+<a href=#631 id=631 data-nosnippet>631</a>            grid: Color::BLACK,
+<a href=#632 id=632 data-nosnippet>632</a>            format,
+<a href=#633 id=633 data-nosnippet>633</a>        }
+<a href=#634 id=634 data-nosnippet>634</a>    }
+<a href=#635 id=635 data-nosnippet>635</a>
+<a href=#636 id=636 data-nosnippet>636</a>    <span class="kw">fn </span>data(values: <span class="kw-2">&amp;</span>[f64]) -&gt; ChartData {
+<a href=#637 id=637 data-nosnippet>637</a>        ChartData {
+<a href=#638 id=638 data-nosnippet>638</a>            categories: (<span class="number">0</span>..values.len()).map(|i| <span class="macro">format!</span>(<span class="string">"C{i}"</span>)).collect(),
+<a href=#639 id=639 data-nosnippet>639</a>            positions: (<span class="number">0</span>..values.len()).map(|i| i <span class="kw">as </span>f64).collect(),
+<a href=#640 id=640 data-nosnippet>640</a>            series: <span class="macro">vec!</span>[SeriesData { name: <span class="string">"S"</span>.into(), color: PALETTE[<span class="number">0</span>], values: values.to_vec() }],
+<a href=#641 id=641 data-nosnippet>641</a>        }
+<a href=#642 id=642 data-nosnippet>642</a>    }
+<a href=#643 id=643 data-nosnippet>643</a>
+<a href=#644 id=644 data-nosnippet>644</a>    <span class="kw">const </span>AREA: Rect =
+<a href=#645 id=645 data-nosnippet>645</a>        Rect { origin: Point { x: <span class="number">10.0</span>, y: <span class="number">20.0 </span>}, size: ravenrs_core::Size { width: <span class="number">400.0</span>, height: <span class="number">200.0 </span>} };
+<a href=#646 id=646 data-nosnippet>646</a>
+<a href=#647 id=647 data-nosnippet>647</a>    <span class="kw">fn </span>bounds(segment: <span class="kw-2">&amp;</span>PathSegment) -&gt; Vec&lt;Point&gt; {
+<a href=#648 id=648 data-nosnippet>648</a>        <span class="kw">match </span>segment {
+<a href=#649 id=649 data-nosnippet>649</a>            PathSegment::Move(p) | PathSegment::Line(p) =&gt; <span class="macro">vec!</span>[<span class="kw-2">*</span>p],
+<a href=#650 id=650 data-nosnippet>650</a>            PathSegment::Cubic(<span class="kw">_</span>, <span class="kw">_</span>, p) =&gt; <span class="macro">vec!</span>[<span class="kw-2">*</span>p],
+<a href=#651 id=651 data-nosnippet>651</a>            <span class="kw">_ </span>=&gt; Vec::new(),
+<a href=#652 id=652 data-nosnippet>652</a>        }
+<a href=#653 id=653 data-nosnippet>653</a>    }
+<a href=#654 id=654 data-nosnippet>654</a>
+<a href=#655 id=655 data-nosnippet>655</a>    <span class="attr">#[test]
+<a href=#656 id=656 data-nosnippet>656</a>    </span><span class="kw">fn </span>ticks_are_round_numbers_that_cover_the_values() {
+<a href=#657 id=657 data-nosnippet>657</a>        <span class="macro">assert_eq!</span>(nice_ticks(<span class="number">0.0</span>, <span class="number">100.0</span>, <span class="number">5</span>), (<span class="number">0.0</span>, <span class="number">20.0</span>, <span class="number">6</span>));
+<a href=#658 id=658 data-nosnippet>658</a>        <span class="macro">assert_eq!</span>(nice_ticks(<span class="number">0.0</span>, <span class="number">87.0</span>, <span class="number">5</span>), (<span class="number">0.0</span>, <span class="number">20.0</span>, <span class="number">6</span>));
+<a href=#659 id=659 data-nosnippet>659</a>        <span class="macro">assert_eq!</span>(nice_ticks(<span class="number">0.0</span>, <span class="number">4.2</span>, <span class="number">5</span>), (<span class="number">0.0</span>, <span class="number">1.0</span>, <span class="number">6</span>));
+<a href=#660 id=660 data-nosnippet>660</a>        <span class="kw">let </span>(low, step, count) = nice_ticks(-<span class="number">30.0</span>, <span class="number">70.0</span>, <span class="number">5</span>);
+<a href=#661 id=661 data-nosnippet>661</a>        <span class="macro">assert!</span>(low &lt;= -<span class="number">30.0 </span>&amp;&amp; low + step * (count - <span class="number">1</span>) <span class="kw">as </span>f64 &gt;= <span class="number">70.0</span>);
+<a href=#662 id=662 data-nosnippet>662</a>        <span class="macro">assert_eq!</span>(nice_ticks(<span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">5</span>), (<span class="number">0.0</span>, <span class="number">0.2</span>, <span class="number">6</span>));
+<a href=#663 id=663 data-nosnippet>663</a>        <span class="kw">let </span>(low, step, count) = nice_ticks(<span class="number">5.0</span>, <span class="number">5.0</span>, <span class="number">5</span>);
+<a href=#664 id=664 data-nosnippet>664</a>        <span class="macro">assert!</span>(low &lt;= <span class="number">5.0 </span>&amp;&amp; low + step * (count - <span class="number">1</span>) <span class="kw">as </span>f64 &gt;= <span class="number">5.0 </span>&amp;&amp; step &gt; <span class="number">0.0</span>);
+<a href=#665 id=665 data-nosnippet>665</a>    }
+<a href=#666 id=666 data-nosnippet>666</a>
+<a href=#667 id=667 data-nosnippet>667</a>    <span class="attr">#[test]
+<a href=#668 id=668 data-nosnippet>668</a>    </span><span class="kw">fn </span>every_kind_stays_inside_its_box() {
+<a href=#669 id=669 data-nosnippet>669</a>        <span class="kw">let </span>format = plain;
+<a href=#670 id=670 data-nosnippet>670</a>        <span class="kw">for </span>kind <span class="kw">in </span>[
+<a href=#671 id=671 data-nosnippet>671</a>            ChartKind::Bar,
+<a href=#672 id=672 data-nosnippet>672</a>            ChartKind::Line,
+<a href=#673 id=673 data-nosnippet>673</a>            ChartKind::Area,
+<a href=#674 id=674 data-nosnippet>674</a>            ChartKind::Pie,
+<a href=#675 id=675 data-nosnippet>675</a>            ChartKind::Doughnut,
+<a href=#676 id=676 data-nosnippet>676</a>            ChartKind::Scatter,
+<a href=#677 id=677 data-nosnippet>677</a>            ChartKind::Sparkline,
+<a href=#678 id=678 data-nosnippet>678</a>            ChartKind::SparkArea,
+<a href=#679 id=679 data-nosnippet>679</a>        ] {
+<a href=#680 id=680 data-nosnippet>680</a>            <span class="kw">let </span>drawing = draw(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[<span class="number">3.0</span>, <span class="number">9.0</span>, <span class="number">4.0</span>, <span class="number">12.0</span>]), AREA, <span class="kw-2">&amp;</span>options(kind, <span class="kw-2">&amp;</span>format));
+<a href=#681 id=681 data-nosnippet>681</a>            <span class="macro">assert!</span>(!drawing.shapes.is_empty(), <span class="string">"{kind:?}"</span>);
+<a href=#682 id=682 data-nosnippet>682</a>            <span class="kw">for </span>shape <span class="kw">in </span><span class="kw-2">&amp;</span>drawing.shapes {
+<a href=#683 id=683 data-nosnippet>683</a>                <span class="kw">for </span>point <span class="kw">in </span>shape.path.iter().flat_map(bounds) {
+<a href=#684 id=684 data-nosnippet>684</a>                    <span class="macro">assert!</span>(
+<a href=#685 id=685 data-nosnippet>685</a>                        point.x &gt;= AREA.x() - <span class="number">1.0
+<a href=#686 id=686 data-nosnippet>686</a>                            </span>&amp;&amp; point.x &lt;= AREA.max_x() + <span class="number">1.0
+<a href=#687 id=687 data-nosnippet>687</a>                            </span>&amp;&amp; point.y &gt;= AREA.y() - <span class="number">1.0
+<a href=#688 id=688 data-nosnippet>688</a>                            </span>&amp;&amp; point.y &lt;= AREA.max_y() + <span class="number">1.0</span>,
+<a href=#689 id=689 data-nosnippet>689</a>                        <span class="string">"{kind:?} {point:?}"
+<a href=#690 id=690 data-nosnippet>690</a>                    </span>);
+<a href=#691 id=691 data-nosnippet>691</a>                }
+<a href=#692 id=692 data-nosnippet>692</a>            }
+<a href=#693 id=693 data-nosnippet>693</a>        }
+<a href=#694 id=694 data-nosnippet>694</a>    }
+<a href=#695 id=695 data-nosnippet>695</a>
+<a href=#696 id=696 data-nosnippet>696</a>    <span class="attr">#[test]
+<a href=#697 id=697 data-nosnippet>697</a>    </span><span class="kw">fn </span>bars_are_as_tall_as_their_values_say() {
+<a href=#698 id=698 data-nosnippet>698</a>        <span class="kw">let </span>format = plain;
+<a href=#699 id=699 data-nosnippet>699</a>        <span class="kw">let </span>drawing = draw(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[<span class="number">50.0</span>, <span class="number">100.0</span>]), AREA, <span class="kw-2">&amp;</span>options(ChartKind::Bar, <span class="kw-2">&amp;</span>format));
+<a href=#700 id=700 data-nosnippet>700</a>        <span class="kw">let </span>tall = |shape: <span class="kw-2">&amp;</span>Shape| <span class="kw">match </span>(shape.path.first(), shape.path.get(<span class="number">2</span>)) {
+<a href=#701 id=701 data-nosnippet>701</a>            (<span class="prelude-val">Some</span>(PathSegment::Move(a)), <span class="prelude-val">Some</span>(PathSegment::Line(b))) =&gt; b.y - a.y,
+<a href=#702 id=702 data-nosnippet>702</a>            <span class="kw">_ </span>=&gt; <span class="number">0.0</span>,
+<a href=#703 id=703 data-nosnippet>703</a>        };
+<a href=#704 id=704 data-nosnippet>704</a>        <span class="kw">let </span>colored: Vec&lt;f32&gt; =
+<a href=#705 id=705 data-nosnippet>705</a>            drawing.shapes.iter().filter(|s| s.fill == <span class="prelude-val">Some</span>(PALETTE[<span class="number">0</span>])).map(tall).collect();
+<a href=#706 id=706 data-nosnippet>706</a>        <span class="macro">assert_eq!</span>(colored.len(), <span class="number">2</span>);
+<a href=#707 id=707 data-nosnippet>707</a>        <span class="macro">assert!</span>((colored[<span class="number">1</span>] / colored[<span class="number">0</span>] - <span class="number">2.0</span>).abs() &lt; <span class="number">0.01</span>, <span class="string">"{colored:?}"</span>);
+<a href=#708 id=708 data-nosnippet>708</a>    }
+<a href=#709 id=709 data-nosnippet>709</a>
+<a href=#710 id=710 data-nosnippet>710</a>    <span class="attr">#[test]
+<a href=#711 id=711 data-nosnippet>711</a>    </span><span class="kw">fn </span>negative_bars_go_below_zero() {
+<a href=#712 id=712 data-nosnippet>712</a>        <span class="kw">let </span>format = plain;
+<a href=#713 id=713 data-nosnippet>713</a>        <span class="kw">let </span>drawing = draw(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[-<span class="number">50.0</span>, <span class="number">100.0</span>]), AREA, <span class="kw-2">&amp;</span>options(ChartKind::Bar, <span class="kw-2">&amp;</span>format));
+<a href=#714 id=714 data-nosnippet>714</a>        <span class="macro">assert!</span>(drawing.labels.iter().any(|l| l.text == <span class="string">"-50"</span>), <span class="string">"{:?}"</span>, drawing.labels);
+<a href=#715 id=715 data-nosnippet>715</a>    }
+<a href=#716 id=716 data-nosnippet>716</a>
+<a href=#717 id=717 data-nosnippet>717</a>    <span class="attr">#[test]
+<a href=#718 id=718 data-nosnippet>718</a>    </span><span class="kw">fn </span>slices_are_labeled_by_share_and_tiny_ones_are_not() {
+<a href=#719 id=719 data-nosnippet>719</a>        <span class="kw">let </span>format = plain;
+<a href=#720 id=720 data-nosnippet>720</a>        <span class="kw">let </span>drawing = draw(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[<span class="number">75.0</span>, <span class="number">24.0</span>, <span class="number">1.0</span>]), AREA, <span class="kw-2">&amp;</span>options(ChartKind::Pie, <span class="kw-2">&amp;</span>format));
+<a href=#721 id=721 data-nosnippet>721</a>        <span class="kw">let </span>texts: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = drawing.labels.iter().map(|l| l.text.as_str()).collect();
+<a href=#722 id=722 data-nosnippet>722</a>        <span class="macro">assert!</span>(texts.contains(<span class="kw-2">&amp;</span><span class="string">"75%"</span>) &amp;&amp; texts.contains(<span class="kw-2">&amp;</span><span class="string">"24%"</span>), <span class="string">"{texts:?}"</span>);
+<a href=#723 id=723 data-nosnippet>723</a>        <span class="macro">assert!</span>(!texts.contains(<span class="kw-2">&amp;</span><span class="string">"1%"</span>), <span class="string">"{texts:?}"</span>);
+<a href=#724 id=724 data-nosnippet>724</a>        <span class="macro">assert!</span>(texts.contains(<span class="kw-2">&amp;</span><span class="string">"C2"</span>), <span class="string">"the legend still names it: {texts:?}"</span>);
+<a href=#725 id=725 data-nosnippet>725</a>    }
+<a href=#726 id=726 data-nosnippet>726</a>
+<a href=#727 id=727 data-nosnippet>727</a>    <span class="attr">#[test]
+<a href=#728 id=728 data-nosnippet>728</a>    </span><span class="kw">fn </span>the_legend_names_every_category_when_there_is_room() {
+<a href=#729 id=729 data-nosnippet>729</a>        <span class="kw">let </span>format = plain;
+<a href=#730 id=730 data-nosnippet>730</a>        <span class="kw">let </span>drawing =
+<a href=#731 id=731 data-nosnippet>731</a>            draw(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>; <span class="number">10</span>]), Rect::new(<span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">240.0</span>, <span class="number">230.0</span>), <span class="kw-2">&amp;</span>options(ChartKind::Pie, <span class="kw-2">&amp;</span>format));
+<a href=#732 id=732 data-nosnippet>732</a>        <span class="kw">for </span>index <span class="kw">in </span><span class="number">0</span>..<span class="number">10 </span>{
+<a href=#733 id=733 data-nosnippet>733</a>            <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"C{index}"</span>);
+<a href=#734 id=734 data-nosnippet>734</a>            <span class="macro">assert!</span>(drawing.labels.iter().any(|l| l.text == name), <span class="string">"{name}"</span>);
+<a href=#735 id=735 data-nosnippet>735</a>        }
+<a href=#736 id=736 data-nosnippet>736</a>    }
+<a href=#737 id=737 data-nosnippet>737</a>
+<a href=#738 id=738 data-nosnippet>738</a>    <span class="attr">#[test]
+<a href=#739 id=739 data-nosnippet>739</a>    </span><span class="kw">fn </span>ten_slices_have_ten_colors() {
+<a href=#740 id=740 data-nosnippet>740</a>        <span class="kw">let </span>unique: Vec&lt;<span class="kw">_</span>&gt; =
+<a href=#741 id=741 data-nosnippet>741</a>            PALETTE[..<span class="number">10</span>].iter().map(|c| (c.r.to_bits(), c.g.to_bits(), c.b.to_bits())).collect();
+<a href=#742 id=742 data-nosnippet>742</a>        <span class="kw">let </span>set: std::collections::HashSet&lt;<span class="kw">_</span>&gt; = unique.iter().collect();
+<a href=#743 id=743 data-nosnippet>743</a>        <span class="macro">assert_eq!</span>(set.len(), <span class="number">10</span>);
+<a href=#744 id=744 data-nosnippet>744</a>    }
+<a href=#745 id=745 data-nosnippet>745</a>
+<a href=#746 id=746 data-nosnippet>746</a>    <span class="attr">#[test]
+<a href=#747 id=747 data-nosnippet>747</a>    </span><span class="kw">fn </span>nothing_to_draw_draws_nothing() {
+<a href=#748 id=748 data-nosnippet>748</a>        <span class="kw">let </span>format = plain;
+<a href=#749 id=749 data-nosnippet>749</a>        <span class="kw">for </span>kind <span class="kw">in
+<a href=#750 id=750 data-nosnippet>750</a>            </span>[ChartKind::Bar, ChartKind::Line, ChartKind::Pie, ChartKind::Scatter, ChartKind::Sparkline]
+<a href=#751 id=751 data-nosnippet>751</a>        {
+<a href=#752 id=752 data-nosnippet>752</a>            <span class="kw">let </span>drawing = draw(<span class="kw-2">&amp;</span>ChartData::default(), AREA, <span class="kw-2">&amp;</span>options(kind, <span class="kw-2">&amp;</span>format));
+<a href=#753 id=753 data-nosnippet>753</a>            <span class="macro">assert!</span>(drawing.shapes.is_empty(), <span class="string">"{kind:?}"</span>);
+<a href=#754 id=754 data-nosnippet>754</a>        }
+<a href=#755 id=755 data-nosnippet>755</a>        <span class="macro">assert!</span>(
+<a href=#756 id=756 data-nosnippet>756</a>            draw(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[<span class="number">0.0</span>, <span class="number">0.0</span>]), AREA, <span class="kw-2">&amp;</span>options(ChartKind::Pie, <span class="kw-2">&amp;</span>format))
+<a href=#757 id=757 data-nosnippet>757</a>                .labels
+<a href=#758 id=758 data-nosnippet>758</a>                .iter()
+<a href=#759 id=759 data-nosnippet>759</a>                .all(|l| !l.text.contains(<span class="string">'%'</span>))
+<a href=#760 id=760 data-nosnippet>760</a>        );
+<a href=#761 id=761 data-nosnippet>761</a>    }
+<a href=#762 id=762 data-nosnippet>762</a>
+<a href=#763 id=763 data-nosnippet>763</a>    <span class="attr">#[test]
+<a href=#764 id=764 data-nosnippet>764</a>    </span><span class="kw">fn </span>a_sparkline_has_no_text() {
+<a href=#765 id=765 data-nosnippet>765</a>        <span class="kw">let </span>format = plain;
+<a href=#766 id=766 data-nosnippet>766</a>        <span class="macro">assert!</span>(draw(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>, <span class="number">2.0</span>]), AREA, <span class="kw-2">&amp;</span>options(ChartKind::Sparkline, <span class="kw-2">&amp;</span>format)).labels.is_empty());
+<a href=#767 id=767 data-nosnippet>767</a>        <span class="macro">assert_eq!</span>(draw(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>]), AREA, <span class="kw-2">&amp;</span>options(ChartKind::Sparkline, <span class="kw-2">&amp;</span>format)).shapes.len(), <span class="number">2</span>);
+<a href=#768 id=768 data-nosnippet>768</a>    }
+<a href=#769 id=769 data-nosnippet>769</a>
+<a href=#770 id=770 data-nosnippet>770</a>    <span class="attr">#[test]
+<a href=#771 id=771 data-nosnippet>771</a>    </span><span class="kw">fn </span>a_spark_area_is_a_curve_over_a_fill_and_has_no_text() {
+<a href=#772 id=772 data-nosnippet>772</a>        <span class="kw">let </span>format = plain;
+<a href=#773 id=773 data-nosnippet>773</a>        <span class="kw">let </span>drawing = draw(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>, <span class="number">4.0</span>, <span class="number">2.0</span>]), AREA, <span class="kw-2">&amp;</span>options(ChartKind::SparkArea, <span class="kw-2">&amp;</span>format));
+<a href=#774 id=774 data-nosnippet>774</a>        <span class="macro">assert!</span>(drawing.labels.is_empty());
+<a href=#775 id=775 data-nosnippet>775</a>        <span class="macro">assert_eq!</span>(drawing.shapes.len(), <span class="number">3</span>, <span class="string">"area, line and last dot"</span>);
+<a href=#776 id=776 data-nosnippet>776</a>        <span class="macro">assert!</span>(drawing.shapes[<span class="number">1</span>].path.iter().any(|s| <span class="macro">matches!</span>(s, PathSegment::Cubic(..))));
+<a href=#777 id=777 data-nosnippet>777</a>        <span class="macro">assert_eq!</span>(drawing.shapes[<span class="number">2</span>].stroke, <span class="prelude-val">Some</span>((<span class="number">2.0</span>, Color::WHITE)));
+<a href=#778 id=778 data-nosnippet>778</a>    }
+<a href=#779 id=779 data-nosnippet>779</a>
+<a href=#780 id=780 data-nosnippet>780</a>    <span class="attr">#[test]
+<a href=#781 id=781 data-nosnippet>781</a>    </span><span class="kw">fn </span>bars_stop_growing_at_their_widest() {
+<a href=#782 id=782 data-nosnippet>782</a>        <span class="kw">let </span>format = plain;
+<a href=#783 id=783 data-nosnippet>783</a>        <span class="kw">let </span>narrow = ChartStyle { max_bar_width: <span class="number">20.0</span>, ..ChartStyle::default() };
+<a href=#784 id=784 data-nosnippet>784</a>        <span class="kw">let </span>drawing = draw_styled(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[<span class="number">5.0</span>]), AREA, <span class="kw-2">&amp;</span>options(ChartKind::Bar, <span class="kw-2">&amp;</span>format), <span class="kw-2">&amp;</span>narrow);
+<a href=#785 id=785 data-nosnippet>785</a>        <span class="kw">let </span>bar = drawing.shapes.iter().find(|s| s.fill == <span class="prelude-val">Some</span>(PALETTE[<span class="number">0</span>])).expect(<span class="string">"a bar"</span>);
+<a href=#786 id=786 data-nosnippet>786</a>        <span class="kw">let </span>xs: Vec&lt;f32&gt; = bar.path.iter().flat_map(bounds).map(|p| p.x).collect();
+<a href=#787 id=787 data-nosnippet>787</a>        <span class="kw">let </span>width = xs.iter().copied().fold(f32::MIN, f32::max) - xs.iter().copied().fold(f32::MAX, f32::min);
+<a href=#788 id=788 data-nosnippet>788</a>        <span class="macro">assert!</span>((width - <span class="number">19.5</span>).abs() &lt; <span class="number">0.01</span>, <span class="string">"{width}"</span>);
+<a href=#789 id=789 data-nosnippet>789</a>    }
+<a href=#790 id=790 data-nosnippet>790</a>
+<a href=#791 id=791 data-nosnippet>791</a>    <span class="attr">#[test]
+<a href=#792 id=792 data-nosnippet>792</a>    </span><span class="kw">fn </span>slices_use_the_colors_they_are_given() {
+<a href=#793 id=793 data-nosnippet>793</a>        <span class="kw">let </span>format = plain;
+<a href=#794 id=794 data-nosnippet>794</a>        <span class="kw">let </span>colors = [Color::BLACK];
+<a href=#795 id=795 data-nosnippet>795</a>        <span class="kw">let </span>given = ChartStyle { palette: <span class="kw-2">&amp;</span>colors, separator: Color::BLACK, ..ChartStyle::default() };
+<a href=#796 id=796 data-nosnippet>796</a>        <span class="kw">let </span>drawing = draw_styled(<span class="kw-2">&amp;</span>data(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>, <span class="number">2.0</span>]), AREA, <span class="kw-2">&amp;</span>options(ChartKind::Pie, <span class="kw-2">&amp;</span>format), <span class="kw-2">&amp;</span>given);
+<a href=#797 id=797 data-nosnippet>797</a>        <span class="macro">assert!</span>(drawing.shapes.iter().all(|s| s.fill == <span class="prelude-val">Some</span>(Color::BLACK)));
+<a href=#798 id=798 data-nosnippet>798</a>    }
+<a href=#799 id=799 data-nosnippet>799</a>
+<a href=#800 id=800 data-nosnippet>800</a>    <span class="attr">#[test]
+<a href=#801 id=801 data-nosnippet>801</a>    </span><span class="kw">fn </span>labels_are_thinned_when_categories_do_not_fit() {
+<a href=#802 id=802 data-nosnippet>802</a>        <span class="kw">let </span>format = plain;
+<a href=#803 id=803 data-nosnippet>803</a>        <span class="kw">let </span>many = data(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">1.0</span>; <span class="number">200</span>]);
+<a href=#804 id=804 data-nosnippet>804</a>        <span class="kw">let </span>drawing = draw(<span class="kw-2">&amp;</span>many, AREA, <span class="kw-2">&amp;</span>options(ChartKind::Line, <span class="kw-2">&amp;</span>format));
+<a href=#805 id=805 data-nosnippet>805</a>        <span class="kw">let </span>categories = drawing.labels.iter().filter(|l| l.text.starts_with(<span class="string">'C'</span>)).count();
+<a href=#806 id=806 data-nosnippet>806</a>        <span class="macro">assert!</span>(categories &gt; <span class="number">1 </span>&amp;&amp; categories &lt; <span class="number">60</span>, <span class="string">"{categories}"</span>);
+<a href=#807 id=807 data-nosnippet>807</a>    }
+<a href=#808 id=808 data-nosnippet>808</a>}
+</code></pre></div></section></main></body></html>
