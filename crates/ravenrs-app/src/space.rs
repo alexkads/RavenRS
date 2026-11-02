@@ -1,0 +1,701 @@
+//! Reading and writing records through a unit of work.
+
+use std::cell::RefCell;
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
+use std::fmt;
+use std::rc::Rc;
+
+use ravenrs_criteria::{Criteria, Environment, Scope, Value};
+
+use crate::{EntityInfo, FieldKind, ModelError, Object};
+
+/// Why a space could not do what it was asked.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum SpaceError {
+    /// There is no entity by this name.
+    UnknownEntity(String),
+    /// The filter or the sort does not fit the entity.
+    BadQuery(String),
+    /// The object has no key yet.
+    MissingKey(String),
+    /// Another record already has this key.
+    DuplicateKey {
+        /// The entity.
+        entity: String,
+        /// The key.
+        key: String,
+    },
+    /// The record is gone, or something else took it since this space read it.
+    Conflict(String),
+    /// Something watching the commit refused it, with its reason.
+    Refused(String),
+    /// Storage failed.
+    Storage(String),
+}
+
+impl fmt::Display for SpaceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnknownEntity(name) => write!(f, "there is no entity named {name}"),
+            Self::BadQuery(why) | Self::Conflict(why) | Self::Refused(why) | Self::Storage(why) => {
+                f.write_str(why)
+            }
+            Self::MissingKey(entity) => write!(f, "a record of {entity} has no key"),
+            Self::DuplicateKey { entity, key } => {
+                write!(f, "{entity} already has a record with the key {key}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SpaceError {}
+
+/// What to read: a filter, an order and a page.
+#[derive(Clone, Debug, Default)]
+pub struct Query {
+    /// Only the records this says true for.
+    pub filter: Option<Criteria>,
+    /// Fields to sort by, with true for ascending.
+    pub sort: Vec<(String, bool)>,
+    /// How many to skip.
+    pub offset: usize,
+    /// The most to return.
+    pub limit: Option<usize>,
+}
+
+impl Query {
+    /// Everything, in key order.
+    pub fn all() -> Self {
+        Self::default()
+    }
+
+    /// Only the records this says true for.
+    pub fn filter(mut self, filter: Criteria) -> Self {
+        self.filter = Some(filter);
+        self
+    }
+
+    /// Then by this field.
+    pub fn sort(mut self, field: impl Into<String>, ascending: bool) -> Self {
+        self.sort.push((field.into(), ascending));
+        self
+    }
+
+    /// A page of these many, after skipping those.
+    pub fn page(mut self, offset: usize, limit: usize) -> Self {
+        self.offset = offset;
+        self.limit = Some(limit);
+        self
+    }
+}
+
+/// A change waiting for a commit.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum Change {
+    /// A new record.
+    New(Object),
+    /// A record that changed.
+    Updated(Object),
+    /// A record to take away, by its entity and key.
+    Deleted {
+        /// The entity.
+        entity: String,
+        /// The key.
+        key: Value,
+    },
+}
+
+/// What happens to a space, for whoever watches it.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub enum SpaceEvent<'a> {
+    /// A commit is about to happen. An error stops it, and nothing is kept.
+    Committing(&'a [Change]),
+    /// A commit happened.
+    Committed(&'a [Change]),
+    /// The changes were thrown away.
+    RolledBack,
+}
+
+/// Watches a space; see [`ObjectSpace::on_event`].
+pub type SpaceWatcher = Box<dyn FnMut(SpaceEvent<'_>) -> Result<(), String>>;
+
+/// A unit of work over records: what it reads includes its own changes, and nothing
+/// reaches storage until [`commit`](Self::commit). A view has one of these, so canceling a
+/// form throws away only that form's changes.
+pub trait ObjectSpace {
+    /// The entities it knows.
+    fn entities(&self) -> Vec<EntityInfo>;
+    /// Reads records.
+    fn query(&self, entity: &str, query: &Query) -> Result<Vec<Object>, SpaceError>;
+    /// Reads one record by its key.
+    fn find(&self, entity: &str, key: &Value) -> Result<Option<Object>, SpaceError>;
+    /// A record with what a new one starts with, kept only once [`save`](Self::save)d.
+    fn new_object(&mut self, entity: &str) -> Result<Object, SpaceError>;
+    /// Marks a record as new or changed, by its key.
+    fn save(&mut self, object: Object) -> Result<(), SpaceError>;
+    /// Marks a record to go away.
+    fn delete(&mut self, entity: &str, key: &Value) -> Result<(), SpaceError>;
+    /// What waits for a commit.
+    fn changes(&self) -> Vec<Change>;
+    /// Whether anything waits for a commit.
+    fn is_modified(&self) -> bool {
+        !self.changes().is_empty()
+    }
+    /// Keeps every change, or none of them.
+    fn commit(&mut self) -> Result<(), SpaceError>;
+    /// Throws away every change.
+    fn rollback(&mut self);
+    /// Throws away every change and reads again from storage.
+    fn refresh(&mut self) {
+        self.rollback();
+    }
+    /// Calls this when something happens to the space.
+    fn on_event(&mut self, watcher: SpaceWatcher);
+}
+
+/// A key as text, the same for equal keys.
+fn key_text(key: &Value) -> Option<String> {
+    match key {
+        Value::Null => None,
+        Value::Text(text) if text.is_empty() => None,
+        Value::Text(text) => Some(text.clone()),
+        Value::Number(number) if number.fract() == 0.0 => Some(format!("{}", *number as i64)),
+        Value::Number(number) => Some(number.to_string()),
+        Value::Bool(on) => Some(on.to_string()),
+        Value::Date(date) => Some(format!("{date:?}")),
+        _ => None,
+    }
+}
+
+fn compare(a: &Value, b: &Value) -> Ordering {
+    match (a, b) {
+        (Value::Null, Value::Null) => Ordering::Equal,
+        (Value::Null, _) => Ordering::Less,
+        (_, Value::Null) => Ordering::Greater,
+        (Value::Number(x), Value::Number(y)) => x.partial_cmp(y).unwrap_or(Ordering::Equal),
+        (Value::Text(x), Value::Text(y)) => x.cmp(y),
+        (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
+        (Value::Date(x), Value::Date(y)) => (x.days, x.seconds).cmp(&(y.days, y.seconds)),
+        _ => Ordering::Equal,
+    }
+}
+
+#[derive(Debug, Default)]
+struct Tables {
+    rows: BTreeMap<String, BTreeMap<String, Object>>,
+    next_key: i64,
+}
+
+/// Records kept in memory, on desktop and in the browser. Any number of spaces share them, and
+/// each sees what the others committed.
+#[derive(Clone, Debug)]
+pub struct MemoryDatabase {
+    entities: Rc<Vec<EntityInfo>>,
+    tables: Rc<RefCell<Tables>>,
+}
+
+impl MemoryDatabase {
+    /// A database with these entities and no records.
+    pub fn new(entities: Vec<EntityInfo>) -> Result<Self, ModelError> {
+        for entity in &entities {
+            entity.check()?;
+        }
+        Ok(Self {
+            entities: Rc::new(entities),
+            tables: Rc::new(RefCell::new(Tables { next_key: 1, ..Tables::default() })),
+        })
+    }
+
+    /// A new unit of work over these records.
+    pub fn space(&self) -> MemoryObjectSpace {
+        MemoryObjectSpace {
+            database: self.clone(),
+            environment: Environment::new(),
+            changes: Vec::new(),
+            watchers: Vec::new(),
+        }
+    }
+}
+
+/// A unit of work over a [`MemoryDatabase`].
+pub struct MemoryObjectSpace {
+    database: MemoryDatabase,
+    environment: Environment,
+    changes: Vec<Change>,
+    watchers: Vec<SpaceWatcher>,
+}
+
+impl fmt::Debug for MemoryObjectSpace {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MemoryObjectSpace").field("changes", &self.changes).finish_non_exhaustive()
+    }
+}
+
+impl MemoryObjectSpace {
+    fn entity(&self, name: &str) -> Result<&EntityInfo, SpaceError> {
+        self.database
+            .entities
+            .iter()
+            .find(|e| e.name == name)
+            .ok_or_else(|| SpaceError::UnknownEntity(name.to_owned()))
+    }
+
+    fn key_of(&self, entity: &EntityInfo, object: &Object) -> Option<String> {
+        entity.key_field().and_then(|field| key_text(&object.get(&field.name)))
+    }
+
+    /// Where this record's change is, if it has one.
+    fn change_at(&self, entity: &EntityInfo, key: &str) -> Option<usize> {
+        self.changes.iter().position(|change| match change {
+            Change::New(object) | Change::Updated(object) => {
+                object.entity() == entity.name && self.key_of(entity, object).as_deref() == Some(key)
+            }
+            Change::Deleted { entity: name, key: deleted } => {
+                *name == entity.name && key_text(deleted).as_deref() == Some(key)
+            }
+        })
+    }
+
+    fn committed_has(&self, entity: &str, key: &str) -> bool {
+        self.database.tables.borrow().rows.get(entity).is_some_and(|table| table.contains_key(key))
+    }
+
+    /// Stored records with this space's changes on top, by key.
+    fn current(&self, entity: &EntityInfo) -> BTreeMap<String, Object> {
+        let mut rows = self.database.tables.borrow().rows.get(&entity.name).cloned().unwrap_or_default();
+        for change in &self.changes {
+            match change {
+                Change::New(object) | Change::Updated(object) if object.entity() == entity.name => {
+                    if let Some(key) = self.key_of(entity, object) {
+                        rows.insert(key, object.clone());
+                    }
+                }
+                Change::Deleted { entity: name, key } if *name == entity.name => {
+                    if let Some(key) = key_text(key) {
+                        rows.remove(&key);
+                    }
+                }
+                _ => {}
+            }
+        }
+        rows
+    }
+
+    fn tell(&mut self, event: SpaceEvent<'_>) -> Result<(), SpaceError> {
+        for watcher in &mut self.watchers {
+            watcher(event).map_err(SpaceError::Refused)?;
+        }
+        Ok(())
+    }
+
+    /// Says what would stop these changes, before any is applied.
+    fn check_changes(&self) -> Result<(), SpaceError> {
+        for change in &self.changes {
+            match change {
+                Change::New(object) => {
+                    let entity = self.entity(object.entity())?;
+                    let key = self
+                        .key_of(entity, object)
+                        .ok_or_else(|| SpaceError::MissingKey(entity.name.clone()))?;
+                    if self.committed_has(&entity.name, &key) {
+                        return Err(SpaceError::DuplicateKey { entity: entity.name.clone(), key });
+                    }
+                }
+                Change::Updated(object) => {
+                    let entity = self.entity(object.entity())?;
+                    let key = self
+                        .key_of(entity, object)
+                        .ok_or_else(|| SpaceError::MissingKey(entity.name.clone()))?;
+                    if !self.committed_has(&entity.name, &key) {
+                        return Err(SpaceError::Conflict(format!(
+                            "the record {key} of {} is gone",
+                            entity.name
+                        )));
+                    }
+                }
+                Change::Deleted { .. } => {}
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ObjectSpace for MemoryObjectSpace {
+    fn entities(&self) -> Vec<EntityInfo> {
+        self.database.entities.as_ref().clone()
+    }
+
+    fn query(&self, entity: &str, query: &Query) -> Result<Vec<Object>, SpaceError> {
+        let info = self.entity(entity)?;
+        if let Some(filter) = &query.filter
+            && let Some(problem) = ravenrs_criteria::validate(filter, &info.schema()).first()
+        {
+            return Err(SpaceError::BadQuery(format!("{entity}: {problem}")));
+        }
+        for (field, _) in &query.sort {
+            if info.field_named(field).is_none() {
+                return Err(SpaceError::BadQuery(format!("{entity} has no field {field}")));
+            }
+        }
+        let key_field = info.key_field().map(|f| f.name.clone()).unwrap_or_default();
+        let mut found: Vec<Object> = self
+            .current(info)
+            .into_values()
+            .map(|mut object| {
+                info.compute(&mut object, &self.environment);
+                object
+            })
+            .filter(|object| {
+                query
+                    .filter
+                    .as_ref()
+                    .is_none_or(|filter| Scope::new(&self.environment).row(object).matches(filter))
+            })
+            .collect();
+        found.sort_by(|a, b| {
+            query
+                .sort
+                .iter()
+                .map(|(field, ascending)| {
+                    let order = compare(&a.get(field), &b.get(field));
+                    if *ascending { order } else { order.reverse() }
+                })
+                .find(|order| order.is_ne())
+                .unwrap_or_else(|| compare(&a.get(&key_field), &b.get(&key_field)))
+        });
+        let page = found.into_iter().skip(query.offset);
+        Ok(match query.limit {
+            Some(limit) => page.take(limit).collect(),
+            None => page.collect(),
+        })
+    }
+
+    fn find(&self, entity: &str, key: &Value) -> Result<Option<Object>, SpaceError> {
+        let info = self.entity(entity)?;
+        let Some(key) = key_text(key) else { return Ok(None) };
+        Ok(self.current(info).remove(&key).map(|mut object| {
+            info.compute(&mut object, &self.environment);
+            object
+        }))
+    }
+
+    fn new_object(&mut self, entity: &str) -> Result<Object, SpaceError> {
+        let info = self.entity(entity)?;
+        let mut object = info.new_object();
+        // Numbered keys are given here, and never again, even if this record is not kept.
+        if let Some(field) = info.key_field()
+            && matches!(field.kind, FieldKind::Integer)
+            && matches!(object.get(&field.name), Value::Null)
+        {
+            let mut tables = self.database.tables.borrow_mut();
+            object.set(&field.name, Value::Number(tables.next_key as f64));
+            tables.next_key += 1;
+        }
+        Ok(object)
+    }
+
+    fn save(&mut self, mut object: Object) -> Result<(), SpaceError> {
+        let info = self.entity(object.entity())?.clone();
+        info.strip_calculated(&mut object);
+        let key = self.key_of(&info, &object).ok_or_else(|| SpaceError::MissingKey(info.name.clone()))?;
+        let change = match self.change_at(&info, &key) {
+            Some(at) => match &self.changes[at] {
+                Change::New(_) => Some((at, Change::New(object))),
+                _ => Some((at, Change::Updated(object))),
+            },
+            None if self.committed_has(&info.name, &key) => {
+                self.changes.push(Change::Updated(object));
+                None
+            }
+            None => {
+                self.changes.push(Change::New(object));
+                None
+            }
+        };
+        if let Some((at, change)) = change {
+            self.changes[at] = change;
+        }
+        Ok(())
+    }
+
+    fn delete(&mut self, entity: &str, key: &Value) -> Result<(), SpaceError> {
+        let info = self.entity(entity)?.clone();
+        let Some(text) = key_text(key) else { return Ok(()) };
+        match self.change_at(&info, &text) {
+            Some(at) if matches!(self.changes[at], Change::New(_)) => {
+                self.changes.remove(at);
+            }
+            Some(at) => self.changes[at] = Change::Deleted { entity: info.name, key: key.clone() },
+            None if self.committed_has(&info.name, &text) => {
+                self.changes.push(Change::Deleted { entity: info.name, key: key.clone() });
+            }
+            None => {}
+        }
+        Ok(())
+    }
+
+    fn changes(&self) -> Vec<Change> {
+        self.changes.clone()
+    }
+
+    fn commit(&mut self) -> Result<(), SpaceError> {
+        self.check_changes()?;
+        let changes = std::mem::take(&mut self.changes);
+        if let Err(refused) = self.tell(SpaceEvent::Committing(&changes)) {
+            self.changes = changes;
+            return Err(refused);
+        }
+        {
+            let mut tables = self.database.tables.borrow_mut();
+            for change in &changes {
+                match change {
+                    Change::New(object) | Change::Updated(object) => {
+                        let info = self.database.entities.iter().find(|e| e.name == object.entity());
+                        let key = info.and_then(|info| self.key_of(info, object));
+                        if let Some(key) = key {
+                            tables
+                                .rows
+                                .entry(object.entity().to_owned())
+                                .or_default()
+                                .insert(key, object.clone());
+                        }
+                    }
+                    Change::Deleted { entity, key } => {
+                        if let (Some(table), Some(key)) = (tables.rows.get_mut(entity), key_text(key)) {
+                            table.remove(&key);
+                        }
+                    }
+                }
+            }
+        }
+        // The commit stands; someone watching after it cannot undo it.
+        let _ = self.tell(SpaceEvent::Committed(&changes));
+        Ok(())
+    }
+
+    fn rollback(&mut self) {
+        self.changes.clear();
+        let _ = self.tell(SpaceEvent::RolledBack);
+    }
+
+    fn on_event(&mut self, watcher: SpaceWatcher) {
+        self.watchers.push(watcher);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::FieldInfo;
+
+    fn database() -> MemoryDatabase {
+        MemoryDatabase::new(vec![
+            EntityInfo::new("Account")
+                .field(FieldInfo::new("id", FieldKind::Integer).key())
+                .field(FieldInfo::new("name", FieldKind::Text).default_value("Nova"))
+                .field(FieldInfo::new("cents", FieldKind::Money).default_value(0.0))
+                .field(FieldInfo::new("double", FieldKind::Money).calculated("[cents] * 2")),
+            EntityInfo::new("Bank")
+                .field(FieldInfo::new("code", FieldKind::Text).typed_key())
+                .field(FieldInfo::new("name", FieldKind::Text)),
+        ])
+        .expect("valid")
+    }
+
+    fn add(space: &mut MemoryObjectSpace, name: &str, cents: f64) -> Value {
+        let mut object = space.new_object("Account").expect("the entity");
+        object.set("name", name);
+        object.set("cents", cents);
+        let key = object.get("id");
+        space.save(object).expect("saves");
+        key
+    }
+
+    fn names(space: &MemoryObjectSpace, query: &Query) -> Vec<String> {
+        let found = space.query("Account", query).expect("reads");
+        found.iter().map(|o| if let Value::Text(t) = o.get("name") { t } else { String::new() }).collect()
+    }
+
+    #[test]
+    fn nothing_is_kept_until_the_commit_and_the_space_sees_its_own_changes() {
+        let db = database();
+        let (mut mine, other) = (db.space(), db.space());
+        add(&mut mine, "A", 1.0);
+        assert!(mine.is_modified());
+        assert_eq!(names(&mine, &Query::all()), ["A"]);
+        assert!(names(&other, &Query::all()).is_empty());
+        mine.commit().expect("commits");
+        assert!(!mine.is_modified());
+        assert_eq!(names(&other, &Query::all()), ["A"]);
+    }
+
+    #[test]
+    fn a_rollback_throws_away_new_changed_and_deleted_records() {
+        let db = database();
+        let mut space = db.space();
+        let (a, b) = (add(&mut space, "A", 1.0), add(&mut space, "B", 2.0));
+        space.commit().expect("commits");
+        let mut changed = space.find("Account", &a).expect("reads").expect("there");
+        changed.set("name", "A2");
+        space.save(changed).expect("saves");
+        space.delete("Account", &b).expect("deletes");
+        add(&mut space, "C", 3.0);
+        assert_eq!(names(&space, &Query::all()), ["A2", "C"]);
+        assert_eq!(space.changes().len(), 3);
+        space.rollback();
+        assert_eq!(names(&space, &Query::all()), ["A", "B"]);
+    }
+
+    #[test]
+    fn a_new_record_deleted_before_the_commit_was_never_there() {
+        let db = database();
+        let mut space = db.space();
+        let key = add(&mut space, "A", 1.0);
+        space.delete("Account", &key).expect("deletes");
+        assert!(!space.is_modified());
+        let again = add(&mut space, "B", 1.0);
+        let mut object = space.find("Account", &again).expect("reads").expect("there");
+        object.set("name", "B2");
+        space.save(object).expect("saves");
+        assert!(matches!(space.changes().as_slice(), [Change::New(_)]), "still new after a change");
+    }
+
+    #[test]
+    fn numbered_keys_are_not_given_twice() {
+        let db = database();
+        let (mut a, mut b) = (db.space(), db.space());
+        let (one, two) = (add(&mut a, "A", 1.0), add(&mut b, "B", 1.0));
+        assert_ne!(one, two);
+        a.commit().expect("commits");
+        b.commit().expect("commits");
+        assert_eq!(names(&a, &Query::all()).len(), 2);
+    }
+
+    #[test]
+    fn typed_keys_are_needed_and_cannot_repeat() {
+        let db = database();
+        let mut space = db.space();
+        let empty = space.new_object("Bank").expect("the entity");
+        assert_eq!(space.save(empty), Err(SpaceError::MissingKey("Bank".into())));
+        let mut object = space.new_object("Bank").expect("the entity");
+        object.set("code", "001");
+        space.save(object.clone()).expect("saves");
+        let mut other = db.space();
+        other.save(object).expect("saves");
+        space.commit().expect("commits");
+        assert_eq!(
+            other.commit(),
+            Err(SpaceError::DuplicateKey { entity: "Bank".into(), key: "001".into() })
+        );
+        assert!(other.is_modified(), "the changes wait for a decision");
+    }
+
+    #[test]
+    fn a_commit_keeps_all_or_nothing() {
+        let db = database();
+        let mut first = db.space();
+        let key = add(&mut first, "A", 1.0);
+        first.commit().expect("commits");
+        let mut stale = db.space();
+        let mut object = stale.find("Account", &key).expect("reads").expect("there");
+        object.set("name", "stale");
+        stale.save(object).expect("saves");
+        add(&mut stale, "Other", 1.0);
+        first.delete("Account", &key).expect("deletes");
+        first.commit().expect("commits");
+        assert!(matches!(stale.commit(), Err(SpaceError::Conflict(_))));
+        assert!(names(&first, &Query::all()).is_empty(), "the new record did not get in either");
+    }
+
+    #[test]
+    fn filters_sort_and_pages_work_over_calculated_fields() {
+        let db = database();
+        let mut space = db.space();
+        for (name, cents) in [("C", 30.0), ("A", 10.0), ("B", 20.0), ("D", 10.0)] {
+            add(&mut space, name, cents);
+        }
+        space.commit().expect("commits");
+        let filter = Criteria::parse("[double] >= 40").expect("parses");
+        let sorted = Query::all().filter(filter).sort("cents", false);
+        assert_eq!(names(&space, &sorted), ["C", "B"]);
+        let by_two = Query::all().sort("cents", true).sort("name", false);
+        assert_eq!(names(&space, &by_two), ["D", "A", "B", "C"]);
+        assert_eq!(names(&space, &by_two.clone().page(1, 2)), ["A", "B"]);
+        let found = space.query("Account", &Query::all().page(0, 1)).expect("reads");
+        assert_eq!(found[0].get("double"), Value::Number(60.0), "in key order, computed");
+    }
+
+    #[test]
+    fn calculated_values_are_not_stored() {
+        let db = database();
+        let mut space = db.space();
+        let key = add(&mut space, "A", 5.0);
+        let mut object = space.find("Account", &key).expect("reads").expect("there");
+        assert_eq!(object.get("double"), Value::Number(10.0));
+        object.set("cents", 7.0);
+        space.save(object).expect("saves");
+        let found = space.find("Account", &key).expect("reads").expect("there");
+        assert_eq!(found.get("double"), Value::Number(14.0));
+        let changes = space.changes();
+        let [Change::New(pending)] = changes.as_slice() else {
+            panic!("one new record");
+        };
+        assert!(!pending.values().contains_key("double"));
+    }
+
+    #[test]
+    fn a_new_record_starts_with_its_defaults() {
+        let db = database();
+        let mut space = db.space();
+        let object = space.new_object("Account").expect("the entity");
+        assert_eq!(object.get("name"), Value::Text("Nova".into()));
+        assert!(!space.is_modified(), "not until it is saved");
+    }
+
+    #[test]
+    fn a_watcher_can_refuse_a_commit_and_hears_the_rest() {
+        let db = database();
+        let mut space = db.space();
+        let heard = Rc::new(RefCell::new(Vec::new()));
+        let log = heard.clone();
+        let refuse = Rc::new(std::cell::Cell::new(true));
+        let gate = refuse.clone();
+        space.on_event(Box::new(move |event| match event {
+            SpaceEvent::Committing(_) if gate.get() => Err("not today".to_owned()),
+            SpaceEvent::Committing(changes) => {
+                log.borrow_mut().push(format!("committing {}", changes.len()));
+                Ok(())
+            }
+            SpaceEvent::Committed(_) => {
+                log.borrow_mut().push("committed".to_owned());
+                Ok(())
+            }
+            _ => {
+                log.borrow_mut().push("rolled back".to_owned());
+                Ok(())
+            }
+        }));
+        add(&mut space, "A", 1.0);
+        assert_eq!(space.commit(), Err(SpaceError::Refused("not today".into())));
+        assert!(space.is_modified(), "refused, so it still waits");
+        refuse.set(false);
+        space.commit().expect("commits");
+        space.rollback();
+        assert_eq!(*heard.borrow(), ["committing 1", "committed", "rolled back"]);
+    }
+
+    #[test]
+    fn what_does_not_fit_the_entity_says_so() {
+        let db = database();
+        let mut space = db.space();
+        let bad = Query::all().filter(Criteria::parse("[nope] = 1").expect("parses"));
+        assert!(matches!(space.query("Account", &bad), Err(SpaceError::BadQuery(_))));
+        let bad = Query::all().sort("nope", true);
+        assert!(matches!(space.query("Account", &bad), Err(SpaceError::BadQuery(_))));
+        assert_eq!(space.new_object("Nope").map(|_| ()), Err(SpaceError::UnknownEntity("Nope".into())));
+    }
+}

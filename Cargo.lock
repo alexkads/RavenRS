@@ -3987,6 +3987,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-app"
+version = "27.1.6"
+dependencies = [
+ "proptest",
+ "ravenrs-criteria",
+ "serde_json",
+]
+
+[[package]]
 name = "ravenrs-core"
 version = "27.1.6"
 dependencies = [

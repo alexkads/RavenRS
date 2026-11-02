@@ -218,3 +218,85 @@ fn rows_can_be_inserted_and_removed_in_the_data() {
     assert_eq!(rows.remove(99), None);
     assert_eq!(rows.len(), 3);
 }
+
+#[test]
+fn the_filter_builder_in_the_toolbar_filters_and_clears_with_the_others() {
+    let data = GridData::new(vec![
+        vec!["Ana".into(), 10.0.into()],
+        vec!["Bia".into(), 20.0.into()],
+        vec!["Caio".into(), 30.0.into()],
+    ]);
+    let layout = State::new(GridLayout::default());
+    let grid = DataGrid::new(data, [GridColumn::text("Name"), GridColumn::number("Age")])
+        .filter_builder(true)
+        .layout(layout.binding());
+    let mut ui = Ui::new(grid, ravenrs_style::Theme::raven_dark());
+    ui.set_viewport(Size::new(1000.0, 700.0), 1.0);
+    ui.update();
+    let spot = {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::Button && n.name.as_deref() == Some("Filter"))
+            .expect("the button")
+            .bounds
+            .center()
+    };
+    for event in [
+        Event::PointerMove { position: spot },
+        Event::PointerDown { position: spot, button: PointerButton::Primary },
+        Event::PointerUp { position: spot, button: PointerButton::Primary },
+    ] {
+        ui.handle_event(&event);
+    }
+    ui.update();
+    assert!(ui.access_tree().nodes.iter().any(|n| n.role == Role::Dialog), "it opens");
+}
+
+#[test]
+fn an_expression_in_a_filter_filters_the_whole_grid_from_any_column() {
+    let columns = [GridColumn::text("Name"), GridColumn::number("Age")];
+    let rows = vec![vec!["Ana".into(), 10.0.into()], vec!["Bia".into(), 20.0.into()]];
+    let mut query = ravenrs_widgets::grid::GridQuery::default();
+    query.set_filter(0, "[Age] > 15".to_owned());
+    let result = ravenrs_widgets::grid::query::run_query(&columns, &rows, &query);
+    assert_eq!(result.matched, [1]);
+}
+
+#[test]
+fn rows_on_a_server_are_edited_from_the_keyboard() {
+    let remote = RemoteRows::new(|request, answer| {
+        let rows: Vec<Row> =
+            (request.offset..request.offset + request.limit).map(|i| vec![format!("R{i}").into()]).collect();
+        answer.send(GridPage::new(rows, true));
+    });
+    let edits = Rc::new(RefCell::new(Vec::new()));
+    let log = edits.clone();
+    let mut ui = ui(DataGrid::remote(remote, [GridColumn::text("Name").editable()])
+        .on_cell_edit(move |edit| {
+            log.borrow_mut().push((edit.row, edit.value.clone()));
+            Ok(())
+        })
+        .height(400.0));
+    for second in 1..4 {
+        ui.set_time(f64::from(second));
+        ui.update();
+    }
+    let spot = {
+        let tree = ui.access_tree();
+        tree.nodes.iter().find(|n| n.role == Role::Grid).expect("the grid").bounds.center()
+    };
+    click(&mut ui, spot);
+    let press = |ui: &mut Ui, key: Key| {
+        ui.handle_event(&Event::KeyDown { key, modifiers: Modifiers::default() });
+        ui.update();
+    };
+    press(&mut ui, Key::Home);
+    press(&mut ui, Key::Enter);
+    let editing =
+        ui.access_tree().nodes.iter().any(|n| n.role == Role::TextInput && n.value.as_deref() == Some("R0"));
+    assert!(editing, "Enter opens the cell with what it holds");
+    press(&mut ui, Key::Character("!".into()));
+    press(&mut ui, Key::Enter);
+    assert_eq!(edits.borrow().as_slice(), [(0, Value::from("R0!"))]);
+}

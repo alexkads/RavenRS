@@ -67,6 +67,7 @@ ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
 ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)
 ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)
 ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
+ravenrs-app            ──► ravenrs-criteria  (entities, application model, object spaces; no GUI)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
@@ -97,6 +98,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-graphics` | `vector`, `chart`, `barcode`; also the optional layout behind `Chart` and `Barcode` in `ravenrs-widgets` |
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-grid-export` | `lib` |
+| `ravenrs-app` | `entity`, `model` (`node`, `layers`, `store`, `generate`), `space` |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |
@@ -209,7 +211,7 @@ Parity with the DevExpress DataGrid feature set:
 | Columns pinned to the left | ✓ |
 | Multi-level (banded) headers, columns pinned to the right | planned |
 | Filter by value (checklists) with a filter panel | ✓ |
-| Filter builder | ✓ `FilterBuilder`, on its own; not yet in the grid's toolbar |
+| Filter builder | ✓ `FilterBuilder`, also in the toolbar with `filter_builder` |
 | Paging UI, infinite scroll and rows on a server (`RemoteRows`: bounded memory, settled requests, no totals needed, keyset by `after`) | ✓ |
 | Summaries changed at run time, with formulas over `ravenrs-criteria` | ✓ |
 | Row add and delete (`on_add_row`, `on_delete_rows`), buttons on rows (`row_action`), edits that can be refused (`on_cell_edit`) | ✓ |

@@ -96,6 +96,7 @@ pub struct DataGrid {
     expanded_rows: Option<Binding<BTreeSet<usize>>>,
     on_export_file: Option<Rc<dyn Fn(GridExportFormat, GridTable)>>,
     export_title: Option<String>,
+    filter_builder: bool,
 }
 
 type RowDetail = Rc<dyn Fn(&Row, usize) -> AnyView>;
@@ -233,7 +234,16 @@ impl DataGrid {
             expanded_rows: None,
             on_export_file: None,
             export_title: None,
+            filter_builder: false,
         }
+    }
+
+    /// Shows a Filter button in the toolbar that opens a [`FilterBuilder`](crate::FilterBuilder)
+    /// over the columns. What it writes is an expression, kept with the filters of
+    /// the filter row, so it goes in saved scenarios and comes out with Clear.
+    pub fn filter_builder(mut self, show: bool) -> Self {
+        self.filter_builder = show;
+        self
     }
 
     /// Gives every row details of its own, opened by an arrow at its start or with the Right
@@ -462,6 +472,7 @@ struct Cached {
 /// not trigger an extra rebuild.
 #[derive(Clone)]
 struct Handles {
+    building_filter: State<bool>,
     expanded: Binding<BTreeSet<usize>>,
     query: State<GridQuery>,
     widths: State<Vec<f32>>,
@@ -2338,6 +2349,7 @@ impl DataGrid {
             edit_error,
             resize,
             modifiers: cx.modifiers(),
+            building_filter: cx.use_state(|| false),
             expanded: {
                 let local = cx.use_state(BTreeSet::new);
                 self.expanded_rows.clone().unwrap_or_else(|| local.binding())
@@ -2518,6 +2530,18 @@ impl DataGrid {
                 ),
             );
         }
+        if self.filter_builder {
+            let open = h.building_filter.clone();
+            items.push(
+                cx.child(
+                    &Button::new(labels.grid_filter_label.clone())
+                        .style(ButtonStyle::Secondary)
+                        .size(ButtonSize::Small)
+                        .icon(IconName::Filter)
+                        .on_click(move || open.set(true)),
+                ),
+            );
+        }
         if let Some(export) = &self.on_export_file {
             let title = self.export_title.clone().unwrap_or_else(|| labels.grid_name.clone());
             let culture = labels.culture.clone();
@@ -2632,6 +2656,48 @@ impl DataGrid {
             ),
         );
         cx.child(&menu)
+    }
+
+    fn filter_dialog(&self, cx: &mut BuildCx<'_>, h: &Handles, rows: &[Row]) -> NodeId {
+        let columns: Rc<Vec<GridColumn>> = Rc::new(self.columns.clone());
+        let fields = self.columns.iter().enumerate().filter(|(_, c)| c.filterable).map(|(i, column)| {
+            let kind = if column.number.is_some() {
+                crate::FilterFieldKind::Number
+            } else {
+                match rows.iter().filter_map(|r| r.get(i)).find(|v| !v.is_empty()) {
+                    Some(Value::Bool(_)) => crate::FilterFieldKind::Boolean,
+                    Some(Value::Date(_)) => crate::FilterFieldKind::Date,
+                    Some(Value::Number(_)) => crate::FilterFieldKind::Number,
+                    _ => crate::FilterFieldKind::Text,
+                }
+            };
+            crate::FilterField::new(column.title.clone(), column.title.clone(), kind)
+        });
+        let (read, write) = (h.query.clone(), h.query.clone());
+        let holder = columns.clone();
+        let text = Binding::new(
+            move || {
+                read.with(|q| {
+                    builder_column(q, &holder)
+                        .map(|c| q.filter(c))
+                        .filter(|f| f.contains('['))
+                        .unwrap_or("")
+                        .to_owned()
+                })
+            },
+            move |text: String| {
+                write.update(|q| {
+                    if let Some(c) = builder_column(q, &columns) {
+                        q.set_filter(c, text);
+                    }
+                });
+            },
+        );
+        cx.child(
+            &Dialog::new(h.building_filter.binding(), cx.labels().grid_filter_label.clone())
+                .content(crate::FilterBuilder::new(text, fields))
+                .width(640.0),
+        )
     }
 
     fn scenario_dialog(
@@ -2932,6 +2998,16 @@ fn apply_layout(h: &Handles, columns: &[GridColumn], wanted: &GridLayout) {
 }
 
 /// The keys of rows that stay on a server: there is no list of them to walk.
+/// Where the filter builder keeps its expression: the column that has one, or else a
+/// column whose filter it would not replace.
+fn builder_column(query: &GridQuery, columns: &[GridColumn]) -> Option<usize> {
+    let open = || (0..columns.len()).filter(|&c| columns[c].filterable);
+    open()
+        .find(|&c| query.filter(c).contains('['))
+        .or_else(|| open().find(|&c| query.filter(c).trim().is_empty()))
+        .or_else(|| open().next())
+}
+
 fn set_details(expanded: &Binding<BTreeSet<usize>>, row: usize, open: bool) {
     expanded.update(|set| {
         if open {
@@ -2942,7 +3018,13 @@ fn set_details(expanded: &Binding<BTreeSet<usize>>, row: usize, open: bool) {
     });
 }
 
-fn remote_key_handler(h: &Handles, len: usize, mode: SelectionMode, details: bool) -> crate::KeyHandler {
+fn remote_key_handler(
+    h: &Handles,
+    len: usize,
+    mode: SelectionMode,
+    details: bool,
+    edit: Option<(RemoteRows, usize, GridColumn)>,
+) -> crate::KeyHandler {
     let h = h.clone();
     Rc::new(move |key, _| {
         if len == 0 {
@@ -2950,6 +3032,18 @@ fn remote_key_handler(h: &Handles, len: usize, mode: SelectionMode, details: boo
         }
         let current = h.focus_row.get().unwrap_or(0).min(len - 1);
         let next = match key {
+            key if edit.is_some()
+                && (*key == Key::Enter || matches!(key, Key::Other(k) if k.contains("F2"))) =>
+            {
+                if let Some((rows, c, column)) = &edit
+                    && let Some(values) = rows.row(current)
+                {
+                    let value = values.get(*c).cloned().unwrap_or_default();
+                    h.edit_buffer.set(column.display(&value));
+                    h.editing.set(Some((current, *c)));
+                }
+                return true;
+            }
             Key::ArrowLeft | Key::ArrowRight if details => {
                 set_details(&h.expanded, current, matches!(key, Key::ArrowRight));
                 return true;
@@ -3143,6 +3237,9 @@ impl View for DataGrid {
         }
         if let Some(scenarios) = &self.scenarios {
             sections.push(self.scenario_dialog(cx, &h, scenarios));
+        }
+        if self.filter_builder {
+            sections.push(self.filter_dialog(cx, &h, &rows));
         }
 
         // Header.
@@ -3399,7 +3496,16 @@ impl View for DataGrid {
         cx.focusable(body, 0.0);
         let clipboard = cx.clipboard();
         let keys = if self.remote.is_some() {
-            remote_key_handler(&h, total, self.selection_mode, self.row_detail.is_some())
+            {
+                // Only an app that answers for edits can change rows on a server.
+                let edit = self.remote.clone().filter(|_| self.on_cell_edit.is_some()).and_then(|rows| {
+                    visible
+                        .iter()
+                        .find(|&&c| self.columns[c].editable)
+                        .map(|&c| (rows, c, self.columns[c].clone()))
+                });
+                remote_key_handler(&h, total, self.selection_mode, self.row_detail.is_some(), edit)
+            }
         } else {
             key_handler(&shared, self.selection_mode, clipboard)
         };
@@ -3621,6 +3727,19 @@ mod tests {
         assert_eq!(tops.row_at(119.0, 6), 1, "inside the details of row 1");
         assert_eq!(tops.row_at(120.0, 6), 2);
         assert_eq!(tops.row_at(10_000.0, 6), 6, "past the end");
+    }
+
+    #[test]
+    fn the_filter_builder_does_not_take_over_a_filter_in_use() {
+        let columns = [GridColumn::text("A").filterable(false), GridColumn::text("B"), GridColumn::text("C")];
+        let mut query = GridQuery::default();
+        assert_eq!(builder_column(&query, &columns), Some(1), "the first that can filter");
+        query.set_filter(1, "ana".to_owned());
+        assert_eq!(builder_column(&query, &columns), Some(2), "not over what someone typed");
+        query.set_filter(2, "bia".to_owned());
+        assert_eq!(builder_column(&query, &columns), Some(1), "with no room, the first");
+        query.set_filter(2, "[B] = 'x'".to_owned());
+        assert_eq!(builder_column(&query, &columns), Some(2), "its own expression, wherever it is");
     }
 
     #[test]

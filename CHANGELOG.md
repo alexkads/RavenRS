@@ -18,6 +18,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **`TileLayout`** arranges a dashboard of tiles to drag and resize, also from the keyboard. **`CardView`** shows records as cards in as many columns as fit, and builds only those in sight.
 - **`DataGrid` row details.** `row_detail` opens a view below a row, with the arrow or the Right key.
 - **`DataGrid` to Excel and PDF.** `on_export_file` shows a menu of formats and hands over what the grid shows; the new `ravenrs-grid-export` turns it into a file through the same exporters as reports. `wizard::table_report_with` lets a table report take captions and formats from the caller.
+- `DataGrid::filter_builder` puts a `FilterBuilder` in the toolbar, and rows on a server can be edited from the keyboard, with Enter or F2.
+- **`ravenrs-app`**, the start of an application framework with no GUI yet. `EntityInfo` declares a kind of record; `generate_model` gives it a list, a list to pick from, a form and a place in the navigation; `ModelLayers` changes that from modules, an administrator and a user, each as a difference in JSON; `ObjectSpace` and `MemoryDatabase` read and write records in a unit of work.
 - `BuildCx::report_frame` tells a view the room it got, for those that arrange themselves by it.
 - `disabled` and `read_only` on `TextField`, `Select`, `Combobox`, `DatePicker`, `Checkbox`, `Toggle` and `Stepper`. Screen readers hear about read-only controls through `AccessNode::read_only`.
 

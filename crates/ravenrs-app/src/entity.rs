@@ -1,0 +1,457 @@
+//! What a record is: its fields, what they hold and where they show.
+
+use std::collections::BTreeMap;
+use std::fmt;
+
+use ravenrs_criteria::{Criteria, Environment, FieldType, Record, Schema, Scope, Value};
+
+/// What a field holds, which decides how it is edited and stored.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum FieldKind {
+    /// A line of text.
+    Text,
+    /// Text of any length, edited in several lines.
+    LongText,
+    /// A whole number.
+    Integer,
+    /// A number, with these decimal places.
+    Decimal(u8),
+    /// Money, in whole cents, so it is always exact.
+    Money,
+    /// A date.
+    Date,
+    /// A date and a time.
+    DateTime,
+    /// Yes or no.
+    Boolean,
+    /// One of these options.
+    Enum(Vec<EnumOption>),
+    /// Another record, by the name of its entity. It holds that record's key.
+    Reference(String),
+    /// The records of another entity that point to this one.
+    Collection(String),
+    /// A color, as `#RRGGBB`.
+    Color,
+    /// A picture.
+    Image,
+    /// A file.
+    File,
+    /// An expression of the criteria language.
+    Criteria,
+}
+
+impl FieldKind {
+    /// How expressions see it.
+    fn field_type(&self) -> FieldType {
+        match self {
+            Self::Text | Self::LongText | Self::Color | Self::Criteria | Self::Enum(_) => FieldType::Text,
+            Self::Integer | Self::Decimal(_) | Self::Money => FieldType::Number,
+            Self::Date | Self::DateTime => FieldType::Date,
+            Self::Boolean => FieldType::Boolean,
+            Self::Reference(_) | Self::Collection(_) | Self::Image | Self::File => FieldType::Any,
+        }
+    }
+
+    /// Whether its editor takes the height it needs, instead of one line.
+    pub(crate) fn is_tall(&self) -> bool {
+        matches!(self, Self::LongText | Self::Image | Self::File)
+    }
+
+    /// Whether it lists other records instead of holding a value.
+    pub(crate) fn is_collection(&self) -> bool {
+        matches!(self, Self::Collection(_))
+    }
+
+    /// Its name in the model.
+    pub(crate) fn name(&self) -> &'static str {
+        match self {
+            Self::Text => "Text",
+            Self::LongText => "LongText",
+            Self::Integer => "Integer",
+            Self::Decimal(_) => "Decimal",
+            Self::Money => "Money",
+            Self::Date => "Date",
+            Self::DateTime => "DateTime",
+            Self::Boolean => "Boolean",
+            Self::Enum(_) => "Enum",
+            Self::Reference(_) => "Reference",
+            Self::Collection(_) => "Collection",
+            Self::Color => "Color",
+            Self::Image => "Image",
+            Self::File => "File",
+            Self::Criteria => "Criteria",
+        }
+    }
+}
+
+/// One of the values of a [`FieldKind::Enum`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EnumOption {
+    /// What is stored.
+    pub code: String,
+    /// What people see.
+    pub caption: String,
+}
+
+impl EnumOption {
+    /// An option stored as `code` and shown as `caption`.
+    pub fn new(code: impl Into<String>, caption: impl Into<String>) -> Self {
+        Self { code: code.into(), caption: caption.into() }
+    }
+}
+
+/// A field of an [`EntityInfo`].
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct FieldInfo {
+    /// Its name, in expressions and in the model.
+    pub name: String,
+    /// What people see. Follows from the name unless given.
+    pub caption: String,
+    /// What it holds.
+    pub kind: FieldKind,
+    /// It identifies the record.
+    pub is_key: bool,
+    /// It can be seen but not changed.
+    pub read_only: bool,
+    /// It has a column in lists.
+    pub in_list: bool,
+    /// It is on the form.
+    pub in_detail: bool,
+    /// It has a column when picking a record of this entity.
+    pub in_lookup: bool,
+    /// An expression that gives its value; nothing is stored.
+    pub calculated: Option<String>,
+    /// What a new record starts with.
+    pub default_value: Value,
+}
+
+/// `opening_cents` as `Opening cents`.
+fn caption_of(name: &str) -> String {
+    let spaced = name.replace('_', " ");
+    let mut chars = spaced.chars();
+    chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
+}
+
+impl FieldInfo {
+    /// A field shown in lists and on the form.
+    pub fn new(name: impl Into<String>, kind: FieldKind) -> Self {
+        let name = name.into();
+        Self {
+            caption: caption_of(&name),
+            name,
+            in_list: !kind.is_tall() && !kind.is_collection(),
+            in_detail: true,
+            in_lookup: false,
+            is_key: false,
+            read_only: false,
+            calculated: None,
+            default_value: Value::Null,
+            kind,
+        }
+    }
+
+    /// What people see.
+    pub fn caption(mut self, caption: impl Into<String>) -> Self {
+        self.caption = caption.into();
+        self
+    }
+
+    /// Makes it the key: read-only, and out of lists and forms unless told otherwise.
+    pub fn key(mut self) -> Self {
+        self.is_key = true;
+        self.read_only = true;
+        self.in_list = false;
+        self.in_detail = false;
+        self
+    }
+
+    /// Makes it the key, typed by people, as a code is.
+    pub fn typed_key(mut self) -> Self {
+        self.is_key = true;
+        self
+    }
+
+    /// Makes it what names a record, for [`EntityInfo::default_property`].
+    pub fn default_property(mut self) -> Self {
+        self.in_lookup = true;
+        self
+    }
+
+    /// It can be seen but not changed.
+    pub fn read_only(mut self) -> Self {
+        self.read_only = true;
+        self
+    }
+
+    /// Whether it has a column in lists.
+    pub fn in_list(mut self, show: bool) -> Self {
+        self.in_list = show;
+        self
+    }
+
+    /// Whether it is on the form.
+    pub fn in_detail(mut self, show: bool) -> Self {
+        self.in_detail = show;
+        self
+    }
+
+    /// Whether it has a column when picking a record.
+    pub fn in_lookup(mut self, show: bool) -> Self {
+        self.in_lookup = show;
+        self
+    }
+
+    /// Gets its value from this expression, read-only and not stored.
+    pub fn calculated(mut self, expression: impl Into<String>) -> Self {
+        self.calculated = Some(expression.into());
+        self.read_only = true;
+        self
+    }
+
+    /// What a new record starts with.
+    pub fn default_value(mut self, value: impl Into<Value>) -> Self {
+        self.default_value = value.into();
+        self
+    }
+}
+
+/// Something wrong in how the application was declared, in words for its developer.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ModelError(pub String);
+
+impl fmt::Display for ModelError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ModelError {}
+
+/// A kind of record.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct EntityInfo {
+    /// Its name, in the model and in code.
+    pub name: String,
+    /// What people see. Follows from the name unless given.
+    pub caption: String,
+    /// The group it goes under in the navigation; without one, it stays out.
+    pub navigation: Option<String>,
+    /// The name of its icon.
+    pub icon: Option<String>,
+    /// Its fields, in the order they were declared.
+    pub fields: Vec<FieldInfo>,
+}
+
+impl EntityInfo {
+    /// An entity with no fields yet.
+    pub fn new(name: impl Into<String>) -> Self {
+        let name = name.into();
+        Self { caption: caption_of(&name), name, navigation: None, icon: None, fields: Vec::new() }
+    }
+
+    /// What people see.
+    pub fn caption(mut self, caption: impl Into<String>) -> Self {
+        self.caption = caption.into();
+        self
+    }
+
+    /// The group it goes under in the navigation.
+    pub fn navigation(mut self, group: impl Into<String>) -> Self {
+        self.navigation = Some(group.into());
+        self
+    }
+
+    /// The name of its icon.
+    pub fn icon(mut self, icon: impl Into<String>) -> Self {
+        self.icon = Some(icon.into());
+        self
+    }
+
+    /// Appends a field.
+    pub fn field(mut self, field: FieldInfo) -> Self {
+        self.fields.push(field);
+        self
+    }
+
+    /// A field by name.
+    pub fn field_named(&self, name: &str) -> Option<&FieldInfo> {
+        self.fields.iter().find(|f| f.name == name)
+    }
+
+    /// The field that identifies a record.
+    pub fn key_field(&self) -> Option<&FieldInfo> {
+        self.fields.iter().find(|f| f.is_key)
+    }
+
+    /// The field that names a record: the first in lookups, or else the first with text.
+    pub fn default_property(&self) -> Option<&FieldInfo> {
+        self.fields
+            .iter()
+            .find(|f| f.in_lookup)
+            .or_else(|| self.fields.iter().find(|f| matches!(f.kind, FieldKind::Text) && !f.is_key))
+    }
+
+    /// What expressions over this entity may refer to.
+    pub fn schema(&self) -> Schema {
+        self.fields
+            .iter()
+            .filter(|f| !f.kind.is_collection())
+            .fold(Schema::new(), |schema, f| schema.field(&f.name, f.kind.field_type()))
+    }
+
+    /// Says what is wrong with how it was declared.
+    pub fn check(&self) -> Result<(), ModelError> {
+        let wrong = |what: String| Err(ModelError(format!("{}: {what}", self.name)));
+        if self.name.trim().is_empty() {
+            return Err(ModelError("an entity has no name".into()));
+        }
+        match self.fields.iter().filter(|f| f.is_key).count() {
+            1 => {}
+            0 => return wrong("it has no key field".into()),
+            n => return wrong(format!("it has {n} key fields, and only one can be")),
+        }
+        for (i, field) in self.fields.iter().enumerate() {
+            if self.fields[..i].iter().any(|f| f.name == field.name) {
+                return wrong(format!("the field {} is declared twice", field.name));
+            }
+            if let Some(expression) = &field.calculated {
+                let parsed = Criteria::parse(expression)
+                    .map_err(|e| ModelError(format!("{}.{}: {e}", self.name, field.name)))?;
+                if let Some(problem) = ravenrs_criteria::validate(&parsed, &self.schema()).first() {
+                    return wrong(format!("the field {}: {problem}", field.name));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// A record of this entity with what a new one starts with.
+    pub(crate) fn new_object(&self) -> Object {
+        let values = self
+            .fields
+            .iter()
+            .filter(|f| f.calculated.is_none() && !f.kind.is_collection())
+            .map(|f| (f.name.clone(), f.default_value.clone()))
+            .collect();
+        Object { entity: self.name.clone(), values }
+    }
+
+    /// Fills in the calculated fields, in the order declared, so one can read another.
+    pub(crate) fn compute(&self, object: &mut Object, environment: &Environment) {
+        for field in &self.fields {
+            let Some(expression) = &field.calculated else { continue };
+            // `check` already refused what does not parse.
+            let value = Criteria::parse(expression)
+                .ok()
+                .and_then(|parsed| Scope::new(environment).row(&*object).evaluate(&parsed).ok())
+                .unwrap_or(Value::Null);
+            object.values.insert(field.name.clone(), value);
+        }
+    }
+
+    /// The object as it is stored, with no calculated values.
+    pub(crate) fn strip_calculated(&self, object: &mut Object) {
+        for field in self.fields.iter().filter(|f| f.calculated.is_some()) {
+            object.values.remove(&field.name);
+        }
+    }
+}
+
+/// A record: its entity's name and a value per field. Dynamic, so filters, rules and
+/// permissions read every entity the same way.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Object {
+    entity: String,
+    values: BTreeMap<String, Value>,
+}
+
+impl Object {
+    /// A record of this entity with these values, as storage hands them over.
+    pub fn from_values(entity: impl Into<String>, values: BTreeMap<String, Value>) -> Self {
+        Self { entity: entity.into(), values }
+    }
+
+    /// The name of its entity.
+    pub fn entity(&self) -> &str {
+        &self.entity
+    }
+
+    /// The value of a field; nothing is `Null`.
+    pub fn get(&self, field: &str) -> Value {
+        self.values.get(field).cloned().unwrap_or(Value::Null)
+    }
+
+    /// Changes the value of a field.
+    pub fn set(&mut self, field: &str, value: impl Into<Value>) {
+        self.values.insert(field.to_owned(), value.into());
+    }
+
+    /// Every value, by field.
+    pub fn values(&self) -> &BTreeMap<String, Value> {
+        &self.values
+    }
+}
+
+impl Record for Object {
+    fn field(&self, path: &[String]) -> Option<Value> {
+        match path {
+            [name] => self.values.get(name).cloned(),
+            _ => None,
+        }
+    }
+
+    fn collection(&self, _path: &[String]) -> Option<Vec<&Self>> {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn captions_follow_from_names() {
+        assert_eq!(caption_of("opening_cents"), "Opening cents");
+        assert_eq!(FieldInfo::new("name", FieldKind::Text).caption, "Name");
+    }
+
+    #[test]
+    fn a_declaration_says_what_is_wrong_with_it() {
+        let key = || FieldInfo::new("id", FieldKind::Integer).key();
+        let name = |e: &EntityInfo| e.check().map_err(|e| e.0);
+        assert!(name(&EntityInfo::new("A")).is_err_and(|e| e.contains("no key")));
+        let two = EntityInfo::new("A").field(key()).field(FieldInfo::new("b", FieldKind::Text).typed_key());
+        assert!(name(&two).is_err_and(|e| e.contains("2 key fields")));
+        let twice = EntityInfo::new("A").field(key()).field(FieldInfo::new("id", FieldKind::Text));
+        assert!(name(&twice).is_err_and(|e| e.contains("twice")));
+        let bad = EntityInfo::new("A")
+            .field(key())
+            .field(FieldInfo::new("c", FieldKind::Integer).calculated("[nope] + 1"));
+        assert!(name(&bad).is_err_and(|e| e.contains("A") && e.contains("c")));
+        assert!(EntityInfo::new("A").field(key()).check().is_ok());
+    }
+
+    #[test]
+    fn the_default_property_is_the_one_named_or_the_first_text() {
+        let plain = EntityInfo::new("A")
+            .field(FieldInfo::new("code", FieldKind::Text).typed_key())
+            .field(FieldInfo::new("title", FieldKind::Text));
+        assert_eq!(plain.default_property().map(|f| f.name.as_str()), Some("title"));
+        let named = plain.field(FieldInfo::new("other", FieldKind::Text).default_property());
+        assert_eq!(named.default_property().map(|f| f.name.as_str()), Some("other"));
+    }
+
+    #[test]
+    fn the_schema_answers_for_the_fields() {
+        let entity = EntityInfo::new("A")
+            .field(FieldInfo::new("id", FieldKind::Integer).key())
+            .field(FieldInfo::new("name", FieldKind::Text));
+        let good = Criteria::parse("[name] = 'x' And [id] > 1").expect("parses");
+        assert!(ravenrs_criteria::validate(&good, &entity.schema()).is_empty());
+        let bad = Criteria::parse("[nope] = 1").expect("parses");
+        assert!(!ravenrs_criteria::validate(&bad, &entity.schema()).is_empty());
+    }
+}
