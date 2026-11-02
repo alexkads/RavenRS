@@ -1,0 +1,5 @@
+error: use danger, warning, success, accent or muted
+ --> tests/ui/bad_tint.rs:4:35
+  |
+4 | #[appearance(names = "id", font = "red")]
+  |                                   ^^^^^

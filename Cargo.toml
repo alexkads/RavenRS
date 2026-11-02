@@ -70,6 +70,7 @@ tokio = { version = "1.54", default-features = false, features = ["macros", "rt"
 syn = { version = "2.0.119", default-features = false, features = ["full", "parsing", "printing", "visit"] }
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 quote = "1.0.47"
+regex-lite = "0.1"
 trybuild = "1"
 
 [workspace.lints.rust]

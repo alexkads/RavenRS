@@ -20,6 +20,9 @@ pub const REASON_SELECTION: &str = "selection";
 /// The reason an action is off because the selected records do not meet its criteria.
 pub const REASON_CRITERIA: &str = "criteria";
 
+/// The reason an action is off because of an appearance rule.
+pub const REASON_APPEARANCE: &str = "appearance";
+
 /// Why something is on or off: pairs of reason and answer. It is on only if every answer is yes,
 /// so one part of the application turning it off cannot be undone by another.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

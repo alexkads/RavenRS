@@ -1,0 +1,5 @@
+error: this pattern is not valid: found open group without closing ')'
+ --> tests/ui/bad_pattern.rs:7:23
+  |
+7 |     #[field(matches = "(")]
+  |                       ^^^

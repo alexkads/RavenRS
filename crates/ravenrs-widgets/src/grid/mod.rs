@@ -18,4 +18,4 @@ pub use query::{
     GridExportFormat, GridQuery, GridTable, GridTableColumn, GridTableKind, QueryResult, ViewRow, to_table,
     to_tsv,
 };
-pub use view::{CellEdit, DataGrid, GridRowAction, SelectionMode};
+pub use view::{CellEdit, DataGrid, GridCellStyle, GridRowAction, SelectionMode};

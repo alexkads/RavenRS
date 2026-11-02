@@ -3,14 +3,18 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
-use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Frame, ModelNode, Object, Query, Value, ViewInfo};
+use ravenrs_app::{
+    AppearanceTarget, EntityInfo, FieldInfo, FieldKind, Frame, ModelNode, Object, Query, Value, ViewInfo,
+};
 use ravenrs_grid_export::export;
 use ravenrs_reactive::{Binding, State};
-use ravenrs_widgets::grid::Value as Cell;
-use ravenrs_widgets::{BuildCx, DataGrid, GridColumn, GridData, NodeId, SelectionMode, Text, View};
+use ravenrs_widgets::grid::{Row, Value as Cell};
+use ravenrs_widgets::{
+    BuildCx, DataGrid, GridCellStyle, GridColumn, GridData, NodeId, SelectionMode, Text, View,
+};
 
 use crate::session::Session;
-use crate::values::{cell_of, column_of, display, key_from_text, key_text};
+use crate::values::{cell_of, column_of, display, key_from_text, key_text, semantic_of};
 
 /// What opening a row of a list does, with its key.
 pub type OpenHandler = Rc<dyn Fn(&Value)>;
@@ -180,7 +184,11 @@ impl View for ListView {
                 let column = column_of(field, caption, words);
                 // What names a record takes the room left over, so rows reach across.
                 let column = if names_the_record(field) { column.fill() } else { column };
-                if *visible { column } else { column.hidden() }
+                // A column is for all its rows, so only a rule with no condition can hide it.
+                let hidden =
+                    entity.appearance_of(AppearanceTarget::Item, &field.name, &self.view, None).visible
+                        == Some(false);
+                if *visible && !hidden { column } else { column.hidden() }
             })
             .collect();
         let selected = {
@@ -199,6 +207,16 @@ impl View for ListView {
         let saver = cx.file_picker();
         let (exporter, caption) =
             (session.clone(), node.text("Caption").unwrap_or(&entity.caption).to_owned());
+        let looks = (!entity.appearance.is_empty()).then(|| {
+            let names: Vec<String> = fields.iter().map(|(field, ..)| field.name.clone()).collect();
+            let (rules, view, objects) = (entity.clone(), self.view.clone(), current.objects.clone());
+            move |row: &Row, column: usize| {
+                let object = row.get(key_at).and_then(|cell| objects.get(&cell.key_text()));
+                let Some(name) = names.get(column) else { return GridCellStyle::default() };
+                let found = rules.appearance_of(AppearanceTarget::Item, name, &view, object);
+                GridCellStyle::new(found.font.map(semantic_of), found.back.map(semantic_of), found.bold)
+            }
+        });
         let grid = DataGrid::new(current.data.clone(), columns)
             .key_column(key_at)
             .selection_mode(SelectionMode::Multiple)
@@ -224,6 +242,10 @@ impl View for ListView {
                     delete.run_action(&action, ravenrs_app::ActionInput::None);
                 }
             });
+        let grid = match looks {
+            Some(looks) => grid.cell_style(looks),
+            None => grid,
+        };
         cx.child(&grid)
     }
 }

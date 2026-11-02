@@ -1,0 +1,5 @@
+error: this struct has no field `nope`
+ --> tests/ui/unique_unknown_field.rs:4:1
+  |
+4 | #[rule(unique = "id,nope")]
+  | ^

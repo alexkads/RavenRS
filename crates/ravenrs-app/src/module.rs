@@ -151,7 +151,9 @@ impl Application {
     pub fn new_frame(&self, context: FrameContext, space: Rc<RefCell<dyn ObjectSpace>>) -> Frame {
         let view = self.modules.iter().flat_map(|m| m.view_controllers()).collect();
         let window = self.modules.iter().flat_map(|m| m.window_controllers()).collect();
-        Frame::new(context, space, Some(self.model.clone()), view, window)
+        let frame = Frame::new(context, space, Some(self.model.clone()), view, window);
+        frame.set_entities(Rc::new(self.entities.clone()));
+        frame
     }
 }
 

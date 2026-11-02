@@ -436,12 +436,13 @@ pub struct Label {
     text: String,
     required: bool,
     hint: Option<String>,
+    ink: Option<Semantic>,
 }
 
 impl Label {
     /// A label with this text.
     pub fn new(text: impl Into<String>) -> Self {
-        Self { text: text.into(), required: false, hint: None }
+        Self { text: text.into(), required: false, hint: None, ink: None }
     }
 
     /// The label text.
@@ -460,6 +461,12 @@ impl Label {
         self.hint = Some(hint.into());
         self
     }
+
+    /// The color of the text, instead of the usual one.
+    pub fn ink(mut self, ink: Semantic) -> Self {
+        self.ink = Some(ink);
+        self
+    }
 }
 
 impl View for Label {
@@ -470,7 +477,7 @@ impl View for Label {
             &self.text,
             TextStyle::Callout,
             Some(Weight::SEMIBOLD),
-            theme.color(Semantic::Ink),
+            theme.color(self.ink.unwrap_or(Semantic::Ink)),
         )];
         if self.required {
             row.push(util::label(

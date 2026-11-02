@@ -1,5 +1,6 @@
 //! A whole application, driven the way people use it, with no window.
-#![allow(clippy::expect_used, clippy::unwrap_used)]
+// Rules repeat a condition, which is what this lint looks for in attributes.
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::duplicated_attributes)]
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -593,4 +594,244 @@ fn the_words_can_be_portuguese() {
     ui.update();
     let tree = ui.access_tree();
     assert!(tree.nodes.iter().any(|n| n.role == Role::Button && n.name.as_deref() == Some("Novo")));
+}
+
+#[derive(BusinessObject)]
+#[object(caption = "Bills", navigation = "Finance")]
+#[rule(criteria = "[amount] <= [limit]", message = "Above the limit")]
+#[rule(criteria = "[paid] = False", context = "Delete", message = "A paid bill stays")]
+#[rule(criteria = "[amount] > 100", context = "Pay", message = "Too little to pay")]
+#[appearance(names = "amount", criteria = "[amount] > 1000", font = "danger", bold)]
+#[appearance(names = "notes", criteria = "[paid] = True", visible = false)]
+#[appearance(names = "name", criteria = "[paid] = True", enabled = false)]
+#[appearance(names = "secret", visible = false, context = "list")]
+#[appearance(names = "Long", layout, criteria = "[paid] = True", visible = false)]
+#[appearance(names = "Pay", action, criteria = "[paid] = True", enabled = false)]
+struct Bill {
+    #[field(key)]
+    id: i64,
+    #[field(caption = "Name", required, unique, default_property)]
+    name: String,
+    #[field(caption = "Amount", default = 0.0, min = 0, max = 100000)]
+    amount: i64,
+    #[field(caption = "Limit", default = 5000.0)]
+    limit: i64,
+    #[field(caption = "Paid")]
+    paid: bool,
+    #[field(caption = "Notes")]
+    notes: Option<String>,
+    #[field(caption = "Secret")]
+    secret: Option<String>,
+    #[field(caption = "Memo", long)]
+    memo: Option<String>,
+}
+
+struct PayController;
+
+impl ViewController for PayController {
+    fn id(&self) -> &str {
+        "Pay"
+    }
+    fn actions(&self) -> Vec<Action> {
+        vec![Action::simple("Pay", "Pay").validation_contexts(["Pay"]).on_execute(|cx| {
+            let mut space = cx.space.borrow_mut();
+            for bill in &cx.selected {
+                let mut bill = bill.clone();
+                bill.set("paid", true);
+                space.save(bill).map_err(|e| e.to_string())?;
+            }
+            space.commit().map_err(|e| e.to_string())
+        })]
+    }
+}
+
+struct PayModule;
+
+impl Module for PayModule {
+    fn name(&self) -> &str {
+        "Pay"
+    }
+    fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
+        vec![Box::new(PayController)]
+    }
+}
+
+fn bills() -> World {
+    let database = MemoryDatabase::new(vec![Bill::entity_info()]).expect("valid");
+    let application = Application::builder("T")
+        .module(SystemModule::new())
+        .module(PayModule)
+        .entity_of::<Bill>()
+        .build()
+        .expect("valid");
+    let source = database.clone();
+    let shell = AppShell::new(application, move || source.space());
+    let session = shell.session();
+    let mut ui = Ui::new(shell, Theme::raven_dark());
+    ui.set_viewport(Size::new(1400.0, 900.0), 1.0);
+    ui.update();
+    ui.update();
+    World { ui, database, session, files: Rc::default() }
+}
+
+fn add_bill(w: &World, name: &str, amount: f64, paid: bool) {
+    let mut space = w.database.space();
+    let mut object = space.new_object("Bill").expect("the entity");
+    object.set("name", name);
+    object.set("amount", amount);
+    object.set("limit", 5000.0);
+    object.set("paid", paid);
+    object.set("notes", "note");
+    space.save(object).expect("saves");
+    space.commit().expect("commits");
+}
+
+fn saved_bills(w: &World) -> usize {
+    w.database.space().query("Bill", &Query::all()).expect("reads").len()
+}
+
+impl World {
+    fn reload(&mut self) {
+        self.press("Refresh");
+    }
+}
+
+#[test]
+fn an_invalid_save_does_not_happen_and_says_why_on_the_field_and_in_the_list() {
+    let mut w = bills();
+    w.press("New");
+    w.press("Save");
+    assert_eq!(saved_bills(&w), 0, "not kept");
+    assert!(w.find(Role::Button, "Save").is_some(), "still on the form");
+    let message = "Name is required";
+    let shown =
+        w.ui.access_tree()
+            .nodes
+            .iter()
+            .filter(|n| n.name.as_deref() == Some(message) || n.description.as_deref() == Some(message))
+            .count();
+    assert!(shown >= 2, "on the field and in the list, {shown} times");
+    w.fill("Name", "Rent");
+    assert!(!w.says(message), "it goes away as it gets fixed");
+    w.press("Save and close");
+    assert_eq!(saved_bills(&w), 1);
+}
+
+#[test]
+fn save_and_close_and_save_and_new_stop_too() {
+    let mut w = bills();
+    w.press("New");
+    w.press("Save and close");
+    assert!(w.find(Role::Button, "Save").is_some(), "did not close");
+    w.press("Save and new");
+    assert_eq!(saved_bills(&w), 0);
+    assert!(w.says("Name is required"));
+    assert!(w.session.error().is_none(), "no second message over the form");
+}
+
+#[test]
+fn a_rule_that_reads_other_records_stops_a_repeat() {
+    let mut w = bills();
+    add_bill(&w, "Rent", 10.0, false);
+    w.press("New");
+    w.fill("Name", "Rent");
+    w.press("Save and close");
+    assert_eq!(saved_bills(&w), 1);
+    assert!(w.says("There is already a record with this Name"));
+    w.fill("Name", "Light");
+    w.press("Save and close");
+    assert_eq!(saved_bills(&w), 2);
+}
+
+#[test]
+fn a_rule_about_the_whole_record_goes_in_the_list() {
+    let mut w = bills();
+    w.press("New");
+    w.fill("Name", "Big");
+    w.fill("Amount", "6000");
+    w.press("Save");
+    assert_eq!(saved_bills(&w), 0);
+    assert!(w.says("Above the limit"));
+}
+
+#[test]
+fn deleting_passes_its_own_context() {
+    let mut w = bills();
+    add_bill(&w, "Paid", 10.0, true);
+    add_bill(&w, "Open", 10.0, false);
+    w.reload();
+    w.check_row("Paid");
+    w.press("Delete");
+    let answer = w
+        .nodes(Role::Button)
+        .into_iter()
+        .rfind(|n| n.name.as_deref() == Some("Delete"))
+        .expect("the answer")
+        .bounds
+        .center();
+    w.click_at(answer);
+    assert_eq!(saved_bills(&w), 2, "a paid bill stays");
+    assert_eq!(w.session.error().as_deref().map(|e| e.contains("A paid bill stays")), Some(true));
+}
+
+#[test]
+fn an_action_passes_the_contexts_it_names() {
+    let mut w = bills();
+    add_bill(&w, "Small", 50.0, false);
+    add_bill(&w, "Large", 500.0, false);
+    w.reload();
+    w.check_row("Small");
+    w.press("Pay");
+    assert!(w.session.error().is_some_and(|e| e.contains("Too little to pay")));
+    let paid = |w: &World, name: &str| {
+        let found = w.database.space().query("Bill", &Query::all()).expect("reads");
+        found.iter().any(|o| o.get("name") == Value::Text(name.into()) && o.get("paid") == Value::Bool(true))
+    };
+    assert!(!paid(&w, "Small"));
+    w.check_row("Small");
+    w.check_row("Large");
+    w.press("Pay");
+    assert!(paid(&w, "Large"));
+}
+
+#[test]
+fn an_action_fades_by_the_record_selected() {
+    let mut w = bills();
+    add_bill(&w, "Paid", 200.0, true);
+    add_bill(&w, "Open", 200.0, false);
+    w.reload();
+    w.check_row("Open");
+    assert!(w.enabled("Pay"));
+    w.check_row("Paid");
+    assert!(!w.enabled("Pay"), "one that does not fit is enough");
+}
+
+#[test]
+fn a_column_hides_only_by_a_rule_with_no_condition() {
+    let mut w = bills();
+    add_bill(&w, "Paid", 10.0, true);
+    w.reload();
+    assert!(!w.says("Secret"), "a rule with no condition");
+    assert!(w.says("Notes"), "a rule with one cannot hide a column");
+}
+
+#[test]
+fn a_form_follows_the_record_for_fields_and_groups() {
+    let mut w = bills();
+    add_bill(&w, "Open", 10.0, false);
+    add_bill(&w, "Done", 10.0, true);
+    w.reload();
+    let name_of = |w: &mut World| {
+        w.nodes(Role::TextInput).into_iter().find(|n| n.name.as_deref() == Some("Name")).expect("the name")
+    };
+    w.open_row("Open");
+    assert!(!name_of(&mut w).read_only);
+    assert!(w.says("Notes"));
+    assert!(w.says("Memo"), "the group of long texts");
+    w.press("Back");
+    w.open_row("Done");
+    assert!(name_of(&mut w).read_only, "enabled = false");
+    assert!(!w.says("Notes"), "visible = false");
+    assert!(!w.says("Memo"), "the whole group");
+    assert!(w.says("Secret"), "that rule is for lists only");
 }

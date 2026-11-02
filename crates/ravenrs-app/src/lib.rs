@@ -27,6 +27,7 @@
 //! ```
 
 mod action;
+mod appearance;
 mod controller;
 mod entity;
 mod frame;
@@ -34,12 +35,14 @@ mod model;
 mod module;
 mod object;
 mod space;
+mod validation;
 
 pub use action::{
     Action, ActionCategory, ActionContext, ActionError, ActionInput, ActionKind, ActionResult, ChoiceItem,
-    CriteriaMode, Nesting, REASON_CONTROLLER, REASON_CRITERIA, REASON_SCOPE, REASON_SELECTION, Reasons,
-    Selection, TargetScope,
+    CriteriaMode, Nesting, REASON_APPEARANCE, REASON_CONTROLLER, REASON_CRITERIA, REASON_SCOPE,
+    REASON_SELECTION, Reasons, Selection, TargetScope,
 };
+pub use appearance::{Appearance, AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
 pub use controller::{ViewController, WindowController};
 pub use entity::{EntityInfo, EnumOption, FieldInfo, FieldKind, ModelError, Object};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
@@ -55,4 +58,8 @@ pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 pub use ravenrs_criteria::{Criteria, Value};
 pub use space::{
     Change, MemoryDatabase, MemoryObjectSpace, ObjectSpace, Query, SpaceError, SpaceEvent, SpaceWatcher,
+};
+pub use validation::{
+    CONTEXT_DELETE, CONTEXT_SAVE, Comparison, Operand, Rule, RuleKind, RuleWords, TextComparison, Violation,
+    validate,
 };

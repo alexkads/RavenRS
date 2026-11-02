@@ -7,6 +7,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Added
 - **`#[derive(BusinessObject)]`** and **`#[derive(BusinessEnum)]`** declare records as Rust structs and options as enums, in the new `ravenrs-app-derive`. A wrong attribute is a compile error that points at it, and a calculated field's expression is checked there too. `ObjectSpaceExt` reads and writes these structs.
 - **`App`** in `ravenrs-app-ui` puts an application together from its records in a few lines, with the language of everything in it. [`examples/quick-app`](examples/quick-app) is a whole one in under 100 lines, on desktop and in the browser. The guide is [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md), and [docs/APP-PARITY.md](docs/APP-PARITY.md) says what exists.
+- **Validation.** `Rule` covers required, range, pattern, text and value comparison, criteria, is true, unique, unique together, exists, referenced and custom, by context and target criteria. A generated form that fails keeps nothing, and says what is wrong on each field and in a list on top. `#[field(required, unique, min, max, matches)]` and `#[rule(...)]` declare them.
+- **Conditional appearance.** `AppearanceRule` changes font, background, weight, enabled and visible on fields, groups and actions, by criteria or function, in order of priority. `#[appearance(...)]` declares them.
+- `DataGrid::cell_style` decides how each cell looks from its row. `FormField` gains `error_text`, `label_ink` and `tint`, and `Label` gains `ink`.
 - `FilePicker::save` hands a file to the person: the system's dialog on a desktop, a download in a browser. Exports from generated lists use it unless the app takes them.
 
 ### Fixed

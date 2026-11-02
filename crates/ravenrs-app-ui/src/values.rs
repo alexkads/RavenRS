@@ -1,7 +1,8 @@
 //! Between what records hold and what controls show.
 
-use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Value};
+use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Tint, Value};
 use ravenrs_criteria::DateTime as Moment;
+use ravenrs_style::Semantic;
 use ravenrs_widgets::grid::Value as Cell;
 use ravenrs_widgets::{Date, DateTime, GridColumn, NumberFormat, Time};
 
@@ -86,6 +87,17 @@ pub(crate) fn column_of(field: &FieldInfo, caption: &str, words: &Words) -> Grid
         _ => GridColumn::text(caption),
     };
     column.field(field.name.clone())
+}
+
+/// The color of a tint, in the theme.
+pub(crate) fn semantic_of(tint: Tint) -> Semantic {
+    match tint {
+        Tint::Danger => Semantic::Danger,
+        Tint::Warning => Semantic::Warning,
+        Tint::Success => Semantic::Success,
+        Tint::Accent => Semantic::Accent,
+        _ => Semantic::InkMuted,
+    }
 }
 
 /// Text that identifies a key, the same as the grid gives its cell.

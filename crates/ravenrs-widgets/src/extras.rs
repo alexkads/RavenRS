@@ -718,6 +718,8 @@ pub struct FormField<V> {
     rules: Vec<Rule>,
     show_errors: bool,
     required: bool,
+    told_error: Option<String>,
+    fill: Option<Semantic>,
 }
 
 impl<V> fmt::Debug for FormField<V> {
@@ -737,6 +739,8 @@ impl<V: View> FormField<V> {
             rules: Vec::new(),
             show_errors: false,
             required: false,
+            told_error: None,
+            fill: None,
         }
     }
 
@@ -744,6 +748,24 @@ impl<V: View> FormField<V> {
     pub fn required(mut self) -> Self {
         self.label = self.label.required();
         self.required = true;
+        self
+    }
+
+    /// What is wrong, as something else found out, such as rules that read a database.
+    pub fn error_text(mut self, error: Option<String>) -> Self {
+        self.told_error = error;
+        self
+    }
+
+    /// The color of its label, instead of the usual one.
+    pub fn label_ink(mut self, ink: Semantic) -> Self {
+        self.label = self.label.ink(ink);
+        self
+    }
+
+    /// A faint color behind the field, to call attention to it.
+    pub fn tint(mut self, fill: Semantic) -> Self {
+        self.fill = Some(fill);
         self
     }
 
@@ -791,9 +813,11 @@ impl<V: View> View for FormField<V> {
         let value = self.value.as_ref().map(Binding::get).unwrap_or_default();
         let blank = self.required && self.value.is_some() && value.trim().is_empty();
         // The same check as `error`, in the words of this part of the app.
-        let error = (self.show_errors || !value.is_empty())
-            .then(|| if blank { Some(cx.labels().required.clone()) } else { self.error() })
-            .flatten();
+        let error = self.told_error.clone().or_else(|| {
+            (self.show_errors || !value.is_empty())
+                .then(|| if blank { Some(cx.labels().required.clone()) } else { self.error() })
+                .flatten()
+        });
         cx.label_control(content, self.label.text(), error.as_deref().or(self.hint.as_deref()));
         if let Some(e) = error {
             let icon = util::icon(cx, IconName::CircleAlert, 14.0, theme.color(Semantic::Danger));
@@ -806,10 +830,25 @@ impl<V: View> View for FormField<V> {
         } else if let Some(h) = &self.hint {
             children.push(util::label(cx, h, TextStyle::Callout, None, theme.color(Semantic::InkMuted)));
         }
+        let (padding, paint) = match self.fill {
+            Some(fill) => (
+                Insets::uniform(6.0),
+                Paint::Quad(QuadPaint {
+                    corner_radius: theme.radii.md,
+                    ..QuadPaint::new(theme.color(fill).with_alpha(0.14))
+                }),
+            ),
+            None => (Insets::ZERO, Paint::None),
+        };
         cx.container(
-            LayoutStyle { spacing: 6.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            LayoutStyle {
+                spacing: 6.0,
+                padding,
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
             &children,
-            Paint::None,
+            paint,
         )
     }
 }

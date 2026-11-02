@@ -106,6 +106,7 @@ struct FrameInner {
     space: RefCell<Rc<RefCell<dyn ObjectSpace>>>,
     model: Option<Rc<ModelNode>>,
     extensions: RefCell<Vec<Rc<dyn Any>>>,
+    entities: RefCell<Rc<Vec<crate::EntityInfo>>>,
     environment: Environment,
     view: State<Option<ViewInfo>>,
     selected: State<Vec<Object>>,
@@ -165,6 +166,7 @@ impl Frame {
             space: RefCell::new(space),
             model,
             extensions: RefCell::default(),
+            entities: RefCell::default(),
             environment: Environment::new(),
             view: State::new(None),
             selected: State::new(Vec::new()),
@@ -198,6 +200,12 @@ impl Frame {
     /// The unit of work of its view.
     pub fn space(&self) -> Rc<RefCell<dyn ObjectSpace>> {
         self.0.space.borrow().clone()
+    }
+
+    /// The entities whose appearance rules turn actions on and off.
+    pub fn set_entities(&self, entities: Rc<Vec<crate::EntityInfo>>) {
+        *self.0.entities.borrow_mut() = entities;
+        self.refresh_actions();
     }
 
     /// Keeps something for whoever holds the frame to find by its type, as what shows it
@@ -326,8 +334,33 @@ impl Frame {
     fn refresh_actions(&self) {
         let view = self.0.view.peek().clone();
         let selected = self.0.selected.peek().clone();
+        let entities = self.0.entities.borrow().clone();
+        let entity = view
+            .as_ref()
+            .and_then(|view| view.entity.as_deref())
+            .and_then(|name| entities.iter().find(|entity| entity.name == name));
         for action in self.actions() {
             action.update(view.as_ref(), self.0.context, &selected, &self.0.environment);
+            let (mut enabled, mut visible) = (true, true);
+            if let (Some(entity), Some(view)) = (entity, view.as_ref()) {
+                // One record that does not fit is enough to turn it off.
+                let records: Vec<Option<&Object>> =
+                    if selected.is_empty() { vec![None] } else { selected.iter().map(Some).collect() };
+                for record in records {
+                    let found =
+                        entity.appearance_of(crate::AppearanceTarget::Action, action.id(), view, record);
+                    enabled &= found.enabled.unwrap_or(true);
+                    visible &= found.visible.unwrap_or(true);
+                }
+            }
+            // Among many records, what fits changes from row to row: taking the button away
+            // would move its neighbors, so it only fades.
+            if view.as_ref().is_some_and(|view| view.kind == ViewKind::List) && !visible {
+                enabled = false;
+                visible = true;
+            }
+            action.set_enabled(crate::REASON_APPEARANCE, enabled);
+            action.set_active(crate::REASON_APPEARANCE, visible);
         }
     }
 

@@ -1,0 +1,5 @@
+error: this struct has no field `nope`
+ --> tests/ui/rule_unknown_field.rs:4:19
+  |
+4 | #[rule(criteria = "[nope] > 1")]
+  |                   ^^^^^^^^^^^^

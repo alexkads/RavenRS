@@ -97,8 +97,10 @@ pub struct DataGrid {
     on_export_file: Option<Rc<dyn Fn(GridExportFormat, GridTable)>>,
     export_title: Option<String>,
     filter_builder: bool,
+    cell_style: Option<CellStyler>,
 }
 
+type CellStyler = Rc<dyn Fn(&Row, usize) -> GridCellStyle>;
 type RowDetail = Rc<dyn Fn(&Row, usize) -> AnyView>;
 type CellEditHandler = Rc<dyn Fn(&CellEdit) -> Result<(), String>>;
 type RowTest = Rc<dyn Fn(&Row) -> bool>;
@@ -136,6 +138,25 @@ impl RowTops {
             }
         }
         low
+    }
+}
+
+/// How a cell looks, by what its row holds. Colors come from the theme.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct GridCellStyle {
+    /// The color of the text.
+    pub ink: Option<Semantic>,
+    /// A faint color behind it.
+    pub fill: Option<Semantic>,
+    /// Heavier text.
+    pub bold: bool,
+}
+
+impl GridCellStyle {
+    /// A cell with this color of text, this color behind it, and heavier text or not.
+    pub fn new(ink: Option<Semantic>, fill: Option<Semantic>, bold: bool) -> Self {
+        Self { ink, fill, bold }
     }
 }
 
@@ -235,7 +256,14 @@ impl DataGrid {
             on_export_file: None,
             export_title: None,
             filter_builder: false,
+            cell_style: None,
         }
+    }
+
+    /// Decides how each cell looks, from its row and its column.
+    pub fn cell_style(mut self, style: impl Fn(&Row, usize) -> GridCellStyle + 'static) -> Self {
+        self.cell_style = Some(Rc::new(style));
+        self
     }
 
     /// Shows a Filter button in the toolbar that opens a [`FilterBuilder`](crate::FilterBuilder)
@@ -1987,6 +2015,7 @@ impl View for DataRow<'_> {
         for &c in s.visible {
             let col = &s.grid.columns[c];
             let value = self.values.get(c).cloned().unwrap_or_default();
+            let looks = s.grid.cell_style.as_ref().map(|style| style(&self.values, c)).unwrap_or_default();
             let content = if s.editing == Some((row, c)) {
                 let (data, buffer, editing, column) =
                     (s.grid.data.clone(), s.h.edit_buffer.clone(), s.h.editing.clone(), col.clone());
@@ -2036,9 +2065,13 @@ impl View for DataRow<'_> {
                 let ink = if value.is_empty() {
                     theme.color(Semantic::InkMuted)
                 } else {
-                    theme.color(Semantic::Ink)
+                    theme.color(looks.ink.unwrap_or(Semantic::Ink))
                 };
                 let text = if value.is_empty() { "—".to_owned() } else { col.display(&value) };
+                let mut attrs = attrs.clone();
+                if looks.bold {
+                    attrs.weight = Weight::SEMIBOLD.0;
+                }
                 cx.text(&text, &attrs, ink, LayoutStyle::leaf())
             };
             let mut style = cell_style(s.widths[c], rh, col.align);
@@ -2053,6 +2086,8 @@ impl View for DataRow<'_> {
             style.absolute = fixed.map(|x| (x, 0.0));
             let paint = if fixed.is_some() {
                 solid((s.last_fixed == Some(c)).then(|| theme.color(Semantic::Border)))
+            } else if let Some(fill) = looks.fill {
+                Paint::Quad(QuadPaint::new(theme.color(fill).with_alpha(0.14)))
             } else {
                 Paint::None
             };

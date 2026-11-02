@@ -20,8 +20,8 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Property editors by kind, replaceable | ✅ `EditorRegistry` | |
 | Save, cancel, new, delete, refresh, back, moving between records | ✅ `SystemModule` | |
 | Dashboards, nested lists, link and unlink, view variants | ⬜ | F7 |
-| Validation | ⬜ `Frame::set_validator` is where it goes | F5 |
-| Conditional appearance | ⬜ | F5 |
+| Validation: required, range, pattern, text and value comparison, criteria, is true, unique, unique together, exists, referenced, custom; contexts; target criteria | ✅ `Rule`, `validate`; forms and delete check it, and actions name their contexts. Validating as a field is left is planned | |
+| Conditional appearance: font, back, bold, enabled, visible; on items, layout and actions; by criteria or function; by priority | 🟡 `AppearanceRule`. On a form, a font color reaches the caption, not the value inside the editor; a group's caption takes no color | |
 | Reports | ⬜ | F7 |
 | Security: roles, permissions, users, audit trail | ⬜ | F8 |
 | Multi-tenancy, state machines, web API, notifications, office modules | ⬜ not planned yet | |

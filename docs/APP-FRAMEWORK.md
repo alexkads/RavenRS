@@ -67,8 +67,28 @@ Records live in memory for now, so they are gone when the application closes. `s
 | `reference = "Entity"` | Holds the key of another record |
 | `calculated = "[a] + [b]"` | Follows from the others, checked at compile time |
 | `default = ...` | What a new record starts with |
+| `required`, `unique`, `min = 1`, `max = 10`, `matches = "..."` | What it has to meet on saving, and `message = "..."` what to say then |
 
 `String`, `bool`, `i32`, `i64`, `u32`, `u64`, `usize`, `f64` and `Option` of them work as they are. Any other type implements `FieldValue`, which `#[derive(BusinessEnum)]` does for an enum.
+
+### Rules
+
+On the struct, as many as needed:
+
+```rust,ignore
+#[rule(criteria = "[amount] <= [limit]", message = "Above the limit")]
+#[rule(unique = "bank,number")]
+#[rule(criteria = "[paid] = False", context = "Delete", message = "A paid bill stays")]
+#[appearance(names = "amount", criteria = "[amount] > 1000", font = "danger", bold)]
+#[appearance(names = "notes", criteria = "[paid] = True", visible = false)]
+#[appearance(names = "Pay", action, criteria = "[paid] = True", enabled = false)]
+#[appearance(names = "Long", layout, criteria = "[paid] = True", visible = false)]
+struct Bill { /* ... */ }
+```
+
+A form that fails its rules keeps nothing, and says what is wrong on each field and in a list on top, which follows as people fix it. Rules are in the `Save` context unless they say otherwise. `Delete` applies on deleting, and an action names any other with `validation_contexts`. Rules do not run by themselves below the screens: `validate` is there for anything else that writes.
+
+Appearance is about looks, and does not protect data. A column of a list hides only by a rule with no condition, since it is for all its rows. An action hidden by a rule on a list only fades, as hiding would move the buttons beside it.
 
 ### Going further
 
@@ -96,14 +116,16 @@ Records live in memory for now, so they are gone when the application closes. `s
 - A popup shows only lists. Pictures, files and collections on a form have no real control yet.
 - A reference is picked with `LookupField`, and not in a window of its own.
 - Used directly, `AppShell` needs `Words` given to it and to `SystemModule`, and `Localized` around it. `App` does both.
+- On a form, a font color from a rule reaches the caption and not the value inside the editor, and a group's caption takes no color.
+- Clippy's `duplicated_attributes` flags `#[appearance]` or `#[rule]` attributes that repeat a condition or a context. Allow it where they do, as a derive cannot do it for you.
+- Fields are validated on saving, and not yet as they are left.
 - With two people changing the same record in `MemoryDatabase`, the last to save wins.
 
 ## What comes next
 
 | Step | What it brings |
 |---|---|
-| **F5** | Validation rules and conditional appearance |
-| F6 | `SqliteObjectSpace` and the records screens of `examples/family-finance` generated, with its tests unchanged |
+| **F6** | `SqliteObjectSpace` and the records screens of `examples/family-finance` generated, with its tests unchanged |
 | F7 | Relations, nested lists, dashboards, view variants, popups with forms, reports. Migrates more of `examples/family-finance` |
 | F8 | Permissions in an object space wrapper, users, a model editor, an audit trail |
 

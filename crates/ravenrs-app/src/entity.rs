@@ -248,13 +248,25 @@ pub struct EntityInfo {
     pub icon: Option<String>,
     /// Its fields, in the order they were declared.
     pub fields: Vec<FieldInfo>,
+    /// What its records have to meet.
+    pub rules: Vec<crate::Rule>,
+    /// How things look and behave by what its records hold.
+    pub appearance: Vec<crate::AppearanceRule>,
 }
 
 impl EntityInfo {
     /// An entity with no fields yet.
     pub fn new(name: impl Into<String>) -> Self {
         let name = name.into();
-        Self { caption: caption_of(&name), name, navigation: None, icon: None, fields: Vec::new() }
+        Self {
+            caption: caption_of(&name),
+            name,
+            navigation: None,
+            icon: None,
+            fields: Vec::new(),
+            rules: Vec::new(),
+            appearance: Vec::new(),
+        }
     }
 
     /// What people see.
@@ -278,6 +290,18 @@ impl EntityInfo {
     /// Appends a field.
     pub fn field(mut self, field: FieldInfo) -> Self {
         self.fields.push(field);
+        self
+    }
+
+    /// Appends something its records have to meet.
+    pub fn rule(mut self, rule: crate::Rule) -> Self {
+        self.rules.push(rule);
+        self
+    }
+
+    /// Appends a rule about how things look.
+    pub fn appearance(mut self, rule: crate::AppearanceRule) -> Self {
+        self.appearance.push(rule);
         self
     }
 
@@ -329,6 +353,12 @@ impl EntityInfo {
                     return wrong(format!("the field {}: {problem}", field.name));
                 }
             }
+        }
+        for rule in &self.rules {
+            rule.check(self)?;
+        }
+        for rule in &self.appearance {
+            rule.check(self)?;
         }
         Ok(())
     }

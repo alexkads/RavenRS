@@ -300,3 +300,24 @@ fn rows_on_a_server_are_edited_from_the_keyboard() {
     press(&mut ui, Key::Enter);
     assert_eq!(edits.borrow().as_slice(), [(0, Value::from("R0!"))]);
 }
+
+#[test]
+fn a_cell_can_look_different_by_what_its_row_holds() {
+    let data = GridData::new(vec![vec!["low".into(), 1.0.into()], vec!["high".into(), 9.0.into()]]);
+    let danger = Theme::raven_dark().color(ravenrs_style::Semantic::Danger).with_alpha(0.14);
+    let count = |styled: bool| {
+        let mut grid =
+            DataGrid::new(data.clone(), [GridColumn::text("Name"), GridColumn::number("N")]).height(300.0);
+        if styled {
+            grid = grid.cell_style(|row, column| {
+                let high = row[1].as_f64().is_some_and(|n| n > 5.0);
+                let fill = (high && column == 1).then_some(ravenrs_style::Semantic::Danger);
+                GridCellStyle::new(None, fill, false)
+            });
+        }
+        let ui = ui(grid);
+        format!("{:?}", ui.scene()).matches(&format!("{danger:?}")).count()
+    };
+    assert_eq!(count(false), 0);
+    assert_eq!(count(true), 1, "only the cell that fits");
+}

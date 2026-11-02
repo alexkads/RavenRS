@@ -1,0 +1,5 @@
+error: an appearance rule needs names = "..."
+ --> tests/ui/appearance_without_names.rs:4:1
+  |
+4 | #[appearance(font = "danger")]
+  | ^

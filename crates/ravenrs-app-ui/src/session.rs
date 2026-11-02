@@ -5,8 +5,9 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use ravenrs_app::{
-    Action, ActionContext, ActionInput, ActionResult, Application, EntityInfo, Frame, FrameContext,
-    ModelNode, Object, ObjectSpace, Query, Value, ViewInfo, ViewKind,
+    Action, ActionContext, ActionInput, ActionResult, Application, CONTEXT_DELETE, CONTEXT_SAVE, EntityInfo,
+    Frame, FrameContext, ModelNode, Object, ObjectSpace, Query, RuleWords, Value, ViewInfo, ViewKind,
+    Violation, validate,
 };
 use ravenrs_reactive::State;
 use ravenrs_widgets::{ConfirmDialog, Date, FilePicker};
@@ -50,6 +51,8 @@ pub struct Words {
     pub discard: String,
     /// A record being created.
     pub new_record: String,
+    /// What fails a rule.
+    pub rules: RuleWords,
     /// In front of money.
     pub money_prefix: String,
     /// Between thousands.
@@ -77,6 +80,7 @@ impl Default for Words {
             discard_detail: "What you changed here was not saved.".into(),
             discard: "Discard".into(),
             new_record: "New".into(),
+            rules: RuleWords::default(),
             money_prefix: "$ ".into(),
             thousands: ',',
             decimal: '.',
@@ -104,6 +108,7 @@ impl Words {
             discard_detail: "O que você mudou aqui não foi salvo.".into(),
             discard: "Descartar".into(),
             new_record: "Novo".into(),
+            rules: RuleWords::pt_br(),
             money_prefix: "R$ ".into(),
             thousands: '.',
             decimal: ',',
@@ -140,6 +145,15 @@ impl FormState {
         object
     }
 
+    /// The same, reading the fields for the build, so what depends on them follows.
+    pub fn watched(&self) -> Object {
+        let mut object = self.original.clone();
+        for (name, value) in &self.fields {
+            object.set(name, value.get());
+        }
+        object
+    }
+
     pub fn is_dirty(&self) -> bool {
         self.is_new || self.fields.iter().any(|(name, value)| *value.peek() != self.original.get(name))
     }
@@ -163,6 +177,8 @@ struct SessionInner {
     /// Goes up whenever records may have changed, so lists read again.
     revision: State<u64>,
     form: State<Option<Rc<FormState>>>,
+    /// A save failed its rules, so the form says what is wrong as people fix it.
+    checking: State<bool>,
     /// Where it came from, for going back.
     history: State<Vec<String>>,
     error: State<Option<String>>,
@@ -205,6 +221,7 @@ impl Session {
             editors,
             revision: State::new(0),
             form: State::new(None),
+            checking: State::new(false),
             history: State::new(Vec::new()),
             error: State::new(None),
             confirm: ConfirmDialog::new(),
@@ -214,6 +231,21 @@ impl Session {
             siblings: RefCell::default(),
         });
         frame.set_extension(Rc::new(SessionLink(Rc::downgrade(&inner))));
+        frame.set_validator(|contexts, cx| {
+            let Some(session) = Session::of(cx) else { return Ok(()) };
+            let form = session.form();
+            let records = match (&form, cx.selected.is_empty()) {
+                (Some(form), true) => vec![form.current()],
+                _ => cx.selected.clone(),
+            };
+            let mut messages = Vec::new();
+            for record in &records {
+                for context in contexts {
+                    messages.extend(session.violations_of(record, context).into_iter().map(|v| v.message));
+                }
+            }
+            if messages.is_empty() { Ok(()) } else { Err(messages.join("; ")) }
+        });
         Self(inner)
     }
 
@@ -278,6 +310,22 @@ impl Session {
         self.0.form.get()
     }
 
+    /// What this record fails in this context.
+    pub fn violations_of(&self, record: &Object, context: &str) -> Vec<Violation> {
+        let Some(entity) = self.entity(record.entity()) else { return Vec::new() };
+        let space = self.0.frame.space();
+        let space = space.borrow();
+        validate(&entity, record, context, &*space, &self.words().rules)
+    }
+
+    /// What the form fails, once a save has found something. Follows the fields.
+    pub(crate) fn form_violations(&self) -> Vec<Violation> {
+        if !self.0.checking.get() {
+            return Vec::new();
+        }
+        self.form().map_or_else(Vec::new, |form| self.violations_of(&form.watched(), CONTEXT_SAVE))
+    }
+
     /// What went wrong last, in words for people.
     pub fn error(&self) -> Option<String> {
         self.0.error.get()
@@ -332,6 +380,7 @@ impl Session {
 
     fn show(&self, view: ViewInfo) {
         self.0.error.set(None);
+        self.0.checking.set(false);
         self.0.frame.set_view_in(Some(view), (self.0.new_space)());
     }
 
@@ -445,6 +494,13 @@ impl Session {
     pub(crate) fn save(&self) -> Result<(), String> {
         let Some(form) = self.0.form.peek().clone() else { return Ok(()) };
         let object = form.current();
+        let found = self.violations_of(&object, CONTEXT_SAVE);
+        if !found.is_empty() {
+            self.0.error.set(None);
+            self.0.checking.set(true);
+            return Err(found.into_iter().map(|v| v.message).collect::<Vec<_>>().join("; "));
+        }
+        self.0.checking.set(false);
         let space = self.0.frame.space();
         let done = {
             let mut space = space.borrow_mut();
@@ -507,6 +563,14 @@ impl Session {
 
     /// Takes away these records and keeps that, in the frame's unit of work.
     pub(crate) fn delete(&self, objects: &[Object]) -> Result<(), String> {
+        let refused: Vec<String> = objects
+            .iter()
+            .flat_map(|object| self.violations_of(object, CONTEXT_DELETE))
+            .map(|v| v.message)
+            .collect();
+        if !refused.is_empty() {
+            return Err(refused.join("; "));
+        }
         let space = self.0.frame.space();
         let done = {
             let mut space = space.borrow_mut();
@@ -587,6 +651,8 @@ impl Session {
                 }
             }
             Ok(_) => {}
+            // The form already says what is wrong, on each field.
+            Err(_) if *self.0.checking.peek() => {}
             Err(error) => self.0.error.set(Some(error.to_string())),
         }
     }
