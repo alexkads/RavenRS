@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.7] - 2026-11-02
+
 ### Added
 - **Editors for business forms.** `TextArea`, `NumberField` (also money in whole cents), `MaskedField`, `TimePicker`, `DateTimePicker` and `LookupField`, whose options can come from a database or a server.
 - **`FormLayout`** arranges fields in groups and columns that collapse on narrow windows, with tabs and a list of errors.

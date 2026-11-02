@@ -32,7 +32,7 @@ mkdir -p "$site/family-finance"
 cp examples/family-finance/novidades.json examples/family-finance/historico-de-novidades.json "$site/family-finance/"
 cp -R site/assets/. "$site/assets/"
 mkdir -p "$site/api"
-cp -R target/doc/. "$site/api/"
+cp -R "${CARGO_TARGET_DIR:-target}/doc/." "$site/api/"
 touch "$site/.nojekyll"
 
 cd "$site"

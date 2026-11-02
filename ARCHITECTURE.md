@@ -353,6 +353,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
 | Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`, budgets in [docs/QUALITY.md](docs/QUALITY.md)) | | GPU timestamps |
+| Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | model, actions, frames, generated lists and forms | the API | derive, rules, SQLite, relations, permissions |
 
 ## 12. Decisions log
 
