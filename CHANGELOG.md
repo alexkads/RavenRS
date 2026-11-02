@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.5] - 2026-11-02
+
 ### Added
 - **Every pattern of the shadcn/ui chart catalog.** `Chart` draws all 70 of them, in the gallery under their names: `curve`, `stack`, `gradient`, `horizontal`, `vary_colors`, `negative_color`, `active`, `dots`, `dot_icon`, `value_labels`, `category_labels`, `grid`, `center_text`, `concentric`, and more.
 - `ChartKind::Radar` and `ChartKind::RadialBar`, in charts and in what reports draw.
