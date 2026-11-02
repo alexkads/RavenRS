@@ -328,3 +328,29 @@ fn a_box_about_the_whole_screen_has_no_mark_and_a_small_film_says_it_below() {
     run_to(&mut ui, 0.0, 1.0);
     assert!(has(&mut ui, "All of it text"), "too small for a box, it goes under the film");
 }
+
+#[test]
+fn the_end_offers_to_watch_again_and_what_comes_next() {
+    let wanted = std::rc::Rc::new(std::cell::Cell::new(false));
+    let told = wanted.clone();
+    let mut ui = player(MoviePlayer::new(film()).next("Parte dois", move || told.set(true)));
+    click(&mut ui, "Stop at each step");
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 11.0);
+    assert!(has(&mut ui, "You finished this film"));
+    assert!(has(&mut ui, "Watch again"));
+    click(&mut ui, "Next: Parte dois");
+    assert!(wanted.get());
+}
+
+#[test]
+fn a_faster_speed_gets_there_sooner() {
+    let mut ui = player(MoviePlayer::new(film()));
+    click(&mut ui, "Stop at each step");
+    click(&mut ui, "1×");
+    assert!(has(&mut ui, "1,25×"));
+    click(&mut ui, "1,25×");
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 2.0);
+    assert!(says_time(&mut ui, "0:03"), "two seconds at one and a half times");
+}

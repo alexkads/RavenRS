@@ -1,5 +1,7 @@
 //! Someone types a question and the right moment of a training film opens.
 
+use std::collections::BTreeSet;
+
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, TextStyle};
@@ -175,6 +177,7 @@ impl View for MovieAssistant {
         let question: State<String> = cx.use_state(String::new);
         let film: State<usize> = cx.use_state(|| 0);
         let answered: State<Option<String>> = cx.use_state(|| None);
+        let finished: State<BTreeSet<usize>> = cx.use_state(BTreeSet::new);
         let own_cue = cx.use_state(MovieCue::new).get();
         let cue = self.cue.clone().unwrap_or(own_cue);
         if let Some(asked) = cue.take_film() {
@@ -227,8 +230,12 @@ impl View for MovieAssistant {
         let mut children = vec![field];
 
         if self.library.len() > 1 {
-            let titles: Vec<String> =
-                (0..self.library.len()).filter_map(|i| self.library.get(i)).map(|f| f.0.to_owned()).collect();
+            // What was already watched is marked, to show how far someone has come.
+            let seen = finished.get();
+            let titles: Vec<String> = (0..self.library.len())
+                .filter_map(|i| self.library.get(i).map(|f| (i, f.0)))
+                .map(|(i, title)| if seen.contains(&i) { format!("✓ {title}") } else { title.to_owned() })
+                .collect();
             children.push(if self.width >= TABS_FROM {
                 cx.child(&SegmentedControl::new(film.binding(), titles).label(self.labels.film.clone()))
             } else {
@@ -245,6 +252,16 @@ impl View for MovieAssistant {
                 MoviePlayer::new(movie.clone()).width(self.width).labels(self.labels.player.clone()).cue(cue);
             if let Some(height) = self.height {
                 player = player.max_film_height(height - AROUND_THE_FILM);
+            }
+            let mark = finished.clone();
+            player = player.on_finished(move || {
+                mark.update(|seen| {
+                    seen.insert(shown);
+                });
+            });
+            if let Some((title, _)) = self.library.get(shown + 1) {
+                let go = film.clone();
+                player = player.next(title, move || go.set(shown + 1));
             }
             // Each film keeps its own place.
             children.push(cx.keyed_child(shown as u64, &player));
