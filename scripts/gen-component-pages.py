@@ -34,6 +34,8 @@ def highlight(code):
 
 
 samples = {name: (int(height), code.rstrip() + "\n") for name, height, code in SAMPLE.findall(source)}
+# The framework's window is shown in the gallery, but is not a component of ravenrs-widgets.
+samples.pop("AppShell", None)
 rows = [(slug, api, name, description) for slug, api, name, description in ROW.findall(listing)]
 ordered = sorted(rows, key=lambda row: row[2].lower())
 
