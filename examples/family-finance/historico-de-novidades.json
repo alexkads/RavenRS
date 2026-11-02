@@ -1,5 +1,18 @@
 [
   {
+    "versao": "0.1.12",
+    "data": "2026-11-02",
+    "titulo": "O assistente agora pode falar, com uma voz gerada neste computador.",
+    "importante": false,
+    "novidades": [
+      "Em Ajustes, o cartão Voz do assistente permite baixar o LFM3 Audio, escolher idioma e voz, e ouvir um exemplo. São cerca de 1,3 GB para baixar e 3,7 GB de memória quando está em uso.",
+      "As respostas do chat têm um botão para ouvir e podem ser lidas em voz alta assim que chegam.",
+      "O assistente não atrapalha mais listas e janelas: elas abrem por cima dele, o que você escreveu continua lá e o Esc fecha primeiro a lista.",
+      "Em computadores mais lentos, o assistente não fica pensando sem fim: depois de um minuto, ele avisa e continua respondendo sem a IA."
+    ],
+    "por_que_atualizar": "Para ouvir as respostas do assistente e usá-lo sem que ele atrapalhe o resto da tela."
+  },
+  {
     "versao": "0.1.11",
     "data": "2026-11-02",
     "titulo": "Agora você pode usar o LFM3 como IA do assistente.",
