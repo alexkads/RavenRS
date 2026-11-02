@@ -50,4 +50,9 @@ accepts near forms of a word ("pago" finds "pagar") and typing slips. There is n
 leaves the machine, so it adds nothing to download and works in the browser. It knows no synonyms: a
 question with no word in common with the films gets no answer, and it says so.
 
+`MovieChat` is the same search as a conversation, for a `FloatingPanel` over the app. Each answer is
+a card with the moments, and the app decides how to open them. `MovieChat::writer` lets a local
+model write the answer about what the search found; finding stays with the search, and a question
+that finds nothing never reaches the model.
+
 There is no sound: RavenRS has no audio yet.

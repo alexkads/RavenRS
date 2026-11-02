@@ -41,6 +41,7 @@ mod canvas;
 mod card;
 #[cfg(feature = "charts")]
 mod chart;
+mod chat;
 mod choice;
 mod clipboard;
 mod context;
@@ -58,6 +59,7 @@ mod icon_set;
 mod image;
 mod inputs;
 mod labels;
+mod model_picker;
 mod modifiers;
 mod motion;
 mod nav;
@@ -81,6 +83,7 @@ pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
 #[cfg(feature = "charts")]
 pub use chart::{AreaChart, BarChart, Barcode, Chart, ChartKind, Symbology};
+pub use chat::{Chat, ChatAuthor, ChatMessage, FloatingCorner, FloatingPanel};
 pub use choice::{AspectRatio, ColorSwatch, Label, Pagination, ToggleButton, ToggleGroup};
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use context::{
@@ -108,6 +111,7 @@ pub use image::decode_image;
 pub use image::{ContentMode, DecodeError, Image};
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};
+pub use model_picker::{ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus};
 pub use modifiers::{Styled, ViewExt};
 pub use motion::{Collapse, Motion};
 pub use nav::{

@@ -10,6 +10,7 @@ publish = false
 
 [dependencies]
 ravenrs.workspace = true
+ravenrs-ai.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-report.workspace = true
 ravenrs-report-export.workspace = true

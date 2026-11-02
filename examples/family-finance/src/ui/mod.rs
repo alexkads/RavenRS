@@ -1,6 +1,7 @@
 //! The app's window: a sidebar, a toolbar and the screens.
 
 mod agenda;
+mod assistant;
 mod bills;
 mod budgets;
 mod dashboard;
@@ -8,9 +9,12 @@ mod forms;
 mod ledger;
 mod records;
 mod reports;
+mod request;
 mod settings;
 mod store;
 mod training;
+
+pub use assistant::{ASSISTANT_INTRO, ASSISTANT_TOOLS};
 mod updates;
 
 use std::path::PathBuf;
@@ -86,6 +90,7 @@ impl App {
 
     /// An app over this database. `path` is only shown in the settings.
     pub fn new(db: Database, today: Date, path: Option<PathBuf>, updater: Updater) -> Self {
+        let training = training::TrainingState::new(path.as_deref());
         let store = Store::new(db, today, path, updater);
         let recorder = FlightRecorder::new(FLIGHT_SECONDS);
         let reporter = training::reporter(&store, &recorder);
@@ -94,7 +99,7 @@ impl App {
             page: State::new(0),
             palette: State::new(false),
             news: updates::NewsDialog::new(),
-            training: training::TrainingState::new(),
+            training,
             recorder,
             reporter,
             forms: Forms::new(),
@@ -248,7 +253,13 @@ impl App {
             4 => Box::new(budgets::budgets(&self.store, &self.budgets)),
             5 => Box::new(reports::reports(&self.store, &self.reports)),
             6 => Box::new(records::records(&self.store, &self.records, &self.forms)),
-            7 => Box::new(settings::settings(&self.store, &self.forms, &self.news, &self.page)),
+            7 => Box::new(settings::settings(
+                &self.store,
+                &self.forms,
+                &self.news,
+                &self.page,
+                self.training.models.clone(),
+            )),
             _ => Box::new(training::training(&self.training)),
         }
     }
@@ -288,7 +299,14 @@ impl Component for App {
         Localized::new(
             Labels::pt_br(),
             VStack::new((
-                HStack::new((self.sidebar(), main)).spacing(0.0).align(Align::Stretch).grow(1.0),
+                HStack::new((
+                    self.sidebar(),
+                    main,
+                    assistant::chat(&self.training, &self.store, &self.forms, &self.page),
+                ))
+                .spacing(0.0)
+                .align(Align::Stretch)
+                .grow(1.0),
                 updates::status_bar(&self.store.updater, &self.news, &self.reporter),
                 self.forms.transaction.view(&self.store),
                 self.forms.bill.view(&self.store),

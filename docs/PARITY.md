@@ -59,6 +59,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Split button | | ✓ | ✓ | ⬜ |
 | Floating action button | | ✓ | ✓ | ⬜ |
 | Speed dial | | ✓ | ✓ | ⬜ |
+| Floating action button with a panel | | ✓ | ✓ | ✅ `FloatingPanel`: a glowing sphere that drags between corners |
 
 ## Inputs and editors
 
@@ -160,7 +161,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Typography scale | ✓ | ✓ | ✓ | ✅ `Text` styles |
 | PDF viewer | | ✓ | ✓ | ⬜ |
 | Image editor | | | ✓ | ⬜ |
-| Chat | | ✓ | ✓ | ⬜ |
+| Chat | | ✓ | ✓ | ✅ `Chat`; `MovieChat` over training films |
+| Choosing local AI models | | | | ✅ `ModelPicker`; `ravenrs_ai::ModelManager` offers only what fits |
 
 ## Reporting
 

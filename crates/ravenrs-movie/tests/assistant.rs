@@ -3,11 +3,12 @@
 
 use ravenrs_core::{AccessAction, Color, Event, Key, Modifiers, Primitive, Quad, Rect, Role, Size};
 use ravenrs_movie::{
-    AssistantLabels, FilmBuilder, Hotspot, HotspotKind, MomentKind, Movie, MovieAssistant, MovieCue,
-    MovieLibrary, MoviePlayer,
+    AssistantLabels, FilmBuilder, Hotspot, HotspotKind, MomentKind, Movie, MovieAssistant, MovieChat,
+    MovieCue, MovieLibrary, MoviePlayer,
 };
+use ravenrs_reactive::State;
 use ravenrs_style::Theme;
-use ravenrs_widgets::{Ui, View};
+use ravenrs_widgets::{ChatMessage, Ui, VStack, View};
 
 fn spot(kind: HotspotKind, title: &str, text: &str, from_ms: u64, until_ms: u64) -> Hotspot {
     Hotspot {
@@ -233,4 +234,71 @@ fn an_empty_library_draws_only_the_question() {
     let mut ui = ui_of(MovieAssistant::new(MovieLibrary::new()));
     assert!(!says(&mut ui, "Play"));
     assert!(says(&mut ui, "Ask how to do something"));
+}
+
+fn chat_about(library: MovieLibrary, opened: &State<Vec<u64>>) -> Ui {
+    let messages = State::new(Vec::<ChatMessage>::new());
+    let opened = opened.clone();
+    let chat = MovieChat::new(library, messages.binding(), move |moment| {
+        opened.update(|all| all.push(moment.at_ms));
+    });
+    ui_of(VStack::new((chat,)).height(700.0))
+}
+
+#[test]
+fn the_chat_answers_with_moments_that_open() {
+    let opened = State::new(Vec::new());
+    let mut ui = chat_about(library(), &opened);
+    ask(&mut ui, "pagar conta");
+    press(&mut ui, Key::Enter);
+    assert!(says(&mut ui, "These moments"));
+    click(&mut ui, "Pague");
+    assert_eq!(opened.get(), [10_000]);
+}
+
+#[test]
+fn the_chat_says_when_no_film_answers() {
+    let opened = State::new(Vec::new());
+    let mut ui = chat_about(library(), &opened);
+    ask(&mut ui, "cartão de crédito");
+    press(&mut ui, Key::Enter);
+    assert!(says(&mut ui, "No film talks about that"));
+}
+
+#[test]
+fn a_cue_from_outside_moves_the_film_of_an_assistant() {
+    let cue = MovieCue::new();
+    let mut ui = ui_of(MovieAssistant::new(library()).cue(cue.clone()));
+    cue.go_to(15_000);
+    ui.update();
+    assert!(says(&mut ui, "0:15 / 0:20"));
+}
+
+#[test]
+fn a_writer_answers_in_its_own_words_and_the_moments_stay() {
+    let messages = State::new(Vec::<ChatMessage>::new());
+    let writer: ravenrs_movie::MovieWriter = std::rc::Rc::new(|question, moments, text, waker, _| {
+        let mut text = text.lock().expect("text");
+        *text = format!("{question}: see {}", moments[0].title);
+        waker.wake();
+    });
+    let chat = MovieChat::new(library(), messages.binding(), |_| {}).writer(Some(writer));
+    let mut ui = ui_of(VStack::new((chat,)).height(700.0));
+    ask(&mut ui, "pagar conta");
+    press(&mut ui, Key::Enter);
+    ui.update();
+    assert!(says(&mut ui, "pagar conta: see Pagar uma conta"));
+    assert!(says(&mut ui, "Pague"), "the moments are still there");
+}
+
+#[test]
+fn a_question_that_finds_nothing_does_not_reach_the_writer() {
+    let messages = State::new(Vec::<ChatMessage>::new());
+    let writer: ravenrs_movie::MovieWriter =
+        std::rc::Rc::new(|_, _, _, _, _| panic!("it would make something up"));
+    let chat = MovieChat::new(library(), messages.binding(), |_| {}).writer(Some(writer));
+    let mut ui = ui_of(VStack::new((chat,)).height(700.0));
+    ask(&mut ui, "cartão de crédito");
+    press(&mut ui, Key::Enter);
+    assert!(says(&mut ui, "No film talks about that"));
 }

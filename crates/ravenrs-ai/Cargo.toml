@@ -1,0 +1,33 @@
+[package]
+name = "ravenrs-ai"
+description = "Local AI models for a RavenRS app: only the ones that fit the machine, downloaded when someone asks, checked by hash and easy to remove."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-ai"
+keywords = ["ai", "llm", "local", "gui"]
+categories = ["gui", "science"]
+
+[dependencies]
+candle-core = "0.11"
+candle-transformers = "0.11"
+tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
+ravenrs-reactive.workspace = true
+ravenrs-widgets.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+sysinfo = { version = "0.38", default-features = false, features = ["system", "disk"] }
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+
+[dev-dependencies]
+ravenrs-core.workspace = true
+ravenrs-style.workspace = true
+tempfile = "3"
+
+[lints]
+workspace = true

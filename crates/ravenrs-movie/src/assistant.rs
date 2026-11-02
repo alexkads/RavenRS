@@ -63,12 +63,13 @@ pub struct MovieAssistant {
     library: MovieLibrary,
     width: f32,
     labels: AssistantLabels,
+    cue: Option<MovieCue>,
 }
 
 impl MovieAssistant {
     /// An assistant over `library`, with an empty question.
     pub fn new(library: MovieLibrary) -> Self {
-        Self { library, width: 960.0, labels: AssistantLabels::default() }
+        Self { library, width: 960.0, labels: AssistantLabels::default(), cue: None }
     }
 
     /// The width of the whole assistant, in logical pixels (960 by default).
@@ -83,23 +84,35 @@ impl MovieAssistant {
         self
     }
 
-    fn row(&self, answer: &Answer, open: &Open) -> ListItem {
-        let moment = answer.moment.clone();
-        let film = self.library.get(moment.film).map_or("", |(title, _)| title);
-        let when = clock_label(moment.at_ms);
-        let trailing = if self.library.len() > 1 { format!("{film} · {when}") } else { when };
-        let open = open.clone();
-        let chosen = moment.clone();
-        ListItem::new(moment.title.clone())
-            .subtitle(moment.text.clone())
-            .icon(match moment.kind {
-                MomentKind::Step => IconName::MousePointer,
-                MomentKind::Note => IconName::Info,
-                _ => IconName::Play,
-            })
-            .trailing(trailing)
-            .on_click(move || open.moment(&chosen))
+    /// Lets something outside it, such as a [`MovieChat`](crate::MovieChat), open a
+    /// moment of the film it shows.
+    #[must_use]
+    pub fn cue(mut self, cue: MovieCue) -> Self {
+        self.cue = Some(cue);
+        self
     }
+}
+
+/// A row that says which moment an answer is and opens it.
+pub(crate) fn moment_row(
+    library: &MovieLibrary,
+    answer: &Answer,
+    open: impl Fn(&Moment) + 'static,
+) -> ListItem {
+    let moment = answer.moment.clone();
+    let film = library.get(moment.film).map_or("", |(title, _)| title);
+    let when = clock_label(moment.at_ms);
+    let trailing = if library.len() > 1 { format!("{film} · {when}") } else { when };
+    let chosen = moment.clone();
+    ListItem::new(moment.title.clone())
+        .subtitle(moment.text.clone())
+        .icon(match moment.kind {
+            MomentKind::Step => IconName::MousePointer,
+            MomentKind::Note => IconName::Info,
+            _ => IconName::Play,
+        })
+        .trailing(trailing)
+        .on_click(move || open(&chosen))
 }
 
 /// What choosing an answer does. The answers then step aside, so the film is in
@@ -125,7 +138,8 @@ impl View for MovieAssistant {
         let question: State<String> = cx.use_state(String::new);
         let film: State<usize> = cx.use_state(|| 0);
         let answered: State<Option<String>> = cx.use_state(|| None);
-        let cue = cx.use_state(MovieCue::new).get();
+        let own_cue = cx.use_state(MovieCue::new).get();
+        let cue = self.cue.clone().unwrap_or(own_cue);
         let open = Open {
             film: film.clone(),
             question: question.clone(),
@@ -145,7 +159,13 @@ impl View for MovieAssistant {
                     first.moment(&best.moment);
                 }
             });
-        let rows: Vec<ListItem> = answers.iter().map(|answer| self.row(answer, &open)).collect();
+        let rows: Vec<ListItem> = answers
+            .iter()
+            .map(|answer| {
+                let open = open.clone();
+                moment_row(&self.library, answer, move |moment| open.moment(moment))
+            })
+            .collect();
         let nothing = (waiting && !asked.trim().is_empty() && rows.is_empty()).then(|| {
             Text::new(self.labels.nothing_found.clone())
                 .style(TextStyle::Callout)

@@ -21,7 +21,8 @@ The first run opens on a sample family, so there is something to explore. **Ajus
 | Cadastros | `Tabs`, `ListItem`, `FormField` |
 | Ajustes | `ThemeSwitcher` |
 | Exports and backup | `ravenrs::native::SaveDialog`, `open_with_system` |
-| Treinamentos and reporting a problem | `ravenrs::movie`: `MovieAssistant`, where a question opens the right moment of the films recorded by `tests/training.rs`, `FlightRecorder`, `BugReporter` |
+| An optional local AI model | `ravenrs_ai::ModelManager` in Ajustes offers only what fits this machine, to download, test, use and remove. With one in use, the assistant in `src/ui/assistant.rs` answers about the money, opens screens and prepares entries: the model only chooses a tool, `src/ui/request.rs` reads amounts, dates, names, repetition, installments and barcodes from the person's words, the numbers come from the database, and nothing is saved until the person confirms |
+| Treinamentos and reporting a problem | `ravenrs::movie`: `MovieChat` in a `FloatingPanel` on every screen and `MovieAssistant`, where a question opens the right moment of the films recorded by `tests/training.rs`, `FlightRecorder`, `BugReporter` |
 | Updates | `StatusBar`, `ReleaseNotes`, `CodeBlock`, and `UiWaker`, which wakes the UI when a background thread finishes |
 | Everywhere | `Sidebar`, `CommandPalette` (⌘K), `Toaster`, `Tooltip`, `Localized` |
 

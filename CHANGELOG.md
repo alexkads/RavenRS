@@ -4,6 +4,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- **`Chat` and `FloatingPanel`.** `Chat` is a conversation over a field to write in, with examples and cards to act on; it does not know who answers. `FloatingPanel` is a glowing sphere in the corner of the window that opens a panel over the app, which stays usable behind it. Dragging it or pressing an arrow key sends it to another corner, and it asks for frames only while the pointer or the focus is on it. `Labels` gains `send`.
+- **Local AI models.** `ModelPicker` lists models to download, try, use and remove. The new crate `ravenrs-ai`, desktop only, does the work: `ModelManager` offers only the models that fit the machine's memory and disk and tests their speed, `ModelFolder` downloads each when someone asks, checking its hash, and removes it, `LocalEngine` runs one on the CPU with no extra build tools, and `LocalAssistant` keeps it on its own thread, and `tool_rules` and `read_tool_call` let it choose among what the app offers, which is all it can do. Nothing else talks to the network.
+- **`MovieChat`.** A `Chat` that answers from the training films: each answer is a card with the moments that open. It looks only at the words the films hold, on this machine, and `MovieChat::writer` can have a local model write the answer about what it found. `ChatMessage::assistant_writing` shows an answer as it arrives, and `MovieAnswers` answers about the films for a chat that also does other things. `MovieAssistant::cue` lets it open a moment on the same player.
+
 ## [27.1.2] - 2026-11-01
 
 ### Added

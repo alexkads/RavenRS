@@ -31,6 +31,7 @@ ravenrs-report-xlsx = { version = "27.1.2", path = "crates/ravenrs-report-xlsx" 
 ravenrs-report-server = { version = "27.1.2", path = "crates/ravenrs-report-server" }
 ravenrs-report-viewer = { version = "27.1.2", path = "crates/ravenrs-report-viewer" }
 ravenrs-criteria = { version = "27.1.2", path = "crates/ravenrs-criteria", default-features = false }
+ravenrs-ai = { version = "27.1.2", path = "crates/ravenrs-ai" }
 ravenrs-movie = { version = "27.1.2", path = "crates/ravenrs-movie" }
 
 wgpu = "30.0.1"

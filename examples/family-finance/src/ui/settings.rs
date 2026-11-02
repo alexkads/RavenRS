@@ -160,6 +160,7 @@ pub(crate) fn settings(
     forms: &Forms,
     news: &updates::NewsDialog,
     page: &State<usize>,
+    models: Option<ravenrs_ai::ModelManager>,
 ) -> impl View + use<> {
     let (diagnostics, painel) = (store.diagnostics.clone(), page.clone());
     let path = store.path.as_ref().map_or_else(|| "Só na memória".to_owned(), |p| p.display().to_string());
@@ -207,6 +208,21 @@ pub(crate) fn settings(
                 .align(Align::Start),
             ),
         ),
+        models.map(|models| {
+            group(
+                "Assistente com IA",
+                VStack::new((
+                    Text::new(
+                        "Opcional. Sem modelo, o assistente acha os momentos dos filmes. Com um modelo, ele também responde sobre saldo, gastos e contas, abre telas e prepara lançamentos, que só são gravados quando você confere e salva. Ele roda neste computador, nada sai daqui, e os números vêm direto do seu banco de dados. Aparece só o que cabe nesta máquina: baixe, teste e remova se ficar lento. Acerto é quantos pedidos o modelo entendeu nos nossos testes; quando ele não entende, o assistente procura nos filmes.",
+                    )
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted),
+                    models,
+                ))
+                .spacing(10.0)
+                .align(Align::Stretch),
+            )
+        }),
         group(
             "Backup",
             Card::new(

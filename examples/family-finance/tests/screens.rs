@@ -199,6 +199,21 @@ fn draw_every_screen() {
     page.handle_event(&Event::KeyDown { key: Key::Enter, modifiers: Modifiers::default() });
     page.update();
     capture(&gpu, &mut page, size, &folder.join("treinamentos-resposta.png"));
+    // The assistant in the corner, before and after a question.
+    let mut chat = app(Theme::raven_light(), 0, Updater::idle());
+    capture(&gpu, &mut chat, size, &folder.join("assistente-fechado.png"));
+    let button = |ui: &mut Ui, name: &str| {
+        let tree = ui.access_tree();
+        let node = tree.nodes.iter().find(|n| n.name.as_deref() == Some(name));
+        ui.perform_action(node.expect("the button").id, AccessAction::Click);
+        ui.update();
+    };
+    button(&mut chat, "Assistente");
+    capture(&gpu, &mut chat, size, &folder.join("assistente-aberto.png"));
+    button(&mut chat, "Como pagar uma conta?");
+    capture(&gpu, &mut chat, size, &folder.join("assistente-resposta.png"));
+    let mut sphere = app(Theme::raven_dark(), 0, Updater::idle());
+    capture(&gpu, &mut sphere, size, &folder.join("assistente-escuro.png"));
     let total = film.duration_ms();
     for (name, at) in
         [("titulo", 1_000), ("filme-a", 12_000), ("filme-b", total / 2), ("filme-c", total - 5_000)]

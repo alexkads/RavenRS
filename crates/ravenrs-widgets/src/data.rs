@@ -177,7 +177,11 @@ impl View for ListItem {
             Paint::None,
         ));
         if let Some(t) = &self.trailing {
-            children.push(util::label(cx, t, TextStyle::Callout, None, theme.color(Semantic::InkMuted)));
+            // It keeps its width: the text beside it is what wraps in a narrow list.
+            let attrs = util::attrs(&theme, TextStyle::Callout, None);
+            let width = cx.measure_text(t, &attrs).width.ceil();
+            let style = LayoutStyle { min_width: Some(width), ..LayoutStyle::leaf() };
+            children.push(cx.text(t, &attrs, theme.color(Semantic::InkMuted), style));
         }
         if self.on_click.is_some() {
             children.push(util::icon(cx, IconName::ChevronRight, 16.0, theme.color(Semantic::InkMuted)));

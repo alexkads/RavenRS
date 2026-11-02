@@ -20,6 +20,8 @@ pub struct Labels {
     pub toggle_sidebar: String,
     /// Dismisses a toast.
     pub dismiss: String,
+    /// A [`Chat`](crate::Chat)'s send button.
+    pub send: String,
     /// A spinner's name.
     pub loading: String,
     /// A stepper's minus button.
@@ -223,6 +225,7 @@ impl Default for Labels {
             navigation: "Navigation".into(),
             toggle_sidebar: "Toggle sidebar".into(),
             dismiss: "Dismiss".into(),
+            send: "Send".into(),
             loading: "Loading".into(),
             decrease: "Decrease".into(),
             increase: "Increase".into(),
@@ -354,6 +357,7 @@ impl Labels {
             navigation: "Navegação".into(),
             toggle_sidebar: "Alternar barra lateral".into(),
             dismiss: "Dispensar".into(),
+            send: "Enviar".into(),
             loading: "Carregando".into(),
             decrease: "Diminuir".into(),
             increase: "Aumentar".into(),

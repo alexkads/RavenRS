@@ -10,6 +10,7 @@ use family_finance::db::Database;
 use family_finance::seed;
 use family_finance::ui::App;
 use family_finance::update::Updater;
+use ravenrs::core::{AccessAction, AccessNode, AccessTree};
 use ravenrs::movie::{Movie, MovieLibrary, OverlayKind, RecordError, Recorder, Region};
 use ravenrs::prelude::*;
 
@@ -159,4 +160,139 @@ fn questions_in_plain_words_find_the_right_moment_of_the_film() {
 fn the_script_still_fits_the_app() {
     let film = record();
     assert_eq!(film.chapters().len(), 5);
+}
+
+fn named<'a>(tree: &'a AccessTree, name: &str) -> Option<&'a AccessNode> {
+    tree.nodes.iter().find(|n| n.name.as_deref().is_some_and(|t| t.starts_with(name)))
+}
+
+#[test]
+fn the_assistant_opens_the_film_from_any_screen() {
+    let today = Date::new(2026, 11, 15).expect("valid date");
+    let db = Database::in_memory().expect("database");
+    seed::load_demo(&db, today).expect("seed");
+    let mut ui = Ui::new(App::new(db, today, None, Updater::idle()), Theme::raven_light());
+    ui.set_viewport(SIZE, 1.0);
+    ui.update();
+
+    let click = |ui: &mut Ui, name: &str| {
+        let id = named(&ui.access_tree(), name).unwrap_or_else(|| panic!("no {name}")).id;
+        ui.perform_action(id, AccessAction::Click);
+        ui.update();
+    };
+    click(&mut ui, "Assistente");
+    click(&mut ui, "Como pagar uma conta?");
+    assert!(named(&ui.access_tree(), "Estes momentos").is_some());
+    click(&mut ui, "Pagar uma conta");
+    let tree = ui.access_tree();
+    assert!(named(&tree, "0:18 / 0:").is_some(), "the film opened at that moment");
+    assert!(named(&tree, "Estes momentos").is_none(), "and the panel closed");
+}
+
+/// Runs only where the real model is, as it is more than a gigabyte:
+/// `FF_AI_MODELS=folder cargo test --release -p family-finance --test training real -- --ignored --nocapture`.
+#[test]
+#[ignore = "needs the real model"]
+fn real_model_choices() {
+    use family_finance::ui::{ASSISTANT_INTRO, ASSISTANT_TOOLS};
+    use ravenrs_ai::{LocalEngine, ModelFolder, model_by_id, read_tool_call, tool_rules};
+    const CASES: &[(&str, &str)] = &[
+        ("qual é o meu saldo?", "saldo_das_contas"),
+        ("quanto dinheiro eu tenho nas contas?", "saldo_das_contas"),
+        ("quanto gastei este mês?", "gastos_por_categoria"),
+        ("quanto gastei com mercado?", "gastos_por_categoria"),
+        ("onde estou gastando mais?", "gastos_por_categoria"),
+        ("tenho alguma conta vencida?", "contas_a_pagar"),
+        ("o que tenho para pagar essa semana?", "contas_a_pagar"),
+        ("quais contas vencem em breve?", "contas_a_pagar"),
+        ("abra os relatórios", "abrir_tela"),
+        ("me leve para a agenda", "abrir_tela"),
+        ("quero ver os orçamentos", "abrir_tela"),
+        ("ir para os ajustes", "abrir_tela"),
+        ("gastei 50 reais na padaria", "lancar_despesa"),
+        ("lança uma despesa de 120 de farmácia", "lancar_despesa"),
+        ("paguei 80 de gasolina hoje", "lancar_despesa"),
+        ("criar uma despesa de 30 de lanche", "lancar_despesa"),
+        ("anota uma despesa de 200 no cartão", "lancar_despesa"),
+        ("agendar pagamento de luz para o dia 3", "criar_conta"),
+        ("criar um pagamento para o dia 3 no valor de 100", "criar_conta"),
+        ("tenho que pagar o aluguel dia 10", "criar_conta"),
+        ("nova conta de internet de 120 para o dia 15", "criar_conta"),
+        ("agendar pagamento de luz para o dia 3. mas eu quero criar", "criar_conta"),
+        ("criar conta de luz de 330 para o dia 3, da Ana, todo mês", "criar_conta"),
+        ("nova conta do carro de 12000 em 10x", "criar_conta"),
+        ("gastei 200 no mercado ontem com o cartão", "lancar_despesa"),
+        ("marca a conta de luz como paga", "pagar_conta"),
+        ("paguei o streaming", "pagar_conta"),
+        ("como faço um backup?", "ajuda"),
+        ("como funciona o orçamento?", "ajuda"),
+        ("como restauro meus dados em outro computador?", "ajuda"),
+        ("qual a capital da França?", "nenhuma"),
+        ("me conta uma piada", "nenhuma"),
+    ];
+    let root = std::env::var("FF_AI_MODELS").expect("FF_AI_MODELS");
+    // `FF_AI_MODEL` names which one, by its id.
+    let wanted = std::env::var("FF_AI_MODEL").unwrap_or_else(|_| "qwen3-1.7b-q4".to_owned());
+    let model = model_by_id(&wanted).expect("a known model");
+    let mut engine = LocalEngine::load(&ModelFolder::new(root), &model).expect("the model");
+    let rules = format!(
+        "{}Categorias de gasto: Assinaturas, Contas da casa, Educação, Lazer, Mercado, Moradia, Saúde, Transporte.",
+        tool_rules(ASSISTANT_INTRO, ASSISTANT_TOOLS)
+    );
+    let mut right = 0;
+    for (question, wanted) in CASES {
+        let mut answer = String::new();
+        engine
+            .generate(&rules, question, 50, &mut |piece| {
+                answer.push_str(piece);
+                true
+            })
+            .expect("an answer");
+        let chosen = read_tool_call(&answer, ASSISTANT_TOOLS).map_or("?".to_owned(), |call| call.name);
+        right += usize::from(chosen == *wanted);
+        println!(
+            "{} {question:?} -> {}",
+            if chosen == *wanted { "OK " } else { "ERR" },
+            answer.trim().replace('\n', " ")
+        );
+    }
+    println!("{right}/{} right", CASES.len());
+    assert!(right * 10 >= CASES.len() * 6, "too many wrong: {right}");
+}
+
+/// The whole way, with the real model: the same command as above.
+#[test]
+#[ignore = "needs the real model"]
+fn real_model_answers_in_the_chat_with_the_numbers_of_the_database() {
+    let models = std::env::var("FF_AI_MODELS").expect("FF_AI_MODELS");
+    let folder = std::env::temp_dir().join(format!("ff-assistant-{}", std::process::id()));
+    std::fs::create_dir_all(folder.join("modelos")).expect("folder");
+    let wanted = std::env::var("FF_AI_MODEL").unwrap_or_else(|_| "qwen3-1.7b-q4".to_owned());
+    let model = ravenrs_ai::model_by_id(&wanted).expect("a known model");
+    std::os::unix::fs::symlink(format!("{models}/{}", model.id), folder.join("modelos").join(model.id))
+        .expect("link");
+    std::fs::write(folder.join("modelos/in-use"), model.id).expect("in use");
+    let today = Date::new(2026, 11, 15).expect("valid date");
+    let path = folder.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    seed::load_demo(&db, today).expect("seed");
+    let total: i64 = db.accounts().expect("accounts").iter().map(|a| a.balance_cents).sum();
+    let mut ui = Ui::new(App::new(db, today, Some(path), Updater::idle()), Theme::raven_light());
+    ui.set_viewport(SIZE, 1.0);
+    ui.update();
+    let click = |ui: &mut Ui, name: &str| {
+        let id = named(&ui.access_tree(), name).unwrap_or_else(|| panic!("no {name}")).id;
+        ui.perform_action(id, AccessAction::Click);
+        ui.update();
+    };
+    click(&mut ui, "Assistente");
+    click(&mut ui, "Qual é o meu saldo?");
+    let started = std::time::Instant::now();
+    let wanted = format!("Você tem {} nas contas", family_finance::money::format_brl(total));
+    while named(&ui.access_tree(), &wanted).is_none() {
+        assert!(started.elapsed().as_secs() < 60, "no answer");
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        ui.update();
+    }
+    let _ = std::fs::remove_dir_all(folder);
 }
