@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use family_finance::ui::Opening;
 use family_finance::update::{self, Updater};
 use family_finance::{icon, paths, today};
-use ravenrs::native::{AppIdentity, PlatformError, WindowOptions, diagnose, run_as};
+use ravenrs::native::{AppIdentity, PlatformError, SystemTray, WindowOptions, diagnose, run_as};
 use ravenrs::prelude::*;
 
 fn main() -> Result<(), PlatformError> {
@@ -27,6 +27,8 @@ fn main() -> Result<(), PlatformError> {
                 .unwrap_or_else(|_| "info,wgpu=warn,naga=warn".into()),
         )
         .init();
+    // Another file is another app, as when testing beside the installed one.
+    let everyday = first.is_none();
     let path = first.map_or_else(paths::database, PathBuf::from);
     let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(Theme::raven_light());
     let diagnostics = Diagnostics::default();
@@ -37,6 +39,11 @@ fn main() -> Result<(), PlatformError> {
     let identity = match icon() {
         Some(icon) => identity.icon(icon),
         None => identity,
+    };
+    let identity = if everyday {
+        identity.close_to_tray(SystemTray::new("Raven Finanças").open("Abrir o Raven Finanças").quit("Sair"))
+    } else {
+        identity
     };
     run_as(Opening::new(path, today(), Updater::idle(), diagnostics), options, identity)
 }

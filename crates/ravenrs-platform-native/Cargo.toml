@@ -30,6 +30,17 @@ pollster.workspace = true
 rfd = "0.17"
 tracing.workspace = true
 
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+tray-icon = { version = "0.24", default-features = false, optional = true }
+
+# In pure Rust over D-Bus, so that the tray asks for no GTK to compile.
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni = { version = "0.3", default-features = false, features = ["async-io", "blocking"], optional = true }
+
+[features]
+# `AppIdentity::close_to_tray` actually showing an icon.
+tray = ["dep:tray-icon", "dep:ksni"]
+
 [lints]
 workspace = true
 

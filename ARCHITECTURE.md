@@ -317,6 +317,8 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 
 With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug report: `ravenrs_core::new_issue_url` puts the report in the URL of a new issue, percent-encoded and cut to `MAX_ISSUE_URL`, and `ravenrs::native::open_url` opens it in the browser. The app sends nothing; the person reviews and submits on that page. The report is made to be shared: `VK_DRIVER_FILES` and `VK_ICD_FILENAMES` keep only file names, the panel passes everything it shows through `redact_user_paths`, and no app data reaches it. The panel says this next to the button, above the exact text.
 
+**Tray (desktop, `tray` feature).** With `AppIdentity::close_to_tray`, closing the window destroys it, since Wayland cannot hide one, and keeps the `Ui` and its state behind an icon: `tray-icon` on macOS and Windows, `ksni` on Linux, which asks for no GTK. Where nothing hosts the icon, as on plain GNOME, closing the window closes the app. A copy of the app started meanwhile finds the first through a local TCP port, asks it to open its window and leaves.
+
 **Web (`ravenrs-platform-web`).** Plain `web-sys` on a `<canvas>`:
 
 * async adapter and device creation (`wasm-bindgen-futures`), never blocking the main thread;

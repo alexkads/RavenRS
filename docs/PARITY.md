@@ -140,6 +140,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Dialog / Alert dialog | ✓ | ✓ | ✓ | ✅ `Dialog`, `ConfirmDialog` |
 | Sheet / Drawer (side panel) | ✓ | ✓ | ✓ | ✅ `Sheet` |
 | Splash screen | | ✓ | ✓ | ✅ `SplashScreen` |
+| Tray icon, closing to it | | ✓ | ✓ | ✅ `AppIdentity::close_to_tray` |
 | Popover | ✓ | ✓ | ✓ | ✅ |
 | Tooltip | ✓ | ✓ | ✓ | ✅ |
 | Hover card | ✓ | | | ✅ `HoverCard` |

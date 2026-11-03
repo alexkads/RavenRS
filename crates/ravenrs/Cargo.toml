@@ -19,6 +19,8 @@ default = ["decode", "charts"]
 decode = ["ravenrs-widgets/decode"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`.
 charts = ["ravenrs-widgets/charts"]
+# The icon beside the clock of `AppIdentity::close_to_tray`, on the desktop.
+tray = ["ravenrs-platform-native/tray"]
 
 [dependencies]
 ravenrs-core.workspace = true

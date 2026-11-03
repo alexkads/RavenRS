@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 - `BuildCx::keyed_overlay`: a layer that stays the same one when other layers before it come and go.
+- `AppIdentity::close_to_tray` and `SystemTray`, with the `tray` feature: closing the window keeps the app running behind an icon beside the clock, and opening it again brings the same window back. Where the system shows no such icon, such as plain GNOME, closing the window closes the app.
 
 ### Fixed
 - `SplashScreen` no longer starts over, showing the page behind it, when an app with layers of its own appears under it.
