@@ -54,7 +54,7 @@ pub(crate) const POR_CONTA: Help = (
 pub(crate) const LANCAMENTOS: Help = (
     "Lançamentos",
     "Tudo o que entrou e saiu no mês, um por linha.",
-    "Clique duas vezes em uma linha para alterar. Arraste uma coluna para o espaço acima dela para agrupar, e grave o arranjo em Cenário.",
+    "Clique duas vezes em uma linha para alterar. Use Agrupar para juntar as linhas por uma coluna, e grave o arranjo em Cenário.",
 );
 pub(crate) const FILTROS: Help = (
     "Filtrar",
@@ -64,7 +64,7 @@ pub(crate) const FILTROS: Help = (
 pub(crate) const CONTAS: Help = (
     "Contas a pagar",
     "O que a família tem a pagar, e até quando. As recorrentes voltam sozinhas depois de pagas.",
-    "Selecione uma conta e clique em Pagar, ou clique duas vezes nela. Arraste uma coluna para o espaço acima dela para agrupar.",
+    "Selecione uma conta e clique em Pagar, ou clique duas vezes nela. Use Agrupar para juntar as linhas por uma coluna.",
 );
 pub(crate) const AGENDA: Help = (
     "Agenda",

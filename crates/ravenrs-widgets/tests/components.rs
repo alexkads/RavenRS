@@ -1239,3 +1239,54 @@ mod hotkeys {
         assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("Código de verificação")));
     }
 }
+
+fn node_named(ui: &mut Ui, name: &str) -> Option<u64> {
+    ui.update();
+    ui.access_tree().nodes.iter().find(|node| node.name.as_deref() == Some(name)).map(|node| node.id)
+}
+
+fn press_named(ui: &mut Ui, name: &str) {
+    let id = node_named(ui, name).unwrap_or_else(|| panic!("no {name}"));
+    ui.perform_action(id, ravenrs_core::AccessAction::Click);
+    ui.update();
+}
+
+fn says_in_tree(ui: &mut Ui, text: &str) -> bool {
+    ui.update();
+    ui.access_tree().nodes.iter().any(|node| {
+        node.name.as_deref().is_some_and(|name| name.contains(text))
+            || node.value.as_deref().is_some_and(|value| value.contains(text))
+    })
+}
+
+#[test]
+fn theme_picker_says_the_theme_and_changes_to_the_one_chosen() {
+    let mut ui = ui(VStack::new((ThemePicker::new(),)));
+    assert_eq!(ui.theme().name, Theme::raven_dark().name);
+    press_named(&mut ui, "Theme");
+    press_named(&mut ui, "Light");
+    assert_eq!(ui.theme().name, Theme::raven_light().name);
+}
+
+#[test]
+fn theme_editor_counts_warns_restores_and_takes_tokens_back() {
+    let mut ui = ui(ScrollView::new((ThemeEditor::new(),)));
+    ui.set_viewport(Size::new(1200.0, 3000.0), 1.0);
+    assert!(says_in_tree(&mut ui, "No changes"));
+    assert!(says_in_tree(&mut ui, "bg-000"));
+    assert!(says_in_tree(&mut ui, "Contrast"), "text says how legible it is");
+
+    // Text the same color as its card is not legible, and the editor says so.
+    ui.theme_state().update(|theme| theme.palette.ink = theme.palette.bg_200);
+    assert!(says_in_tree(&mut ui, "Contrast 1.0:1 on bg-200"));
+    assert!(says_in_tree(&mut ui, "1 token changed"));
+
+    press_named(&mut ui, "Copy tokens");
+    press_named(&mut ui, "Restore");
+    assert!(says_in_tree(&mut ui, "No changes"));
+    assert_eq!(ui.theme().palette.ink, Theme::raven_dark().palette.ink);
+
+    press_named(&mut ui, "Paste tokens");
+    assert!(says_in_tree(&mut ui, "1 token changed"), "what was copied comes back");
+    assert_eq!(ui.theme().palette.ink, Theme::raven_dark().palette.bg_200);
+}

@@ -139,6 +139,11 @@ impl Default for ViewerLabels {
 }
 
 impl ViewerLabels {
+    /// The labels for a language and region such as `pt-BR`.
+    pub fn for_culture(culture: &str) -> Self {
+        if culture.starts_with("pt") { Self::pt_br() } else { Self::default() }
+    }
+
     /// The labels in Brazilian Portuguese.
     pub fn pt_br() -> Self {
         let text = |s: &str| s.to_owned();
@@ -326,7 +331,7 @@ type ToolbarItems = Rc<dyn Fn() -> Vec<AnyView>>;
 pub struct DocumentViewer {
     document: Rc<Document>,
     state: ViewerState,
-    labels: ViewerLabels,
+    labels: Option<ViewerLabels>,
     leading: Option<ToolbarItems>,
     trailing: Option<ToolbarItems>,
     print_button: bool,
@@ -344,7 +349,7 @@ impl DocumentViewer {
         Self {
             document,
             state: state.clone(),
-            labels: ViewerLabels::default(),
+            labels: None,
             leading: None,
             trailing: None,
             print_button: true,
@@ -353,7 +358,7 @@ impl DocumentViewer {
 
     /// Sets the text the viewer shows.
     pub fn labels(mut self, labels: ViewerLabels) -> Self {
-        self.labels = labels;
+        self.labels = Some(labels);
         self
     }
 
@@ -375,8 +380,7 @@ impl DocumentViewer {
         self
     }
 
-    fn search_bar(&self, matches: &[Match], current: usize) -> impl View + use<> {
-        let labels = &self.labels;
+    fn search_bar(&self, labels: &ViewerLabels, matches: &[Match], current: usize) -> impl View + use<> {
         let (read, write) = (self.state.clone(), self.state.clone());
         let document = self.document.clone();
         let field = TextField::new(Binding::new(
@@ -442,8 +446,7 @@ impl DocumentViewer {
         }
     }
 
-    fn zoom_controls(&self, zoom: f32, fit_width: f32) -> impl View + use<> {
-        let labels = &self.labels;
+    fn zoom_controls(&self, labels: &ViewerLabels, zoom: f32, fit_width: f32) -> impl View + use<> {
         let (out, into, fit) = (self.state.zoom.clone(), self.state.zoom.clone(), self.state.zoom.clone());
         HStack::new((
             IconButton::new(IconName::ZoomOut)
@@ -466,7 +469,13 @@ impl DocumentViewer {
         .align(Align::Center)
     }
 
-    fn thumbnails_column(&self, current: usize, available_height: f32, cx: &mut BuildCx<'_>) -> NodeId {
+    fn thumbnails_column(
+        &self,
+        labels: &ViewerLabels,
+        current: usize,
+        available_height: f32,
+        cx: &mut BuildCx<'_>,
+    ) -> NodeId {
         let pages = self.document.pages.len();
         let tall =
             self.document.pages.first().map_or(842.0, |p| p.height) * THUMBNAIL_ZOOM + 2.0 * SPACING.s6;
@@ -479,7 +488,7 @@ impl DocumentViewer {
                     state: self.state.clone(),
                     page,
                     current: page == current,
-                    label: format!("{} {}", self.labels.thumbnail_of_page, page + 1),
+                    label: format!("{} {}", labels.thumbnail_of_page, page + 1),
                 }) as AnyView
             })
             .collect();
@@ -513,7 +522,8 @@ impl View for DocumentViewer {
         let sidebar = if thumbnails { page_width * THUMBNAIL_ZOOM + 2.0 * SPACING.s3 + 1.0 } else { 0.0 };
         let fit_width = (viewport.width - sidebar - 2.0 * SPACING.s6) / page_width.max(1.0);
 
-        let labels = &self.labels;
+        // Unless told otherwise, it speaks as the rest of the application.
+        let labels = &self.labels.clone().unwrap_or_else(|| ViewerLabels::for_culture(&cx.labels().culture));
         let toggle = state.thumbnails.clone();
         let mut bar: Vec<AnyView> = vec![Box::new(
             IconButton::new(IconName::PanelLeft)
@@ -531,8 +541,8 @@ impl View for DocumentViewer {
             labels.page.clone(),
         )));
         bar.push(Box::new(Spacer::new()));
-        bar.push(Box::new(self.search_bar(&matches, current_match)));
-        bar.push(Box::new(self.zoom_controls(zoom, fit_width)));
+        bar.push(Box::new(self.search_bar(labels, &matches, current_match)));
+        bar.push(Box::new(self.zoom_controls(labels, zoom, fit_width)));
         if self.print_button {
             let printed = document.clone();
             bar.push(Box::new(
@@ -595,7 +605,7 @@ impl View for DocumentViewer {
         );
         let row_children = if thumbnails {
             // The window less what is usually above the pages: toolbars and a status bar.
-            let column = self.thumbnails_column(current, viewport.height - CHROME_HEIGHT, cx);
+            let column = self.thumbnails_column(labels, current, viewport.height - CHROME_HEIGHT, cx);
             let separator = cx.child(&Divider::vertical());
             vec![column, separator, main]
         } else {

@@ -100,6 +100,7 @@ impl View for Poc {
         let body: AnyView = match view {
             0 => Box::new(
                 DataGrid::new(self.data.clone(), columns())
+                    .group_panel(true)
                     .selection_mode(SelectionMode::Multiple)
                     .scenarios(self.scenarios.binding())
                     .group_by(2)
@@ -107,6 +108,7 @@ impl View for Poc {
             ),
             1 => Box::new(
                 DataGrid::new(self.data.clone(), columns())
+                    .group_panel(true)
                     .scenarios(self.scenarios.binding())
                     .page_size(50)
                     .on_export(|_| {}),

@@ -388,6 +388,11 @@ impl Alert {
         Self { title: title.into(), message: message.into(), tone: Tone::Accent, action: () }
     }
 
+    /// An alert that is only its message, for when a title would just repeat where it is.
+    pub fn message(message: impl Into<String>) -> Self {
+        Self::new(String::new(), message)
+    }
+
     /// A button beside the message, so that what it asks for is one click away.
     #[must_use]
     pub fn action(self, label: impl Into<String>, on_click: impl Fn() + 'static) -> Alert<AlertAction> {
@@ -411,13 +416,28 @@ impl<A> Alert<A> {
         let theme = *cx.theme();
         let color = self.tone.color(&theme);
         let icon = util::icon(cx, self.tone.icon(), 18.0, color);
-        let title =
-            util::label(cx, &self.title, TextStyle::Body, Some(Weight::SEMIBOLD), theme.color(Semantic::Ink));
-        let message =
-            util::label(cx, &self.message, TextStyle::Callout, None, theme.color(Semantic::InkMuted));
+        let mut lines = Vec::with_capacity(2);
+        if self.title.is_empty() {
+            lines.push(util::label(cx, &self.message, TextStyle::Body, None, theme.color(Semantic::Ink)));
+        } else {
+            lines.push(util::label(
+                cx,
+                &self.title,
+                TextStyle::Body,
+                Some(Weight::SEMIBOLD),
+                theme.color(Semantic::Ink),
+            ));
+            lines.push(util::label(
+                cx,
+                &self.message,
+                TextStyle::Callout,
+                None,
+                theme.color(Semantic::InkMuted),
+            ));
+        }
         let text = cx.container(
             LayoutStyle { spacing: 2.0, grow: 1.0, ..LayoutStyle::stack(Axis::Vertical) },
-            &[title, message],
+            &lines,
             Paint::None,
         );
         let style = LayoutStyle {

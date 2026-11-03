@@ -130,6 +130,7 @@ impl View for NestedList {
         let target = self.target.clone();
         let list = ListView::new(child.clone(), child.frame(), view)
             .filter(Some(Criteria::property(&field).equals(Criteria::value(key))))
+            .implied(field.clone())
             .plain_toolbar()
             .on_open(Rc::new(move |key: &Value| opener.open_detail(&target, key)))
             .grid_shape(|grid: DataGrid| grid.toolbar(false).filter_row(false).footer(false));

@@ -129,6 +129,8 @@ pub struct ListView {
     sort: Vec<(String, bool)>,
     column_shape: Option<ColumnShape>,
     grid_shape: Option<GridShape>,
+    /// What goes without saying where this list is.
+    implied: Option<String>,
     single: bool,
     plain: bool,
     remote: bool,
@@ -314,6 +316,7 @@ impl ListView {
             sort: Vec::new(),
             column_shape: None,
             grid_shape: None,
+            implied: None,
             single: false,
             plain: false,
             remote: false,
@@ -360,6 +363,12 @@ impl ListView {
     /// Changes the column of a field: a template, a width, a summary, or one of its own.
     pub fn column_shape(mut self, shape: impl Fn(&FieldInfo, GridColumn) -> GridColumn + 'static) -> Self {
         self.column_shape = Some(Rc::new(shape));
+        self
+    }
+
+    /// Leaves out the column of this field, whose value is the same on every row.
+    pub fn implied(mut self, field: impl Into<String>) -> Self {
+        self.implied = Some(field.into());
         self
     }
 
@@ -558,7 +567,12 @@ impl View for ListView {
             return cx.child(&Text::new(name.to_owned()));
         };
         let only = session.variant_columns(&self.view.id);
-        let fields = shown_fields(&entity, node, only.as_deref());
+        let mut fields = shown_fields(&entity, node, only.as_deref());
+        for (field, _, visible) in &mut fields {
+            if self.implied.as_deref() == Some(field.name.as_str()) {
+                *visible = false;
+            }
+        }
         let infos: Vec<FieldInfo> = fields.iter().map(|(field, ..)| (*field).clone()).collect();
         let revision = session.revision();
         let filter = self.active_filter();
@@ -693,7 +707,6 @@ impl View for ListView {
             .key_column(key_at)
             .selection_mode(if self.single { SelectionMode::Single } else { SelectionMode::Multiple })
             .selected_keys(selected)
-            .empty_text(caption.clone())
             .export_title(caption)
             .on_row_open(move |row| {
                 if let Some(cell) = row.get(key_at) {

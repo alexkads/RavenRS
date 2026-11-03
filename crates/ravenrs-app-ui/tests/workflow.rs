@@ -248,3 +248,52 @@ fn an_action_that_went_to_the_overflow_menu_still_runs_by_pointer() {
     click(&mut w, item.center());
     assert_eq!(stored(&database).get("state"), Value::Text("done".into()));
 }
+
+#[test]
+fn a_long_navigation_scrolls_and_leaves_the_window_as_it_is() {
+    use ravenrs_core::Size;
+    let mut builder = Application::builder("Test").module(SystemModule::new()).entity(task());
+    let mut entities = vec![task()];
+    for at in 0..40 {
+        let entity = EntityInfo::new(format!("Thing{at}"))
+            .caption(format!("Thing {at}"))
+            .navigation("Many")
+            .field(FieldInfo::new("id", FieldKind::Integer).key());
+        entities.push(entity.clone());
+        builder = builder.entity(entity);
+    }
+    let application = builder.build().expect("valid");
+    let database = MemoryDatabase::new(entities).expect("valid");
+    let shell = AppShell::new(application, move || database.space());
+    let mut ui = Ui::new(shell, Theme::raven_dark());
+    ui.set_viewport(Size::new(1000.0, 500.0), 1.0);
+    for _ in 0..4 {
+        ui.update();
+    }
+    let tree = ui.access_tree();
+    let navigation = tree.nodes.iter().find(|n| n.role == Role::Navigation).expect("there");
+    assert!(
+        navigation.bounds.max_y() <= 500.5,
+        "the navigation stays in the window: {:?}",
+        navigation.bounds
+    );
+}
+
+#[test]
+fn the_window_offers_the_themes_and_changes_to_the_one_chosen() {
+    let database = database(None);
+    let mut w = world(&database);
+    assert!(w.has_button("Theme"));
+    assert_eq!(w.ui.theme().name, Theme::raven_dark().name);
+    w.press("Theme");
+    let light =
+        w.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|node| node.name.as_deref() == Some("Light"))
+            .expect("the light theme")
+            .id;
+    w.ui.perform_action(light, ravenrs_core::AccessAction::Click);
+    w.settle();
+    assert_eq!(w.ui.theme().name, Theme::raven_light().name);
+}

@@ -549,6 +549,8 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     // `input` and composition events, so IMEs, dead keys, emoji pickers, mobile
     // keyboards and paste all deliver text.
     let text_input = create_text_input(&canvas)?;
+    // A field that takes the keyboard when the page opens has to get what is typed from the start.
+    text_input.focus().ok();
     let mut app = WebApp {
         state: state.clone(),
         scheduler: scheduler.clone(),

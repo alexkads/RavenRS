@@ -549,6 +549,8 @@ impl<C: ViewSeq> View for SidebarColumn<'_, C> {
             LayoutStyle {
                 width: Some(self.width),
                 height: self.height,
+                // However much it holds, its content scrolls, and the column takes what it is given.
+                min_height: Some(0.0),
                 align: Align::Stretch,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
@@ -678,6 +680,7 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
         let card = cx.container(
             LayoutStyle {
                 width: Some(card_width),
+                min_height: Some(0.0),
                 align: Align::Stretch,
                 align_self: Some(Align::Stretch),
                 overflow_hidden: true,
@@ -694,6 +697,7 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
         cx.container(
             LayoutStyle {
                 width: Some(width),
+                min_height: Some(0.0),
                 padding: Insets::uniform(inset),
                 align: Align::Stretch,
                 align_self: Some(Align::Stretch),

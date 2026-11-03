@@ -9,11 +9,11 @@ use ravenrs_app::{
 use ravenrs_core::Insets;
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
-use ravenrs_style::{TextStyle, Weight};
+use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
-    Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Dialog, Divider, Keyed,
-    NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection, Text, Tone, VStack,
-    View, ViewExt,
+    Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Dialog, Divider, IconButton,
+    IconName, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection, Text,
+    ThemePicker, Tone, VStack, View, ViewExt,
 };
 
 use crate::container::{ActionContainer, icon_named};
@@ -26,6 +26,10 @@ use crate::values::display;
 const NARROW_WINDOW: f32 = 720.0;
 /// How wide a window of something shown over the screens is.
 const PRESENTED_WIDTH: f32 = 960.0;
+/// How far everything on a page stands from its edges, so it all starts on one line.
+const PAGE_GUTTER: f32 = 16.0;
+/// The longest line of a description that is still comfortable to read.
+const READING_WIDTH: f32 = 760.0;
 
 /// The pieces of a window, for a template to arrange.
 #[non_exhaustive]
@@ -56,9 +60,13 @@ pub struct MainTemplate;
 
 impl FrameTemplate for MainTemplate {
     fn arrange(&self, parts: TemplateParts) -> AnyView {
-        let main =
-            VStack::new((parts.header, Divider::horizontal(), parts.content)).align(Align::Stretch).grow(1.0);
-        Box::new(ravenrs_widgets::HStack::new((parts.navigation, main)).align(Align::Stretch).grow(1.0))
+        let main = VStack::new((parts.header, parts.content)).spacing(0.0).align(Align::Stretch).grow(1.0);
+        Box::new(
+            ravenrs_widgets::HStack::new((parts.navigation, main))
+                .spacing(0.0)
+                .align(Align::Stretch)
+                .grow(1.0),
+        )
     }
 }
 
@@ -70,6 +78,7 @@ fn hash_of(text: &str) -> u64 {
 pub struct AppShell {
     session: Session,
     template: Rc<dyn FrameTemplate>,
+    theme_menu: bool,
 }
 
 impl std::fmt::Debug for AppShell {
@@ -107,12 +116,18 @@ impl AppShell {
         if let Some(first) = session.first_view() {
             session.show_view_now(&first);
         }
-        Self { session, template: Rc::new(MainTemplate) }
+        Self { session, template: Rc::new(MainTemplate), theme_menu: true }
     }
 
     /// Arranges the window with this.
     pub fn template(mut self, template: impl FrameTemplate + 'static) -> Self {
         self.template = Rc::new(template);
+        self
+    }
+
+    /// Keeps people on the theme the application started with, for one that has a look of its own.
+    pub fn without_theme_menu(mut self) -> Self {
+        self.theme_menu = false;
         self
     }
 
@@ -166,7 +181,7 @@ impl AppShell {
         let sidebar = Sidebar::new(content)
             .collapsible(SidebarCollapse::Icons)
             .narrow_below(NARROW_WINDOW)
-            .header(Text::new(self.session.title()).font_weight(Weight::SEMIBOLD));
+            .header(Text::new(self.session.title()).style(TextStyle::Headline).font_weight(Weight::SEMIBOLD));
         let (due, _) = self.session.reminders().get();
         let reminders = (due > 0).then(|| {
             let showing = self.session.reminders().clone();
@@ -175,11 +190,15 @@ impl AppShell {
                 .size(ButtonSize::Small)
                 .on_click(move || showing.update(|(_, open)| *open = true))
         });
-        let account = self.session.account().map(|account| self.account_of(account));
-        if reminders.is_none() && account.is_none() {
+        let account = self.session.account();
+        if reminders.is_none() && account.is_none() && !self.theme_menu {
             return Box::new(sidebar);
         }
-        Box::new(sidebar.footer(VStack::new((reminders, account)).spacing(4.0).align(Align::Stretch)))
+        let last: AnyView = match account {
+            Some(account) => self.account_of(account),
+            None => Box::new(self.theme_menu.then_some(ThemePicker::new())),
+        };
+        Box::new(sidebar.footer(VStack::new((reminders, last)).spacing(4.0).align(Align::Stretch)))
     }
 
     fn account_of(&self, account: crate::session::Account) -> AnyView {
@@ -187,14 +206,15 @@ impl AppShell {
         let (changing, leaving, sign_out) =
             (self.session.clone(), self.session.clone(), account.sign_out.clone());
         Box::new(
-            VStack::new((
-                Text::new(account.name).style(TextStyle::Caption),
-                Button::new(words.change_password.clone())
-                    .style(ButtonStyle::Ghost)
+            ravenrs_widgets::HStack::new((
+                Text::new(account.name).style(TextStyle::Callout).grow(1.0),
+                self.theme_menu.then_some(ThemePicker::new()),
+                IconButton::new(IconName::Key)
+                    .label(words.change_password.clone())
                     .size(ButtonSize::Small)
                     .on_click(move || crate::security::show_change_password(&changing)),
-                Button::new(words.sign_out.clone())
-                    .style(ButtonStyle::Ghost)
+                IconButton::new(IconName::LogOut)
+                    .label(words.sign_out.clone())
                     .size(ButtonSize::Small)
                     .on_click(move || {
                         let sign_out = sign_out.clone();
@@ -202,7 +222,7 @@ impl AppShell {
                     }),
             ))
             .spacing(4.0)
-            .align(Align::Stretch),
+            .align(Align::Center),
         )
     }
 
@@ -249,11 +269,24 @@ impl AppShell {
         if self.session.full().is_some() {
             return Box::new(VStack::new(Vec::<AnyView>::new()));
         }
+        // One place is a title; only going deeper makes it a way back.
+        let trail = self.trail(view);
+        let place: AnyView = match trail.as_slice() {
+            [only] => {
+                Box::new(Text::new(only.clone()).style(TextStyle::Headline).font_weight(Weight::SEMIBOLD))
+            }
+            _ => Box::new(Breadcrumb::new(trail)),
+        };
         Box::new(
-            VStack::new((Breadcrumb::new(self.trail(view)), ActionContainer::new(self.session.clone(), [])))
-                .spacing(8.0)
-                .align(Align::Stretch)
-                .padding(Insets::symmetric(10.0, 16.0)),
+            VStack::new((
+                VStack::new((place, ActionContainer::new(self.session.clone(), [])))
+                    .spacing(8.0)
+                    .align(Align::Stretch)
+                    .padding(Insets::symmetric(12.0, PAGE_GUTTER)),
+                Divider::horizontal(),
+            ))
+            .spacing(0.0)
+            .align(Align::Stretch),
         )
     }
 
@@ -266,7 +299,7 @@ impl AppShell {
             Some(view) if view.kind == ViewKind::List => Box::new(Keyed::new(
                 hash_of(&view.id),
                 ListView::new(session.clone(), session.frame(), view.clone())
-                    .padding(12.0)
+                    .padding(PAGE_GUTTER)
                     .stretch()
                     .grow(1.0),
             )),
@@ -274,25 +307,49 @@ impl AppShell {
                 let form = session.form().map_or(0, |form| Rc::as_ptr(&form) as usize as u64);
                 Box::new(ScrollView::new((Keyed::new(
                     form,
-                    DetailView::new(session.clone(), view.clone()).padding(16.0),
+                    DetailView::new(session.clone(), view.clone()).padding(PAGE_GUTTER),
                 ),)))
             }
             Some(view) if view.kind == ViewKind::Dashboard => Box::new(ScrollView::new((Keyed::new(
                 hash_of(&view.id),
-                crate::DashboardView::new(session.clone(), view.clone()).padding(16.0),
+                crate::DashboardView::new(session.clone(), view.clone()).padding(PAGE_GUTTER),
             ),))),
             Some(view) => Box::new(Text::new(view.id.clone())),
             None => Box::new(Text::new(session.title()).style(TextStyle::Body)),
         };
+        let description = view
+            .filter(|_| session.full().is_none())
+            .filter(|view| view.kind == ViewKind::List)
+            .and_then(|view| {
+                session
+                    .model()
+                    .at(&["Views", &view.id])
+                    .and_then(|node| node.text("Description"))
+                    .map(str::to_owned)
+            })
+            .map(|text| {
+                VStack::new((Text::new(text)
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted)
+                    .stretch()
+                    .max_width(READING_WIDTH),))
+                .align(Align::Stretch)
+                .padding(Insets { top: PAGE_GUTTER, right: PAGE_GUTTER, bottom: 0.0, left: PAGE_GUTTER })
+            });
         Box::new(
             VStack::new((
+                description,
                 session.error().map(|error| {
-                    Alert::new(session.title(), error)
-                        .tone(Tone::Danger)
-                        .padding(Insets::symmetric(8.0, 16.0))
+                    Alert::message(error).tone(Tone::Danger).padding(Insets {
+                        top: PAGE_GUTTER,
+                        right: PAGE_GUTTER,
+                        bottom: 0.0,
+                        left: PAGE_GUTTER,
+                    })
                 }),
                 body,
             ))
+            .spacing(0.0)
             .align(Align::Stretch)
             .grow(1.0),
         )
@@ -515,6 +572,7 @@ impl View for AppShell {
         cx.container(
             LayoutStyle {
                 grow: 1.0,
+                min_height: Some(0.0),
                 align: Align::Stretch,
                 align_self: Some(Align::Stretch),
                 ..LayoutStyle::stack(Axis::Vertical)

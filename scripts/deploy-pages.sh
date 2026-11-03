@@ -15,9 +15,10 @@ fi
 ./scripts/build-web.sh hello-world
 ./scripts/build-web.sh quick-app
 ./scripts/build-web.sh quick-plan
+./scripts/build-web.sh feature-center
 ./scripts/build-web.sh component-gallery
 ./scripts/build-web.sh report-designer
-cargo doc --no-deps --workspace --exclude hello-world --exclude quick-app --exclude quick-plan --exclude component-gallery --exclude report-designer --exclude family-finance --quiet
+cargo doc --no-deps --workspace --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude family-finance --quiet
 ./scripts/check-component-list.py
 
 site="$(mktemp -d)"

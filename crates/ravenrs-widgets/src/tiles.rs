@@ -271,13 +271,15 @@ struct TileCorner {
     /// Where the tile stands, in cells.
     place: (usize, usize),
     at: (f32, f32),
+    /// It is there to find, not to look at, so it shows only over its tile.
+    shown: bool,
     spots: Binding<Vec<TileSpot>>,
     cells: Cells,
 }
 
 impl View for TileCorner {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let ink = cx.theme().color(Semantic::InkMuted);
+        let ink = cx.theme().color(Semantic::InkMuted).with_alpha(if self.shown { 1.0 } else { 0.0 });
         let corner = cx.container(
             LayoutStyle {
                 width: Some(16.0),
@@ -393,6 +395,7 @@ impl View for TileCard<'_> {
                 key: self.key.to_owned(),
                 place: self.place,
                 at: (width - 18.0, height - 18.0),
+                shown: cx.is_hover_within(),
                 spots: self.spots.clone(),
                 cells: self.cells,
             }));

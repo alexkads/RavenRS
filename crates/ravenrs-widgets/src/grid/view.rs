@@ -1680,19 +1680,18 @@ impl View for FilterCell<'_> {
             let labels = cx.labels();
             let hint =
                 if col.number.is_some() { &labels.grid_number_filter_hint } else { &labels.grid_filter_hint };
-            let field = cx.child(
-                &TextField::new(binding)
-                    .placeholder(hint.clone())
-                    .compact()
-                    .width((s.widths[c] - 12.0).max(40.0)),
-            );
+            let mut field = TextField::new(binding).placeholder(hint.clone()).compact().flat();
+            if matches!(col.align, CellAlign::End) {
+                field = field.end_aligned();
+            }
+            let field = cx.child(&field);
             cx.label_control(field, &format!("{} {}", labels.grid_filter_column, col.title), Some(hint));
             children.push(field);
         }
         let mut style = cell_style(s.widths[c], HEADER_HEIGHT, CellAlign::Start);
-        style.padding = Insets::symmetric(0.0, 6.0);
-        style.align = Align::Center;
-        style.overflow_hidden = false;
+        // Its text starts where the column's does: the field brings the same room as a cell.
+        style.padding = Insets::ZERO;
+        style.align = Align::Stretch;
         let fixed = s.fixed_x(c);
         style.absolute = fixed.map(|x| (x, 0.0));
         let paint =
@@ -2366,7 +2365,7 @@ impl DataGrid {
         let query = cx.use_state(move || initial);
         let widths = cx.use_state(move || widths0);
         let first_arrangement =
-            Arrangement::new(&self.columns, self.group_panel.unwrap_or(self.toolbar), self.page_size);
+            Arrangement::new(&self.columns, self.group_panel.unwrap_or(false), self.page_size);
         let arrange = cx.use_state(move || first_arrangement);
         let own_selection: State<BTreeSet<usize>> = cx.use_state(BTreeSet::new);
         let focus_row = cx.use_state(|| None);
@@ -2557,8 +2556,10 @@ impl DataGrid {
         if self.remote.is_some() {
             status = format!("{} {}", fmt.format(total as f64), labels.grid_rows);
         }
+        // In place of the count, not after it: a longer line would push the bar onto a second row
+        // and move the row just clicked out from under the pointer.
         if selected > 0 {
-            status.push_str(&format!(" · {} {}", fmt.format(selected as f64), labels.grid_selected));
+            status = format!("{} {}", fmt.format(selected as f64), labels.grid_selected);
         }
         items.push(util::label(cx, &status, TextStyle::Callout, None, theme.color(Semantic::InkMuted)));
         if let Some(export) = &self.on_export {
@@ -2787,7 +2788,8 @@ impl DataGrid {
         facts: &Rc<Vec<(String, bool)>>,
     ) -> Option<NodeId> {
         let query = h.query.peek().clone();
-        if self.remote.is_some() || !h.arrange.peek().group_panel {
+        // What is grouped always shows; the place to drag to only when asked for.
+        if self.remote.is_some() || (!h.arrange.peek().group_panel && query.group_by.is_empty()) {
             return None;
         }
         let theme = *cx.theme();

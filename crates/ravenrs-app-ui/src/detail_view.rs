@@ -33,6 +33,7 @@ impl DetailView {
         node: &ModelNode,
         field: &str,
         state: &FormLook,
+        named_around: bool,
     ) -> Option<AnyView> {
         let info = form.entity.field_named(field)?;
         let item = node.at(&["Items", field]);
@@ -53,7 +54,11 @@ impl DetailView {
                     target,
                     Rc::new(move || source(&record)),
                 );
-                return Some(Box::new(FormField::new(caption, list)));
+                return Some(if named_around {
+                    Box::new(list) as AnyView
+                } else {
+                    Box::new(FormField::new(caption, list))
+                });
             }
             let key = form.entity.key_field().map(|key| form.original.get(&key.name));
             let list = crate::nested::NestedList::new(
@@ -64,7 +69,11 @@ impl DetailView {
                 info.back_reference.as_deref(),
                 info.lookup_filter.as_deref(),
             );
-            return Some(Box::new(FormField::new(caption, list)));
+            return Some(if named_around {
+                Box::new(list) as AnyView
+            } else {
+                Box::new(FormField::new(caption, list))
+            });
         }
         let mut read_only = item.and_then(|n| n.flag("ReadOnly")).unwrap_or(info.read_only);
         if let Some(security) = self.session.frame().security() {
@@ -138,9 +147,12 @@ impl DetailView {
         node: &ModelNode,
         source: &ModelNode,
         state: &FormLook,
+        in_tab: bool,
     ) -> FormGroup {
         let columns = source.integer("Columns").unwrap_or(1).max(1) as usize;
-        let mut group = match source.text("Caption") {
+        // The tab already says it.
+        let title = source.text("Caption").filter(|_| !in_tab);
+        let mut group = match title {
             Some(title) => FormGroup::titled(title),
             None => FormGroup::new(),
         }
@@ -163,7 +175,9 @@ impl DetailView {
                             | ravenrs_app::FieldKind::Collection(_)
                     )
                 });
-            if let Some(editor) = self.editor(form, node, field, state) {
+            let named_around =
+                in_tab || form.entity.field_named(field).is_some_and(|f| title == Some(f.caption.as_str()));
+            if let Some(editor) = self.editor(form, node, field, state, named_around) {
                 group = if tall { group.wide(editor) } else { group.field(editor) };
             }
         }
@@ -228,11 +242,7 @@ impl View for DetailView {
         let note = (!notes.is_empty()).then(|| {
             let text: Vec<&str> = notes.iter().map(|v| v.message.as_str()).collect();
             let warns = notes.iter().any(|v| v.severity == Severity::Warning);
-            Alert::new(form.entity.caption.clone(), text.join("\n")).tone(if warns {
-                Tone::Warning
-            } else {
-                Tone::Accent
-            })
+            Alert::message(text.join("\n")).tone(if warns { Tone::Warning } else { Tone::Accent })
         });
         let mut layout = FormLayout::new().errors(messages);
         if let Some(arrangement) = node.get("Layout") {
@@ -243,11 +253,11 @@ impl View for DetailView {
                 if part.text("Kind") == Some("Tabs") {
                     for tab in part.in_order().into_iter().filter(|tab| self.shows(&form, tab, &state)) {
                         let title = tab.text("Caption").unwrap_or(&tab.id).to_owned();
-                        layout =
-                            layout.tab(title, FormLayout::new().group(self.group(&form, node, tab, &state)));
+                        layout = layout
+                            .tab(title, FormLayout::new().group(self.group(&form, node, tab, &state, true)));
                     }
                 } else {
-                    layout = layout.group(self.group(&form, node, part, &state));
+                    layout = layout.group(self.group(&form, node, part, &state, false));
                 }
             }
         }

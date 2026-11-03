@@ -1586,6 +1586,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "feature-center"
+version = "27.1.8"
+dependencies = [
+ "console_error_panic_hook",
+ "ravenrs",
+ "ravenrs-app",
+ "ravenrs-app-library",
+ "ravenrs-app-report",
+ "ravenrs-app-sqlite",
+ "ravenrs-app-ui",
+ "ravenrs-core",
+ "ravenrs-criteria",
+ "ravenrs-report",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "rusqlite",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4402,6 +4424,7 @@ version = "27.1.8"
 dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
+ "serde_json",
 ]
 
 [[package]]

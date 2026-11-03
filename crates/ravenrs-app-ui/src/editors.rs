@@ -193,7 +193,6 @@ fn reference_editor(request: &EditorRequest, target: &str) -> AnyView {
             }
         })
         .label(request.caption.clone())
-        .width(320.0)
         .read_only(request.read_only),
     )
 }

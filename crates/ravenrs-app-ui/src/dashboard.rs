@@ -54,6 +54,7 @@ impl View for DashboardItems {
         let spots: State<Vec<TileSpot>> = cx.use_state(|| {
             order.iter().map(|item| TileSpot::new(item.id.clone(), ITEM_COLUMNS, ITEM_ROWS)).collect()
         });
+        let alone = order.len() == 1;
         let mut tiles = TileLayout::new(spots.binding());
         for item in order {
             let caption = item.text("Caption").unwrap_or(&item.id).to_owned();
@@ -93,6 +94,10 @@ impl View for DashboardItems {
             } else {
                 Box::new(Text::new(item.id.clone()))
             };
+            // One piece has nowhere to go and nothing to tell apart from.
+            if alone {
+                return cx.child(&content);
+            }
             tiles = tiles.tile(Tile::new(item.id.clone(), caption, content));
         }
         cx.child(&tiles)

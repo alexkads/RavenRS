@@ -87,6 +87,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Date picker | ✓ | ✓ | ✓ | ✅ `DatePicker` |
 | Date range picker | ✓ | ✓ | ✓ | ✅ `DateRangePicker`: two months, ready-made periods |
 | Time picker / DateTime picker | | ✓ | ✓ | ✅ `TimePicker`, `DateTimePicker` |
+| Theme picker and token editor | | | ✓ | ✅ `ThemePicker`: menu of themes. `ThemeEditor`: colors, corners and text sizes by token name, applied at once, with live contrast and JSON to copy and paste |
 | Color picker / palette / gradient | | ✓ | ✓ | 🟡 `ColorPicker`: palette, shade square, hue and opacity bars, hexadecimal; gradients planned |
 | Rating | | ✓ | ✓ | ⬜ |
 | File upload | | ✓ | ✓ | ✅ `FileUpload`, `ImageField`: the system's chooser and drops, on desktop and web; sending is up to the app |

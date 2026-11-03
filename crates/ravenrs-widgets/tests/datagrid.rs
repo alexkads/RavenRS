@@ -364,7 +364,7 @@ mod arranging {
 
     #[test]
     fn dragging_a_column_to_the_panel_groups_by_it() {
-        let mut ui = ui(grid());
+        let mut ui = ui(grid().group_panel(true));
         assert!(says(&mut ui, "Drag a column here"));
         let from = header(&mut ui, "Plan").center();
         let to = panel(&mut ui);
@@ -516,7 +516,8 @@ mod arranging {
     #[test]
     fn a_scenario_is_saved_and_comes_back() {
         let saved: State<Vec<GridScenario>> = State::new(Vec::new());
-        let mut ui = ui(DataGrid::new(rows(), columns()).scenarios(saved.binding()).height(500.0));
+        let mut ui =
+            ui(DataGrid::new(rows(), columns()).group_panel(true).scenarios(saved.binding()).height(500.0));
         let from = header(&mut ui, "Plan").center();
         let to = panel(&mut ui);
         drag(&mut ui, from, to);
@@ -554,7 +555,8 @@ mod arranging {
     #[test]
     fn a_layout_lives_outside_and_can_come_from_outside() {
         let kept: State<GridLayout> = State::new(GridLayout::default());
-        let mut ui = ui(DataGrid::new(rows(), columns()).layout(kept.binding()).height(500.0));
+        let mut ui =
+            ui(DataGrid::new(rows(), columns()).group_panel(true).layout(kept.binding()).height(500.0));
         settle(&mut ui);
         let from = header(&mut ui, "Plan").center();
         let to = panel(&mut ui);

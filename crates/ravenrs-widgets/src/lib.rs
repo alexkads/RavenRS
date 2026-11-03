@@ -81,6 +81,7 @@ mod stack;
 mod tag_box;
 mod text;
 mod text_field;
+mod theme;
 mod tiles;
 mod timeline;
 mod tree;
@@ -161,6 +162,7 @@ pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, StatusBar, ToolRail, V
 pub use tag_box::TagBox;
 pub use text::Text;
 pub use text_field::TextField;
+pub use theme::{ThemeEditor, ThemePicker};
 pub use tiles::{CardView, Tile, TileLayout, TileSpot};
 pub use timeline::{Timeline, TimelineEdit, TimelineItem, TimelineMarker, TimelineTrack};
 pub use tree::{TreeNode, TreeView};

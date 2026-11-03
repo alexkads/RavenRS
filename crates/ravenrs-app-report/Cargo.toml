@@ -19,6 +19,7 @@ ravenrs-app-ui.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-grid-export.workspace = true
 ravenrs-layout.workspace = true
+ravenrs-style.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-report.workspace = true
 ravenrs-report-designer.workspace = true
@@ -29,7 +30,6 @@ ravenrs-widgets.workspace = true
 
 [dev-dependencies]
 ravenrs-core.workspace = true
-ravenrs-style.workspace = true
 
 [lints]
 workspace = true

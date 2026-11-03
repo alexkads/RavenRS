@@ -166,6 +166,10 @@ EntityInfo::new("Order")
 - Money is a whole number of cents, kept in a number, and never a fraction.
 - Tests drive whole applications through `Ui::access_tree`, with no window: see `crates/ravenrs-app-ui/tests/e2e.rs`.
 
+## Trying everything
+
+[`examples/feature-center`](../examples/feature-center) has every feature, one small demonstration each, with what to try on each list. Sign in as `ana`, `bia` or `caio`, with the password `raven-demo`, and compare. Its `tests/tour.rs` goes through it all, in memory and in SQLite, so a new feature gets a demonstration there and a place in that tour.
+
 ## Showing a list other ways
 
 A view picks how it shows its records by name in the model, with nothing in code:

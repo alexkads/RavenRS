@@ -38,6 +38,18 @@
       "port": 8098
     },
     {
+      "name": "center-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "examples/feature-center/web",
+        "8099"
+      ],
+      "port": 8099
+    },
+    {
       "name": "site",
       "runtimeExecutable": "python3",
       "runtimeArgs": [

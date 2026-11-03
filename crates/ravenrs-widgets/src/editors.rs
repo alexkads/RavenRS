@@ -13,7 +13,7 @@ use crate::context::{BuildCx, DragPhase, NodeId, Paint, Placement, QuadPaint, Se
 use crate::date::Date;
 use crate::overlay::Options;
 use crate::text_field::{ClipboardAccess, Cursor, TextField, edit, index_at, insert, word_at};
-use crate::{ButtonSize, DatePicker, IconButton, IconName, View, util};
+use crate::{ButtonSize, DatePicker, IconButton, IconName, VStack, View, util};
 
 // ---------------------------------------------------------------- TextArea
 
@@ -1180,8 +1180,10 @@ impl View for DateTimePicker {
                 };
             },
         );
-        let mut day =
-            DatePicker::new(date, self.month).disabled(self.state.disabled).read_only(self.state.read_only);
+        let mut day = DatePicker::new(date, self.month)
+            .fill()
+            .disabled(self.state.disabled)
+            .read_only(self.state.read_only);
         let mut hour = TimePicker::new(time)
             .step_minutes(self.step)
             .disabled(self.state.disabled)
@@ -1190,12 +1192,13 @@ impl View for DateTimePicker {
             day = day.label(label.clone());
             hour = hour.label(label.clone());
         }
-        let (day, hour) = (cx.child(&day), cx.child(&hour));
+        let (day, hour) =
+            (cx.child(&VStack::new((day,)).spacing(0.0).align(Align::Stretch).grow(1.0)), cx.child(&hour));
         cx.container(
             LayoutStyle {
                 spacing: 8.0,
                 align: Align::Center,
-                align_self: Some(Align::Fit),
+                align_self: Some(Align::Stretch),
                 wrap: true,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },

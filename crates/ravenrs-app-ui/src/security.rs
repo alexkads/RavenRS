@@ -514,7 +514,7 @@ impl Gate {
         Box::new(
             VStack::new((
                 self.title(None),
-                inner.error.get().map(|error| Alert::new(words.sign_in.clone(), error).tone(Tone::Danger)),
+                inner.error.get().map(|error| Alert::message(error).tone(Tone::Danger)),
                 FormField::new(
                     words.user_name.clone(),
                     TextField::new(text_binding(&inner.name)).autofocus(),
@@ -525,7 +525,7 @@ impl Gate {
                         .secure()
                         .on_submit(move |_| by_key.sign_in()),
                 ),
-                Button::new(words.sign_in.clone()).on_click(move || by_button.sign_in()),
+                Button::new(words.sign_in.clone()).on_click(move || by_button.sign_in()).full_width(),
             ))
             .spacing(12.0)
             .align(Align::Stretch),

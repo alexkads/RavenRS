@@ -1,6 +1,8 @@
 //! Where actions show.
 
-use ravenrs_app::{Action, ActionCategory, ActionInput, ActionKind, ChoiceItem, FieldKind, Value};
+use ravenrs_app::{
+    Action, ActionCategory, ActionInput, ActionKind, ChoiceItem, FieldKind, FrameContext, Value,
+};
 use ravenrs_core::Key;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
@@ -107,6 +109,7 @@ impl ActionContainer {
         &self,
         toolbar: Toolbar,
         action: &Action,
+        primary: bool,
         drafts: &State<std::collections::BTreeMap<String, String>>,
     ) -> Toolbar {
         let session = self.session.clone();
@@ -158,6 +161,9 @@ impl ActionContainer {
             _ => {
                 let mut entry =
                     ToolbarAction::new(action.caption().to_owned()).disabled(!action.is_enabled());
+                if primary {
+                    entry = entry.style(ButtonStyle::Primary);
+                }
                 if let Some(icon) = action.icon_name().and_then(icon_named) {
                     entry = entry.icon(icon);
                     // Moving around is known by its arrows, and leaves room for the rest.
@@ -189,6 +195,15 @@ impl View for ActionContainer {
                     self.categories.contains(action.action_category())
                 })
         });
+        let shown: Vec<&Action> = shown.collect();
+        // A window has one action that matters most: saving what is open, or else adding a record.
+        let primary = (self.session.frame().context() == FrameContext::Main)
+            .then(|| {
+                [crate::ids::SAVE, crate::ids::NEW]
+                    .into_iter()
+                    .find(|id| shown.iter().any(|action| action.id() == *id && action.is_enabled()))
+            })
+            .flatten();
         let mut toolbar = Toolbar::new();
         let mut last: Option<&ActionCategory> = None;
         for action in shown {
@@ -196,7 +211,7 @@ impl View for ActionContainer {
                 toolbar = toolbar.separator();
             }
             last = Some(action.action_category());
-            toolbar = self.entry(toolbar, action, &drafts);
+            toolbar = self.entry(toolbar, action, primary == Some(action.id()), &drafts);
         }
         cx.child(&toolbar)
     }

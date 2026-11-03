@@ -14,6 +14,8 @@ use crate::overlay::panel;
 use crate::{Button, ButtonSize, ButtonStyle, ColorSwatch, IconName, TextField, View, util};
 
 const PANEL_WIDTH: f32 = 248.0;
+/// The least it can show, since it fills what it is in unless given a width.
+const FIELD_MIN_WIDTH: f32 = 140.0;
 const SHADE_HEIGHT: f32 = 148.0;
 const BAR_HEIGHT: f32 = 14.0;
 const THUMB: f32 = 12.0;
@@ -119,7 +121,7 @@ pub struct ColorPicker {
     value: Binding<Option<Color>>,
     palette: Vec<(Color, String)>,
     alpha: bool,
-    width: f32,
+    width: Option<f32>,
     label: Option<String>,
     state: util::EditorState,
 }
@@ -137,7 +139,7 @@ impl ColorPicker {
             value,
             palette: Vec::new(),
             alpha: false,
-            width: 180.0,
+            width: None,
             label: None,
             state: util::EditorState::default(),
         }
@@ -157,7 +159,7 @@ impl ColorPicker {
 
     /// Width in logical pixels. 180 by default.
     pub fn width(mut self, width: f32) -> Self {
-        self.width = width;
+        self.width = Some(width);
         self
     }
 
@@ -517,12 +519,13 @@ impl View for ColorPicker {
         };
         let node = cx.container(
             LayoutStyle {
-                width: Some(self.width),
+                width: self.width,
+                min_width: Some(FIELD_MIN_WIDTH),
                 height: Some(40.0),
                 padding: Insets::symmetric(0.0, 12.0),
                 spacing: 8.0,
                 align: Align::Center,
-                align_self: Some(Align::Fit),
+                align_self: Some(if self.width.is_some() { Align::Fit } else { Align::Stretch }),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[sample, label, filler, chevron],

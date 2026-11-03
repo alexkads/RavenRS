@@ -69,7 +69,7 @@ The [getting started guide](https://github.com/alexkads/RavenRS/blob/master/docs
 
 | Group | Components |
 |---|---|
-| Inputs | `Button` (4 styles, 3 sizes, icons), `IconButton`, `ToggleButton`, `ToggleGroup`, `TextField`, `Select`, `Combobox`, `Checkbox`, `RadioGroup`, `Toggle`, `Slider`, `Stepper`, `TextArea`, `NumberField`, `MaskedField`, `TimePicker`, `DateTimePicker`, `LookupField`, `TagBox`, `ColorPicker`, `FileUpload`, `ImageField`, `FormLayout`, `FilterBuilder`, `Wizard`, `Toolbar`, `SplitButton`, `ConfirmDialog`, `SegmentedControl`, `InputOtp`, `Calendar`, `DatePicker`, `DateRangePicker`, `EventCalendar`, `Scheduler`, `RecurrenceEditor`, `ThemeSwitcher` |
+| Inputs | `Button` (4 styles, 3 sizes, icons), `IconButton`, `ToggleButton`, `ToggleGroup`, `TextField`, `Select`, `Combobox`, `Checkbox`, `RadioGroup`, `Toggle`, `Slider`, `Stepper`, `ThemePicker`, `ThemeEditor`, `TextArea`, `NumberField`, `MaskedField`, `TimePicker`, `DateTimePicker`, `LookupField`, `TagBox`, `ColorPicker`, `FileUpload`, `ImageField`, `FormLayout`, `FilterBuilder`, `Wizard`, `Toolbar`, `SplitButton`, `ConfirmDialog`, `SegmentedControl`, `InputOtp`, `Calendar`, `DatePicker`, `DateRangePicker`, `EventCalendar`, `Scheduler`, `RecurrenceEditor`, `ThemeSwitcher` |
 | Forms | `FormField` with `validate::{required, email, min_length}` and custom rules, `Label` |
 | Navigation | `Ribbon`, `Menubar`, `Tabs`, `Sidebar`, `Breadcrumb`, `Pagination`, `Disclosure`, `Accordion`, `CommandPalette` (⌘K) |
 | Overlays | `Dialog`, `Sheet`, `SplashScreen`, `Popover`, `HoverCard`, `Tooltip`, `DropdownMenu`, `ContextMenu`, `Toaster` |

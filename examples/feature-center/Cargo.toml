@@ -1,0 +1,38 @@
+[package]
+name = "feature-center"
+description = "Every feature of the application framework, one small demonstration each, to try and to test."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ravenrs.workspace = true
+ravenrs-app.workspace = true
+ravenrs-app-library.workspace = true
+ravenrs-app-report.workspace = true
+ravenrs-app-ui.workspace = true
+ravenrs-criteria.workspace = true
+ravenrs-report.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ravenrs-app-sqlite.workspace = true
+rusqlite.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+console_error_panic_hook.workspace = true
+web-sys = { workspace = true, features = ["console"] }
+
+[dev-dependencies]
+ravenrs-core.workspace = true
+ravenrs-style.workspace = true
+ravenrs-widgets.workspace = true
+
+[lints]
+workspace = true

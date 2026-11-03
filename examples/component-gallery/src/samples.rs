@@ -26,7 +26,7 @@ samples! {
     "Button" => button, "IconButton" => icon_button, "ToggleButton" => toggle_button,
     "ToggleGroup" => toggle_group, "SegmentedControl" => segmented_control, "Toggle" => toggle,
     "Checkbox" => checkbox, "RadioGroup" => radio_group, "Slider" => slider, "Stepper" => stepper,
-    "ColorSwatch" => color_swatch, "ThemeSwitcher" => theme_switcher,
+    "ColorSwatch" => color_swatch, "ThemeSwitcher" => theme_switcher, "ThemePicker" => theme_picker, "ThemeEditor" => theme_editor,
     "TextField" => text_field, "Select" => select, "Combobox" => combobox, "DatePicker" => date_picker,
     "Calendar" => calendar, "EventCalendar" => event_calendar, "Scheduler" => scheduler,
     "RecurrenceEditor" => recurrence_editor, "InputOtp" => input_otp, "FormField" => form_field, "Label" => label,
@@ -529,6 +529,18 @@ fn color_swatch() -> impl View {
 // sample: ThemeSwitcher, 90
 fn theme_switcher() -> impl View {
     ThemeSwitcher
+}
+// end
+
+// sample: ThemePicker, 90
+fn theme_picker() -> impl View {
+    ThemePicker::new()
+}
+// end
+
+// sample: ThemeEditor, 900
+fn theme_editor() -> impl View {
+    ThemeEditor::new()
 }
 // end
 

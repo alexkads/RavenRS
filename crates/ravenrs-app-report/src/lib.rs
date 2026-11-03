@@ -56,7 +56,7 @@ impl ViewController for ReportController {
         vec![
             Action::simple(REPORT, self.caption.clone())
                 .category(ActionCategory::Export)
-                .icon("file-text")
+                .icon("table")
                 .on_execute(|cx| {
                     let session =
                         Session::of(cx).ok_or_else(|| "this action needs the screens".to_owned())?;

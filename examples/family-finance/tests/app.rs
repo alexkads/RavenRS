@@ -189,7 +189,7 @@ fn the_components_speak_portuguese() {
     press(&mut ui, Role::Button, "Ajustes");
     assert!(says(&mut ui, "Escuro"), "the theme switcher");
     press(&mut ui, Role::Button, "Lançamentos");
-    for words in ["Arraste uma coluna para cá para agrupar", "Colunas", "Exportar CSV", "linhas"] {
+    for words in ["Agrupar", "Colunas", "Exportar CSV", "linhas"] {
         assert!(says(&mut ui, words), "the grid says {words}");
     }
     assert!(!says(&mut ui, "Export CSV"));

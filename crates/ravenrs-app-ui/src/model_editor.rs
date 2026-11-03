@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use ravenrs_app::ModelNode;
 use ravenrs_layout::Align;
 use ravenrs_reactive::{Binding, State};
-use ravenrs_style::TextStyle;
+use ravenrs_style::{Semantic, TextStyle};
 use ravenrs_widgets::{
     Alert, AnyView, BuildCx, Button, ButtonSize, ButtonStyle, FormField, HStack, NodeId, ScrollView, Text,
     TextField, Tone, TreeNode, TreeView, VStack, View, ViewExt,
@@ -140,7 +140,11 @@ impl View for ModelEditor {
             .label(words.model_editor.clone());
         let side: AnyView = match self.selected.get() {
             Some(path) => self.settings(&path),
-            None => Box::new(Text::new(words.pick_model_node.clone()).style(TextStyle::Caption)),
+            None => Box::new(
+                Text::new(words.pick_model_node.clone())
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted),
+            ),
         };
         let content = VStack::new((
             self.error.get().map(|why| Alert::new(words.model_editor.clone(), why).tone(Tone::Danger)),

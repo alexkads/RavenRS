@@ -579,6 +579,8 @@ pub struct EntityInfo {
     pub appearance: Vec<crate::AppearanceRule>,
     /// The ways to see its list.
     pub variants: Vec<ViewVariant>,
+    /// What its list says it is there for, above the records.
+    pub description: Option<String>,
     /// The states its records go through.
     pub state_machines: Vec<crate::StateMachine>,
     /// When to remind people of a record.
@@ -618,6 +620,7 @@ impl EntityInfo {
             rules: Vec::new(),
             appearance: Vec::new(),
             variants: Vec::new(),
+            description: None,
             state_machines: Vec::new(),
             reminder: None,
             editor_settings: Vec::new(),
@@ -720,6 +723,12 @@ impl EntityInfo {
     /// How many columns its form's fields go in.
     pub fn form_columns(mut self, columns: u8) -> Self {
         self.form_columns = Some(columns);
+        self
+    }
+
+    /// What its list says it is there for, above the records.
+    pub fn description(mut self, text: impl Into<String>) -> Self {
+        self.description = Some(text.into());
         self
     }
 
@@ -834,7 +843,13 @@ impl EntityInfo {
         let check_expression = |what: String, expression: &str| -> Result<(), ModelError> {
             let parsed =
                 Criteria::parse(expression).map_err(|e| ModelError(format!("{}, {what}: {e}", self.name)))?;
-            match ravenrs_criteria::validate(&parsed, &self.schema()).first() {
+            // A function the application added is known only where it runs.
+            let environment = crate::environment();
+            let problems = ravenrs_criteria::validate(&parsed, &self.schema());
+            let found = problems.iter().find(|problem| {
+                !matches!(problem, ravenrs_criteria::Problem::UnknownFunction(name) if environment.has_function(name))
+            });
+            match found {
                 Some(problem) => Err(ModelError(format!("{}: {what}: {problem}", self.name))),
                 None => Ok(()),
             }
@@ -883,11 +898,10 @@ impl EntityInfo {
             .map(|f| (f.name.clone(), f.default_value.clone()))
             .collect();
         let mut object = Object { entity: self.name.clone(), values };
-        if let Some(key) = self.key_field()
-            && matches!(key.kind, FieldKind::Guid)
-            && matches!(object.get(&key.name), Value::Null)
-        {
-            object.set(&key.name, uuid::Uuid::new_v4().to_string());
+        for field in self.fields.iter().filter(|field| matches!(field.kind, FieldKind::Guid)) {
+            if matches!(object.get(&field.name), Value::Null) {
+                object.set(&field.name, uuid::Uuid::new_v4().to_string());
+            }
         }
         object
     }

@@ -10,12 +10,24 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - Saving a form of a `transient` entity no longer goes to storage.
 - `ActionResult` has a new variant, `RecordsChanged`, and `EntityInfo` new fields, `state_machines`, `reminder` and `editor_settings`.
 - `SpaceError` has a new variant, `Denied`, and `FieldInfo` a new field, `secret`.
+- `DataGrid` shows its group panel only when something is grouped, or with `group_panel(true)`; the Group menu takes its place in the toolbar. While rows are selected, the toolbar says how many instead of adding to the row count.
+- `LookupField` and `ColorPicker` fill the width they are given, unless told a `width`. `DocumentViewer` follows the language of the application unless given `labels`.
+- A `FrameTemplate` gets the divider inside `TemplateParts::header`, and `MainTemplate` adds no space between the parts.
+
+### Changed
+- **Screens reviewed against `examples/feature-center`**, with the rules now in `docs/design-system/README.md`: one accented action in a window, one page margin, page titles, a flat filter row lined up with its columns, fields that fill their column, collections with one heading and no owner column, full-width panels with their title and Close at the top, and a list that says it is empty instead of repeating its name.
 
 ### Fixed
+- A long `Sidebar` scrolls and keeps its footer in the window, instead of stretching the whole window past the bottom of the screen.
+- In the browser, a field that takes the keyboard when the page opens gets what is typed from the start, without a click first.
+- A filter or rule in the model can use a function the application registered; checking the model refused it.
+- Any `FieldKind::Guid` field gets its value when a record is created, and not only a key.
 - A new form nobody typed in no longer asks about losing changes.
 - A `DateTime` field shows as a date and a time on a list, and a yes-or-no column follows the application's language.
 
 ### Added
+- **`ThemePicker`**, a menu of themes, and **`ThemeEditor`**, which changes the tokens of the theme on screen, says the contrast of text, and copies what changed as JSON or takes it back. `AppShell` shows the menu in the footer of its navigation, unless told `without_theme_menu`, and `examples/feature-center` has the editor. In `ravenrs-style`: `Theme::builtin`, `base`, `changed_tokens`, `to_tokens_json`, `from_tokens_json`, and tokens by name on `Semantic`, `Palette`, `Radii`, `TextStyle` and `Typography`.
+- **`TextField::flat` and `end_aligned`**, and **`Alert::message`** for an alert with no title.
 - **Rules that only warn.** `Rule::warning` asks and lets people go on, and `Rule::information` leaves a note on the field. A rule's `message` can say what the record holds, with `{field}` and `{reference.field}`.
 - **Concurrent changes.** Saving a form keeps what someone else changed in other fields, with `merge_changes`, and asks about the same field. A record someone deleted says so.
 - **Editing on a list.** `EntityInfo::list_editable` changes values right on the list, checking rules and marking cells that fail.
@@ -32,6 +44,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **`AuditedObjectSpace`** writes who changed what, from what to what, in the same commit, with the modes `Full`, `Lightweight` and `CreationOnly`, fields left out by `AuditSettings`, and changes in collections shown on their owner.
 - **`ModelEditor`**: the model as a tree, with its settings beside it, kept in the person's own layer, for a role that `can_edit_model`.
 - **Lists shown other ways.** A view picks `Chart`, `Calendar`, `Scheduler` or `Tree` by `EditorType` in the model, or a `ViewVariant` by `editor`, with what each needs under `ChartSettings`, `CalendarSettings`, `SchedulerSettings` or `TreeSettings`, set in code with `EntityInfo::editor_setting`. A record moved on a timeline is kept with its rules and permissions. `examples/quick-plan` shows all of them.
+- **`examples/feature-center`**: every feature of the application framework, one small demonstration each, with what to try on each list, and a test that goes through them all as three people, in memory and in SQLite.
+- **`EntityInfo::description`** says what a list is there for, above its records.
 - **State machines.** `EntityInfo::state_machine` declares states and the ways between them. Any other change is refused when it is kept, in memory and in SQLite, with no screen around it; each way gets its own action, and `state_appearance` goes by the state. `check_transitions` is for whoever writes another `ObjectSpace`.
 - **Reminders.** `EntityInfo::reminder` brings up what is due in a window, to open, put off 15 minutes or dismiss. Nothing runs in between: the screen asks to be built again at the next time due. `ravenrs-app-library`'s events have one.
 - **`local_now`** is the time on this machine as a clock reads it. The audit trail, lockout and the day pickers of the screens use it, as `DateTime::now` is UTC on the desktop.

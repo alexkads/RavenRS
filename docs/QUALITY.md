@@ -106,6 +106,7 @@ Status against the definition of done. **Behavior** names the test suites that d
 | LookupField, FormLayout, FilterBuilder | components | | ✅ type, arrows, Enter, tested | |
 | Toolbar, SplitButton, ConfirmDialog | components | | ✅ buttons and menus, tested | |
 | TreeView, CardView | app_components | | ✅ one Tab stop; arrows, Home/End, Enter, Space, tested | Virtualized |
+| ThemePicker, ThemeEditor | components | | ✅ built from `DropdownMenu`, `ColorPicker` and `Stepper`, which bring their keys and names; tested by name |
 | TagBox, ColorPicker, DateRangePicker | app_components | | ✅ arrows, type, Enter, Escape, tested | |
 | Wizard, FileUpload, ImageField | app_components | | ✅ buttons, tested | Dropping files has no keyboard way; the chooser is the way |
 | TileLayout | app_components | | ✅ arrows move, Shift with arrows resizes, tested | |

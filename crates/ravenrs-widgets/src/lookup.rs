@@ -16,6 +16,8 @@ use crate::{ButtonSize, IconButton, IconName, TextField, View, util};
 
 /// How many options a lookup asks for at a time, unless told otherwise.
 const DEFAULT_LIMIT: usize = 50;
+/// The least it can show, since it fills what it is in unless given a width.
+const FIELD_MIN_WIDTH: f32 = 180.0;
 
 /// An option of a [`LookupField`]: the key the app knows it by, and the text people see.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -114,7 +116,7 @@ pub struct LookupField {
     load: Loader,
     placeholder: Option<String>,
     limit: usize,
-    width: f32,
+    width: Option<f32>,
     label: Option<String>,
     state: util::EditorState,
 }
@@ -144,7 +146,7 @@ impl LookupField {
             load: Rc::new(load),
             placeholder: None,
             limit: DEFAULT_LIMIT,
-            width: 240.0,
+            width: None,
             label: None,
             state: util::EditorState::default(),
         }
@@ -164,7 +166,7 @@ impl LookupField {
 
     /// Width in logical pixels. 240 by default.
     pub fn width(mut self, width: f32) -> Self {
-        self.width = width;
+        self.width = Some(width);
         self
     }
 
@@ -259,7 +261,7 @@ impl View for LookupPanel<'_> {
                 if matches!(loaded, Loaded::Failed(_)) { Semantic::Danger } else { Semantic::InkMuted };
             rows.push(util::label(cx, &note, TextStyle::Callout, None, theme.color(tone)));
         }
-        let node = panel(cx, &rows, 6.0, self.field.width);
+        let node = panel(cx, &rows, 6.0, self.field.width.unwrap_or(FIELD_MIN_WIDTH));
         cx.semantics(node, Semantics::new(Role::ListBox));
         node
     }
@@ -320,12 +322,13 @@ impl View for LookupField {
         };
         let node = cx.container(
             LayoutStyle {
-                width: Some(self.width),
+                width: self.width,
+                min_width: Some(FIELD_MIN_WIDTH),
                 height: Some(40.0),
                 padding: Insets::symmetric(0.0, 12.0),
                 spacing: 8.0,
                 align: Align::Center,
-                align_self: Some(Align::Fit),
+                align_self: Some(if self.width.is_some() { Align::Fit } else { Align::Stretch }),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &children,

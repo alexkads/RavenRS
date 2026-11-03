@@ -9,10 +9,12 @@ use ravenrs_app::{
     Selection, Value, ViewController,
 };
 use ravenrs_app_ui::{Session, chart_view, summary_text};
+use ravenrs_layout::Align;
 use ravenrs_reactive::State;
+use ravenrs_style::{TextStyle, Weight};
 use ravenrs_widgets::{
-    AnyView, BuildCx, Button, ButtonSize, ButtonStyle, NodeId, ScrollView, Stat, Tile, TileLayout, TileSpot,
-    VStack, View, ViewExt,
+    AnyView, BuildCx, Button, ButtonSize, ButtonStyle, HStack, NodeId, ScrollView, Text, Tile, TileLayout,
+    TileSpot, VStack, View, ViewExt,
 };
 
 use crate::stored::{ReportWords, problem};
@@ -22,8 +24,9 @@ pub const ANALYTICS_DASHBOARD: &str = "AnalyticsDashboard";
 /// The entity of their tiles.
 pub const ANALYTICS_TILE: &str = "AnalyticsTile";
 const OPEN: &str = "OpenPanel";
-const TILE_COLUMNS: u16 = 6;
-const TILE_ROWS: u16 = 3;
+const TILE_COLUMNS: u16 = 4;
+const NUMBER_COLUMNS: u16 = 2;
+const TILE_ROWS: u16 = 2;
 const NUMBER_ROWS: u16 = 1;
 const CHART_HEIGHT: f32 = 240.0;
 
@@ -100,7 +103,7 @@ fn tile_content(session: &Session, tile: &Object) -> AnyView {
     let (kind, series) = (text(tile, "kind"), text(tile, "series"));
     if kind == "number" {
         return match summary_text(session, &entity, &objects, &series) {
-            Ok(value) => Box::new(Stat::new(entity.caption.clone(), value).large()),
+            Ok(value) => Box::new(Text::new(value).style(TextStyle::Metric)),
             Err(why) => problem(&title, why),
         };
     }
@@ -129,12 +132,13 @@ struct PanelView {
     session: Session,
     panel: Value,
     close: String,
+    title: String,
     spots: State<Vec<TileSpot>>,
     tiles: Rc<Vec<Object>>,
 }
 
 impl PanelView {
-    fn new(session: Session, panel: Value, close: String) -> Self {
+    fn new(session: Session, panel: Value, title: String, close: String) -> Self {
         let mut tiles: Vec<Object> = session
             .frame()
             .space()
@@ -151,11 +155,15 @@ impl PanelView {
         let spots = tiles
             .iter()
             .map(|tile| {
-                let rows = if text(tile, "kind") == "number" { NUMBER_ROWS } else { TILE_ROWS };
-                TileSpot::new(ravenrs_app::key_text(&tile.get("id")).unwrap_or_default(), TILE_COLUMNS, rows)
+                let (columns, rows) = if text(tile, "kind") == "number" {
+                    (NUMBER_COLUMNS, NUMBER_ROWS)
+                } else {
+                    (TILE_COLUMNS, TILE_ROWS)
+                };
+                TileSpot::new(ravenrs_app::key_text(&tile.get("id")).unwrap_or_default(), columns, rows)
             })
             .collect();
-        Self { session, panel, close, spots: State::new(spots), tiles: Rc::new(tiles) }
+        Self { session, panel, close, title, spots: State::new(spots), tiles: Rc::new(tiles) }
     }
 }
 
@@ -170,11 +178,16 @@ impl View for PanelView {
         }
         let closing = self.session.clone();
         let close = Button::new(self.close.clone())
-            .style(ButtonStyle::Ghost)
+            .style(ButtonStyle::Secondary)
             .size(ButtonSize::Small)
             .on_click(move || closing.close_full());
         let _ = &self.panel;
-        let content = VStack::new((close, tiles)).spacing(8.0).padding(12.0);
+        let top = HStack::new((
+            Text::new(self.title.clone()).style(TextStyle::Title).font_weight(Weight::SEMIBOLD).grow(1.0),
+            close,
+        ))
+        .align(Align::Center);
+        let content = VStack::new((top, tiles)).spacing(16.0).align(Align::Stretch).padding(16.0);
         cx.child(&ScrollView::new((content,)).grow(1.0))
     }
 }
@@ -199,7 +212,12 @@ impl ViewController for Panels {
                 .on_execute(move |cx| {
                     let session = Session::of(cx).ok_or("this action needs the screens")?;
                     let record = cx.selected.first().ok_or("this action needs a panel")?;
-                    let shown = PanelView::new(session.clone(), record.get("id"), close.clone());
+                    let shown = PanelView::new(
+                        session.clone(),
+                        record.get("id"),
+                        text(record, "name"),
+                        close.clone(),
+                    );
                     session.show_full(move || Box::new(shown.clone()) as AnyView);
                     Ok(())
                 }),

@@ -1,8 +1,8 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, CursorIcon, Insets, Key, Modifiers, Quad, Rect, Role};
-use ravenrs_layout::{Align, Axis, LayoutStyle};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Modifiers, Quad, Rect, Role};
+use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
 
@@ -31,6 +31,8 @@ pub struct TextField {
     secure: bool,
     width: Option<f32>,
     compact: bool,
+    flat: bool,
+    end_aligned: bool,
     autofocus: bool,
     on_submit: Option<Rc<dyn Fn(String)>>,
     on_leave: Option<Rc<dyn Fn()>>,
@@ -59,6 +61,8 @@ impl TextField {
             secure: false,
             width: None,
             compact: false,
+            flat: false,
+            end_aligned: false,
             autofocus: false,
             on_submit: None,
             on_leave: None,
@@ -97,6 +101,19 @@ impl TextField {
     /// A shorter field with smaller text, for toolbars, filter rows and cells.
     pub fn compact(mut self) -> Self {
         self.compact = true;
+        self
+    }
+
+    /// No box of its own until it is pointed at or focused, filling what it is in, for fields that
+    /// line up with what is around them, as under the columns of a grid.
+    pub fn flat(mut self) -> Self {
+        self.flat = true;
+        self
+    }
+
+    /// Puts the text at the end of the field, as under a column of numbers.
+    pub fn end_aligned(mut self) -> Self {
+        self.end_aligned = true;
         self
     }
 
@@ -439,24 +456,30 @@ impl View for TextField {
         };
         let accent = theme.color(Semantic::Accent);
         let line = attrs.line_height;
+        let end_aligned = self.end_aligned;
+        let text_width = boundaries.last().copied().unwrap_or(0.0);
+        // How far the text starts into an area of this width.
+        let inset = move |width: f32| if end_aligned { (width - text_width).max(0.0) } else { 0.0 };
         let text_area = cx.container(
             LayoutStyle {
                 grow: 1.0,
                 min_width: Some(0.0),
                 align: Align::Center,
+                justify: if end_aligned { Justify::End } else { Justify::Start },
                 overflow_hidden: true,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[content],
             Paint::Custom(Rc::new(move |f: Rect, scene| {
                 let y = f.center().y - line / 2.0 + 2.0;
+                let start = f.x() + inset(f.width());
                 if let Some((a, b)) = selection {
                     scene.push_quad(
-                        Quad::new(Rect::new(f.x() + a, y, b - a, line - 4.0), highlight).radius(2.0),
+                        Quad::new(Rect::new(start + a, y, b - a, line - 4.0), highlight).radius(2.0),
                     );
                 }
                 if focused && selection.is_none() && state.accepts_input() {
-                    let x = (f.x() + caret_x).min(f.max_x() - 1.5);
+                    let x = (start + caret_x).min(f.max_x() - 1.5);
                     scene.push_quad(Quad::new(Rect::new(x, y, 1.5, line - 4.0), accent).radius(0.75));
                 }
             })),
@@ -468,7 +491,7 @@ impl View for TextField {
             cx.on_drag(
                 text_area,
                 Rc::new(move |d| {
-                    let at = index_at(&b, d.position.x - d.frame.x());
+                    let at = index_at(&b, d.position.x - d.frame.x() - inset(d.frame.width()));
                     match d.phase {
                         DragPhase::Start => drag_cursor.update(|c| {
                             if mods.get().shift {
@@ -505,8 +528,9 @@ impl View for TextField {
             }
         };
         let style = LayoutStyle {
-            padding: Insets::symmetric(0.0, if self.compact { 8.0 } else { 12.0 }),
-            height: Some(if self.compact { 32.0 } else { 40.0 }),
+            padding: Insets::symmetric(0.0, if self.compact && !self.flat { 8.0 } else { 12.0 }),
+            height: if self.flat { None } else { Some(if self.compact { 32.0 } else { 40.0 }) },
+            grow: if self.flat { 1.0 } else { 0.0 },
             width: self.width,
             min_width: Some(if self.compact { 0.0 } else { 160.0 }),
             spacing: 8.0,
@@ -514,10 +538,23 @@ impl View for TextField {
             align_self: Some(if self.width.is_some() { Align::Start } else { Align::Stretch }),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
-        let paint = QuadPaint {
-            corner_radius: theme.radii.md,
-            border: Some(border),
-            ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
+        let paint = if self.flat {
+            let fill = if hovered && !focused {
+                theme.color(Semantic::Ink).with_alpha(0.05)
+            } else {
+                Color::TRANSPARENT
+            };
+            QuadPaint {
+                corner_radius: theme.radii.sm,
+                border: focused.then_some(border),
+                ..QuadPaint::new(fill)
+            }
+        } else {
+            QuadPaint {
+                corner_radius: theme.radii.md,
+                border: Some(border),
+                ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
+            }
         };
         let node = cx.container(style, &children, Paint::Quad(paint));
         crate::motion::control(cx, node);

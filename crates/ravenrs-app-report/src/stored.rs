@@ -413,14 +413,15 @@ impl View for ReportView {
                 let (session, picker, document) =
                     (session.clone(), picker.clone(), trailing_document.clone());
                 Box::new(
-                    Button::new(label.to_owned()).style(ButtonStyle::Ghost).size(ButtonSize::Small).on_click(
-                        move || match ravenrs_report_export::export(&document, format, None) {
+                    Button::new(label.to_owned())
+                        .style(ButtonStyle::Secondary)
+                        .size(ButtonSize::Small)
+                        .on_click(move || match ravenrs_report_export::export(&document, format, None) {
                             Ok(file) => session.hand_file(file.name, file.bytes, &picker),
                             Err(error) => {
                                 session.show_message(Message::new(error.to_string(), MessageKind::Error));
                             }
-                        },
-                    ),
+                        }),
                 )
             };
             let closing = closing.clone();

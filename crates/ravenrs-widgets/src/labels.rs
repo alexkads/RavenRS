@@ -120,6 +120,30 @@ pub struct Labels {
     pub theme_light: String,
     /// The glass theme.
     pub theme_glass: String,
+    /// A theme editor's group: backgrounds and borders.
+    pub theme_surfaces: String,
+    /// A theme editor's group: the colors of text.
+    pub theme_text: String,
+    /// A theme editor's group: the accent.
+    pub theme_accent: String,
+    /// A theme editor's group: colors that say how something went.
+    pub theme_status: String,
+    /// A theme editor's group: corners.
+    pub theme_shape: String,
+    /// A theme editor's group: the sizes of text.
+    pub theme_sizes: String,
+    /// Goes back to the theme as it came.
+    pub theme_restore: String,
+    /// Copies what changed in a theme.
+    pub theme_copy: String,
+    /// Takes tokens that were copied.
+    pub theme_paste: String,
+    /// What was pasted is not tokens of a theme.
+    pub theme_invalid: String,
+    /// How many tokens changed.
+    pub theme_changed: fn(usize) -> String,
+    /// A contrast, and the token it is measured over.
+    pub theme_contrast: fn(f32, &str) -> String,
     /// A code block's copy button.
     pub copy: String,
     /// A code block's copy button, right after copying.
@@ -481,6 +505,22 @@ impl Default for Labels {
             theme_dark: "Dark".into(),
             theme_light: "Light".into(),
             theme_glass: "Glass".into(),
+            theme_surfaces: "Surfaces".into(),
+            theme_text: "Text".into(),
+            theme_accent: "Accent".into(),
+            theme_status: "Status".into(),
+            theme_shape: "Corners".into(),
+            theme_sizes: "Text sizes".into(),
+            theme_restore: "Restore".into(),
+            theme_copy: "Copy tokens".into(),
+            theme_paste: "Paste tokens".into(),
+            theme_invalid: "The clipboard does not hold the tokens of a theme.".into(),
+            theme_changed: |count| match count {
+                0 => "No changes".into(),
+                1 => "1 token changed".into(),
+                _ => format!("{count} tokens changed"),
+            },
+            theme_contrast: |ratio, ground| format!("Contrast {ratio:.1}:1 on {ground}"),
             copy: "Copy".into(),
             copied: "Copied".into(),
             diagnostics: "Diagnostics".into(),
@@ -732,6 +772,22 @@ impl Labels {
             theme_dark: "Escuro".into(),
             theme_light: "Claro".into(),
             theme_glass: "Vidro".into(),
+            theme_surfaces: "Superfícies".into(),
+            theme_text: "Texto".into(),
+            theme_accent: "Destaque".into(),
+            theme_status: "Situação".into(),
+            theme_shape: "Cantos".into(),
+            theme_sizes: "Tamanhos de texto".into(),
+            theme_restore: "Restaurar".into(),
+            theme_copy: "Copiar tokens".into(),
+            theme_paste: "Colar tokens".into(),
+            theme_invalid: "A área de transferência não tem os tokens de um tema.".into(),
+            theme_changed: |count| match count {
+                0 => "Sem alterações".into(),
+                1 => "1 token alterado".into(),
+                _ => format!("{count} tokens alterados"),
+            },
+            theme_contrast: |ratio, ground| format!("Contraste {}:1 sobre {ground}", format!("{ratio:.1}").replace('.', ",")),
             copy: "Copiar".into(),
             copied: "Copiado".into(),
             diagnostics: "Diagnóstico".into(),
