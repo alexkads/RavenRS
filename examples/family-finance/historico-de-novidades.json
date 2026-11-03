@@ -1,5 +1,15 @@
 [
   {
+    "versao": "0.1.22",
+    "data": "2026-11-03",
+    "titulo": "Agora dá para recolher os submenus do menu lateral.",
+    "importante": false,
+    "novidades": [
+      "Em Contas a pagar, Relatórios e Cadastros, clique de novo na linha do menu para recolher o submenu, e mais uma vez para abrir."
+    ],
+    "por_que_atualizar": "Para deixar o menu lateral mais limpo quando quiser."
+  },
+  {
     "versao": "0.1.21",
     "data": "2026-11-03",
     "titulo": "O sistema agora avisa sobre as contas vencidas.",

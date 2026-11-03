@@ -1,11 +1,9 @@
 {
-  "versao": "0.1.21",
-  "titulo": "O sistema agora avisa sobre as contas vencidas.",
+  "versao": "0.1.22",
+  "titulo": "Agora dá para recolher os submenus do menu lateral.",
   "importante": false,
   "novidades": [
-    "O programa usa as notificações do sistema para avisar sobre contas vencidas, mesmo com a janela fechada na bandeja.",
-    "Em Ajustes, no cartão Avisos, você escolhe sobre quais contas ser avisado, a partir de que hora e se o aviso se repete todo dia.",
-    "O botão Testar aviso mostra como a notificação aparece. Com o programa encerrado, não há aviso."
+    "Em Contas a pagar, Relatórios e Cadastros, clique de novo na linha do menu para recolher o submenu, e mais uma vez para abrir."
   ],
-  "por_que_atualizar": "Para não perder o vencimento de uma conta."
+  "por_que_atualizar": "Para deixar o menu lateral mais limpo quando quiser."
 }
