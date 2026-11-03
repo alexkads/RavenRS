@@ -1,12 +1,10 @@
 {
-  "versao": "0.1.17",
-  "titulo": "Listas mais limpas: filtros alinhados às colunas e menu Agrupar.",
+  "versao": "0.1.18",
+  "titulo": "O programa agora abre com uma tela de abertura.",
   "importante": false,
   "novidades": [
-    "Em Lançamentos e Contas a pagar, a linha de filtros agora acompanha as colunas, com o texto no mesmo alinhamento de cada uma.",
-    "Para agrupar, use o menu Agrupar na barra da lista. O espaço para soltar a coluna não aparece mais o tempo todo.",
-    "Selecionar uma linha não muda mais a altura da barra da lista.",
-    "Os treinamentos foram regravados com as telas novas."
+    "Ao abrir o programa, a janela aparece logo, com o ícone, o nome e o que está sendo feito naquele momento.",
+    "Se os dados não puderem ser abertos, o aviso aparece na própria janela."
   ],
-  "por_que_atualizar": "Para ter listas mais fáceis de ler e filtrar."
+  "por_que_atualizar": "Para ver o que o programa está fazendo enquanto abre."
 }

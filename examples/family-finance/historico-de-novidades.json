@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.1.18",
+    "data": "2026-11-03",
+    "titulo": "O programa agora abre com uma tela de abertura.",
+    "importante": false,
+    "novidades": [
+      "Ao abrir o programa, a janela aparece logo, com o ícone, o nome e o que está sendo feito naquele momento.",
+      "Se os dados não puderem ser abertos, o aviso aparece na própria janela."
+    ],
+    "por_que_atualizar": "Para ver o que o programa está fazendo enquanto abre."
+  },
+  {
     "versao": "0.1.17",
     "data": "2026-11-03",
     "titulo": "Listas mais limpas: filtros alinhados às colunas e menu Agrupar.",
