@@ -15,6 +15,7 @@ categories = ["database"]
 
 [dependencies]
 ravenrs-app.workspace = true
+ravenrs-app-sql.workspace = true
 ravenrs-criteria.workspace = true
 rusqlite.workspace = true
 

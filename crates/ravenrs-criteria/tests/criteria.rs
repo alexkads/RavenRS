@@ -386,6 +386,10 @@ fn syntax_errors_say_what_and_where() {
     let deep = format!("{}1{}", "(".repeat(5000), ")".repeat(5000));
     assert!(err(&deep).message.contains("nested too deeply"));
     assert!(err(&"-".repeat(5000)).message.contains("nested too deeply"));
+    // A condition inside a field and the bounds of Between count too.
+    let inside = format!("{}1{}", format!("{}[a][", "(".repeat(127)).repeat(30), "]".repeat(30));
+    assert!(err(&inside).message.contains("nested too deeply"));
+    assert!(err(&"0 between(".repeat(409)).message.contains("nested too deeply"));
 }
 
 #[test]

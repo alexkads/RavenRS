@@ -187,12 +187,13 @@ struct Parser {
 
 /// Parses an expression.
 pub fn parse(source: &str) -> Result<Criteria, ParseError> {
-    parse_at(source, 0)
+    parse_at(source, 0, 0)
 }
 
-fn parse_at(source: &str, base: usize) -> Result<Criteria, ParseError> {
+/// `depth` is how deep it already is, so a condition inside a field does not start counting over.
+fn parse_at(source: &str, base: usize, depth: u32) -> Result<Criteria, ParseError> {
     let toks = lex(source, base)?;
-    let mut p = Parser { toks, i: 0, depth: 0 };
+    let mut p = Parser { toks, i: 0, depth };
     let node = p.or()?;
     match p.peek() {
         Tok::End => Ok(node),
@@ -260,6 +261,13 @@ impl Parser {
         } else {
             Err(self.err(format!("expected {}, found {}", describe(t), describe(self.peek()))))
         }
+    }
+
+    fn nested(&mut self, source: &str, at: usize) -> Result<Criteria, ParseError> {
+        self.enter()?;
+        let parsed = parse_at(source, at, self.depth);
+        self.depth -= 1;
+        parsed
     }
 
     fn enter(&mut self) -> Result<(), ParseError> {
@@ -364,9 +372,11 @@ impl Parser {
             } else if self.is_word("between") {
                 self.bump();
                 self.expect(&Tok::LParen)?;
+                self.enter()?;
                 let lo = self.or()?;
                 self.expect(&Tok::Comma)?;
                 let hi = self.or()?;
+                self.depth -= 1;
                 self.expect(&Tok::RParen)?;
                 left = wrap(Criteria::Between(Box::new(left), Box::new(lo), Box::new(hi)));
             } else if self.is_word("is") {
@@ -489,7 +499,7 @@ impl Parser {
         // `[Items][].Sum(...)` or `[Items][[Qty] > 0].Sum(...)`: an aggregate over a collection.
         if let Tok::Field(inner, inner_at) = self.peek().clone() {
             self.bump();
-            let condition = if inner.trim().is_empty() { None } else { Some(parse_at(&inner, inner_at)?) };
+            let condition = if inner.trim().is_empty() { None } else { Some(self.nested(&inner, inner_at)?) };
             self.expect(&Tok::Dot)?;
             let fat = self.offset();
             let Tok::Ident(f) = self.bump() else {

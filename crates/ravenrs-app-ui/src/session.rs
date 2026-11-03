@@ -124,6 +124,8 @@ pub struct Words {
     pub password_too_short: String,
     /// The current one is not right.
     pub password_wrong_current: String,
+    /// When the new password is the one they already have.
+    pub password_same: String,
     /// It was changed.
     pub password_saved: String,
     /// Keeps the new password.
@@ -218,6 +220,7 @@ impl Default for Words {
             passwords_differ: "The two passwords are not the same.".into(),
             password_too_short: "A password has at least 8 characters.".into(),
             password_wrong_current: "The current password is not right.".into(),
+            password_same: "The new password has to be another one.".into(),
             password_saved: "Password changed.".into(),
             save_password: "Save password".into(),
             change_password: "Change password".into(),
@@ -298,6 +301,7 @@ impl Words {
             passwords_differ: "As duas senhas não são iguais.".into(),
             password_too_short: "A senha precisa ter pelo menos 8 caracteres.".into(),
             password_wrong_current: "A senha atual não confere.".into(),
+            password_same: "A nova senha precisa ser diferente da atual.".into(),
             password_saved: "Senha alterada.".into(),
             save_password: "Salvar senha".into(),
             change_password: "Trocar senha".into(),

@@ -165,6 +165,31 @@ pub fn in_sqlite(file: &std::path::Path) -> Result<SecuredApp, String> {
     Ok(center(move || database.space()))
 }
 
+/// The center as a web API, in this file or else in memory, with the same roles, trail and people.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn api_service(file: Option<&std::path::Path>) -> Result<ravenrs_app_server::ApiService, String> {
+    let space: ravenrs_app::SpaceMaker = match file {
+        Some(file) => {
+            let database = sqlite_database(file)?;
+            std::rc::Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>)
+        }
+        None => {
+            let database = memory_database()?;
+            std::rc::Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>)
+        }
+    };
+    register_is_even();
+    let wrong = |error: ravenrs_app::SpaceError| error.to_string();
+    let service = ravenrs_app_server::ApiService::new(space.clone(), roles())
+        .map_err(wrong)?
+        .title("Raven Centro de Recursos")
+        .audit(audit());
+    let mut records = space();
+    seed::seed(&mut *records)?;
+    records.commit().map_err(wrong)?;
+    Ok(service)
+}
+
 /// A database in this file that knows it all.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn sqlite_database(file: &std::path::Path) -> Result<ravenrs_app_sqlite::SqliteDatabase, String> {

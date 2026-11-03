@@ -20,6 +20,8 @@ ravenrs-criteria.workspace = true
 ravenrs-report.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ravenrs-app-server.workspace = true
+tokio = { version = "1.54", default-features = false, features = ["net", "rt-multi-thread"] }
 ravenrs-app-sqlite.workspace = true
 rusqlite.workspace = true
 
@@ -31,6 +33,7 @@ web-sys = { workspace = true, features = ["console"] }
 
 [dev-dependencies]
 ravenrs-core.workspace = true
+serde_json.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets.workspace = true
 

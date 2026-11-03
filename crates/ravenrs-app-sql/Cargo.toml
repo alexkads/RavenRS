@@ -1,0 +1,21 @@
+[package]
+name = "ravenrs-app-sql"
+description = "What SQL databases have in common for RavenRS applications: records on tables, as an ObjectSpace, over a backend for each database."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-sql"
+keywords = ["sql", "database", "business", "orm"]
+categories = ["database"]
+
+[dependencies]
+ravenrs-app.workspace = true
+ravenrs-criteria.workspace = true
+
+[lints]
+workspace = true

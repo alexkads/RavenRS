@@ -35,6 +35,7 @@ fn message_of(words: &Words, error: &PasswordError) -> String {
     match error {
         PasswordError::TooShort => words.password_too_short.clone(),
         PasswordError::WrongCurrent => words.password_wrong_current.clone(),
+        PasswordError::SameAsCurrent => words.password_same.clone(),
         other => other.to_string(),
     }
 }

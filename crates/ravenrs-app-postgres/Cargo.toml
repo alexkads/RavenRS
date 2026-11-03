@@ -1,0 +1,28 @@
+[package]
+name = "ravenrs-app-postgres"
+description = "PostgreSQL for RavenRS applications: records on tables, as an ObjectSpace."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-postgres"
+keywords = ["postgres", "database", "business", "orm"]
+categories = ["database"]
+
+[dependencies]
+ravenrs-app.workspace = true
+ravenrs-app-sql.workspace = true
+ravenrs-criteria.workspace = true
+postgres = "0.19"
+bytes = "1"
+
+[dev-dependencies]
+ravenrs-app-server.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
