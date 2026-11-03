@@ -1,10 +1,12 @@
 {
-  "versao": "0.1.18",
-  "titulo": "O programa agora abre com uma tela de abertura.",
+  "versao": "0.1.19",
+  "titulo": "Ao fechar a janela, o programa continua na bandeja.",
   "importante": false,
   "novidades": [
-    "Ao abrir o programa, a janela aparece logo, com o ícone, o nome e o que está sendo feito naquele momento.",
-    "Se os dados não puderem ser abertos, o aviso aparece na própria janela."
+    "Ao fechar a janela, o programa continua aberto, com um ícone perto do relógio.",
+    "Clique no ícone para abrir a janela de novo, do jeito que estava, ou para sair do programa.",
+    "Abrir o programa de novo traz de volta a mesma janela, em vez de abrir outra cópia.",
+    "No Linux, sem um lugar para o ícone, como no GNOME sem a extensão AppIndicator, fechar a janela encerra o programa, como antes."
   ],
-  "por_que_atualizar": "Para ver o que o programa está fazendo enquanto abre."
+  "por_que_atualizar": "Para deixar o programa aberto sem ocupar a tela."
 }

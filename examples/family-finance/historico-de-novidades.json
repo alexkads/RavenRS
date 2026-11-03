@@ -1,5 +1,18 @@
 [
   {
+    "versao": "0.1.19",
+    "data": "2026-11-03",
+    "titulo": "Ao fechar a janela, o programa continua na bandeja.",
+    "importante": false,
+    "novidades": [
+      "Ao fechar a janela, o programa continua aberto, com um ícone perto do relógio.",
+      "Clique no ícone para abrir a janela de novo, do jeito que estava, ou para sair do programa.",
+      "Abrir o programa de novo traz de volta a mesma janela, em vez de abrir outra cópia.",
+      "No Linux, sem um lugar para o ícone, como no GNOME sem a extensão AppIndicator, fechar a janela encerra o programa, como antes."
+    ],
+    "por_que_atualizar": "Para deixar o programa aberto sem ocupar a tela."
+  },
+  {
     "versao": "0.1.18",
     "data": "2026-11-03",
     "titulo": "O programa agora abre com uma tela de abertura.",
