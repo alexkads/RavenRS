@@ -1,5 +1,17 @@
 [
   {
+    "versao": "0.1.20",
+    "data": "2026-11-03",
+    "titulo": "A janela volta da bandeja na hora, e relatar um problema ficou mais fácil.",
+    "importante": false,
+    "novidades": [
+      "Ao abrir pela bandeja, a janela volta na hora, sem tela preta.",
+      "Em Relatar problema, você pode arrastar uma caixa em volta do que está errado e dizer se é um erro, algo confuso ou uma sugestão.",
+      "O relato mostra tudo o que vai junto antes de ser enviado, como o que está sob a caixa e os últimos erros do programa."
+    ],
+    "por_que_atualizar": "Para voltar da bandeja sem espera e mostrar com mais clareza o que deu errado."
+  },
+  {
     "versao": "0.1.19",
     "data": "2026-11-03",
     "titulo": "Ao fechar a janela, o programa continua na bandeja.",
