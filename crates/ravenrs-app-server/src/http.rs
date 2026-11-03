@@ -129,7 +129,7 @@ async fn handle(State(worker): State<Worker>, request: Request<Body>) -> Respons
         if preflight {
             headers.insert(
                 header::ACCESS_CONTROL_ALLOW_METHODS,
-                HeaderValue::from_static("GET, POST, PATCH, DELETE"),
+                HeaderValue::from_static("GET, POST, PUT, PATCH, DELETE"),
             );
             headers.insert(
                 header::ACCESS_CONTROL_ALLOW_HEADERS,

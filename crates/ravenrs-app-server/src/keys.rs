@@ -4,7 +4,8 @@
 use std::rc::Rc;
 
 use ravenrs_app::{
-    AuditTrail, Identity, Object, Permissions, Query, SECURITY_API_KEY, SecurityContext, Value, local_now,
+    AuditTrail, Identity, Object, Permissions, Query, RoleMerge, SECURITY_API_KEY, SecurityContext, Value,
+    local_now,
 };
 use serde_json::{Map, Value as Json, json};
 use sha2::{Digest, Sha256};
@@ -67,11 +68,16 @@ impl ApiService {
         if !same(&hash, &hash_of(secret)) || key.get("active") != Value::Bool(true) {
             return Err(Failure::unauthorized());
         }
-        if let Value::Date(expires) = key.get("expires") {
-            let now = local_now();
-            if (expires.days, expires.seconds) <= (now.days, now.seconds) {
-                return Err(Failure::unauthorized());
+        match key.get("expires") {
+            Value::Null => {}
+            Value::Date(expires) => {
+                let now = local_now();
+                if (expires.days, expires.seconds) <= (now.days, now.seconds) {
+                    return Err(Failure::unauthorized());
+                }
             }
+            // A date nobody can read is not a key that lasts forever.
+            _ => return Err(Failure::unauthorized()),
         }
         // Who the user is now: losing a role or being turned off counts at once for their keys.
         let owner = self
@@ -79,7 +85,7 @@ impl ApiService {
             .identity_by_key(&key.get("user_id"))
             .map_err(stored)?
             .ok_or_else(Failure::unauthorized)?;
-        let identity = narrowed(owner, &key);
+        let identity = narrowed(owner, &key, self.merge);
         let name = format!("{} ({})", identity.name, text_of(&key, "name"));
         let mut context =
             SecurityContext::new(identity, self.directory.clone(), self.entities.clone(), self.merge);
@@ -115,7 +121,7 @@ impl ApiService {
                 .ok_or_else(|| Failure::bad_request("There is no such active user."))?,
             None => who.0.identity(),
         };
-        let roles = roles_asked(&body, &owner)?;
+        let roles = roles_asked(&body, &owner, self.merge)?;
         let mut space = (self.space)();
         let mut key = space.new_object(SECURITY_API_KEY).map_err(stored)?;
         let id = uuid::Uuid::new_v4().simple().to_string();
@@ -193,23 +199,31 @@ fn text_of(key: &Object, field: &str) -> String {
     }
 }
 
-/// The roles of the user that the key may use: all of them, if it names none.
-fn narrowed(mut owner: Identity, key: &Object) -> Identity {
+/// The roles of the user that the key may use: all of them, if it names none. When every role has
+/// to allow something, leaving one out would take away what it denies, so a key keeps them all.
+fn narrowed(mut owner: Identity, key: &Object, merge: RoleMerge) -> Identity {
     let wanted = text_of(key, "roles");
-    let named: Vec<&str> = wanted.split(',').map(str::trim).filter(|name| !name.is_empty()).collect();
-    if !named.is_empty() {
-        owner.roles.retain(|role| named.contains(&role.name()));
+    if wanted.is_empty() || merge != RoleMerge::default() {
+        return owner;
     }
+    let named: Vec<&str> = wanted.split(',').map(str::trim).filter(|name| !name.is_empty()).collect();
+    owner.roles.retain(|role| named.contains(&role.name()));
     owner
 }
 
-fn roles_asked(body: &Map<String, Json>, owner: &Identity) -> Result<String, Failure> {
+fn roles_asked(body: &Map<String, Json>, owner: &Identity, merge: RoleMerge) -> Result<String, Failure> {
     let Some(asked) = body.get("roles") else { return Ok(String::new()) };
+    if merge != RoleMerge::default() {
+        return Err(Failure::bad_request(
+            "Here every role has to allow something, so a key cannot leave any of them out.",
+        ));
+    }
     let names = asked.as_array().ok_or_else(|| Failure::bad_request("roles is a list of names."))?;
     let mut kept = Vec::with_capacity(names.len());
     for name in names {
         let name = name.as_str().ok_or_else(|| Failure::bad_request("roles is a list of names."))?;
-        if !owner.roles.iter().any(|role| role.name() == name) {
+        // They are kept separated by commas, so one with a comma would read as others.
+        if name.contains(',') || !owner.roles.iter().any(|role| role.name() == name) {
             return Err(Failure::bad_request(format!("The user does not have the role {name}.")));
         }
         kept.push(name);

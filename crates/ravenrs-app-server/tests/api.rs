@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use ravenrs_app::{
     Access, AuditMode, AuditSettings, EntityInfo, EnumOption, FieldInfo, FieldKind, MemoryDatabase,
-    ObjectSpace, Operation, PermissionPolicy, Query, Role, Rule, SECURITY_API_KEY, SECURITY_ROLE,
+    ObjectSpace, Operation, PermissionPolicy, Query, Role, RoleMerge, Rule, SECURITY_API_KEY, SECURITY_ROLE,
     SECURITY_USER, SECURITY_USER_ROLE, SpaceMaker, StateMachine, UserDirectory, Value, audit_entity,
     hash_password, security_entities,
 };
@@ -198,12 +198,8 @@ fn a_token_stops_when_it_is_revoked_when_it_expires_and_a_user_turned_off_loses_
     bia.set("active", false);
     space.save(bia).unwrap();
     space.commit().unwrap();
-    let list = api.send(ApiRequest::new("GET", "/api/data/Order").bearer(&token));
-    assert_ne!(list.status, 500);
-    assert!(list.body.get("items").is_none_or(|items| items.as_array().unwrap().is_empty()), "{list:?}");
-    let write =
-        api.send(ApiRequest::new("POST", "/api/data/Order").bearer(&token).json(&json!({ "name": "x" })));
-    assert_eq!(write.status, 403);
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/data/Order").bearer(&token)).status, 401);
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/me").bearer(&token)).status, 401, "the session is over");
 }
 
 #[test]
@@ -977,4 +973,90 @@ fn settings_are_reached_only_as_declared_and_each_person_has_their_own() {
             .status,
         404
     );
+}
+
+#[test]
+fn when_every_role_has_to_allow_a_key_cannot_leave_one_out() {
+    let database = database();
+    let roles = vec![
+        Role::new("Administradores").administrative(),
+        Role::new("Sales").policy(PermissionPolicy::AllowAll),
+        Role::new("Reader").policy(PermissionPolicy::ReadOnlyAll),
+    ];
+    let service = ApiService::new(maker(&database), roles).unwrap().role_merge(RoleMerge::AllRoles);
+    let mut api = Api { service, database };
+    let ana = api.token("ana");
+    let body = json!({ "name": "Estreita", "roles": ["Administradores"] });
+    assert_eq!(api.send(ApiRequest::new("POST", "/api/auth/keys").bearer(&ana).json(&body)).status, 400);
+
+    // One that says so all the same keeps every role of its user.
+    let made = api.send(
+        ApiRequest::new("POST", "/api/auth/keys").bearer(&ana).json(&json!({ "name": "x", "user": "bia" })),
+    );
+    let (key, id) = (key_of(&made), made.body["id"].as_str().unwrap().to_owned());
+    let mut space = api.database.space();
+    let mut stored = space.find(SECURITY_API_KEY, &Value::Text(id)).unwrap().unwrap();
+    stored.set("roles", "Outro");
+    space.save(stored).unwrap();
+    space.commit().unwrap();
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/me").bearer(&key)).body["roles"], json!(["Sales"]));
+}
+
+#[test]
+fn a_key_with_a_comma_or_a_date_nobody_can_read_gets_nothing() {
+    let mut api = Api::new();
+    let ana = api.token("ana");
+    for roles in [json!(["Sales,Administradores"]), json!([","]), json!([])] {
+        let body = json!({ "name": "x", "user": "bia", "roles": roles });
+        assert_eq!(
+            api.send(ApiRequest::new("POST", "/api/auth/keys").bearer(&ana).json(&body)).status,
+            400,
+            "{roles}"
+        );
+    }
+    let made = api.send(
+        ApiRequest::new("POST", "/api/auth/keys").bearer(&ana).json(&json!({ "name": "x", "user": "bia" })),
+    );
+    let (key, id) = (key_of(&made), made.body["id"].as_str().unwrap().to_owned());
+    let mut space = api.database.space();
+    let mut stored = space.find(SECURITY_API_KEY, &Value::Text(id)).unwrap().unwrap();
+    stored.set("expires", "amanhã");
+    space.save(stored).unwrap();
+    space.commit().unwrap();
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/me").bearer(&key)).status, 401);
+}
+
+#[test]
+fn someone_turned_off_loses_settings_too_and_a_key_has_no_preferences() {
+    let mut entities = vec![order(), item(), audit_entity(), ravenrs_app::settings_entity()];
+    entities.extend(security_entities());
+    let database = MemoryDatabase::new(entities).unwrap();
+    UserDirectory::new(maker(&database), roles()).unwrap();
+    let mut space = database.space();
+    user(&mut space, "ana", "Administradores", false);
+    user(&mut space, "bia", "Sales", false);
+    space.commit().unwrap();
+    let service = ApiService::new(maker(&database), roles())
+        .unwrap()
+        .setting("theme", SettingAccess::PerPerson)
+        .setting("banner", SettingAccess::Shared);
+    let mut api = Api { service, database };
+    let (ana, bia) = (api.token("ana"), api.token("bia"));
+
+    let made = api.send(
+        ApiRequest::new("POST", "/api/auth/keys").bearer(&ana).json(&json!({ "name": "x", "user": "bia" })),
+    );
+    let key = key_of(&made);
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/settings/theme").bearer(&key)).status, 403);
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/settings/banner").bearer(&key)).status, 200);
+
+    let mut space = api.database.space();
+    let users = space.query(SECURITY_USER, &Query::all()).unwrap();
+    let mut off = users.into_iter().find(|one| one.get("name") == Value::Text("bia".into())).unwrap();
+    off.set("active", false);
+    space.save(off).unwrap();
+    space.commit().unwrap();
+    for path in ["/api/settings/banner", "/api/settings/theme", "/api/me"] {
+        assert_eq!(api.send(ApiRequest::new("GET", path).bearer(&bia)).status, 401, "{path}");
+    }
 }

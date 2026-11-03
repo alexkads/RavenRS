@@ -253,6 +253,15 @@ impl RemoteDatabase {
         *self.0.denied.borrow_mut() = message.into();
     }
 
+    /// Lets go of everything it holds, for when the person leaves. What it told about is told no more.
+    pub fn forget(&self) {
+        self.0.on_changed.borrow_mut().clear();
+        self.0.on_problem.borrow_mut().clear();
+        for entity in &self.0.entities {
+            self.0.copy.replace_records(&entity.name, Vec::new());
+        }
+    }
+
     /// Runs this whenever the copy changed from the server's side.
     pub fn on_changed(&self, run: impl Fn() + 'static) {
         self.0.on_changed.borrow_mut().push(Rc::new(run));

@@ -41,6 +41,7 @@ pub(crate) fn is_security_entity(name: &str) -> bool {
         SECURITY_NAVIGATION_PERMISSION,
         SECURITY_ACTION_PERMISSION,
         SECURITY_API_KEY,
+        crate::APP_SETTING,
     ]
     .contains(&name)
 }

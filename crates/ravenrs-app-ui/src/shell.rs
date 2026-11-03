@@ -169,7 +169,11 @@ impl AppShell {
         if kept.is_none() {
             let stored = store.get(&scope, THEME_SETTING).ok().flatten();
             // What is kept comes from outside the program, and what makes no sense is left out.
-            if let Some(theme) = stored.as_deref().and_then(|text| Theme::from_tokens_json(text).ok()) {
+            if let Some(theme) = stored
+                .as_deref()
+                .and_then(|text| Theme::from_tokens_json(text).ok())
+                .filter(Theme::is_readable)
+            {
                 state.set(theme);
                 *kept = stored;
                 return;

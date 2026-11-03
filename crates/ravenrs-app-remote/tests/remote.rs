@@ -459,3 +459,52 @@ fn the_theme_someone_chose_comes_back_from_the_server() {
     again.settle();
     assert_eq!(again.0.theme().name, Theme::raven_light().name);
 }
+
+#[test]
+fn whoever_comes_next_finds_the_door_as_it_was_and_nothing_of_the_one_before() {
+    let (service, _) = server();
+    let client = RemoteClient::new("http://server", AtOnce(Rc::new(RefCell::new(service))));
+    let mut window = window(client);
+    window.type_into("Nome", "bia");
+    window.type_into("Senha", PASSWORD);
+    window.press("Entrar");
+    assert!(window.says("Da bia"));
+    window.0.theme_state().set(Theme::raven_light());
+    window.settle();
+    window.press("Sair");
+    window.settle();
+    assert_eq!(window.0.theme().name, Theme::raven_dark().name, "the door has its own theme");
+    assert!(!window.says("bia"), "not even the name stays");
+}
+
+#[test]
+fn forgetting_lets_go_of_the_records_and_of_who_was_told() {
+    let (client, _) = desktop();
+    let database = signed_in(&client, "bia");
+    let told = Rc::new(RefCell::new(0));
+    let keep = told.clone();
+    database.on_changed(move || *keep.borrow_mut() += 1);
+    database.forget();
+    assert!(database.space().query("Order", &Query::all()).unwrap().is_empty());
+    assert_eq!(Rc::strong_count(&told), 1, "what it held on to is gone");
+}
+
+#[test]
+fn a_blank_theme_kept_on_the_server_does_not_blank_the_window() {
+    let (service, _) = server();
+    let service = Rc::new(RefCell::new(service));
+    let client = RemoteClient::new("http://server", AtOnce(service.clone()));
+    let mut window = window(client.clone());
+    window.type_into("Nome", "bia");
+    window.type_into("Senha", PASSWORD);
+    window.press("Entrar");
+    window.settle();
+    window.0.theme_state().update(|theme| theme.palette.ink = ravenrs_core::Color::hex_alpha(0));
+    window.settle();
+    let mut again = self::window(RemoteClient::new("http://server", AtOnce(service)));
+    again.type_into("Nome", "bia");
+    again.type_into("Senha", PASSWORD);
+    again.press("Entrar");
+    again.settle();
+    assert_ne!(again.0.theme().palette.ink.a, 0.0, "it opens readable, whatever was left");
+}

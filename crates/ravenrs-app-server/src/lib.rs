@@ -562,9 +562,16 @@ impl ApiService {
             self.sessions.remove(token);
             return Err(Failure::unauthorized());
         }
-        // Who they are is read each time, so a role lost or a user turned off counts now.
-        session.context.reload().map_err(Failure::from)?;
-        Ok((session.context.clone(), session.trail.clone()))
+        // Who they are is read each time, so a role lost or a user turned off counts now. Someone
+        // who cannot sign in any more has no session either, whatever a route goes on to check.
+        let (context, trail) = (session.context.clone(), session.trail.clone());
+        let key = context.identity().key;
+        if self.directory.identity_by_key(&key).map_err(Failure::from)?.is_none() {
+            self.sessions.remove(token);
+            return Err(Failure::unauthorized());
+        }
+        context.reload().map_err(Failure::from)?;
+        Ok((context, trail))
     }
 
     fn change_password(
@@ -589,7 +596,7 @@ impl ApiService {
                 Failure::new(500, "internal", "Something went wrong on the server.")
             }
         })?;
-        // The new password ends every other way in that the old one opened.
+        // The new password ends the other sessions the old one opened. Keys are made apart, and stay.
         let key = session.0.identity().key;
         let kept = request.bearer.clone().unwrap_or_default();
         self.sessions.retain(|token, other| *token == kept || other.context.identity().key != key);
@@ -644,6 +651,12 @@ impl ApiService {
         let (Some(access), Some(store)) = (self.declared.get(name), &self.settings) else {
             return Err(Failure::not_found());
         };
+        // A key stands for a system, and has no preferences of a person to reach. One with no role
+        // left reaches nothing.
+        let by_key = request.bearer.as_deref().is_some_and(keys::is_key);
+        if session.0.identity().roles.is_empty() || (by_key && *access == SettingAccess::PerPerson) {
+            return Err(Failure::denied());
+        }
         let scope = match access {
             SettingAccess::PerPerson => {
                 let key = session.0.identity().key;

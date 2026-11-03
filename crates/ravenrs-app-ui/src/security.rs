@@ -357,6 +357,7 @@ impl SecuredApp {
             repeated: State::new(String::new()),
             error: State::new(None),
             entered: RefCell::new(0),
+            door_theme: std::cell::Cell::new(None),
         }));
         Ok(Box::new(Localized::new(gate.0.labels.clone(), gate)))
     }
@@ -379,6 +380,7 @@ enum Stage {
 }
 
 struct GateInner {
+    door_theme: std::cell::Cell<Option<ravenrs_style::Theme>>,
     title: String,
     words: Words,
     language: Language,
@@ -595,6 +597,13 @@ impl Gate {
 
 impl View for Gate {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        // The theme at the door is for whoever comes next, and not what the last person chose.
+        let inside = matches!(self.0.stage.get(), Stage::Inside(..));
+        match self.0.door_theme.get() {
+            None => self.0.door_theme.set(Some(*cx.theme())),
+            Some(door) if !inside && *cx.theme() != door => cx.theme_state().set(door),
+            Some(_) => {}
+        }
         let form = match self.0.stage.get() {
             Stage::Inside(view, entered) => return cx.child(&Keyed::new(entered, SharedView(view))),
             Stage::FirstUser => self.first_user_form(),

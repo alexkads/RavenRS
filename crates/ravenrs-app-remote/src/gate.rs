@@ -1,5 +1,6 @@
 //! The way into an application whose records are on a server.
 
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use ravenrs_app::{EntityInfo, Message, MessageKind, ModelError};
@@ -7,7 +8,7 @@ use ravenrs_app_i18n::Texts;
 use ravenrs_app_ui::{App, Language, Session, Words};
 use ravenrs_layout::{Align, Justify};
 use ravenrs_reactive::{Binding, State};
-use ravenrs_style::{Semantic, TextStyle};
+use ravenrs_style::{Semantic, TextStyle, Theme};
 use ravenrs_widgets::{
     Alert, AnyView, BuildCx, Button, Card, FormField, HStack, Labels, Localized, NodeId, Spinner, Text, TextField,
     Tone, VStack, View, ViewExt,
@@ -37,6 +38,12 @@ struct Inner {
     password: State<String>,
     new_password: State<String>,
     error: State<Option<String>>,
+    /// Asking the server who this is, so pressing again does not ask twice.
+    asking: Cell<bool>,
+    /// The theme at the door, for the next person: the one before may have chosen another.
+    door_theme: Cell<Option<Theme>>,
+    /// The records of whoever is inside.
+    inside: RefCell<Option<RemoteDatabase>>,
 }
 
 /// An application whose records are on a server: it asks who is there, reads what they can see, and
@@ -71,23 +78,32 @@ impl RemoteApp {
             password: State::new(String::new()),
             new_password: State::new(String::new()),
             error: State::new(None),
+            asking: Cell::new(false),
+            door_theme: Cell::new(None),
+            inside: RefCell::new(None),
         }));
         Ok(Localized::new(Labels::from_texts(&texts), mine))
     }
 
     fn sign_in(&self) {
         let inner = &self.0;
+        if inner.asking.replace(true) {
+            return;
+        }
         let (name, password) = (inner.name.peek().clone(), inner.password.peek().clone());
         let mine = self.clone();
-        inner.client.sign_in(&name, &password, move |result| match result {
-            Ok(signed) if signed.must_change_password => {
-                mine.0.error.set(None);
-                mine.0.password.set(String::new());
-                mine.0.stage.set(Stage::NewPassword);
+        inner.client.sign_in(&name, &password, move |result| {
+            mine.0.asking.set(false);
+            match result {
+                Ok(signed) if signed.must_change_password => {
+                    mine.0.error.set(None);
+                    mine.0.password.set(String::new());
+                    mine.0.stage.set(Stage::NewPassword);
+                }
+                Ok(_) => mine.open(),
+                Err(SignInError::Rejected) => mine.0.error.set(Some(mine.0.words.sign_in_failed.clone())),
+                Err(SignInError::Other(why)) => mine.0.error.set(Some(why)),
             }
-            Ok(_) => mine.open(),
-            Err(SignInError::Rejected) => mine.0.error.set(Some(mine.0.words.sign_in_failed.clone())),
-            Err(SignInError::Other(why)) => mine.0.error.set(Some(why)),
         });
     }
 
@@ -129,12 +145,17 @@ impl RemoteApp {
     }
 
     fn enter(&self, loaded: &RemoteDatabase, settings: RemoteSettings) {
+        *self.0.inside.borrow_mut() = Some(loaded.clone());
         let (client, back) = (self.0.client.clone(), self.clone());
         let watching = loaded.clone();
         let app = (self.0.make)(loaded).settings(settings).signed_in_remotely(
             self.0.name.peek().clone(),
             move || {
                 client.sign_out();
+                if let Some(records) = back.0.inside.borrow_mut().take() {
+                    records.forget();
+                }
+                back.0.name.set(String::new());
                 back.0.stage.set(Stage::SignIn);
             },
         );
@@ -167,6 +188,14 @@ fn binding(state: &State<String>) -> Binding<String> {
 impl View for RemoteApp {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let inner = &self.0;
+        let at_door = matches!(inner.stage.get(), Stage::SignIn);
+        match inner.door_theme.get() {
+            None => inner.door_theme.set(Some(*cx.theme())),
+            Some(door) if at_door && *cx.theme() != door => {
+                cx.theme_state().set(door);
+            }
+            Some(_) => {}
+        }
         let words = &inner.words;
         let title = || Text::new(inner.title.clone()).style(TextStyle::Title);
         let error = inner.error.get().map(|why| Alert::message(why).tone(Tone::Danger));
