@@ -1,10 +1,12 @@
 {
-  "versao": "0.1.16",
-  "titulo": "Zoom com gesto de pinça nos relatórios, e valores dos gráficos que deslizam.",
+  "versao": "0.1.17",
+  "titulo": "Listas mais limpas: filtros alinhados às colunas e menu Agrupar.",
   "importante": false,
   "novidades": [
-    "Nos relatórios, o gesto de pinça no touchpad agora também faz zoom no Linux com Wayland, e responde a movimentos pequenos em qualquer sistema.",
-    "Nos gráficos, o quadro com os valores desliza até a posição nova e acompanha o ponteiro."
+    "Em Lançamentos e Contas a pagar, a linha de filtros agora acompanha as colunas, com o texto no mesmo alinhamento de cada uma.",
+    "Para agrupar, use o menu Agrupar na barra da lista. O espaço para soltar a coluna não aparece mais o tempo todo.",
+    "Selecionar uma linha não muda mais a altura da barra da lista.",
+    "Os treinamentos foram regravados com as telas novas."
   ],
-  "por_que_atualizar": "Para dar zoom nos relatórios com o touchpad e acompanhar os valores dos gráficos com mais conforto."
+  "por_que_atualizar": "Para ter listas mais fáceis de ler e filtrar."
 }

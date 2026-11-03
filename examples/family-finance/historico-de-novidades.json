@@ -1,5 +1,18 @@
 [
   {
+    "versao": "0.1.17",
+    "data": "2026-11-03",
+    "titulo": "Listas mais limpas: filtros alinhados às colunas e menu Agrupar.",
+    "importante": false,
+    "novidades": [
+      "Em Lançamentos e Contas a pagar, a linha de filtros agora acompanha as colunas, com o texto no mesmo alinhamento de cada uma.",
+      "Para agrupar, use o menu Agrupar na barra da lista. O espaço para soltar a coluna não aparece mais o tempo todo.",
+      "Selecionar uma linha não muda mais a altura da barra da lista.",
+      "Os treinamentos foram regravados com as telas novas."
+    ],
+    "por_que_atualizar": "Para ter listas mais fáceis de ler e filtrar."
+  },
+  {
     "versao": "0.1.16",
     "data": "2026-11-02",
     "titulo": "Zoom com gesto de pinça nos relatórios, e valores dos gráficos que deslizam.",
