@@ -1,10 +1,10 @@
 //! The property grid: edits the selected control, band or the report.
 
-use ravenrs::prelude::*;
-use ravenrs::style::SPACING;
+use crate::prelude::*;
 use ravenrs_report::barcode::Symbology;
 use ravenrs_report::chart::ChartKind;
 use ravenrs_report::{ChartSeries, ControlKind, PageSettings, PictureMode, Style, TextAlign};
+use ravenrs_style::SPACING;
 
 use crate::bands::BandRef;
 use crate::editor::{Editor, Selection};

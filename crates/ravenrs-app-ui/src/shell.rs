@@ -237,6 +237,10 @@ impl AppShell {
     }
 
     fn header(&self, view: Option<&ViewInfo>) -> AnyView {
+        // What is showing in place of the view has its own commands.
+        if self.session.full().is_some() {
+            return Box::new(VStack::new(Vec::<AnyView>::new()));
+        }
         Box::new(
             VStack::new((Breadcrumb::new(self.trail(view)), ActionContainer::new(self.session.clone(), [])))
                 .spacing(8.0)
@@ -248,6 +252,9 @@ impl AppShell {
     fn content(&self, view: Option<&ViewInfo>) -> AnyView {
         let session = &self.session;
         let body: AnyView = match view {
+            _ if session.full().is_some() => session
+                .full()
+                .map_or_else(|| Box::new(Text::new(session.title())) as AnyView, |content| content()),
             Some(view) if view.kind == ViewKind::List => Box::new(Keyed::new(
                 hash_of(&view.id),
                 ListView::new(session.clone(), session.frame(), view.clone())

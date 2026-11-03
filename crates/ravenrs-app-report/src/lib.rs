@@ -21,6 +21,12 @@
 
 use std::rc::Rc;
 
+mod analytics;
+mod stored;
+
+pub use analytics::{ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, analytics_entities};
+pub use stored::{PT_BR, REPORT_DEFINITION, ReportWords, StoredReportsModule, report_entity};
+
 use ravenrs_app::{Action, ActionCategory, Module, TargetScope, ViewController, ViewKind};
 use ravenrs_app_ui::Session;
 use ravenrs_grid_export::document_of;

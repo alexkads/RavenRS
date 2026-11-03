@@ -72,14 +72,15 @@ ravenrs-app-derive     ──► ravenrs-criteria  (the derives, re-exported by 
 ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
 ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)
 ravenrs-app-library    ──► ravenrs-app  (ready-made records)
-ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-viewer  (a list as a report)
+ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-designer  (reports and panels)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
         ▲
         ├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)
         │
-examples/report-designer  ──► ravenrs (the UI)
+ravenrs-report-designer ──► ravenrs-report-viewer, ravenrs-report-export, ravenrs-widgets  (the designer)
+examples/report-designer  ──► ravenrs, ravenrs-report-designer
 ```
 
 `ravenrs-criteria` (the expression language) depends on nothing else in RavenRS, so any module can use it for filters, rules and validation. `ravenrs-report` (the report engine) depends only on `ravenrs-core`, `ravenrs-text` and `ravenrs-criteria`, so it also runs on servers. `ravenrs-widgets` uses `ravenrs-criteria` without its JSON feature, for `DataGrid` filter expressions and number layout. The `ravenrs` facade re-exports neither of them; apps depend on them directly. See [§6.3](#63-criteria-language), [§6.4](#64-reporting) and [docs/REPORTING.md](docs/REPORTING.md).
@@ -106,7 +107,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-app-derive` | `lib` |
 | `ravenrs-app-sqlite` | `lib` |
 | `ravenrs-app-library` | `lib` |
-| `ravenrs-app-report` | `lib` |
+| `ravenrs-app-report` | `lib`, `stored`, `analytics` |
+| `ravenrs-report-designer` | `lib`, `editor`, `bands`, `surface`, `props`, `preview` |
 | `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values`, `security`, `model_editor`, `list_editors` |
 | `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files`, `security` (`space`, `directory`, `password`, `records`, `audit`) |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |

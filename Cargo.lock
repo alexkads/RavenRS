@@ -3904,6 +3904,7 @@ dependencies = [
  "console_error_panic_hook",
  "ravenrs",
  "ravenrs-app",
+ "ravenrs-app-report",
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-criteria",
@@ -4120,10 +4121,17 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-ui",
  "ravenrs-core",
+ "ravenrs-criteria",
  "ravenrs-grid-export",
+ "ravenrs-layout",
+ "ravenrs-reactive",
+ "ravenrs-report",
+ "ravenrs-report-designer",
+ "ravenrs-report-export",
  "ravenrs-report-viewer",
  "ravenrs-style",
  "ravenrs-widgets",
+ "serde_json",
 ]
 
 [[package]]
@@ -4290,6 +4298,26 @@ dependencies = [
  "ravenrs-text",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "ravenrs-report-designer"
+version = "27.1.8"
+dependencies = [
+ "js-sys",
+ "ravenrs-core",
+ "ravenrs-layout",
+ "ravenrs-platform-native",
+ "ravenrs-reactive",
+ "ravenrs-report",
+ "ravenrs-report-export",
+ "ravenrs-report-viewer",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "serde_json",
+ "tracing",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -4583,10 +4611,7 @@ dependencies = [
  "console_error_panic_hook",
  "js-sys",
  "ravenrs",
- "ravenrs-report",
- "ravenrs-report-export",
- "ravenrs-report-viewer",
- "serde_json",
+ "ravenrs-report-designer",
  "tracing",
  "tracing-subscriber",
  "wasm-bindgen",

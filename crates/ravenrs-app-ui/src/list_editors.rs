@@ -59,6 +59,8 @@ struct Data {
     objects: Rc<Vec<Object>>,
     on_open: crate::OpenHandler,
     on_select: Rc<dyn Fn(Vec<Object>)>,
+    /// Settings given directly, in place of those in the model.
+    given: BTreeMap<String, String>,
 }
 
 /// A view that says what is missing instead of showing something wrong.
@@ -78,6 +80,7 @@ impl Shown {
                 objects: request.objects.clone(),
                 on_open: request.on_open.clone(),
                 on_select: request.on_select.clone(),
+                given: BTreeMap::new(),
             },
             build,
         }
@@ -98,6 +101,9 @@ impl View for Shown {
 
 impl Data {
     fn setting(&self, node: &str, name: &str) -> Option<String> {
+        if let Some(given) = self.given.get(name) {
+            return Some(given.clone());
+        }
         let model = self.session.model();
         model.at(&["Views", &self.view, node]).and_then(|settings| settings.text(name)).map(str::to_owned)
     }
@@ -266,6 +272,11 @@ fn date_group(value: &Value, interval: &str) -> Option<String> {
 }
 
 fn chart(data: &Data, cx: &mut BuildCx<'_>) -> Result<NodeId, String> {
+    let view = chart_of(data, CHART_HEIGHT)?;
+    Ok(cx.child(&view))
+}
+
+fn chart_of(data: &Data, height: f32) -> Result<Chart, String> {
     const NODE: &str = "ChartSettings";
     let argument = data
         .field(NODE, "Argument", |field| !is_number(field))?
@@ -330,7 +341,7 @@ fn chart(data: &Data, cx: &mut BuildCx<'_>) -> Result<NodeId, String> {
         series.iter().all(|(field, ..)| field.is_some_and(|field| matches!(field.kind, FieldKind::Money)));
     let mut view = Chart::new(kind_named(data.setting(NODE, "Kind").as_deref()))
         .categories(order.clone())
-        .height(CHART_HEIGHT)
+        .height(height)
         .show_value_axis()
         .alt(data.entity.caption.clone());
     for (field, summary, caption) in &series {
@@ -367,7 +378,74 @@ fn chart(data: &Data, cx: &mut BuildCx<'_>) -> Result<NodeId, String> {
             .format(value)
         });
     }
-    Ok(cx.child(&view))
+    Ok(view)
+}
+
+fn given_data(
+    session: &Session,
+    entity: &EntityInfo,
+    objects: Rc<Vec<Object>>,
+    given: BTreeMap<String, String>,
+) -> Data {
+    Data {
+        session: session.clone(),
+        view: String::new(),
+        columns: entity.fields.iter().filter(|f| f.in_list).map(|f| (f.clone(), f.caption.clone())).collect(),
+        entity: entity.clone(),
+        objects,
+        on_open: Rc::new(|_| {}),
+        on_select: Rc::new(|_| {}),
+        given,
+    }
+}
+
+/// A chart of these records, from settings given directly, as a panel of its own wants it: the
+/// same names [`CHART_EDITOR`] reads from the model.
+pub fn chart_view(
+    session: &Session,
+    entity: &EntityInfo,
+    objects: Rc<Vec<Object>>,
+    settings: BTreeMap<String, String>,
+    height: f32,
+) -> Result<AnyView, String> {
+    let view = chart_of(&given_data(session, entity, objects, settings), height)?;
+    Ok(Box::new(view))
+}
+
+/// What these records come to, for one `field:Sum`, in words: money as money, and a count of the
+/// records with no field.
+pub fn summary_text(
+    session: &Session,
+    entity: &EntityInfo,
+    objects: &[Object],
+    series: &str,
+) -> Result<String, String> {
+    let words = session.words();
+    let (name, summary) = series.split_once(':').unwrap_or((series, "Sum"));
+    let (name, summary) = (name.trim(), Summary::named(summary.trim()));
+    if name.is_empty() {
+        return Ok(objects.len().to_string());
+    }
+    let Some(field) = entity.field_named(name) else {
+        return Err(format!("{} {series}", words.list_editor_needs));
+    };
+    let numbers: Vec<f64> = objects
+        .iter()
+        .filter_map(|object| match object.get(name) {
+            Value::Number(number) => Some(number),
+            _ => None,
+        })
+        .collect();
+    let value = summary.of(&numbers);
+    let money = matches!(field.kind, FieldKind::Money) && summary != Summary::Count;
+    let format = ravenrs_widgets::grid::NumberFormat {
+        prefix: if money { words.money_prefix.clone() } else { String::new() },
+        decimals: if money || (summary == Summary::Average) { 2 } else { 0 },
+        thousands: words.thousands,
+        decimal: words.decimal,
+        ..ravenrs_widgets::grid::NumberFormat::default()
+    };
+    Ok(format.format(if money { value / 100.0 } else { value }))
 }
 
 fn kind_named(name: Option<&str>) -> ChartKind {
@@ -487,6 +565,7 @@ fn scheduler(data: &Data, cx: &mut BuildCx<'_>) -> Result<NodeId, String> {
             objects: data.objects.clone(),
             on_open: data.on_open.clone(),
             on_select: data.on_select.clone(),
+            given: BTreeMap::new(),
         },
         start,
         end,

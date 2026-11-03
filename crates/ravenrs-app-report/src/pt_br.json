@@ -1,0 +1,18 @@
+{
+  "NavigationItems": { "Reports": { "Caption": "Relatórios" } },
+  "Entities": {
+    "ReportDefinition": { "Caption": "Relatórios", "Members": {
+      "name": { "Caption": "Nome" }, "target_entity": { "Caption": "Entidade" },
+      "description": { "Caption": "Descrição" } } },
+    "AnalyticsDashboard": { "Caption": "Painéis", "Members": {
+      "name": { "Caption": "Nome" }, "tiles": { "Caption": "Blocos" } } },
+    "AnalyticsTile": { "Caption": "Blocos", "Members": {
+      "dashboard_id": { "Caption": "Painel" }, "title": { "Caption": "Título" }, "position": { "Caption": "Posição" },
+      "target_entity": { "Caption": "Entidade" },
+      "kind": { "Caption": "Tipo", "Options": {
+        "number": { "Caption": "Número" }, "bar": { "Caption": "Barras" }, "line": { "Caption": "Linhas" },
+        "area": { "Caption": "Áreas" }, "pie": { "Caption": "Pizza" }, "doughnut": { "Caption": "Rosca" } } },
+      "argument": { "Caption": "No eixo" }, "series": { "Caption": "Valores, como campo:Sum" },
+      "interval": { "Caption": "Datas por Day, Month ou Year" }, "filter": { "Caption": "Filtro" } } }
+  }
+}

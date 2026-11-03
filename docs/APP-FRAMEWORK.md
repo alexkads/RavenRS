@@ -187,6 +187,22 @@ Or people pick it from a menu, with `ViewVariant::new("chart", "Chart").editor(C
 
 These read through the view's unit of work, so permissions, filters and the way picked all count. See `examples/quick-plan`, in a window and in the browser.
 
+## Reports and panels
+
+```rust
+App::new("Shop")
+    .entity_info(order)
+    .module(StoredReportsModule::new(ReportWords::pt_br()))
+    .module(AnalyticsModule::new(ReportWords::pt_br()))
+    .translation("pt-BR", ravenrs_app_report::PT_BR)
+```
+
+A report is a record: its name, the entity it is about and its layout. A new one starts from a table of what the entity's list shows, and **Design** opens the designer inside the application, over a sample of the records. **Show** asks for its parameters and shows its pages, from where it prints and exports. A list has **Show in report**, for the records selected or all it shows.
+
+Permissions on `ReportDefinition` say who sees or changes a report, like any other record. Whoever runs one gets only what they can read: rows come from the view's unit of work, and whatever a layout says about addresses, queries or data of its own does not run. What is kept is the layout alone, with nobody's data.
+
+A panel is a record with tiles, edited on its own form: a title, an entity, a kind, what goes along the axis, values as `field:Sum`, and a filter. A tile that cannot be drawn says why, and the others still show.
+
 ## Security
 
 ```rust
@@ -228,6 +244,9 @@ Keep these in mind:
 
 ## Known gaps
 
+- Stored reports are not sent on a schedule yet: `ravenrs-report-server` reads its own sources, not entities, and a job has to run as someone. That takes the service of F12.
+- The designer's own words are in Portuguese whatever the application's language, and its field list shows field names rather than captions.
+- A report reads every record of its entity into memory, as its engine works over rows.
 - A chart, month, timeline or tree has no search, column filters or export, which are `DataGrid`'s own. Filters in the model still count. Settings have to name fields the list reads, so `DataView` needs them among its columns.
 - Moving a bar on a timeline snaps to what the axis shows, so at the scale of days a record loses its hour.
 - The model editor changes settings, one at a time, in the person's own layer. It does not add nodes or edit the administrator's layer.
@@ -257,6 +276,6 @@ Keep these in mind:
 
 | Step | What it brings |
 |---|---|
-| **F10** | Reports people create and keep, with permissions and scheduled delivery |
+| **F11** | State machines, reminders and documents |
 
 Before more work on editors or templates, read what is documented on template customization and on each property type: it was not read when these screens were written. The same goes for the built-in node generators and list view column generation, before more of the model is generated.

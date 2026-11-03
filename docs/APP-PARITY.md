@@ -34,6 +34,10 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Soft validation and message templates | ✅ `Severity`: a warning asks and lets people go on, information leaves a note on the field; `{field}` and `{reference.field}` in messages | |
 | Conditional appearance: font, back, bold, enabled, visible; on items, layout and actions; by criteria or function; by priority | 🟡 `AppearanceRule`. On a form, a font color reaches the caption, not the value inside the editor; a group's caption takes no color | |
 | Reports of a list | ✅ `ravenrs-app-report`: an action that lays out the list and shows it in the viewer | |
+| Reports kept as records, designed inside the application, over entities, with parameters and permissions | ✅ `StoredReportsModule`, `Designer::embedded`, `ShowInReport` | |
+| Scheduled delivery of stored reports | ⬜ the report server cannot read entities until there is an API, and has to run as someone | F12 |
+| Mail merge templates | ⬜ takes the rich text editor of Wave C | |
+| Analytical panels people create, kept as records | 🟡 `AnalyticsModule`: tiles of numbers and charts, edited on generated forms. No canvas designer, and tile sizes are not kept | |
 | Roles, policies and permissions on entities, records, fields, navigation and actions; several roles in any or in all | ✅ `Role`, `Permissions`, enforced in `SecuredObjectSpace`, also with no screen | |
 | Policy changed while running, by administrators on generated screens | ✅ `security_entities`; losing a role takes effect at once | |
 | Permissions that follow associations | 🟡 aggregated collections go with their owner; everything else asks for permission on both sides, as the documented manual mode does | |

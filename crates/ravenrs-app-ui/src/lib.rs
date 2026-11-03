@@ -41,7 +41,9 @@ pub use dashboard::DashboardView;
 pub use detail_view::DetailView;
 pub use editors::{EditorRegistry, EditorRequest};
 pub use form::{EntityForm, FormText};
-pub use list_editors::{CALENDAR_EDITOR, CHART_EDITOR, SCHEDULER_EDITOR, TREE_EDITOR};
+pub use list_editors::{
+    CALENDAR_EDITOR, CHART_EDITOR, SCHEDULER_EDITOR, TREE_EDITOR, chart_view, summary_text,
+};
 pub use list_view::{CellText, ColumnShape, GridShape, ListEditorRequest, ListSource, ListView, OpenHandler};
 pub use model_editor::ModelEditor;
 pub use pane::{EntityPane, PaneWords};

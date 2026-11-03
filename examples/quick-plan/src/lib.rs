@@ -1,6 +1,10 @@
 //! One list, shown as a grid, a chart, a month, a timeline and a tree. Nothing but the model changes.
 
 use ravenrs_app::{EntityInfo, EnumOption, FieldInfo, FieldKind, ObjectSpace, Value, ViewVariant};
+use ravenrs_app_report::{
+    ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, PT_BR, REPORT_DEFINITION, ReportWords,
+    StoredReportsModule,
+};
 use ravenrs_app_ui::{App, CALENDAR_EDITOR, CHART_EDITOR, Language, SCHEDULER_EDITOR, TREE_EDITOR};
 use ravenrs_criteria::DateTime;
 
@@ -67,6 +71,32 @@ fn seed(space: &mut dyn ObjectSpace) -> Result<(), String> {
         task.set("state", state);
         space.save(task).map_err(wrong)?;
     }
+    // A report with its first layout, and a panel, both people's to change from here on.
+    let mut report = space.new_object(REPORT_DEFINITION).map_err(wrong)?;
+    report.set("name", "Custos por tarefa");
+    report.set("target_entity", "Task");
+    space.save(report).map_err(wrong)?;
+    let mut panel = space.new_object(ANALYTICS_DASHBOARD).map_err(wrong)?;
+    panel.set("name", "Visão geral");
+    let key = panel.get("id");
+    space.save(panel).map_err(wrong)?;
+    let tiles = [
+        ("Custo total", "number", "", "cost:Sum"),
+        ("Tarefas", "number", "", ""),
+        ("Custo por responsável", "bar", "owner", "cost:Sum"),
+        ("Custo por situação", "doughnut", "state", "cost:Sum"),
+    ];
+    for (at, (title, kind, argument, series)) in tiles.into_iter().enumerate() {
+        let mut tile = space.new_object(ANALYTICS_TILE).map_err(wrong)?;
+        tile.set("dashboard_id", key.clone());
+        tile.set("title", title);
+        tile.set("position", at as f64);
+        tile.set("target_entity", "Task");
+        tile.set("kind", kind);
+        tile.set("argument", argument);
+        tile.set("series", series);
+        space.save(tile).map_err(wrong)?;
+    }
     Ok(())
 }
 
@@ -76,6 +106,9 @@ pub fn app() -> ravenrs::prelude::AnyView {
         .language(Language::BrazilianPortuguese)
         .entity_info(task())
         .entity_info(person())
+        .module(StoredReportsModule::new(ReportWords::pt_br()))
+        .module(AnalyticsModule::new(ReportWords::pt_br()))
+        .translation("pt-BR", PT_BR)
         .seed(seed)
         .into_view()
 }

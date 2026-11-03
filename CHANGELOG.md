@@ -11,6 +11,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `SpaceError` has a new variant, `Denied`, and `FieldInfo` a new field, `secret`.
 
 ### Fixed
+- A new form nobody typed in no longer asks about losing changes.
 - A `DateTime` field shows as a date and a time on a list, and a yes-or-no column follows the application's language.
 
 ### Added
@@ -30,6 +31,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **`AuditedObjectSpace`** writes who changed what, from what to what, in the same commit, with the modes `Full`, `Lightweight` and `CreationOnly`, fields left out by `AuditSettings`, and changes in collections shown on their owner.
 - **`ModelEditor`**: the model as a tree, with its settings beside it, kept in the person's own layer, for a role that `can_edit_model`.
 - **Lists shown other ways.** A view picks `Chart`, `Calendar`, `Scheduler` or `Tree` by `EditorType` in the model, or a `ViewVariant` by `editor`, with what each needs under `ChartSettings`, `CalendarSettings`, `SchedulerSettings` or `TreeSettings`, set in code with `EntityInfo::editor_setting`. A record moved on a timeline is kept with its rules and permissions. `examples/quick-plan` shows all of them.
+- **Reports people keep.** `StoredReportsModule` keeps reports as records, on the data of an entity: a first layout comes from its list, `Designer::embedded` opens the designer inside the application, and showing one asks for its parameters and exports to PDF and XLSX. A list shows its records in a report with `ShowInReport`. Permissions on the records say who sees or changes a report, and a report only reads what the person can read.
+- **Panels people put together.** `AnalyticsModule` keeps panels as records, with tiles of numbers and charts over the entities, edited on generated forms.
+- **`ravenrs-report-designer`**: the report designer as a crate, out of `examples/report-designer`, which now just runs it.
+- **`Session::show_full`** shows something in place of the view, with the navigation around it. `chart_view` and `summary_text` draw what `Chart` draws from settings given directly.
 - **`Tabs`** go to another line when they do not fit, instead of running over each other.
 - **`ravenrs-app-library`**: people, organizations, addresses, countries, tasks, events, notes and files, ready to use or extend.
 

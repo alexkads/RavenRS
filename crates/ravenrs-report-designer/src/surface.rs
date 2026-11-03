@@ -7,15 +7,15 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use ravenrs::core::{Border, ImageQuad};
-use ravenrs::layout::{Align, Axis, Justify, LayoutStyle};
-use ravenrs::prelude::*;
-use ravenrs::style::Palette;
-use ravenrs::widgets::{DragPhase, Paint, QuadPaint};
+use crate::prelude::*;
+use ravenrs_core::{Border, ImageQuad};
+use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_report::{
     Control, ControlKind, DocumentImage, LineDirection, Report, ShapeKind, Style, TextAlign, decode_picture,
     picture_rect,
 };
+use ravenrs_style::Palette;
+use ravenrs_widgets::{DragPhase, Paint, QuadPaint};
 
 use crate::bands::BandRef;
 use crate::editor::{Editor, Selection, snap};

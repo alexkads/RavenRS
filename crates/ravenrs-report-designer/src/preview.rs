@@ -98,7 +98,7 @@ fn open_on_desktop(file: &ExportedFile) {
         tracing::warn!(error = %e, "could not write the exported file");
         return;
     }
-    if let Err(e) = ravenrs::native::open_with_system(&path) {
+    if let Err(e) = ravenrs_platform_native::open_with_system(&path) {
         tracing::warn!(error = %e, "could not open the file");
     }
 }

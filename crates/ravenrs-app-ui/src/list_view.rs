@@ -808,6 +808,16 @@ fn hash_of(text: &str) -> u64 {
 }
 
 impl Session {
+    /// The records of a list, the way it chose to see them, as this person can read them.
+    pub fn list_records(&self, view: &ViewInfo) -> Vec<Object> {
+        let Some(name) = view.entity.as_deref() else { return Vec::new() };
+        let mut query = Query::all();
+        if let Some(filter) = self.model_filter(&view.id) {
+            query = query.filter(filter);
+        }
+        self.frame().space().borrow().query(name, &query).unwrap_or_default()
+    }
+
     /// A list as it stands: the columns showing and every record the way it chose to see them, as
     /// a table to make a report or a file from.
     pub fn list_table(&self, view: &ViewInfo) -> Option<GridTable> {

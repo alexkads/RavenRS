@@ -13,6 +13,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 ravenrs.workspace = true
 ravenrs-app.workspace = true
+ravenrs-app-report.workspace = true
 ravenrs-app-ui.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-widgets.workspace = true

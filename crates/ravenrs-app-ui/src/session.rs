@@ -343,7 +343,7 @@ impl FormState {
     }
 
     pub fn is_dirty(&self) -> bool {
-        self.is_new || self.fields.iter().any(|(name, value)| *value.peek() != self.original.get(name))
+        self.fields.iter().any(|(name, value)| *value.peek() != self.original.get(name))
     }
 }
 
@@ -395,6 +395,8 @@ struct SessionInner {
     on_url: Rc<RefCell<Option<UrlHandler>>>,
     controls: Rc<RefCell<BTreeMap<String, ControlFactory>>>,
     presented: State<Option<Presented>>,
+    /// Something that takes the place of the view, as an editor of its own does.
+    full: State<Option<ControlFactory>>,
     form_caption: RefCell<Option<FormCaption>>,
     /// Whether the form repeats, above it, what it says on each field.
     lists_field_errors: Cell<bool>,
@@ -464,6 +466,7 @@ impl Session {
             on_url: Rc::default(),
             controls: Rc::default(),
             presented: State::new(None),
+            full: State::new(None),
             form_caption: RefCell::default(),
             lists_field_errors: Cell::new(true),
             list_editors: Rc::default(),
@@ -536,6 +539,7 @@ impl Session {
             on_url: parent.on_url.clone(),
             controls: parent.controls.clone(),
             presented: parent.presented.clone(),
+            full: parent.full.clone(),
             form_caption: RefCell::new(parent.form_caption.borrow().clone()),
             lists_field_errors: Cell::new(parent.lists_field_errors.get()),
             list_editors: parent.list_editors.clone(),
@@ -688,6 +692,21 @@ impl Session {
             }
             _ => Ok(()),
         }
+    }
+
+    /// Shows this in place of the view, with the navigation still around it, until
+    /// [`close_full`](Self::close_full) or going anywhere else.
+    pub fn show_full(&self, content: impl Fn() -> ravenrs_widgets::AnyView + 'static) {
+        self.0.full.set(Some(Rc::new(content)));
+    }
+
+    /// Goes back to the view from what [`show_full`](Self::show_full) showed.
+    pub fn close_full(&self) {
+        self.0.full.set(None);
+    }
+
+    pub(crate) fn full(&self) -> Option<ControlFactory> {
+        self.0.full.get()
     }
 
     /// Closes what [`present`](Self::present) showed.
@@ -1038,7 +1057,8 @@ impl Session {
         self.0.application.borrow().entities().iter().find(|e| e.name == name).cloned()
     }
 
-    pub(crate) fn revision(&self) -> u64 {
+    /// Goes up whenever records may have changed; reading it builds again when they do.
+    pub fn revision(&self) -> u64 {
         self.0.revision.get()
     }
 
@@ -1102,7 +1122,7 @@ impl Session {
     }
 
     /// Hands a file over to whoever asked for them, or else to the person.
-    pub(crate) fn hand_file(&self, name: String, bytes: Vec<u8>, picker: &FilePicker) {
+    pub fn hand_file(&self, name: String, bytes: Vec<u8>, picker: &FilePicker) {
         let handler = self.0.on_file.borrow().clone();
         match handler {
             Some(handler) => handler(name, bytes),
@@ -1136,6 +1156,7 @@ impl Session {
     }
 
     fn show(&self, view: ViewInfo) {
+        self.0.full.set(None);
         self.0.error.set(None);
         self.0.checking.set(false);
         self.0.noting.set(false);
