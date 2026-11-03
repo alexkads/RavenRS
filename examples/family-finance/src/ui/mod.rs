@@ -35,7 +35,7 @@ use budgets::BudgetsState;
 use dashboard::DashboardState;
 use forms::Forms;
 use ledger::LedgerState;
-use ravenrs::movie::{BugReporter, FlightRecorder};
+use ravenrs::movie::{BugReporter, FlightRecorder, RecentErrors};
 use records::RecordsState;
 use reports::ReportsState;
 use store::{Memo, NARROW_WINDOW, Page, Store};
@@ -99,16 +99,18 @@ impl App {
 
     /// An app over this database. `path` is only shown in the settings.
     pub fn new(db: Database, today: Date, path: Option<PathBuf>, updater: Updater) -> Self {
-        Self::with_diagnostics(db, today, path, updater, Diagnostics::default())
+        Self::in_window(db, today, path, updater, Diagnostics::default(), RecentErrors::default())
     }
 
-    /// Like [`Self::new`], for a window that already has its diagnostics panel.
-    pub fn with_diagnostics(
+    /// Like [`Self::new`], for a window that already has its diagnostics panel, and
+    /// with what keeps the errors logged, for bug reports.
+    pub fn in_window(
         db: Database,
         today: Date,
         path: Option<PathBuf>,
         updater: Updater,
         diagnostics: Diagnostics,
+        errors: RecentErrors,
     ) -> Self {
         let training = training::TrainingState::new(path.as_deref());
         let sidebar = Self::remembered_menu(path.as_deref());
@@ -116,7 +118,7 @@ impl App {
         let mut store = Store::new(db, today, path, updater);
         store.diagnostics = diagnostics;
         let recorder = FlightRecorder::new(FLIGHT_SECONDS);
-        let reporter = training::reporter(&store, &recorder);
+        let reporter = training::reporter(&store, &recorder, errors);
         Self {
             store,
             page: State::new(0),

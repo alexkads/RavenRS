@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 use ravenrs_animation::{Animatable, Animated, Transition};
 use ravenrs_core::{
-    Border, Brush, Color, CursorIcon, Key, Modifiers, NumericValue, Point, Rect, Role, Scene, Shadow, Size,
-    Toggled,
+    AccessTree, Border, Brush, Color, CursorIcon, Key, Modifiers, NumericValue, Point, Rect, Role, Scene,
+    Shadow, Size, Toggled,
 };
 use ravenrs_layout::{LayoutError, LayoutId, LayoutStyle, LayoutTree};
 use ravenrs_reactive::State;
@@ -168,6 +168,8 @@ pub enum UiActivity<'a> {
     PointerMoved(Point),
     /// The primary button went down here.
     Clicked(Point),
+    /// What is on screen, as asked for with [`BuildCx::ask_for_access_tree`].
+    Described(&'a AccessTree),
 }
 
 /// Receives what happens in the UI, with the clock; see [`BuildCx::observe_activity`].
@@ -528,6 +530,7 @@ pub struct BuildCx<'a> {
     sidebar: Option<Rc<crate::nav::SidebarScope>>,
     pub(crate) shortcuts: Vec<Shortcut>,
     pub(crate) activity: Option<ActivityObserver>,
+    pub(crate) access_tree_asked: bool,
     pub(crate) wake: Option<f64>,
     pub(crate) modifiers: Rc<std::cell::Cell<Modifiers>>,
     pub(crate) local: &'a mut LocalStore,
@@ -590,6 +593,7 @@ impl<'a> BuildCx<'a> {
             sidebar: None,
             shortcuts: Vec::new(),
             activity: None,
+            access_tree_asked: false,
             wake: None,
             modifiers,
             local,
@@ -949,6 +953,13 @@ impl<'a> BuildCx<'a> {
     /// It runs on every frame, so it has to be quick. The last call of a build wins.
     pub fn observe_activity(&mut self, observer: ActivityObserver) {
         self.activity = Some(observer);
+    }
+
+    /// Asks that [`Self::observe_activity`] be told what is on screen once this frame
+    /// is painted, as [`UiActivity::Described`]. Building that description costs more
+    /// than a frame should, so it comes only when asked for.
+    pub fn ask_for_access_tree(&mut self) {
+        self.access_tree_asked = true;
     }
 
     /// Asks for a rebuild at `time` (seconds, the same clock as [`Self::now`]):

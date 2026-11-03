@@ -246,6 +246,34 @@ fn draw_the_states() {
     press(&mut chat, "Assistente");
     press(&mut chat, "Como pagar uma conta?");
     capture(&gpu, &mut chat, size, &folder.join("assistente-resposta.png"));
+
+    // The bug report, with the box drawn around the problem.
+    let mut report = app(Theme::raven_light(), 0, Updater::idle());
+    report.set_viewport(size, 2.0);
+    let mut now = 0.0;
+    let mut tick = |ui: &mut Ui, seconds: f64| {
+        let end: f64 = now + seconds;
+        while now < end {
+            now += 0.1;
+            ui.set_time(now);
+            ui.update();
+        }
+    };
+    tick(&mut report, 1.0);
+    press(&mut report, "Relatar problema");
+    tick(&mut report, 1.0);
+    capture_now(&gpu, &report, size, &folder.join("relato.png"));
+    press(&mut report, "Marcar o problema na tela");
+    tick(&mut report, 1.0);
+    let (from, to) = (ravenrs::core::Point::new(280.0, 130.0), ravenrs::core::Point::new(900.0, 520.0));
+    report.handle_event(&Event::PointerMove { position: from });
+    report.handle_event(&Event::PointerDown { position: from, button: PointerButton::Primary });
+    report.handle_event(&Event::PointerMove { position: to });
+    tick(&mut report, 0.3);
+    capture_now(&gpu, &report, size, &folder.join("relato-marcando.png"));
+    report.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
+    tick(&mut report, 1.0);
+    capture_now(&gpu, &report, size, &folder.join("relato-marcado.png"));
     let small = Size::new(800.0, 640.0);
     let mut sheet = app(Theme::raven_light(), 0, Updater::idle());
     sheet.set_viewport(small, 2.0);

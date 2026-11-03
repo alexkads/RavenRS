@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use ravenrs::movie::{
     AssistantLabels, BugLabels, BugReporter, FlightRecorder, Movie, MovieAssistant, MovieCue, MovieLibrary,
-    Narration,
+    Narration, RecentErrors,
 };
 use ravenrs::prelude::*;
 use ravenrs_ai::{
@@ -104,13 +104,14 @@ pub(crate) fn training(state: &TrainingState) -> Page {
 
 /// Saves the report to a file the person sends to the team: nothing here goes
 /// anywhere by itself, and the film shows their data.
-pub(crate) fn reporter(store: &Store, recorder: &FlightRecorder) -> BugReporter {
+pub(crate) fn reporter(store: &Store, recorder: &FlightRecorder, errors: RecentErrors) -> BugReporter {
     let (store, today) = (store.clone(), store.today);
     BugReporter::new(recorder.clone(), move |report| {
         let name = format!("problema-raven-financas-{today}.ravenbug");
         store.save_file(&name, ("Relato de problema", &["ravenbug"]), &report.to_bytes());
     })
     .labels(BugLabels::pt_br())
+    .errors(move || errors.lines())
     .details(|| {
         vec![
             ("versão".to_owned(), update::CURRENT.to_owned()),

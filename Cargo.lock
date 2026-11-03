@@ -4360,6 +4360,8 @@ dependencies = [
  "ravenrs-widgets",
  "serde",
  "serde_json",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

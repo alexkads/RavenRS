@@ -10,9 +10,18 @@ use ravenrs::prelude::*;
 /// The film in a file, whichever kind of file it is.
 fn film_in(bytes: &[u8]) -> Result<Movie, String> {
     if let Ok(report) = BugReport::from_bytes(bytes) {
-        println!("{}", report.description);
+        println!("{}: {}", report.kind, report.description);
         for (name, value) in &report.details {
             println!("{name}: {value}");
+        }
+        if let Some(area) = report.area {
+            println!("marked: {}x{} at {}, {}", area.width, area.height, area.x, area.y);
+        }
+        for element in &report.elements {
+            println!("under the box: {element}");
+        }
+        for error in &report.errors {
+            println!("error: {error}");
         }
         return report.film.ok_or_else(|| "This report came without a film.".to_owned());
     }
@@ -51,7 +60,7 @@ mod tests {
 
     #[test]
     fn a_report_without_a_film_says_so_and_rubbish_is_refused() {
-        let report = BugReport { description: "x".to_owned(), film: None, details: Vec::new() };
+        let report = BugReport { description: "x".to_owned(), ..BugReport::default() };
         assert!(film_in(&report.to_bytes()).is_err());
         assert!(film_in(b"nope").is_err());
     }

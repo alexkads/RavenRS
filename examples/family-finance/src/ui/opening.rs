@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 
+use ravenrs::movie::RecentErrors;
 use ravenrs::prelude::*;
 
 use super::App;
@@ -33,6 +34,7 @@ pub struct Opening {
     today: Date,
     updater: Updater,
     diagnostics: Diagnostics,
+    errors: RecentErrors,
     logo: Option<ImageData>,
     visible: State<bool>,
     status: Cell<&'static str>,
@@ -50,13 +52,21 @@ impl std::fmt::Debug for Opening {
 
 impl Opening {
     /// Opens the database at `path` once the window is up. `diagnostics` is the
-    /// window's panel, which the app reaches from Ajustes.
-    pub fn new(path: PathBuf, today: Date, updater: Updater, diagnostics: Diagnostics) -> Self {
+    /// window's panel, which the app reaches from Ajustes, and `errors` keeps what is
+    /// logged, for bug reports.
+    pub fn new(
+        path: PathBuf,
+        today: Date,
+        updater: Updater,
+        diagnostics: Diagnostics,
+        errors: RecentErrors,
+    ) -> Self {
         Self {
             path,
             today,
             updater,
             diagnostics,
+            errors,
             logo: crate::icon(),
             visible: State::new(true),
             status: Cell::new("Abrindo seus dados"),
@@ -115,12 +125,13 @@ impl Opening {
         self.status.set("Preparando as telas");
         let db = Database::open(&self.path).map_err(|e| e.to_string())?;
         self.updater.watch();
-        let app = App::with_diagnostics(
+        let app = App::in_window(
             db,
             self.today,
             Some(self.path.clone()),
             self.updater.clone(),
             self.diagnostics.clone(),
+            self.errors.clone(),
         );
         let _ = self.app.set(Rc::new(app));
         Ok(())

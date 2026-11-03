@@ -5,8 +5,11 @@ use std::path::PathBuf;
 use family_finance::ui::Opening;
 use family_finance::update::{self, Updater};
 use family_finance::{icon, paths, today};
+use ravenrs::movie::RecentErrors;
 use ravenrs::native::{AppIdentity, PlatformError, SystemTray, WindowOptions, diagnose, run_as};
 use ravenrs::prelude::*;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
 
 fn main() -> Result<(), PlatformError> {
     let mut arguments = std::env::args().skip(1);
@@ -21,11 +24,14 @@ fn main() -> Result<(), PlatformError> {
         print!("{}", diagnose());
         return Ok(());
     }
-    tracing_subscriber::fmt()
-        .with_env_filter(
+    let errors = RecentErrors::default();
+    tracing_subscriber::registry()
+        .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "info,wgpu=warn,naga=warn".into()),
         )
+        .with(tracing_subscriber::fmt::layer())
+        .with(errors.clone())
         .init();
     // Another file is another app, as when testing beside the installed one.
     let everyday = first.is_none();
@@ -45,5 +51,5 @@ fn main() -> Result<(), PlatformError> {
     } else {
         identity
     };
-    run_as(Opening::new(path, today(), Updater::idle(), diagnostics), options, identity)
+    run_as(Opening::new(path, today(), Updater::idle(), diagnostics, errors), options, identity)
 }

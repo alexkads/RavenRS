@@ -94,6 +94,7 @@ pub struct Ui {
     time: f64,
     shortcuts: Vec<Shortcut>,
     activity: Option<crate::context::ActivityObserver>,
+    access_tree_asked: bool,
     /// Earliest time a widget asked to be rebuilt at.
     wake: Option<f64>,
     pointer: Option<Point>,
@@ -181,6 +182,7 @@ impl Ui {
             time: 0.0,
             shortcuts: Vec::new(),
             activity: None,
+            access_tree_asked: false,
             wake: None,
             pointer: None,
             cursor: CursorIcon::Default,
@@ -871,8 +873,8 @@ impl Ui {
         let motion_enabled = self.motion.enabled;
         let reduced_motion = self.system_reduced_motion || theme.peek().interaction.reduced_motion;
         self.motion.reduced = reduced_motion;
-        let (node, overlays, requests, focus, wake, shortcuts, activity, error, motions, moving) = observer
-            .track(|| {
+        let (node, overlays, requests, focus, wake, shortcuts, activity, asked, error, motions, moving) =
+            observer.track(|| {
                 let mut cx = BuildCx::new(
                     theme,
                     viewport,
@@ -912,6 +914,7 @@ impl Ui {
                     cx.wake.take(),
                     std::mem::take(&mut cx.shortcuts),
                     cx.activity.take(),
+                    cx.access_tree_asked,
                     cx.error.take(),
                     std::mem::take(&mut cx.motions),
                     cx.value_moving,
@@ -921,6 +924,7 @@ impl Ui {
         self.value_moving = moving;
         self.shortcuts = shortcuts;
         self.activity = activity;
+        self.access_tree_asked = asked;
         if let Some(widget) = focus
             && self.interaction.focused != Some(widget)
         {
@@ -1155,6 +1159,10 @@ impl Ui {
         let live = self.has_live && !self.reduced_motion();
         self.next_live = (live || self.scrollbar_showing).then_some(self.time + LIVE_FRAME);
         self.tell_activity(crate::context::UiActivity::Painted(&self.scene));
+        if std::mem::take(&mut self.access_tree_asked) {
+            let tree = self.access_tree();
+            self.tell_activity(crate::context::UiActivity::Described(&tree));
+        }
     }
 
     fn reduced_motion(&self) -> bool {

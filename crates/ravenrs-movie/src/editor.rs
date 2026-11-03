@@ -457,6 +457,22 @@ impl EditorState {
         id
     }
 
+    /// Lights `region` for the last seconds of the film, replacing what `previous`
+    /// lit, and says how to replace this one. It marks where a problem is.
+    pub fn light_at_end(&self, region: Region, previous: Option<u64>) -> u64 {
+        let mut id = 0;
+        self.edit(None, |project| {
+            if let Some(previous) = previous {
+                project.remove_overlay(previous);
+            }
+            let length = NEW_EFFECT_MS.min(project.duration_ms()).max(1);
+            let at = project.duration_ms().saturating_sub(length);
+            id = project.add_overlay(OverlayKind::Spotlight { region }, at, length);
+        });
+        self.touch();
+        id
+    }
+
     /// Puts a title card at the playhead and selects it.
     pub fn add_title(&self, title: &str) {
         let at = self.position_ms();

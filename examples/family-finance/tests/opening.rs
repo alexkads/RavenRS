@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use family_finance::ui::Opening;
 use family_finance::update::Updater;
+use ravenrs::movie::RecentErrors;
 use ravenrs::prelude::*;
 
 fn today() -> Date {
@@ -21,7 +22,13 @@ fn folder(name: &str) -> PathBuf {
 }
 
 fn opening(path: &Path) -> Ui {
-    let root = Opening::new(path.to_path_buf(), today(), Updater::idle(), Diagnostics::default());
+    let root = Opening::new(
+        path.to_path_buf(),
+        today(),
+        Updater::idle(),
+        Diagnostics::default(),
+        RecentErrors::default(),
+    );
     let mut ui = Ui::new(root, Theme::raven_light());
     ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
     ui.set_time(0.0);

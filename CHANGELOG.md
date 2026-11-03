@@ -4,13 +4,19 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+- `BugReport` has new fields, `kind`, `area`, `elements` and `errors`, so building one field by field needs `..BugReport::default()`. Older `.ravenbug` files still open.
+
 ### Added
+- `BugReporter` lets the person choose what kind of report it is and drag a box around the problem, which names what is under it and lights it in the film. All that goes along is listed before sending.
+- `RecentErrors`: a `tracing` layer that keeps the last warnings and errors, for `BugReporter::errors`.
+- `BuildCx::ask_for_access_tree` and `UiActivity::Described`: what is on screen, for an observer, only when asked for.
 - `BuildCx::keyed_overlay`: a layer that stays the same one when other layers before it come and go.
 - `AppIdentity::close_to_tray` and `SystemTray`, with the `tray` feature: closing the window keeps the app running behind an icon beside the clock, and opening it again brings the same window back. Where the system shows no such icon, such as plain GNOME, closing the window closes the app.
 
 ### Fixed
 - `SplashScreen` no longer starts over, showing the page behind it, when an app with layers of its own appears under it.
-- A native window stays hidden until the GPU is ready, so nobody waits looking at an empty window.
+- A native window stays hidden until the GPU is ready and, on macOS, until its first frame is drawn, so nobody sees it empty or black.
 
 ## [27.1.9] - 2026-11-03
 
