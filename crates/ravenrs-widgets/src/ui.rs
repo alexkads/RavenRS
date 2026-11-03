@@ -1021,7 +1021,7 @@ impl Ui {
             if let Some(t) = entry.motion.layout {
                 let i = entry.node.0 as usize;
                 let unscrolled = self.frames[i].translate(Point::ZERO - self.shifts[i]);
-                self.motion.sync_frame(entry.key, unscrolled, t, snap);
+                self.motion.sync_frame(entry.key, self.elements[i].widget, unscrolled, t, snap);
             }
         }
         self.paint();

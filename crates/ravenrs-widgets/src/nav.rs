@@ -600,7 +600,8 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
         };
         // Reduced motion makes this instant. Labels stay until the column has
         // narrowed, and the column's edge uncovers them on the way back.
-        let width = cx.animated(target, theme.motion.gentle);
+        // Asked for many times a day, so it ends quickly and at once, without a spring's tail.
+        let width = cx.animated(target, theme.motion.base);
         let scope = Rc::new(SidebarScope {
             icons: self.collapse == SidebarCollapse::Icons && !open && width <= target + 0.5,
             in_sheet: narrow,
@@ -645,13 +646,14 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
         let inset = margin.min(width / 2.0);
         let card_width = (width - 2.0 * inset).max(0.0);
         let full_width = (self.width - 2.0 * margin).max(0.0);
+        let reduced = scope.icons;
         let column = SidebarColumn {
             children: &self.children,
             parts,
             scope,
-            // Off-screen closing uncovers a column of constant width; closing to
-            // icons reflows it, so the icons can end up centered.
-            width: if self.collapse == SidebarCollapse::Hidden { full_width } else { card_width },
+            // The column keeps its width while the edge covers and uncovers it, so that
+            // nothing inside changes on the way, as names squeezing letter by letter.
+            width: if reduced { card_width } else { full_width },
             full_width,
             height: None,
         };

@@ -286,6 +286,8 @@ struct Track {
     paint: Option<PaintTrack>,
     text: Option<Animated<Color>>,
     rect: Option<Animated<Rect>>,
+    /// Which widget holds a shared object now. It slides only when this changes.
+    owner: Option<WidgetId>,
     exit: Option<(Effect, Transition)>,
     snapshot: Snapshot,
 }
@@ -375,6 +377,7 @@ impl MotionSystem {
                         paint: None,
                         text: None,
                         rect: None,
+                        owner: None,
                         exit: None,
                         snapshot: Snapshot::default(),
                     })
@@ -449,10 +452,16 @@ impl MotionSystem {
 
     /// Moves layout targets to the node's frame, measured without scrolling so
     /// that scrolling does not count as moving. `snap` lands them at once.
-    pub fn sync_frame(&mut self, key: MotionKey, frame: Rect, t: Transition, snap: bool) {
+    ///
+    /// A shared object slides from one widget to another. While it stays on the same
+    /// one it just follows it, or it would come loose when the layout around it moves.
+    pub fn sync_frame(&mut self, key: MotionKey, owner: WidgetId, frame: Rect, t: Transition, snap: bool) {
         let t = if snap || !self.enabled || self.reduced { Transition::Instant } else { t };
         let now = self.clock;
         if let Some(track) = self.tracks.get_mut(&key) {
+            let shared = matches!(key, MotionKey::Shared(..));
+            let t = if shared && track.owner == Some(owner) { Transition::Instant } else { t };
+            track.owner = Some(owner);
             match &mut track.rect {
                 Some(rect) => rect.set_target(frame, t, now),
                 None => track.rect = Some(Animated::new(frame)),
@@ -633,7 +642,7 @@ pub(crate) fn collapse(cx: &mut BuildCx<'_>, open: bool, content: &dyn View) -> 
     struct Body<'a>(bool, &'a dyn View);
     impl View for Body<'_> {
         fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-            let transition = cx.theme().motion.gentle;
+            let transition = cx.theme().motion.base;
             let target = if self.0 { 1.0_f32 } else { 0.0 };
             let progress = cx.animated(target, transition).clamp(0.0, 1.0);
             let at_rest = (progress - target).abs() < f32::EPSILON;
