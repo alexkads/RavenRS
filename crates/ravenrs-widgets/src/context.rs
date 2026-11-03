@@ -1161,8 +1161,22 @@ impl<'a> BuildCx<'a> {
         // The slot comes before the content: overlays are placed and painted in
         // order, so one opened from inside this one must come after it, or it
         // would be placed with no anchor yet and painted underneath.
+        let key = 0x6f76_6572_6c61_7900 + self.overlays.len() as u64;
+        self.keyed_overlay(key, anchor, placement, view, on_dismiss);
+    }
+
+    /// Like [`Self::overlay`], for a layer that must stay the same one when other
+    /// layers before it come and go. A plain overlay is told apart by its place among
+    /// them, so a new one before it makes it start over, and animate in again.
+    pub fn keyed_overlay(
+        &mut self,
+        key: u64,
+        anchor: NodeId,
+        placement: Placement,
+        view: &dyn View,
+        on_dismiss: Option<Rc<dyn Fn()>>,
+    ) {
         let slot = self.overlays.len();
-        let key = 0x6f76_6572_6c61_7900 + slot as u64;
         let gap = self.theme.spacing.s2;
         self.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss, floating: false });
         let root = self.keyed_child(key, view);

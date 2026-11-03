@@ -286,6 +286,8 @@ impl View for Sheet {
 const SPLASH_CONTENT_WIDTH: f32 = 320.0;
 /// The size of a [`SplashScreen`]'s icon, in logical pixels.
 const SPLASH_ICON_SIZE: f32 = 64.0;
+/// Keeps a [`SplashScreen`] the same layer whatever opens before it.
+const SPLASH_OVERLAY_KEY: u64 = 0x7370_6c61_7368;
 
 /// The opening screen that covers the window while the app loads: a logo or
 /// icon, the app's name, a status message and its progress.
@@ -453,7 +455,8 @@ impl View for SplashScreen {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let anchor = cx.empty();
         if self.visible.get() {
-            cx.overlay(anchor, Placement::Fill, &SplashLayer(self), None);
+            // The app usually appears under it, with layers of its own built first.
+            cx.keyed_overlay(SPLASH_OVERLAY_KEY, anchor, Placement::Fill, &SplashLayer(self), None);
         }
         anchor
     }

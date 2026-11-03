@@ -358,7 +358,8 @@ fn with_app_id(attributes: WindowAttributes, _id: &str) -> WindowAttributes {
 
 impl App {
     fn create_window(&mut self, event_loop: &ActiveEventLoop) -> Result<WindowState, PlatformError> {
-        // Hidden until the accessibility adapter is attached, as AccessKit requires.
+        // Hidden until the GPU is ready, so nobody waits looking at an empty window.
+        // AccessKit also requires it until the adapter is attached.
         let mut attributes = Window::default_attributes()
             .with_visible(false)
             .with_title(self.options.title.clone())
@@ -380,8 +381,10 @@ impl App {
         let adapter =
             accesskit_winit::Adapter::with_event_loop_proxy(event_loop, &window, self.proxy.clone());
         self.access = Some(Access { adapter, active: false, last: None });
+        let state = self.init_gpu(window.clone())?;
         window.set_visible(true);
-        self.init_gpu(window)
+        window.request_redraw();
+        Ok(state)
     }
 
     /// Sends the accessibility tree to the screen reader if one is listening

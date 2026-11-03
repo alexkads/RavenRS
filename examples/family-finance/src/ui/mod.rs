@@ -9,6 +9,7 @@ mod entities;
 mod forms;
 mod help;
 mod ledger;
+mod opening;
 mod records;
 mod reports;
 mod request;
@@ -18,6 +19,7 @@ mod store;
 mod training;
 
 pub use assistant::{ASSISTANT_INTRO, ASSISTANT_TOOLS};
+pub use opening::Opening;
 pub use spoken::spoken;
 mod updates;
 
@@ -97,10 +99,22 @@ impl App {
 
     /// An app over this database. `path` is only shown in the settings.
     pub fn new(db: Database, today: Date, path: Option<PathBuf>, updater: Updater) -> Self {
+        Self::with_diagnostics(db, today, path, updater, Diagnostics::default())
+    }
+
+    /// Like [`Self::new`], for a window that already has its diagnostics panel.
+    pub fn with_diagnostics(
+        db: Database,
+        today: Date,
+        path: Option<PathBuf>,
+        updater: Updater,
+        diagnostics: Diagnostics,
+    ) -> Self {
         let training = training::TrainingState::new(path.as_deref());
         let sidebar = Self::remembered_menu(path.as_deref());
         let (ledger, bills) = (LedgerState::new(today, path.as_deref()), BillsState::new(path.as_deref()));
-        let store = Store::new(db, today, path, updater);
+        let mut store = Store::new(db, today, path, updater);
+        store.diagnostics = diagnostics;
         let recorder = FlightRecorder::new(FLIGHT_SECONDS);
         let reporter = training::reporter(&store, &recorder);
         Self {

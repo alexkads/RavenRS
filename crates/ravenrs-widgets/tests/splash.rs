@@ -84,6 +84,37 @@ fn it_covers_the_window_from_the_first_frame_with_an_opaque_canvas() {
     assert!(ui.next_wake().is_some(), "the spinner is live, so frames keep coming while it loads");
 }
 
+/// The app under a splash: it shows up late, and has layers of its own.
+struct LatePage(State<bool>);
+
+impl View for LatePage {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let anchor = cx.empty();
+        if self.0.get() {
+            cx.overlay(anchor, Placement::Fill, &Text::new("A layer of the page"), None);
+        }
+        anchor
+    }
+}
+
+#[test]
+fn a_page_with_layers_appearing_under_it_does_not_make_it_fade_in_again() {
+    let (visible, page) = (State::new(true), State::new(false));
+    let mut ui =
+        running(VStack::new((LatePage(page.clone()), SplashScreen::new(visible.binding(), "Raven"))));
+    let mut t = 0.0;
+    frames(&mut ui, &mut t, 2);
+
+    page.set(true);
+    // Long enough for a layer that started over to show through.
+    frames(&mut ui, &mut t, 12);
+
+    let Brush::Solid(fill) = cover(&ui).expect("the splash covers the window").fill else {
+        panic!("a solid fill")
+    };
+    assert_eq!(fill.a, Theme::raven_dark().color(Semantic::Canvas).a, "still opaque, hiding the page");
+}
+
 #[test]
 fn it_opens_later_with_a_fade() {
     let visible = State::new(false);

@@ -4,6 +4,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- `BuildCx::keyed_overlay`: a layer that stays the same one when other layers before it come and go.
+
+### Fixed
+- `SplashScreen` no longer starts over, showing the page behind it, when an app with layers of its own appears under it.
+- A native window stays hidden until the GPU is ready, so nobody waits looking at an empty window.
+
 ## [27.1.9] - 2026-11-03
 
 ### Breaking
