@@ -147,19 +147,12 @@ impl ViewController for ModificationsController {
             Action::simple(ids::SAVE_AND_CLOSE, self.0.save_and_close.clone())
                 .category(ActionCategory::Save)
                 .hotkey("command+shift+s")
-                .on_execute(|cx| {
-                    let session = session_of(cx)?;
-                    session.save()?;
-                    session.back_now();
-                    Ok(())
-                }),
+                .on_execute(|cx| session_of(cx)?.save_then(Session::back_now)),
             Action::simple(ids::SAVE_AND_NEW, self.0.save_and_new.clone())
                 .category(ActionCategory::Save)
                 .on_execute(|cx| {
                     let (session, entity) = (session_of(cx)?, entity_of(cx)?);
-                    session.save()?;
-                    session.open_new(&entity);
-                    Ok(())
+                    session.save_then(move |session| session.open_new(&entity))
                 }),
             Action::simple(ids::CANCEL, self.0.cancel.clone()).category(ActionCategory::Save).on_execute(
                 |cx| {
@@ -241,9 +234,6 @@ struct ChoicesController {
 impl ViewController for ChoicesController {
     fn id(&self) -> &str {
         self.id
-    }
-    fn scope(&self) -> TargetScope {
-        TargetScope::any().view_kind(ViewKind::List)
     }
     fn actions(&self) -> Vec<Action> {
         let part = self.part;

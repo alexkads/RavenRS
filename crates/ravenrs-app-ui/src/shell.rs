@@ -168,10 +168,11 @@ impl AppShell {
             .is_some_and(|c| c.id == view || (c.entity.is_some() && c.entity.as_deref() == entity_of(view)));
         let icon = item.text("Icon").and_then(icon_named).unwrap_or(ravenrs_widgets::IconName::File);
         let (session, target) = (self.session.clone(), view.to_owned());
+        let key = item.text("ObjectKey").map(str::to_owned);
         Box::new(
             SidebarItem::new(icon, item.text("Caption").unwrap_or(&item.id).to_owned())
                 .selected(selected)
-                .on_click(move || session.open_view(&target)),
+                .on_click(move || session.open_navigation(&target, key.as_deref())),
         )
     }
 
@@ -457,6 +458,7 @@ impl View for AppShell {
         let mut parts = vec![cx.child(&window)];
         parts.push(cx.child(session.confirm()));
         parts.push(cx.child(&PopupHost::new(session.clone())));
+        parts.push(cx.child(&session.toaster()));
         cx.container(
             LayoutStyle {
                 grow: 1.0,

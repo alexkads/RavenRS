@@ -11,20 +11,26 @@ use syn::{Data, DeriveInput, Error, Fields, Ident, LitInt, LitStr, Result, parse
 /// a record.
 ///
 /// On the struct, `#[object(caption = "...", navigation = "...", icon = "...",
-/// list_criteria = "...", form_columns = 2, cloneable, transient, checks_on_leave)]`.
+/// list_criteria = "...", form_columns = 2, cloneable, transient, checks_on_leave, list_editable,
+/// data_access = "server", form_actions = "name")]`, where `data_access` is `client`, `server` or
+/// `data_view`.
 ///
 /// On a field, `#[field(...)]`:
 ///
 /// * `key` numbered by the application, or `typed_key` typed by people. Exactly one field has one.
+///   With `guid`, a `key` is made up when a record is created instead of being numbered.
 /// * `caption = "..."` what people see.
 /// * `default_property` what names a record. `read_only`. `no_list`, `no_detail`, `lookup`.
-/// * What it holds, when the type does not say: `money`, `long`, `color`, `date`,
-///   `decimals = 2`, `reference = "Entity"`, `collection = "Entity"`.
+/// * What it holds, when the type does not say: `money`, `long`, `color`, `date`, `guid`,
+///   `decimals = 2`, `reference = "Entity"`, `collection = "Entity"`, `tags = "a,b"`.
 /// * `calculated = "[a] + [b]"`, in the criteria language, checked here.
 /// * `default = ...` what a new record starts with.
 /// * `required`, `unique`, `min = 1`, `max = 10`, `matches = "^[A-Z]+$"`: what it has to meet on
 ///   saving, and `message = "..."` what to say instead of the usual words.
-/// * On a form: `editor = "..."`, `placeholder = "..."`, `hint = "..."`, `wide`, `autofocus`.
+/// * On a form: `editor = "..."`, `placeholder = "..."`, `hint = "..."`, `wide`, `autofocus`,
+///   `group = "..."` for the titled group it goes in, `edit_mask = "(00) 0000-0000"`,
+///   `predefined = "a,b"` for values to pick from, `criteria_of = "Entity"` for a filter builder.
+/// * `display_format = "{:.2} %"`, how its value shows when it is not being edited.
 /// * On a reference: `lookup_filter = "[flow] = ?flow"`, `none_caption = "..."`. On a collection:
 ///   `back_reference = "..."`, `aggregated`. `non_cloneable` stays behind on cloning, and
 ///   `most_bytes = 1024` limits a picture or a file.
@@ -32,7 +38,8 @@ use syn::{Data, DeriveInput, Error, Fields, Ident, LitInt, LitStr, Result, parse
 /// On the struct, as many as needed:
 ///
 /// * `#[rule(criteria = "[a] <= [b]", message = "...", context = "Pay", target = "[c] > 0")]`, or
-///   `#[rule(unique = "a,b")]`.
+///   `#[rule(unique = "a,b")]`. With `warning` people can go on anyway, and with `information` it
+///   only leaves a note. A message can say `{field}` and `{reference.field}`.
 /// * `#[appearance(names = "a,b*", criteria = "...", font = "danger", back = "warning", bold,
 ///   enabled = false, visible = false, priority = 1, context = "list", action)]`. With `layout`,
 ///   the names are groups of a form; with `action`, actions. A context is `list`, `detail` or a
@@ -63,6 +70,9 @@ struct ObjectAttrs {
     cloneable: bool,
     transient: bool,
     checks_on_leave: bool,
+    list_editable: bool,
+    data_access: Option<LitStr>,
+    form_actions: Vec<LitStr>,
 }
 
 fn object_attrs(input: &DeriveInput) -> Result<ObjectAttrs> {
@@ -87,10 +97,20 @@ fn object_attrs(input: &DeriveInput) -> Result<ObjectAttrs> {
                 attrs.transient = true;
             } else if meta.path.is_ident("checks_on_leave") {
                 attrs.checks_on_leave = true;
+            } else if meta.path.is_ident("list_editable") {
+                attrs.list_editable = true;
+            } else if meta.path.is_ident("data_access") {
+                let text: LitStr = meta.value()?.parse()?;
+                if !["client", "server", "data_view"].contains(&text.value().as_str()) {
+                    return Err(Error::new(text.span(), "use client, server or data_view"));
+                }
+                attrs.data_access = Some(text);
+            } else if meta.path.is_ident("form_actions") {
+                attrs.form_actions.push(meta.value()?.parse()?);
             } else {
                 return Err(meta.error(
                     "unknown setting: use caption, navigation, icon, list_criteria, form_columns, cloneable, \
-                     transient or checks_on_leave",
+                     transient, checks_on_leave, list_editable, data_access or form_actions",
                 ));
             }
             Ok(())
@@ -129,6 +149,11 @@ struct FieldAttrs {
     autofocus: bool,
     non_cloneable: bool,
     aggregated: bool,
+    group: Option<LitStr>,
+    display_format: Option<LitStr>,
+    edit_mask: Option<LitStr>,
+    predefined: Option<LitStr>,
+    criteria_of: Option<LitStr>,
 }
 
 fn set_kind(attrs: &mut FieldAttrs, path: &syn::Path, kind: Tokens) -> Result<()> {
@@ -169,6 +194,18 @@ fn field_attrs(field: &syn::Field) -> Result<FieldAttrs> {
                 set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::Color))?;
             } else if named("date") {
                 set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::Date))?;
+            } else if named("guid") {
+                set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::Guid))?;
+            } else if named("tags") {
+                let options: LitStr = meta.value()?.parse()?;
+                let names = split_names(&options);
+                set_kind(
+                    &mut attrs,
+                    path,
+                    quote!(::ravenrs_app::FieldKind::Tags(::std::vec![
+                        #(::ravenrs_app::EnumOption::new(#names, #names)),*
+                    ])),
+                )?;
             } else if named("decimals") {
                 let places: LitInt = meta.value()?.parse()?;
                 let places: u8 = places.base10_parse()?;
@@ -222,13 +259,23 @@ fn field_attrs(field: &syn::Field) -> Result<FieldAttrs> {
                 attrs.non_cloneable = true;
             } else if named("aggregated") {
                 attrs.aggregated = true;
+            } else if named("group") {
+                attrs.group = Some(meta.value()?.parse()?);
+            } else if named("display_format") {
+                attrs.display_format = Some(meta.value()?.parse()?);
+            } else if named("edit_mask") {
+                attrs.edit_mask = Some(meta.value()?.parse()?);
+            } else if named("predefined") {
+                attrs.predefined = Some(meta.value()?.parse()?);
+            } else if named("criteria_of") {
+                attrs.criteria_of = Some(meta.value()?.parse()?);
             } else {
                 return Err(meta.error(
                     "unknown setting: use key, typed_key, caption, default_property, read_only, no_list, \
-                     no_detail, lookup, money, long, color, date, decimals, reference, collection, \
+                     no_detail, lookup, money, long, color, date, guid, tags, decimals, reference, collection, \
                      calculated, default, required, unique, min, max, matches, message, editor, placeholder, \
                      hint, lookup_filter, none_caption, back_reference, most_bytes, wide, autofocus, \
-                     non_cloneable or aggregated",
+                     non_cloneable, aggregated, group, display_format, edit_mask, predefined or criteria_of",
                 ));
             }
             Ok(())
@@ -290,6 +337,8 @@ struct RuleAttrs {
     message: Option<LitStr>,
     context: Option<LitStr>,
     target: Option<LitStr>,
+    warning: bool,
+    information: bool,
 }
 
 fn struct_rules(input: &DeriveInput, names: &[String]) -> Result<Vec<Tokens>> {
@@ -297,6 +346,14 @@ fn struct_rules(input: &DeriveInput, names: &[String]) -> Result<Vec<Tokens>> {
     for attr in input.attrs.iter().filter(|a| a.path().is_ident("rule")) {
         let mut found = RuleAttrs::default();
         attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("warning") {
+                found.warning = true;
+                return Ok(());
+            }
+            if meta.path.is_ident("information") {
+                found.information = true;
+                return Ok(());
+            }
             let slot = if meta.path.is_ident("criteria") {
                 &mut found.criteria
             } else if meta.path.is_ident("unique") {
@@ -308,7 +365,9 @@ fn struct_rules(input: &DeriveInput, names: &[String]) -> Result<Vec<Tokens>> {
             } else if meta.path.is_ident("target") {
                 &mut found.target
             } else {
-                return Err(meta.error("unknown setting: use criteria, unique, message, context or target"));
+                return Err(meta.error(
+                    "unknown setting: use criteria, unique, message, context, target, warning or information",
+                ));
             };
             *slot = Some(meta.value()?.parse()?);
             Ok(())
@@ -340,6 +399,15 @@ fn struct_rules(input: &DeriveInput, names: &[String]) -> Result<Vec<Tokens>> {
         if let Some(expression) = &found.target {
             check_expression(expression, names)?;
             rule = quote!(#rule.target_criteria(#expression));
+        }
+        if found.warning && found.information {
+            return Err(Error::new(attr.span(), "a rule is a warning or information, not both"));
+        }
+        if found.warning {
+            rule = quote!(#rule.warning());
+        }
+        if found.information {
+            rule = quote!(#rule.information());
         }
         rules.push(rule);
     }
@@ -488,6 +556,22 @@ fn field_tokens(ident: &Ident, ty: &syn::Type, attrs: &FieldAttrs) -> Tokens {
     if attrs.aggregated {
         then(quote!(.aggregated()));
     }
+    if let Some(text) = &attrs.group {
+        then(quote!(.group(#text)));
+    }
+    if let Some(text) = &attrs.display_format {
+        then(quote!(.display_format(#text)));
+    }
+    if let Some(text) = &attrs.edit_mask {
+        then(quote!(.edit_mask(#text)));
+    }
+    if let Some(text) = &attrs.predefined {
+        let values = split_names(text);
+        then(quote!(.predefined([#(#values),*])));
+    }
+    if let Some(text) = &attrs.criteria_of {
+        then(quote!(.criteria_of(#text)));
+    }
     info
 }
 
@@ -610,6 +694,20 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     }
     if let Some(text) = &object.list_criteria {
         info = quote!(#info.list_criteria(#text));
+    }
+    if object.list_editable {
+        info = quote!(#info.list_editable());
+    }
+    if let Some(access) = &object.data_access {
+        let access = match access.value().as_str() {
+            "server" => quote!(::ravenrs_app::DataAccess::Server),
+            "data_view" => quote!(::ravenrs_app::DataAccess::DataView),
+            _ => quote!(::ravenrs_app::DataAccess::Client),
+        };
+        info = quote!(#info.data_access(#access));
+    }
+    for name in &object.form_actions {
+        info = quote!(#info.form_actions(#name));
     }
     if let Some(columns) = &object.form_columns {
         info = quote!(#info.form_columns(#columns));

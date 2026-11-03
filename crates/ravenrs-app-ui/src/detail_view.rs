@@ -2,8 +2,13 @@
 
 use std::rc::Rc;
 
-use ravenrs_app::{AppearanceTarget, ModelNode, Object, RuleKind, ViewInfo, Violation};
-use ravenrs_widgets::{AnyView, BuildCx, FormField, FormGroup, FormLayout, NodeId, Text, View};
+use ravenrs_app::{
+    ActionCategory, AppearanceTarget, ModelNode, Object, RuleKind, Severity, ViewInfo, Violation,
+};
+use ravenrs_layout::Align;
+use ravenrs_widgets::{
+    Alert, AnyView, BuildCx, FormField, FormGroup, FormLayout, NodeId, Text, Tone, VStack, View,
+};
 
 use crate::editors::EditorRequest;
 use crate::session::{FormState, Session};
@@ -41,6 +46,15 @@ impl DetailView {
             return None;
         }
         if let ravenrs_app::FieldKind::Collection(target) = &info.kind {
+            if let Some(source) = self.session.collection_source(&form.entity.name, field) {
+                let record = form.current();
+                let list = crate::nested::NestedList::given(
+                    self.session.clone(),
+                    target,
+                    Rc::new(move || source(&record)),
+                );
+                return Some(Box::new(FormField::new(caption, list)));
+            }
             let key = form.entity.key_field().map(|key| form.original.get(&key.name));
             let list = crate::nested::NestedList::new(
                 self.session.clone(),
@@ -58,7 +72,7 @@ impl DetailView {
             None => {
                 // A calculated field follows the others.
                 let mut current = state.record.clone();
-                form.entity.compute(&mut current, &ravenrs_criteria::Environment::new());
+                form.entity.compute(&mut current, &ravenrs_app::environment());
                 ravenrs_reactive::State::new(current.get(field))
             }
         };
@@ -73,11 +87,12 @@ impl DetailView {
         let editor = self.session.editors().editor(name, &request);
         // A check box says its own name.
         if matches!(info.kind, ravenrs_app::FieldKind::Boolean) {
-            let error = state.error_of(field);
-            return Some(match error {
-                Some(error) => Box::new(FormField::new(caption, editor).error_text(Some(error))),
-                None => editor,
-            });
+            let (error, note) = (state.error_of(field), state.note_of(field));
+            if error.is_none() && note.is_none() {
+                return Some(editor);
+            }
+            let (note, tone) = note.map_or((None, Tone::Neutral), |(note, tone)| (Some(note), tone));
+            return Some(Box::new(FormField::new(caption, editor).error_text(error).note_text(note, tone)));
         }
         let required = form
             .entity
@@ -85,6 +100,9 @@ impl DetailView {
             .iter()
             .any(|rule| rule.field.as_deref() == Some(field) && matches!(rule.kind, RuleKind::Required));
         let mut wrapped = FormField::new(caption, editor).error_text(state.error_of(field));
+        if let Some((note, tone)) = state.note_of(field) {
+            wrapped = wrapped.note_text(Some(note), tone);
+        }
         if let Some(hint) = &info.hint {
             wrapped = wrapped.hint(hint.clone());
         }
@@ -114,6 +132,12 @@ impl DetailView {
         }
         .columns(columns);
         for item in source.in_order() {
+            if item.text("Kind") == Some("ActionContainer") {
+                let name = item.text("Category").unwrap_or(&item.id).to_owned();
+                group = group
+                    .wide(crate::ActionContainer::new(self.session.clone(), [ActionCategory::InForm(name)]));
+                continue;
+            }
             let field = item.text("Field").unwrap_or(&item.id);
             let tall = item.flag("Wide") == Some(true)
                 || node.at(&["Items", field]).and_then(|n| n.flag("Wide")) == Some(true)
@@ -138,6 +162,10 @@ impl DetailView {
     }
 }
 
+fn tone_of(severity: Severity) -> Tone {
+    if severity == Severity::Warning { Tone::Warning } else { Tone::Accent }
+}
+
 /// What the rules see in this build of a form.
 struct FormLook {
     record: Object,
@@ -146,7 +174,18 @@ struct FormLook {
 
 impl FormLook {
     fn error_of(&self, field: &str) -> Option<String> {
-        self.violations.iter().find(|v| v.field.as_deref() == Some(field)).map(|v| v.message.clone())
+        self.violations
+            .iter()
+            .find(|v| v.is_error() && v.field.as_deref() == Some(field))
+            .map(|v| v.message.clone())
+    }
+
+    /// What the rules only want known about a field.
+    fn note_of(&self, field: &str) -> Option<(String, Tone)> {
+        self.violations
+            .iter()
+            .find(|v| !v.is_error() && v.field.as_deref() == Some(field))
+            .map(|v| (v.message.clone(), tone_of(v.severity)))
     }
 }
 
@@ -167,9 +206,20 @@ impl View for DetailView {
         let messages: Vec<String> = state
             .violations
             .iter()
-            .filter(|v| lists_all || v.field.is_none())
+            .filter(|v| v.is_error() && (lists_all || v.field.is_none()))
             .map(|v| v.message.clone())
             .collect();
+        let notes: Vec<&Violation> =
+            state.violations.iter().filter(|v| !v.is_error() && v.field.is_none()).collect();
+        let note = (!notes.is_empty()).then(|| {
+            let text: Vec<&str> = notes.iter().map(|v| v.message.as_str()).collect();
+            let warns = notes.iter().any(|v| v.severity == Severity::Warning);
+            Alert::new(form.entity.caption.clone(), text.join("\n")).tone(if warns {
+                Tone::Warning
+            } else {
+                Tone::Accent
+            })
+        });
         let mut layout = FormLayout::new().errors(messages);
         if let Some(arrangement) = node.get("Layout") {
             for part in arrangement.in_order() {
@@ -187,6 +237,9 @@ impl View for DetailView {
                 }
             }
         }
-        cx.child(&layout)
+        match note {
+            Some(note) => cx.child(&VStack::new((note, layout)).spacing(12.0).align(Align::Stretch)),
+            None => cx.child(&layout),
+        }
     }
 }

@@ -7,6 +7,7 @@ use ravenrs_layout::Align;
 use ravenrs_reactive::State;
 use ravenrs_widgets::{BuildCx, DataGrid, NodeId, Text, VStack, View, ViewExt};
 
+use crate::list_view::ListSource;
 use crate::shell::PopupHost;
 use crate::{ActionContainer, ListView, Session};
 
@@ -48,9 +49,22 @@ pub(crate) struct NestedList {
     target: String,
     field: Option<String>,
     link_filter: Option<String>,
+    source: Option<ListSource>,
 }
 
 impl NestedList {
+    /// A list of records no storage keeps, given by this. There is nothing to link or unlink.
+    pub fn given(parent: Session, target: &str, source: ListSource) -> Self {
+        Self {
+            parent,
+            owner: None,
+            target: target.to_owned(),
+            field: None,
+            link_filter: None,
+            source: Some(source),
+        }
+    }
+
     pub fn new(
         parent: Session,
         owner: &EntityInfo,
@@ -66,6 +80,7 @@ impl NestedList {
             target: target.to_owned(),
             field,
             link_filter: link_filter.map(str::to_owned),
+            source: None,
         }
     }
 }
@@ -73,14 +88,28 @@ impl NestedList {
 impl View for NestedList {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let words = self.parent.words();
-        let (Some(key), Some(field)) = (self.owner.clone(), self.field.clone()) else {
-            return cx.child(&Text::new(words.save_first.clone()));
-        };
         let id = format!("{}_ListView", self.target);
         let Ok(view) = ViewInfo::from_model(&self.parent.model(), &id) else {
             return cx.child(&Text::new(id));
         };
         let held: State<Option<Session>> = cx.use_state(|| None);
+        if let Some(source) = &self.source {
+            let kept = held.peek().clone();
+            let child = kept.unwrap_or_else(|| {
+                let child = self.parent.child(FrameContext::Nested);
+                child.frame().set_view(Some(view.clone()));
+                held.set(Some(child.clone()));
+                child
+            });
+            let list = ListView::new(child.clone(), child.frame(), view)
+                .source(source.clone())
+                .plain_toolbar()
+                .grid_shape(|grid: DataGrid| grid.toolbar(false).filter_row(false).footer(false));
+            return cx.child(&list.height(NESTED_HEIGHT));
+        }
+        let (Some(key), Some(field)) = (self.owner.clone(), self.field.clone()) else {
+            return cx.child(&Text::new(words.save_first.clone()));
+        };
         let kept = held.peek().clone();
         let child = kept.unwrap_or_else(|| {
             let child = self.parent.child(FrameContext::Nested);

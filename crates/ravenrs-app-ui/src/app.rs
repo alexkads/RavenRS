@@ -50,6 +50,7 @@ impl Language {
 
 type Seed = Box<dyn FnOnce(&mut dyn ObjectSpace) -> Result<(), String>>;
 type Storage = Box<dyn FnOnce(&Application) -> SpaceFactory>;
+type SessionStep = Box<dyn FnOnce(&crate::Session)>;
 
 /// An application from its records: the module with the actions every application needs,
 /// the screens, and records in memory unless told otherwise.
@@ -87,6 +88,8 @@ pub struct App {
     list_editors: Vec<(String, crate::list_view::ListEditorFactory)>,
     attachment_store: Option<Rc<dyn AttachmentStore>>,
     model_store: Option<Rc<dyn ModelStore>>,
+    steps: Vec<SessionStep>,
+    administrator: Option<String>,
 }
 
 impl std::fmt::Debug for App {
@@ -108,7 +111,39 @@ impl App {
             list_editors: Vec::new(),
             attachment_store: None,
             model_store: None,
+            steps: Vec::new(),
+            administrator: None,
         }
+    }
+
+    /// What the administrator of an installation set in the model, as a difference in JSON. Fields
+    /// it adds to an entity reach storage too.
+    pub fn administrator_settings(mut self, difference: impl Into<String>) -> Self {
+        self.administrator = Some(difference.into());
+        self
+    }
+
+    /// The records of an entity no storage keeps, for its list and its forms.
+    pub fn records_of(
+        mut self,
+        entity: impl Into<String>,
+        source: impl Fn() -> Vec<ravenrs_app::Object> + 'static,
+    ) -> Self {
+        let entity = entity.into();
+        self.steps.push(Box::new(move |session| session.use_records(entity, source)));
+        self
+    }
+
+    /// The records of a list no storage keeps, inside a form of this entity.
+    pub fn collection_of(
+        mut self,
+        entity: impl Into<String>,
+        field: impl Into<String>,
+        source: impl Fn(&ravenrs_app::Object) -> Vec<ravenrs_app::Object> + 'static,
+    ) -> Self {
+        let (entity, field) = (entity.into(), field.into());
+        self.steps.push(Box::new(move |session| session.use_collection(entity, field, source)));
+        self
     }
 
     /// The language of its screens.
@@ -120,6 +155,12 @@ impl App {
     /// Adds a record declared as a struct.
     pub fn entity<T: BusinessObject>(mut self) -> Self {
         self.builder = self.builder.entity_of::<T>();
+        self
+    }
+
+    /// Adds a record declared at run time.
+    pub fn entity_info(mut self, entity: ravenrs_app::EntityInfo) -> Self {
+        self.builder = self.builder.entity(entity);
         self
     }
 
@@ -190,6 +231,20 @@ impl App {
         self
     }
 
+    /// Keeps records elsewhere than in memory, in something made from the entities as the model
+    /// has them, with the fields its layers added: this makes what makes the unit of work of each view.
+    pub fn storage_for<S, F>(mut self, make: impl FnOnce(&[ravenrs_app::EntityInfo]) -> F + 'static) -> Self
+    where
+        S: ObjectSpace + 'static,
+        F: Fn() -> S + 'static,
+    {
+        self.storage = Some(Box::new(move |application| {
+            let space = make(application.entities());
+            Rc::new(move || Rc::new(RefCell::new(space())) as Rc<RefCell<dyn ObjectSpace>>)
+        }));
+        self
+    }
+
     /// Puts it together, or says what is wrong with how it was declared.
     pub fn build(self) -> Result<AnyView, ModelError> {
         let words = self.language.words();
@@ -198,6 +253,14 @@ impl App {
             builder = add(builder);
         }
         let mut application = builder.build()?;
+        if let Some(text) = &self.administrator {
+            let difference = ravenrs_app::Diff::parse(text)?;
+            application.layers_mut().put(&ravenrs_app::ModelLayer::Administrator, difference);
+        }
+        // Before storage is made, for it to know the fields the layers add.
+        if let Some(store) = &self.model_store {
+            application.layers_mut().load(&ravenrs_app::ModelLayer::User, &**store)?;
+        }
         application.set_language(self.language.code())?;
         let factory: SpaceFactory = match self.storage {
             Some(storage) => storage(&application),
@@ -224,6 +287,9 @@ impl App {
         }
         if let Some(store) = self.attachment_store {
             session.use_attachment_store(store);
+        }
+        for step in self.steps {
+            step(&session);
         }
         if let Some(store) = self.model_store {
             session.use_model_store(store).map_err(ModelError)?;

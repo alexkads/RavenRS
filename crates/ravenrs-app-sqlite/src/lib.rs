@@ -597,7 +597,17 @@ impl SqliteObjectSpace {
         tail: &str,
         parameters: Vec<SqlValue>,
     ) -> Result<Vec<Object>, SpaceError> {
-        let sql = format!("SELECT * FROM ({}){tail}", entity.select());
+        self.select_columns(entity, "*", tail, parameters)
+    }
+
+    fn select_columns(
+        &self,
+        entity: &Entity,
+        columns: &str,
+        tail: &str,
+        parameters: Vec<SqlValue>,
+    ) -> Result<Vec<Object>, SpaceError> {
+        let sql = format!("SELECT {columns} FROM ({}){tail}", entity.select());
         let storage = |e: rusqlite::Error| self.refused(entity, &e);
         let mut statement = self.shared.connection.prepare_cached(&sql).map_err(storage)?;
         let names: Vec<String> = statement.column_names().map(str::to_owned).collect();
@@ -769,7 +779,17 @@ impl ObjectSpace for SqliteObjectSpace {
         } else if query.offset > 0 {
             tail.push_str(&format!(" LIMIT -1 OFFSET {}", query.offset));
         }
-        self.select(entity, &tail, parameters)
+        let columns = query.only.as_ref().map_or_else(
+            || "*".to_owned(),
+            |only| {
+                let mut names: Vec<&str> = only.iter().map(String::as_str).collect();
+                if !names.contains(&key.as_str()) {
+                    names.push(&key);
+                }
+                names.iter().map(|name| quoted(name)).collect::<Vec<_>>().join(", ")
+            },
+        );
+        self.select_columns(entity, &columns, &tail, parameters)
     }
 
     fn find(&self, name: &str, key: &Value) -> Result<Option<Object>, SpaceError> {

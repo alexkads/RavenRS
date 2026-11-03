@@ -14,7 +14,10 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::overlay::{Entry, MenuList, PanelOf, panel};
-use crate::{ButtonSize, IconButton, IconName, MenuItem, Motion, TextField, Tone, View, motion, util};
+use crate::{
+    Button, ButtonSize, ButtonStyle, IconButton, IconName, MenuItem, Motion, TextField, Tone, View, motion,
+    util,
+};
 
 /// Opens a menu at the pointer on right click (or long press, planned) over its content.
 pub struct ContextMenu<V> {
@@ -466,6 +469,53 @@ pub struct Toast {
     duration: f64,
     /// When it was first shown, on the UI clock.
     shown_at: Rc<Cell<Option<f64>>>,
+    extras: ToastExtras,
+}
+
+/// What a toast can do besides showing: a button, and something to run once it is gone.
+#[derive(Clone, Default)]
+pub struct ToastExtras {
+    action: Option<(String, Rc<dyn Fn()>)>,
+    on_close: Option<Rc<dyn Fn()>>,
+}
+
+impl fmt::Debug for ToastExtras {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ToastExtras")
+            .field("action", &self.action.as_ref().map(|(label, _)| label))
+            .finish_non_exhaustive()
+    }
+}
+
+impl PartialEq for ToastExtras {
+    fn eq(&self, other: &Self) -> bool {
+        let same = |a: &Option<Rc<dyn Fn()>>, b: &Option<Rc<dyn Fn()>>| match (a, b) {
+            (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+            (None, None) => true,
+            _ => false,
+        };
+        let action = |extras: &Self| extras.action.as_ref().map(|(_, run)| run.clone());
+        same(&action(self), &action(other)) && same(&self.on_close, &other.on_close)
+    }
+}
+
+impl ToastExtras {
+    /// Nothing besides showing.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// A button on the toast. Pressing it runs this and closes the toast.
+    pub fn action(mut self, label: impl Into<String>, run: impl Fn() + 'static) -> Self {
+        self.action = Some((label.into(), Rc::new(run)));
+        self
+    }
+
+    /// Runs this once the toast is gone, by itself or closed by a person.
+    pub fn on_close(mut self, run: impl Fn() + 'static) -> Self {
+        self.on_close = Some(Rc::new(run));
+        self
+    }
 }
 
 /// A handle to show toasts from anywhere (event handlers, async tasks).
@@ -500,6 +550,18 @@ impl Toasts {
 
     /// Shows a toast for `seconds` seconds. At most four are kept; the oldest go first.
     pub fn show_for(&self, title: impl Into<String>, message: impl Into<String>, tone: Tone, seconds: f64) {
+        self.show_with(title, message, tone, seconds, ToastExtras::new());
+    }
+
+    /// Shows a toast for `seconds` seconds, with a button or something to run once it is gone.
+    pub fn show_with(
+        &self,
+        title: impl Into<String>,
+        message: impl Into<String>,
+        tone: Tone,
+        seconds: f64,
+        extras: ToastExtras,
+    ) {
         let id = self.next.get();
         self.next.set(id + 1);
         let toast = Toast {
@@ -509,18 +571,23 @@ impl Toasts {
             tone,
             duration: seconds,
             shown_at: Rc::new(Cell::new(None)),
+            extras,
         };
+        let mut gone = Vec::new();
         self.list.update(|l| {
             l.push(toast);
             // Keep the stack short; the oldest go first.
             let excess = l.len().saturating_sub(4);
-            l.drain(..excess);
+            gone.extend(l.drain(..excess));
         });
+        tell_gone(&gone);
     }
 
     /// Removes the toast with this id, if still shown.
     pub fn dismiss(&self, id: u64) {
+        let gone: Vec<Toast> = self.list.peek().iter().filter(|t| t.id == id).cloned().collect();
         self.list.update(|l| l.retain(|t| t.id != id));
+        tell_gone(&gone);
     }
 
     /// Number of toasts currently shown.
@@ -556,6 +623,14 @@ impl Toaster {
     }
 }
 
+fn tell_gone(gone: &[Toast]) {
+    for toast in gone {
+        if let Some(run) = &toast.extras.on_close {
+            run();
+        }
+    }
+}
+
 fn tone_color(theme: &Theme, tone: Tone) -> (Color, IconName) {
     match tone {
         Tone::Neutral => (theme.color(Semantic::InkMuted), IconName::Bell),
@@ -585,14 +660,27 @@ impl View for ToastStack<'_> {
                 theme.color(Semantic::Ink),
             );
             let msg = util::label(cx, &t.message, TextStyle::Callout, None, theme.color(Semantic::InkMuted));
+            let mut lines = vec![title, msg];
+            if let Some((label, run)) = &t.extras.action {
+                let (toasts, id, run) = (self.1.clone(), t.id, run.clone());
+                lines.push(cx.keyed_child(
+                    t.id << 1 | 1,
+                    &Button::new(label.clone()).style(ButtonStyle::Ghost).size(ButtonSize::Small).on_click(
+                        move || {
+                            run();
+                            toasts.dismiss(id);
+                        },
+                    ),
+                ));
+            }
             let text = cx.container(
                 LayoutStyle { grow: 1.0, spacing: 2.0, ..LayoutStyle::stack(Axis::Vertical) },
-                &[title, msg],
+                &lines,
                 Paint::None,
             );
             let (toasts, id) = (self.1.clone(), t.id);
             let x = cx.keyed_child(
-                t.id,
+                t.id << 1,
                 &IconButton::new(IconName::X)
                     .label(cx.labels().dismiss.clone())
                     .size(ButtonSize::Small)
@@ -662,7 +750,9 @@ impl View for Toaster {
         }
         if expired {
             let ids: Vec<u64> = visible.iter().map(|t| t.id).collect();
+            let gone: Vec<Toast> = all.iter().filter(|t| !ids.contains(&t.id)).cloned().collect();
             self.toasts.list.update(|l| l.retain(|t| ids.contains(&t.id)));
+            tell_gone(&gone);
         }
         if !visible.is_empty() {
             cx.overlay(
@@ -939,6 +1029,7 @@ pub struct Combobox {
     options: Vec<String>,
     placeholder: Option<String>,
     width: f32,
+    fill: bool,
     label: Option<String>,
     state: util::EditorState,
 }
@@ -954,6 +1045,7 @@ impl Combobox {
             options: options.into_iter().map(Into::into).collect(),
             placeholder: None,
             width: 240.0,
+            fill: false,
             label: None,
             state: util::EditorState::default(),
         }
@@ -962,6 +1054,12 @@ impl Combobox {
     /// Sets the text shown when nothing is selected.
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
         self.placeholder = Some(text.into());
+        self
+    }
+
+    /// Takes the width of its parent, as other fields of a form do.
+    pub fn fill(mut self) -> Self {
+        self.fill = true;
         self
     }
 
@@ -1133,12 +1231,12 @@ impl View for Combobox {
         };
         let node = cx.container(
             LayoutStyle {
-                width: Some(self.width),
+                width: (!self.fill).then_some(self.width),
                 height: Some(40.0),
                 padding: Insets::symmetric(0.0, 12.0),
                 spacing: 8.0,
                 align: Align::Center,
-                align_self: Some(Align::Fit),
+                align_self: Some(if self.fill { Align::Stretch } else { Align::Fit }),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[label, chevrons],

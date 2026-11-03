@@ -41,12 +41,14 @@ mod validation;
 
 pub use action::{
     Action, ActionCategory, ActionContext, ActionError, ActionInput, ActionKind, ActionResult, ChoiceItem,
-    CriteriaMode, Nesting, REASON_APPEARANCE, REASON_CONTROLLER, REASON_CRITERIA, REASON_SCOPE,
-    REASON_SELECTION, Reasons, Selection, TargetScope,
+    CriteriaMode, Message, MessageKind, Nesting, REASON_APPEARANCE, REASON_CONTROLLER, REASON_CRITERIA,
+    REASON_SCOPE, REASON_SELECTION, Reasons, Selection, TargetScope,
 };
 pub use appearance::{Appearance, AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
 pub use controller::{ViewController, WindowController};
-pub use entity::{EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter, ModelError, Object, ViewVariant};
+pub use entity::{
+    DataAccess, EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter, ModelError, Object, ViewVariant,
+};
 pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
 pub use functions::{environment, register_function};
@@ -61,10 +63,10 @@ pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 pub use ravenrs_criteria::{Criteria, Value};
 pub use space::{
-    Change, ChangeSet, MemoryDatabase, MemoryObjectSpace, ObjectSpace, Query, SpaceError, SpaceEvent,
-    SpaceWatcher, check_query, key_of, key_text, run_query,
+    Change, ChangeSet, MemoryDatabase, MemoryObjectSpace, Merged, ObjectSpace, Query, SpaceError, SpaceEvent,
+    SpaceWatcher, check_query, key_of, key_text, merge_changes, run_query,
 };
 pub use validation::{
-    CONTEXT_DELETE, CONTEXT_SAVE, Comparison, Operand, Rule, RuleKind, RuleWords, TextComparison, Violation,
-    validate,
+    CONTEXT_DELETE, CONTEXT_SAVE, Comparison, Operand, Rule, RuleKind, RuleWords, Severity, TextComparison,
+    Violation, validate, validate_in_place,
 };

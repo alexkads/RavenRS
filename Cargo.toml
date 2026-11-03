@@ -32,6 +32,7 @@ ravenrs-app = { version = "27.1.8", path = "crates/ravenrs-app" }
 ravenrs-app-ui = { version = "27.1.8", path = "crates/ravenrs-app-ui" }
 ravenrs-app-derive = { version = "27.1.8", path = "crates/ravenrs-app-derive" }
 ravenrs-app-sqlite = { version = "27.1.8", path = "crates/ravenrs-app-sqlite" }
+ravenrs-app-library = { version = "27.1.8", path = "crates/ravenrs-app-library" }
 ravenrs-app-report = { version = "27.1.8", path = "crates/ravenrs-app-report" }
 ravenrs-report-pdf = { version = "27.1.8", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.8", path = "crates/ravenrs-report-xlsx" }
@@ -73,6 +74,7 @@ syn = { version = "2.0.119", default-features = false, features = ["full", "pars
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 quote = "1.0.47"
 regex-lite = "0.1"
+uuid = { version = "1", default-features = false, features = ["v4", "js"] }
 rusqlite = { version = "0.41", features = ["bundled"] }
 trybuild = "1"
 

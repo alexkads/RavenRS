@@ -1,0 +1,35 @@
+{
+  "Entities": {
+    "Country": { "Caption": "Países", "Members": {
+      "name": { "Caption": "Nome" }, "code": { "Caption": "Código" } } },
+    "Address": { "Caption": "Endereços", "Members": {
+      "full_address": { "Caption": "Endereço" }, "street": { "Caption": "Logradouro" },
+      "number": { "Caption": "Número" }, "complement": { "Caption": "Complemento" },
+      "city": { "Caption": "Cidade" }, "state": { "Caption": "Estado" },
+      "postal_code": { "Caption": "CEP" }, "country": { "Caption": "País" } } },
+    "Person": { "Caption": "Pessoas", "Members": {
+      "full_name": { "Caption": "Nome" }, "first_name": { "Caption": "Nome" },
+      "last_name": { "Caption": "Sobrenome" }, "email": { "Caption": "E-mail" },
+      "phone": { "Caption": "Telefone" }, "birthday": { "Caption": "Nascimento" },
+      "address": { "Caption": "Endereço" } } },
+    "Organization": { "Caption": "Organizações", "Members": {
+      "name": { "Caption": "Nome" }, "email": { "Caption": "E-mail" }, "phone": { "Caption": "Telefone" },
+      "website": { "Caption": "Site" }, "address": { "Caption": "Endereço" } } },
+    "Task": { "Caption": "Tarefas", "Members": {
+      "subject": { "Caption": "Assunto" },
+      "status": { "Caption": "Situação", "Options": {
+        "not_started": { "Caption": "Não iniciada" }, "in_progress": { "Caption": "Em andamento" },
+        "waiting": { "Caption": "Aguardando" }, "done": { "Caption": "Concluída" },
+        "deferred": { "Caption": "Adiada" } } },
+      "assigned_to": { "Caption": "Responsável" }, "due_date": { "Caption": "Prazo" },
+      "percent_done": { "Caption": "Concluído" }, "description": { "Caption": "Descrição" } } },
+    "Event": { "Caption": "Eventos", "Members": {
+      "subject": { "Caption": "Assunto" }, "starts": { "Caption": "Início" }, "ends": { "Caption": "Fim" },
+      "all_day": { "Caption": "Dia inteiro" }, "location": { "Caption": "Local" },
+      "description": { "Caption": "Descrição" } } },
+    "Note": { "Caption": "Anotações", "Members": {
+      "title": { "Caption": "Título" }, "text": { "Caption": "Texto" } } },
+    "FileRecord": { "Caption": "Arquivos", "Members": {
+      "name": { "Caption": "Nome" }, "file": { "Caption": "Arquivo" } } }
+  }
+}

@@ -103,6 +103,9 @@ pub enum ActionCategory {
     Export,
     /// Anything else, with its name.
     Custom(String),
+    /// On a form, inside its layout and not above it, in the place with this name that its entity
+    /// asks for with [`EntityInfo::form_actions`](crate::EntityInfo::form_actions).
+    InForm(String),
 }
 
 /// Whether views inside others count.
@@ -258,6 +261,68 @@ pub enum ActionInput {
     Record(Object),
 }
 
+/// How much a [`Message`] matters.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum MessageKind {
+    /// Something to know.
+    #[default]
+    Information,
+    /// It went well.
+    Success,
+    /// Something to look at.
+    Warning,
+    /// It went badly.
+    Error,
+}
+
+/// Something to tell people, which goes away by itself.
+#[derive(Clone)]
+#[non_exhaustive]
+pub struct Message {
+    /// What it says.
+    pub text: String,
+    /// How much it matters.
+    pub kind: MessageKind,
+    /// How long it shows; nothing means the usual.
+    pub seconds: Option<f64>,
+    /// A button on it: what it says and what it does. It closes the message.
+    pub action: Option<(String, Rc<dyn Fn()>)>,
+    /// What happens once it goes away, by itself or closed by a person.
+    pub on_close: Option<Rc<dyn Fn()>>,
+}
+
+impl fmt::Debug for Message {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Message").field("text", &self.text).field("kind", &self.kind).finish_non_exhaustive()
+    }
+}
+
+impl Message {
+    /// A message saying this.
+    pub fn new(text: impl Into<String>, kind: MessageKind) -> Self {
+        Self { text: text.into(), kind, seconds: None, action: None, on_close: None }
+    }
+
+    /// Shows for this long.
+    pub fn seconds(mut self, seconds: f64) -> Self {
+        self.seconds = Some(seconds);
+        self
+    }
+
+    /// A button on it, which closes the message.
+    pub fn action(mut self, label: impl Into<String>, then: impl Fn() + 'static) -> Self {
+        self.action = Some((label.into(), Rc::new(then)));
+        self
+    }
+
+    /// Runs this once it goes away.
+    pub fn on_close(mut self, then: impl Fn() + 'static) -> Self {
+        self.on_close = Some(Rc::new(then));
+        self
+    }
+}
+
 /// What an action sees while running.
 pub struct ActionContext {
     /// The frame it runs in.
@@ -293,6 +358,11 @@ impl ActionContext {
     /// Something the application gave its actions, by its type.
     pub fn service<T: 'static>(&self) -> Option<Rc<T>> {
         self.frame.extension::<T>()
+    }
+
+    /// Tells people something, as long as whoever shows the application listens.
+    pub fn message(&self, message: Message) {
+        self.frame.show_message(message);
     }
 
     /// Asks the frame to show this view when the action ends.

@@ -1,12 +1,14 @@
 //! The application model: a tree of settings in layers, generated from the entities and
 //! changed by differences in JSON.
 
+mod captions;
 mod generate;
 mod layers;
 mod node;
 mod store;
 
-pub(crate) use generate::{add_dashboard, follow_captions};
+pub(crate) use captions::{captions_of, translation_of};
+pub(crate) use generate::{add_custom_fields, add_dashboard, follow_captions};
 pub use generate::{check_model, generate_model};
 pub use layers::{Diff, MergedModel, ModelLayer, ModelLayers, UnusableNode};
 pub use node::ModelNode;

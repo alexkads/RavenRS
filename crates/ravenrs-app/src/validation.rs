@@ -57,6 +57,30 @@ pub enum Operand {
     Field(String),
 }
 
+/// How much not meeting a rule matters.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Severity {
+    /// It stops what was being done until it is fixed.
+    #[default]
+    Error,
+    /// People are told, and can go on anyway.
+    Warning,
+    /// It goes on, with a note on the field.
+    Information,
+}
+
+impl Severity {
+    fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Error" => Some(Self::Error),
+            "Warning" => Some(Self::Warning),
+            "Information" => Some(Self::Information),
+            _ => None,
+        }
+    }
+}
+
 type CustomRule = Rc<dyn Fn(&Object, &dyn ObjectSpace) -> Result<(), String>>;
 
 /// What a [`Rule`] asks for.
@@ -153,6 +177,8 @@ pub struct Rule {
     pub message: Option<String>,
     /// Whether an empty field passes, as it does for all but [`RuleKind::Required`].
     pub skip_empty: bool,
+    /// How much not meeting it matters.
+    pub severity: Severity,
 }
 
 impl PartialEq for Rule {
@@ -189,6 +215,10 @@ impl Rule {
         rule.id = node.id.clone();
         rule.message = text("Message");
         rule.target_criteria = text("Target");
+        if let Some(name) = node.text("Severity") {
+            rule.severity = Severity::from_name(name)
+                .ok_or_else(|| wrong(&format!("has an unknown severity: {name}")))?;
+        }
         if let Some(contexts) = node.text("Contexts") {
             rule.contexts = contexts.split(',').map(|context| context.trim().to_owned()).collect();
         }
@@ -205,6 +235,7 @@ impl Rule {
             target_criteria: None,
             message: None,
             skip_empty: true,
+            severity: Severity::Error,
         }
     }
 
@@ -257,10 +288,40 @@ impl Rule {
         self
     }
 
-    /// Says this when it fails.
+    /// Says this when it fails. `{field}` is what a field of the record holds, as it shows, and
+    /// `{reference.field}` the same of the record a reference points to. `{$field}` is what the
+    /// rule's field is called, `{$entity}` the entity, `{$min}` and `{$max}` the limits.
     pub fn message(mut self, message: impl Into<String>) -> Self {
         self.message = Some(message.into());
         self
+    }
+
+    /// How much not meeting it matters.
+    pub fn severity(mut self, severity: Severity) -> Self {
+        self.severity = severity;
+        self
+    }
+
+    /// People are told, and can go on anyway.
+    pub fn warning(self) -> Self {
+        self.severity(Severity::Warning)
+    }
+
+    /// It goes on, with a note on the field.
+    pub fn information(self) -> Self {
+        self.severity(Severity::Information)
+    }
+
+    /// Whether finding out takes reading other records.
+    fn reads_records(&self) -> bool {
+        matches!(
+            self.kind,
+            RuleKind::Unique
+                | RuleKind::UniqueTogether(_)
+                | RuleKind::Exists { .. }
+                | RuleKind::Referenced { .. }
+                | RuleKind::Custom(_)
+        )
     }
 
     /// Whether an empty field passes.
@@ -331,6 +392,8 @@ pub struct RuleWords {
     pub none_exists: String,
     /// [`RuleKind::Referenced`].
     pub not_referenced: String,
+    /// Before decimals, where a message shows money.
+    pub decimal: char,
 }
 
 impl Default for RuleWords {
@@ -346,6 +409,7 @@ impl Default for RuleWords {
             duplicate: "There is already a record with this {0}".into(),
             none_exists: "A record it needs does not exist".into(),
             not_referenced: "Nothing points to this record yet".into(),
+            decimal: '.',
         }
     }
 }
@@ -364,6 +428,7 @@ impl RuleWords {
             duplicate: "Já existe um registro com este valor em {0}".into(),
             none_exists: "Um registro necessário não existe".into(),
             not_referenced: "Nada aponta para este registro ainda".into(),
+            decimal: ',',
         }
     }
 }
@@ -378,6 +443,15 @@ pub struct Violation {
     pub field: Option<String>,
     /// In words for people.
     pub message: String,
+    /// How much it matters.
+    pub severity: Severity,
+}
+
+impl Violation {
+    /// Whether it stops what was being done.
+    pub fn is_error(&self) -> bool {
+        self.severity == Severity::Error
+    }
 }
 
 fn is_empty(value: &Value) -> bool {
@@ -428,6 +502,83 @@ fn duplicated(entity: &EntityInfo, object: &Object, fields: &[&str], space: &dyn
         !same(&other.get(key), &object.get(key))
             && fields.iter().all(|field| same(&other.get(field), &object.get(field)))
     })
+}
+
+/// What a value is, as a message says it.
+fn shown(field: Option<&crate::FieldInfo>, value: &Value, words: &RuleWords) -> String {
+    match (field.map(|field| &field.kind), value) {
+        (Some(crate::FieldKind::Money), Value::Number(cents)) => {
+            format!("{:.2}", cents / 100.0).replace('.', &words.decimal.to_string())
+        }
+        (Some(crate::FieldKind::Enum(options)), Value::Text(code)) => options
+            .iter()
+            .find(|option| option.code == *code)
+            .map_or_else(|| code.clone(), |option| option.caption.clone()),
+        (_, Value::Date(moment)) => moment.to_string(),
+        _ => text_of(value),
+    }
+}
+
+/// What `{name}` in a message stands for.
+fn message_part(
+    name: &str,
+    rule: &Rule,
+    entity: &EntityInfo,
+    object: &Object,
+    space: &dyn ObjectSpace,
+    words: &RuleWords,
+) -> Option<String> {
+    let number = |limit: Option<f64>| limit.map_or_else(String::new, |n| text_of(&Value::Number(n)));
+    match name {
+        "$entity" => return Some(entity.caption.clone()),
+        "$field" => {
+            let field = rule.field.as_deref().and_then(|field| entity.field_named(field));
+            return Some(field.map_or_else(String::new, |field| field.caption.clone()));
+        }
+        "$min" | "$max" => {
+            let RuleKind::Range { min, max } = &rule.kind else { return Some(String::new()) };
+            return Some(number(if name == "$min" { *min } else { *max }));
+        }
+        _ => {}
+    }
+    if let Some((reference, rest)) = name.split_once('.') {
+        let field = entity.field_named(reference)?;
+        let crate::FieldKind::Reference(target) = &field.kind else { return None };
+        let other = space.entities().into_iter().find(|e| e.name == *target)?;
+        let record = space.find(target, &object.get(reference)).ok().flatten();
+        let Some(record) = record else { return Some(String::new()) };
+        return message_part(rest, rule, &other, &record, space, words);
+    }
+    let field = entity.field_named(name)?;
+    Some(shown(Some(field), &object.get(name), words))
+}
+
+/// A rule's message with what it refers to filled in. What it does not know stays as written.
+fn filled_message(
+    text: &str,
+    rule: &Rule,
+    entity: &EntityInfo,
+    object: &Object,
+    space: &dyn ObjectSpace,
+    words: &RuleWords,
+) -> String {
+    let mut filled = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(start) = rest.find('{') {
+        filled.push_str(&rest[..start]);
+        let Some(end) = rest[start..].find('}') else {
+            rest = &rest[start..];
+            break;
+        };
+        let inside = &rest[start + 1..start + end];
+        match message_part(inside, rule, entity, object, space, words) {
+            Some(part) => filled.push_str(&part),
+            None => filled.push_str(&rest[start..=start + end]),
+        }
+        rest = &rest[start + end + 1..];
+    }
+    filled.push_str(rest);
+    filled
 }
 
 /// What a rule says, or nothing if it is met.
@@ -519,7 +670,10 @@ fn broken(
         }
         RuleKind::Custom(check) => check(object, space).err(),
     };
-    failed.map(|text| rule.message.clone().unwrap_or(text))
+    failed.map(|text| match &rule.message {
+        Some(message) => filled_message(message, rule, entity, object, space, words),
+        None => text,
+    })
 }
 
 /// Checks a record against the rules of its entity that apply in this context. It does not
@@ -531,6 +685,28 @@ pub fn validate(
     space: &dyn ObjectSpace,
     words: &RuleWords,
 ) -> Vec<Violation> {
+    checked(entity, object, context, space, words, false)
+}
+
+/// The same, leaving out rules that have to read other records, for checking every row of a list.
+pub fn validate_in_place(
+    entity: &EntityInfo,
+    object: &Object,
+    context: &str,
+    space: &dyn ObjectSpace,
+    words: &RuleWords,
+) -> Vec<Violation> {
+    checked(entity, object, context, space, words, true)
+}
+
+fn checked(
+    entity: &EntityInfo,
+    object: &Object,
+    context: &str,
+    space: &dyn ObjectSpace,
+    words: &RuleWords,
+    in_place: bool,
+) -> Vec<Violation> {
     let mut object = object.clone();
     let environment = crate::environment();
     entity.compute(&mut object, &environment);
@@ -538,6 +714,7 @@ pub fn validate(
         .rules
         .iter()
         .filter(|rule| rule.contexts.iter().any(|c| c == context))
+        .filter(|rule| !(in_place && rule.reads_records()))
         .filter(|rule| {
             rule.target_criteria.as_deref().is_none_or(|expression| meets(&object, expression, &environment))
         })
@@ -546,6 +723,7 @@ pub fn validate(
                 rule: rule.id.clone(),
                 field: rule.field.clone(),
                 message,
+                severity: rule.severity,
             })
         })
         .collect()

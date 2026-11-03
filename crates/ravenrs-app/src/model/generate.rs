@@ -32,6 +32,12 @@ fn list_view(entity: &EntityInfo, id: String, shown: impl Fn(&FieldInfo) -> bool
         Some(criteria) => node.with("Criteria", criteria.as_str()),
         None => node,
     };
+    let node = if entity.list_editable { node.with("AllowEdit", true) } else { node };
+    let node = if entity.data_access == crate::DataAccess::Client {
+        node
+    } else {
+        node.with("DataAccess", entity.data_access.name())
+    };
     let node = if entity.filters.is_empty() {
         node
     } else {
@@ -108,6 +114,65 @@ pub(crate) fn follow_captions(root: &mut ModelNode, declared: &[EntityInfo]) {
     }
 }
 
+/// Gives every view of an entity the fields the layers added to it, where it has not said
+/// otherwise: a column at the end of its list, and a place on its form with the other simple fields.
+pub(crate) fn add_custom_fields(root: &mut ModelNode, declared: &[EntityInfo]) {
+    let Some(entities) = root.get("Entities").cloned() else { return };
+    for entity in declared {
+        let Some(members) = entities.at(&[&entity.name, "Members"]) else { continue };
+        let added: Vec<&ModelNode> =
+            members.children.iter().filter(|member| FieldInfo::is_custom(member, entity)).collect();
+        let Some(views) = root.get_mut("Views").filter(|_| !added.is_empty()) else { continue };
+        for member in added {
+            let caption = member.text("Caption").unwrap_or(&member.id);
+            for view in views.children.iter_mut() {
+                if view.id == format!("{}_DetailView", entity.name) {
+                    add_to_form(view, member, caption);
+                } else if view.text("Entity") == Some(entity.name.as_str()) {
+                    let shown = view.id == format!("{}_ListView", entity.name);
+                    add_to_list(view, member, caption, shown);
+                }
+            }
+        }
+    }
+}
+
+fn add_to_list(view: &mut ModelNode, member: &ModelNode, caption: &str, shown: bool) {
+    let Some(columns) = view.get_mut("Columns") else { return };
+    if columns.get(&member.id).is_some() {
+        return;
+    }
+    let next = columns.children.iter().filter_map(|c| c.integer("Index")).max().unwrap_or(-1) + 1;
+    columns.children.push(
+        ModelNode::new(&member.id).with("Caption", caption).with("Index", if shown { next } else { -1 }),
+    );
+}
+
+fn add_to_form(view: &mut ModelNode, member: &ModelNode, caption: &str) {
+    let calculated = member.text("Expression").is_some();
+    if let Some(items) = view.get_mut("Items")
+        && items.get(&member.id).is_none()
+    {
+        items.children.push(
+            ModelNode::new(&member.id)
+                .with("Caption", caption)
+                .with("Editor", member.text("Kind").unwrap_or("Text"))
+                .with("ReadOnly", calculated),
+        );
+    }
+    let Some(layout) = view.get_mut("Layout") else { return };
+    if layout.get("Main").is_none() {
+        layout
+            .children
+            .push(ModelNode::new("Main").with("Kind", "Group").with("Index", -1).with("Columns", 1));
+    }
+    let Some(main) = layout.get_mut("Main") else { return };
+    if main.get(&member.id).is_none() {
+        let next = main.children.iter().filter_map(|c| c.integer("Index")).max().unwrap_or(-1) + 1;
+        main.children.push(ModelNode::new(&member.id).with("Field", member.id.as_str()).with("Index", next));
+    }
+}
+
 /// Adds a dashboard to a model: its view, and its place in the navigation if it has one.
 pub fn add_dashboard(root: &mut ModelNode, dashboard: &DashboardInfo) {
     let items = dashboard.items.iter().enumerate().fold(ModelNode::new("Items"), |items, (i, item)| {
@@ -121,6 +186,21 @@ pub fn add_dashboard(root: &mut ModelNode, dashboard: &DashboardInfo) {
         .with("Kind", "DashboardView")
         .with("Caption", dashboard.caption.as_str())
         .child(items);
+    let view = if dashboard.variants.is_empty() {
+        view
+    } else {
+        view.child(dashboard.variants.iter().enumerate().fold(
+            ModelNode::new("Variants"),
+            |variants, (i, (id, caption, other))| {
+                variants.child(
+                    ModelNode::new(id)
+                        .with("Caption", caption.as_str())
+                        .with("Index", i as i64)
+                        .with("View", format!("{other}_DashboardView")),
+                )
+            },
+        ))
+    };
     if let Some(views) = root.get_mut("Views") {
         views.children.push(view);
     }
@@ -151,8 +231,11 @@ fn group(id: &str, index: i64, columns: i64, fields: &[&FieldInfo]) -> ModelNode
 /// that take the height they need in a group of their own; one list in a group, several in tabs.
 fn layout(entity: &EntityInfo) -> ModelNode {
     let shown: Vec<&FieldInfo> = entity.fields.iter().filter(|f| f.in_detail).collect();
-    let simple: Vec<&FieldInfo> =
-        shown.iter().copied().filter(|f| !f.kind.is_tall() && !f.kind.is_collection()).collect();
+    let simple: Vec<&FieldInfo> = shown
+        .iter()
+        .copied()
+        .filter(|f| !f.kind.is_tall() && !f.kind.is_collection() && f.group.is_none())
+        .collect();
     let tall: Vec<&FieldInfo> = shown.iter().copied().filter(|f| f.kind.is_tall()).collect();
     let lists: Vec<&FieldInfo> = shown.iter().copied().filter(|f| f.kind.is_collection()).collect();
     let mut node = ModelNode::new("Layout");
@@ -165,8 +248,36 @@ fn layout(entity: &EntityInfo) -> ModelNode {
         node = node.child(group("Main", index, columns, &simple));
         index += 1;
     }
+    let mut titled: Vec<&str> = Vec::new();
+    for field in &shown {
+        if let Some(title) = field.group.as_deref()
+            && !titled.contains(&title)
+        {
+            titled.push(title);
+        }
+    }
+    for title in titled {
+        let inside: Vec<&FieldInfo> = shown
+            .iter()
+            .copied()
+            .filter(|f| f.group.as_deref() == Some(title) && !f.kind.is_tall() && !f.kind.is_collection())
+            .collect();
+        let columns = if inside.len() > FIELDS_IN_ONE_COLUMN { 2 } else { 1 };
+        node = node.child(group(title, index, columns, &inside).with("Caption", title));
+        index += 1;
+    }
     if !tall.is_empty() {
         node = node.child(group("Long", index, 1, &tall));
+        index += 1;
+    }
+    for name in &entity.form_actions {
+        node = node.child(
+            ModelNode::new(format!("Actions_{name}"))
+                .with("Kind", "Group")
+                .with("Index", index)
+                .with("Columns", 1)
+                .child(ModelNode::new(name).with("Kind", "ActionContainer").with("Category", name.as_str())),
+        );
         index += 1;
     }
     match lists.as_slice() {
@@ -282,6 +393,13 @@ pub fn check_model(root: &ModelNode) -> Vec<String> {
     let entities = root.get("Entities").unwrap_or(&empty);
     let views = root.get("Views").unwrap_or(&empty);
     for view in &views.children {
+        for variant in view.get("Variants").map_or(&[][..], |n| n.children.as_slice()) {
+            if let Some(shown) = variant.text("View")
+                && views.get(shown).is_none()
+            {
+                problems.push(format!("the view {} can change to {shown}, which does not exist", view.id));
+            }
+        }
         if view.text("Kind") == Some("DashboardView") {
             for item in view.get("Items").map_or(&[][..], |n| n.children.as_slice()) {
                 if let Some(shown) = item.text("View")

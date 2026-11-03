@@ -19,6 +19,7 @@ ravenrs-criteria.workspace = true
 ravenrs-reactive.workspace = true
 regex-lite.workspace = true
 serde_json.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

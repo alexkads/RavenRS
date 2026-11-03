@@ -100,6 +100,8 @@ struct WindowSlot {
     actions: Vec<Action>,
 }
 
+type Messenger = Rc<dyn Fn(crate::Message)>;
+
 struct FrameInner {
     context: FrameContext,
     space: RefCell<Rc<RefCell<dyn ObjectSpace>>>,
@@ -113,6 +115,7 @@ struct FrameInner {
     windows: Vec<WindowSlot>,
     watchers: RefCell<Vec<FrameWatcher>>,
     validator: RefCell<Option<Validator>>,
+    messenger: RefCell<Option<Messenger>>,
     /// Views asked for while one was being changed to, which wait for it to end.
     pending: RefCell<VecDeque<PendingView>>,
     changing: Cell<bool>,
@@ -172,6 +175,7 @@ impl Frame {
             windows,
             watchers: RefCell::default(),
             validator: RefCell::default(),
+            messenger: RefCell::default(),
             pending: RefCell::default(),
             changing: Cell::new(false),
         }));
@@ -187,6 +191,19 @@ impl Frame {
         frame.refresh_controllers();
         frame.refresh_actions();
         frame
+    }
+
+    /// Gives messages to this, which shows them.
+    pub fn set_messenger(&self, messenger: impl Fn(crate::Message) + 'static) {
+        *self.0.messenger.borrow_mut() = Some(Rc::new(messenger));
+    }
+
+    /// Tells people something, as long as someone showing the application listens.
+    pub fn show_message(&self, message: crate::Message) {
+        let messenger = self.0.messenger.borrow().clone();
+        if let Some(messenger) = messenger {
+            messenger(message);
+        }
     }
 
     /// Where it is.

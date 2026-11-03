@@ -9,9 +9,10 @@ use ravenrs_criteria::Criteria;
 use ravenrs_layout::Align;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
-    AnyView, BuildCx, Button, ButtonSize, ButtonStyle, Checkbox, ColorPicker, Date, DatePicker,
-    DateTimePicker, FileUpload, LookupField, LookupItem, NodeId, NumberField, PickedFile, SegmentedControl,
-    Select, TextArea, TextField, VStack, View,
+    AnyView, BuildCx, Button, ButtonSize, ButtonStyle, Checkbox, ColorPicker, Combobox, Date, DatePicker,
+    DateTimePicker, FileUpload, FilterBuilder, FilterField, FilterFieldKind, LookupField, LookupItem,
+    MaskedField, NodeId, NumberField, PickedFile, ProgressBar, SegmentedControl, Select, TagBox, Text,
+    TextArea, TextField, VStack, View,
 };
 
 use crate::session::Session;
@@ -66,6 +67,8 @@ impl EditorRegistry {
             (Some(factory), ..) => factory(request),
             (None, "Segmented", FieldKind::Enum(options)) => segmented_editor(request, options),
             (None, "Select", FieldKind::Reference(target)) => reference_select(request, target),
+            (None, "Progress", FieldKind::Integer | FieldKind::Decimal(_)) => progress_editor(request),
+            (None, "Text", FieldKind::Criteria) => text_editor(request),
             _ => built_in(request),
         }
     }
@@ -264,6 +267,90 @@ fn reference_select(request: &EditorRequest, target: &str) -> AnyView {
     Box::new(Select::new(at, captions).fill().label(request.caption.clone()).disabled(request.read_only))
 }
 
+/// How far along something is, from 0 to 100, which only shows.
+fn progress_editor(request: &EditorRequest) -> AnyView {
+    let held = if let Value::Number(number) = request.value.get() { number } else { 0.0 };
+    Box::new(
+        VStack::new((Text::new(format!("{held:.0}%")), ProgressBar::new((held / 100.0) as f32)))
+            .spacing(4.0)
+            .align(Align::Stretch),
+    )
+}
+
+/// An expression over the fields of an entity, put together by picking.
+fn criteria_editor(request: &EditorRequest) -> AnyView {
+    let entity = request.field.criteria_of.as_deref().and_then(|name| request.session.entity(name));
+    let Some(entity) = entity.filter(|_| !request.read_only) else {
+        return text_editor(request);
+    };
+    let fields = entity.fields.iter().filter_map(|field| {
+        let kind = match &field.kind {
+            FieldKind::Integer | FieldKind::Decimal(_) | FieldKind::Money => FilterFieldKind::Number,
+            FieldKind::Boolean => FilterFieldKind::Boolean,
+            FieldKind::Date | FieldKind::DateTime => FilterFieldKind::Date,
+            FieldKind::Text | FieldKind::LongText | FieldKind::Enum(_) | FieldKind::Tags(_) => {
+                FilterFieldKind::Text
+            }
+            _ => return None,
+        };
+        Some(FilterField::new(field.name.clone(), field.caption.clone(), kind))
+    });
+    Box::new(FilterBuilder::new(text_binding(&request.value), fields.collect::<Vec<_>>()))
+}
+
+/// Several options at once, kept as their codes separated by commas.
+fn tags_editor(request: &EditorRequest, options: &[ravenrs_app::EnumOption]) -> AnyView {
+    let (read, write) = (request.value.clone(), request.value.clone());
+    let chosen = Binding::new(
+        move || match read.get() {
+            Value::Text(codes) if !codes.is_empty() => codes.split(',').map(str::to_owned).collect(),
+            _ => Vec::new(),
+        },
+        move |codes: Vec<String>| {
+            write.set(if codes.is_empty() { Value::Null } else { Value::Text(codes.join(",")) });
+        },
+    );
+    let items = options.iter().map(|option| LookupItem::new(option.code.clone(), option.caption.clone()));
+    Box::new(
+        TagBox::new(chosen, items.collect())
+            .fill()
+            .label(request.caption.clone())
+            .read_only(request.read_only),
+    )
+}
+
+/// Text picked from values ready for it. What it held before stays among them.
+fn predefined_editor(request: &EditorRequest) -> AnyView {
+    let mut values = request.field.predefined.clone();
+    if let Value::Text(held) = &*request.value.peek()
+        && !values.contains(held)
+    {
+        values.push(held.clone());
+    }
+    let (read, write) = (request.value.clone(), request.value.clone());
+    let known = values.clone();
+    let at = Binding::new(
+        move || if let Value::Text(held) = read.get() { known.iter().position(|v| *v == held) } else { None },
+        {
+            let values = values.clone();
+            move |at: Option<usize>| {
+                write.set(at.and_then(|at| values.get(at)).map_or(Value::Null, |v| Value::Text(v.clone())));
+            }
+        },
+    );
+    Box::new(Combobox::new(at, values).fill().label(request.caption.clone()).read_only(request.read_only))
+}
+
+/// Text typed through a mask.
+fn masked_editor(request: &EditorRequest, mask: &str) -> AnyView {
+    Box::new(
+        MaskedField::new(text_binding(&request.value), mask.to_owned())
+            .keep_literals()
+            .label(request.caption.clone())
+            .read_only(request.read_only),
+    )
+}
+
 fn text_editor(request: &EditorRequest) -> AnyView {
     let field = TextField::new(text_binding(&request.value)).read_only(request.read_only);
     let field = if request.field.autofocus { field.autofocus() } else { field };
@@ -280,6 +367,13 @@ fn text_editor(request: &EditorRequest) -> AnyView {
 /// What shows a value with no control of its own: its text, which cannot be changed.
 fn read_only_text(request: &EditorRequest) -> AnyView {
     let text = display(&request.field, &request.value.get());
+    let decimal = request.session.words().decimal;
+    // Only numbers with a format of their own are written here, with a point.
+    let text = if request.field.display_format.is_some() && decimal != '.' {
+        text.replace('.', &decimal.to_string())
+    } else {
+        text
+    };
     Box::new(TextField::new(Binding::constant(text)).read_only(true))
 }
 
@@ -379,8 +473,17 @@ fn built_in(request: &EditorRequest) -> AnyView {
     if request.field.calculated.is_some() {
         return read_only_text(request);
     }
+    if request.read_only && request.field.display_format.is_some() {
+        return read_only_text(request);
+    }
     match &request.field.kind {
-        FieldKind::Text | FieldKind::Criteria => text_editor(request),
+        FieldKind::Text if !request.field.predefined.is_empty() => predefined_editor(request),
+        FieldKind::Text if request.field.edit_mask.is_some() => {
+            masked_editor(request, request.field.edit_mask.as_deref().unwrap_or_default())
+        }
+        FieldKind::Text | FieldKind::Guid => text_editor(request),
+        FieldKind::Criteria => criteria_editor(request),
+        FieldKind::Tags(options) => tags_editor(request, options),
         FieldKind::LongText => Box::new(TextArea::new(text_binding(value)).read_only(read_only)),
         FieldKind::Integer => Box::new(leaving_number(
             NumberField::new(number_binding(value)).label(request.caption.clone()).read_only(read_only),

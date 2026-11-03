@@ -33,6 +33,11 @@ impl ModelNode {
         self
     }
 
+    /// The nodes under it, as they are, including those an index hides.
+    pub(crate) fn in_order_all(&self) -> &[ModelNode] {
+        &self.children
+    }
+
     /// The node under it with this id.
     pub fn get(&self, id: &str) -> Option<&ModelNode> {
         self.children.iter().find(|c| c.id == id)

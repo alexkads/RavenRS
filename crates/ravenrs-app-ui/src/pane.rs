@@ -278,11 +278,13 @@ impl Handles {
     }
 
     fn save(&self, session: &Session, entity: &str) {
-        match session.save() {
-            Ok(()) => {
-                session.open_new(entity);
-                self.say(Outcome::Saved);
-            }
+        let (saved, name) = (self.clone(), entity.to_owned());
+        let done = session.save_then(move |session| {
+            session.open_new(&name);
+            saved.say(Outcome::Saved);
+        });
+        match done {
+            Ok(()) => {}
             // What fails a rule is on the form already.
             Err(_) if session.is_checking() => {}
             Err(message) => self.fail(session, message),

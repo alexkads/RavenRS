@@ -71,6 +71,7 @@ ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, 
 ravenrs-app-derive     ──► ravenrs-criteria  (the derives, re-exported by ravenrs-app)
 ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
 ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)
+ravenrs-app-library    ──► ravenrs-app  (ready-made records)
 ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-viewer  (a list as a report)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
@@ -104,9 +105,10 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-grid-export` | `lib` |
 | `ravenrs-app-derive` | `lib` |
 | `ravenrs-app-sqlite` | `lib` |
+| `ravenrs-app-library` | `lib` |
 | `ravenrs-app-report` | `lib` |
 | `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values` |
-| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files` |
+| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files` |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |

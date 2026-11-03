@@ -1,0 +1,27 @@
+[package]
+name = "ravenrs-app-library"
+description = "Records most RavenRS business applications need: people, organizations, addresses, tasks, events, notes and files, ready to use or extend."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-library"
+keywords = ["application", "framework", "crud", "entities"]
+categories = ["gui", "data-structures"]
+
+[dependencies]
+ravenrs-app.workspace = true
+
+[dev-dependencies]
+ravenrs-app-ui.workspace = true
+ravenrs-core.workspace = true
+ravenrs-criteria.workspace = true
+ravenrs-style.workspace = true
+ravenrs-widgets.workspace = true
+
+[lints]
+workspace = true

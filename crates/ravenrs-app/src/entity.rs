@@ -39,13 +39,23 @@ pub enum FieldKind {
     File,
     /// An expression of the criteria language.
     Criteria,
+    /// A key made up when a record is created, the same everywhere: no two machines repeat one.
+    Guid,
+    /// Several of these options at once, kept as their codes separated by commas.
+    Tags(Vec<EnumOption>),
 }
 
 impl FieldKind {
     /// How expressions see it.
     fn field_type(&self) -> FieldType {
         match self {
-            Self::Text | Self::LongText | Self::Color | Self::Criteria | Self::Enum(_) => FieldType::Text,
+            Self::Text
+            | Self::LongText
+            | Self::Color
+            | Self::Criteria
+            | Self::Enum(_)
+            | Self::Guid
+            | Self::Tags(_) => FieldType::Text,
             Self::Integer | Self::Decimal(_) | Self::Money => FieldType::Number,
             Self::Date | Self::DateTime => FieldType::Date,
             Self::Boolean => FieldType::Boolean,
@@ -55,7 +65,7 @@ impl FieldKind {
 
     /// Whether its editor takes the height it needs, instead of one line.
     pub(crate) fn is_tall(&self) -> bool {
-        matches!(self, Self::LongText | Self::Image | Self::File)
+        matches!(self, Self::LongText | Self::Image | Self::File | Self::Criteria)
     }
 
     /// Whether it lists other records instead of holding a value.
@@ -81,6 +91,8 @@ impl FieldKind {
             Self::Image => "Image",
             Self::File => "File",
             Self::Criteria => "Criteria",
+            Self::Guid => "Guid",
+            Self::Tags(_) => "Tags",
         }
     }
 }
@@ -151,6 +163,17 @@ pub struct FieldInfo {
     pub most_bytes: Option<u64>,
     /// For a file: the extensions offered; none means any.
     pub accepted: Vec<String>,
+    /// The titled group it goes in on a form, away from the other fields.
+    pub group: Option<String>,
+    /// How its value shows when it is not being edited: `{}` is the value, `{:.2}` a number with
+    /// these decimals, and `{:dd/MM/yyyy HH:mm}` a date.
+    pub display_format: Option<String>,
+    /// For text: the mask it is typed through, where `0` is a digit, `A` a letter and `*` anything.
+    pub edit_mask: Option<String>,
+    /// For text: the values offered to pick from.
+    pub predefined: Vec<String>,
+    /// For an expression: the entity whose fields it can be about, which gives it a filter builder.
+    pub criteria_of: Option<String>,
 }
 
 /// `opening_cents` as `Opening cents`.
@@ -191,6 +214,11 @@ impl FieldInfo {
             aggregated: false,
             most_bytes: None,
             accepted: Vec::new(),
+            group: None,
+            display_format: None,
+            edit_mask: None,
+            predefined: Vec::new(),
+            criteria_of: None,
             kind,
         }
     }
@@ -332,6 +360,112 @@ impl FieldInfo {
         self.default_value = value.into();
         self
     }
+
+    /// Goes in the group with this title on a form, as the parts of one thing do.
+    pub fn group(mut self, title: impl Into<String>) -> Self {
+        self.group = Some(title.into());
+        self
+    }
+
+    /// How its value shows when it is not being edited: `{}` is the value, `{:.2}` a number with
+    /// these decimals, and `{:dd/MM/yyyy HH:mm}` a date.
+    pub fn display_format(mut self, format: impl Into<String>) -> Self {
+        self.display_format = Some(format.into());
+        self
+    }
+
+    /// For text: the mask it is typed through, where `0` is a digit, `A` a letter and `*` anything.
+    pub fn edit_mask(mut self, mask: impl Into<String>) -> Self {
+        self.edit_mask = Some(mask.into());
+        self
+    }
+
+    /// For text: the values offered to pick from.
+    pub fn predefined(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.predefined = values.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// For an expression: the entity whose fields it can be about, which gives it a filter builder.
+    pub fn criteria_of(mut self, entity: impl Into<String>) -> Self {
+        self.criteria_of = Some(entity.into());
+        self
+    }
+
+    /// A field added in the model, under an entity's `Members`: `Kind` is that of a field with
+    /// plain values, with `Caption`, `Places` for decimals, `Options` for a list of options and
+    /// `Expression` for what is worked out and not stored.
+    fn from_model(entity: &str, node: &crate::ModelNode) -> Result<Self, ModelError> {
+        let wrong = |what: String| ModelError(format!("{entity}: the field {} {what}", node.id));
+        let options = || {
+            node.get("Options").map_or_else(Vec::new, |all| {
+                all.in_order()
+                    .iter()
+                    .map(|option| EnumOption::new(&option.id, option.text("Caption").unwrap_or(&option.id)))
+                    .collect()
+            })
+        };
+        let kind = match node.text("Kind").unwrap_or("Text") {
+            "Text" => FieldKind::Text,
+            "LongText" => FieldKind::LongText,
+            "Integer" => FieldKind::Integer,
+            "Decimal" => FieldKind::Decimal(node.integer("Places").unwrap_or(2).clamp(0, 12) as u8),
+            "Money" => FieldKind::Money,
+            "Date" => FieldKind::Date,
+            "DateTime" => FieldKind::DateTime,
+            "Boolean" => FieldKind::Boolean,
+            "Color" => FieldKind::Color,
+            "Enum" => FieldKind::Enum(options()),
+            "Tags" => FieldKind::Tags(options()),
+            other => return Err(wrong(format!("cannot be added in the model as {other}"))),
+        };
+        let mut field = Self::new(&node.id, kind);
+        if let Some(caption) = node.text("Caption") {
+            field.caption = caption.to_owned();
+        }
+        if let Some(expression) = node.text("Expression") {
+            field = field.calculated(expression);
+        }
+        Ok(field)
+    }
+
+    /// Whether the model added it: it comes with what it holds, which a declared one does not need.
+    pub(crate) fn is_custom(node: &crate::ModelNode, declared: &EntityInfo) -> bool {
+        declared.field_named(&node.id).is_none()
+    }
+}
+
+/// How a list gets its records.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum DataAccess {
+    /// All of them at once, kept in memory, so grouping and every search work on the spot.
+    #[default]
+    Client,
+    /// As they are needed, a chunk at a time, for lists too long to read at once.
+    Server,
+    /// All of them at once, but only what the columns show, and with no editing on the list.
+    DataView,
+}
+
+impl DataAccess {
+    /// Its name in the model.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Client => "Client",
+            Self::Server => "Server",
+            Self::DataView => "DataView",
+        }
+    }
+
+    /// From its name in the model; anything else is the usual.
+    pub fn from_name(name: &str) -> Self {
+        match name {
+            "Server" => Self::Server,
+            "DataView" => Self::DataView,
+            _ => Self::Client,
+        }
+    }
 }
 
 /// Something wrong in how the application was declared, in words for its developer.
@@ -436,6 +570,12 @@ pub struct EntityInfo {
     pub transient: bool,
     /// A form says what is wrong with a field as it is left, and not only on saving.
     pub checks_on_leave: bool,
+    /// People can change values right on its list.
+    pub list_editable: bool,
+    /// How its list gets its records.
+    pub data_access: DataAccess,
+    /// Places on its form for actions, by the name of their `ActionCategory::InForm`.
+    pub form_actions: Vec<String>,
 }
 
 impl EntityInfo {
@@ -457,6 +597,9 @@ impl EntityInfo {
             cloneable: false,
             transient: false,
             checks_on_leave: false,
+            list_editable: false,
+            data_access: DataAccess::Client,
+            form_actions: Vec::new(),
         }
     }
 
@@ -523,6 +666,24 @@ impl EntityInfo {
     /// A form says what is wrong with a field as it is left, and not only on saving.
     pub fn checks_on_leave(mut self) -> Self {
         self.checks_on_leave = true;
+        self
+    }
+
+    /// People can change values right on its list, with the rules checked as they do.
+    pub fn list_editable(mut self) -> Self {
+        self.list_editable = true;
+        self
+    }
+
+    /// How its list gets its records.
+    pub fn data_access(mut self, access: DataAccess) -> Self {
+        self.data_access = access;
+        self
+    }
+
+    /// A place on its form for the actions of `ActionCategory::InForm` with this name.
+    pub fn form_actions(mut self, name: impl Into<String>) -> Self {
+        self.form_actions.push(name.into());
         self
     }
 
@@ -638,13 +799,25 @@ impl EntityInfo {
             .filter(|f| f.calculated.is_none() && !f.kind.is_collection())
             .map(|f| (f.name.clone(), f.default_value.clone()))
             .collect();
-        Object { entity: self.name.clone(), values }
+        let mut object = Object { entity: self.name.clone(), values };
+        if let Some(key) = self.key_field()
+            && matches!(key.kind, FieldKind::Guid)
+            && matches!(object.get(&key.name), Value::Null)
+        {
+            object.set(&key.name, uuid::Uuid::new_v4().to_string());
+        }
+        object
     }
 
     /// This entity as the model has it now: what people see and the rules it added.
     pub(crate) fn as_in_model(&self, root: &crate::ModelNode) -> Result<Self, ModelError> {
         let mut entity = self.clone();
         let Some(node) = root.at(&["Entities", &self.name]) else { return Ok(entity) };
+        if let Some(members) = node.get("Members") {
+            for member in members.children.iter().filter(|member| FieldInfo::is_custom(member, self)) {
+                entity.fields.push(FieldInfo::from_model(&self.name, member)?);
+            }
+        }
         if let Some(caption) = node.text("Caption") {
             entity.caption = caption.to_owned();
         }
@@ -724,6 +897,11 @@ impl Object {
     /// Every value, by field.
     pub fn values(&self) -> &BTreeMap<String, Value> {
         &self.values
+    }
+
+    /// Leaves only these fields.
+    pub fn keep_only(&mut self, fields: &[&str]) {
+        self.values.retain(|name, _| fields.contains(&name.as_str()));
     }
 }
 

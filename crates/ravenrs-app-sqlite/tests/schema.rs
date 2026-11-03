@@ -115,3 +115,66 @@ fn the_content_of_files_is_kept_apart() {
     store.remove(&key).expect("forgets");
     assert_eq!(store.get(&key).expect("reads"), None);
 }
+
+#[test]
+fn a_guid_key_is_made_up_and_kept_as_text() {
+    let entity = EntityInfo::new("Note")
+        .field(FieldInfo::new("id", FieldKind::Guid).key())
+        .field(FieldInfo::new("text", FieldKind::Text));
+    let database =
+        SqliteDatabase::builder(connection()).managed(entity, TableMap::new("notes")).expect("valid").build();
+    let mut space = database.space();
+    let (first, second) =
+        (space.new_object("Note").expect("known"), space.new_object("Note").expect("known"));
+    assert_ne!(first.get("id"), second.get("id"), "no two are the same");
+    let key = first.get("id");
+    let Value::Text(text) = &key else { panic!("text: {key:?}") };
+    assert_eq!(text.len(), 36);
+    space.save(first).expect("saves");
+    space.commit().expect("keeps");
+    let found = database.space().find("Note", &key).expect("reads");
+    assert_eq!(found.map(|note| note.get("id")), Some(key));
+}
+
+#[test]
+fn a_query_for_some_fields_reads_only_those_and_the_key() {
+    let database = SqliteDatabase::builder(connection())
+        .managed(account(true), TableMap::new("accounts"))
+        .expect("valid")
+        .build();
+    let mut space = database.space();
+    let mut object = space.new_object("Account").expect("known");
+    object.set("name", "Corrente");
+    object.set("notes", "long");
+    space.save(object).expect("saves");
+    space.commit().expect("keeps");
+    let found = database.space().query("Account", &Query::all().only(["name"])).expect("reads");
+    assert_eq!(found[0].get("name"), Value::Text("Corrente".into()));
+    assert_eq!(found[0].get("id"), Value::Number(1.0));
+    assert_eq!(found[0].values().len(), 2, "and not the rest: {:?}", found[0].values());
+}
+
+#[test]
+fn a_field_a_layer_added_gets_a_column() {
+    let application =
+        ravenrs_app::Application::builder("Test").entity(account(false)).build().expect("valid");
+    let mut application = application;
+    let difference = Diff::parse(
+        r#"{ "Entities": { "Account": { "Members": { "city": { "$new": true, "Kind": "Text", "Caption": "City" } } } } }"#,
+    )
+    .expect("reads");
+    application.layers_mut().put(&ravenrs_app::ModelLayer::Administrator, difference);
+    application.refresh_model().expect("valid");
+    let entity = application.entities()[0].clone();
+    let database = SqliteDatabase::builder(connection())
+        .managed(entity, TableMap::new("accounts"))
+        .expect("valid")
+        .build();
+    let mut space = database.space();
+    let mut object = space.new_object("Account").expect("known");
+    object.set("city", "Recife");
+    space.save(object).expect("saves");
+    space.commit().expect("keeps");
+    let found = database.space().query("Account", &Query::all()).expect("reads");
+    assert_eq!(found[0].get("city"), Value::Text("Recife".into()));
+}

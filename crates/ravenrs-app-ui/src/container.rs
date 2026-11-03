@@ -180,8 +180,14 @@ impl View for ActionContainer {
         let drafts = cx.use_state(Default::default);
         let actions = self.session.frame().actions();
         let shown = actions.iter().filter(|action| {
+            // What goes inside a form's layout does not show above it as well.
+            let in_form = matches!(action.action_category(), ActionCategory::InForm(_));
             action.is_active()
-                && (self.categories.is_empty() || self.categories.contains(action.action_category()))
+                && (if self.categories.is_empty() {
+                    !in_form
+                } else {
+                    self.categories.contains(action.action_category())
+                })
         });
         let mut toolbar = Toolbar::new();
         let mut last: Option<&ActionCategory> = None;

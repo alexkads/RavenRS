@@ -1,4 +1,4 @@
-error: unknown setting: use key, typed_key, caption, default_property, read_only, no_list, no_detail, lookup, money, long, color, date, decimals, reference, collection, calculated, default, required, unique, min, max, matches, message, editor, placeholder, hint, lookup_filter, none_caption, back_reference, most_bytes, wide, autofocus, non_cloneable or aggregated
+error: unknown setting: use key, typed_key, caption, default_property, read_only, no_list, no_detail, lookup, money, long, color, date, guid, tags, decimals, reference, collection, calculated, default, required, unique, min, max, matches, message, editor, placeholder, hint, lookup_filter, none_caption, back_reference, most_bytes, wide, autofocus, non_cloneable, aggregated, group, display_format, edit_mask, predefined or criteria_of
  --> tests/ui/unknown_setting.rs:7:13
   |
 7 |     #[field(captoin = "Nome")]

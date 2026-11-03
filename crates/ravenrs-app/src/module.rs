@@ -92,12 +92,21 @@ pub struct DashboardInfo {
     pub icon: Option<String>,
     /// Its pieces, in order.
     pub items: Vec<DashboardItem>,
+    /// Other dashboards people can change it to: an id, what they see, and the other's name.
+    pub variants: Vec<(String, String, String)>,
 }
 
 impl DashboardInfo {
     /// A dashboard with nothing in it yet.
     pub fn new(name: impl Into<String>, caption: impl Into<String>) -> Self {
-        Self { name: name.into(), caption: caption.into(), navigation: None, icon: None, items: Vec::new() }
+        Self {
+            name: name.into(),
+            caption: caption.into(),
+            navigation: None,
+            icon: None,
+            items: Vec::new(),
+            variants: Vec::new(),
+        }
     }
 
     /// The group it goes under in the navigation.
@@ -109,6 +118,18 @@ impl DashboardInfo {
     /// The name of its icon.
     pub fn icon(mut self, icon: impl Into<String>) -> Self {
         self.icon = Some(icon.into());
+        self
+    }
+
+    /// Lets people change it to another dashboard, by that one's name. It takes two for the menu
+    /// to show, so a dashboard lists itself as well.
+    pub fn variant(
+        mut self,
+        id: impl Into<String>,
+        caption: impl Into<String>,
+        dashboard: impl Into<String>,
+    ) -> Self {
+        self.variants.push((id.into(), caption.into(), dashboard.into()));
         self
     }
 
@@ -244,6 +265,24 @@ impl Application {
         self.refresh_model()
     }
 
+    /// What people see in the model, for translating outside the code: a line per caption, as CSV
+    /// with its path, the caption and an empty column for the translation.
+    pub fn export_captions(&self) -> String {
+        let mut lines = vec!["path,caption,translation".to_owned()];
+        crate::model::captions_of(&self.model, &self.entities, &mut lines);
+        lines.join("\n") + "\n"
+    }
+
+    /// Takes what [`export_captions`](Self::export_captions) gave, with its last column filled in,
+    /// as the model in this language. Lines left empty stay as they were. What points to nothing
+    /// shows in [`unusable`](Self::unusable) once the language is picked.
+    pub fn import_captions(&mut self, language: &str, csv: &str) -> Result<(), ModelError> {
+        let difference = crate::model::translation_of(csv)?;
+        self.translations.retain(|(name, _)| name != language);
+        self.translations.push((language.to_owned(), difference));
+        Ok(())
+    }
+
     /// Puts in place the records every module needs, and keeps them.
     pub fn run_initial_records(&self, space: &mut dyn ObjectSpace) -> Result<(), String> {
         for module in &self.modules {
@@ -266,6 +305,7 @@ impl Application {
         if !problems.is_empty() {
             return Err(ModelError(problems.join("; ")));
         }
+        crate::model::add_custom_fields(&mut root, &self.declared);
         crate::model::follow_captions(&mut root, &self.declared);
         self.entities =
             self.declared.iter().map(|entity| entity.as_in_model(&root)).collect::<Result<_, _>>()?;

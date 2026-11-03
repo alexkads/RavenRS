@@ -719,6 +719,7 @@ pub struct FormField<V> {
     show_errors: bool,
     required: bool,
     told_error: Option<String>,
+    told_note: Option<(String, crate::Tone)>,
     fill: Option<Semantic>,
 }
 
@@ -740,6 +741,7 @@ impl<V: View> FormField<V> {
             show_errors: false,
             required: false,
             told_error: None,
+            told_note: None,
             fill: None,
         }
     }
@@ -766,6 +768,12 @@ impl<V: View> FormField<V> {
     /// A faint color behind the field, to call attention to it.
     pub fn tint(mut self, fill: Semantic) -> Self {
         self.fill = Some(fill);
+        self
+    }
+
+    /// Something to know under the content, with an icon, which is not an error. An error replaces it.
+    pub fn note_text(mut self, note: Option<String>, tone: crate::Tone) -> Self {
+        self.told_note = note.map(|note| (note, tone));
         self
     }
 
@@ -818,10 +826,21 @@ impl<V: View> View for FormField<V> {
                 .then(|| if blank { Some(cx.labels().required.clone()) } else { self.error() })
                 .flatten()
         });
-        cx.label_control(content, self.label.text(), error.as_deref().or(self.hint.as_deref()));
+        let note = self.told_note.as_ref().map(|(note, _)| note.as_str());
+        cx.label_control(content, self.label.text(), error.as_deref().or(note).or(self.hint.as_deref()));
         if let Some(e) = error {
             let icon = util::icon(cx, IconName::CircleAlert, 14.0, theme.color(Semantic::Danger));
             let text = util::label(cx, &e, TextStyle::Callout, None, theme.color(Semantic::Danger));
+            children.push(cx.container(
+                LayoutStyle { spacing: 6.0, align: Align::Center, ..LayoutStyle::stack(Axis::Horizontal) },
+                &[icon, text],
+                Paint::None,
+            ));
+        } else if let Some((note, tone)) = &self.told_note {
+            let color = tone.color(&theme);
+            let shape = if *tone == crate::Tone::Warning { IconName::TriangleAlert } else { IconName::Info };
+            let icon = util::icon(cx, shape, 14.0, color);
+            let text = util::label(cx, note, TextStyle::Callout, None, theme.color(Semantic::InkMuted));
             children.push(cx.container(
                 LayoutStyle { spacing: 6.0, align: Align::Center, ..LayoutStyle::stack(Axis::Horizontal) },
                 &[icon, text],

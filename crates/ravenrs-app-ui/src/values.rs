@@ -67,10 +67,73 @@ pub(crate) fn file_name(value: &Value) -> Option<String> {
     text.split_once('\n').map(|(name, _)| name.to_owned())
 }
 
+/// What a `display_format` says around the value, and what it says about the value.
+fn format_parts(format: &str) -> Option<(&str, &str, &str)> {
+    let start = format.find('{')?;
+    let end = start + format[start..].find('}')?;
+    Some((&format[..start], format[start + 1..end].trim_start_matches(':'), &format[end + 1..]))
+}
+
+/// The decimals of `.2`.
+fn decimals_of(spec: &str) -> Option<usize> {
+    spec.strip_prefix('.')?.parse().ok()
+}
+
+/// A moment by a pattern such as `dd/MM/yyyy HH:mm`.
+fn moment_text(moment: &Moment, pattern: &str) -> String {
+    let date = Date::from_days(moment.days);
+    let seconds = i64::from(moment.seconds).rem_euclid(SECONDS_IN_A_DAY);
+    pattern
+        .replace("yyyy", &format!("{:04}", date.year()))
+        .replace("MM", &format!("{:02}", date.month()))
+        .replace("dd", &format!("{:02}", date.day()))
+        .replace("HH", &format!("{:02}", seconds / 3600))
+        .replace("mm", &format!("{:02}", (seconds % 3600) / 60))
+        .replace("ss", &format!("{:02}", seconds % 60))
+}
+
+/// A value as its field's `display_format` asks.
+fn formatted(field: &FieldInfo, value: &Value) -> Option<String> {
+    let (before, spec, after) = format_parts(field.display_format.as_deref()?)?;
+    let middle = match value {
+        Value::Null => return Some(String::new()),
+        Value::Date(moment) if !spec.is_empty() => moment_text(moment, spec),
+        Value::Number(number) => match decimals_of(spec) {
+            Some(decimals) => {
+                let number = if matches!(field.kind, FieldKind::Money) { number / 100.0 } else { *number };
+                format!("{number:.decimals$}")
+            }
+            None => plain_text(field, value),
+        },
+        _ => plain_text(field, value),
+    };
+    Some(format!("{before}{middle}{after}"))
+}
+
+/// The prefix, decimals and suffix a `display_format` gives a number.
+fn number_shape(field: &FieldInfo) -> Option<(String, usize, String)> {
+    let (before, spec, after) = format_parts(field.display_format.as_deref()?)?;
+    Some((before.to_owned(), decimals_of(spec).unwrap_or(0), after.to_owned()))
+}
+
 /// A value as words, with what its field knows about it.
 pub(crate) fn display(field: &FieldInfo, value: &Value) -> String {
+    formatted(field, value).unwrap_or_else(|| plain_text(field, value))
+}
+
+fn plain_text(field: &FieldInfo, value: &Value) -> String {
     match (&field.kind, value) {
         (_, Value::Null) => String::new(),
+        (FieldKind::Tags(options), Value::Text(codes)) => codes
+            .split(',')
+            .map(|code| {
+                options
+                    .iter()
+                    .find(|option| option.code == code)
+                    .map_or(code, |option| option.caption.as_str())
+            })
+            .collect::<Vec<_>>()
+            .join(", "),
         // Its name, and never its content.
         (FieldKind::Image | FieldKind::File, value) => file_name(value).unwrap_or_default(),
         (FieldKind::Enum(options), Value::Text(code)) => options
@@ -91,11 +154,19 @@ pub(crate) fn cell_of(field: &FieldInfo, value: &Value) -> Cell {
     match (&field.kind, value) {
         (_, Value::Null) => Cell::Empty,
         (FieldKind::Money, Value::Number(cents)) => Cell::Number(cents / 100.0),
-        (FieldKind::Date, value) => date_of(value).map_or(Cell::Empty, Cell::Date),
-        (FieldKind::Enum(_) | FieldKind::DateTime | FieldKind::Image | FieldKind::File, value) => {
-            Cell::Text(display(field, value))
-        }
         (_, Value::Number(number)) => Cell::Number(*number),
+        // A pattern of its own gives up on sorting as a date, to show as it was asked.
+        (FieldKind::Date, value) if field.display_format.is_some() => Cell::Text(display(field, value)),
+        (FieldKind::Date, value) => date_of(value).map_or(Cell::Empty, Cell::Date),
+        (
+            FieldKind::Enum(_)
+            | FieldKind::Tags(_)
+            | FieldKind::DateTime
+            | FieldKind::Image
+            | FieldKind::File,
+            value,
+        ) => Cell::Text(display(field, value)),
+        (_, Value::Text(_)) if field.display_format.is_some() => Cell::Text(display(field, value)),
         (_, Value::Bool(on)) => Cell::Bool(*on),
         (_, Value::Text(text)) => Cell::Text(text.clone()),
         (_, other) => Cell::Text(format!("{other:?}")),
@@ -112,6 +183,10 @@ pub(crate) fn column_of(field: &FieldInfo, caption: &str, words: &Words) -> Grid
         ..NumberFormat::default()
     };
     let column = match &field.kind {
+        FieldKind::Integer | FieldKind::Decimal(_) | FieldKind::Money if field.display_format.is_some() => {
+            let (prefix, decimals, suffix) = number_shape(field).unwrap_or_default();
+            GridColumn::number(caption).number_format(NumberFormat { suffix, ..number(decimals, &prefix) })
+        }
         FieldKind::Integer => GridColumn::number(caption).number_format(number(0, "")),
         FieldKind::Decimal(places) => {
             GridColumn::number(caption).number_format(number(usize::from(*places), ""))
@@ -122,6 +197,47 @@ pub(crate) fn column_of(field: &FieldInfo, caption: &str, words: &Words) -> Grid
         _ => GridColumn::text(caption),
     };
     column.field(field.name.clone())
+}
+
+/// Whether a field can be changed right on a list.
+pub(crate) fn editable_in_list(field: &FieldInfo) -> bool {
+    !field.is_key
+        && !field.read_only
+        && field.calculated.is_none()
+        && matches!(
+            field.kind,
+            FieldKind::Text
+                | FieldKind::Integer
+                | FieldKind::Decimal(_)
+                | FieldKind::Money
+                | FieldKind::Boolean
+                | FieldKind::Date
+                | FieldKind::Enum(_)
+        )
+}
+
+/// What a cell edited on a list is, in what the record holds; nothing for what cannot be read.
+pub(crate) fn value_of_cell(field: &FieldInfo, cell: &Cell) -> Option<Value> {
+    Some(match (&field.kind, cell) {
+        (_, Cell::Empty) => Value::Null,
+        (FieldKind::Money, Cell::Number(units)) => Value::Number((units * 100.0).round()),
+        (FieldKind::Integer, Cell::Number(number)) => Value::Number(number.trunc()),
+        (_, Cell::Number(number)) => Value::Number(*number),
+        (_, Cell::Bool(on)) => Value::Bool(*on),
+        (FieldKind::Date, Cell::Date(date)) => value_of_date(Some(*date)),
+        (FieldKind::Enum(options), Cell::Text(text)) => {
+            let found = options.iter().find(|option| option.caption == *text || option.code == *text)?;
+            Value::Text(found.code.clone())
+        }
+        (FieldKind::Text | FieldKind::LongText, Cell::Text(text)) => {
+            if text.is_empty() {
+                Value::Null
+            } else {
+                Value::Text(text.clone())
+            }
+        }
+        _ => return None,
+    })
 }
 
 /// The color of a tint, in the theme.
@@ -195,6 +311,44 @@ mod tests {
         assert!(text.len() < 40, "only a key: {text}");
         assert_eq!(file_of(&kept, Some(&store)).expect("a file").bytes.len(), 2000);
         assert_eq!(display(&FieldInfo::new("f", FieldKind::File), &kept), "nota.pdf");
+    }
+
+    #[test]
+    fn a_display_format_says_how_a_value_shows() {
+        let percent = FieldInfo::new("p", FieldKind::Integer).display_format("{} %");
+        assert_eq!(display(&percent, &Value::Number(60.0)), "60 %");
+        assert_eq!(display(&percent, &Value::Null), "");
+        let fine = FieldInfo::new("n", FieldKind::Decimal(9)).display_format("{:.4}");
+        assert_eq!(display(&fine, &Value::Number(0.123_456_789)), "0.1235");
+        assert_eq!(cell_of(&fine, &Value::Number(1.5)), Cell::Number(1.5), "it still sorts as a number");
+        let when = FieldInfo::new("w", FieldKind::DateTime).display_format("{:dd/MM/yyyy HH:mm}");
+        let date = Date::new(2026, 11, 3).expect("a date");
+        let moment = Value::Date(Moment { days: date.to_days(), seconds: 9 * 3600 + 5 * 60 });
+        assert_eq!(display(&when, &moment), "03/11/2026 09:05");
+        let site = FieldInfo::new("s", FieldKind::Text).display_format("https://{}");
+        assert_eq!(display(&site, &Value::Text("a.b".into())), "https://a.b");
+        assert_eq!(cell_of(&site, &Value::Text("a.b".into())), Cell::Text("https://a.b".into()));
+    }
+
+    #[test]
+    fn tags_show_by_their_captions() {
+        let options =
+            vec![ravenrs_app::EnumOption::new("a", "Um"), ravenrs_app::EnumOption::new("b", "Dois")];
+        let tags = FieldInfo::new("t", FieldKind::Tags(options));
+        assert_eq!(display(&tags, &Value::Text("a,b".into())), "Um, Dois");
+    }
+
+    #[test]
+    fn what_is_typed_on_a_list_becomes_what_a_record_holds() {
+        let money = FieldInfo::new("m", FieldKind::Money);
+        assert_eq!(value_of_cell(&money, &Cell::Number(12.5)), Some(Value::Number(1250.0)));
+        let kind = FieldInfo::new("k", FieldKind::Enum(vec![ravenrs_app::EnumOption::new("a", "Ativo")]));
+        assert_eq!(value_of_cell(&kind, &Cell::Text("Ativo".into())), Some(Value::Text("a".into())));
+        assert_eq!(value_of_cell(&kind, &Cell::Text("Nada".into())), None);
+        let text = FieldInfo::new("t", FieldKind::Text);
+        assert_eq!(value_of_cell(&text, &Cell::Text(String::new())), Some(Value::Null));
+        assert!(!editable_in_list(&FieldInfo::new("id", FieldKind::Integer).key()));
+        assert!(editable_in_list(&money));
     }
 
     #[test]

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use ravenrs_app::{FrameContext, ViewInfo, ViewKind};
 use ravenrs_reactive::State;
-use ravenrs_widgets::{AnyView, BuildCx, NodeId, Text, Tile, TileLayout, TileSpot, View, ViewExt};
+use ravenrs_widgets::{AnyView, BuildCx, Keyed, NodeId, Text, Tile, TileLayout, TileSpot, View, ViewExt};
 
 use crate::{ListView, Session};
 
@@ -28,6 +28,22 @@ impl DashboardView {
 }
 
 impl View for DashboardView {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        // The one people changed it to, starting over, since pieces are kept by position.
+        self.session.revision();
+        let view = self.session.dashboard_shown(&self.view.id);
+        let key = view.id.bytes().fold(0_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3));
+        cx.child(&Keyed::new(key, DashboardItems { session: self.session.clone(), view }))
+    }
+}
+
+/// The pieces of one dashboard.
+struct DashboardItems {
+    session: Session,
+    view: ViewInfo,
+}
+
+impl View for DashboardItems {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let model = self.session.model();
         let Some(items) = model.at(&["Views", &self.view.id, "Items"]) else {

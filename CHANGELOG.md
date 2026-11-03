@@ -4,6 +4,25 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+- `Query` in `ravenrs-app` has a new field, `only`, so building one field by field needs `..Query::default()`.
+- A `FieldKind::Criteria` field is out of lists by default and in a group of its own on a form, as it takes the height it needs.
+- Saving a form of a `transient` entity no longer goes to storage.
+
+### Added
+- **Rules that only warn.** `Rule::warning` asks and lets people go on, and `Rule::information` leaves a note on the field. A rule's `message` can say what the record holds, with `{field}` and `{reference.field}`.
+- **Concurrent changes.** Saving a form keeps what someone else changed in other fields, with `merge_changes`, and asks about the same field. A record someone deleted says so.
+- **Editing on a list.** `EntityInfo::list_editable` changes values right on the list, checking rules and marking cells that fail.
+- **`DataAccess`** says how a list reads its records: all of them, as needed, or only its columns, through the new `Query::only`.
+- **Custom fields.** A model difference adds stored or calculated fields, which get a column and a place on the form. `App::administrator_settings` and `App::storage_for` bring them to storage.
+- **`FieldKind::Guid`** and **`FieldKind::Tags`**, and `predefined`, `edit_mask`, `criteria_of`, `display_format`, `group` and the `Progress` editor on fields.
+- **`Message`** and `ActionContext::message` tell people something from an action. `ToastExtras` gives a toast a button and something to run once it is gone. `FormField::note_text` says something that is not an error.
+- **`ActionCategory::InForm`** and `EntityInfo::form_actions` put actions inside a form's layout.
+- **Records no storage keeps** get `use_records` and `use_collection`, can point to stored records, and a navigation item can open a form directly, with `ObjectKey` for one by its key.
+- **`DashboardInfo::variant`** changes a dashboard to another from a menu.
+- **`export_captions`** and **`import_captions`** take what people see out to CSV and back, for translating outside the code.
+- **`ravenrs-app-library`**: people, organizations, addresses, countries, tasks, events, notes and files, ready to use or extend.
+
 ## [27.1.8] - 2026-11-02
 
 ### Breaking

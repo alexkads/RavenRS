@@ -122,8 +122,8 @@ pub use files::{FilePicker, FilePickerProvider, FileRequest, FileUpload, NoFileP
 pub use fill::Fill;
 pub use filter_builder::{FilterBuilder, FilterField, FilterFieldKind};
 pub use floating::{
-    Combobox, Command, CommandPalette, ContextMenu, HoverCard, Sheet, Side, SplashScreen, Toast, Toaster,
-    Toasts,
+    Combobox, Command, CommandPalette, ContextMenu, HoverCard, Sheet, Side, SplashScreen, Toast, ToastExtras,
+    Toaster, Toasts,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use grid::{

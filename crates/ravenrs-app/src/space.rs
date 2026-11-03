@@ -63,6 +63,8 @@ pub struct Query {
     pub offset: usize,
     /// The most to return.
     pub limit: Option<usize>,
+    /// Only these fields, with the key, for a list that shows few of many; none means every one.
+    pub only: Option<Vec<String>>,
 }
 
 impl Query {
@@ -80,6 +82,12 @@ impl Query {
     /// Then by this field.
     pub fn sort(mut self, field: impl Into<String>, ascending: bool) -> Self {
         self.sort.push((field.into(), ascending));
+        self
+    }
+
+    /// Only these fields, with the key. What is read this way is not for writing back.
+    pub fn only(mut self, fields: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.only = Some(fields.into_iter().map(Into::into).collect());
         self
     }
 
@@ -356,10 +364,49 @@ pub fn run_query(
             .unwrap_or_else(|| compare(&a.get(&key_field), &b.get(&key_field)))
     });
     let page = found.into_iter().skip(query.offset);
-    Ok(match query.limit {
+    let mut chosen: Vec<Object> = match query.limit {
         Some(limit) => page.take(limit).collect(),
         None => page.collect(),
-    })
+    };
+    if let Some(only) = &query.only {
+        let mut names: Vec<&str> = only.iter().map(String::as_str).collect();
+        names.push(&key_field);
+        for object in &mut chosen {
+            object.keep_only(&names);
+        }
+    }
+    Ok(chosen)
+}
+
+/// What comes of putting together what a person changed and what someone else kept meanwhile.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Merged {
+    /// The record with both sets of changes. On a field both changed, it has this person's.
+    pub record: Object,
+    /// The fields both changed, each to something else.
+    pub conflicts: Vec<String>,
+}
+
+/// Puts together what a person changed, from `original` to `mine`, and what is `stored` now.
+/// Changes to different fields both stand, so only changing the same field takes a decision.
+pub fn merge_changes(entity: &EntityInfo, original: &Object, mine: &Object, stored: &Object) -> Merged {
+    let mut record = stored.clone();
+    let mut conflicts = Vec::new();
+    let fields = entity.fields.iter().filter(|field| {
+        !field.is_key && field.calculated.is_none() && !matches!(field.kind, FieldKind::Collection(_))
+    });
+    for field in fields {
+        let (was, changed, now) = (original.get(&field.name), mine.get(&field.name), stored.get(&field.name));
+        if changed == was {
+            continue;
+        }
+        if now != was && now != changed {
+            conflicts.push(field.name.clone());
+        }
+        record.set(&field.name, changed);
+    }
+    Merged { record, conflicts }
 }
 
 #[derive(Debug, Default)]

@@ -4,19 +4,22 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use ravenrs_app::{
-    AppearanceTarget, Criteria, EntityInfo, FieldInfo, FieldKind, Frame, ModelNode, Object, Query, Value,
-    ViewInfo,
+    AppearanceTarget, CONTEXT_SAVE, Criteria, DataAccess, EntityInfo, FieldInfo, FieldKind, Frame, Message,
+    MessageKind, ModelNode, Object, Query, Severity, Value, ViewInfo, validate_in_place,
 };
 use ravenrs_grid_export::export;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::grid::{GridQuery, Row, Value as Cell, to_table};
 use ravenrs_widgets::{
-    AnyView, BuildCx, DataGrid, GridCellStyle, GridColumn, GridData, GridPage, GridRequest, GridResponder,
-    GridRowAction, GridTable, Keyed, NodeId, RemoteRows, SelectionMode, SortDirection, Text, View,
+    AnyView, BuildCx, CellEdit, DataGrid, GridCellStyle, GridColumn, GridData, GridPage, GridRequest,
+    GridResponder, GridRowAction, GridTable, Keyed, NodeId, RemoteRows, SelectionMode, SortDirection, Text,
+    View,
 };
 
 use crate::session::Session;
-use crate::values::{cell_of, column_of, display, key_from_text, key_text, semantic_of};
+use crate::values::{
+    cell_of, column_of, display, editable_in_list, key_from_text, key_text, semantic_of, value_of_cell,
+};
 
 /// What opening a row of a list does, with its key.
 pub type OpenHandler = Rc<dyn Fn(&Value)>;
@@ -66,6 +69,8 @@ struct Loaded {
     data: GridData,
     objects: Rc<BTreeMap<String, Object>>,
     ordered: Rc<Vec<Object>>,
+    /// On a list people edit: the cells that fail a rule, by the key of the record and the field.
+    invalid: Rc<BTreeSet<(String, String)>>,
 }
 
 /// A list that brings its rows as they are needed.
@@ -267,7 +272,8 @@ fn answer_remote(
         .then(|| {
             let at = fields.iter().position(|field| field.is_key)?;
             let (key, cell) = (key?, request.after.as_ref()?.get(at)?);
-            Criteria::parse(&format!("[{}] > {}", key.name, cell.key_text())).ok()
+            let after = crate::editors::literal_of(&key_from_text(entity, &cell.key_text()));
+            Criteria::parse(&format!("[{}] > {after}", key.name)).ok()
         })
         .flatten();
     let offset = if after.is_some() { 0 } else { request.offset };
@@ -413,7 +419,11 @@ impl ListView {
         for (field, ascending) in &self.sort {
             query = query.sort(field.clone(), *ascending);
         }
-        let found = match &self.source {
+        if self.access() == DataAccess::DataView {
+            query = query.only(fields.iter().map(|field| field.name.clone()));
+        }
+        let source = self.source.clone().or_else(|| self.session.record_source(&entity.name));
+        let found = match &source {
             Some(source) => Ok(source()),
             None => space.borrow().query(&entity.name, &query),
         };
@@ -427,9 +437,55 @@ impl ListView {
         let ordered = Rc::new(objects.clone());
         let key = entity.key_field().map(|f| f.name.clone()).unwrap_or_default();
         let rows = self.reader().rows(fields, &objects);
+        let invalid = if self.edits_in_place(entity) {
+            let words = &self.session.words().rules;
+            let space = space.borrow();
+            objects
+                .iter()
+                .flat_map(|object| {
+                    let held = key_text(entity, &object.get(&key));
+                    validate_in_place(entity, object, CONTEXT_SAVE, &*space, words)
+                        .into_iter()
+                        .filter(|violation| violation.is_error())
+                        .filter_map(move |violation| Some((held.clone(), violation.field?)))
+                        .collect::<Vec<_>>()
+                })
+                .collect()
+        } else {
+            BTreeSet::new()
+        };
         let by_key =
             objects.into_iter().map(|object| (key_text(entity, &object.get(&key)), object)).collect();
-        Loaded { revision, asked, data: GridData::new(rows), objects: Rc::new(by_key), ordered }
+        Loaded {
+            revision,
+            asked,
+            data: GridData::new(rows),
+            objects: Rc::new(by_key),
+            ordered,
+            invalid: Rc::new(invalid),
+        }
+    }
+
+    /// How the model says this list gets its records.
+    fn access(&self) -> DataAccess {
+        let model = self.session.model();
+        if self.remote {
+            return DataAccess::Server;
+        }
+        model
+            .at(&["Views", &self.view.id])
+            .and_then(|node| node.text("DataAccess"))
+            .map_or(DataAccess::Client, DataAccess::from_name)
+    }
+
+    /// Whether people change values right on this list: it has to hold all its records, whole.
+    fn edits_in_place(&self, entity: &EntityInfo) -> bool {
+        let model = self.session.model();
+        let asked = model.at(&["Views", &self.view.id]).and_then(|node| node.flag("AllowEdit"));
+        asked == Some(true)
+            && self.access() == DataAccess::Client
+            && self.source.is_none()
+            && !entity.transient
     }
 
     /// Keeps only what still exists selected, as it is now, so actions judge it as it is.
@@ -439,7 +495,20 @@ impl ListView {
         if left.len() != chosen.peek().len() {
             chosen.set(left.clone());
         }
-        let fresh: Vec<Object> = left.iter().filter_map(|key| objects.get(key).cloned()).collect();
+        let whole = self.access() != DataAccess::DataView;
+        let fresh: Vec<Object> = left
+            .iter()
+            .filter_map(|key| {
+                if whole {
+                    return objects.get(key).cloned();
+                }
+                // A list that reads only its columns does not have what actions judge by.
+                let (name, value) = objects.get(key).map(|object| (object.entity().to_owned(), key))?;
+                let entity = self.session.entity(&name)?;
+                let value = key_from_text(&entity, value);
+                self.frame.space().borrow().find(&name, &value).ok().flatten()
+            })
+            .collect();
         if self.frame.selected() != fresh {
             self.frame.set_selected(fresh);
         }
@@ -522,9 +591,11 @@ impl View for ListView {
             };
             return cx.child(&editor(&request));
         }
-        let (data, objects, remote_rows) = if self.remote {
+        let access = self.access();
+        let (data, objects, remote_rows, ordered, invalid) = if access == DataAccess::Server {
             let rows = self.remote_rows(cx, &entity, &infos, filter.as_ref(), revision, &asked);
-            (GridData::new(Vec::new()), Rc::new(BTreeMap::new()), Some(rows))
+            let none = (Rc::new(Vec::new()), Rc::new(BTreeSet::new()));
+            (GridData::new(Vec::new()), Rc::new(BTreeMap::new()), Some(rows), none.0, none.1)
         } else {
             let loaded: State<Option<Loaded>> = cx.use_state(|| None);
             let kept = loaded.peek().clone().filter(|kept| kept.revision == revision && kept.asked == asked);
@@ -537,8 +608,9 @@ impl View for ListView {
                     fresh
                 }
             };
-            (current.data, current.objects, None)
+            (current.data, current.objects, None, current.ordered, current.invalid)
         };
+        let in_place = self.edits_in_place(&entity);
         let key_at = fields.iter().position(|(field, ..)| field.is_key).unwrap_or(0);
         let words = session.words();
         let default_property = entity.default_property().map(|f| f.name.clone());
@@ -554,6 +626,7 @@ impl View for ListView {
                     entity.appearance_of(AppearanceTarget::Item, &field.name, &self.view, None).visible
                         == Some(false);
                 let column = if *visible && !hidden { column } else { column.hidden() };
+                let column = if in_place && editable_in_list(field) { column.editable() } else { column };
                 match &self.column_shape {
                     Some(shape) => shape(field, column),
                     None => column,
@@ -563,7 +636,8 @@ impl View for ListView {
         let selected = {
             let (read, write) = (chosen.clone(), chosen.clone());
             let (frame, known, found_in) = (self.frame.clone(), objects.clone(), entity.clone());
-            let remote = remote_rows.is_some();
+            // What holds only part of the records finds them when they are selected.
+            let remote = remote_rows.is_some() || access == DataAccess::DataView;
             Binding::new(
                 move || read.get(),
                 move |keys: BTreeSet<String>| {
@@ -587,12 +661,17 @@ impl View for ListView {
         let saver = cx.file_picker();
         let (exporter, caption) =
             (session.clone(), node.text("Caption").unwrap_or(&entity.caption).to_owned());
-        let looks = (!entity.appearance.is_empty()).then(|| {
+        let looks = (!entity.appearance.is_empty() || !invalid.is_empty()).then(|| {
             let names: Vec<String> = fields.iter().map(|(field, ..)| field.name.clone()).collect();
             let (rules, view, known) = (entity.clone(), self.view.clone(), objects.clone());
+            let invalid = invalid.clone();
             move |row: &Row, column: usize| {
-                let object = row.get(key_at).and_then(|cell| known.get(&cell.key_text()));
+                let held = row.get(key_at).map(|cell| cell.key_text()).unwrap_or_default();
+                let object = known.get(&held);
                 let Some(name) = names.get(column) else { return GridCellStyle::default() };
+                if invalid.contains(&(held, name.clone())) {
+                    return GridCellStyle::new(Some(ravenrs_style::Semantic::Danger), None, true);
+                }
                 let found = rules.appearance_of(AppearanceTarget::Item, name, &view, object);
                 GridCellStyle::new(found.font.map(semantic_of), found.back.map(semantic_of), found.bold)
             }
@@ -643,6 +722,13 @@ impl View for ListView {
             None => grid,
         };
         let grid = self.row_actions.iter().cloned().fold(grid, DataGrid::row_action);
+        let grid = if in_place {
+            let (session, frame, named, shown) =
+                (session.clone(), self.frame.clone(), entity.clone(), infos.clone());
+            grid.on_cell_edit(move |edit| edit_on_list(&session, &frame, &named, &shown, &ordered, edit))
+        } else {
+            grid
+        };
         let grid = if self.compact {
             let height = objects.len().max(1) as f32 * 36.0 + 42.0;
             grid.toolbar(false)
@@ -663,6 +749,49 @@ impl View for ListView {
             None => cx.child(&grid),
         }
     }
+}
+
+/// Keeps a value changed right on a list, in the record as storage has it now, if its rules let it
+/// stand: a field already wrong elsewhere on the record does not stop it, and what only warns goes
+/// on with a message.
+fn edit_on_list(
+    session: &Session,
+    frame: &Frame,
+    entity: &EntityInfo,
+    fields: &[FieldInfo],
+    ordered: &[Object],
+    edit: &CellEdit,
+) -> Result<(), String> {
+    let words = session.words();
+    let field = fields.get(edit.column).ok_or_else(|| words.rules.record.clone())?;
+    let invalid = || words.rules.invalid.replace("{0}", &field.caption);
+    let value = value_of_cell(field, &edit.value).ok_or_else(invalid)?;
+    let key_name = entity.key_field().map(|key| key.name.clone()).unwrap_or_default();
+    let key = ordered.get(edit.row).map(|object| object.get(&key_name)).ok_or_else(invalid)?;
+    let space = frame.space();
+    let stored = space.borrow().find(&entity.name, &key).map_err(|e| e.to_string())?;
+    let mut record = stored.ok_or_else(|| words.record_gone.clone())?;
+    record.set(&field.name, value);
+    let found = session.violations_of(&record, CONTEXT_SAVE);
+    let stops = |violation: &&ravenrs_app::Violation| {
+        violation.is_error() && violation.field.as_ref().is_none_or(|name| *name == field.name)
+    };
+    if let Some(violation) = found.iter().find(stops) {
+        return Err(violation.message.clone());
+    }
+    let kept = {
+        let mut space = space.borrow_mut();
+        space.save(record).and_then(|()| space.commit())
+    };
+    if let Err(error) = kept {
+        space.borrow_mut().rollback();
+        return Err(error.to_string());
+    }
+    for violation in found.iter().filter(|violation| violation.severity == Severity::Warning) {
+        session.show_message(Message::new(violation.message.clone(), MessageKind::Warning));
+    }
+    session.touch();
+    Ok(())
 }
 
 fn hash_of(text: &str) -> u64 {

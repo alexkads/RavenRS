@@ -12,6 +12,7 @@ Declare what a record is, and get the screens: navigation, a list, a form, comma
 | `ravenrs-app-ui` | `App`, `AppShell`, `EntityPane`, `ListView`, `DetailView`, `EditorRegistry`, `ActionContainer`, `FrameTemplate`, `SystemModule`, `Words` |
 | `ravenrs-app-sqlite` | `SqliteDatabase`, `TableMap`: on tables it creates or tables that exist, on a connection the app shares |
 | `ravenrs-app-report` | `ReportModule`: an action that lays out a list as a report and shows it in the viewer |
+| `ravenrs-app-library` | `LibraryModule`: people, organizations, addresses, tasks, events, notes and files, to use or extend, with `PT_BR` for their words |
 | `ravenrs-grid-export` | What a `DataGrid` shows, as Excel, PDF or CSV |
 
 ## In five minutes
@@ -133,6 +134,19 @@ EntityInfo::new("Order")
 - `SqliteBuilder::migration` runs something once in a database's life, `managed` adds columns for new fields, and `entities_from_schema` starts from a database that came first. `SqliteModelStore` keeps a person's settings in it, through `use_model_store`.
 - `ApplicationBuilder::service` hands actions what the application has, by type, through `ActionContext::service`. `Module::initial_records` puts in place what a module needs.
 
+### When things meet in real use
+
+- `Rule::warning` asks and lets people go on, and `Rule::information` saves and leaves a note on the field. `Rule::message` can say `{field}`, `{reference.field}`, `{$field}`, `{$entity}`, `{$min}` and `{$max}`.
+- Saving a form puts what it changed together with what someone else kept since it opened: `merge_changes` keeps both when the fields differ, and the form asks when they are the same. A record that is gone says so.
+- `list_editable` lets people change plain values right on a list, refusing what breaks a rule on that field or on the whole record. A cell already wrong shows it, leaving out rules that read other records, so a long list stays quick.
+- `data_access` picks how a list reads: `Client`, all of it; `Server`, as needed; `DataView`, only its columns and with no editing, finding the whole record when one is selected.
+- A difference can add fields under `Members`, each with `"$new": true`, `Kind` and `Caption`, `Expression` for one worked out, and `Options` for a list. They come in order of name, and get a column and a place on the form. `App::administrator_settings` gives them before storage opens, and `App::storage_for` hands a database the entities with them.
+- `FieldKind::Guid` makes up a key. `FieldKind::Tags` holds several options. `predefined`, `edit_mask`, `criteria_of`, `display_format` and `group` shape a field, and the `Progress` editor shows a number from 0 to 100.
+- `ActionContext::message` tells people something, with `Message::action` and `Message::on_close`. `ActionCategory::InForm` with `EntityInfo::form_actions` puts an action inside a form's layout.
+- `use_records` and `use_collection`, or the same on `App`, give records no storage keeps. A navigation item can open a form directly: on a new record, or with `ObjectKey` on one by its key.
+- `DashboardInfo::variant` lets people change a dashboard to another; it lists itself too, since a menu takes two.
+- `export_captions` writes what people see as CSV, with an empty column to fill in, and `import_captions` takes it back as a language.
+
 ### Going further
 
 `App` covers the usual case. Under it, `EntityInfo` declares a record at run time, `Application::builder` and `AppShell` take everything apart, `module` adds actions and controllers, `editors` changes a field's control, and `storage` keeps records elsewhere. `examples/component-gallery/src/samples.rs` has `AppShell` used directly.
@@ -167,13 +181,16 @@ EntityInfo::new("Order")
 - `register_function` is per thread, as all of an application's state is. A function of the application is not translated to SQL, so a filter with one reads the whole table.
 - A translation changes the model's words; `Words` follows `App::language` and does not change at run time.
 - A pane finds a row's key by the order of the entity's fields, so a layer that reorders its columns breaks its buttons.
-- With two people changing the same record in `MemoryDatabase`, the last to save wins.
+- Putting two people's changes together reads and then writes, in two steps. Two programs on one SQLite file can still meet between them, until there is a server.
+- Editing on a list needs a list that holds its records, so not `Server`, `DataView` or a given source. A cell that fails is marked, and its message shows only when it is edited.
+- A `display_format` on a date makes its cells text, so they sort as text. An `edit_mask` has no regular expressions: `Rule::matches` checks those on saving.
+- Predefined values are picked and not typed. A Rust struct does not expand into a group of fields: `group` puts plain fields together.
+- Fields added in the model hold plain values, not references or lists. Used without `App`, whoever opens storage has to give it `Application::entities`.
 
 ## What comes next
 
 | Step | What it brings |
 |---|---|
-| **F7.6** | What the feature center shows: soft validation, editing in lists, concurrent changes, custom fields, more editors |
-| F8 | Permissions in an object space wrapper, users, a model editor, an audit trail |
+| **F8** | Permissions in an object space wrapper, users, a model editor, an audit trail |
 
 Before more work on editors or templates, read what is documented on template customization and on each property type: it was not read when these screens were written. The same goes for the built-in node generators and list view column generation, before more of the model is generated.

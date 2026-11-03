@@ -6,11 +6,12 @@ use std::rc::Rc;
 
 use ravenrs_app::{
     Action, ActionContext, ActionInput, ActionResult, Application, AttachmentStore, CONTEXT_DELETE,
-    CONTEXT_SAVE, Criteria, EntityInfo, FieldKind, Frame, FrameContext, ModelLayer, ModelNode, ModelStore,
-    Object, ObjectSpace, Query, RuleWords, Value, ViewInfo, ViewKind, Violation, validate,
+    CONTEXT_SAVE, Criteria, EntityInfo, FieldKind, Frame, FrameContext, Message, MessageKind, ModelLayer,
+    ModelNode, ModelStore, Object, ObjectSpace, Query, RuleWords, Severity, Value, ViewInfo, ViewKind,
+    Violation, merge_changes, validate,
 };
 use ravenrs_reactive::State;
-use ravenrs_widgets::{ConfirmDialog, Date, FilePicker};
+use ravenrs_widgets::{ConfirmDialog, Date, FilePicker, ToastExtras, Toaster, Toasts, Tone};
 
 use crate::editors::EditorRegistry;
 use crate::values::key_text;
@@ -67,6 +68,18 @@ pub struct Words {
     pub clone_unsaved: String,
     /// Takes a file out, to wherever people say.
     pub save_file: String,
+    /// The question when rules only warn.
+    pub warning_question: String,
+    /// Goes on in spite of what rules warn about.
+    pub warning_answer: String,
+    /// The question when someone else changed the same fields, where `{0}` is which ones.
+    pub conflict_question: String,
+    /// What keeping one's own changes does, where `{0}` is which fields.
+    pub conflict_detail: String,
+    /// Keeps one's own changes over the other person's.
+    pub conflict_answer: String,
+    /// Why what is on a form cannot be kept any more.
+    pub record_gone: String,
     /// What fails a rule.
     pub rules: RuleWords,
     /// In front of money.
@@ -104,6 +117,13 @@ impl Default for Words {
             clone: "Clone".into(),
             clone_unsaved: "Save the changes before cloning.".into(),
             save_file: "Save file".into(),
+            warning_question: "Save anyway?".into(),
+            warning_answer: "Save anyway".into(),
+            conflict_question: "Someone else changed this record".into(),
+            conflict_detail: "They changed {0} too. Saving keeps your value there, and their other changes."
+                .into(),
+            conflict_answer: "Keep mine".into(),
+            record_gone: "Someone else deleted this record.".into(),
             rules: RuleWords::default(),
             money_prefix: "$ ".into(),
             thousands: ',',
@@ -140,6 +160,13 @@ impl Words {
             clone: "Clonar".into(),
             clone_unsaved: "Salve as alterações antes de clonar.".into(),
             save_file: "Salvar arquivo".into(),
+            warning_question: "Salvar assim mesmo?".into(),
+            warning_answer: "Salvar assim mesmo".into(),
+            conflict_question: "Outra pessoa alterou este registro".into(),
+            conflict_detail:
+                "Ela também alterou {0}. Salvar mantém o seu valor ali, e as outras alterações dela.".into(),
+            conflict_answer: "Manter o meu".into(),
+            record_gone: "Outra pessoa excluiu este registro.".into(),
             rules: RuleWords::pt_br(),
             money_prefix: "R$ ".into(),
             thousands: '.',
@@ -204,6 +231,9 @@ pub(crate) type SpaceFactory = Rc<dyn Fn() -> Rc<RefCell<dyn ObjectSpace>>>;
 /// depends on the record; nothing means the usual.
 pub type FormCaption = Rc<dyn Fn(&str, &Object) -> Option<String>>;
 
+/// Gives the records of a collection with no storage, from the record that has it.
+pub type CollectionSource = Rc<dyn Fn(&Object) -> Vec<Object>>;
+
 /// Makes a control an application registered.
 pub(crate) type ControlFactory = Rc<dyn Fn() -> ravenrs_widgets::AnyView>;
 
@@ -221,6 +251,13 @@ struct SessionInner {
     form: State<Option<Rc<FormState>>>,
     /// A save failed its rules, so the form says what is wrong as people fix it.
     checking: State<bool>,
+    /// A save went through with notes from its rules, which the form keeps showing.
+    noting: State<bool>,
+    toasts: Toasts,
+    /// Where entities no storage keeps get their records.
+    record_sources: Rc<RefCell<BTreeMap<String, crate::list_view::ListSource>>>,
+    /// Where lists no storage keeps get theirs, by entity and field.
+    collection_sources: Rc<RefCell<BTreeMap<(String, String), CollectionSource>>>,
     /// Where it came from, for going back.
     history: State<Vec<String>>,
     error: State<Option<String>>,
@@ -278,6 +315,10 @@ impl Session {
             revision: State::new(0),
             form: State::new(None),
             checking: State::new(false),
+            noting: State::new(false),
+            toasts: Toasts::new(),
+            record_sources: Rc::default(),
+            collection_sources: Rc::default(),
             history: State::new(Vec::new()),
             error: State::new(None),
             confirm: ConfirmDialog::new(),
@@ -302,6 +343,12 @@ impl Session {
         let inner = Rc::new(inner);
         let frame = inner.frame.clone();
         frame.set_extension(Rc::new(SessionLink(Rc::downgrade(&inner))));
+        let telling = Rc::downgrade(&inner);
+        frame.set_messenger(move |message| {
+            if let Some(inner) = telling.upgrade() {
+                Session(inner).show_message(message);
+            }
+        });
         frame.set_validator(|contexts, cx| {
             let Some(session) = Session::of(cx) else { return Ok(()) };
             let form = session.form();
@@ -312,7 +359,8 @@ impl Session {
             let mut messages = Vec::new();
             for record in &records {
                 for context in contexts {
-                    messages.extend(session.violations_of(record, context).into_iter().map(|v| v.message));
+                    let found = session.violations_of(record, context);
+                    messages.extend(found.into_iter().filter(Violation::is_error).map(|v| v.message));
                 }
             }
             if messages.is_empty() { Ok(()) } else { Err(messages.join("; ")) }
@@ -333,6 +381,10 @@ impl Session {
             revision: parent.revision.clone(),
             form: State::new(None),
             checking: State::new(false),
+            noting: State::new(false),
+            toasts: parent.toasts.clone(),
+            record_sources: parent.record_sources.clone(),
+            collection_sources: parent.collection_sources.clone(),
             history: State::new(Vec::new()),
             error: State::new(None),
             confirm: ConfirmDialog::new(),
@@ -373,6 +425,63 @@ impl Session {
     /// What asks before actions run, for a screen with no window of the framework around it.
     pub fn confirmations(&self) -> ConfirmDialog {
         self.0.confirm.clone()
+    }
+
+    /// What shows messages, for a screen with no window of the framework around it.
+    pub fn toaster(&self) -> Toaster {
+        Toaster::new(self.0.toasts.clone())
+    }
+
+    /// Tells people something, which goes away by itself.
+    pub fn show_message(&self, message: Message) {
+        let tone = match message.kind {
+            MessageKind::Success => Tone::Success,
+            MessageKind::Warning => Tone::Warning,
+            MessageKind::Error => Tone::Danger,
+            _ => Tone::Accent,
+        };
+        let mut extras = ToastExtras::new();
+        if let Some((label, run)) = message.action {
+            extras = extras.action(label, move || run());
+        }
+        if let Some(run) = message.on_close {
+            extras = extras.on_close(move || run());
+        }
+        self.0.toasts.show_with(self.title(), message.text, tone, message.seconds.unwrap_or(4.0), extras);
+    }
+
+    /// Gives the records of an entity no storage keeps, for its list and its forms.
+    pub fn use_records(&self, entity: impl Into<String>, source: impl Fn() -> Vec<Object> + 'static) {
+        self.0.record_sources.borrow_mut().insert(entity.into(), Rc::new(source));
+    }
+
+    /// Gives the records of a list no storage keeps, inside a form of this entity.
+    pub fn use_collection(
+        &self,
+        entity: impl Into<String>,
+        field: impl Into<String>,
+        source: impl Fn(&Object) -> Vec<Object> + 'static,
+    ) {
+        self.0.collection_sources.borrow_mut().insert((entity.into(), field.into()), Rc::new(source));
+    }
+
+    pub(crate) fn record_source(&self, entity: &str) -> Option<crate::list_view::ListSource> {
+        self.0.record_sources.borrow().get(entity).cloned()
+    }
+
+    pub(crate) fn collection_source(&self, entity: &str, field: &str) -> Option<CollectionSource> {
+        self.0.collection_sources.borrow().get(&(entity.to_owned(), field.to_owned())).cloned()
+    }
+
+    /// What people see in the model, as CSV with an empty column for its translation.
+    pub fn export_captions(&self) -> String {
+        self.0.application.borrow().export_captions()
+    }
+
+    /// Takes the CSV of [`export_captions`](Self::export_captions), filled in, as the model in this
+    /// language, which [`set_language`](Self::set_language) picks.
+    pub fn import_captions(&self, language: &str, csv: &str) -> Result<(), String> {
+        self.0.application.borrow_mut().import_captions(language, csv).map_err(|e| e.0)
     }
 
     /// Registers a control by name, for a dashboard to show.
@@ -460,6 +569,15 @@ impl Session {
             .flatten()
             .filter_map(|text| Criteria::parse(&text).ok())
             .reduce(Criteria::and)
+    }
+
+    /// The dashboard to show for this one: the one people changed it to, if any.
+    pub(crate) fn dashboard_shown(&self, view: &str) -> ViewInfo {
+        let model = self.model();
+        let id = Self::chosen(&model, view, "Variants")
+            .and_then(|item| item.text("View").map(str::to_owned))
+            .unwrap_or_else(|| view.to_owned());
+        ViewInfo::from_model(&model, &id).unwrap_or_else(|_| ViewInfo::new(view, ViewKind::Dashboard, None))
     }
 
     /// The fields the way picked to see this list shows, if it says.
@@ -626,8 +744,8 @@ impl Session {
         self.0.form.set(Some(Rc::new(FormState::new(entity.clone(), object, is_new))));
     }
 
-    /// Changes a field of the form.
-    pub(crate) fn set_form_value(&self, field: &str, value: Value) {
+    /// Changes a field of the form, as a screen of its own around the form would.
+    pub fn set_form_value(&self, field: &str, value: Value) {
         if let Some(state) = self.0.form.peek().as_ref().and_then(|form| form.fields.get(field).cloned()) {
             state.set(value);
         }
@@ -637,7 +755,7 @@ impl Session {
     pub(crate) fn check_form(&self) -> Option<(Object, bool)> {
         let form = self.0.form.peek().clone()?;
         let object = form.current();
-        if self.violations_of(&object, CONTEXT_SAVE).is_empty() {
+        if !self.violations_of(&object, CONTEXT_SAVE).iter().any(Violation::is_error) {
             self.0.checking.set(false);
             Some((object, form.is_new))
         } else {
@@ -740,7 +858,7 @@ impl Session {
     pub(crate) fn form_violations(&self) -> Vec<Violation> {
         let Some(form) = self.form() else { return Vec::new() };
         let found = |record: &Object| self.violations_of(record, CONTEXT_SAVE);
-        if self.0.checking.get() {
+        if self.0.checking.get() || self.0.noting.get() {
             return found(&form.watched());
         }
         if !form.entity.checks_on_leave {
@@ -816,6 +934,7 @@ impl Session {
     fn show(&self, view: ViewInfo) {
         self.0.error.set(None);
         self.0.checking.set(false);
+        self.0.noting.set(false);
         self.0.pending.borrow_mut().clear();
         if !self.0.left.peek().is_empty() {
             self.0.left.set(BTreeSet::new());
@@ -829,9 +948,40 @@ impl Session {
         self.leaving(move || session.show_view_now(&id));
     }
 
+    /// Goes to where a navigation item points: a list, or a form with no list before it, on the
+    /// record with this key or on a new one. Asks first if that would lose changes.
+    pub(crate) fn open_navigation(&self, id: &str, key: Option<&str>) {
+        let (session, id, key) = (self.clone(), id.to_owned(), key.map(str::to_owned));
+        self.leaving(move || {
+            let model = session.model();
+            let Ok(view) = ViewInfo::from_model(&model, &id) else {
+                return session.show_view_now(&id);
+            };
+            let Some(entity) = view.entity.as_deref().filter(|_| view.kind == ViewKind::Detail) else {
+                return session.show_view_now(&id);
+            };
+            session.0.history.set(vec![id.clone()]);
+            match (&key, session.entity(entity)) {
+                (Some(key), Some(info)) => {
+                    session.open_detail(entity, &crate::values::key_from_text(&info, key));
+                }
+                _ => session.open_new(entity),
+            }
+            session.touch();
+        });
+    }
+
     pub(crate) fn show_view_now(&self, id: &str) {
         let model = self.model();
         match ViewInfo::from_model(&model, id) {
+            Ok(view) if view.kind == ViewKind::Detail => {
+                self.0.history.set(vec![id.to_owned()]);
+                match view.entity.clone() {
+                    Some(entity) => self.open_new(&entity),
+                    None => self.show(view),
+                }
+                self.touch();
+            }
             Ok(view) => {
                 self.0.form.set(None);
                 self.0.history.set(vec![id.to_owned()]);
@@ -855,6 +1005,19 @@ impl Session {
             found.map_or_else(|_| Vec::new(), |all| all.iter().map(|o| o.get(&field.name)).collect());
     }
 
+    /// A record by its key, in storage or from what gives the records no storage keeps.
+    fn find_record(
+        &self,
+        entity: &EntityInfo,
+        key: &Value,
+    ) -> Result<Option<Object>, ravenrs_app::SpaceError> {
+        if let Some(source) = self.record_source(&entity.name) {
+            let name = entity.key_field().map(|field| field.name.clone()).unwrap_or_default();
+            return Ok(source().into_iter().find(|object| object.get(&name) == *key));
+        }
+        self.0.frame.space().borrow().find(&entity.name, key)
+    }
+
     /// Opens the form of a record, in a unit of work of its own.
     pub fn open_detail(&self, entity_name: &str, key: &Value) {
         let Some(entity) = self.entity(entity_name) else { return };
@@ -867,7 +1030,7 @@ impl Session {
             self.0.history.update(|history| history.push(view.id.clone()));
         }
         self.show(view);
-        let found = self.0.frame.space().borrow().find(entity_name, key);
+        let found = self.find_record(&entity, key);
         match found {
             Ok(Some(object)) => {
                 self.0.frame.set_selected(vec![object.clone()]);
@@ -936,15 +1099,100 @@ impl Session {
 
     /// Keeps what the form holds. Stays where it is; what is wrong goes on the screen.
     pub(crate) fn save(&self) -> Result<(), String> {
+        self.save_then(|_| {})
+    }
+
+    /// Keeps what the form holds and then runs `then`. What only warns asks first, and so does a
+    /// field someone else changed too, so `then` may run later, when the person answers, or never.
+    pub(crate) fn save_then(&self, then: impl Fn(&Self) + 'static) -> Result<(), String> {
         let Some(form) = self.0.form.peek().clone() else { return Ok(()) };
         let object = form.current();
         let found = self.violations_of(&object, CONTEXT_SAVE);
-        if !found.is_empty() {
+        let errors: Vec<String> = found.iter().filter(|v| v.is_error()).map(|v| v.message.clone()).collect();
+        if !errors.is_empty() {
             self.0.error.set(None);
             self.0.checking.set(true);
-            return Err(found.into_iter().map(|v| v.message).collect::<Vec<_>>().join("; "));
+            return Err(errors.join("; "));
         }
         self.0.checking.set(false);
+        let then: Rc<dyn Fn(&Self)> = Rc::new(then);
+        let warnings: Vec<String> =
+            found.iter().filter(|v| v.severity == Severity::Warning).map(|v| v.message.clone()).collect();
+        if warnings.is_empty() {
+            return self.save_merged(&then);
+        }
+        let session = self.clone();
+        let words = self.words();
+        self.0.confirm.ask(
+            words.warning_question.clone(),
+            warnings.join("\n"),
+            words.warning_answer.clone(),
+            move || {
+                // What fails goes on the screen.
+                let _ = session.save_merged(&then);
+            },
+        );
+        Ok(())
+    }
+
+    /// Puts together what the form changed and what someone else kept since it opened. Different
+    /// fields both stand; the same field asks first.
+    fn save_merged(&self, then: &Rc<dyn Fn(&Self)>) -> Result<(), String> {
+        let Some(form) = self.0.form.peek().clone() else { return Ok(()) };
+        let object = form.current();
+        if form.is_new || form.entity.transient {
+            return self.keep(&form, object, then);
+        }
+        let key = form.entity.key_field().map_or(Value::Null, |field| object.get(&field.name));
+        let stored = self.0.frame.space().borrow().find(&form.entity.name, &key);
+        let stored = match stored {
+            Ok(stored) => stored,
+            Err(error) => {
+                let message = error.to_string();
+                self.0.error.set(Some(message.clone()));
+                return Err(message);
+            }
+        };
+        let Some(stored) = stored else {
+            let message = self.words().record_gone.clone();
+            self.0.error.set(Some(message.clone()));
+            return Err(message);
+        };
+        let merged = merge_changes(&form.entity, &form.original, &object, &stored);
+        if merged.conflicts.is_empty() {
+            return self.keep(&form, merged.record, then);
+        }
+        let names: Vec<&str> = merged
+            .conflicts
+            .iter()
+            .filter_map(|name| form.entity.field_named(name))
+            .map(|field| field.caption.as_str())
+            .collect();
+        let (session, then, record) = (self.clone(), then.clone(), merged.record);
+        let (words, kept_form) = (self.words(), form.clone());
+        self.0.confirm.ask(
+            words.conflict_question.clone(),
+            words.conflict_detail.replace("{0}", &names.join(", ")),
+            words.conflict_answer.clone(),
+            move || {
+                // What fails goes on the screen.
+                let _ = session.keep(&kept_form, record.clone(), &then);
+            },
+        );
+        Ok(())
+    }
+
+    /// Writes the record, with what comes along with it.
+    fn keep(&self, form: &Rc<FormState>, object: Object, then: &Rc<dyn Fn(&Self)>) -> Result<(), String> {
+        let has_notes = self.violations_of(&object, CONTEXT_SAVE).iter().any(|v| !v.is_error());
+        self.0.noting.set(has_notes);
+        if form.entity.transient {
+            self.0.error.set(None);
+            self.0.form.set(Some(Rc::new(FormState::new(form.entity.clone(), object, false))));
+            self.touch();
+            then(self);
+            return Ok(());
+        }
         let space = self.0.frame.space();
         let done = {
             let mut space = space.borrow_mut();
@@ -970,6 +1218,7 @@ impl Session {
                     self.0.form.set(Some(Rc::new(FormState::new(form.entity.clone(), fresh, false))));
                     self.update_position(&form.entity);
                 }
+                then(self);
                 Ok(())
             }
             Err(error) => {
@@ -1012,14 +1261,31 @@ impl Session {
 
     /// Takes away these records and keeps that, in the frame's unit of work.
     pub(crate) fn delete(&self, objects: &[Object]) -> Result<(), String> {
-        let refused: Vec<String> = objects
-            .iter()
-            .flat_map(|object| self.violations_of(object, CONTEXT_DELETE))
-            .map(|v| v.message)
-            .collect();
+        let found: Vec<Violation> =
+            objects.iter().flat_map(|object| self.violations_of(object, CONTEXT_DELETE)).collect();
+        let refused: Vec<String> = found.iter().filter(|v| v.is_error()).map(|v| v.message.clone()).collect();
         if !refused.is_empty() {
             return Err(refused.join("; "));
         }
+        let warnings: Vec<String> =
+            found.iter().filter(|v| v.severity == Severity::Warning).map(|v| v.message.clone()).collect();
+        if warnings.is_empty() {
+            return self.delete_now(objects);
+        }
+        let (session, objects, words) = (self.clone(), objects.to_vec(), self.words());
+        self.0.confirm.ask(
+            words.delete_question.clone(),
+            warnings.join("\n"),
+            words.delete.clone(),
+            move || {
+                // What fails goes on the screen.
+                let _ = session.delete_now(&objects);
+            },
+        );
+        Ok(())
+    }
+
+    fn delete_now(&self, objects: &[Object]) -> Result<(), String> {
         let space = self.0.frame.space();
         let done = {
             let mut space = space.borrow_mut();
@@ -1082,15 +1348,42 @@ impl Session {
     /// Runs an action from a screen: asks its question first, and does what it asks for next.
     pub fn run_action(&self, action: &Action, input: ActionInput) {
         let Some(question) = action.confirmation_text().map(str::to_owned) else {
-            self.execute(action.id(), input);
+            self.execute_after_warnings(action, input);
             return;
         };
-        let (session, id) = (self.clone(), action.id().to_owned());
+        let (session, kept) = (self.clone(), action.clone());
         let detail = action.confirmation_detail().unwrap_or(&self.words().delete_detail).to_owned();
         let answer = action.confirmation_answer().unwrap_or(action.caption()).to_owned();
         self.0.confirm.ask(question, detail, answer, move || {
-            session.execute(&id, input.clone());
+            session.execute_after_warnings(&kept, input.clone());
         });
+    }
+
+    /// Runs an action, asking first about what its contexts only warn of.
+    fn execute_after_warnings(&self, action: &Action, input: ActionInput) {
+        let selected = self.0.frame.selected();
+        let records = match (self.form(), selected.is_empty()) {
+            (Some(form), true) => vec![form.current()],
+            _ => selected,
+        };
+        let warnings: Vec<String> = records
+            .iter()
+            .flat_map(|record| {
+                action.contexts().iter().flat_map(move |context| self.violations_of(record, context))
+            })
+            .filter(|violation| violation.severity == Severity::Warning)
+            .map(|violation| violation.message)
+            .collect();
+        if warnings.is_empty() {
+            return self.execute(action.id(), input);
+        }
+        let (session, id, words) = (self.clone(), action.id().to_owned(), self.words());
+        self.0.confirm.ask(
+            words.warning_question.clone(),
+            warnings.join("\n"),
+            words.warning_answer.clone(),
+            move || session.execute(&id, input.clone()),
+        );
     }
 
     fn execute(&self, id: &str, input: ActionInput) {

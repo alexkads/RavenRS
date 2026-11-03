@@ -40,6 +40,7 @@ pub struct TagBox {
     allow_new: bool,
     most: Option<usize>,
     width: f32,
+    fill: bool,
     label: Option<String>,
     state: util::EditorState,
 }
@@ -60,6 +61,7 @@ impl TagBox {
             allow_new: false,
             most: None,
             width: 280.0,
+            fill: false,
             label: None,
             state: util::EditorState::default(),
         }
@@ -80,6 +82,12 @@ impl TagBox {
     /// The most values that can be chosen.
     pub fn most(mut self, most: usize) -> Self {
         self.most = Some(most.max(1));
+        self
+    }
+
+    /// Takes the width of its parent, as other fields of a form do.
+    pub fn fill(mut self) -> Self {
+        self.fill = true;
         self
     }
 
@@ -272,12 +280,12 @@ impl View for TagBox {
         };
         let node = cx.container(
             LayoutStyle {
-                width: Some(self.width),
+                width: (!self.fill).then_some(self.width),
                 min_height: Some(40.0),
                 padding: Insets { left: 6.0, right: 12.0, top: 6.0, bottom: 6.0 },
                 spacing: 8.0,
                 align: Align::Center,
-                align_self: Some(Align::Fit),
+                align_self: Some(if self.fill { Align::Stretch } else { Align::Fit }),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[holder, chevron],

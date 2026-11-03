@@ -40,6 +40,6 @@ pub use editors::{EditorRegistry, EditorRequest};
 pub use form::{EntityForm, FormText};
 pub use list_view::{CellText, ColumnShape, GridShape, ListEditorRequest, ListSource, ListView, OpenHandler};
 pub use pane::{EntityPane, PaneWords};
-pub use session::{FormCaption, Session, Words};
+pub use session::{CollectionSource, FormCaption, Session, Words};
 pub use shell::{AppShell, FrameTemplate, MainTemplate, TemplateParts};
 pub use system::{CloneModule, SystemModule, ids};

@@ -4024,6 +4024,7 @@ dependencies = [
  "regex-lite",
  "serde_json",
  "trybuild",
+ "uuid",
 ]
 
 [[package]]
@@ -4035,6 +4036,18 @@ dependencies = [
  "ravenrs-criteria",
  "regex-lite",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "ravenrs-app-library"
+version = "27.1.8"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-app-ui",
+ "ravenrs-core",
+ "ravenrs-criteria",
+ "ravenrs-style",
+ "ravenrs-widgets",
 ]
 
 [[package]]
