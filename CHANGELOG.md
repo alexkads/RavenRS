@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.9] - 2026-11-03
+
 ### Breaking
 - `Query` in `ravenrs-app` has a new field, `only`, so building one field by field needs `..Query::default()`.
 - A `FieldKind::Criteria` field is out of lists by default and in a group of its own on a form, as it takes the height it needs.
@@ -415,7 +417,7 @@ The first public release.
 - `scripts/check.sh` runs formatting, clippy (native and wasm32), the tests and the web builds locally.
 - `scripts/deploy-pages.sh` publishes the landing page, the live gallery and the API docs.
 
-[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.3...HEAD
+[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.9...HEAD
 [27.1.3]: https://github.com/alexkads/RavenRS/compare/v27.1.2...v27.1.3
 [27.1.2]: https://github.com/alexkads/RavenRS/compare/v27.1.1...v27.1.2
 [27.1.1]: https://github.com/alexkads/RavenRS/compare/v27.1.0...v27.1.1
