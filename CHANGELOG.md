@@ -27,6 +27,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Screens reviewed against `examples/feature-center`**, with the rules now in `docs/design-system/README.md`: one accented action in a window, one page margin, page titles, a flat filter row lined up with its columns, fields that fill their column, collections with one heading and no owner column, full-width panels with their title and Close at the top, and a list that says it is empty instead of repeating its name.
 
 ### Fixed
+- A user turned off or deleted loses their API session at once, and with it settings, which no permission guards.
+- The theme at a sign-in door no longer carries over from the person who left, and a kept theme nobody could read goes unused (`Theme::is_readable`).
 - An expression could nest past the depth limit through a condition inside a field, or through `Between`, and overflow the stack. `FormatString` and `PadLeft` no longer take widths that exhaust memory or panic, and date functions no longer overflow on absurd amounts.
 - Sorting a field that holds values of mixed kinds could panic.
 - `SecuredObjectSpace` refuses a field someone can neither read nor write even when the value sent is the stored one, which told them what it held.
