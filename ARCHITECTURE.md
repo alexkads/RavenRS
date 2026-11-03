@@ -109,8 +109,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-app-library` | `lib` |
 | `ravenrs-app-report` | `lib`, `stored`, `analytics` |
 | `ravenrs-report-designer` | `lib`, `editor`, `bands`, `surface`, `props`, `preview` |
-| `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values`, `security`, `model_editor`, `list_editors` |
-| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files`, `security` (`space`, `directory`, `password`, `records`, `audit`) |
+| `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values`, `security`, `model_editor`, `list_editors`, `reminders` |
+| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files`, `workflow`, `security` (`space`, `directory`, `password`, `records`, `audit`) |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |

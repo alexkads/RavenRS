@@ -1,6 +1,9 @@
 //! One list, shown as a grid, a chart, a month, a timeline and a tree. Nothing but the model changes.
 
-use ravenrs_app::{EntityInfo, EnumOption, FieldInfo, FieldKind, ObjectSpace, Value, ViewVariant};
+use ravenrs_app::{
+    AppearanceRule, EntityInfo, EnumOption, FieldInfo, FieldKind, ObjectSpace, Reminder, StateMachine, Value,
+    ViewVariant,
+};
 use ravenrs_app_report::{
     ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, PT_BR, REPORT_DEFINITION, ReportWords,
     StoredReportsModule,
@@ -18,7 +21,11 @@ fn person() -> EntityInfo {
 }
 
 fn task() -> EntityInfo {
-    let state = vec![EnumOption::new("open", "Aberta"), EnumOption::new("late", "Atrasada")];
+    let state = vec![
+        EnumOption::new("open", "Aberta"),
+        EnumOption::new("late", "Atrasada"),
+        EnumOption::new("done", "Concluída"),
+    ];
     EntityInfo::new("Task")
         .caption("Tarefas")
         .navigation("Plano")
@@ -31,6 +38,18 @@ fn task() -> EntityInfo {
         .field(FieldInfo::new("ends", FieldKind::DateTime).caption("Fim"))
         .field(FieldInfo::new("cost", FieldKind::Money).caption("Custo"))
         .field(FieldInfo::new("state", FieldKind::Enum(state)).caption("Situação"))
+        .field(FieldInfo::new("remind_at", FieldKind::DateTime).caption("Lembrar em").in_list(false))
+        .state_machine(
+            StateMachine::new("state")
+                .state("open", "Aberta")
+                .state("late", "Atrasada")
+                .state("done", "Concluída")
+                .transition("open", "late", "Atrasar")
+                .transition("open", "done", "Concluir")
+                .transition("late", "done", "Concluir atrasada"),
+        )
+        .state_appearance("state", "done", AppearanceRule::new("done_locked", ["cost"]).enabled(false))
+        .reminder(Reminder::new("remind_at"))
         .editor_setting("ChartSettings", "Argument", "owner")
         .editor_setting("ChartSettings", "Series", "cost:Sum")
         .editor_setting("CalendarSettings", "Tone", "state")
@@ -69,6 +88,11 @@ fn seed(space: &mut dyn ObjectSpace) -> Result<(), String> {
         task.set("ends", moment(to));
         task.set("cost", cost);
         task.set("state", state);
+        if id == 11.0 {
+            // Comes up by itself half a minute after opening.
+            let soon = ravenrs_app::local_now();
+            task.set("remind_at", Value::Date(DateTime { seconds: (soon.seconds + 30).min(86_399), ..soon }));
+        }
         space.save(task).map_err(wrong)?;
     }
     // A report with its first layout, and a panel, both people's to change from here on.

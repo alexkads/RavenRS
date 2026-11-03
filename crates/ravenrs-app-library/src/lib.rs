@@ -149,9 +149,11 @@ pub fn event() -> EntityInfo {
         .field(text("subject").default_property())
         .field(FieldInfo::new("starts", FieldKind::DateTime))
         .field(FieldInfo::new("ends", FieldKind::DateTime))
+        .field(FieldInfo::new("remind_at", FieldKind::DateTime).caption("Remind at").in_list(false))
         .field(FieldInfo::new("all_day", FieldKind::Boolean).caption("All day"))
         .field(text("location"))
         .field(FieldInfo::new("description", FieldKind::LongText))
+        .reminder(ravenrs_app::Reminder::new("remind_at"))
         .rule(Rule::required("subject"))
         .rule(Rule::required("starts"))
         .rule(

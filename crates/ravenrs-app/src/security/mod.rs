@@ -465,7 +465,8 @@ impl Permissions {
         &self.identity
     }
 
-    pub(crate) fn environment(&self) -> &Environment {
+    /// What expressions about this person are evaluated with.
+    pub fn environment(&self) -> &Environment {
         &self.environment
     }
 

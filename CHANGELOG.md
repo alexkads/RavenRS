@@ -8,6 +8,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Query` in `ravenrs-app` has a new field, `only`, so building one field by field needs `..Query::default()`.
 - A `FieldKind::Criteria` field is out of lists by default and in a group of its own on a form, as it takes the height it needs.
 - Saving a form of a `transient` entity no longer goes to storage.
+- `ActionResult` has a new variant, `RecordsChanged`, and `EntityInfo` new fields, `state_machines`, `reminder` and `editor_settings`.
 - `SpaceError` has a new variant, `Denied`, and `FieldInfo` a new field, `secret`.
 
 ### Fixed
@@ -31,6 +32,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **`AuditedObjectSpace`** writes who changed what, from what to what, in the same commit, with the modes `Full`, `Lightweight` and `CreationOnly`, fields left out by `AuditSettings`, and changes in collections shown on their owner.
 - **`ModelEditor`**: the model as a tree, with its settings beside it, kept in the person's own layer, for a role that `can_edit_model`.
 - **Lists shown other ways.** A view picks `Chart`, `Calendar`, `Scheduler` or `Tree` by `EditorType` in the model, or a `ViewVariant` by `editor`, with what each needs under `ChartSettings`, `CalendarSettings`, `SchedulerSettings` or `TreeSettings`, set in code with `EntityInfo::editor_setting`. A record moved on a timeline is kept with its rules and permissions. `examples/quick-plan` shows all of them.
+- **State machines.** `EntityInfo::state_machine` declares states and the ways between them. Any other change is refused when it is kept, in memory and in SQLite, with no screen around it; each way gets its own action, and `state_appearance` goes by the state. `check_transitions` is for whoever writes another `ObjectSpace`.
+- **Reminders.** `EntityInfo::reminder` brings up what is due in a window, to open, put off 15 minutes or dismiss. Nothing runs in between: the screen asks to be built again at the next time due. `ravenrs-app-library`'s events have one.
+- **`local_now`** is the time on this machine as a clock reads it. The audit trail, lockout and the day pickers of the screens use it, as `DateTime::now` is UTC on the desktop.
 - **Reports people keep.** `StoredReportsModule` keeps reports as records, on the data of an entity: a first layout comes from its list, `Designer::embedded` opens the designer inside the application, and showing one asks for its parameters and exports to PDF and XLSX. A list shows its records in a report with `ShowInReport`. Permissions on the records say who sees or changes a report, and a report only reads what the person can read.
 - **Panels people put together.** `AnalyticsModule` keeps panels as records, with tiles of numbers and charts over the entities, edited on generated forms.
 - **`ravenrs-report-designer`**: the report designer as a crate, out of `examples/report-designer`, which now just runs it.

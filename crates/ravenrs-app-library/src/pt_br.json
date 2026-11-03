@@ -25,7 +25,7 @@
       "percent_done": { "Caption": "Concluído" }, "description": { "Caption": "Descrição" } } },
     "Event": { "Caption": "Eventos", "Members": {
       "subject": { "Caption": "Assunto" }, "starts": { "Caption": "Início" }, "ends": { "Caption": "Fim" },
-      "all_day": { "Caption": "Dia inteiro" }, "location": { "Caption": "Local" },
+      "remind_at": { "Caption": "Lembrar em" }, "all_day": { "Caption": "Dia inteiro" }, "location": { "Caption": "Local" },
       "description": { "Caption": "Descrição" } } },
     "Note": { "Caption": "Anotações", "Members": {
       "title": { "Caption": "Título" }, "text": { "Caption": "Texto" } } },

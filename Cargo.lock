@@ -4081,6 +4081,7 @@ name = "ravenrs-app"
 version = "27.1.8"
 dependencies = [
  "argon2",
+ "jiff",
  "proptest",
  "ravenrs-app-derive",
  "ravenrs-criteria",

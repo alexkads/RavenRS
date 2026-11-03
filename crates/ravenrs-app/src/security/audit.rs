@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
-use ravenrs_criteria::{DateTime, Value};
+use ravenrs_criteria::Value;
 
 use super::{SECURITY_AUDIT_ENTRY, SpaceMaker};
 use crate::space::key_text;
@@ -144,7 +144,7 @@ impl AuditTrail {
 
     /// Adds these lines to what waits in this space, and says what it added.
     fn write(&self, space: &mut dyn ObjectSpace, lines: &[Line]) -> Result<Vec<Value>, SpaceError> {
-        let (author, now) = ((self.author)(), DateTime::now());
+        let (author, now) = ((self.author)(), crate::local_now());
         let mut added = Vec::with_capacity(lines.len());
         for line in lines {
             let mut entry = space.new_object(SECURITY_AUDIT_ENTRY)?;

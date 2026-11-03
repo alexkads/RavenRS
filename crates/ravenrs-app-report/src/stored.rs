@@ -436,7 +436,7 @@ impl View for ReportView {
             ]
         });
         let panel = (!self.report.parameters.is_empty()).then(|| {
-            let today = Date::from_days(ravenrs_criteria::DateTime::now().days);
+            let today = Date::from_days(ravenrs_app::local_now().days);
             ParameterPanel::new(self.report.parameters.clone(), self.applied.clone(), today)
         });
         let content = VStack::new((panel, viewer.height(VIEWER_HEIGHT)))

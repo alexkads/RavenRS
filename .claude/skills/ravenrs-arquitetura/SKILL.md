@@ -37,6 +37,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Registros em SQLite | `crates/ravenrs-app-sqlite/src/lib.rs`, testes em `tests/space.rs`; `ChangeSet` e `run_query` em `crates/ravenrs-app/src/space.rs` são compartilhados entre os `ObjectSpace` | |
 | Permissões, entrada e auditoria | `crates/ravenrs-app/src/security/`; telas em `crates/ravenrs-app-ui/src/security.rs` e `model_editor.rs` | `crates/ravenrs-app/tests/security.rs`, `crates/ravenrs-app-ui/tests/security.rs`, revisão com as skills `securitymaxxing:authz` e `authn` |
 | Lista como gráfico, agenda ou árvore | `crates/ravenrs-app-ui/src/list_editors.rs` | `crates/ravenrs-app-ui/tests/list_editors.rs`, `examples/quick-plan` |
+| Estados e lembretes | `crates/ravenrs-app/src/workflow.rs`; janela em `crates/ravenrs-app-ui/src/reminders.rs` | `crates/ravenrs-app/tests/workflow.rs`, `crates/ravenrs-app-ui/tests/workflow.rs` |
 | Registros prontos | `crates/ravenrs-app-library/src/lib.rs`, palavras em `pt_br.json` | `crates/ravenrs-app-library/tests/library.rs` |
 | Relatório de uma lista | `crates/ravenrs-app-report/src/lib.rs`, sobre `Session::list_table` e `document_of` | `crates/ravenrs-app-report/tests/report.rs` |
 | Telas geradas do modelo | `crates/ravenrs-app-ui/src/`: `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `form`, `editors`, `container`, `system`, `session` | `crates/ravenrs-app-ui/tests/e2e.rs`, `relations.rs` e `center.rs`, que dirigem a aplicação inteira sem janela; o que faltar de componente vai antes para `ravenrs-widgets` |

@@ -7,7 +7,6 @@ use ravenrs_app::{
     ActionInput, Application, Frame, FrameContext, ModelNode, ObjectSpace, Value, ViewInfo, ViewKind,
 };
 use ravenrs_core::Insets;
-use ravenrs_criteria::DateTime;
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{TextStyle, Weight};
@@ -103,7 +102,7 @@ impl AppShell {
         words: Words,
         editors: EditorRegistry,
     ) -> Self {
-        let today = Date::from_days(DateTime::now().days);
+        let today = Date::from_days(ravenrs_app::local_now().days);
         let session = Session::new(application, factory, words, editors, today);
         if let Some(first) = session.first_view() {
             session.show_view_now(&first);
@@ -168,10 +167,19 @@ impl AppShell {
             .collapsible(SidebarCollapse::Icons)
             .narrow_below(NARROW_WINDOW)
             .header(Text::new(self.session.title()).font_weight(Weight::SEMIBOLD));
-        match self.session.account() {
-            Some(account) => Box::new(sidebar.footer(self.account_of(account))),
-            None => Box::new(sidebar),
+        let (due, _) = self.session.reminders().get();
+        let reminders = (due > 0).then(|| {
+            let showing = self.session.reminders().clone();
+            Button::new(format!("{} ({due})", self.session.words().reminders))
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Small)
+                .on_click(move || showing.update(|(_, open)| *open = true))
+        });
+        let account = self.session.account().map(|account| self.account_of(account));
+        if reminders.is_none() && account.is_none() {
+            return Box::new(sidebar);
         }
+        Box::new(sidebar.footer(VStack::new((reminders, account)).spacing(4.0).align(Align::Stretch)))
     }
 
     fn account_of(&self, account: crate::session::Account) -> AnyView {
@@ -473,6 +481,7 @@ impl View for PopupHost {
                 }
             }
         }
+        parts.push(cx.child(&crate::reminders::Reminders::new(session.clone())));
         if let Some((title, content)) = session.presented().get() {
             let (read, write) = (session.presented().clone(), session.presented().clone());
             let open = Binding::new(

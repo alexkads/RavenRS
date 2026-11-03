@@ -579,6 +579,10 @@ pub struct EntityInfo {
     pub appearance: Vec<crate::AppearanceRule>,
     /// The ways to see its list.
     pub variants: Vec<ViewVariant>,
+    /// The states its records go through.
+    pub state_machines: Vec<crate::StateMachine>,
+    /// When to remind people of a record.
+    pub reminder: Option<crate::Reminder>,
     /// What the list editors are told about this list: an editor's settings node, and in it names and values.
     pub editor_settings: Vec<(String, String, String)>,
     /// How many columns its form's fields go in; by how many there are, unless given.
@@ -614,6 +618,8 @@ impl EntityInfo {
             rules: Vec::new(),
             appearance: Vec::new(),
             variants: Vec::new(),
+            state_machines: Vec::new(),
+            reminder: None,
             editor_settings: Vec::new(),
             form_columns: None,
             filters: Vec::new(),
@@ -717,6 +723,32 @@ impl EntityInfo {
         self
     }
 
+    /// Gives its records states, and only these ways between them. Its field becomes read-only on
+    /// forms and starts in the machine's first state, its actions come by themselves, and any other
+    /// change is refused when it is kept. Declare the field first.
+    pub fn state_machine(mut self, machine: crate::StateMachine) -> Self {
+        if let Some(field) = self.fields.iter_mut().find(|field| field.name == machine.field) {
+            field.read_only = true;
+            if let Some(start) = &machine.start {
+                field.default_value = Value::Text(start.clone());
+            }
+        }
+        self.state_machines.push(machine);
+        self
+    }
+
+    /// An appearance that holds while its field is in this state.
+    pub fn state_appearance(self, field: &str, state: &str, rule: crate::AppearanceRule) -> Self {
+        let state = state.replace('\'', "''");
+        self.appearance(rule.criteria(format!("[{field}] = '{state}'")))
+    }
+
+    /// Reminds people of its records.
+    pub fn reminder(mut self, reminder: crate::Reminder) -> Self {
+        self.reminder = Some(reminder);
+        self
+    }
+
     /// Tells a list editor something about its list, as `ChartSettings`, `Kind` and `Line`. It goes
     /// in the model under the list's view, so a person can change it like any other setting.
     pub fn editor_setting(
@@ -783,6 +815,21 @@ impl EntityInfo {
                     return wrong(format!("the field {}: {problem}", field.name));
                 }
             }
+        }
+        for machine in &self.state_machines {
+            if self.field_named(&machine.field).is_none() {
+                return wrong(format!("a state machine is over {}, which is not a field", machine.field));
+            }
+            if let Some(problem) = machine.problem() {
+                return wrong(problem);
+            }
+        }
+        if let Some(reminder) = &self.reminder
+            && !self
+                .field_named(&reminder.field)
+                .is_some_and(|field| matches!(field.kind, FieldKind::Date | FieldKind::DateTime))
+        {
+            return wrong(format!("a reminder needs a date in {}", reminder.field));
         }
         let check_expression = |what: String, expression: &str| -> Result<(), ModelError> {
             let parsed =

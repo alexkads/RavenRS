@@ -863,7 +863,16 @@ impl ObjectSpace for SqliteObjectSpace {
                 Change::Deleted { entity, .. } => entity.as_str(),
                 _ => continue,
             };
-            self.write(self.entity(name)?, change)?;
+            let entity = self.entity(name)?;
+            if let Change::New(new) | Change::Updated(new) = change
+                && !entity.info.state_machines.is_empty()
+            {
+                let field = entity.info.key_field().ok_or_else(|| SpaceError::MissingKey(name.to_owned()))?;
+                let tail = format!(" WHERE {} = ?1", quoted(entity.map.column_of(&field.name)));
+                let stored = self.select(entity, &tail, vec![bound(&new.get(&field.name))])?;
+                ravenrs_app::check_transitions(&entity.info, stored.first(), new)?;
+            }
+            self.write(entity, change)?;
         }
         transaction.commit().map_err(|e| SpaceError::Storage(e.to_string()))?;
         self.changes.clear();

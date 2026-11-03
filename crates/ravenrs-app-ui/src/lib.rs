@@ -29,6 +29,7 @@ mod list_view;
 mod model_editor;
 mod nested;
 mod pane;
+mod reminders;
 mod security;
 mod session;
 mod shell;

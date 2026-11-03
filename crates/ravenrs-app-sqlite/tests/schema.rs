@@ -236,3 +236,41 @@ fn users_roles_and_the_trail_live_in_the_database_with_the_records() {
     space.rollback();
     assert_eq!(database.space().query(SECURITY_AUDIT_ENTRY, &Query::all()).expect("reads").len(), count);
 }
+
+#[test]
+fn a_way_that_is_not_declared_is_refused_in_the_database_too() {
+    use ravenrs_app::{SpaceError, StateMachine};
+    let entity = EntityInfo::new("Task")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("state", FieldKind::Text))
+        .state_machine(
+            StateMachine::new("state")
+                .state("draft", "Draft")
+                .state("done", "Done")
+                .start("draft")
+                .transition("draft", "done", "Finish"),
+        );
+    let database =
+        SqliteDatabase::builder(connection()).managed(entity, TableMap::new("tasks")).expect("valid").build();
+    let mut space = database.space();
+    let mut other = space.new_object("Task").expect("known");
+    other.set("state", "done");
+    space.save(other).expect("waits");
+    assert!(matches!(space.commit(), Err(SpaceError::Refused(_))), "a new record starts in draft");
+    space.rollback();
+    let mut record = space.new_object("Task").expect("known");
+    let key = record.get("id");
+    record.set("state", "draft");
+    space.save(record).expect("waits");
+    space.commit().expect("keeps");
+    let mut stored = space.find("Task", &key).expect("reads").expect("there");
+    stored.set("state", "done");
+    space.save(stored.clone()).expect("waits");
+    space.commit().expect("a way");
+    stored.set("state", "draft");
+    space.save(stored).expect("waits");
+    assert!(matches!(space.commit(), Err(SpaceError::Refused(_))), "there is none back");
+    space.rollback();
+    let found = database.space().find("Task", &key).expect("reads").expect("there");
+    assert_eq!(found.get("state"), Value::Text("done".into()), "and nothing changed");
+}

@@ -47,6 +47,9 @@ What exists of the behavior documented for model-driven application frameworks, 
 | A list on a calendar, and on a timeline of resources | 🟡 `Calendar` shows a month, and `Scheduler` a row per resource where records move, resize and get created. No recurring events or day and week views of hours | |
 | A list as a tree | 🟡 `Tree` editor over a reference to itself. Columns take the tree list of Wave C | |
 | A pivot grid over a list | ⬜ takes the pivot grid of Wave C | |
+| State machines: states, transitions, actions and appearance by state | 🟡 `StateMachine`, refused in the object space. Declared in code; defining them at run time is not there | |
+| Reminders of records: come up when due, put off, dismiss | 🟡 `Reminder`, for the application only: no channels outside it, and a change made by someone else shows on the next read | |
+| PDF viewer for files, rich text and spreadsheet editors | ⬜ `DocumentViewer` shows the engine's documents, and does not read PDF files; the rest takes Wave C | |
 | Replaceable list editors | ✅ `register_list_editor`, picked by `EditorType` or `DefaultListEditor` in the model | |
 | Filters in the model, a list's own criteria, filtered link window, functions of the application | ✅ `ListFilter`, `list_criteria`, `lookup_filter` on a collection, `register_function` | |
 | Migrations of a managed schema, entities from an existing database, model differences in a database | ✅ `migration`, added columns, `entities_from_schema`, `SqliteModelStore` | |
@@ -65,9 +68,8 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Chart and scheduler list editors | ⬜ | F9 |
 | Tree and pivot list editors | ⬜ needs the tree list and the pivot grid | F9 |
 | Report designer and definitions in a database, dashboards people create | ⬜ | F10 |
-| State machines, notifications | ⬜ | F11 |
-| Office modules | 🟡 PDF through `DocumentViewer` to be checked; rich text and spreadsheet need those controls | F11 |
 | Web API, remote object space, other databases | ⬜ | F12 |
 | Multi-tenancy | ⬜ | F13 |
 | AI: natural language filters, writing help, smart paste | ⬜ local models only, so not on the web | F14 |
-| Project generator, deployment and diagnostics guides | ⬜ | F15 |
+| A command-line tool that creates projects step by step from templates; deployment and diagnostics guides | ⬜ | F15 |
+| An installer with Zed as the editor for projects, its extension and skills, and a graphical viewer of a project | ⬜ | F16 |

@@ -246,6 +246,8 @@ pub enum ActionResult {
     ShowView(String),
     /// Open this address.
     OpenUrl(String),
+    /// Records changed, so what shows them has to read again.
+    RecordsChanged,
 }
 
 /// What people gave an action that asks for something.
@@ -370,6 +372,11 @@ impl ActionContext {
     /// Asks the frame to show this view when the action ends.
     pub fn show_view(&self, id: impl Into<String>) {
         *self.next.borrow_mut() = Some(ActionResult::ShowView(id.into()));
+    }
+
+    /// Tells whoever shows the application that records changed, so what shows them reads again.
+    pub fn records_changed(&self) {
+        *self.next.borrow_mut() = Some(ActionResult::RecordsChanged);
     }
 
     pub(crate) fn take_next(&self) -> Option<ActionResult> {

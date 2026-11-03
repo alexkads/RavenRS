@@ -306,7 +306,7 @@ impl Authenticator for UserDirectory {
             NOBODY.with(|hash| verify_password(&credentials.password, hash));
             return Err(AuthError::Rejected);
         };
-        let now = DateTime::now();
+        let now = crate::local_now();
         // While it waits the password is not even looked at, so guessing goes nowhere.
         if let Value::Date(until) = user.get("locked_until")
             && (until.days, until.seconds) > (now.days, now.seconds)

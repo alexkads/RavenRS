@@ -84,6 +84,14 @@ pub struct Words {
     pub no_resource: String,
     /// The series of a chart that counts records.
     pub chart_count: String,
+    /// Things to be reminded of.
+    pub reminders: String,
+    /// Reminds again later.
+    pub snooze: String,
+    /// Stops reminding.
+    pub dismiss: String,
+    /// Opens what a reminder is about.
+    pub open: String,
     /// A field that is on.
     pub yes: String,
     /// A field that is off.
@@ -188,6 +196,10 @@ impl Default for Words {
             list_editor_needs: "This view needs a field that fits:".into(),
             no_resource: "No resource".into(),
             chart_count: "Records".into(),
+            reminders: "Reminders".into(),
+            snooze: "In 15 minutes".into(),
+            dismiss: "Dismiss".into(),
+            open: "Open".into(),
             yes: "Yes".into(),
             no: "No".into(),
             access_denied: "You are not allowed to do this.".into(),
@@ -264,6 +276,10 @@ impl Words {
             list_editor_needs: "Esta visão precisa de um campo que sirva:".into(),
             no_resource: "Sem recurso".into(),
             chart_count: "Registros".into(),
+            reminders: "Lembretes".into(),
+            snooze: "Em 15 minutos".into(),
+            dismiss: "Dispensar".into(),
+            open: "Abrir".into(),
             yes: "Sim".into(),
             no: "Não".into(),
             access_denied: "Você não tem permissão para fazer isso.".into(),
@@ -397,6 +413,8 @@ struct SessionInner {
     presented: State<Option<Presented>>,
     /// Something that takes the place of the view, as an editor of its own does.
     full: State<Option<ControlFactory>>,
+    /// How many reminders are due, and whether they are showing.
+    reminders: State<(usize, bool)>,
     form_caption: RefCell<Option<FormCaption>>,
     /// Whether the form repeats, above it, what it says on each field.
     lists_field_errors: Cell<bool>,
@@ -467,6 +485,7 @@ impl Session {
             controls: Rc::default(),
             presented: State::new(None),
             full: State::new(None),
+            reminders: State::new((0, false)),
             form_caption: RefCell::default(),
             lists_field_errors: Cell::new(true),
             list_editors: Rc::default(),
@@ -540,6 +559,7 @@ impl Session {
             controls: parent.controls.clone(),
             presented: parent.presented.clone(),
             full: parent.full.clone(),
+            reminders: parent.reminders.clone(),
             form_caption: RefCell::new(parent.form_caption.borrow().clone()),
             lists_field_errors: Cell::new(parent.lists_field_errors.get()),
             list_editors: parent.list_editors.clone(),
@@ -703,6 +723,14 @@ impl Session {
     /// Goes back to the view from what [`show_full`](Self::show_full) showed.
     pub fn close_full(&self) {
         self.0.full.set(None);
+    }
+
+    pub(crate) fn entities_with_reminders(&self) -> Vec<EntityInfo> {
+        self.0.application.borrow().entities().iter().filter(|e| e.reminder.is_some()).cloned().collect()
+    }
+
+    pub(crate) fn reminders(&self) -> &State<(usize, bool)> {
+        &self.0.reminders
     }
 
     pub(crate) fn full(&self) -> Option<ControlFactory> {
@@ -1033,7 +1061,7 @@ impl Session {
         words: Words,
         editors: EditorRegistry,
     ) -> Self {
-        let today = Date::from_days(ravenrs_criteria::DateTime::now().days);
+        let today = Date::from_days(ravenrs_app::local_now().days);
         Self::new(application, new_space, words, editors, today)
     }
 
@@ -1615,6 +1643,30 @@ impl Session {
         );
     }
 
+    /// An action changed records: what is selected reads again, so actions go by what they are now,
+    /// and a form with nothing typed in shows what they are now. What someone typed stays, and
+    /// saving puts it together with what changed.
+    fn reread_after_action(&self) {
+        let frame = &self.0.frame;
+        let fresh: Vec<Object> = frame
+            .selected()
+            .into_iter()
+            .filter_map(|record| {
+                let entity = self.entity(record.entity())?;
+                let key = record.get(&entity.key_field()?.name);
+                frame.space().borrow().find(&entity.name, &key).ok().flatten()
+            })
+            .collect();
+        frame.set_selected(fresh);
+        self.touch();
+        let form = self.0.form.peek().clone();
+        if let Some(form) = form.filter(|form| !form.is_new && !form.is_dirty())
+            && let Some(field) = form.entity.key_field()
+        {
+            self.open_detail(&form.entity.name, &form.original.get(&field.name));
+        }
+    }
+
     fn execute(&self, id: &str, input: ActionInput) {
         match self.0.frame.execute(id, input) {
             Ok(ActionResult::OpenUrl(address)) => {
@@ -1623,6 +1675,7 @@ impl Session {
                     handler(address);
                 }
             }
+            Ok(ActionResult::RecordsChanged) => self.reread_after_action(),
             Ok(_) => {}
             // The form already says what is wrong, on each field.
             Err(_) if *self.0.checking.peek() => {}

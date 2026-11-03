@@ -187,6 +187,29 @@ Or people pick it from a menu, with `ViewVariant::new("chart", "Chart").editor(C
 
 These read through the view's unit of work, so permissions, filters and the way picked all count. See `examples/quick-plan`, in a window and in the browser.
 
+## States and reminders
+
+```rust
+EntityInfo::new("Task")
+    // ...fields, with `state` among them...
+    .state_machine(
+        StateMachine::new("state")
+            .state("draft", "Draft")
+            .state("review", "In review")
+            .state("done", "Approved")
+            .start("draft")
+            .transition("draft", "review", "Send to review")
+            .transition("review", "done", "Approve")
+            .when("[cost] < 1000"),
+    )
+    .state_appearance("state", "done", AppearanceRule::new("locked", ["cost"]).enabled(false))
+    .reminder(Reminder::new("remind_at").criteria("[owner] = ?CurrentUserId"))
+```
+
+Each way gets an action, on when what is selected stands where it starts. The field is read-only on forms and starts in the first state. Any other change is refused at the commit, in memory and in SQLite, with no screen around it; several saves in one unit of work count as one change, from what is stored to what is kept. An `ObjectSpace` of your own calls `check_transitions`.
+
+A record with a time in its reminder field comes up when that is due, for whoever can read it and meets the criteria, with what to do: open it, put it off 15 minutes, or dismiss it. The time is kept on the record, so it is one for everyone who sees it. Nothing runs while waiting: the screen asks to be built again at the next time due. This is not a business process engine: there is no routing, approval by several people or timing out.
+
 ## Reports and panels
 
 ```rust
@@ -244,6 +267,9 @@ Keep these in mind:
 
 ## Known gaps
 
+- State machines are declared in code. People cannot define states or ways while the application runs.
+- A reminder someone else set or changed shows the next time records are read here, as nothing polls. Reminders do not go anywhere outside the application.
+- `DocumentViewer` shows what the report engine lays out. It does not open PDF files, so an attached PDF is saved or opened with the system.
 - Stored reports are not sent on a schedule yet: `ravenrs-report-server` reads its own sources, not entities, and a job has to run as someone. That takes the service of F12.
 - The designer's own words are in Portuguese whatever the application's language, and its field list shows field names rather than captions.
 - A report reads every record of its entity into memory, as its engine works over rows.
@@ -276,6 +302,6 @@ Keep these in mind:
 
 | Step | What it brings |
 |---|---|
-| **F11** | State machines, reminders and documents |
+| **F12** | An API over the same permissions, a remote client and other databases |
 
 Before more work on editors or templates, read what is documented on template customization and on each property type: it was not read when these screens were written. The same goes for the built-in node generators and list view column generation, before more of the model is generated.

@@ -417,10 +417,15 @@ impl ApplicationBuilder {
     /// applies their layers and checks the result. What is wrong comes out here, and not when
     /// someone reaches that screen.
     pub fn build(self) -> Result<Application, ModelError> {
-        let modules = in_dependency_order(self.modules)?;
+        let mut modules = in_dependency_order(self.modules)?;
         let mut entities = self.entities;
         for module in &modules {
             entities.extend(module.entities());
+        }
+        let with_states: Vec<EntityInfo> =
+            entities.iter().filter(|entity| !entity.state_machines.is_empty()).cloned().collect();
+        if !with_states.is_empty() {
+            modules.push(Box::new(crate::workflow::StateMachineModule(with_states)));
         }
         let mut zero = generate_model(&entities)?;
         for dashboard in &self.dashboards {

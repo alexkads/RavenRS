@@ -557,6 +557,7 @@ impl MemoryObjectSpace {
                     if self.committed_has(&entity.name, &key) {
                         return Err(SpaceError::DuplicateKey { entity: entity.name.clone(), key });
                     }
+                    crate::check_transitions(entity, None, object)?;
                 }
                 Change::Updated(object) => {
                     let entity = self.entity(object.entity())?;
@@ -568,6 +569,9 @@ impl MemoryObjectSpace {
                             entity.name
                         )));
                     }
+                    let tables = self.database.tables.borrow();
+                    let stored = tables.rows.get(&entity.name).and_then(|rows| rows.get(&key));
+                    crate::check_transitions(entity, stored, object)?;
                 }
                 Change::Deleted { .. } => {}
             }
