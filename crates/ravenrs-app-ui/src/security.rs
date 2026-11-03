@@ -499,6 +499,7 @@ impl Gate {
                     .control(words.model_editor.clone(), MODEL_EDITOR),
             )
             .storage(storage)
+            .settings_over(inner.space.clone(), &inner.entities)
             .secured(context, inner.space.clone())
             .signed_in(identity.name.clone(), move || gate.sign_out());
         match app.build() {

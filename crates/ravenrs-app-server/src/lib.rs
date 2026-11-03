@@ -10,6 +10,7 @@
 
 mod http;
 mod json;
+mod keys;
 mod openapi;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -18,10 +19,11 @@ use std::time::{Duration, Instant};
 
 pub use http::{ApiOptions, router, router_with, serve, serve_with};
 use ravenrs_app::{
-    AuditSettings, AuditTrail, AuditedObjectSpace, AuthError, Authenticator, CONTEXT_DELETE, CONTEXT_SAVE,
-    Credentials, Criteria, EntityInfo, FieldKind, Object, ObjectSpace, Operation, PasswordError, Query, Role,
-    RoleMerge, RuleWords, SecuredObjectSpace, SecurityContext, SpaceError, SpaceMaker, UserDirectory, Value,
-    audit_entity, security_entities, validate,
+    APP_SETTING, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError, Authenticator, CONTEXT_DELETE,
+    CONTEXT_SAVE, Credentials, Criteria, EntityInfo, FieldKind, Object, ObjectSpace, Operation,
+    PasswordError, Query, RecordSettings, Role, RoleMerge, RuleWords, SecuredObjectSpace, SecurityContext,
+    SettingScope, SettingsStore, SpaceError, SpaceMaker, UserDirectory, Value, audit_entity,
+    security_entities, validate,
 };
 use serde_json::{Map, Value as Json, json};
 
@@ -47,6 +49,8 @@ const ALL_ADDRESSES: u32 = 10;
 /// The longest password anyone is asked to compare.
 const MOST_PASSWORD: usize = 1024;
 const MINUTE: Duration = Duration::from_secs(60);
+/// The most a setting holds.
+const MOST_SETTING: usize = 64 * 1024;
 
 /// What came in, with no HTTP left in it.
 #[derive(Clone, Debug, Default)]
@@ -195,6 +199,16 @@ impl std::fmt::Debug for EndpointContext<'_> {
     }
 }
 
+/// Who gets to a setting, over the API. A setting nobody declared cannot be reached at all.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum SettingAccess {
+    /// Each person has their own, and only they reach it.
+    PerPerson,
+    /// One for everyone, who can read it, and only administrators change it.
+    Shared,
+}
+
 struct Session {
     context: Rc<SecurityContext>,
     trail: Option<Rc<AuditTrail>>,
@@ -219,6 +233,8 @@ pub struct ApiService {
     tries_since: Instant,
     sign_ins_a_minute: u32,
     swept: Instant,
+    settings: Option<Rc<dyn SettingsStore>>,
+    declared: BTreeMap<String, SettingAccess>,
 }
 
 impl std::fmt::Debug for ApiService {
@@ -264,10 +280,17 @@ impl ApiService {
     /// among what storage knows, as for a window with a sign-in.
     pub fn new(space: SpaceMaker, roles: Vec<Role>) -> Result<Self, SpaceError> {
         let entities = space().entities();
+        let settings: Option<Rc<dyn SettingsStore>> = entities
+            .iter()
+            .any(|entity| entity.name == APP_SETTING)
+            .then(|| Rc::new(RecordSettings::new(space.clone())) as Rc<dyn SettingsStore>);
         let directory = UserDirectory::new(space.clone(), roles)?;
         // Who can sign in and what they did are not records for a client to go through.
-        let hidden =
-            security_entities().into_iter().chain([audit_entity()]).map(|entity| entity.name).collect();
+        let hidden = security_entities()
+            .into_iter()
+            .chain([audit_entity(), ravenrs_app::settings_entity()])
+            .map(|entity| entity.name)
+            .collect();
         Ok(Self {
             title: "RavenRS".to_owned(),
             authenticator: Rc::new(directory.clone()),
@@ -285,6 +308,8 @@ impl ApiService {
             tries_since: Instant::now(),
             sign_ins_a_minute: SIGN_INS_A_MINUTE,
             swept: Instant::now(),
+            settings,
+            declared: BTreeMap::new(),
         })
     }
 
@@ -337,6 +362,13 @@ impl ApiService {
         self
     }
 
+    /// Lets this setting be reached at `/api/settings/{name}`. Storage has to know
+    /// [`settings_entity`](ravenrs_app::settings_entity).
+    pub fn setting(mut self, name: impl Into<String>, access: SettingAccess) -> Self {
+        self.declared.insert(name.into(), access);
+        self
+    }
+
     /// Adds something of the application's own, run with the permissions of whoever calls it.
     pub fn endpoint(
         mut self,
@@ -369,6 +401,11 @@ impl ApiService {
             _ => {}
         }
         let session = self.session_of(request)?;
+        let by_key = request.bearer.as_deref().is_some_and(keys::is_key);
+        if by_key && path.get(1) == Some(&"auth") {
+            // A key does not get to change passwords, or to make itself more keys.
+            return Err(Failure::denied());
+        }
         if path.as_slice() == ["api", "auth", "password"] && method == "POST" {
             return self.change_password(request, &session);
         }
@@ -386,6 +423,13 @@ impl ApiService {
                 let identity = session.0.identity();
                 let roles: Vec<&str> = identity.roles.iter().map(Role::name).collect();
                 Ok((200, json!({ "name": identity.name, "roles": roles })))
+            }
+            ("POST", ["api", "auth", "keys"]) => self.make_key(request, &session),
+            ("GET", ["api", "auth", "keys"]) => self.list_keys(&session),
+            ("POST", ["api", "auth", "keys", id, "rotate"]) => self.rotate_key(id, &session),
+            ("DELETE", ["api", "auth", "keys", id]) => self.revoke_key(id, &session),
+            ("GET" | "PUT" | "DELETE", ["api", "settings", name]) => {
+                self.reach_setting(method, name, request, &session)
             }
             ("GET", ["api", "data", entity]) => self.list(&*space, entity, request),
             ("GET", ["api", "data", entity, key]) => {
@@ -505,6 +549,9 @@ impl ApiService {
         request: &ApiRequest,
     ) -> Result<(Rc<SecurityContext>, Option<Rc<AuditTrail>>), Failure> {
         let token = request.bearer.as_deref().ok_or_else(Failure::unauthorized)?;
+        if keys::is_key(token) {
+            return self.session_of_key(token);
+        }
         let now = Instant::now();
         if now.duration_since(self.swept) >= MINUTE {
             self.sessions.retain(|_, session| session.expires > now);
@@ -585,6 +632,54 @@ impl ApiService {
             .cloned()
             .collect();
         openapi::document(&self.title, &reachable)
+    }
+
+    fn reach_setting(
+        &self,
+        method: &str,
+        name: &str,
+        request: &ApiRequest,
+        session: &(Rc<SecurityContext>, Option<Rc<AuditTrail>>),
+    ) -> Result<(u16, Json), Failure> {
+        let (Some(access), Some(store)) = (self.declared.get(name), &self.settings) else {
+            return Err(Failure::not_found());
+        };
+        let scope = match access {
+            SettingAccess::PerPerson => {
+                let key = session.0.identity().key;
+                SettingScope::User(ravenrs_app::key_text(&key).ok_or_else(Failure::denied)?)
+            }
+            SettingAccess::Shared => {
+                if method != "GET" && !session.0.with(ravenrs_app::Permissions::is_administrator) {
+                    return Err(Failure::denied());
+                }
+                SettingScope::Global
+            }
+        };
+        let failed = |why: String| {
+            tracing::error!(error = %why, "a setting failed");
+            Failure::new(500, "internal", "Something went wrong on the server.")
+        };
+        match method {
+            "GET" => {
+                let held = store.get(&scope, name).map_err(failed)?;
+                let value =
+                    held.and_then(|text| serde_json::from_str::<Json>(&text).ok()).unwrap_or(Json::Null);
+                Ok((200, json!({ "value": value })))
+            }
+            "PUT" => {
+                if request.body.len() > MOST_SETTING {
+                    return Err(Failure::bad_request("The setting is too large."));
+                }
+                let value = body_of(request)?.remove("value").unwrap_or(Json::Null);
+                store.set(&scope, name, &value.to_string()).map_err(failed)?;
+                Ok((200, json!({})))
+            }
+            _ => {
+                store.remove(&scope, name).map_err(failed)?;
+                Ok((200, json!({})))
+            }
+        }
     }
 
     fn query_of(&self, info: &EntityInfo, request: &ApiRequest) -> Result<Query, Failure> {

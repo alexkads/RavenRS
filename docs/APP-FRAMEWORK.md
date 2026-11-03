@@ -433,6 +433,10 @@ ravenrs_app_server::serve(listener, || {
 
 Answers: `400` what was asked does not fit, including any field that cannot be written; `401` no valid token; `403` not allowed; `404` no such record, or one this person cannot see; `409` someone got there first; `422` rules or states refuse it, with `violations`; `429` too many tries to sign in; `503` busy.
 
+Other systems sign in with a **key**, in the same `Authorization: Bearer` header. An administrator makes one with `POST /api/auth/keys`, giving a `name` and optionally a `user`, `roles` and `expires_in_days`, and it shows in that answer and never again, since only a hash is kept. `GET /api/auth/keys` lists them, `POST /api/auth/keys/{id}/rotate` gives a new secret and `DELETE /api/auth/keys/{id}` ends one, each at once. A key acts as its user and never as more: its roles are those it names that the user still has, so losing a role or being turned off counts at once. A key makes no keys and changes no passwords. Changing a user's password does not end their keys, which is what lets a nightly job go on. There is no screen for keys yet.
+
+**Settings** are JSON under a name, for everyone or for one person, and add no column, unlike a custom field. `ApiService::setting(name, SettingAccess::PerPerson)` or `Shared` opens one at `/api/settings/{name}`, with `GET`, `PUT` and `DELETE`; one nobody declared cannot be reached. Storage has to know `settings_entity()`. `App::settings` gives the screens a `SettingsStore`, and a `SecuredApp` over storage that knows that entity uses it by itself: the theme someone chose comes back when they open again, each person their own. A setting is at most 64 KB, and what comes back as a theme goes through `Theme::from_tokens_json`, which refuses what makes no sense.
+
 It is not OData: the query options are its own, which is the difference to keep in mind for clients made for OData. Money travels in cents, as it is stored, and dates as text. Users, roles and the audit trail are not exposed, whatever the permissions say.
 
 Limits to know:

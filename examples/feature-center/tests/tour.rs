@@ -211,6 +211,21 @@ fn the_same_center_answers_as_a_web_api_with_the_same_permissions() {
 }
 
 #[test]
+fn each_person_finds_the_theme_they_left() {
+    let database = memory_database().unwrap_or_else(|why| panic!("{why}"));
+    let space: Space = Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>);
+    let mut ana = Center::over(space.clone(), "ana");
+    ana.ui.theme_state().set(Theme::raven_light());
+    ana.settle();
+    let mut again = Center::over(space.clone(), "ana");
+    again.settle();
+    assert_eq!(again.ui.theme().name, Theme::raven_light().name);
+    let mut bia = Center::over(space, "bia");
+    bia.settle();
+    assert_eq!(bia.ui.theme().name, Theme::raven_dark().name);
+}
+
+#[test]
 fn the_token_editor_changes_the_theme_of_the_whole_center() {
     let mut center = Center::memory("ana");
     center.press("Editor de tokens");

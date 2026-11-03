@@ -21,6 +21,8 @@ pub const SECURITY_MEMBER_PERMISSION: &str = "SecurityMemberPermission";
 pub const SECURITY_NAVIGATION_PERMISSION: &str = "SecurityNavigationPermission";
 /// What a role says about an action.
 pub const SECURITY_ACTION_PERMISSION: &str = "SecurityActionPermission";
+/// The keys other systems present to the web API.
+pub const SECURITY_API_KEY: &str = "SecurityApiKey";
 /// The entity of the audit trail.
 pub const SECURITY_AUDIT_ENTRY: &str = "SecurityAuditEntry";
 /// The role the first person gets.
@@ -38,6 +40,7 @@ pub(crate) fn is_security_entity(name: &str) -> bool {
         SECURITY_MEMBER_PERMISSION,
         SECURITY_NAVIGATION_PERMISSION,
         SECURITY_ACTION_PERMISSION,
+        SECURITY_API_KEY,
     ]
     .contains(&name)
 }
@@ -152,6 +155,16 @@ pub fn security_entities() -> Vec<EntityInfo> {
             .caption("Permissions on actions")
             .field(FieldInfo::new("action", FieldKind::Text).default_property())
             .field(FieldInfo::new("access", access_kind())),
+        // Not on any navigation: a key is made by the web API, which shows its secret once.
+        EntityInfo::new(SECURITY_API_KEY)
+            .caption("API keys")
+            .field(key())
+            .field(FieldInfo::new("name", FieldKind::Text).default_property())
+            .field(FieldInfo::new("user_id", FieldKind::Reference(SECURITY_USER.to_owned())).caption("User"))
+            .field(FieldInfo::new("roles", FieldKind::Text).caption("Only these roles, separated by commas"))
+            .field(FieldInfo::new("secret_hash", FieldKind::Text).secret())
+            .field(FieldInfo::new("active", FieldKind::Boolean).default_value(true))
+            .field(FieldInfo::new("expires", FieldKind::DateTime)),
     ]
 }
 

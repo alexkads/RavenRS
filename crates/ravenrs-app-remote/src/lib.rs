@@ -17,13 +17,14 @@ mod gate;
 mod transport;
 
 use std::cell::{Cell, RefCell};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 pub use gate::RemoteApp;
 use ravenrs_app::{
     Change, EntityInfo, FieldInfo, FieldKind, MemoryDatabase, MemoryObjectSpace, ModelError, Object,
-    ObjectSpace, Query, SpaceError, SpaceWatcher, Value, object_from_json, value_to_json,
+    ObjectSpace, Query, SettingScope, SettingsStore, SpaceError, SpaceWatcher, Value, object_from_json,
+    value_to_json,
 };
 use serde_json::{Map, Value as Json, json};
 pub use transport::{HttpTransport, RemoteRequest, RemoteResponse, Transport};
@@ -159,6 +160,58 @@ impl RemoteClient {
     pub fn sign_out(&self) {
         self.ask("POST", "/api/auth/revoke", None, |_| {});
         *self.0.token.borrow_mut() = None;
+    }
+}
+
+/// Settings on the server, with what was read kept here, since a screen cannot wait for them. The
+/// server says whose they are: the person signed in, or everyone, as it was declared there.
+#[derive(Clone, Debug)]
+pub struct RemoteSettings {
+    client: RemoteClient,
+    held: Rc<RefCell<BTreeMap<String, String>>>,
+}
+
+impl RemoteSettings {
+    /// Over this client.
+    pub fn new(client: RemoteClient) -> Self {
+        Self { client, held: Rc::default() }
+    }
+
+    /// Reads these before anything asks for them. One the server does not offer stays empty.
+    pub fn load(&self, mut names: Vec<String>, done: Box<dyn FnOnce()>) {
+        let Some(name) = names.pop() else {
+            done();
+            return;
+        };
+        let mine = self.clone();
+        self.client.ask("GET", &format!("/api/settings/{name}"), None, move |answer| {
+            if let Ok((200, body)) = answer
+                && let Some(value) = body.get("value").filter(|value| !value.is_null())
+            {
+                mine.held.borrow_mut().insert(name, value.to_string());
+            }
+            mine.load(names, done);
+        });
+    }
+}
+
+impl SettingsStore for RemoteSettings {
+    fn get(&self, _: &SettingScope, name: &str) -> Result<Option<String>, String> {
+        Ok(self.held.borrow().get(name).cloned())
+    }
+
+    fn set(&self, _: &SettingScope, name: &str, value: &str) -> Result<(), String> {
+        self.held.borrow_mut().insert(name.to_owned(), value.to_owned());
+        let value: Json = serde_json::from_str(value).unwrap_or_else(|_| Json::String(value.to_owned()));
+        // A preference that did not reach the server is no reason to get in anyone's way.
+        self.client.ask("PUT", &format!("/api/settings/{name}"), Some(&json!({ "value": value })), |_| {});
+        Ok(())
+    }
+
+    fn remove(&self, _: &SettingScope, name: &str) -> Result<(), String> {
+        self.held.borrow_mut().remove(name);
+        self.client.ask("DELETE", &format!("/api/settings/{name}"), None, |_| {});
+        Ok(())
     }
 }
 
