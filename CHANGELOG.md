@@ -10,7 +10,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Validation.** `Rule` covers required, range, pattern, text and value comparison, criteria, is true, unique, unique together, exists, referenced and custom, by context and target criteria. A generated form that fails keeps nothing, and says what is wrong on each field and in a list on top. `#[field(required, unique, min, max, matches)]` and `#[rule(...)]` declare them.
 - **Conditional appearance.** `AppearanceRule` changes font, background, weight, enabled and visible on fields, groups and actions, by criteria or function, in order of priority. `#[appearance(...)]` declares them.
 - `DataGrid::cell_style` decides how each cell looks from its row. `FormField` gains `error_text`, `label_ink` and `tint`, and `Label` gains `ink`.
+- **`ravenrs-app-sqlite`** keeps records in SQLite, on tables it creates or on tables an application already owns, sharing its connection. Filters run in the database as bound values, and what the database refuses comes back in words.
+- **`EntityPane`** is a list beside its form, for a screen an application made itself.
+- `DataGrid::name_column` says what names a row for its buttons, and a filling column leaves room for them. `Select::fill` takes the width of its parent. `ChangeSet` and `run_query` are there for whoever writes an `ObjectSpace`.
 - `FilePicker::save` hands a file to the person: the system's dialog on a desktop, a download in a browser. Exports from generated lists use it unless the app takes them.
+
+### Changed
+- The registers of the Raven Finanças example are generated from what they are, and say what is wrong when a name is missing instead of doing nothing.
 
 ### Fixed
 - A field with options starts on the first one, which is what it shows, instead of holding nothing.

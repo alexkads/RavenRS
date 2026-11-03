@@ -91,6 +91,8 @@ struct FieldAttrs {
     max: Option<syn::Expr>,
     matches: Option<LitStr>,
     message: Option<LitStr>,
+    editor: Option<LitStr>,
+    placeholder: Option<LitStr>,
 }
 
 fn set_kind(attrs: &mut FieldAttrs, path: &syn::Path, kind: Tokens) -> Result<()> {
@@ -160,11 +162,15 @@ fn field_attrs(field: &syn::Field) -> Result<FieldAttrs> {
                 attrs.matches = Some(pattern);
             } else if named("message") {
                 attrs.message = Some(meta.value()?.parse()?);
+            } else if named("editor") {
+                attrs.editor = Some(meta.value()?.parse()?);
+            } else if named("placeholder") {
+                attrs.placeholder = Some(meta.value()?.parse()?);
             } else {
                 return Err(meta.error(
                     "unknown setting: use key, typed_key, caption, default_property, read_only, no_list, \
                      no_detail, lookup, money, long, color, date, decimals, reference, collection, \
-                     calculated, default, required, unique, min, max, matches or message",
+                     calculated, default, required, unique, min, max, matches, message, editor or placeholder",
                 ));
             }
             Ok(())
@@ -390,6 +396,12 @@ fn field_tokens(ident: &Ident, ty: &syn::Type, attrs: &FieldAttrs) -> Tokens {
     }
     if let Some(value) = &attrs.default {
         then(quote!(.default_value(#value)));
+    }
+    if let Some(editor) = &attrs.editor {
+        then(quote!(.editor(#editor)));
+    }
+    if let Some(text) = &attrs.placeholder {
+        then(quote!(.placeholder(#text)));
     }
     info
 }

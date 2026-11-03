@@ -161,7 +161,7 @@ pub trait ObjectSpace {
 }
 
 /// A key as text, the same for equal keys.
-fn key_text(key: &Value) -> Option<String> {
+pub fn key_text(key: &Value) -> Option<String> {
     match key {
         Value::Null => None,
         Value::Text(text) if text.is_empty() => None,
@@ -185,6 +185,175 @@ fn compare(a: &Value, b: &Value) -> Ordering {
         (Value::Date(x), Value::Date(y)) => (x.days, x.seconds).cmp(&(y.days, y.seconds)),
         _ => Ordering::Equal,
     }
+}
+
+/// The key of a record, as text.
+pub fn key_of(entity: &EntityInfo, object: &Object) -> Option<String> {
+    entity.key_field().and_then(|field| key_text(&object.get(&field.name)))
+}
+
+/// What a unit of work has waiting, for whoever implements one: new, changed and deleted
+/// records, one change per record.
+#[derive(Clone, Debug, Default)]
+pub struct ChangeSet {
+    changes: Vec<Change>,
+}
+
+impl ChangeSet {
+    /// What waits, in the order it came.
+    pub fn list(&self) -> &[Change] {
+        &self.changes
+    }
+
+    /// Throws it all away.
+    pub fn clear(&mut self) {
+        self.changes.clear();
+    }
+
+    /// Whether anything waits for this entity.
+    pub fn touches(&self, entity: &str) -> bool {
+        self.changes.iter().any(|change| match change {
+            Change::New(object) | Change::Updated(object) => object.entity() == entity,
+            Change::Deleted { entity: name, .. } => name == entity,
+        })
+    }
+
+    fn position(&self, entity: &EntityInfo, key: &str) -> Option<usize> {
+        self.changes.iter().position(|change| match change {
+            Change::New(object) | Change::Updated(object) => {
+                object.entity() == entity.name && key_of(entity, object).as_deref() == Some(key)
+            }
+            Change::Deleted { entity: name, key: deleted } => {
+                *name == entity.name && key_text(deleted).as_deref() == Some(key)
+            }
+        })
+    }
+
+    /// Marks a record as new or changed. `exists` says whether storage has its key.
+    pub fn save(&mut self, entity: &EntityInfo, mut object: Object, exists: bool) -> Result<(), SpaceError> {
+        entity.strip_calculated(&mut object);
+        let key = key_of(entity, &object).ok_or_else(|| SpaceError::MissingKey(entity.name.clone()))?;
+        match self.position(entity, &key) {
+            Some(at) if matches!(self.changes[at], Change::New(_)) => self.changes[at] = Change::New(object),
+            Some(at) => self.changes[at] = Change::Updated(object),
+            None if exists => self.changes.push(Change::Updated(object)),
+            None => self.changes.push(Change::New(object)),
+        }
+        Ok(())
+    }
+
+    /// Marks a record as new, refusing a key in use. `exists` says whether storage has it.
+    pub fn insert(
+        &mut self,
+        entity: &EntityInfo,
+        mut object: Object,
+        exists: bool,
+    ) -> Result<(), SpaceError> {
+        entity.strip_calculated(&mut object);
+        let key = key_of(entity, &object).ok_or_else(|| SpaceError::MissingKey(entity.name.clone()))?;
+        let waiting = self.position(entity, &key);
+        let taken = match waiting {
+            Some(at) => !matches!(self.changes[at], Change::Deleted { .. }),
+            None => exists,
+        };
+        if taken {
+            return Err(SpaceError::DuplicateKey { entity: entity.name.clone(), key });
+        }
+        match waiting {
+            // What was going away comes back as a change to it.
+            Some(at) => self.changes[at] = Change::Updated(object),
+            None => self.changes.push(Change::New(object)),
+        }
+        Ok(())
+    }
+
+    /// Marks a record to go away. `exists` says whether storage has it.
+    pub fn delete(&mut self, entity: &EntityInfo, key: &Value, exists: bool) {
+        let Some(text) = key_text(key) else { return };
+        match self.position(entity, &text) {
+            Some(at) if matches!(self.changes[at], Change::New(_)) => {
+                self.changes.remove(at);
+            }
+            Some(at) => {
+                self.changes[at] = Change::Deleted { entity: entity.name.clone(), key: key.clone() };
+            }
+            None if exists => {
+                self.changes.push(Change::Deleted { entity: entity.name.clone(), key: key.clone() });
+            }
+            None => {}
+        }
+    }
+
+    /// Puts what waits on top of what storage has, by key.
+    pub fn overlay(&self, entity: &EntityInfo, rows: &mut BTreeMap<String, Object>) {
+        for change in &self.changes {
+            match change {
+                Change::New(object) | Change::Updated(object) if object.entity() == entity.name => {
+                    if let Some(key) = key_of(entity, object) {
+                        rows.insert(key, object.clone());
+                    }
+                }
+                Change::Deleted { entity: name, key } if *name == entity.name => {
+                    if let Some(key) = key_text(key) {
+                        rows.remove(&key);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+/// Says whether a query fits an entity.
+pub fn check_query(entity: &EntityInfo, query: &Query) -> Result<(), SpaceError> {
+    if let Some(filter) = &query.filter
+        && let Some(problem) = ravenrs_criteria::validate(filter, &entity.schema()).first()
+    {
+        return Err(SpaceError::BadQuery(format!("{}: {problem}", entity.name)));
+    }
+    for (field, _) in &query.sort {
+        if entity.field_named(field).is_none() {
+            return Err(SpaceError::BadQuery(format!("{} has no field {field}", entity.name)));
+        }
+    }
+    Ok(())
+}
+
+/// Runs a query over records in memory: computes, filters, sorts and takes the page.
+pub fn run_query(
+    entity: &EntityInfo,
+    objects: Vec<Object>,
+    query: &Query,
+    environment: &Environment,
+) -> Result<Vec<Object>, SpaceError> {
+    check_query(entity, query)?;
+    let key_field = entity.key_field().map(|f| f.name.clone()).unwrap_or_default();
+    let mut found: Vec<Object> = objects
+        .into_iter()
+        .map(|mut object| {
+            entity.compute(&mut object, environment);
+            object
+        })
+        .filter(|object| {
+            query.filter.as_ref().is_none_or(|filter| Scope::new(environment).row(object).matches(filter))
+        })
+        .collect();
+    found.sort_by(|a, b| {
+        query
+            .sort
+            .iter()
+            .map(|(field, ascending)| {
+                let order = compare(&a.get(field), &b.get(field));
+                if *ascending { order } else { order.reverse() }
+            })
+            .find(|order| order.is_ne())
+            .unwrap_or_else(|| compare(&a.get(&key_field), &b.get(&key_field)))
+    });
+    let page = found.into_iter().skip(query.offset);
+    Ok(match query.limit {
+        Some(limit) => page.take(limit).collect(),
+        None => page.collect(),
+    })
 }
 
 #[derive(Debug, Default)]
@@ -218,7 +387,7 @@ impl MemoryDatabase {
         MemoryObjectSpace {
             database: self.clone(),
             environment: Environment::new(),
-            changes: Vec::new(),
+            changes: ChangeSet::default(),
             watchers: Vec::new(),
         }
     }
@@ -228,7 +397,7 @@ impl MemoryDatabase {
 pub struct MemoryObjectSpace {
     database: MemoryDatabase,
     environment: Environment,
-    changes: Vec<Change>,
+    changes: ChangeSet,
     watchers: Vec<SpaceWatcher>,
 }
 
@@ -247,22 +416,6 @@ impl MemoryObjectSpace {
             .ok_or_else(|| SpaceError::UnknownEntity(name.to_owned()))
     }
 
-    fn key_of(&self, entity: &EntityInfo, object: &Object) -> Option<String> {
-        entity.key_field().and_then(|field| key_text(&object.get(&field.name)))
-    }
-
-    /// Where this record's change is, if it has one.
-    fn change_at(&self, entity: &EntityInfo, key: &str) -> Option<usize> {
-        self.changes.iter().position(|change| match change {
-            Change::New(object) | Change::Updated(object) => {
-                object.entity() == entity.name && self.key_of(entity, object).as_deref() == Some(key)
-            }
-            Change::Deleted { entity: name, key: deleted } => {
-                *name == entity.name && key_text(deleted).as_deref() == Some(key)
-            }
-        })
-    }
-
     fn committed_has(&self, entity: &str, key: &str) -> bool {
         self.database.tables.borrow().rows.get(entity).is_some_and(|table| table.contains_key(key))
     }
@@ -270,21 +423,7 @@ impl MemoryObjectSpace {
     /// Stored records with this space's changes on top, by key.
     fn current(&self, entity: &EntityInfo) -> BTreeMap<String, Object> {
         let mut rows = self.database.tables.borrow().rows.get(&entity.name).cloned().unwrap_or_default();
-        for change in &self.changes {
-            match change {
-                Change::New(object) | Change::Updated(object) if object.entity() == entity.name => {
-                    if let Some(key) = self.key_of(entity, object) {
-                        rows.insert(key, object.clone());
-                    }
-                }
-                Change::Deleted { entity: name, key } if *name == entity.name => {
-                    if let Some(key) = key_text(key) {
-                        rows.remove(&key);
-                    }
-                }
-                _ => {}
-            }
-        }
+        self.changes.overlay(entity, &mut rows);
         rows
     }
 
@@ -297,22 +436,20 @@ impl MemoryObjectSpace {
 
     /// Says what would stop these changes, before any is applied.
     fn check_changes(&self) -> Result<(), SpaceError> {
-        for change in &self.changes {
+        for change in self.changes.list() {
             match change {
                 Change::New(object) => {
                     let entity = self.entity(object.entity())?;
-                    let key = self
-                        .key_of(entity, object)
-                        .ok_or_else(|| SpaceError::MissingKey(entity.name.clone()))?;
+                    let key =
+                        key_of(entity, object).ok_or_else(|| SpaceError::MissingKey(entity.name.clone()))?;
                     if self.committed_has(&entity.name, &key) {
                         return Err(SpaceError::DuplicateKey { entity: entity.name.clone(), key });
                     }
                 }
                 Change::Updated(object) => {
                     let entity = self.entity(object.entity())?;
-                    let key = self
-                        .key_of(entity, object)
-                        .ok_or_else(|| SpaceError::MissingKey(entity.name.clone()))?;
+                    let key =
+                        key_of(entity, object).ok_or_else(|| SpaceError::MissingKey(entity.name.clone()))?;
                     if !self.committed_has(&entity.name, &key) {
                         return Err(SpaceError::Conflict(format!(
                             "the record {key} of {} is gone",
@@ -334,47 +471,8 @@ impl ObjectSpace for MemoryObjectSpace {
 
     fn query(&self, entity: &str, query: &Query) -> Result<Vec<Object>, SpaceError> {
         let info = self.entity(entity)?;
-        if let Some(filter) = &query.filter
-            && let Some(problem) = ravenrs_criteria::validate(filter, &info.schema()).first()
-        {
-            return Err(SpaceError::BadQuery(format!("{entity}: {problem}")));
-        }
-        for (field, _) in &query.sort {
-            if info.field_named(field).is_none() {
-                return Err(SpaceError::BadQuery(format!("{entity} has no field {field}")));
-            }
-        }
-        let key_field = info.key_field().map(|f| f.name.clone()).unwrap_or_default();
-        let mut found: Vec<Object> = self
-            .current(info)
-            .into_values()
-            .map(|mut object| {
-                info.compute(&mut object, &self.environment);
-                object
-            })
-            .filter(|object| {
-                query
-                    .filter
-                    .as_ref()
-                    .is_none_or(|filter| Scope::new(&self.environment).row(object).matches(filter))
-            })
-            .collect();
-        found.sort_by(|a, b| {
-            query
-                .sort
-                .iter()
-                .map(|(field, ascending)| {
-                    let order = compare(&a.get(field), &b.get(field));
-                    if *ascending { order } else { order.reverse() }
-                })
-                .find(|order| order.is_ne())
-                .unwrap_or_else(|| compare(&a.get(&key_field), &b.get(&key_field)))
-        });
-        let page = found.into_iter().skip(query.offset);
-        Ok(match query.limit {
-            Some(limit) => page.take(limit).collect(),
-            None => page.collect(),
-        })
+        let objects = self.current(info).into_values().collect();
+        run_query(info, objects, query, &self.environment)
     }
 
     fn find(&self, entity: &str, key: &Value) -> Result<Option<Object>, SpaceError> {
@@ -401,85 +499,40 @@ impl ObjectSpace for MemoryObjectSpace {
         Ok(object)
     }
 
-    fn save(&mut self, mut object: Object) -> Result<(), SpaceError> {
+    fn save(&mut self, object: Object) -> Result<(), SpaceError> {
         let info = self.entity(object.entity())?.clone();
-        info.strip_calculated(&mut object);
-        let key = self.key_of(&info, &object).ok_or_else(|| SpaceError::MissingKey(info.name.clone()))?;
-        let change = match self.change_at(&info, &key) {
-            Some(at) => match &self.changes[at] {
-                Change::New(_) => Some((at, Change::New(object))),
-                _ => Some((at, Change::Updated(object))),
-            },
-            None if self.committed_has(&info.name, &key) => {
-                self.changes.push(Change::Updated(object));
-                None
-            }
-            None => {
-                self.changes.push(Change::New(object));
-                None
-            }
-        };
-        if let Some((at, change)) = change {
-            self.changes[at] = change;
-        }
-        Ok(())
+        let exists = key_of(&info, &object).is_some_and(|key| self.committed_has(&info.name, &key));
+        self.changes.save(&info, object, exists)
     }
 
-    fn insert(&mut self, mut object: Object) -> Result<(), SpaceError> {
+    fn insert(&mut self, object: Object) -> Result<(), SpaceError> {
         let info = self.entity(object.entity())?.clone();
-        info.strip_calculated(&mut object);
-        let key = self.key_of(&info, &object).ok_or_else(|| SpaceError::MissingKey(info.name.clone()))?;
-        let waiting = self.change_at(&info, &key);
-        let taken = match waiting {
-            Some(at) => !matches!(self.changes[at], Change::Deleted { .. }),
-            None => self.committed_has(&info.name, &key),
-        };
-        if taken {
-            return Err(SpaceError::DuplicateKey { entity: info.name, key });
-        }
-        match waiting {
-            // What was going away comes back as a change to it.
-            Some(at) => self.changes[at] = Change::Updated(object),
-            None => self.changes.push(Change::New(object)),
-        }
-        Ok(())
+        let exists = key_of(&info, &object).is_some_and(|key| self.committed_has(&info.name, &key));
+        self.changes.insert(&info, object, exists)
     }
 
     fn delete(&mut self, entity: &str, key: &Value) -> Result<(), SpaceError> {
         let info = self.entity(entity)?.clone();
-        let Some(text) = key_text(key) else { return Ok(()) };
-        match self.change_at(&info, &text) {
-            Some(at) if matches!(self.changes[at], Change::New(_)) => {
-                self.changes.remove(at);
-            }
-            Some(at) => self.changes[at] = Change::Deleted { entity: info.name, key: key.clone() },
-            None if self.committed_has(&info.name, &text) => {
-                self.changes.push(Change::Deleted { entity: info.name, key: key.clone() });
-            }
-            None => {}
-        }
+        let exists = key_text(key).is_some_and(|text| self.committed_has(&info.name, &text));
+        self.changes.delete(&info, key, exists);
         Ok(())
     }
 
     fn changes(&self) -> Vec<Change> {
-        self.changes.clone()
+        self.changes.list().to_vec()
     }
 
     fn commit(&mut self) -> Result<(), SpaceError> {
         self.check_changes()?;
-        let changes = std::mem::take(&mut self.changes);
-        if let Err(refused) = self.tell(SpaceEvent::Committing(&changes)) {
-            self.changes = changes;
-            return Err(refused);
-        }
+        let changes = self.changes.list().to_vec();
+        self.tell(SpaceEvent::Committing(&changes))?;
         {
             let mut tables = self.database.tables.borrow_mut();
             for change in &changes {
                 match change {
                     Change::New(object) | Change::Updated(object) => {
                         let info = self.database.entities.iter().find(|e| e.name == object.entity());
-                        let key = info.and_then(|info| self.key_of(info, object));
-                        if let Some(key) = key {
+                        if let Some(key) = info.and_then(|info| key_of(info, object)) {
                             tables
                                 .rows
                                 .entry(object.entity().to_owned())
@@ -495,6 +548,7 @@ impl ObjectSpace for MemoryObjectSpace {
                 }
             }
         }
+        self.changes.clear();
         // The commit stands; someone watching after it cannot undo it.
         let _ = self.tell(SpaceEvent::Committed(&changes));
         Ok(())

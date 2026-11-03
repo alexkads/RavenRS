@@ -545,6 +545,7 @@ pub struct Select {
     width: f32,
     label: Option<String>,
     state: util::EditorState,
+    fill: bool,
 }
 
 impl Select {
@@ -554,9 +555,16 @@ impl Select {
             selected,
             options: options.into_iter().map(Into::into).collect(),
             width: 220.0,
+            fill: false,
             label: None,
             state: util::EditorState::default(),
         }
+    }
+
+    /// Takes the width of its parent, as other fields of a form do.
+    pub fn fill(mut self) -> Self {
+        self.fill = true;
+        self
     }
 
     /// Sets the width in logical pixels (220 by default).
@@ -654,11 +662,11 @@ impl View for Select {
         };
         let style = LayoutStyle {
             padding: Insets::symmetric(0.0, 12.0),
-            width: Some(self.width),
+            width: (!self.fill).then_some(self.width),
             height: Some(40.0),
             spacing: 8.0,
             align: Align::Center,
-            align_self: Some(Align::Fit),
+            align_self: Some(if self.fill { Align::Stretch } else { Align::Fit }),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let paint = QuadPaint {

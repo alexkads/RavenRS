@@ -81,7 +81,7 @@ fn detail_view(entity: &EntityInfo) -> ModelNode {
         items.child(
             ModelNode::new(&field.name)
                 .with("Caption", field.caption.as_str())
-                .with("Editor", field.kind.name())
+                .with("Editor", field.editor.as_deref().unwrap_or(field.kind.name()))
                 .with("ReadOnly", field.read_only),
         )
     });

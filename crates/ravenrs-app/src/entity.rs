@@ -125,6 +125,10 @@ pub struct FieldInfo {
     pub calculated: Option<String>,
     /// What a new record starts with.
     pub default_value: Value,
+    /// The control that edits it, by name, instead of the one for its kind.
+    pub editor: Option<String>,
+    /// What an empty editor shows.
+    pub placeholder: Option<String>,
 }
 
 /// `opening_cents` as `Opening cents`.
@@ -153,6 +157,8 @@ impl FieldInfo {
             read_only: false,
             calculated: None,
             default_value,
+            editor: None,
+            placeholder: None,
             kind,
         }
     }
@@ -212,6 +218,19 @@ impl FieldInfo {
     pub fn calculated(mut self, expression: impl Into<String>) -> Self {
         self.calculated = Some(expression.into());
         self.read_only = true;
+        self
+    }
+
+    /// The control that edits it, by name: `Segmented` for options side by side, or one
+    /// registered in an editor registry.
+    pub fn editor(mut self, editor: impl Into<String>) -> Self {
+        self.editor = Some(editor.into());
+        self
+    }
+
+    /// What an empty editor shows.
+    pub fn placeholder(mut self, text: impl Into<String>) -> Self {
+        self.placeholder = Some(text.into());
         self
     }
 
@@ -364,7 +383,7 @@ impl EntityInfo {
     }
 
     /// A record of this entity with what a new one starts with.
-    pub(crate) fn new_object(&self) -> Object {
+    pub fn new_object(&self) -> Object {
         let values = self
             .fields
             .iter()
@@ -388,7 +407,7 @@ impl EntityInfo {
     }
 
     /// The object as it is stored, with no calculated values.
-    pub(crate) fn strip_calculated(&self, object: &mut Object) {
+    pub fn strip_calculated(&self, object: &mut Object) {
         for field in self.fields.iter().filter(|f| f.calculated.is_some()) {
             object.values.remove(&field.name);
         }

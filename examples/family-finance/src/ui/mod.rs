@@ -355,7 +355,7 @@ impl App {
             3 => agenda::agenda(&self.store, &self.agenda, &self.forms, window),
             4 => budgets::budgets(&self.store, &self.budgets, window),
             5 => reports::reports(&self.store, &self.reports),
-            6 => records::records(&self.store, &self.records, &self.forms, window),
+            6 => records::records(&self.store, &self.records),
             7 => settings::settings(
                 &self.store,
                 &self.forms,

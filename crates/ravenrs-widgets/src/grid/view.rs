@@ -98,6 +98,7 @@ pub struct DataGrid {
     export_title: Option<String>,
     filter_builder: bool,
     cell_style: Option<CellStyler>,
+    name_column: Option<usize>,
 }
 
 type CellStyler = Rc<dyn Fn(&Row, usize) -> GridCellStyle>;
@@ -257,7 +258,15 @@ impl DataGrid {
             export_title: None,
             filter_builder: false,
             cell_style: None,
+            name_column: None,
         }
+    }
+
+    /// The column whose cell names a row for screen readers, in the buttons of
+    /// [`row_action`](Self::row_action). The key column, or else the first, by default.
+    pub fn name_column(mut self, column: usize) -> Self {
+        self.name_column = Some(column);
+        self
     }
 
     /// Decides how each cell looks, from its row and its column.
@@ -2123,7 +2132,7 @@ impl View for DataRow<'_> {
             }
         }
         if !s.grid.row_actions.is_empty() {
-            let name_column = s.grid.key_column.or(first_column).unwrap_or(0);
+            let name_column = s.grid.name_column.or(s.grid.key_column).or(first_column).unwrap_or(0);
             let row_name = match (s.grid.columns.get(name_column), self.values.get(name_column)) {
                 (Some(column), Some(value)) => column.display(value),
                 _ => String::new(),
@@ -3179,7 +3188,9 @@ impl View for DataGrid {
         if let Some(&fill) = visible.iter().find(|&&c| self.columns[c].fill) {
             match cx.scroll_viewport() {
                 Some(view) => {
-                    let used = select_width + visible.iter().map(|&c| widths[c]).sum::<f32>();
+                    let used = select_width
+                        + visible.iter().map(|&c| widths[c]).sum::<f32>()
+                        + self.row_actions.len() as f32 * ROW_ACTION_WIDTH;
                     widths[fill] += (view.width - used).max(0.0);
                     // This build saw the last layout's width. Nothing else asks for a build
                     // after a layout that changed it, as when a sidebar closes or the

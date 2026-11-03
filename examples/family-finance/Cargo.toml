@@ -22,7 +22,10 @@ tracing-subscriber.workspace = true
 jiff = "0.2"
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 # "bundled" compiles SQLite into the app, so nobody has to install it.
-rusqlite = { version = "0.41", features = ["bundled"] }
+rusqlite.workspace = true
+ravenrs-app.workspace = true
+ravenrs-app-ui.workspace = true
+ravenrs-app-sqlite.workspace = true
 
 [dev-dependencies]
 image.workspace = true

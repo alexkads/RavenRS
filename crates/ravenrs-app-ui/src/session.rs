@@ -283,6 +283,17 @@ impl Session {
         self.0.application.borrow().model()
     }
 
+    /// A session with no window around it, for a piece of a screen.
+    pub(crate) fn standalone(application: Application, new_space: SpaceFactory, words: Words) -> Self {
+        let today = Date::from_days(ravenrs_criteria::DateTime::now().days);
+        Self::new(application, new_space, words, EditorRegistry::default(), today)
+    }
+
+    /// Tells lists to read again, after something changed the records from outside.
+    pub(crate) fn records_changed(&self) {
+        self.touch();
+    }
+
     /// A frame of its own for a window over this one, with a unit of work of its own.
     pub(crate) fn new_frame(&self, context: FrameContext) -> Frame {
         self.0.application.borrow().new_frame(context, (self.0.new_space)())
@@ -356,6 +367,11 @@ impl Session {
             Some(handler) => handler(name, bytes),
             None => picker.save(&name, &bytes),
         }
+    }
+
+    /// Whether a save found something on the form.
+    pub(crate) fn is_checking(&self) -> bool {
+        *self.0.checking.peek()
     }
 
     /// Whether there is a form with changes that were not kept.

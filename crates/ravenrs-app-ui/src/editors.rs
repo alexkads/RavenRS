@@ -9,7 +9,7 @@ use ravenrs_criteria::Criteria;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
     AnyView, Checkbox, ColorPicker, Date, DatePicker, DateTimePicker, LookupField, LookupItem, NumberField,
-    Select, TextArea, TextField,
+    SegmentedControl, Select, TextArea, TextField,
 };
 
 use crate::session::Session;
@@ -59,9 +59,10 @@ impl EditorRegistry {
 
     /// The control for a request, by the name given or else by the kind of its field.
     pub(crate) fn editor(&self, name: &str, request: &EditorRequest) -> AnyView {
-        match self.0.get(name) {
-            Some(factory) => factory(request),
-            None => built_in(request),
+        match (self.0.get(name), name, &request.field.kind) {
+            (Some(factory), ..) => factory(request),
+            (None, "Segmented", FieldKind::Enum(options)) => segmented_editor(request, options),
+            _ => built_in(request),
         }
     }
 }
@@ -94,10 +95,29 @@ fn today(session: &Session) -> Date {
     session.today()
 }
 
+fn segmented_editor(request: &EditorRequest, options: &[ravenrs_app::EnumOption]) -> AnyView {
+    let captions: Vec<String> = options.iter().map(|o| o.caption.clone()).collect();
+    if request.read_only {
+        return enum_editor(request, options);
+    }
+    Box::new(SegmentedControl::new(option_index(request, options), captions).label(request.caption.clone()))
+}
+
 fn enum_editor(request: &EditorRequest, options: &[ravenrs_app::EnumOption]) -> AnyView {
+    let captions: Vec<String> = options.iter().map(|o| o.caption.clone()).collect();
+    Box::new(
+        Select::new(option_index(request, options), captions)
+            .fill()
+            .label(request.caption.clone())
+            .disabled(request.read_only),
+    )
+}
+
+/// Which option a field holds, by its place in the list.
+fn option_index(request: &EditorRequest, options: &[ravenrs_app::EnumOption]) -> Binding<usize> {
     let codes: Vec<String> = options.iter().map(|o| o.code.clone()).collect();
     let (read, write) = (request.value.clone(), request.value.clone());
-    let index = Binding::new(
+    Binding::new(
         {
             let codes = codes.clone();
             move || match read.get() {
@@ -106,9 +126,7 @@ fn enum_editor(request: &EditorRequest, options: &[ravenrs_app::EnumOption]) -> 
             }
         },
         move |at: usize| write.set(codes.get(at).map_or(Value::Null, |code| Value::Text(code.clone()))),
-    );
-    let captions: Vec<String> = options.iter().map(|o| o.caption.clone()).collect();
-    Box::new(Select::new(index, captions).label(request.caption.clone()).disabled(request.read_only))
+    )
 }
 
 /// What names a record, for lists to pick from.
@@ -174,7 +192,11 @@ fn reference_editor(request: &EditorRequest, target: &str) -> AnyView {
 }
 
 fn text_editor(request: &EditorRequest) -> AnyView {
-    Box::new(TextField::new(text_binding(&request.value)).read_only(request.read_only))
+    let field = TextField::new(text_binding(&request.value)).read_only(request.read_only);
+    match &request.field.placeholder {
+        Some(text) => Box::new(field.placeholder(text.clone())),
+        None => Box::new(field),
+    }
 }
 
 /// What shows a value with no control of its own: its text, which cannot be changed.
@@ -202,6 +224,7 @@ fn built_in(request: &EditorRequest) -> AnyView {
         ),
         FieldKind::Money => Box::new(
             NumberField::money(cents_binding(value), request.session.words().money_prefix.clone())
+                .placeholder(request.field.placeholder.clone().unwrap_or_default())
                 .label(request.caption.clone())
                 .read_only(read_only),
         ),

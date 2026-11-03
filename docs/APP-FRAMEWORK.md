@@ -9,7 +9,8 @@ Declare what a record is, and get the screens: navigation, a list, a form, comma
 | Crate | What it has |
 |---|---|
 | `ravenrs-app` | No GUI. `#[derive(BusinessObject)]` and `#[derive(BusinessEnum)]`, from `ravenrs-app-derive`; `EntityInfo` and `Object`; `generate_model`, `ModelLayers`, `Diff`, `ModelStore`, `check_model`; `ObjectSpace` and `MemoryDatabase`; `Action`, `TargetScope`, `ViewController`, `WindowController`, `Frame`; `Module`, `Application` |
-| `ravenrs-app-ui` | `App`, `AppShell`, `ListView`, `DetailView`, `EditorRegistry`, `ActionContainer`, `FrameTemplate`, `SystemModule`, `Words` |
+| `ravenrs-app-ui` | `App`, `AppShell`, `EntityPane`, `ListView`, `DetailView`, `EditorRegistry`, `ActionContainer`, `FrameTemplate`, `SystemModule`, `Words` |
+| `ravenrs-app-sqlite` | `SqliteDatabase`, `TableMap`: on tables it creates or tables that exist, on a connection the app shares |
 | `ravenrs-grid-export` | What a `DataGrid` shows, as Excel, PDF or CSV |
 
 ## In five minutes
@@ -90,6 +91,10 @@ A form that fails its rules keeps nothing, and says what is wrong on each field 
 
 Appearance is about looks, and does not protect data. A column of a list hides only by a rule with no condition, since it is for all its rows. An action hidden by a rule on a list only fades, as hiding would move the buttons beside it.
 
+### Inside an application that already exists
+
+`EntityPane` is a list beside its form, as a piece of a screen an application made itself, and `SqliteDatabase` maps onto its tables without touching their schema, on the connection it already has. `examples/family-finance/src/ui/records.rs` does this for its accounts, categories and family members: the tables and their migrations stay where they were.
+
 ### Going further
 
 `App` covers the usual case. Under it, `EntityInfo` declares a record at run time, `Application::builder` and `AppShell` take everything apart, `module` adds actions and controllers, `editors` changes a field's control, and `storage` keeps records elsewhere. `examples/component-gallery/src/samples.rs` has `AppShell` used directly.
@@ -119,14 +124,15 @@ Appearance is about looks, and does not protect data. A column of a list hides o
 - On a form, a font color from a rule reaches the caption and not the value inside the editor, and a group's caption takes no color.
 - Clippy's `duplicated_attributes` flags `#[appearance]` or `#[rule]` attributes that repeat a condition or a context. Allow it where they do, as a derive cannot do it for you.
 - Fields are validated on saving, and not yet as they are left.
+- `ListView` reads every row. Lists of many rows, through `RemoteRows`, come with the screens that need them.
+- A pane finds a row's key by the order of the entity's fields, so a layer that reorders its columns breaks its buttons.
 - With two people changing the same record in `MemoryDatabase`, the last to save wins.
 
 ## What comes next
 
 | Step | What it brings |
 |---|---|
-| **F6** | `SqliteObjectSpace` and the records screens of `examples/family-finance` generated, with its tests unchanged |
-| F7 | Relations, nested lists, dashboards, view variants, popups with forms, reports. Migrates more of `examples/family-finance` |
+| **F7** | Relations, nested lists, dashboards, view variants, popups with forms, reports. Migrates more of `examples/family-finance` |
 | F8 | Permissions in an object space wrapper, users, a model editor, an audit trail |
 
 Before more work on editors or templates, read what is documented on template customization and on each property type: it was not read when these screens were written. The same goes for the built-in node generators and list view column generation, before more of the model is generated.

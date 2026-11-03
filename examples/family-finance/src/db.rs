@@ -6,6 +6,7 @@
 
 use std::fmt;
 use std::path::Path;
+use std::rc::Rc;
 
 use ravenrs::prelude::{Date, Frequency, RecurrenceRule};
 use rusqlite::types::Value as SqlValue;
@@ -169,7 +170,7 @@ pub struct BackupContents {
 /// The app's database.
 #[derive(Debug)]
 pub struct Database {
-    conn: Connection,
+    conn: Rc<Connection>,
 }
 
 impl Database {
@@ -179,16 +180,21 @@ impl Database {
             std::fs::create_dir_all(folder)
                 .map_err(|e| DbError::Rule(format!("Não foi possível criar a pasta dos dados: {e}")))?;
         }
-        let db = Self { conn: Connection::open(path)? };
+        let db = Self { conn: Rc::new(Connection::open(path)?) };
         // Write-ahead logging survives a crash mid-write without losing what was saved.
         db.conn.pragma_update(None, "journal_mode", "WAL")?;
         db.prepare()?;
         Ok(db)
     }
 
+    /// The connection, for what reads and writes records through it, such as generated screens.
+    pub fn connection(&self) -> Rc<Connection> {
+        self.conn.clone()
+    }
+
     /// A database that lasts as long as this value, for tests.
     pub fn in_memory() -> DbResult<Self> {
-        let db = Self { conn: Connection::open_in_memory()? };
+        let db = Self { conn: Rc::new(Connection::open_in_memory()?) };
         db.prepare()?;
         Ok(db)
     }

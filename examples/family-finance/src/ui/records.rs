@@ -1,387 +1,235 @@
-//! The registers: accounts, categories and family members.
+//! The registers: accounts, categories and family members, generated from what they are.
+
+use std::cell::OnceCell;
+use std::rc::Rc;
 
 use ravenrs::prelude::*;
+use ravenrs_app::{EntityInfo, EnumOption, FieldInfo, FieldKind, ModelError, Object, Rule, Value as Field};
+use ravenrs_app_sqlite::{SqlWords, SqliteDatabase, TableMap};
+use ravenrs_app_ui::{EntityPane, PaneWords, Words};
 
-use super::forms::Forms;
 use super::help;
-use super::store::{PAGE_INSETS, Page, Store, content_width};
+use super::store::{PAGE_INSETS, Page, Store};
 use crate::model::{AccountKind, Flow};
-use crate::money::{format_brl, format_input, parse_brl};
-
-const FORM_WIDTH: f32 = 340.0;
-/// Below this width a list and the form no longer fit side by side.
-const SIDE_BY_SIDE_FROM: f32 = 760.0;
-
-fn accepts_zero(text: &str) -> Result<(), String> {
-    if text.trim().is_empty() { Ok(()) } else { parse_brl(text).map(|_| ()) }
-}
-
-fn cents_or_zero(text: &str) -> Option<i64> {
-    if text.trim().is_empty() { Some(0) } else { parse_brl(text).ok() }
-}
 
 /// What this screen keeps while another one is open.
 #[derive(Clone)]
 pub(crate) struct RecordsState {
     pub(crate) tab: State<usize>,
-    account_id: State<Option<i64>>,
-    account_name: State<String>,
-    account_kind: State<usize>,
-    account_opening: State<String>,
-    category_id: State<Option<i64>>,
-    category_name: State<String>,
-    category_flow: State<usize>,
-    category_budget: State<String>,
-    member_id: State<Option<i64>>,
-    member_name: State<String>,
+    panes: Rc<OnceCell<Option<Rc<Panes>>>>,
 }
 
 impl RecordsState {
     pub fn new() -> Self {
-        Self {
-            tab: State::new(0),
-            account_id: State::new(None),
-            account_name: State::new(String::new()),
-            account_kind: State::new(0),
-            account_opening: State::new(String::new()),
-            category_id: State::new(None),
-            category_name: State::new(String::new()),
-            category_flow: State::new(0),
-            category_budget: State::new(String::new()),
-            member_id: State::new(None),
-            member_name: State::new(String::new()),
-        }
-    }
-
-    fn clear_account(&self) {
-        self.account_id.set(None);
-        self.account_name.set(String::new());
-        self.account_kind.set(0);
-        self.account_opening.set(String::new());
-    }
-
-    fn clear_category(&self) {
-        self.category_id.set(None);
-        self.category_name.set(String::new());
-        self.category_flow.set(0);
-        self.category_budget.set(String::new());
-    }
-
-    fn clear_member(&self) {
-        self.member_id.set(None);
-        self.member_name.set(String::new());
+        Self { tab: State::new(0), panes: Rc::default() }
     }
 }
 
-/// A row with an edit and a delete button.
-fn record_row(
-    leading: impl View + 'static,
-    name: &str,
-    on_edit: impl Fn() + 'static,
-    on_delete: impl Fn() + 'static,
-) -> AnyView {
-    Box::new(
-        HStack::new((
-            leading,
-            IconButton::new(IconName::Pencil)
-                .label(format!("Alterar {name}"))
-                .size(ButtonSize::Small)
-                .on_click(on_edit),
-            IconButton::new(IconName::Trash2)
-                .label(format!("Excluir {name}"))
-                .size(ButtonSize::Small)
-                .on_click(on_delete),
-        ))
-        .spacing(6.0)
-        .align(Align::Center),
-    )
+struct Panes {
+    accounts: EntityPane,
+    categories: EntityPane,
+    members: EntityPane,
 }
 
-/// The list beside its form, or over it when there is no room.
-fn two_panes(list: Vec<AnyView>, form: impl View + 'static, beside: bool) -> AnyView {
-    let list = Card::new(VStack::new(list).spacing(8.0).align(Align::Stretch));
-    if beside {
-        Box::new(
-            HStack::new((list.grow(1.0), Card::new(form).width(FORM_WIDTH)))
-                .spacing(16.0)
-                .align(Align::Start)
-                .padding((16.0, 0.0)),
+fn options<T: Copy>(all: &[T], code: fn(T) -> &'static str, label: fn(T) -> &'static str) -> FieldKind {
+    FieldKind::Enum(all.iter().map(|item| EnumOption::new(code(*item), label(*item))).collect())
+}
+
+fn name_field(placeholder: &str) -> FieldInfo {
+    FieldInfo::new("name", FieldKind::Text).caption("Nome").default_property().placeholder(placeholder)
+}
+
+fn id_field() -> FieldInfo {
+    FieldInfo::new("id", FieldKind::Integer).key()
+}
+
+/// The table has no empty amounts, and people can leave one empty.
+fn empty_is_zero(object: &mut Object, field: &str) {
+    if object.get(field) == Field::Null {
+        object.set(field, 0.0);
+    }
+}
+
+fn trimmed_name(object: &mut Object) {
+    if let Field::Text(name) = object.get("name") {
+        object.set("name", name.trim());
+    }
+}
+
+fn account_entity() -> EntityInfo {
+    EntityInfo::new("Account")
+        .caption("Contas")
+        .field(id_field())
+        .field(name_field("Ex.: Banco do bairro"))
+        .field(
+            FieldInfo::new("kind", options(&AccountKind::ALL, AccountKind::code, AccountKind::label))
+                .caption("Tipo"),
         )
-    } else {
-        Box::new(
-            VStack::new((list, Card::new(form))).spacing(16.0).align(Align::Stretch).padding((16.0, 0.0)),
+        .field(
+            FieldInfo::new("opening", FieldKind::Money)
+                .caption("Saldo inicial")
+                .in_list(false)
+                .placeholder("0,00"),
         )
-    }
+        .field(FieldInfo::new("balance", FieldKind::Money).caption("Saldo").read_only().in_detail(false))
+        .rule(Rule::required("name"))
 }
 
-fn form_buttons(
-    editing: bool,
-    save_label: &str,
-    on_save: impl Fn() + 'static,
-    on_cancel: impl Fn() + 'static,
-) -> impl View {
-    HStack::new((
-        editing.then(|| Button::new("Cancelar").style(ButtonStyle::Secondary).on_click(on_cancel)),
-        Button::new(if editing { "Salvar alterações".to_owned() } else { save_label.to_owned() })
-            .icon(if editing { IconName::Check } else { IconName::Plus })
-            .on_click(on_save),
-    ))
-    .spacing(8.0)
+fn category_entity() -> EntityInfo {
+    EntityInfo::new("Category")
+        .caption("Categorias")
+        .field(id_field())
+        .field(name_field("Ex.: Pets"))
+        .field(
+            FieldInfo::new("flow", options(&[Flow::Expense, Flow::Income], Flow::code, Flow::label))
+                .caption("Tipo")
+                .editor("Segmented"),
+        )
+        .field(FieldInfo::new("budget", FieldKind::Money).caption("Limite mensal").placeholder("Sem limite"))
+        .rule(Rule::required("name"))
 }
 
-fn accounts_tab(store: &Store, state: &RecordsState, forms: &Forms, beside: bool) -> AnyView {
-    let accounts = store.read(|db| db.accounts());
-    let list = accounts
-        .iter()
-        .map(|account| {
-            let (edit, delete) = (state.clone(), forms.confirm.clone());
-            let (id, name, kind, opening) =
-                (account.id, account.name.clone(), account.kind, account.opening_cents);
-            let delete_store = store.clone();
-            let row_name = name.clone();
-            // An account named after its kind has nothing more to say.
-            let item = ListItem::new(name.clone())
-                .icon(IconName::Wallet)
-                .trailing(format_brl(account.balance_cents));
-            let item = if name == kind.label() { item } else { item.subtitle(kind.label()) };
-            record_row(
-                item.grow(1.0),
-                &row_name,
-                move || {
-                    edit.account_id.set(Some(id));
-                    edit.account_name.set(name.clone());
-                    edit.account_kind.set(AccountKind::ALL.iter().position(|k| *k == kind).unwrap_or(0));
-                    edit.account_opening.set(format_input(opening));
-                },
-                move || {
-                    let store = delete_store.clone();
-                    delete.ask(
-                        "Excluir esta conta?",
-                        "Só é possível se ela não tiver lançamentos.",
-                        "Excluir",
-                        move || {
-                            store.write("Conta excluída", |db| db.delete_account(id));
-                        },
-                    );
-                },
-            )
+fn member_entity() -> EntityInfo {
+    EntityInfo::new("Member")
+        .caption("Família")
+        .field(id_field())
+        .field(name_field("Ex.: Maria"))
+        .rule(Rule::required("name"))
+}
+
+fn sql_words() -> SqlWords {
+    let mut words = SqlWords::pt_br();
+    // The same words as the rest of the app, which come from `DbError`.
+    words.unique = "Já existe um registro com esse nome. Escolha outro.".to_owned();
+    words.in_use = "Este registro está em uso. Remova antes o que depende dele.".to_owned();
+    words.rule = "Os dados não passaram nas regras do banco. Revise o formulário.".to_owned();
+    words
+}
+
+fn panes(store: &Store) -> Result<Panes, ModelError> {
+    // `Database` keeps owning the schema: these tables are only mapped, and migrations stay there.
+    let balance = "accounts.opening_cents + COALESCE((SELECT SUM(CASE t.flow WHEN 'income' THEN t.amount_cents \
+                   ELSE -t.amount_cents END) FROM transactions t WHERE t.account_id = accounts.id), 0)";
+    let database = SqliteDatabase::builder(store.db.connection())
+        .words(sql_words())
+        .mapped(
+            account_entity(),
+            TableMap::new("accounts")
+                .column("opening", "opening_cents")
+                .computed("balance", balance)
+                .before_save(|object| {
+                    trimmed_name(object);
+                    empty_is_zero(object, "opening");
+                }),
+        )?
+        .mapped(
+            category_entity(),
+            TableMap::new("categories")
+                .column("budget", "budget_cents")
+                .before_save(|object| {
+                    trimmed_name(object);
+                    empty_is_zero(object, "budget");
+                })
+                // No limit reads as an empty field, and not as zero reais.
+                .after_load(|object| {
+                    if object.get("budget") == Field::Number(0.0) {
+                        object.set("budget", Field::Null);
+                    }
+                }),
+        )?
+        .mapped(member_entity(), TableMap::new("members").before_save(trimmed_name))?
+        .build();
+    let pane = |entity: EntityInfo, words: PaneWords, saved: &'static str, deleted: &'static str| {
+        let (source, told, failed, seen) = (database.clone(), store.clone(), store.clone(), store.clone());
+        EntityPane::new(entity, move || source.space(), Words::pt_br(), words).map(|pane| {
+            pane.on_done(move |what| {
+                told.write(if what == "saved" { saved } else { deleted }, |_| Ok(()));
+            })
+            .on_failed(move |message| {
+                failed.toasts.show_for("Não foi possível salvar", message, Tone::Danger, 8.0)
+            })
+            .version(move || seen.version())
         })
-        .collect();
-    let editing = state.account_id.get();
-    let (save, save_store, cancel) = (state.clone(), store.clone(), state.clone());
-    two_panes(
-        list,
-        VStack::new((
-            Text::new(if editing.is_some() { "Alterar conta" } else { "Nova conta" })
-                .style(TextStyle::Headline),
-            FormField::new(
-                "Nome",
-                TextField::new(state.account_name.binding()).placeholder("Ex.: Banco do bairro"),
-            )
-            .required(),
-            FormField::new(
-                "Tipo",
-                Select::new(state.account_kind.binding(), AccountKind::ALL.map(AccountKind::label))
-                    .label("Tipo")
-                    .width(292.0),
-            ),
-            FormField::new(
-                "Saldo inicial",
-                TextField::new(state.account_opening.binding()).placeholder("0,00"),
-            )
-            .validate(state.account_opening.binding(), accepts_zero),
-            form_buttons(
-                editing.is_some(),
+    };
+    Ok(Panes {
+        accounts: pane(
+            account_entity(),
+            PaneWords::new(
+                "Nova conta",
+                "Alterar conta",
                 "Adicionar conta",
-                move || {
-                    let name = save.account_name.get();
-                    let Some(opening) = cents_or_zero(&save.account_opening.get()) else { return };
-                    let kind = AccountKind::ALL[save.account_kind.get().min(AccountKind::ALL.len() - 1)];
-                    if name.trim().is_empty() {
-                        return;
-                    }
-                    let id = save.account_id.get();
-                    let done = save_store.write("Conta salva", |db| match id {
-                        Some(id) => db.update_account(id, &name, kind, opening),
-                        None => db.add_account(&name, kind, opening).map(|_| ()),
-                    });
-                    if done.is_some() {
-                        save.clear_account();
-                    }
-                },
-                move || cancel.clear_account(),
+                "Excluir esta conta?",
+                "Só é possível se ela não tiver lançamentos.",
+                "Excluir",
             ),
-        ))
-        .spacing(12.0)
-        .align(Align::Stretch),
-        beside,
-    )
-}
-
-fn categories_tab(store: &Store, state: &RecordsState, forms: &Forms, beside: bool) -> AnyView {
-    let categories = store.read(|db| db.categories());
-    let list = categories
-        .iter()
-        .map(|category| {
-            let (edit, delete) = (state.clone(), forms.confirm.clone());
-            let (id, name, flow, budget) =
-                (category.id, category.name.clone(), category.flow, category.budget_cents);
-            let delete_store = store.clone();
-            let row_name = name.clone();
-            let subtitle = if budget > 0 {
-                format!("{} · limite de {}", flow.label(), format_brl(budget))
-            } else {
-                flow.label().to_owned()
-            };
-            record_row(
-                ListItem::new(name.clone())
-                    .subtitle(subtitle)
-                    .icon(if flow == Flow::Income { IconName::TrendingUp } else { IconName::Tag })
-                    .grow(1.0),
-                &row_name,
-                move || {
-                    edit.category_id.set(Some(id));
-                    edit.category_name.set(name.clone());
-                    edit.category_flow.set(usize::from(flow == Flow::Income));
-                    edit.category_budget.set(if budget > 0 { format_input(budget) } else { String::new() });
-                },
-                move || {
-                    let store = delete_store.clone();
-                    delete.ask(
-                        "Excluir esta categoria?",
-                        "Só é possível se nada estiver usando.",
-                        "Excluir",
-                        move || {
-                            store.write("Categoria excluída", |db| db.delete_category(id));
-                        },
-                    );
-                },
-            )
-        })
-        .collect();
-    let editing = state.category_id.get();
-    let (save, save_store, cancel) = (state.clone(), store.clone(), state.clone());
-    two_panes(
-        list,
-        VStack::new((
-            Text::new(if editing.is_some() { "Alterar categoria" } else { "Nova categoria" })
-                .style(TextStyle::Headline),
-            FormField::new("Nome", TextField::new(state.category_name.binding()).placeholder("Ex.: Pets"))
-                .required(),
-            FormField::new(
-                "Tipo",
-                SegmentedControl::new(state.category_flow.binding(), ["Despesa", "Receita"]).label("Tipo"),
-            ),
-            FormField::new(
-                "Limite mensal",
-                TextField::new(state.category_budget.binding()).placeholder("Sem limite"),
-            )
-            .validate(state.category_budget.binding(), accepts_zero),
-            form_buttons(
-                editing.is_some(),
+            "Conta salva",
+            "Conta excluída",
+        )?
+        // An account named after its kind has nothing more to say.
+        .cell_text(|field, account| {
+            let kind = AccountKind::ALL
+                .iter()
+                .find(|kind| account.get("kind") == Field::Text(kind.code().to_owned()))?;
+            (field == "kind" && account.get("name") == Field::Text(kind.label().to_owned())).then(String::new)
+        }),
+        categories: pane(
+            category_entity(),
+            PaneWords::new(
+                "Nova categoria",
+                "Alterar categoria",
                 "Adicionar categoria",
-                move || {
-                    let name = save.category_name.get();
-                    let Some(budget) = cents_or_zero(&save.category_budget.get()) else { return };
-                    let flow = if save.category_flow.get() == 1 { Flow::Income } else { Flow::Expense };
-                    if name.trim().is_empty() {
-                        return;
-                    }
-                    let id = save.category_id.get();
-                    let done = save_store.write("Categoria salva", |db| match id {
-                        Some(id) => db.update_category(id, &name, flow, budget),
-                        None => db.add_category(&name, flow, budget).map(|_| ()),
-                    });
-                    if done.is_some() {
-                        save.clear_category();
-                    }
-                },
-                move || cancel.clear_category(),
+                "Excluir esta categoria?",
+                "Só é possível se nada estiver usando.",
+                "Excluir",
             ),
-        ))
-        .spacing(12.0)
-        .align(Align::Stretch),
-        beside,
-    )
-}
-
-fn members_tab(store: &Store, state: &RecordsState, forms: &Forms, beside: bool) -> AnyView {
-    let members = store.read(|db| db.members());
-    let list = members
-        .iter()
-        .map(|member| {
-            let (edit, delete) = (state.clone(), forms.confirm.clone());
-            let (id, name) = (member.id, member.name.clone());
-            let delete_store = store.clone();
-            let row_name = name.clone();
-            record_row(
-                ListItem::new(name.clone()).avatar(name.clone()).grow(1.0),
-                &row_name,
-                move || {
-                    edit.member_id.set(Some(id));
-                    edit.member_name.set(name.clone());
-                },
-                move || {
-                    let store = delete_store.clone();
-                    delete.ask(
-                        "Remover esta pessoa?",
-                        "Os lançamentos dela continuam, sem responsável.",
-                        "Remover",
-                        move || {
-                            store.write("Pessoa removida", |db| db.delete_member(id));
-                        },
-                    );
-                },
-            )
-        })
-        .collect();
-    let editing = state.member_id.get();
-    let (save, save_store, cancel) = (state.clone(), store.clone(), state.clone());
-    two_panes(
-        list,
-        VStack::new((
-            Text::new(if editing.is_some() { "Alterar pessoa" } else { "Nova pessoa" })
-                .style(TextStyle::Headline),
-            FormField::new("Nome", TextField::new(state.member_name.binding()).placeholder("Ex.: Maria"))
-                .required(),
-            form_buttons(
-                editing.is_some(),
+            "Categoria salva",
+            "Categoria excluída",
+        )?,
+        members: pane(
+            member_entity(),
+            PaneWords::new(
+                "Nova pessoa",
+                "Alterar pessoa",
                 "Adicionar pessoa",
-                move || {
-                    let name = save.member_name.get();
-                    if name.trim().is_empty() {
-                        return;
-                    }
-                    let id = save.member_id.get();
-                    let done = save_store.write("Pessoa salva", |db| match id {
-                        Some(id) => db.rename_member(id, &name),
-                        None => db.add_member(&name).map(|_| ()),
-                    });
-                    if done.is_some() {
-                        save.clear_member();
-                    }
-                },
-                move || cancel.clear_member(),
+                "Remover esta pessoa?",
+                "Os lançamentos dela continuam, sem responsável.",
+                "Remover",
             ),
-        ))
-        .spacing(12.0)
-        .align(Align::Stretch),
-        beside,
-    )
+            "Pessoa salva",
+            "Pessoa removida",
+        )?,
+    })
 }
 
-pub(crate) fn records(store: &Store, state: &RecordsState, forms: &Forms, window: Size) -> Page {
-    let beside = content_width(window) >= SIDE_BY_SIDE_FROM;
+/// A pane shown by more than one tab build, since a tab takes what it shows.
+struct Shared(Rc<Panes>, fn(&Panes) -> &EntityPane);
+
+impl View for Shared {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        cx.child((self.1)(&self.0))
+    }
+}
+
+pub(crate) fn records(store: &Store, state: &RecordsState) -> Page {
     store.version();
+    let made = state.panes.get_or_init(|| {
+        panes(store)
+            .map_err(|e| tracing::error!(error = %e, "the registers could not be put together"))
+            .ok()
+            .map(Rc::new)
+    });
+    let tabs: AnyView = match made {
+        Some(panes) => Box::new(
+            Tabs::new(state.tab.binding())
+                .tab("Contas", Shared(panes.clone(), |p| &p.accounts))
+                .tab("Categorias", Shared(panes.clone(), |p| &p.categories))
+                .tab("Família", Shared(panes.clone(), |p| &p.members)),
+        ),
+        None => Box::new(Alert::new("Cadastros", "Não foi possível abrir os cadastros.").tone(Tone::Danger)),
+    };
     Page::new(
         help::CADASTROS,
         "As contas, as categorias e as pessoas que os lançamentos usam.",
-        ScrollView::new((VStack::new((Tabs::new(state.tab.binding())
-            .tab("Contas", accounts_tab(store, state, forms, beside))
-            .tab("Categorias", categories_tab(store, state, forms, beside))
-            .tab("Família", members_tab(store, state, forms, beside)),))
-        .spacing(16.0)
-        .align(Align::Stretch),))
-        .padding(PAGE_INSETS),
+        ScrollView::new((VStack::new((tabs,)).spacing(16.0).align(Align::Stretch),)).padding(PAGE_INSETS),
     )
 }

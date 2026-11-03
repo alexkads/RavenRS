@@ -69,6 +69,7 @@ ravenrs-report-export  ──► the exporters  (one entry point: format, name, 
 ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
 ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
 ravenrs-app-derive     ──► ravenrs-criteria  (the derives, re-exported by ravenrs-app)
+ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
 ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export  (the screens, from the model)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
@@ -101,7 +102,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-grid-export` | `lib` |
 | `ravenrs-app-derive` | `lib` |
-| `ravenrs-app-ui` | `app`, `session`, `shell`, `list_view`, `detail_view`, `editors`, `container`, `system`, `values` |
+| `ravenrs-app-sqlite` | `lib` |
+| `ravenrs-app-ui` | `app`, `pane`, `session`, `shell`, `list_view`, `detail_view`, `editors`, `container`, `system`, `values` |
 | `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`), `space`, `action`, `controller`, `frame`, `module` |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
@@ -355,7 +357,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
 | Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`, budgets in [docs/QUALITY.md](docs/QUALITY.md)) | | GPU timestamps |
-| Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions, frames, generated lists and forms | the API | rules, SQLite, relations, permissions |
+| Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions, frames, rules, SQLite, generated lists and forms | the API |  relations, permissions |
 
 ## 12. Decisions log
 

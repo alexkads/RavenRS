@@ -31,6 +31,7 @@ ravenrs-grid-export = { version = "27.1.7", path = "crates/ravenrs-grid-export" 
 ravenrs-app = { version = "27.1.7", path = "crates/ravenrs-app" }
 ravenrs-app-ui = { version = "27.1.7", path = "crates/ravenrs-app-ui" }
 ravenrs-app-derive = { version = "27.1.7", path = "crates/ravenrs-app-derive" }
+ravenrs-app-sqlite = { version = "27.1.7", path = "crates/ravenrs-app-sqlite" }
 ravenrs-report-pdf = { version = "27.1.7", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.7", path = "crates/ravenrs-report-xlsx" }
 ravenrs-report-server = { version = "27.1.7", path = "crates/ravenrs-report-server" }
@@ -71,6 +72,7 @@ syn = { version = "2.0.119", default-features = false, features = ["full", "pars
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 quote = "1.0.47"
 regex-lite = "0.1"
+rusqlite = { version = "0.41", features = ["bundled"] }
 trybuild = "1"
 
 [workspace.lints.rust]

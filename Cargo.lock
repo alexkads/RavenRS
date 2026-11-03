@@ -1494,6 +1494,9 @@ dependencies = [
  "pollster",
  "ravenrs",
  "ravenrs-ai",
+ "ravenrs-app",
+ "ravenrs-app-sqlite",
+ "ravenrs-app-ui",
  "ravenrs-criteria",
  "ravenrs-report",
  "ravenrs-report-export",
@@ -4032,6 +4035,15 @@ dependencies = [
  "ravenrs-criteria",
  "regex-lite",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "ravenrs-app-sqlite"
+version = "27.1.7"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-criteria",
+ "rusqlite",
 ]
 
 [[package]]

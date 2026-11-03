@@ -10,7 +10,7 @@ use ravenrs_grid_export::export;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::grid::{Row, Value as Cell};
 use ravenrs_widgets::{
-    BuildCx, DataGrid, GridCellStyle, GridColumn, GridData, NodeId, SelectionMode, Text, View,
+    BuildCx, DataGrid, GridCellStyle, GridColumn, GridData, GridRowAction, NodeId, SelectionMode, Text, View,
 };
 
 use crate::session::Session;
@@ -58,7 +58,13 @@ pub struct ListView {
     frame: Frame,
     view: ViewInfo,
     on_open: Option<OpenHandler>,
+    compact: bool,
+    row_actions: Vec<GridRowAction>,
+    cell_text: Option<CellText>,
 }
+
+/// What a cell says instead of its value, for a field and a record; nothing means its value.
+pub type CellText = Rc<dyn Fn(&str, &Object) -> Option<String>>;
 
 impl std::fmt::Debug for ListView {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -69,7 +75,25 @@ impl std::fmt::Debug for ListView {
 impl ListView {
     /// The list of this view in the model, reading through this frame.
     pub fn new(session: Session, frame: Frame, view: ViewInfo) -> Self {
-        Self { session, frame, view, on_open: None }
+        Self { session, frame, view, on_open: None, compact: false, row_actions: Vec::new(), cell_text: None }
+    }
+
+    /// Only the rows and their headers, as tall as they need, for a few records beside a form.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
+    }
+
+    /// A button at the end of every row.
+    pub fn row_action(mut self, action: GridRowAction) -> Self {
+        self.row_actions.push(action);
+        self
+    }
+
+    /// Says what a cell shows, when its value alone is not it.
+    pub fn cell_text(mut self, text: CellText) -> Self {
+        self.cell_text = Some(text);
+        self
     }
 
     /// What opening a row does, with its key. Its form by default.
@@ -123,7 +147,11 @@ impl ListView {
                     let text = display(field, &value);
                     Cell::Text(known.get(&text).cloned().unwrap_or(text))
                 }
-                _ => cell_of(field, &value),
+                _ => match self.cell_text.as_ref().and_then(|text| text(&field.name, object)) {
+                    Some(text) if text.is_empty() => Cell::Empty,
+                    Some(text) => Cell::Text(text),
+                    None => cell_of(field, &value),
+                },
             }
         };
         let rows = objects
@@ -245,6 +273,24 @@ impl View for ListView {
         let grid = match looks {
             Some(looks) => grid.cell_style(looks),
             None => grid,
+        };
+        let grid = match default_property
+            .as_deref()
+            .and_then(|name| fields.iter().position(|(f, ..)| f.name == name))
+        {
+            Some(column) => grid.name_column(column),
+            None => grid,
+        };
+        let grid = self.row_actions.iter().cloned().fold(grid, DataGrid::row_action);
+        let grid = if self.compact {
+            let height = current.objects.len().max(1) as f32 * 36.0 + 42.0;
+            grid.toolbar(false)
+                .filter_row(false)
+                .footer(false)
+                .selection_mode(SelectionMode::None)
+                .height(height)
+        } else {
+            grid
         };
         cx.child(&grid)
     }

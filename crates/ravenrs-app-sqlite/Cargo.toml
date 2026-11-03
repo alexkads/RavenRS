@@ -1,0 +1,22 @@
+[package]
+name = "ravenrs-app-sqlite"
+description = "Records of a RavenRS business application in SQLite: on tables it creates, or on tables that already exist."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-sqlite"
+keywords = ["application", "framework", "sqlite", "crud"]
+categories = ["database"]
+
+[dependencies]
+ravenrs-app.workspace = true
+ravenrs-criteria.workspace = true
+rusqlite.workspace = true
+
+[lints]
+workspace = true

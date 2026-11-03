@@ -57,7 +57,8 @@ pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 pub use ravenrs_criteria::{Criteria, Value};
 pub use space::{
-    Change, MemoryDatabase, MemoryObjectSpace, ObjectSpace, Query, SpaceError, SpaceEvent, SpaceWatcher,
+    Change, ChangeSet, MemoryDatabase, MemoryObjectSpace, ObjectSpace, Query, SpaceError, SpaceEvent,
+    SpaceWatcher, check_query, key_of, key_text, run_query,
 };
 pub use validation::{
     CONTEXT_DELETE, CONTEXT_SAVE, Comparison, Operand, Rule, RuleKind, RuleWords, TextComparison, Violation,

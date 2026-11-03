@@ -9,7 +9,8 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Generated lists, lists to pick from, forms and navigation | ✅ `generate_model` | |
 | Model editor at run time | ⬜ | F8 |
 | Unit of work | ✅ `ObjectSpace`, `MemoryDatabase` | |
-| SQLite, on a managed schema or tables that exist | ⬜ | F6 |
+| SQLite, on a managed schema or tables that exist | ✅ `ravenrs-app-sqlite`: filters in the database with bound values, words for what it refuses. Lists of many rows still read them all | |
+| A list beside its form, inside a screen of the app | ✅ `EntityPane`, in use in the registers of `examples/family-finance` | |
 | Simple, popup, single-choice, parametrized and URL actions | 🟡 `Action`; popups show only lists | F7 |
 | Action scope, selection dependency and target criteria | ✅ `TargetScope`, `Selection`, `CriteriaMode` | |
 | Mapping actions to containers in the model | ⬜ by category for now | |
