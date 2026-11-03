@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.10] - 2026-11-03
+
 ### Breaking
 - `BugReport` has new fields, `kind`, `area`, `elements` and `errors`, so building one field by field needs `..BugReport::default()`. Older `.ravenbug` files still open.
 
@@ -439,7 +441,8 @@ The first public release.
 - `scripts/check.sh` runs formatting, clippy (native and wasm32), the tests and the web builds locally.
 - `scripts/deploy-pages.sh` publishes the landing page, the live gallery and the API docs.
 
-[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.9...HEAD
+[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.10...HEAD
+[27.1.10]: https://github.com/alexkads/RavenRS/compare/v27.1.9...v27.1.10
 [27.1.3]: https://github.com/alexkads/RavenRS/compare/v27.1.2...v27.1.3
 [27.1.2]: https://github.com/alexkads/RavenRS/compare/v27.1.1...v27.1.2
 [27.1.1]: https://github.com/alexkads/RavenRS/compare/v27.1.0...v27.1.1
