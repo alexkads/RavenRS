@@ -50,6 +50,15 @@ fn list_view(entity: &EntityInfo, id: String, shown: impl Fn(&FieldInfo) -> bool
             })
         }))
     };
+    let node = entity.editor_settings.iter().fold(node, |mut node, (settings, name, value)| {
+        if node.get(settings).is_none() {
+            node = node.child(ModelNode::new(settings));
+        }
+        if let Some(found) = node.get_mut(settings) {
+            found.properties.insert(name.clone(), serde_json::Value::String(value.clone()));
+        }
+        node
+    });
     if entity.variants.is_empty() {
         return node;
     }
@@ -59,6 +68,10 @@ fn list_view(entity: &EntityInfo, id: String, shown: impl Fn(&FieldInfo) -> bool
                 ModelNode::new(&variant.id).with("Caption", variant.caption.as_str()).with("Index", i as i64);
             let item = match &variant.filter {
                 Some(filter) => item.with("Filter", filter.as_str()),
+                None => item,
+            };
+            let item = match &variant.editor {
+                Some(editor) => item.with("EditorType", editor.as_str()),
                 None => item,
             };
             variants.child(if variant.columns.is_empty() {

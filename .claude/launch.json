@@ -26,6 +26,18 @@
       "port": 8094
     },
     {
+      "name": "plan-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "examples/quick-plan/web",
+        "8098"
+      ],
+      "port": 8098
+    },
+    {
       "name": "site",
       "runtimeExecutable": "python3",
       "runtimeArgs": [

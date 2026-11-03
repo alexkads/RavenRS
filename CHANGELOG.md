@@ -29,6 +29,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Signing in.** `SecuredApp` puts sign-in in front of an application, with users and roles managed on generated screens, Argon2id password hashes, lockout after five wrong passwords, a first administrator on a new installation and `Authenticator` for other ways in.
 - **`AuditedObjectSpace`** writes who changed what, from what to what, in the same commit, with the modes `Full`, `Lightweight` and `CreationOnly`, fields left out by `AuditSettings`, and changes in collections shown on their owner.
 - **`ModelEditor`**: the model as a tree, with its settings beside it, kept in the person's own layer, for a role that `can_edit_model`.
+- **Lists shown other ways.** A view picks `Chart`, `Calendar`, `Scheduler` or `Tree` by `EditorType` in the model, or a `ViewVariant` by `editor`, with what each needs under `ChartSettings`, `CalendarSettings`, `SchedulerSettings` or `TreeSettings`, set in code with `EntityInfo::editor_setting`. A record moved on a timeline is kept with its rules and permissions. `examples/quick-plan` shows all of them.
 - **`Tabs`** go to another line when they do not fit, instead of running over each other.
 - **`ravenrs-app-library`**: people, organizations, addresses, countries, tasks, events, notes and files, ready to use or extend.
 

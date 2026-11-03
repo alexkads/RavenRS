@@ -27,7 +27,7 @@ ravenrs-layout.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-report.workspace = true
 ravenrs-style.workspace = true
-ravenrs-widgets.workspace = true
+ravenrs-widgets = { workspace = true, features = ["charts"] }
 
 [lints]
 workspace = true

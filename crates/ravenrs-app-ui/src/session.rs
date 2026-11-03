@@ -78,6 +78,12 @@ pub struct Words {
     pub conflict_detail: String,
     /// Keeps one's own changes over the other person's.
     pub conflict_answer: String,
+    /// What a way of showing a list says when something it needs is missing.
+    pub list_editor_needs: String,
+    /// A row of a timeline for records that point to no resource.
+    pub no_resource: String,
+    /// The series of a chart that counts records.
+    pub chart_count: String,
     /// A field that is on.
     pub yes: String,
     /// A field that is off.
@@ -179,6 +185,9 @@ impl Default for Words {
             conflict_detail: "They changed {0} too. Saving keeps your value there, and their other changes."
                 .into(),
             conflict_answer: "Keep mine".into(),
+            list_editor_needs: "This view needs a field that fits:".into(),
+            no_resource: "No resource".into(),
+            chart_count: "Records".into(),
             yes: "Yes".into(),
             no: "No".into(),
             access_denied: "You are not allowed to do this.".into(),
@@ -252,6 +261,9 @@ impl Words {
             conflict_detail:
                 "Ela também alterou {0}. Salvar mantém o seu valor ali, e as outras alterações dela.".into(),
             conflict_answer: "Manter o meu".into(),
+            list_editor_needs: "Esta visão precisa de um campo que sirva:".into(),
+            no_resource: "Sem recurso".into(),
+            chart_count: "Registros".into(),
             yes: "Sim".into(),
             no: "Não".into(),
             access_denied: "Você não tem permissão para fazer isso.".into(),
@@ -467,6 +479,7 @@ impl Session {
     }
 
     fn linked(inner: SessionInner) -> Self {
+        let is_first = inner.list_editors.borrow().is_empty();
         let inner = Rc::new(inner);
         let frame = inner.frame.clone();
         frame.set_extension(Rc::new(SessionLink(Rc::downgrade(&inner))));
@@ -492,7 +505,11 @@ impl Session {
             }
             if messages.is_empty() { Ok(()) } else { Err(messages.join("; ")) }
         });
-        Self(inner)
+        let session = Self(inner);
+        if is_first {
+            crate::list_editors::register(&session);
+        }
+        session
     }
 
     /// A session of its own for a frame inside this one or over it: its own form and unit of
@@ -759,6 +776,12 @@ impl Session {
             .and_then(|item| item.text("View").map(str::to_owned))
             .unwrap_or_else(|| view.to_owned());
         ViewInfo::from_model(&model, &id).unwrap_or_else(|_| ViewInfo::new(view, ViewKind::Dashboard, None))
+    }
+
+    /// The list editor the way picked to see this list asks for, if it says.
+    pub(crate) fn variant_editor(&self, view: &str) -> Option<String> {
+        let model = self.model();
+        Self::chosen(&model, view, "Variants").and_then(|item| item.text("EditorType").map(str::to_owned))
     }
 
     /// The fields the way picked to see this list shows, if it says.

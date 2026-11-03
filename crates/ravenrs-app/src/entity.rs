@@ -505,17 +505,25 @@ pub struct ViewVariant {
     pub filter: Option<String>,
     /// The fields its columns show, in order; nothing means those of the list.
     pub columns: Vec<String>,
+    /// The way it shows its records, by the name of a list editor; nothing means what the list uses.
+    pub editor: Option<String>,
 }
 
 impl ViewVariant {
     /// A variant that shows every record.
     pub fn new(id: impl Into<String>, caption: impl Into<String>) -> Self {
-        Self { id: id.into(), caption: caption.into(), filter: None, columns: Vec::new() }
+        Self { id: id.into(), caption: caption.into(), filter: None, columns: Vec::new(), editor: None }
     }
 
     /// Shows only the records that meet this expression.
     pub fn filter(mut self, expression: impl Into<String>) -> Self {
         self.filter = Some(expression.into());
+        self
+    }
+
+    /// Shows its records with the list editor of this name.
+    pub fn editor(mut self, editor: impl Into<String>) -> Self {
+        self.editor = Some(editor.into());
         self
     }
 
@@ -571,6 +579,8 @@ pub struct EntityInfo {
     pub appearance: Vec<crate::AppearanceRule>,
     /// The ways to see its list.
     pub variants: Vec<ViewVariant>,
+    /// What the list editors are told about this list: an editor's settings node, and in it names and values.
+    pub editor_settings: Vec<(String, String, String)>,
     /// How many columns its form's fields go in; by how many there are, unless given.
     pub form_columns: Option<u8>,
     /// The filters people pick from on its list.
@@ -604,6 +614,7 @@ impl EntityInfo {
             rules: Vec::new(),
             appearance: Vec::new(),
             variants: Vec::new(),
+            editor_settings: Vec::new(),
             form_columns: None,
             filters: Vec::new(),
             list_criteria: None,
@@ -703,6 +714,18 @@ impl EntityInfo {
     /// How many columns its form's fields go in.
     pub fn form_columns(mut self, columns: u8) -> Self {
         self.form_columns = Some(columns);
+        self
+    }
+
+    /// Tells a list editor something about its list, as `ChartSettings`, `Kind` and `Line`. It goes
+    /// in the model under the list's view, so a person can change it like any other setting.
+    pub fn editor_setting(
+        mut self,
+        node: impl Into<String>,
+        name: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
+        self.editor_settings.push((node.into(), name.into(), value.into()));
         self
     }
 

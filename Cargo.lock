@@ -3898,6 +3898,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick-plan"
+version = "27.1.8"
+dependencies = [
+ "console_error_panic_hook",
+ "ravenrs",
+ "ravenrs-app",
+ "ravenrs-app-ui",
+ "ravenrs-core",
+ "ravenrs-criteria",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "quick-xml"
 version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

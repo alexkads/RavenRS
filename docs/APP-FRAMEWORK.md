@@ -166,6 +166,27 @@ EntityInfo::new("Order")
 - Money is a whole number of cents, kept in a number, and never a fraction.
 - Tests drive whole applications through `Ui::access_tree`, with no window: see `crates/ravenrs-app-ui/tests/e2e.rs`.
 
+## Showing a list other ways
+
+A view picks how it shows its records by name in the model, with nothing in code:
+
+```json
+{ "Views": { "Task_ListView": {
+    "EditorType": "Chart",
+    "ChartSettings": { "$new": true, "Argument": "owner", "Series": "cost:Sum, hours:Average", "Kind": "Line" } } } }
+```
+
+Or people pick it from a menu, with `ViewVariant::new("chart", "Chart").editor(CHART_EDITOR)`. In code, `EntityInfo::editor_setting` writes the same settings. Every setting is optional, as what is not said follows from the kinds of the fields, and a setting that names no field says so on the screen.
+
+| Editor | Settings |
+|---|---|
+| `Chart` | `Argument`, `Series` as `field:Sum`, `Count`, `Average`, `Min` or `Max`, `Kind` as `Bar`, `Line`, `Area`, `Pie` or `Doughnut`, `Interval` as `Day`, `Month` or `Year` for a date |
+| `Calendar` | `Start`, `Title`, `Done`, `Tone`, an option field that picks the color |
+| `Scheduler` | `Start`, `End`, `Resource`, a reference with a row per record it can point to, `Title`, `Done`, `Tone` |
+| `Tree` | `Parent`, a reference to the same entity, `Title` |
+
+These read through the view's unit of work, so permissions, filters and the way picked all count. See `examples/quick-plan`, in a window and in the browser.
+
 ## Security
 
 ```rust
@@ -207,6 +228,8 @@ Keep these in mind:
 
 ## Known gaps
 
+- A chart, month, timeline or tree has no search, column filters or export, which are `DataGrid`'s own. Filters in the model still count. Settings have to name fields the list reads, so `DataView` needs them among its columns.
+- Moving a bar on a timeline snaps to what the axis shows, so at the scale of days a record loses its hour.
 - The model editor changes settings, one at a time, in the person's own layer. It does not add nodes or edit the administrator's layer.
 - A field a person cannot read shows as Protected on a form, but as an empty cell on a list, and its column stays.
 - `SecuredApp` makes an application anew at each sign-in, with storage made before that: fields a layer adds have to be declared to storage by hand, so `App::storage_for` is not for it.
@@ -234,6 +257,6 @@ Keep these in mind:
 
 | Step | What it brings |
 |---|---|
-| **F9** | Charts, a calendar and a tree as ways of showing a list |
+| **F10** | Reports people create and keep, with permissions and scheduled delivery |
 
 Before more work on editors or templates, read what is documented on template customization and on each property type: it was not read when these screens were written. The same goes for the built-in node generators and list view column generation, before more of the model is generated.

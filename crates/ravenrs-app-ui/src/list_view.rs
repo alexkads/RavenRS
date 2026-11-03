@@ -565,10 +565,13 @@ impl View for ListView {
         let asked =
             format!("{}|{:?}", filter.as_ref().map(ToString::to_string).unwrap_or_default(), self.sort);
         let chosen: State<BTreeSet<String>> = cx.use_state(BTreeSet::new);
-        let editor = node
-            .text("EditorType")
-            .or_else(|| model.get("Views").and_then(|views| views.text("DefaultListEditor")))
-            .and_then(|name| session.list_editor(name));
+        let editor_name = session
+            .variant_editor(&self.view.id)
+            .or_else(|| node.text("EditorType").map(str::to_owned))
+            .or_else(|| {
+                model.get("Views").and_then(|views| views.text("DefaultListEditor")).map(str::to_owned)
+            });
+        let editor = editor_name.as_deref().and_then(|name| session.list_editor(name));
         if let Some(editor) = editor {
             let loaded = self.load(&entity, &infos, filter.as_ref(), revision, asked);
             let (opener, open_entity, on_open) = (session.clone(), entity.clone(), self.on_open.clone());
@@ -589,7 +592,13 @@ impl View for ListView {
                 }),
                 on_select: Rc::new(move |records| frame.set_selected(records)),
             };
-            return cx.child(&editor(&request));
+            // Keyed, as what one way of showing keeps is not for another.
+            let shown = editor(&request);
+            let key = editor_name.as_deref().map_or(0, |name| {
+                name.bytes()
+                    .fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3))
+            });
+            return cx.keyed_child(key, shown.as_ref());
         }
         let access = self.access();
         let (data, objects, remote_rows, ordered, invalid) = if access == DataAccess::Server {
