@@ -5,6 +5,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ## [Unreleased]
 
 ### Added
+- **API keys** in `ravenrs-app-server`: for other systems, shown once, kept as a hash, acting as a user and never more, with rotation, expiry and revoking. `security_entities()` has a new entity for them, so storage learns a table.
+- **`SettingsStore`**, with `MemorySettings`, `RecordSettings` and `settings_entity`: JSON under a name, for everyone or for one person, reached at `/api/settings/{name}` when declared. `App::settings` keeps the theme someone chose, also over a server with `RemoteSettings`.
 - **`ravenrs-app-remote`:** the screens over the web API, on the desktop and in the browser: a copy in memory of what the person can see, a way in with `RemoteApp`, and commits that go as one batch. `ApiOptions::allow_origin` lets a page on another origin call the API. `MemoryDatabase::replace_records`, `value_to_json` and `object_from_json` in `ravenrs-app`.
 - **`ravenrs-app-postgres`:** records in PostgreSQL with the same builder as SQLite, meeting the column types of tables that came first. What SQL databases share moved to **`ravenrs-app-sql`**, whose `SqlBackend` is how another database comes in. `SqliteDatabase`, `SqliteBuilder` and `SqliteObjectSpace` are now names for its generic types.
 - **`ravenrs-app-server`:** a web API over an application's model, with sign-in by token, protected CRUD, filters in the criteria language, pages, deep updates of aggregated collections, batches that stay or go together, endpoints of the application's own and an OpenAPI description of what each person can reach. Reads and writes go through the same permissions, rules, states and audit trail as the screens.

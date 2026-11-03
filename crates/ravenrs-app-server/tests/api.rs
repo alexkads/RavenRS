@@ -6,11 +6,11 @@ use std::time::Duration;
 
 use ravenrs_app::{
     Access, AuditMode, AuditSettings, EntityInfo, EnumOption, FieldInfo, FieldKind, MemoryDatabase,
-    ObjectSpace, Operation, PermissionPolicy, Query, Role, Rule, SECURITY_ROLE, SECURITY_USER,
-    SECURITY_USER_ROLE, SpaceMaker, StateMachine, UserDirectory, Value, audit_entity, hash_password,
-    security_entities,
+    ObjectSpace, Operation, PermissionPolicy, Query, Role, Rule, SECURITY_API_KEY, SECURITY_ROLE,
+    SECURITY_USER, SECURITY_USER_ROLE, SpaceMaker, StateMachine, UserDirectory, Value, audit_entity,
+    hash_password, security_entities,
 };
-use ravenrs_app_server::{ApiRequest, ApiResponse, ApiService, Failure, serve};
+use ravenrs_app_server::{ApiRequest, ApiResponse, ApiService, Failure, SettingAccess, serve};
 use serde_json::{Value as Json, json};
 
 const PASSWORD: &str = "uma-senha-de-teste";
@@ -800,4 +800,181 @@ fn only_the_origins_named_can_read_answers_from_a_browser() {
     assert_eq!(plain.status(), 401);
     assert!(plain.headers().get("access-control-allow-origin").is_none());
     runtime.shutdown_background();
+}
+
+fn key_of(answer: &ApiResponse) -> String {
+    assert_eq!(answer.status, 201, "{answer:?}");
+    answer.body["key"].as_str().unwrap().to_owned()
+}
+
+#[test]
+fn a_key_acts_as_its_user_and_shows_once() {
+    let mut api = Api::new();
+    let ana = api.token("ana");
+    let made = api.send(
+        ApiRequest::new("POST", "/api/auth/keys").bearer(&ana).json(&json!({ "name": "ERP", "user": "bia" })),
+    );
+    let key = key_of(&made);
+    let id = made.body["id"].as_str().unwrap().to_owned();
+
+    let list = api.send(ApiRequest::new("GET", "/api/data/Order").bearer(&key));
+    assert_eq!(list.status, 200, "{list:?}");
+    assert_eq!(list.body["items"][0]["cost"], Json::Null, "as bia sees it");
+    let other = api.send(ApiRequest::new("DELETE", "/api/data/Order/1").bearer(&key));
+    assert_eq!(other.status, 403, "as bia can do");
+
+    let keys = api.send(ApiRequest::new("GET", "/api/auth/keys").bearer(&ana));
+    assert_eq!(keys.body["items"][0]["name"], "ERP");
+    let listed = keys.body.to_string();
+    assert!(!listed.contains(key.rsplit('_').next().unwrap()), "the secret does not show again");
+    assert!(!listed.contains("secret_hash"));
+    let stored = api.database.space().find(SECURITY_API_KEY, &Value::Text(id)).unwrap().unwrap();
+    assert_ne!(
+        stored.get("secret_hash"),
+        Value::Text(key.rsplit('_').next().unwrap().into()),
+        "only a hash is kept"
+    );
+}
+
+#[test]
+fn a_key_stops_when_it_is_revoked_rotated_or_expired_and_with_its_user() {
+    let mut api = Api::new();
+    let ana = api.token("ana");
+    let make = |api: &mut Api, body: Json| {
+        api.send(ApiRequest::new("POST", "/api/auth/keys").bearer(&ana).json(&body))
+    };
+    let works = |api: &mut Api, key: &str| api.send(ApiRequest::new("GET", "/api/me").bearer(key)).status;
+
+    let made = make(&mut api, json!({ "name": "Um", "user": "bia" }));
+    let (key, id) = (key_of(&made), made.body["id"].as_str().unwrap().to_owned());
+    let wrong = format!("{}x", &key[..key.len() - 1]);
+    assert_eq!(works(&mut api, &wrong), 401);
+    assert_eq!(works(&mut api, "rvk_nada"), 401);
+    assert_eq!(works(&mut api, &key), 200);
+
+    let rotated = api.send(ApiRequest::new("POST", &format!("/api/auth/keys/{id}/rotate")).bearer(&ana));
+    assert_eq!(rotated.status, 200);
+    assert_eq!(works(&mut api, &key), 401, "the old one is over");
+    let new = rotated.body["key"].as_str().unwrap().to_owned();
+    assert_eq!(works(&mut api, &new), 200);
+    assert_eq!(api.send(ApiRequest::new("DELETE", &format!("/api/auth/keys/{id}")).bearer(&ana)).status, 200);
+    assert_eq!(works(&mut api, &new), 401, "at once");
+
+    let made = make(&mut api, json!({ "name": "Dois", "user": "bia" }));
+    let key = key_of(&made);
+    let mut space = api.database.space();
+    let users = space.query(SECURITY_USER, &Query::all()).unwrap();
+    let mut bia = users.into_iter().find(|user| user.get("name") == Value::Text("bia".into())).unwrap();
+    bia.set("active", false);
+    space.save(bia).unwrap();
+    space.commit().unwrap();
+    assert_eq!(works(&mut api, &key), 401, "their keys end with the user");
+
+    let made = make(&mut api, json!({ "name": "Tres", "user": "caio", "expires_in_days": 1 }));
+    let (key, id) = (key_of(&made), made.body["id"].as_str().unwrap().to_owned());
+    assert_eq!(works(&mut api, &key), 200);
+    let mut space = api.database.space();
+    let mut stored = space.find(SECURITY_API_KEY, &Value::Text(id)).unwrap().unwrap();
+    stored.set("expires", Value::Date(ravenrs_criteria::DateTime::parse("2020-01-01").unwrap()));
+    space.save(stored).unwrap();
+    space.commit().unwrap();
+    assert_eq!(works(&mut api, &key), 401);
+}
+
+#[test]
+fn a_key_never_reaches_past_its_roles_or_what_its_user_has_now() {
+    let mut api = Api::new();
+    let ana = api.token("ana");
+    let beyond = api.send(ApiRequest::new("POST", "/api/auth/keys").bearer(&ana).json(&json!({
+        "name": "Demais", "user": "bia", "roles": ["Administradores"],
+    })));
+    assert_eq!(beyond.status, 400, "bia does not have that role");
+    let mine = api.send(ApiRequest::new("POST", "/api/auth/keys").bearer(&ana).json(&json!({
+        "name": "Vendas", "user": "bia", "roles": ["Sales"],
+    })));
+    let key = key_of(&mine);
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/me").bearer(&key)).body["roles"], json!(["Sales"]));
+
+    // A person who is not an administrator makes no keys, and a key makes none, nor changes passwords.
+    let bia = api.token("bia");
+    let body = json!({ "name": "Minha" });
+    assert_eq!(api.send(ApiRequest::new("POST", "/api/auth/keys").bearer(&bia).json(&body)).status, 403);
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/auth/keys").bearer(&bia)).status, 403);
+    assert_eq!(api.send(ApiRequest::new("POST", "/api/auth/keys").bearer(&key).json(&body)).status, 403);
+    let change = json!({ "current": PASSWORD, "new": "uma-senha-bem-nova" });
+    assert_eq!(
+        api.send(ApiRequest::new("POST", "/api/auth/password").bearer(&key).json(&change)).status,
+        403
+    );
+    assert_eq!(
+        api.send(ApiRequest::new("POST", "/api/auth/revoke").bearer(&key)).status,
+        200,
+        "says nothing"
+    );
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/me").bearer(&key)).status, 200, "and ends nothing");
+
+    for wrong in [json!({}), json!({ "name": "  " }), json!({ "name": "x", "expires_in_days": 0 })] {
+        assert_eq!(api.send(ApiRequest::new("POST", "/api/auth/keys").bearer(&ana).json(&wrong)).status, 400);
+    }
+    // The entity itself is not there for anyone.
+    assert_eq!(
+        api.send(ApiRequest::new("GET", &format!("/api/data/{SECURITY_API_KEY}")).bearer(&ana)).status,
+        404
+    );
+}
+
+#[test]
+fn settings_are_reached_only_as_declared_and_each_person_has_their_own() {
+    let mut entities = vec![order(), item(), audit_entity(), ravenrs_app::settings_entity()];
+    entities.extend(security_entities());
+    let database = MemoryDatabase::new(entities).unwrap();
+    UserDirectory::new(maker(&database), roles()).unwrap();
+    let mut space = database.space();
+    user(&mut space, "ana", "Administradores", false);
+    user(&mut space, "bia", "Sales", false);
+    space.commit().unwrap();
+    let service = ApiService::new(maker(&database), roles())
+        .unwrap()
+        .setting("theme", SettingAccess::PerPerson)
+        .setting("banner", SettingAccess::Shared);
+    let mut api = Api { service, database };
+    let (ana, bia) = (api.token("ana"), api.token("bia"));
+    let put = |value: Json| json!({ "value": value });
+
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/settings/theme")).status, 401);
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/settings/nada").bearer(&bia)).status, 404);
+    let saved = api
+        .send(ApiRequest::new("PUT", "/api/settings/theme").bearer(&bia).json(&put(json!({ "base": "x" }))));
+    assert_eq!(saved.status, 200, "{saved:?}");
+    assert_eq!(
+        api.send(ApiRequest::new("GET", "/api/settings/theme").bearer(&bia)).body["value"]["base"],
+        "x"
+    );
+    assert_eq!(
+        api.send(ApiRequest::new("GET", "/api/settings/theme").bearer(&ana)).body["value"],
+        Json::Null,
+        "hers"
+    );
+    assert_eq!(api.send(ApiRequest::new("DELETE", "/api/settings/theme").bearer(&bia)).status, 200);
+    assert_eq!(
+        api.send(ApiRequest::new("GET", "/api/settings/theme").bearer(&bia)).body["value"],
+        Json::Null
+    );
+
+    assert_eq!(
+        api.send(ApiRequest::new("PUT", "/api/settings/banner").bearer(&bia).json(&put(json!("x")))).status,
+        403
+    );
+    assert_eq!(
+        api.send(ApiRequest::new("PUT", "/api/settings/banner").bearer(&ana).json(&put(json!("Oi")))).status,
+        200
+    );
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/settings/banner").bearer(&bia)).body["value"], "Oi");
+    let large = put(json!("x".repeat(70_000)));
+    assert_eq!(api.send(ApiRequest::new("PUT", "/api/settings/theme").bearer(&bia).json(&large)).status, 400);
+    assert_eq!(
+        api.send(ApiRequest::new("GET", &format!("/api/data/{}", ravenrs_app::APP_SETTING)).bearer(&ana))
+            .status,
+        404
+    );
 }

@@ -12,7 +12,7 @@ use ravenrs_widgets::{
     Tone, VStack, View, ViewExt,
 };
 
-use crate::{RemoteClient, RemoteDatabase, SignInError};
+use crate::{RemoteClient, RemoteDatabase, RemoteSettings, SignInError};
 
 const FORM_WIDTH: f32 = 400.0;
 
@@ -120,23 +120,32 @@ impl RemoteApp {
                 mine.0.stage.set(Stage::Broken(why));
                 return;
             }
-            let (client, back) = (mine.0.client.clone(), mine.clone());
-            let watching = loaded.clone();
-            let app = (mine.0.make)(&loaded).signed_in_remotely(mine.0.name.peek().clone(), move || {
+            let settings = RemoteSettings::new(mine.0.client.clone());
+            let (keeping, reading) = (settings.clone(), mine.clone());
+            settings.load(vec!["theme".to_owned()], Box::new(move || reading.enter(&loaded, keeping)));
+        });
+    }
+
+    fn enter(&self, loaded: &RemoteDatabase, settings: RemoteSettings) {
+        let (client, back) = (self.0.client.clone(), self.clone());
+        let watching = loaded.clone();
+        let app = (self.0.make)(loaded).settings(settings).signed_in_remotely(
+            self.0.name.peek().clone(),
+            move || {
                 client.sign_out();
                 back.0.stage.set(Stage::SignIn);
-            });
-            let app = app.with_session(move |session: &Session| {
-                let changed = session.clone();
-                watching.on_changed(move || changed.records_changed());
-                let told = session.clone();
-                watching.on_problem(move |why| told.show_message(Message::new(why, MessageKind::Error)));
-            });
-            match app.build() {
-                Ok(view) => mine.0.stage.set(Stage::Ready(Rc::new(view))),
-                Err(error) => mine.0.stage.set(Stage::Broken(error.to_string())),
-            }
+            },
+        );
+        let app = app.with_session(move |session: &Session| {
+            let changed = session.clone();
+            watching.on_changed(move || changed.records_changed());
+            let told = session.clone();
+            watching.on_problem(move |why| told.show_message(Message::new(why, MessageKind::Error)));
         });
+        match app.build() {
+            Ok(view) => self.0.stage.set(Stage::Ready(Rc::new(view))),
+            Err(error) => self.0.stage.set(Stage::Broken(error.to_string())),
+        }
     }
 
     fn form(&self, content: impl View + 'static) -> impl View {

@@ -8,10 +8,10 @@ use std::rc::Rc;
 use ravenrs_app::{
     Access, EntityInfo, FieldInfo, FieldKind, MemoryDatabase, ObjectSpace, Operation, PermissionPolicy,
     Query, Role, Rule, SECURITY_ROLE, SECURITY_USER, SECURITY_USER_ROLE, SpaceError, SpaceMaker,
-    UserDirectory, Value, hash_password, security_entities,
+    UserDirectory, Value, hash_password, security_entities, settings_entity,
 };
 use ravenrs_app_remote::{RemoteApp, RemoteClient, RemoteDatabase, RemoteRequest, RemoteResponse, Transport};
-use ravenrs_app_server::{ApiRequest, ApiService};
+use ravenrs_app_server::{ApiRequest, ApiService, SettingAccess};
 use ravenrs_app_ui::{App, Language};
 use ravenrs_core::{AccessAction, Event, Key, Modifiers, Role as AccessRole, Size};
 use ravenrs_criteria::DateTime;
@@ -43,7 +43,7 @@ fn roles() -> Vec<Role> {
 }
 
 fn server() -> (ApiService, MemoryDatabase) {
-    let mut entities = vec![order()];
+    let mut entities = vec![order(), settings_entity()];
     entities.extend(security_entities());
     let database = MemoryDatabase::new(entities).unwrap();
     let making = database.clone();
@@ -72,7 +72,7 @@ fn server() -> (ApiService, MemoryDatabase) {
         records.save(record).unwrap();
     }
     records.commit().unwrap();
-    (ApiService::new(space, roles()).unwrap(), database)
+    (ApiService::new(space, roles()).unwrap().setting("theme", SettingAccess::PerPerson), database)
 }
 
 fn asked(service: &Rc<RefCell<ApiService>>, request: &RemoteRequest) -> RemoteResponse {
@@ -436,4 +436,26 @@ fn someone_who_has_to_change_their_password_does_that_first() {
     window.type_into("Nova senha", "uma-senha-bem-nova");
     window.press("Trocar senha");
     assert!(window.says("Da bia"));
+}
+
+#[test]
+fn the_theme_someone_chose_comes_back_from_the_server() {
+    let (service, _) = server();
+    let service = Rc::new(RefCell::new(service));
+    let open = |name: &str| {
+        let mut window = window(RemoteClient::new("http://server", AtOnce(service.clone())));
+        window.type_into("Nome", name);
+        window.type_into("Senha", PASSWORD);
+        window.press("Entrar");
+        assert!(window.says("Da bia"));
+        window
+    };
+    let mut first = open("bia");
+    assert_eq!(first.0.theme().name, Theme::raven_dark().name);
+    first.0.theme_state().set(Theme::raven_light());
+    first.settle();
+
+    let mut again = open("bia");
+    again.settle();
+    assert_eq!(again.0.theme().name, Theme::raven_light().name);
 }

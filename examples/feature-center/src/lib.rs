@@ -54,6 +54,7 @@ pub fn storage_entities() -> Result<Vec<EntityInfo>, String> {
     entities.push(audit_entity());
     entities.push(report_entity());
     entities.extend(analytics_entities());
+    entities.push(ravenrs_app::settings_entity());
     Ok(entities)
 }
 
@@ -184,6 +185,7 @@ pub fn api_service(file: Option<&std::path::Path>) -> Result<ravenrs_app_server:
         .map_err(wrong)?
         .title("Raven Centro de Recursos")
         .rule_words(ravenrs_app::RuleWords::pt_br())
+        .setting("theme", ravenrs_app_server::SettingAccess::PerPerson)
         .audit(audit());
     let mut records = space();
     seed::seed(&mut *records)?;
@@ -208,8 +210,11 @@ pub fn sqlite_database(file: &std::path::Path) -> Result<ravenrs_app_sqlite::Sql
 pub fn remote(address: &str) -> Result<AnyView, String> {
     register_is_even();
     let client = ravenrs_app_remote::RemoteClient::http(address);
-    let hidden: Vec<String> =
-        security_entities().into_iter().chain([audit_entity()]).map(|entity| entity.name).collect();
+    let hidden: Vec<String> = security_entities()
+        .into_iter()
+        .chain([audit_entity(), ravenrs_app::settings_entity()])
+        .map(|entity| entity.name)
+        .collect();
     let view = ravenrs_app_remote::RemoteApp::view(
         "Raven Centro de Recursos",
         Language::BrazilianPortuguese,

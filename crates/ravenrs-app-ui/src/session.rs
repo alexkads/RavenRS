@@ -414,6 +414,7 @@ struct SessionInner {
     on_file: Rc<RefCell<Option<FileHandler>>>,
     on_url: Rc<RefCell<Option<UrlHandler>>>,
     controls: Rc<RefCell<BTreeMap<String, ControlFactory>>>,
+    settings: RefCell<Option<Rc<dyn ravenrs_app::SettingsStore>>>,
     presented: State<Option<Presented>>,
     /// Something that takes the place of the view, as an editor of its own does.
     full: State<Option<ControlFactory>>,
@@ -487,6 +488,7 @@ impl Session {
             on_file: Rc::default(),
             on_url: Rc::default(),
             controls: Rc::default(),
+            settings: RefCell::new(None),
             presented: State::new(None),
             full: State::new(None),
             reminders: State::new((0, false)),
@@ -561,6 +563,7 @@ impl Session {
             on_file: parent.on_file.clone(),
             on_url: parent.on_url.clone(),
             controls: parent.controls.clone(),
+            settings: RefCell::new(parent.settings.borrow().clone()),
             presented: parent.presented.clone(),
             full: parent.full.clone(),
             reminders: parent.reminders.clone(),
@@ -672,6 +675,14 @@ impl Session {
 
     pub(crate) fn account(&self) -> Option<Account> {
         self.0.account.borrow().clone()
+    }
+
+    pub(crate) fn use_settings(&self, store: Rc<dyn ravenrs_app::SettingsStore>) {
+        *self.0.settings.borrow_mut() = Some(store);
+    }
+
+    pub(crate) fn settings(&self) -> Option<Rc<dyn ravenrs_app::SettingsStore>> {
+        self.0.settings.borrow().clone()
     }
 
     pub(crate) fn use_account(&self, account: Account) {

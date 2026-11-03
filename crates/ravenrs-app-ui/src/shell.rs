@@ -4,12 +4,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use ravenrs_app::{
-    ActionInput, Application, Frame, FrameContext, ModelNode, ObjectSpace, Value, ViewInfo, ViewKind,
+    ActionInput, Application, Frame, FrameContext, ModelNode, ObjectSpace, SettingScope, Value, ViewInfo,
+    ViewKind,
 };
 use ravenrs_core::Insets;
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
-use ravenrs_style::{Semantic, TextStyle, Weight};
+use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_widgets::{
     Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Dialog, Divider, IconButton,
     IconName, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection, Text,
@@ -24,6 +25,8 @@ use crate::session::{Session, Words};
 use crate::values::display;
 
 const NARROW_WINDOW: f32 = 720.0;
+/// The name the theme someone chose goes under.
+const THEME_SETTING: &str = "theme";
 /// How wide a window of something shown over the screens is.
 const PRESENTED_WIDTH: f32 = 960.0;
 /// How far everything on a page stands from its edges, so it all starts on one line.
@@ -79,6 +82,7 @@ pub struct AppShell {
     session: Session,
     template: Rc<dyn FrameTemplate>,
     theme_menu: bool,
+    kept_theme: RefCell<Option<String>>,
 }
 
 impl std::fmt::Debug for AppShell {
@@ -116,7 +120,7 @@ impl AppShell {
         if let Some(first) = session.first_view() {
             session.show_view_now(&first);
         }
-        Self { session, template: Rc::new(MainTemplate), theme_menu: true }
+        Self { session, template: Rc::new(MainTemplate), theme_menu: true, kept_theme: RefCell::new(None) }
     }
 
     /// Arranges the window with this.
@@ -147,6 +151,35 @@ impl AppShell {
     /// What its screens share.
     pub fn session(&self) -> Session {
         self.session.clone()
+    }
+
+    /// Brings back the theme this person left, the first time, and keeps it whenever it changes.
+    fn keep_theme(&self, cx: &mut BuildCx<'_>) {
+        let Some(store) = self.session.settings() else { return };
+        let scope = match self.session.account() {
+            Some(account) => SettingScope::User(account.name),
+            None => SettingScope::Global,
+        };
+        let state = cx.theme_state();
+        let mut kept = self.kept_theme.borrow_mut();
+        if kept.is_none() {
+            let stored = store.get(&scope, THEME_SETTING).ok().flatten();
+            // What is kept comes from outside the program, and what makes no sense is left out.
+            if let Some(theme) = stored.as_deref().and_then(|text| Theme::from_tokens_json(text).ok()) {
+                state.set(theme);
+                *kept = stored;
+                return;
+            }
+            *kept = Some(state.with(Theme::to_tokens_json));
+            return;
+        }
+        let now = state.with(Theme::to_tokens_json);
+        if kept.as_deref() != Some(now.as_str()) {
+            if let Err(why) = store.set(&scope, THEME_SETTING, &now) {
+                self.session.show_message(ravenrs_app::Message::new(why, ravenrs_app::MessageKind::Error));
+            }
+            *kept = Some(now);
+        }
     }
 
     fn navigation(&self, current: Option<&ViewInfo>) -> AnyView {
@@ -560,6 +593,7 @@ impl View for PopupHost {
 
 impl View for AppShell {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        self.keep_theme(cx);
         let session = &self.session;
         let view = session.frame().view();
         let view = view.as_ref();

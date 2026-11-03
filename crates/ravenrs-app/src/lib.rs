@@ -38,6 +38,7 @@ mod model;
 mod module;
 mod object;
 mod security;
+mod settings;
 mod space;
 mod validation;
 mod workflow;
@@ -69,10 +70,13 @@ pub use ravenrs_criteria::{Criteria, Value};
 pub use security::{
     ADMINISTRATORS_ROLE, Access, AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError,
     Authenticator, Credentials, Identity, MIN_PASSWORD_CHARS, Operation, PasswordError, PermissionPolicy,
-    Permissions, Role, RoleMerge, SECURITY_ACTION_PERMISSION, SECURITY_AUDIT_ENTRY,
+    Permissions, Role, RoleMerge, SECURITY_ACTION_PERMISSION, SECURITY_API_KEY, SECURITY_AUDIT_ENTRY,
     SECURITY_MEMBER_PERMISSION, SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE,
     SECURITY_TYPE_PERMISSION, SECURITY_USER, SECURITY_USER_ROLE, SecuredObjectSpace, SecurityContext,
     SpaceMaker, UserDirectory, audit_entity, hash_password, security_entities, verify_password,
+};
+pub use settings::{
+    APP_SETTING, MemorySettings, RecordSettings, SettingScope, SettingsStore, settings_entity,
 };
 pub use space::{
     Change, ChangeSet, MemoryDatabase, MemoryObjectSpace, Merged, ObjectSpace, Query, SpaceError, SpaceEvent,
