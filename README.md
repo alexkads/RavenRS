@@ -18,7 +18,7 @@ One declarative UI, drawn on the GPU, in a native window on Windows, macOS and L
 
 RavenRS is a free, open source GUI framework for Rust with a large component library: 60+ components including a virtualized **DataGrid** for 100,000+ rows, an Office-style **Ribbon**, a **command palette**, calendars, menus, dialogs, charts and 200 icons. Everything is drawn by RavenRS itself with `wgpu`, so the same code looks the same on the desktop and on the web.
 
-> **Versions follow the component-vendor model:** `YY.R.P`, with new features in `.2` and monthly fixes. Until 28.1.0 any release may hold breaking changes, so pin an exact version if that matters to you; from then on they come only in each year's `.1` ([docs/VERSIONING.md](docs/VERSIONING.md)). The current line, 26.x, is young: [docs/QUALITY.md](docs/QUALITY.md) lists what is still missing. [docs/PARITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) tracks every component family of shadcn/ui, DevExpress and Telerik and where RavenRS stands.
+> **Versions follow the component-vendor model:** `YY.R.P`, with new features in `.2` and monthly fixes. Until 28.1.0 any release may hold breaking changes, so pin an exact version if that matters to you; from then on they come only in each year's `.1` ([docs/VERSIONING.md](https://github.com/alexkads/RavenRS/blob/master/docs/VERSIONING.md)). The current line, 26.x, is young: [docs/QUALITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/QUALITY.md) lists what is still missing. [docs/PARITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) tracks every component family of shadcn/ui, DevExpress and Telerik and where RavenRS stands.
 
 ## Why RavenRS
 
@@ -166,7 +166,7 @@ For other MCP clients, configure the command `ravenrs-mcp` over stdio. The skill
 
 ## Roadmap
 
-- **Application framework**, in progress: declare a record and get its screens. See [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md).
+- **Application framework**, in progress: declare a record and get its screens. See [docs/APP-FRAMEWORK.md](https://github.com/alexkads/RavenRS/blob/master/docs/APP-FRAMEWORK.md).
 - **Reporting**: the engine, the [report designer](https://alexkads.github.io/RavenRS/designer/), PDF, XLSX and CSV export, and a [report server](https://github.com/alexkads/RavenRS/blob/master/docs/REPORT-SERVER.md) with scheduled delivery are here. Next: subreports and a table of contents. See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING.md).
 - **DataGrid parity**: frozen columns, drag reordering and drag-to-group, header filters, master-detail.
 - **Vector paths** for line and pie charts and gauges, and backdrop blur for Raven Glass.
