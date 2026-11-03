@@ -33,6 +33,7 @@ pub struct TextField {
     compact: bool,
     autofocus: bool,
     on_submit: Option<Rc<dyn Fn(String)>>,
+    on_leave: Option<Rc<dyn Fn()>>,
     on_cancel: Option<Rc<dyn Fn()>>,
     intercept: Option<crate::KeyHandler>,
     state: util::EditorState,
@@ -60,6 +61,7 @@ impl TextField {
             compact: false,
             autofocus: false,
             on_submit: None,
+            on_leave: None,
             on_cancel: None,
             intercept: None,
             state: util::EditorState::default(),
@@ -120,6 +122,12 @@ impl TextField {
     /// Called with the current text when Enter is pressed.
     pub fn on_submit(mut self, handler: impl Fn(String) + 'static) -> Self {
         self.on_submit = Some(Rc::new(handler));
+        self
+    }
+
+    /// Called when the keyboard goes elsewhere after being here.
+    pub fn on_leave(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_leave = Some(Rc::new(handler));
         self
     }
 
@@ -380,6 +388,13 @@ impl View for TextField {
             cx.request_focus();
         }
         let focused = cx.is_focused() && !state.disabled;
+        let had_focus: State<bool> = cx.use_state(|| false);
+        if *had_focus.peek() != focused {
+            had_focus.set(focused);
+            if !focused && let Some(left) = &self.on_leave {
+                left();
+            }
+        }
         let hovered = cx.is_hovered() && !state.disabled;
         let text = self.value.get();
         let len = text.chars().count();

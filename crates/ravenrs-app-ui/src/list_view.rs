@@ -11,8 +11,8 @@ use ravenrs_grid_export::export;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::grid::{GridQuery, Row, Value as Cell, to_table};
 use ravenrs_widgets::{
-    BuildCx, DataGrid, GridCellStyle, GridColumn, GridData, GridPage, GridRequest, GridResponder,
-    GridRowAction, GridTable, NodeId, RemoteRows, SelectionMode, SortDirection, Text, View,
+    AnyView, BuildCx, DataGrid, GridCellStyle, GridColumn, GridData, GridPage, GridRequest, GridResponder,
+    GridRowAction, GridTable, Keyed, NodeId, RemoteRows, SelectionMode, SortDirection, Text, View,
 };
 
 use crate::session::Session;
@@ -20,6 +20,37 @@ use crate::values::{cell_of, column_of, display, key_from_text, key_text, semant
 
 /// What opening a row of a list does, with its key.
 pub type OpenHandler = Rc<dyn Fn(&Value)>;
+
+/// What a list editor is asked to show: the records as the list reads them, and how to act on them.
+#[non_exhaustive]
+pub struct ListEditorRequest {
+    /// The application it lives in.
+    pub session: Session,
+    /// The view it shows.
+    pub view: ViewInfo,
+    /// The entity of the records.
+    pub entity: EntityInfo,
+    /// The fields the list shows, with what their columns say.
+    pub columns: Vec<(FieldInfo, String)>,
+    /// The records, in the list's order.
+    pub objects: Rc<Vec<Object>>,
+    /// Opens a record, by its key.
+    pub on_open: OpenHandler,
+    /// Says which records are selected, which turns actions on and off.
+    pub on_select: Rc<dyn Fn(Vec<Object>)>,
+}
+
+impl std::fmt::Debug for ListEditorRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ListEditorRequest").field("view", &self.view).finish_non_exhaustive()
+    }
+}
+
+/// Shows a list some other way than in a grid.
+pub(crate) type ListEditorFactory = Rc<dyn Fn(&ListEditorRequest) -> AnyView>;
+
+/// What gives a list its records when no storage keeps them.
+pub type ListSource = Rc<dyn Fn() -> Vec<Object>>;
 
 /// What a column ends up as, from its field and the one the field gives.
 pub type ColumnShape = Rc<dyn Fn(&FieldInfo, GridColumn) -> GridColumn>;
@@ -34,6 +65,7 @@ struct Loaded {
     asked: String,
     data: GridData,
     objects: Rc<BTreeMap<String, Object>>,
+    ordered: Rc<Vec<Object>>,
 }
 
 /// A list that brings its rows as they are needed.
@@ -49,16 +81,26 @@ type Shown<'a> = (&'a FieldInfo, String, bool);
 
 /// The fields a list shows, in the order to show them, with the key last and out of sight, so
 /// a row can always be found.
-fn shown_fields<'a>(entity: &'a EntityInfo, view: &'a ModelNode) -> Vec<Shown<'a>> {
-    let mut fields: Vec<Shown<'a>> = view
-        .get("Columns")
-        .map(|columns| columns.in_order())
-        .unwrap_or_default()
+fn shown_fields<'a>(entity: &'a EntityInfo, view: &'a ModelNode, only: Option<&[String]>) -> Vec<Shown<'a>> {
+    let all = view.get("Columns");
+    let caption = |id: &str, field: &FieldInfo| {
+        all.and_then(|columns| columns.get(id))
+            .and_then(|column| column.text("Caption"))
+            .unwrap_or(&field.caption)
+            .to_owned()
+    };
+    let chosen: Vec<&str> = match only {
+        Some(names) => names.iter().map(String::as_str).collect(),
+        None => all
+            .map(|columns| columns.in_order())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|column| column.id.as_str())
+            .collect(),
+    };
+    let mut fields: Vec<Shown<'a>> = chosen
         .into_iter()
-        .filter_map(|column| {
-            let field = entity.field_named(&column.id)?;
-            Some((field, column.text("Caption").unwrap_or(&field.caption).to_owned(), true))
-        })
+        .filter_map(|id| entity.field_named(id).map(|field| (field, caption(id, field), true)))
         .collect();
     if let Some(key) = entity.key_field()
         && !fields.iter().any(|(field, ..)| field.is_key)
@@ -85,6 +127,7 @@ pub struct ListView {
     single: bool,
     plain: bool,
     remote: bool,
+    source: Option<ListSource>,
 }
 
 /// What a cell says instead of its value, for a field and a record; nothing means its value.
@@ -268,6 +311,7 @@ impl ListView {
             single: false,
             plain: false,
             remote: false,
+            source: None,
         }
     }
 
@@ -338,14 +382,19 @@ impl ListView {
         self
     }
 
+    /// Reads its records from this and not from storage, for what no storage keeps.
+    pub fn source(mut self, source: ListSource) -> Self {
+        self.source = Some(source);
+        self
+    }
+
     fn reader(&self) -> Reader {
         Reader { session: self.session.clone(), frame: self.frame.clone(), cell_text: self.cell_text.clone() }
     }
 
     /// What this list asks of its records now.
     fn active_filter(&self) -> Option<Criteria> {
-        let variant = self.session.variant_filter(&self.view.id).and_then(|text| Criteria::parse(&text).ok());
-        both(self.filter.clone(), variant)
+        both(self.filter.clone(), self.session.model_filter(&self.view.id))
     }
 
     fn load(
@@ -364,7 +413,10 @@ impl ListView {
         for (field, ascending) in &self.sort {
             query = query.sort(field.clone(), *ascending);
         }
-        let found = space.borrow().query(&entity.name, &query);
+        let found = match &self.source {
+            Some(source) => Ok(source()),
+            None => space.borrow().query(&entity.name, &query),
+        };
         let objects = match found {
             Ok(objects) => objects,
             Err(error) => {
@@ -372,11 +424,12 @@ impl ListView {
                 Vec::new()
             }
         };
+        let ordered = Rc::new(objects.clone());
         let key = entity.key_field().map(|f| f.name.clone()).unwrap_or_default();
         let rows = self.reader().rows(fields, &objects);
         let by_key =
             objects.into_iter().map(|object| (key_text(entity, &object.get(&key)), object)).collect();
-        Loaded { revision, asked, data: GridData::new(rows), objects: Rc::new(by_key) }
+        Loaded { revision, asked, data: GridData::new(rows), objects: Rc::new(by_key), ordered }
     }
 
     /// Keeps only what still exists selected, as it is now, so actions judge it as it is.
@@ -435,13 +488,40 @@ impl View for ListView {
         let Some(entity) = session.entity(name) else {
             return cx.child(&Text::new(name.to_owned()));
         };
-        let fields = shown_fields(&entity, node);
+        let only = session.variant_columns(&self.view.id);
+        let fields = shown_fields(&entity, node, only.as_deref());
         let infos: Vec<FieldInfo> = fields.iter().map(|(field, ..)| (*field).clone()).collect();
         let revision = session.revision();
         let filter = self.active_filter();
         let asked =
             format!("{}|{:?}", filter.as_ref().map(ToString::to_string).unwrap_or_default(), self.sort);
         let chosen: State<BTreeSet<String>> = cx.use_state(BTreeSet::new);
+        let editor = node
+            .text("EditorType")
+            .or_else(|| model.get("Views").and_then(|views| views.text("DefaultListEditor")))
+            .and_then(|name| session.list_editor(name));
+        if let Some(editor) = editor {
+            let loaded = self.load(&entity, &infos, filter.as_ref(), revision, asked);
+            let (opener, open_entity, on_open) = (session.clone(), entity.clone(), self.on_open.clone());
+            let frame = self.frame.clone();
+            let request = ListEditorRequest {
+                session: session.clone(),
+                view: self.view.clone(),
+                entity: entity.clone(),
+                columns: fields
+                    .iter()
+                    .filter(|(_, _, visible)| *visible)
+                    .map(|(field, caption, _)| ((*field).clone(), caption.clone()))
+                    .collect(),
+                objects: loaded.ordered,
+                on_open: Rc::new(move |key: &Value| match &on_open {
+                    Some(on_open) => on_open(key),
+                    None => opener.open_detail(&open_entity.name, key),
+                }),
+                on_select: Rc::new(move |records| frame.set_selected(records)),
+            };
+            return cx.child(&editor(&request));
+        }
         let (data, objects, remote_rows) = if self.remote {
             let rows = self.remote_rows(cx, &entity, &infos, filter.as_ref(), revision, &asked);
             (GridData::new(Vec::new()), Rc::new(BTreeMap::new()), Some(rows))
@@ -577,8 +657,16 @@ impl View for ListView {
             Some(shape) => shape(grid),
             None => grid,
         };
-        cx.child(&grid)
+        // Another set of columns starts over, since the grid keeps what it knows by position.
+        match only {
+            Some(names) => cx.child(&Keyed::new(hash_of(&names.join(",")), grid)),
+            None => cx.child(&grid),
+        }
     }
+}
+
+fn hash_of(text: &str) -> u64 {
+    text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3))
 }
 
 impl Session {
@@ -589,11 +677,12 @@ impl Session {
         let (name, node) = (view.entity.as_deref()?, model.at(&["Views", &view.id])?);
         let entity = self.entity(name)?;
         let mut query = Query::all();
-        if let Some(filter) = self.variant_filter(&view.id).and_then(|text| Criteria::parse(&text).ok()) {
+        if let Some(filter) = self.model_filter(&view.id) {
             query = query.filter(filter);
         }
         let objects = self.frame().space().borrow().query(name, &query).ok()?;
-        let shown: Vec<(FieldInfo, String)> = shown_fields(&entity, node)
+        let only = self.variant_columns(&view.id);
+        let shown: Vec<(FieldInfo, String)> = shown_fields(&entity, node, only.as_deref())
             .into_iter()
             .filter(|(_, _, visible)| *visible)
             .map(|(field, caption, _)| (field.clone(), caption))

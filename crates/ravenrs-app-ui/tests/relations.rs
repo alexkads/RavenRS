@@ -632,3 +632,373 @@ fn pictures_and_files_have_controls_on_a_form() {
     assert!(buttons.iter().any(|name| name == "Choose image"), "{buttons:?}");
     assert!(buttons.iter().any(|name| name == "Choose files"), "{buttons:?}");
 }
+
+fn tracker() -> Vec<EntityInfo> {
+    vec![
+        EntityInfo::new("Project")
+            .caption("Projects")
+            .navigation("Work")
+            .cloneable()
+            .filter(ListFilter::new("all", "Everything"))
+            .filter(ListFilter::new("mine", "Only mine").criteria("[owner] = 'me'"))
+            .variant(ViewVariant::new("full", "Full"))
+            .variant(ViewVariant::new("short", "Short").columns(["name"]))
+            .list_criteria("[hidden] = False")
+            .field(FieldInfo::new("id", FieldKind::Integer).key())
+            .field(FieldInfo::new("name", FieldKind::Text).caption("Name").default_property())
+            .field(FieldInfo::new("owner", FieldKind::Text).caption("Owner"))
+            .field(FieldInfo::new("secret", FieldKind::Text).caption("Secret").non_cloneable())
+            .field(
+                FieldInfo::new("hidden", FieldKind::Boolean)
+                    .in_list(false)
+                    .in_detail(false)
+                    .default_value(false),
+            )
+            .field(
+                FieldInfo::new("tasks", FieldKind::Collection("Task".into())).caption("Tasks").aggregated(),
+            )
+            .field(
+                FieldInfo::new("people", FieldKind::Collection("Person".into()))
+                    .caption("People")
+                    .lookup_filter("[active] = True"),
+            ),
+        EntityInfo::new("Task")
+            .field(FieldInfo::new("id", FieldKind::Integer).key())
+            .field(FieldInfo::new("title", FieldKind::Text).caption("Title").default_property())
+            .field(FieldInfo::new("project", FieldKind::Reference("Project".into()))),
+        EntityInfo::new("Person")
+            .field(FieldInfo::new("id", FieldKind::Integer).key())
+            .field(FieldInfo::new("name", FieldKind::Text).caption("Name").default_property())
+            .field(FieldInfo::new("active", FieldKind::Boolean))
+            .field(FieldInfo::new("project", FieldKind::Reference("Project".into()))),
+    ]
+}
+
+fn tracker_world(setup: impl FnOnce(ApplicationBuilder) -> ApplicationBuilder) -> World {
+    let database = MemoryDatabase::new(tracker()).expect("valid");
+    let mut space = database.space();
+    let mut add = |entity: &str, values: &[(&str, Value)]| {
+        let mut object = space.new_object(entity).expect("known");
+        for (field, value) in values {
+            object.set(field, value.clone());
+        }
+        let key = object.get("id");
+        space.save(object).expect("saves");
+        key
+    };
+    let text = |t: &str| Value::Text(t.to_owned());
+    let off = Value::Bool(false);
+    let on = Value::Bool(true);
+    let first = add(
+        "Project",
+        &[("name", text("Ponte")), ("owner", text("me")), ("secret", text("x")), ("hidden", off.clone())],
+    );
+    add("Project", &[("name", text("Torre")), ("owner", text("you")), ("hidden", off)]);
+    add("Project", &[("name", text("Oculto")), ("owner", text("me")), ("hidden", on.clone())]);
+    add("Task", &[("title", text("Fundação")), ("project", first.clone())]);
+    add("Person", &[("name", text("Ana")), ("active", on.clone())]);
+    add("Person", &[("name", text("Bia")), ("active", Value::Bool(false))]);
+    add("Person", &[("name", text("Caio")), ("active", on), ("project", first)]);
+    space.commit().expect("keeps");
+    let builder = tracker().into_iter().fold(
+        Application::builder("Test").module(SystemModule::new()).module(CloneModule::default()),
+        ApplicationBuilder::entity,
+    );
+    let application = setup(builder).build().expect("valid");
+    let source = database.clone();
+    let shell = AppShell::new(application, move || source.space());
+    let session = shell.session();
+    World::over(shell, database, session)
+}
+
+#[test]
+fn a_list_keeps_to_the_criteria_of_the_model_and_offers_its_filters() {
+    let mut w = tracker_world(|builder| builder);
+    assert!(w.says("Ponte") && w.says("Torre"));
+    assert!(!w.says("Oculto"), "the model's criteria");
+    w.press("Filter");
+    w.act(Role::MenuItem, "Only mine", AccessAction::Click);
+    assert!(w.says("Ponte"));
+    assert!(!w.says("Torre"), "the filter picked");
+    assert!(w.session.user_settings().expect("a layer").contains("CurrentFilters"));
+    w.press("Filter");
+    w.act(Role::MenuItem, "Everything", AccessAction::Click);
+    assert!(w.says("Torre"));
+}
+
+#[test]
+fn a_way_to_see_a_list_can_change_its_columns() {
+    let mut w = tracker_world(|builder| builder);
+    assert!(w.says("Owner"), "the owner shows at first");
+    w.press("View");
+    w.act(Role::MenuItem, "Short", AccessAction::Click);
+    assert!(w.says("Ponte"));
+    assert!(!w.says("Owner"), "and this way has no such column");
+}
+
+#[test]
+fn the_list_to_link_from_leaves_out_what_is_linked_and_what_the_filter_refuses() {
+    let mut w = tracker_world(|builder| builder);
+    w.session.open_detail("Project", &Value::Number(1.0));
+    w.settle();
+    w.act(Role::Tab, "People", AccessAction::Click);
+    assert!(w.says("Caio"), "already on the list");
+    w.press("Link");
+    w.select_cell("Ana", true);
+    assert!(!w.says("Bia"), "the filter refused her");
+    let cells = w
+        .ui
+        .access_tree()
+        .nodes
+        .iter()
+        .filter(|n| {
+            n.role == Role::Cell && (n.name.as_deref() == Some("Caio") || n.value.as_deref() == Some("Caio"))
+        })
+        .count();
+    assert_eq!(cells, 0, "what is linked is not there to pick, and the window covers the list behind");
+    w.press("OK");
+    assert_eq!(w.count("Person", "[project] = 1"), 2);
+}
+
+#[test]
+fn cloning_brings_what_the_record_holds_and_what_belongs_to_it_and_nothing_else() {
+    let mut w = tracker_world(|builder| builder);
+    w.select_row("Ponte");
+    w.press("Clone");
+    assert!(w.says("Ponte"), "the form holds what it held");
+    assert_eq!(w.count("Project", "[name] = 'Ponte'"), 1, "nothing is kept until it is saved");
+    w.press("Save");
+    assert_eq!(w.count("Project", "[name] = 'Ponte'"), 2);
+    let found = w.database.space().query("Project", &Query::all()).expect("reads");
+    let copy = found.iter().rfind(|p| p.get("name") == Value::Text("Ponte".into())).expect("the copy");
+    assert_eq!(copy.get("secret"), Value::Null, "what is marked stays behind");
+    assert_eq!(w.count("Task", "[title] = 'Fundação'"), 2, "a list that belongs to it comes along");
+    let key = copy.get("id");
+    let Value::Number(key) = key else { panic!("a key") };
+    assert_eq!(w.count("Task", &format!("[project] = {key}")), 1);
+    assert_eq!(w.count("Person", &format!("[project] = {key}")), 0, "a list that does not belong stays");
+}
+
+#[test]
+fn only_what_says_it_can_be_cloned_offers_it() {
+    let mut w = tracker_world(|builder| builder);
+    assert!(w.names(Role::Button).iter().any(|name| name == "Clone"));
+    w.session.show_list("Task_ListView");
+    w.settle();
+    assert!(!w.names(Role::Button).iter().any(|name| name == "Clone"));
+}
+
+#[test]
+fn a_list_editor_is_picked_by_the_model() {
+    let mut w = tracker_world(|builder| builder);
+    w.session.register_list_editor("Plain", |request| {
+        let names: Vec<String> = request.objects.iter().map(|o| format!("{:?}", o.get("name"))).collect();
+        Box::new(Text::new(format!("{} records: {}", request.objects.len(), names.join(", ")))) as AnyView
+    });
+    assert!(w.says("Ponte"));
+    w.session.choose_list_editor("Project_ListView", "Plain").expect("a setting");
+    w.settle();
+    assert!(w.says("2 records"), "with the records the list would read");
+    assert!(w.nodes_of(Role::Cell).is_empty(), "and no grid");
+}
+
+impl World {
+    fn nodes_of(&mut self, role: Role) -> Vec<AccessNode> {
+        self.ui.access_tree().nodes.into_iter().filter(|n| n.role == role).collect()
+    }
+}
+
+#[test]
+fn rules_and_words_can_come_from_the_model() {
+    let module = ModelWords;
+    let mut w = tracker_world(|builder| {
+        builder.module(module).translation(
+            "pt-BR",
+            r#"{"Entities":{"Project":{"Caption":"Projetos","Members":{"name":{"Caption":"Nome"}}}}}"#,
+        )
+    });
+    w.session.open_new("Project");
+    w.settle();
+    w.press("Save");
+    assert!(w.says("Say a name"), "a rule set only in the model");
+    w.session.set_language("pt-BR").expect("a language");
+    w.settle();
+    assert!(w.says("Nome"), "the caption followed to the form");
+    w.session.show_list("Project_ListView");
+    w.settle();
+    assert!(w.says("Projetos"), "and to the navigation");
+    w.session.set_language("en").expect("back");
+    w.settle();
+    assert!(w.says("Projects"));
+}
+
+struct ModelWords;
+
+impl Module for ModelWords {
+    fn name(&self) -> &str {
+        "ModelWords"
+    }
+    fn model_difference(&self) -> Option<&'static str> {
+        Some(
+            r#"{"Entities":{"Project":{"Rules":{"NeedsName":{"$new":true,"Kind":"Required","Field":"name","Message":"Say a name"}}}}}"#,
+        )
+    }
+}
+
+#[test]
+fn a_function_of_the_application_works_in_expressions() {
+    register_function("IsBridge", |values| {
+        Ok(Value::Bool(matches!(values.first(), Some(Value::Text(text)) if text == "Ponte")))
+    });
+    let mut w = tracker_world(|builder| builder);
+    let filter = Criteria::parse("IsBridge([name])").ok();
+    let found = w.database.space().query("Project", &Query::all().filter(filter.expect("parses")));
+    assert_eq!(found.expect("reads").len(), 1);
+    w.settle();
+}
+
+#[test]
+fn a_service_reaches_actions_by_its_type() {
+    struct Counter(std::cell::Cell<u32>);
+    struct Bump;
+    impl ViewController for Bump {
+        fn id(&self) -> &str {
+            "Bump"
+        }
+        fn actions(&self) -> Vec<Action> {
+            vec![Action::simple("Bump", "Bump").on_execute(|cx| {
+                let counter = cx.service::<Counter>().ok_or("no counter")?;
+                counter.0.set(counter.0.get() + 1);
+                Ok(())
+            })]
+        }
+    }
+    struct M;
+    impl Module for M {
+        fn name(&self) -> &str {
+            "M"
+        }
+        fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
+            vec![Box::new(Bump)]
+        }
+    }
+    let mut w = tracker_world(|builder| builder.module(M).service(Counter(std::cell::Cell::new(0))));
+    w.press("Bump");
+    let counter = w.session.frame().extension::<Counter>().expect("kept");
+    assert_eq!(counter.0.get(), 1);
+}
+
+#[test]
+fn a_module_puts_its_records_in_place_when_the_application_opens() {
+    #[derive(BusinessObject, Default)]
+    #[object(navigation = "Records")]
+    #[variant(id = "all", caption = "All")]
+    #[variant(id = "short", caption = "Short", filter = "[name] <> ''", columns = "name")]
+    #[list_filter(id = "named", caption = "Named", filter = "[name] <> ''")]
+    struct Thing {
+        #[field(key)]
+        id: i64,
+        #[field(wide, hint = "What it is called", autofocus, non_cloneable)]
+        name: String,
+    }
+    struct Starter;
+    impl Module for Starter {
+        fn name(&self) -> &str {
+            "Starter"
+        }
+        fn initial_records(&self, space: &mut dyn ObjectSpace) -> Result<(), String> {
+            if space.query("Thing", &Query::all()).map_err(|e| e.to_string())?.is_empty() {
+                let mut thing = space.new_object("Thing").map_err(|e| e.to_string())?;
+                thing.set("name", "Primeira");
+                space.save(thing).map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        }
+    }
+    let info = Thing::entity_info();
+    assert_eq!(info.variants.len(), 2);
+    assert_eq!(info.variants[1].columns, ["name"]);
+    assert_eq!(info.filters.len(), 1);
+    assert!(info.field_named("name").is_some_and(|f| f.wide && f.autofocus && f.non_cloneable));
+    let window = App::new("Test").entity::<Thing>().module(Starter).build().expect("valid");
+    let mut ui = Ui::new(window, Theme::raven_dark());
+    ui.set_viewport(Size::new(1000.0, 700.0), 1.0);
+    ui.update();
+    ui.update();
+    assert!(
+        ui.access_tree()
+            .nodes
+            .iter()
+            .any(|n| { n.name.as_deref() == Some("Primeira") || n.value.as_deref() == Some("Primeira") })
+    );
+}
+
+#[test]
+fn a_form_that_checks_on_leaving_speaks_only_of_what_was_left() {
+    let entity = || {
+        EntityInfo::new("Person")
+            .navigation("People")
+            .checks_on_leave()
+            .field(FieldInfo::new("id", FieldKind::Integer).key())
+            .field(FieldInfo::new("name", FieldKind::Text).caption("Name"))
+            .field(FieldInfo::new("nick", FieldKind::Text).caption("Nick"))
+            .rule(Rule::required("name").message("Say a name"))
+            .rule(Rule::required("nick").message("Say a nick"))
+    };
+    let database = MemoryDatabase::new(vec![entity()]).expect("valid");
+    let source = database.clone();
+    let application =
+        Application::builder("Test").module(SystemModule::new()).entity(entity()).build().expect("valid");
+    let shell = AppShell::new(application, move || source.space());
+    let session = shell.session();
+    let mut w = World::over(shell, database, session.clone());
+    session.open_new("Person");
+    w.settle();
+    assert!(!w.says("Say a name"), "nothing yet");
+    let name = |w: &mut World, field: &str| {
+        w.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::TextInput && n.name.as_deref() == Some(field))
+            .expect("the field")
+            .id
+    };
+    let id = name(&mut w, "Name");
+    w.ui.perform_action(id, AccessAction::Focus);
+    w.settle();
+    assert!(!w.says("Say a name"), "still in it");
+    let id = name(&mut w, "Nick");
+    w.ui.perform_action(id, AccessAction::Focus);
+    w.settle();
+    assert!(w.says("Say a name"), "left empty");
+    assert!(!w.says("Say a nick"), "and what is ahead is not an error yet");
+}
+
+#[test]
+fn a_list_can_show_records_no_storage_keeps() {
+    let entity = || {
+        EntityInfo::new("Line")
+            .caption("Lines")
+            .transient()
+            .field(FieldInfo::new("id", FieldKind::Integer).key().in_list(true))
+            .field(FieldInfo::new("text", FieldKind::Text))
+    };
+    let other = EntityInfo::new("Kept").field(FieldInfo::new("id", FieldKind::Integer).key());
+    let database = MemoryDatabase::new(vec![other.clone()]).expect("valid");
+    let source = database.clone();
+    let application = Application::builder("Test").entity(entity()).entity(other).build().expect("valid");
+    let session = Session::embedded(application, move || source.space(), Words::default());
+    session.show_list("Line_ListView");
+    let view = session.frame().view().expect("a view");
+    let list = ListView::new(session.clone(), session.frame(), view).source(Rc::new(|| {
+        let mut line = Object::from_values("Line", Default::default());
+        line.set("id", 1.0);
+        line.set("text", "Da memória");
+        vec![line]
+    }));
+    let mut w = World::over(ravenrs_widgets::ViewExt::height(list, 300.0), database, session.clone());
+    assert!(w.says("Da memória"));
+    session.open_new("Line");
+    w.settle();
+    assert!(session.form_record().is_some(), "and a form opens with nothing behind it");
+}

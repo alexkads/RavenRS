@@ -1,11 +1,15 @@
 //! How an application is put together: modules bring entities, behavior and model changes.
 
+use std::any::Any;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::frame::FrameContext;
 use crate::model::{Diff, MergedModel, ModelLayer, ModelLayers, check_model, generate_model};
 use crate::{EntityInfo, Frame, ModelError, ModelNode, ObjectSpace, ViewController, WindowController};
+
+/// The layer that holds the model's words in the language picked.
+const LANGUAGE_LAYER: &str = "Language";
 
 /// A part of an application: what it adds, in one place. Modules stack, each over those it
 /// depends on.
@@ -43,6 +47,12 @@ pub trait Module {
     /// Its layer of the model, as JSON.
     fn model_difference(&self) -> Option<&'static str> {
         None
+    }
+
+    /// Puts in place the records it needs, when an application opens on its storage. It runs every
+    /// time, so it looks before adding. The commit is up to whoever calls it.
+    fn initial_records(&self, _space: &mut dyn ObjectSpace) -> Result<(), String> {
+        Ok(())
     }
 }
 
@@ -170,7 +180,12 @@ fn in_dependency_order(modules: Vec<Box<dyn Module>>) -> Result<Vec<Box<dyn Modu
 pub struct Application {
     title: String,
     modules: Vec<Box<dyn Module>>,
+    /// As they were declared.
+    declared: Vec<EntityInfo>,
+    /// As the model has them now.
     entities: Vec<EntityInfo>,
+    services: Vec<Rc<dyn Any>>,
+    translations: Vec<(String, Diff)>,
     layers: ModelLayers,
     model: Rc<ModelNode>,
     unusable: Vec<crate::UnusableNode>,
@@ -190,6 +205,8 @@ impl Application {
             modules: Vec::new(),
             entities: Vec::new(),
             dashboards: Vec::new(),
+            services: Vec::new(),
+            translations: Vec::new(),
         }
     }
 
@@ -218,6 +235,23 @@ impl Application {
         &mut self.layers
     }
 
+    /// Shows the model in this language, from the translation given for it; one that was not
+    /// given brings back what was declared.
+    pub fn set_language(&mut self, language: &str) -> Result<(), ModelError> {
+        let found = self.translations.iter().find(|(name, _)| name == language);
+        let difference = found.map_or_else(Diff::new, |(_, difference)| difference.clone());
+        self.layers.put(&ModelLayer::Module(LANGUAGE_LAYER.to_owned()), difference);
+        self.refresh_model()
+    }
+
+    /// Puts in place the records every module needs, and keeps them.
+    pub fn run_initial_records(&self, space: &mut dyn ObjectSpace) -> Result<(), String> {
+        for module in &self.modules {
+            module.initial_records(space)?;
+        }
+        space.commit().map_err(|e| e.to_string())
+    }
+
     /// Keeps a setting in the person's own layer of the model, and applies it.
     pub fn set_user_setting(&mut self, path: &[&str], name: &str, value: &str) -> Result<(), ModelError> {
         self.layers.set(&ModelLayer::User, path, name, serde_json::Value::String(value.to_owned()));
@@ -227,11 +261,14 @@ impl Application {
     /// Applies the layers again. Frames made after this see the result; views already showing
     /// have to be shown again.
     pub fn refresh_model(&mut self) -> Result<(), ModelError> {
-        let MergedModel { root, unusable } = self.layers.merged();
+        let MergedModel { mut root, unusable } = self.layers.merged();
         let problems = check_model(&root);
         if !problems.is_empty() {
             return Err(ModelError(problems.join("; ")));
         }
+        crate::model::follow_captions(&mut root, &self.declared);
+        self.entities =
+            self.declared.iter().map(|entity| entity.as_in_model(&root)).collect::<Result<_, _>>()?;
         self.model = Rc::new(root);
         self.unusable = unusable;
         Ok(())
@@ -242,6 +279,9 @@ impl Application {
         let view = self.modules.iter().flat_map(|m| m.view_controllers()).collect();
         let window = self.modules.iter().flat_map(|m| m.window_controllers()).collect();
         let frame = Frame::new(context, space, Some(self.model.clone()), view, window);
+        for service in &self.services {
+            frame.keep_extension(service.clone());
+        }
         frame.set_entities(Rc::new(self.entities.clone()));
         frame
     }
@@ -253,6 +293,8 @@ pub struct ApplicationBuilder {
     modules: Vec<Box<dyn Module>>,
     entities: Vec<EntityInfo>,
     dashboards: Vec<DashboardInfo>,
+    services: Vec<Rc<dyn Any>>,
+    translations: Vec<(String, String)>,
 }
 
 impl std::fmt::Debug for ApplicationBuilder {
@@ -282,6 +324,20 @@ impl ApplicationBuilder {
     /// Adds a dashboard.
     pub fn dashboard(mut self, dashboard: DashboardInfo) -> Self {
         self.dashboards.push(dashboard);
+        self
+    }
+
+    /// Gives actions and controllers something the application has, which they ask for by its
+    /// type with [`ActionContext::service`](crate::ActionContext::service).
+    pub fn service<T: 'static>(mut self, service: T) -> Self {
+        self.services.push(Rc::new(service));
+        self
+    }
+
+    /// The model in another language, as a difference in JSON.
+    /// [`Application::set_language`] picks it.
+    pub fn translation(mut self, language: impl Into<String>, difference: impl Into<String>) -> Self {
+        self.translations.push((language.into(), difference.into()));
         self
     }
 
@@ -325,10 +381,24 @@ impl ApplicationBuilder {
                 layers.put(&ModelLayer::Module(module.name().to_owned()), difference);
             }
         }
+        // Over the other modules, whatever comes in, and under the person's own settings.
+        layers.put(&ModelLayer::Module(LANGUAGE_LAYER.to_owned()), Diff::new());
+        let translations = self
+            .translations
+            .into_iter()
+            .map(|(language, text)| {
+                Diff::parse(&text)
+                    .map(|difference| (language.clone(), difference))
+                    .map_err(|e| ModelError(format!("the translation {language}: {e}")))
+            })
+            .collect::<Result<_, _>>()?;
         let mut application = Application {
             title: self.title,
             modules,
+            declared: entities.clone(),
             entities,
+            services: self.services,
+            translations,
             layers,
             model: Rc::new(ModelNode::default()),
             unusable: Vec::new(),

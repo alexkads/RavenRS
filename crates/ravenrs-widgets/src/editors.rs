@@ -483,7 +483,6 @@ pub(crate) fn parse_number(text: &str, decimal: char, group: char) -> Option<f64
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
-#[derive(Debug)]
 pub struct NumberField {
     value: Binding<Option<f64>>,
     min: f64,
@@ -497,10 +496,23 @@ pub struct NumberField {
     width: Option<f32>,
     spin_buttons: bool,
     label: Option<String>,
+    on_leave: Option<Rc<dyn Fn()>>,
     state: util::EditorState,
 }
 
+impl std::fmt::Debug for NumberField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NumberField").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
 impl NumberField {
+    /// Called when the keyboard goes elsewhere after being here.
+    pub fn on_leave(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_leave = Some(Rc::new(handler));
+        self
+    }
+
     /// A field bound to `value`, unbounded, with no decimals; `None` is empty.
     pub fn new(value: Binding<Option<f64>>) -> Self {
         Self {
@@ -516,6 +528,7 @@ impl NumberField {
             width: None,
             spin_buttons: false,
             label: None,
+            on_leave: None,
             state: util::EditorState::default(),
         }
     }
@@ -675,6 +688,9 @@ impl View for NumberField {
                 }
                 _ => false,
             }));
+        if let Some(left) = self.on_leave.clone() {
+            field = field.on_leave(move || left());
+        }
         // Bad text stays on show so it can be fixed; otherwise the formatted value.
         if !invalid {
             field.idle_text = Some(formatted);

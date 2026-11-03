@@ -116,12 +116,13 @@ impl ActionContainer {
                     return toolbar.action(ToolbarAction::new(action.caption().to_owned()).disabled(true));
                 }
                 let menu = DropdownMenu::new(action.caption().to_owned()).size(ButtonSize::Small);
-                // Declared with no options, it offers the ways to see the view it is on.
+                // Declared with no options, it offers what the model has for the view it is on.
+                let part = if action.id() == crate::ids::FILTERS { "Filters" } else { "Variants" };
                 let found: Vec<ChoiceItem> = if items.is_empty() {
                     self.session
                         .frame()
                         .view()
-                        .map(|view| self.session.variants(&view.id))
+                        .map(|view| self.session.choices(&view.id, part))
                         .unwrap_or_default()
                         .into_iter()
                         .map(|(id, caption)| ChoiceItem::new(id, caption))

@@ -122,6 +122,17 @@ EntityInfo::new("Order")
 
 `Action::popup` on a list view asks for a record to be picked, and on a detail view for a form to be filled in, which `on_prepare` starts and the action receives as `ActionInput::Record`. An entity no storage knows works for that. `Application::builder(...).dashboard(DashboardInfo::new("Home", "Home").view("Orders", "Order_ListView").control("Chart", "chart"))` puts views and controls together, and `Session::register_control` says what a control is.
 
+### Beyond the grid, and beyond the code
+
+- `register_list_editor` adds a way to show a list, picked by `EditorType` on a view in the model, or by `DefaultListEditor` on `Views` for all of them.
+- `ListFilter` and `list_criteria` put filters in the model. `ViewVariant::columns` changes what a way to see a list shows. `register_function` adds a function to every expression; a filter that uses one runs in memory.
+- `Rules` under an entity in the model add rules with no code. `translation` gives the model's words in another language, and captions follow to the views unless one has its own.
+- `checks_on_leave` makes a form speak about a field as it is left. `transient` marks a record no storage keeps, and `ListView::source` gives a list its records.
+- `cloneable` with `CloneModule` offers cloning. What a record holds comes along, a reference points to the same record, `non_cloneable` stays behind, and only a collection marked `aggregated` is cloned with it.
+- `use_attachment_store` keeps files apart from their records, with `MemoryAttachmentStore` or `SqliteAttachmentStore`.
+- `SqliteBuilder::migration` runs something once in a database's life, `managed` adds columns for new fields, and `entities_from_schema` starts from a database that came first. `SqliteModelStore` keeps a person's settings in it, through `use_model_store`.
+- `ApplicationBuilder::service` hands actions what the application has, by type, through `ActionContext::service`. `Module::initial_records` puts in place what a module needs.
+
 ### Going further
 
 `App` covers the usual case. Under it, `EntityInfo` declares a record at run time, `Application::builder` and `AppShell` take everything apart, `module` adds actions and controllers, `editors` changes a field's control, and `storage` keeps records elsewhere. `examples/component-gallery/src/samples.rs` has `AppShell` used directly.
@@ -145,16 +156,16 @@ EntityInfo::new("Order")
 
 - Search, filters and export of a list are `DataGrid`'s own, not actions the model can move.
 - Where an action shows comes from its category. There is no mapping of actions to places in the model yet.
-- Pictures and files are kept as text in their field, name and content together, and the whole record is read with them: for many or big files, keep them apart.
+- Without an attachment store, a picture or file stays as text in its field, and the whole record is read with it. With one, replacing a file does not yet remove the old content from the store.
 - What links and unlinks in a list inside a form is kept right away, and not with the form's save. A new record has to be saved before its list opens.
-- A view variant changes which records show, and not its columns.
-- `#[derive(BusinessObject)]` has no words yet for `wide`, `hint`, `autofocus`, `lookup_filter`, `none_caption`, `back_reference`, variants and `form_columns`: declare those with `EntityInfo`.
 - A remote list searches only fields with text, and has no grouping. A column of a reference shows the name, but is not searched by it.
 - A reference is picked in its form, and not in a window of its own.
 - Used directly, `AppShell` needs `Words` given to it and to `SystemModule`, and `Localized` around it. `App` does both.
 - On a form, a font color from a rule reaches the caption and not the value inside the editor, and a group's caption takes no color.
 - Clippy's `duplicated_attributes` flags `#[appearance]` or `#[rule]` attributes that repeat a condition or a context. Allow it where they do, as a derive cannot do it for you.
-- Fields are validated on saving, and not yet as they are left.
+- Only text and number fields tell when they are left. Validation contexts do not reach into collections yet.
+- `register_function` is per thread, as all of an application's state is. A function of the application is not translated to SQL, so a filter with one reads the whole table.
+- A translation changes the model's words; `Words` follows `App::language` and does not change at run time.
 - A pane finds a row's key by the order of the entity's fields, so a layer that reorders its columns breaks its buttons.
 - With two people changing the same record in `MemoryDatabase`, the last to save wins.
 
@@ -162,6 +173,7 @@ EntityInfo::new("Order")
 
 | Step | What it brings |
 |---|---|
-| **F8** | Permissions in an object space wrapper, users, a model editor, an audit trail |
+| **F7.6** | What the feature center shows: soft validation, editing in lists, concurrent changes, custom fields, more editors |
+| F8 | Permissions in an object space wrapper, users, a model editor, an audit trail |
 
 Before more work on editors or templates, read what is documented on template customization and on each property type: it was not read when these screens were written. The same goes for the built-in node generators and list view column generation, before more of the model is generated.

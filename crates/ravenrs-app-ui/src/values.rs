@@ -1,6 +1,6 @@
 //! Between what records hold and what controls show.
 
-use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Tint, Value};
+use ravenrs_app::{AttachmentStore, EntityInfo, FieldInfo, FieldKind, Tint, Value};
 use ravenrs_criteria::DateTime as Moment;
 use ravenrs_report::base64::{decode, encode};
 use ravenrs_style::Semantic;
@@ -37,16 +37,34 @@ pub(crate) fn value_of_date_time(moment: Option<DateTime>) -> Value {
     })
 }
 
-/// A record keeps a file as text, its name on the first line and its content after it.
-pub(crate) fn value_of_file(file: Option<&PickedFile>) -> Value {
-    file.map_or(Value::Null, |file| Value::Text(format!("{}\n{}", file.name, encode(&file.bytes))))
+/// A record keeps a file as text: its name on the first line and after it its content, or the key
+/// its content is under when a store keeps it, which `@` tells apart from base64.
+pub(crate) fn value_of_file(
+    file: Option<&PickedFile>,
+    store: Option<&dyn AttachmentStore>,
+) -> Result<Value, String> {
+    let Some(file) = file else { return Ok(Value::Null) };
+    Ok(Value::Text(match store {
+        Some(store) => format!("{}\n@{}", file.name, store.put(&file.name, &file.bytes)?),
+        None => format!("{}\n{}", file.name, encode(&file.bytes)),
+    }))
 }
 
 /// A file from what a record keeps.
-pub(crate) fn file_of(value: &Value) -> Option<PickedFile> {
+pub(crate) fn file_of(value: &Value, store: Option<&dyn AttachmentStore>) -> Option<PickedFile> {
     let Value::Text(text) = value else { return None };
     let (name, content) = text.split_once('\n')?;
-    Some(PickedFile::new(name, decode(content)?))
+    let bytes = match content.strip_prefix('@') {
+        Some(key) => store?.get(key).ok()??,
+        None => decode(content)?,
+    };
+    Some(PickedFile::new(name, bytes))
+}
+
+/// The name of a file a record keeps, without reading its content.
+pub(crate) fn file_name(value: &Value) -> Option<String> {
+    let Value::Text(text) = value else { return None };
+    text.split_once('\n').map(|(name, _)| name.to_owned())
 }
 
 /// A value as words, with what its field knows about it.
@@ -54,7 +72,7 @@ pub(crate) fn display(field: &FieldInfo, value: &Value) -> String {
     match (&field.kind, value) {
         (_, Value::Null) => String::new(),
         // Its name, and never its content.
-        (FieldKind::Image | FieldKind::File, value) => file_of(value).map_or_else(String::new, |f| f.name),
+        (FieldKind::Image | FieldKind::File, value) => file_name(value).unwrap_or_default(),
         (FieldKind::Enum(options), Value::Text(code)) => options
             .iter()
             .find(|option| option.code == *code)
@@ -159,12 +177,23 @@ mod tests {
     #[test]
     fn files_go_there_and_back_and_show_by_name() {
         let file = PickedFile::new("nota.pdf", vec![1_u8, 2, 250]);
-        let kept = value_of_file(Some(&file));
-        let back = file_of(&kept).expect("a file");
+        let kept = value_of_file(Some(&file), None).expect("kept");
+        let back = file_of(&kept, None).expect("a file");
         assert_eq!(back.name, "nota.pdf");
         assert_eq!(&*back.bytes, &[1_u8, 2, 250]);
-        assert_eq!(value_of_file(None), Value::Null);
-        assert_eq!(file_of(&Value::Text("not a file".into())).map(|f| f.name), None);
+        assert_eq!(value_of_file(None, None), Ok(Value::Null));
+        assert_eq!(file_of(&Value::Text("not a file".into()), None).map(|f| f.name), None);
+        assert_eq!(display(&FieldInfo::new("f", FieldKind::File), &kept), "nota.pdf");
+    }
+
+    #[test]
+    fn a_store_keeps_the_content_out_of_the_record() {
+        let store = ravenrs_app::MemoryAttachmentStore::default();
+        let file = PickedFile::new("nota.pdf", vec![9_u8; 2000]);
+        let kept = value_of_file(Some(&file), Some(&store)).expect("kept");
+        let Value::Text(text) = &kept else { panic!("text") };
+        assert!(text.len() < 40, "only a key: {text}");
+        assert_eq!(file_of(&kept, Some(&store)).expect("a file").bytes.len(), 2000);
         assert_eq!(display(&FieldInfo::new("f", FieldKind::File), &kept), "nota.pdf");
     }
 

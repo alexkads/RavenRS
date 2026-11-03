@@ -4,7 +4,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use ravenrs_app::{
-    Application, ApplicationBuilder, BusinessObject, MemoryDatabase, ModelError, Module, ObjectSpace,
+    Application, ApplicationBuilder, AttachmentStore, BusinessObject, MemoryDatabase, ModelError, ModelStore,
+    Module, ObjectSpace,
 };
 use ravenrs_widgets::{Alert, AnyView, Labels, Localized, Tone};
 
@@ -28,6 +29,14 @@ impl Language {
         match self {
             Self::English => Words::default(),
             Self::BrazilianPortuguese => Words::pt_br(),
+        }
+    }
+
+    /// What a translation of the model is known by.
+    fn code(self) -> &'static str {
+        match self {
+            Self::English => "en",
+            Self::BrazilianPortuguese => "pt-BR",
         }
     }
 
@@ -75,6 +84,9 @@ pub struct App {
     editors: EditorRegistry,
     seed: Option<Seed>,
     storage: Option<Storage>,
+    list_editors: Vec<(String, crate::list_view::ListEditorFactory)>,
+    attachment_store: Option<Rc<dyn AttachmentStore>>,
+    model_store: Option<Rc<dyn ModelStore>>,
 }
 
 impl std::fmt::Debug for App {
@@ -93,6 +105,9 @@ impl App {
             editors: EditorRegistry::default(),
             seed: None,
             storage: None,
+            list_editors: Vec::new(),
+            attachment_store: None,
+            model_store: None,
         }
     }
 
@@ -120,6 +135,47 @@ impl App {
         self
     }
 
+    /// The model in another language, as a difference in JSON. The one for its
+    /// [`language`](Self::language), `en` or `pt-BR`, is the one used.
+    pub fn translation(mut self, language: impl Into<String>, difference: impl Into<String>) -> Self {
+        self.builder = self.builder.translation(language, difference);
+        self
+    }
+
+    /// Gives actions and controllers something the application has.
+    pub fn service<T: 'static>(mut self, service: T) -> Self {
+        self.builder = self.builder.service(service);
+        self
+    }
+
+    /// Adds a view of other views together.
+    pub fn dashboard(mut self, dashboard: ravenrs_app::DashboardInfo) -> Self {
+        self.builder = self.builder.dashboard(dashboard);
+        self
+    }
+
+    /// A way to show a list, for the model to pick by name.
+    pub fn list_editor(
+        mut self,
+        name: impl Into<String>,
+        editor: impl Fn(&crate::ListEditorRequest) -> AnyView + 'static,
+    ) -> Self {
+        self.list_editors.push((name.into(), Rc::new(editor)));
+        self
+    }
+
+    /// Keeps the content of attached files there, apart from the records.
+    pub fn attachment_store(mut self, store: impl AttachmentStore + 'static) -> Self {
+        self.attachment_store = Some(Rc::new(store));
+        self
+    }
+
+    /// Keeps the person's own settings there.
+    pub fn model_store(mut self, store: impl ModelStore + 'static) -> Self {
+        self.model_store = Some(Rc::new(store));
+        self
+    }
+
     /// What is in its records when it opens, kept with a commit once this is done.
     pub fn seed(mut self, seed: impl FnOnce(&mut dyn ObjectSpace) -> Result<(), String> + 'static) -> Self {
         self.seed = Some(Box::new(seed));
@@ -141,7 +197,8 @@ impl App {
         for add in self.modules {
             builder = add(builder);
         }
-        let application = builder.build()?;
+        let mut application = builder.build()?;
+        application.set_language(self.language.code())?;
         let factory: SpaceFactory = match self.storage {
             Some(storage) => storage(&application),
             None => {
@@ -149,6 +206,11 @@ impl App {
                 Rc::new(move || Rc::new(RefCell::new(database.space())) as Rc<RefCell<dyn ObjectSpace>>)
             }
         };
+        {
+            let space = factory();
+            let mut space = space.borrow_mut();
+            application.run_initial_records(&mut *space).map_err(ModelError)?;
+        }
         if let Some(seed) = self.seed {
             let space = factory();
             let mut space = space.borrow_mut();
@@ -156,6 +218,16 @@ impl App {
             space.commit().map_err(|e| ModelError(e.to_string()))?;
         }
         let shell = AppShell::from_factory(application, factory, words, self.editors);
+        let session = shell.session();
+        for (name, editor) in self.list_editors {
+            session.register_list_editor(name, move |request| editor(request));
+        }
+        if let Some(store) = self.attachment_store {
+            session.use_attachment_store(store);
+        }
+        if let Some(store) = self.model_store {
+            session.use_model_store(store).map_err(ModelError)?;
+        }
         Ok(Box::new(Localized::new(self.language.labels(), shell)))
     }
 

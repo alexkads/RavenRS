@@ -143,6 +143,14 @@ pub struct FieldInfo {
     /// For a collection: the field of the other entity that points back here, when it has
     /// more than one reference to this entity.
     pub back_reference: Option<String>,
+    /// It stays behind when a record is cloned.
+    pub non_cloneable: bool,
+    /// For a collection: its records belong to this one, and are cloned with it.
+    pub aggregated: bool,
+    /// For a picture or a file: the largest taken, in bytes.
+    pub most_bytes: Option<u64>,
+    /// For a file: the extensions offered; none means any.
+    pub accepted: Vec<String>,
 }
 
 /// `opening_cents` as `Opening cents`.
@@ -179,6 +187,10 @@ impl FieldInfo {
             lookup_filter: None,
             none_caption: None,
             back_reference: None,
+            non_cloneable: false,
+            aggregated: false,
+            most_bytes: None,
+            accepted: Vec::new(),
             kind,
         }
     }
@@ -291,6 +303,30 @@ impl FieldInfo {
         self
     }
 
+    /// Stays behind when a record is cloned.
+    pub fn non_cloneable(mut self) -> Self {
+        self.non_cloneable = true;
+        self
+    }
+
+    /// For a collection: its records belong to this one, and are cloned with it.
+    pub fn aggregated(mut self) -> Self {
+        self.aggregated = true;
+        self
+    }
+
+    /// For a picture or a file: the largest taken, in bytes.
+    pub fn most_bytes(mut self, bytes: u64) -> Self {
+        self.most_bytes = Some(bytes);
+        self
+    }
+
+    /// For a file: the extensions offered, such as `pdf`.
+    pub fn accepted(mut self, extensions: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.accepted = extensions.into_iter().map(Into::into).collect();
+        self
+    }
+
     /// What a new record starts with.
     pub fn default_value(mut self, value: impl Into<Value>) -> Self {
         self.default_value = value.into();
@@ -320,17 +356,50 @@ pub struct ViewVariant {
     pub caption: String,
     /// What its records have to meet; nothing means all of them.
     pub filter: Option<String>,
+    /// The fields its columns show, in order; nothing means those of the list.
+    pub columns: Vec<String>,
 }
 
 impl ViewVariant {
     /// A variant that shows every record.
     pub fn new(id: impl Into<String>, caption: impl Into<String>) -> Self {
-        Self { id: id.into(), caption: caption.into(), filter: None }
+        Self { id: id.into(), caption: caption.into(), filter: None, columns: Vec::new() }
     }
 
     /// Shows only the records that meet this expression.
     pub fn filter(mut self, expression: impl Into<String>) -> Self {
         self.filter = Some(expression.into());
+        self
+    }
+
+    /// Shows these fields as its columns, in this order.
+    pub fn columns(mut self, fields: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.columns = fields.into_iter().map(Into::into).collect();
+        self
+    }
+}
+
+/// A filter ready for people to pick from a menu on a list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ListFilter {
+    /// What it is known by.
+    pub id: String,
+    /// What people see.
+    pub caption: String,
+    /// What its records have to meet; nothing means all of them.
+    pub criteria: Option<String>,
+}
+
+impl ListFilter {
+    /// A filter that lets everything through, as the choice that takes the others off.
+    pub fn new(id: impl Into<String>, caption: impl Into<String>) -> Self {
+        Self { id: id.into(), caption: caption.into(), criteria: None }
+    }
+
+    /// Shows only the records that meet this expression.
+    pub fn criteria(mut self, expression: impl Into<String>) -> Self {
+        self.criteria = Some(expression.into());
         self
     }
 }
@@ -357,6 +426,16 @@ pub struct EntityInfo {
     pub variants: Vec<ViewVariant>,
     /// How many columns its form's fields go in; by how many there are, unless given.
     pub form_columns: Option<u8>,
+    /// The filters people pick from on its list.
+    pub filters: Vec<ListFilter>,
+    /// What every record its list shows has to meet.
+    pub list_criteria: Option<String>,
+    /// Its records can be cloned.
+    pub cloneable: bool,
+    /// Its records are not kept by any storage: they live on a form or in a list given to them.
+    pub transient: bool,
+    /// A form says what is wrong with a field as it is left, and not only on saving.
+    pub checks_on_leave: bool,
 }
 
 impl EntityInfo {
@@ -373,6 +452,11 @@ impl EntityInfo {
             appearance: Vec::new(),
             variants: Vec::new(),
             form_columns: None,
+            filters: Vec::new(),
+            list_criteria: None,
+            cloneable: false,
+            transient: false,
+            checks_on_leave: false,
         }
     }
 
@@ -409,6 +493,36 @@ impl EntityInfo {
     /// Appends a rule about how things look.
     pub fn appearance(mut self, rule: crate::AppearanceRule) -> Self {
         self.appearance.push(rule);
+        self
+    }
+
+    /// Appends a filter people pick from on its list.
+    pub fn filter(mut self, filter: ListFilter) -> Self {
+        self.filters.push(filter);
+        self
+    }
+
+    /// What every record its list shows has to meet.
+    pub fn list_criteria(mut self, expression: impl Into<String>) -> Self {
+        self.list_criteria = Some(expression.into());
+        self
+    }
+
+    /// Its records can be cloned, with `CloneModule`.
+    pub fn cloneable(mut self) -> Self {
+        self.cloneable = true;
+        self
+    }
+
+    /// Its records are not kept by any storage: they live on a form or in a list given to them.
+    pub fn transient(mut self) -> Self {
+        self.transient = true;
+        self
+    }
+
+    /// A form says what is wrong with a field as it is left, and not only on saving.
+    pub fn checks_on_leave(mut self) -> Self {
+        self.checks_on_leave = true;
         self
     }
 
@@ -473,7 +587,26 @@ impl EntityInfo {
                 }
             }
         }
+        let check_expression = |what: String, expression: &str| -> Result<(), ModelError> {
+            let parsed =
+                Criteria::parse(expression).map_err(|e| ModelError(format!("{}, {what}: {e}", self.name)))?;
+            match ravenrs_criteria::validate(&parsed, &self.schema()).first() {
+                Some(problem) => Err(ModelError(format!("{}: {what}: {problem}", self.name))),
+                None => Ok(()),
+            }
+        };
+        for filter in &self.filters {
+            if let Some(expression) = &filter.criteria {
+                check_expression(format!("the filter {}", filter.id), expression)?;
+            }
+        }
+        if let Some(expression) = &self.list_criteria {
+            check_expression("the list's criteria".to_owned(), expression)?;
+        }
         for variant in &self.variants {
+            if let Some(gone) = variant.columns.iter().find(|name| self.field_named(name).is_none()) {
+                return wrong(format!("the variant {} shows {gone}, which is not a field", variant.id));
+            }
             if let Some(expression) = &variant.filter {
                 let parsed = Criteria::parse(expression)
                     .map_err(|e| ModelError(format!("{}, variant {}: {e}", self.name, variant.id)))?;
@@ -506,6 +639,36 @@ impl EntityInfo {
             .map(|f| (f.name.clone(), f.default_value.clone()))
             .collect();
         Object { entity: self.name.clone(), values }
+    }
+
+    /// This entity as the model has it now: what people see and the rules it added.
+    pub(crate) fn as_in_model(&self, root: &crate::ModelNode) -> Result<Self, ModelError> {
+        let mut entity = self.clone();
+        let Some(node) = root.at(&["Entities", &self.name]) else { return Ok(entity) };
+        if let Some(caption) = node.text("Caption") {
+            entity.caption = caption.to_owned();
+        }
+        for field in &mut entity.fields {
+            let Some(member) = node.at(&["Members", &field.name]) else { continue };
+            if let Some(caption) = member.text("Caption") {
+                field.caption = caption.to_owned();
+            }
+            if let FieldKind::Enum(options) = &mut field.kind {
+                for option in options {
+                    let found = member.at(&["Options", &option.code]).and_then(|n| n.text("Caption"));
+                    if let Some(caption) = found {
+                        option.caption = caption.to_owned();
+                    }
+                }
+            }
+        }
+        if let Some(rules) = node.get("Rules") {
+            for rule in rules.in_order() {
+                entity.rules.push(crate::Rule::from_model(rule)?);
+            }
+        }
+        entity.check()?;
+        Ok(entity)
     }
 
     /// Fills in the calculated fields, in the order declared, so one can read another.

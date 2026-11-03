@@ -6,7 +6,7 @@ mod layers;
 mod node;
 mod store;
 
-pub(crate) use generate::add_dashboard;
+pub(crate) use generate::{add_dashboard, follow_captions};
 pub use generate::{check_model, generate_model};
 pub use layers::{Diff, MergedModel, ModelLayer, ModelLayers, UnusableNode};
 pub use node::ModelNode;

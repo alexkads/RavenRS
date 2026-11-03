@@ -292,6 +292,7 @@ impl View for PopupList {
         let (ok, frame) = (accept.clone(), self.frame.clone());
         let on_open = accept;
         let list = ListView::new(self.session.clone(), self.frame.clone(), self.view.clone())
+            .filter(self.session.popup_filter())
             .on_open(Rc::new(move |key: &Value| on_open(Some(key.clone()))));
         let words = self.session.words();
         let cancel_frame = main;

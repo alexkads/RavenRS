@@ -19,6 +19,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **`DashboardInfo`** and **`DashboardView`** put views and registered controls together, each in a frame of its own. **`ViewVariant`** gives a list ways to be seen, picked from a menu, with the choice in the person's layer of the model.
 - `ListView` gains `filter`, `sort`, `column_shape`, `grid_shape`, `single_selection`, `plain_toolbar` and `remote`, which brings rows through `RemoteRows`. Pictures and files on a form have real controls.
 - **`ravenrs-app-report`** gives every list an action that lays it out as a report and shows it in the viewer. `Session::list_table` and `ravenrs_grid_export::document_of` are what it stands on.
+- **List editors.** `register_list_editor` adds a way to show a list, picked by the model. `ListFilter`, `list_criteria` and `ViewVariant::columns` put filters and columns in the model, and `register_function` adds functions to every expression.
+- **The model does more.** Rules can be set under an entity, `translation` and `set_language` change its words, and `SqliteModelStore` or any `ModelStore` keeps a person's settings through `use_model_store`.
+- **`CloneModule`** clones what says it can be, with `non_cloneable` and `aggregated`. **`AttachmentStore`** keeps files apart from records, with `MemoryAttachmentStore` and `SqliteAttachmentStore`, and a form saves a file back out.
+- `SqliteBuilder::migration` runs something once, `managed` adds columns for new fields, and `entities_from_schema` starts from an existing database.
+- `checks_on_leave` validates as fields are left, through `on_leave` on `TextField` and `NumberField`. `transient`, `ListView::source`, `ApplicationBuilder::service` and `Module::initial_records` complete the framework's core. The derive has attributes for all of it, with `#[variant]` and `#[list_filter]`.
 - `DatePicker::fill` takes the width of its parent. `ravenrs_report::base64` is public.
 - `FilePicker::save` hands a file to the person: the system's dialog on a desktop, a download in a browser. Exports from generated lists use it unless the app takes them.
 

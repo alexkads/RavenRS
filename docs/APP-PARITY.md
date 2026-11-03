@@ -24,14 +24,20 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Save, cancel, new, delete, refresh, back, moving between records | ✅ `SystemModule` | |
 | Dashboards | ✅ `DashboardInfo`, `DashboardView`: views and controls, each in its own frame | |
 | Lists inside a form, link and unlink | ✅ `FieldKind::Collection`; what links is kept right away, in a unit of work of its own | |
-| View variants | ✅ `ViewVariant`: a filter each, with the choice in the person's layer. Variants that change the columns are not there | |
+| View variants | ✅ `ViewVariant`: a filter and columns each, with the choice in the person's layer | |
 | Lists of many rows | ✅ `ListView::remote`, over `RemoteRows`, continuing from the last key when nothing asks for another order | |
 | Validation: required, range, pattern, text and value comparison, criteria, is true, unique, unique together, exists, referenced, custom; contexts; target criteria | ✅ `Rule`, `validate`; forms and delete check it, and actions name their contexts. Validating as a field is left is planned | |
 | Conditional appearance: font, back, bold, enabled, visible; on items, layout and actions; by criteria or function; by priority | 🟡 `AppearanceRule`. On a form, a font color reaches the caption, not the value inside the editor; a group's caption takes no color | |
 | Reports of a list | ✅ `ravenrs-app-report`: an action that lays out the list and shows it in the viewer | |
 | Security: roles, permissions, users, audit trail | ⬜ | F8 |
-| Replaceable list editors, filters in the model, migrations of a managed schema, model differences in a database, localized captions | ⬜ | F7.5 |
-| Clone object, file attachments with their own storage and download | ⬜ | F7.5 |
+| Replaceable list editors | ✅ `register_list_editor`, picked by `EditorType` or `DefaultListEditor` in the model | |
+| Filters in the model, a list's own criteria, filtered link window, functions of the application | ✅ `ListFilter`, `list_criteria`, `lookup_filter` on a collection, `register_function` | |
+| Migrations of a managed schema, entities from an existing database, model differences in a database | ✅ `migration`, added columns, `entities_from_schema`, `SqliteModelStore` | |
+| Translated captions and options, rules in the model | ✅ `translation`, `set_language`, `Rules` under an entity | |
+| Records no storage keeps, services, initial records | ✅ `transient`, `ListView::source`, `service`, `Module::initial_records` | |
+| Soft validation, editing in lists, concurrent changes, custom fields, messages from actions, actions in a form's layout, more editors | ⬜ seen in the feature center | F7.6 |
+| Clone object | ✅ `CloneModule`: only what says it can be, with `non_cloneable` and `aggregated` | |
+| File attachments | ✅ `AttachmentStore`, out of the record, with a button to save the file | |
 | Chart and scheduler list editors | ⬜ | F9 |
 | Tree and pivot list editors | ⬜ needs the tree list and the pivot grid | F9 |
 | Report designer and definitions in a database, dashboards people create | ⬜ | F10 |

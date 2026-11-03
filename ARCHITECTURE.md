@@ -106,7 +106,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-app-sqlite` | `lib` |
 | `ravenrs-app-report` | `lib` |
 | `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values` |
-| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`), `space`, `action`, `controller`, `frame`, `module` |
+| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files` |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |

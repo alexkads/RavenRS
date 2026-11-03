@@ -6,16 +6,18 @@ use std::rc::Rc;
 use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Object, Query, Value};
 use ravenrs_core::Color;
 use ravenrs_criteria::Criteria;
+use ravenrs_layout::Align;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
-    AnyView, Checkbox, ColorPicker, Date, DatePicker, DateTimePicker, FileUpload, LookupField, LookupItem,
-    NumberField, PickedFile, SegmentedControl, Select, TextArea, TextField,
+    AnyView, BuildCx, Button, ButtonSize, ButtonStyle, Checkbox, ColorPicker, Date, DatePicker,
+    DateTimePicker, FileUpload, LookupField, LookupItem, NodeId, NumberField, PickedFile, SegmentedControl,
+    Select, TextArea, TextField, VStack, View,
 };
 
 use crate::session::Session;
 use crate::values::{
-    date_of, date_time_of, display, file_of, key_from_text, key_text, value_of_date, value_of_date_time,
-    value_of_file,
+    date_of, date_time_of, display, file_name, file_of, key_from_text, key_text, value_of_date,
+    value_of_date_time, value_of_file,
 };
 
 /// What a control is being asked for.
@@ -90,15 +92,6 @@ fn text_binding(value: &State<Value>) -> Binding<String> {
     Binding::new(
         move || if let Value::Text(text) = read.get() { text } else { String::new() },
         move |text: String| write.set(if text.is_empty() { Value::Null } else { Value::Text(text) }),
-    )
-}
-
-#[cfg(feature = "images")]
-fn file_binding(value: &State<Value>) -> Binding<Option<PickedFile>> {
-    let (read, write) = (value.clone(), value.clone());
-    Binding::new(
-        move || file_of(&read.get()),
-        move |file: Option<PickedFile>| write.set(value_of_file(file.as_ref())),
     )
 }
 
@@ -203,7 +196,7 @@ fn reference_editor(request: &EditorRequest, target: &str) -> AnyView {
 }
 
 /// A value as a literal of the expression language.
-fn literal_of(value: &Value) -> String {
+pub(crate) fn literal_of(value: &Value) -> String {
     match value {
         Value::Null => "Null".to_owned(),
         Value::Bool(on) => on.to_string(),
@@ -217,10 +210,14 @@ fn literal_of(value: &Value) -> String {
 /// What the records of a reference have to meet, given the record being edited.
 fn lookup_filter(request: &EditorRequest) -> Option<Criteria> {
     let text = request.field.lookup_filter.as_ref()?;
+    filter_for(text, request.session.form_record().as_ref())
+}
+
+/// An expression where `?field` takes the value of that field of a record.
+pub(crate) fn filter_for(text: &str, record: Option<&Object>) -> Option<Criteria> {
     let parsed = Criteria::parse(text).ok()?;
-    let record = request.session.form_record();
-    let filled = parsed.parameters().iter().fold(text.clone(), |filled, name| {
-        let value = record.as_ref().map_or(Value::Null, |record| record.get(name));
+    let filled = parsed.parameters().iter().fold(text.to_owned(), |filled, name| {
+        let value = record.map_or(Value::Null, |record| record.get(name));
         filled.replace(&format!("?{name}"), &literal_of(&value))
     });
     Criteria::parse(&filled).ok()
@@ -270,6 +267,10 @@ fn reference_select(request: &EditorRequest, target: &str) -> AnyView {
 fn text_editor(request: &EditorRequest) -> AnyView {
     let field = TextField::new(text_binding(&request.value)).read_only(request.read_only);
     let field = if request.field.autofocus { field.autofocus() } else { field };
+    let field = match on_leave(request) {
+        Some(left) => field.on_leave(left),
+        None => field,
+    };
     match &request.field.placeholder {
         Some(text) => Box::new(field.placeholder(text.clone())),
         None => Box::new(field),
@@ -282,13 +283,95 @@ fn read_only_text(request: &EditorRequest) -> AnyView {
     Box::new(TextField::new(Binding::constant(text)).read_only(true))
 }
 
-fn file_editor(request: &EditorRequest) -> AnyView {
-    let (read, write) = (request.value.clone(), request.value.clone());
-    let files = Binding::new(
-        move || file_of(&read.get()).into_iter().collect(),
-        move |files: Vec<PickedFile>| write.set(value_of_file(files.first())),
-    );
-    Box::new(FileUpload::new(files).most_files(1).label(request.caption.clone()).read_only(request.read_only))
+/// A picture or a file on a form: taking one, and taking it out again.
+struct FileEditor(EditorRequest);
+
+impl FileEditor {
+    fn control(&self) -> AnyView {
+        let request = &self.0;
+        let session = request.session.clone();
+        let store = session.attachment_store();
+        let keep = {
+            let (write, store) = (request.value.clone(), store.clone());
+            let failed = session.clone();
+            move |file: Option<&PickedFile>| match value_of_file(file, store.as_deref()) {
+                Ok(value) => write.set(value),
+                Err(error) => failed.set_error(Some(error)),
+            }
+        };
+        let holding = {
+            let (read, store) = (request.value.clone(), store);
+            move || file_of(&read.get(), store.as_deref())
+        };
+        #[cfg(feature = "images")]
+        if matches!(request.field.kind, FieldKind::Image) {
+            let (read, write) = (holding, keep);
+            let file = Binding::new(read, move |file: Option<PickedFile>| write(file.as_ref()));
+            let mut field = ravenrs_widgets::ImageField::new(file)
+                .label(request.caption.clone())
+                .read_only(request.read_only);
+            if let Some(bytes) = request.field.most_bytes {
+                field = field.most_bytes(bytes);
+            }
+            return Box::new(field);
+        }
+        let (read, write) = (holding, keep);
+        let files = Binding::new(
+            move || read().into_iter().collect(),
+            move |files: Vec<PickedFile>| write(files.first()),
+        );
+        let mut field =
+            FileUpload::new(files).most_files(1).label(request.caption.clone()).read_only(request.read_only);
+        if let Some(bytes) = request.field.most_bytes {
+            field = field.most_bytes(bytes);
+        }
+        if !request.field.accepted.is_empty() {
+            field = field.accept(request.field.accepted.clone());
+        }
+        Box::new(field)
+    }
+}
+
+impl View for FileEditor {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let request = &self.0;
+        let session = request.session.clone();
+        let held = request.value.get();
+        let name = file_name(&held);
+        let picker = cx.file_picker();
+        let saving = name.map(|name| {
+            let store = session.attachment_store();
+            let words = session.words().save_file.clone();
+            let session = session.clone();
+            Button::new(format!("{words} {name}")).style(ButtonStyle::Ghost).size(ButtonSize::Small).on_click(
+                move || {
+                    if let Some(file) = file_of(&held, store.as_deref()) {
+                        session.hand_file(file.name.clone(), file.bytes.to_vec(), &picker);
+                    }
+                },
+            )
+        });
+        cx.child(&VStack::new((self.control(), saving)).spacing(8.0).align(Align::Start))
+    }
+}
+
+/// What tells a session the keyboard left a field, when its form checks on leaving.
+fn on_leave(request: &EditorRequest) -> Option<impl Fn() + 'static> {
+    let checks = request.session.form_record().is_some_and(|record| {
+        request.session.entity(record.entity()).is_some_and(|entity| entity.checks_on_leave)
+    });
+    checks.then(|| {
+        let (session, field) = (request.session.clone(), request.field.name.clone());
+        move || session.left_field(&field)
+    })
+}
+
+/// A number field that says when it is left.
+fn leaving_number(field: NumberField, request: &EditorRequest) -> NumberField {
+    match on_leave(request) {
+        Some(left) => field.on_leave(left),
+        None => field,
+    }
 }
 
 fn built_in(request: &EditorRequest) -> AnyView {
@@ -299,21 +382,24 @@ fn built_in(request: &EditorRequest) -> AnyView {
     match &request.field.kind {
         FieldKind::Text | FieldKind::Criteria => text_editor(request),
         FieldKind::LongText => Box::new(TextArea::new(text_binding(value)).read_only(read_only)),
-        FieldKind::Integer => Box::new(
+        FieldKind::Integer => Box::new(leaving_number(
             NumberField::new(number_binding(value)).label(request.caption.clone()).read_only(read_only),
-        ),
-        FieldKind::Decimal(places) => Box::new(
+            request,
+        )),
+        FieldKind::Decimal(places) => Box::new(leaving_number(
             NumberField::new(number_binding(value))
                 .decimals(usize::from(*places))
                 .label(request.caption.clone())
                 .read_only(read_only),
-        ),
-        FieldKind::Money => Box::new(
+            request,
+        )),
+        FieldKind::Money => Box::new(leaving_number(
             NumberField::money(cents_binding(value), request.session.words().money_prefix.clone())
                 .placeholder(request.field.placeholder.clone().unwrap_or_default())
                 .label(request.caption.clone())
                 .read_only(read_only),
-        ),
+            request,
+        )),
         FieldKind::Date => {
             let (read, write) = (value.clone(), value.clone());
             let date = Binding::new(move || date_of(&read.get()), move |d| write.set(value_of_date(d)));
@@ -354,15 +440,7 @@ fn built_in(request: &EditorRequest) -> AnyView {
             );
             Box::new(ColorPicker::new(color).label(request.caption.clone()).read_only(read_only))
         }
-        #[cfg(feature = "images")]
-        FieldKind::Image => Box::new(
-            ravenrs_widgets::ImageField::new(file_binding(value))
-                .label(request.caption.clone())
-                .read_only(read_only),
-        ),
-        #[cfg(not(feature = "images"))]
-        FieldKind::Image => file_editor(request),
-        FieldKind::File => file_editor(request),
+        FieldKind::Image | FieldKind::File => Box::new(FileEditor(request.clone())),
         _ => read_only_text(request),
     }
 }

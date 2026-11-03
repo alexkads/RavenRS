@@ -1,7 +1,7 @@
 //! What every application needs: creating, saving, removing and moving between records.
 
 use ravenrs_app::{
-    Action, ActionCategory, ActionInput, Frame, Module, Nesting, Selection, TargetScope, Value,
+    Action, ActionCategory, ActionInput, Criteria, Frame, Module, Nesting, Selection, TargetScope, Value,
     ViewController, ViewKind,
 };
 
@@ -33,6 +33,10 @@ pub mod ids {
     pub const BACK: &str = "Back";
     /// Picks a way to see the list.
     pub const VARIANTS: &str = "ViewVariants";
+    /// Picks a filter ready on the list.
+    pub const FILTERS: &str = "SetFilter";
+    /// Makes a new record from the one selected.
+    pub const CLONE: &str = "CloneObject";
     /// Puts an existing record on a list inside a form.
     pub const LINK: &str = "LinkObject";
     /// Takes records off a list inside a form, without removing them.
@@ -225,36 +229,43 @@ impl ViewController for RefreshController {
     }
 }
 
-struct VariantsController(Words);
+/// A menu of what the model offers a list: only where there is a choice to make.
+struct ChoicesController {
+    id: &'static str,
+    action: &'static str,
+    part: &'static str,
+    caption: String,
+    fewest: usize,
+}
 
-impl ViewController for VariantsController {
+impl ViewController for ChoicesController {
     fn id(&self) -> &str {
-        "ViewVariants"
+        self.id
     }
     fn scope(&self) -> TargetScope {
         TargetScope::any().view_kind(ViewKind::List)
     }
     fn actions(&self) -> Vec<Action> {
+        let part = self.part;
         vec![
-            Action::single_choice(ids::VARIANTS, self.0.variant.clone(), Vec::new())
+            Action::single_choice(self.action, self.caption.clone(), Vec::new())
                 .category(ActionCategory::View)
-                .on_execute(|cx| {
+                .on_execute(move |cx| {
                     let session = session_of(cx)?;
                     let view = cx.view.as_ref().ok_or_else(|| "no view".to_owned())?;
                     match &cx.input {
-                        ActionInput::Choice(variant) => session.choose_variant(&view.id, variant),
+                        ActionInput::Choice(choice) => session.choose(&view.id, part, choice),
                         _ => Ok(()),
                     }
                 }),
         ]
     }
     fn activated(&mut self, frame: &Frame) {
-        // One way to see a list is no choice at all.
-        let many = frame.view().zip(frame.model()).is_some_and(|(view, model)| {
-            model.at(&["Views", &view.id, "Variants"]).is_some_and(|all| all.children.len() >= 2)
+        let enough = frame.view().zip(frame.model()).is_some_and(|(view, model)| {
+            model.at(&["Views", &view.id, self.part]).is_some_and(|all| all.children.len() >= self.fewest)
         });
-        if let Some(action) = frame.action(ids::VARIANTS) {
-            action.set_active("variants", many);
+        if let Some(action) = frame.action(self.action) {
+            action.set_active("choices", enough);
         }
     }
 }
@@ -299,6 +310,20 @@ impl ViewController for LinkController {
                     let owner = cx.frame.extension::<NestedOwner>().ok_or_else(|| "no list".to_owned())?;
                     let ActionInput::Parameter(key) = &cx.input else {
                         // Asked for the first time: it opens the list to pick from, and OK comes back here.
+                        // What already points here is not there to pick.
+                        let free = Criteria::parse(&format!("IsNull([{}])", owner.field)).ok().map(|empty| {
+                            let elsewhere = Criteria::parse(&format!(
+                                "[{}] <> {}",
+                                owner.field,
+                                crate::editors::literal_of(&owner.key)
+                            ));
+                            elsewhere.map_or(empty.clone(), |elsewhere| empty.or(elsewhere))
+                        });
+                        let filter = match (free, owner.link_filter.clone()) {
+                            (Some(free), Some(own)) => Some(free.and(own)),
+                            (free, own) => free.or(own),
+                        };
+                        session_of(cx)?.set_popup_filter(filter);
                         cx.frame.open_popup_on(ids::LINK, &format!("{}_LookupListView", owner.target));
                         return Ok(());
                     };
@@ -335,8 +360,84 @@ impl Module for SystemModule {
             Box::new(ModificationsController(words())),
             Box::new(DeleteController(words())),
             Box::new(RefreshController(words())),
-            Box::new(VariantsController(words())),
+            Box::new(ChoicesController {
+                id: "ViewVariants",
+                action: ids::VARIANTS,
+                part: "Variants",
+                caption: self.words.variant.clone(),
+                // One way to see a list is no choice at all.
+                fewest: 2,
+            }),
+            Box::new(ChoicesController {
+                id: "ListFilters",
+                action: ids::FILTERS,
+                part: "Filters",
+                caption: self.words.filter.clone(),
+                fewest: 1,
+            }),
             Box::new(LinkController(words())),
         ]
+    }
+}
+
+struct CloneController(Words);
+
+impl ViewController for CloneController {
+    fn id(&self) -> &str {
+        "CloneObject"
+    }
+    fn scope(&self) -> TargetScope {
+        TargetScope::any().nesting(Nesting::Root)
+    }
+    fn actions(&self) -> Vec<Action> {
+        let unsaved = self.0.clone_unsaved.clone();
+        vec![
+            Action::simple(ids::CLONE, self.0.clone.clone())
+                .category(ActionCategory::Edit)
+                .icon("copy")
+                .selection(Selection::RequireSingle)
+                .on_execute(move |cx| {
+                    let session = session_of(cx)?;
+                    // The clone goes in a unit of work of its own, which would not see them.
+                    if session.has_unsaved_changes() {
+                        return Err(unsaved.clone());
+                    }
+                    let source = cx.selected.first().ok_or_else(|| "nothing selected".to_owned())?;
+                    session.clone_record(source)
+                }),
+        ]
+    }
+    fn activated(&mut self, frame: &Frame) {
+        let cloneable = frame.view().and_then(|view| view.entity).is_some_and(|name| {
+            Session::of_frame(frame).and_then(|session| session.entity(&name)).is_some_and(|e| e.cloneable)
+        });
+        if let Some(action) = frame.action(ids::CLONE) {
+            action.set_active("cloneable", cloneable);
+        }
+    }
+}
+
+/// Clones what its entity says can be: what a record holds comes along, a reference points to the
+/// same record, and only a list marked as belonging to the record is cloned with it. Everything
+/// else is left out, so it does not copy a whole graph by accident.
+#[derive(Debug, Default)]
+pub struct CloneModule {
+    words: Words,
+}
+
+impl CloneModule {
+    /// With these words.
+    pub fn with_words(words: Words) -> Self {
+        Self { words }
+    }
+}
+
+impl Module for CloneModule {
+    fn name(&self) -> &str {
+        "CloneObject"
+    }
+
+    fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
+        vec![Box::new(CloneController(self.words.clone()))]
     }
 }

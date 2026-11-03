@@ -21,10 +21,12 @@ pub(crate) struct NestedOwner {
     pub field: String,
     /// The owner's key.
     pub key: Value,
+    /// What the list to pick from has to meet.
+    pub link_filter: Option<Criteria>,
 }
 
 /// The field of `target` that points to `owner`: the one named, or the first that does.
-fn back_reference(
+pub(crate) fn back_reference(
     session: &Session,
     owner: &EntityInfo,
     target: &str,
@@ -45,6 +47,7 @@ pub(crate) struct NestedList {
     owner: Option<Value>,
     target: String,
     field: Option<String>,
+    link_filter: Option<String>,
 }
 
 impl NestedList {
@@ -54,9 +57,16 @@ impl NestedList {
         key: Option<Value>,
         target: &str,
         named: Option<&str>,
+        link_filter: Option<&str>,
     ) -> Self {
         let field = back_reference(&parent, owner, target, named);
-        Self { parent, owner: key, target: target.to_owned(), field }
+        Self {
+            parent,
+            owner: key,
+            target: target.to_owned(),
+            field,
+            link_filter: link_filter.map(str::to_owned),
+        }
     }
 }
 
@@ -82,6 +92,10 @@ impl View for NestedList {
             target: self.target.clone(),
             field: field.clone(),
             key: key.clone(),
+            link_filter: self
+                .link_filter
+                .as_deref()
+                .and_then(|text| crate::editors::filter_for(text, self.parent.form_record().as_ref())),
         }));
         let opener = self.parent.clone();
         let target = self.target.clone();

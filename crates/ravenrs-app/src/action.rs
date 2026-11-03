@@ -290,6 +290,11 @@ impl ActionContext {
         Self { frame, space, selected, view, input, next: RefCell::new(None) }
     }
 
+    /// Something the application gave its actions, by its type.
+    pub fn service<T: 'static>(&self) -> Option<Rc<T>> {
+        self.frame.extension::<T>()
+    }
+
     /// Asks the frame to show this view when the action ends.
     pub fn show_view(&self, id: impl Into<String>) {
         *self.next.borrow_mut() = Some(ActionResult::ShowView(id.into()));

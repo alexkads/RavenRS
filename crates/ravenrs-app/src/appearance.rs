@@ -258,7 +258,7 @@ impl EntityInfo {
         view: &ViewInfo,
         object: Option<&Object>,
     ) -> Appearance {
-        let environment = Environment::new();
+        let environment = crate::environment();
         let mut rules: Vec<&AppearanceRule> = self
             .appearance
             .iter()

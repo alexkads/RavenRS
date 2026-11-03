@@ -306,10 +306,16 @@ impl ChangeSet {
 
 /// Says whether a query fits an entity.
 pub fn check_query(entity: &EntityInfo, query: &Query) -> Result<(), SpaceError> {
-    if let Some(filter) = &query.filter
-        && let Some(problem) = ravenrs_criteria::validate(filter, &entity.schema()).first()
-    {
-        return Err(SpaceError::BadQuery(format!("{}: {problem}", entity.name)));
+    if let Some(filter) = &query.filter {
+        let environment = crate::environment();
+        let problems = ravenrs_criteria::validate(filter, &entity.schema());
+        // A function the application added is known only where it runs.
+        let found = problems.iter().find(|problem| {
+            !matches!(problem, ravenrs_criteria::Problem::UnknownFunction(name) if environment.has_function(name))
+        });
+        if let Some(problem) = found {
+            return Err(SpaceError::BadQuery(format!("{}: {problem}", entity.name)));
+        }
     }
     for (field, _) in &query.sort {
         if entity.field_named(field).is_none() {
@@ -386,7 +392,7 @@ impl MemoryDatabase {
     pub fn space(&self) -> MemoryObjectSpace {
         MemoryObjectSpace {
             database: self.clone(),
-            environment: Environment::new(),
+            environment: crate::environment(),
             changes: ChangeSet::default(),
             watchers: Vec::new(),
         }

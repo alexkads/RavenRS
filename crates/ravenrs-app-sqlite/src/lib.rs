@@ -28,12 +28,12 @@ use std::fmt;
 use std::rc::Rc;
 
 use ravenrs_app::{
-    Change, ChangeSet, EntityInfo, FieldInfo, FieldKind, ModelError, Object, ObjectSpace, Query, SpaceError,
-    SpaceEvent, SpaceWatcher, Value, key_of, key_text, run_query,
+    AttachmentStore, Change, ChangeSet, Diff, EntityInfo, FieldInfo, FieldKind, ModelError, ModelStore,
+    Object, ObjectSpace, Query, SpaceError, SpaceEvent, SpaceWatcher, Value, key_of, key_text, run_query,
 };
 use ravenrs_criteria::{DateTime, Dialect, Environment, SqlParam, to_sql};
 use rusqlite::types::{Value as SqlValue, ValueRef};
-use rusqlite::{Connection, ErrorCode, params_from_iter};
+use rusqlite::{Connection, ErrorCode, OptionalExtension, params_from_iter};
 
 type Hook = Rc<dyn Fn(&mut Object)>;
 
@@ -141,6 +141,202 @@ fn sql_type(kind: &FieldKind) -> &'static str {
         FieldKind::Integer | FieldKind::Money | FieldKind::Boolean => "INTEGER",
         FieldKind::Decimal(_) => "REAL",
         _ => "TEXT",
+    }
+}
+
+/// Where migrations that ran are written down.
+const MIGRATIONS: &str = "ravenrs_app_migrations";
+/// Where settings of the model are kept.
+const SETTINGS: &str = "ravenrs_app_settings";
+/// Where the content of attached files is kept.
+const FILES: &str = "ravenrs_app_files";
+
+/// A column of a table, as SQLite describes it.
+struct Column {
+    name: String,
+    kind: String,
+    required: bool,
+    key: bool,
+}
+
+fn columns_of(connection: &Connection, table: &str) -> rusqlite::Result<Vec<Column>> {
+    let mut statement = connection.prepare(&format!("PRAGMA table_info({})", quoted(table)))?;
+    let rows = statement.query_map([], |row| {
+        let default: Option<String> = row.get(4)?;
+        let not_null: bool = row.get(3)?;
+        Ok(Column {
+            name: row.get(1)?,
+            kind: row.get::<_, String>(2)?.to_uppercase(),
+            required: not_null && default.is_none(),
+            key: row.get::<_, i64>(5)? > 0,
+        })
+    })?;
+    rows.collect()
+}
+
+/// `order_items` as `OrderItems`.
+fn entity_name(table: &str) -> String {
+    table
+        .split('_')
+        .map(|part| {
+            let mut letters = part.chars();
+            letters.next().map_or_else(String::new, |first| first.to_uppercase().chain(letters).collect())
+        })
+        .collect()
+}
+
+/// What a column holds, by the type SQLite was told; nothing for what a field cannot show.
+fn kind_of(declared: &str) -> Option<FieldKind> {
+    if declared.contains("BLOB") {
+        None
+    } else if declared.contains("INT") {
+        Some(FieldKind::Integer)
+    } else if ["REAL", "FLOA", "DOUB", "NUMERIC", "DECIMAL"].iter().any(|name| declared.contains(name)) {
+        Some(FieldKind::Decimal(2))
+    } else if declared.contains("DATETIME") || declared.contains("TIMESTAMP") {
+        Some(FieldKind::DateTime)
+    } else if declared.contains("DATE") {
+        Some(FieldKind::Date)
+    } else if declared.contains("BOOL") {
+        Some(FieldKind::Boolean)
+    } else {
+        Some(FieldKind::Text)
+    }
+}
+
+/// Entities from the tables a database already has, for an application over a database that came
+/// first: a field per column, a reference per foreign key, and a required field per column that
+/// asks for it. A table with no single key is left out, since a record could not be found. What
+/// comes out is a start: captions and rules are for the application to give.
+pub fn entities_from_schema(connection: &Connection) -> Result<Vec<(EntityInfo, TableMap)>, ModelError> {
+    let wrong = |e: rusqlite::Error| ModelError(e.to_string());
+    let mut statement = connection
+        .prepare(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+        )
+        .map_err(wrong)?;
+    let tables: Vec<String> =
+        statement.query_map([], |row| row.get(0)).and_then(Iterator::collect).map_err(wrong)?;
+    let mut found = Vec::new();
+    for table in tables.iter().filter(|table| ![MIGRATIONS, SETTINGS, FILES].contains(&table.as_str())) {
+        let columns = columns_of(connection, table).map_err(wrong)?;
+        if columns.iter().filter(|column| column.key).count() != 1 {
+            continue;
+        }
+        let mut statement =
+            connection.prepare(&format!("PRAGMA foreign_key_list({})", quoted(table))).map_err(wrong)?;
+        let foreign: Vec<(String, String)> = statement
+            .query_map([], |row| Ok((row.get(3)?, row.get(2)?)))
+            .and_then(Iterator::collect)
+            .map_err(wrong)?;
+        let names_a_record = columns
+            .iter()
+            .find(|c| ["name", "title", "description"].contains(&c.name.as_str()))
+            .map(|c| c.name.clone());
+        let mut entity = EntityInfo::new(entity_name(table));
+        for column in &columns {
+            let target = foreign.iter().find(|(from, _)| *from == column.name).map(|(_, to)| to);
+            let kind = match target {
+                Some(to) => FieldKind::Reference(entity_name(to)),
+                None => match kind_of(&column.kind) {
+                    Some(kind) => kind,
+                    None => continue,
+                },
+            };
+            let number = matches!(kind, FieldKind::Integer);
+            let field = FieldInfo::new(&column.name, kind);
+            let field = match (column.key, number) {
+                (true, true) => field.key(),
+                (true, false) => field.typed_key(),
+                _ => field,
+            };
+            let field = if names_a_record.as_deref() == Some(column.name.as_str()) {
+                field.default_property()
+            } else {
+                field
+            };
+            entity = entity.field(field);
+            if column.required && !column.key {
+                entity = entity.rule(ravenrs_app::Rule::required(&column.name));
+            }
+        }
+        found.push((entity, TableMap::new(table)));
+    }
+    Ok(found)
+}
+
+/// Keeps a layer of the model in the database, under a name, as for one person's settings.
+#[derive(Clone, Debug)]
+pub struct SqliteModelStore {
+    connection: Rc<Connection>,
+    key: String,
+}
+
+impl SqliteModelStore {
+    /// A store under this name, creating where it keeps things if needed.
+    pub fn new(connection: Rc<Connection>, key: impl Into<String>) -> Result<Self, ModelError> {
+        connection
+            .execute_batch(&format!(
+                "CREATE TABLE IF NOT EXISTS {SETTINGS} (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+            ))
+            .map_err(|e| ModelError(e.to_string()))?;
+        Ok(Self { connection, key: key.into() })
+    }
+}
+
+impl ModelStore for SqliteModelStore {
+    fn load(&self) -> Result<Option<Diff>, ModelError> {
+        let sql = format!("SELECT value FROM {SETTINGS} WHERE key = ?1");
+        let text: Option<String> = self
+            .connection
+            .query_row(&sql, [&self.key], |row| row.get(0))
+            .optional()
+            .map_err(|e| ModelError(e.to_string()))?;
+        text.map(|text| Diff::parse(&text)).transpose()
+    }
+
+    fn save(&self, difference: &Diff) -> Result<(), ModelError> {
+        let sql = format!("INSERT OR REPLACE INTO {SETTINGS} (key, value) VALUES (?1, ?2)");
+        self.connection
+            .execute(&sql, [self.key.as_str(), difference.to_json().as_str()])
+            .map(|_| ())
+            .map_err(|e| ModelError(e.to_string()))
+    }
+}
+
+/// Keeps the content of attached files in the database, in a table apart from the records.
+#[derive(Clone, Debug)]
+pub struct SqliteAttachmentStore {
+    connection: Rc<Connection>,
+}
+
+impl SqliteAttachmentStore {
+    /// A store on this connection, creating where it keeps things if needed.
+    pub fn new(connection: Rc<Connection>) -> Result<Self, ModelError> {
+        connection
+            .execute_batch(&format!(
+                "CREATE TABLE IF NOT EXISTS {FILES} (id INTEGER PRIMARY KEY, name TEXT NOT NULL, content BLOB NOT NULL)"
+            ))
+            .map_err(|e| ModelError(e.to_string()))?;
+        Ok(Self { connection })
+    }
+}
+
+impl AttachmentStore for SqliteAttachmentStore {
+    fn put(&self, name: &str, bytes: &[u8]) -> Result<String, String> {
+        let sql = format!("INSERT INTO {FILES} (name, content) VALUES (?1, ?2)");
+        self.connection.execute(&sql, rusqlite::params![name, bytes]).map_err(|e| e.to_string())?;
+        Ok(self.connection.last_insert_rowid().to_string())
+    }
+
+    fn get(&self, key: &str) -> Result<Option<Vec<u8>>, String> {
+        let sql = format!("SELECT content FROM {FILES} WHERE id = ?1");
+        self.connection.query_row(&sql, [key], |row| row.get(0)).optional().map_err(|e| e.to_string())
+    }
+
+    fn remove(&self, key: &str) -> Result<(), String> {
+        let sql = format!("DELETE FROM {FILES} WHERE id = ?1");
+        self.connection.execute(&sql, [key]).map(|_| ()).map_err(|e| e.to_string())
     }
 }
 
@@ -274,7 +470,43 @@ impl SqliteBuilder {
             .collect();
         let sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", quoted(&added.map.table), columns.join(", "));
         mine.connection.execute(&sql, []).map_err(|e| ModelError(e.to_string()))?;
+        // A table that was already there gets the fields added since.
+        let wrong = |e: rusqlite::Error| ModelError(e.to_string());
+        let has = columns_of(&mine.connection, &added.map.table).map_err(wrong)?;
+        for field in added.stored() {
+            let column = added.map.column_of(&field.name);
+            if !has.iter().any(|found| found.name == column) {
+                let add = format!(
+                    "ALTER TABLE {} ADD COLUMN {} {}",
+                    quoted(&added.map.table),
+                    quoted(column),
+                    sql_type(&field.kind)
+                );
+                mine.connection.execute(&add, []).map_err(wrong)?;
+            }
+        }
         Ok(mine)
+    }
+
+    /// Runs this once in the life of the database, for what adding a column cannot do, such as
+    /// renaming one or moving data. A migration that fails leaves everything as it was.
+    pub fn migration(self, id: &str, sql: &str) -> Result<Self, ModelError> {
+        let wrong = |e: rusqlite::Error| ModelError(format!("the migration {id}: {e}"));
+        let connection = &self.connection;
+        connection
+            .execute_batch(&format!("CREATE TABLE IF NOT EXISTS {MIGRATIONS} (id TEXT PRIMARY KEY)"))
+            .map_err(wrong)?;
+        let done = connection
+            .prepare(&format!("SELECT 1 FROM {MIGRATIONS} WHERE id = ?1"))
+            .and_then(|mut statement| statement.exists([id]))
+            .map_err(wrong)?;
+        if !done {
+            let transaction = connection.unchecked_transaction().map_err(wrong)?;
+            connection.execute_batch(sql).map_err(wrong)?;
+            connection.execute(&format!("INSERT INTO {MIGRATIONS} (id) VALUES (?1)"), [id]).map_err(wrong)?;
+            transaction.commit().map_err(wrong)?;
+        }
+        Ok(self)
     }
 
     /// Ready to read and write.
@@ -298,7 +530,7 @@ impl SqliteDatabase {
     pub fn space(&self) -> SqliteObjectSpace {
         SqliteObjectSpace {
             shared: self.0.clone(),
-            environment: Environment::new(),
+            environment: ravenrs_app::environment(),
             changes: ChangeSet::default(),
             watchers: Vec::new(),
         }

@@ -48,6 +48,7 @@ impl DetailView {
                 (!form.is_new).then_some(key).flatten(),
                 target,
                 info.back_reference.as_deref(),
+                info.lookup_filter.as_deref(),
             );
             return Some(Box::new(FormField::new(caption, list)));
         }
@@ -152,6 +153,8 @@ impl FormLook {
 impl View for DetailView {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let session = &self.session;
+        // The model can change under a form, as with another language.
+        session.revision();
         let model = session.model();
         let Some(node) = model.at(&["Views", &self.view.id]) else {
             return cx.child(&Text::new(self.view.id.clone()));

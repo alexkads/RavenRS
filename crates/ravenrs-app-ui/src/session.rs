@@ -1,13 +1,13 @@
 //! What the screens of a running application share.
 
 use std::cell::{Cell, RefCell};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use ravenrs_app::{
-    Action, ActionContext, ActionInput, ActionResult, Application, CONTEXT_DELETE, CONTEXT_SAVE, EntityInfo,
-    Frame, FrameContext, ModelNode, Object, ObjectSpace, Query, RuleWords, Value, ViewInfo, ViewKind,
-    Violation, validate,
+    Action, ActionContext, ActionInput, ActionResult, Application, AttachmentStore, CONTEXT_DELETE,
+    CONTEXT_SAVE, Criteria, EntityInfo, FieldKind, Frame, FrameContext, ModelLayer, ModelNode, ModelStore,
+    Object, ObjectSpace, Query, RuleWords, Value, ViewInfo, ViewKind, Violation, validate,
 };
 use ravenrs_reactive::State;
 use ravenrs_widgets::{ConfirmDialog, Date, FilePicker};
@@ -59,6 +59,14 @@ pub struct Words {
     pub unlink: String,
     /// Where a list inside a form would be, while its record is not kept yet.
     pub save_first: String,
+    /// The menu of the filters ready on a list.
+    pub filter: String,
+    /// Makes a new record from the one selected.
+    pub clone: String,
+    /// Why a record cannot be cloned while it has changes.
+    pub clone_unsaved: String,
+    /// Takes a file out, to wherever people say.
+    pub save_file: String,
     /// What fails a rule.
     pub rules: RuleWords,
     /// In front of money.
@@ -92,6 +100,10 @@ impl Default for Words {
             link: "Link".into(),
             unlink: "Unlink".into(),
             save_first: "Save this record to add to this list.".into(),
+            filter: "Filter".into(),
+            clone: "Clone".into(),
+            clone_unsaved: "Save the changes before cloning.".into(),
+            save_file: "Save file".into(),
             rules: RuleWords::default(),
             money_prefix: "$ ".into(),
             thousands: ',',
@@ -124,6 +136,10 @@ impl Words {
             link: "Vincular".into(),
             unlink: "Desvincular".into(),
             save_first: "Salve este registro para acrescentar a esta lista.".into(),
+            filter: "Filtro".into(),
+            clone: "Clonar".into(),
+            clone_unsaved: "Salve as alterações antes de clonar.".into(),
+            save_file: "Salvar arquivo".into(),
             rules: RuleWords::pt_br(),
             money_prefix: "R$ ".into(),
             thousands: '.',
@@ -216,6 +232,15 @@ struct SessionInner {
     form_caption: RefCell<Option<FormCaption>>,
     /// Whether the form repeats, above it, what it says on each field.
     lists_field_errors: Cell<bool>,
+    list_editors: Rc<RefCell<BTreeMap<String, crate::list_view::ListEditorFactory>>>,
+    attachment_store: Rc<RefCell<Option<Rc<dyn AttachmentStore>>>>,
+    model_store: Rc<RefCell<Option<Rc<dyn ModelStore>>>>,
+    /// What the list of the popup about to open has to meet.
+    popup_filter: RefCell<Option<Criteria>>,
+    /// Records that come with the one on the form, kept when it is.
+    pending: RefCell<Vec<Object>>,
+    /// The fields the keyboard has left, whose errors a form that checks on leaving shows.
+    left: State<BTreeSet<String>>,
     today: Cell<Date>,
     /// The keys of the list a form came from, for moving between records.
     siblings: RefCell<Vec<Value>>,
@@ -262,6 +287,12 @@ impl Session {
             presented: State::new(None),
             form_caption: RefCell::default(),
             lists_field_errors: Cell::new(true),
+            list_editors: Rc::default(),
+            attachment_store: Rc::default(),
+            model_store: Rc::default(),
+            popup_filter: RefCell::default(),
+            pending: RefCell::default(),
+            left: State::new(BTreeSet::new()),
             today: Cell::new(today),
             siblings: RefCell::default(),
         })
@@ -311,6 +342,12 @@ impl Session {
             presented: parent.presented.clone(),
             form_caption: RefCell::new(parent.form_caption.borrow().clone()),
             lists_field_errors: Cell::new(parent.lists_field_errors.get()),
+            list_editors: parent.list_editors.clone(),
+            attachment_store: parent.attachment_store.clone(),
+            model_store: parent.model_store.clone(),
+            popup_filter: RefCell::default(),
+            pending: RefCell::default(),
+            left: State::new(BTreeSet::new()),
             today: Cell::new(parent.today.get()),
             siblings: RefCell::default(),
         })
@@ -387,11 +424,11 @@ impl Session {
         self.form().map(|form| form.watched())
     }
 
-    /// The ways to see this list, as their id and what people see.
-    pub(crate) fn variants(&self, view: &str) -> Vec<(String, String)> {
+    /// What this list offers under `part`, `Variants` or `Filters`, as their id and what people see.
+    pub(crate) fn choices(&self, view: &str, part: &str) -> Vec<(String, String)> {
         let model = self.model();
-        model.at(&["Views", view, "Variants"]).map_or_else(Vec::new, |variants| {
-            variants
+        model.at(&["Views", view, part]).map_or_else(Vec::new, |choices| {
+            choices
                 .in_order()
                 .iter()
                 .map(|item| (item.id.clone(), item.text("Caption").unwrap_or(&item.id).to_owned()))
@@ -399,31 +436,185 @@ impl Session {
         })
     }
 
-    /// What the way picked to see this list asks of its records. Without one picked, the first.
-    pub(crate) fn variant_filter(&self, view: &str) -> Option<String> {
-        let model = self.model();
-        let variants = model.at(&["Views", view, "Variants"])?;
-        let current = model.at(&["Views", view]).and_then(|node| node.text("CurrentVariant"));
-        let order = variants.in_order();
-        let picked = current.and_then(|id| order.iter().find(|item| item.id == id)).or(order.first())?;
-        picked.text("Filter").map(str::to_owned)
+    /// The choice in force under `part`: the one picked or else the first.
+    fn chosen(model: &ModelNode, view: &str, part: &str) -> Option<ModelNode> {
+        let choices = model.at(&["Views", view, part])?;
+        let current = model.at(&["Views", view]).and_then(|node| node.text(&format!("Current{part}")));
+        let order = choices.in_order();
+        current
+            .and_then(|id| order.iter().find(|item| item.id == id))
+            .or(order.first())
+            .map(|&item| item.clone())
     }
 
-    /// Picks a way to see this list, which stays in the person's own layer of the model.
-    pub(crate) fn choose_variant(&self, view: &str, variant: &str) -> Result<(), String> {
+    /// What the model asks of the records of this list: its criteria, and the way to see it and the
+    /// filter picked.
+    pub(crate) fn model_filter(&self, view: &str) -> Option<Criteria> {
+        let model = self.model();
+        let own = model.at(&["Views", view]).and_then(|node| node.text("Criteria")).map(str::to_owned);
+        let picked = ["Variants", "Filters"].into_iter().map(|part| {
+            Self::chosen(&model, view, part).and_then(|item| item.text("Filter").map(str::to_owned))
+        });
+        std::iter::once(own)
+            .chain(picked)
+            .flatten()
+            .filter_map(|text| Criteria::parse(&text).ok())
+            .reduce(Criteria::and)
+    }
+
+    /// The fields the way picked to see this list shows, if it says.
+    pub(crate) fn variant_columns(&self, view: &str) -> Option<Vec<String>> {
+        let item = Self::chosen(&self.model(), view, "Variants")?;
+        item.get("Columns").map(|columns| columns.in_order().iter().map(|c| c.id.clone()).collect())
+    }
+
+    /// Picks under `part`, which stays in the person's own layer of the model.
+    pub(crate) fn choose(&self, view: &str, part: &str, choice: &str) -> Result<(), String> {
         self.0
             .application
             .borrow_mut()
-            .set_user_setting(&["Views", view], "CurrentVariant", variant)
+            .set_user_setting(&["Views", view], &format!("Current{part}"), choice)
             .map_err(|e| e.0)?;
+        self.keep_settings()?;
         self.touch();
         Ok(())
+    }
+
+    /// Keeps the person's own layer of the model there, and reads what is there now.
+    pub fn use_model_store(&self, store: Rc<dyn ModelStore>) -> Result<(), String> {
+        {
+            let mut application = self.0.application.borrow_mut();
+            application.layers_mut().load(&ModelLayer::User, &*store).map_err(|e| e.0)?;
+            application.refresh_model().map_err(|e| e.0)?;
+        }
+        *self.0.model_store.borrow_mut() = Some(store);
+        self.touch();
+        Ok(())
+    }
+
+    fn keep_settings(&self) -> Result<(), String> {
+        let store = self.0.model_store.borrow().clone();
+        let Some(store) = store else { return Ok(()) };
+        let mut application = self.0.application.borrow_mut();
+        application.layers_mut().save(&ModelLayer::User, &*store).map_err(|e| e.0)
+    }
+
+    /// Shows the model in this language, from the translations given.
+    pub fn set_language(&self, language: &str) -> Result<(), String> {
+        self.0.application.borrow_mut().set_language(language).map_err(|e| e.0)?;
+        self.touch();
+        Ok(())
+    }
+
+    /// Registers how a list can be shown, for a view's `EditorType` in the model to pick by name,
+    /// or `DefaultListEditor` on `Views` for all of them.
+    pub fn register_list_editor(
+        &self,
+        name: impl Into<String>,
+        editor: impl Fn(&crate::ListEditorRequest) -> ravenrs_widgets::AnyView + 'static,
+    ) {
+        self.0.list_editors.borrow_mut().insert(name.into(), Rc::new(editor));
+    }
+
+    /// Shows this list with the editor of this name, which stays in the person's own layer.
+    pub fn choose_list_editor(&self, view: &str, editor: &str) -> Result<(), String> {
+        self.0
+            .application
+            .borrow_mut()
+            .set_user_setting(&["Views", view], "EditorType", editor)
+            .map_err(|e| e.0)?;
+        self.keep_settings()?;
+        self.touch();
+        Ok(())
+    }
+
+    pub(crate) fn list_editor(&self, name: &str) -> Option<crate::list_view::ListEditorFactory> {
+        self.0.list_editors.borrow().get(name).cloned()
+    }
+
+    /// Keeps the content of attached files there, apart from the records. Without it, a file stays
+    /// inside its record's field.
+    pub fn use_attachment_store(&self, store: Rc<dyn AttachmentStore>) {
+        *self.0.attachment_store.borrow_mut() = Some(store);
+    }
+
+    pub(crate) fn attachment_store(&self) -> Option<Rc<dyn AttachmentStore>> {
+        self.0.attachment_store.borrow().clone()
+    }
+
+    pub(crate) fn set_popup_filter(&self, filter: Option<Criteria>) {
+        *self.0.popup_filter.borrow_mut() = filter;
+    }
+
+    pub(crate) fn popup_filter(&self) -> Option<Criteria> {
+        self.0.popup_filter.borrow().clone()
+    }
+
+    /// The keyboard left this field, so a form that checks on leaving can say what is wrong with it.
+    pub(crate) fn left_field(&self, field: &str) {
+        if !self.0.left.peek().contains(field) {
+            self.0.left.update(|left| {
+                left.insert(field.to_owned());
+            });
+        }
+    }
+
+    /// Opens on a new record with what this one holds, leaving out what its fields say stays
+    /// behind. Lists that belong to it come along, and are kept with it.
+    pub(crate) fn clone_record(&self, source: &Object) -> Result<(), String> {
+        let entity = self.entity(source.entity()).ok_or_else(|| source.entity().to_owned())?;
+        let view = self.detail_of(&entity)?;
+        if self.0.frame.view().is_some_and(|v| v.kind == ViewKind::List) {
+            self.0.history.update(|history| history.push(view.id.clone()));
+        }
+        self.show(view);
+        let mut pending = Vec::new();
+        let copy = self.copy_of(&entity, source, &mut pending)?;
+        *self.0.pending.borrow_mut() = pending;
+        self.0.form.set(Some(Rc::new(FormState::new(entity.clone(), copy, true))));
+        self.update_position(&entity);
+        Ok(())
+    }
+
+    /// A new record with what this one holds; what belongs to it goes in `pending`, pointing to it.
+    fn copy_of(
+        &self,
+        entity: &EntityInfo,
+        source: &Object,
+        pending: &mut Vec<Object>,
+    ) -> Result<Object, String> {
+        let space = self.0.frame.space();
+        let mut copy = space.borrow_mut().new_object(&entity.name).map_err(|e| e.to_string())?;
+        let key_name = entity.key_field().map(|key| key.name.clone()).unwrap_or_default();
+        let copied = entity.fields.iter().filter(|field| {
+            !field.is_key
+                && !field.non_cloneable
+                && field.calculated.is_none()
+                && !matches!(field.kind, FieldKind::Collection(_))
+        });
+        for field in copied {
+            copy.set(&field.name, source.get(&field.name));
+        }
+        for field in entity.fields.iter().filter(|field| field.aggregated) {
+            let FieldKind::Collection(target) = &field.kind else { continue };
+            let Some(child) = self.entity(target) else { continue };
+            let named = field.back_reference.as_deref();
+            let Some(back) = crate::nested::back_reference(self, entity, target, named) else { continue };
+            let filter = Criteria::property(&back).equals(Criteria::value(source.get(&key_name)));
+            let found = space.borrow().query(target, &Query::all().filter(filter));
+            for record in found.map_err(|e| e.to_string())? {
+                let mut child_copy = self.copy_of(&child, &record, pending)?;
+                child_copy.set(&back, copy.get(&key_name));
+                pending.push(child_copy);
+            }
+        }
+        Ok(copy)
     }
 
     /// What the person changed in the model, to keep between runs.
     pub fn user_settings(&self) -> Option<String> {
         let mut application = self.0.application.borrow_mut();
-        application.layers_mut().difference(&ravenrs_app::ModelLayer::User).map(|diff| diff.to_json())
+        application.layers_mut().difference(&ModelLayer::User).map(|diff| diff.to_json())
     }
 
     /// Puts this record on the form, as it is, without looking in storage.
@@ -547,10 +738,22 @@ impl Session {
 
     /// What the form fails, once a save has found something. Follows the fields.
     pub(crate) fn form_violations(&self) -> Vec<Violation> {
-        if !self.0.checking.get() {
+        let Some(form) = self.form() else { return Vec::new() };
+        let found = |record: &Object| self.violations_of(record, CONTEXT_SAVE);
+        if self.0.checking.get() {
+            return found(&form.watched());
+        }
+        if !form.entity.checks_on_leave {
             return Vec::new();
         }
-        self.form().map_or_else(Vec::new, |form| self.violations_of(&form.watched(), CONTEXT_SAVE))
+        let left = self.0.left.get();
+        if left.is_empty() {
+            return Vec::new();
+        }
+        // Only what the person already went through: what is still ahead is not an error yet.
+        let mut all = found(&form.watched());
+        all.retain(|violation| violation.field.as_ref().is_some_and(|field| left.contains(field)));
+        all
     }
 
     /// What went wrong last, in words for people.
@@ -613,6 +816,10 @@ impl Session {
     fn show(&self, view: ViewInfo) {
         self.0.error.set(None);
         self.0.checking.set(false);
+        self.0.pending.borrow_mut().clear();
+        if !self.0.left.peek().is_empty() {
+            self.0.left.set(BTreeSet::new());
+        }
         self.0.frame.set_view_in(Some(view), (self.0.new_space)());
     }
 
@@ -683,7 +890,12 @@ impl Session {
             self.0.history.update(|history| history.push(view.id.clone()));
         }
         self.show(view);
-        let made = self.0.frame.space().borrow_mut().new_object(entity_name);
+        // What no storage keeps starts from its declaration.
+        let made = if entity.transient {
+            Ok(entity.new_object())
+        } else {
+            self.0.frame.space().borrow_mut().new_object(entity_name)
+        };
         match made {
             Ok(object) => self.0.form.set(Some(Rc::new(FormState::new(entity.clone(), object, true)))),
             Err(error) => self.0.error.set(Some(error.to_string())),
@@ -736,7 +948,12 @@ impl Session {
         let space = self.0.frame.space();
         let done = {
             let mut space = space.borrow_mut();
-            let kept = if form.is_new { space.insert(object.clone()) } else { space.save(object.clone()) };
+            let mut kept =
+                if form.is_new { space.insert(object.clone()) } else { space.save(object.clone()) };
+            // After the record, which they point to.
+            for record in self.0.pending.borrow_mut().drain(..) {
+                kept = kept.and_then(|()| space.insert(record));
+            }
             kept.and_then(|()| space.commit())
         };
         match done {

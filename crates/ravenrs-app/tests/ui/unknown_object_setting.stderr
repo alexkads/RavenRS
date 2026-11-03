@@ -1,4 +1,4 @@
-error: unknown setting: use caption, navigation or icon
+error: unknown setting: use caption, navigation, icon, list_criteria, form_columns, cloneable, transient or checks_on_leave
  --> tests/ui/unknown_object_setting.rs:4:10
   |
 4 | #[object(captions = "x")]

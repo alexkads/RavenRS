@@ -57,6 +57,11 @@ impl ModelNode {
         self.properties.get(name).and_then(Json::as_i64)
     }
 
+    /// A setting as a number.
+    pub fn number(&self, name: &str) -> Option<f64> {
+        self.properties.get(name).and_then(Json::as_f64)
+    }
+
     /// A setting as yes or no.
     pub fn flag(&self, name: &str) -> Option<bool> {
         self.properties.get(name).and_then(Json::as_bool)

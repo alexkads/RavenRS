@@ -10,7 +10,8 @@ use syn::{Data, DeriveInput, Error, Fields, Ident, LitInt, LitStr, Result, parse
 /// Declares a struct as a business object: an entity for the model, and the way to and from
 /// a record.
 ///
-/// On the struct, `#[object(caption = "...", navigation = "...", icon = "...")]`.
+/// On the struct, `#[object(caption = "...", navigation = "...", icon = "...",
+/// list_criteria = "...", form_columns = 2, cloneable, transient, checks_on_leave)]`.
 ///
 /// On a field, `#[field(...)]`:
 ///
@@ -23,6 +24,10 @@ use syn::{Data, DeriveInput, Error, Fields, Ident, LitInt, LitStr, Result, parse
 /// * `default = ...` what a new record starts with.
 /// * `required`, `unique`, `min = 1`, `max = 10`, `matches = "^[A-Z]+$"`: what it has to meet on
 ///   saving, and `message = "..."` what to say instead of the usual words.
+/// * On a form: `editor = "..."`, `placeholder = "..."`, `hint = "..."`, `wide`, `autofocus`.
+/// * On a reference: `lookup_filter = "[flow] = ?flow"`, `none_caption = "..."`. On a collection:
+///   `back_reference = "..."`, `aggregated`. `non_cloneable` stays behind on cloning, and
+///   `most_bytes = 1024` limits a picture or a file.
 ///
 /// On the struct, as many as needed:
 ///
@@ -32,7 +37,9 @@ use syn::{Data, DeriveInput, Error, Fields, Ident, LitInt, LitStr, Result, parse
 ///   enabled = false, visible = false, priority = 1, context = "list", action)]`. With `layout`,
 ///   the names are groups of a form; with `action`, actions. A context is `list`, `detail` or a
 ///   view's id. Tints are `danger`, `warning`, `success`, `accent` and `muted`.
-#[proc_macro_derive(BusinessObject, attributes(object, field, rule, appearance))]
+/// * `#[variant(id = "...", caption = "...", filter = "...", columns = "a,b")]` and
+///   `#[list_filter(id = "...", caption = "...", filter = "...")]`, for people to pick on the list.
+#[proc_macro_derive(BusinessObject, attributes(object, field, rule, appearance, variant, list_filter))]
 pub fn derive_business_object(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     business_object(&input).unwrap_or_else(Error::into_compile_error).into()
@@ -51,6 +58,11 @@ struct ObjectAttrs {
     caption: Option<LitStr>,
     navigation: Option<LitStr>,
     icon: Option<LitStr>,
+    list_criteria: Option<LitStr>,
+    form_columns: Option<LitInt>,
+    cloneable: bool,
+    transient: bool,
+    checks_on_leave: bool,
 }
 
 fn object_attrs(input: &DeriveInput) -> Result<ObjectAttrs> {
@@ -63,8 +75,23 @@ fn object_attrs(input: &DeriveInput) -> Result<ObjectAttrs> {
                 attrs.navigation = Some(meta.value()?.parse()?);
             } else if meta.path.is_ident("icon") {
                 attrs.icon = Some(meta.value()?.parse()?);
+            } else if meta.path.is_ident("list_criteria") {
+                let text: LitStr = meta.value()?.parse()?;
+                Criteria::parse(&text.value()).map_err(|e| Error::new(text.span(), e.to_string()))?;
+                attrs.list_criteria = Some(text);
+            } else if meta.path.is_ident("form_columns") {
+                attrs.form_columns = Some(meta.value()?.parse()?);
+            } else if meta.path.is_ident("cloneable") {
+                attrs.cloneable = true;
+            } else if meta.path.is_ident("transient") {
+                attrs.transient = true;
+            } else if meta.path.is_ident("checks_on_leave") {
+                attrs.checks_on_leave = true;
             } else {
-                return Err(meta.error("unknown setting: use caption, navigation or icon"));
+                return Err(meta.error(
+                    "unknown setting: use caption, navigation, icon, list_criteria, form_columns, cloneable, \
+                     transient or checks_on_leave",
+                ));
             }
             Ok(())
         })?;
@@ -93,6 +120,15 @@ struct FieldAttrs {
     message: Option<LitStr>,
     editor: Option<LitStr>,
     placeholder: Option<LitStr>,
+    hint: Option<LitStr>,
+    lookup_filter: Option<LitStr>,
+    none_caption: Option<LitStr>,
+    back_reference: Option<LitStr>,
+    most_bytes: Option<LitInt>,
+    wide: bool,
+    autofocus: bool,
+    non_cloneable: bool,
+    aggregated: bool,
 }
 
 fn set_kind(attrs: &mut FieldAttrs, path: &syn::Path, kind: Tokens) -> Result<()> {
@@ -166,11 +202,33 @@ fn field_attrs(field: &syn::Field) -> Result<FieldAttrs> {
                 attrs.editor = Some(meta.value()?.parse()?);
             } else if named("placeholder") {
                 attrs.placeholder = Some(meta.value()?.parse()?);
+            } else if named("hint") {
+                attrs.hint = Some(meta.value()?.parse()?);
+            } else if named("lookup_filter") {
+                let text: LitStr = meta.value()?.parse()?;
+                Criteria::parse(&text.value()).map_err(|e| Error::new(text.span(), e.to_string()))?;
+                attrs.lookup_filter = Some(text);
+            } else if named("none_caption") {
+                attrs.none_caption = Some(meta.value()?.parse()?);
+            } else if named("back_reference") {
+                attrs.back_reference = Some(meta.value()?.parse()?);
+            } else if named("most_bytes") {
+                attrs.most_bytes = Some(meta.value()?.parse()?);
+            } else if named("wide") {
+                attrs.wide = true;
+            } else if named("autofocus") {
+                attrs.autofocus = true;
+            } else if named("non_cloneable") {
+                attrs.non_cloneable = true;
+            } else if named("aggregated") {
+                attrs.aggregated = true;
             } else {
                 return Err(meta.error(
                     "unknown setting: use key, typed_key, caption, default_property, read_only, no_list, \
                      no_detail, lookup, money, long, color, date, decimals, reference, collection, \
-                     calculated, default, required, unique, min, max, matches, message, editor or placeholder",
+                     calculated, default, required, unique, min, max, matches, message, editor, placeholder, \
+                     hint, lookup_filter, none_caption, back_reference, most_bytes, wide, autofocus, \
+                     non_cloneable or aggregated",
                 ));
             }
             Ok(())
@@ -403,7 +461,88 @@ fn field_tokens(ident: &Ident, ty: &syn::Type, attrs: &FieldAttrs) -> Tokens {
     if let Some(text) = &attrs.placeholder {
         then(quote!(.placeholder(#text)));
     }
+    if let Some(text) = &attrs.hint {
+        then(quote!(.hint(#text)));
+    }
+    if let Some(text) = &attrs.lookup_filter {
+        then(quote!(.lookup_filter(#text)));
+    }
+    if let Some(text) = &attrs.none_caption {
+        then(quote!(.none_caption(#text)));
+    }
+    if let Some(text) = &attrs.back_reference {
+        then(quote!(.back_reference(#text)));
+    }
+    if let Some(bytes) = &attrs.most_bytes {
+        then(quote!(.most_bytes(#bytes)));
+    }
+    if attrs.wide {
+        then(quote!(.wide()));
+    }
+    if attrs.autofocus {
+        then(quote!(.autofocus()));
+    }
+    if attrs.non_cloneable {
+        then(quote!(.non_cloneable()));
+    }
+    if attrs.aggregated {
+        then(quote!(.aggregated()));
+    }
     info
+}
+
+/// `#[variant(...)]` and `#[list_filter(...)]` on a struct, as calls on its entity.
+fn struct_choices(input: &DeriveInput, names: &[String]) -> Result<Vec<Tokens>> {
+    let mut found = Vec::new();
+    for attr in &input.attrs {
+        let is_variant = attr.path().is_ident("variant");
+        if !is_variant && !attr.path().is_ident("list_filter") {
+            continue;
+        }
+        let (mut id, mut caption, mut filter, mut columns) =
+            (None::<LitStr>, None::<LitStr>, None::<LitStr>, None::<LitStr>);
+        attr.parse_nested_meta(|meta| {
+            let slot = if meta.path.is_ident("id") {
+                &mut id
+            } else if meta.path.is_ident("caption") {
+                &mut caption
+            } else if meta.path.is_ident("filter") {
+                &mut filter
+            } else if is_variant && meta.path.is_ident("columns") {
+                &mut columns
+            } else {
+                return Err(meta.error("unknown setting: use id, caption, filter or, on a variant, columns"));
+            };
+            *slot = Some(meta.value()?.parse()?);
+            Ok(())
+        })?;
+        let (Some(id), Some(caption)) = (id, caption) else {
+            return Err(Error::new(attr.span(), "this needs an id and a caption"));
+        };
+        if let Some(text) = &filter {
+            let parsed =
+                Criteria::parse(&text.value()).map_err(|e| Error::new(text.span(), e.to_string()))?;
+            if let Some(unknown) = parsed.properties().iter().find(|name| !names.contains(name)) {
+                return Err(Error::new(text.span(), format!("there is no field {unknown}")));
+            }
+        }
+        let shown: Vec<String> = columns
+            .iter()
+            .flat_map(|text| text.value().split(',').map(|c| c.trim().to_owned()).collect::<Vec<_>>())
+            .collect();
+        if let (Some(text), Some(unknown)) = (&columns, shown.iter().find(|name| !names.contains(name))) {
+            return Err(Error::new(text.span(), format!("there is no field {unknown}")));
+        }
+        let filter =
+            filter.map(|text| if is_variant { quote!(.filter(#text)) } else { quote!(.criteria(#text)) });
+        found.push(if is_variant {
+            let shown = (!shown.is_empty()).then(|| quote!(.columns([#(#shown),*])));
+            quote!(.variant(::ravenrs_app::ViewVariant::new(#id, #caption) #filter #shown))
+        } else {
+            quote!(.filter(::ravenrs_app::ListFilter::new(#id, #caption) #filter))
+        });
+    }
+    Ok(found)
 }
 
 fn business_object(input: &DeriveInput) -> Result<Tokens> {
@@ -469,10 +608,26 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     if let Some(icon) = &object.icon {
         info = quote!(#info.icon(#icon));
     }
+    if let Some(text) = &object.list_criteria {
+        info = quote!(#info.list_criteria(#text));
+    }
+    if let Some(columns) = &object.form_columns {
+        info = quote!(#info.form_columns(#columns));
+    }
+    if object.cloneable {
+        info = quote!(#info.cloneable());
+    }
+    if object.transient {
+        info = quote!(#info.transient());
+    }
+    if object.checks_on_leave {
+        info = quote!(#info.checks_on_leave());
+    }
+    let choices = struct_choices(input, &names)?;
     Ok(quote! {
         impl ::ravenrs_app::BusinessObject for #name {
             fn entity_info() -> ::ravenrs_app::EntityInfo {
-                #info #(.field(#infos))* #(.rule(#rules))* #(.appearance(#appearance))*
+                #info #(.field(#infos))* #(.rule(#rules))* #(.appearance(#appearance))* #(#choices)*
             }
 
             fn to_object(&self) -> ::ravenrs_app::Object {

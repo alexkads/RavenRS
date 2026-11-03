@@ -28,6 +28,22 @@ fn list_view(entity: &EntityInfo, id: String, shown: impl Fn(&FieldInfo) -> bool
         .with("Entity", entity.name.as_str())
         .with("Caption", entity.caption.as_str())
         .child(columns);
+    let node = match &entity.list_criteria {
+        Some(criteria) => node.with("Criteria", criteria.as_str()),
+        None => node,
+    };
+    let node = if entity.filters.is_empty() {
+        node
+    } else {
+        node.child(entity.filters.iter().enumerate().fold(ModelNode::new("Filters"), |all, (i, filter)| {
+            let item =
+                ModelNode::new(&filter.id).with("Caption", filter.caption.as_str()).with("Index", i as i64);
+            all.child(match &filter.criteria {
+                Some(criteria) => item.with("Filter", criteria.as_str()),
+                None => item,
+            })
+        }))
+    };
     if entity.variants.is_empty() {
         return node;
     }
@@ -35,12 +51,61 @@ fn list_view(entity: &EntityInfo, id: String, shown: impl Fn(&FieldInfo) -> bool
         entity.variants.iter().enumerate().fold(ModelNode::new("Variants"), |variants, (i, variant)| {
             let item =
                 ModelNode::new(&variant.id).with("Caption", variant.caption.as_str()).with("Index", i as i64);
-            variants.child(match &variant.filter {
+            let item = match &variant.filter {
                 Some(filter) => item.with("Filter", filter.as_str()),
                 None => item,
+            };
+            variants.child(if variant.columns.is_empty() {
+                item
+            } else {
+                item.child(
+                    variant
+                        .columns
+                        .iter()
+                        .enumerate()
+                        .fold(ModelNode::new("Columns"), |columns, (at, field)| {
+                            columns.child(ModelNode::new(field).with("Index", at as i64))
+                        }),
+                )
             })
         });
     node.child(variants)
+}
+
+/// What says what a field or an entity is called in the views and the navigation came from it. A
+/// caption changed under `Entities`, as a translation does, follows there unless a view has its own.
+pub(crate) fn follow_captions(root: &mut ModelNode, declared: &[EntityInfo]) {
+    let Some(entities) = root.get("Entities").cloned() else { return };
+    let set = |node: &mut ModelNode, was: &str, now: &str| {
+        if node.text("Caption") == Some(was) && was != now {
+            node.properties.insert("Caption".to_owned(), serde_json::Value::String(now.to_owned()));
+        }
+    };
+    for entity in declared {
+        let Some(in_model) = entities.get(&entity.name) else { continue };
+        let caption = in_model.text("Caption").unwrap_or(&entity.caption);
+        let is_of = |view: &ModelNode| view.text("Entity") == Some(entity.name.as_str());
+        if let Some(views) = root.get_mut("Views") {
+            for view in views.children.iter_mut().filter(|view| is_of(view)) {
+                set(view, &entity.caption, caption);
+                for part in ["Columns", "Items"] {
+                    let Some(items) = view.get_mut(part) else { continue };
+                    for item in &mut items.children {
+                        let Some(field) = entity.field_named(&item.id) else { continue };
+                        let now = in_model.at(&["Members", &item.id]).and_then(|m| m.text("Caption"));
+                        set(item, &field.caption, now.unwrap_or(&field.caption));
+                    }
+                }
+            }
+        }
+        if let Some(navigation) = root.get_mut("NavigationItems") {
+            for place in &mut navigation.children {
+                for item in place.children.iter_mut().filter(|item| item.id == entity.name) {
+                    set(item, &entity.caption, caption);
+                }
+            }
+        }
+    }
 }
 
 /// Adds a dashboard to a model: its view, and its place in the navigation if it has one.
@@ -142,15 +207,24 @@ fn detail_view(entity: &EntityInfo) -> ModelNode {
 
 fn entity_node(entity: &EntityInfo) -> ModelNode {
     let members = entity.fields.iter().fold(ModelNode::new("Members"), |members, field| {
-        members.child(
-            ModelNode::new(&field.name)
-                .with("Caption", field.caption.as_str())
-                .with("Kind", field.kind.name())
-                .with("Key", field.is_key)
-                .with("ReadOnly", field.read_only),
-        )
+        let member = ModelNode::new(&field.name)
+            .with("Caption", field.caption.as_str())
+            .with("Kind", field.kind.name())
+            .with("Key", field.is_key)
+            .with("ReadOnly", field.read_only);
+        members.child(match &field.kind {
+            crate::FieldKind::Enum(options) => {
+                member.child(options.iter().fold(ModelNode::new("Options"), |all, option| {
+                    all.child(ModelNode::new(&option.code).with("Caption", option.caption.as_str()))
+                }))
+            }
+            _ => member,
+        })
     });
-    let mut node = ModelNode::new(&entity.name).with("Caption", entity.caption.as_str()).child(members);
+    let mut node = ModelNode::new(&entity.name)
+        .with("Caption", entity.caption.as_str())
+        .child(members)
+        .child(ModelNode::new("Rules"));
     if let Some(field) = entity.default_property() {
         node = node.with("DefaultProperty", field.name.as_str());
     }

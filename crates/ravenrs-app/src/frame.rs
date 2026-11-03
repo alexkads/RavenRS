@@ -6,7 +6,6 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_criteria::Environment;
 use ravenrs_reactive::State;
 
 use crate::action::{
@@ -107,7 +106,6 @@ struct FrameInner {
     model: Option<Rc<ModelNode>>,
     extensions: RefCell<Vec<Rc<dyn Any>>>,
     entities: RefCell<Rc<Vec<crate::EntityInfo>>>,
-    environment: Environment,
     view: State<Option<ViewInfo>>,
     selected: State<Vec<Object>>,
     popup: State<Option<(String, String)>>,
@@ -167,7 +165,6 @@ impl Frame {
             model,
             extensions: RefCell::default(),
             entities: RefCell::default(),
-            environment: Environment::new(),
             view: State::new(None),
             selected: State::new(Vec::new()),
             popup: State::new(None),
@@ -212,6 +209,10 @@ impl Frame {
     /// does for its controllers and actions.
     pub fn set_extension<T: 'static>(&self, value: Rc<T>) {
         self.0.extensions.borrow_mut().retain(|kept| !kept.is::<T>());
+        self.0.extensions.borrow_mut().push(value);
+    }
+
+    pub(crate) fn keep_extension(&self, value: Rc<dyn Any>) {
         self.0.extensions.borrow_mut().push(value);
     }
 
@@ -335,12 +336,13 @@ impl Frame {
         let view = self.0.view.peek().clone();
         let selected = self.0.selected.peek().clone();
         let entities = self.0.entities.borrow().clone();
+        let environment = crate::environment();
         let entity = view
             .as_ref()
             .and_then(|view| view.entity.as_deref())
             .and_then(|name| entities.iter().find(|entity| entity.name == name));
         for action in self.actions() {
-            action.update(view.as_ref(), self.0.context, &selected, &self.0.environment);
+            action.update(view.as_ref(), self.0.context, &selected, &environment);
             let (mut enabled, mut visible) = (true, true);
             if let (Some(entity), Some(view)) = (entity, view.as_ref()) {
                 // One record that does not fit is enough to turn it off.

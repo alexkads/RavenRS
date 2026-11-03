@@ -30,7 +30,9 @@ mod action;
 mod appearance;
 mod controller;
 mod entity;
+mod files;
 mod frame;
+mod functions;
 mod model;
 mod module;
 mod object;
@@ -44,8 +46,10 @@ pub use action::{
 };
 pub use appearance::{Appearance, AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
 pub use controller::{ViewController, WindowController};
-pub use entity::{EntityInfo, EnumOption, FieldInfo, FieldKind, ModelError, Object, ViewVariant};
+pub use entity::{EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter, ModelError, Object, ViewVariant};
+pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
+pub use functions::{environment, register_function};
 #[cfg(not(target_arch = "wasm32"))]
 pub use model::FileStore;
 pub use model::{

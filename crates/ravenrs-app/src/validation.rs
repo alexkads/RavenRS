@@ -162,6 +162,39 @@ impl PartialEq for Rule {
 }
 
 impl Rule {
+    /// A rule set in the model, under an entity's `Rules`: `Kind` is `Required`, `Range`, `Matches`,
+    /// `Criteria` or `Unique`, with `Field`, `Min`, `Max`, `Pattern`, `Expression`, `Message`,
+    /// `Target` and `Contexts`, separated by commas, as each asks for.
+    pub(crate) fn from_model(node: &crate::ModelNode) -> Result<Self, crate::ModelError> {
+        let wrong = |what: &str| crate::ModelError(format!("the rule {} {what}", node.id));
+        let text = |name: &str| node.text(name).map(str::to_owned);
+        let field = || text("Field").ok_or_else(|| wrong("says nothing about its field"));
+        let kind = node.text("Kind").ok_or_else(|| wrong("says nothing about its kind"))?;
+        let mut rule = match kind {
+            "Required" => Self::on(field()?, RuleKind::Required),
+            "Unique" => Self::on(field()?, RuleKind::Unique),
+            "Range" => {
+                Self::on(field()?, RuleKind::Range { min: node.number("Min"), max: node.number("Max") })
+            }
+            "Matches" => {
+                let pattern = text("Pattern").ok_or_else(|| wrong("says nothing about its pattern"))?;
+                Self::on(field()?, RuleKind::Matches(pattern))
+            }
+            "Criteria" => {
+                let expression = text("Expression").ok_or_else(|| wrong("has no expression"))?;
+                Self::new(node.id.clone(), RuleKind::Criteria(expression))
+            }
+            other => return Err(wrong(&format!("is of an unknown kind: {other}"))),
+        };
+        rule.id = node.id.clone();
+        rule.message = text("Message");
+        rule.target_criteria = text("Target");
+        if let Some(contexts) = node.text("Contexts") {
+            rule.contexts = contexts.split(',').map(|context| context.trim().to_owned()).collect();
+        }
+        Ok(rule)
+    }
+
     /// A rule about the whole record.
     pub fn new(id: impl Into<String>, kind: RuleKind) -> Self {
         Self {
@@ -405,7 +438,7 @@ fn broken(
     space: &dyn ObjectSpace,
     words: &RuleWords,
 ) -> Option<String> {
-    let environment = Environment::new();
+    let environment = crate::environment();
     let caption = rule
         .field
         .as_deref()
@@ -499,7 +532,7 @@ pub fn validate(
     words: &RuleWords,
 ) -> Vec<Violation> {
     let mut object = object.clone();
-    let environment = Environment::new();
+    let environment = crate::environment();
     entity.compute(&mut object, &environment);
     entity
         .rules
