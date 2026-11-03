@@ -1,9 +1,11 @@
 {
-  "versao": "0.1.22",
-  "titulo": "Agora dá para recolher os submenus do menu lateral.",
+  "versao": "0.1.23",
+  "titulo": "Listas mais fáceis de ler, com linhas alternadas.",
   "importante": false,
   "novidades": [
-    "Em Contas a pagar, Relatórios e Cadastros, clique de novo na linha do menu para recolher o submenu, e mais uma vez para abrir."
+    "Em Lançamentos, Contas a pagar e nas demais listas, uma linha sim, outra não tem um fundo suave, o que ajuda a seguir a linha até o valor.",
+    "A linha sob o ponteiro e a linha selecionada ficaram um pouco mais marcadas, para não se confundirem com esse fundo.",
+    "Os treinamentos foram regravados com as telas novas."
   ],
-  "por_que_atualizar": "Para deixar o menu lateral mais limpo quando quiser."
+  "por_que_atualizar": "Para ler as listas com mais conforto."
 }
