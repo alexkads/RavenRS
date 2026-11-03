@@ -74,6 +74,7 @@ ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-expo
 ravenrs-app-library    ──► ravenrs-app  (ready-made records)
 ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-designer  (reports and panels)
 ravenrs-app-server     ──► ravenrs-app, ravenrs-criteria  (HTTP on one worker thread; no GUI)
+ravenrs-app-remote     ──► ravenrs-app-ui  (the same screens over the API of ravenrs-app-server, which it does not depend on)
 ravenrs-app-sqlite, ravenrs-app-postgres ──► ravenrs-app-sql ──► ravenrs-app, ravenrs-criteria  (only these two know a database driver)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
@@ -111,6 +112,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-app-library` | `lib` |
 | `ravenrs-app-report` | `lib`, `stored`, `analytics` |
 | `ravenrs-app-server` | `lib` (`ApiService`, routes, sessions), `json`, `openapi`, `http` (worker thread and axum) |
+| `ravenrs-app-remote` | `lib` (`RemoteClient`, `RemoteDatabase`, `RemoteObjectSpace`), `transport`, `gate` (`RemoteApp`) |
 | `ravenrs-app-sql` | `lib` (`SqlBackend`, `SqlDatabase`, `SqlObjectSpace`, `TableMap`) |
 | `ravenrs-app-postgres` | `lib` (`PostgresBackend`, types in and out) |
 | `ravenrs-report-designer` | `lib`, `editor`, `bands`, `surface`, `props`, `preview` |

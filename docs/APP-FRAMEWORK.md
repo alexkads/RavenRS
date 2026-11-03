@@ -328,6 +328,32 @@ Limits to know:
 
 Try it with `cargo run -p feature-center --bin api`.
 
+## An application over a server
+
+`ravenrs-app-remote` puts the screens over the web API, on the desktop and in the browser, which gives the browser real storage.
+
+```rust,ignore
+RemoteApp::view("Orders", Language::English, RemoteClient::http(address), entities, |records| {
+    let records = records.clone();
+    App::new("Orders").entity::<Order>().storage(move || records.space())
+})
+```
+
+It asks who is there, reads what they can see into a copy in memory, and the screens work over that copy. A commit goes to the server as one batch, and what it touched is read again, with the keys the server gave.
+
+- **On the desktop** a commit waits for the server, and what it refuses is refused there and then.
+- **In the browser** nothing can wait. The screen goes on at once, and the answer sets it right: what the server refused comes back, with a message. A form has already closed by then, so what was typed in it is gone. That is the price of a browser.
+
+The server decides everything: the copy only holds what the person can see, so taking the client apart gives nobody anything more. A browser page on another origin needs `ApiOptions::allow_origin`, and there is no way to allow every origin.
+
+Limits to know:
+- Everything the person can see is read when they sign in, so this is for what fits in memory. `DataGrid::remote` over the API, for larger lists, is not done.
+- What someone else changes shows only when this person's own write reads that entity again, or on signing in again.
+- A record that refers to another one created in the same commit does not work, since the server gives the key. Keep them in two commits.
+- An address comes from the build (`RAVEN_API_URL` in the center), and never from the page's own address, so a link cannot make a page send a password somewhere else.
+
+Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p feature-center --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 scripts/build-web.sh feature-center`, served on that port.
+
 ## Known gaps
 
 - State machines are declared in code. People cannot define states or ways while the application runs.

@@ -25,7 +25,8 @@ pub enum Language {
 }
 
 impl Language {
-    pub(crate) fn words(self) -> Words {
+    /// The words of its screens.
+    pub fn words(self) -> Words {
         match self {
             Self::English => Words::default(),
             Self::BrazilianPortuguese => Words::pt_br(),
@@ -40,7 +41,8 @@ impl Language {
         }
     }
 
-    pub(crate) fn labels(self) -> Labels {
+    /// The words of its controls.
+    pub fn labels(self) -> Labels {
         match self {
             Self::English => Labels::default(),
             Self::BrazilianPortuguese => Labels::pt_br(),
@@ -267,6 +269,11 @@ impl App {
             session.register_control(crate::security::MODEL_EDITOR, crate::security::model_editor(session));
         }));
         self
+    }
+
+    /// Says who is signed in somewhere else, on a server, and how they leave.
+    pub fn signed_in_remotely(self, name: String, sign_out: impl Fn() + 'static) -> Self {
+        self.signed_in(name, sign_out)
     }
 
     /// Runs this with its session, once it is put together, for what needs a session from outside.

@@ -37,6 +37,7 @@ ravenrs-app-postgres = { version = "27.1.9", path = "crates/ravenrs-app-postgres
 ravenrs-app-library = { version = "27.1.9", path = "crates/ravenrs-app-library" }
 ravenrs-app-report = { version = "27.1.9", path = "crates/ravenrs-app-report" }
 ravenrs-app-server = { version = "27.1.9", path = "crates/ravenrs-app-server" }
+ravenrs-app-remote = { version = "27.1.9", path = "crates/ravenrs-app-remote" }
 ravenrs-report-pdf = { version = "27.1.9", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.9", path = "crates/ravenrs-report-xlsx" }
 ravenrs-report-server = { version = "27.1.9", path = "crates/ravenrs-report-server" }

@@ -1656,6 +1656,7 @@ dependencies = [
  "ravenrs",
  "ravenrs-app",
  "ravenrs-app-library",
+ "ravenrs-app-remote",
  "ravenrs-app-report",
  "ravenrs-app-server",
  "ravenrs-app-sqlite",
@@ -4314,6 +4315,26 @@ dependencies = [
  "ravenrs-app-sql",
  "ravenrs-criteria",
  "serde_json",
+]
+
+[[package]]
+name = "ravenrs-app-remote"
+version = "27.1.9"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-app-server",
+ "ravenrs-app-ui",
+ "ravenrs-core",
+ "ravenrs-criteria",
+ "ravenrs-layout",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "serde_json",
+ "ureq",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

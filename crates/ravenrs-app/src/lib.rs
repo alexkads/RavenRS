@@ -33,6 +33,7 @@ mod entity;
 mod files;
 mod frame;
 mod functions;
+mod json;
 mod model;
 mod module;
 mod object;
@@ -54,6 +55,7 @@ pub use entity::{
 pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
 pub use functions::{environment, register_function};
+pub use json::{object_from_json, value_to_json};
 #[cfg(not(target_arch = "wasm32"))]
 pub use model::FileStore;
 pub use model::{

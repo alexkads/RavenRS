@@ -209,10 +209,13 @@ impl AppShell {
             ravenrs_widgets::HStack::new((
                 Text::new(account.name).style(TextStyle::Callout).grow(1.0),
                 self.theme_menu.then_some(ThemePicker::new()),
-                IconButton::new(IconName::Key)
-                    .label(words.change_password.clone())
-                    .size(ButtonSize::Small)
-                    .on_click(move || crate::security::show_change_password(&changing)),
+                // Only where passwords are kept here: on a server, its own way in does this.
+                self.session.frame().security().map(|_| {
+                    IconButton::new(IconName::Key)
+                        .label(words.change_password.clone())
+                        .size(ButtonSize::Small)
+                        .on_click(move || crate::security::show_change_password(&changing))
+                }),
                 IconButton::new(IconName::LogOut)
                     .label(words.sign_out.clone())
                     .size(ButtonSize::Small)

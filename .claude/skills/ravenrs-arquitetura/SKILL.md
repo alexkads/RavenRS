@@ -51,6 +51,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Editor de relatórios | `crates/ravenrs-report-designer/src/`; `examples/report-designer` só o executa | `examples/report-designer/tests/designer.rs` |
 | Relatórios guardados e painéis no framework | `crates/ravenrs-app-report/src/`: `stored`, `analytics` | `crates/ravenrs-app-report/tests/stored.rs` |
 | API web do framework | `crates/ravenrs-app-server/src/`: `lib` (`ApiService`), `json`, `openapi`, `http` | `crates/ravenrs-app-server/tests/api.rs`, seção "A web API" de `docs/APP-FRAMEWORK.md` |
+| Telas sobre a API | `crates/ravenrs-app-remote/src/`: `lib`, `transport`, `gate` | `crates/ravenrs-app-remote/tests/remote.rs`, com transporte imediato e tardio |
 | Bancos do framework | Comum em `crates/ravenrs-app-sql/src/lib.rs`; cada banco é um `SqlBackend` em `ravenrs-app-sqlite` e `ravenrs-app-postgres` | Testes do PostgreSQL pedem `RAVENRS_POSTGRES_URL` |
 | Ícones | `scripts/gen-icons.py` regenera a fonte e o `IconName` | Não edite `icon_set.rs` à mão |
 

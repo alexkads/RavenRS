@@ -5,12 +5,13 @@ use std::collections::BTreeMap;
 use std::io;
 use std::net::SocketAddr;
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Request, State};
-use axum::http::{StatusCode, header};
+use axum::http::{HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Value as Json, json};
 use tokio::net::TcpListener;
@@ -35,7 +36,31 @@ const ANSWER_WITHIN: Duration = Duration::from_secs(60);
 type Asked = (ApiRequest, oneshot::Sender<ApiResponse>);
 
 #[derive(Clone)]
-struct Worker(mpsc::Sender<Asked>);
+struct Worker {
+    asking: mpsc::Sender<Asked>,
+    origins: Arc<Vec<String>>,
+}
+
+/// How the service meets the outside.
+#[derive(Clone, Debug, Default)]
+#[non_exhaustive]
+pub struct ApiOptions {
+    origins: Vec<String>,
+}
+
+impl ApiOptions {
+    /// Nothing but what comes from the same place.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Lets pages from this origin, such as `https://example.com`, call the service from a browser.
+    /// There is no way to allow every origin: each one that may call is named.
+    pub fn allow_origin(mut self, origin: impl Into<String>) -> Self {
+        self.origins.push(origin.into());
+        self
+    }
+}
 
 fn answer(status: u16, body: &Json) -> Response {
     let status = StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
@@ -85,10 +110,40 @@ fn query_of(text: &str) -> BTreeMap<String, String> {
         .collect()
 }
 
+/// Handles a request, saying to a browser whether the page that asked may read the answer.
 async fn handle(State(worker): State<Worker>, request: Request<Body>) -> Response {
+    let origin = request
+        .headers()
+        .get(header::ORIGIN)
+        .filter(|origin| {
+            origin.to_str().is_ok_and(|origin| worker.origins.iter().any(|known| known == origin))
+        })
+        .cloned();
+    let preflight = request.method() == Method::OPTIONS;
+    let mut response =
+        if preflight { StatusCode::NO_CONTENT.into_response() } else { answered(&worker, request).await };
+    if let Some(origin) = origin {
+        let headers = response.headers_mut();
+        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+        headers.insert(header::VARY, HeaderValue::from_static("Origin"));
+        if preflight {
+            headers.insert(
+                header::ACCESS_CONTROL_ALLOW_METHODS,
+                HeaderValue::from_static("GET, POST, PATCH, DELETE"),
+            );
+            headers.insert(
+                header::ACCESS_CONTROL_ALLOW_HEADERS,
+                HeaderValue::from_static("Authorization, Content-Type"),
+            );
+        }
+    }
+    response
+}
+
+async fn answered(worker: &Worker, request: Request<Body>) -> Response {
     let (parts, body) = request.into_parts();
     if parts.uri.path() == "/health" {
-        return if worker.0.is_closed() { busy() } else { answer(200, &json!({ "status": "ok" })) };
+        return if worker.asking.is_closed() { busy() } else { answer(200, &json!({ "status": "ok" })) };
     }
     let bearer = parts
         .headers
@@ -117,7 +172,7 @@ async fn handle(State(worker): State<Worker>, request: Request<Body>) -> Respons
         body: body.to_vec(),
     };
     let (reply, answered) = oneshot::channel();
-    if worker.0.try_send((asked, reply)).is_err() {
+    if worker.asking.try_send((asked, reply)).is_err() {
         return busy();
     }
     match tokio::time::timeout(ANSWER_WITHIN, answered).await {
@@ -129,6 +184,14 @@ async fn handle(State(worker): State<Worker>, request: Request<Body>) -> Respons
 /// The routes, over a service made by `make` on a thread of its own, since what it holds belongs to
 /// one thread. It fails if the service cannot be made.
 pub fn router(make: impl FnOnce() -> Result<ApiService, String> + Send + 'static) -> io::Result<Router> {
+    router_with(ApiOptions::new(), make)
+}
+
+/// The same, with these options.
+pub fn router_with(
+    options: ApiOptions,
+    make: impl FnOnce() -> Result<ApiService, String> + Send + 'static,
+) -> io::Result<Router> {
     let (sender, mut waiting) = mpsc::channel::<Asked>(WAITING);
     let (made, started) = std::sync::mpsc::channel::<Result<(), String>>();
     let worker = std::thread::Builder::new().name("ravenrs-app-server".to_owned()).stack_size(WORKER_STACK);
@@ -160,7 +223,10 @@ pub fn router(make: impl FnOnce() -> Result<ApiService, String> + Send + 'static
         .recv()
         .map_err(|_| io::Error::other("the service stopped while starting"))?
         .map_err(io::Error::other)?;
-    Ok(Router::new().fallback(handle).layer(DefaultBodyLimit::max(BODY_LIMIT)).with_state(Worker(sender)))
+    Ok(Router::new()
+        .fallback(handle)
+        .layer(DefaultBodyLimit::max(BODY_LIMIT))
+        .with_state(Worker { asking: sender, origins: Arc::new(options.origins) }))
 }
 
 /// Serves the API on this listener until it fails.
@@ -169,4 +235,14 @@ pub async fn serve(
     make: impl FnOnce() -> Result<ApiService, String> + Send + 'static,
 ) -> io::Result<()> {
     axum::serve(listener, router(make)?.into_make_service_with_connect_info::<SocketAddr>()).await
+}
+
+/// The same, with these options.
+pub async fn serve_with(
+    listener: TcpListener,
+    options: ApiOptions,
+    make: impl FnOnce() -> Result<ApiService, String> + Send + 'static,
+) -> io::Result<()> {
+    axum::serve(listener, router_with(options, make)?.into_make_service_with_connect_info::<SocketAddr>())
+        .await
 }
