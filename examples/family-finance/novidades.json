@@ -1,11 +1,10 @@
 {
-  "versao": "0.1.23",
-  "titulo": "Listas mais fáceis de ler, com linhas alternadas.",
+  "versao": "0.1.24",
+  "titulo": "O menu lateral recolhe e abre bem mais rápido.",
   "importante": false,
   "novidades": [
-    "Em Lançamentos, Contas a pagar e nas demais listas, uma linha sim, outra não tem um fundo suave, o que ajuda a seguir a linha até o valor.",
-    "A linha sob o ponteiro e a linha selecionada ficaram um pouco mais marcadas, para não se confundirem com esse fundo.",
-    "Os treinamentos foram regravados com as telas novas."
+    "O menu lateral e os submenus agora recolhem e abrem em um quinto de segundo, em vez de mais de um segundo.",
+    "Os nomes do menu não se espremem mais durante o movimento, e os controles da tela não se soltam do lugar."
   ],
-  "por_que_atualizar": "Para ler as listas com mais conforto."
+  "por_que_atualizar": "Para usar o menu sem esperar."
 }
