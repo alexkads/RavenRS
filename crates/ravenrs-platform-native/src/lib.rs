@@ -398,7 +398,7 @@ fn with_app_id(attributes: WindowAttributes, _id: &str) -> WindowAttributes {
 
 impl App {
     fn create_window(&mut self, event_loop: &ActiveEventLoop) -> Result<WindowState, PlatformError> {
-        // Hidden until the GPU is ready, so nobody waits looking at an empty window.
+        // Hidden until `show_window`, so nobody waits looking at an empty window.
         // AccessKit also requires it until the adapter is attached.
         let mut attributes = Window::default_attributes()
             .with_visible(false)
@@ -425,17 +425,15 @@ impl App {
         let adapter =
             accesskit_winit::Adapter::with_event_loop_proxy(event_loop, &window, self.proxy.clone());
         self.access = Some(Access { adapter, active: false, last: None });
-        let state = self.init_gpu(window.clone())?;
-        window.set_visible(true);
-        window.request_redraw();
-        Ok(state)
+        self.init_gpu(window)
     }
 
     /// Closes the window behind the icon, keeping the UI and its state. `false` if the
     /// system shows no icon, and only closing the app is left.
     ///
-    /// The window is destroyed, not hidden, because Wayland cannot hide one. It also
-    /// gives back the GPU's memory for as long as the app stays there.
+    /// The window is only hidden, so that it comes back at once, with its last frame.
+    /// Wayland cannot hide one, so there it is destroyed, and that system shows a new
+    /// window only once it has something to show.
     fn close_to_tray(&mut self) -> bool {
         let (Some(tray), Some(icon), Some(state)) = (&self.tray, &self.icon, &self.window) else {
             return false;
@@ -449,11 +447,14 @@ impl App {
             }
         }
         let window = &state.window;
+        if !self.on_wayland() {
+            window.set_visible(false);
+            return true;
+        }
         let size = window.inner_size().to_logical::<f32>(window.scale_factor());
         self.options.size = Size::new(size.width, size.height);
         self.place = window.outer_position().ok();
         self.maximized = window.is_maximized();
-        window.set_visible(false);
         // These hold the window, which only closes when the last of them lets go.
         state.gpu.device.set_device_lost_callback(|_, _| {});
         self.ui.set_waker(|| {});
@@ -467,21 +468,34 @@ impl App {
     fn open_window(&mut self, event_loop: &ActiveEventLoop) {
         self.in_tray = None;
         if let Some(state) = &self.window {
+            state.window.set_visible(true);
             state.window.set_minimized(false);
             state.window.focus_window();
+            state.window.request_redraw();
             return;
         }
         match self.create_window(event_loop) {
-            Ok(state) => {
-                state.window.focus_window();
-                self.window = Some(state);
-            }
+            Ok(state) => self.show_window(state),
             Err(e) => {
                 tracing::error!(error = %e, "could not open the window again");
                 self.error = Some(e);
                 event_loop.exit();
             }
         }
+    }
+
+    /// Puts a new window on screen. On macOS its first frame, the slow one with the
+    /// shaders and the glyphs, is drawn while hidden, so that nobody sees it black.
+    fn show_window(&mut self, state: WindowState) {
+        let window = state.window.clone();
+        self.window = Some(state);
+        if cfg!(target_os = "macos") {
+            self.redraw();
+        }
+        window.set_visible(true);
+        window.focus_window();
+        // What was drawn while hidden does not count for the system.
+        window.request_redraw();
     }
 
     /// Sends the accessibility tree to the screen reader if one is listening
@@ -572,6 +586,10 @@ impl App {
     }
 
     fn redraw(&mut self) {
+        // Some systems still ask for frames of a hidden window. Coming back draws what changed.
+        if self.in_tray.is_some() {
+            return;
+        }
         let lost = self.window.as_ref().is_some_and(|s| s.device_lost.load(Ordering::SeqCst));
         if lost && let Some(old) = self.window.take() {
             let window = old.window.clone();
@@ -679,6 +697,13 @@ fn map_button(button: MouseButton) -> PointerButton {
 
 impl App {
     /// On Wayland, winit does not deliver a touchpad's pinch, so it is heard apart.
+    fn on_wayland(&self) -> bool {
+        use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
+        self.display
+            .display_handle()
+            .is_ok_and(|handle| matches!(handle.as_raw(), RawDisplayHandle::Wayland(_)))
+    }
+
     fn listen_for_wayland_pinches(&self) {
         use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
         let Ok(handle) = self.display.display_handle() else { return };
@@ -704,7 +729,7 @@ impl ApplicationHandler<UserEvent> for App {
 
     /// Sleeps until input arrives or until the UI's next timed wake-up.
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        match self.ui.next_wake().filter(|_| self.window.is_some()) {
+        match self.ui.next_wake().filter(|_| self.in_tray.is_none()) {
             Some(at) => {
                 let at = self.started + std::time::Duration::from_secs_f64(at.max(0.0));
                 event_loop.set_control_flow(ControlFlow::WaitUntil(at));
@@ -719,7 +744,7 @@ impl ApplicationHandler<UserEvent> for App {
         }
         match self.create_window(event_loop) {
             Ok(state) => {
-                self.window = Some(state);
+                self.show_window(state);
                 self.listen_for_wayland_pinches();
             }
             Err(e) => {
