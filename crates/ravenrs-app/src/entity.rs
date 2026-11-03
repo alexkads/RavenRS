@@ -174,6 +174,8 @@ pub struct FieldInfo {
     pub predefined: Vec<String>,
     /// For an expression: the entity whose fields it can be about, which gives it a filter builder.
     pub criteria_of: Option<String>,
+    /// It never leaves storage through a secured space, for anyone, and no screen shows it.
+    pub secret: bool,
 }
 
 /// `opening_cents` as `Opening cents`.
@@ -219,6 +221,7 @@ impl FieldInfo {
             edit_mask: None,
             predefined: Vec::new(),
             criteria_of: None,
+            secret: false,
             kind,
         }
     }
@@ -383,6 +386,16 @@ impl FieldInfo {
     /// For text: the values offered to pick from.
     pub fn predefined(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.predefined = values.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// Keeps it from everyone: a secured space never gives it out or takes it in, and no screen
+    /// shows it, as with what is kept for a password.
+    pub fn secret(mut self) -> Self {
+        self.secret = true;
+        self.in_list = false;
+        self.in_detail = false;
+        self.in_lookup = false;
         self
     }
 

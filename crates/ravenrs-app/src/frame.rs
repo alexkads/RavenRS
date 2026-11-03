@@ -116,6 +116,7 @@ struct FrameInner {
     watchers: RefCell<Vec<FrameWatcher>>,
     validator: RefCell<Option<Validator>>,
     messenger: RefCell<Option<Messenger>>,
+    security: RefCell<Option<Rc<crate::SecurityContext>>>,
     /// Views asked for while one was being changed to, which wait for it to end.
     pending: RefCell<VecDeque<PendingView>>,
     changing: Cell<bool>,
@@ -176,6 +177,7 @@ impl Frame {
             watchers: RefCell::default(),
             validator: RefCell::default(),
             messenger: RefCell::default(),
+            security: RefCell::default(),
             pending: RefCell::default(),
             changing: Cell::new(false),
         }));
@@ -220,6 +222,18 @@ impl Frame {
     pub fn set_entities(&self, entities: Rc<Vec<crate::EntityInfo>>) {
         *self.0.entities.borrow_mut() = entities;
         self.refresh_actions();
+    }
+
+    /// Turns actions off by what this person can do. What protects records is the secured space;
+    /// this is what keeps people from reaching for what would be refused.
+    pub fn set_security(&self, security: Rc<crate::SecurityContext>) {
+        *self.0.security.borrow_mut() = Some(security);
+        self.refresh_actions();
+    }
+
+    /// What this person can do, when the application has permissions.
+    pub fn security(&self) -> Option<Rc<crate::SecurityContext>> {
+        self.0.security.borrow().clone()
     }
 
     /// Keeps something for whoever holds the frame to find by its type, as what shows it
@@ -380,6 +394,22 @@ impl Frame {
             }
             action.set_enabled(crate::REASON_APPEARANCE, enabled);
             action.set_active(crate::REASON_APPEARANCE, visible);
+            if let Some(security) = self.0.security.borrow().as_ref() {
+                let (exists, can) = security.with(|permissions| {
+                    let can = match (action.required_operation(), entity) {
+                        (Some(operation), Some(entity)) if selected.is_empty() => {
+                            permissions.can(operation, &entity.name, None)
+                        }
+                        (Some(operation), Some(entity)) => selected
+                            .iter()
+                            .all(|record| permissions.can(operation, &entity.name, Some(record))),
+                        _ => true,
+                    };
+                    (permissions.can_use_action(action.id()), can)
+                });
+                action.set_active(crate::REASON_SECURITY, exists);
+                action.set_enabled(crate::REASON_SECURITY, can);
+            }
         }
     }
 

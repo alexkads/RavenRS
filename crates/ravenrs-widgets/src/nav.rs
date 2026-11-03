@@ -113,6 +113,8 @@ impl View for Tabs {
             LayoutStyle {
                 spacing: 24.0,
                 align_self: Some(Align::Stretch),
+                // Tabs that do not fit go to another line instead of running over each other.
+                wrap: true,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &buttons,

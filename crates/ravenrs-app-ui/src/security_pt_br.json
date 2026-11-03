@@ -1,0 +1,373 @@
+{
+ "NavigationItems": {
+  "Administration": {
+   "Caption": "Administração"
+  }
+ },
+ "Entities": {
+  "SecurityUser": {
+   "Caption": "Usuários",
+   "Members": {
+    "name": {
+     "Caption": "Nome"
+    },
+    "active": {
+     "Caption": "Ativo"
+    },
+    "must_change_password": {
+     "Caption": "Trocar a senha ao entrar"
+    },
+    "failed_attempts": {
+     "Caption": "Tentativas erradas"
+    },
+    "locked_until": {
+     "Caption": "Bloqueado até"
+    },
+    "roles": {
+     "Caption": "Papéis"
+    }
+   }
+  },
+  "SecurityUserRole": {
+   "Caption": "Papéis do usuário",
+   "Members": {
+    "user_id": {
+     "Caption": "Usuário"
+    },
+    "role_id": {
+     "Caption": "Papel"
+    }
+   }
+  },
+  "SecurityRole": {
+   "Caption": "Papéis",
+   "Members": {
+    "name": {
+     "Caption": "Nome"
+    },
+    "policy": {
+     "Caption": "Política",
+     "Options": {
+      "deny_all": {
+       "Caption": "Negar tudo"
+      },
+      "read_only_all": {
+       "Caption": "Somente leitura"
+      },
+      "allow_all": {
+       "Caption": "Permitir tudo"
+      }
+     }
+    },
+    "administrative": {
+     "Caption": "Administrativo"
+    },
+    "edit_model": {
+     "Caption": "Pode editar o modelo"
+    },
+    "type_permissions": {
+     "Caption": "Entidades"
+    },
+    "object_permissions": {
+     "Caption": "Registros"
+    },
+    "member_permissions": {
+     "Caption": "Campos"
+    },
+    "navigation_permissions": {
+     "Caption": "Navegação"
+    },
+    "action_permissions": {
+     "Caption": "Ações"
+    }
+   }
+  },
+  "SecurityTypePermission": {
+   "Caption": "Permissões em entidades",
+   "Members": {
+    "role_id": {
+     "Caption": "Papel"
+    },
+    "target_entity": {
+     "Caption": "Entidade"
+    },
+    "can_read": {
+     "Caption": "Ler",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    },
+    "can_write": {
+     "Caption": "Alterar",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    },
+    "can_create": {
+     "Caption": "Criar",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    },
+    "can_delete": {
+     "Caption": "Excluir",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    }
+   }
+  },
+  "SecurityObjectPermission": {
+   "Caption": "Permissões em registros",
+   "Members": {
+    "role_id": {
+     "Caption": "Papel"
+    },
+    "target_entity": {
+     "Caption": "Entidade"
+    },
+    "criteria": {
+     "Caption": "Critério"
+    },
+    "can_read": {
+     "Caption": "Ler",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    },
+    "can_write": {
+     "Caption": "Alterar",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    },
+    "can_create": {
+     "Caption": "Criar",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    },
+    "can_delete": {
+     "Caption": "Excluir",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    }
+   }
+  },
+  "SecurityMemberPermission": {
+   "Caption": "Permissões em campos",
+   "Members": {
+    "role_id": {
+     "Caption": "Papel"
+    },
+    "target_entity": {
+     "Caption": "Entidade"
+    },
+    "fields": {
+     "Caption": "Campos, separados por vírgula"
+    },
+    "criteria": {
+     "Caption": "Critério"
+    },
+    "can_read": {
+     "Caption": "Ler",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    },
+    "can_write": {
+     "Caption": "Alterar",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    }
+   }
+  },
+  "SecurityNavigationPermission": {
+   "Caption": "Permissões na navegação",
+   "Members": {
+    "role_id": {
+     "Caption": "Papel"
+    },
+    "item": {
+     "Caption": "Item"
+    },
+    "access": {
+     "Caption": "Acesso",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    }
+   }
+  },
+  "SecurityActionPermission": {
+   "Caption": "Permissões em ações",
+   "Members": {
+    "role_id": {
+     "Caption": "Papel"
+    },
+    "action": {
+     "Caption": "Ação"
+    },
+    "access": {
+     "Caption": "Acesso",
+     "Options": {
+      "": {
+       "Caption": "Não definido"
+      },
+      "allow": {
+       "Caption": "Permitir"
+      },
+      "deny": {
+       "Caption": "Negar"
+      }
+     }
+    }
+   }
+  },
+  "SecurityAuditEntry": {
+   "Caption": "Trilha de auditoria",
+   "Members": {
+    "happened_at": {
+     "Caption": "Quando"
+    },
+    "author": {
+     "Caption": "Quem"
+    },
+    "change": {
+     "Caption": "Mudança",
+     "Options": {
+      "created": {
+       "Caption": "Criado"
+      },
+      "initial_value": {
+       "Caption": "Valor inicial"
+      },
+      "changed": {
+       "Caption": "Alterado"
+      },
+      "deleted": {
+       "Caption": "Excluído"
+      },
+      "added_to_collection": {
+       "Caption": "Acrescentado a uma lista"
+      },
+      "removed_from_collection": {
+       "Caption": "Retirado de uma lista"
+      },
+      "collection_object_changed": {
+       "Caption": "Alterado em uma lista"
+      },
+      "custom": {
+       "Caption": "Personalizado"
+      }
+     }
+    },
+    "target_entity": {
+     "Caption": "Entidade"
+    },
+    "target_key": {
+     "Caption": "Registro"
+    },
+    "field": {
+     "Caption": "Campo"
+    },
+    "old_value": {
+     "Caption": "Valor anterior"
+    },
+    "new_value": {
+     "Caption": "Valor novo"
+    }
+   }
+  }
+ }
+}

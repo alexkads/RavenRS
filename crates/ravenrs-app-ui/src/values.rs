@@ -141,6 +141,12 @@ fn plain_text(field: &FieldInfo, value: &Value) -> String {
             .find(|option| option.code == *code)
             .map_or_else(|| code.clone(), |option| option.caption.clone()),
         (FieldKind::Date, value) => date_of(value).map_or_else(String::new, |date| date.to_string()),
+        // Year first, so a column of these sorts as it reads.
+        (FieldKind::DateTime, Value::Date(when)) => {
+            let (year, month, day) = when.ymd();
+            let (hour, minute) = (when.seconds / 3600, when.seconds % 3600 / 60);
+            format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}")
+        }
         (_, Value::Text(text)) => text.clone(),
         (_, Value::Number(number)) if number.fract() == 0.0 => format!("{}", *number as i64),
         (_, Value::Number(number)) => number.to_string(),
@@ -192,7 +198,14 @@ pub(crate) fn column_of(field: &FieldInfo, caption: &str, words: &Words) -> Grid
             GridColumn::number(caption).number_format(number(usize::from(*places), ""))
         }
         FieldKind::Money => GridColumn::number(caption).number_format(number(2, &words.money_prefix)),
-        FieldKind::Boolean => GridColumn::boolean(caption),
+        FieldKind::Boolean => {
+            let (yes, no) = (words.yes.clone(), words.no.clone());
+            GridColumn::boolean(caption).format(move |value| match value {
+                ravenrs_widgets::grid::Value::Bool(true) => yes.clone(),
+                ravenrs_widgets::grid::Value::Bool(false) => no.clone(),
+                _ => String::new(),
+            })
+        }
         FieldKind::Date => GridColumn::date(caption),
         _ => GridColumn::text(caption),
     };

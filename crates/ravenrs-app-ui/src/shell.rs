@@ -12,8 +12,9 @@ use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{TextStyle, Weight};
 use ravenrs_widgets::{
-    Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonStyle, Date, Dialog, Divider, Keyed, NodeId, Paint,
-    ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection, Text, Tone, VStack, View, ViewExt,
+    Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Dialog, Divider, Keyed,
+    NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection, Text, Tone, VStack,
+    View, ViewExt,
 };
 
 use crate::container::{ActionContainer, icon_named};
@@ -140,24 +141,60 @@ impl AppShell {
         if let Some(root) = model.get("NavigationItems") {
             for group in root.in_order() {
                 if let Some(view) = group.text("View") {
-                    content.push(self.navigation_item(group, view, current));
+                    if self.session.can_open(None, &group.id, view) {
+                        content.push(self.navigation_item(group, view, current));
+                    }
                     continue;
                 }
-                content.push(Box::new(SidebarSection::new(
-                    group.text("Caption").unwrap_or(&group.id).to_owned(),
-                )));
-                for item in group.in_order() {
-                    if let Some(view) = item.text("View") {
-                        content.push(self.navigation_item(item, view, current));
-                    }
+                let items: Vec<AnyView> = group
+                    .in_order()
+                    .into_iter()
+                    .filter_map(|item| {
+                        let view = item.text("View")?;
+                        self.session
+                            .can_open(Some(&group.id), &item.id, view)
+                            .then(|| self.navigation_item(item, view, current))
+                    })
+                    .collect();
+                if !items.is_empty() {
+                    content.push(Box::new(SidebarSection::new(
+                        group.text("Caption").unwrap_or(&group.id).to_owned(),
+                    )));
+                    content.extend(items);
                 }
             }
         }
+        let sidebar = Sidebar::new(content)
+            .collapsible(SidebarCollapse::Icons)
+            .narrow_below(NARROW_WINDOW)
+            .header(Text::new(self.session.title()).font_weight(Weight::SEMIBOLD));
+        match self.session.account() {
+            Some(account) => Box::new(sidebar.footer(self.account_of(account))),
+            None => Box::new(sidebar),
+        }
+    }
+
+    fn account_of(&self, account: crate::session::Account) -> AnyView {
+        let words = self.session.words();
+        let (changing, leaving, sign_out) =
+            (self.session.clone(), self.session.clone(), account.sign_out.clone());
         Box::new(
-            Sidebar::new(content)
-                .collapsible(SidebarCollapse::Icons)
-                .narrow_below(NARROW_WINDOW)
-                .header(Text::new(self.session.title()).font_weight(Weight::SEMIBOLD)),
+            VStack::new((
+                Text::new(account.name).style(TextStyle::Caption),
+                Button::new(words.change_password.clone())
+                    .style(ButtonStyle::Ghost)
+                    .size(ButtonSize::Small)
+                    .on_click(move || crate::security::show_change_password(&changing)),
+                Button::new(words.sign_out.clone())
+                    .style(ButtonStyle::Ghost)
+                    .size(ButtonSize::Small)
+                    .on_click(move || {
+                        let sign_out = sign_out.clone();
+                        leaving.leaving(move || sign_out());
+                    }),
+            ))
+            .spacing(4.0)
+            .align(Align::Stretch),
         )
     }
 

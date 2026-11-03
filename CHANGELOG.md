@@ -8,6 +8,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Query` in `ravenrs-app` has a new field, `only`, so building one field by field needs `..Query::default()`.
 - A `FieldKind::Criteria` field is out of lists by default and in a group of its own on a form, as it takes the height it needs.
 - Saving a form of a `transient` entity no longer goes to storage.
+- `SpaceError` has a new variant, `Denied`, and `FieldInfo` a new field, `secret`.
+
+### Fixed
+- A `DateTime` field shows as a date and a time on a list, and a yes-or-no column follows the application's language.
 
 ### Added
 - **Rules that only warn.** `Rule::warning` asks and lets people go on, and `Rule::information` leaves a note on the field. A rule's `message` can say what the record holds, with `{field}` and `{reference.field}`.
@@ -21,6 +25,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Records no storage keeps** get `use_records` and `use_collection`, can point to stored records, and a navigation item can open a form directly, with `ObjectKey` for one by its key.
 - **`DashboardInfo::variant`** changes a dashboard to another from a menu.
 - **`export_captions`** and **`import_captions`** take what people see out to CSV and back, for translating outside the code.
+- **Security.** `SecuredObjectSpace` applies `Role`s to every read and write, with or without a screen: a policy per role, permissions on entities, records and fields, with criteria, and on navigation and actions; several roles combine in any or in all. A field marked `secret` never leaves it.
+- **Signing in.** `SecuredApp` puts sign-in in front of an application, with users and roles managed on generated screens, Argon2id password hashes, lockout after five wrong passwords, a first administrator on a new installation and `Authenticator` for other ways in.
+- **`AuditedObjectSpace`** writes who changed what, from what to what, in the same commit, with the modes `Full`, `Lightweight` and `CreationOnly`, fields left out by `AuditSettings`, and changes in collections shown on their owner.
+- **`ModelEditor`**: the model as a tree, with its settings beside it, kept in the person's own layer, for a role that `can_edit_model`.
+- **`Tabs`** go to another line when they do not fit, instead of running over each other.
 - **`ravenrs-app-library`**: people, organizations, addresses, countries, tasks, events, notes and files, ready to use or extend.
 
 ## [27.1.8] - 2026-11-02

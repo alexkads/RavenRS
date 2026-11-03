@@ -78,6 +78,62 @@ pub struct Words {
     pub conflict_detail: String,
     /// Keeps one's own changes over the other person's.
     pub conflict_answer: String,
+    /// A field that is on.
+    pub yes: String,
+    /// A field that is off.
+    pub no: String,
+    /// What people are told when something is refused.
+    pub access_denied: String,
+    /// What shows in place of a field the person cannot read.
+    pub protected_value: String,
+    /// Enters the application.
+    pub sign_in: String,
+    /// Leaves the application.
+    pub sign_out: String,
+    /// Says signing in did not work, without saying why.
+    pub sign_in_failed: String,
+    /// The name someone signs in with.
+    pub user_name: String,
+    /// Their password.
+    pub password: String,
+    /// The password they have now.
+    pub current_password: String,
+    /// The password they want.
+    pub new_password: String,
+    /// The same again.
+    pub repeat_password: String,
+    /// Signing in could not be tried.
+    pub sign_in_unavailable: String,
+    /// The two are not the same.
+    pub passwords_differ: String,
+    /// It is too short.
+    pub password_too_short: String,
+    /// The current one is not right.
+    pub password_wrong_current: String,
+    /// It was changed.
+    pub password_saved: String,
+    /// Keeps the new password.
+    pub save_password: String,
+    /// Changes one's own password.
+    pub change_password: String,
+    /// Gives someone a password.
+    pub set_password: String,
+    /// Why they have to choose one now.
+    pub must_change_password: String,
+    /// What the first screen of a new installation says.
+    pub first_user: String,
+    /// Creates the first person.
+    pub create_user: String,
+    /// The editor of the application's model.
+    pub model_editor: String,
+    /// Looks for a node of the model.
+    pub search_model: String,
+    /// What shows before a node is picked.
+    pub pick_model_node: String,
+    /// Applies what was typed.
+    pub apply: String,
+    /// Throws away the person's own changes to the model.
+    pub restore_model: String,
     /// Why what is on a form cannot be kept any more.
     pub record_gone: String,
     /// What fails a rule.
@@ -123,6 +179,36 @@ impl Default for Words {
             conflict_detail: "They changed {0} too. Saving keeps your value there, and their other changes."
                 .into(),
             conflict_answer: "Keep mine".into(),
+            yes: "Yes".into(),
+            no: "No".into(),
+            access_denied: "You are not allowed to do this.".into(),
+            protected_value: "Protected".into(),
+            sign_in: "Sign in".into(),
+            sign_out: "Sign out".into(),
+            sign_in_failed:
+                "The name or the password is not right, or the account is waiting after too many attempts."
+                    .into(),
+            user_name: "Name".into(),
+            password: "Password".into(),
+            current_password: "Current password".into(),
+            new_password: "New password".into(),
+            repeat_password: "Repeat the password".into(),
+            sign_in_unavailable: "Signing in is not available right now. Try again.".into(),
+            passwords_differ: "The two passwords are not the same.".into(),
+            password_too_short: "A password has at least 8 characters.".into(),
+            password_wrong_current: "The current password is not right.".into(),
+            password_saved: "Password changed.".into(),
+            save_password: "Save password".into(),
+            change_password: "Change password".into(),
+            set_password: "Set password".into(),
+            must_change_password: "This password was given to you. Choose your own to go on.".into(),
+            first_user: "Nobody can sign in yet. This creates the administrator.".into(),
+            create_user: "Create administrator".into(),
+            model_editor: "Application model".into(),
+            search_model: "Search the model".into(),
+            pick_model_node: "Pick a node to see its settings.".into(),
+            apply: "Apply".into(),
+            restore_model: "Restore all".into(),
             record_gone: "Someone else deleted this record.".into(),
             rules: RuleWords::default(),
             money_prefix: "$ ".into(),
@@ -166,6 +252,37 @@ impl Words {
             conflict_detail:
                 "Ela também alterou {0}. Salvar mantém o seu valor ali, e as outras alterações dela.".into(),
             conflict_answer: "Manter o meu".into(),
+            yes: "Sim".into(),
+            no: "Não".into(),
+            access_denied: "Você não tem permissão para fazer isso.".into(),
+            protected_value: "Protegido".into(),
+            sign_in: "Entrar".into(),
+            sign_out: "Sair".into(),
+            sign_in_failed:
+                "O nome ou a senha não conferem, ou a conta está aguardando depois de muitas tentativas."
+                    .into(),
+            user_name: "Nome".into(),
+            password: "Senha".into(),
+            current_password: "Senha atual".into(),
+            new_password: "Nova senha".into(),
+            repeat_password: "Repita a senha".into(),
+            sign_in_unavailable: "Não foi possível entrar agora. Tente de novo.".into(),
+            passwords_differ: "As duas senhas não são iguais.".into(),
+            password_too_short: "A senha precisa ter pelo menos 8 caracteres.".into(),
+            password_wrong_current: "A senha atual não confere.".into(),
+            password_saved: "Senha alterada.".into(),
+            save_password: "Salvar senha".into(),
+            change_password: "Trocar senha".into(),
+            set_password: "Definir senha".into(),
+            must_change_password: "Esta senha foi definida por outra pessoa. Escolha a sua para continuar."
+                .into(),
+            first_user: "Ninguém consegue entrar ainda. Isto cria o administrador.".into(),
+            create_user: "Criar administrador".into(),
+            model_editor: "Modelo da aplicação".into(),
+            search_model: "Buscar no modelo".into(),
+            pick_model_node: "Escolha um nó para ver as configurações.".into(),
+            apply: "Aplicar".into(),
+            restore_model: "Restaurar tudo".into(),
             record_gone: "Outra pessoa excluiu este registro.".into(),
             rules: RuleWords::pt_br(),
             money_prefix: "R$ ".into(),
@@ -281,6 +398,15 @@ struct SessionInner {
     today: Cell<Date>,
     /// The keys of the list a form came from, for moving between records.
     siblings: RefCell<Vec<Value>>,
+    /// Who is signed in and how they leave.
+    account: RefCell<Option<Account>>,
+}
+
+/// Who is signed in, for the window to show.
+#[derive(Clone)]
+pub(crate) struct Account {
+    pub(crate) name: String,
+    pub(crate) sign_out: Rc<dyn Fn()>,
 }
 
 /// What the screens of a running application share: the frame, the current form, and what
@@ -336,6 +462,7 @@ impl Session {
             left: State::new(BTreeSet::new()),
             today: Cell::new(today),
             siblings: RefCell::default(),
+            account: RefCell::default(),
         })
     }
 
@@ -402,6 +529,7 @@ impl Session {
             left: State::new(BTreeSet::new()),
             today: Cell::new(parent.today.get()),
             siblings: RefCell::default(),
+            account: RefCell::default(),
         })
     }
 
@@ -495,6 +623,59 @@ impl Session {
 
     pub(crate) fn control(&self, name: &str) -> Option<ControlFactory> {
         self.0.controls.borrow().get(name).cloned()
+    }
+
+    pub(crate) fn account(&self) -> Option<Account> {
+        self.0.account.borrow().clone()
+    }
+
+    pub(crate) fn use_account(&self, account: Account) {
+        *self.0.account.borrow_mut() = Some(account);
+    }
+
+    /// Whether this navigation item leads somewhere this person can go. It only hides: what
+    /// protects records is the secured space.
+    pub(crate) fn can_open(&self, group: Option<&str>, item: &str, view: &str) -> bool {
+        let Some(security) = self.0.frame.security() else { return true };
+        let model = self.model();
+        let entity = model.at(&["Views", view]).and_then(|node| node.text("Entity"));
+        security.with(|permissions| {
+            permissions.can_navigate(group, item)
+                && entity.is_none_or(|entity| permissions.can(ravenrs_app::Operation::Read, entity, None))
+                && (view != crate::security::MODEL_EDITOR_VIEW || permissions.can_edit_model())
+        })
+    }
+
+    /// Changes a setting of the model in the person's own layer, if they may, and keeps it.
+    pub fn set_model_setting(&self, path: &[&str], name: &str, value: &str) -> Result<(), String> {
+        self.check_model_permission()?;
+        self.0.application.borrow_mut().set_typed_setting(path, name, value).map_err(|e| e.0)?;
+        self.keep_settings()?;
+        self.touch();
+        Ok(())
+    }
+
+    /// Throws away the person's own changes to the model, if they may.
+    pub fn restore_model_settings(&self) -> Result<(), String> {
+        self.check_model_permission()?;
+        self.0.application.borrow_mut().clear_user_settings().map_err(|e| e.0)?;
+        self.keep_settings()?;
+        self.touch();
+        Ok(())
+    }
+
+    fn check_model_permission(&self) -> Result<(), String> {
+        match self.0.frame.security() {
+            Some(security) if !security.with(ravenrs_app::Permissions::can_edit_model) => {
+                Err(self.0.words.access_denied.clone())
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Closes what [`present`](Self::present) showed.
+    pub fn close_presented(&self) {
+        self.0.presented.set(None);
     }
 
     /// Shows this in a window over the screens, until it is closed.
@@ -1337,12 +1518,16 @@ impl Session {
 
     /// The first thing in the navigation, where the application opens.
     pub(crate) fn first_view(&self) -> Option<String> {
-        fn first(node: &ModelNode) -> Option<String> {
-            node.in_order()
-                .into_iter()
-                .find_map(|item| item.text("View").map(str::to_owned).or_else(|| first(item)))
-        }
-        first(self.model().get("NavigationItems")?)
+        let model = self.model();
+        model.get("NavigationItems")?.in_order().into_iter().find_map(|group| {
+            if let Some(view) = group.text("View") {
+                return self.can_open(None, &group.id, view).then(|| view.to_owned());
+            }
+            group.in_order().into_iter().find_map(|item| {
+                let view = item.text("View")?;
+                self.can_open(Some(&group.id), &item.id, view).then(|| view.to_owned())
+            })
+        })
     }
 
     /// Runs an action from a screen: asks its question first, and does what it asks for next.

@@ -32,7 +32,7 @@ use syn::{Data, DeriveInput, Error, Fields, Ident, LitInt, LitStr, Result, parse
 ///   `predefined = "a,b"` for values to pick from, `criteria_of = "Entity"` for a filter builder.
 /// * `display_format = "{:.2} %"`, how its value shows when it is not being edited.
 /// * On a reference: `lookup_filter = "[flow] = ?flow"`, `none_caption = "..."`. On a collection:
-///   `back_reference = "..."`, `aggregated`. `non_cloneable` stays behind on cloning, and
+///   `back_reference = "..."`, `aggregated`. `secret` never leaves a secured space. `non_cloneable` stays behind on cloning, and
 ///   `most_bytes = 1024` limits a picture or a file.
 ///
 /// On the struct, as many as needed:
@@ -148,6 +148,7 @@ struct FieldAttrs {
     wide: bool,
     autofocus: bool,
     non_cloneable: bool,
+    secret: bool,
     aggregated: bool,
     group: Option<LitStr>,
     display_format: Option<LitStr>,
@@ -257,6 +258,8 @@ fn field_attrs(field: &syn::Field) -> Result<FieldAttrs> {
                 attrs.autofocus = true;
             } else if named("non_cloneable") {
                 attrs.non_cloneable = true;
+            } else if named("secret") {
+                attrs.secret = true;
             } else if named("aggregated") {
                 attrs.aggregated = true;
             } else if named("group") {
@@ -275,7 +278,7 @@ fn field_attrs(field: &syn::Field) -> Result<FieldAttrs> {
                      no_detail, lookup, money, long, color, date, guid, tags, decimals, reference, collection, \
                      calculated, default, required, unique, min, max, matches, message, editor, placeholder, \
                      hint, lookup_filter, none_caption, back_reference, most_bytes, wide, autofocus, \
-                     non_cloneable, aggregated, group, display_format, edit_mask, predefined or criteria_of",
+                     non_cloneable, secret, aggregated, group, display_format, edit_mask, predefined or criteria_of",
                 ));
             }
             Ok(())
@@ -549,6 +552,9 @@ fn field_tokens(ident: &Ident, ty: &syn::Type, attrs: &FieldAttrs) -> Tokens {
     }
     if attrs.autofocus {
         then(quote!(.autofocus()));
+    }
+    if attrs.secret {
+        then(quote!(.secret()));
     }
     if attrs.non_cloneable {
         then(quote!(.non_cloneable()));

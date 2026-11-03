@@ -1,8 +1,8 @@
 //! What every application needs: creating, saving, removing and moving between records.
 
 use ravenrs_app::{
-    Action, ActionCategory, ActionInput, Criteria, Frame, Module, Nesting, Selection, TargetScope, Value,
-    ViewController, ViewKind,
+    Action, ActionCategory, ActionInput, Criteria, Frame, Module, Nesting, Operation, Selection, TargetScope,
+    Value, ViewController, ViewKind,
 };
 
 use crate::nested::NestedOwner;
@@ -96,6 +96,7 @@ impl ViewController for NewObjectController {
         vec![
             Action::simple(ids::NEW, self.0.new.clone())
                 .category(ActionCategory::New)
+                .requires(Operation::Create)
                 .icon("plus")
                 .on_execute(|cx| {
                     let (session, entity) = (session_of(cx)?, entity_of(cx)?);
@@ -120,6 +121,7 @@ impl ViewController for DeleteController {
         vec![
             Action::simple(ids::DELETE, self.0.delete.clone())
                 .category(ActionCategory::Edit)
+                .requires(Operation::Delete)
                 .icon("trash-2")
                 .selection(Selection::RequireMultiple)
                 .confirmation(self.0.delete_question.clone())
@@ -141,15 +143,18 @@ impl ViewController for ModificationsController {
         vec![
             Action::simple(ids::SAVE, self.0.save.clone())
                 .category(ActionCategory::Save)
+                .requires(Operation::Write)
                 .icon("save")
                 .hotkey("command+s")
                 .on_execute(|cx| session_of(cx)?.save()),
             Action::simple(ids::SAVE_AND_CLOSE, self.0.save_and_close.clone())
                 .category(ActionCategory::Save)
+                .requires(Operation::Write)
                 .hotkey("command+shift+s")
                 .on_execute(|cx| session_of(cx)?.save_then(Session::back_now)),
             Action::simple(ids::SAVE_AND_NEW, self.0.save_and_new.clone())
                 .category(ActionCategory::Save)
+                .requires(Operation::Write)
                 .on_execute(|cx| {
                     let (session, entity) = (session_of(cx)?, entity_of(cx)?);
                     session.save_then(move |session| session.open_new(&entity))

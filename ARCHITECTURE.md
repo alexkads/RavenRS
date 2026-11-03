@@ -107,8 +107,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-app-sqlite` | `lib` |
 | `ravenrs-app-library` | `lib` |
 | `ravenrs-app-report` | `lib` |
-| `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values` |
-| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files` |
+| `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values`, `security`, `model_editor` |
+| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files`, `security` (`space`, `directory`, `password`, `records`, `audit`) |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |
@@ -361,7 +361,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
 | Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`, budgets in [docs/QUALITY.md](docs/QUALITY.md)) | | GPU timestamps |
-| Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions, frames, rules, SQLite, generated lists and forms | the API |  relations, permissions |
+| Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions, frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
 
 ## 12. Decisions log
 

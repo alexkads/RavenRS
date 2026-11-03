@@ -31,6 +31,8 @@ pub enum SpaceError {
     Conflict(String),
     /// Something watching the commit refused it, with its reason.
     Refused(String),
+    /// The person signed in cannot do this.
+    Denied(String),
     /// Storage failed.
     Storage(String),
 }
@@ -39,9 +41,11 @@ impl fmt::Display for SpaceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnknownEntity(name) => write!(f, "there is no entity named {name}"),
-            Self::BadQuery(why) | Self::Conflict(why) | Self::Refused(why) | Self::Storage(why) => {
-                f.write_str(why)
-            }
+            Self::BadQuery(why)
+            | Self::Conflict(why)
+            | Self::Refused(why)
+            | Self::Denied(why)
+            | Self::Storage(why) => f.write_str(why),
             Self::MissingKey(entity) => write!(f, "a record of {entity} has no key"),
             Self::DuplicateKey { entity, key } => {
                 write!(f, "{entity} already has a record with the key {key}")
@@ -166,6 +170,48 @@ pub trait ObjectSpace {
     }
     /// Calls this when something happens to the space.
     fn on_event(&mut self, watcher: SpaceWatcher);
+}
+
+impl ObjectSpace for Box<dyn ObjectSpace> {
+    fn entities(&self) -> Vec<EntityInfo> {
+        (**self).entities()
+    }
+    fn query(&self, entity: &str, query: &Query) -> Result<Vec<Object>, SpaceError> {
+        (**self).query(entity, query)
+    }
+    fn find(&self, entity: &str, key: &Value) -> Result<Option<Object>, SpaceError> {
+        (**self).find(entity, key)
+    }
+    fn new_object(&mut self, entity: &str) -> Result<Object, SpaceError> {
+        (**self).new_object(entity)
+    }
+    fn save(&mut self, object: Object) -> Result<(), SpaceError> {
+        (**self).save(object)
+    }
+    fn insert(&mut self, object: Object) -> Result<(), SpaceError> {
+        (**self).insert(object)
+    }
+    fn delete(&mut self, entity: &str, key: &Value) -> Result<(), SpaceError> {
+        (**self).delete(entity, key)
+    }
+    fn changes(&self) -> Vec<Change> {
+        (**self).changes()
+    }
+    fn is_modified(&self) -> bool {
+        (**self).is_modified()
+    }
+    fn commit(&mut self) -> Result<(), SpaceError> {
+        (**self).commit()
+    }
+    fn rollback(&mut self) {
+        (**self).rollback();
+    }
+    fn refresh(&mut self) {
+        (**self).refresh();
+    }
+    fn on_event(&mut self, watcher: SpaceWatcher) {
+        (**self).on_event(watcher);
+    }
 }
 
 /// A key as text, the same for equal keys.
@@ -341,13 +387,26 @@ pub fn run_query(
     environment: &Environment,
 ) -> Result<Vec<Object>, SpaceError> {
     check_query(entity, query)?;
-    let key_field = entity.key_field().map(|f| f.name.clone()).unwrap_or_default();
-    let mut found: Vec<Object> = objects
+    let objects = objects
         .into_iter()
         .map(|mut object| {
             entity.compute(&mut object, environment);
             object
         })
+        .collect();
+    select(entity, objects, query, environment)
+}
+
+/// Filters, sorts and takes the page of records as they are, computed or not.
+pub(crate) fn select(
+    entity: &EntityInfo,
+    objects: Vec<Object>,
+    query: &Query,
+    environment: &Environment,
+) -> Result<Vec<Object>, SpaceError> {
+    let key_field = entity.key_field().map(|f| f.name.clone()).unwrap_or_default();
+    let mut found: Vec<Object> = objects
+        .into_iter()
         .filter(|object| {
             query.filter.as_ref().is_none_or(|filter| Scope::new(environment).row(object).matches(filter))
         })

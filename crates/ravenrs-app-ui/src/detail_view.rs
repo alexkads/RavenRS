@@ -66,7 +66,21 @@ impl DetailView {
             );
             return Some(Box::new(FormField::new(caption, list)));
         }
-        let read_only = item.and_then(|n| n.flag("ReadOnly")).unwrap_or(info.read_only);
+        let mut read_only = item.and_then(|n| n.flag("ReadOnly")).unwrap_or(info.read_only);
+        if let Some(security) = self.session.frame().security() {
+            let (name, record) = (&form.entity.name, Some(&state.record));
+            let (can_read, can_write) = security.with(|p| {
+                (
+                    p.can_field(ravenrs_app::Operation::Read, name, field, record),
+                    p.can_field(ravenrs_app::Operation::Write, name, field, record),
+                )
+            });
+            if !can_read && !(form.is_new && can_write) {
+                let shown = Text::new(self.session.words().protected_value.clone());
+                return Some(Box::new(FormField::new(caption, shown)));
+            }
+            read_only |= !can_write;
+        }
         let value = match form.fields.get(field) {
             Some(value) => value.clone(),
             None => {

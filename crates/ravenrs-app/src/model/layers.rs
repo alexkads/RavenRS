@@ -62,6 +62,21 @@ impl Diff {
         serde_json::to_string_pretty(&self.0).unwrap_or_else(|_| "{}".to_owned())
     }
 
+    /// Puts this over it, node by node.
+    pub fn merge(&mut self, over: &Diff) {
+        fn merged(into: &mut Map<String, Json>, over: &Map<String, Json>) {
+            for (name, value) in over {
+                match (into.get_mut(name), value) {
+                    (Some(Json::Object(mine)), Json::Object(theirs)) => merged(mine, theirs),
+                    _ => {
+                        into.insert(name.clone(), value.clone());
+                    }
+                }
+            }
+        }
+        merged(&mut self.0, &over.0);
+    }
+
     /// Whether it changes anything.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()

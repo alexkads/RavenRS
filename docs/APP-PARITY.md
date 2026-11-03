@@ -7,7 +7,7 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Records declared by attributes, or at run time | ✅ `BusinessObject`, `EntityInfo` | |
 | Application model in layers, with differences in JSON | ✅ `ModelLayers`, `Diff`, `ModelStore` | |
 | Generated lists, lists to pick from, forms and navigation | ✅ `generate_model` | |
-| Model editor at run time | ⬜ | F8 |
+| Model editor at run time | 🟡 `ModelEditor`: a tree with its settings, one layer, the person's own. Adding nodes and other layers are not there; measured against plain differences before going further | |
 | Unit of work | ✅ `ObjectSpace`, `MemoryDatabase` | |
 | SQLite, on a managed schema or tables that exist | ✅ `ravenrs-app-sqlite`: filters in the database with bound values, words for what it refuses. | |
 | A list beside its form, inside a screen of the app | ✅ `EntityPane`, in use in the registers of `examples/family-finance` | |
@@ -34,7 +34,11 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Soft validation and message templates | ✅ `Severity`: a warning asks and lets people go on, information leaves a note on the field; `{field}` and `{reference.field}` in messages | |
 | Conditional appearance: font, back, bold, enabled, visible; on items, layout and actions; by criteria or function; by priority | 🟡 `AppearanceRule`. On a form, a font color reaches the caption, not the value inside the editor; a group's caption takes no color | |
 | Reports of a list | ✅ `ravenrs-app-report`: an action that lays out the list and shows it in the viewer | |
-| Security: roles, permissions, users, audit trail | ⬜ | F8 |
+| Roles, policies and permissions on entities, records, fields, navigation and actions; several roles in any or in all | ✅ `Role`, `Permissions`, enforced in `SecuredObjectSpace`, also with no screen | |
+| Policy changed while running, by administrators on generated screens | ✅ `security_entities`; losing a role takes effect at once | |
+| Permissions that follow associations | 🟡 aggregated collections go with their owner; everything else asks for permission on both sides, as the documented manual mode does | |
+| Signing in with passwords, lockout, password changes, other ways in | ✅ `SecuredApp`, `UserDirectory`, `Authenticator`. No Active Directory or OAuth 2 provider built in: `Authenticator` is where one goes | |
+| Audit trail: author, old and new values, modes, settings, collections, custom data | ✅ `AuditedObjectSpace`, `AuditSettings`, `AuditTrail::custom`. Only what goes through it is seen | |
 | Replaceable list editors | ✅ `register_list_editor`, picked by `EditorType` or `DefaultListEditor` in the model | |
 | Filters in the model, a list's own criteria, filtered link window, functions of the application | ✅ `ListFilter`, `list_criteria`, `lookup_filter` on a collection, `register_function` | |
 | Migrations of a managed schema, entities from an existing database, model differences in a database | ✅ `migration`, added columns, `entities_from_schema`, `SqliteModelStore` | |

@@ -25,7 +25,7 @@ pub enum Language {
 }
 
 impl Language {
-    fn words(self) -> Words {
+    pub(crate) fn words(self) -> Words {
         match self {
             Self::English => Words::default(),
             Self::BrazilianPortuguese => Words::pt_br(),
@@ -40,7 +40,7 @@ impl Language {
         }
     }
 
-    fn labels(self) -> Labels {
+    pub(crate) fn labels(self) -> Labels {
         match self {
             Self::English => Labels::default(),
             Self::BrazilianPortuguese => Labels::pt_br(),
@@ -90,6 +90,7 @@ pub struct App {
     model_store: Option<Rc<dyn ModelStore>>,
     steps: Vec<SessionStep>,
     administrator: Option<String>,
+    security: Option<(Rc<ravenrs_app::SecurityContext>, ravenrs_app::SpaceMaker)>,
 }
 
 impl std::fmt::Debug for App {
@@ -113,6 +114,7 @@ impl App {
             model_store: None,
             steps: Vec::new(),
             administrator: None,
+            security: None,
         }
     }
 
@@ -245,6 +247,34 @@ impl App {
         self
     }
 
+    /// For this person: every frame goes by what they can do, and what the application itself
+    /// needs in its records is put there through `unsecured`.
+    pub(crate) fn secured(
+        mut self,
+        context: Rc<ravenrs_app::SecurityContext>,
+        unsecured: ravenrs_app::SpaceMaker,
+    ) -> Self {
+        self.seed = None;
+        self.security = Some((context, unsecured));
+        self
+    }
+
+    /// Says who is signed in on the window, and how they leave.
+    pub(crate) fn signed_in(mut self, name: String, sign_out: impl Fn() + 'static) -> Self {
+        let sign_out: Rc<dyn Fn()> = Rc::new(sign_out);
+        self.steps.push(Box::new(move |session| {
+            session.use_account(crate::session::Account { name, sign_out });
+            session.register_control(crate::security::MODEL_EDITOR, crate::security::model_editor(session));
+        }));
+        self
+    }
+
+    /// Runs this with its session, once it is put together, for what needs a session from outside.
+    pub fn with_session(mut self, then: impl FnOnce(&crate::Session) + 'static) -> Self {
+        self.steps.push(Box::new(then));
+        self
+    }
+
     /// Puts it together, or says what is wrong with how it was declared.
     pub fn build(self) -> Result<AnyView, ModelError> {
         let words = self.language.words();
@@ -262,6 +292,10 @@ impl App {
             application.layers_mut().load(&ravenrs_app::ModelLayer::User, &**store)?;
         }
         application.set_language(self.language.code())?;
+        let unsecured = self.security.as_ref().map(|(_, unsecured)| unsecured.clone());
+        if let Some((context, _)) = &self.security {
+            application.set_security(context.clone());
+        }
         let factory: SpaceFactory = match self.storage {
             Some(storage) => storage(&application),
             None => {
@@ -269,10 +303,16 @@ impl App {
                 Rc::new(move || Rc::new(RefCell::new(database.space())) as Rc<RefCell<dyn ObjectSpace>>)
             }
         };
-        {
-            let space = factory();
-            let mut space = space.borrow_mut();
-            application.run_initial_records(&mut *space).map_err(ModelError)?;
+        match unsecured {
+            Some(unsecured) => {
+                let mut space = unsecured();
+                application.run_initial_records(&mut *space).map_err(ModelError)?;
+            }
+            None => {
+                let space = factory();
+                let mut space = space.borrow_mut();
+                application.run_initial_records(&mut *space).map_err(ModelError)?;
+            }
         }
         if let Some(seed) = self.seed {
             let space = factory();

@@ -74,6 +74,7 @@ syn = { version = "2.0.119", default-features = false, features = ["full", "pars
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 quote = "1.0.47"
 regex-lite = "0.1"
+argon2 = { version = "0.5", default-features = false, features = ["alloc", "password-hash"] }
 uuid = { version = "1", default-features = false, features = ["v4", "js"] }
 rusqlite = { version = "0.41", features = ["bundled"] }
 trybuild = "1"

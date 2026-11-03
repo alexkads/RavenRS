@@ -210,6 +210,7 @@ pub struct Application {
     layers: ModelLayers,
     model: Rc<ModelNode>,
     unusable: Vec<crate::UnusableNode>,
+    security: Option<Rc<crate::SecurityContext>>,
 }
 
 impl std::fmt::Debug for Application {
@@ -259,8 +260,10 @@ impl Application {
     /// Shows the model in this language, from the translation given for it; one that was not
     /// given brings back what was declared.
     pub fn set_language(&mut self, language: &str) -> Result<(), ModelError> {
-        let found = self.translations.iter().find(|(name, _)| name == language);
-        let difference = found.map_or_else(Diff::new, |(_, difference)| difference.clone());
+        let mut difference = Diff::new();
+        for (_, part) in self.translations.iter().filter(|(name, _)| name == language) {
+            difference.merge(part);
+        }
         self.layers.put(&ModelLayer::Module(LANGUAGE_LAYER.to_owned()), difference);
         self.refresh_model()
     }
@@ -291,6 +294,27 @@ impl Application {
         space.commit().map_err(|e| e.to_string())
     }
 
+    /// Keeps a setting typed as text in the person's own layer, and applies it. It stays what it
+    /// was: a number has to be typed as a number, and yes or no as `true` or `false`.
+    pub fn set_typed_setting(&mut self, path: &[&str], name: &str, text: &str) -> Result<(), ModelError> {
+        let current = self.model.at(path).and_then(|node| node.properties.get(name));
+        let value = match current {
+            Some(serde_json::Value::String(_)) | None => serde_json::Value::String(text.to_owned()),
+            Some(kept) => match serde_json::from_str::<serde_json::Value>(text) {
+                Ok(value) if std::mem::discriminant(&value) == std::mem::discriminant(kept) => value,
+                _ => return Err(ModelError(format!("{name} cannot be {text}"))),
+            },
+        };
+        self.layers.set(&ModelLayer::User, path, name, value);
+        self.refresh_model()
+    }
+
+    /// Throws away the person's own layer of the model.
+    pub fn clear_user_settings(&mut self) -> Result<(), ModelError> {
+        self.layers.put(&ModelLayer::User, Diff::new());
+        self.refresh_model()
+    }
+
     /// Keeps a setting in the person's own layer of the model, and applies it.
     pub fn set_user_setting(&mut self, path: &[&str], name: &str, value: &str) -> Result<(), ModelError> {
         self.layers.set(&ModelLayer::User, path, name, serde_json::Value::String(value.to_owned()));
@@ -314,6 +338,11 @@ impl Application {
         Ok(())
     }
 
+    /// What every frame made from now on goes by, for who is signed in.
+    pub fn set_security(&mut self, security: Rc<crate::SecurityContext>) {
+        self.security = Some(security);
+    }
+
     /// A frame with new controllers from every module, in order, over this unit of work.
     pub fn new_frame(&self, context: FrameContext, space: Rc<RefCell<dyn ObjectSpace>>) -> Frame {
         let view = self.modules.iter().flat_map(|m| m.view_controllers()).collect();
@@ -323,6 +352,9 @@ impl Application {
             frame.keep_extension(service.clone());
         }
         frame.set_entities(Rc::new(self.entities.clone()));
+        if let Some(security) = &self.security {
+            frame.set_security(security.clone());
+        }
         frame
     }
 }
@@ -442,6 +474,7 @@ impl ApplicationBuilder {
             layers,
             model: Rc::new(ModelNode::default()),
             unusable: Vec::new(),
+            security: None,
         };
         application.refresh_model()?;
         Ok(application)

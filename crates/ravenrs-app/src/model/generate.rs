@@ -102,6 +102,14 @@ pub(crate) fn follow_captions(root: &mut ModelNode, declared: &[EntityInfo]) {
                         set(item, &field.caption, now.unwrap_or(&field.caption));
                     }
                 }
+                // A list on its own tab is called what the field is.
+                if let Some(tabs) = view.at_mut(&["Layout", "Tabs"]) {
+                    for tab in &mut tabs.children {
+                        let Some(field) = entity.field_named(&tab.id) else { continue };
+                        let now = in_model.at(&["Members", &tab.id]).and_then(|m| m.text("Caption"));
+                        set(tab, &field.caption, now.unwrap_or(&field.caption));
+                    }
+                }
             }
         }
         if let Some(navigation) = root.get_mut("NavigationItems") {

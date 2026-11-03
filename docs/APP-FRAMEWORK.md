@@ -166,7 +166,50 @@ EntityInfo::new("Order")
 - Money is a whole number of cents, kept in a number, and never a fraction.
 - Tests drive whole applications through `Ui::access_tree`, with no window: see `crates/ravenrs-app-ui/tests/e2e.rs`.
 
+## Security
+
+```rust
+let mut entities = security_entities();
+entities.push(audit_entity());
+entities.push(account.clone());
+let database = MemoryDatabase::new(entities)?;
+
+let window = SecuredApp::new("Accounts", move || database.space(), move |_person| {
+    App::new("Accounts").entity_info(account.clone())
+})
+.role(Role::new("Sales").policy(PermissionPolicy::ReadOnlyAll).object_permission(
+    "Account",
+    "[owner] = ?CurrentUserName",
+    [Operation::Write],
+    Access::Allow,
+))
+.audit(AuditSettings::new(AuditMode::Full))
+.build()?;
+```
+
+A new installation asks for the first person, who becomes the administrator. Administrators manage users and roles on generated screens, under Administration.
+
+How a question is answered, for each role: a field by criteria, then a field, then a record by criteria, then the entity, then the owner of an aggregated collection, then the role's policy. A denial beats an allowance at the same level. Creating takes `Create` and `Write`. A write is checked against the record before and after the change, so nobody can take a record over or give one away past what they can write.
+
+`SecuredObjectSpace` is what protects records. It works on any `ObjectSpace` with no screen around it, which is what a service will use. A record that cannot be read is not there. A field that cannot be read reads as empty, also for filters, sorting and calculated fields that use it, and saving it back empty leaves what is stored. A list with a permission that depends on the record reads the whole table to answer, as the database does not know the permission. Records of users and roles are for administrators only, the audit trail can only be read, and a `secret` field is kept from everyone. What the screens hide on top of this, navigation among it, is courtesy.
+
+Keep these in mind:
+
+- **A database file on someone's machine protects nothing from whoever holds the file.** They can read it, change it and rewrite the trail with any SQLite tool. Real protection takes a server between people and the data.
+- The audit trail only sees what goes through it. Changes made to the database some other way are not there, and neither is what `SecuredApp::seed` writes.
+- A permission on an aggregated collection's owner that depends on the record cannot be told for the lines, so they stay closed until they have permissions of their own.
+- Five wrong passwords make an account wait 15 minutes, so someone who knows a name can keep it waiting, the only administrator included. Answers take about the same time for any name, but a wrong password on a real account also writes to storage, which careful measuring could tell.
+- Inserting a record with a key that exists says so, even for a record that cannot be read, so with keys that can be guessed, someone can tell which exist. GUID keys avoid this.
+- Who someone is, is read again at each new view, so what someone else changed about them takes a moment to count. Two administrators demoting each other at the same moment from two programs can leave nobody, as the check happens in each one's unit of work.
+- Whoever opens a new installation first becomes the administrator. That suits a program on someone's own machine; a server has to create its first user in its setup.
+- Argon2id runs on the UI thread, about a fraction of a second, when signing in or changing a password.
+- A web build keeps records in memory for now, so users last as long as the page.
+
 ## Known gaps
+
+- The model editor changes settings, one at a time, in the person's own layer. It does not add nodes or edit the administrator's layer.
+- A field a person cannot read shows as Protected on a form, but as an empty cell on a list, and its column stays.
+- `SecuredApp` makes an application anew at each sign-in, with storage made before that: fields a layer adds have to be declared to storage by hand, so `App::storage_for` is not for it.
 
 - Search, filters and export of a list are `DataGrid`'s own, not actions the model can move.
 - Where an action shows comes from its category. There is no mapping of actions to places in the model yet.
@@ -191,6 +234,6 @@ EntityInfo::new("Order")
 
 | Step | What it brings |
 |---|---|
-| **F8** | Permissions in an object space wrapper, users, a model editor, an audit trail |
+| **F9** | Charts, a calendar and a tree as ways of showing a list |
 
 Before more work on editors or templates, read what is documented on template customization and on each property type: it was not read when these screens were written. The same goes for the built-in node generators and list view column generation, before more of the model is generated.

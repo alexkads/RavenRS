@@ -22,6 +22,8 @@ pub const REASON_CRITERIA: &str = "criteria";
 
 /// The reason an action is off because of an appearance rule.
 pub const REASON_APPEARANCE: &str = "appearance";
+/// The reason permissions turned an action off.
+pub const REASON_SECURITY: &str = "security";
 
 /// Why something is on or off: pairs of reason and answer. It is on only if every answer is yes,
 /// so one part of the application turning it off cannot be undone by another.
@@ -427,6 +429,7 @@ struct ActionInner {
     prepare: Option<Prepare>,
     hotkey: Option<String>,
     icon: Option<String>,
+    requires: Option<crate::Operation>,
     on_execute: Option<Handler>,
     on_cancel: Option<Notice>,
     on_executing: Option<Guard>,
@@ -481,6 +484,7 @@ impl Action {
             confirmation_answer: None,
             prepare: None,
             hotkey: None,
+            requires: None,
             icon: None,
             on_execute: None,
             on_cancel: None,
@@ -583,6 +587,12 @@ impl Action {
         self.change(|a| a.prepare = Some(Rc::new(handler)))
     }
 
+    /// What it does to the records of its view, so it fades for who cannot. The secured space
+    /// refuses it anyway.
+    pub fn requires(self, operation: crate::Operation) -> Self {
+        self.change(|a| a.requires = Some(operation))
+    }
+
     /// The keys that run it, in the words of whoever shows it.
     pub fn hotkey(self, keys: impl Into<String>) -> Self {
         self.change(|a| a.hotkey = Some(keys.into()))
@@ -652,6 +662,11 @@ impl Action {
         if let Some(prepare) = &self.0.prepare {
             prepare(cx, object);
         }
+    }
+
+    /// What it does to the records of its view, if it said.
+    pub fn required_operation(&self) -> Option<crate::Operation> {
+        self.0.requires
     }
 
     /// The keys that run it.

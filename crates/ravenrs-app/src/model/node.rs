@@ -47,6 +47,10 @@ impl ModelNode {
         self.children.iter_mut().find(|c| c.id == id)
     }
 
+    pub(crate) fn at_mut(&mut self, path: &[&str]) -> Option<&mut ModelNode> {
+        path.iter().try_fold(self, |node, id| node.get_mut(id))
+    }
+
     /// The node at this path of ids below it.
     pub fn at(&self, path: &[&str]) -> Option<&ModelNode> {
         path.iter().try_fold(self, |node, id| node.get(id))
@@ -55,6 +59,14 @@ impl ModelNode {
     /// A setting as text.
     pub fn text(&self, name: &str) -> Option<&str> {
         self.properties.get(name).and_then(Json::as_str)
+    }
+
+    /// A setting as it is typed: text as it is, and anything else as JSON.
+    pub fn typed(&self, name: &str) -> Option<String> {
+        self.properties.get(name).map(|value| match value {
+            Json::String(text) => text.clone(),
+            other => other.to_string(),
+        })
     }
 
     /// A setting as a whole number.

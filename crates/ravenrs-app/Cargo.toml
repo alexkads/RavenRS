@@ -14,6 +14,7 @@ keywords = ["application", "framework", "model", "crud"]
 categories = ["gui", "data-structures"]
 
 [dependencies]
+argon2.workspace = true
 ravenrs-app-derive.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-reactive.workspace = true

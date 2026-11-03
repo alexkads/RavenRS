@@ -178,3 +178,61 @@ fn a_field_a_layer_added_gets_a_column() {
     let found = database.space().query("Account", &Query::all()).expect("reads");
     assert_eq!(found[0].get("city"), Value::Text("Recife".into()));
 }
+
+fn secured_database() -> SqliteDatabase {
+    let mut entities = ravenrs_app::security_entities();
+    entities.push(ravenrs_app::audit_entity());
+    entities.push(account(false));
+    let builder = entities.into_iter().fold(SqliteDatabase::builder(connection()), |builder, entity| {
+        let table = TableMap::new(entity.name.to_lowercase());
+        builder.managed(entity, table).expect("valid")
+    });
+    builder.build()
+}
+
+#[test]
+fn users_roles_and_the_trail_live_in_the_database_with_the_records() {
+    use ravenrs_app::{
+        AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, Authenticator, Credentials, RoleMerge,
+        SECURITY_AUDIT_ENTRY, SECURITY_USER, SecuredObjectSpace, SecurityContext, SpaceMaker, UserDirectory,
+    };
+    let database = secured_database();
+    let source = database.clone();
+    let maker: SpaceMaker = Rc::new(move || Box::new(source.space()) as Box<dyn ObjectSpace>);
+    let directory = UserDirectory::new(maker, Vec::new()).expect("roles");
+    directory.create_first_administrator("ana", "correct horse").expect("created");
+    let identity = directory.authenticate(&Credentials::new("ana", "correct horse")).expect("signs in");
+    for _ in 0..5 {
+        assert!(directory.authenticate(&Credentials::new("nobody", "wrong")).is_err());
+    }
+    let entities = database.space().entities();
+    let context = Rc::new(SecurityContext::new(identity, directory.clone(), entities, RoleMerge::AnyRole));
+    let trail = Rc::new(AuditTrail::new(AuditSettings::new(AuditMode::Full), || "ana".to_owned()));
+    let audited = AuditedObjectSpace::new(Box::new(database.space()), trail);
+    let mut space = SecuredObjectSpace::new(Box::new(audited), context);
+
+    let mut record = space.new_object("Account").expect("known");
+    record.set("name", "Corrente");
+    space.save(record.clone()).expect("saves");
+    space.commit().expect("keeps");
+    record.set("name", "Poupança");
+    space.save(record).expect("saves");
+    space.commit().expect("keeps");
+    let lines = database.space().query(SECURITY_AUDIT_ENTRY, &Query::all()).expect("reads");
+    assert!(lines.iter().any(|line| line.get("new_value") == Value::Text("Poupança".into())
+        && line.get("old_value") == Value::Text("Corrente".into())
+        && line.get("author") == Value::Text("ana".into())));
+    assert!(matches!(lines[0].get("happened_at"), Value::Date(_)));
+
+    let user = space.query(SECURITY_USER, &Query::all()).expect("reads").remove(0);
+    assert_eq!(user.get("password_hash"), Value::Null);
+    let stored = database.space().query(SECURITY_USER, &Query::all()).expect("reads").remove(0);
+    assert!(matches!(stored.get("password_hash"), Value::Text(hash) if hash.starts_with("$argon2id$")));
+    // A commit the database refuses takes its trail with it: a change and its trail stay together.
+    let count = lines.len();
+    let mut twin = space.new_object("Account").expect("known");
+    twin.set("name", "Outra");
+    space.insert(twin).expect("waits");
+    space.rollback();
+    assert_eq!(database.space().query(SECURITY_AUDIT_ENTRY, &Query::all()).expect("reads").len(), count);
+}
