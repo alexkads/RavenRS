@@ -21,6 +21,8 @@ decode = ["ravenrs-widgets/decode"]
 charts = ["ravenrs-widgets/charts"]
 # The icon beside the clock of `AppIdentity::close_to_tray`, on the desktop.
 tray = ["ravenrs-platform-native/tray"]
+# The system's notifications of `SystemNotifier`, on the desktop.
+notifications = ["ravenrs-platform-native/notifications"]
 
 [dependencies]
 ravenrs-core.workspace = true

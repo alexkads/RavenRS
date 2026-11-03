@@ -10,6 +10,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Added
 - `BugReporter` lets the person choose what kind of report it is and drag a box around the problem, which names what is under it and lights it in the film. All that goes along is listed before sending.
 - `RecentErrors`: a `tracing` layer that keeps the last warnings and errors, for `BugReporter::errors`.
+- `SystemNotifier`, with the `notifications` feature: the system's own notifications on macOS, Windows and Linux.
 - `BuildCx::ask_for_access_tree` and `UiActivity::Described`: what is on screen, for an observer, only when asked for.
 - `BuildCx::keyed_overlay`: a layer that stays the same one when other layers before it come and go.
 - `AppIdentity::close_to_tray` and `SystemTray`, with the `tray` feature: closing the window keeps the app running behind an icon beside the clock, and opening it again brings the same window back. Where the system shows no such icon, such as plain GNOME, closing the window closes the app.

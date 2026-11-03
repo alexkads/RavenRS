@@ -426,3 +426,25 @@ fn another_report_moves_nothing_around_the_document() {
         }
     }
 }
+
+#[test]
+fn ajustes_has_the_choices_about_notifications_and_keeps_them() {
+    let (mut ui, folder) = app_on_a_file("avisos");
+    assert!(says(&mut ui, "Avisar sobre as contas a pagar"));
+    assert!(says(&mut ui, "Só vencidas"));
+
+    let tree = ui.access_tree();
+    let turn_off = tree
+        .nodes
+        .iter()
+        .find(|n| n.toggled.is_some() && n.name.as_deref() == Some("Avisar sobre as contas a pagar"))
+        .expect("the toggle")
+        .id;
+    ui.perform_action(turn_off, AccessAction::Click);
+    settle(&mut ui);
+    let file = family_finance::reminders::settings_file(&folder.join("financas.db"));
+    assert!(
+        !family_finance::reminders::ReminderSettings::load(&file).enabled,
+        "saved for the thread that tells"
+    );
+}

@@ -141,6 +141,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Sheet / Drawer (side panel) | ✓ | ✓ | ✓ | ✅ `Sheet` |
 | Splash screen | | ✓ | ✓ | ✅ `SplashScreen` |
 | Tray icon, closing to it | | ✓ | ✓ | ✅ `AppIdentity::close_to_tray` |
+| System notifications | | ✓ | ✓ | ✅ `SystemNotifier` |
 | Popover | ✓ | ✓ | ✓ | ✅ |
 | Tooltip | ✓ | ✓ | ✓ | ✅ |
 | Hover card | ✓ | | | ✅ `HoverCard` |

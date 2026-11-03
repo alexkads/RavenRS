@@ -12,6 +12,7 @@ pub mod filter;
 pub mod model;
 pub mod money;
 pub mod paths;
+pub mod reminders;
 pub mod reports;
 pub mod seed;
 pub mod ui;

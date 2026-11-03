@@ -10,6 +10,7 @@
 mod access;
 mod diagnostics;
 mod files;
+mod notice;
 mod sound;
 mod tray;
 
@@ -49,6 +50,7 @@ use winit::window::{Icon, Window, WindowAttributes, WindowId};
 
 pub use diagnostics::diagnose;
 pub use files::{OpenDialog, SaveDialog, open_url, open_with_system};
+pub use notice::SystemNotifier;
 pub use tray::SystemTray;
 
 /// Wheel pixels that ask for twice the size, with Ctrl held.

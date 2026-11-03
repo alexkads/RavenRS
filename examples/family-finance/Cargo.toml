@@ -9,7 +9,7 @@ license.workspace = true
 publish = false
 
 [dependencies]
-ravenrs = { workspace = true, features = ["tray"] }
+ravenrs = { workspace = true, features = ["tray", "notifications"] }
 ravenrs-ai.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-report.workspace = true

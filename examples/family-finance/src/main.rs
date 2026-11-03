@@ -36,6 +36,9 @@ fn main() -> Result<(), PlatformError> {
     // Another file is another app, as when testing beside the installed one.
     let everyday = first.is_none();
     let path = first.map_or_else(paths::database, PathBuf::from);
+    if everyday {
+        family_finance::reminders::watch(path.clone());
+    }
     let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(Theme::raven_light());
     let diagnostics = Diagnostics::default();
     let identity = AppIdentity::new(paths::APP_ID)

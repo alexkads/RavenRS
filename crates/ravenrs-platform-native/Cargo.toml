@@ -28,6 +28,8 @@ cpal = "0.17"
 pollster.workspace = true
 # Save dialogs: the system's own, on all three systems.
 rfd = "0.17"
+# The system's notifications. On Linux it speaks D-Bus in pure Rust.
+notify-rust = { version = "4.17", optional = true }
 tracing.workspace = true
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
@@ -40,6 +42,8 @@ ksni = { version = "0.3", default-features = false, features = ["async-io", "blo
 [features]
 # `AppIdentity::close_to_tray` actually showing an icon.
 tray = ["dep:tray-icon", "dep:ksni"]
+# `SystemNotifier` actually showing something.
+notifications = ["dep:notify-rust"]
 
 [lints]
 workspace = true
