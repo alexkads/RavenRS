@@ -149,6 +149,14 @@ impl SecuredObjectSpace {
             for field in writable() {
                 let (new, old) = (object.get(&field.name), stored.get(&field.name));
                 if new == old {
+                    // Sending the very value of a field they cannot see is guessing it: if that
+                    // went through and any other value did not, they would learn what it holds.
+                    if new != Value::Null
+                        && !permissions.can_field(Operation::Read, name, &field.name, Some(stored))
+                        && !permissions.can_field(Operation::Write, name, &field.name, Some(stored))
+                    {
+                        return Err(self.context.denied());
+                    }
                     continue;
                 }
                 if new == Value::Null

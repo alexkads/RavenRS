@@ -131,6 +131,8 @@ pub struct Words {
     pub password_too_short: String,
     /// The current one is not right.
     pub password_wrong_current: String,
+    /// When the new password is the one they already have.
+    pub password_same: String,
     /// It was changed.
     pub password_saved: String,
     /// Keeps the new password.
@@ -231,6 +233,7 @@ impl Words {
             sign_in_unavailable: texts.get("ui.sign_in_unavailable"),
             passwords_differ: texts.get("ui.passwords_differ"),
             password_too_short: texts.get("ui.password_too_short"),
+            password_same: texts.get("ui.password_same"),
             password_wrong_current: texts.get("ui.password_wrong_current"),
             password_saved: texts.get("ui.password_saved"),
             save_password: texts.get("ui.save_password"),

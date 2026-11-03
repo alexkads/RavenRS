@@ -238,11 +238,24 @@ fn compare(a: &Value, b: &Value) -> Ordering {
         (Value::Null, Value::Null) => Ordering::Equal,
         (Value::Null, _) => Ordering::Less,
         (_, Value::Null) => Ordering::Greater,
-        (Value::Number(x), Value::Number(y)) => x.partial_cmp(y).unwrap_or(Ordering::Equal),
+        (Value::Number(x), Value::Number(y)) => x.total_cmp(y),
         (Value::Text(x), Value::Text(y)) => x.cmp(y),
         (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
         (Value::Date(x), Value::Date(y)) => (x.days, x.seconds).cmp(&(y.days, y.seconds)),
-        _ => Ordering::Equal,
+        // Different kinds in one field come in the order of their kinds: sorting needs an order
+        // that holds across all of them, and panics on one that does not.
+        _ => kind_rank(a).cmp(&kind_rank(b)),
+    }
+}
+
+fn kind_rank(value: &Value) -> u8 {
+    match value {
+        Value::Null => 0,
+        Value::Bool(_) => 1,
+        Value::Number(_) => 2,
+        Value::Text(_) => 3,
+        Value::Date(_) => 4,
+        _ => 5,
     }
 }
 

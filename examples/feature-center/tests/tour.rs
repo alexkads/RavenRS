@@ -186,6 +186,31 @@ fn every_demonstration_opens(center: &mut Center) {
 }
 
 #[test]
+fn the_same_center_answers_as_a_web_api_with_the_same_permissions() {
+    use ravenrs_app_server::ApiRequest;
+    use serde_json::json;
+    let mut api = feature_center::api_service(None).expect("it starts");
+    let mut token_of = |name: &str| {
+        let body = json!({ "name": name, "password": PASSWORD });
+        let answer = api.handle(ApiRequest::new("POST", "/api/auth/token").json(&body));
+        assert_eq!(answer.status, 200, "{answer:?}");
+        answer.body["token"].as_str().expect("a token").to_owned()
+    };
+    let (bia, caio) = (token_of("bia"), token_of("caio"));
+    let documents = ApiRequest::new("GET", "/api/data/SecuredDocument").bearer(&bia);
+    let answer = api.handle(documents);
+    assert_eq!(answer.body["items"].as_array().expect("records").len(), 3);
+    assert_eq!(answer.body["items"][0]["cost"], serde_json::Value::Null, "bia does not see the cost");
+    let answer = api.handle(ApiRequest::new("GET", "/api/data/SecuredDocument").bearer(&caio));
+    assert_eq!(answer.body["items"].as_array().expect("records").len(), 2, "nor caio what is of ana");
+    let write =
+        ApiRequest::new("PATCH", "/api/data/SecuredDocument/1").bearer(&bia).json(&json!({ "name": "x" }));
+    assert_eq!(api.handle(write).status, 403, "it is of ana");
+    let form = ApiRequest::new("POST", "/api/data/ValidationRules").bearer(&bia).json(&json!({ "age": 10 }));
+    assert_eq!(api.handle(form).status, 422);
+}
+
+#[test]
 fn the_token_editor_changes_the_theme_of_the_whole_center() {
     let mut center = Center::memory("ana");
     center.press("Editor de tokens");

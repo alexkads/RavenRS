@@ -34,6 +34,7 @@
  "ui.open": "Abrir",
  "ui.password": "Senha",
  "ui.password_saved": "Senha alterada.",
+ "ui.password_same": "A nova senha precisa ser diferente da atual.",
  "ui.password_too_short": "A senha precisa ter pelo menos 8 caracteres.",
  "ui.password_wrong_current": "A senha atual não confere.",
  "ui.passwords_differ": "As duas senhas não são iguais.",

@@ -388,6 +388,65 @@ Audit::new().theme(Theme::raven_light()).open("Novo").app(&mut ui).assert_clean(
 
 `Audit::app` walks the application with no window: the screen it opens on, every item of the navigation, and on each, the buttons given to `open`. On every screen it reports a control with no name, an id that appears twice, focus on a node that is not there, Tab that does not move or goes round some controls and never reaches the others, a window over the screen that Escape does not close, and two commands on the same keys. On the theme on screen and on every theme given, it checks text and the focus ring against the WCAG AA contrast. `Audit::screen` looks at one screen, and `check_tree`, `check_focus`, `check_theme` and `check_shortcuts` are there one by one. `quick-app`, `quick-plan` and `feature-center` run it in their tests, and any example can.
 
+## PostgreSQL
+
+`ravenrs-app-postgres` keeps records in PostgreSQL, with the same builder as SQLite: `managed` creates and grows tables, `mapped` leaves a table that came first as it is, and `migration` runs something once. What the two share is in `ravenrs-app-sql`, and another database is a `SqlBackend`.
+
+```rust,ignore
+let client = postgres::Client::connect("host=localhost user=app", postgres::NoTls)?;
+let database = PostgresDatabase::builder(client).managed(order, TableMap::new("orders"))?.build();
+```
+
+You make the connection, so TLS and credentials are yours to choose. A value goes in as what its column asks for, so a table with `NUMERIC`, `TIMESTAMP`, `DATE`, `SMALLINT` or `UUID` works as it is; a managed table keeps dates as text, as SQLite does.
+
+Limits to know:
+- Numbered keys come from the highest in the table, so one process at a time should create records on it. A second one gets a conflict, and not a wrong record.
+- `Like` is case-sensitive here and not in SQLite, as each database does.
+- `TIMESTAMPTZ` comes in UTC, with no time zone of its own, since `DateTime` has none.
+- Reading entities from a schema, and keeping the model and attachments in the database, are only in SQLite for now.
+
+Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `scripts/check.sh` does not start one.
+
+## A web API
+
+`ravenrs-app-server` serves the same model to clients that do not use RavenRS. Reads and writes go through `SecuredObjectSpace`, so what a role cannot do on the screens it cannot do here, and rules, state machines and the audit trail hold.
+
+```rust,ignore
+ravenrs_app_server::serve(listener, || {
+    // On the thread that serves requests: storage and permissions belong to one thread.
+    ApiService::new(space, roles).map(|service| service.audit(settings)).map_err(|e| e.to_string())
+})
+```
+
+| Route | What it does |
+|---|---|
+| `POST /api/auth/token` | Signs in with `name` and `password`, for a bearer token |
+| `POST /api/auth/revoke`, `POST /api/auth/password` | Ends a token; changes the password, ending this person's other tokens |
+| `GET /api/data/{entity}` | Records, with `filter` (the criteria language), `order`, `skip`, `top`, `count` and `expand` |
+| `GET`, `PATCH`, `DELETE /api/data/{entity}/{key}` | One record. `PATCH` changes only the fields sent |
+| `POST /api/data/{entity}` | A new record. Aggregated collections come along, as records to create or change, or `{"$delete": key}` |
+| `POST /api/batch` | Several writes that stay or go together |
+| `POST /api/validate/{entity}` | What the rules would say, with nothing kept |
+| `POST /api/run/{name}` | Something of the application's own, from `ApiService::endpoint`, with the permissions of who calls |
+| `GET /api/openapi.json`, `GET /api/me` | The description of what this person can reach; who they are |
+| `GET /health` | The only route that needs no token |
+
+Answers: `400` what was asked does not fit, including any field that cannot be written; `401` no valid token; `403` not allowed; `404` no such record, or one this person cannot see; `409` someone got there first; `422` rules or states refuse it, with `violations`; `429` too many tries to sign in; `503` busy.
+
+It is not OData: the query options are its own, which is the difference to keep in mind for clients made for OData. Money travels in cents, as it is stored, and dates as text. Users, roles and the audit trail are not exposed, whatever the permissions say.
+
+Limits to know:
+- One thread answers everything, one request at a time, as storage belongs to one thread. No throughput has been measured, so none is promised.
+- Tokens live in memory, so a restart asks everyone to sign in again.
+- Plain HTTP only: outside the machine it belongs behind something that does TLS.
+- Tries to sign in are limited by address, and behind a proxy everyone is one address.
+- Five wrong passwords lock a user for fifteen minutes, from any address, so someone who knows a name can keep that person out. It is the price of stopping guesses; the lock is per user because an address is cheap.
+- A unique key or rule says that a value is taken, even to someone who cannot read that record: any unique value does, since refusing it is the only honest answer. Do not put a secret in a key someone can pick.
+- What a rule says goes back as written: a message that quotes a field the person cannot read would show it, so keep those out of rule messages.
+- Two people changing the same field: the last one stays, since `PATCH` carries no version. Different fields do not get in each other's way.
+
+Try it with `cargo run -p feature-center --bin api`.
+
 ## Known gaps
 
 - The audit checks the contrast of a theme's pairs of tokens, not of each pixel drawn: a color a rule or a screen chose for itself is not checked. It does not look at the size of targets, at text resized, or at the reading order against the screen.
