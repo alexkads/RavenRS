@@ -27,6 +27,7 @@ use ravenrs_core::ImageData;
 /// let tray = SystemTray::new("Notes").open("Open Notes").quit("Quit");
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(not(feature = "tray"), allow(dead_code, reason = "no icon to show them on"))]
 pub struct SystemTray {
     name: String,
     open: String,
@@ -55,6 +56,7 @@ impl SystemTray {
 
 /// What the person asked for, from the icon or from opening the app a second time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(feature = "tray"), allow(dead_code, reason = "only the icon offers to quit"))]
 pub(crate) enum TrayAction {
     Open,
     Quit,

@@ -11,6 +11,7 @@
 /// std::thread::spawn(move || notifier.send("Saved", "Your notes are safe."));
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(not(feature = "notifications"), allow(dead_code, reason = "nothing to show them with"))]
 pub struct SystemNotifier {
     name: String,
     bundle_id: Option<String>,

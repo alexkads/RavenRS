@@ -1647,6 +1647,8 @@ name = "feature-center"
 version = "27.1.9"
 dependencies = [
  "console_error_panic_hook",
+ "image",
+ "pollster",
  "ravenrs",
  "ravenrs-app",
  "ravenrs-app-library",
@@ -1655,6 +1657,7 @@ dependencies = [
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-render",
  "ravenrs-report",
  "ravenrs-style",
  "ravenrs-widgets",

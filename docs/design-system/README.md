@@ -79,6 +79,7 @@ These rules came out of reviewing `examples/feature-center` screen by screen, an
 - **Title or trail.** One level is a page title in `headline`. A breadcrumb appears only when there is somewhere to go back to.
 - **Fields fill their column.** References, colors and date with time take the same width as the text fields around them. A fixed width is a choice made at the call site.
 - **Say it once.** A collection in a tab has no heading or label of its own, and a nested list leaves out the column of its owner. An `Alert` has no title when one would only repeat where it is: use `Alert::message`.
+- **Long lists are striped.** `DataGrid::striped` tints every other row with `bg-300` at 40%, under the pointer at 85%, and the accent stays for the selection at 13%, so the three never get confused. Lists generated from a model do it by themselves.
 - **Grids show data first.** The filter row is flat, with each filter's text starting where its column's does, at the end for numbers. The group panel shows only when something is grouped or when asked for with `group_panel(true)`; the Group menu is always in the bar.
 - **Nothing moves under the pointer.** Selecting a row does not change the height of what is above it. Prefer replacing a status for adding to it.
 - **One piece, no frame.** A dashboard with a single item has no tile around it. What only helps while handling something, such as a tile's resize corner, shows only under the pointer.
