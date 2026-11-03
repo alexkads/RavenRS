@@ -153,7 +153,7 @@ fn list_components_filters_by_group_and_text() {
     assert!(!listed.contains(&"BuildCx"), "support types are not components");
     assert!(all["groups"].as_array().unwrap().contains(&json!("Navigation")));
 
-    let inputs = client.call("list_components", json!({ "group": "inputs" }));
+    let inputs = client.call("list_components", json!({ "group": "text and choices" }));
     let inputs = names(&inputs["components"]);
     assert!(inputs.contains(&"Slider"));
     assert!(!inputs.contains(&"Ribbon"));
