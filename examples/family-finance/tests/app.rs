@@ -448,3 +448,30 @@ fn ajustes_has_the_choices_about_notifications_and_keeps_them() {
         "saved for the thread that tells"
     );
 }
+
+#[test]
+fn the_parts_of_a_screen_fold_and_unfold_in_the_menu() {
+    fn unfolded(ui: &mut Ui) -> Option<bool> {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| {
+                n.name.as_deref().is_some_and(|t| t.starts_with("Contas a pagar")) && n.expanded.is_some()
+            })?
+            .expanded
+    }
+    let mut ui = app();
+    assert_eq!(unfolded(&mut ui), Some(false), "only the open screen unfolds");
+
+    press(&mut ui, Role::Button, "Contas a pagar");
+    assert_eq!(unfolded(&mut ui), Some(true));
+    press(&mut ui, Role::Button, "Contas a pagar");
+    assert_eq!(unfolded(&mut ui), Some(false), "a second click folds it");
+    press(&mut ui, Role::Button, "Contas a pagar");
+    assert_eq!(unfolded(&mut ui), Some(true), "and a third unfolds it");
+
+    press(&mut ui, Role::Button, "Contas a pagar");
+    press(&mut ui, Role::Button, "Agenda");
+    press(&mut ui, Role::Button, "Contas a pagar");
+    assert_eq!(unfolded(&mut ui), Some(true), "coming back opens it");
+}

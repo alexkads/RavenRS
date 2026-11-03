@@ -67,6 +67,8 @@ const FLIGHT_SECONDS: f64 = 240.0;
 pub struct App {
     store: Store,
     page: State<usize>,
+    /// The screen whose parts were folded in the menu.
+    menu_folded: State<Option<usize>>,
     palette: State<bool>,
     sidebar: SidebarState,
     news: updates::NewsDialog,
@@ -122,6 +124,7 @@ impl App {
         Self {
             store,
             page: State::new(0),
+            menu_folded: State::new(None),
             palette: State::new(false),
             sidebar,
             news: updates::NewsDialog::new(),
@@ -182,7 +185,8 @@ impl App {
         SidebarItem::new(icon, label).compact().selected(self.page.get() == i).on_click(move || page.set(i))
     }
 
-    /// A row with the parts of a screen, unfolded while that screen is open.
+    /// A row with the parts of a screen, unfolded while that screen is open, unless
+    /// the person folded it.
     fn menu_parts<'a>(
         &self,
         i: usize,
@@ -190,8 +194,14 @@ impl App {
         parts: impl IntoIterator<Item = (&'a str, Rc<dyn Fn()>)>,
     ) -> SidebarItem {
         let current = self.page.get() == i;
-        let read = self.page.clone();
-        let mut row = self.menu_row(i).expanded_binding(Binding::new(move || read.get() == i, |_: bool| {}));
+        let (read, read_folded, folded) =
+            (self.page.clone(), self.menu_folded.clone(), self.menu_folded.clone());
+        let page = self.page.clone();
+        let mut row = self.menu_row(i).expanded_binding(Binding::new(
+            move || read.get() == i && read_folded.get() != Some(i),
+            // Clicking the row of the screen already open folds it; any other opens that screen.
+            move |open: bool| folded.set((!open && page.get() == i).then_some(i)),
+        ));
         for (place, (label, open)) in parts.into_iter().enumerate() {
             let page = self.page.clone();
             row = row.item(
