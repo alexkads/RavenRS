@@ -1,5 +1,17 @@
 [
   {
+    "versao": "0.1.21",
+    "data": "2026-11-03",
+    "titulo": "O sistema agora avisa sobre as contas vencidas.",
+    "importante": false,
+    "novidades": [
+      "O programa usa as notificações do sistema para avisar sobre contas vencidas, mesmo com a janela fechada na bandeja.",
+      "Em Ajustes, no cartão Avisos, você escolhe sobre quais contas ser avisado, a partir de que hora e se o aviso se repete todo dia.",
+      "O botão Testar aviso mostra como a notificação aparece. Com o programa encerrado, não há aviso."
+    ],
+    "por_que_atualizar": "Para não perder o vencimento de uma conta."
+  },
+  {
     "versao": "0.1.20",
     "data": "2026-11-03",
     "titulo": "A janela volta da bandeja na hora, e relatar um problema ficou mais fácil.",

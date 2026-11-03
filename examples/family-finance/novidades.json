@@ -1,11 +1,11 @@
 {
-  "versao": "0.1.20",
-  "titulo": "A janela volta da bandeja na hora, e relatar um problema ficou mais fácil.",
+  "versao": "0.1.21",
+  "titulo": "O sistema agora avisa sobre as contas vencidas.",
   "importante": false,
   "novidades": [
-    "Ao abrir pela bandeja, a janela volta na hora, sem tela preta.",
-    "Em Relatar problema, você pode arrastar uma caixa em volta do que está errado e dizer se é um erro, algo confuso ou uma sugestão.",
-    "O relato mostra tudo o que vai junto antes de ser enviado, como o que está sob a caixa e os últimos erros do programa."
+    "O programa usa as notificações do sistema para avisar sobre contas vencidas, mesmo com a janela fechada na bandeja.",
+    "Em Ajustes, no cartão Avisos, você escolhe sobre quais contas ser avisado, a partir de que hora e se o aviso se repete todo dia.",
+    "O botão Testar aviso mostra como a notificação aparece. Com o programa encerrado, não há aviso."
   ],
-  "por_que_atualizar": "Para voltar da bandeja sem espera e mostrar com mais clareza o que deu errado."
+  "por_que_atualizar": "Para não perder o vencimento de uma conta."
 }
