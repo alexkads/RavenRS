@@ -128,6 +128,19 @@ mod system {
     }
 }
 
+/// Whether the system has this app in front, where it can tell. A click on the app's
+/// icon in the Dock brings it to the front, and macOS says nothing else that winit hears.
+#[cfg(all(feature = "tray", target_os = "macos"))]
+pub(crate) fn app_is_active() -> Option<bool> {
+    let thread = objc2::MainThreadMarker::new()?;
+    Some(objc2_app_kit::NSApplication::sharedApplication(thread).isActive())
+}
+
+#[cfg(not(all(feature = "tray", target_os = "macos")))]
+pub(crate) fn app_is_active() -> Option<bool> {
+    None
+}
+
 /// How long one running copy of the app takes to answer another, at most.
 const ANSWER_TIME: Duration = Duration::from_millis(500);
 

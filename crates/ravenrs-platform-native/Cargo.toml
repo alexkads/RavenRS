@@ -35,13 +35,18 @@ tracing.workspace = true
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
 tray-icon = { version = "0.24", default-features = false, optional = true }
 
+# To see the Dock bring the app back: winit does not tell.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", optional = true }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSApplication", "NSResponder"], optional = true }
+
 # In pure Rust over D-Bus, so that the tray asks for no GTK to compile.
 [target.'cfg(target_os = "linux")'.dependencies]
 ksni = { version = "0.3", default-features = false, features = ["async-io", "blocking"], optional = true }
 
 [features]
 # `AppIdentity::close_to_tray` actually showing an icon.
-tray = ["dep:tray-icon", "dep:ksni"]
+tray = ["dep:tray-icon", "dep:ksni", "dep:objc2", "dep:objc2-app-kit"]
 # `SystemNotifier` actually showing something.
 notifications = ["dep:notify-rust"]
 

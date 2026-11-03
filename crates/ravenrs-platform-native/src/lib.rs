@@ -224,8 +224,8 @@ impl AppIdentity {
     }
 
     /// Closing the window keeps the app running behind an icon beside the clock, which
-    /// shows [`Self::icon`] and needs it. Opening the app again brings the same window
-    /// back. See [`SystemTray`] for where the system has no such icon.
+    /// shows [`Self::icon`] and needs it. Opening the app again, or clicking its icon in the
+    /// Dock on macOS, brings the same window back. See [`SystemTray`] for where the system has no such icon.
     pub fn close_to_tray(mut self, tray: SystemTray) -> Self {
         self.tray = Some(tray);
         self
@@ -311,6 +311,7 @@ fn run_window(
         tray,
         tray_notify,
         in_tray: None,
+        away_in_tray: false,
         place: None,
         maximized: false,
         pointer: None,
@@ -361,6 +362,9 @@ struct App {
     tray_notify: tray::Notify,
     /// The icon on screen, while the window is closed behind it.
     in_tray: Option<tray::Shown>,
+    /// The app was seen in the background since it went to the icon, so coming to the
+    /// front now is someone asking for it, as with a click on the Dock.
+    away_in_tray: bool,
     /// Where the window was when closed behind the icon, for opening it there.
     place: Option<PhysicalPosition<i32>>,
     maximized: bool,
@@ -372,6 +376,17 @@ struct App {
     started: std::time::Instant,
     error: Option<PlatformError>,
 }
+
+/// On macOS a closed window leaves the app in front, and then a click on the Dock would
+/// not change anything anyone could see.
+#[cfg(all(feature = "tray", target_os = "macos"))]
+fn leave_the_front(event_loop: &ActiveEventLoop) {
+    use winit::platform::macos::ActiveEventLoopExtMacOS as _;
+    event_loop.hide_application();
+}
+
+#[cfg(not(all(feature = "tray", target_os = "macos")))]
+fn leave_the_front(_event_loop: &ActiveEventLoop) {}
 
 /// The same setting serves Wayland's app id and X11's `WM_CLASS`.
 #[cfg(any(
@@ -436,7 +451,7 @@ impl App {
     /// The window is only hidden, so that it comes back at once, with its last frame.
     /// Wayland cannot hide one, so there it is destroyed, and that system shows a new
     /// window only once it has something to show.
-    fn close_to_tray(&mut self) -> bool {
+    fn close_to_tray(&mut self, event_loop: &ActiveEventLoop) -> bool {
         let (Some(tray), Some(icon), Some(state)) = (&self.tray, &self.icon, &self.window) else {
             return false;
         };
@@ -451,6 +466,8 @@ impl App {
         let window = &state.window;
         if !self.on_wayland() {
             window.set_visible(false);
+            self.away_in_tray = false;
+            leave_the_front(event_loop);
             return true;
         }
         let size = window.inner_size().to_logical::<f32>(window.scale_factor());
@@ -731,6 +748,15 @@ impl ApplicationHandler<UserEvent> for App {
 
     /// Sleeps until input arrives or until the UI's next timed wake-up.
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if self.in_tray.is_some()
+            && let Some(active) = tray::app_is_active()
+        {
+            if !active {
+                self.away_in_tray = true;
+            } else if self.away_in_tray {
+                self.open_window(event_loop);
+            }
+        }
         match self.ui.next_wake().filter(|_| self.in_tray.is_none()) {
             Some(at) => {
                 let at = self.started + std::time::Duration::from_secs_f64(at.max(0.0));
@@ -810,7 +836,7 @@ impl ApplicationHandler<UserEvent> for App {
         }
         match event {
             WindowEvent::CloseRequested => {
-                if !self.close_to_tray() {
+                if !self.close_to_tray(event_loop) {
                     event_loop.exit();
                 }
             }
