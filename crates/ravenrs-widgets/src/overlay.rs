@@ -865,8 +865,9 @@ impl View for DialogLayer<'_> {
         cx.motion(
             card,
             Motion::new()
-                .enter(Effect::moved(0.0, 8.0).with_scale(0.96), theme.motion.gentle)
-                .exit(Effect::IDENTITY.with_scale(0.98), theme.motion.fast),
+                .surface_exit()
+                .enter(Effect::moved(0.0, 8.0).with_scale(0.96), theme.motion.fast)
+                .exit(Effect { opacity: 0.0, ..Effect::IDENTITY.with_scale(0.98) }, theme.motion.fast),
         );
         let scrim = motion::scrim(cx, viewport);
         let backdrop = cx.container(
