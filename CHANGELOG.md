@@ -4,6 +4,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.8] - 2026-11-02
+
+### Breaking
+- Until 28.1.0 any release may hold breaking changes, listed here. Pin an exact version if that matters to you. See [docs/VERSIONING.md](docs/VERSIONING.md).
+- `EntityInfo` in `ravenrs-app` is no longer `Send`, `Sync` or unwind-safe, since rules and appearance can hold closures.
+
 ### Added
 - **`#[derive(BusinessObject)]`** and **`#[derive(BusinessEnum)]`** declare records as Rust structs and options as enums, in the new `ravenrs-app-derive`. A wrong attribute is a compile error that points at it, and a calculated field's expression is checked there too. `ObjectSpaceExt` reads and writes these structs.
 - **`App`** in `ravenrs-app-ui` puts an application together from its records in a few lines, with the language of everything in it. [`examples/quick-app`](examples/quick-app) is a whole one in under 100 lines, on desktop and in the browser. The guide is [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md), and [docs/APP-PARITY.md](docs/APP-PARITY.md) says what exists.
