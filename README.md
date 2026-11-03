@@ -6,7 +6,7 @@
 
 The whole toolkit for serious applications, free and open source: 100+ components, a data grid for 100,000+ rows, a reporting suite with a server, `ravenrs-app`, which turns a Rust struct into a working application, training films that ship inside your app, and AI that stays on the machine. One codebase, drawn on the GPU, on Windows, macOS, Linux and the web.
 
-[**Try the live gallery**](https://alexkads.github.io/RavenRS/demo/) · [Report designer](https://alexkads.github.io/RavenRS/designer/) · [An app from two structs](https://alexkads.github.io/RavenRS/quick/) · [Getting started](https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md) · [Components](https://alexkads.github.io/RavenRS/components/) · [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/)
+[**Try the live gallery**](https://alexkads.github.io/RavenRS/demo/) · [Report designer](https://alexkads.github.io/RavenRS/designer/) · [Install a real app](#install-a-real-app) · [An app from two structs](https://alexkads.github.io/RavenRS/quick/) · [Getting started](https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md) · [Components](https://alexkads.github.io/RavenRS/components/) · [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/)
 
 ![License: MIT or Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-4c66ee)
 ![Rust 1.88+](https://img.shields.io/badge/rust-1.88%2B-4c66ee)
@@ -23,6 +23,7 @@ Building a business application usually means assembling a UI kit, a commercial 
 | | | |
 |---|---|---|
 | **[`ravenrs-app`](#ravenrs-app-declare-a-record-get-the-application)** | Declare a Rust struct and get the application: navigation, lists, forms, rules, security and an audit trail | [Generated app](https://alexkads.github.io/RavenRS/quick/) |
+| **[Raven Finanças](#install-a-real-app)** | A complete family finance app, built with all of this, to install on your computer | [Install](#install-a-real-app) |
 | **[Components](#components)** | 100+ designed, tested components: ribbon, scheduler, command palette, charts, forms, wizards, 200 icons | [Gallery](https://alexkads.github.io/RavenRS/demo/) |
 | **[DataGrid](#a-data-grid-for-real-data)** | 100,000+ rows at 2 ms a frame, grouping, summaries, editing, master-detail, Excel and PDF | [Gallery](https://alexkads.github.io/RavenRS/demo/) |
 | **[Reporting](#reporting-from-designer-to-inbox)** | Engine, end-user designer, viewer, PDF and XLSX, and a server that emails reports on a schedule | [Designer](https://alexkads.github.io/RavenRS/designer/) |
@@ -68,6 +69,33 @@ From there it grows with you:
 - **Customization at run time:** a model in layers, so a module, an administrator or a user can change the application as a JSON difference, and even add fields.
 
 Status: usable today, with the API still moving, and shipped as separate crates: `cargo add ravenrs ravenrs-app ravenrs-app-ui`. See [docs/APP-FRAMEWORK.md](https://github.com/alexkads/RavenRS/blob/master/docs/APP-FRAMEWORK.md), and run `cargo run -p feature-center` for a demonstration of every feature.
+
+## Install a real app
+
+Want to see what all of this adds up to? [Raven Finanças](https://github.com/alexkads/RavenRS/blob/master/examples/family-finance) is a complete desktop app for a family's expenses and bills to pay, built with RavenRS and free to install on your own computer. Its interface is in Brazilian Portuguese, and it opens on a sample family, so there is something to explore right away.
+
+![The Raven Finanças dashboard, with balances, a chart and the next bills to pay](https://raw.githubusercontent.com/alexkads/RavenRS/master/docs/media/family-finance.jpg)
+
+- **Your data stays with you**, in one SQLite file on your computer, with backups and reports you can export.
+- **A real workout for the framework:** dashboard, `DataGrid`, scheduler, budgets, reports, command palette and generated forms in everyday use.
+- **Six training films inside the app**, about 16 minutes in all at about 700 KB, and a question opens the moment that answers it.
+- **An optional local AI assistant** that answers about your money and prepares entries, with nothing leaving the machine.
+
+The installer compiles the app on your machine and gets what it needs first, Rust and a C compiler, so the first run can take a while. It asks for an administrator's permission only to install those tools, and the app then keeps itself up to date.
+
+On macOS and Linux, in a terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -o /tmp/install.cmd && sh /tmp/install.cmd
+```
+
+On Windows 11, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -OutFile "$env:TEMP\install.cmd"; & "$env:TEMP\install.cmd"
+```
+
+Already have the repository? `cargo run -p family-finance` runs it without installing. The [app's README](https://github.com/alexkads/RavenRS/blob/master/examples/family-finance) shows which component each screen uses.
 
 ## Why RavenRS
 
@@ -183,7 +211,7 @@ See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REP
 | Assistants | `Chat`, `ModelPicker` |
 | Training and support (`ravenrs::movie`) | `Recorder`, `MoviePlayer`, `MovieAssistant`, `MovieChat`, `MovieEditor`, `FlightRecorder`, `BugReporter` |
 
-Every component is in [`examples/component-gallery`](https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery), which runs natively and [in your browser](https://alexkads.github.io/RavenRS/demo/). For a whole app, see [`examples/family-finance`](https://github.com/alexkads/RavenRS/blob/master/examples/family-finance): family expenses and bills to pay on SQLite, with reports.
+Every component is in [`examples/component-gallery`](https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery), which runs natively and [in your browser](https://alexkads.github.io/RavenRS/demo/). For a whole app, [install Raven Finanças](#install-a-real-app).
 
 ## Your own components
 
