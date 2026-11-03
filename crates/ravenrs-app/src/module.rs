@@ -46,6 +46,85 @@ pub trait Module {
     }
 }
 
+/// What a piece of a dashboard shows.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum DashboardContent {
+    /// A view of the model, by its id.
+    View(String),
+    /// A control the application registered, by its name.
+    Control(String),
+}
+
+/// A piece of a dashboard.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct DashboardItem {
+    /// What it is known by.
+    pub id: String,
+    /// What people see over it.
+    pub caption: String,
+    /// What it shows.
+    pub content: DashboardContent,
+}
+
+/// Other views together. It is bound to no records: each piece keeps its own frame.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct DashboardInfo {
+    /// Its name, which its view's id starts with.
+    pub name: String,
+    /// What people see.
+    pub caption: String,
+    /// The group it goes under in the navigation.
+    pub navigation: Option<String>,
+    /// The name of its icon.
+    pub icon: Option<String>,
+    /// Its pieces, in order.
+    pub items: Vec<DashboardItem>,
+}
+
+impl DashboardInfo {
+    /// A dashboard with nothing in it yet.
+    pub fn new(name: impl Into<String>, caption: impl Into<String>) -> Self {
+        Self { name: name.into(), caption: caption.into(), navigation: None, icon: None, items: Vec::new() }
+    }
+
+    /// The group it goes under in the navigation.
+    pub fn navigation(mut self, group: impl Into<String>) -> Self {
+        self.navigation = Some(group.into());
+        self
+    }
+
+    /// The name of its icon.
+    pub fn icon(mut self, icon: impl Into<String>) -> Self {
+        self.icon = Some(icon.into());
+        self
+    }
+
+    /// Shows a view of the model, by its id.
+    pub fn view(mut self, caption: impl Into<String>, view: impl Into<String>) -> Self {
+        let view = view.into();
+        self.items.push(DashboardItem {
+            id: view.clone(),
+            caption: caption.into(),
+            content: DashboardContent::View(view),
+        });
+        self
+    }
+
+    /// Shows a control the application registered, by its name.
+    pub fn control(mut self, caption: impl Into<String>, control: impl Into<String>) -> Self {
+        let control = control.into();
+        self.items.push(DashboardItem {
+            id: control.clone(),
+            caption: caption.into(),
+            content: DashboardContent::Control(control),
+        });
+        self
+    }
+}
+
 /// Puts modules in an order where each comes after what it depends on, keeping the order they
 /// were added in as far as possible.
 fn in_dependency_order(modules: Vec<Box<dyn Module>>) -> Result<Vec<Box<dyn Module>>, ModelError> {
@@ -106,7 +185,12 @@ impl std::fmt::Debug for Application {
 impl Application {
     /// Starts an application with this title.
     pub fn builder(title: impl Into<String>) -> ApplicationBuilder {
-        ApplicationBuilder { title: title.into(), modules: Vec::new(), entities: Vec::new() }
+        ApplicationBuilder {
+            title: title.into(),
+            modules: Vec::new(),
+            entities: Vec::new(),
+            dashboards: Vec::new(),
+        }
     }
 
     /// Its title.
@@ -132,6 +216,12 @@ impl Application {
     /// Its layers. Call [`refresh_model`](Self::refresh_model) after changing them.
     pub fn layers_mut(&mut self) -> &mut ModelLayers {
         &mut self.layers
+    }
+
+    /// Keeps a setting in the person's own layer of the model, and applies it.
+    pub fn set_user_setting(&mut self, path: &[&str], name: &str, value: &str) -> Result<(), ModelError> {
+        self.layers.set(&ModelLayer::User, path, name, serde_json::Value::String(value.to_owned()));
+        self.refresh_model()
     }
 
     /// Applies the layers again. Frames made after this see the result; views already showing
@@ -162,6 +252,7 @@ pub struct ApplicationBuilder {
     title: String,
     modules: Vec<Box<dyn Module>>,
     entities: Vec<EntityInfo>,
+    dashboards: Vec<DashboardInfo>,
 }
 
 impl std::fmt::Debug for ApplicationBuilder {
@@ -188,6 +279,12 @@ impl ApplicationBuilder {
         self.entity(T::entity_info())
     }
 
+    /// Adds a dashboard.
+    pub fn dashboard(mut self, dashboard: DashboardInfo) -> Self {
+        self.dashboards.push(dashboard);
+        self
+    }
+
     /// Puts it together: orders the modules, generates the model, lets the modules change it,
     /// applies their layers and checks the result. What is wrong comes out here, and not when
     /// someone reaches that screen.
@@ -198,6 +295,9 @@ impl ApplicationBuilder {
             entities.extend(module.entities());
         }
         let mut zero = generate_model(&entities)?;
+        for dashboard in &self.dashboards {
+            crate::model::add_dashboard(&mut zero, dashboard);
+        }
         for module in &modules {
             module.extend_model(&mut zero);
         }

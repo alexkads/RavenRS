@@ -13,10 +13,18 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **`ravenrs-app-sqlite`** keeps records in SQLite, on tables it creates or on tables an application already owns, sharing its connection. Filters run in the database as bound values, and what the database refuses comes back in words.
 - **`EntityPane`** is a list beside its form, for a screen an application made itself.
 - `DataGrid::name_column` says what names a row for its buttons, and a filling column leaves room for them. `Select::fill` takes the width of its parent. `ChangeSet` and `run_query` are there for whoever writes an `ObjectSpace`.
+- **Relations.** `FieldKind::Collection` shows on a form the records that point to it, with `Link` and `Unlink`. A reference with the `Select` editor is picked from a list, narrowed by `lookup_filter` from the record being edited, with `none_caption` for empty.
+- **`EntityForm`** is a form in a window that checks its rules and hands over the record, for what an application keeps through its own rules. **`ActionButton`** shows one action as a button, and `Session::embedded` lets a screen made by hand use lists and actions of the framework.
+- **Popups with forms.** `Action::popup` on a detail view asks for a record to be filled in, started by `on_prepare` and received as `ActionInput::Record`. A parametrized action reads what is typed as the kind it asks for, and `confirmation_words` says what its question says.
+- **`DashboardInfo`** and **`DashboardView`** put views and registered controls together, each in a frame of its own. **`ViewVariant`** gives a list ways to be seen, picked from a menu, with the choice in the person's layer of the model.
+- `ListView` gains `filter`, `sort`, `column_shape`, `grid_shape`, `single_selection`, `plain_toolbar` and `remote`, which brings rows through `RemoteRows`. Pictures and files on a form have real controls.
+- **`ravenrs-app-report`** gives every list an action that lays it out as a report and shows it in the viewer. `Session::list_table` and `ravenrs_grid_export::document_of` are what it stands on.
+- `DatePicker::fill` takes the width of its parent. `ravenrs_report::base64` is public.
 - `FilePicker::save` hands a file to the person: the system's dialog on a desktop, a download in a browser. Exports from generated lists use it unless the app takes them.
 
 ### Changed
 - The registers of the Raven Finanças example are generated from what they are, and say what is wrong when a name is missing instead of doing nothing.
+- The transactions and bills of the Raven Finanças example, their lists, forms and commands, and its plans and payments are generated from what they are too, with every write still going through its database rules.
 
 ### Fixed
 - A field with options starts on the first one, which is what it shows, instead of holding nothing.

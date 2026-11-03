@@ -129,6 +129,20 @@ pub struct FieldInfo {
     pub editor: Option<String>,
     /// What an empty editor shows.
     pub placeholder: Option<String>,
+    /// It takes the whole width of its group on a form.
+    pub wide: bool,
+    /// Takes the keyboard when its form opens.
+    pub autofocus: bool,
+    /// What the form says under it.
+    pub hint: Option<String>,
+    /// For a reference: what its records have to meet, where `?field` is the value of that field
+    /// of the record being edited.
+    pub lookup_filter: Option<String>,
+    /// For a reference that can be left empty and is picked from a list: what empty is called.
+    pub none_caption: Option<String>,
+    /// For a collection: the field of the other entity that points back here, when it has
+    /// more than one reference to this entity.
+    pub back_reference: Option<String>,
 }
 
 /// `opening_cents` as `Opening cents`.
@@ -159,6 +173,12 @@ impl FieldInfo {
             default_value,
             editor: None,
             placeholder: None,
+            wide: false,
+            autofocus: false,
+            hint: None,
+            lookup_filter: None,
+            none_caption: None,
+            back_reference: None,
             kind,
         }
     }
@@ -234,6 +254,43 @@ impl FieldInfo {
         self
     }
 
+    /// Takes the whole width of its group on a form.
+    pub fn wide(mut self) -> Self {
+        self.wide = true;
+        self
+    }
+
+    /// Takes the keyboard when its form opens.
+    pub fn autofocus(mut self) -> Self {
+        self.autofocus = true;
+        self
+    }
+
+    /// What the form says under it.
+    pub fn hint(mut self, text: impl Into<String>) -> Self {
+        self.hint = Some(text.into());
+        self
+    }
+
+    /// For a reference: what its records have to meet, where `?field` is the value of that field
+    /// of the record being edited, as in `[flow] = ?flow`.
+    pub fn lookup_filter(mut self, expression: impl Into<String>) -> Self {
+        self.lookup_filter = Some(expression.into());
+        self
+    }
+
+    /// For a reference that can be left empty and is picked from a list: what empty is called.
+    pub fn none_caption(mut self, caption: impl Into<String>) -> Self {
+        self.none_caption = Some(caption.into());
+        self
+    }
+
+    /// For a collection: the field of the other entity that points back here.
+    pub fn back_reference(mut self, field: impl Into<String>) -> Self {
+        self.back_reference = Some(field.into());
+        self
+    }
+
     /// What a new record starts with.
     pub fn default_value(mut self, value: impl Into<Value>) -> Self {
         self.default_value = value.into();
@@ -253,6 +310,31 @@ impl fmt::Display for ModelError {
 
 impl std::error::Error for ModelError {}
 
+/// Another way to see the list of an entity, which people pick from a menu once there are two.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ViewVariant {
+    /// What it is known by.
+    pub id: String,
+    /// What people see.
+    pub caption: String,
+    /// What its records have to meet; nothing means all of them.
+    pub filter: Option<String>,
+}
+
+impl ViewVariant {
+    /// A variant that shows every record.
+    pub fn new(id: impl Into<String>, caption: impl Into<String>) -> Self {
+        Self { id: id.into(), caption: caption.into(), filter: None }
+    }
+
+    /// Shows only the records that meet this expression.
+    pub fn filter(mut self, expression: impl Into<String>) -> Self {
+        self.filter = Some(expression.into());
+        self
+    }
+}
+
 /// A kind of record.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
@@ -271,6 +353,10 @@ pub struct EntityInfo {
     pub rules: Vec<crate::Rule>,
     /// How things look and behave by what its records hold.
     pub appearance: Vec<crate::AppearanceRule>,
+    /// The ways to see its list.
+    pub variants: Vec<ViewVariant>,
+    /// How many columns its form's fields go in; by how many there are, unless given.
+    pub form_columns: Option<u8>,
 }
 
 impl EntityInfo {
@@ -285,6 +371,8 @@ impl EntityInfo {
             fields: Vec::new(),
             rules: Vec::new(),
             appearance: Vec::new(),
+            variants: Vec::new(),
+            form_columns: None,
         }
     }
 
@@ -321,6 +409,18 @@ impl EntityInfo {
     /// Appends a rule about how things look.
     pub fn appearance(mut self, rule: crate::AppearanceRule) -> Self {
         self.appearance.push(rule);
+        self
+    }
+
+    /// How many columns its form's fields go in.
+    pub fn form_columns(mut self, columns: u8) -> Self {
+        self.form_columns = Some(columns);
+        self
+    }
+
+    /// Appends a way to see its list.
+    pub fn variant(mut self, variant: ViewVariant) -> Self {
+        self.variants.push(variant);
         self
     }
 
@@ -371,6 +471,21 @@ impl EntityInfo {
                 if let Some(problem) = ravenrs_criteria::validate(&parsed, &self.schema()).first() {
                     return wrong(format!("the field {}: {problem}", field.name));
                 }
+            }
+        }
+        for variant in &self.variants {
+            if let Some(expression) = &variant.filter {
+                let parsed = Criteria::parse(expression)
+                    .map_err(|e| ModelError(format!("{}, variant {}: {e}", self.name, variant.id)))?;
+                if let Some(problem) = ravenrs_criteria::validate(&parsed, &self.schema()).first() {
+                    return wrong(format!("the variant {}: {problem}", variant.id));
+                }
+            }
+        }
+        for field in &self.fields {
+            if let Some(expression) = &field.lookup_filter {
+                Criteria::parse(expression)
+                    .map_err(|e| ModelError(format!("{}.{}: {e}", self.name, field.name)))?;
             }
         }
         for rule in &self.rules {

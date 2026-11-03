@@ -2,9 +2,10 @@
 
 use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Tint, Value};
 use ravenrs_criteria::DateTime as Moment;
+use ravenrs_report::base64::{decode, encode};
 use ravenrs_style::Semantic;
 use ravenrs_widgets::grid::Value as Cell;
-use ravenrs_widgets::{Date, DateTime, GridColumn, NumberFormat, Time};
+use ravenrs_widgets::{Date, DateTime, GridColumn, NumberFormat, PickedFile, Time};
 
 use crate::session::Words;
 
@@ -36,10 +37,24 @@ pub(crate) fn value_of_date_time(moment: Option<DateTime>) -> Value {
     })
 }
 
+/// A record keeps a file as text, its name on the first line and its content after it.
+pub(crate) fn value_of_file(file: Option<&PickedFile>) -> Value {
+    file.map_or(Value::Null, |file| Value::Text(format!("{}\n{}", file.name, encode(&file.bytes))))
+}
+
+/// A file from what a record keeps.
+pub(crate) fn file_of(value: &Value) -> Option<PickedFile> {
+    let Value::Text(text) = value else { return None };
+    let (name, content) = text.split_once('\n')?;
+    Some(PickedFile::new(name, decode(content)?))
+}
+
 /// A value as words, with what its field knows about it.
 pub(crate) fn display(field: &FieldInfo, value: &Value) -> String {
     match (&field.kind, value) {
         (_, Value::Null) => String::new(),
+        // Its name, and never its content.
+        (FieldKind::Image | FieldKind::File, value) => file_of(value).map_or_else(String::new, |f| f.name),
         (FieldKind::Enum(options), Value::Text(code)) => options
             .iter()
             .find(|option| option.code == *code)
@@ -59,7 +74,9 @@ pub(crate) fn cell_of(field: &FieldInfo, value: &Value) -> Cell {
         (_, Value::Null) => Cell::Empty,
         (FieldKind::Money, Value::Number(cents)) => Cell::Number(cents / 100.0),
         (FieldKind::Date, value) => date_of(value).map_or(Cell::Empty, Cell::Date),
-        (FieldKind::Enum(_), value) | (FieldKind::DateTime, value) => Cell::Text(display(field, value)),
+        (FieldKind::Enum(_) | FieldKind::DateTime | FieldKind::Image | FieldKind::File, value) => {
+            Cell::Text(display(field, value))
+        }
         (_, Value::Number(number)) => Cell::Number(*number),
         (_, Value::Bool(on)) => Cell::Bool(*on),
         (_, Value::Text(text)) => Cell::Text(text.clone()),
@@ -137,6 +154,18 @@ mod tests {
         let kind = FieldInfo::new("k", FieldKind::Enum(vec![ravenrs_app::EnumOption::new("a", "Ativo")]));
         assert_eq!(cell_of(&kind, &Value::Text("a".into())), Cell::Text("Ativo".into()));
         assert_eq!(display(&kind, &Value::Text("z".into())), "z", "an old code still shows");
+    }
+
+    #[test]
+    fn files_go_there_and_back_and_show_by_name() {
+        let file = PickedFile::new("nota.pdf", vec![1_u8, 2, 250]);
+        let kept = value_of_file(Some(&file));
+        let back = file_of(&kept).expect("a file");
+        assert_eq!(back.name, "nota.pdf");
+        assert_eq!(&*back.bytes, &[1_u8, 2, 250]);
+        assert_eq!(value_of_file(None), Value::Null);
+        assert_eq!(file_of(&Value::Text("not a file".into())).map(|f| f.name), None);
+        assert_eq!(display(&FieldInfo::new("f", FieldKind::File), &kept), "nota.pdf");
     }
 
     #[test]

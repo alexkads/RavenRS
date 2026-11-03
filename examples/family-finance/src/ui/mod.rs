@@ -5,6 +5,7 @@ mod assistant;
 mod bills;
 mod budgets;
 mod dashboard;
+mod entities;
 mod forms;
 mod help;
 mod ledger;

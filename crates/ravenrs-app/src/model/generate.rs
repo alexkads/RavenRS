@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 
 use super::node::ModelNode;
-use crate::{EntityInfo, FieldInfo, ModelError};
+use crate::{DashboardContent, DashboardInfo, EntityInfo, FieldInfo, ModelError};
 
 /// More simple fields than this and a form's group uses two columns.
 const FIELDS_IN_ONE_COLUMN: usize = 4;
@@ -23,11 +23,54 @@ fn list_view(entity: &EntityInfo, id: String, shown: impl Fn(&FieldInfo) -> bool
         columns = columns
             .child(ModelNode::new(&field.name).with("Caption", field.caption.as_str()).with("Index", index));
     }
-    ModelNode::new(id)
+    let node = ModelNode::new(id)
         .with("Kind", "ListView")
         .with("Entity", entity.name.as_str())
         .with("Caption", entity.caption.as_str())
-        .child(columns)
+        .child(columns);
+    if entity.variants.is_empty() {
+        return node;
+    }
+    let variants =
+        entity.variants.iter().enumerate().fold(ModelNode::new("Variants"), |variants, (i, variant)| {
+            let item =
+                ModelNode::new(&variant.id).with("Caption", variant.caption.as_str()).with("Index", i as i64);
+            variants.child(match &variant.filter {
+                Some(filter) => item.with("Filter", filter.as_str()),
+                None => item,
+            })
+        });
+    node.child(variants)
+}
+
+/// Adds a dashboard to a model: its view, and its place in the navigation if it has one.
+pub fn add_dashboard(root: &mut ModelNode, dashboard: &DashboardInfo) {
+    let items = dashboard.items.iter().enumerate().fold(ModelNode::new("Items"), |items, (i, item)| {
+        let node = ModelNode::new(&item.id).with("Caption", item.caption.as_str()).with("Index", i as i64);
+        items.child(match &item.content {
+            DashboardContent::View(view) => node.with("View", view.as_str()),
+            DashboardContent::Control(control) => node.with("Control", control.as_str()),
+        })
+    });
+    let view = ModelNode::new(format!("{}_DashboardView", dashboard.name))
+        .with("Kind", "DashboardView")
+        .with("Caption", dashboard.caption.as_str())
+        .child(items);
+    if let Some(views) = root.get_mut("Views") {
+        views.children.push(view);
+    }
+    let Some(place) = &dashboard.navigation else { return };
+    let mut item = ModelNode::new(&dashboard.name)
+        .with("Caption", dashboard.caption.as_str())
+        .with("View", format!("{}_DashboardView", dashboard.name));
+    if let Some(icon) = &dashboard.icon {
+        item = item.with("Icon", icon.as_str());
+    }
+    let Some(navigation) = root.get_mut("NavigationItems") else { return };
+    match navigation.get_mut(place) {
+        Some(existing) => existing.children.push(item),
+        None => navigation.children.push(ModelNode::new(place).with("Caption", place.as_str()).child(item)),
+    }
 }
 
 fn group(id: &str, index: i64, columns: i64, fields: &[&FieldInfo]) -> ModelNode {
@@ -50,7 +93,10 @@ fn layout(entity: &EntityInfo) -> ModelNode {
     let mut node = ModelNode::new("Layout");
     let mut index = 0;
     if !simple.is_empty() {
-        let columns = if simple.len() > FIELDS_IN_ONE_COLUMN { 2 } else { 1 };
+        let columns =
+            entity.form_columns.map_or(if simple.len() > FIELDS_IN_ONE_COLUMN { 2 } else { 1 }, |columns| {
+                i64::from(columns.max(1))
+            });
         node = node.child(group("Main", index, columns, &simple));
         index += 1;
     }
@@ -82,6 +128,7 @@ fn detail_view(entity: &EntityInfo) -> ModelNode {
             ModelNode::new(&field.name)
                 .with("Caption", field.caption.as_str())
                 .with("Editor", field.editor.as_deref().unwrap_or(field.kind.name()))
+                .with("Wide", field.wide)
                 .with("ReadOnly", field.read_only),
         )
     });
@@ -161,6 +208,16 @@ pub fn check_model(root: &ModelNode) -> Vec<String> {
     let entities = root.get("Entities").unwrap_or(&empty);
     let views = root.get("Views").unwrap_or(&empty);
     for view in &views.children {
+        if view.text("Kind") == Some("DashboardView") {
+            for item in view.get("Items").map_or(&[][..], |n| n.children.as_slice()) {
+                if let Some(shown) = item.text("View")
+                    && views.get(shown).is_none()
+                {
+                    problems.push(format!("the dashboard {} shows {shown}, which does not exist", view.id));
+                }
+            }
+            continue;
+        }
         let Some(name) = view.text("Entity") else {
             problems.push(format!("the view {} says nothing about its entity", view.id));
             continue;

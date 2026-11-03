@@ -254,6 +254,8 @@ pub enum ActionInput {
     Choice(String),
     /// The value typed.
     Parameter(Value),
+    /// The record filled in on a form.
+    Record(Object),
 }
 
 /// What an action sees while running.
@@ -333,6 +335,7 @@ impl std::error::Error for ActionError {}
 type Handler = Rc<dyn Fn(&ActionContext) -> Result<(), String>>;
 type Guard = Rc<dyn Fn(&ActionContext) -> bool>;
 type Notice = Rc<dyn Fn(&ActionContext)>;
+type Prepare = Rc<dyn Fn(&ActionContext, &mut Object)>;
 
 struct ActionInner {
     id: String,
@@ -344,6 +347,9 @@ struct ActionInner {
     criteria: Option<(String, CriteriaMode)>,
     validation_contexts: Vec<String>,
     confirmation: Option<String>,
+    confirmation_detail: Option<String>,
+    confirmation_answer: Option<String>,
+    prepare: Option<Prepare>,
     hotkey: Option<String>,
     icon: Option<String>,
     on_execute: Option<Handler>,
@@ -396,6 +402,9 @@ impl Action {
             criteria: None,
             validation_contexts: Vec::new(),
             confirmation: None,
+            confirmation_detail: None,
+            confirmation_answer: None,
+            prepare: None,
             hotkey: None,
             icon: None,
             on_execute: None,
@@ -486,6 +495,19 @@ impl Action {
         self.change(|a| a.confirmation = Some(text.into()))
     }
 
+    /// What the question says besides, and what the answer that runs it says.
+    pub fn confirmation_words(self, detail: impl Into<String>, answer: impl Into<String>) -> Self {
+        self.change(|a| {
+            a.confirmation_detail = Some(detail.into());
+            a.confirmation_answer = Some(answer.into());
+        })
+    }
+
+    /// For a popup that opens a form: fills in the record it starts with.
+    pub fn on_prepare(self, handler: impl Fn(&ActionContext, &mut Object) + 'static) -> Self {
+        self.change(|a| a.prepare = Some(Rc::new(handler)))
+    }
+
     /// The keys that run it, in the words of whoever shows it.
     pub fn hotkey(self, keys: impl Into<String>) -> Self {
         self.change(|a| a.hotkey = Some(keys.into()))
@@ -539,6 +561,22 @@ impl Action {
     /// The question to ask before it runs.
     pub fn confirmation_text(&self) -> Option<&str> {
         self.0.confirmation.as_deref()
+    }
+
+    /// What the question says besides.
+    pub fn confirmation_detail(&self) -> Option<&str> {
+        self.0.confirmation_detail.as_deref()
+    }
+
+    /// What the answer that runs it says.
+    pub fn confirmation_answer(&self) -> Option<&str> {
+        self.0.confirmation_answer.as_deref()
+    }
+
+    pub(crate) fn run_prepare(&self, cx: &ActionContext, object: &mut Object) {
+        if let Some(prepare) = &self.0.prepare {
+            prepare(cx, object);
+        }
     }
 
     /// The keys that run it.
@@ -631,7 +669,8 @@ impl Action {
     pub(crate) fn check_input(&self, input: &ActionInput) -> Result<(), ActionError> {
         match (&self.0.kind, input) {
             (ActionKind::SingleChoice(items), ActionInput::Choice(id)) => {
-                if items.iter().any(|item| item.has(id)) {
+                // With no options declared, they come from the view it is on.
+                if items.is_empty() || items.iter().any(|item| item.has(id)) {
                     Ok(())
                 } else {
                     Err(ActionError::BadInput(format!("{} has no option {id}", self.0.id)))

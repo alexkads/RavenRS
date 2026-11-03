@@ -13,6 +13,11 @@ documentation = "https://docs.rs/ravenrs-app-ui"
 keywords = ["application", "framework", "crud", "gui"]
 categories = ["gui"]
 
+[features]
+default = ["images"]
+# Pictures on forms, which need decoding. Without it, a picture field takes a file like any other.
+images = ["ravenrs-widgets/decode"]
+
 [dependencies]
 ravenrs-app.workspace = true
 ravenrs-core.workspace = true
@@ -20,6 +25,7 @@ ravenrs-criteria.workspace = true
 ravenrs-grid-export.workspace = true
 ravenrs-layout.workspace = true
 ravenrs-reactive.workspace = true
+ravenrs-report.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets.workspace = true
 

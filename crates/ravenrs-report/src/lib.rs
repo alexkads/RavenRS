@@ -30,7 +30,7 @@
 //! assert_eq!(doc.page_text(0), ["Norte", "Bruno", "R$\u{a0}20,00", "Sul", "Ana", "Carla", "R$\u{a0}15,00"]);
 //! ```
 
-mod base64;
+pub mod base64;
 mod document;
 mod engine;
 mod model;

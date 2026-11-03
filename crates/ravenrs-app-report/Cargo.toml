@@ -1,0 +1,28 @@
+[package]
+name = "ravenrs-app-report"
+description = "Reports of the lists of a RavenRS business application: an action that lays out a list and shows it in the document viewer."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-report"
+keywords = ["application", "framework", "report", "pdf"]
+categories = ["gui"]
+
+[dependencies]
+ravenrs-app.workspace = true
+ravenrs-app-ui.workspace = true
+ravenrs-grid-export.workspace = true
+ravenrs-report-viewer.workspace = true
+ravenrs-widgets.workspace = true
+
+[dev-dependencies]
+ravenrs-core.workspace = true
+ravenrs-style.workspace = true
+
+[lints]
+workspace = true

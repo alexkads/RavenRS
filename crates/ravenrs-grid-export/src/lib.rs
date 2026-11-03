@@ -15,7 +15,7 @@
 //! ```
 
 use ravenrs_report::wizard::{ColumnWords, FieldInfo, FieldKind, WizardOptions, table_report_with};
-use ravenrs_report::{DataSource, DataSourceKind, ReportEngine};
+use ravenrs_report::{DataSource, DataSourceKind, Document, ReportEngine};
 use ravenrs_report_export::{ExportFormat, ExportedFile};
 use ravenrs_widgets::{GridExportFormat, GridTable, GridTableKind, Value};
 use serde_json::{Map, Value as Json};
@@ -43,12 +43,8 @@ fn number_pattern(decimals: usize, prefix: &str, suffix: &str) -> String {
     format!("{prefix}{digits}{suffix}")
 }
 
-/// Writes `table` in `format`. `suffix`, such as a date, goes after the title in the name.
-pub fn export(
-    table: &GridTable,
-    format: GridExportFormat,
-    suffix: Option<&str>,
-) -> Result<ExportedFile, String> {
+/// `table` laid out as a document, the same one the files are made from.
+pub fn document_of(table: &GridTable) -> Document {
     let rows: Vec<Json> = table
         .rows
         .iter()
@@ -86,7 +82,16 @@ pub fn export(
     let data = Json::Array(rows);
     let source = DataSource { name: "rows".into(), kind: DataSourceKind::Json { data: data.clone() } };
     let report = table_report_with(source, &options, &words);
-    let document = ReportEngine::new().render(&report, &data);
+    ReportEngine::new().render(&report, &data)
+}
+
+/// Writes `table` in `format`. `suffix`, such as a date, goes after the title in the name.
+pub fn export(
+    table: &GridTable,
+    format: GridExportFormat,
+    suffix: Option<&str>,
+) -> Result<ExportedFile, String> {
+    let document = document_of(table);
     let format = match format {
         GridExportFormat::Xlsx => ExportFormat::Xlsx,
         GridExportFormat::Pdf => ExportFormat::Pdf,

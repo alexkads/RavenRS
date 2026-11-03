@@ -1,7 +1,7 @@
 //! Base64, for images carried in layouts and in printable HTML.
 
 /// Encodes `bytes`.
-pub(crate) fn encode(bytes: &[u8]) -> String {
+pub fn encode(bytes: &[u8]) -> String {
     const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
@@ -17,7 +17,7 @@ pub(crate) fn encode(bytes: &[u8]) -> String {
 }
 
 /// Decodes base64 text, ignoring whitespace; `None` when it is not valid.
-pub(crate) fn decode(text: &str) -> Option<Vec<u8>> {
+pub fn decode(text: &str) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(text.len() / 4 * 3);
     let (mut buffer, mut bits) = (0_u32, 0_u32);
     let mut padding = 0;

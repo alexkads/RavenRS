@@ -1,17 +1,21 @@
-//! The dialogs: transactions, bills, paying a bill and confirming.
+//! The dialogs: transactions, bills, paying a bill and confirming. Their fields come from what
+//! each record is, in `entities`; keeping them goes through the database and its rules.
 
-use std::cell::RefCell;
+use std::cell::{Cell, OnceCell, RefCell};
 use std::rc::Rc;
 
 use ravenrs::prelude::*;
+use ravenrs_app::{Object, Value as Field};
+use ravenrs_app_ui::{EditorRegistry, EditorRequest, EntityForm, FormText};
 
+use super::entities;
 use super::request::Prefill;
-use super::store::Store;
+use super::store::{Store, date_of_field, field_of_date, id_of_field};
 use crate::model::{
-    Account, AccountKind, BillInput, Category, Flow, Member, Occurrence, Recurrence, ScheduleInput,
-    TransactionInput, date_label,
+    Account, AccountKind, BillInput, Category, Flow, Occurrence, Recurrence, ScheduleInput, TransactionInput,
+    date_label,
 };
-use crate::money::{format_brl, format_input, parse_brl, validate_positive};
+use crate::money::{format_brl, split_installments};
 
 /// What to do once, when a form opened for it saves. Opening the form for anything
 /// else forgets it, so cancelling leaves whoever asked as it was.
@@ -46,15 +50,6 @@ fn categories_of(categories: &[Category], flow: Flow) -> Vec<Category> {
     categories.iter().filter(|c| c.flow == flow).cloned().collect()
 }
 
-/// Where a request's category is among a form's choices, which are only expenses.
-fn category_index(categories: &[Category], fill: &Prefill, usual: usize) -> usize {
-    let wanted = fill.category.as_ref().map(|category| category.id);
-    categories_of(categories, Flow::Expense)
-        .iter()
-        .position(|category| Some(category.id) == wanted)
-        .unwrap_or(usual)
-}
-
 /// The category most used in these names, as the form's first choice: the first in
 /// alphabetical order would quietly put everything in the wrong place.
 fn usual_category(categories: &[Category], used: impl Iterator<Item = String>) -> usize {
@@ -72,497 +67,377 @@ fn usual_category(categories: &[Category], used: impl Iterator<Item = String>) -
         .map_or(0, |(index, _)| index)
 }
 
-fn member_options(members: &[Member]) -> Vec<String> {
-    std::iter::once("Família toda".to_owned()).chain(members.iter().map(|m| m.name.clone())).collect()
+/// A form that is made the first time something needs it, once there are records to read.
+type Lazy = Rc<OnceCell<Option<EntityForm>>>;
+
+/// What goes in a record's field for a key that may not be there.
+fn key_field(id: Option<i64>) -> Field {
+    id.map_or(Field::Null, |id| Field::Number(id as f64))
 }
 
-fn member_at(members: &[Member], index: usize) -> Option<i64> {
-    index.checked_sub(1).and_then(|i| members.get(i)).map(|m| m.id)
+fn cents_of(record: &Object, field: &str) -> i64 {
+    match record.get(field) {
+        Field::Number(cents) => cents.round() as i64,
+        _ => 0,
+    }
 }
 
-fn member_index(members: &[Member], id: Option<i64>) -> usize {
-    id.and_then(|id| members.iter().position(|m| m.id == id)).map_or(0, |i| i + 1)
+fn text_of(record: &Object, field: &str) -> String {
+    match record.get(field) {
+        Field::Text(text) => text,
+        _ => String::new(),
+    }
+}
+
+fn flow_of(record: &Object) -> Flow {
+    if text_of(record, "flow") == Flow::Income.code() { Flow::Income } else { Flow::Expense }
+}
+
+/// The category most used in `used`, as the form's first choice.
+fn usual_category_id(categories: &[Category], used: impl Iterator<Item = String>) -> Option<i64> {
+    let at = usual_category(categories, used);
+    categories_of(categories, Flow::Expense).get(at).map(|category| category.id)
+}
+
+fn usual_account_id(accounts: &[Account]) -> Option<i64> {
+    accounts.get(usual_account(accounts)).map(|account| account.id)
 }
 
 /// A new transaction, or changing one.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct TransactionForm {
-    open: State<bool>,
-    editing: State<Option<i64>>,
-    date: State<Option<Date>>,
-    description: State<String>,
-    amount: State<String>,
-    flow: State<usize>,
-    account: State<usize>,
-    category: State<usize>,
-    member: State<usize>,
-    tried: State<bool>,
+    form: Lazy,
     after_save: AfterSave,
 }
 
 impl TransactionForm {
     pub fn new() -> Self {
-        Self {
-            open: State::new(false),
-            editing: State::new(None),
-            date: State::new(None),
-            description: State::new(String::new()),
-            amount: State::new(String::new()),
-            flow: State::new(0),
-            account: State::new(0),
-            category: State::new(0),
-            member: State::new(0),
-            tried: State::new(false),
-            after_save: AfterSave::default(),
+        Self::default()
+    }
+
+    fn form(&self, store: &Store) -> Option<EntityForm> {
+        let (keeper, after) = (store.clone(), self.after_save.clone());
+        self.form
+            .get_or_init(|| {
+                entities::form("Transaction", store, EditorRegistry::default()).map(|form| {
+                    form.on_save(move |record, is_new| {
+                        let saved = save_transaction(&keeper, record, is_new);
+                        if saved {
+                            after.run();
+                        }
+                        saved
+                    })
+                })
+            })
+            .clone()
+    }
+
+    fn fill_new(store: &Store, flow: Flow, record: &mut Object) {
+        let accounts = store.read(|db| db.accounts());
+        let (categories, rows) = store.read(|db| Ok((db.categories()?, db.ledger(store.today, None)?)));
+        record.set("flow", flow.code());
+        record.set("date", field_of_date(store.today));
+        record.set("account", key_field(usual_account_id(&accounts)));
+        if flow == Flow::Expense {
+            let usual = usual_category_id(&categories, rows.into_iter().map(|row| row.category));
+            record.set("category", key_field(usual));
         }
     }
 
     pub fn start_new(&self, store: &Store, flow: Flow) {
         self.after_save.forget();
-        self.editing.set(None);
-        self.date.set(Some(store.today));
-        self.description.set(String::new());
-        self.amount.set(String::new());
-        self.flow.set(usize::from(flow == Flow::Income));
-        self.account.set(usual_account(&store.read(|db| db.accounts())));
-        let (categories, rows) = store.read(|db| Ok((db.categories()?, db.ledger(store.today, None)?)));
-        let usual = usual_category(&categories, rows.into_iter().map(|row| row.category));
-        self.category.set(if flow == Flow::Expense { usual } else { 0 });
-        self.member.set(0);
-        self.tried.set(false);
-        self.open.set(true);
+        let Some(form) = self.form(store) else { return };
+        form.start_new(new_text(), |record| Self::fill_new(store, flow, record));
     }
 
     /// A new spending already filled in, for the person to check and save. `saved` runs
     /// if they do.
     pub fn start_with(&self, store: &Store, fill: &Prefill, saved: Rc<dyn Fn()>) {
-        self.start_new(store, Flow::Expense);
+        self.after_save.forget();
+        let Some(form) = self.form(store) else { return };
+        form.start_new(new_text(), |record| {
+            Self::fill_new(store, Flow::Expense, record);
+            record.set("description", fill.description.clone());
+            if let Some(cents) = fill.cents {
+                record.set("amount", cents as f64);
+            }
+            if let Some(date) = fill.date {
+                record.set("date", field_of_date(date));
+            }
+            if let Some(category) = &fill.category {
+                record.set("category", category.id as f64);
+            }
+            if let Some(member) = &fill.member {
+                record.set("member", member.id as f64);
+            }
+            if let Some(account) = &fill.account {
+                record.set("account", account.id as f64);
+            }
+        });
         self.after_save.set(saved);
-        self.description.set(fill.description.clone());
-        self.amount.set(fill.cents.map_or_else(String::new, format_input));
-        if fill.date.is_some() {
-            self.date.set(fill.date);
-        }
-        let (categories, members, accounts) =
-            store.read(|db| Ok((db.categories()?, db.members()?, db.accounts()?)));
-        self.category.set(category_index(&categories, fill, self.category.get()));
-        self.member.set(member_index(&members, fill.member.as_ref().map(|member| member.id)));
-        if let Some(account) = &fill.account
-            && let Some(index) = accounts.iter().position(|found| found.id == account.id)
-        {
-            self.account.set(index);
-        }
     }
 
     pub fn start_edit(&self, store: &Store, id: i64) {
-        let Some(found) = store.read(|db| db.transaction(id)) else { return };
-        let accounts = store.read(|db| db.accounts());
-        let categories = categories_of(&store.read(|db| db.categories()), found.input.flow);
-        let members = store.read(|db| db.members());
-        self.editing.set(Some(id));
-        self.date.set(Some(found.input.date));
-        self.description.set(found.input.description);
-        self.amount.set(format_input(found.input.amount_cents));
-        self.flow.set(usize::from(found.input.flow == Flow::Income));
-        self.account.set(accounts.iter().position(|a| a.id == found.input.account_id).unwrap_or(0));
-        self.category.set(categories.iter().position(|c| c.id == found.input.category_id).unwrap_or(0));
-        self.member.set(member_index(&members, found.input.member_id));
-        self.tried.set(false);
-        self.open.set(true);
+        self.after_save.forget();
+        let Some(form) = self.form(store) else { return };
+        form.start_edit(
+            FormText::new("Alterar lançamento", "Salvar lançamento"),
+            &Field::Number(id as f64),
+            |_| {},
+        );
     }
 
+    #[cfg(test)]
     pub(crate) fn save(&self, store: &Store) {
-        // A second click can arrive before the form is gone.
-        if !self.open.get() {
-            return;
-        }
-        self.tried.set(true);
-        let flow = if self.flow.get() == 1 { Flow::Income } else { Flow::Expense };
-        let accounts = store.read(|db| db.accounts());
-        let categories = categories_of(&store.read(|db| db.categories()), flow);
-        let members = store.read(|db| db.members());
-        let description = self.description.get();
-        let (Some(date), false, Ok(amount_cents), Some(account), Some(category)) = (
-            self.date.get(),
-            description.trim().is_empty(),
-            parse_brl(&self.amount.get()).and_then(|c| if c > 0 { Ok(c) } else { Err(String::new()) }),
-            accounts.get(self.account.get()),
-            categories.get(self.category.get()),
-        ) else {
-            return;
-        };
-        let input = TransactionInput {
-            date,
-            description,
-            amount_cents,
-            flow,
-            account_id: account.id,
-            category_id: category.id,
-            member_id: member_at(&members, self.member.get()),
-        };
-        let editing = self.editing.get();
-        let saved =
-            store.write(if editing.is_some() { "Lançamento alterado" } else { "Lançamento salvo" }, |db| {
-                match editing {
-                    Some(id) => db.update_transaction(id, &input),
-                    None => db.add_transaction(&input).map(|_| ()),
-                }
-            });
-        if saved.is_some() {
-            self.open.set(false);
-            self.after_save.run();
+        if let Some(form) = self.form(store) {
+            form.save();
         }
     }
 
-    pub fn view(&self, store: &Store) -> Option<Dialog> {
-        if !self.open.get() {
-            return None;
-        }
-        let flow = if self.flow.get() == 1 { Flow::Income } else { Flow::Expense };
-        let accounts: Vec<Account> = store.read(|db| db.accounts());
-        let categories = categories_of(&store.read(|db| db.categories()), flow);
-        let members = store.read(|db| db.members());
-        let tried = self.tried.get();
-        let category = self.category.clone();
-        let flow_binding = {
-            let (read, write) = (self.flow.clone(), self.flow.clone());
-            // The categories change with the type, so the choice starts over.
-            Binding::new(
-                move || read.get(),
-                move |value| {
-                    write.set(value);
-                    category.set(0);
-                },
-            )
-        };
-        let content = VStack::new((
-            SegmentedControl::new(flow_binding, ["Despesa", "Receita"]).label("Tipo"),
-            FormField::new(
-                "Descrição",
-                TextField::new(self.description.binding()).placeholder("Ex.: Supermercado").autofocus(),
-            )
-            .required()
-            .validate(self.description.binding(), validate::required)
-            .show_errors(tried),
-            HStack::new((
-                FormField::new(
-                    "Valor",
-                    TextField::new(self.amount.binding()).placeholder("0,00").width(190.0),
-                )
-                .required()
-                .validate(self.amount.binding(), validate_positive)
-                .show_errors(tried),
-                FormField::new(
-                    "Data",
-                    DatePicker::new(self.date.binding(), store.today)
-                        .today(store.today)
-                        .label("Data")
-                        .width(190.0),
-                ),
-            ))
-            .spacing(12.0),
-            HStack::new((
-                FormField::new(
-                    "Conta",
-                    Select::new(self.account.binding(), accounts.iter().map(|a| a.name.clone()))
-                        .label("Conta")
-                        .width(190.0),
-                ),
-                FormField::new(
-                    "Categoria",
-                    Select::new(self.category.binding(), categories.iter().map(|c| c.name.clone()))
-                        .label("Categoria")
-                        .width(190.0),
-                ),
-            ))
-            .spacing(12.0),
-            FormField::new(
-                "De quem",
-                Select::new(self.member.binding(), member_options(&members)).label("De quem").width(190.0),
-            ),
-        ))
-        .spacing(14.0)
-        .align(Align::Stretch);
-
-        let (save, save_store, cancel) = (self.clone(), store.clone(), self.open.clone());
-        let title = if self.editing.get().is_some() { "Alterar lançamento" } else { "Novo lançamento" };
-        Some(
-            Dialog::new(self.open.binding(), title)
-                .width(440.0)
-                .content(content)
-                .action(
-                    Button::new("Cancelar").style(ButtonStyle::Secondary).on_click(move || cancel.set(false)),
-                )
-                .action(
-                    Button::new("Salvar lançamento")
-                        .icon(IconName::Check)
-                        .on_click(move || save.save(&save_store)),
-                ),
-        )
+    pub fn view(&self, store: &Store) -> Option<EntityForm> {
+        self.form(store)
     }
 }
 
+fn new_text() -> FormText {
+    FormText::new("Novo lançamento", "Salvar lançamento")
+}
+
+/// Goes through the database, which keeps the rules about what a transaction does.
+fn save_transaction(store: &Store, record: &Object, is_new: bool) -> bool {
+    let (Some(date), Some(account_id), Some(category_id)) = (
+        date_of_field(&record.get("date")),
+        id_of_field(&record.get("account")),
+        id_of_field(&record.get("category")),
+    ) else {
+        return false;
+    };
+    let input = TransactionInput {
+        date,
+        description: text_of(record, "description"),
+        amount_cents: cents_of(record, "amount"),
+        flow: flow_of(record),
+        account_id,
+        category_id,
+        member_id: id_of_field(&record.get("member")),
+    };
+    let id = id_of_field(&record.get("id"));
+    store
+        .write(if is_new { "Lançamento salvo" } else { "Lançamento alterado" }, |db| match id {
+            Some(id) if !is_new => db.update_transaction(id, &input),
+            _ => db.add_transaction(&input).map(|_| ()),
+        })
+        .is_some()
+}
+
+/// The stepper of a new bill's parts, with what each part comes to.
+fn installments_editor(request: &EditorRequest) -> AnyView {
+    let (read, write) = (request.value.clone(), request.value.clone());
+    let parts = Binding::new(
+        move || if let Field::Number(parts) = read.get() { parts as i32 } else { 1 },
+        move |parts: i32| write.set(Field::Number(f64::from(parts))),
+    );
+    let record = request.session.form_record();
+    let count = record.as_ref().map_or(1, |record| cents_of(record, "installments").max(1));
+    let total = record.as_ref().map_or(0, |record| cents_of(record, "amount"));
+    let hint = if count > 1 {
+        let shares = split_installments(total, count as u32);
+        format!("{}x de {}", shares.len(), format_brl(shares.first().copied().unwrap_or(0)))
+    } else {
+        "Parcelas: 1, à vista".to_owned()
+    };
+    Box::new(
+        HStack::new((
+            Stepper::new(parts).range(1, 60).label("Parcelas"),
+            Text::new(hint).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+        ))
+        .spacing(12.0)
+        .align(Align::Center),
+    )
+}
+
 /// A new bill, or changing one.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct BillForm {
-    open: State<bool>,
-    editing: State<Option<i64>>,
-    description: State<String>,
-    amount: State<String>,
-    due: State<Option<Date>>,
-    category: State<usize>,
-    member: State<usize>,
-    recurrence: State<usize>,
-    installments: State<i32>,
-    barcode: State<String>,
-    tried: State<bool>,
+    form: Lazy,
     after_save: AfterSave,
 }
 
 impl BillForm {
     pub fn new() -> Self {
-        Self {
-            open: State::new(false),
-            editing: State::new(None),
-            description: State::new(String::new()),
-            amount: State::new(String::new()),
-            due: State::new(None),
-            category: State::new(0),
-            member: State::new(0),
-            recurrence: State::new(0),
-            installments: State::new(1),
-            barcode: State::new(String::new()),
-            tried: State::new(false),
-            after_save: AfterSave::default(),
-        }
+        Self::default()
+    }
+
+    fn form(&self, store: &Store) -> Option<EntityForm> {
+        let (keeper, after) = (store.clone(), self.after_save.clone());
+        self.form
+            .get_or_init(|| {
+                let mut editors = EditorRegistry::default();
+                editors.register("Installments", installments_editor);
+                entities::form("Bill", store, editors).map(|form| {
+                    form.captions(Rc::new(|field, record| {
+                        let split = cents_of(record, "installments") > 1;
+                        match field {
+                            "amount" if split => Some("Valor total".to_owned()),
+                            "due" if split => Some("Primeiro vencimento".to_owned()),
+                            _ => None,
+                        }
+                    }))
+                    .on_save(move |record, is_new| {
+                        let saved = save_bill(&keeper, record, is_new);
+                        if saved {
+                            after.run();
+                        }
+                        saved
+                    })
+                })
+            })
+            .clone()
+    }
+
+    fn fill_new(store: &Store, record: &mut Object) {
+        let (categories, bills) = store.read(|db| Ok((db.categories()?, db.open_bills()?)));
+        record.set("due", field_of_date(store.today));
+        let usual = usual_category_id(&categories, bills.into_iter().map(|bill| bill.category));
+        record.set("category", key_field(usual));
     }
 
     pub fn start_new(&self, store: &Store) {
         self.after_save.forget();
-        self.editing.set(None);
-        self.description.set(String::new());
-        self.amount.set(String::new());
-        self.due.set(Some(store.today));
-        let (categories, bills) = store.read(|db| Ok((db.categories()?, db.open_bills()?)));
-        self.category.set(usual_category(&categories, bills.into_iter().map(|bill| bill.category)));
-        self.member.set(0);
-        self.recurrence.set(0);
-        self.installments.set(1);
-        self.barcode.set(String::new());
-        self.tried.set(false);
-        self.open.set(true);
+        let Some(form) = self.form(store) else { return };
+        form.start_new(bill_text(false), |record| Self::fill_new(store, record));
     }
 
     /// A new bill already filled in, for the person to check and save. `saved` runs if
     /// they do.
     pub fn start_with(&self, store: &Store, fill: &Prefill, saved: Rc<dyn Fn()>) {
-        self.start_new(store);
-        self.after_save.set(saved);
-        self.description.set(fill.description.clone());
-        self.amount.set(fill.cents.map_or_else(String::new, format_input));
-        if fill.date.is_some() {
-            self.due.set(fill.date);
-        }
-        let (categories, members) = store.read(|db| Ok((db.categories()?, db.members()?)));
-        self.category.set(category_index(&categories, fill, self.category.get()));
-        self.member.set(member_index(&members, fill.member.as_ref().map(|member| member.id)));
-        self.recurrence.set(match fill.recurrence {
-            Some(Recurrence::Monthly) => 1,
-            Some(Recurrence::Yearly) => 2,
-            _ => 0,
+        self.after_save.forget();
+        let Some(form) = self.form(store) else { return };
+        form.start_new(bill_text(false), |record| {
+            Self::fill_new(store, record);
+            record.set("description", fill.description.clone());
+            if let Some(cents) = fill.cents {
+                record.set("amount", cents as f64);
+            }
+            if let Some(date) = fill.date {
+                record.set("due", field_of_date(date));
+            }
+            if let Some(category) = &fill.category {
+                record.set("category", category.id as f64);
+            }
+            if let Some(member) = &fill.member {
+                record.set("member", member.id as f64);
+            }
+            if let Some(recurrence) = fill.recurrence {
+                record.set("recurrence", recurrence.code());
+            }
+            if let Some(installments) = fill.installments {
+                record.set("installments", f64::from(installments));
+            }
+            if let Some(barcode) = &fill.barcode {
+                record.set("barcode", barcode.clone());
+            }
         });
-        if let Some(installments) = fill.installments {
-            self.installments.set(installments);
-        }
-        self.barcode.set(fill.barcode.clone().unwrap_or_default());
+        self.after_save.set(saved);
     }
 
     pub fn start_edit(&self, store: &Store, id: i64) {
         self.after_save.forget();
-        let Some(bill) = store.read(|db| db.bill(id)) else { return };
-        let categories = categories_of(&store.read(|db| db.categories()), Flow::Expense);
-        let members = store.read(|db| db.members());
-        self.editing.set(Some(id));
-        self.description.set(bill.description);
-        self.amount.set(format_input(bill.amount_cents));
-        self.due.set(Some(bill.due));
-        self.category.set(categories.iter().position(|c| c.id == bill.category_id).unwrap_or(0));
-        self.member.set(member_index(&members, bill.member_id));
-        self.recurrence.set(Recurrence::ALL.iter().position(|r| *r == bill.recurrence).unwrap_or(0));
-        self.installments.set(1);
-        self.barcode.set(bill.barcode);
-        self.tried.set(false);
-        self.open.set(true);
+        let Some(form) = self.form(store) else { return };
+        form.start_edit(bill_text(true), &Field::Number(id as f64), |record| {
+            // The parts of a bill were decided when it was created.
+            record.set("installments", 1.0);
+        });
     }
 
+    #[cfg(test)]
     pub(crate) fn save(&self, store: &Store) {
-        // A second click can arrive before the form is gone.
-        if !self.open.get() {
-            return;
-        }
-        self.tried.set(true);
-        let categories = categories_of(&store.read(|db| db.categories()), Flow::Expense);
-        let members = store.read(|db| db.members());
-        let description = self.description.get();
-        let (Some(due), false, Ok(amount_cents), Some(category)) = (
-            self.due.get(),
-            description.trim().is_empty(),
-            parse_brl(&self.amount.get()).and_then(|c| if c > 0 { Ok(c) } else { Err(String::new()) }),
-            categories.get(self.category.get()),
-        ) else {
-            return;
-        };
-        let input = BillInput {
-            description,
-            category_id: category.id,
-            member_id: member_at(&members, self.member.get()),
-            amount_cents,
-            due,
-            recurrence: Recurrence::ALL[self.recurrence.get().min(Recurrence::ALL.len() - 1)],
-            installments: self.installments.get().max(1) as u32,
-            barcode: self.barcode.get().chars().filter(char::is_ascii_digit).collect(),
-        };
-        let editing = self.editing.get();
-        let parts = input.installments;
-        let saved = store.write(
-            match (editing.is_some(), parts > 1) {
-                (true, _) => "Conta alterada",
-                (false, true) => "Parcelas criadas",
-                (false, false) => "Conta salva",
-            },
-            |db| match editing {
-                Some(id) => db.update_bill(id, &input),
-                None => db.add_bill(&input).map(|_| ()),
-            },
-        );
-        if saved.is_some() {
-            self.open.set(false);
-            self.after_save.run();
+        if let Some(form) = self.form(store) {
+            form.save();
         }
     }
 
-    pub fn view(&self, store: &Store) -> Option<Dialog> {
-        if !self.open.get() {
-            return None;
-        }
-        let categories = categories_of(&store.read(|db| db.categories()), Flow::Expense);
-        let members = store.read(|db| db.members());
-        let tried = self.tried.get();
-        let editing = self.editing.get().is_some();
-        let split = self.installments.get() > 1;
-        let hint = match parse_brl(&self.amount.get()) {
-            Ok(total) if split => {
-                let parts = crate::money::split_installments(total, self.installments.get().max(1) as u32);
-                format!("{}x de {}", parts.len(), format_brl(parts.first().copied().unwrap_or(0)))
-            }
-            _ => String::new(),
-        };
-        let content = VStack::new((
-            FormField::new(
-                "Descrição",
-                TextField::new(self.description.binding()).placeholder("Ex.: Energia elétrica").autofocus(),
-            )
-            .required()
-            .validate(self.description.binding(), validate::required)
-            .show_errors(tried),
-            HStack::new((
-                FormField::new(
-                    if split { "Valor total" } else { "Valor" },
-                    TextField::new(self.amount.binding()).placeholder("0,00").width(190.0),
-                )
-                .required()
-                .validate(self.amount.binding(), validate_positive)
-                .show_errors(tried),
-                FormField::new(
-                    if split { "Primeiro vencimento" } else { "Vencimento" },
-                    DatePicker::new(self.due.binding(), store.today)
-                        .today(store.today)
-                        .label("Vencimento")
-                        .width(190.0),
-                ),
-            ))
-            .spacing(12.0),
-            HStack::new((
-                FormField::new(
-                    "Categoria",
-                    Select::new(self.category.binding(), categories.iter().map(|c| c.name.clone()))
-                        .label("Categoria")
-                        .width(190.0),
-                ),
-                FormField::new(
-                    "De quem",
-                    Select::new(self.member.binding(), member_options(&members))
-                        .label("De quem")
-                        .width(190.0),
-                ),
-            ))
-            .spacing(12.0),
-            (!split).then(|| {
-                FormField::new(
-                    "Repetição",
-                    SegmentedControl::new(self.recurrence.binding(), Recurrence::ALL.map(Recurrence::label))
-                        .label("Repetição"),
-                )
-            }),
-            (!editing).then(|| {
-                HStack::new((
-                    Stepper::new(self.installments.binding()).range(1, 60).label("Parcelas"),
-                    Text::new(if split { hint.clone() } else { "Parcelas: 1, à vista".to_owned() })
-                        .style(TextStyle::Callout)
-                        .foreground(Semantic::InkMuted),
-                ))
-                .spacing(12.0)
-                .align(Align::Center)
-            }),
-            FormField::new(
-                "Código de barras do boleto",
-                TextField::new(self.barcode.binding())
-                    .placeholder("Só os números; opcional")
-                    .icon(IconName::Rows3),
-            ),
-        ))
-        .spacing(14.0)
-        .align(Align::Stretch);
-        let (save, save_store, cancel) = (self.clone(), store.clone(), self.open.clone());
-        Some(
-            Dialog::new(self.open.binding(), if editing { "Alterar conta" } else { "Nova conta a pagar" })
-                .width(440.0)
-                .content(content)
-                .action(
-                    Button::new("Cancelar").style(ButtonStyle::Secondary).on_click(move || cancel.set(false)),
-                )
-                .action(
-                    Button::new("Salvar conta")
-                        .icon(IconName::Check)
-                        .on_click(move || save.save(&save_store)),
-                ),
-        )
+    pub fn view(&self, store: &Store) -> Option<EntityForm> {
+        self.form(store)
     }
 }
 
+fn bill_text(editing: bool) -> FormText {
+    FormText::new(if editing { "Alterar conta" } else { "Nova conta a pagar" }, "Salvar conta")
+}
+
+/// Goes through the database, which splits a bill into its parts.
+fn save_bill(store: &Store, record: &Object, is_new: bool) -> bool {
+    let (Some(due), Some(category_id)) =
+        (date_of_field(&record.get("due")), id_of_field(&record.get("category")))
+    else {
+        return false;
+    };
+    let code = text_of(record, "recurrence");
+    let input = BillInput {
+        description: text_of(record, "description"),
+        category_id,
+        member_id: id_of_field(&record.get("member")),
+        amount_cents: cents_of(record, "amount"),
+        due,
+        recurrence: Recurrence::ALL.into_iter().find(|r| r.code() == code).unwrap_or(Recurrence::None),
+        installments: cents_of(record, "installments").max(1) as u32,
+        barcode: text_of(record, "barcode").chars().filter(char::is_ascii_digit).collect(),
+    };
+    let id = id_of_field(&record.get("id"));
+    let parts = input.installments;
+    store
+        .write(
+            match (is_new, parts > 1) {
+                (false, _) => "Conta alterada",
+                (true, true) => "Parcelas criadas",
+                (true, false) => "Conta salva",
+            },
+            |db| match id {
+                Some(id) if !is_new => db.update_bill(id, &input),
+                _ => db.add_bill(&input).map(|_| ()),
+            },
+        )
+        .is_some()
+}
+
 /// Paying a bill: from which account, when and how much.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct PayForm {
-    open: State<bool>,
-    bill: State<Option<i64>>,
-    account: State<usize>,
-    date: State<Option<Date>>,
-    amount: State<String>,
-    tried: State<bool>,
+    form: Lazy,
+    bill: Rc<Cell<Option<i64>>>,
     after_save: AfterSave,
 }
 
 impl PayForm {
     pub fn new() -> Self {
-        Self {
-            open: State::new(false),
-            bill: State::new(None),
-            account: State::new(0),
-            date: State::new(None),
-            amount: State::new(String::new()),
-            tried: State::new(false),
-            after_save: AfterSave::default(),
-        }
+        Self::default()
+    }
+
+    fn form(&self, store: &Store) -> Option<EntityForm> {
+        let (keeper, bill, after) = (store.clone(), self.bill.clone(), self.after_save.clone());
+        self.form
+            .get_or_init(|| {
+                entities::form("Payment", store, EditorRegistry::default()).map(|form| {
+                    form.on_save(move |record, _| {
+                        let (Some(id), Some(date), Some(account)) = (
+                            bill.get(),
+                            date_of_field(&record.get("date")),
+                            id_of_field(&record.get("account")),
+                        ) else {
+                            return false;
+                        };
+                        let amount = cents_of(record, "amount");
+                        let paid =
+                            keeper.write("Conta paga", |db| db.pay_bill(id, account, date, amount)).is_some();
+                        if paid {
+                            after.run();
+                        }
+                        paid
+                    })
+                })
+            })
+            .clone()
     }
 
     /// Paying a bill, for the person to check. `paid` runs if they do.
@@ -574,386 +449,188 @@ impl PayForm {
     pub fn start(&self, store: &Store, id: i64) {
         self.after_save.forget();
         let Some(bill) = store.read(|db| db.bill(id)) else { return };
+        let Some(form) = self.form(store) else { return };
         self.bill.set(Some(id));
-        self.account.set(usual_account(&store.read(|db| db.accounts())));
-        self.date.set(Some(store.today));
-        self.amount.set(format_input(bill.amount_cents));
-        self.tried.set(false);
-        self.open.set(true);
+        let accounts = store.read(|db| db.accounts());
+        let text = FormText::new("Pagar conta", "Confirmar pagamento").description(format!(
+            "{}, com vencimento em {}.",
+            bill.title(),
+            date_label(bill.due)
+        ));
+        form.start_new(text, |record| {
+            record.set("account", key_field(usual_account_id(&accounts)));
+            record.set("date", field_of_date(store.today));
+            record.set("amount", bill.amount_cents as f64);
+        });
     }
 
+    #[cfg(test)]
     pub(crate) fn save(&self, store: &Store) {
-        // A second click can arrive before the form is gone.
-        if !self.open.get() {
-            return;
-        }
-        self.tried.set(true);
-        let accounts = store.read(|db| db.accounts());
-        let (Some(id), Some(date), Ok(amount), Some(account)) = (
-            self.bill.get(),
-            self.date.get(),
-            parse_brl(&self.amount.get()).and_then(|c| if c > 0 { Ok(c) } else { Err(String::new()) }),
-            accounts.get(self.account.get()),
-        ) else {
-            return;
-        };
-        if store.write("Conta paga", |db| db.pay_bill(id, account.id, date, amount)).is_some() {
-            self.open.set(false);
-            self.after_save.run();
+        if let Some(form) = self.form(store) {
+            form.save();
         }
     }
 
-    pub fn view(&self, store: &Store) -> Option<Dialog> {
-        if !self.open.get() {
-            return None;
-        }
-        let bill = self.bill.get().and_then(|id| store.read(|db| db.bill(id)))?;
-        let accounts = store.read(|db| db.accounts());
-        let description = format!("{}, com vencimento em {}.", bill.title(), date_label(bill.due));
-        let content = VStack::new((
-            FormField::new(
-                "Pagar com",
-                Select::new(
-                    self.account.binding(),
-                    accounts.iter().map(|a| format!("{} ({})", a.name, format_brl(a.balance_cents))),
-                )
-                .label("Pagar com")
-                .width(392.0),
-            ),
-            HStack::new((
-                FormField::new("Valor pago", TextField::new(self.amount.binding()).width(190.0))
-                    .hint("Mude se houve juros ou desconto.")
-                    .validate(self.amount.binding(), validate_positive)
-                    .show_errors(self.tried.get()),
-                FormField::new(
-                    "Pago em",
-                    DatePicker::new(self.date.binding(), store.today)
-                        .today(store.today)
-                        .label("Pago em")
-                        .width(190.0),
-                ),
-            ))
-            .spacing(12.0),
-        ))
-        .spacing(14.0)
-        .align(Align::Stretch);
-        let (save, save_store, cancel) = (self.clone(), store.clone(), self.open.clone());
-        Some(
-            Dialog::new(self.open.binding(), "Pagar conta")
-                .description(description)
-                .width(440.0)
-                .content(content)
-                .action(
-                    Button::new("Cancelar").style(ButtonStyle::Secondary).on_click(move || cancel.set(false)),
-                )
-                .action(
-                    Button::new("Confirmar pagamento")
-                        .icon(IconName::Check)
-                        .on_click(move || save.save(&save_store)),
-                ),
-        )
+    pub fn view(&self, store: &Store) -> Option<EntityForm> {
+        self.form(store)
     }
 }
 
+/// The editor of how a plan repeats, kept as the text the database keeps it in.
+fn recurrence_editor(request: &EditorRequest) -> AnyView {
+    let (read, write) = (request.value.clone(), request.value.clone());
+    let rule = Binding::new(
+        move || match read.get() {
+            Field::Text(text) => RecurrenceRule::parse(&text).unwrap_or_default(),
+            _ => RecurrenceRule::default(),
+        },
+        move |rule: RecurrenceRule| write.set(Field::Text(rule.to_text())),
+    );
+    let first = request
+        .session
+        .form_record()
+        .and_then(|record| date_of_field(&record.get("start")))
+        .unwrap_or_else(|| Date::from_days(0));
+    Box::new(RecurrenceEditor::new(rule, first))
+}
+
+/// How tall the fields of a plan are, inside their window.
+const SCHEDULE_FIELDS_HEIGHT: f32 = 540.0;
+
 /// Planning a payment or a receipt on future days.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct ScheduleForm {
-    open: State<bool>,
-    editing: State<Option<i64>>,
-    flow: State<usize>,
-    description: State<String>,
-    amount: State<String>,
-    start: State<Option<Date>>,
-    account: State<usize>,
-    category: State<usize>,
-    member: State<usize>,
-    rule: State<RecurrenceRule>,
-    tried: State<bool>,
+    form: Lazy,
 }
 
 impl ScheduleForm {
     pub fn new() -> Self {
-        Self {
-            open: State::new(false),
-            editing: State::new(None),
-            flow: State::new(0),
-            description: State::new(String::new()),
-            amount: State::new(String::new()),
-            start: State::new(None),
-            account: State::new(0),
-            category: State::new(0),
-            member: State::new(0),
-            rule: State::new(RecurrenceRule::default()),
-            tried: State::new(false),
-        }
+        Self::default()
+    }
+
+    fn form(&self, store: &Store) -> Option<EntityForm> {
+        let keeper = store.clone();
+        self.form
+            .get_or_init(|| {
+                let mut editors = EditorRegistry::default();
+                editors.register("Recurrence", recurrence_editor);
+                entities::form("Schedule", store, editors).map(|form| {
+                    form.scrolling_height(SCHEDULE_FIELDS_HEIGHT)
+                        .on_save(move |record, is_new| save_schedule(&keeper, record, is_new))
+                })
+            })
+            .clone()
     }
 
     /// A new plan, starting on this day and for this person.
     pub fn start_new(&self, store: &Store, start: Date, member_id: Option<i64>) {
-        let members = store.read(|db| db.members());
-        self.editing.set(None);
-        self.flow.set(0);
-        self.description.set(String::new());
-        self.amount.set(String::new());
-        self.start.set(Some(start));
-        self.account.set(usual_account(&store.read(|db| db.accounts())));
-        self.category.set(0);
-        self.member.set(member_index(&members, member_id));
-        self.rule.set(RecurrenceRule::default());
-        self.tried.set(false);
-        self.open.set(true);
+        let Some(form) = self.form(store) else { return };
+        let accounts = store.read(|db| db.accounts());
+        form.start_new(FormText::new("Programar", "Salvar programação"), |record| {
+            record.set("start", field_of_date(start));
+            record.set("account", key_field(usual_account_id(&accounts)));
+            record.set("member", key_field(member_id));
+            record.set("rule", RecurrenceRule::default().to_text());
+        });
     }
 
     pub fn start_edit(&self, store: &Store, id: i64) {
-        let Some(found) = store.read(|db| db.schedule(id)) else { return };
-        let input = found.input;
-        let accounts = store.read(|db| db.accounts());
-        let categories = categories_of(&store.read(|db| db.categories()), input.flow);
-        let members = store.read(|db| db.members());
-        self.editing.set(Some(id));
-        self.flow.set(usize::from(input.flow == Flow::Income));
-        self.description.set(input.description);
-        self.amount.set(format_input(input.amount_cents));
-        self.start.set(Some(input.start));
-        self.account.set(accounts.iter().position(|a| a.id == input.account_id).unwrap_or(0));
-        self.category.set(categories.iter().position(|c| c.id == input.category_id).unwrap_or(0));
-        self.member.set(member_index(&members, input.member_id));
-        self.rule.set(input.rule);
-        self.tried.set(false);
-        self.open.set(true);
+        let Some(form) = self.form(store) else { return };
+        form.start_edit(
+            FormText::new("Alterar programação", "Salvar programação"),
+            &Field::Number(id as f64),
+            |_| {},
+        );
     }
 
-    pub(crate) fn save(&self, store: &Store) {
-        // A second click can arrive before the form is gone.
-        if !self.open.get() {
-            return;
-        }
-        self.tried.set(true);
-        let flow = if self.flow.get() == 1 { Flow::Income } else { Flow::Expense };
-        let accounts = store.read(|db| db.accounts());
-        let categories = categories_of(&store.read(|db| db.categories()), flow);
-        let members = store.read(|db| db.members());
-        let description = self.description.get();
-        let (Some(start), false, Ok(amount_cents), Some(account), Some(category)) = (
-            self.start.get(),
-            description.trim().is_empty(),
-            parse_brl(&self.amount.get()).and_then(|c| if c > 0 { Ok(c) } else { Err(String::new()) }),
-            accounts.get(self.account.get()),
-            categories.get(self.category.get()),
-        ) else {
-            return;
-        };
-        let input = ScheduleInput {
-            description,
-            flow,
-            amount_cents,
-            account_id: account.id,
-            category_id: category.id,
-            member_id: member_at(&members, self.member.get()),
-            start,
-            rule: self.rule.get(),
-        };
-        let editing = self.editing.get();
-        let saved = store.write("Programação salva", |db| match editing {
-            Some(id) => db.update_schedule(id, &input),
-            None => db.add_schedule(&input).map(|_| ()),
-        });
-        if saved.is_some() {
-            self.open.set(false);
-        }
-    }
-
-    pub fn view(&self, store: &Store) -> Option<Dialog> {
-        if !self.open.get() {
-            return None;
-        }
-        let flow = if self.flow.get() == 1 { Flow::Income } else { Flow::Expense };
-        let accounts = store.read(|db| db.accounts());
-        let categories = categories_of(&store.read(|db| db.categories()), flow);
-        let members = store.read(|db| db.members());
-        let tried = self.tried.get();
-        let first = self.start.get().unwrap_or(store.today);
-        let category = self.category.clone();
-        let flow_binding = {
-            let (read, write) = (self.flow.clone(), self.flow.clone());
-            // The categories change with the type, so the choice starts over.
-            Binding::new(
-                move || read.get(),
-                move |value| {
-                    write.set(value);
-                    category.set(0);
-                },
-            )
-        };
-        let content = ScrollView::new((VStack::new((
-            SegmentedControl::new(flow_binding, ["Pagamento", "Recebimento"]).label("Tipo"),
-            FormField::new(
-                "Descrição",
-                TextField::new(self.description.binding()).placeholder("Ex.: Aluguel da garagem").autofocus(),
-            )
-            .required()
-            .validate(self.description.binding(), validate::required)
-            .show_errors(tried),
-            HStack::new((
-                FormField::new(
-                    "Valor",
-                    TextField::new(self.amount.binding()).placeholder("0,00").width(190.0),
-                )
-                .required()
-                .validate(self.amount.binding(), validate_positive)
-                .show_errors(tried),
-                FormField::new(
-                    "Primeiro dia",
-                    DatePicker::new(self.start.binding(), first)
-                        .today(store.today)
-                        .label("Primeiro dia")
-                        .width(190.0),
-                ),
-            ))
-            .spacing(12.0),
-            HStack::new((
-                FormField::new(
-                    "Conta",
-                    Select::new(self.account.binding(), accounts.iter().map(|a| a.name.clone()))
-                        .label("Conta")
-                        .width(190.0),
-                ),
-                FormField::new(
-                    "Categoria",
-                    Select::new(self.category.binding(), categories.iter().map(|c| c.name.clone()))
-                        .label("Categoria")
-                        .width(190.0),
-                ),
-            ))
-            .spacing(12.0),
-            FormField::new(
-                "De quem",
-                Select::new(self.member.binding(), member_options(&members)).label("De quem").width(190.0),
-            ),
-            FormField::new("Repetição", RecurrenceEditor::new(self.rule.binding(), first)),
-        ))
-        .spacing(12.0)
-        .align(Align::Stretch),))
-        .height(540.0)
-        // In the dialog's margin, and not over the fields.
-        .scrollbar_outside(14.0);
-        let (save, save_store, cancel) = (self.clone(), store.clone(), self.open.clone());
-        let title = if self.editing.get().is_some() { "Alterar programação" } else { "Programar" };
-        Some(
-            Dialog::new(self.open.binding(), title)
-                .width(440.0)
-                .content(content)
-                .action(
-                    Button::new("Cancelar").style(ButtonStyle::Secondary).on_click(move || cancel.set(false)),
-                )
-                .action(
-                    Button::new("Salvar programação")
-                        .icon(IconName::Check)
-                        .on_click(move || save.save(&save_store)),
-                ),
-        )
+    pub fn view(&self, store: &Store) -> Option<EntityForm> {
+        self.form(store)
     }
 }
 
+/// Goes through the database, which keeps the days a plan already went through.
+fn save_schedule(store: &Store, record: &Object, is_new: bool) -> bool {
+    let (Some(start), Some(account_id), Some(category_id)) = (
+        date_of_field(&record.get("start")),
+        id_of_field(&record.get("account")),
+        id_of_field(&record.get("category")),
+    ) else {
+        return false;
+    };
+    let input = ScheduleInput {
+        description: text_of(record, "description"),
+        flow: flow_of(record),
+        amount_cents: cents_of(record, "amount"),
+        account_id,
+        category_id,
+        member_id: id_of_field(&record.get("member")),
+        start,
+        rule: RecurrenceRule::parse(&text_of(record, "rule")).unwrap_or_default(),
+    };
+    let id = id_of_field(&record.get("id"));
+    store
+        .write("Programação salva", |db| match id {
+            Some(id) if !is_new => db.update_schedule(id, &input),
+            _ => db.add_schedule(&input).map(|_| ()),
+        })
+        .is_some()
+}
+
 /// Saying a planned day happened: from which account, when and how much.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct ConfirmForm {
-    open: State<bool>,
-    target: State<Option<(i64, Date)>>,
-    account: State<usize>,
-    date: State<Option<Date>>,
-    amount: State<String>,
-    tried: State<bool>,
+    form: Lazy,
+    target: Rc<Cell<Option<(i64, Date)>>>,
 }
 
 impl ConfirmForm {
     pub fn new() -> Self {
-        Self {
-            open: State::new(false),
-            target: State::new(None),
-            account: State::new(0),
-            date: State::new(None),
-            amount: State::new(String::new()),
-            tried: State::new(false),
-        }
+        Self::default()
+    }
+
+    fn form(&self, store: &Store) -> Option<EntityForm> {
+        let (keeper, target) = (store.clone(), self.target.clone());
+        self.form
+            .get_or_init(|| {
+                entities::form("Confirmation", store, EditorRegistry::default()).map(|form| {
+                    form.on_save(move |record, _| {
+                        let (Some((id, day)), Some(when), Some(account)) = (
+                            target.get(),
+                            date_of_field(&record.get("date")),
+                            id_of_field(&record.get("account")),
+                        ) else {
+                            return false;
+                        };
+                        let amount = cents_of(record, "amount");
+                        keeper
+                            .write("Confirmado", |db| db.confirm_occurrence(id, day, account, when, amount))
+                            .is_some()
+                    })
+                })
+            })
+            .clone()
     }
 
     pub fn start(&self, store: &Store, occurrence: &Occurrence) {
-        let accounts = store.read(|db| db.accounts());
+        let Some(form) = self.form(store) else { return };
         let input = &occurrence.schedule.input;
         self.target.set(Some((occurrence.schedule_id, occurrence.day)));
-        self.account.set(accounts.iter().position(|a| a.id == input.account_id).unwrap_or(0));
-        // Something confirmed ahead of its day happened today.
-        self.date.set(Some(occurrence.when.min(store.today)));
-        self.amount.set(format_input(input.amount_cents));
-        self.tried.set(false);
-        self.open.set(true);
+        let verb = if input.flow == Flow::Income { "Confirmar recebimento" } else { "Confirmar pagamento" };
+        let text = FormText::new(verb, verb).description(format!(
+            "{}, programado para {}.",
+            input.description,
+            date_label(occurrence.day)
+        ));
+        form.start_new(text, |record| {
+            record.set("account", input.account_id as f64);
+            // Something confirmed ahead of its day happened today.
+            record.set("date", field_of_date(occurrence.when.min(store.today)));
+            record.set("amount", input.amount_cents as f64);
+        });
     }
 
-    pub(crate) fn save(&self, store: &Store) {
-        // A second click can arrive before the form is gone.
-        if !self.open.get() {
-            return;
-        }
-        self.tried.set(true);
-        let accounts = store.read(|db| db.accounts());
-        let (Some((id, day)), Some(when), Ok(amount), Some(account)) = (
-            self.target.get(),
-            self.date.get(),
-            parse_brl(&self.amount.get()).and_then(|c| if c > 0 { Ok(c) } else { Err(String::new()) }),
-            accounts.get(self.account.get()),
-        ) else {
-            return;
-        };
-        if store.write("Confirmado", |db| db.confirm_occurrence(id, day, account.id, when, amount)).is_some()
-        {
-            self.open.set(false);
-        }
-    }
-
-    pub fn view(&self, store: &Store) -> Option<Dialog> {
-        if !self.open.get() {
-            return None;
-        }
-        let (id, day) = self.target.get()?;
-        let schedule = store.read(|db| db.schedule(id))?;
-        let accounts = store.read(|db| db.accounts());
-        let verb =
-            if schedule.input.flow == Flow::Income { "Confirmar recebimento" } else { "Confirmar pagamento" };
-        let content = VStack::new((
-            FormField::new(
-                "Conta",
-                Select::new(self.account.binding(), accounts.iter().map(|a| a.name.clone()))
-                    .label("Conta")
-                    .width(392.0),
-            ),
-            HStack::new((
-                FormField::new("Valor", TextField::new(self.amount.binding()).width(190.0))
-                    .validate(self.amount.binding(), validate_positive)
-                    .show_errors(self.tried.get()),
-                FormField::new(
-                    "Quando",
-                    DatePicker::new(self.date.binding(), store.today)
-                        .today(store.today)
-                        .label("Quando")
-                        .width(190.0),
-                ),
-            ))
-            .spacing(12.0),
-        ))
-        .spacing(14.0)
-        .align(Align::Stretch);
-        let (save, save_store, cancel) = (self.clone(), store.clone(), self.open.clone());
-        Some(
-            Dialog::new(self.open.binding(), verb)
-                .description(format!("{}, programado para {}.", schedule.input.description, date_label(day)))
-                .width(440.0)
-                .content(content)
-                .action(
-                    Button::new("Cancelar").style(ButtonStyle::Secondary).on_click(move || cancel.set(false)),
-                )
-                .action(Button::new(verb).icon(IconName::Check).on_click(move || save.save(&save_store))),
-        )
+    pub fn view(&self, store: &Store) -> Option<EntityForm> {
+        self.form(store)
     }
 }
 

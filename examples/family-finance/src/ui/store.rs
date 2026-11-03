@@ -1,7 +1,7 @@
 //! What every screen shares: the database, a change counter, and small helpers.
 
 use super::help::{Help, tip};
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -29,6 +29,8 @@ pub(crate) struct Store {
     revision: State<u64>,
     /// The window's diagnostics panel, for the button in Ajustes.
     pub diagnostics: Diagnostics,
+    /// The records of the screens generated from them, made once.
+    pub records: Rc<OnceCell<Option<ravenrs_app_sqlite::SqliteDatabase>>>,
 }
 
 impl Store {
@@ -42,6 +44,7 @@ impl Store {
             updater,
             revision: State::new(0),
             diagnostics: Diagnostics::default(),
+            records: Rc::default(),
         }
     }
 
@@ -200,8 +203,37 @@ pub(crate) fn content_width(window: Size) -> f32 {
 }
 
 /// A grid that keeps the room left, inside a key that gives it its columns again.
-pub(crate) fn filling(grid: DataGrid) -> FillColumn<(DataGrid,)> {
+pub(crate) fn filling<G: View + 'static>(grid: G) -> FillColumn<(G,)> {
     FillColumn { children: (grid,), spacing: 0.0, padding: 0.0.into() }
+}
+
+/// A day as a record holds it.
+pub(crate) fn field_of_date(date: Date) -> ravenrs_app::Value {
+    ravenrs_app::Value::Date(ravenrs_criteria::DateTime { days: date.to_days(), seconds: 0 })
+}
+
+/// A day from what a record holds.
+pub(crate) fn date_of_field(value: &ravenrs_app::Value) -> Option<Date> {
+    match value {
+        ravenrs_app::Value::Date(moment) => Some(Date::from_days(moment.days)),
+        _ => None,
+    }
+}
+
+/// A key from what a record holds.
+pub(crate) fn id_of_field(value: &ravenrs_app::Value) -> Option<i64> {
+    match value {
+        ravenrs_app::Value::Number(number) => Some(*number as i64),
+        _ => None,
+    }
+}
+
+/// Reads again what the framework's lists show, when the database changed under them.
+pub(crate) fn follow_store(store: &Store, session: &ravenrs_app_ui::Session, seen: &std::cell::Cell<u64>) {
+    let now = store.version();
+    if seen.replace(now) != now {
+        session.records_changed();
+    }
 }
 
 /// A screen: what it says about itself in the top bar, and what it shows.
@@ -276,9 +308,4 @@ pub(crate) fn date_column(title: &str) -> GridColumn {
             _ => String::new(),
         })
         .width(104.0)
-}
-
-/// The key in a grid row's first, hidden column.
-pub(crate) fn row_id(data: &GridData, row: usize) -> Option<i64> {
-    data.rows().get(row).and_then(|cells| cells.first()).and_then(Value::as_f64).map(|id| id as i64)
 }

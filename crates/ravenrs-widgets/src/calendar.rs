@@ -337,6 +337,7 @@ pub struct DatePicker {
     placeholder: Option<String>,
     today: Option<Date>,
     width: f32,
+    fill: bool,
     label: Option<String>,
     state: util::EditorState,
 }
@@ -350,6 +351,7 @@ impl DatePicker {
             placeholder: None,
             today: None,
             width: 220.0,
+            fill: false,
             label: None,
             state: util::EditorState::default(),
         }
@@ -364,6 +366,12 @@ impl DatePicker {
     /// Marks this day with a ring in the calendar.
     pub fn today(mut self, today: Date) -> Self {
         self.today = Some(today);
+        self
+    }
+
+    /// Takes the width of its parent, as other fields of a form do.
+    pub fn fill(mut self) -> Self {
+        self.fill = true;
         self
     }
 
@@ -450,12 +458,12 @@ impl View for DatePicker {
         };
         let node = cx.container(
             LayoutStyle {
-                width: Some(self.width),
+                width: (!self.fill).then_some(self.width),
                 height: Some(40.0),
                 padding: Insets::symmetric(0.0, 12.0),
                 spacing: 10.0,
                 align: Align::Center,
-                align_self: Some(Align::Fit),
+                align_self: Some(if self.fill { Align::Stretch } else { Align::Fit }),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[icon, label],

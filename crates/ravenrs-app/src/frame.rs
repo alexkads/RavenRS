@@ -454,6 +454,20 @@ impl Frame {
         Ok(next)
     }
 
+    /// Opens a popup on this view for this action, for when the view depends on what it is run
+    /// on. OK runs the action again, with what was picked.
+    pub fn open_popup_on(&self, action: &str, view: &str) {
+        self.0.popup.set(Some((action.to_owned(), view.to_owned())));
+    }
+
+    /// Fills in the record the form of the open popup starts with.
+    pub fn prepare_popup(&self, object: &mut Object) {
+        let Some((id, _)) = self.0.popup.get() else { return };
+        if let Some(action) = self.action(&id) {
+            action.run_prepare(&self.context_for(ActionInput::None), object);
+        }
+    }
+
     /// Ends the open popup with OK, which runs its action.
     pub fn accept_popup(&self, input: ActionInput) -> Result<ActionResult, ActionError> {
         let (id, _) = self.0.popup.get().ok_or_else(|| ActionError::Unknown("popup".to_owned()))?;

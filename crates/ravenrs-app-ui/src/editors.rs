@@ -8,13 +8,14 @@ use ravenrs_core::Color;
 use ravenrs_criteria::Criteria;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
-    AnyView, Checkbox, ColorPicker, Date, DatePicker, DateTimePicker, LookupField, LookupItem, NumberField,
-    SegmentedControl, Select, TextArea, TextField,
+    AnyView, Checkbox, ColorPicker, Date, DatePicker, DateTimePicker, FileUpload, LookupField, LookupItem,
+    NumberField, PickedFile, SegmentedControl, Select, TextArea, TextField,
 };
 
 use crate::session::Session;
 use crate::values::{
-    date_of, date_time_of, display, key_from_text, key_text, value_of_date, value_of_date_time,
+    date_of, date_time_of, display, file_of, key_from_text, key_text, value_of_date, value_of_date_time,
+    value_of_file,
 };
 
 /// What a control is being asked for.
@@ -62,6 +63,7 @@ impl EditorRegistry {
         match (self.0.get(name), name, &request.field.kind) {
             (Some(factory), ..) => factory(request),
             (None, "Segmented", FieldKind::Enum(options)) => segmented_editor(request, options),
+            (None, "Select", FieldKind::Reference(target)) => reference_select(request, target),
             _ => built_in(request),
         }
     }
@@ -88,6 +90,15 @@ fn text_binding(value: &State<Value>) -> Binding<String> {
     Binding::new(
         move || if let Value::Text(text) = read.get() { text } else { String::new() },
         move |text: String| write.set(if text.is_empty() { Value::Null } else { Value::Text(text) }),
+    )
+}
+
+#[cfg(feature = "images")]
+fn file_binding(value: &State<Value>) -> Binding<Option<PickedFile>> {
+    let (read, write) = (value.clone(), value.clone());
+    Binding::new(
+        move || file_of(&read.get()),
+        move |file: Option<PickedFile>| write.set(value_of_file(file.as_ref())),
     )
 }
 
@@ -191,8 +202,74 @@ fn reference_editor(request: &EditorRequest, target: &str) -> AnyView {
     )
 }
 
+/// A value as a literal of the expression language.
+fn literal_of(value: &Value) -> String {
+    match value {
+        Value::Null => "Null".to_owned(),
+        Value::Bool(on) => on.to_string(),
+        Value::Number(number) => number.to_string(),
+        Value::Text(text) => format!("'{}'", text.replace('\'', "''")),
+        Value::Date(moment) => format!("#{moment}#"),
+        other => format!("'{other:?}'"),
+    }
+}
+
+/// What the records of a reference have to meet, given the record being edited.
+fn lookup_filter(request: &EditorRequest) -> Option<Criteria> {
+    let text = request.field.lookup_filter.as_ref()?;
+    let parsed = Criteria::parse(text).ok()?;
+    let record = request.session.form_record();
+    let filled = parsed.parameters().iter().fold(text.clone(), |filled, name| {
+        let value = record.as_ref().map_or(Value::Null, |record| record.get(name));
+        filled.replace(&format!("?{name}"), &literal_of(&value))
+    });
+    Criteria::parse(&filled).ok()
+}
+
+/// A reference picked from a list of all its choices, for the few records of a register.
+fn reference_select(request: &EditorRequest, target: &str) -> AnyView {
+    let session = &request.session;
+    let Some(entity) = session.entity(target) else {
+        return text_editor(request);
+    };
+    let mut query = Query::all();
+    if let Some(field) = entity.default_property() {
+        query = query.sort(field.name.clone(), true);
+    }
+    if let Some(filter) = lookup_filter(request) {
+        query = query.filter(filter);
+    }
+    let found = session.frame().space().borrow().query(&entity.name, &query).unwrap_or_default();
+    let key = entity.key_field().map(|field| field.name.clone()).unwrap_or_default();
+    let mut keys: Vec<Value> = Vec::new();
+    let mut captions: Vec<String> = Vec::new();
+    if let Some(none) = &request.field.none_caption {
+        keys.push(Value::Null);
+        captions.push(none.clone());
+    }
+    for object in &found {
+        keys.push(object.get(&key));
+        captions.push(caption_of(&entity, object));
+    }
+    // What it held is no longer among the choices, as when a filter changed with another field.
+    if !keys.contains(&*request.value.peek()) {
+        request.value.set(keys.first().cloned().unwrap_or(Value::Null));
+    }
+    let (read, write) = (request.value.clone(), request.value.clone());
+    let known = keys.clone();
+    let at = Binding::new(
+        move || {
+            let held = read.get();
+            known.iter().position(|key| *key == held).unwrap_or(0)
+        },
+        move |at: usize| write.set(keys.get(at).cloned().unwrap_or(Value::Null)),
+    );
+    Box::new(Select::new(at, captions).fill().label(request.caption.clone()).disabled(request.read_only))
+}
+
 fn text_editor(request: &EditorRequest) -> AnyView {
     let field = TextField::new(text_binding(&request.value)).read_only(request.read_only);
+    let field = if request.field.autofocus { field.autofocus() } else { field };
     match &request.field.placeholder {
         Some(text) => Box::new(field.placeholder(text.clone())),
         None => Box::new(field),
@@ -203,6 +280,15 @@ fn text_editor(request: &EditorRequest) -> AnyView {
 fn read_only_text(request: &EditorRequest) -> AnyView {
     let text = display(&request.field, &request.value.get());
     Box::new(TextField::new(Binding::constant(text)).read_only(true))
+}
+
+fn file_editor(request: &EditorRequest) -> AnyView {
+    let (read, write) = (request.value.clone(), request.value.clone());
+    let files = Binding::new(
+        move || file_of(&read.get()).into_iter().collect(),
+        move |files: Vec<PickedFile>| write.set(value_of_file(files.first())),
+    );
+    Box::new(FileUpload::new(files).most_files(1).label(request.caption.clone()).read_only(request.read_only))
 }
 
 fn built_in(request: &EditorRequest) -> AnyView {
@@ -233,6 +319,7 @@ fn built_in(request: &EditorRequest) -> AnyView {
             let date = Binding::new(move || date_of(&read.get()), move |d| write.set(value_of_date(d)));
             Box::new(
                 DatePicker::new(date, today(&request.session))
+                    .fill()
                     .label(request.caption.clone())
                     .read_only(read_only),
             )
@@ -267,7 +354,15 @@ fn built_in(request: &EditorRequest) -> AnyView {
             );
             Box::new(ColorPicker::new(color).label(request.caption.clone()).read_only(read_only))
         }
-        // Their controls need somewhere to keep bytes, which comes with the relations.
+        #[cfg(feature = "images")]
+        FieldKind::Image => Box::new(
+            ravenrs_widgets::ImageField::new(file_binding(value))
+                .label(request.caption.clone())
+                .read_only(read_only),
+        ),
+        #[cfg(not(feature = "images"))]
+        FieldKind::Image => file_editor(request),
+        FieldKind::File => file_editor(request),
         _ => read_only_text(request),
     }
 }

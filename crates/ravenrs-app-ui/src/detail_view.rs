@@ -32,11 +32,24 @@ impl DetailView {
         let info = form.entity.field_named(field)?;
         let item = node.at(&["Items", field]);
         let caption = item.and_then(|n| n.text("Caption")).unwrap_or(&info.caption).to_owned();
+        let caption =
+            self.session.form_caption().and_then(|words| words(field, &state.record)).unwrap_or(caption);
         let look = form.entity.appearance_of(AppearanceTarget::Item, field, &self.view, Some(&state.record));
         let around =
             form.entity.appearance_of(AppearanceTarget::Layout, field, &self.view, Some(&state.record));
         if look.visible == Some(false) || around.visible == Some(false) {
             return None;
+        }
+        if let ravenrs_app::FieldKind::Collection(target) = &info.kind {
+            let key = form.entity.key_field().map(|key| form.original.get(&key.name));
+            let list = crate::nested::NestedList::new(
+                self.session.clone(),
+                &form.entity,
+                (!form.is_new).then_some(key).flatten(),
+                target,
+                info.back_reference.as_deref(),
+            );
+            return Some(Box::new(FormField::new(caption, list)));
         }
         let read_only = item.and_then(|n| n.flag("ReadOnly")).unwrap_or(info.read_only);
         let value = match form.fields.get(field) {
@@ -71,6 +84,9 @@ impl DetailView {
             .iter()
             .any(|rule| rule.field.as_deref() == Some(field) && matches!(rule.kind, RuleKind::Required));
         let mut wrapped = FormField::new(caption, editor).error_text(state.error_of(field));
+        if let Some(hint) = &info.hint {
+            wrapped = wrapped.hint(hint.clone());
+        }
         if required {
             wrapped = wrapped.required();
         }
@@ -98,9 +114,16 @@ impl DetailView {
         .columns(columns);
         for item in source.in_order() {
             let field = item.text("Field").unwrap_or(&item.id);
-            let tall = form.entity.field_named(field).is_some_and(|f| {
-                matches!(f.kind, ravenrs_app::FieldKind::LongText | ravenrs_app::FieldKind::Image)
-            });
+            let tall = item.flag("Wide") == Some(true)
+                || node.at(&["Items", field]).and_then(|n| n.flag("Wide")) == Some(true)
+                || form.entity.field_named(field).is_some_and(|f| {
+                    matches!(
+                        f.kind,
+                        ravenrs_app::FieldKind::LongText
+                            | ravenrs_app::FieldKind::Image
+                            | ravenrs_app::FieldKind::Collection(_)
+                    )
+                });
             if let Some(editor) = self.editor(form, node, field, state) {
                 group = if tall { group.wide(editor) } else { group.field(editor) };
             }
@@ -137,7 +160,13 @@ impl View for DetailView {
             return cx.empty();
         };
         let state = FormLook { record: form.watched(), violations: session.form_violations() };
-        let messages: Vec<String> = state.violations.iter().map(|v| v.message.clone()).collect();
+        let lists_all = session.lists_field_errors();
+        let messages: Vec<String> = state
+            .violations
+            .iter()
+            .filter(|v| lists_all || v.field.is_none())
+            .map(|v| v.message.clone())
+            .collect();
         let mut layout = FormLayout::new().errors(messages);
         if let Some(arrangement) = node.get("Layout") {
             for part in arrangement.in_order() {

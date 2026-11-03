@@ -4038,6 +4038,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-app-report"
+version = "27.1.7"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-app-ui",
+ "ravenrs-core",
+ "ravenrs-grid-export",
+ "ravenrs-report-viewer",
+ "ravenrs-style",
+ "ravenrs-widgets",
+]
+
+[[package]]
 name = "ravenrs-app-sqlite"
 version = "27.1.7"
 dependencies = [
@@ -4056,6 +4069,7 @@ dependencies = [
  "ravenrs-grid-export",
  "ravenrs-layout",
  "ravenrs-reactive",
+ "ravenrs-report",
  "ravenrs-style",
  "ravenrs-widgets",
 ]

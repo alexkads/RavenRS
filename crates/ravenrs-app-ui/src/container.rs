@@ -1,11 +1,11 @@
 //! Where actions show.
 
-use ravenrs_app::{Action, ActionCategory, ActionInput, ActionKind, ChoiceItem};
+use ravenrs_app::{Action, ActionCategory, ActionInput, ActionKind, ChoiceItem, FieldKind, Value};
 use ravenrs_core::Key;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
-    BuildCx, ButtonSize, DropdownMenu, Hotkey, IconName, MenuItem, NodeId, TextField, Toolbar, ToolbarAction,
-    View,
+    BuildCx, Button, ButtonSize, ButtonStyle, DropdownMenu, Hotkey, IconName, MenuItem, NodeId, TextField,
+    Toolbar, ToolbarAction, View,
 };
 
 use crate::session::Session;
@@ -35,6 +35,38 @@ fn hotkey_of(text: &str) -> Option<Hotkey> {
         _ => Hotkey::key(key),
     };
     Some(if shift { hotkey.shift() } else { hotkey })
+}
+
+/// What was typed, as what the action asks for, or the words of a person who cannot read it.
+fn parameter_of(kind: &FieldKind, text: &str) -> Result<Value, String> {
+    let typed = text.trim();
+    let bad = || format!("\u{201c}{typed}\u{201d}?");
+    // Both ways of writing a number people use: 1.234,56 and 1234.56.
+    let number = || {
+        let plain =
+            if typed.contains(',') { typed.replace('.', "").replace(',', ".") } else { typed.to_owned() };
+        plain.parse::<f64>().map_err(|_| bad())
+    };
+    match kind {
+        _ if typed.is_empty() => Ok(Value::Null),
+        FieldKind::Integer => number().map(|n| Value::Number(n.trunc())),
+        FieldKind::Decimal(_) => number().map(Value::Number),
+        FieldKind::Money => number().map(|n| Value::Number((n * 100.0).round())),
+        FieldKind::Date | FieldKind::DateTime => {
+            ravenrs_criteria::DateTime::parse(typed).map(Value::Date).ok_or_else(bad)
+        }
+        FieldKind::Boolean => match typed.to_lowercase().as_str() {
+            "true" | "yes" | "sim" | "1" => Ok(Value::Bool(true)),
+            "false" | "no" | "não" | "nao" | "0" => Ok(Value::Bool(false)),
+            _ => Err(bad()),
+        },
+        FieldKind::Enum(options) => options
+            .iter()
+            .find(|option| option.code == typed || option.caption.eq_ignore_ascii_case(typed))
+            .map(|option| Value::Text(option.code.clone()))
+            .ok_or_else(bad),
+        _ => Ok(Value::Text(typed.to_owned())),
+    }
 }
 
 fn add_choice(
@@ -84,9 +116,22 @@ impl ActionContainer {
                     return toolbar.action(ToolbarAction::new(action.caption().to_owned()).disabled(true));
                 }
                 let menu = DropdownMenu::new(action.caption().to_owned()).size(ButtonSize::Small);
-                toolbar.view(120.0, add_choice(menu, &session, action, items, ""))
+                // Declared with no options, it offers the ways to see the view it is on.
+                let found: Vec<ChoiceItem> = if items.is_empty() {
+                    self.session
+                        .frame()
+                        .view()
+                        .map(|view| self.session.variants(&view.id))
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|(id, caption)| ChoiceItem::new(id, caption))
+                        .collect()
+                } else {
+                    items.clone()
+                };
+                toolbar.view(120.0, add_choice(menu, &session, action, &found, ""))
             }
-            ActionKind::Parametrized(_) => {
+            ActionKind::Parametrized(kind) => {
                 let id = action.id().to_owned();
                 let (read, write) = (drafts.clone(), drafts.clone());
                 let (read_id, write_id) = (id.clone(), id);
@@ -98,13 +143,14 @@ impl ActionContainer {
                         })
                     },
                 );
-                let run = action.clone();
+                let (run, kind) = (action.clone(), kind.clone());
                 let field = TextField::new(draft)
                     .placeholder(action.caption().to_owned())
                     .compact()
                     .disabled(!action.is_enabled())
-                    .on_submit(move |text| {
-                        session.run_action(&run, ActionInput::Parameter(text.into()));
+                    .on_submit(move |text| match parameter_of(&kind, &text) {
+                        Ok(value) => session.run_action(&run, ActionInput::Parameter(value)),
+                        Err(problem) => session.set_error(Some(problem)),
                     });
                 toolbar.view(200.0, field)
             }
@@ -149,9 +195,82 @@ impl View for ActionContainer {
     }
 }
 
+/// One action as a button of its own, for a screen that places its commands itself.
+#[derive(Debug)]
+pub struct ActionButton {
+    session: Session,
+    id: String,
+    style: ButtonStyle,
+    size: ButtonSize,
+    hide_when_off: bool,
+}
+
+impl ActionButton {
+    /// The button of the action with this id.
+    pub fn new(session: Session, id: impl Into<String>) -> Self {
+        Self {
+            session,
+            id: id.into(),
+            style: ButtonStyle::Primary,
+            size: ButtonSize::Small,
+            hide_when_off: false,
+        }
+    }
+
+    /// How it looks.
+    pub fn style(mut self, style: ButtonStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// How big it is. Small by default.
+    pub fn size(mut self, size: ButtonSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Takes it away while it cannot be used, instead of fading it. Only for a button at the end
+    /// of a row of them, so nothing moves under the pointer.
+    pub fn hide_when_off(mut self) -> Self {
+        self.hide_when_off = true;
+        self
+    }
+}
+
+impl View for ActionButton {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let Some(action) = self.session.frame().action(&self.id) else { return cx.empty() };
+        if !action.is_active() || (self.hide_when_off && !action.is_enabled()) {
+            return cx.empty();
+        }
+        let mut button = Button::new(action.caption().to_owned())
+            .size(self.size)
+            .style(self.style)
+            .disabled(!action.is_enabled());
+        if let Some(icon) = action.icon_name().and_then(icon_named) {
+            button = button.icon(icon);
+        }
+        let session = self.session.clone();
+        cx.child(&button.on_click(move || session.run_action(&action, ActionInput::None)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn what_is_typed_becomes_what_the_action_asks_for() {
+        assert_eq!(parameter_of(&FieldKind::Money, "1.234,56"), Ok(Value::Number(123_456.0)));
+        assert_eq!(parameter_of(&FieldKind::Integer, "12"), Ok(Value::Number(12.0)));
+        assert_eq!(parameter_of(&FieldKind::Boolean, "sim"), Ok(Value::Bool(true)));
+        assert_eq!(parameter_of(&FieldKind::Text, "  a "), Ok(Value::Text("a".into())));
+        assert_eq!(parameter_of(&FieldKind::Integer, ""), Ok(Value::Null));
+        assert!(parameter_of(&FieldKind::Integer, "doze").is_err());
+        assert!(parameter_of(&FieldKind::Date, "ontem").is_err());
+        let kinds = FieldKind::Enum(vec![ravenrs_app::EnumOption::new("o", "Open")]);
+        assert_eq!(parameter_of(&kinds, "open"), Ok(Value::Text("o".into())));
+    }
 
     #[test]
     fn keys_are_read_from_their_words() {

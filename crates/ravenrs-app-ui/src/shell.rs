@@ -24,6 +24,8 @@ use crate::session::{Session, Words};
 use crate::values::display;
 
 const NARROW_WINDOW: f32 = 720.0;
+/// How wide a window of something shown over the screens is.
+const PRESENTED_WIDTH: f32 = 960.0;
 
 /// The pieces of a window, for a template to arrange.
 #[non_exhaustive]
@@ -162,7 +164,8 @@ impl AppShell {
     fn navigation_item(&self, item: &ModelNode, view: &str, current: Option<&ViewInfo>) -> AnyView {
         let model = self.session.model();
         let entity_of = |id: &str| model.at(&["Views", id]).and_then(|n| n.text("Entity"));
-        let selected = current.is_some_and(|c| c.entity.as_deref() == entity_of(view));
+        let selected = current
+            .is_some_and(|c| c.id == view || (c.entity.is_some() && c.entity.as_deref() == entity_of(view)));
         let icon = item.text("Icon").and_then(icon_named).unwrap_or(ravenrs_widgets::IconName::File);
         let (session, target) = (self.session.clone(), view.to_owned());
         Box::new(
@@ -175,7 +178,9 @@ impl AppShell {
     fn trail(&self, view: Option<&ViewInfo>) -> Vec<String> {
         let Some(view) = view else { return vec![self.session.title()] };
         let Some(entity) = view.entity.as_deref().and_then(|name| self.session.entity(name)) else {
-            return vec![view.id.clone()];
+            let model = self.session.model();
+            let caption = model.at(&["Views", &view.id]).and_then(|node| node.text("Caption"));
+            return vec![caption.unwrap_or(&view.id).to_owned()];
         };
         let mut trail = vec![entity.caption.clone()];
         if view.kind == ViewKind::Detail
@@ -219,6 +224,10 @@ impl AppShell {
                     DetailView::new(session.clone(), view.clone()).padding(16.0),
                 ),)))
             }
+            Some(view) if view.kind == ViewKind::Dashboard => Box::new(ScrollView::new((Keyed::new(
+                hash_of(&view.id),
+                crate::DashboardView::new(session.clone(), view.clone()).padding(16.0),
+            ),))),
             Some(view) => Box::new(Text::new(view.id.clone())),
             None => Box::new(Text::new(session.title()).style(TextStyle::Body)),
         };
@@ -237,6 +246,19 @@ impl AppShell {
     }
 }
 
+/// What closes the popup of a frame, when the window closes.
+fn popup_open(main: &Frame) -> Binding<bool> {
+    let (closing, canceling) = (main.clone(), main.clone());
+    Binding::new(
+        move || closing.open_popup().is_some(),
+        move |open: bool| {
+            if !open {
+                canceling.cancel_popup();
+            }
+        },
+    )
+}
+
 /// A list in a window of its own, for an action that asks for a record.
 struct PopupList {
     session: Session,
@@ -248,15 +270,7 @@ struct PopupList {
 impl View for PopupList {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let main = self.session.frame();
-        let (closing, canceling) = (main.clone(), main.clone());
-        let open = Binding::new(
-            move || closing.open_popup().is_some(),
-            move |open: bool| {
-                if !open {
-                    canceling.cancel_popup();
-                }
-            },
-        );
+        let open = popup_open(&main);
         let key_of = {
             let session = self.session.clone();
             move |frame: &Frame| {
@@ -295,6 +309,140 @@ impl View for PopupList {
     }
 }
 
+/// A form in a window of its own, for an action that asks for a record to be filled in. It runs
+/// with the record, once that meets its rules.
+struct PopupForm {
+    /// Where the action is.
+    owner: Session,
+    /// Where the form is.
+    form: Session,
+    action: String,
+    view: ViewInfo,
+}
+
+impl View for PopupForm {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let main = self.owner.frame();
+        let open = popup_open(&main);
+        let (form, owner_frame) = (self.form.clone(), main.clone());
+        let words = self.owner.words();
+        let cancel_frame = main;
+        let key = self.form.form().map_or(0, |form| Rc::as_ptr(&form) as usize as u64);
+        let content = VStack::new((
+            self.form.error().map(|error| Alert::new(self.action.clone(), error).tone(Tone::Danger)),
+            Keyed::new(key, DetailView::new(self.form.clone(), self.view.clone())),
+        ))
+        .spacing(12.0)
+        .align(Align::Stretch);
+        cx.child(
+            &Dialog::new(open, self.action.clone())
+                .width(480.0)
+                .content(content)
+                .action(
+                    Button::new(words.cancel.clone())
+                        .style(ButtonStyle::Secondary)
+                        .on_click(move || cancel_frame.cancel_popup()),
+                )
+                .action(Button::new("OK").on_click(move || {
+                    let Some((record, _)) = form.check_form() else { return };
+                    if let Err(error) = owner_frame.accept_popup(ActionInput::Record(record)) {
+                        form.set_error(Some(error.to_string()));
+                    }
+                })),
+        )
+    }
+}
+
+/// What a popup holds while it is open.
+#[derive(Clone)]
+enum PopupParts {
+    List(Frame),
+    Form(Session),
+}
+
+/// The windows of a frame's actions: what they ask for, and what they show.
+pub(crate) struct PopupHost {
+    session: Session,
+}
+
+impl PopupHost {
+    pub(crate) fn new(session: Session) -> Self {
+        Self { session }
+    }
+
+    fn parts_for(&self, info: &ViewInfo) -> PopupParts {
+        if info.kind != ViewKind::Detail {
+            let frame = self.session.new_frame(FrameContext::Popup);
+            frame.set_view(Some(info.clone()));
+            return PopupParts::List(frame);
+        }
+        let form = self.session.child(FrameContext::Popup);
+        if let Some(entity) = info.entity.as_deref().and_then(|name| self.session.entity(name)) {
+            let mut record = entity.new_object();
+            self.session.frame().prepare_popup(&mut record);
+            form.open_object(&entity, record, true);
+        }
+        PopupParts::Form(form)
+    }
+}
+
+impl View for PopupHost {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let session = &self.session;
+        let mut parts = Vec::new();
+        // Made once for each time it opens.
+        let held: State<Option<(String, PopupParts)>> = cx.use_state(|| None);
+        match session.frame().open_popup() {
+            Some((action, target)) => {
+                if let Ok(info) = ViewInfo::from_model(&session.model(), &target) {
+                    let kept = held.peek().clone().filter(|(id, _)| *id == action);
+                    let made = kept.map_or_else(
+                        || {
+                            let made = self.parts_for(&info);
+                            held.set(Some((action.clone(), made.clone())));
+                            made
+                        },
+                        |(_, made)| made,
+                    );
+                    let caption = session
+                        .frame()
+                        .action(&action)
+                        .map_or_else(|| action.clone(), |a| a.caption().to_owned());
+                    parts.push(match made {
+                        PopupParts::List(frame) => cx.child(&PopupList {
+                            session: session.clone(),
+                            action: caption,
+                            view: info,
+                            frame,
+                        }),
+                        PopupParts::Form(form) => {
+                            cx.child(&PopupForm { owner: session.clone(), form, action: caption, view: info })
+                        }
+                    });
+                }
+            }
+            None => {
+                if held.peek().is_some() {
+                    held.set(None);
+                }
+            }
+        }
+        if let Some((title, content)) = session.presented().get() {
+            let (read, write) = (session.presented().clone(), session.presented().clone());
+            let open = Binding::new(
+                move || read.get().is_some(),
+                move |open: bool| {
+                    if !open {
+                        write.set(None);
+                    }
+                },
+            );
+            parts.push(cx.child(&Dialog::new(open, title).width(PRESENTED_WIDTH).content(content())));
+        }
+        cx.container(LayoutStyle::stack(Axis::Vertical), &parts, Paint::None)
+    }
+}
+
 impl View for AppShell {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let session = &self.session;
@@ -307,40 +455,7 @@ impl View for AppShell {
         });
         let mut parts = vec![cx.child(&window)];
         parts.push(cx.child(session.confirm()));
-        // The window of an action that asks for a record, made once for each time it opens.
-        let popup_frame: State<Option<(String, Frame)>> = cx.use_state(|| None);
-        match session.frame().open_popup() {
-            Some((action, target)) => {
-                let model = session.model();
-                if let Ok(info) = ViewInfo::from_model(&model, &target) {
-                    let kept = popup_frame.peek().clone().filter(|(id, _)| *id == action);
-                    let frame = kept.map_or_else(
-                        || {
-                            let frame = session.new_frame(FrameContext::Popup);
-                            frame.set_view(Some(info.clone()));
-                            popup_frame.set(Some((action.clone(), frame.clone())));
-                            frame
-                        },
-                        |(_, frame)| frame,
-                    );
-                    let caption = session
-                        .frame()
-                        .action(&action)
-                        .map_or_else(|| action.clone(), |a| a.caption().to_owned());
-                    parts.push(cx.child(&PopupList {
-                        session: session.clone(),
-                        action: caption,
-                        view: info,
-                        frame,
-                    }));
-                }
-            }
-            None => {
-                if popup_frame.peek().is_some() {
-                    popup_frame.set(None);
-                }
-            }
-        }
+        parts.push(cx.child(&PopupHost::new(session.clone())));
         cx.container(
             LayoutStyle {
                 grow: 1.0,

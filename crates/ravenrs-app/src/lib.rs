@@ -44,7 +44,7 @@ pub use action::{
 };
 pub use appearance::{Appearance, AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
 pub use controller::{ViewController, WindowController};
-pub use entity::{EntityInfo, EnumOption, FieldInfo, FieldKind, ModelError, Object};
+pub use entity::{EntityInfo, EnumOption, FieldInfo, FieldKind, ModelError, Object, ViewVariant};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
 #[cfg(not(target_arch = "wasm32"))]
 pub use model::FileStore;
@@ -52,7 +52,7 @@ pub use model::{
     Diff, EmbeddedStore, MemoryModelStore, MergedModel, ModelLayer, ModelLayers, ModelNode, ModelStore,
     UnusableNode, check_model, generate_model,
 };
-pub use module::{Application, ApplicationBuilder, Module};
+pub use module::{Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 pub use ravenrs_criteria::{Criteria, Value};

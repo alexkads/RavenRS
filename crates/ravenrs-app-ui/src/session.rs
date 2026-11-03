@@ -51,6 +51,14 @@ pub struct Words {
     pub discard: String,
     /// A record being created.
     pub new_record: String,
+    /// The menu of the ways to see a list.
+    pub variant: String,
+    /// Puts an existing record on a list inside a form.
+    pub link: String,
+    /// Takes a record off a list inside a form, without removing it.
+    pub unlink: String,
+    /// Where a list inside a form would be, while its record is not kept yet.
+    pub save_first: String,
     /// What fails a rule.
     pub rules: RuleWords,
     /// In front of money.
@@ -80,6 +88,10 @@ impl Default for Words {
             discard_detail: "What you changed here was not saved.".into(),
             discard: "Discard".into(),
             new_record: "New".into(),
+            variant: "View".into(),
+            link: "Link".into(),
+            unlink: "Unlink".into(),
+            save_first: "Save this record to add to this list.".into(),
             rules: RuleWords::default(),
             money_prefix: "$ ".into(),
             thousands: ',',
@@ -108,6 +120,10 @@ impl Words {
             discard_detail: "O que você mudou aqui não foi salvo.".into(),
             discard: "Descartar".into(),
             new_record: "Novo".into(),
+            variant: "Visão".into(),
+            link: "Vincular".into(),
+            unlink: "Desvincular".into(),
+            save_first: "Salve este registro para acrescentar a esta lista.".into(),
             rules: RuleWords::pt_br(),
             money_prefix: "R$ ".into(),
             thousands: '.',
@@ -168,8 +184,18 @@ pub(crate) type UrlHandler = Rc<dyn Fn(String)>;
 /// Makes a unit of work.
 pub(crate) type SpaceFactory = Rc<dyn Fn() -> Rc<RefCell<dyn ObjectSpace>>>;
 
+/// Says what a field of a form is called, for a field and the record as it stands, when that
+/// depends on the record; nothing means the usual.
+pub type FormCaption = Rc<dyn Fn(&str, &Object) -> Option<String>>;
+
+/// Makes a control an application registered.
+pub(crate) type ControlFactory = Rc<dyn Fn() -> ravenrs_widgets::AnyView>;
+
+/// Something shown in a window over the screens, with its title.
+pub(crate) type Presented = (String, ControlFactory);
+
 struct SessionInner {
-    application: RefCell<Application>,
+    application: Rc<RefCell<Application>>,
     new_space: SpaceFactory,
     frame: Frame,
     words: Words,
@@ -183,8 +209,13 @@ struct SessionInner {
     history: State<Vec<String>>,
     error: State<Option<String>>,
     confirm: ConfirmDialog,
-    on_file: RefCell<Option<FileHandler>>,
-    on_url: RefCell<Option<UrlHandler>>,
+    on_file: Rc<RefCell<Option<FileHandler>>>,
+    on_url: Rc<RefCell<Option<UrlHandler>>>,
+    controls: Rc<RefCell<BTreeMap<String, ControlFactory>>>,
+    presented: State<Option<Presented>>,
+    form_caption: RefCell<Option<FormCaption>>,
+    /// Whether the form repeats, above it, what it says on each field.
+    lists_field_errors: Cell<bool>,
     today: Cell<Date>,
     /// The keys of the list a form came from, for moving between records.
     siblings: RefCell<Vec<Value>>,
@@ -213,10 +244,10 @@ impl Session {
         today: Date,
     ) -> Self {
         let frame = application.new_frame(FrameContext::Main, new_space());
-        let inner = Rc::new(SessionInner {
-            application: RefCell::new(application),
+        Self::linked(SessionInner {
+            application: Rc::new(RefCell::new(application)),
             new_space,
-            frame: frame.clone(),
+            frame,
             words,
             editors,
             revision: State::new(0),
@@ -225,11 +256,20 @@ impl Session {
             history: State::new(Vec::new()),
             error: State::new(None),
             confirm: ConfirmDialog::new(),
-            on_file: RefCell::default(),
-            on_url: RefCell::default(),
+            on_file: Rc::default(),
+            on_url: Rc::default(),
+            controls: Rc::default(),
+            presented: State::new(None),
+            form_caption: RefCell::default(),
+            lists_field_errors: Cell::new(true),
             today: Cell::new(today),
             siblings: RefCell::default(),
-        });
+        })
+    }
+
+    fn linked(inner: SessionInner) -> Self {
+        let inner = Rc::new(inner);
+        let frame = inner.frame.clone();
         frame.set_extension(Rc::new(SessionLink(Rc::downgrade(&inner))));
         frame.set_validator(|contexts, cx| {
             let Some(session) = Session::of(cx) else { return Ok(()) };
@@ -247,6 +287,172 @@ impl Session {
             if messages.is_empty() { Ok(()) } else { Err(messages.join("; ")) }
         });
         Self(inner)
+    }
+
+    /// A session of its own for a frame inside this one or over it: its own form and unit of
+    /// work, the same application, and lists that follow what the others change.
+    pub(crate) fn child(&self, context: FrameContext) -> Self {
+        let parent = &self.0;
+        Self::linked(SessionInner {
+            application: parent.application.clone(),
+            new_space: parent.new_space.clone(),
+            frame: self.new_frame(context),
+            words: parent.words.clone(),
+            editors: parent.editors.clone(),
+            revision: parent.revision.clone(),
+            form: State::new(None),
+            checking: State::new(false),
+            history: State::new(Vec::new()),
+            error: State::new(None),
+            confirm: ConfirmDialog::new(),
+            on_file: parent.on_file.clone(),
+            on_url: parent.on_url.clone(),
+            controls: parent.controls.clone(),
+            presented: parent.presented.clone(),
+            form_caption: RefCell::new(parent.form_caption.borrow().clone()),
+            lists_field_errors: Cell::new(parent.lists_field_errors.get()),
+            today: Cell::new(parent.today.get()),
+            siblings: RefCell::default(),
+        })
+    }
+
+    /// A session for lists and actions inside a screen an application made itself, with no window
+    /// around them. Showing a view is up to it, with [`show_list`](Self::show_list).
+    pub fn embedded<S: ObjectSpace + 'static>(
+        application: Application,
+        space: impl Fn() -> S + 'static,
+        words: Words,
+    ) -> Self {
+        let factory: SpaceFactory =
+            Rc::new(move || Rc::new(RefCell::new(space())) as Rc<RefCell<dyn ObjectSpace>>);
+        Self::standalone(application, factory, words)
+    }
+
+    /// Shows this view of the model in the frame, without asking anything.
+    pub fn show_list(&self, id: &str) {
+        self.show_view_now(id);
+    }
+
+    /// What asks before actions run, for a screen with no window of the framework around it.
+    pub fn confirmations(&self) -> ConfirmDialog {
+        self.0.confirm.clone()
+    }
+
+    /// Registers a control by name, for a dashboard to show.
+    pub fn register_control(
+        &self,
+        name: impl Into<String>,
+        control: impl Fn() -> ravenrs_widgets::AnyView + 'static,
+    ) {
+        self.0.controls.borrow_mut().insert(name.into(), Rc::new(control));
+    }
+
+    pub(crate) fn control(&self, name: &str) -> Option<ControlFactory> {
+        self.0.controls.borrow().get(name).cloned()
+    }
+
+    /// Shows this in a window over the screens, until it is closed.
+    pub fn present(
+        &self,
+        title: impl Into<String>,
+        content: impl Fn() -> ravenrs_widgets::AnyView + 'static,
+    ) {
+        self.0.presented.set(Some((title.into(), Rc::new(content))));
+    }
+
+    pub(crate) fn presented(&self) -> &State<Option<Presented>> {
+        &self.0.presented
+    }
+
+    /// Says what a field of a form is called when that depends on the record.
+    pub fn set_form_caption(&self, caption: FormCaption) {
+        *self.0.form_caption.borrow_mut() = Some(caption);
+    }
+
+    pub(crate) fn form_caption(&self) -> Option<FormCaption> {
+        self.0.form_caption.borrow().clone()
+    }
+
+    /// Keeps what is wrong with a field on the field alone, for a form short enough to see it.
+    pub(crate) fn set_lists_field_errors(&self, lists: bool) {
+        self.0.lists_field_errors.set(lists);
+    }
+
+    pub(crate) fn lists_field_errors(&self) -> bool {
+        self.0.lists_field_errors.get()
+    }
+
+    /// The record on the form as it stands, following its fields.
+    pub fn form_record(&self) -> Option<Object> {
+        self.form().map(|form| form.watched())
+    }
+
+    /// The ways to see this list, as their id and what people see.
+    pub(crate) fn variants(&self, view: &str) -> Vec<(String, String)> {
+        let model = self.model();
+        model.at(&["Views", view, "Variants"]).map_or_else(Vec::new, |variants| {
+            variants
+                .in_order()
+                .iter()
+                .map(|item| (item.id.clone(), item.text("Caption").unwrap_or(&item.id).to_owned()))
+                .collect()
+        })
+    }
+
+    /// What the way picked to see this list asks of its records. Without one picked, the first.
+    pub(crate) fn variant_filter(&self, view: &str) -> Option<String> {
+        let model = self.model();
+        let variants = model.at(&["Views", view, "Variants"])?;
+        let current = model.at(&["Views", view]).and_then(|node| node.text("CurrentVariant"));
+        let order = variants.in_order();
+        let picked = current.and_then(|id| order.iter().find(|item| item.id == id)).or(order.first())?;
+        picked.text("Filter").map(str::to_owned)
+    }
+
+    /// Picks a way to see this list, which stays in the person's own layer of the model.
+    pub(crate) fn choose_variant(&self, view: &str, variant: &str) -> Result<(), String> {
+        self.0
+            .application
+            .borrow_mut()
+            .set_user_setting(&["Views", view], "CurrentVariant", variant)
+            .map_err(|e| e.0)?;
+        self.touch();
+        Ok(())
+    }
+
+    /// What the person changed in the model, to keep between runs.
+    pub fn user_settings(&self) -> Option<String> {
+        let mut application = self.0.application.borrow_mut();
+        application.layers_mut().difference(&ravenrs_app::ModelLayer::User).map(|diff| diff.to_json())
+    }
+
+    /// Puts this record on the form, as it is, without looking in storage.
+    pub(crate) fn open_object(&self, entity: &EntityInfo, object: Object, is_new: bool) {
+        match self.detail_of(entity) {
+            Ok(view) => self.show(view),
+            Err(error) => return self.0.error.set(Some(error)),
+        }
+        self.0.form.set(Some(Rc::new(FormState::new(entity.clone(), object, is_new))));
+    }
+
+    /// Changes a field of the form.
+    pub(crate) fn set_form_value(&self, field: &str, value: Value) {
+        if let Some(state) = self.0.form.peek().as_ref().and_then(|form| form.fields.get(field).cloned()) {
+            state.set(value);
+        }
+    }
+
+    /// The record on the form, if it meets its rules. If not, the form says what is wrong.
+    pub(crate) fn check_form(&self) -> Option<(Object, bool)> {
+        let form = self.0.form.peek().clone()?;
+        let object = form.current();
+        if self.violations_of(&object, CONTEXT_SAVE).is_empty() {
+            self.0.checking.set(false);
+            Some((object, form.is_new))
+        } else {
+            self.0.checking.set(true);
+            None
+        }
     }
 
     /// The session an action is running in.
@@ -285,12 +491,22 @@ impl Session {
 
     /// A session with no window around it, for a piece of a screen.
     pub(crate) fn standalone(application: Application, new_space: SpaceFactory, words: Words) -> Self {
+        Self::with_editors(application, new_space, words, EditorRegistry::default())
+    }
+
+    /// The same, with controls of its own.
+    pub(crate) fn with_editors(
+        application: Application,
+        new_space: SpaceFactory,
+        words: Words,
+        editors: EditorRegistry,
+    ) -> Self {
         let today = Date::from_days(ravenrs_criteria::DateTime::now().days);
-        Self::new(application, new_space, words, EditorRegistry::default(), today)
+        Self::new(application, new_space, words, editors, today)
     }
 
     /// Tells lists to read again, after something changed the records from outside.
-    pub(crate) fn records_changed(&self) {
+    pub fn records_changed(&self) {
         self.touch();
     }
 
@@ -313,7 +529,7 @@ impl Session {
         self.0.revision.get()
     }
 
-    fn touch(&self) {
+    pub(crate) fn touch(&self) {
         self.0.revision.update(|r| *r += 1);
     }
 
@@ -652,8 +868,10 @@ impl Session {
             self.execute(action.id(), input);
             return;
         };
-        let (session, id, words) = (self.clone(), action.id().to_owned(), self.words().clone());
-        self.0.confirm.ask(question, words.delete_detail, action.caption().to_owned(), move || {
+        let (session, id) = (self.clone(), action.id().to_owned());
+        let detail = action.confirmation_detail().unwrap_or(&self.words().delete_detail).to_owned();
+        let answer = action.confirmation_answer().unwrap_or(action.caption()).to_owned();
+        self.0.confirm.ask(question, detail, answer, move || {
             session.execute(&id, input.clone());
         });
     }
