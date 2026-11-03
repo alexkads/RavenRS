@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-pub use http::{router, serve};
+pub use http::{ApiOptions, router, router_with, serve, serve_with};
 use ravenrs_app::{
     AuditSettings, AuditTrail, AuditedObjectSpace, AuthError, Authenticator, CONTEXT_DELETE, CONTEXT_SAVE,
     Credentials, Criteria, EntityInfo, FieldKind, Object, ObjectSpace, Operation, PasswordError, Query, Role,
@@ -25,7 +25,7 @@ use ravenrs_app::{
 };
 use serde_json::{Map, Value as Json, json};
 
-use crate::json::{apply, exposed, from_json, key_from_path, object_to_json, to_json};
+use crate::json::{apply, exposed, from_json, key_from_path, object_to_json};
 
 const DEFAULT_TOP: usize = 100;
 const MOST_TOP: usize = 1000;
@@ -118,11 +118,13 @@ pub struct Failure {
     code: &'static str,
     message: String,
     violations: Option<Json>,
+    /// Which operation of a batch it was.
+    operation: Option<usize>,
 }
 
 impl Failure {
     fn new(status: u16, code: &'static str, message: impl Into<String>) -> Self {
-        Self { status, code, message: message.into(), violations: None }
+        Self { status, code, message: message.into(), violations: None, operation: None }
     }
 
     /// What was asked does not fit.
@@ -148,6 +150,9 @@ impl Failure {
         let mut body = json!({ "error": self.code, "message": self.message });
         if let (Some(violations), Some(object)) = (self.violations, body.as_object_mut()) {
             object.insert("violations".to_owned(), violations);
+        }
+        if let (Some(operation), Some(object)) = (self.operation, body.as_object_mut()) {
+            object.insert("operation".to_owned(), json!(operation));
         }
         ApiResponse { status: self.status, body }
     }
@@ -857,7 +862,7 @@ impl ApiService {
                         return Err(Failure::bad_request(format!("{back} comes from the owner")));
                     }
                     let mut record = item.clone();
-                    record.insert(back.clone(), to_json(key));
+                    record.insert(back.clone(), ravenrs_app::value_to_json(key));
                     self.create(space, &child.name, &record, depth + 1)?;
                 }
             }
@@ -900,7 +905,7 @@ impl ApiService {
                 Ok(result) => results.push(result),
                 Err(mut failure) => {
                     space.rollback();
-                    failure.message = format!("Operation {index}: {}", failure.message);
+                    failure.operation = Some(index);
                     return Err(failure);
                 }
             }

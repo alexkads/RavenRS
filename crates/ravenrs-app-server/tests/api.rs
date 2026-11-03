@@ -463,7 +463,7 @@ fn a_batch_stays_or_goes_whole() {
         { "method": "POST", "entity": "Order", "body": {} },
     ] })));
     assert_eq!(broken.status, 422, "{broken:?}");
-    assert!(broken.body["message"].as_str().unwrap().contains("Operation 1"));
+    assert_eq!(broken.body["operation"], 1);
     assert_eq!(api.database.space().query("Order", &Query::all()).unwrap().len(), count, "nothing happened");
 
     // Someone who can do only part of it does none of it.
@@ -768,4 +768,36 @@ fn numbers_stay_exact_and_references_go_somewhere() {
         ApiRequest::new("POST", "/api/data/Item").bearer(&ana).json(&json!({ "name": "x", "order_id": 1 })),
     );
     assert_eq!(good.status, 201, "{good:?}");
+}
+
+#[test]
+fn only_the_origins_named_can_read_answers_from_a_browser() {
+    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
+    let listener = runtime.block_on(tokio::net::TcpListener::bind("127.0.0.1:0")).unwrap();
+    let address = listener.local_addr().unwrap();
+    let options = ravenrs_app_server::ApiOptions::new().allow_origin("https://bom.example");
+    runtime.spawn(ravenrs_app_server::serve_with(listener, options, || {
+        let database = database();
+        ApiService::new(maker(&database), roles()).map_err(|error| error.to_string())
+    }));
+    let url = format!("http://{address}/api/data/Order");
+    let agent = ureq::Agent::config_builder().http_status_as_error(false).build().new_agent();
+    let allowed = |origin: &str| {
+        let asked = ureq::Agent::config_builder()
+            .http_status_as_error(false)
+            .allow_non_standard_methods(true)
+            .build()
+            .new_agent()
+            .run(ureq::http::Request::options(&url).header("Origin", origin).body(()).unwrap())
+            .unwrap();
+        (asked.status().as_u16(), asked.headers().get("access-control-allow-origin").cloned())
+    };
+    let (status, header) = allowed("https://bom.example");
+    assert_eq!(status, 204);
+    assert_eq!(header.unwrap(), "https://bom.example");
+    assert_eq!(allowed("https://mau.example").1, None);
+    let plain = agent.get(&url).header("Origin", "https://mau.example").call().unwrap();
+    assert_eq!(plain.status(), 401);
+    assert!(plain.headers().get("access-control-allow-origin").is_none());
+    runtime.shutdown_background();
 }

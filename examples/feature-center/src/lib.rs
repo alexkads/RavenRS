@@ -184,6 +184,7 @@ pub fn api_service(file: Option<&std::path::Path>) -> Result<ravenrs_app_server:
     let service = ravenrs_app_server::ApiService::new(space.clone(), roles())
         .map_err(wrong)?
         .title("Raven Centro de Recursos")
+        .rule_words(ravenrs_app::RuleWords::pt_br())
         .audit(audit());
     let mut records = space();
     seed::seed(&mut *records)?;
@@ -203,8 +204,38 @@ pub fn sqlite_database(file: &std::path::Path) -> Result<ravenrs_app_sqlite::Sql
     Ok(builder.build())
 }
 
-/// The window: in a file on the desktop, set by `RAVEN_CENTRO`, and in memory in the browser.
+/// The center over a server, as `cargo run --bin api` gives: it signs in there, and every record
+/// comes from there. Nothing is permitted or refused here: the server does it.
+pub fn remote(address: &str) -> Result<AnyView, String> {
+    register_is_even();
+    let client = ravenrs_app_remote::RemoteClient::http(address);
+    let hidden: Vec<String> =
+        security_entities().into_iter().chain([audit_entity()]).map(|entity| entity.name).collect();
+    let view = ravenrs_app_remote::RemoteApp::view(
+        "Raven Centro de Recursos",
+        Language::BrazilianPortuguese,
+        client,
+        // Who can sign in and what was done stay on the server.
+        storage_entities()?.into_iter().filter(|entity| !hidden.contains(&entity.name)).collect(),
+        |database| {
+            let records = database.clone();
+            application().storage(move || records.space()).with_session(|session| {
+                session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
+            })
+        },
+    )
+    .map_err(|error| error.0)?;
+    Ok(Box::new(view))
+}
+
+/// The window: in a file on the desktop, set by `RAVEN_CENTRO`, and in memory in the browser. Built
+/// with `RAVEN_API_URL` it is a client of that server. It comes from the build, and never from the
+/// address of the page, so no link can make the page send a password somewhere else.
 pub fn app() -> AnyView {
+    if let Some(address) = option_env!("RAVEN_API_URL") {
+        return remote(address)
+            .unwrap_or_else(|why| Box::new(ravenrs_widgets::Alert::message(why)) as AnyView);
+    }
     #[cfg(not(target_arch = "wasm32"))]
     let made = {
         let file = std::env::var_os("RAVEN_CENTRO")

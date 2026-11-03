@@ -337,6 +337,11 @@ impl App {
         self
     }
 
+    /// Says who is signed in somewhere else, on a server, and how they leave.
+    pub fn signed_in_remotely(self, name: String, sign_out: impl Fn() + 'static) -> Self {
+        self.signed_in(name, sign_out)
+    }
+
     /// Runs this with its session, once it is put together, for what needs a session from outside.
     pub fn with_session(mut self, then: impl FnOnce(&crate::Session) + 'static) -> Self {
         self.steps.push(Box::new(then));

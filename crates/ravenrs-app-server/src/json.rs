@@ -1,6 +1,6 @@
 //! Records as JSON, by what the model says each field holds.
 
-use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Object, Value};
+use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Object, Value, value_to_json as to_json};
 use ravenrs_criteria::DateTime;
 use serde_json::{Map, Value as Json};
 
@@ -23,19 +23,6 @@ fn exact(number: &serde_json::Number) -> Option<f64> {
 /// Whether a field can be read or written over the API at all.
 pub(crate) fn exposed(field: &FieldInfo) -> bool {
     !field.secret && !matches!(field.kind, FieldKind::Collection(_))
-}
-
-/// A value as JSON.
-pub(crate) fn to_json(value: &Value) -> Json {
-    match value {
-        Value::Null => Json::Null,
-        Value::Bool(on) => Json::Bool(*on),
-        Value::Number(number) if number.fract() == 0.0 && number.abs() < 9e15 => Json::from(*number as i64),
-        Value::Number(number) => serde_json::Number::from_f64(*number).map_or(Json::Null, Json::Number),
-        Value::Text(text) => Json::String(text.clone()),
-        Value::Date(date) => Json::String(date.to_string()),
-        _ => Json::Null,
-    }
 }
 
 /// A record as JSON, with only what can leave.

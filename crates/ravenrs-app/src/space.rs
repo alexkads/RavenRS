@@ -697,6 +697,25 @@ impl MemoryDatabase {
         }
     }
 
+    /// Puts these in place of the records of an entity, with no rules or states to go through, for
+    /// a copy of what is kept somewhere else.
+    pub fn replace_records(&self, entity: &str, records: Vec<Object>) {
+        let Some(info) = self.entities.iter().find(|known| known.name == entity) else { return };
+        let mut tables = self.tables.borrow_mut();
+        let highest = records
+            .iter()
+            .filter_map(|record| match info.key_field().map(|field| record.get(&field.name)) {
+                Some(Value::Number(number)) => Some(number as i64),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0);
+        tables.next_key = tables.next_key.max(highest + 1);
+        let rows =
+            records.into_iter().filter_map(|record| key_of(info, &record).map(|key| (key, record))).collect();
+        tables.rows.insert(entity.to_owned(), rows);
+    }
+
     /// A new unit of work over these records.
     pub fn space(&self) -> MemoryObjectSpace {
         MemoryObjectSpace {
