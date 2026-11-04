@@ -16,6 +16,7 @@ use ravenrs_render::{GpuContext, RenderStats, Renderer, wgpu};
 use ravenrs_style::Theme;
 use ravenrs_widgets::{AnyView, Ui, UiStats};
 
+pub mod capacity;
 pub mod scenes;
 
 /// The window the scenes are measured in, in logical pixels.
@@ -169,6 +170,12 @@ impl Bench {
         Ok(Self { gpu, target, allocations })
     }
 
+    /// The GPU being measured.
+    pub fn adapter(&self) -> String {
+        let info = self.gpu.adapter.get_info();
+        format!("{} ({:?}), {}x{} target", info.name, info.backend, TARGET.0, TARGET.1)
+    }
+
     fn wait(&self) {
         let _ = self.gpu.device.poll(wgpu::PollType::wait_indefinitely());
     }
@@ -269,12 +276,19 @@ pub struct Visit {
 impl Bench {
     /// Puts `root` on screen for the first time, then runs each visit in turn, each
     /// until the screen stops asking for frames.
-    pub fn tour(&self, root: AnyView, visits: Vec<(String, Box<dyn FnOnce()>)>) -> Vec<Visit> {
+    pub fn tour(
+        &self,
+        root: AnyView,
+        prepare: impl FnOnce(&mut Ui),
+        visits: Vec<(String, Box<dyn FnOnce()>)>,
+    ) -> Vec<Visit> {
         let mut renderer = Renderer::new(&self.gpu.device, &self.gpu.queue, FORMAT);
         let mut ui = Ui::new(root, Theme::raven_light());
         ui.set_viewport(VIEWPORT, SCALE);
         let mut now = 0.0;
         let mut out = vec![self.settle("first frame", &mut ui, &mut renderer, &mut now)];
+        prepare(&mut ui);
+        out.push(self.settle("signed in", &mut ui, &mut renderer, &mut now));
         for (name, visit) in visits {
             visit();
             out.push(self.settle(&name, &mut ui, &mut renderer, &mut now));

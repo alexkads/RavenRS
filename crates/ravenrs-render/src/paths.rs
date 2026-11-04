@@ -76,6 +76,9 @@ impl Instances {
     }
 }
 
+/// Where a shape goes in the atlas, and its clip if it has one.
+type Places = ((u32, u32), Option<(u32, u32)>);
+
 /// Where shapes go in the atlas this frame: shelves, filled from the top.
 #[derive(Default)]
 struct Shelves {
@@ -129,6 +132,9 @@ pub(crate) struct PathEngine {
     edges: Vec<EdgeInstance>,
     shapes: Vec<ShapeInstance>,
     shelves: Shelves,
+    /// Where each full page of the atlas ended in `edges`. When the atlas fills up, the same
+    /// texture is drawn again for the shapes after it, so a frame can have any number of them.
+    page_ends: Vec<u32>,
     ramp_rows: HashMap<Vec<u8>, u32>,
     ramp_pixels: Vec<(u32, Vec<u8>)>,
     images: wgpu::Texture,
@@ -329,6 +335,7 @@ impl PathEngine {
             edges: Vec::new(),
             shapes: Vec::new(),
             shelves: Shelves { size: INITIAL_ATLAS, ..Shelves::default() },
+            page_ends: Vec::new(),
             ramp_rows: HashMap::new(),
             ramp_pixels: Vec::new(),
             images,
@@ -346,6 +353,36 @@ impl PathEngine {
         self.shapes.clear();
         let size = self.shelves.size.max(INITIAL_ATLAS);
         self.shelves = Shelves { size, ..Shelves::default() };
+        self.page_ends.clear();
+    }
+
+    /// The page of the atlas shapes are going to now.
+    pub(crate) fn page(&self) -> u32 {
+        self.page_ends.len() as u32
+    }
+
+    /// Pages drawn this frame.
+    pub(crate) fn pages(&self) -> usize {
+        if self.edges.is_empty() { 0 } else { self.page_ends.len() + 1 }
+    }
+
+    /// Places for a shape and, if it has one, its clip, which have to be on the same page.
+    /// `None` only for what could not fit even in an empty atlas.
+    fn reserve(&mut self, width: u32, height: u32, clipped: bool, limit: u32) -> Option<Places> {
+        for _ in 0..2 {
+            if let Some(shape) = self.shelves.place(width, height, limit) {
+                if !clipped {
+                    return Some((shape, None));
+                }
+                if let Some(clip) = self.shelves.place(width, height, limit) {
+                    return Some((shape, Some(clip)));
+                }
+            }
+            // Full: what is here gets drawn, and the next page starts empty.
+            self.page_ends.push(self.edges.len() as u32);
+            self.shelves = Shelves { size: self.shelves.size, ..Shelves::default() };
+        }
+        None
     }
 
     pub(crate) fn shapes(&self) -> usize {
@@ -377,28 +414,24 @@ impl PathEngine {
             return;
         }
         let (width, height) = ((right - left) as u32, (bottom - top) as u32);
-        let Some((ax, ay)) = self.shelves.place(width, height, limit) else {
-            tracing::warn!(width, height, "a shape does not fit in the coverage atlas");
+        let Some(((ax, ay), clip_place)) = self.reserve(width, height, path.clip.is_some(), limit) else {
+            tracing::warn!(width, height, "a shape is larger than the coverage atlas can be");
             return;
         };
         let (shift_x, shift_y) = (ax as f32 - left, ay as f32 - top);
         let region = [ax as f32, ay as f32, (ax + width) as f32, (ay + height) as f32];
         add_edges(&self.points, &contours, (shift_x, shift_y), region, &mut self.edges);
-        let clip = match &path.clip {
-            None => [-1.0; 4],
-            Some(clip) => {
+        let clip = match (&path.clip, clip_place) {
+            (Some(clip), Some((cx, cy))) => {
                 let mut points = Vec::new();
                 let contours = collect_contours(&clip.elements, &device, &mut points);
-                let Some((cx, cy)) = self.shelves.place(width, height, limit) else {
-                    tracing::warn!(width, height, "a clip does not fit in the coverage atlas");
-                    return;
-                };
                 let shift = (cx as f32 - left, cy as f32 - top);
                 let region = [cx as f32, cy as f32, (cx + width) as f32, (cy + height) as f32];
                 add_edges(&points, &contours, shift, region, &mut self.edges);
                 let even_odd = if clip.rule == FillRule::EvenOdd { 1.0 } else { 0.0 };
                 [cx as f32, cy as f32, even_odd, if clip.inverted { 1.0 } else { 0.0 }]
             }
+            _ => [-1.0; 4],
         };
         let opacity = path.opacity.clamp(0.0, 1.0);
         let at = |p: Point| {
@@ -507,13 +540,8 @@ impl PathEngine {
     }
 
     /// Uploads this frame's shapes and adds up their coverage.
-    pub(crate) fn draw_coverage(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        timestamp_writes: Option<wgpu::RenderPassTimestampWrites<'_>>,
-    ) {
+    /// Uploads what the frame's shapes need, before any page is drawn.
+    pub(crate) fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         if self.shapes.is_empty() {
             return;
         }
@@ -602,6 +630,21 @@ impl PathEngine {
         );
         self.edge_buffer.upload(device, queue, bytemuck::cast_slice(&self.edges));
         self.shape_buffer.upload(device, queue, bytemuck::cast_slice(&self.shapes));
+    }
+
+    /// Draws one page of the atlas, erasing the one before it.
+    pub(crate) fn draw_page(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        page: u32,
+        timestamp_writes: Option<wgpu::RenderPassTimestampWrites<'_>>,
+    ) {
+        if self.shapes.is_empty() {
+            return;
+        }
+        let page = page as usize;
+        let start = if page == 0 { 0 } else { self.page_ends[page - 1] };
+        let end = self.page_ends.get(page).copied().unwrap_or(self.edges.len() as u32);
         let Some((view, _)) = &self.coverage else { return };
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("raven path coverage"),
@@ -622,7 +665,7 @@ impl PathEngine {
         pass.set_pipeline(&self.edge_pipeline);
         pass.set_bind_group(0, &self.target_group, &[]);
         pass.set_vertex_buffer(0, self.edge_buffer.buffer.slice(..));
-        pass.draw(0..4, 0..self.edges.len() as u32);
+        pass.draw(0..4, start..end);
     }
 
     /// Readies the main pass to paint shapes.

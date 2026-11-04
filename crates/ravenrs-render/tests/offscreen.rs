@@ -466,3 +466,29 @@ fn an_image_seen_through_a_path_goes_where_it_is_placed() {
     let blend = at(40, 20);
     assert!(blend[0] > 0 && blend[0] < 255 && blend[1] == 0, "edges fade, and never toward green: {blend:?}");
 }
+
+#[test]
+fn more_shapes_than_the_coverage_atlas_holds_are_all_drawn_in_order() {
+    let Some(gpu) = gpu() else { return };
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    let (white, red) = (Color::rgba(1.0, 1.0, 1.0, 1.0), Color::rgba(1.0, 0.0, 0.0, 1.0));
+    let blue = Color::rgba(0.0, 0.0, 1.0, 1.0);
+    let window = box_path(0.0, 0.0, W as f32, H as f32);
+    let mut scene = Scene::new();
+    scene.set_clear_color(Color::rgba(0.0, 0.0, 0.0, 1.0));
+    // At 4x, 800x400 pixels each: about 209 fit in an atlas of 8192.
+    for _ in 0..300 {
+        scene.push_path(PathFill::solid(window.clone(), white));
+    }
+    // What comes between shapes keeps its place, even with an atlas filled twice around it.
+    scene.push_quad(Quad::new(Rect::new(0.0, 0.0, 100.0, 100.0), blue));
+    for _ in 0..300 {
+        scene.push_path(PathFill::solid(box_path(0.0, 0.0, W as f32, 50.0), white));
+    }
+    scene.push_path(PathFill::solid(box_path(0.0, 0.0, 50.0, 50.0), red));
+    let img = render(&gpu, &mut renderer, &scene, 4.0);
+    assert_eq!(pixel(&img, 40, 40), [255, 0, 0, 255], "the last shape of all is on top");
+    assert_eq!(pixel(&img, 40, 300), [0, 0, 255, 255], "the quad, over the first shapes");
+    assert_eq!(pixel(&img, 600, 300), [255, 255, 255, 255], "the first shapes, past the quad");
+    assert_eq!(pixel(&img, 300, 40), [255, 255, 255, 255], "the second shapes, over the quad");
+}

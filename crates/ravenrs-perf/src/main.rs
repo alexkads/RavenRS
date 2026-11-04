@@ -8,7 +8,9 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use ravenrs_perf::{Bench, COUNTED_ROUNDS, Counters, FrameTime, Outcome, PerfScene, REPORTED_ONLY, scenes};
+use ravenrs_perf::{
+    Bench, COUNTED_ROUNDS, Counters, FrameTime, Outcome, PerfScene, REPORTED_ONLY, capacity, scenes,
+};
 use stats_alloc::{INSTRUMENTED_SYSTEM, StatsAlloc};
 
 #[global_allocator]
@@ -37,11 +39,14 @@ fn run(bench: &Bench, filter: Option<&str>) -> Vec<Outcome> {
     outcomes
 }
 
-fn compared(counters: &Counters) -> BTreeMap<String, u64> {
+/// What a run is held to. Allocations of a whole application depend on its data, on its
+/// release notes and on the clock, so there they are only reported; everything else is exact.
+fn compared(name: &str, counters: &Counters) -> BTreeMap<String, u64> {
     counters
         .iter()
-        .filter(|(name, _)| !REPORTED_ONLY.contains(name))
-        .map(|(name, value)| ((*name).to_owned(), *value))
+        .filter(|(counter, _)| !REPORTED_ONLY.contains(counter))
+        .filter(|(counter, _)| !(name.starts_with("app-") && **counter == "ui_allocations"))
+        .map(|(counter, value)| ((*counter).to_owned(), *value))
         .collect()
 }
 
@@ -49,8 +54,8 @@ fn compared(counters: &Counters) -> BTreeMap<String, u64> {
 fn not_repeatable(first: &[Outcome], second: &[Outcome]) -> Vec<String> {
     let mut problems = Vec::new();
     for (a, b) in first.iter().zip(second) {
-        for (counter, value) in compared(&a.counters) {
-            let other = compared(&b.counters).get(&counter).copied().unwrap_or(0);
+        for (counter, value) in compared(&a.name, &a.counters) {
+            let other = compared(&b.name, &b.counters).get(&counter).copied().unwrap_or(0);
             if other != value {
                 problems.push(format!("{}: {counter} is not repeatable: {value} then {other}", a.name));
             }
@@ -112,7 +117,7 @@ fn gate(bench: &Bench, bless: bool) -> Result<(), String> {
     let second = run(bench, None);
     let mut problems = not_repeatable(&first, &second);
     problems.extend(over_ceilings(&first));
-    let current: Table = first.iter().map(|o| (o.name.clone(), compared(&o.counters))).collect();
+    let current: Table = first.iter().map(|o| (o.name.clone(), compared(&o.name, &o.counters))).collect();
     if bless {
         if !problems.is_empty() {
             return Err(problems.join("\n"));
@@ -213,6 +218,44 @@ fn time(bench: &Bench, filter: Option<&str>) {
     println!("{}", serde_json::Value::Object(out));
 }
 
+/// How much of each kind of work fits in a frame, on this machine.
+fn capacity(bench: &Bench, verbose: bool) {
+    println!("{}", bench.adapter());
+    println!(
+        "{:<14} {:<14} {:>12} {:>12} {:>10} {:>10} {:>8}",
+        "work", "counting", "fits 120 Hz", "fits 60 Hz", "cpu share", "ms each k", "draws/k"
+    );
+    for load in &capacity::LOADS {
+        let curve = bench.capacity(load);
+        let show = |fit: Option<usize>| fit.map_or_else(|| "all".to_owned(), |n| n.to_string());
+        let Some(last) = curve.last() else { continue };
+        println!(
+            "{:<14} {:<14} {:>12} {:>12} {:>9.0}% {:>10.3} {:>8.0}",
+            load.name,
+            load.unit,
+            show(capacity::fits(&curve, capacity::BUDGET_120)),
+            show(capacity::fits(&curve, capacity::BUDGET_60)),
+            last.cpu / last.total * 100.0,
+            last.total * 1000.0 / last.amount as f64 * 1000.0,
+            last.draw_calls as f64 * 1000.0 / last.amount as f64,
+        );
+        if let Some(drawn) = capacity::drops_from(&curve) {
+            println!("    leaves shapes out: only {drawn} of them fit in the coverage atlas");
+        }
+        if verbose {
+            for point in &curve {
+                println!(
+                    "    {:>9} {:>8.2} ms total {:>8.2} ms cpu {:>8} draws",
+                    point.amount,
+                    point.total * 1000.0,
+                    point.cpu * 1000.0,
+                    point.draw_calls
+                );
+            }
+        }
+    }
+}
+
 /// Compares two runs of `time`, so a change shows what it did to each scene.
 fn diff(before: &str, after: &str) -> Result<(), String> {
     let read = |path: &str| -> Result<serde_json::Value, String> {
@@ -233,6 +276,19 @@ fn diff(before: &str, after: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn show_visits(title: &str, visits: Vec<ravenrs_perf::Visit>) {
+    println!("{title:<34} {:>10} {:>7} {:>10}", "worst ms", "frames", "rasterized");
+    for visit in visits {
+        println!(
+            "{:<34} {:>10.2} {:>7} {:>10}",
+            visit.name,
+            visit.worst.as_secs_f64() * 1000.0,
+            visit.frames,
+            visit.rasterized
+        );
+    }
+}
+
 /// The first time each screen opens, and the second: where a person sees stutter.
 fn cold(bench: &Bench) {
     let (root, page) = scenes::apps::finance_tour();
@@ -243,16 +299,24 @@ fn cold(bench: &Bench) {
             visits.push((format!("page {number}, {round} time"), Box::new(move || page.set(number))));
         }
     }
-    println!("{:<24} {:>10} {:>7} {:>10}", "finance app", "worst ms", "frames", "rasterized");
-    for visit in bench.tour(root, visits) {
-        println!(
-            "{:<24} {:>10.2} {:>7} {:>10}",
-            visit.name,
-            visit.worst.as_secs_f64() * 1000.0,
-            visit.frames,
-            visit.rasterized
-        );
+    show_visits("finance app", bench.tour(root, |_| {}, visits));
+
+    let (root, session) = scenes::apps::feature_center();
+    let mut visits: Vec<(String, Box<dyn FnOnce()>)> = Vec::new();
+    for round in ["first", "second"] {
+        for list in scenes::apps::CENTER_LISTS {
+            let session = session.clone();
+            visits.push((
+                format!("{list}, {round} time"),
+                Box::new(move || {
+                    if let Some(session) = session.borrow().as_ref() {
+                        session.open_view(&format!("{list}_ListView"));
+                    }
+                }),
+            ));
+        }
     }
+    show_visits("feature center", bench.tour(root, scenes::apps::sign_in, visits));
 }
 
 fn main() -> ExitCode {
@@ -286,11 +350,15 @@ fn main() -> ExitCode {
             time(&bench, filter);
             Ok(())
         }
+        Some("capacity") => {
+            capacity(&bench, flag("--curve"));
+            Ok(())
+        }
         Some("cold") => {
             cold(&bench);
             Ok(())
         }
-        _ => Err("use: ravenrs-perf gate [--bless] | report [filter] | time [filter] | cold | diff before.json after.json".to_owned()),
+        _ => Err("use: ravenrs-perf gate [--bless] | report [filter] | time [filter] | cold | capacity [--curve] | diff before.json after.json".to_owned()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

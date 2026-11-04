@@ -17,6 +17,7 @@ Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree.
 | Quero saber onde o tempo vai | Relatório e tempos |
 | "Está travando ao abrir" | Frames frios |
 | Quero ver numa tela real | Painel de diagnóstico |
+| Mexi no renderer, ou a pergunta é sobre a GPU | Capacidade |
 | Antes de publicar | Gate, tempos, frames frios e o teste funcional no Linux |
 | Mudei o próprio gate | Regressões plantadas |
 
@@ -113,6 +114,14 @@ Liga a VM `ravenrs-linux`, copia este checkout, compila, abre o app, confirma qu
 Para recriar a VM do zero, rode `create`. Se o último passo do instalador do VirtualBox falhar com uma tela vermelha, envie Enter com `VBoxManage controlvm ravenrs-linux keyboardputscancode 1c 9c`, espere o login e rode `provision`. A senha é só dessa VM e fica em `~/VirtualBox VMs/ravenrs-linux.password`.
 
 Windows continua só nas máquinas do Alex.
+
+## 9. Capacidade da GPU
+
+```bash
+cargo run --release -p ravenrs-perf -- capacity
+```
+
+Aumenta cada tipo de trabalho até o frame não caber, contando até a GPU terminar, e diz quantos cabem a 120 e a 60 Hz. Com `--curve`, mostra cada tamanho medido. Serve para saber onde o renderer vira gargalo, e é o comando a rodar em outras máquinas, porque imprime a GPU usada. Na tomada, sem nada mais rodando. Se aparecer "leaves shapes out", formas estão sendo descartadas: é defeito, não lentidão.
 
 ## Componente novo
 

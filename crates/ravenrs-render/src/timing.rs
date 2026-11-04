@@ -4,7 +4,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::Duration;
 
-/// Main pass start and end, then coverage pass start and end.
+/// Main pass start and end, then coverage pass start and end. A frame with more than one
+/// page of shapes has more passes, and only the first of each kind is timed.
 const QUERIES: u32 = 4;
 const QUERIES_SIZE: u64 = QUERIES as u64 * 8;
 /// Answers in flight. When all are taken, frames go unmeasured rather than wait.

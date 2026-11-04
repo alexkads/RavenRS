@@ -51,8 +51,8 @@ enum BatchKind {
     Glyphs,
     /// Images of one texture, identified by image id.
     Image(u64),
-    /// Shapes made of curves.
-    Paths,
+    /// Shapes made of curves, on this page of the coverage atlas.
+    Paths(u32),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -485,62 +485,29 @@ impl Renderer {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("raven frame") });
-        let main_timing = self.timer.as_ref().map(GpuTimer::main_pass);
+        // A page of shapes has to be drawn before the shapes that read it, and the main pass
+        // cannot stop for that, so a page after the first splits it in two.
+        self.paths.prepare(&self.device, &self.queue);
         let coverage_timing = self.timer.as_ref().map(GpuTimer::coverage_pass);
-        self.paths.draw_coverage(&self.device, &self.queue, &mut encoder, coverage_timing);
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("raven main pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: target,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: f64::from(clear[0]),
-                            g: f64::from(clear[1]),
-                            b: f64::from(clear[2]),
-                            a: f64::from(clear[3]),
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: main_timing,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-            pass.set_bind_group(0, &self.globals_bind_group, &[]);
-            let mut current = None;
-            let mut scissor = [0, 0, size.0, size.1];
-            for batch in &self.batches {
-                if batch.scissor != scissor {
-                    scissor = batch.scissor;
-                    pass.set_scissor_rect(scissor[0], scissor[1], scissor[2], scissor[3]);
-                }
-                if current != Some(batch.kind) {
-                    match batch.kind {
-                        BatchKind::Quads => {
-                            pass.set_pipeline(&self.quad_pipeline);
-                            pass.set_vertex_buffer(0, self.quad_buffer.buffer.slice(..));
-                        }
-                        BatchKind::Glyphs => {
-                            pass.set_pipeline(&self.glyph_pipeline);
-                            pass.set_bind_group(1, &self.atlas_bind_group, &[]);
-                            pass.set_vertex_buffer(0, self.glyph_buffer.buffer.slice(..));
-                        }
-                        BatchKind::Image(id) => {
-                            let Some(image) = self.image_cache.get(id) else { continue };
-                            pass.set_pipeline(&self.image_pipeline);
-                            pass.set_bind_group(1, &image.bind_group, &[]);
-                            pass.set_vertex_buffer(0, self.image_buffer.buffer.slice(..));
-                        }
-                        BatchKind::Paths => self.paths.bind(&mut pass),
-                    }
-                    current = Some(batch.kind);
-                }
-                pass.draw(0..4, batch.start..batch.end);
-            }
+        self.paths.draw_page(&mut encoder, 0, coverage_timing);
+        let mut load = wgpu::LoadOp::Clear(wgpu::Color {
+            r: f64::from(clear[0]),
+            g: f64::from(clear[1]),
+            b: f64::from(clear[2]),
+            a: f64::from(clear[3]),
+        });
+        let (mut from, mut page) = (0, 0);
+        loop {
+            let next = self.batches[from..]
+                .iter()
+                .position(|batch| matches!(batch.kind, BatchKind::Paths(p) if p > page))
+                .map_or(self.batches.len(), |at| from + at);
+            let timing = if from == 0 { self.timer.as_ref().map(GpuTimer::main_pass) } else { None };
+            self.draw_main_pass(&mut encoder, target, size, load, from..next, timing);
+            let Some(BatchKind::Paths(after)) = self.batches.get(next).map(|batch| batch.kind) else { break };
+            self.paths.draw_page(&mut encoder, after, None);
+            load = wgpu::LoadOp::Load;
+            (from, page) = (next, after);
         }
         let gpu_time = self.timer.as_mut().and_then(|timer| timer.finish_frame(&mut encoder));
         self.queue.submit(Some(encoder.finish()));
@@ -551,7 +518,7 @@ impl Renderer {
         RenderStats {
             quads: self.quads.len(),
             glyphs: self.glyphs.len(),
-            draw_calls: self.batches.len() + usize::from(self.paths.edges() > 0),
+            draw_calls: self.batches.len() + self.paths.pages(),
             atlas_glyphs: self.atlas.len(),
             images: self.image_instances.len(),
             cached_images: self.image_cache.len(),
@@ -569,6 +536,62 @@ impl Renderer {
             atlas_used: (self.atlas.used() * 1000.0) as u32,
             atlas_size: self.atlas.size,
             gpu_time,
+        }
+    }
+
+    /// Draws these batches on `target`.
+    fn draw_main_pass(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        size: (u32, u32),
+        load: wgpu::LoadOp<wgpu::Color>,
+        batches: std::ops::Range<usize>,
+        timestamp_writes: Option<wgpu::RenderPassTimestampWrites<'_>>,
+    ) {
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("raven main pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: target,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations { load, store: wgpu::StoreOp::Store },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        pass.set_bind_group(0, &self.globals_bind_group, &[]);
+        let mut current = None;
+        let mut scissor = [0, 0, size.0, size.1];
+        for batch in &self.batches[batches] {
+            if batch.scissor != scissor {
+                scissor = batch.scissor;
+                pass.set_scissor_rect(scissor[0], scissor[1], scissor[2], scissor[3]);
+            }
+            if current != Some(batch.kind) {
+                match batch.kind {
+                    BatchKind::Quads => {
+                        pass.set_pipeline(&self.quad_pipeline);
+                        pass.set_vertex_buffer(0, self.quad_buffer.buffer.slice(..));
+                    }
+                    BatchKind::Glyphs => {
+                        pass.set_pipeline(&self.glyph_pipeline);
+                        pass.set_bind_group(1, &self.atlas_bind_group, &[]);
+                        pass.set_vertex_buffer(0, self.glyph_buffer.buffer.slice(..));
+                    }
+                    BatchKind::Image(id) => {
+                        let Some(image) = self.image_cache.get(id) else { continue };
+                        pass.set_pipeline(&self.image_pipeline);
+                        pass.set_bind_group(1, &image.bind_group, &[]);
+                        pass.set_vertex_buffer(0, self.image_buffer.buffer.slice(..));
+                    }
+                    BatchKind::Paths(_) => self.paths.bind(&mut pass),
+                }
+                current = Some(batch.kind);
+            }
+            pass.draw(0..4, batch.start..batch.end);
         }
     }
 
@@ -640,7 +663,7 @@ impl Renderer {
                     let scissor = self.current_scissor();
                     let limit = self.device.limits().max_texture_dimension_2d.min(8192);
                     self.paths.push(path, scale, scissor, limit);
-                    self.extend_batch(BatchKind::Paths, start, self.paths.shapes() as u32);
+                    self.extend_batch(BatchKind::Paths(self.paths.page()), start, self.paths.shapes() as u32);
                 }
                 Primitive::Quad(quad) => {
                     let start = self.quads.len() as u32;

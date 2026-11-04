@@ -4,6 +4,16 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Fixed
+- Shapes of curves past what the coverage atlas holds in a frame are no longer left out. Only about 25 shapes the size of a 2560x1600 window fit before; now the main pass splits to draw more, in scene order.
+
+### Added
+- `examples/calculator`, a small screen for comparing performance between versions, measured by the gate.
+- `ravenrs-perf capacity`: how much of each kind of work fits in a frame on this machine. `ravenrs-perf` also measures the Feature Center.
+
+### Changed
+- The finance example reads its history of versions only while the dialog showing it is open.
+
 ## [27.1.11] - 2026-11-04
 
 ### Breaking

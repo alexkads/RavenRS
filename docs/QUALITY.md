@@ -45,7 +45,7 @@ Release checks, run by hand before each publish:
 
 Optimizing guarantees nothing; a gate that fails on regressions does. There are two instruments, and [the skill](../.claude/skills/ravenrs-desempenho/SKILL.md) is the runbook for both.
 
-**The gate** counts the work of each scene with a real runtime and a real renderer, offscreen: builds, layouts, placements, paints, shaping, allocations in the UI, draw calls and why they split, instances, bytes uploaded, glyphs rasterized, atlas resets. These numbers are exact, so any difference from `perf/baseline.json` fails, improvements included: they have to be accepted with `gate --bless`, which shows up in the diff. Each run repeats itself and fails if the two passes disagree, and it fails without a GPU. Ceilings in the scene registration keep repeated blessing from eroding the budget. Outside macOS, only ceilings bind. `scripts/perf-plant.py` proves it works by planting regressions.
+**The gate** counts the work of each scene with a real runtime and a real renderer, offscreen: builds, layouts, placements, paints, shaping, allocations in the UI, draw calls and why they split, instances, bytes uploaded, glyphs rasterized, atlas resets. These numbers are exact, so any difference from `perf/baseline.json` fails, improvements included: they have to be accepted with `gate --bless`, which shows up in the diff. Each run repeats itself and fails if the two passes disagree, and it fails without a GPU. On the screens of real applications (`app-*`), allocations are only reported, since they depend on the app's data and the clock. Ceilings in the scene registration keep repeated blessing from eroding the budget. Outside macOS, only ceilings bind. `scripts/perf-plant.py` proves it works by planting regressions.
 
 **Frame time** is measured apart, before each release, with `scripts/perf-time.sh`: the best p99 of three processes, because noise on a laptop almost only adds time. On battery the result is invalid. `ravenrs-perf cold` measures what warm numbers hide, the first time a screen opens.
 
@@ -86,6 +86,26 @@ Where things stand:
 - **Over budget: resizing a window with charts.** 19.7 ms on the finance dashboard, because each new size draws them again on the CPU.
 - **Not measured:** the delay from input to the screen in a real window, the system compositor, and other machines.
 - **Not done:** the gate does not yet fail a public component missing from every scene's `covers`.
+
+### How much the renderer can draw
+
+`ravenrs-perf capacity` grows each kind of work until a frame stops fitting, counting until the GPU finishes, at 2560x1600. On the reference machine:
+
+| Work | Fits at 120 Hz | Fits at 60 Hz | Limited by |
+|---|---|---|---|
+| Rounded quads | 30,000 | 60,000 | GPU |
+| Quads with a soft shadow | 4,600 | 9,300 | GPU, the area of the blur |
+| Text | 180,000 glyphs | 370,000 glyphs | CPU |
+| A quad and a line of 43 glyphs in turn | 1,700 | 3,600 | Both; draw calls about double the cost |
+| Quads each with its own clip | 18,000 | 38,000 | Both |
+| Small shapes of curves | 6,700 | 13,400 | Both |
+| Window-sized shapes of curves | 26 | 56 | GPU |
+| Different images | 13,700 | 27,600 | CPU |
+| Translucent layers over the whole window | 39 | 81 | GPU |
+
+The real screens measured use 500 to 1,400 instances, so the renderer has about 20 times the room they need. It is not what limits a screen; a rebuild is.
+
+Shapes of curves share a coverage atlas of at most 8192x8192. Past that, the main pass splits to draw another page, so nothing is left out, at the cost of a pass per page.
 
 ### Performance contract
 
