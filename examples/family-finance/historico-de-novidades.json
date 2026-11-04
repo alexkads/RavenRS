@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.1.28",
+    "data": "2026-11-04",
+    "titulo": "Menos trabalho a cada clique.",
+    "importante": false,
+    "novidades": [
+      "O programa parou de reler a lista de novidades a cada mudança na tela: agora só lê quando você abre essa janela.",
+      "Telas com muitos desenhos e animações grandes passam a aparecer completas."
+    ],
+    "por_que_atualizar": "Para o programa gastar menos o computador enquanto você usa."
+  },
+  {
     "versao": "0.1.27",
     "data": "2026-11-04",
     "titulo": "O programa ficou mais rápido.",

@@ -1,10 +1,10 @@
 {
-  "versao": "0.1.27",
-  "titulo": "O programa ficou mais rápido.",
+  "versao": "0.1.28",
+  "titulo": "Menos trabalho a cada clique.",
   "importante": false,
   "novidades": [
-    "O Painel abre na hora quando você volta a ele, sem aquela pequena travada ao redesenhar os gráficos.",
-    "As listas longas rolam com mais suavidade, e o programa gasta menos o computador enquanto você usa."
+    "O programa parou de reler a lista de novidades a cada mudança na tela: agora só lê quando você abre essa janela.",
+    "Telas com muitos desenhos e animações grandes passam a aparecer completas."
   ],
-  "por_que_atualizar": "Para o programa responder mais rápido ao abrir as telas e ao rolar as listas."
+  "por_que_atualizar": "Para o programa gastar menos o computador enquanto você usa."
 }
