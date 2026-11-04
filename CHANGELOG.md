@@ -4,6 +4,25 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.11] - 2026-11-04
+
+### Breaking
+- `FrameSample` has new fields, `work` and `render_work`, and `RenderStats` has new fields for draw call splits, bytes uploaded, the glyph atlas and GPU time. Building one field by field needs `..Default::default()`.
+
+### Added
+- The diagnostics panel shows a timeline of the latest frames, why the screen was rebuilt, the costliest types of view, draw call splits and GPU resources, and copies a capture that Perfetto opens. It now opens on the web too, with Ctrl/Cmd+Shift+D. [docs/PERFORMANCE.md](docs/PERFORMANCE.md) explains how to read it.
+- `Ui::stats`, `Ui::take_frame_work`, `Ui::set_phase_clock`, `Ui::phase_times`, `Ui::set_view_profiling`, `Ui::view_costs`, `TextSystem::stats` and `Renderer::set_gpu_timing`, which measure the work of a frame. They cost nothing until asked for.
+- `View::type_name`, the name a view's cost is shown under.
+- `ravenrs-perf`, not published: a gate of exact counters for every scene against `perf/baseline.json`, part of `scripts/check.sh`, plus frame times by phase.
+
+### Changed
+- What is outside its clip is not painted. A scrolling list of 1,000 cards went from 68,904 instances per frame to 482, and scrolling it from 5.7 ms to 0.66 ms on the CPU.
+- `TextSystem` keeps recent layouts, so a rebuild does not shape the same text again, and text cut to fit is not measured again on every paint.
+- The pointer moving over views that never asked about it no longer rebuilds the screen.
+- `Lottie` repeats only the painting while it plays, instead of rebuilding the screen. It now asks for frames at 60 Hz, like other animated drawing.
+- A chart that returns to the screen unchanged keeps its picture: opening the finance example's dashboard again went from 25.4 ms to 1.1 ms.
+- `RenderStats::draw_calls` now counts the draw call for the coverage of shapes.
+
 ## [27.1.10] - 2026-11-03
 
 ### Breaking
