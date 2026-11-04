@@ -11,7 +11,7 @@ authors.workspace = true
 readme = "README.md"
 documentation = "https://docs.rs/ravenrs-lottie"
 keywords = ["lottie", "animation", "vector", "gui", "wasm"]
-categories = ["gui", "multimedia::graphics"]
+categories = ["gui", "graphics"]
 
 [dependencies]
 image.workspace = true
