@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.1.25",
+    "data": "2026-11-03",
+    "titulo": "Janelas de formulário sem tremer, e o Dock traz o programa de volta.",
+    "importante": false,
+    "novidades": [
+      "As janelas de formulário, como Nova conta, abrem sem tremer e fecham de forma suave, em vez de sumir de repente.",
+      "No Mac, com o programa na bandeja, clicar no ícone dele no Dock abre a janela de novo."
+    ],
+    "por_que_atualizar": "Para abrir formulários com mais conforto e voltar ao programa pelo Dock."
+  },
+  {
     "versao": "0.1.24",
     "data": "2026-11-03",
     "titulo": "O menu lateral recolhe e abre bem mais rápido.",

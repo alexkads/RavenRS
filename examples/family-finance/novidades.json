@@ -1,10 +1,10 @@
 {
-  "versao": "0.1.24",
-  "titulo": "O menu lateral recolhe e abre bem mais rápido.",
+  "versao": "0.1.25",
+  "titulo": "Janelas de formulário sem tremer, e o Dock traz o programa de volta.",
   "importante": false,
   "novidades": [
-    "O menu lateral e os submenus agora recolhem e abrem em um quinto de segundo, em vez de mais de um segundo.",
-    "Os nomes do menu não se espremem mais durante o movimento, e os controles da tela não se soltam do lugar."
+    "As janelas de formulário, como Nova conta, abrem sem tremer e fecham de forma suave, em vez de sumir de repente.",
+    "No Mac, com o programa na bandeja, clicar no ícone dele no Dock abre a janela de novo."
   ],
-  "por_que_atualizar": "Para usar o menu sem esperar."
+  "por_que_atualizar": "Para abrir formulários com mais conforto e voltar ao programa pelo Dock."
 }
