@@ -15,11 +15,17 @@ use crate::db::Database;
 use crate::update::Updater;
 use crate::{backup, seed};
 
-/// How long the splash stays at least, in seconds, so that a fast computer shows
-/// a name to read and not a flash.
-const SHORTEST_SECONDS: f64 = 1.2;
-const LOGO_SIZE: f32 = 96.0;
-const LOGO_CORNER: f32 = 22.0;
+/// The logo's animation, made by `assets/gen-logo-animada.py`.
+const ANIMATED_LOGO: &[u8] = include_bytes!("../../assets/logo-animada.json");
+/// When the screens get built, in seconds: building them takes the UI thread for a
+/// moment, which must not fall in the middle of the logo's animation.
+const LOGO_PLAYED_SECONDS: f64 = 1.9;
+/// How long the splash stays at least, in seconds: the logo plays and then its last
+/// frame stays a moment, to be read.
+const SHORTEST_SECONDS: f64 = 2.2;
+/// When the name appears, as the logo's last gestures end.
+const NAME_SECONDS: f64 = 1.45;
+const LOGO_SIZE: f32 = 200.0;
 
 /// What the thread that opens the database has to say.
 enum Step {
@@ -35,10 +41,11 @@ pub struct Opening {
     updater: Updater,
     diagnostics: Diagnostics,
     errors: RecentErrors,
-    logo: Option<ImageData>,
+    logo: Option<LottieAnimation>,
     visible: State<bool>,
     status: Cell<&'static str>,
     began: Cell<Option<f64>>,
+    ready: Cell<bool>,
     steps: RefCell<Option<Receiver<Step>>>,
     app: OnceCell<Rc<App>>,
     failure: RefCell<Option<String>>,
@@ -67,10 +74,13 @@ impl Opening {
             updater,
             diagnostics,
             errors,
-            logo: crate::icon(),
+            logo: LottieAnimation::from_json(ANIMATED_LOGO)
+                .inspect_err(|e| tracing::warn!(error = %e, "could not read the animated logo"))
+                .ok(),
             visible: State::new(true),
             status: Cell::new("Abrindo seus dados"),
             began: Cell::new(None),
+            ready: Cell::new(false),
             steps: RefCell::new(None),
             app: OnceCell::new(),
             failure: RefCell::new(None),
@@ -103,7 +113,10 @@ impl Opening {
         let finished = loop {
             match receive.try_recv() {
                 Ok(Step::Status(status)) => self.status.set(status),
-                Ok(Step::Ready) => break Some(self.enter()),
+                Ok(Step::Ready) => {
+                    self.ready.set(true);
+                    break Some(Ok(()));
+                }
                 Ok(Step::Failed(reason)) => break Some(Err(reason)),
                 Err(TryRecvError::Empty) => break None,
                 Err(TryRecvError::Disconnected) => {
@@ -185,6 +198,16 @@ impl View for Opening {
             now
         });
         self.read_steps();
+        if self.ready.get() && self.app.get().is_none() {
+            if now - began >= LOGO_PLAYED_SECONDS {
+                if let Err(reason) = self.enter() {
+                    tracing::error!(error = %reason, path = %self.path.display(), "could not open the database");
+                    *self.failure.borrow_mut() = Some(reason);
+                }
+            } else {
+                cx.wake_at(began + LOGO_PLAYED_SECONDS);
+            }
+        }
 
         let failure = self.failure.borrow().clone();
         if failure.is_some() || (self.app.get().is_some() && now - began >= SHORTEST_SECONDS) {
@@ -198,7 +221,8 @@ impl View for Opening {
         splash = match &self.logo {
             // The name right below it says the same to a screen reader.
             Some(logo) => splash
-                .logo(Image::new(logo.clone()).size(LOGO_SIZE, LOGO_SIZE).corner_radius(LOGO_CORNER).alt("")),
+                .logo(Lottie::new(logo.clone()).size(LOGO_SIZE, LOGO_SIZE).looping(false))
+                .reveal_after(NAME_SECONDS),
             None => splash.icon(IconName::Wallet),
         };
         let view = FillColumn {

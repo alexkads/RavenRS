@@ -67,12 +67,19 @@ fn the_splash_comes_first_and_gives_way_to_the_app() {
     let mut ui = opening(&path);
     assert!(has_splash(&mut ui), "on screen from the first frame");
 
-    // The app is built under the splash, which still has its time on screen.
-    wait_for(&mut ui, "the last step", |ui| says(ui, "Preparando as telas"));
-    assert!(has_splash(&mut ui), "a fast computer shows a name to read, not a flash");
+    // The thread finishes, but nothing heavy happens while the logo plays.
+    wait_for(&mut ui, "the copy of the day", |ui| says(ui, "Guardando a cópia do dia"));
+    std::thread::sleep(Duration::from_millis(300));
+    ui.update();
+    assert!(!says(&mut ui, "Preparando as telas"), "the screens wait for the logo to play");
     assert!(path.exists(), "the thread created the database");
 
-    ui.set_time(1.3);
+    // The app is built under the splash, which still has its time on screen.
+    ui.set_time(2.0);
+    wait_for(&mut ui, "the last step", |ui| says(ui, "Preparando as telas"));
+    assert!(has_splash(&mut ui), "a fast computer shows a name to read, not a flash");
+
+    ui.set_time(2.3);
     ui.update();
     ui.set_time(3.0);
     ui.update();
@@ -80,6 +87,16 @@ fn the_splash_comes_first_and_gives_way_to_the_app() {
     assert!(!has_splash(&mut ui), "gone once its time is up");
     assert!(says(&mut ui, "Lançamentos"), "the app, under what covered it");
     assert!(ui.next_wake().is_none(), "an idle window stays asleep, got {:?}", ui.next_wake());
+}
+
+#[test]
+fn the_animated_logo_plays_whole_in_our_engine() {
+    let logo = LottieAnimation::from_json(include_bytes!("../assets/logo-animada.json")).expect("the logo");
+    assert_eq!(logo.unsupported(), Vec::<String>::new(), "nothing in it is left out");
+    assert!((logo.duration() - 1.9).abs() < 0.01, "as long as the splash expects: {}", logo.duration());
+    let solid = |paths: &[ravenrs::core::PathFill]| paths.iter().filter(|p| p.opacity > 0.99).count();
+    let (first, last) = (logo.paths_at(0.0, 1.0), logo.paths_at(logo.duration(), 1.0));
+    assert!(solid(&last) > solid(&first) + 3, "it ends on more than it starts from");
 }
 
 #[test]
