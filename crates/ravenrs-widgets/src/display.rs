@@ -59,12 +59,15 @@ pub struct Badge {
     text: String,
     tone: Tone,
     icon: Option<IconName>,
+    color: Option<Color>,
+    outline: bool,
+    height: Option<f32>,
 }
 
 impl Badge {
     /// A neutral badge with this text.
     pub fn new(text: impl Into<String>) -> Self {
-        Self { text: text.into(), tone: Tone::Neutral, icon: None }
+        Self { text: text.into(), tone: Tone::Neutral, icon: None, color: None, outline: false, height: None }
     }
 
     /// Sets the color tone.
@@ -79,6 +82,25 @@ impl Badge {
         self
     }
 
+    /// Uses this color instead of the tone's, for categories that have their own.
+    /// The text moves toward the ink, so that it stays readable on the tint.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    /// Only the outline, without the tinted fill.
+    pub fn outline(mut self) -> Self {
+        self.outline = true;
+        self
+    }
+
+    /// Fixes the height in logical pixels, to line up with what is beside it.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = Some(height);
+        self
+    }
+
     pub(crate) fn text(&self) -> &str {
         &self.text
     }
@@ -87,7 +109,7 @@ impl Badge {
 impl View for Badge {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let color = self.tone.color(&theme);
+        let color = self.color.unwrap_or_else(|| self.tone.color(&theme));
         // Toward the ink, so that small text on its own tint keeps 4.5:1 in every theme.
         let ink = color.lerp(theme.color(Semantic::Ink), BADGE_TEXT_TOWARD_INK);
         let mut children = Vec::new();
@@ -96,16 +118,19 @@ impl View for Badge {
         }
         children.push(util::label(cx, &self.text, TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
         let style = LayoutStyle {
-            padding: Insets::symmetric(3.0, 9.0),
+            padding: Insets::symmetric(if self.height.is_some() { 0.0 } else { 3.0 }, 9.0),
+            height: self.height,
             spacing: 4.0,
             align: Align::Center,
             align_self: Some(Align::Fit),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
+        let (fill, edge) =
+            if self.outline { (Color::TRANSPARENT, 0.6) } else { (color.with_alpha(0.14), 0.28) };
         let paint = QuadPaint {
-            fill: color.with_alpha(0.14).into(),
+            fill: fill.into(),
             corner_radius: 999.0,
-            border: Some(Border { width: 1.0, color: color.with_alpha(0.28) }),
+            border: Some(Border { width: 1.0, color: color.with_alpha(edge) }),
             shadow: None,
         };
         cx.container(style, &children, Paint::Quad(paint))
@@ -184,34 +209,46 @@ impl View for Avatar {
 
 /// A keyboard key, for shortcuts: `Kbd::new("⌘K")`.
 #[derive(Clone, Debug)]
-pub struct Kbd(String);
+pub struct Kbd {
+    keys: String,
+    inherit: bool,
+}
 
 impl Kbd {
     /// A key cap showing `keys`.
     pub fn new(keys: impl Into<String>) -> Self {
-        Self(keys.into())
+        Self { keys: keys.into(), inherit: false }
+    }
+
+    /// Takes its color from what it is in ([`BuildCx::with_foreground`]) and drops its own
+    /// fill, so that on a filled button the key reads as part of the button instead of a
+    /// gray box. [`Button::shortcut`] and [`Tooltip::shortcut`](crate::Tooltip::shortcut)
+    /// do this. With no color around it, it uses its usual one.
+    pub fn inherit_color(mut self) -> Self {
+        self.inherit = true;
+        self
     }
 }
 
 impl View for Kbd {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let text = util::label(
-            cx,
-            &self.0,
-            TextStyle::Caption,
-            Some(Weight::MEDIUM),
-            theme.color(Semantic::InkMuted),
-        );
+        let inherited = cx.foreground().filter(|_| self.inherit);
+        let ink = inherited.unwrap_or_else(|| theme.color(Semantic::InkMuted));
+        let text = util::label(cx, &self.keys, TextStyle::Caption, Some(Weight::MEDIUM), ink);
         let style = LayoutStyle {
             padding: Insets { top: 1.0, bottom: 2.0, left: 6.0, right: 6.0 },
             align_self: Some(Align::Center),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let paint = QuadPaint {
-            fill: theme.color(Semantic::Control).into(),
+            fill: if inherited.is_some() { Color::TRANSPARENT } else { theme.color(Semantic::Control) }
+                .into(),
             corner_radius: theme.radii.sm,
-            border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+            border: Some(Border {
+                width: 1.0,
+                color: inherited.map_or(theme.color(Semantic::Border), |c| c.with_alpha(c.a * 0.4)),
+            }),
             shadow: None,
         };
         cx.container(style, &[text], Paint::Quad(paint))
@@ -359,6 +396,7 @@ pub struct Alert<A = ()> {
     title: String,
     message: String,
     tone: Tone,
+    compact: bool,
     action: A,
 }
 
@@ -385,7 +423,7 @@ impl<A> std::fmt::Debug for Alert<A> {
 impl Alert {
     /// An accent-toned alert with a title and a message.
     pub fn new(title: impl Into<String>, message: impl Into<String>) -> Self {
-        Self { title: title.into(), message: message.into(), tone: Tone::Accent, action: () }
+        Self { title: title.into(), message: message.into(), tone: Tone::Accent, compact: false, action: () }
     }
 
     /// An alert that is only its message, for when a title would just repeat where it is.
@@ -400,6 +438,7 @@ impl Alert {
             title: self.title,
             message: self.message,
             tone: self.tone,
+            compact: self.compact,
             action: AlertAction { label: label.into(), on_click: Rc::new(on_click) },
         }
     }
@@ -412,7 +451,78 @@ impl<A> Alert<A> {
         self
     }
 
+    /// A thin strip in small text with a stripe at its edge, for a warning that sits
+    /// right next to what it is about, as in a side panel.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
+    }
+
+    /// The strip of [`Self::compact`]. The fill stays a tint: a solid color in a dark
+    /// panel would shout over the text it carries.
+    fn draw_compact(&self, cx: &mut BuildCx<'_>, action: Option<&AlertAction>) -> NodeId {
+        let theme = *cx.theme();
+        let color = self.tone.color(&theme);
+        let ink = color.lerp(theme.color(Semantic::Ink), BADGE_TEXT_TOWARD_INK);
+        let stripe = cx.container(
+            LayoutStyle { width: Some(2.0), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() },
+            &[],
+            Paint::Quad(QuadPaint::new(color)),
+        );
+        let icon = util::icon(cx, self.tone.icon(), 14.0, color);
+        let mut lines = Vec::with_capacity(2);
+        if !self.title.is_empty() {
+            lines.push(util::label(cx, &self.title, TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
+        }
+        lines.push(util::label(cx, &self.message, TextStyle::Caption, None, ink));
+        let text = cx.container(
+            LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::stack(Axis::Vertical) },
+            &lines,
+            Paint::None,
+        );
+        let mut items = vec![icon, text];
+        if let Some(action) = action {
+            let on_click = action.on_click.clone();
+            let button = Button::new(action.label.clone())
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Mini)
+                .on_click(move || on_click());
+            items.push(cx.child(&button));
+        }
+        let inner = cx.container(
+            LayoutStyle {
+                padding: Insets::symmetric(theme.spacing.s1, theme.spacing.s2),
+                spacing: theme.spacing.s2,
+                grow: 1.0,
+                min_width: Some(0.0),
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &items,
+            Paint::None,
+        );
+        let node = cx.container(
+            LayoutStyle {
+                align_self: Some(Align::Stretch),
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[stripe, inner],
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.sm,
+                ..QuadPaint::new(color.with_alpha(0.15))
+            }),
+        );
+        cx.clip(node);
+        let role = if self.tone == Tone::Danger { Role::Alert } else { Role::Status };
+        cx.semantics(node, Semantics::new(role));
+        node
+    }
+
     fn draw(&self, cx: &mut BuildCx<'_>, action: Option<&AlertAction>) -> NodeId {
+        if self.compact {
+            return self.draw_compact(cx, action);
+        }
         let theme = *cx.theme();
         let color = self.tone.color(&theme);
         let icon = util::icon(cx, self.tone.icon(), 18.0, color);

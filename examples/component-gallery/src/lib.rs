@@ -488,6 +488,19 @@ impl Gallery {
                 .spacing(6.0)
                 .wrap(),
             ),
+            demo(
+                "States",
+                "Loading holds the width and ignores clicks; selected stays lit; a shortcut takes the label's color.",
+                HStack::new((
+                    Button::new("Saving").loading(true),
+                    Button::new("Grid view").style(ButtonStyle::Secondary).selected(true),
+                    IconButton::new(IconName::Bold).label("Bold").selected(true),
+                    Button::new("Open").shortcut("F8"),
+                ))
+                .spacing(12.0)
+                .align(Align::Center)
+                .wrap(),
+            ),
         ))
         .spacing(24.0)
         .align(Align::Stretch)

@@ -126,6 +126,34 @@ pub(crate) fn control_colors(
     }
 }
 
+/// How a control that stays on looks, in any style.
+fn selected_colors(
+    theme: &Theme,
+    style: ButtonStyle,
+    hovered: bool,
+    disabled: bool,
+) -> (Color, Color, Border) {
+    let (ink, accent) = (theme.color(Semantic::Ink), theme.color(Semantic::Accent));
+    let (fill, label, border) = match style {
+        ButtonStyle::Primary => {
+            let on_accent = theme.color(Semantic::OnAccent);
+            (theme.color(Semantic::AccentPressed), on_accent, on_accent.with_alpha(0.6))
+        }
+        ButtonStyle::Danger => {
+            let fill = theme.color(Semantic::Danger).lerp(Color::BLACK, 0.18);
+            (fill, Color::WHITE, Color::WHITE.with_alpha(0.6))
+        }
+        // A tint that follows the theme, so the two neutral styles light up the same way.
+        _ => (accent.with_alpha(0.18), accent.lerp(ink, 0.3), accent.with_alpha(0.55)),
+    };
+    let fill = if hovered && !disabled { fill.lerp(ink, 0.06) } else { fill };
+    if disabled {
+        (util::faded(fill), util::faded(label), Border { width: 1.0, color: util::faded(border) })
+    } else {
+        (fill, label, Border { width: 1.0, color: border })
+    }
+}
+
 /// A clickable, focusable button. Activates on click, Enter or Space.
 ///
 /// ```
@@ -152,6 +180,9 @@ pub struct Button {
     disabled: bool,
     full_width: bool,
     accessible_name: Option<String>,
+    loading: bool,
+    selected: Option<bool>,
+    shortcut: Option<String>,
 }
 
 impl fmt::Debug for Button {
@@ -173,6 +204,9 @@ impl Button {
             disabled: false,
             full_width: false,
             accessible_name: None,
+            loading: false,
+            selected: None,
+            shortcut: None,
         }
     }
 
@@ -224,14 +258,45 @@ impl Button {
         self.full_width = true;
         self
     }
+
+    /// Shows an animated indicator over the content, which keeps its place so that the
+    /// button does not change width, and ignores clicks until it is done. It keeps
+    /// keyboard focus, and screen readers hear that it is loading and unavailable.
+    pub fn loading(mut self, loading: bool) -> Self {
+        self.loading = loading;
+        self
+    }
+
+    /// Lights the button up as being on, and announces it as a button that toggles.
+    /// What a click does is still up to [`Self::on_click`].
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.selected = Some(selected);
+        self
+    }
+
+    /// Shows a key cap after the label, in the label's color, such as `"F8"`. It only
+    /// shows the key: [`BuildCx::shortcut`] makes the key work.
+    pub fn shortcut(mut self, keys: impl Into<String>) -> Self {
+        self.shortcut = Some(keys.into());
+        self
+    }
 }
 
 impl View for Button {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let pressed = cx.is_pressed() && !self.disabled;
-        let (fill, label_color, border) =
-            control_colors(&theme, self.style, cx.is_hovered(), pressed, self.disabled);
+        let inert = self.disabled || self.loading;
+        let pressed = cx.is_pressed() && !inert;
+        let hovered = cx.is_hovered() && !inert;
+        let (fill, label_color, border) = if self.selected == Some(true) {
+            let (fill, label, border) = selected_colors(&theme, self.style, hovered, self.disabled);
+            (fill, label, Some(border))
+        } else {
+            control_colors(&theme, self.style, hovered, pressed, self.disabled)
+        };
+        // While loading, the content is still laid out, unseen, to hold the width.
+        let spinner_color = label_color;
+        let label_color = if self.loading { label_color.with_alpha(0.0) } else { label_color };
         let icon_size = match self.size {
             ButtonSize::Mini => 12.0,
             ButtonSize::Small => 14.0,
@@ -252,13 +317,34 @@ impl View for Button {
         if let Some(icon) = self.trailing_icon {
             children.push(util::icon(cx, icon, icon_size, label_color));
         }
+        if let Some(keys) = &self.shortcut {
+            let cap = crate::Kbd::new(keys.clone()).inherit_color();
+            let cap = cx.with_foreground(label_color, |cx| cx.child(&cap));
+            // Part of the description, not of the name.
+            cx.semantics(cap, Semantics::hidden());
+            children.push(cap);
+        }
         let height = self.size.height();
         let icon_only = self.label.is_empty();
+        let spacing = if self.size == ButtonSize::Mini { 4.0 } else { 8.0 };
+        if self.loading {
+            let content = cx.container(
+                LayoutStyle {
+                    spacing,
+                    align: Align::Center,
+                    justify: Justify::Center,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &children,
+                crate::extras::spinner_paint(icon_size, spinner_color),
+            );
+            children = vec![content];
+        }
         let style = LayoutStyle {
             padding: Insets::symmetric(0.0, if icon_only { 0.0 } else { self.size.padding_x() }),
             width: icon_only.then_some(height),
             height: Some(height),
-            spacing: if self.size == ButtonSize::Mini { 4.0 } else { 8.0 },
+            spacing,
             align: Align::Center,
             justify: Justify::Center,
             align_self: Some(if self.full_width { Align::Stretch } else { Align::Fit }),
@@ -269,7 +355,19 @@ impl View for Button {
         let node = cx.container(style, &children, paint);
         let squeeze = if pressed { Effect::scaled(0.97) } else { Effect::IDENTITY };
         cx.motion(node, Motion::new().paint(theme.motion.fast).effect(squeeze, theme.motion.snappy));
-        let mut semantics = Semantics::new(Role::Button).disabled(self.disabled);
+        let mut semantics = Semantics::new(Role::Button).disabled(inert);
+        if let Some(selected) = self.selected {
+            semantics = semantics.toggled(selected);
+        }
+        // The accessibility tree has no "busy" state: the word carries it.
+        let description = match (self.loading, &self.shortcut) {
+            (true, Some(keys)) => Some(format!("{}. {keys}", cx.labels().loading)),
+            (true, None) => Some(cx.labels().loading.clone()),
+            (false, keys) => keys.clone(),
+        };
+        if let Some(description) = description {
+            semantics = semantics.description(description);
+        }
         if let Some(name) = &self.accessible_name {
             semantics = semantics.name(name.clone());
         } else if let (true, Some(icon)) = (icon_only, self.icon) {
@@ -279,11 +377,13 @@ impl View for Button {
         }
         cx.semantics(node, semantics);
         if !self.disabled {
-            if let Some(handler) = &self.on_click {
+            if let (Some(handler), false) = (&self.on_click, self.loading) {
                 cx.on_click(node, handler.clone());
             }
             cx.focusable(node, radius);
-            cx.cursor(node, CursorIcon::Pointer);
+            if !self.loading {
+                cx.cursor(node, CursorIcon::Pointer);
+            }
         }
         node
     }
@@ -329,6 +429,12 @@ impl IconButton {
     /// Sets the size; the button stays square (`Medium`, 40 px, by default).
     pub fn size(mut self, size: ButtonSize) -> Self {
         self.button = self.button.size(size);
+        self
+    }
+
+    /// Lights the button up as being on, and announces it as a button that toggles.
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.button = self.button.selected(selected);
         self
     }
 }

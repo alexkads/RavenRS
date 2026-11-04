@@ -52,8 +52,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Button (variants, sizes, icons) | ✓ | ✓ | ✓ | ✅ `Button`, `IconButton` |
-| Toggle button | ✓ | | ✓ | ✅ `ToggleButton` |
+| Button (variants, sizes, icons) | ✓ | ✓ | ✓ | ✅ `Button`, `IconButton`: loading that holds the width, selected, key cap in the label's color |
+| Toggle button | ✓ | | ✓ | ✅ `ToggleButton`: count and pill shape |
 | Toggle group / Button group | ✓ | ✓ | ✓ | ✅ `ToggleGroup` |
 | Dropdown button | ✓ | ✓ | ✓ | ✅ `DropdownMenu` |
 | Split button | | ✓ | ✓ | ✅ `SplitButton` |
@@ -146,7 +146,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Tooltip | ✓ | ✓ | ✓ | ✅ |
 | Hover card | ✓ | | | ✅ `HoverCard` |
 | Toast / Notification | ✓ | ✓ | ✓ | ✅ `Toaster` |
-| Alert / Callout | ✓ | ✓ | ✓ | ✅ `Alert` |
+| Alert / Callout | ✓ | ✓ | ✓ | ✅ `Alert`: with a compact strip |
 | Code snippet with copy | | ✓ | | ✅ `CodeBlock` |
 | Release notes | | | | ✅ `ReleaseNotes` |
 | Training film and player | | | | ✅ `ravenrs::movie`: `Recorder`, `MoviePlayer`, with click and key sounds, a voice and boxes that explain each step |
@@ -158,7 +158,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Lottie animation | | ✓ | ✓ | ✅ `Lottie`; no expressions, text layers, 3D, blend modes or effects other than Fill yet, and `.lottie` archives need unpacking first |
 | Skeleton | ✓ | ✓ | ✓ | ✅ |
 | Badge | ✓ | ✓ | ✓ | ✅ |
-| Chip / Chip list | | ✓ | ✓ | 🟡 `Badge`; removable chips via `Button` with an icon |
+| Chip / Chip list | | ✓ | ✓ | 🟡 `Badge` (tone or own color, outline, height); removable chips via `Button` with an icon |
 
 ## Media and content
 
@@ -168,7 +168,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Icon set | ✓ | ✓ | ✓ | ✅ 200 Lucide icons |
 | Image | | ✓ | ✓ | ✅ `Image` |
 | Carousel / Scroll view | ✓ | ✓ | ✓ | ✅ `Carousel` |
-| Kbd | ✓ | | | ✅ |
+| Kbd | ✓ | | | ✅ takes the color of what it is in, on request |
 | Typography scale | ✓ | ✓ | ✓ | ✅ `Text` styles |
 | PDF viewer | | ✓ | ✓ | ⬜ |
 | Image editor | | | ✓ | ⬜ |

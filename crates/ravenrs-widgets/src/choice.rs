@@ -17,12 +17,13 @@ pub struct ToggleButton {
     value: Binding<bool>,
     label: String,
     icon: Option<IconName>,
+    look: ToggleLook,
 }
 
 impl ToggleButton {
     /// A toggle button bound to `value`; clicking flips it.
     pub fn new(value: Binding<bool>, label: impl Into<String>) -> Self {
-        Self { value, label: label.into(), icon: None }
+        Self { value, label: label.into(), icon: None, look: ToggleLook::default() }
     }
 
     /// An icon before the label.
@@ -30,6 +31,25 @@ impl ToggleButton {
         self.icon = Some(icon);
         self
     }
+
+    /// Shows how many things this button stands for after the label, as in a filter.
+    pub fn count(mut self, count: usize) -> Self {
+        self.look.count = Some(count);
+        self
+    }
+
+    /// Fully rounded ends instead of the usual corners, for filter chips.
+    pub fn pill(mut self) -> Self {
+        self.look.pill = true;
+        self
+    }
+}
+
+/// The options of a toggle item that a toggle group does not use.
+#[derive(Clone, Copy, Debug, Default)]
+struct ToggleLook {
+    count: Option<usize>,
+    pill: bool,
 }
 
 /// The look shared by toggle buttons and toggle group items.
@@ -38,6 +58,7 @@ fn toggle_item(
     on: bool,
     icon: Option<IconName>,
     label: &str,
+    look: ToggleLook,
     on_click: Rc<dyn Fn()>,
 ) -> NodeId {
     let theme = *cx.theme();
@@ -51,6 +72,17 @@ fn toggle_item(
     if !label.is_empty() {
         children.push(util::label(cx, label, TextStyle::Callout, Some(Weight::SEMIBOLD), color));
     }
+    if let Some(count) = look.count {
+        let text = util::label(cx, &count.to_string(), TextStyle::Caption, Some(Weight::SEMIBOLD), color);
+        let chip = cx.container(
+            LayoutStyle { padding: Insets::symmetric(0.0, 6.0), ..LayoutStyle::stack(Axis::Horizontal) },
+            &[text],
+            Paint::Quad(QuadPaint { corner_radius: 999.0, ..QuadPaint::new(ink.with_alpha(0.1)) }),
+        );
+        // Announced as the value, so that the name stays the label.
+        cx.semantics(chip, Semantics::hidden());
+        children.push(chip);
+    }
     let fill = if on {
         theme.color(Semantic::Control)
     } else if hovered {
@@ -59,7 +91,8 @@ fn toggle_item(
         Color::TRANSPARENT
     };
     let border = on.then(|| Border { width: 1.0, color: theme.color(Semantic::Border) });
-    let icon_only = label.is_empty();
+    let icon_only = label.is_empty() && look.count.is_none();
+    let radius = if look.pill { 17.0 } else { 8.0 };
     let node = cx.container(
         LayoutStyle {
             height: Some(34.0),
@@ -71,16 +104,19 @@ fn toggle_item(
             ..LayoutStyle::stack(Axis::Horizontal)
         },
         &children,
-        Paint::Quad(QuadPaint { corner_radius: 8.0, border, ..QuadPaint::new(fill) }),
+        Paint::Quad(QuadPaint { corner_radius: radius, border, ..QuadPaint::new(fill) }),
     );
     let mut semantics = Semantics::new(Role::Button).toggled(on);
+    if let Some(count) = look.count {
+        semantics = semantics.value(count.to_string());
+    }
     if icon_only && let Some(i) = icon {
         semantics = semantics.name(i.name().replace('-', " "));
         semantics.fallback_name = true;
     }
     cx.semantics(node, semantics);
     cx.on_click(node, on_click);
-    cx.focusable(node, 8.0);
+    cx.focusable(node, radius);
     cx.cursor(node, CursorIcon::Pointer);
     node
 }
@@ -88,7 +124,8 @@ fn toggle_item(
 impl View for ToggleButton {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let v = self.value.clone();
-        toggle_item(cx, self.value.get(), self.icon, &self.label, Rc::new(move || v.update(|b| *b = !*b)))
+        let toggle = Rc::new(move || v.update(|b| *b = !*b));
+        toggle_item(cx, self.value.get(), self.icon, &self.label, self.look, toggle)
     }
 }
 
@@ -156,7 +193,7 @@ impl View for GroupItem<'_> {
             }
             _ => (false, Rc::new(|| {})),
         };
-        let node = toggle_item(cx, on, *icon, label, action);
+        let node = toggle_item(cx, on, *icon, label, ToggleLook::default(), action);
         // A toolbar: arrows move focus only; Space or Enter toggles.
         self.roving.wire(cx, node, None);
         node

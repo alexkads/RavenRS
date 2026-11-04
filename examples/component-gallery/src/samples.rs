@@ -63,7 +63,7 @@ fn picture(hue: f32) -> ImageData {
     .unwrap_or_else(|| unreachable!("the size is not zero"))
 }
 
-// sample: Button, 150
+// sample: Button, 200
 fn button() -> impl View {
     let clicks = State::new(0);
     let add = clicks.clone();
@@ -73,6 +73,13 @@ fn button() -> impl View {
             Button::new("Cancel").style(ButtonStyle::Secondary),
             Button::new("More").style(ButtonStyle::Ghost),
             Button::new("Delete").style(ButtonStyle::Danger).icon(IconName::Trash2),
+        ))
+        .spacing(8.0)
+        .wrap(),
+        HStack::new((
+            Button::new("Saving").loading(true),
+            Button::new("Grid view").style(ButtonStyle::Secondary).selected(true),
+            Button::new("Open").shortcut("F8"),
         ))
         .spacing(8.0)
         .wrap(),
@@ -89,6 +96,7 @@ fn icon_button() -> impl View {
         IconButton::new(IconName::Copy).label("Duplicate"),
         IconButton::new(IconName::Settings).label("Settings").style(ButtonStyle::Secondary),
         IconButton::new(IconName::Plus).label("New").style(ButtonStyle::Primary),
+        IconButton::new(IconName::Bold).label("Bold").selected(true),
     ))
     .spacing(8.0)
 }
@@ -98,8 +106,13 @@ fn icon_button() -> impl View {
 fn toggle_button() -> impl View {
     let bold = State::new(true);
     let italic = State::new(false);
-    HStack::new((ToggleButton::new(bold.binding(), "Bold"), ToggleButton::new(italic.binding(), "Italic")))
-        .spacing(8.0)
+    let open = State::new(true);
+    HStack::new((
+        ToggleButton::new(bold.binding(), "Bold"),
+        ToggleButton::new(italic.binding(), "Italic"),
+        ToggleButton::new(open.binding(), "Open").count(12).pill(),
+    ))
+    .spacing(8.0)
 }
 // end
 
@@ -1327,11 +1340,12 @@ fn text() -> impl View {
 }
 // end
 
-// sample: Alert, 220
+// sample: Alert, 260
 fn alert() -> impl View {
     VStack::new((
         Alert::new("Deployment finished", "The site is live.").tone(Tone::Success),
         Alert::new("Payment failed", "Update your card.").tone(Tone::Danger),
+        Alert::message("Moving deletes the originals.").tone(Tone::Warning).compact(),
     ))
     .spacing(10.0)
     .align(Align::Stretch)
@@ -1345,6 +1359,8 @@ fn badge() -> impl View {
         Badge::new("New").tone(Tone::Accent),
         Badge::new("Paid").tone(Tone::Success).icon(IconName::Check),
         Badge::new("Overdue").tone(Tone::Danger),
+        Badge::new("Draft").outline(),
+        Badge::new("Family").color(Color::hex(0x8b5cf6)).height(26.0),
     ))
     .spacing(8.0)
     .wrap()
@@ -1361,7 +1377,15 @@ fn avatar() -> impl View {
 
 // sample: Kbd, 80
 fn kbd() -> impl View {
-    HStack::new((Kbd::new("⌘"), Kbd::new("Shift"), Kbd::new("K"))).spacing(6.0)
+    HStack::new((
+        Kbd::new("⌘"),
+        Kbd::new("Shift"),
+        Kbd::new("K"),
+        // The button gives the key its own color.
+        Button::new("Open").size(ButtonSize::Small).shortcut("F8"),
+    ))
+    .spacing(6.0)
+    .align(Align::Center)
 }
 // end
 

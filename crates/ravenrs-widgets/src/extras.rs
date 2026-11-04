@@ -17,11 +17,12 @@ use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, MenuItem, Mo
 #[derive(Clone, Copy, Debug)]
 pub struct Spinner {
     size: f32,
+    color: Option<Color>,
 }
 
 impl Default for Spinner {
     fn default() -> Self {
-        Self { size: 20.0 }
+        Self { size: 20.0, color: None }
     }
 }
 
@@ -36,30 +37,44 @@ impl Spinner {
         self.size = size;
         self
     }
+
+    /// Sets the color; by default it comes from the theme accent, which disappears
+    /// on an accent fill.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+}
+
+/// Paints a spinner of `size` at the center of the element's frame. Being only a paint, it
+/// can sit behind content that must keep its size, as in a loading button.
+pub(crate) fn spinner_paint(size: f32, color: Color) -> Paint {
+    Paint::Live(Rc::new(move |f: Rect, time, scene| {
+        let c = f.center();
+        let dot = (size * 0.18).max(2.0);
+        let r = size / 2.0 - dot / 2.0;
+        // One turn every 0.8 s; the brightness moves continuously around the ring.
+        let head = (time / 0.8).fract() as f32 * 8.0;
+        for i in 0..8 {
+            let a = i as f32 / 8.0 * std::f32::consts::TAU;
+            let age = (i as f32 - head).rem_euclid(8.0);
+            let alpha = 1.0 - age / 9.0;
+            let rect = Rect::new(c.x + r * a.cos() - dot / 2.0, c.y + r * a.sin() - dot / 2.0, dot, dot);
+            scene.push_quad(Quad::new(rect, color.with_alpha(color.a * alpha)).radius(dot / 2.0));
+        }
+    }))
 }
 
 impl View for Spinner {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let (size, color) = (self.size, theme.color(Semantic::Accent).lerp(theme.color(Semantic::Ink), 0.2));
+        let size = self.size;
+        let color =
+            self.color.unwrap_or_else(|| theme.color(Semantic::Accent).lerp(theme.color(Semantic::Ink), 0.2));
         let node = cx.container(
             LayoutStyle { width: Some(size), height: Some(size), ..LayoutStyle::leaf() },
             &[],
-            Paint::Live(Rc::new(move |f: Rect, time, scene| {
-                let c = f.center();
-                let dot = (size * 0.18).max(2.0);
-                let r = size / 2.0 - dot / 2.0;
-                // One turn every 0.8 s; the brightness moves continuously around the ring.
-                let head = (time / 0.8).fract() as f32 * 8.0;
-                for i in 0..8 {
-                    let a = i as f32 / 8.0 * std::f32::consts::TAU;
-                    let age = (i as f32 - head).rem_euclid(8.0);
-                    let alpha = 1.0 - age / 9.0;
-                    let rect =
-                        Rect::new(c.x + r * a.cos() - dot / 2.0, c.y + r * a.sin() - dot / 2.0, dot, dot);
-                    scene.push_quad(Quad::new(rect, color.with_alpha(alpha)).radius(dot / 2.0));
-                }
-            })),
+            spinner_paint(size, color),
         );
         let name = cx.labels().loading.clone();
         cx.semantics(node, Semantics::new(Role::ProgressIndicator).name(name));

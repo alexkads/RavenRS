@@ -549,6 +549,8 @@ pub struct BuildCx<'a> {
     pub(crate) reduced_motion: bool,
     /// A value from [`Self::animated`] is still moving.
     pub(crate) value_moving: bool,
+    /// The text color of the view being built, for content that takes it from what it is in.
+    foreground: Option<Color>,
     scopes: Vec<Scope>,
 }
 
@@ -613,8 +615,25 @@ impl<'a> BuildCx<'a> {
             motion_enabled: false,
             reduced_motion: false,
             value_moving: false,
+            foreground: None,
             scopes: vec![Scope { id: WidgetId::ROOT, next_child: 0, next_state: 0, next_motion: 0 }],
         }
+    }
+
+    /// The text color of the view being built, if a view around it set one with
+    /// [`Self::with_foreground`]. Colors do not cascade by themselves, so this is how
+    /// a [`Kbd`](crate::Kbd) inside a filled button reads as part of the button.
+    pub fn foreground(&self) -> Option<Color> {
+        self.foreground
+    }
+
+    /// Builds what `build` builds with `color` as its [`Self::foreground`]. Layers opened
+    /// inside it start without one, since they are not painted over this view.
+    pub fn with_foreground<R>(&mut self, color: Color, build: impl FnOnce(&mut Self) -> R) -> R {
+        let outer = self.foreground.replace(color);
+        let result = build(self);
+        self.foreground = outer;
+        result
     }
 
     /// The theme in effect for this build.
@@ -1204,7 +1223,9 @@ impl<'a> BuildCx<'a> {
         let slot = self.overlays.len();
         let gap = self.theme.spacing.s2;
         self.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss, floating: false });
+        let outer = self.foreground.take();
         let root = self.keyed_child(key, view);
+        self.foreground = outer;
         self.overlays[slot].root = root;
     }
 
@@ -1225,7 +1246,9 @@ impl<'a> BuildCx<'a> {
             on_dismiss: None,
             floating: true,
         });
+        let outer = self.foreground.take();
         let root = self.keyed_child(key, view);
+        self.foreground = outer;
         self.overlays[slot].root = root;
     }
 
