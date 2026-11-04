@@ -38,10 +38,21 @@ pub(crate) fn panel(cx: &mut BuildCx<'_>, children: &[NodeId], padding: f32, min
     node
 }
 
-/// Shows a short label above its content while the pointer is over it.
+/// Shows a short label above its content while the pointer is over it, with the key
+/// that does the same when there is one.
+///
+/// ```
+/// use ravenrs_widgets::{Button, Tooltip, Ui, ViewExt};
+///
+/// let save = Tooltip::new(Button::new("Save"), "Save the file").shortcut("⌘S");
+/// let open = Button::new("Open").tooltip("Open a file");
+/// let mut ui = Ui::new(ravenrs_widgets::VStack::new((save, open)), ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Tooltip<V> {
     content: V,
     text: String,
+    shortcut: Option<String>,
 }
 
 impl<V> fmt::Debug for Tooltip<V> {
@@ -53,21 +64,48 @@ impl<V> fmt::Debug for Tooltip<V> {
 impl<V: View> Tooltip<V> {
     /// Shows `text` over `content` on hover.
     pub fn new(content: V, text: impl Into<String>) -> Self {
-        Self { content, text: text.into() }
+        Self { content, text: text.into(), shortcut: None }
+    }
+
+    /// Shows this key as a key cap beside the text, such as `"⌘S"`.
+    pub fn shortcut(mut self, keys: impl Into<String>) -> Self {
+        self.shortcut = Some(keys.into());
+        self
     }
 }
 
 pub(crate) struct Bubble<'a>(pub &'a str);
 
+/// The bubble of a tooltip that also shows a key.
+struct KeyBubble<'a> {
+    text: &'a str,
+    keys: Option<&'a str>,
+}
+
 impl View for Bubble<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        KeyBubble { text: self.0, keys: None }.build(cx)
+    }
+}
+
+impl View for KeyBubble<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         // Inverted colors read as a tooltip in every theme.
-        let text =
-            util::label(cx, self.0, TextStyle::Callout, Some(Weight::MEDIUM), theme.color(Semantic::Canvas));
+        let ink = theme.color(Semantic::Canvas);
+        let mut children = vec![util::label(cx, self.text, TextStyle::Callout, Some(Weight::MEDIUM), ink)];
+        if let Some(keys) = self.keys {
+            let cap = crate::Kbd::new(keys.to_owned()).inherit_color();
+            children.push(cx.with_foreground(ink, |cx| cx.child(&cap)));
+        }
         let node = cx.container(
-            LayoutStyle { padding: Insets::symmetric(5.0, 10.0), ..LayoutStyle::stack(Axis::Horizontal) },
-            &[text],
+            LayoutStyle {
+                padding: Insets::symmetric(5.0, 10.0),
+                spacing: theme.spacing.s2,
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &children,
             Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(theme.color(Semantic::Ink)) }),
         );
         // The text is already the name or description of the anchor.
@@ -80,7 +118,7 @@ impl View for Bubble<'_> {
 impl<V: View> View for Tooltip<V> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let child = cx.child(&self.content);
-        cx.label_control(child, &self.text, None);
+        cx.label_control(child, &self.text, self.shortcut.as_deref());
         let node = cx.container(
             LayoutStyle { align_self: Some(Align::Fit), ..LayoutStyle::stack(Axis::Horizontal) },
             &[child],
@@ -89,7 +127,8 @@ impl<V: View> View for Tooltip<V> {
         // Hoverable even when the content itself is not interactive.
         cx.cursor(node, CursorIcon::Default);
         if cx.is_hover_within() {
-            cx.overlay(node, Placement::AboveCenter, &Bubble(&self.text), None);
+            let bubble = KeyBubble { text: &self.text, keys: self.shortcut.as_deref() };
+            cx.overlay(node, Placement::AboveCenter, &bubble, None);
         }
         node
     }

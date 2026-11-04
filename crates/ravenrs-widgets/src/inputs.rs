@@ -51,13 +51,20 @@ impl ChoiceOption {
 pub struct Toggle {
     value: Binding<bool>,
     label: Option<String>,
+    small: bool,
     state: util::EditorState,
 }
 
 impl Toggle {
     /// A switch bound to `value`.
     pub fn new(value: Binding<bool>) -> Self {
-        Self { value, label: None, state: util::EditorState::default() }
+        Self { value, label: None, small: false, state: util::EditorState::default() }
+    }
+
+    /// A smaller switch, 32 by 18 logical pixels instead of 40 by 24, for dense lists.
+    pub fn small(mut self) -> Self {
+        self.small = true;
+        self
     }
 
     /// Text after the switch; clicking it toggles too.
@@ -92,17 +99,19 @@ impl View for Toggle {
         };
         let track = state.fill(track);
         let border = (!on).then(|| Border { width: 1.0, color: state.ink(theme.color(Semantic::Border)) });
+        let (track_width, track_height, knob, inset) =
+            if self.small { (32.0, 18.0, 14.0, 2.0) } else { (40.0, 24.0, 18.0, 3.0) };
         // The thumb stretches while held and is kept apart from the track so it
         // can glide from one end to the other.
         let thumb = cx.container(
             LayoutStyle {
-                width: Some(if cx.is_pressed() && state.accepts_input() { 22.0 } else { 18.0 }),
-                height: Some(18.0),
+                width: Some(if cx.is_pressed() && state.accepts_input() { knob + 4.0 } else { knob }),
+                height: Some(knob),
                 ..LayoutStyle::leaf()
             },
             &[],
             Paint::Quad(QuadPaint {
-                corner_radius: 9.0,
+                corner_radius: knob / 2.0,
                 shadow: Some(Shadow {
                     offset: Point::new(0.0, 1.0),
                     blur: 3.0,
@@ -113,14 +122,14 @@ impl View for Toggle {
         );
         let switch = cx.container(
             LayoutStyle {
-                width: Some(40.0),
-                height: Some(24.0),
-                padding: Insets::uniform(3.0),
+                width: Some(track_width),
+                height: Some(track_height),
+                padding: Insets::uniform(inset),
                 justify: if on { Justify::End } else { Justify::Start },
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &[thumb],
-            Paint::Quad(QuadPaint { corner_radius: 12.0, border, ..QuadPaint::new(track) }),
+            Paint::Quad(QuadPaint { corner_radius: track_height / 2.0, border, ..QuadPaint::new(track) }),
         );
         cx.motion(thumb, Motion::new().layout(theme.motion.snappy));
         motion::control(cx, switch);

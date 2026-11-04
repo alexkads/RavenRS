@@ -143,7 +143,7 @@ fn toggle() -> impl View {
     let email = State::new(false);
     VStack::new((
         Toggle::new(push.binding()).label("Push notifications"),
-        Toggle::new(email.binding()).label("Email digest"),
+        Toggle::new(email.binding()).label("Email digest").small(),
     ))
     .spacing(12.0)
 }
@@ -875,7 +875,12 @@ fn hover_card() -> impl View {
 fn tooltip() -> impl View {
     VStack::new((
         Spacer::new().min(40.0),
-        Tooltip::new(Button::new("Hover me").style(ButtonStyle::Secondary), "It stays out of the way"),
+        HStack::new((
+            Tooltip::new(Button::new("Hover me").style(ButtonStyle::Secondary), "It stays out of the way"),
+            Button::new("Save").style(ButtonStyle::Secondary).tooltip("Save the file"),
+            Tooltip::new(Button::new("Open").style(ButtonStyle::Secondary), "Open a file").shortcut("⌘O"),
+        ))
+        .spacing(8.0),
     ))
 }
 // end
@@ -1369,9 +1374,13 @@ fn badge() -> impl View {
 
 // sample: Avatar, 90
 fn avatar() -> impl View {
-    HStack::new((Avatar::new("Ana Lima"), Avatar::new("Bruno Reis"), Avatar::new("Carla Dias").size(44.0)))
-        .spacing(8.0)
-        .align(Align::Center)
+    HStack::new((
+        Avatar::new("Ana Lima"),
+        Avatar::new("Bruno Reis").border(2.0, Semantic::Accent),
+        Avatar::new("Carla Dias").size(44.0).image(Image::new(picture(1.0))),
+    ))
+    .spacing(8.0)
+    .align(Align::Center)
 }
 // end
 
@@ -1389,11 +1398,15 @@ fn kbd() -> impl View {
 }
 // end
 
-// sample: ProgressBar, 110
+// sample: ProgressBar, 170
 fn progress_bar() -> impl View {
-    VStack::new((ProgressBar::new(0.25), ProgressBar::new(0.9).tone(Tone::Success)))
-        .spacing(14.0)
-        .align(Align::Stretch)
+    VStack::new((
+        ProgressBar::new(0.25),
+        ProgressBar::new(0.9).tone(Tone::Success),
+        ProgressBar::new(0.4).label("Copying").percent().detail("12 of 30 photos").height(4.0),
+    ))
+    .spacing(14.0)
+    .align(Align::Stretch)
 }
 // end
 

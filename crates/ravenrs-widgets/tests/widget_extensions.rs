@@ -5,9 +5,10 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use ravenrs_core::{
-    AccessAction, AccessNode, AccessTree, Color, Event, Key, Modifiers, Point, PointerButton, Primitive,
-    Quad, Role, Size, Toggled,
+    AccessAction, AccessNode, AccessTree, Color, Event, ImageData, Key, Modifiers, Point, PointerButton,
+    Primitive, Quad, Role, Size, Toggled,
 };
+use ravenrs_layout::Align;
 use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, Theme};
 use ravenrs_widgets::*;
@@ -52,6 +53,11 @@ fn glyph_colors(ui: &Ui) -> Vec<Color> {
         .iter()
         .filter_map(|p| if let Primitive::Glyphs(g) = p { Some(g.color) } else { None })
         .collect()
+}
+
+fn hover(ui: &mut Ui, at: Point) {
+    ui.handle_event(&Event::PointerMove { position: at });
+    ui.update();
 }
 
 fn labels(tree: &AccessTree) -> Vec<String> {
@@ -171,4 +177,90 @@ fn a_compact_alert_is_a_thin_strip_with_a_stripe() {
     assert!(height(&b) < height(&a) - 10.0, "{} is not under {}", height(&b), height(&a));
     assert!(labels(&b).iter().any(|n| n.contains("Originals")), "the message is still read");
     assert!(quads(&thin).iter().any(|q| q.rect.width() == 2.0), "the stripe at the edge");
+}
+
+#[test]
+fn a_progress_bar_can_say_what_it_is_and_how_far_along() {
+    let mut full = ui(VStack::new((ProgressBar::new(0.4)
+        .label("Copying")
+        .percent()
+        .detail("12 of 30")
+        .height(10.0)
+        .color(Color::rgb(0.1, 0.8, 0.3)),))
+    .align(Align::Stretch));
+    let tree = full.access_tree();
+    let node = named(&tree, Role::ProgressIndicator, "Copying");
+    assert_eq!(node.description.as_deref(), Some("12 of 30"));
+    assert_eq!(node.value.as_deref(), Some("40%"));
+    assert!(node.children.is_empty(), "one node, not its parts");
+    assert_eq!(glyph_colors(&full).len(), 3, "label, percentage and detail are drawn");
+    assert!(quads(&full).iter().any(|q| q.rect.height() == 10.0), "the bar takes the height it is given");
+
+    let mut plain = ui(VStack::new((ProgressBar::new(0.4),)).align(Align::Stretch));
+    assert!(glyph_colors(&plain).is_empty(), "no text unless asked for");
+    assert!(quads(&plain).iter().all(|q| q.rect.height() == 6.0), "6 px by default");
+    let tree = plain.access_tree();
+    assert!(
+        tree.nodes.iter().any(|n| n.role == Role::ProgressIndicator && n.value.as_deref() == Some("40%"))
+    );
+}
+
+#[test]
+fn an_avatar_can_show_a_picture_and_a_ring() {
+    let picture = ImageData::from_fn(8, 4, |_, _| Color::WHITE).expect("not empty");
+    let mut with =
+        ui(Avatar::new("Ana Lima").size(40.0).image(Image::new(picture)).border(3.0, Semantic::Accent));
+    let image = with
+        .scene()
+        .primitives()
+        .iter()
+        .find_map(|p| if let Primitive::Image(i) = p { Some(i.clone()) } else { None })
+        .expect("the picture is drawn");
+    assert_eq!((image.rect.width(), image.corner_radii[0]), (34.0, 17.0), "inside the ring, round");
+    assert!(glyph_colors(&with).is_empty(), "instead of the initials");
+    let accent = Theme::raven_dark().color(Semantic::Accent);
+    assert!(quads(&with).iter().any(|q| q.border.is_some_and(|b| b.width == 3.0 && b.color == accent)));
+    assert_eq!(named(&with.access_tree(), Role::Image, "Ana Lima").children.len(), 0);
+
+    let ringed = ui(Avatar::new("Ana Lima").border(2.0, Semantic::Accent));
+    assert!(quads(&ringed)[0].border.is_some_and(|b| b.width == 2.0), "initials take the ring too");
+}
+
+#[test]
+fn a_small_toggle_is_smaller_and_still_toggles() {
+    let on = State::new(false);
+    let mut small = ui(Toggle::new(on.binding()).small());
+    let track = quads(&small)[0];
+    assert_eq!((track.rect.width(), track.rect.height()), (32.0, 18.0));
+    let at = track.rect.center();
+    click(&mut small, at);
+    assert!(on.get());
+    assert_eq!(named_switch(&mut small).toggled, Some(Toggled::True));
+    let regular = ui(Toggle::new(on.binding()));
+    assert_eq!(quads(&regular)[0].rect.width(), 40.0, "40 by default");
+}
+
+fn named_switch(ui: &mut Ui) -> AccessNode {
+    ui.access_tree().nodes.iter().find(|n| n.role == Role::Switch).expect("a switch").clone()
+}
+
+#[test]
+fn a_tooltip_can_show_a_key_and_any_view_can_have_one() {
+    let mut keyed = ui(Tooltip::new(Button::new("Save"), "Save the file").shortcut("⌘S"));
+    let tree = keyed.access_tree();
+    let save = named(&tree, Role::Button, "Save the file");
+    assert_eq!(save.description.as_deref(), Some("⌘S"), "the key is announced too");
+    let at = save.bounds.center();
+    let before = glyph_colors(&keyed).len();
+    hover(&mut keyed, at);
+    let canvas = Theme::raven_dark().color(Semantic::Canvas);
+    let drawn = glyph_colors(&keyed);
+    assert_eq!(drawn.len(), before + 2, "text and key");
+    assert_eq!(drawn.iter().filter(|c| **c == canvas).count(), 2, "the key takes the bubble's ink");
+
+    let mut short = ui(IconButton::new(IconName::Pencil).tooltip("Edit"));
+    let tree = short.access_tree();
+    let at = named(&tree, Role::Button, "Edit").bounds.center();
+    hover(&mut short, at);
+    assert_eq!(glyph_colors(&short).iter().filter(|c| **c == canvas).count(), 1, "the bubble opens");
 }

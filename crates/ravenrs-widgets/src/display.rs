@@ -7,7 +7,7 @@ use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{Button, ButtonSize, ButtonStyle, IconName, View, ViewSeq, util};
+use crate::{Button, ButtonSize, ButtonStyle, Fill, IconName, Image, View, ViewSeq, util};
 
 /// How far a badge's text goes from its tone toward the ink.
 const BADGE_TEXT_TOWARD_INK: f32 = 0.3;
@@ -137,23 +137,70 @@ impl View for Badge {
     }
 }
 
-/// A round avatar showing initials on a color picked from the name.
+/// A round avatar showing a picture, or initials on a color picked from the name.
 #[derive(Clone, Debug)]
 pub struct Avatar {
     name: String,
     size: f32,
+    image: Option<Image>,
+    border: Option<(f32, Fill)>,
 }
 
 impl Avatar {
     /// An avatar showing the initials of `name`, 36 logical pixels across.
     pub fn new(name: impl Into<String>) -> Self {
-        Self { name: name.into(), size: 36.0 }
+        Self { name: name.into(), size: 36.0, image: None, border: None }
     }
 
     /// Sets the diameter in logical pixels.
     pub fn size(mut self, size: f32) -> Self {
         self.size = size;
         self
+    }
+
+    /// Shows this picture instead of the initials, cropped to the circle. The name still
+    /// tells screen readers who it is.
+    pub fn image(mut self, image: Image) -> Self {
+        self.image = Some(image);
+        self
+    }
+
+    /// Draws a ring of `width` logical pixels, as on the selected one of a row. A picture
+    /// shrinks to fit inside it.
+    pub fn border(mut self, width: f32, fill: impl Into<Fill>) -> Self {
+        self.border = Some((width, fill.into()));
+        self
+    }
+
+    /// The picture inside its ring, which would otherwise paint over the ring.
+    fn draw_image(&self, cx: &mut BuildCx<'_>, image: &Image) -> NodeId {
+        let theme = *cx.theme();
+        let ring = self.border.map(|(width, fill)| Border { width, color: fill.resolve(&theme) });
+        let inset = ring.map_or(0.0, |r| r.width);
+        let inner = (self.size - 2.0 * inset).max(0.0);
+        let picture = cx.child(
+            &image
+                .clone()
+                .size(inner, inner)
+                .corner_radius(inner / 2.0)
+                .content_mode(crate::ContentMode::Cover),
+        );
+        cx.semantics(picture, Semantics::hidden());
+        let style = LayoutStyle {
+            width: Some(self.size),
+            height: Some(self.size),
+            padding: Insets::uniform(inset),
+            ..LayoutStyle::stack(Axis::Horizontal)
+        };
+        let paint = QuadPaint {
+            fill: Color::TRANSPARENT.into(),
+            corner_radius: self.size / 2.0,
+            border: ring,
+            shadow: None,
+        };
+        let node = cx.container(style, &[picture], Paint::Quad(paint));
+        cx.semantics(node, Semantics::new(Role::Image).name(self.name.clone()));
+        node
     }
 
     fn initials(&self) -> String {
@@ -168,6 +215,9 @@ impl Avatar {
 
 impl View for Avatar {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        if let Some(image) = &self.image {
+            return self.draw_image(cx, image);
+        }
         let theme = *cx.theme();
         let palette = [
             theme.color(Semantic::Accent),
@@ -197,7 +247,10 @@ impl View for Avatar {
         let paint = QuadPaint {
             fill: base.with_alpha(0.28).into(),
             corner_radius: self.size / 2.0,
-            border: Some(Border { width: 1.0, color: base.with_alpha(0.5) }),
+            border: Some(match self.border {
+                Some((width, fill)) => Border { width, color: fill.resolve(&theme) },
+                None => Border { width: 1.0, color: base.with_alpha(0.5) },
+            }),
             shadow: None,
         };
         let node = cx.container(style, &[text], Paint::Quad(paint));
@@ -287,23 +340,74 @@ impl View for Divider {
     }
 }
 
-/// A horizontal progress bar; `value` from 0.0 to 1.0.
-#[derive(Clone, Copy, Debug)]
+/// A horizontal progress bar; `value` from 0.0 to 1.0. It can carry a label and a
+/// percentage above it and a detail below.
+///
+/// ```
+/// use ravenrs_widgets::{ProgressBar, Ui};
+///
+/// let bar = ProgressBar::new(0.4).label("Copying").percent().detail("12 of 30 photos").height(4.0);
+/// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+#[derive(Clone, Debug)]
 pub struct ProgressBar {
     value: f32,
     tone: Tone,
     height: f32,
+    color: Option<Color>,
+    label: Option<String>,
+    detail: Option<String>,
+    percent: bool,
 }
 
 impl ProgressBar {
     /// A progress bar at `value`, clamped to 0.0–1.0.
     pub fn new(value: f32) -> Self {
-        Self { value: value.clamp(0.0, 1.0), tone: Tone::Accent, height: 6.0 }
+        Self {
+            value: value.clamp(0.0, 1.0),
+            tone: Tone::Accent,
+            height: 6.0,
+            color: None,
+            label: None,
+            detail: None,
+            percent: false,
+        }
     }
 
     /// Sets the fill color tone (accent by default).
     pub fn tone(mut self, tone: Tone) -> Self {
         self.tone = tone;
+        self
+    }
+
+    /// Fills with this color instead of the tone's.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    /// Sets the thickness of the bar in logical pixels (6 by default).
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = height.max(1.0);
+        self
+    }
+
+    /// What is progressing, above the bar. It also names it for screen readers.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Shows the percentage above the bar, at its end.
+    pub fn percent(mut self) -> Self {
+        self.percent = true;
+        self
+    }
+
+    /// A line in small text below the bar, such as how many are done.
+    pub fn detail(mut self, detail: impl Into<String>) -> Self {
+        self.detail = Some(detail.into());
         self
     }
 }
@@ -312,8 +416,9 @@ impl View for ProgressBar {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let track = theme.color(Semantic::Control);
-        let fill =
-            if self.tone == Tone::Accent { theme.color(Semantic::Accent) } else { self.tone.color(&theme) };
+        let fill = self.color.unwrap_or_else(|| {
+            if self.tone == Tone::Accent { theme.color(Semantic::Accent) } else { self.tone.color(&theme) }
+        });
         let h = self.height;
         let value = cx.animated(self.value, theme.motion.snappy).clamp(0.0, 1.0);
         let style = LayoutStyle { height: Some(h), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
@@ -330,13 +435,63 @@ impl View for ProgressBar {
             })),
         );
         let percent = (f64::from(self.value) * 100.0).round();
-        cx.semantics(
-            node,
-            Semantics::new(Role::ProgressIndicator)
-                .numeric(percent, 0.0, 100.0, None)
-                .value(format!("{percent}%")),
+        let mut semantics = Semantics::new(Role::ProgressIndicator)
+            .numeric(percent, 0.0, 100.0, None)
+            .value(format!("{percent}%"));
+        if let Some(label) = &self.label {
+            semantics = semantics.name(label.clone());
+        }
+        if let Some(detail) = &self.detail {
+            semantics = semantics.description(detail.clone());
+        }
+        if self.label.is_none() && self.detail.is_none() && !self.percent {
+            cx.semantics(node, semantics);
+            return node;
+        }
+        let (ink, muted) = (theme.color(Semantic::Ink), theme.color(Semantic::InkMuted));
+        let mut rows = Vec::with_capacity(3);
+        if self.label.is_some() || self.percent {
+            let mut head = Vec::with_capacity(2);
+            let name = self.label.as_deref().unwrap_or_default();
+            let name = util::label(cx, name, TextStyle::Callout, None, ink);
+            cx.semantics(name, Semantics::hidden());
+            head.push(cx.container(
+                LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::stack(Axis::Horizontal) },
+                &[name],
+                Paint::None,
+            ));
+            if self.percent {
+                let number = util::label(cx, &format!("{percent}%"), TextStyle::Callout, None, muted);
+                cx.semantics(number, Semantics::hidden());
+                head.push(number);
+            }
+            rows.push(cx.container(
+                LayoutStyle {
+                    spacing: theme.spacing.s2,
+                    align_self: Some(Align::Stretch),
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &head,
+                Paint::None,
+            ));
+        }
+        rows.push(node);
+        if let Some(detail) = &self.detail {
+            let line = util::label(cx, detail, TextStyle::Caption, None, muted);
+            cx.semantics(line, Semantics::hidden());
+            rows.push(line);
+        }
+        let column = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s1,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &rows,
+            Paint::None,
         );
-        node
+        cx.semantics(column, semantics);
+        column
     }
 }
 

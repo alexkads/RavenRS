@@ -72,7 +72,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Form layout (groups, columns, tabs, error list) | | ✓ | ✓ | ✅ `FormLayout`, `FormGroup` |
 | Checkbox | ✓ | ✓ | ✓ | ✅ |
 | Radio group | ✓ | ✓ | ✓ | ✅ |
-| Switch | ✓ | ✓ | ✓ | ✅ `Toggle` |
+| Switch | ✓ | ✓ | ✓ | ✅ `Toggle`, with a small size |
 | Slider | ✓ | ✓ | ✓ | ✅ |
 | Range slider | | ✓ | ✓ | ⬜ |
 | Select / Drop-down list | ✓ | ✓ | ✓ | ✅ `Select` |
@@ -143,7 +143,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Tray icon, closing to it | | ✓ | ✓ | ✅ `AppIdentity::close_to_tray` |
 | System notifications | | ✓ | ✓ | ✅ `SystemNotifier` |
 | Popover | ✓ | ✓ | ✓ | ✅ |
-| Tooltip | ✓ | ✓ | ✓ | ✅ |
+| Tooltip | ✓ | ✓ | ✓ | ✅ `Tooltip` with a key cap, and `.tooltip()` on any view |
 | Hover card | ✓ | | | ✅ `HoverCard` |
 | Toast / Notification | ✓ | ✓ | ✓ | ✅ `Toaster` |
 | Alert / Callout | ✓ | ✓ | ✓ | ✅ `Alert`: with a compact strip |
@@ -153,7 +153,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Question that opens a film at the right moment | | | | ✅ `MovieAssistant`, `MovieLibrary`: words the films hold, no model |
 | Film editor with timeline | | | | ✅ `MovieEditor`; its preview has no sound |
 | Bug report with a film | | | | ✅ `FlightRecorder`, `BugReporter` |
-| Progress bar | ✓ | ✓ | ✓ | ✅ |
+| Progress bar | ✓ | ✓ | ✓ | ✅ `ProgressBar`: label, percentage, detail, height, color |
 | Loader / Spinner | | ✓ | ✓ | ✅ `Spinner` |
 | Lottie animation | | ✓ | ✓ | ✅ `Lottie`; no expressions, text layers, 3D, blend modes or effects other than Fill yet, and `.lottie` archives need unpacking first |
 | Skeleton | ✓ | ✓ | ✓ | ✅ |
@@ -164,7 +164,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Avatar | ✓ | ✓ | ✓ | ✅ |
+| Avatar | ✓ | ✓ | ✓ | ✅ `Avatar`: initials or picture, with a ring |
 | Icon set | ✓ | ✓ | ✓ | ✅ 200 Lucide icons |
 | Image | | ✓ | ✓ | ✅ `Image` |
 | Carousel / Scroll view | ✓ | ✓ | ✓ | ✅ `Carousel` |

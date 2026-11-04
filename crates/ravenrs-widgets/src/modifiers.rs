@@ -2,7 +2,7 @@ use ravenrs_core::{Border, Insets, Shadow};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
-use crate::{Fill, View};
+use crate::{Fill, Tooltip, View};
 
 /// A view wrapped in a box with layout and background modifiers; see [`ViewExt`].
 #[derive(Debug)]
@@ -55,6 +55,10 @@ pub trait ViewExt: View + Sized {
     /// Centers the content inside the box.
     fn centered(self) -> Styled<Self> {
         Styled::new(self).centered()
+    }
+    /// Shows `text` above the view while the pointer is over it; see [`Tooltip`].
+    fn tooltip(self, text: impl Into<String>) -> Tooltip<Self> {
+        Tooltip::new(self, text)
     }
 }
 
