@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.1.27",
+    "data": "2026-11-04",
+    "titulo": "O programa ficou mais rápido.",
+    "importante": false,
+    "novidades": [
+      "O Painel abre na hora quando você volta a ele, sem aquela pequena travada ao redesenhar os gráficos.",
+      "As listas longas rolam com mais suavidade, e o programa gasta menos o computador enquanto você usa."
+    ],
+    "por_que_atualizar": "Para o programa responder mais rápido ao abrir as telas e ao rolar as listas."
+  },
+  {
     "versao": "0.1.26",
     "data": "2026-11-03",
     "titulo": "Uma abertura nova, com a logo ganhando vida.",

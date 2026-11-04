@@ -1,10 +1,10 @@
 {
-  "versao": "0.1.26",
-  "titulo": "Uma abertura nova, com a logo ganhando vida.",
+  "versao": "0.1.27",
+  "titulo": "O programa ficou mais rápido.",
   "importante": false,
   "novidades": [
-    "Ao abrir o programa, a logo agora se desenha na tela: um traço de luz vira o corvo, a asa se abre e a moeda cai no bico.",
-    "Quem usa o sistema com movimento reduzido vê a logo pronta, sem a animação."
+    "O Painel abre na hora quando você volta a ele, sem aquela pequena travada ao redesenhar os gráficos.",
+    "As listas longas rolam com mais suavidade, e o programa gasta menos o computador enquanto você usa."
   ],
-  "por_que_atualizar": "Para ver a nova abertura do programa."
+  "por_que_atualizar": "Para o programa responder mais rápido ao abrir as telas e ao rolar as listas."
 }
