@@ -45,6 +45,7 @@ cargo bench --workspace --no-run --quiet
 
 step "API docs (broken links fail)"
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --quiet
+./scripts/check-component-list.py
 
 step "web builds"
 ./scripts/build-web.sh hello-world
