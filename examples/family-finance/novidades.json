@@ -1,10 +1,10 @@
 {
-  "versao": "0.1.25",
-  "titulo": "Janelas de formulário sem tremer, e o Dock traz o programa de volta.",
+  "versao": "0.1.26",
+  "titulo": "Uma abertura nova, com a logo ganhando vida.",
   "importante": false,
   "novidades": [
-    "As janelas de formulário, como Nova conta, abrem sem tremer e fecham de forma suave, em vez de sumir de repente.",
-    "No Mac, com o programa na bandeja, clicar no ícone dele no Dock abre a janela de novo."
+    "Ao abrir o programa, a logo agora se desenha na tela: um traço de luz vira o corvo, a asa se abre e a moeda cai no bico.",
+    "Quem usa o sistema com movimento reduzido vê a logo pronta, sem a animação."
   ],
-  "por_que_atualizar": "Para abrir formulários com mais conforto e voltar ao programa pelo Dock."
+  "por_que_atualizar": "Para ver a nova abertura do programa."
 }

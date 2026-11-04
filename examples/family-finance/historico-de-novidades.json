@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.1.26",
+    "data": "2026-11-03",
+    "titulo": "Uma abertura nova, com a logo ganhando vida.",
+    "importante": false,
+    "novidades": [
+      "Ao abrir o programa, a logo agora se desenha na tela: um traço de luz vira o corvo, a asa se abre e a moeda cai no bico.",
+      "Quem usa o sistema com movimento reduzido vê a logo pronta, sem a animação."
+    ],
+    "por_que_atualizar": "Para ver a nova abertura do programa."
+  },
+  {
     "versao": "0.1.25",
     "data": "2026-11-03",
     "titulo": "Janelas de formulário sem tremer, e o Dock traz o programa de volta.",
