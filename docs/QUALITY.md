@@ -75,11 +75,14 @@ On the reference machine at 1280x800 at 2x, with nothing else running. CPU time 
 
 The "before" column was measured with the same scenes before the work on the core. A Lottie playing went from a rebuild of the whole screen per frame to none. The finance dashboard opening for the second time went from 25.4 ms to 1.1 ms in its worst frame.
 
+The `calculator` scene measures `examples/calculator` as it is, a small screen that stays the same between versions. A click on it, on the same machine: 0.16 ms on the CPU, 0.13 ms recording the GPU's work, 41 instances in 41 draw calls.
+
 Where things stand:
 
 - **Scrolling and animating no longer depend on the size of the screen.** Only what can be seen is painted and sent to the GPU.
 - **A rebuild still follows the size of the screen.** About 2.7 µs per element, and layout is now 75% of that. The 4 ms budget holds up to about 1,500 elements. The real screens measured have 200 to 420. Beyond that, the next step would be invalidation by subtree, which changes the API of `View` and `BuildCx`.
 - **The GPU is not the bottleneck.** Under 2 ms in every scene.
+- **Batching does little on small screens.** Text and shapes alternate, so the calculator needs one draw call per instance. It costs nothing visible today, and painting order would have to be kept by any fix.
 - **Over budget: resizing a window with charts.** 19.7 ms on the finance dashboard, because each new size draws them again on the CPU.
 - **Not measured:** the delay from input to the screen in a real window, the system compositor, and other machines.
 - **Not done:** the gate does not yet fail a public component missing from every scene's `covers`.

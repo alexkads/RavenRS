@@ -675,6 +675,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
+name = "calculator"
+version = "27.1.11"
+dependencies = [
+ "console_error_panic_hook",
+ "ravenrs",
+ "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "calloop"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4427,6 +4439,7 @@ dependencies = [
 name = "ravenrs-perf"
 version = "27.1.11"
 dependencies = [
+ "calculator",
  "component-gallery",
  "family-finance",
  "pollster",

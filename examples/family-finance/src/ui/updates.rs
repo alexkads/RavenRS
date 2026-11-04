@@ -44,7 +44,12 @@ impl NewsDialog {
     }
 
     pub(crate) fn view(&self, updater: &Updater) -> impl View + use<> {
-        let notes: Vec<ReleaseNote> = updater.timeline().iter().map(release_note).collect();
+        // Only when the dialog is on screen: this reads the whole history of versions.
+        let (timeline, at) = (updater.clone(), self.at.binding());
+        let notes = view_fn(move || {
+            let notes: Vec<ReleaseNote> = timeline.timeline().iter().map(release_note).collect();
+            ReleaseNotes::new(notes, at.clone())
+        });
         let open = self.open.clone();
         let offer = match updater.status() {
             UpdateStatus::Available(news) => Some(news),
@@ -54,7 +59,7 @@ impl NewsDialog {
         let close = open.clone();
         let mut dialog = Dialog::new(self.open.binding(), "Novidades")
             .width(780.0)
-            .content(ReleaseNotes::new(notes, self.at.binding()))
+            .content(notes)
             .action(Button::new("Fechar").style(ButtonStyle::Secondary).on_click(move || close.set(false)));
         if let Some(news) = offer {
             dialog = dialog.action(Button::new("Atualizar").icon(IconName::Download).on_click(move || {

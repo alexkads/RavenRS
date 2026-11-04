@@ -48,6 +48,8 @@ Aceita um filtro de cena, como `report curve`. Olhe primeiro:
 - `shapes` acima de 0 sem texto novo: falta cache de texto.
 - `frames` acima de 0 em `idle`: o app não está dormindo.
 
+Para comparar versões com uma tela pequena e estável, use a calculadora (`examples/calculator`), que é medida como está: `report calculator` e `time calculator`. Um clique nela muda um número só, então qualquer aumento ali é custo do core.
+
 ## 3. Tempos por fase
 
 Na tomada, no Mac de referência (MacBook Pro 14" M2 Pro, `Mac14,9`). Na bateria, o resultado é inválido.

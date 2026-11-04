@@ -1,11 +1,13 @@
 //! The components that carry the most weight, each at its worst realistic case.
 
-use ravenrs_core::{ImageData, Point};
+use ravenrs_core::{Event, ImageData, Point, PointerButton};
 use ravenrs_reactive::State;
 use ravenrs_widgets::grid::{GridColumn, GridData, Summary, Value};
 use ravenrs_widgets::*;
 
-use crate::{Ceiling, Class, PerfScene, Setup, Step, ceiling, hover_between, nothing, resize, scroll_at};
+use crate::{
+    Ceiling, Class, PerfScene, Setup, Step, ceiling, hover_between, hover_buttons, nothing, resize, scroll_at,
+};
 
 fn common(interaction: &str, a: Point, b: Point) -> Step {
     match interaction {
@@ -109,6 +111,40 @@ const VIRTUALIZED: &[Ceiling] =
     &[ceiling("*", "instances", 1000), ceiling("scroll", "shapes", 100), ceiling("idle", "frames", 0)];
 const ANIMATED: &[Ceiling] = &[ceiling("animate", "builds", 0), ceiling("animate", "shapes", 0)];
 const STILL: &[Ceiling] = &[ceiling("idle", "frames", 0)];
+/// Twenty buttons and a number: a click must stay this small.
+const CALCULATOR: &[Ceiling] = &[
+    ceiling("*", "instances", 60),
+    ceiling("*", "draw_calls", 60),
+    ceiling("press", "builds", 1),
+    ceiling("press", "shapes", 0),
+    ceiling("idle", "frames", 0),
+];
+
+/// Clicks two buttons in turn, as a person using the screen does.
+fn clicking(first: &'static str, second: &'static str) -> Step {
+    Box::new(move |ui, round| {
+        let name = if round % 2 == 0 { first } else { second };
+        let tree = ui.access_tree();
+        let found = tree.nodes.iter().find(|node| node.name.as_deref() == Some(name));
+        let Some(position) = found.map(|node| node.bounds.center()) else {
+            panic!("no button {name} on screen");
+        };
+        ui.handle_event(&Event::PointerMove { position });
+        ui.handle_event(&Event::PointerDown { position, button: PointerButton::Primary });
+        ui.handle_event(&Event::PointerUp { position, button: PointerButton::Primary })
+    })
+}
+
+/// The calculator example, as it is: a small screen where a click changes one number.
+fn calculator(interaction: &str) -> Setup {
+    let step: Step = match interaction {
+        "hover" => hover_buttons(),
+        "press" => clicking("7", "Clear"),
+        "resize" => resize(),
+        _ => nothing(),
+    };
+    Setup { root: Box::new(calculator::app()), step }
+}
 
 pub(super) fn scenes() -> Vec<PerfScene> {
     let scene = |name, covers, class, interactions, make, ceilings| PerfScene {
@@ -133,5 +169,13 @@ pub(super) fn scenes() -> Vec<PerfScene> {
         scene("chart", &["Chart"], Class::Picture, &["hover", "data", "idle", "resize"], chart, STILL),
         scene("lottie", &["Lottie"], Class::Animated, &["animate", "hover", "scroll"], lottie, ANIMATED),
         scene("images", &["Image", "Grid"], Class::Static, &["hover", "scroll", "idle"], images, STILL),
+        scene(
+            "calculator",
+            &["Button", "Grid", "Text", "VStack"],
+            Class::App,
+            &["hover", "press", "idle", "resize"],
+            calculator,
+            CALCULATOR,
+        ),
     ]
 }

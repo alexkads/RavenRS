@@ -17,6 +17,7 @@ ravenrs-reactive.workspace = true
 ravenrs-render.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets = { workspace = true, features = ["charts", "lottie"] }
+calculator = { path = "../../examples/calculator" }
 component-gallery = { path = "../../examples/component-gallery" }
 family-finance = { path = "../../examples/family-finance" }
 pollster.workspace = true
