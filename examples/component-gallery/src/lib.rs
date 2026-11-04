@@ -70,6 +70,11 @@ pub struct Gallery {
     newsletter: State<bool>,
     density: State<usize>,
     volume: State<f32>,
+    exposure: State<f32>,
+    warmth: State<f32>,
+    currency: State<&'static str>,
+    invoice: State<String>,
+    message: State<String>,
     seats: State<i32>,
     range: State<usize>,
     tab: State<usize>,
@@ -144,6 +149,11 @@ impl Gallery {
             density: State::new(1),
             swatch: State::new(0),
             volume: State::new(0.62),
+            exposure: State::new(1.5),
+            warmth: State::new(0.4),
+            currency: State::new("BRL"),
+            invoice: State::new(String::from("49,90")),
+            message: State::new(String::new()),
             seats: State::new(5),
             range: State::new(1),
             tab: State::new(0),
@@ -579,6 +589,15 @@ impl Gallery {
                             Text::dynamic(move || format!("Volume: {:.0}%", volume.get() * 100.0))
                                 .style(TextStyle::Callout)
                                 .foreground(Semantic::InkMuted),
+                            Slider::new(self.exposure.binding())
+                                .range(-5.0, 5.0)
+                                .step(0.1)
+                                .neutral(0.0)
+                                .label("Exposure")
+                                .show_value(),
+                            Slider::new(self.warmth.binding())
+                                .track_colors([Color::hex(0x3b82f6), Color::hex(0xfacc15)])
+                                .label("Temperature"),
                         ))
                         .spacing(10.0)
                         .align(Align::Stretch),
@@ -675,6 +694,26 @@ impl Gallery {
             Grid::new(
                 columns(width, 2),
                 (
+                    demo(
+                        "Fields with more inside",
+                        "Views before and after the text, a clear button, sizes, a box that grows and a select by value with search.",
+                        VStack::new((
+                            TextField::new(self.invoice.binding())
+                                .placeholder("Price")
+                                .size(ButtonSize::Small)
+                                .prefix(Text::new("R$").foreground(Semantic::InkMuted))
+                                .suffix(Badge::new("per month"))
+                                .clearable(),
+                            TextArea::new(self.message.binding()).placeholder("Type a message").grows(2, 5),
+                            Select::of(self.currency.binding(), [("BRL", "Real"), ("EUR", "Euro"), ("USD", "Dollar")])
+                                .label("Currency")
+                                .size(ButtonSize::Small)
+                                .searchable(),
+                            Toggle::new(self.autosave.binding()).label("Small switch").small(),
+                        ))
+                        .spacing(10.0)
+                        .align(Align::Stretch),
+                    ),
                     demo(
                         "Trees and tags",
                         "Items inside items, with the keyboard; several values as tags, adding new ones.",
@@ -898,6 +937,12 @@ impl Gallery {
                                 .item(MenuItem::new("Edit").icon(IconName::Pencil).shortcut("⌘E").on_select(log("Edit", &self.last_action)))
                                 .item(MenuItem::new("Duplicate").icon(IconName::Copy).shortcut("⌘D").on_select(log("Duplicate", &self.last_action)))
                                 .item(MenuItem::new("Share").icon(IconName::Share2).on_select(log("Share", &self.last_action)))
+                                .item(MenuItem::new("Export")
+                                    .icon(IconName::Download)
+                                    .item(MenuItem::new("As PDF").on_select(log("As PDF", &self.last_action)))
+                                    .item(MenuItem::new("As CSV").on_select(log("As CSV", &self.last_action))))
+                                .item(MenuItem::new("Pinned").checked(true))
+                                .item(MenuItem::new("Label").element(Badge::new("Family").tone(Tone::Accent)))
                                 .separator()
                                 .item(MenuItem::new("Delete").icon(IconName::Trash2).destructive().on_select(log("Delete", &self.last_action))),
                             Text::bound(&self.last_action, Clone::clone).style(TextStyle::Callout).foreground(Semantic::InkMuted),
@@ -929,6 +974,8 @@ impl Gallery {
                             Tooltip::new(Badge::new("Beta").tone(Tone::Accent), "Available to early adopters"),
                             Tooltip::new(Avatar::new("Ana Lima"), "Ana Lima, Design"),
                             Tooltip::new(Kbd::new("⌘K"), "Open the command palette"),
+                            Tooltip::new(Button::new("Save").style(ButtonStyle::Secondary), "Save the file").shortcut("⌘S"),
+                            Button::new("Open").style(ButtonStyle::Secondary).tooltip("Open a file"),
                         ))
                         .spacing(16.0)
                         .align(Align::Center)
@@ -1911,6 +1958,15 @@ impl Gallery {
                             ProgressBar::new(0.62),
                             ProgressBar::new(0.9).tone(Tone::Success),
                             ProgressBar::new(0.97).tone(Tone::Danger),
+                            ProgressBar::new(0.4).label("Copying").percent().detail("12 of 30 photos").height(4.0),
+                            Alert::message("Moving deletes the originals.").tone(Tone::Warning).compact(),
+                            HStack::new((
+                                Badge::new("Draft").outline(),
+                                Badge::new("Family").color(Color::hex(0x8b5cf6)).height(26.0),
+                                Avatar::new("Ana Lima").border(2.0, Semantic::Accent),
+                            ))
+                            .spacing(8.0)
+                            .align(Align::Center),
                         ))
                         .spacing(16.0)
                         .align(Align::Stretch),

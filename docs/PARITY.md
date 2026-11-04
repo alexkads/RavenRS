@@ -73,7 +73,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Checkbox | ✓ | ✓ | ✓ | ✅ |
 | Radio group | ✓ | ✓ | ✓ | ✅ |
 | Switch | ✓ | ✓ | ✓ | ✅ `Toggle`, with a small size |
-| Slider | ✓ | ✓ | ✓ | ✅ |
+| Slider | ✓ | ✓ | ✓ | ✅ `Slider`: marks, colored track, fill from a neutral value that a double click returns to, value at the right |
 | Range slider | | ✓ | ✓ | ⬜ |
 | Select / Drop-down list | ✓ | ✓ | ✓ | ✅ `Select`: by index or by value (`Select::of`), search, sizes |
 | Combobox / Autocomplete | ✓ | ✓ | ✓ | ✅ `Combobox` |

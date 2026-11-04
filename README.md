@@ -198,7 +198,7 @@ See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REP
 
 | Group | Components |
 |---|---|
-| Buttons and commands | `Button` (4 styles, 3 sizes, icons), `IconButton`, `ToggleButton`, `ToggleGroup`, `SplitButton`, `SegmentedControl`, `Toolbar`, `ThemePicker`, `ThemeEditor`, `ThemeSwitcher` |
+| Buttons and commands | `Button` (4 styles, 3 sizes, icons, loading, selected), `IconButton`, `ToggleButton`, `ToggleGroup`, `SplitButton`, `SegmentedControl`, `Toolbar`, `ThemePicker`, `ThemeEditor`, `ThemeSwitcher` |
 | Text and choices | `TextField`, `TextArea`, `NumberField`, `MaskedField`, `InputOtp`, `Select`, `Combobox`, `LookupField`, `TagBox`, `Checkbox`, `RadioGroup`, `Toggle`, `Slider`, `Stepper`, `ColorPicker`, `ColorSwatch`, `FileUpload`, `ImageField` |
 | Forms | `FormField` with `validate::{required, email, min_length}` and custom rules, `FormLayout`, `FilterBuilder`, `Wizard`, `Label`, `HelpTip` |
 | Dates and scheduling | `Calendar`, `DatePicker`, `DateRangePicker`, `TimePicker`, `DateTimePicker`, `EventCalendar`, `Scheduler` (a timeline per resource), `RecurrenceEditor`, `Timeline` |

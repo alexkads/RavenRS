@@ -559,3 +559,103 @@ fn a_context_menu_has_submenus_too() {
     key(&mut ui, Key::ArrowLeft);
     assert_eq!(focused_name(&mut ui).as_deref(), Some("Sort by"));
 }
+
+fn in_column(view: impl View + 'static) -> Ui {
+    ui(VStack::new((view,)).align(Align::Stretch))
+}
+
+fn slider_node(ui: &mut Ui) -> AccessNode {
+    ui.access_tree().nodes.iter().find(|n| n.role == Role::Slider).expect("a slider").clone()
+}
+
+#[test]
+fn a_slider_can_paint_its_meaning_on_the_track() {
+    let value = State::new(0.5_f32);
+    let (cold, warm) = (Color::rgb(0.1, 0.3, 0.9), Color::rgb(0.9, 0.8, 0.1));
+    let colored = in_column(Slider::new(value.binding()).track_colors([cold, Color::WHITE, warm]));
+    let gradients: Vec<_> = quads(&colored)
+        .into_iter()
+        .filter_map(|q| if let ravenrs_core::Brush::LinearGradient(g) = q.fill { Some(g) } else { None })
+        .collect();
+    assert_eq!(gradients.len(), 2, "one band for each pair of colors");
+    assert_eq!((gradients[0].from, gradients[1].to), (cold, warm));
+    assert_eq!(gradients[0].start.y, gradients[0].end.y, "along the track");
+    let accent = Theme::raven_dark().color(Semantic::Accent);
+    assert!(quads(&colored).iter().all(|q| q.fill != accent.into()), "and no fill over it");
+    let plain = in_column(Slider::new(value.binding()));
+    assert!(quads(&plain).iter().any(|q| q.fill == accent.into()), "a plain slider has its fill");
+}
+
+#[test]
+fn a_slider_fills_from_its_neutral_value_and_goes_back_to_it() {
+    let value = State::new(2.5_f32);
+    let mut ui = in_column(Slider::new(value.binding()).range(-5.0, 5.0).step(0.5).neutral(0.0));
+    let accent = Theme::raven_dark().color(Semantic::Accent);
+    let fill = |ui: &Ui| *quads(ui).iter().find(|q| q.fill == accent.into()).expect("a fill");
+    let node = slider_node(&mut ui);
+    let middle = node.bounds.center().x;
+    let right = fill(&ui);
+    assert!((right.rect.x() - middle).abs() < 0.01, "it starts in the middle");
+    assert!((right.rect.max_x() - (middle + (node.bounds.width() - 18.0) / 4.0)).abs() < 0.01);
+
+    value.set(-2.5);
+    ui.update();
+    let left = fill(&ui);
+    assert!((left.rect.max_x() - middle).abs() < 0.01, "below it, it runs back to the middle");
+
+    ui.handle_event(&Event::DoubleClick { position: node.bounds.center() });
+    ui.update();
+    assert_eq!(value.get(), 0.0, "a double click goes back");
+    assert_eq!(fill(&ui).rect.width(), 0.0, "and at rest nothing is filled");
+
+    value.set(3.0);
+    ui.update();
+    ui.handle_event(&Event::KeyDown { key: Key::Tab, modifiers: Modifiers::default() });
+    ui.update();
+    key(&mut ui, Key::Backspace);
+    assert_eq!(value.get(), 0.0, "and so does the keyboard");
+    key(&mut ui, Key::ArrowRight);
+    assert_eq!(value.get(), 0.5, "the arrows still step");
+
+    let fixed = State::new(0.5_f32);
+    let mut none = in_column(Slider::new(fixed.binding()));
+    let at = slider_node(&mut none).bounds.center();
+    none.handle_event(&Event::DoubleClick { position: at });
+    assert_eq!(fixed.get(), 0.5, "without a neutral value a double click does nothing");
+    let accent_rect = fill(&none).rect;
+    assert_eq!(accent_rect.x(), slider_node(&mut none).bounds.x() + 9.0, "and it fills from the start");
+}
+
+#[test]
+fn a_slider_can_show_its_value_at_the_right() {
+    let value = State::new(40.0_f32);
+    let mut ui =
+        in_column(Slider::new(value.binding()).range(0.0, 100.0).step(5.0).label("Volume").show_value());
+    let tree = ui.access_tree();
+    let track = named(&tree, Role::Slider, "Volume");
+    assert_eq!(track.value.as_deref(), Some("40"), "read by screen readers");
+    assert_eq!(glyph_colors(&ui).len(), 1, "and drawn");
+    let run_x = ui
+        .scene()
+        .primitives()
+        .iter()
+        .find_map(|p| if let Primitive::Glyphs(g) = p { g.glyphs.first().map(|g| g.x) } else { None })
+        .expect("the value");
+    assert!(run_x >= track.bounds.max_x(), "after the track, at {run_x}");
+    let (width, at) = (track.bounds.width(), track.bounds.center());
+    assert!(width < 800.0, "the row shares the width");
+
+    click(&mut ui, at);
+    assert_eq!(value.get(), 50.0, "dragging still uses the track's own frame");
+    value.set(100.0);
+    ui.update();
+    assert_eq!(slider_node(&mut ui).bounds.width(), width, "the track does not move with the value");
+    key(&mut ui, Key::ArrowLeft);
+    assert_eq!(value.get(), 95.0);
+
+    let gain = State::new(0.5_f32);
+    let mut custom = in_column(Slider::new(gain.binding()).value_format(|v| format!("+{v:.1} EV")));
+    assert_eq!(slider_node(&mut custom).value.as_deref(), Some("+0.5 EV"), "written by whoever knows");
+    let quiet = in_column(Slider::new(gain.binding()));
+    assert!(glyph_colors(&quiet).is_empty(), "no text unless asked for");
+}

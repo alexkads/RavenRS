@@ -2,7 +2,9 @@
 
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Quad, Rect, Role, Shadow};
+use ravenrs_core::{
+    Border, Color, CursorIcon, Effect, Insets, Key, LinearGradient, Point, Quad, Rect, Role, Scene, Shadow,
+};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
@@ -387,11 +389,10 @@ fn group_semantics(label: Option<&str>) -> Semantics {
 /// use ravenrs_widgets::{Slider, Ui};
 ///
 /// let volume = State::new(40.0_f32);
-/// let slider = Slider::new(volume.binding()).range(0.0, 100.0).step(5.0).width(240.0);
+/// let slider = Slider::new(volume.binding()).range(0.0, 100.0).step(5.0).width(240.0).show_value();
 /// let mut ui = Ui::new(slider, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
-#[derive(Debug)]
 pub struct Slider {
     value: Binding<f32>,
     min: f32,
@@ -400,12 +401,34 @@ pub struct Slider {
     width: Option<f32>,
     label: Option<String>,
     marks: Vec<f32>,
+    track_colors: Vec<Color>,
+    neutral: Option<f32>,
+    show_value: bool,
+    format: Option<Rc<dyn Fn(f32) -> String>>,
+}
+
+impl std::fmt::Debug for Slider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Slider").field("min", &self.min).field("max", &self.max).finish_non_exhaustive()
+    }
 }
 
 impl Slider {
     /// A slider over 0.0–1.0 bound to `value`, stepping by 0.01.
     pub fn new(value: Binding<f32>) -> Self {
-        Self { value, min: 0.0, max: 1.0, step: 0.01, width: None, label: None, marks: Vec::new() }
+        Self {
+            value,
+            min: 0.0,
+            max: 1.0,
+            step: 0.01,
+            width: None,
+            label: None,
+            marks: Vec::new(),
+            track_colors: Vec::new(),
+            neutral: None,
+            show_value: false,
+            format: None,
+        }
     }
 
     /// The value range; also resets the step to 1/100 of the range.
@@ -439,14 +462,93 @@ impl Slider {
         self.marks = marks.into_iter().collect();
         self
     }
+
+    /// Paints the track with these colors, evenly spaced from one end to the other, when
+    /// the colors are what the value means, as from cold to warm. There is then no fill.
+    /// The colors are data, so they come from whoever knows what they mean.
+    pub fn track_colors(mut self, colors: impl IntoIterator<Item = Color>) -> Self {
+        self.track_colors = colors.into_iter().collect();
+        self
+    }
+
+    /// The value at rest, such as zero in the middle of the range. The fill starts there
+    /// instead of at the minimum, and a double click, Backspace or Delete return to it.
+    pub fn neutral(mut self, neutral: f32) -> Self {
+        self.neutral = Some(neutral);
+        self
+    }
+
+    /// Shows the value at the right of the track, with as many decimals as the step has.
+    pub fn show_value(mut self) -> Self {
+        self.show_value = true;
+        self
+    }
+
+    /// Shows the value at the right of the track as this function writes it, which screen
+    /// readers read too.
+    pub fn value_format(mut self, format: impl Fn(f32) -> String + 'static) -> Self {
+        self.show_value = true;
+        self.format = Some(Rc::new(format));
+        self
+    }
+
+    fn value_text(&self, value: f32) -> String {
+        match &self.format {
+            Some(format) => format(value),
+            None => {
+                // Less a hair, since the logarithm of 0.1 can land just above 1.
+                let decimals = (-self.step.log10() - 1e-3).ceil().clamp(0.0, 4.0) as usize;
+                format!("{value:.decimals$}")
+            }
+        }
+    }
 }
 
-impl View for Slider {
+/// Draws a track through `colors`. Gradients have two stops and square ends: one for each
+/// pair of colors, between round caps in the end colors.
+fn paint_color_track(scene: &mut Scene, track: Rect, colors: &[Color]) {
+    let (Some(first), Some(last)) = (colors.first(), colors.last()) else { return };
+    let radius = track.height() / 2.0;
+    let cap = track.height();
+    scene.push_quad(Quad::new(Rect::new(track.x(), track.y(), cap, cap), *first).radius(radius));
+    scene.push_quad(Quad::new(Rect::new(track.max_x() - cap, track.y(), cap, cap), *last).radius(radius));
+    let inner = (track.width() - cap).max(0.0);
+    let bands = colors.len().saturating_sub(1);
+    if bands == 0 {
+        scene.push_quad(Quad::new(Rect::new(track.x() + radius, track.y(), inner, cap), *first));
+        return;
+    }
+    let band = inner / bands as f32;
+    for (i, pair) in colors.windows(2).enumerate() {
+        // A little overlap, so that no seam shows between bands on fractional pixels.
+        let overlap = if i + 1 < bands { 0.5 } else { 0.0 };
+        let rect = Rect::new(track.x() + radius + band * i as f32, track.y(), band + overlap, track.height());
+        let gradient = LinearGradient {
+            start: Point::new(0.0, 0.5),
+            end: Point::new(1.0, 0.5),
+            from: pair[0],
+            to: pair[1],
+        };
+        scene.push_quad(Quad::new(rect, gradient));
+    }
+}
+
+/// The part of a [`Slider`] that is dragged. Its own view when the value sits beside it, so
+/// that hover and focus are about the track.
+struct SliderTrack<'a> {
+    slider: &'a Slider,
+    /// Takes what the row leaves it, instead of being the whole slider.
+    in_row: bool,
+}
+
+impl View for SliderTrack<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let slider = self.slider;
         let theme = *cx.theme();
-        let (min, max, step) = (self.min, self.max, self.step);
-        let value = self.value.get().clamp(min, max);
+        let (min, max, step) = (slider.min, slider.max, slider.step);
+        let value = slider.value.get().clamp(min, max);
         let t = (value - min) / (max - min);
+        let rest = slider.neutral.map_or(0.0, |n| ((n - min) / (max - min)).clamp(0.0, 1.0));
         let (track, fill) = (theme.color(Semantic::Control), theme.color(Semantic::Accent));
         let ring = theme.color(Semantic::Accent).with_alpha(if cx.is_pressed() || cx.is_hovered() {
             0.25
@@ -454,24 +556,41 @@ impl View for Slider {
             0.0
         });
         let style = LayoutStyle {
-            width: self.width,
+            width: if self.in_row { None } else { slider.width },
             height: Some(24.0),
             min_width: Some(120.0),
-            align_self: Some(if self.width.is_some() { Align::Start } else { Align::Stretch }),
+            grow: if self.in_row { 1.0 } else { 0.0 },
+            align_self: Some(if slider.width.is_some() && !self.in_row {
+                Align::Start
+            } else {
+                Align::Stretch
+            }),
             ..LayoutStyle::leaf()
         };
         let notch = theme.color(Semantic::InkMuted);
-        let marks: Vec<f32> = self.marks.iter().map(|m| ((m - min) / (max - min)).clamp(0.0, 1.0)).collect();
+        let marks: Vec<f32> =
+            slider.marks.iter().map(|m| ((m - min) / (max - min)).clamp(0.0, 1.0)).collect();
+        let colors = slider.track_colors.clone();
         let node = cx.container(
             style,
             &[],
             Paint::Custom(Rc::new(move |f: Rect, scene| {
                 let usable = f.width() - 18.0;
                 let cy = f.center().y;
-                scene.push_quad(Quad::new(Rect::new(f.x() + 9.0, cy - 2.0, usable, 4.0), track).radius(2.0));
-                scene.push_quad(
-                    Quad::new(Rect::new(f.x() + 9.0, cy - 2.0, usable * t, 4.0), fill).radius(2.0),
-                );
+                let bar = Rect::new(f.x() + 9.0, cy - 2.0, usable, 4.0);
+                if colors.is_empty() {
+                    scene.push_quad(Quad::new(bar, track).radius(2.0));
+                    let (from, to) = (rest.min(t), rest.max(t));
+                    scene.push_quad(
+                        Quad::new(
+                            Rect::new(bar.x() + usable * from, bar.y(), usable * (to - from), 4.0),
+                            fill,
+                        )
+                        .radius(2.0),
+                    );
+                } else {
+                    paint_color_track(scene, bar, &colors);
+                }
                 for mark in &marks {
                     let x = f.x() + 9.0 + usable * mark;
                     scene.push_quad(Quad::new(Rect::new(x - 1.0, cy - 5.0, 2.0, 10.0), notch).radius(1.0));
@@ -495,12 +614,15 @@ impl View for Slider {
         );
         let mut semantics =
             Semantics::new(Role::Slider).numeric(value as f64, min as f64, max as f64, Some(step as f64));
-        if let Some(label) = &self.label {
+        if let Some(label) = &slider.label {
             semantics = semantics.name(label.clone());
+        }
+        if slider.show_value {
+            semantics = semantics.value(slider.value_text(value));
         }
         cx.semantics(node, semantics);
         let snap = move |v: f32| ((v - min) / step).round() * step + min;
-        let drag_value = self.value.clone();
+        let drag_value = slider.value.clone();
         cx.on_drag(
             node,
             Rc::new(move |d| {
@@ -512,10 +634,19 @@ impl View for Slider {
                 drag_value.set(snap(min + frac * (max - min)).clamp(min, max));
             }),
         );
-        let key_value = self.value.clone();
+        let neutral = slider.neutral.map(|n| n.clamp(min, max));
+        if let Some(neutral) = neutral {
+            let reset = slider.value.clone();
+            cx.on_double_click(node, Rc::new(move || reset.set(neutral)));
+        }
+        let key_value = slider.value.clone();
         cx.on_key(
             node,
             Rc::new(move |key, _| {
+                if let (Key::Backspace | Key::Delete, Some(neutral)) = (key, neutral) {
+                    key_value.set(neutral);
+                    return true;
+                }
                 let delta = match key {
                     Key::ArrowLeft | Key::ArrowDown => -step,
                     Key::ArrowRight | Key::ArrowUp => step,
@@ -530,6 +661,52 @@ impl View for Slider {
         cx.focusable(node, 12.0);
         cx.cursor(node, CursorIcon::Pointer);
         node
+    }
+}
+
+impl View for Slider {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        if !self.show_value {
+            return SliderTrack { slider: self, in_row: false }.build(cx);
+        }
+        let theme = *cx.theme();
+        let track = cx.child(&SliderTrack { slider: self, in_row: true });
+        let value = self.value.get().clamp(self.min, self.max);
+        let text = util::label(
+            cx,
+            &self.value_text(value),
+            TextStyle::Callout,
+            None,
+            theme.color(Semantic::InkMuted),
+        );
+        // Part of the track's semantics, as its value.
+        cx.semantics(text, Semantics::hidden());
+        // As wide as the widest value, so that the track does not move while it is dragged.
+        let attrs = util::attrs(&theme, TextStyle::Callout, None);
+        let widest = cx
+            .measure_text(&self.value_text(self.min), &attrs)
+            .width
+            .max(cx.measure_text(&self.value_text(self.max), &attrs).width);
+        let number = cx.container(
+            LayoutStyle {
+                min_width: Some(widest.ceil()),
+                justify: Justify::End,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[text],
+            Paint::None,
+        );
+        cx.container(
+            LayoutStyle {
+                width: self.width,
+                spacing: theme.spacing.s2,
+                align: Align::Center,
+                align_self: Some(if self.width.is_some() { Align::Start } else { Align::Stretch }),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[track, number],
+            Paint::None,
+        )
     }
 }
 

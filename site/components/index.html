@@ -36,7 +36,7 @@
       <h2 id="actions-and-inputs"><a class="anchor" href="#actions-and-inputs" aria-label="Link to Actions and inputs">#</a>Actions and inputs</h2>
       <p class="sub">Buttons and controls that take a value.</p>
       <ul class="items">
-        <li><a href="button/" data-api="struct.Button.html">Button</a><span class="sep"> - </span><span class="desc">Clickable, focusable button with styles, sizes and icons</span></li>
+        <li><a href="button/" data-api="struct.Button.html">Button</a><span class="sep"> - </span><span class="desc">Clickable, focusable button with styles, sizes, icons, loading and selected states</span></li>
         <li><a href="iconbutton/" data-api="struct.IconButton.html">IconButton</a><span class="sep"> - </span><span class="desc">Square, icon-only button for toolbars</span></li>
         <li><a href="togglebutton/" data-api="struct.ToggleButton.html">ToggleButton</a><span class="sep"> - </span><span class="desc">Button that stays pressed, like bold or mute</span></li>
         <li><a href="togglegroup/" data-api="struct.ToggleGroup.html">ToggleGroup</a><span class="sep"> - </span><span class="desc">Row of toggle buttons where one or several can be on</span></li>
@@ -44,9 +44,9 @@
         <li><a href="toggle/" data-api="struct.Toggle.html">Toggle</a><span class="sep"> - </span><span class="desc">On/off switch</span></li>
         <li><a href="checkbox/" data-api="struct.Checkbox.html">Checkbox</a><span class="sep"> - </span><span class="desc">Check box with a label</span></li>
         <li><a href="radiogroup/" data-api="struct.RadioGroup.html">RadioGroup</a><span class="sep"> - </span><span class="desc">One choice among several, shown as radio buttons</span></li>
-        <li><a href="slider/" data-api="struct.Slider.html">Slider</a><span class="sep"> - </span><span class="desc">Draggable value between a minimum and a maximum</span></li>
+        <li><a href="slider/" data-api="struct.Slider.html">Slider</a><span class="sep"> - </span><span class="desc">Draggable value between a minimum and a maximum, with a colored track or a neutral point</span></li>
         <li><a href="stepper/" data-api="struct.Stepper.html">Stepper</a><span class="sep"> - </span><span class="desc">Decrement, value and increment for small quantities</span></li>
-        <li><a href="textarea/" data-api="struct.TextArea.html">TextArea</a><span class="sep"> - </span><span class="desc">Text on several lines, scrolling past its height</span></li>
+        <li><a href="textarea/" data-api="struct.TextArea.html">TextArea</a><span class="sep"> - </span><span class="desc">Text on several lines, scrolling past its height or growing with the text</span></li>
         <li><a href="numberfield/" data-api="struct.NumberField.html">NumberField</a><span class="sep"> - </span><span class="desc">A typed number or amount of money, formatted when you leave</span></li>
         <li><a href="maskedfield/" data-api="struct.MaskedField.html">MaskedField</a><span class="sep"> - </span><span class="desc">Text that follows a pattern, like a phone number</span></li>
         <li><a href="timepicker/" data-api="struct.TimePicker.html">TimePicker</a><span class="sep"> - </span><span class="desc">A time of day, typed or picked from a list</span></li>
@@ -73,7 +73,7 @@
       <h2 id="forms"><a class="anchor" href="#forms" aria-label="Link to Forms">#</a>Forms</h2>
       <p class="sub">Fields, pickers and the layout around them.</p>
       <ul class="items">
-        <li><a href="textfield/" data-api="struct.TextField.html">TextField</a><span class="sep"> - </span><span class="desc">Single-line text input with selection and clipboard</span></li>
+        <li><a href="textfield/" data-api="struct.TextField.html">TextField</a><span class="sep"> - </span><span class="desc">Single-line text input with selection, clipboard, views inside and a clear button</span></li>
         <li><a href="select/" data-api="struct.Select.html">Select</a><span class="sep"> - </span><span class="desc">Picks one option from a list in a field-like trigger</span></li>
         <li><a href="combobox/" data-api="struct.Combobox.html">Combobox</a><span class="sep"> - </span><span class="desc">Select with a search box that filters the options</span></li>
         <li><a href="datepicker/" data-api="struct.DatePicker.html">DatePicker</a><span class="sep"> - </span><span class="desc">Field that opens a calendar in a popover</span></li>
@@ -118,9 +118,9 @@
         <li><a href="splashscreen/" data-api="struct.SplashScreen.html">SplashScreen</a><span class="sep"> - </span><span class="desc">Opening screen that covers the window while the app loads</span></li>
         <li><a href="popover/" data-api="struct.Popover.html">Popover</a><span class="sep"> - </span><span class="desc">Floating content anchored below a view</span></li>
         <li><a href="hovercard/" data-api="struct.HoverCard.html">HoverCard</a><span class="sep"> - </span><span class="desc">Rich content shown while the pointer is over a trigger</span></li>
-        <li><a href="tooltip/" data-api="struct.Tooltip.html">Tooltip</a><span class="sep"> - </span><span class="desc">Short label shown on hover</span></li>
+        <li><a href="tooltip/" data-api="struct.Tooltip.html">Tooltip</a><span class="sep"> - </span><span class="desc">Short label shown on hover, with an optional key cap</span></li>
         <li><a href="helptip/" data-api="struct.HelpTip.html">HelpTip</a><span class="sep"> - </span><span class="desc">A small question mark that explains something</span></li>
-        <li><a href="dropdownmenu/" data-api="struct.DropdownMenu.html">DropdownMenu</a><span class="sep"> - </span><span class="desc">Button that opens a list of actions</span></li>
+        <li><a href="dropdownmenu/" data-api="struct.DropdownMenu.html">DropdownMenu</a><span class="sep"> - </span><span class="desc">Button that opens a list of actions, with submenus and check marks</span></li>
         <li><a href="contextmenu/" data-api="struct.ContextMenu.html">ContextMenu</a><span class="sep"> - </span><span class="desc">Menu opened at the pointer on right click</span></li>
         <li><a href="commandpalette/" data-api="struct.CommandPalette.html">CommandPalette</a><span class="sep"> - </span><span class="desc">Searchable list of commands, opened with Cmd/Ctrl+K</span></li>
         <li><a href="toaster/" data-api="struct.Toaster.html">Toaster</a><span class="sep"> - </span><span class="desc">Stacked notifications that dismiss themselves</span></li>
@@ -172,7 +172,7 @@
         <li><a href="badge/" data-api="struct.Badge.html">Badge</a><span class="sep"> - </span><span class="desc">Small pill for status, counts and categories</span></li>
         <li><a href="avatar/" data-api="struct.Avatar.html">Avatar</a><span class="sep"> - </span><span class="desc">Round avatar with initials colored from the name</span></li>
         <li><a href="kbd/" data-api="struct.Kbd.html">Kbd</a><span class="sep"> - </span><span class="desc">Keyboard key, for showing shortcuts</span></li>
-        <li><a href="progressbar/" data-api="struct.ProgressBar.html">ProgressBar</a><span class="sep"> - </span><span class="desc">Horizontal progress bar</span></li>
+        <li><a href="progressbar/" data-api="struct.ProgressBar.html">ProgressBar</a><span class="sep"> - </span><span class="desc">Horizontal progress bar, with a label, a percentage and a detail</span></li>
         <li><a href="spinner/" data-api="struct.Spinner.html">Spinner</a><span class="sep"> - </span><span class="desc">Indeterminate activity indicator</span></li>
         <li><a href="skeleton/" data-api="struct.Skeleton.html">Skeleton</a><span class="sep"> - </span><span class="desc">Placeholder block shown while content loads</span></li>
       </ul>

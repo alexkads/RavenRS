@@ -168,13 +168,25 @@ fn radio_group() -> impl View {
 }
 // end
 
-// sample: Slider, 110
+// sample: Slider, 200
 fn slider() -> impl View {
     let volume = State::new(0.6_f32);
+    let (exposure, warmth) = (State::new(1.5_f32), State::new(0.4_f32));
     let shown = volume.clone();
     VStack::new((
         Slider::new(volume.binding()).label("Volume"),
         Text::dynamic(move || format!("{:.0}%", shown.get() * 100.0)).foreground(Semantic::InkMuted),
+        // Fills from zero, a double click goes back to it, and the value sits at the right.
+        Slider::new(exposure.binding())
+            .range(-5.0, 5.0)
+            .step(0.1)
+            .neutral(0.0)
+            .label("Exposure")
+            .show_value(),
+        // The colors on the track say what the value means.
+        Slider::new(warmth.binding())
+            .track_colors([Color::hex(0x3b82f6), Color::hex(0xfacc15)])
+            .label("Temperature"),
     ))
     .spacing(12.0)
     .align(Align::Stretch)
