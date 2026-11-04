@@ -7,7 +7,7 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics};
-use crate::{IconName, View, util};
+use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, View, util};
 
 /// A single-line text input bound to a `String`.
 ///
@@ -20,7 +20,7 @@ use crate::{IconName, View, util};
 /// use ravenrs_widgets::{IconName, TextField, Ui};
 ///
 /// let query = State::new(String::new());
-/// let field = TextField::new(query.binding()).placeholder("Search").icon(IconName::Search);
+/// let field = TextField::new(query.binding()).placeholder("Search").icon(IconName::Search).clearable();
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
@@ -30,7 +30,10 @@ pub struct TextField {
     icon: Option<IconName>,
     secure: bool,
     width: Option<f32>,
-    compact: bool,
+    size: ButtonSize,
+    prefix: Option<AnyView>,
+    suffix: Option<AnyView>,
+    clearable: bool,
     flat: bool,
     end_aligned: bool,
     autofocus: bool,
@@ -60,7 +63,10 @@ impl TextField {
             icon: None,
             secure: false,
             width: None,
-            compact: false,
+            size: ButtonSize::Medium,
+            prefix: None,
+            suffix: None,
+            clearable: false,
             flat: false,
             end_aligned: false,
             autofocus: false,
@@ -98,9 +104,36 @@ impl TextField {
         self
     }
 
-    /// A shorter field with smaller text, for toolbars, filter rows and cells.
+    /// A shorter field with smaller text, for toolbars, filter rows and cells: the same
+    /// as [`Self::size`] with [`ButtonSize::Small`].
     pub fn compact(mut self) -> Self {
-        self.compact = true;
+        self.size = ButtonSize::Small;
+        self
+    }
+
+    /// Sets the height and text size to line up with a [`Button`](crate::Button) of the
+    /// same size (`Medium` by default). The smaller ones have no minimum width.
+    pub fn size(mut self, size: ButtonSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Any view inside the field, before the text, such as a currency or a unit.
+    pub fn prefix(mut self, view: impl View + 'static) -> Self {
+        self.prefix = Some(Box::new(view));
+        self
+    }
+
+    /// Any view inside the field, after the text, such as a unit or a button.
+    pub fn suffix(mut self, view: impl View + 'static) -> Self {
+        self.suffix = Some(Box::new(view));
+        self
+    }
+
+    /// A button inside the field that empties it, shown while there is text to clear.
+    /// The keyboard comes back to the field afterwards.
+    pub fn clearable(mut self) -> Self {
+        self.clearable = true;
         self
     }
 
@@ -404,6 +437,12 @@ impl View for TextField {
             focus_requested.set_if_changed(true);
             cx.request_focus();
         }
+        // Set by the clear button, which took the focus with its click.
+        let refocus: State<bool> = cx.use_state(|| false);
+        if *refocus.peek() {
+            refocus.set(false);
+            cx.request_focus();
+        }
         let focused = cx.is_focused() && !state.disabled;
         let had_focus: State<bool> = cx.use_state(|| false);
         if *had_focus.peek() != focused {
@@ -419,12 +458,22 @@ impl View for TextField {
         let caret_at = cur.caret.min(len);
         let visible = self.idle_text.as_ref().filter(|_| !focused).unwrap_or(&text);
         let shown: String = if self.secure { "•".repeat(len) } else { visible.clone() };
-        let attrs =
-            util::attrs(&theme, if self.compact { TextStyle::Callout } else { TextStyle::Body }, None);
+        let dense = matches!(self.size, ButtonSize::Small | ButtonSize::Mini);
+        let text_style = match self.size {
+            ButtonSize::Mini => TextStyle::Caption,
+            ButtonSize::Small => TextStyle::Callout,
+            _ => TextStyle::Body,
+        };
+        let attrs = util::attrs(&theme, text_style, None);
 
         let mut children = Vec::new();
         if let Some(icon) = self.icon {
-            children.push(util::icon(cx, icon, 16.0, state.ink(theme.color(Semantic::InkMuted))));
+            let size = if self.size == ButtonSize::Mini { 12.0 } else { 16.0 };
+            children.push(util::icon(cx, icon, size, state.ink(theme.color(Semantic::InkMuted))));
+        }
+        // Keyed, so that the clear button coming and going does not move their state.
+        if let Some(prefix) = &self.prefix {
+            children.push(cx.keyed_child(1, prefix));
         }
         // Where each char boundary falls, for the caret, the selection and clicks.
         let boundaries: Rc<Vec<f32>> = Rc::new(if shown.chars().count() <= 512 {
@@ -517,6 +566,22 @@ impl View for TextField {
             cx.cursor(text_area, CursorIcon::Text);
         }
         children.push(text_area);
+        if self.clearable && !text.is_empty() && state.accepts_input() {
+            let (value, caret, refocus) = (self.value.clone(), cursor.clone(), refocus.clone());
+            let clear = IconButton::new(IconName::X)
+                .label(cx.labels().clear.clone())
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Mini)
+                .on_click(move || {
+                    value.set(String::new());
+                    caret.set(Cursor::at(usize::MAX));
+                    refocus.set(true);
+                });
+            children.push(cx.keyed_child(2, &clear));
+        }
+        if let Some(suffix) = &self.suffix {
+            children.push(cx.keyed_child(3, suffix));
+        }
 
         let border = if focused {
             Border { width: 1.5, color: accent }
@@ -528,11 +593,11 @@ impl View for TextField {
             }
         };
         let style = LayoutStyle {
-            padding: Insets::symmetric(0.0, if self.compact && !self.flat { 8.0 } else { 12.0 }),
-            height: if self.flat { None } else { Some(if self.compact { 32.0 } else { 40.0 }) },
+            padding: Insets::symmetric(0.0, if dense && !self.flat { 8.0 } else { 12.0 }),
+            height: if self.flat { None } else { Some(self.size.height()) },
             grow: if self.flat { 1.0 } else { 0.0 },
             width: self.width,
-            min_width: Some(if self.compact { 0.0 } else { 160.0 }),
+            min_width: Some(if dense { 0.0 } else { 160.0 }),
             spacing: 8.0,
             align: Align::Center,
             align_self: Some(if self.width.is_some() { Align::Start } else { Align::Stretch }),

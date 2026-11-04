@@ -184,7 +184,8 @@ fn slider() -> impl View {
 // sample: TextArea, 170
 fn text_area() -> impl View {
     let notes = State::new(String::from("Two lines\nto start with."));
-    TextArea::new(notes.binding()).placeholder("Notes").rows(4)
+    // Grows from 2 to 6 lines as you type; `.rows(4)` would fix the height.
+    TextArea::new(notes.binding()).placeholder("Notes").grows(2, 6)
 }
 // end
 
@@ -557,12 +558,18 @@ fn theme_editor() -> impl View {
 }
 // end
 
-// sample: TextField, 130
+// sample: TextField, 180
 fn text_field() -> impl View {
     let name = State::new(String::new());
+    let price = State::new(String::from("49,90"));
     let shown = name.clone();
     VStack::new((
-        TextField::new(name.binding()).placeholder("Full name").icon(IconName::User),
+        TextField::new(name.binding()).placeholder("Full name").icon(IconName::User).clearable(),
+        TextField::new(price.binding())
+            .placeholder("Price")
+            .size(ButtonSize::Small)
+            .prefix(Text::new("R$").foreground(Semantic::InkMuted))
+            .suffix(Badge::new("per month")),
         Text::dynamic(move || format!("Hello, {}", shown.get())).foreground(Semantic::InkMuted),
     ))
     .spacing(12.0)

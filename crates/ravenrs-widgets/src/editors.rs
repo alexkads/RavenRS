@@ -117,6 +117,7 @@ pub struct TextArea {
     value: Binding<String>,
     placeholder: String,
     rows: usize,
+    grows: Option<(usize, usize)>,
     width: Option<f32>,
     state: util::EditorState,
 }
@@ -134,6 +135,7 @@ impl TextArea {
             value,
             placeholder: String::new(),
             rows: DEFAULT_ROWS,
+            grows: None,
             width: None,
             state: util::EditorState::default(),
         }
@@ -148,6 +150,14 @@ impl TextArea {
     /// How many lines are visible; more than that scroll. 4 by default.
     pub fn rows(mut self, rows: usize) -> Self {
         self.rows = rows.max(1);
+        self
+    }
+
+    /// Grows with the text from `min` to `max` lines, and scrolls past that, as a message
+    /// box does. It replaces the fixed height of [`Self::rows`].
+    pub fn grows(mut self, min: usize, max: usize) -> Self {
+        let min = min.max(1);
+        self.grows = Some((min, max.max(min)));
         self
     }
 
@@ -222,7 +232,6 @@ impl View for TextArea {
         let chars: Vec<char> = text.chars().collect();
         let attrs = util::attrs(&theme, TextStyle::Body, None);
         let line_height = attrs.line_height;
-        let height = self.rows as f32 * line_height + AREA_PADDING;
 
         // The width of the last layout, known from the second build on.
         let viewport = cx.scroll_viewport();
@@ -233,16 +242,25 @@ impl View for TextArea {
             wrap_lines(&text, inner, |s| cx.measure_text(s, &attrs).width)
         };
         let lines = Rc::new(lines);
+        let rows_shown = self.grows.map_or(self.rows, |(min, max)| lines.len().clamp(min, max));
+        let height = rows_shown as f32 * line_height + AREA_PADDING;
         let cur = cursor.get();
         let caret = cur.caret.min(chars.len());
         let caret_line = line_of(&lines, caret);
 
         // Keep the caret in view after it moves, and leave the wheel alone otherwise.
         let mut offset = cx.scroll_offset().y;
+        // Everything fits again once text is deleted, and nothing is left to scroll.
+        if self.grows.is_some() && lines.len() <= rows_shown && offset > 0.0 {
+            offset = 0.0;
+            cx.set_scroll_offset(Point::new(0.0, 0.0));
+        }
         if focused && followed.get() != caret {
             followed.set_if_changed(caret);
             let top = caret_line as f32 * line_height;
-            let visible = viewport.map_or(height, |v| v.height) - AREA_PADDING;
+            // While it grows, the last layout's height is already out of date.
+            let last_height = viewport.filter(|_| self.grows.is_none()).map_or(height, |v| v.height);
+            let visible = last_height - AREA_PADDING;
             let next = if top < offset {
                 top
             } else if top + line_height > offset + visible {
@@ -258,7 +276,7 @@ impl View for TextArea {
 
         // Only the lines in view are built; spacers hold the place of the rest.
         let first = ((offset / line_height).floor() as usize).min(lines.len().saturating_sub(1));
-        let last = (first + self.rows + 2).min(lines.len());
+        let last = (first + rows_shown + 2).min(lines.len());
         let piece = |a: usize, b: usize| chars[a..b].iter().collect::<String>();
         let mut boundaries: Vec<(usize, Vec<f32>)> = Vec::with_capacity(last - first);
         let mut rows = Vec::with_capacity(last - first + 2);

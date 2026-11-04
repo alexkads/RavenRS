@@ -60,6 +60,12 @@ fn hover(ui: &mut Ui, at: Point) {
     ui.update();
 }
 
+fn click_node(ui: &mut Ui, role: Role, name: &str) {
+    let tree = ui.access_tree();
+    let at = named(&tree, role, name).bounds.center();
+    click(ui, at);
+}
+
 fn labels(tree: &AccessTree) -> Vec<String> {
     tree.nodes.iter().filter_map(|n| n.name.clone()).collect()
 }
@@ -263,4 +269,87 @@ fn a_tooltip_can_show_a_key_and_any_view_can_have_one() {
     let at = named(&tree, Role::Button, "Edit").bounds.center();
     hover(&mut short, at);
     assert_eq!(glyph_colors(&short).iter().filter(|c| **c == canvas).count(), 1, "the bubble opens");
+}
+
+fn input(ui: &mut Ui) -> AccessNode {
+    ui.access_tree().nodes.iter().find(|n| n.role == Role::TextInput).expect("a text input").clone()
+}
+
+#[test]
+fn a_text_field_holds_views_before_and_after_the_text() {
+    let value = State::new(String::from("12"));
+    let mut ui = ui(TextField::new(value.binding())
+        .prefix(Text::new("R$"))
+        .suffix(Button::new("Apply").size(ButtonSize::Mini)));
+    let tree = ui.access_tree();
+    let field = input_of(&tree);
+    let apply = named(&tree, Role::Button, "Apply");
+    assert!(field.children.contains(&apply.id), "the suffix is inside the field");
+    assert!(field.bounds.contains(apply.bounds.center()));
+    assert!(labels(&tree).iter().any(|n| n == "R$"), "and so is the prefix");
+    assert_eq!(field.value.as_deref(), Some("12"), "neither joins the value");
+}
+
+fn input_of(tree: &AccessTree) -> &AccessNode {
+    tree.nodes.iter().find(|n| n.role == Role::TextInput).expect("a text input")
+}
+
+#[test]
+fn a_clearable_field_empties_itself_and_keeps_the_keyboard() {
+    let value = State::new(String::new());
+    let mut ui = ui(TextField::new(value.binding()).clearable());
+    assert!(ui.access_tree().find(Role::Button, "Clear").is_none(), "nothing to clear yet");
+    value.set(String::from("draft"));
+    ui.update();
+    click_node(&mut ui, Role::Button, "Clear");
+    ui.update();
+    assert_eq!(value.get(), "");
+    assert!(ui.access_tree().find(Role::Button, "Clear").is_none(), "gone once empty");
+    assert_eq!(ui.access_tree().focused().map(|n| n.role), Some(Role::TextInput), "focus is back");
+    key(&mut ui, Key::Character("x".into()));
+    assert_eq!(value.get(), "x", "typing goes on");
+
+    value.set(String::from("kept"));
+    let mut read_only = self::ui(TextField::new(value.binding()).clearable().read_only(true));
+    assert!(read_only.access_tree().find(Role::Button, "Clear").is_none(), "only if it can change");
+}
+
+#[test]
+fn a_text_field_comes_in_sizes_and_compact_is_the_small_one() {
+    let height =
+        |field: TextField| input(&mut ui(VStack::new((field,)).align(Align::Stretch))).bounds.height();
+    let value = State::new(String::new());
+    assert_eq!(height(TextField::new(value.binding())), 40.0);
+    assert_eq!(height(TextField::new(value.binding()).compact()), 32.0);
+    assert_eq!(height(TextField::new(value.binding()).size(ButtonSize::Small)), 32.0);
+    assert_eq!(height(TextField::new(value.binding()).size(ButtonSize::Mini)), 22.0);
+    assert_eq!(height(TextField::new(value.binding()).size(ButtonSize::Large)), 48.0);
+}
+
+#[test]
+fn a_text_area_grows_with_the_text_up_to_its_limit() {
+    let value = State::new(String::new());
+    let mut ui = ui(VStack::new((TextArea::new(value.binding()).grows(2, 4),)).align(Align::Stretch));
+    let two = input(&mut ui).bounds.height();
+    value.set(String::from("a\nb"));
+    ui.update();
+    assert_eq!(input(&mut ui).bounds.height(), two, "the minimum holds up to two lines");
+    value.set(String::from("a\nb\nc"));
+    ui.update();
+    let three = input(&mut ui).bounds.height();
+    assert!(three > two, "a third line makes it taller");
+    value.set(String::from("a\nb\nc\nd"));
+    ui.update();
+    let four = input(&mut ui).bounds.height();
+    assert_eq!(four - three, three - two, "by one line each");
+    value.set(String::from("a\nb\nc\nd\ne\nf\ng"));
+    ui.update();
+    assert_eq!(input(&mut ui).bounds.height(), four, "it stops at the maximum");
+    value.set(String::from("a"));
+    ui.update();
+    assert_eq!(input(&mut ui).bounds.height(), two, "and shrinks back");
+
+    let fixed = State::new(String::from("a\nb\nc\nd\ne\nf\ng"));
+    let mut plain = self::ui(VStack::new((TextArea::new(fixed.binding()).rows(2),)).align(Align::Stretch));
+    assert_eq!(input(&mut plain).bounds.height(), two, "without it, the height is fixed");
 }

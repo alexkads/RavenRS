@@ -39,7 +39,7 @@ pub enum ButtonSize {
 }
 
 impl ButtonSize {
-    fn height(self) -> f32 {
+    pub(crate) fn height(self) -> f32 {
         match self {
             Self::Mini => 22.0,
             Self::Small => 32.0,
