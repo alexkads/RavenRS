@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.12] - 2026-11-04
+
 ### Fixed
 - Shapes of curves past what the coverage atlas holds in a frame are no longer left out. Only about 25 shapes the size of a 2560x1600 window fit before; now the main pass splits to draw more, in scene order.
 
