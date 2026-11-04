@@ -48,6 +48,15 @@ impl ButtonSize {
         }
     }
 
+    /// The text of a control of this size.
+    pub(crate) fn text_style(self) -> TextStyle {
+        match self {
+            Self::Mini => TextStyle::Caption,
+            Self::Small => TextStyle::Callout,
+            _ => TextStyle::Body,
+        }
+    }
+
     fn padding_x(self) -> f32 {
         match self {
             Self::Mini => 8.0,
@@ -307,11 +316,7 @@ impl View for Button {
             children.push(util::icon(cx, icon, icon_size, label_color));
         }
         if !self.label.is_empty() {
-            let style = match self.size {
-                ButtonSize::Mini => TextStyle::Caption,
-                ButtonSize::Small => TextStyle::Callout,
-                _ => TextStyle::Body,
-            };
+            let style = self.size.text_style();
             children.push(util::label(cx, &self.label, style, Some(Weight::SEMIBOLD), label_color));
         }
         if let Some(icon) = self.trailing_icon {

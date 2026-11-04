@@ -1173,28 +1173,26 @@ pub(crate) fn search_row(
     row
 }
 
-struct ComboPanel<'a> {
-    combo: &'a Combobox,
-    query: State<String>,
-    highlight: State<usize>,
-    open: State<bool>,
+/// A search box over a list of options, as a [`Combobox`] and a searchable
+/// [`Select`](crate::Select) open. `pick` also has to close it.
+pub(crate) struct SearchPanel<'a> {
+    pub options: &'a [String],
+    pub current: Option<usize>,
+    pub pick: Rc<dyn Fn(usize)>,
+    pub query: State<String>,
+    pub highlight: State<usize>,
+    pub open: State<bool>,
+    pub width: f32,
 }
 
-impl View for ComboPanel<'_> {
+impl View for SearchPanel<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let q = self.query.get();
         let matches: Vec<usize> =
-            (0..self.combo.options.len()).filter(|&i| fuzzy_match(&self.combo.options[i], &q)).collect();
+            (0..self.options.len()).filter(|&i| fuzzy_match(&self.options[i], &q)).collect();
         let hl = self.highlight.get().min(matches.len().saturating_sub(1));
-        let current = self.combo.selected.get();
-        let pick = {
-            let (sel, open) = (self.combo.selected.clone(), self.open.clone());
-            Rc::new(move |i: usize| {
-                sel.set(Some(i));
-                open.set(false);
-            })
-        };
+        let (current, pick) = (self.current, self.pick.clone());
         let (h, m, p, open) =
             (self.highlight.clone(), Rc::new(matches.clone()), pick.clone(), self.open.clone());
         let field = cx.child(
@@ -1221,13 +1219,7 @@ impl View for ComboPanel<'_> {
         let mut rows = vec![field];
         for (n, &i) in matches.iter().enumerate().take(50) {
             let p = pick.clone();
-            rows.push(search_row(
-                cx,
-                &self.combo.options[i],
-                current == Some(i),
-                n == hl,
-                Rc::new(move || p(i)),
-            ));
+            rows.push(search_row(cx, &self.options[i], current == Some(i), n == hl, Rc::new(move || p(i))));
         }
         if matches.is_empty() {
             rows.push(util::label(
@@ -1238,7 +1230,7 @@ impl View for ComboPanel<'_> {
                 theme.color(Semantic::InkMuted),
             ));
         }
-        let node = panel(cx, &rows, 6.0, self.combo.width);
+        let node = panel(cx, &rows, 6.0, self.width);
         cx.semantics(node, Semantics::new(Role::ListBox));
         node
     }
@@ -1321,7 +1313,22 @@ impl View for Combobox {
         cx.cursor(node, CursorIcon::Pointer);
         if is_open {
             let close = open.clone();
-            let panel = ComboPanel { combo: self, query, highlight, open: open.clone() };
+            let pick: Rc<dyn Fn(usize)> = {
+                let (selected, open) = (self.selected.clone(), open.clone());
+                Rc::new(move |i| {
+                    selected.set(Some(i));
+                    open.set(false);
+                })
+            };
+            let panel = SearchPanel {
+                options: &self.options,
+                current: self.selected.get(),
+                pick,
+                query,
+                highlight,
+                open: open.clone(),
+                width: self.width,
+            };
             cx.overlay(node, Placement::Below, &panel, Some(Rc::new(move || close.set(false))));
         }
         node

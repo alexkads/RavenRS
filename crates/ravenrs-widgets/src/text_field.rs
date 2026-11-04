@@ -4,7 +4,7 @@ use std::rc::Rc;
 use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, Modifiers, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
-use ravenrs_style::{Semantic, TextStyle};
+use ravenrs_style::Semantic;
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics};
 use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, View, util};
@@ -459,12 +459,7 @@ impl View for TextField {
         let visible = self.idle_text.as_ref().filter(|_| !focused).unwrap_or(&text);
         let shown: String = if self.secure { "•".repeat(len) } else { visible.clone() };
         let dense = matches!(self.size, ButtonSize::Small | ButtonSize::Mini);
-        let text_style = match self.size {
-            ButtonSize::Mini => TextStyle::Caption,
-            ButtonSize::Small => TextStyle::Callout,
-            _ => TextStyle::Body,
-        };
-        let attrs = util::attrs(&theme, text_style, None);
+        let attrs = util::attrs(&theme, self.size.text_style(), None);
 
         let mut children = Vec::new();
         if let Some(icon) = self.icon {

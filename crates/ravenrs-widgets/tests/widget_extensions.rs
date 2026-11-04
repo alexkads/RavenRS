@@ -353,3 +353,209 @@ fn a_text_area_grows_with_the_text_up_to_its_limit() {
     let mut plain = self::ui(VStack::new((TextArea::new(fixed.binding()).rows(2),)).align(Align::Stretch));
     assert_eq!(input(&mut plain).bounds.height(), two, "without it, the height is fixed");
 }
+
+fn combo(ui: &mut Ui) -> AccessNode {
+    ui.access_tree().nodes.iter().find(|n| n.role == Role::ComboBox).expect("a combo box").clone()
+}
+
+#[test]
+fn a_select_can_hold_values_of_any_type() {
+    #[derive(Clone, Debug, PartialEq)]
+    enum Quality {
+        Draft,
+        Good,
+        Final,
+    }
+    let quality = State::new(Quality::Good);
+    let mut ui = ui(Select::of(
+        quality.binding(),
+        [(Quality::Draft, "Draft"), (Quality::Good, "Good"), (Quality::Final, "Final")],
+    ));
+    assert_eq!(combo(&mut ui).value.as_deref(), Some("Good"), "shows the value's text");
+    let at = combo(&mut ui).bounds.center();
+    click(&mut ui, at);
+    assert_eq!(ui.access_tree().focused().and_then(|n| n.name.clone()).as_deref(), Some("Good"));
+    click_node(&mut ui, Role::ListBoxOption, "Final");
+    assert_eq!(quality.get(), Quality::Final, "and sets the value itself");
+    quality.set(Quality::Draft);
+    ui.update();
+    assert_eq!(combo(&mut ui).value.as_deref(), Some("Draft"), "and follows it");
+}
+
+#[test]
+fn a_select_shows_nothing_for_a_value_it_does_not_have_and_still_opens() {
+    let value = State::new(9);
+    let mut ui = ui(Select::of(value.binding(), [(1, "One"), (2, "Two")]));
+    assert_eq!(combo(&mut ui).value.as_deref(), Some(""));
+    let at = combo(&mut ui).bounds.center();
+    click(&mut ui, at);
+    assert_eq!(ui.access_tree().focused().and_then(|n| n.name.clone()).as_deref(), Some("One"));
+    key(&mut ui, Key::ArrowDown);
+    key(&mut ui, Key::Enter);
+    assert_eq!(value.get(), 2);
+}
+
+#[test]
+fn a_searchable_select_filters_as_you_type_and_the_keyboard_picks() {
+    let chosen = State::new(0_usize);
+    let mut ui = ui(Select::new(chosen.binding(), ["Argentina", "Brazil", "Chile"]).searchable());
+    let at = combo(&mut ui).bounds.center();
+    click(&mut ui, at);
+    let tree = ui.access_tree();
+    assert_eq!(tree.focused().map(|n| n.role), Some(Role::TextInput), "the search box has the keyboard");
+    assert_eq!(tree.nodes.iter().filter(|n| n.role == Role::ListBoxOption).count(), 3);
+    key(&mut ui, Key::Character("a".into()));
+    let tree = ui.access_tree();
+    let shown = tree.nodes.iter().filter(|n| n.role == Role::ListBoxOption).count();
+    assert_eq!(shown, 2, "only Argentina and Brazil have an a");
+    key(&mut ui, Key::Backspace);
+    key(&mut ui, Key::Character("br".into()));
+    key(&mut ui, Key::Enter);
+    assert_eq!(chosen.get(), 1, "Enter picks the one left");
+    let tree = ui.access_tree();
+    assert!(tree.find(Role::ListBoxOption, "Brazil").is_none(), "and it closes");
+    assert_eq!(tree.focused().map(|n| n.role), Some(Role::ComboBox), "focus returns to the field");
+
+    key(&mut ui, Key::ArrowDown);
+    assert!(ui.access_tree().find(Role::ListBoxOption, "Chile").is_some(), "a new search");
+    key(&mut ui, Key::Escape);
+    assert!(ui.access_tree().find(Role::ListBoxOption, "Chile").is_none(), "Escape closes it");
+    assert_eq!(chosen.get(), 1);
+}
+
+#[test]
+fn a_select_comes_in_smaller_sizes() {
+    let chosen = State::new(0_usize);
+    let height = |select: Select| combo(&mut ui(select)).bounds.height();
+    assert_eq!(height(Select::new(chosen.binding(), ["One"])), 40.0, "40 by default");
+    assert_eq!(height(Select::new(chosen.binding(), ["One"]).size(ButtonSize::Small)), 32.0);
+    assert_eq!(height(Select::new(chosen.binding(), ["One"]).size(ButtonSize::Mini)), 22.0);
+}
+
+fn menu_with_submenu(log: &Rc<std::cell::RefCell<Vec<&'static str>>>) -> DropdownMenu {
+    let (pdf, plain) = (log.clone(), log.clone());
+    DropdownMenu::new("File")
+        .item(MenuItem::new("New").on_select(move || plain.borrow_mut().push("new")))
+        .item(
+            MenuItem::new("Export")
+                .on_select(|| panic!("an item with a submenu does not run its action"))
+                .item(MenuItem::new("As PDF").on_select(move || pdf.borrow_mut().push("pdf")))
+                .separator()
+                .item(MenuItem::new("As CSV")),
+        )
+        .item(MenuItem::new("Grid").checked(true))
+        .item(MenuItem::new("List").checked(false))
+}
+
+fn focused_name(ui: &mut Ui) -> Option<String> {
+    ui.access_tree().focused().and_then(|n| n.name.clone())
+}
+
+#[test]
+fn the_keyboard_enters_and_leaves_a_submenu_with_the_side_arrows() {
+    let log = Rc::default();
+    let mut ui = ui(menu_with_submenu(&log));
+    click_node(&mut ui, Role::Button, "File");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("New"));
+    key(&mut ui, Key::ArrowDown);
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Export"));
+    let tree = ui.access_tree();
+    assert_eq!(named(&tree, Role::MenuItem, "Export").expanded, Some(false));
+
+    key(&mut ui, Key::ArrowRight);
+    let tree = ui.access_tree();
+    let (parent, first) = (named(&tree, Role::MenuItem, "Export"), named(&tree, Role::MenuItem, "As PDF"));
+    assert_eq!(parent.expanded, Some(true));
+    assert!(first.bounds.x() >= parent.bounds.max_x(), "it opens at the side");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("As PDF"), "and takes the keyboard");
+
+    key(&mut ui, Key::ArrowDown);
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("As CSV"), "the separator is skipped");
+    key(&mut ui, Key::ArrowLeft);
+    let tree = ui.access_tree();
+    assert!(tree.find(Role::MenuItem, "As PDF").is_none(), "Left closes it");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Export"), "and comes back");
+
+    key(&mut ui, Key::Enter);
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("As PDF"), "Enter opens it too");
+    key(&mut ui, Key::Escape);
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Export"), "Escape closes only the submenu");
+    assert!(ui.access_tree().find(Role::MenuItem, "New").is_some());
+
+    key(&mut ui, Key::ArrowRight);
+    key(&mut ui, Key::Enter);
+    assert_eq!(*log.borrow(), ["pdf"]);
+    assert!(ui.access_tree().find(Role::MenuItem, "New").is_none(), "choosing closes the whole menu");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("File"), "and focus returns to the trigger");
+}
+
+#[test]
+fn the_pointer_opens_a_submenu_without_taking_the_keyboard() {
+    let log = Rc::default();
+    let mut ui = ui(menu_with_submenu(&log));
+    click_node(&mut ui, Role::Button, "File");
+    let tree = ui.access_tree();
+    let export = named(&tree, Role::MenuItem, "Export").bounds.center();
+    let new = named(&tree, Role::MenuItem, "New").bounds.center();
+    hover(&mut ui, export);
+    ui.update();
+    assert!(ui.access_tree().find(Role::MenuItem, "As PDF").is_some(), "hover opens it");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("New"), "the keyboard stays");
+    hover(&mut ui, new);
+    ui.update();
+    assert!(ui.access_tree().find(Role::MenuItem, "As PDF").is_none(), "another row closes it");
+
+    hover(&mut ui, export);
+    ui.update();
+    click_node(&mut ui, Role::MenuItem, "As PDF");
+    assert_eq!(*log.borrow(), ["pdf"], "a click in the submenu runs the action");
+    assert!(ui.access_tree().find(Role::MenuItem, "New").is_none());
+}
+
+#[test]
+fn a_click_outside_closes_the_menu_and_its_submenu() {
+    let log = Rc::default();
+    let mut ui = ui(menu_with_submenu(&log));
+    click_node(&mut ui, Role::Button, "File");
+    key(&mut ui, Key::ArrowDown);
+    key(&mut ui, Key::ArrowRight);
+    click(&mut ui, Point::new(700.0, 500.0));
+    ui.update();
+    let tree = ui.access_tree();
+    assert!(tree.find(Role::MenuItem, "As PDF").is_none() && tree.find(Role::MenuItem, "New").is_none());
+}
+
+#[test]
+fn a_menu_item_can_be_checked_and_can_show_any_view() {
+    let mut ui = ui(DropdownMenu::new("View")
+        .item(MenuItem::new("Grid").checked(true))
+        .item(MenuItem::new("List").checked(false))
+        .item(MenuItem::new("Plain"))
+        .item(MenuItem::new("Red").element(Badge::new("Red label"))));
+    let before = glyph_colors(&ui).len();
+    click_node(&mut ui, Role::Button, "View");
+    let tree = ui.access_tree();
+    assert_eq!(named(&tree, Role::MenuItem, "Grid").toggled, Some(Toggled::True));
+    assert_eq!(named(&tree, Role::MenuItem, "List").toggled, Some(Toggled::False));
+    assert_eq!(named(&tree, Role::MenuItem, "Plain").toggled, None, "a plain command is neither");
+    named(&tree, Role::MenuItem, "Red");
+    // Label and check mark on Grid; a label on each of the others.
+    assert_eq!(glyph_colors(&ui).len(), before + 5, "the check mark shows only on the one that is on");
+}
+
+#[test]
+fn a_context_menu_has_submenus_too() {
+    let mut ui = ui(ContextMenu::new(Text::new("Area").width(200.0).height(100.0))
+        .item(MenuItem::new("Sort by").item(MenuItem::new("Name"))));
+    ui.handle_event(&Event::PointerDown {
+        position: Point::new(50.0, 50.0),
+        button: PointerButton::Secondary,
+    });
+    ui.handle_event(&Event::PointerUp { position: Point::new(50.0, 50.0), button: PointerButton::Secondary });
+    ui.update();
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Sort by"));
+    key(&mut ui, Key::ArrowRight);
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Name"));
+    key(&mut ui, Key::ArrowLeft);
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Sort by"));
+}

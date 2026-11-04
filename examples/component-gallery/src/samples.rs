@@ -577,10 +577,19 @@ fn text_field() -> impl View {
 }
 // end
 
-// sample: Select, 280
+// sample: Select, 320
 fn select() -> impl View {
     let range = State::new(0);
-    Select::new(range.binding(), ["Last 7 days", "Last 30 days", "This year"]).label("Date range")
+    // `Select::of` holds the value itself; `.searchable()` adds a search box.
+    let currency = State::new("BRL");
+    VStack::new((
+        Select::new(range.binding(), ["Last 7 days", "Last 30 days", "This year"]).label("Date range"),
+        Select::of(currency.binding(), [("BRL", "Real"), ("EUR", "Euro"), ("USD", "Dollar")])
+            .label("Currency")
+            .size(ButtonSize::Small)
+            .searchable(),
+    ))
+    .spacing(8.0)
 }
 // end
 
@@ -909,11 +918,14 @@ fn sidebar_brand() -> impl View {
 }
 // end
 
-// sample: DropdownMenu, 260
+// sample: DropdownMenu, 360
 fn dropdown_menu() -> impl View {
     DropdownMenu::new("Actions")
         .item(MenuItem::new("Edit").icon(IconName::Pencil).shortcut("⌘E"))
         .item(MenuItem::new("Share").icon(IconName::Share2))
+        .item(MenuItem::new("Export").item(MenuItem::new("As PDF")).item(MenuItem::new("As CSV")))
+        .item(MenuItem::new("Show grid").checked(true))
+        .item(MenuItem::new("Label").element(Badge::new("Family").tone(Tone::Accent)))
         .separator()
         .item(MenuItem::new("Delete").icon(IconName::Trash2).destructive())
 }
@@ -930,6 +942,7 @@ fn context_menu() -> impl View {
             .corner_radius(12.0),
     )
     .item(MenuItem::new("Copy").icon(IconName::Copy).shortcut("⌘C"))
+    .item(MenuItem::new("Sort by").item(MenuItem::new("Name")).item(MenuItem::new("Date")))
     .item(MenuItem::new("Delete").icon(IconName::Trash2).destructive())
 }
 // end

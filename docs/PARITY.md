@@ -42,7 +42,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Menu / Menubar | ✓ | ✓ | ✓ | ✅ `Menubar` |
 | Ribbon (Office-style command bar) | | ✓ | ✓ | ✅ `Ribbon` (app menu, quick access, contextual tabs, collapse; key tips and gallery items planned) |
 | Navigation menu (mega menu) | ✓ | | ✓ | ⬜ |
-| Context menu | ✓ | ✓ | ✓ | ✅ `ContextMenu` |
+| Context menu | ✓ | ✓ | ✓ | ✅ `ContextMenu`: submenus, check marks and any view in a row, like `DropdownMenu` |
 | Stepper / Wizard | | ✓ | ✓ | ✅ `Wizard`: a step can refuse to be left; steps done can be reopened |
 | Bottom navigation | | | ✓ | ⬜ |
 | TreeView | | ✓ | ✓ | ✅ `TreeView`: keyboard, selection, three-state checks, filter, items on demand, virtualized |
@@ -55,7 +55,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Button (variants, sizes, icons) | ✓ | ✓ | ✓ | ✅ `Button`, `IconButton`: loading that holds the width, selected, key cap in the label's color |
 | Toggle button | ✓ | | ✓ | ✅ `ToggleButton`: count and pill shape |
 | Toggle group / Button group | ✓ | ✓ | ✓ | ✅ `ToggleGroup` |
-| Dropdown button | ✓ | ✓ | ✓ | ✅ `DropdownMenu` |
+| Dropdown button | ✓ | ✓ | ✓ | ✅ `DropdownMenu`: submenus opened by hover, click or the Right arrow, check marks and any view in a row |
 | Split button | | ✓ | ✓ | ✅ `SplitButton` |
 | Floating action button | | ✓ | ✓ | ⬜ |
 | Speed dial | | ✓ | ✓ | ⬜ |
@@ -75,7 +75,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Switch | ✓ | ✓ | ✓ | ✅ `Toggle`, with a small size |
 | Slider | ✓ | ✓ | ✓ | ✅ |
 | Range slider | | ✓ | ✓ | ⬜ |
-| Select / Drop-down list | ✓ | ✓ | ✓ | ✅ `Select` |
+| Select / Drop-down list | ✓ | ✓ | ✓ | ✅ `Select`: by index or by value (`Select::of`), search, sizes |
 | Combobox / Autocomplete | ✓ | ✓ | ✓ | ✅ `Combobox` |
 | Filter builder | | ✓ | ✓ | ✅ `FilterBuilder`: lines and groups over the expression language; what it cannot show stays as text; also in the `DataGrid` toolbar |
 | Lookup (records loaded on demand) | | ✓ | ✓ | ✅ `LookupField`: from memory or a callback, ignores stale answers |
