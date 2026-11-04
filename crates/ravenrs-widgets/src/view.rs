@@ -8,6 +8,11 @@ use crate::context::{BuildCx, NodeId};
 pub trait View {
     /// Creates this view's node for the current build.
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId;
+
+    /// The name the diagnostics panel shows this view's cost under.
+    fn type_name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
 }
 
 /// A component composed from other views, SwiftUI style.
@@ -51,6 +56,10 @@ pub type AnyView = Box<dyn View>;
 impl View for Box<dyn View> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         (**self).build(cx)
+    }
+
+    fn type_name(&self) -> &'static str {
+        (**self).type_name()
     }
 }
 

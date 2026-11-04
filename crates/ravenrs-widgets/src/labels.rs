@@ -174,6 +174,24 @@ pub struct Labels {
     pub diagnostics_test_fps: String,
     /// A performance test found nothing to blame.
     pub diagnostics_test_cause_none: String,
+    /// Diagnostics panel: title of the picture of the latest frames.
+    pub diagnostics_timeline: String,
+    /// Diagnostics panel: under it, what the colors and the line mean.
+    pub diagnostics_timeline_detail: String,
+    /// Diagnostics panel: why the views ran again.
+    pub diagnostics_why: String,
+    /// Diagnostics panel: nothing ran again.
+    pub diagnostics_why_none: String,
+    /// Diagnostics panel: the names of the causes, in the order of `BuildCause::ALL`.
+    pub diagnostics_causes: [String; 10],
+    /// Diagnostics panel: the views that cost the most.
+    pub diagnostics_views: String,
+    /// Diagnostics panel: what splits the draw calls.
+    pub diagnostics_batches: String,
+    /// Diagnostics panel: the GPU's resources and memory.
+    pub diagnostics_memory: String,
+    /// Diagnostics panel: the button that copies a capture of the frames.
+    pub diagnostics_copy_trace: String,
     /// A performance test blames drawing.
     pub diagnostics_test_cause_gpu: String,
     /// A performance test blames building the screen.
@@ -532,6 +550,29 @@ impl Default for Labels {
             diagnostics_test_poor: "Performance is poor".into(),
             diagnostics_test_fps: "frames per second".into(),
             diagnostics_test_cause_none: "The app should feel fluid on this computer.".into(),
+            diagnostics_timeline: "Latest frames".into(),
+            diagnostics_timeline_detail:
+                "Each bar is a frame: views, layout, paint, GPU work, waiting. The line is the 120 Hz budget."
+                    .into(),
+            diagnostics_why: "Why the screen was rebuilt".into(),
+            diagnostics_why_none: "Nothing rebuilt it in these frames.".into(),
+            diagnostics_causes: [
+                "First build",
+                "Data changed",
+                "Pointer moved",
+                "Press or release",
+                "Focus moved",
+                "Scrolled",
+                "Window resized",
+                "A view's timer",
+                "Another thread",
+                "System",
+            ]
+            .map(String::from),
+            diagnostics_views: "Costliest views in the latest build".into(),
+            diagnostics_batches: "Draw calls split by".into(),
+            diagnostics_memory: "GPU resources".into(),
+            diagnostics_copy_trace: "Copy capture for Perfetto".into(),
             diagnostics_test_cause_gpu:
                 "The time goes into drawing: this computer's graphics cannot redraw the window in time."
                     .into(),
@@ -799,6 +840,15 @@ impl Labels {
             diagnostics_test_poor: "Desempenho ruim".into(),
             diagnostics_test_fps: "quadros por segundo".into(),
             diagnostics_test_cause_none: "O app deve parecer fluido neste computador.".into(),
+            diagnostics_timeline: "Últimos quadros".into(),
+            diagnostics_timeline_detail: "Cada barra é um quadro: views, layout, pintura, trabalho da GPU, espera. A linha é o orçamento de 120 Hz.".into(),
+            diagnostics_why: "Por que a tela foi refeita".into(),
+            diagnostics_why_none: "Nada a refez nestes quadros.".into(),
+            diagnostics_causes: ["Primeira construção", "Dados mudaram", "Ponteiro moveu", "Pressionar ou soltar", "Foco moveu", "Rolagem", "Janela redimensionada", "Relógio de uma view", "Outra thread", "Sistema"].map(String::from),
+            diagnostics_views: "Views mais caras na última construção".into(),
+            diagnostics_batches: "Draw calls separados por".into(),
+            diagnostics_memory: "Recursos da GPU".into(),
+            diagnostics_copy_trace: "Copiar captura para o Perfetto".into(),
             diagnostics_test_cause_gpu: "O tempo vai no desenho: a parte gráfica deste computador não consegue redesenhar a janela a tempo.".into(),
             diagnostics_test_cause_interface: "O tempo vai em montar a tela, no processador.".into(),
             diagnostics_software: "Desenhando na CPU".into(),

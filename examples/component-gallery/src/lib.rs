@@ -2396,8 +2396,8 @@ mod tests {
         }
     }
 
-    /// The lowest text to the right of `left`, which leaves out a fixed sidebar.
-    fn first_glyph_y(ui: &Ui, left: f32) -> f32 {
+    /// Where text is to the right of `left`, which leaves out a fixed sidebar.
+    fn glyph_rows(ui: &Ui, left: f32) -> Vec<f32> {
         ui.scene()
             .primitives()
             .iter()
@@ -2405,7 +2405,7 @@ mod tests {
                 ravenrs::core::Primitive::Glyphs(g) => g.glyphs.first().filter(|g| g.x >= left).map(|g| g.y),
                 _ => None,
             })
-            .fold(f32::MIN, f32::max)
+            .collect()
     }
 
     #[test]
@@ -2415,7 +2415,7 @@ mod tests {
             ui.set_viewport(size, 1.0);
             ui.update();
             let left = if size.width > 800.0 { 248.0 } else { 0.0 };
-            let before = first_glyph_y(&ui, left);
+            let before = glyph_rows(&ui, left);
             let at = Point::new(size.width - 60.0, size.height - 100.0);
             assert!(
                 ui.handle_event(&ravenrs::core::Event::Scroll {
@@ -2425,7 +2425,11 @@ mod tests {
                 "the page scrolls at {size:?}"
             );
             assert!(
-                (first_glyph_y(&ui, left) - (before - 200.0)).abs() < 0.5,
+                {
+                    // What was on screen and still is moved; what comes in was not painted before.
+                    let after = glyph_rows(&ui, left);
+                    before.iter().any(|y| after.iter().any(|new| (new - (y - 200.0)).abs() < 0.5))
+                },
                 "content moved up by 200px at {size:?}"
             );
         }

@@ -180,15 +180,38 @@ fn scroll_view_scrolls_clamps_and_clips() {
     let before = first_y(&ui).expect("glyphs");
     assert!(ui.scene().primitives().iter().any(|p| matches!(p, Primitive::PushClip(_))));
     assert!(
-        ui.handle_event(&Event::Scroll { position: Point::new(50.0, 100.0), delta: Point::new(0.0, -120.0) })
+        ui.handle_event(&Event::Scroll { position: Point::new(50.0, 100.0), delta: Point::new(0.0, -20.0) })
     );
-    assert!((first_y(&ui).expect("glyphs") - (before - 120.0)).abs() < 0.01);
+    assert!((first_y(&ui).expect("glyphs") - (before - 20.0)).abs() < 0.01);
     ui.handle_event(&Event::Scroll { position: Point::new(50.0, 100.0), delta: Point::new(0.0, -100_000.0) });
     ui.handle_event(&Event::Scroll { position: Point::new(50.0, 100.0), delta: Point::new(0.0, 100_000.0) });
     assert!((first_y(&ui).expect("glyphs") - before).abs() < 0.01, "clamped back to the top");
     assert!(
         !ui.handle_event(&Event::Scroll { position: Point::new(50.0, 100.0), delta: Point::new(0.0, 50.0) })
     );
+}
+
+#[test]
+fn what_is_scrolled_out_of_sight_is_not_painted() {
+    let few: Vec<Text> = (0..10).map(|i| Text::new(format!("Row {i}"))).collect();
+    let many: Vec<Text> = (0..1000).map(|i| Text::new(format!("Row {i}"))).collect();
+    let small = ui(VStack::new((ScrollView::new(few).height(200.0),)));
+    let large = ui(VStack::new((ScrollView::new(many).height(200.0),)));
+    assert!(large.element_count() > 50 * small.element_count());
+    assert_eq!(glyph_runs(&large), glyph_runs(&small), "only what can be seen costs anything");
+}
+
+#[test]
+fn something_scrolled_out_of_sight_can_still_take_focus() {
+    let buttons: Vec<Button> = (0..100).map(|i| Button::new(format!("Button {i}"))).collect();
+    let mut ui = ui(VStack::new((ScrollView::new(buttons).height(200.0),)));
+    for _ in 0..50 {
+        ui.handle_event(&Event::KeyDown { key: Key::Tab, modifiers: Modifiers::default() });
+        ui.update();
+    }
+    let tree = ui.access_tree();
+    let focused = tree.nodes.iter().find(|n| Some(n.id) == tree.focus).and_then(|n| n.name.clone());
+    assert_eq!(focused.as_deref(), Some("Button 49"));
 }
 
 #[test]
@@ -254,6 +277,9 @@ fn table_list_and_charts_build() {
         ProgressBar::new(0.4),
         Skeleton::line(12.0),
     )));
+    // Tall enough for everything to be on screen, and so painted.
+    ui.set_viewport(Size::new(800.0, 2000.0), 1.0);
+    ui.update();
     ui.update();
     assert!(ui.element_count() > 40, "{}", ui.element_count());
     assert!(quads(&ui).len() > 19, "everything but the charts paints quads");

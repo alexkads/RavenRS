@@ -512,6 +512,7 @@ fn draw_every_screen() {
             draw_calls: 46,
             size: (2720, 1720),
             scale: 2.0,
+            ..Default::default()
         });
     }
     for frame in 0..60 {

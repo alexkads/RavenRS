@@ -1,5 +1,6 @@
 //! Plays a Lottie animation.
 
+use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -9,9 +10,6 @@ use ravenrs_lottie::Animation;
 
 use crate::context::{BuildCx, NodeId, Paint, Semantics};
 use crate::view::View;
-
-/// How often it asks for a frame while it plays: as often as the display can show.
-const FRAME_SECONDS: f64 = 1.0 / 120.0;
 
 /// Plays a Lottie animation, drawn with curves on the GPU, sharp at any size. It
 /// sleeps when it ends or is paused, so that an idle window stays idle. Where motion
@@ -109,20 +107,23 @@ impl View for Lottie {
         let duration = self.animation.duration();
         // How far it has played, the clock when that was true, and whether it was
         // playing then: nothing rebuilds it during a pause, which then does not count.
-        let state = cx.use_state(|| (0.0_f64, now, true));
+        // Not reactive: writing it here must not ask for another build.
+        let state = cx.use_state(|| Rc::new(Cell::new((0.0_f64, now, true)))).peek().clone();
         let (played_before, since, was_on) = state.get();
         let on = self.playing.as_ref().is_none_or(|playing| playing.get());
-        let ran = if on && was_on { (now - since).max(0.0) } else { 0.0 };
+        // Frames between builds only paint, so a build that pauses it still counts up to now.
+        let ran = if was_on { (now - since).max(0.0) } else { 0.0 };
         let played = played_before + ran * self.speed;
-        state.set_if_changed((played, now, on));
-        let at = if reduced { duration } else { moment(played, duration, self.looping) };
-        if on && !reduced && (self.looping || played < duration) {
-            cx.wake_at(now + FRAME_SECONDS);
+        state.set((played, now, on));
+        let moves = on && !reduced && (self.looping || played < duration);
+        // Only until it ends, so that it can show its last frame and rest.
+        if on && !reduced && !self.looping && played < duration {
+            cx.wake_at(now + (duration - played) / self.speed.max(f64::EPSILON));
         }
 
-        let animation = self.animation.clone();
+        let (animation, speed, looping) = (self.animation.clone(), self.speed, self.looping);
         let (comp_w, comp_h) = (animation.width().max(1.0), animation.height().max(1.0));
-        let paint = Paint::Custom(Rc::new(move |frame: Rect, scene| {
+        let draw = move |frame: Rect, at: f64, scene: &mut ravenrs_core::Scene| {
             let scale = (frame.width() / comp_w).min(frame.height() / comp_h);
             let x = frame.x() + (frame.width() - comp_w * scale) / 2.0;
             let y = frame.y() + (frame.height() - comp_h * scale) / 2.0;
@@ -133,7 +134,17 @@ impl View for Lottie {
                 scene.push_path(PathFill { transform: [scale, 0.0, 0.0, scale, x, y], ..path });
             }
             scene.pop_clip();
-        }));
+        };
+        let paint = if moves {
+            // Each frame repeats only the painting: the rest of the screen did not change.
+            Paint::Live(Rc::new(move |frame, time, scene| {
+                let played = played + (time - now).max(0.0) * speed;
+                draw(frame, moment(played, duration, looping), scene);
+            }))
+        } else {
+            let at = if reduced { duration } else { moment(played, duration, self.looping) };
+            Paint::Custom(Rc::new(move |frame, scene| draw(frame, at, scene)))
+        };
         let node = cx.container(
             LayoutStyle { width: Some(self.width), height: Some(self.height), ..LayoutStyle::leaf() },
             &[],

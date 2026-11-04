@@ -3,10 +3,13 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use ravenrs_core::{CursorIcon, Event, Key, Modifiers, Point, PointerButton, Size};
+use ravenrs_core::{
+    AdapterReport, CursorIcon, DiagnosticReport, Event, FrameSample, GpuReport, Key, Modifiers, Point,
+    PointerButton, Size, SystemReport,
+};
 use ravenrs_render::{GpuContext, GpuError, Renderer, preferred_surface_format, wgpu};
 use ravenrs_style::Theme;
-use ravenrs_widgets::{Ui, View};
+use ravenrs_widgets::{Diagnostics, DiagnosticsHost, Ui, View};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::Closure;
 use web_sys::{
@@ -63,6 +66,9 @@ struct State {
     recovering: bool,
     /// The screen reader mirror and the text input it points focus from.
     mirror: Option<(Mirror, HtmlTextAreaElement)>,
+    diagnostics: Diagnostics,
+    /// The diagnostics panel is open, so the frames are being looked at closely.
+    looking: bool,
 }
 
 /// Schedules at most one `requestAnimationFrame` at a time. Kept apart from
@@ -512,7 +518,28 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         }
     };
 
-    let mut ui = Ui::new(root, options.theme);
+    let diagnostics = Diagnostics::default();
+    let info = gpu.context.adapter.get_info();
+    diagnostics.set_report_source(move || DiagnosticReport {
+        gpu: Ok(GpuReport {
+            active: AdapterReport {
+                name: info.name.clone(),
+                backend: info.backend.to_string(),
+                device_type: format!("{:?}", info.device_type),
+                driver: info.driver.clone(),
+                driver_info: info.driver_info.clone(),
+                software: info.device_type == wgpu::DeviceType::Cpu,
+            },
+            ..GpuReport::default()
+        }),
+        system: SystemReport {
+            version: env!("CARGO_PKG_VERSION").into(),
+            os: "web".into(),
+            optimized: !cfg!(debug_assertions),
+            ..SystemReport::default()
+        },
+    });
+    let mut ui = Ui::new(DiagnosticsHost::new(root, diagnostics.clone()), options.theme);
     ui.set_clipboard(BrowserClipboard);
     ui.set_file_picker(BrowserFilePicker);
     ui.set_sound(BrowserSound::default());
@@ -533,6 +560,8 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         cursor: CursorIcon::Default,
         recovering: false,
         mirror: None,
+        diagnostics,
+        looking: false,
     }));
 
     // The frame callback.
@@ -772,6 +801,19 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                 // input; the text then arrives through the `input` event.
                 let paste = (modifiers.ctrl || modifiers.meta)
                     && matches!(&key, Key::Character(c) if c.eq_ignore_ascii_case("v"));
+                if (modifiers.ctrl || modifiers.meta)
+                    && modifiers.shift
+                    && matches!(&key, Key::Character(c) if c.eq_ignore_ascii_case("d"))
+                {
+                    e.prevent_default();
+                    if kind == "keydown"
+                        && !e.repeat()
+                        && let Ok(s) = state.try_borrow()
+                    {
+                        s.diagnostics.toggle();
+                    }
+                    return;
+                }
                 if printable || paste {
                     return;
                 }
@@ -971,7 +1013,17 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
     }
 
     s.ui.set_time(now_seconds());
+    let looking = s.diagnostics.is_open();
+    if looking != s.looking {
+        s.looking = looking;
+        let clock: Option<Rc<dyn Fn() -> f64>> = looking.then(|| Rc::new(now_seconds) as Rc<dyn Fn() -> f64>);
+        s.ui.set_phase_clock(clock);
+        s.ui.set_view_profiling(looking);
+        gpu.renderer.set_gpu_timing(looking);
+    }
+    let started = now_seconds();
     let scene = s.ui.update();
+    let updated = now_seconds();
     let frame = match gpu.surface.get_current_texture() {
         wgpu::CurrentSurfaceTexture::Success(f) | wgpu::CurrentSurfaceTexture::Suboptimal(f) => f,
         wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
@@ -985,8 +1037,27 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
         }
     };
     let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-    gpu.renderer.render(scene, &view, (w, h), dpr);
+    let acquired = now_seconds();
+    let stats = gpu.renderer.render(scene, &view, (w, h), dpr);
+    let rendered = now_seconds();
     gpu.context.queue.present(frame);
+    let seconds = |from: f64, to: f64| std::time::Duration::from_secs_f64((to - from).max(0.0));
+    if looking {
+        s.diagnostics.set_view_costs(s.ui.view_costs());
+    }
+    s.diagnostics.record(FrameSample {
+        update: seconds(started, updated),
+        acquire: seconds(updated, acquired),
+        render: seconds(acquired, rendered),
+        present: seconds(rendered, now_seconds()),
+        quads: stats.quads,
+        glyphs: stats.glyphs,
+        draw_calls: stats.draw_calls,
+        size: (w, h),
+        scale: dpr,
+        work: s.ui.take_frame_work(),
+        render_work: stats.work(),
+    });
     if let Some((mirror, input)) = &mut s.mirror {
         let tree = s.ui.access_tree();
         if let Err(e) = mirror.update(tree, &s.canvas, input) {

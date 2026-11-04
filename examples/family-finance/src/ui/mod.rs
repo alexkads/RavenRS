@@ -149,6 +149,12 @@ impl App {
         self.page.set(page);
     }
 
+    /// The screen that is open, by its place in the sidebar. The performance scenes
+    /// move through the screens with it after the app went on screen.
+    pub fn page_state(&self) -> State<usize> {
+        self.page.clone()
+    }
+
     /// The app's icon, decoded once: views build often.
     fn mark(&self) -> AnyView {
         match self.icon.get(0, crate::icon) {

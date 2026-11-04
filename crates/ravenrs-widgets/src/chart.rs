@@ -52,6 +52,45 @@ type TickFormat = Rc<dyn Fn(&str) -> String>;
 /// Which tab is chosen, and the name and the total of each.
 type ChartTabs = (Binding<usize>, Vec<(String, String)>);
 
+/// Bytes of pictures kept after their chart is gone: about ten charts filling a laptop's
+/// screen at 2x.
+const PICTURES_KEPT_BYTES: usize = 128 << 20;
+
+/// A picture that is not on screen anymore.
+struct KeptPicture {
+    layers: Vec<vector::Layer>,
+    size: (u32, u32),
+    image: Option<ImageData>,
+    bytes: usize,
+}
+
+thread_local! {
+    /// Drawing a chart on the CPU is what costs most in opening a screen, and a screen
+    /// that opens again shows the same chart. The most recent one comes last.
+    static PICTURES: RefCell<Vec<KeptPicture>> = const { RefCell::new(Vec::new()) };
+}
+
+/// The picture of these layers, drawn now only if none is kept.
+fn picture_of(layers: &[vector::Layer], area: Rect, scale: f32) -> Option<ImageData> {
+    let size = ((area.width() * scale).ceil() as u32, (area.height() * scale).ceil() as u32);
+    PICTURES.with_borrow_mut(|kept| {
+        if let Some(found) = kept.iter().position(|p| p.size == size && p.layers == layers) {
+            let picture = kept.remove(found);
+            let image = picture.image.clone();
+            kept.push(picture);
+            return image;
+        }
+        let image = vector::rasterize_layers(layers, area, scale);
+        let bytes = size.0 as usize * size.1 as usize * 4;
+        kept.push(KeptPicture { layers: layers.to_vec(), size, image: image.clone(), bytes });
+        let mut total: usize = kept.iter().map(|p| p.bytes).sum();
+        while total > PICTURES_KEPT_BYTES && kept.len() > 1 {
+            total -= kept.remove(0).bytes;
+        }
+        image
+    })
+}
+
 /// What a drawing looked like when it was last painted, relative to its frame.
 #[derive(Default)]
 struct Picture {
@@ -75,7 +114,7 @@ impl Picture {
         let area = Rect::new(0.0, 0.0, size.width, size.height);
         let drawing = source(area, cx.scale);
         if !same_pixels || drawing.layers != self.drawing.layers {
-            self.image = vector::rasterize_layers(&drawing.layers, area, cx.scale);
+            self.image = picture_of(&drawing.layers, area, cx.scale);
         }
         if drawing.labels != self.drawing.labels {
             self.labels = drawing.labels.iter().map(|label| typeset(label, cx)).collect();

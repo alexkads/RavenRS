@@ -102,7 +102,9 @@ async fn request_device(adapter: &wgpu::Adapter) -> Result<(wgpu::Device, wgpu::
         .request_device(&wgpu::DeviceDescriptor {
             label: Some("raven device"),
             // Exact coverage adds up better in 32 bits, where the adapter can blend them.
-            required_features: adapter.features() & wgpu::Features::FLOAT32_BLENDABLE,
+            // Timestamps stay unused until someone asks how long the GPU takes.
+            required_features: adapter.features()
+                & (wgpu::Features::FLOAT32_BLENDABLE | wgpu::Features::TIMESTAMP_QUERY),
             required_limits: limits,
             ..Default::default()
         })

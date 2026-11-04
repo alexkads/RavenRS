@@ -34,6 +34,8 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use std::rc::Rc;
+
 use ravenrs_core::{
     AccessTree, CursorIcon, Event, FrameSample, ImageData, Key, Modifiers, Point, PointerButton, Size,
 };
@@ -318,6 +320,7 @@ fn run_window(
         modifiers: Modifiers::default(),
         last_click: None,
         started: std::time::Instant::now(),
+        looking: false,
         error: None,
     };
     event_loop.run_app(&mut app).map_err(|e| PlatformError::EventLoop(e.to_string()))?;
@@ -374,6 +377,8 @@ struct App {
     /// Time and place of the last primary release, to detect double clicks.
     last_click: Option<(std::time::Instant, Point)>,
     started: std::time::Instant,
+    /// The diagnostics panel is open, so the frames are being looked at closely.
+    looking: bool,
     error: Option<PlatformError>,
 }
 
@@ -621,6 +626,17 @@ impl App {
         self.ui.set_time(self.started.elapsed().as_secs_f64());
         let Some(state) = &mut self.window else { return };
         let scale = self.ui.scale();
+        // Looking costs a little, so it only happens while the panel is open.
+        let looking = self.diagnostics.is_open();
+        if looking != self.looking {
+            self.looking = looking;
+            let start = self.started;
+            let clock: Option<Rc<dyn Fn() -> f64>> =
+                looking.then(|| Rc::new(move || start.elapsed().as_secs_f64()) as Rc<dyn Fn() -> f64>);
+            self.ui.set_phase_clock(clock);
+            self.ui.set_view_profiling(looking);
+            state.renderer.set_gpu_timing(looking);
+        }
         let started = std::time::Instant::now();
         let scene = self.ui.update();
         let updated = started.elapsed();
@@ -656,7 +672,12 @@ impl App {
             "frame rendered"
         );
         let total = started.elapsed();
+        if looking {
+            self.diagnostics.set_view_costs(self.ui.view_costs());
+        }
         self.diagnostics.record(FrameSample {
+            work: self.ui.take_frame_work(),
+            render_work: stats.work(),
             update: updated,
             acquire: acquired - updated,
             render: rendered - acquired,

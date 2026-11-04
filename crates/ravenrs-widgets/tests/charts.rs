@@ -421,3 +421,34 @@ fn the_tooltip_follows_the_pointer_up_and_down_a_column() {
     let low = panel_of(&ui).expect("the panel").center().y;
     assert!(low > high + 60.0, "{high} to {low}");
 }
+
+#[test]
+fn a_chart_that_comes_back_keeps_its_picture() {
+    let picture = |ui: &Ui| {
+        ui.scene().primitives().iter().find_map(|p| match p {
+            ravenrs_core::Primitive::Image(image) => Some(image.image.id()),
+            _ => None,
+        })
+    };
+    let open = ravenrs_reactive::State::new(true);
+    let showing = open.clone();
+    let mut ui = Ui::new(
+        view_fn(move || -> AnyView {
+            if showing.get() {
+                Box::new(AreaChart::new([1.5, 2.5, 3.5, 9.25]))
+            } else {
+                Box::new(Text::new("Another screen"))
+            }
+        }),
+        ravenrs_style::Theme::raven_light(),
+    );
+    ui.set_viewport(ravenrs_core::Size::new(640.0, 400.0), 2.0);
+    ui.update();
+    let first = picture(&ui).expect("a picture");
+    open.set(false);
+    ui.update();
+    assert_eq!(picture(&ui), None);
+    open.set(true);
+    ui.update();
+    assert_eq!(picture(&ui), Some(first), "the same image, so nothing is drawn or uploaded again");
+}

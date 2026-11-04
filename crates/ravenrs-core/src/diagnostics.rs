@@ -287,6 +287,153 @@ pub fn new_issue_url(new_issue: &str, intro: &str, report: &str, truncated_note:
     url(kept.rfind('\n').map_or(kept, |line| &kept[..line]), truncated_note)
 }
 
+/// Time spent in each phase of the UI runtime, once a clock was given to it.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct PhaseTimes {
+    /// Running the views.
+    pub build: Duration,
+    /// Solving sizes and positions.
+    pub layout: Duration,
+    /// Giving every element its place on the screen.
+    pub place: Duration,
+    /// Turning elements into the scene.
+    pub paint: Duration,
+}
+
+impl PhaseTimes {
+    /// All the phases together.
+    pub fn total(&self) -> Duration {
+        self.build + self.layout + self.place + self.paint
+    }
+}
+
+/// Why the views ran again. It is the first question about a slow screen: every
+/// rebuild costs in proportion to the whole screen.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum BuildCause {
+    /// The first build.
+    #[default]
+    First,
+    /// A `State` that the views read changed.
+    Data,
+    /// The pointer moved onto something else.
+    Hover,
+    /// Something was pressed or released.
+    Press,
+    /// Focus moved.
+    Focus,
+    /// Content that depends on its scroll position moved.
+    Scroll,
+    /// The window changed size or scale.
+    Viewport,
+    /// A view asked to run again at a certain time.
+    Clock,
+    /// Another thread asked through a waker.
+    Remote,
+    /// A platform service was installed or a system setting changed.
+    System,
+}
+
+impl BuildCause {
+    /// Every cause, in the order [`BuildCauses`] counts them.
+    pub const ALL: [Self; 10] = [
+        Self::First,
+        Self::Data,
+        Self::Hover,
+        Self::Press,
+        Self::Focus,
+        Self::Scroll,
+        Self::Viewport,
+        Self::Clock,
+        Self::Remote,
+        Self::System,
+    ];
+}
+
+/// How many builds each [`BuildCause`] caused.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BuildCauses {
+    counts: [u64; BuildCause::ALL.len()],
+}
+
+impl BuildCauses {
+    /// Counts one build.
+    pub fn add(&mut self, cause: BuildCause) {
+        self.counts[cause as usize] += 1;
+    }
+
+    /// The builds `cause` caused.
+    pub fn count(&self, cause: BuildCause) -> u64 {
+        self.counts[cause as usize]
+    }
+}
+
+/// What the UI runtime did for one frame.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct FrameWork {
+    /// Time in each phase; zero unless a clock was given to the runtime.
+    pub phases: PhaseTimes,
+    /// Times the views ran.
+    pub builds: u32,
+    /// Why they ran, the first time this frame.
+    pub cause: Option<BuildCause>,
+    /// Times the scene was painted.
+    pub paints: u32,
+    /// Times text was shaped.
+    pub shapes: u32,
+    /// Elements on screen.
+    pub elements: u32,
+}
+
+/// What a type of view cost in the latest build, not counting the views inside it.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ViewCost {
+    /// The view's type, as the compiler names it.
+    pub name: &'static str,
+    /// How many of them ran.
+    pub count: u32,
+    /// Time they took.
+    pub time: Duration,
+    /// Elements they made.
+    pub elements: u32,
+    /// Text they shaped.
+    pub shapes: u32,
+}
+
+impl ViewCost {
+    /// The type's name without its path or generics: `VStack`, not
+    /// `ravenrs_widgets::stack::VStack<(..)>`.
+    pub fn short_name(&self) -> &'static str {
+        let name = self.name.split('<').next().unwrap_or(self.name);
+        name.rsplit("::").next().unwrap_or(name)
+    }
+}
+
+/// What the renderer's resources looked like after a frame.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RenderWork {
+    /// Draw calls split because the kind of primitive changed.
+    pub breaks_kind: u32,
+    /// Draw calls split because the image changed.
+    pub breaks_image: u32,
+    /// Draw calls split because the clip changed.
+    pub breaks_clip: u32,
+    /// Bytes of instances sent to the GPU.
+    pub uploaded_bytes: u64,
+    /// Glyphs rasterized since the renderer was created.
+    pub glyphs_rasterized: u64,
+    /// Times the glyph atlas lost everything.
+    pub atlas_resets: u64,
+    /// How full the glyph atlas is, in thousandths of its height.
+    pub atlas_used: u32,
+    /// Side of the glyph atlas in pixels.
+    pub atlas_size: u32,
+    /// Image textures on the GPU.
+    pub cached_images: u32,
+    /// The GPU's own time on a recent frame, when timing is on and it can tell.
+    pub gpu: Option<Duration>,
+}
+
 /// What one frame cost. All durations are time on the CPU: waiting for a busy
 /// GPU shows up in [`Self::acquire`] and [`Self::present`], not in [`Self::render`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -309,6 +456,10 @@ pub struct FrameSample {
     pub size: (u32, u32),
     /// Physical pixels per logical pixel.
     pub scale: f32,
+    /// What the UI runtime did.
+    pub work: FrameWork,
+    /// What the renderer did.
+    pub render_work: RenderWork,
 }
 
 impl FrameSample {
@@ -482,6 +633,41 @@ impl FrameLog {
         let bottleneck = (verdict != PerformanceVerdict::Good)
             .then_some(if summary.update.median > drawing { Bottleneck::Interface } else { Bottleneck::Gpu });
         PerformanceResult { fps, frames: self.recorded, seconds, verdict, bottleneck }
+    }
+
+    /// The frames in the log, oldest first.
+    pub fn samples(&self) -> impl Iterator<Item = &FrameSample> {
+        self.samples.iter()
+    }
+
+    /// The frames in the log in the Trace Event format, which Perfetto
+    /// (<https://ui.perfetto.dev>) and `chrome://tracing` open.
+    pub fn trace_json(&self) -> String {
+        let mut events = Vec::new();
+        let mut at = 0.0;
+        for (number, sample) in self.samples.iter().enumerate() {
+            let phases = sample.work.phases;
+            let mut start = at;
+            let mut slice = |name: &str, length: Duration| {
+                let micros = length.as_secs_f64() * 1e6;
+                if micros > 0.0 {
+                    events.push(format!(
+                        "{{\"name\":\"{name}\",\"ph\":\"X\",\"pid\":1,\"tid\":1,\"ts\":{start:.1},\"dur\":{micros:.1},\"args\":{{\"frame\":{number}}}}}"
+                    ));
+                }
+                start += micros;
+            };
+            slice("build", phases.build);
+            slice("layout", phases.layout);
+            slice("place", phases.place);
+            slice("paint", phases.paint);
+            slice("other update", sample.update.saturating_sub(phases.total()));
+            slice("acquire", sample.acquire);
+            slice("render", sample.render);
+            slice("present", sample.present);
+            at += sample.total().as_secs_f64() * 1e6;
+        }
+        format!("{{\"traceEvents\":[{}]}}", events.join(","))
     }
 
     /// The frames in the log, summed up.

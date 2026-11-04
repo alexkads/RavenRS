@@ -511,6 +511,9 @@ impl LocalStore {
 /// What a [`View`] uses to describe itself during a build: theme access,
 /// interaction state, child building, layout boxes, painting and behavior.
 pub struct BuildCx<'a> {
+    /// The views that asked about the pointer, so that it moving elsewhere rebuilds nothing.
+    pub(crate) hover_readers: Rc<RefCell<HashSet<WidgetId>>>,
+    pub(crate) view_profile: Option<Rc<RefCell<crate::ui::ViewProfile>>>,
     pub(crate) theme: Theme,
     pub(crate) theme_state: State<Theme>,
     pub(crate) viewport: Size,
@@ -573,6 +576,8 @@ impl<'a> BuildCx<'a> {
         ui_waker: crate::UiWaker,
     ) -> Self {
         Self {
+            hover_readers: Rc::default(),
+            view_profile: None,
             // Read through the state so a theme change rebuilds the UI.
             theme: theme_state.get(),
             theme_state,
@@ -687,11 +692,13 @@ impl<'a> BuildCx<'a> {
 
     /// The pointer is over this view's interactive element.
     pub fn is_hovered(&self) -> bool {
+        self.hover_readers.borrow_mut().insert(self.widget_id());
         self.interaction.hovered == Some(self.widget_id())
     }
 
     /// The pointer is over this view or over any interactive element inside it.
     pub fn is_hover_within(&self) -> bool {
+        self.hover_readers.borrow_mut().insert(self.widget_id());
         self.hover_chain.contains(&self.widget_id())
     }
 
@@ -756,7 +763,14 @@ impl<'a> BuildCx<'a> {
     fn build_scoped(&mut self, key: u64, view: &dyn View) -> NodeId {
         let id = self.widget_id().child(key);
         self.scopes.push(Scope { id, next_child: 0, next_state: 0, next_motion: 0 });
+        let profile = self.view_profile.clone();
+        if let Some(profile) = &profile {
+            profile.borrow_mut().enter(view.type_name(), self.elements.len(), self.text.stats().shapes);
+        }
         let node = view.build(self);
+        if let Some(profile) = &profile {
+            profile.borrow_mut().leave(self.elements.len(), self.text.stats().shapes);
+        }
         self.scopes.pop();
         node
     }

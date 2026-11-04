@@ -356,6 +356,11 @@ impl PathEngine {
         self.edges.len()
     }
 
+    /// Bytes of instances the frame sends to the GPU for shapes.
+    pub(crate) fn uploaded_bytes(&self) -> usize {
+        std::mem::size_of_val(self.edges.as_slice()) + std::mem::size_of_val(self.shapes.as_slice())
+    }
+
     /// Adds a shape, clipped to `scissor` in device pixels: x, y, width, height.
     pub(crate) fn push(&mut self, path: &PathFill, scale: f32, scissor: [u32; 4], limit: u32) {
         let [a, b, c, d, e, f] = path.transform;
@@ -507,6 +512,7 @@ impl PathEngine {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
+        timestamp_writes: Option<wgpu::RenderPassTimestampWrites<'_>>,
     ) {
         if self.shapes.is_empty() {
             return;
@@ -609,7 +615,7 @@ impl PathEngine {
                 },
             })],
             depth_stencil_attachment: None,
-            timestamp_writes: None,
+            timestamp_writes,
             occlusion_query_set: None,
             multiview_mask: None,
         });

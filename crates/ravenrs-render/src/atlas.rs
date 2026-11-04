@@ -51,6 +51,7 @@ pub(crate) struct GlyphAtlas {
     /// `None` marks glyphs with no pixels (spaces), so they are not re-rasterized.
     cache: HashMap<GlyphKey, Option<AtlasGlyph>>,
     scaler: ScaleContext,
+    rasterized: u64,
 }
 
 impl GlyphAtlas {
@@ -66,11 +67,30 @@ impl GlyphAtlas {
             view_formats: &[],
         });
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        Self { texture, view, size, shelves: Vec::new(), cache: HashMap::new(), scaler: ScaleContext::new() }
+        Self {
+            texture,
+            view,
+            size,
+            shelves: Vec::new(),
+            cache: HashMap::new(),
+            scaler: ScaleContext::new(),
+            rasterized: 0,
+        }
     }
 
     pub fn len(&self) -> usize {
         self.cache.len()
+    }
+
+    /// Glyphs rasterized by this atlas.
+    pub fn rasterized(&self) -> u64 {
+        self.rasterized
+    }
+
+    /// How much of the texture's height the shelves took, from 0 to 1.
+    pub fn used(&self) -> f32 {
+        let height: u32 = self.shelves.iter().map(|shelf| shelf.height).sum();
+        height as f32 / self.size as f32
     }
 
     /// Returns the cached glyph, rasterizing and uploading it on a miss.
@@ -78,6 +98,7 @@ impl GlyphAtlas {
         if let Some(entry) = self.cache.get(&key) {
             return Lookup::Hit(*entry);
         }
+        self.rasterized += 1;
         let Some(image) = self.rasterize(key, font_bytes) else {
             self.cache.insert(key, None);
             return Lookup::Hit(None);

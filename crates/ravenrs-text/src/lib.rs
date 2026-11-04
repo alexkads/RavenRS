@@ -8,7 +8,9 @@
 //! Layout happens in logical pixels. The renderer rasterizes glyphs at the device
 //! scale factor, so text stays sharp on HiDPI screens without re-shaping.
 
+use std::collections::HashMap;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::sync::{Arc, OnceLock};
 
 use parley::fontique::{Blob, Collection, CollectionOptions, FamilyId, GenericFamily, SourceCache};
@@ -91,10 +93,86 @@ impl Default for TextAttrs {
     }
 }
 
+/// Work a [`TextSystem`] has done since it was created.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TextStats {
+    /// Times text was shaped, the costly part of showing it.
+    pub shapes: u64,
+}
+
+/// Layouts kept per generation; two generations are alive, so up to twice this.
+const CACHE_GENERATION: usize = 8192;
+/// Longer texts are rare and take the most memory, so they are shaped each time.
+const CACHE_LONGEST_TEXT: usize = 4096;
+
+/// What identifies a shaped text: the text, its attributes and, once cut to fit, the
+/// width. Hashed with fixed keys, because the same run must do the same work every time.
+fn cache_key(text: &str, attrs: &TextAttrs, fit: Option<f32>) -> u64 {
+    let mut hash = std::hash::DefaultHasher::new();
+    text.hash(&mut hash);
+    attrs.size.to_bits().hash(&mut hash);
+    attrs.line_height.to_bits().hash(&mut hash);
+    attrs.weight.to_bits().hash(&mut hash);
+    attrs.letter_spacing.to_bits().hash(&mut hash);
+    attrs.family.hash(&mut hash);
+    fit.map(f32::to_bits).hash(&mut hash);
+    hash.finish()
+}
+
+#[derive(Clone)]
+struct CachedLayout {
+    /// Checked on every hit: a hash can collide, and wrong text would be a visible bug.
+    text: Box<str>,
+    attrs: TextAttrs,
+    layout: TextLayout,
+}
+
+/// Recently shaped text. Rebuilding a screen shows almost the same text as before, so
+/// most lookups hit. What was not used for a whole generation goes away.
+#[derive(Default)]
+struct LayoutCache {
+    current: HashMap<u64, CachedLayout>,
+    previous: HashMap<u64, CachedLayout>,
+}
+
+impl LayoutCache {
+    fn get(&mut self, key: u64, text: &str, attrs: &TextAttrs) -> Option<TextLayout> {
+        let matches = |entry: &CachedLayout| &*entry.text == text && entry.attrs == *attrs;
+        if let Some(entry) = self.current.get(&key).filter(|entry| matches(entry)) {
+            return Some(entry.layout.clone());
+        }
+        let entry = self.previous.get(&key).filter(|entry| matches(entry))?.clone();
+        let layout = entry.layout.clone();
+        self.insert(key, entry);
+        Some(layout)
+    }
+
+    fn put(&mut self, key: u64, text: &str, attrs: &TextAttrs, layout: &TextLayout) {
+        if text.len() <= CACHE_LONGEST_TEXT {
+            let entry = CachedLayout { text: text.into(), attrs: attrs.clone(), layout: layout.clone() };
+            self.insert(key, entry);
+        }
+    }
+
+    fn insert(&mut self, key: u64, entry: CachedLayout) {
+        if self.current.len() >= CACHE_GENERATION {
+            self.previous = std::mem::take(&mut self.current);
+        }
+        self.current.insert(key, entry);
+    }
+
+    fn clear(&mut self) {
+        self.current.clear();
+        self.previous.clear();
+    }
+}
+
 /// Font database plus reusable layout scratch space. Create one per app.
 pub struct TextSystem {
     fonts: FontContext,
     layouts: LayoutContext<()>,
+    stats: TextStats,
+    cache: LayoutCache,
 }
 
 impl fmt::Debug for TextSystem {
@@ -116,6 +194,8 @@ impl TextSystem {
         let mut system = Self {
             fonts: FontContext { collection, source_cache: SourceCache::default() },
             layouts: LayoutContext::new(),
+            stats: TextStats::default(),
+            cache: LayoutCache::default(),
         };
         let mut families = Vec::new();
         for bytes in [INTER_REGULAR, INTER_SEMIBOLD] {
@@ -136,6 +216,8 @@ impl TextSystem {
 
     /// Registers a font file (TTF/OTF/TTC) and returns the family names it provides.
     pub fn register_font(&mut self, bytes: Vec<u8>) -> Vec<String> {
+        // A new font can change what any text resolves to.
+        self.cache.clear();
         let ids: Vec<FamilyId> = self
             .fonts
             .collection
@@ -146,8 +228,24 @@ impl TextSystem {
         ids.into_iter().filter_map(|id| self.fonts.collection.family_name(id).map(str::to_owned)).collect()
     }
 
+    /// What this system has done so far.
+    pub fn stats(&self) -> TextStats {
+        self.stats
+    }
+
     /// Shapes `text`. Line breaking happens later in [`TextLayout::measure`].
     pub fn layout(&mut self, text: &str, attrs: &TextAttrs) -> TextLayout {
+        let key = cache_key(text, attrs, None);
+        if let Some(layout) = self.cache.get(key, text, attrs) {
+            return layout;
+        }
+        let layout = self.shape(text, attrs);
+        self.cache.put(key, text, attrs, &layout);
+        layout
+    }
+
+    fn shape(&mut self, text: &str, attrs: &TextAttrs) -> TextLayout {
+        self.stats.shapes += 1;
         let mut builder = self.layouts.ranged_builder(&mut self.fonts, text, 1.0, false);
         let family = attrs.family.as_deref().unwrap_or(DEFAULT_FAMILY);
         builder.push_default(StyleProperty::FontFamily(FontFamily::Source(family.into())));
@@ -164,6 +262,16 @@ impl TextSystem {
     /// Shapes `text` on one line, cut at a character boundary and ended with
     /// `…` so it fits `max_width`. Text that already fits comes back whole.
     pub fn layout_ellipsized(&mut self, text: &str, attrs: &TextAttrs, max_width: f32) -> TextLayout {
+        let key = cache_key(text, attrs, Some(max_width));
+        if let Some(layout) = self.cache.get(key, text, attrs) {
+            return layout;
+        }
+        let layout = self.fit(text, attrs, max_width);
+        self.cache.put(key, text, attrs, &layout);
+        layout
+    }
+
+    fn fit(&mut self, text: &str, attrs: &TextAttrs, max_width: f32) -> TextLayout {
         let mut whole = self.layout(text, attrs);
         if whole.measure(None).width <= max_width {
             return whole;
@@ -218,6 +326,7 @@ pub struct ShapedGlyph {
 }
 
 /// Shaped text, ready to be broken into lines at any width and drawn.
+#[derive(Clone)]
 pub struct TextLayout {
     layout: Layout<()>,
     /// The width limit of the last line breaking, to skip redundant work.
@@ -347,6 +456,52 @@ mod tests {
         }
         assert!(lines.iter().all(|l| l.width <= 60.0 + 0.5 && l.height == 22.0));
         assert!(text[lines[0].range.clone()].ends_with(' '), "trailing space stays in the range");
+    }
+
+    #[test]
+    fn the_same_text_is_shaped_once() {
+        let mut ts = TextSystem::new();
+        let attrs = TextAttrs::default();
+        let mut first = ts.layout("Repeated text", &attrs);
+        let mut again = ts.layout("Repeated text", &attrs);
+        assert_eq!(ts.stats().shapes, 1);
+        assert_eq!(first.measure(None), again.measure(None));
+        ts.layout("Other text", &attrs);
+        ts.layout("Repeated text", &TextAttrs { weight: 600.0, ..TextAttrs::default() });
+        assert_eq!(ts.stats().shapes, 3, "other text and other attributes are other layouts");
+    }
+
+    #[test]
+    fn breaking_a_cached_layout_leaves_the_next_one_alone() {
+        let mut ts = TextSystem::new();
+        let text = "one two three four five six";
+        let mut narrow = ts.layout(text, &TextAttrs::default());
+        let narrow = narrow.measure(Some(60.0));
+        let wide = ts.layout(text, &TextAttrs::default()).measure(None);
+        assert!(narrow.height > wide.height, "the cache keeps no one's line breaks");
+    }
+
+    #[test]
+    fn cutting_text_to_fit_is_kept_per_width() {
+        let mut ts = TextSystem::new();
+        let attrs = TextAttrs::default();
+        let text = "A long sentence that will not fit in the space it was given";
+        ts.layout_ellipsized(text, &attrs, 100.0);
+        let shapes = ts.stats().shapes;
+        let mut fitted = ts.layout_ellipsized(text, &attrs, 100.0);
+        assert_eq!(ts.stats().shapes, shapes, "the bisection does not run again");
+        assert!(fitted.measure(None).width <= 100.0);
+        let mut wider = ts.layout_ellipsized(text, &attrs, 200.0);
+        assert!(wider.measure(None).width > fitted.measure(None).width);
+    }
+
+    #[test]
+    fn a_new_font_empties_the_cache() {
+        let mut ts = TextSystem::new();
+        ts.layout("Text", &TextAttrs::default());
+        ts.register_font(INTER_REGULAR.to_vec());
+        ts.layout("Text", &TextAttrs::default());
+        assert_eq!(ts.stats().shapes, 2);
     }
 
     #[test]

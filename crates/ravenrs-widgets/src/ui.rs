@@ -4,8 +4,8 @@ use std::fmt;
 use std::rc::Rc;
 
 use ravenrs_core::{
-    Color, CursorIcon, Effect, Event, Key, Modifiers, Point, PointerButton, Primitive, Quad, Rect, Scene,
-    Size,
+    BuildCause, BuildCauses, Color, CursorIcon, Effect, Event, FrameWork, Key, Modifiers, PhaseTimes, Point,
+    PointerButton, Primitive, Quad, Rect, Scene, Size, ViewCost,
 };
 use ravenrs_layout::{Align, Axis, LayoutStyle, LayoutTree};
 use ravenrs_reactive::{Observer, State};
@@ -40,6 +40,89 @@ const STALL_STEP: f64 = 0.05;
 
 /// Time between paints of animated drawing, in seconds.
 const LIVE_FRAME: f64 = 1.0 / 60.0;
+
+/// How far past a clip a node still gets painted: what it draws around itself, such as
+/// a shadow, can reach into the clip.
+const PAINT_MARGIN: f32 = 64.0;
+
+/// Whether anything `frame` draws, with its margin, can land inside `clip`.
+fn touches(frame: Rect, clip: Rect) -> bool {
+    frame.max_x() + PAINT_MARGIN > clip.x()
+        && frame.x() - PAINT_MARGIN < clip.max_x()
+        && frame.max_y() + PAINT_MARGIN > clip.y()
+        && frame.y() - PAINT_MARGIN < clip.max_y()
+}
+
+/// Work a [`Ui`] has done since it was created. These are exact counts, so a test
+/// can demand that moving the pointer shapes no text or that an animation builds nothing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct UiStats {
+    /// Times the views ran.
+    pub builds: u64,
+    /// Times sizes and positions were solved.
+    pub layouts: u64,
+    /// Times every element was given its place.
+    pub placements: u64,
+    /// Times the scene was painted.
+    pub paints: u64,
+    /// Times text was shaped.
+    pub shapes: u64,
+    /// Why the views ran.
+    pub causes: BuildCauses,
+}
+
+/// How long each type of view takes, measured while it is switched on.
+pub(crate) struct ViewProfile {
+    clock: Rc<dyn Fn() -> f64>,
+    costs: HashMap<&'static str, ViewCost>,
+    open: Vec<OpenView>,
+}
+
+struct OpenView {
+    name: &'static str,
+    started: f64,
+    elements: usize,
+    shapes: u64,
+    /// What the views inside took, which is not this view's cost.
+    inner_time: f64,
+    inner_elements: usize,
+    inner_shapes: u64,
+}
+
+impl ViewProfile {
+    pub(crate) fn enter(&mut self, name: &'static str, elements: usize, shapes: u64) {
+        let started = (self.clock)();
+        self.open.push(OpenView {
+            name,
+            started,
+            elements,
+            shapes,
+            inner_time: 0.0,
+            inner_elements: 0,
+            inner_shapes: 0,
+        });
+    }
+
+    pub(crate) fn leave(&mut self, elements: usize, shapes: u64) {
+        let Some(view) = self.open.pop() else { return };
+        let total = ((self.clock)() - view.started).max(0.0);
+        let made = elements.saturating_sub(view.elements);
+        let shaped = shapes.saturating_sub(view.shapes);
+        if let Some(outer) = self.open.last_mut() {
+            outer.inner_time += total;
+            outer.inner_elements += made;
+            outer.inner_shapes += shaped;
+        }
+        let cost = self
+            .costs
+            .entry(view.name)
+            .or_insert_with(|| ViewCost { name: view.name, ..ViewCost::default() });
+        cost.count += 1;
+        cost.time += std::time::Duration::from_secs_f64((total - view.inner_time).max(0.0));
+        cost.elements += made.saturating_sub(view.inner_elements) as u32;
+        cost.shapes += shaped.saturating_sub(view.inner_shapes) as u32;
+    }
+}
 
 /// The platform-independent UI runtime: owns the root view, reacts to input and
 /// state changes, and produces a [`Scene`] for the renderer.
@@ -124,6 +207,17 @@ pub struct Ui {
     /// A value from `BuildCx::animated` was moving in the latest build.
     value_moving: bool,
     painting_overlays: bool,
+    stats: UiStats,
+    /// Tells the seconds, when someone wants to know how long the phases take.
+    phase_clock: Option<Rc<dyn Fn() -> f64>>,
+    phases: PhaseTimes,
+    /// Why the next build happens, when it was asked for directly.
+    build_cause: Option<BuildCause>,
+    frame: FrameWork,
+    /// Phase times and shapes when the current frame started.
+    frame_start: (PhaseTimes, u64),
+    view_profile: Option<Rc<RefCell<ViewProfile>>>,
+    hover_readers: Rc<RefCell<std::collections::HashSet<WidgetId>>>,
 }
 
 impl fmt::Debug for Ui {
@@ -203,6 +297,102 @@ impl Ui {
             has_live: false,
             value_moving: false,
             painting_overlays: false,
+            stats: UiStats::default(),
+            phase_clock: None,
+            phases: PhaseTimes::default(),
+            build_cause: Some(BuildCause::First),
+            frame: FrameWork::default(),
+            frame_start: (PhaseTimes::default(), 0),
+            view_profile: None,
+            hover_readers: Rc::default(),
+        }
+    }
+
+    fn ask_build(&mut self, cause: BuildCause) {
+        self.needs_build = true;
+        self.build_cause.get_or_insert(cause);
+    }
+
+    /// Why this rebuild is happening, and clears it.
+    fn take_build_cause(&mut self) -> BuildCause {
+        if let Some(cause) = self.build_cause.take() {
+            cause
+        } else if self.state_dirty.get() {
+            BuildCause::Data
+        } else if self.ui_waker.is_dirty() {
+            BuildCause::Remote
+        } else {
+            BuildCause::Clock
+        }
+    }
+
+    /// What was done since the last call: a platform asks once per frame.
+    pub fn take_frame_work(&mut self) -> FrameWork {
+        let shapes = self.text.stats().shapes;
+        let (phases, shapes_before) = self.frame_start;
+        let now = self.phases;
+        let mut work = std::mem::take(&mut self.frame);
+        work.phases = PhaseTimes {
+            build: now.build - phases.build,
+            layout: now.layout - phases.layout,
+            place: now.place - phases.place,
+            paint: now.paint - phases.paint,
+        };
+        work.shapes = (shapes - shapes_before) as u32;
+        work.elements = self.elements.len() as u32;
+        self.frame_start = (now, shapes);
+        work
+    }
+
+    /// Measures every type of view too, on top of the clock of [`Ui::set_phase_clock`].
+    /// It costs a little per view, so it stays off unless someone is looking.
+    pub fn set_view_profiling(&mut self, on: bool) {
+        self.view_profile = match (&self.phase_clock, on) {
+            (Some(clock), true) => Some(self.view_profile.take().unwrap_or_else(|| {
+                Rc::new(RefCell::new(ViewProfile {
+                    clock: clock.clone(),
+                    costs: HashMap::new(),
+                    open: Vec::new(),
+                }))
+            })),
+            _ => None,
+        };
+    }
+
+    /// What each type of view cost in the latest build, the most expensive first. Empty
+    /// without [`Ui::set_view_profiling`].
+    pub fn view_costs(&self) -> Vec<ViewCost> {
+        let Some(profile) = &self.view_profile else { return Vec::new() };
+        let mut costs: Vec<ViewCost> = profile.borrow().costs.values().cloned().collect();
+        costs.sort_by(|a, b| b.time.cmp(&a.time).then(a.name.cmp(b.name)));
+        costs
+    }
+
+    /// What this runtime has done so far.
+    pub fn stats(&self) -> UiStats {
+        UiStats { shapes: self.text.stats().shapes, ..self.stats }
+    }
+
+    /// Measures the phases with `clock`, which tells the seconds. Without a clock,
+    /// which is the default, measuring costs nothing. WebAssembly has no clock of its
+    /// own, so it is the platform that passes one in.
+    pub fn set_phase_clock(&mut self, clock: Option<Rc<dyn Fn() -> f64>>) {
+        self.phase_clock = clock;
+    }
+
+    /// Time spent in each phase since the clock was set; see [`Ui::set_phase_clock`].
+    pub fn phase_times(&self) -> PhaseTimes {
+        self.phases
+    }
+
+    fn phase_start(&self) -> Option<f64> {
+        self.phase_clock.as_ref().map(|clock| clock())
+    }
+
+    fn phase_elapsed(&self, started: Option<f64>) -> std::time::Duration {
+        match (started, &self.phase_clock) {
+            (Some(started), Some(clock)) => std::time::Duration::from_secs_f64((clock() - started).max(0.0)),
+            _ => std::time::Duration::ZERO,
         }
     }
 
@@ -210,7 +400,7 @@ impl Ui {
     /// an in-memory clipboard.
     pub fn set_clipboard(&mut self, provider: impl crate::ClipboardProvider + 'static) {
         self.clipboard = crate::Clipboard::new(provider);
-        self.needs_build = true;
+        self.ask_build(BuildCause::System);
     }
 
     /// The clipboard widgets copy to and paste from.
@@ -221,7 +411,7 @@ impl Ui {
     /// Installs the system's sound (platform layers do this); the default is silence.
     pub fn set_sound(&mut self, provider: impl crate::SoundProvider + 'static) {
         self.sound = crate::Sound::new(provider);
-        self.needs_build = true;
+        self.ask_build(BuildCause::System);
     }
 
     /// The sound system views play through.
@@ -233,7 +423,7 @@ impl Ui {
     /// chooses nothing.
     pub fn set_file_picker(&mut self, provider: impl crate::FilePickerProvider + 'static) {
         self.file_picker = crate::FilePicker::new(provider);
-        self.needs_build = true;
+        self.ask_build(BuildCause::System);
     }
 
     /// Says whether files are being dragged over the window (platform layers do this).
@@ -285,7 +475,7 @@ impl Ui {
         if size != self.viewport || scale != self.scale {
             self.viewport = size;
             self.scale = scale;
-            self.needs_build = true;
+            self.ask_build(BuildCause::Viewport);
             self.snap_layout = true;
         }
     }
@@ -362,7 +552,7 @@ impl Ui {
     pub fn set_reduced_motion(&mut self, reduced: bool) {
         if self.system_reduced_motion != reduced {
             self.system_reduced_motion = reduced;
-            self.needs_build = true;
+            self.ask_build(BuildCause::System);
         }
     }
 
@@ -453,7 +643,7 @@ impl Ui {
                 let draggable = element.is_some_and(|e| e.on_drag.is_some());
                 if self.interaction.pressed != widget {
                     self.interaction.pressed = widget;
-                    self.needs_build = true;
+                    self.ask_build(BuildCause::Press);
                 }
                 // Like the DOM, a click focuses the nearest focusable element at or above the target.
                 let mut node = target;
@@ -469,7 +659,7 @@ impl Ui {
                 if self.interaction.focused != focused || self.interaction.focus_visible {
                     self.interaction.focused = focused;
                     self.interaction.focus_visible = false;
-                    self.needs_build = true;
+                    self.ask_build(BuildCause::Focus);
                 }
                 if let (true, Some(w)) = (draggable, widget) {
                     self.dragging = Some(w);
@@ -482,7 +672,7 @@ impl Ui {
                 }
                 let pressed = self.interaction.pressed.take();
                 if pressed.is_some() {
-                    self.needs_build = true;
+                    self.ask_build(BuildCause::Press);
                 }
                 if let Some(node) = self.hit_test(*position) {
                     let element = &self.elements[node.0 as usize];
@@ -498,7 +688,7 @@ impl Ui {
                 self.pointer = None;
                 self.refresh_hover();
                 if self.dragging.is_none() && self.interaction.pressed.take().is_some() {
-                    self.needs_build = true;
+                    self.ask_build(BuildCause::Press);
                 }
             }
             Event::Scroll { position, delta } => {
@@ -579,7 +769,7 @@ impl Ui {
                         if let Some(dismiss) = dismiss {
                             dismiss();
                         } else if self.interaction.focused.take().is_some() {
-                            self.needs_build = true;
+                            self.ask_build(BuildCause::Focus);
                         }
                     }
                     _ => {}
@@ -588,7 +778,7 @@ impl Ui {
             Event::FocusLost => {
                 self.dragging = None;
                 if self.interaction.pressed.take().is_some() {
-                    self.needs_build = true;
+                    self.ask_build(BuildCause::Press);
                 }
             }
             _ => {}
@@ -657,14 +847,14 @@ impl Ui {
                     let first = self.first_focusable(root);
                     if self.interaction.focused != first {
                         self.interaction.focused = first;
-                        self.needs_build = true;
+                        self.ask_build(BuildCause::Focus);
                     }
                 }
             }
             None => {
                 if let Some(back) = self.modal_return.take() {
                     self.interaction.focused = back;
-                    self.needs_build = true;
+                    self.ask_build(BuildCause::Focus);
                 }
             }
         }
@@ -759,7 +949,7 @@ impl Ui {
                 self.next_live = Some(self.time);
                 let e = &self.elements[i];
                 if e.rebuild_on_scroll {
-                    self.needs_build = true;
+                    self.ask_build(BuildCause::Scroll);
                 }
                 return true;
             }
@@ -801,7 +991,7 @@ impl Ui {
         self.interaction.focused = Some(focusable[next]);
         self.interaction.focus_visible = true;
         self.reveal_focus = true;
-        self.needs_build = true;
+        self.ask_build(BuildCause::Focus);
     }
 
     /// Recomputes the hovered widget and cursor; returns true if hover changed.
@@ -817,10 +1007,20 @@ impl Ui {
             node = self.parents.get(n.0 as usize).copied().flatten();
         }
         if hovered != self.interaction.hovered || chain != self.hover_chain {
+            // Only a view that asked about the pointer can look different now. Those that stay
+            // in the chain keep their answer, unless the pointer moved on to or off them.
+            let readers = self.hover_readers.borrow();
+            let matters = |widget: &WidgetId| readers.contains(widget);
+            let affected = chain.iter().filter(|w| !self.hover_chain.contains(w)).any(matters)
+                || self.hover_chain.iter().filter(|w| !chain.contains(w)).any(matters)
+                || hovered.iter().chain(&self.interaction.hovered).any(matters);
+            drop(readers);
             self.interaction.hovered = hovered;
             self.hover_chain = chain;
-            self.needs_build = true;
-            return true;
+            if affected {
+                self.ask_build(BuildCause::Hover);
+            }
+            return affected;
         }
         false
     }
@@ -836,6 +1036,8 @@ impl Ui {
     fn rebuild(&mut self) {
         let _span = tracing::trace_span!("ravenrs::frame").entered();
         self.needs_build = false;
+        let cause = self.take_build_cause();
+        self.build_cause = Some(cause);
         self.state_dirty.set(false);
         // Before the build: a wake during it must cause another one.
         self.ui_waker.clear();
@@ -852,6 +1054,21 @@ impl Ui {
 
     fn build(&mut self) -> Result<(), ravenrs_layout::LayoutError> {
         let _span = tracing::trace_span!("ravenrs::build").entered();
+        self.stats.builds += 1;
+        self.frame.builds += 1;
+        let cause = self.take_build_cause();
+        self.stats.causes.add(cause);
+        self.frame.cause.get_or_insert(cause);
+        if let Some(profile) = &self.view_profile {
+            profile.borrow_mut().costs.clear();
+        }
+        let started = self.phase_start();
+        let result = self.build_views();
+        self.phases.build += self.phase_elapsed(started);
+        result
+    }
+
+    fn build_views(&mut self) -> Result<(), ravenrs_layout::LayoutError> {
         self.layout.clear();
         self.elements.clear();
         self.root_node = None;
@@ -866,6 +1083,9 @@ impl Ui {
         let file_picker = self.file_picker.clone();
         let files_over = self.files_over.clone();
         let ui_waker = self.ui_waker.clone();
+        let view_profile = self.view_profile.clone();
+        self.hover_readers.borrow_mut().clear();
+        let hover_readers = self.hover_readers.clone();
         let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
             self;
         let now = self.time;
@@ -897,6 +1117,8 @@ impl Ui {
                 cx.motion_clock = motion_clock;
                 cx.motion_enabled = motion_enabled;
                 cx.reduced_motion = reduced_motion;
+                cx.view_profile = view_profile;
+                cx.hover_readers = hover_readers;
                 let content = cx.child(&**root);
                 let style = LayoutStyle {
                     width: Some(viewport.width),
@@ -934,12 +1156,12 @@ impl Ui {
             self.interaction.focused = Some(widget);
             self.reveal_focus = true;
             // Rebuild once so the newly focused widget can draw its focus state.
-            self.needs_build = true;
+            self.ask_build(BuildCause::Focus);
         }
         for (widget, offset) in requests {
             if self.scroll.offsets.insert(widget, offset) != Some(offset) {
                 // Virtualized content depends on the offset: build again at the new position.
-                self.needs_build = true;
+                self.ask_build(BuildCause::Scroll);
             }
         }
         self.local.end_build();
@@ -978,6 +1200,14 @@ impl Ui {
 
     fn compute_layout(&mut self) -> Result<(), ravenrs_layout::LayoutError> {
         let _span = tracing::trace_span!("ravenrs::layout").entered();
+        self.stats.layouts += 1;
+        let started = self.phase_start();
+        let result = self.solve_layout();
+        self.phases.layout += self.phase_elapsed(started);
+        result
+    }
+
+    fn solve_layout(&mut self) -> Result<(), ravenrs_layout::LayoutError> {
         let Some(root) = self.root_node else { return Ok(()) };
         let roots = std::iter::once(root).chain(self.overlays.iter().map(|o| o.root)).collect::<Vec<_>>();
         for node in roots {
@@ -1030,6 +1260,8 @@ impl Ui {
     /// Gives every element its absolute frame, scroll offsets and overlays included.
     fn place_all(&mut self) {
         let Some(root) = self.root_node else { return };
+        self.stats.placements += 1;
+        let started = self.phase_start();
         self.frames.clear();
         self.frames.resize(self.elements.len(), Rect::ZERO);
         self.shifts.clear();
@@ -1044,6 +1276,7 @@ impl Ui {
             self.place(overlay.root, origin);
         }
         self.overlays = overlays;
+        self.phases.place += self.phase_elapsed(started);
     }
 
     /// If focus just moved, scrolls each container around the focused element,
@@ -1080,7 +1313,9 @@ impl Ui {
             if next != offset {
                 self.scroll.offsets.insert(self.elements[i].widget, next);
                 // Virtualized content depends on the offset: build again at the new position.
-                self.needs_build |= self.elements[i].rebuild_on_scroll;
+                if self.elements[i].rebuild_on_scroll {
+                    self.ask_build(BuildCause::Scroll);
+                }
                 target = target.translate(offset - next);
                 scrolled = true;
             }
@@ -1126,6 +1361,14 @@ impl Ui {
 
     fn paint(&mut self) {
         let _span = tracing::trace_span!("ravenrs::paint").entered();
+        self.stats.paints += 1;
+        self.frame.paints += 1;
+        let started = self.phase_start();
+        self.paint_scene();
+        self.phases.paint += self.phase_elapsed(started);
+    }
+
+    fn paint_scene(&mut self) {
         let theme = self.theme();
         self.scrollbar_showing = false;
         let viewport = Rect::from_origin_size(Point::ZERO, self.viewport);
@@ -1225,8 +1468,16 @@ impl Ui {
             Some((_, s)) => (s.quad, s.text, s.frame.unwrap_or(frame), s.effect),
             None => (None, None, frame, Effect::IDENTITY),
         };
+        // Off screen, its pixels would be thrown away: what it draws goes nowhere, though its
+        // children still get their turn, since they can stand outside it. A node under an
+        // effect may land elsewhere, one leaving is captured for its way out, and one
+        // without a size may draw around itself.
+        let shown = effect != Effect::IDENTITY
+            || motion.is_some_and(|m| m.motion.exit.is_some())
+            || frame.is_empty()
+            || touches(visual, clip);
         let underlaid = motion.is_some_and(|m| m.motion.underlay);
-        if !underlaid {
+        if shown && !underlaid {
             self.paint_shape(i, visual, quad);
         }
         let exit = motion.filter(|m| m.motion.exit.is_some());
@@ -1235,7 +1486,7 @@ impl Ui {
         }
         // Everything from here on travels with the node.
         let content_start = self.scene.len();
-        if let Some(color) = self.elements[i].text_color {
+        if let Some(color) = self.elements[i].text_color.filter(|_| shown) {
             let color = text_color.unwrap_or(color);
             let layout_id = self.elements[i].layout;
             if let Some(leaf) = self.layout.context_mut(layout_id) {
@@ -1250,12 +1501,11 @@ impl Ui {
             }
         }
         let clips_children = self.elements[i].clip;
-        let child_clip = if clips_children {
+        let child_clip = if clips_children { clip.intersect(&frame) } else { clip };
+        let pushes_clip = clips_children && shown;
+        if pushes_clip {
             self.scene.push_clip(frame);
-            clip.intersect(&frame)
-        } else {
-            clip
-        };
+        }
         let children = self.elements[i].children.clone();
         for &child in &children {
             if let Some(m) = self.elements[child.0 as usize].motion
@@ -1271,17 +1521,18 @@ impl Ui {
             self.paint_node(child, child_clip, theme);
         }
         let outside = self.elements[i].scrollbar_outside;
-        if self.elements[i].scroll && outside == 0.0 {
+        if shown && self.elements[i].scroll && outside == 0.0 {
             self.paint_scrollbar(i, theme, 0.0);
         }
-        if clips_children {
+        if pushes_clip {
             self.scene.pop_clip();
         }
-        if self.elements[i].scroll && outside != 0.0 {
+        if shown && self.elements[i].scroll && outside != 0.0 {
             self.paint_scrollbar(i, theme, outside);
         }
         let element = &self.elements[i];
         if let Some(radius) = element.focus_radius
+            && shown
             && self.interaction.focus_visible
             && self.interaction.focused == Some(element.widget)
         {

@@ -4,6 +4,7 @@ use ravenrs_core::{Brush, Color, ImageQuad, Primitive, Quad, Scene};
 use crate::atlas::{GlyphAtlas, GlyphKey, Lookup, SUBPIXEL_BINS};
 use crate::images::ImageCache;
 use crate::paths::PathEngine;
+use crate::timing::GpuTimer;
 
 const INITIAL_ATLAS_SIZE: u32 = 1024;
 
@@ -82,6 +83,25 @@ pub struct RenderStats {
     pub paths: usize,
     /// Straight pieces those curves were cut into.
     pub path_edges: usize,
+    /// Draw calls split because the kind of primitive changed, as text after a quad.
+    pub breaks_kind: usize,
+    /// Draw calls split because the image changed.
+    pub breaks_image: usize,
+    /// Draw calls split because the clip changed.
+    pub breaks_clip: usize,
+    /// Bytes of instances sent to the GPU this frame.
+    pub uploaded_bytes: usize,
+    /// Glyphs rasterized since the renderer was created.
+    pub glyphs_rasterized: u64,
+    /// Times the glyph atlas lost everything: it grew or it was full.
+    pub atlas_resets: u64,
+    /// How full the glyph atlas is, in thousandths of its height.
+    pub atlas_used: u32,
+    /// Side of the glyph atlas in pixels.
+    pub atlas_size: u32,
+    /// How long the GPU took on a recent frame, when timing is on and it can tell.
+    /// It arrives some frames late, so it is not this frame's.
+    pub gpu_time: Option<std::time::Duration>,
 }
 
 /// A growable instance buffer that is reused across frames.
@@ -90,6 +110,24 @@ struct InstanceBuffer {
     capacity: usize,
     stride: usize,
     label: &'static str,
+}
+
+impl RenderStats {
+    /// The part of these stats the diagnostics keep.
+    pub fn work(&self) -> ravenrs_core::RenderWork {
+        ravenrs_core::RenderWork {
+            breaks_kind: self.breaks_kind as u32,
+            breaks_image: self.breaks_image as u32,
+            breaks_clip: self.breaks_clip as u32,
+            uploaded_bytes: self.uploaded_bytes as u64,
+            glyphs_rasterized: self.glyphs_rasterized,
+            atlas_resets: self.atlas_resets,
+            atlas_used: self.atlas_used,
+            atlas_size: self.atlas_size,
+            cached_images: self.cached_images as u32,
+            gpu: self.gpu_time,
+        }
+    }
 }
 
 impl InstanceBuffer {
@@ -145,6 +183,19 @@ pub struct Renderer {
     batches: Vec<Batch>,
     clips: Vec<[u32; 4]>,
     target_size: (u32, u32),
+    breaks: BatchBreaks,
+    atlas_resets: u64,
+    /// Glyphs rasterized by the atlases that are gone.
+    glyphs_rasterized: u64,
+    timer: Option<GpuTimer>,
+}
+
+/// Why the last frame needed more than one draw call.
+#[derive(Clone, Copy, Debug, Default)]
+struct BatchBreaks {
+    kind: usize,
+    image: usize,
+    clip: usize,
 }
 
 impl std::fmt::Debug for Renderer {
@@ -359,7 +410,29 @@ impl Renderer {
             batches: Vec::new(),
             clips: Vec::new(),
             target_size: (1, 1),
+            breaks: BatchBreaks::default(),
+            atlas_resets: 0,
+            glyphs_rasterized: 0,
+            timer: None,
         }
+    }
+
+    /// Starts or stops timing the GPU, reported in [`RenderStats::gpu_time`]. It stays
+    /// off unless asked for, and does nothing on a GPU that cannot tell the time.
+    pub fn set_gpu_timing(&mut self, on: bool) {
+        match (on, &self.timer) {
+            (true, None) => self.timer = GpuTimer::new(&self.device, &self.queue),
+            (false, Some(_)) => self.timer = None,
+            _ => {}
+        }
+    }
+
+    fn lose_atlas(&mut self, size: u32) {
+        self.glyphs_rasterized += self.atlas.rasterized();
+        self.atlas_resets += 1;
+        self.atlas = GlyphAtlas::new(&self.device, size);
+        self.atlas_bind_group =
+            Self::atlas_bind_group(&self.device, &self.atlas_layout, &self.atlas, &self.sampler);
     }
 
     fn atlas_bind_group(
@@ -412,7 +485,9 @@ impl Renderer {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("raven frame") });
-        self.paths.draw_coverage(&self.device, &self.queue, &mut encoder);
+        let main_timing = self.timer.as_ref().map(GpuTimer::main_pass);
+        let coverage_timing = self.timer.as_ref().map(GpuTimer::coverage_pass);
+        self.paths.draw_coverage(&self.device, &self.queue, &mut encoder, coverage_timing);
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("raven main pass"),
@@ -431,7 +506,7 @@ impl Renderer {
                     },
                 })],
                 depth_stencil_attachment: None,
-                timestamp_writes: None,
+                timestamp_writes: main_timing,
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
@@ -467,17 +542,33 @@ impl Renderer {
                 pass.draw(0..4, batch.start..batch.end);
             }
         }
+        let gpu_time = self.timer.as_mut().and_then(|timer| timer.finish_frame(&mut encoder));
         self.queue.submit(Some(encoder.finish()));
+        if let Some(timer) = &mut self.timer {
+            timer.frame_submitted();
+        }
 
         RenderStats {
             quads: self.quads.len(),
             glyphs: self.glyphs.len(),
-            draw_calls: self.batches.len(),
+            draw_calls: self.batches.len() + usize::from(self.paths.edges() > 0),
             atlas_glyphs: self.atlas.len(),
             images: self.image_instances.len(),
             cached_images: self.image_cache.len(),
             paths: self.paths.shapes(),
             path_edges: self.paths.edges(),
+            breaks_kind: self.breaks.kind,
+            breaks_image: self.breaks.image,
+            breaks_clip: self.breaks.clip,
+            uploaded_bytes: std::mem::size_of_val(self.quads.as_slice())
+                + std::mem::size_of_val(self.glyphs.as_slice())
+                + std::mem::size_of_val(self.image_instances.as_slice())
+                + self.paths.uploaded_bytes(),
+            glyphs_rasterized: self.glyphs_rasterized + self.atlas.rasterized(),
+            atlas_resets: self.atlas_resets,
+            atlas_used: (self.atlas.used() * 1000.0) as u32,
+            atlas_size: self.atlas.size,
+            gpu_time,
         }
     }
 
@@ -495,17 +586,13 @@ impl Renderer {
                 Err(AtlasFull) if self.atlas.size < max_atlas => {
                     let size = (self.atlas.size * 2).min(max_atlas);
                     tracing::debug!(size, "growing glyph atlas");
-                    self.atlas = GlyphAtlas::new(&self.device, size);
-                    self.atlas_bind_group =
-                        Self::atlas_bind_group(&self.device, &self.atlas_layout, &self.atlas, &self.sampler);
+                    self.lose_atlas(size);
                 }
                 Err(AtlasFull) => {
                     // Already at the device limit: start from an empty atlas. Text in
                     // this frame that still does not fit is skipped and logged.
                     tracing::warn!("glyph atlas is full at the device limit; clearing it");
-                    self.atlas = GlyphAtlas::new(&self.device, self.atlas.size);
-                    self.atlas_bind_group =
-                        Self::atlas_bind_group(&self.device, &self.atlas_layout, &self.atlas, &self.sampler);
+                    self.lose_atlas(self.atlas.size);
                     let _ = self.try_prepare_lossy(scene, scale);
                     return;
                 }
@@ -527,6 +614,7 @@ impl Renderer {
         self.image_instances.clear();
         self.batches.clear();
         self.clips.clear();
+        self.breaks = BatchBreaks::default();
         self.paths.begin_frame();
         for primitive in scene.primitives() {
             match primitive {
@@ -641,7 +729,17 @@ impl Renderer {
         }
         match self.batches.last_mut() {
             Some(last) if last.kind == kind && last.end == start && last.scissor == scissor => last.end = end,
-            _ => self.batches.push(Batch { kind, start, end, scissor }),
+            Some(last) => {
+                if last.scissor != scissor {
+                    self.breaks.clip += 1;
+                } else if matches!((last.kind, kind), (BatchKind::Image(_), BatchKind::Image(_))) {
+                    self.breaks.image += 1;
+                } else {
+                    self.breaks.kind += 1;
+                }
+                self.batches.push(Batch { kind, start, end, scissor });
+            }
+            None => self.batches.push(Batch { kind, start, end, scissor }),
         }
     }
 }

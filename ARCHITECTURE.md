@@ -154,8 +154,10 @@ Renderer::render:  batch quads/glyphs ──► upload instances ──► one r
 
 * **Build** walks the view tree. Each `View::build` creates layout boxes and paint instructions through `BuildCx`. The whole build runs inside a reactive `Observer`, so every `State` read is recorded.
 * **Layout** runs Taffy over the boxes. Text leaves are measured by Parley through Taffy's measure callback, so wrapping participates in flexbox sizing.
-* **Paint** walks the element tree in order and appends primitives (`Quad`, `GlyphRun`, `PathFill`) to the `Scene`. Focus rings are painted after the focused element's children so they sit on top.
+* **Paint** walks the element tree in order and appends primitives (`Quad`, `GlyphRun`, `PathFill`) to the `Scene`. Focus rings are painted after the focused element's children so they sit on top. An element outside its clip adds nothing, though it still gets a place in the order, because it can take focus and its children can stand outside it.
 * **Render** turns the scene into instanced draws. Consecutive primitives of the same kind are merged into one draw call; painter's order is preserved.
+
+Every rebuild runs from the root, so its cost follows the size of the screen, not the size of the change. What keeps that cheap: text is shaped once (`TextSystem` keeps recent layouts), the pointer moving over views that never asked about it builds nothing, and drawing that moves repeats only the paint through `Paint::Live`.
 
 Nothing runs between frames. An idle app sleeps on the desktop (`ControlFlow::Wait`) and schedules no animation frames on the web. Work on another thread sends its result through a channel and calls a `UiWaker`, the one handle that may leave the UI thread; state itself stays on that thread. While an animation runs, frames repeat only the paint phase ([§6.5](#65-motion)).
 
@@ -300,7 +302,7 @@ Phase R1 is done. `ravenrs-report-pdf`, `ravenrs-report-xlsx` export the `Docume
 * **Soft shadows** are separate instances drawn under their shape: the coverage is an `erf` approximation over the same SDF, which gives a Gaussian-looking falloff in one pass with no blur texture.
 * **Text** is shaped by Parley, rasterized per glyph by `swash` (outline, alpha mask, 4 horizontal sub-pixel positions, no hinting) into an R8 atlas packed with shelves, and drawn as textured quads snapped to the device pixel grid. The atlas grows (×2 up to the device limit) when it fills; at the limit it is cleared.
 * **Color.** Tokens are sRGB. The renderer prefers non-sRGB surface formats so blending happens in sRGB space, as in browsers and design tools; on `*Srgb` targets the shaders linearize colors first. Output is premultiplied alpha.
-* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: `crates/ravenrs-render/tests/offscreen.rs` checks pixels of real scenes and `crates/ravenrs/tests/visual.rs` compares golden images.
+* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: `crates/ravenrs-render/tests/offscreen.rs` checks pixels of real scenes and `crates/ravenrs/tests/visual.rs` compares golden images. GPU timing is off unless asked for, and its answers arrive frames later through buffers mapped in the background, so it never makes a frame wait (`timing.rs`).
 
 **Why not Vello (yet).** Vello's main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Arbitrary vector paths have their own pipeline, `Primitive::Path`: edges add up the exact area they cover in each pixel of a coverage texture, in one pass, and the main pass paints from it in scene order. It needs no compute, tessellation or multisampling.
 
@@ -369,7 +371,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web | | caret and selection for screen readers, right-to-left |
 | Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
 | Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
-| Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`, budgets in [docs/QUALITY.md](docs/QUALITY.md)) | | GPU timestamps |
+| Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`), a gate of exact counters and frame times (`crates/ravenrs-perf`, budgets in [docs/QUALITY.md](docs/QUALITY.md)), the diagnostics panel with GPU timestamps ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) | | stepping through a frozen frame, a map of what was rebuilt, invalidation by subtree |
 | Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions, frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
 
 ## 12. Decisions log
