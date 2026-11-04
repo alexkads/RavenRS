@@ -299,3 +299,33 @@ fn a_logo_takes_the_place_of_the_icon() {
     let tree = ui.access_tree();
     assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("Artwork")));
 }
+
+/// How visible the first text painted is, which is the name.
+fn name_opacity(ui: &Ui) -> f32 {
+    ui.scene()
+        .primitives()
+        .iter()
+        .find_map(|p| if let Primitive::Glyphs(run) = p { Some(run.color.a) } else { None })
+        .unwrap_or(0.0)
+}
+
+#[test]
+fn the_name_waits_for_the_logo_and_keeps_its_place() {
+    let visible = State::new(true);
+    let mut ui = running(SplashScreen::new(visible.binding(), "Raven").progress(0.5).reveal_after(1.0));
+    let place = |ui: &mut Ui| {
+        let tree = ui.access_tree();
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some("Raven")).map(|n| n.bounds)
+    };
+    let before = place(&mut ui);
+    assert!(before.is_some(), "screen readers have it from the start");
+    assert!(name_opacity(&ui) < 0.01, "hidden while the logo plays");
+    assert_eq!(ui.next_wake(), Some(1.0), "its time wakes the window, with nothing running till then");
+
+    let mut t = 1.0;
+    ui.set_time(t);
+    ui.update();
+    frames(&mut ui, &mut t, 60);
+    assert!(name_opacity(&ui) > 0.99, "shown at its time");
+    assert_eq!(place(&mut ui), before, "nothing moved when it appeared");
+}

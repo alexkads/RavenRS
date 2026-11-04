@@ -26,13 +26,16 @@ serde.workspace = true
 serde_json.workspace = true
 image = { workspace = true, optional = true }
 ravenrs-graphics = { workspace = true, optional = true }
+ravenrs-lottie = { workspace = true, optional = true }
 
 [features]
-default = ["decode", "charts"]
+default = ["decode", "charts", "lottie"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["dep:image"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`, drawn with `ravenrs-graphics`.
 charts = ["dep:ravenrs-graphics"]
+# `Lottie`, a player of Lottie animations of our own.
+lottie = ["dep:ravenrs-lottie"]
 
 [dev-dependencies]
 proptest.workspace = true

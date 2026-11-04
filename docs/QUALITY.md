@@ -137,6 +137,7 @@ Status against the definition of done. **Behavior** names the test suites that d
 | Chat, FloatingPanel | chat | | ✅ field, examples, send and sphere work with Tab + Enter, arrow keys move the sphere between corners and Escape closes the panel, tested | Answers are a `status`, announced as they appear; the panel is a named group |
 | ReleaseNotes, CodeBlock | release_notes | | ✅ versions and buttons work with Tab + Enter, tested | Lists its versions as buttons; the copy button says when it copied |
 | MoviePlayer, MovieAssistant, MovieEditor, BugReporter | ravenrs-movie | | ✅ controls, chapters, marks and blocks work with Tab + Enter; dragging on the canvas and the timeline has no keyboard way yet: 🟡 | Marks say what they teach; a film is an image with a name |
+| Lottie | lottie | ✅ decoration unless given `alt`, then an image with that name | n/a | Takes no input; shows its last frame still where motion is reduced, tested. `crates/ravenrs/tests/lottie_corpus.rs` measures real files against lottie-web |
 | Media and feedback: Image, Icon, Carousel, Avatar, Badge, Alert, ProgressBar, Spinner, Skeleton, Kbd, Divider | layout_and_content, components, batch_parity | ✅ partial | 🟡 Carousel arrows, untested | |
 
 ✅ means the WAI-ARIA keys for that widget work and a test covers them. 🟡 means it is reachable and activatable but the full pattern is missing or untested.

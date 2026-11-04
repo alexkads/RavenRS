@@ -207,7 +207,7 @@ See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REP
 | Data | `DataGrid`, `TreeView`, `CardView`, `Table`, `List`, `Stat`, `Barcode` (QR Code and linear codes) |
 | Charts | `Chart` (line, area, bar, pie, doughnut, radar, radial, scatter, sparkline), `ChartCard`, `BarChart`, `AreaChart`: all 70 patterns of the shadcn/ui chart catalog are in the gallery |
 | Layout | `TileLayout`, `VStack`, `HStack`, `Grid`, `ScrollView`, `Splitter`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `Spacer`, `Footer`, `StatusBar`, `ToolRail`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
-| Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Alert`, `ProgressBar`, `Spinner`, `Skeleton`, `Kbd`, `Divider`, `Canvas`, `CodeBlock`, `ReleaseNotes` |
+| Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Alert`, `ProgressBar`, `Spinner`, `Skeleton`, `Kbd`, `Divider`, `Canvas`, `CodeBlock`, `ReleaseNotes`, `Lottie` |
 | Assistants | `Chat`, `ModelPicker` |
 | Training and support (`ravenrs::movie`) | `Recorder`, `MoviePlayer`, `MovieAssistant`, `MovieChat`, `MovieEditor`, `FlightRecorder`, `BugReporter` |
 
@@ -308,6 +308,7 @@ Start with `ravenrs`. The others come in as you need them.
 | [`ravenrs-movie`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-movie) | Vector training films and bug reports. |
 | [`ravenrs-criteria`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-criteria) | The expression language, independent of any UI. |
 | [`ravenrs-graphics`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-graphics) | Vector shapes, chart layout and barcodes, shared by every engine. |
+| [`ravenrs-lottie`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lottie) | A Lottie player of our own: reads the file and works out each frame's curves. |
 | [`ravenrs-widgets`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-widgets) | Every component, the `View`/`Component`/`BuildCx` API and the `Ui` runtime. |
 | [`ravenrs-reactive`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-reactive) | `State`, `Binding`, `Derived` and dependency-tracking observers. |
 | [`ravenrs-animation`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-animation) | Springs, easing and transitions. |

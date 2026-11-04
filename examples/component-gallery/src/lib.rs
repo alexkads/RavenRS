@@ -1019,6 +1019,11 @@ impl Gallery {
                     samples::sample("SplashScreen"),
                 ),
                 demo(
+                    "Lottie",
+                    "Plays Lottie files with our own engine, drawn as curves on the GPU, sharp at any size.",
+                    samples::sample("Lottie"),
+                ),
+                demo(
                     "Toasts and command palette",
                     "Toasts disappear after 4 seconds. Press ⌘K or Ctrl+K anywhere for the palette.",
                     HStack::new((

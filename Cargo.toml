@@ -41,6 +41,7 @@ ravenrs-report-viewer = { version = "27.1.10", path = "crates/ravenrs-report-vie
 ravenrs-report-designer = { version = "27.1.10", path = "crates/ravenrs-report-designer" }
 ravenrs-criteria = { version = "27.1.10", path = "crates/ravenrs-criteria", default-features = false }
 ravenrs-ai = { version = "27.1.10", path = "crates/ravenrs-ai" }
+ravenrs-lottie = { version = "27.1.10", path = "crates/ravenrs-lottie" }
 ravenrs-movie = { version = "27.1.10", path = "crates/ravenrs-movie" }
 
 wgpu = "30.0.1"

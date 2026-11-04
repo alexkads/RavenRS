@@ -61,6 +61,10 @@ ravenrs-criteria  (expression language, no RavenRS dependencies)
 ravenrs-graphics  ──► ravenrs-core  (shapes, chart layout, barcodes; shared, knows no engine)
         ▲
         │
+ravenrs-lottie  ──► ravenrs-core  (reads Lottie files into curves; no GPU, no widgets)
+        ▲
+        └── ravenrs-widgets  (`Lottie`, with the `lottie` feature)
+
 ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
         ▲
         │
@@ -102,6 +106,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-criteria` | `ast`, `parse`, `format`, `eval`, `functions`, `validate`, `sql`, `value` |
 | `ravenrs-report` | `model`, `engine`, `document`, `base64`, `paint`, `wizard`, `samples` |
 | `ravenrs-graphics` | `vector`, `chart`, `barcode`; also the optional layout behind `Chart` and `Barcode` in `ravenrs-widgets` |
+| `ravenrs-lottie` | `document` (reading a file, and what it asks for that is not done yet), `property` (keyframes), `geometry` (trim, dash, stroke), `player` (one moment as `PathFill`s) |
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-grid-export` | `lib` |
 | `ravenrs-app-derive` | `lib` |
@@ -149,7 +154,7 @@ Renderer::render:  batch quads/glyphs ──► upload instances ──► one r
 
 * **Build** walks the view tree. Each `View::build` creates layout boxes and paint instructions through `BuildCx`. The whole build runs inside a reactive `Observer`, so every `State` read is recorded.
 * **Layout** runs Taffy over the boxes. Text leaves are measured by Parley through Taffy's measure callback, so wrapping participates in flexbox sizing.
-* **Paint** walks the element tree in order and appends primitives (`Quad`, `GlyphRun`) to the `Scene`. Focus rings are painted after the focused element's children so they sit on top.
+* **Paint** walks the element tree in order and appends primitives (`Quad`, `GlyphRun`, `PathFill`) to the `Scene`. Focus rings are painted after the focused element's children so they sit on top.
 * **Render** turns the scene into instanced draws. Consecutive primitives of the same kind are merged into one draw call; painter's order is preserved.
 
 Nothing runs between frames. An idle app sleeps on the desktop (`ControlFlow::Wait`) and schedules no animation frames on the web. Work on another thread sends its result through a channel and calls a `UiWaker`, the one handle that may leave the UI thread; state itself stays on that thread. While an animation runs, frames repeat only the paint phase ([§6.5](#65-motion)).
@@ -297,7 +302,7 @@ Phase R1 is done. `ravenrs-report-pdf`, `ravenrs-report-xlsx` export the `Docume
 * **Color.** Tokens are sRGB. The renderer prefers non-sRGB surface formats so blending happens in sRGB space, as in browsers and design tools; on `*Srgb` targets the shaders linearize colors first. Output is premultiplied alpha.
 * **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: `crates/ravenrs-render/tests/offscreen.rs` checks pixels of real scenes and `crates/ravenrs/tests/visual.rs` compares golden images.
 
-**Why not Vello (yet).** Vello's main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Vello remains the candidate for arbitrary vector paths (charts, icons, `Canvas` paths) behind the same `Scene` boundary.
+**Why not Vello (yet).** Vello's main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Arbitrary vector paths have their own pipeline, `Primitive::Path`: edges add up the exact area they cover in each pixel of a coverage texture, in one pass, and the main pass paints from it in scene order. It needs no compute, tessellation or multisampling.
 
 **Glass and blur (planned).** Raven Glass's backdrop blur needs a layer compositor: render the content behind a glass surface to an intermediate texture, blur it (separable Gaussian, downsampled), then composite. Until that lands, glass surfaces render their translucent fill; this is the documented degradation path for platforms where the extra passes are too costly.
 
@@ -354,7 +359,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView`, docking |
 | Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette` | ✓ | | |
 | Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |
-| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `Chart` (line, area, bar, pie, doughnut, scatter, sparkline), `BarChart`, `AreaChart`, `Barcode` (QR Code and six linear formats), `Canvas` | ✓ | | image loading from URLs, radar, funnel and financial charts |
+| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `Chart` (line, area, bar, pie, doughnut, scatter, sparkline), `BarChart`, `AreaChart`, `Barcode` (QR Code and six linear formats), `Canvas`, `Lottie` | ✓ | | image loading from URLs, radar, funnel and financial charts |
 | `GlassCard` | | translucent fill only | backdrop blur |
 | Rounded rects, borders, gradients, soft shadows, text, images (mipmapped, rounded), rectangular clipping | ✓ | | rounded clipping, radial gradients, transforms, layers |
 | Raven Dark / Light / Glass tokens, runtime theme switching, reduced motion from the theme token, `Ui::set_reduced_motion` and the browser's `prefers-reduced-motion` | ✓ | | reading the setting on the desktop (winit does not expose it) |

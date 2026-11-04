@@ -155,6 +155,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Bug report with a film | | | | ✅ `FlightRecorder`, `BugReporter` |
 | Progress bar | ✓ | ✓ | ✓ | ✅ |
 | Loader / Spinner | | ✓ | ✓ | ✅ `Spinner` |
+| Lottie animation | | ✓ | ✓ | ✅ `Lottie`; no expressions, text layers, 3D, blend modes or effects other than Fill yet, and `.lottie` archives need unpacking first |
 | Skeleton | ✓ | ✓ | ✓ | ✅ |
 | Badge | ✓ | ✓ | ✓ | ✅ |
 | Chip / Chip list | | ✓ | ✓ | 🟡 `Badge`; removable chips via `Button` with an icon |

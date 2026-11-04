@@ -4215,6 +4215,7 @@ dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
  "ravenrs-layout",
+ "ravenrs-lottie",
  "ravenrs-movie",
  "ravenrs-platform-native",
  "ravenrs-platform-web",
@@ -4381,6 +4382,15 @@ dependencies = [
  "proptest",
  "ravenrs-core",
  "taffy",
+]
+
+[[package]]
+name = "ravenrs-lottie"
+version = "27.1.10"
+dependencies = [
+ "image",
+ "ravenrs-core",
+ "serde_json",
 ]
 
 [[package]]
@@ -4621,6 +4631,7 @@ dependencies = [
  "ravenrs-criteria",
  "ravenrs-graphics",
  "ravenrs-layout",
+ "ravenrs-lottie",
  "ravenrs-reactive",
  "ravenrs-style",
  "ravenrs-text",

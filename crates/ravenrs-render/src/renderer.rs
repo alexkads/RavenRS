@@ -3,6 +3,7 @@ use ravenrs_core::{Brush, Color, ImageQuad, Primitive, Quad, Scene};
 
 use crate::atlas::{GlyphAtlas, GlyphKey, Lookup, SUBPIXEL_BINS};
 use crate::images::ImageCache;
+use crate::paths::PathEngine;
 
 const INITIAL_ATLAS_SIZE: u32 = 1024;
 
@@ -49,6 +50,8 @@ enum BatchKind {
     Glyphs,
     /// Images of one texture, identified by image id.
     Image(u64),
+    /// Shapes made of curves.
+    Paths,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -75,6 +78,10 @@ pub struct RenderStats {
     pub images: usize,
     /// Image textures resident on the GPU.
     pub cached_images: usize,
+    /// Shapes made of curves drawn.
+    pub paths: usize,
+    /// Straight pieces those curves were cut into.
+    pub path_edges: usize,
 }
 
 /// A growable instance buffer that is reused across frames.
@@ -120,6 +127,7 @@ pub struct Renderer {
     quad_pipeline: wgpu::RenderPipeline,
     glyph_pipeline: wgpu::RenderPipeline,
     image_pipeline: wgpu::RenderPipeline,
+    paths: PathEngine,
     image_sampler: wgpu::Sampler,
     image_cache: ImageCache,
     image_buffer: InstanceBuffer,
@@ -156,7 +164,7 @@ fn premultiplied_target(format: wgpu::TextureFormat) -> [Option<wgpu::ColorTarge
     })]
 }
 
-fn pipeline(
+pub(crate) fn pipeline(
     device: &wgpu::Device,
     label: &str,
     source: &str,
@@ -312,9 +320,12 @@ impl Renderer {
             target_format,
         );
 
+        let paths = PathEngine::new(device, &globals_layout, target_format);
+
         Self {
             device: device.clone(),
             queue: queue.clone(),
+            paths,
             srgb_target: target_format.is_srgb(),
             quad_pipeline,
             glyph_pipeline,
@@ -401,6 +412,7 @@ impl Renderer {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("raven frame") });
+        self.paths.draw_coverage(&self.device, &self.queue, &mut encoder);
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("raven main pass"),
@@ -448,6 +460,7 @@ impl Renderer {
                             pass.set_bind_group(1, &image.bind_group, &[]);
                             pass.set_vertex_buffer(0, self.image_buffer.buffer.slice(..));
                         }
+                        BatchKind::Paths => self.paths.bind(&mut pass),
                     }
                     current = Some(batch.kind);
                 }
@@ -463,6 +476,8 @@ impl Renderer {
             atlas_glyphs: self.atlas.len(),
             images: self.image_instances.len(),
             cached_images: self.image_cache.len(),
+            paths: self.paths.shapes(),
+            path_edges: self.paths.edges(),
         }
     }
 
@@ -512,6 +527,7 @@ impl Renderer {
         self.image_instances.clear();
         self.batches.clear();
         self.clips.clear();
+        self.paths.begin_frame();
         for primitive in scene.primitives() {
             match primitive {
                 Primitive::PushClip(rect) => {
@@ -531,6 +547,13 @@ impl Renderer {
                     self.clips.pop();
                 }
                 Primitive::Image(image) => self.push_image(image),
+                Primitive::Path(path) => {
+                    let start = self.paths.shapes() as u32;
+                    let scissor = self.current_scissor();
+                    let limit = self.device.limits().max_texture_dimension_2d.min(8192);
+                    self.paths.push(path, scale, scissor, limit);
+                    self.extend_batch(BatchKind::Paths, start, self.paths.shapes() as u32);
+                }
                 Primitive::Quad(quad) => {
                     let start = self.quads.len() as u32;
                     push_quad(&mut self.quads, quad);

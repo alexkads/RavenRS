@@ -25,6 +25,6 @@ pub use diagnostics::{
 pub use event::{CursorIcon, Event, Key, Modifiers, PointerButton};
 pub use geometry::{Insets, Point, Rect, Size};
 pub use scene::{
-    Border, Brush, Effect, FontRef, GlyphRun, ImageData, ImageQuad, LinearGradient, PositionedGlyph,
-    Primitive, Quad, Scene, Shadow,
+    Border, Brush, ColorStop, Effect, FillRule, FontRef, GlyphRun, ImageData, ImageQuad, LinearGradient,
+    PathClip, PathElement, PathFill, PathPaint, PositionedGlyph, Primitive, Quad, Scene, Shadow,
 };

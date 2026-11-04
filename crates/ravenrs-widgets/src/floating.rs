@@ -7,6 +7,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+use ravenrs_animation::Transition;
 use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
@@ -286,6 +287,8 @@ impl View for Sheet {
 const SPLASH_CONTENT_WIDTH: f32 = 320.0;
 /// The size of a [`SplashScreen`]'s icon, in logical pixels.
 const SPLASH_ICON_SIZE: f32 = 64.0;
+/// How long after the name the rest of a [`SplashScreen`] appears, in seconds.
+const SPLASH_REST_LAG: f64 = 0.2;
 /// Keeps a [`SplashScreen`] the same layer whatever opens before it.
 const SPLASH_OVERLAY_KEY: u64 = 0x7370_6c61_7368;
 
@@ -320,6 +323,7 @@ pub struct SplashScreen {
     icon: Option<IconName>,
     status: Option<String>,
     progress: Option<f32>,
+    reveal_after: f64,
 }
 
 impl fmt::Debug for SplashScreen {
@@ -331,7 +335,15 @@ impl fmt::Debug for SplashScreen {
 impl SplashScreen {
     /// A splash screen for the app called `name`, shown while `visible` is true.
     pub fn new(visible: Binding<bool>, name: impl Into<String>) -> Self {
-        Self { visible, name: name.into(), logo: None, icon: None, status: None, progress: None }
+        Self {
+            visible,
+            name: name.into(),
+            logo: None,
+            icon: None,
+            status: None,
+            progress: None,
+            reveal_after: 0.0,
+        }
     }
 
     /// Shows the app's own artwork above the name, such as an [`Image`](crate::Image).
@@ -358,6 +370,21 @@ impl SplashScreen {
         self.progress = Some(value);
         self
     }
+
+    /// Holds the name back this many seconds, and what is under it a little longer,
+    /// for an animated [`Self::logo`] to play alone. Their places are kept, so nothing
+    /// moves when they appear, and screen readers have them from the start. Where
+    /// motion is reduced they show at once.
+    pub fn reveal_after(mut self, seconds: f64) -> Self {
+        self.reveal_after = seconds;
+        self
+    }
+}
+
+/// Fades in `node` once `held` turns false, keeping its place until then.
+fn held_back(cx: &mut BuildCx<'_>, node: NodeId, held: bool, hidden: Effect, transition: Transition) {
+    let effect = if held { hidden } else { Effect::IDENTITY };
+    cx.motion(node, Motion::new().effect(effect, transition));
 }
 
 /// The status message, as a live region.
@@ -398,6 +425,17 @@ impl View for SplashLayer<'_> {
         let viewport = cx.viewport();
         let width = (viewport.width - theme.spacing.s6 * 2.0).clamp(0.0, SPLASH_CONTENT_WIDTH);
 
+        let now = cx.now();
+        let began = cx.use_state(|| now).get();
+        let reveal = if cx.reduced_motion() { 0.0 } else { s.reveal_after };
+        let name_at = began + reveal;
+        let rest_at = if reveal > 0.0 { name_at + SPLASH_REST_LAG } else { name_at };
+        for at in [name_at, rest_at] {
+            if now < at {
+                cx.wake_at(at);
+            }
+        }
+
         let mut content = Vec::new();
         if let Some(logo) = &s.logo {
             content.push(cx.child(logo.as_ref()));
@@ -406,24 +444,31 @@ impl View for SplashLayer<'_> {
         }
         let attrs = util::attrs(&theme, TextStyle::Title, None);
         let style = LayoutStyle { max_width: Some(width), ..LayoutStyle::leaf() };
-        content.push(cx.text_truncated(&s.name, &attrs, theme.color(Semantic::Ink), style));
+        let name = cx.text_truncated(&s.name, &attrs, theme.color(Semantic::Ink), style);
+        held_back(cx, name, now < name_at, Effect::hidden().with_scale(1.04), theme.motion.slow);
+        content.push(name);
 
         // Changing the node's identity is what makes every platform read a new message.
         if let Some(status) = &s.status {
             let mut hasher = DefaultHasher::new();
             status.hash(&mut hasher);
-            content.push(cx.keyed_child(hasher.finish(), &SplashStatus(status, width)));
+            let status = cx.keyed_child(hasher.finish(), &SplashStatus(status, width));
+            let holder = cx.container(LayoutStyle::stack(Axis::Vertical), &[status], Paint::None);
+            held_back(cx, holder, now < rest_at, Effect::hidden(), theme.motion.base);
+            content.push(holder);
         }
 
         let spinner =
             crate::VStack::new((crate::Spinner::new().size(theme.spacing.s6),)).align(Align::Center);
         let spinner = motion::collapse(cx, s.progress.is_none(), &spinner);
         let bar = motion::collapse(cx, s.progress.is_some(), &SplashBar(s.progress.unwrap_or(1.0)));
-        content.push(cx.container(
+        let indicator = cx.container(
             LayoutStyle { width: Some(width), align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
             &[spinner, bar],
             Paint::None,
-        ));
+        );
+        held_back(cx, indicator, now < rest_at, Effect::hidden(), theme.motion.base);
+        content.push(indicator);
 
         let node = cx.container(
             LayoutStyle {

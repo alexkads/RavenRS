@@ -66,6 +66,8 @@ mod image;
 mod inputs;
 mod labels;
 mod lookup;
+#[cfg(feature = "lottie")]
+mod lottie;
 mod model_picker;
 mod modifiers;
 mod motion;
@@ -141,6 +143,8 @@ pub use image::{ContentMode, DecodeError, Image};
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};
 pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
+#[cfg(feature = "lottie")]
+pub use lottie::Lottie;
 pub use model_picker::{ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus};
 pub use modifiers::{Styled, ViewExt};
 pub use motion::{Collapse, Motion};
@@ -150,6 +154,8 @@ pub use nav::{
     Tabs,
 };
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
+#[cfg(feature = "lottie")]
+pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
 pub use recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
 pub use remote::UiWaker;

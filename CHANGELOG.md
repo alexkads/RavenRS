@@ -10,6 +10,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `BugReport` has new fields, `kind`, `area`, `elements` and `errors`, so building one field by field needs `..BugReport::default()`. Older `.ravenbug` files still open.
 
 ### Added
+- `ravenrs-lottie` and the `Lottie` widget, with the `lottie` feature, on by default: a Lottie player of our own, with no third-party vector code. It draws Bodymovin JSON as curves on the GPU, with shapes, masks, mattes, precompositions, trims, dashes, repeaters, gradients, embedded images and the Fill effect, and `LottieAnimation::unsupported` says what a file asks for that it does not do yet. Against lottie-web, on 16 files straight from LottieFiles, 13 match and 3 come close.
+- `Primitive::Path` and `Scene::push_path`: any filled shape made of curves, with solid, gradient or image paint and a clip of another shape. Each pixel gets the exact area covered, with no tessellation or multisampling.
+- `SplashScreen::reveal_after` holds the name and status back while an animated logo plays, keeping their places.
 - `BugReporter` lets the person choose what kind of report it is and drag a box around the problem, which names what is under it and lights it in the film. All that goes along is listed before sending.
 - `RecentErrors`: a `tracing` layer that keeps the last warnings and errors, for `BugReporter::errors`.
 - `DataGrid::even_row`, `odd_row` and `horizontal_lines`.

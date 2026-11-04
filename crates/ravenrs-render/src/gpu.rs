@@ -101,6 +101,8 @@ async fn request_device(adapter: &wgpu::Adapter) -> Result<(wgpu::Device, wgpu::
     adapter
         .request_device(&wgpu::DeviceDescriptor {
             label: Some("raven device"),
+            // Exact coverage adds up better in 32 bits, where the adapter can blend them.
+            required_features: adapter.features() & wgpu::Features::FLOAT32_BLENDABLE,
             required_limits: limits,
             ..Default::default()
         })
