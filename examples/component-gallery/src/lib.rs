@@ -890,6 +890,7 @@ impl Gallery {
         VStack::new((
             page_header("Navigation", "Tabs, breadcrumbs, sidebars and disclosures."),
             sample_demos(&[
+                ("DocumentTabs", "Tabs for open documents that close, move, rename, carry a color and say what was not saved."),
                 ("FileBrowser", "Folders and files from the app's data, with a breadcrumb, sorting and selection."),
                 ("YearView", "The twelve months of a year, with marks on the days and a click on any of them."),
             ]),
@@ -1313,6 +1314,7 @@ impl Gallery {
             ),
             sample_demos(&[
                 ("VirtualList", "A list of any length with rows of any height, which can jump to a row and stay at the end."),
+                ("SortableList", "Rows put in order by dragging or with Alt and the arrows, with a line at the target."),
                 ("ZStack", "Views on top of each other, in a box as large as the largest."),
                 ("FloatingToolbar", "A translucent row of commands over its content, with a handle that moves it."),
                 ("ScrollEdgeArrow", "A strip that scrolls, with an arrow at each end that has more to show."),

@@ -40,6 +40,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
 | Tabs / TabStrip | ✓ | ✓ | ✓ | ✅ `Tabs`: underlined or segmented, sizes, the bar alone, disabled while waiting |
+| Document tabs | | ✓ | ✓ | ✅ `DocumentTabs`: close, reorder by drag or keys, rename, color, a dot for what was not saved, context menu, scrolling with arrows |
 | Sidebar / Drawer navigation | ✓ | ✓ | ✓ | ✅ `Sidebar`: closes to icons or off the screen, a rail along its edge, a brand, keys on a row, header and footer, groups, submenus, actions, badges, skeleton, sheet in narrow windows, floating and inset variants. Drag to resize: `Splitter` |
 | Breadcrumb | ✓ | ✓ | ✓ | ✅ `Breadcrumb`: locations can be links, an icon at the root |
 | Pagination / Pager | ✓ | ✓ | ✓ | ✅ `Pagination` |
@@ -117,6 +118,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Pivot grid | | ✓ | ✓ | ⬜ |
 | List / List view | | ✓ | ✓ | ✅ `List`, `ListItem` |
 | Virtual list with rows of any height | | ✓ | ✓ | ✅ `VirtualList`: measured in layout and kept by key, jump to a row, stays at the end, still when rows enter above, keyboard and semantics of a list |
+| Sortable list | | ✓ | ✓ | ✅ `SortableList`: a drag with a line at the target, Alt and the arrows, announced to screen readers. It keeps every row built, so it is for lists of a screenful |
 | List box (with reordering) | | ✓ | ✓ | ⬜ |
 | Card view / Tile view | | ✓ | ✓ | ✅ `CardView`: virtualized, as many columns as fit, keyboard and selection |
 | Scheduler (resource timeline) | | ✓ | ✓ | 🟡 `Scheduler`; gaps listed under "Scheduler" below |

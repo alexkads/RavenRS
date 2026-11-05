@@ -321,7 +321,7 @@ impl View for ValueSlider {
 }
 
 /// Whether this is the F2 key, however the platform spells it.
-fn is_f2(key: &Key) -> bool {
+pub(crate) fn is_f2(key: &Key) -> bool {
     matches!(key, Key::Other(name) if name.trim_start_matches("Named(").trim_end_matches(')') == "F2")
 }
 

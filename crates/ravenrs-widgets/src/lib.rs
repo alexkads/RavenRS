@@ -166,8 +166,8 @@ pub use imaging::{
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};
 pub use lists::{
-    DayMark, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip, FilmstripCell, PagedDocumentView,
-    VirtualList, YearView,
+    DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
+    FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,
 };
 pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
 #[cfg(feature = "lottie")]

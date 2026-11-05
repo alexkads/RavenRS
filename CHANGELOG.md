@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `DocumentTabs`: tabs for open documents that close with a button, Delete or the menu, change places by a drag or Alt and the arrows, are renamed with a double click, F2 or the menu, and carry a color and a dot for what was not saved. Tabs that do not fit scroll with arrows, and the menu takes the app's own items.
+- `SortableList`: rows put in order by a drag, with a line at the target, or with Alt and the arrows, Home and End. Each move is announced to screen readers, and Escape calls a drag off. The drag arithmetic lives in one module, which `DocumentTabs` shares.
 - `YearView`: the twelve months of a year, with marks on the days, a click on any of them and one Tab stop that walks past the end of the year. As many months go on a line as fit.
 - `FileBrowser`: an explorer of folders and files from the app's data, with a clickable breadcrumb, sorting with folders first, selection with modifiers, icons, sizes and dates. It never touches the file system, and folders of any size stay virtual.
 - `PagedDocumentView`: a bar with page, total and `ZoomControl` over a column of pages of which only those that show are built, with the pictures handed over by the app page by page and a placeholder until each is ready.

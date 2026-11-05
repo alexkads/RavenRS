@@ -79,6 +79,8 @@ samples! {
     "PagedDocumentView" => paged_document_view,
     "FileBrowser" => file_browser,
     "YearView" => year_view,
+    "SortableList" => sortable_list,
+    "DocumentTabs" => document_tabs,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1991,6 +1993,56 @@ fn year_view() -> impl View {
             5 => Some(DayMark::new().tone(Tone::Success).label("Delivery")),
             _ => None,
         })
+}
+// end
+
+// sample: SortableList, 210
+fn sortable_list() -> impl View {
+    let layers = State::new(vec!["Exposure", "Curves", "Grain", "Vignette"]);
+    view_fn(move || {
+        let shown = layers.get();
+        let (names, moved) = (shown.clone(), layers.clone());
+        SortableList::new(shown.len(), move |index| Text::new(shown[index]))
+            .row_name(move |index| names[index].to_owned())
+            .on_reorder(move |from, to| {
+                moved.update(|list| {
+                    let layer = list.remove(from);
+                    list.insert(to, layer);
+                });
+            })
+    })
+}
+// end
+
+// sample: DocumentTabs, 70
+fn document_tabs() -> impl View {
+    let tabs = State::new(vec![
+        DocumentTab::new(1, "Wedding").icon(IconName::Camera),
+        DocumentTab::new(2, "Portraits").unsaved(true).color(Color::rgb(0.25, 0.55, 0.95)),
+        DocumentTab::new(3, "Studio with a long name that does not fit"),
+        DocumentTab::new(4, "Home").closable(false),
+    ]);
+    let active = State::new(1_u64);
+    view_fn(move || {
+        let (closed, moved, renamed) = (tabs.clone(), tabs.clone(), tabs.clone());
+        DocumentTabs::new(tabs.get(), active.binding())
+            .on_close(move |id| closed.update(|list| list.retain(|tab| tab.id != id)))
+            .on_reorder(move |from, to| {
+                moved.update(|list| {
+                    let tab = list.remove(from);
+                    list.insert(to, tab);
+                });
+            })
+            .on_rename(move |id, name| {
+                renamed.update(|list| {
+                    if let Some(tab) = list.iter_mut().find(|tab| tab.id == id) {
+                        tab.title = name;
+                    }
+                });
+            })
+            .on_new(|| {})
+            .fade(Semantic::SurfaceElevated)
+    })
 }
 // end
 
