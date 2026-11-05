@@ -89,7 +89,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Time picker / DateTime picker | | ✓ | ✓ | ✅ `TimePicker`, `DateTimePicker` |
 | Theme picker and token editor | | | ✓ | ✅ `ThemePicker`: menu of themes. `ThemeEditor`: colors, corners and text sizes by token name, applied at once, with live contrast and JSON to copy and paste |
 | Color picker / palette / gradient | | ✓ | ✓ | 🟡 `ColorPicker`: palette, shade square, hue and opacity bars, hexadecimal; gradients planned |
-| Rating | | ✓ | ✓ | ⬜ |
+| Rating | | ✓ | ✓ | ✅ `Rating`: read-only at the cost of one element, or given with the pointer, arrows, Home, End and digits |
 | File upload | | ✓ | ✓ | ✅ `FileUpload`, `ImageField`: the system's chooser and drops, on desktop and web; sending is up to the app |
 | Signature | | | ✓ | ⬜ |
 | Rich text editor | | ✓ | ✓ | ⬜ |
@@ -169,6 +169,10 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Image | | ✓ | ✓ | ✅ `Image` |
 | Carousel / Scroll view | ✓ | ✓ | ✓ | ✅ `Carousel` |
 | Kbd | ✓ | | | ✅ takes the color of what it is in, on request |
+| Empty state | ✓ | | | ✅ `EmptyState`, over `IconTile` |
+| Status dot, badge on a corner | | | ✓ | ✅ `Dot`, `OverlayBadge` |
+| Banner, stacked meters, text with a shine | | | | ✅ `HeroBanner`, `MultiProgress`, `ShimmerText` (still with reduced motion) |
+| Day divider in a list | | | | ✅ `DaySeparator` |
 | Typography scale | ✓ | ✓ | ✓ | ✅ `Text` styles |
 | PDF viewer | | ✓ | ✓ | ⬜ |
 | Image editor | | | ✓ | ⬜ |

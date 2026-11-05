@@ -133,7 +133,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `scheduler`, `recurrence` | `Scheduler` and its time axis, and `RecurrenceRule`, which needs no UI |
 | `nav`, `ribbon` | `Tabs`, `Sidebar` and its parts, `Breadcrumb`, `Disclosure`, `Ribbon` |
 | `overlay`, `floating` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `SplashScreen`, `Toaster`, `Combobox`, `CommandPalette` |
-| `display`, `data`, `extras` | Badges and alerts; lists, tables and charts; `Spinner`, `Carousel`, `Splitter`, `Menubar`, `InputOtp`, `FormField` |
+| `display`, `status`, `data`, `extras` | Badges and alerts; `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `HeroBanner`, `MultiProgress`, `ShimmerText`, `DaySeparator`; lists, tables and charts; `Spinner`, `Carousel`, `Splitter`, `Menubar`, `InputOtp`, `FormField` |
 | `grid/` | `DataGrid`: `query` (pure pipeline), `model`, `view` |
 
 Examples use the public API, among them `feature-center`, every feature of the application framework, and: `hello-world`, `component-gallery` (one demo per component), `report-designer` and `family-finance`, a desktop app on SQLite that also finds what is missing in the framework. The design tokens are defined in [docs/design-system](docs/design-system), and `ravenrs-style` mirrors them value for value.
@@ -361,7 +361,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView`, docking |
 | Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette` | ✓ | | |
 | Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |
-| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `Chart` (line, area, bar, pie, doughnut, scatter, sparkline), `BarChart`, `AreaChart`, `Barcode` (QR Code and six linear formats), `Canvas`, `Lottie` | ✓ | | image loading from URLs, radar, funnel and financial charts |
+| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `HeroBanner`, `MultiProgress`, `ShimmerText`, `DaySeparator`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `Chart` (line, area, bar, pie, doughnut, scatter, sparkline), `BarChart`, `AreaChart`, `Barcode` (QR Code and six linear formats), `Canvas`, `Lottie` | ✓ | | image loading from URLs, radar, funnel and financial charts |
 | `GlassCard` | | translucent fill only | backdrop blur |
 | Rounded rects, borders, gradients, soft shadows, text, images (mipmapped, rounded), rectangular clipping | ✓ | | rounded clipping, radial gradients, transforms, layers |
 | Raven Dark / Light / Glass tokens, runtime theme switching, reduced motion from the theme token, `Ui::set_reduced_motion` and the browser's `prefers-reduced-motion` | ✓ | | reading the setting on the desktop (winit does not expose it) |

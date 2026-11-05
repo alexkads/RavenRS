@@ -478,6 +478,12 @@ pub struct Labels {
     pub grid_rows: String,
     /// After the count of selected rows.
     pub grid_selected: String,
+    /// What a [`Rating`](crate::Rating) is called when nothing says what is rated.
+    pub rating: String,
+    /// Where a [`Rating`](crate::Rating) stands, from its score and its maximum.
+    pub rating_value: fn(u32, u32) -> String,
+    /// A [`DaySeparator`](crate::DaySeparator) for the day before today.
+    pub yesterday: String,
     /// Count, sum, average, smallest and largest, as a grid's footer calls them.
     pub grid_summaries: [String; 5],
 }
@@ -782,6 +788,9 @@ impl Default for Labels {
             grid_of: "of".into(),
             grid_rows: "rows".into(),
             grid_selected: "selected".into(),
+            rating: "Rating".into(),
+            rating_value: |score, max| format!("{score} of {max}"),
+            yesterday: "Yesterday".into(),
             grid_summaries: owned(["Count", "Sum", "Avg", "Min", "Max"]),
         }
     }
@@ -1055,6 +1064,9 @@ impl Labels {
             grid_of: "de".into(),
             grid_rows: "linhas".into(),
             grid_selected: "selecionadas".into(),
+            rating: "Nota".into(),
+            rating_value: |score, max| format!("{score} de {max}"),
+            yesterday: "Ontem".into(),
             grid_summaries: owned(["Qtd.", "Soma", "Média", "Mín.", "Máx."]),
         }
     }

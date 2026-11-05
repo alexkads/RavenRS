@@ -272,6 +272,15 @@ fn demo<V: View + 'static>(title: &str, description: &str, content: V) -> impl V
     .corner_radius(18.0)
 }
 
+/// One demo per named sample, for a run of small components on a page.
+fn sample_demos(items: &[(&str, &str)]) -> impl View + use<> {
+    let demos: Vec<AnyView> = items
+        .iter()
+        .map(|(name, description)| -> AnyView { Box::new(demo(name, description, samples::sample(name))) })
+        .collect();
+    VStack::new(demos).spacing(24.0).align(Align::Stretch)
+}
+
 fn page_header(title: &str, description: &str) -> impl View + use<> {
     VStack::new((
         Text::new(title).style(TextStyle::Display),
@@ -1884,6 +1893,17 @@ impl Gallery {
     fn feedback(&self, width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Feedback", "Alerts, progress and loading placeholders."),
+            sample_demos(&[
+                ("Dot", "A small mark of state, named for screen readers."),
+                ("OverlayBadge", "A small view on a corner of another."),
+                ("Rating", "Stars to give with the pointer, the arrows or a digit, or just to read."),
+                ("IconTile", "An icon in a square tinted with its color."),
+                ("EmptyState", "What an area says when it has nothing, and what to do about it."),
+                ("HeroBanner", "A strong band, readable from across the room."),
+                ("MultiProgress", "Work with more than one part."),
+                ("ShimmerText", "A light passing over the text, while motion is allowed."),
+                ("DaySeparator", "Dividing a list by day."),
+            ]),
             demo(
                 "Timeline",
                 "Blocks along time on named tracks, under a ruler with markers and a playhead. The app holds the data and gets back what people do.",

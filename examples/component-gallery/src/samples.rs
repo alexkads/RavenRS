@@ -51,6 +51,7 @@ samples! {
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
     "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
+    "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1476,6 +1477,104 @@ fn skeleton() -> impl View {
             .grow(1.0),
     ))
     .spacing(14.0)
+}
+// end
+
+// sample: Dot, 60
+fn dot() -> impl View {
+    HStack::new((
+        Dot::new().tone(Tone::Warning).label("Not saved"),
+        Text::new("Not saved").style(TextStyle::Callout),
+        Dot::new().tone(Tone::Success).size(10.0).label("Online"),
+        Text::new("Online").style(TextStyle::Callout),
+    ))
+    .spacing(8.0)
+    .align(Align::Center)
+}
+// end
+
+// sample: OverlayBadge, 90
+fn overlay_badge() -> impl View {
+    HStack::new((
+        OverlayBadge::new(Avatar::new("Ana Lima"), Dot::new().tone(Tone::Success).size(10.0).label("Online"))
+            .corner(FloatingCorner::BottomRight)
+            .inset(5.0),
+        OverlayBadge::new(
+            Button::new("Inbox").style(ButtonStyle::Secondary),
+            Badge::new("3").tone(Tone::Danger),
+        ),
+    ))
+    .spacing(32.0)
+    .align(Align::Center)
+}
+// end
+
+// sample: Rating, 100
+fn rating() -> impl View {
+    let score = State::new(3u32);
+    VStack::new((
+        Rating::new(score.binding()).label("Photo rating").clearable(),
+        Rating::read_only(4).size(14.0),
+    ))
+    .spacing(10.0)
+}
+// end
+
+// sample: IconTile, 80
+fn icon_tile() -> impl View {
+    HStack::new((
+        IconTile::new(IconName::CircleCheck).tone(Tone::Success),
+        IconTile::new(IconName::TriangleAlert).tone(Tone::Warning),
+        IconTile::new(IconName::Image).size(32.0),
+    ))
+    .spacing(12.0)
+    .align(Align::Center)
+}
+// end
+
+// sample: EmptyState, 260
+fn empty_state() -> impl View {
+    EmptyState::new("No photos yet")
+        .icon(IconName::Image)
+        .description("Import a folder to start. The originals stay where they are.")
+        .action(Button::new("Import"))
+        .action(Button::new("Learn more").style(ButtonStyle::Ghost))
+}
+// end
+
+// sample: HeroBanner, 170
+fn hero_banner() -> impl View {
+    VStack::new((
+        HeroBanner::new("You can remove the card").icon(IconName::CircleCheck).tone(Tone::Success),
+        HeroBanner::new("Do not remove the card").icon(IconName::CircleAlert).tone(Tone::Danger),
+    ))
+    .spacing(10.0)
+    .align(Align::Stretch)
+}
+// end
+
+// sample: MultiProgress, 170
+fn multi_progress() -> impl View {
+    MultiProgress::new().label("Import").meter("Local copy", 84, 120).meter("Previews", 12, 84)
+}
+// end
+
+// sample: ShimmerText, 60
+fn shimmer_text() -> impl View {
+    ShimmerText::new("Looking for updates")
+}
+// end
+
+// sample: DaySeparator, 110
+fn day_separator() -> impl View {
+    let today = Date::new(2026, 11, 4).unwrap_or_else(|| Date::from_days(0));
+    VStack::new((
+        DaySeparator::of(today, today),
+        DaySeparator::of(today.add_days(-1), today),
+        DaySeparator::new("Last week"),
+    ))
+    .spacing(14.0)
+    .align(Align::Stretch)
 }
 // end
 

@@ -195,3 +195,17 @@ impl Roving {
         );
     }
 }
+
+/// The outline of a five-pointed star, for what the icon font only has as a line.
+pub(crate) fn star_path(center: ravenrs_core::Point, radius: f32) -> Vec<ravenrs_core::PathElement> {
+    use ravenrs_core::{PathElement, Point};
+    let mut path = Vec::with_capacity(11);
+    for point in 0..10 {
+        let reach = if point % 2 == 0 { radius } else { radius * 0.45 };
+        let angle = -std::f32::consts::FRAC_PI_2 + point as f32 * std::f32::consts::PI / 5.0;
+        let at = Point::new(center.x + reach * angle.cos(), center.y + reach * angle.sin());
+        path.push(if point == 0 { PathElement::MoveTo(at) } else { PathElement::LineTo(at) });
+    }
+    path.push(PathElement::Close);
+    path
+}

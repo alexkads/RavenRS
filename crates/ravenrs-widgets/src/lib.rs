@@ -80,6 +80,7 @@ mod ribbon;
 mod scheduler;
 mod sound;
 mod stack;
+mod status;
 mod tag_box;
 mod text;
 mod text_field;
@@ -165,6 +166,9 @@ pub use scheduler::{
 };
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
 pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, StatusBar, ToolRail, VStack};
+pub use status::{
+    DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
+};
 pub use tag_box::TagBox;
 pub use text::Text;
 pub use text_field::TextField;
