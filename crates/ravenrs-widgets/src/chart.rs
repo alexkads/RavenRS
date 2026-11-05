@@ -91,9 +91,26 @@ thread_local! {
     static PICTURES: RefCell<Vec<KeptPicture>> = const { RefCell::new(Vec::new()) };
 }
 
+/// The part of `area` these layers draw on, on whole pixels: drawing and sending the
+/// rest of the frame, empty, is what a chart's picture spends the most on.
+fn drawn_part(layers: &[vector::Layer], area: Rect, scale: f32) -> Option<Rect> {
+    let (mut x0, mut y0, mut x1, mut y1) =
+        (f32::INFINITY, f32::INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+    for bounds in layers.iter().filter_map(vector::Layer::bounds) {
+        x0 = x0.min(bounds.x());
+        y0 = y0.min(bounds.y());
+        x1 = x1.max(bounds.max_x());
+        y1 = y1.max(bounds.max_y());
+    }
+    let (left, top) = ((x0.max(area.x()) * scale).floor(), (y0.max(area.y()) * scale).floor());
+    let (right, bottom) = ((x1.min(area.max_x()) * scale).ceil(), (y1.min(area.max_y()) * scale).ceil());
+    (right > left && bottom > top)
+        .then(|| Rect::new(left / scale, top / scale, (right - left) / scale, (bottom - top) / scale))
+}
+
 /// The picture of these layers, drawn now only if none is kept.
 fn picture_of(layers: &[vector::Layer], area: Rect, scale: f32) -> Option<ImageData> {
-    let size = ((area.width() * scale).ceil() as u32, (area.height() * scale).ceil() as u32);
+    let size = ((area.width() * scale).round() as u32, (area.height() * scale).round() as u32);
     PICTURES.with_borrow_mut(|kept| {
         if let Some(found) = kept.iter().position(|p| p.size == size && p.layers == layers) {
             let picture = kept.remove(found);
@@ -101,7 +118,9 @@ fn picture_of(layers: &[vector::Layer], area: Rect, scale: f32) -> Option<ImageD
             kept.push(picture);
             return image;
         }
-        let image = vector::rasterize_layers(layers, area, scale);
+        // A little under its width, for rounding not to make the picture a pixel wider.
+        let whole = Rect::new(area.x(), area.y(), area.width() - 0.01 / scale, area.height() - 0.01 / scale);
+        let image = vector::rasterize_layers(layers, whole, scale);
         let bytes = size.0 as usize * size.1 as usize * 4;
         kept.push(KeptPicture { layers: layers.to_vec(), size, image: image.clone(), bytes });
         let mut total: usize = kept.iter().map(|p| p.bytes).sum();
@@ -119,15 +138,16 @@ struct Picture {
     size: Size,
     scale: f32,
     drawing: Plot,
-    image: Option<ImageData>,
+    image: Option<(Rect, ImageData)>,
     labels: Vec<(TextLayout, Point, Color)>,
     dot_icons: Vec<(TextLayout, Point, Color)>,
     /// How wide each label is, as a rebuild asks again for the same ones.
-    widths: HashMap<(String, u32), f32>,
+    widths: HashMap<u32, HashMap<String, f32>>,
 }
 
-/// Measured widths a chart keeps, far more than any chart labels at once.
-const WIDTHS_KEPT: usize = 2048;
+/// Measured widths a chart keeps, more than even a long series has categories: one
+/// forgotten while the same labels are still in use would be measured again each frame.
+const WIDTHS_KEPT: usize = 1 << 15;
 
 impl Picture {
     /// Brings the picture up to date, redoing only what changed.
@@ -138,22 +158,27 @@ impl Picture {
             return;
         }
         let area = Rect::new(0.0, 0.0, size.width, size.height);
-        if self.scale != cx.scale || self.widths.len() > WIDTHS_KEPT {
+        if self.scale != cx.scale || self.widths.values().map(HashMap::len).sum::<usize>() > WIDTHS_KEPT {
             self.widths.clear();
         }
         let drawing = {
             let (text, widths) = (RefCell::new(&mut *cx.text), RefCell::new(&mut self.widths));
             let measure = |content: &str, size: f32| {
-                let key = (content.to_owned(), size.to_bits());
-                *widths.borrow_mut().entry(key).or_insert_with(|| {
-                    let attrs = label_attrs(size, false);
-                    text.borrow_mut().layout(content, &attrs).measure(None).width
-                })
+                let mut widths = widths.borrow_mut();
+                let of_size = widths.entry(size.to_bits()).or_default();
+                if let Some(width) = of_size.get(content) {
+                    return *width;
+                }
+                let attrs = label_attrs(size, false);
+                let width = text.borrow_mut().layout(content, &attrs).measure(None).width;
+                of_size.insert(content.to_owned(), width);
+                width
             };
             source(area, cx.scale, &measure)
         };
         if !same_pixels || drawing.layers != self.drawing.layers {
-            self.image = picture_of(&drawing.layers, area, cx.scale);
+            self.image = drawn_part(&drawing.layers, area, cx.scale)
+                .and_then(|part| picture_of(&drawing.layers, part, cx.scale).map(|image| (part, image)));
         }
         if drawing.labels != self.drawing.labels {
             self.labels = drawing.labels.iter().map(|label| typeset(label, cx)).collect();
@@ -312,26 +337,21 @@ fn paint_strip(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx
     cx.scene.push_quad(Quad::new(strip, color.with_alpha(color.a * highlight.focus)));
 }
 
-/// The bars near the focus, over a picture that faded: what they gain is what the
-/// picture lost, in proportion to how close they are, so focus hands over from one
-/// category to the next as it passes.
-fn paint_focused_bars(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
-    if highlight.dim <= 0.0 {
-        return;
-    }
+/// The bars. Around the focus they fade, less the closer they are to it, so focus
+/// hands over from one category to the next as it passes.
+fn paint_bars(highlight: Option<&Highlight>, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
     for bar in &plot.bars {
-        let distance = (bar.index as f32 - highlight.at).abs();
-        if distance >= 1.0 {
-            continue;
-        }
+        let faded = highlight.map_or(0.0, |highlight| {
+            let distance = (bar.index as f32 - highlight.at).abs().min(1.0);
+            highlight.dim * highlight.focus * distance
+        });
         let rect = Rect::new(
             frame.x() + bar.rect.x(),
             frame.y() + bar.rect.y(),
             bar.rect.width(),
             bar.rect.height(),
         );
-        let color = bar.color.with_alpha(bar.color.a * (1.0 - distance));
-        let mut quad = Quad::new(rect, color);
+        let mut quad = Quad::new(rect, bar.color.with_alpha(bar.color.a * (1.0 - faded)));
         quad.corner_radii = bar.radii;
         cx.scene.push_quad(quad);
     }
@@ -429,12 +449,13 @@ fn plot_node(
                 paint_strip(highlight, &picture.drawing, frame, paint);
             }
             paint_rules(&picture.drawing, frame, paint);
-            if let Some(image) = &picture.image {
+            paint_bars(highlight.as_ref(), &picture.drawing, frame, paint);
+            if let Some((part, image)) = &picture.image {
                 let opacity = highlight.as_ref().map_or(1.0, Highlight::opacity);
-                paint.scene.push_image(ImageQuad { opacity, ..ImageQuad::new(frame, image.clone()) });
+                let at = Rect::new(frame.x() + part.x(), frame.y() + part.y(), part.width(), part.height());
+                paint.scene.push_image(ImageQuad { opacity, ..ImageQuad::new(at, image.clone()) });
             }
             if let Some(highlight) = &highlight {
-                paint_focused_bars(highlight, &picture.drawing, frame, paint);
                 paint_lifted_slices(highlight, &picture.drawing, frame, paint);
             }
             paint_top_rules(&picture.drawing, frame, paint);
@@ -1507,6 +1528,7 @@ impl Chart {
         style.tracks = look.tracks;
         style.center.clone_from(&look.center);
         style.rules_apart = true;
+        style.bars_apart = true;
         style
     }
 

@@ -1,12 +1,14 @@
 //! The components that carry the most weight, each at its worst realistic case.
 
-use ravenrs_core::{Event, ImageData, Point, PointerButton};
+use ravenrs_core::{Event, ImageData, Point, PointerButton, Size};
+use ravenrs_layout::Align;
 use ravenrs_reactive::State;
 use ravenrs_widgets::grid::{GridColumn, GridData, Summary, Value};
 use ravenrs_widgets::*;
 
 use crate::{
-    Ceiling, Class, PerfScene, Setup, Step, ceiling, hover_between, hover_buttons, nothing, resize, scroll_at,
+    Ceiling, Class, PerfScene, SCALE, Setup, Step, VIEWPORT, ceiling, hover_between, hover_buttons, nothing,
+    resize, scroll_at,
 };
 
 fn common(interaction: &str, a: Point, b: Point) -> Step {
@@ -55,23 +57,96 @@ fn scheduler(interaction: &str) -> Setup {
 }
 
 fn chart_values(shift: u32) -> Vec<f64> {
-    (0..1000).map(|i| f64::from((i + shift) % 97) + f64::from(i) * 0.1).collect()
+    (0..5000).map(|i| f64::from((i + shift) % 97) + f64::from(i) * 0.02).collect()
 }
 
+/// The window dragged narrower, a new width each frame, as nothing kept can answer for.
+fn chart_drag() -> Step {
+    Box::new(|ui, round| {
+        let width = VIEWPORT.width - (round % 400) as f32;
+        ui.set_viewport(Size::new(width, VIEWPORT.height), SCALE);
+        true
+    })
+}
+
+fn chart_step(interaction: &str, shift: State<u32>) -> Step {
+    match interaction {
+        "data" => Box::new(move |_, round| {
+            shift.set(round);
+            false
+        }),
+        "resize" => chart_drag(),
+        _ => common(interaction, Point::new(300.0, 200.0), Point::new(700.0, 300.0)),
+    }
+}
+
+/// A line with many more points than the screen has columns.
 fn chart(interaction: &str) -> Setup {
     let shift = State::new(0u32);
     let data = shift.clone();
-    let root =
-        view_fn(move || Chart::new(ChartKind::Line).series("Values", chart_values(data.get())).height(600.0));
-    let step: Step = if interaction == "data" {
-        Box::new(move |_, round| {
-            shift.set(round);
-            false
-        })
-    } else {
-        common(interaction, Point::new(300.0, 200.0), Point::new(700.0, 300.0))
-    };
-    Setup { root: Box::new(root), step }
+    let root = view_fn(move || {
+        Chart::new(ChartKind::Line)
+            .categories((0..5000).map(|i| i.to_string()))
+            .series("Values", chart_values(data.get()))
+            .height(600.0)
+    });
+    Setup { root: Box::new(root), step: chart_step(interaction, shift) }
+}
+
+/// A year of three series, in bars, filling the window.
+fn chart_bars(interaction: &str) -> Setup {
+    let shift = State::new(0u32);
+    let data = shift.clone();
+    let root = view_fn(move || {
+        let at = data.get();
+        let values = |by: u32| (0..12).map(move |i: u32| f64::from((i * 7 + by + at) % 23) + 2.0);
+        Chart::new(ChartKind::Bar)
+            .categories((1..=12).map(|i| format!("M{i}")))
+            .series("First", values(0))
+            .series("Second", values(5))
+            .series("Third", values(11))
+            .show_value_axis()
+            .height(600.0)
+    });
+    Setup { root: Box::new(root), step: chart_step(interaction, shift) }
+}
+
+/// The charts of a dashboard, side by side, about as big as they get on a real one.
+fn chart_board(interaction: &str) -> Setup {
+    let shift = State::new(0u32);
+    let data = shift.clone();
+    let root = view_fn(move || {
+        let at = data.get();
+        let values = |by: u32| (0..24).map(move |i: u32| f64::from((i * 7 + by + at) % 23) + 2.0);
+        let months = || (1..=24).map(|i| format!("M{i}"));
+        let area = Chart::new(ChartKind::Area)
+            .categories(months())
+            .series("Balance", values(0))
+            .curve(ChartCurve::Monotone)
+            .gradient()
+            .height(380.0);
+        let bars = Chart::new(ChartKind::Bar)
+            .categories(months())
+            .series("In", values(3))
+            .series("Out", values(9))
+            .height(380.0);
+        let ring = Chart::new(ChartKind::Doughnut)
+            .categories((1..=6).map(|i| format!("S{i}")))
+            .series("Spent", (1..=6).map(f64::from))
+            .height(380.0);
+        let line = Chart::new(ChartKind::Line)
+            .categories(months())
+            .series("A", values(1))
+            .series("B", values(13))
+            .dots()
+            .height(380.0);
+        VStack::new((
+            HStack::new((area.grow(1.0), bars.grow(1.0))).align(Align::Stretch),
+            HStack::new((ring.grow(1.0), line.grow(1.0))).align(Align::Stretch),
+        ))
+        .align(Align::Stretch)
+    });
+    Setup { root: Box::new(root), step: chart_step(interaction, shift) }
 }
 
 /// A square that grows, in the file format of the Lottie player.
@@ -156,6 +231,7 @@ pub(super) fn scenes() -> Vec<PerfScene> {
         ceilings,
     };
     let lists = &["hover", "scroll", "idle", "resize"][..];
+    const CHART: &[&str] = &["hover", "data", "idle", "resize"];
     vec![
         scene(
             "data-grid",
@@ -166,7 +242,9 @@ pub(super) fn scenes() -> Vec<PerfScene> {
             VIRTUALIZED,
         ),
         scene("scheduler", &["Scheduler"], Class::Virtualized, lists, scheduler, VIRTUALIZED),
-        scene("chart", &["Chart"], Class::Picture, &["hover", "data", "idle", "resize"], chart, STILL),
+        scene("chart", &["Chart"], Class::Picture, CHART, chart, STILL),
+        scene("chart-bars", &["Chart", "BarChart"], Class::Picture, CHART, chart_bars, STILL),
+        scene("chart-board", &["Chart", "AreaChart"], Class::Picture, CHART, chart_board, STILL),
         scene("lottie", &["Lottie"], Class::Animated, &["animate", "hover", "scroll"], lottie, ANIMATED),
         scene("images", &["Image", "Grid"], Class::Static, &["hover", "scroll", "idle"], images, STILL),
         scene(

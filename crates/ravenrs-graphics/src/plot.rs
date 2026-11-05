@@ -170,6 +170,11 @@ pub struct PlotStyle {
     /// [`Plot::rules`], for a screen that can line them up with its pixels and fade
     /// the data without them. Pages leave this off and get everything in the layers.
     pub rules_apart: bool,
+    /// Leaves bars out of [`Plot::layers`] and says where they go in [`Plot::bars`],
+    /// for a screen that draws them itself at no cost when the size changes. The
+    /// gridlines they cross are left out from behind them, so that a bar that fades
+    /// shows no line through it.
+    pub bars_apart: bool,
     /// Gridlines in dashes.
     pub grid_dashed: bool,
     /// About how many steps the value axis has; round numbers decide how many exactly.
@@ -251,6 +256,7 @@ impl PlotStyle {
             tracks: false,
             center: None,
             rules_apart: false,
+            bars_apart: false,
             grid_dashed: false,
             value_ticks: TICKS,
             grid_columns: None,
@@ -948,7 +954,8 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     // The categories along the axis, as many as fit, and the strips they own.
     let room = if horizontal { line_height + 2.0 } else { longest_label + TICK_MARGIN * 2.0 };
     let spacing = if count > 1 { (center_of(1) - center_of(0)).abs() } else { along_size };
-    let every = (room / spacing.max(1.0)).ceil().max(1.0) as usize;
+    // Far from the size of a pixel: below one, categories are that much closer together.
+    let every = (room / spacing.max(0.001)).ceil().max(1.0) as usize;
     let aligned = style.ends_aligned && !is_bar && !horizontal && count > 1;
     let last = count.saturating_sub(1);
     for (i, label) in labels.iter().enumerate() {
@@ -996,10 +1003,82 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
 
     if is_bar {
         bars(data, &towers, style, &axes, band, plot);
+        if style.bars_apart {
+            plot.rules = rules_around_bars(&plot.rules, &plot.bars);
+        }
     } else {
         lines(data, &towers, style, &axes, &center_of, plot);
     }
     references(style, &axes, rect, ruler, plot);
+}
+
+/// How far from its side a rounded corner leaves a line `from_end` past the bar's end.
+fn corner_inset(radius: f32, from_end: f32) -> f32 {
+    if radius <= 0.0 || from_end >= radius {
+        return 0.0;
+    }
+    let rise = radius - from_end;
+    radius - (radius * radius - rise * rise).max(0.0).sqrt()
+}
+
+/// What is left of a thin line once it stops at the sides of a bar, following its
+/// corners. A line along the bar's very edge stays: it is not behind it.
+fn line_around_bar(line: Rect, bar: &Bar, out: &mut Vec<Rect>) {
+    let [top_left, top_right, bottom_right, bottom_left] = bar.radii;
+    let center = line.center();
+    let upright = line.height() > line.width();
+    let (from, to) = if upright {
+        if center.x <= bar.rect.x() || center.x >= bar.rect.max_x() {
+            out.push(line);
+            return;
+        }
+        let (left, right) = (center.x - bar.rect.x(), bar.rect.max_x() - center.x);
+        let start = corner_inset(top_left, left).max(corner_inset(top_right, right));
+        let end = corner_inset(bottom_left, left).max(corner_inset(bottom_right, right));
+        (bar.rect.y() + start, bar.rect.max_y() - end)
+    } else {
+        if center.y <= bar.rect.y() || center.y >= bar.rect.max_y() {
+            out.push(line);
+            return;
+        }
+        let (above, below) = (center.y - bar.rect.y(), bar.rect.max_y() - center.y);
+        let start = corner_inset(top_left, above).max(corner_inset(bottom_left, below));
+        let end = corner_inset(top_right, above).max(corner_inset(bottom_right, below));
+        (bar.rect.x() + start, bar.rect.max_x() - end)
+    };
+    let (begin, finish) = if upright { (line.y(), line.max_y()) } else { (line.x(), line.max_x()) };
+    let piece = |a: f32, b: f32| {
+        if upright {
+            Rect::new(line.x(), a, line.width(), b - a)
+        } else {
+            Rect::new(a, line.y(), b - a, line.height())
+        }
+    };
+    if from > begin {
+        out.push(piece(begin, from.min(finish)));
+    }
+    if to < finish {
+        out.push(piece(to.max(begin), finish));
+    }
+}
+
+/// Gridlines stop where a bar starts and go on where it ends.
+fn rules_around_bars(rules: &[Rule], bars: &[Bar]) -> Vec<Rule> {
+    let mut kept = Vec::with_capacity(rules.len());
+    let (mut pieces, mut next) = (Vec::new(), Vec::new());
+    for rule in rules {
+        pieces.clear();
+        pieces.push(rule.rect);
+        for bar in bars {
+            next.clear();
+            for piece in &pieces {
+                line_around_bar(*piece, bar, &mut next);
+            }
+            std::mem::swap(&mut pieces, &mut next);
+        }
+        kept.extend(pieces.iter().map(|rect| Rule { rect: *rect, color: rule.color }));
+    }
+    kept
 }
 
 /// The lines of reference that fall on the axis, over the data.
@@ -1101,9 +1180,11 @@ fn bars(
             let shown = if style.active == Some(i) { with_alpha(color, 0.8) } else { color };
             plot.bars.push(Bar { series: s, index: i, rect, color: shown, radii });
             if style.active == Some(i) {
-                plot.layers.push(fill(path.clone(), shown));
+                if !style.bars_apart {
+                    plot.layers.push(fill(path.clone(), shown));
+                }
                 plot.layers.push(Layer::Dashed { path, width: 2.0, dash: 4.0, color });
-            } else {
+            } else if !style.bars_apart {
                 plot.layers.push(fill(path, color));
             }
             let tip_value = *to;
@@ -1150,6 +1231,54 @@ fn bars(
     }
 }
 
+/// The lowest and the highest point of each column, in the order they come, and the
+/// two ends: all a line with more points than columns can show.
+fn thinned(points: &[Point], area: Rect) -> Vec<Point> {
+    let mut kept = Vec::with_capacity(area.width() as usize * 2 + 2);
+    let mut column = Vec::new();
+    let mut flush = |column: &mut Vec<Point>| {
+        let by_height = |a: &&Point, b: &&Point| a.y.total_cmp(&b.y);
+        let (Some(low), Some(high)) = (column.iter().min_by(by_height), column.iter().max_by(by_height))
+        else {
+            return;
+        };
+        if low.x <= high.x {
+            kept.extend([*low, *high]);
+        } else {
+            kept.extend([*high, *low]);
+        }
+        column.clear();
+    };
+    let mut current = f32::NEG_INFINITY;
+    for point in points {
+        let at = (point.x - area.x()).floor();
+        if at != current {
+            flush(&mut column);
+            current = at;
+        }
+        column.push(*point);
+    }
+    flush(&mut column);
+    if let (Some(first), Some(last)) = (points.first(), points.last()) {
+        kept.insert(0, *first);
+        kept.push(*last);
+    }
+    kept
+}
+
+/// The path through the points of a line. With more of them than columns on the
+/// screen a curve shows nothing a straight line does not, and past two per column
+/// only the extremes of each can be told apart: they are all that is drawn, or a
+/// long series would cost a picture far more than what can be seen of it.
+fn curve_within(points: &[Point], curve: Curve, area: Rect) -> Vec<PathSegment> {
+    let columns = area.width().max(1.0) as usize;
+    if points.len() > columns * 2 {
+        let kept = thinned(points, area);
+        return curve_through(&kept, Curve::Linear);
+    }
+    curve_through(points, if points.len() > columns { Curve::Linear } else { curve })
+}
+
 fn lines(
     data: &ChartData,
     towers: &[Vec<(f64, f64)>],
@@ -1169,7 +1298,7 @@ fn lines(
         let tops: Vec<Point> =
             places.iter().map(|i| Point::new(center_of(*i), axes.at(towers[s][*i].1))).collect();
         let (Some(first), Some(last)) = (tops.first().copied(), tops.last().copied()) else { continue };
-        let curve = curve_through(&tops, style.curve);
+        let curve = curve_within(&tops, style.curve, axes.area);
         let clipped = |layer: Layer| {
             if axes.fixed {
                 // A little past the area, so a line along its edge keeps its width.
@@ -1186,7 +1315,7 @@ fn lines(
                     places.iter().map(|i| Point::new(center_of(*i), axes.at(towers[s][*i].0))).collect();
                 under.reverse();
                 path.push(PathSegment::Line(under[0]));
-                path.extend(curve_through(&under, style.curve));
+                path.extend(curve_within(&under, style.curve, axes.area));
             } else {
                 let zero = axes.at(0.0_f64.clamp(axes.low, axes.high));
                 path.push(PathSegment::Line(Point::new(last.x, zero)));
@@ -1765,6 +1894,96 @@ mod tests {
         assert!(!screen.rules.is_empty());
         assert_eq!(rects_of(&page), rects_of(&screen) + screen.rules.len(), "the same lines, elsewhere");
         assert_eq!(screen.bars.len(), 3);
+    }
+
+    fn line_length_on_rule(rules: &[Rule], y: f32, from: f32, to: f32) -> f32 {
+        rules
+            .iter()
+            .filter(|r| r.rect.center().y == y)
+            .map(|r| (r.rect.max_x().min(to) - r.rect.x().max(from)).max(0.0))
+            .sum()
+    }
+
+    #[test]
+    fn bars_apart_leave_the_layers_and_the_lines_behind_them() {
+        let data = data(&[("A", &[10.0, 20.0])]);
+        let page = PlotStyle { rules_apart: true, ..PlotStyle::new(ChartKind::Bar) };
+        let whole = draw(&data, AREA, &page);
+        assert_eq!(whole.layers.len(), 2, "on a page bars are shapes");
+        let screen = PlotStyle { bars_apart: true, bar_radius: 0.0, ..page };
+        let plot = draw(&data, AREA, &screen);
+        assert!(plot.layers.is_empty());
+        assert_eq!(plot.bars.len(), 2);
+        let bar = plot.bars[1].rect;
+        for rule in plot.rules.iter().filter(|r| r.rect.center().y > bar.y()) {
+            let (y, a, b) = (rule.rect.center().y, bar.x() + 0.01, bar.max_x() - 0.01);
+            if y < bar.max_y() {
+                assert_eq!(line_length_on_rule(&plot.rules, y, a, b), 0.0, "nothing behind the bar");
+            }
+        }
+        assert!(plot.rules.len() > whole.rules.len(), "they go on past the bar");
+    }
+
+    #[test]
+    fn a_line_near_a_round_corner_follows_it() {
+        assert_eq!(corner_inset(0.0, 1.0), 0.0);
+        assert_eq!(corner_inset(4.0, 4.0), 0.0);
+        assert!((corner_inset(4.0, 0.0) - 4.0).abs() < 0.001);
+        let bar = Bar {
+            series: 0,
+            index: 0,
+            rect: Rect::new(10.0, 10.0, 20.0, 40.0),
+            color: CLEAR,
+            radii: [4.0, 4.0, 0.0, 0.0],
+        };
+        let mut out = Vec::new();
+        line_around_bar(Rect::new(0.0, 10.5, 40.0, 1.0), &bar, &mut out);
+        assert!(out[0].max_x() > 11.0, "it reaches the curve: {out:?}");
+        let mut out = Vec::new();
+        line_around_bar(Rect::new(0.0, 47.5, 40.0, 1.0), &bar, &mut out);
+        assert_eq!(out[0].max_x(), 10.0, "a square corner has nothing to follow");
+    }
+
+    #[test]
+    fn a_line_with_more_points_than_columns_keeps_only_the_extremes() {
+        let values: Vec<f64> =
+            (0..20_000).map(|i| if i == 7_777 { 1000.0 } else { f64::from(i % 50) }).collect();
+        let many = data(&[("A", &values)]);
+        let plot = draw(&many, AREA, &PlotStyle { rules_apart: true, ..PlotStyle::new(ChartKind::Line) });
+        let Some(Layer::Shape(shape)) = plot.layers.first() else { panic!("a line") };
+        assert!(shape.path.len() <= AREA.width() as usize * 2 + 4, "{}", shape.path.len());
+        assert!(shape.path.iter().all(|s| !matches!(s, PathSegment::Cubic(..))), "straight lines");
+        let top = shape
+            .path
+            .iter()
+            .filter_map(|s| match s {
+                PathSegment::Line(p) | PathSegment::Move(p) => Some(p.y),
+                _ => None,
+            })
+            .fold(f32::INFINITY, f32::min);
+        let peak = plot.marks[7_777].at.y;
+        assert!((top - peak).abs() < 0.01, "the one peak survives: {top} {peak}");
+        assert_eq!(plot.marks.len(), 20_000, "and every value still has its place");
+    }
+
+    #[test]
+    fn categories_closer_than_a_pixel_do_not_pile_up_on_the_axis() {
+        let values = vec![1.0; 5000];
+        let many = data(&[("A", &values)]);
+        let plot =
+            draw_measured(&many, AREA, &PlotStyle::new(ChartKind::Line), &|t, s| t.len() as f32 * s * 0.5);
+        assert!(plot.labels.len() < 20, "{}", plot.labels.len());
+    }
+
+    #[test]
+    fn a_line_that_fits_keeps_its_curve() {
+        let plot = draw(
+            &data(&[("A", &[1.0, 3.0, 2.0])]),
+            AREA,
+            &PlotStyle { rules_apart: true, ..PlotStyle::new(ChartKind::Line) },
+        );
+        let Some(Layer::Shape(shape)) = plot.layers.first() else { panic!("a line") };
+        assert!(shape.path.iter().any(|s| matches!(s, PathSegment::Cubic(..))));
     }
 
     #[test]

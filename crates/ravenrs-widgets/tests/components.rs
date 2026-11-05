@@ -284,7 +284,7 @@ fn table_list_and_charts_build() {
     assert!(ui.element_count() > 40, "{}", ui.element_count());
     assert!(quads(&ui).len() > 19, "everything but the charts paints quads");
     let images = ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Image(_))).count();
-    assert!(images >= 2, "each chart paints a picture");
+    assert!(images >= 1, "a line or an area paints a picture; bars are quads");
 }
 
 #[test]

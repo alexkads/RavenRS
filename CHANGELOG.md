@@ -14,6 +14,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Changed
 
 - `Chart` measures its labels with the real font, and its gridlines land on whole pixels. Reports draw as before.
+- `Chart` draws bars as quads, with no picture, and gridlines stop at their sides, so a bar that fades shows none through it. A line with more points than columns draws straight lines through the extremes of each column, its picture covers only what it draws, and a new size costs far less. See `docs/QUALITY.md`.
+
+### Fixed
+
+- Categories closer together than a pixel no longer pile up on the axis of a `Chart`.
 
 ## [27.1.12] - 2026-11-04
 

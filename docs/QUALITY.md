@@ -83,7 +83,15 @@ Where things stand:
 - **A rebuild still follows the size of the screen.** About 2.7 µs per element, and layout is now 75% of that. The 4 ms budget holds up to about 1,500 elements. The real screens measured have 200 to 420. Beyond that, the next step would be invalidation by subtree, which changes the API of `View` and `BuildCx`.
 - **The GPU is not the bottleneck.** Under 2 ms in every scene.
 - **Batching does little on small screens.** Text and shapes alternate, so the calculator needs one draw call per instance. It costs nothing visible today, and painting order would have to be kept by any fix.
-- **Over budget: resizing a window with charts.** 19.7 ms on the finance dashboard, because each new size draws them again on the CPU.
+- **Resizing a window with charts.** Bars and gridlines are quads now, with no picture to draw or send; a line with more points than columns draws only what can be told apart; and a picture covers only what it draws. The `chart` scenes, dragging the window to a new width each frame, p99 of CPU and of recording the GPU's work, before and after:
+
+  | Scene | CPU before | CPU now | Recording before | Recording now |
+  |---|---|---|---|---|
+  | `chart`, a line of 5,000 points | 26.0 | 15.0 | 7.2 | 6.4 |
+  | `chart-bars`, three series of 12 bars | 5.5 | 0.1 | 6.3 | 0.1 |
+  | `chart-board`, area, bars, doughnut and line | 7.2 | 7.8 | 4.7 | 3.4 |
+
+  The finance dashboard, which measured 19.7 ms before this work, has not been measured again. Lines, areas and slices stay pictures: each scene fits the 16.67 ms of a rebuild, and curves would be drawn again into the atlas on every frame, hover included, at a cost of about 1/26 of a frame per window-sized shape (see below). This comparison was reasoned from those limits, not measured.
 - **Not measured:** the delay from input to the screen in a real window, the system compositor, and other machines.
 - **Not done:** the gate does not yet fail a public component missing from every scene's `covers`.
 

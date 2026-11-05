@@ -65,7 +65,51 @@ pub enum Layer {
     },
 }
 
+/// The box around an outline: its curves stay inside the box of their control points.
+fn outline_bounds(path: &[PathSegment]) -> Option<(f32, f32, f32, f32)> {
+    let mut found: Option<(f32, f32, f32, f32)> = None;
+    let mut grow = |p: &Point| {
+        let (x0, y0, x1, y1) = found.unwrap_or((p.x, p.y, p.x, p.y));
+        found = Some((x0.min(p.x), y0.min(p.y), x1.max(p.x), y1.max(p.y)));
+    };
+    for segment in path {
+        match segment {
+            PathSegment::Move(p) | PathSegment::Line(p) => grow(p),
+            PathSegment::Cubic(a, b, c) => {
+                grow(a);
+                grow(b);
+                grow(c);
+            }
+            PathSegment::Close => {}
+        }
+    }
+    found
+}
+
+fn inflated(bounds: (f32, f32, f32, f32), by: f32) -> Rect {
+    let (x0, y0, x1, y1) = bounds;
+    Rect::new(x0 - by, y0 - by, x1 - x0 + by * 2.0, y1 - y0 + by * 2.0)
+}
+
 impl Layer {
+    /// A box it stays inside of, once drawn, or `None` if it draws nothing.
+    pub fn bounds(&self) -> Option<Rect> {
+        match self {
+            Self::Shape(shape) => {
+                let reach = shape.stroke.map_or(0.0, |(width, _)| width / 2.0);
+                outline_bounds(&shape.path).map(|b| inflated(b, reach + 1.0))
+            }
+            Self::Gradient { path, .. } => outline_bounds(path).map(|b| inflated(b, 1.0)),
+            Self::Dashed { path, width, .. } => outline_bounds(path).map(|b| inflated(b, width / 2.0 + 1.0)),
+            Self::Clipped { rect, layer } => {
+                let inner = layer.bounds()?;
+                let (x0, y0) = (rect.x().max(inner.x()), rect.y().max(inner.y()));
+                let (x1, y1) = (rect.max_x().min(inner.max_x()), rect.max_y().min(inner.max_y()));
+                (x1 > x0 && y1 > y0).then(|| Rect::new(x0, y0, x1 - x0, y1 - y0))
+            }
+        }
+    }
+
     /// The closest a plain [`Shape`] gets, for outputs that only write shapes.
     pub fn to_shape(&self) -> Shape {
         match self {
