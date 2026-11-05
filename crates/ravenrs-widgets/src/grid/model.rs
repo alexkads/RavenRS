@@ -234,6 +234,7 @@ pub struct GridColumn {
     pub(crate) visible: bool,
     pub(crate) fill: bool,
     pub(crate) pinned: bool,
+    pub(crate) resizable: bool,
     pub(crate) formula: Option<String>,
     pub(crate) format: Option<CellFormat>,
     pub(crate) template: Option<CellTemplate>,
@@ -266,6 +267,7 @@ impl GridColumn {
             visible: true,
             fill: false,
             pinned: false,
+            resizable: true,
             formula: None,
             format: None,
             template: None,
@@ -312,6 +314,14 @@ impl GridColumn {
     /// Sets the width in logical pixels, never below the column's minimum.
     pub fn width(mut self, width: f32) -> Self {
         self.width = width.max(self.min_width);
+        self
+    }
+
+    /// Whether people can change the width, by the handle or the column's menu (they can
+    /// by default). With `false`, it keeps the width it has been given, or what a
+    /// [`Self::fill`] column gets from the room left.
+    pub fn resizable(mut self, resizable: bool) -> Self {
+        self.resizable = resizable;
         self
     }
 

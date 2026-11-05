@@ -1819,7 +1819,8 @@ fn icon() -> impl View {
 // sample: Image, 150
 fn image() -> impl View {
     HStack::new((
-        Image::new(picture(1.0)).size(160.0, 90.0).corner_radius(12.0),
+        // `.crossfade` dissolves into the next image the app hands it.
+        Image::new(picture(1.0)).size(160.0, 90.0).corner_radius(12.0).crossfade(0.2),
         Image::new(picture(0.3)).size(90.0, 90.0).corner_radius(45.0),
     ))
     .spacing(12.0)

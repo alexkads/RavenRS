@@ -172,7 +172,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 |---|---|---|---|---|
 | Avatar | ✓ | ✓ | ✓ | ✅ `Avatar`: initials or picture, with a ring |
 | Icon set | ✓ | ✓ | ✓ | ✅ 200 Lucide icons |
-| Image | | ✓ | ✓ | ✅ `Image` |
+| Image | | ✓ | ✓ | ✅ `Image`: dissolves into the next one if asked, and asks for frames only meanwhile |
 | Carousel / Scroll view | ✓ | ✓ | ✓ | ✅ `Carousel` |
 | Kbd | ✓ | | | ✅ takes the color of what it is in, on request |
 | List of shortcuts | | | | ✅ `ShortcutSheet`, `ShortcutHintBar`, over `Kbd` and `Dialog` |

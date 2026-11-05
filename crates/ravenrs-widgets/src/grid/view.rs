@@ -983,11 +983,13 @@ fn column_menu(s: &Shared<'_>, c: usize, labels: &crate::Labels) -> Vec<Entry> {
             edit.set(Some(c));
         })));
     }
-    let (widths, width) = (h.widths.clone(), fit_width(s, c));
-    entries.push(Entry::Item(
-        item(&labels.grid_fit_column, IconName::Columns3)
-            .on_select(move || widths.update(|ws| ws[c] = width)),
-    ));
+    if s.grid.columns[c].resizable {
+        let (widths, width) = (h.widths.clone(), fit_width(s, c));
+        entries.push(Entry::Item(
+            item(&labels.grid_fit_column, IconName::Columns3)
+                .on_select(move || widths.update(|ws| ws[c] = width)),
+        ));
+    }
     let q = h.query.clone();
     entries.push(Entry::Item(item(&labels.grid_hide_column, IconName::EyeOff).on_select(move || {
         q.update(|q| {
@@ -1620,7 +1622,9 @@ impl View for HeaderCell<'_> {
             menu_node = Some(node);
             parts.push(node);
         }
-        parts.push(cx.keyed_child(3, &ResizeHandle { column: c, shared: s }));
+        if col.resizable {
+            parts.push(cx.keyed_child(3, &ResizeHandle { column: c, shared: s }));
+        }
 
         let fixed = s.fixed_x(c);
         let lit =

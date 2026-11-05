@@ -928,3 +928,105 @@ fn a_panel_with_its_sphere_can_reduce_too() {
     let tree = ui.access_tree();
     assert!(tree.find(Role::Button, "Restore").is_some());
 }
+
+#[test]
+fn a_column_can_keep_its_width() {
+    let mut ui = ui(DataGrid::new(
+        GridData::new(vec![vec![Value::Text("a".into()), Value::Text("b".into())]]),
+        [GridColumn::text("Free").width(200.0), GridColumn::text("Fixed").width(100.0).resizable(false)],
+    )
+    .height(200.0));
+    let tree = ui.access_tree();
+    let header = tree.nodes.iter().find(|n| n.role == Role::ColumnHeader).expect("a header").bounds;
+    // The handles are the last 6 pixels of each column.
+    let first = named(&tree, Role::ColumnHeader, "Free").bounds.x() + 200.0 - 3.0;
+    hover(&mut ui, Point::new(first, header.center().y));
+    assert_eq!(ui.cursor(), ravenrs_core::CursorIcon::ColResize, "a handle");
+    hover(&mut ui, Point::new(first + 100.0, header.center().y));
+    assert_ne!(ui.cursor(), ravenrs_core::CursorIcon::ColResize, "no handle");
+
+    drag(&mut ui, Point::new(first + 100.0, header.center().y), Point::new(first + 180.0, header.center().y));
+    let tree = ui.access_tree();
+    let (free, fixed) =
+        (named(&tree, Role::ColumnHeader, "Free").bounds, named(&tree, Role::ColumnHeader, "Fixed").bounds);
+    assert_eq!(fixed.x() - free.x(), 200.0, "dragging there does not change it");
+
+    hover(&mut ui, Point::new(free.x() + 20.0, header.center().y));
+    click_node(&mut ui, Role::Button, "Column menu Free");
+    assert!(ui.access_tree().find(Role::MenuItem, "Fit width").is_some());
+    key(&mut ui, Key::Escape);
+    hover(&mut ui, Point::new(fixed.x() + 20.0, header.center().y));
+    click_node(&mut ui, Role::Button, "Column menu Fixed");
+    assert!(ui.access_tree().find(Role::MenuItem, "Fit width").is_none(), "nor does the menu offer it");
+}
+
+fn solid(shade: u8) -> ravenrs_core::ImageData {
+    ravenrs_core::ImageData::from_rgba8(1, 1, vec![shade, shade, shade, 255]).expect("one pixel")
+}
+
+fn image_opacities(ui: &Ui) -> Vec<f32> {
+    ui.scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| if let Primitive::Image(i) = p { Some(i.opacity) } else { None })
+        .collect()
+}
+
+fn swapping(crossfade: bool) -> (Ui, State<usize>) {
+    let shown = State::new(0);
+    let read = shown.clone();
+    // The same pictures on every build: a new `ImageData` counts as a change of image.
+    let pictures = [solid(10), solid(20)];
+    let mut ui = ui(ravenrs_widgets::responsive(move |_| {
+        let image = Image::new(pictures[read.get()].clone()).size(100.0, 100.0);
+        if crossfade { image.crossfade(0.5) } else { image }
+    }));
+    ui.set_time(1.0);
+    ui.update();
+    (ui, shown)
+}
+
+#[test]
+fn an_image_dissolves_into_the_next_and_then_asks_for_nothing() {
+    let (mut ui, shade) = swapping(true);
+    assert_eq!(image_opacities(&ui), [1.0], "one image to begin with");
+    assert_eq!(ui.next_wake(), None, "and it is still");
+    shade.set(1);
+    ui.set_time(2.0);
+    ui.update();
+    assert_eq!(image_opacities(&ui), [1.0, 0.0], "the old one over the new one, at first");
+    assert!(ui.next_wake().is_some(), "it needs frames now");
+    ui.set_time(2.25);
+    ui.update();
+    let halfway = image_opacities(&ui);
+    assert_eq!(halfway.len(), 2);
+    assert!((halfway[0] - 0.5).abs() < 0.01 && (halfway[1] - 0.5).abs() < 0.01, "{halfway:?}");
+    ui.set_time(2.5);
+    ui.update();
+    ui.update();
+    assert_eq!(image_opacities(&ui), [1.0], "only the new one at the end");
+    assert_eq!(ui.next_wake(), None, "and it stops asking for frames");
+    assert!(!ui.needs_redraw());
+}
+
+#[test]
+fn with_reduced_motion_the_next_image_simply_appears() {
+    let (mut ui, shade) = swapping(true);
+    ui.set_reduced_motion(true);
+    ui.update();
+    shade.set(1);
+    ui.set_time(2.0);
+    ui.update();
+    assert_eq!(image_opacities(&ui), [1.0]);
+    assert_eq!(ui.next_wake(), None);
+}
+
+#[test]
+fn an_image_without_crossfade_changes_at_once() {
+    let (mut ui, shade) = swapping(false);
+    shade.set(1);
+    ui.set_time(2.0);
+    ui.update();
+    assert_eq!(image_opacities(&ui), [1.0]);
+    assert_eq!(ui.next_wake(), None);
+}
