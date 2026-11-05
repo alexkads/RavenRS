@@ -18,7 +18,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Overlap (ZStack) | | | | ✅ `ZStack`: as large as the largest layer |
 | Page header, property row | | | | ✅ `PageHeader`, `PropertyRow` |
 | Grid layout | | ✓ | ✓ | ✅ `Grid` |
-| Card | ✓ | ✓ | ✓ | ✅ `Card`, `GlassCard` (blur planned) |
+| Card | ✓ | ✓ | ✓ | ✅ `Card` with a selected state, `GlassCard` (blur planned) |
 | Separator | ✓ | | | ✅ `Divider` |
 | Aspect ratio | ✓ | | | ✅ `AspectRatio` |
 | Scroll area | ✓ | ✓ | ✓ | ✅ `ScrollView` (vertical; horizontal inside DataGrid) |
@@ -38,9 +38,9 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 |---|---|---|---|---|
 | Tabs / TabStrip | ✓ | ✓ | ✓ | ✅ `Tabs` |
 | Sidebar / Drawer navigation | ✓ | ✓ | ✓ | ✅ `Sidebar`: closes to icons or off the screen, a rail along its edge, a brand, keys on a row, header and footer, groups, submenus, actions, badges, skeleton, sheet in narrow windows, floating and inset variants. Drag to resize: `Splitter` |
-| Breadcrumb | ✓ | ✓ | ✓ | ✅ `Breadcrumb` |
+| Breadcrumb | ✓ | ✓ | ✓ | ✅ `Breadcrumb`: locations can be links, an icon at the root |
 | Pagination / Pager | ✓ | ✓ | ✓ | ✅ `Pagination` |
-| Accordion / PanelBar | ✓ | ✓ | ✓ | ✅ `Accordion`, `Disclosure` |
+| Accordion / PanelBar | ✓ | ✓ | ✓ | ✅ `Accordion`, `Disclosure`: any view as title, a mark, an on/off switch, open state kept by the app |
 | Menu / Menubar | ✓ | ✓ | ✓ | ✅ `Menubar` |
 | Ribbon (Office-style command bar) | | ✓ | ✓ | ✅ `Ribbon` (app menu, quick access, contextual tabs, collapse; key tips and gallery items planned) |
 | Navigation menu (mega menu) | ✓ | | ✓ | ⬜ |

@@ -13,8 +13,8 @@ use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics, Wi
 use crate::floating::SheetLayer;
 use crate::overlay::Bubble;
 use crate::{
-    AnyView, Badge, ButtonSize, Divider, IconButton, IconName, Motion, ScrollView, Side, Skeleton, Tooltip,
-    View, ViewSeq, motion, util,
+    AnyView, Badge, ButtonSize, Divider, IconButton, IconName, Motion, ScrollView, Side, Skeleton, Toggle,
+    Tooltip, View, ViewSeq, motion, util,
 };
 
 /// A tab bar with one content view per tab; only the selected one is built.
@@ -1524,14 +1524,84 @@ impl View for SidebarSkeleton {
     }
 }
 
-/// A path of locations, the last one being the current page.
-#[derive(Clone, Debug)]
-pub struct Breadcrumb(Vec<String>);
+/// A path of locations, the last one being the current page. With
+/// [`on_navigate`](Self::on_navigate) the locations before it can be clicked.
+///
+/// ```
+/// use ravenrs_widgets::{Breadcrumb, IconName, Ui};
+///
+/// let path = Breadcrumb::new(["Archive", "2026", "Weddings"])
+///     .root_icon(IconName::Cloud)
+///     .on_navigate(|index| println!("go to level {index}"));
+/// let mut ui = Ui::new(path, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+#[derive(Clone)]
+pub struct Breadcrumb {
+    items: Vec<String>,
+    root_icon: Option<IconName>,
+    on_navigate: Option<Rc<dyn Fn(usize)>>,
+}
+
+impl fmt::Debug for Breadcrumb {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Breadcrumb").field(&self.items).finish()
+    }
+}
 
 impl Breadcrumb {
     /// A breadcrumb of `items`, from the root to the current page.
     pub fn new(items: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self(items.into_iter().map(Into::into).collect())
+        Self { items: items.into_iter().map(Into::into).collect(), root_icon: None, on_navigate: None }
+    }
+
+    /// Makes every location but the current page a link: a click, Enter or Space runs
+    /// `handler` with its position, 0 being the root.
+    pub fn on_navigate(mut self, handler: impl Fn(usize) + 'static) -> Self {
+        self.on_navigate = Some(Rc::new(handler));
+        self
+    }
+
+    /// Shows an icon before the first location.
+    pub fn root_icon(mut self, icon: IconName) -> Self {
+        self.root_icon = Some(icon);
+        self
+    }
+}
+
+/// A location of a [`Breadcrumb`] that can be gone back to.
+struct BreadcrumbLink<'a> {
+    label: &'a str,
+    icon: Option<IconName>,
+    go: Rc<dyn Fn()>,
+}
+
+impl View for BreadcrumbLink<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let lit = cx.is_hovered() || cx.is_focus_visible();
+        let color = theme.color(if lit { Semantic::Ink } else { Semantic::InkMuted });
+        let mut parts = Vec::new();
+        if let Some(icon) = self.icon {
+            parts.push(util::icon(cx, icon, 14.0, color));
+        }
+        parts.push(util::label(cx, self.label, TextStyle::Callout, None, color));
+        let fill = if lit { theme.color(Semantic::Ink).with_alpha(0.06) } else { Color::TRANSPARENT };
+        let node = cx.container(
+            LayoutStyle {
+                padding: Insets::symmetric(2.0, 4.0),
+                spacing: 4.0,
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &parts,
+            Paint::Quad(QuadPaint { corner_radius: theme.radii.sm, ..QuadPaint::new(fill) }),
+        );
+        cx.semantics(node, Semantics::new(Role::Link).name(self.label.to_owned()));
+        cx.on_click(node, self.go.clone());
+        cx.focusable(node, theme.radii.sm);
+        cx.cursor(node, CursorIcon::Pointer);
+        node
     }
 }
 
@@ -1539,13 +1609,23 @@ impl View for Breadcrumb {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let mut children = Vec::new();
-        for (i, item) in self.0.iter().enumerate() {
-            let last = i + 1 == self.0.len();
+        for (i, item) in self.items.iter().enumerate() {
+            let last = i + 1 == self.items.len();
             if i > 0 {
                 children.push(util::icon(cx, IconName::ChevronRight, 14.0, theme.color(Semantic::InkMuted)));
             }
+            let icon = self.root_icon.filter(|_| i == 0);
+            if let Some(navigate) = self.on_navigate.as_ref().filter(|_| !last) {
+                let navigate = navigate.clone();
+                let link = BreadcrumbLink { label: item, icon, go: Rc::new(move || navigate(i)) };
+                children.push(cx.keyed_child(i as u64, &link));
+                continue;
+            }
             let color = if last { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
             let weight = if last { Some(Weight::SEMIBOLD) } else { None };
+            if let Some(icon) = icon {
+                children.push(util::icon(cx, icon, 14.0, color));
+            }
             children.push(util::label(cx, item, TextStyle::Callout, weight, color));
         }
         let node = cx.container(
@@ -1558,11 +1638,31 @@ impl View for Breadcrumb {
     }
 }
 
-/// A header that shows or hides its content. Remembers whether it is open.
+/// A header that shows or hides its content. Remembers whether it is open, or leaves
+/// that to the app with [`expanded`](Self::expanded). The header can carry any view as
+/// its title, a mark such as a [`Dot`](crate::Dot), and an on/off switch of its own.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Disclosure, Dot, Text, Tone, Ui};
+///
+/// let (open, enabled) = (State::new(true), State::new(false));
+/// let panel = Disclosure::new("Effects", Text::new("Vignette and grain"))
+///     .expanded(open.binding())
+///     .mark(Dot::new().tone(Tone::Warning).label("Changed"))
+///     .switch(enabled.binding());
+/// let mut ui = Ui::new(panel, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Disclosure {
     title: String,
+    title_view: Option<AnyView>,
+    mark: Option<AnyView>,
+    switch: Option<Binding<bool>>,
     content: AnyView,
     open_by_default: bool,
+    expanded: Option<Binding<bool>>,
+    key: Option<u64>,
 }
 
 impl fmt::Debug for Disclosure {
@@ -1574,12 +1674,56 @@ impl fmt::Debug for Disclosure {
 impl Disclosure {
     /// A collapsed disclosure with this title and content.
     pub fn new(title: impl Into<String>, content: impl View + 'static) -> Self {
-        Self { title: title.into(), content: Box::new(content), open_by_default: false }
+        Self {
+            title: title.into(),
+            title_view: None,
+            mark: None,
+            switch: None,
+            content: Box::new(content),
+            open_by_default: false,
+            expanded: None,
+            key: None,
+        }
     }
 
     /// Whether it starts open (closed by default).
     pub fn open(mut self, open: bool) -> Self {
         self.open_by_default = open;
+        self
+    }
+
+    /// Keeps whether it is open in this binding, so the app decides and can remember it.
+    /// [`Self::open`] no longer matters.
+    pub fn expanded(mut self, expanded: Binding<bool>) -> Self {
+        self.expanded = Some(expanded);
+        self
+    }
+
+    /// Shows this view in the header instead of the title, which still names it for
+    /// screen readers.
+    pub fn title_view(mut self, view: impl View + 'static) -> Self {
+        self.title_view = Some(Box::new(view));
+        self
+    }
+
+    /// Shows this view at the end of the header, so what is inside can be told while it
+    /// is closed. A [`Dot`](crate::Dot) with a label says it to screen readers as well.
+    pub fn mark(mut self, mark: impl View + 'static) -> Self {
+        self.mark = Some(Box::new(mark));
+        self
+    }
+
+    /// Puts an on/off switch at the end of the header, named after the title. Using it
+    /// does not open or close the disclosure.
+    pub fn switch(mut self, value: Binding<bool>) -> Self {
+        self.switch = Some(value);
+        self
+    }
+
+    /// What tells this disclosure apart inside an [`Accordion`], so it keeps its state
+    /// when the list changes (its position by default).
+    pub fn key(mut self, key: u64) -> Self {
+        self.key = Some(key);
         self
     }
 }
@@ -1605,12 +1749,35 @@ impl View for Disclosure {
         let theme = *cx.theme();
         let default = self.open_by_default;
         let open = cx.use_state(move || default);
-        let is_open = open.get();
+        let is_open = self.expanded.as_ref().map_or_else(|| open.get(), Binding::get);
         let hovered = cx.is_hovered();
         let chevron = if is_open { IconName::ChevronDown } else { IconName::ChevronRight };
         let icon = util::icon(cx, chevron, 16.0, theme.color(Semantic::InkMuted));
-        let title =
-            util::label(cx, &self.title, TextStyle::Body, Some(Weight::SEMIBOLD), theme.color(Semantic::Ink));
+        let title = match &self.title_view {
+            Some(view) => cx.keyed_child(1, view.as_ref()),
+            None => util::label(
+                cx,
+                &self.title,
+                TextStyle::Body,
+                Some(Weight::SEMIBOLD),
+                theme.color(Semantic::Ink),
+            ),
+        };
+        let mut parts = vec![icon, title];
+        if self.mark.is_some() || self.switch.is_some() {
+            // What follows sits at the far end of the header.
+            parts.push(cx.container(LayoutStyle { grow: 1.0, ..LayoutStyle::leaf() }, &[], Paint::None));
+        }
+        if let Some(mark) = &self.mark {
+            parts.push(cx.keyed_child(2, mark.as_ref()));
+        }
+        if let Some(value) = &self.switch {
+            let switch = Toggle::new(value.clone()).small();
+            let node = cx.keyed_child(3, &switch);
+            let name = self.title.clone();
+            cx.update_semantics(node, |s| s.name = Some(name));
+            parts.push(node);
+        }
         let header_fill = if hovered {
             theme.color(Semantic::Ink).with_alpha(0.04)
         } else {
@@ -1623,13 +1790,26 @@ impl View for Disclosure {
                 align: Align::Center,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
-            &[icon, title],
+            &parts,
             Paint::Quad(QuadPaint { corner_radius: 8.0, ..QuadPaint::new(header_fill) }),
         );
         motion::control(cx, header);
-        cx.semantics(header, Semantics::new(Role::Button).expanded(is_open));
-        let toggle = open.clone();
-        cx.on_click(header, Rc::new(move || toggle.update(|o| *o = !*o)));
+        let mut semantics = Semantics::new(Role::Button).expanded(is_open);
+        if self.title_view.is_some() || self.mark.is_some() || self.switch.is_some() {
+            semantics = semantics.name(self.title.clone());
+        }
+        cx.semantics(header, semantics);
+        let toggle: Rc<dyn Fn()> = match &self.expanded {
+            Some(expanded) => {
+                let expanded = expanded.clone();
+                Rc::new(move || expanded.set(!expanded.get()))
+            }
+            None => {
+                let open = open.clone();
+                Rc::new(move || open.update(|o| *o = !*o))
+            }
+        };
+        cx.on_click(header, toggle);
         cx.focusable(header, 8.0);
         cx.cursor(header, CursorIcon::Pointer);
         let body = motion::collapse(cx, is_open, &DisclosureBody(self.content.as_ref()));
@@ -1659,7 +1839,7 @@ impl View for Accordion {
             if i > 0 {
                 children.push(cx.child(&crate::Divider::horizontal()));
             }
-            children.push(cx.keyed_child(i as u64, item));
+            children.push(cx.keyed_child(item.key.unwrap_or(i as u64), item));
         }
         cx.container(
             LayoutStyle { spacing: 2.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },

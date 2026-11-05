@@ -774,7 +774,8 @@ fn sidebar() -> impl View {
 
 // sample: Breadcrumb, 80
 fn breadcrumb() -> impl View {
-    Breadcrumb::new(["Workspace", "Projects", "RavenRS", "Settings"])
+    // `on_navigate` makes every location but the last one a link.
+    Breadcrumb::new(["Workspace", "Projects", "RavenRS", "Settings"]).on_navigate(|_level| {})
 }
 // end
 
@@ -798,6 +799,8 @@ fn accordion() -> impl View {
 // sample: Disclosure, 130
 fn disclosure() -> impl View {
     Disclosure::new("Advanced options", Text::new("Shown when open.").foreground(Semantic::InkMuted))
+        // Tells what is inside while it is closed. `.switch` and `.expanded` take bindings.
+        .mark(Dot::new().tone(Tone::Warning).label("Changed"))
 }
 // end
 
@@ -1171,6 +1174,8 @@ fn card() -> impl View {
         ))
         .spacing(4.0),
     )
+    // Set it on the chosen card of a group.
+    .selected(false)
 }
 // end
 
@@ -1186,6 +1191,7 @@ fn section() -> impl View {
         "Notifications",
         (Text::new("Grouped content under a title.").foreground(Semantic::InkMuted),),
     )
+    .action(Button::new("Edit").style(ButtonStyle::Secondary).size(ButtonSize::Small))
 }
 // end
 

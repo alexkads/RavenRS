@@ -811,10 +811,12 @@ impl View for Stat {
     }
 }
 
-/// A titled group of content with an optional description.
+/// A titled group of content with an optional description, and actions at the end of
+/// its header.
 pub struct Section<C> {
     title: String,
     description: Option<String>,
+    actions: Vec<crate::AnyView>,
     content: C,
 }
 
@@ -827,12 +829,18 @@ impl<C> std::fmt::Debug for Section<C> {
 impl<C: ViewSeq> Section<C> {
     /// A section titled `title` around `content`.
     pub fn new(title: impl Into<String>, content: C) -> Self {
-        Self { title: title.into(), description: None, content }
+        Self { title: title.into(), description: None, actions: Vec::new(), content }
     }
 
     /// Adds a muted description under the title.
     pub fn description(mut self, text: impl Into<String>) -> Self {
         self.description = Some(text.into());
+        self
+    }
+
+    /// Adds a view, usually a button, at the end of the header. Several line up in order.
+    pub fn action(mut self, action: impl View + 'static) -> Self {
+        self.actions.push(Box::new(action));
         self
     }
 }
@@ -851,6 +859,28 @@ impl<C: ViewSeq> View for Section<C> {
             &header,
             Paint::None,
         );
+        let header = if self.actions.is_empty() {
+            header
+        } else {
+            let header = cx.container(
+                LayoutStyle { grow: 1.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+                &[header],
+                Paint::None,
+            );
+            let mut row = vec![header];
+            for (i, action) in self.actions.iter().enumerate() {
+                row.push(cx.keyed_child(u64::MAX - i as u64, action.as_ref()));
+            }
+            cx.container(
+                LayoutStyle {
+                    spacing: theme.spacing.s2,
+                    align: Align::Center,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &row,
+                Paint::None,
+            )
+        };
         let mut children = vec![header];
         children.extend(cx.children(&self.content));
         let style =
