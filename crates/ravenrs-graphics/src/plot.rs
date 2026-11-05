@@ -180,6 +180,30 @@ pub struct PlotStyle {
     /// The first category along the axis starts at its point and the last one ends
     /// at its point, so that they line up with the ends of a line or an area.
     pub ends_aligned: bool,
+    /// Lines across the data at values that matter, such as a target.
+    pub references: Vec<Reference>,
+    /// The value axis goes exactly from the first number to the second, and what is
+    /// past them is cut off, instead of the axis fitting the values.
+    pub domain: Option<(f64, f64)>,
+}
+
+/// A dashed line across a chart at a value that matters.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Reference {
+    /// Where it goes.
+    pub value: f64,
+    /// What it says, at its end.
+    pub label: Option<String>,
+    /// Its color; [`PlotStyle::muted`] if it has none.
+    pub color: Option<Color>,
+}
+
+impl Reference {
+    /// A line at this value.
+    pub fn new(value: f64, label: Option<String>, color: Option<Color>) -> Self {
+        Self { value, label, color }
+    }
 }
 
 impl PlotStyle {
@@ -231,6 +255,8 @@ impl PlotStyle {
             value_ticks: TICKS,
             grid_columns: None,
             ends_aligned: false,
+            references: Vec::new(),
+            domain: None,
         }
     }
 
@@ -360,6 +386,8 @@ pub struct Plot {
     pub bars: Vec<Bar>,
     /// Gridlines, behind the layers, when [`PlotStyle::rules_apart`] asks for them.
     pub rules: Vec<Rule>,
+    /// Lines of reference, over the layers, when [`PlotStyle::rules_apart`] asks for them.
+    pub top_rules: Vec<Rule>,
 }
 
 impl From<ChartDrawing> for Plot {
@@ -721,6 +749,8 @@ struct Axes {
     low: f64,
     high: f64,
     horizontal: bool,
+    /// What is past the ends of the axis is cut off.
+    fixed: bool,
 }
 
 impl Axes {
@@ -761,16 +791,34 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
         min = min.min(0.0);
         max = max.max(0.0);
     }
-    let (low, step, ticks) = nice_ticks(min, max, style.value_ticks.max(1));
+    let domain =
+        style.domain.filter(|(a, b)| a.is_finite() && b.is_finite() && a < b && style.stack != Stack::Expand);
+    if domain.is_none() && style.stack != Stack::Expand {
+        // A target above every value is still worth seeing.
+        for reference in style.references.iter().filter(|r| r.value.is_finite()) {
+            min = min.min(reference.value);
+            max = max.max(reference.value);
+        }
+    }
+    if let Some((from, to)) = domain {
+        (min, max) = (from, to);
+    }
+    let (mut low, step, ticks) = nice_ticks(min, max, style.value_ticks.max(1));
     let mut high = low + step * ticks.saturating_sub(1) as f64;
     if style.stack == Stack::Expand {
         high = 1.0;
     }
-    let tick_values: Vec<f64> = if style.stack == Stack::Expand {
+    let mut tick_values: Vec<f64> = if style.stack == Stack::Expand {
         (0..=4).map(|i| f64::from(i) / 4.0).collect()
     } else {
         (0..ticks).map(|i| low + step * i as f64).collect()
     };
+    if let Some((from, to)) = domain {
+        // Round numbers stay, as far as they are inside what was asked for.
+        let slack = step * 1e-6;
+        tick_values.retain(|v| *v >= from - slack && *v <= to + slack);
+        (low, high) = (from, to);
+    }
     let tick_text = |value: f64| {
         if style.stack == Stack::Expand { format!("{:.0}%", value * 100.0) } else { (style.format)(value) }
     };
@@ -819,7 +867,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     }
     let area = Rect::new(left, top, (right - left).max(1.0), (bottom - top).max(1.0));
     plot.area = area;
-    let axes = Axes { area, low, high, horizontal };
+    let axes = Axes { area, low, high, horizontal, fixed: domain.is_some() };
 
     // The grid.
     let grid = with_alpha(style.grid, style.grid.a * 0.8);
@@ -951,6 +999,45 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     } else {
         lines(data, &towers, style, &axes, &center_of, plot);
     }
+    references(style, &axes, rect, ruler, plot);
+}
+
+/// The lines of reference that fall on the axis, over the data.
+fn references(style: &PlotStyle, axes: &Axes, rect: Rect, ruler: Ruler<'_>, plot: &mut Plot) {
+    let (area, size) = (axes.area, style.size);
+    let line_height = size * 1.3;
+    for reference in &style.references {
+        if !reference.value.is_finite() || reference.value < axes.low || reference.value > axes.high {
+            continue;
+        }
+        let at = axes.at(reference.value);
+        let color = reference.color.unwrap_or(style.muted);
+        let line = if axes.horizontal {
+            Rect::new(at - 0.5, area.y(), 1.0, area.height())
+        } else {
+            Rect::new(area.x(), at - 0.5, area.width(), 1.0)
+        };
+        each_dash(line, &mut |rect| {
+            if style.rules_apart {
+                plot.top_rules.push(Rule { rect, color });
+            } else {
+                plot.layers.push(fill(vector::rectangle(rect, 0.0), color));
+            }
+        });
+        let Some(label) = &reference.label else { continue };
+        let wide = ruler.width(label, size).ceil() + 2.0;
+        let place = if axes.horizontal {
+            // At the top, on the side of the line with room.
+            let x = if at + wide + 4.0 > rect.max_x() { at - wide - 4.0 } else { at + 4.0 };
+            Rect::new(x, area.y(), wide, line_height)
+        } else {
+            // At the end, over the line unless that would leave the chart.
+            let above = at - line_height - 1.0;
+            let y = if above < rect.y() { at + 1.0 } else { above };
+            Rect::new(area.max_x() - wide, y, wide, line_height)
+        };
+        plot.labels.push(text(label.clone(), place, LabelAlign::Right, size, color));
+    }
 }
 
 fn bars(
@@ -974,6 +1061,15 @@ fn bars(
         let series_color = style.color_of(s);
         let series_color = if series.color == Color::TRANSPARENT { series_color } else { series.color };
         for (i, (from, to)) in towers[s].iter().enumerate() {
+            // A bar wholly past the ends of a fixed axis has nothing left to show.
+            if axes.fixed && (from.max(*to) < axes.low || from.min(*to) > axes.high) {
+                continue;
+            }
+            // Cut off, an end is square: it does not stop there.
+            let cut_low = axes.fixed && from.min(*to) < axes.low;
+            let cut_high = axes.fixed && from.max(*to) > axes.high;
+            let reach = |value: f64| if axes.fixed { value.clamp(axes.low, axes.high) } else { value };
+            let (from, to) = (&reach(*from), &reach(*to));
             let slot = if side_by_side { s } else { 0 };
             let along = start + band * i as f32 + (band - group) / 2.0 + (thickness + BAR_GAP) * slot as f32;
             let (a, b) = (axes.at(*from), axes.at(*to));
@@ -999,6 +1095,7 @@ fn bars(
                 _ if s == last => (0.0, style.bar_radius),
                 _ => (0.0, 0.0),
             };
+            let (first, end) = (if cut_low { 0.0 } else { first }, if cut_high { 0.0 } else { end });
             let path = bar_path(rect, first, end, horizontal);
             let radii = bar_corners(rect, first, end, horizontal);
             let shown = if style.active == Some(i) { with_alpha(color, 0.8) } else { color };
@@ -1073,6 +1170,14 @@ fn lines(
             places.iter().map(|i| Point::new(center_of(*i), axes.at(towers[s][*i].1))).collect();
         let (Some(first), Some(last)) = (tops.first().copied(), tops.last().copied()) else { continue };
         let curve = curve_through(&tops, style.curve);
+        let clipped = |layer: Layer| {
+            if axes.fixed {
+                // A little past the area, so a line along its edge keeps its width.
+                Layer::Clipped { rect: axes.area.inflate(1.0), layer: Box::new(layer) }
+            } else {
+                layer
+            }
+        };
         if filled {
             let mut path = vec![PathSegment::Move(first)];
             path.extend(curve.iter().copied());
@@ -1089,19 +1194,23 @@ fn lines(
             }
             path.push(PathSegment::Close);
             if style.gradient {
-                plot.layers.push(Layer::Gradient {
+                plot.layers.push(clipped(Layer::Gradient {
                     path,
                     top: (axes.area.y(), with_alpha(color, 0.8)),
                     bottom: (axes.area.max_y(), with_alpha(color, 0.1)),
-                });
+                }));
             } else {
-                plot.layers.push(fill(path, with_alpha(color, style.fill_opacity)));
+                plot.layers.push(clipped(fill(path, with_alpha(color, style.fill_opacity))));
             }
         }
         let mut line = vec![PathSegment::Move(first)];
         line.extend(curve);
-        plot.layers.push(stroke(line, if filled { 1.5 } else { 2.0 }, color));
+        plot.layers.push(clipped(stroke(line, if filled { 1.5 } else { 2.0 }, color)));
         for (place, top) in places.iter().zip(&tops) {
+            // A value past the ends of a fixed axis has no place on the chart.
+            if axes.fixed && (top.y < axes.area.y() - 0.01 || top.y > axes.area.max_y() + 0.01) {
+                continue;
+            }
             let item = style.item_color(color, *place);
             plot.marks.push(Mark { series: s, index: *place, at: *top, color: item });
             if style.dots {
@@ -1566,6 +1675,58 @@ mod tests {
             let (a, b) = (&pair[0], &pair[1]);
             assert!(a.text != b.text);
         }
+    }
+
+    #[test]
+    fn a_fixed_domain_is_the_axis_and_cuts_off_what_is_past_it() {
+        let lines = data(&[("A", &[10.0, 500.0, 30.0])]);
+        let style =
+            PlotStyle { domain: Some((13.0, 87.0)), value_axis: true, ..PlotStyle::new(ChartKind::Line) };
+        let plot = draw(&lines, AREA, &style);
+        assert!(plot.layers.iter().any(|l| matches!(l, Layer::Clipped { .. })));
+        assert_eq!(plot.marks.len(), 1, "only the value inside has a place");
+        let ticks: Vec<&str> = plot
+            .labels
+            .iter()
+            .map(|l| l.text.as_str())
+            .filter(|t| t.starts_with(['2', '4', '6', '8']))
+            .collect();
+        assert_eq!(ticks, ["20", "40", "60", "80"], "round numbers, as far as they fit");
+
+        let bars = data(&[("A", &[5.0, 50.0, 500.0])]);
+        let style = PlotStyle { domain: Some((20.0, 100.0)), ..PlotStyle::new(ChartKind::Bar) };
+        let plot = draw(&bars, AREA, &style);
+        assert_eq!(plot.bars.len(), 2, "the bar short of the axis is gone");
+        assert_eq!(plot.bars[1].radii, [0.0; 4], "cut off at both ends, it has no round corners");
+        let tall = plot.bars[1].rect;
+        assert!((tall.y() - plot.area.y()).abs() < 0.01 && (tall.max_y() - plot.area.max_y()).abs() < 0.01);
+    }
+
+    #[test]
+    fn with_no_domain_nothing_is_clipped() {
+        let lines = data(&[("A", &[10.0, 500.0, 30.0])]);
+        let plot = draw(&lines, AREA, &PlotStyle::new(ChartKind::Line));
+        assert!(!plot.layers.iter().any(|l| matches!(l, Layer::Clipped { .. })));
+        assert_eq!(plot.marks.len(), 3);
+    }
+
+    #[test]
+    fn a_line_of_reference_stretches_the_scale_unless_the_domain_is_fixed() {
+        let values = data(&[("A", &[10.0, 20.0])]);
+        let reference = Reference::new(100.0, Some("Target".into()), None);
+        let style = PlotStyle {
+            rules_apart: true,
+            references: vec![reference.clone()],
+            ..PlotStyle::new(ChartKind::Line)
+        };
+        let plot = draw(&values, AREA, &style);
+        assert!(plot.top_rules.len() > 10, "in dashes");
+        assert!(plot.labels.iter().any(|l| l.text == "Target"));
+
+        let fixed = PlotStyle { domain: Some((0.0, 50.0)), references: vec![reference], ..style };
+        let plot = draw(&values, AREA, &fixed);
+        assert!(plot.top_rules.is_empty(), "past the end of a fixed axis");
+        assert!(!plot.labels.iter().any(|l| l.text == "Target"));
     }
 
     #[test]

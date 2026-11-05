@@ -101,7 +101,7 @@ pub use card::{Card, GlassCard};
 #[cfg(feature = "charts")]
 pub use chart::{
     AreaChart, BarChart, Barcode, Chart, ChartCard, ChartCurve, ChartGrid, ChartIndicator, ChartKind,
-    ChartLabelAt, ChartLegend, ChartPolarGrid, ChartStack, ChartTooltip, Symbology,
+    ChartLabelAt, ChartLegend, ChartPolarGrid, ChartReference, ChartStack, ChartTooltip, Symbology,
 };
 pub use chat::{Chat, ChatAuthor, ChatMessage, FloatingCorner, FloatingPanel};
 pub use choice::{

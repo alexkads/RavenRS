@@ -772,3 +772,43 @@ fn the_room_for_the_axis_comes_from_the_real_width_of_its_numbers() {
     let wide = room(|_| "WWWW".to_owned()).expect("a gridline");
     assert!(wide > narrow + 10.0, "{narrow} and {wide}");
 }
+
+#[test]
+fn a_line_of_reference_is_drawn_over_the_data_and_says_what_it_is() {
+    let plain = chart_ui(bars());
+    let ui = chart_ui(bars().reference(ChartReference::new(5.0).label("Target").color(Semantic::Danger)));
+    assert!(glyph_runs(&ui) > glyph_runs(&plain));
+    let danger = Theme::raven_dark().color(Semantic::Danger);
+    let primitives = ui.scene().primitives();
+    let image = primitives.iter().position(|p| matches!(p, Primitive::Image(_))).expect("the picture");
+    let dashes = primitives[image..]
+        .iter()
+        .filter(|p| matches!(p, Primitive::Quad(q) if q.fill == danger.into() && q.rect.height() <= 1.0))
+        .count();
+    assert!(dashes > 10, "{dashes}");
+}
+
+#[test]
+fn a_fixed_domain_changes_the_picture_and_the_tooltip_keeps_the_real_value() {
+    let mut ui = chart_ui(bars().value_domain(2.0, 5.0));
+    let free = chart_ui(bars());
+    assert_ne!(images(&ui)[0].image.pixels(), images(&free)[0].image.pixels());
+    hover(&mut ui, 100.0, 100.0);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("A, First: 1, Second: 5"));
+}
+
+#[test]
+fn a_line_past_a_fixed_domain_is_cut_off_at_the_edge() {
+    let tall = Chart::new(ChartKind::Line)
+        .categories(["A", "B", "C"])
+        .series("S", [1.0, 100.0, 1.0])
+        .hide_legend()
+        .hide_category_axis();
+    let cut = chart_ui(tall.clone().curve(ChartCurve::Linear).value_domain(0.0, 10.0));
+    let image = images(&cut)[0].image.clone();
+    // The line would leave through the top on its way to 100; nothing goes past it.
+    let top_row = (0..image.width()).filter(|x| pixel(&image, *x, 0)[3] > 0).count();
+    assert_eq!(top_row, 0);
+    let any = image.pixels().chunks(4).any(|p| p[3] > 0);
+    assert!(any, "what is inside stays");
+}

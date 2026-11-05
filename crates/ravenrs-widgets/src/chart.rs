@@ -272,6 +272,18 @@ fn paint_rules(plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
     }
 }
 
+fn paint_top_rules(plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
+    for rule in &plot.top_rules {
+        let rect = Rect::new(
+            frame.x() + rule.rect.x(),
+            frame.y() + rule.rect.y(),
+            rule.rect.width(),
+            rule.rect.height(),
+        );
+        cx.scene.push_quad(Quad::new(snapped(rect, cx.scale), rule.color));
+    }
+}
+
 fn paint_strip(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
     if !highlight.strip {
         return;
@@ -420,6 +432,9 @@ fn plot_node(
             if let Some(highlight) = &highlight {
                 paint_focused_bars(highlight, &picture.drawing, frame, paint);
                 paint_lifted_slices(highlight, &picture.drawing, frame, paint);
+            }
+            paint_top_rules(&picture.drawing, frame, paint);
+            if let Some(highlight) = &highlight {
                 paint_highlight(highlight, &picture.drawing, frame, paint);
             }
             for (layout, at, color) in picture.labels.iter().chain(&picture.dot_icons) {
@@ -748,6 +763,43 @@ impl View for TooltipPanel {
     }
 }
 
+/// A dashed line across a [`Chart`] at a value that matters, such as a target.
+///
+/// ```
+/// use ravenrs_style::Semantic;
+/// use ravenrs_widgets::{Chart, ChartKind, ChartReference};
+///
+/// let chart = Chart::new(ChartKind::Bar)
+///     .categories(["Jan", "Feb"])
+///     .series("Sales", [12.0, 18.0])
+///     .reference(ChartReference::new(15.0).label("Target").color(Semantic::Danger));
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChartReference {
+    value: f64,
+    label: Option<String>,
+    color: Option<Semantic>,
+}
+
+impl ChartReference {
+    /// A line at this value, in the color of secondary text.
+    pub fn new(value: f64) -> Self {
+        Self { value, label: None, color: None }
+    }
+
+    /// What it says, at its end.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Its color.
+    pub fn color(mut self, color: Semantic) -> Self {
+        self.color = Some(color);
+        self
+    }
+}
+
 /// Where a [`Chart`]'s legend goes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
@@ -866,6 +918,8 @@ struct Look {
     tick_format: Option<TickFormat>,
     grid: ChartGrid,
     grid_dashed: bool,
+    domain: Option<(f64, f64)>,
+    references: Vec<ChartReference>,
     ends_aligned: bool,
     grid_columns: Option<usize>,
     value_ticks: Option<usize>,
@@ -903,6 +957,8 @@ impl Default for Look {
             tick_format: None,
             grid: ChartGrid::Horizontal,
             grid_dashed: false,
+            domain: None,
+            references: Vec::new(),
             ends_aligned: false,
             grid_columns: None,
             value_ticks: None,
@@ -1182,6 +1238,25 @@ impl Chart {
         self
     }
 
+    /// The value axis goes exactly from `min` to `max`, and what is past them is cut
+    /// off. Its numbers are the round ones in between. Not for expanded stacks.
+    pub fn value_domain(mut self, min: f64, max: f64) -> Self {
+        self.look.domain = Some((min, max));
+        self
+    }
+
+    /// A dashed line across the data at this value. The scale stretches to show it,
+    /// unless [`Self::value_domain`] fixed it.
+    pub fn reference_line(self, value: f64) -> Self {
+        self.reference(ChartReference::new(value))
+    }
+
+    /// A dashed line across the data with its own text or color.
+    pub fn reference(mut self, reference: ChartReference) -> Self {
+        self.look.references.push(reference);
+        self
+    }
+
     /// Leaves out the categories along the axis.
     pub fn hide_category_axis(mut self) -> Self {
         self.look.category_axis = false;
@@ -1395,6 +1470,12 @@ impl Chart {
         style.grid_lines = look.grid;
         style.grid_dashed = look.grid_dashed;
         style.ends_aligned = look.ends_aligned;
+        style.domain = look.domain;
+        style.references = look
+            .references
+            .iter()
+            .map(|r| plot::Reference::new(r.value, r.label.clone(), r.color.map(|role| theme.color(role))))
+            .collect();
         style.grid_columns = look.grid_columns;
         if let Some(ticks) = look.value_ticks {
             style.value_ticks = ticks;
