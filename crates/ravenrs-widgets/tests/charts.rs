@@ -733,3 +733,26 @@ fn less_motion_means_no_glide_and_no_fade() {
     at_time(&mut ui, 5.0);
     assert!(cursor_of(&ui).is_none(), "gone at once");
 }
+
+fn thin_lines(ui: &Ui) -> usize {
+    ui.scene()
+        .primitives()
+        .iter()
+        .filter(|p| matches!(p, Primitive::Quad(q) if q.rect.width() <= 1.0 || q.rect.height() <= 1.0))
+        .count()
+}
+
+#[test]
+fn the_grid_can_be_dashed_have_columns_and_more_steps() {
+    let plain = thin_lines(&chart_ui(line()));
+    assert!(plain > 0);
+    assert!(thin_lines(&chart_ui(line().grid_dashed())) > plain * 10);
+    assert_eq!(thin_lines(&chart_ui(line().grid_columns(4))), plain + 5);
+    assert!(thin_lines(&chart_ui(line().value_ticks(10))) > plain);
+}
+
+#[test]
+fn the_grid_has_a_token_of_its_own_that_follows_the_border() {
+    let theme = Theme::raven_light();
+    assert_eq!(theme.color(Semantic::ChartGrid), theme.color(Semantic::Border));
+}

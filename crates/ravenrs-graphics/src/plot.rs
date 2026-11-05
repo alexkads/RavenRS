@@ -170,6 +170,13 @@ pub struct PlotStyle {
     /// [`Plot::rules`], for a screen that can line them up with its pixels and fade
     /// the data without them. Pages leave this off and get everything in the layers.
     pub rules_apart: bool,
+    /// Gridlines in dashes.
+    pub grid_dashed: bool,
+    /// About how many steps the value axis has; round numbers decide how many exactly.
+    pub value_ticks: usize,
+    /// Upright gridlines evenly spread into this many columns, instead of at each
+    /// category or number, and whatever [`Self::grid_lines`] says of the others.
+    pub grid_columns: Option<usize>,
 }
 
 impl PlotStyle {
@@ -217,6 +224,9 @@ impl PlotStyle {
             tracks: false,
             center: None,
             rules_apart: false,
+            grid_dashed: false,
+            value_ticks: TICKS,
+            grid_columns: None,
         }
     }
 
@@ -399,6 +409,8 @@ const TICKS: usize = 4;
 /// Room on the sides of a line, so that dots and labels at its ends stay in.
 const LINE_MARGIN: f32 = 12.0;
 const TICK_MARGIN: f32 = 8.0;
+const GRID_DASH: f32 = 4.0;
+const GRID_DASH_GAP: f32 = 3.0;
 const BAR_GAP: f32 = 4.0;
 /// The share of a category left between its bars and the next category's.
 const CATEGORY_GAP: f32 = 0.2;
@@ -628,10 +640,33 @@ fn stacked(data: &ChartData, stack: Stack) -> Vec<Vec<(f64, f64)>> {
 
 /// A gridline, wherever this chart wants them.
 fn push_rule(plot: &mut Plot, style: &PlotStyle, rect: Rect, color: Color) {
-    if style.rules_apart {
-        plot.rules.push(Rule { rect, color });
-    } else {
-        plot.layers.push(fill(vector::rectangle(rect, 0.0), color));
+    let mut push = |rect: Rect| {
+        if style.rules_apart {
+            plot.rules.push(Rule { rect, color });
+        } else {
+            plot.layers.push(fill(vector::rectangle(rect, 0.0), color));
+        }
+    };
+    if !style.grid_dashed {
+        push(rect);
+        return;
+    }
+    each_dash(rect, &mut push);
+}
+
+/// The dashes of a thin line, the last one cut short by its end.
+fn each_dash(rect: Rect, push: &mut dyn FnMut(Rect)) {
+    let upright = rect.height() > rect.width();
+    let length = if upright { rect.height() } else { rect.width() };
+    let mut from = 0.0;
+    while from < length {
+        let dash = GRID_DASH.min(length - from);
+        push(if upright {
+            Rect::new(rect.x(), rect.y() + from, rect.width(), dash)
+        } else {
+            Rect::new(rect.x() + from, rect.y(), dash, rect.height())
+        });
+        from += GRID_DASH + GRID_DASH_GAP;
     }
 }
 
@@ -680,7 +715,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
         min = min.min(0.0);
         max = max.max(0.0);
     }
-    let (low, step, ticks) = nice_ticks(min, max, TICKS);
+    let (low, step, ticks) = nice_ticks(min, max, style.value_ticks.max(1));
     let mut high = low + step * ticks.saturating_sub(1) as f64;
     if style.stack == Stack::Expand {
         high = 1.0;
@@ -744,16 +779,24 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
 
     // The grid.
     let grid = with_alpha(style.grid, style.grid.a * 0.8);
+    // Evenly spread columns take the place of whatever lines stand upright.
+    let columns = style.grid_columns.filter(|n| *n > 0);
     let value_lines = if horizontal {
-        matches!(style.grid_lines, Grid::Vertical | Grid::Both)
+        columns.is_none() && matches!(style.grid_lines, Grid::Vertical | Grid::Both)
     } else {
         matches!(style.grid_lines, Grid::Horizontal | Grid::Both)
     };
     let category_lines = if horizontal {
         matches!(style.grid_lines, Grid::Horizontal | Grid::Both)
     } else {
-        matches!(style.grid_lines, Grid::Vertical | Grid::Both)
+        columns.is_none() && matches!(style.grid_lines, Grid::Vertical | Grid::Both)
     };
+    if let Some(columns) = columns {
+        for i in 0..=columns {
+            let at = area.x() + area.width() * i as f32 / columns as f32;
+            push_rule(plot, style, Rect::new(at - 0.5, area.y(), 1.0, area.height()), grid);
+        }
+    }
     let along_size = if horizontal { area.height() } else { area.width() };
     let along_start = if horizontal { area.y() } else { area.x() };
     let band = along_size / count as f32;
@@ -1418,6 +1461,32 @@ mod tests {
 
     fn rects_of(plot: &Plot) -> usize {
         plot.layers.iter().filter(|l| matches!(l, Layer::Shape(s) if s.fill.is_some())).count()
+    }
+
+    #[test]
+    fn a_dashed_grid_has_gaps_and_keeps_to_the_area() {
+        let data = data(&[("A", &[1.0, 2.0])]);
+        let solid = PlotStyle { rules_apart: true, ..PlotStyle::new(ChartKind::Bar) };
+        let solid_count = draw(&data, AREA, &solid).rules.len();
+        let dashed = PlotStyle { rules_apart: true, grid_dashed: true, ..PlotStyle::new(ChartKind::Bar) };
+        let plot = draw(&data, AREA, &dashed);
+        assert!(plot.rules.len() > solid_count * 10);
+        assert!(plot.rules.iter().all(|r| r.rect.max_x() <= plot.area.max_x() + 0.01));
+    }
+
+    #[test]
+    fn the_axis_can_have_more_steps_and_the_grid_its_own_columns() {
+        let data = data(&[("A", &[10.0, 100.0])]);
+        let rules = |style: PlotStyle| {
+            let style = PlotStyle { rules_apart: true, ..style };
+            draw(&data, AREA, &style).rules
+        };
+        let few = rules(PlotStyle::new(ChartKind::Line));
+        let many = rules(PlotStyle { value_ticks: 10, ..PlotStyle::new(ChartKind::Line) });
+        assert!(many.len() > few.len(), "{} {}", many.len(), few.len());
+        let columns = rules(PlotStyle { grid_columns: Some(5), ..PlotStyle::new(ChartKind::Line) });
+        let upright = columns.iter().filter(|r| r.rect.height() > r.rect.width()).count();
+        assert_eq!(upright, 6, "the ends of five columns");
     }
 
     #[test]

@@ -841,6 +841,9 @@ struct Look {
     category_labels: Option<ChartLabelAt>,
     tick_format: Option<TickFormat>,
     grid: ChartGrid,
+    grid_dashed: bool,
+    grid_columns: Option<usize>,
+    value_ticks: Option<usize>,
     category_axis: bool,
     value_axis: bool,
     tight_scale: bool,
@@ -874,6 +877,9 @@ impl Default for Look {
             category_labels: None,
             tick_format: None,
             grid: ChartGrid::Horizontal,
+            grid_dashed: false,
+            grid_columns: None,
+            value_ticks: None,
             category_axis: true,
             value_axis: false,
             tight_scale: false,
@@ -1122,6 +1128,26 @@ impl Chart {
         self
     }
 
+    /// Draws the gridlines in dashes.
+    pub fn grid_dashed(mut self) -> Self {
+        self.look.grid_dashed = true;
+        self
+    }
+
+    /// Upright gridlines evenly spread into this many columns, instead of one at each
+    /// category or number.
+    pub fn grid_columns(mut self, columns: usize) -> Self {
+        self.look.grid_columns = Some(columns);
+        self
+    }
+
+    /// About how many steps the value axis has (4 by default). Round numbers decide
+    /// how many exactly.
+    pub fn value_ticks(mut self, ticks: usize) -> Self {
+        self.look.value_ticks = Some(ticks);
+        self
+    }
+
     /// Leaves out the categories along the axis.
     pub fn hide_category_axis(mut self) -> Self {
         self.look.category_axis = false;
@@ -1308,7 +1334,7 @@ impl Chart {
         }
         style.ink = theme.color(Semantic::Ink);
         style.muted = theme.color(Semantic::InkMuted);
-        style.grid = theme.color(Semantic::Border);
+        style.grid = theme.color(Semantic::ChartGrid);
         style.surface = theme.color(Semantic::SurfaceElevated);
         style.track = theme.color(Semantic::Control);
         style.size = theme.text(TextStyle::Caption).size;
@@ -1333,6 +1359,11 @@ impl Chart {
             style.tick_format = Rc::new(move |text| format(text));
         }
         style.grid_lines = look.grid;
+        style.grid_dashed = look.grid_dashed;
+        style.grid_columns = look.grid_columns;
+        if let Some(ticks) = look.value_ticks {
+            style.value_ticks = ticks;
+        }
         style.category_axis = look.category_axis;
         style.value_axis = look.value_axis;
         style.tight_scale = look.tight_scale;
