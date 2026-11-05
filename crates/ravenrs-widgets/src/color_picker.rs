@@ -33,15 +33,15 @@ const HUES: [Color; 7] = [
 /// A color as people think of it. A gray keeps its hue, so moving through one
 /// does not throw the choice back to red.
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct Hsv {
+pub(crate) struct Hsv {
     /// 0 to 360.
-    hue: f32,
+    pub(crate) hue: f32,
     /// 0 to 1.
-    saturation: f32,
+    pub(crate) saturation: f32,
     /// 0 to 1.
-    value: f32,
+    pub(crate) value: f32,
     /// 0 to 1.
-    alpha: f32,
+    pub(crate) alpha: f32,
 }
 
 impl Hsv {
@@ -62,7 +62,7 @@ impl Hsv {
         Self { hue, saturation, value: top, alpha: color.a }
     }
 
-    fn color(self) -> Color {
+    pub(crate) fn color(self) -> Color {
         let chroma = self.value * self.saturation;
         let part = self.hue.rem_euclid(360.0) / 60.0;
         let second = chroma * (1.0 - (part.rem_euclid(2.0) - 1.0).abs());

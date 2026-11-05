@@ -1896,6 +1896,7 @@ impl Gallery {
             ),
             sample_demos(&[
                 // imaging widgets
+                ("ColorWheel", "Hue and saturation on a disc, by a drag or the arrow keys."),
                 ("Ruler", "A ruler in your units, with a round step for any zoom."),
                 ("Histogram", "Overlapping channels from ready-made bins, with marks when an end clips."),
             ]),

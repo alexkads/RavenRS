@@ -155,7 +155,7 @@ pub use icon_set::IconName;
 #[cfg(feature = "decode")]
 pub use image::decode_image;
 pub use image::{ContentMode, DecodeError, Image};
-pub use imaging::{Histogram, HistogramChannel, HistogramScale, Ruler};
+pub use imaging::{ColorWheel, Histogram, HistogramChannel, HistogramScale, HueSaturation, Ruler};
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};
 pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};

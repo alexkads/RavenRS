@@ -2,14 +2,20 @@
 //! wheels, zoom and pan. None of them knows photos, engines or file formats: every number
 //! comes from whoever uses them.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
-use ravenrs_core::{Color, PathElement, PathFill, Point, Quad, Rect, Role, Scene};
+use ravenrs_core::{
+    Color, CursorIcon, ImageData, ImageQuad, Key, PathElement, PathFill, Point, Quad, Rect, Role, Scene,
+};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
+use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle};
 
 use crate::View;
-use crate::context::{BuildCx, NodeId, Paint, PaintCx, Semantics};
+use crate::color_picker::Hsv;
+use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
 use crate::util;
 
 // ---------------------------------------------------------------------------------------------
@@ -610,6 +616,228 @@ impl View for Ruler {
             semantics = semantics.value(ruler_number(marker, step));
         }
         cx.semantics(node, semantics);
+        node
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// ColorWheel
+// ---------------------------------------------------------------------------------------------
+
+/// A color as a [`ColorWheel`] holds it, without brightness.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct HueSaturation {
+    /// Degrees, from 0 up to 360. Red is 0.
+    pub hue: f32,
+    /// From 0 (gray, at the center of the wheel) to 1 (pure, at its edge).
+    pub saturation: f32,
+}
+
+impl HueSaturation {
+    /// A hue in degrees and a saturation from 0 to 1, brought within range.
+    pub fn new(hue: f32, saturation: f32) -> Self {
+        Self { hue: hue.rem_euclid(360.0), saturation: saturation.clamp(0.0, 1.0) }
+    }
+
+    /// The color this is, at this brightness.
+    fn color(self, value: f32) -> Color {
+        Hsv { hue: self.hue, saturation: self.saturation, value, alpha: 1.0 }.color()
+    }
+
+    /// Where this color sits, relative to the center of a wheel of this radius: red to the
+    /// right and hue growing counterclockwise, as color tools lay it out.
+    fn offset(self, radius: f32) -> Point {
+        let (sin, cos) = self.hue.to_radians().sin_cos();
+        Point::new(cos * self.saturation * radius, -sin * self.saturation * radius)
+    }
+
+    /// The color at an offset from the center of a wheel of this radius. Beyond the edge it
+    /// is the edge, so a drag keeps working outside the disc.
+    fn at(offset: Point, radius: f32) -> Self {
+        let distance = offset.x.hypot(offset.y);
+        let hue = (-offset.y).atan2(offset.x).to_degrees();
+        Self::new(hue, distance / radius.max(1.0))
+    }
+}
+
+/// Room around the disc, in logical pixels, for the puck at the edge.
+const WHEEL_MARGIN: f32 = 7.0;
+
+thread_local! {
+    /// Discs already computed, by side in pixels and brightness. A panel with four wheels
+    /// shares one, and a drag repaints none. The few sizes in use stay few.
+    static WHEEL_DISCS: RefCell<HashMap<(u32, u32), ImageData>> = RefCell::new(HashMap::new());
+}
+
+/// The disc of colors, `side` pixels wide, with an antialiased edge. Costly to compute and
+/// cheap to show, since it is a texture from then on.
+fn wheel_disc(side: u32, value: f32) -> Option<ImageData> {
+    WHEEL_DISCS.with_borrow_mut(|discs| {
+        let key = (side, value.to_bits());
+        if let Some(disc) = discs.get(&key) {
+            return Some(disc.clone());
+        }
+        if discs.len() >= 8 {
+            discs.clear();
+        }
+        let middle = side as f32 / 2.0;
+        let disc = ImageData::from_fn(side, side, |x, y| {
+            let offset = Point::new(x as f32 + 0.5 - middle, y as f32 + 0.5 - middle);
+            let coverage = (middle - offset.x.hypot(offset.y)).clamp(0.0, 1.0);
+            HueSaturation::at(offset, middle).color(value).with_alpha(coverage)
+        })?;
+        discs.insert(key, disc.clone());
+        Some(disc)
+    })
+}
+
+/// Picks hue and saturation on a disc, by a drag or the arrow keys: left and right turn the
+/// hue, up and down change the saturation, with Shift for bigger steps. Holding Shift during
+/// a drag keeps the hue. A double click or Home takes the color out, keeping the hue.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{ColorWheel, HueSaturation};
+///
+/// let tint = State::new(HueSaturation::new(30.0, 0.4));
+/// let wheel = ColorWheel::new(tint.binding()).diameter(140.0).label("Shadows");
+/// ```
+#[derive(Debug)]
+pub struct ColorWheel {
+    value: Binding<HueSaturation>,
+    diameter: f32,
+    brightness: f32,
+    label: Option<String>,
+    disabled: bool,
+}
+
+impl ColorWheel {
+    /// A wheel bound to `value`, 160 logical pixels wide.
+    pub fn new(value: Binding<HueSaturation>) -> Self {
+        Self { value, diameter: 160.0, brightness: 1.0, label: None, disabled: false }
+    }
+
+    /// Width and height in logical pixels.
+    pub fn diameter(mut self, diameter: f32) -> Self {
+        self.diameter = diameter;
+        self
+    }
+
+    /// How bright the disc is drawn, from 0 to 1 (1 by default). It changes only the look.
+    pub fn brightness(mut self, brightness: f32) -> Self {
+        // Few levels, since each one is a texture.
+        self.brightness = (brightness.clamp(0.0, 1.0) * 16.0).round() / 16.0;
+        self
+    }
+
+    /// The name screen readers announce, instead of the one in [`Labels`](crate::Labels).
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Turns the control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+}
+
+impl View for ColorWheel {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let current = self.value.get();
+        let (edge, ink, surface) =
+            (theme.color(Semantic::Border), theme.color(Semantic::Ink), theme.color(Semantic::Surface));
+        let (value, opacity) = (self.brightness, if self.disabled { 0.5 } else { 1.0 });
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(self.diameter),
+                height: Some(self.diameter),
+                align_self: Some(Align::Start),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            Paint::Rich(Rc::new(move |frame: Rect, paint: &mut PaintCx<'_>| {
+                let disc_frame = frame.inflate(-WHEEL_MARGIN);
+                if disc_frame.is_empty() {
+                    return;
+                }
+                let side = (disc_frame.width() * paint.scale).ceil() as u32;
+                let scene = &mut *paint.scene;
+                if let Some(disc) = wheel_disc(side, value) {
+                    scene.push_image(ImageQuad { opacity, ..ImageQuad::new(disc_frame, disc) });
+                }
+                let radius = disc_frame.width() / 2.0;
+                let ring = Quad::new(disc_frame.inflate(0.5), Color::TRANSPARENT).radius(radius + 0.5);
+                scene.push_quad(ring.border(1.0, edge));
+                let middle = frame.center();
+                let tick = |w: f32, h: f32| Rect::new(middle.x - w / 2.0, middle.y - h / 2.0, w, h);
+                // A darker gray of the disc itself, since the center is the same in any theme.
+                let cross = HueSaturation::default().color(value * 0.45).with_alpha(opacity);
+                scene.push_quad(Quad::new(tick(9.0, 1.0), cross));
+                scene.push_quad(Quad::new(tick(1.0, 9.0), cross));
+                // Two rings, one of each kind of contrast, so the puck shows over any color.
+                let offset = current.offset(radius);
+                let puck = Rect::new(middle.x + offset.x - 6.5, middle.y + offset.y - 6.5, 13.0, 13.0);
+                scene.push_quad(
+                    Quad::new(puck, current.color(value).with_alpha(opacity))
+                        .radius(6.5)
+                        .border(2.0, surface),
+                );
+                scene
+                    .push_quad(Quad::new(puck.inflate(1.0), Color::TRANSPARENT).radius(7.5).border(1.0, ink));
+            })),
+        );
+        let name = self.label.clone().unwrap_or_else(|| labels.color_wheel.clone());
+        let text = format!(
+            "{} {}°, {} {}%",
+            labels.color_hue,
+            current.hue.round(),
+            labels.color_saturation,
+            (current.saturation * 100.0).round()
+        );
+        cx.semantics(node, Semantics::new(Role::Slider).name(name).value(text).disabled(self.disabled));
+        if self.disabled {
+            return node;
+        }
+        cx.focusable(node, self.diameter / 2.0);
+        cx.cursor(node, CursorIcon::Pointer);
+        let (dragged, modifiers) = (self.value.clone(), cx.modifiers());
+        cx.on_drag(
+            node,
+            Rc::new(move |d| {
+                if d.phase == DragPhase::End {
+                    return;
+                }
+                let middle = d.frame.center();
+                let radius = (d.frame.width() / 2.0 - WHEEL_MARGIN).max(1.0);
+                let offset = Point::new(d.position.x - middle.x, d.position.y - middle.y);
+                let picked = HueSaturation::at(offset, radius);
+                let hue = if modifiers.get().shift { dragged.get().hue } else { picked.hue };
+                dragged.set(HueSaturation::new(hue, picked.saturation));
+            }),
+        );
+        let reset = self.value.clone();
+        cx.on_double_click(node, Rc::new(move || reset.update(|v| v.saturation = 0.0)));
+        let keyed = self.value.clone();
+        cx.on_key(
+            node,
+            Rc::new(move |key, modifiers| {
+                let times = if modifiers.shift { 10.0 } else { 1.0 };
+                let now = keyed.get();
+                keyed.set(match key {
+                    Key::ArrowLeft => HueSaturation::new(now.hue - times, now.saturation),
+                    Key::ArrowRight => HueSaturation::new(now.hue + times, now.saturation),
+                    Key::ArrowUp => HueSaturation::new(now.hue, now.saturation + times / 100.0),
+                    Key::ArrowDown => HueSaturation::new(now.hue, now.saturation - times / 100.0),
+                    Key::Home => HueSaturation::new(now.hue, 0.0),
+                    _ => return false,
+                });
+                true
+            }),
+        );
         node
     }
 }

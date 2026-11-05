@@ -375,6 +375,10 @@ pub struct Labels {
     pub histogram_clipped_high: String,
     /// A [`Ruler`](crate::Ruler)'s name.
     pub ruler: String,
+    /// A [`ColorWheel`](crate::ColorWheel)'s name.
+    pub color_wheel: String,
+    /// The distance from gray on a [`ColorWheel`](crate::ColorWheel).
+    pub color_saturation: String,
     /// A recurrence editor's name.
     pub recurrence_name: String,
     /// Once, daily, weekly, monthly and yearly, as an editor offers them.
@@ -794,6 +798,8 @@ impl Default for Labels {
             histogram_clipped_low: "Shadows clipped".into(),
             histogram_clipped_high: "Highlights clipped".into(),
             ruler: "Ruler".into(),
+            color_wheel: "Color wheel".into(),
+            color_saturation: "Saturation".into(),
             recurrence_name: "Repeats".into(),
             recurrence_frequencies: owned(["Once", "Daily", "Weekly", "Monthly", "Yearly"]),
             recurrence_every: "Every".into(),
@@ -1111,6 +1117,8 @@ impl Labels {
             histogram_clipped_low: "Sombras recortadas".into(),
             histogram_clipped_high: "Realces recortados".into(),
             ruler: "Régua".into(),
+            color_wheel: "Roda de cores".into(),
+            color_saturation: "Saturação".into(),
             recurrence_name: "Repetição".into(),
             recurrence_frequencies: owned(["Uma vez", "Diária", "Semanal", "Mensal", "Anual"]),
             recurrence_every: "A cada".into(),

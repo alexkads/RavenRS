@@ -1,7 +1,10 @@
 //! The instruments for pictures: each test fails if its feature is removed.
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "test helpers fail loudly")]
 
-use ravenrs_core::{Color, Primitive, Rect, Role, Size};
+use ravenrs_core::{
+    Color, Event, ImageData, Key, Modifiers, Point, PointerButton, Primitive, Rect, Role, Size,
+};
+use ravenrs_reactive::State;
 use ravenrs_style::Theme;
 use ravenrs_widgets::*;
 
@@ -34,6 +37,55 @@ fn paths(ui: &Ui) -> usize {
 fn glyph_runs(ui: &Ui) -> usize {
     ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Glyphs(_))).count()
 }
+
+fn press(ui: &mut Ui, key: Key, modifiers: Modifiers) {
+    ui.handle_event(&Event::KeyDown { key, modifiers });
+    ui.update();
+    ui.update();
+}
+
+fn down(ui: &mut Ui, at: Point) {
+    ui.handle_event(&Event::PointerMove { position: at });
+    ui.handle_event(&Event::PointerDown { position: at, button: PointerButton::Primary });
+    ui.update();
+}
+
+fn drag_to(ui: &mut Ui, at: Point) {
+    ui.handle_event(&Event::PointerMove { position: at });
+    ui.update();
+}
+
+fn up(ui: &mut Ui, at: Point) {
+    ui.handle_event(&Event::PointerUp { position: at, button: PointerButton::Primary });
+    ui.update();
+    ui.update();
+}
+
+fn click(ui: &mut Ui, at: Point) {
+    down(ui, at);
+    up(ui, at);
+}
+
+fn double_click(ui: &mut Ui, at: Point) {
+    click(ui, at);
+    ui.handle_event(&Event::DoubleClick { position: at });
+    ui.update();
+    ui.update();
+}
+
+fn images(ui: &Ui) -> Vec<(Rect, ImageData)> {
+    ui.scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| match p {
+            Primitive::Image(i) => Some((i.rect, i.image.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+const PLAIN: Modifiers = Modifiers { shift: false, ctrl: false, alt: false, meta: false };
+const SHIFT: Modifiers = Modifiers { shift: true, ctrl: false, alt: false, meta: false };
 
 // ------------------------------------------------------------------------------- Histogram
 
@@ -162,4 +214,104 @@ fn vertical_ruler_stacks_digits_and_says_its_marker() {
     let node = tree.nodes.iter().find(|n| n.role == Role::Image).unwrap();
     assert_eq!(node.name.as_deref(), Some("Ruler"));
     assert_eq!(node.value.as_deref(), Some("150"));
+}
+
+// ------------------------------------------------------------------------------ ColorWheel
+
+fn near(a: f32, b: f32) -> bool {
+    (a - b).abs() < 0.6
+}
+
+/// A 214 wide wheel at the top left: its disc has a radius of 100, around (107, 107).
+fn wheel(start: HueSaturation) -> (Ui, State<HueSaturation>) {
+    let value = State::new(start);
+    let ui = ui(ColorWheel::new(value.binding()).diameter(214.0));
+    (ui, value)
+}
+
+#[test]
+fn wheel_puts_red_right_and_hue_counterclockwise() {
+    let (mut ui, value) = wheel(HueSaturation::default());
+    click(&mut ui, Point::new(157.0, 107.0));
+    assert!(near(value.get().hue, 0.0) && (value.get().saturation - 0.5).abs() < 0.01, "{:?}", value.get());
+    click(&mut ui, Point::new(107.0, 57.0));
+    assert!(near(value.get().hue, 90.0), "up is 90 degrees: {:?}", value.get());
+}
+
+#[test]
+fn wheel_drag_past_the_edge_stays_at_the_edge_and_shift_keeps_the_hue() {
+    let (mut ui, value) = wheel(HueSaturation::default());
+    down(&mut ui, Point::new(157.0, 107.0));
+    drag_to(&mut ui, Point::new(600.0, 107.0));
+    assert_eq!(value.get().saturation, 1.0);
+    up(&mut ui, Point::new(600.0, 107.0));
+
+    let (mut ui, value) = wheel(HueSaturation::new(40.0, 0.2));
+    ui.handle_event(&Event::KeyDown { key: Key::Other("Shift".into()), modifiers: SHIFT });
+    down(&mut ui, Point::new(107.0, 157.0));
+    assert!(near(value.get().hue, 40.0), "{:?}", value.get());
+    assert!((value.get().saturation - 0.5).abs() < 0.01, "{:?}", value.get());
+}
+
+#[test]
+fn wheel_keys_turn_hue_and_change_saturation() {
+    let (mut ui, value) = wheel(HueSaturation::new(359.5, 0.5));
+    ui.handle_event(&Event::KeyDown { key: Key::Tab, modifiers: PLAIN });
+    ui.update();
+    press(&mut ui, Key::ArrowRight, PLAIN);
+    assert!(near(value.get().hue, 0.5), "hue wraps around: {:?}", value.get());
+    press(&mut ui, Key::ArrowLeft, SHIFT);
+    assert!(near(value.get().hue, 350.5), "{:?}", value.get());
+    press(&mut ui, Key::ArrowUp, PLAIN);
+    assert!((value.get().saturation - 0.51).abs() < 0.001);
+    press(&mut ui, Key::ArrowDown, SHIFT);
+    assert!((value.get().saturation - 0.41).abs() < 0.001);
+    press(&mut ui, Key::Home, PLAIN);
+    assert_eq!(value.get().saturation, 0.0);
+    assert!(near(value.get().hue, 350.5), "taking the color out keeps the hue");
+}
+
+#[test]
+fn wheel_double_click_takes_the_color_out() {
+    let (mut ui, value) = wheel(HueSaturation::new(10.0, 0.5));
+    double_click(&mut ui, Point::new(107.0, 57.0));
+    assert_eq!(value.get().saturation, 0.0);
+}
+
+#[test]
+fn wheel_shares_one_disc_across_wheels_and_rebuilds() {
+    let value = State::new(HueSaturation::new(0.0, 0.5));
+    let view = HStack::new((
+        ColorWheel::new(value.binding()).diameter(120.0),
+        ColorWheel::new(value.binding()).diameter(120.0),
+    ));
+    let mut ui = ui(view);
+    let before = images(&ui);
+    assert_eq!(before.len(), 2);
+    assert_eq!(before[0].1, before[1].1, "same texture for the same size");
+    value.set(HueSaturation::new(200.0, 0.9));
+    ui.update();
+    assert_eq!(images(&ui)[0].1, before[0].1, "a new color computes no new disc");
+    // The disc shows the colors: red to the right, cyan to the left, clear in the corner.
+    let disc = &before[0].1;
+    let (side, pixels) = (disc.width() as usize, disc.pixels());
+    let at = |x: usize, y: usize| &pixels[(y * side + x) * 4..(y * side + x) * 4 + 4];
+    let right = at(side - 3, side / 2);
+    assert!(right[0] > 240 && right[1] < 30, "{right:?}");
+    let left = at(2, side / 2);
+    assert!(left[0] < 30 && left[2] > 200, "{left:?}");
+    assert_eq!(at(0, 0)[3], 0);
+}
+
+#[test]
+fn wheel_says_its_value_and_can_be_turned_off() {
+    let (mut live, _) = wheel(HueSaturation::new(120.0, 0.25));
+    let tree = live.access_tree();
+    let node = tree.find(Role::Slider, "Color wheel").unwrap();
+    assert_eq!(node.value.as_deref(), Some("Hue 120°, Saturation 25%"));
+
+    let value = State::new(HueSaturation::new(10.0, 0.5));
+    let mut off = ui(ColorWheel::new(value.binding()).diameter(214.0).disabled(true));
+    click(&mut off, Point::new(157.0, 107.0));
+    assert_eq!(value.get(), HueSaturation::new(10.0, 0.5));
 }

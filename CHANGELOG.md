@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ColorWheel`: hue and saturation on a disc, by a drag or the arrow keys, with Shift to keep the hue and a double click to take the color out. The disc is computed once per size and shared.
 - `Ruler`: horizontal or vertical, in the units of the caller, with scale, origin and marker, and a round step that keeps marks apart at any zoom.
 - `Histogram`: overlapping channels from ready-made bins, whose colors add up as light does, in a linear or logarithmic scale, with a mark at each end that clips.
 - `DropZone`: a dashed area around any content that takes dropped files, by the same rules as `FileUpload`, and says when files are over the window with a stronger edge and words. `choosable` lets the keyboard bring files through the system's chooser, and `quiet` keeps the dashes off until then.

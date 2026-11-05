@@ -58,6 +58,7 @@ samples! {
     "FavoriteToggle" => favorite_toggle, "SwatchGrid" => swatch_grid, "NinePointAnchor" => nine_point_anchor, "ColorPair" => color_pair,
     "Histogram" => histogram,
     "Ruler" => ruler,
+    "ColorWheel" => color_wheel,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1669,6 +1670,20 @@ fn ruler() -> impl View {
     ))
     .spacing(8.0)
     .align(Align::Stretch)
+}
+// end
+
+// sample: ColorWheel, 180
+fn color_wheel() -> impl View {
+    let tint = State::new(HueSaturation::new(30.0, 0.4));
+    let shown = tint.clone();
+    HStack::new((
+        ColorWheel::new(tint.binding()).diameter(160.0).label("Shadows"),
+        Text::bound(&shown, |v| format!("{:.0}°, {:.0}%", v.hue, v.saturation * 100.0))
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
+    ))
+    .spacing(16.0)
 }
 // end
 
