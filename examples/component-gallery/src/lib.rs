@@ -762,6 +762,13 @@ impl Gallery {
                         samples::sample("Wizard"),
                     ),
                     demo(
+                        "Where the steps stand",
+                        "The same marks for an app that lays out its own steps, with one that has a problem.",
+                        VStack::new((samples::sample("StepIndicator"), samples::sample("StepBadge")))
+                            .spacing(16.0)
+                            .align(Align::Stretch),
+                    ),
+                    demo(
                         "Files",
                         "From the system's chooser or dropped on the place, refused with a reason when they do not fit.",
                         VStack::new((samples::sample("FileUpload"), samples::sample("ImageField")))

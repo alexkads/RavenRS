@@ -453,3 +453,197 @@ fn a_submenu_opens_on_the_left_at_the_edge_of_the_window() {
     let tree = room.access_tree();
     assert!(named(&tree, Role::MenuItem, "As PDF").bounds.x() >= export.max_x(), "right when it fits");
 }
+
+#[test]
+fn a_wizard_step_marked_failed_says_so_and_can_still_be_reopened() {
+    let step = State::new(1);
+    let mut ui = ui(Wizard::new(
+        step.binding(),
+        vec![
+            WizardStep::new("Client", Text::new("One")).failed(true),
+            WizardStep::new("Photos", Text::new("Two")),
+            WizardStep::new("Send", Text::new("Three")).failed(true),
+        ],
+    ));
+    let tree = ui.access_tree();
+    assert_eq!(named(&tree, Role::Button, "Client").description.as_deref(), Some("Needs attention"));
+    let later = named(&tree, Role::ListItem, "Send");
+    assert_eq!(later.description.as_deref(), Some("Needs attention"), "ahead of the current one too");
+    assert_eq!(named(&tree, Role::ListItem, "Photos").selected, Some(true));
+    click_node(&mut ui, Role::Button, "Client");
+    assert_eq!(step.get(), 0);
+}
+
+#[test]
+fn a_step_indicator_shows_each_state_and_goes_to_a_step_when_asked() {
+    let went = Rc::new(Cell::new(usize::MAX));
+    let log = went.clone();
+    let steps = || {
+        vec![
+            IndicatorStep::new("Client", StepState::Done),
+            IndicatorStep::new("Photos", StepState::Error).note("Two are missing"),
+            IndicatorStep::new("Review", StepState::Current),
+        ]
+    };
+    let mut ui = self::ui(StepIndicator::new(steps()).vertical().on_select(move |i| log.set(i)));
+    let tree = ui.access_tree();
+    assert_eq!(
+        tree.nodes.iter().find(|n| n.role == Role::List).unwrap().name.as_deref(),
+        Some("Step 3 of 3")
+    );
+    assert_eq!(named(&tree, Role::Button, "Client").description.as_deref(), Some("Done"));
+    assert_eq!(
+        named(&tree, Role::Button, "Photos").description.as_deref(),
+        Some("Two are missing, Needs attention"),
+    );
+    assert_eq!(named(&tree, Role::Button, "Review").selected, Some(true));
+    let (client, photos) =
+        (named(&tree, Role::Button, "Client").bounds, named(&tree, Role::Button, "Photos").bounds);
+    assert!(photos.y() >= client.max_y(), "one under the other");
+    click_node(&mut ui, Role::Button, "Photos");
+    assert_eq!(went.get(), 1);
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::Enter);
+    assert_eq!(went.get(), 2, "the keyboard goes too");
+
+    let mut still = self::ui(StepIndicator::new(steps()));
+    let tree = still.access_tree();
+    assert!(tree.find(Role::Button, "Client").is_none(), "only buttons when they lead somewhere");
+    let (client, photos) =
+        (named(&tree, Role::ListItem, "Client").bounds, named(&tree, Role::ListItem, "Photos").bounds);
+    assert!(photos.x() >= client.max_x(), "a row by default");
+}
+
+#[test]
+fn a_step_badge_differs_by_more_than_color() {
+    let glyphs = |state| {
+        let ui = ui(StepBadge::new(2).state(state));
+        ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Glyphs(_))).count()
+    };
+    let mut done = ui(StepBadge::new(2).state(StepState::Done));
+    let tree = done.access_tree();
+    assert_eq!(named(&tree, Role::Image, "2").description.as_deref(), Some("Done"));
+    assert!(glyphs(StepState::Upcoming) >= 1);
+    let border = |state| quads(&ui(StepBadge::new(2).state(state))).iter().any(|q| q.border.is_some());
+    assert!(border(StepState::Error), "a ring");
+    assert!(!border(StepState::Done));
+}
+
+fn rail(tool: &State<usize>) -> ToolRail {
+    ToolRail::new(tool.binding(), [(IconName::Pencil, "Brush")])
+        .separator()
+        .tool(
+            ToolRailItem::new(IconName::Square, "Rectangle")
+                .shortcut("M")
+                .variant(IconName::Circle, "Ellipse")
+                .variant(IconName::Star, "Star"),
+        )
+        .tool(ToolRailItem::new(IconName::Type, "Text"))
+}
+
+fn button_at(ui: &mut Ui, name: &str) -> Point {
+    let tree = ui.access_tree();
+    named(&tree, Role::Button, name).bounds.center()
+}
+
+#[test]
+fn the_tools_of_a_rail_are_counted_with_their_variants() {
+    let tool = State::new(0);
+    let mut ui = ui(rail(&tool));
+    click_node(&mut ui, Role::Button, "Rectangle");
+    assert_eq!(tool.get(), 1);
+    click_node(&mut ui, Role::Button, "Text");
+    assert_eq!(tool.get(), 4, "after the variants");
+    tool.set(3);
+    ui.update();
+    let tree = ui.access_tree();
+    assert_eq!(named(&tree, Role::Button, "Star").selected, Some(true), "the place shows the one in use");
+    assert!(tree.find(Role::Button, "Rectangle").is_none());
+}
+
+#[test]
+fn a_right_click_opens_the_variants_and_the_place_remembers_the_last_used() {
+    let tool = State::new(0);
+    let mut ui = ui(rail(&tool));
+    let at = button_at(&mut ui, "Rectangle");
+    ui.handle_event(&Event::PointerMove { position: at });
+    ui.handle_event(&Event::PointerDown { position: at, button: PointerButton::Secondary });
+    ui.handle_event(&Event::PointerUp { position: at, button: PointerButton::Secondary });
+    ui.update();
+    let tree = ui.access_tree();
+    assert_eq!(named(&tree, Role::MenuItem, "Rectangle").description.as_deref(), Some("M"));
+    assert_eq!(named(&tree, Role::Button, "Rectangle").expanded, Some(true));
+    assert_eq!(tool.get(), 0, "opening it chooses nothing");
+    click_node(&mut ui, Role::MenuItem, "Ellipse");
+    assert_eq!(tool.get(), 2);
+    ui.update();
+    click_node(&mut ui, Role::Button, "Brush");
+    assert_eq!(tool.get(), 0);
+    ui.update();
+    assert!(button_at(&mut ui, "Ellipse").y > 0.0, "the place still shows the variant");
+    click_node(&mut ui, Role::Button, "Ellipse");
+    assert_eq!(tool.get(), 2, "and a click uses it again");
+}
+
+#[test]
+fn holding_a_tool_opens_its_variants_and_the_release_does_not_choose() {
+    let tool = State::new(0);
+    let mut ui = ui(rail(&tool));
+    ui.set_time(1.0);
+    let at = button_at(&mut ui, "Rectangle");
+    ui.handle_event(&Event::PointerMove { position: at });
+    ui.handle_event(&Event::PointerDown { position: at, button: PointerButton::Primary });
+    ui.update();
+    let due = ui.next_wake().expect("waits for the hold");
+    ui.set_time(due);
+    ui.update();
+    ui.update();
+    assert!(ui.access_tree().find(Role::MenuItem, "Star").is_some(), "the hold opens the menu");
+    ui.handle_event(&Event::PointerUp { position: at, button: PointerButton::Primary });
+    ui.update();
+    assert_eq!(tool.get(), 0, "and letting go chooses nothing");
+    assert!(ui.access_tree().find(Role::MenuItem, "Star").is_some(), "the menu stays");
+    click_node(&mut ui, Role::MenuItem, "Star");
+    assert_eq!(tool.get(), 3);
+
+    // A quick press is a plain click.
+    click_node(&mut ui, Role::Button, "Star");
+    assert_eq!(tool.get(), 3);
+    assert!(ui.access_tree().find(Role::MenuItem, "Rectangle").is_none());
+}
+
+#[test]
+fn the_keyboard_opens_the_variants_of_a_tool_and_comes_back() {
+    let tool = State::new(1);
+    let mut ui = ui(rail(&tool));
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::Tab);
+    assert_eq!(ui.access_tree().focused().and_then(|n| n.name.clone()).as_deref(), Some("Rectangle"));
+    key(&mut ui, Key::ArrowRight);
+    ui.update();
+    assert!(ui.access_tree().find(Role::MenuItem, "Ellipse").is_some());
+    key(&mut ui, Key::ArrowDown);
+    key(&mut ui, Key::Enter);
+    ui.update();
+    assert_eq!(tool.get(), 2);
+    assert_eq!(ui.access_tree().focused().and_then(|n| n.name.clone()).as_deref(), Some("Ellipse"));
+}
+
+#[test]
+fn a_rail_can_show_only_icons_in_two_columns_with_groups_on_their_own_lines() {
+    let tool = State::new(0);
+    let mut ui = ui(ToolRail::new(
+        tool.binding(),
+        [(IconName::Pencil, "Brush"), (IconName::Type, "Text"), (IconName::Star, "Star")],
+    )
+    .separator()
+    .tool(ToolRailItem::new(IconName::Circle, "Ellipse"))
+    .columns(2));
+    let tree = ui.access_tree();
+    let frame = |name| named(&tree, Role::Button, name).bounds;
+    assert_eq!(frame("Brush").y(), frame("Text").y(), "side by side");
+    assert!(frame("Text").x() >= frame("Brush").max_x());
+    assert!(frame("Star").y() >= frame("Brush").max_y(), "a new line after two");
+    assert!(frame("Ellipse").y() >= frame("Star").max_y(), "a group starts on its own line");
+    assert_eq!(frame("Brush").width(), frame("Brush").height(), "square, without the names under them");
+}

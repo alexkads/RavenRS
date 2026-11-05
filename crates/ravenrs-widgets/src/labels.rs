@@ -65,6 +65,8 @@ pub struct Labels {
     pub wizard_cancel: String,
     /// A step of a [`Wizard`](crate::Wizard) already done.
     pub wizard_done: String,
+    /// A step of a [`Wizard`](crate::Wizard) or a [`StepIndicator`](crate::StepIndicator) with a problem.
+    pub wizard_error: String,
     /// What a [`FileUpload`](crate::FileUpload) asks for.
     pub file_drop: String,
     /// Opens the chooser of a [`FileUpload`](crate::FileUpload).
@@ -713,6 +715,7 @@ impl Default for Labels {
             wizard_finish: "Finish".into(),
             wizard_cancel: "Cancel".into(),
             wizard_done: "Done".into(),
+            wizard_error: "Needs attention".into(),
             file_drop: "Drop files here".into(),
             file_choose: "Choose files".into(),
             file_remove: "Remove".into(),
@@ -1013,6 +1016,7 @@ impl Labels {
             wizard_finish: "Concluir".into(),
             wizard_cancel: "Cancelar".into(),
             wizard_done: "Concluída".into(),
+            wizard_error: "Precisa de atenção".into(),
             file_drop: "Solte os arquivos aqui".into(),
             file_choose: "Escolher arquivos".into(),
             file_remove: "Remover".into(),

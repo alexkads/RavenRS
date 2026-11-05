@@ -6,6 +6,7 @@ use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
+use crate::overlay::{Entry, MenuList};
 use crate::{AnyView, Button, ButtonSize, ButtonStyle, Divider, Text, View, ViewSeq, util};
 
 macro_rules! stack {
@@ -901,21 +902,83 @@ impl View for StatusBar {
     }
 }
 
+/// One place of a [`ToolRail`]: a tool, and the others that can take its place.
+#[derive(Clone, Debug)]
+pub struct ToolRailItem {
+    tools: Vec<RailToolInfo>,
+}
+
+#[derive(Clone, Debug)]
+struct RailToolInfo {
+    icon: crate::IconName,
+    name: String,
+    shortcut: Option<String>,
+}
+
+impl ToolRailItem {
+    /// A place holding this tool.
+    pub fn new(icon: crate::IconName, name: impl Into<String>) -> Self {
+        Self { tools: vec![RailToolInfo { icon, name: name.into(), shortcut: None }] }
+    }
+
+    /// Shows this key beside the tool added last, such as `"M"` (display only).
+    pub fn shortcut(mut self, keys: impl Into<String>) -> Self {
+        if let Some(tool) = self.tools.last_mut() {
+            tool.shortcut = Some(keys.into());
+        }
+        self
+    }
+
+    /// Adds a tool that shares this place. The others open in a menu at its side, by
+    /// holding the button down, by a right click or with the Right arrow, and the
+    /// place shows the last one used.
+    pub fn variant(mut self, icon: crate::IconName, name: impl Into<String>) -> Self {
+        self.tools.push(RailToolInfo { icon, name: name.into(), shortcut: None });
+        self
+    }
+}
+
+#[derive(Clone, Debug)]
+enum RailEntry {
+    Tool(ToolRailItem),
+    Separator,
+}
+
+/// How long a press on a tool with variants takes to open them, in seconds.
+const RAIL_HOLD: f64 = 0.4;
+/// The side of a tool's button when the rail shows only icons.
+const RAIL_ICON_BUTTON: f32 = 36.0;
+
 /// A narrow bar of tools with their names under their icons, of which one is
 /// open: what sits along the side of an editor, with the open tool's panel next to it.
 ///
+/// `selected` counts every tool in order, the variants of a place included. It can
+/// also show only icons, in one column or more, with lines between groups of tools.
+///
 /// ```
 /// use ravenrs_reactive::State;
-/// use ravenrs_widgets::{IconName, ToolRail};
+/// use ravenrs_widgets::{IconName, ToolRail, ToolRailItem};
 ///
 /// let open = State::new(0);
 /// let rail = ToolRail::new(open.binding(), [(IconName::Type, "Text"), (IconName::ZoomIn, "Zoom")]);
+///
+/// let tool = State::new(0);
+/// let editor = ToolRail::new(tool.binding(), [(IconName::Pencil, "Brush")])
+///     .separator()
+///     .tool(
+///         ToolRailItem::new(IconName::Square, "Rectangle")
+///             .shortcut("M")
+///             .variant(IconName::Circle, "Ellipse"),
+///     )
+///     .columns(2);
 /// ```
 #[derive(Debug)]
 pub struct ToolRail {
     selected: ravenrs_reactive::Binding<usize>,
-    tools: Vec<(crate::IconName, String)>,
-    width: f32,
+    entries: Vec<RailEntry>,
+    width: Option<f32>,
+    columns: usize,
+    icons_only: bool,
 }
 
 impl ToolRail {
@@ -924,39 +987,125 @@ impl ToolRail {
         selected: ravenrs_reactive::Binding<usize>,
         tools: impl IntoIterator<Item = (crate::IconName, S)>,
     ) -> Self {
-        let tools = tools.into_iter().map(|(icon, name)| (icon, name.into())).collect();
-        Self { selected, tools, width: 76.0 }
+        let entries =
+            tools.into_iter().map(|(icon, name)| RailEntry::Tool(ToolRailItem::new(icon, name))).collect();
+        Self { selected, entries, width: None, columns: 1, icons_only: false }
     }
 
-    /// Its width, in logical pixels (76 by default).
+    /// Adds a place with a tool and its variants.
+    pub fn tool(mut self, item: ToolRailItem) -> Self {
+        self.entries.push(RailEntry::Tool(item));
+        self
+    }
+
+    /// Adds a line between two groups of tools.
+    pub fn separator(mut self) -> Self {
+        self.entries.push(RailEntry::Separator);
+        self
+    }
+
+    /// Its width, in logical pixels (76 by default, or what the columns take).
     pub fn width(mut self, width: f32) -> Self {
-        self.width = width;
+        self.width = Some(width);
+        self
+    }
+
+    /// Shows only icons, with the names as tooltips.
+    pub fn icons_only(mut self, icons_only: bool) -> Self {
+        self.icons_only = icons_only;
+        self
+    }
+
+    /// Lays the tools out in this many columns (1 by default). With more than one, it
+    /// shows only icons.
+    pub fn columns(mut self, columns: usize) -> Self {
+        self.columns = columns.max(1);
         self
     }
 }
 
 struct RailTool<'a> {
-    icon: crate::IconName,
-    name: &'a str,
-    selected: bool,
-    choose: Rc<dyn Fn()>,
+    tools: &'a [RailToolInfo],
+    /// Where this place's tools start, counting every tool of the rail.
+    first: usize,
+    selected: ravenrs_reactive::Binding<usize>,
+    icons_only: bool,
+}
+
+impl RailTool<'_> {
+    /// The menu of the tools that share this place.
+    fn variants(&self, shown: usize, last_used: &ravenrs_reactive::State<usize>) -> Vec<Entry> {
+        self.tools
+            .iter()
+            .enumerate()
+            .map(|(i, tool)| {
+                let (selected, last_used, tool_at) =
+                    (self.selected.clone(), last_used.clone(), self.first + i);
+                let mut item = crate::MenuItem::new(tool.name.clone())
+                    .icon(tool.icon)
+                    .checked(i == shown)
+                    .on_select(move || {
+                        last_used.set(i);
+                        selected.set(tool_at);
+                    });
+                if let Some(keys) = &tool.shortcut {
+                    item = item.shortcut(keys.clone());
+                }
+                Entry::Item(item)
+            })
+            .collect()
+    }
 }
 
 impl View for RailTool<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let hovered = cx.is_hovered();
-        let ink = theme.color(if self.selected { Semantic::Ink } else { Semantic::InkMuted });
-        let icon = crate::util::icon(cx, self.icon, 18.0, ink);
-        let name = crate::util::label(cx, self.name, TextStyle::Caption, None, ink);
-        let fill = if self.selected {
+        let last_used = cx.use_state(|| 0_usize);
+        let current = self.selected.get();
+        let ours = current.checked_sub(self.first).filter(|i| *i < self.tools.len());
+        // A place shows the tool in use, or the last one used.
+        let shown = ours.unwrap_or_else(|| (*last_used.peek()).min(self.tools.len() - 1));
+        let tool = &self.tools[shown];
+        let has_variants = self.tools.len() > 1;
+        let is_selected = ours.is_some();
+        let ink = theme.color(if is_selected { Semantic::Ink } else { Semantic::InkMuted });
+        let mut parts = vec![crate::util::icon(cx, tool.icon, 18.0, ink)];
+        if !self.icons_only {
+            parts.push(crate::util::label(cx, &tool.name, TextStyle::Caption, None, ink));
+        }
+        if has_variants {
+            // A small mark in the corner says there is more here.
+            parts.push(cx.container(
+                LayoutStyle {
+                    width: Some(4.0),
+                    height: Some(4.0),
+                    absolute: Some((
+                        if self.icons_only { RAIL_ICON_BUTTON - 8.0 } else { 6.0 },
+                        if self.icons_only { RAIL_ICON_BUTTON - 8.0 } else { 6.0 },
+                    )),
+                    ..LayoutStyle::leaf()
+                },
+                &[],
+                Paint::Quad(QuadPaint { corner_radius: 2.0, ..QuadPaint::new(ink) }),
+            ));
+        }
+        let fill = if is_selected {
             theme.color(Semantic::Accent).faded(0.2)
         } else if hovered {
             theme.color(Semantic::Ink).faded(0.05)
         } else {
             ravenrs_core::Color::TRANSPARENT
         };
-        let node = cx.container(
+        let style = if self.icons_only {
+            LayoutStyle {
+                width: Some(RAIL_ICON_BUTTON),
+                height: Some(RAIL_ICON_BUTTON),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Vertical)
+            }
+        } else {
             LayoutStyle {
                 height: Some(56.0),
                 spacing: theme.spacing.s1,
@@ -964,14 +1113,80 @@ impl View for RailTool<'_> {
                 justify: Justify::Center,
                 align_self: Some(Align::Stretch),
                 ..LayoutStyle::stack(Axis::Vertical)
-            },
-            &[icon, name],
+            }
+        };
+        let node = cx.container(
+            style,
+            &parts,
             Paint::Quad(QuadPaint { corner_radius: theme.radii.md, ..QuadPaint::new(fill) }),
         );
-        cx.semantics(node, Semantics::new(Role::Button).name(self.name.to_owned()).selected(self.selected));
-        cx.on_click(node, self.choose.clone());
+        let open: ravenrs_reactive::State<bool> = cx.use_state(|| false);
+        let is_open = has_variants && open.get();
+        let mut semantics = Semantics::new(Role::Button).name(tool.name.clone()).selected(is_selected);
+        if has_variants {
+            semantics = semantics.expanded(is_open);
+        }
+        cx.semantics(node, semantics);
+        // A press that opened the variants does not also choose when it is released.
+        let held = cx.use_state(|| Rc::new(Cell::new(None::<f64>))).get();
+        let opened_by_hold = cx.use_state(|| Rc::new(Cell::new(false))).get();
+        if has_variants {
+            if cx.is_pressed() && !is_open {
+                let now = cx.now();
+                let due = held.get().unwrap_or(now + RAIL_HOLD);
+                held.set(Some(due));
+                if now >= due {
+                    opened_by_hold.set(true);
+                    open.set(true);
+                } else {
+                    cx.wake_at(due);
+                }
+            } else {
+                held.set(None);
+            }
+        }
+        let (selected, tool_at, swallow) =
+            (self.selected.clone(), self.first + shown, opened_by_hold.clone());
+        cx.on_click(
+            node,
+            Rc::new(move || {
+                if !swallow.replace(false) {
+                    selected.set(tool_at);
+                }
+            }),
+        );
         cx.focusable(node, theme.radii.md);
         cx.cursor(node, ravenrs_core::CursorIcon::Pointer);
+        if !has_variants {
+            return node;
+        }
+        let at_right = open.clone();
+        cx.on_key(
+            node,
+            Rc::new(move |key, _| {
+                let opens = *key == ravenrs_core::Key::ArrowRight;
+                if opens {
+                    at_right.set(true);
+                }
+                opens
+            }),
+        );
+        let on_menu = open.clone();
+        cx.on_context_menu(node, Rc::new(move |_| on_menu.set(true)));
+        let was_open = cx.use_state(|| Rc::new(Cell::new(false))).get();
+        if is_open {
+            was_open.set(true);
+            let close: Rc<dyn Fn()> = Rc::new(move || open.set(false));
+            let entries = self.variants(shown, &last_used);
+            cx.overlay(
+                node,
+                crate::Placement::Right,
+                &MenuList { entries: &entries, close: close.clone(), on_side: None },
+                Some(close),
+            );
+        } else if was_open.replace(false) {
+            cx.request_focus_node(node);
+        }
         node
     }
 }
@@ -979,22 +1194,61 @@ impl View for RailTool<'_> {
 impl View for ToolRail {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let current = self.selected.get();
-        let mut children = Vec::with_capacity(self.tools.len());
-        for (index, (icon, name)) in self.tools.iter().enumerate() {
-            let selected = self.selected.clone();
-            children.push(cx.child(&RailTool {
-                icon: *icon,
-                name,
-                selected: index == current,
-                choose: Rc::new(move || selected.set(index)),
-            }));
+        let icons_only = self.icons_only || self.columns > 1;
+        let gap = 2.0;
+        let padding = theme.spacing.s1;
+        let columns = self.columns as f32;
+        let width = self.width.unwrap_or(if icons_only {
+            columns * RAIL_ICON_BUTTON + (columns - 1.0) * gap + padding * 2.0
+        } else {
+            76.0
+        });
+        let mut children = Vec::with_capacity(self.entries.len());
+        let mut row = Vec::with_capacity(self.columns);
+        let mut first = 0;
+        let flush = |cx: &mut BuildCx<'_>, row: &mut Vec<NodeId>, children: &mut Vec<NodeId>| {
+            if !row.is_empty() {
+                children.push(cx.container(
+                    LayoutStyle { spacing: gap, ..LayoutStyle::stack(Axis::Horizontal) },
+                    row,
+                    Paint::None,
+                ));
+                row.clear();
+            }
+        };
+        for entry in &self.entries {
+            match entry {
+                RailEntry::Tool(item) => {
+                    let place =
+                        RailTool { tools: &item.tools, first, selected: self.selected.clone(), icons_only };
+                    let name = item.tools.first().map_or("", |tool| tool.name.as_str());
+                    let node = if icons_only {
+                        cx.keyed_child(first as u64, &crate::Tooltip::new(place, name.to_owned()))
+                    } else {
+                        cx.keyed_child(first as u64, &place)
+                    };
+                    first += item.tools.len();
+                    if self.columns > 1 {
+                        row.push(node);
+                        if row.len() == self.columns {
+                            flush(cx, &mut row, &mut children);
+                        }
+                    } else {
+                        children.push(node);
+                    }
+                }
+                RailEntry::Separator => {
+                    flush(cx, &mut row, &mut children);
+                    children.push(cx.child(&Divider::horizontal()));
+                }
+            }
         }
+        flush(cx, &mut row, &mut children);
         cx.container(
             LayoutStyle {
-                width: Some(self.width),
-                spacing: 2.0,
-                padding: Insets::uniform(theme.spacing.s1),
+                width: Some(width),
+                spacing: gap,
+                padding: Insets::uniform(padding),
                 align: Align::Stretch,
                 ..LayoutStyle::stack(Axis::Vertical)
             },

@@ -200,7 +200,7 @@ See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REP
 |---|---|
 | Buttons and commands | `Button` (4 styles, 3 sizes, icons, loading, selected), `IconButton`, `ToggleButton`, `ToggleGroup`, `ButtonGroup`, `SplitButton`, `SegmentedControl`, `Toolbar`, `ThemePicker`, `ThemeEditor`, `ThemeSwitcher` |
 | Text and choices | `TextField`, `TextArea`, `NumberField`, `MaskedField`, `InputOtp`, `Select`, `Combobox`, `LookupField`, `TagBox`, `Checkbox`, `RadioGroup`, `Toggle`, `Slider`, `Stepper`, `Rating`, `FavoriteToggle`, `ColorPicker`, `ColorSwatch`, `SwatchGrid`, `ColorPair`, `NinePointAnchor`, `FileUpload`, `ImageField` |
-| Forms | `FormField` with `validate::{required, email, min_length}` and custom rules, `FormLayout`, `FilterBuilder`, `Wizard`, `Label`, `HelpTip` |
+| Forms | `FormField` with `validate::{required, email, min_length}` and custom rules, `FormLayout`, `FilterBuilder`, `Wizard`, `StepIndicator`, `StepBadge`, `Label`, `HelpTip` |
 | Dates and scheduling | `Calendar`, `DatePicker`, `DateRangePicker`, `TimePicker`, `DateTimePicker`, `EventCalendar`, `Scheduler` (a timeline per resource), `RecurrenceEditor`, `Timeline` |
 | Navigation | `Ribbon`, `Menubar`, `Tabs`, `Sidebar`, `SidebarBrand`, `Breadcrumb`, `Pagination`, `Disclosure`, `Collapse`, `Accordion`, `CommandPalette` (⌘K) |
 | Overlays | `Dialog`, `ConfirmDialog`, `Sheet`, `FloatingPanel`, `SplashScreen`, `Popover`, `HoverCard`, `Tooltip`, `DropdownMenu`, `ContextMenu`, `Toaster` |

@@ -29,7 +29,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | App bar / Toolbar | | ✓ | ✓ | ✅ `Toolbar`, `ToolbarAction`: what does not fit folds into a menu |
 | Footer | | | | ✅ `Footer` |
 | Status bar | | ✓ | ✓ | ✅ `StatusBar` |
-| Tool rail | | | | ✅ `ToolRail` |
+| Tool rail | | | | ✅ `ToolRail`: variants in a menu at the side, lines between groups, icons only, several columns |
 | Timeline with tracks | | | ✓ | ✅ `Timeline` |
 
 ## Navigation
@@ -45,7 +45,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Ribbon (Office-style command bar) | | ✓ | ✓ | ✅ `Ribbon` (app menu, quick access, contextual tabs, collapse; key tips and gallery items planned) |
 | Navigation menu (mega menu) | ✓ | | ✓ | ⬜ |
 | Context menu | ✓ | ✓ | ✓ | ✅ `ContextMenu`: submenus, check marks and any view in a row, like `DropdownMenu` |
-| Stepper / Wizard | | ✓ | ✓ | ✅ `Wizard`: a step can refuse to be left; steps done can be reopened |
+| Stepper / Wizard | | ✓ | ✓ | ✅ `Wizard`: a step can refuse to be left or be marked with a problem; steps done can be reopened. `StepIndicator`, `StepBadge` for an app's own layout |
 | Bottom navigation | | | ✓ | ⬜ |
 | TreeView | | ✓ | ✓ | ✅ `TreeView`: keyboard, selection, three-state checks, filter, items on demand, virtualized |
 | Command palette | ✓ | | | ✅ `CommandPalette` |

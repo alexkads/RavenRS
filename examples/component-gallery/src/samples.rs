@@ -35,7 +35,7 @@ samples! {
     "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "Toolbar" => toolbar, "SplitButton" => split_button,
     "ConfirmDialog" => confirm_dialog,
     "TreeView" => tree_view, "TagBox" => tag_box, "ColorPicker" => color_picker,
-    "DateRangePicker" => date_range_picker, "Wizard" => wizard, "FileUpload" => file_upload,
+    "DateRangePicker" => date_range_picker, "Wizard" => wizard, "StepIndicator" => step_indicator, "StepBadge" => step_badge, "FileUpload" => file_upload,
     "ImageField" => image_field, "TileLayout" => tile_layout, "CardView" => card_view,
     "AppShell" => app_shell,
     "Ribbon" => ribbon, "Menubar" => menubar, "Tabs" => tabs, "Sidebar" => sidebar,
@@ -454,6 +454,31 @@ fn date_range_picker() -> impl View {
         .preset("Last 7 days", DateRange::new(today.add_days(-6), today))
         .preset("Last 30 days", DateRange::new(today.add_days(-29), today))
         .label("Period")
+}
+// end
+
+// sample: StepIndicator, 180
+fn step_indicator() -> impl View {
+    StepIndicator::new(vec![
+        IndicatorStep::new("Client", StepState::Done),
+        IndicatorStep::new("Photos", StepState::Error).note("Two are missing"),
+        IndicatorStep::new("Review", StepState::Current),
+        IndicatorStep::new("Send", StepState::Upcoming),
+    ])
+    .vertical()
+    .on_select(|_step| {})
+}
+// end
+
+// sample: StepBadge, 80
+fn step_badge() -> impl View {
+    HStack::new((
+        StepBadge::new(1).state(StepState::Done),
+        StepBadge::new(2).state(StepState::Error),
+        StepBadge::new(3).state(StepState::Current),
+        StepBadge::new(4),
+    ))
+    .spacing(8.0)
 }
 // end
 
@@ -1334,13 +1359,16 @@ fn model_picker() -> impl View {
 }
 // end
 
-// sample: ToolRail, 200
+// sample: ToolRail, 280
 fn tool_rail() -> impl View {
     let open = State::new(0);
     ToolRail::new(
         open.binding(),
         [(IconName::Type, "Text"), (IconName::ZoomIn, "Zoom"), (IconName::Layers, "Fades")],
     )
+    // Hold the button, right-click or press Right for the tools that share its place.
+    .separator()
+    .tool(ToolRailItem::new(IconName::Square, "Shape").variant(IconName::Circle, "Ellipse"))
 }
 // end
 

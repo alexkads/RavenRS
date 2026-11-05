@@ -176,7 +176,8 @@ pub use scheduler::{
 pub use shortcuts::{ShortcutHintBar, ShortcutSheet};
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
 pub use stack::{
-    Footer, Grid, HStack, PageHeader, PropertyRow, ScrollView, Spacer, StatusBar, ToolRail, VStack, ZStack,
+    Footer, Grid, HStack, PageHeader, PropertyRow, ScrollView, Spacer, StatusBar, ToolRail, ToolRailItem,
+    VStack, ZStack,
 };
 pub use status::{
     DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
@@ -190,4 +191,4 @@ pub use timeline::{Timeline, TimelineEdit, TimelineItem, TimelineMarker, Timelin
 pub use tree::{TreeNode, TreeView};
 pub use ui::{Ui, UiStats};
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};
-pub use wizard::{Wizard, WizardStep};
+pub use wizard::{IndicatorStep, StepBadge, StepIndicator, StepState, Wizard, WizardStep};
