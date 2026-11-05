@@ -1634,6 +1634,9 @@ fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, view
         Placement::LeftCenter => {
             Point::new(anchor.x() - gap - size.width, anchor.center().y - size.height / 2.0)
         }
+        Placement::RightEnd => Point::new(anchor.max_x() + gap, anchor.max_y() - size.height),
+        Placement::LeftStart => Point::new(anchor.x() - gap - size.width, anchor.y()),
+        Placement::LeftEnd => Point::new(anchor.x() - gap - size.width, anchor.max_y() - size.height),
         Placement::Fill => return Point::ZERO,
         Placement::At(p) => p,
         Placement::BottomRight => {

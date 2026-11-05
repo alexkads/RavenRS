@@ -31,7 +31,7 @@ pub use ravenrs_graphics::plot::{
 
 use crate::context::{BuildCx, NodeId, Paint, PaintCx, Placement, QuadPaint, Semantics};
 use crate::motion::{self, Motion};
-use crate::{Card, IconName, View, util};
+use crate::{AnyView, Card, IconName, View, util};
 
 /// The widest a bar gets, so a few bars in a wide chart still read as bars.
 const MAX_BAR_WIDTH: f32 = 44.0;
@@ -61,6 +61,10 @@ const DOT_ICON: f32 = 18.0;
 /// Lays a drawing out in a rectangle, at a number of pixels per logical pixel.
 type DrawingFn = Rc<dyn Fn(Rect, f32) -> Plot>;
 type ValueFormat = Rc<dyn Fn(f64) -> String>;
+/// Writes the panel of a tooltip, given the index and the name of a category.
+type TooltipContent = Rc<dyn Fn(usize, &str) -> AnyView>;
+/// The color of a value in a tooltip, given its series and the value.
+type ValueColor = Rc<dyn Fn(usize, f64) -> Option<Semantic>>;
 type TickFormat = Rc<dyn Fn(&str) -> String>;
 /// Which tab is chosen, and the name and the total of each.
 type ChartTabs = (Binding<usize>, Vec<(String, String)>);
@@ -466,6 +470,10 @@ pub struct ChartTooltip {
     total: Option<String>,
     icons: bool,
     no_cursor: bool,
+    percent: bool,
+    value_color: Option<ValueColor>,
+    no_indicator: Vec<String>,
+    content: Option<TooltipContent>,
 }
 
 impl fmt::Debug for ChartTooltip {
@@ -522,10 +530,44 @@ impl ChartTooltip {
         self
     }
 
+    /// Writes after each value its share: of the circle in a pie or a doughnut, of
+    /// the category in the others.
+    pub fn show_percent(mut self) -> Self {
+        self.percent = true;
+        self
+    }
+
+    /// Colors a value by what it says, such as a loss in red. It is given the index
+    /// of the series and the value; `None` leaves it in the color of the text.
+    pub fn value_color(mut self, color: impl Fn(usize, f64) -> Option<Semantic> + 'static) -> Self {
+        self.value_color = Some(Rc::new(color));
+        self
+    }
+
+    /// The row of this series has no square or bar, for a value that is not one of
+    /// those the chart tells apart, such as a target.
+    pub fn no_indicator_for(mut self, series: impl Into<String>) -> Self {
+        self.no_indicator.push(series.into());
+        self
+    }
+
+    /// Writes the panel with a view of your own, given the index and the name of the
+    /// category. A screen reader still hears the values.
+    pub fn content(mut self, content: impl Fn(usize, &str) -> AnyView + 'static) -> Self {
+        self.content = Some(Rc::new(content));
+        self
+    }
+
     /// Leaves out the strip or line that marks the category on the chart.
     pub fn no_cursor(mut self) -> Self {
         self.no_cursor = true;
         self
+    }
+}
+
+impl ChartTooltip {
+    fn color_of_value(&self, series: usize, value: f64, theme: &Theme) -> Option<Color> {
+        self.value_color.as_ref().and_then(|color| color(series, value)).map(|role| theme.color(role))
     }
 }
 
@@ -535,6 +577,25 @@ struct KeyRow {
     color: Color,
     icon: Option<IconName>,
     value: Option<f64>,
+    /// Its share of the whole, already written.
+    share: Option<String>,
+    value_color: Option<Color>,
+    no_indicator: bool,
+}
+
+impl KeyRow {
+    fn named(name: String, color: Color, icon: Option<IconName>, value: Option<f64>) -> Self {
+        Self { name, color, icon, value, share: None, value_color: None, no_indicator: false }
+    }
+}
+
+/// A share of a whole, with no decimals to write in the reader's language.
+fn percent_text(part: f64, whole: f64) -> Option<String> {
+    if whole <= 0.0 || !part.is_finite() {
+        return None;
+    }
+    let percent = part.abs() / whole * 100.0;
+    Some(if percent > 0.0 && percent < 1.0 { "<1%".to_owned() } else { format!("{percent:.0}%") })
 }
 
 struct TooltipPanel {
@@ -543,6 +604,8 @@ struct TooltipPanel {
     total: Option<(String, f64)>,
     tooltip: ChartTooltip,
     format: ValueFormat,
+    index: usize,
+    category: String,
 }
 
 fn indicator_node(cx: &mut BuildCx<'_>, indicator: ChartIndicator, color: Color) -> Option<NodeId> {
@@ -574,7 +637,10 @@ impl TooltipPanel {
         let mut parts = Vec::new();
         if let (true, Some(icon)) = (self.tooltip.icons, row.icon) {
             parts.push(util::icon(cx, icon, LEGEND_ICON, muted));
-        } else if !strong && let Some(mark) = indicator_node(cx, self.tooltip.indicator, row.color) {
+        } else if !strong
+            && !row.no_indicator
+            && let Some(mark) = indicator_node(cx, self.tooltip.indicator, row.color)
+        {
             parts.push(mark);
         }
         let weight = strong.then_some(Weight::SEMIBOLD);
@@ -587,7 +653,11 @@ impl TooltipPanel {
         parts.push(gap);
         if let Some(value) = row.value {
             let format = self.tooltip.value_format.as_ref().unwrap_or(&self.format);
-            parts.push(util::label(cx, &format(value), TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
+            let tone = row.value_color.unwrap_or(ink);
+            parts.push(util::label(cx, &format(value), TextStyle::Caption, Some(Weight::SEMIBOLD), tone));
+        }
+        if let Some(share) = &row.share {
+            parts.push(util::label(cx, share, TextStyle::Caption, None, muted));
         }
         cx.container(
             LayoutStyle {
@@ -606,17 +676,21 @@ impl View for TooltipPanel {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let mut lines = Vec::new();
-        if let Some(title) = &self.title {
-            let ink = theme.color(Semantic::Ink);
-            lines.push(util::label(cx, title, TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
-        }
-        for row in &self.rows {
-            lines.push(self.row(cx, row, false));
-        }
-        if let Some((name, total)) = &self.total {
-            let row =
-                KeyRow { name: name.clone(), color: Color::TRANSPARENT, icon: None, value: Some(*total) };
-            lines.push(self.row(cx, &row, true));
+        if let Some(content) = &self.tooltip.content {
+            let view = content(self.index, &self.category);
+            lines.push(cx.child(&*view));
+        } else {
+            if let Some(title) = &self.title {
+                let ink = theme.color(Semantic::Ink);
+                lines.push(util::label(cx, title, TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
+            }
+            for row in &self.rows {
+                lines.push(self.row(cx, row, false));
+            }
+            if let Some((name, total)) = &self.total {
+                let row = KeyRow::named(name.clone(), Color::TRANSPARENT, None, Some(*total));
+                lines.push(self.row(cx, &row, true));
+            }
         }
         let node = cx.container(
             LayoutStyle {
@@ -1293,11 +1367,8 @@ impl Chart {
                 .iter()
                 .enumerate()
                 .filter(|(i, _)| first.is_none_or(|values| values.get(*i).is_some_and(|v| *v > 0.0)))
-                .map(|(i, name)| KeyRow {
-                    name: name.clone(),
-                    color: self.category_color(i, colors, theme),
-                    icon: None,
-                    value: None,
+                .map(|(i, name)| {
+                    KeyRow::named(name.clone(), self.category_color(i, colors, theme), None, None)
                 })
                 .collect();
         }
@@ -1307,11 +1378,8 @@ impl Chart {
         self.series
             .iter()
             .enumerate()
-            .map(|(i, series)| KeyRow {
-                name: series.name.clone(),
-                color: self.color_of_series(i, colors),
-                icon: series.icon,
-                value: None,
+            .map(|(i, series)| {
+                KeyRow::named(series.name.clone(), self.color_of_series(i, colors), series.icon, None)
             })
             .collect()
     }
@@ -1326,14 +1394,24 @@ impl Chart {
     ) -> TooltipPanel {
         let category = self.categories.get(index).cloned().unwrap_or_default();
         let rows: Vec<KeyRow> = if self.colors_by_category() && !self.look.concentric {
-            let value = self.series.first().and_then(|s| s.values.get(index)).copied();
-            vec![KeyRow {
-                name: category.clone(),
-                color: self.category_color(index, colors, theme),
-                icon: None,
-                value,
-            }]
+            let values = self.series.first().map_or(&[][..], |s| s.values.as_slice());
+            let value = values.get(index).copied();
+            let mut row =
+                KeyRow::named(category.clone(), self.category_color(index, colors, theme), None, value);
+            if tooltip.percent {
+                let whole: f64 = values.iter().filter(|v| **v > 0.0).sum();
+                row.share = value.and_then(|value| percent_text(value, whole));
+            }
+            row.value_color = value.and_then(|value| tooltip.color_of_value(0, value, theme));
+            vec![row]
         } else {
+            let whole: f64 = self
+                .series
+                .iter()
+                .filter_map(|s| s.values.get(index))
+                .filter(|v| v.is_finite())
+                .map(|v| v.abs())
+                .sum();
             self.series
                 .iter()
                 .enumerate()
@@ -1344,11 +1422,18 @@ impl Chart {
                     } else {
                         self.color_of_series(i, colors)
                     };
-                    Some(KeyRow { name: series.name.clone(), color, icon: series.icon, value: Some(value) })
+                    let mut row = KeyRow::named(series.name.clone(), color, series.icon, Some(value));
+                    if tooltip.percent {
+                        row.share = percent_text(value, whole);
+                    }
+                    row.value_color = tooltip.color_of_value(i, value, theme);
+                    row.no_indicator = tooltip.no_indicator.contains(&series.name);
+                    Some(row)
                 })
                 .collect()
         };
         let by_category = self.colors_by_category() && !self.look.concentric;
+        let name = category.clone();
         let title = if tooltip.hide_label || by_category {
             None
         } else if let Some(label) = &tooltip.label {
@@ -1363,7 +1448,15 @@ impl Chart {
             .total
             .as_ref()
             .map(|name| (name.clone(), rows.iter().filter_map(|row| row.value).sum::<f64>()));
-        TooltipPanel { title, rows, total, tooltip: tooltip.clone(), format: self.format.clone() }
+        TooltipPanel {
+            title,
+            rows,
+            total,
+            tooltip: tooltip.clone(),
+            format: self.format.clone(),
+            index,
+            category: name,
+        }
     }
 
     fn build_plot(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -1392,15 +1485,39 @@ impl Chart {
         let spot = shown.and_then(|index| {
             let picture = picture.borrow();
             let place = picture.drawing.anchor_of(index)?;
-            // It follows the pointer along what is free: up and down a column, along a
-            // row, or anywhere over a slice. With the keyboard it stays on the category.
-            let at = match pointer.get().filter(|_| hovered) {
-                Some(p) if picture.drawing.spots.is_empty() => p,
-                Some(p) if self.look.horizontal => Point::new(p.x, place.y),
-                Some(p) => Point::new(place.x, p.y),
-                None => place,
+            // It follows the pointer without covering what is in focus: along a column
+            // or a row it stays beside the strip, and around a circle it goes outward.
+            // Each way it takes the side with the most room. With the keyboard it stays
+            // on the category.
+            let follows = pointer.get().filter(|_| hovered);
+            let size = picture.size;
+            let spot = picture.drawing.spots.iter().find(|s| s.index == index);
+            let round = spot.is_none();
+            let along = follows.unwrap_or(place);
+            let (past_x, past_y) = (along.x > size.width / 2.0, along.y > size.height / 2.0);
+            let is_bar = self.kind == ChartKind::Bar;
+            let at = match (follows, spot) {
+                (Some(p), Some(spot)) if self.look.horizontal && is_bar => {
+                    Point::new(p.x, if past_y { spot.band.y() } else { spot.band.max_y() })
+                }
+                (Some(p), Some(spot)) if is_bar => {
+                    Point::new(if past_x { spot.band.x() } else { spot.band.max_x() }, p.y)
+                }
+                (Some(p), Some(_)) => Point::new(place.x, p.y),
+                (Some(p), None) => p,
+                (None, _) => place,
             };
-            Some((at, at.x > picture.size.width / 2.0))
+            let to_the_left = if round { !past_x } else { past_x };
+            let rises = if round { !past_y } else { past_y };
+            let placement = match (follows.is_some(), to_the_left, rises) {
+                (false, false, _) => Placement::RightCenter,
+                (false, true, _) => Placement::LeftCenter,
+                (true, false, false) => Placement::Right,
+                (true, false, true) => Placement::RightEnd,
+                (true, true, false) => Placement::LeftStart,
+                (true, true, true) => Placement::LeftEnd,
+            };
+            Some((at, placement))
         });
         let anchor = spot.map(|(at, _)| {
             cx.container(
@@ -1507,11 +1624,10 @@ impl Chart {
             cx.focusable(node, theme.radii.sm);
         }
 
-        if let (Some(tooltip), Some(index), Some((_, on_right)), Some(anchor)) =
+        if let (Some(tooltip), Some(index), Some((_, placement)), Some(anchor)) =
             (&self.tooltip, shown, spot, anchor)
         {
             let panel = self.tooltip_panel(tooltip, index, &colors, &theme);
-            let placement = if on_right { Placement::LeftCenter } else { Placement::RightCenter };
             cx.overlay(anchor, placement, &panel, None);
         }
 
@@ -1564,7 +1680,10 @@ impl TooltipPanel {
         let format = self.tooltip.value_format.as_ref().unwrap_or(&self.format);
         let mut parts: Vec<String> = self.title.iter().cloned().collect();
         parts.extend(self.rows.iter().map(|row| match row.value {
-            Some(value) => format!("{}: {}", row.name, format(value)),
+            Some(value) => match &row.share {
+                Some(share) => format!("{}: {} ({share})", row.name, format(value)),
+                None => format!("{}: {}", row.name, format(value)),
+            },
             None => row.name.clone(),
         }));
         if let Some((name, total)) = &self.total {

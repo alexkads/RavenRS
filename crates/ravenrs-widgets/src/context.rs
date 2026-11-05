@@ -191,6 +191,12 @@ pub enum Placement {
     RightCenter,
     /// To the left of the anchor, centers aligned (tooltips beside a rail).
     LeftCenter,
+    /// To the right of the anchor, bottom edges aligned.
+    RightEnd,
+    /// To the left of the anchor, top edges aligned.
+    LeftStart,
+    /// To the left of the anchor, bottom edges aligned.
+    LeftEnd,
     /// Covers the whole viewport (dialogs, sheets); the anchor is ignored.
     Fill,
     /// At a point in the viewport (context menus); the anchor is ignored.

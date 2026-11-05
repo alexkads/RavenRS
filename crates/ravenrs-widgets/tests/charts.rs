@@ -419,7 +419,99 @@ fn the_tooltip_follows_the_pointer_up_and_down_a_column() {
         at_time(&mut ui, 3.0 + f64::from(frame) / 30.0);
     }
     let low = panel_of(&ui).expect("the panel").center().y;
-    assert!(low > high + 60.0, "{high} to {low}");
+    // Past the middle of the chart it also goes from below the pointer to above it.
+    assert!(low > high + 30.0, "{high} to {low}");
+}
+
+fn settled_panel(ui: &mut Ui, x: f32, y: f32) -> Rect {
+    at_time(ui, 0.0);
+    move_to(ui, x, y);
+    settle(ui, 0.0);
+    panel_of(ui).expect("the panel")
+}
+
+#[test]
+fn the_tooltip_keeps_to_the_side_with_the_most_room() {
+    for (x, y) in [(100.0, 40.0), (700.0, 40.0), (100.0, 170.0), (700.0, 170.0)] {
+        let panel = settled_panel(&mut chart_ui(bars()), x, y);
+        let point = Point::new(x, y);
+        assert!(!panel.contains(point), "{panel:?} covers {point:?}");
+        // Each of the four categories owns a quarter of the width, and it stays out of it.
+        if x < 400.0 {
+            assert!(panel.x() >= 200.0, "to the right: {panel:?}");
+        } else {
+            assert!(panel.max_x() <= 600.0, "to the left: {panel:?}");
+        }
+        if y < 100.0 {
+            assert!(panel.center().y > y, "below: {panel:?}");
+        } else {
+            assert!(panel.center().y < y, "above: {panel:?}");
+        }
+    }
+}
+
+#[test]
+fn a_tooltip_can_say_the_share_of_a_slice() {
+    let pie = Chart::new(ChartKind::Pie)
+        .categories(["A", "B"])
+        .series("S", [1.0, 3.0])
+        .tooltip(ChartTooltip::new().show_percent());
+    let mut ui = chart_ui(pie);
+    key(&mut ui, ravenrs_core::Key::Tab);
+    key(&mut ui, ravenrs_core::Key::End);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("B: 3 (75%)"));
+}
+
+#[test]
+fn a_tooltip_can_say_the_share_in_a_category() {
+    let mut ui = chart_ui(bars().tooltip(ChartTooltip::new().show_percent()));
+    hover(&mut ui, 100.0, 100.0);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("A, First: 1 (17%), Second: 5 (83%)"));
+}
+
+#[test]
+fn a_value_can_have_a_color_and_a_row_can_go_without_its_square() {
+    let danger = Theme::raven_dark().color(Semantic::Danger);
+    let tones = |ui: &Ui| {
+        ui.scene()
+            .primitives()
+            .iter()
+            .filter(|p| matches!(p, Primitive::Glyphs(g) if g.color == danger))
+            .count()
+    };
+    let squares = |ui: &Ui| {
+        ui.scene()
+            .primitives()
+            .iter()
+            .filter(|p| matches!(p, Primitive::Quad(q) if q.rect.width() == 10.0 && q.rect.height() == 10.0))
+            .count()
+    };
+    let mut plain = chart_ui(bars());
+    hover(&mut plain, 100.0, 100.0);
+    assert_eq!(tones(&plain), 0);
+    assert_eq!(squares(&plain), 2);
+    let tooltip = ChartTooltip::new()
+        .value_color(|series, _| (series == 1).then_some(Semantic::Danger))
+        .no_indicator_for("Second");
+    let mut ui = chart_ui(bars().tooltip(tooltip));
+    hover(&mut ui, 100.0, 100.0);
+    assert_eq!(tones(&ui), 1);
+    assert_eq!(squares(&ui), 1);
+}
+
+#[test]
+fn a_tooltip_can_be_written_by_hand_and_is_still_read_aloud() {
+    let tooltip = ChartTooltip::new()
+        .content(|index, name| -> AnyView { Box::new(Text::new(format!("Hand made {index} {name}"))) });
+    let mut ui = chart_ui(bars().tooltip(tooltip));
+    hover(&mut ui, 100.0, 100.0);
+    let tree = ui.access_tree();
+    let names: Vec<&str> = tree.nodes.iter().filter_map(|n| n.name.as_deref()).collect();
+    assert!(names.contains(&"Sales"), "{names:?}");
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("A, First: 1, Second: 5"));
+    let plain = chart_ui(bars());
+    assert!(glyph_runs(&ui) > glyph_runs(&plain), "the text of the panel is on the screen");
+    assert!(panel_of(&ui).is_some(), "in the panel of a tooltip");
 }
 
 #[test]
