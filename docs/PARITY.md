@@ -27,6 +27,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Docking / Dock manager | | ✓ | ✓ | ⬜ |
 | Window (floating) | | ✓ | ✓ | 🟡 `FloatingPanel::movable`: moves and reduces, does not resize |
 | App bar / Toolbar | | ✓ | ✓ | ✅ `Toolbar`, `ToolbarAction`: what does not fit folds into a menu |
+| Toolbar floating over content | | | ✓ | ✅ `FloatingToolbar`: translucent, placed by side, moved by a handle or the arrows |
+| Custom title bar | | | ✓ | 🟡 `TitleBar`: title, actions and the window's buttons, drawing and calling back only. Dragging the window and hiding the system's frame belong to the platform layer, which offers neither yet |
 | Footer | | | | ✅ `Footer` |
 | Status bar | | ✓ | ✓ | ✅ `StatusBar` |
 | Tool rail | | | | ✅ `ToolRail`: variants in a menu at the side, lines between groups, icons only, several columns |

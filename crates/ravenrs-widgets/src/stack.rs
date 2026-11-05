@@ -1,13 +1,16 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use ravenrs_core::{Insets, Point, Role};
+use ravenrs_core::{Insets, Point, Quad, Rect, Role, Scene};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::overlay::{Entry, MenuList};
-use crate::{AnyView, Button, ButtonSize, ButtonStyle, Divider, Text, View, ViewSeq, util};
+use crate::{
+    AnyView, Button, ButtonSize, ButtonStyle, Divider, IconButton, IconName, Text, Tooltip, View, ViewSeq,
+    util,
+};
 
 macro_rules! stack {
     ($(#[$doc:meta])* $name:ident, $axis:expr) => {
@@ -759,6 +762,180 @@ impl View for FooterArea<'_> {
             &children,
             Paint::None,
         )
+    }
+}
+
+/// The height of a [`TitleBar`], in logical pixels.
+const TITLE_BAR_HEIGHT: f32 = 38.0;
+
+/// A title bar drawn by the app: what comes first, the title, the actions and the buttons of
+/// the window. A button shows only when it has a handler. A double click on the bar does the
+/// same as the maximize button.
+///
+/// It draws and calls back, and that is all. What the handlers do to the window is up to the
+/// app. **It cannot drag the window nor hide the frame the system draws**, because those belong
+/// to the platform layer, which offers neither yet: for now the system's own bar stays above it.
+///
+/// ```
+/// use ravenrs_widgets::{IconButton, IconName, TitleBar, Ui};
+///
+/// let bar = TitleBar::new("Report.pdf")
+///     .action(IconButton::new(IconName::Search).label("Search"))
+///     .on_minimize(|| {})
+///     .on_maximize(|| {})
+///     .on_close(|| {});
+/// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+pub struct TitleBar {
+    title: String,
+    leading: Option<AnyView>,
+    actions: Vec<AnyView>,
+    on_minimize: Option<Rc<dyn Fn()>>,
+    on_maximize: Option<Rc<dyn Fn()>>,
+    on_close: Option<Rc<dyn Fn()>>,
+    on_context_menu: Option<Rc<dyn Fn(Point)>>,
+    maximized: bool,
+    active: bool,
+}
+
+impl std::fmt::Debug for TitleBar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TitleBar").field("title", &self.title).finish_non_exhaustive()
+    }
+}
+
+impl TitleBar {
+    /// A bar with this title and no buttons.
+    pub fn new(title: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            leading: None,
+            actions: Vec::new(),
+            on_minimize: None,
+            on_maximize: None,
+            on_close: None,
+            on_context_menu: None,
+            maximized: false,
+            active: true,
+        }
+    }
+
+    /// Any view before the title, such as an icon or a menu.
+    pub fn leading(mut self, view: impl View + 'static) -> Self {
+        self.leading = Some(Box::new(view));
+        self
+    }
+
+    /// Appends a view to the area between the title and the window's buttons.
+    pub fn action(mut self, view: impl View + 'static) -> Self {
+        self.actions.push(Box::new(view));
+        self
+    }
+
+    /// Shows the minimize button, which runs `handler`.
+    pub fn on_minimize(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_minimize = Some(Rc::new(handler));
+        self
+    }
+
+    /// Shows the maximize button, which runs `handler`, as a double click on the bar does.
+    pub fn on_maximize(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_maximize = Some(Rc::new(handler));
+        self
+    }
+
+    /// Shows the close button, which runs `handler`.
+    pub fn on_close(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_close = Some(Rc::new(handler));
+        self
+    }
+
+    /// Called with the pointer's place on a right click on the bar, for a menu of the window.
+    pub fn on_context_menu(mut self, handler: impl Fn(Point) + 'static) -> Self {
+        self.on_context_menu = Some(Rc::new(handler));
+        self
+    }
+
+    /// The window is maximized: the maximize button shows and says that it restores.
+    pub fn maximized(mut self, maximized: bool) -> Self {
+        self.maximized = maximized;
+        self
+    }
+
+    /// Whether the window has the keyboard (it does by default). Without it the bar goes quiet,
+    /// which is how to tell which of two windows side by side is listening.
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
+    }
+}
+
+impl View for TitleBar {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let mut children = Vec::new();
+        if let Some(leading) = &self.leading {
+            children.push(cx.keyed_child(1, leading));
+        }
+        let ink = theme.color(if self.active { Semantic::Ink } else { Semantic::InkMuted });
+        children.push(cx.text_truncated(
+            &self.title,
+            &util::attrs(&theme, TextStyle::Callout, Some(Weight::MEDIUM)),
+            ink,
+            LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::leaf() },
+        ));
+        for (i, action) in self.actions.iter().enumerate() {
+            children.push(cx.keyed_child(10 + i as u64, action));
+        }
+        let (middle_icon, middle_label) = if self.maximized {
+            (IconName::Copy, &labels.window_restore)
+        } else {
+            (IconName::Square, &labels.window_maximize)
+        };
+        let buttons = [
+            (&self.on_minimize, IconName::Minus, &labels.window_minimize),
+            (&self.on_maximize, middle_icon, middle_label),
+            (&self.on_close, IconName::X, &labels.close),
+        ];
+        for (i, (handler, icon, label)) in buttons.into_iter().enumerate() {
+            if let Some(handler) = handler.clone() {
+                let button = Tooltip::new(
+                    IconButton::new(icon)
+                        .label(label.clone())
+                        .size(ButtonSize::Mini)
+                        .on_click(move || handler()),
+                    label.clone(),
+                );
+                children.push(cx.keyed_child(2 + i as u64, &button));
+            }
+        }
+        let fill = theme.color(if self.active { Semantic::Surface } else { Semantic::Canvas });
+        let line = theme.color(Semantic::Border);
+        let node = cx.container(
+            LayoutStyle {
+                height: Some(TITLE_BAR_HEIGHT),
+                padding: Insets::symmetric(0.0, theme.spacing.s3),
+                spacing: theme.spacing.s2,
+                align: Align::Center,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &children,
+            Paint::Custom(Rc::new(move |f: Rect, scene: &mut Scene| {
+                scene.push_quad(Quad::new(f, fill));
+                scene.push_quad(Quad::new(Rect::new(f.x(), f.max_y() - 1.0, f.width(), 1.0), line));
+            })),
+        );
+        if let Some(maximize) = &self.on_maximize {
+            cx.on_double_click(node, maximize.clone());
+        }
+        if let Some(menu) = &self.on_context_menu {
+            cx.on_context_menu(node, menu.clone());
+        }
+        cx.semantics(node, Semantics::new(Role::Group).name(self.title.clone()));
+        node
     }
 }
 

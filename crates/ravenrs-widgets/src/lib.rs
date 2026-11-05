@@ -114,7 +114,7 @@ pub use choice::{
 };
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use color_picker::ColorPicker;
-pub use commands::{ConfirmDialog, Hotkey, SplitButton, Toolbar, ToolbarAction};
+pub use commands::{ConfirmDialog, FloatingToolbar, Hotkey, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
     ActivityObserver, BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint,
     PaintCx, Placement, QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
@@ -181,8 +181,8 @@ pub use scheduler::{
 pub use shortcuts::{ShortcutHintBar, ShortcutSheet};
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
 pub use stack::{
-    Footer, Grid, HStack, PageHeader, PropertyRow, ScrollView, Spacer, StatusBar, ToolRail, ToolRailItem,
-    VStack, ZStack,
+    Footer, Grid, HStack, PageHeader, PropertyRow, ScrollView, Spacer, StatusBar, TitleBar, ToolRail,
+    ToolRailItem, VStack, ZStack,
 };
 pub use status::{
     DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,

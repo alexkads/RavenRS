@@ -53,7 +53,7 @@ samples! {
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
     "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
-    "ValueSlider" => value_slider, "InlineRename" => inline_rename,
+    "FloatingToolbar" => floating_toolbar, "TitleBar" => title_bar, "ValueSlider" => value_slider, "InlineRename" => inline_rename,
     "ZStack" => z_stack, "PropertyRow" => property_row, "PageHeader" => page_header, "ButtonGroup" => button_group,
     "FavoriteToggle" => favorite_toggle, "SwatchGrid" => swatch_grid, "NinePointAnchor" => nine_point_anchor, "ColorPair" => color_pair,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
@@ -1590,6 +1590,39 @@ fn dot() -> impl View {
     ))
     .spacing(8.0)
     .align(Align::Center)
+}
+// end
+
+// sample: FloatingToolbar, 230
+fn floating_toolbar() -> impl View {
+    let (place, level) = (State::new(None::<Point>), State::new(100.0_f32));
+    FloatingToolbar::new(
+        Spacer::new().frame(None, Some(200.0)).background(Semantic::Control).corner_radius(8.0),
+    )
+    .label("Zoom")
+    .movable(place.binding())
+    .action(ToolbarAction::new("Fit"))
+    .action(ToolbarAction::new("Fill"))
+    .separator()
+    .action(ToolbarAction::new("Zoom out").icon(IconName::Minus).icon_only())
+    .view(ValueSlider::new(level.binding()).range(10.0, 400.0).step(10.0).unit("%").label("Zoom level"))
+    .action(ToolbarAction::new("Zoom in").icon(IconName::Plus).icon_only())
+}
+// end
+
+// sample: TitleBar, 90
+fn title_bar() -> impl View {
+    let maximized = State::new(false);
+    view_fn(move || {
+        let toggle = maximized.clone();
+        TitleBar::new("Report.pdf")
+            .leading(Icon::new(IconName::File).size(16.0))
+            .action(IconButton::new(IconName::Search).label("Search").size(ButtonSize::Mini))
+            .maximized(maximized.get())
+            .on_minimize(|| {})
+            .on_maximize(move || toggle.update(|on| *on = !*on))
+            .on_close(|| {})
+    })
 }
 // end
 

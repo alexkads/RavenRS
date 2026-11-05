@@ -4,9 +4,12 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use ravenrs_core::{AccessNode, AccessTree, Event, Key, Modifiers, Point, PointerButton, Role, Size};
+use ravenrs_core::{
+    AccessNode, AccessTree, Event, Key, Modifiers, Point, PointerButton, Primitive, Quad, Rect, Role, Size,
+};
+use ravenrs_layout::Align;
 use ravenrs_reactive::State;
-use ravenrs_style::Theme;
+use ravenrs_style::{Semantic, Theme};
 use ravenrs_widgets::*;
 
 fn ui(view: impl View + 'static) -> Ui {
@@ -306,4 +309,232 @@ fn rename_explains_itself_to_screen_readers() {
         named(&tree, Role::Button, "Warm").description.as_deref(),
         Some("Clique duas vezes ou aperte F2 para renomear")
     );
+}
+
+// FloatingToolbar
+
+/// The content stretches across the window.
+const STAGE: Size = Size::new(800.0, 300.0);
+
+fn stage() -> impl View {
+    Spacer::new().frame(None, Some(STAGE.height))
+}
+
+fn quads(ui: &Ui) -> Vec<Quad> {
+    ui.scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| match p {
+            Primitive::Quad(q) => Some(*q),
+            _ => None,
+        })
+        .collect()
+}
+
+fn bounds(ui: &mut Ui, role: Role, name: &str) -> Rect {
+    let tree = ui.access_tree();
+    named(&tree, role, name).bounds
+}
+
+fn drag(ui: &mut Ui, from: Point, to: Point) {
+    ui.handle_event(&Event::PointerMove { position: from });
+    ui.handle_event(&Event::PointerDown { position: from, button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerMove { position: to });
+    ui.update();
+    ui.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
+    ui.update();
+    ui.update();
+}
+
+fn zoom_bar() -> FloatingToolbar<impl View> {
+    FloatingToolbar::new(stage()).label("Zoom").action(ToolbarAction::new("Fit"))
+}
+
+#[test]
+fn floating_toolbar_sits_over_its_content_where_it_is_told_without_changing_its_size() {
+    let mut center = ui(zoom_bar());
+    let bar = bounds(&mut center, Role::Toolbar, "Zoom");
+    assert!(((bar.center().x) - STAGE.width / 2.0).abs() < 1.0, "centered: {bar:?}");
+    assert!((bar.max_y() - (STAGE.height - 12.0)).abs() < 1.0, "over the bottom: {bar:?}");
+
+    let mut corner = ui(zoom_bar().place(Align::End, Align::Start).margin(20.0));
+    let bar = bounds(&mut corner, Role::Toolbar, "Zoom");
+    assert!((bar.max_x() - (STAGE.width - 20.0)).abs() < 1.0, "{bar:?}");
+    assert!((bar.y() - 20.0).abs() < 1.0, "{bar:?}");
+
+    // What comes after the content does not make room for the bar.
+    let mut after = ui(VStack::new((zoom_bar(), Button::new("After"))).spacing(0.0));
+    assert!((bounds(&mut after, Role::Button, "After").y() - STAGE.height).abs() < 1.0);
+}
+
+#[test]
+fn floating_toolbar_is_translucent_and_its_commands_work() {
+    let hits = Rc::new(Cell::new(0));
+    let counter = hits.clone();
+    let view = FloatingToolbar::new(stage())
+        .label("Zoom")
+        .action(ToolbarAction::new("Fit").on_click(move || counter.set(counter.get() + 1)))
+        .action(ToolbarAction::new("Fill").disabled(true))
+        .separator()
+        .view(Button::new("Free"));
+    let mut fresh = ui(view);
+    key(&mut fresh, Key::Tab);
+    key(&mut fresh, Key::Enter);
+    assert_eq!(hits.get(), 1, "Tab reaches it");
+    let solid = Theme::raven_dark().color(Semantic::SurfaceElevated);
+    let bar = bounds(&mut fresh, Role::Toolbar, "Zoom");
+    let surface = quads(&fresh).into_iter().find(|q| q.rect == bar).expect("the bar paints");
+    assert!(matches!(surface.fill, ravenrs_core::Brush::Solid(c) if c.a < solid.a), "{:?}", surface.fill);
+    assert!(surface.shadow.is_some());
+
+    let at = center_of(&mut fresh, Role::Button, "Fit");
+    click(&mut fresh, at);
+    assert_eq!(hits.get(), 2);
+    assert!(has(&mut fresh, Role::Button, "Free"));
+}
+
+#[test]
+fn floating_toolbar_keeps_clicks_from_reaching_the_content() {
+    let hits = Rc::new(Cell::new(0));
+    let counter = hits.clone();
+    let under = Button::new("Under").full_width().on_click(move || counter.set(counter.get() + 1));
+    let view = FloatingToolbar::new(under.frame(None, Some(STAGE.height)))
+        .label("Zoom")
+        .action(ToolbarAction::new("Fit"))
+        .place(Align::Start, Align::Start);
+    let mut ui = ui(view);
+    let bar = bounds(&mut ui, Role::Toolbar, "Zoom");
+    // Its own padding, beside the button.
+    click(&mut ui, Point::new(bar.x() + 1.5, bar.center().y));
+    assert_eq!(hits.get(), 0);
+    click(&mut ui, Point::new(bar.max_x() + 40.0, bar.center().y));
+    assert_eq!(hits.get(), 1);
+}
+
+#[test]
+fn floating_toolbar_moves_by_its_handle_stays_inside_and_goes_home() {
+    let place = State::new(None::<Point>);
+    let mut ui = ui(zoom_bar().movable(place.binding()));
+    let home = bounds(&mut ui, Role::Toolbar, "Zoom");
+    let handle = center_of(&mut ui, Role::Button, "Move: Zoom");
+    drag(&mut ui, handle, Point::new(handle.x - 50.0, handle.y - 100.0));
+    let moved = bounds(&mut ui, Role::Toolbar, "Zoom");
+    assert!((moved.x() - (home.x() - 50.0)).abs() < 1.0, "{moved:?} from {home:?}");
+    assert!((moved.y() - (home.y() - 100.0)).abs() < 1.0, "{moved:?} from {home:?}");
+    assert_eq!(place.get(), Some(moved.origin), "written when it ends");
+
+    let handle = center_of(&mut ui, Role::Button, "Move: Zoom");
+    drag(&mut ui, handle, Point::new(5000.0, 5000.0));
+    let moved = bounds(&mut ui, Role::Toolbar, "Zoom");
+    assert!(moved.max_x() <= STAGE.width && moved.max_y() <= STAGE.height, "inside: {moved:?}");
+
+    // The arrows move it too, from the handle that has the keyboard.
+    key(&mut ui, Key::ArrowUp);
+    assert!(bounds(&mut ui, Role::Toolbar, "Zoom").y() < moved.y());
+
+    let handle = center_of(&mut ui, Role::Button, "Move: Zoom");
+    ui.handle_event(&Event::DoubleClick { position: handle });
+    ui.update();
+    ui.update();
+    assert_eq!(place.get(), None);
+    assert_eq!(bounds(&mut ui, Role::Toolbar, "Zoom"), home);
+}
+
+#[test]
+fn floating_toolbar_has_no_handle_unless_asked_and_copes_with_no_room() {
+    let mut fixed = ui(zoom_bar());
+    assert!(!has(&mut fixed, Role::Button, "Move: Zoom"));
+    let mut tiny = ui(FloatingToolbar::new(Spacer::new().frame(Some(4.0), Some(4.0)))
+        .label("Zoom")
+        .action(ToolbarAction::new("Fit")));
+    let bar = bounds(&mut tiny, Role::Toolbar, "Zoom");
+    assert!(bar.x() >= 0.0 && bar.y() >= 0.0, "{bar:?}");
+}
+
+// TitleBar
+
+#[derive(Default)]
+struct WindowEvents {
+    minimize: Cell<u32>,
+    maximize: Cell<u32>,
+    close: Cell<u32>,
+}
+
+fn title_bar(events: &Rc<WindowEvents>) -> TitleBar {
+    let (a, b, c) = (events.clone(), events.clone(), events.clone());
+    TitleBar::new("Report.pdf")
+        .on_minimize(move || a.minimize.set(a.minimize.get() + 1))
+        .on_maximize(move || b.maximize.set(b.maximize.get() + 1))
+        .on_close(move || c.close.set(c.close.get() + 1))
+}
+
+#[test]
+fn title_bar_buttons_call_back_with_pointer_and_keyboard() {
+    let events = Rc::new(WindowEvents::default());
+    let mut ui = ui(title_bar(&events).action(Button::new("Share")));
+    assert!(has(&mut ui, Role::Button, "Share"));
+    for name in ["Minimize", "Maximize", "Close"] {
+        let at = center_of(&mut ui, Role::Button, name);
+        click(&mut ui, at);
+    }
+    assert_eq!((events.minimize.get(), events.maximize.get(), events.close.get()), (1, 1, 1));
+    key(&mut ui, Key::Enter);
+    assert_eq!(events.close.get(), 2, "the keyboard works on what was clicked last");
+}
+
+#[test]
+fn title_bar_shows_only_the_buttons_it_can_answer_and_says_restore_when_maximized() {
+    let mut bare = ui(TitleBar::new("Tool").on_close(|| {}));
+    assert!(has(&mut bare, Role::Button, "Close"));
+    assert!(!has(&mut bare, Role::Button, "Minimize"));
+    assert!(!has(&mut bare, Role::Button, "Maximize"));
+
+    let events = Rc::new(WindowEvents::default());
+    let mut big = ui(Localized::new(Labels::pt_br(), title_bar(&events).maximized(true)));
+    assert!(has(&mut big, Role::Button, "Restaurar"));
+    assert!(has(&mut big, Role::Button, "Minimizar"));
+    assert!(has(&mut big, Role::Button, "Fechar"));
+    assert!(!has(&mut big, Role::Button, "Maximizar"));
+}
+
+#[test]
+fn title_bar_double_click_maximizes_except_on_its_buttons_and_right_click_asks_for_a_menu() {
+    let events = Rc::new(WindowEvents::default());
+    let menu = Rc::new(Cell::new(None));
+    let seen = menu.clone();
+    let mut ui = ui(title_bar(&events).on_context_menu(move |at| seen.set(Some(at))));
+    let bar = bounds(&mut ui, Role::Group, "Report.pdf");
+    let middle = bar.center();
+    ui.handle_event(&Event::DoubleClick { position: middle });
+    assert_eq!(events.maximize.get(), 1);
+    let close = center_of(&mut ui, Role::Button, "Close");
+    ui.handle_event(&Event::DoubleClick { position: close });
+    assert_eq!(events.maximize.get(), 1, "a double click on a button is about the button");
+    ui.handle_event(&Event::PointerDown { position: middle, button: PointerButton::Secondary });
+    assert_eq!(menu.get(), Some(middle));
+}
+
+#[test]
+fn title_bar_has_a_long_title_cut_rather_than_push_the_buttons_out() {
+    let events = Rc::new(WindowEvents::default());
+    let long = "A very long name ".repeat(40);
+    let mut ui = ui(TitleBar::new(long.clone())
+        .on_close(move || events.close.set(1))
+        .leading(Icon::new(IconName::File)));
+    let close = bounds(&mut ui, Role::Button, "Close");
+    assert!(close.max_x() <= 800.0, "{close:?}");
+    assert!(close.x() > 700.0, "{close:?}");
+}
+
+#[test]
+fn title_bar_goes_quiet_when_the_window_has_no_keyboard() {
+    let theme = Theme::raven_dark();
+    let mut on = ui(TitleBar::new("Report"));
+    let mut off = ui(TitleBar::new("Report").active(false));
+    let fill_of = |ui: &mut Ui| {
+        let bar = bounds(ui, Role::Group, "Report");
+        quads(ui).into_iter().find(|q| q.rect == bar).map(|q| q.fill)
+    };
+    assert_eq!(fill_of(&mut on), Some(ravenrs_core::Brush::Solid(theme.color(Semantic::Surface))));
+    assert_eq!(fill_of(&mut off), Some(ravenrs_core::Brush::Solid(theme.color(Semantic::Canvas))));
 }

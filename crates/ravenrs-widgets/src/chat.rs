@@ -647,15 +647,63 @@ const PANEL_REDUCE_KEY: u64 = 2;
 /// Keeps the state of what a reduced panel shows.
 const PANEL_SUMMARY_KEY: u64 = 3;
 /// How far from the window's edges a layer stays, as every overlay does.
-const PANEL_MARGIN: f32 = 4.0;
+pub(crate) const PANEL_MARGIN: f32 = 4.0;
 
 /// `p` kept inside the window, given the largest place a panel can have in it.
-fn panel_inside(p: Point, largest: Point) -> Point {
+pub(crate) fn panel_inside(p: Point, largest: Point) -> Point {
     Point::new(p.x.clamp(PANEL_MARGIN, largest.x), p.y.clamp(PANEL_MARGIN, largest.y))
 }
 
 /// How far an arrow key moves a panel, in logical pixels.
 const PANEL_STEP: f32 = 16.0;
+
+/// Makes `handle` move something placed anywhere, by dragging and with the arrow keys. While
+/// it is dragged the place stays in `dragging`, and goes to `place` only at the end, since the
+/// app may write it to a file.
+pub(crate) fn move_by_handle(
+    cx: &mut BuildCx<'_>,
+    handle: NodeId,
+    at: Point,
+    largest: Point,
+    place: &Binding<Option<Point>>,
+    dragging: &State<Option<Point>>,
+) {
+    let keep_in = move |p: Point| panel_inside(p, largest);
+    let grab = cx.use_state(|| Rc::new(Cell::new(Point::ZERO))).get();
+    let (dropped, dragging) = (place.clone(), dragging.clone());
+    cx.on_drag(
+        handle,
+        Rc::new(move |drag: Drag| match drag.phase {
+            DragPhase::Start => grab.set(Point::new(drag.position.x - at.x, drag.position.y - at.y)),
+            DragPhase::Move => {
+                let from = grab.get();
+                dragging.set(Some(keep_in(Point::new(drag.position.x - from.x, drag.position.y - from.y))));
+            }
+            DragPhase::End => {
+                if let Some(last) = *dragging.peek() {
+                    dropped.set(Some(last));
+                }
+                dragging.set(None);
+            }
+        }),
+    );
+    let place = place.clone();
+    cx.on_key(
+        handle,
+        Rc::new(move |key, modifiers| {
+            let far = if modifiers.shift { PANEL_STEP * 4.0 } else { PANEL_STEP };
+            let (dx, dy) = match key {
+                Key::ArrowLeft => (-far, 0.0),
+                Key::ArrowRight => (far, 0.0),
+                Key::ArrowUp => (0.0, -far),
+                Key::ArrowDown => (0.0, far),
+                _ => return false,
+            };
+            place.set(Some(keep_in(Point::new(at.x + dx, at.y + dy))));
+            true
+        }),
+    );
+}
 
 /// A panel placed anywhere, dragged by its header.
 struct FreeLayer<'a> {
@@ -671,44 +719,7 @@ struct FreeLayer<'a> {
 impl View for FreeLayer<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let (node, header) = self.panel.surface(cx, self.height);
-        let (at, largest) = (self.at, self.largest);
-        let keep_in = move |p: Point| panel_inside(p, largest);
-        let grab = cx.use_state(|| Rc::new(Cell::new(Point::ZERO))).get();
-        let (place, dragging) = (self.place.clone(), self.dragging.clone());
-        cx.on_drag(
-            header,
-            Rc::new(move |drag: Drag| match drag.phase {
-                DragPhase::Start => grab.set(Point::new(drag.position.x - at.x, drag.position.y - at.y)),
-                DragPhase::Move => {
-                    let from = grab.get();
-                    dragging
-                        .set(Some(keep_in(Point::new(drag.position.x - from.x, drag.position.y - from.y))));
-                }
-                // Only now: the app may write the place to a file.
-                DragPhase::End => {
-                    if let Some(last) = *dragging.peek() {
-                        place.set(Some(last));
-                    }
-                    dragging.set(None);
-                }
-            }),
-        );
-        let place = self.place.clone();
-        cx.on_key(
-            header,
-            Rc::new(move |key, modifiers| {
-                let far = if modifiers.shift { PANEL_STEP * 4.0 } else { PANEL_STEP };
-                let (dx, dy) = match key {
-                    Key::ArrowLeft => (-far, 0.0),
-                    Key::ArrowRight => (far, 0.0),
-                    Key::ArrowUp => (0.0, -far),
-                    Key::ArrowDown => (0.0, far),
-                    _ => return false,
-                };
-                place.set(Some(keep_in(Point::new(at.x + dx, at.y + dy))));
-                true
-            }),
-        );
+        move_by_handle(cx, header, self.at, self.largest, &self.place, &self.dragging);
         let labels = cx.labels();
         cx.semantics(
             header,

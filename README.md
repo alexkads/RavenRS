@@ -198,7 +198,7 @@ See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REP
 
 | Group | Components |
 |---|---|
-| Buttons and commands | `Button` (4 styles, 3 sizes, icons, loading, selected), `IconButton`, `ToggleButton`, `ToggleGroup`, `ButtonGroup`, `SplitButton`, `SegmentedControl`, `Toolbar`, `ThemePicker`, `ThemeEditor`, `ThemeSwitcher` |
+| Buttons and commands | `Button` (4 styles, 3 sizes, icons, loading, selected), `IconButton`, `ToggleButton`, `ToggleGroup`, `ButtonGroup`, `SplitButton`, `SegmentedControl`, `Toolbar`, `FloatingToolbar`, `ThemePicker`, `ThemeEditor`, `ThemeSwitcher` |
 | Text and choices | `TextField`, `TextArea`, `NumberField`, `MaskedField`, `InputOtp`, `Select`, `Combobox`, `LookupField`, `TagBox`, `Checkbox`, `RadioGroup`, `Toggle`, `Slider`, `ValueSlider`, `InlineRename`, `Stepper`, `Rating`, `FavoriteToggle`, `ColorPicker`, `ColorSwatch`, `SwatchGrid`, `ColorPair`, `NinePointAnchor`, `FileUpload`, `ImageField` |
 | Forms | `FormField` with `validate::{required, email, min_length}` and custom rules, `FormLayout`, `FilterBuilder`, `Wizard`, `StepIndicator`, `StepBadge`, `Label`, `HelpTip` |
 | Dates and scheduling | `Calendar`, `DatePicker`, `DateRangePicker`, `TimePicker`, `DateTimePicker`, `EventCalendar`, `Scheduler` (a timeline per resource), `RecurrenceEditor`, `Timeline` |
@@ -206,7 +206,7 @@ See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REP
 | Overlays | `Dialog`, `ConfirmDialog`, `Sheet`, `FloatingPanel`, `SplashScreen`, `Popover`, `HoverCard`, `Tooltip`, `DropdownMenu`, `ContextMenu`, `Toaster` |
 | Data | `DataGrid`, `TreeView`, `CardView`, `Table`, `List`, `Stat`, `Barcode` (QR Code and linear codes) |
 | Charts | `Chart` (line, area, bar, pie, doughnut, radar, radial, scatter, sparkline, candlestick), `ChartCard`, `ChartReference`, `SankeyChart`, `BarChart`, `AreaChart`: all 70 patterns of the shadcn/ui chart catalog are in the gallery |
-| Layout | `TileLayout`, `VStack`, `HStack`, `Grid`, `ScrollView`, `Splitter`, `SplitPanes`, `SplitHandle`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `ZStack`, `PropertyRow`, `PageHeader`, `Spacer`, `Footer`, `StatusBar`, `ToolRail`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
+| Layout | `TileLayout`, `VStack`, `HStack`, `Grid`, `ScrollView`, `Splitter`, `SplitPanes`, `SplitHandle`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `ZStack`, `PropertyRow`, `PageHeader`, `Spacer`, `Footer`, `StatusBar`, `TitleBar`, `ToolRail`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
 | Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Dot`, `OverlayBadge`, `IconTile`, `EmptyState`, `Alert`, `HeroBanner`, `ProgressBar`, `MultiProgress`, `ShimmerText`, `Spinner`, `Skeleton`, `Kbd`, `ShortcutSheet`, `ShortcutHintBar`, `Divider`, `DaySeparator`, `Canvas`, `CodeBlock`, `ReleaseNotes`, `Lottie` |
 | Assistants | `Chat`, `ModelPicker` |
 | Training and support (`ravenrs::movie`) | `Recorder`, `MoviePlayer`, `MovieAssistant`, `MovieChat`, `MovieEditor`, `FlightRecorder`, `BugReporter` |
