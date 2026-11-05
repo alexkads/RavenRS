@@ -35,6 +35,7 @@ impl TelaCaixa {
             .cliente
             .clone()
             .map_or_else(|| "Consumidor não identificado".to_owned(), |cliente| format!("Consumidor {cliente}"));
+        let nota = if self.caixa.nota_grande.get() { "Nota grande (NF-e, A4)" } else { "NFC-e" };
         let operador = configuracao(&self.session, "operador");
         let numero = configuracao(&self.session, "caixa");
         Box::new(
@@ -42,6 +43,7 @@ impl TelaCaixa {
                 Box::new(Text::new(format!("Caixa {numero}")).style(TextStyle::Headline)) as AnyView,
                 Box::new(Text::new(format!("Operador: {operador}")).foreground(Semantic::InkMuted)),
                 Box::new(Spacer::new()),
+                Box::new(Text::new(nota).font_weight(Weight::SEMIBOLD)),
                 Box::new(Text::new(cliente).foreground(Semantic::InkMuted)),
             ])
             .spacing(24.0)
@@ -71,7 +73,7 @@ impl TelaCaixa {
                 valor_em_texto(linha.total()),
             ]);
         }
-        let lista = Card::new(ScrollView::new(vec![Box::new(tabela) as AnyView])).grow(1.0);
+        let lista = Card::new(ScrollView::new(vec![Box::new(tabela) as AnyView]).grow(1.0)).grow(1.0).stretch();
 
         let ultimo: AnyView = match carrinho.ultimo() {
             Some(linha) => Box::new(
@@ -144,7 +146,7 @@ impl TelaCaixa {
             let tecla = (index + 1).to_string();
             Hotkey::alt(&tecla).register(cx, escolher.clone());
             formas.push(Box::new(
-                Button::new(format!("Alt+{tecla}  {}", forma.nome()))
+                Button::new(format!("{}  {}", Hotkey::alt(&tecla).label(), forma.nome()))
                     .size(ButtonSize::Large)
                     .full_width()
                     .style(if forma == forma_atual { ButtonStyle::Primary } else { ButtonStyle::Secondary })
@@ -232,11 +234,27 @@ impl TelaCaixa {
         if fim.autorizada {
             let (caixa, session, chave) = (self.caixa.clone(), self.session.clone(), fim.chave.clone());
             linhas.push(Box::new(
-                Button::new("Imprimir ou ver o cupom")
+                Button::new(if self.caixa.nota_grande.get() { "Ver o DANFE" } else { "Imprimir ou ver o cupom" })
                     .icon(ravenrs_widgets::IconName::Printer)
                     .on_click(move || caixa.imprimir_cupom(&session, &chave)),
             ));
+            if !self.caixa.nota_grande.get() {
+                let (caixa, session) = (self.caixa.clone(), self.session.clone());
+                linhas.push(Box::new(
+                    Button::new("Trocar por nota grande (cancela a NFC-e)")
+                        .style(ButtonStyle::Secondary)
+                        .on_click(move || caixa.trocar_por_nota_grande(&session)),
+                ));
+            }
+            if let Some(problema) = self.caixa.problema.get() {
+                linhas.push(Box::new(Alert::new("Atenção", problema).tone(Tone::Warning)));
+            }
         }
+        linhas.push(Box::new(
+            Text::new(if fim.autorizada { "F9 começa a próxima venda." } else { "F9 volta ao pagamento." })
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted),
+        ));
         let mut direita: Vec<AnyView> = Vec::new();
         if self.caixa.service.sandbox_ativo().is_some() {
             direita.push(Box::new(CenariosSandbox { caixa: self.caixa.clone() }));
@@ -299,7 +317,10 @@ impl View for CenariosSandbox {
         for (nome, cenario) in opcoes {
             let sandbox = sandbox.clone();
             lines.push(Box::new(
-                Button::new(nome).full_width().on_click(move || sandbox.use_once(autorizacao(cenario))),
+                Button::new(nome)
+                    .style(ButtonStyle::Secondary)
+                    .full_width()
+                    .on_click(move || sandbox.use_once(autorizacao(cenario))),
             ));
         }
         cx.child(&Card::new(VStack::new(lines).spacing(8.0).align(Align::Stretch)))

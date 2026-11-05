@@ -3,8 +3,12 @@
 use std::rc::Rc;
 
 use ravenrs_app::{Message, MessageKind, Object, Query, Value, drafts, save_draft, take_draft};
-use ravenrs_app_nfe::engine::{Csosn, Destinatario, DocumentoDestinatario, FormaPagamento, Item, Modelo, Rascunho};
-use ravenrs_app_nfe::{CUPOM_LINHA, EmissaoFinal, NfeService, TextoVenda, linhas_do_documento, renderizar_cupom};
+use ravenrs_app_nfe::engine::{
+    Csosn, Destinatario, DocumentoDestinatario, Endereco, FormaPagamento, Item, Modelo, Rascunho,
+};
+use ravenrs_app_nfe::{
+    CUPOM_LINHA, EmissaoFinal, MODELO_DANFE, NfeService, TextoVenda, linhas_do_documento, renderizar_cupom, uf_de,
+};
 use ravenrs_app_report::{ReportWords, label_bytes, send_to_printer, stored_reports_for};
 use ravenrs_app_ui::Session;
 use ravenrs_pos::{Carrinho, Forma, Linha, ler_codigo, ler_valor, troco, valor_em_texto};
@@ -15,7 +19,7 @@ use ravenrs_report_viewer::{DocumentViewer, ViewerState};
 use ravenrs_widgets::AnyView;
 use rust_decimal::Decimal;
 
-use crate::modelo::{CONFIGURACAO, PRODUTO};
+use crate::modelo::{CLIENTE, CONFIGURACAO, PRODUTO};
 
 const TIPO_RASCUNHO: &str = "venda";
 
@@ -71,8 +75,16 @@ fn forma_fiscal(forma: Forma) -> FormaPagamento {
 }
 
 /// The document of a sale.
-fn rascunho_de(carrinho: &Carrinho, forma: Forma, recebido: Decimal, numero: u32, serie: u16) -> Rascunho {
-    let mut rascunho = Rascunho::novo(Modelo::Nfce65, serie, numero, "VENDA DE MERCADORIA", String::new());
+fn rascunho_de(
+    carrinho: &Carrinho,
+    destinatario: Option<&Destinatario>,
+    forma: Forma,
+    recebido: Decimal,
+    numero: u32,
+    serie: u16,
+) -> Rascunho {
+    let modelo = if destinatario.is_some() { Modelo::Nfe55 } else { Modelo::Nfce65 };
+    let mut rascunho = Rascunho::novo(modelo, serie, numero, "VENDA DE MERCADORIA", String::new());
     for linha in &carrinho.linhas {
         rascunho = rascunho.com_item(Item {
             codigo: linha.codigo.clone(),
@@ -90,7 +102,9 @@ fn rascunho_de(carrinho: &Carrinho, forma: Forma, recebido: Decimal, numero: u32
         });
     }
     rascunho = rascunho.com_pagamento(forma_fiscal(forma), recebido);
-    if let Some(cliente) = &carrinho.cliente {
+    if let Some(destinatario) = destinatario {
+        rascunho = rascunho.com_destinatario(destinatario.clone());
+    } else if let Some(cliente) = &carrinho.cliente {
         let documento = if cliente.len() == 11 {
             DocumentoDestinatario::Cpf(cliente.clone())
         } else {
@@ -117,6 +131,8 @@ pub struct Caixa {
     pub forma: State<Forma>,
     /// What was typed as handed over.
     pub recebido: State<String>,
+    /// The sale goes out as a NF-e, with a DANFE on a sheet, for a customer on record.
+    pub nota_grande: State<bool>,
     /// Issuing.
     pub service: NfeService,
     /// The words of the stored reports.
@@ -132,6 +148,7 @@ impl Caixa {
             problema: State::new(None),
             forma: State::new(Forma::Dinheiro),
             recebido: State::new(String::new()),
+            nota_grande: State::new(false),
             service,
             palavras: Rc::new(ReportWords::pt_br()),
         }
@@ -183,6 +200,69 @@ impl Caixa {
         }
     }
 
+    /// Who the note of this sale goes to, for a note of the large kind, or what is missing.
+    fn destinatario(&self, session: &Session, carrinho: &Carrinho) -> Result<Destinatario, String> {
+        let documento = carrinho.cliente.clone().ok_or("A nota grande precisa de um cliente: use Alt+C.")?;
+        let space = session.frame().space();
+        let clientes = space.borrow().query(CLIENTE, &Query::all()).unwrap_or_default();
+        let cliente = clientes
+            .iter()
+            .find(|cliente| {
+                texto(cliente, "documento").chars().filter(char::is_ascii_alphanumeric).collect::<String>() == documento
+            })
+            .ok_or_else(|| format!("O cliente {documento} não está cadastrado. A nota grande precisa do endereço."))?;
+        Ok(Destinatario {
+            documento: if documento.len() == 11 {
+                DocumentoDestinatario::Cpf(documento)
+            } else {
+                DocumentoDestinatario::Cnpj(documento)
+            },
+            nome: Some(texto(cliente, "nome")),
+            endereco: Some(Endereco {
+                logradouro: texto(cliente, "logradouro"),
+                numero: texto(cliente, "numero"),
+                bairro: texto(cliente, "bairro"),
+                codigo_municipio: texto(cliente, "codigo_municipio"),
+                municipio: texto(cliente, "municipio"),
+                uf: uf_de(&texto(cliente, "uf"))?,
+                cep: texto(cliente, "cep"),
+            }),
+        })
+    }
+
+    /// Swaps an authorized NFC-e for a NF-e to a customer on record: a note cannot change its model,
+    /// so the first one is canceled and the sale issued again. What the law allows for this, and how
+    /// long after the sale, is for an accountant to confirm.
+    pub fn trocar_por_nota_grande(&self, session: &Session) {
+        let Tela::Resultado(fim) = self.tela.get() else { return };
+        if !fim.autorizada {
+            return;
+        }
+        let carrinho = self.carrinho.peek().clone();
+        if let Err(why) = self.destinatario(session, &carrinho) {
+            return self.problema.set(Some(why));
+        }
+        self.problema.set(None);
+        self.tela.set(Tela::Enviando);
+        let caixa = self.clone();
+        self.service.cancelar(
+            session,
+            &fim.chave.clone(),
+            &fim.protocolo.clone(),
+            "Troca a pedido do cliente por NF-e com destinatario identificado",
+            move |session, ended| match ended {
+                Ok(()) => {
+                    caixa.nota_grande.set(true);
+                    caixa.confirmar(session);
+                }
+                Err(why) => {
+                    caixa.problema.set(Some(format!("A NFC-e não foi cancelada: {why}")));
+                    caixa.tela.set(Tela::Resultado(fim));
+                }
+            },
+        );
+    }
+
     /// What Esc does, by the screen that is up. False when there is nothing to go back from.
     pub fn voltar(&self) -> bool {
         match self.tela.get() {
@@ -206,6 +286,7 @@ impl Caixa {
     fn nova_venda(&self) {
         self.carrinho.set(Carrinho::default());
         self.problema.set(None);
+        self.nota_grande.set(false);
         self.tela.set(Tela::Vendendo);
     }
 
@@ -220,12 +301,24 @@ impl Caixa {
         if let Err(why) = troco(forma, total, recebido) {
             return self.problema.set(Some(why));
         }
+        let destinatario = if *self.nota_grande.peek() {
+            match self.destinatario(session, &carrinho) {
+                Ok(destinatario) => Some(destinatario),
+                Err(why) => {
+                    self.problema.set(Some(why));
+                    self.tela.set(Tela::Pagando);
+                    return;
+                }
+            }
+        } else {
+            None
+        };
         self.problema.set(None);
         self.tela.set(Tela::Enviando);
         let venda = TextoVenda {
             pagamento: forma.nome().to_owned(),
             recebido,
-            consumidor: carrinho.cliente.as_ref().map_or_else(
+            consumidor: carrinho.cliente.as_ref().filter(|_| destinatario.is_none()).map_or_else(
                 || "CONSUMIDOR NÃO IDENTIFICADO".to_owned(),
                 |cliente| format!("CONSUMIDOR {cliente}"),
             ),
@@ -233,13 +326,13 @@ impl Caixa {
         let caixa = self.clone();
         self.service.emitir(
             session,
-            move |numero, serie| rascunho_de(&carrinho, forma, recebido, numero, serie),
+            move |numero, serie| rascunho_de(&carrinho, destinatario.as_ref(), forma, recebido, numero, serie),
             venda,
             move |session, fim| {
                 let autorizada = fim.autorizada;
                 let chave = fim.chave.clone();
                 caixa.tela.set(Tela::Resultado(fim));
-                if autorizada && !configuracao(session, "impressora_cupom").is_empty() {
+                if autorizada && !*caixa.nota_grande.peek() && !configuracao(session, "impressora_cupom").is_empty() {
                     caixa.imprimir_cupom(session, &chave);
                 }
             },
@@ -307,16 +400,19 @@ impl Caixa {
         if linhas.is_empty() {
             return tell("Essa nota não tem cupom: ela não foi autorizada.".to_owned());
         }
+        // The note decides the paper: a sheet for a NF-e, the roll for a NFC-e.
+        let grande = linhas.first().is_some_and(|linha| texto(linha, "modelo") == "55");
         let modelos = stored_reports_for(session, CUPOM_LINHA);
-        let Some(modelo) = modelos.first() else {
-            return tell("Não há modelo de cupom.".to_owned());
+        let modelo = modelos.iter().find(|modelo| (texto(modelo, "name") == MODELO_DANFE) == grande);
+        let Some(modelo) = modelo else {
+            return tell("Não há modelo para esse documento.".to_owned());
         };
         let documento = match renderizar_cupom(session, modelo, &linhas, &self.palavras) {
             Ok(documento) => documento,
             Err(why) => return tell(why),
         };
         let conexao = configuracao(session, "impressora_cupom");
-        if conexao.is_empty() {
+        if grande || conexao.is_empty() {
             let shown = Rc::new(documento);
             let state = ViewerState::new();
             session.present("Cupom", move || Box::new(DocumentViewer::new(shown.clone(), &state)) as AnyView);

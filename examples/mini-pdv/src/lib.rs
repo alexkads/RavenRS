@@ -7,7 +7,7 @@ use std::rc::Rc;
 use ravenrs_app::{ObjectSpace, Query};
 use ravenrs_app_nfe::engine::BetaAck;
 use ravenrs_app_nfe::{NFE_EMITENTE, NfeService};
-use ravenrs_app_pos::{CONFIGURACAO, PRODUTO, Pos, entidades};
+use ravenrs_app_pos::{CLIENTE, CONFIGURACAO, PRODUTO, Pos, entidades};
 use ravenrs_app_sqlite::{SqliteDatabase, TableMap};
 use ravenrs_app_ui::App;
 use ravenrs_widgets::{Alert, AnyView, Tone};
@@ -61,6 +61,23 @@ fn semear(space: &mut dyn ObjectSpace) -> Result<(), String> {
             emitente.set(campo, valor.to_owned());
         }
         space.save(emitente).map_err(erro)?;
+    }
+    if space.query(CLIENTE, &Query::all()).map_err(erro)?.is_empty() {
+        let mut cliente = space.new_object(CLIENTE).map_err(erro)?;
+        for (campo, valor) in [
+            ("nome", "RESTAURANTE EXEMPLO LTDA"),
+            ("documento", "11444777000161"),
+            ("logradouro", "Avenida de Exemplo"),
+            ("numero", "200"),
+            ("bairro", "Centro"),
+            ("codigo_municipio", "3550308"),
+            ("municipio", "Sao Paulo"),
+            ("uf", "SP"),
+            ("cep", "01002000"),
+        ] {
+            cliente.set(campo, valor.to_owned());
+        }
+        space.save(cliente).map_err(erro)?;
     }
     if space.query(CONFIGURACAO, &Query::all()).map_err(erro)?.is_empty() {
         let mut configuracao = space.new_object(CONFIGURACAO).map_err(erro)?;

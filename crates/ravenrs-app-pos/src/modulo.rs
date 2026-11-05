@@ -6,7 +6,7 @@ use ravenrs_app::{
     Action, ActionCategory, AppRecordsModule, DashboardInfo, Message, MessageKind, Module, ViewController,
     WindowController,
 };
-use ravenrs_app_nfe::{CUPOM_LINHA, NfeModule, NfeService, modelos_de_cupom};
+use ravenrs_app_nfe::{CUPOM_LINHA, NfeModule, NfeService, modelos_de_cupom, modelos_de_danfe};
 use ravenrs_app_report::{ReportWords, StoredReportsModule};
 use ravenrs_app_ui::{App, Language, Session};
 use ravenrs_report::barcode::Symbology;
@@ -16,7 +16,7 @@ use ravenrs_widgets::{AnyView, Button, Text, TextField, VStack, ViewExt};
 
 use crate::caixa::{Caixa, configuracao};
 use crate::etiquetas::TelaEtiquetas;
-use crate::modelo::{PRODUTO, configuracao_entity, produto_entity};
+use crate::modelo::{PRODUTO, cliente_entity, configuracao_entity, produto_entity};
 use crate::telas::{TelaCaixa, TelaInicio};
 
 /// The view of the first screen.
@@ -55,10 +55,11 @@ fn perguntar(
 
 /// The window with the rest of what can be done.
 pub(crate) fn abrir_outras_funcoes(session: &Session) {
-    let opcoes: [(&str, &str); 4] = [
+    let opcoes: [(&str, &str); 5] = [
         ("Notas emitidas", "NfeDocumento_ListView"),
         ("Emitente", "NfeEmitente_ListView"),
         ("Modelos de cupom e etiqueta", "ReportDefinition_ListView"),
+        ("Clientes", "PosCliente_ListView"),
         ("Configuração do caixa", "PosConfiguracao_ListView"),
     ];
     let aberta = session.clone();
@@ -152,6 +153,7 @@ impl ViewController for NoCaixa {
     }
 
     fn actions(&self) -> Vec<Action> {
+        let grande = self.caixa.clone();
         let (item, venda, cliente, nota, pendentes, finalizar) = (
             self.caixa.clone(),
             self.caixa.clone(),
@@ -178,6 +180,10 @@ impl ViewController for NoCaixa {
                         carrinho.cliente = (!digitos.is_empty()).then_some(digitos);
                     });
                 });
+                Ok(())
+            }),
+            no_caixa("Pos.NotaGrande", "Nota grande", "f8").on_execute(move |_| {
+                grande.nota_grande.update(|ligada| *ligada = !*ligada);
                 Ok(())
             }),
             no_caixa("Pos.Observacao", "Observação", "ctrl+o").on_execute(move |cx| {
@@ -255,7 +261,7 @@ impl Module for PosModule {
     }
 
     fn entities(&self) -> Vec<ravenrs_app::EntityInfo> {
-        vec![produto_entity(), configuracao_entity()]
+        vec![produto_entity(), cliente_entity(), configuracao_entity()]
     }
 
     fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
@@ -269,7 +275,7 @@ impl Module for PosModule {
 
 /// The label that comes with it, for a roll of 60 x 40 mm.
 fn etiqueta_padrao() -> ravenrs_report::Report {
-    shelf_label(
+    let mut etiqueta = shelf_label(
         &LabelStock::roll("Rolo 60 x 40 mm", 60.0, 40.0),
         "Gôndola 60 x 40 mm",
         &ShelfLabelFields {
@@ -279,7 +285,9 @@ fn etiqueta_padrao() -> ravenrs_report::Report {
             barcode: "[gtin]".to_owned(),
             symbology: Symbology::Ean13,
         },
-    )
+    );
+    etiqueta.culture = "pt-BR".to_owned();
+    etiqueta
 }
 
 /// A point of sale, to add to an application.
@@ -304,7 +312,7 @@ impl Pos {
     pub fn instalar(&self, app: App) -> App {
         let mut relatorios =
             StoredReportsModule::new(ReportWords::pt_br()).predefined("Gôndola 60 x 40 mm", PRODUTO, etiqueta_padrao());
-        for (nome, modelo) in modelos_de_cupom() {
+        for (nome, modelo) in modelos_de_cupom().into_iter().chain(modelos_de_danfe()) {
             relatorios = relatorios.predefined(nome, CUPOM_LINHA, modelo);
         }
         let (caixa, palavras) = (self.caixa.clone(), Rc::new(ReportWords::pt_br()));

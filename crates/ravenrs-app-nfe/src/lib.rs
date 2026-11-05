@@ -11,9 +11,9 @@ mod module;
 mod service;
 
 pub use cupom::{
-    CAMPOS_OBRIGATORIOS, CUPOM_LINHA, campos_faltando, cupom_entity, cupom_report, linhas_do_documento,
-    modelos_de_cupom, renderizar_cupom,
+    CAMPOS_OBRIGATORIOS, CUPOM_LINHA, MODELO_DANFE, campos_faltando, cupom_entity, cupom_report, danfe_report,
+    linhas_do_documento, modelos_de_cupom, modelos_de_danfe, renderizar_cupom,
 };
 pub use module::{NFE_DOCUMENTO, NFE_EMITENTE, NfeModule, documento_entity, emitente_entity};
 pub use ravenrs_nfe as engine;
-pub use service::{EmissaoFinal, NfeService, TextoVenda, emitente_do_registro};
+pub use service::{EmissaoFinal, NfeService, TextoVenda, emitente_do_registro, uf_de};

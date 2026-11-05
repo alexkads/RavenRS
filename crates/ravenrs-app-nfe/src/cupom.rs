@@ -6,17 +6,25 @@ use ravenrs_app_report::{ReportWords, render_stored_report_with};
 use ravenrs_app_ui::Session;
 use ravenrs_report::barcode::Symbology;
 use ravenrs_report::labels::{LabelStock, common_stocks};
-use ravenrs_report::{Band, Control, Document, PrinterAction, Report, Style, TextAlign};
+use ravenrs_report::{Band, Control, Document, PageSettings, PrinterAction, Report, Style, TextAlign};
 
 /// The entity of the lines of a receipt, which storage has to know.
 pub const CUPOM_LINHA: &str = "NfeCupomLinha";
+
+/// What the layout of the DANFE that comes with the module is called.
+pub const MODELO_DANFE: &str = "DANFE A4";
 
 /// The fields a layout cannot do without and still be the fiscal receipt.
 pub const CAMPOS_OBRIGATORIOS: [&str; 4] = ["chave", "qr_code", "numero", "protocolo"];
 
 /// The fields of a line, with what people call them in the designer.
-const CAMPOS: [(&str, &str); 26] = [
+const CAMPOS: [(&str, &str); 32] = [
     ("documento", "Documento"),
+    ("modelo", "Modelo"),
+    ("dest_nome", "Destinatário"),
+    ("dest_documento", "CPF ou CNPJ do destinatário"),
+    ("dest_ie", "IE do destinatário"),
+    ("dest_endereco", "Endereço do destinatário"),
     ("ordem", "Item"),
     ("emitente", "Emitente"),
     ("cnpj", "CNPJ"),
@@ -36,6 +44,7 @@ const CAMPOS: [(&str, &str); 26] = [
     ("recebido", "Valor recebido"),
     ("troco", "Troco"),
     ("chave", "Chave de acesso"),
+    ("chave_digitos", "Chave de acesso, sem espaços"),
     ("numero", "Número e série"),
     ("emitido", "Emissão"),
     ("protocolo", "Protocolo"),
@@ -69,6 +78,7 @@ pub fn cupom_report(stock: &LabelStock, name: impl Into<String>) -> Report {
     let line = base * 1.5;
     let code = width.min(120.0);
     let mut report = stock.report(name);
+    report.culture = "pt-BR".to_owned();
     report.report_header = Some(
         Band::new(line * 6.0)
             .control(text("[emitente]", 0.0, 0.0, width, line, strong()))
@@ -128,10 +138,66 @@ pub fn modelos_de_cupom() -> Vec<(String, Report)> {
         .collect()
 }
 
+/// The DANFE of a sale to a company, on a sheet of A4. Everything in it can change in the designer.
+pub fn danfe_report(name: impl Into<String>) -> Report {
+    let page = PageSettings::a4();
+    let width = page.content_width();
+    let plain = || Style::new().font_size(8.0);
+    let strong = || Style::new().font_size(9.0).bold();
+    let center = || Style::new().font_size(12.0).bold().align(TextAlign::Center);
+    let right = || Style::new().font_size(8.0).align(TextAlign::Right);
+    let mut report = Report::new(name).page(page);
+    report.culture = "pt-BR".to_owned();
+    let line = 13.0;
+    report.report_header = Some(
+        Band::new(line * 15.0)
+            .control(text("[aviso]", 0.0, 0.0, width, line, center()))
+            .control(text("'DANFE - Documento Auxiliar da Nota Fiscal Eletrônica'", 0.0, line, width, line * 1.5, center()))
+            .control(text("[numero] + '   ' + [emitido]", 0.0, line * 2.5, width, line, plain()))
+            .control(text("[emitente]", 0.0, line * 3.5, width, line, strong()))
+            .control(text("'CNPJ ' + [cnpj] + '  IE ' + [ie]", 0.0, line * 4.5, width, line, plain()))
+            .control(text("[endereco]", 0.0, line * 5.5, width, line, plain()))
+            .control(
+                Control::barcode(Symbology::Code128, "[chave_digitos]").at(0.0, line * 6.7, width * 0.7, line * 2.6),
+            )
+            .control(text("'Chave de acesso: ' + [chave]", 0.0, line * 9.4, width, line, plain()))
+            .control(text("'Protocolo de autorização: ' + [protocolo]", 0.0, line * 10.4, width, line, plain()))
+            .control(text("'DESTINATÁRIO: ' + [dest_nome]", 0.0, line * 11.6, width, line, strong()))
+            .control(text("[dest_documento] + '  IE ' + [dest_ie]", 0.0, line * 12.6, width, line, plain()))
+            .control(text("[dest_endereco]", 0.0, line * 13.6, width, line, plain())),
+    );
+    report.detail = Band::new(line)
+        .control(text("[ordem]", 0.0, 0.0, 24.0, line, plain()))
+        .control(text("[codigo]", 24.0, 0.0, 70.0, line, plain()))
+        .control(text("[descricao]", 94.0, 0.0, width - 94.0 - 210.0, line, plain()))
+        .control(text("[quantidade] + ' ' + [unidade]", width - 210.0, 0.0, 70.0, line, right()))
+        .control(text("[unitario]", width - 140.0, 0.0, 70.0, line, right()))
+        .control(text("[valor]", width - 70.0, 0.0, 70.0, line, right()));
+    report.report_footer = Some(
+        Band::new(line * 5.0)
+            .control(text("'TOTAL DA NOTA R$ ' + [total]", 0.0, line, width, line * 1.3, Style::new().font_size(11.0).bold().align(TextAlign::Right)))
+            .control(text("[pagamento] + ' R$ ' + [recebido]", 0.0, line * 2.4, width, line, right()))
+            .control(text("[observacao]", 0.0, line * 3.5, width, line * 1.5, plain())),
+    );
+    report
+}
+
+/// The layouts of the documents of a sale to a company, with what they are called.
+pub fn modelos_de_danfe() -> Vec<(String, Report)> {
+    vec![(MODELO_DANFE.to_owned(), danfe_report(MODELO_DANFE))]
+}
+
+/// What a layout of this document model cannot do without, and left out.
+fn faltando_no_modelo(report: &Report, modelo: &str) -> Vec<&'static str> {
+    let written = report.to_json();
+    let exigidos: &[&'static str] =
+        if modelo == "55" { &["chave", "numero", "protocolo", "dest_nome"] } else { &CAMPOS_OBRIGATORIOS };
+    exigidos.iter().copied().filter(|field| !written.contains(&format!("[{field}]"))).collect()
+}
+
 /// What makes a receipt fiscal and this layout left out.
 pub fn campos_faltando(report: &Report) -> Vec<&'static str> {
-    let written = report.to_json();
-    CAMPOS_OBRIGATORIOS.into_iter().filter(|field| !written.contains(&format!("[{field}]"))).collect()
+    faltando_no_modelo(report, "65")
 }
 
 /// Puts the notice of the environment back, for a layout that took it out.
@@ -159,11 +225,15 @@ pub fn renderizar_cupom(
     words: &ReportWords,
 ) -> Result<Document, String> {
     let rows: Vec<(Object, u32)> = linhas.iter().map(|line| (line.clone(), 1)).collect();
+    let do_documento = linhas.first().map_or_else(|| "65".to_owned(), |line| match line.get("modelo") {
+        Value::Text(text) => text,
+        _ => "65".to_owned(),
+    });
     render_stored_report_with(session, modelo, &rows, words, |report| {
-        let missing = campos_faltando(report);
+        let missing = faltando_no_modelo(report, &do_documento);
         if !missing.is_empty() {
             return Err(format!(
-                "Este layout não traz o que o cupom fiscal precisa: {}. Abra-o no editor e inclua.",
+                "Este layout não traz o que o documento fiscal precisa: {}. Abra-o no editor e inclua.",
                 missing.join(", ")
             ));
         }

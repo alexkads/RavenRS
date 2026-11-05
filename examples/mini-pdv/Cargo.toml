@@ -20,7 +20,10 @@ rusqlite.workspace = true
 [dev-dependencies]
 ravenrs-core.workspace = true
 ravenrs-nfe.workspace = true
+ravenrs-report.workspace = true
 ravenrs-style.workspace = true
+image = { workspace = true }
+pollster.workspace = true
 
 [lints]
 workspace = true

@@ -7,6 +7,8 @@ use ravenrs_app_nfe::NfeModule;
 pub const PRODUTO: &str = "PosProduto";
 /// The entity of the settings of the checkout.
 pub const CONFIGURACAO: &str = "PosConfiguracao";
+/// The entity of customers.
+pub const CLIENTE: &str = "PosCliente";
 
 /// What is sold.
 pub fn produto_entity() -> EntityInfo {
@@ -42,6 +44,28 @@ pub fn produto_entity() -> EntityInfo {
         .rule(Rule::matches("cfop", "^[0-9]{4}$").message("O CFOP tem 4 dígitos."))
 }
 
+/// Who buys with a note of their own: a company, usually.
+pub fn cliente_entity() -> EntityInfo {
+    let text = |name: &str, caption: &str| FieldInfo::new(name, FieldKind::Text).caption(caption);
+    EntityInfo::new(CLIENTE)
+        .caption("Clientes")
+        .navigation("Cadastros")
+        .icon("users")
+        .field(FieldInfo::new("id", FieldKind::Guid).key())
+        .field(text("nome", "Nome ou razão social").default_property())
+        .field(text("documento", "CPF ou CNPJ"))
+        .field(text("logradouro", "Logradouro"))
+        .field(text("numero", "Número"))
+        .field(text("bairro", "Bairro"))
+        .field(text("codigo_municipio", "Código IBGE do município"))
+        .field(text("municipio", "Município"))
+        .field(text("uf", "UF"))
+        .field(text("cep", "CEP"))
+        .rule(Rule::required("nome"))
+        .rule(Rule::required("documento"))
+        .rule(Rule::unique("documento"))
+}
+
 /// The settings of the checkout: one record.
 pub fn configuracao_entity() -> EntityInfo {
     let text = |name: &str, caption: &str| FieldInfo::new(name, FieldKind::Text).caption(caption);
@@ -62,6 +86,7 @@ pub fn configuracao_entity() -> EntityInfo {
 pub fn entidades() -> Vec<EntityInfo> {
     let mut all = vec![
         produto_entity(),
+        cliente_entity(),
         configuracao_entity(),
         ravenrs_app::sequence_entity(),
         ravenrs_app::draft_entity(),

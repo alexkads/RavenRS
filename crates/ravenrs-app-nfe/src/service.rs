@@ -7,8 +7,8 @@ use ravenrs_app::{Object, ObjectSpace, Query, SpaceError, Value, next_number};
 use ravenrs_app_ui::Session;
 use ravenrs_nfe::sandbox::{SandboxSigner, SefazSandbox};
 use ravenrs_nfe::{
-    Ambiente, BetaAck, Emissao, Emissor, Emitente, Endereco, HttpRequest, HttpResponse, NfeError, Rascunho,
-    Signer, Situacao, Transport, TransportError, Uf,
+    Ambiente, BetaAck, Cancelamento, ChaveAcesso, DocumentoDestinatario, Emissao, Emissor, Emitente, Endereco,
+    HttpRequest, HttpResponse, Modelo, NfeError, Rascunho, Signer, Situacao, Transport, TransportError, Uf,
 };
 use rust_decimal::Decimal;
 
@@ -210,6 +210,65 @@ impl NfeService {
     }
 }
 
+impl NfeService {
+    /// Cancels an authorized document out of the way of the screens, keeps that and then says how it
+    /// ended: `Ok` when it was registered.
+    pub fn cancelar(
+        &self,
+        session: &Session,
+        chave: &str,
+        protocolo: &str,
+        justificativa: &str,
+        done: impl FnOnce(&Session, Result<(), String>) + 'static,
+    ) {
+        let montado = (|| -> Result<(Emissor, Cancelamento), String> {
+            let space = session.frame().space();
+            let record = emitente_salvo(&*space.borrow()).ok_or("Cadastre o emitente.")?;
+            let (emitente, _) = emitente_do_registro(&record)?;
+            let emissor = self.emissor(emitente).map_err(|error| error.to_string())?;
+            let pedido = Cancelamento {
+                chave: ChaveAcesso::parse(chave).map_err(|error| error.to_string())?,
+                protocolo: protocolo.to_owned(),
+                justificativa: justificativa.to_owned(),
+                quando: agora_com_fuso(),
+                sequencia: 1,
+            };
+            Ok((emissor, pedido))
+        })();
+        let (emissor, pedido) = match montado {
+            Ok(montado) => montado,
+            Err(why) => return done(session, Err(why)),
+        };
+        let chave = chave.to_owned();
+        session.run_background(
+            "Cancelando a nota",
+            move |_| emissor.cancelar(&pedido).map_err(|error| error.to_string()),
+            move |session, answer| {
+                let ended = match answer {
+                    Ok(answer) if answer.registrado() => marcar_cancelada(session, &chave),
+                    Ok(answer) => Err(format!("{}: {}", answer.c_stat, answer.x_motivo)),
+                    Err(why) => Err(why),
+                };
+                session.records_changed();
+                done(session, ended);
+            },
+        );
+    }
+}
+
+/// Marks a document as canceled, by its key.
+fn marcar_cancelada(session: &Session, chave: &str) -> Result<(), String> {
+    let space = session.frame().space();
+    let mut space = space.borrow_mut();
+    let found = space.query(NFE_DOCUMENTO, &Query::all()).map_err(|error| error.to_string())?;
+    let documento = found.into_iter().find(|record| texto(record, "chave") == chave);
+    if let Some(mut documento) = documento {
+        documento.set("situacao", "Cancelada".to_owned());
+        space.save(documento).map_err(|error| error.to_string())?;
+    }
+    space.commit().map_err(|error| error.to_string())
+}
+
 /// The issuer kept, if there is one.
 pub(crate) fn emitente_salvo(space: &dyn ObjectSpace) -> Option<Object> {
     space.query(NFE_EMITENTE, &Query::all()).ok()?.into_iter().next()
@@ -230,19 +289,24 @@ fn texto(record: &Object, field: &str) -> String {
     }
 }
 
+/// A state by its abbreviation, or that this beta does not reach it yet.
+pub fn uf_de(sigla: &str) -> Result<Uf, String> {
+    match sigla.trim().to_uppercase().as_str() {
+        "SP" => Ok(Uf::SP),
+        "RS" => Ok(Uf::RS),
+        "PR" => Ok(Uf::PR),
+        "MG" => Ok(Uf::MG),
+        "SC" => Ok(Uf::SC),
+        "RJ" => Ok(Uf::RJ),
+        "ES" => Ok(Uf::ES),
+        "DF" => Ok(Uf::DF),
+        other => Err(format!("UF \u{201c}{other}\u{201d} ainda não está nesta versão beta.")),
+    }
+}
+
 /// The issuer and its series from what people typed, or what is missing.
 pub fn emitente_do_registro(record: &Object) -> Result<(Emitente, u16), String> {
-    let uf = match texto(record, "uf").to_uppercase().as_str() {
-        "SP" => Uf::SP,
-        "RS" => Uf::RS,
-        "PR" => Uf::PR,
-        "MG" => Uf::MG,
-        "SC" => Uf::SC,
-        "RJ" => Uf::RJ,
-        "ES" => Uf::ES,
-        "DF" => Uf::DF,
-        other => return Err(format!("UF \u{201c}{other}\u{201d} ainda não está nesta versão beta.")),
-    };
+    let uf = uf_de(&texto(record, "uf"))?;
     let serie = match record.get("serie") {
         Value::Number(serie) => serie as u16,
         _ => 1,
@@ -367,17 +431,40 @@ fn guardar_cupom(
         endereco.municipio,
         endereco.uf.sigla()
     );
+    let nfce = rascunho.modelo == Modelo::Nfce65;
+    let destinatario = rascunho.destinatario.as_ref().map_or_else(
+        || (String::new(), String::new(), String::new()),
+        |destinatario| {
+            let documento = match &destinatario.documento {
+                DocumentoDestinatario::Cnpj(cnpj) => format!("CNPJ {cnpj}"),
+                DocumentoDestinatario::Cpf(cpf) => format!("CPF {cpf}"),
+            };
+            let endereco = destinatario.endereco.as_ref().map_or_else(String::new, |e| {
+                format!("{}, {}, {}, {}/{}, CEP {}", e.logradouro, e.numero, e.bairro, e.municipio, e.uf.sigla(), e.cep)
+            });
+            (destinatario.nome.clone().unwrap_or_default(), documento, endereco)
+        },
+    );
     for (index, item) in rascunho.itens.iter().enumerate() {
         let valor = documento.totais.itens.get(index).map_or(Decimal::ZERO, |line| line.v_prod);
         let mut line = space.new_object(CUPOM_LINHA)?;
         for (field, value) in [
             ("documento", documento.chave.as_str().to_owned()),
+            ("modelo", rascunho.modelo.codigo().to_owned()),
+            ("dest_nome", destinatario.0.clone()),
+            ("dest_documento", destinatario.1.clone()),
+            ("dest_ie", String::new()),
+            ("dest_endereco", destinatario.2.clone()),
+            ("chave_digitos", documento.chave.as_str().to_owned()),
             ("ordem", (index + 1).to_string()),
             ("emitente", emitente.nome_fantasia.clone().unwrap_or_else(|| emitente.razao_social.clone())),
             ("cnpj", emitente.cnpj.clone()),
             ("ie", emitente.inscricao_estadual.clone()),
             ("endereco", lugar.clone()),
-            ("titulo", "Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica".to_owned()),
+            (
+                "titulo",
+                if nfce { "Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica" } else { "DANFE" }.to_owned(),
+            ),
             ("aviso", service.aviso().to_owned()),
             ("codigo", item.codigo.clone()),
             ("descricao", item.descricao.clone()),
@@ -391,7 +478,10 @@ fn guardar_cupom(
             ("recebido", money(venda.recebido)),
             ("troco", money(documento.totais.v_troco)),
             ("chave", grupos_da_chave(documento.chave.as_str())),
-            ("numero", format!("NFC-e {:09}, série {}", rascunho.numero, rascunho.serie)),
+            (
+                "numero",
+                format!("{} {:09}, série {}", if nfce { "NFC-e" } else { "NF-e" }, rascunho.numero, rascunho.serie),
+            ),
             ("emitido", rascunho.emitido_em.replace('T', " ")),
             ("protocolo", protocolo.to_owned()),
             ("consumidor", venda.consumidor.clone()),

@@ -59,7 +59,8 @@ impl View for TelaEtiquetas {
         let aviso: State<Option<(Tone, String)>> = cx.use_state(|| None);
 
         let space = session.frame().space();
-        let produtos = space.borrow().query(PRODUTO, &Query::all()).unwrap_or_default();
+        let mut produtos = space.borrow().query(PRODUTO, &Query::all()).unwrap_or_default();
+        produtos.sort_by_key(|produto| texto(produto, "descricao"));
         let modelos = stored_reports_for(session, PRODUTO);
 
         let mut lista: Vec<AnyView> = Vec::new();
@@ -158,7 +159,7 @@ impl View for TelaEtiquetas {
                 Ok(Some(bitmap)) => {
                     if let Ok(imagem) = Image::from_bytes(&bitmap_to_png(&bitmap)) {
                         lado.push(Box::new(Text::new("Prévia em pontos, 203 dpi").style(TextStyle::Caption)));
-                        lado.push(Box::new(imagem));
+                        lado.push(Box::new(imagem.width(240.0)));
                     }
                 }
                 Ok(None) => {}
@@ -172,7 +173,7 @@ impl View for TelaEtiquetas {
 
         let editar = {
             let (session, modelo, palavras) = (session.clone(), modelo.clone(), self.palavras.clone());
-            Button::new("Editar modelo no editor de relatórios").full_width().disabled(modelo.is_none()).on_click(
+            Button::new("Editar modelo no editor de relatórios").style(ButtonStyle::Secondary).full_width().disabled(modelo.is_none()).on_click(
                 move || {
                     if let Some(modelo) = &modelo
                         && let Err(why) = design_stored_report(&session, modelo, &palavras)
@@ -211,15 +212,13 @@ impl View for TelaEtiquetas {
             let picker = cx.file_picker();
             let session = session.clone();
             let bytes = bytes.clone();
-            Button::new("Salvar arquivo .prn").full_width().disabled(bytes.is_none()).on_click(move || {
+            Button::new("Salvar arquivo .prn").style(ButtonStyle::Secondary).full_width().disabled(bytes.is_none()).on_click(move || {
                 if let Some(Ok(bytes)) = &bytes {
                     session.hand_file("etiquetas.prn".to_owned(), bytes.clone(), &picker);
                 }
             })
         };
-        lado.push(Box::new(editar));
-        lado.push(Box::new(salvar));
-        lado.push(Box::new(imprimir));
+        let botoes: Vec<AnyView> = vec![Box::new(editar), Box::new(salvar), Box::new(imprimir)];
 
         cx.child(
             &HStack::new(vec![
@@ -227,12 +226,21 @@ impl View for TelaEtiquetas {
                     Card::new(ScrollView::new(vec![
                         Box::new(VStack::new(lista).spacing(8.0).align(Align::Stretch)) as AnyView,
                     ]))
-                    .grow(1.0),
+                    .grow(1.0)
+                    .stretch(),
                 ) as AnyView,
                 Box::new(
-                    ScrollView::new(vec![
-                        Box::new(VStack::new(lado).spacing(12.0).align(Align::Stretch)) as AnyView,
+                    VStack::new(vec![
+                        Box::new(
+                            ScrollView::new(vec![
+                                Box::new(VStack::new(lado).spacing(12.0).align(Align::Stretch)) as AnyView,
+                            ])
+                            .grow(1.0),
+                        ) as AnyView,
+                        Box::new(VStack::new(botoes).spacing(8.0).align(Align::Stretch)),
                     ])
+                    .spacing(12.0)
+                    .align(Align::Stretch)
                     .width(380.0),
                 ),
             ])

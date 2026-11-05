@@ -5,12 +5,12 @@ use ravenrs_app::{
     Module, Notice, Rule, TargetScope, Value, ViewController,
 };
 use ravenrs_app_ui::Session;
-use ravenrs_nfe::{Ambiente, Cancelamento, ChaveAcesso};
+use ravenrs_nfe::{Ambiente, ChaveAcesso};
 use ravenrs_reactive::Binding;
 use ravenrs_widgets::{AnyView, TextArea};
 
 use crate::cupom::cupom_entity;
-use crate::service::{NfeService, agora_com_fuso, emitente_do_registro, emitente_salvo};
+use crate::service::{NfeService, emitente_do_registro, emitente_salvo};
 
 /// The entity of the issuer, which storage has to know.
 pub const NFE_EMITENTE: &str = "NfeEmitente";
@@ -146,42 +146,14 @@ impl ViewController for Documentos {
                     let ActionInput::Parameter(Value::Text(justificativa)) = &cx.input else {
                         return Err("diga o motivo do cancelamento".to_owned());
                     };
-                    let id = record.get("id");
-                    let pedido = Cancelamento {
-                        chave: ChaveAcesso::parse(&texto(record, "chave")).map_err(|e| e.to_string())?,
-                        protocolo: texto(record, "protocolo"),
-                        justificativa: justificativa.clone(),
-                        quando: agora_com_fuso(),
-                        sequencia: 1,
-                    };
-                    let found = emitente_salvo(&*cx.space.borrow()).ok_or("cadastre o emitente")?;
-                    let (emitente, _) = emitente_do_registro(&found)?;
-                    let emissor = canceling.emissor(emitente).map_err(|e| e.to_string())?;
-                    session.run_background(
-                        "Cancelando a nota",
-                        move |_| emissor.cancelar(&pedido).map_err(|e| e.to_string()),
-                        move |session, answer| match answer {
-                            Ok(answer) if answer.registrado() => {
-                                let space = session.frame().space();
-                                let mut space = space.borrow_mut();
-                                let saved = (|| {
-                                    if let Some(mut record) = space.find(NFE_DOCUMENTO, &id)? {
-                                        record.set("situacao", "Cancelada".to_owned());
-                                        space.save(record)?;
-                                    }
-                                    space.commit()
-                                })();
-                                drop(space);
-                                session.records_changed();
-                                match saved {
-                                    Ok(()) => dizer(session, "Nota cancelada.".to_owned(), MessageKind::Success),
-                                    Err(error) => dizer(session, error.to_string(), MessageKind::Error),
-                                }
-                            }
-                            Ok(answer) => {
-                                dizer(session, format!("{}: {}", answer.c_stat, answer.x_motivo), MessageKind::Warning);
-                            }
-                            Err(why) => dizer(session, why, MessageKind::Error),
+                    canceling.cancelar(
+                        &session,
+                        &texto(record, "chave"),
+                        &texto(record, "protocolo"),
+                        justificativa,
+                        |session, ended| match ended {
+                            Ok(()) => dizer(session, "Nota cancelada.".to_owned(), MessageKind::Success),
+                            Err(why) => dizer(session, why, MessageKind::Warning),
                         },
                     );
                     Ok(())

@@ -9,5 +9,5 @@ mod modulo;
 mod telas;
 
 pub use caixa::{Caixa, Tela};
-pub use modelo::{CONFIGURACAO, PRODUTO, configuracao_entity, entidades, produto_entity};
+pub use modelo::{CLIENTE, CONFIGURACAO, PRODUTO, cliente_entity, configuracao_entity, entidades, produto_entity};
 pub use modulo::{Pos, VIEW_CAIXA, VIEW_ETIQUETAS, VIEW_INICIO};

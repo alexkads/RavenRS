@@ -4,7 +4,7 @@
 use mini_pdv::app_com_pos;
 use ravenrs_app_nfe::engine::sandbox::{autorizacao, cenarios};
 use ravenrs_app_pos::{Pos, Tela};
-use ravenrs_core::{Event, Key, Modifiers, Size};
+use ravenrs_core::{Event, Key, Modifiers, PointerButton, Size};
 use ravenrs_style::Theme;
 use ravenrs_widgets::Ui;
 
@@ -49,6 +49,15 @@ impl Balcao {
     fn bipar(&mut self, codigo: &str) {
         self.digitar(codigo);
         self.tecla(Key::Enter);
+    }
+
+    fn clicar(&mut self, nome: &str) {
+        let botao = self.ui.access_tree().nodes.into_iter().find(|node| node.name.as_deref() == Some(nome));
+        let lugar = botao.unwrap_or_else(|| panic!("no button {nome}")).bounds.center();
+        self.ui.handle_event(&Event::PointerMove { position: lugar });
+        self.ui.handle_event(&Event::PointerDown { position: lugar, button: PointerButton::Primary });
+        self.ui.handle_event(&Event::PointerUp { position: lugar, button: PointerButton::Primary });
+        self.assentar();
     }
 
     fn diz(&mut self, texto: &str) -> bool {
@@ -233,4 +242,70 @@ fn the_screens_of_labels_products_and_the_keys_open() {
     b.tecla(Key::Escape);
     b.tecla(Key::Function(1));
     assert!(b.diz("Consulta de atalhos"));
+}
+
+fn vender_a_empresa(b: &mut Balcao) {
+    b.abrir_caixa();
+    b.com_alt('c');
+    b.digitar("11444777000161");
+    b.tecla(Key::Enter);
+    b.bipar("7891000100202");
+}
+
+#[test]
+fn a_sale_to_a_company_goes_out_as_a_large_note() {
+    let mut b = balcao();
+    vender_a_empresa(&mut b);
+    b.tecla(Key::Function(8));
+    assert!(b.diz("Nota grande"));
+    b.tecla(Key::Function(9));
+    b.tecla(Key::Function(9));
+    b.aguardar_nota();
+    let Tela::Resultado(fim) = b.pos.caixa().tela.peek().clone() else { panic!("no result") };
+    assert!(fim.autorizada, "{}: {}", fim.c_stat, fim.motivo);
+    assert_eq!(&fim.chave[20..22], "55", "the model in the key");
+    assert!(b.diz("Ver o DANFE"));
+}
+
+#[test]
+fn a_large_note_for_someone_not_on_record_says_so() {
+    let mut b = balcao();
+    b.abrir_caixa();
+    b.com_alt('c');
+    b.digitar("52998224725");
+    b.tecla(Key::Enter);
+    b.bipar("7891000100202");
+    b.tecla(Key::Function(8));
+    b.tecla(Key::Function(9));
+    b.tecla(Key::Function(9));
+    b.assentar();
+    assert_eq!(*b.pos.caixa().tela.peek(), Tela::Pagando);
+    assert!(b.diz("não está cadastrado"));
+}
+
+#[test]
+fn an_authorized_small_note_can_be_swapped_for_a_large_one() {
+    let mut b = balcao();
+    vender_a_empresa(&mut b);
+    b.tecla(Key::Function(9));
+    b.tecla(Key::Function(9));
+    b.aguardar_nota();
+    let Tela::Resultado(pequena) = b.pos.caixa().tela.peek().clone() else { panic!("no result") };
+    assert_eq!(&pequena.chave[20..22], "65");
+    b.clicar("Trocar por nota grande (cancela a NFC-e)");
+    b.aguardar_nota();
+    let Tela::Resultado(grande) = b.pos.caixa().tela.peek().clone() else { panic!("no result") };
+    assert!(grande.autorizada, "{}: {}", grande.c_stat, grande.motivo);
+    assert_eq!(&grande.chave[20..22], "55");
+    assert_ne!(pequena.chave, grande.chave);
+}
+
+#[test]
+fn the_large_note_and_the_receipt_come_as_models_of_the_standard_designer() {
+    use ravenrs_app_nfe::{campos_faltando, danfe_report, modelos_de_danfe};
+    let (nome, modelo) = modelos_de_danfe().remove(0);
+    assert_eq!(nome, "DANFE A4");
+    assert_eq!(modelo.page.width, ravenrs_report::PageSettings::a4().width);
+    // The receipt's own requirement for a QR Code does not apply to a sheet.
+    assert_eq!(campos_faltando(&danfe_report("x")), vec!["qr_code"]);
 }
