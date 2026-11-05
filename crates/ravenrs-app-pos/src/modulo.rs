@@ -16,7 +16,9 @@ use ravenrs_widgets::{AnyView, Button, Text, TextField, VStack, ViewExt};
 
 use crate::caixa::{Caixa, configuracao};
 use crate::etiquetas::TelaEtiquetas;
-use crate::modelo::{PRODUTO, cliente_entity, configuracao_entity, produto_entity};
+use crate::entrada::{Entradas, TelaEntrada, criar_codigo_de_barras};
+use crate::modelo::{PRODUTO, cliente_entity, codigo_entity, configuracao_entity, movimento_entity, produto_entity, vinculo_entity};
+use crate::preco::TelaPreco;
 use crate::telas::{TelaCaixa, TelaInicio};
 
 /// The view of the first screen.
@@ -25,6 +27,10 @@ pub const VIEW_INICIO: &str = "PosInicio_DashboardView";
 pub const VIEW_CAIXA: &str = "PosCaixa_DashboardView";
 /// The view of the shelf labels.
 pub const VIEW_ETIQUETAS: &str = "PosEtiquetas_DashboardView";
+/// The view of what arrives from suppliers.
+pub const VIEW_ENTRADA: &str = "PosEntrada_DashboardView";
+/// The view of pricing.
+pub const VIEW_PRECO: &str = "PosPreco_DashboardView";
 
 fn sessao(cx: &ravenrs_app::ActionContext) -> Result<Session, String> {
     Session::of(cx).ok_or_else(|| "esta ação precisa das telas".to_owned())
@@ -134,10 +140,36 @@ impl ViewController for NoInicio {
             ir("Pos.Vender", "Lançar vendas", "f2", VIEW_CAIXA),
             ir("Pos.Produtos", "Produtos", "f3", "PosProduto_ListView"),
             ir("Pos.Etiquetas", "Etiquetas", "f4", VIEW_ETIQUETAS),
+            ir("Pos.Entrada", "Entrada", "f6", VIEW_ENTRADA),
+            ir("Pos.Preco", "Preços", "f7", VIEW_PRECO),
             Action::simple("Pos.Outras", "Outras funções").hotkey("f5").target_view(VIEW_INICIO).on_execute(|cx| {
                 abrir_outras_funcoes(&sessao(cx)?);
                 Ok(())
             }),
+        ]
+    }
+}
+
+/// What a product can do beyond its form.
+struct NosProdutos;
+
+impl ViewController for NosProdutos {
+    fn id(&self) -> &str {
+        "PosProdutos"
+    }
+
+    fn actions(&self) -> Vec<Action> {
+        vec![
+            Action::simple("Pos.CriarCodigo", "Criar código de barras")
+                .icon("scan-line")
+                .target_entity(PRODUTO)
+                .on_execute(|cx| {
+                    let session = sessao(cx)?;
+                    let produto = cx.selected.first().ok_or("Selecione um produto.")?;
+                    let codigo = criar_codigo_de_barras(&session, &produto.get("id"))?;
+                    session.show_message(Message::new(format!("Código {codigo} criado."), MessageKind::Success));
+                    Ok(())
+                }),
         ]
     }
 }
@@ -261,11 +293,18 @@ impl Module for PosModule {
     }
 
     fn entities(&self) -> Vec<ravenrs_app::EntityInfo> {
-        vec![produto_entity(), cliente_entity(), configuracao_entity()]
+        vec![
+            produto_entity(),
+            cliente_entity(),
+            configuracao_entity(),
+            vinculo_entity(),
+            codigo_entity(),
+            movimento_entity(),
+        ]
     }
 
     fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
-        vec![Box::new(NoInicio), Box::new(NoCaixa { caixa: self.caixa.clone() })]
+        vec![Box::new(NoInicio), Box::new(NosProdutos), Box::new(NoCaixa { caixa: self.caixa.clone() })]
     }
 
     fn window_controllers(&self) -> Vec<Box<dyn WindowController>> {
@@ -294,12 +333,24 @@ fn etiqueta_padrao() -> ravenrs_report::Report {
 #[derive(Clone, Debug)]
 pub struct Pos {
     caixa: Caixa,
+    entradas: Entradas,
+    sessao: Rc<std::cell::RefCell<Option<Session>>>,
 }
 
 impl Pos {
     /// A point of sale issuing through this service.
     pub fn new(service: NfeService) -> Self {
-        Self { caixa: Caixa::new(service) }
+        Self { caixa: Caixa::new(service), entradas: Entradas::default(), sessao: Rc::default() }
+    }
+
+    /// The session of the window, once it is put together.
+    pub fn sessao(&self) -> Option<Session> {
+        self.sessao.borrow().clone()
+    }
+
+    /// What arrives from suppliers.
+    pub fn entradas(&self) -> &Entradas {
+        &self.entradas
     }
 
     /// Its checkout.
@@ -316,6 +367,8 @@ impl Pos {
             relatorios = relatorios.predefined(nome, CUPOM_LINHA, modelo);
         }
         let (caixa, palavras) = (self.caixa.clone(), Rc::new(ReportWords::pt_br()));
+        let entradas = self.entradas.clone();
+        let sessao_guardada = self.sessao.clone();
         app.language(Language::BrazilianPortuguese)
             .theme(Theme::raven_light())
             .counter()
@@ -326,7 +379,10 @@ impl Pos {
             .dashboard(DashboardInfo::new("PosInicio", "Início").control("Início", "pos.inicio"))
             .dashboard(DashboardInfo::new("PosCaixa", "Caixa").control("Caixa", "pos.caixa"))
             .dashboard(DashboardInfo::new("PosEtiquetas", "Etiquetas").control("Etiquetas", "pos.etiquetas"))
+            .dashboard(DashboardInfo::new("PosEntrada", "Entrada").control("Entrada", "pos.entrada"))
+            .dashboard(DashboardInfo::new("PosPreco", "Preços").control("Preços", "pos.preco"))
             .with_session(move |session| {
+                *sessao_guardada.borrow_mut() = Some(session.clone());
                 let aqui = session.clone();
                 session.register_control("pos.inicio", move || {
                     Box::new(TelaInicio { session: aqui.clone() }.grow(1.0)) as AnyView
@@ -335,9 +391,20 @@ impl Pos {
                 session.register_control("pos.caixa", move || {
                     Box::new(TelaCaixa { caixa: caixa_aqui.clone(), session: aqui.clone() }.grow(1.0)) as AnyView
                 });
-                let aqui = session.clone();
+                let (aqui, copias) = (session.clone(), entradas.etiquetas.clone());
                 session.register_control("pos.etiquetas", move || {
-                    Box::new(TelaEtiquetas { session: aqui.clone(), palavras: palavras.clone() }.grow(1.0)) as AnyView
+                    Box::new(
+                        TelaEtiquetas { session: aqui.clone(), palavras: palavras.clone(), copias: copias.clone() }
+                            .grow(1.0),
+                    ) as AnyView
+                });
+                let (aqui, entradas_aqui) = (session.clone(), entradas.clone());
+                session.register_control("pos.entrada", move || {
+                    Box::new(TelaEntrada { entradas: entradas_aqui.clone(), session: aqui.clone() }.grow(1.0)) as AnyView
+                });
+                let aqui = session.clone();
+                session.register_control("pos.preco", move || {
+                    Box::new(TelaPreco { session: aqui.clone() }.grow(1.0)) as AnyView
                 });
                 session.open_view(VIEW_INICIO);
             })

@@ -215,7 +215,14 @@ fn a_person_asks_for_their_cpf_on_the_note() {
     b.tecla(Key::Function(9));
     b.tecla(Key::Function(9));
     b.aguardar_nota();
-    let Tela::Resultado(fim) = b.pos.caixa().tela.peek().clone() else { panic!("no result: {:?} {:?} {:?}", b.pos.caixa().tela.peek(), b.pos.caixa().problema.peek(), b.pos.caixa().carrinho.peek().linhas.len()) };
+    let Tela::Resultado(fim) = b.pos.caixa().tela.peek().clone() else {
+        panic!(
+            "no result: {:?} {:?} {:?}",
+            b.pos.caixa().tela.peek(),
+            b.pos.caixa().problema.peek(),
+            b.pos.caixa().carrinho.peek().linhas.len()
+        )
+    };
     assert!(fim.autorizada, "{}: {}", fim.c_stat, fim.motivo);
 }
 
@@ -308,4 +315,104 @@ fn the_large_note_and_the_receipt_come_as_models_of_the_standard_designer() {
     assert_eq!(modelo.page.width, ravenrs_report::PageSettings::a4().width);
     // The receipt's own requirement for a QR Code does not apply to a sheet.
     assert_eq!(campos_faltando(&danfe_report("x")), vec!["qr_code"]);
+}
+
+fn fornecedor() -> ravenrs_app_nfe::engine::sandbox::Fornecedor {
+    use ravenrs_app_nfe::engine::{Endereco, Uf};
+    ravenrs_app_nfe::engine::sandbox::Fornecedor {
+        razao_social: "ATACADO EXEMPLO LTDA".to_owned(),
+        cnpj: "11444777000161".to_owned(),
+        inscricao_estadual: "110042490114".to_owned(),
+        endereco: Endereco {
+            logradouro: "Rua do Atacado".to_owned(),
+            numero: "1".to_owned(),
+            bairro: "Centro".to_owned(),
+            codigo_municipio: "3550308".to_owned(),
+            municipio: "Sao Paulo".to_owned(),
+            uf: Uf::SP,
+            cep: "01001000".to_owned(),
+        },
+        comprador_cnpj: "11222333000181".to_owned(),
+        emitida_em: "2026-11-05T08:00:00-03:00".to_owned(),
+    }
+}
+
+fn item_comprado(codigo: &str, gtin: Option<&str>, descricao: &str, quantidade: &str, valor: &str) -> ravenrs_app_nfe::engine::Item {
+    ravenrs_app_nfe::engine::Item {
+        codigo: codigo.to_owned(),
+        gtin: gtin.map(str::to_owned),
+        descricao: descricao.to_owned(),
+        ncm: "04012010".to_owned(),
+        cest: None,
+        cfop: "5102".to_owned(),
+        unidade: "UN".to_owned(),
+        quantidade: quantidade.parse().unwrap(),
+        valor_unitario: valor.parse().unwrap(),
+        desconto: rust_decimal::Decimal::ZERO,
+        csosn: ravenrs_app_nfe::engine::Csosn::S102,
+        origem: 0,
+    }
+}
+
+#[test]
+fn a_purchase_goes_into_stock_a_new_product_gets_a_code_and_a_rebuy_suggests_its_label() {
+    use ravenrs_app_nfe::engine::sandbox::gerar_nota_de_compra;
+    let mut b = balcao();
+    let session = b.pos.sessao().expect("a session");
+    let entradas = b.pos.entradas().clone();
+    let xml = gerar_nota_de_compra(
+        &fornecedor(),
+        vec![
+            item_comprado("F-LEITE", Some("7891000100103"), "LEITE INTEGRAL 1L", "2", "36.00"),
+            item_comprado("F-NOVO", None, "BISCOITO SEM CODIGO", "10", "2.00"),
+        ],
+    )
+    .expect("a purchase");
+    entradas.carregar(&session, &xml).expect("it reads");
+    let previa = entradas.previa(&session);
+    assert_eq!(previa[0].produto.as_deref(), Some("7"), "the milk is on record, by its barcode");
+    assert_eq!(previa[1].produto, None, "the biscuit is new");
+
+    // The box of the milk has 12 and gets a code of its own, worth 12 at the counter.
+    entradas.fatores.update(|all| {
+        all.insert(previa[0].numero, "12".to_owned());
+    });
+    entradas.codigos.update(|all| {
+        all.insert(previa[0].numero, "FARDO-LEITE".to_owned());
+    });
+    entradas.quantidades_dos_codigos.update(|all| {
+        all.insert(previa[0].numero, "12".to_owned());
+    });
+    assert_eq!(entradas.previa(&session)[0].custo.normalize().to_string(), "3");
+    assert_eq!(entradas.confirmar(&session).expect("it goes in"), 2);
+    assert_eq!(entradas.etiquetas.peek().get("7").map(String::as_str), Some("1"), "the label is suggested");
+
+    b.assentar();
+    b.abrir_caixa();
+    b.bipar("FARDO-LEITE");
+    let linha = b.pos.caixa().carrinho.peek().ultimo().cloned().expect("a line");
+    assert_eq!(linha.codigo, "7");
+    assert_eq!(linha.quantidade.to_string(), "12", "the code counts as 12");
+
+    // The same invoice does not go in twice.
+    assert!(entradas.carregar(&session, &xml).unwrap_err().contains("já entrou"));
+
+    // The new product can be read at the counter by the code the store made for it.
+    let space = session.frame().space();
+    let produtos = space.borrow().query(ravenrs_app_pos::PRODUTO, &ravenrs_app::Query::all()).unwrap();
+    let novo = produtos.iter().find(|p| p.get("descricao") == ravenrs_app::Value::Text("BISCOITO SEM CODIGO".into())).expect("the new product");
+    let ravenrs_app::Value::Text(codigo) = novo.get("gtin") else { panic!("no code") };
+    assert!(codigo.starts_with("29"), "{codigo}");
+    b.bipar(&codigo);
+    assert_eq!(b.pos.caixa().carrinho.peek().ultimo().map(|l| l.descricao.clone()).as_deref(), Some("BISCOITO SEM CODIGO"));
+}
+
+#[test]
+fn an_invoice_for_someone_else_is_refused() {
+    use ravenrs_app_nfe::engine::sandbox::gerar_nota_de_compra;
+    let b = balcao();
+    let session = b.pos.sessao().expect("a session");
+    let outro = ravenrs_app_nfe::engine::sandbox::Fornecedor { comprador_cnpj: "04252011000110".to_owned(), ..fornecedor() };
+    let xml = gerar_nota_de_compra(&outro, vec![item_comprado("A", None, "COISA", "1", "1.00")]).expect("a purchase");
+    assert!(b.pos.entradas().carregar(&session, &xml).unwrap_err().contains("CNPJ"));
 }

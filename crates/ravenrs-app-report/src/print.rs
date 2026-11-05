@@ -23,7 +23,10 @@ pub fn design_stored_report(session: &Session, report: &Object, words: &ReportWo
 
 /// Each record as many times as asked, as the rows of a report.
 fn repeated(records: &[(Object, u32)]) -> Vec<Object> {
-    records.iter().flat_map(|(record, copies)| std::iter::repeat_n(record.clone(), *copies as usize)).collect()
+    records
+        .iter()
+        .flat_map(|(record, copies)| std::iter::repeat_n(record.clone(), *copies as usize))
+        .collect()
 }
 
 /// A stored report over these records, each as many times as asked.

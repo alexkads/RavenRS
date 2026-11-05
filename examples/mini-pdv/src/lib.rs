@@ -14,7 +14,9 @@ use ravenrs_widgets::{Alert, AnyView, Tone};
 
 /// Where the records are kept, unless `RAVEN_PDV` says otherwise.
 pub fn arquivo_padrao() -> PathBuf {
-    let casa = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map_or_else(PathBuf::new, PathBuf::from);
+    let casa = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map_or_else(PathBuf::new, PathBuf::from);
     casa.join("mini-pdv-beta.sqlite")
 }
 
@@ -89,7 +91,8 @@ fn semear(space: &mut dyn ObjectSpace) -> Result<(), String> {
 
 /// The application over this file, or in memory with none, with its point of sale.
 pub fn app_com_pos(arquivo: Option<&Path>) -> Result<(AnyView, Pos), String> {
-    let service = NfeService::sandbox(BetaAck::i_understand_this_is_experimental()).map_err(|e| e.to_string())?;
+    let service =
+        NfeService::sandbox(BetaAck::i_understand_this_is_experimental()).map_err(|e| e.to_string())?;
     let pos = Pos::new(service);
     let mut app = pos.instalar(App::new("Mini-PDV")).seed(semear);
     if let Some(arquivo) = arquivo {

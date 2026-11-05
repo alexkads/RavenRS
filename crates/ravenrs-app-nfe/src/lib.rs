@@ -16,4 +16,4 @@ pub use cupom::{
 };
 pub use module::{NFE_DOCUMENTO, NFE_EMITENTE, NfeModule, documento_entity, emitente_entity};
 pub use ravenrs_nfe as engine;
-pub use service::{EmissaoFinal, NfeService, TextoVenda, emitente_do_registro, uf_de};
+pub use service::{EmissaoFinal, NfeService, TextoVenda, emitente_do_registro, emitente_salvo_de, uf_de};

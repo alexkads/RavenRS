@@ -28,6 +28,7 @@ use crate::modelo::PRODUTO;
 pub(crate) struct TelaEtiquetas {
     pub(crate) session: Session,
     pub(crate) palavras: Rc<ReportWords>,
+    pub(crate) copias: State<BTreeMap<String, String>>,
 }
 
 fn nome_de(record: &Object) -> String {
@@ -51,7 +52,7 @@ fn previa(document: &ravenrs_report::Document, dpi: u32) -> Result<Option<Bitmap
 impl View for TelaEtiquetas {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let session = &self.session;
-        let copias: State<BTreeMap<String, String>> = cx.use_state(BTreeMap::new);
+        let copias = self.copias.clone();
         let modelo_escolhido: State<usize> = cx.use_state(|| 0);
         let impressora: State<usize> = cx.use_state(|| 0);
         let linguagem: State<usize> = cx.use_state(|| 0);

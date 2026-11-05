@@ -7,11 +7,11 @@ use std::rc::Rc;
 
 use ravenrs_reactive::{Binding, State};
 use ravenrs_report::{PrinterSettings, ReportEngine};
-use ravenrs_report_label::{Language, LabelJob, bitmap_to_png, compile, presets, rasterize_page};
+use ravenrs_report_label::{LabelJob, Language, bitmap_to_png, compile, presets, rasterize_page};
 use ravenrs_style::{SPACING, Semantic, TextStyle};
 use ravenrs_widgets::{
-    Alert, AnyView, BuildCx, Button, ButtonStyle, Dialog, FormField, HStack, Image, NodeId, ScrollView, Select,
-    Text, TextField, Tone, VStack, View, ViewExt,
+    Alert, AnyView, BuildCx, Button, ButtonStyle, Dialog, FormField, HStack, Image, NodeId, ScrollView,
+    Select, Text, TextField, Tone, VStack, View, ViewExt,
 };
 
 use crate::editor::Editor;
@@ -36,10 +36,7 @@ fn change(editor: &Editor, what: impl FnOnce(&mut PrinterSettings)) {
 }
 
 /// What it would print and in how many bytes, or why it cannot.
-fn prepared(
-    dialog: &ThermalDialog,
-    settings: &PrinterSettings,
-) -> Result<(Vec<u8>, Vec<Vec<u8>>), String> {
+fn prepared(dialog: &ThermalDialog, settings: &PrinterSettings) -> Result<(Vec<u8>, Vec<Vec<u8>>), String> {
     let language = Language::from_name(&settings.language)
         .ok_or_else(|| format!("linguagem desconhecida: {}", settings.language))?;
     let document = preview::document(&dialog.editor, &dialog.cache, &dialog.params.get());
@@ -143,13 +140,12 @@ impl View for ThermalDialog {
                     .filter_map(|png| Image::from_bytes(png).ok())
                     .map(|image| Box::new(image) as AnyView)
                     .collect();
-                parts.push(Box::new(
-                    ScrollView::new(shown)
-                        .frame(None, Some(360.0)),
-                ));
+                parts.push(Box::new(ScrollView::new(shown).frame(None, Some(360.0))));
                 bytes_to_send = Some(bytes);
             }
-            Err(problem) => parts.push(Box::new(Alert::new("Não dá para imprimir assim", problem).tone(Tone::Danger))),
+            Err(problem) => {
+                parts.push(Box::new(Alert::new("Não dá para imprimir assim", problem).tone(Tone::Danger)))
+            }
         }
         if let Some(outcome) = result.get() {
             parts.push(Box::new(match outcome {
@@ -168,7 +164,9 @@ impl View for ThermalDialog {
         let send = send_button(bytes_to_send, settings.connection.clone(), result, cx);
         cx.child(
             &Dialog::new(e.thermal_open.binding(), "Impressora direta")
-                .description("Etiquetas e cupons na linguagem da impressora, com o mesmo layout deste relatório.")
+                .description(
+                    "Etiquetas e cupons na linguagem da impressora, com o mesmo layout deste relatório.",
+                )
                 .width(720.0)
                 .close_label("Fechar")
                 .content(VStack::new(parts).spacing(SPACING.s4).align(ravenrs_layout::Align::Stretch))
@@ -176,6 +174,10 @@ impl View for ThermalDialog {
         )
     }
 }
+
+/// How a send that is under way comes back.
+#[cfg(not(target_arch = "wasm32"))]
+type Answer = std::sync::mpsc::Receiver<Result<(), String>>;
 
 /// Sends what the printer takes, out of the way of the screen.
 #[cfg(not(target_arch = "wasm32"))]
@@ -185,9 +187,7 @@ fn send_button(
     result: State<Option<Result<String, String>>>,
     cx: &mut BuildCx<'_>,
 ) -> Button {
-    let (inbox, waiting): (State<Option<std::sync::mpsc::Receiver<Result<(), String>>>>, _) =
-        (cx.use_state(|| None), ());
-    let _ = waiting;
+    let inbox: State<Option<Answer>> = cx.use_state(|| None);
     let answered = inbox.peek().as_ref().and_then(|receiver| receiver.try_recv().ok());
     if let Some(answer) = answered {
         inbox.set(None);

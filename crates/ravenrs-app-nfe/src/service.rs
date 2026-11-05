@@ -270,6 +270,11 @@ fn marcar_cancelada(session: &Session, chave: &str) -> Result<(), String> {
 }
 
 /// The issuer kept, if there is one.
+pub fn emitente_salvo_de(space: &dyn ObjectSpace) -> Option<Object> {
+    emitente_salvo(space)
+}
+
+/// The issuer kept, if there is one.
 pub(crate) fn emitente_salvo(space: &dyn ObjectSpace) -> Option<Object> {
     space.query(NFE_EMITENTE, &Query::all()).ok()?.into_iter().next()
 }

@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use ravenrs_app::{Message, MessageKind, Object, Query, Value, drafts, save_draft, take_draft};
+use ravenrs_app::{FieldValue, Message, MessageKind, Object, Query, Value, drafts, save_draft, take_draft};
 use ravenrs_app_nfe::engine::{
     Csosn, Destinatario, DocumentoDestinatario, Endereco, FormaPagamento, Item, Modelo, Rascunho,
 };
@@ -11,15 +11,15 @@ use ravenrs_app_nfe::{
 };
 use ravenrs_app_report::{ReportWords, label_bytes, send_to_printer, stored_reports_for};
 use ravenrs_app_ui::Session;
-use ravenrs_pos::{Carrinho, Forma, Linha, ler_codigo, ler_valor, troco, valor_em_texto};
+use ravenrs_pos::{Carrinho, Forma, Linha, gtin_fiscal, ler_codigo, ler_valor, troco, valor_em_texto};
 use ravenrs_reactive::State;
-use ravenrs_report::barcode::is_valid_gtin;
 use ravenrs_report_label::{LabelJob, Language, output_for};
 use ravenrs_report_viewer::{DocumentViewer, ViewerState};
 use ravenrs_widgets::AnyView;
 use rust_decimal::Decimal;
 
-use crate::modelo::{CLIENTE, CONFIGURACAO, PRODUTO};
+use crate::codigos::produto_por_codigo;
+use crate::modelo::{CLIENTE, CONFIGURACAO, MOVIMENTO, PRODUTO};
 
 const TIPO_RASCUNHO: &str = "venda";
 
@@ -88,7 +88,7 @@ fn rascunho_de(
     for linha in &carrinho.linhas {
         rascunho = rascunho.com_item(Item {
             codigo: linha.codigo.clone(),
-            gtin: linha.gtin.clone().filter(|gtin| is_valid_gtin(gtin)),
+            gtin: linha.gtin.as_deref().and_then(gtin_fiscal).map(str::to_owned),
             descricao: linha.descricao.clone(),
             ncm: linha.ncm.clone(),
             cest: linha.cest.clone(),
@@ -161,14 +161,11 @@ impl Caixa {
             Err(why) => return self.problema.set(Some(why)),
         };
         let space = session.frame().space();
-        let produtos = space.borrow().query(PRODUTO, &Query::all()).unwrap_or_default();
-        let achado = produtos.iter().find(|produto| {
-            texto(produto, "gtin") == leitura.codigo || texto(produto, "codigo") == leitura.codigo
-        });
+        let achado = produto_por_codigo(&*space.borrow(), &leitura.codigo);
         match achado {
-            Some(produto) => {
+            Some(achado) => {
                 self.problema.set(None);
-                let linha = linha_de(produto, leitura.quantidade);
+                let linha = linha_de(&achado.produto, leitura.quantidade * achado.fator);
                 self.carrinho.update(|carrinho| carrinho.adicionar(linha));
             }
             None => self.problema.set(Some(format!("Produto {} não encontrado.", leitura.codigo))),
@@ -324,6 +321,7 @@ impl Caixa {
             ),
         };
         let caixa = self.clone();
+        let vendidos = carrinho.linhas.clone();
         self.service.emitir(
             session,
             move |numero, serie| rascunho_de(&carrinho, destinatario.as_ref(), forma, recebido, numero, serie),
@@ -331,6 +329,9 @@ impl Caixa {
             move |session, fim| {
                 let autorizada = fim.autorizada;
                 let chave = fim.chave.clone();
+                if autorizada {
+                    baixar_estoque(session, &vendidos, &chave);
+                }
                 caixa.tela.set(Tela::Resultado(fim));
                 if autorizada && !*caixa.nota_grande.peek() && !configuracao(session, "impressora_cupom").is_empty() {
                     caixa.imprimir_cupom(session, &chave);
@@ -432,6 +433,46 @@ impl Caixa {
             Err(why) => tell(why.to_string()),
         }
     }
+}
+
+/// Takes what was sold out of stock. A failure here must not undo a note that is authorized: it says
+/// so and the stock is corrected by hand.
+fn baixar_estoque(session: &Session, linhas: &[Linha], chave: &str) {
+    let shared = session.frame().space();
+    let mut space = shared.borrow_mut();
+    let result = (|| -> Result<(), ravenrs_app::SpaceError> {
+        let produtos = space.query(PRODUTO, &Query::all())?;
+        for linha in linhas {
+            let Some(produto) = produtos.iter().find(|produto| texto(produto, "codigo") == linha.codigo) else {
+                continue;
+            };
+            let mut produto = space.find(PRODUTO, &produto.get("id"))?.unwrap_or_else(|| produto.clone());
+            let estoque = Decimal::from_value(produto.get("estoque")) - linha.quantidade;
+            produto.set("estoque", Decimal::to_value(&estoque));
+            let custo = produto.get("custo");
+            space.save(produto)?;
+            let mut movimento = space.new_object(MOVIMENTO)?;
+            movimento.set("produto", linha.codigo.clone());
+            movimento.set("origem", "Venda".to_owned());
+            movimento.set("documento", chave.to_owned());
+            movimento.set("quantidade", Decimal::to_value(&-linha.quantidade));
+            movimento.set("custo", custo);
+            space.save(movimento)?;
+        }
+        space.commit()
+    })();
+    if let Err(error) = result {
+        space.rollback();
+        drop(space);
+        session.show_message(Message::new(format!("O estoque não foi baixado: {error}"), MessageKind::Warning));
+    }
+}
+
+/// A number among the settings of the checkout, or zero.
+pub(crate) fn configuracao_decimal(session: &Session, campo: &str) -> Decimal {
+    let space = session.frame().space();
+    let found = space.borrow().query(CONFIGURACAO, &Query::all()).unwrap_or_default();
+    found.first().map_or(Decimal::ZERO, |record| Decimal::from_value(record.get(campo)))
 }
 
 /// A setting of the checkout, or empty.

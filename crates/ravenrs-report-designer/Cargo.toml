@@ -22,7 +22,7 @@ ravenrs-report-export.workspace = true
 ravenrs-report-label.workspace = true
 ravenrs-report-viewer.workspace = true
 ravenrs-style.workspace = true
-ravenrs-widgets = { workspace = true, features = ["charts"] }
+ravenrs-widgets = { workspace = true, features = ["charts", "decode"] }
 serde_json.workspace = true
 tracing.workspace = true
 

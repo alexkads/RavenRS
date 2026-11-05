@@ -12,7 +12,7 @@ use ravenrs_widgets::{
 };
 
 use crate::caixa::{Caixa, Tela, configuracao};
-use crate::modulo::{VIEW_CAIXA, VIEW_ETIQUETAS, abrir_outras_funcoes};
+use crate::modulo::{VIEW_CAIXA, VIEW_ENTRADA, VIEW_ETIQUETAS, VIEW_PRECO, abrir_outras_funcoes};
 
 fn titulo(text: impl Into<String>) -> Text {
     Text::new(text).style(TextStyle::Caption).foreground(Semantic::InkMuted)
@@ -383,6 +383,13 @@ impl View for TelaInicio {
         .spacing(16.0)
         .align(Align::Stretch)
         .grow(1.0);
+        let terceira = HStack::new(vec![
+            cartao("Entrada de mercadoria", "Importa a nota de compra para o estoque e sugere etiquetas.", "F6", abrir(VIEW_ENTRADA)),
+            cartao("Preços e markup", "Custo, impostos, custos fixos e margem até o preço.", "F7", abrir(VIEW_PRECO)),
+        ])
+        .spacing(16.0)
+        .align(Align::Stretch)
+        .grow(1.0);
         let segunda = HStack::new(vec![
             cartao("Outras funções", "Notas emitidas, emitente, modelos de cupom e configuração.", "F5", outras),
             cartao("Consulta de atalhos", "Todas as teclas do que dá para fazer aqui.", "F1", atalhos),
@@ -394,6 +401,7 @@ impl View for TelaInicio {
             &VStack::new(vec![
                 Box::new(Text::new("Mini-PDV").style(TextStyle::Display)) as AnyView,
                 Box::new(primeira),
+                Box::new(terceira),
                 Box::new(segunda),
             ])
             .spacing(16.0)

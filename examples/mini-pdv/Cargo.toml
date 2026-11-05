@@ -19,6 +19,7 @@ rusqlite.workspace = true
 
 [dev-dependencies]
 ravenrs-core.workspace = true
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
 ravenrs-nfe.workspace = true
 ravenrs-report.workspace = true
 ravenrs-style.workspace = true
