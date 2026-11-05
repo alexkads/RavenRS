@@ -24,6 +24,7 @@ ravenrs-widgets = { version = "27.1.13", path = "crates/ravenrs-widgets", defaul
 ravenrs-wayland-gestures = { version = "27.1.13", path = "crates/ravenrs-wayland-gestures" }
 ravenrs-platform-native = { version = "27.1.13", path = "crates/ravenrs-platform-native" }
 ravenrs-platform-web = { version = "27.1.13", path = "crates/ravenrs-platform-web" }
+ravenrs-barcode = { version = "27.1.13", path = "crates/ravenrs-barcode" }
 ravenrs-graphics = { version = "27.1.13", path = "crates/ravenrs-graphics" }
 ravenrs-report = { version = "27.1.13", path = "crates/ravenrs-report" }
 ravenrs-report-export = { version = "27.1.13", path = "crates/ravenrs-report-export" }

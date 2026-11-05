@@ -38,6 +38,7 @@ mod paint;
 pub mod samples;
 pub mod wizard;
 
+pub mod labels;
 pub use document::{Document, DocumentImage, ImageFormat, Item, Page, PlacedLine, TextBlock};
 pub use engine::{RenderOptions, ReportEngine, decode_picture, picture_rect};
 pub use model::*;

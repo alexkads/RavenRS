@@ -742,3 +742,77 @@ fn a_bad_series_expression_is_reported_and_a_chart_without_data_is_empty() {
     });
     assert!(doc.errors.is_empty(), "{:?}", doc.errors);
 }
+
+fn label_rows(count: usize) -> serde_json::Value {
+    serde_json::Value::Array((0..count).map(|n| serde_json::json!({ "Name": format!("N{n}") })).collect())
+}
+
+fn label_tops(document: &ravenrs_report::Document) -> Vec<Vec<(i32, i32)>> {
+    document
+        .pages
+        .iter()
+        .map(|page| {
+            page.items
+                .iter()
+                .filter_map(|item| match item {
+                    Item::Text(text) => Some((text.clip.x() as i32, text.clip.y() as i32)),
+                    _ => None,
+                })
+                .collect()
+        })
+        .collect()
+}
+
+#[test]
+fn rows_fill_a_sheet_of_labels_across_then_down() {
+    use ravenrs_report::{Columns, PageSettings};
+    let report = Report::new("Labels")
+        .page(PageSettings { width: 300.0, height: 200.0, ..PageSettings::a4().margins(0.0) })
+        .columns(Columns::new(3))
+        .detail(Band::new(100.0).control(Control::field("[Name]").at(0.0, 0.0, 100.0, 20.0)));
+    let document = ReportEngine::new().render(&report, &label_rows(7));
+    let tops = label_tops(&document);
+    assert_eq!(document.pages.len(), 2);
+    assert_eq!(tops[0], vec![(0, 0), (100, 0), (200, 0), (0, 100), (100, 100), (200, 100)]);
+    assert_eq!(tops[1], vec![(0, 0)]);
+}
+
+#[test]
+fn rows_can_fill_the_columns_downward_and_spacing_counts() {
+    use ravenrs_report::{ColumnFlow, Columns, PageSettings};
+    let report = Report::new("Directory")
+        .page(PageSettings { width: 220.0, height: 200.0, ..PageSettings::a4().margins(0.0) })
+        .columns(Columns::new(2).spaced(20.0, 0.0).flow(ColumnFlow::DownThenAcross))
+        .detail(Band::new(100.0).control(Control::field("[Name]").at(0.0, 0.0, 100.0, 20.0)));
+    let document = ReportEngine::new().render(&report, &label_rows(5));
+    let tops = label_tops(&document);
+    assert_eq!(document.pages.len(), 2);
+    assert_eq!(tops[0], vec![(0, 0), (0, 100), (120, 0), (120, 100)]);
+    assert_eq!(tops[1], vec![(0, 0)]);
+}
+
+#[test]
+fn a_footer_in_columns_goes_under_the_whole_line() {
+    use ravenrs_report::{Columns, PageSettings};
+    let report = Report::new("Labels")
+        .page(PageSettings { width: 300.0, height: 400.0, ..PageSettings::a4().margins(0.0) })
+        .columns(Columns::new(3))
+        .detail(Band::new(50.0).control(Control::field("[Name]").at(0.0, 0.0, 100.0, 20.0)))
+        .report_footer(Band::new(20.0).control(Control::label("Fim").at(0.0, 0.0, 100.0, 20.0)));
+    let document = ReportEngine::new().render(&report, &label_rows(4));
+    assert_eq!(label_tops(&document)[0].last(), Some(&(0, 100)));
+}
+
+#[test]
+fn a_barcode_says_what_it_encodes_right_before_its_drawing() {
+    use ravenrs_report::barcode::Symbology;
+    let report = Report::new("Code")
+        .detail(Band::new(60.0).control(Control::barcode(Symbology::Ean13, "[Code]").at(0.0, 0.0, 200.0, 60.0)));
+    let document = ReportEngine::new().render(&report, &serde_json::json!([{ "Code": "4006381333931" }]));
+    let items = &document.pages[0].items;
+    let at = items
+        .iter()
+        .position(|item| matches!(item, Item::BarcodeMark { content, symbology: Symbology::Ean13, .. } if content == "4006381333931"))
+        .unwrap_or_else(|| panic!("no mark in {items:?}"));
+    assert!(matches!(items[at + 1], Item::Vector { .. }));
+}

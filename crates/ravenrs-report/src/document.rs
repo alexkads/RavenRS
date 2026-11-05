@@ -96,6 +96,16 @@ pub enum Item {
         /// The shapes, back to front, in the page's coordinates.
         shapes: Vec<crate::vector::Shape>,
     },
+    /// What the drawing right after it encodes. Prints nothing; a label printer uses it to lay the
+    /// bars on whole dots instead of scaling the drawing, so a scanner can read them.
+    BarcodeMark {
+        /// The box of the bars.
+        rect: Rect,
+        /// The format.
+        symbology: crate::barcode::Symbology,
+        /// The content.
+        content: String,
+    },
     /// An area that opens an address when clicked. Prints nothing.
     Link {
         /// The clickable area.
@@ -358,7 +368,7 @@ impl Document {
                         );
                     }
                 }
-                Item::Bookmark { .. } => {}
+                Item::Bookmark { .. } | Item::BarcodeMark { .. } => {}
             }
         }
         s.push_str("</svg>");

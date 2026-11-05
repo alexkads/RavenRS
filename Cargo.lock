@@ -4352,6 +4352,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-barcode"
+version = "27.1.13"
+dependencies = [
+ "qrcodegen",
+ "serde",
+]
+
+[[package]]
 name = "ravenrs-core"
 version = "27.1.13"
 dependencies = [
@@ -4371,7 +4379,7 @@ dependencies = [
 name = "ravenrs-graphics"
 version = "27.1.13"
 dependencies = [
- "qrcodegen",
+ "ravenrs-barcode",
  "ravenrs-core",
  "serde",
  "tiny-skia",

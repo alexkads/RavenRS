@@ -14,9 +14,9 @@ keywords = ["chart", "barcode", "qrcode", "vector", "gui"]
 categories = ["graphics", "visualization"]
 
 [dependencies]
+ravenrs-barcode.workspace = true
 ravenrs-core.workspace = true
 serde.workspace = true
-qrcodegen = "1.8"
 tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd"] }
 
 [lints]

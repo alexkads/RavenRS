@@ -24,6 +24,8 @@ pub struct Report {
     pub name: String,
     /// Paper size and margins.
     pub page: PageSettings,
+    /// Detail rows side by side, as on a sheet of labels.
+    pub columns: Option<Columns>,
     /// Culture for numbers and dates, such as `pt-BR` or `en-US`.
     pub culture: String,
     /// Where the data comes from, saved with the layout. The engine renders
@@ -58,6 +60,61 @@ pub struct Report {
     pub report_footer: Option<Band>,
     /// Printed at the bottom of every page.
     pub page_footer: Option<Band>,
+}
+
+/// Which way rows fill the columns of a page.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub enum ColumnFlow {
+    /// Left to right, then the next line: labels on a sheet.
+    #[default]
+    AcrossThenDown,
+    /// Top to bottom, then the next column: a directory.
+    DownThenAcross,
+}
+
+/// Detail rows side by side. Only the detail band flows; headers and footers keep the whole width.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Columns {
+    /// How many fit across.
+    pub count: u32,
+    /// Between one column and the next.
+    pub spacing: f32,
+    /// Between one line of rows and the next.
+    pub row_spacing: f32,
+    /// Which way they fill.
+    pub flow: ColumnFlow,
+}
+
+impl Default for Columns {
+    fn default() -> Self {
+        Self { count: 2, spacing: 0.0, row_spacing: 0.0, flow: ColumnFlow::default() }
+    }
+}
+
+impl Columns {
+    /// This many, with no room between them.
+    pub fn new(count: u32) -> Self {
+        Self { count, ..Self::default() }
+    }
+
+    /// With this much room between columns and between lines.
+    pub fn spaced(self, spacing: f32, row_spacing: f32) -> Self {
+        Self { spacing, row_spacing, ..self }
+    }
+
+    /// Filling in this direction.
+    pub fn flow(self, flow: ColumnFlow) -> Self {
+        Self { flow, ..self }
+    }
+
+    /// The width of each column, in the width between the margins.
+    pub fn width_in(&self, content_width: f32) -> f32 {
+        let count = self.count.max(1) as f32;
+        ((content_width - self.spacing * (count - 1.0)) / count).max(0.0)
+    }
 }
 
 /// A named source of report data, stored with the layout.
@@ -122,6 +179,11 @@ pub struct PageSettings {
     pub margin_left: f32,
 }
 
+/// Points in this many millimeters.
+pub fn mm(millimeters: f32) -> f32 {
+    millimeters * 72.0 / 25.4
+}
+
 impl Default for PageSettings {
     fn default() -> Self {
         Self::a4()
@@ -150,6 +212,18 @@ impl PageSettings {
             margin_right: 36.0,
             margin_bottom: 36.0,
             margin_left: 36.0,
+        }
+    }
+
+    /// A label of this size, in millimeters, with no margins.
+    pub fn label_mm(width: f32, height: f32) -> Self {
+        Self {
+            width: mm(width),
+            height: mm(height),
+            margin_top: 0.0,
+            margin_right: 0.0,
+            margin_bottom: 0.0,
+            margin_left: 0.0,
         }
     }
 
@@ -750,6 +824,12 @@ impl Report {
     /// The report as indented JSON.
     pub fn to_json(&self) -> String {
         serde_json::to_string_pretty(self).unwrap_or_default()
+    }
+
+    /// Flows the detail rows in columns.
+    pub fn columns(mut self, columns: Columns) -> Self {
+        self.columns = Some(columns);
+        self
     }
 
     /// Sets the paper.
