@@ -3,6 +3,7 @@
 //! kept between frames, so a rebuild that changes nothing uploads nothing.
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
@@ -58,8 +59,9 @@ const SLICE_LIFT: f32 = 6.0;
 const CURSOR_ALPHA: f32 = 0.55;
 const DOT_ICON: f32 = 18.0;
 
-/// Lays a drawing out in a rectangle, at a number of pixels per logical pixel.
-type DrawingFn = Rc<dyn Fn(Rect, f32) -> Plot>;
+/// Lays a drawing out in a rectangle, at a number of pixels per logical pixel, and
+/// with a way to know how wide its text is.
+type DrawingFn = Rc<dyn Fn(Rect, f32, plot::Measure<'_>) -> Plot>;
 type ValueFormat = Rc<dyn Fn(f64) -> String>;
 /// Writes the panel of a tooltip, given the index and the name of a category.
 type TooltipContent = Rc<dyn Fn(usize, &str) -> AnyView>;
@@ -118,7 +120,12 @@ struct Picture {
     image: Option<ImageData>,
     labels: Vec<(TextLayout, Point, Color)>,
     dot_icons: Vec<(TextLayout, Point, Color)>,
+    /// How wide each label is, as a rebuild asks again for the same ones.
+    widths: HashMap<(String, u32), f32>,
 }
+
+/// Measured widths a chart keeps, far more than any chart labels at once.
+const WIDTHS_KEPT: usize = 2048;
 
 impl Picture {
     /// Brings the picture up to date, redoing only what changed.
@@ -129,7 +136,20 @@ impl Picture {
             return;
         }
         let area = Rect::new(0.0, 0.0, size.width, size.height);
-        let drawing = source(area, cx.scale);
+        if self.scale != cx.scale || self.widths.len() > WIDTHS_KEPT {
+            self.widths.clear();
+        }
+        let drawing = {
+            let (text, widths) = (RefCell::new(&mut *cx.text), RefCell::new(&mut self.widths));
+            let measure = |content: &str, size: f32| {
+                let key = (content.to_owned(), size.to_bits());
+                *widths.borrow_mut().entry(key).or_insert_with(|| {
+                    let attrs = label_attrs(size, false);
+                    text.borrow_mut().layout(content, &attrs).measure(None).width
+                })
+            };
+            source(area, cx.scale, &measure)
+        };
         if !same_pixels || drawing.layers != self.drawing.layers {
             self.image = picture_of(&drawing.layers, area, cx.scale);
         }
@@ -159,14 +179,18 @@ impl Picture {
     }
 }
 
-fn typeset(label: &ChartLabel, cx: &mut PaintCx<'_>) -> (TextLayout, Point, Color) {
-    let attrs = TextAttrs {
-        size: label.size,
-        line_height: label.size * LABEL_LINE_HEIGHT,
-        weight: if label.bold { Weight::SEMIBOLD.0 } else { Weight::REGULAR.0 },
+fn label_attrs(size: f32, bold: bool) -> TextAttrs {
+    TextAttrs {
+        size,
+        line_height: size * LABEL_LINE_HEIGHT,
+        weight: if bold { Weight::SEMIBOLD.0 } else { Weight::REGULAR.0 },
         letter_spacing: 0.0,
         family: None,
-    };
+    }
+}
+
+fn typeset(label: &ChartLabel, cx: &mut PaintCx<'_>) -> (TextLayout, Point, Color) {
+    let attrs = label_attrs(label.size, label.bold);
     let mut layout = cx.text.layout(&label.text, &attrs);
     let measured = layout.measure(None);
     let x = match label.align {
@@ -842,6 +866,7 @@ struct Look {
     tick_format: Option<TickFormat>,
     grid: ChartGrid,
     grid_dashed: bool,
+    ends_aligned: bool,
     grid_columns: Option<usize>,
     value_ticks: Option<usize>,
     category_axis: bool,
@@ -878,6 +903,7 @@ impl Default for Look {
             tick_format: None,
             grid: ChartGrid::Horizontal,
             grid_dashed: false,
+            ends_aligned: false,
             grid_columns: None,
             value_ticks: None,
             category_axis: true,
@@ -1148,6 +1174,14 @@ impl Chart {
         self
     }
 
+    /// The first category along the axis starts at its point and the last one ends at
+    /// its point, so that they line up with the ends of a line or an area. The last one
+    /// always shows, however many others there is no room for.
+    pub fn align_axis_ends(mut self) -> Self {
+        self.look.ends_aligned = true;
+        self
+    }
+
     /// Leaves out the categories along the axis.
     pub fn hide_category_axis(mut self) -> Self {
         self.look.category_axis = false;
@@ -1360,6 +1394,7 @@ impl Chart {
         }
         style.grid_lines = look.grid;
         style.grid_dashed = look.grid_dashed;
+        style.ends_aligned = look.ends_aligned;
         style.grid_columns = look.grid_columns;
         if let Some(ticks) = look.value_ticks {
             style.value_ticks = ticks;
@@ -1604,7 +1639,8 @@ impl Chart {
             line_color: theme.color(Semantic::InkMuted).with_alpha(CURSOR_ALPHA),
             ring_color: theme.color(Semantic::SurfaceElevated),
         });
-        let drawing: DrawingFn = Rc::new(move |rect, _| plot::draw(&data, rect, &style));
+        let drawing: DrawingFn =
+            Rc::new(move |rect, _, measure| plot::draw_measured(&data, rect, &style, measure));
         let node_style = LayoutStyle { grow: 1.0, align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
         let node = plot_node(cx, node_style, picture.clone(), drawing, self.dot_icon, highlight, &children);
 
@@ -1747,7 +1783,7 @@ impl View for Chart {
         let (ink, muted) = (theme.color(Semantic::Ink), theme.color(Semantic::InkMuted));
         let (grid, separator) = (theme.color(Semantic::Border), theme.color(Semantic::SurfaceElevated));
         let bar_radius = theme.radii.sm;
-        let drawing: DrawingFn = Rc::new(move |rect, _| {
+        let drawing: DrawingFn = Rc::new(move |rect, _, _| {
             chart::draw_styled(
                 &data,
                 rect,
@@ -2195,7 +2231,7 @@ impl View for Barcode {
         let style = LayoutStyle { width: Some(width), height: Some(height), ..LayoutStyle::leaf() };
         let (show_text, text_size, radius) =
             (self.show_text, theme.text(TextStyle::Caption).size, theme.radii.sm);
-        let drawing: DrawingFn = Rc::new(move |rect, scale| {
+        let drawing: DrawingFn = Rc::new(move |rect, scale, _| {
             barcode_drawing(&pattern, show_text, text_size, radius, rect, scale).into()
         });
         let node = drawing_node(cx, style, drawing);

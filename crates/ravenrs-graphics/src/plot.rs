@@ -177,6 +177,9 @@ pub struct PlotStyle {
     /// Upright gridlines evenly spread into this many columns, instead of at each
     /// category or number, and whatever [`Self::grid_lines`] says of the others.
     pub grid_columns: Option<usize>,
+    /// The first category along the axis starts at its point and the last one ends
+    /// at its point, so that they line up with the ends of a line or an area.
+    pub ends_aligned: bool,
 }
 
 impl PlotStyle {
@@ -227,6 +230,7 @@ impl PlotStyle {
             grid_dashed: false,
             value_ticks: TICKS,
             grid_columns: None,
+            ends_aligned: false,
         }
     }
 
@@ -422,17 +426,47 @@ const SLICE_LABEL_MIN: f64 = 0.04;
 const RING_GAP: f32 = 4.0;
 const CENTER_VALUE_SCALE: f32 = 2.4;
 
+/// How wide text is at a font size, for whoever knows its font.
+pub type Measure<'a> = &'a dyn Fn(&str, f32) -> f32;
+
+/// How wide labels are: measured when there is a font, or else estimated, as a page
+/// that has not chosen its font yet does.
+#[derive(Clone, Copy)]
+struct Ruler<'a>(Option<Measure<'a>>);
+
+impl Ruler<'_> {
+    fn width(&self, content: &str, size: f32) -> f32 {
+        match self.0 {
+            Some(measure) => measure(content, size),
+            None => content.chars().count() as f32 * size * CHAR_WIDTH,
+        }
+    }
+
+    fn longest<'t>(&self, texts: impl Iterator<Item = &'t str>, size: f32) -> f32 {
+        texts.map(|t| self.width(t, size)).fold(0.0, f32::max)
+    }
+}
+
 /// Lays a chart out inside `rect`.
 pub fn draw(data: &ChartData, rect: Rect, style: &PlotStyle) -> Plot {
+    layout(data, rect, style, Ruler(None))
+}
+
+/// Lays a chart out inside `rect`, knowing how wide its labels really are.
+pub fn draw_measured(data: &ChartData, rect: Rect, style: &PlotStyle, measure: Measure<'_>) -> Plot {
+    layout(data, rect, style, Ruler(Some(measure)))
+}
+
+fn layout(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>) -> Plot {
     let mut plot = Plot { area: rect, ..Plot::default() };
     if rect.width() <= 0.0 || rect.height() <= 0.0 {
         return plot;
     }
     match style.kind {
-        ChartKind::Pie | ChartKind::Doughnut => pie(data, rect, style, &mut plot),
+        ChartKind::Pie | ChartKind::Doughnut => pie(data, rect, style, ruler, &mut plot),
         ChartKind::Radar => radar(data, rect, style, &mut plot),
         ChartKind::RadialBar => radial(data, rect, style, &mut plot),
-        _ => cartesian(data, rect, style, &mut plot),
+        _ => cartesian(data, rect, style, ruler, &mut plot),
     }
     plot
 }
@@ -638,6 +672,18 @@ fn stacked(data: &ChartData, stack: Stack) -> Vec<Vec<(f64, f64)>> {
         .collect()
 }
 
+/// Where the box of a label goes, `half` to each side of `at`: centered, unless a
+/// measured label would stick out of the chart, and then against the chart's edge.
+fn inside(at: f32, width: f32, half: f32, rect: Rect, ruler: Ruler<'_>) -> (f32, LabelAlign) {
+    if ruler.0.is_some() && at - width / 2.0 < rect.x() {
+        (rect.x(), LabelAlign::Left)
+    } else if ruler.0.is_some() && at + width / 2.0 > rect.max_x() {
+        (rect.max_x() - half * 2.0, LabelAlign::Right)
+    } else {
+        (at - half, LabelAlign::Center)
+    }
+}
+
 /// A gridline, wherever this chart wants them.
 fn push_rule(plot: &mut Plot, style: &PlotStyle, rect: Rect, color: Color) {
     let mut push = |rect: Rect| {
@@ -694,7 +740,7 @@ impl Axes {
     }
 }
 
-fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
+fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: &mut Plot) {
     let count = data.categories.len();
     if count == 0 || data.series.is_empty() {
         return;
@@ -731,12 +777,10 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
     let size = style.size;
     let line_height = size * 1.3;
     let horizontal = is_bar && style.horizontal;
-    let longest_value = tick_values.iter().map(|v| tick_text(*v).chars().count()).max().unwrap_or(0) as f32
-        * size
-        * CHAR_WIDTH;
+    let tick_texts: Vec<String> = tick_values.iter().map(|v| tick_text(*v)).collect();
+    let longest_value = ruler.longest(tick_texts.iter().map(String::as_str), size).ceil();
     let labels: Vec<String> = data.categories.iter().map(|c| (style.tick_format)(c)).collect();
-    let longest_label =
-        labels.iter().map(|c| c.chars().count()).max().unwrap_or(0) as f32 * size * CHAR_WIDTH;
+    let longest_label = ruler.longest(labels.iter().map(String::as_str), size).ceil();
 
     let outside =
         style.value_labels == Some(LabelAt::Outside) || style.category_labels == Some(LabelAt::Outside);
@@ -822,10 +866,11 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
         if style.value_axis {
             let label = tick_text(*value);
             plot.labels.push(if horizontal {
+                let (x, align) = inside(at, ruler.width(&label, size), 40.0, rect, ruler);
                 text(
                     label,
-                    Rect::new(at - 40.0, area.max_y() + TICK_MARGIN, 80.0, line_height),
-                    LabelAlign::Center,
+                    Rect::new(x, area.max_y() + TICK_MARGIN, 80.0, line_height),
+                    align,
                     size,
                     style.muted,
                 )
@@ -856,9 +901,15 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
     let room = if horizontal { line_height + 2.0 } else { longest_label + TICK_MARGIN * 2.0 };
     let spacing = if count > 1 { (center_of(1) - center_of(0)).abs() } else { along_size };
     let every = (room / spacing.max(1.0)).ceil().max(1.0) as usize;
+    let aligned = style.ends_aligned && !is_bar && !horizontal && count > 1;
+    let last = count.saturating_sub(1);
     for (i, label) in labels.iter().enumerate() {
         let at = center_of(i);
-        if style.category_axis && i.is_multiple_of(every) {
+        // With its ends lined up the last category always shows, in place of the one
+        // before it if there is no room for both.
+        let crowded = aligned && (last - i) as f32 * spacing < room && i != last;
+        let shows = if aligned && i == last { true } else { i.is_multiple_of(every) && !crowded };
+        if style.category_axis && shows {
             plot.labels.push(if horizontal {
                 text(
                     label.clone(),
@@ -868,10 +919,17 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
                     style.muted,
                 )
             } else {
+                let (x, align) = if aligned && i == 0 {
+                    (at, LabelAlign::Left)
+                } else if aligned && i == last {
+                    (at - spacing * 2.0, LabelAlign::Right)
+                } else {
+                    inside(at, ruler.width(label, size), spacing, rect, ruler)
+                };
                 text(
                     label.clone(),
-                    Rect::new(at - spacing, area.max_y() + TICK_MARGIN, spacing * 2.0, line_height),
-                    LabelAlign::Center,
+                    Rect::new(x, area.max_y() + TICK_MARGIN, spacing * 2.0, line_height),
+                    align,
                     size,
                     style.muted,
                 )
@@ -1092,7 +1150,7 @@ fn center_text(style: &PlotStyle, center: Point, plot: &mut Plot) {
     ));
 }
 
-fn pie(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
+fn pie(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: &mut Plot) {
     let rings: Vec<usize> = if style.concentric { (0..data.series.len()).collect() } else { vec![0] };
     if data.series.is_empty() {
         return;
@@ -1162,7 +1220,7 @@ fn pie(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
                             1.0,
                             with_alpha(color, 0.8),
                         ));
-                        let wide = content.chars().count() as f32 * style.size * CHAR_WIDTH + 6.0;
+                        let wide = ruler.width(&content, style.size) + 6.0;
                         let tip = Point::new(to.x + cos * wide / 2.0, to.y + sin * style.size * 0.7);
                         plot.labels.push(centered(content, tip, style.size, style.ink));
                     }
@@ -1461,6 +1519,53 @@ mod tests {
 
     fn rects_of(plot: &Plot) -> usize {
         plot.layers.iter().filter(|l| matches!(l, Layer::Shape(s) if s.fill.is_some())).count()
+    }
+
+    #[test]
+    fn measured_labels_set_the_room_they_take() {
+        let data = data(&[("A", &[1000.0, 2000.0])]);
+        let style = PlotStyle { value_axis: true, ..PlotStyle::new(ChartKind::Bar) };
+        let area = |width: f32| draw_measured(&data, AREA, &style, &|_, _| width).area.x();
+        assert!(area(80.0) > area(10.0) + 60.0);
+    }
+
+    #[test]
+    fn a_measured_label_that_would_stick_out_stays_in() {
+        let mut data = data(&[("A", &[1.0, 2.0])]);
+        data.categories = vec!["A long name for a point".into(), "Another long one".into()];
+        let style = PlotStyle::new(ChartKind::Line);
+        let plot = draw_measured(&data, AREA, &style, &|t, s| t.len() as f32 * s * 0.5);
+        assert_eq!(plot.labels[0].align, LabelAlign::Left);
+        assert_eq!(plot.labels[0].rect.x(), AREA.x());
+        assert_eq!(plot.labels[1].align, LabelAlign::Right);
+        assert_eq!(plot.labels[1].rect.max_x(), AREA.max_x());
+    }
+
+    #[test]
+    fn the_ends_can_line_up_with_the_ends_of_a_line() {
+        let data = data(&[("A", &[1.0, 2.0, 3.0])]);
+        let style = PlotStyle { ends_aligned: true, ..PlotStyle::new(ChartKind::Line) };
+        let plot = draw_measured(&data, AREA, &style, &|t, s| t.len() as f32 * s * 0.5);
+        let (first, last) = (&plot.labels[0], &plot.labels[2]);
+        assert_eq!(first.align, LabelAlign::Left);
+        assert_eq!(first.rect.x(), plot.area.x());
+        assert_eq!(last.align, LabelAlign::Right);
+        assert!((last.rect.max_x() - plot.area.max_x()).abs() < 0.01);
+        assert_eq!(plot.labels[1].align, LabelAlign::Center);
+    }
+
+    #[test]
+    fn with_its_ends_lined_up_the_last_category_shows_even_if_it_was_to_be_skipped() {
+        let values = [1.0; 40];
+        let data = data(&[("A", &values)]);
+        let style = PlotStyle { ends_aligned: true, ..PlotStyle::new(ChartKind::Line) };
+        let plot = draw_measured(&data, AREA, &style, &|t, s| t.len() as f32 * s * 0.5);
+        assert_eq!(plot.labels.last().map(|l| l.text.as_str()), Some("C39"));
+        assert!(plot.labels.len() < 40);
+        for pair in plot.labels.windows(2) {
+            let (a, b) = (&pair[0], &pair[1]);
+            assert!(a.text != b.text);
+        }
     }
 
     #[test]

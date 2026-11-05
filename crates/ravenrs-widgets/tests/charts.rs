@@ -756,3 +756,19 @@ fn the_grid_has_a_token_of_its_own_that_follows_the_border() {
     let theme = Theme::raven_light();
     assert_eq!(theme.color(Semantic::ChartGrid), theme.color(Semantic::Border));
 }
+
+#[test]
+fn the_room_for_the_axis_comes_from_the_real_width_of_its_numbers() {
+    // Narrow digits and wide capitals take the same room in an estimate.
+    let room = |format: fn(f64) -> String| {
+        let ui = chart_ui(bars().show_value_axis().format(format));
+        let primitives = ui.scene().primitives();
+        primitives.iter().find_map(|p| match p {
+            Primitive::Quad(q) if q.rect.height() <= 1.0 && q.rect.width() > 100.0 => Some(q.rect.x()),
+            _ => None,
+        })
+    };
+    let narrow = room(|_| "1111".to_owned()).expect("a gridline");
+    let wide = room(|_| "WWWW".to_owned()).expect("a gridline");
+    assert!(wide > narrow + 10.0, "{narrow} and {wide}");
+}
