@@ -1,5 +1,5 @@
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::rc::Rc;
 
@@ -1051,6 +1051,20 @@ impl Ui {
             return;
         }
         self.place_and_paint();
+        self.forget_stale_frames();
+    }
+
+    /// Drops the frames of elements the latest build did not ask about. Measured rows come
+    /// and go as a list scrolls, and each one would otherwise stay in this map for good;
+    /// what the list must remember of a row it keeps in its own track.
+    fn forget_stale_frames(&mut self) {
+        let asked = |e: &&Element| e.scroll || e.report_frame;
+        // Counted first so that an ordinary frame allocates nothing here.
+        if self.scroll.viewports.len() <= self.elements.iter().filter(asked).count() {
+            return;
+        }
+        let live: HashSet<WidgetId> = self.elements.iter().filter(asked).map(|e| e.widget).collect();
+        self.scroll.viewports.retain(|widget, _| live.contains(widget));
     }
 
     fn build(&mut self) -> Result<(), ravenrs_layout::LayoutError> {
@@ -1674,4 +1688,34 @@ fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, view
     p.x = p.x.clamp(4.0, (viewport.width - size.width - 4.0).max(4.0));
     p.y = p.y.clamp(4.0, (viewport.height - size.height - 4.0).max(4.0));
     p
+}
+
+#[cfg(test)]
+mod frame_memory_tests {
+    use ravenrs_core::Event;
+
+    use super::*;
+    use crate::{Text, VirtualList};
+
+    #[test]
+    fn a_measured_list_does_not_remember_every_row_it_ever_showed() {
+        let list = VirtualList::new(5_000, |_| Text::new("row")).height(300.0).key(|i| i as u64);
+        let mut ui = Ui::new(list, Theme::raven_dark());
+        ui.set_viewport(Size::new(400.0, 400.0), 1.0);
+        ui.update();
+        ui.update();
+        let at_rest = ui.scroll.viewports.len();
+        assert!(at_rest > 1, "a measured row reports its frame, or this test proves nothing");
+        for _ in 0..100 {
+            ui.handle_event(&Event::Scroll {
+                position: Point::new(100.0, 100.0),
+                delta: Point::new(0.0, -600.0),
+            });
+            ui.update();
+            ui.update();
+        }
+        assert!(ui.scroll.offsets.values().any(|o| o.y > 10_000.0), "the list did scroll");
+        let scrolled = ui.scroll.viewports.len();
+        assert!(scrolled <= at_rest + 4, "{scrolled} frames kept, {at_rest} at rest");
+    }
 }
