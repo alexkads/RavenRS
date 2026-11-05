@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.1.30",
+    "data": "2026-11-05",
+    "titulo": "Cores novas, em verde-limão.",
+    "importante": false,
+    "novidades": [
+      "O tema claro agora é o padrão, com tons de verde-limão.",
+      "O tema escuro ficou mais vivo: grafite no lugar do quase preto, com destaques em limão."
+    ],
+    "por_que_atualizar": "Para usar o app com cores mais alegres, nos dois temas."
+  },
+  {
     "versao": "0.1.29",
     "data": "2026-11-05",
     "titulo": "Gráficos mais fáceis de ler.",

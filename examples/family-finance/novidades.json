@@ -1,10 +1,10 @@
 {
-  "versao": "0.1.29",
-  "titulo": "Gráficos mais fáceis de ler.",
+  "versao": "0.1.30",
+  "titulo": "Cores novas, em verde-limão.",
   "importante": false,
   "novidades": [
-    "Ao passar o mouse num gráfico, o item apontado fica em destaque e os outros se apagam um pouco.",
-    "Mudar o tamanho da janela com o Painel aberto ficou bem mais leve."
+    "O tema claro agora é o padrão, com tons de verde-limão.",
+    "O tema escuro ficou mais vivo: grafite no lugar do quase preto, com destaques em limão."
   ],
-  "por_que_atualizar": "Para ler melhor os gráficos e a janela responder mais rápido ao mudar de tamanho."
+  "por_que_atualizar": "Para usar o app com cores mais alegres, nos dois temas."
 }
