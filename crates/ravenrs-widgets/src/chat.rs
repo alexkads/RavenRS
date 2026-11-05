@@ -457,6 +457,9 @@ pub struct FloatingPanel {
     width: f32,
     height: f32,
     bottom_inset: f32,
+    place: Option<Binding<Option<Point>>>,
+    minimized: Option<Binding<bool>>,
+    summary: Option<Rc<dyn Fn() -> AnyView>>,
 }
 
 impl fmt::Debug for FloatingPanel {
@@ -479,6 +482,9 @@ impl FloatingPanel {
             width: 400.0,
             height: 520.0,
             bottom_inset: 0.0,
+            place: None,
+            minimized: None,
+            summary: None,
         }
     }
 
@@ -497,6 +503,220 @@ impl FloatingPanel {
     pub fn bottom_inset(mut self, inset: f32) -> Self {
         self.bottom_inset = inset;
         self
+    }
+
+    /// Lets it go anywhere in the window, dragged by its header or moved with the arrow
+    /// keys on it, without the sphere: `open` is what opens it. `place` holds its top-left
+    /// corner, so the app can remember it, and is written when a drag ends; `None` puts it
+    /// in the corner at the bottom right. It stays inside a window that gets smaller.
+    #[must_use]
+    pub fn movable(mut self, place: Binding<Option<Point>>) -> Self {
+        self.place = Some(place);
+        self
+    }
+
+    /// Adds a button that reduces it to its header and brings it back, kept in `minimized`.
+    #[must_use]
+    pub fn minimized(mut self, minimized: Binding<bool>) -> Self {
+        self.minimized = Some(minimized);
+        self
+    }
+
+    /// What the header shows while it is reduced, such as how things stand inside.
+    #[must_use]
+    pub fn summary(mut self, summary: impl Fn() -> AnyView + 'static) -> Self {
+        self.summary = Some(Rc::new(summary));
+        self
+    }
+
+    fn is_minimized(&self) -> bool {
+        self.minimized.as_ref().is_some_and(Binding::get)
+    }
+
+    /// The height of the header alone, the height of a reduced panel.
+    fn header_height(cx: &BuildCx<'_>) -> f32 {
+        ButtonSize::Small.height() + cx.theme().spacing.s4 * 2.0
+    }
+
+    /// The panel's surface, with its header and, unless reduced, its content. The header
+    /// comes back too, for whoever makes it the place to drag from.
+    fn surface(&self, cx: &mut BuildCx<'_>, height: f32) -> (NodeId, NodeId) {
+        let theme = *cx.theme();
+        let close = self.open.clone();
+        let minimized = self.is_minimized();
+        let title = util::label(
+            cx,
+            &self.title,
+            TextStyle::Headline,
+            Some(Weight::SEMIBOLD),
+            theme.color(Semantic::Ink),
+        );
+        let x = cx.child(
+            &IconButton::new(IconName::X)
+                .label(cx.labels().close.clone())
+                .size(ButtonSize::Small)
+                .on_click(move || close.set(false)),
+        );
+        let mut header = vec![title];
+        let mut buttons = vec![x];
+        if let Some(reduce) = &self.minimized {
+            let (labels, reduce) = (cx.labels(), reduce.clone());
+            let (icon, label) = if minimized {
+                (IconName::Maximize2, labels.panel_restore.clone())
+            } else {
+                (IconName::Minus, labels.panel_minimize.clone())
+            };
+            buttons.insert(
+                0,
+                cx.keyed_child(
+                    PANEL_REDUCE_KEY,
+                    &IconButton::new(icon)
+                        .label(label)
+                        .size(ButtonSize::Small)
+                        .on_click(move || reduce.set(!reduce.get())),
+                ),
+            );
+            if let Some(summary) = self.summary.as_ref().filter(|_| minimized) {
+                let summary = summary();
+                let summary = cx.keyed_child(PANEL_SUMMARY_KEY, summary.as_ref());
+                header.push(summary);
+            }
+            let title_side = cx.container(
+                LayoutStyle {
+                    spacing: theme.spacing.s2,
+                    align: Align::Center,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &header,
+                Paint::None,
+            );
+            header = vec![title_side];
+            let buttons_side = cx.container(
+                LayoutStyle { spacing: theme.spacing.s1, ..LayoutStyle::stack(Axis::Horizontal) },
+                &buttons,
+                Paint::None,
+            );
+            buttons = vec![buttons_side];
+        }
+        header.append(&mut buttons);
+        let header = cx.container(
+            LayoutStyle {
+                justify: Justify::SpaceBetween,
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &header,
+            Paint::None,
+        );
+        let mut children = vec![header];
+        if !minimized {
+            let content = (self.content)();
+            children.push(cx.child(content.as_ref()));
+        }
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(self.width),
+                height: Some(if minimized { Self::header_height(cx) } else { height }),
+                spacing: theme.spacing.s2,
+                padding: Insets::uniform(theme.spacing.s4),
+                align: Align::Stretch,
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &children,
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.lg,
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                shadow: Some(theme.elevation.raised),
+                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+            }),
+        );
+        cx.semantics(node, Semantics::new(Role::Group).name(self.title.clone()));
+        cx.motion(
+            node,
+            Motion::new()
+                .enter(Effect::moved(0.0, 12.0), theme.motion.gentle)
+                .exit(Effect::moved(0.0, 12.0), theme.motion.fast),
+        );
+        (node, header)
+    }
+}
+
+/// Keeps the reduce button's state while the header changes around it.
+const PANEL_REDUCE_KEY: u64 = 2;
+/// Keeps the state of what a reduced panel shows.
+const PANEL_SUMMARY_KEY: u64 = 3;
+/// How far from the window's edges a layer stays, as every overlay does.
+const PANEL_MARGIN: f32 = 4.0;
+
+/// `p` kept inside the window, given the largest place a panel can have in it.
+fn panel_inside(p: Point, largest: Point) -> Point {
+    Point::new(p.x.clamp(PANEL_MARGIN, largest.x), p.y.clamp(PANEL_MARGIN, largest.y))
+}
+
+/// How far an arrow key moves a panel, in logical pixels.
+const PANEL_STEP: f32 = 16.0;
+
+/// A panel placed anywhere, dragged by its header.
+struct FreeLayer<'a> {
+    panel: &'a FloatingPanel,
+    height: f32,
+    /// Where it is now, and the limits of where it can go.
+    at: Point,
+    largest: Point,
+    place: Binding<Option<Point>>,
+    dragging: State<Option<Point>>,
+}
+
+impl View for FreeLayer<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let (node, header) = self.panel.surface(cx, self.height);
+        let (at, largest) = (self.at, self.largest);
+        let keep_in = move |p: Point| panel_inside(p, largest);
+        let grab = cx.use_state(|| Rc::new(Cell::new(Point::ZERO))).get();
+        let (place, dragging) = (self.place.clone(), self.dragging.clone());
+        cx.on_drag(
+            header,
+            Rc::new(move |drag: Drag| match drag.phase {
+                DragPhase::Start => grab.set(Point::new(drag.position.x - at.x, drag.position.y - at.y)),
+                DragPhase::Move => {
+                    let from = grab.get();
+                    dragging
+                        .set(Some(keep_in(Point::new(drag.position.x - from.x, drag.position.y - from.y))));
+                }
+                // Only now: the app may write the place to a file.
+                DragPhase::End => {
+                    if let Some(last) = *dragging.peek() {
+                        place.set(Some(last));
+                    }
+                    dragging.set(None);
+                }
+            }),
+        );
+        let place = self.place.clone();
+        cx.on_key(
+            header,
+            Rc::new(move |key, modifiers| {
+                let far = if modifiers.shift { PANEL_STEP * 4.0 } else { PANEL_STEP };
+                let (dx, dy) = match key {
+                    Key::ArrowLeft => (-far, 0.0),
+                    Key::ArrowRight => (far, 0.0),
+                    Key::ArrowUp => (0.0, -far),
+                    Key::ArrowDown => (0.0, far),
+                    _ => return false,
+                };
+                place.set(Some(keep_in(Point::new(at.x + dx, at.y + dy))));
+                true
+            }),
+        );
+        let labels = cx.labels();
+        cx.semantics(
+            header,
+            Semantics::new(Role::Button).name(format!("{}: {}", labels.panel_move, self.panel.title)),
+        );
+        cx.focusable(header, cx.theme().radii.sm);
+        cx.cursor(header, CursorIcon::Pointer);
+        node
     }
 }
 
@@ -652,62 +872,12 @@ struct Layer<'a> {
 
 impl View for Layer<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let theme = *cx.theme();
         let panel = self.panel;
         let orb = cx.keyed_child(ORB_KEY, &self.orb);
         let showing = panel.open.get() && self.orb.dragging.peek().is_none();
         let mut children = vec![orb];
         if showing {
-            let close = panel.open.clone();
-            let title = util::label(
-                cx,
-                &panel.title,
-                TextStyle::Headline,
-                Some(Weight::SEMIBOLD),
-                theme.color(Semantic::Ink),
-            );
-            let x = cx.child(
-                &IconButton::new(IconName::X)
-                    .label(cx.labels().close.clone())
-                    .size(ButtonSize::Small)
-                    .on_click(move || close.set(false)),
-            );
-            let header = cx.container(
-                LayoutStyle {
-                    justify: Justify::SpaceBetween,
-                    align: Align::Center,
-                    ..LayoutStyle::stack(Axis::Horizontal)
-                },
-                &[title, x],
-                Paint::None,
-            );
-            let content = (panel.content)();
-            let content = cx.child(content.as_ref());
-            let node = cx.container(
-                LayoutStyle {
-                    width: Some(panel.width),
-                    height: Some(self.height),
-                    spacing: theme.spacing.s2,
-                    padding: Insets::uniform(theme.spacing.s4),
-                    align: Align::Stretch,
-                    overflow_hidden: true,
-                    ..LayoutStyle::stack(Axis::Vertical)
-                },
-                &[header, content],
-                Paint::Quad(QuadPaint {
-                    corner_radius: theme.radii.lg,
-                    border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
-                    shadow: Some(theme.elevation.raised),
-                    ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
-                }),
-            );
-            cx.semantics(node, Semantics::new(Role::Group).name(panel.title.clone()));
-            cx.motion(
-                node,
-                Motion::new()
-                    .enter(Effect::moved(0.0, 12.0), theme.motion.gentle)
-                    .exit(Effect::moved(0.0, 12.0), theme.motion.fast),
-            );
+            let (node, _) = panel.surface(cx, self.height);
             let (left, right) = if self.corner.is_right() { (0.0, ORB_MARGIN) } else { (ORB_MARGIN, 0.0) };
             let node = cx.container(
                 LayoutStyle {
@@ -751,11 +921,32 @@ impl View for FloatingPanel {
             cx.shortcut(Key::Escape, false, Rc::new(move || open.set(false)));
         }
         let window = cx.viewport();
+        if let Some(place) = &self.place {
+            if open {
+                let free = (window.height - self.bottom_inset - ORB_EDGE * 2.0).max(0.0);
+                let height = self.height.min(free);
+                let tall = if self.is_minimized() { Self::header_height(cx) } else { height };
+                let largest = Point::new(
+                    (window.width - self.width - PANEL_MARGIN).max(PANEL_MARGIN),
+                    (window.height - self.bottom_inset - tall - PANEL_MARGIN).max(PANEL_MARGIN),
+                );
+                let corner = Point::new(
+                    (largest.x - ORB_EDGE).max(PANEL_MARGIN),
+                    (largest.y - ORB_EDGE).max(PANEL_MARGIN),
+                );
+                let wanted = dragging.get().or_else(|| place.get()).unwrap_or(corner);
+                let at = panel_inside(wanted, largest);
+                let layer = FreeLayer { panel: self, height, at, largest, place: place.clone(), dragging };
+                cx.floating_overlay(anchor, Placement::At(at), &layer);
+            }
+            return anchor;
+        }
         let here = corner.get();
         let held = dragging.get();
         let free = window.height - self.bottom_inset - ORB_BOX - PANEL_GAP - ORB_EDGE * 2.0;
         let height = self.height.min(free.max(0.0));
-        let tall = if open && held.is_none() { height + PANEL_GAP + ORB_BOX } else { ORB_BOX };
+        let body = if self.is_minimized() { Self::header_height(cx) } else { height };
+        let tall = if open && held.is_none() { body + PANEL_GAP + ORB_BOX } else { ORB_BOX };
         let wide = if open && held.is_none() { (self.width + ORB_MARGIN).max(ORB_BOX) } else { ORB_BOX };
         let place = held.map_or_else(
             || {

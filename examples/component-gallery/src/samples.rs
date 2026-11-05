@@ -1349,6 +1349,7 @@ fn floating_panel() -> impl View {
     impl View for Corner {
         fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
             let open = cx.use_state(|| false);
+            // `.movable` and `.minimized` take bindings, for the app to remember them.
             cx.child(&FloatingPanel::new(open.binding(), "Assistant", || {
                 Box::new(Text::new("The app stays usable behind this panel."))
             }))

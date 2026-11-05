@@ -798,3 +798,133 @@ fn the_divider_of_a_splitter_moves_with_the_keyboard_and_stays_in_its_limits() {
     drag(&mut ui, bar, Point::new(10.0, bar.y));
     assert_eq!(bars(&mut ui)[0].numeric.map(|n| n.value as f32), Some(0.4), "the drag stops there too");
 }
+
+fn free_panel(open: &State<bool>, place: &State<Option<Point>>, minimized: &State<bool>) -> FloatingPanel {
+    FloatingPanel::new(open.binding(), "Cash", || Box::new(Dot::new().label("Inside")))
+        .size(300.0, 200.0)
+        .movable(place.binding())
+        .minimized(minimized.binding())
+        .summary(|| Box::new(Dot::new().label("Open")))
+}
+
+fn panel_frame(ui: &mut Ui) -> ravenrs_core::Rect {
+    let tree = ui.access_tree();
+    named(&tree, Role::Group, "Cash").bounds
+}
+
+#[test]
+fn a_movable_panel_has_no_sphere_and_opens_where_the_app_says() {
+    let (open, place, small) =
+        (State::new(false), State::new(Some(Point::new(40.0, 50.0))), State::new(false));
+    let mut ui = ui(free_panel(&open, &place, &small));
+    ui.update();
+    assert!(ui.access_tree().nodes.iter().all(|n| n.name.as_deref() != Some("Cash")), "nothing while closed");
+    open.set(true);
+    ui.update();
+    let frame = panel_frame(&mut ui);
+    assert_eq!((frame.x(), frame.y()), (40.0, 50.0));
+    place.set(None);
+    ui.update();
+    let frame = panel_frame(&mut ui);
+    assert!(frame.max_x() > 700.0 && frame.max_y() > 500.0, "a corner without a place: {frame:?}");
+    key(&mut ui, Key::Escape);
+    assert!(!open.get(), "Escape closes it");
+}
+
+#[test]
+fn dragging_a_movable_panel_writes_its_place_only_at_the_end_and_stays_in_the_window() {
+    let (open, writes) = (State::new(true), Rc::new(Cell::new(0)));
+    let store = State::new(Some(Point::new(100.0, 100.0)));
+    let (read, write, count) = (store.clone(), store.clone(), writes.clone());
+    let place = ravenrs_reactive::Binding::new(
+        move || read.get(),
+        move |p| {
+            count.set(count.get() + 1);
+            write.set(p);
+        },
+    );
+    let small = State::new(false);
+    let panel = FloatingPanel::new(open.binding(), "Cash", || Box::new(Dot::new().label("Inside")))
+        .size(300.0, 200.0)
+        .movable(place)
+        .minimized(small.binding());
+    let mut ui = ui(panel);
+    ui.update();
+    let header = named(&ui.access_tree(), Role::Button, "Move: Cash").bounds.center();
+    ui.handle_event(&Event::PointerMove { position: header });
+    ui.handle_event(&Event::PointerDown { position: header, button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerMove { position: Point::new(header.x + 50.0, header.y + 20.0) });
+    ui.update();
+    let frame = panel_frame(&mut ui);
+    assert_eq!((frame.x(), frame.y()), (150.0, 120.0), "it follows the pointer");
+    assert_eq!(writes.get(), 0, "and the app hears only at the end");
+    ui.handle_event(&Event::PointerMove { position: Point::new(5000.0, header.y) });
+    ui.update();
+    ui.handle_event(&Event::PointerUp {
+        position: Point::new(5000.0, header.y),
+        button: PointerButton::Primary,
+    });
+    ui.update();
+    assert_eq!(writes.get(), 1);
+    assert_eq!(store.get(), Some(Point::new(496.0, 100.0)), "kept inside the window");
+
+    ui.set_viewport(Size::new(600.0, 400.0), 1.0);
+    ui.update();
+    let frame = panel_frame(&mut ui);
+    assert_eq!(frame.max_x(), 596.0, "a smaller window brings it back: {frame:?}");
+    assert_eq!(store.get(), Some(Point::new(496.0, 100.0)), "without forgetting where it was");
+}
+
+#[test]
+fn the_keyboard_moves_a_panel_by_its_header() {
+    let (open, place, small) =
+        (State::new(true), State::new(Some(Point::new(100.0, 100.0))), State::new(false));
+    let mut ui = ui(free_panel(&open, &place, &small));
+    ui.update();
+    let tree = ui.access_tree();
+    let header = named(&tree, Role::Button, "Move: Cash");
+    assert!(header.focusable);
+    let id = header.id;
+    ui.perform_action(id, ravenrs_core::AccessAction::Focus);
+    ui.update();
+    key(&mut ui, Key::ArrowRight);
+    assert_eq!(place.get(), Some(Point::new(116.0, 100.0)));
+    ui.handle_event(&Event::KeyDown {
+        key: Key::ArrowDown,
+        modifiers: Modifiers { shift: true, ..Modifiers::default() },
+    });
+    ui.update();
+    assert_eq!(place.get(), Some(Point::new(116.0, 164.0)), "Shift goes further");
+}
+
+#[test]
+fn a_panel_reduces_to_its_header_and_comes_back() {
+    let (open, place, small) =
+        (State::new(true), State::new(Some(Point::new(100.0, 100.0))), State::new(false));
+    let mut ui = ui(free_panel(&open, &place, &small));
+    ui.update();
+    assert!(shows(&mut ui, "Inside"));
+    assert!(!shows(&mut ui, "Open"), "the summary is for when it is reduced");
+    let tall = panel_frame(&mut ui).height();
+    click_node(&mut ui, Role::Button, "Minimize");
+    assert!(small.get());
+    assert!(!shows(&mut ui, "Inside"), "the content goes");
+    assert!(shows(&mut ui, "Open"), "the summary comes");
+    assert!(panel_frame(&mut ui).height() < tall / 2.0);
+    click_node(&mut ui, Role::Button, "Restore");
+    assert!(!small.get());
+    assert!(shows(&mut ui, "Inside"));
+}
+
+#[test]
+fn a_panel_with_its_sphere_can_reduce_too() {
+    let (open, small) = (State::new(true), State::new(false));
+    let mut ui = ui(FloatingPanel::new(open.binding(), "Cash", || Box::new(Dot::new().label("Inside")))
+        .minimized(small.binding()));
+    ui.update();
+    assert!(shows(&mut ui, "Inside"));
+    click_node(&mut ui, Role::Button, "Minimize");
+    assert!(!shows(&mut ui, "Inside"));
+    let tree = ui.access_tree();
+    assert!(tree.find(Role::Button, "Restore").is_some());
+}

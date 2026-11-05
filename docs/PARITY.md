@@ -25,7 +25,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Resizable panels / Splitter | ✓ | ✓ | ✓ | ✅ `Splitter` for two panes, `SplitPanes` for any number with limits, `SplitHandle` for a bar of your own; all move with the keyboard |
 | Tile layout / Dashboard layout | | ✓ | ✓ | ✅ `TileLayout`: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep |
 | Docking / Dock manager | | ✓ | ✓ | ⬜ |
-| Window (floating) | | ✓ | ✓ | ⬜ |
+| Window (floating) | | ✓ | ✓ | 🟡 `FloatingPanel::movable`: moves and reduces, does not resize |
 | App bar / Toolbar | | ✓ | ✓ | ✅ `Toolbar`, `ToolbarAction`: what does not fit folds into a menu |
 | Footer | | | | ✅ `Footer` |
 | Status bar | | ✓ | ✓ | ✅ `StatusBar` |
@@ -63,7 +63,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Split button | | ✓ | ✓ | ✅ `SplitButton` |
 | Floating action button | | ✓ | ✓ | ⬜ |
 | Speed dial | | ✓ | ✓ | ⬜ |
-| Floating action button with a panel | | ✓ | ✓ | ✅ `FloatingPanel`: a round button that drags between corners |
+| Floating action button with a panel | | ✓ | ✓ | ✅ `FloatingPanel`: a round button that drags between corners, or placed anywhere by its header with the place kept by the app; reduces to its header |
 
 ## Inputs and editors
 
