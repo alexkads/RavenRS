@@ -4,6 +4,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.13] - 2026-11-05
+
+### Breaking
+
+- `ProgressBar` is no longer `Copy`, because it now holds a label and a detail. Clone it where you copied it.
+- `Breadcrumb` and `Section` are no longer `Send`, `Sync`, `UnwindSafe` or `RefUnwindSafe`, because they now hold closures and views. Views were already built and kept on one thread.
+
 ### Added
 
 - `DockArea` and `DockLayout`: panels in a tree of splits and groups of tabs at the left, the right, the bottom and the center. A tab goes to another group, to one side of it or to a border with a drag and a mark on the target, or by Alt and Shift with an arrow and the "Move to…" of its menu; it reorders with a drag or Alt and an arrow. Bars resize within limits by pointer and keys, docks collapse from the strips on their edges, and panels close and come back where they were. The arrangement holds ids alone, and what a panel shows comes from a function of the app. `DockLayout::to_text` and `parse` save it as versioned JSON: an unknown id is left out, and a text that cannot be read is a clear error.
@@ -53,6 +60,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Changed
 
+- The handle of a `Splitter` is now a stop in the Tab order, so its panes can be resized from the keyboard.
 - `Chart` measures its labels with the real font, and its gridlines land on whole pixels. Reports draw as before.
 - The gap between slices of a `Chart` is now really empty, so what is behind the chart shows through it, rather than being painted in the color of the surface.
 - `Chart` draws bars as quads, with no picture, and gridlines stop at their sides, so a bar that fades shows none through it. A line with more points than columns draws straight lines through the extremes of each column, its picture covers only what it draws, and a new size costs far less. See `docs/QUALITY.md`.

@@ -92,7 +92,7 @@ Where things stand:
   | `chart-board`, area, bars, doughnut and line | 7.2 | 5.5 | 4.7 | 3.2 |
   | `chart-sankey`, ten flows between ten nodes, as quads and curves | | 0.04 | | 0.1 |
 
-  The finance dashboard, which measured 19.7 ms before this work, has not been measured again. Lines, areas and slices stay pictures: each scene fits the 16.67 ms of a rebuild, and curves would be drawn again into the atlas on every frame, hover included, at a cost of about 1/26 of a frame per window-sized shape (see below). This comparison was reasoned from those limits, not measured.
+  The finance dashboard went from 19.7 ms to 7.4 ms on the same measure. Lines, areas and slices stay pictures: each scene fits the 16.67 ms of a rebuild, and curves would be drawn again into the atlas on every frame, hover included, at a cost of about 1/26 of a frame per window-sized shape (see below). This comparison was reasoned from those limits, not measured.
 - **Not measured:** the delay from input to the screen in a real window, the system compositor, and other machines.
 - **Not done:** the gate does not yet fail a public component missing from every scene's `covers`.
 
