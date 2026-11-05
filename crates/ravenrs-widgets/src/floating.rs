@@ -520,11 +520,59 @@ pub struct Toast {
     extras: ToastExtras,
 }
 
-/// What a toast can do besides showing: a button, and something to run once it is gone.
+/// Where in the window a [`Toaster`] stacks its toasts.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
+pub enum ToastPosition {
+    /// The top-left corner.
+    TopLeft,
+    /// The middle of the top edge.
+    TopCenter,
+    /// The top-right corner.
+    TopRight,
+    /// The bottom-left corner.
+    BottomLeft,
+    /// The middle of the bottom edge.
+    BottomCenter,
+    /// The bottom-right corner.
+    #[default]
+    BottomRight,
+}
+
+impl ToastPosition {
+    fn placement(self) -> Placement {
+        match self {
+            Self::TopLeft => Placement::TopLeft,
+            Self::TopCenter => Placement::TopCenter,
+            Self::TopRight => Placement::TopRight,
+            Self::BottomLeft => Placement::BottomLeft,
+            Self::BottomCenter => Placement::BottomCenter,
+            Self::BottomRight => Placement::BottomRight,
+        }
+    }
+
+    /// Where a toast comes from and goes to: the edge it is nearest to.
+    fn travel(self) -> Effect {
+        match self {
+            Self::TopLeft | Self::BottomLeft => Effect::moved(-32.0, 0.0),
+            Self::TopRight | Self::BottomRight => Effect::moved(32.0, 0.0),
+            Self::TopCenter => Effect::moved(0.0, -32.0),
+            Self::BottomCenter => Effect::moved(0.0, 32.0),
+        }
+    }
+
+    fn at_bottom(self) -> bool {
+        matches!(self, Self::BottomLeft | Self::BottomCenter | Self::BottomRight)
+    }
+}
+
+/// What a toast can do besides showing: a button, something to run once it is gone, and
+/// a place of its own.
 #[derive(Clone, Default)]
 pub struct ToastExtras {
     action: Option<(String, Rc<dyn Fn()>)>,
     on_close: Option<Rc<dyn Fn()>>,
+    position: Option<ToastPosition>,
 }
 
 impl fmt::Debug for ToastExtras {
@@ -543,7 +591,9 @@ impl PartialEq for ToastExtras {
             _ => false,
         };
         let action = |extras: &Self| extras.action.as_ref().map(|(_, run)| run.clone());
-        same(&action(self), &action(other)) && same(&self.on_close, &other.on_close)
+        same(&action(self), &action(other))
+            && same(&self.on_close, &other.on_close)
+            && self.position == other.position
     }
 }
 
@@ -562,6 +612,12 @@ impl ToastExtras {
     /// Runs this once the toast is gone, by itself or closed by a person.
     pub fn on_close(mut self, run: impl Fn() + 'static) -> Self {
         self.on_close = Some(Rc::new(run));
+        self
+    }
+
+    /// Shows this toast here instead of where its [`Toaster`] puts the others.
+    pub fn position(mut self, position: ToastPosition) -> Self {
+        self.position = Some(position);
         self
     }
 }
@@ -601,7 +657,13 @@ impl Toasts {
         self.show_with(title, message, tone, seconds, ToastExtras::new());
     }
 
-    /// Shows a toast for `seconds` seconds, with a button or something to run once it is gone.
+    /// Shows a toast that stays until a person closes it or [`Self::dismiss`] does.
+    pub fn show_until_closed(&self, title: impl Into<String>, message: impl Into<String>, tone: Tone) {
+        self.show_for(title, message, tone, f64::INFINITY);
+    }
+
+    /// Shows a toast for `seconds` seconds, with a button or something to run once it is
+    /// gone. With `f64::INFINITY` it stays until closed.
     pub fn show_with(
         &self,
         title: impl Into<String>,
@@ -649,18 +711,39 @@ impl Toasts {
     }
 }
 
-/// Displays [`Toasts`] stacked in the bottom-right corner; each disappears
-/// after its duration or when closed.
+/// Displays [`Toasts`] stacked in a corner of the window, the bottom-right one unless
+/// told otherwise; each disappears after its duration or when closed.
+///
+/// ```
+/// use ravenrs_widgets::{ToastExtras, ToastPosition, Toaster, Toasts, Tone, Ui};
+///
+/// let toasts = Toasts::new();
+/// let toaster = Toaster::new(toasts.clone()).position(ToastPosition::TopCenter);
+/// let mut ui = Ui::new(toaster, ravenrs_style::Theme::raven_dark());
+///
+/// toasts.show_until_closed("Sending", "Three files left.", Tone::Accent);
+/// let corner = ToastExtras::new().position(ToastPosition::BottomRight);
+/// toasts.show_with("Slow connection", "It may take longer.", Tone::Warning, 8.0, corner);
+/// ui.update();
+/// ```
 #[derive(Debug)]
 pub struct Toaster {
     toasts: Toasts,
     bottom_inset: f32,
+    position: ToastPosition,
 }
 
 impl Toaster {
     /// Displays the toasts of `toasts`.
     pub fn new(toasts: Toasts) -> Self {
-        Self { toasts, bottom_inset: 0.0 }
+        Self { toasts, bottom_inset: 0.0, position: ToastPosition::default() }
+    }
+
+    /// Where in the window the toasts stack (the bottom-right corner by default). A toast
+    /// can ask for another place with [`ToastExtras::position`].
+    pub fn position(mut self, position: ToastPosition) -> Self {
+        self.position = position;
+        self
     }
 
     /// Lifts the toasts by this much, in logical pixels, to clear something fixed
@@ -670,6 +753,9 @@ impl Toaster {
         self
     }
 }
+
+/// The layers of a [`Toaster`], one for each corner in use.
+const TOAST_OVERLAY_KEY: u64 = 0x746f_6173_7400_0000;
 
 fn tell_gone(gone: &[Toast]) {
     for toast in gone {
@@ -691,7 +777,7 @@ fn tone_color(theme: &Theme, tone: Tone) -> (Color, IconName) {
     }
 }
 
-struct ToastStack<'a>(&'a [Toast], Toasts, f32);
+struct ToastStack<'a>(&'a [Toast], Toasts, f32, ToastPosition);
 
 impl View for ToastStack<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -759,15 +845,18 @@ impl View for ToastStack<'_> {
                 Motion::new()
                     .key(t.id)
                     .layout(theme.motion.snappy)
-                    .enter(Effect::moved(32.0, 0.0), theme.motion.gentle)
-                    .exit(Effect::moved(32.0, 0.0), theme.motion.fast),
+                    .enter(self.3.travel(), theme.motion.gentle)
+                    .exit(self.3.travel(), theme.motion.fast),
             );
             cards.push(card);
         }
         cx.container(
             LayoutStyle {
                 spacing: 10.0,
-                padding: Insets { bottom: self.2, ..Insets::uniform(0.0) },
+                padding: Insets {
+                    bottom: if self.3.at_bottom() { self.2 } else { 0.0 },
+                    ..Insets::uniform(0.0)
+                },
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &cards,
@@ -792,7 +881,10 @@ impl View for Toaster {
             if now >= until {
                 expired = true;
             } else {
-                cx.wake_at(until);
+                // One that stays until closed has no moment to wake for.
+                if until.is_finite() {
+                    cx.wake_at(until);
+                }
                 visible.push(t.clone());
             }
         }
@@ -802,11 +894,18 @@ impl View for Toaster {
             self.toasts.list.update(|l| l.retain(|t| ids.contains(&t.id)));
             tell_gone(&gone);
         }
-        if !visible.is_empty() {
-            cx.overlay(
+        let place = |t: &Toast| t.extras.position.unwrap_or(self.position);
+        let mut places: Vec<ToastPosition> = visible.iter().map(place).collect();
+        places.sort_unstable();
+        places.dedup();
+        for position in places {
+            let here: Vec<Toast> = visible.iter().filter(|t| place(t) == position).cloned().collect();
+            // By corner: a stack that comes or goes does not make another start over.
+            cx.keyed_overlay(
+                TOAST_OVERLAY_KEY + position as u64,
                 anchor,
-                Placement::BottomRight,
-                &ToastStack(&visible, self.toasts.clone(), self.bottom_inset),
+                position.placement(),
+                &ToastStack(&here, self.toasts.clone(), self.bottom_inset, position),
                 None,
             );
         }

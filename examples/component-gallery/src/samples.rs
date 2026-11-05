@@ -735,6 +735,8 @@ fn tabs() -> impl View {
         .tab("Activity", Text::new("Ana merged #482").foreground(Semantic::InkMuted))
         .tab("Settings", Text::new("Each tab builds when selected.").foreground(Semantic::InkMuted))
         .tab("Billing", Stat::new("Next invoice", "R$ 1.240"))
+        // `TabsVariant::Segmented` makes it a track, `.item` a tab without content.
+        .variant(TabsVariant::Underline)
 }
 // end
 
@@ -813,7 +815,9 @@ fn dialog() -> impl View {
         Dialog::new(open.binding(), "Delete the project?")
             .description("This cannot be undone.")
             .action(Button::new("Cancel").style(ButtonStyle::Secondary).on_click(move || cancel.set(false)))
-            .action(Button::new("Delete").style(ButtonStyle::Danger).on_click(move || confirm.set(false))),
+            .action(Button::new("Delete").style(ButtonStyle::Danger).on_click(move || confirm.set(false)))
+            // A stray click outside must not close this one.
+            .close_on_backdrop(false),
     ))
 }
 // end
@@ -894,6 +898,8 @@ fn popover() -> impl View {
             .spacing(8.0)
             .width(220.0),
     )
+    // `Placement::Above` and the others work too; `.surface(false)` drops the panel.
+    .placement(Placement::Below)
 }
 // end
 
@@ -986,7 +992,8 @@ fn toaster() -> impl View {
     VStack::new((
         Button::new("Show toast")
             .on_click(move || show.show("Report exported", "sales-q3.pdf is ready.", Tone::Success)),
-        Toaster::new(toasts),
+        // `toasts.show_until_closed` keeps one up until it is closed.
+        Toaster::new(toasts).position(ToastPosition::BottomRight),
     ))
 }
 // end

@@ -4,7 +4,7 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Point, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
@@ -227,12 +227,29 @@ impl View for HelpTip {
     }
 }
 
-/// Floating content anchored below a view, open while `open` is true. Clicking
-/// outside or pressing Escape closes it.
+/// Floating content anchored to a view, open while `open` is true. Clicking
+/// outside or pressing Escape closes it. It opens below the view on a panel, unless
+/// told otherwise.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Button, Placement, Popover, Text, Ui};
+///
+/// let open = State::new(true);
+/// let popover = Popover::new(open.binding(), Button::new("Refused"), Text::new("Two files"))
+///     .placement(Placement::Above)
+///     .surface(false);
+/// let mut ui = Ui::new(popover, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Popover<A, C> {
     open: Binding<bool>,
     anchor: A,
     content: C,
+    placement: Placement,
+    surface: bool,
+    padding: f32,
+    min_width: f32,
 }
 
 impl<A, C> fmt::Debug for Popover<A, C> {
@@ -244,7 +261,61 @@ impl<A, C> fmt::Debug for Popover<A, C> {
 impl<A: View, C: View> Popover<A, C> {
     /// Shows `content` below `anchor` while `open` is true.
     pub fn new(open: Binding<bool>, anchor: A, content: C) -> Self {
-        Self { open, anchor, content }
+        Self {
+            open,
+            anchor,
+            content,
+            placement: Placement::Below,
+            surface: true,
+            padding: 16.0,
+            min_width: 220.0,
+        }
+    }
+
+    /// Where it opens relative to the anchor ([`Placement::Below`] by default).
+    pub fn placement(mut self, placement: Placement) -> Self {
+        self.placement = placement;
+        self
+    }
+
+    /// Whether the content sits on the floating panel (it does by default). Without it,
+    /// the content draws its own surface and takes only the room it needs.
+    pub fn surface(mut self, surface: bool) -> Self {
+        self.surface = surface;
+        self
+    }
+
+    /// The space between the panel and the content, in logical pixels (16 by default).
+    pub fn padding(mut self, padding: f32) -> Self {
+        self.padding = padding;
+        self
+    }
+
+    /// The narrowest the panel gets, in logical pixels (220 by default).
+    pub fn min_width(mut self, width: f32) -> Self {
+        self.min_width = width;
+        self
+    }
+}
+
+struct PopoverLayer<'a> {
+    content: &'a dyn View,
+    surface: bool,
+    padding: f32,
+    min_width: f32,
+}
+
+impl View for PopoverLayer<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let child = cx.child(self.content);
+        if self.surface {
+            return panel(cx, &[child], self.padding, self.min_width);
+        }
+        let node = cx.container(LayoutStyle::stack(Axis::Vertical), &[child], Paint::None);
+        // Clicks on the content stay in it, panel or not.
+        cx.cursor(node, CursorIcon::Default);
+        motion::popup(cx, node);
+        node
     }
 }
 
@@ -262,12 +333,13 @@ impl<A: View, C: View> View for Popover<A, C> {
         let anchor = cx.child(&self.anchor);
         if self.open.get() {
             let close = self.open.clone();
-            cx.overlay(
-                anchor,
-                Placement::Below,
-                &PanelOf(&self.content),
-                Some(Rc::new(move || close.set(false))),
-            );
+            let layer = PopoverLayer {
+                content: &self.content,
+                surface: self.surface,
+                padding: self.padding,
+                min_width: self.min_width,
+            };
+            cx.overlay(anchor, self.placement, &layer, Some(Rc::new(move || close.set(false))));
         }
         anchor
     }
@@ -459,6 +531,55 @@ struct ListRow<'a> {
     /// The row of this list whose submenu is open, set when any row of the list has one.
     /// The flag says the submenu takes the keyboard, as it does unless the pointer opened it.
     open_submenu: Option<State<Option<(usize, bool)>>>,
+    /// How the pointer is moving over this list, set along with `open_submenu`.
+    aim: Option<SubmenuAim>,
+    /// Told when the pointer is over this list, if it is itself a submenu.
+    pointer_in: Option<Rc<dyn Fn()>>,
+}
+
+/// How long the pointer can cross other rows on its way to an open submenu.
+const SUBMENU_GRACE: f64 = 0.25;
+
+/// What lets the pointer go diagonally to a submenu: crossing the rows between would
+/// otherwise close it. A move that is mostly sideways gets a moment; the row it is over
+/// takes over when that ends, unless the pointer has reached the submenu.
+#[derive(Clone)]
+struct SubmenuAim {
+    last: Rc<Cell<Option<Point>>>,
+    /// The row waiting to take over, and whether it has a submenu of its own.
+    waiting: State<Option<(usize, bool)>>,
+    due: Rc<Cell<Option<f64>>>,
+}
+
+impl SubmenuAim {
+    /// Keeps the position and says whether this move can be going to the side.
+    fn sideways(&self, position: Point) -> bool {
+        self.last.replace(Some(position)).is_some_and(|from| {
+            let (dx, dy) = (position.x - from.x, position.y - from.y);
+            dx != 0.0 && dy.abs() <= dx.abs() * 2.0
+        })
+    }
+
+    fn cancel(&self) {
+        if self.waiting.peek().is_some() {
+            self.waiting.set(None);
+        }
+    }
+}
+
+/// Makes this row's submenu the open one, or none if it has none.
+fn switch_submenu(
+    open: &State<Option<(usize, bool)>>,
+    index: usize,
+    has_submenu: bool,
+    focus_to: &util::FocusTarget,
+) {
+    let current = *open.peek();
+    open.set(has_submenu.then_some((index, false)));
+    // The submenu that goes away may hold the keyboard.
+    if current.is_some_and(|(_, focused)| focused) {
+        focus_to.request(index);
+    }
 }
 
 impl ListRow<'_> {
@@ -471,21 +592,34 @@ impl ListRow<'_> {
 
     /// While the pointer moves over this row, its submenu is the open one, if it has one.
     fn follow_pointer(&self, cx: &mut BuildCx<'_>, node: NodeId) {
-        let Some(open) = self.open_submenu.clone() else { return };
+        let pointer_in = self.pointer_in.clone();
+        let list = self.open_submenu.clone().zip(self.aim.clone());
+        if list.is_none() && pointer_in.is_none() {
+            return;
+        }
         let (index, has_submenu, focus_to) =
             (self.roving.index, !self.submenu.is_empty(), self.roving.focus_to.clone());
         cx.on_pointer_move(
             node,
-            Rc::new(move |_, _| {
+            Rc::new(move |position, _| {
+                if let Some(pointer_in) = &pointer_in {
+                    pointer_in();
+                }
+                let Some((open, aim)) = &list else { return };
+                let sideways = aim.sideways(position);
                 let current = *open.peek();
                 if current.map(|(i, _)| i) == has_submenu.then_some(index) {
+                    aim.cancel();
                     return;
                 }
-                open.set(has_submenu.then_some((index, false)));
-                // The submenu that goes away may hold the keyboard.
-                if current.is_some_and(|(_, focused)| focused) {
-                    focus_to.request(index);
+                if current.is_some() && sideways {
+                    if *aim.waiting.peek() != Some((index, has_submenu)) {
+                        aim.waiting.set(Some((index, has_submenu)));
+                    }
+                    return;
                 }
+                aim.cancel();
+                switch_submenu(open, index, has_submenu, &focus_to);
             }),
         );
     }
@@ -515,11 +649,13 @@ impl ListRow<'_> {
                 }
             })
         };
+        let reached = self.aim.clone().map(|aim| Rc::new(move || aim.cancel()) as Rc<dyn Fn()>);
         let list = MenuLevel {
             entries: self.submenu,
             close: self.close.clone(),
             on_side: Some(on_side),
             takes_focus: focused,
+            pointer_in: reached,
         };
         // Told apart by the flag: asked again from the keyboard, it starts over and takes focus.
         let key = 0x7375_626d_656e_7500 + u64::from(focused);
@@ -657,6 +793,7 @@ impl View for MenuList<'_> {
             close: self.close.clone(),
             on_side: self.on_side.clone(),
             takes_focus: true,
+            pointer_in: None,
         }
         .build(cx)
     }
@@ -669,6 +806,8 @@ struct MenuLevel<'a> {
     on_side: Option<Rc<dyn Fn(bool)>>,
     /// A submenu the pointer opened leaves the keyboard where it was.
     takes_focus: bool,
+    /// A submenu tells the list that opened it when the pointer gets here.
+    pointer_in: Option<Rc<dyn Fn()>>,
 }
 
 impl View for MenuLevel<'_> {
@@ -680,6 +819,25 @@ impl View for MenuLevel<'_> {
         // Plain menus never pay for following the pointer.
         let has_submenus =
             self.entries.iter().any(|e| matches!(e, Entry::Item(item) if !item.submenu.is_empty()));
+        let aim = SubmenuAim {
+            last: cx.use_state(|| Rc::new(Cell::new(None))).get(),
+            waiting: cx.use_state(|| None),
+            due: cx.use_state(|| Rc::new(Cell::new(None))).get(),
+        };
+        if let Some((row, its_own)) = aim.waiting.get() {
+            let now = cx.now();
+            let due = aim.due.get().unwrap_or(now + SUBMENU_GRACE);
+            if now >= due {
+                aim.due.set(None);
+                aim.waiting.set(None);
+                switch_submenu(&open_submenu, row, its_own, &focus_to);
+            } else {
+                aim.due.set(Some(due));
+                cx.wake_at(due);
+            }
+        } else {
+            aim.due.set(None);
+        }
         let mut item_index = 0;
         for (i, entry) in self.entries.iter().enumerate() {
             match entry {
@@ -701,6 +859,8 @@ impl View for MenuLevel<'_> {
                         toggled: item.checked,
                         submenu: &item.submenu,
                         open_submenu: has_submenus.then(|| open_submenu.clone()),
+                        aim: has_submenus.then(|| aim.clone()),
+                        pointer_in: self.pointer_in.clone(),
                     };
                     rows.push(cx.keyed_child(i as u64, &row));
                 }
@@ -720,6 +880,9 @@ impl View for MenuLevel<'_> {
         }
         let node = panel(cx, &rows, 6.0, 220.0);
         cx.semantics(node, Semantics::new(Role::Menu));
+        if let Some(pointer_in) = self.pointer_in.clone() {
+            cx.on_pointer_move(node, Rc::new(move |_, _| pointer_in()));
+        }
         node
     }
 }
@@ -911,6 +1074,8 @@ impl View for Options<'_> {
                     toggled: None,
                     submenu: &[],
                     open_submenu: None,
+                    aim: None,
+                    pointer_in: None,
                 };
                 cx.keyed_child(i as u64, &row)
             })
@@ -1064,7 +1229,19 @@ impl View for Select {
 }
 
 /// A modal dialog over a dimmed backdrop, shown while `open` is true.
-/// Clicking the backdrop, the close button or pressing Escape closes it.
+/// Clicking the backdrop, the close button or pressing Escape closes it, and each of
+/// the three can be turned off for what must not be dismissed by accident.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Dialog, Ui};
+///
+/// let open = State::new(true);
+/// // Only its own buttons or Escape close it: a stray click does not lose what was typed.
+/// let dialog = Dialog::new(open.binding(), "Discard the changes?").close_on_backdrop(false).close_button(false);
+/// let mut ui = Ui::new(dialog, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Dialog {
     open: Binding<bool>,
     title: String,
@@ -1073,6 +1250,9 @@ pub struct Dialog {
     actions: Vec<AnyView>,
     width: f32,
     close_label: Option<String>,
+    close_on_escape: bool,
+    close_on_backdrop: bool,
+    close_button: bool,
 }
 
 impl fmt::Debug for Dialog {
@@ -1092,6 +1272,9 @@ impl Dialog {
             actions: Vec::new(),
             width: 460.0,
             close_label: None,
+            close_on_escape: true,
+            close_on_backdrop: true,
+            close_button: true,
         }
     }
 
@@ -1120,6 +1303,24 @@ impl Dialog {
         self
     }
 
+    /// Whether Escape closes it (it does by default).
+    pub fn close_on_escape(mut self, close: bool) -> Self {
+        self.close_on_escape = close;
+        self
+    }
+
+    /// Whether a click on the backdrop closes it (it does by default).
+    pub fn close_on_backdrop(mut self, close: bool) -> Self {
+        self.close_on_backdrop = close;
+        self
+    }
+
+    /// Whether it shows the X in its corner (it does by default).
+    pub fn close_button(mut self, show: bool) -> Self {
+        self.close_button = show;
+        self
+    }
+
     /// Buttons at the bottom-right, in order.
     pub fn action(mut self, action: impl View + 'static) -> Self {
         self.actions.push(Box::new(action));
@@ -1143,16 +1344,21 @@ impl View for DialogLayer<'_> {
             &[title],
             Paint::None,
         );
-        let x = cx.child(
-            &IconButton::new(IconName::X)
-                .label(d.close_label.clone().unwrap_or_else(|| cx.labels().close.clone()))
-                .size(crate::ButtonSize::Small)
-                .on_click(move || close.set(false)),
-        );
         cx.semantics(title, Semantics::new(Role::Heading).level(2));
+        let mut header = vec![title];
+        if d.close_button {
+            header.push(
+                cx.child(
+                    &IconButton::new(IconName::X)
+                        .label(d.close_label.clone().unwrap_or_else(|| cx.labels().close.clone()))
+                        .size(crate::ButtonSize::Small)
+                        .on_click(move || close.set(false)),
+                ),
+            );
+        }
         let header = cx.container(
             LayoutStyle { align: Align::Center, spacing: 12.0, ..LayoutStyle::stack(Axis::Horizontal) },
-            &[title, x],
+            &header,
             Paint::None,
         );
         let mut body = vec![header];
@@ -1217,8 +1423,16 @@ impl View for DialogLayer<'_> {
             &[scrim, card],
             Paint::None,
         );
-        let close = d.open.clone();
-        cx.on_click(backdrop, Rc::new(move || close.set(false)));
+        // Still a target when it does not close: the click must not reach what is behind.
+        let close = d.close_on_backdrop.then(|| d.open.clone());
+        cx.on_click(
+            backdrop,
+            Rc::new(move || {
+                if let Some(close) = &close {
+                    close.set(false);
+                }
+            }),
+        );
         backdrop
     }
 }
@@ -1227,12 +1441,17 @@ impl View for Dialog {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let anchor = cx.empty();
         if self.open.get() {
-            let close = self.open.clone();
+            // It takes Escape even when it does not close, or a layer under it would.
+            let close = self.close_on_escape.then(|| self.open.clone());
             cx.overlay(
                 anchor,
                 Placement::Fill,
                 &DialogLayer { dialog: self },
-                Some(Rc::new(move || close.set(false))),
+                Some(Rc::new(move || {
+                    if let Some(close) = &close {
+                        close.set(false);
+                    }
+                })),
             );
         }
         anchor

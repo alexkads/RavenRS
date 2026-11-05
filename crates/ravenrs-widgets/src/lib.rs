@@ -134,7 +134,7 @@ pub use fill::Fill;
 pub use filter_builder::{FilterBuilder, FilterField, FilterFieldKind};
 pub use floating::{
     Combobox, Command, CommandPalette, ContextMenu, HoverCard, Sheet, Side, SplashScreen, Toast, ToastExtras,
-    Toaster, Toasts,
+    ToastPosition, Toaster, Toasts,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use grid::{
@@ -159,7 +159,7 @@ pub use motion::{Collapse, Motion};
 pub use nav::{
     Accordion, Breadcrumb, Disclosure, Sidebar, SidebarBrand, SidebarCollapse, SidebarGroup, SidebarInset,
     SidebarItem, SidebarParts, SidebarSection, SidebarSkeleton, SidebarState, SidebarTrigger, SidebarVariant,
-    Tabs,
+    Tabs, TabsVariant,
 };
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
 #[cfg(feature = "lottie")]

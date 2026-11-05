@@ -183,7 +183,7 @@ pub enum Placement {
     Below,
     /// Above the anchor, left edges aligned.
     Above,
-    /// To the right of the anchor, top edges aligned.
+    /// To the right of the anchor, top edges aligned; to its left when only that fits.
     Right,
     /// Centered above the anchor (tooltips).
     AboveCenter,
@@ -203,6 +203,16 @@ pub enum Placement {
     At(Point),
     /// The bottom-right corner of the viewport (toasts).
     BottomRight,
+    /// The bottom-left corner of the viewport; the anchor is ignored.
+    BottomLeft,
+    /// The middle of the bottom edge of the viewport; the anchor is ignored.
+    BottomCenter,
+    /// The top-left corner of the viewport; the anchor is ignored.
+    TopLeft,
+    /// The middle of the top edge of the viewport; the anchor is ignored.
+    TopCenter,
+    /// The top-right corner of the viewport; the anchor is ignored.
+    TopRight,
 }
 
 /// A keyboard shortcut that works wherever focus is (unless the focused

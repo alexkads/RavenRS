@@ -36,7 +36,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Tabs / TabStrip | ✓ | ✓ | ✓ | ✅ `Tabs` |
+| Tabs / TabStrip | ✓ | ✓ | ✓ | ✅ `Tabs`: underlined or segmented, sizes, the bar alone, disabled while waiting |
 | Sidebar / Drawer navigation | ✓ | ✓ | ✓ | ✅ `Sidebar`: closes to icons or off the screen, a rail along its edge, a brand, keys on a row, header and footer, groups, submenus, actions, badges, skeleton, sheet in narrow windows, floating and inset variants. Drag to resize: `Splitter` |
 | Breadcrumb | ✓ | ✓ | ✓ | ✅ `Breadcrumb`: locations can be links, an icon at the root |
 | Pagination / Pager | ✓ | ✓ | ✓ | ✅ `Pagination` |
@@ -143,15 +143,15 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Dialog / Alert dialog | ✓ | ✓ | ✓ | ✅ `Dialog`, `ConfirmDialog` |
+| Dialog / Alert dialog | ✓ | ✓ | ✓ | ✅ `Dialog`, `ConfirmDialog`: Escape, the backdrop and the X can each be turned off |
 | Sheet / Drawer (side panel) | ✓ | ✓ | ✓ | ✅ `Sheet` |
 | Splash screen | | ✓ | ✓ | ✅ `SplashScreen` |
 | Tray icon, closing to it | | ✓ | ✓ | ✅ `AppIdentity::close_to_tray` |
 | System notifications | | ✓ | ✓ | ✅ `SystemNotifier` |
-| Popover | ✓ | ✓ | ✓ | ✅ |
+| Popover | ✓ | ✓ | ✓ | ✅ `Popover`: any placement, with or without the panel |
 | Tooltip | ✓ | ✓ | ✓ | ✅ `Tooltip` with a key cap, and `.tooltip()` on any view |
 | Hover card | ✓ | | | ✅ `HoverCard` |
-| Toast / Notification | ✓ | ✓ | ✓ | ✅ `Toaster` |
+| Toast / Notification | ✓ | ✓ | ✓ | ✅ `Toaster`: six places, per stack or per toast, and toasts that stay until closed |
 | Alert / Callout | ✓ | ✓ | ✓ | ✅ `Alert`: with a compact strip |
 | Code snippet with copy | | ✓ | | ✅ `CodeBlock` |
 | Release notes | | | | ✅ `ReleaseNotes` |

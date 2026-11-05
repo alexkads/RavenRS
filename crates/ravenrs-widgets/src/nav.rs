@@ -17,11 +17,42 @@ use crate::{
     Tooltip, View, ViewSeq, motion, util,
 };
 
+/// How a [`Tabs`] bar looks.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TabsVariant {
+    /// Labels over a hairline, with a line that slides under the open one.
+    #[default]
+    Underline,
+    /// A rounded track with the open tab raised in it, for a few short choices.
+    Segmented,
+}
+
 /// A tab bar with one content view per tab; only the selected one is built.
 /// Arrow keys move between tabs and open them; Home and End jump to the ends.
+///
+/// With [`item`](Self::item) instead of [`tab`](Self::tab), it is only the bar, and
+/// what `selected` changes is up to the app.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{ButtonSize, Tabs, TabsVariant, Ui};
+///
+/// let view = State::new(0);
+/// let bar = Tabs::new(view.binding())
+///     .variant(TabsVariant::Segmented)
+///     .size(ButtonSize::Small)
+///     .item("Password")
+///     .item("Link by e-mail");
+/// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Tabs {
     selected: Binding<usize>,
-    tabs: Vec<(String, AnyView)>,
+    tabs: Vec<(String, Option<AnyView>)>,
+    variant: TabsVariant,
+    size: ButtonSize,
+    disabled: bool,
 }
 
 impl fmt::Debug for Tabs {
@@ -33,12 +64,44 @@ impl fmt::Debug for Tabs {
 impl Tabs {
     /// Empty tabs; `selected` holds the zero-based index of the open tab.
     pub fn new(selected: Binding<usize>) -> Self {
-        Self { selected, tabs: Vec::new() }
+        Self {
+            selected,
+            tabs: Vec::new(),
+            variant: TabsVariant::Underline,
+            size: ButtonSize::Medium,
+            disabled: false,
+        }
     }
 
     /// Adds a tab with this label and content.
     pub fn tab(mut self, label: impl Into<String>, content: impl View + 'static) -> Self {
-        self.tabs.push((label.into(), Box::new(content)));
+        self.tabs.push((label.into(), Some(Box::new(content))));
+        self
+    }
+
+    /// Adds a tab with this label and no content, for an app that shows what goes with
+    /// it elsewhere.
+    pub fn item(mut self, label: impl Into<String>) -> Self {
+        self.tabs.push((label.into(), None));
+        self
+    }
+
+    /// How the bar looks ([`TabsVariant::Underline`] by default).
+    pub fn variant(mut self, variant: TabsVariant) -> Self {
+        self.variant = variant;
+        self
+    }
+
+    /// The bar's size, on the scale of the buttons (`Medium` by default).
+    pub fn size(mut self, size: ButtonSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Keeps the open tab from changing, such as while waiting for an answer that
+    /// belongs to it. The bar fades and the tabs ignore input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
         self
     }
 }
@@ -48,15 +111,27 @@ struct TabButton {
     roving: util::Roving,
     label: String,
     selected: Binding<usize>,
+    variant: TabsVariant,
+    size: ButtonSize,
+    disabled: bool,
 }
 
-impl View for TabButton {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+impl TabButton {
+    fn ink(&self, cx: &BuildCx<'_>, on: bool) -> Color {
+        let theme = cx.theme();
+        if self.disabled {
+            util::faded(theme.color(if on { Semantic::Ink } else { Semantic::InkMuted }))
+        } else if on || cx.is_hovered() {
+            theme.color(Semantic::Ink)
+        } else {
+            theme.color(Semantic::InkMuted)
+        }
+    }
+
+    fn underline(&self, cx: &mut BuildCx<'_>, on: bool) -> NodeId {
         let theme = *cx.theme();
-        let on = self.selected.get() == self.roving.index;
-        let color =
-            if on || cx.is_hovered() { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
-        let label = util::label(cx, &self.label, TextStyle::Body, Some(Weight::SEMIBOLD), color);
+        let color = self.ink(cx, on);
+        let label = util::label(cx, &self.label, self.size.text_style(), Some(Weight::SEMIBOLD), color);
         motion::control(cx, label);
         let label = cx.container(
             LayoutStyle { padding: Insets::symmetric(0.0, 2.0), ..LayoutStyle::stack(Axis::Horizontal) },
@@ -77,13 +152,60 @@ impl View for TabButton {
         if on {
             cx.motion(marker, Motion::new().shared_layout(self.scope, 0, theme.motion.snappy));
         }
+        let (top, gap) = match self.size {
+            ButtonSize::Medium | ButtonSize::Large => (8.0, 10.0),
+            ButtonSize::Small | ButtonSize::Mini => (4.0, 6.0),
+        };
         let style = LayoutStyle {
-            padding: Insets { top: 8.0, ..Insets::ZERO },
-            spacing: 10.0,
+            padding: Insets { top, ..Insets::ZERO },
+            spacing: gap,
             ..LayoutStyle::stack(Axis::Vertical)
         };
-        let node = cx.container(style, &[label, marker], Paint::None);
-        cx.semantics(node, Semantics::new(Role::Tab).selected(on));
+        cx.container(style, &[label, marker], Paint::None)
+    }
+
+    fn segment(&self, cx: &mut BuildCx<'_>, on: bool) -> NodeId {
+        let theme = *cx.theme();
+        let color = self.ink(cx, on);
+        let weight = on.then_some(Weight::SEMIBOLD);
+        let label = util::label(cx, &self.label, self.size.text_style(), weight, color);
+        let paint = if on {
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.sm,
+                shadow: Some(theme.elevation.soft),
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+            })
+        } else {
+            Paint::None
+        };
+        let node = cx.container(
+            LayoutStyle {
+                height: Some(self.size.height() - 2.0 * SEGMENT_TRACK_PADDING),
+                padding: Insets::symmetric(0.0, theme.spacing.s3),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[label],
+            paint,
+        );
+        motion::control(cx, node);
+        node
+    }
+}
+
+impl View for TabButton {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let on = self.selected.get() == self.roving.index;
+        let node = match self.variant {
+            TabsVariant::Underline => self.underline(cx, on),
+            TabsVariant::Segmented => self.segment(cx, on),
+        };
+        cx.semantics(node, Semantics::new(Role::Tab).selected(on).disabled(self.disabled));
+        if self.disabled {
+            return node;
+        }
         let (selected, index) = (self.selected.clone(), self.roving.index);
         cx.on_click(node, Rc::new(move || selected.set(index)));
         // Tabs activate as focus moves (WAI-ARIA tabs, automatic activation).
@@ -95,9 +217,13 @@ impl View for TabButton {
     }
 }
 
+/// What separates the track of segmented tabs from the piece inside it.
+const SEGMENT_TRACK_PADDING: f32 = 3.0;
+
 impl View for Tabs {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let border = cx.theme().color(Semantic::Border);
+        let theme = *cx.theme();
+        let border = theme.color(Semantic::Border);
         let (count, focus_to) = (self.tabs.len(), util::roving_cell(cx, None));
         let scope = cx.widget_id();
         let buttons: Vec<NodeId> = self
@@ -106,26 +232,51 @@ impl View for Tabs {
             .enumerate()
             .map(|(index, (label, _))| {
                 let roving = util::Roving { index, count, focus_to: focus_to.clone() };
-                cx.child(&TabButton { scope, roving, label: label.clone(), selected: self.selected.clone() })
+                cx.child(&TabButton {
+                    scope,
+                    roving,
+                    label: label.clone(),
+                    selected: self.selected.clone(),
+                    variant: self.variant,
+                    size: self.size,
+                    disabled: self.disabled,
+                })
             })
             .collect();
-        let bar = cx.container(
-            LayoutStyle {
-                spacing: 24.0,
-                align_self: Some(Align::Stretch),
-                // Tabs that do not fit go to another line instead of running over each other.
-                wrap: true,
-                ..LayoutStyle::stack(Axis::Horizontal)
-            },
-            &buttons,
-            Paint::Custom(Rc::new(move |f: Rect, scene| {
-                scene.push_quad(Quad::new(Rect::new(f.x(), f.max_y() - 1.0, f.width(), 1.0), border));
-            })),
-        );
+        let bar = match self.variant {
+            TabsVariant::Underline => cx.container(
+                LayoutStyle {
+                    spacing: 24.0,
+                    align_self: Some(Align::Stretch),
+                    // Tabs that do not fit go to another line instead of running over each other.
+                    wrap: true,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &buttons,
+                Paint::Custom(Rc::new(move |f: Rect, scene| {
+                    scene.push_quad(Quad::new(Rect::new(f.x(), f.max_y() - 1.0, f.width(), 1.0), border));
+                })),
+            ),
+            TabsVariant::Segmented => cx.container(
+                LayoutStyle {
+                    padding: Insets::uniform(SEGMENT_TRACK_PADDING),
+                    spacing: 2.0,
+                    align: Align::Center,
+                    align_self: Some(Align::Start),
+                    wrap: true,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &buttons,
+                Paint::Quad(QuadPaint {
+                    corner_radius: theme.radii.md,
+                    ..QuadPaint::new(theme.color(Semantic::Ink).with_alpha(0.06))
+                }),
+            ),
+        };
         cx.semantics(bar, Semantics::new(Role::TabList));
         let selected = self.selected.get().min(self.tabs.len().saturating_sub(1));
         let mut children = vec![bar];
-        if let Some((label, content)) = self.tabs.get(selected) {
+        if let Some((label, Some(content))) = self.tabs.get(selected) {
             // Keyed by tab so each tab keeps its own local state.
             let content = cx.keyed_child(selected as u64, content.as_ref());
             // A box that fills the space, so content that grows still does.

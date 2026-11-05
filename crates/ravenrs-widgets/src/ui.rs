@@ -1622,6 +1622,9 @@ fn reveal_offset(offset: f32, target: (f32, f32), view: (f32, f32), max: f32) ->
     next.clamp(0.0, max)
 }
 
+/// How far a layer in a corner of the window keeps from its edges.
+const VIEWPORT_MARGIN: f32 = 16.0;
+
 fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, viewport: Size) -> Point {
     let mut p = match placement {
         Placement::Below => Point::new(anchor.x(), anchor.max_y() + gap),
@@ -1639,10 +1642,24 @@ fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, view
         Placement::LeftEnd => Point::new(anchor.x() - gap - size.width, anchor.max_y() - size.height),
         Placement::Fill => return Point::ZERO,
         Placement::At(p) => p,
-        Placement::BottomRight => {
-            Point::new(viewport.width - size.width - 16.0, viewport.height - size.height - 16.0)
+        Placement::BottomRight => Point::new(
+            viewport.width - size.width - VIEWPORT_MARGIN,
+            viewport.height - size.height - VIEWPORT_MARGIN,
+        ),
+        Placement::BottomLeft => Point::new(VIEWPORT_MARGIN, viewport.height - size.height - VIEWPORT_MARGIN),
+        Placement::BottomCenter => {
+            Point::new((viewport.width - size.width) / 2.0, viewport.height - size.height - VIEWPORT_MARGIN)
         }
+        Placement::TopLeft => Point::new(VIEWPORT_MARGIN, VIEWPORT_MARGIN),
+        Placement::TopCenter => Point::new((viewport.width - size.width) / 2.0, VIEWPORT_MARGIN),
+        Placement::TopRight => Point::new(viewport.width - size.width - VIEWPORT_MARGIN, VIEWPORT_MARGIN),
     };
+    // A layer at the side changes sides when only the other one has room (a submenu at
+    // the window's edge), the same way one below goes above.
+    let left = anchor.x() - gap - size.width;
+    if placement == Placement::Right && p.x + size.width > viewport.width && left >= 0.0 {
+        p.x = left;
+    }
     // Flip vertically when there is no room, then clamp.
     if placement == Placement::Below && p.y + size.height > viewport.height {
         p.y = anchor.y() - gap - size.height;
