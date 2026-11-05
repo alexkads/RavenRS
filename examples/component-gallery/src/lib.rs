@@ -2216,6 +2216,17 @@ impl Gallery {
                             .height(260.0),
                     ),
                     demo(
+                        "Pie with guides",
+                        "Labels in a column on each side, none over another, and a real gap between slices.",
+                        Chart::new(ChartKind::Pie)
+                            .categories(["Rent", "Food", "Fun", "Car", "Gym", "Pets", "Taxes"])
+                            .series("Spent", [42.0, 20.0, 1.5, 2.0, 1.0, 12.0, 18.0])
+                            .category_labels(ChartLabelAt::Outside)
+                            .label_guides()
+                            .hide_legend()
+                            .height(260.0),
+                    ),
+                    demo(
                         "Scatter chart",
                         "Dots at numeric positions.",
                         Chart::new(ChartKind::Scatter)

@@ -98,7 +98,8 @@ pub struct PlotStyle {
     pub muted: Color,
     /// Gridlines.
     pub grid: Color,
-    /// What is behind the chart: separates slices, and is the track of rings.
+    /// What is behind the chart. Slices are kept apart by a real gap, so it no longer
+    /// paints anything.
     pub surface: Color,
     /// The track behind a ring.
     pub track: Color,
@@ -140,8 +141,14 @@ pub struct PlotStyle {
     pub value_axis: bool,
     /// The scale fits the values instead of starting from zero.
     pub tight_scale: bool,
-    /// The line between slices; zero for none.
+    /// The gap between slices; zero for none.
     pub separator: f32,
+    /// How far each slice reaches, in order, as a share of the room from the hole to
+    /// the edge. One with no number here reaches the edge.
+    pub slice_radii: Vec<f32>,
+    /// Labels outside a round chart sit in a column on each side, none over another,
+    /// each joined to its slice by a line with an elbow.
+    pub label_guides: bool,
     /// The hole of a doughnut or of rings, as a share of the radius.
     pub hole: f32,
     /// One ring per series, instead of only the first series.
@@ -243,6 +250,8 @@ impl PlotStyle {
             value_axis: false,
             tight_scale: false,
             separator: 2.0,
+            slice_radii: Vec::new(),
+            label_guides: false,
             hole: if kind == ChartKind::Doughnut { 0.6 } else { 0.0 },
             concentric: false,
             polar_grid: if kind == ChartKind::RadialBar { PolarGrid::None } else { PolarGrid::Polygon },
@@ -455,6 +464,13 @@ const CATEGORY_GAP: f32 = 0.2;
 const DOT_RADIUS: f32 = 4.0;
 const ACTIVE_SLICE_GROWTH: f32 = 10.0;
 const OUTSIDE_LINE: f32 = 10.0;
+/// How far a guide goes out of its slice before it turns.
+const GUIDE_OUT: f32 = 12.0;
+/// How far it then goes along, to its label.
+const GUIDE_RUN: f32 = 14.0;
+const GUIDE_GAP: f32 = 4.0;
+/// The least a slice reaches, or it would not be seen.
+const SLICE_RADIUS_MIN: f32 = 0.1;
 /// A slice smaller than this share of the circle has no label of its own.
 const SLICE_LABEL_MIN: f64 = 0.04;
 const RING_GAP: f32 = 4.0;
@@ -1373,6 +1389,120 @@ pub fn slice_path(center: Point, inner: f32, outer: f32, from: f32, to: f32) -> 
     path
 }
 
+/// A slice as [`slice_path`] draws it, with `gap` left clear all around it: half on
+/// each of its sides, of the same width all the way, and half at its ends. What is
+/// behind the chart shows through.
+pub fn gapped_slice(center: Point, inner: f32, outer: f32, from: f32, to: f32, gap: f32) -> Vec<PathSegment> {
+    if gap <= 0.0 {
+        return slice_path(center, inner, outer, from, to);
+    }
+    let half = gap / 2.0;
+    let inner = if inner > 0.0 { inner + half } else { 0.0 };
+    let outer = (outer - half).max(inner + 0.5);
+    let span = to - from;
+    // A whole circle has no sides to keep apart.
+    if span >= TAU - 0.001 {
+        return slice_path(center, inner, outer, from, to);
+    }
+    let at = |r: f32, a: f32| Point::new(center.x + r * a.cos(), center.y + r * a.sin());
+    // A slice thinner than the gap keeps half of itself, or it would be gone.
+    let along_outer = (half / outer).min(span / 4.0);
+    let mut path = vec![PathSegment::Move(at(outer, from + along_outer))];
+    arc(&mut path, center, outer, from + along_outer, to - along_outer);
+    if inner > 0.0 {
+        let along_inner = (half / inner).min(span / 4.0);
+        path.push(PathSegment::Line(at(inner, to - along_inner)));
+        arc(&mut path, center, inner, to - along_inner, from + along_inner);
+    } else {
+        // Where the two sides meet, once each has moved away from the other.
+        let reach = half / (span / 2.0).sin().abs().max(0.05);
+        path.push(PathSegment::Line(at(reach.min(outer / 2.0), (from + to) / 2.0)));
+    }
+    path.push(PathSegment::Close);
+    path
+}
+
+/// A label outside a round chart, before it knows where it goes.
+struct Guide {
+    text: String,
+    angle: f32,
+    reach: f32,
+    color: Color,
+    share: f64,
+}
+
+/// Puts each side's labels in a column in the order of their slices, as close as they
+/// fit to where their slices are, and draws the lines that join them.
+fn place_guides(
+    guides: Vec<Guide>,
+    center: Point,
+    rect: Rect,
+    style: &PlotStyle,
+    ruler: Ruler<'_>,
+    plot: &mut Plot,
+) {
+    let line_height = style.size * 1.3;
+    let edge = guides.iter().map(|g| g.reach).fold(0.0, f32::max);
+    let (mut right, mut left): (Vec<Guide>, Vec<Guide>) =
+        guides.into_iter().partition(|g| g.angle.cos() >= 0.0);
+    for (side, sign) in [(&mut right, 1.0_f32), (&mut left, -1.0)] {
+        let wanted = |g: &Guide| center.y + (g.reach + GUIDE_OUT) * g.angle.sin();
+        let (top, bottom) = (rect.y() + line_height / 2.0, rect.max_y() - line_height / 2.0);
+        // More than a column holds: the smallest slices go without.
+        let holds = ((bottom - top) / line_height).floor().max(0.0) as usize + 1;
+        side.sort_by(|a, b| b.share.total_cmp(&a.share));
+        side.truncate(holds);
+        side.sort_by(|a, b| wanted(a).total_cmp(&wanted(b)));
+        let mut places: Vec<f32> = Vec::with_capacity(side.len());
+        for guide in side.iter() {
+            let least = places.last().map_or(top, |last| last + line_height);
+            places.push(wanted(guide).max(least));
+        }
+        // What ran past the bottom pushes the others back up.
+        let mut most = bottom;
+        for place in places.iter_mut().rev() {
+            *place = place.min(most);
+            most = *place - line_height;
+        }
+        let column = center.x + sign * (edge + GUIDE_OUT + GUIDE_RUN);
+        let clear = edge + GUIDE_OUT / 2.0;
+        for (guide, y) in side.iter().zip(places) {
+            let (cos, sin) = (guide.angle.cos(), guide.angle.sin());
+            let from = Point::new(center.x + guide.reach * cos, center.y + guide.reach * sin);
+            // It turns outside the circle, wherever the label had to go.
+            let along = (clear * clear - (y - center.y).powi(2)).max(0.0).sqrt();
+            let turn = (guide.reach + GUIDE_OUT) * cos.abs();
+            let elbow = Point::new(center.x + sign * turn.max(along), y);
+            let path = vec![
+                PathSegment::Move(from),
+                PathSegment::Line(elbow),
+                PathSegment::Line(Point::new(column, y)),
+            ];
+            plot.layers.push(stroke(path, 1.0, with_alpha(guide.color, 0.8)));
+            let wide = ruler.width(&guide.text, style.size).ceil() + 2.0;
+            let (x, align) = if sign > 0.0 {
+                (column + GUIDE_GAP, LabelAlign::Left)
+            } else {
+                (column - GUIDE_GAP - wide, LabelAlign::Right)
+            };
+            let place = Rect::new(x, y - line_height / 2.0, wide, line_height);
+            plot.labels.push(text(guide.text.clone(), place, align, style.size, style.ink));
+        }
+    }
+}
+
+/// What a guide says about a value of a round chart.
+fn guide_text(data: &ChartData, style: &PlotStyle, index: usize, value: f64) -> String {
+    let category = style.category_labels == Some(LabelAt::Outside);
+    let number = style.value_labels == Some(LabelAt::Outside);
+    let name = data.categories.get(index).map(|c| (style.tick_format)(c)).unwrap_or_default();
+    match (category, number) {
+        (true, true) => format!("{name}  {}", (style.format)(value)),
+        (true, false) => name,
+        _ => (style.format)(value),
+    }
+}
+
 fn center_text(style: &PlotStyle, center: Point, plot: &mut Plot) {
     let Some((value, caption)) = &style.center else { return };
     let big = style.size * CENTER_VALUE_SCALE;
@@ -1395,11 +1525,25 @@ fn pie(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: 
     }
     let outside =
         style.value_labels == Some(LabelAt::Outside) || style.category_labels == Some(LabelAt::Outside);
+    let guided = outside && style.label_guides;
     let room = if outside { style.size * 1.5 + OUTSIDE_LINE } else { 2.0 };
     let growth = if style.active.is_some() { ACTIVE_SLICE_GROWTH } else { 0.0 };
     let center = rect.center();
-    let radius = (rect.width().min(rect.height()) / 2.0 - room - growth).max(1.0);
+    let radius = if guided {
+        // The width of the labels comes out of the sides, and the top and the bottom
+        // only need a line of text.
+        let first = data.series.get(rings[0]).map_or(&[][..], |s| s.values.as_slice());
+        let texts: Vec<String> =
+            first.iter().enumerate().map(|(i, v)| guide_text(data, style, i, *v)).collect();
+        let wide = ruler.longest(texts.iter().map(String::as_str), style.size).ceil();
+        let across = rect.width() / 2.0 - wide - GUIDE_OUT - GUIDE_RUN - GUIDE_GAP - 2.0;
+        let tall = rect.height() / 2.0 - style.size * 0.7 - GUIDE_OUT;
+        (across.min(tall) - growth).max(rect.width().min(rect.height()) / 6.0).max(1.0)
+    } else {
+        (rect.width().min(rect.height()) / 2.0 - room - growth).max(1.0)
+    };
     let hole = radius * style.hole;
+    let mut guides = Vec::new();
     let ring_width = (radius - hole) / rings.len() as f32;
     for (depth, s) in rings.iter().enumerate() {
         let series = &data.series[*s];
@@ -1417,13 +1561,11 @@ fn pie(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: 
             let share = *value / total;
             let end = angle + share as f32 * TAU;
             let color = style.item_color(style.color_of(i), i);
-            let reach = if style.active == Some(i) { outer + growth } else { outer };
-            let path = slice_path(center, inner, reach, angle, end);
-            plot.layers.push(Layer::Shape(Shape {
-                path,
-                fill: Some(color),
-                stroke: (style.separator > 0.0).then_some((style.separator, style.surface)),
-            }));
+            let share_of_room = style.slice_radii.get(i).map_or(1.0, |r| r.clamp(SLICE_RADIUS_MIN, 1.0));
+            let own = inner + (outer - inner) * share_of_room;
+            let reach = if style.active == Some(i) { own + growth } else { own };
+            let path = gapped_slice(center, inner, reach, angle, end, style.separator);
+            plot.layers.push(fill(path, color));
             plot.sectors.push(Sector {
                 series: *s,
                 index: i,
@@ -1442,10 +1584,15 @@ fn pie(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: 
                 at: Point::new(center.x + inside * middle.cos(), center.y + inside * middle.sin()),
                 color,
             });
+            if guided && depth == 0 {
+                let text = guide_text(data, style, i, *value);
+                guides.push(Guide { text, angle: middle, reach, color, share });
+            }
             if share >= SLICE_LABEL_MIN {
                 let category = data.categories.get(i).map(|c| (style.tick_format)(c)).unwrap_or_default();
                 let number = (style.format)(*value);
                 let mut write = |content: String, at: LabelAt| match at {
+                    LabelAt::Outside if guided => {}
                     LabelAt::Outside => {
                         let (cos, sin) = (middle.cos(), middle.sin());
                         let from = Point::new(center.x + reach * cos, center.y + reach * sin);
@@ -1478,6 +1625,7 @@ fn pie(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: 
             angle = end;
         }
     }
+    place_guides(guides, center, rect, style, ruler, plot);
     center_text(style, center, plot);
 }
 
@@ -2083,6 +2231,69 @@ mod tests {
         style.active = Some(1);
         let plot = draw(&data(&[("a", &[1.0, 1.0])]), AREA, &style);
         assert!(plot.sectors[1].outer > plot.sectors[0].outer);
+    }
+
+    fn image_alpha(image: &ravenrs_core::ImageData, x: u32, y: u32) -> u8 {
+        image.pixels()[((y * image.width() + x) * 4 + 3) as usize]
+    }
+
+    #[test]
+    fn the_gap_between_slices_is_really_empty() {
+        let plot = draw(&data(&[("a", &[1.0, 1.0])]), AREA, &PlotStyle::new(ChartKind::Pie));
+        let image = vector::rasterize_layers(&plot.layers, AREA, 1.0).expect("a picture");
+        let center = AREA.center();
+        // The two halves meet along the upright line through the center.
+        assert_eq!(image_alpha(&image, center.x as u32, (center.y - 60.0) as u32), 0);
+        assert_eq!(image_alpha(&image, center.x as u32 + 40, (center.y - 60.0) as u32), 255);
+    }
+
+    #[test]
+    fn a_whole_circle_has_no_gap() {
+        let plot = draw(&data(&[("a", &[1.0])]), AREA, &PlotStyle::new(ChartKind::Pie));
+        let image = vector::rasterize_layers(&plot.layers, AREA, 1.0).expect("a picture");
+        let center = AREA.center();
+        assert_eq!(image_alpha(&image, center.x as u32, (center.y - 60.0) as u32), 255);
+    }
+
+    #[test]
+    fn each_slice_can_have_its_own_radius() {
+        let style = PlotStyle { slice_radii: vec![1.0, 0.5], ..PlotStyle::new(ChartKind::Doughnut) };
+        let plot = draw(&data(&[("a", &[1.0, 1.0, 1.0])]), AREA, &style);
+        let (a, b, c) = (plot.sectors[0], plot.sectors[1], plot.sectors[2]);
+        assert!(b.outer < a.outer);
+        assert!(b.outer > b.inner, "it keeps going from the hole");
+        assert_eq!(c.outer, a.outer, "with no number it reaches the edge");
+    }
+
+    #[test]
+    fn guided_labels_never_cover_each_other_and_stay_in_the_chart() {
+        // Small slices side by side, which straight lines would pile up.
+        let values = [40.0, 1.5, 1.5, 1.5, 1.5, 1.5, 40.0, 1.5, 1.5, 1.5, 1.5, 1.5];
+        let mut many = data(&[("a", &values)]);
+        many.categories = (0..values.len()).map(|i| format!("Category {i}")).collect();
+        let style = PlotStyle {
+            category_labels: Some(LabelAt::Outside),
+            value_labels: Some(LabelAt::Outside),
+            label_guides: true,
+            ..PlotStyle::new(ChartKind::Pie)
+        };
+        let measure = |t: &str, s: f32| t.len() as f32 * s * 0.5;
+        let plot = draw_measured(&many, AREA, &style, &measure);
+        assert!(plot.labels.len() > 8, "{}", plot.labels.len());
+        for (i, a) in plot.labels.iter().enumerate() {
+            assert!(a.rect.y() >= AREA.y() && a.rect.max_y() <= AREA.max_y() + 0.01, "{:?}", a.rect);
+            assert!(a.rect.x() >= AREA.x() - 0.5 && a.rect.max_x() <= AREA.max_x() + 0.5, "{:?}", a.rect);
+            for b in &plot.labels[i + 1..] {
+                assert!(a.rect.inflate(-0.01).intersect(&b.rect).is_empty(), "{} over {}", a.text, b.text);
+            }
+        }
+        assert!(plot.labels.iter().any(|l| l.text.contains("Category 0") && l.text.contains("40")));
+        let elbows = plot
+            .layers
+            .iter()
+            .filter(|l| matches!(l, Layer::Shape(s) if s.stroke.is_some() && s.path.len() == 3))
+            .count();
+        assert_eq!(elbows, plot.labels.len(), "a line to each, with a turn");
     }
 
     #[test]

@@ -241,7 +241,7 @@ struct Highlight {
     dim: f32,
     /// How far forward each category's slice is, from 0 to 1 (a spring may pass 1).
     lifts: Vec<f32>,
-    /// The line between slices, which a slice drawn over them has to leave alone.
+    /// The gap between slices, which a slice drawn over them has to leave alone.
     separator: f32,
     /// A strip behind the bars.
     strip: bool,
@@ -370,20 +370,23 @@ fn path_elements(path: &[PathSegment]) -> Vec<PathElement> {
 
 /// The slices that came forward, over a picture that faded.
 fn paint_lifted_slices(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
-    let reach = plot.sectors.iter().map(|s| s.outer).fold(0.0, f32::max);
+    let outermost = plot.sectors.iter().map(|s| s.inner).fold(0.0, f32::max);
     for sector in &plot.sectors {
         let lift = highlight.lifts.get(sector.index).copied().unwrap_or(0.0);
         if lift <= 0.001 {
             continue;
         }
         // Only the outside ring has anywhere to go.
-        let outer = if sector.outer >= reach { sector.outer + SLICE_LIFT * lift } else { sector.outer };
-        // The picture has half the separator over each side of this slice: staying
-        // off it keeps the slice the same width as it comes forward.
-        let inset = (highlight.separator / 2.0) / outer.max(1.0);
-        let inset = inset.min((sector.to - sector.from) / 4.0);
-        let path =
-            plot::slice_path(sector.center, sector.inner, outer, sector.from + inset, sector.to - inset);
+        let outer = if sector.inner >= outermost { sector.outer + SLICE_LIFT * lift } else { sector.outer };
+        // The same gap as in the picture keeps the slice the same width as it comes forward.
+        let path = plot::gapped_slice(
+            sector.center,
+            sector.inner,
+            outer,
+            sector.from,
+            sector.to,
+            highlight.separator,
+        );
         // Solid for most of its way, so that it never looks like a ghost of itself, and
         // only at the very end does it hand over to the slice in the picture.
         let color = sector.color.with_alpha(sector.color.a * (lift * LIFT_SOLID_FROM).clamp(0.0, 1.0));
@@ -952,6 +955,8 @@ struct Look {
     value_axis: bool,
     tight_scale: bool,
     no_separator: bool,
+    slice_radii: Vec<f32>,
+    label_guides: bool,
     hole: Option<f32>,
     concentric: bool,
     polar_grid: Option<ChartPolarGrid>,
@@ -991,6 +996,8 @@ impl Default for Look {
             value_axis: false,
             tight_scale: false,
             no_separator: false,
+            slice_radii: Vec::new(),
+            label_guides: false,
             hole: None,
             concentric: false,
             polar_grid: None,
@@ -1300,9 +1307,24 @@ impl Chart {
         self
     }
 
-    /// Leaves out the line between slices.
+    /// Leaves out the gap between slices, through which what is behind the chart shows.
     pub fn no_separator(mut self) -> Self {
         self.look.no_separator = true;
+        self
+    }
+
+    /// How far each slice reaches, in order, as a share from 0 to 1 of the room from
+    /// the hole to the edge. A slice with no number here reaches the edge.
+    pub fn slice_radii(mut self, shares: impl IntoIterator<Item = f32>) -> Self {
+        self.look.slice_radii = shares.into_iter().collect();
+        self
+    }
+
+    /// Labels asked for outside a pie or a doughnut sit in a column on each side, none
+    /// over another, each joined to its slice by a line with an elbow. The chart gets
+    /// smaller to give them the room they need.
+    pub fn label_guides(mut self) -> Self {
+        self.look.label_guides = true;
         self
     }
 
@@ -1511,6 +1533,8 @@ impl Chart {
         if look.no_separator {
             style.separator = 0.0;
         }
+        style.slice_radii.clone_from(&look.slice_radii);
+        style.label_guides = look.label_guides;
         if let Some(hole) = look.hole {
             style.hole = hole;
         }

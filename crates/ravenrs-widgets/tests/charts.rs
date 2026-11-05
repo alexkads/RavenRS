@@ -865,3 +865,41 @@ fn a_line_past_a_fixed_domain_is_cut_off_at_the_edge() {
     let any = shown.image.pixels().chunks(4).any(|p| p[3] > 0);
     assert!(any, "what is inside stays");
 }
+
+#[test]
+fn slices_have_a_real_gap_and_their_own_radius_and_labels_can_have_guides() {
+    let pie = || {
+        Chart::new(ChartKind::Pie)
+            .categories(["A", "B", "C", "D"])
+            .series("S", [5.0, 1.0, 1.0, 5.0])
+            .hide_legend()
+            .height(300.0)
+    };
+    let plain = chart_ui(pie());
+    let reaching = chart_ui(pie().slice_radii([1.0, 0.5, 1.0, 1.0]));
+    let filled = |ui: &Ui| images(ui)[0].image.pixels().chunks(4).filter(|p| p[3] > 128).count();
+    assert!(filled(&reaching) < filled(&plain), "the second slice reaches less");
+
+    let no_gap = chart_ui(pie().no_separator());
+    assert!(filled(&no_gap) > filled(&plain), "the gap is empty, not painted");
+
+    let labeled = pie().category_labels(ChartLabelAt::Outside);
+    let bare = glyph_runs(&chart_ui(labeled.clone()));
+    let guided = chart_ui(labeled.label_guides());
+    assert_eq!(glyph_runs(&guided), bare, "the same labels");
+    assert_ne!(images(&guided)[0].image.pixels(), images(&plain)[0].image.pixels());
+}
+
+#[test]
+fn a_slice_short_of_the_edge_comes_forward_too() {
+    let pie = Chart::new(ChartKind::Pie)
+        .categories(["A", "B"])
+        .series("S", [1.0, 1.0])
+        .slice_radii([0.6, 1.0])
+        .hide_legend();
+    let mut ui = chart_ui(pie);
+    at_time(&mut ui, 0.0);
+    move_to(&mut ui, 460.0, 130.0);
+    settle(&mut ui, 0.0);
+    assert_eq!(slices_on_top(&ui), 1);
+}

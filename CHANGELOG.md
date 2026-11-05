@@ -9,11 +9,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Chart`: under the pointer the other bars and slices fade, a slice comes forward, and the cursor and its dots glide between categories and fade out. `no_hover_focus` and `no_hover_motion` turn this off; less motion in the system does the same for the movement.
 - `ChartTooltip`: `show_percent`, `value_color`, `no_indicator_for` and `content`. It takes the side with room on both axes and stays off what is in focus.
 - `Chart`: `grid_dashed`, `grid_columns`, `value_ticks`, `align_axis_ends`, `value_domain`, `reference_line` and `reference` with `ChartReference`.
+- `Chart`: `label_guides` puts the labels of a pie or a doughnut in columns with elbowed lines, none over another, and `slice_radii` gives each slice its own radius.
 - `Semantic::ChartGrid` (`chart-grid`), `Placement::RightEnd`, `LeftStart` and `LeftEnd`.
 
 ### Changed
 
 - `Chart` measures its labels with the real font, and its gridlines land on whole pixels. Reports draw as before.
+- The gap between slices of a `Chart` is now really empty, so what is behind the chart shows through it, rather than being painted in the color of the surface.
 - `Chart` draws bars as quads, with no picture, and gridlines stop at their sides, so a bar that fades shows none through it. A line with more points than columns draws straight lines through the extremes of each column, its picture covers only what it draws, and a new size costs far less. See `docs/QUALITY.md`.
 
 ### Fixed
