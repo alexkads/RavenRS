@@ -53,6 +53,7 @@ samples! {
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
     "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
+    "ZStack" => z_stack, "PropertyRow" => property_row, "PageHeader" => page_header, "ButtonGroup" => button_group,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1602,6 +1603,55 @@ fn shortcut_hint_bar() -> impl View {
         .hint(["←", "→"], "move")
         .hint(["1", "5"], "rate")
         .hint(["P"], "pick")
+}
+// end
+
+// sample: ZStack, 110
+fn z_stack() -> impl View {
+    ZStack::new((
+        Canvas::new(|frame, scene| {
+            scene.push_quad(Quad::new(frame, Color::hex(0x4c66ee)).radius(8.0));
+        })
+        .size(220.0, 80.0),
+        Badge::new("On top").tone(Tone::Success),
+    ))
+    .align(Align::Center)
+}
+// end
+
+// sample: PropertyRow, 130
+fn property_row() -> impl View {
+    VStack::new((
+        PropertyRow::new("Camera", "NIKON D3100"),
+        PropertyRow::new("Lens", ""),
+        PropertyRow::with("Status", Badge::new("Edited").tone(Tone::Success)),
+    ))
+    .spacing(6.0)
+    .align(Align::Stretch)
+}
+// end
+
+// sample: PageHeader, 130
+fn page_header() -> impl View {
+    PageHeader::new("Sessions")
+        .description("Every shoot, newest first.")
+        .badge(Badge::new("12"))
+        .action(Button::new("New session").icon(IconName::Plus))
+}
+// end
+
+// sample: ButtonGroup, 80
+fn button_group() -> impl View {
+    let period = State::new(0);
+    view_fn(move || {
+        let chosen = period.get();
+        let item = |index, label: &str| {
+            let period = period.clone();
+            let style = if chosen == index { ButtonStyle::Primary } else { ButtonStyle::Secondary };
+            Button::new(label).style(style).on_click(move || period.set(index))
+        };
+        ButtonGroup::new([item(0, "Day"), item(1, "Week"), item(2, "Month")]).label("Period")
+    })
 }
 // end
 

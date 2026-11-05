@@ -1,11 +1,12 @@
+use std::cell::Cell;
 use std::rc::Rc;
 
-use ravenrs_core::{Insets, Role};
+use ravenrs_core::{Insets, Point, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
-use ravenrs_style::{Semantic, TextStyle};
+use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{Button, ButtonSize, ButtonStyle, Divider, Text, View, ViewSeq};
+use crate::{AnyView, Button, ButtonSize, ButtonStyle, Divider, Text, View, ViewSeq, util};
 
 macro_rules! stack {
     ($(#[$doc:meta])* $name:ident, $axis:expr) => {
@@ -106,6 +107,311 @@ stack!(
     HStack,
     Axis::Horizontal
 );
+
+/// Views on top of each other, the later ones above, in a box as large as the largest.
+///
+/// Its height comes from the last layout, so the first frame settles in a second
+/// layout of the same update. A layer keeps its own height: to fill the stack, give it
+/// a height. [`align`](Self::align) places the smaller ones.
+///
+/// ```
+/// use ravenrs_widgets::{Text, ZStack, VStack};
+/// use ravenrs_layout::Align;
+///
+/// let same_place = ZStack::new((
+///     VStack::new((Text::new("Taller"), Text::new("content"))),
+///     Text::new("Over it"),
+/// ))
+/// .align(Align::Center);
+/// ```
+#[derive(Debug)]
+pub struct ZStack<C> {
+    children: C,
+    align: Align,
+}
+
+impl<C: ViewSeq> ZStack<C> {
+    /// Children are a tuple of views (up to 12) or a `Vec`, the first one at the back.
+    pub fn new(children: C) -> Self {
+        Self { children, align: Align::Stretch }
+    }
+
+    /// Where the smaller layers go, along both axes. `Stretch`, the default, gives them the
+    /// whole width and puts them at the top.
+    pub fn align(mut self, align: Align) -> Self {
+        self.align = align;
+        self
+    }
+}
+
+/// One layer of a [`ZStack`]: a box of no height, so that the layers overlap, around
+/// a box that reports the height the content really takes.
+struct ZLayer<'a> {
+    content: NodeId,
+    height: &'a Cell<f32>,
+}
+
+impl View for ZLayer<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let inner = cx.container(
+            LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            &[self.content],
+            Paint::None,
+        );
+        cx.report_frame(inner);
+        self.height.set(cx.scroll_viewport().map_or(0.0, |size| size.height));
+        cx.container(
+            LayoutStyle { height: Some(0.0), align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            &[inner],
+            Paint::None,
+        )
+    }
+}
+
+impl<C: ViewSeq> View for ZStack<C> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let content = cx.children(&self.children);
+        let heights = vec![Cell::new(0.0_f32); content.len()];
+        let layers: Vec<NodeId> = content
+            .iter()
+            .zip(&heights)
+            .map(|(&content, height)| cx.child(&ZLayer { content, height }))
+            .collect();
+        let tallest = heights.iter().map(Cell::get).fold(0.0, f32::max);
+        let share = match self.align {
+            Align::Center => 0.5,
+            Align::End => 1.0,
+            _ => 0.0,
+        };
+        for (layer, height) in layers.iter().zip(&heights) {
+            cx.translate(*layer, Point::new(0.0, (tallest - height.get()) * share));
+        }
+        // Across, a column already takes the widest of its children; only the height needs the
+        // layers to report theirs.
+        cx.container(
+            LayoutStyle {
+                height: Some(tallest),
+                align: self.align,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &layers,
+            Paint::None,
+        )
+    }
+}
+
+/// A label on the left and its value on the right, for lists of properties.
+///
+/// A value that does not fit is cut with an ellipsis, and an empty one shows a dash.
+///
+/// ```
+/// use ravenrs_widgets::{Badge, PropertyRow, VStack};
+///
+/// let details = VStack::new((
+///     PropertyRow::new("Camera", "NIKON D3100"),
+///     PropertyRow::new("Lens", ""),
+///     PropertyRow::with("Status", Badge::new("Edited")),
+/// ));
+/// ```
+pub struct PropertyRow {
+    label: String,
+    value: PropertyValue,
+}
+
+enum PropertyValue {
+    Text(String),
+    View(AnyView),
+}
+
+impl std::fmt::Debug for PropertyRow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PropertyRow").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
+impl PropertyRow {
+    /// A row showing `value` as text.
+    pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
+        Self { label: label.into(), value: PropertyValue::Text(value.into()) }
+    }
+
+    /// A row with a view as its value, such as a badge or a switch.
+    pub fn with(label: impl Into<String>, value: impl View + 'static) -> Self {
+        Self { label: label.into(), value: PropertyValue::View(Box::new(value)) }
+    }
+}
+
+impl View for PropertyRow {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let attrs = util::attrs(&theme, TextStyle::Callout, None);
+        // The label keeps its size: it is the value that gives way.
+        let min_width = Some(cx.measure_text(&self.label, &attrs).width.ceil());
+        let label = cx.text(
+            &self.label,
+            &attrs,
+            theme.color(Semantic::InkMuted),
+            LayoutStyle { min_width, ..LayoutStyle::leaf() },
+        );
+        let (value, spoken) = match &self.value {
+            PropertyValue::Text(text) => {
+                let shown = if text.trim().is_empty() { "—" } else { text };
+                let node = cx.text_truncated(shown, &attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
+                cx.semantics(label, Semantics::hidden());
+                cx.semantics(node, Semantics::hidden());
+                (node, Some(shown.to_owned()))
+            }
+            PropertyValue::View(view) => (cx.child(view.as_ref()), None),
+        };
+        let node = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s2,
+                justify: Justify::SpaceBetween,
+                align: Align::Center,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[label, value],
+            Paint::None,
+        );
+        if let Some(spoken) = spoken {
+            cx.semantics(node, Semantics::new(Role::Label).name(self.label.clone()).value(spoken));
+        }
+        node
+    }
+}
+
+/// The top of a page: its title, a line about it, badges beside the title and actions at the end.
+///
+/// ```
+/// use ravenrs_widgets::{Badge, Button, PageHeader};
+///
+/// let header = PageHeader::new("Sessions")
+///     .description("Every shoot, newest first.")
+///     .badge(Badge::new("12"))
+///     .action(Button::new("New session"));
+/// ```
+pub struct PageHeader {
+    title: String,
+    description: Option<String>,
+    badges: Vec<AnyView>,
+    actions: Vec<AnyView>,
+    compact: bool,
+}
+
+impl std::fmt::Debug for PageHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PageHeader").field("title", &self.title).finish_non_exhaustive()
+    }
+}
+
+impl PageHeader {
+    /// A header with this title.
+    pub fn new(title: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            description: None,
+            badges: Vec::new(),
+            actions: Vec::new(),
+            compact: false,
+        }
+    }
+
+    /// The line about the page. A long one is cut with an ellipsis.
+    pub fn description(mut self, text: impl Into<String>) -> Self {
+        self.description = Some(text.into());
+        self
+    }
+
+    /// Adds a view beside the title, usually a badge.
+    pub fn badge(mut self, badge: impl View + 'static) -> Self {
+        self.badges.push(Box::new(badge));
+        self
+    }
+
+    /// Adds a view at the end of the header, usually a button.
+    pub fn action(mut self, action: impl View + 'static) -> Self {
+        self.actions.push(Box::new(action));
+        self
+    }
+
+    /// A single line, with a smaller title and the description beside it, for tool screens.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
+    }
+}
+
+impl View for PageHeader {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let ink = theme.color(Semantic::Ink);
+        let (style, weight, level) = if self.compact {
+            (TextStyle::Headline, Some(Weight::SEMIBOLD), 2)
+        } else {
+            (TextStyle::Title, None, 1)
+        };
+        let title = util::label(cx, &self.title, style, weight, ink);
+        cx.semantics(title, Semantics::new(Role::Heading).level(level));
+        let description = self.description.as_ref().map(|text| {
+            let attrs = util::attrs(&theme, TextStyle::Callout, None);
+            cx.text_truncated(text, &attrs, theme.color(Semantic::InkMuted), LayoutStyle::leaf())
+        });
+        let mut top = vec![title];
+        if self.compact {
+            top.extend(description);
+        }
+        top.extend(self.badges.iter().map(|badge| cx.child(badge.as_ref())));
+        let top = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s2,
+                align: Align::Center,
+                min_width: Some(0.0),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &top,
+            Paint::None,
+        );
+        let mut text = vec![top];
+        if !self.compact {
+            text.extend(description);
+        }
+        let text = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s1,
+                grow: 1.0,
+                min_width: Some(0.0),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &text,
+            Paint::None,
+        );
+        let mut children = vec![text];
+        if !self.actions.is_empty() {
+            let actions: Vec<NodeId> = self.actions.iter().map(|action| cx.child(action.as_ref())).collect();
+            children.push(cx.container(
+                LayoutStyle {
+                    spacing: theme.spacing.s2,
+                    align: Align::Center,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &actions,
+                Paint::None,
+            ));
+        }
+        cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s4,
+                align: Align::Center,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &children,
+            Paint::None,
+        )
+    }
+}
 
 /// Flexible empty space that pushes its siblings apart inside a stack.
 #[derive(Clone, Copy, Debug, Default)]

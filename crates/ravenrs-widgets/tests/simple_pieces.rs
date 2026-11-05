@@ -386,3 +386,173 @@ fn shortcut_hint_bar_puts_keys_before_what_they_do() {
     assert!(at("move") < at("P"));
     assert!(at("P") < at("pick"));
 }
+
+/// A box of a known size, named for finding it in the tree.
+fn tile(name: &'static str, width: f32, height: f32) -> impl View {
+    struct Tile(&'static str, f32, f32);
+    impl View for Tile {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            let node = cx.container(
+                ravenrs_layout::LayoutStyle {
+                    width: Some(self.1),
+                    height: Some(self.2),
+                    ..ravenrs_layout::LayoutStyle::leaf()
+                },
+                &[],
+                Paint::None,
+            );
+            cx.semantics(node, Semantics::new(Role::Image).name(self.0));
+            node
+        }
+    }
+    Tile(name, width, height)
+}
+
+#[test]
+fn z_stack_overlaps_and_takes_the_size_of_the_largest() {
+    let below = || tile("Below", 20.0, 20.0);
+    let view = ZStack::new((tile("Back", 100.0, 40.0), tile("Front", 30.0, 90.0)));
+    let row = HStack::new((view, tile("Beside", 10.0, 10.0))).spacing(0.0);
+    let mut ui = ui(VStack::new((row, below())).spacing(0.0));
+    let tree = ui.access_tree();
+    let bounds = |name: &str| named(&tree, Role::Image, name).bounds;
+    assert_eq!(bounds("Front").origin, bounds("Back").origin, "in the same place");
+    assert_eq!(bounds("Beside").x(), 100.0, "as wide as the widest");
+    assert_eq!(bounds("Below").y(), 90.0, "as tall as the tallest");
+    let order: Vec<_> = tree.nodes.iter().filter_map(|n| n.name.clone()).collect();
+    assert!(order.iter().position(|n| n == "Back") < order.iter().position(|n| n == "Front"));
+}
+
+#[test]
+fn z_stack_follows_its_content_when_it_shrinks() {
+    let tall = State::new(true);
+    let source = tall.clone();
+    let mut ui = ui(VStack::new((
+        ZStack::new((view_fn(move || tile("Layer", 50.0, if source.get() { 120.0 } else { 30.0 })),)),
+        tile("Below", 20.0, 20.0),
+    ))
+    .spacing(0.0));
+    let below = |ui: &mut Ui| named(&ui.access_tree(), Role::Image, "Below").bounds.y();
+    assert_eq!(below(&mut ui), 120.0);
+    tall.set(false);
+    ui.update();
+    assert_eq!(below(&mut ui), 30.0, "no taller than what it has now");
+}
+
+#[test]
+fn z_stack_places_the_smaller_layers() {
+    let mut ui = ui(ZStack::new((tile("Back", 100.0, 80.0), tile("Front", 20.0, 20.0)))
+        .align(ravenrs_layout::Align::Center));
+    let tree = ui.access_tree();
+    let back = named(&tree, Role::Image, "Back").bounds;
+    let front = named(&tree, Role::Image, "Front").bounds;
+    assert_eq!(front.y(), back.y() + 30.0, "centered down");
+    assert_eq!(front.center().x, 400.0, "and across its width");
+}
+
+#[test]
+fn z_stack_top_layer_takes_the_click() {
+    let (back, front) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+    let (b, f) = (back.clone(), front.clone());
+    let mut ui = ui(ZStack::new((
+        Button::new("Back").on_click(move || b.set(b.get() + 1)),
+        Button::new("Front").on_click(move || f.set(f.get() + 1)),
+    )));
+    let at = named(&ui.access_tree(), Role::Button, "Front").bounds.center();
+    click(&mut ui, at);
+    assert_eq!((back.get(), front.get()), (0, 1));
+}
+
+#[test]
+fn property_row_shows_label_and_value_at_the_ends() {
+    let mut ui = ui(VStack::new((
+        PropertyRow::new("Camera", "NIKON"),
+        PropertyRow::new("Lens", "  "),
+        PropertyRow::new("Note", "word ".repeat(400)),
+        PropertyRow::with("Status", Button::new("Edit")),
+    ))
+    .align(ravenrs_layout::Align::Stretch));
+    let tree = ui.access_tree();
+    let camera = named(&tree, Role::Label, "Camera");
+    assert_eq!(camera.value.as_deref(), Some("NIKON"));
+    assert_eq!(camera.bounds.width(), 800.0, "across its parent");
+    assert_eq!(named(&tree, Role::Label, "Lens").value.as_deref(), Some("—"), "a dash for nothing");
+    assert_eq!(named(&tree, Role::Button, "Edit").bounds.max_x(), 800.0, "the value on the right");
+    let note = named(&tree, Role::Label, "Note");
+    assert_eq!(note.bounds.width(), 800.0, "a long value does not widen the row");
+    assert_eq!(note.bounds.height(), camera.bounds.height(), "nor wrap");
+    let runs = glyph_runs(&ui);
+    assert!(
+        runs.contains(&theme().color(Semantic::InkMuted)) && runs.contains(&theme().color(Semantic::Ink))
+    );
+}
+
+#[test]
+fn page_header_holds_title_description_badges_and_actions() {
+    let clicks = Rc::new(Cell::new(0));
+    let count = clicks.clone();
+    let mut ui = ui(PageHeader::new("Sessions")
+        .description("Every shoot")
+        .badge(Badge::new("12"))
+        .action(Button::new("New").on_click(move || count.set(count.get() + 1))));
+    let tree = ui.access_tree();
+    let title = named(&tree, Role::Heading, "Sessions");
+    assert_eq!(title.level, Some(1));
+    let line = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Every shoot")).expect("the line");
+    assert!(line.bounds.y() >= title.bounds.max_y(), "under the title");
+    let new = named(&tree, Role::Button, "New").bounds;
+    assert_eq!(new.max_x(), 800.0, "actions at the end");
+    click(&mut ui, new.center());
+    assert_eq!(clicks.get(), 1);
+
+    let mut compact = self::ui(PageHeader::new("Tools").description("Inline").compact());
+    let tree = compact.access_tree();
+    let title = named(&tree, Role::Heading, "Tools");
+    let line = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Inline")).expect("the line");
+    assert!(line.bounds.x() >= title.bounds.max_x(), "beside the title");
+}
+
+#[test]
+fn button_group_glues_its_buttons_and_keeps_them_working() {
+    let picked = Rc::new(Cell::new(""));
+    let on = |name: &'static str| {
+        let picked = picked.clone();
+        move || picked.set(name)
+    };
+    let mut ui = ui(ButtonGroup::new([
+        Button::new("Day").style(ButtonStyle::Secondary).on_click(on("day")),
+        Button::new("Week").style(ButtonStyle::Secondary).on_click(on("week")),
+        Button::new("Month").style(ButtonStyle::Secondary).on_click(on("month")),
+    ])
+    .label("Period"));
+    let tree = ui.access_tree();
+    named(&tree, Role::Group, "Period");
+    let (day, week, month) = (
+        named(&tree, Role::Button, "Day").bounds,
+        named(&tree, Role::Button, "Week").bounds,
+        named(&tree, Role::Button, "Month").bounds,
+    );
+    assert_eq!(day.max_x(), week.x(), "no gap");
+    assert_eq!(week.max_x(), month.x(), "no gap");
+    let radius = theme().radii.md;
+    let shape = |at: Rect| {
+        quads(&ui)
+            .into_iter()
+            .find(|q| q.rect.max_x() == at.max_x() && q.rect.y() == at.y())
+            .expect("a button")
+    };
+    assert_eq!(shape(day).corner_radii, [radius, 0.0, 0.0, radius], "outer corners only");
+    assert_eq!(shape(week).corner_radii, [0.0; 4]);
+    assert_eq!(shape(week).rect.x(), week.x() - 1.0, "over the line of the one before");
+    assert_eq!(shape(month).corner_radii, [0.0, radius, radius, 0.0]);
+
+    click(&mut ui, week.center());
+    assert_eq!(picked.get(), "week");
+    tab(&mut ui);
+    key(&mut ui, Key::Enter);
+    assert_eq!(picked.get(), "month", "from the keyboard too");
+
+    let alone = self::ui(ButtonGroup::new([Button::new("Only")]));
+    let quad = quads(&alone).into_iter().next().expect("the button");
+    assert_eq!(quad.corner_radii, [theme().radii.md; 4], "one button is simply a button");
+}

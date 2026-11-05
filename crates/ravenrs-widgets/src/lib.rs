@@ -94,7 +94,7 @@ mod util;
 mod view;
 mod wizard;
 
-pub use button::{Button, ButtonSize, ButtonStyle, IconButton};
+pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
@@ -167,7 +167,9 @@ pub use scheduler::{
 };
 pub use shortcuts::{ShortcutHintBar, ShortcutSheet};
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
-pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, StatusBar, ToolRail, VStack};
+pub use stack::{
+    Footer, Grid, HStack, PageHeader, PropertyRow, ScrollView, Spacer, StatusBar, ToolRail, VStack, ZStack,
+};
 pub use status::{
     DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
 };

@@ -473,6 +473,7 @@ impl Gallery {
                 "Buttons",
                 "Actions in four styles and three sizes, with icons, focus rings and keyboard support.",
             ),
+            sample_demos(&[("ButtonGroup", "Buttons glued side by side, as one control.")]),
             demo(
                 "Styles",
                 "One primary action per view; the rest are secondary or ghost.",
@@ -1290,6 +1291,11 @@ impl Gallery {
                 "Layout & navigation",
                 "Resizable panels, carousels, menus, toggles, pagination and loaders.",
             ),
+            sample_demos(&[
+                ("ZStack", "Views on top of each other, in a box as large as the largest."),
+                ("PropertyRow", "A label and its value at the two ends of a line."),
+                ("PageHeader", "Title, description, badges and actions."),
+            ]),
             demo(
                 "Tiles",
                 "A dashboard to rearrange: drag by the grip, resize by the corner, or use the arrows on the grip.",

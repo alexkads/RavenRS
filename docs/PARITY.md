@@ -15,6 +15,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
 | Stack (VStack/HStack), Spacer | | | | ✅ |
+| Overlap (ZStack) | | | | ✅ `ZStack`: as large as the largest layer |
+| Page header, property row | | | | ✅ `PageHeader`, `PropertyRow` |
 | Grid layout | | ✓ | ✓ | ✅ `Grid` |
 | Card | ✓ | ✓ | ✓ | ✅ `Card`, `GlassCard` (blur planned) |
 | Separator | ✓ | | | ✅ `Divider` |
@@ -54,7 +56,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 |---|---|---|---|---|
 | Button (variants, sizes, icons) | ✓ | ✓ | ✓ | ✅ `Button`, `IconButton`: loading that holds the width, selected, key cap in the label's color |
 | Toggle button | ✓ | | ✓ | ✅ `ToggleButton`: count and pill shape |
-| Toggle group / Button group | ✓ | ✓ | ✓ | ✅ `ToggleGroup` |
+| Toggle group / Button group | ✓ | ✓ | ✓ | ✅ `ToggleGroup`, and `ButtonGroup` for buttons glued side by side |
 | Dropdown button | ✓ | ✓ | ✓ | ✅ `DropdownMenu`: submenus opened by hover, click or the Right arrow, check marks and any view in a row |
 | Split button | | ✓ | ✓ | ✅ `SplitButton` |
 | Floating action button | | ✓ | ✓ | ⬜ |

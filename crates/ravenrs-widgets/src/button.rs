@@ -1,7 +1,7 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Quad, Rect, Role, Scene};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
@@ -192,6 +192,14 @@ pub struct Button {
     loading: bool,
     selected: Option<bool>,
     shortcut: Option<String>,
+    join: Option<Join>,
+}
+
+/// Where a button stands in a [`ButtonGroup`].
+#[derive(Clone, Copy, Debug)]
+struct Join {
+    first: bool,
+    last: bool,
 }
 
 impl fmt::Debug for Button {
@@ -216,6 +224,7 @@ impl Button {
             loading: false,
             selected: None,
             shortcut: None,
+            join: None,
         }
     }
 
@@ -356,10 +365,17 @@ impl View for Button {
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let radius = theme.radii.md;
-        let paint = Paint::Quad(QuadPaint { fill: fill.into(), corner_radius: radius, border, shadow: None });
-        let node = cx.container(style, &children, paint);
-        let squeeze = if pressed { Effect::scaled(0.97) } else { Effect::IDENTITY };
-        cx.motion(node, Motion::new().paint(theme.motion.fast).effect(squeeze, theme.motion.snappy));
+        let node = if let Some(join) = self.join {
+            // No squeeze when pressed, which would open a gap between neighbors.
+            cx.container(style, &children, joined_paint(join, fill, radius, border))
+        } else {
+            let paint =
+                Paint::Quad(QuadPaint { fill: fill.into(), corner_radius: radius, border, shadow: None });
+            let node = cx.container(style, &children, paint);
+            let squeeze = if pressed { Effect::scaled(0.97) } else { Effect::IDENTITY };
+            cx.motion(node, Motion::new().paint(theme.motion.fast).effect(squeeze, theme.motion.snappy));
+            node
+        };
         let mut semantics = Semantics::new(Role::Button).disabled(inert);
         if let Some(selected) = self.selected {
             semantics = semantics.toggled(selected);
@@ -389,6 +405,76 @@ impl View for Button {
             if !self.loading {
                 cx.cursor(node, CursorIcon::Pointer);
             }
+        }
+        node
+    }
+}
+
+/// A button in a group: rounded only on the group's outer corners, and over the edge of the
+/// one before it, so that a line between two is one line.
+fn joined_paint(join: Join, fill: Color, radius: f32, border: Option<Border>) -> Paint {
+    let (left, right) = (if join.first { radius } else { 0.0 }, if join.last { radius } else { 0.0 });
+    let overlap = if join.first || border.is_none() { 0.0 } else { border.map_or(0.0, |b| b.width) };
+    Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
+        let rect = Rect::new(frame.x() - overlap, frame.y(), frame.width() + overlap, frame.height());
+        let mut quad = Quad::new(rect, fill);
+        quad.corner_radii = [left, right, right, left];
+        quad.border = border;
+        scene.push_quad(quad);
+    }))
+}
+
+/// Buttons glued side by side, as one control. Each one stays a whole [`Button`], with its own
+/// style, icon, state and handler; marking one as chosen is up to whoever makes them.
+///
+/// ```
+/// use ravenrs_widgets::{Button, ButtonGroup, ButtonStyle};
+///
+/// let group = ButtonGroup::new([
+///     Button::new("Day"),
+///     Button::new("Week").style(ButtonStyle::Secondary),
+///     Button::new("Month").style(ButtonStyle::Secondary),
+/// ])
+/// .label("Period");
+/// ```
+#[derive(Debug)]
+pub struct ButtonGroup {
+    buttons: Vec<Button>,
+    label: Option<String>,
+}
+
+impl ButtonGroup {
+    /// Glues these buttons, in order.
+    pub fn new(buttons: impl IntoIterator<Item = Button>) -> Self {
+        let mut buttons: Vec<Button> = buttons.into_iter().collect();
+        let last = buttons.len().saturating_sub(1);
+        for (index, button) in buttons.iter_mut().enumerate() {
+            button.join = Some(Join { first: index == 0, last: index == last });
+        }
+        Self { buttons, label: None }
+    }
+
+    /// What the buttons are about, for screen readers.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
+impl View for ButtonGroup {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let buttons: Vec<NodeId> = self.buttons.iter().map(|button| cx.child(button)).collect();
+        let node = cx.container(
+            LayoutStyle {
+                align: Align::Center,
+                align_self: Some(Align::Fit),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &buttons,
+            Paint::None,
+        );
+        if let Some(label) = &self.label {
+            cx.semantics(node, Semantics::new(Role::Group).name(label.clone()));
         }
         node
     }
