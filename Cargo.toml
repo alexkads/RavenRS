@@ -26,8 +26,10 @@ ravenrs-platform-native = { version = "27.1.13", path = "crates/ravenrs-platform
 ravenrs-platform-web = { version = "27.1.13", path = "crates/ravenrs-platform-web" }
 ravenrs-barcode = { version = "27.1.13", path = "crates/ravenrs-barcode" }
 ravenrs-graphics = { version = "27.1.13", path = "crates/ravenrs-graphics" }
+ravenrs-nfe = { version = "27.1.13", path = "crates/ravenrs-nfe" }
 ravenrs-report = { version = "27.1.13", path = "crates/ravenrs-report" }
 ravenrs-report-export = { version = "27.1.13", path = "crates/ravenrs-report-export" }
+ravenrs-report-label = { version = "27.1.13", path = "crates/ravenrs-report-label" }
 ravenrs-grid-export = { version = "27.1.13", path = "crates/ravenrs-grid-export" }
 ravenrs-app = { version = "27.1.13", path = "crates/ravenrs-app" }
 ravenrs-app-ui = { version = "27.1.13", path = "crates/ravenrs-app-ui" }

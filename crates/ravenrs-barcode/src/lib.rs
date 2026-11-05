@@ -49,8 +49,9 @@ pub enum Pattern {
     },
 }
 
-/// Empty modules on each side of a linear code, which scanners need.
-pub const QUIET_LINEAR: usize = 10;
+/// Empty modules on each side of a linear code, which scanners need. An EAN-13 asks for the most,
+/// 11 on its left, and the same on every side and format keeps them all readable.
+pub const QUIET_LINEAR: usize = 11;
 /// Empty modules around a QR Code, as its standard asks.
 pub const QUIET_MATRIX: usize = 4;
 

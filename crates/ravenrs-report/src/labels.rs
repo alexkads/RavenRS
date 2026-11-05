@@ -124,11 +124,13 @@ pub fn shelf_label(stock: &LabelStock, name: impl Into<String>, fields: &ShelfLa
         .control(
             Control::field(fields.description.clone())
                 .at(inset, inset, inner, description)
+                .fixed_height()
                 .style(Style::new().font_size((description * 0.42).clamp(6.0, 14.0)).bold()),
         )
         .control(
             Control::field(fields.price.clone())
                 .at(inset, inset + description, inner, price)
+                .fixed_height()
                 .format(&fields.price_format)
                 .style(Style::new().font_size((price * 0.72).clamp(9.0, 40.0)).bold().align(TextAlign::Right)),
         )
@@ -163,5 +165,35 @@ mod tests {
         let back = Report::from_json(&json).unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(back.columns, stock.columns);
         assert_eq!(back.page, stock.page);
+    }
+
+    #[test]
+    fn a_long_description_does_not_push_the_code_off_the_label() {
+        use crate::{Item, ReportEngine};
+        let stock = common_stocks()[1];
+        let report = shelf_label(
+            &stock,
+            "Etiqueta",
+            &ShelfLabelFields {
+                description: "[Name]".into(),
+                price: "[Price]".into(),
+                price_format: "C2".into(),
+                barcode: "[Code]".into(),
+                symbology: crate::barcode::Symbology::Ean13,
+            },
+        );
+        let long = "Sabão em pó concentrado para roupas brancas e coloridas, pacote econômico de 5 kg";
+        let data = serde_json::json!([{ "Name": long, "Price": 5.49, "Code": "7891000100103" }]);
+        let document = ReportEngine::new().render(&report, &data);
+        assert_eq!(document.pages.len(), 1);
+        let bars = document.pages[0]
+            .items
+            .iter()
+            .find_map(|item| match item {
+                Item::BarcodeMark { rect, .. } => Some(*rect),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("no code: {:?}", document.errors));
+        assert!(bars.max_y() <= stock.height + 0.5, "{bars:?} on a label of {}", stock.height);
     }
 }

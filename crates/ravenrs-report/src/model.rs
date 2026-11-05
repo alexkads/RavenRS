@@ -1152,6 +1152,14 @@ impl Control {
         self
     }
 
+    /// Keeps a label to its height: text that does not fit is cut, and what is below stays in place.
+    pub fn fixed_height(mut self) -> Self {
+        if let ControlKind::Label(l) = &mut self.kind {
+            l.can_grow = Some(false);
+        }
+        self
+    }
+
     /// Sets the value format (`C2`, `{0:dd/MM/yyyy}`...).
     pub fn format(mut self, format: &str) -> Self {
         if let ControlKind::Label(l) = &mut self.kind {

@@ -1,0 +1,28 @@
+[package]
+name = "ravenrs-report-label"
+description = "RavenRS Reporting on label printers: documents as 1-bit bitmaps at the printer's resolution, sent as ZPL II, EPL2/PPLB, PPLA or TSPL."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-report-label"
+keywords = ["label", "zpl", "tspl", "epl", "barcode"]
+categories = ["encoding"]
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-text.workspace = true
+ravenrs-report.workspace = true
+swash.workspace = true
+image.workspace = true
+
+[dev-dependencies]
+rxing = { version = "0.9", default-features = false, features = ["decoders", "encoding_rs", "oned", "qrcode"] }
+serde_json.workspace = true
+
+[lints]
+workspace = true

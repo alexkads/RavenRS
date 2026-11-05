@@ -186,11 +186,16 @@ impl ReportEngine {
     }
 }
 
+/// The weight of the font of a report's text, for anything else that draws its documents.
+pub fn text_weight(bold: bool) -> f32 {
+    if bold { 600.0 } else { 400.0 }
+}
+
 pub(crate) fn text_attrs(size: f32, bold: bool) -> TextAttrs {
     TextAttrs {
         size,
         line_height: (size * 1.25).ceil(),
-        weight: if bold { 600.0 } else { 400.0 },
+        weight: text_weight(bold),
         letter_spacing: 0.0,
         family: None,
     }
