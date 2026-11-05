@@ -889,6 +889,10 @@ impl Gallery {
     fn navigation(&self, _width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Navigation", "Tabs, breadcrumbs, sidebars and disclosures."),
+            sample_demos(&[
+                ("FileBrowser", "Folders and files from the app's data, with a breadcrumb, sorting and selection."),
+                ("YearView", "The twelve months of a year, with marks on the days and a click on any of them."),
+            ]),
             demo(
                 "Sidebar",
                 "Closes to icons or off the screen with the button or Cmd/Ctrl+B, with groups, submenus, actions and badges. Below 768 px it opens as a sheet.",

@@ -93,6 +93,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Masked input | | ✓ | ✓ | ✅ `MaskedField` |
 | One-time code (OTP) | ✓ | | ✓ | ✅ `InputOtp` |
 | Calendar | ✓ | ✓ | ✓ | ✅ `Calendar` |
+| Year view | | ✓ | ✓ | ✅ `YearView`: twelve months with marks per day, clicks and one Tab stop |
 | Date picker | ✓ | ✓ | ✓ | ✅ `DatePicker` |
 | Date range picker | ✓ | ✓ | ✓ | ✅ `DateRangePicker`: two months, ready-made periods |
 | Time picker / DateTime picker | | ✓ | ✓ | ✅ `TimePicker`, `DateTimePicker` |
@@ -124,7 +125,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Gantt | | ✓ | ✓ | ⬜ |
 | Kanban / Task board | | | ✓ | ⬜ |
 | Timeline | | | ✓ | ⬜ |
-| File manager | | ✓ | ✓ | ⬜ |
+| File manager | | ✓ | ✓ | 🟡 `FileBrowser`: breadcrumb, sorting, selection, icon, size and date over the app's data, virtualized. No upload, tree of folders or thumbnails view |
 
 ## Charts and visualization
 

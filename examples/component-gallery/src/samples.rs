@@ -77,6 +77,8 @@ samples! {
     "VirtualList" => virtual_list,
     "Filmstrip" => filmstrip,
     "PagedDocumentView" => paged_document_view,
+    "FileBrowser" => file_browser,
+    "YearView" => year_view,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1961,6 +1963,34 @@ fn paged_document_view() -> impl View {
         move |page| sheet.clone().filter(|_| page != 2),
     )
     .height(400.0)
+}
+// end
+
+// sample: FileBrowser, 320
+fn file_browser() -> impl View {
+    let entries = vec![
+        FileEntry::folder("Weddings").modified("Oct 12, 2026", 12),
+        FileEntry::folder("Portraits").modified("Sep 3, 2026", 3),
+        FileEntry::file("catalog.db", 48_302_112).modified("Nov 2, 2026", 32),
+        FileEntry::file("notes.txt", 2_204).modified("Oct 30, 2026", 30).icon(IconName::FileText),
+        FileEntry::file("cover.jpg", 3_480_000).modified("Aug 21, 2026", 1).icon(IconName::Image),
+    ];
+    FileBrowser::new(["Backups", "2026", "Studio"], entries).height(300.0)
+}
+// end
+
+// sample: YearView, 700
+fn year_view() -> impl View {
+    let year = State::new(2026);
+    let chosen = State::new(None::<Date>);
+    YearView::new(year.binding())
+        .selected(chosen.binding())
+        .today(Date::new(2026, 11, 5).unwrap_or_else(|| Date::from_days(0)))
+        .marks(|day| match day.day() % 11 {
+            0 => Some(DayMark::new().tone(Tone::Accent).label("Shoot")),
+            5 => Some(DayMark::new().tone(Tone::Success).label("Delivery")),
+            _ => None,
+        })
 }
 // end
 

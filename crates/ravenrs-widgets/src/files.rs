@@ -115,7 +115,7 @@ impl fmt::Debug for FilePicker {
 }
 
 /// A size as people read it.
-fn size_text(bytes: u64) -> String {
+pub(crate) fn size_text(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["KB", "MB", "GB", "TB"];
     if bytes < 1024 {
         return format!("{bytes} B");

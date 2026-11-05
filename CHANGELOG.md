@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `YearView`: the twelve months of a year, with marks on the days, a click on any of them and one Tab stop that walks past the end of the year. As many months go on a line as fit.
+- `FileBrowser`: an explorer of folders and files from the app's data, with a clickable breadcrumb, sorting with folders first, selection with modifiers, icons, sizes and dates. It never touches the file system, and folders of any size stay virtual.
 - `PagedDocumentView`: a bar with page, total and `ZoomControl` over a column of pages of which only those that show are built, with the pictures handed over by the app page by page and a placeholder until each is ready.
 - `Filmstrip`: a horizontal strip of thumbnails of any length, whose cells come from the app. Single or multiple selection with modifiers, the arrows, Home and End, arrows on the ends that have more to show, and the selected cell kept in view.
 - `VirtualList`: a list of any length with rows of any height, measured as they appear and remembered by key. It jumps to a row, can stay at the end as a chat does, and holds what is on screen still when rows come in above. It can also run sideways.
