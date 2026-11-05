@@ -1,6 +1,6 @@
 //! The components that carry the most weight, each at its worst realistic case.
 
-use ravenrs_core::{Event, ImageData, Point, PointerButton, Size};
+use ravenrs_core::{Color, Event, ImageData, Point, PointerButton, Size};
 use ravenrs_layout::Align;
 use ravenrs_reactive::State;
 use ravenrs_widgets::grid::{GridColumn, GridData, Summary, Value};
@@ -217,6 +217,100 @@ const CALCULATOR: &[Ceiling] = &[
     ceiling("idle", "frames", 0),
 ];
 
+/// A drag that goes back and forth, from the first round on.
+fn dragging(from: Point, to: Point) -> Step {
+    Box::new(move |ui, round| {
+        if round == 0 {
+            ui.handle_event(&Event::PointerMove { position: from });
+            return ui.handle_event(&Event::PointerDown { position: from, button: PointerButton::Primary });
+        }
+        let position = if round % 2 == 0 { from } else { to };
+        ui.handle_event(&Event::PointerMove { position })
+    })
+}
+
+/// A large picture alone on screen: a drag repaints it and runs no view.
+fn zoom_pan(interaction: &str) -> Setup {
+    let Some(picture) =
+        ImageData::from_fn(1024, 1024, |x, y| Color::rgb(x as f32 / 1024.0, y as f32 / 1024.0, 0.4))
+    else {
+        panic!("a valid image")
+    };
+    let view = State::new(ZoomView::at(2.0));
+    let middle = Point::new(600.0, 400.0);
+    let step: Step = match interaction {
+        "pan" => dragging(middle, Point::new(560.0, 370.0)),
+        other => common(other, middle, Point::new(500.0, 300.0)),
+    };
+    Setup { root: Box::new(ZoomPanView::image(view.binding(), picture)), step }
+}
+
+/// The instruments together, around a stage that follows the same view: every drag
+/// rebuilds this screen, which is what the counters answer for.
+fn image_tools(interaction: &str) -> Setup {
+    let Some(picture) =
+        ImageData::from_fn(256, 256, |x, y| Color::rgb(x as f32 / 256.0, y as f32 / 256.0, 0.4))
+    else {
+        panic!("a valid image")
+    };
+    let hill = |center: f32| -> Vec<f32> {
+        (0..256).map(|i| 500.0 * (-((i as f32 - center) / 40.0).powi(2)).exp() + 10.0).collect()
+    };
+    let channels = [
+        HistogramChannel::new("Red", Color::rgb(0.9, 0.2, 0.2), hill(90.0)),
+        HistogramChannel::new("Green", Color::rgb(0.2, 0.8, 0.2), hill(130.0)),
+        HistogramChannel::new("Blue", Color::rgb(0.2, 0.3, 0.9), hill(170.0)),
+    ];
+    let view = State::new(ZoomView::at(1.0));
+    let points =
+        State::new(vec![Point::ZERO, Point::new(0.3, 0.2), Point::new(0.7, 0.8), Point::new(1.0, 1.0)]);
+    let tint = State::new(HueSaturation::new(30.0, 0.5));
+    let panel = VStack::new((
+        Histogram::new(channels.clone()).height(120.0),
+        CurveEditor::new(points.binding()).size(320.0, 220.0).histogram(channels, HistogramScale::Linear),
+        ColorWheel::new(tint.binding()).diameter(180.0),
+        ZoomControl::new(view.binding()),
+    ))
+    .spacing(8.0)
+    .width(320.0);
+    let stage = VStack::new((
+        Ruler::horizontal().scale(view.get().scale).whole_units(),
+        HStack::new((
+            ZoomPanView::image(view.binding(), picture.clone()),
+            Minimap::image(view.binding(), picture),
+        ))
+        .grow(1.0),
+    ))
+    .grow(1.0);
+    let step: Step = match interaction {
+        // The handle of the second point, and the disc.
+        "curve" => dragging(Point::new(102.0, 287.0), Point::new(120.0, 260.0)),
+        "wheel" => dragging(Point::new(130.0, 470.0), Point::new(90.0, 440.0)),
+        other => common(other, Point::new(100.0, 60.0), Point::new(700.0, 300.0)),
+    };
+    Setup { root: Box::new(HStack::new((panel, stage)).grow(1.0)), step }
+}
+
+/// A pan paints a textured rectangle: nothing else on it may run.
+const ZOOM_PAN: &[Ceiling] = &[
+    ceiling("*", "instances", 20),
+    ceiling("pan", "builds", 0),
+    ceiling("pan", "layouts", 0),
+    ceiling("pan", "shapes", 0),
+    ceiling("idle", "frames", 0),
+];
+/// Three channels of 256 bins, twice, a curve and the rest: one rebuild per step of a drag,
+/// no text shaped anew and the disc never sent again.
+const IMAGE_TOOLS: &[Ceiling] = &[
+    ceiling("*", "instances", 2_800),
+    ceiling("curve", "builds", 1),
+    ceiling("curve", "shapes", 0),
+    ceiling("curve", "uploaded_bytes", 400_000),
+    ceiling("wheel", "builds", 1),
+    ceiling("wheel", "shapes", 0),
+    ceiling("idle", "frames", 0),
+];
+
 /// Clicks two buttons in turn, as a person using the screen does.
 fn clicking(first: &'static str, second: &'static str) -> Step {
     Box::new(move |ui, round| {
@@ -269,6 +363,22 @@ pub(super) fn scenes() -> Vec<PerfScene> {
         scene("chart-board", &["Chart", "AreaChart"], Class::Picture, CHART, chart_board, STILL),
         scene("chart-sankey", &["SankeyChart"], Class::Static, CHART, chart_sankey, STILL),
         scene("lottie", &["Lottie"], Class::Animated, &["animate", "hover", "scroll"], lottie, ANIMATED),
+        scene(
+            "zoom-pan",
+            &["ZoomPanView"],
+            Class::Static,
+            &["pan", "hover", "idle", "resize"],
+            zoom_pan,
+            ZOOM_PAN,
+        ),
+        scene(
+            "image-tools",
+            &["Histogram", "CurveEditor", "ColorWheel", "ZoomControl", "Minimap", "Ruler"],
+            Class::Static,
+            &["curve", "wheel", "idle", "resize"],
+            image_tools,
+            IMAGE_TOOLS,
+        ),
         scene("images", &["Image", "Grid"], Class::Static, &["hover", "scroll", "idle"], images, STILL),
         scene(
             "calculator",
