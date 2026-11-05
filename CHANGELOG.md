@@ -6,6 +6,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `PagedDocumentView`: a bar with page, total and `ZoomControl` over a column of pages of which only those that show are built, with the pictures handed over by the app page by page and a placeholder until each is ready.
+- `Filmstrip`: a horizontal strip of thumbnails of any length, whose cells come from the app. Single or multiple selection with modifiers, the arrows, Home and End, arrows on the ends that have more to show, and the selected cell kept in view.
+- `VirtualList`: a list of any length with rows of any height, measured as they appear and remembered by key. It jumps to a row, can stay at the end as a chat does, and holds what is on screen still when rows come in above. It can also run sideways.
+- `BuildCx::keyed_child_frame`, for a view that places its children by the room each one took, and `BuildCx::wheel_scrolls_sideways`, for a strip that a plain wheel should move.
 - `ImageLightbox`: a picture over the whole app, with zoom by `ZoomPanView`, the arrows to go on, Escape to close, a caption and a counter. Each picture starts fitted, and an arrow pans once it is zoomed in.
 - `CompareView`: two pictures side by side, with one that can be chosen, or across a divider that a drag and the arrows move. A drag paints without a build.
 - `Eyedropper`: a button that arms, and `EyedropperArea` over a picture, which asks the caller for the color of the point clicked. `EyedropperState::pick` tells it directly. Escape disarms. It does not capture the screen.

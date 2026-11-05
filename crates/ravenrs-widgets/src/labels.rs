@@ -55,6 +55,56 @@ pub struct Labels {
     /// What a [`SankeyChart`](crate::SankeyChart) says when its flows go in a circle,
     /// before the names of the nodes.
     pub sankey_cycle: String,
+    /// A [`VirtualList`](crate::VirtualList)'s name.
+    pub list_name: String,
+    /// A [`Filmstrip`](crate::Filmstrip)'s name.
+    pub filmstrip_name: String,
+    /// A [`PagedDocumentView`](crate::PagedDocumentView)'s name.
+    pub document_name: String,
+    /// A page of a [`PagedDocumentView`](crate::PagedDocumentView), before its number.
+    pub page_word: String,
+    /// Between a page's number and the total, such as `" of "`.
+    pub page_of: String,
+    /// Goes to the previous page of a [`PagedDocumentView`](crate::PagedDocumentView).
+    pub previous_page: String,
+    /// Goes to the next page of a [`PagedDocumentView`](crate::PagedDocumentView).
+    pub next_page: String,
+    /// A [`FileBrowser`](crate::FileBrowser)'s name.
+    pub file_browser_name: String,
+    /// The column of names of a [`FileBrowser`](crate::FileBrowser).
+    pub file_name: String,
+    /// The column of sizes of a [`FileBrowser`](crate::FileBrowser).
+    pub file_size: String,
+    /// The column of dates of a [`FileBrowser`](crate::FileBrowser).
+    pub file_modified: String,
+    /// What a [`FileBrowser`](crate::FileBrowser) says of a folder.
+    pub folder_word: String,
+    /// What a [`FileBrowser`](crate::FileBrowser) shows in a folder with nothing in it.
+    pub folder_empty: String,
+    /// A [`YearView`](crate::YearView)'s button to the year before.
+    pub previous_year: String,
+    /// A [`YearView`](crate::YearView)'s button to the year after.
+    pub next_year: String,
+    /// What a [`YearView`](crate::YearView) says of a marked day without words of its own.
+    pub day_marked: String,
+    /// A [`SortableList`](crate::SortableList)'s name.
+    pub sortable_name: String,
+    /// How to move a row of a [`SortableList`](crate::SortableList) from the keyboard.
+    pub sortable_hint: String,
+    /// What is announced after a reorder. `{position}` and `{total}` are filled in.
+    pub moved_to: String,
+    /// A [`DocumentTabs`](crate::DocumentTabs)' name.
+    pub document_tabs_name: String,
+    /// Closes a tab of a [`DocumentTabs`](crate::DocumentTabs).
+    pub close_tab: String,
+    /// Opens a new tab of a [`DocumentTabs`](crate::DocumentTabs).
+    pub new_tab: String,
+    /// Closes the other tabs of a [`DocumentTabs`](crate::DocumentTabs).
+    pub close_other_tabs: String,
+    /// Closes the tabs to the right in a [`DocumentTabs`](crate::DocumentTabs).
+    pub close_tabs_to_right: String,
+    /// What a [`DocumentTabs`](crate::DocumentTabs) says of a document with unsaved changes.
+    pub unsaved: String,
     /// Goes to the previous step of a [`Wizard`](crate::Wizard).
     pub wizard_back: String,
     /// Goes to the next step of a [`Wizard`](crate::Wizard).
@@ -826,6 +876,31 @@ impl Default for Labels {
             image_invalid: "Cannot show this image".into(),
             tile_move: "Move".into(),
             tile_resize: "Resize".into(),
+            list_name: "List".into(),
+            filmstrip_name: "Thumbnails".into(),
+            document_name: "Document".into(),
+            page_word: "Page".into(),
+            page_of: " of ".into(),
+            previous_page: "Previous page".into(),
+            next_page: "Next page".into(),
+            file_browser_name: "Files".into(),
+            file_name: "Name".into(),
+            file_size: "Size".into(),
+            file_modified: "Modified".into(),
+            folder_word: "Folder".into(),
+            folder_empty: "This folder is empty.".into(),
+            previous_year: "Previous year".into(),
+            next_year: "Next year".into(),
+            day_marked: "Marked".into(),
+            sortable_name: "Sortable list".into(),
+            sortable_hint: "Drag it, or press Alt and an arrow, to move it".into(),
+            moved_to: "Moved to position {position} of {total}".into(),
+            document_tabs_name: "Open documents".into(),
+            close_tab: "Close tab".into(),
+            new_tab: "New tab".into(),
+            close_other_tabs: "Close other tabs".into(),
+            close_tabs_to_right: "Close tabs to the right".into(),
+            unsaved: "Unsaved changes".into(),
             cards_name: "Cards".into(),
             grid_expand_row: "Show details".into(),
             grid_collapse_row: "Hide details".into(),
@@ -1170,6 +1245,31 @@ impl Labels {
             image_invalid: "Não foi possível mostrar a imagem".into(),
             tile_move: "Mover".into(),
             tile_resize: "Redimensionar".into(),
+            list_name: "Lista".into(),
+            filmstrip_name: "Miniaturas".into(),
+            document_name: "Documento".into(),
+            page_word: "Página".into(),
+            page_of: " de ".into(),
+            previous_page: "Página anterior".into(),
+            next_page: "Próxima página".into(),
+            file_browser_name: "Arquivos".into(),
+            file_name: "Nome".into(),
+            file_size: "Tamanho".into(),
+            file_modified: "Modificado".into(),
+            folder_word: "Pasta".into(),
+            folder_empty: "Esta pasta está vazia.".into(),
+            previous_year: "Ano anterior".into(),
+            next_year: "Próximo ano".into(),
+            day_marked: "Marcado".into(),
+            sortable_name: "Lista ordenável".into(),
+            sortable_hint: "Arraste, ou aperte Alt e uma seta, para mover".into(),
+            moved_to: "Movido para a posição {position} de {total}".into(),
+            document_tabs_name: "Documentos abertos".into(),
+            close_tab: "Fechar guia".into(),
+            new_tab: "Nova guia".into(),
+            close_other_tabs: "Fechar as outras guias".into(),
+            close_tabs_to_right: "Fechar as guias à direita".into(),
+            unsaved: "Alterações não salvas".into(),
             cards_name: "Cartões".into(),
             grid_expand_row: "Mostrar detalhes".into(),
             grid_collapse_row: "Ocultar detalhes".into(),
@@ -1315,6 +1415,16 @@ impl Labels {
             color_reset: "Cores padrão".into(),
             grid_summaries: owned(["Qtd.", "Soma", "Média", "Mín.", "Máx."]),
         }
+    }
+
+    /// What is announced after a reorder, such as "Moved to position 2 of 5".
+    pub fn moved_to_position(&self, position: usize, total: usize) -> String {
+        self.moved_to.replace("{position}", &position.to_string()).replace("{total}", &total.to_string())
+    }
+
+    /// The name of a page, such as "Page 2 of 9".
+    pub fn page_name(&self, number: usize, total: usize) -> String {
+        format!("{} {number}{}{total}", self.page_word, self.page_of)
     }
 
     /// A month and its year: `November 2026`, `novembro de 2026`.

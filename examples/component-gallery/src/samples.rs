@@ -4,6 +4,8 @@
 //! `scripts/gen-component-pages.py` reads the markers: `// sample: Name, height`
 //! before a function and `// end` after it.
 
+use std::collections::BTreeSet;
+
 use ravenrs::layout::{Axis, LayoutStyle};
 use ravenrs::prelude::*;
 
@@ -72,6 +74,9 @@ samples! {
     "Eyedropper" => eyedropper,
     "CompareView" => compare_view,
     "ImageLightbox" => image_lightbox,
+    "VirtualList" => virtual_list,
+    "Filmstrip" => filmstrip,
+    "PagedDocumentView" => paged_document_view,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1898,6 +1903,64 @@ fn image_lightbox() -> impl View {
         Button::new("Open pictures").on_click(move || opener.set(Some(0))),
         ImageLightbox::new(open.binding(), pictures),
     ))
+}
+// end
+
+// sample: VirtualList, 280
+fn virtual_list() -> impl View {
+    // Ten thousand rows of different heights: only what shows exists.
+    let selected = State::new(None::<usize>);
+    VirtualList::new(10_000, |index| {
+        let tall = 1 + index % 3;
+        let words = vec!["A row that says how tall it is"; tall].join("\n");
+        VStack::new((Text::new(format!("Row {index}")), Text::new(words))).padding(8.0)
+    })
+    .key(|index| index as u64)
+    .selection(selected.binding())
+    .height(260.0)
+}
+// end
+
+// sample: Filmstrip, 130
+fn filmstrip() -> impl View {
+    let selected = State::new(BTreeSet::from([2_usize]));
+    Filmstrip::new(5_000, |cell: FilmstripCell| {
+        // The cell belongs to the app: its picture, its stars, its badges.
+        let shade = (cell.index % 10) as f32 / 10.0;
+        let picture = ImageData::from_fn(64, 64, move |x, y| {
+            Color::rgb(0.2 + shade * 0.5, 0.3 + y as f32 / 200.0, 0.7 - x as f32 / 200.0)
+        });
+        let picture: AnyView = match picture {
+            Some(picture) => Box::new(Image::new(picture).height(72.0).stretch()),
+            None => Box::new(Spacer::new()),
+        };
+        VStack::new((picture, Rating::read_only((cell.index % 6) as u32).size(11.0)))
+            .spacing(4.0)
+            .align(Align::Center)
+    })
+    .cell_name(|index| format!("Photo {}", index + 1))
+    .selection(selected.binding())
+    .mode(SelectionMode::Multiple)
+    .cell_width(120.0)
+    .height(112.0)
+    .fade(Semantic::SurfaceElevated)
+}
+// end
+
+// sample: PagedDocumentView, 420
+fn paged_document_view() -> impl View {
+    let sheet = ImageData::from_fn(120, 170, |x, y| {
+        // Lines of a page, where a real app would hand over a rendered PDF.
+        let line = y % 12 < 3 && (10..110).contains(&x) && (14..156).contains(&y);
+        if line { Color::rgb(0.55, 0.55, 0.6) } else { Color::rgb(0.98, 0.98, 0.97) }
+    });
+    PagedDocumentView::new(
+        48,
+        |_| Size::new(420.0, 595.0),
+        // Page 3 has not been drawn yet: it shows a placeholder of the right size.
+        move |page| sheet.clone().filter(|_| page != 2),
+    )
+    .height(400.0)
 }
 // end
 

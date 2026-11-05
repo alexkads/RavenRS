@@ -409,6 +409,8 @@ pub(crate) struct Element {
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
     /// The wheel over it moves what this widget scrolls.
     pub scrolls_with_widget: bool,
+    /// A wheel that only turns up and down moves this scroll container sideways.
+    pub wheel_sideways: bool,
     pub on_context_menu: Option<Rc<dyn Fn(Point)>>,
     pub on_file_drop: Option<Rc<dyn Fn(Vec<crate::PickedFile>)>>,
     pub on_context_menu_in: Option<Rc<dyn Fn(Point, Rect)>>,
@@ -446,6 +448,7 @@ impl Element {
             on_double_click: None,
             on_pinch: None,
             scrolls_with_widget: false,
+            wheel_sideways: false,
             on_context_menu: None,
             on_file_drop: None,
             on_context_menu_in: None,
@@ -984,6 +987,13 @@ impl<'a> BuildCx<'a> {
         self.scroll.viewports.get(&self.widget_id()).copied()
     }
 
+    /// The size that the keyed child built with `key` ended up with in the last layout, if
+    /// it asked with [`Self::report_frame`]: for a view that places its children by how much
+    /// room each one took, before building them again.
+    pub fn keyed_child_frame(&self, key: u64) -> Option<Size> {
+        self.scroll.viewports.get(&self.widget_id().child(key ^ (1 << 63))).copied()
+    }
+
     /// Scrolls this widget's scroll container to `offset` after the build
     /// (clamped to its content), e.g. to keep a selected row visible.
     pub fn set_scroll_offset(&mut self, offset: Point) {
@@ -1158,6 +1168,14 @@ impl<'a> BuildCx<'a> {
             e.scroll_x = horizontal;
             e.clip = true;
             e.rebuild_on_scroll = true;
+        }
+    }
+
+    /// Makes a wheel that only turns up and down move this scroll container sideways,
+    /// for a strip with nothing to scroll in the other direction.
+    pub fn wheel_scrolls_sideways(&mut self, node: NodeId) {
+        if let Some(e) = self.element_mut(node) {
+            e.wheel_sideways = true;
         }
     }
 

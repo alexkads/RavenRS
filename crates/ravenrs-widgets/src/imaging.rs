@@ -1294,7 +1294,7 @@ const ZOOM_STOPS: [f32; 17] =
 const ZOOM_DEFAULT_MAX: f32 = 16.0;
 
 /// The next stop from `scale`, in the direction of `up` or down.
-fn zoom_stop(scale: f32, up: bool) -> f32 {
+pub(crate) fn zoom_stop(scale: f32, up: bool) -> f32 {
     let next = if up {
         ZOOM_STOPS.iter().copied().find(|s| *s > scale * 1.01)
     } else {

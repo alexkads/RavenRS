@@ -66,6 +66,7 @@ mod image;
 mod imaging;
 mod inputs;
 mod labels;
+mod lists;
 mod lookup;
 #[cfg(feature = "lottie")]
 mod lottie;
@@ -164,6 +165,7 @@ pub use imaging::{
 };
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};
+pub use lists::{Filmstrip, FilmstripCell, PagedDocumentView, VirtualList};
 pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
 #[cfg(feature = "lottie")]
 pub use lottie::Lottie;

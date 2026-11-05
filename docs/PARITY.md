@@ -115,6 +115,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Tree list / Tree grid | | ✓ | ✓ | ⬜ |
 | Pivot grid | | ✓ | ✓ | ⬜ |
 | List / List view | | ✓ | ✓ | ✅ `List`, `ListItem` |
+| Virtual list with rows of any height | | ✓ | ✓ | ✅ `VirtualList`: measured in layout and kept by key, jump to a row, stays at the end, still when rows enter above, keyboard and semantics of a list |
 | List box (with reordering) | | ✓ | ✓ | ⬜ |
 | Card view / Tile view | | ✓ | ✓ | ✅ `CardView`: virtualized, as many columns as fit, keyboard and selection |
 | Scheduler (resource timeline) | | ✓ | ✓ | 🟡 `Scheduler`; gaps listed under "Scheduler" below |
@@ -187,7 +188,8 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Banner, stacked meters, text with a shine | | | | ✅ `HeroBanner`, `MultiProgress`, `ShimmerText` (still with reduced motion) |
 | Day divider in a list | | | | ✅ `DaySeparator` |
 | Typography scale | ✓ | ✓ | ✓ | ✅ `Text` styles |
-| PDF viewer | | ✓ | ✓ | ⬜ |
+| PDF viewer | | ✓ | ✓ | 🟡 `PagedDocumentView`: bar, zoom and virtual pages, with pictures from the app. Reading the PDF and searching it are up to the app |
+| Filmstrip | | | | ✅ `Filmstrip`: virtual, cells from the app, selection with modifiers, keyboard, arrows on the ends |
 | Histogram | | | | ✅ `Histogram`: channels from ready-made bins, added up as light, linear or logarithmic, with marks at clipped ends |
 | Ruler | | | | ✅ `Ruler`: horizontal or vertical, in the units of the caller, with a round step for the zoom, origin and marker; vertical numbers stack, since text does not rotate |
 | Color wheel | | | | ✅ `ColorWheel`: hue and saturation on a disc that is computed once and shared, with arrow keys and Shift to keep the hue |

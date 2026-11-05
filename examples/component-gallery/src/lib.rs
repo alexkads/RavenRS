@@ -1308,6 +1308,7 @@ impl Gallery {
                 "Resizable panels, carousels, menus, toggles, pagination and loaders.",
             ),
             sample_demos(&[
+                ("VirtualList", "A list of any length with rows of any height, which can jump to a row and stay at the end."),
                 ("ZStack", "Views on top of each other, in a box as large as the largest."),
                 ("FloatingToolbar", "A translucent row of commands over its content, with a handle that moves it."),
                 ("ScrollEdgeArrow", "A strip that scrolls, with an arrow at each end that has more to show."),
@@ -1896,6 +1897,8 @@ impl Gallery {
             ),
             sample_demos(&[
                 // imaging widgets
+                ("Filmstrip", "A strip of thumbnails of any length, whose cells come from the app."),
+                ("PagedDocumentView", "A bar with page and zoom over pages that are built only when they show."),
                 ("ImageLightbox", "A picture over the whole app, with zoom, arrows, caption and counter."),
                 ("CompareView", "Two pictures side by side or across a divider you drag."),
                 ("Eyedropper", "A button that arms, takes the color you supply for the point clicked, and disarms."),

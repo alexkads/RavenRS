@@ -938,6 +938,7 @@ impl Ui {
             let e = &self.elements[i];
             let max = self.max_offset(i);
             let current = self.scroll.offsets.get(&e.widget).copied().unwrap_or(Point::ZERO);
+            let delta = if e.wheel_sideways && delta.x == 0.0 { Point::new(delta.y, 0.0) } else { delta };
             let next = Point::new(
                 if e.scroll_x { (current.x - delta.x).clamp(0.0, max.x) } else { 0.0 },
                 (current.y - delta.y).clamp(0.0, max.y),
