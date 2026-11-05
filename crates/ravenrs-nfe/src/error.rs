@@ -23,6 +23,11 @@ pub enum NfeError {
     Xml(String),
     /// The document could not be signed.
     Assinatura(String),
+    /// A query to the national environment was held back to avoid rejection 656.
+    ConsultaAdiantada {
+        /// The moment the next query is allowed, in the form of the layout.
+        proxima: String,
+    },
     /// No request could be completed.
     Transporte(TransportError),
     /// The service answered with something other than the expected return.
@@ -47,6 +52,9 @@ impl fmt::Display for NfeError {
             Self::Configuracao(motivo) => write!(f, "configuração inválida: {motivo}"),
             Self::Xml(motivo) => write!(f, "XML inválido: {motivo}"),
             Self::Assinatura(motivo) => write!(f, "falha na assinatura: {motivo}"),
+            Self::ConsultaAdiantada { proxima } => {
+                write!(f, "aguarde até {proxima} para consultar de novo, ou a SEFAZ responde 656")
+            }
             Self::Transporte(erro) => write!(f, "{erro}"),
             Self::RetornoInvalido { status, motivo } => {
                 write!(f, "retorno inválido (HTTP {status}): {motivo}")

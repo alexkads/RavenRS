@@ -1,8 +1,18 @@
 //! The rules of a point of sale, with nothing about screens or fiscal documents: a cart, what a
-//! scanner reads, totals in exact decimals, payments and change.
+//! scanner reads, totals in exact decimals, payments and change, what arrives from suppliers and what
+//! a price has to cover.
 
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+
+pub mod entrada;
+pub mod preco;
+
+pub use entrada::{
+    EstoqueAtualizado, LinhaCompra, PREFIXO_INTERNO, SugestaoEtiqueta, codigo_interno, conferir_codigo, e_codigo_interno,
+    entrar_no_estoque, gtin_fiscal, sugerir_etiqueta,
+};
+pub use preco::{Composicao, Formacao, arredondar_preco};
 
 /// What was read at the counter: a code, and how many of it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,7 +74,7 @@ pub struct Linha {
 impl Linha {
     /// What this line comes to.
     pub fn total(&self) -> Decimal {
-        (self.preco * self.quantidade).round_dp(2)
+        (self.preco * self.quantidade).round_dp_with_strategy(2, rust_decimal::RoundingStrategy::MidpointAwayFromZero)
     }
 }
 

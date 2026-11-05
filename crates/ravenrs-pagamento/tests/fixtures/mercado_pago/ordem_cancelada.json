@@ -1,0 +1,15 @@
+{
+  "id": "ORD01",
+  "status": "canceled",
+  "external_reference": "venda-1",
+  "transactions": {
+    "payments": [
+      {
+        "id": "PAY01",
+        "amount": "19.90",
+        "status": "canceled",
+        "status_detail": "canceled_by_api"
+      }
+    ]
+  }
+}

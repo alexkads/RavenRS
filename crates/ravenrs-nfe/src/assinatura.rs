@@ -28,6 +28,41 @@ pub trait Signer: Send + Sync {
 
     /// Signs `message` with RSA PKCS#1 v1.5 over SHA-1.
     fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, NfeError>;
+
+    /// Signs `message` with RSA PKCS#1 v1.5 over this hash. The NF-e only uses SHA-1; SHA-256 is
+    /// here for the NFS-e, and a signer that does not offer it says so.
+    fn sign_rsa(&self, hash: HashAssinatura, message: &[u8]) -> Result<Vec<u8>, NfeError> {
+        match hash {
+            HashAssinatura::Sha1 => self.sign_rsa_sha1(message),
+            HashAssinatura::Sha256 => {
+                Err(NfeError::Assinatura("este assinador não oferece SHA-256".to_string()))
+            }
+        }
+    }
+}
+
+/// The hash under a signature.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HashAssinatura {
+    /// SHA-1, which is what the NF-e layout asks.
+    Sha1,
+    /// SHA-256, for documents outside the NF-e.
+    Sha256,
+}
+
+/// Signs with RSA PKCS#1 v1.5 over this hash.
+pub(crate) fn assinar_rsa(
+    chave: &RsaPrivateKey,
+    hash: HashAssinatura,
+    mensagem: &[u8],
+) -> Result<Vec<u8>, NfeError> {
+    let assinatura = match hash {
+        HashAssinatura::Sha1 => chave.sign(Pkcs1v15Sign::new::<Sha1>(), &Sha1::digest(mensagem)),
+        HashAssinatura::Sha256 => {
+            chave.sign(Pkcs1v15Sign::new::<rsa::sha2::Sha256>(), &rsa::sha2::Sha256::digest(mensagem))
+        }
+    };
+    assinatura.map_err(|erro| NfeError::Assinatura(erro.to_string()))
 }
 
 /// A signer with an RSA key in memory.
@@ -65,10 +100,11 @@ impl Signer for RsaSigner {
     }
 
     fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, NfeError> {
-        let digest = Sha1::digest(message);
-        self.key
-            .sign(Pkcs1v15Sign::new::<Sha1>(), &digest)
-            .map_err(|erro| NfeError::Assinatura(erro.to_string()))
+        assinar_rsa(&self.key, HashAssinatura::Sha1, message)
+    }
+
+    fn sign_rsa(&self, hash: HashAssinatura, message: &[u8]) -> Result<Vec<u8>, NfeError> {
+        assinar_rsa(&self.key, hash, message)
     }
 }
 
@@ -213,59 +249,29 @@ pub fn verify_enveloped(parent: &Element, id_esperado: &str) -> Result<(), Falha
         .map_err(|_| FalhaAssinatura::Difere("SignatureValue não confere".to_string()))
 }
 
-/// One DER element: its tag, itself whole, its content and what follows it.
-struct Der<'a> {
-    tag: u8,
-    whole: &'a [u8],
-    rest: &'a [u8],
-    content: &'a [u8],
-}
-
-/// Reads one DER element.
-fn der_element(der: &[u8]) -> Option<Der<'_>> {
-    let tag = *der.first()?;
-    let first = *der.get(1)?;
-    let (length, header) = if first < 0x80 {
-        (usize::from(first), 2)
-    } else {
-        let count = usize::from(first & 0x7f);
-        if count == 0 || count > 4 {
-            return None;
-        }
-        let bytes = der.get(2..2 + count)?;
-        let length = bytes.iter().fold(0_usize, |acc, b| (acc << 8) | usize::from(*b));
-        (length, 2 + count)
-    };
-    let end = header.checked_add(length)?;
-    let content = der.get(header..end)?;
-    let whole = der.get(..end)?;
-    let rest = der.get(end..)?;
-    Some(Der { tag, whole, rest, content })
-}
-
 /// Finds `subjectPublicKeyInfo` in an X.509 certificate.
 fn subject_public_key_info(certificate: &[u8]) -> Option<&[u8]> {
-    let cert = der_element(certificate)?;
-    let tbs = der_element(cert.content)?;
-    let first = der_element(tbs.content)?;
+    let cert = crate::sandbox::certificado_x509::ler(certificate)?;
+    let tbs = crate::sandbox::certificado_x509::ler(cert.content)?;
+    let first = crate::sandbox::certificado_x509::ler(tbs.content)?;
     let mut rest = first.rest;
     // The optional version comes as [0]; without it the first field was already the serial.
     if first.tag == 0xa0 {
-        rest = der_element(rest)?.rest;
+        rest = crate::sandbox::certificado_x509::ler(rest)?.rest;
     }
     // Signature algorithm, issuer, validity and subject come before the key.
     for _ in 0..4 {
-        rest = der_element(rest)?.rest;
+        rest = crate::sandbox::certificado_x509::ler(rest)?.rest;
     }
-    Some(der_element(rest)?.whole)
+    Some(crate::sandbox::certificado_x509::ler(rest)?.whole)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const CERT: &str = include_str!("../fixtures/sandbox-cert.pem");
-    const KEY: &str = include_str!("../fixtures/sandbox-key.pem");
+    const KEY: &str = include_str!("../fixtures/laboratorio/externo-key.pem");
+    const CERT: &str = include_str!("../fixtures/laboratorio/externo-cert.pem");
     const DOC: &str = "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe Id=\"NFe1\" versao=\"4.00\"><a>1</a></infNFe></NFe>";
 
     fn signer() -> RsaSigner {

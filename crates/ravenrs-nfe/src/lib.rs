@@ -9,7 +9,8 @@
 //! NF-e and NFC-e with no GUI: draft, totals, access key, deterministic XML, inclusive C14N,
 //! XMLDSig, SOAP 1.2 and the reading of the returns. Limits of this POC: only Simples Nacional
 //! (CRT 1, CSOSN 102 and 500), only synchronous authorization, models 55 and 65, no voiding of
-//! number ranges, no contingency, no DANFE.
+//! number ranges, no contingency, no DANFE. The sandbox also explains failures and reproduces
+//! field problems offline: see [`sandbox`].
 //!
 //! Everything that leaves goes through [`Transport`]. [`sandbox::SefazSandbox`] replaces it with a
 //! local SEFAZ that really checks what arrives; the emitter does not know the difference.
@@ -77,6 +78,7 @@ pub mod c14n;
 pub mod chave;
 pub mod documento;
 mod emissor;
+pub mod entrada;
 mod error;
 pub mod modelo;
 pub mod retorno;
@@ -91,17 +93,18 @@ pub mod xml;
 pub mod http;
 
 pub use ambiente::{Ambiente, BetaAck, Modelo, Origem, Uf};
-pub use assinatura::{FalhaAssinatura, RsaSigner, Signer};
+pub use assinatura::{FalhaAssinatura, HashAssinatura, RsaSigner, Signer};
 pub use chave::ChaveAcesso;
-pub use documento::QrCode;
+pub use documento::{QrCode, TipoManifestacao};
 pub use emissor::{Cancelamento, Documento, Emissao, Emissor, EmissorBuilder};
 pub use error::NfeError;
 pub use modelo::{
-    Csosn, Destinatario, DocumentoDestinatario, Emitente, Endereco, FormaPagamento, Item, Pagamento,
-    Rascunho, ResponsavelTecnico,
+    Cartao, Csosn, Destinatario, DocumentoDestinatario, Emitente, Endereco, FormaPagamento, Item, Pagamento,
+    Rascunho, ResponsavelTecnico, TipoIntegracao,
 };
 pub use retorno::{
-    Autorizacao, ConsultaProtocolo, Protocolo, Retorno, RetornoEvento, Situacao, StatusServico,
+    Autorizacao, ConsultaProtocolo, DocumentoDfe, LoteDfe, Protocolo, Retorno, RetornoEvento, Situacao,
+    StatusServico,
 };
 pub use rust_decimal::Decimal;
 pub use soap::Servico;

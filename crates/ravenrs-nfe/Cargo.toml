@@ -12,7 +12,7 @@ readme = "README.md"
 documentation = "https://docs.rs/ravenrs-nfe"
 keywords = ["nfe", "nfce", "sefaz", "xmldsig", "brazil"]
 categories = ["encoding"]
-include = ["src/**", "fixtures/sandbox-*.pem", "README.md", "REGRAS.md", "Cargo.toml"]
+include = ["src/**", "fixtures/laboratorio/*.pem", "README.md", "REGRAS.md", "Cargo.toml"]
 
 [features]
 # Real network: HttpTransport with a client certificate. Only exists on native targets.
@@ -24,8 +24,10 @@ quick-xml = { version = "0.41", default-features = false }
 rust_decimal = { version = "1", default-features = false, features = ["std"] }
 sha1 = { version = "0.10", default-features = false, features = ["std", "oid"] }
 # Without "std": it would bring a random source that WebAssembly does not have, and signing needs none.
-rsa = { version = "0.9", default-features = false, features = ["pem", "sha1"] }
+rsa = { version = "0.9", default-features = false, features = ["pem", "sha1", "sha2"] }
 base64 = "0.23"
+serde_json.workspace = true
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ureq = { version = "3.5", default-features = false, features = ["rustls"], optional = true }

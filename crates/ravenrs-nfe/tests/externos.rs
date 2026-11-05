@@ -13,9 +13,14 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use comum::*;
 use ravenrs_nfe::c14n::canonicalize_document;
-use ravenrs_nfe::sandbox::{CERTIFICADO_PEM, SandboxSigner, SefazSandbox, cenarios, status};
+use ravenrs_nfe::entrada::ler_nota_recebida;
+use ravenrs_nfe::sandbox::certificados::pem_certificado;
+use ravenrs_nfe::sandbox::{Fornecedor, Instante, RelogioControlado, gerar_nota_de_compra};
+use ravenrs_nfe::sandbox::{SandboxSigner, SefazSandbox, cenarios, status};
 use ravenrs_nfe::xml::{parse, parse_document, to_string};
-use ravenrs_nfe::{Cancelamento, Modelo, Signer, Transport};
+use ravenrs_nfe::{
+    Cancelamento, Cartao, ChaveAcesso, FormaPagamento, Modelo, Rascunho, Signer, TipoManifestacao, Transport,
+};
 
 fn ferramenta(nome: &str, ajuda: &str) -> Option<PathBuf> {
     let candidato = std::env::var_os(format!("{}_BIN", nome.to_uppercase()))
@@ -107,7 +112,8 @@ fn digest_and_signature_verify_with_xmllint_and_openssl() {
     std::fs::write(&assinatura, STANDARD.decode(valor).expect("base64")).expect("write");
 
     let certificado = pasta.join("cert.pem");
-    std::fs::write(&certificado, CERTIFICADO_PEM).expect("write");
+    let certificado_pem = pem_certificado(SandboxSigner::new().expect("signer").certificate_der());
+    std::fs::write(&certificado, certificado_pem).expect("write");
     let chave_publica = pasta.join("pub.pem");
     let saida = Command::new(&openssl)
         .args(["x509", "-pubkey", "-noout", "-in"])
@@ -259,6 +265,75 @@ fn everything_written_passes_the_official_schema() {
     assert_eq!(c_stat(&rejeitada), 297);
     let texto = String::from_utf8(rejeitada.body).expect("utf-8");
     validar(&xmllint, &schemas, "retEnviNFe_v4.00.xsd", &pasta, "r-297.xml", &interno(&texto, "retEnviNFe"));
+
+    // The card group, in every form that may carry it, and Pix with the group filled by default.
+    let com_card = Rascunho::novo(Modelo::Nfce65, 1, proximo_numero(), "VENDA", AGORA)
+        .com_item(item("1", "1", "60", "0"))
+        .com_pagamento_cartao(
+            FormaPagamento::CartaoCredito,
+            d("10"),
+            Cartao {
+                bandeira: Some("01".into()),
+                cnpj_recebedor: Some("11222333000181".into()),
+                terminal: Some("PINPAD-01".into()),
+                ..Cartao::integrado("11222333000181", "123456")
+            },
+        )
+        .com_pagamento(FormaPagamento::Pix, d("10"))
+        .com_pagamento_cartao(FormaPagamento::Boleto, d("10"), Cartao::nao_integrado())
+        .com_pagamento_cartao(FormaPagamento::ValeRefeicao, d("10"), Cartao::nao_integrado())
+        .com_pagamento(FormaPagamento::CartaoDebito, d("10"))
+        .com_pagamento(FormaPagamento::Dinheiro, d("10"));
+    let nota_card = emissor_com(&SefazSandbox::new(), "11222333000181").preparar(&com_card).expect("card");
+    assert!(nota_card.xml.contains("<tPag>17</tPag><vPag>10.00</vPag><card><tpIntegra>2</tpIntegra></card>"));
+    validar(&xmllint, &schemas, "nfe_v4.00.xsd", &pasta, "card.xml", &nota_card.xml);
+
+    // The national environment.
+    let nacional = SefazSandbox::new();
+    let compra = gerar_nota_de_compra(
+        &Fornecedor::novo("DISTRIBUIDORA TESTE SA", "04252011000110", "11222333000181"),
+        vec![item("A1", "2", "10.50", "1.00")],
+    )
+    .expect("purchase");
+    validar(&xmllint, &schemas, "nfe_v4.00.xsd", &pasta, "compra.xml", recortar(&compra, "<NFe ", "</NFe>"));
+    nacional.colocar_nota_recebida(&compra).expect("placed");
+    let relogio = RelogioControlado::em(Instante::de_xml(AGORA).expect("moment"));
+    nacional.usar_relogio(&relogio);
+    let cliente = emissor_com(&nacional, "11222333000181");
+    let lote = cliente.buscar_documentos(0).expect("query");
+    validar(&xmllint, &schemas, "resNFe_v1.01.xsd", &pasta, "resumo.xml", &lote.documentos[0].xml);
+    let chave = ChaveAcesso::parse(&ler_nota_recebida(&compra).expect("read").chave).expect("key");
+    let ciencia = cliente.manifestar(&chave, TipoManifestacao::Ciencia, None, AGORA).expect("event");
+    assert_eq!(ciencia.c_stat, 135, "{}", ciencia.x_motivo);
+    let chamadas = nacional.requests();
+    validar(
+        &xmllint,
+        &schemas,
+        "distDFeInt_v1.01.xsd",
+        &pasta,
+        "dist.xml",
+        &interno(chamadas[0].body(), "distDFeInt"),
+    );
+    validar(
+        &xmllint,
+        &schemas,
+        "envConfRecebto_v1.00.xsd",
+        &pasta,
+        "manifesto.xml",
+        &interno(chamadas[1].body(), "envEvento"),
+    );
+    let eco = SefazSandbox::new();
+    eco.colocar_nota_recebida(&compra).expect("placed");
+    let resposta = eco.send(&chamadas[0].http).expect("answer");
+    let texto = String::from_utf8(resposta.body).expect("utf-8");
+    validar(
+        &xmllint,
+        &schemas,
+        "retDistDFeInt_v1.01.xsd",
+        &pasta,
+        "r-dist.xml",
+        &interno(&texto, "retDistDFeInt"),
+    );
 
     replay.use_once(status(cenarios::paralisado_108));
     let parado = replay.send(&pedidos[0].http).expect("answer");

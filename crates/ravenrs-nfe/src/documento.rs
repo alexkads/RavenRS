@@ -10,8 +10,9 @@ use crate::ambiente::{Ambiente, Modelo, Uf};
 use crate::chave::{CamposChave, ChaveAcesso};
 use crate::error::NfeError;
 use crate::modelo::{
-    Csosn, Destinatario, DocumentoDestinatario, Emitente, Endereco, FormaPagamento, Item, Rascunho,
-    TEXTO_HOMOLOGACAO_DESTINATARIO, TEXTO_HOMOLOGACAO_ITEM, TEXTO_POC_BETA,
+    Cartao, Csosn, Destinatario, DocumentoDestinatario, Emitente, Endereco, FormaPagamento, Item, Rascunho,
+    TEXTO_HOMOLOGACAO_DESTINATARIO, TEXTO_HOMOLOGACAO_ITEM, TEXTO_POC_BETA, TipoIntegracao,
+    codigo_numerico_aceito,
 };
 use crate::soap::NS_NFE;
 use crate::totais::Totais;
@@ -95,7 +96,11 @@ pub fn codigo_numerico(rascunho: &Rascunho, cnpj: &str) -> String {
     );
     let hash = Sha1::digest(semente.as_bytes());
     let valor = u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]]) % 100_000_000;
-    let valor = if valor == rascunho.numero { (valor + 1) % 100_000_000 } else { valor };
+    // Rule B03-10: step away from a forbidden value or from nNF, still deterministically.
+    let mut valor = valor;
+    while !codigo_numerico_aceito(&format!("{valor:08}"), rascunho.numero) {
+        valor = (valor + 1) % 100_000_000;
+    }
     format!("{valor:08}")
 }
 
@@ -259,9 +264,10 @@ fn escrever_dest(out: &mut String, destinatario: &Destinatario, modelo: Modelo) 
     match modelo {
         // Both environments of this crate are tpAmb=2, so the required text is always the one.
         Modelo::Nfe55 => tag(out, "xNome", TEXTO_HOMOLOGACAO_DESTINATARIO),
+        // Rule E04-20 covers models 55 and 65: when the NFC-e informs a name, it is this text too.
         Modelo::Nfce65 => {
-            if let Some(nome) = &destinatario.nome {
-                tag(out, "xNome", nome);
+            if destinatario.nome.is_some() {
+                tag(out, "xNome", TEXTO_HOMOLOGACAO_DESTINATARIO);
             }
         }
     }
@@ -357,12 +363,11 @@ fn escrever_pag(out: &mut String, entrada: &Entrada<'_>) {
             tag(out, "xPag", "OUTROS");
         }
         tag(out, "vPag", &dinheiro(pagamento.valor));
-        if matches!(
-            pagamento.forma,
-            FormaPagamento::CartaoCredito | FormaPagamento::CartaoDebito | FormaPagamento::Pix
-        ) {
-            // 2: the payment did not go through the emitter's own integration.
-            out.push_str("<card><tpIntegra>2</tpIntegra></card>");
+        match &pagamento.card {
+            Some(card) => escrever_card(out, card),
+            // Rule YA04-10 asks the group; 2 says the payment did not go through the system.
+            None if pagamento.forma.exige_card() => escrever_card(out, &Cartao::nao_integrado()),
+            None => {}
         }
         close(out, "detPag");
     }
@@ -370,6 +375,31 @@ fn escrever_pag(out: &mut String, entrada: &Entrada<'_>) {
         tag(out, "vTroco", &dinheiro(entrada.totais.v_troco));
     }
     close(out, "pag");
+}
+
+fn escrever_card(out: &mut String, card: &Cartao) {
+    open(out, "card");
+    let integracao = match card.integracao {
+        TipoIntegracao::Integrado => "1",
+        TipoIntegracao::NaoIntegrado => "2",
+    };
+    tag(out, "tpIntegra", integracao);
+    if let Some(cnpj) = &card.cnpj {
+        tag(out, "CNPJ", cnpj);
+    }
+    if let Some(bandeira) = &card.bandeira {
+        tag(out, "tBand", bandeira);
+    }
+    if let Some(autorizacao) = &card.autorizacao {
+        tag(out, "cAut", autorizacao);
+    }
+    if let Some(cnpj) = &card.cnpj_recebedor {
+        tag(out, "CNPJReceb", cnpj);
+    }
+    if let Some(terminal) = &card.terminal {
+        tag(out, "idTermPag", terminal);
+    }
+    close(out, "card");
 }
 
 fn escrever_inf_adic(out: &mut String, rascunho: &Rascunho) {
@@ -458,6 +488,107 @@ pub(crate) fn evento_cancelamento(dados: &DadosCancelamento<'_>) -> String {
 pub fn lote_evento(id_lote: u64, evento_assinado: &str) -> String {
     format!(
         "<envEvento xmlns=\"{NS_NFE}\" versao=\"1.00\"><idLote>{id_lote}</idLote>{evento_assinado}</envEvento>"
+    )
+}
+
+/// The kinds of the recipient's manifestation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TipoManifestacao {
+    /// 210200: the operation happened as described.
+    Confirmacao,
+    /// 210210: the recipient knows the document exists, and may then download it.
+    Ciencia,
+    /// 210220: the recipient does not recognize the operation.
+    Desconhecimento,
+    /// 210240: the operation did not happen, with a justification.
+    NaoRealizada,
+}
+
+impl TipoManifestacao {
+    /// `tpEvento`.
+    #[must_use]
+    pub const fn codigo(self) -> &'static str {
+        match self {
+            Self::Confirmacao => "210200",
+            Self::Ciencia => "210210",
+            Self::Desconhecimento => "210220",
+            Self::NaoRealizada => "210240",
+        }
+    }
+
+    /// `descEvento`, as the schema spells it.
+    #[must_use]
+    pub const fn descricao(self) -> &'static str {
+        match self {
+            Self::Confirmacao => "Confirmacao da Operacao",
+            Self::Ciencia => "Ciencia da Operacao",
+            Self::Desconhecimento => "Desconhecimento da Operacao",
+            Self::NaoRealizada => "Operacao nao Realizada",
+        }
+    }
+
+    /// The kind of a `tpEvento`.
+    #[must_use]
+    pub fn de_codigo(codigo: &str) -> Option<Self> {
+        [Self::Confirmacao, Self::Ciencia, Self::Desconhecimento, Self::NaoRealizada]
+            .into_iter()
+            .find(|tipo| tipo.codigo() == codigo)
+    }
+}
+
+/// The IBGE-style code of the national environment, `cOrgao` of a manifestation.
+pub const C_ORGAO_NACIONAL: &str = "91";
+
+/// Writes the `evento` of a manifestation, without its signature.
+pub(crate) fn evento_manifestacao(
+    ambiente: Ambiente,
+    cnpj: &str,
+    chave: &ChaveAcesso,
+    tipo: TipoManifestacao,
+    justificativa: Option<&str>,
+    quando: &str,
+) -> String {
+    let mut out = String::with_capacity(512);
+    out.push_str("<evento xmlns=\"");
+    out.push_str(NS_NFE);
+    out.push_str("\" versao=\"1.00\"><infEvento Id=\"ID");
+    out.push_str(tipo.codigo());
+    out.push_str(chave.as_str());
+    out.push_str("01\">");
+    tag(&mut out, "cOrgao", C_ORGAO_NACIONAL);
+    tag(&mut out, "tpAmb", ambiente.tp_amb());
+    tag(&mut out, "CNPJ", cnpj);
+    tag(&mut out, "chNFe", chave.as_str());
+    tag(&mut out, "dhEvento", quando);
+    tag(&mut out, "tpEvento", tipo.codigo());
+    tag(&mut out, "nSeqEvento", "1");
+    tag(&mut out, "verEvento", "1.00");
+    out.push_str("<detEvento versao=\"1.00\">");
+    tag(&mut out, "descEvento", tipo.descricao());
+    if let Some(justificativa) = justificativa {
+        tag(&mut out, "xJust", justificativa);
+    }
+    out.push_str("</detEvento></infEvento></evento>");
+    out
+}
+
+/// The message asking for documents after this NSU.
+#[must_use]
+pub fn dist_por_nsu(ambiente: Ambiente, uf: Uf, cnpj: &str, ultimo_nsu: u64) -> String {
+    format!(
+        "<distDFeInt xmlns=\"{NS_NFE}\" versao=\"1.01\"><tpAmb>{}</tpAmb><cUFAutor>{}</cUFAutor><CNPJ>{cnpj}</CNPJ><distNSU><ultNSU>{ultimo_nsu:015}</ultNSU></distNSU></distDFeInt>",
+        ambiente.tp_amb(),
+        uf.codigo_ibge()
+    )
+}
+
+/// The message asking for a document by its key.
+#[must_use]
+pub fn dist_por_chave(ambiente: Ambiente, uf: Uf, cnpj: &str, chave: &ChaveAcesso) -> String {
+    format!(
+        "<distDFeInt xmlns=\"{NS_NFE}\" versao=\"1.01\"><tpAmb>{}</tpAmb><cUFAutor>{}</cUFAutor><CNPJ>{cnpj}</CNPJ><consChNFe><chNFe>{chave}</chNFe></consChNFe></distDFeInt>",
+        ambiente.tp_amb(),
+        uf.codigo_ibge()
     )
 }
 

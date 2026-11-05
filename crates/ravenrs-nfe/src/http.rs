@@ -19,6 +19,7 @@ use zeroize::{Zeroize, Zeroizing};
 
 use crate::assinatura::{RsaSigner, Signer};
 use crate::error::NfeError;
+use crate::sandbox::certificados::eh_do_laboratorio;
 use crate::transporte::{HttpRequest, HttpResponse, Transport, TransportError};
 
 /// The largest response read, far above any return of these services.
@@ -33,6 +34,12 @@ impl SenhaA1 {
     #[must_use]
     pub fn new(senha: impl Into<String>) -> Self {
         Self(senha.into())
+    }
+}
+
+impl SenhaA1 {
+    pub(crate) fn expor(&self) -> &str {
+        &self.0
     }
 }
 
@@ -124,6 +131,12 @@ impl HttpTransportBuilder<'_> {
 
     /// Finishes the transport. Having no root is an error: nothing here trusts by default.
     pub fn build(self) -> Result<HttpTransport, NfeError> {
+        if self.certificado.cadeia.iter().any(|der| eh_do_laboratorio(der)) {
+            return Err(NfeError::Configuracao(
+                "este certificado foi gerado pelo sandbox e não vale fora do laboratório: use um certificado ICP-Brasil real"
+                    .to_string(),
+            ));
+        }
         let pem = self.raizes.ok_or_else(|| {
             NfeError::Configuracao("informe as raízes confiáveis (cadeia ICP-Brasil)".to_string())
         })?;

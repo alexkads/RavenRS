@@ -163,8 +163,8 @@ fn same_number_with_another_key_gives_539() {
     let server = SefazSandbox::new();
     let emissor = emissor(&server);
     let numero = proximo_numero();
-    let primeira = Rascunho { codigo_numerico: Some("00000001".into()), ..nfce(numero) };
-    let segunda = Rascunho { codigo_numerico: Some("00000002".into()), ..nfce(numero) };
+    let primeira = Rascunho { codigo_numerico: Some("10000001".into()), ..nfce(numero) };
+    let segunda = Rascunho { codigo_numerico: Some("10000002".into()), ..nfce(numero) };
     assert_eq!(emissor.emitir(&primeira).expect("first").autorizacao.c_stat(), 100);
     let retorno = emissor.emitir(&segunda).expect("second").autorizacao;
     assert_eq!(retorno.c_stat(), 539);
@@ -241,7 +241,9 @@ fn wrong_check_digit_gives_253_and_broken_concatenation_502() {
     let digito: u8 = documento.chave.dv().parse().expect("digit");
     let chave_errada = format!("{}{}", &chave[..43], (digito + 1) % 10);
     let id = format!("NFe{chave_errada}");
-    let xml = sem_assinatura(&documento.xml).replace(&chave, &chave_errada);
+    let xml = sem_assinatura(&documento.xml)
+        .replace(&chave, &chave_errada)
+        .replace(&format!("<cDV>{digito}</cDV>"), &format!("<cDV>{}</cDV>", (digito + 1) % 10));
     let assinado =
         ravenrs_nfe::assinatura::sign_enveloped(&xml, "NFe", &id, &SandboxSigner::new().expect("signer"))
             .expect("signed");
@@ -448,7 +450,8 @@ fn cancellation_flow() {
     assert_eq!(retorno.ch_nfe.as_deref(), Some(chave.as_str()));
 
     assert_eq!(emissor.consultar(&chave).expect("query").retorno.c_stat, 101);
-    assert_eq!(emissor.cancelar(&cancelamento(&chave, &protocolo)).expect("again").c_stat, 573);
+    // By the order of Table 5-38 of the MOC, "already cancelled" (580) comes before "duplicate" (573).
+    assert_eq!(emissor.cancelar(&cancelamento(&chave, &protocolo)).expect("again").c_stat, 580);
 
     let outra = emissor.preparar(&nfce(proximo_numero())).expect("other");
     let inexistente = emissor.cancelar(&cancelamento(&outra.chave, &protocolo)).expect("unknown");
@@ -616,10 +619,15 @@ fn sandbox_environment_refuses_a_transport_that_reaches_the_network() {
         .build();
     assert!(matches!(resultado, Err(NfeError::Configuracao(_))));
 
+    let externo = ravenrs_nfe::RsaSigner::from_pem(
+        include_str!("../fixtures/laboratorio/externo-cert.pem"),
+        include_str!("../fixtures/laboratorio/externo-key.pem"),
+    )
+    .expect("signer");
     let homologacao = Emissor::builder(BetaAck::i_understand_this_is_experimental())
         .ambiente(Ambiente::Homologacao)
         .emitente(emitente("11222333000181"))
-        .signer(SandboxSigner::new().expect("signer"))
+        .signer(externo)
         .transport(Eco)
         .build()
         .expect("emitter");

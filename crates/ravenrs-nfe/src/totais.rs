@@ -5,19 +5,20 @@
 //! - `vProd` of a line is `qCom * vUnCom`, rounded to 2 places with half away from zero.
 //! - The totals `vProd` and `vDesc` are the sum of the lines, so they never round again.
 //! - `vNF` is `vProd - vDesc`: freight, insurance, others, ST, IPI and II do not exist in this POC.
-//! - `vTroco` is what was paid above `vNF`, and paying less than `vNF` is refused.
+//! - `vTroco` is what was paid above `vNF`. Paying less is refused, except with `tPag=90`.
 //! - A value with more places than the layout allows is refused, never rounded in silence.
 //!
-//! # Without a source
+//! # Sources
 //!
-//! The official MOC could not be read during the POC. The midpoint rule and the tolerance the
-//! SEFAZ applies to rejections 629 and 610 stay unconfirmed: third-party pages disagree on the
-//! tolerance. This crate needs none, because it writes exact values. See `REGRAS.md`.
+//! MOC 7.0, Anexo I: rules I11-10 (with a tolerance of R$ 0.01 and "rounded to two places"), W07-10,
+//! W10-10, W16-10 (tolerance of R$ 0.50), YA03-10 and YA09-10. The MOC does not say how the midpoint
+//! rounds; half away from zero is a choice here. This crate writes exact values, so it needs no
+//! tolerance; the sandbox applies them, as the rules say.
 
 use rust_decimal::{Decimal, RoundingStrategy};
 
 use crate::error::NfeError;
-use crate::modelo::{Item, Rascunho};
+use crate::modelo::{FormaPagamento, Item, Rascunho};
 
 /// The calculated values of one line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -98,10 +99,13 @@ pub fn calcular(rascunho: &Rascunho) -> Result<Totais, NfeError> {
         exigir_casas("vPag", pagamento.valor, 2)?;
         v_pago = v_pago.checked_add(pagamento.valor).ok_or_else(|| estouro("vPag"))?;
     }
-    if v_pago < v_nf {
+    let sem_pagamento =
+        rascunho.pagamentos.iter().any(|pagamento| pagamento.forma == FormaPagamento::SemPagamento);
+    if v_pago < v_nf && !sem_pagamento {
         return Err(NfeError::validacao("vPag", "os pagamentos não cobrem o total da nota"));
     }
-    Ok(Totais { itens, v_prod, v_desc, v_nf, v_pago, v_troco: v_pago - v_nf })
+    let v_troco = if v_pago > v_nf { v_pago - v_nf } else { Decimal::ZERO };
+    Ok(Totais { itens, v_prod, v_desc, v_nf, v_pago, v_troco })
 }
 
 #[cfg(test)]
@@ -110,7 +114,7 @@ mod tests {
 
     use super::*;
     use crate::ambiente::Modelo;
-    use crate::modelo::{Csosn, FormaPagamento};
+    use crate::modelo::Csosn;
 
     fn d(texto: &str) -> Decimal {
         Decimal::from_str(texto).expect("decimal")

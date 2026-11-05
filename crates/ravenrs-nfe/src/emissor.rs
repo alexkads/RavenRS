@@ -1,7 +1,8 @@
 //! The emitter: from a draft to a signed document, and from there to the services.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
 
 use ravenrs_barcode::{Pattern, Symbology};
 use rust_decimal::Decimal;
@@ -9,14 +10,19 @@ use rust_decimal::Decimal;
 use crate::ambiente::{Ambiente, BetaAck, Modelo, Origem};
 use crate::assinatura::{Signer, sign_enveloped};
 use crate::chave::ChaveAcesso;
-use crate::documento::{self, DadosCancelamento, Entrada, QrCode};
+use crate::documento::{self, DadosCancelamento, Entrada, QrCode, TipoManifestacao};
 use crate::error::NfeError;
 use crate::modelo::{Emitente, Rascunho, validar_data_hora};
-use crate::retorno::{self, Autorizacao, ConsultaProtocolo, RetornoEvento, StatusServico};
+use crate::retorno::{self, Autorizacao, ConsultaProtocolo, LoteDfe, RetornoEvento, StatusServico};
+use crate::sandbox::certificados::eh_do_laboratorio;
+use crate::sandbox::tempo::{Instante, RelogioControlado};
 use crate::soap::{self, Servico};
 use crate::totais::{self, Totais};
 use crate::transporte::Transport;
 use crate::urls;
+
+/// How long to wait after nothing was found: NT 2014.002, item 3.11.4.
+const ESPERA_NACIONAL: Duration = Duration::from_secs(3600);
 
 /// A signed document, ready to send, with what the application keeps of it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -86,6 +92,7 @@ pub struct EmissorBuilder {
     transport: Option<Arc<dyn Transport>>,
     qr_code: QrCode,
     url_consulta: Option<String>,
+    relogio: Option<RelogioControlado>,
 }
 
 impl std::fmt::Debug for EmissorBuilder {
@@ -137,7 +144,16 @@ impl EmissorBuilder {
         self
     }
 
-    /// Finishes the emitter, refusing a sandbox whose transport would reach the network.
+    /// Reads the time from this clock, for the limiter of the national environment.
+    /// Without one it reads the system clock; in WebAssembly there the limiter cannot count hours.
+    #[must_use]
+    pub fn relogio(mut self, relogio: RelogioControlado) -> Self {
+        self.relogio = Some(relogio);
+        self
+    }
+
+    /// Finishes the emitter, refusing a sandbox whose transport would reach the network, and a
+    /// certificate of the laboratory on the way to a real server.
     pub fn build(self) -> Result<Emissor, NfeError> {
         let emitente =
             self.emitente.ok_or_else(|| NfeError::Configuracao("emitente não informado".to_string()))?;
@@ -149,6 +165,12 @@ impl EmissorBuilder {
         if self.ambiente == Ambiente::Sandbox && !transport.intercepta() {
             return Err(NfeError::Configuracao(
                 "no ambiente Sandbox nenhuma nota pode sair daqui: use SefazSandbox como transporte"
+                    .to_string(),
+            ));
+        }
+        if self.ambiente == Ambiente::Homologacao && eh_do_laboratorio(signer.certificate_der()) {
+            return Err(NfeError::Configuracao(
+                "este certificado foi gerado pelo sandbox e não vale fora do laboratório: use um certificado ICP-Brasil real em homologação"
                     .to_string(),
             ));
         }
@@ -165,6 +187,8 @@ impl EmissorBuilder {
             qr_code: self.qr_code,
             url_consulta: self.url_consulta,
             proximo_lote: AtomicU64::new(1),
+            relogio: self.relogio,
+            proxima_consulta: Mutex::new(None),
         })
     }
 }
@@ -178,6 +202,8 @@ pub struct Emissor {
     qr_code: QrCode,
     url_consulta: Option<String>,
     proximo_lote: AtomicU64,
+    relogio: Option<RelogioControlado>,
+    proxima_consulta: Mutex<Option<Instante>>,
 }
 
 impl std::fmt::Debug for Emissor {
@@ -204,6 +230,7 @@ impl Emissor {
             transport: None,
             qr_code: QrCode::V3,
             url_consulta: None,
+            relogio: None,
         }
     }
 
@@ -301,6 +328,106 @@ impl Emissor {
         let dados = documento::lote_evento(self.novo_lote(), &assinado);
         let resposta = self.enviar(modelo_da_chave(chave), Servico::Evento, &dados)?;
         retorno::ler_evento(&resposta)
+    }
+
+    /// Fetches the documents after this NSU from the national environment.
+    ///
+    /// Holds the query back, with [`NfeError::ConsultaAdiantada`], if the last answer asked to wait
+    /// one hour; that avoids rejection 656, which blocks the CNPJ. A `resNFe` is only a summary:
+    /// register [`TipoManifestacao::Ciencia`] with [`Self::manifestar`] and fetch again.
+    pub fn buscar_documentos(&self, ultimo_nsu: u64) -> Result<LoteDfe, NfeError> {
+        let agora = self.agora();
+        {
+            let proxima = self.proxima_consulta.lock().unwrap_or_else(PoisonError::into_inner);
+            if let (Some(proxima), Some(agora)) = (*proxima, agora)
+                && agora < proxima
+            {
+                return Err(NfeError::ConsultaAdiantada { proxima: proxima.para_xml() });
+            }
+        }
+        let dados = documento::dist_por_nsu(
+            self.ambiente,
+            self.emitente.endereco.uf,
+            &self.emitente.cnpj,
+            ultimo_nsu,
+        );
+        let lote = self.distribuir(&dados)?;
+        if lote.sem_novidade() || lote.c_stat == 656 {
+            let mut proxima = self.proxima_consulta.lock().unwrap_or_else(PoisonError::into_inner);
+            *proxima = agora.map(|momento| momento.depois(ESPERA_NACIONAL));
+        }
+        Ok(lote)
+    }
+
+    /// Fetches one document by its key. It comes as a summary until a manifestation releases it.
+    pub fn baixar_por_chave(&self, chave: &ChaveAcesso) -> Result<LoteDfe, NfeError> {
+        let dados =
+            documento::dist_por_chave(self.ambiente, self.emitente.endereco.uf, &self.emitente.cnpj, chave);
+        self.distribuir(&dados)
+    }
+
+    /// When the next [`Self::buscar_documentos`] may run; `None` means it may run now.
+    #[must_use]
+    pub fn proxima_consulta_em(&self) -> Option<Instante> {
+        let proxima = *self.proxima_consulta.lock().unwrap_or_else(PoisonError::into_inner);
+        match (proxima, self.agora()) {
+            (Some(proxima), Some(agora)) if agora >= proxima => None,
+            (proxima, _) => proxima,
+        }
+    }
+
+    /// Registers the recipient's manifestation at the national environment.
+    pub fn manifestar(
+        &self,
+        chave: &ChaveAcesso,
+        tipo: TipoManifestacao,
+        justificativa: Option<&str>,
+        quando: &str,
+    ) -> Result<RetornoEvento, NfeError> {
+        validar_data_hora(quando)?;
+        if tipo == TipoManifestacao::NaoRealizada
+            && !justificativa.is_some_and(|texto| (15..=255).contains(&texto.chars().count()))
+        {
+            return Err(NfeError::validacao("xJust", "de 15 a 255 caracteres"));
+        }
+        let evento = documento::evento_manifestacao(
+            self.ambiente,
+            &self.emitente.cnpj,
+            chave,
+            tipo,
+            justificativa,
+            quando,
+        );
+        let id = format!("ID{}{chave}01", tipo.codigo());
+        let assinado = sign_enveloped(&evento, "evento", &id, self.signer.as_ref())?;
+        let dados = documento::lote_evento(self.novo_lote(), &assinado);
+        let pedido = soap::request(Servico::Evento, urls::URL_EVENTO_NACIONAL, &dados);
+        let resposta = self.transport.send(&pedido)?;
+        retorno::ler_evento(&resposta)
+    }
+
+    fn distribuir(&self, dados: &str) -> Result<LoteDfe, NfeError> {
+        let pedido = soap::request(Servico::Distribuicao, urls::URL_DISTRIBUICAO, dados);
+        let resposta = self.transport.send(&pedido)?;
+        retorno::ler_distribuicao(&resposta)
+    }
+
+    fn agora(&self) -> Option<Instante> {
+        if let Some(relogio) = &self.relogio {
+            return Some(relogio.agora());
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let segundos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .and_then(|tempo| i64::try_from(tempo.as_secs()).ok())?;
+            Some(Instante(segundos))
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            None
+        }
     }
 
     fn novo_lote(&self) -> u64 {

@@ -1,0 +1,11 @@
+{
+  "id": "ingenico.lane-3000.pinpad",
+  "versao": "1.0.0",
+  "tipo": "pinpad",
+  "fabricante": "Ingenico",
+  "modelos": [{ "nome": "Ingenico Lane 3000", "variacoes": ["Escrito também Lane3000"] }],
+  "conexoes": ["usb", "serial"],
+  "protocolo": { "nome": "abecs", "versao": "2.20" },
+  "situacao": { "estado": "presumido" },
+  "observacoes": "Só exibição e coleta sem chave da adquirente: a transação com cartão fica com o software de TEF. A folha da Ingenico confirma USB, serial e tela, mas não cita ABECS. O uso de ABECS e a versão 2.20 são presumidos."
+}

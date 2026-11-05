@@ -18,8 +18,10 @@ pub enum Servico {
     Autorizacao,
     /// `NFeConsultaProtocolo4`: the situation of a key.
     Consulta,
-    /// `NFeRecepcaoEvento4`: events, of which only cancellation is used.
+    /// `NFeRecepcaoEvento4`: cancellation, and the recipient's manifestation.
     Evento,
+    /// `NFeDistribuicaoDFe`: documents of interest, at the national environment.
+    Distribuicao,
 }
 
 impl Servico {
@@ -31,6 +33,7 @@ impl Servico {
             Self::Autorizacao => "NFeAutorizacao4",
             Self::Consulta => "NFeConsultaProtocolo4",
             Self::Evento => "NFeRecepcaoEvento4",
+            Self::Distribuicao => "NFeDistribuicaoDFe",
         }
     }
 
@@ -42,6 +45,7 @@ impl Servico {
             Self::Autorizacao => "nfeAutorizacaoLote",
             Self::Consulta => "nfeConsultaNF",
             Self::Evento => "nfeRecepcaoEvento",
+            Self::Distribuicao => "nfeDistDFeInteresse",
         }
     }
 
@@ -66,7 +70,7 @@ impl Servico {
     /// Finds the service of an action.
     #[must_use]
     pub fn from_acao(acao: &str) -> Option<Self> {
-        [Self::Status, Self::Autorizacao, Self::Consulta, Self::Evento]
+        [Self::Status, Self::Autorizacao, Self::Consulta, Self::Evento, Self::Distribuicao]
             .into_iter()
             .find(|servico| servico.acao() == acao)
     }
@@ -82,11 +86,22 @@ pub fn acao_do_content_type(content_type: &str) -> Option<&str> {
 }
 
 /// Wraps a message in the envelope of a service.
+///
+/// `NFeDistribuicaoDFe` wraps `nfeDadosMsg` in an element named after the operation, unlike the
+/// other four. That comes from memory of its WSDL, not from a document read; see `REGRAS.md`.
 #[must_use]
 pub fn envelope(servico: Servico, dados: &str) -> String {
+    let corpo = if servico == Servico::Distribuicao {
+        format!(
+            "<{op} xmlns=\"{ns}\"><nfeDadosMsg>{dados}</nfeDadosMsg></{op}>",
+            op = servico.operacao(),
+            ns = servico.namespace()
+        )
+    } else {
+        format!("<nfeDadosMsg xmlns=\"{}\">{dados}</nfeDadosMsg>", servico.namespace())
+    };
     format!(
-        "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap12:Envelope xmlns:soap12=\"{NS_SOAP12}\"><soap12:Body><nfeDadosMsg xmlns=\"{}\">{dados}</nfeDadosMsg></soap12:Body></soap12:Envelope>",
-        servico.namespace()
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap12:Envelope xmlns:soap12=\"{NS_SOAP12}\"><soap12:Body>{corpo}</soap12:Body></soap12:Envelope>"
     )
 }
 

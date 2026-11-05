@@ -17,6 +17,7 @@ categories = ["encoding"]
 ravenrs-core.workspace = true
 ravenrs-text.workspace = true
 ravenrs-report.workspace = true
+ravenrs-perifericos.workspace = true
 swash.workspace = true
 image.workspace = true
 

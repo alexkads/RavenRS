@@ -8,6 +8,7 @@
 //!
 //! # Not checked
 //!
+//! - The national environment comes from the entry `AN` of the same table.
 //! - None of them was called: that needs an A1 certificate and an accredited taxpayer.
 //! - The official list of states served by SVRS was not read. SC, RJ, ES and DF go to SVRS because
 //!   the two tables give them no address of their own.
@@ -38,6 +39,14 @@ const fn autorizador(uf: Uf) -> Autorizador {
     }
 }
 
+/// The national environment in homologation: distribution of documents.
+pub const URL_DISTRIBUICAO: &str =
+    "https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx";
+
+/// The national environment in homologation: events of the recipient's manifestation.
+pub const URL_EVENTO_NACIONAL: &str =
+    "https://hom1.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx";
+
 /// The address of a service in homologation.
 #[must_use]
 pub const fn url_servico(uf: Uf, modelo: Modelo, servico: Servico) -> &'static str {
@@ -45,6 +54,7 @@ pub const fn url_servico(uf: Uf, modelo: Modelo, servico: Servico) -> &'static s
     use Modelo::{Nfce65 as C, Nfe55 as E};
     use Servico as S;
     match (autorizador(uf), modelo, servico) {
+        (_, _, S::Distribuicao) => URL_DISTRIBUICAO,
         (A::Sp, E, S::Status) => "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfestatusservico4.asmx",
         (A::Sp, E, S::Autorizacao) => "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx",
         (A::Sp, E, S::Consulta) => "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeconsultaprotocolo4.asmx",

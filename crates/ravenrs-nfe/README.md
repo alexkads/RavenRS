@@ -7,9 +7,9 @@ Motor de NF-e e NFC-e sem interface: rascunho, totais em decimal exato, chave de
 
 ## Limites da POC
 
-- Só Simples Nacional: CRT 1, CSOSN 102 e 500.
+- Só Simples Nacional na emissão: CRT 1, CSOSN 102 e 500.
 - Só autorização síncrona (`indSinc=1`), modelos 55 e 65.
-- Status, autorização, consulta e cancelamento. Sem inutilização, contingência ou DANFE.
+- Status, autorização, consulta, cancelamento, distribuição e manifestação. Sem inutilização, contingência ou DANFE.
 - Poucas UFs na tabela de endereços: SP, RS, PR, MG, SC, RJ, ES e DF, todas em homologação.
 
 `REGRAS.md` traz a origem de cada regra e o que ficou sem fonte.
@@ -47,7 +47,26 @@ let enviados = server.requests();
 
 Cenários prontos: 100, 107, 108, 204, 225, 297, 539, 598, 1115, 129 e timeout.
 
-`fixtures/sandbox-key.pem` é a chave do certificado `RAVENRS SANDBOX - SEM VALOR`. Ela é pública de propósito, assim como tudo em `fixtures/http-test/`, e não vale nada: `scripts/gerar-fixtures.sh` regenera os arquivos.
+### Ferramenta de diagnóstico
+
+Tudo sem rede e sem tela, em `ravenrs_nfe::sandbox`:
+
+- `diagnosticar(xml)` lista todos os problemas, com campo, encontrado, esperado, correção, fonte e confiança. Vem do mesmo catálogo de que o `SefazSandbox` responde: ele devolve o primeiro, como a SEFAZ.
+- `autopsia_assinatura(xml)` explica um 297: digest calculado e informado, o byte onde diverge e a causa, dizendo se ela foi comprovada ou é só indício.
+- `Incidente::de_producao(xml, retorno)` compara a resposta real com o que o catálogo prevê e diz quando não reproduz, sem inventar causa. `relatorio_markdown()` sai mascarado.
+- `Gravador` e `Reprodutor` levam um problema de campo para o laboratório, em JSON Lines mascarado.
+- `injetar(RegraDeFalha)` provoca queda antes da resposta, latência, SOAP Fault, HTTP 500, TLS, resposta truncada, XML inválido, paralisação por janela de tempo e intermitência com semente fixa. `usar_relogio` controla o tempo.
+- `linha_do_tempo()` e `relatorio_markdown(chave)` contam a história de uma chave.
+
+### Certificados de laboratório
+
+`sandbox::certificados` emite e-CNPJ de teste no formato ICP-Brasil, pela AC `RAVENRS SANDBOX AC - SEM VALOR`: A1 em PFX real (com a feature `http`), A3 simulado com `TokenSimulado`, e um construtor para cada falha. Eles não saem do laboratório: `Ambiente::Homologacao` e `HttpTransport` recusam certificado desta AC, e o sandbox recusa qualquer outro.
+
+As chaves em `fixtures/laboratorio/` e tudo em `fixtures/http-test/` são públicas de propósito e não valem nada. `scripts/gerar-chaves-laboratorio.sh` e `scripts/gerar-fixtures.sh` regeneram os arquivos.
+
+### Entrada de mercadoria
+
+`entrada::ler_nota_recebida(xml)` lê `nfeProc` ou `NFe` como texto hostil. `Emissor::buscar_documentos`, `baixar_por_chave`, `manifestar` e `proxima_consulta_em` falam com o Ambiente Nacional: o resumo `resNFe` só vira XML completo depois da ciência, e o limitador evita a rejeição 656. No sandbox, `gerar_nota_de_compra` e `colocar_nota_recebida` alimentam esse fluxo.
 
 ## Homologação real (feature `http`, só nativo)
 

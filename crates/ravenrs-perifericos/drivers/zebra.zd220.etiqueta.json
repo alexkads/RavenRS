@@ -1,0 +1,16 @@
+{
+  "id": "zebra.zd220.etiqueta",
+  "versao": "1.0.0",
+  "tipo": "etiquetadora",
+  "fabricante": "Zebra",
+  "modelos": [{ "nome": "Zebra ZD220", "variacoes": ["ZD220d", "ZD220t"] }],
+  "conexoes": ["usb"],
+  "padroes": { "dpi": 203, "largura_pontos": 832 },
+  "protocolo": { "nome": "zpl", "versao": "II" },
+  "protocolos_alternativos": [{ "nome": "epl", "versao": "EPL 2" }],
+  "situacao": {
+    "estado": "so_pela_documentacao",
+    "fonte": "Folha do ZD220, Zebra, https://www.zebra.com/content/dam/zebra_dam/en/spec-sheets/zd220-spec-sheet-en-us.pdf"
+  },
+  "observacoes": "A largura de 832 pontos vem dos 104 mm da folha, a 8 pontos por milímetro. A polaridade do raster em EPL não está no guia oficial."
+}

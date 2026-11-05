@@ -59,9 +59,7 @@ pub fn ibscbs_1115(pedido: &SandboxRequest) -> Resposta {
     pedido.responder(1115)
 }
 
-/// 129: a code in the plan whose meaning no source consulted confirms.
-///
-/// It exists so an application can see how a code it does not know behaves. See `REGRAS.md`.
+/// 129: asynchronous authorization is over, by NT 2023.002 v1.02.
 #[must_use]
 pub fn codigo_129(pedido: &SandboxRequest) -> Resposta {
     pedido.responder(129)

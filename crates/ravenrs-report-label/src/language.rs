@@ -1,8 +1,10 @@
 //! Printer languages. Each one gets the label as one raster, with its own polarity and framing; what
 //! was confirmed in which manual is in FONTES.md.
 
+use std::borrow::Cow;
 use std::fmt::Write as _;
 
+use ravenrs_perifericos::{Ajustes, Comando, Manifesto, NomeProtocolo};
 use ravenrs_report::{Document, Item, Page, PrinterAction, PrinterCommand};
 use ravenrs_text::TextSystem;
 
@@ -43,6 +45,18 @@ impl Language {
             "PPLA" => Some(Self::Ppla),
             "TSPL" => Some(Self::Tspl),
             "ESC/POS" => Some(Self::EscPos),
+            _ => None,
+        }
+    }
+
+    /// The language of a driver's protocol, if that protocol prints.
+    pub fn do_protocolo(protocolo: NomeProtocolo) -> Option<Self> {
+        match protocolo {
+            NomeProtocolo::Zpl => Some(Self::Zpl),
+            NomeProtocolo::Epl => Some(Self::Epl),
+            NomeProtocolo::Ppla => Some(Self::Ppla),
+            NomeProtocolo::Tspl => Some(Self::Tspl),
+            NomeProtocolo::EscPos => Some(Self::EscPos),
             _ => None,
         }
     }
@@ -95,12 +109,26 @@ pub struct LabelJob {
     /// How dark to burn, from 0 to 15. `None` keeps the printer's setting. ESC/POS ignores it, since
     /// its printers set this in their own configuration.
     pub darkness: Option<u8>,
+    /// What differs on the printer's model, from its driver. Commands and blocks only apply to
+    /// ESC/POS; the polarity applies to every language. The character table is not used, because
+    /// everything goes as a picture.
+    pub ajustes: Ajustes,
 }
 
 impl LabelJob {
-    /// One copy of each label, with the printer's own gap and darkness.
+    /// One copy of each label, with the printer's own gap and darkness and no model's adjustments.
     pub fn new(language: Language, dpi: u32) -> Self {
-        Self { language, dpi, copies: 1, gap_mm: None, darkness: None }
+        Self { language, dpi, copies: 1, gap_mm: None, darkness: None, ajustes: Ajustes::default() }
+    }
+
+    /// One copy of each label on the device of this driver, with its protocol, resolution and
+    /// adjustments. A driver of something that does not print gives an error.
+    pub fn do_driver(driver: &Manifesto) -> Result<Self, LabelError> {
+        let language = Language::do_protocolo(driver.protocolo.nome).ok_or_else(|| {
+            LabelError::InvalidJob(format!("o driver {} não é de uma impressora", driver.id))
+        })?;
+        let dpi = driver.padroes.dpi.unwrap_or(203);
+        Ok(Self { ajustes: driver.ajustes, ..Self::new(language, dpi) })
     }
 
     fn check(&self) -> Result<(), LabelError> {
@@ -216,22 +244,28 @@ const ESCPOS_DRAWER: [u8; 5] = [0x1B, b'p', 0, 25, 250];
 /// see FONTES.md. The command states its own length, so a printer that has another form can skip it.
 const ESCPOS_BEEP: [u8; 8] = [0x1B, b'(', b'A', 3, 0, 97, 1, 1];
 
-/// Appends what a printer command does.
-fn push_command(receipt: &mut Vec<u8>, command: PrinterCommand) {
+/// `GS V 65 n` and `66 n` feed to the cutting position and n further, then cut.
+const ESCPOS_FULL_CUT: [u8; 4] = [0x1D, b'V', 65, ESCPOS_FEED];
+const ESCPOS_PARTIAL_CUT: [u8; 4] = [0x1D, b'V', 66, ESCPOS_FEED];
+
+/// Appends what a printer command does: the driver's bytes when it has them, or the usual ones.
+fn push_command(receipt: &mut Vec<u8>, command: PrinterCommand, ajustes: &Ajustes) {
+    let mut push = |own: Option<Comando>, usual: &[u8]| {
+        receipt.extend_from_slice(own.as_ref().map_or(usual, Comando::bytes));
+    };
     match command.action {
-        // GS V 65 n and 66 n feed to the cutting position and n further, then cut.
-        PrinterAction::Cut => receipt.extend([0x1D, b'V', 65, ESCPOS_FEED]),
-        PrinterAction::PartialCut => receipt.extend([0x1D, b'V', 66, ESCPOS_FEED]),
-        PrinterAction::OpenDrawer => receipt.extend(ESCPOS_DRAWER),
-        PrinterAction::Beep => receipt.extend(ESCPOS_BEEP),
-        PrinterAction::Feed => receipt.extend([0x1B, b'd', command.lines]),
+        PrinterAction::Cut => push(ajustes.corte_total, &ESCPOS_FULL_CUT),
+        PrinterAction::PartialCut => push(ajustes.corte_parcial, &ESCPOS_PARTIAL_CUT),
+        PrinterAction::OpenDrawer => push(ajustes.gaveta, &ESCPOS_DRAWER),
+        PrinterAction::Beep => push(ajustes.bipe, &ESCPOS_BEEP),
+        PrinterAction::Feed => push(None, &[0x1B, b'd', command.lines]),
         _ => {}
     }
 }
 
 /// Appends rows in `GS v 0` blocks. `rows` holds whole rows and can be empty.
-fn push_rows(receipt: &mut Vec<u8>, rows: &[u8], per_row: usize) {
-    for block in rows.chunks(ESCPOS_BLOCK_ROWS * per_row) {
+fn push_rows(receipt: &mut Vec<u8>, rows: &[u8], per_row: usize, block_rows: usize) {
+    for block in rows.chunks(block_rows * per_row) {
         let count = block.len() / per_row;
         receipt.extend([0x1D, b'v', b'0', 0]);
         receipt.extend([(per_row % 256) as u8, (per_row / 256) as u8]);
@@ -282,8 +316,13 @@ fn escpos(
         &padded
     };
     // ESC @ then ESC a 1.
-    let mut receipt = vec![0x1B, b'@', 0x1B, b'a', 1];
+    let ajustes = &job.ajustes;
+    let block_rows = ajustes.tamanho_bloco.map_or(ESCPOS_BLOCK_ROWS, |rows| rows as usize);
+    // A printer with two modes hears this first, since the mode starts as if just turned on.
+    let mut receipt = ajustes.comando_modo.map_or(Vec::new(), |command| command.bytes().to_vec());
+    receipt.extend([0x1B, b'@', 0x1B, b'a', 1]);
     let bits = whole.bits();
+    let sent = raster(bits, job);
     let is_cut = |action| matches!(action, PrinterAction::Cut | PrinterAction::PartialCut);
     // Blank paper after the last cut would hang out of the printer, so it does not go.
     let finished = commands
@@ -293,15 +332,27 @@ fn escpos(
         .is_some_and(|(row, _)| bits[row * per_row..].iter().all(|byte| *byte == 0));
     let mut printed = 0;
     for (row, command) in commands {
-        push_rows(&mut receipt, &bits[printed * per_row..row * per_row], per_row);
-        push_command(&mut receipt, *command);
+        push_rows(&mut receipt, &sent[printed * per_row..row * per_row], per_row, block_rows);
+        push_command(&mut receipt, *command, ajustes);
         printed = *row;
     }
     if !finished {
-        push_rows(&mut receipt, &bits[printed * per_row..], per_row);
-        receipt.extend([0x1D, b'V', 66, ESCPOS_FEED]);
+        push_rows(&mut receipt, &sent[printed * per_row..], per_row, block_rows);
+        match ajustes.corte_parcial {
+            Some(cut) => receipt.extend_from_slice(cut.bytes()),
+            None => receipt.extend(ESCPOS_PARTIAL_CUT),
+        }
     }
     Ok(receipt.repeat(job.copies as usize))
+}
+
+/// The rows as this model reads them: as they are, or with every bit flipped if its driver says so.
+fn raster<'a>(bits: &'a [u8], job: &LabelJob) -> Cow<'a, [u8]> {
+    if job.ajustes.polaridade_invertida {
+        Cow::Owned(bits.iter().map(|byte| !byte).collect())
+    } else {
+        Cow::Borrowed(bits)
+    }
 }
 
 fn push_hex(out: &mut String, bytes: &[u8]) {
@@ -323,7 +374,7 @@ fn zpl(bitmap: &Bitmap, job: &LabelJob) -> Vec<u8> {
     let _ = write!(out, "^XA^PW{}^LL{}^LH0,0", bitmap.width(), bitmap.height());
     let per_row = bitmap.bytes_per_row().max(1);
     let rows_per_band = (ZPL_MAX_FIELD / per_row).max(1);
-    for (band, rows) in bitmap.bits().chunks(rows_per_band * per_row).enumerate() {
+    for (band, rows) in raster(bitmap.bits(), job).chunks(rows_per_band * per_row).enumerate() {
         let total = rows.len();
         let _ = write!(out, "^FO0,{}^GFA,{total},{total},{per_row},", band * rows_per_band);
         push_hex(&mut out, rows);
@@ -345,7 +396,7 @@ fn epl(bitmap: &Bitmap, job: &LabelJob) -> Vec<u8> {
     }
     let _ = write!(head, "R0,0\nN\nGW0,0,{},{},", bitmap.bytes_per_row(), bitmap.height());
     let mut out = head.into_bytes();
-    out.extend(bitmap.bits().iter().map(|byte| !byte));
+    out.extend(raster(bitmap.bits(), job).iter().map(|byte| !byte));
     out.extend(format!("\nP{}\n", job.copies).into_bytes());
     out
 }
@@ -368,7 +419,7 @@ fn ppla(bitmap: &Bitmap, job: &LabelJob) -> Result<Vec<u8>, LabelError> {
         )));
     }
     let mut out = format!("{STX}IAF{PPLA_IMAGE}\r");
-    for row in bitmap.rows().rev() {
+    for row in raster(bitmap.bits(), job).chunks_exact(per_row.max(1)).rev() {
         let _ = write!(out, "80{per_row:02X}");
         push_hex(&mut out, row);
         out.push('\r');
@@ -397,7 +448,7 @@ fn tspl(bitmap: &Bitmap, job: &LabelJob) -> Vec<u8> {
     let _ =
         write!(head, "REFERENCE 0,0\r\nCLS\r\nBITMAP 0,0,{},{},0,", bitmap.bytes_per_row(), bitmap.height());
     let mut out = head.into_bytes();
-    out.extend(bitmap.bits().iter().map(|byte| !byte));
+    out.extend(raster(bitmap.bits(), job).iter().map(|byte| !byte));
     out.extend(format!("\r\nPRINT {},1\r\n", job.copies).into_bytes());
     out
 }

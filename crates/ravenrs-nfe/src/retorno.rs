@@ -255,48 +255,216 @@ pub fn ler_evento(resposta: &HttpResponse) -> Result<RetornoEvento, NfeError> {
     })
 }
 
-/// The short description of a `cStat` this crate deals with, in pt-BR.
-///
-/// The server's own `xMotivo` is what counts. This table only labels the code for a screen, and
-/// its texts are not copied from the MOC, which could not be read during the POC.
+/// The name of a `cStat`, condensed from the code table of the MOC 7.0 (Anexo I, 4.4.1) and of the
+/// technical notes that created later codes. The server's own `xMotivo` is what counts.
 #[must_use]
 pub const fn descricao_c_stat(c_stat: u32) -> Option<&'static str> {
     Some(match c_stat {
         100 => "Autorizado o uso da NF-e",
         101 => "Cancelamento de NF-e homologado",
         104 => "Lote processado",
-        107 => "Serviço em operação",
-        108 => "Serviço paralisado momentaneamente",
-        109 => "Serviço paralisado sem previsão",
-        128 => "Lote de evento processado",
-        135 => "Evento registrado e vinculado à NF-e",
-        204 => "Duplicidade de NF-e",
-        217 => "NF-e não consta na base de dados",
-        222 => "Protocolo difere do cadastrado",
-        225 => "Falha no schema XML do lote",
-        236 => "Chave de acesso com dígito verificador inválido",
-        243 => "XML mal formado",
-        252 => "Ambiente informado diverge do ambiente de recebimento",
-        253 => "Dígito verificador da chave composta inválido",
-        297 => "Assinatura difere do calculado",
-        298 => "Assinatura difere do padrão do sistema",
-        373 => "Descrição do primeiro item difere do texto de homologação",
-        394 => "Nota fiscal sem as informações do QR Code",
-        452 => "Resposta assíncrona solicitada para lote de uma NF-e",
-        494 => "Chave de acesso inexistente",
-        502 => "Chave de acesso difere da concatenação dos campos",
-        537 => "Total do desconto difere do somatório dos itens",
-        539 => "Duplicidade de NF-e com diferença na chave de acesso",
-        564 => "Total do produto difere do somatório dos itens",
-        573 => "Duplicidade de evento",
-        588 => "Caracteres de edição entre as tags da mensagem",
-        598 => "Razão social do destinatário difere do texto de homologação",
-        610 => "Total da NF difere do somatório dos valores",
-        629 => "Valor do produto difere de quantidade vezes valor unitário",
-        865 => "Total dos pagamentos menor que o total da nota",
-        869 => "Valor do troco incorreto",
-        1115 => "Grupo IBSCBS não informado",
+        107 => "Serviço em Operação",
+        108 => "Serviço Paralisado Momentaneamente (curto prazo)",
+        109 => "Serviço Paralisado sem Previsão",
+        126 => "Rejeição: Enviado lote com mais de 1 NFC-e",
+        128 => "Lote de Evento Processado",
+        129 => "Rejeição: A autorização deve ser solicitada de forma síncrona",
+        135 => "Evento registrado e vinculado a NF-e",
+        136 => "Evento registrado, mas não vinculado a NF-e",
+        137 => "Nenhum documento localizado para o Destinatário",
+        138 => "Documento localizado para o Destinatário",
+        150 => "Autorizado o uso da NF-e, autorização fora de prazo",
+        155 => "Cancelamento homologado fora de prazo",
+        204 => "Rejeição: Duplicidade de NF-e",
+        207 => "Rejeição: CNPJ do emitente inválido",
+        213 => "Rejeição: CNPJ-Base do Emitente difere do CNPJ-Base do Certificado Digital",
+        215 => "Rejeição: Falha no schema XML",
+        217 => "Rejeição: NF-e não consta na base de dados da SEFAZ",
+        222 => "Rejeição: Protocolo de Autorização de Uso difere do cadastrado",
+        225 => "Rejeição: Falha no Schema XML do lote de NFe",
+        227 => "Rejeição: CPF do Emitente difere do CPF do Certificado Digital",
+        236 => "Rejeição: Chave de Acesso com dígito verificador inválido",
+        239 => "Rejeição: Versão do arquivo XML não suportada",
+        243 => "Rejeição: XML Mal Formado",
+        252 => "Rejeição: Ambiente informado diverge do Ambiente de recebimento",
+        253 => "Rejeição: Digito Verificador da chave de acesso composta inválida",
+        271 => "Rejeição: Código Município do Fato Gerador difere da UF do emitente",
+        280 => "Rejeição: Certificado Transmissor inválido",
+        281 => "Rejeição: Certificado Transmissor Data Validade",
+        282 => "Rejeição: Certificado Transmissor sem CNPJ/CPF",
+        283 => "Rejeição: Certificado Transmissor - erro Cadeia de Certificação",
+        284 => "Rejeição: Certificado Transmissor revogado",
+        285 => "Rejeição: Certificado Transmissor difere ICP-Brasil",
+        286 => "Rejeição: Certificado Transmissor erro no acesso a LCR",
+        290 => "Rejeição: Certificado Assinatura inválido",
+        291 => "Rejeição: Certificado Assinatura Data Validade",
+        292 => "Rejeição: Certificado de Assinatura sem CNPJ/CPF",
+        293 => "Rejeição: Certificado Assinatura - erro Cadeia de Certificação",
+        294 => "Rejeição: Certificado Assinatura revogado",
+        295 => "Rejeição: Certificado Assinatura difere ICP-Brasil",
+        296 => "Rejeição: Certificado Assinatura erro no acesso a LCR",
+        297 => "Rejeição: Assinatura difere do calculado",
+        298 => "Rejeição: Assinatura difere do padrão do Sistema",
+        373 => "Rejeição: Descrição do primeiro item diferente do texto de homologação",
+        391 => "Rejeição: Não informados os dados do cartão nas Formas de Pagamento",
+        392 => "Rejeição: Não informados os dados da operação de pagamento por cartão",
+        394 => "Rejeição: Nota Fiscal sem a informação do QR-Code",
+        397 => "Rejeição: Parâmetro do QR-Code divergente da Nota Fiscal",
+        398 => "Rejeição: Parâmetro Versão informada no QR-Code diverge do previsto",
+        437 => "Rejeição: CNPJ da instituição de pagamento inválido",
+        452 => "Rejeição: Solicitada resposta assíncrona para Lote com somente 1 NF-e",
+        489 => "Rejeição: CNPJ informado inválido",
+        491 => "Rejeição: O tpEvento informado inválido",
+        492 => "Rejeição: O verEvento informado inválido",
+        493 => "Rejeição: Evento não atende o Schema XML específico",
+        494 => "Rejeição: Chave de Acesso inexistente",
+        501 => "Rejeição: Prazo de cancelamento superior ao previsto na Legislação",
+        502 => "Rejeição: Chave de Acesso do campo Id difere da concatenação dos campos",
+        516 => "Rejeição: Falha no schema XML – inexiste a tag raiz esperada para a mensagem",
+        517 => "Rejeição: Falha no schema XML – inexiste atributo versao na tag raiz",
+        537 => "Rejeição: Total do Desconto difere do somatório dos itens",
+        539 => "Rejeição: Duplicidade de NF-e com diferença na Chave de Acesso",
+        564 => "Rejeição: Total do Produto / Serviço difere do somatório dos itens",
+        565 => "Rejeição: Falha no schema XML – inexiste a tag raiz esperada para o lote",
+        573 => "Rejeição: Duplicidade de Evento",
+        574 => "Rejeição: O autor do evento diverge do emissor da NF-e",
+        575 => "Rejeição: O autor do evento diverge do destinatário da NF-e",
+        577 => "Rejeição: A data do evento não pode ser menor que a data de emissão",
+        578 => "Rejeição: A data do evento não pode ser maior que a data do processamento",
+        579 => "Rejeição: A data do evento não pode ser menor que a data de autorização",
+        580 => "Rejeição: O evento exige uma NF-e autorizada",
+        587 => "Rejeição: Usar somente o namespace padrão da NF-e",
+        588 => "Rejeição: Caracteres de edição no início, no fim ou entre as tags da mensagem",
+        589 => "Rejeição: NSU informado superior ao maior NSU do Ambiente Nacional",
+        593 => "Rejeição: CNPJ-Base consultado difere do CNPJ-Base do Certificado Digital",
+        594 => "Rejeição: O número de sequencia do evento informado é maior que o permitido",
+        595 => "Rejeição: Obrigatória a informação da justificativa do evento",
+        598 => "Rejeição: Razão Social do destinatário diferente do texto de homologação",
+        610 => "Rejeição: Total da NF difere do somatório dos Valores que compõem o Total",
+        629 => "Rejeição: Valor do Produto difere de Valor Unitário de Comercialização vezes Quantidade",
+        630 => "Rejeição: Valor do Produto difere de Valor Unitário de Tributação vezes Quantidade",
+        640 => "Rejeição: CNPJ/CPF do interessado não possui permissão para consultar esta NF-e",
+        656 => "Rejeição: Consumo Indevido",
+        703 => "Rejeição: Data-Hora de Emissão posterior ao horário de recebimento",
+        704 => "Rejeição: NFC-e com Data-Hora de emissão atrasada",
+        707 => "Rejeição: NFC-e para operação interestadual ou com o exterior",
+        709 => "Rejeição: NFC-e com formato de DANFE inválido",
+        710 => "Rejeição: NF-e com formato de DANFE inválido",
+        715 => "Rejeição: NFC-e com finalidade inválida",
+        716 => "Rejeição: NFC-e em operação não destinada a consumidor final",
+        717 => "Rejeição: NFC-e em operação não presencial",
+        719 => "Rejeição: NF-e sem a identificação do destinatário",
+        724 => "Rejeição: NF-e sem o nome do destinatário",
+        725 => "Rejeição: NFC-e com CFOP inválido",
+        726 => "Rejeição: NF-e sem a informação de endereço do destinatário",
+        789 => "Rejeição: NFC-e para destinatário contribuinte de ICMS",
+        796 => "Rejeição: CNPJ recebedor do pagamento inválido",
+        806 => "Rejeição: Operação com ICMS-ST sem informação do CEST",
+        865 => "Rejeição: Total dos pagamentos menor que o total da nota",
+        866 => "Rejeição: Ausência de troco quando os pagamentos passam do total da nota",
+        869 => "Rejeição: Valor do troco incorreto",
+        878 => "Rejeição: Endereço do site da UF da Consulta por chave de acesso diverge do previsto",
+        897 => "Rejeição: Código numérico em formato inválido",
+        899 => "Rejeição: Informado incorretamente o campo meio de pagamento",
+        904 => "Rejeição: Informado indevidamente campo valor de pagamento",
+        963 => "Rejeição: Tipo de pagamento não aceita o grupo de cartões ou boletos",
+        1115 => "Rejeição: Grupo IBSCBS não informado",
         _ => return None,
+    })
+}
+
+/// One document of a distribution batch, already decompressed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DocumentoDfe {
+    /// The NSU; since NT 2014.002 v1.15 the server may leave it out.
+    pub nsu: Option<u64>,
+    /// The schema that names the kind: `resNFe_v1.01.xsd`, `procNFe_v4.00.xsd` and so on.
+    pub schema: String,
+    /// The XML.
+    pub xml: String,
+}
+
+impl DocumentoDfe {
+    /// Whether this is only the summary, which asks for a manifestation before the full XML.
+    #[must_use]
+    pub fn eh_resumo(&self) -> bool {
+        self.schema.starts_with("resNFe")
+    }
+
+    /// Whether this is the full document with its protocol.
+    #[must_use]
+    pub fn eh_nota_completa(&self) -> bool {
+        self.schema.starts_with("procNFe")
+    }
+}
+
+/// The answer of the distribution service.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LoteDfe {
+    /// The last NSU handed over: the next query starts here.
+    pub ult_nsu: u64,
+    /// The largest NSU there is.
+    pub max_nsu: u64,
+    /// The documents.
+    pub documentos: Vec<DocumentoDfe>,
+    /// The status.
+    pub c_stat: u32,
+    /// The text of the status.
+    pub x_motivo: String,
+}
+
+impl LoteDfe {
+    /// Whether nothing is left to fetch: the next query should wait one hour (NT 2014.002, 3.11.4).
+    #[must_use]
+    pub fn sem_novidade(&self) -> bool {
+        self.c_stat == 137 || (self.c_stat == 138 && self.ult_nsu >= self.max_nsu)
+    }
+}
+
+/// The largest size a decompressed document may reach. A gzip bomb stops here.
+const LIMITE_DOCUMENTO: u64 = 20 * 1024 * 1024;
+
+/// Reads the distribution return, decompressing each document with a limit.
+pub fn ler_distribuicao(resposta: &HttpResponse) -> Result<LoteDfe, NfeError> {
+    use std::io::Read;
+
+    use base64::Engine;
+
+    let element = corpo(resposta, "retDistDFeInt")?;
+    let retorno = comum(&element, resposta.status)?;
+    let numero = |tag: &str| element.child_text(tag).and_then(|t| t.parse::<u64>().ok()).unwrap_or(0);
+    let mut documentos = Vec::new();
+    if let Some(lote) = element.child("loteDistDFeInt") {
+        for zip in lote.elements().filter(|e| e.local_name() == "docZip") {
+            let invalido = |motivo: &str| NfeError::RetornoInvalido {
+                status: resposta.status,
+                motivo: motivo.to_string(),
+            };
+            let texto: String = zip.text().split_whitespace().collect();
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(texto)
+                .map_err(|_| invalido("docZip não é base64"))?;
+            let mut xml = String::new();
+            flate2::read::GzDecoder::new(bytes.as_slice())
+                .take(LIMITE_DOCUMENTO + 1)
+                .read_to_string(&mut xml)
+                .map_err(|_| invalido("docZip não é GZip de texto UTF-8"))?;
+            if xml.len() as u64 > LIMITE_DOCUMENTO {
+                return Err(invalido("documento descompactado grande demais"));
+            }
+            documentos.push(DocumentoDfe {
+                nsu: zip.attr("NSU").and_then(|n| n.parse().ok()),
+                schema: zip.attr("schema").unwrap_or_default().to_string(),
+                xml,
+            });
+        }
+    }
+    Ok(LoteDfe {
+        ult_nsu: numero("ultNSU"),
+        max_nsu: numero("maxNSU"),
+        documentos,
+        c_stat: retorno.c_stat,
+        x_motivo: retorno.x_motivo,
     })
 }
 

@@ -121,6 +121,26 @@ pub enum FormaPagamento {
     CartaoDebito,
     /// 17: Pix.
     Pix,
+    /// 02: check.
+    Cheque,
+    /// 05: store credit.
+    CreditoLoja,
+    /// 10: food voucher.
+    ValeAlimentacao,
+    /// 11: meal voucher.
+    ValeRefeicao,
+    /// 12: gift voucher.
+    ValePresente,
+    /// 13: fuel voucher.
+    ValeCombustivel,
+    /// 15: bank slip.
+    Boleto,
+    /// 16: bank deposit.
+    Deposito,
+    /// 18: bank transfer or digital wallet.
+    Transferencia,
+    /// 19: loyalty program, cashback or virtual credit.
+    Fidelidade,
     /// 90: no payment.
     SemPagamento,
     /// 99: others, with the description `xPag` requires.
@@ -136,9 +156,122 @@ impl FormaPagamento {
             Self::CartaoCredito => "03",
             Self::CartaoDebito => "04",
             Self::Pix => "17",
+            Self::Cheque => "02",
+            Self::CreditoLoja => "05",
+            Self::ValeAlimentacao => "10",
+            Self::ValeRefeicao => "11",
+            Self::ValePresente => "12",
+            Self::ValeCombustivel => "13",
+            Self::Boleto => "15",
+            Self::Deposito => "16",
+            Self::Transferencia => "18",
+            Self::Fidelidade => "19",
             Self::SemPagamento => "90",
             Self::Outros => "99",
         }
+    }
+
+    /// Whether `card` may be informed: rule YA04-20 of NT 2023.004.
+    #[must_use]
+    pub const fn aceita_card(self) -> bool {
+        matches!(
+            self,
+            Self::CartaoCredito
+                | Self::CartaoDebito
+                | Self::ValeAlimentacao
+                | Self::ValeRefeicao
+                | Self::ValePresente
+                | Self::ValeCombustivel
+                | Self::Boleto
+                | Self::Pix
+                | Self::Transferencia
+        )
+    }
+
+    /// Whether `card` cannot be left out: rule YA04-10, which NT 2025.001 extended to Pix.
+    #[must_use]
+    pub const fn exige_card(self) -> bool {
+        matches!(self, Self::CartaoCredito | Self::CartaoDebito | Self::Pix)
+    }
+}
+
+/// How a card or Pix payment reached the system, `tpIntegra`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TipoIntegracao {
+    /// 1: integrated, like TEF: `CNPJ` and `cAut` are expected (rule YA05-10).
+    Integrado,
+    /// 2: not integrated, like a stand-alone POS terminal.
+    NaoIntegrado,
+}
+
+/// The `card` group of a payment. Despite the name, it also serves Pix, slips and vouchers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Cartao {
+    /// `tpIntegra`.
+    pub integracao: TipoIntegracao,
+    /// `CNPJ`: the payment institution.
+    pub cnpj: Option<String>,
+    /// `tBand`: the card brand, two digits.
+    pub bandeira: Option<String>,
+    /// `cAut`: the authorization number, exactly as it came from the terminal.
+    pub autorizacao: Option<String>,
+    /// `CNPJReceb`: who receives the payment.
+    pub cnpj_recebedor: Option<String>,
+    /// `idTermPag`: the terminal.
+    pub terminal: Option<String>,
+}
+
+impl Cartao {
+    /// A payment outside the system, with `tpIntegra=2`.
+    #[must_use]
+    pub fn nao_integrado() -> Self {
+        Self {
+            integracao: TipoIntegracao::NaoIntegrado,
+            cnpj: None,
+            bandeira: None,
+            autorizacao: None,
+            cnpj_recebedor: None,
+            terminal: None,
+        }
+    }
+
+    /// A payment through the system, with `tpIntegra=1` and what rule YA05-10 asks.
+    #[must_use]
+    pub fn integrado(cnpj: impl Into<String>, autorizacao: impl Into<String>) -> Self {
+        Self {
+            integracao: TipoIntegracao::Integrado,
+            cnpj: Some(cnpj.into()),
+            autorizacao: Some(autorizacao.into()),
+            ..Self::nao_integrado()
+        }
+    }
+
+    fn validar(&self, numero: usize) -> Result<(), NfeError> {
+        let campo = |nome: &str| format!("pag/detPag[{numero}]/card/{nome}");
+        if self.integracao == TipoIntegracao::Integrado && (self.cnpj.is_none() || self.autorizacao.is_none())
+        {
+            return Err(NfeError::validacao(&campo("tpIntegra"), "pagamento integrado exige CNPJ e cAut"));
+        }
+        if let Some(cnpj) = &self.cnpj
+            && !cnpj_valido(cnpj)
+        {
+            return Err(NfeError::validacao(&campo("CNPJ"), "CNPJ inválido"));
+        }
+        if let Some(cnpj) = &self.cnpj_recebedor
+            && !cnpj_valido(cnpj)
+        {
+            return Err(NfeError::validacao(&campo("CNPJReceb"), "CNPJ inválido"));
+        }
+        if let Some(bandeira) = &self.bandeira {
+            exigir_digitos(&campo("tBand"), bandeira, &[2])?;
+        }
+        if let Some(autorizacao) = &self.autorizacao {
+            exigir_texto(&campo("cAut"), autorizacao, 1, 128)?;
+        }
+        if let Some(terminal) = &self.terminal {
+            exigir_texto(&campo("idTermPag"), terminal, 1, 40)?;
+        }
+        Ok(())
     }
 }
 
@@ -149,6 +282,8 @@ pub struct Pagamento {
     pub forma: FormaPagamento,
     /// The amount, up to 2 decimal places.
     pub valor: Decimal,
+    /// The `card` group. Left empty on a form that requires it, it goes with `tpIntegra=2`.
+    pub card: Option<Cartao>,
 }
 
 /// The technical contact of the software, `infRespTec`, required by some states.
@@ -232,7 +367,14 @@ impl Rascunho {
     /// Adds a payment.
     #[must_use]
     pub fn com_pagamento(mut self, forma: FormaPagamento, valor: Decimal) -> Self {
-        self.pagamentos.push(Pagamento { forma, valor });
+        self.pagamentos.push(Pagamento { forma, valor, card: None });
+        self
+    }
+
+    /// Adds a payment with its `card` group: cards, Pix, vouchers, slips and transfers.
+    #[must_use]
+    pub fn com_pagamento_cartao(mut self, forma: FormaPagamento, valor: Decimal, card: Cartao) -> Self {
+        self.pagamentos.push(Pagamento { forma, valor, card: Some(card) });
         self
     }
 
@@ -242,6 +384,19 @@ impl Rascunho {
         self.observacao = Some(observacao.into());
         self
     }
+}
+
+/// The values rule B03-10 of the MOC forbids in `cNF`.
+const CNF_PROIBIDOS: [&str; 20] = [
+    "00000000", "11111111", "22222222", "33333333", "44444444", "55555555", "66666666", "77777777",
+    "88888888", "99999999", "12345678", "23456789", "34567890", "45678901", "56789012", "67890123",
+    "78901234", "89012345", "90123456", "01234567",
+];
+
+/// Whether a `cNF` passes rule B03-10: out of the list, and different from `nNF`.
+#[must_use]
+pub fn codigo_numerico_aceito(codigo: &str, numero: u32) -> bool {
+    !CNF_PROIBIDOS.contains(&codigo) && codigo.parse::<u32>().ok() != Some(numero)
 }
 
 /// Whether text fits the schema's `TString`: no line breaks and no outer spaces.
@@ -318,10 +473,39 @@ impl Rascunho {
         if self.pagamentos.is_empty() || self.pagamentos.len() > 100 {
             return Err(NfeError::validacao("pag", "de 1 a 100 pagamentos"));
         }
+        for (posicao, pagamento) in self.pagamentos.iter().enumerate() {
+            let numero = posicao + 1;
+            if let Some(card) = &pagamento.card {
+                if !pagamento.forma.aceita_card() {
+                    return Err(NfeError::validacao(
+                        &format!("pag/detPag[{numero}]/card"),
+                        "esta forma de pagamento não aceita o grupo de cartões",
+                    ));
+                }
+                card.validar(numero)?;
+            }
+            if pagamento.forma == FormaPagamento::SemPagamento {
+                if self.modelo == Modelo::Nfce65 {
+                    return Err(NfeError::validacao(
+                        &format!("pag/detPag[{numero}]/tPag"),
+                        "a NFC-e não aceita \"sem pagamento\"",
+                    ));
+                }
+                if !pagamento.valor.is_zero() {
+                    return Err(NfeError::validacao(
+                        &format!("pag/detPag[{numero}]/vPag"),
+                        "\"sem pagamento\" tem valor zero",
+                    ));
+                }
+            }
+        }
         if let Some(codigo) = &self.codigo_numerico {
             exigir_digitos("cNF", codigo, &[8])?;
-            if codigo.parse::<u32>().ok() == Some(self.numero) {
-                return Err(NfeError::validacao("cNF", "não pode ser igual ao número da nota"));
+            if !codigo_numerico_aceito(codigo, self.numero) {
+                return Err(NfeError::validacao(
+                    "cNF",
+                    "valor proibido pela regra B03-10, ou igual ao número da nota",
+                ));
             }
         }
         match (&self.destinatario, self.modelo) {

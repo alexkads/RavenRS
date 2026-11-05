@@ -1,20 +1,14 @@
 #!/bin/sh
-# Regenerates the test certificates in fixtures/. None of them has any fiscal value:
-# they are self-issued and exist only so the sandbox and the mTLS test can run.
+# Regenerates the certificates of the mTLS test in fixtures/http-test. None has any fiscal value.
+# The sandbox certificates are issued at run time; their keys come from gerar-chaves-laboratorio.sh.
 # Usage: scripts/gerar-fixtures.sh [path to an OpenSSL 3 binary]
 set -eu
 
 openssl_bin="${1:-/opt/homebrew/bin/openssl}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
-sandbox="$root/fixtures"
 http="$root/fixtures/http-test"
-mkdir -p "$sandbox" "$http"
+mkdir -p "$http"
 days=7300
-
-# Certificate and key of SandboxSigner.
-"$openssl_bin" req -x509 -newkey rsa:2048 -nodes -days "$days" -sha256 \
-  -subj "/C=BR/O=RAVENRS POC BETA/CN=RAVENRS SANDBOX - SEM VALOR" \
-  -keyout "$sandbox/sandbox-key.pem" -out "$sandbox/sandbox-cert.pem"
 
 # Two certificate authorities: the trusted one and one the client must refuse.
 "$openssl_bin" req -x509 -newkey rsa:2048 -nodes -days "$days" -sha256 \

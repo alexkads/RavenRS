@@ -1,0 +1,22 @@
+{
+  "id": "ORD01",
+  "type": "point",
+  "status": "created",
+  "status_detail": "created",
+  "external_reference": "venda-1",
+  "config": {
+    "point": {
+      "terminal_id": "NEWLAND_N950__SBX0000001",
+      "print_on_terminal": "seller_ticket"
+    }
+  },
+  "transactions": {
+    "payments": [
+      {
+        "id": "PAY01",
+        "amount": "19.90",
+        "status": "created"
+      }
+    ]
+  }
+}

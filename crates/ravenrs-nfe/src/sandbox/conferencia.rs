@@ -1,24 +1,54 @@
-//! The default behavior of the sandbox: it really checks what arrives, in the order a real
-//! server would: envelope, schema, environment, signature, key, required texts, totals, duplicates.
-//!
-//! The order of tags comes from `leiauteNFe_v4.00.xsd`; the sandbox only knows the tags, not all
-//! of their value patterns, so passing here does not replace validating against the XSD.
+//! What only a server can check: what it already holds. The rest comes from `analise`.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use rust_decimal::Decimal;
-
-use crate::assinatura::{FalhaAssinatura, verify_enveloped};
-use crate::chave::{ChaveAcesso, digito_mod11, forma_valida};
-use crate::documento::TP_EVENTO_CANCELAMENTO;
-use crate::modelo::{TEXTO_HOMOLOGACAO_DESTINATARIO, TEXTO_HOMOLOGACAO_ITEM};
+use super::analise::{self, Analise, Diagnostico, Opcoes};
+use super::catalogo::regra;
+use super::compras;
+use super::resposta::{self, DadosEvento, DadosProtocolo};
+use super::tempo::Instante;
+use super::{Resposta, SandboxRequest, SefazSandbox};
+use crate::chave::{ChaveAcesso, cnpj_valido, forma_valida};
+use crate::documento::{TP_EVENTO_CANCELAMENTO, TipoManifestacao};
 use crate::retorno::descricao_c_stat;
 use crate::soap::{NS_NFE, NS_SOAP12, Servico};
-use crate::totais::arredondar;
-use crate::xml::{self, Element, Node};
+use crate::xml::{self, Element};
 
-use super::resposta::{self, DadosEvento, DadosProtocolo};
-use super::{Resposta, SandboxRequest, SefazSandbox};
+/// The prazo of a cancellation, by rule 2P12-14: 24 hours.
+const PRAZO_CANCELAMENTO: i64 = 24 * 3600;
+/// How long to wait after nothing was found, by NT 2014.002, item 3.11.4.
+const ESPERA_DISTRIBUICAO: i64 = 3600;
+/// The tolerance of rule 2P13-14, in seconds.
+const TOLERANCIA_DATA: i64 = 300;
+/// The largest batch of the distribution, by NT 2014.002.
+const MAXIMO_LOTE: usize = 50;
+
+/// What the sandbox knows about a key.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EstadoChave {
+    /// The sandbox has never seen it.
+    Desconhecida,
+    /// It was refused and therefore does not exist for the SEFAZ.
+    Rejeitada {
+        /// The last refusal.
+        c_stat: u32,
+    },
+    /// Authorized.
+    Autorizada {
+        /// The protocol.
+        n_prot: String,
+    },
+    /// Authorized, but the sender never got the answer: the dangerous case.
+    AutorizadaSemRetorno {
+        /// The protocol that exists and the sender does not know.
+        n_prot: String,
+    },
+    /// Cancelled.
+    Cancelada {
+        /// The protocol of the authorization.
+        n_prot: String,
+    },
+}
 
 /// One document the sandbox already authorized.
 #[derive(Clone, Debug)]
@@ -26,7 +56,28 @@ struct Nota {
     n_prot: String,
     dig_val: String,
     dh: String,
+    emitida_em: Option<Instante>,
+    autorizada_em: Option<Instante>,
     cancelada: bool,
+}
+
+/// One document in the distribution.
+#[derive(Clone, Debug)]
+struct Entrada {
+    nsu: u64,
+    destinatario: String,
+    schema: String,
+    xml: String,
+}
+
+/// A document waiting for the recipient.
+#[derive(Clone, Debug)]
+struct Recebida {
+    destinatario: String,
+    proc_nfe: String,
+    resumo: String,
+    manifestacoes: HashSet<String>,
+    liberada: bool,
 }
 
 /// What the sandbox remembers.
@@ -35,238 +86,74 @@ pub(crate) struct Notas {
     por_chave: HashMap<String, Nota>,
     /// Issuer, model, series and number to the key that took them.
     por_numero: HashMap<(String, String, String, String), String>,
+    rejeitadas: HashMap<String, u32>,
+    sem_retorno: HashSet<String>,
+    recebidas: HashMap<String, Recebida>,
+    entradas: Vec<Entrada>,
+    /// For each recipient: the NSU handed over last, and when nothing new came.
+    consultas: HashMap<String, Consulta>,
 }
 
-/// The order of the tags under each parent.
-const ORDEM: &[(&str, &[&str])] = &[
-    ("enviNFe", &["idLote", "indSinc", "NFe"]),
-    ("NFe", &["infNFe", "infNFeSupl", "Signature"]),
-    (
-        "infNFe",
-        &[
-            "ide",
-            "emit",
-            "avulsa",
-            "dest",
-            "retirada",
-            "entrega",
-            "autXML",
-            "det",
-            "total",
-            "transp",
-            "cobr",
-            "pag",
-            "infIntermed",
-            "gPgtoVinc",
-            "infAdic",
-            "exporta",
-            "compra",
-            "cana",
-            "infRespTec",
-            "infSolicNFF",
-            "agropecuario",
-        ],
-    ),
-    (
-        "ide",
-        &[
-            "cUF",
-            "cNF",
-            "natOp",
-            "mod",
-            "serie",
-            "nNF",
-            "dhEmi",
-            "dhSaiEnt",
-            "dPrevEntrega",
-            "tpNF",
-            "idDest",
-            "cMunFG",
-            "cMunFGIBS",
-            "tpImp",
-            "tpEmis",
-            "cDV",
-            "tpAmb",
-            "finNFe",
-            "tpNFDebito",
-            "tpNFCredito",
-            "indFinal",
-            "indPres",
-            "indIntermed",
-            "cIndOp",
-            "procEmi",
-            "verProc",
-            "dhCont",
-            "xJust",
-            "NFref",
-            "gCompraGov",
-            "gPagAntecipado",
-        ],
-    ),
-    ("emit", &["CNPJ", "CPF", "xNome", "xFant", "enderEmit", "IE", "IEST", "IM", "CNAE", "CRT", "ISUFEmit"]),
-    ("enderEmit", &["xLgr", "nro", "xCpl", "xBairro", "cMun", "xMun", "UF", "CEP", "cPais", "xPais", "fone"]),
-    ("enderDest", &["xLgr", "nro", "xCpl", "xBairro", "cMun", "xMun", "UF", "CEP", "cPais", "xPais", "fone"]),
-    (
-        "dest",
-        &["CNPJ", "CPF", "idEstrangeiro", "xNome", "enderDest", "indIEDest", "IE", "ISUF", "IM", "email"],
-    ),
-    ("det", &["prod", "imposto", "impostoDevol", "infAdProd", "obsItem", "vItem", "DFeReferenciado"]),
-    (
-        "prod",
-        &[
-            "cProd",
-            "cEAN",
-            "cBarra",
-            "xProd",
-            "NCM",
-            "NVE",
-            "CEST",
-            "indEscala",
-            "CNPJFab",
-            "cBenef",
-            "gCred",
-            "tpCredPresIBSZFM",
-            "EXTIPI",
-            "CFOP",
-            "uCom",
-            "qCom",
-            "vUnCom",
-            "vProd",
-            "vUnComLiq",
-            "vProdLiq",
-            "cEANTrib",
-            "cBarraTrib",
-            "uTrib",
-            "qTrib",
-            "vUnTrib",
-            "vFrete",
-            "vSeg",
-            "vDesc",
-            "vOutro",
-            "indTot",
-            "indBemMovelUsado",
-        ],
-    ),
-    (
-        "imposto",
-        &[
-            "vTotTrib",
-            "ICMS",
-            "IPI",
-            "II",
-            "ISSQN",
-            "PIS",
-            "PISST",
-            "COFINS",
-            "COFINSST",
-            "ICMSUFDest",
-            "IS",
-            "IBSCBS",
-        ],
-    ),
-    ("total", &["vProdLiqTot", "ICMSTot", "ISSQNtot", "retTrib", "ISTot", "IBSCBSTot", "vNFTot"]),
-    (
-        "ICMSTot",
-        &[
-            "vBC",
-            "vICMS",
-            "vICMSDeson",
-            "vFCPUFDest",
-            "vICMSUFDest",
-            "vICMSUFRemet",
-            "vFCP",
-            "vBCST",
-            "vST",
-            "vFCPST",
-            "vFCPSTRet",
-            "qBCMono",
-            "vICMSMono",
-            "qBCMonoReten",
-            "vICMSMonoReten",
-            "qBCMonoRet",
-            "vICMSMonoRet",
-            "vProd",
-            "vFrete",
-            "vSeg",
-            "vDesc",
-            "vII",
-            "vIPI",
-            "vIPIDevol",
-            "vPIS",
-            "vCOFINS",
-            "vOutro",
-            "vNF",
-            "vTotTrib",
-        ],
-    ),
-    ("transp", &["modFrete", "transporta", "retTransp", "veicTransp", "reboque", "vagao", "balsa", "vol"]),
-    ("pag", &["detPag", "vTroco"]),
-    ("detPag", &["indPag", "tPag", "xPag", "vPag", "dPag", "CNPJPag", "UFPag", "card"]),
-    ("infAdic", &["infAdFisco", "infCpl", "obsCont", "obsFisco", "procRef"]),
-    ("infNFeSupl", &["qrCode", "urlChave"]),
-    ("Signature", &["SignedInfo", "SignatureValue", "KeyInfo"]),
-    ("envEvento", &["idLote", "evento"]),
-    ("evento", &["infEvento", "Signature"]),
-    (
-        "infEvento",
-        &[
-            "cOrgao",
-            "tpAmb",
-            "CNPJ",
-            "CPF",
-            "chNFe",
-            "dhEvento",
-            "tpEvento",
-            "nSeqEvento",
-            "verEvento",
-            "detEvento",
-        ],
-    ),
-    ("detEvento", &["descEvento", "nProt", "xJust"]),
-];
+#[derive(Clone, Copy, Debug, Default)]
+struct Consulta {
+    ultimo_entregue: u64,
+    sem_novidade_em: Option<Option<Instante>>,
+}
 
-/// The first problem in the order of the tags, or in white space between them.
-fn problema_de_estrutura(element: &Element) -> Option<u32> {
-    let elementos = element.elements().count();
-    if elementos > 0 && element.children.iter().any(|node| matches!(node, Node::Text(_))) {
-        // Text between tags: the rejection for editing characters inside the message.
-        return Some(588);
-    }
-    if let Some((_, ordem)) = ORDEM.iter().find(|(pai, _)| *pai == element.local_name()) {
-        let mut ultimo = 0;
-        for filho in element.elements() {
-            let posicao = ordem.iter().position(|nome| *nome == filho.local_name())?;
-            if posicao < ultimo {
-                return Some(225);
+impl Notas {
+    pub(super) fn estado(&self, chave: &str) -> EstadoChave {
+        if let Some(nota) = self.por_chave.get(chave) {
+            let n_prot = nota.n_prot.clone();
+            if nota.cancelada {
+                return EstadoChave::Cancelada { n_prot };
             }
-            ultimo = posicao;
+            if self.sem_retorno.contains(chave) {
+                return EstadoChave::AutorizadaSemRetorno { n_prot };
+            }
+            return EstadoChave::Autorizada { n_prot };
+        }
+        match self.rejeitadas.get(chave) {
+            Some(c_stat) => EstadoChave::Rejeitada { c_stat: *c_stat },
+            None => EstadoChave::Desconhecida,
         }
     }
-    // Signature keeps its own inner structure, which the signature check looks at.
-    if element.local_name() == "Signature" {
-        return None;
+
+    /// Records that the sender never got the answer about this key.
+    pub(super) fn marcar_sem_retorno(&mut self, chave: &str) {
+        self.sem_retorno.insert(chave.to_string());
     }
-    element.elements().find_map(problema_de_estrutura)
+
+    /// Records that the sender saw an answer about this key.
+    pub(super) fn marcar_com_retorno(&mut self, chave: &str) {
+        self.sem_retorno.remove(chave);
+    }
+
+    pub(super) fn registrar_rejeicao(&mut self, chave: &str, c_stat: u32) {
+        if !self.por_chave.contains_key(chave) {
+            self.rejeitadas.insert(chave.to_string(), c_stat);
+        }
+    }
+
+    fn proximo_nsu(&self) -> u64 {
+        self.entradas.iter().map(|e| e.nsu).max().unwrap_or(0) + 1
+    }
+
+    /// Puts a document in the distribution of its recipient, as a summary.
+    pub(super) fn colocar(&mut self, chave: String, destinatario: String, proc_nfe: String, resumo: String) {
+        let nsu = self.proximo_nsu();
+        self.entradas.push(Entrada {
+            nsu,
+            destinatario: destinatario.clone(),
+            schema: "resNFe_v1.01.xsd".to_string(),
+            xml: resumo.clone(),
+        });
+        self.recebidas.insert(
+            chave,
+            Recebida { destinatario, proc_nfe, resumo, manifestacoes: HashSet::new(), liberada: false },
+        );
+    }
 }
 
-/// Same as [`problema_de_estrutura`], also refusing tags the sandbox does not know.
-fn problema_em_nivel(element: &Element) -> Option<u32> {
-    if let Some((_, ordem)) = ORDEM.iter().find(|(pai, _)| *pai == element.local_name())
-        && element.elements().any(|filho| !ordem.contains(&filho.local_name()))
-    {
-        return Some(225);
-    }
-    if element.local_name() == "Signature" {
-        return None;
-    }
-    element.elements().find_map(problema_em_nivel)
-}
-
-fn estrutura(element: &Element) -> Option<u32> {
-    problema_em_nivel(element).or_else(|| problema_de_estrutura(element))
-}
-
-/// Finds the namespace of an element's prefix among the attributes of the element itself.
 fn namespace_proprio(element: &Element) -> Option<&str> {
     match element.name.split_once(':') {
         Some((prefixo, _)) => element.attr(&format!("xmlns:{prefixo}")),
@@ -284,11 +171,17 @@ fn abrir_envelope(pedido: &SandboxRequest, servico: Servico) -> Result<Element, 
     if envelope.local_name() != "Envelope" || namespace_proprio(&envelope) != Some(NS_SOAP12) {
         return Err(Resposta::Http(resposta::fault(400, "Envelope não é SOAP 1.2")));
     }
-    let mensagem = envelope
-        .child("Body")
-        .and_then(|body| body.child("nfeDadosMsg"))
+    let corpo =
+        envelope.child("Body").ok_or_else(|| Resposta::Http(resposta::fault(400, "Envelope sem Body")))?;
+    let mensagem = corpo
+        .find("nfeDadosMsg")
         .ok_or_else(|| Resposta::Http(resposta::fault(400, "Body sem nfeDadosMsg")))?;
-    if mensagem.attr("xmlns") != Some(servico.namespace().as_str()) {
+    let namespace = if servico == Servico::Distribuicao {
+        corpo.child(servico.operacao()).and_then(|grupo| grupo.attr("xmlns"))
+    } else {
+        mensagem.attr("xmlns")
+    };
+    if namespace != Some(servico.namespace().as_str()) {
         return Err(Resposta::Http(resposta::fault(400, "nfeDadosMsg com namespace diferente da ação")));
     }
     let mut filhos = mensagem.elements();
@@ -297,6 +190,49 @@ fn abrir_envelope(pedido: &SandboxRequest, servico: Servico) -> Result<Element, 
         return Err(pedido.responder(225));
     }
     Ok(dados.clone())
+}
+
+/// Answers the first refusal of an analysis, if there is one, as a server would.
+fn responder_rejeicao(pedido: &SandboxRequest, analise: &Analise) -> Option<(Resposta, u32)> {
+    let achado = analise.primeira_rejeicao()?;
+    Some((responder_achado(pedido, achado), achado.c_stat))
+}
+
+fn responder_achado(pedido: &SandboxRequest, achado: &Diagnostico) -> Resposta {
+    let mut texto = achado.titulo.clone();
+    if achado.regra == "B24-10" || achado.regra == "J01" {
+        texto.push_str(". O sandbox só aceita tpAmb=2");
+    }
+    if matches!(
+        achado.regra,
+        "E01"
+            | "E02"
+            | "E03"
+            | "E04"
+            | "E06"
+            | "A01"
+            | "F03"
+            | "SBX-FORA-DO-LABORATORIO"
+            | "CERT-CHAVE-FRACA"
+            | "CERT-SHA1"
+    ) {
+        texto.push_str(": ");
+        texto.push_str(achado.explicacao.split(". ").next().unwrap_or(""));
+    }
+    if achado.c_stat == 0 {
+        return Resposta::Http(resposta::fault(400, &achado.explicacao));
+    }
+    pedido.responder_com(achado.c_stat, &texto)
+}
+
+fn por_regra(pedido: &SandboxRequest, id: &str, detalhe: Option<&str>) -> Resposta {
+    let Some(regra) = regra(id) else {
+        return pedido.responder(999);
+    };
+    match detalhe {
+        Some(detalhe) => pedido.responder_com(regra.c_stat, &format!("{} {detalhe}", regra.titulo())),
+        None => pedido.responder_com(regra.c_stat, regra.titulo()),
+    }
 }
 
 /// Runs the checks of the service of this request.
@@ -309,235 +245,56 @@ pub(super) fn conferir(pedido: &SandboxRequest, sandbox: &SefazSandbox) -> Respo
         Err(resposta) => return resposta,
     };
     if dados.attr("xmlns") != Some(NS_NFE) {
-        return pedido.responder(225);
+        return por_regra(pedido, "D01-LOTE", None);
     }
-    if let Some(tp_amb) = tp_amb_de(&dados)
-        && tp_amb != "2"
-    {
-        return pedido.responder_com(252, "O sandbox só aceita tpAmb=2");
-    }
+    let opcoes = sandbox.opcoes();
     match servico {
-        Servico::Status => conferir_status(pedido, &dados),
-        Servico::Autorizacao => conferir_autorizacao(pedido, sandbox, &dados),
-        Servico::Consulta => conferir_consulta(pedido, sandbox, &dados),
-        Servico::Evento => conferir_evento(pedido, sandbox, &dados),
+        Servico::Status => match responder_rejeicao(pedido, &analise::analisar_status(&dados, &opcoes)) {
+            Some((resposta, _)) => resposta,
+            None => pedido.responder(107),
+        },
+        Servico::Autorizacao => conferir_autorizacao(pedido, sandbox, &dados, &opcoes),
+        Servico::Consulta => conferir_consulta(pedido, sandbox, &dados, &opcoes),
+        Servico::Evento => conferir_lote_evento(pedido, sandbox, &dados, &opcoes),
+        Servico::Distribuicao => conferir_distribuicao(pedido, sandbox, &dados, &opcoes),
     }
 }
 
-fn tp_amb_de(dados: &Element) -> Option<String> {
-    dados.find_text("tpAmb")
-}
-
-fn conferir_status(pedido: &SandboxRequest, dados: &Element) -> Resposta {
-    if dados.local_name() != "consStatServ"
-        || dados.child_text("xServ").as_deref() != Some("STATUS")
-        || dados.child("cUF").is_none()
-        || dados.child("tpAmb").is_none()
-    {
-        return pedido.responder(225);
-    }
-    pedido.responder(107)
-}
-
-fn decimal(element: &Element, tag: &str) -> Option<Decimal> {
-    element.child_text(tag)?.parse().ok()
-}
-
-/// The totals of a document, or the rejection for the first that does not add up.
-fn conferir_totais(inf_nfe: &Element) -> Result<(), u32> {
-    let totais = inf_nfe.child("total").and_then(|t| t.child("ICMSTot")).ok_or(225_u32)?;
-    let campo = |tag: &str| decimal(totais, tag).ok_or(225_u32);
-    let mut soma_prod = Decimal::ZERO;
-    let mut soma_desc = Decimal::ZERO;
-    for det in inf_nfe.elements().filter(|e| e.local_name() == "det") {
-        let prod = det.child("prod").ok_or(225_u32)?;
-        let quantidade = decimal(prod, "qCom").ok_or(225_u32)?;
-        let unitario = decimal(prod, "vUnCom").ok_or(225_u32)?;
-        let valor = decimal(prod, "vProd").ok_or(225_u32)?;
-        let calculado = quantidade.checked_mul(unitario).ok_or(225_u32)?;
-        if arredondar(calculado) != valor {
-            return Err(629);
+fn conferir_autorizacao(
+    pedido: &SandboxRequest,
+    sandbox: &SefazSandbox,
+    dados: &Element,
+    opcoes: &Opcoes,
+) -> Resposta {
+    let analise = analise::analisar_lote(dados, Some(pedido.body()), opcoes);
+    if let Some((resposta, c_stat)) = responder_rejeicao(pedido, &analise) {
+        if let Some(chave) = &analise.chave {
+            sandbox.lock().notas.registrar_rejeicao(chave, c_stat);
         }
-        soma_prod += valor;
-        soma_desc += decimal(prod, "vDesc").unwrap_or(Decimal::ZERO);
+        return resposta;
     }
-    if soma_prod != campo("vProd")? {
-        return Err(564);
-    }
-    if soma_desc != campo("vDesc")? {
-        return Err(537);
-    }
-    let calculado = campo("vProd")? - campo("vDesc")? - campo("vICMSDeson")?
-        + campo("vST")?
-        + campo("vFCPST")?
-        + campo("vFrete")?
-        + campo("vSeg")?
-        + campo("vOutro")?
-        + campo("vII")?
-        + campo("vIPI")?
-        + campo("vIPIDevol")?;
-    let v_nf = campo("vNF")?;
-    if calculado != v_nf {
-        return Err(610);
-    }
-    let pag = inf_nfe.child("pag").ok_or(225_u32)?;
-    let mut pago = Decimal::ZERO;
-    for det_pag in pag.elements().filter(|e| e.local_name() == "detPag") {
-        pago += decimal(det_pag, "vPag").ok_or(225_u32)?;
-    }
-    if pago < v_nf {
-        return Err(865);
-    }
-    if pago - v_nf != decimal(pag, "vTroco").unwrap_or(Decimal::ZERO) {
-        return Err(869);
-    }
-    Ok(())
-}
-
-/// The key inside the message must be the concatenation of the fields it repeats.
-fn conferir_chave(inf_nfe: &Element, chave: &str) -> Result<(), u32> {
-    let semente = &chave[..43];
-    if chave.as_bytes()[43] - b'0' != digito_mod11(semente) {
-        return Err(253);
-    }
-    let ide = inf_nfe.child("ide").ok_or(225_u32)?;
-    let emit = inf_nfe.child("emit").ok_or(225_u32)?;
-    let texto = |e: &Element, tag: &str| e.child_text(tag).ok_or(225_u32);
-    let dh = texto(ide, "dhEmi")?;
-    let serie: u32 = texto(ide, "serie")?.parse().map_err(|_| 225_u32)?;
-    let numero: u32 = texto(ide, "nNF")?.parse().map_err(|_| 225_u32)?;
-    let esperada = format!(
-        "{}{}{}{}{}{:03}{:09}{}{}{}",
-        texto(ide, "cUF")?,
-        dh.get(2..4).ok_or(225_u32)?,
-        dh.get(5..7).ok_or(225_u32)?,
-        texto(emit, "CNPJ")?,
-        texto(ide, "mod")?,
-        serie,
-        numero,
-        texto(ide, "tpEmis")?,
-        texto(ide, "cNF")?,
-        texto(ide, "cDV")?,
-    );
-    if esperada != chave {
-        return Err(502);
-    }
-    Ok(())
-}
-
-/// The texts homologation requires.
-fn conferir_textos(inf_nfe: &Element, modelo: &str) -> Result<(), u32> {
-    if modelo == "55" {
-        let nome = inf_nfe.child("dest").and_then(|dest| dest.child_text("xNome"));
-        if nome.as_deref() != Some(TEXTO_HOMOLOGACAO_DESTINATARIO) {
-            return Err(598);
-        }
-    } else {
-        let item = inf_nfe.child("det").and_then(|det| det.child("prod")).and_then(|p| p.child_text("xProd"));
-        if item.as_deref() != Some(TEXTO_HOMOLOGACAO_ITEM) {
-            return Err(373);
-        }
-    }
-    Ok(())
-}
-
-fn conferir_autorizacao(pedido: &SandboxRequest, sandbox: &SefazSandbox, dados: &Element) -> Resposta {
-    if dados.local_name() != "enviNFe" || dados.attr("versao") != Some("4.00") {
-        return pedido.responder(225);
-    }
-    if !dados
-        .child_text("idLote")
-        .is_some_and(|l| !l.is_empty() && l.len() <= 15 && l.bytes().all(|b| b.is_ascii_digit()))
-    {
-        return pedido.responder(225);
-    }
-    if let Some(codigo) = estrutura(dados) {
-        return pedido.responder(codigo);
-    }
-    match dados.child_text("indSinc").as_deref() {
-        Some("1") => {}
-        Some("0") => return pedido.responder(452),
-        _ => return pedido.responder(225),
-    }
-    let notas: Vec<&Element> = dados.elements().filter(|e| e.local_name() == "NFe").collect();
-    let [nfe] = notas.as_slice() else {
-        return pedido.responder_com(225, "O sandbox só aceita lote com uma nota");
+    let (Some(chave), Some(nfe)) = (analise.chave.as_deref(), dados.child("NFe")) else {
+        return por_regra(pedido, "D01-LOTE", None);
     };
-    let Some(inf_nfe) = nfe.child("infNFe") else {
-        return pedido.responder(225);
+    let Some(inf) = nfe.child("infNFe") else {
+        return por_regra(pedido, "D01-LOTE", None);
     };
-    let Some(id) = inf_nfe.attr("Id").filter(|_| inf_nfe.attr("versao") == Some("4.00")) else {
-        return pedido.responder(225);
-    };
-    let Some(chave) = id.strip_prefix("NFe").filter(|chave| forma_valida(chave)) else {
-        return pedido.responder(225);
-    };
-    let Some(ide) = inf_nfe.child("ide") else {
-        return pedido.responder(225);
-    };
-    for grupo in ["emit", "det", "total", "transp", "pag"] {
-        if inf_nfe.child(grupo).is_none() {
-            return pedido.responder(225);
-        }
-    }
-    let modelo = ide.child_text("mod").unwrap_or_default();
-    if modelo != "55" && modelo != "65" {
-        return pedido.responder(225);
-    }
-
-    // The document is checked by itself, as it travels: the SOAP around it signs nothing.
-    match verify_enveloped(nfe, id) {
-        Ok(()) => {}
-        Err(FalhaAssinatura::ForaDoPadrao(motivo)) => {
-            return pedido.responder_com(298, &format!("{}: {motivo}", texto_de(298)));
-        }
-        Err(FalhaAssinatura::Difere(motivo)) => {
-            return pedido.responder_com(297, &format!("{}: {motivo}", texto_de(297)));
-        }
-    }
-
-    if let Err(codigo) = conferir_chave(inf_nfe, chave) {
-        return pedido.responder(codigo);
-    }
-    if let Err(codigo) = conferir_textos(inf_nfe, &modelo) {
-        return pedido.responder(codigo);
-    }
-    if modelo == "65" && nfe.child("infNFeSupl").is_none() {
-        return pedido.responder(394);
-    }
-    let crt = inf_nfe.child("emit").and_then(|emit| emit.child_text("CRT"));
-    if crt.as_deref() == Some("3")
-        && inf_nfe
-            .elements()
-            .filter(|e| e.local_name() == "det")
-            .any(|det| det.child("imposto").and_then(|i| i.child("IBSCBS")).is_none())
-    {
-        return pedido.responder(1115);
-    }
-    if let Err(codigo) = conferir_totais(inf_nfe) {
-        return pedido.responder(codigo);
-    }
-    registrar_nota(pedido, sandbox, nfe, inf_nfe, ide, chave, &modelo)
+    registrar_nota(pedido, sandbox, nfe, inf, chave, opcoes)
 }
 
 fn registrar_nota(
     pedido: &SandboxRequest,
     sandbox: &SefazSandbox,
     nfe: &Element,
-    inf_nfe: &Element,
-    ide: &Element,
+    inf: &Element,
     chave: &str,
-    modelo: &str,
+    opcoes: &Opcoes,
 ) -> Resposta {
-    let cnpj = inf_nfe.child("emit").and_then(|e| e.child_text("CNPJ")).unwrap_or_default();
-    let numero_chave = (
-        cnpj,
-        modelo.to_string(),
-        ide.child_text("serie").unwrap_or_default(),
-        ide.child_text("nNF").unwrap_or_default(),
-    );
+    let ide = inf.child("ide");
+    let campo = |tag: &str| ide.and_then(|i| i.child_text(tag)).unwrap_or_default();
+    let cnpj = inf.child("emit").and_then(|e| e.child_text("CNPJ")).unwrap_or_default();
+    let numero_chave = (cnpj, campo("mod"), campo("serie"), campo("nNF"));
     let dig_val = nfe.find_text("DigestValue").unwrap_or_default();
-    let c_uf = ide.child_text("cUF").unwrap_or_default();
     let dh = pedido.dh_recbto.as_str();
 
     let mut estado = sandbox.lock();
@@ -553,9 +310,17 @@ fn registrar_nota(
     }
     let n_prot = pedido.proximo_protocolo();
     estado.notas.por_numero.insert(numero_chave, chave.to_string());
+    estado.notas.rejeitadas.remove(chave);
     estado.notas.por_chave.insert(
         chave.to_string(),
-        Nota { n_prot: n_prot.clone(), dig_val: dig_val.clone(), dh: dh.to_string(), cancelada: false },
+        Nota {
+            n_prot: n_prot.clone(),
+            dig_val: dig_val.clone(),
+            dh: dh.to_string(),
+            emitida_em: Instante::de_xml(&campo("dhEmi")),
+            autorizada_em: opcoes.agora,
+            cancelada: false,
+        },
     );
     drop(estado);
 
@@ -567,7 +332,7 @@ fn registrar_nota(
         c_stat: 100,
         motivo: texto_de(100),
     });
-    let retorno = resposta::ret_lote(104, texto_de(104), &c_uf, dh, Some(&prot));
+    let retorno = resposta::ret_lote(104, texto_de(104), &campo("cUF"), dh, Some(&prot));
     Resposta::Http(resposta::soap(Servico::Autorizacao, &retorno))
 }
 
@@ -575,19 +340,22 @@ fn texto_de(c_stat: u32) -> &'static str {
     descricao_c_stat(c_stat).unwrap_or("")
 }
 
-fn conferir_consulta(pedido: &SandboxRequest, sandbox: &SefazSandbox, dados: &Element) -> Resposta {
-    if dados.local_name() != "consSitNFe" || dados.child_text("xServ").as_deref() != Some("CONSULTAR") {
-        return pedido.responder(225);
+fn conferir_consulta(
+    pedido: &SandboxRequest,
+    sandbox: &SefazSandbox,
+    dados: &Element,
+    opcoes: &Opcoes,
+) -> Resposta {
+    let analise = analise::analisar_consulta(dados, opcoes);
+    if let Some((resposta, _)) = responder_rejeicao(pedido, &analise) {
+        return resposta;
     }
-    let Some(chave) = dados.child_text("chNFe").filter(|chave| forma_valida(chave)) else {
-        return pedido.responder(225);
+    let Some(chave) = analise.chave else {
+        return por_regra(pedido, "D01", None);
     };
-    if ChaveAcesso::parse(&chave).is_err() {
-        return pedido.responder(236);
-    }
     let nota = sandbox.lock().notas.por_chave.get(&chave).cloned();
     let Some(nota) = nota else {
-        return pedido.responder(217);
+        return por_regra(pedido, "J03", None);
     };
     let c_uf = chave.get(..2).unwrap_or("");
     let (c_stat, texto) = if nota.cancelada { (101, texto_de(101)) } else { (100, texto_de(100)) };
@@ -603,65 +371,40 @@ fn conferir_consulta(pedido: &SandboxRequest, sandbox: &SefazSandbox, dados: &El
     Resposta::Http(resposta::soap(Servico::Consulta, &retorno))
 }
 
-fn conferir_evento(pedido: &SandboxRequest, sandbox: &SefazSandbox, dados: &Element) -> Resposta {
-    if dados.local_name() != "envEvento" || dados.attr("versao") != Some("1.00") {
-        return pedido.responder(225);
+fn conferir_lote_evento(
+    pedido: &SandboxRequest,
+    sandbox: &SefazSandbox,
+    dados: &Element,
+    opcoes: &Opcoes,
+) -> Resposta {
+    if dados.local_name() != "envEvento" {
+        return por_regra(pedido, "D01a", None);
     }
-    if let Some(codigo) = estrutura(dados) {
-        return pedido.responder(codigo);
+    if dados.attr("versao") != Some("1.00") {
+        return por_regra(pedido, "B06", None);
     }
     let eventos: Vec<&Element> = dados.elements().filter(|e| e.local_name() == "evento").collect();
     let [evento] = eventos.as_slice() else {
-        return pedido.responder_com(225, "O sandbox só aceita lote com um evento");
+        return pedido.responder_com(215, "O sandbox só aceita lote com um evento");
     };
+    let analise = analise::analisar_evento(evento, Some(pedido.body()), opcoes);
+    if let Some((resposta, _)) = responder_rejeicao(pedido, &analise) {
+        return resposta;
+    }
     let Some(inf) = evento.child("infEvento") else {
-        return pedido.responder(225);
+        return por_regra(pedido, "D01", None);
     };
     let campo = |tag: &str| inf.child_text(tag).unwrap_or_default();
     let chave = campo("chNFe");
-    let sequencia = campo("nSeqEvento");
-    let Some(detalhe) = inf.child("detEvento") else {
-        return pedido.responder(225);
+    let tp_evento = campo("tpEvento");
+    let negada = if tp_evento == TP_EVENTO_CANCELAMENTO {
+        cancelar(sandbox, inf, &chave, opcoes)
+    } else {
+        manifestar(sandbox, &chave, &campo("CNPJ"), &tp_evento)
     };
-    let justificativa = detalhe.child_text("xJust").unwrap_or_default().chars().count();
-    if !forma_valida(&chave)
-        || campo("tpEvento") != TP_EVENTO_CANCELAMENTO
-        || detalhe.child_text("descEvento").as_deref() != Some("Cancelamento")
-        || !(15..=255).contains(&justificativa)
-    {
-        return pedido.responder(225);
+    if let Some(id) = negada {
+        return por_regra(pedido, id, None);
     }
-    let numero_sequencia: u8 = sequencia.parse().unwrap_or(0);
-    let id = format!("ID{TP_EVENTO_CANCELAMENTO}{chave}{numero_sequencia:02}");
-    if inf.attr("Id") != Some(id.as_str()) {
-        return pedido.responder(225);
-    }
-    match verify_enveloped(evento, &id) {
-        Ok(()) => {}
-        Err(FalhaAssinatura::ForaDoPadrao(motivo)) => {
-            return pedido.responder_com(298, &format!("{}: {motivo}", texto_de(298)));
-        }
-        Err(FalhaAssinatura::Difere(motivo)) => {
-            return pedido.responder_com(297, &format!("{}: {motivo}", texto_de(297)));
-        }
-    }
-
-    let protocolo = detalhe.child_text("nProt").unwrap_or_default();
-    let mut estado = sandbox.lock();
-    let codigo = match estado.notas.por_chave.get_mut(&chave) {
-        None => Some(494),
-        Some(nota) if nota.n_prot != protocolo => Some(222),
-        Some(nota) if nota.cancelada => Some(573),
-        Some(nota) => {
-            nota.cancelada = true;
-            None
-        }
-    };
-    drop(estado);
-    if let Some(codigo) = codigo {
-        return pedido.responder(codigo);
-    }
-
     let id_lote = dados.child_text("idLote").unwrap_or_default();
     let c_orgao = campo("cOrgao");
     let dh = pedido.dh_recbto.as_str();
@@ -671,10 +414,202 @@ fn conferir_evento(pedido: &SandboxRequest, sandbox: &SefazSandbox, dados: &Elem
         c_stat: 135,
         motivo: texto_de(135),
         chave: &chave,
-        sequencia: &sequencia,
+        tp_evento: &tp_evento,
+        sequencia: &campo("nSeqEvento"),
         dh,
         n_prot: Some(&n_prot),
     });
     let retorno = resposta::ret_lote_evento(&id_lote, 128, texto_de(128), &c_orgao, Some(&retorno_evento));
     Resposta::Http(resposta::soap(Servico::Evento, &retorno))
+}
+
+/// The rules of a cancellation that depend on the stored document, in the order of Table 5-38.
+fn cancelar(sandbox: &SefazSandbox, inf: &Element, chave: &str, opcoes: &Opcoes) -> Option<&'static str> {
+    let protocolo = inf.child("detEvento").and_then(|d| d.child_text("nProt")).unwrap_or_default();
+    let momento = inf.child_text("dhEvento").and_then(|d| Instante::de_xml(&d));
+    let mut estado = sandbox.lock();
+    let Some(nota) = estado.notas.por_chave.get_mut(chave) else {
+        return Some("2P12-10");
+    };
+    if let (Some(agora), Some(autorizada)) = (opcoes.agora, nota.autorizada_em)
+        && agora.0 - autorizada.0 > PRAZO_CANCELAMENTO
+        && !nota.cancelada
+    {
+        return Some("2P12-14");
+    }
+    if nota.cancelada {
+        return Some("2P12-22");
+    }
+    if let (Some(momento), Some(emitida)) = (momento, nota.emitida_em)
+        && momento < emitida
+    {
+        return Some("2P13-10");
+    }
+    if let (Some(momento), Some(autorizada)) = (momento, nota.autorizada_em)
+        && momento.0 + TOLERANCIA_DATA < autorizada.0
+    {
+        return Some("2P13-14");
+    }
+    if nota.n_prot != protocolo {
+        return Some("2P23-10");
+    }
+    nota.cancelada = true;
+    None
+}
+
+/// The recipient's manifestation, which releases the full document.
+fn manifestar(sandbox: &SefazSandbox, chave: &str, autor: &str, tp_evento: &str) -> Option<&'static str> {
+    let mut estado = sandbox.lock();
+    let notas = &mut estado.notas;
+    let nsu = notas.proximo_nsu();
+    let Some(recebida) = notas.recebidas.get_mut(chave) else {
+        return Some("MANIF-494");
+    };
+    if recebida.destinatario.get(..8) != autor.get(..8) {
+        return Some("MANIF-575");
+    }
+    if !recebida.manifestacoes.insert(tp_evento.to_string()) {
+        return Some("3P15-10");
+    }
+    // By NT 2014.002, item 7: every manifestation but "desconhecimento" releases the download.
+    if tp_evento != TipoManifestacao::Desconhecimento.codigo() && !recebida.liberada {
+        recebida.liberada = true;
+        let entrada = Entrada {
+            nsu,
+            destinatario: recebida.destinatario.clone(),
+            schema: "procNFe_v4.00.xsd".to_string(),
+            xml: recebida.proc_nfe.clone(),
+        };
+        notas.entradas.push(entrada);
+    }
+    None
+}
+
+fn conferir_distribuicao(
+    pedido: &SandboxRequest,
+    sandbox: &SefazSandbox,
+    dados: &Element,
+    opcoes: &Opcoes,
+) -> Resposta {
+    if dados.local_name() != "distDFeInt" {
+        return por_regra(pedido, "D01a", None);
+    }
+    if dados.child_text("tpAmb").as_deref() != opcoes.tp_amb_esperado.as_deref() {
+        return por_regra(pedido, "DIST-252", None);
+    }
+    let cnpj = dados.child_text("CNPJ").unwrap_or_default();
+    if !cnpj_valido(&cnpj) {
+        return por_regra(pedido, "DIST-489", None);
+    }
+    let dh = pedido.dh_recbto.as_str();
+    if let Some(grupo) = dados.child("consChNFe") {
+        return distribuir_por_chave(pedido, sandbox, grupo, &cnpj);
+    }
+    let Some(grupo) = dados.child("distNSU") else {
+        return por_regra(pedido, "D01", None);
+    };
+    let ultimo: u64 = grupo.child_text("ultNSU").and_then(|t| t.parse().ok()).unwrap_or(0);
+
+    let mut estado = sandbox.lock();
+    let notas = &mut estado.notas;
+    let chave_consulta = cnpj.get(..8).unwrap_or("").to_string();
+    let maior = notas
+        .entradas
+        .iter()
+        .filter(|e| e.destinatario.get(..8) == Some(chave_consulta.as_str()))
+        .map(|e| e.nsu)
+        .max()
+        .unwrap_or(0);
+    let consulta = notas.consultas.entry(chave_consulta.clone()).or_default();
+    if ultimo > maior && maior > 0 {
+        drop(estado);
+        return por_regra(pedido, "DIST-589", None);
+    }
+    if ultimo < consulta.ultimo_entregue {
+        let entregue = consulta.ultimo_entregue;
+        drop(estado);
+        let retorno = resposta::ret_distribuicao(
+            656,
+            &format!("{}. Deve ser utilizado o ultNSU nas solicitacoes subsequentes", texto_de(656)),
+            dh,
+            entregue,
+            maior,
+            &[],
+        );
+        return Resposta::Http(resposta::soap(Servico::Distribuicao, &retorno));
+    }
+    let documentos: Vec<(u64, String, String)> = notas
+        .entradas
+        .iter()
+        .filter(|e| e.nsu > ultimo && e.destinatario.get(..8) == Some(chave_consulta.as_str()))
+        .take(MAXIMO_LOTE)
+        .map(|e| (e.nsu, e.schema.clone(), e.xml.clone()))
+        .collect();
+    if documentos.is_empty() {
+        let bloqueado = match (consulta.sem_novidade_em, opcoes.agora) {
+            (Some(Some(antes)), Some(agora)) => agora.0 - antes.0 < ESPERA_DISTRIBUICAO,
+            (Some(_), _) => true,
+            (None, _) => false,
+        };
+        if bloqueado {
+            drop(estado);
+            let retorno = resposta::ret_distribuicao(
+                656,
+                &format!("{}. Aguarde 1 hora quando nao houver mais documentos", texto_de(656)),
+                dh,
+                ultimo,
+                maior,
+                &[],
+            );
+            return Resposta::Http(resposta::soap(Servico::Distribuicao, &retorno));
+        }
+        consulta.sem_novidade_em = Some(opcoes.agora);
+        drop(estado);
+        let retorno = resposta::ret_distribuicao(137, texto_de(137), dh, ultimo.max(maior), maior, &[]);
+        return Resposta::Http(resposta::soap(Servico::Distribuicao, &retorno));
+    }
+    let ult = documentos.last().map_or(ultimo, |d| d.0);
+    consulta.ultimo_entregue = ult;
+    consulta.sem_novidade_em = None;
+    drop(estado);
+    let retorno = resposta::ret_distribuicao(138, texto_de(138), dh, ult, maior, &documentos);
+    Resposta::Http(resposta::soap(Servico::Distribuicao, &retorno))
+}
+
+fn distribuir_por_chave(
+    pedido: &SandboxRequest,
+    sandbox: &SefazSandbox,
+    grupo: &Element,
+    cnpj: &str,
+) -> Resposta {
+    let chave = grupo.child_text("chNFe").unwrap_or_default();
+    if !forma_valida(&chave) || ChaveAcesso::parse(&chave).is_err() {
+        return por_regra(pedido, "DIST-236", None);
+    }
+    let dh = pedido.dh_recbto.as_str();
+    let estado = sandbox.lock();
+    let Some(recebida) = estado.notas.recebidas.get(&chave) else {
+        drop(estado);
+        let retorno = resposta::ret_distribuicao(137, texto_de(137), dh, 0, 0, &[]);
+        return Resposta::Http(resposta::soap(Servico::Distribuicao, &retorno));
+    };
+    if recebida.destinatario.get(..8) != cnpj.get(..8) {
+        drop(estado);
+        return por_regra(pedido, "DIST-640", None);
+    }
+    let documento = if recebida.liberada {
+        (0, "procNFe_v4.00.xsd".to_string(), recebida.proc_nfe.clone())
+    } else {
+        (0, "resNFe_v1.01.xsd".to_string(), recebida.resumo.clone())
+    };
+    drop(estado);
+    let retorno = resposta::ret_distribuicao(138, texto_de(138), dh, 0, 0, &[documento]);
+    Resposta::Http(resposta::soap(Servico::Distribuicao, &retorno))
+}
+
+/// Puts a purchase in the distribution of its recipient. Fails if the XML has no recipient CNPJ.
+pub(super) fn colocar_nota(sandbox: &SefazSandbox, xml_texto: &str) -> Result<(), crate::NfeError> {
+    let (chave, destinatario, proc_nfe, resumo) = compras::separar(xml_texto)?;
+    sandbox.lock().notas.colocar(chave, destinatario, proc_nfe, resumo);
+    Ok(())
 }

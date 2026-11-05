@@ -7,7 +7,7 @@ use crate::xml::{Element, escape_text};
 use super::{PREFIXO_MOTIVO, Resposta, SandboxRequest, VER_APLIC};
 
 /// The codes that stop at the batch, with no `protNFe` or `retEvento` inside.
-const SO_NO_LOTE: [u32; 8] = [108, 109, 129, 215, 225, 243, 252, 452];
+const SO_NO_LOTE: [u32; 14] = [108, 109, 126, 129, 215, 225, 239, 243, 452, 516, 517, 565, 587, 588];
 
 /// The fallback state when a message does not say which one it is from.
 const UF_PADRAO: &str = "35";
@@ -18,9 +18,16 @@ fn motivo(texto: &str) -> String {
 
 /// Wraps a return in the SOAP 1.2 envelope of a service.
 pub(super) fn soap(servico: Servico, retorno: &str) -> HttpResponse {
+    let corpo = if servico == Servico::Distribuicao {
+        format!(
+            "<nfeDistDFeInteresseResponse xmlns=\"{}\"><nfeDistDFeInteresseResult>{retorno}</nfeDistDFeInteresseResult></nfeDistDFeInteresseResponse>",
+            servico.namespace()
+        )
+    } else {
+        format!("<nfeResultMsg xmlns=\"{}\">{retorno}</nfeResultMsg>", servico.namespace())
+    };
     let body = format!(
-        "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap:Envelope xmlns:soap=\"{NS_SOAP12}\"><soap:Body><nfeResultMsg xmlns=\"{}\">{retorno}</nfeResultMsg></soap:Body></soap:Envelope>",
-        servico.namespace()
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap:Envelope xmlns:soap=\"{NS_SOAP12}\"><soap:Body>{corpo}</soap:Body></soap:Envelope>"
     );
     HttpResponse {
         status: 200,
@@ -93,11 +100,46 @@ pub(super) fn ret_consulta(
     )
 }
 
+/// The return of the distribution service, each document compressed with GZip.
+pub(super) fn ret_distribuicao(
+    c_stat: u32,
+    texto: &str,
+    dh: &str,
+    ult_nsu: u64,
+    max_nsu: u64,
+    documentos: &[(u64, String, String)],
+) -> String {
+    use std::io::Write;
+
+    use base64::Engine;
+
+    let mut lote = String::new();
+    if !documentos.is_empty() {
+        lote.push_str("<loteDistDFeInt>");
+        for (nsu, schema, xml) in documentos {
+            let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+            let comprimido = gz
+                .write_all(xml.as_bytes())
+                .and_then(|()| gz.try_finish())
+                .map(|()| gz.get_ref().clone())
+                .unwrap_or_default();
+            let base = base64::engine::general_purpose::STANDARD.encode(comprimido);
+            lote.push_str(&format!("<docZip NSU=\"{nsu:015}\" schema=\"{schema}\">{base}</docZip>"));
+        }
+        lote.push_str("</loteDistDFeInt>");
+    }
+    format!(
+        "<retDistDFeInt xmlns=\"{NS_NFE}\" versao=\"1.01\"><tpAmb>2</tpAmb><verAplic>{VER_APLIC}</verAplic><cStat>{c_stat}</cStat><xMotivo>{}</xMotivo><dhResp>{dh}</dhResp><ultNSU>{ult_nsu:015}</ultNSU><maxNSU>{max_nsu:015}</maxNSU>{lote}</retDistDFeInt>",
+        motivo(texto)
+    )
+}
+
 pub(super) struct DadosEvento<'a> {
     pub c_orgao: &'a str,
     pub c_stat: u32,
     pub motivo: &'a str,
     pub chave: &'a str,
+    pub tp_evento: &'a str,
     pub sequencia: &'a str,
     pub dh: &'a str,
     pub n_prot: Option<&'a str>,
@@ -109,11 +151,12 @@ pub(super) fn ret_evento(dados: &DadosEvento<'_>) -> String {
         .map_or(String::new(), |n| format!("<dhRegEvento>{}</dhRegEvento><nProt>{n}</nProt>", dados.dh));
     let descricao = if dados.n_prot.is_some() { "<xEvento>Cancelamento registrado</xEvento>" } else { "" };
     format!(
-        "<retEvento versao=\"1.00\"><infEvento><tpAmb>2</tpAmb><verAplic>{VER_APLIC}</verAplic><cOrgao>{}</cOrgao><cStat>{}</cStat><xMotivo>{}</xMotivo><chNFe>{}</chNFe><tpEvento>110111</tpEvento>{descricao}<nSeqEvento>{}</nSeqEvento>{registro}</infEvento></retEvento>",
+        "<retEvento versao=\"1.00\"><infEvento><tpAmb>2</tpAmb><verAplic>{VER_APLIC}</verAplic><cOrgao>{}</cOrgao><cStat>{}</cStat><xMotivo>{}</xMotivo><chNFe>{}</chNFe><tpEvento>{}</tpEvento>{descricao}<nSeqEvento>{}</nSeqEvento>{registro}</infEvento></retEvento>",
         dados.c_orgao,
         dados.c_stat,
         motivo(dados.motivo),
         dados.chave,
+        dados.tp_evento,
         dados.sequencia,
     )
 }
@@ -182,6 +225,7 @@ pub(super) fn responder(pedido: &SandboxRequest, c_stat: u32, texto: &str) -> Re
             ret_lote(104, "Lote processado", &c_uf, dh, Some(&prot))
         }
         Servico::Consulta => ret_consulta(c_stat, texto, &c_uf, dh, &chave, None),
+        Servico::Distribuicao => ret_distribuicao(c_stat, texto, dh, 0, 0, &[]),
         Servico::Evento => {
             let id_lote = dados.and_then(|d| d.child_text("idLote")).unwrap_or_else(|| "1".to_string());
             if SO_NO_LOTE.contains(&c_stat) {
@@ -195,6 +239,9 @@ pub(super) fn responder(pedido: &SandboxRequest, c_stat: u32, texto: &str) -> Re
                     c_stat,
                     motivo: texto,
                     chave: &chave,
+                    tp_evento: &dados
+                        .and_then(|d| d.find_text("tpEvento"))
+                        .unwrap_or_else(|| "110111".to_string()),
                     sequencia: &sequencia,
                     dh,
                     n_prot: n_prot.as_deref(),

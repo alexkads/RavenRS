@@ -14,6 +14,7 @@ keywords = ["pos", "retail", "checkout", "cart", "brazil"]
 categories = ["finance"]
 
 [dependencies]
+ravenrs-barcode.workspace = true
 rust_decimal = { version = "1", default-features = false, features = ["std", "serde-str"] }
 serde.workspace = true
 serde_json.workspace = true
