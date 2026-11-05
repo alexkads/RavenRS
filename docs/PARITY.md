@@ -124,13 +124,13 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
 | Bar / column chart | ✓ | ✓ | ✓ | ✅ `Chart`, `BarChart`: horizontal, grouped, stacked, negative, labels, active, focus that fades the rest, gradient, least length, growing from any side, categories on the line of zero |
-| Area chart, sparkline | ✓ | ✓ | ✓ | ✅ `Chart`, `AreaChart`: stacked, expanded, gradient, curves |
+| Area chart, sparkline | ✓ | ✓ | ✓ | ✅ `Chart`, `AreaChart`: stacked, expanded, gradient, curves; a sparkline with a tooltip and cursor when asked |
 | Line chart | ✓ | ✓ | ✓ | ✅ `Chart`: natural, monotone, linear and step curves, dots, icons, labels |
 | Pie / donut | ✓ | ✓ | ✓ | ✅ `Chart`: rings, active slice, a slice that comes forward under the pointer, center text, labels, guides with an elbow, a real gap between slices, a radius per slice |
 | Radar, radial | | ✓ | ✓ | ✅ `Chart`: polygon and circle grids, filled, tracks, stacked |
 | Chart tooltip, legend, keyboard | ✓ | ✓ | ✓ | ✅ `ChartTooltip` (share, color by value, free content, either side on both axes), `ChartLegend`, arrow keys; cursor and dots that glide and fade |
 | Chart axes | ✓ | ✓ | ✓ | ✅ `Chart`: dashed grid, columns, steps of the axis, labels measured with the real font, aligned ends, lines of reference, fixed domain |
-| Scatter, bubble, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`; the others ⬜ |
+| Scatter, bubble, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`, with a tooltip and cursor when asked; the others ⬜ |
 | Gauges (linear, circular, arc) | | ✓ | ✓ | ✅ `ProgressBar`, `Chart` with `RadialBar` |
 
 The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built with `Chart` and `ChartCard`: all 70 patterns are in the gallery's Charts page, under their names (`examples/component-gallery/src/charts.rs`).

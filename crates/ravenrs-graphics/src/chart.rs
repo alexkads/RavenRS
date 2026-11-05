@@ -230,6 +230,15 @@ pub fn draw(data: &ChartData, rect: Rect, options: &ChartOptions<'_>) -> ChartDr
     draw_styled(data, rect, options, &ChartStyle::default())
 }
 
+/// Where a dot of a scatter chart or a point of a sparkline landed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Place {
+    pub(crate) series: usize,
+    pub(crate) index: usize,
+    pub(crate) at: Point,
+    pub(crate) color: Color,
+}
+
 /// Lays a chart out inside `rect`, in this style.
 pub fn draw_styled(
     data: &ChartData,
@@ -237,12 +246,23 @@ pub fn draw_styled(
     options: &ChartOptions<'_>,
     style: &ChartStyle<'_>,
 ) -> ChartDrawing {
+    draw_placed(data, rect, options, style, &mut Vec::new())
+}
+
+/// The same as [`draw_styled`], saying also where the values of the small kinds landed.
+pub(crate) fn draw_placed(
+    data: &ChartData,
+    rect: Rect,
+    options: &ChartOptions<'_>,
+    style: &ChartStyle<'_>,
+    places: &mut Vec<Place>,
+) -> ChartDrawing {
     if matches!(options.kind, ChartKind::Radar | ChartKind::RadialBar) {
         return plain_plot(data, rect, options, style);
     }
     let mut drawing = ChartDrawing::default();
     if matches!(options.kind, ChartKind::Sparkline | ChartKind::SparkArea) {
-        sparkline(data, rect, options, style, &mut drawing);
+        sparkline(data, rect, options, style, places, &mut drawing);
         return drawing;
     }
     let mut area = rect;
@@ -280,7 +300,7 @@ pub fn draw_styled(
     if round {
         circle(data, area, options, style, &mut drawing);
     } else {
-        cartesian(data, area, options, style, &mut drawing);
+        cartesian(data, area, options, style, places, &mut drawing);
     }
     drawing
 }
@@ -418,6 +438,7 @@ fn cartesian(
     area: Rect,
     options: &ChartOptions<'_>,
     style: &ChartStyle<'_>,
+    places: &mut Vec<Place>,
     drawing: &mut ChartDrawing,
 ) {
     let values = data.series.iter().flat_map(|s| s.values.iter().copied()).filter(|v| v.is_finite());
@@ -522,14 +543,12 @@ fn cartesian(
                     options.muted,
                 ));
             }
-            for series in &data.series {
-                for (position, value) in data.positions.iter().zip(&series.values) {
+            for (s, series) in data.series.iter().enumerate() {
+                for (index, (position, value)) in data.positions.iter().zip(&series.values).enumerate() {
                     if value.is_finite() {
-                        drawing.shapes.push(dot(
-                            Point::new(x_of(*position), y_of(*value)),
-                            SCATTER_DOT,
-                            series.color,
-                        ));
+                        let at = Point::new(x_of(*position), y_of(*value));
+                        drawing.shapes.push(dot(at, SCATTER_DOT, series.color));
+                        places.push(Place { series: s, index, at, color: series.color });
                     }
                 }
             }
@@ -595,6 +614,7 @@ fn sparkline(
     rect: Rect,
     options: &ChartOptions<'_>,
     style: &ChartStyle<'_>,
+    places: &mut Vec<Place>,
     drawing: &mut ChartDrawing,
 ) {
     let Some(series) = data.series.first() else { return };
@@ -621,6 +641,13 @@ fn sparkline(
         })
         .collect();
     let (Some(first), Some(end)) = (points.first().copied(), points.last().copied()) else { return };
+    let kept = series.values.iter().enumerate().filter(|(_, v)| v.is_finite()).map(|(index, _)| index);
+    places.extend(kept.zip(&points).map(|(index, at)| Place {
+        series: 0,
+        index,
+        at: *at,
+        color: series.color,
+    }));
     if filled {
         let curve = smooth(&points);
         let mut area = vec![PathSegment::Move(Point::new(first.x, rect.max_y())), PathSegment::Line(first)];

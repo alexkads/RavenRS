@@ -945,3 +945,55 @@ fn bars_can_fill_from_tip_to_base_grow_from_any_side_and_keep_a_least_length() {
     hover(&mut right, at.x, at.y);
     assert_eq!(image_node(&mut right).value.as_deref(), Some("B, S: 100"));
 }
+
+#[test]
+fn a_sparkline_stays_a_plain_picture_until_given_a_tooltip() {
+    let spark = || Chart::new(ChartKind::Sparkline).categories(["A", "B", "C"]).series("S", [1.0, 3.0, 2.0]);
+    let mut plain = chart_ui(spark().height(60.0));
+    hover(&mut plain, 700.0, 30.0);
+    assert_eq!(image_node(&mut plain).value, None);
+    assert!(!plain.needs_redraw());
+
+    let mut ui = chart_ui(spark().tooltip(ChartTooltip::new()).height(60.0));
+    assert_eq!(images(&ui)[0].image.pixels(), images(&plain)[0].image.pixels(), "drawn the same");
+    at_time(&mut ui, 0.0);
+    hover(&mut ui, 780.0, 30.0);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("C, S: 2"));
+    settle(&mut ui, 0.0);
+    assert!(cursor_of(&ui).is_some(), "with the cursor over it");
+    key(&mut ui, ravenrs_core::Key::Tab);
+    key(&mut ui, ravenrs_core::Key::ArrowLeft);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("B, S: 3"));
+}
+
+#[test]
+fn a_sparkline_with_no_categories_says_only_its_value() {
+    let spark =
+        Chart::new(ChartKind::SparkArea).series("S", [1.0, 3.0]).tooltip(ChartTooltip::new()).height(60.0);
+    let mut ui = chart_ui(spark);
+    hover(&mut ui, 780.0, 30.0);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("S: 3"));
+}
+
+#[test]
+fn a_scatter_chart_with_a_tooltip_names_its_dots_by_their_positions() {
+    let scatter = || {
+        Chart::new(ChartKind::Scatter)
+            .positions([1.0, 2.0, 3.0])
+            .categories(["", "", ""])
+            .series("Latency", [10.0, 20.0, 30.0])
+    };
+    let plain = chart_ui(scatter());
+    let mut ui = chart_ui(scatter().tooltip(ChartTooltip::new()));
+    assert_eq!(images(&ui)[0].image.pixels(), images(&plain)[0].image.pixels(), "drawn the same");
+    hover(&mut ui, 10.0, 100.0);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("1, Latency: 10"));
+}
+
+#[test]
+fn a_small_chart_with_a_tooltip_asks_for_no_frames_when_still() {
+    let spark = Chart::new(ChartKind::Sparkline).series("S", [1.0, 3.0]).tooltip(ChartTooltip::new());
+    let mut ui = chart_ui(spark.height(60.0));
+    settle(&mut ui, 0.0);
+    assert!(!ui.needs_redraw());
+}

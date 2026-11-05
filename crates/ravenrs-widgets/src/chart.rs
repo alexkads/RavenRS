@@ -917,8 +917,9 @@ impl View for LegendRow {
 
 /// A chart of any [`ChartKind`]. Its shapes are drawn into a picture at the screen's
 /// density, and its labels are real text. Over the picture it says what each value
-/// is, under the pointer or with the arrow keys; [`ChartKind::Scatter`] and the
-/// sparklines stay as plain pictures.
+/// is, under the pointer or with the arrow keys. [`ChartKind::Scatter`] and the
+/// sparklines stay as plain pictures, which take no focus, until given a
+/// [`tooltip`](Self::tooltip).
 ///
 /// Available with the `charts` feature, on by default.
 ///
@@ -947,6 +948,8 @@ pub struct Chart {
     look: Look,
     legend_at: ChartLegend,
     tooltip: Option<ChartTooltip>,
+    /// The small kinds only say anything if asked to.
+    tooltip_asked: bool,
     dot_icon: Option<IconName>,
     item_colors: Vec<Semantic>,
     vary_colors: bool,
@@ -1073,6 +1076,7 @@ impl Chart {
             look: Look::default(),
             legend_at: ChartLegend::Bottom,
             tooltip: Some(ChartTooltip::new()),
+            tooltip_asked: false,
             dot_icon: None,
             item_colors: Vec::new(),
             vary_colors: false,
@@ -1449,9 +1453,12 @@ impl Chart {
         self
     }
 
-    /// What it says about the category under the pointer. A plain tooltip by default.
+    /// What it says about the category under the pointer. A plain tooltip by default,
+    /// except on a [`ChartKind::Scatter`] and a sparkline: with this they also get the
+    /// cursor, the dots in focus, and the arrow keys.
     pub fn tooltip(mut self, tooltip: ChartTooltip) -> Self {
         self.tooltip = Some(tooltip);
+        self.tooltip_asked = true;
         self
     }
 
@@ -1647,7 +1654,11 @@ impl Chart {
         colors: &[Color],
         theme: &Theme,
     ) -> TooltipPanel {
-        let category = self.categories.get(index).cloned().unwrap_or_default();
+        // A dot may have only its position to go by.
+        let named = self.categories.get(index).filter(|name| !name.is_empty()).cloned();
+        let category = named.unwrap_or_else(|| {
+            self.positions.get(index).map(|position| (self.format)(*position)).unwrap_or_default()
+        });
         let rows: Vec<KeyRow> = if self.colors_by_category() && !self.look.concentric {
             let values = self.series.first().map_or(&[][..], |s| s.values.as_slice());
             let value = values.get(index).copied();
@@ -1689,7 +1700,7 @@ impl Chart {
         };
         let by_category = self.colors_by_category() && !self.look.concentric;
         let name = category.clone();
-        let title = if tooltip.hide_label || by_category {
+        let title = if tooltip.hide_label || by_category || (category.is_empty() && tooltip.label.is_none()) {
             None
         } else if let Some(label) = &tooltip.label {
             Some(label.clone())
@@ -1728,6 +1739,7 @@ impl Chart {
             positions: Vec::new(),
             series: series.collect(),
         };
+        let plain = self.is_plain();
         let picture = cx.use_state(|| Rc::new(RefCell::new(Picture::default()))).peek().clone();
         let active: State<Option<usize>> = cx.use_state(|| None::<usize>);
         let hovered = cx.is_hover_within();
@@ -1790,7 +1802,7 @@ impl Chart {
 
         let cursor = self.tooltip.as_ref().is_some_and(|t| !t.no_cursor);
         let is_bar = self.kind == ChartKind::Bar;
-        let is_line = matches!(self.kind, ChartKind::Line | ChartKind::Area);
+        let is_line = plain || matches!(self.kind, ChartKind::Line | ChartKind::Area);
         let is_round = matches!(self.kind, ChartKind::Pie | ChartKind::Doughnut);
         let m = theme.motion;
         let moving =
@@ -1828,8 +1840,11 @@ impl Chart {
             line_color: theme.color(Semantic::InkMuted).with_alpha(CURSOR_ALPHA),
             ring_color: theme.color(Semantic::SurfaceElevated),
         });
-        let drawing: DrawingFn =
-            Rc::new(move |rect, _, measure| plot::draw_measured(&data, rect, &style, measure));
+        let drawing: DrawingFn = if plain {
+            self.small_drawing(&theme, &colors, true)
+        } else {
+            Rc::new(move |rect, _, measure| plot::draw_measured(&data, rect, &style, measure))
+        };
         let node_style = LayoutStyle { grow: 1.0, align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
         let node = plot_node(cx, node_style, picture.clone(), drawing, self.dot_icon, highlight, &children);
 
@@ -1902,11 +1917,12 @@ impl Chart {
         cx.motion(node, Motion::new().enter(Effect::hidden(), m.base));
 
         let mut parts = Vec::new();
-        if !self.title.is_empty() {
+        // The small kinds have their title and legend in their picture.
+        if !self.title.is_empty() && !plain {
             let ink = theme.color(Semantic::Ink);
             parts.push(util::label(cx, &self.title, TextStyle::Callout, Some(Weight::SEMIBOLD), ink));
         }
-        let rows = if self.legend { self.legend_rows(&colors, &theme) } else { Vec::new() };
+        let rows = if self.legend && !plain { self.legend_rows(&colors, &theme) } else { Vec::new() };
         let legend = (!rows.is_empty()).then(|| cx.child(&LegendRow { rows }));
         if self.legend_at == ChartLegend::Top {
             parts.extend(legend);
@@ -1949,13 +1965,9 @@ impl TooltipPanel {
     }
 }
 
-impl View for Chart {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        if !self.is_plain() {
-            return self.build_plot(cx);
-        }
-        let theme = *cx.theme();
-        let colors = palette(&theme);
+impl Chart {
+    /// How a scatter chart or a sparkline is drawn, the same with a tooltip or without.
+    fn small_drawing(&self, theme: &Theme, colors: &[Color], placed: bool) -> DrawingFn {
         let series = self.series.iter().enumerate().map(|(i, series)| SeriesData {
             name: series.name.clone(),
             color: series.color.unwrap_or(colors[i % colors.len()]),
@@ -1971,16 +1983,28 @@ impl View for Chart {
         let size = theme.text(TextStyle::Caption).size / 0.85;
         let (ink, muted) = (theme.color(Semantic::Ink), theme.color(Semantic::InkMuted));
         let (grid, separator) = (theme.color(Semantic::Border), theme.color(Semantic::SurfaceElevated));
-        let bar_radius = theme.radii.sm;
-        let drawing: DrawingFn = Rc::new(move |rect, _, _| {
-            chart::draw_styled(
-                &data,
-                rect,
-                &ChartOptions { kind, title: &title, legend, size, ink, muted, grid, format: &*format },
-                &ChartStyle { palette: &colors, separator, bar_radius, max_bar_width: MAX_BAR_WIDTH },
-            )
-            .into()
-        });
+        let (bar_radius, colors) = (theme.radii.sm, colors.to_vec());
+        Rc::new(move |rect, _, _| {
+            let options =
+                ChartOptions { kind, title: &title, legend, size, ink, muted, grid, format: &*format };
+            let look = ChartStyle { palette: &colors, separator, bar_radius, max_bar_width: MAX_BAR_WIDTH };
+            if placed {
+                plot::draw_small(&data, rect, &options, &look)
+            } else {
+                chart::draw_styled(&data, rect, &options, &look).into()
+            }
+        })
+    }
+}
+
+impl View for Chart {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        if !self.is_plain() || (self.tooltip_asked && self.tooltip.is_some()) {
+            return self.build_plot(cx);
+        }
+        let theme = *cx.theme();
+        let colors = palette(&theme);
+        let drawing = self.small_drawing(&theme, &colors, false);
         let style = LayoutStyle {
             width: self.width,
             height: Some(self.height),

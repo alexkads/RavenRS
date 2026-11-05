@@ -9,7 +9,9 @@ use std::rc::Rc;
 
 use ravenrs_core::{Color, LinearGradient, Point, Rect};
 
-use crate::chart::{ChartData, ChartDrawing, ChartKind, ChartLabel, LabelAlign, arc, nice_ticks};
+use crate::chart::{
+    ChartData, ChartDrawing, ChartKind, ChartLabel, ChartOptions, ChartStyle, LabelAlign, arc, nice_ticks,
+};
 use crate::vector::{self, Layer, PathSegment, Shape};
 
 /// How a line goes from one point to the next.
@@ -521,6 +523,36 @@ pub fn draw(data: &ChartData, rect: Rect, style: &PlotStyle) -> Plot {
 /// Lays a chart out inside `rect`, knowing how wide its labels really are.
 pub fn draw_measured(data: &ChartData, rect: Rect, style: &PlotStyle, measure: Measure<'_>) -> Plot {
     layout(data, rect, style, Ruler(Some(measure)))
+}
+
+/// Lays out a scatter chart or a sparkline just as [`crate::chart`] does, and says
+/// where each value landed: each one owns the strip from halfway to its neighbors.
+pub fn draw_small(data: &ChartData, rect: Rect, options: &ChartOptions<'_>, style: &ChartStyle<'_>) -> Plot {
+    let mut places = Vec::new();
+    let drawing = crate::chart::draw_placed(data, rect, options, style, &mut places);
+    let mut plot = Plot::from(drawing);
+    plot.marks =
+        places.iter().map(|p| Mark { series: p.series, index: p.index, at: p.at, color: p.color }).collect();
+    let (top, bottom) =
+        places.iter().fold((f32::INFINITY, f32::NEG_INFINITY), |(a, b), p| (a.min(p.at.y), b.max(p.at.y)));
+    plot.area = if top <= bottom { Rect::new(rect.x(), top, rect.width(), bottom - top) } else { rect };
+    let mut columns: Vec<(usize, f32)> = Vec::new();
+    for place in &places {
+        if !columns.iter().any(|(index, _)| *index == place.index) {
+            columns.push((place.index, place.at.x));
+        }
+    }
+    columns.sort_by(|a, b| a.1.total_cmp(&b.1));
+    for (i, (index, x)) in columns.iter().enumerate() {
+        let from = if i == 0 { rect.x() } else { (columns[i - 1].1 + x) / 2.0 };
+        let to = columns.get(i + 1).map_or(rect.max_x(), |next| (next.1 + x) / 2.0);
+        plot.spots.push(Spot {
+            index: *index,
+            band: Rect::new(from, rect.y(), to - from, rect.height()),
+            center: Point::new(*x, plot.area.center().y),
+        });
+    }
+    plot
 }
 
 fn layout(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>) -> Plot {
@@ -2332,6 +2364,56 @@ mod tests {
         assert!(up.to.a < up.from.a);
         let plain = PlotStyle { bars_apart: true, ..PlotStyle::new(ChartKind::Bar) };
         assert_eq!(bars_of(plain, &[("a", &[10.0])]).bars[0].gradient, None);
+    }
+
+    fn small(kind: ChartKind, data: &ChartData) -> Plot {
+        let format = |value: f64| value.to_string();
+        let options = ChartOptions {
+            kind,
+            title: "",
+            legend: false,
+            size: 12.0,
+            ink: Color::BLACK,
+            muted: Color::BLACK,
+            grid: Color::BLACK,
+            format: &format,
+        };
+        draw_small(data, AREA, &options, &ChartStyle::default())
+    }
+
+    #[test]
+    fn a_sparkline_says_where_its_points_are_and_draws_the_same() {
+        let values = data(&[("a", &[1.0, f64::NAN, 3.0, 2.0])]);
+        let plot = small(ChartKind::Sparkline, &values);
+        let indices: Vec<usize> = plot.marks.iter().map(|m| m.index).collect();
+        assert_eq!(indices, [0, 2, 3], "a value that is missing has no place");
+        assert_eq!(plot.hit(Point::new(1.0, 150.0)).map(|h| h.index), Some(0));
+        assert_eq!(plot.hit(Point::new(399.0, 150.0)).map(|h| h.index), Some(3));
+        assert_eq!(plot.categories(), 4);
+        let format = |value: f64| value.to_string();
+        let options = ChartOptions {
+            kind: ChartKind::Sparkline,
+            title: "",
+            legend: false,
+            size: 12.0,
+            ink: Color::BLACK,
+            muted: Color::BLACK,
+            grid: Color::BLACK,
+            format: &format,
+        };
+        let same = crate::chart::draw_styled(&values, AREA, &options, &ChartStyle::default());
+        assert_eq!(plot.layers.len(), same.shapes.len());
+    }
+
+    #[test]
+    fn the_dots_of_a_scatter_chart_own_the_strips_around_them_whatever_their_order() {
+        let mut values = data(&[("a", &[1.0, 2.0, 3.0])]);
+        values.positions = vec![30.0, 10.0, 20.0];
+        let plot = small(ChartKind::Scatter, &values);
+        assert_eq!(plot.marks.len(), 3);
+        let left = plot.marks[1].at;
+        assert!(left.x < plot.marks[2].at.x && plot.marks[2].at.x < plot.marks[0].at.x);
+        assert_eq!(plot.hit(Point::new(left.x, 10.0)).map(|h| h.index), Some(1));
     }
 
     #[test]

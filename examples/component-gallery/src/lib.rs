@@ -2245,6 +2245,7 @@ impl Gallery {
                             .categories(["1", "2", "3", "4", "5", "6", "7", "8"])
                             .positions([1.0, 2.0, 3.5, 4.0, 5.5, 6.0, 7.5, 9.0])
                             .series("Latency", [12.0, 19.0, 17.0, 26.0, 24.0, 33.0, 30.0, 41.0])
+                            .tooltip(ChartTooltip::new())
                             .height(260.0),
                     ),
                     demo(
@@ -2254,6 +2255,7 @@ impl Gallery {
                             Stat::new("Revenue", "R$ 128k").delta("+12.4%", true),
                             Chart::new(ChartKind::Sparkline)
                                 .series("Revenue", [4.0, 6.0, 5.0, 8.0, 7.0, 10.0, 9.0, 13.0])
+                                .tooltip(ChartTooltip::new().hide_label())
                                 .size(140.0, 44.0),
                         ))
                         .spacing(24.0)
