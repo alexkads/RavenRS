@@ -486,6 +486,22 @@ pub struct Labels {
     pub yesterday: String,
     /// The title of a [`ShortcutSheet`](crate::ShortcutSheet).
     pub shortcut_sheet: String,
+    /// What a [`FavoriteToggle`](crate::FavoriteToggle) is called when nothing says what it marks.
+    pub favorite: String,
+    /// A [`SwatchGrid`](crate::SwatchGrid)'s name.
+    pub swatches: String,
+    /// A [`NinePointAnchor`](crate::NinePointAnchor)'s name.
+    pub anchor_point: String,
+    /// The points of a [`NinePointAnchor`](crate::NinePointAnchor), row by row from the top left.
+    pub anchor_names: [String; 9],
+    /// The upper color of a [`ColorPair`](crate::ColorPair).
+    pub color_foreground: String,
+    /// The lower color of a [`ColorPair`](crate::ColorPair).
+    pub color_background: String,
+    /// Swaps the colors of a [`ColorPair`](crate::ColorPair).
+    pub color_swap: String,
+    /// Puts back the first colors of a [`ColorPair`](crate::ColorPair).
+    pub color_reset: String,
     /// Count, sum, average, smallest and largest, as a grid's footer calls them.
     pub grid_summaries: [String; 5],
 }
@@ -794,6 +810,24 @@ impl Default for Labels {
             rating_value: |score, max| format!("{score} of {max}"),
             yesterday: "Yesterday".into(),
             shortcut_sheet: "Keyboard shortcuts".into(),
+            favorite: "Favorite".into(),
+            swatches: "Swatches".into(),
+            anchor_point: "Reference point".into(),
+            anchor_names: owned([
+                "Top left",
+                "Top",
+                "Top right",
+                "Left",
+                "Center",
+                "Right",
+                "Bottom left",
+                "Bottom",
+                "Bottom right",
+            ]),
+            color_foreground: "Foreground".into(),
+            color_background: "Background".into(),
+            color_swap: "Swap foreground and background".into(),
+            color_reset: "Default colors".into(),
             grid_summaries: owned(["Count", "Sum", "Avg", "Min", "Max"]),
         }
     }
@@ -1071,6 +1105,17 @@ impl Labels {
             rating_value: |score, max| format!("{score} de {max}"),
             yesterday: "Ontem".into(),
             shortcut_sheet: "Atalhos de teclado".into(),
+            favorite: "Favorito".into(),
+            swatches: "Amostras".into(),
+            anchor_point: "Ponto de referência".into(),
+            anchor_names: owned([
+                "Superior esquerdo", "Superior", "Superior direito", "Esquerda", "Centro", "Direita",
+                "Inferior esquerdo", "Inferior", "Inferior direito",
+            ]),
+            color_foreground: "Frente".into(),
+            color_background: "Fundo".into(),
+            color_swap: "Trocar frente e fundo".into(),
+            color_reset: "Cores padrão".into(),
             grid_summaries: owned(["Qtd.", "Soma", "Média", "Mín.", "Máx."]),
         }
     }

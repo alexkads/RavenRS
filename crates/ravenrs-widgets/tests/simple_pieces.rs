@@ -556,3 +556,154 @@ fn button_group_glues_its_buttons_and_keeps_them_working() {
     let quad = quads(&alone).into_iter().next().expect("the button");
     assert_eq!(quad.corner_radii, [theme().radii.md; 4], "one button is simply a button");
 }
+
+#[test]
+fn favorite_toggle_flips_and_fills() {
+    let on = State::new(false);
+    let mut ui = ui(FavoriteToggle::new(on.binding()).label("Portrait").color(Color::WHITE));
+    let tree = ui.access_tree();
+    let node = named(&tree, Role::Button, "Portrait");
+    assert_eq!(node.toggled, Some(ravenrs_core::Toggled::False));
+    let at = node.bounds.center();
+    assert!(paths(&ui).is_empty(), "an outline when off");
+    click(&mut ui, at);
+    assert!(on.get());
+    assert_eq!(paths(&ui), [Color::WHITE], "filled when on: not only a change of color");
+    assert_eq!(named(&ui.access_tree(), Role::Button, "Portrait").toggled, Some(ravenrs_core::Toggled::True));
+    key(&mut ui, Key::Space);
+    assert!(!on.get(), "from the keyboard, focused by the click");
+
+    let mut named_by_labels =
+        self::ui(Localized::new(Labels::pt_br(), FavoriteToggle::new(on.binding()).star()));
+    named(&named_by_labels.access_tree(), Role::Button, "Favorito");
+}
+
+#[test]
+fn swatch_grid_tells_the_handler_the_color_and_the_modifier() {
+    let picked = Rc::new(Cell::new(None));
+    let sink = picked.clone();
+    let (rose, blue, green) = (Color::hex(0xe11d48), Color::hex(0x2563eb), Color::hex(0x16a34a));
+    let mut ui = ui(SwatchGrid::new([(rose, "Rose"), (blue, "Blue"), (green, "Green")])
+        .columns(2)
+        .selected(Some(blue))
+        .on_pick(move |color, modifiers| sink.set(Some((color, modifiers.meta)))));
+    let tree = ui.access_tree();
+    named(&tree, Role::Group, "Swatches");
+    assert_eq!(named(&tree, Role::Button, "Blue").selected, Some(true));
+    assert_eq!(named(&tree, Role::Button, "Rose").selected, Some(false));
+    let (rose_at, blue_at, green_at) = (
+        named(&tree, Role::Button, "Rose").bounds,
+        named(&tree, Role::Button, "Blue").bounds,
+        named(&tree, Role::Button, "Green").bounds,
+    );
+    assert_eq!(rose_at.y(), blue_at.y(), "two to a row");
+    assert_eq!(green_at.x(), rose_at.x(), "and the third below");
+    assert_eq!(green_at.y(), rose_at.max_y());
+
+    click(&mut ui, blue_at.center());
+    assert_eq!(picked.get(), Some((blue, false)));
+
+    let meta = Modifiers { meta: true, ..Modifiers::default() };
+    ui.handle_event(&Event::KeyUp { key: Key::Tab, modifiers: meta });
+    click(&mut ui, rose_at.center());
+    assert_eq!(picked.get(), Some((rose, true)), "the modifier reaches the handler");
+    ui.handle_event(&Event::KeyUp { key: Key::Tab, modifiers: Modifiers::default() });
+
+    // Rose has focus. Down goes to the row below, and Right from there has nowhere to go.
+    key(&mut ui, Key::ArrowDown);
+    key(&mut ui, Key::Enter);
+    assert_eq!(picked.get(), Some((green, false)));
+    key(&mut ui, Key::ArrowRight);
+    key(&mut ui, Key::Enter);
+    assert_eq!(picked.get(), Some((green, false)), "stays at the end");
+    key(&mut ui, Key::ArrowUp);
+    key(&mut ui, Key::ArrowRight);
+    key(&mut ui, Key::Space);
+    assert_eq!(picked.get(), Some((blue, false)));
+}
+
+#[test]
+fn nine_point_anchor_takes_clicks_and_arrows() {
+    let point = State::new(AnchorPoint::Center);
+    let mut ui = ui(Localized::new(Labels::pt_br(), NinePointAnchor::new(point.binding())));
+    let tree = ui.access_tree();
+    let group = named(&tree, Role::RadioGroup, "Ponto de referência");
+    assert_eq!(group.value.as_deref(), Some("Centro"));
+    assert_eq!(group.bounds.width(), 32.0, "three squares of 10 and two gaps");
+    assert_eq!(named(&tree, Role::RadioButton, "Centro").selected, Some(true));
+    let at = named(&tree, Role::RadioButton, "Inferior direito").bounds.center();
+    click(&mut ui, at);
+    assert_eq!(point.get(), AnchorPoint::BottomRight);
+
+    point.set(AnchorPoint::Center);
+    ui.update();
+    tab(&mut ui);
+    key(&mut ui, Key::ArrowLeft);
+    assert_eq!(point.get(), AnchorPoint::Left);
+    key(&mut ui, Key::ArrowLeft);
+    assert_eq!(point.get(), AnchorPoint::Left, "stops at the edge");
+    key(&mut ui, Key::ArrowUp);
+    assert_eq!(point.get(), AnchorPoint::TopLeft);
+    key(&mut ui, Key::ArrowUp);
+    assert_eq!(point.get(), AnchorPoint::TopLeft);
+    key(&mut ui, Key::ArrowRight);
+    key(&mut ui, Key::ArrowRight);
+    assert_eq!(point.get(), AnchorPoint::TopRight);
+    key(&mut ui, Key::ArrowRight);
+    assert_eq!(point.get(), AnchorPoint::TopRight, "does not wrap to the next row");
+    key(&mut ui, Key::ArrowDown);
+    assert_eq!(point.get(), AnchorPoint::Right);
+    assert_eq!(
+        named(&ui.access_tree(), Role::RadioGroup, "Ponto de referência").value.as_deref(),
+        Some("Direita")
+    );
+}
+
+#[test]
+fn anchor_point_converts_to_and_from_shares_of_a_box() {
+    for point in AnchorPoint::ALL {
+        let (x, y) = point.fraction();
+        assert_eq!(AnchorPoint::from_fraction(x, y), point);
+    }
+    assert_eq!(AnchorPoint::TopLeft.fraction(), (0.0, 0.0));
+    assert_eq!(AnchorPoint::Bottom.fraction(), (0.5, 1.0));
+    assert_eq!(AnchorPoint::from_fraction(-3.0, 9.0), AnchorPoint::BottomLeft, "out of range is clamped");
+}
+
+#[test]
+fn color_pair_swaps_resets_and_reports_clicks() {
+    let (black, white, red) = (Color::hex(0x000000), Color::hex(0xffffff), Color::hex(0xff0000));
+    let (front, back) = (State::new(red), State::new(white));
+    let clicks = Rc::new(Cell::new((0, 0)));
+    let (a, b) = (clicks.clone(), clicks.clone());
+    let mut ui = ui(ColorPair::new(front.binding(), back.binding())
+        .defaults(black, white)
+        .on_foreground(move || a.set((a.get().0 + 1, a.get().1)))
+        .on_background(move || b.set((b.get().0, b.get().1 + 1))));
+    let tree = ui.access_tree();
+    let upper = named(&tree, Role::Button, "Foreground");
+    let lower = named(&tree, Role::Button, "Background");
+    assert_eq!(upper.value.as_deref(), Some("#FF0000"), "in words, not only in color");
+    assert_eq!(lower.value.as_deref(), Some("#FFFFFF"));
+    assert_eq!(lower.bounds.x(), upper.bounds.x() + 12.0, "the background shows past the foreground");
+    let (over_both, only_back) =
+        (upper.bounds.center(), Point::new(lower.bounds.max_x() - 2.0, lower.bounds.max_y() - 2.0));
+    let swap = named(&tree, Role::Button, "Swap foreground and background").bounds.center();
+    let reset = named(&tree, Role::Button, "Default colors").bounds.center();
+
+    click(&mut ui, over_both);
+    assert_eq!(clicks.get(), (1, 0), "the foreground is on top");
+    click(&mut ui, only_back);
+    assert_eq!(clicks.get(), (1, 1));
+
+    click(&mut ui, swap);
+    assert_eq!((front.get(), back.get()), (white, red));
+    assert_eq!(named(&ui.access_tree(), Role::Button, "Foreground").value.as_deref(), Some("#FFFFFF"));
+    click(&mut ui, reset);
+    assert_eq!((front.get(), back.get()), (black, white));
+
+    let mut plain = self::ui(ColorPair::new(front.binding(), back.binding()));
+    let tree = plain.access_tree();
+    named(&tree, Role::Image, "Foreground");
+    assert!(tree.find(Role::Button, "Default colors").is_none(), "no default colors, no button");
+}

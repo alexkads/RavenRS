@@ -546,6 +546,12 @@ impl Gallery {
                 "Forms",
                 "Inputs bound to state. Every control works with the mouse and the keyboard.",
             ),
+            sample_demos(&[
+                ("FavoriteToggle", "A heart or a star, filled when on."),
+                ("SwatchGrid", "Colors to pick, with the arrow keys or a click that can carry a modifier."),
+                ("NinePointAnchor", "A point of reference on a box, moved by the arrow keys."),
+                ("ColorPair", "Two colors, with a button that swaps them."),
+            ]),
             Grid::new(
                 columns(width, 2),
                 (

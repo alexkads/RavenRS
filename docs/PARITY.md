@@ -8,7 +8,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | | Families tracked | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
-| All | 113 | 72 | 7 | 34 |
+| All | 122 | 82 | 7 | 33 |
 
 ## Layout and structure
 
@@ -56,6 +56,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 |---|---|---|---|---|
 | Button (variants, sizes, icons) | ✓ | ✓ | ✓ | ✅ `Button`, `IconButton`: loading that holds the width, selected, key cap in the label's color |
 | Toggle button | ✓ | | ✓ | ✅ `ToggleButton`: count and pill shape |
+| Favorite mark | | | | ✅ `FavoriteToggle`: heart or star |
+| Swatch grid, color pair, nine-point anchor | | | | ✅ `SwatchGrid` (the handler gets the modifiers), `ColorPair`, `NinePointAnchor` |
 | Toggle group / Button group | ✓ | ✓ | ✓ | ✅ `ToggleGroup`, and `ButtonGroup` for buttons glued side by side |
 | Dropdown button | ✓ | ✓ | ✓ | ✅ `DropdownMenu`: submenus opened by hover, click or the Right arrow, check marks and any view in a row |
 | Split button | | ✓ | ✓ | ✅ `SplitButton` |

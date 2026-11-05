@@ -80,7 +80,7 @@ impl Hsv {
 }
 
 /// `#RRGGBB`, or `#RRGGBBAA` when it is not opaque.
-fn to_hex(color: Color) -> String {
+pub(crate) fn to_hex(color: Color) -> String {
     let byte = |channel: f32| (channel.clamp(0.0, 1.0) * 255.0).round() as u8;
     let rgb = format!("#{:02X}{:02X}{:02X}", byte(color.r), byte(color.g), byte(color.b));
     if byte(color.a) == 255 { rgb } else { format!("{rgb}{:02X}", byte(color.a)) }

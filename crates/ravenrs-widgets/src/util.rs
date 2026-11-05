@@ -209,3 +209,21 @@ pub(crate) fn star_path(center: ravenrs_core::Point, radius: f32) -> Vec<ravenrs
     path.push(PathElement::Close);
     path
 }
+
+/// The outline of a heart that fills `frame`, from a drawing on a grid of 24.
+pub(crate) fn heart_path(frame: ravenrs_core::Rect) -> Vec<ravenrs_core::PathElement> {
+    use ravenrs_core::{PathElement, Point};
+    let at = |x: f32, y: f32| {
+        Point::new(frame.x() + x / 24.0 * frame.width(), frame.y() + y / 24.0 * frame.height())
+    };
+    vec![
+        PathElement::MoveTo(at(12.0, 21.0)),
+        PathElement::CubicTo(at(5.0, 15.5), at(2.0, 12.0), at(2.0, 8.0)),
+        PathElement::CubicTo(at(2.0, 5.0), at(4.5, 3.0), at(7.0, 3.0)),
+        PathElement::CubicTo(at(9.0, 3.0), at(11.0, 4.0), at(12.0, 6.0)),
+        PathElement::CubicTo(at(13.0, 4.0), at(15.0, 3.0), at(17.0, 3.0)),
+        PathElement::CubicTo(at(19.5, 3.0), at(22.0, 5.0), at(22.0, 8.0)),
+        PathElement::CubicTo(at(22.0, 12.0), at(19.0, 15.5), at(12.0, 21.0)),
+        PathElement::Close,
+    ]
+}

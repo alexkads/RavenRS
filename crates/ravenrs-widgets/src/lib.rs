@@ -104,7 +104,10 @@ pub use chart::{
     ChartLabelAt, ChartLegend, ChartPolarGrid, ChartStack, ChartTooltip, Symbology,
 };
 pub use chat::{Chat, ChatAuthor, ChatMessage, FloatingCorner, FloatingPanel};
-pub use choice::{AspectRatio, ColorSwatch, Label, Pagination, ToggleButton, ToggleGroup};
+pub use choice::{
+    AnchorPoint, AspectRatio, ColorPair, ColorSwatch, FavoriteToggle, Label, NinePointAnchor, Pagination,
+    SwatchGrid, ToggleButton, ToggleGroup,
+};
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use color_picker::ColorPicker;
 pub use commands::{ConfirmDialog, Hotkey, SplitButton, Toolbar, ToolbarAction};

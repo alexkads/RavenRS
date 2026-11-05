@@ -54,6 +54,7 @@ samples! {
     "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
     "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
     "ZStack" => z_stack, "PropertyRow" => property_row, "PageHeader" => page_header, "ButtonGroup" => button_group,
+    "FavoriteToggle" => favorite_toggle, "SwatchGrid" => swatch_grid, "NinePointAnchor" => nine_point_anchor, "ColorPair" => color_pair,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1652,6 +1653,59 @@ fn button_group() -> impl View {
         };
         ButtonGroup::new([item(0, "Day"), item(1, "Week"), item(2, "Month")]).label("Period")
     })
+}
+// end
+
+// sample: FavoriteToggle, 70
+fn favorite_toggle() -> impl View {
+    let (heart, star) = (State::new(true), State::new(false));
+    HStack::new((
+        FavoriteToggle::new(heart.binding()).label("Warm portrait"),
+        FavoriteToggle::new(star.binding()).label("Pinned").star(),
+    ))
+    .spacing(8.0)
+}
+// end
+
+// sample: SwatchGrid, 160
+fn swatch_grid() -> impl View {
+    let (front, back) = (State::new(Color::hex(0xe11d48)), State::new(Color::hex(0x2563eb)));
+    let (for_front, for_back, shown) = (front.clone(), back.clone(), front.clone());
+    VStack::new((
+        view_fn(move || {
+            let (for_front, for_back) = (for_front.clone(), for_back.clone());
+            SwatchGrid::new([
+                (Color::hex(0xe11d48), "Rose"),
+                (Color::hex(0xf59e0b), "Amber"),
+                (Color::hex(0x16a34a), "Green"),
+                (Color::hex(0x2563eb), "Blue"),
+                (Color::hex(0x7c3aed), "Violet"),
+                (Color::hex(0x111827), "Ink"),
+            ])
+            .columns(3)
+            .selected(Some(shown.get()))
+            .on_pick(move |color, held| {
+                // With Cmd or Ctrl, the color goes to the background.
+                if held.meta || held.ctrl { for_back.set(color) } else { for_front.set(color) }
+            })
+        }),
+        Text::new("Click: foreground. Cmd or Ctrl and click: background.").style(TextStyle::Caption),
+    ))
+    .spacing(6.0)
+}
+// end
+
+// sample: NinePointAnchor, 70
+fn nine_point_anchor() -> impl View {
+    let point = State::new(AnchorPoint::Center);
+    NinePointAnchor::new(point.binding()).cell_size(12.0)
+}
+// end
+
+// sample: ColorPair, 90
+fn color_pair() -> impl View {
+    let (front, back) = (State::new(Color::hex(0xe11d48)), State::new(Color::WHITE));
+    ColorPair::new(front.binding(), back.binding()).defaults(Color::BLACK, Color::WHITE)
 }
 // end
 
