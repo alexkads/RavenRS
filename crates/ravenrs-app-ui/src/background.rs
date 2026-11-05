@@ -115,45 +115,38 @@ impl Session {
         let jobs = self.jobs();
         let id = jobs.next.get();
         jobs.next.set(id + 1);
-        #[cfg(target_arch = "wasm32")]
-        {
+        if cfg!(target_arch = "wasm32") {
             let _ = title;
             let progress =
                 JobProgress { sender: None, waker: None, canceled: Arc::new(AtomicBool::new(false)) };
             done(self, work(&progress));
             return id;
         }
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let (events, heard) = channel();
-            let (result_out, result_in) = channel::<R>();
-            let canceled = Arc::new(AtomicBool::new(false));
-            let waker = jobs.waker.borrow().clone();
-            let progress = JobProgress {
-                sender: Some(events.clone()),
-                waker: waker.clone(),
-                canceled: canceled.clone(),
-            };
-            std::thread::spawn(move || {
-                let brought = work(&progress);
-                let _ = result_out.send(brought);
-                let _ = events.send(JobEvent::Done);
-                if let Some(waker) = waker {
-                    waker.wake();
-                }
-            });
-            let mut done = Some(done);
-            let result: Box<dyn FnMut() -> Option<Finish>> = Box::new(move || {
-                let brought = result_in.try_recv().ok()?;
-                let done = done.take()?;
-                Some(Box::new(move |session: &Session| done(session, brought)) as Finish)
-            });
-            jobs.running.borrow_mut().push(Running { id, canceled, events: heard, result });
-            jobs.infos.update(|infos| {
-                infos.push(JobInfo { id, title: title.into(), fraction: None, note: None });
-            });
-            id
-        }
+        let (events, heard) = channel();
+        let (result_out, result_in) = channel::<R>();
+        let canceled = Arc::new(AtomicBool::new(false));
+        let waker = jobs.waker.borrow().clone();
+        let progress =
+            JobProgress { sender: Some(events.clone()), waker: waker.clone(), canceled: canceled.clone() };
+        std::thread::spawn(move || {
+            let brought = work(&progress);
+            let _ = result_out.send(brought);
+            let _ = events.send(JobEvent::Done);
+            if let Some(waker) = waker {
+                waker.wake();
+            }
+        });
+        let mut done = Some(done);
+        let result: Box<dyn FnMut() -> Option<Finish>> = Box::new(move || {
+            let brought = result_in.try_recv().ok()?;
+            let done = done.take()?;
+            Some(Box::new(move |session: &Session| done(session, brought)) as Finish)
+        });
+        jobs.running.borrow_mut().push(Running { id, canceled, events: heard, result });
+        jobs.infos.update(|infos| {
+            infos.push(JobInfo { id, title: title.into(), fraction: None, note: None });
+        });
+        id
     }
 
     /// Asks a piece of work to stop. What it brings when it does still comes.

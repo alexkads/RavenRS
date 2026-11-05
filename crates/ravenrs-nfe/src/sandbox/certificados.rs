@@ -750,12 +750,21 @@ impl TokenSimulado {
         }
         if let Some(relogio) = &self.0.relogio {
             relogio.avancar(self.0.latencia);
-            return;
+        } else {
+            dormir(self.0.latencia);
         }
-        #[cfg(not(target_arch = "wasm32"))]
-        std::thread::sleep(self.0.latencia);
     }
 }
+
+/// Waits, where there is a thread to put to sleep.
+#[cfg(not(target_arch = "wasm32"))]
+fn dormir(tempo: std::time::Duration) {
+    std::thread::sleep(tempo);
+}
+
+/// The browser has no thread to put to sleep: there it just answers.
+#[cfg(target_arch = "wasm32")]
+fn dormir(_tempo: std::time::Duration) {}
 
 impl Signer for TokenSimulado {
     fn certificate_der(&self) -> &[u8] {

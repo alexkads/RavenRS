@@ -53,4 +53,4 @@ Conhecidas ao fechar o branch:
 - **Nota grande.** O DANFE A4 é um primeiro layout e não foi conferido contra o modelo do MOC. A troca de NFC-e por NF-e precisa da validação do contador.
 - **Sandbox.** O catálogo traz a fonte de cada regra; uma ainda é de memória e sete são inferidas. `Signer` segue preso a `NfeError`, a soltar no crate comum.
 - **NFS-e.** Só pesquisa, em `docs/NFSE.md`. O algoritmo de assinatura vigente não está confirmado: precisa de um envio real.
-- **Verificação.** `scripts/check.sh` inteiro não foi rodado no branch final; os testes de cada crate novo foram, com `-p`.
+- **Verificação.** `scripts/check.sh` passou em formatação, clippy, wasm, testes, rede local, features opcionais, MSRV, `cargo deny` e benchmarks, e parou no gate de desempenho, única etapa em falha. O gate acusa a cena nova `counter-keys` sem baseline e 10 elementos a mais nas cenas `app-center-*`, que devem vir da demonstração nova no Centro de Recursos. Revise e rode `cargo run --release -p ravenrs-perf -- gate --bless`; depois dele, o script ainda tem as etapas seguintes.

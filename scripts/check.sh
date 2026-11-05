@@ -13,7 +13,10 @@ step "clippy (native)"
 cargo clippy --workspace --all-targets -- -D warnings
 
 step "clippy (wasm32)"
-cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-ui -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p ravenrs-barcode -p ravenrs-report-label -p ravenrs-nfe -p ravenrs-pagamento -p ravenrs-pos -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer --target wasm32-unknown-unknown -- -D warnings
+cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-ui -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p ravenrs-barcode -p ravenrs-report-label -p ravenrs-pos -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer --target wasm32-unknown-unknown -- -D warnings
+
+# On their own: together with the rest, Cargo unifies features and rand_core asks for getrandom.
+cargo clippy -p ravenrs-nfe -p ravenrs-pagamento --target wasm32-unknown-unknown -- -D warnings
 
 step "tests: unit, behavior, property, doc, GPU pixel and golden-image (GPU tests skip without an adapter)"
 cargo test --workspace
