@@ -2227,6 +2227,18 @@ impl Gallery {
                             .height(260.0),
                     ),
                     demo(
+                        "Bars from the top",
+                        "Bars can grow from any side, fill from tip to base and keep a least length.",
+                        Chart::new(ChartKind::Bar)
+                            .categories(["Jan", "Feb", "Mar", "Apr", "May", "Jun"])
+                            .series("Depth", [12.0, 0.2, 15.0, 9.0, 22.0, 17.0])
+                            .bars_from(ChartBarFrom::Top)
+                            .gradient()
+                            .min_bar_length(4.0)
+                            .show_value_axis()
+                            .height(260.0),
+                    ),
+                    demo(
                         "Scatter chart",
                         "Dots at numeric positions.",
                         Chart::new(ChartKind::Scatter)

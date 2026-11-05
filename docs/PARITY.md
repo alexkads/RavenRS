@@ -123,7 +123,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Bar / column chart | ✓ | ✓ | ✓ | ✅ `Chart`, `BarChart`: horizontal, grouped, stacked, negative, labels, active, focus that fades the rest |
+| Bar / column chart | ✓ | ✓ | ✓ | ✅ `Chart`, `BarChart`: horizontal, grouped, stacked, negative, labels, active, focus that fades the rest, gradient, least length, growing from any side, categories on the line of zero |
 | Area chart, sparkline | ✓ | ✓ | ✓ | ✅ `Chart`, `AreaChart`: stacked, expanded, gradient, curves |
 | Line chart | ✓ | ✓ | ✓ | ✅ `Chart`: natural, monotone, linear and step curves, dots, icons, labels |
 | Pie / donut | ✓ | ✓ | ✓ | ✅ `Chart`: rings, active slice, a slice that comes forward under the pointer, center text, labels, guides with an elbow, a real gap between slices, a radius per slice |

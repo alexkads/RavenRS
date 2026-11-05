@@ -7,7 +7,7 @@
 use std::f32::consts::{FRAC_PI_2, TAU};
 use std::rc::Rc;
 
-use ravenrs_core::{Color, Point, Rect};
+use ravenrs_core::{Color, LinearGradient, Point, Rect};
 
 use crate::chart::{ChartData, ChartDrawing, ChartKind, ChartLabel, LabelAlign, arc, nice_ticks};
 use crate::vector::{self, Layer, PathSegment, Shape};
@@ -109,12 +109,21 @@ pub struct PlotStyle {
     pub curve: Curve,
     /// How series share a category.
     pub stack: Stack,
-    /// Fills areas from strong at the top to faint at the bottom.
+    /// Fills areas from strong at the top to faint at the bottom, and bars from strong
+    /// at the tip to fainter at the base.
     pub gradient: bool,
     /// How solid an area or a radar polygon is.
     pub fill_opacity: f32,
     /// Bars lie down, with their categories on the left.
     pub horizontal: bool,
+    /// The value axis runs the other way: bars hang from the top, or if they lie down
+    /// they grow to the left from the right.
+    pub reversed: bool,
+    /// The shortest a bar with a value gets, however small the value is.
+    pub min_bar: f32,
+    /// The categories of bars sit on the line of zero, on its other side from the bar,
+    /// instead of along the edge of the chart.
+    pub labels_at_zero: bool,
     /// The corners of a bar.
     pub bar_radius: f32,
     /// The widest a bar gets.
@@ -236,6 +245,9 @@ impl PlotStyle {
             gradient: false,
             fill_opacity: if kind == ChartKind::Radar { 0.6 } else { 0.4 },
             horizontal: false,
+            reversed: false,
+            min_bar: 0.5,
+            labels_at_zero: false,
             bar_radius: 6.0,
             max_bar: 96.0,
             negative: None,
@@ -359,6 +371,8 @@ pub struct Bar {
     pub color: Color,
     /// Its corners: top left, top right, bottom right, bottom left.
     pub radii: [f32; 4],
+    /// What fills it in place of its color, from its tip to its base.
+    pub gradient: Option<LinearGradient>,
 }
 
 /// A thin straight line left out of the picture.
@@ -459,6 +473,8 @@ const TICK_MARGIN: f32 = 8.0;
 const GRID_DASH: f32 = 4.0;
 const GRID_DASH_GAP: f32 = 3.0;
 const BAR_GAP: f32 = 4.0;
+/// How solid the base of a bar in a gradient is.
+const BAR_GRADIENT_BASE: f32 = 0.55;
 /// The share of a category left between its bars and the next category's.
 const CATEGORY_GAP: f32 = 0.2;
 const DOT_RADIUS: f32 = 4.0;
@@ -771,6 +787,8 @@ struct Axes {
     low: f64,
     high: f64,
     horizontal: bool,
+    /// The axis runs the other way.
+    reversed: bool,
     /// What is past the ends of the axis is cut off.
     fixed: bool,
 }
@@ -779,6 +797,7 @@ impl Axes {
     /// How far along the value axis a number is, in the page's coordinates.
     fn at(&self, value: f64) -> f32 {
         let share = ((value - self.low) / (self.high - self.low).max(f64::EPSILON)) as f32;
+        let share = if self.reversed { 1.0 - share } else { share };
         if self.horizontal {
             self.area.x() + share * self.area.width()
         } else {
@@ -858,28 +877,46 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     let mut right = rect.max_x();
     let mut top = rect.y() + 4.0;
     let mut bottom = rect.max_y();
+    let reversed = is_bar && style.reversed;
     if horizontal {
+        let (categories, tips) = (longest_label + TICK_MARGIN, longest_value.max(size * 3.0) + TICK_MARGIN);
         if style.category_axis {
-            left += longest_label + TICK_MARGIN;
+            if reversed {
+                right -= categories;
+            } else {
+                left += categories;
+            }
         }
         if style.value_axis {
             bottom -= line_height + TICK_MARGIN;
         }
         if outside {
-            right -= longest_value.max(size * 3.0) + TICK_MARGIN;
+            if reversed {
+                left += tips;
+            } else {
+                right -= tips;
+            }
         }
     } else {
         if style.category_axis {
-            bottom -= line_height + TICK_MARGIN;
+            if reversed {
+                top += line_height + TICK_MARGIN;
+            } else {
+                bottom -= line_height + TICK_MARGIN;
+            }
         }
         if style.value_axis {
             left += longest_value + TICK_MARGIN;
         }
         if outside {
-            top += line_height + 2.0;
-            // A label below a bar under zero needs the same room there.
-            if min < 0.0 {
-                bottom -= line_height;
+            let (tips, under_zero) = (line_height + 2.0, if min < 0.0 { line_height } else { 0.0 });
+            // A label past a bar under zero needs the same room there.
+            if reversed {
+                bottom -= tips;
+                top += under_zero;
+            } else {
+                top += tips;
+                bottom -= under_zero;
             }
         }
         if !is_bar {
@@ -889,7 +926,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     }
     let area = Rect::new(left, top, (right - left).max(1.0), (bottom - top).max(1.0));
     plot.area = area;
-    let axes = Axes { area, low, high, horizontal, fixed: domain.is_some() };
+    let axes = Axes { area, low, high, horizontal, reversed, fixed: domain.is_some() };
 
     // The grid.
     let grid = with_alpha(style.grid, style.grid.a * 0.8);
@@ -980,12 +1017,31 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
         // before it if there is no room for both.
         let crowded = aligned && (last - i) as f32 * spacing < room && i != last;
         let shows = if aligned && i == last { true } else { i.is_multiple_of(every) && !crowded };
+        // On the line of zero, it goes on the side the bars of this category leave free.
+        let at_zero = (is_bar && style.labels_at_zero).then(|| {
+            let values = data.series.iter().filter_map(|s| s.values.get(i)).filter(|v| v.is_finite());
+            let mut seen = values.clone().peekable();
+            let under = seen.peek().is_some()
+                && values.clone().all(|v| *v <= 0.0)
+                && values.clone().any(|v| *v < 0.0);
+            (axes.at(0.0_f64.clamp(low, high)), under != reversed)
+        });
         if style.category_axis && shows {
-            plot.labels.push(if horizontal {
+            plot.labels.push(if let (true, Some((zero, past))) = (horizontal, at_zero) {
+                let x = if past { zero + TICK_MARGIN } else { zero - TICK_MARGIN - longest_label };
+                let align = if past { LabelAlign::Left } else { LabelAlign::Right };
+                let place = Rect::new(x, at - line_height / 2.0, longest_label, line_height);
+                text(label.clone(), place, align, size, style.muted)
+            } else if horizontal {
+                let (x, align) = if reversed {
+                    (area.max_x() + TICK_MARGIN, LabelAlign::Left)
+                } else {
+                    (rect.x(), LabelAlign::Right)
+                };
                 text(
                     label.clone(),
-                    Rect::new(rect.x(), at - line_height / 2.0, longest_label, line_height),
-                    LabelAlign::Right,
+                    Rect::new(x, at - line_height / 2.0, longest_label, line_height),
+                    align,
                     size,
                     style.muted,
                 )
@@ -997,13 +1053,13 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
                 } else {
                     inside(at, ruler.width(label, size), spacing, rect, ruler)
                 };
-                text(
-                    label.clone(),
-                    Rect::new(x, area.max_y() + TICK_MARGIN, spacing * 2.0, line_height),
-                    align,
-                    size,
-                    style.muted,
-                )
+                let y = match at_zero {
+                    Some((zero, true)) => zero - TICK_MARGIN - line_height,
+                    Some((zero, false)) => zero + TICK_MARGIN,
+                    None if reversed => area.y() - TICK_MARGIN - line_height,
+                    None => area.max_y() + TICK_MARGIN,
+                };
+                text(label.clone(), Rect::new(x, y, spacing * 2.0, line_height), align, size, style.muted)
             });
         }
         let half = spacing / 2.0;
@@ -1151,7 +1207,7 @@ fn bars(
     let group = thickness * slots as f32 + BAR_GAP * (slots - 1) as f32;
     let start = if horizontal { axes.area.y() } else { axes.area.x() };
     let size = style.size;
-    let last = data.series.len().saturating_sub(1);
+    let reversed = axes.reversed;
     for (s, series) in data.series.iter().enumerate() {
         let series_color = style.color_of(s);
         let series_color = if series.color == Color::TRANSPARENT { series_color } else { series.color };
@@ -1168,8 +1224,11 @@ fn bars(
             let slot = if side_by_side { s } else { 0 };
             let along = start + band * i as f32 + (band - group) / 2.0 + (thickness + BAR_GAP) * slot as f32;
             let (a, b) = (axes.at(*from), axes.at(*to));
+            // A bar too short grows away from its base, and nothing at all stays a sliver.
+            let least = if from == to { style.min_bar.min(0.5) } else { style.min_bar };
+            let b = if (b - a).abs() < least { a + least * if b < a { -1.0 } else { 1.0 } } else { b };
             let (low, high) = (a.min(b), a.max(b));
-            let length = (high - low).max(0.5);
+            let length = high - low;
             let rect = if horizontal {
                 Rect::new(low, along, length, thickness)
             } else {
@@ -1182,20 +1241,48 @@ fn bars(
             {
                 color = negative;
             }
-            // In a tower, only the outer corners are round.
-            let (first, end) = match style.stack {
+            let below = to < from;
+            // In a tower, only its outer corners are round: those of whatever has a
+            // value, each way from zero, wherever that is in the order of the series.
+            let (base_round, tip_round) = match style.stack {
                 Stack::None => (style.bar_radius, style.bar_radius),
-                _ if last == 0 => (style.bar_radius, style.bar_radius),
-                _ if s == 0 => (style.bar_radius, 0.0),
-                _ if s == last => (0.0, style.bar_radius),
-                _ => (0.0, 0.0),
+                _ => {
+                    let same_way = |tower: &Vec<(f64, f64)>| {
+                        tower.get(i).is_some_and(|(a, b)| a != b && (b < a) == below)
+                    };
+                    let first = towers.iter().position(same_way);
+                    let last = towers.iter().rposition(same_way);
+                    (
+                        if first == Some(s) { style.bar_radius } else { 0.0 },
+                        if last == Some(s) { style.bar_radius } else { 0.0 },
+                    )
+                }
             };
-            let (first, end) = (if cut_low { 0.0 } else { first }, if cut_high { 0.0 } else { end });
+            // `start` is the bottom or the left of the bar, and its tip may be there.
+            let tip_at_start = below != reversed;
+            let (first, end) = if tip_at_start { (tip_round, base_round) } else { (base_round, tip_round) };
+            let (cut_start, cut_end) = if reversed { (cut_high, cut_low) } else { (cut_low, cut_high) };
+            let (first, end) = (if cut_start { 0.0 } else { first }, if cut_end { 0.0 } else { end });
             let path = bar_path(rect, first, end, horizontal);
             let radii = bar_corners(rect, first, end, horizontal);
             let shown = if style.active == Some(i) { with_alpha(color, 0.8) } else { color };
-            plot.bars.push(Bar { series: s, index: i, rect, color: shown, radii });
-            if style.active == Some(i) {
+            let gradient = style.gradient.then(|| {
+                let (at_start, at_end) = if horizontal {
+                    (Point::new(0.0, 0.0), Point::new(1.0, 0.0))
+                } else {
+                    (Point::new(0.0, 1.0), Point::new(0.0, 0.0))
+                };
+                let (tip, base) = if tip_at_start { (at_start, at_end) } else { (at_end, at_start) };
+                let faint = with_alpha(shown, shown.a * BAR_GRADIENT_BASE);
+                LinearGradient { start: tip, end: base, from: shown, to: faint }
+            });
+            // Nothing in a tower is not a line across it.
+            let empty_in_tower = style.stack != Stack::None && from == to;
+            if !empty_in_tower {
+                plot.bars.push(Bar { series: s, index: i, rect, color: shown, radii, gradient });
+            }
+            if empty_in_tower {
+            } else if style.active == Some(i) {
                 if !style.bars_apart {
                     plot.layers.push(fill(path.clone(), shown));
                 }
@@ -1213,6 +1300,13 @@ fn bars(
                 let wide = content.chars().count() as f32 * size * CHAR_WIDTH + 8.0;
                 let height = size * 1.3;
                 plot.labels.push(match (at, horizontal) {
+                    (LabelAt::Outside, true) if reversed && original >= 0.0 => text(
+                        content,
+                        Rect::new(rect.x() - 6.0 - wide, center.y - height / 2.0, wide, height),
+                        LabelAlign::Right,
+                        size,
+                        style.ink,
+                    ),
                     (LabelAt::Outside, true) => text(
                         content,
                         Rect::new(rect.max_x() + 6.0, center.y - height / 2.0, wide, height),
@@ -1221,9 +1315,17 @@ fn bars(
                         style.ink,
                     ),
                     (LabelAt::Outside, false) => {
-                        let y = if original < 0.0 { rect.max_y() + 2.0 } else { rect.y() - height - 2.0 };
+                        let under = (original < 0.0) != reversed;
+                        let y = if under { rect.max_y() + 2.0 } else { rect.y() - height - 2.0 };
                         centered(content, Point::new(center.x, y + height / 2.0), size, style.ink)
                     }
+                    (LabelAt::InsideStart, true) if reversed => text(
+                        content,
+                        Rect::new(rect.max_x() - 8.0 - wide, center.y - height / 2.0, wide, height),
+                        LabelAlign::Right,
+                        size,
+                        ink_over(color),
+                    ),
                     (LabelAt::InsideStart, true) => text(
                         content,
                         Rect::new(rect.x() + 8.0, center.y - height / 2.0, wide, height),
@@ -1231,6 +1333,9 @@ fn bars(
                         size,
                         ink_over(color),
                     ),
+                    (LabelAt::InsideStart, false) if reversed => {
+                        centered(content, Point::new(center.x, rect.y() + height), size, ink_over(color))
+                    }
                     (LabelAt::InsideStart, false) => {
                         centered(content, Point::new(center.x, rect.max_y() - height), size, ink_over(color))
                     }
@@ -2083,6 +2188,7 @@ mod tests {
             rect: Rect::new(10.0, 10.0, 20.0, 40.0),
             color: CLEAR,
             radii: [4.0, 4.0, 0.0, 0.0],
+            gradient: None,
         };
         let mut out = Vec::new();
         line_around_bar(Rect::new(0.0, 10.5, 40.0, 1.0), &bar, &mut out);
@@ -2132,6 +2238,100 @@ mod tests {
         );
         let Some(Layer::Shape(shape)) = plot.layers.first() else { panic!("a line") };
         assert!(shape.path.iter().any(|s| matches!(s, PathSegment::Cubic(..))));
+    }
+
+    fn bars_of(style: PlotStyle, series: &[(&str, &[f64])]) -> Plot {
+        draw(&data(series), AREA, &style)
+    }
+
+    #[test]
+    fn a_tower_rounds_whatever_is_on_its_ends() {
+        let style = PlotStyle {
+            stack: Stack::Normal,
+            bars_apart: true,
+            bar_radius: 4.0,
+            ..PlotStyle::new(ChartKind::Bar)
+        };
+        let plot = bars_of(style, &[("a", &[5.0, 5.0]), ("b", &[5.0, 5.0]), ("c", &[5.0, 0.0])]);
+        let of =
+            |s: usize, i: usize| plot.bars.iter().find(|b| b.series == s && b.index == i).map(|b| b.radii);
+        assert_eq!(of(2, 0), Some([4.0, 4.0, 0.0, 0.0]), "the top of the first tower");
+        assert_eq!(of(1, 0), Some([0.0; 4]), "the middle");
+        assert_eq!(of(1, 1), Some([4.0, 4.0, 0.0, 0.0]), "with nothing above it, the second is the top");
+        assert_eq!(of(2, 1), None, "and the empty one is not drawn");
+        assert_eq!(of(0, 1), Some([0.0, 0.0, 4.0, 4.0]), "the bottom");
+    }
+
+    #[test]
+    fn a_tower_under_zero_rounds_its_lower_end() {
+        let style = PlotStyle {
+            stack: Stack::Normal,
+            bars_apart: true,
+            bar_radius: 4.0,
+            ..PlotStyle::new(ChartKind::Bar)
+        };
+        let plot = bars_of(style, &[("a", &[-5.0]), ("b", &[-5.0])]);
+        assert_eq!(plot.bars[1].radii, [0.0, 0.0, 4.0, 4.0], "the tip is the lowest");
+        assert_eq!(plot.bars[0].radii, [4.0, 4.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn a_short_bar_reaches_the_length_asked_for_from_its_base() {
+        let style = PlotStyle { min_bar: 6.0, bars_apart: true, ..PlotStyle::new(ChartKind::Bar) };
+        let plot = bars_of(style, &[("a", &[0.001, 100.0, 0.0])]);
+        let (tiny, tall, none) = (plot.bars[0].rect, plot.bars[1].rect, plot.bars[2].rect);
+        assert!((tiny.height() - 6.0).abs() < 0.01);
+        assert!((tiny.max_y() - tall.max_y()).abs() < 0.01, "both stand on the same line");
+        assert!(none.height() <= 0.5, "nothing is not made to look like something");
+    }
+
+    #[test]
+    fn bars_can_hang_from_the_top_or_come_from_the_right() {
+        let hanging = PlotStyle { reversed: true, bars_apart: true, ..PlotStyle::new(ChartKind::Bar) };
+        let plot = bars_of(hanging, &[("a", &[10.0, 20.0])]);
+        let (short, long) = (plot.bars[0].rect, plot.bars[1].rect);
+        assert!((short.y() - long.y()).abs() < 0.01, "from the same line");
+        assert!(long.max_y() > short.max_y());
+        assert!(plot.labels.iter().all(|l| l.rect.y() < plot.area.y()), "with the categories over them");
+
+        let from_right = PlotStyle {
+            reversed: true,
+            horizontal: true,
+            bars_apart: true,
+            ..PlotStyle::new(ChartKind::Bar)
+        };
+        let plot = bars_of(from_right, &[("a", &[10.0, 20.0])]);
+        let (short, long) = (plot.bars[0].rect, plot.bars[1].rect);
+        assert!((short.max_x() - long.max_x()).abs() < 0.01, "from the same line");
+        assert!(long.x() < short.x());
+        assert!(
+            plot.labels.iter().all(|l| l.rect.x() > plot.area.max_x()),
+            "with the categories beside them"
+        );
+    }
+
+    #[test]
+    fn a_label_on_the_line_of_zero_keeps_off_the_bar() {
+        let style = PlotStyle { labels_at_zero: true, ..PlotStyle::new(ChartKind::Bar) };
+        let plot = bars_of(PlotStyle { bars_apart: true, ..style }, &[("a", &[10.0, -10.0])]);
+        let name = |n: &str| plot.labels.iter().find(|l| l.text == n).map(|l| l.rect);
+        let (up, down) = (name("C0").expect("a label"), name("C1").expect("a label"));
+        let zero = plot.bars[0].rect.max_y();
+        assert!(up.y() >= zero, "under the line, as its bar goes up");
+        assert!(down.max_y() <= zero, "over the line, as its bar goes down");
+    }
+
+    #[test]
+    fn a_gradient_goes_from_the_tip_to_the_base_either_way() {
+        let style = PlotStyle { gradient: true, bars_apart: true, ..PlotStyle::new(ChartKind::Bar) };
+        let plot = bars_of(style, &[("a", &[10.0, -10.0])]);
+        let up = plot.bars[0].gradient.expect("a gradient");
+        let down = plot.bars[1].gradient.expect("a gradient");
+        assert!(up.start.y < up.end.y, "strong at the top");
+        assert!(down.start.y > down.end.y, "strong at the bottom");
+        assert!(up.to.a < up.from.a);
+        let plain = PlotStyle { bars_apart: true, ..PlotStyle::new(ChartKind::Bar) };
+        assert_eq!(bars_of(plain, &[("a", &[10.0])]).bars[0].gradient, None);
     }
 
     #[test]

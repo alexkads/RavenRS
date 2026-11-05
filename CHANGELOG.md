@@ -10,6 +10,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `ChartTooltip`: `show_percent`, `value_color`, `no_indicator_for` and `content`. It takes the side with room on both axes and stays off what is in focus.
 - `Chart`: `grid_dashed`, `grid_columns`, `value_ticks`, `align_axis_ends`, `value_domain`, `reference_line` and `reference` with `ChartReference`.
 - `Chart`: `label_guides` puts the labels of a pie or a doughnut in columns with elbowed lines, none over another, and `slice_radii` gives each slice its own radius.
+- `Chart`: `bars_from` with `ChartBarFrom` makes bars grow from the top or the right, `min_bar_length` keeps a least length, `labels_at_zero` puts categories on the line of zero on the other side from the bar, and `gradient` now fills bars from tip to base too.
 - `Semantic::ChartGrid` (`chart-grid`), `Placement::RightEnd`, `LeftStart` and `LeftEnd`.
 
 ### Changed
@@ -20,6 +21,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- A stack in a `Chart` rounds whatever is on its ends, also when the last series is zero or the stack goes below zero, and an empty series leaves no line across it.
 - Categories closer together than a pixel no longer pile up on the axis of a `Chart`.
 
 ## [27.1.12] - 2026-11-04

@@ -9,8 +9,8 @@ use std::rc::Rc;
 
 use ravenrs_animation::Transition;
 use ravenrs_core::{
-    Color, CursorIcon, Effect, ImageData, ImageQuad, Insets, Key, PathElement, PathFill, Point, Quad, Rect,
-    Role, Size,
+    Brush, Color, CursorIcon, Effect, ImageData, ImageQuad, Insets, Key, PathElement, PathFill, Point, Quad,
+    Rect, Role, Size,
 };
 use ravenrs_graphics::barcode::{self, Pattern};
 use ravenrs_graphics::chart::{
@@ -351,7 +351,17 @@ fn paint_bars(highlight: Option<&Highlight>, plot: &Plot, frame: Rect, cx: &mut 
             bar.rect.width(),
             bar.rect.height(),
         );
-        let mut quad = Quad::new(rect, bar.color.with_alpha(bar.color.a * (1.0 - faded)));
+        let strength = 1.0 - faded;
+        let brush: Brush = match bar.gradient {
+            Some(gradient) => ravenrs_core::LinearGradient {
+                from: gradient.from.with_alpha(gradient.from.a * strength),
+                to: gradient.to.with_alpha(gradient.to.a * strength),
+                ..gradient
+            }
+            .into(),
+            None => bar.color.with_alpha(bar.color.a * strength).into(),
+        };
+        let mut quad = Quad::new(rect, brush);
         quad.corner_radii = bar.radii;
         cx.scene.push_quad(quad);
     }
@@ -828,6 +838,21 @@ impl ChartReference {
     }
 }
 
+/// Where the bars of a [`Chart`] grow from.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ChartBarFrom {
+    /// Up from the bottom.
+    #[default]
+    Bottom,
+    /// Down from the top, with their categories over them.
+    Top,
+    /// To the right from the left, as [`Chart::horizontal`] does.
+    Left,
+    /// To the left from the right, with their categories beside them.
+    Right,
+}
+
 /// Where a [`Chart`]'s legend goes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
@@ -938,6 +963,9 @@ struct Look {
     gradient: bool,
     fill_opacity: Option<f32>,
     horizontal: bool,
+    reversed: bool,
+    min_bar: Option<f32>,
+    labels_at_zero: bool,
     bar_radius: Option<f32>,
     active: Option<usize>,
     dots: bool,
@@ -979,6 +1007,9 @@ impl Default for Look {
             gradient: false,
             fill_opacity: None,
             horizontal: false,
+            reversed: false,
+            min_bar: None,
+            labels_at_zero: false,
             bar_radius: None,
             active: None,
             dots: false,
@@ -1158,7 +1189,8 @@ impl Chart {
         self
     }
 
-    /// Fills areas from strong at the top to faint at the bottom.
+    /// Fills areas from strong at the top to faint at the bottom, and bars from strong
+    /// at the tip to fainter at the base.
     pub fn gradient(mut self) -> Self {
         self.look.gradient = true;
         self
@@ -1173,6 +1205,27 @@ impl Chart {
     /// Bars lie down, with their categories on the left.
     pub fn horizontal(mut self) -> Self {
         self.look.horizontal = true;
+        self
+    }
+
+    /// Where bars grow from: up from the bottom by default.
+    pub fn bars_from(mut self, from: ChartBarFrom) -> Self {
+        self.look.horizontal = matches!(from, ChartBarFrom::Left | ChartBarFrom::Right);
+        self.look.reversed = matches!(from, ChartBarFrom::Top | ChartBarFrom::Right);
+        self
+    }
+
+    /// The shortest a bar with a value gets, in logical pixels, however small the value
+    /// is (half a pixel by default). A value of zero stays as good as nothing.
+    pub fn min_bar_length(mut self, length: f32) -> Self {
+        self.look.min_bar = Some(length);
+        self
+    }
+
+    /// The categories of bars sit on the line of zero, on its other side from the bar,
+    /// instead of along the edge of the chart: for values both ways from zero.
+    pub fn labels_at_zero(mut self) -> Self {
+        self.look.labels_at_zero = true;
         self
     }
 
@@ -1501,6 +1554,11 @@ impl Chart {
             style.fill_opacity = opacity;
         }
         style.horizontal = look.horizontal;
+        style.reversed = look.reversed;
+        if let Some(length) = look.min_bar {
+            style.min_bar = length.max(0.0);
+        }
+        style.labels_at_zero = look.labels_at_zero;
         let bars = if self.series.len() > 1 { theme.radii.sm } else { theme.radii.md };
         style.bar_radius = look.bar_radius.unwrap_or(bars);
         style.negative = self.negative.map(|role| theme.color(role));

@@ -903,3 +903,45 @@ fn a_slice_short_of_the_edge_comes_forward_too() {
     settle(&mut ui, 0.0);
     assert_eq!(slices_on_top(&ui), 1);
 }
+
+#[test]
+fn bars_can_fill_from_tip_to_base_grow_from_any_side_and_keep_a_least_length() {
+    let quad_of = |ui: &Ui| {
+        ui.scene()
+            .primitives()
+            .iter()
+            .find_map(|p| match p {
+                Primitive::Quad(q) if !matches!(q.fill, ravenrs_core::Brush::Solid(_)) => Some(*q),
+                _ => None,
+            })
+            .expect("a bar in a gradient")
+    };
+    let one = || Chart::new(ChartKind::Bar).categories(["A"]).series("S", [4.0]).hide_legend();
+    let ui = chart_ui(one().gradient());
+    assert!(quad_of(&ui).rect.height() > 40.0);
+
+    let first = Theme::raven_dark().color(Semantic::Chart1);
+    let two = || Chart::new(ChartKind::Bar).categories(["A", "B"]).series("S", [0.001, 100.0]).hide_legend();
+    let all = |ui: &Ui| -> Vec<Rect> {
+        ui.scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| match p {
+                Primitive::Quad(q) if q.fill == first.into() => Some(q.rect),
+                _ => None,
+            })
+            .collect()
+    };
+    assert!(all(&chart_ui(two().min_bar_length(9.0)))[0].height() >= 8.9);
+
+    let top = chart_ui(two().bars_from(ChartBarFrom::Top));
+    let found = all(&top);
+    assert!((found[0].y() - found[1].y()).abs() < 0.01 && found[1].height() > found[0].height());
+
+    let mut right = chart_ui(two().bars_from(ChartBarFrom::Right));
+    let found = all(&right);
+    assert!((found[0].max_x() - found[1].max_x()).abs() < 0.01 && found[1].width() > found[0].width());
+    let at = found[1].center();
+    hover(&mut right, at.x, at.y);
+    assert_eq!(image_node(&mut right).value.as_deref(), Some("B, S: 100"));
+}
