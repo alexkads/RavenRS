@@ -1316,3 +1316,51 @@ fn theme_editor_counts_warns_restores_and_takes_tokens_back() {
     assert!(says_in_tree(&mut ui, "1 token changed"), "what was copied comes back");
     assert_eq!(ui.theme().palette.ink, Theme::raven_dark().palette.bg_200);
 }
+
+#[test]
+fn focus_comes_back_to_where_it_was_when_a_dialog_with_a_focused_field_closes() {
+    use ravenrs_reactive::Binding;
+    struct Screen {
+        open: State<bool>,
+        behind: State<String>,
+        inside: State<String>,
+    }
+    impl View for Screen {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            let (read, write) = (self.behind.clone(), self.behind.clone());
+            let behind = TextField::new(Binding::new(move || read.get(), move |v: String| write.set(v))).autofocus();
+            let (read, write) = (self.inside.clone(), self.inside.clone());
+            let inside = TextField::new(Binding::new(move || read.get(), move |v: String| write.set(v))).autofocus();
+            cx.child(&VStack::new((
+                behind,
+                Dialog::new(self.open.binding(), "Pergunta").content(inside),
+            )))
+        }
+    }
+    let (open, behind, inside) = (State::new(false), State::new(String::new()), State::new(String::new()));
+    let screen = Screen { open: open.clone(), behind: behind.clone(), inside: inside.clone() };
+    let mut ui = Ui::new(screen, Theme::raven_dark());
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    let settle = |ui: &mut Ui| {
+        for _ in 0..3 {
+            ui.update();
+        }
+    };
+    let type_a = |ui: &mut Ui| {
+        ui.handle_event(&Event::KeyDown { key: Key::Character("a".into()), modifiers: Modifiers::default() });
+    };
+    settle(&mut ui);
+    type_a(&mut ui);
+    settle(&mut ui);
+    assert_eq!(behind.get(), "a", "the field starts with the focus");
+    open.set(true);
+    settle(&mut ui);
+    type_a(&mut ui);
+    settle(&mut ui);
+    assert_eq!((behind.get().as_str(), inside.get().as_str()), ("a", "a"), "the dialog takes it");
+    open.set(false);
+    settle(&mut ui);
+    type_a(&mut ui);
+    settle(&mut ui);
+    assert_eq!(behind.get(), "aa", "it goes back");
+}

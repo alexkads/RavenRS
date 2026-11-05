@@ -1,0 +1,33 @@
+[package]
+name = "ravenrs-app-pos"
+description = "BETA, proof of concept: a point of sale as a RavenRS application module, with products, a checkout from the keyboard, shelf labels and receipts anyone can change."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-pos"
+keywords = ["pos", "retail", "checkout", "gui", "brazil"]
+categories = ["gui"]
+
+[dependencies]
+ravenrs-app.workspace = true
+ravenrs-app-nfe.workspace = true
+ravenrs-app-report.workspace = true
+ravenrs-app-ui.workspace = true
+ravenrs-layout.workspace = true
+ravenrs-nfe.workspace = true
+ravenrs-pos.workspace = true
+ravenrs-reactive.workspace = true
+ravenrs-report.workspace = true
+ravenrs-report-label.workspace = true
+ravenrs-report-viewer.workspace = true
+ravenrs-style.workspace = true
+ravenrs-widgets.workspace = true
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
+
+[lints]
+workspace = true

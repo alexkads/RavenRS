@@ -3315,6 +3315,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
+name = "mini-pdv"
+version = "27.1.13"
+dependencies = [
+ "ravenrs",
+ "ravenrs-app",
+ "ravenrs-app-nfe",
+ "ravenrs-app-pos",
+ "ravenrs-app-sqlite",
+ "ravenrs-app-ui",
+ "ravenrs-core",
+ "ravenrs-nfe",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "rusqlite",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4916,6 +4933,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-app-pos"
+version = "27.1.13"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-app-nfe",
+ "ravenrs-app-report",
+ "ravenrs-app-ui",
+ "ravenrs-layout",
+ "ravenrs-nfe",
+ "ravenrs-pos",
+ "ravenrs-reactive",
+ "ravenrs-report",
+ "ravenrs-report-label",
+ "ravenrs-report-viewer",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "rust_decimal",
+]
+
+[[package]]
 name = "ravenrs-app-report"
 version = "27.1.13"
 dependencies = [
@@ -4950,6 +4987,7 @@ name = "ravenrs-app-ui"
 version = "27.1.13"
 dependencies = [
  "ravenrs-app",
+ "ravenrs-barcode",
  "ravenrs-core",
  "ravenrs-criteria",
  "ravenrs-grid-export",
@@ -5126,6 +5164,15 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "ravenrs-pos"
+version = "27.1.13"
+dependencies = [
+ "rust_decimal",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -7078,6 +7125,7 @@ checksum = "a0181c14ddd6c7b8b0b0132a5f1ea2f32be0d893cd3ea97b6e3b28886b8a3d1c"
 dependencies = [
  "cfg-if",
  "rustversion",
+ "serde",
  "wasm-bindgen-macro",
  "wasm-bindgen-shared",
 ]

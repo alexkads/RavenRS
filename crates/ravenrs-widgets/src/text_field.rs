@@ -37,6 +37,7 @@ pub struct TextField {
     flat: bool,
     end_aligned: bool,
     autofocus: bool,
+    keeps_focus: bool,
     select_on_open: bool,
     on_submit: Option<Rc<dyn Fn(String)>>,
     on_leave: Option<Rc<dyn Fn()>>,
@@ -71,6 +72,7 @@ impl TextField {
             flat: false,
             end_aligned: false,
             autofocus: false,
+            keeps_focus: false,
             select_on_open: false,
             on_submit: None,
             on_leave: None,
@@ -155,6 +157,13 @@ impl TextField {
     /// Takes keyboard focus when it first appears.
     pub fn autofocus(mut self) -> Self {
         self.autofocus = true;
+        self
+    }
+
+    /// Takes keyboard focus whenever nothing has it, such as when a window over it closes. For the
+    /// one field a screen is used through.
+    pub fn keeps_focus(mut self) -> Self {
+        self.keeps_focus = true;
         self
     }
 
@@ -449,6 +458,9 @@ impl View for TextField {
         let state = self.state;
         if self.autofocus && !state.disabled && !*focus_requested.peek() {
             focus_requested.set_if_changed(true);
+            cx.request_focus();
+        }
+        if self.keeps_focus && !state.disabled && cx.nothing_focused() {
             cx.request_focus();
         }
         // Set by the clear button, which took the focus with its click.

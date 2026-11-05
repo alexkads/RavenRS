@@ -100,7 +100,7 @@ pub struct Scan {
 }
 
 /// A field for what a scanner reads. A scanner is a keyboard that types fast and presses Enter, so
-/// this takes the focus when it appears, tells the two apart and is empty again after each code.
+/// this keeps the focus whenever nothing else has it, tells the two apart and is empty again after each code.
 pub struct ScanField {
     placeholder: String,
     disabled: bool,
@@ -167,6 +167,7 @@ impl View for ScanField {
         let field = TextField::new(binding)
             .placeholder(self.placeholder.clone())
             .autofocus()
+            .keeps_focus()
             .disabled(self.disabled)
             .on_submit(move |value: String| {
                 let code = value.trim().to_owned();

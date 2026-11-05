@@ -1,0 +1,22 @@
+[package]
+name = "ravenrs-pos"
+description = "The rules of a point of sale with nothing about screens: a cart, what a scanner reads, totals, payments and change."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-pos"
+keywords = ["pos", "retail", "checkout", "cart", "brazil"]
+categories = ["finance"]
+
+[dependencies]
+rust_decimal = { version = "1", default-features = false, features = ["std", "serde-str"] }
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

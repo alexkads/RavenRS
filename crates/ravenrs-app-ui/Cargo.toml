@@ -20,6 +20,7 @@ images = ["ravenrs-widgets/decode"]
 
 [dependencies]
 ravenrs-app.workspace = true
+ravenrs-barcode.workspace = true
 ravenrs-core.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-grid-export.workspace = true

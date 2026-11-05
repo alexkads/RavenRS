@@ -9,6 +9,12 @@ pub trait LabelOutput {
     fn send(&self, bytes: &[u8]) -> Result<(), LabelError>;
 }
 
+impl LabelOutput for Box<dyn LabelOutput + Send> {
+    fn send(&self, bytes: &[u8]) -> Result<(), LabelError> {
+        (**self).send(bytes)
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub use native::{CupsOutput, FileOutput, TcpOutput, output_for};
 #[cfg(windows)]

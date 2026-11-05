@@ -176,6 +176,8 @@ pub struct Ui {
     /// Seconds since start, set by the platform.
     time: f64,
     shortcuts: Vec<Shortcut>,
+    /// Where the focus was before this build moved it.
+    moved_focus_from: Option<Option<WidgetId>>,
     activity: Option<crate::context::ActivityObserver>,
     access_tree_asked: bool,
     /// Earliest time a widget asked to be rebuilt at.
@@ -275,6 +277,7 @@ impl Ui {
             scrollbar_showing: false,
             time: 0.0,
             shortcuts: Vec::new(),
+            moved_focus_from: None,
             activity: None,
             access_tree_asked: false,
             wake: None,
@@ -836,8 +839,14 @@ impl Ui {
     /// Keeps focus inside an open modal layer, moving it in when the layer
     /// opens and back to where it was when the layer closes.
     fn trap_focus(&mut self) {
+        let moved_from = self.moved_focus_from.take();
         match self.modal_root() {
             Some(root) => {
+                // A field in the layer that took the focus as it opened: where to go back is where
+                // the focus was before that.
+                if let Some(before) = moved_from {
+                    self.modal_return.get_or_insert(before);
+                }
                 let focused = self.interaction.focused;
                 let layers = self.modal_layers(root);
                 let inside = (0..self.elements.len()).any(|i| {
@@ -1173,6 +1182,7 @@ impl Ui {
             // Focus moved by code keeps its ring only while the user is on the
             // keyboard (arrow keys moving through a radio group, say).
             self.interaction.focus_visible &= self.interaction.focused.is_some();
+            self.moved_focus_from = Some(self.interaction.focused);
             self.interaction.focused = Some(widget);
             self.reveal_focus = true;
             // Rebuild once so the newly focused widget can draw its focus state.

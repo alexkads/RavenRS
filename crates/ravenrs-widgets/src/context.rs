@@ -776,6 +776,11 @@ impl<'a> BuildCx<'a> {
         self.interaction.pressed == Some(self.widget_id())
     }
 
+    /// Nothing on the screen has keyboard focus.
+    pub fn nothing_focused(&self) -> bool {
+        self.interaction.focused.is_none()
+    }
+
     /// Keyboard focus is on this view.
     pub fn is_focused(&self) -> bool {
         self.interaction.focused == Some(self.widget_id())
