@@ -484,6 +484,8 @@ pub struct Labels {
     pub rating_value: fn(u32, u32) -> String,
     /// A [`DaySeparator`](crate::DaySeparator) for the day before today.
     pub yesterday: String,
+    /// The title of a [`ShortcutSheet`](crate::ShortcutSheet).
+    pub shortcut_sheet: String,
     /// Count, sum, average, smallest and largest, as a grid's footer calls them.
     pub grid_summaries: [String; 5],
 }
@@ -791,6 +793,7 @@ impl Default for Labels {
             rating: "Rating".into(),
             rating_value: |score, max| format!("{score} of {max}"),
             yesterday: "Yesterday".into(),
+            shortcut_sheet: "Keyboard shortcuts".into(),
             grid_summaries: owned(["Count", "Sum", "Avg", "Min", "Max"]),
         }
     }
@@ -1067,6 +1070,7 @@ impl Labels {
             rating: "Nota".into(),
             rating_value: |score, max| format!("{score} de {max}"),
             yesterday: "Ontem".into(),
+            shortcut_sheet: "Atalhos de teclado".into(),
             grid_summaries: owned(["Qtd.", "Soma", "Média", "Mín.", "Máx."]),
         }
     }

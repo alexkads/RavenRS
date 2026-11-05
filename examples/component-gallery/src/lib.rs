@@ -272,11 +272,24 @@ fn demo<V: View + 'static>(title: &str, description: &str, content: V) -> impl V
     .corner_radius(18.0)
 }
 
+/// A sample built once, so that what it holds survives the page's rebuilds.
+struct KeptSample(String);
+
+impl View for KeptSample {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let name = self.0.clone();
+        let sample = cx.use_state(move || std::rc::Rc::new(samples::sample(&name))).get();
+        cx.child(sample.as_ref())
+    }
+}
+
 /// One demo per named sample, for a run of small components on a page.
 fn sample_demos(items: &[(&str, &str)]) -> impl View + use<> {
     let demos: Vec<AnyView> = items
         .iter()
-        .map(|(name, description)| -> AnyView { Box::new(demo(name, description, samples::sample(name))) })
+        .map(|(name, description)| -> AnyView {
+            Box::new(demo(name, description, KeptSample((*name).to_owned())))
+        })
         .collect();
     VStack::new(demos).spacing(24.0).align(Align::Stretch)
 }
@@ -1903,6 +1916,8 @@ impl Gallery {
                 ("MultiProgress", "Work with more than one part."),
                 ("ShimmerText", "A light passing over the text, while motion is allowed."),
                 ("DaySeparator", "Dividing a list by day."),
+                ("ShortcutSheet", "The keys of a screen, in a dialog."),
+                ("ShortcutHintBar", "A line of hints under what they act on."),
             ]),
             demo(
                 "Timeline",

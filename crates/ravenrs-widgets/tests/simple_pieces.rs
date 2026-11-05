@@ -337,3 +337,52 @@ fn day_separator_names_the_day() {
     assert_eq!(rules[0].rect.x(), 0.0);
     assert_eq!(rules[1].rect.max_x(), 800.0);
 }
+
+#[test]
+fn shortcut_sheet_lists_groups_and_closes_with_escape() {
+    let open = State::new(false);
+    let mut ui = ui(Localized::new(
+        Labels::pt_br(),
+        ShortcutSheet::new(open.binding())
+            .group("Navigate", [("←", "Previous"), ("→", "Next")])
+            .group("Rate", [("1–5", "Give a score")]),
+    ));
+    assert!(ui.access_tree().nodes.iter().all(|n| n.role != Role::Dialog), "closed, it shows nothing");
+    open.set(true);
+    ui.update();
+    let tree = ui.access_tree();
+    named(&tree, Role::Dialog, "Atalhos de teclado");
+    let (navigate, rate) = (named(&tree, Role::Heading, "Navigate"), named(&tree, Role::Heading, "Rate"));
+    assert_eq!(navigate.bounds.y(), rate.bounds.y(), "groups side by side while they fit");
+    assert!(rate.bounds.x() > navigate.bounds.max_x());
+    let spoken = |name: &str| tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).map(|n| n.bounds);
+    let (cap, does) = (spoken("←").expect("the key"), spoken("Previous").expect("what it does"));
+    assert!(does.x() > cap.max_x(), "the key, then what it does");
+    assert_eq!(spoken("Next").unwrap().x(), does.x(), "lined up");
+    key(&mut ui, Key::Escape);
+    assert!(!open.get(), "Escape closes it");
+}
+
+#[test]
+fn shortcut_sheet_scrolls_a_list_that_cannot_fit() {
+    let open = State::new(true);
+    let rows: Vec<(String, String)> = (0..60).map(|i| (format!("F{i}"), format!("Does {i}"))).collect();
+    let mut ui = ui(ShortcutSheet::new(open.binding()).title("All").group("Long", rows));
+    let tree = ui.access_tree();
+    assert!(named(&tree, Role::Dialog, "All").bounds.height() < 600.0, "stays in the window");
+    assert!(tree.nodes.iter().any(|n| n.role == Role::ScrollView), "and scrolls");
+}
+
+#[test]
+fn shortcut_hint_bar_puts_keys_before_what_they_do() {
+    let mut ui = ui(ShortcutHintBar::new().leading("3 of 40").hint(["←", "→"], "move").hint(["P"], "pick"));
+    let tree = ui.access_tree();
+    let at = |name: &str| {
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).map(|n| n.bounds.x()).expect(name)
+    };
+    assert!(at("3 of 40") < at("←"));
+    assert!(at("←") < at("→"));
+    assert!(at("→") < at("move"));
+    assert!(at("move") < at("P"));
+    assert!(at("P") < at("pick"));
+}

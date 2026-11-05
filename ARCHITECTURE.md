@@ -132,7 +132,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `button`, `inputs`, `text_field`, `choice`, `calendar`, `date` | Buttons, form controls, text input, `ToggleGroup`, `Pagination`, `Label`, `AspectRatio`, `Calendar`, `DatePicker`, `EventCalendar`, `RecurrenceEditor` |
 | `scheduler`, `recurrence` | `Scheduler` and its time axis, and `RecurrenceRule`, which needs no UI |
 | `nav`, `ribbon` | `Tabs`, `Sidebar` and its parts, `Breadcrumb`, `Disclosure`, `Ribbon` |
-| `overlay`, `floating` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `SplashScreen`, `Toaster`, `Combobox`, `CommandPalette` |
+| `overlay`, `floating`, `shortcuts` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `SplashScreen`, `Toaster`, `Combobox`, `CommandPalette`, then `ShortcutSheet`, `ShortcutHintBar` |
 | `display`, `status`, `data`, `extras` | Badges and alerts; `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `HeroBanner`, `MultiProgress`, `ShimmerText`, `DaySeparator`; lists, tables and charts; `Spinner`, `Carousel`, `Splitter`, `Menubar`, `InputOtp`, `FormField` |
 | `grid/` | `DataGrid`: `query` (pure pipeline), `model`, `view` |
 
@@ -359,7 +359,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Layout: `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Footer`, `Section`, `Card`, `Splitter`, `AspectRatio` | ✓ | | `ZStack`, virtualized `List` |
 | Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `TextField`, `TextArea`, `NumberField`, `MaskedField`, `TimePicker`, `DateTimePicker`, `LookupField`, `FormLayout`, `Toolbar`, `SplitButton`, `ConfirmDialog`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `Select`, `Combobox`, `ToggleButton`, `ToggleGroup`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher`; text selection in `TextField` | ✓ | | multi-line text |
 | Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView`, docking |
-| Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette` | ✓ | | |
+| Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette`, `ShortcutSheet` | ✓ | | |
 | Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |
 | Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `HeroBanner`, `MultiProgress`, `ShimmerText`, `DaySeparator`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `Chart` (line, area, bar, pie, doughnut, scatter, sparkline), `BarChart`, `AreaChart`, `Barcode` (QR Code and six linear formats), `Canvas`, `Lottie` | ✓ | | image loading from URLs, radar, funnel and financial charts |
 | `GlassCard` | | translucent fill only | backdrop blur |

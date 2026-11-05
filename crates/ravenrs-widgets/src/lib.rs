@@ -78,6 +78,7 @@ mod release_notes;
 mod remote;
 mod ribbon;
 mod scheduler;
+mod shortcuts;
 mod sound;
 mod stack;
 mod status;
@@ -164,6 +165,7 @@ pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
 pub use scheduler::{
     Resource, Scheduler, SchedulerChange, SchedulerEvent, SchedulerRange, TimeAxis, TimePoint, TimeScale,
 };
+pub use shortcuts::{ShortcutHintBar, ShortcutSheet};
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
 pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, StatusBar, ToolRail, VStack};
 pub use status::{

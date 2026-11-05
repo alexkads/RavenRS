@@ -207,7 +207,7 @@ See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REP
 | Data | `DataGrid`, `TreeView`, `CardView`, `Table`, `List`, `Stat`, `Barcode` (QR Code and linear codes) |
 | Charts | `Chart` (line, area, bar, pie, doughnut, radar, radial, scatter, sparkline), `ChartCard`, `BarChart`, `AreaChart`: all 70 patterns of the shadcn/ui chart catalog are in the gallery |
 | Layout | `TileLayout`, `VStack`, `HStack`, `Grid`, `ScrollView`, `Splitter`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `Spacer`, `Footer`, `StatusBar`, `ToolRail`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
-| Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `Alert`, `HeroBanner`, `ProgressBar`, `MultiProgress`, `ShimmerText`, `Spinner`, `Skeleton`, `Kbd`, `Divider`, `DaySeparator`, `Canvas`, `CodeBlock`, `ReleaseNotes`, `Lottie` |
+| Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Carousel`, `Avatar`, `Badge`, `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `Alert`, `HeroBanner`, `ProgressBar`, `MultiProgress`, `ShimmerText`, `Spinner`, `Skeleton`, `Kbd`, `ShortcutSheet`, `ShortcutHintBar`, `Divider`, `DaySeparator`, `Canvas`, `CodeBlock`, `ReleaseNotes`, `Lottie` |
 | Assistants | `Chat`, `ModelPicker` |
 | Training and support (`ravenrs::movie`) | `Recorder`, `MoviePlayer`, `MovieAssistant`, `MovieChat`, `MovieEditor`, `FlightRecorder`, `BugReporter` |
 

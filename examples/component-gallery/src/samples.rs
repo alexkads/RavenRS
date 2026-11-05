@@ -52,6 +52,7 @@ samples! {
     "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
+    "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1575,6 +1576,32 @@ fn day_separator() -> impl View {
     ))
     .spacing(14.0)
     .align(Align::Stretch)
+}
+// end
+
+// sample: ShortcutSheet, 110
+fn shortcut_sheet() -> impl View {
+    let open = State::new(false);
+    let show = open.clone();
+    VStack::new((
+        Button::new("Keyboard shortcuts")
+            .style(ButtonStyle::Secondary)
+            .icon(IconName::Keyboard)
+            .on_click(move || show.set(true)),
+        ShortcutSheet::new(open.binding())
+            .group("Navigate", [("←", "Previous photo"), ("→", "Next photo")])
+            .group("Rate", [("1–5", "Give a score"), ("0", "Take it away")]),
+    ))
+}
+// end
+
+// sample: ShortcutHintBar, 60
+fn shortcut_hint_bar() -> impl View {
+    ShortcutHintBar::new()
+        .leading("3 of 40")
+        .hint(["←", "→"], "move")
+        .hint(["1", "5"], "rate")
+        .hint(["P"], "pick")
 }
 // end
 
