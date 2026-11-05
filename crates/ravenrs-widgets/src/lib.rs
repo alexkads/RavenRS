@@ -80,6 +80,7 @@ mod recurrence;
 mod release_notes;
 mod remote;
 mod ribbon;
+mod rich_text;
 #[cfg(feature = "charts")]
 mod sankey;
 mod scheduler;
@@ -188,6 +189,7 @@ pub use recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
 pub use remote::UiWaker;
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
+pub use rich_text::RichText;
 #[cfg(feature = "charts")]
 pub use sankey::{SankeyAlign, SankeyChart};
 pub use scheduler::{

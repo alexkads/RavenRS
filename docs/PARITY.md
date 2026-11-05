@@ -210,6 +210,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Compare images | | | | ✅ `CompareView`: two images side by side or with a divider dragged or moved with the arrows, through `ImageQuad.uv`, with captions and an optional chosen side |
 | Image lightbox | | | | ✅ `ImageLightbox`: a picture over the whole app with zoom by `ZoomPanView`, arrows, Esc, caption and counter, from `Labels` |
 | Image editor | | | ✓ | ⬜ |
+| Text with marks and links | | | | ✅ `RichText`: `*bold*`, `_italic_`, `~struck~`, `` `code` ``, fenced blocks, lists, quotes and web addresses as links with click and keyboard, wrapped word by word. `ravenrs-text` has one style per text and no italic or monospace font, so italics are told apart by a muted color and code by a chip |
 | Chat | | ✓ | ✓ | ✅ `Chat`; `MovieChat` over training films |
 | Choosing local AI models | | | | ✅ `ModelPicker`; `ravenrs_ai::ModelManager` offers only what fits |
 

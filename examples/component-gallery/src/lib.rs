@@ -1964,6 +1964,7 @@ impl Gallery {
         VStack::new((
             page_header("Feedback", "Alerts, progress and loading placeholders."),
             sample_demos(&[
+                ("RichText", "Bold, italic, code and links in plain text, with the marks chat apps use. Links take the keyboard, and the app decides how to open them."),
                 ("Dot", "A small mark of state, named for screen readers."),
                 ("OverlayBadge", "A small view on a corner of another."),
                 ("Rating", "Stars to give with the pointer, the arrows or a digit, or just to read."),

@@ -51,7 +51,7 @@ samples! {
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
-    "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
+    "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "RichText" => rich_text, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
     "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
@@ -1339,6 +1339,23 @@ fn movie_assistant() -> impl View {
     film.finish(9000)
         .map(|film| MovieAssistant::new(MovieLibrary::new().film("Manual", film)).width(640.0))
         .ok()
+}
+// end
+
+// sample: RichText, 170
+fn rich_text() -> impl View {
+    let opened = State::new(String::from("No link opened yet"));
+    let told = opened.clone();
+    VStack::new((
+        RichText::new(
+            "*Ready:* _your order_ ~left~ is at `Desk 4`.\n* Details at https://example.com/orders\n> Open until six",
+        )
+        .on_link(move |address| told.set(format!("Asked to open {address}"))),
+        Text::bound(&opened, Clone::clone).style(TextStyle::Caption).foreground(Semantic::InkMuted),
+    ))
+    .spacing(8.0)
+    .align(Align::Stretch)
+    .width(360.0)
 }
 // end
 
