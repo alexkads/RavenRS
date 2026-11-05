@@ -442,3 +442,450 @@ fn curve_disabled_ignores_input() {
     click(&mut off, at(0.5, 0.2));
     assert_eq!(points.get(), line());
 }
+
+// ----------------------------------------------------------------------------- ZoomControl
+
+fn center_of(ui: &mut Ui, role: Role, name: &str) -> Point {
+    let tree = ui.access_tree();
+    tree.find(role, name).unwrap_or_else(|| panic!("no {name}")).bounds.center()
+}
+
+fn zoom_control(start: ZoomView) -> (Ui, State<ZoomView>) {
+    let view = State::new(start);
+    let ui = ui(ZoomControl::new(view.binding()));
+    (ui, view)
+}
+
+#[test]
+fn zoom_control_steps_through_round_stops_and_stops_at_its_range() {
+    let (mut ui, view) = zoom_control(ZoomView::at(1.0));
+    let more = center_of(&mut ui, Role::Button, "Zoom in");
+    click(&mut ui, more);
+    assert_eq!(view.get().scale, 1.5);
+    click(&mut ui, more);
+    assert_eq!(view.get().scale, 2.0);
+    let less = center_of(&mut ui, Role::Button, "Zoom out");
+    click(&mut ui, less);
+    click(&mut ui, less);
+    click(&mut ui, less);
+    assert_eq!(view.get().scale, 0.67);
+
+    let view = State::new(ZoomView::at(1.9));
+    let mut near_top = self::ui(ZoomControl::new(view.binding()).range(0.5, 2.0));
+    let more = center_of(&mut near_top, Role::Button, "Zoom in");
+    click(&mut near_top, more);
+    assert_eq!(view.get().scale, 2.0);
+    let tree = near_top.access_tree();
+    assert!(tree.find(Role::Button, "Zoom in").unwrap().disabled, "nothing above the range");
+}
+
+#[test]
+fn zoom_control_fits_and_shows_actual_size_and_says_the_percentage() {
+    let (mut ui, view) = zoom_control(ZoomView { scale: 0.125, ..ZoomView::at(0.125) });
+    let tree = ui.access_tree();
+    assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("12.5%")), "the percentage is shown");
+    assert!(tree.find(Role::Group, "Zoom").is_some());
+    let fit = center_of(&mut ui, Role::Button, "Fit");
+    click(&mut ui, fit);
+    assert!(view.get().fit);
+    let actual = center_of(&mut ui, Role::Button, "Actual size");
+    click(&mut ui, actual);
+    assert_eq!((view.get().fit, view.get().scale), (false, 1.0));
+    let tree = ui.access_tree();
+    assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("100%")));
+    assert_eq!(tree.find(Role::Button, "Fit").unwrap().toggled, Some(ravenrs_core::Toggled::False));
+}
+
+#[test]
+fn zoom_control_words_follow_the_language() {
+    let view = State::new(ZoomView::at(0.125));
+    let mut ui = self::ui(Localized::new(Labels::pt_br(), ZoomControl::new(view.binding())));
+    let tree = ui.access_tree();
+    assert!(tree.find(Role::Button, "Encaixar").is_some());
+    assert!(tree.find(Role::Button, "Tamanho real").is_some());
+    assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("12,5%")), "decimal comma");
+}
+
+// ----------------------------------------------------------------------------- ZoomPanView
+
+/// 1000 x 500 of content in a 400 x 200 view at the top left: fit is 40%.
+const CONTENT: Size = Size::new(1000.0, 500.0);
+
+fn pan_view(start: ZoomView) -> (Ui, State<ZoomView>) {
+    let view = State::new(start);
+    let ui = ui(ZoomPanView::custom(view.binding(), CONTENT, |_, _| {}).size(400.0, 200.0));
+    (ui, view)
+}
+
+fn pixel_image(side: u32) -> ImageData {
+    ImageData::from_fn(side, side, |_, _| Color::rgb(0.5, 0.5, 0.5)).unwrap()
+}
+
+fn same(a: f32, b: f32) -> bool {
+    (a - b).abs() < 0.002
+}
+
+#[test]
+fn zoom_pan_fit_follows_the_view_and_writes_scale_and_size() {
+    let (mut ui, view) = pan_view(ZoomView::fit());
+    ui.update();
+    assert!(same(view.get().scale, 0.4), "{:?}", view.get());
+    assert_eq!(view.get().viewport, Size::new(400.0, 200.0));
+    assert_eq!(view.get().center, Point::new(0.5, 0.5));
+}
+
+#[test]
+fn zoom_pan_drag_moves_content_and_stops_at_the_limits() {
+    let (mut ui, view) = pan_view(ZoomView::at(1.0));
+    ui.update();
+    down(&mut ui, Point::new(200.0, 100.0));
+    drag_to(&mut ui, Point::new(100.0, 100.0));
+    assert!(same(view.get().center.x, 0.6), "dragging left shows what is to the right: {:?}", view.get());
+    drag_to(&mut ui, Point::new(-3000.0, -3000.0));
+    up(&mut ui, Point::new(-3000.0, -3000.0));
+    let v = view.get();
+    assert!(same(v.center.x, 0.8) && same(v.center.y, 0.8), "the far corner is the limit: {v:?}");
+    assert!(same(v.visible(CONTENT).max_x(), 1.0));
+}
+
+#[test]
+fn zoom_pan_cannot_move_content_that_fits() {
+    let (mut ui, view) = pan_view(ZoomView::fit());
+    ui.update();
+    down(&mut ui, Point::new(200.0, 100.0));
+    drag_to(&mut ui, Point::new(50.0, 20.0));
+    up(&mut ui, Point::new(50.0, 20.0));
+    assert_eq!(view.get().center, Point::new(0.5, 0.5));
+    assert!(view.get().fit);
+}
+
+#[test]
+fn zoom_pan_pinch_keeps_the_point_under_the_pointer() {
+    let (mut ui, view) = pan_view(ZoomView::at(1.0));
+    ui.update();
+    let pointer = Point::new(300.0, 50.0);
+    ui.handle_event(&Event::PointerMove { position: pointer });
+    let before = view.get().placed(CONTENT);
+    let fraction = ((pointer.x - before.x()) / before.width(), (pointer.y - before.y()) / before.height());
+    ui.handle_event(&Event::Pinch { position: pointer, delta: 0.5 });
+    ui.update();
+    let v = view.get();
+    assert!(same(v.scale, 1.5), "{v:?}");
+    let after = v.placed(CONTENT);
+    assert!(((pointer.x - after.x()) / after.width() - fraction.0).abs() < 0.002);
+    assert!(((pointer.y - after.y()) / after.height() - fraction.1).abs() < 0.002);
+    // Down to the scale that shows everything and no further, which is fit again.
+    ui.handle_event(&Event::Pinch { position: pointer, delta: -0.95 });
+    ui.handle_event(&Event::Pinch { position: pointer, delta: -0.95 });
+    ui.update();
+    assert!(same(view.get().scale, 0.4) && view.get().fit, "{:?}", view.get());
+}
+
+#[test]
+fn zoom_pan_wheel_pans_and_knows_where_the_limits_are() {
+    let (mut ui, view) = pan_view(ZoomView::at(1.0));
+    ui.update();
+    ui.update();
+    let inside = Point::new(200.0, 100.0);
+    let moved = ui.handle_event(&Event::Scroll { position: inside, delta: Point::new(-100.0, 50.0) });
+    assert!(moved);
+    ui.update();
+    ui.update();
+    let v = view.get();
+    assert!(same(v.center.x, 0.6), "{v:?}");
+    assert!(same(v.center.y, 0.4), "{v:?}");
+    // A change from elsewhere moves what the wheel starts from.
+    view.set(ZoomView { center: Point::new(0.2, 0.5), ..view.get() });
+    ui.update();
+    ui.update();
+    assert!(same(view.get().center.x, 0.2), "{:?}", view.get());
+    ui.handle_event(&Event::Scroll { position: inside, delta: Point::new(-100.0, 0.0) });
+    ui.update();
+    ui.update();
+    assert!(same(view.get().center.x, 0.3), "{:?}", view.get());
+    // Fitted, there is nothing to scroll and the wheel goes on to whatever is behind.
+    let (mut fitted, _) = pan_view(ZoomView::fit());
+    fitted.update();
+    fitted.update();
+    assert!(!fitted.handle_event(&Event::Scroll { position: inside, delta: Point::new(0.0, -40.0) }));
+}
+
+#[test]
+fn zoom_pan_double_click_goes_between_fit_and_actual_size() {
+    let (mut ui, view) = pan_view(ZoomView::fit());
+    ui.update();
+    double_click(&mut ui, Point::new(100.0, 50.0));
+    assert!(!view.get().fit && same(view.get().scale, 1.0), "{:?}", view.get());
+    assert!(view.get().center.x < 0.5, "toward where it was clicked: {:?}", view.get());
+    double_click(&mut ui, Point::new(100.0, 50.0));
+    assert!(view.get().fit && same(view.get().scale, 0.4), "{:?}", view.get());
+}
+
+#[test]
+fn zoom_pan_keys_zoom_reset_and_move() {
+    let (mut ui, view) = pan_view(ZoomView::at(1.0));
+    ui.update();
+    press(&mut ui, Key::Tab, PLAIN);
+    press(&mut ui, Key::Character("+".into()), PLAIN);
+    assert!(same(view.get().scale, 1.5));
+    press(&mut ui, Key::Character("-".into()), PLAIN);
+    press(&mut ui, Key::Character("-".into()), PLAIN);
+    assert!(same(view.get().scale, 0.67));
+    press(&mut ui, Key::Character("1".into()), PLAIN);
+    assert!(same(view.get().scale, 1.0));
+    press(&mut ui, Key::ArrowRight, PLAIN);
+    assert!(same(view.get().center.x, 0.54), "{:?}", view.get());
+    press(&mut ui, Key::ArrowDown, SHIFT);
+    assert!(same(view.get().center.y, 0.7), "{:?}", view.get());
+    press(&mut ui, Key::Character("0".into()), PLAIN);
+    assert!(view.get().fit && same(view.get().center.x, 0.5));
+}
+
+#[test]
+fn zoom_pan_range_limits_the_scale_but_fit_stays_reachable() {
+    let view = State::new(ZoomView::at(50.0));
+    let mut ui =
+        ui(ZoomPanView::custom(view.binding(), CONTENT, |_, _| {}).size(400.0, 200.0).range(0.8, 3.0));
+    ui.update();
+    assert_eq!(view.get().scale, 3.0);
+    view.set(ZoomView::at(0.1));
+    ui.update();
+    ui.update();
+    assert!(same(view.get().scale, 0.4), "the range gives way to what shows everything: {:?}", view.get());
+}
+
+/// A throw: three quick steps of a drag, a frame apart, and the release.
+fn throw(ui: &mut Ui) {
+    let mut time = 10.0;
+    ui.set_time(time);
+    down(ui, Point::new(300.0, 100.0));
+    ui.update();
+    for x in [280.0, 260.0, 240.0, 220.0] {
+        time += 1.0 / 60.0;
+        ui.set_time(time);
+        drag_to(ui, Point::new(x, 100.0));
+    }
+    up(ui, Point::new(220.0, 100.0));
+}
+
+#[test]
+fn zoom_pan_throw_coasts_then_stops_asking_for_frames() {
+    let (mut ui, view) = pan_view(ZoomView::at(1.0));
+    ui.update();
+    throw(&mut ui);
+    let released = view.get().center.x;
+    let mut time = 10.1;
+    ui.set_time(time);
+    ui.update();
+    let early = view.get().center.x;
+    assert!(early > released, "it goes on after the release: {released} {early}");
+    let mut last = early;
+    let mut frames = 0;
+    while ui.next_wake().is_some() && frames < 2000 {
+        time += 1.0 / 60.0;
+        ui.set_time(time);
+        ui.update();
+        assert!(view.get().center.x >= last - 1e-5, "it never comes back");
+        last = view.get().center.x;
+        frames += 1;
+    }
+    assert!(frames > 5 && frames < 400, "it stops in a sensible time: {frames}");
+    assert!(last > early, "{early} {last}");
+    assert!(last <= 0.8 + 1e-4, "within the limit: {last}");
+    // One more build brings the scroll offset up to date.
+    ui.update();
+    assert_eq!(ui.next_wake(), None, "and asks for no more frames");
+    assert!(!ui.is_animating());
+    assert!(!ui.needs_redraw());
+}
+
+#[test]
+fn zoom_pan_slow_release_does_not_coast() {
+    let (mut ui2, view2) = pan_view(ZoomView::at(1.0));
+    ui2.update();
+    ui2.set_time(10.0);
+    down(&mut ui2, Point::new(300.0, 100.0));
+    ui2.update();
+    ui2.set_time(10.02);
+    drag_to(&mut ui2, Point::new(299.0, 100.0));
+    for i in 1..10 {
+        ui2.set_time(10.02 + f64::from(i) * 0.1);
+        ui2.update();
+    }
+    up(&mut ui2, Point::new(299.0, 100.0));
+    let stopped = view2.get().center.x;
+    ui2.set_time(12.0);
+    ui2.update();
+    assert_eq!(view2.get().center.x, stopped);
+    assert_eq!(ui2.next_wake(), None);
+}
+
+#[test]
+fn zoom_pan_reduced_motion_and_inertia_off_do_not_coast() {
+    let (mut reduced, view) = pan_view(ZoomView::at(1.0));
+    reduced.set_reduced_motion(true);
+    reduced.update();
+    throw(&mut reduced);
+    let stopped = view.get().center.x;
+    assert!(stopped > 0.5, "the drag itself still works");
+    reduced.set_time(10.2);
+    reduced.update();
+    assert_eq!(view.get().center.x, stopped);
+    assert_eq!(reduced.next_wake(), None);
+
+    let view = State::new(ZoomView::at(1.0));
+    let mut off =
+        ui(ZoomPanView::custom(view.binding(), CONTENT, |_, _| {}).size(400.0, 200.0).inertia(false));
+    off.update();
+    throw(&mut off);
+    let stopped = view.get().center.x;
+    off.set_time(10.2);
+    off.update();
+    assert_eq!(view.get().center.x, stopped);
+    assert_eq!(off.next_wake(), None);
+}
+
+#[test]
+fn zoom_pan_gesture_needs_no_build_unless_someone_reads_the_view() {
+    let (mut ui, view) = pan_view(ZoomView::at(1.0));
+    ui.update();
+    down(&mut ui, Point::new(300.0, 100.0));
+    ui.update();
+    let builds = ui.stats().builds;
+    for x in [280.0, 260.0, 240.0] {
+        ui.set_time(1.0);
+        drag_to(&mut ui, Point::new(x, 100.0));
+    }
+    assert_eq!(ui.stats().builds, builds, "the drag only paints");
+    assert!(view.get().center.x > 0.5);
+
+    // Someone else reading the view keeps following it.
+    let view = State::new(ZoomView::at(1.0));
+    let shown = view.clone();
+    let mut watched = self::ui(VStack::new((
+        ZoomPanView::custom(view.binding(), CONTENT, |_, _| {}).size(400.0, 200.0),
+        Text::bound(&shown, |v| format!("{:.2}", v.center.x)),
+    )));
+    watched.update();
+    down(&mut watched, Point::new(300.0, 100.0));
+    watched.update();
+    drag_to(&mut watched, Point::new(200.0, 100.0));
+    watched.update();
+    let tree = watched.access_tree();
+    assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("0.60")), "the text followed");
+}
+
+#[test]
+fn zoom_pan_image_draws_only_the_part_in_view() {
+    let view = State::new(ZoomView::at(2.0).centered_on(Point::new(0.25, 0.25)));
+    let mut ui = ui(ZoomPanView::image(view.binding(), pixel_image(400)).size(200.0, 100.0));
+    ui.update();
+    let image = ui
+        .scene()
+        .primitives()
+        .iter()
+        .find_map(|p| if let Primitive::Image(i) = p { Some(i.clone()) } else { None })
+        .unwrap();
+    assert_eq!(image.rect, Rect::new(0.0, 0.0, 200.0, 100.0));
+    assert!((image.uv[0] - 0.125).abs() < 0.001, "{:?}", image.uv);
+    assert!((image.uv[2] - 0.375).abs() < 0.001, "{:?}", image.uv);
+    assert!((image.uv[1] - 0.1875).abs() < 0.001, "{:?}", image.uv);
+    assert!((image.uv[3] - 0.3125).abs() < 0.001, "{:?}", image.uv);
+}
+
+#[test]
+fn zoom_pan_custom_content_gets_the_place_and_is_clipped() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+    let seen = Rc::new(Cell::new(None));
+    let view = State::new(ZoomView::at(2.0).centered_on(Point::new(0.0, 0.0)));
+    let told = seen.clone();
+    let mut ui = ui(ZoomPanView::custom(view.binding(), CONTENT, move |paint, _| told.set(Some(paint)))
+        .size(400.0, 200.0));
+    ui.update();
+    let paint: ZoomPanPaint = seen.get().unwrap();
+    assert_eq!(paint.frame, Rect::new(0.0, 0.0, 400.0, 200.0));
+    assert_eq!(paint.scale, 2.0);
+    assert_eq!(paint.placed.size, Size::new(2000.0, 1000.0));
+    assert_eq!(paint.placed.origin, Point::new(0.0, 0.0), "the limit brought it back to the corner");
+    assert!(ui.scene().primitives().iter().any(|p| matches!(p, Primitive::PushClip(_))));
+}
+
+// --------------------------------------------------------------------------------- Minimap
+
+/// A 160 x 80 map of the same content next to a view that shares its [`ZoomView`].
+fn map_and_stage(start: ZoomView) -> (Ui, State<ZoomView>) {
+    let view = State::new(start);
+    let thumbnail = pixel_image(16);
+    let ui = ui(VStack::new((
+        Minimap::image(view.binding(), thumbnail).content_size(CONTENT),
+        ZoomPanView::custom(view.binding(), CONTENT, |_, _| {}).size(400.0, 200.0),
+    )));
+    (ui, view)
+}
+
+#[test]
+fn minimap_shows_the_visible_part_and_shares_the_view() {
+    let (mut ui, _view) = map_and_stage(ZoomView::at(1.0));
+    ui.update();
+    let accent = Theme::raven_dark().color(ravenrs_style::Semantic::Accent);
+    let outline = || -> Vec<Rect> {
+        ui.scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| match p {
+                Primitive::Quad(q) if q.border.is_some_and(|b| b.color == accent) => Some(q.rect),
+                _ => None,
+            })
+            .collect()
+    };
+    let shown = outline();
+    assert_eq!(shown.len(), 1);
+    // 400 of 1000 wide and 200 of 500 tall, in a map of 160 x 80.
+    assert!((shown[0].width() - 64.0).abs() < 0.5 && (shown[0].height() - 32.0).abs() < 0.5, "{shown:?}");
+    assert!((shown[0].x() - 48.0).abs() < 0.5, "{shown:?}");
+}
+
+#[test]
+fn minimap_press_and_drag_move_the_view_within_the_limits() {
+    let (mut ui, view) = map_and_stage(ZoomView::at(1.0));
+    ui.update();
+    down(&mut ui, Point::new(120.0, 40.0));
+    assert!(same(view.get().center.x, 0.75), "{:?}", view.get());
+    drag_to(&mut ui, Point::new(2000.0, 2000.0));
+    up(&mut ui, Point::new(2000.0, 2000.0));
+    assert!(same(view.get().center.x, 0.8) && same(view.get().center.y, 0.8), "{:?}", view.get());
+}
+
+#[test]
+fn minimap_keys_move_and_it_says_where_it_is() {
+    let (mut ui, view) = map_and_stage(ZoomView::at(1.0));
+    ui.update();
+    press(&mut ui, Key::Tab, PLAIN);
+    press(&mut ui, Key::ArrowRight, PLAIN);
+    assert!(same(view.get().center.x, 0.55), "{:?}", view.get());
+    press(&mut ui, Key::ArrowDown, SHIFT);
+    assert!(same(view.get().center.y, 0.75), "{:?}", view.get());
+    let tree = ui.access_tree();
+    let value = tree.find(Role::Slider, "Navigator").unwrap().value.clone().unwrap();
+    assert_eq!(value, "100% · 55%, 75%");
+}
+
+#[test]
+fn minimap_press_while_fitted_does_nothing_unless_it_can_zoom() {
+    let (mut ui, view) = map_and_stage(ZoomView::fit());
+    ui.update();
+    click(&mut ui, Point::new(120.0, 40.0));
+    assert!(view.get().fit);
+
+    let view = State::new(ZoomView::fit());
+    let mut zooming = self::ui(VStack::new((
+        Minimap::image(view.binding(), pixel_image(16)).content_size(CONTENT).press_zoom(2.0),
+        ZoomPanView::custom(view.binding(), CONTENT, |_, _| {}).size(400.0, 200.0),
+    )));
+    zooming.update();
+    click(&mut zooming, Point::new(120.0, 40.0));
+    let v = view.get();
+    assert!(!v.fit && same(v.scale, 2.0), "{v:?}");
+    assert!(v.center.x > 0.5, "{v:?}");
+}

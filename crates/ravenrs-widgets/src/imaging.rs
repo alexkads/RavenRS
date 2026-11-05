@@ -4,19 +4,22 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::fmt;
 use std::rc::Rc;
 
+use ravenrs_animation::Spring;
 use ravenrs_core::{
-    Color, CursorIcon, ImageData, ImageQuad, Key, PathElement, PathFill, Point, Quad, Rect, Role, Scene,
+    Color, CursorIcon, ImageData, ImageQuad, Key, PathElement, PathFill, Point, Quad, Rect, Role, Scene, Size,
 };
-use ravenrs_layout::{Align, Axis, LayoutStyle};
-use ravenrs_reactive::Binding;
+use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
+use ravenrs_reactive::{Binding, Observer, State};
 use ravenrs_style::{Semantic, TextStyle};
 
 use crate::View;
 use crate::color_picker::Hsv;
-use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
+use crate::context::{BuildCx, Drag, DragPhase, NodeId, Paint, PaintCx, QuadPaint, Semantics};
 use crate::util;
+use crate::{Button, ButtonSize, ButtonStyle, IconButton, IconName};
 
 // ---------------------------------------------------------------------------------------------
 // Histogram
@@ -1262,6 +1265,1029 @@ impl View for CurveEditor {
                 curve_move(&mut points, moved.0, moved.1);
                 binding.set(points);
                 picked.set(Some(moved.0));
+                true
+            }),
+        );
+        node
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Zoom: the view shared by ZoomControl, ZoomPanView and Minimap
+// ---------------------------------------------------------------------------------------------
+
+/// Where zoom steps stop, as screen pixels per unit of content.
+const ZOOM_STOPS: [f32; 17] =
+    [0.05, 0.1, 0.125, 0.25, 0.33, 0.5, 0.67, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 16.0, 32.0, 64.0];
+/// How far in a [`ZoomView`] goes by default, relative to the content's own size.
+const ZOOM_DEFAULT_MAX: f32 = 16.0;
+
+/// The next stop from `scale`, in the direction of `up` or down.
+fn zoom_stop(scale: f32, up: bool) -> f32 {
+    let next = if up {
+        ZOOM_STOPS.iter().copied().find(|s| *s > scale * 1.01)
+    } else {
+        ZOOM_STOPS.iter().rev().copied().find(|s| *s < scale * 0.99)
+    };
+    next.unwrap_or(scale)
+}
+
+/// How a picture is being looked at: how much it is enlarged and which part is in the middle.
+/// [`ZoomPanView`], [`ZoomControl`] and [`Minimap`] share one through a `Binding`, and each
+/// changes what it is responsible for.
+///
+/// While `fit` is on, [`ZoomPanView`] keeps the whole content in view and writes the scale
+/// this takes, so the value also reads correctly when the window is resized.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ZoomView {
+    /// Screen pixels per unit of content: 1 is 100%.
+    pub scale: f32,
+    /// The point of the content in the middle of the view, from 0 to 1 on each axis.
+    pub center: Point,
+    /// Follows the view's size to show the whole content.
+    pub fit: bool,
+    /// The size of the view on screen, written by [`ZoomPanView`] and read by [`Minimap`].
+    pub viewport: Size,
+}
+
+impl Default for ZoomView {
+    fn default() -> Self {
+        Self::fit()
+    }
+}
+
+impl ZoomView {
+    /// Shows the whole content.
+    pub const fn fit() -> Self {
+        Self { scale: 1.0, center: Point::new(0.5, 0.5), fit: true, viewport: Size::ZERO }
+    }
+
+    /// At this scale, centered.
+    pub const fn at(scale: f32) -> Self {
+        Self { scale, center: Point::new(0.5, 0.5), fit: false, viewport: Size::ZERO }
+    }
+
+    /// The same view around this point of the content, from 0 to 1 on each axis.
+    pub const fn centered_on(mut self, center: Point) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Where the whole content lands, relative to the top left corner of the view.
+    pub fn placed(&self, content: Size) -> Rect {
+        let (w, h) = (content.width * self.scale, content.height * self.scale);
+        Rect::new(
+            self.viewport.width / 2.0 - self.center.x * w,
+            self.viewport.height / 2.0 - self.center.y * h,
+            w,
+            h,
+        )
+    }
+
+    /// The part of the content in view, from 0 to 1 on each axis.
+    pub fn visible(&self, content: Size) -> Rect {
+        // No view has measured itself yet, and nothing can be said to be out of it.
+        if self.viewport.width <= 0.0 || self.viewport.height <= 0.0 {
+            return Rect::new(0.0, 0.0, 1.0, 1.0);
+        }
+        let share = |view: f32, whole: f32| (view / (whole * self.scale).max(f32::EPSILON)).min(1.0);
+        let (w, h) = (share(self.viewport.width, content.width), share(self.viewport.height, content.height));
+        Rect::new(self.center.x - w / 2.0, self.center.y - h / 2.0, w, h)
+    }
+
+    /// The scale that shows the whole content in the view.
+    fn fit_scale(&self, content: Size) -> f32 {
+        let ratio = |view: f32, whole: f32| view / whole.max(f32::EPSILON);
+        ratio(self.viewport.width, content.width).min(ratio(self.viewport.height, content.height))
+    }
+
+    /// This view within its limits: the scale in range and no empty space on an axis where
+    /// the content is larger than the view, so it cannot run away.
+    fn settled(mut self, viewport: Size, content: Size, range: ZoomRange) -> Self {
+        self.viewport = viewport;
+        let fit = self.fit_scale(content).max(f32::EPSILON);
+        let (least, most) = range.limits(fit);
+        self.scale = if self.fit { fit } else { self.scale.clamp(least, most) };
+        let axis = |center: f32, view: f32, whole: f32| {
+            let half = view / (2.0 * whole * self.scale).max(f32::EPSILON);
+            if half >= 0.5 { 0.5 } else { center.clamp(half, 1.0 - half) }
+        };
+        self.center = Point::new(
+            axis(self.center.x, viewport.width, content.width),
+            axis(self.center.y, viewport.height, content.height),
+        );
+        self
+    }
+
+    /// At another scale, with the point of the content at `anchor` in the view staying there.
+    fn zoomed(self, scale: f32, anchor: Point, content: Size) -> Self {
+        let before = self.placed(content);
+        let fraction = |at: f32, start: f32, size: f32| (at - start) / size.max(f32::EPSILON);
+        let (fx, fy) =
+            (fraction(anchor.x, before.x(), before.width()), fraction(anchor.y, before.y(), before.height()));
+        let (w, h) = (content.width * scale, content.height * scale);
+        let center = Point::new(
+            fx + (self.viewport.width / 2.0 - anchor.x) / w.max(f32::EPSILON),
+            fy + (self.viewport.height / 2.0 - anchor.y) / h.max(f32::EPSILON),
+        );
+        Self { scale, center, fit: false, ..self }
+    }
+}
+
+/// How far a view may zoom: `least` unset means down to showing the whole content.
+#[derive(Clone, Copy, Debug)]
+struct ZoomRange {
+    least: Option<f32>,
+    most: f32,
+}
+
+impl ZoomRange {
+    const DEFAULT: Self = Self { least: None, most: ZOOM_DEFAULT_MAX };
+
+    /// The limits for content that fits at scale `fit`, which is always reachable.
+    fn limits(self, fit: f32) -> (f32, f32) {
+        (self.least.unwrap_or(fit).min(fit), self.most.max(fit))
+    }
+}
+
+/// A scale as people read it: `50%`, and `12,5%` with the decimal only when it matters.
+fn zoom_percent(scale: f32, decimal: char) -> String {
+    let percent = scale * 100.0;
+    if percent < 100.0 && (percent - percent.round()).abs() >= 0.05 {
+        format!("{percent:.1}%").replace('.', &decimal.to_string())
+    } else {
+        format!("{}%", percent.round())
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// ZoomControl
+// ---------------------------------------------------------------------------------------------
+
+/// Fit, 1:1, the current percentage and the buttons that zoom in and out, for a [`ZoomView`].
+/// It works from a toolbar of its own or inside a
+/// [`FloatingToolbar`](crate::FloatingToolbar).
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{ZoomControl, ZoomView};
+///
+/// let view = State::new(ZoomView::fit());
+/// let control = ZoomControl::new(view.binding()).range(0.1, 8.0);
+/// ```
+#[derive(Debug)]
+pub struct ZoomControl {
+    view: Binding<ZoomView>,
+    least: f32,
+    most: f32,
+    size: ButtonSize,
+    label: Option<String>,
+}
+
+impl ZoomControl {
+    /// A control bound to `view`, with small buttons.
+    pub fn new(view: Binding<ZoomView>) -> Self {
+        Self {
+            view,
+            least: ZOOM_STOPS[0],
+            most: ZOOM_STOPS[ZOOM_STOPS.len() - 1],
+            size: ButtonSize::Small,
+            label: None,
+        }
+    }
+
+    /// The least and the most its buttons reach, as a scale where 1 is 100%. Match it to
+    /// the range of the [`ZoomPanView`] that shares the view.
+    pub fn range(mut self, least: f32, most: f32) -> Self {
+        self.least = least;
+        self.most = most.max(least);
+        self
+    }
+
+    /// The size of its buttons.
+    pub fn size(mut self, size: ButtonSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// The name screen readers announce, instead of the one in [`Labels`](crate::Labels).
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
+impl View for ZoomControl {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let current = self.view.get();
+        let (least, most) = (self.least, self.most);
+        let change = |f: fn(&mut ZoomView, f32, f32)| {
+            let view = self.view.clone();
+            move || view.update(|v| f(v, least, most))
+        };
+        let fit = Button::new(labels.zoom_fit.clone())
+            .style(ButtonStyle::Ghost)
+            .size(self.size)
+            .selected(current.fit)
+            .on_click(change(|v, _, _| v.fit = true));
+        let actual = Button::new("1:1")
+            .accessible_name(labels.zoom_actual.clone())
+            .style(ButtonStyle::Ghost)
+            .size(self.size)
+            .selected(!current.fit && (current.scale - 1.0).abs() < 0.001)
+            .on_click(change(|v, _, _| *v = ZoomView { scale: 1.0, fit: false, ..*v }));
+        let out = IconButton::new(IconName::Minus)
+            .label(labels.zoom_out.clone())
+            .size(self.size)
+            .disabled(current.scale <= least * 1.001)
+            .on_click(change(|v, least, _| {
+                *v = ZoomView { scale: zoom_stop(v.scale, false).max(least), fit: false, ..*v };
+            }));
+        let more = IconButton::new(IconName::Plus)
+            .label(labels.zoom_in.clone())
+            .size(self.size)
+            .disabled(current.scale >= most * 0.999)
+            .on_click(change(|v, _, most| {
+                *v = ZoomView { scale: zoom_stop(v.scale, true).min(most), fit: false, ..*v };
+            }));
+        let nodes = [cx.child(&fit), cx.child(&actual)];
+        let line = cx.container(
+            LayoutStyle { width: Some(1.0), height: Some(16.0), ..LayoutStyle::leaf() },
+            &[],
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Border))),
+        );
+        let out = cx.child(&out);
+        let percent = zoom_percent(current.scale, labels.decimal_separator);
+        let attrs = util::attrs(&theme, TextStyle::Callout, None);
+        // As wide as the widest percentage, so the buttons do not move as it changes.
+        let widest = cx.measure_text("1600%", &attrs).width.ceil();
+        let text = util::label(cx, &percent, TextStyle::Callout, None, theme.color(Semantic::Ink));
+        let number = cx.container(
+            LayoutStyle {
+                min_width: Some(widest),
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[text],
+            Paint::None,
+        );
+        let more = cx.child(&more);
+        let node = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s1,
+                align: Align::Center,
+                align_self: Some(Align::Fit),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[nodes[0], nodes[1], line, out, number, more],
+            Paint::None,
+        );
+        let name = self.label.clone().unwrap_or_else(|| labels.zoom.clone());
+        cx.semantics(node, Semantics::new(Role::Group).name(name));
+        node
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// ZoomPanView
+// ---------------------------------------------------------------------------------------------
+
+/// Where drawn content goes, for [`ZoomPanView::custom`] and [`Minimap::custom`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct ZoomPanPaint {
+    /// The box of the view on screen. Drawing is clipped to it.
+    pub frame: Rect,
+    /// Where the whole content lands on screen. Much of it may be outside `frame`: draw only
+    /// what touches `frame` when there is a lot to draw.
+    pub placed: Rect,
+    /// Screen pixels per unit of content.
+    pub scale: f32,
+}
+
+/// What zooms: the runtime has no transform for a laid out subtree, so content draws itself
+/// from the view it is given. See [`ZoomPanView`].
+#[derive(Clone)]
+enum ZoomContent {
+    Image(ImageData),
+    Custom(ZoomDrawFn),
+}
+
+/// Draws content from where a view puts it.
+type ZoomDrawFn = Rc<dyn Fn(ZoomPanPaint, &mut Scene)>;
+
+impl ZoomContent {
+    fn paint(&self, scene: &mut Scene, frame: Rect, placed: Rect, scale: f32, radius: f32) {
+        match self {
+            Self::Image(image) => {
+                // Only the part in view, which keeps the rectangle within what the GPU's
+                // coordinates hold well at a high zoom.
+                let shown = placed.intersect(&frame);
+                if shown.is_empty() || placed.is_empty() {
+                    return;
+                }
+                let mut quad = ImageQuad::new(shown, image.clone()).radius(radius);
+                quad.uv = [
+                    (shown.x() - placed.x()) / placed.width(),
+                    (shown.y() - placed.y()) / placed.height(),
+                    (shown.max_x() - placed.x()) / placed.width(),
+                    (shown.max_y() - placed.y()) / placed.height(),
+                ];
+                scene.push_image(quad);
+            }
+            Self::Custom(draw) => {
+                scene.push_clip(frame);
+                draw(ZoomPanPaint { frame, placed, scale }, scene);
+                scene.pop_clip();
+            }
+        }
+    }
+}
+
+/// What a throw of the content does after the pointer lets go: the path of a critically
+/// damped spring that ends where friction would, or at the limit if that comes first.
+#[derive(Clone, Copy, Debug)]
+struct Glide {
+    started: f64,
+    /// Displacement from the end when it started, in pixels of the scaled content.
+    from: Point,
+    /// Where it stops, in the same pixels.
+    target: Point,
+    velocity: Point,
+    /// What it wrote last: anything else means someone else moved the view.
+    written: ZoomView,
+}
+
+/// The response of the spring behind a throw: the longer, the farther it coasts.
+const GLIDE_RESPONSE: f32 = 1.4;
+/// Below this speed at release, in pixels per second, the content just stops.
+const GLIDE_MIN_SPEED: f32 = 90.0;
+/// How near the end a throw counts as finished, in pixels and pixels per second.
+const GLIDE_REST: (f32, f32) = (0.5, 8.0);
+
+/// What a [`ZoomPanView`] remembers between events, none of which should rebuild it.
+#[derive(Debug, Default)]
+struct ZoomPanMemory {
+    frame: Cell<Rect>,
+    pointer: Cell<Option<Point>>,
+    /// The pointer and the center of the view when the drag began.
+    grab: Cell<Option<(Point, Point)>>,
+    clock: Cell<f64>,
+    /// When and where the content was on the last frame of the drag.
+    sample: Cell<Option<(f64, Point)>>,
+    velocity: Cell<Point>,
+    glide: Cell<Option<Glide>>,
+    /// The scroll offset this view asked for last: anything else came from the wheel.
+    scroll: Cell<Point>,
+}
+
+/// How the parts of a [`ZoomPanView`] see the same picture.
+#[derive(Clone)]
+struct ZoomPanWiring {
+    view: Binding<ZoomView>,
+    content: Size,
+    range: ZoomRange,
+    memory: Rc<ZoomPanMemory>,
+    live: State<bool>,
+}
+
+impl ZoomPanWiring {
+    fn current(&self, viewport: Size) -> ZoomView {
+        self.view.get().settled(viewport, self.content, self.range)
+    }
+
+    fn write(&self, next: ZoomView) {
+        if self.view.get() != next {
+            self.view.set(next);
+        }
+    }
+
+    /// Goes to this scale keeping the point at `anchor` in place. Reaching the scale that
+    /// shows everything turns fit on, so the view goes on following the window.
+    fn zoom_to(&self, scale: f32, anchor: Point) {
+        self.memory.glide.set(None);
+        let viewport = self.memory.frame.get().size;
+        let current = self.current(viewport);
+        let mut next =
+            current.zoomed(scale, anchor, self.content).settled(viewport, self.content, self.range);
+        let fit = next.fit_scale(self.content);
+        next.fit = (next.scale - fit).abs() <= fit * 0.0005;
+        self.write(next);
+    }
+
+    fn pan_by(&self, dx: f32, dy: f32) {
+        self.memory.glide.set(None);
+        let viewport = self.memory.frame.get().size;
+        let v = self.current(viewport);
+        let (w, h) = self.scaled(v.scale);
+        let center = Point::new(v.center.x + dx / w, v.center.y + dy / h);
+        self.write(ZoomView { center, ..v }.settled(viewport, self.content, self.range));
+    }
+
+    /// The content's size on screen at a scale.
+    fn scaled(&self, scale: f32) -> (f32, f32) {
+        ((self.content.width * scale).max(f32::EPSILON), (self.content.height * scale).max(f32::EPSILON))
+    }
+
+    fn on_drag(&self, d: Drag) {
+        let memory = &self.memory;
+        memory.frame.set(d.frame);
+        match d.phase {
+            DragPhase::Start => {
+                memory.glide.set(None);
+                memory.grab.set(Some((d.position, self.current(d.frame.size).center)));
+                memory.sample.set(None);
+                memory.velocity.set(Point::ZERO);
+                self.live.set_if_changed(true);
+            }
+            DragPhase::Move => {
+                let Some((pressed, center)) = memory.grab.get() else { return };
+                let v = self.current(d.frame.size);
+                let (w, h) = self.scaled(v.scale);
+                let center = Point::new(
+                    center.x - (d.position.x - pressed.x) / w,
+                    center.y - (d.position.y - pressed.y) / h,
+                );
+                self.write(ZoomView { center, ..v }.settled(d.frame.size, self.content, self.range));
+            }
+            DragPhase::End => {
+                memory.grab.set(None);
+                self.release(d.frame.size);
+            }
+        }
+    }
+
+    /// Starts coasting at the speed of the last frames, or stops.
+    fn release(&self, viewport: Size) {
+        let memory = &self.memory;
+        let velocity = memory.velocity.get();
+        if velocity.x.hypot(velocity.y) < GLIDE_MIN_SPEED {
+            self.live.set_if_changed(false);
+            return;
+        }
+        let v = self.current(viewport);
+        let (w, h) = self.scaled(v.scale);
+        let at = Point::new(v.center.x * w, v.center.y * h);
+        // Displaced by v/omega, a critically damped spring decays exactly as friction does.
+        let spring = glide_spring();
+        let reach = spring.stiffness.sqrt();
+        let thrown = Point::new((at.x + velocity.x / reach) / w, (at.y + velocity.y / reach) / h);
+        let end = ZoomView { center: thrown, ..v }.settled(viewport, self.content, self.range);
+        let target = Point::new(end.center.x * w, end.center.y * h);
+        memory.glide.set(Some(Glide {
+            started: memory.clock.get(),
+            from: Point::new(at.x - target.x, at.y - target.y),
+            target,
+            velocity,
+            written: v,
+        }));
+    }
+
+    /// One frame of a gesture, from paint: it needs no build, and when nothing else reads the
+    /// view, none happens until the gesture ends.
+    fn on_frame(&self, viewport: Size, time: f64) {
+        let memory = &self.memory;
+        memory.clock.set(time);
+        if memory.grab.get().is_some() {
+            let v = self.current(viewport);
+            let (w, h) = self.scaled(v.scale);
+            let at = Point::new(v.center.x * w, v.center.y * h);
+            if let Some((then, was)) = memory.sample.get() {
+                let dt = (time - then) as f32;
+                if dt > 0.0 {
+                    let before = memory.velocity.get();
+                    memory.velocity.set(Point::new(
+                        before.x * 0.4 + (at.x - was.x) / dt * 0.6,
+                        before.y * 0.4 + (at.y - was.y) / dt * 0.6,
+                    ));
+                    memory.sample.set(Some((time, at)));
+                }
+            } else {
+                memory.sample.set(Some((time, at)));
+            }
+        } else if let Some(mut glide) = memory.glide.get() {
+            let v = self.current(viewport);
+            if v.center != glide.written.center || v.scale != glide.written.scale {
+                memory.glide.set(None);
+                self.live.set_if_changed(false);
+                return;
+            }
+            let (spring, t) = (glide_spring(), (time - glide.started) as f32);
+            let (x, vx) = spring.sample(glide.from.x, glide.velocity.x, t);
+            let (y, vy) = spring.sample(glide.from.y, glide.velocity.y, t);
+            let (w, h) = self.scaled(v.scale);
+            let center = Point::new((glide.target.x + x) / w, (glide.target.y + y) / h);
+            let next = ZoomView { center, ..v }.settled(viewport, self.content, self.range);
+            glide.written = next;
+            self.write(next);
+            if x.hypot(y) < GLIDE_REST.0 && vx.hypot(vy) < GLIDE_REST.1 {
+                memory.glide.set(None);
+                self.live.set_if_changed(false);
+            } else {
+                memory.glide.set(Some(glide));
+            }
+        }
+    }
+
+    fn on_key(&self, key: &Key, shift: bool) -> bool {
+        let viewport = self.memory.frame.get().size;
+        let middle = Point::new(viewport.width / 2.0, viewport.height / 2.0);
+        let v = self.current(viewport);
+        let step = if shift { 0.5 } else { 0.1 };
+        match key {
+            Key::Character(c) => match c.as_str() {
+                "+" | "=" => self.zoom_to(zoom_stop(v.scale, true), middle),
+                "-" | "_" => self.zoom_to(zoom_stop(v.scale, false), middle),
+                "0" => {
+                    self.memory.glide.set(None);
+                    self.write(ZoomView { fit: true, ..v }.settled(viewport, self.content, self.range));
+                }
+                "1" => self.zoom_to(1.0, middle),
+                _ => return false,
+            },
+            Key::ArrowLeft => self.pan_by(-viewport.width * step, 0.0),
+            Key::ArrowRight => self.pan_by(viewport.width * step, 0.0),
+            Key::ArrowUp => self.pan_by(0.0, -viewport.height * step),
+            Key::ArrowDown => self.pan_by(0.0, viewport.height * step),
+            _ => return false,
+        }
+        true
+    }
+
+    fn on_double_click(&self) {
+        let viewport = self.memory.frame.get().size;
+        let v = self.current(viewport);
+        if v.fit {
+            // Up to 100%, or twice as large for content that already fits beyond it.
+            let target = if v.scale < 0.99 { 1.0 } else { v.scale * 2.0 };
+            let middle = Point::new(viewport.width / 2.0, viewport.height / 2.0);
+            let at = self.memory.pointer.get().unwrap_or(middle);
+            self.zoom_to(target, at);
+        } else {
+            self.memory.glide.set(None);
+            self.write(ZoomView { fit: true, ..v }.settled(viewport, self.content, self.range));
+        }
+    }
+}
+
+fn glide_spring() -> Spring {
+    Spring::from_response(GLIDE_RESPONSE, 1.0)
+}
+
+/// Zoom and pan over content: pinch or Cmd/Ctrl with the wheel to zoom, a drag or the wheel to
+/// move, a double click between fit and 100%, and the keys `+`, `-`, `0`, `1` and the arrows
+/// (with Shift, further). A thrown drag coasts to a stop, which asks for frames only meanwhile
+/// and never happens with reduced motion. The content cannot leave the view.
+///
+/// Content is an image or a closure that draws from where the view puts it, not a laid out
+/// view: the runtime has no transform for a subtree, and scaling one by
+/// [`Motion::effect`](crate::Motion::effect) would neither move what can be clicked nor
+/// paint children whose unscaled place is off screen. A closure can still reuse any drawing
+/// through [`Scene::apply_effect`].
+///
+/// While a gesture runs it paints without a build. If nothing else in the UI reads the
+/// [`ZoomView`], it costs no rebuilds at all, however big the screen around it.
+///
+/// ```no_run
+/// use ravenrs_core::ImageData;
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Minimap, ZoomControl, ZoomPanView, ZoomView};
+///
+/// # fn photo() -> ImageData { unimplemented!() }
+/// let view = State::new(ZoomView::fit());
+/// let stage = ZoomPanView::image(view.binding(), photo());
+/// let controls = ZoomControl::new(view.binding());
+/// let map = Minimap::image(view.binding(), photo());
+/// ```
+pub struct ZoomPanView {
+    view: Binding<ZoomView>,
+    content: Size,
+    picture: ZoomContent,
+    width: Option<f32>,
+    height: Option<f32>,
+    grow: f32,
+    range: ZoomRange,
+    inertia: bool,
+    label: Option<String>,
+}
+
+impl fmt::Debug for ZoomPanView {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ZoomPanView").field("content", &self.content).finish_non_exhaustive()
+    }
+}
+
+impl ZoomPanView {
+    /// Shows an image, with one unit of content per pixel of it.
+    pub fn image(view: Binding<ZoomView>, image: ImageData) -> Self {
+        let content = Size::new(image.width() as f32, image.height() as f32);
+        Self::with(view, content, ZoomContent::Image(image))
+    }
+
+    /// Shows what `draw` draws, for content of this size in units of the caller.
+    pub fn custom(
+        view: Binding<ZoomView>,
+        content: Size,
+        draw: impl Fn(ZoomPanPaint, &mut Scene) + 'static,
+    ) -> Self {
+        Self::with(view, content, ZoomContent::Custom(Rc::new(draw)))
+    }
+
+    fn with(view: Binding<ZoomView>, content: Size, picture: ZoomContent) -> Self {
+        Self {
+            view,
+            content,
+            picture,
+            width: None,
+            height: None,
+            grow: 1.0,
+            range: ZoomRange::DEFAULT,
+            inertia: true,
+            label: None,
+        }
+    }
+
+    /// Fixed size in logical pixels, instead of taking the free space.
+    pub fn size(mut self, width: f32, height: f32) -> Self {
+        self.width = Some(width);
+        self.height = Some(height);
+        self.grow = 0.0;
+        self
+    }
+
+    /// How much of the free space along the parent stack it takes (1 by default).
+    pub fn grow(mut self, grow: f32) -> Self {
+        self.grow = grow;
+        self
+    }
+
+    /// The least and the most scale, where 1 is 100%. By default, it goes down to what shows
+    /// the whole content and up to 1600%. What shows the whole content is always in range.
+    pub fn range(mut self, least: f32, most: f32) -> Self {
+        self.range = ZoomRange { least: Some(least), most };
+        self
+    }
+
+    /// Lets a thrown drag coast (on by default).
+    pub fn inertia(mut self, inertia: bool) -> Self {
+        self.inertia = inertia;
+        self
+    }
+
+    /// The name screen readers announce, instead of the one in [`Labels`](crate::Labels).
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
+impl View for ZoomPanView {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let labels = cx.labels();
+        let radius = cx.theme().radii.sm;
+        let live = cx.use_state(|| false);
+        let is_live = live.get();
+        // During a gesture this view paints from the binding on its own: reading it here too
+        // would make every step of the gesture a rebuild of the whole screen.
+        let stored = if is_live { Observer::untracked(|| self.view.get()) } else { self.view.get() };
+        let memory = cx.use_state(|| Rc::new(ZoomPanMemory::default())).get();
+        let (content, range) = (self.content, self.range);
+        let view = match cx.scroll_viewport() {
+            Some(viewport) => {
+                let mut view = stored.settled(viewport, content, range);
+                // The wheel moves the scroll offset, which stands for the pan.
+                let offset = cx.scroll_offset();
+                let asked = memory.scroll.get();
+                if (offset.x - asked.x).abs() > 0.01 || (offset.y - asked.y).abs() > 0.01 {
+                    let (w, h) = (content.width * view.scale, content.height * view.scale);
+                    view.center = Point::new(
+                        (offset.x + viewport.width / 2.0) / w.max(f32::EPSILON),
+                        (offset.y + viewport.height / 2.0) / h.max(f32::EPSILON),
+                    );
+                    view = view.settled(viewport, content, range);
+                }
+                let placed = view.placed(content);
+                let wanted = Point::new((-placed.x()).max(0.0), (-placed.y()).max(0.0));
+                if (wanted.x - offset.x).abs() > 0.01 || (wanted.y - offset.y).abs() > 0.01 {
+                    cx.set_scroll_offset(wanted);
+                    memory.scroll.set(wanted);
+                } else {
+                    memory.scroll.set(offset);
+                }
+                if view != stored {
+                    self.view.set(view);
+                }
+                view
+            }
+            None => stored,
+        };
+        let wiring = ZoomPanWiring {
+            view: self.view.clone(),
+            content,
+            range,
+            memory: memory.clone(),
+            live: live.clone(),
+        };
+        // Only what the wheel can reach counts as content of the scroll.
+        let room = cx.container(
+            LayoutStyle {
+                width: Some(content.width * view.scale),
+                height: Some(content.height * view.scale),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            Paint::None,
+        );
+        let picture = self.picture.clone();
+        let draw = {
+            let wiring = wiring.clone();
+            move |frame: Rect, scene: &mut Scene| {
+                wiring.memory.frame.set(frame);
+                let v = wiring.current(frame.size);
+                let placed = v.placed(content);
+                let on_screen = Rect::new(
+                    frame.x() + placed.x(),
+                    frame.y() + placed.y(),
+                    placed.width(),
+                    placed.height(),
+                );
+                picture.paint(scene, frame, on_screen, v.scale, 0.0);
+            }
+        };
+        let paint = if is_live {
+            let wiring = wiring.clone();
+            Paint::Live(Rc::new(move |frame: Rect, time, scene: &mut Scene| {
+                wiring.on_frame(frame.size, time);
+                draw(frame, scene);
+            }))
+        } else {
+            Paint::Custom(Rc::new(draw))
+        };
+        let node = cx.container(
+            LayoutStyle {
+                width: self.width,
+                height: self.height,
+                grow: self.grow,
+                align: Align::Start,
+                align_self: Some(if self.width.is_some() { Align::Start } else { Align::Stretch }),
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[room],
+            paint,
+        );
+        cx.scrollable_virtual(node, true);
+        let name = self.label.clone().unwrap_or_else(|| labels.zoom_view.clone());
+        cx.semantics(
+            node,
+            Semantics::new(Role::Image).name(name).value(zoom_percent(view.scale, labels.decimal_separator)),
+        );
+        cx.focusable(node, radius);
+        let pannable = {
+            let placed = view.placed(content);
+            placed.width() > view.viewport.width + 0.5 || placed.height() > view.viewport.height + 0.5
+        };
+        if pannable {
+            cx.cursor(node, CursorIcon::Pointer);
+        }
+        let inertia = self.inertia && !cx.reduced_motion();
+        let dragged = wiring.clone();
+        cx.on_drag(
+            node,
+            Rc::new(move |d| {
+                if !inertia {
+                    dragged.memory.velocity.set(Point::ZERO);
+                }
+                dragged.on_drag(d);
+            }),
+        );
+        let moved = wiring.memory.clone();
+        cx.on_pointer_move(
+            node,
+            Rc::new(move |at, frame| {
+                moved.pointer.set(Some(Point::new(at.x - frame.x(), at.y - frame.y())));
+            }),
+        );
+        let pinched = wiring.clone();
+        cx.on_pinch(
+            node,
+            Rc::new(move |delta| {
+                let viewport = pinched.memory.frame.get().size;
+                let middle = Point::new(viewport.width / 2.0, viewport.height / 2.0);
+                let at = pinched.memory.pointer.get().unwrap_or(middle);
+                let scale = pinched.current(viewport).scale * (1.0 + delta).max(0.05);
+                pinched.zoom_to(scale, at);
+            }),
+        );
+        let doubled = wiring.clone();
+        cx.on_double_click(node, Rc::new(move || doubled.on_double_click()));
+        cx.on_key(node, Rc::new(move |key, modifiers| wiring.on_key(key, modifiers.shift)));
+        node
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Minimap
+// ---------------------------------------------------------------------------------------------
+
+/// A small copy of the content with a rectangle around what is in view, linked to a
+/// [`ZoomPanView`] by the same [`ZoomView`]. A press or a drag moves the view there, and so do
+/// the arrow keys (with Shift, further).
+///
+/// ```
+/// use ravenrs_core::{Color, ImageData, Size};
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Minimap, ZoomView};
+///
+/// let view = State::new(ZoomView::at(2.0));
+/// if let Some(thumbnail) = ImageData::from_fn(64, 48, |_, _| Color::rgb(0.3, 0.4, 0.5)) {
+///     let map = Minimap::image(view.binding(), thumbnail).content_size(Size::new(6400.0, 4800.0));
+/// }
+/// ```
+pub struct Minimap {
+    view: Binding<ZoomView>,
+    content: Size,
+    picture: ZoomContent,
+    width: f32,
+    max_height: f32,
+    press_zoom: Option<f32>,
+    label: Option<String>,
+}
+
+impl fmt::Debug for Minimap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Minimap").field("content", &self.content).finish_non_exhaustive()
+    }
+}
+
+impl Minimap {
+    /// A map showing `image`, usually a small version of the content.
+    pub fn image(view: Binding<ZoomView>, image: ImageData) -> Self {
+        let content = Size::new(image.width() as f32, image.height() as f32);
+        Self::with(view, content, ZoomContent::Image(image))
+    }
+
+    /// A map showing what `draw` draws, for content of this size in units of the caller.
+    pub fn custom(
+        view: Binding<ZoomView>,
+        content: Size,
+        draw: impl Fn(ZoomPanPaint, &mut Scene) + 'static,
+    ) -> Self {
+        Self::with(view, content, ZoomContent::Custom(Rc::new(draw)))
+    }
+
+    fn with(view: Binding<ZoomView>, content: Size, picture: ZoomContent) -> Self {
+        Self { view, content, picture, width: 160.0, max_height: 160.0, press_zoom: None, label: None }
+    }
+
+    /// The size of the content the view shows, when `image` is a smaller version of it.
+    pub fn content_size(mut self, content: Size) -> Self {
+        self.content = content;
+        self
+    }
+
+    /// The most width and height, in logical pixels (160 each by default). The map takes the
+    /// proportions of the content inside that.
+    pub fn max_size(mut self, width: f32, height: f32) -> Self {
+        self.width = width;
+        self.max_height = height;
+        self
+    }
+
+    /// A press while everything is in view zooms to this scale, there. Without it, such a
+    /// press does nothing, since there is nowhere to go.
+    pub fn press_zoom(mut self, scale: f32) -> Self {
+        self.press_zoom = Some(scale);
+        self
+    }
+
+    /// The name screen readers announce, instead of the one in [`Labels`](crate::Labels).
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
+/// Moves a view's center, stopping where the rectangle of what is in view reaches an edge.
+fn minimap_center(view: ZoomView, content: Size, center: Point) -> ZoomView {
+    let visible = view.visible(content);
+    let axis = |value: f32, size: f32| {
+        let half = size / 2.0;
+        if half >= 0.5 { 0.5 } else { value.clamp(half, 1.0 - half) }
+    };
+    let center = Point::new(axis(center.x, visible.width()), axis(center.y, visible.height()));
+    ZoomView { center, ..view }
+}
+
+impl View for Minimap {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let current = self.view.get();
+        let content = self.content;
+        let aspect = content.width / content.height.max(f32::EPSILON);
+        let (width, height) = if self.width / aspect <= self.max_height {
+            (self.width, self.width / aspect)
+        } else {
+            (self.max_height * aspect, self.max_height)
+        };
+        let (background, border, scrim, accent) = (
+            theme.color(Semantic::Canvas),
+            theme.color(Semantic::Border),
+            theme.color(Semantic::Scrim),
+            theme.color(Semantic::Accent),
+        );
+        let radius = theme.radii.sm;
+        let picture = self.picture.clone();
+        let visible = current.visible(content);
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(width),
+                height: Some(height),
+                align_self: Some(Align::Start),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            Paint::Custom(Rc::new(move |frame: Rect, scene| {
+                scene.push_quad(Quad::new(frame, background).radius(radius));
+                picture.paint(scene, frame, frame, frame.width() / content.width.max(f32::EPSILON), radius);
+                scene.push_quad(Quad::new(frame, Color::TRANSPARENT).radius(radius).border(1.0, border));
+                if visible.width() >= 0.999 && visible.height() >= 0.999 {
+                    return;
+                }
+                let shown = Rect::new(
+                    frame.x() + visible.x() * frame.width(),
+                    frame.y() + visible.y() * frame.height(),
+                    visible.width() * frame.width(),
+                    visible.height() * frame.height(),
+                );
+                // What is out of view goes dark, so the rectangle reads over any picture.
+                let (above, below) = (shown.y() - frame.y(), frame.max_y() - shown.max_y());
+                let (left, right) = (shown.x() - frame.x(), frame.max_x() - shown.max_x());
+                for part in [
+                    Rect::new(frame.x(), frame.y(), frame.width(), above),
+                    Rect::new(frame.x(), shown.max_y(), frame.width(), below),
+                    Rect::new(frame.x(), shown.y(), left, shown.height()),
+                    Rect::new(shown.max_x(), shown.y(), right, shown.height()),
+                ] {
+                    if !part.is_empty() {
+                        scene.push_quad(Quad::new(part, scrim));
+                    }
+                }
+                scene.push_quad(Quad::new(shown, Color::TRANSPARENT).border(1.5, accent));
+            })),
+        );
+        let name = self.label.clone().unwrap_or_else(|| labels.minimap.clone());
+        let percent = |v: f32| (v * 100.0).round();
+        let text = format!(
+            "{} · {}%, {}%",
+            zoom_percent(current.scale, labels.decimal_separator),
+            percent(current.center.x),
+            percent(current.center.y)
+        );
+        cx.semantics(node, Semantics::new(Role::Slider).name(name).value(text));
+        cx.focusable(node, theme.radii.sm);
+        cx.cursor(node, CursorIcon::Pointer);
+        let (dragged, press_zoom) = (self.view.clone(), self.press_zoom);
+        cx.on_drag(
+            node,
+            Rc::new(move |d| {
+                if d.phase == DragPhase::End {
+                    return;
+                }
+                let center = Point::new(
+                    ((d.position.x - d.frame.x()) / d.frame.width().max(1.0)).clamp(0.0, 1.0),
+                    ((d.position.y - d.frame.y()) / d.frame.height().max(1.0)).clamp(0.0, 1.0),
+                );
+                let mut view = dragged.get();
+                let everything = view.visible(content);
+                if everything.width() >= 0.999 && everything.height() >= 0.999 {
+                    let Some(scale) = press_zoom else { return };
+                    view = ZoomView { scale, fit: false, ..view };
+                }
+                let next = minimap_center(view, content, center);
+                if next != dragged.get() {
+                    dragged.set(next);
+                }
+            }),
+        );
+        let keyed = self.view.clone();
+        cx.on_key(
+            node,
+            Rc::new(move |key, modifiers| {
+                let step = if modifiers.shift { 0.25 } else { 0.05 };
+                let (dx, dy) = match key {
+                    Key::ArrowLeft => (-step, 0.0),
+                    Key::ArrowRight => (step, 0.0),
+                    Key::ArrowUp => (0.0, -step),
+                    Key::ArrowDown => (0.0, step),
+                    _ => return false,
+                };
+                let view = keyed.get();
+                let center = Point::new(view.center.x + dx, view.center.y + dy);
+                keyed.set(minimap_center(view, content, center));
                 true
             }),
         );

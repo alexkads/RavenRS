@@ -389,6 +389,16 @@ pub struct Labels {
     pub curve_input: String,
     /// The vertical value of a point of a [`CurveEditor`](crate::CurveEditor).
     pub curve_output: String,
+    /// A [`ZoomControl`](crate::ZoomControl)'s name.
+    pub zoom: String,
+    /// Shows the whole content, in a [`ZoomControl`](crate::ZoomControl).
+    pub zoom_fit: String,
+    /// What the 1:1 button of a [`ZoomControl`](crate::ZoomControl) is called by screen readers.
+    pub zoom_actual: String,
+    /// A [`ZoomPanView`](crate::ZoomPanView)'s name.
+    pub zoom_view: String,
+    /// A [`Minimap`](crate::Minimap)'s name.
+    pub minimap: String,
     /// A recurrence editor's name.
     pub recurrence_name: String,
     /// Once, daily, weekly, monthly and yearly, as an editor offers them.
@@ -815,6 +825,11 @@ impl Default for Labels {
             curve_points: "points".into(),
             curve_input: "input".into(),
             curve_output: "output".into(),
+            zoom: "Zoom".into(),
+            zoom_fit: "Fit".into(),
+            zoom_actual: "Actual size".into(),
+            zoom_view: "Zoomable view".into(),
+            minimap: "Navigator".into(),
             recurrence_name: "Repeats".into(),
             recurrence_frequencies: owned(["Once", "Daily", "Weekly", "Monthly", "Yearly"]),
             recurrence_every: "Every".into(),
@@ -1139,6 +1154,11 @@ impl Labels {
             curve_points: "pontos".into(),
             curve_input: "entrada".into(),
             curve_output: "saída".into(),
+            zoom: "Zoom".into(),
+            zoom_fit: "Encaixar".into(),
+            zoom_actual: "Tamanho real".into(),
+            zoom_view: "Vista ampliável".into(),
+            minimap: "Navegador".into(),
             recurrence_name: "Repetição".into(),
             recurrence_frequencies: owned(["Uma vez", "Diária", "Semanal", "Mensal", "Anual"]),
             recurrence_every: "A cada".into(),

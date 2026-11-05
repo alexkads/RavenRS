@@ -6,6 +6,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `Minimap`: a small copy of the content with a rectangle around what is in view, by the same `ZoomView` as `ZoomPanView`, which a press, a drag or the arrow keys move.
+- `ZoomPanView`: zoom and pan over an image or a drawing, by pinch, Cmd/Ctrl with the wheel, the wheel and a drag to move, a double click and the keyboard, with a coast that stops asking for frames and respects reduced motion. Gestures paint without a build.
+- `ZoomControl`: fit, 1:1, the percentage and the buttons that zoom in and out, through a `ZoomView` that `ZoomPanView` and `Minimap` can share.
 - `CurveEditor`: points you drag over a curve that never swings past them. A press adds one, a double click or Delete removes it, and the keyboard chooses, moves and adds. It can show a baseline and a histogram behind, and `CurveEditor::value_at` gives the same curve for applying it.
 - `ColorWheel`: hue and saturation on a disc, by a drag or the arrow keys, with Shift to keep the hue and a double click to take the color out. The disc is computed once per size and shared.
 - `Ruler`: horizontal or vertical, in the units of the caller, with scale, origin and marker, and a round step that keeps marks apart at any zoom.

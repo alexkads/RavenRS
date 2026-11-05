@@ -60,6 +60,9 @@ samples! {
     "Ruler" => ruler,
     "ColorWheel" => color_wheel,
     "CurveEditor" => curve_editor,
+    "ZoomControl" => zoom_control,
+    "ZoomPanView" => zoom_pan_view,
+    "Minimap" => minimap,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1701,6 +1704,56 @@ fn curve_editor() -> impl View {
         .height(190.0)
         .histogram([HistogramChannel::new("Light", Color::rgb(0.6, 0.6, 0.6), hill)], HistogramScale::Linear)
         .label("Tone curve")
+}
+// end
+
+// sample: ZoomControl, 60
+fn zoom_control() -> impl View {
+    let view = State::new(ZoomView::at(1.5));
+    ZoomControl::new(view.binding())
+}
+// end
+
+// sample: ZoomPanView, 260
+fn zoom_pan_view() -> impl View {
+    let view = State::new(ZoomView::fit());
+    let content = Size::new(1200.0, 800.0);
+    let picture = |frame: ZoomPanPaint, scene: &mut Scene| {
+        scene.push_quad(Quad::new(frame.placed, Color::rgb(0.16, 0.3, 0.5)));
+        let side = 120.0 * frame.scale;
+        for (i, color) in [Color::rgb(0.9, 0.45, 0.3), Color::rgb(0.95, 0.8, 0.3)].into_iter().enumerate() {
+            let x = frame.placed.x() + frame.placed.width() * (0.2 + 0.4 * i as f32);
+            let y = frame.placed.y() + frame.placed.height() * 0.35;
+            scene.push_quad(Quad::new(Rect::new(x, y, side, side), color).radius(side / 2.0));
+        }
+    };
+    VStack::new((
+        ZoomControl::new(view.binding()),
+        ZoomPanView::custom(view.binding(), content, picture).size(420.0, 200.0).label("Sample picture"),
+    ))
+    .spacing(8.0)
+}
+// end
+
+// sample: Minimap, 170
+fn minimap() -> impl View {
+    let view = State::new(ZoomView::at(1.0));
+    let picture = |frame: ZoomPanPaint, scene: &mut Scene| {
+        scene.push_quad(Quad::new(frame.placed, Color::rgb(0.2, 0.45, 0.7)));
+        let sun = Rect::new(
+            frame.placed.x() + frame.placed.width() * 0.6,
+            frame.placed.y() + frame.placed.height() * 0.2,
+            80.0 * frame.scale,
+            80.0 * frame.scale,
+        );
+        scene.push_quad(Quad::new(sun, Color::rgb(0.95, 0.8, 0.3)).radius(40.0 * frame.scale));
+    };
+    let content = Size::new(800.0, 500.0);
+    HStack::new((
+        Minimap::custom(view.binding(), content, picture),
+        ZoomPanView::custom(view.binding(), content, picture).size(240.0, 150.0),
+    ))
+    .spacing(12.0)
 }
 // end
 

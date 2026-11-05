@@ -1896,6 +1896,9 @@ impl Gallery {
             ),
             sample_demos(&[
                 // imaging widgets
+                ("Minimap", "A small copy with a rectangle around what is in view, which moves the view."),
+                ("ZoomPanView", "Zoom and pan over an image or drawing: pinch, wheel, drag, double click and keys."),
+                ("ZoomControl", "Fit, 1:1, the percentage and the buttons that zoom in and out."),
                 ("CurveEditor", "Points you drag over a smooth curve, with the keyboard too."),
                 ("ColorWheel", "Hue and saturation on a disc, by a drag or the arrow keys."),
                 ("Ruler", "A ruler in your units, with a round step for any zoom."),
