@@ -111,7 +111,7 @@ pub use chart::{
     ChartKind, ChartLabelAt, ChartLegend, ChartPolarGrid, ChartReference, ChartStack, ChartTooltip,
     Symbology,
 };
-pub use chat::{Chat, ChatAuthor, ChatMessage, FloatingCorner, FloatingPanel};
+pub use chat::{Chat, ChatAuthor, ChatMedia, ChatMessage, FloatingCorner, FloatingPanel};
 pub use choice::{
     AnchorPoint, AspectRatio, ColorPair, ColorSwatch, FavoriteToggle, Label, NinePointAnchor, Pagination,
     SwatchGrid, ToggleButton, ToggleGroup,

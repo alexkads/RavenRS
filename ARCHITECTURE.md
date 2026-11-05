@@ -137,7 +137,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `scheduler`, `recurrence` | `Scheduler` and its time axis, and `RecurrenceRule`, which needs no UI |
 | `nav`, `ribbon` | `Tabs`, `Sidebar` and its parts, `Breadcrumb`, `Disclosure`, `Ribbon` |
 | `overlay`, `floating`, `shortcuts` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `SplashScreen`, `Toaster`, `Combobox`, `CommandPalette`, then `ShortcutSheet`, `ShortcutHintBar` |
-| `chat`, `rich_text`, `conversation` | `Chat`, `FloatingPanel`; `RichText`; `AttachmentStrip`, `AudioPlayerButton`, `SelectionBar` |
+| `chat`, `rich_text`, `conversation` | `Chat`, `ChatMedia`, `FloatingPanel`; `RichText`; `AttachmentStrip`, `AudioPlayerButton`, `SelectionBar` |
 | `display`, `status`, `data`, `extras` | Badges and alerts; `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `HeroBanner`, `MultiProgress`, `ShimmerText`, `DaySeparator`; lists, tables and charts; `Spinner`, `Carousel`, `Splitter`, `SplitPanes`, `SplitHandle`, `Menubar`, `InputOtp`, `FormField` |
 | `grid/` | `DataGrid`: `query` (pure pipeline), `model`, `view` |
 

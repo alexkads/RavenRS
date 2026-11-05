@@ -214,7 +214,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Attachments of a message | | | | ✅ `AttachmentStrip`: icon or thumbnail, name that gives way, size, a menu for how to send it when there is a choice and a button to remove it; the app holds the list |
 | Audio player | | | | ✅ `AudioPlayerButton`: play and stop over `SoundProvider::speak_clip`, progress by the clock, drawn without rebuilding, audio the app can deliver after the press, and a transcript to open or ask for. A new recording sends the old one back to rest. It has no seek, since the service does not report or change where it is |
 | Bar over a multiple selection | | | | ✅ `SelectionBar`: the count from `Labels`, a way out by button or Esc, and actions over `Toolbar`, which go to a menu when they do not fit and wait for something chosen |
-| Chat | | ✓ | ✓ | ✅ `Chat`; `MovieChat` over training films |
+| Chat | | ✓ | ✓ | ✅ `Chat`, with marks and links by `RichText` and a photo, a document or a recording in the bubble by `ChatMedia`; `MovieChat` over training films |
 | Choosing local AI models | | | | ✅ `ModelPicker`; `ravenrs_ai::ModelManager` offers only what fits |
 
 ## Reporting

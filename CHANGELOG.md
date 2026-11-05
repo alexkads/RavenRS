@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ChatMessage::media` and `ChatMedia`: a photo that holds its place until it arrives, a document as a card or a recording with `AudioPlayerButton`, in the bubble, above the text. `ChatMessage::formatted` reads the text as a `RichText`, and `Chat::on_link` gets its links. Messages that ask for neither stay as they were.
 - `monotone_slopes` in `ravenrs-core`: the slopes of a curve that never swings past its points, which charts and `CurveEditor` now share.
 - `SelectionBar`: how many things are chosen, a way out by a button or Escape, and actions over a `Toolbar`, which go to a menu when they do not fit and are disabled while nothing is chosen.
 - `AudioPlayerButton`: plays a recording and stops it over `Sound::speak_clip`, with progress drawn without rebuilding, audio the app can deliver after the press, and a transcript to open or ask for. Another recording sends it back to rest.

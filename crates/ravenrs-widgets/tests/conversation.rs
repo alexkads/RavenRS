@@ -452,3 +452,104 @@ mod audio_player {
         assert!(!has(&mut ui, Role::Button, "Transcribe"));
     }
 }
+
+mod chat_media {
+    use super::*;
+
+    fn chat(messages: Vec<ChatMessage>) -> (Ui, State<Vec<ChatMessage>>) {
+        let state = State::new(messages);
+        let chat = Chat::new(state.binding());
+        (running(VStack::new((chat,)).height(600.0), 700.0), state)
+    }
+
+    fn picture() -> ImageData {
+        ImageData::from_fn(32, 32, |_, _| ravenrs_core::Color::rgb(0.2, 0.5, 0.9)).expect("an image")
+    }
+
+    #[test]
+    fn a_message_without_media_is_what_it_always_was() {
+        let (mut ui, _) = chat(vec![ChatMessage::person("Hello *there*")]);
+        assert!(has(&mut ui, Role::Label, "Hello *there*"), "marks stay literal unless asked");
+        let writing = ChatMessage::assistant_writing(Default::default());
+        let (with_spinner, _) = chat(vec![writing]);
+        assert!(with_spinner.next_wake().is_some(), "an empty answer says it is on its way");
+    }
+
+    #[test]
+    fn a_formatted_message_loses_its_marks_and_its_links_reach_the_chat() {
+        let (opened, told) = log();
+        let state = State::new(vec![ChatMessage::assistant("*Hi* https://a.io").formatted()]);
+        let chat = Chat::new(state.binding()).on_link(move |address| told.borrow_mut().push(address));
+        let mut ui = running(VStack::new((chat,)).height(600.0), 700.0);
+        assert!(has(&mut ui, Role::Label, "Hi https://a.io"));
+        click(&mut ui, Role::Link, "https://a.io");
+        assert_eq!(*opened.borrow(), ["https://a.io"]);
+    }
+
+    #[test]
+    fn a_photo_opens_and_holds_its_place_until_it_arrives() {
+        let (opened, told) = log();
+        let open = move || told.borrow_mut().push("open".into());
+        let photo = ChatMedia::photo(Some(picture())).alt("A beach").on_open(open.clone());
+        let (mut ui, _) = chat(vec![ChatMessage::person("").media(photo)]);
+        click(&mut ui, Role::Button, "Open A beach");
+        assert_eq!(opened.borrow().len(), 1);
+        tab_to(&mut ui, "Open A beach");
+        press(&mut ui, Key::Space);
+        assert_eq!(opened.borrow().len(), 2);
+        assert!(ui.scene().primitives().iter().any(|p| matches!(p, Primitive::Image(_))));
+
+        let photo = |image| ChatMedia::photo(image).alt("A beach");
+        let (mut with, _) = chat(vec![ChatMessage::assistant("").media(photo(Some(picture())))]);
+        let (mut without, _) = chat(vec![ChatMessage::assistant("").media(photo(None))]);
+        let frame = |ui: &mut Ui| node(ui, Role::Image, "A beach").1.size;
+        assert_eq!(frame(&mut with), frame(&mut without));
+        assert!(has(&mut without, Role::Label, "Loading photo…"));
+    }
+
+    #[test]
+    fn empty_text_with_media_is_not_an_answer_on_its_way() {
+        let (mut with, _) = chat(vec![ChatMessage::assistant("").media(ChatMedia::document("a.pdf"))]);
+        assert!(has(&mut with, Role::Group, "a.pdf"));
+        assert_eq!(with.next_wake(), None, "a spinner would say an answer is on its way");
+    }
+
+    #[test]
+    fn a_document_says_what_it_is_and_opens() {
+        let (opened, told) = log();
+        let document = ChatMedia::document("contract.pdf")
+            .size(2048)
+            .on_open(move || told.borrow_mut().push("open".into()));
+        let (mut ui, _) = chat(vec![ChatMessage::person("See this").media(document)]);
+        click(&mut ui, Role::Button, "Open contract.pdf, 2.0 KB");
+        assert_eq!(opened.borrow().len(), 1);
+        assert!(has(&mut ui, Role::Label, "See this"), "the text stays under it");
+    }
+
+    #[test]
+    fn a_recording_plays_inside_the_bubble() {
+        let audio = ChatMedia::audio(|| {
+            AudioPlayerButton::new().clip(SoundClip::new(vec![0.0; 300], 100)).transcript("Hello")
+        });
+        let (mut ui, _) = chat(vec![ChatMessage::person("").media(audio)]);
+        let (_, play) = node(&mut ui, Role::Button, "Play audio");
+        assert!(play.width() > 0.0);
+        let bar = ui.access_tree().nodes.iter().find(|n| n.role == Role::ProgressIndicator).map(|n| n.bounds);
+        assert!(bar.expect("the progress").width() > 30.0, "{bar:?}");
+        click(&mut ui, Role::Button, "Play audio");
+        assert!(has(&mut ui, Role::Button, "Stop"));
+    }
+
+    #[test]
+    fn a_card_and_listening_still_work_with_media() {
+        let state = State::new(vec![
+            ChatMessage::assistant("Answer")
+                .media(ChatMedia::document("a.pdf"))
+                .card(|| Box::new(Button::new("Act"))),
+        ]);
+        let chat = Chat::new(state.binding()).on_listen(|_| {});
+        let mut ui = running(VStack::new((chat,)).height(600.0), 700.0);
+        assert!(has(&mut ui, Role::Button, "Act"));
+        assert!(has(&mut ui, Role::Button, "Listen"));
+    }
+}

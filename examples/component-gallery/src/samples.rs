@@ -1411,7 +1411,10 @@ fn chat() -> impl View {
                 .intro("It does not know who answers: yours adds to the messages, now or later.")
                 .examples(["How do I start?", "Where are my files?"])
                 .on_send(move |text| {
-                    let reply = ChatMessage::assistant(format!("You asked: {text}"))
+                    // Marks, links and a file in the bubble are asked for message by message.
+                    let reply = ChatMessage::assistant(format!("*You asked:* {text}"))
+                        .formatted()
+                        .media(ChatMedia::document("answer.pdf").size(48_000).on_open(|| {}))
                         .card(|| Box::new(Button::new("Open it").size(ButtonSize::Small)));
                     answers.update(|all| all.push(reply));
                 });

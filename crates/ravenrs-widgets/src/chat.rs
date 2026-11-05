@@ -5,21 +5,245 @@ use std::fmt;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Quad, Rect, Role, Scene, Size};
+use ravenrs_core::{
+    Border, Color, CursorIcon, Effect, ImageData, Insets, Key, Point, Quad, Rect, Role, Scene, Size,
+};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use crate::context::{BuildCx, Drag, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
+use crate::conversation::file_name_and_size;
+use crate::files::size_text;
 use crate::modifiers::ViewExt;
 use crate::motion::Motion;
 use crate::view::{AnyView, View};
 use crate::{
-    Button, ButtonSize, ButtonStyle, HStack, IconButton, IconName, Spinner, Text, TextField, VStack, util,
+    AudioPlayerButton, Button, ButtonSize, ButtonStyle, HStack, Icon, IconButton, IconName, Image, RichText,
+    Spinner, Text, TextField, VStack, util,
 };
 
 /// The widest a message gets, in logical pixels.
 const MESSAGE_WIDTH: f32 = 320.0;
+/// The narrowest a recording gets in a message.
+const MEDIA_AUDIO_WIDTH: f32 = 240.0;
+
+/// What a [`ChatMessage`](crate::ChatMessage) carries in its bubble, above its text: a photo,
+/// a document or a recording. The file stays with the app, which asks to open it from
+/// [`Self::on_open`].
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Chat, ChatMedia, ChatMessage, Ui};
+///
+/// let messages = State::new(vec![
+///     ChatMessage::person("The *signed* contract")
+///         .formatted()
+///         .media(ChatMedia::document("contract.pdf").size(240_000).on_open(|| {})),
+/// ]);
+/// let mut ui = Ui::new(Chat::new(messages.binding()), ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+#[derive(Clone)]
+pub struct ChatMedia {
+    kind: MediaKind,
+    on_open: Option<Rc<dyn Fn()>>,
+}
+
+#[derive(Clone)]
+enum MediaKind {
+    Photo { image: Option<ImageData>, side: f32, alt: Option<String> },
+    Document { name: String, size: Option<u64>, icon: IconName },
+    Audio(Rc<dyn Fn() -> AudioPlayerButton>),
+}
+
+impl fmt::Debug for ChatMedia {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let kind = match &self.kind {
+            MediaKind::Photo { .. } => "photo",
+            MediaKind::Document { .. } => "document",
+            MediaKind::Audio(_) => "audio",
+        };
+        f.debug_struct("ChatMedia").field("kind", &kind).finish_non_exhaustive()
+    }
+}
+
+impl ChatMedia {
+    /// A photo. While it is `None` it holds a space of the same size, so that what is above
+    /// does not jump when it arrives.
+    pub fn photo(image: Option<ImageData>) -> Self {
+        Self { kind: MediaKind::Photo { image, side: 240.0, alt: None }, on_open: None }
+    }
+
+    /// A file shown as a card, with its name.
+    pub fn document(name: impl Into<String>) -> Self {
+        Self {
+            kind: MediaKind::Document { name: name.into(), size: None, icon: IconName::FileText },
+            on_open: None,
+        }
+    }
+
+    /// A recording. The player is built each time the message is shown, so that the clip
+    /// or the transcript that arrives later is there.
+    pub fn audio(player: impl Fn() -> AudioPlayerButton + 'static) -> Self {
+        Self { kind: MediaKind::Audio(Rc::new(player)), on_open: None }
+    }
+
+    /// The side of a photo, which is shown square (240 logical pixels by default).
+    #[must_use]
+    pub fn side(mut self, side: f32) -> Self {
+        if let MediaKind::Photo { side: current, .. } = &mut self.kind {
+            *current = side;
+        }
+        self
+    }
+
+    /// What a photo shows, for screen readers.
+    #[must_use]
+    pub fn alt(mut self, text: impl Into<String>) -> Self {
+        if let MediaKind::Photo { alt, .. } = &mut self.kind {
+            *alt = Some(text.into());
+        }
+        self
+    }
+
+    /// The size of a document in bytes.
+    #[must_use]
+    pub fn size(mut self, bytes: u64) -> Self {
+        if let MediaKind::Document { size, .. } = &mut self.kind {
+            *size = Some(bytes);
+        }
+        self
+    }
+
+    /// The icon of a document ([`IconName::FileText`] by default).
+    #[must_use]
+    pub fn icon(mut self, icon: IconName) -> Self {
+        if let MediaKind::Document { icon: current, .. } = &mut self.kind {
+            *current = icon;
+        }
+        self
+    }
+
+    /// Makes a photo or a document open with a click, Enter or Space: for instance in an
+    /// [`ImageLightbox`](crate::ImageLightbox), or through the system.
+    #[must_use]
+    pub fn on_open(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_open = Some(Rc::new(handler));
+        self
+    }
+}
+
+impl View for ChatMedia {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let (node, name) = match &self.kind {
+            MediaKind::Audio(player) => {
+                let player = cx.child(&player());
+                // A bubble fits what is inside, and a progress bar has no width of its own.
+                return cx.container(
+                    LayoutStyle {
+                        min_width: Some(MEDIA_AUDIO_WIDTH),
+                        align: Align::Stretch,
+                        ..LayoutStyle::stack(Axis::Vertical)
+                    },
+                    &[player],
+                    Paint::None,
+                );
+            }
+            MediaKind::Photo { image, side, alt } => {
+                let name = alt.clone().unwrap_or_else(|| labels.chat_photo.clone());
+                let radius = theme.radii.md;
+                let content = match image {
+                    Some(image) => {
+                        cx.child(&Image::new(image.clone()).size(*side, *side).corner_radius(radius))
+                    }
+                    None => cx.child(
+                        &Text::new(labels.chat_photo_loading.clone())
+                            .style(TextStyle::Caption)
+                            .foreground(Semantic::InkMuted),
+                    ),
+                };
+                let node = cx.container(
+                    LayoutStyle {
+                        width: Some(*side),
+                        height: Some(*side),
+                        align: Align::Center,
+                        justify: Justify::Center,
+                        align_self: Some(Align::Start),
+                        ..LayoutStyle::stack(Axis::Vertical)
+                    },
+                    &[content],
+                    if image.is_some() {
+                        Paint::None
+                    } else {
+                        Paint::Quad(QuadPaint {
+                            corner_radius: radius,
+                            ..QuadPaint::new(theme.color(Semantic::Surface))
+                        })
+                    },
+                );
+                if self.on_open.is_none() {
+                    cx.semantics(node, Semantics::new(Role::Image).name(name.clone()));
+                }
+                (node, name)
+            }
+            MediaKind::Document { name, size, icon } => {
+                let icon = cx.child(&Icon::new(*icon).size(20.0).color(theme.color(Semantic::InkMuted)));
+                let title = cx.child(&Text::new(name.clone()).style(TextStyle::Callout).truncate());
+                let mut lines = vec![title];
+                if let Some(size) = size {
+                    lines.push(cx.child(
+                        &Text::new(size_text(*size)).style(TextStyle::Caption).foreground(Semantic::InkMuted),
+                    ));
+                }
+                let lines = cx.container(
+                    LayoutStyle {
+                        grow: 1.0,
+                        min_width: Some(0.0),
+                        align: Align::Stretch,
+                        ..LayoutStyle::stack(Axis::Vertical)
+                    },
+                    &lines,
+                    Paint::None,
+                );
+                let surface = if cx.is_hovered() && self.on_open.is_some() {
+                    Semantic::SurfaceElevated
+                } else {
+                    Semantic::Surface
+                };
+                let node = cx.container(
+                    LayoutStyle {
+                        spacing: theme.spacing.s2,
+                        align: Align::Center,
+                        align_self: Some(Align::Stretch),
+                        min_width: Some(0.0),
+                        padding: Insets::symmetric(theme.spacing.s2, theme.spacing.s3),
+                        ..LayoutStyle::stack(Axis::Horizontal)
+                    },
+                    &[icon, lines],
+                    Paint::Quad(QuadPaint {
+                        corner_radius: theme.radii.md,
+                        ..QuadPaint::new(theme.color(surface))
+                    }),
+                );
+                let named = file_name_and_size(name, *size);
+                if self.on_open.is_none() {
+                    cx.semantics(node, Semantics::new(Role::Group).name(named.clone()));
+                }
+                (node, named)
+            }
+        };
+        if let Some(on_open) = &self.on_open {
+            cx.on_click(node, on_open.clone());
+            cx.focusable(node, theme.radii.md);
+            cx.cursor(node, CursorIcon::Pointer);
+            cx.semantics(node, Semantics::new(Role::Button).name(labels.chat_open.replace("{what}", &name)));
+        }
+        node
+    }
+}
 
 /// Who wrote a [`ChatMessage`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -37,6 +261,8 @@ pub struct ChatMessage {
     author: ChatAuthor,
     text: Arc<Mutex<String>>,
     card: Option<Rc<dyn Fn() -> AnyView>>,
+    media: Option<ChatMedia>,
+    formatted: bool,
 }
 
 impl fmt::Debug for ChatMessage {
@@ -51,19 +277,37 @@ impl fmt::Debug for ChatMessage {
 impl ChatMessage {
     /// What the person wrote.
     pub fn person(text: impl Into<String>) -> Self {
-        Self { author: ChatAuthor::Person, text: Arc::new(Mutex::new(text.into())), card: None }
+        Self::of(ChatAuthor::Person, Arc::new(Mutex::new(text.into())))
     }
 
     /// What the assistant answered.
     pub fn assistant(text: impl Into<String>) -> Self {
-        Self { author: ChatAuthor::Assistant, text: Arc::new(Mutex::new(text.into())), card: None }
+        Self::of(ChatAuthor::Assistant, Arc::new(Mutex::new(text.into())))
     }
 
     /// What the assistant is still answering. Whoever answers writes to `text`, from
     /// any thread, and asks for a rebuild with a [`UiWaker`](crate::UiWaker). While it
     /// is empty, the message shows that it is on its way.
     pub fn assistant_writing(text: Arc<Mutex<String>>) -> Self {
-        Self { author: ChatAuthor::Assistant, text, card: None }
+        Self::of(ChatAuthor::Assistant, text)
+    }
+
+    fn of(author: ChatAuthor, text: Arc<Mutex<String>>) -> Self {
+        Self { author, text, card: None, media: None, formatted: false }
+    }
+
+    /// A photo, a document or a recording in the bubble, above the text, which may be empty.
+    #[must_use]
+    pub fn media(mut self, media: ChatMedia) -> Self {
+        self.media = Some(media);
+        self
+    }
+
+    /// Reads its text as a [`RichText`], with marks and links.
+    #[must_use]
+    pub fn formatted(mut self) -> Self {
+        self.formatted = true;
+        self
     }
 
     /// Something to act on under the text, such as buttons. It is built each time
@@ -109,6 +353,7 @@ pub struct Chat {
     examples: Vec<String>,
     on_send: Option<Rc<dyn Fn(String)>>,
     on_listen: Option<Rc<dyn Fn(String)>>,
+    on_link: Option<Rc<dyn Fn(String)>>,
     busy: bool,
 }
 
@@ -128,6 +373,7 @@ impl Chat {
             examples: Vec::new(),
             on_send: None,
             on_listen: None,
+            on_link: None,
             busy: false,
         }
     }
@@ -168,6 +414,13 @@ impl Chat {
         self
     }
 
+    /// Called with the address of a link in a [`ChatMessage::formatted`] message.
+    #[must_use]
+    pub fn on_link(mut self, handler: impl Fn(String) + 'static) -> Self {
+        self.on_link = Some(Rc::new(handler));
+        self
+    }
+
     /// Called with what the person sent, after it joined the messages.
     #[must_use]
     pub fn on_send(mut self, handler: impl Fn(String) + 'static) -> Self {
@@ -204,6 +457,7 @@ struct Conversation {
     messages: Vec<ChatMessage>,
     empty: Option<AnyView>,
     on_listen: Option<Rc<dyn Fn(String)>>,
+    on_link: Option<Rc<dyn Fn(String)>>,
 }
 
 impl View for Conversation {
@@ -215,7 +469,10 @@ impl View for Conversation {
             children.push(cx.child(empty.as_ref()));
         }
         for (i, message) in self.messages.iter().enumerate() {
-            children.push(cx.keyed_child(i as u64, &Bubble(message.clone(), self.on_listen.clone())));
+            children.push(cx.keyed_child(
+                i as u64,
+                &Bubble(message.clone(), self.on_listen.clone(), self.on_link.clone()),
+            ));
         }
         let node = cx.container(
             LayoutStyle {
@@ -246,19 +503,30 @@ impl View for Conversation {
 }
 
 /// One message.
-struct Bubble(ChatMessage, Option<Rc<dyn Fn(String)>>);
+struct Bubble(ChatMessage, Option<Rc<dyn Fn(String)>>, Option<Rc<dyn Fn(String)>>);
 
 impl View for Bubble {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let person = self.0.author == ChatAuthor::Person;
         let words = self.0.text();
-        let text = words.clone();
-        let text = if text.is_empty() {
-            cx.child(&Spinner::new().size(16.0))
+        let media = self.0.media.as_ref().map(|media| cx.child(media));
+        let text = if !words.is_empty() {
+            Some(if self.0.formatted {
+                let rich = RichText::new(words.clone()).foreground(Semantic::Ink);
+                cx.child(&match self.2.clone() {
+                    Some(on_link) => rich.on_link(move |address| on_link(address)),
+                    None => rich,
+                })
+            } else {
+                cx.child(&Text::new(words.clone()).foreground(Semantic::Ink))
+            })
+        } else if media.is_none() {
+            Some(cx.child(&Spinner::new().size(16.0)))
         } else {
-            cx.child(&Text::new(text).foreground(Semantic::Ink))
+            None
         };
+        let inside: Vec<NodeId> = media.into_iter().chain(text).collect();
         let bubble = cx.container(
             LayoutStyle {
                 padding: if person {
@@ -267,11 +535,12 @@ impl View for Bubble {
                     Insets::symmetric(theme.spacing.s1, 0.0)
                 },
                 max_width: Some(MESSAGE_WIDTH),
+                spacing: if inside.len() > 1 { theme.spacing.s2 } else { 0.0 },
                 align: Align::Stretch,
                 align_self: Some(if person { Align::End } else { Align::Start }),
                 ..LayoutStyle::stack(Axis::Vertical)
             },
-            &[text],
+            &inside,
             // What someone asked is set apart; the answer is the page itself.
             if person {
                 Paint::Quad(QuadPaint {
@@ -348,7 +617,12 @@ impl View for Chat {
                 .align(Align::Stretch),
             )
         });
-        let conversation = cx.child(&Conversation { messages, empty, on_listen: self.on_listen.clone() });
+        let conversation = cx.child(&Conversation {
+            messages,
+            empty,
+            on_listen: self.on_listen.clone(),
+            on_link: self.on_link.clone(),
+        });
 
         let (on_field, on_button, written) = (send.clone(), send, draft.clone());
         let writing = HStack::new((
