@@ -45,7 +45,7 @@ samples! {
     "Tooltip" => tooltip, "HelpTip" => help_tip, "SidebarBrand" => sidebar_brand, "DropdownMenu" => dropdown_menu, "ContextMenu" => context_menu,
     "SplashScreen" => splash_screen, "CommandPalette" => command_palette, "Toaster" => toaster,
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
-    "Chart" => chart, "ChartReference" => chart_reference, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
+    "Chart" => chart, "ChartReference" => chart_reference, "SankeyChart" => sankey_chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
@@ -1060,6 +1060,23 @@ fn chart_reference() -> impl View {
         .tooltip(ChartTooltip::new().value_format(|value| format!("{value:.0} units")))
         .reference(ChartReference::new(20.0).label("Target").color(Semantic::Warning))
         .height(260.0)
+}
+// end
+
+// sample: SankeyChart, 340
+fn sankey_chart() -> impl View {
+    SankeyChart::new()
+        .title("Where the money goes")
+        .flow("Salary", "Taxes", 1200.0)
+        .flow("Salary", "Home", 1500.0)
+        .flow("Salary", "Savings", 800.0)
+        .flow("Freelance", "Savings", 600.0)
+        .flow("Home", "Rent", 1100.0)
+        .flow("Home", "Power", 400.0)
+        .flow("Savings", "Funds", 900.0)
+        .flow("Savings", "Stocks", 500.0)
+        .format(|value| format!("$ {value:.0}"))
+        .height(300.0)
 }
 // end
 

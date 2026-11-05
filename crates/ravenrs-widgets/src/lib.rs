@@ -77,6 +77,8 @@ mod recurrence;
 mod release_notes;
 mod remote;
 mod ribbon;
+#[cfg(feature = "charts")]
+mod sankey;
 mod scheduler;
 mod shortcuts;
 mod sound;
@@ -166,6 +168,8 @@ pub use recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
 pub use remote::UiWaker;
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
+#[cfg(feature = "charts")]
+pub use sankey::{SankeyAlign, SankeyChart};
 pub use scheduler::{
     Resource, Scheduler, SchedulerChange, SchedulerEvent, SchedulerRange, TimeAxis, TimePoint, TimeScale,
 };

@@ -52,6 +52,9 @@ pub struct Labels {
     pub candle_low: String,
     /// Where a candle of a [`Chart`](crate::Chart) closed.
     pub candle_close: String,
+    /// What a [`SankeyChart`](crate::SankeyChart) says when its flows go in a circle,
+    /// before the names of the nodes.
+    pub sankey_cycle: String,
     /// Goes to the previous step of a [`Wizard`](crate::Wizard).
     pub wizard_back: String,
     /// Goes to the next step of a [`Wizard`](crate::Wizard).
@@ -704,6 +707,7 @@ impl Default for Labels {
             candle_high: "High".into(),
             candle_low: "Low".into(),
             candle_close: "Close".into(),
+            sankey_cycle: "These flows go in a circle".into(),
             wizard_back: "Back".into(),
             wizard_next: "Next".into(),
             wizard_finish: "Finish".into(),
@@ -1003,6 +1007,7 @@ impl Labels {
             candle_high: "Máxima".into(),
             candle_low: "Mínima".into(),
             candle_close: "Fechamento".into(),
+            sankey_cycle: "Estes fluxos andam em círculo".into(),
             wizard_back: "Voltar".into(),
             wizard_next: "Avançar".into(),
             wizard_finish: "Concluir".into(),

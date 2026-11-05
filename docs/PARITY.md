@@ -131,6 +131,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Chart tooltip, legend, keyboard | ✓ | ✓ | ✓ | ✅ `ChartTooltip` (share, color by value, free content, either side on both axes), `ChartLegend`, arrow keys; cursor and dots that glide and fade |
 | Chart axes | ✓ | ✓ | ✓ | ✅ `Chart`: dashed grid, columns, steps of the axis, labels measured with the real font, aligned ends, lines of reference, fixed domain |
 | Scatter, bubble, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`, with a tooltip and cursor when asked; candlestick in `Chart`, with an axis of round numbers, outlines for what rose and the keyboard; bubble and funnel ⬜ |
+| Sankey | | ✓ | ✓ | ✅ `SankeyChart`: alignment, ribbons in a gradient, the rest fading around the focus, arrow keys, every flow read aloud, a clear message when the flows go in a circle |
 | Gauges (linear, circular, arc) | | ✓ | ✓ | ✅ `ProgressBar`, `Chart` with `RadialBar` |
 
 The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built with `Chart` and `ChartCard`: all 70 patterns are in the gallery's Charts page, under their names (`examples/component-gallery/src/charts.rs`).

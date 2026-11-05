@@ -65,7 +65,7 @@ const CANDLE_OUTLINE: f32 = 1.5;
 /// Lays a drawing out in a rectangle, at a number of pixels per logical pixel, and
 /// with a way to know how wide its text is.
 type DrawingFn = Rc<dyn Fn(Rect, f32, plot::Measure<'_>) -> Plot>;
-type ValueFormat = Rc<dyn Fn(f64) -> String>;
+pub(crate) type ValueFormat = Rc<dyn Fn(f64) -> String>;
 /// Writes the panel of a tooltip, given the index and the name of a category.
 type TooltipContent = Rc<dyn Fn(usize, &str) -> AnyView>;
 /// The color of a value in a tooltip, given its series and the value.
@@ -207,7 +207,7 @@ impl Picture {
     }
 }
 
-fn label_attrs(size: f32, bold: bool) -> TextAttrs {
+pub(crate) fn label_attrs(size: f32, bold: bool) -> TextAttrs {
     TextAttrs {
         size,
         line_height: size * LABEL_LINE_HEIGHT,
@@ -217,7 +217,7 @@ fn label_attrs(size: f32, bold: bool) -> TextAttrs {
     }
 }
 
-fn typeset(label: &ChartLabel, cx: &mut PaintCx<'_>) -> (TextLayout, Point, Color) {
+pub(crate) fn typeset(label: &ChartLabel, cx: &mut PaintCx<'_>) -> (TextLayout, Point, Color) {
     let attrs = label_attrs(label.size, label.bold);
     let mut layout = cx.text.layout(&label.text, &attrs);
     let measured = layout.measure(None);
@@ -390,7 +390,7 @@ fn paint_candles(highlight: Option<&Highlight>, plot: &Plot, frame: Rect, cx: &m
     }
 }
 
-fn path_elements(path: &[PathSegment]) -> Vec<PathElement> {
+pub(crate) fn path_elements(path: &[PathSegment]) -> Vec<PathElement> {
     path.iter()
         .map(|segment| match segment {
             PathSegment::Move(p) => PathElement::MoveTo(*p),
@@ -515,7 +515,7 @@ fn drawing_node(cx: &mut BuildCx<'_>, style: LayoutStyle, drawing: DrawingFn) ->
 
 /// The colors of a chart in this theme: none of them means anything, unlike status
 /// colors, and past the theme's five come those of the shared palette.
-fn palette(theme: &Theme) -> Vec<Color> {
+pub(crate) fn palette(theme: &Theme) -> Vec<Color> {
     [Semantic::Chart1, Semantic::Chart2, Semantic::Chart3, Semantic::Chart4, Semantic::Chart5]
         .map(|role| theme.color(role))
         .into_iter()
@@ -524,7 +524,7 @@ fn palette(theme: &Theme) -> Vec<Color> {
 }
 
 /// Shows a number on an axis: at most two decimals, none when they are zeros.
-fn plain_number(value: f64) -> String {
+pub(crate) fn plain_number(value: f64) -> String {
     let text = format!("{value:.2}");
     text.trim_end_matches('0').trim_end_matches('.').to_owned()
 }
@@ -673,8 +673,8 @@ impl ChartTooltip {
 }
 
 /// One row of a tooltip or legend.
-struct KeyRow {
-    name: String,
+pub(crate) struct KeyRow {
+    pub(crate) name: String,
     color: Color,
     icon: Option<IconName>,
     value: Option<f64>,
@@ -685,7 +685,7 @@ struct KeyRow {
 }
 
 impl KeyRow {
-    fn named(name: String, color: Color, icon: Option<IconName>, value: Option<f64>) -> Self {
+    pub(crate) fn named(name: String, color: Color, icon: Option<IconName>, value: Option<f64>) -> Self {
         Self { name, color, icon, value, share: None, value_color: None, no_indicator: false }
     }
 }
@@ -699,14 +699,14 @@ fn percent_text(part: f64, whole: f64) -> Option<String> {
     Some(if percent > 0.0 && percent < 1.0 { "<1%".to_owned() } else { format!("{percent:.0}%") })
 }
 
-struct TooltipPanel {
-    title: Option<String>,
-    rows: Vec<KeyRow>,
-    total: Option<(String, f64)>,
-    tooltip: ChartTooltip,
-    format: ValueFormat,
-    index: usize,
-    category: String,
+pub(crate) struct TooltipPanel {
+    pub(crate) title: Option<String>,
+    pub(crate) rows: Vec<KeyRow>,
+    pub(crate) total: Option<(String, f64)>,
+    pub(crate) tooltip: ChartTooltip,
+    pub(crate) format: ValueFormat,
+    pub(crate) index: usize,
+    pub(crate) category: String,
 }
 
 fn indicator_node(cx: &mut BuildCx<'_>, indicator: ChartIndicator, color: Color) -> Option<NodeId> {
@@ -2045,7 +2045,7 @@ impl Chart {
 
 impl TooltipPanel {
     /// The same as the panel, for a screen reader.
-    fn spoken(&self) -> String {
+    pub(crate) fn spoken(&self) -> String {
         let format = self.tooltip.value_format.as_ref().unwrap_or(&self.format);
         let mut parts: Vec<String> = self.title.iter().cloned().collect();
         parts.extend(self.rows.iter().map(|row| match row.value {

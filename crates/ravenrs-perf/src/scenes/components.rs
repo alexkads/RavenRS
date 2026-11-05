@@ -149,6 +149,28 @@ fn chart_board(interaction: &str) -> Setup {
     Setup { root: Box::new(root), step: chart_step(interaction, shift) }
 }
 
+/// A dozen flows between ten nodes, filling the window.
+fn chart_sankey(interaction: &str) -> Setup {
+    let shift = State::new(0u32);
+    let data = shift.clone();
+    let root = view_fn(move || {
+        let at = f64::from(data.get() % 7);
+        SankeyChart::new()
+            .flow("Salary", "Taxes", 1200.0 + at)
+            .flow("Salary", "Home", 1500.0)
+            .flow("Salary", "Savings", 800.0)
+            .flow("Salary", "Fun", 500.0)
+            .flow("Freelance", "Savings", 600.0)
+            .flow("Freelance", "Fun", 200.0)
+            .flow("Home", "Rent", 1100.0)
+            .flow("Home", "Power", 400.0)
+            .flow("Savings", "Funds", 900.0)
+            .flow("Savings", "Stocks", 500.0)
+            .height(600.0)
+    });
+    Setup { root: Box::new(root), step: chart_step(interaction, shift) }
+}
+
 /// A square that grows, in the file format of the Lottie player.
 const LOTTIE: &str = r#"{"v":"5.7.0","fr":30,"ip":0,"op":60,"w":100,"h":100,"layers":[{"ty":4,"ks":{},
 "ip":0,"op":60,"st":0,"shapes":[{"ty":"rc","p":{"a":0,"k":[50,50]},"s":{"a":1,"k":[
@@ -245,6 +267,7 @@ pub(super) fn scenes() -> Vec<PerfScene> {
         scene("chart", &["Chart"], Class::Picture, CHART, chart, STILL),
         scene("chart-bars", &["Chart", "BarChart"], Class::Picture, CHART, chart_bars, STILL),
         scene("chart-board", &["Chart", "AreaChart"], Class::Picture, CHART, chart_board, STILL),
+        scene("chart-sankey", &["SankeyChart"], Class::Static, CHART, chart_sankey, STILL),
         scene("lottie", &["Lottie"], Class::Animated, &["animate", "hover", "scroll"], lottie, ANIMATED),
         scene("images", &["Image", "Grid"], Class::Static, &["hover", "scroll", "idle"], images, STILL),
         scene(

@@ -2154,7 +2154,10 @@ impl Gallery {
         VStack::new((
             page_header("Charts", "Every pattern of the shadcn/ui catalog. Shapes in a picture at the screen's density, labels as real text."),
             charts::ChartCatalog { columns: columns(width, 2) },
-            sample_demos(&[("ChartReference", "A dashed line at a value that matters, over an axis of fixed ends.")]),
+            sample_demos(&[
+                ("ChartReference", "A dashed line at a value that matters, over an axis of fixed ends."),
+                ("SankeyChart", "How much flows from what to what. Walk it with the arrow keys; flows in a circle say so."),
+            ]),
             demo(
                 "Area chart",
                 "A smoothed series over a filled area.",

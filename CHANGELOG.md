@@ -13,6 +13,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Chart`: `bars_from` with `ChartBarFrom` makes bars grow from the top or the right, `min_bar_length` keeps a least length, `labels_at_zero` puts categories on the line of zero on the other side from the bar, and `gradient` now fills bars from tip to base too.
 - `Chart`: a `ChartKind::Scatter` or a sparkline given a `tooltip` gets the tooltip, the cursor, the dots in focus and the arrow keys. Without one it stays a plain picture that takes no focus.
 - `ChartKind::Candlestick` and `Chart::candles`, with an axis of round numbers that does not have to start at zero. Rising candles are outlines and falling ones are solid. `Labels` gains `candle_open`, `candle_high`, `candle_low` and `candle_close`. Reports can draw the kind, as shapes, though none offers it yet.
+- `SankeyChart`: how much flows from what to what, with `SankeyAlign`, ribbons in a gradient, the rest fading around the focus, arrow keys, and every flow read aloud. Flows in a circle say which nodes they go through in place of the diagram. Its layout is `ravenrs_graphics::sankey`; `Labels` gains `sankey_cycle`.
 - `Semantic::ChartGrid` (`chart-grid`), `Placement::RightEnd`, `LeftStart` and `LeftEnd`.
 
 ### Changed
