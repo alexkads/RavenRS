@@ -45,7 +45,7 @@ samples! {
     "Tooltip" => tooltip, "HelpTip" => help_tip, "SidebarBrand" => sidebar_brand, "DropdownMenu" => dropdown_menu, "ContextMenu" => context_menu,
     "SplashScreen" => splash_screen, "CommandPalette" => command_palette, "Toaster" => toaster,
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
-    "Chart" => chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
+    "Chart" => chart, "ChartReference" => chart_reference, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
@@ -1045,6 +1045,20 @@ fn chart() -> impl View {
         .categories(["Jan", "Feb", "Mar", "Apr", "May", "Jun"])
         .series("2025", [12.0, 18.0, 15.0, 21.0, 19.0, 24.0])
         .series("2026", [14.0, 21.0, 26.0, 24.0, 31.0, 35.0])
+        .height(260.0)
+}
+// end
+
+// sample: ChartReference, 280
+fn chart_reference() -> impl View {
+    Chart::new(ChartKind::Bar)
+        .categories(["Jan", "Feb", "Mar", "Apr", "May", "Jun"])
+        .series("Sales", [12.0, 18.0, 15.0, 21.0, 19.0, 24.0])
+        .show_value_axis()
+        .grid_dashed()
+        .value_domain(0.0, 25.0)
+        .tooltip(ChartTooltip::new().value_format(|value| format!("{value:.0} units")))
+        .reference(ChartReference::new(20.0).label("Target").color(Semantic::Warning))
         .height(260.0)
 }
 // end

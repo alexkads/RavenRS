@@ -55,6 +55,8 @@ const FOCUS_DIM: f32 = 0.45;
 /// How far a slice in focus comes forward. It stays under the gap a chart keeps
 /// from its title and legend, so a pie needs no smaller radius to make room for it.
 const SLICE_LIFT: f32 = 6.0;
+/// How much a slice's way forward it takes it to be solid.
+const LIFT_SOLID_FROM: f32 = 4.0;
 /// How solid the line through the points of the category in focus is.
 const CURSOR_ALPHA: f32 = 0.55;
 const DOT_ICON: f32 = 18.0;
@@ -362,7 +364,9 @@ fn paint_lifted_slices(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut
         let inset = inset.min((sector.to - sector.from) / 4.0);
         let path =
             plot::slice_path(sector.center, sector.inner, outer, sector.from + inset, sector.to - inset);
-        let color = sector.color.with_alpha(sector.color.a * lift.clamp(0.0, 1.0));
+        // Solid for most of its way, so that it never looks like a ghost of itself, and
+        // only at the very end does it hand over to the slice in the picture.
+        let color = sector.color.with_alpha(sector.color.a * (lift * LIFT_SOLID_FROM).clamp(0.0, 1.0));
         cx.scene.push_path(PathFill {
             transform: [1.0, 0.0, 0.0, 1.0, frame.x(), frame.y()],
             ..PathFill::solid(path_elements(&path), color)

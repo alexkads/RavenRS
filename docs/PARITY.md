@@ -123,12 +123,13 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 | Component | S | D | T | RavenRS |
 |---|---|---|---|---|
-| Bar / column chart | ✓ | ✓ | ✓ | ✅ `Chart`, `BarChart`: horizontal, grouped, stacked, negative, labels, active |
+| Bar / column chart | ✓ | ✓ | ✓ | ✅ `Chart`, `BarChart`: horizontal, grouped, stacked, negative, labels, active, focus that fades the rest |
 | Area chart, sparkline | ✓ | ✓ | ✓ | ✅ `Chart`, `AreaChart`: stacked, expanded, gradient, curves |
 | Line chart | ✓ | ✓ | ✓ | ✅ `Chart`: natural, monotone, linear and step curves, dots, icons, labels |
-| Pie / donut | ✓ | ✓ | ✓ | ✅ `Chart`: rings, active slice, center text, labels |
+| Pie / donut | ✓ | ✓ | ✓ | ✅ `Chart`: rings, active slice, a slice that comes forward under the pointer, center text, labels |
 | Radar, radial | | ✓ | ✓ | ✅ `Chart`: polygon and circle grids, filled, tracks, stacked |
-| Chart tooltip, legend, keyboard | ✓ | ✓ | ✓ | ✅ `ChartTooltip`, `ChartLegend`, arrow keys |
+| Chart tooltip, legend, keyboard | ✓ | ✓ | ✓ | ✅ `ChartTooltip` (share, color by value, free content, either side on both axes), `ChartLegend`, arrow keys; cursor and dots that glide and fade |
+| Chart axes | ✓ | ✓ | ✓ | ✅ `Chart`: dashed grid, columns, steps of the axis, labels measured with the real font, aligned ends, lines of reference, fixed domain |
 | Scatter, bubble, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`; the others ⬜ |
 | Gauges (linear, circular, arc) | | ✓ | ✓ | ✅ `ProgressBar`, `Chart` with `RadialBar` |
 
