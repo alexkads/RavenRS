@@ -28,6 +28,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Window (floating) | | ✓ | ✓ | 🟡 `FloatingPanel::movable`: moves and reduces, does not resize |
 | App bar / Toolbar | | ✓ | ✓ | ✅ `Toolbar`, `ToolbarAction`: what does not fit folds into a menu |
 | Toolbar floating over content | | | ✓ | ✅ `FloatingToolbar`: translucent, placed by side, moved by a handle or the arrows |
+| Arrows on the ends of a scrolling strip | | | ✓ | ✅ `ScrollEdgeArrow`: only where there is more to show, with the keyboard kept at the end |
 | Custom title bar | | | ✓ | 🟡 `TitleBar`: title, actions and the window's buttons, drawing and calling back only. Dragging the window and hiding the system's frame belong to the platform layer, which offers neither yet |
 | Footer | | | | ✅ `Footer` |
 | Status bar | | ✓ | ✓ | ✅ `StatusBar` |

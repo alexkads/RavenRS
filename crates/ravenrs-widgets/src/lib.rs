@@ -181,8 +181,8 @@ pub use scheduler::{
 pub use shortcuts::{ShortcutHintBar, ShortcutSheet};
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
 pub use stack::{
-    Footer, Grid, HStack, PageHeader, PropertyRow, ScrollView, Spacer, StatusBar, TitleBar, ToolRail,
-    ToolRailItem, VStack, ZStack,
+    Footer, Grid, HStack, PageHeader, PropertyRow, ScrollEdgeArrow, ScrollView, Spacer, StatusBar, TitleBar,
+    ToolRail, ToolRailItem, VStack, ZStack,
 };
 pub use status::{
     DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,

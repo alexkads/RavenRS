@@ -1231,7 +1231,10 @@ impl Ui {
                 self.content[i] = self.layout.content_size(e.layout)?;
             }
             if e.measure {
-                self.scroll.contents.insert(e.widget, self.layout.content_size(e.layout)?);
+                let content = self.layout.content_size(e.layout)?;
+                let before = self.scroll.contents.insert(e.widget, content);
+                // What is built from the room inside a scroll has to see that room change.
+                self.viewport_moved |= e.rebuild_on_scroll && before != Some(content);
             }
         }
         Ok(())

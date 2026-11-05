@@ -1309,6 +1309,7 @@ impl Gallery {
             sample_demos(&[
                 ("ZStack", "Views on top of each other, in a box as large as the largest."),
                 ("FloatingToolbar", "A translucent row of commands over its content, with a handle that moves it."),
+                ("ScrollEdgeArrow", "A strip that scrolls, with an arrow at each end that has more to show."),
                 ("TitleBar", "A title bar of the app's own: it draws and calls back, and does not move the window."),
                 ("PropertyRow", "A label and its value at the two ends of a line."),
                 ("PageHeader", "Title, description, badges and actions."),

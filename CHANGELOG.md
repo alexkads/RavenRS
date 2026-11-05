@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ScrollEdgeArrow`: a strip that scrolls, horizontal or vertical, with an arrow over a fade at each end that has more to show. `Labels` gains `scroll_back` and `scroll_forward`.
 - `FloatingToolbar`: a translucent row of commands over its content, placed by side, that takes the clicks that land on it; `movable` adds a handle, with the arrow keys and a double click that brings it home. `TitleBar`: title, actions and the window's buttons, drawing and calling back only. It does not drag the window nor hide the system's frame, which belong to the platform layer. `Labels` gains `window_minimize`, `window_maximize` and `window_restore`.
 - `ValueSlider`: a value in small, as "100% ▾", that opens a `Slider` in a popover with the keyboard in it; with `field` the number can be typed. `InlineRename`: a name that turns into a field by a double click, F2 or Enter; Enter and leaving confirm, Escape cancels. `TextField::select_on_open`. `Labels` gains `value_adjust`, `rename` and `rename_hint`.
 - `Chart`: under the pointer the other bars and slices fade, a slice comes forward, and the cursor and its dots glide between categories and fade out. `no_hover_focus` and `no_hover_motion` turn this off; less motion in the system does the same for the movement.

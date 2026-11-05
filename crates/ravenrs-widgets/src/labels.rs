@@ -75,6 +75,10 @@ pub struct Labels {
     pub panel_minimize: String,
     /// Brings back a reduced [`FloatingPanel`](crate::FloatingPanel).
     pub panel_restore: String,
+    /// The arrow of a [`ScrollEdgeArrow`](crate::ScrollEdgeArrow) toward the start.
+    pub scroll_back: String,
+    /// The arrow of a [`ScrollEdgeArrow`](crate::ScrollEdgeArrow) toward the end.
+    pub scroll_forward: String,
     /// The minimize button of a [`TitleBar`](crate::TitleBar).
     pub window_minimize: String,
     /// The maximize button of a [`TitleBar`](crate::TitleBar).
@@ -737,6 +741,8 @@ impl Default for Labels {
             wizard_done: "Done".into(),
             wizard_error: "Needs attention".into(),
             split_resize: "Resize".into(),
+            scroll_back: "Scroll back".into(),
+            scroll_forward: "Scroll forward".into(),
             window_minimize: "Minimize".into(),
             window_maximize: "Maximize".into(),
             window_restore: "Restore".into(),
@@ -1048,6 +1054,8 @@ impl Labels {
             wizard_done: "Concluída".into(),
             wizard_error: "Precisa de atenção".into(),
             split_resize: "Redimensionar".into(),
+            scroll_back: "Rolar para trás".into(),
+            scroll_forward: "Rolar para a frente".into(),
             window_minimize: "Minimizar".into(),
             window_maximize: "Maximizar".into(),
             window_restore: "Restaurar".into(),

@@ -538,3 +538,125 @@ fn title_bar_goes_quiet_when_the_window_has_no_keyboard() {
     assert_eq!(fill_of(&mut on), Some(ravenrs_core::Brush::Solid(theme.color(Semantic::Surface))));
     assert_eq!(fill_of(&mut off), Some(ravenrs_core::Brush::Solid(theme.color(Semantic::Canvas))));
 }
+
+// ScrollEdgeArrow
+
+fn tile(n: u32) -> impl View {
+    Button::new(format!("Item {n}")).frame(Some(100.0), Some(40.0))
+}
+
+/// 30 tiles of 100 with gaps of 8: 3132 of content in 800 of window.
+fn strip() -> ScrollEdgeArrow<Vec<AnyView>> {
+    let tiles: Vec<AnyView> = (0..30).map(|n| -> AnyView { Box::new(tile(n)) }).collect();
+    ScrollEdgeArrow::new(tiles)
+}
+
+const BACK: &str = "Scroll back";
+const FORWARD: &str = "Scroll forward";
+
+fn wheel(ui: &mut Ui, at: Point, delta: Point) {
+    ui.handle_event(&Event::Scroll { position: at, delta });
+    ui.update();
+    ui.update();
+}
+
+#[test]
+fn edge_arrows_show_only_where_there_is_more_to_scroll() {
+    let mut ui = ui(strip());
+    assert!(has(&mut ui, Role::Button, FORWARD), "more to the right from the first frame");
+    assert!(!has(&mut ui, Role::Button, BACK), "nothing to the left");
+    let at = bounds(&mut ui, Role::Button, "Item 1").center();
+    wheel(&mut ui, at, Point::new(-300.0, 0.0));
+    assert!(has(&mut ui, Role::Button, BACK), "the wheel moved it");
+    assert!(has(&mut ui, Role::Button, FORWARD));
+    wheel(&mut ui, at, Point::new(-90000.0, 0.0));
+    assert!(has(&mut ui, Role::Button, BACK));
+    assert!(!has(&mut ui, Role::Button, FORWARD), "the end");
+}
+
+#[test]
+fn edge_arrows_are_not_there_when_everything_fits() {
+    let tiles: Vec<AnyView> = (0..3).map(|n| -> AnyView { Box::new(tile(n)) }).collect();
+    let mut ui = ui(ScrollEdgeArrow::new(tiles));
+    assert!(!has(&mut ui, Role::Button, FORWARD));
+    assert!(!has(&mut ui, Role::Button, BACK));
+}
+
+#[test]
+fn edge_arrows_notice_when_the_content_or_the_window_changes() {
+    let many = State::new(false);
+    let shown = many.clone();
+    let view = view_fn(move || {
+        let count = if shown.get() { 30 } else { 3 };
+        let tiles: Vec<AnyView> = (0..count).map(|n| -> AnyView { Box::new(tile(n)) }).collect();
+        ScrollEdgeArrow::new(tiles)
+    });
+    let mut ui = ui(view);
+    assert!(!has(&mut ui, Role::Button, FORWARD));
+    many.set(true);
+    ui.update();
+    assert!(has(&mut ui, Role::Button, FORWARD), "new content, in the same update");
+    ui.set_viewport(Size::new(4000.0, 600.0), 1.0);
+    ui.update();
+    assert!(!has(&mut ui, Role::Button, FORWARD), "a window where everything fits");
+}
+
+#[test]
+fn edge_arrow_scrolls_most_of_a_screen_at_a_time_and_lies_over_the_end_of_the_strip() {
+    let mut ui = ui(strip());
+    let before = bounds(&mut ui, Role::Button, "Item 0");
+    let arrow = bounds(&mut ui, Role::Button, FORWARD);
+    assert_eq!(arrow.max_x(), 800.0);
+    assert_eq!(arrow.height(), 40.0, "as tall as the strip");
+    click(&mut ui, arrow.center());
+    let after = bounds(&mut ui, Role::Button, "Item 0");
+    assert_eq!(after.x() - before.x(), -640.0, "80% of the 800 of the window");
+    let back = bounds(&mut ui, Role::Button, BACK);
+    assert_eq!(back.x(), 0.0);
+    click(&mut ui, back.center());
+    assert_eq!(bounds(&mut ui, Role::Button, "Item 0").x(), before.x());
+    assert!(!has(&mut ui, Role::Button, BACK));
+}
+
+#[test]
+fn edge_arrow_fades_over_what_is_behind_it() {
+    let mut ui = ui(strip().fade(Semantic::Surface));
+    let arrow = bounds(&mut ui, Role::Button, FORWARD);
+    let quad = quads(&ui).into_iter().find(|q| q.rect == arrow).expect("the arrow paints");
+    let ravenrs_core::Brush::LinearGradient(gradient) = quad.fill else { panic!("{:?}", quad.fill) };
+    assert_eq!(gradient.from, Theme::raven_dark().color(Semantic::Surface));
+    assert_eq!(gradient.to.a, 0.0);
+    assert!(gradient.start.x > gradient.end.x, "solid at the edge of the strip");
+}
+
+#[test]
+fn edge_arrows_work_from_the_keyboard_and_the_keyboard_is_not_lost_at_the_end() {
+    let tiles: Vec<AnyView> = (0..12).map(|n| -> AnyView { Box::new(tile(n)) }).collect();
+    let mut ui = ui(ScrollEdgeArrow::new(tiles));
+    let arrow = bounds(&mut ui, Role::Button, FORWARD);
+    click(&mut ui, arrow.center());
+    assert!(!has(&mut ui, Role::Button, FORWARD), "12 tiles end within one step");
+    let tree = ui.access_tree();
+    assert_eq!(tree.focus, Some(named(&tree, Role::Button, BACK).id), "on the arrow that is left");
+    key(&mut ui, Key::Space);
+    assert!(!has(&mut ui, Role::Button, BACK), "and it answers the keyboard");
+    let tree = ui.access_tree();
+    assert_eq!(tree.focus, Some(named(&tree, Role::Button, FORWARD).id), "and back again");
+    key(&mut ui, Key::Enter);
+    assert!(has(&mut ui, Role::Button, BACK));
+}
+
+#[test]
+fn edge_arrows_can_go_up_and_down_and_speak_the_language() {
+    let tiles: Vec<AnyView> = (0..30).map(|n| -> AnyView { Box::new(tile(n)) }).collect();
+    let view = ScrollEdgeArrow::new(tiles).vertical().height(300.0);
+    let mut ui = ui(Localized::new(Labels::pt_br(), view));
+    assert!(!has(&mut ui, Role::Button, "Rolar para trás"));
+    let arrow = bounds(&mut ui, Role::Button, "Rolar para a frente");
+    assert_eq!(arrow.max_y(), 300.0);
+    assert_eq!(arrow.width(), 800.0);
+    let before = bounds(&mut ui, Role::Button, "Item 0");
+    click(&mut ui, arrow.center());
+    assert_eq!(bounds(&mut ui, Role::Button, "Item 0").y() - before.y(), -240.0);
+    assert!(has(&mut ui, Role::Button, "Rolar para trás"));
+}

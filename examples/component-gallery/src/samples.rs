@@ -53,7 +53,7 @@ samples! {
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
     "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
-    "FloatingToolbar" => floating_toolbar, "TitleBar" => title_bar, "ValueSlider" => value_slider, "InlineRename" => inline_rename,
+    "FloatingToolbar" => floating_toolbar, "TitleBar" => title_bar, "ScrollEdgeArrow" => scroll_edge_arrow, "ValueSlider" => value_slider, "InlineRename" => inline_rename,
     "ZStack" => z_stack, "PropertyRow" => property_row, "PageHeader" => page_header, "ButtonGroup" => button_group,
     "FavoriteToggle" => favorite_toggle, "SwatchGrid" => swatch_grid, "NinePointAnchor" => nine_point_anchor, "ColorPair" => color_pair,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
@@ -1623,6 +1623,24 @@ fn title_bar() -> impl View {
             .on_maximize(move || toggle.update(|on| *on = !*on))
             .on_close(|| {})
     })
+}
+// end
+
+// sample: ScrollEdgeArrow, 110
+fn scroll_edge_arrow() -> impl View {
+    let photos: Vec<AnyView> = (1..=24)
+        .map(|n| -> AnyView {
+            Box::new(
+                Text::new(format!("Photo {n}"))
+                    .style(TextStyle::Callout)
+                    .centered()
+                    .frame(Some(120.0), Some(72.0))
+                    .background(Semantic::Control)
+                    .corner_radius(6.0),
+            )
+        })
+        .collect();
+    ScrollEdgeArrow::new(photos).fade(Semantic::SurfaceElevated)
 }
 // end
 

@@ -1,8 +1,9 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use ravenrs_core::{Insets, Point, Quad, Rect, Role, Scene};
+use ravenrs_core::{CursorIcon, Insets, LinearGradient, Point, Quad, Rect, Role, Scene, Size};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
+use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
@@ -537,6 +538,231 @@ impl<C: ViewSeq> View for ScrollView<C> {
             cx.scroll_horizontally(node);
         }
         node
+    }
+}
+
+/// How long the fade of a [`ScrollEdgeArrow`] is, in logical pixels.
+const EDGE_ARROW_LENGTH: f32 = 40.0;
+/// The least an arrow of a [`ScrollEdgeArrow`] scrolls, in logical pixels.
+const EDGE_ARROW_LEAST_STEP: f32 = 200.0;
+
+/// A strip that scrolls, with an arrow over a fade at each end that has more to show. The
+/// arrow scrolls most of the strip at a time, and leaves when that end is reached.
+///
+/// The strip is horizontal unless [`ScrollEdgeArrow::vertical`]. Children keep their size
+/// when they have one, so give them a width: without it they share the room first, as in any
+/// row, down to what their content needs. Every scroll builds the strip again to know
+/// whether an arrow still applies, so what goes in should be cheap to build.
+///
+/// ```
+/// use ravenrs_widgets::{Button, ScrollEdgeArrow, Ui};
+///
+/// let photos: Vec<Button> = (1..=30).map(|n| Button::new(format!("Photo {n}"))).collect();
+/// let strip = ScrollEdgeArrow::new(photos).spacing(8.0);
+/// let mut ui = Ui::new(strip, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+pub struct ScrollEdgeArrow<C> {
+    children: C,
+    vertical: bool,
+    spacing: f32,
+    padding: Insets,
+    height: Option<f32>,
+    fade: Semantic,
+}
+
+impl<C> std::fmt::Debug for ScrollEdgeArrow<C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScrollEdgeArrow").field("vertical", &self.vertical).finish_non_exhaustive()
+    }
+}
+
+impl<C: ViewSeq> ScrollEdgeArrow<C> {
+    /// A horizontal strip of `children` (a tuple of up to 12 views or a `Vec`).
+    pub fn new(children: C) -> Self {
+        Self {
+            children,
+            vertical: false,
+            spacing: 8.0,
+            padding: Insets::default(),
+            height: None,
+            fade: Semantic::Canvas,
+        }
+    }
+
+    /// Scrolls up and down, taking the height its parent gives it.
+    pub fn vertical(mut self) -> Self {
+        self.vertical = true;
+        self
+    }
+
+    /// Gap between children, in logical pixels (default 8).
+    pub fn spacing(mut self, spacing: f32) -> Self {
+        self.spacing = spacing;
+        self
+    }
+
+    /// Inner padding in logical pixels.
+    pub fn padding(mut self, padding: impl Into<Insets>) -> Self {
+        self.padding = padding.into();
+        self
+    }
+
+    /// A fixed height. A horizontal strip takes the height of its children by default.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = Some(height);
+        self
+    }
+
+    /// The color the arrows fade from, which should be what is behind the strip
+    /// ([`Semantic::Canvas`] by default).
+    pub fn fade(mut self, fade: Semantic) -> Self {
+        self.fade = fade;
+        self
+    }
+}
+
+/// One arrow of a [`ScrollEdgeArrow`], which any view that scrolls by itself can also use.
+pub(crate) struct EdgeArrow {
+    /// At the end of the strip rather than at its start.
+    pub forward: bool,
+    pub vertical: bool,
+    /// Its frame inside its parent.
+    pub frame: Rect,
+    pub fade: Semantic,
+    pub label: String,
+    pub on_click: Rc<dyn Fn()>,
+}
+
+impl View for EdgeArrow {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let ink = theme.color(Semantic::Ink);
+        let color = if cx.is_hovered() { ink } else { ink.with_alpha(ink.a * 0.7) };
+        let icon_name = match (self.vertical, self.forward) {
+            (false, false) => IconName::ChevronLeft,
+            (false, true) => IconName::ChevronRight,
+            (true, false) => IconName::ChevronUp,
+            (true, true) => IconName::ChevronDown,
+        };
+        let icon = util::icon(cx, icon_name, 20.0, color);
+        let solid = if self.forward { 1.0 } else { 0.0 };
+        let (start, end) = if self.vertical {
+            (Point::new(0.5, solid), Point::new(0.5, 1.0 - solid))
+        } else {
+            (Point::new(solid, 0.5), Point::new(1.0 - solid, 0.5))
+        };
+        let from = theme.color(self.fade);
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((self.frame.x(), self.frame.y())),
+                width: Some(self.frame.width()),
+                height: Some(self.frame.height()),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[icon],
+            Paint::Quad(QuadPaint::new(LinearGradient { start, end, from, to: from.with_alpha(0.0) })),
+        );
+        cx.on_click(node, self.on_click.clone());
+        cx.semantics(node, Semantics::new(Role::Button).name(self.label.clone()));
+        cx.focusable(node, theme.radii.sm);
+        cx.cursor(node, CursorIcon::Pointer);
+        node
+    }
+}
+
+impl<C: ViewSeq> View for ScrollEdgeArrow<C> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let labels = cx.labels();
+        let vertical = self.vertical;
+        let along = move |size: Size| if vertical { size.height } else { size.width };
+        let view = cx.scroll_viewport().unwrap_or(Size::ZERO);
+        let content = cx.measured_content().unwrap_or(Size::ZERO);
+        let last = (along(content) - along(view)).max(0.0);
+        let offset = cx.scroll_offset();
+
+        // An arrow can only ask: a scroll happens during a build.
+        let wanted: State<Option<f32>> = cx.use_state(|| None);
+        let asked = wanted.get();
+        let here = asked.map_or(if vertical { offset.y } else { offset.x }, |to| to.clamp(0.0, last));
+        if asked.is_some() {
+            wanted.set(None);
+            cx.set_scroll_offset(if vertical {
+                Point::new(offset.x, here)
+            } else {
+                Point::new(here, offset.y)
+            });
+        }
+
+        let children = cx.children(&self.children);
+        let strip = cx.container(
+            LayoutStyle {
+                spacing: self.spacing,
+                padding: self.padding,
+                align: if vertical { Align::Stretch } else { Align::Center },
+                overflow_hidden: true,
+                grow: 1.0,
+                min_width: Some(0.0),
+                min_height: Some(0.0),
+                ..LayoutStyle::stack(if vertical { Axis::Vertical } else { Axis::Horizontal })
+            },
+            &children,
+            Paint::None,
+        );
+        // Rebuilt on every scroll, and told the size of what scrolls: that is what the arrows go by.
+        cx.scrollable_virtual(strip, !vertical);
+        cx.measure_content(strip);
+
+        let step = (along(view) * 0.8).max(EDGE_ARROW_LEAST_STEP);
+        let arrow = |forward: bool| {
+            let at_end = along(view) - EDGE_ARROW_LENGTH;
+            let frame = match (vertical, forward) {
+                (false, false) => Rect::new(0.0, 0.0, EDGE_ARROW_LENGTH, view.height),
+                (false, true) => Rect::new(at_end, 0.0, EDGE_ARROW_LENGTH, view.height),
+                (true, false) => Rect::new(0.0, 0.0, view.width, EDGE_ARROW_LENGTH),
+                (true, true) => Rect::new(0.0, at_end, view.width, EDGE_ARROW_LENGTH),
+            };
+            let label = if forward { &labels.scroll_forward } else { &labels.scroll_back };
+            let wanted = wanted.clone();
+            let target = if forward { here + step } else { here - step };
+            EdgeArrow {
+                forward,
+                vertical,
+                frame,
+                fade: self.fade,
+                label: label.clone(),
+                on_click: Rc::new(move || wanted.set(Some(target))),
+            }
+        };
+        let show_back = here > 0.5;
+        let show_forward = here < last - 0.5;
+        let mut nodes = vec![strip];
+        let back = show_back.then(|| cx.keyed_child(1, &arrow(false)));
+        let forward = show_forward.then(|| cx.keyed_child(2, &arrow(true)));
+        nodes.extend(back);
+        nodes.extend(forward);
+        // Going off the end takes away the arrow that had the keyboard: it moves to the other one.
+        if asked.is_some() {
+            match (back, forward) {
+                (Some(other), None) | (None, Some(other)) => cx.request_focus_node(other),
+                _ => {}
+            }
+        }
+        cx.container(
+            LayoutStyle {
+                height: self.height,
+                grow: if vertical && self.height.is_none() { 1.0 } else { 0.0 },
+                min_width: Some(0.0),
+                min_height: Some(0.0),
+                align: Align::Stretch,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &nodes,
+            Paint::None,
+        )
     }
 }
 
