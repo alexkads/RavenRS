@@ -816,3 +816,18 @@ fn a_barcode_says_what_it_encodes_right_before_its_drawing() {
         .unwrap_or_else(|| panic!("no mark in {items:?}"));
     assert!(matches!(items[at + 1], Item::Vector { .. }));
 }
+
+#[test]
+fn a_continuous_report_is_as_long_as_what_it_prints() {
+    use ravenrs_report::labels::receipt_page;
+    let report = Report::new("Cupom")
+        .page(receipt_page(72.0, 0.0))
+        .continuous()
+        .detail(Band::new(20.0).control(Control::field("[Name]").at(0.0, 0.0, 100.0, 20.0)));
+    let short = ReportEngine::new().render(&report, &label_rows(3));
+    assert_eq!(short.pages.len(), 1);
+    assert!((short.pages[0].height - 60.0).abs() < 0.5, "{}", short.pages[0].height);
+    let long = ReportEngine::new().render(&report, &label_rows(100));
+    assert_eq!(long.pages.len(), 1);
+    assert!((long.pages[0].height - 2000.0).abs() < 0.5, "{}", long.pages[0].height);
+}

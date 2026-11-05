@@ -59,6 +59,19 @@ impl LabelStock {
     }
 }
 
+/// A roll of receipt paper, in millimeters of what the printer can reach: 72 on the 80 mm roll, 48 on
+/// the 58 mm one. A report on it is as long as what it prints, up to about two meters.
+pub fn receipt_page(printable_width: f32, margin: f32) -> PageSettings {
+    PageSettings {
+        width: mm(printable_width),
+        height: mm(2000.0),
+        margin_top: mm(margin),
+        margin_bottom: mm(margin),
+        margin_left: mm(margin),
+        margin_right: mm(margin),
+    }
+}
+
 /// How labels sit on a sheet, in millimeters.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct SheetLayout {

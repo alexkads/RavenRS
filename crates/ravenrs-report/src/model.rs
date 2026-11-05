@@ -26,6 +26,9 @@ pub struct Report {
     pub page: PageSettings,
     /// Detail rows side by side, as on a sheet of labels.
     pub columns: Option<Columns>,
+    /// One long page as tall as what it prints, as on a roll of receipt paper. The height of
+    /// [`page`](Self::page) is the most it can reach.
+    pub continuous: bool,
     /// Culture for numbers and dates, such as `pt-BR` or `en-US`.
     pub culture: String,
     /// Where the data comes from, saved with the layout. The engine renders
@@ -824,6 +827,12 @@ impl Report {
     /// The report as indented JSON.
     pub fn to_json(&self) -> String {
         serde_json::to_string_pretty(self).unwrap_or_default()
+    }
+
+    /// Prints on one long page as tall as what it prints, as on a roll of receipt paper.
+    pub fn continuous(mut self) -> Self {
+        self.continuous = true;
+        self
     }
 
     /// Flows the detail rows in columns.

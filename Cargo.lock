@@ -4913,6 +4913,7 @@ dependencies = [
  "ravenrs-report",
  "ravenrs-report-designer",
  "ravenrs-report-export",
+ "ravenrs-report-label",
  "ravenrs-report-viewer",
  "ravenrs-style",
  "ravenrs-widgets",

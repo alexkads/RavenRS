@@ -1,0 +1,39 @@
+[package]
+name = "ravenrs-nfe"
+description = "BETA, proof of concept: NF-e/NFC-e engine for RavenRS with a SEFAZ sandbox. Not homologated, blocks production, must not issue real fiscal documents."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-nfe"
+keywords = ["nfe", "nfce", "sefaz", "xmldsig", "brazil"]
+categories = ["encoding"]
+include = ["src/**", "fixtures/sandbox-*.pem", "README.md", "REGRAS.md", "Cargo.toml"]
+
+[features]
+# Real network: HttpTransport with a client certificate. Only exists on native targets.
+http = ["dep:ureq", "dep:p12-keystore", "dep:zeroize"]
+
+[dependencies]
+ravenrs-barcode.workspace = true
+quick-xml = { version = "0.41", default-features = false }
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
+sha1 = { version = "0.10", default-features = false, features = ["std", "oid"] }
+# Without "std": it would bring a random source that WebAssembly does not have, and signing needs none.
+rsa = { version = "0.9", default-features = false, features = ["pem", "sha1"] }
+base64 = "0.23"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = { version = "3.5", default-features = false, features = ["rustls"], optional = true }
+p12-keystore = { version = "0.4", optional = true }
+zeroize = { version = "1", optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+
+[lints]
+workspace = true

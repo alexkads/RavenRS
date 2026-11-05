@@ -1268,9 +1268,14 @@ impl<'r> Run<'r> {
                 }
                 let footer_end = chrome.len();
                 chrome.append(&mut items);
+                let height = if report.continuous {
+                    (lowest_of(&chrome) + page.margin_bottom).clamp(1.0, page.height)
+                } else {
+                    page.height
+                };
                 Page {
                     width: page.width,
-                    height: page.height,
+                    height,
                     items: chrome,
                     page_header: 0..header_end,
                     page_footer: header_end..footer_end,
@@ -1419,6 +1424,20 @@ fn filter_and_sort(
         kept = keyed.into_iter().map(|(_, r)| r).collect();
     }
     kept.into_iter().cloned().collect()
+}
+
+/// How far down what is printed goes.
+fn lowest_of(items: &[Item]) -> f32 {
+    items
+        .iter()
+        .map(|item| match item {
+            Item::Rect { rect, .. } | Item::Ellipse { rect, .. } | Item::Vector { rect, .. } => rect.max_y(),
+            Item::Line { from, to, .. } => from.y.max(to.y),
+            Item::Text(text) => text.clip.max_y(),
+            Item::Image { clip, .. } => clip.max_y(),
+            Item::Link { .. } | Item::Bookmark { .. } | Item::BarcodeMark { .. } => 0.0,
+        })
+        .fold(0.0, f32::max)
 }
 
 fn translate(item: &Item, by: Point) -> Item {
