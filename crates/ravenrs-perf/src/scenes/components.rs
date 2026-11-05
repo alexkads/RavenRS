@@ -1,6 +1,6 @@
 //! The components that carry the most weight, each at its worst realistic case.
 
-use ravenrs_core::{Color, Event, ImageData, Point, PointerButton, Size};
+use ravenrs_core::{Color, Event, ImageData, Point, PointerButton, Rect, Size};
 use ravenrs_layout::Align;
 use ravenrs_reactive::State;
 use ravenrs_widgets::grid::{GridColumn, GridData, Summary, Value};
@@ -291,12 +291,75 @@ fn image_tools(interaction: &str) -> Setup {
     Setup { root: Box::new(HStack::new((panel, stage)).grow(1.0)), step }
 }
 
+/// What is drawn over a picture, each dragged alone: nothing but the paint may run, except a
+/// protractor, which writes its value as it goes. Idle and hover see them all together.
+fn picture_overlays(interaction: &str) -> Setup {
+    let picture = |seed: f32| {
+        ImageData::from_fn(1024, 640, |x, y| Color::rgb(x as f32 / 1024.0, y as f32 / 640.0, seed))
+    };
+    let (Some(first), Some(second)) = (picture(0.3), picture(0.6)) else { panic!("valid images") };
+    let area = Rect::new(200.0, 120.0, 500.0, 300.0);
+    let stage = || Image::new(first.clone()).size(1024.0, 640.0);
+    let (from, to) = (Point::new(300.0, 200.0), Point::new(360.0, 250.0));
+    let selection = State::new(Some(area));
+    let band = RubberBand::new(selection.binding());
+    let held = State::new(BoxTransform::new(area).rotated(12.0));
+    let handles = TransformHandles::new(held.binding());
+    let cropped = State::new(CropArea::new(area).rotated(-6.0));
+    let crop = CropOverlay::new(cropped.binding());
+    let angle = State::new(5.0_f32);
+    let dial = Protractor::new(angle.binding());
+    let compare = CompareView::new(first.clone(), second.clone()).mode(CompareMode::Divider);
+    let (root, step): (AnyView, Step) = match interaction {
+        "band" => (Box::new(band.stage(stage())), dragging(from, to)),
+        "handles" => (Box::new(handles.stage(stage())), dragging(from, to)),
+        "crop" => (Box::new(crop.stage(stage())), dragging(from, to)),
+        "divider" => (Box::new(compare), dragging(from, to)),
+        "protractor" => (Box::new(dial), dragging(Point::new(60.0, 20.0), Point::new(200.0, 20.0))),
+        other => {
+            let all = ZStack::new((
+                stage(),
+                RuleOfThirdsGrid::new().size(1024.0, 640.0),
+                Marquee::rect(area).animated(false).size(1024.0, 640.0),
+                handles.size(1024.0, 640.0),
+            ));
+            (Box::new(VStack::new((all, dial)).spacing(8.0)), common(other, from, Point::new(900.0, 600.0)))
+        }
+    };
+    Setup { root, step }
+}
+
+/// The dashes around a selection walk on their own, without a build.
+fn marquee(_: &str) -> Setup {
+    let root = Marquee::rect(Rect::new(100.0, 100.0, 800.0, 500.0));
+    Setup { root: Box::new(root), step: nothing() }
+}
+
 /// A pan paints a textured rectangle: nothing else on it may run.
 const ZOOM_PAN: &[Ceiling] = &[
     ceiling("*", "instances", 20),
     ceiling("pan", "builds", 0),
     ceiling("pan", "layouts", 0),
     ceiling("pan", "shapes", 0),
+    ceiling("idle", "frames", 0),
+];
+/// A box, its handles and a few lines cost a handful of quads and paths. With all of them on
+/// screen, the dashes of a marquee are most of it.
+const PICTURE_OVERLAYS: &[Ceiling] = &[
+    ceiling("*", "instances", 300),
+    ceiling("band", "builds", 0),
+    ceiling("band", "layouts", 0),
+    ceiling("band", "shapes", 0),
+    ceiling("handles", "builds", 0),
+    ceiling("handles", "layouts", 0),
+    ceiling("handles", "shapes", 0),
+    ceiling("crop", "builds", 0),
+    ceiling("crop", "layouts", 0),
+    ceiling("crop", "shapes", 0),
+    ceiling("divider", "builds", 0),
+    ceiling("divider", "layouts", 0),
+    ceiling("divider", "shapes", 0),
+    ceiling("protractor", "builds", 1),
     ceiling("idle", "frames", 0),
 ];
 /// Three channels of 256 bins, twice, a curve and the rest: one rebuild per step of a drag,
@@ -379,6 +442,22 @@ pub(super) fn scenes() -> Vec<PerfScene> {
             image_tools,
             IMAGE_TOOLS,
         ),
+        scene(
+            "picture-overlays",
+            &[
+                "RubberBand",
+                "TransformHandles",
+                "CropOverlay",
+                "Protractor",
+                "CompareView",
+                "RuleOfThirdsGrid",
+            ],
+            Class::Static,
+            &["band", "handles", "crop", "divider", "protractor", "hover", "idle", "resize"],
+            picture_overlays,
+            PICTURE_OVERLAYS,
+        ),
+        scene("marquee", &["Marquee"], Class::Animated, &["animate"], marquee, ANIMATED),
         scene("images", &["Image", "Grid"], Class::Static, &["hover", "scroll", "idle"], images, STILL),
         scene(
             "calculator",
