@@ -806,8 +806,9 @@ fn a_footer_in_columns_goes_under_the_whole_line() {
 #[test]
 fn a_barcode_says_what_it_encodes_right_before_its_drawing() {
     use ravenrs_report::barcode::Symbology;
-    let report = Report::new("Code")
-        .detail(Band::new(60.0).control(Control::barcode(Symbology::Ean13, "[Code]").at(0.0, 0.0, 200.0, 60.0)));
+    let report = Report::new("Code").detail(
+        Band::new(60.0).control(Control::barcode(Symbology::Ean13, "[Code]").at(0.0, 0.0, 200.0, 60.0)),
+    );
     let document = ReportEngine::new().render(&report, &serde_json::json!([{ "Code": "4006381333931" }]));
     let items = &document.pages[0].items;
     let at = items

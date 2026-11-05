@@ -165,7 +165,9 @@ pub fn shelf_label(stock: &LabelStock, name: impl Into<String>, fields: &ShelfLa
                 .at(inset, inset + description, inner, price)
                 .fixed_height()
                 .format(&fields.price_format)
-                .style(Style::new().font_size((price * 0.72).clamp(9.0, 40.0)).bold().align(TextAlign::Right)),
+                .style(
+                    Style::new().font_size((price * 0.72).clamp(9.0, 40.0)).bold().align(TextAlign::Right),
+                ),
         )
         .control(
             Control::barcode(fields.symbology, fields.barcode.clone())

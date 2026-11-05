@@ -141,7 +141,7 @@ struct Pace {
 }
 
 impl Pace {
-    fn from_reader(&self) -> bool {
+    fn is_a_scanner(&self) -> bool {
         self.length >= 4 && (self.last - self.first) / (self.length - 1) as f64 <= SCANNER_GAP
     }
 }
@@ -171,7 +171,7 @@ impl View for ScanField {
             .disabled(self.disabled)
             .on_submit(move |value: String| {
                 let code = value.trim().to_owned();
-                let from_reader = pace_now.peek().from_reader();
+                let from_reader = pace_now.peek().is_a_scanner();
                 clear.set(String::new());
                 pace_now.set(Pace::default());
                 if !code.is_empty() {
@@ -189,10 +189,10 @@ mod tests {
     #[test]
     fn the_pace_of_a_scanner_is_told_from_fingers() {
         let scanner = Pace { length: 13, first: 1.0, last: 1.2 };
-        assert!(scanner.from_reader());
+        assert!(scanner.is_a_scanner());
         let fingers = Pace { length: 13, first: 1.0, last: 4.0 };
-        assert!(!fingers.from_reader());
+        assert!(!fingers.is_a_scanner());
         let too_short = Pace { length: 2, first: 1.0, last: 1.01 };
-        assert!(!too_short.from_reader());
+        assert!(!too_short.is_a_scanner());
     }
 }

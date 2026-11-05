@@ -6,6 +6,7 @@
 
 use std::collections::BTreeSet;
 
+use ravenrs::core::Key;
 use ravenrs::layout::{Axis, LayoutStyle};
 use ravenrs::prelude::*;
 
@@ -54,7 +55,7 @@ samples! {
     "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "RichText" => rich_text, "AttachmentStrip" => attachment_strip, "AudioPlayerButton" => audio_player_button, "SelectionBar" => selection_bar, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
-    "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
+    "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar, "KeyBar" => key_bar, "ScanField" => scan_field,
     "FloatingToolbar" => floating_toolbar, "TitleBar" => title_bar, "DropZone" => drop_zone, "ScrollEdgeArrow" => scroll_edge_arrow, "ValueSlider" => value_slider, "InlineRename" => inline_rename,
     "ZStack" => z_stack, "PropertyRow" => property_row, "PageHeader" => page_header, "ButtonGroup" => button_group,
     "FavoriteToggle" => favorite_toggle, "SwatchGrid" => swatch_grid, "NinePointAnchor" => nine_point_anchor, "ColorPair" => color_pair,
@@ -2285,6 +2286,40 @@ fn shortcut_hint_bar() -> impl View {
         .hint(["←", "→"], "move")
         .hint(["1", "5"], "rate")
         .hint(["P"], "pick")
+}
+// end
+
+// sample: KeyBar, 80
+fn key_bar() -> impl View {
+    let paid = State::new(0);
+    let on_key = paid.clone();
+    VStack::new((
+        KeyBar::new()
+            .item(KeyBarItem::new(Hotkey::key(Key::Function(1)), "Help", || {}))
+            .item(KeyBarItem::new(Hotkey::key(Key::Function(6)), "Remove item", || {}).disabled(true))
+            .item(
+                KeyBarItem::new(Hotkey::key(Key::Function(9)), "Pay", move || on_key.update(|n| *n += 1))
+                    .primary(),
+            ),
+        Text::bound(&paid, |n| format!("Paid {n} times")),
+    ))
+    .spacing(8.0)
+}
+// end
+
+// sample: ScanField, 100
+fn scan_field() -> impl View {
+    let last = State::new(String::new());
+    let on_scan = last.clone();
+    VStack::new((
+        ScanField::new(move |scan: Scan| {
+            let source = if scan.from_reader { "a scanner" } else { "the keyboard" };
+            on_scan.set(format!("{} from {source}", scan.text));
+        })
+        .placeholder("Scan or type a code and press Enter"),
+        Text::bound(&last, Clone::clone).foreground(Semantic::InkMuted),
+    ))
+    .spacing(8.0)
 }
 // end
 

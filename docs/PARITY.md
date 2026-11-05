@@ -186,6 +186,8 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Carousel / Scroll view | ✓ | ✓ | ✓ | ✅ `Carousel` |
 | Kbd | ✓ | | | ✅ takes the color of what it is in, on request |
 | List of shortcuts | | | | ✅ `ShortcutSheet`, `ShortcutHintBar`, over `Kbd` and `Dialog` |
+| Bar of function keys, as on a point of sale | | | | ✅ `KeyBar`: F keys or Alt and a letter that work wherever the focus is, with disabled and primary keys |
+| Field for a barcode scanner | | | | ✅ `ScanField`: keeps the focus, tells a scanner from typing by the pace and empties after each code. Not tried with a physical scanner |
 | Empty state | ✓ | | | ✅ `EmptyState`, over `IconTile` |
 | Status dot, badge on a corner | | | ✓ | ✅ `Dot`, `OverlayBadge` |
 | Banner, stacked meters, text with a shine | | | | ✅ `HeroBanner`, `MultiProgress`, `ShimmerText` (still with reduced motion) |

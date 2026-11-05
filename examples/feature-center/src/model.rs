@@ -1,10 +1,12 @@
 //! The demonstrations, one small entity each, grouped by what they show.
 
+use ravenrs_app::BusinessObject;
 use ravenrs_app::{
     AppearanceRule, AppearanceTarget, DataAccess, EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter,
     Reminder, Rule, StateMachine, Tint, ViewVariant,
 };
 use ravenrs_app_ui::{CALENDAR_EDITOR, CHART_EDITOR, SCHEDULER_EDITOR, TREE_EDITOR};
+use rust_decimal::Decimal;
 
 /// The groups of the navigation, in the order they show.
 const VALIDATION: &str = "Validação";
@@ -16,6 +18,10 @@ const RELATIONS: &str = "Relações";
 const PROCESSES: &str = "Estados e lembretes";
 const SECURITY: &str = "Segurança";
 const AUDIT: &str = "Auditoria";
+const COUNTER: &str = "Balcão";
+
+/// The control that shows [`crate::actions::counter_app`] inside the center.
+pub const COUNTER_WINDOW: &str = "CounterWindow";
 
 /// What tells a demonstration apart in the navigation.
 fn icon_of(name: &str) -> &'static str {
@@ -40,6 +46,7 @@ fn icon_of(name: &str) -> &'static str {
         "AuditCreation" => "file-text",
         "AuditFields" => "shapes",
         "AuditOwner" => "layers",
+        "StoreSettings" => "settings",
         _ => "file",
     }
 }
@@ -163,7 +170,7 @@ fn all_editors() -> EntityInfo {
         "Todos os tipos",
         EDITORS,
         "Um campo de cada tipo, cada um com o seu controle: texto, texto longo, número, decimal, dinheiro, data, data e hora, booleano, opções, \
-         várias opções, cor, imagem, arquivo, critério, máscara, valores prontos, barra de progresso e formato próprio, com grupos com título.",
+         várias opções, cor, imagem, arquivo, critério, máscara, valores prontos, barra de progresso, formato próprio e GTIN que confere o dígito verificador, com grupos com título.",
     )
     .field(title())
     .field(FieldInfo::new("long_text", FieldKind::LongText).caption("Texto longo"))
@@ -186,6 +193,7 @@ fn all_editors() -> EntityInfo {
     .field(FieldInfo::new("rate", FieldKind::Decimal(2)).caption("Formato próprio").display_format("{:.2} %").group("Formatos"))
     .field(FieldInfo::new("twice", FieldKind::Integer).caption("Calculado, o dobro").calculated("[whole] * 2").group("Formatos"))
     .field(FieldInfo::new("code", FieldKind::Guid).caption("GUID").read_only())
+    .field(text("gtin", "Código de barras (GTIN)").editor("Gtin").group("Formatos"))
 }
 
 fn plan() -> EntityInfo {
@@ -391,6 +399,37 @@ fn audits() -> Vec<EntityInfo> {
     ]
 }
 
+/// A record that is one of a kind: going to it opens its form, with no list.
+fn store_settings() -> EntityInfo {
+    demo(
+        "StoreSettings",
+        "Dados da loja",
+        COUNTER,
+        "Registro único: a navegação abre direto o formulário, sem lista. Se ainda não existe, abre um novo.",
+    )
+    .singleton()
+    .field(title())
+    .field(text("phone", "Telefone").edit_mask("(00) 00000-0000"))
+}
+
+/// What the counter window sells. The price is a `Decimal`, kept and added up with no cent lost.
+#[derive(Debug, BusinessObject)]
+#[object(caption = "Produtos do caixa", navigation = "Caixa", icon = "shopping-cart")]
+pub struct CounterProduct {
+    /// What it is known by.
+    #[field(key)]
+    pub id: i64,
+    /// What it is called.
+    #[field(caption = "Descrição", default_property)]
+    pub name: String,
+    /// What a scanner reads, with its check digit checked while typing.
+    #[field(caption = "Código de barras (GTIN)", editor = "Gtin")]
+    pub gtin: String,
+    /// What it costs.
+    #[field(caption = "Preço", decimals = 2)]
+    pub price: Decimal,
+}
+
 fn custom_fields() -> EntityInfo {
     demo(
         "CustomFieldsDemo",
@@ -430,5 +469,6 @@ pub fn entities() -> Vec<EntityInfo> {
     all.push(reminders());
     all.push(secured());
     all.extend(audits());
+    all.push(store_settings());
     all
 }

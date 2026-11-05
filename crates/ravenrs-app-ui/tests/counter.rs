@@ -94,11 +94,9 @@ impl World {
     }
 
     fn says(&mut self, text: &str) -> bool {
-        self.ui
-            .access_tree()
-            .nodes
-            .iter()
-            .any(|n| n.name.as_deref().is_some_and(|name| name.contains(text)) || n.value.as_deref() == Some(text))
+        self.ui.access_tree().nodes.iter().any(|n| {
+            n.name.as_deref().is_some_and(|name| name.contains(text)) || n.value.as_deref() == Some(text)
+        })
     }
 
     fn key(&mut self, key: Key, modifiers: Modifiers) {

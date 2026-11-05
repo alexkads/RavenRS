@@ -15,9 +15,12 @@ use ravenrs_style::{TextStyle, Theme};
 use ravenrs_widgets::{AnyView, Button, Text, TextField, VStack, ViewExt};
 
 use crate::caixa::{Caixa, configuracao};
-use crate::etiquetas::TelaEtiquetas;
 use crate::entrada::{Entradas, TelaEntrada, criar_codigo_de_barras};
-use crate::modelo::{PRODUTO, cliente_entity, codigo_entity, configuracao_entity, movimento_entity, produto_entity, vinculo_entity};
+use crate::etiquetas::TelaEtiquetas;
+use crate::modelo::{
+    PRODUTO, cliente_entity, codigo_entity, configuracao_entity, movimento_entity, produto_entity,
+    vinculo_entity,
+};
 use crate::preco::TelaPreco;
 use crate::telas::{TelaCaixa, TelaInicio};
 
@@ -49,12 +52,15 @@ fn perguntar(
         let (read, write) = (valor.clone(), valor.clone());
         let (responder, fechar) = (responder.clone(), fechar.clone());
         Box::new(
-            TextField::new(ravenrs_reactive::Binding::new(move || read.get(), move |text: String| write.set(text)))
-                .autofocus()
-                .on_submit(move |text: String| {
-                    responder(text.trim().to_owned());
-                    fechar.close_presented();
-                }),
+            TextField::new(ravenrs_reactive::Binding::new(
+                move || read.get(),
+                move |text: String| write.set(text),
+            ))
+            .autofocus()
+            .on_submit(move |text: String| {
+                responder(text.trim().to_owned());
+                fechar.close_presented();
+            }),
         ) as AnyView
     });
 }
@@ -97,26 +103,30 @@ impl WindowController for Sempre {
     fn actions(&self) -> Vec<Action> {
         let caixa = self.caixa.clone();
         vec![
-            Action::simple("Pos.Atalhos", "Atalhos").hotkey("f1").category(ActionCategory::View).on_execute(|cx| {
-                sessao(cx)?.show_shortcuts();
-                Ok(())
-            }),
-            Action::simple("Pos.Voltar", "Início").hotkey("esc").category(ActionCategory::Navigation).on_execute(
-                move |cx| {
+            Action::simple("Pos.Atalhos", "Atalhos").hotkey("f1").category(ActionCategory::View).on_execute(
+                |cx| {
+                    sessao(cx)?.show_shortcuts();
+                    Ok(())
+                },
+            ),
+            Action::simple("Pos.Voltar", "Início")
+                .hotkey("esc")
+                .category(ActionCategory::Navigation)
+                .on_execute(move |cx| {
                     if !caixa.voltar() {
                         sessao(cx)?.open_view(VIEW_INICIO);
                     }
                     Ok(())
-                },
-            ),
-            Action::simple("Pos.Bloquear", "Bloquear").hotkey("f12").category(ActionCategory::View).on_execute(
-                |cx| {
+                }),
+            Action::simple("Pos.Bloquear", "Bloquear")
+                .hotkey("f12")
+                .category(ActionCategory::View)
+                .on_execute(|cx| {
                     let session = sessao(cx)?;
                     let pin = configuracao(&session, "pin");
                     session.lock("Caixa bloqueado. Digite o PIN.", move |typed| typed == pin);
                     Ok(())
-                },
-            ),
+                }),
         ]
     }
 }
@@ -142,10 +152,12 @@ impl ViewController for NoInicio {
             ir("Pos.Etiquetas", "Etiquetas", "f4", VIEW_ETIQUETAS),
             ir("Pos.Entrada", "Entrada", "f6", VIEW_ENTRADA),
             ir("Pos.Preco", "Preços", "f7", VIEW_PRECO),
-            Action::simple("Pos.Outras", "Outras funções").hotkey("f5").target_view(VIEW_INICIO).on_execute(|cx| {
-                abrir_outras_funcoes(&sessao(cx)?);
-                Ok(())
-            }),
+            Action::simple("Pos.Outras", "Outras funções").hotkey("f5").target_view(VIEW_INICIO).on_execute(
+                |cx| {
+                    abrir_outras_funcoes(&sessao(cx)?);
+                    Ok(())
+                },
+            ),
         ]
     }
 }
@@ -167,7 +179,8 @@ impl ViewController for NosProdutos {
                     let session = sessao(cx)?;
                     let produto = cx.selected.first().ok_or("Selecione um produto.")?;
                     let codigo = criar_codigo_de_barras(&session, &produto.get("id"))?;
-                    session.show_message(Message::new(format!("Código {codigo} criado."), MessageKind::Success));
+                    session
+                        .show_message(Message::new(format!("Código {codigo} criado."), MessageKind::Success));
                     Ok(())
                 }),
         ]
@@ -223,7 +236,9 @@ impl ViewController for NoCaixa {
                 let atual = nota.carrinho.peek().observacao.clone().unwrap_or_default();
                 let caixa = nota.clone();
                 perguntar(&session, "Observação do documento", atual, move |texto| {
-                    caixa.carrinho.update(|carrinho| carrinho.observacao = (!texto.is_empty()).then_some(texto));
+                    caixa
+                        .carrinho
+                        .update(|carrinho| carrinho.observacao = (!texto.is_empty()).then_some(texto));
                 });
                 Ok(())
             }),
@@ -361,8 +376,11 @@ impl Pos {
     /// Adds it all to an application: the records, the screens, the look of a counter and a window
     /// that opens on its first screen.
     pub fn instalar(&self, app: App) -> App {
-        let mut relatorios =
-            StoredReportsModule::new(ReportWords::pt_br()).predefined("Gôndola 60 x 40 mm", PRODUTO, etiqueta_padrao());
+        let mut relatorios = StoredReportsModule::new(ReportWords::pt_br()).predefined(
+            "Gôndola 60 x 40 mm",
+            PRODUTO,
+            etiqueta_padrao(),
+        );
         for (nome, modelo) in modelos_de_cupom().into_iter().chain(modelos_de_danfe()) {
             relatorios = relatorios.predefined(nome, CUPOM_LINHA, modelo);
         }
@@ -389,18 +407,24 @@ impl Pos {
                 });
                 let (aqui, caixa_aqui) = (session.clone(), caixa.clone());
                 session.register_control("pos.caixa", move || {
-                    Box::new(TelaCaixa { caixa: caixa_aqui.clone(), session: aqui.clone() }.grow(1.0)) as AnyView
+                    Box::new(TelaCaixa { caixa: caixa_aqui.clone(), session: aqui.clone() }.grow(1.0))
+                        as AnyView
                 });
                 let (aqui, copias) = (session.clone(), entradas.etiquetas.clone());
                 session.register_control("pos.etiquetas", move || {
                     Box::new(
-                        TelaEtiquetas { session: aqui.clone(), palavras: palavras.clone(), copias: copias.clone() }
-                            .grow(1.0),
+                        TelaEtiquetas {
+                            session: aqui.clone(),
+                            palavras: palavras.clone(),
+                            copias: copias.clone(),
+                        }
+                        .grow(1.0),
                     ) as AnyView
                 });
                 let (aqui, entradas_aqui) = (session.clone(), entradas.clone());
                 session.register_control("pos.entrada", move || {
-                    Box::new(TelaEntrada { entradas: entradas_aqui.clone(), session: aqui.clone() }.grow(1.0)) as AnyView
+                    Box::new(TelaEntrada { entradas: entradas_aqui.clone(), session: aqui.clone() }.grow(1.0))
+                        as AnyView
                 });
                 let aqui = session.clone();
                 session.register_control("pos.preco", move || {

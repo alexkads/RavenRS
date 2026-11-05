@@ -8,8 +8,8 @@ use ravenrs_pos::{Composicao, Formacao, arredondar_preco, ler_valor, valor_em_te
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
-    Alert, AnyView, BuildCx, Button, ButtonStyle, Card, FormField, Grid, HStack, NodeId, ScrollView, Select, Spacer,
-    Text, TextField, Tone, VStack, View, ViewExt,
+    Alert, AnyView, BuildCx, Button, ButtonStyle, Card, FormField, Grid, HStack, NodeId, ScrollView, Select,
+    Spacer, Text, TextField, Tone, VStack, View, ViewExt,
 };
 use rust_decimal::Decimal;
 
@@ -122,7 +122,10 @@ impl View for TelaPreco {
             frete: "0,00".to_owned(),
             outros: "0,00".to_owned(),
             impostos: configuracao_decimal(session, "impostos").normalize().to_string().replace('.', ","),
-            custos_fixos: configuracao_decimal(session, "custos_fixos").normalize().to_string().replace('.', ","),
+            custos_fixos: configuracao_decimal(session, "custos_fixos")
+                .normalize()
+                .to_string()
+                .replace('.', ","),
             comissao: configuracao_decimal(session, "comissao").normalize().to_string().replace('.', ","),
             margem: configuracao_decimal(session, "margem").normalize().to_string().replace('.', ","),
             ..Campos::default()
@@ -131,7 +134,8 @@ impl View for TelaPreco {
         let mut produtos = space.borrow().query(PRODUTO, &Query::all()).unwrap_or_default();
         produtos.sort_by_key(|produto| texto(produto, "descricao"));
         let atual = campos.with(|all| all.produto.clone());
-        let posicao = produtos.iter().position(|produto| Some(texto(produto, "codigo")) == atual).unwrap_or(0);
+        let posicao =
+            produtos.iter().position(|produto| Some(texto(produto, "codigo")) == atual).unwrap_or(0);
         let produto: Option<Object> = produtos.get(posicao).cloned();
 
         let (read, write) = (posicao, campos.clone());
@@ -150,7 +154,8 @@ impl View for TelaPreco {
             produtos.iter().map(|produto| texto(produto, "descricao")).collect::<Vec<_>>(),
         )
         .label("Produto");
-        let custo = produto.as_ref().map_or(Decimal::ZERO, |produto| Decimal::from_value(produto.get("custo")));
+        let custo =
+            produto.as_ref().map_or(Decimal::ZERO, |produto| Decimal::from_value(produto.get("custo")));
         let preco_atual = produto.as_ref().map_or(Decimal::ZERO, |produto| match produto.get("preco") {
             Value::Number(centavos) => Decimal::new(centavos.round() as i64, 2),
             _ => Decimal::ZERO,
@@ -185,7 +190,8 @@ impl View for TelaPreco {
                 direita.push(quadro("Preço calculado", formacao));
                 let gondola = composicao.para_o_preco(sugerido);
                 direita.push(quadro("Com o final de gôndola", &gondola));
-                let (session, codigo, campos_salvar) = (session.clone(), produto.as_ref().map(|p| p.get("id")), sugerido);
+                let (session, codigo, campos_salvar) =
+                    (session.clone(), produto.as_ref().map(|p| p.get("id")), sugerido);
                 direita.push(Box::new(
                     Button::new(format!("Aplicar R$ {} ao produto", valor_em_texto(campos_salvar)))
                         .style(ButtonStyle::Primary)
@@ -197,14 +203,17 @@ impl View for TelaPreco {
                         }),
                 ));
             }
-            Err(why) => direita.push(Box::new(Alert::new("Não dá para calcular", why.clone()).tone(Tone::Warning))),
+            Err(why) => {
+                direita.push(Box::new(Alert::new("Não dá para calcular", why.clone()).tone(Tone::Warning)))
+            }
         }
         if let Some(digitado) = ler_valor(&valores.preco_digitado).filter(|preco| *preco > Decimal::ZERO) {
             let formacao = composicao.para_o_preco(digitado);
             direita.push(quadro("No preço testado", &formacao));
             if formacao.lucro < Decimal::ZERO {
                 direita.push(Box::new(
-                    Alert::new("Prejuízo", "Esse preço não cobre os custos e os impostos.").tone(Tone::Danger),
+                    Alert::new("Prejuízo", "Esse preço não cobre os custos e os impostos.")
+                        .tone(Tone::Danger),
                 ));
             }
         }
@@ -213,7 +222,7 @@ impl View for TelaPreco {
                 Box::new(VStack::new(esquerda).spacing(12.0).align(Align::Stretch).width(460.0)) as AnyView,
                 Box::new(
                     ScrollView::new(vec![
-                        Box::new(VStack::new(direita).spacing(12.0).align(Align::Stretch)) as AnyView,
+                        Box::new(VStack::new(direita).spacing(12.0).align(Align::Stretch)) as AnyView
                     ])
                     .grow(1.0),
                 ),
@@ -244,7 +253,9 @@ pub(crate) fn aplicar_preco(session: &Session, id: &Value, preco: Decimal) {
     drop(space);
     session.records_changed();
     session.show_message(match result {
-        Ok(()) => Message::new(format!("Preço de R$ {} aplicado.", valor_em_texto(preco)), MessageKind::Success),
+        Ok(()) => {
+            Message::new(format!("Preço de R$ {} aplicado.", valor_em_texto(preco)), MessageKind::Success)
+        }
         Err(error) => Message::new(error.to_string(), MessageKind::Error),
     });
 }

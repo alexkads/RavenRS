@@ -4,6 +4,43 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+
+- `Modifiers` has a new public field, `base_key`, the letter of the key while Alt composes another character. A literal without `..Modifiers::default()` stops compiling.
+- `Key` has a new variant, `Key::Function`. `Key` was already `#[non_exhaustive]`, so a `match` still compiles, but F1 to F24 no longer arrive the way they did.
+- `Hotkey` can now carry Alt, through `Hotkey::alt`, and its `label` says so. Code that only builds hotkeys does not change.
+- `ravenrs_graphics::barcode::Pattern` moved to `ravenrs-barcode`, and is re-exported where it was. It is no longer `#[non_exhaustive]`.
+- `Item` in `ravenrs-report` has new variants, `Item::BarcodeMark` and `Item::PrinterCommand`, which print nothing. `Item` was already `#[non_exhaustive]`; an exporter of your own should pass over them.
+- `Report` has new public fields, `columns`, `continuous` and `printer`, and `ControlKind` has `ControlKind::PrinterCommand`. A `Report` literal without `..Report::default()` stops compiling.
+- `TemplateParts` has new fields, `notices`, `keys` and `kind`. It is `#[non_exhaustive]`, so only a template that builds one by hand is affected.
+
+### Added
+
+- **Beta, proof of concept:** `ravenrs-nfe`, NF-e and NFC-e with no GUI, and `SefazSandbox`, a local SEFAZ in the style of MSW that replaces the `Transport` and checks what arrives. It is not homologated and has never talked to a real SEFAZ. `Ambiente` has no production variant, and an emitter only exists with `BetaAck`.
+- **Beta, proof of concept:** `ravenrs-app-nfe`, the module with the issuer, the documents issued, consulting, canceling and the receipt as a stored report. A notice that cannot be dismissed says it is a beta.
+- **Beta, proof of concept:** `ravenrs-pagamento`, electronic payments with a journal, a provider simulator, the ABECS protocol and IntPos files. Never tested against a real provider, pinpad or card.
+- **Beta, proof of concept:** `ravenrs-app-pos` and `examples/mini-pdv`, a checkout used from the keyboard and a scanner, with shelf labels and receipts made in the standard report designer. `ravenrs-pos` has its rules, with no screens.
+- **Beta, proof of concept:** `ravenrs-perifericos`, printers, label printers, pinpads and scanners described as data. See `docs/PERIFERICOS.md`.
+- `docs/AUTOMACAO-COMERCIAL.md`, in Portuguese: what exists for a commercial automation product, how each part was checked and what is missing to sell it.
+- `ravenrs-report-label`: a report on label and receipt printers, as a 1-bit bitmap in ZPL II, EPL2/PPLB, PPLA, TSPL or ESC/POS, sent over TCP 9100, CUPS, a Windows share or a file. Output was read back by a parser and by a separate barcode decoder. Nothing has been printed on a physical printer.
+- `ravenrs-barcode`: barcodes as plain data, with GTIN checks and ITF-14, out of `ravenrs-graphics`, which re-exports them.
+- Reports: `Report::columns` for sheets of labels, `Report::continuous` for one long page on a roll, `Report::printer` for where it prints, `ControlKind::PrinterCommand` for cutting, opening the drawer, beeping and feeding at a place on the page, and `labels` with common rolls, sheets and a first shelf label.
+- Report designer: paper and columns in the report's panel, and "Impressora direta", with a preview in dots and printing straight to a printer. It is the one editor of layouts, receipts and labels included.
+- `KeyBar` and `KeyBarItem`: the keys of a screen always in sight, working wherever the focus is. `ScanField` and `Scan`: a field for a barcode scanner that keeps the focus, tells a scanner from fingers by the pace and empties after each code.
+- `Module::notices`, `Notice` and `NoticeKind`: what a module keeps on top of every window, and no template can leave out.
+- `Session::run_background`, `cancel_background`, `background_jobs`, `JobProgress`: work out of the way of the screens, with progress and canceling, and its result on the screens' thread. On the web it runs in line.
+- `EntityInfo::singleton` and `#[object(singleton)]`: an entity with one record, which opens on its form.
+- `AppRecordsModule`, `next_number`, `save_draft`, `drafts`, `take_draft`: numbers with no gaps within a unit of work, and work kept to pick up later.
+- `CounterTemplate` and `App::counter`: a window for use at a counter, with a bar of keys made from the actions. `App::theme`: an application that starts on its own theme. `Session::show_shortcuts` and `Session::lock`.
+- Actions take `f1` to `f24` and `alt+letter` as keys. The field editor `Gtin` checks the digit while typing, and `rust_decimal::Decimal` works as a field type, exact up to 6 places.
+- `render_to_rgba` in `ravenrs-render`: a screen as pixels, with no window.
+- `ravenrs-mcp`: the tools `search_api`, for items of any crate by words, and `guides`, for the repository's documents. `parity_status` also reads `docs/APP-PARITY.md`, and `component_examples` also reads the guides.
+- `feature-center`: a counter window with its own notice, keys, numbers, drafts, work in the background and lock, a single record, a GTIN editor, a sheet of labels and a receipt on a roll. Run it alone with `cargo run -p feature-center -- caixa`.
+
+### Fixed
+
+- Closing a `Dialog` whose field took the focus gives it back to where it was.
+
 ## [27.1.13] - 2026-11-05
 
 ### Breaking

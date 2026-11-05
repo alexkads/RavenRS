@@ -42,15 +42,17 @@ Any other MCP client needs the same command:
 |---|---|---|
 | `list_components` | Components, with group and summary | `group`, `query` |
 | `component_api` | Docs, signatures, fields, variants, traits, source location and quality audit of any public item | `name`, `filter` |
-| `component_examples` | Real code from the examples, rustdoc and the getting started guide | `name`, `limit` |
+| `component_examples` | Real code from the examples, rustdoc and the guides | `name`, `limit` |
 | `design_tokens` | Colors per theme, type scale, spacing, radii, shadows, durations and springs, with their Rust names | `category`, `query` |
-| `parity_status` | Status of a feature in `docs/PARITY.md` and `docs/REPORTING-PARITY.md` | `document`, `query`, `status`, `limit` |
+| `parity_status` | Status of a feature in `docs/PARITY.md`, `docs/REPORTING-PARITY.md` and `docs/APP-PARITY.md` | `document`, `query`, `status`, `limit` |
+| `search_api` | Public items of any crate by words in their name or docs, when you do not know the name | `query`, `krate`, `limit` |
+| `guides` | The repository's guides: the documents, the sections of one, one section, or the sections that have some words. Includes the application framework, reports, printers, NF-e and its sandbox, the point of sale and what they do not prove | `document`, `section`, `query`, `limit` |
 | `validate_expression` | Syntax and schema check of a `ravenrs-criteria` expression; never evaluates it | `expression`, `schema` |
 | `expression_functions` | Functions and aggregates of the expression language | `category`, `query` |
 
 ## How it works
 
-`build.rs` embeds the Rust sources of the workspace, and the docs are embedded with `include_str!`. On the first tool call, the server parses those sources with [`syn`](https://docs.rs/syn) into an index of public items and of call chains in the examples. The first call takes about 0.1 s in a release build, and later calls are immediate. Because the answers come from the sources, the rustdoc and the docs, there is nothing separate to keep up to date.
+`build.rs` embeds the Rust sources of every crate and example, and the Markdown at the root, under `docs` and beside each crate. A new crate or document comes in by itself, and it is only read as text: nothing here links against the crates it describes, so a crate with heavy or platform-only dependencies adds none here. On the first tool call, the server parses those sources with [`syn`](https://docs.rs/syn) into an index of public items and of call chains in the examples. The first call takes about 0.1 s in a release build, and later calls are immediate. Because the answers come from the sources, the rustdoc and the docs, there is nothing separate to keep up to date.
 
 The index reads source text, so it has two limits. It does not resolve names or expand macros, except for the local macro that defines `VStack` and `HStack`, and it cannot see inside macro calls such as `vec![...]` in examples. A test checks that every component the README lists can be found.
 

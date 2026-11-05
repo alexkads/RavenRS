@@ -42,4 +42,15 @@ Nenhuma nota falou com a SEFAZ real. Nada foi impresso em impressora física nem
 
 ## Pendências desta entrega
 
-Atualizado ao fechar o branch.
+Conhecidas ao fechar o branch:
+
+- **TEF.** A recomendação em `docs/TEF-COMPARATIVO.md` é a PayGo por troca de arquivos no Windows, pedindo proposta do TEF Express na mesma rodada. A pesquisa foi encerrada antes do fim: faltam preços atuais, a recertificação por versão do PDV e a resposta da PayGo sobre CNPJ da credenciadora e bandeira. A seção 10 do documento lista o resto.
+- **Exigência por UF.** RS multa quem vende sem integração, e SC pede homologação do PAF-NFC-e, conforme fonte secundária. Conferir antes de vender nessas UFs.
+- **Pagamentos.** `ravenrs-pagamento` tem testes, mas não está ligado ao caixa: o caixa só registra a forma de pagamento. O auxiliar real de SiTef e TEF Stone não existe, só o contrato. Falta o servidor de webhook e token de Mercado Pago e Connect.
+- **Drivers.** `thermal.rs`, `etiquetas.rs` e o cupom ainda usam `LabelJob::new`: trocar por `LabelJob::do_driver` para os ajustes do modelo chegarem aos bytes. Não existem chave nem URL do catálogo: `chave_embutida()` devolve `None`. Balança e gaveta são só tipos.
+- **Entrada de mercadoria.** Só importa XML pela tela. `Emissor::buscar_documentos` existe, testada no sandbox, sem botão ainda. A tela de entrada e a de preços têm testes de regra e fluxo, mas ainda não foram conferidas em imagem contra um desenho, que não as inclui.
+- **Cupom em bobina.** Testado em bytes e leitura de código, sem papel. Conferir bipe e corte na MP-4200 TH.
+- **Nota grande.** O DANFE A4 é um primeiro layout e não foi conferido contra o modelo do MOC. A troca de NFC-e por NF-e precisa da validação do contador.
+- **Sandbox.** O catálogo traz a fonte de cada regra; uma ainda é de memória e sete são inferidas. `Signer` segue preso a `NfeError`, a soltar no crate comum.
+- **NFS-e.** Só pesquisa, em `docs/NFSE.md`. O algoritmo de assinatura vigente não está confirmado: precisa de um envio real.
+- **Verificação.** `scripts/check.sh` inteiro não foi rodado no branch final; os testes de cada crate novo foram, com `-p`.

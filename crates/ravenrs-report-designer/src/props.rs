@@ -3,7 +3,10 @@
 use crate::prelude::*;
 use ravenrs_report::barcode::Symbology;
 use ravenrs_report::chart::ChartKind;
-use ravenrs_report::{ChartSeries, Columns, ControlKind, PageSettings, PrinterAction, PrinterCommand, PictureMode, Style, TextAlign};
+use ravenrs_report::{
+    ChartSeries, Columns, ControlKind, PageSettings, PictureMode, PrinterAction, PrinterCommand, Style,
+    TextAlign,
+};
 use ravenrs_style::SPACING;
 
 use crate::bands::BandRef;
@@ -292,9 +295,10 @@ fn printer_command_props(e: &Editor, command: PrinterCommand, rows: &mut Vec<Any
     )
     .width(268.0)
     .label("Comando");
-    rows.push(Box::new(FormField::new("Comando", action).hint(
-        "Vale para impressoras ESC/POS. O comando não ocupa espaço e não aparece no PDF.",
-    )));
+    rows.push(Box::new(
+        FormField::new("Comando", action)
+            .hint("Vale para impressoras ESC/POS. O comando não ocupa espaço e não aparece no PDF."),
+    ));
     if command.action == PrinterAction::Feed {
         let (read, write) = (e.clone(), e.clone());
         let lines = TextField::new(Binding::new(

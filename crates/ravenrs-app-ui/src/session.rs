@@ -790,7 +790,8 @@ impl Session {
                 .filter(|action| action.is_active())
                 .filter_map(|action| {
                     let keys = action.hotkey_text()?;
-                    let label = crate::container::hotkey_of(keys).map_or_else(|| keys.to_owned(), |key| key.label());
+                    let label =
+                        crate::container::hotkey_of(keys).map_or_else(|| keys.to_owned(), |key| key.label());
                     Some((label, action.caption().to_owned()))
                 })
                 .collect(),

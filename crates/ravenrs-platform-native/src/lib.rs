@@ -42,13 +42,13 @@ use ravenrs_core::{
 use ravenrs_render::{GpuContext, GpuError, Renderer, preferred_surface_format, surface_report, wgpu};
 use ravenrs_style::Theme;
 use ravenrs_widgets::{Diagnostics, DiagnosticsHost, Labels, Localized, Ui, View};
-use winit::platform::modifier_supplement::KeyEventExtModifierSupplement as _;
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event::StartCause;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy, OwnedDisplayHandle};
 use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement as _;
 use winit::window::{Icon, Window, WindowAttributes, WindowId};
 
 pub use diagnostics::diagnose;

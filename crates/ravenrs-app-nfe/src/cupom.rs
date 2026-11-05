@@ -115,7 +115,8 @@ pub fn cupom_report(stock: &LabelStock, name: impl Into<String>) -> Report {
         footer = footer.control(text(expression, 0.0, y, width, height, style));
         y += height;
     }
-    footer = footer.control(Control::barcode(Symbology::Qr, "[qr_code]").at((width - code) / 2.0, y, code, code));
+    footer =
+        footer.control(Control::barcode(Symbology::Qr, "[qr_code]").at((width - code) / 2.0, y, code, code));
     y += code + 2.0;
     footer = footer.control(text("[observacao]", 0.0, y, width, line * 2.0, center()));
     y += line * 2.0;
@@ -152,16 +153,33 @@ pub fn danfe_report(name: impl Into<String>) -> Report {
     report.report_header = Some(
         Band::new(line * 15.0)
             .control(text("[aviso]", 0.0, 0.0, width, line, center()))
-            .control(text("'DANFE - Documento Auxiliar da Nota Fiscal Eletrônica'", 0.0, line, width, line * 1.5, center()))
+            .control(text(
+                "'DANFE - Documento Auxiliar da Nota Fiscal Eletrônica'",
+                0.0,
+                line,
+                width,
+                line * 1.5,
+                center(),
+            ))
             .control(text("[numero] + '   ' + [emitido]", 0.0, line * 2.5, width, line, plain()))
             .control(text("[emitente]", 0.0, line * 3.5, width, line, strong()))
             .control(text("'CNPJ ' + [cnpj] + '  IE ' + [ie]", 0.0, line * 4.5, width, line, plain()))
             .control(text("[endereco]", 0.0, line * 5.5, width, line, plain()))
-            .control(
-                Control::barcode(Symbology::Code128, "[chave_digitos]").at(0.0, line * 6.7, width * 0.7, line * 2.6),
-            )
+            .control(Control::barcode(Symbology::Code128, "[chave_digitos]").at(
+                0.0,
+                line * 6.7,
+                width * 0.7,
+                line * 2.6,
+            ))
             .control(text("'Chave de acesso: ' + [chave]", 0.0, line * 9.4, width, line, plain()))
-            .control(text("'Protocolo de autorização: ' + [protocolo]", 0.0, line * 10.4, width, line, plain()))
+            .control(text(
+                "'Protocolo de autorização: ' + [protocolo]",
+                0.0,
+                line * 10.4,
+                width,
+                line,
+                plain(),
+            ))
             .control(text("'DESTINATÁRIO: ' + [dest_nome]", 0.0, line * 11.6, width, line, strong()))
             .control(text("[dest_documento] + '  IE ' + [dest_ie]", 0.0, line * 12.6, width, line, plain()))
             .control(text("[dest_endereco]", 0.0, line * 13.6, width, line, plain())),
@@ -175,7 +193,14 @@ pub fn danfe_report(name: impl Into<String>) -> Report {
         .control(text("[valor]", width - 70.0, 0.0, 70.0, line, right()));
     report.report_footer = Some(
         Band::new(line * 5.0)
-            .control(text("'TOTAL DA NOTA R$ ' + [total]", 0.0, line, width, line * 1.3, Style::new().font_size(11.0).bold().align(TextAlign::Right)))
+            .control(text(
+                "'TOTAL DA NOTA R$ ' + [total]",
+                0.0,
+                line,
+                width,
+                line * 1.3,
+                Style::new().font_size(11.0).bold().align(TextAlign::Right),
+            ))
             .control(text("[pagamento] + ' R$ ' + [recebido]", 0.0, line * 2.4, width, line, right()))
             .control(text("[observacao]", 0.0, line * 3.5, width, line * 1.5, plain())),
     );
@@ -225,10 +250,13 @@ pub fn renderizar_cupom(
     words: &ReportWords,
 ) -> Result<Document, String> {
     let rows: Vec<(Object, u32)> = linhas.iter().map(|line| (line.clone(), 1)).collect();
-    let do_documento = linhas.first().map_or_else(|| "65".to_owned(), |line| match line.get("modelo") {
-        Value::Text(text) => text,
-        _ => "65".to_owned(),
-    });
+    let do_documento = linhas.first().map_or_else(
+        || "65".to_owned(),
+        |line| match line.get("modelo") {
+            Value::Text(text) => text,
+            _ => "65".to_owned(),
+        },
+    );
     render_stored_report_with(session, modelo, &rows, words, |report| {
         let missing = faltando_no_modelo(report, &do_documento);
         if !missing.is_empty() {

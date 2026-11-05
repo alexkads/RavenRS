@@ -337,7 +337,13 @@ fn fornecedor() -> ravenrs_app_nfe::engine::sandbox::Fornecedor {
     }
 }
 
-fn item_comprado(codigo: &str, gtin: Option<&str>, descricao: &str, quantidade: &str, valor: &str) -> ravenrs_app_nfe::engine::Item {
+fn item_comprado(
+    codigo: &str,
+    gtin: Option<&str>,
+    descricao: &str,
+    quantidade: &str,
+    valor: &str,
+) -> ravenrs_app_nfe::engine::Item {
     ravenrs_app_nfe::engine::Item {
         codigo: codigo.to_owned(),
         gtin: gtin.map(str::to_owned),
@@ -400,11 +406,17 @@ fn a_purchase_goes_into_stock_a_new_product_gets_a_code_and_a_rebuy_suggests_its
     // The new product can be read at the counter by the code the store made for it.
     let space = session.frame().space();
     let produtos = space.borrow().query(ravenrs_app_pos::PRODUTO, &ravenrs_app::Query::all()).unwrap();
-    let novo = produtos.iter().find(|p| p.get("descricao") == ravenrs_app::Value::Text("BISCOITO SEM CODIGO".into())).expect("the new product");
+    let novo = produtos
+        .iter()
+        .find(|p| p.get("descricao") == ravenrs_app::Value::Text("BISCOITO SEM CODIGO".into()))
+        .expect("the new product");
     let ravenrs_app::Value::Text(codigo) = novo.get("gtin") else { panic!("no code") };
     assert!(codigo.starts_with("29"), "{codigo}");
     b.bipar(&codigo);
-    assert_eq!(b.pos.caixa().carrinho.peek().ultimo().map(|l| l.descricao.clone()).as_deref(), Some("BISCOITO SEM CODIGO"));
+    assert_eq!(
+        b.pos.caixa().carrinho.peek().ultimo().map(|l| l.descricao.clone()).as_deref(),
+        Some("BISCOITO SEM CODIGO")
+    );
 }
 
 #[test]
@@ -412,7 +424,11 @@ fn an_invoice_for_someone_else_is_refused() {
     use ravenrs_app_nfe::engine::sandbox::gerar_nota_de_compra;
     let b = balcao();
     let session = b.pos.sessao().expect("a session");
-    let outro = ravenrs_app_nfe::engine::sandbox::Fornecedor { comprador_cnpj: "04252011000110".to_owned(), ..fornecedor() };
-    let xml = gerar_nota_de_compra(&outro, vec![item_comprado("A", None, "COISA", "1", "1.00")]).expect("a purchase");
+    let outro = ravenrs_app_nfe::engine::sandbox::Fornecedor {
+        comprador_cnpj: "04252011000110".to_owned(),
+        ..fornecedor()
+    };
+    let xml = gerar_nota_de_compra(&outro, vec![item_comprado("A", None, "COISA", "1", "1.00")])
+        .expect("a purchase");
     assert!(b.pos.entradas().carregar(&session, &xml).unwrap_err().contains("CNPJ"));
 }

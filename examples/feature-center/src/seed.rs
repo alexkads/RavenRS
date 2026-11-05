@@ -5,6 +5,9 @@ use ravenrs_app::{
 };
 use ravenrs_app_report::{ANALYTICS_DASHBOARD, ANALYTICS_TILE, REPORT_DEFINITION};
 use ravenrs_criteria::DateTime;
+use ravenrs_report::barcode::Symbology;
+use ravenrs_report::labels::{LabelStock, ShelfLabelFields, common_stocks, shelf_label};
+use ravenrs_report::{Band, Control, PrinterAction, PrinterSettings, Report, Style};
 
 /// The password of everyone here. It is a demonstration: never do this with real people.
 pub const PASSWORD: &str = "raven-demo";
@@ -259,6 +262,43 @@ fn demos(space: &mut dyn ObjectSpace) -> Result<(), String> {
     Ok(())
 }
 
+/// The name of the sheet of labels in columns.
+pub const LABELS_REPORT: &str = "Etiquetas em folha, 3 colunas";
+/// The name of the receipt on a roll, with commands for its printer.
+pub const RECEIPT_REPORT: &str = "Cupom em bobina de 80 mm";
+
+/// Labels from the catalog, in the columns of a sheet of paper.
+fn labels_on_a_sheet() -> Report {
+    let on_a_sheet = |stock: &LabelStock| stock.columns.is_some();
+    let stock =
+        common_stocks().into_iter().find(on_a_sheet).unwrap_or(LabelStock::roll("60 x 40 mm", 60.0, 40.0));
+    let fields = ShelfLabelFields {
+        description: "[name]".into(),
+        price: "[money]".into(),
+        price_format: "C2".into(),
+        barcode: "[gtin]".into(),
+        symbology: Symbology::Ean13,
+    };
+    shelf_label(&stock, LABELS_REPORT, &fields)
+}
+
+/// A receipt on a roll: one long page, with where it prints kept in the report and commands for the
+/// printer at their places. The window "Impressora direta" of the designer sends it.
+fn receipt_on_a_roll() -> Report {
+    let roll = LabelStock::receipt("Bobina 80 mm", 72.0);
+    let mut report = roll.report(RECEIPT_REPORT);
+    report.printer = Some(PrinterSettings::default());
+    report.detail = Band::new(roll.height)
+        .control(Control::field("[name]").at(0.0, 0.0, roll.width, 14.0).style(Style::new().font_size(9.0)))
+        .control(Control::printer_command(PrinterAction::Beep).at(0.0, 0.0, 40.0, 12.0));
+    report.report_footer = Some(
+        Band::new(14.0)
+            .control(Control::printer_command(PrinterAction::Cut).at(0.0, 0.0, 40.0, 12.0))
+            .control(Control::printer_command(PrinterAction::OpenDrawer).at(44.0, 0.0, 40.0, 12.0)),
+    );
+    report
+}
+
 fn reports(space: &mut dyn ObjectSpace) -> Result<(), String> {
     add(
         space,
@@ -267,6 +307,31 @@ fn reports(space: &mut dyn ObjectSpace) -> Result<(), String> {
             ("name", t("Custos por tarefa")),
             ("target_entity", t("ListEditorsDemo")),
             ("description", t("Primeiro layout gerado da lista; abra em Desenhar.")),
+        ],
+    )?;
+    add(
+        space,
+        REPORT_DEFINITION,
+        &[
+            ("name", t(LABELS_REPORT)),
+            ("target_entity", t("EditorsDemo")),
+            ("description", t("Colunas numa folha A4, do catálogo de etiquetas.")),
+            ("layout", t(&labels_on_a_sheet().to_json())),
+        ],
+    )?;
+    add(
+        space,
+        REPORT_DEFINITION,
+        &[
+            ("name", t(RECEIPT_REPORT)),
+            ("target_entity", t("EditableList")),
+            (
+                "description",
+                t(
+                    "Página contínua, com impressora e comandos de corte, gaveta e bipe; abra em Desenhar e use Impressora direta.",
+                ),
+            ),
+            ("layout", t(&receipt_on_a_roll().to_json())),
         ],
     )?;
     let panel = add(space, ANALYTICS_DASHBOARD, &[("name", t("Visão geral"))])?;

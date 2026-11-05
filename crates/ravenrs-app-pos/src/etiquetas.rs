@@ -134,8 +134,9 @@ impl View for TelaEtiquetas {
         )
         .label("Modelo");
         let (read, write) = (conexao.clone(), conexao.clone());
-        let campo_conexao = TextField::new(Binding::new(move || read.get(), move |value: String| write.set(value)))
-            .placeholder("192.168.0.50:9100 ou cups:etiquetas");
+        let campo_conexao =
+            TextField::new(Binding::new(move || read.get(), move |value: String| write.set(value)))
+                .placeholder("192.168.0.50:9100 ou cups:etiquetas");
 
         let idioma = Language::all()[linguagem.get().min(Language::all().len() - 1)];
         let job = LabelJob::new(idioma, 203);
@@ -166,7 +167,9 @@ impl View for TelaEtiquetas {
                 Ok(None) => {}
                 Err(why) => lado.push(Box::new(Alert::new("Não cabe na etiqueta", why).tone(Tone::Danger))),
             },
-            Err(why) => lado.push(Box::new(Alert::new("Modelo com problema", why.clone()).tone(Tone::Danger))),
+            Err(why) => {
+                lado.push(Box::new(Alert::new("Modelo com problema", why.clone()).tone(Tone::Danger)))
+            }
         }
         if let Some((tone, text)) = aviso.get() {
             lado.push(Box::new(Alert::new("Impressão", text).tone(tone)));
@@ -174,15 +177,17 @@ impl View for TelaEtiquetas {
 
         let editar = {
             let (session, modelo, palavras) = (session.clone(), modelo.clone(), self.palavras.clone());
-            Button::new("Editar modelo no editor de relatórios").style(ButtonStyle::Secondary).full_width().disabled(modelo.is_none()).on_click(
-                move || {
+            Button::new("Editar modelo no editor de relatórios")
+                .style(ButtonStyle::Secondary)
+                .full_width()
+                .disabled(modelo.is_none())
+                .on_click(move || {
                     if let Some(modelo) = &modelo
                         && let Err(why) = design_stored_report(&session, modelo, &palavras)
                     {
                         session.show_message(Message::new(why, MessageKind::Error));
                     }
-                },
-            )
+                })
         };
         let bytes = documento.as_ref().ok().filter(|_| total > 0).map(|document| label_bytes(document, &job));
         let imprimir = {
@@ -196,12 +201,18 @@ impl View for TelaEtiquetas {
                     Some(Ok(bytes)) => match output_for(&conexao.peek()) {
                         Ok(output) => {
                             let aviso = aviso.clone();
-                            send_to_printer(&session, "Imprimindo etiquetas", bytes, output, move |_, sent| {
-                                aviso.set(Some(match sent {
-                                    Ok(()) => (Tone::Success, "Enviado para a impressora.".to_owned()),
-                                    Err(why) => (Tone::Danger, why),
-                                }));
-                            });
+                            send_to_printer(
+                                &session,
+                                "Imprimindo etiquetas",
+                                bytes,
+                                output,
+                                move |_, sent| {
+                                    aviso.set(Some(match sent {
+                                        Ok(()) => (Tone::Success, "Enviado para a impressora.".to_owned()),
+                                        Err(why) => (Tone::Danger, why),
+                                    }));
+                                },
+                            );
                         }
                         Err(why) => aviso.set(Some((Tone::Danger, why.to_string()))),
                     },
@@ -213,29 +224,33 @@ impl View for TelaEtiquetas {
             let picker = cx.file_picker();
             let session = session.clone();
             let bytes = bytes.clone();
-            Button::new("Salvar arquivo .prn").style(ButtonStyle::Secondary).full_width().disabled(bytes.is_none()).on_click(move || {
-                if let Some(Ok(bytes)) = &bytes {
-                    session.hand_file("etiquetas.prn".to_owned(), bytes.clone(), &picker);
-                }
-            })
+            Button::new("Salvar arquivo .prn")
+                .style(ButtonStyle::Secondary)
+                .full_width()
+                .disabled(bytes.is_none())
+                .on_click(move || {
+                    if let Some(Ok(bytes)) = &bytes {
+                        session.hand_file("etiquetas.prn".to_owned(), bytes.clone(), &picker);
+                    }
+                })
         };
         let botoes: Vec<AnyView> = vec![Box::new(editar), Box::new(salvar), Box::new(imprimir)];
 
         cx.child(
             &HStack::new(vec![
                 Box::new(
-                    Card::new(ScrollView::new(vec![
-                        Box::new(VStack::new(lista).spacing(8.0).align(Align::Stretch)) as AnyView,
-                    ]))
+                    Card::new(ScrollView::new(vec![Box::new(
+                        VStack::new(lista).spacing(8.0).align(Align::Stretch),
+                    ) as AnyView]))
                     .grow(1.0)
                     .stretch(),
                 ) as AnyView,
                 Box::new(
                     VStack::new(vec![
                         Box::new(
-                            ScrollView::new(vec![
-                                Box::new(VStack::new(lado).spacing(12.0).align(Align::Stretch)) as AnyView,
-                            ])
+                            ScrollView::new(vec![Box::new(
+                                VStack::new(lado).spacing(12.0).align(Align::Stretch),
+                            ) as AnyView])
                             .grow(1.0),
                         ) as AnyView,
                         Box::new(VStack::new(botoes).spacing(8.0).align(Align::Stretch)),

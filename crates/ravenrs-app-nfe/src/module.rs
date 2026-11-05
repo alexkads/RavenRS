@@ -1,8 +1,8 @@
 //! The module: the issuer, the documents issued and what can be done with them.
 
 use ravenrs_app::{
-    Action, ActionCategory, ActionInput, CriteriaMode, EntityInfo, FieldInfo, FieldKind, Message, MessageKind,
-    Module, Notice, Rule, TargetScope, Value, ViewController,
+    Action, ActionCategory, ActionInput, CriteriaMode, EntityInfo, FieldInfo, FieldKind, Message,
+    MessageKind, Module, Notice, Rule, TargetScope, Value, ViewController,
 };
 use ravenrs_app_ui::Session;
 use ravenrs_nfe::{Ambiente, ChaveAcesso};
@@ -44,7 +44,8 @@ pub fn emitente_entity() -> EntityInfo {
 
 /// The documents issued, each one with where it came from, so a test never passes for a real one.
 pub fn documento_entity() -> EntityInfo {
-    let shown = |name: &str, caption: &str| FieldInfo::new(name, FieldKind::Text).caption(caption).read_only();
+    let shown =
+        |name: &str, caption: &str| FieldInfo::new(name, FieldKind::Text).caption(caption).read_only();
     EntityInfo::new(NFE_DOCUMENTO)
         .caption("Notas emitidas")
         .navigation("Fiscal")
@@ -96,23 +97,20 @@ impl ViewController for Documentos {
         let consulting = self.service.clone();
         let canceling = self.service.clone();
         vec![
-            Action::simple(VER_XML, "Ver XML")
-                .icon("code")
-                .category(ActionCategory::View)
-                .on_execute(|cx| {
-                    let session = Session::of(cx).ok_or("esta ação precisa das telas")?;
-                    let record = cx.selected.first().ok_or("selecione uma nota")?;
-                    let xml = texto(record, "xml");
-                    session.present("XML da nota", move || {
-                        let shown = xml.clone();
-                        Box::new(
-                            TextArea::new(Binding::new(move || shown.clone(), |_: String| {}))
-                                .read_only(true)
-                                .rows(24),
-                        ) as AnyView
-                    });
-                    Ok(())
-                }),
+            Action::simple(VER_XML, "Ver XML").icon("code").category(ActionCategory::View).on_execute(|cx| {
+                let session = Session::of(cx).ok_or("esta ação precisa das telas")?;
+                let record = cx.selected.first().ok_or("selecione uma nota")?;
+                let xml = texto(record, "xml");
+                session.present("XML da nota", move || {
+                    let shown = xml.clone();
+                    Box::new(
+                        TextArea::new(Binding::new(move || shown.clone(), |_: String| {}))
+                            .read_only(true)
+                            .rows(24),
+                    ) as AnyView
+                });
+                Ok(())
+            }),
             Action::simple(CONSULTAR, "Consultar na SEFAZ")
                 .icon("search")
                 .category(ActionCategory::View)
@@ -199,9 +197,10 @@ impl Module for NfeModule {
             "Emissor experimental em prova de conceito, não homologado. Não use para vender de verdade.",
         )];
         notices.push(match self.service.ambiente() {
-            Ambiente::Sandbox => {
-                Notice::info("SANDBOX", "Nenhuma nota é enviada à SEFAZ. Tudo aqui é simulado e sem valor fiscal.")
-            }
+            Ambiente::Sandbox => Notice::info(
+                "SANDBOX",
+                "Nenhuma nota é enviada à SEFAZ. Tudo aqui é simulado e sem valor fiscal.",
+            ),
             Ambiente::Homologacao => Notice::danger(
                 "HOMOLOGAÇÃO",
                 "As notas vão aos servidores de teste da SEFAZ com o seu certificado, sem valor fiscal.",

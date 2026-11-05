@@ -7,8 +7,9 @@ use ravenrs_app::{Object, ObjectSpace, Query, SpaceError, Value, next_number};
 use ravenrs_app_ui::Session;
 use ravenrs_nfe::sandbox::{SandboxSigner, SefazSandbox};
 use ravenrs_nfe::{
-    Ambiente, BetaAck, Cancelamento, ChaveAcesso, DocumentoDestinatario, Emissao, Emissor, Emitente, Endereco,
-    HttpRequest, HttpResponse, Modelo, NfeError, Rascunho, Signer, Situacao, Transport, TransportError, Uf,
+    Ambiente, BetaAck, Cancelamento, ChaveAcesso, DocumentoDestinatario, Emissao, Emissor, Emitente,
+    Endereco, HttpRequest, HttpResponse, Modelo, NfeError, Rascunho, Signer, Situacao, Transport,
+    TransportError, Uf,
 };
 use rust_decimal::Decimal;
 
@@ -117,7 +118,11 @@ impl NfeService {
     }
 
     /// The real homologation servers, with this signer and way out. They have no fiscal value.
-    pub fn homologacao(_ack: BetaAck, signer: impl Signer + 'static, transport: impl Transport + 'static) -> Self {
+    pub fn homologacao(
+        _ack: BetaAck,
+        signer: impl Signer + 'static,
+        transport: impl Transport + 'static,
+    ) -> Self {
         Self(Rc::new(Inner {
             ambiente: Ambiente::Homologacao,
             signer: Arc::new(signer),
@@ -445,7 +450,15 @@ fn guardar_cupom(
                 DocumentoDestinatario::Cpf(cpf) => format!("CPF {cpf}"),
             };
             let endereco = destinatario.endereco.as_ref().map_or_else(String::new, |e| {
-                format!("{}, {}, {}, {}/{}, CEP {}", e.logradouro, e.numero, e.bairro, e.municipio, e.uf.sigla(), e.cep)
+                format!(
+                    "{}, {}, {}, {}/{}, CEP {}",
+                    e.logradouro,
+                    e.numero,
+                    e.bairro,
+                    e.municipio,
+                    e.uf.sigla(),
+                    e.cep
+                )
             });
             (destinatario.nome.clone().unwrap_or_default(), documento, endereco)
         },
@@ -468,7 +481,8 @@ fn guardar_cupom(
             ("endereco", lugar.clone()),
             (
                 "titulo",
-                if nfce { "Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica" } else { "DANFE" }.to_owned(),
+                if nfce { "Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica" } else { "DANFE" }
+                    .to_owned(),
             ),
             ("aviso", service.aviso().to_owned()),
             ("codigo", item.codigo.clone()),
@@ -485,7 +499,12 @@ fn guardar_cupom(
             ("chave", grupos_da_chave(documento.chave.as_str())),
             (
                 "numero",
-                format!("{} {:09}, série {}", if nfce { "NFC-e" } else { "NF-e" }, rascunho.numero, rascunho.serie),
+                format!(
+                    "{} {:09}, série {}",
+                    if nfce { "NFC-e" } else { "NF-e" },
+                    rascunho.numero,
+                    rascunho.serie
+                ),
             ),
             ("emitido", rascunho.emitido_em.replace('T', " ")),
             ("protocolo", protocolo.to_owned()),

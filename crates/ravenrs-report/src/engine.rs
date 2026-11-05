@@ -17,8 +17,8 @@ use ravenrs_criteria::{
 
 use crate::chart::LabelAlign;
 use crate::model::{
-    Band, ColumnFlow, Control, ControlKind, LineDirection, ParameterKind, PictureMode, Report, ShapeKind, SortField,
-    Style, TableCell, TextAlign, VerticalAlign,
+    Band, ColumnFlow, Control, ControlKind, LineDirection, ParameterKind, PictureMode, Report, ShapeKind,
+    SortField, Style, TableCell, TextAlign, VerticalAlign,
 };
 
 /// Settings for one run of a report.

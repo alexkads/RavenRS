@@ -42,7 +42,8 @@ pub fn conferir_codigo(codigo: &str) -> Result<String, String> {
     if !codigo.bytes().all(|byte| (0x21..=0x7e).contains(&byte)) {
         return Err("O código só aceita letras, números e símbolos, sem espaço nem acento.".to_owned());
     }
-    let parece_gtin = matches!(codigo.len(), 8 | 12 | 13 | 14) && codigo.bytes().all(|byte| byte.is_ascii_digit());
+    let parece_gtin =
+        matches!(codigo.len(), 8 | 12 | 13 | 14) && codigo.bytes().all(|byte| byte.is_ascii_digit());
     if parece_gtin && !is_valid_gtin(codigo) {
         return Err(format!("O dígito verificador de {codigo} não confere."));
     }

@@ -61,7 +61,8 @@ impl Composicao {
     }
 
     fn conferir(&self) -> Result<(), String> {
-        let negativos = [self.custo, self.frete, self.outros_custos, self.impostos, self.custos_fixos, self.comissao];
+        let negativos =
+            [self.custo, self.frete, self.outros_custos, self.impostos, self.custos_fixos, self.comissao];
         if negativos.iter().any(|value| *value < Decimal::ZERO) {
             return Err("Custos e percentuais não podem ser negativos.".to_owned());
         }
@@ -96,12 +97,20 @@ impl Composicao {
         Formacao {
             custo_total,
             preco,
-            markup: if custo_total > Decimal::ZERO { (preco / custo_total).round_dp(4) } else { Decimal::ZERO },
+            markup: if custo_total > Decimal::ZERO {
+                (preco / custo_total).round_dp(4)
+            } else {
+                Decimal::ZERO
+            },
             valor_impostos,
             valor_custos_fixos,
             valor_comissao,
             lucro,
-            margem: if preco > Decimal::ZERO { (lucro / preco * CEM).round_dp_with_strategy(2, MEIO) } else { Decimal::ZERO },
+            margem: if preco > Decimal::ZERO {
+                (lucro / preco * CEM).round_dp_with_strategy(2, MEIO)
+            } else {
+                Decimal::ZERO
+            },
             ponto_de_equilibrio: if despesas < CEM {
                 (custo_total / ((CEM - despesas) / CEM)).round_dp_with_strategy(2, MEIO)
             } else {
@@ -146,7 +155,10 @@ mod tests {
         assert_eq!(f.preco, d("15"));
         assert_eq!(f.custo_total, d("10.50"));
         assert_eq!(f.markup, d("1.4286"));
-        assert_eq!((f.valor_impostos, f.valor_custos_fixos, f.valor_comissao), (d("0.90"), d("1.50"), d("0.60")));
+        assert_eq!(
+            (f.valor_impostos, f.valor_custos_fixos, f.valor_comissao),
+            (d("0.90"), d("1.50"), d("0.60"))
+        );
         assert_eq!(f.lucro, d("1.50"));
         assert_eq!(f.margem, d("10"));
         assert_eq!(f.ponto_de_equilibrio, d("13.13"));

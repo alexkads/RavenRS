@@ -1,9 +1,15 @@
 //! The actions the center shows, one of each kind.
 
+use ravenrs::prelude::{AnyView, BuildCx, NodeId, View};
 use ravenrs_app::{
-    Action, ActionCategory, ActionInput, ChoiceItem, CriteriaMode, FieldKind, Message, MessageKind, Module,
-    Object, Selection, Value, ViewController,
+    Action, ActionCategory, ActionContext, ActionInput, AppRecordsModule, ChoiceItem, CriteriaMode,
+    FieldKind, FieldValue, Message, MessageKind, Module, Notice, Object, ObjectSpace, Query, Selection,
+    Value, ViewController, WindowController, drafts, next_number, save_draft, take_draft,
 };
+use ravenrs_app_ui::{App, Language, Session};
+use rust_decimal::Decimal;
+
+use crate::model::CounterProduct;
 
 const ENTITY: &str = "ActionDemo";
 
@@ -131,4 +137,179 @@ impl Module for CenterModule {
             } } }"#,
         )
     }
+}
+
+/// The kind of work the counter window keeps to pick up later.
+const DRAFT_KIND: &str = "venda";
+/// What gets back to the locked counter window.
+pub const COUNTER_PIN: &str = "1234";
+
+fn session_of(cx: &ActionContext) -> Result<Session, String> {
+    Session::of(cx).ok_or_else(|| "esta ação precisa das telas".to_owned())
+}
+
+fn in_a_message(cx: &ActionContext, text: String) {
+    cx.message(Message::new(text, MessageKind::Success));
+}
+
+/// Hands out the next number of a sequence, with no gaps once committed.
+fn take_next_number(cx: &ActionContext) -> Result<(), String> {
+    let number = {
+        let mut space = cx.space.borrow_mut();
+        let number = next_number(&mut *space, "venda").map_err(|why| why.to_string())?;
+        space.commit().map_err(|why| why.to_string())?;
+        number
+    };
+    in_a_message(cx, format!("Venda número {number}."));
+    Ok(())
+}
+
+fn keep_draft(cx: &ActionContext) -> Result<(), String> {
+    {
+        let mut space = cx.space.borrow_mut();
+        save_draft(&mut *space, DRAFT_KIND, "Venda pela metade", "3*7891000100103")
+            .map_err(|why| why.to_string())?;
+        space.commit().map_err(|why| why.to_string())?;
+    }
+    in_a_message(cx, "Venda guardada para depois.".to_owned());
+    Ok(())
+}
+
+fn pick_up_draft(cx: &ActionContext) -> Result<(), String> {
+    let taken = {
+        let mut space = cx.space.borrow_mut();
+        let first = drafts(&*space, DRAFT_KIND).map_err(|why| why.to_string())?.into_iter().next();
+        let taken = match first {
+            Some(draft) => take_draft(&mut *space, &draft.id).map_err(|why| why.to_string())?,
+            None => None,
+        };
+        space.commit().map_err(|why| why.to_string())?;
+        taken
+    };
+    let text = taken.map_or_else(
+        || "Nenhuma venda guardada.".to_owned(),
+        |draft| format!("Retomou: {} ({}).", draft.title, draft.payload),
+    );
+    in_a_message(cx, text);
+    Ok(())
+}
+
+/// Adds up the prices out of the way of the screens, with no cent lost.
+fn add_up_prices(cx: &ActionContext) -> Result<(), String> {
+    let session = session_of(cx)?;
+    let records = cx.space.borrow().query("CounterProduct", &Query::all()).map_err(|why| why.to_string())?;
+    let prices: Vec<Decimal> =
+        records.iter().map(|record| Decimal::from_value(record.get("price"))).collect();
+    session.run_background(
+        "Somando os preços",
+        move |progress| {
+            let mut total = Decimal::ZERO;
+            for (index, price) in prices.iter().enumerate() {
+                if progress.is_canceled() {
+                    break;
+                }
+                total += price;
+                progress.report((index + 1) as f32 / prices.len() as f32, price.to_string());
+            }
+            total
+        },
+        |session, total| {
+            session.show_message(Message::new(format!("Total exato: {total}"), MessageKind::Success));
+        },
+    );
+    Ok(())
+}
+
+struct CounterKeys;
+
+impl WindowController for CounterKeys {
+    fn id(&self) -> &str {
+        "CounterKeys"
+    }
+
+    fn actions(&self) -> Vec<Action> {
+        let key = |id: &str, caption: &str, keys: &str| {
+            Action::simple(id, caption).hotkey(keys).category(ActionCategory::View)
+        };
+        vec![
+            key("Counter.Shortcuts", "Atalhos", "f1").on_execute(|cx| {
+                session_of(cx)?.show_shortcuts();
+                Ok(())
+            }),
+            key("Counter.Number", "Próximo número", "f9").on_execute(take_next_number),
+            key("Counter.Keep", "Guardar venda", "f10").on_execute(keep_draft),
+            key("Counter.PickUp", "Retomar venda", "f11").on_execute(pick_up_draft),
+            key("Counter.Sum", "Somar preços", "alt+s").on_execute(add_up_prices),
+            key("Counter.Lock", "Bloquear", "f12").on_execute(|cx| {
+                session_of(cx)?.lock("Caixa bloqueado. O PIN é 1234.", |typed| typed == COUNTER_PIN);
+                Ok(())
+            }),
+        ]
+    }
+}
+
+/// The keys of the counter window, and what it wants everyone to know.
+struct CounterModule;
+
+impl Module for CounterModule {
+    fn name(&self) -> &str {
+        "Counter"
+    }
+
+    fn window_controllers(&self) -> Vec<Box<dyn WindowController>> {
+        vec![Box::new(CounterKeys)]
+    }
+
+    fn notices(&self) -> Vec<Notice> {
+        vec![Notice::warning(
+            "Demonstração",
+            "Este aviso vem do módulo, fica em toda janela e não tem como fechar.",
+        )]
+    }
+}
+
+fn seed_counter(space: &mut dyn ObjectSpace) -> Result<(), String> {
+    let products = [
+        ("Arroz branco, 5 kg", "7891000053508", 27.9),
+        ("Feijão carioca, 1 kg", "7891000244104", 8.79),
+        ("Bala de hortelã", "7891000100103", 0.1),
+        ("Bala de mel", "7891000100202", 0.2),
+    ];
+    for (name, gtin, price) in products {
+        let mut record = space.new_object("CounterProduct").map_err(|why| why.to_string())?;
+        record.set("name", name.to_owned());
+        record.set("gtin", gtin.to_owned());
+        record.set("price", price);
+        space.save(record).map_err(|why| why.to_string())?;
+    }
+    space.commit().map_err(|why| why.to_string())
+}
+
+/// A small application in the arrangement for a counter: keys always in sight, a notice from its
+/// module, numbers, drafts, work in the background and a locked window. It has its own records, so
+/// its notice and its keys stay out of the rest of the center.
+pub fn counter_app() -> App {
+    App::new("Caixa de exemplo")
+        .language(Language::BrazilianPortuguese)
+        .counter()
+        .module(AppRecordsModule)
+        .module(CounterModule)
+        .entity::<CounterProduct>()
+        .seed(seed_counter)
+}
+
+/// One view built once and shown again on each rebuild, for a control that holds a running application.
+#[derive(Clone)]
+struct Kept(std::rc::Rc<AnyView>);
+
+impl View for Kept {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        cx.child(self.0.as_ref().as_ref())
+    }
+}
+
+/// What makes the control that shows [`counter_app`] inside the center.
+pub fn counter_control() -> impl Fn() -> AnyView + 'static {
+    let kept = Kept(std::rc::Rc::new(counter_app().into_view()));
+    move || Box::new(kept.clone()) as AnyView
 }

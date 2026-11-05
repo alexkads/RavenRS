@@ -13,10 +13,13 @@ step "clippy (native)"
 cargo clippy --workspace --all-targets -- -D warnings
 
 step "clippy (wasm32)"
-cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-ui -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer --target wasm32-unknown-unknown -- -D warnings
+cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-ui -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p ravenrs-barcode -p ravenrs-report-label -p ravenrs-nfe -p ravenrs-pagamento -p ravenrs-pos -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer --target wasm32-unknown-unknown -- -D warnings
 
 step "tests: unit, behavior, property, doc, GPU pixel and golden-image (GPU tests skip without an adapter)"
 cargo test --workspace
+
+step "ravenrs-nfe with the real network code, against local servers only"
+cargo test -p ravenrs-nfe --all-features
 
 step "optional features are optional"
 cargo check -p ravenrs --no-default-features
@@ -28,7 +31,7 @@ fi
 
 step "minimum supported Rust version (1.88)"
 if rustup toolchain list | grep -q '^1.88'; then
-    cargo +1.88 check --workspace --exclude ravenrs-app-sqlite --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf
+    cargo +1.88 check --workspace --exclude ravenrs-app-sqlite --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude mini-pdv --exclude ravenrs-perf
 else
     echo "skipped: install it with 'rustup toolchain install 1.88'"
 fi
@@ -47,7 +50,7 @@ step "performance gate: exact counters against perf/baseline.json"
 cargo run --release -q -p ravenrs-perf -- gate
 
 step "API docs (broken links fail)"
-RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf --quiet
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude mini-pdv --exclude ravenrs-perf --quiet
 ./scripts/check-component-list.py
 
 step "web builds"

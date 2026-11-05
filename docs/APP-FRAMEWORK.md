@@ -214,6 +214,28 @@ Each way gets an action, on when what is selected stands where it starts. The fi
 
 A record with a time in its reminder field comes up when that is due, for whoever can read it and meets the criteria, with what to do: open it, put it off 15 minutes, or dismiss it. The time is kept on the record, so it is one for everyone who sees it. Nothing runs while waiting: the screen asks to be built again at the next time due. This is not a business process engine: there is no routing, approval by several people or timing out.
 
+## At a counter
+
+An application used all day from the keyboard needs little of its own. These come with the framework, and `feature-center` shows them in "Caixa de exemplo", or alone with `cargo run -p feature-center -- caixa`.
+
+```rust
+App::new("Caixa")
+    .counter()
+    .theme(Theme::raven_light())
+    .module(AppRecordsModule)
+    .entity::<Product>()
+```
+
+- **The window.** `App::counter` picks `CounterTemplate`: the view takes it all, and the keys of what can be done stay below it, made from the actions that have one. `App::theme` starts on a theme of its own.
+- **Keys.** `Action::hotkey` takes `f1` to `f24`, `alt+c` and `command+s`. On a Mac, Option composes an accent, and it still counts as the letter. `Session::show_shortcuts` lists the keys of what can be done now.
+- **Notices.** `Module::notices` returns what everyone has to know while the module is in the application, such as that it is a beta. It stays on top of every window, a locked one too, no template can leave it out, and it cannot be dismissed.
+- **Work in the background.** `Session::run_background(title, work, done)` runs `work` on another thread with a `JobProgress`, and `done` on the screens' thread. `cancel_background` asks it to stop, and what it brings still comes. On the web there are no threads, so it runs in line and the screen waits.
+- **One record.** `EntityInfo::singleton`, or `#[object(singleton)]`, opens the form of the one record, or of a new one if there is none.
+- **Numbers.** With `AppRecordsModule`, `next_number(space, "sale")` gives the next number in the unit of work. A rollback gives the same number again, so a commit leaves no gaps.
+- **Drafts.** `save_draft`, `drafts` and `take_draft` keep work to pick up later, in text its owner reads back.
+- **Locking.** `Session::lock(title, check)` hides everything until what is typed passes `check`. What people were doing stays as it was.
+- **Fields.** The editor `Gtin` checks the digit while typing. `rust_decimal::Decimal` is a field type, exact up to 6 places.
+
 ## Reports and panels
 
 ```rust
@@ -227,6 +249,8 @@ App::new("Shop")
 A report is a record: its name, the entity it is about and its layout. A new one starts from a table of what the entity's list shows, and **Design** opens the designer inside the application, over a sample of the records. **Show** asks for its parameters and shows its pages, from where it prints and exports. A list has **Show in report**, for the records selected or all it shows.
 
 Permissions on `ReportDefinition` say who sees or changes a report, like any other record. Whoever runs one gets only what they can read: rows come from the view's unit of work, and whatever a layout says about addresses, queries or data of its own does not run. What is kept is the layout alone, with nobody's data.
+
+A stored report also goes straight to a printer: `render_stored_report` lays it out over chosen records, each as many times as asked, and `send_to_printer` sends what `ravenrs-report-label` makes of it, out of the way of the screens. [REPORTING.md](REPORTING.md) has the details.
 
 A panel is a record with tiles, edited on its own form: a title, an entity, a kind, what goes along the axis, values as `field:Sum`, and a filter. A tile that cannot be drawn says why, and the others still show.
 
@@ -273,6 +297,9 @@ Keep these in mind:
 
 - State machines are declared in code. People cannot define states or ways while the application runs.
 - A reminder someone else set or changed shows the next time records are read here, as nothing polls. Reminders do not go anywhere outside the application.
+- `Decimal` is exact in Rust, but a record holds it as a number, so criteria, filters and SQL work with the number. Up to 6 places come back the same.
+- `next_number` is exact within one program. Two programs on one SQLite file have not been tried.
+- Closing a window and locking in the same frame leaves the field of the locked window without the focus. A frame between them is enough.
 - `DocumentViewer` shows what the report engine lays out. It does not open PDF files, so an attached PDF is saved or opened with the system.
 - Stored reports are not sent on a schedule yet: `ravenrs-report-server` reads its own sources, not entities, and a job has to run as someone. That takes the service of F12.
 - The designer's own words are in Portuguese whatever the application's language, and its field list shows field names rather than captions.

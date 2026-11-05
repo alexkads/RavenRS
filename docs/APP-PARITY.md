@@ -17,7 +17,18 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Actions inside a form's layout | ✅ `ActionCategory::InForm`, `EntityInfo::form_actions` | |
 | Messages from actions | ✅ `ActionContext::message`: kind, duration, a button and what runs once it is gone | |
 | View and window controllers, frames, modules | ✅ | |
-| Templates | 🟡 `FrameTemplate`; one built in | |
+| Templates | ✅ `FrameTemplate`; `MainTemplate` and `CounterTemplate` built in, chosen with `App::counter` | |
+| Notices from a module, on every window, that cannot be dismissed | ✅ `Module::notices`, `Notice`; no template can leave them out | |
+| Work in the background, with progress and canceling | ✅ `Session::run_background`; its result comes on the screens' thread, and on the web it runs in line. `family-finance` and `ravenrs-ai` still have their own threads | |
+| A record that is one of a kind, such as settings | ✅ `EntityInfo::singleton`, which opens on the form | |
+| Numbers that follow each other | ✅ `next_number`, in the unit of work, so a rollback gives the number again. Two programs on one SQLite file are not covered | |
+| Work kept to pick up later | ✅ `save_draft`, `drafts`, `take_draft`. The payload is text its owner reads back | |
+| Use from the keyboard: F keys, Alt and a letter, a bar of keys, a list of keys | ✅ `Action::hotkey`, `KeyBar`, `Session::show_shortcuts`. Tested with no window; Windows and Linux keyboards not tried by hand | |
+| Locking a window without ending the session | ✅ `Session::lock`, with a check the application gives. Not a security boundary on its own | |
+| A look of its own for an application | ✅ `App::theme` | |
+| Exact decimals in a record | 🟡 `rust_decimal::Decimal` as a field type, exact up to 6 places. Records still hold a number, so criteria and SQL see the number | |
+| Field editor for a barcode | ✅ `Gtin`, which checks the digit while typing | |
+| Printing a stored report straight to a printer | ✅ `render_stored_report`, `send_to_printer`, and "Impressora direta" in the designer. Never printed on a physical printer | |
 | List views | 🟡 `ListView` over `DataGrid`; search, filters, sorting, grouping, column menu, summaries and export are the grid's own | |
 | Editing on a list, with the rules checked | ✅ `list_editable`: refused values stay open and say why, and a cell that fails shows it. Plain values only, on lists that hold their records | |
 | Data access modes | 🟡 `DataAccess`: `Client`, `Server` and `DataView`. Nothing like instant feedback, since `Server` already answers through a callback | |

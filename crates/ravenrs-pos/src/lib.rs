@@ -9,8 +9,8 @@ pub mod entrada;
 pub mod preco;
 
 pub use entrada::{
-    EstoqueAtualizado, LinhaCompra, PREFIXO_INTERNO, SugestaoEtiqueta, codigo_interno, conferir_codigo, e_codigo_interno,
-    entrar_no_estoque, gtin_fiscal, sugerir_etiqueta,
+    EstoqueAtualizado, LinhaCompra, PREFIXO_INTERNO, SugestaoEtiqueta, codigo_interno, conferir_codigo,
+    e_codigo_interno, entrar_no_estoque, gtin_fiscal, sugerir_etiqueta,
 };
 pub use preco::{Composicao, Formacao, arredondar_preco};
 
@@ -28,11 +28,10 @@ pub fn ler_codigo(texto: &str) -> Result<Leitura, String> {
     let texto = texto.trim();
     let (quantidade, codigo) = match texto.split_once('*') {
         Some((quantidade, codigo)) => {
-            let quantidade: Decimal = quantidade
-                .trim()
-                .replace(',', ".")
-                .parse()
-                .map_err(|_| format!("Quantidade \u{201c}{}\u{201d} não é um número.", quantidade.trim()))?;
+            let quantidade: Decimal =
+                quantidade.trim().replace(',', ".").parse().map_err(|_| {
+                    format!("Quantidade \u{201c}{}\u{201d} não é um número.", quantidade.trim())
+                })?;
             (quantidade, codigo.trim())
         }
         None => (Decimal::ONE, texto),
@@ -74,7 +73,8 @@ pub struct Linha {
 impl Linha {
     /// What this line comes to.
     pub fn total(&self) -> Decimal {
-        (self.preco * self.quantidade).round_dp_with_strategy(2, rust_decimal::RoundingStrategy::MidpointAwayFromZero)
+        (self.preco * self.quantidade)
+            .round_dp_with_strategy(2, rust_decimal::RoundingStrategy::MidpointAwayFromZero)
     }
 }
 
@@ -275,7 +275,10 @@ mod tests {
     #[test]
     fn only_cash_has_change_and_nothing_pays_less() {
         let total: Decimal = "97.32".parse().unwrap_or_default();
-        assert_eq!(troco(Forma::Dinheiro, total, Decimal::from(100)).map(|t| t.to_string()), Ok("2.68".to_owned()));
+        assert_eq!(
+            troco(Forma::Dinheiro, total, Decimal::from(100)).map(|t| t.to_string()),
+            Ok("2.68".to_owned())
+        );
         assert!(troco(Forma::Dinheiro, total, Decimal::from(50)).is_err());
         assert!(troco(Forma::Pix, total, Decimal::from(100)).is_err());
         assert_eq!(troco(Forma::Pix, total, total), Ok(Decimal::ZERO));

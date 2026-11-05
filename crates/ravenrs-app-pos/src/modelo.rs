@@ -88,10 +88,26 @@ pub fn configuracao_entity() -> EntityInfo {
         .field(text("pin", "PIN para desbloquear").default_value("1234"))
         .field(text("impressora_cupom", "Impressora de cupom").default_value(""))
         .field(text("impressora_etiqueta", "Impressora de etiquetas").default_value(""))
-        .field(FieldInfo::new("impostos", FieldKind::Decimal(2)).caption("Impostos sobre a venda (%)").default_value(6.0))
-        .field(FieldInfo::new("custos_fixos", FieldKind::Decimal(2)).caption("Custos fixos (%)").default_value(15.0))
-        .field(FieldInfo::new("comissao", FieldKind::Decimal(2)).caption("Comissão e taxas (%)").default_value(2.0))
-        .field(FieldInfo::new("margem", FieldKind::Decimal(2)).caption("Margem desejada (%)").default_value(12.0))
+        .field(
+            FieldInfo::new("impostos", FieldKind::Decimal(2))
+                .caption("Impostos sobre a venda (%)")
+                .default_value(6.0),
+        )
+        .field(
+            FieldInfo::new("custos_fixos", FieldKind::Decimal(2))
+                .caption("Custos fixos (%)")
+                .default_value(15.0),
+        )
+        .field(
+            FieldInfo::new("comissao", FieldKind::Decimal(2))
+                .caption("Comissão e taxas (%)")
+                .default_value(2.0),
+        )
+        .field(
+            FieldInfo::new("margem", FieldKind::Decimal(2))
+                .caption("Margem desejada (%)")
+                .default_value(12.0),
+        )
         .field(
             FieldInfo::new("final_de_preco", FieldKind::Integer)
                 .caption("Centavos do preço de gôndola")
@@ -110,7 +126,11 @@ pub fn vinculo_entity() -> EntityInfo {
         .field(text("fornecedor", "CNPJ do fornecedor").default_property())
         .field(text("codigo_fornecedor", "Código do fornecedor"))
         .field(text("produto", "Código interno do produto"))
-        .field(FieldInfo::new("fator", FieldKind::Decimal(4)).caption("Unidades por embalagem").default_value(1.0))
+        .field(
+            FieldInfo::new("fator", FieldKind::Decimal(4))
+                .caption("Unidades por embalagem")
+                .default_value(1.0),
+        )
 }
 
 /// Other barcodes a product answers to.
@@ -124,7 +144,11 @@ pub fn codigo_entity() -> EntityInfo {
         .field(text("codigo", "Código").default_property())
         .field(text("produto", "Código interno do produto"))
         .field(text("descricao", "O que este código é"))
-        .field(FieldInfo::new("fator", FieldKind::Decimal(4)).caption("Vale quantas unidades").default_value(1.0))
+        .field(
+            FieldInfo::new("fator", FieldKind::Decimal(4))
+                .caption("Vale quantas unidades")
+                .default_value(1.0),
+        )
         .rule(Rule::required("codigo"))
         .rule(Rule::required("produto"))
         .rule(Rule::unique("codigo"))

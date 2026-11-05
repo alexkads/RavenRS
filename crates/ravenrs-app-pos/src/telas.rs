@@ -7,8 +7,8 @@ use ravenrs_pos::{Forma, valor_em_texto};
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
-    Alert, AnyView, BuildCx, Button, ButtonSize, ButtonStyle, Card, Column, FormField, HStack, Hotkey, NodeId,
-    ScanField, ScrollView, Spacer, Spinner, Table, Text, TextField, Tone, VStack, View, ViewExt,
+    Alert, AnyView, BuildCx, Button, ButtonSize, ButtonStyle, Card, Column, FormField, HStack, Hotkey,
+    NodeId, ScanField, ScrollView, Spacer, Spinner, Table, Text, TextField, Tone, VStack, View, ViewExt,
 };
 
 use crate::caixa::{Caixa, Tela, configuracao};
@@ -31,10 +31,10 @@ pub(crate) struct TelaCaixa {
 impl TelaCaixa {
     fn cabecalho(&self) -> AnyView {
         let carrinho = self.caixa.carrinho.get();
-        let cliente = carrinho
-            .cliente
-            .clone()
-            .map_or_else(|| "Consumidor não identificado".to_owned(), |cliente| format!("Consumidor {cliente}"));
+        let cliente = carrinho.cliente.clone().map_or_else(
+            || "Consumidor não identificado".to_owned(),
+            |cliente| format!("Consumidor {cliente}"),
+        );
         let nota = if self.caixa.nota_grande.get() { "Nota grande (NF-e, A4)" } else { "NFC-e" };
         let operador = configuracao(&self.session, "operador");
         let numero = configuracao(&self.session, "caixa");
@@ -73,7 +73,8 @@ impl TelaCaixa {
                 valor_em_texto(linha.total()),
             ]);
         }
-        let lista = Card::new(ScrollView::new(vec![Box::new(tabela) as AnyView]).grow(1.0)).grow(1.0).stretch();
+        let lista =
+            Card::new(ScrollView::new(vec![Box::new(tabela) as AnyView]).grow(1.0)).grow(1.0).stretch();
 
         let ultimo: AnyView = match carrinho.ultimo() {
             Some(linha) => Box::new(
@@ -214,7 +215,8 @@ impl TelaCaixa {
         let dado = |rotulo: &str, valor: String| -> AnyView {
             Box::new(
                 HStack::new(vec![
-                    Box::new(Text::new(rotulo.to_owned()).foreground(Semantic::InkMuted).width(150.0)) as AnyView,
+                    Box::new(Text::new(rotulo.to_owned()).foreground(Semantic::InkMuted).width(150.0))
+                        as AnyView,
                     Box::new(Text::new(valor).font_weight(Weight::SEMIBOLD)),
                 ])
                 .align(Align::Center),
@@ -234,9 +236,13 @@ impl TelaCaixa {
         if fim.autorizada {
             let (caixa, session, chave) = (self.caixa.clone(), self.session.clone(), fim.chave.clone());
             linhas.push(Box::new(
-                Button::new(if self.caixa.nota_grande.get() { "Ver o DANFE" } else { "Imprimir ou ver o cupom" })
-                    .icon(ravenrs_widgets::IconName::Printer)
-                    .on_click(move || caixa.imprimir_cupom(&session, &chave)),
+                Button::new(if self.caixa.nota_grande.get() {
+                    "Ver o DANFE"
+                } else {
+                    "Imprimir ou ver o cupom"
+                })
+                .icon(ravenrs_widgets::IconName::Printer)
+                .on_click(move || caixa.imprimir_cupom(&session, &chave)),
             ));
             if !self.caixa.nota_grande.get() {
                 let (caixa, session) = (self.caixa.clone(), self.session.clone());
@@ -261,7 +267,8 @@ impl TelaCaixa {
         }
         Box::new(
             HStack::new(vec![
-                Box::new(Card::new(VStack::new(linhas).spacing(12.0).align(Align::Stretch)).grow(1.0)) as AnyView,
+                Box::new(Card::new(VStack::new(linhas).spacing(12.0).align(Align::Stretch)).grow(1.0))
+                    as AnyView,
                 Box::new(VStack::new(direita).spacing(16.0).align(Align::Stretch).width(430.0)),
             ])
             .spacing(16.0)
@@ -377,21 +384,46 @@ impl View for TelaInicio {
         };
         let primeira = HStack::new(vec![
             cartao("Lançar vendas", "Abre o caixa com a leitura de código pronta.", "F2", abrir(VIEW_CAIXA)),
-            cartao("Produtos", "Cadastro, preço, código e dados fiscais.", "F3", abrir("PosProduto_ListView")),
-            cartao("Etiquetas", "Etiquetas de gôndola feitas no editor de relatórios.", "F4", abrir(VIEW_ETIQUETAS)),
+            cartao(
+                "Produtos",
+                "Cadastro, preço, código e dados fiscais.",
+                "F3",
+                abrir("PosProduto_ListView"),
+            ),
+            cartao(
+                "Etiquetas",
+                "Etiquetas de gôndola feitas no editor de relatórios.",
+                "F4",
+                abrir(VIEW_ETIQUETAS),
+            ),
         ])
         .spacing(16.0)
         .align(Align::Stretch)
         .grow(1.0);
         let terceira = HStack::new(vec![
-            cartao("Entrada de mercadoria", "Importa a nota de compra para o estoque e sugere etiquetas.", "F6", abrir(VIEW_ENTRADA)),
-            cartao("Preços e markup", "Custo, impostos, custos fixos e margem até o preço.", "F7", abrir(VIEW_PRECO)),
+            cartao(
+                "Entrada de mercadoria",
+                "Importa a nota de compra para o estoque e sugere etiquetas.",
+                "F6",
+                abrir(VIEW_ENTRADA),
+            ),
+            cartao(
+                "Preços e markup",
+                "Custo, impostos, custos fixos e margem até o preço.",
+                "F7",
+                abrir(VIEW_PRECO),
+            ),
         ])
         .spacing(16.0)
         .align(Align::Stretch)
         .grow(1.0);
         let segunda = HStack::new(vec![
-            cartao("Outras funções", "Notas emitidas, emitente, modelos de cupom e configuração.", "F5", outras),
+            cartao(
+                "Outras funções",
+                "Notas emitidas, emitente, modelos de cupom e configuração.",
+                "F5",
+                outras,
+            ),
             cartao("Consulta de atalhos", "Todas as teclas do que dá para fazer aqui.", "F1", atalhos),
         ])
         .spacing(16.0)

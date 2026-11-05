@@ -1,6 +1,6 @@
 [package]
 name = "ravenrs-mcp"
-description = "A read-only MCP server that answers questions about RavenRS: components, their API and examples, design tokens, parity status and expressions."
+description = "A read-only MCP server that answers questions about RavenRS: components, their API and examples, design tokens, parity status, expressions and the guides."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

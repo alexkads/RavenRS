@@ -362,7 +362,8 @@ pub fn is_valid_gtin(text: &str) -> bool {
 /// The check digit of the digits of a GTIN that come before it, or `None` if something else is
 /// in there.
 pub fn gtin_check_digit(digits: &str) -> Option<u8> {
-    let digits: Vec<u8> = digits.bytes().map(|b| b.is_ascii_digit().then(|| b - b'0')).collect::<Option<_>>()?;
+    let digits: Vec<u8> =
+        digits.bytes().map(|b| b.is_ascii_digit().then(|| b - b'0')).collect::<Option<_>>()?;
     Some(gs1_check(&digits))
 }
 

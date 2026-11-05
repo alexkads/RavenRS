@@ -1980,6 +1980,8 @@ impl Gallery {
                 ("DaySeparator", "Dividing a list by day."),
                 ("ShortcutSheet", "The keys of a screen, in a dialog."),
                 ("ShortcutHintBar", "A line of hints under what they act on."),
+                ("KeyBar", "The keys of a screen always in sight, as on a point of sale. They work wherever the focus is."),
+                ("ScanField", "Takes what a barcode scanner reads: it keeps the focus and tells a scanner from fingers."),
             ]),
             demo(
                 "Timeline",

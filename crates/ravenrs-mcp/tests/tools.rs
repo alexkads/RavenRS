@@ -108,8 +108,10 @@ fn announces_every_tool_as_read_only() {
             "component_examples",
             "design_tokens",
             "expression_functions",
+            "guides",
             "list_components",
             "parity_status",
+            "search_api",
             "validate_expression",
         ]
     );
@@ -263,7 +265,7 @@ fn design_tokens_map_to_rust_names() {
 }
 
 #[test]
-fn parity_status_searches_both_documents() {
+fn parity_status_searches_every_document() {
     let mut client = Client::start();
     let tabs = client.call("parity_status", json!({ "document": "components", "query": "tabstrip" }));
     assert_eq!(tabs["rows"][0]["status"], "done");
@@ -279,6 +281,12 @@ fn parity_status_searches_both_documents() {
     assert_eq!(planned["shown"], 2);
     assert!(planned["total"].as_u64().unwrap() > 2);
     assert_eq!(planned["done"], 0);
+
+    let singleton =
+        client.call("parity_status", json!({ "document": "application", "query": "one of a kind" }));
+    assert_eq!(singleton["rows"][0]["document"], "application");
+    assert_eq!(singleton["rows"][0]["status"], "done");
+    assert!(singleton["rows"][0]["ravenrs"].as_str().unwrap().contains("singleton"), "{singleton}");
 
     assert!(client.call_err("parity_status", json!({ "status": "maybe" }))["error"].is_string());
     assert!(client.call_err("parity_status", json!({ "document": "other" }))["error"].is_string());
@@ -338,4 +346,109 @@ fn expression_functions_search_the_catalog() {
     let aggregates = client.call("expression_functions", json!({ "category": "aggregate" }));
     assert!(names(&aggregates["functions"]).contains(&"Sum"));
     assert!(aggregates["functions"].as_array().unwrap().iter().all(|f| f["category"] == "Aggregate"));
+}
+
+fn found_in(answer: &Value, name: &str) -> Value {
+    let items = answer["items"].as_array().unwrap();
+    items.iter().find(|item| item["name"] == name).cloned().unwrap_or_else(|| panic!("no {name} in {answer}"))
+}
+
+#[test]
+fn the_api_of_the_counter_the_notes_and_the_printers_can_be_found() {
+    let mut client = Client::start();
+    let cases = [
+        ("ScanField", "ravenrs-widgets"),
+        ("KeyBar", "ravenrs-widgets"),
+        ("SefazSandbox", "ravenrs-nfe"),
+        ("LabelJob", "ravenrs-report-label"),
+        ("Carrinho", "ravenrs-pos"),
+        ("NfeModule", "ravenrs-app-nfe"),
+        ("Pos", "ravenrs-app-pos"),
+        ("Symbology", "ravenrs-barcode"),
+        ("PrinterCommand", "ravenrs-report"),
+    ];
+    for (name, krate) in cases {
+        let by_name = client.call("component_api", json!({ "name": name }));
+        let matches = by_name["matches"].as_array().unwrap();
+        assert!(matches.iter().any(|item| item["crate"] == krate), "{name} in {krate}: {by_name}");
+        let search = client.call("search_api", json!({ "query": name, "limit": 100 }));
+        assert_eq!(found_in(&search, name)["crate"], krate, "{search}");
+    }
+
+    let listed = client.call("list_components", json!({ "query": "ScanField" }));
+    assert_eq!(listed["components"][0]["name"], "ScanField");
+    let audited = client.call("component_api", json!({ "name": "ScanField" }));
+    assert!(audited["matches"][0]["quality"].is_object(), "{audited}");
+}
+
+#[test]
+fn search_api_finds_what_has_no_known_name() {
+    let mut client = Client::start();
+    let sefaz = client.call("search_api", json!({ "query": "sefaz sandbox" }));
+    assert!(sefaz["total"].as_u64().unwrap() > 0, "{sefaz}");
+    let only = client.call("search_api", json!({ "query": "language", "krate": "ravenrs-report-label" }));
+    for item in only["items"].as_array().unwrap() {
+        assert_eq!(item["crate"], "ravenrs-report-label");
+    }
+    assert!(only["total"].as_u64().unwrap() > 0, "{only}");
+    let none = client.call("search_api", json!({ "query": "no such thing anywhere" }));
+    assert_eq!(none["total"], 0);
+}
+
+#[test]
+fn an_example_can_come_from_the_guide_of_a_crate() {
+    let mut client = Client::start();
+    let answer = client.call("component_examples", json!({ "name": "SefazSandbox", "limit": 10 }));
+    let examples = answer["examples"].as_array().unwrap();
+    assert!(!examples.is_empty(), "{answer}");
+    assert!(examples.iter().all(|example| example["code"].as_str().unwrap().contains("SefazSandbox")));
+}
+
+#[test]
+fn guides_list_show_and_search_the_documents() {
+    let mut client = Client::start();
+    let all = client.call("guides", json!({}));
+    let paths: Vec<&str> =
+        all["documents"].as_array().unwrap().iter().map(|d| d["document"].as_str().unwrap()).collect();
+    for wanted in [
+        "README.md",
+        "ARCHITECTURE.md",
+        "docs/APP-FRAMEWORK.md",
+        "docs/AUTOMACAO-COMERCIAL.md",
+        "docs/NFSE.md",
+        "docs/REPORTING.md",
+        "crates/ravenrs-nfe/README.md",
+        "crates/ravenrs-nfe/REGRAS.md",
+        "crates/ravenrs-report-label/README.md",
+        "crates/ravenrs-report-label/FONTES.md",
+        "crates/ravenrs-pos/README.md",
+        "crates/ravenrs-app-nfe/README.md",
+        "examples/mini-pdv/README.md",
+    ] {
+        assert!(paths.contains(&wanted), "{wanted} is not among {paths:?}");
+    }
+    assert!(!paths.contains(&"CHANGELOG.md"));
+
+    let parts = client.call("guides", json!({ "document": "ravenrs-nfe/README" }));
+    let headings = parts["documents"][0]["sections"].as_array().unwrap();
+    assert!(headings.iter().any(|h| h.as_str().unwrap().contains("Sandbox")), "{parts}");
+
+    let part = client.call("guides", json!({ "document": "ravenrs-nfe/README", "section": "Sandbox" }));
+    assert!(part["sections"][0]["text"].as_str().unwrap().contains("SefazSandbox"), "{part}");
+    assert_eq!(part["sections"][0]["whole"], true);
+
+    let sandbox = client.call("guides", json!({ "query": "SefazSandbox on_unhandled" }));
+    assert_eq!(sandbox["matches"][0]["document"], "crates/ravenrs-nfe/README.md", "{sandbox}");
+    let printers = client.call("guides", json!({ "query": "ESC/POS", "document": "report-label" }));
+    assert!(printers["total"].as_u64().unwrap() > 0, "{printers}");
+    let editor = client.call("guides", json!({ "query": "Impressora direta" }));
+    assert!(editor["total"].as_u64().unwrap() > 0, "{editor}");
+    let shop = client.call("guides", json!({ "query": "homologação A1", "document": "AUTOMACAO" }));
+    assert!(shop["total"].as_u64().unwrap() > 0, "{shop}");
+
+    assert!(client.call_err("guides", json!({ "document": "nothing-like-this" }))["error"].is_string());
+    assert!(
+        client.call_err("guides", json!({ "document": "NFSE", "section": "nothing-like-this" }))["error"]
+            .is_string()
+    );
 }

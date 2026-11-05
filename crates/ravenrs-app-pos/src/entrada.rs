@@ -8,15 +8,15 @@ use ravenrs_app_nfe::engine::entrada::{ItemRecebido, NotaRecebida, ler_nota_rece
 use ravenrs_app_ui::Session;
 use ravenrs_layout::Align;
 use ravenrs_pos::{
-    Composicao, LinhaCompra, arredondar_preco, codigo_interno, entrar_no_estoque, ler_valor, sugerir_etiqueta,
-    valor_em_texto,
+    Composicao, LinhaCompra, arredondar_preco, codigo_interno, entrar_no_estoque, ler_valor,
+    sugerir_etiqueta, valor_em_texto,
 };
 use ravenrs_reactive::{Binding, State};
 use ravenrs_report::barcode::is_valid_gtin;
 use ravenrs_style::{Semantic, TextStyle};
 use ravenrs_widgets::{
-    Alert, AnyView, BuildCx, Button, ButtonStyle, Card, Checkbox, FileRequest, HStack, NodeId, ScrollView, Spacer,
-    Text, TextField, Tone, VStack, View, ViewExt,
+    Alert, AnyView, BuildCx, Button, ButtonStyle, Card, Checkbox, FileRequest, HStack, NodeId, ScrollView,
+    Spacer, Text, TextField, Tone, VStack, View, ViewExt,
 };
 use rust_decimal::Decimal;
 
@@ -129,7 +129,8 @@ fn preco_para(session: &Session, custo: Decimal) -> Option<Decimal> {
         ..Composicao::default()
     };
     let formacao = composicao.calcular().ok()?;
-    let centavos = u8::try_from(configuracao_decimal(session, "final_de_preco").trunc().mantissa()).unwrap_or(90);
+    let centavos =
+        u8::try_from(configuracao_decimal(session, "final_de_preco").trunc().mantissa()).unwrap_or(90);
     Some(arredondar_preco(formacao.preco, centavos))
 }
 
@@ -248,12 +249,15 @@ impl Entradas {
                 if let Some(gtin) = item.gtin.as_deref().filter(|gtin| is_valid_gtin(gtin)) {
                     cadastrar_codigo(&mut *space, &codigo, gtin, "Código do fornecedor", Decimal::ONE)?;
                 }
-                let personalizado = self.codigos.with(|all| all.get(&item.numero).cloned()).unwrap_or_default();
+                let personalizado =
+                    self.codigos.with(|all| all.get(&item.numero).cloned()).unwrap_or_default();
                 if !personalizado.trim().is_empty() {
                     let digitado = self.quantidades_dos_codigos.with(|all| all.get(&item.numero).cloned());
                     let vale = match digitado.as_deref().map(str::trim).filter(|text| !text.is_empty()) {
                         Some(text) => ler_valor(text).ok_or_else(|| {
-                            SpaceError::Conflict(format!("A quantidade do código {personalizado} não é um número."))
+                            SpaceError::Conflict(format!(
+                                "A quantidade do código {personalizado} não é um número."
+                            ))
                         })?,
                         None => Decimal::ONE,
                     };
@@ -282,7 +286,8 @@ impl Entradas {
         let quantas = etiquetas.len();
         self.etiquetas.set(etiquetas);
         self.nota.set(None);
-        self.aviso.set(Some((Tone::Success, format!("Entrada feita. {quantas} etiquetas de gôndola sugeridas."))));
+        self.aviso
+            .set(Some((Tone::Success, format!("Entrada feita. {quantas} etiquetas de gôndola sugeridas."))));
         session.records_changed();
         Ok(quantas)
     }
@@ -371,33 +376,29 @@ impl View for TelaEntrada {
         let waker = cx.ui_waker();
         let importar = {
             let (entradas, session) = (entradas.clone(), session.clone());
-            Button::new("Importar XML da nota")
-                .icon(ravenrs_widgets::IconName::Upload)
-                .on_click(move || {
-                    let (entradas, session, waker) = (entradas.clone(), session.clone(), waker.clone());
-                    let mut pedido = FileRequest::default();
-                    pedido.extensions = vec!["xml".to_owned()];
-                    pedido.multiple = false;
-                    pedido.most_bytes = Some(MAIOR_XML);
-                    picker.pick(&pedido, move |files| {
-                        if let Some(file) = files.first() {
-                            let lido = String::from_utf8_lossy(&file.bytes).into_owned();
-                            if let Err(why) = entradas.carregar(&session, &lido) {
-                                entradas.aviso.set(Some((Tone::Danger, why)));
-                            }
+            Button::new("Importar XML da nota").icon(ravenrs_widgets::IconName::Upload).on_click(move || {
+                let (entradas, session, waker) = (entradas.clone(), session.clone(), waker.clone());
+                let mut pedido = FileRequest::default();
+                pedido.extensions = vec!["xml".to_owned()];
+                pedido.multiple = false;
+                pedido.most_bytes = Some(MAIOR_XML);
+                picker.pick(&pedido, move |files| {
+                    if let Some(file) = files.first() {
+                        let lido = String::from_utf8_lossy(&file.bytes).into_owned();
+                        if let Err(why) = entradas.carregar(&session, &lido) {
+                            entradas.aviso.set(Some((Tone::Danger, why)));
                         }
-                        waker.wake();
-                    });
-                })
+                    }
+                    waker.wake();
+                });
+            })
         };
         let topo: Vec<AnyView> = vec![
             Box::new(Text::new("Entrada de mercadoria").style(TextStyle::Title)),
             Box::new(Spacer::new()),
             Box::new(importar),
         ];
-        let mut corpo: Vec<AnyView> = vec![Box::new(
-            HStack::new(topo).spacing(12.0).align(Align::Center),
-        )];
+        let mut corpo: Vec<AnyView> = vec![Box::new(HStack::new(topo).spacing(12.0).align(Align::Center))];
         if let Some((tone, texto)) = entradas.aviso.get() {
             corpo.push(Box::new(Alert::new("Entrada", texto).tone(tone)));
         }
@@ -478,41 +479,39 @@ impl View for TelaEntrada {
                         (_, Some(novo)) => format!("R$ {}", valor_em_texto(novo)),
                         _ => "sem preço calculado".to_owned(),
                     };
-                    linhas.push(Box::new(
-                        Card::new(
-                            HStack::new(vec![
-                                Box::new(
-                                    VStack::new(vec![
-                                        Box::new(Text::new(previa.descricao.clone()).style(TextStyle::Headline))
-                                            as AnyView,
-                                        Box::new(
-                                            Text::new(situacao)
-                                                .style(TextStyle::Callout)
-                                                .foreground(Semantic::InkMuted),
-                                        ),
-                                    ])
-                                    .spacing(2.0)
-                                    .align(Align::Stretch)
-                                    .grow(1.0),
-                                ) as AnyView,
-                                Box::new(codigo_proprio),
-                                Box::new(vale_quanto),
-                                Box::new(fator),
-                                Box::new(Text::new(format!(
-                                    "{} un, custo R$ {}",
-                                    previa.unidades.normalize().to_string().replace('.', ","),
-                                    valor_em_texto(previa.custo)
-                                ))),
-                                Box::new(Text::new(preco).font_weight(ravenrs_style::Weight::SEMIBOLD)),
-                            ])
-                            .spacing(16.0)
-                            .align(Align::Center),
-                        ),
-                    ));
+                    linhas.push(Box::new(Card::new(
+                        HStack::new(vec![
+                            Box::new(
+                                VStack::new(vec![
+                                    Box::new(Text::new(previa.descricao.clone()).style(TextStyle::Headline))
+                                        as AnyView,
+                                    Box::new(
+                                        Text::new(situacao)
+                                            .style(TextStyle::Callout)
+                                            .foreground(Semantic::InkMuted),
+                                    ),
+                                ])
+                                .spacing(2.0)
+                                .align(Align::Stretch)
+                                .grow(1.0),
+                            ) as AnyView,
+                            Box::new(codigo_proprio),
+                            Box::new(vale_quanto),
+                            Box::new(fator),
+                            Box::new(Text::new(format!(
+                                "{} un, custo R$ {}",
+                                previa.unidades.normalize().to_string().replace('.', ","),
+                                valor_em_texto(previa.custo)
+                            ))),
+                            Box::new(Text::new(preco).font_weight(ravenrs_style::Weight::SEMIBOLD)),
+                        ])
+                        .spacing(16.0)
+                        .align(Align::Center),
+                    )));
                 }
                 corpo.push(Box::new(
                     ScrollView::new(vec![
-                        Box::new(VStack::new(linhas).spacing(8.0).align(Align::Stretch)) as AnyView,
+                        Box::new(VStack::new(linhas).spacing(8.0).align(Align::Stretch)) as AnyView
                     ])
                     .grow(1.0),
                 ));

@@ -47,8 +47,8 @@ mod clipboard;
 mod color_picker;
 mod commands;
 mod context;
-mod counter;
 mod conversation;
+mod counter;
 mod data;
 mod date;
 mod diagnostics;
@@ -126,6 +126,7 @@ pub use context::{
     PaintCx, Placement, QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
 };
 pub use conversation::{Attachment, AttachmentStrip, AudioPlayerButton, SelectionBar};
+pub use counter::{KeyBar, KeyBarItem, Scan, ScanField};
 pub use data::{Column, List, ListItem, Table};
 pub use date::{Date, days_in_month, is_leap_year};
 pub use diagnostics::{Diagnostics, DiagnosticsHost};
@@ -214,7 +215,6 @@ pub use status::{
 };
 pub use tag_box::TagBox;
 pub use text::Text;
-pub use counter::{KeyBar, KeyBarItem, Scan, ScanField};
 pub use text_field::TextField;
 pub use theme::{ThemeEditor, ThemePicker};
 pub use tiles::{CardView, Tile, TileLayout, TileSpot};

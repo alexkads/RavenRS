@@ -12,8 +12,8 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
     Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Dialog, Divider, IconButton,
-    IconName, KeyBar, KeyBarItem, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection, Text,
-    TextField, ThemePicker, Tone, VStack, View, ViewExt,
+    IconName, KeyBar, KeyBarItem, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem,
+    SidebarSection, Text, TextField, ThemePicker, Tone, VStack, View, ViewExt,
 };
 
 use crate::container::{ActionContainer, icon_named};
@@ -151,10 +151,8 @@ impl View for LockedWindow {
             .width(280.0)
             .placeholder(words.unlock.clone())
             .on_submit(submit);
-        let mut lines: Vec<AnyView> = vec![
-            Box::new(Text::new(self.title.clone()).style(TextStyle::Title)),
-            Box::new(field),
-        ];
+        let mut lines: Vec<AnyView> =
+            vec![Box::new(Text::new(self.title.clone()).style(TextStyle::Title)), Box::new(field)];
         if wrong.get() {
             lines.push(Box::new(Text::new(words.unlock_wrong.clone()).foreground(Semantic::Danger)));
         }

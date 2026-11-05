@@ -1705,6 +1705,14 @@ fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, view
     p
 }
 
+/// Whether a shortcut's key is the key pressed, whatever the case of a letter.
+fn same_key(wanted: &Key, pressed: &Key) -> bool {
+    match (wanted, pressed) {
+        (Key::Character(a), Key::Character(b)) => a.eq_ignore_ascii_case(b),
+        (a, b) => a == b,
+    }
+}
+
 #[cfg(test)]
 mod frame_memory_tests {
     use ravenrs_core::Event;
@@ -1732,13 +1740,5 @@ mod frame_memory_tests {
         assert!(ui.scroll.offsets.values().any(|o| o.y > 10_000.0), "the list did scroll");
         let scrolled = ui.scroll.viewports.len();
         assert!(scrolled <= at_rest + 4, "{scrolled} frames kept, {at_rest} at rest");
-    }
-}
-
-/// Whether a shortcut's key is the key pressed, whatever the case of a letter.
-fn same_key(wanted: &Key, pressed: &Key) -> bool {
-    match (wanted, pressed) {
-        (Key::Character(a), Key::Character(b)) => a.eq_ignore_ascii_case(b),
-        (a, b) => a == b,
     }
 }

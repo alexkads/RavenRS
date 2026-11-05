@@ -129,8 +129,11 @@ impl Session {
             let (result_out, result_in) = channel::<R>();
             let canceled = Arc::new(AtomicBool::new(false));
             let waker = jobs.waker.borrow().clone();
-            let progress =
-                JobProgress { sender: Some(events.clone()), waker: waker.clone(), canceled: canceled.clone() };
+            let progress = JobProgress {
+                sender: Some(events.clone()),
+                waker: waker.clone(),
+                canceled: canceled.clone(),
+            };
             std::thread::spawn(move || {
                 let brought = work(&progress);
                 let _ = result_out.send(brought);

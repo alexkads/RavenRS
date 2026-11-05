@@ -117,6 +117,12 @@ fn application() -> App {
             .icon("palette")
             .control("Editor de tokens", THEME_EDITOR),
     )
+    .dashboard(
+        DashboardInfo::new(model::COUNTER_WINDOW, "Caixa de exemplo")
+            .navigation("Balcão")
+            .icon("shopping-cart")
+            .control("Caixa de exemplo", model::COUNTER_WINDOW),
+    )
 }
 
 /// The whole center over what `space` makes.
@@ -135,6 +141,7 @@ pub fn watched<S: ObjectSpace + 'static>(
         let seen = seen.clone();
         application().with_session(move |session| {
             session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
+            session.register_control(model::COUNTER_WINDOW, actions::counter_control());
             seen(session);
         })
     })
@@ -175,6 +182,11 @@ pub fn sqlite_database(file: &std::path::Path) -> Result<ravenrs_app_sqlite::Sql
         builder = builder.managed(entity, table).map_err(|e| e.0)?;
     }
     Ok(builder.build())
+}
+
+/// The counter window on its own, with a look of its own: `cargo run -p feature-center -- caixa`.
+pub fn counter_window() -> AnyView {
+    actions::counter_app().theme(ravenrs::prelude::Theme::raven_light()).into_view()
 }
 
 /// The window: in a file on the desktop, set by `RAVEN_CENTRO`, and in memory in the browser.

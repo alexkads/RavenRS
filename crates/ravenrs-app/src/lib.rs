@@ -62,7 +62,8 @@ pub use model::{
     UnusableNode, check_model, generate_model,
 };
 pub use module::{
-    Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module, Notice, NoticeKind,
+    Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module, Notice,
+    NoticeKind,
 };
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};

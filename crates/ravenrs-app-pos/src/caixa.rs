@@ -7,7 +7,8 @@ use ravenrs_app_nfe::engine::{
     Csosn, Destinatario, DocumentoDestinatario, Endereco, FormaPagamento, Item, Modelo, Rascunho,
 };
 use ravenrs_app_nfe::{
-    CUPOM_LINHA, EmissaoFinal, MODELO_DANFE, NfeService, TextoVenda, linhas_do_documento, renderizar_cupom, uf_de,
+    CUPOM_LINHA, EmissaoFinal, MODELO_DANFE, NfeService, TextoVenda, linhas_do_documento, renderizar_cupom,
+    uf_de,
 };
 use ravenrs_app_report::{ReportWords, label_bytes, send_to_printer, stored_reports_for};
 use ravenrs_app_ui::Session;
@@ -205,9 +206,12 @@ impl Caixa {
         let cliente = clientes
             .iter()
             .find(|cliente| {
-                texto(cliente, "documento").chars().filter(char::is_ascii_alphanumeric).collect::<String>() == documento
+                texto(cliente, "documento").chars().filter(char::is_ascii_alphanumeric).collect::<String>()
+                    == documento
             })
-            .ok_or_else(|| format!("O cliente {documento} não está cadastrado. A nota grande precisa do endereço."))?;
+            .ok_or_else(|| {
+                format!("O cliente {documento} não está cadastrado. A nota grande precisa do endereço.")
+            })?;
         Ok(Destinatario {
             documento: if documento.len() == 11 {
                 DocumentoDestinatario::Cpf(documento)
@@ -324,7 +328,9 @@ impl Caixa {
         let vendidos = carrinho.linhas.clone();
         self.service.emitir(
             session,
-            move |numero, serie| rascunho_de(&carrinho, destinatario.as_ref(), forma, recebido, numero, serie),
+            move |numero, serie| {
+                rascunho_de(&carrinho, destinatario.as_ref(), forma, recebido, numero, serie)
+            },
             venda,
             move |session, fim| {
                 let autorizada = fim.autorizada;
@@ -333,7 +339,10 @@ impl Caixa {
                     baixar_estoque(session, &vendidos, &chave);
                 }
                 caixa.tela.set(Tela::Resultado(fim));
-                if autorizada && !*caixa.nota_grande.peek() && !configuracao(session, "impressora_cupom").is_empty() {
+                if autorizada
+                    && !*caixa.nota_grande.peek()
+                    && !configuracao(session, "impressora_cupom").is_empty()
+                {
                     caixa.imprimir_cupom(session, &chave);
                 }
             },
@@ -443,7 +452,8 @@ fn baixar_estoque(session: &Session, linhas: &[Linha], chave: &str) {
     let result = (|| -> Result<(), ravenrs_app::SpaceError> {
         let produtos = space.query(PRODUTO, &Query::all())?;
         for linha in linhas {
-            let Some(produto) = produtos.iter().find(|produto| texto(produto, "codigo") == linha.codigo) else {
+            let Some(produto) = produtos.iter().find(|produto| texto(produto, "codigo") == linha.codigo)
+            else {
                 continue;
             };
             let mut produto = space.find(PRODUTO, &produto.get("id"))?.unwrap_or_else(|| produto.clone());
@@ -464,7 +474,8 @@ fn baixar_estoque(session: &Session, linhas: &[Linha], chave: &str) {
     if let Err(error) = result {
         space.rollback();
         drop(space);
-        session.show_message(Message::new(format!("O estoque não foi baixado: {error}"), MessageKind::Warning));
+        session
+            .show_message(Message::new(format!("O estoque não foi baixado: {error}"), MessageKind::Warning));
     }
 }
 

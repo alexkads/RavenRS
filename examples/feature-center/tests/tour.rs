@@ -154,7 +154,7 @@ impl Center {
 }
 
 /// Every list of the navigation, with what it is there to show.
-const DEMONSTRATIONS: [(&str, &str); 19] = [
+const DEMONSTRATIONS: [(&str, &str); 20] = [
     ("Regras", "ValidationRules"),
     ("Avisos e informações", "ValidationSoft"),
     ("Ao sair do campo", "ValidationOnLeave"),
@@ -174,6 +174,7 @@ const DEMONSTRATIONS: [(&str, &str); 19] = [
     ("Leve", "AuditLight"),
     ("Só criação", "AuditCreation"),
     ("Coleções", "AuditOwner"),
+    ("Dados da loja", "StoreSettings"),
 ];
 
 fn every_demonstration_opens(center: &mut Center) {
@@ -507,8 +508,7 @@ fn each_mode_of_the_trail_writes_what_it_says() {
 fn reports_and_panels_show_what_the_person_can_read() {
     let mut c = Center::memory("ana");
     c.open_list("ReportDefinition");
-    let report =
-        (c.space)().query(ravenrs_app_report::REPORT_DEFINITION, &Query::all()).expect("reads").remove(0);
+    let (report, _) = stored_report(&c, "Custos por tarefa");
     c.session().frame().set_selected(vec![report]);
     c.settle();
     c.run("ShowReport", ActionInput::None);
@@ -607,4 +607,232 @@ fn draw_the_lists() {
         let file = folder.join(format!("lista-{name}.png"));
         image::RgbaImage::from_raw(w, h, pixels).expect("image").save(file).expect("save");
     }
+}
+
+#[test]
+fn a_record_that_is_one_of_a_kind_opens_on_its_form() {
+    let mut c = Center::memory("ana");
+    c.press("Dados da loja");
+    assert!(c.session().form_record().is_some(), "a new one, while there is none");
+    c.set("name", "Loja de exemplo");
+    c.save();
+    c.open_list("ReportDefinition");
+    c.press("Dados da loja");
+    let record = c.session().form_record().expect("the form again, with no list");
+    assert_eq!(record.get("name"), Value::Text("Loja de exemplo".into()));
+}
+
+#[test]
+fn the_gtin_editor_checks_the_digit_while_typing() {
+    let mut c = Center::memory("ana");
+    c.open_record("EditorsDemo", 1.0);
+    c.set("gtin", "7891000100103");
+    assert!(c.says("EAN-13"), "{:?}", c.texts());
+    c.set("gtin", "7891000100104");
+    assert!(c.says("\u{2717} GTIN"), "{:?}", c.texts());
+}
+
+/// The counter window by itself, with its session and no sign-in.
+struct Counter {
+    ui: Ui,
+    session: Rc<RefCell<Option<Session>>>,
+}
+
+impl Counter {
+    fn open(change: impl FnOnce(ravenrs_app_ui::App) -> ravenrs_app_ui::App) -> Self {
+        let session = Rc::new(RefCell::new(None));
+        let keep = session.clone();
+        let app = change(feature_center::actions::counter_app())
+            .with_session(move |seen| *keep.borrow_mut() = Some(seen.clone()));
+        let mut ui = Ui::new(app.build().expect("it puts together"), Theme::raven_dark());
+        ui.set_viewport(Size::new(1200.0, 800.0), 1.0);
+        let mut counter = Self { ui, session };
+        counter.settle();
+        counter
+    }
+
+    fn settle(&mut self) {
+        for _ in 0..4 {
+            self.ui.update();
+        }
+    }
+
+    fn says(&mut self, text: &str) -> bool {
+        self.settle();
+        self.ui.access_tree().nodes.iter().any(|node| {
+            [&node.name, &node.value, &node.description]
+                .iter()
+                .any(|found| found.as_deref().is_some_and(|found| found.contains(text)))
+        })
+    }
+
+    fn key(&mut self, key: ravenrs_core::Key) {
+        self.ui.handle_event(&ravenrs_core::Event::KeyDown {
+            key,
+            modifiers: ravenrs_core::Modifiers::default(),
+        });
+        self.settle();
+    }
+
+    fn function(&mut self, number: u8) {
+        self.key(ravenrs_core::Key::Function(number));
+    }
+
+    fn type_in(&mut self, text: &str) {
+        for letter in text.chars() {
+            self.key(ravenrs_core::Key::Character(letter.to_string()));
+        }
+    }
+
+    fn session(&self) -> Session {
+        self.session.borrow().clone().expect("open")
+    }
+}
+
+#[test]
+fn the_counter_window_shows_its_notice_and_keys_inside_the_center_and_nowhere_else() {
+    let mut c = Center::memory("ana");
+    assert!(!c.says("Este aviso vem do módulo"), "the center has no notice of its own");
+    c.press("Caixa de exemplo");
+    assert!(c.says("Este aviso vem do módulo"), "{:?}", c.texts());
+    assert!(c.says("Próximo número"), "the keys are in the bar: {:?}", c.texts());
+    c.press("Dados da loja");
+    assert!(!c.says("Este aviso vem do módulo"), "it goes when the window goes");
+}
+
+#[test]
+fn a_notice_stays_and_cannot_be_dismissed() {
+    let mut counter = Counter::open(|app| app);
+    assert_eq!(counter.session().notices().len(), 1);
+    assert!(counter.says("Demonstração"));
+    assert!(!counter.says("Fechar"), "there is no way to close it");
+    counter.function(12);
+    assert!(counter.says("Demonstração"), "not even a locked window hides it");
+}
+
+#[test]
+fn the_counter_gives_numbers_in_order_from_the_keyboard() {
+    let mut counter = Counter::open(|app| app);
+    counter.function(9);
+    assert!(counter.says("Venda número 1."));
+    counter.function(9);
+    assert!(counter.says("Venda número 2."));
+}
+
+#[test]
+fn a_draft_is_kept_and_comes_back_once() {
+    let mut counter = Counter::open(|app| app);
+    counter.function(11);
+    assert!(counter.says("Nenhuma venda guardada."));
+    counter.function(10);
+    assert!(counter.says("Venda guardada"));
+    counter.function(11);
+    assert!(counter.says("Retomou: Venda pela metade"));
+    counter.function(11);
+    assert!(counter.says("Nenhuma venda guardada."), "it was taken");
+}
+
+#[test]
+fn alt_and_a_letter_adds_up_in_the_background_with_no_cent_lost() {
+    let mut counter = Counter::open(|app| app);
+    counter.ui.handle_event(&ravenrs_core::Event::KeyDown {
+        key: ravenrs_core::Key::Character("s".into()),
+        modifiers: ravenrs_core::Modifiers { alt: true, ..ravenrs_core::Modifiers::default() },
+    });
+    counter.session().finish_background();
+    assert!(counter.says("Total exato: 36.99"), "27.90 + 8.79 + 0.10 + 0.20");
+    assert!(counter.session().background_jobs().is_empty());
+}
+
+#[test]
+fn a_decimal_field_keeps_what_it_was_given() {
+    use ravenrs_app::{BusinessObject, FieldValue};
+    let info = feature_center::model::CounterProduct::entity_info();
+    let price = info.fields.iter().find(|field| field.name == "price").expect("the field");
+    assert!(matches!(price.kind, ravenrs_app::FieldKind::Decimal(_)));
+    let exact: rust_decimal::Decimal = "0.30".parse().expect("a number");
+    assert_eq!(rust_decimal::Decimal::from_value(exact.to_value()), exact.normalize());
+}
+
+#[test]
+fn the_keys_can_be_listed_and_the_window_locked() {
+    let mut counter = Counter::open(|app| app);
+    counter.function(1);
+    assert!(counter.says("Consulta de atalhos"));
+    assert!(counter.says("Bloquear"));
+    counter.session().close_presented();
+    counter.settle();
+    counter.function(12);
+    assert!(counter.says("Caixa bloqueado"));
+    assert!(!counter.says("Próximo número"), "nothing else shows");
+    counter.function(9);
+    counter.type_in("0000");
+    counter.key(ravenrs_core::Key::Enter);
+    assert!(counter.says("Caixa bloqueado"), "a wrong one stays locked");
+    counter.type_in(feature_center::actions::COUNTER_PIN);
+    counter.key(ravenrs_core::Key::Enter);
+    assert!(counter.says("Próximo número"), "the right one gets back");
+}
+
+#[test]
+fn an_application_can_start_on_a_theme_of_its_own() {
+    let mut counter = Counter::open(|app| app.theme(Theme::raven_light()));
+    counter.settle();
+    assert_eq!(counter.ui.theme().palette.ink, Theme::raven_light().palette.ink);
+}
+
+fn stored_report(c: &Center, name: &str) -> (Object, ravenrs_report::Report) {
+    let records = (c.space)().query(ravenrs_app_report::REPORT_DEFINITION, &Query::all()).expect("reads");
+    let wanted = Value::Text(name.to_owned());
+    let record = records.into_iter().find(|record| record.get("name") == wanted).expect("seeded");
+    let report = match record.get("layout") {
+        Value::Text(layout) if !layout.is_empty() => {
+            ravenrs_report::Report::from_json(&layout).expect("reads back")
+        }
+        _ => ravenrs_report::Report::default(),
+    };
+    (record, report)
+}
+
+#[test]
+fn labels_go_in_columns_with_a_mark_for_each_code_and_turn_into_printer_language() {
+    let c = Center::memory("ana");
+    let (record, report) = stored_report(&c, feature_center::seed::LABELS_REPORT);
+    assert!(report.columns.as_ref().is_some_and(|columns| columns.count > 1), "columns on a sheet");
+    let mut product = (c.space)().find("EditorsDemo", &Value::Number(1.0)).expect("reads").expect("there");
+    product.set("gtin", "7891000100103".to_owned());
+    let words = ravenrs_app_report::ReportWords::pt_br();
+    let document = ravenrs_app_report::render_stored_report(&c.session(), &record, &[(product, 4)], &words)
+        .unwrap_or_else(|why| panic!("{why}"));
+    let marks = document.pages[0]
+        .items
+        .iter()
+        .filter(|item| matches!(item, ravenrs_report::Item::BarcodeMark { .. }))
+        .count();
+    assert_eq!(marks, 4, "each label has its code, one beside the other");
+    let job = ravenrs_report_label::LabelJob::new(ravenrs_report_label::Language::Zpl, 203);
+    let bytes = ravenrs_report_label::compile(&document, &job).unwrap_or_else(|why| panic!("{why}"));
+    assert!(bytes.starts_with(b"^XA"), "ZPL");
+}
+
+#[test]
+fn a_receipt_is_one_long_page_with_its_printer_and_commands_in_place() {
+    let mut c = Center::memory("ana");
+    let (record, report) = stored_report(&c, feature_center::seed::RECEIPT_REPORT);
+    assert!(report.continuous);
+    assert_eq!(report.printer.as_ref().map(|printer| printer.language.as_str()), Some("ESC/POS"));
+    let rows = (c.space)().query("EditableList", &Query::all()).expect("reads");
+    let many: Vec<(Object, u32)> = rows.into_iter().map(|row| (row, 3)).collect();
+    let words = ravenrs_app_report::ReportWords::pt_br();
+    let document = ravenrs_app_report::render_stored_report(&c.session(), &record, &many, &words)
+        .unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(document.pages.len(), 1, "a roll has one page however long");
+    let job = ravenrs_report_label::LabelJob::new(ravenrs_report_label::Language::EscPos, 203);
+    let bytes = ravenrs_report_label::compile(&document, &job).unwrap_or_else(|why| panic!("{why}"));
+    assert!(bytes.windows(2).any(|pair| pair == [0x1d, b'V']), "the paper is cut");
+    assert!(bytes.windows(2).any(|pair| pair == [0x1b, b'p']), "the drawer opens");
+
+    ravenrs_app_report::design_stored_report(&c.session(), &record, &words)
+        .unwrap_or_else(|why| panic!("{why}"));
+    assert!(c.says("Impressora direta"), "the designer offers printing straight: {:?}", c.texts());
 }

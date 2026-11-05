@@ -1328,13 +1328,12 @@ fn focus_comes_back_to_where_it_was_when_a_dialog_with_a_focused_field_closes() 
     impl View for Screen {
         fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
             let (read, write) = (self.behind.clone(), self.behind.clone());
-            let behind = TextField::new(Binding::new(move || read.get(), move |v: String| write.set(v))).autofocus();
+            let behind =
+                TextField::new(Binding::new(move || read.get(), move |v: String| write.set(v))).autofocus();
             let (read, write) = (self.inside.clone(), self.inside.clone());
-            let inside = TextField::new(Binding::new(move || read.get(), move |v: String| write.set(v))).autofocus();
-            cx.child(&VStack::new((
-                behind,
-                Dialog::new(self.open.binding(), "Pergunta").content(inside),
-            )))
+            let inside =
+                TextField::new(Binding::new(move || read.get(), move |v: String| write.set(v))).autofocus();
+            cx.child(&VStack::new((behind, Dialog::new(self.open.binding(), "Pergunta").content(inside))))
         }
     }
     let (open, behind, inside) = (State::new(false), State::new(String::new()), State::new(String::new()));

@@ -22,7 +22,8 @@ pub fn render_to_rgba(gpu: &GpuContext, scene: &Scene, width: u32, height: u32) 
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
     let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
     renderer.render(scene, &view, (width, height), 1.0);
-    let padded = (width * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+    let padded =
+        (width * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
     let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("offscreen readback"),
         size: u64::from(padded * height),
@@ -49,10 +50,7 @@ pub fn render_to_rgba(gpu: &GpuContext, scene: &Scene, width: u32, height: u32) 
         let _ = sender.send(mapped);
     });
     gpu.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|error| error.to_string())?;
-    receiver
-        .recv()
-        .map_err(|error| error.to_string())?
-        .map_err(|error| error.to_string())?;
+    receiver.recv().map_err(|error| error.to_string())?.map_err(|error| error.to_string())?;
     let data = slice.get_mapped_range().map_err(|error| error.to_string())?;
     let mut pixels = Vec::with_capacity((width * height * 4) as usize);
     for row in 0..height {

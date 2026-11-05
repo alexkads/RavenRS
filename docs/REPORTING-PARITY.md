@@ -98,7 +98,10 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Feature | DevExpress | RavenRS |
 |---|---|---|
 | Paper, orientation, margins | | ✅ A4, Letter, custom, landscape, margins |
-| Multi-column | Across then down / down then across | ⬜ [R3] |
+| Multi-column | Across then down / down then across | ✅ `Report::columns`, both ways, with spacing, in the designer's panel |
+| Continuous page on a roll | | ✅ `Report::continuous`, and the 80 and 58 mm rolls in the catalog |
+| Label printers | ZPL through a separate export | 🟡 `ravenrs-report-label`: ZPL II, EPL2/PPLB, PPLA and TSPL as a bitmap, the layout the same on every brand. Read back by tests, never printed on a physical printer |
+| Receipt printers | | 🟡 ESC/POS, with cut, drawer, beep and feed as controls of the layout (`ControlKind::PrinterCommand`). Read back by tests, never printed on a physical printer |
 | Can grow, anchoring, push-down of controls below | | ✅ can grow, push-down. Anchoring, can shrink ⬜ [R3] |
 | Keep together, print at bottom, repeat every page | | 🟡 keep-with-next, repeat group header. The rest ⬜ [R3] |
 | Content splitting across pages | | ⬜ [R3]: bands taller than a page move whole |
@@ -142,7 +145,8 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Snap grid, resize, move across bands, undo/redo, zoom | | ✅ |
 | Snap lines, align/size tools, rulers, multi-select | | ⬜ [R4] |
 | Expression editor, format editor, validation (design analyzer) | | 🟡 format picker; render errors listed. Expression editor with function list ⬜ [R4] |
-| Report wizard (table, labels, templates) | | 🟡 table wizard (fields, grouping, totals) and templates (invoice, sales, customer list). Labels wizard ⬜ [R4] |
+| Report wizard (table, labels, templates) | | 🟡 table wizard (fields, grouping, totals) and templates (invoice, sales, customer list). Labels: `labels::common_stocks` and `shelf_label`, and paper in the designer's panel, with no wizard of steps yet |
+| Printing straight to a printer from the designer | | ✅ "Impressora direta": language, resolution and connection kept with the report, a preview in dots, and a file in the browser |
 | Localization editor, scripts | | ⬜ [R5]; scripts are intentionally not planned (expressions cover them safely) |
 | AI: prompt to report, AI expressions | | ⬜ [R5] |
 

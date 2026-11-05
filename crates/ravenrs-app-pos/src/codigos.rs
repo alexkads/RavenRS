@@ -19,8 +19,9 @@ pub struct Encontrado {
 /// The product of a code: its own barcode, its internal code or any of its other barcodes.
 pub fn produto_por_codigo(space: &dyn ObjectSpace, codigo: &str) -> Option<Encontrado> {
     let produtos = space.query(PRODUTO, &Query::all()).ok()?;
-    let proprio =
-        produtos.iter().find(|produto| texto(produto, "gtin") == codigo || texto(produto, "codigo") == codigo);
+    let proprio = produtos
+        .iter()
+        .find(|produto| texto(produto, "gtin") == codigo || texto(produto, "codigo") == codigo);
     if let Some(produto) = proprio {
         return Some(Encontrado { produto: produto.clone(), fator: Decimal::ONE });
     }
