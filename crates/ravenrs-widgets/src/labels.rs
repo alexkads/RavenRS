@@ -379,6 +379,16 @@ pub struct Labels {
     pub color_wheel: String,
     /// The distance from gray on a [`ColorWheel`](crate::ColorWheel).
     pub color_saturation: String,
+    /// A [`CurveEditor`](crate::CurveEditor)'s name.
+    pub curve_editor: String,
+    /// One point of a [`CurveEditor`](crate::CurveEditor), before its position in the list.
+    pub curve_point: String,
+    /// After the number of points of a [`CurveEditor`](crate::CurveEditor).
+    pub curve_points: String,
+    /// The horizontal value of a point of a [`CurveEditor`](crate::CurveEditor).
+    pub curve_input: String,
+    /// The vertical value of a point of a [`CurveEditor`](crate::CurveEditor).
+    pub curve_output: String,
     /// A recurrence editor's name.
     pub recurrence_name: String,
     /// Once, daily, weekly, monthly and yearly, as an editor offers them.
@@ -800,6 +810,11 @@ impl Default for Labels {
             ruler: "Ruler".into(),
             color_wheel: "Color wheel".into(),
             color_saturation: "Saturation".into(),
+            curve_editor: "Curve".into(),
+            curve_point: "Point".into(),
+            curve_points: "points".into(),
+            curve_input: "input".into(),
+            curve_output: "output".into(),
             recurrence_name: "Repeats".into(),
             recurrence_frequencies: owned(["Once", "Daily", "Weekly", "Monthly", "Yearly"]),
             recurrence_every: "Every".into(),
@@ -1119,6 +1134,11 @@ impl Labels {
             ruler: "Régua".into(),
             color_wheel: "Roda de cores".into(),
             color_saturation: "Saturação".into(),
+            curve_editor: "Curva".into(),
+            curve_point: "Ponto".into(),
+            curve_points: "pontos".into(),
+            curve_input: "entrada".into(),
+            curve_output: "saída".into(),
             recurrence_name: "Repetição".into(),
             recurrence_frequencies: owned(["Uma vez", "Diária", "Semanal", "Mensal", "Anual"]),
             recurrence_every: "A cada".into(),

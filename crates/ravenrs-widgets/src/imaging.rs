@@ -2,7 +2,7 @@
 //! wheels, zoom and pan. None of them knows photos, engines or file formats: every number
 //! comes from whoever uses them.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -835,6 +835,433 @@ impl View for ColorWheel {
                     Key::Home => HueSaturation::new(now.hue, 0.0),
                     _ => return false,
                 });
+                true
+            }),
+        );
+        node
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// CurveEditor
+// ---------------------------------------------------------------------------------------------
+
+/// Room around the plot of a [`CurveEditor`], in logical pixels, for the handles at its ends.
+const CURVE_MARGIN: f32 = 7.0;
+/// How close to a handle a press takes it, in logical pixels.
+const CURVE_REACH: f32 = 11.0;
+/// The least horizontal distance between two points, as a fraction of the plot.
+const CURVE_MIN_GAP: f32 = 0.01;
+
+/// The slope at each point of a curve that never swings past its points (Fritsch-Carlson,
+/// with the same harmonic mean as the charts' monotone curve, so both read alike).
+fn monotone_slopes(points: &[Point]) -> Vec<f32> {
+    let secant = |a: Point, b: Point| {
+        let run = b.x - a.x;
+        if run.abs() < f32::EPSILON { 0.0 } else { (b.y - a.y) / run }
+    };
+    let last = points.len() - 1;
+    (0..points.len())
+        .map(|i| {
+            if i == 0 {
+                secant(points[0], points[1])
+            } else if i == last {
+                secant(points[last - 1], points[last])
+            } else {
+                let (before, after) = (secant(points[i - 1], points[i]), secant(points[i], points[i + 1]));
+                if before * after <= 0.0 { 0.0 } else { 2.0 * before * after / (before + after) }
+            }
+        })
+        .collect()
+}
+
+/// The points in order, or a straight line when there are too few to make a curve.
+fn curve_points(points: &[Point]) -> Vec<Point> {
+    let mut sorted: Vec<Point> = points
+        .iter()
+        .filter(|p| p.x.is_finite() && p.y.is_finite())
+        .map(|p| Point::new(p.x.clamp(0.0, 1.0), p.y.clamp(0.0, 1.0)))
+        .collect();
+    sorted.sort_by(|a, b| a.x.total_cmp(&b.x));
+    sorted.dedup_by(|a, b| (a.x - b.x).abs() < f32::EPSILON);
+    if sorted.len() < 2 { vec![Point::ZERO, Point::new(1.0, 1.0)] } else { sorted }
+}
+
+/// The plot of a [`CurveEditor`] inside its frame.
+#[derive(Clone, Copy)]
+struct CurvePlot(Rect);
+
+impl CurvePlot {
+    fn of(frame: Rect) -> Self {
+        Self(frame.inflate(-CURVE_MARGIN))
+    }
+
+    fn screen(self, p: Point) -> Point {
+        Point::new(self.0.x() + p.x * self.0.width(), self.0.max_y() - p.y * self.0.height())
+    }
+
+    fn value(self, at: Point) -> Point {
+        Point::new(
+            ((at.x - self.0.x()) / self.0.width().max(1.0)).clamp(0.0, 1.0),
+            ((self.0.max_y() - at.y) / self.0.height().max(1.0)).clamp(0.0, 1.0),
+        )
+    }
+
+    /// The point whose handle is within reach of `at`, the closest one.
+    fn handle_at(self, points: &[Point], at: Point) -> Option<usize> {
+        let distance = |p: &Point| {
+            let s = self.screen(*p);
+            (s.x - at.x).hypot(s.y - at.y)
+        };
+        points
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| distance(p) <= CURVE_REACH)
+            .min_by(|a, b| distance(a.1).total_cmp(&distance(b.1)))
+            .map(|(i, _)| i)
+    }
+}
+
+/// Moves a point, staying between its neighbors so the curve remains a function.
+fn curve_move(points: &mut [Point], index: usize, to: Point) {
+    let least = if index == 0 { 0.0 } else { points[index - 1].x + CURVE_MIN_GAP };
+    let most = points.get(index + 1).map_or(1.0, |next| next.x - CURVE_MIN_GAP);
+    if let Some(point) = points.get_mut(index) {
+        *point = Point::new(to.x.clamp(least, most.max(least)), to.y.clamp(0.0, 1.0));
+    }
+}
+
+/// Adds a point in its place, or finds none if it would sit on top of another.
+fn curve_insert(points: &mut Vec<Point>, at: Point) -> Option<usize> {
+    if points.iter().any(|p| (p.x - at.x).abs() < CURVE_MIN_GAP) {
+        return None;
+    }
+    let index = points.iter().position(|p| p.x > at.x).unwrap_or(points.len());
+    points.insert(index, at);
+    Some(index)
+}
+
+/// Editable points over a smooth curve that never swings past them. A press on empty space
+/// adds a point and a drag moves it; a double click or Delete removes one, except the two
+/// ends. From the keyboard, the arrows move the chosen point (with Shift, further), Page Up
+/// and Page Down choose another, and Enter adds one on the curve halfway to the next.
+///
+/// Points go from 0 to 1 on both axes, with the input in `x`. They are kept in order of `x`.
+///
+/// ```
+/// use ravenrs_core::Point;
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::CurveEditor;
+///
+/// let tones = State::new(vec![Point::ZERO, Point::new(0.4, 0.55), Point::new(1.0, 1.0)]);
+/// let editor = CurveEditor::new(tones.binding()).height(220.0).label("Tone curve");
+/// let middle = CurveEditor::value_at(&tones.get(), 0.5);
+/// assert!(middle > 0.55 && middle < 1.0);
+/// ```
+#[derive(Debug)]
+pub struct CurveEditor {
+    points: Binding<Vec<Point>>,
+    width: Option<f32>,
+    height: f32,
+    color: Option<Color>,
+    baseline: bool,
+    grid: u32,
+    backdrop: Vec<HistogramChannel>,
+    backdrop_scale: HistogramScale,
+    label: Option<String>,
+    disabled: bool,
+}
+
+impl CurveEditor {
+    /// An editor of `points`, across its parent, 200 logical pixels tall.
+    pub fn new(points: Binding<Vec<Point>>) -> Self {
+        Self {
+            points,
+            width: None,
+            height: 200.0,
+            color: None,
+            baseline: true,
+            grid: 4,
+            backdrop: Vec::new(),
+            backdrop_scale: HistogramScale::Linear,
+            label: None,
+            disabled: false,
+        }
+    }
+
+    /// What the curve through `points` gives for the input `x`, for applying it. It uses the
+    /// same curve the editor draws.
+    pub fn value_at(points: &[Point], x: f32) -> f32 {
+        let points = curve_points(points);
+        let slopes = monotone_slopes(&points);
+        curve_value(&points, &slopes, x)
+    }
+
+    /// Fixed size in logical pixels.
+    pub fn size(mut self, width: f32, height: f32) -> Self {
+        self.width = Some(width);
+        self.height = height;
+        self
+    }
+
+    /// Height in logical pixels.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = height;
+        self
+    }
+
+    /// The color of the curve and its handles, as data, such as a channel's (ink by default).
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    /// Shows the straight line of no change behind the curve (on by default).
+    pub fn baseline(mut self, baseline: bool) -> Self {
+        self.baseline = baseline;
+        self
+    }
+
+    /// Divides the plot in this many parts each way, with light lines (4 by default).
+    pub fn grid(mut self, parts: u32) -> Self {
+        self.grid = parts;
+        self
+    }
+
+    /// Shows these channels behind the curve, as a [`Histogram`] does, faintly.
+    pub fn histogram(
+        mut self,
+        channels: impl IntoIterator<Item = HistogramChannel>,
+        scale: HistogramScale,
+    ) -> Self {
+        self.backdrop = channels.into_iter().collect();
+        self.backdrop_scale = scale;
+        self
+    }
+
+    /// The name screen readers announce, instead of the one in [`Labels`](crate::Labels).
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Turns the control off: it fades, leaves the tab order and ignores input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+}
+
+/// The curve at `x`, as the cubic between the two points around it.
+fn curve_value(points: &[Point], slopes: &[f32], x: f32) -> f32 {
+    let x = x.clamp(points[0].x, points[points.len() - 1].x);
+    let i = points.iter().rposition(|p| p.x <= x).unwrap_or(0).min(points.len() - 2);
+    let (a, b) = (points[i], points[i + 1]);
+    let run = (b.x - a.x).max(f32::EPSILON);
+    let t = (x - a.x) / run;
+    let (t2, t3) = (t * t, t * t * t);
+    let value = (2.0 * t3 - 3.0 * t2 + 1.0) * a.y
+        + (t3 - 2.0 * t2 + t) * run * slopes[i]
+        + (-2.0 * t3 + 3.0 * t2) * b.y
+        + (t3 - t2) * run * slopes[i + 1];
+    value.clamp(0.0, 1.0)
+}
+
+impl View for CurveEditor {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let points = curve_points(&self.points.get());
+        let chosen = cx.use_state(|| None::<usize>);
+        let chosen_now = chosen.get().filter(|i| *i < points.len());
+        let (background, grid, muted) =
+            (theme.color(Semantic::Canvas), theme.color(Semantic::Border), theme.color(Semantic::InkMuted));
+        let (surface, focus) = (theme.color(Semantic::Surface), theme.color(Semantic::Accent));
+        let opacity = if self.disabled { 0.5 } else { 1.0 };
+        let curve_color = self.color.unwrap_or_else(|| theme.color(Semantic::Ink)).with_alpha(opacity);
+        let backdrop = (!self.backdrop.is_empty()).then(|| HistogramPicture {
+            channels: self.backdrop.iter().cloned().collect(),
+            scale: self.backdrop_scale,
+            dim: overlap_dim(background),
+            opacity: 0.35,
+        });
+        let (parts, baseline, radius) = (self.grid, self.baseline, theme.radii.sm);
+        let drawn = points.clone();
+        let node = cx.container(
+            LayoutStyle {
+                width: self.width,
+                height: Some(self.height),
+                align_self: Some(if self.width.is_some() { Align::Start } else { Align::Stretch }),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            Paint::Custom(Rc::new(move |frame: Rect, scene| {
+                scene.push_quad(Quad::new(frame, background).radius(radius).border(1.0, grid));
+                let plot = CurvePlot::of(frame);
+                let area = plot.0;
+                if area.is_empty() {
+                    return;
+                }
+                if let Some(backdrop) = &backdrop {
+                    backdrop.paint(scene, area);
+                }
+                for part in 0..=parts.max(1) {
+                    let share = part as f32 / parts.max(1) as f32;
+                    let line = grid.with_alpha(grid.a * 0.6);
+                    let x = (area.x() + area.width() * share).round();
+                    let y = (area.y() + area.height() * share).round();
+                    scene.push_quad(Quad::new(Rect::new(x, area.y(), 1.0, area.height()), line));
+                    scene.push_quad(Quad::new(Rect::new(area.x(), y, area.width(), 1.0), line));
+                }
+                if baseline {
+                    let line = [plot.screen(Point::ZERO), plot.screen(Point::new(1.0, 1.0))];
+                    scene.push_path(PathFill::solid(stroke_outline(&line, 1.0), muted.with_alpha(0.6)));
+                }
+                // One sample every two pixels looks smooth at these line widths.
+                let slopes = monotone_slopes(&drawn);
+                let samples = ((area.width() / 2.0).ceil() as usize).max(2);
+                let (from, to) = (drawn[0].x, drawn[drawn.len() - 1].x);
+                let mut line: Vec<Point> = Vec::with_capacity(samples + 3);
+                if from > 0.0 {
+                    line.push(plot.screen(Point::new(0.0, drawn[0].y)));
+                }
+                line.extend((0..=samples).map(|i| {
+                    let x = from + (to - from) * i as f32 / samples as f32;
+                    plot.screen(Point::new(x, curve_value(&drawn, &slopes, x)))
+                }));
+                if to < 1.0 {
+                    line.push(plot.screen(Point::new(1.0, drawn[drawn.len() - 1].y)));
+                }
+                scene.push_path(PathFill::solid(stroke_outline(&line, 1.75), curve_color));
+                for (i, p) in drawn.iter().enumerate() {
+                    let at = plot.screen(*p);
+                    // The chosen one is larger and filled, so it does not depend on color.
+                    let (half, fill) = if chosen_now == Some(i) { (6.0, focus) } else { (4.5, surface) };
+                    let handle = Rect::new(at.x - half, at.y - half, half * 2.0, half * 2.0);
+                    scene.push_quad(
+                        Quad::new(handle, fill.with_alpha(opacity)).radius(half).border(1.5, curve_color),
+                    );
+                }
+            })),
+        );
+        let name = self.label.clone().unwrap_or_else(|| labels.curve_editor.clone());
+        let percent = |v: f32| (v * 100.0).round();
+        let value = match chosen_now {
+            Some(i) => format!(
+                "{} {}/{}: {} {}%, {} {}%",
+                labels.curve_point,
+                i + 1,
+                points.len(),
+                labels.curve_input,
+                percent(points[i].x),
+                labels.curve_output,
+                percent(points[i].y),
+            ),
+            None => format!("{} {}", points.len(), labels.curve_points),
+        };
+        cx.semantics(node, Semantics::new(Role::Slider).name(name).value(value).disabled(self.disabled));
+        if self.disabled {
+            return node;
+        }
+        cx.focusable(node, theme.radii.sm);
+        cx.cursor(node, CursorIcon::Pointer);
+        let press = cx.use_state(|| Rc::new(Cell::new((Point::ZERO, Rect::ZERO)))).get();
+
+        let (binding, picked, pressed) = (self.points.clone(), chosen.clone(), press.clone());
+        cx.on_drag(
+            node,
+            Rc::new(move |d| {
+                let plot = CurvePlot::of(d.frame);
+                let mut points = curve_points(&binding.get());
+                match d.phase {
+                    DragPhase::Start => {
+                        pressed.set((d.position, d.frame));
+                        let index = plot.handle_at(&points, d.position).or_else(|| {
+                            let added = curve_insert(&mut points, plot.value(d.position));
+                            if added.is_some() {
+                                binding.set(points.clone());
+                            }
+                            added
+                        });
+                        picked.set(index);
+                    }
+                    DragPhase::Move => {
+                        if let Some(index) = *picked.peek() {
+                            curve_move(&mut points, index, plot.value(d.position));
+                            binding.set(points);
+                        }
+                    }
+                    DragPhase::End => {}
+                }
+            }),
+        );
+
+        let (binding, picked) = (self.points.clone(), chosen.clone());
+        cx.on_double_click(
+            node,
+            Rc::new(move || {
+                let (position, frame) = press.get();
+                let mut points = curve_points(&binding.get());
+                let hit = CurvePlot::of(frame).handle_at(&points, position);
+                if let Some(index) = hit.filter(|i| *i != 0 && *i + 1 != points.len()) {
+                    points.remove(index);
+                    binding.set(points);
+                    picked.set(None);
+                }
+            }),
+        );
+
+        let (binding, picked) = (self.points.clone(), chosen);
+        cx.on_key(
+            node,
+            Rc::new(move |key, modifiers| {
+                let mut points = curve_points(&binding.get());
+                let current = picked.peek().filter(|i| *i < points.len());
+                let last = points.len() - 1;
+                let step = if modifiers.shift { 0.05 } else { 0.01 };
+                let nudge = |x: f32, y: f32| {
+                    let index = current.unwrap_or(0);
+                    let was = points[index];
+                    (index, Point::new(was.x + x * step, was.y + y * step))
+                };
+                let moved = match key {
+                    Key::ArrowLeft => nudge(-1.0, 0.0),
+                    Key::ArrowRight => nudge(1.0, 0.0),
+                    Key::ArrowUp => nudge(0.0, 1.0),
+                    Key::ArrowDown => nudge(0.0, -1.0),
+                    Key::PageUp => {
+                        picked.set(Some(current.map_or(last, |i| i.saturating_sub(1))));
+                        return true;
+                    }
+                    Key::PageDown => {
+                        picked.set(Some(current.map_or(0, |i| (i + 1).min(last))));
+                        return true;
+                    }
+                    Key::Enter => {
+                        let index = current.unwrap_or(0).min(last - 1);
+                        let x = (points[index].x + points[index + 1].x) / 2.0;
+                        let slopes = monotone_slopes(&points);
+                        let at = Point::new(x, curve_value(&points, &slopes, x));
+                        if let Some(added) = curve_insert(&mut points, at) {
+                            binding.set(points);
+                            picked.set(Some(added));
+                        }
+                        return true;
+                    }
+                    Key::Delete | Key::Backspace => {
+                        let Some(index) = current.filter(|i| *i != 0 && *i != last) else {
+                            return false;
+                        };
+                        points.remove(index);
+                        binding.set(points);
+                        picked.set(Some(index.min(last - 1)));
+                        return true;
+                    }
+                    _ => return false,
+                };
+                curve_move(&mut points, moved.0, moved.1);
+                binding.set(points);
+                picked.set(Some(moved.0));
                 true
             }),
         );

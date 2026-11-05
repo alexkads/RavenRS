@@ -191,6 +191,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Histogram | | | | ✅ `Histogram`: channels from ready-made bins, added up as light, linear or logarithmic, with marks at clipped ends |
 | Ruler | | | | ✅ `Ruler`: horizontal or vertical, in the units of the caller, with a round step for the zoom, origin and marker; vertical numbers stack, since text does not rotate |
 | Color wheel | | | | ✅ `ColorWheel`: hue and saturation on a disc that is computed once and shared, with arrow keys and Shift to keep the hue |
+| Curve editor | | | | ✅ `CurveEditor`: points over a monotone curve, added with a press, removed with a double click or Delete, moved with the arrows; baseline and histogram behind |
 | Image editor | | | ✓ | ⬜ |
 | Chat | | ✓ | ✓ | ✅ `Chat`; `MovieChat` over training films |
 | Choosing local AI models | | | | ✅ `ModelPicker`; `ravenrs_ai::ModelManager` offers only what fits |

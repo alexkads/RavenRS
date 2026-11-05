@@ -315,3 +315,130 @@ fn wheel_says_its_value_and_can_be_turned_off() {
     click(&mut off, Point::new(157.0, 107.0));
     assert_eq!(value.get(), HueSaturation::new(10.0, 0.5));
 }
+
+// ----------------------------------------------------------------------------- CurveEditor
+
+/// A plot of 100 x 100 at (7, 7), so a value `v` sits at `7 + 100 v`, and `y` goes up.
+fn at(x: f32, y: f32) -> Point {
+    Point::new(7.0 + x * 100.0, 107.0 - y * 100.0)
+}
+
+fn curve(start: Vec<Point>) -> (Ui, State<Vec<Point>>) {
+    let points = State::new(start);
+    let ui = ui(CurveEditor::new(points.binding()).size(114.0, 114.0));
+    (ui, points)
+}
+
+fn line() -> Vec<Point> {
+    vec![Point::ZERO, Point::new(1.0, 1.0)]
+}
+
+fn close(a: Point, x: f32, y: f32) -> bool {
+    (a.x - x).abs() < 0.011 && (a.y - y).abs() < 0.011
+}
+
+#[test]
+fn curve_press_on_empty_space_adds_a_point_in_order_and_drags_it() {
+    let (mut ui, points) = curve(line());
+    down(&mut ui, at(0.5, 0.2));
+    assert_eq!(points.get().len(), 3);
+    assert!(close(points.get()[1], 0.5, 0.2), "{:?}", points.get());
+    drag_to(&mut ui, at(0.6, 0.9));
+    up(&mut ui, at(0.6, 0.9));
+    assert!(close(points.get()[1], 0.6, 0.9), "{:?}", points.get());
+}
+
+#[test]
+fn curve_drag_stays_between_neighbors_and_inside_the_plot() {
+    let (mut ui, points) =
+        curve(vec![Point::ZERO, Point::new(0.3, 0.3), Point::new(0.6, 0.6), Point::new(1.0, 1.0)]);
+    down(&mut ui, at(0.3, 0.3));
+    drag_to(&mut ui, Point::new(600.0, 500.0));
+    up(&mut ui, Point::new(600.0, 500.0));
+    let moved = points.get()[1];
+    assert!(moved.x < 0.6 && moved.x >= 0.58, "{moved:?}");
+    assert_eq!(moved.y, 0.0);
+}
+
+#[test]
+fn curve_double_click_removes_a_point_but_not_the_ends() {
+    let (mut ui, points) = curve(vec![Point::ZERO, Point::new(0.5, 0.2), Point::new(1.0, 1.0)]);
+    double_click(&mut ui, at(0.5, 0.2));
+    assert_eq!(points.get(), line());
+    double_click(&mut ui, at(1.0, 1.0));
+    assert_eq!(points.get(), line(), "the ends stay");
+}
+
+#[test]
+fn curve_keyboard_chooses_moves_adds_and_removes() {
+    let (mut ui, points) = curve(vec![Point::ZERO, Point::new(0.5, 0.5), Point::new(1.0, 1.0)]);
+    press(&mut ui, Key::Tab, PLAIN);
+    press(&mut ui, Key::PageDown, PLAIN);
+    press(&mut ui, Key::PageDown, PLAIN);
+    press(&mut ui, Key::ArrowUp, PLAIN);
+    assert!(close(points.get()[1], 0.5, 0.51), "{:?}", points.get());
+    press(&mut ui, Key::ArrowRight, SHIFT);
+    assert!(close(points.get()[1], 0.55, 0.51), "{:?}", points.get());
+    press(&mut ui, Key::Enter, PLAIN);
+    assert_eq!(points.get().len(), 4, "added between the chosen one and the next");
+    assert!(points.get()[2].x > 0.55 && points.get()[2].x < 1.0);
+    press(&mut ui, Key::Delete, PLAIN);
+    assert_eq!(points.get().len(), 3);
+    press(&mut ui, Key::PageUp, PLAIN);
+    press(&mut ui, Key::PageUp, PLAIN);
+    press(&mut ui, Key::PageUp, PLAIN);
+    press(&mut ui, Key::Delete, PLAIN);
+    assert_eq!(points.get().len(), 3, "the first point cannot go");
+}
+
+#[test]
+fn curve_value_goes_through_the_points_and_never_swings_past_them() {
+    let points = [Point::ZERO, Point::new(0.25, 0.8), Point::new(0.5, 0.8), Point::new(1.0, 1.0)];
+    for p in points {
+        assert!((CurveEditor::value_at(&points, p.x) - p.y).abs() < 1e-4);
+    }
+    let mut before = 0.0;
+    for i in 0..=100 {
+        let y = CurveEditor::value_at(&points, i as f32 / 100.0);
+        assert!(y >= before - 1e-4, "monotone over monotone points at {i}");
+        before = y;
+    }
+    assert!(
+        (0..=100).all(|i| {
+            let x = 0.25 + 0.25 * i as f32 / 100.0;
+            (CurveEditor::value_at(&points, x) - 0.8).abs() < 1e-4
+        }),
+        "flat stays flat"
+    );
+    assert_eq!(CurveEditor::value_at(&[], 0.5), 0.5, "no points is a straight line");
+}
+
+#[test]
+fn curve_says_the_chosen_point_and_draws_the_backdrop_and_baseline() {
+    let (mut live, _) = curve(vec![Point::ZERO, Point::new(0.5, 0.25), Point::new(1.0, 1.0)]);
+    let tree = live.access_tree();
+    assert_eq!(tree.find(Role::Slider, "Curve").unwrap().value.as_deref(), Some("3 points"));
+    down(&mut live, at(0.5, 0.25));
+    up(&mut live, at(0.5, 0.25));
+    let tree = live.access_tree();
+    let value = tree.find(Role::Slider, "Curve").unwrap().value.clone().unwrap();
+    assert_eq!(value, "Point 2/3: input 50%, output 25%");
+
+    let points = State::new(line());
+    let plain = ui(CurveEditor::new(points.binding()).size(114.0, 114.0).baseline(false));
+    let with_line = ui(CurveEditor::new(points.binding()).size(114.0, 114.0));
+    assert_eq!(paths(&with_line), paths(&plain) + 1);
+    let backed = ui(CurveEditor::new(points.binding())
+        .size(114.0, 114.0)
+        .histogram([HistogramChannel::new("R", RED, [1.0_f32, 2.0, 1.0])], HistogramScale::Linear));
+    let backdrop = quads(&backed).iter().filter(|(_, c)| c.r == 1.0 && c.g == 0.0 && c.a < 1.0).count();
+    assert!(backdrop >= 3, "{backdrop}");
+}
+
+#[test]
+fn curve_disabled_ignores_input() {
+    let points = State::new(line());
+    let mut off = ui(CurveEditor::new(points.binding()).size(114.0, 114.0).disabled(true));
+    click(&mut off, at(0.5, 0.2));
+    assert_eq!(points.get(), line());
+}

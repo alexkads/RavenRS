@@ -59,6 +59,7 @@ samples! {
     "Histogram" => histogram,
     "Ruler" => ruler,
     "ColorWheel" => color_wheel,
+    "CurveEditor" => curve_editor,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1684,6 +1685,22 @@ fn color_wheel() -> impl View {
             .foreground(Semantic::InkMuted),
     ))
     .spacing(16.0)
+}
+// end
+
+// sample: CurveEditor, 210
+fn curve_editor() -> impl View {
+    let points = State::new(vec![
+        Point::new(0.0, 0.0),
+        Point::new(0.3, 0.2),
+        Point::new(0.7, 0.85),
+        Point::new(1.0, 1.0),
+    ]);
+    let hill: Vec<f32> = (0..128).map(|i| 50.0 * (-((i as f32 - 60.0) / 30.0).powi(2)).exp()).collect();
+    CurveEditor::new(points.binding())
+        .height(190.0)
+        .histogram([HistogramChannel::new("Light", Color::rgb(0.6, 0.6, 0.6), hill)], HistogramScale::Linear)
+        .label("Tone curve")
 }
 // end
 

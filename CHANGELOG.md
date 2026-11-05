@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `CurveEditor`: points you drag over a curve that never swings past them. A press adds one, a double click or Delete removes it, and the keyboard chooses, moves and adds. It can show a baseline and a histogram behind, and `CurveEditor::value_at` gives the same curve for applying it.
 - `ColorWheel`: hue and saturation on a disc, by a drag or the arrow keys, with Shift to keep the hue and a double click to take the color out. The disc is computed once per size and shared.
 - `Ruler`: horizontal or vertical, in the units of the caller, with scale, origin and marker, and a round step that keeps marks apart at any zoom.
 - `Histogram`: overlapping channels from ready-made bins, whose colors add up as light does, in a linear or logarithmic scale, with a mark at each end that clips.
