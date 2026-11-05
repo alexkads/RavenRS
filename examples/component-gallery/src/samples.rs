@@ -47,7 +47,7 @@ samples! {
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
     "Chart" => chart, "ChartReference" => chart_reference, "SankeyChart" => sankey_chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
-    "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
+    "ScrollView" => scroll_view, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
     "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
@@ -1194,6 +1194,29 @@ fn splitter() -> impl View {
     Splitter::horizontal(Text::new("Explorer").padding(16.0), Text::new("Editor").padding(16.0))
         .ratio(0.32)
         .height(190.0)
+}
+// end
+
+// sample: SplitPanes, 230
+fn split_panes() -> impl View {
+    SplitPanes::horizontal()
+        .pane(SplitPane::new(Text::new("Sessions").padding(16.0)).size(180.0).range(120.0, 260.0))
+        .pane(SplitPane::new(Text::new("Receipt").padding(16.0)).range(120.0, f32::MAX))
+        .pane(SplitPane::new(Text::new("Activity").padding(16.0)).size(180.0).range(120.0, 260.0))
+        .height(190.0)
+}
+// end
+
+// sample: SplitHandle, 120
+fn split_handle() -> impl View {
+    let height = State::new(120.0_f32);
+    // The size is yours to use; the bar only changes it.
+    VStack::new((
+        Text::new("Drag the bar, or focus it and use the arrow keys."),
+        SplitHandle::new(Axis::Vertical, height.binding()).range(80.0, 300.0).inverted(),
+    ))
+    .spacing(8.0)
+    .align(Align::Stretch)
 }
 // end
 

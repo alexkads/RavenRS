@@ -226,6 +226,7 @@ Status against the definition of done. **Behavior** names the test suites that d
 | ReleaseNotes, CodeBlock | release_notes | | ✅ versions and buttons work with Tab + Enter, tested | Lists its versions as buttons; the copy button says when it copied |
 | MoviePlayer, MovieAssistant, MovieEditor, BugReporter | ravenrs-movie | | ✅ controls, chapters, marks and blocks work with Tab + Enter; dragging on the canvas and the timeline has no keyboard way yet: 🟡 | Marks say what they teach; a film is an image with a name |
 | Lottie | lottie | ✅ decoration unless given `alt`, then an image with that name | n/a | Takes no input; shows its last frame still where motion is reduced, tested. `crates/ravenrs/tests/lottie_corpus.rs` measures real files against lottie-web |
+| SplitPanes, SplitHandle | structural_extensions | | ✅ Arrows, Shift and Home and End move the bar, tested | |
 | StepIndicator, StepBadge | structural_extensions | | ✅ Tab and Enter on the steps that are buttons, tested | |
 | Dot, OverlayBadge, Rating, IconTile, EmptyState, HeroBanner, MultiProgress, ShimmerText, DaySeparator, ShortcutSheet, ShortcutHintBar, PropertyRow, PageHeader, ZStack, ButtonGroup, FavoriteToggle, SwatchGrid, NinePointAnchor, ColorPair | simple_pieces | | ✅ Rating, SwatchGrid and NinePointAnchor take arrows, the rest Tab and Enter where they act, tested | |
 | Media and feedback: Image, Icon, Carousel, Avatar, Badge, Alert, ProgressBar, Spinner, Skeleton, Kbd, Divider | layout_and_content, components, batch_parity | ✅ partial | 🟡 Carousel arrows, untested | |

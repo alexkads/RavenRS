@@ -126,7 +126,10 @@ pub use display::{
 };
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
 pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
-pub use extras::{Carousel, FormField, InputOtp, Menubar, Rule, Spinner, Splitter, validate};
+pub use extras::{
+    Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane, SplitPanes, Splitter,
+    validate,
+};
 #[cfg(feature = "decode")]
 pub use files::ImageField;
 pub use files::{FilePicker, FilePickerProvider, FileRequest, FileUpload, NoFilePicker, PickedFile};

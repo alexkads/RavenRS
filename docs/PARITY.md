@@ -22,7 +22,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Separator | ✓ | | | ✅ `Divider` |
 | Aspect ratio | ✓ | | | ✅ `AspectRatio` |
 | Scroll area | ✓ | ✓ | ✓ | ✅ `ScrollView` (vertical; horizontal inside DataGrid) |
-| Resizable panels / Splitter | ✓ | ✓ | ✓ | ✅ `Splitter` |
+| Resizable panels / Splitter | ✓ | ✓ | ✓ | ✅ `Splitter` for two panes, `SplitPanes` for any number with limits, `SplitHandle` for a bar of your own; all move with the keyboard |
 | Tile layout / Dashboard layout | | ✓ | ✓ | ✅ `TileLayout`: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep |
 | Docking / Dock manager | | ✓ | ✓ | ⬜ |
 | Window (floating) | | ✓ | ✓ | ⬜ |

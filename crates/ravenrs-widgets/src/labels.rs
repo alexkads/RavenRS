@@ -67,6 +67,14 @@ pub struct Labels {
     pub wizard_done: String,
     /// A step of a [`Wizard`](crate::Wizard) or a [`StepIndicator`](crate::StepIndicator) with a problem.
     pub wizard_error: String,
+    /// The bar between two panes, for screen readers.
+    pub split_resize: String,
+    /// What dragging a [`FloatingPanel`](crate::FloatingPanel) by its header does.
+    pub panel_move: String,
+    /// Reduces a [`FloatingPanel`](crate::FloatingPanel) to its header.
+    pub panel_minimize: String,
+    /// Brings back a reduced [`FloatingPanel`](crate::FloatingPanel).
+    pub panel_restore: String,
     /// What a [`FileUpload`](crate::FileUpload) asks for.
     pub file_drop: String,
     /// Opens the chooser of a [`FileUpload`](crate::FileUpload).
@@ -716,6 +724,10 @@ impl Default for Labels {
             wizard_cancel: "Cancel".into(),
             wizard_done: "Done".into(),
             wizard_error: "Needs attention".into(),
+            split_resize: "Resize".into(),
+            panel_move: "Move".into(),
+            panel_minimize: "Minimize".into(),
+            panel_restore: "Restore".into(),
             file_drop: "Drop files here".into(),
             file_choose: "Choose files".into(),
             file_remove: "Remove".into(),
@@ -1017,6 +1029,10 @@ impl Labels {
             wizard_cancel: "Cancelar".into(),
             wizard_done: "Concluída".into(),
             wizard_error: "Precisa de atenção".into(),
+            split_resize: "Redimensionar".into(),
+            panel_move: "Mover".into(),
+            panel_minimize: "Minimizar".into(),
+            panel_restore: "Restaurar".into(),
             file_drop: "Solte os arquivos aqui".into(),
             file_choose: "Escolher arquivos".into(),
             file_remove: "Remover".into(),

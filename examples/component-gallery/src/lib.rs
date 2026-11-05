@@ -1384,6 +1384,10 @@ impl Gallery {
                 .ratio(0.32)
                 .height(200.0),
             ),
+            sample_demos(&[
+                ("SplitPanes", "Any number of panes, with limits, by mouse or keyboard."),
+                ("SplitHandle", "The bar by itself, for a pane you lay out."),
+            ]),
             demo(
                 "Carousel",
                 "Arrows, dots and autoplay every 5 seconds.",

@@ -30,6 +30,15 @@ fn click(ui: &mut Ui, at: Point) {
     ui.update();
 }
 
+fn drag(ui: &mut Ui, from: Point, to: Point) {
+    ui.handle_event(&Event::PointerMove { position: from });
+    ui.handle_event(&Event::PointerDown { position: from, button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerMove { position: to });
+    ui.update();
+    ui.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
+    ui.update();
+}
+
 fn hover(ui: &mut Ui, at: Point) {
     ui.handle_event(&Event::PointerMove { position: at });
     ui.update();
@@ -646,4 +655,146 @@ fn a_rail_can_show_only_icons_in_two_columns_with_groups_on_their_own_lines() {
     assert!(frame("Star").y() >= frame("Brush").max_y(), "a new line after two");
     assert!(frame("Ellipse").y() >= frame("Star").max_y(), "a group starts on its own line");
     assert_eq!(frame("Brush").width(), frame("Brush").height(), "square, without the names under them");
+}
+
+fn dots(names: [&'static str; 3]) -> SplitPanes {
+    let pane = |name: &'static str| SplitPane::new(HStack::new((Dot::new().label(name),)));
+    SplitPanes::horizontal()
+        .pane(pane(names[0]).size(200.0).range(100.0, 300.0))
+        .pane(pane(names[1]).range(150.0, f32::MAX))
+        .pane(pane(names[2]).size(200.0).range(100.0, 300.0))
+        .height(300.0)
+}
+
+fn dot_x(ui: &mut Ui, name: &str) -> f32 {
+    let tree = ui.access_tree();
+    named(&tree, Role::Image, name).bounds.x()
+}
+
+fn bars(ui: &mut Ui) -> Vec<AccessNode> {
+    ui.access_tree().nodes.into_iter().filter(|n| n.role == Role::Slider).collect()
+}
+
+#[test]
+fn split_panes_lay_out_any_number_and_the_one_without_a_size_takes_the_rest() {
+    let mut ui = ui(dots(["A", "B", "C"]));
+    ui.update();
+    let bars = bars(&mut ui);
+    assert_eq!(bars.len(), 2, "one bar between each two");
+    assert_eq!(dot_x(&mut ui, "A"), 0.0);
+    assert_eq!(dot_x(&mut ui, "B"), 210.0);
+    assert_eq!(dot_x(&mut ui, "C"), 600.0, "800 less the last pane");
+    assert_eq!(bars[0].numeric.map(|n| n.value), Some(200.0));
+}
+
+#[test]
+fn dragging_a_bar_of_split_panes_stops_at_the_limits() {
+    let mut ui = ui(dots(["A", "B", "C"]));
+    ui.update();
+    let bar = bars(&mut ui)[0].bounds.center();
+    drag(&mut ui, bar, Point::new(bar.x + 40.0, bar.y));
+    assert_eq!(dot_x(&mut ui, "B"), 250.0, "the pane grew, and the middle gave way");
+    let bar = bars(&mut ui)[0].bounds.center();
+    drag(&mut ui, bar, Point::new(bar.x + 400.0, bar.y));
+    assert_eq!(dot_x(&mut ui, "B"), 310.0, "not past its largest");
+    let bar = bars(&mut ui)[1].bounds.center();
+    drag(&mut ui, bar, Point::new(bar.x - 400.0, bar.y));
+    assert_eq!(dot_x(&mut ui, "C"), 500.0, "the last one stops at its largest as well");
+}
+
+#[test]
+fn a_narrow_window_takes_room_from_the_panes_down_to_their_smallest() {
+    let mut ui = ui(dots(["A", "B", "C"]));
+    ui.update();
+    ui.set_viewport(Size::new(500.0, 600.0), 1.0);
+    ui.update();
+    ui.update();
+    assert_eq!(dot_x(&mut ui, "A"), 0.0);
+    let (b, c) = (dot_x(&mut ui, "B"), dot_x(&mut ui, "C"));
+    assert_eq!(c, b + 150.0 + 10.0, "the middle at its smallest");
+    assert!(c + 100.0 <= 500.0, "and all of it inside the window: {c}");
+}
+
+#[test]
+fn the_keyboard_moves_the_bar_and_the_app_can_keep_the_sizes() {
+    let (sizes, saved) = (State::new(vec![Some(220.0), None, Some(200.0)]), Rc::new(Cell::new(0)));
+    let count = saved.clone();
+    let mut ui = ui(dots(["A", "B", "C"]).sizes(sizes.binding()).on_end(move || count.set(count.get() + 1)));
+    ui.update();
+    assert_eq!(dot_x(&mut ui, "B"), 230.0, "the sizes it was given");
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::ArrowRight);
+    assert_eq!(sizes.get()[0], Some(236.0));
+    assert_eq!(saved.get(), 1, "told to save");
+    ui.handle_event(&Event::KeyDown {
+        key: Key::ArrowLeft,
+        modifiers: Modifiers { shift: true, ..Modifiers::default() },
+    });
+    ui.update();
+    assert_eq!(sizes.get()[0], Some(172.0), "Shift goes further");
+    key(&mut ui, Key::Home);
+    assert_eq!(sizes.get()[0], Some(100.0), "Home goes to the limit");
+    key(&mut ui, Key::End);
+    assert_eq!(sizes.get()[0], Some(300.0));
+    assert_eq!(sizes.get()[1], None, "the middle goes on taking the rest");
+}
+
+#[test]
+fn a_hidden_pane_takes_its_bar_with_it_and_keeps_its_size() {
+    let hide = State::new(false);
+    let flag = hide.clone();
+    let mut ui = ui(ravenrs_widgets::responsive(move |_| {
+        SplitPanes::horizontal()
+            .pane(SplitPane::new(HStack::new((Dot::new().label("A"),))).size(200.0).visible(!flag.get()))
+            .pane(SplitPane::new(HStack::new((Dot::new().label("B"),))))
+            .height(300.0)
+    }));
+    ui.update();
+    assert_eq!(bars(&mut ui).len(), 1);
+    hide.set(true);
+    ui.update();
+    ui.update();
+    assert!(bars(&mut ui).is_empty());
+    assert_eq!(dot_x(&mut ui, "B"), 0.0);
+    hide.set(false);
+    ui.update();
+    ui.update();
+    assert_eq!(dot_x(&mut ui, "B"), 210.0);
+}
+
+#[test]
+fn a_split_handle_changes_a_size_by_drag_and_key_within_its_range() {
+    let height = State::new(120.0_f32);
+    let mut ui = ui(VStack::new((
+        Spacer::new().height(100.0),
+        SplitHandle::new(ravenrs_layout::Axis::Vertical, height.binding()).range(80.0, 300.0).inverted(),
+    ))
+    .align(ravenrs_layout::Align::Stretch));
+    let bar = bars(&mut ui)[0].clone();
+    assert_eq!(bar.name.as_deref(), Some("Resize"));
+    assert!(bar.focusable);
+    let at = bar.bounds.center();
+    drag(&mut ui, at, Point::new(at.x, at.y - 30.0));
+    assert_eq!(height.get(), 150.0, "up makes what is below taller");
+    drag(&mut ui, at, Point::new(at.x, at.y + 300.0));
+    assert_eq!(height.get(), 80.0, "not past its smallest");
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::ArrowUp);
+    assert_eq!(height.get(), 96.0, "the arrow moves the bar the way it points");
+}
+
+#[test]
+fn the_divider_of_a_splitter_moves_with_the_keyboard_and_stays_in_its_limits() {
+    let mut ui =
+        ui(Splitter::horizontal(Dot::new().label("A"), Dot::new().label("B")).ratio(0.5).limits(0.4, 0.6));
+    let start = dot_x(&mut ui, "B");
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::ArrowRight);
+    let moved = dot_x(&mut ui, "B");
+    assert!(moved > start, "{start} to {moved}");
+    key(&mut ui, Key::End);
+    assert_eq!(bars(&mut ui)[0].numeric.map(|n| n.value as f32), Some(0.6));
+    let bar = bars(&mut ui)[0].bounds.center();
+    drag(&mut ui, bar, Point::new(10.0, bar.y));
+    assert_eq!(bars(&mut ui)[0].numeric.map(|n| n.value as f32), Some(0.4), "the drag stops there too");
 }
