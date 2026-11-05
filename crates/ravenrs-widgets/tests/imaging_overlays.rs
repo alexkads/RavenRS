@@ -320,7 +320,10 @@ fn a_marquee_marches_and_stops_with_reduced_motion() {
 fn a_marquee_draws_a_rectangle_a_path_or_segments() {
     let rect = ui(Marquee::rect(Rect::new(20.0, 20.0, 80.0, 40.0)).animated(false).size(200.0, 200.0));
     let lines = quads(&rect);
-    assert!(lines.iter().any(|r| near(r.width(), 81.5) && near(r.y(), 19.25)), "top edge: {lines:?}");
+    assert!(
+        lines.iter().any(|r| near(r.width(), 80.0) && r.y() == 20.0 && r.height() == 1.0),
+        "top edge: {lines:?}"
+    );
     assert_eq!(paths(&rect), 0, "straight edges stay sharp quads");
 
     let triangle = [Point::new(10.0, 10.0), Point::new(90.0, 10.0), Point::new(50.0, 80.0)];
@@ -334,7 +337,7 @@ fn a_marquee_draws_a_rectangle_a_path_or_segments() {
     .animated(false)
     .size(200.0, 200.0));
     let lines = quads(&loose);
-    assert!(lines.iter().any(|r| near(r.height(), 21.5) && near(r.x(), 69.25)), "{lines:?}");
+    assert!(lines.iter().any(|r| near(r.height(), 20.0) && r.x() == 70.0), "{lines:?}");
     assert!(!lines.iter().any(|r| near(r.y(), 40.0)), "nothing joins the segments");
 }
 
@@ -350,10 +353,10 @@ fn a_marquee_follows_a_view_and_takes_no_input() {
             .space(ContentSpace::View(view.binding(), Size::new(100.0, 100.0)))
             .size(200.0, 200.0),
     )));
-    assert!(quads(&ui).iter().any(|r| near(r.width(), 101.5)), "twice the size");
+    assert!(quads(&ui).iter().any(|r| near(r.width(), 100.0)), "twice the size");
     view.set(ZoomView::at(1.0));
     settle(&mut ui);
-    assert!(quads(&ui).iter().any(|r| near(r.width(), 51.5)));
+    assert!(quads(&ui).iter().any(|r| near(r.width(), 50.0)));
     let at = Point::new(10.0, 10.0);
     down(&mut ui, at);
     up(&mut ui, at);
@@ -932,4 +935,264 @@ fn a_point_out_of_the_picture_picks_nothing() {
     assert!(state.is_armed());
     drag(&mut ui, Point::new(150.0, 50.0), Point::new(150.0, 50.0));
     assert_eq!(state.picked(), Some(Color::WHITE));
+}
+
+// -- CompareView -------------------------------------------------------------------------------
+
+fn flat(r: f32) -> ImageData {
+    ImageData::from_fn(100, 100, |_, _| Color::rgb(r, r, r)).unwrap()
+}
+
+fn shown_images(ui: &Ui) -> Vec<(Rect, [f32; 4], f32)> {
+    ui.scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| match p {
+            Primitive::Image(q) => Some((q.rect, q.uv, f32::from(q.image.pixels()[0]) / 255.0)),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn side_by_side_shows_both_fitted_in_their_half() {
+    let ui = ui(CompareView::new(flat(0.2), flat(0.8)).size(402.0, 100.0));
+    let images = shown_images(&ui);
+    assert_eq!(images.len(), 2);
+    assert_eq!(images[0].0, Rect::new(50.0, 0.0, 100.0, 100.0), "centered in the left half");
+    assert_eq!(images[1].0, Rect::new(252.0, 0.0, 100.0, 100.0), "centered in the right half");
+    assert!(images[0].2 < 0.5 && images[1].2 > 0.5, "each in its place");
+}
+
+#[test]
+fn the_divider_shows_part_of_each_through_uv() {
+    let share = State::new(0.25_f32);
+    let mut ui = ui(CompareView::new(flat(0.2), flat(0.8))
+        .mode(CompareMode::Divider)
+        .divider(share.binding())
+        .size(400.0, 400.0));
+    let images = shown_images(&ui);
+    assert_eq!(images[0].0, Rect::new(0.0, 0.0, 100.0, 400.0));
+    assert_eq!(images[0].1, [0.0, 0.0, 0.25, 1.0], "the first from its left edge");
+    assert_eq!(images[1].0, Rect::new(100.0, 0.0, 300.0, 400.0));
+    assert_eq!(images[1].1, [0.25, 0.0, 1.0, 1.0], "the second, the same picture position");
+
+    // A drag from anywhere puts it there.
+    down(&mut ui, Point::new(200.0, 50.0));
+    assert_eq!(share.get(), 0.5);
+    drag_to(&mut ui, Point::new(300.0, 80.0));
+    assert_eq!(share.get(), 0.75);
+    up(&mut ui, Point::new(300.0, 80.0));
+    drag(&mut ui, Point::new(100.0, 50.0), Point::new(900.0, 50.0));
+    assert_eq!(share.get(), 1.0, "and it stops at the ends");
+    hover(&mut ui, Point::new(100.0, 50.0));
+    assert_eq!(ui.cursor(), CursorIcon::ColResize);
+    ui.handle_event(&Event::DoubleClick { position: Point::new(100.0, 50.0) });
+    settle(&mut ui);
+    assert_eq!(share.get(), 0.5, "a double click goes to the middle");
+}
+
+#[test]
+fn the_divider_answers_the_keys_and_keeps_its_own_place() {
+    let mut ui = ui(CompareView::new(flat(0.2), flat(0.8)).mode(CompareMode::Divider).size(400.0, 400.0));
+    assert_eq!(shown_images(&ui)[0].0.width(), 200.0, "starts in the middle");
+    press(&mut ui, Key::Tab, Modifiers::default());
+    press(&mut ui, Key::ArrowRight, shift());
+    assert!(near(shown_images(&ui)[0].0.width(), 240.0));
+    press(&mut ui, Key::ArrowLeft, Modifiers::default());
+    assert!(near(shown_images(&ui)[0].0.width(), 236.0));
+    let slider = node(&mut ui, Role::Slider);
+    assert_eq!(slider.name.as_deref(), Some("Comparison"));
+    assert_eq!(slider.value.as_deref(), Some("59%"));
+    press(&mut ui, Key::Home, Modifiers::default());
+    assert_eq!(shown_images(&ui).len(), 1, "all of the second");
+    press(&mut ui, Key::End, Modifiers::default());
+    assert_eq!(shown_images(&ui).len(), 1, "all of the first");
+}
+
+#[test]
+fn a_divider_drag_costs_no_builds_when_nobody_reads_it() {
+    let mut ui = ui(CompareView::new(flat(0.2), flat(0.8)).mode(CompareMode::Divider).size(400.0, 400.0));
+    down(&mut ui, Point::new(100.0, 50.0));
+    settle(&mut ui);
+    let before = ui.stats().builds;
+    for i in 0..5 {
+        ui.set_time(f64::from(i + 1));
+        drag_to(&mut ui, Point::new(120.0 + 20.0 * i as f32, 50.0));
+    }
+    assert_eq!(ui.stats().builds, before, "a drag only repaints");
+    assert!(near(shown_images(&ui)[0].0.width(), 200.0));
+    up(&mut ui, Point::new(200.0, 50.0));
+}
+
+#[test]
+fn a_chosen_side_follows_clicks_and_keys_and_is_not_only_a_color() {
+    let chosen = State::new(CompareSide::First);
+    let mut ui = ui(CompareView::new(flat(0.2), flat(0.8)).chosen(chosen.binding()).size(402.0, 100.0));
+    assert_eq!(node(&mut ui, Role::Group).value.as_deref(), Some("Before"));
+    let checks_before = glyphs(&ui);
+    drag(&mut ui, Point::new(300.0, 50.0), Point::new(300.0, 50.0));
+    assert_eq!(chosen.get(), CompareSide::Second);
+    assert_eq!(node(&mut ui, Role::Group).value.as_deref(), Some("After"));
+    assert_eq!(glyphs(&ui), checks_before, "the check moved with it");
+    press(&mut ui, Key::ArrowLeft, Modifiers::default());
+    assert_eq!(chosen.get(), CompareSide::First);
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    assert_eq!(chosen.get(), CompareSide::Second);
+}
+
+fn glyphs(ui: &Ui) -> usize {
+    ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Glyphs(_))).count()
+}
+
+#[test]
+fn captions_can_change_or_go() {
+    let plain = ui(CompareView::new(flat(0.2), flat(0.8)).no_captions().size(402.0, 100.0));
+    assert_eq!(glyphs(&plain), 0);
+    let named = ui(CompareView::new(flat(0.2), flat(0.8)).captions("Mine", "Theirs").size(402.0, 100.0));
+    assert_eq!(glyphs(&named), 2);
+}
+
+#[test]
+fn a_picture_of_other_proportions_is_fitted_across_the_divider() {
+    let ui = ui(CompareView::new(picture(), flat(0.8))
+        .mode(CompareMode::Divider)
+        .no_captions()
+        .size(400.0, 400.0));
+    // 100x50 fills the width and is centered in the height.
+    let first = shown_images(&ui)[0];
+    assert_eq!(first.0, Rect::new(0.0, 100.0, 200.0, 200.0));
+    assert_eq!(first.1, [0.0, 0.0, 0.5, 1.0]);
+}
+
+// -- ImageLightbox -----------------------------------------------------------------------------
+
+fn pictures() -> Vec<LightboxItem> {
+    vec![
+        LightboxItem::new(flat(0.2)).caption("First picture"),
+        LightboxItem::new(flat(0.5)),
+        LightboxItem::new(flat(0.8)).caption("Last picture"),
+    ]
+}
+
+fn button_named(ui: &mut Ui, name: &str) -> ravenrs_core::AccessNode {
+    let tree = ui.access_tree();
+    tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).cloned().expect("a node with that name")
+}
+
+fn click_named(ui: &mut Ui, name: &str) {
+    let found = button_named(ui, name);
+    let at = found.bounds.center();
+    down(ui, at);
+    up(ui, at);
+}
+
+#[test]
+fn a_lightbox_shows_only_while_it_holds_an_index() {
+    let open = State::new(None::<usize>);
+    let mut ui = ui(ImageLightbox::new(open.binding(), pictures()));
+    assert!(shown_images(&ui).is_empty());
+    open.set(Some(1));
+    settle(&mut ui);
+    let images = shown_images(&ui);
+    assert_eq!(images.len(), 1);
+    assert!(near(images[0].2, 0.5));
+    assert!(near(images[0].0.height(), 600.0), "as large as the window allows: {images:?}");
+    open.set(Some(9));
+    settle(&mut ui);
+    assert!(shown_images(&ui).is_empty(), "an index out of range shows nothing");
+}
+
+#[test]
+fn a_lightbox_says_where_it_is_with_caption_and_counter() {
+    let open = State::new(Some(0));
+    let mut ui = ui(ImageLightbox::new(open.binding(), pictures()));
+    let dialog = node(&mut ui, Role::Dialog);
+    assert_eq!(dialog.name.as_deref(), Some("First picture"));
+    assert_eq!(dialog.value.as_deref(), Some("1 of 3"));
+    assert!(dialog.modal);
+    open.set(Some(1));
+    settle(&mut ui);
+    let dialog = node(&mut ui, Role::Dialog);
+    assert_eq!(dialog.name.as_deref(), Some("Picture viewer"), "no caption of its own");
+    assert_eq!(dialog.value.as_deref(), Some("2 of 3"));
+}
+
+#[test]
+fn the_arrows_go_through_the_pictures_and_stop_at_the_ends() {
+    let open = State::new(Some(0));
+    let mut ui = ui(ImageLightbox::new(open.binding(), pictures()));
+    press(&mut ui, Key::ArrowLeft, Modifiers::default());
+    assert_eq!(open.get(), Some(0), "nothing before the first");
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    assert_eq!(open.get(), Some(1));
+    click_named(&mut ui, "Next picture");
+    assert_eq!(open.get(), Some(2));
+    assert!(button_named(&mut ui, "Next picture").disabled, "the last has no next");
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    assert_eq!(open.get(), Some(2));
+    click_named(&mut ui, "Previous picture");
+    assert_eq!(open.get(), Some(1));
+    press(&mut ui, Key::Home, Modifiers::default());
+    assert_eq!(open.get(), Some(0));
+    press(&mut ui, Key::End, Modifiers::default());
+    assert_eq!(open.get(), Some(2));
+}
+
+#[test]
+fn a_lightbox_can_wrap() {
+    let open = State::new(Some(2));
+    let mut ui = ui(ImageLightbox::new(open.binding(), pictures()).wrap(true));
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    assert_eq!(open.get(), Some(0));
+    press(&mut ui, Key::ArrowLeft, Modifiers::default());
+    assert_eq!(open.get(), Some(2));
+}
+
+#[test]
+fn escape_and_the_x_close_it() {
+    let open = State::new(Some(0));
+    let mut ui = ui(ImageLightbox::new(open.binding(), pictures()));
+    press(&mut ui, Key::Escape, Modifiers::default());
+    assert_eq!(open.get(), None);
+    open.set(Some(0));
+    settle(&mut ui);
+    click_named(&mut ui, "Close");
+    assert_eq!(open.get(), None);
+}
+
+#[test]
+fn a_lightbox_zooms_and_each_picture_starts_fitted() {
+    let open = State::new(Some(0));
+    let mut ui = ui(ImageLightbox::new(open.binding(), pictures()));
+    let fitted = shown_images(&ui)[0].0.height();
+    press(&mut ui, Key::Character("+".into()), Modifiers::default());
+    press(&mut ui, Key::Character("+".into()), Modifiers::default());
+    assert_ne!(shown_images(&ui)[0].1, [0.0, 0.0, 1.0, 1.0], "zoomed in, part of it shows");
+    // Zoomed in, an arrow pans instead of leaving the picture.
+    let shown = shown_images(&ui)[0].1;
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    assert_eq!(open.get(), Some(0));
+    assert_ne!(shown_images(&ui)[0].1, shown);
+    press(&mut ui, Key::Character("0".into()), Modifiers::default());
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    assert_eq!(open.get(), Some(1), "fitted again, it goes on to the next");
+    assert_eq!(shown_images(&ui)[0].0.height(), fitted);
+}
+
+#[test]
+fn the_zoom_of_a_picture_does_not_follow_to_the_next() {
+    let open = State::new(Some(0));
+    let mut ui = ui(ImageLightbox::new(open.binding(), pictures()));
+    press(&mut ui, Key::Character("+".into()), Modifiers::default());
+    open.set(Some(1));
+    settle(&mut ui);
+    assert_eq!(shown_images(&ui)[0].1, [0.0, 0.0, 1.0, 1.0]);
+}
+
+#[test]
+fn a_lightbox_speaks_portuguese_with_labels() {
+    let labels = Labels::pt_br();
+    assert_eq!((labels.lightbox_counter)(2, 7), "2 de 7");
+    assert_eq!(labels.compare_first, "Antes");
 }

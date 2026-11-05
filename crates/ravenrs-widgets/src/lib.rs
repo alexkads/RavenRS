@@ -156,10 +156,11 @@ pub use icon_set::IconName;
 pub use image::decode_image;
 pub use image::{ContentMode, DecodeError, Image};
 pub use imaging::{
-    BoxHandle, BoxTransform, ColorWheel, CompositionGuide, ContentSpace, CropArea, CropOverlay, CurveEditor,
-    Eyedropper, EyedropperArea, EyedropperState, Histogram, HistogramChannel, HistogramScale, HueSaturation,
-    Marquee, Minimap, Protractor, RubberBand, RuleOfThirdsGrid, Ruler, TransformHandles, ZoomControl,
-    ZoomPanPaint, ZoomPanView, ZoomView,
+    BoxHandle, BoxTransform, ColorWheel, CompareMode, CompareSide, CompareView, CompositionGuide,
+    ContentSpace, CropArea, CropOverlay, CurveEditor, Eyedropper, EyedropperArea, EyedropperState, Histogram,
+    HistogramChannel, HistogramScale, HueSaturation, ImageLightbox, LightboxItem, Marquee, Minimap,
+    Protractor, RubberBand, RuleOfThirdsGrid, Ruler, TransformHandles, ZoomControl, ZoomPanPaint,
+    ZoomPanView, ZoomView,
 };
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};

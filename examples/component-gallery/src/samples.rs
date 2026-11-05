@@ -70,6 +70,8 @@ samples! {
     "Protractor" => protractor,
     "CropOverlay" => crop_overlay,
     "Eyedropper" => eyedropper,
+    "CompareView" => compare_view,
+    "ImageLightbox" => image_lightbox,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1863,6 +1865,39 @@ fn eyedropper() -> impl View {
         EyedropperArea::new(&dropper, move |at| Some(ramp(at.x, at.y))).stage(picture),
     ))
     .spacing(8.0)
+}
+// end
+
+// sample: CompareView, 210
+fn compare_view() -> AnyView {
+    let tone = |warm: f32| {
+        ImageData::from_fn(240, 160, move |x, y| {
+            let light = 0.25 + 0.5 * x as f32 / 240.0;
+            Color::rgb(light + warm, light, light - warm + 0.2 * y as f32 / 160.0)
+        })
+    };
+    match (tone(0.0), tone(0.2)) {
+        (Some(before), Some(after)) => {
+            Box::new(CompareView::new(before, after).mode(CompareMode::Divider).size(420.0, 200.0))
+        }
+        _ => Box::new(Text::new("No pictures")),
+    }
+}
+// end
+
+// sample: ImageLightbox, 60
+fn image_lightbox() -> impl View {
+    let open = State::new(None::<usize>);
+    let opener = open.clone();
+    let shades = [0.25_f32, 0.45, 0.65];
+    let pictures = shades.into_iter().filter_map(|shade| {
+        let image = ImageData::from_fn(320, 200, move |x, _| Color::rgb(shade, 0.3, x as f32 / 320.0))?;
+        Some(LightboxItem::new(image).caption(format!("Shade {shade}")))
+    });
+    VStack::new((
+        Button::new("Open pictures").on_click(move || opener.set(Some(0))),
+        ImageLightbox::new(open.binding(), pictures),
+    ))
 }
 // end
 

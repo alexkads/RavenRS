@@ -23,12 +23,14 @@ use crate::{Button, ButtonSize, ButtonStyle, IconButton, IconName};
 
 mod overlays;
 mod transform;
+mod viewing;
 
 pub use overlays::{
     CompositionGuide, ContentSpace, Eyedropper, EyedropperArea, EyedropperState, Marquee, RubberBand,
     RuleOfThirdsGrid,
 };
 pub use transform::{BoxHandle, BoxTransform, CropArea, CropOverlay, Protractor, TransformHandles};
+pub use viewing::{CompareMode, CompareSide, CompareView, ImageLightbox, LightboxItem};
 
 // ---------------------------------------------------------------------------------------------
 // Histogram
@@ -1650,6 +1652,8 @@ struct ZoomPanMemory {
     glide: Cell<Option<Glide>>,
     /// The scroll offset this view asked for last: anything else came from the wheel.
     scroll: Cell<Point>,
+    /// It has already asked for the focus once.
+    focused: Cell<bool>,
 }
 
 /// How the parts of a [`ZoomPanView`] see the same picture.
@@ -1880,6 +1884,10 @@ pub struct ZoomPanView {
     range: ZoomRange,
     inertia: bool,
     label: Option<String>,
+    /// Leaves the arrows to whoever else listens while there is nowhere to pan.
+    defer_arrows: bool,
+    /// Takes the focus when it first appears.
+    autofocus: bool,
 }
 
 impl fmt::Debug for ZoomPanView {
@@ -1915,6 +1923,8 @@ impl ZoomPanView {
             range: ZoomRange::DEFAULT,
             inertia: true,
             label: None,
+            defer_arrows: false,
+            autofocus: false,
         }
     }
 
@@ -2092,7 +2102,20 @@ impl View for ZoomPanView {
         );
         let doubled = wiring.clone();
         cx.on_double_click(node, Rc::new(move || doubled.on_double_click()));
-        cx.on_key(node, Rc::new(move |key, modifiers| wiring.on_key(key, modifiers.shift)));
+        let defer_arrows = self.defer_arrows;
+        cx.on_key(
+            node,
+            Rc::new(move |key, modifiers| {
+                let arrow = matches!(key, Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown);
+                if defer_arrows && arrow && wiring.current(wiring.memory.frame.get().size).fit {
+                    return false;
+                }
+                wiring.on_key(key, modifiers.shift)
+            }),
+        );
+        if self.autofocus && !memory.focused.replace(true) {
+            cx.request_focus();
+        }
         node
     }
 }

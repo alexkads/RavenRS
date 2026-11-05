@@ -745,16 +745,24 @@ struct Strokes<'a> {
 
 impl Strokes<'_> {
     fn line(&mut self, a: Point, b: Point) {
-        let half = self.width / 2.0;
-        let bounds =
-            Rect::new(a.x.min(b.x), a.y.min(b.y), (b.x - a.x).abs(), (b.y - a.y).abs()).inflate(half);
-        if bounds.intersect(&self.frame).is_empty() {
-            return;
-        }
-        if (a.x - b.x).abs() < 0.01 || (a.y - b.y).abs() < 0.01 {
-            self.scene.push_quad(Quad::new(bounds, self.color));
+        let (x, y) = (a.x.min(b.x), a.y.min(b.y));
+        let (w, h) = ((b.x - a.x).abs(), (b.y - a.y).abs());
+        // A straight line on whole pixels stays sharp: half a pixel each side of one would read
+        // as a gray blur, and the dashes would vanish into the dark line under them.
+        let bounds = if h < 0.01 {
+            Rect::new(x, y.round(), w.max(1.0), 1.0)
+        } else if w < 0.01 {
+            Rect::new(x.round(), y, 1.0, h.max(1.0))
         } else {
+            let half = self.width / 2.0;
+            if Rect::new(x, y, w, h).inflate(half).intersect(&self.frame).is_empty() {
+                return;
+            }
             self.path.extend(stroke_outline(&[a, b], self.width));
+            return;
+        };
+        if !bounds.intersect(&self.frame).is_empty() {
+            self.scene.push_quad(Quad::new(bounds, self.color));
         }
     }
 

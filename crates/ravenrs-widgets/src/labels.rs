@@ -415,6 +415,20 @@ pub struct Labels {
     pub eyedropper_hint: String,
     /// An armed [`EyedropperArea`](crate::EyedropperArea)'s name.
     pub eyedropper_area: String,
+    /// A [`CompareView`](crate::CompareView)'s name.
+    pub compare: String,
+    /// The caption over the first picture of a [`CompareView`](crate::CompareView).
+    pub compare_first: String,
+    /// The caption over the second picture of a [`CompareView`](crate::CompareView).
+    pub compare_second: String,
+    /// An [`ImageLightbox`](crate::ImageLightbox)'s name, for a picture with no caption.
+    pub lightbox: String,
+    /// Goes to the previous picture of an [`ImageLightbox`](crate::ImageLightbox).
+    pub lightbox_previous: String,
+    /// Goes to the next picture of an [`ImageLightbox`](crate::ImageLightbox).
+    pub lightbox_next: String,
+    /// Which picture of how many an [`ImageLightbox`](crate::ImageLightbox) is showing.
+    pub lightbox_counter: fn(usize, usize) -> String,
     /// A recurrence editor's name.
     pub recurrence_name: String,
     /// Once, daily, weekly, monthly and yearly, as an editor offers them.
@@ -854,6 +868,13 @@ impl Default for Labels {
             eyedropper: "Pick a color".into(),
             eyedropper_hint: "Click a point of the picture (Esc cancels)".into(),
             eyedropper_area: "Picture to pick a color from".into(),
+            compare: "Comparison".into(),
+            compare_first: "Before".into(),
+            compare_second: "After".into(),
+            lightbox: "Picture viewer".into(),
+            lightbox_previous: "Previous picture".into(),
+            lightbox_next: "Next picture".into(),
+            lightbox_counter: |at, of| format!("{at} of {of}"),
             recurrence_name: "Repeats".into(),
             recurrence_frequencies: owned(["Once", "Daily", "Weekly", "Monthly", "Yearly"]),
             recurrence_every: "Every".into(),
@@ -1191,6 +1212,13 @@ impl Labels {
             eyedropper: "Escolher uma cor".into(),
             eyedropper_hint: "Clique num ponto da imagem (Esc cancela)".into(),
             eyedropper_area: "Imagem de onde escolher a cor".into(),
+            compare: "Comparação".into(),
+            compare_first: "Antes".into(),
+            compare_second: "Depois".into(),
+            lightbox: "Visualizador de imagens".into(),
+            lightbox_previous: "Imagem anterior".into(),
+            lightbox_next: "Próxima imagem".into(),
+            lightbox_counter: |at, of| format!("{at} de {of}"),
             recurrence_name: "Repetição".into(),
             recurrence_frequencies: owned(["Uma vez", "Diária", "Semanal", "Mensal", "Anual"]),
             recurrence_every: "A cada".into(),

@@ -949,8 +949,8 @@ fn angle_text(angle: f32, decimal: char) -> String {
     format!("{sign}{shown:.1}°").replace('.', &decimal.to_string())
 }
 
-/// How far from the middle the ends of the arc are, in degrees of the arc as drawn.
-const PROTRACTOR_ARC: f32 = 30.0;
+/// How far the middle of the arc rises above its ends, whatever the width: the band has one height.
+const PROTRACTOR_RISE: f32 = 31.0;
 const PROTRACTOR_MARGIN: f32 = 14.0;
 const PROTRACTOR_TOP: f32 = 9.0;
 
@@ -963,16 +963,18 @@ struct ProtractorArc {
 }
 
 impl ProtractorArc {
+    /// The radius of the circle through the ends and the top of the arc.
     fn radius(&self) -> f32 {
-        (self.frame.width() / 2.0 - PROTRACTOR_MARGIN).max(1.0) / PROTRACTOR_ARC.to_radians().sin()
+        let half = (self.frame.width() / 2.0 - PROTRACTOR_MARGIN).max(1.0);
+        (half * half + PROTRACTOR_RISE * PROTRACTOR_RISE) / (2.0 * PROTRACTOR_RISE)
     }
 
     fn point(&self, angle: f32, inset: f32) -> Point {
         let middle = (self.least + self.most) / 2.0;
         let half = ((self.most - self.least) / 2.0).max(f32::EPSILON);
-        let turn = ((angle - middle) / half * PROTRACTOR_ARC).to_radians();
-        let (sin, cos) = turn.sin_cos();
         let r = self.radius();
+        let sweep = ((self.frame.width() / 2.0 - PROTRACTOR_MARGIN).max(1.0) / r).clamp(-1.0, 1.0).asin();
+        let (sin, cos) = ((angle - middle) / half * sweep).sin_cos();
         let top = self.frame.y() + PROTRACTOR_TOP;
         Point::new(self.frame.center().x + (r - inset) * sin, top + r - (r - inset) * cos)
     }
@@ -1085,10 +1087,10 @@ impl View for Protractor {
         let (band, border, major, minor, accent, ink) = (
             theme.color(Semantic::Control),
             theme.color(Semantic::Border),
-            theme.color(Semantic::Ink),
+            theme.color(if disabled { Semantic::InkMuted } else { Semantic::Ink }),
             theme.color(Semantic::InkMuted),
             theme.color(if disabled { Semantic::InkMuted } else { Semantic::Accent }),
-            theme.color(Semantic::Ink),
+            theme.color(if disabled { Semantic::InkMuted } else { Semantic::Ink }),
         );
         let radius = theme.radii.md;
         let span = most - least;

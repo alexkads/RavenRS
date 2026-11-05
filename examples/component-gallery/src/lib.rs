@@ -1896,6 +1896,8 @@ impl Gallery {
             ),
             sample_demos(&[
                 // imaging widgets
+                ("ImageLightbox", "A picture over the whole app, with zoom, arrows, caption and counter."),
+                ("CompareView", "Two pictures side by side or across a divider you drag."),
                 ("Eyedropper", "A button that arms, takes the color you supply for the point clicked, and disarms."),
                 ("CropOverlay", "A crop with a veil, a fixed proportion and an angle, which hands back geometry."),
                 ("Protractor", "A band of ticks that sets an angle, with a double click back to zero."),

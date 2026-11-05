@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ImageLightbox`: a picture over the whole app, with zoom by `ZoomPanView`, the arrows to go on, Escape to close, a caption and a counter. Each picture starts fitted, and an arrow pans once it is zoomed in.
+- `CompareView`: two pictures side by side, with one that can be chosen, or across a divider that a drag and the arrows move. A drag paints without a build.
 - `Eyedropper`: a button that arms, and `EyedropperArea` over a picture, which asks the caller for the color of the point clicked. `EyedropperState::pick` tells it directly. Escape disarms. It does not capture the screen.
 - `CropOverlay`: a crop over a picture, built on `TransformHandles`, with a veil outside, thirds inside, a fine grid while it turns, a fixed proportion and an angle. It stays inside the content and hands back `CropArea`; the frame turns over a still picture, since the renderer has no transforms.
 - `Protractor`: a band of ticks along an arc that sets an angle by a drag from anywhere on it, with a double click back to zero, the keyboard and the value in words.

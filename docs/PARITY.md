@@ -202,6 +202,8 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Protractor | | | | ✅ `Protractor`: a band of ticks along an arc that sets an angle by a drag from anywhere, a double click back to zero, keys and value |
 | Crop | | | | ✅ `CropOverlay`: on `TransformHandles` and the lines of `RuleOfThirdsGrid`, with a veil outside, fixed proportion and angle, returning rectangle and angle. The frame turns over a still picture, since the renderer has no transforms |
 | Eyedropper | | | | ✅ `Eyedropper` and `EyedropperArea`: an armed button that takes the color of the point clicked, which the caller supplies with a closure or `EyedropperState::pick`; Esc disarms. It does not capture the screen, and `CursorIcon` has no dropper, so the cursor is the hand |
+| Compare images | | | | ✅ `CompareView`: two images side by side or with a divider dragged or moved with the arrows, through `ImageQuad.uv`, with captions and an optional chosen side |
+| Image lightbox | | | | ✅ `ImageLightbox`: a picture over the whole app with zoom by `ZoomPanView`, arrows, Esc, caption and counter, from `Labels` |
 | Image editor | | | ✓ | ⬜ |
 | Chat | | ✓ | ✓ | ✅ `Chat`; `MovieChat` over training films |
 | Choosing local AI models | | | | ✅ `ModelPicker`; `ravenrs_ai::ModelManager` offers only what fits |
