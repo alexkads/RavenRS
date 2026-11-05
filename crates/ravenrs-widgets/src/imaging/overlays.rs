@@ -232,19 +232,19 @@ impl OverlayBox {
     }
 }
 
-/// The builders every overlay has, over a field named `frame`.
+/// The builders every overlay has, over the field that holds its box.
 macro_rules! overlay_builders {
-    () => {
+    ($($field:ident).+) => {
         /// Fixed size in logical pixels, instead of taking the free space.
         pub fn size(mut self, width: f32, height: f32) -> Self {
-            self.frame.size(width, height);
+            self.$($field).+.size(width, height);
             self
         }
 
         /// How much of the free space along the parent stack it takes: 1 by default, or 0 over a
         /// [stage](Self::stage), which then decides the size.
         pub fn grow(mut self, grow: f32) -> Self {
-            self.frame.grow(grow);
+            self.$($field).+.grow(grow);
             self
         }
 
@@ -252,17 +252,18 @@ macro_rules! overlay_builders {
         /// [`ZoomPanView`](crate::ZoomPanView), which gives it its size. Without one, put it in
         /// a [`ZStack`](crate::ZStack) with a fixed [size](Self::size).
         pub fn stage(mut self, stage: impl View + 'static) -> Self {
-            self.frame.stage(Box::new(stage));
+            self.$($field).+.stage(Box::new(stage));
             self
         }
 
         /// Where the content is, and so the units of its coordinates: by default, its own box.
         pub fn space(mut self, space: ContentSpace) -> Self {
-            self.frame.space = space;
+            self.$($field).+.space = space;
             self
         }
     };
 }
+pub(super) use overlay_builders;
 
 /// A painter that keeps asking for frames during a gesture, which then costs no build, and that
 /// costs nothing afterwards.
@@ -400,7 +401,7 @@ impl RuleOfThirdsGrid {
         Self::default()
     }
 
-    overlay_builders!();
+    overlay_builders!(frame);
 
     /// Which lines it draws.
     pub fn guide(mut self, guide: CompositionGuide) -> Self {
@@ -508,7 +509,7 @@ impl RubberBand {
         }
     }
 
-    overlay_builders!();
+    overlay_builders!(frame);
 
     /// Runs `handler` with the rectangle when a drag ends, or on Enter.
     pub fn on_select(mut self, handler: impl Fn(Rect) + 'static) -> Self {
@@ -828,7 +829,7 @@ impl Marquee {
         Self { lines: lines.into(), frame: OverlayBox::default(), animated: true, label: None }
     }
 
-    overlay_builders!();
+    overlay_builders!(frame);
 
     /// Whether the dashes walk (they do by default, unless motion is reduced).
     pub fn animated(mut self, animated: bool) -> Self {

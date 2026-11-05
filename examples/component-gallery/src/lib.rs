@@ -1896,6 +1896,8 @@ impl Gallery {
             ),
             sample_demos(&[
                 // imaging widgets
+                ("Protractor", "A band of ticks that sets an angle, with a double click back to zero."),
+                ("TransformHandles", "Eight handles, a turn and a pivot, which hand back geometry."),
                 ("Marquee", "The animated outline of a selection, which stops with reduced motion."),
                 ("RubberBand", "A rectangle drawn with a drag, selected on release."),
                 ("RuleOfThirdsGrid", "Thirds, a fine grid, squares or the golden ratio over a picture."),

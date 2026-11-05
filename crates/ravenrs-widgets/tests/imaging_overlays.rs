@@ -72,6 +72,11 @@ fn drag(ui: &mut Ui, from: Point, to: Point) {
     up(ui, to);
 }
 
+fn hover(ui: &mut Ui, at: Point) {
+    ui.handle_event(&Event::PointerMove { position: at });
+    settle(ui);
+}
+
 fn node(ui: &mut Ui, role: Role) -> ravenrs_core::AccessNode {
     let tree = ui.access_tree();
     tree.nodes.iter().find(|n| n.role == role).cloned().expect("a node of that role")
@@ -360,4 +365,324 @@ fn a_marquee_follows_a_view_and_takes_no_input() {
 fn a_marquee_has_a_name() {
     let mut ui = ui(Marquee::rect(Rect::new(0.0, 0.0, 50.0, 50.0)).size(100.0, 100.0));
     assert_eq!(node(&mut ui, Role::Image).name.as_deref(), Some("Selection"));
+}
+
+// -- TransformHandles --------------------------------------------------------------------------
+
+fn boxed(rect: Rect) -> State<BoxTransform> {
+    State::new(BoxTransform::new(rect))
+}
+
+fn close(a: Point, b: Point) -> bool {
+    (a.x - b.x).abs() < 0.1 && (a.y - b.y).abs() < 0.1
+}
+
+const BOX: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
+
+#[test]
+fn a_transform_knows_its_geometry() {
+    let t = BoxTransform::new(Rect::new(0.0, 0.0, 100.0, 50.0)).rotated(90.0);
+    // A quarter turn clockwise around the middle (50, 25).
+    assert!(close(t.to_world(Point::ZERO), Point::new(75.0, -25.0)));
+    assert!(close(t.handle(BoxHandle::BottomRight), Point::new(25.0, 75.0)));
+    assert!(close(t.to_local(t.to_world(Point::new(10.0, 20.0))), Point::new(10.0, 20.0)));
+    assert_eq!(BoxHandle::ALL.len(), 8);
+}
+
+#[test]
+fn handles_resize_from_the_opposite_side() {
+    let value = boxed(BOX);
+    let mut ui = ui(TransformHandles::new(value.binding()).keep_proportions(false).size(600.0, 400.0));
+    // The right side grows and the left stays.
+    drag(&mut ui, Point::new(300.0, 150.0), Point::new(340.0, 170.0));
+    assert_eq!(value.get().rect, Rect::new(100.0, 100.0, 240.0, 100.0));
+    // The top left corner moves both, and the bottom right stays.
+    drag(&mut ui, Point::new(100.0, 100.0), Point::new(80.0, 90.0));
+    assert_eq!(value.get().rect, Rect::new(80.0, 90.0, 260.0, 110.0));
+}
+
+#[test]
+fn corners_keep_proportions_until_shift() {
+    let value = boxed(BOX);
+    let mut ui = ui(TransformHandles::new(value.binding()).size(600.0, 400.0));
+    drag(&mut ui, Point::new(300.0, 200.0), Point::new(400.0, 210.0));
+    let rect = value.get().rect;
+    assert_eq!((rect.x(), rect.y()), (100.0, 100.0), "the opposite corner stays");
+    assert!((rect.width() / rect.height() - 2.0).abs() < 0.01, "{rect:?}");
+    assert!(near(rect.width(), 300.0));
+
+    value.set(BoxTransform::new(BOX));
+    settle(&mut ui);
+    ui.handle_event(&Event::KeyDown { key: Key::Character("x".into()), modifiers: shift() });
+    drag(&mut ui, Point::new(300.0, 200.0), Point::new(400.0, 210.0));
+    assert_eq!(value.get().rect, Rect::new(100.0, 100.0, 300.0, 110.0), "Shift lets go");
+}
+
+#[test]
+fn alt_resizes_around_the_pivot() {
+    let value = boxed(BOX);
+    let mut ui = ui(TransformHandles::new(value.binding()).keep_proportions(false).size(600.0, 400.0));
+    ui.handle_event(&Event::KeyDown { key: Key::Character("x".into()), modifiers: alt() });
+    drag(&mut ui, Point::new(300.0, 150.0), Point::new(320.0, 150.0));
+    assert_eq!(value.get().rect, Rect::new(80.0, 100.0, 240.0, 100.0), "both sides move");
+}
+
+#[test]
+fn inside_moves_and_the_knob_turns() {
+    let value = boxed(BOX);
+    let commits = State::new(0);
+    let counted = commits.clone();
+    let mut ui = ui(TransformHandles::new(value.binding())
+        .on_commit(move |_| counted.update(|c| *c += 1))
+        .size(600.0, 400.0));
+    drag(&mut ui, Point::new(150.0, 130.0), Point::new(170.0, 120.0));
+    assert_eq!(value.get().rect, Rect::new(120.0, 90.0, 200.0, 100.0));
+    assert_eq!(commits.get(), 1, "one step to undo");
+
+    // From above the middle, 24 pixels over the top side, to the right of the middle.
+    let t = BoxTransform::new(BOX);
+    value.set(t);
+    settle(&mut ui);
+    let middle = t.pivot_point();
+    drag(&mut ui, Point::new(200.0, 76.0), Point::new(middle.x + 74.0, middle.y));
+    assert!((value.get().angle - 90.0).abs() < 0.5, "a quarter turn: {:?}", value.get());
+    assert_eq!(value.get().rect, BOX, "turning does not resize");
+
+    // Shift holds it to steps.
+    value.set(t);
+    settle(&mut ui);
+    ui.handle_event(&Event::KeyDown { key: Key::Character("x".into()), modifiers: shift() });
+    drag(&mut ui, Point::new(200.0, 76.0), Point::new(middle.x + 20.0, middle.y - 74.0));
+    assert_eq!(value.get().angle, 15.0);
+}
+
+#[test]
+fn a_turned_box_resizes_along_its_own_axes() {
+    let t = BoxTransform::new(BOX).rotated(90.0);
+    let value = State::new(t);
+    let mut ui = ui(TransformHandles::new(value.binding()).keep_proportions(false).size(600.0, 400.0));
+    let right = t.handle(BoxHandle::Right);
+    let left = t.handle(BoxHandle::Left);
+    // Turned a quarter, the right side faces down.
+    drag(&mut ui, right, Point::new(right.x, right.y + 30.0));
+    let after = value.get();
+    assert!(near(after.rect.width(), 230.0), "{after:?}");
+    assert!(close(after.handle(BoxHandle::Left), left), "the opposite side stays on screen");
+}
+
+#[test]
+fn the_pivot_moves_without_moving_the_box() {
+    let t = BoxTransform::new(BOX).rotated(30.0);
+    let value = State::new(t);
+    let mut ui = ui(TransformHandles::new(value.binding()).size(600.0, 400.0));
+    let before = t.corners();
+    let from = t.pivot_point();
+    drag(&mut ui, from, Point::new(from.x + 30.0, from.y + 10.0));
+    let after = value.get();
+    assert!(close(after.pivot_point(), Point::new(from.x + 30.0, from.y + 10.0)));
+    for (a, b) in after.corners().into_iter().zip(before) {
+        assert!(close(a, b), "the box stays: {a:?} {b:?}");
+    }
+    // A double click on it puts it back in the middle, again without moving the box.
+    hover(&mut ui, after.pivot_point());
+    ui.handle_event(&Event::DoubleClick { position: after.pivot_point() });
+    settle(&mut ui);
+    let back = value.get();
+    assert!((back.pivot.x - 0.5).abs() < 0.001 && (back.pivot.y - 0.5).abs() < 0.001, "{back:?}");
+    for (a, b) in back.corners().into_iter().zip(before) {
+        assert!(close(a, b));
+    }
+}
+
+#[test]
+fn the_cursor_says_what_a_press_will_do() {
+    let value = boxed(BOX);
+    let mut ui = ui(TransformHandles::new(value.binding()).size(600.0, 400.0));
+    hover(&mut ui, Point::new(300.0, 150.0));
+    assert_eq!(ui.cursor(), CursorIcon::ColResize);
+    hover(&mut ui, Point::new(200.0, 100.0));
+    assert_eq!(ui.cursor(), CursorIcon::RowResize);
+    hover(&mut ui, Point::new(100.0, 100.0));
+    assert_eq!(ui.cursor(), CursorIcon::Pointer);
+    hover(&mut ui, Point::new(500.0, 350.0));
+    assert_eq!(ui.cursor(), CursorIcon::Default, "nothing to do out there");
+    // A quarter turn swaps the two sides.
+    value.set(BoxTransform::new(BOX).rotated(90.0));
+    settle(&mut ui);
+    let right = value.get().handle(BoxHandle::Right);
+    hover(&mut ui, right);
+    assert_eq!(ui.cursor(), CursorIcon::RowResize);
+}
+
+#[test]
+fn the_keyboard_moves_resizes_and_turns() {
+    let value = boxed(BOX);
+    let commits = State::new(0);
+    let counted = commits.clone();
+    let mut ui = ui(TransformHandles::new(value.binding())
+        .on_commit(move |_| counted.update(|c| *c += 1))
+        .size(600.0, 400.0));
+    press(&mut ui, Key::Tab, Modifiers::default());
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    assert_eq!(value.get().rect.x(), 101.0);
+    press(&mut ui, Key::ArrowDown, shift());
+    assert_eq!(value.get().rect.y(), 110.0);
+    press(&mut ui, Key::ArrowRight, alt());
+    assert_eq!(value.get().rect, Rect::new(101.0, 110.0, 201.0, 100.0));
+    press(&mut ui, Key::ArrowUp, alt());
+    assert_eq!(value.get().rect, Rect::new(101.0, 110.0, 201.0, 99.0));
+    press(&mut ui, Key::Character("]".into()), Modifiers::default());
+    assert_eq!(value.get().angle, 1.0);
+    press(&mut ui, Key::Character("[".into()), shift());
+    assert_eq!(value.get().angle, -14.0);
+    assert_eq!(commits.get(), 6);
+    let group = node(&mut ui, Role::Group);
+    assert_eq!(group.name.as_deref(), Some("Transform box"));
+    assert!(group.value.is_some_and(|v| v.contains("201 × 99") && v.contains("-14")));
+}
+
+#[test]
+fn escape_puts_a_dragged_box_back() {
+    let value = boxed(BOX);
+    let mut ui = ui(TransformHandles::new(value.binding()).size(600.0, 400.0));
+    down(&mut ui, Point::new(150.0, 130.0));
+    drag_to(&mut ui, Point::new(250.0, 230.0));
+    assert_ne!(value.get().rect, BOX);
+    press(&mut ui, Key::Escape, Modifiers::default());
+    assert_eq!(value.get().rect, BOX);
+    drag_to(&mut ui, Point::new(10.0, 10.0));
+    assert_eq!(value.get().rect, BOX);
+    up(&mut ui, Point::new(10.0, 10.0));
+}
+
+#[test]
+fn a_confined_box_stays_in_the_content() {
+    let value = boxed(BOX);
+    let mut ui = ui(TransformHandles::new(value.binding())
+        .confined(true)
+        .keep_proportions(false)
+        .rotatable(false)
+        .pivot_handle(false)
+        .size(400.0, 300.0));
+    drag(&mut ui, Point::new(150.0, 130.0), Point::new(900.0, 130.0));
+    assert_eq!(value.get().rect.max_x(), 400.0, "moving stops at the edge");
+    // A corner past one edge still follows along the other.
+    value.set(BoxTransform::new(BOX));
+    settle(&mut ui);
+    drag(&mut ui, Point::new(300.0, 200.0), Point::new(900.0, 250.0));
+    let rect = value.get().rect;
+    assert!(near(rect.max_x(), 400.0) && near(rect.max_y(), 250.0), "{rect:?}");
+}
+
+#[test]
+fn a_box_has_a_least_size() {
+    let value = boxed(BOX);
+    let mut ui =
+        ui(TransformHandles::new(value.binding()).keep_proportions(false).min_size(30.0).size(600.0, 400.0));
+    drag(&mut ui, Point::new(300.0, 150.0), Point::new(10.0, 150.0));
+    assert_eq!(value.get().rect, Rect::new(100.0, 100.0, 30.0, 100.0), "stops short and never flips");
+}
+
+#[test]
+fn handles_follow_a_view_in_content_units() {
+    let view = State::new(ZoomView::at(2.0));
+    let content = Size::new(200.0, 200.0);
+    let value = boxed(Rect::new(50.0, 50.0, 100.0, 100.0));
+    let mut ui = ui(TransformHandles::new(value.binding())
+        .keep_proportions(false)
+        .space(ContentSpace::View(view.binding(), content))
+        .size(400.0, 400.0));
+    // At twice the size in a box of 400, a unit is two pixels from the corner.
+    drag(&mut ui, Point::new(300.0, 200.0), Point::new(340.0, 200.0));
+    assert_eq!(value.get().rect, Rect::new(50.0, 50.0, 120.0, 100.0), "40 pixels are 20 units");
+}
+
+#[test]
+fn a_drag_of_handles_costs_no_builds_when_nobody_reads_it() {
+    let value = boxed(BOX);
+    let mut ui = ui(TransformHandles::new(value.binding()).size(600.0, 400.0));
+    down(&mut ui, Point::new(150.0, 130.0));
+    settle(&mut ui);
+    let before = ui.stats().builds;
+    for i in 0..5 {
+        ui.set_time(f64::from(i + 1));
+        drag_to(&mut ui, Point::new(160.0 + i as f32 * 10.0, 130.0));
+    }
+    assert_eq!(ui.stats().builds, before, "a drag only repaints");
+    assert_eq!(value.get().rect.x(), 150.0);
+    assert!(quads(&ui).iter().any(|r| near(r.x(), 150.0) && near(r.width(), 200.0)), "and the box moved");
+    up(&mut ui, Point::new(200.0, 130.0));
+}
+
+#[test]
+fn a_disabled_box_takes_nothing() {
+    let value = boxed(BOX);
+    let mut ui = ui(TransformHandles::new(value.binding()).disabled(true).size(600.0, 400.0));
+    drag(&mut ui, Point::new(150.0, 130.0), Point::new(170.0, 130.0));
+    assert_eq!(value.get().rect, BOX);
+}
+
+// -- Protractor --------------------------------------------------------------------------------
+
+#[test]
+fn a_protractor_follows_a_drag_from_anywhere() {
+    let angle = State::new(5.0_f32);
+    let commits = State::new(Vec::new());
+    let told = commits.clone();
+    let mut ui = ui(Protractor::new(angle.binding())
+        .on_commit(move |a| told.update(|c: &mut Vec<f32>| c.push(a)))
+        .width(278.0));
+    // 278 wide with 14 of margin each side is 250 pixels for 90 degrees.
+    let per_degree = 250.0 / 90.0;
+    down(&mut ui, Point::new(30.0, 20.0));
+    drag_to(&mut ui, Point::new(30.0 + per_degree * 10.0, 20.0));
+    assert!((angle.get() - 15.0).abs() < 0.11, "relative to where it began: {}", angle.get());
+    assert!(commits.get().is_empty());
+    up(&mut ui, Point::new(30.0 + per_degree * 10.0, 20.0));
+    assert_eq!(commits.get().len(), 1, "one step to undo");
+    // It stops at the end of the range.
+    drag(&mut ui, Point::new(30.0, 20.0), Point::new(780.0, 20.0));
+    assert_eq!(angle.get(), 45.0);
+    hover(&mut ui, Point::new(30.0, 20.0));
+    assert_eq!(ui.cursor(), CursorIcon::ColResize);
+}
+
+#[test]
+fn a_double_click_zeroes_a_protractor() {
+    let angle = State::new(12.5_f32);
+    let mut ui = ui(Protractor::new(angle.binding()));
+    ui.handle_event(&Event::DoubleClick { position: Point::new(30.0, 20.0) });
+    settle(&mut ui);
+    assert_eq!(angle.get(), 0.0);
+    assert!(angle.get().is_sign_positive());
+}
+
+#[test]
+fn a_protractor_works_from_the_keyboard_and_says_its_value() {
+    let angle = State::new(0.0_f32);
+    let mut ui = ui(Protractor::new(angle.binding()).range(-10.0, 20.0));
+    press(&mut ui, Key::Tab, Modifiers::default());
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    assert!((angle.get() - 0.1).abs() < 0.001);
+    press(&mut ui, Key::ArrowLeft, shift());
+    assert!((angle.get() + 0.9).abs() < 0.001);
+    let slider = node(&mut ui, Role::Slider);
+    assert_eq!(slider.name.as_deref(), Some("Angle"));
+    assert_eq!(slider.value.as_deref(), Some("-0.9°"));
+    press(&mut ui, Key::End, Modifiers::default());
+    assert_eq!(angle.get(), 20.0);
+    press(&mut ui, Key::Home, Modifiers::default());
+    assert_eq!(angle.get(), -10.0);
+    press(&mut ui, Key::Delete, Modifiers::default());
+    assert_eq!(angle.get(), 0.0);
+    assert_eq!(node(&mut ui, Role::Slider).value.as_deref(), Some("0.0°"), "no sign, and never -0.0");
+}
+
+#[test]
+fn a_disabled_protractor_stays_put() {
+    let angle = State::new(3.0_f32);
+    let mut ui = ui(Protractor::new(angle.binding()).disabled(true));
+    drag(&mut ui, Point::new(30.0, 20.0), Point::new(130.0, 20.0));
+    assert_eq!(angle.get(), 3.0);
+    assert!(paths(&ui) > 0, "it still shows the angle");
 }

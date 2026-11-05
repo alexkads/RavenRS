@@ -403,6 +403,12 @@ pub struct Labels {
     pub rubber_band: String,
     /// A [`Marquee`](crate::Marquee)'s name.
     pub marquee: String,
+    /// A [`TransformHandles`](crate::TransformHandles)'s name.
+    pub transform: String,
+    /// A [`CropOverlay`](crate::CropOverlay)'s name.
+    pub crop: String,
+    /// A [`Protractor`](crate::Protractor)'s name.
+    pub protractor: String,
     /// A recurrence editor's name.
     pub recurrence_name: String,
     /// Once, daily, weekly, monthly and yearly, as an editor offers them.
@@ -836,6 +842,9 @@ impl Default for Labels {
             minimap: "Navigator".into(),
             rubber_band: "Selection area".into(),
             marquee: "Selection".into(),
+            transform: "Transform box".into(),
+            crop: "Crop area".into(),
+            protractor: "Angle".into(),
             recurrence_name: "Repeats".into(),
             recurrence_frequencies: owned(["Once", "Daily", "Weekly", "Monthly", "Yearly"]),
             recurrence_every: "Every".into(),
@@ -1167,6 +1176,9 @@ impl Labels {
             minimap: "Navegador".into(),
             rubber_band: "Área de seleção".into(),
             marquee: "Seleção".into(),
+            transform: "Caixa de transformação".into(),
+            crop: "Área de recorte".into(),
+            protractor: "Ângulo".into(),
             recurrence_name: "Repetição".into(),
             recurrence_frequencies: owned(["Uma vez", "Diária", "Semanal", "Mensal", "Anual"]),
             recurrence_every: "A cada".into(),

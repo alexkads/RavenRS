@@ -198,6 +198,8 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Composition grid | | | | ✅ `RuleOfThirdsGrid`: thirds, equal divisions, squares or the golden ratio, in a box or over a `ZoomPanView`, taking no input |
 | Rubber band selection | | | | ✅ `RubberBand`: a rectangle drawn with a drag in `Binding`, selected on release, with the keyboard; costs no builds while dragged if nobody else reads it |
 | Selection outline | | | | ✅ `Marquee`: marching ants around a rectangle, a path or loose segments, which stop and ask for no frames with reduced motion |
+| Transform box | | | | ✅ `TransformHandles`: eight handles, turn and pivot over a `BoxTransform` in content units, with Shift and Alt as in image editors and the keyboard. It returns geometry and turns nothing, since the renderer has no transforms; `CursorIcon` has no diagonals, so corners show the hand |
+| Protractor | | | | ✅ `Protractor`: a band of ticks along an arc that sets an angle by a drag from anywhere, a double click back to zero, keys and value |
 | Image editor | | | ✓ | ⬜ |
 | Chat | | ✓ | ✓ | ✅ `Chat`; `MovieChat` over training films |
 | Choosing local AI models | | | | ✅ `ModelPicker`; `ravenrs_ai::ModelManager` offers only what fits |

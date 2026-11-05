@@ -66,6 +66,8 @@ samples! {
     "RuleOfThirdsGrid" => rule_of_thirds_grid,
     "RubberBand" => rubber_band,
     "Marquee" => marquee,
+    "TransformHandles" => transform_handles,
+    "Protractor" => protractor,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1795,6 +1797,28 @@ fn marquee() -> impl View {
         Marquee::path(lasso).size(150.0, 140.0),
     ))
     .spacing(12.0)
+}
+// end
+
+// sample: TransformHandles, 240
+fn transform_handles() -> impl View {
+    let layer = State::new(BoxTransform::new(Rect::new(110.0, 70.0, 180.0, 100.0)).rotated(-8.0));
+    let shown = layer.clone();
+    let picture = Canvas::new(move |frame, scene| {
+        let p = shown.get();
+        let at = p.rect.translate(frame.origin);
+        scene.push_quad(Quad::new(frame, Color::rgb(0.2, 0.27, 0.35)));
+        scene.push_quad(Quad::new(at, Color::rgb(0.3, 0.55, 0.75).with_alpha(0.6)));
+    })
+    .size(420.0, 230.0);
+    TransformHandles::new(layer.binding()).stage(picture)
+}
+// end
+
+// sample: Protractor, 70
+fn protractor() -> impl View {
+    let angle = State::new(7.5_f32);
+    Protractor::new(angle.binding()).label("Straighten")
 }
 // end
 

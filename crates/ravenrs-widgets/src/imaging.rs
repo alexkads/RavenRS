@@ -22,8 +22,10 @@ use crate::util;
 use crate::{Button, ButtonSize, ButtonStyle, IconButton, IconName};
 
 mod overlays;
+mod transform;
 
 pub use overlays::{CompositionGuide, ContentSpace, Marquee, RubberBand, RuleOfThirdsGrid};
+pub use transform::{BoxHandle, BoxTransform, Protractor, TransformHandles};
 
 // ---------------------------------------------------------------------------------------------
 // Histogram

@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `Protractor`: a band of ticks along an arc that sets an angle by a drag from anywhere on it, with a double click back to zero, the keyboard and the value in words.
+- `TransformHandles`: eight handles, a turn and a pivot around a `BoxTransform`, in the units of a `ContentSpace`. Corners hold the proportions until Shift, Alt resizes around the pivot, and the keyboard moves, resizes and turns. It hands back geometry and turns no picture. A drag paints without a build.
 - `Marquee`: the animated outline of a selection around a rectangle, a closed path or loose segments, which reads over any picture and asks for no frames with reduced motion.
 - `RubberBand`: a rectangle drawn with a drag, in the units of the content, that goes through a `Binding` and selects on release. Escape cancels, and the keyboard moves and resizes it. A drag paints without a build.
 - `RuleOfThirdsGrid`: composition lines over a picture, as thirds, equal divisions, squares or the golden ratio, in the units of a `ContentSpace` that can follow a `ZoomPanView`. It takes no input.
