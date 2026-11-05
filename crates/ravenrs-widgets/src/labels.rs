@@ -75,6 +75,44 @@ pub struct Labels {
     pub file_name: String,
     /// The column of sizes of a [`FileBrowser`](crate::FileBrowser).
     pub file_size: String,
+    /// An [`AttachmentStrip`](crate::AttachmentStrip)'s name.
+    pub attachments: String,
+    /// Takes a file out of an [`AttachmentStrip`](crate::AttachmentStrip), before its name.
+    pub attachment_remove: String,
+    /// How a file will be sent, with `{what}` for the way chosen.
+    pub attachment_send_as: String,
+    /// A [`SelectionBar`](crate::SelectionBar)'s name.
+    pub selection_bar: String,
+    /// Leaves a selection.
+    pub selection_exit: String,
+    /// What a [`SelectionBar`](crate::SelectionBar) says with nothing chosen.
+    pub selection_none: String,
+    /// What a [`SelectionBar`](crate::SelectionBar) says with one thing chosen.
+    pub selection_one: String,
+    /// What a [`SelectionBar`](crate::SelectionBar) says with more, with `{count}`.
+    pub selection_many: String,
+    /// The name of an [`AudioPlayerButton`](crate::AudioPlayerButton)'s progress.
+    pub audio_player: String,
+    /// Plays a recording.
+    pub audio_play: String,
+    /// Stops a recording.
+    pub audio_stop: String,
+    /// A recording is on its way.
+    pub audio_loading: String,
+    /// Shows or hides what was said in a recording.
+    pub audio_transcript: String,
+    /// Asks for what was said in a recording.
+    pub audio_transcribe: String,
+    /// What was said in a recording is on its way.
+    pub audio_transcribing: String,
+    /// A recording with no one speaking.
+    pub audio_no_speech: String,
+    /// A photo in a [`Chat`](crate::Chat) with no description.
+    pub chat_photo: String,
+    /// A photo in a [`Chat`](crate::Chat) is on its way.
+    pub chat_photo_loading: String,
+    /// Opens a file in a [`Chat`](crate::Chat), with `{what}` for what it is.
+    pub chat_open: String,
     /// The column of dates of a [`FileBrowser`](crate::FileBrowser).
     pub file_modified: String,
     /// What a [`FileBrowser`](crate::FileBrowser) says of a folder.
@@ -886,6 +924,25 @@ impl Default for Labels {
             file_browser_name: "Files".into(),
             file_name: "Name".into(),
             file_size: "Size".into(),
+            attachments: "Attachments".into(),
+            attachment_remove: "Remove".into(),
+            attachment_send_as: "Send as {what}".into(),
+            selection_bar: "Selection actions".into(),
+            selection_exit: "Leave selection".into(),
+            selection_none: "Nothing selected".into(),
+            selection_one: "1 selected".into(),
+            selection_many: "{count} selected".into(),
+            audio_player: "Audio progress".into(),
+            audio_play: "Play audio".into(),
+            audio_stop: "Stop".into(),
+            audio_loading: "Loading…".into(),
+            audio_transcript: "Transcript".into(),
+            audio_transcribe: "Transcribe".into(),
+            audio_transcribing: "Transcribing…".into(),
+            audio_no_speech: "(no speech)".into(),
+            chat_photo: "Photo".into(),
+            chat_photo_loading: "Loading photo…".into(),
+            chat_open: "Open {what}".into(),
             file_modified: "Modified".into(),
             folder_word: "Folder".into(),
             folder_empty: "This folder is empty.".into(),
@@ -1255,6 +1312,25 @@ impl Labels {
             file_browser_name: "Arquivos".into(),
             file_name: "Nome".into(),
             file_size: "Tamanho".into(),
+            attachments: "Anexos".into(),
+            attachment_remove: "Tirar".into(),
+            attachment_send_as: "Enviar como {what}".into(),
+            selection_bar: "Ações da seleção".into(),
+            selection_exit: "Sair da seleção".into(),
+            selection_none: "Nada selecionado".into(),
+            selection_one: "1 selecionado".into(),
+            selection_many: "{count} selecionados".into(),
+            audio_player: "Progresso do áudio".into(),
+            audio_play: "Tocar o áudio".into(),
+            audio_stop: "Parar".into(),
+            audio_loading: "Carregando…".into(),
+            audio_transcript: "Transcrição".into(),
+            audio_transcribe: "Transcrever".into(),
+            audio_transcribing: "Transcrevendo…".into(),
+            audio_no_speech: "(áudio sem fala)".into(),
+            chat_photo: "Foto".into(),
+            chat_photo_loading: "Carregando a foto…".into(),
+            chat_open: "Abrir {what}".into(),
             file_modified: "Modificado".into(),
             folder_word: "Pasta".into(),
             folder_empty: "Esta pasta está vazia.".into(),

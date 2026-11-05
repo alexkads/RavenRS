@@ -51,7 +51,7 @@ samples! {
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
     "ScrollView" => scroll_view, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
-    "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "RichText" => rich_text, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
+    "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "RichText" => rich_text, "AttachmentStrip" => attachment_strip, "AudioPlayerButton" => audio_player_button, "SelectionBar" => selection_bar, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
     "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
@@ -1356,6 +1356,44 @@ fn rich_text() -> impl View {
     .spacing(8.0)
     .align(Align::Stretch)
     .width(360.0)
+}
+// end
+
+// sample: AttachmentStrip, 120
+fn attachment_strip() -> impl View {
+    // The app holds the list, and changes it when told.
+    AttachmentStrip::new([
+        Attachment::new("report.pdf").size(120_000),
+        Attachment::new("beach.jpg").size(2_400_000).icon(IconName::Image).send_as(
+            ["photo", "document"],
+            0,
+            |_how| {},
+        ),
+    ])
+    .on_remove(|_index| {})
+    .width(420.0)
+}
+// end
+
+// sample: AudioPlayerButton, 150
+fn audio_player_button() -> impl View {
+    // A second of a low tone, computed here. An app delivers its own recording.
+    let tone: Vec<f32> =
+        (0..44_100).map(|i| (i as f32 / 44_100.0 * 220.0 * std::f32::consts::TAU).sin() * 0.2).collect();
+    AudioPlayerButton::new()
+        .clip(SoundClip::new(tone, 44_100))
+        .transcript("What was said goes here, to open when wanted.")
+        .width(320.0)
+}
+// end
+
+// sample: SelectionBar, 60
+fn selection_bar() -> impl View {
+    SelectionBar::new(3)
+        .on_exit(|| {})
+        .action(ToolbarAction::new("Copy").icon(IconName::Copy).icon_only().on_click(|| {}))
+        .action(ToolbarAction::new("Favorite").icon(IconName::Star).icon_only().on_click(|| {}))
+        .width(420.0)
 }
 // end
 

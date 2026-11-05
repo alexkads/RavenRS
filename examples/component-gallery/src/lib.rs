@@ -1965,6 +1965,9 @@ impl Gallery {
             page_header("Feedback", "Alerts, progress and loading placeholders."),
             sample_demos(&[
                 ("RichText", "Bold, italic, code and links in plain text, with the marks chat apps use. Links take the keyboard, and the app decides how to open them."),
+                ("AttachmentStrip", "The files about to go with a message: icon or thumbnail, name, size, how to send each one and a button to take it out."),
+                ("AudioPlayerButton", "Plays a recording and stops it, with progress and a transcript to open. The app can deliver the audio after the press."),
+                ("SelectionBar", "What to do with several things chosen: how many, a way out, and actions that go to a menu when they do not fit. Escape leaves."),
                 ("Dot", "A small mark of state, named for screen readers."),
                 ("OverlayBadge", "A small view on a corner of another."),
                 ("Rating", "Stars to give with the pointer, the arrows or a digit, or just to read."),

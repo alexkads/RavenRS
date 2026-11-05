@@ -211,6 +211,9 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Image lightbox | | | | ✅ `ImageLightbox`: a picture over the whole app with zoom by `ZoomPanView`, arrows, Esc, caption and counter, from `Labels` |
 | Image editor | | | ✓ | ⬜ |
 | Text with marks and links | | | | ✅ `RichText`: `*bold*`, `_italic_`, `~struck~`, `` `code` ``, fenced blocks, lists, quotes and web addresses as links with click and keyboard, wrapped word by word. `ravenrs-text` has one style per text and no italic or monospace font, so italics are told apart by a muted color and code by a chip |
+| Attachments of a message | | | | ✅ `AttachmentStrip`: icon or thumbnail, name that gives way, size, a menu for how to send it when there is a choice and a button to remove it; the app holds the list |
+| Audio player | | | | ✅ `AudioPlayerButton`: play and stop over `SoundProvider::speak_clip`, progress by the clock, drawn without rebuilding, audio the app can deliver after the press, and a transcript to open or ask for. A new recording sends the old one back to rest. It has no seek, since the service does not report or change where it is |
+| Bar over a multiple selection | | | | ✅ `SelectionBar`: the count from `Labels`, a way out by button or Esc, and actions over `Toolbar`, which go to a menu when they do not fit and wait for something chosen |
 | Chat | | ✓ | ✓ | ✅ `Chat`; `MovieChat` over training films |
 | Choosing local AI models | | | | ✅ `ModelPicker`; `ravenrs_ai::ModelManager` offers only what fits |
 

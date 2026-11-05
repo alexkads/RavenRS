@@ -270,6 +270,7 @@ fn entry_node(cx: &mut BuildCx<'_>, index: usize, entry: &ToolbarEntry) -> NodeI
 pub struct Toolbar {
     entries: Vec<ToolbarEntry>,
     label: Option<String>,
+    aligned_end: bool,
 }
 
 impl fmt::Debug for Toolbar {
@@ -306,6 +307,12 @@ impl Toolbar {
     /// The name screen readers announce.
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    /// Takes the room left in its row, with the commands at the far end.
+    pub(crate) fn aligned_end(mut self) -> Self {
+        self.aligned_end = true;
         self
     }
 }
@@ -373,6 +380,8 @@ impl View for Toolbar {
                 height: Some(36.0),
                 min_width: Some(0.0),
                 overflow_hidden: true,
+                grow: if self.aligned_end { 1.0 } else { 0.0 },
+                justify: if self.aligned_end { Justify::End } else { Justify::Start },
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &children,

@@ -6,6 +6,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `monotone_slopes` in `ravenrs-core`: the slopes of a curve that never swings past its points, which charts and `CurveEditor` now share.
+- `SelectionBar`: how many things are chosen, a way out by a button or Escape, and actions over a `Toolbar`, which go to a menu when they do not fit and are disabled while nothing is chosen.
+- `AudioPlayerButton`: plays a recording and stops it over `Sound::speak_clip`, with progress drawn without rebuilding, audio the app can deliver after the press, and a transcript to open or ask for. Another recording sends it back to rest.
+- `AttachmentStrip`: the files about to go with a message, as rows with an icon or thumbnail, a name that gives way, the size, a menu such as "Send as" when there is a choice, and a button to take each one out.
 - `RichText`: bold, italic, struck text, code, lists, quotes and links in plain text, with the marks chat apps use. It wraps between words, links take a click, Enter or Space and go to `on_link`, and text with nothing to format costs what a `Text` costs. Italics are a muted color and code a chip, because `ravenrs-text` has one style per text and embeds no italic or monospace font.
 - `DocumentTabs`: tabs for open documents that close with a button, Delete or the menu, change places by a drag or Alt and the arrows, are renamed with a double click, F2 or the menu, and carry a color and a dot for what was not saved. Tabs that do not fit scroll with arrows, and the menu takes the app's own items.
 - `SortableList`: rows put in order by a drag, with a line at the target, or with Alt and the arrows, Home and End. Each move is announced to screen readers, and Escape calls a drag off. The drag arithmetic lives in one module, which `DocumentTabs` shares.
