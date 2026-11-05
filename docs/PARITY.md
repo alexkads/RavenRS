@@ -188,6 +188,8 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Day divider in a list | | | | ✅ `DaySeparator` |
 | Typography scale | ✓ | ✓ | ✓ | ✅ `Text` styles |
 | PDF viewer | | ✓ | ✓ | ⬜ |
+| Histogram | | | | ✅ `Histogram`: channels from ready-made bins, added up as light, linear or logarithmic, with marks at clipped ends |
+| Ruler | | | | ✅ `Ruler`: horizontal or vertical, in the units of the caller, with a round step for the zoom, origin and marker; vertical numbers stack, since text does not rotate |
 | Image editor | | | ✓ | ⬜ |
 | Chat | | ✓ | ✓ | ✅ `Chat`; `MovieChat` over training films |
 | Choosing local AI models | | | | ✅ `ModelPicker`; `ravenrs_ai::ModelManager` offers only what fits |

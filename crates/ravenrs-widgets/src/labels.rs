@@ -367,6 +367,14 @@ pub struct Labels {
     pub zoom_in: String,
     /// Zooms a scheduler's time axis out.
     pub zoom_out: String,
+    /// A [`Histogram`](crate::Histogram)'s name.
+    pub histogram: String,
+    /// What a [`Histogram`](crate::Histogram) says when a channel piles up at its low end.
+    pub histogram_clipped_low: String,
+    /// What a [`Histogram`](crate::Histogram) says when a channel piles up at its high end.
+    pub histogram_clipped_high: String,
+    /// A [`Ruler`](crate::Ruler)'s name.
+    pub ruler: String,
     /// A recurrence editor's name.
     pub recurrence_name: String,
     /// Once, daily, weekly, monthly and yearly, as an editor offers them.
@@ -782,6 +790,10 @@ impl Default for Labels {
             scheduler_resources: "Resources".into(),
             zoom_in: "Zoom in".into(),
             zoom_out: "Zoom out".into(),
+            histogram: "Histogram".into(),
+            histogram_clipped_low: "Shadows clipped".into(),
+            histogram_clipped_high: "Highlights clipped".into(),
+            ruler: "Ruler".into(),
             recurrence_name: "Repeats".into(),
             recurrence_frequencies: owned(["Once", "Daily", "Weekly", "Monthly", "Yearly"]),
             recurrence_every: "Every".into(),
@@ -1095,6 +1107,10 @@ impl Labels {
             scheduler_resources: "Recursos".into(),
             zoom_in: "Aproximar".into(),
             zoom_out: "Afastar".into(),
+            histogram: "Histograma".into(),
+            histogram_clipped_low: "Sombras recortadas".into(),
+            histogram_clipped_high: "Realces recortados".into(),
+            ruler: "Régua".into(),
             recurrence_name: "Repetição".into(),
             recurrence_frequencies: owned(["Uma vez", "Diária", "Semanal", "Mensal", "Anual"]),
             recurrence_every: "A cada".into(),

@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `Ruler`: horizontal or vertical, in the units of the caller, with scale, origin and marker, and a round step that keeps marks apart at any zoom.
+- `Histogram`: overlapping channels from ready-made bins, whose colors add up as light does, in a linear or logarithmic scale, with a mark at each end that clips.
 - `DropZone`: a dashed area around any content that takes dropped files, by the same rules as `FileUpload`, and says when files are over the window with a stronger edge and words. `choosable` lets the keyboard bring files through the system's chooser, and `quiet` keeps the dashes off until then.
 - `ScrollEdgeArrow`: a strip that scrolls, horizontal or vertical, with an arrow over a fade at each end that has more to show. `Labels` gains `scroll_back` and `scroll_forward`.
 - `FloatingToolbar`: a translucent row of commands over its content, placed by side, that takes the clicks that land on it; `movable` adds a handle, with the arrow keys and a double click that brings it home. `TitleBar`: title, actions and the window's buttons, drawing and calling back only. It does not drag the window nor hide the system's frame, which belong to the platform layer. `Labels` gains `window_minimize`, `window_maximize` and `window_restore`.

@@ -1894,6 +1894,11 @@ impl Gallery {
                 "Images",
                 "Textures with mipmaps, rounded corners and cover, fit or fill. PNG and JPEG decode with Image::from_bytes; these are generated in Rust.",
             ),
+            sample_demos(&[
+                // imaging widgets
+                ("Ruler", "A ruler in your units, with a round step for any zoom."),
+                ("Histogram", "Overlapping channels from ready-made bins, with marks when an end clips."),
+            ]),
             Grid::new(
                 columns(width, 4),
                 vec![

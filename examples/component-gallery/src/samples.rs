@@ -56,6 +56,8 @@ samples! {
     "FloatingToolbar" => floating_toolbar, "TitleBar" => title_bar, "DropZone" => drop_zone, "ScrollEdgeArrow" => scroll_edge_arrow, "ValueSlider" => value_slider, "InlineRename" => inline_rename,
     "ZStack" => z_stack, "PropertyRow" => property_row, "PageHeader" => page_header, "ButtonGroup" => button_group,
     "FavoriteToggle" => favorite_toggle, "SwatchGrid" => swatch_grid, "NinePointAnchor" => nine_point_anchor, "ColorPair" => color_pair,
+    "Histogram" => histogram,
+    "Ruler" => ruler,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1641,6 +1643,32 @@ fn scroll_edge_arrow() -> impl View {
         })
         .collect();
     ScrollEdgeArrow::new(photos).fade(Semantic::SurfaceElevated)
+}
+// end
+
+// sample: Histogram, 130
+fn histogram() -> impl View {
+    let hill = |center: f32| -> Vec<f32> {
+        (0..256).map(|i| 400.0 * (-((i as f32 - center) / 40.0).powi(2)).exp() + 10.0).collect()
+    };
+    Histogram::new([
+        HistogramChannel::new("Red", Color::rgb(0.9, 0.15, 0.15), hill(90.0)),
+        HistogramChannel::new("Green", Color::rgb(0.15, 0.8, 0.2), hill(128.0)),
+        HistogramChannel::new("Blue", Color::rgb(0.2, 0.3, 0.95), hill(170.0)),
+    ])
+    .zones(5)
+    .height(110.0)
+}
+// end
+
+// sample: Ruler, 70
+fn ruler() -> impl View {
+    VStack::new((
+        Ruler::horizontal().scale(2.0).origin(-20.0).marker(60.0),
+        Ruler::horizontal().scale(0.2).whole_units(),
+    ))
+    .spacing(8.0)
+    .align(Align::Stretch)
 }
 // end
 
