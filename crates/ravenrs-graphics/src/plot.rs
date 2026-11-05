@@ -7,7 +7,7 @@
 use std::f32::consts::{FRAC_PI_2, TAU};
 use std::rc::Rc;
 
-use ravenrs_core::{Color, LinearGradient, Point, Rect};
+use ravenrs_core::{Color, LinearGradient, Point, Rect, monotone_slopes};
 
 use crate::chart::{
     ChartData, ChartDrawing, ChartKind, ChartLabel, ChartOptions, ChartStyle, LabelAlign, arc, nice_ticks,
@@ -668,23 +668,6 @@ fn natural_controls(values: &[f32]) -> (Vec<f32>, Vec<f32>) {
         second[i] = 2.0 * values[i + 1] - first[i + 1];
     }
     (first, second)
-}
-
-/// The slope at each point of a curve that never swings past them.
-fn monotone_slopes(points: &[Point]) -> Vec<f32> {
-    let secant = |a: Point, b: Point| {
-        let run = b.x - a.x;
-        if run.abs() < f32::EPSILON { 0.0 } else { (b.y - a.y) / run }
-    };
-    let n = points.len();
-    let mut slopes = vec![0.0; n];
-    slopes[0] = secant(points[0], points[1]);
-    slopes[n - 1] = secant(points[n - 2], points[n - 1]);
-    for i in 1..n - 1 {
-        let (before, after) = (secant(points[i - 1], points[i]), secant(points[i], points[i + 1]));
-        slopes[i] = if before * after <= 0.0 { 0.0 } else { 2.0 * before * after / (before + after) };
-    }
-    slopes
 }
 
 /// The path through `points`, without its starting move.

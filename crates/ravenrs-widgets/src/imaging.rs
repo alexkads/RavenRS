@@ -9,7 +9,8 @@ use std::rc::Rc;
 
 use ravenrs_animation::Spring;
 use ravenrs_core::{
-    Color, CursorIcon, ImageData, ImageQuad, Key, PathElement, PathFill, Point, Quad, Rect, Role, Scene, Size,
+    Color, CursorIcon, ImageData, ImageQuad, Key, PathElement, PathFill, Point, Quad, Rect, Role, Scene,
+    Size, monotone_slopes,
 };
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, Observer, State};
@@ -866,28 +867,6 @@ const CURVE_MARGIN: f32 = 7.0;
 const CURVE_REACH: f32 = 11.0;
 /// The least horizontal distance between two points, as a fraction of the plot.
 const CURVE_MIN_GAP: f32 = 0.01;
-
-/// The slope at each point of a curve that never swings past its points (Fritsch-Carlson,
-/// with the same harmonic mean as the charts' monotone curve, so both read alike).
-fn monotone_slopes(points: &[Point]) -> Vec<f32> {
-    let secant = |a: Point, b: Point| {
-        let run = b.x - a.x;
-        if run.abs() < f32::EPSILON { 0.0 } else { (b.y - a.y) / run }
-    };
-    let last = points.len() - 1;
-    (0..points.len())
-        .map(|i| {
-            if i == 0 {
-                secant(points[0], points[1])
-            } else if i == last {
-                secant(points[last - 1], points[last])
-            } else {
-                let (before, after) = (secant(points[i - 1], points[i]), secant(points[i], points[i + 1]));
-                if before * after <= 0.0 { 0.0 } else { 2.0 * before * after / (before + after) }
-            }
-        })
-        .collect()
-}
 
 /// The points in order, or a straight line when there are too few to make a curve.
 fn curve_points(points: &[Point]) -> Vec<Point> {
