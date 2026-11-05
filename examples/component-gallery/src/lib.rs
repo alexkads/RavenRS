@@ -2239,6 +2239,23 @@ impl Gallery {
                             .height(260.0),
                     ),
                     demo(
+                        "Candlestick",
+                        "What a price did each day: rising candles are outlines, falling ones are solid.",
+                        Chart::new(ChartKind::Candlestick)
+                            .categories(["Mon", "Tue", "Wed", "Thu", "Fri", "Mon", "Tue", "Wed"])
+                            .candles([
+                                [100.0, 112.0, 98.0, 110.0],
+                                [110.0, 111.0, 101.0, 102.0],
+                                [102.0, 108.0, 99.0, 106.0],
+                                [106.0, 120.0, 105.0, 118.0],
+                                [118.0, 119.0, 109.0, 111.0],
+                                [111.0, 113.0, 100.0, 103.0],
+                                [103.0, 104.0, 92.0, 95.0],
+                                [95.0, 105.0, 94.0, 104.0],
+                            ])
+                            .height(260.0),
+                    ),
+                    demo(
                         "Scatter chart",
                         "Dots at numeric positions.",
                         Chart::new(ChartKind::Scatter)

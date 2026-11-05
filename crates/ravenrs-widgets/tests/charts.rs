@@ -254,6 +254,13 @@ fn bars() -> Chart {
         .alt("Sales")
 }
 
+fn chart_ui_view(view: impl View + 'static) -> Ui {
+    let mut ui = Ui::new(VStack::new((view,)).align(Align::Stretch), Theme::raven_dark());
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    ui.update();
+    ui
+}
+
 fn chart_ui(chart: Chart) -> Ui {
     ui(VStack::new((chart,)).align(Align::Stretch))
 }
@@ -996,4 +1003,71 @@ fn a_small_chart_with_a_tooltip_asks_for_no_frames_when_still() {
     let mut ui = chart_ui(spark.height(60.0));
     settle(&mut ui, 0.0);
     assert!(!ui.needs_redraw());
+}
+
+fn candles() -> Chart {
+    Chart::new(ChartKind::Candlestick).categories(["Mon", "Tue", "Wed"]).candles([
+        [100.0, 112.0, 98.0, 110.0],
+        [110.0, 111.0, 101.0, 102.0],
+        [102.0, 104.0, 99.0, 103.0],
+    ])
+}
+
+#[test]
+fn candles_are_quads_rising_as_outlines_with_an_axis_of_round_numbers() {
+    let ui = chart_ui(candles());
+    assert!(images(&ui).is_empty());
+    let (success, danger) =
+        (Theme::raven_dark().color(Semantic::Success), Theme::raven_dark().color(Semantic::Danger));
+    let quads: Vec<ravenrs_core::Quad> = ui
+        .scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| if let Primitive::Quad(q) = p { Some(*q) } else { None })
+        .collect();
+    let outlined = quads.iter().filter(|q| q.border.is_some_and(|b| b.color == success)).count();
+    assert_eq!(outlined, 2, "the two that rose");
+    assert_eq!(
+        quads.iter().filter(|q| q.fill == danger.into() && q.rect.width() > 2.0).count(),
+        1,
+        "the one that fell"
+    );
+    assert!(glyph_runs(&ui) > 6, "categories and numbers");
+}
+
+#[test]
+fn a_candle_says_its_four_prices_in_the_language_of_the_screen() {
+    let mut ui = chart_ui(candles());
+    hover(&mut ui, 400.0, 100.0);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("Tue, Open: 110, High: 111, Low: 101, Close: 102"));
+    key(&mut ui, ravenrs_core::Key::Tab);
+    key(&mut ui, ravenrs_core::Key::ArrowRight);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("Wed, Open: 102, High: 104, Low: 99, Close: 103"));
+
+    let mut ui = chart_ui_view(Localized::new(Labels::pt_br(), candles().alt("Preço")));
+    let tree = ui.access_tree();
+    let node = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Preço")).expect("the chart");
+    let spoken = node.description.as_deref().unwrap_or_default();
+    assert!(spoken.starts_with("Mon: Abertura 100, Máxima 112, Mínima 98, Fechamento 110"), "{spoken}");
+}
+
+#[test]
+fn candles_fade_around_the_one_in_focus_and_ask_for_no_frames_when_still() {
+    let mut ui = chart_ui(candles());
+    assert!(!ui.needs_redraw());
+    at_time(&mut ui, 0.0);
+    move_to(&mut ui, 400.0, 100.0);
+    settle(&mut ui, 0.0);
+    let danger = Theme::raven_dark().color(Semantic::Danger);
+    let solid = ui
+        .scene()
+        .primitives()
+        .iter()
+        .any(|p| matches!(p, Primitive::Quad(q) if q.fill == danger.into() && q.rect.width() > 2.0));
+    assert!(solid, "the one in focus stays at full strength");
+    let faded = ui.scene().primitives().iter().any(|p| match p {
+        Primitive::Quad(q) => q.border.is_some_and(|b| b.color.a < 1.0 && b.color.g > b.color.r),
+        _ => false,
+    });
+    assert!(faded, "the others do not");
 }

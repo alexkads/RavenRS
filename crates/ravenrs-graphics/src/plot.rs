@@ -132,6 +132,10 @@ pub struct PlotStyle {
     pub max_bar: f32,
     /// The color of a bar below zero.
     pub negative: Option<Color>,
+    /// The color of a candle that closed at or above where it opened.
+    pub rising: Color,
+    /// The color of a candle that closed below where it opened.
+    pub falling: Color,
     /// The category standing out: a slice comes forward, a bar gets an outline.
     pub active: Option<usize>,
     /// Draws a dot at each point of a line or a radar.
@@ -253,6 +257,8 @@ impl PlotStyle {
             bar_radius: 6.0,
             max_bar: 96.0,
             negative: None,
+            rising: crate::chart::PALETTE[1],
+            falling: crate::chart::PALETTE[3],
             active: None,
             dots: false,
             value_labels: None,
@@ -377,6 +383,23 @@ pub struct Bar {
     pub gradient: Option<LinearGradient>,
 }
 
+/// What a price did in a category of a [`ChartKind::Candlestick`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Candle {
+    /// Which category.
+    pub index: usize,
+    /// From where it opened to where it closed.
+    pub body: Rect,
+    /// From its body up to its high, and down to its low.
+    pub wicks: [Rect; 2],
+    /// Its color.
+    pub color: Color,
+    /// It closed at or above where it opened: its body is an outline, so that this
+    /// does not rest on the color alone.
+    pub rising: bool,
+}
+
 /// A thin straight line left out of the picture.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
@@ -415,6 +438,9 @@ pub struct Plot {
     pub area: Rect,
     /// The bars of a bar chart.
     pub bars: Vec<Bar>,
+    /// The candles of a [`ChartKind::Candlestick`], when [`PlotStyle::bars_apart`] leaves
+    /// them out of the layers.
+    pub candles: Vec<Candle>,
     /// Gridlines, behind the layers, when [`PlotStyle::rules_apart`] asks for them.
     pub rules: Vec<Rule>,
     /// Lines of reference, over the layers, when [`PlotStyle::rules_apart`] asks for them.
@@ -475,6 +501,10 @@ const TICK_MARGIN: f32 = 8.0;
 const GRID_DASH: f32 = 4.0;
 const GRID_DASH_GAP: f32 = 3.0;
 const BAR_GAP: f32 = 4.0;
+/// How many series a candlestick chart needs: open, high, low and close.
+const CANDLE_SERIES: usize = 4;
+/// The share of its category a candle's body takes.
+const CANDLE_WIDTH: f32 = 0.6;
 /// How solid the base of a bar in a gradient is.
 const BAR_GRADIENT_BASE: f32 = 0.55;
 /// The share of a category left between its bars and the next category's.
@@ -845,11 +875,21 @@ impl Axes {
 
 fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: &mut Plot) {
     let count = data.categories.len();
-    if count == 0 || data.series.is_empty() {
+    let is_candle = style.kind == ChartKind::Candlestick;
+    if count == 0 || data.series.is_empty() || (is_candle && data.series.len() < CANDLE_SERIES) {
         return;
     }
+    let unstacked;
+    // Prices do not add up.
+    let style = if is_candle && style.stack != Stack::None {
+        unstacked = PlotStyle { stack: Stack::None, ..style.clone() };
+        &unstacked
+    } else {
+        style
+    };
     let towers = stacked(data, style.stack);
     let is_bar = style.kind == ChartKind::Bar;
+    let banded = is_bar || is_candle;
     let values = towers.iter().flatten().flat_map(|(a, b)| [*a, *b]);
     let (mut min, mut max) =
         values.fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| (a.min(v), b.max(v)));
@@ -860,7 +900,8 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     if !min.is_finite() {
         return;
     }
-    if !style.tight_scale || is_bar {
+    // A candle is about where the price went, not how far it is from zero.
+    if !is_candle && (!style.tight_scale || is_bar) {
         min = min.min(0.0);
         max = max.max(0.0);
     }
@@ -951,7 +992,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
                 bottom -= under_zero;
             }
         }
-        if !is_bar {
+        if !banded {
             left += if style.value_axis { 4.0 } else { LINE_MARGIN };
             right -= LINE_MARGIN;
         }
@@ -984,7 +1025,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     let along_start = if horizontal { area.y() } else { area.x() };
     let band = along_size / count as f32;
     let center_of = |i: usize| {
-        if is_bar {
+        if banded {
             along_start + band * (i as f32 + 0.5)
         } else if count > 1 {
             along_start + along_size * i as f32 / (count - 1) as f32
@@ -1041,7 +1082,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     let spacing = if count > 1 { (center_of(1) - center_of(0)).abs() } else { along_size };
     // Far from the size of a pixel: below one, categories are that much closer together.
     let every = (room / spacing.max(0.001)).ceil().max(1.0) as usize;
-    let aligned = style.ends_aligned && !is_bar && !horizontal && count > 1;
+    let aligned = style.ends_aligned && !banded && !horizontal && count > 1;
     let last = count.saturating_sub(1);
     for (i, label) in labels.iter().enumerate() {
         let at = center_of(i);
@@ -1110,6 +1151,8 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
         if style.bars_apart {
             plot.rules = rules_around_bars(&plot.rules, &plot.bars);
         }
+    } else if is_candle {
+        candles(data, style, &axes, band, plot);
     } else {
         lines(data, &towers, style, &axes, &center_of, plot);
     }
@@ -1381,6 +1424,45 @@ fn bars(
                 write(category, at);
             }
         }
+    }
+}
+
+fn candles(data: &ChartData, style: &PlotStyle, axes: &Axes, band: f32, plot: &mut Plot) {
+    let [open, high, low, close] = [0, 1, 2, 3].map(|s: usize| data.series[s].values.as_slice());
+    let width = (band * CANDLE_WIDTH).clamp(1.0, style.max_bar);
+    let reach = |value: f64| if axes.fixed { value.clamp(axes.low, axes.high) } else { value };
+    for i in 0..data.categories.len() {
+        let value = |of: &[f64]| of.get(i).copied().filter(|v| v.is_finite());
+        let (Some(open), Some(high), Some(low), Some(close)) =
+            (value(open), value(high), value(low), value(close))
+        else {
+            continue;
+        };
+        // Whatever it says, the wick covers where the price was.
+        let (top, bottom) = (high.max(open).max(close), low.min(open).min(close));
+        if axes.fixed && (top < axes.low || bottom > axes.high) {
+            continue;
+        }
+        let x = axes.area.x() + band * (i as f32 + 0.5);
+        let (upper, lower) = (axes.at(reach(open.max(close))), axes.at(reach(open.min(close))));
+        let body = Rect::new(x - width / 2.0, upper, width, (lower - upper).max(1.0));
+        let (high_at, low_at) = (axes.at(reach(top)), axes.at(reach(bottom)));
+        let wicks = [
+            Rect::new(x - 0.5, high_at, 1.0, (body.y() - high_at).max(0.0)),
+            Rect::new(x - 0.5, body.max_y(), 1.0, (low_at - body.max_y()).max(0.0)),
+        ];
+        let rising = close >= open;
+        let color = if rising { style.rising } else { style.falling };
+        plot.marks.push(Mark { series: 3, index: i, at: Point::new(x, axes.at(reach(close))), color });
+        plot.candles.push(Candle { index: i, body, wicks, color, rising });
+        if style.bars_apart {
+            continue;
+        }
+        for wick in wicks {
+            plot.layers.push(fill(vector::rectangle(wick, 0.0), color));
+        }
+        let outline = vector::rectangle(body, 1.0);
+        plot.layers.push(if rising { stroke(outline, 1.5, color) } else { fill(outline, color) });
     }
 }
 
@@ -2414,6 +2496,83 @@ mod tests {
         let left = plot.marks[1].at;
         assert!(left.x < plot.marks[2].at.x && plot.marks[2].at.x < plot.marks[0].at.x);
         assert_eq!(plot.hit(Point::new(left.x, 10.0)).map(|h| h.index), Some(1));
+    }
+
+    fn prices() -> ChartData {
+        data(&[
+            ("open", &[100.0, 110.0, 105.0, f64::NAN]),
+            ("high", &[112.0, 111.0, 108.0, 105.0]),
+            ("low", &[98.0, 101.0, 104.0, 105.0]),
+            ("close", &[110.0, 102.0, 105.0, 105.0]),
+        ])
+    }
+
+    #[test]
+    fn a_candle_goes_from_open_to_close_with_wicks_to_its_extremes() {
+        let style = PlotStyle {
+            bars_apart: true,
+            rules_apart: true,
+            value_axis: true,
+            ..PlotStyle::new(ChartKind::Candlestick)
+        };
+        let plot = draw(&prices(), AREA, &style);
+        assert!(plot.layers.is_empty());
+        assert_eq!(plot.candles.len(), 3, "the one with a missing value is left out");
+        let (up, down) = (plot.candles[0], plot.candles[1]);
+        assert!(up.rising && !down.rising);
+        assert_ne!(up.color, down.color);
+        assert!(up.wicks[0].y() < up.body.y(), "the high is over the body");
+        assert!(up.wicks[1].max_y() > up.body.max_y(), "the low is under it");
+        assert!((up.wicks[0].max_y() - up.body.y()).abs() < 0.01);
+        assert!(plot.candles[2].body.height() >= 1.0, "a price that did not move still shows");
+        assert!(plot.labels.iter().any(|l| l.text == "100"), "round numbers on the axis");
+        assert!(!plot.labels.iter().any(|l| l.text == "0"), "and it does not go down to zero");
+    }
+
+    #[test]
+    fn candles_need_their_four_series_and_do_not_stack() {
+        let style = PlotStyle::new(ChartKind::Candlestick);
+        assert!(draw(&data(&[("open", &[1.0])]), AREA, &style).layers.is_empty());
+        let stacked =
+            PlotStyle { stack: Stack::Normal, bars_apart: true, ..PlotStyle::new(ChartKind::Candlestick) };
+        let plain = PlotStyle { bars_apart: true, ..PlotStyle::new(ChartKind::Candlestick) };
+        assert_eq!(draw(&prices(), AREA, &stacked).candles, draw(&prices(), AREA, &plain).candles);
+    }
+
+    #[test]
+    fn a_candle_past_a_fixed_axis_is_cut_off_or_gone() {
+        let style = PlotStyle {
+            bars_apart: true,
+            domain: Some((103.0, 109.0)),
+            ..PlotStyle::new(ChartKind::Candlestick)
+        };
+        let plot = draw(&prices(), AREA, &style);
+        assert_eq!(plot.candles.len(), 3);
+        assert!(plot.candles[0].wicks[0].y() >= plot.area.y() - 0.01);
+        let gone = PlotStyle {
+            bars_apart: true,
+            domain: Some((200.0, 300.0)),
+            ..PlotStyle::new(ChartKind::Candlestick)
+        };
+        assert!(draw(&prices(), AREA, &gone).candles.is_empty());
+    }
+
+    #[test]
+    fn a_page_gets_candles_as_shapes_through_the_chart_module() {
+        let format = |value: f64| value.to_string();
+        let options = ChartOptions {
+            kind: ChartKind::Candlestick,
+            title: "",
+            legend: false,
+            size: 12.0,
+            ink: Color::BLACK,
+            muted: Color::BLACK,
+            grid: Color::BLACK,
+            format: &format,
+        };
+        let drawing = crate::chart::draw(&prices(), AREA, &options);
+        assert!(drawing.shapes.len() > 9, "{}", drawing.shapes.len());
+        assert!(drawing.labels.iter().any(|l| l.text == "100"));
     }
 
     #[test]

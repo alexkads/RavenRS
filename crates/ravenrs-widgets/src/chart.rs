@@ -60,6 +60,7 @@ const LIFT_SOLID_FROM: f32 = 4.0;
 /// How solid the line through the points of the category in focus is.
 const CURSOR_ALPHA: f32 = 0.55;
 const DOT_ICON: f32 = 18.0;
+const CANDLE_OUTLINE: f32 = 1.5;
 
 /// Lays a drawing out in a rectangle, at a number of pixels per logical pixel, and
 /// with a way to know how wide its text is.
@@ -367,6 +368,28 @@ fn paint_bars(highlight: Option<&Highlight>, plot: &Plot, frame: Rect, cx: &mut 
     }
 }
 
+/// The candles. A body that rose is an outline and one that fell is solid, so that
+/// which it did does not rest on the color alone.
+fn paint_candles(highlight: Option<&Highlight>, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
+    let place =
+        |rect: Rect| Rect::new(frame.x() + rect.x(), frame.y() + rect.y(), rect.width(), rect.height());
+    for candle in &plot.candles {
+        let faded = highlight.map_or(0.0, |highlight| {
+            let distance = (candle.index as f32 - highlight.at).abs().min(1.0);
+            highlight.dim * highlight.focus * distance
+        });
+        let color = candle.color.with_alpha(candle.color.a * (1.0 - faded));
+        for wick in candle.wicks {
+            if wick.height() > 0.0 {
+                cx.scene.push_quad(Quad::new(snapped(place(wick), cx.scale), color));
+            }
+        }
+        let body =
+            Quad::new(place(candle.body), if candle.rising { Color::TRANSPARENT } else { color }).radius(1.0);
+        cx.scene.push_quad(if candle.rising { body.border(CANDLE_OUTLINE, color) } else { body });
+    }
+}
+
 fn path_elements(path: &[PathSegment]) -> Vec<PathElement> {
     path.iter()
         .map(|segment| match segment {
@@ -463,6 +486,7 @@ fn plot_node(
             }
             paint_rules(&picture.drawing, frame, paint);
             paint_bars(highlight.as_ref(), &picture.drawing, frame, paint);
+            paint_candles(highlight.as_ref(), &picture.drawing, frame, paint);
             if let Some((part, image)) = &picture.image {
                 let opacity = highlight.as_ref().map_or(1.0, Highlight::opacity);
                 let at = Rect::new(frame.x() + part.x(), frame.y() + part.y(), part.width(), part.height());
@@ -1110,6 +1134,33 @@ impl Chart {
         self
     }
 
+    /// The candles of a [`ChartKind::Candlestick`], one per category, each with its open,
+    /// high, low and close, in that order. Rising candles are outlines and falling ones
+    /// are solid, in the theme's colors for success and danger.
+    ///
+    /// ```
+    /// use ravenrs_widgets::{Chart, ChartKind};
+    ///
+    /// let prices = Chart::new(ChartKind::Candlestick)
+    ///     .categories(["Mon", "Tue"])
+    ///     .candles([[100.0, 112.0, 98.0, 110.0], [110.0, 111.0, 101.0, 102.0]]);
+    /// ```
+    pub fn candles(mut self, candles: impl IntoIterator<Item = [f64; 4]>) -> Self {
+        let candles: Vec<[f64; 4]> = candles.into_iter().collect();
+        // Their names come from the language of the screen, when they are shown.
+        self.series = (0..4)
+            .map(|at| {
+                Rc::new(Series {
+                    name: String::new(),
+                    color: None,
+                    icon: None,
+                    values: candles.iter().map(|candle| candle[at]).collect(),
+                })
+            })
+            .collect();
+        self
+    }
+
     /// Adds a series in a color of your choosing.
     pub fn series_color(
         mut self,
@@ -1490,7 +1541,10 @@ impl Chart {
     }
 
     /// Every series' values, as a screen reader hears them.
-    fn spoken_values(&self) -> String {
+    fn spoken_values(&self, labels: &crate::Labels) -> String {
+        if self.kind == ChartKind::Candlestick {
+            return self.spoken_candles(labels);
+        }
         let named = self.series.len() > 1;
         let parts: Vec<String> = self
             .series
@@ -1517,6 +1571,31 @@ impl Chart {
             })
             .collect();
         parts.join("; ")
+    }
+
+    fn candle_names(labels: &crate::Labels) -> [&str; 4] {
+        [&labels.candle_open, &labels.candle_high, &labels.candle_low, &labels.candle_close]
+    }
+
+    /// Each candle, as a screen reader hears it.
+    fn spoken_candles(&self, labels: &crate::Labels) -> String {
+        let names = Self::candle_names(labels);
+        let mut spoken: Vec<String> = self
+            .categories
+            .iter()
+            .take(SPOKEN_VALUES)
+            .enumerate()
+            .map(|(i, category)| {
+                let values = self.series.iter().zip(names).filter_map(|(series, name)| {
+                    series.values.get(i).map(|value| format!("{name} {}", (self.format)(*value)))
+                });
+                format!("{category}: {}", values.collect::<Vec<_>>().join(", "))
+            })
+            .collect();
+        if self.categories.len() > SPOKEN_VALUES {
+            spoken.push("…".to_owned());
+        }
+        spoken.join("; ")
     }
 
     /// Whether this chart is one of the plain pictures.
@@ -1569,6 +1648,8 @@ impl Chart {
         let bars = if self.series.len() > 1 { theme.radii.sm } else { theme.radii.md };
         style.bar_radius = look.bar_radius.unwrap_or(bars);
         style.negative = self.negative.map(|role| theme.color(role));
+        style.rising = theme.color(Semantic::Success);
+        style.falling = theme.color(Semantic::Danger);
         style.active = look.active;
         style.dots = look.dots && self.dot_icon.is_none();
         style.value_labels = look.value_labels;
@@ -1593,7 +1674,7 @@ impl Chart {
             style.value_ticks = ticks;
         }
         style.category_axis = look.category_axis;
-        style.value_axis = look.value_axis;
+        style.value_axis = look.value_axis || self.kind == ChartKind::Candlestick;
         style.tight_scale = look.tight_scale;
         if look.no_separator {
             style.separator = 0.0;
@@ -1622,6 +1703,10 @@ impl Chart {
     }
 
     fn legend_rows(&self, colors: &[Color], theme: &Theme) -> Vec<KeyRow> {
+        // Up and down are no series to tell apart.
+        if self.kind == ChartKind::Candlestick {
+            return Vec::new();
+        }
         if self.colors_by_category() {
             let first = self.series.first().map(|s| s.values.as_slice());
             return self
@@ -1653,6 +1738,7 @@ impl Chart {
         index: usize,
         colors: &[Color],
         theme: &Theme,
+        labels: &crate::Labels,
     ) -> TooltipPanel {
         // A dot may have only its position to go by.
         let named = self.categories.get(index).filter(|name| !name.is_empty()).cloned();
@@ -1698,6 +1784,16 @@ impl Chart {
                 })
                 .collect()
         };
+        let mut rows = rows;
+        if self.kind == ChartKind::Candlestick {
+            let at = |s: usize| self.series.get(s).and_then(|series| series.values.get(index)).copied();
+            let rising = at(3) >= at(0);
+            let color = theme.color(if rising { Semantic::Success } else { Semantic::Danger });
+            for (row, name) in rows.iter_mut().zip(Self::candle_names(labels)) {
+                row.name = name.to_owned();
+                row.color = color;
+            }
+        }
         let by_category = self.colors_by_category() && !self.look.concentric;
         let name = category.clone();
         let title = if tooltip.hide_label || by_category || (category.is_empty() && tooltip.label.is_none()) {
@@ -1727,6 +1823,7 @@ impl Chart {
 
     fn build_plot(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
+        let labels = cx.labels();
         let colors = palette(&theme);
         let style = self.plot_style(&theme, &colors);
         let series = self.series.iter().enumerate().map(|(i, series)| SeriesData {
@@ -1762,7 +1859,7 @@ impl Chart {
             let round = spot.is_none();
             let along = follows.unwrap_or(place);
             let (past_x, past_y) = (along.x > size.width / 2.0, along.y > size.height / 2.0);
-            let is_bar = self.kind == ChartKind::Bar;
+            let is_bar = matches!(self.kind, ChartKind::Bar | ChartKind::Candlestick);
             let at = match (follows, spot) {
                 (Some(p), Some(spot)) if self.look.horizontal && is_bar => {
                     Point::new(p.x, if past_y { spot.band.y() } else { spot.band.max_y() })
@@ -1801,7 +1898,7 @@ impl Chart {
         children.extend(anchor);
 
         let cursor = self.tooltip.as_ref().is_some_and(|t| !t.no_cursor);
-        let is_bar = self.kind == ChartKind::Bar;
+        let is_bar = matches!(self.kind, ChartKind::Bar | ChartKind::Candlestick);
         let is_line = plain || matches!(self.kind, ChartKind::Line | ChartKind::Area);
         let is_round = matches!(self.kind, ChartKind::Pie | ChartKind::Doughnut);
         let m = theme.motion;
@@ -1898,19 +1995,19 @@ impl Chart {
         if let (Some(tooltip), Some(index), Some((_, placement)), Some(anchor)) =
             (&self.tooltip, shown, spot, anchor)
         {
-            let panel = self.tooltip_panel(tooltip, index, &colors, &theme);
+            let panel = self.tooltip_panel(tooltip, index, &colors, &theme, &labels);
             cx.overlay(anchor, placement, &panel, None);
         }
 
         let name = self.alt.as_deref().unwrap_or(&self.title);
-        let values = self.spoken_values();
+        let values = self.spoken_values(&labels);
         let mut semantics = if name.is_empty() {
             Semantics::new(Role::Image).name(values)
         } else {
             Semantics::new(Role::Image).name(name.to_owned()).description(values)
         };
         if let (Some(tooltip), Some(index)) = (&self.tooltip, shown) {
-            let panel = self.tooltip_panel(tooltip, index, &colors, &theme);
+            let panel = self.tooltip_panel(tooltip, index, &colors, &theme, &labels);
             semantics = semantics.value(panel.spoken());
         }
         cx.semantics(node, semantics);
@@ -2012,7 +2109,7 @@ impl View for Chart {
             ..LayoutStyle::leaf()
         };
         let node = drawing_node(cx, style, drawing);
-        let values = self.spoken_values();
+        let values = self.spoken_values(&cx.labels());
         let name = self.alt.as_deref().unwrap_or(&self.title);
         let semantics = if name.is_empty() {
             Semantics::new(Role::Image).name(values)

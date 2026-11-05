@@ -44,6 +44,14 @@ pub struct Labels {
     pub color_hex: String,
     /// A [`DateRangePicker`](crate::DateRangePicker) with no period.
     pub pick_date_range: String,
+    /// Where a candle of a [`Chart`](crate::Chart) opened.
+    pub candle_open: String,
+    /// The highest a candle of a [`Chart`](crate::Chart) went.
+    pub candle_high: String,
+    /// The lowest a candle of a [`Chart`](crate::Chart) went.
+    pub candle_low: String,
+    /// Where a candle of a [`Chart`](crate::Chart) closed.
+    pub candle_close: String,
     /// Goes to the previous step of a [`Wizard`](crate::Wizard).
     pub wizard_back: String,
     /// Goes to the next step of a [`Wizard`](crate::Wizard).
@@ -692,6 +700,10 @@ impl Default for Labels {
             color_alpha: "Opacity".into(),
             color_hex: "Hexadecimal color".into(),
             pick_date_range: "Pick a period".into(),
+            candle_open: "Open".into(),
+            candle_high: "High".into(),
+            candle_low: "Low".into(),
+            candle_close: "Close".into(),
             wizard_back: "Back".into(),
             wizard_next: "Next".into(),
             wizard_finish: "Finish".into(),
@@ -987,6 +999,10 @@ impl Labels {
             color_alpha: "Opacidade".into(),
             color_hex: "Cor em hexadecimal".into(),
             pick_date_range: "Escolher período".into(),
+            candle_open: "Abertura".into(),
+            candle_high: "Máxima".into(),
+            candle_low: "Mínima".into(),
+            candle_close: "Fechamento".into(),
             wizard_back: "Voltar".into(),
             wizard_next: "Avançar".into(),
             wizard_finish: "Concluir".into(),

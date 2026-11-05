@@ -32,6 +32,9 @@ pub enum ChartKind {
     Radar,
     /// One ring per category, as long as its value.
     RadialBar,
+    /// What a price did in each category: four series, in the order open, high, low
+    /// and close.
+    Candlestick,
 }
 
 /// How a label sits in its box.
@@ -257,7 +260,7 @@ pub(crate) fn draw_placed(
     style: &ChartStyle<'_>,
     places: &mut Vec<Place>,
 ) -> ChartDrawing {
-    if matches!(options.kind, ChartKind::Radar | ChartKind::RadialBar) {
+    if matches!(options.kind, ChartKind::Radar | ChartKind::RadialBar | ChartKind::Candlestick) {
         return plain_plot(data, rect, options, style);
     }
     let mut drawing = ChartDrawing::default();
@@ -319,6 +322,7 @@ fn plain_plot(
         grid: options.grid,
         surface: style.separator,
         size: options.size * 0.85,
+        value_axis: options.kind == ChartKind::Candlestick,
         ..crate::plot::PlotStyle::new(options.kind)
     };
     let plot = crate::plot::draw(data, rect, &plot_style);
