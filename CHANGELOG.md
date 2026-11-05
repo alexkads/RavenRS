@@ -6,6 +6,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `Marquee`: the animated outline of a selection around a rectangle, a closed path or loose segments, which reads over any picture and asks for no frames with reduced motion.
+- `RubberBand`: a rectangle drawn with a drag, in the units of the content, that goes through a `Binding` and selects on release. Escape cancels, and the keyboard moves and resizes it. A drag paints without a build.
+- `RuleOfThirdsGrid`: composition lines over a picture, as thirds, equal divisions, squares or the golden ratio, in the units of a `ContentSpace` that can follow a `ZoomPanView`. It takes no input.
 - `Minimap`: a small copy of the content with a rectangle around what is in view, by the same `ZoomView` as `ZoomPanView`, which a press, a drag or the arrow keys move.
 - `ZoomPanView`: zoom and pan over an image or a drawing, by pinch, Cmd/Ctrl with the wheel, the wheel and a drag to move, a double click and the keyboard, with a coast that stops asking for frames and respects reduced motion. Gestures paint without a build.
 - `ZoomControl`: fit, 1:1, the percentage and the buttons that zoom in and out, through a `ZoomView` that `ZoomPanView` and `Minimap` can share.

@@ -21,6 +21,10 @@ use crate::context::{BuildCx, Drag, DragPhase, NodeId, Paint, PaintCx, QuadPaint
 use crate::util;
 use crate::{Button, ButtonSize, ButtonStyle, IconButton, IconName};
 
+mod overlays;
+
+pub use overlays::{CompositionGuide, ContentSpace, Marquee, RubberBand, RuleOfThirdsGrid};
+
 // ---------------------------------------------------------------------------------------------
 // Histogram
 // ---------------------------------------------------------------------------------------------

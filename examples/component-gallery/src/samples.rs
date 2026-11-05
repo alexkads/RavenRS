@@ -63,6 +63,9 @@ samples! {
     "ZoomControl" => zoom_control,
     "ZoomPanView" => zoom_pan_view,
     "Minimap" => minimap,
+    "RuleOfThirdsGrid" => rule_of_thirds_grid,
+    "RubberBand" => rubber_band,
+    "Marquee" => marquee,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1752,6 +1755,44 @@ fn minimap() -> impl View {
     HStack::new((
         Minimap::custom(view.binding(), content, picture),
         ZoomPanView::custom(view.binding(), content, picture).size(240.0, 150.0),
+    ))
+    .spacing(12.0)
+}
+// end
+
+// sample: RuleOfThirdsGrid, 190
+fn rule_of_thirds_grid() -> impl View {
+    let picture = Canvas::new(|frame, scene| {
+        let sky = LinearGradient::vertical(Color::rgb(0.3, 0.45, 0.7), Color::rgb(0.85, 0.6, 0.45));
+        scene.push_quad(Quad::new(frame, sky));
+    })
+    .size(300.0, 170.0);
+    RuleOfThirdsGrid::new().guide(CompositionGuide::GoldenRatio).stage(picture)
+}
+// end
+
+// sample: RubberBand, 190
+fn rubber_band() -> impl View {
+    let selection = State::new(None::<Rect>);
+    let chosen = State::new(String::from("Drag over the box"));
+    let told = chosen.clone();
+    VStack::new((
+        Text::bound(&chosen, Clone::clone),
+        RubberBand::new(selection.binding())
+            .on_select(move |r| told.set(format!("{:.0} × {:.0}", r.width(), r.height())))
+            .size(320.0, 130.0),
+    ))
+    .spacing(8.0)
+}
+// end
+
+// sample: Marquee, 170
+fn marquee() -> impl View {
+    let lasso =
+        [Point::new(20.0, 30.0), Point::new(120.0, 40.0), Point::new(100.0, 120.0), Point::new(30.0, 110.0)];
+    HStack::new((
+        Marquee::rect(Rect::new(20.0, 20.0, 110.0, 100.0)).size(150.0, 140.0),
+        Marquee::path(lasso).size(150.0, 140.0),
     ))
     .spacing(12.0)
 }

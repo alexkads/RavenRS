@@ -156,8 +156,9 @@ pub use icon_set::IconName;
 pub use image::decode_image;
 pub use image::{ContentMode, DecodeError, Image};
 pub use imaging::{
-    ColorWheel, CurveEditor, Histogram, HistogramChannel, HistogramScale, HueSaturation, Minimap, Ruler,
-    ZoomControl, ZoomPanPaint, ZoomPanView, ZoomView,
+    ColorWheel, CompositionGuide, ContentSpace, CurveEditor, Histogram, HistogramChannel, HistogramScale,
+    HueSaturation, Marquee, Minimap, RubberBand, RuleOfThirdsGrid, Ruler, ZoomControl, ZoomPanPaint,
+    ZoomPanView, ZoomView,
 };
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};

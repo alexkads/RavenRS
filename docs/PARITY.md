@@ -195,6 +195,9 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Zoom control | | | | ✅ `ZoomControl`: fit, 1:1, percentage, + and −, through a `ZoomView` shared with `ZoomPanView` and `Minimap` |
 | Zoom and pan | | | | ✅ `ZoomPanView`: pinch, Cmd/Ctrl with the wheel, wheel and drag to move, double click, keys, inertia that respects reduced motion, limits. Content is an image or a closure: the runtime has no transform for a subtree |
 | Minimap | | | | ✅ `Minimap`: a small copy with the rectangle of what is in view, by the same `ZoomView` as `ZoomPanView`, with drag and arrow keys |
+| Composition grid | | | | ✅ `RuleOfThirdsGrid`: thirds, equal divisions, squares or the golden ratio, in a box or over a `ZoomPanView`, taking no input |
+| Rubber band selection | | | | ✅ `RubberBand`: a rectangle drawn with a drag in `Binding`, selected on release, with the keyboard; costs no builds while dragged if nobody else reads it |
+| Selection outline | | | | ✅ `Marquee`: marching ants around a rectangle, a path or loose segments, which stop and ask for no frames with reduced motion |
 | Image editor | | | ✓ | ⬜ |
 | Chat | | ✓ | ✓ | ✅ `Chat`; `MovieChat` over training films |
 | Choosing local AI models | | | | ✅ `ModelPicker`; `ravenrs_ai::ModelManager` offers only what fits |

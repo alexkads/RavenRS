@@ -1896,6 +1896,9 @@ impl Gallery {
             ),
             sample_demos(&[
                 // imaging widgets
+                ("Marquee", "The animated outline of a selection, which stops with reduced motion."),
+                ("RubberBand", "A rectangle drawn with a drag, selected on release."),
+                ("RuleOfThirdsGrid", "Thirds, a fine grid, squares or the golden ratio over a picture."),
                 ("Minimap", "A small copy with a rectangle around what is in view, which moves the view."),
                 ("ZoomPanView", "Zoom and pan over an image or drawing: pinch, wheel, drag, double click and keys."),
                 ("ZoomControl", "Fit, 1:1, the percentage and the buttons that zoom in and out."),

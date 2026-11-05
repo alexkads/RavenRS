@@ -399,6 +399,10 @@ pub struct Labels {
     pub zoom_view: String,
     /// A [`Minimap`](crate::Minimap)'s name.
     pub minimap: String,
+    /// A [`RubberBand`](crate::RubberBand)'s name.
+    pub rubber_band: String,
+    /// A [`Marquee`](crate::Marquee)'s name.
+    pub marquee: String,
     /// A recurrence editor's name.
     pub recurrence_name: String,
     /// Once, daily, weekly, monthly and yearly, as an editor offers them.
@@ -830,6 +834,8 @@ impl Default for Labels {
             zoom_actual: "Actual size".into(),
             zoom_view: "Zoomable view".into(),
             minimap: "Navigator".into(),
+            rubber_band: "Selection area".into(),
+            marquee: "Selection".into(),
             recurrence_name: "Repeats".into(),
             recurrence_frequencies: owned(["Once", "Daily", "Weekly", "Monthly", "Yearly"]),
             recurrence_every: "Every".into(),
@@ -1159,6 +1165,8 @@ impl Labels {
             zoom_actual: "Tamanho real".into(),
             zoom_view: "Vista ampliável".into(),
             minimap: "Navegador".into(),
+            rubber_band: "Área de seleção".into(),
+            marquee: "Seleção".into(),
             recurrence_name: "Repetição".into(),
             recurrence_frequencies: owned(["Uma vez", "Diária", "Semanal", "Mensal", "Anual"]),
             recurrence_every: "A cada".into(),
