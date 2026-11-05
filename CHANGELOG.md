@@ -4,6 +4,16 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.14] - 2026-11-05
+
+### Breaking
+
+- `ThemeSwitcher` is no longer a unit struct. Write `ThemeSwitcher::new()` where you wrote `ThemeSwitcher`.
+
+### Added
+
+- `ThemeSwitcher::themes(dark, light, glass)`: an app offers its own three themes in the switcher instead of the standard ones.
+
 ## [27.1.13] - 2026-11-05
 
 ### Breaking
