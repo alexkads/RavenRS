@@ -1400,6 +1400,7 @@ impl Gallery {
             sample_demos(&[
                 ("SplitPanes", "Any number of panes, with limits, by mouse or keyboard."),
                 ("SplitHandle", "The bar by itself, for a pane you lay out."),
+                ("DockArea", "Panels in a tree of splits and tabs. Drag a tab to another group or a border, or use its menu; bars resize, docks collapse, and the arrangement is saved as text."),
             ]),
             demo(
                 "Carousel",

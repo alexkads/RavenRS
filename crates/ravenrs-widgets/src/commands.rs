@@ -664,7 +664,7 @@ impl View for MoreMenu {
 }
 
 /// A square button that opens `entries` under it, and takes focus back after.
-fn menu_trigger(
+pub(crate) fn menu_trigger(
     cx: &mut BuildCx<'_>,
     entries: &[Entry],
     icon: IconName,

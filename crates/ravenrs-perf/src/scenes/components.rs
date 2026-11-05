@@ -329,6 +329,40 @@ fn picture_overlays(interaction: &str) -> Setup {
     Setup { root, step }
 }
 
+/// Every place of a dock area in use, with splits inside: a tab changes, and a bar is dragged.
+fn docking(interaction: &str) -> Setup {
+    const IDS: [(&str, &str); 8] = [
+        ("photo", "Photo"),
+        ("grid", "Grid"),
+        ("props", "Properties"),
+        ("folders", "Folders"),
+        ("search", "Search"),
+        ("layers", "Layers"),
+        ("history", "History"),
+        ("log", "Log"),
+    ];
+    let panels = IDS.iter().map(|(id, title)| DockPanel::new(*id, *title)).collect();
+    let layout = State::new(
+        DockLayout::new()
+            .center(DockNode::horizontal([DockNode::tabs(["photo", "grid"]), DockNode::tabs(["props"])]))
+            .left(DockNode::tabs(["folders", "search"]), 280.0)
+            .right(DockNode::vertical([DockNode::tabs(["layers"]), DockNode::tabs(["history"])]), 280.0)
+            .bottom(DockNode::tabs(["log"]), 160.0),
+    );
+    let area = DockArea::new(layout.binding(), panels, |id| -> AnyView {
+        let lines: Vec<Text> = (0..12).map(|line| Text::new(format!("{id}, line {line}"))).collect();
+        Box::new(VStack::new(lines).spacing(4.0))
+    });
+    // The bar of the left dock: past its strip and its 280 logical pixels.
+    let (bar, further) = (Point::new(297.0, 300.0), Point::new(340.0, 300.0));
+    let step: Step = match interaction {
+        "tab" => clicking("Grid", "Photo"),
+        "divider" => dragging(bar, further),
+        other => common(other, Point::new(120.0, 16.0), Point::new(600.0, 16.0)),
+    };
+    Setup { root: Box::new(area), step }
+}
+
 /// Ten thousand rows of different heights, of which a screenful exists.
 fn virtual_list(interaction: &str) -> Setup {
     let list = VirtualList::new(10_000, |index| {
@@ -411,6 +445,9 @@ const IMAGE_TOOLS: &[Ceiling] = &[
     ceiling("wheel", "shapes", 0),
     ceiling("idle", "frames", 0),
 ];
+
+/// Whatever the panels show, a bar moved makes no title be shaped again.
+const DOCKING: &[Ceiling] = &[ceiling("divider", "shapes", 0), ceiling("idle", "frames", 0)];
 
 /// Clicks two buttons in turn, as a person using the screen does.
 fn clicking(first: &'static str, second: &'static str) -> Step {
@@ -498,6 +535,14 @@ pub(super) fn scenes() -> Vec<PerfScene> {
             PICTURE_OVERLAYS,
         ),
         scene("marquee", &["Marquee"], Class::Animated, &["animate"], marquee, ANIMATED),
+        scene(
+            "docking",
+            &["DockArea"],
+            Class::Static,
+            &["hover", "tab", "divider", "idle", "resize"],
+            docking,
+            DOCKING,
+        ),
         scene("images", &["Image", "Grid"], Class::Static, &["hover", "scroll", "idle"], images, STILL),
         scene(
             "calculator",

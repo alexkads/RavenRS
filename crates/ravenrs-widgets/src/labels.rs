@@ -133,6 +133,48 @@ pub struct Labels {
     pub moved_to: String,
     /// A [`DocumentTabs`](crate::DocumentTabs)' name.
     pub document_tabs_name: String,
+    /// A [`DockArea`](crate::DockArea)'s name.
+    pub dock_area_name: String,
+    /// The name of the tabs of a group of a [`DockArea`](crate::DockArea).
+    pub dock_tabs_name: String,
+    /// What a [`DockArea`](crate::DockArea) says with nothing in its center.
+    pub dock_empty: String,
+    /// The left dock of a [`DockArea`](crate::DockArea), in a menu.
+    pub dock_left: String,
+    /// The right dock of a [`DockArea`](crate::DockArea), in a menu.
+    pub dock_right: String,
+    /// The bottom dock of a [`DockArea`](crate::DockArea), in a menu.
+    pub dock_bottom: String,
+    /// The center of a [`DockArea`](crate::DockArea), in a menu.
+    pub dock_center: String,
+    /// The item of a [`DockArea`](crate::DockArea)'s menu that opens where a panel can go.
+    pub dock_move_to: String,
+    /// Joins a group of a [`DockArea`](crate::DockArea), with `{title}` for what shows in it.
+    pub dock_with: String,
+    /// Opens a group to the right of a panel's own in a [`DockArea`](crate::DockArea).
+    pub dock_split_right: String,
+    /// Opens a group below a panel's own in a [`DockArea`](crate::DockArea).
+    pub dock_split_below: String,
+    /// Closes a panel of a [`DockArea`](crate::DockArea), in a menu.
+    pub dock_close: String,
+    /// The item of a [`DockArea`](crate::DockArea)'s menu that lists closed panels.
+    pub dock_reopen: String,
+    /// The button that closes a panel, with `{title}`.
+    pub dock_close_panel: String,
+    /// The button with a panel's menu, with `{title}`.
+    pub dock_options: String,
+    /// Collapses a dock, with `{place}`.
+    pub dock_hide: String,
+    /// Brings a dock back, with `{place}`.
+    pub dock_show: String,
+    /// The bar that resizes a dock, with `{place}`.
+    pub dock_resize: String,
+    /// The bar between two parts of a split, with `{first}` and `{second}`.
+    pub dock_resize_pair: String,
+    /// What is announced after a panel moved, with `{place}`.
+    pub dock_moved: String,
+    /// What is announced after a panel closed, with `{title}`.
+    pub dock_closed: String,
     /// Closes a tab of a [`DocumentTabs`](crate::DocumentTabs).
     pub close_tab: String,
     /// Opens a new tab of a [`DocumentTabs`](crate::DocumentTabs).
@@ -952,6 +994,27 @@ impl Default for Labels {
             sortable_name: "Sortable list".into(),
             sortable_hint: "Drag it, or press Alt and an arrow, to move it".into(),
             moved_to: "Moved to position {position} of {total}".into(),
+            dock_area_name: "Docked panels".into(),
+            dock_tabs_name: "Panels".into(),
+            dock_empty: "No panels here".into(),
+            dock_left: "Left dock".into(),
+            dock_right: "Right dock".into(),
+            dock_bottom: "Bottom dock".into(),
+            dock_center: "Center".into(),
+            dock_move_to: "Move to…".into(),
+            dock_with: "With {title}".into(),
+            dock_split_right: "Split to the right".into(),
+            dock_split_below: "Split below".into(),
+            dock_close: "Close panel".into(),
+            dock_reopen: "Reopen".into(),
+            dock_close_panel: "Close {title}".into(),
+            dock_options: "Options of {title}".into(),
+            dock_hide: "Hide {place}".into(),
+            dock_show: "Show {place}".into(),
+            dock_resize: "Resize {place}".into(),
+            dock_resize_pair: "Resize between {first} and {second}".into(),
+            dock_moved: "Moved to {place}".into(),
+            dock_closed: "{title} closed".into(),
             document_tabs_name: "Open documents".into(),
             close_tab: "Close tab".into(),
             new_tab: "New tab".into(),
@@ -1340,6 +1403,27 @@ impl Labels {
             sortable_name: "Lista ordenável".into(),
             sortable_hint: "Arraste, ou aperte Alt e uma seta, para mover".into(),
             moved_to: "Movido para a posição {position} de {total}".into(),
+            dock_area_name: "Painéis encaixados".into(),
+            dock_tabs_name: "Painéis".into(),
+            dock_empty: "Nenhum painel aqui".into(),
+            dock_left: "Doca esquerda".into(),
+            dock_right: "Doca direita".into(),
+            dock_bottom: "Doca inferior".into(),
+            dock_center: "Centro".into(),
+            dock_move_to: "Mover para…".into(),
+            dock_with: "Junto de {title}".into(),
+            dock_split_right: "Dividir à direita".into(),
+            dock_split_below: "Dividir abaixo".into(),
+            dock_close: "Fechar painel".into(),
+            dock_reopen: "Reabrir".into(),
+            dock_close_panel: "Fechar {title}".into(),
+            dock_options: "Opções de {title}".into(),
+            dock_hide: "Ocultar {place}".into(),
+            dock_show: "Mostrar {place}".into(),
+            dock_resize: "Redimensionar {place}".into(),
+            dock_resize_pair: "Redimensionar entre {first} e {second}".into(),
+            dock_moved: "Movido para {place}".into(),
+            dock_closed: "{title} fechado".into(),
             document_tabs_name: "Documentos abertos".into(),
             close_tab: "Fechar guia".into(),
             new_tab: "Nova guia".into(),
@@ -1491,6 +1575,66 @@ impl Labels {
             color_reset: "Cores padrão".into(),
             grid_summaries: owned(["Qtd.", "Soma", "Média", "Mín.", "Máx."]),
         }
+    }
+
+    /// A place of a [`DockArea`](crate::DockArea).
+    pub fn dock_place(&self, side: crate::DockSide) -> &str {
+        match side {
+            crate::DockSide::Left => &self.dock_left,
+            crate::DockSide::Right => &self.dock_right,
+            crate::DockSide::Bottom => &self.dock_bottom,
+            _ => &self.dock_center,
+        }
+    }
+
+    /// A place in the middle of a sentence.
+    fn dock_place_lower(&self, side: crate::DockSide) -> String {
+        self.dock_place(side).to_lowercase()
+    }
+
+    /// The item that joins the group where `title` shows.
+    pub fn dock_with_name(&self, title: &str) -> String {
+        self.dock_with.replace("{title}", title)
+    }
+
+    /// The name of the button that closes the panel `title`.
+    pub fn dock_close_name(&self, title: &str) -> String {
+        self.dock_close_panel.replace("{title}", title)
+    }
+
+    /// The name of the button with the menu of the panel `title`.
+    pub fn dock_options_name(&self, title: &str) -> String {
+        self.dock_options.replace("{title}", title)
+    }
+
+    /// The name of the strip that collapses a dock.
+    pub fn dock_hide_name(&self, side: crate::DockSide) -> String {
+        self.dock_hide.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// The name of the strip that brings a dock back.
+    pub fn dock_show_name(&self, side: crate::DockSide) -> String {
+        self.dock_show.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// The name of the bar that resizes a dock.
+    pub fn dock_resize_name(&self, side: crate::DockSide) -> String {
+        self.dock_resize.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// The name of the bar between two parts of a split.
+    pub fn dock_resize_between(&self, first: &str, second: &str) -> String {
+        self.dock_resize_pair.replace("{first}", first).replace("{second}", second)
+    }
+
+    /// What is announced after a panel went to a place.
+    pub fn dock_moved_to(&self, side: crate::DockSide) -> String {
+        self.dock_moved.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// What is announced after the panel `title` closed.
+    pub fn dock_closed_name(&self, title: &str) -> String {
+        self.dock_closed.replace("{title}", title)
     }
 
     /// What is announced after a reorder, such as "Moved to position 2 of 5".

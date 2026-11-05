@@ -49,7 +49,7 @@ samples! {
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
     "Chart" => chart, "ChartReference" => chart_reference, "SankeyChart" => sankey_chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
-    "ScrollView" => scroll_view, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "Card" => card, "GlassCard" => glass_card,
+    "ScrollView" => scroll_view, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "DockArea" => dock_area, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
     "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "RichText" => rich_text, "AttachmentStrip" => attachment_strip, "AudioPlayerButton" => audio_player_button, "SelectionBar" => selection_bar, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
@@ -2069,6 +2069,33 @@ fn sortable_list() -> impl View {
                 });
             })
     })
+}
+// end
+
+// sample: DockArea, 420
+fn dock_area() -> impl View {
+    let layout = State::new(
+        DockLayout::new()
+            .center(DockNode::tabs(["photo", "grid"]))
+            .left(DockNode::tabs(["folders", "search"]), 220.0)
+            .right(DockNode::vertical([DockNode::tabs(["layers"]), DockNode::tabs(["history"])]), 200.0)
+            .bottom(DockNode::tabs(["log"]), 110.0),
+    );
+    let panels = vec![
+        DockPanel::new("photo", "Photo").icon(IconName::Camera).closable(false),
+        DockPanel::new("grid", "Grid"),
+        DockPanel::new("folders", "Folders").icon(IconName::Folder),
+        DockPanel::new("search", "Search").icon(IconName::Search),
+        DockPanel::new("layers", "Layers"),
+        DockPanel::new("history", "History"),
+        DockPanel::new("log", "Log"),
+    ];
+    DockArea::new(layout.binding(), panels, |id| -> AnyView {
+        Box::new(VStack::new((Text::new(format!("What {id} shows")),)).padding(12.0))
+    })
+    // Keep this text, and give it to DockLayout::parse the next time.
+    .on_end(|layout| println!("{}", layout.to_text()))
+    .height(420.0)
 }
 // end
 

@@ -12,7 +12,7 @@ use ravenrs_style::Semantic;
 use crate::context::{BuildCx, DragHandler, DragPhase, NodeId, Paint, QuadPaint, Semantics};
 
 /// How far the pointer goes before a press becomes a drag, so a click stays a click.
-const DRAG_THRESHOLD: f32 = 4.0;
+pub(crate) const DRAG_THRESHOLD: f32 = 4.0;
 /// How thick the line that shows the target is.
 const LINE: f32 = 2.0;
 

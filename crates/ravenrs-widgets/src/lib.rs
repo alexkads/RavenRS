@@ -52,6 +52,7 @@ mod data;
 mod date;
 mod diagnostics;
 mod display;
+mod dock;
 mod editors;
 mod event_calendar;
 mod extras;
@@ -129,6 +130,10 @@ pub use date::{Date, days_in_month, is_leap_year};
 pub use diagnostics::{Diagnostics, DiagnosticsHost};
 pub use display::{
     Alert, AlertAction, Avatar, Badge, Divider, Kbd, ProgressBar, Section, Skeleton, Stat, Tone,
+};
+pub use dock::{
+    DockArea, DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode, DockPanel, DockSide,
+    DockTabBar,
 };
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
 pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};

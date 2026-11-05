@@ -275,7 +275,7 @@ impl View for Carousel {
 /// How far an arrow key moves the bar between panes, in logical pixels.
 const SPLIT_STEP: f32 = 16.0;
 /// How wide the bar between panes is, grip and room around it, in logical pixels.
-const SPLIT_BAR: f32 = 10.0;
+pub(crate) const SPLIT_BAR: f32 = 10.0;
 
 /// The line and the grip of the bar between panes.
 fn split_bar_paint(vertical_stack: bool, line: Color, grip: Color) -> Paint {

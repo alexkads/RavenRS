@@ -24,7 +24,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Scroll area | ✓ | ✓ | ✓ | ✅ `ScrollView` (vertical; horizontal inside DataGrid) |
 | Resizable panels / Splitter | ✓ | ✓ | ✓ | ✅ `Splitter` for two panes, `SplitPanes` for any number with limits, `SplitHandle` for a bar of your own; all move with the keyboard |
 | Tile layout / Dashboard layout | | ✓ | ✓ | ✅ `TileLayout`: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep |
-| Docking / Dock manager | | ✓ | ✓ | ⬜ |
+| Docking / Dock manager | | ✓ | ✓ | ✅ `DockArea`: a tree of splits and tabs in four places; moves by a drag with a mark on the target, by keys or by a menu; bars with limits and keys; docks that collapse and panels that close and come back; an arrangement saved as versioned text, where an unknown id is left out. Floating panels are left out: the app this was modeled on does not float them either |
 | Window (floating) | | ✓ | ✓ | 🟡 `FloatingPanel::movable`: moves and reduces, does not resize |
 | App bar / Toolbar | | ✓ | ✓ | ✅ `Toolbar`, `ToolbarAction`: what does not fit folds into a menu |
 | Toolbar floating over content | | | ✓ | ✅ `FloatingToolbar`: translucent, placed by side, moved by a handle or the arrows |

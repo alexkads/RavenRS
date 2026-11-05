@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `DockArea` and `DockLayout`: panels in a tree of splits and groups of tabs at the left, the right, the bottom and the center. A tab goes to another group, to one side of it or to a border with a drag and a mark on the target, or by Alt and Shift with an arrow and the "Move to…" of its menu; it reorders with a drag or Alt and an arrow. Bars resize within limits by pointer and keys, docks collapse from the strips on their edges, and panels close and come back where they were. The arrangement holds ids alone, and what a panel shows comes from a function of the app. `DockLayout::to_text` and `parse` save it as versioned JSON: an unknown id is left out, and a text that cannot be read is a clear error.
 - `ChatMessage::media` and `ChatMedia`: a photo that holds its place until it arrives, a document as a card or a recording with `AudioPlayerButton`, in the bubble, above the text. `ChatMessage::formatted` reads the text as a `RichText`, and `Chat::on_link` gets its links. Messages that ask for neither stay as they were.
 - `monotone_slopes` in `ravenrs-core`: the slopes of a curve that never swings past its points, which charts and `CurveEditor` now share.
 - `SelectionBar`: how many things are chosen, a way out by a button or Escape, and actions over a `Toolbar`, which go to a menu when they do not fit and are disabled while nothing is chosen.
