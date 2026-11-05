@@ -329,6 +329,44 @@ fn picture_overlays(interaction: &str) -> Setup {
     Setup { root, step }
 }
 
+/// Ten thousand rows of different heights, of which a screenful exists.
+fn virtual_list(interaction: &str) -> Setup {
+    let list = VirtualList::new(10_000, |index| {
+        let lines = 1 + index % 3;
+        let words = (0..lines).map(|line| format!("Row {index}, line {line}")).collect::<Vec<_>>().join("\n");
+        Text::new(words)
+    })
+    .key(|index| index as u64)
+    .estimated_height(40.0)
+    .spacing(4.0)
+    .height(720.0);
+    Setup {
+        root: Box::new(list),
+        step: common(interaction, Point::new(300.0, 200.0), Point::new(300.0, 300.0)),
+    }
+}
+
+/// Thousands of thumbnails of the same picture, each with its stars.
+fn filmstrip(interaction: &str) -> Setup {
+    let picture = ImageData::from_fn(96, 96, |x, y| Color::rgb(x as f32 / 96.0, y as f32 / 96.0, 0.4));
+    let strip = Filmstrip::new(5_000, move |cell: FilmstripCell| {
+        let thumbnail: AnyView = match &picture {
+            Some(picture) => Box::new(Image::new(picture.clone()).size(112.0, 96.0)),
+            None => Box::new(Spacer::new()),
+        };
+        VStack::new((thumbnail, Rating::read_only((cell.index % 6) as u32).size(12.0))).spacing(2.0)
+    })
+    .cell_width(120.0)
+    .height(128.0);
+    let (a, b) = (Point::new(200.0, 60.0), Point::new(460.0, 60.0));
+    let step = match interaction {
+        // The wheel over the strip itself: the screen has nothing else that scrolls.
+        "scroll" => scroll_at(a),
+        other => common(other, a, b),
+    };
+    Setup { root: Box::new(strip), step }
+}
+
 /// The dashes around a selection walk on their own, without a build.
 fn marquee(_: &str) -> Setup {
     let root = Marquee::rect(Rect::new(100.0, 100.0, 800.0, 500.0));
@@ -421,6 +459,8 @@ pub(super) fn scenes() -> Vec<PerfScene> {
             VIRTUALIZED,
         ),
         scene("scheduler", &["Scheduler"], Class::Virtualized, lists, scheduler, VIRTUALIZED),
+        scene("virtual-list", &["VirtualList"], Class::Virtualized, lists, virtual_list, VIRTUALIZED),
+        scene("filmstrip", &["Filmstrip"], Class::Virtualized, lists, filmstrip, VIRTUALIZED),
         scene("chart", &["Chart"], Class::Picture, CHART, chart, STILL),
         scene("chart-bars", &["Chart", "BarChart"], Class::Picture, CHART, chart_bars, STILL),
         scene("chart-board", &["Chart", "AreaChart"], Class::Picture, CHART, chart_board, STILL),
