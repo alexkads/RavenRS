@@ -100,6 +100,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Color picker / palette / gradient | | ✓ | ✓ | 🟡 `ColorPicker`: palette, shade square, hue and opacity bars, hexadecimal; gradients planned |
 | Rating | | ✓ | ✓ | ✅ `Rating`: read-only at the cost of one element, or given with the pointer, arrows, Home, End and digits |
 | File upload | | ✓ | ✓ | ✅ `FileUpload`, `ImageField`: the system's chooser and drops, on desktop and web; sending is up to the app |
+| Drop zone | | ✓ | ✓ | ✅ `DropZone`: around any content, with the rules of `FileUpload`; every zone lights up during the drag, since platforms say only that files are over the window |
 | Signature | | | ✓ | ⬜ |
 | Rich text editor | | ✓ | ✓ | ⬜ |
 | Code editor | | ✓ | | ⬜ |

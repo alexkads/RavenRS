@@ -548,6 +548,7 @@ impl Gallery {
             ),
             sample_demos(&[
                 ("ValueSlider", "A value in small, which opens a slider or can be typed."),
+                ("DropZone", "A dashed area around any content, which takes dropped files."),
                 ("InlineRename", "A name that turns into a field, by a double click or F2."),
                 ("FavoriteToggle", "A heart or a star, filled when on."),
                 ("SwatchGrid", "Colors to pick, with the arrow keys or a click that can carry a modifier."),

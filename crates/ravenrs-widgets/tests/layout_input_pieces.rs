@@ -660,3 +660,196 @@ fn edge_arrows_can_go_up_and_down_and_speak_the_language() {
     assert_eq!(bounds(&mut ui, Role::Button, "Item 0").y() - before.y(), -240.0);
     assert!(has(&mut ui, Role::Button, "Rolar para trás"));
 }
+
+// DropZone
+
+fn file(name: &str, size: usize) -> PickedFile {
+    PickedFile::new(name, vec![0_u8; size])
+}
+
+fn names(files: &[PickedFile]) -> Vec<String> {
+    files.iter().map(|f| f.name.clone()).collect()
+}
+
+type Arrivals = Rc<RefCell<Vec<Vec<String>>>>;
+
+fn zone(arrivals: &Arrivals) -> DropZone<impl View + use<>> {
+    let seen = arrivals.clone();
+    DropZone::new(Text::new("Inside").frame(None, Some(100.0)))
+        .label("Photos")
+        .on_files(move |files| seen.borrow_mut().push(names(&files)))
+}
+
+#[test]
+fn drop_zone_hands_over_what_lands_on_it_keeping_any_content() {
+    let arrivals = Arrivals::default();
+    let mut ui = ui(zone(&arrivals));
+    assert!(has(&mut ui, Role::Group, "Photos"));
+    let at = center_of(&mut ui, Role::Group, "Photos");
+    assert!(ui.drop_files(Some(at), vec![file("a.jpg", 1), file("b.jpg", 1)]));
+    assert_eq!(*arrivals.borrow(), [["a.jpg", "b.jpg"]]);
+}
+
+#[test]
+fn drop_zone_finds_its_place_among_several() {
+    let (first, second) = (Arrivals::default(), Arrivals::default());
+    let view = VStack::new((zone(&first).label("First"), zone(&second).label("Second")));
+    let mut ui = ui(view);
+    let at = center_of(&mut ui, Role::Group, "Second");
+    assert!(ui.drop_files(Some(at), vec![file("a.jpg", 1)]), "plain content under the pointer");
+    assert!(first.borrow().is_empty());
+    assert_eq!(second.borrow().len(), 1);
+}
+
+#[test]
+fn drop_zone_applies_the_same_rules_as_file_upload_and_says_what_it_refused() {
+    let arrivals = Arrivals::default();
+    let mut ui =
+        ui(Localized::new(Labels::pt_br(), zone(&arrivals).accept([".JPG"]).most_bytes(10).most_files(2)));
+    let at = center_of(&mut ui, Role::Group, "Photos");
+    ui.drop_files(
+        Some(at),
+        vec![file("a.jpg", 1), file("b.exe", 1), file("big.jpg", 11), file("c.jpg", 1), file("d.jpg", 1)],
+    );
+    ui.update();
+    assert_eq!(*arrivals.borrow(), [["a.jpg", "c.jpg"]]);
+    let labels = Labels::pt_br();
+    assert!(has(&mut ui, Role::Alert, &format!("b.exe: {}", labels.file_wrong_kind)));
+    assert!(has(&mut ui, Role::Alert, &format!("big.jpg: {}", labels.file_too_large)));
+    assert!(has(&mut ui, Role::Alert, &format!("d.jpg: {}", labels.file_too_many)));
+
+    ui.drop_files(Some(at), vec![file("e.exe", 1)]);
+    ui.update();
+    assert_eq!(arrivals.borrow().len(), 1, "nothing taken, nothing handed over");
+    assert!(!has(&mut ui, Role::Alert, &format!("b.exe: {}", labels.file_wrong_kind)), "only the last drop");
+}
+
+#[test]
+fn drop_zone_can_leave_the_refusals_to_the_app() {
+    let told = Rc::new(RefCell::new(Vec::new()));
+    let seen = told.clone();
+    let arrivals = Arrivals::default();
+    let mut ui = ui(zone(&arrivals).accept(["jpg"]).on_refused(move |lines| seen.borrow_mut().extend(lines)));
+    let at = center_of(&mut ui, Role::Group, "Photos");
+    ui.drop_files(Some(at), vec![file("a.jpg", 1)]);
+    assert!(told.borrow().is_empty());
+    ui.drop_files(Some(at), vec![file("b.exe", 1)]);
+    ui.update();
+    assert_eq!(*told.borrow(), [format!("b.exe: {}", Labels::default().file_wrong_kind)]);
+    assert!(!has_role(&mut ui, Role::Alert));
+}
+
+fn path_count(ui: &Ui) -> usize {
+    ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Path(_))).count()
+}
+
+fn dash_color(ui: &Ui) -> Option<ravenrs_core::Color> {
+    ui.scene().primitives().iter().find_map(|p| match p {
+        Primitive::Path(path) => match path.paint {
+            ravenrs_core::PathPaint::Solid(color) => Some(color),
+            _ => None,
+        },
+        _ => None,
+    })
+}
+
+#[test]
+fn drop_zone_shows_files_over_it_by_more_than_color() {
+    let theme = Theme::raven_dark();
+    let arrivals = Arrivals::default();
+    let mut ui = ui(zone(&arrivals));
+    assert_eq!(dash_color(&ui), Some(theme.color(Semantic::Border)));
+    assert!(!has_role(&mut ui, Role::Status));
+    let at_rest = bounds(&mut ui, Role::Group, "Photos");
+
+    ui.set_files_over(true);
+    ui.update();
+    assert_eq!(dash_color(&ui), Some(theme.color(Semantic::Accent)));
+    assert!(has(&mut ui, Role::Status, &Labels::default().file_drop), "words too");
+    let hint = bounds(&mut ui, Role::Status, &Labels::default().file_drop);
+    assert_eq!(hint, at_rest, "over all of it");
+    assert_eq!(bounds(&mut ui, Role::Group, "Photos"), at_rest, "the content does not move");
+
+    ui.set_files_over(false);
+    ui.update();
+    assert!(!has_role(&mut ui, Role::Status));
+}
+
+#[test]
+fn drop_zone_hint_can_change_or_go_and_a_quiet_zone_has_no_dashes_at_rest() {
+    let arrivals = Arrivals::default();
+    let mut own = ui(zone(&arrivals).hint("Let go to import"));
+    own.set_files_over(true);
+    own.update();
+    assert!(has(&mut own, Role::Status, "Let go to import"));
+
+    let mut none = ui(zone(&arrivals).no_hint());
+    none.set_files_over(true);
+    none.update();
+    assert!(!has_role(&mut none, Role::Status));
+    assert_eq!(dash_color(&none), Some(Theme::raven_dark().color(Semantic::Accent)));
+
+    let mut quiet = ui(zone(&arrivals).quiet());
+    assert_eq!(path_count(&quiet), 0);
+    quiet.set_files_over(true);
+    quiet.update();
+    assert_eq!(path_count(&quiet), 1);
+}
+
+#[test]
+fn drop_zone_can_be_chosen_with_the_keyboard_and_the_pointer() {
+    struct Picker(Rc<RefCell<Vec<FileRequest>>>);
+    impl FilePickerProvider for Picker {
+        fn pick(&self, request: &FileRequest, done: Box<dyn FnOnce(Vec<PickedFile>)>) {
+            self.0.borrow_mut().push(request.clone());
+            done(vec![PickedFile::new("chosen.jpg", vec![1_u8])]);
+        }
+    }
+    let arrivals = Arrivals::default();
+    let asked = Rc::new(RefCell::new(Vec::new()));
+    let mut ui = ui(zone(&arrivals).accept(["jpg"]).most_files(1).choosable());
+    ui.set_file_picker(Picker(asked.clone()));
+    ui.update();
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::Enter);
+    assert_eq!(*arrivals.borrow(), [["chosen.jpg"]]);
+    let request = asked.borrow()[0].clone();
+    assert_eq!(request.extensions, ["jpg"]);
+    assert!(!request.multiple);
+    let at = center_of(&mut ui, Role::Button, "Photos");
+    click(&mut ui, at);
+    assert_eq!(arrivals.borrow().len(), 2);
+}
+
+#[test]
+fn drop_zone_without_choosable_takes_no_keyboard_and_off_takes_no_files() {
+    let arrivals = Arrivals::default();
+    let mut plain = ui(zone(&arrivals));
+    key(&mut plain, Key::Tab);
+    assert_eq!(plain.access_tree().focus, None);
+
+    let mut off = ui(zone(&arrivals).disabled(true).choosable());
+    let at = center_of(&mut off, Role::Group, "Photos");
+    assert!(!off.drop_files(Some(at), vec![file("a.jpg", 1)]));
+    off.set_files_over(true);
+    off.update();
+    assert!(!has_role(&mut off, Role::Status));
+    assert!(arrivals.borrow().is_empty());
+}
+
+#[test]
+fn drop_zone_keeps_content_that_acts_working() {
+    let hits = Rc::new(Cell::new(0));
+    let counter = hits.clone();
+    let arrivals = Arrivals::default();
+    let seen = arrivals.clone();
+    let view = DropZone::new(Button::new("Choose").on_click(move || counter.set(counter.get() + 1)))
+        .label("Zone")
+        .on_files(move |files| seen.borrow_mut().push(names(&files)));
+    let mut ui = ui(view);
+    let at = center_of(&mut ui, Role::Button, "Choose");
+    click(&mut ui, at);
+    assert_eq!(hits.get(), 1);
+    assert!(ui.drop_files(Some(at), vec![file("on-the-button.jpg", 1)]), "the zone is above the button");
+    assert_eq!(arrivals.borrow().len(), 1);
+}

@@ -133,7 +133,9 @@ pub use extras::{
 };
 #[cfg(feature = "decode")]
 pub use files::ImageField;
-pub use files::{FilePicker, FilePickerProvider, FileRequest, FileUpload, NoFilePicker, PickedFile};
+pub use files::{
+    DropZone, FilePicker, FilePickerProvider, FileRequest, FileUpload, NoFilePicker, PickedFile,
+};
 pub use fill::Fill;
 pub use filter_builder::{FilterBuilder, FilterField, FilterFieldKind};
 pub use floating::{

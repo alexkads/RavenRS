@@ -53,7 +53,7 @@ samples! {
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
     "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
-    "FloatingToolbar" => floating_toolbar, "TitleBar" => title_bar, "ScrollEdgeArrow" => scroll_edge_arrow, "ValueSlider" => value_slider, "InlineRename" => inline_rename,
+    "FloatingToolbar" => floating_toolbar, "TitleBar" => title_bar, "DropZone" => drop_zone, "ScrollEdgeArrow" => scroll_edge_arrow, "ValueSlider" => value_slider, "InlineRename" => inline_rename,
     "ZStack" => z_stack, "PropertyRow" => property_row, "PageHeader" => page_header, "ButtonGroup" => button_group,
     "FavoriteToggle" => favorite_toggle, "SwatchGrid" => swatch_grid, "NinePointAnchor" => nine_point_anchor, "ColorPair" => color_pair,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
@@ -1641,6 +1641,22 @@ fn scroll_edge_arrow() -> impl View {
         })
         .collect();
     ScrollEdgeArrow::new(photos).fade(Semantic::SurfaceElevated)
+}
+// end
+
+// sample: DropZone, 140
+fn drop_zone() -> impl View {
+    let count = State::new(0_usize);
+    let (shown, add) = (count.clone(), count);
+    DropZone::new(
+        Text::bound(&shown, |n| format!("{n} files received. Drop more, or press Enter here."))
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
+    )
+    .label("Files of the session")
+    .min_height(96.0)
+    .choosable()
+    .on_files(move |files| add.update(|n| *n += files.len()))
 }
 // end
 

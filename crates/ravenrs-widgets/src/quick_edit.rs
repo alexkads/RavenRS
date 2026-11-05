@@ -213,7 +213,15 @@ struct FieldSuffix {
 impl View for FieldSuffix {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let unit = util::label(cx, &self.unit, TextStyle::Callout, None, theme.color(Semantic::InkMuted));
+        let mut children = Vec::with_capacity(2);
+        let unit = self.unit.trim();
+        if !unit.is_empty() {
+            // As wide as it is: in a tight field, a text that gives way breaks into lines.
+            let attrs = util::attrs(&theme, TextStyle::Callout, None);
+            let width = cx.measure_text(unit, &attrs).width.ceil();
+            let style = LayoutStyle { width: Some(width), ..LayoutStyle::leaf() };
+            children.push(cx.text(unit, &attrs, theme.color(Semantic::InkMuted), style));
+        }
         let toggle = self.open.clone();
         let arrow = cx.child(
             &IconButton::new(IconName::ChevronDown)
@@ -223,13 +231,14 @@ impl View for FieldSuffix {
         );
         let is_open = self.open.get();
         cx.update_semantics(arrow, |s| s.expanded = Some(is_open));
+        children.push(arrow);
         cx.container(
             LayoutStyle {
                 spacing: theme.spacing.s1,
                 align: Align::Center,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
-            &[unit, arrow],
+            &children,
             Paint::None,
         )
     }

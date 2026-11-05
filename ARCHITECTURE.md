@@ -130,6 +130,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 |---|---|
 | `stack`, `card`, `canvas`, `fill`, `text`, `icon`, `icon_set`, `image` | Layout primitives, `ZStack`, `ScrollEdgeArrow`, `PropertyRow`, `PageHeader`, `TitleBar`, `Footer`, cards, custom drawing, text, icons, images |
 | `button`, `inputs`, `text_field`, `choice`, `calendar`, `date` | Buttons, `ButtonGroup`, form controls, text input, `ToggleGroup`, `FavoriteToggle`, `SwatchGrid`, `NinePointAnchor`, `ColorPair`, `Pagination`, `Label`, `AspectRatio`, `Calendar`, `DatePicker`, `EventCalendar`, `RecurrenceEditor` |
+| `files` | `FileUpload`, `DropZone`, `ImageField` and the service that brings files in |
 | `quick_edit` | `ValueSlider`, `InlineRename`: controls that stay small until they are used |
 | `scheduler`, `recurrence` | `Scheduler` and its time axis, and `RecurrenceRule`, which needs no UI |
 | `nav`, `ribbon` | `Tabs`, `Sidebar` and its parts, `Breadcrumb`, `Disclosure`, `Ribbon` |
