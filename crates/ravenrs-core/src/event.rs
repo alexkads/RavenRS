@@ -111,6 +111,8 @@ pub enum Key {
     PageUp,
     /// Page Down.
     PageDown,
+    /// A function key: 1 for F1, up to 24.
+    Function(u8),
     /// Text produced by the key, already composed with modifiers and layout.
     Character(String),
     /// Any other named key, by its platform name.
@@ -128,6 +130,9 @@ pub struct Modifiers {
     pub alt: bool,
     /// Meta key held (Command on macOS, Windows key elsewhere).
     pub meta: bool,
+    /// While Alt is held, the character the key has without it: Alt+C writes `ç` on some systems,
+    /// and is still the C key to a shortcut.
+    pub base_key: Option<char>,
 }
 
 /// Cursor the UI asks the platform to show.

@@ -703,7 +703,7 @@ mod tests {
         edit(text, cursor, &key, modifiers, None)
     }
 
-    const NONE: Modifiers = Modifiers { shift: false, ctrl: false, alt: false, meta: false };
+    const NONE: Modifiers = Modifiers { shift: false, ctrl: false, alt: false, meta: false, base_key: None };
     const SHIFT: Modifiers = Modifiers { shift: true, ..NONE };
     const ALT: Modifiers = Modifiers { alt: true, ..NONE };
     const CMD: Modifiers = Modifiers { meta: true, ..NONE };

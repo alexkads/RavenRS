@@ -47,6 +47,7 @@ mod clipboard;
 mod color_picker;
 mod commands;
 mod context;
+mod counter;
 mod conversation;
 mod data;
 mod date;
@@ -213,6 +214,7 @@ pub use status::{
 };
 pub use tag_box::TagBox;
 pub use text::Text;
+pub use counter::{KeyBar, KeyBarItem, Scan, ScanField};
 pub use text_field::TextField;
 pub use theme::{ThemeEditor, ThemePicker};
 pub use tiles::{CardView, Tile, TileLayout, TileSpot};

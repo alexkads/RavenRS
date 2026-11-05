@@ -12,8 +12,8 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
     Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Dialog, Divider, IconButton,
-    IconName, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection, Text,
-    ThemePicker, Tone, VStack, View, ViewExt,
+    IconName, KeyBar, KeyBarItem, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection, Text,
+    TextField, ThemePicker, Tone, VStack, View, ViewExt,
 };
 
 use crate::container::{ActionContainer, icon_named};
@@ -40,6 +40,9 @@ pub struct TemplateParts {
     pub header: AnyView,
     /// The view, or what went wrong above it.
     pub content: AnyView,
+    /// A bar of the keys of what can be done here. Only a template made to be used from the
+    /// keyboard shows it.
+    pub keys: AnyView,
 }
 
 impl std::fmt::Debug for TemplateParts {
@@ -70,6 +73,92 @@ impl FrameTemplate for MainTemplate {
     }
 }
 
+/// A window for use at a counter: the view takes it all, with the keys of what can be done always in
+/// sight below it. Going elsewhere is up to the actions.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CounterTemplate;
+
+impl FrameTemplate for CounterTemplate {
+    fn arrange(&self, parts: TemplateParts) -> AnyView {
+        let main = VStack::new((parts.content.grow(1.0), parts.keys)).spacing(8.0).align(Align::Stretch);
+        Box::new(main.grow(1.0))
+    }
+}
+
+/// The keys of what can be done here, from the actions that have one.
+struct ActionKeys {
+    session: Session,
+}
+
+impl View for ActionKeys {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let session = &self.session;
+        let actions = session.frame().actions();
+        let mut bar = KeyBar::new();
+        for action in actions.iter().filter(|action| action.is_active()) {
+            let Some(hotkey) = action.hotkey_text().and_then(crate::container::hotkey_of) else { continue };
+            let (run, session) = (action.clone(), session.clone());
+            let mut item = KeyBarItem::new(hotkey, action.caption().to_owned(), move || {
+                session.run_action(&run, ActionInput::None);
+            })
+            .disabled(!action.is_enabled());
+            if *action.action_category() == ravenrs_app::ActionCategory::Save {
+                item = item.primary();
+            }
+            bar = bar.item(item);
+        }
+        cx.child(&bar.padding(8.0))
+    }
+}
+
+/// What a locked window shows.
+struct LockedWindow {
+    session: Session,
+    title: String,
+    check: Rc<dyn Fn(&str) -> bool>,
+}
+
+impl View for LockedWindow {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let typed: State<String> = cx.use_state(String::new);
+        let wrong: State<bool> = cx.use_state(|| false);
+        let words = self.session.words().clone();
+        let submit = {
+            let (session, check, wrong, typed) =
+                (self.session.clone(), self.check.clone(), wrong.clone(), typed.clone());
+            move |text: String| {
+                if check(text.trim()) {
+                    wrong.set(false);
+                    session.locked().set(None);
+                } else {
+                    wrong.set(true);
+                }
+                typed.set(String::new());
+            }
+        };
+        let (read, write) = (typed.clone(), typed.clone());
+        let field = TextField::new(Binding::new(move || read.get(), move |value: String| write.set(value)))
+            .secure()
+            .autofocus()
+            .width(280.0)
+            .placeholder(words.unlock.clone())
+            .on_submit(submit);
+        let mut lines: Vec<AnyView> = vec![
+            Box::new(Text::new(self.title.clone()).style(TextStyle::Title)),
+            Box::new(field),
+        ];
+        if wrong.get() {
+            lines.push(Box::new(Text::new(words.unlock_wrong.clone()).foreground(Semantic::Danger)));
+        }
+        cx.child(
+            &VStack::new(vec![Box::new(VStack::new(lines).spacing(12.0).align(Align::Center)) as AnyView])
+                .align(Align::Center)
+                .justify(ravenrs_layout::Justify::Center)
+                .grow(1.0),
+        )
+    }
+}
+
 fn hash_of(text: &str) -> u64 {
     text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3))
 }
@@ -79,6 +168,8 @@ pub struct AppShell {
     session: Session,
     template: Rc<dyn FrameTemplate>,
     theme_menu: bool,
+    theme: Option<ravenrs_style::Theme>,
+    theme_applied: std::cell::Cell<bool>,
 }
 
 impl std::fmt::Debug for AppShell {
@@ -116,7 +207,19 @@ impl AppShell {
         if let Some(first) = session.first_view() {
             session.show_view_now(&first);
         }
-        Self { session, template: Rc::new(MainTemplate), theme_menu: true }
+        Self {
+            session,
+            template: Rc::new(MainTemplate),
+            theme_menu: true,
+            theme: None,
+            theme_applied: std::cell::Cell::new(false),
+        }
+    }
+
+    /// Starts on this theme, the look of an application with a look of its own.
+    pub fn theme(mut self, theme: ravenrs_style::Theme) -> Self {
+        self.theme = Some(theme);
+        self
     }
 
     /// Arranges the window with this.
@@ -558,14 +661,51 @@ impl View for PopupHost {
 impl View for AppShell {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let session = &self.session;
+        if let Some(theme) = self.theme
+            && !self.theme_applied.replace(true)
+        {
+            cx.theme_state().set(theme);
+        }
+        session.jobs().connect(cx.ui_waker());
+        session.poll_background();
         let view = session.frame().view();
         let view = view.as_ref();
+        // Above whatever the template does, so none can leave it out.
+        let mut parts: Vec<NodeId> = session
+            .notices()
+            .into_iter()
+            .enumerate()
+            .map(|(index, notice)| {
+                let tone = match notice.kind {
+                    ravenrs_app::NoticeKind::Info => Tone::Accent,
+                    ravenrs_app::NoticeKind::Danger => Tone::Danger,
+                    _ => Tone::Warning,
+                };
+                cx.keyed_child(index as u64, &Alert::new(notice.title, notice.message).tone(tone))
+            })
+            .collect();
+        if let Some(lock) = session.locked().get() {
+            let locked = LockedWindow { session: session.clone(), title: lock.title, check: lock.check };
+            parts.push(cx.child(&locked));
+            return cx.container(
+                LayoutStyle {
+                    grow: 1.0,
+                    min_height: Some(0.0),
+                    align: Align::Stretch,
+                    align_self: Some(Align::Stretch),
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &parts,
+                Paint::None,
+            );
+        }
         let window = self.template.arrange(TemplateParts {
             navigation: self.navigation(view),
             header: self.header(view),
             content: self.content(view),
+            keys: Box::new(ActionKeys { session: session.clone() }),
         });
-        let mut parts = vec![cx.child(&window)];
+        parts.push(cx.child(&window));
         parts.push(cx.child(session.confirm()));
         parts.push(cx.child(&PopupHost::new(session.clone())));
         parts.push(cx.child(&session.toaster()));

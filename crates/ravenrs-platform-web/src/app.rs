@@ -792,6 +792,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                     ctrl: e.ctrl_key(),
                     alt: e.alt_key(),
                     meta: e.meta_key(),
+                    base_key: if e.alt_key() { base_key_of(&e.code()) } else { None },
                 };
                 // Printable text arrives through the `input` event instead, so it is
                 // not inserted twice; shortcuts with Ctrl/Cmd still go through here.
@@ -1071,6 +1072,20 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
     }
 }
 
+/// The number of a function key, by its name in the browser.
+fn function_key(name: &str) -> Option<u8> {
+    let number: u8 = name.strip_prefix('F')?.parse().ok()?;
+    (1..=24).contains(&number).then_some(number)
+}
+
+/// The letter or digit a physical key has, by its code in the browser.
+fn base_key_of(code: &str) -> Option<char> {
+    let name = code.strip_prefix("Key").or_else(|| code.strip_prefix("Digit"))?;
+    let mut letters = name.chars();
+    let first = letters.next()?;
+    letters.next().is_none().then(|| first.to_ascii_lowercase())
+}
+
 fn map_key(key: &str) -> Key {
     match key {
         "Enter" => Key::Enter,
@@ -1087,6 +1102,7 @@ fn map_key(key: &str) -> Key {
         "ArrowRight" => Key::ArrowRight,
         "ArrowUp" => Key::ArrowUp,
         "ArrowDown" => Key::ArrowDown,
+        k if function_key(k).is_some() => function_key(k).map_or(Key::Tab, Key::Function),
         k if k.chars().count() == 1 => Key::Character(k.to_owned()),
         k => Key::Other(k.to_owned()),
     }

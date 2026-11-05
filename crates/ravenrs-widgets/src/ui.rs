@@ -730,6 +730,16 @@ impl Ui {
             Event::KeyUp { modifiers, .. } => self.modifiers.set(*modifiers),
             Event::KeyDown { key, modifiers } => {
                 self.modifiers.set(*modifiers);
+                if modifiers.alt {
+                    let base = modifiers.base_key.map(|c| Key::Character(c.to_string()));
+                    let shortcut = self.shortcuts.iter().find(|s| {
+                        s.alt && [Some(key), base.as_ref()].into_iter().flatten().any(|k| same_key(&s.key, k))
+                    });
+                    if let Some(s) = shortcut.map(|s| s.handler.clone()) {
+                        s();
+                        return self.needs_redraw();
+                    }
+                }
                 let handler = self.focused_element().and_then(|e| e.on_key.clone());
                 if let Some(handler) = handler
                     && handler(key, *modifiers)
@@ -745,12 +755,7 @@ impl Ui {
                     return self.needs_redraw();
                 }
                 let shortcut = self.shortcuts.iter().find(|s| {
-                    s.command == command
-                        && (!s.shift || modifiers.shift)
-                        && match (&s.key, key) {
-                            (Key::Character(a), Key::Character(b)) => a.eq_ignore_ascii_case(b),
-                            (a, b) => a == b,
-                        }
+                    !s.alt && s.command == command && (!s.shift || modifiers.shift) && same_key(&s.key, key)
                 });
                 if let Some(s) = shortcut.map(|s| s.handler.clone()) {
                     s();
@@ -1717,5 +1722,13 @@ mod frame_memory_tests {
         assert!(ui.scroll.offsets.values().any(|o| o.y > 10_000.0), "the list did scroll");
         let scrolled = ui.scroll.viewports.len();
         assert!(scrolled <= at_rest + 4, "{scrolled} frames kept, {at_rest} at rest");
+    }
+}
+
+/// Whether a shortcut's key is the key pressed, whatever the case of a letter.
+fn same_key(wanted: &Key, pressed: &Key) -> bool {
+    match (wanted, pressed) {
+        (Key::Character(a), Key::Character(b)) => a.eq_ignore_ascii_case(b),
+        (a, b) => a == b,
     }
 }

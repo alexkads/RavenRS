@@ -11,7 +11,7 @@ use syn::{Data, DeriveInput, Error, Fields, Ident, LitInt, LitStr, Result, parse
 /// a record.
 ///
 /// On the struct, `#[object(caption = "...", navigation = "...", icon = "...",
-/// list_criteria = "...", form_columns = 2, cloneable, transient, checks_on_leave, list_editable,
+/// list_criteria = "...", form_columns = 2, cloneable, singleton, transient, checks_on_leave, list_editable,
 /// data_access = "server", form_actions = "name")]`, where `data_access` is `client`, `server` or
 /// `data_view`.
 ///
@@ -68,6 +68,7 @@ struct ObjectAttrs {
     list_criteria: Option<LitStr>,
     form_columns: Option<LitInt>,
     cloneable: bool,
+    singleton: bool,
     transient: bool,
     checks_on_leave: bool,
     list_editable: bool,
@@ -93,6 +94,8 @@ fn object_attrs(input: &DeriveInput) -> Result<ObjectAttrs> {
                 attrs.form_columns = Some(meta.value()?.parse()?);
             } else if meta.path.is_ident("cloneable") {
                 attrs.cloneable = true;
+            } else if meta.path.is_ident("singleton") {
+                attrs.singleton = true;
             } else if meta.path.is_ident("transient") {
                 attrs.transient = true;
             } else if meta.path.is_ident("checks_on_leave") {
@@ -110,7 +113,7 @@ fn object_attrs(input: &DeriveInput) -> Result<ObjectAttrs> {
             } else {
                 return Err(meta.error(
                     "unknown setting: use caption, navigation, icon, list_criteria, form_columns, cloneable, \
-                     transient, checks_on_leave, list_editable, data_access or form_actions",
+                     singleton, transient, checks_on_leave, list_editable, data_access or form_actions",
                 ));
             }
             Ok(())

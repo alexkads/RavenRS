@@ -54,6 +54,53 @@ pub trait Module {
     fn initial_records(&self, _space: &mut dyn ObjectSpace) -> Result<(), String> {
         Ok(())
     }
+
+    /// What everyone using the application has to know while this module is in it, such as that it
+    /// is experimental. It stays on top of every window and cannot be dismissed.
+    fn notices(&self) -> Vec<Notice> {
+        Vec::new()
+    }
+}
+
+/// How serious a [`Notice`] is.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum NoticeKind {
+    /// Good to know.
+    Info,
+    /// Take care.
+    #[default]
+    Warning,
+    /// Something can go wrong for real.
+    Danger,
+}
+
+/// Something a module keeps in sight in every window.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Notice {
+    /// How serious it is.
+    pub kind: NoticeKind,
+    /// The short version.
+    pub title: String,
+    /// The rest.
+    pub message: String,
+}
+
+impl Notice {
+    /// A warning.
+    pub fn warning(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self { kind: NoticeKind::Warning, title: title.into(), message: message.into() }
+    }
+
+    /// Something good to know.
+    pub fn info(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self { kind: NoticeKind::Info, title: title.into(), message: message.into() }
+    }
+
+    /// Something that can go wrong for real.
+    pub fn danger(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self { kind: NoticeKind::Danger, title: title.into(), message: message.into() }
+    }
 }
 
 /// What a piece of a dashboard shows.
@@ -216,6 +263,13 @@ pub struct Application {
 impl std::fmt::Debug for Application {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Application").field("title", &self.title).finish_non_exhaustive()
+    }
+}
+
+impl Application {
+    /// What its modules want everyone to know, in the order of the modules.
+    pub fn notices(&self) -> Vec<Notice> {
+        self.modules.iter().flat_map(|module| module.notices()).collect()
     }
 }
 

@@ -605,6 +605,8 @@ pub struct EntityInfo {
     pub data_access: DataAccess,
     /// Places on its form for actions, by the name of their `ActionCategory::InForm`.
     pub form_actions: Vec<String>,
+    /// It has one record, such as settings: going to it opens the form of that record, with no list.
+    pub singleton: bool,
 }
 
 impl EntityInfo {
@@ -633,7 +635,14 @@ impl EntityInfo {
             list_editable: false,
             data_access: DataAccess::Client,
             form_actions: Vec::new(),
+            singleton: false,
         }
+    }
+
+    /// It has one record, such as settings: going to it opens the form of that record, with no list.
+    pub fn singleton(mut self) -> Self {
+        self.singleton = true;
+        self
     }
 
     /// What people see.

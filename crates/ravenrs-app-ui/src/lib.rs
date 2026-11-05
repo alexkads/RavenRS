@@ -19,6 +19,7 @@
 //! ```
 
 mod app;
+mod background;
 mod container;
 mod dashboard;
 mod detail_view;
@@ -37,6 +38,7 @@ mod system;
 mod values;
 
 pub use app::{App, Language};
+pub use background::{JobInfo, JobProgress};
 pub use container::{ActionButton, ActionContainer};
 pub use dashboard::DashboardView;
 pub use detail_view::DetailView;
@@ -50,5 +52,5 @@ pub use model_editor::ModelEditor;
 pub use pane::{EntityPane, PaneWords};
 pub use security::SecuredApp;
 pub use session::{CollectionSource, FormCaption, Session, Words};
-pub use shell::{AppShell, FrameTemplate, MainTemplate, TemplateParts};
+pub use shell::{AppShell, CounterTemplate, FrameTemplate, MainTemplate, TemplateParts};
 pub use system::{CloneModule, SystemModule, ids};

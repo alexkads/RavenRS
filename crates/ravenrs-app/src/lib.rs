@@ -36,6 +36,7 @@ mod functions;
 mod model;
 mod module;
 mod object;
+mod records;
 mod security;
 mod space;
 mod validation;
@@ -60,10 +61,16 @@ pub use model::{
     Diff, EmbeddedStore, MemoryModelStore, MergedModel, ModelLayer, ModelLayers, ModelNode, ModelStore,
     UnusableNode, check_model, generate_model,
 };
-pub use module::{Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module};
+pub use module::{
+    Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module, Notice, NoticeKind,
+};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 pub use ravenrs_criteria::{Criteria, Value};
+pub use records::{
+    AppRecordsModule, DRAFT_ENTITY, Draft, SEQUENCE_ENTITY, draft_entity, drafts, next_number, save_draft,
+    sequence_entity, take_draft,
+};
 pub use security::{
     ADMINISTRATORS_ROLE, Access, AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError,
     Authenticator, Credentials, Identity, MIN_PASSWORD_CHARS, Operation, PasswordError, PermissionPolicy,
