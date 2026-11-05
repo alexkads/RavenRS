@@ -78,6 +78,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Radio group | ✓ | ✓ | ✓ | ✅ |
 | Switch | ✓ | ✓ | ✓ | ✅ `Toggle`, with a small size |
 | Slider | ✓ | ✓ | ✓ | ✅ `Slider`: marks, colored track, fill from a neutral value that a double click returns to, value at the right |
+| Value in small that opens a slider | | | | ✅ `ValueSlider`: a button, or a field with `field`, and the keyboard goes into the slider |
+| Rename in place | | | ✓ | ✅ `InlineRename`: double click, F2 or Enter; Enter and leaving confirm, Escape cancels |
 | Range slider | | ✓ | ✓ | ⬜ |
 | Select / Drop-down list | ✓ | ✓ | ✓ | ✅ `Select`: by index or by value (`Select::of`), search, sizes |
 | Combobox / Autocomplete | ✓ | ✓ | ✓ | ✅ `Combobox` |

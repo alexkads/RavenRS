@@ -130,6 +130,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 |---|---|
 | `stack`, `card`, `canvas`, `fill`, `text`, `icon`, `icon_set`, `image` | Layout primitives, `ZStack`, `PropertyRow`, `PageHeader`, `Footer`, cards, custom drawing, text, icons, images |
 | `button`, `inputs`, `text_field`, `choice`, `calendar`, `date` | Buttons, `ButtonGroup`, form controls, text input, `ToggleGroup`, `FavoriteToggle`, `SwatchGrid`, `NinePointAnchor`, `ColorPair`, `Pagination`, `Label`, `AspectRatio`, `Calendar`, `DatePicker`, `EventCalendar`, `RecurrenceEditor` |
+| `quick_edit` | `ValueSlider`, `InlineRename`: controls that stay small until they are used |
 | `scheduler`, `recurrence` | `Scheduler` and its time axis, and `RecurrenceRule`, which needs no UI |
 | `nav`, `ribbon` | `Tabs`, `Sidebar` and its parts, `Breadcrumb`, `Disclosure`, `Ribbon` |
 | `overlay`, `floating`, `shortcuts` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `SplashScreen`, `Toaster`, `Combobox`, `CommandPalette`, then `ShortcutSheet`, `ShortcutHintBar` |
@@ -357,7 +358,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
 | `View`, `Component`, `BuildCx`, `view_fn`, `responsive`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`ravenrs-macros`) |
 | Layout: `VStack`, `HStack`, `ZStack`, `Grid`, `ScrollView`, `Spacer`, `Footer`, `PropertyRow`, `PageHeader`, `Section`, `Card`, `Splitter`, `SplitPanes`, `SplitHandle`, `AspectRatio` | ✓ | | virtualized `List` |
-| Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `ButtonGroup`, `TextField`, `TextArea`, `NumberField`, `MaskedField`, `TimePicker`, `DateTimePicker`, `LookupField`, `FormLayout`, `Toolbar`, `SplitButton`, `ConfirmDialog`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `Select`, `Combobox`, `ToggleButton`, `ToggleGroup`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher`, `FavoriteToggle`, `SwatchGrid`, `NinePointAnchor`, `ColorPair`; text selection in `TextField` | ✓ | | multi-line text |
+| Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `ButtonGroup`, `TextField`, `TextArea`, `NumberField`, `MaskedField`, `TimePicker`, `DateTimePicker`, `LookupField`, `FormLayout`, `Toolbar`, `SplitButton`, `ConfirmDialog`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `ValueSlider`, `InlineRename`, `Stepper`, `SegmentedControl`, `Select`, `Combobox`, `ToggleButton`, `ToggleGroup`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher`, `FavoriteToggle`, `SwatchGrid`, `NinePointAnchor`, `ColorPair`; text selection in `TextField` | ✓ | | multi-line text |
 | Navigation: `Tabs` (underlined, segmented), `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView`, docking |
 | Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette`, `ShortcutSheet` | ✓ | | |
 | Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |

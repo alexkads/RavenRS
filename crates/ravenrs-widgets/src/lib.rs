@@ -73,6 +73,7 @@ mod modifiers;
 mod motion;
 mod nav;
 mod overlay;
+mod quick_edit;
 mod recurrence;
 mod release_notes;
 mod remote;
@@ -165,6 +166,7 @@ pub use nav::{
     Tabs, TabsVariant,
 };
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
+pub use quick_edit::{InlineRename, ValueSlider};
 #[cfg(feature = "lottie")]
 pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
 pub use recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};

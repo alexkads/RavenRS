@@ -75,6 +75,12 @@ pub struct Labels {
     pub panel_minimize: String,
     /// Brings back a reduced [`FloatingPanel`](crate::FloatingPanel).
     pub panel_restore: String,
+    /// Names a [`ValueSlider`](crate::ValueSlider) that was not given a label.
+    pub value_adjust: String,
+    /// Names the field of an [`InlineRename`](crate::InlineRename) that was not given a label.
+    pub rename: String,
+    /// How to start an [`InlineRename`](crate::InlineRename), for screen readers.
+    pub rename_hint: String,
     /// What a [`FileUpload`](crate::FileUpload) asks for.
     pub file_drop: String,
     /// Opens the chooser of a [`FileUpload`](crate::FileUpload).
@@ -725,6 +731,9 @@ impl Default for Labels {
             wizard_done: "Done".into(),
             wizard_error: "Needs attention".into(),
             split_resize: "Resize".into(),
+            value_adjust: "Adjust the value".into(),
+            rename: "Rename".into(),
+            rename_hint: "Double click or press F2 to rename".into(),
             panel_move: "Move".into(),
             panel_minimize: "Minimize".into(),
             panel_restore: "Restore".into(),
@@ -1030,6 +1039,9 @@ impl Labels {
             wizard_done: "Concluída".into(),
             wizard_error: "Precisa de atenção".into(),
             split_resize: "Redimensionar".into(),
+            value_adjust: "Ajustar o valor".into(),
+            rename: "Renomear".into(),
+            rename_hint: "Clique duas vezes ou aperte F2 para renomear".into(),
             panel_move: "Mover".into(),
             panel_minimize: "Minimizar".into(),
             panel_restore: "Restaurar".into(),

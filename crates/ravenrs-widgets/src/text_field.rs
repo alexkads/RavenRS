@@ -37,6 +37,7 @@ pub struct TextField {
     flat: bool,
     end_aligned: bool,
     autofocus: bool,
+    select_on_open: bool,
     on_submit: Option<Rc<dyn Fn(String)>>,
     on_leave: Option<Rc<dyn Fn()>>,
     on_cancel: Option<Rc<dyn Fn()>>,
@@ -70,6 +71,7 @@ impl TextField {
             flat: false,
             end_aligned: false,
             autofocus: false,
+            select_on_open: false,
             on_submit: None,
             on_leave: None,
             on_cancel: None,
@@ -153,6 +155,12 @@ impl TextField {
     /// Takes keyboard focus when it first appears.
     pub fn autofocus(mut self) -> Self {
         self.autofocus = true;
+        self
+    }
+
+    /// Starts with all of its text selected, so that typing replaces it.
+    pub fn select_on_open(mut self) -> Self {
+        self.select_on_open = true;
         self
     }
 
@@ -430,7 +438,13 @@ pub(crate) fn index_at(boundaries: &[f32], x: f32) -> usize {
 impl View for TextField {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let cursor: State<Cursor> = cx.use_state(|| Cursor::at(usize::MAX));
+        let cursor: State<Cursor> = cx.use_state(|| {
+            if self.select_on_open {
+                Cursor { caret: self.value.get().chars().count(), anchor: Some(0) }
+            } else {
+                Cursor::at(usize::MAX)
+            }
+        });
         let focus_requested: State<bool> = cx.use_state(|| false);
         let state = self.state;
         if self.autofocus && !state.disabled && !*focus_requested.peek() {

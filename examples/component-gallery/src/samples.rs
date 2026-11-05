@@ -53,6 +53,7 @@ samples! {
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
     "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
     "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
+    "ValueSlider" => value_slider, "InlineRename" => inline_rename,
     "ZStack" => z_stack, "PropertyRow" => property_row, "PageHeader" => page_header, "ButtonGroup" => button_group,
     "FavoriteToggle" => favorite_toggle, "SwatchGrid" => swatch_grid, "NinePointAnchor" => nine_point_anchor, "ColorPair" => color_pair,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
@@ -1589,6 +1590,36 @@ fn dot() -> impl View {
     ))
     .spacing(8.0)
     .align(Align::Center)
+}
+// end
+
+// sample: ValueSlider, 70
+fn value_slider() -> impl View {
+    let (opacity, size) = (State::new(80.0_f32), State::new(24.0_f32));
+    HStack::new((
+        ValueSlider::new(opacity.binding())
+            .range(0.0, 100.0)
+            .step(1.0)
+            .unit("%")
+            .label("Opacity")
+            .show_label(),
+        ValueSlider::new(size.binding()).range(1.0, 200.0).step(1.0).unit(" px").label("Size").field(),
+    ))
+    .spacing(24.0)
+    .align(Align::Center)
+}
+// end
+
+// sample: InlineRename, 80
+fn inline_rename() -> impl View {
+    let name = State::new(String::from("Warm evening"));
+    VStack::new((
+        InlineRename::new(name.binding()).label("Preset name").width(220.0),
+        Text::new("Double click it, or press F2 on it.")
+            .style(TextStyle::Caption)
+            .foreground(Semantic::InkMuted),
+    ))
+    .spacing(4.0)
 }
 // end
 

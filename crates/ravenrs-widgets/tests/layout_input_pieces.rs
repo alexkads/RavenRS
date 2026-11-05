@@ -1,0 +1,309 @@
+//! The layout and input pieces of the last batch: each test fails if its feature is removed.
+#![allow(clippy::expect_used, clippy::unwrap_used, reason = "test helpers fail loudly")]
+
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
+
+use ravenrs_core::{AccessNode, AccessTree, Event, Key, Modifiers, Point, PointerButton, Role, Size};
+use ravenrs_reactive::State;
+use ravenrs_style::Theme;
+use ravenrs_widgets::*;
+
+fn ui(view: impl View + 'static) -> Ui {
+    let mut ui = Ui::new(view, Theme::raven_dark());
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    ui.update();
+    ui
+}
+
+fn key(ui: &mut Ui, key: Key) {
+    ui.handle_event(&Event::KeyDown { key, modifiers: Modifiers::default() });
+    ui.update();
+    ui.update();
+}
+
+fn typed(ui: &mut Ui, text: &str) {
+    key(ui, Key::Character(text.into()));
+}
+
+fn click(ui: &mut Ui, at: Point) {
+    ui.handle_event(&Event::PointerMove { position: at });
+    ui.handle_event(&Event::PointerDown { position: at, button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerUp { position: at, button: PointerButton::Primary });
+    ui.update();
+    ui.update();
+}
+
+fn double_click(ui: &mut Ui, at: Point) {
+    click(ui, at);
+    ui.handle_event(&Event::DoubleClick { position: at });
+    ui.update();
+    ui.update();
+}
+
+fn named<'a>(tree: &'a AccessTree, role: Role, name: &str) -> &'a AccessNode {
+    tree.find(role, name).unwrap_or_else(|| {
+        let all: Vec<_> = tree.nodes.iter().map(|n| format!("{:?} {:?}", n.role, n.name)).collect();
+        panic!("no {role:?} named {name:?} in {all:#?}")
+    })
+}
+
+fn center_of(ui: &mut Ui, role: Role, name: &str) -> Point {
+    let tree = ui.access_tree();
+    named(&tree, role, name).bounds.center()
+}
+
+fn has(ui: &mut Ui, role: Role, name: &str) -> bool {
+    ui.access_tree().find(role, name).is_some()
+}
+
+fn has_role(ui: &mut Ui, role: Role) -> bool {
+    ui.access_tree().nodes.iter().any(|n| n.role == role)
+}
+
+// ValueSlider
+
+fn opacity_slider(value: &State<f32>) -> ValueSlider {
+    ValueSlider::new(value.binding()).range(0.0, 100.0).step(5.0).unit("%").label("Opacity")
+}
+
+#[test]
+fn value_slider_shows_the_value_and_opens_a_slider_only_when_asked() {
+    let value = State::new(50.0_f32);
+    let mut ui = ui(opacity_slider(&value));
+    assert!(has(&mut ui, Role::Button, "Opacity: 50%"));
+    assert!(!has_role(&mut ui, Role::Slider));
+    let at = center_of(&mut ui, Role::Button, "Opacity: 50%");
+    click(&mut ui, at);
+    assert!(has(&mut ui, Role::Slider, "Opacity"));
+    assert_eq!(ui.access_tree().find(Role::Button, "Opacity: 50%").unwrap().expanded, Some(true));
+}
+
+#[test]
+fn value_slider_works_from_the_keyboard_alone() {
+    let value = State::new(50.0_f32);
+    let mut ui = ui(opacity_slider(&value));
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::Enter);
+    assert!(has_role(&mut ui, Role::Slider));
+    // The keyboard is already in the slider.
+    key(&mut ui, Key::ArrowRight);
+    assert_eq!(value.get(), 55.0);
+    key(&mut ui, Key::Home);
+    assert_eq!(value.get(), 0.0);
+    assert!(has(&mut ui, Role::Button, "Opacity: 0%"));
+    key(&mut ui, Key::Escape);
+    assert!(!has_role(&mut ui, Role::Slider));
+    // And it is back on the button: Space opens again, and the keyboard goes in again.
+    key(&mut ui, Key::Space);
+    assert!(has_role(&mut ui, Role::Slider));
+    key(&mut ui, Key::End);
+    assert_eq!(value.get(), 100.0);
+}
+
+#[test]
+fn value_slider_names_itself_from_labels_writes_in_their_language_and_can_format() {
+    let value = State::new(0.5_f32);
+    let mut pt = ui(Localized::new(Labels::pt_br(), ValueSlider::new(value.binding()).step(0.1)));
+    assert!(has(&mut pt, Role::Button, "Ajustar o valor: 0,5"));
+    let mut formatted = ui(ValueSlider::new(value.binding())
+        .label("Mix")
+        .value_format(|v| format!("{:.0} of 100", v * 100.0)));
+    assert!(has(&mut formatted, Role::Button, "Mix: 50 of 100"));
+}
+
+#[test]
+fn value_slider_can_show_its_label_and_can_be_turned_off() {
+    let value = State::new(50.0_f32);
+    let mut off = ui(opacity_slider(&value).disabled(true));
+    let at = center_of(&mut off, Role::Button, "Opacity: 50%");
+    click(&mut off, at);
+    assert!(!has_role(&mut off, Role::Slider));
+    assert!(off.access_tree().find(Role::Button, "Opacity: 50%").unwrap().disabled);
+
+    let mut shown = ui(opacity_slider(&value).show_label());
+    let plain = ui(opacity_slider(&value)).element_count();
+    assert!(shown.element_count() > plain, "the label is there");
+    assert!(has(&mut shown, Role::Button, "Opacity: 50%"));
+}
+
+#[test]
+fn value_slider_field_takes_typed_numbers_up_to_the_limits_and_brings_bad_text_back() {
+    let value = State::new(50.0_f32);
+    let mut ui = ui(opacity_slider(&value).field());
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::End);
+    key(&mut ui, Key::Backspace);
+    key(&mut ui, Key::Backspace);
+    typed(&mut ui, "20");
+    assert_eq!(value.get(), 50.0, "only Enter or leaving takes it");
+    key(&mut ui, Key::Enter);
+    assert_eq!(value.get(), 20.0);
+
+    typed(&mut ui, "000");
+    key(&mut ui, Key::Enter);
+    assert_eq!(value.get(), 100.0, "up to the limit");
+
+    typed(&mut ui, "x");
+    key(&mut ui, Key::Enter);
+    assert_eq!(value.get(), 100.0);
+    assert_eq!(ui.access_tree().find(Role::TextInput, "Opacity").unwrap().value.as_deref(), Some("100"));
+
+    typed(&mut ui, "9");
+    key(&mut ui, Key::Escape);
+    assert_eq!(ui.access_tree().find(Role::TextInput, "Opacity").unwrap().value.as_deref(), Some("100"));
+
+    key(&mut ui, Key::ArrowDown);
+    assert_eq!(value.get(), 95.0, "the arrows take a step");
+}
+
+#[test]
+fn value_slider_field_opens_the_slider_by_its_arrow() {
+    let value = State::new(50.0_f32);
+    let mut ui = ui(opacity_slider(&value).field());
+    assert!(!has_role(&mut ui, Role::Slider));
+    let at = center_of(&mut ui, Role::Button, "Opacity");
+    click(&mut ui, at);
+    assert!(has(&mut ui, Role::Slider, "Opacity"));
+    key(&mut ui, Key::ArrowRight);
+    assert_eq!(value.get(), 55.0);
+    assert_eq!(ui.access_tree().find(Role::TextInput, "Opacity").unwrap().value.as_deref(), Some("55"));
+}
+
+// InlineRename
+
+struct Renames {
+    name: State<String>,
+    calls: Rc<RefCell<Vec<String>>>,
+}
+
+impl Renames {
+    fn new() -> Self {
+        Self { name: State::new(String::from("Warm")), calls: Rc::default() }
+    }
+
+    fn view(&self) -> InlineRename {
+        let calls = self.calls.clone();
+        InlineRename::new(self.name.binding())
+            .label("Preset")
+            .on_rename(move |name| calls.borrow_mut().push(name))
+    }
+}
+
+#[test]
+fn rename_starts_with_a_double_click_with_the_text_selected_and_enter_confirms() {
+    let r = Renames::new();
+    let mut ui = ui(r.view());
+    assert!(!has_role(&mut ui, Role::TextInput));
+    let at = center_of(&mut ui, Role::Button, "Warm");
+    click(&mut ui, at);
+    assert!(!has_role(&mut ui, Role::TextInput), "one click does not start");
+    ui.handle_event(&Event::DoubleClick { position: at });
+    ui.update();
+    ui.update();
+    assert!(has_role(&mut ui, Role::TextInput));
+    // Typing replaces: the whole name was selected, and the field has the keyboard.
+    typed(&mut ui, "Cold");
+    assert_eq!(r.name.get(), "Warm", "the name waits for the confirmation");
+    key(&mut ui, Key::Enter);
+    assert!(!has_role(&mut ui, Role::TextInput));
+    assert_eq!(r.name.get(), "Cold");
+    assert_eq!(*r.calls.borrow(), ["Cold"]);
+    // The keyboard is back on the name.
+    key(&mut ui, Key::Other("F2".into()));
+    assert!(has_role(&mut ui, Role::TextInput));
+}
+
+#[test]
+fn rename_starts_with_f2_and_enter_and_escape_cancels_and_forgets_the_draft() {
+    let r = Renames::new();
+    let mut ui = ui(r.view());
+    key(&mut ui, Key::Tab);
+    key(&mut ui, Key::Other("Named(F2)".into()));
+    assert!(has_role(&mut ui, Role::TextInput));
+    typed(&mut ui, "Discarded");
+    key(&mut ui, Key::Escape);
+    assert!(!has_role(&mut ui, Role::TextInput));
+    assert_eq!(r.name.get(), "Warm");
+    assert!(r.calls.borrow().is_empty());
+    assert!(has(&mut ui, Role::Button, "Warm"));
+    // Focus came back, and the next edit starts from the name, not from the draft.
+    key(&mut ui, Key::Enter);
+    assert_eq!(ui.access_tree().find(Role::TextInput, "Preset").unwrap().value.as_deref(), Some("Warm"));
+}
+
+#[test]
+fn rename_confirms_when_the_focus_goes_elsewhere() {
+    let r = Renames::new();
+    let other = Rc::new(Cell::new(0));
+    let hits = other.clone();
+    let view = VStack::new((r.view(), Button::new("Other").on_click(move || hits.set(hits.get() + 1))));
+    let mut ui = ui(view);
+    let at = center_of(&mut ui, Role::Button, "Warm");
+    double_click(&mut ui, at);
+    typed(&mut ui, "Elsewhere");
+    let button = center_of(&mut ui, Role::Button, "Other");
+    click(&mut ui, button);
+    assert_eq!(r.name.get(), "Elsewhere");
+    assert_eq!(*r.calls.borrow(), ["Elsewhere"], "once");
+    assert!(!has_role(&mut ui, Role::TextInput));
+    assert_eq!(other.get(), 1, "the click still reached the button");
+    let tree = ui.access_tree();
+    assert_eq!(tree.focus, Some(named(&tree, Role::Button, "Other").id), "the keyboard stayed there");
+}
+
+#[test]
+fn rename_ignores_empty_and_equal_names_and_trims() {
+    let r = Renames::new();
+    let mut ui = ui(r.view());
+    let start = |ui: &mut Ui| key(ui, Key::Other("F2".into()));
+    key(&mut ui, Key::Tab);
+    start(&mut ui);
+    key(&mut ui, Key::Backspace);
+    key(&mut ui, Key::Enter);
+    assert_eq!(r.name.get(), "Warm", "empty");
+    start(&mut ui);
+    key(&mut ui, Key::Enter);
+    assert!(r.calls.borrow().is_empty(), "the same");
+    start(&mut ui);
+    typed(&mut ui, "  Hot ");
+    key(&mut ui, Key::Enter);
+    assert_eq!(r.name.get(), "Hot");
+}
+
+#[test]
+fn rename_can_be_started_from_outside_passes_clicks_on_and_can_be_off() {
+    let r = Renames::new();
+    let editing = State::new(false);
+    let clicks = Rc::new(Cell::new(0));
+    let hits = clicks.clone();
+    let mut driven = ui(r.view().editing(editing.binding()).on_click(move || hits.set(hits.get() + 1)));
+    let at = center_of(&mut driven, Role::Button, "Warm");
+    click(&mut driven, at);
+    assert_eq!(clicks.get(), 1);
+    editing.set(true);
+    driven.update();
+    driven.update();
+    assert!(has_role(&mut driven, Role::TextInput));
+    key(&mut driven, Key::Escape);
+    assert!(!editing.get());
+
+    let mut off = ui(r.view().disabled(true));
+    assert!(has(&mut off, Role::Label, "Warm"));
+    key(&mut off, Key::Tab);
+    key(&mut off, Key::Other("F2".into()));
+    let at = center_of(&mut off, Role::Label, "Warm");
+    double_click(&mut off, at);
+    assert!(!has_role(&mut off, Role::TextInput));
+}
+
+#[test]
+fn rename_explains_itself_to_screen_readers() {
+    let r = Renames::new();
+    let mut ui = ui(Localized::new(Labels::pt_br(), r.view()));
+    let tree = ui.access_tree();
+    assert_eq!(
+        named(&tree, Role::Button, "Warm").description.as_deref(),
+        Some("Clique duas vezes ou aperte F2 para renomear")
+    );
+}

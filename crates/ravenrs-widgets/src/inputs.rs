@@ -496,12 +496,17 @@ impl Slider {
         match &self.format {
             Some(format) => format(value),
             None => {
-                // Less a hair, since the logarithm of 0.1 can land just above 1.
-                let decimals = (-self.step.log10() - 1e-3).ceil().clamp(0.0, 4.0) as usize;
+                let decimals = step_decimals(self.step);
                 format!("{value:.decimals$}")
             }
         }
     }
+}
+
+/// As many decimals as a value moving by `step` needs.
+pub(crate) fn step_decimals(step: f32) -> usize {
+    // Less a hair, since the logarithm of 0.1 can land just above 1.
+    (-step.log10() - 1e-3).ceil().clamp(0.0, 4.0) as usize
 }
 
 /// Draws a track through `colors`. Gradients have two stops and square ends: one for each
