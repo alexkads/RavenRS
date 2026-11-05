@@ -527,6 +527,12 @@ impl LocalStore {
     }
 }
 
+thread_local! {
+    // A build happens on every change and most never replace the words, while
+    // `Labels` holds hundreds of strings: built once, or each build pays for them.
+    static DEFAULT_LABELS: Rc<crate::Labels> = Rc::new(crate::Labels::default());
+}
+
 /// What a [`View`] uses to describe itself during a build: theme access,
 /// interaction state, child building, layout boxes, painting and behavior.
 pub struct BuildCx<'a> {
@@ -614,7 +620,7 @@ impl<'a> BuildCx<'a> {
             scroll_requests: Vec::new(),
             focus_request: None,
             now: 0.0,
-            labels: Rc::new(crate::Labels::default()),
+            labels: DEFAULT_LABELS.with(Rc::clone),
             ui_waker,
             sidebar: None,
             shortcuts: Vec::new(),
