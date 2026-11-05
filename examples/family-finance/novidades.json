@@ -1,10 +1,10 @@
 {
-  "versao": "0.1.28",
-  "titulo": "Menos trabalho a cada clique.",
+  "versao": "0.1.29",
+  "titulo": "Gráficos mais fáceis de ler.",
   "importante": false,
   "novidades": [
-    "O programa parou de reler a lista de novidades a cada mudança na tela: agora só lê quando você abre essa janela.",
-    "Telas com muitos desenhos e animações grandes passam a aparecer completas."
+    "Ao passar o mouse num gráfico, o item apontado fica em destaque e os outros se apagam um pouco.",
+    "Mudar o tamanho da janela com o Painel aberto ficou bem mais leve."
   ],
-  "por_que_atualizar": "Para o programa gastar menos o computador enquanto você usa."
+  "por_que_atualizar": "Para ler melhor os gráficos e a janela responder mais rápido ao mudar de tamanho."
 }

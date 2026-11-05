@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.1.29",
+    "data": "2026-11-05",
+    "titulo": "Gráficos mais fáceis de ler.",
+    "importante": false,
+    "novidades": [
+      "Ao passar o mouse num gráfico, o item apontado fica em destaque e os outros se apagam um pouco.",
+      "Mudar o tamanho da janela com o Painel aberto ficou bem mais leve."
+    ],
+    "por_que_atualizar": "Para ler melhor os gráficos e a janela responder mais rápido ao mudar de tamanho."
+  },
+  {
     "versao": "0.1.28",
     "data": "2026-11-04",
     "titulo": "Menos trabalho a cada clique.",
