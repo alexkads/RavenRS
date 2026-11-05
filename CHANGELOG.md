@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `Eyedropper`: a button that arms, and `EyedropperArea` over a picture, which asks the caller for the color of the point clicked. `EyedropperState::pick` tells it directly. Escape disarms. It does not capture the screen.
+- `CropOverlay`: a crop over a picture, built on `TransformHandles`, with a veil outside, thirds inside, a fine grid while it turns, a fixed proportion and an angle. It stays inside the content and hands back `CropArea`; the frame turns over a still picture, since the renderer has no transforms.
 - `Protractor`: a band of ticks along an arc that sets an angle by a drag from anywhere on it, with a double click back to zero, the keyboard and the value in words.
 - `TransformHandles`: eight handles, a turn and a pivot around a `BoxTransform`, in the units of a `ContentSpace`. Corners hold the proportions until Shift, Alt resizes around the pivot, and the keyboard moves, resizes and turns. It hands back geometry and turns no picture. A drag paints without a build.
 - `Marquee`: the animated outline of a selection around a rectangle, a closed path or loose segments, which reads over any picture and asks for no frames with reduced motion.

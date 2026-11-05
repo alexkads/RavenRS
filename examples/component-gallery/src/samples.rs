@@ -68,6 +68,8 @@ samples! {
     "Marquee" => marquee,
     "TransformHandles" => transform_handles,
     "Protractor" => protractor,
+    "CropOverlay" => crop_overlay,
+    "Eyedropper" => eyedropper,
     "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
@@ -1819,6 +1821,48 @@ fn transform_handles() -> impl View {
 fn protractor() -> impl View {
     let angle = State::new(7.5_f32);
     Protractor::new(angle.binding()).label("Straighten")
+}
+// end
+
+// sample: CropOverlay, 300
+fn crop_overlay() -> impl View {
+    let crop = State::new(CropArea::new(Rect::new(70.0, 30.0, 240.0, 150.0)));
+    let picture = Canvas::new(|frame, scene| {
+        let sky = LinearGradient::vertical(Color::rgb(0.3, 0.45, 0.7), Color::rgb(0.85, 0.6, 0.45));
+        scene.push_quad(Quad::new(frame, sky));
+    })
+    .size(400.0, 220.0);
+    VStack::new((
+        CropOverlay::new(crop.binding()).stage(picture),
+        Protractor::new(crop.binding().map(|c| c.angle, |c, angle| c.angle = angle)).width(400.0),
+    ))
+    .spacing(8.0)
+}
+// end
+
+// sample: Eyedropper, 190
+fn eyedropper() -> impl View {
+    let shown = State::new(Color::rgb(0.5, 0.5, 0.5));
+    let told = shown.clone();
+    let dropper = EyedropperState::new().on_pick(move |color| told.set(color));
+    let ramp = |x: f32, y: f32| Color::rgb(x / 300.0, y / 130.0, 0.5);
+    let picture = Canvas::new(move |frame, scene| {
+        for i in 0..30 {
+            let x = i as f32 * 10.0;
+            let band = Rect::new(frame.x() + x, frame.y(), 10.0, frame.height());
+            scene.push_quad(Quad::new(band, ramp(x, 65.0)));
+        }
+    })
+    .size(300.0, 130.0);
+    let swatch = Canvas::new(move |frame, scene| {
+        scene.push_quad(Quad::new(frame, shown.get()).radius(4.0));
+    })
+    .size(28.0, 28.0);
+    VStack::new((
+        HStack::new((Eyedropper::new(&dropper), swatch)).spacing(8.0),
+        EyedropperArea::new(&dropper, move |at| Some(ramp(at.x, at.y))).stage(picture),
+    ))
+    .spacing(8.0)
 }
 // end
 

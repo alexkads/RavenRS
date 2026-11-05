@@ -686,3 +686,250 @@ fn a_disabled_protractor_stays_put() {
     assert_eq!(angle.get(), 3.0);
     assert!(paths(&ui) > 0, "it still shows the angle");
 }
+
+// -- CropOverlay -------------------------------------------------------------------------------
+
+const CROP: Rect = Rect::new(100.0, 100.0, 200.0, 100.0);
+
+fn crop_ui(area: &State<CropArea>, tune: impl FnOnce(CropOverlay) -> CropOverlay) -> Ui {
+    ui(tune(CropOverlay::new(area.binding())).size(400.0, 300.0))
+}
+
+fn veil_holes(ui: &Ui) -> usize {
+    ui.scene()
+        .primitives()
+        .iter()
+        .filter(|p| matches!(p, Primitive::Path(path) if path.rule == ravenrs_core::FillRule::EvenOdd))
+        .count()
+}
+
+#[test]
+fn a_crop_veils_outside_with_thirds_inside() {
+    let area = State::new(CropArea::new(CROP));
+    let ui = crop_ui(&area, |c| c);
+    assert_eq!(veil_holes(&ui), 1, "what is out of the frame goes dark");
+    let lines = quads(&ui);
+    assert!(
+        lines.iter().any(|r| near(r.x(), 167.0) && near(r.height(), 100.0)),
+        "thirds of the crop: {lines:?}"
+    );
+    let off = crop_ui(&area, |c| c.guide(None));
+    assert!(!quads(&off).iter().any(|r| near(r.x(), 167.0) && near(r.height(), 100.0)));
+}
+
+#[test]
+fn a_crop_resizes_moves_and_stays_inside() {
+    let area = State::new(CropArea::new(CROP));
+    let mut ui = crop_ui(&area, |c| c);
+    drag(&mut ui, Point::new(300.0, 200.0), Point::new(350.0, 220.0));
+    assert_eq!(area.get().rect, Rect::new(100.0, 100.0, 250.0, 120.0), "free proportions by default");
+    drag(&mut ui, Point::new(200.0, 150.0), Point::new(900.0, 150.0));
+    assert_eq!(area.get().rect.max_x(), 400.0, "moving stops at the edge of the content");
+    drag(&mut ui, Point::new(150.0, 100.0), Point::new(150.0, -50.0));
+    assert_eq!(area.get().rect.y(), 0.0, "and so does a handle");
+}
+
+#[test]
+fn a_crop_holds_its_proportion() {
+    let area = State::new(CropArea::new(CROP));
+    let mut ui = crop_ui(&area, |c| c.aspect(Some(2.0)));
+    drag(&mut ui, Point::new(300.0, 150.0), Point::new(340.0, 150.0));
+    let rect = area.get().rect;
+    assert!((rect.width() / rect.height() - 2.0).abs() < 0.01, "a side moves both: {rect:?}");
+    assert!(near(rect.width(), 240.0));
+    // Past the edge it stops with the proportion intact.
+    drag(&mut ui, Point::new(rect.max_x(), rect.max_y()), Point::new(900.0, 900.0));
+    let rect = area.get().rect;
+    assert!(rect.max_x() <= 400.01 && rect.max_y() <= 300.01, "{rect:?}");
+    assert!((rect.width() / rect.height() - 2.0).abs() < 0.01, "{rect:?}");
+}
+
+#[test]
+fn a_new_proportion_cuts_the_crop_down() {
+    let area = State::new(CropArea::new(CROP));
+    let ui = crop_ui(&area, |c| c.aspect(Some(1.0)));
+    drop(ui);
+    let rect = area.get().rect;
+    assert_eq!(rect.width(), rect.height());
+    assert_eq!(rect, Rect::new(150.0, 100.0, 100.0, 100.0), "around its middle");
+}
+
+#[test]
+fn a_drag_outside_turns_the_crop_and_shows_a_fine_grid() {
+    let area = State::new(CropArea::new(Rect::new(150.0, 125.0, 100.0, 50.0)));
+    let mut ui = crop_ui(&area, |c| c);
+    let middle = Point::new(200.0, 150.0);
+    down(&mut ui, Point::new(middle.x + 150.0, middle.y));
+    ui.set_time(1.0);
+    drag_to(&mut ui, Point::new(middle.x + 140.0, middle.y + 40.0));
+    let angle = area.get().angle;
+    assert!(angle > 10.0 && angle < 20.0, "turned clockwise: {angle}");
+    assert_eq!(area.get().rect, Rect::new(150.0, 125.0, 100.0, 50.0), "there is room to turn");
+    // Slanted lines all go in one path while it turns, and there are more of them than thirds.
+    let outlines: usize = ui
+        .scene()
+        .primitives()
+        .iter()
+        .map(|p| match p {
+            Primitive::Path(path) => {
+                path.elements.iter().filter(|e| matches!(e, ravenrs_core::PathElement::Close)).count()
+            }
+            _ => 0,
+        })
+        .max()
+        .unwrap();
+    assert!(outlines >= 14, "seven lines each way: {outlines}");
+    up(&mut ui, Point::new(middle.x + 140.0, middle.y + 40.0));
+    assert_eq!(area.get().angle, angle);
+}
+
+#[test]
+fn turning_makes_a_tight_crop_smaller_and_the_limit_holds() {
+    let whole = Rect::new(0.0, 0.0, 400.0, 300.0);
+    let area = State::new(CropArea::new(whole));
+    let mut ui = crop_ui(&area, |c| c.angle_limit(10.0));
+    // No outside to drag from: the keys turn it, and the frame must shrink to stay in the picture.
+    press(&mut ui, Key::Tab, Modifiers::default());
+    press(&mut ui, Key::Character("]".into()), shift());
+    let turned = area.get();
+    assert_eq!(turned.angle, 10.0, "held at the limit");
+    assert!(turned.rect.width() < 400.0, "{turned:?}");
+    for corner in turned.corners() {
+        assert!(corner.x >= -0.1 && corner.x <= 400.1 && corner.y >= -0.1 && corner.y <= 300.1, "{corner:?}");
+    }
+}
+
+#[test]
+fn an_angle_from_a_protractor_keeps_the_crop_in_the_picture() {
+    let area = State::new(CropArea::new(Rect::new(0.0, 0.0, 400.0, 300.0)));
+    let angle = area.binding().map(|c| c.angle, |c, a| c.angle = a);
+    let mut ui =
+        ui(VStack::new((CropOverlay::new(area.binding()).size(400.0, 300.0), Protractor::new(angle))));
+    area.update(|a| a.angle = 5.0);
+    settle(&mut ui);
+    let turned = area.get();
+    assert_eq!(turned.angle, 5.0);
+    for corner in turned.corners() {
+        assert!(corner.x >= -0.1 && corner.x <= 400.1 && corner.y >= -0.1 && corner.y <= 300.1, "{corner:?}");
+    }
+}
+
+#[test]
+fn a_crop_works_from_the_keyboard_and_commits_steps() {
+    let area = State::new(CropArea::new(CROP));
+    let seen = State::new(Vec::new());
+    let told = seen.clone();
+    let mut ui =
+        crop_ui(&area, move |c| c.on_commit(move |a| told.update(|s: &mut Vec<CropArea>| s.push(a))));
+    press(&mut ui, Key::Tab, Modifiers::default());
+    press(&mut ui, Key::ArrowLeft, shift());
+    assert_eq!(area.get().rect.x(), 90.0);
+    press(&mut ui, Key::ArrowRight, alt());
+    assert_eq!(area.get().rect.width(), 201.0);
+    press(&mut ui, Key::Character("]".into()), Modifiers::default());
+    assert_eq!(area.get().angle, 1.0);
+    assert_eq!(seen.get().len(), 3);
+    let group = node(&mut ui, Role::Group);
+    assert_eq!(group.name.as_deref(), Some("Crop area"));
+    assert!(group.value.is_some_and(|v| v.contains("+1.0°")));
+}
+
+#[test]
+fn a_crop_over_a_fitted_picture_speaks_picture_units() {
+    let area = State::new(CropArea::new(Rect::new(0.0, 0.0, 1000.0, 500.0)));
+    let mut ui = ui(CropOverlay::new(area.binding())
+        .space(ContentSpace::Fit(Size::new(2000.0, 1000.0)))
+        .size(400.0, 300.0));
+    // 2000x1000 at a fifth, centered: it starts 50 pixels down.
+    drag(&mut ui, Point::new(200.0, 100.0), Point::new(220.0, 100.0));
+    assert_eq!(area.get().rect.width(), 1100.0, "20 pixels are 100 units");
+}
+
+// -- Eyedropper --------------------------------------------------------------------------------
+
+fn dropper_screen(state: &EyedropperState) -> Ui {
+    ui(VStack::new((
+        Eyedropper::new(state),
+        EyedropperArea::new(state, |at| Some(Color::rgb(at.x / 100.0, 0.0, 0.0))).size(200.0, 100.0),
+    )))
+}
+
+#[test]
+fn an_armed_eyedropper_takes_a_color_and_disarms() {
+    let picked = State::new(None::<Color>);
+    let told = picked.clone();
+    let state = EyedropperState::new().on_pick(move |c| told.set(Some(c)));
+    let mut ui = dropper_screen(&state);
+    let button = node(&mut ui, Role::Button);
+    assert_eq!(button.name.as_deref(), Some("Pick a color"));
+    let center = Point::new(button.bounds.x() + 4.0, button.bounds.y() + 4.0);
+
+    // Not armed: the area does nothing.
+    let below = button.bounds.max_y() + 50.0;
+    drag(&mut ui, Point::new(50.0, below), Point::new(50.0, below));
+    assert_eq!(picked.get(), None);
+
+    down(&mut ui, center);
+    up(&mut ui, center);
+    assert!(state.is_armed());
+    assert!(node(&mut ui, Role::Button).toggled.is_some(), "the button says it is on");
+    hover(&mut ui, Point::new(50.0, below));
+    assert_eq!(ui.cursor(), CursorIcon::Pointer, "the cursor changes as far as it can");
+
+    drag(&mut ui, Point::new(50.0, below), Point::new(50.0, below));
+    assert_eq!(picked.get(), Some(Color::rgb(0.5, 0.0, 0.0)));
+    assert_eq!(state.picked(), picked.get());
+    assert!(!state.is_armed(), "one color, then back to normal");
+}
+
+#[test]
+fn escape_disarms_wherever_the_focus_is() {
+    let state = EyedropperState::new();
+    let mut ui = dropper_screen(&state);
+    state.set_armed(true);
+    settle(&mut ui);
+    press(&mut ui, Key::Escape, Modifiers::default());
+    assert!(!state.is_armed());
+}
+
+#[test]
+fn the_keyboard_arms_it_too() {
+    let state = EyedropperState::new();
+    let mut ui = dropper_screen(&state);
+    press(&mut ui, Key::Tab, Modifiers::default());
+    press(&mut ui, Key::Enter, Modifiers::default());
+    assert!(state.is_armed());
+    press(&mut ui, Key::Space, Modifiers::default());
+    assert!(!state.is_armed());
+}
+
+#[test]
+fn whoever_uses_it_can_tell_the_color_directly() {
+    let state = EyedropperState::new();
+    assert!(!state.pick(Color::WHITE), "not while disarmed");
+    assert_eq!(state.picked(), None);
+    state.set_armed(true);
+    assert!(state.pick(Color::WHITE));
+    assert_eq!(state.picked(), Some(Color::WHITE));
+    assert!(!state.is_armed());
+
+    let repeating = EyedropperState::new().stay_armed(true);
+    repeating.set_armed(true);
+    assert!(repeating.pick(Color::WHITE));
+    assert!(repeating.is_armed());
+}
+
+#[test]
+fn a_point_out_of_the_picture_picks_nothing() {
+    let state = EyedropperState::new();
+    let mut ui = ui(EyedropperArea::new(&state, |_| Some(Color::WHITE))
+        .space(ContentSpace::Fit(Size::new(100.0, 100.0)))
+        .size(300.0, 100.0));
+    state.set_armed(true);
+    settle(&mut ui);
+    drag(&mut ui, Point::new(10.0, 50.0), Point::new(10.0, 50.0));
+    assert_eq!(state.picked(), None, "beside the fitted picture");
+    assert!(state.is_armed());
+    drag(&mut ui, Point::new(150.0, 50.0), Point::new(150.0, 50.0));
+    assert_eq!(state.picked(), Some(Color::WHITE));
+}

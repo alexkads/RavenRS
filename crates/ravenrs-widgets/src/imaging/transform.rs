@@ -274,11 +274,12 @@ impl Resize {
         };
         if self.ratio.is_some() {
             let t = furthest(&|t| self.apply(start, du * t, dv * t));
-            return self.apply(start, du * t, dv * t);
+            return self.apply(start, du * t, dv * t).moved_inside(bounds);
         }
         let across = du * furthest(&|t| self.apply(start, du * t, 0.0));
         let down = dv * furthest(&|t| self.apply(start, across, dv * t));
-        self.apply(start, across, down)
+        // The search stops a hair from the edge, on either side of it.
+        self.apply(start, across, down).moved_inside(bounds)
     }
 }
 
@@ -453,7 +454,7 @@ impl Rules {
             return t;
         }
         if self.shrink_to_turn {
-            return t.shrunk_inside(map.bounds());
+            return self.made_to_fit(t, map.bounds(), map.scale);
         }
         let (mut inside, mut outside) = (0.0_f32, 1.0_f32);
         for _ in 0..14 {
@@ -466,6 +467,34 @@ impl Rules {
             }
         }
         BoxTransform { angle: start.angle + (t.angle - start.angle) * inside, ..start }
+    }
+
+    /// Made smaller until it fits, and moved first if that alone would leave almost nothing: a
+    /// crop against the edge of the content would otherwise vanish as it turns.
+    fn made_to_fit(&self, t: BoxTransform, bounds: Rect, scale: f32) -> BoxTransform {
+        let least = self.min_size / scale.max(f32::EPSILON);
+        let shrunk = t.shrunk_inside(bounds);
+        if shrunk.rect.width() >= least && shrunk.rect.height() >= least {
+            return shrunk;
+        }
+        t.moved_inside(bounds).shrunk_inside(bounds)
+    }
+
+    /// What a value set from outside becomes under these rules, for a crop whose proportion or
+    /// angle was changed by another control.
+    fn settled(&self, t: BoxTransform, bounds: Rect, scale: f32) -> BoxTransform {
+        let limit = self.angle_limit.unwrap_or(180.0);
+        let mut next = BoxTransform { angle: t.angle.clamp(-limit, limit), ..t };
+        if let Some(ratio) = self.aspect
+            && next.rect.height() > 0.0
+            && (next.rect.width() / next.rect.height() - ratio).abs() > ratio * 0.005
+        {
+            let w = next.rect.width().min(next.rect.height() * ratio);
+            let h = w / ratio;
+            let c = next.rect.center();
+            next.rect = Rect::new(c.x - w / 2.0, c.y - h / 2.0, w, h);
+        }
+        if next.is_inside(bounds) { next } else { self.made_to_fit(next, bounds, scale) }
     }
 
     /// What a drag has made of the box, from where it began.
@@ -774,6 +803,18 @@ impl View for TransformHandles {
         };
         let hover = cx.use_state(|| Part::None);
         let memory = cx.use_state(|| Rc::new(TransformMemory::default())).get();
+        // Only a crop answers for what others set, since a box is otherwise free to go anywhere.
+        let current = match self.frame.known_size(cx) {
+            Some(size) if self.rules.shrink_to_turn && !is_live && size.width > 0.0 => {
+                let map = self.frame.space.map(Rect::new(0.0, 0.0, size.width, size.height));
+                let settled = self.rules.settled(current, map.bounds(), map.scale);
+                if settled != current {
+                    self.value.set(settled);
+                }
+                settled
+            }
+            _ => current,
+        };
         let (light, dark) = picture_inks(&theme);
         let rules = self.rules;
         let style = BoxStyle { rules, look: self.look, light, dark, scrim: theme.color(Semantic::Scrim) };
@@ -1158,5 +1199,163 @@ impl View for Protractor {
             }),
         );
         node
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// CropOverlay
+// ---------------------------------------------------------------------------------------------
+
+/// What a [`CropOverlay`] edits: a rectangle of the content and how far it is turned.
+///
+/// The picture stays still and the frame turns over it, since the renderer cannot turn a
+/// picture. A frame turned clockwise by `angle` holds what an upright frame would hold with the
+/// picture turned counterclockwise by it, around the middle of the rectangle.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CropArea {
+    /// The rectangle before turning, in the units of the content.
+    pub rect: Rect,
+    /// How far it is turned clockwise, in degrees.
+    pub angle: f32,
+}
+
+impl CropArea {
+    /// An upright rectangle.
+    pub const fn new(rect: Rect) -> Self {
+        Self { rect, angle: 0.0 }
+    }
+
+    /// The same rectangle turned clockwise by this many degrees.
+    pub const fn rotated(mut self, angle: f32) -> Self {
+        self.angle = angle;
+        self
+    }
+
+    /// Its four corners once turned, clockwise from what was the top left, in the units of the
+    /// content.
+    pub fn corners(&self) -> [Point; 4] {
+        BoxTransform::new(self.rect).rotated(self.angle).corners()
+    }
+}
+
+/// A crop over a picture: what is out of the frame goes dark, with thirds inside the frame and
+/// a fine grid while it turns. It is built on [`TransformHandles`] and draws the same lines as
+/// [`RuleOfThirdsGrid`](crate::RuleOfThirdsGrid).
+///
+/// Handles resize it, a drag inside moves it, a drag outside turns it, and it never leaves the
+/// content: turning makes it smaller if it must. It hands back the rectangle and the angle and
+/// does not turn the picture, since the renderer has no transforms.
+///
+/// Keyboard: the arrows move it, with Alt they resize it, `[` and `]` turn it, and Shift makes
+/// each of these go further. A [`Protractor`] can share the angle through
+/// [`Binding::map`](ravenrs_reactive::Binding::map).
+///
+/// ```
+/// use ravenrs_core::{Rect, Size};
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{ContentSpace, CropArea, CropOverlay, Protractor};
+///
+/// let crop = State::new(CropArea::new(Rect::new(300.0, 200.0, 1800.0, 1200.0)));
+/// let overlay = CropOverlay::new(crop.binding())
+///     .aspect(Some(3.0 / 2.0))
+///     .space(ContentSpace::Fit(Size::new(2400.0, 1600.0)))
+///     .size(600.0, 400.0);
+/// let straighten = Protractor::new(crop.binding().map(|c| c.angle, |c, angle| c.angle = angle));
+/// ```
+#[derive(Debug)]
+pub struct CropOverlay {
+    handles: TransformHandles,
+}
+
+impl CropOverlay {
+    /// A crop bound to `area`, in the units of its [space](Self::space).
+    pub fn new(area: Binding<CropArea>) -> Self {
+        let value = area.map(
+            |a| BoxTransform::new(a.rect).rotated(a.angle),
+            |a, t: BoxTransform| {
+                a.rect = t.rect;
+                a.angle = t.angle;
+            },
+        );
+        let mut handles = TransformHandles::new(value);
+        handles.rules = Rules {
+            keep_corners: false,
+            aspect: None,
+            confined: true,
+            min_size: 24.0,
+            knob: false,
+            pivot: false,
+            outside_rotates: true,
+            angle_limit: Some(45.0),
+            shrink_to_turn: true,
+        };
+        handles.look = Look {
+            veil: true,
+            guide: Some(CompositionGuide::Thirds),
+            turning_guide: Some(CompositionGuide::Divisions(8)),
+        };
+        handles.crop_name = true;
+        Self { handles }
+    }
+
+    overlay_builders!(handles.frame);
+
+    /// Holds this width over height, or lets it go free with `None`. A crop of other proportions
+    /// is cut down to these as soon as this changes.
+    pub fn aspect(mut self, aspect: Option<f32>) -> Self {
+        self.handles.rules.aspect = aspect;
+        self
+    }
+
+    /// How far it can turn either way, in degrees (45 by default). With 0 it does not turn.
+    pub fn angle_limit(mut self, degrees: f32) -> Self {
+        let degrees = degrees.abs();
+        self.handles.rules.angle_limit = Some(degrees);
+        self.handles.rules.outside_rotates = degrees > 0.0;
+        self
+    }
+
+    /// The lines inside the frame, or none (thirds by default).
+    pub fn guide(mut self, guide: Option<CompositionGuide>) -> Self {
+        self.handles.look.guide = guide;
+        self
+    }
+
+    /// The lines inside the frame while it turns (eight parts by default).
+    pub fn turning_guide(mut self, guide: Option<CompositionGuide>) -> Self {
+        self.handles.look.turning_guide = guide;
+        self
+    }
+
+    /// The smallest side, in logical pixels on screen at the current zoom (24 by default).
+    pub fn min_size(mut self, pixels: f32) -> Self {
+        self.handles.rules.min_size = pixels.max(1.0);
+        self
+    }
+
+    /// Runs `handler` with the result when a drag ends or a key changes it: one step to undo.
+    pub fn on_commit(mut self, handler: impl Fn(CropArea) + 'static) -> Self {
+        self.handles.on_commit = Some(Rc::new(move |t: BoxTransform| {
+            handler(CropArea { rect: t.rect, angle: t.angle });
+        }));
+        self
+    }
+
+    /// Takes no input while disabled.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.handles.disabled = disabled;
+        self
+    }
+
+    /// The name screen readers announce, instead of the one in [`Labels`](crate::Labels).
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.handles.label = Some(label.into());
+        self
+    }
+}
+
+impl View for CropOverlay {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        self.handles.build(cx)
     }
 }

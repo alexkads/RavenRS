@@ -200,6 +200,8 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 | Selection outline | | | | ✅ `Marquee`: marching ants around a rectangle, a path or loose segments, which stop and ask for no frames with reduced motion |
 | Transform box | | | | ✅ `TransformHandles`: eight handles, turn and pivot over a `BoxTransform` in content units, with Shift and Alt as in image editors and the keyboard. It returns geometry and turns nothing, since the renderer has no transforms; `CursorIcon` has no diagonals, so corners show the hand |
 | Protractor | | | | ✅ `Protractor`: a band of ticks along an arc that sets an angle by a drag from anywhere, a double click back to zero, keys and value |
+| Crop | | | | ✅ `CropOverlay`: on `TransformHandles` and the lines of `RuleOfThirdsGrid`, with a veil outside, fixed proportion and angle, returning rectangle and angle. The frame turns over a still picture, since the renderer has no transforms |
+| Eyedropper | | | | ✅ `Eyedropper` and `EyedropperArea`: an armed button that takes the color of the point clicked, which the caller supplies with a closure or `EyedropperState::pick`; Esc disarms. It does not capture the screen, and `CursorIcon` has no dropper, so the cursor is the hand |
 | Image editor | | | ✓ | ⬜ |
 | Chat | | ✓ | ✓ | ✅ `Chat`; `MovieChat` over training films |
 | Choosing local AI models | | | | ✅ `ModelPicker`; `ravenrs_ai::ModelManager` offers only what fits |

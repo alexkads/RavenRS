@@ -1896,6 +1896,8 @@ impl Gallery {
             ),
             sample_demos(&[
                 // imaging widgets
+                ("Eyedropper", "A button that arms, takes the color you supply for the point clicked, and disarms."),
+                ("CropOverlay", "A crop with a veil, a fixed proportion and an angle, which hands back geometry."),
                 ("Protractor", "A band of ticks that sets an angle, with a double click back to zero."),
                 ("TransformHandles", "Eight handles, a turn and a pivot, which hand back geometry."),
                 ("Marquee", "The animated outline of a selection, which stops with reduced motion."),

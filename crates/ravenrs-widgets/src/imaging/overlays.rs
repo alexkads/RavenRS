@@ -9,12 +9,12 @@ use ravenrs_core::{
     Color, CursorIcon, Key, Modifiers, PathElement, PathFill, Point, Quad, Rect, Role, Scene, Size,
 };
 use ravenrs_layout::{Align, Axis, LayoutStyle};
-use ravenrs_reactive::{Binding, Observer};
+use ravenrs_reactive::{Binding, Observer, State};
 use ravenrs_style::{Semantic, Theme};
 
 use super::{ZoomView, stroke_outline};
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, Semantics};
-use crate::{AnyView, View};
+use crate::{AnyView, ButtonSize, IconButton, IconName, Tooltip, View};
 
 // ---------------------------------------------------------------------------------------------
 // ContentSpace
@@ -182,6 +182,14 @@ impl OverlayBox {
         self.stage = Some(stage);
     }
 
+    /// The size of the box as far as a build can know it, which the first build may not.
+    pub fn known_size(&self, cx: &BuildCx<'_>) -> Option<Size> {
+        match (self.width, self.height) {
+            (Some(width), Some(height)) => Some(Size::new(width, height)),
+            _ => cx.scroll_viewport(),
+        }
+    }
+
     /// Builds the box, and returns it with the node that paints and takes the pointer.
     pub fn build(&self, cx: &mut BuildCx<'_>, paint: Paint) -> (NodeId, NodeId) {
         let sized = self.width.is_some();
@@ -198,6 +206,7 @@ impl OverlayBox {
                 &[],
                 paint,
             );
+            cx.report_frame(root);
             return (root, root);
         };
         let stage = cx.child(stage.as_ref());
@@ -876,6 +885,241 @@ impl View for Marquee {
         };
         let (root, surface) = self.frame.build(cx, paint);
         cx.semantics(surface, Semantics::new(Role::Image).name(name));
+        root
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Eyedropper
+// ---------------------------------------------------------------------------------------------
+
+/// What an [`Eyedropper`] and an [`EyedropperArea`] share, and how a color reaches them: from
+/// the area, or from whoever knows the color under the pointer through [`pick`](Self::pick).
+/// Nothing here can read the screen, so the color always comes from the caller.
+#[derive(Clone)]
+pub struct EyedropperState {
+    armed: State<bool>,
+    picked: State<Option<Color>>,
+    on_pick: Option<Rc<dyn Fn(Color)>>,
+    stay_armed: bool,
+}
+
+impl fmt::Debug for EyedropperState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EyedropperState").field("armed", &self.armed.get()).finish_non_exhaustive()
+    }
+}
+
+impl Default for EyedropperState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EyedropperState {
+    /// Not armed, with no color yet.
+    pub fn new() -> Self {
+        Self { armed: State::new(false), picked: State::new(None), on_pick: None, stay_armed: false }
+    }
+
+    /// Runs `handler` with each color picked.
+    pub fn on_pick(mut self, handler: impl Fn(Color) + 'static) -> Self {
+        self.on_pick = Some(Rc::new(handler));
+        self
+    }
+
+    /// Stays armed after a pick, to take several in a row (by default it disarms).
+    pub fn stay_armed(mut self, stay: bool) -> Self {
+        self.stay_armed = stay;
+        self
+    }
+
+    /// Whether the next click on the picture picks a color.
+    pub fn is_armed(&self) -> bool {
+        self.armed.get()
+    }
+
+    /// Arms it or disarms it.
+    pub fn set_armed(&self, armed: bool) {
+        self.armed.set_if_changed(armed);
+    }
+
+    /// The last color picked.
+    pub fn picked(&self) -> Option<Color> {
+        self.picked.get()
+    }
+
+    /// Tells it the color of the point clicked. It counts only while armed, and returns whether
+    /// it did.
+    pub fn pick(&self, color: Color) -> bool {
+        if !self.armed.get() {
+            return false;
+        }
+        self.picked.set(Some(color));
+        if !self.stay_armed {
+            self.armed.set(false);
+        }
+        if let Some(handler) = &self.on_pick {
+            handler(color);
+        }
+        true
+    }
+
+    /// While armed, Escape disarms it wherever the focus is.
+    fn listen_for_escape(&self, cx: &mut BuildCx<'_>) {
+        if self.armed.get() {
+            let armed = self.armed.clone();
+            cx.shortcut(Key::Escape, false, Rc::new(move || armed.set(false)));
+        }
+    }
+}
+
+/// The button that arms an eyedropper, which looks pressed until a color is picked or Escape
+/// disarms it. The color comes from an [`EyedropperArea`] or from
+/// [`EyedropperState::pick`]: nothing here can read the screen.
+///
+/// ```
+/// use ravenrs_core::{Color, Size};
+/// use ravenrs_widgets::{ContentSpace, Eyedropper, EyedropperArea, EyedropperState};
+///
+/// let dropper = EyedropperState::new().on_pick(|color| println!("{color:?}"));
+/// let button = Eyedropper::new(&dropper);
+/// let area = EyedropperArea::new(&dropper, |at| Some(Color::rgb(at.x / 300.0, at.y / 200.0, 0.5)))
+///     .space(ContentSpace::Fit(Size::new(300.0, 200.0)))
+///     .size(300.0, 200.0);
+/// ```
+#[derive(Debug)]
+pub struct Eyedropper {
+    state: EyedropperState,
+    icon: IconName,
+    size: ButtonSize,
+    disabled: bool,
+    label: Option<String>,
+    hint: Option<String>,
+}
+
+impl Eyedropper {
+    /// The button of this eyedropper.
+    pub fn new(state: &EyedropperState) -> Self {
+        Self {
+            state: state.clone(),
+            icon: IconName::Crosshair,
+            size: ButtonSize::Small,
+            disabled: false,
+            label: None,
+            hint: None,
+        }
+    }
+
+    /// Its icon, instead of a crosshair.
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = icon;
+        self
+    }
+
+    /// The size of the button.
+    pub fn size(mut self, size: ButtonSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Whether it can be armed.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    /// The name screen readers announce, instead of the one in [`Labels`](crate::Labels).
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// What its tooltip says, instead of the one in [`Labels`](crate::Labels).
+    pub fn hint(mut self, hint: impl Into<String>) -> Self {
+        self.hint = Some(hint.into());
+        self
+    }
+}
+
+impl View for Eyedropper {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let labels = cx.labels();
+        self.state.listen_for_escape(cx);
+        let armed = self.state.armed.clone();
+        let is_armed = armed.get() && !self.disabled;
+        let button = IconButton::new(self.icon)
+            .label(self.label.clone().unwrap_or_else(|| labels.eyedropper.clone()))
+            .size(self.size)
+            .disabled(self.disabled)
+            .selected(is_armed)
+            .on_click(move || armed.update(|a| *a = !*a));
+        let hint = self.hint.clone().unwrap_or_else(|| labels.eyedropper_hint.clone());
+        cx.child(&Tooltip::new(button, hint))
+    }
+}
+
+/// Where an eyedropper picks from, over a picture. While armed, a click asks `sampler` for the
+/// color at that point of the content, in the units of the [space](Self::space); a point out of
+/// the content or a `None` picks nothing and leaves it armed. While not armed it takes no input.
+///
+/// `CursorIcon` has no eyedropper, so while armed the cursor is the pointing hand.
+pub struct EyedropperArea {
+    state: EyedropperState,
+    sampler: Rc<dyn Fn(Point) -> Option<Color>>,
+    frame: OverlayBox,
+    label: Option<String>,
+}
+
+impl fmt::Debug for EyedropperArea {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EyedropperArea").field("state", &self.state).finish_non_exhaustive()
+    }
+}
+
+impl EyedropperArea {
+    /// An area of this eyedropper that reads colors with `sampler`.
+    pub fn new(state: &EyedropperState, sampler: impl Fn(Point) -> Option<Color> + 'static) -> Self {
+        Self { state: state.clone(), sampler: Rc::new(sampler), frame: OverlayBox::default(), label: None }
+    }
+
+    overlay_builders!(frame);
+
+    /// The name screen readers announce while armed, instead of the one in
+    /// [`Labels`](crate::Labels).
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
+impl View for EyedropperArea {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let labels = cx.labels();
+        self.state.listen_for_escape(cx);
+        let (root, surface) = self.frame.build(cx, Paint::None);
+        if !self.state.armed.get() {
+            return root;
+        }
+        let name = self.label.clone().unwrap_or_else(|| labels.eyedropper_area.clone());
+        cx.semantics(surface, Semantics::new(Role::Group).name(name));
+        cx.cursor(surface, CursorIcon::Pointer);
+        let (state, sampler, space) = (self.state.clone(), self.sampler.clone(), self.frame.space.clone());
+        cx.on_drag(
+            surface,
+            Rc::new(move |d| {
+                if d.phase != DragPhase::Start {
+                    return;
+                }
+                let map = space.map(d.frame);
+                if !map.placed.contains(d.position) {
+                    return;
+                }
+                if let Some(color) = sampler(map.content(d.position)) {
+                    state.pick(color);
+                }
+            }),
+        );
         root
     }
 }

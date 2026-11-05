@@ -409,6 +409,12 @@ pub struct Labels {
     pub crop: String,
     /// A [`Protractor`](crate::Protractor)'s name.
     pub protractor: String,
+    /// An [`Eyedropper`](crate::Eyedropper)'s name.
+    pub eyedropper: String,
+    /// What an [`Eyedropper`](crate::Eyedropper)'s tooltip says.
+    pub eyedropper_hint: String,
+    /// An armed [`EyedropperArea`](crate::EyedropperArea)'s name.
+    pub eyedropper_area: String,
     /// A recurrence editor's name.
     pub recurrence_name: String,
     /// Once, daily, weekly, monthly and yearly, as an editor offers them.
@@ -845,6 +851,9 @@ impl Default for Labels {
             transform: "Transform box".into(),
             crop: "Crop area".into(),
             protractor: "Angle".into(),
+            eyedropper: "Pick a color".into(),
+            eyedropper_hint: "Click a point of the picture (Esc cancels)".into(),
+            eyedropper_area: "Picture to pick a color from".into(),
             recurrence_name: "Repeats".into(),
             recurrence_frequencies: owned(["Once", "Daily", "Weekly", "Monthly", "Yearly"]),
             recurrence_every: "Every".into(),
@@ -1179,6 +1188,9 @@ impl Labels {
             transform: "Caixa de transformação".into(),
             crop: "Área de recorte".into(),
             protractor: "Ângulo".into(),
+            eyedropper: "Escolher uma cor".into(),
+            eyedropper_hint: "Clique num ponto da imagem (Esc cancela)".into(),
+            eyedropper_area: "Imagem de onde escolher a cor".into(),
             recurrence_name: "Repetição".into(),
             recurrence_frequencies: owned(["Uma vez", "Diária", "Semanal", "Mensal", "Anual"]),
             recurrence_every: "A cada".into(),
