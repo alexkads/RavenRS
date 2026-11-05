@@ -3,7 +3,7 @@
 use crate::prelude::*;
 use ravenrs_report::barcode::Symbology;
 use ravenrs_report::chart::ChartKind;
-use ravenrs_report::{ChartSeries, Columns, ControlKind, PageSettings, PictureMode, Style, TextAlign};
+use ravenrs_report::{ChartSeries, Columns, ControlKind, PageSettings, PrinterAction, PrinterCommand, PictureMode, Style, TextAlign};
 use ravenrs_style::SPACING;
 
 use crate::bands::BandRef;
@@ -265,6 +265,62 @@ const SYMBOLOGIES: [(&str, Symbology); 8] = [
     ("QR Code", Symbology::Qr),
 ];
 
+/// What a printer can be told to do, as people call it.
+pub(crate) const PRINTER_ACTIONS: [(&str, PrinterAction); 5] = [
+    ("Corte total", PrinterAction::Cut),
+    ("Corte parcial", PrinterAction::PartialCut),
+    ("Abrir gaveta", PrinterAction::OpenDrawer),
+    ("Bipe", PrinterAction::Beep),
+    ("Avançar papel", PrinterAction::Feed),
+];
+
+fn printer_command_props(e: &Editor, command: PrinterCommand, rows: &mut Vec<AnyView>) {
+    let index = PRINTER_ACTIONS.iter().position(|(_, action)| *action == command.action).unwrap_or(0);
+    let write = e.clone();
+    let action = Select::new(
+        Binding::new(
+            move || index,
+            move |i: usize| {
+                write.edit_control("printer-action", |c| {
+                    if let ControlKind::PrinterCommand(p) = &mut c.kind {
+                        p.action = PRINTER_ACTIONS[i.min(PRINTER_ACTIONS.len() - 1)].1;
+                    }
+                });
+            },
+        ),
+        PRINTER_ACTIONS.iter().map(|(name, _)| *name),
+    )
+    .width(268.0)
+    .label("Comando");
+    rows.push(Box::new(FormField::new("Comando", action).hint(
+        "Vale para impressoras ESC/POS. O comando não ocupa espaço e não aparece no PDF.",
+    )));
+    if command.action == PrinterAction::Feed {
+        let (read, write) = (e.clone(), e.clone());
+        let lines = TextField::new(Binding::new(
+            move || {
+                read.selected_control()
+                    .and_then(|(_, _, c)| match c.kind {
+                        ControlKind::PrinterCommand(p) => Some(p.lines.to_string()),
+                        _ => None,
+                    })
+                    .unwrap_or_default()
+            },
+            move |s: String| {
+                if let Ok(lines) = s.trim().parse::<u8>() {
+                    write.edit_control("printer-lines", |c| {
+                        if let ControlKind::PrinterCommand(p) = &mut c.kind {
+                            p.lines = lines;
+                        }
+                    });
+                }
+            },
+        ))
+        .compact();
+        rows.push(Box::new(FormField::new("Linhas", lines)));
+    }
+}
+
 fn barcode_props(e: &Editor, barcode: &ravenrs_report::Barcode, rows: &mut Vec<AnyView>) {
     let index = SYMBOLOGIES.iter().position(|(_, s)| *s == barcode.symbology).unwrap_or(0);
     let write = e.clone();
@@ -417,6 +473,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Chart(_) => "Gráfico",
         ControlKind::Link(_) => "Link",
         ControlKind::Bookmark(_) => "Marcador",
+        ControlKind::PrinterCommand(_) => "Comando da impressora",
         _ => "Controle",
     };
     let mut rows: Vec<AnyView> = vec![Box::new(
@@ -485,6 +542,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Link(_) => link_props(e, &mut rows),
         ControlKind::Bookmark(_) => bookmark_props(e, &mut rows),
         ControlKind::Barcode(barcode) => barcode_props(e, barcode, &mut rows),
+        ControlKind::PrinterCommand(command) => printer_command_props(e, *command, &mut rows),
         ControlKind::Chart(chart) => chart_props(e, chart, &mut rows),
         _ => {}
     }
@@ -720,7 +778,9 @@ fn report_props(e: &Editor) -> impl View + use<> {
                 read.report.with(|r| {
                     stocks_to_read
                         .iter()
-                        .position(|s| s.page == r.page && s.columns == r.columns)
+                        .position(|s| {
+                            s.page == r.page && s.columns == r.columns && s.continuous == r.continuous
+                        })
                         .map_or(0, |at| at + 1)
                 })
             },
@@ -729,11 +789,15 @@ fn report_props(e: &Editor) -> impl View + use<> {
                     Some(stock) => {
                         r.page = stock.page;
                         r.columns = stock.columns;
-                        r.detail.height = stock.height;
+                        r.continuous = stock.continuous;
+                        if !stock.continuous {
+                            r.detail.height = stock.height;
+                        }
                     }
                     None => {
                         r.page = PageSettings::a4();
                         r.columns = None;
+                        r.continuous = false;
                     }
                 });
             },

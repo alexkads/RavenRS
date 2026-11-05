@@ -884,6 +884,10 @@ impl<'r> Run<'r> {
                 }
                 0.0
             }
+            ControlKind::PrinterCommand(command) => {
+                items.push(Item::PrinterCommand { y: at.y, command: *command });
+                0.0
+            }
             ControlKind::Panel(panel) => {
                 let mut content = Vec::new();
                 let inner = self.controls(engine, &panel.controls, ctx, at, zebra, &mut content);
@@ -1435,6 +1439,8 @@ fn lowest_of(items: &[Item]) -> f32 {
             Item::Line { from, to, .. } => from.y.max(to.y),
             Item::Text(text) => text.clip.max_y(),
             Item::Image { clip, .. } => clip.max_y(),
+            // A command at the very end still needs the page to reach it.
+            Item::PrinterCommand { y, .. } => *y,
             Item::Link { .. } | Item::Bookmark { .. } | Item::BarcodeMark { .. } => 0.0,
         })
         .fold(0.0, f32::max)
@@ -1464,6 +1470,7 @@ fn translate(item: &Item, by: Point) -> Item {
         Item::BarcodeMark { rect, symbology, content } => {
             Item::BarcodeMark { rect: r(rect), symbology: *symbology, content: content.clone() }
         }
+        Item::PrinterCommand { y, command } => Item::PrinterCommand { y: y + by.y, command: *command },
         Item::Text(t) => Item::Text(TextBlock {
             clip: r(&t.clip),
             lines: t

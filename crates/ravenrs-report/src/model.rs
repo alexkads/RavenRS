@@ -29,6 +29,8 @@ pub struct Report {
     /// One long page as tall as what it prints, as on a roll of receipt paper. The height of
     /// [`page`](Self::page) is the most it can reach.
     pub continuous: bool,
+    /// The printer it goes to directly, when it does.
+    pub printer: Option<PrinterSettings>,
     /// Culture for numbers and dates, such as `pt-BR` or `en-US`.
     pub culture: String,
     /// Where the data comes from, saved with the layout. The engine renders
@@ -429,6 +431,9 @@ pub enum ControlKind {
     Bookmark(Bookmark),
     /// A barcode or QR Code.
     Barcode(Barcode),
+    /// Something for the printer to do here, such as cutting the paper. It prints nothing, and takes
+    /// no room in the printed document.
+    PrinterCommand(PrinterCommand),
     /// A chart of the rows in scope, or of a nested list.
     Chart(Chart),
 }
@@ -472,6 +477,58 @@ impl ChartSeries {
     /// A series named `name`, with `value` for each row.
     pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
         Self { name: name.into(), value: value.into(), color: None }
+    }
+}
+
+/// What a receipt printer can be told to do, at a place on the page.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub enum PrinterAction {
+    /// Cuts the paper all the way.
+    #[default]
+    Cut,
+    /// Cuts the paper leaving a bit attached.
+    PartialCut,
+    /// Opens the cash drawer connected to the printer.
+    OpenDrawer,
+    /// Beeps, on the printers that can.
+    Beep,
+    /// Moves the paper forward some lines.
+    Feed,
+}
+
+/// Something for the printer to do at this place on the page.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PrinterCommand {
+    /// What it does.
+    pub action: PrinterAction,
+    /// How many lines, for moving the paper forward.
+    pub lines: u8,
+}
+
+impl Default for PrinterCommand {
+    fn default() -> Self {
+        Self { action: PrinterAction::default(), lines: 3 }
+    }
+}
+
+/// The printer a report goes to directly, kept with the layout.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PrinterSettings {
+    /// The language it speaks, by its name: `ESC/POS`, `ZPL`, `EPL`, `PPLA` or `TSPL`.
+    pub language: String,
+    /// Dots per inch.
+    pub dpi: u32,
+    /// Where it is: `host:9100` on the network, `cups:name` on this computer, or a file path.
+    pub connection: String,
+}
+
+impl Default for PrinterSettings {
+    fn default() -> Self {
+        Self { language: "ESC/POS".to_owned(), dpi: 203, connection: String::new() }
     }
 }
 
@@ -1114,6 +1171,16 @@ impl Control {
                 level,
                 ..Bookmark::default()
             }),
+            height: 12.0,
+            ..Self::default()
+        }
+    }
+
+    /// Tells the printer to do this here.
+    pub fn printer_command(action: PrinterAction) -> Self {
+        Self {
+            kind: ControlKind::PrinterCommand(PrinterCommand { action, ..PrinterCommand::default() }),
+            width: 120.0,
             height: 12.0,
             ..Self::default()
         }

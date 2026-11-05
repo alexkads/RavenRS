@@ -3,7 +3,7 @@
 
 use ravenrs_app::{Object, Value};
 use ravenrs_app_ui::Session;
-use ravenrs_report::{Document, ReportEngine};
+use ravenrs_report::{Document, Report, ReportEngine};
 use ravenrs_report_label::{LabelJob, compile};
 
 use crate::stored::{REPORT_DEFINITION, ReportWords, design_report, every_record, report_of, rows_of};
@@ -34,6 +34,24 @@ pub fn render_stored_report(
     words: &ReportWords,
 ) -> Result<Document, String> {
     let (layout, entity) = report_of(session, report, words)?;
+    let rows = rows_of(session, &entity, &repeated(records));
+    let document = ReportEngine::new().render(&layout, &rows);
+    match document.errors.first() {
+        Some(problem) => Err(problem.clone()),
+        None => Ok(document),
+    }
+}
+
+/// Like [`render_stored_report`], for a caller with something to check or change in the layout first.
+pub fn render_stored_report_with(
+    session: &Session,
+    report: &Object,
+    records: &[(Object, u32)],
+    words: &ReportWords,
+    prepare: impl FnOnce(&mut Report) -> Result<(), String>,
+) -> Result<Document, String> {
+    let (mut layout, entity) = report_of(session, report, words)?;
+    prepare(&mut layout)?;
     let rows = rows_of(session, &entity, &repeated(records));
     let document = ReportEngine::new().render(&layout, &rows);
     match document.errors.first() {

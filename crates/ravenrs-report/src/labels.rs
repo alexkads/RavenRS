@@ -19,9 +19,24 @@ pub struct LabelStock {
     pub width: f32,
     /// The height of each label, in points.
     pub height: f32,
+    /// A roll with no gaps, where a page is as long as what it prints.
+    pub continuous: bool,
 }
 
 impl LabelStock {
+    /// A roll of receipt paper, with this much of its width within reach of the printer. Rows take
+    /// the height they need, so its detail band starts small.
+    pub fn receipt(name: &'static str, printable_width: f32) -> Self {
+        Self {
+            name,
+            page: receipt_page(printable_width, 0.0),
+            columns: None,
+            width: mm(printable_width),
+            height: 14.0,
+            continuous: true,
+        }
+    }
+
     /// One label after another on a roll, of this size in millimeters.
     pub fn roll(name: &'static str, width: f32, height: f32) -> Self {
         Self {
@@ -30,6 +45,7 @@ impl LabelStock {
             columns: None,
             width: mm(width),
             height: mm(height),
+            continuous: false,
         }
     }
 
@@ -47,6 +63,7 @@ impl LabelStock {
             columns: Some(Columns::new(across).spaced(mm(sheet.gap_across), mm(sheet.gap_down))),
             width: mm(sheet.width),
             height: mm(sheet.height),
+            continuous: false,
         }
     }
 
@@ -54,6 +71,7 @@ impl LabelStock {
     pub fn report(&self, name: impl Into<String>) -> Report {
         let mut report = Report::new(name).page(self.page);
         report.columns = self.columns;
+        report.continuous = self.continuous;
         report.detail = Band::new(self.height);
         report
     }
@@ -89,7 +107,7 @@ pub struct SheetLayout {
     pub gap_down: f32,
 }
 
-/// The common sizes, rolls first.
+/// The common sizes: rolls of labels, sheets, then rolls of receipt paper.
 pub fn common_stocks() -> Vec<LabelStock> {
     vec![
         LabelStock::roll("Rolo 40 x 25 mm", 40.0, 25.0),
@@ -105,6 +123,8 @@ pub fn common_stocks() -> Vec<LabelStock> {
             2,
             SheetLayout { width: 99.1, height: 38.1, top: 15.15, side: 4.65, gap_across: 2.5, gap_down: 0.0 },
         ),
+        LabelStock::receipt("Bobina 80 mm", 72.0),
+        LabelStock::receipt("Bobina 58 mm", 48.0),
     ]
 }
 

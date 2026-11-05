@@ -19,6 +19,6 @@ pub use output::LabelOutput;
 #[cfg(windows)]
 pub use output::WindowsShareOutput;
 #[cfg(not(target_arch = "wasm32"))]
-pub use output::{CupsOutput, FileOutput, TcpOutput};
+pub use output::{CupsOutput, FileOutput, TcpOutput, output_for};
 pub use preset::{PrinterPreset, presets};
 pub use raster::rasterize_page;

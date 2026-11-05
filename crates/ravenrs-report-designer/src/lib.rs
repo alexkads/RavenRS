@@ -33,6 +33,7 @@ mod editor;
 mod preview;
 mod props;
 mod surface;
+mod thermal;
 
 use bands::BandRef;
 use editor::{Editor, FieldDrag, Selection};
@@ -179,6 +180,11 @@ impl Component for Designer {
             )),
             Divider::horizontal(),
             StatusBar { editor: e.clone(), cache: self.cache.clone(), themes: on_its_own },
+            thermal::ThermalDialog {
+                editor: e.clone(),
+                cache: self.cache.clone(),
+                params: self.params.clone(),
+            },
             on_its_own.then(|| Gallery { editor: e.clone() }),
             on_its_own.then(|| WizardDialog { editor: e.clone(), state: self.wizard.clone() }),
             FieldGhost(e.clone()),
@@ -332,6 +338,12 @@ impl Designer {
                 )
                 .group(
                     RibbonGroup::new("Saída")
+                        .item({
+                            let e = e.clone();
+                            RibbonItem::button("Impressora direta", IconName::Printer)
+                                .large()
+                                .on_click(move || e.thermal_open.set(true))
+                        })
                         .item(printer(RibbonItem::button("Imprimir", IconName::Printer).large()))
                         .item(exporter(
                             RibbonItem::button("PDF", IconName::FileText).large(),
@@ -410,6 +422,24 @@ impl Designer {
                         .item(
                             insert("Link", IconName::Link, || {
                                 Control::link("Abrir site", "https://").at(0.0, 0.0, 140.0, 18.0)
+                            })
+                            .small(),
+                        )
+                        .item(
+                            insert("Corte", IconName::Scissors, || {
+                                Control::printer_command(ravenrs_report::PrinterAction::Cut)
+                            })
+                            .small(),
+                        )
+                        .item(
+                            insert("Gaveta", IconName::Inbox, || {
+                                Control::printer_command(ravenrs_report::PrinterAction::OpenDrawer)
+                            })
+                            .small(),
+                        )
+                        .item(
+                            insert("Bipe", IconName::Bell, || {
+                                Control::printer_command(ravenrs_report::PrinterAction::Beep)
                             })
                             .small(),
                         )

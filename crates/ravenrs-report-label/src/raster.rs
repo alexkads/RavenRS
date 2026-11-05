@@ -14,8 +14,12 @@ use crate::error::LabelError;
 
 const POINTS_PER_INCH: f32 = 72.0;
 const MM_PER_INCH: f32 = 25.4;
-/// The most dots a side can have, which is also the most a drawing can be rasterized at.
-const MAX_SIDE: u32 = 4096;
+/// The most dots across, which is also the most a drawing can be rasterized at.
+const MAX_WIDTH: u32 = 4096;
+/// The most dots down: about 25 m of receipt paper at 203 dpi, which keeps the picture in megabytes.
+const MAX_HEIGHT: u32 = 200_000;
+/// A drawing taller than this is rasterized in bands. Each band stays well below the rasterizer's limit.
+const DRAWING_BAND: u32 = 2048;
 /// A glyph or shape covering at least this much of a dot burns it.
 const COVERAGE: u8 = 128;
 
@@ -81,9 +85,9 @@ pub fn rasterize_page(page: &Page, dpi: u32, text: &mut TextSystem) -> Result<Bi
     }
     let scale = dpi as f32 / POINTS_PER_INCH;
     let (width, height) = ((page.width * scale).round(), (page.height * scale).round());
-    if !(width >= 1.0 && height >= 1.0 && width <= MAX_SIDE as f32 && height <= MAX_SIDE as f32) {
+    if !(width >= 1.0 && height >= 1.0 && width <= MAX_WIDTH as f32 && height <= MAX_HEIGHT as f32) {
         return Err(LabelError::InvalidPage(format!(
-            "tamanho de {width} x {height} pontos, fora do intervalo de 1 a {MAX_SIDE}"
+            "tamanho de {width} x {height} pontos; o limite é {MAX_WIDTH} x {MAX_HEIGHT}"
         )));
     }
     let mut painter =
@@ -211,15 +215,23 @@ impl Painter {
         if x1 <= x0 || y1 <= y0 {
             return;
         }
-        let aligned = Rect::new(x0 / scale, y0 / scale, (x1 - x0) / scale, (y1 - y0) / scale);
-        if let Some(picture) = vector::rasterize(shapes, aligned, scale) {
-            self.stamp(&picture, x0 as u32, y0 as u32);
+        let (left, width) = (x0 / scale, (x1 - x0) / scale);
+        let (mut top, bottom) = (y0 as u32, y1 as u32);
+        while top < bottom {
+            let band = DRAWING_BAND.min(bottom - top);
+            let aligned = Rect::new(left, top as f32 / scale, width, band as f32 / scale);
+            if let Some(picture) = vector::rasterize(shapes, aligned, scale) {
+                self.stamp(&picture, x0 as u32, top, band);
+            }
+            top += band;
         }
     }
 
-    fn stamp(&mut self, picture: &ImageData, left: u32, top: u32) {
+    /// Copies `rows` rows of a picture. Rounding can make it one row taller, which would cover the
+    /// next band's first row.
+    fn stamp(&mut self, picture: &ImageData, left: u32, top: u32, rows: u32) {
         let width = picture.width().max(1) as usize;
-        for (row, pixels) in picture.pixels().chunks_exact(width * 4).enumerate() {
+        for (row, pixels) in picture.pixels().chunks_exact(width * 4).take(rows as usize).enumerate() {
             for (column, pixel) in pixels.as_chunks::<4>().0.iter().enumerate() {
                 if let Some(black) = pixel_ink(pixel) {
                     self.bitmap.set(left + column as u32, top + row as u32, black);
@@ -542,8 +554,31 @@ mod tests {
 
     #[test]
     fn a_huge_page_is_refused() {
-        let huge = Page { width: 100_000.0, height: 72.0, ..Page::default() };
-        let result = rasterize_page(&huge, 203, &mut TextSystem::new());
-        assert!(matches!(result, Err(LabelError::InvalidPage(_))));
+        let mut text = TextSystem::new();
+        let wide = Page { width: 100_000.0, height: 72.0, ..Page::default() };
+        assert!(matches!(rasterize_page(&wide, 203, &mut text), Err(LabelError::InvalidPage(_))));
+        let endless = Page { width: 200.0, height: 1_000_000.0, ..Page::default() };
+        assert!(matches!(rasterize_page(&endless, 203, &mut text), Err(LabelError::InvalidPage(_))));
+    }
+
+    #[test]
+    fn a_very_tall_page_uses_its_height_and_draws_to_the_bottom() {
+        let height = 10_000.0 * 72.0 / 203.0;
+        let full = Rect::new(10.0, 10.0, 100.0, height - 20.0);
+        // Taller than the rasterizer's own limit: it must come out whole, with no seam between bands.
+        let drawing = Item::Vector {
+            rect: full,
+            shapes: vec![Shape::filled(vector::rectangle(full, 0.0), Color::BLACK)],
+        };
+        let last = Rect::new(0.0, height - 5.0, 200.0, 5.0);
+        let rule = Item::Rect { rect: last, fill: Some(Color::BLACK), stroke: None, radius: 0.0 };
+        let page = Page { width: 200.0, height, items: vec![drawing, rule], ..Page::default() };
+        let bitmap = rasterize_page(&page, 203, &mut TextSystem::new()).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(bitmap.height(), 10_000);
+        assert!(bitmap.get(0, 9_999), "the rule at the bottom");
+        assert!(!bitmap.get(100, 20), "above the drawing");
+        for y in 40..9_900 {
+            assert!(bitmap.get(100, y), "row {y} of the drawing");
+        }
     }
 }

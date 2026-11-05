@@ -10,14 +10,14 @@ pub trait LabelOutput {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use native::{CupsOutput, FileOutput, TcpOutput};
+pub use native::{CupsOutput, FileOutput, TcpOutput, output_for};
 #[cfg(windows)]
 pub use windows::WindowsShareOutput;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
     use std::io::Write as _;
-    use std::net::{Shutdown, TcpStream, ToSocketAddrs as _};
+    use std::net::{Ipv6Addr, Shutdown, TcpStream, ToSocketAddrs as _};
     use std::path::PathBuf;
     use std::process::{Command, Stdio};
     use std::time::Duration;
@@ -147,12 +147,145 @@ mod native {
         }
     }
 
+    /// What a connection text means.
+    #[derive(Debug, PartialEq, Eq)]
+    enum Connection {
+        Cups(CupsOutput),
+        Tcp(TcpOutput),
+        File(FileOutput),
+    }
+
+    fn parse_connection(connection: &str) -> Result<Connection, LabelError> {
+        let text = connection.trim();
+        if text.is_empty() {
+            return Err(LabelError::InvalidDestination(
+                "informe a impressora: cups:nome, host, host:porta ou o caminho de um arquivo".to_owned(),
+            ));
+        }
+        if let Some(name) = text.strip_prefix("cups:") {
+            return CupsOutput::new(name).map(Connection::Cups);
+        }
+        let lower = text.to_ascii_lowercase();
+        if text.starts_with(['/', '.']) || lower.ends_with(".prn") || lower.ends_with(".bin") {
+            return Ok(Connection::File(FileOutput::new(text)));
+        }
+        let not_understood = || {
+            LabelError::InvalidDestination(format!(
+                "\"{text}\" não é cups:nome, host, host:porta nem caminho de arquivo"
+            ))
+        };
+        if text.parse::<Ipv6Addr>().is_ok() {
+            return Ok(Connection::Tcp(TcpOutput::new(text)));
+        }
+        let (host, port) = match text.strip_prefix('[') {
+            Some(bracketed) => {
+                let (address, rest) = bracketed.split_once(']').ok_or_else(not_understood)?;
+                address.parse::<Ipv6Addr>().map_err(|_| not_understood())?;
+                match rest.strip_prefix(':') {
+                    Some(port) => (address, Some(port)),
+                    None if rest.is_empty() => (address, None),
+                    None => return Err(not_understood()),
+                }
+            }
+            None => {
+                let (host, port) = match text.split_once(':') {
+                    Some((host, port)) => (host, Some(port)),
+                    None => (text, None),
+                };
+                let valid = !host.is_empty()
+                    && host.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_'));
+                if !valid {
+                    return Err(not_understood());
+                }
+                (host, port)
+            }
+        };
+        let mut output = TcpOutput::new(host);
+        if let Some(port) = port {
+            output.port = port.parse().ok().filter(|port| *port != 0).ok_or_else(not_understood)?;
+        }
+        Ok(Connection::Tcp(output))
+    }
+
+    /// The output a connection text names: `cups:name` for the print service, `host` or `host:port`
+    /// for the network (port 9100 if none), and a path that ends in `.prn` or `.bin` or starts with
+    /// `/` or `.` for a file.
+    pub fn output_for(connection: &str) -> Result<Box<dyn LabelOutput + Send>, LabelError> {
+        Ok(match parse_connection(connection)? {
+            Connection::Cups(output) => Box::new(output),
+            Connection::Tcp(output) => Box::new(output),
+            Connection::File(output) => Box::new(output),
+        })
+    }
+
     #[cfg(test)]
     mod tests {
         use std::io::Read as _;
         use std::net::TcpListener;
 
         use super::*;
+
+        fn tcp(host: &str, port: u16) -> Connection {
+            Connection::Tcp(TcpOutput { port, ..TcpOutput::new(host) })
+        }
+
+        #[test]
+        fn a_connection_with_cups_names_the_print_service() {
+            let cups = CupsOutput::new("Cupom").unwrap_or_else(|e| panic!("{e}"));
+            assert_eq!(parse_connection("cups:Cupom"), Ok(Connection::Cups(cups)));
+            assert!(matches!(parse_connection("cups:a b"), Err(LabelError::InvalidDestination(_))));
+            assert!(matches!(parse_connection("cups:"), Err(LabelError::InvalidDestination(_))));
+        }
+
+        #[test]
+        fn a_connection_with_a_host_goes_to_the_network() {
+            assert_eq!(parse_connection("192.168.0.50"), Ok(tcp("192.168.0.50", 9100)));
+            assert_eq!(parse_connection("caixa-1"), Ok(tcp("caixa-1", 9100)));
+            assert_eq!(parse_connection("192.168.0.50:9101"), Ok(tcp("192.168.0.50", 9101)));
+            assert_eq!(parse_connection("caixa-1:515"), Ok(tcp("caixa-1", 515)));
+            assert_eq!(parse_connection("::1"), Ok(tcp("::1", 9100)));
+            assert_eq!(parse_connection("[::1]:9101"), Ok(tcp("::1", 9101)));
+            for wrong in ["host:porta", "host:0", "host:70000", ":9100", "dois nomes", "[::1", "[x]:1"] {
+                assert!(matches!(parse_connection(wrong), Err(LabelError::InvalidDestination(_))), "{wrong}");
+            }
+        }
+
+        #[test]
+        fn a_connection_with_a_path_goes_to_a_file() {
+            for path in ["/tmp/cupom", "./cupom", "../saida/cupom", "cupom.prn", "CUPOM.BIN", "C:\\x\\c.prn"]
+            {
+                assert_eq!(parse_connection(path), Ok(Connection::File(FileOutput::new(path))), "{path}");
+            }
+        }
+
+        #[test]
+        fn an_empty_connection_says_what_to_inform() {
+            for empty in ["", "   "] {
+                let error = output_for(empty).err().map(|e| e.to_string()).unwrap_or_default();
+                assert!(error.contains("informe a impressora"), "{error}");
+            }
+        }
+
+        #[test]
+        fn the_outputs_it_gives_deliver_and_can_change_threads() {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|e| panic!("{e}"));
+            let port = listener.local_addr().unwrap_or_else(|e| panic!("{e}")).port();
+            let output = output_for(&format!("127.0.0.1:{port}")).unwrap_or_else(|e| panic!("{e}"));
+            let sender = std::thread::spawn(move || output.send(b"^XA^XZ"));
+            let (mut stream, _) = listener.accept().unwrap_or_else(|e| panic!("{e}"));
+            let mut received = Vec::new();
+            stream.read_to_end(&mut received).unwrap_or_else(|e| panic!("{e}"));
+            assert_eq!(sender.join().unwrap_or_else(|_| panic!("the sender failed")), Ok(()));
+            assert_eq!(received, b"^XA^XZ");
+
+            let path = scratch("saida.prn");
+            let output = output_for(&path.display().to_string()).unwrap_or_else(|e| panic!("{e}"));
+            let sent = output.send(b"cupom");
+            let got = std::fs::read(&path).unwrap_or_default();
+            let _ = std::fs::remove_file(&path);
+            assert_eq!(sent, Ok(()));
+            assert_eq!(got, b"cupom");
+        }
 
         fn scratch(name: &str) -> PathBuf {
             std::env::temp_dir().join(format!("ravenrs-report-label-{}-{name}", std::process::id()))
@@ -175,11 +308,8 @@ mod native {
 
         #[test]
         fn tcp_says_when_nobody_answers() {
-            // A port just freed: nothing listens there.
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|e| panic!("{e}"));
-            let port = listener.local_addr().unwrap_or_else(|e| panic!("{e}")).port();
-            drop(listener);
-            let output = TcpOutput { port, ..TcpOutput::new("127.0.0.1") };
+            // Port 1 is reserved and unused. A port just freed could go to another test running now.
+            let output = TcpOutput { port: 1, ..TcpOutput::new("127.0.0.1") };
             assert!(matches!(output.send(b"x"), Err(LabelError::Output(_))));
         }
 

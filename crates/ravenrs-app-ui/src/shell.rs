@@ -43,6 +43,8 @@ pub struct TemplateParts {
     /// A bar of the keys of what can be done here. Only a template made to be used from the
     /// keyboard shows it.
     pub keys: AnyView,
+    /// The kind of view in the window, if any.
+    pub kind: Option<ViewKind>,
 }
 
 impl std::fmt::Debug for TemplateParts {
@@ -80,8 +82,14 @@ pub struct CounterTemplate;
 
 impl FrameTemplate for CounterTemplate {
     fn arrange(&self, parts: TemplateParts) -> AnyView {
-        let main = VStack::new((parts.content.grow(1.0), parts.keys)).spacing(8.0).align(Align::Stretch);
-        Box::new(main.grow(1.0))
+        // A dashboard is a screen of its own; a list or a form still needs its commands.
+        let mut rows: Vec<AnyView> = Vec::with_capacity(3);
+        if parts.kind != Some(ViewKind::Dashboard) {
+            rows.push(parts.header);
+        }
+        rows.push(Box::new(parts.content.grow(1.0)));
+        rows.push(parts.keys);
+        Box::new(VStack::new(rows).spacing(0.0).align(Align::Stretch).grow(1.0))
     }
 }
 
@@ -704,6 +712,7 @@ impl View for AppShell {
             header: self.header(view),
             content: self.content(view),
             keys: Box::new(ActionKeys { session: session.clone() }),
+            kind: view.map(|view| view.kind),
         });
         parts.push(cx.child(&window));
         parts.push(cx.child(session.confirm()));

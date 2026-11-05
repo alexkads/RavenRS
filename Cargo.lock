@@ -4900,6 +4900,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-app-nfe"
+version = "27.1.13"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-app-report",
+ "ravenrs-app-ui",
+ "ravenrs-nfe",
+ "ravenrs-reactive",
+ "ravenrs-report",
+ "ravenrs-report-label",
+ "ravenrs-widgets",
+ "rust_decimal",
+ "serde_json",
+]
+
+[[package]]
 name = "ravenrs-app-report"
 version = "27.1.13"
 dependencies = [
@@ -5158,6 +5174,7 @@ dependencies = [
  "ravenrs-reactive",
  "ravenrs-report",
  "ravenrs-report-export",
+ "ravenrs-report-label",
  "ravenrs-report-viewer",
  "ravenrs-style",
  "ravenrs-widgets",

@@ -3,7 +3,7 @@
 
 use std::fmt::Write as _;
 
-use ravenrs_report::Document;
+use ravenrs_report::{Document, Item, Page, PrinterAction, PrinterCommand};
 use ravenrs_text::TextSystem;
 
 use crate::bitmap::Bitmap;
@@ -22,11 +22,30 @@ pub enum Language {
     Ppla,
     /// TSPL and TSPL2, from TSC.
     Tspl,
+    /// ESC/POS, from Epson, on receipt printers. Each page is a receipt, and the paper is cut after it.
+    EscPos,
 }
 
 impl Language {
     /// PPLB is treated as [`Language::Epl`]: see FONTES.md for how far this is confirmed.
     pub const PPLB: Self = Self::Epl;
+
+    /// Every language, to offer as a choice.
+    pub fn all() -> &'static [Self] {
+        &[Self::Zpl, Self::Epl, Self::Ppla, Self::Tspl, Self::EscPos]
+    }
+
+    /// The language with this name, in capitals or not, as [`Self::name`] gives it or as it is known.
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name.trim().to_ascii_uppercase().as_str() {
+            "ZPL" | "ZPL II" => Some(Self::Zpl),
+            "EPL" | "EPL2" | "EPL2/PPLB" | "PPLB" => Some(Self::Epl),
+            "PPLA" => Some(Self::Ppla),
+            "TSPL" => Some(Self::Tspl),
+            "ESC/POS" => Some(Self::EscPos),
+            _ => None,
+        }
+    }
 
     /// The name to show.
     pub fn name(self) -> &'static str {
@@ -35,16 +54,27 @@ impl Language {
             Self::Epl => "EPL2/PPLB",
             Self::Ppla => "PPLA",
             Self::Tspl => "TSPL",
+            Self::EscPos => "ESC/POS",
         }
     }
 
-    /// The most copies of a label the language's command takes.
+    /// The most copies of a label the language's command takes. ESC/POS has no such command: the
+    /// whole receipt is sent again, so the limit only keeps a typo from emptying the roll.
     fn max_copies(self) -> u32 {
         match self {
             Self::Zpl => 99_999_999,
             Self::Epl => 65_535,
             Self::Ppla => 9_999,
             Self::Tspl => 999_999_999,
+            Self::EscPos => 99,
+        }
+    }
+
+    /// The resolutions its printers come in.
+    fn resolutions(self) -> &'static [u32] {
+        match self {
+            Self::EscPos => &[203, 180],
+            _ => &[203, 300],
         }
     }
 }
@@ -54,14 +84,16 @@ impl Language {
 pub struct LabelJob {
     /// The printer's language.
     pub language: Language,
-    /// The printer's resolution: 203 or 300.
+    /// The printer's resolution: 203 or 300 on label printers, 203 or 180 on receipt printers.
     pub dpi: u32,
     /// How many copies of each label.
     pub copies: u32,
     /// The gap between labels, in millimeters. `None` keeps what the printer sensed. Only EPL and TSPL
-    /// have a command for it: ZPL and PPLA printers sense the gap by themselves.
+    /// have a command for it: ZPL and PPLA printers sense the gap by themselves, and a receipt roll
+    /// has none.
     pub gap_mm: Option<f32>,
-    /// How dark to burn, from 0 to 15. `None` keeps the printer's setting.
+    /// How dark to burn, from 0 to 15. `None` keeps the printer's setting. ESC/POS ignores it, since
+    /// its printers set this in their own configuration.
     pub darkness: Option<u8>,
 }
 
@@ -72,10 +104,12 @@ impl LabelJob {
     }
 
     fn check(&self) -> Result<(), LabelError> {
-        if !matches!(self.dpi, 203 | 300) {
+        let resolutions = self.language.resolutions();
+        if !resolutions.contains(&self.dpi) {
             return Err(LabelError::InvalidJob(format!(
-                "resolução de {} dpi; as impressoras têm 203 ou 300",
-                self.dpi
+                "resolução de {} dpi; {} aceita {resolutions:?}",
+                self.dpi,
+                self.language.name()
             )));
         }
         let most = self.language.max_copies();
@@ -97,7 +131,7 @@ impl LabelJob {
                     (least..=240.0).contains(&dots.round())
                 }
                 Language::Tspl => (0.0..=127.0).contains(&gap),
-                Language::Zpl | Language::Ppla => gap.is_finite(),
+                Language::Zpl | Language::Ppla | Language::EscPos => gap.is_finite(),
             };
             if !accepted {
                 return Err(LabelError::InvalidJob(format!(
@@ -129,12 +163,35 @@ pub fn compile_with(
     for (index, page) in document.pages.iter().enumerate() {
         let on_label = |source| LabelError::OnLabel { label: index + 1, source: Box::new(source) };
         let bitmap = rasterize_page(page, job.dpi, text).map_err(on_label)?;
-        bytes.extend(encode_bitmap(&bitmap, job).map_err(on_label)?);
+        let encoded = match job.language {
+            Language::EscPos => escpos(&bitmap, &printer_commands(page, &bitmap, job.dpi), job),
+            _ => encode_bitmap(&bitmap, job),
+        };
+        bytes.extend(encoded.map_err(on_label)?);
     }
     Ok(bytes)
 }
 
-/// The bytes that print one picture as one label.
+/// The page's printer commands in the order they come down the paper, each with the row it comes
+/// before. Those on the same row keep the order they have on the page.
+fn printer_commands(page: &Page, bitmap: &Bitmap, dpi: u32) -> Vec<(usize, PrinterCommand)> {
+    let mut commands: Vec<(usize, PrinterCommand)> = page
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            Item::PrinterCommand { y, command } => {
+                let row = (y * dpi as f32 / 72.0).round().clamp(0.0, bitmap.height() as f32);
+                Some((row as usize, *command))
+            }
+            _ => None,
+        })
+        .collect();
+    commands.sort_by_key(|(row, _)| *row);
+    commands
+}
+
+/// The bytes that print one picture as one label. A page's printer commands only reach the printer
+/// through [`compile`].
 pub fn encode_bitmap(bitmap: &Bitmap, job: &LabelJob) -> Result<Vec<u8>, LabelError> {
     job.check()?;
     match job.language {
@@ -142,7 +199,109 @@ pub fn encode_bitmap(bitmap: &Bitmap, job: &LabelJob) -> Result<Vec<u8>, LabelEr
         Language::Epl => Ok(epl(bitmap, job)),
         Language::Ppla => ppla(bitmap, job),
         Language::Tspl => Ok(tspl(bitmap, job)),
+        Language::EscPos => escpos(bitmap, &[], job),
     }
+}
+
+/// A block of `GS v 0` carries at most this many rows. Far below what the manuals allow, since the
+/// limit varies by model and a block must fit the printer's buffer.
+const ESCPOS_BLOCK_ROWS: usize = 1024;
+/// `GS v 0` counts a row's bytes in two bytes, but Epson's reference stops at this.
+const ESCPOS_MAX_ROW: usize = 255;
+/// How far past the cutting position to feed before cutting, in vertical motion units.
+const ESCPOS_FEED: u8 = 24;
+/// `ESC p`: pin 2, 50 ms on, 500 ms off.
+const ESCPOS_DRAWER: [u8; 5] = [0x1B, b'p', 0, 25, 250];
+/// `ESC ( A` with function 97 as Epson has it: pattern 1, once. There is no beep all printers share,
+/// see FONTES.md. The command states its own length, so a printer that has another form can skip it.
+const ESCPOS_BEEP: [u8; 8] = [0x1B, b'(', b'A', 3, 0, 97, 1, 1];
+
+/// Appends what a printer command does.
+fn push_command(receipt: &mut Vec<u8>, command: PrinterCommand) {
+    match command.action {
+        // GS V 65 n and 66 n feed to the cutting position and n further, then cut.
+        PrinterAction::Cut => receipt.extend([0x1D, b'V', 65, ESCPOS_FEED]),
+        PrinterAction::PartialCut => receipt.extend([0x1D, b'V', 66, ESCPOS_FEED]),
+        PrinterAction::OpenDrawer => receipt.extend(ESCPOS_DRAWER),
+        PrinterAction::Beep => receipt.extend(ESCPOS_BEEP),
+        PrinterAction::Feed => receipt.extend([0x1B, b'd', command.lines]),
+        _ => {}
+    }
+}
+
+/// Appends rows in `GS v 0` blocks. `rows` holds whole rows and can be empty.
+fn push_rows(receipt: &mut Vec<u8>, rows: &[u8], per_row: usize) {
+    for block in rows.chunks(ESCPOS_BLOCK_ROWS * per_row) {
+        let count = block.len() / per_row;
+        receipt.extend([0x1D, b'v', b'0', 0]);
+        receipt.extend([(per_row % 256) as u8, (per_row / 256) as u8]);
+        receipt.extend([(count % 256) as u8, (count / 256) as u8]);
+        receipt.extend_from_slice(block);
+    }
+}
+
+/// The same picture on a width of whole bytes, with the spare dots split between the sides.
+fn on_whole_bytes(bitmap: &Bitmap) -> Bitmap {
+    let width = bitmap.bytes_per_row() as u32 * 8;
+    let left = (width - bitmap.width()) / 2;
+    let mut padded = Bitmap::new(width, bitmap.height());
+    for y in 0..bitmap.height() {
+        for x in 0..bitmap.width() {
+            if bitmap.get(x, y) {
+                padded.set(left + x, y, true);
+            }
+        }
+    }
+    padded
+}
+
+/// ESC/POS: `GS v 0` in normal mode, raw bytes, black is 1, centered with `ESC a`. A long receipt goes
+/// in several blocks, which the printer joins with no gap. Each command goes between the rows above
+/// and below it. The paper is cut at the end, unless the layout's last cut has nothing printed after it.
+fn escpos(
+    bitmap: &Bitmap,
+    commands: &[(usize, PrinterCommand)],
+    job: &LabelJob,
+) -> Result<Vec<u8>, LabelError> {
+    let per_row = bitmap.bytes_per_row();
+    if per_row == 0 || bitmap.height() == 0 {
+        return Err(LabelError::InvalidPage("o cupom não tem nenhum ponto".to_owned()));
+    }
+    if per_row > ESCPOS_MAX_ROW {
+        return Err(LabelError::InvalidPage(format!(
+            "{} pontos de largura; ESC/POS aceita até {} por linha",
+            bitmap.width(),
+            ESCPOS_MAX_ROW * 8
+        )));
+    }
+    let padded;
+    let whole = if bitmap.width().is_multiple_of(8) {
+        bitmap
+    } else {
+        padded = on_whole_bytes(bitmap);
+        &padded
+    };
+    // ESC @ then ESC a 1.
+    let mut receipt = vec![0x1B, b'@', 0x1B, b'a', 1];
+    let bits = whole.bits();
+    let is_cut = |action| matches!(action, PrinterAction::Cut | PrinterAction::PartialCut);
+    // Blank paper after the last cut would hang out of the printer, so it does not go.
+    let finished = commands
+        .iter()
+        .rev()
+        .find(|(_, command)| is_cut(command.action))
+        .is_some_and(|(row, _)| bits[row * per_row..].iter().all(|byte| *byte == 0));
+    let mut printed = 0;
+    for (row, command) in commands {
+        push_rows(&mut receipt, &bits[printed * per_row..row * per_row], per_row);
+        push_command(&mut receipt, *command);
+        printed = *row;
+    }
+    if !finished {
+        push_rows(&mut receipt, &bits[printed * per_row..], per_row);
+        receipt.extend([0x1D, b'V', 66, ESCPOS_FEED]);
+    }
+    Ok(receipt.repeat(job.copies as usize))
 }
 
 fn push_hex(out: &mut String, bytes: &[u8]) {
@@ -293,6 +452,72 @@ mod tests {
             String::from_utf8_lossy(&encoded(Language::Ppla)),
             "\u{2}IAFRAVENRS\r8002000F\r8002F000\rFFFF\r\u{2}L\rD11\r1Y1100000000000RAVENRS\rQ0002\rE\r\u{2}xAGRAVENRS\r"
         );
+    }
+
+    #[test]
+    fn every_language_is_found_by_its_names() {
+        assert_eq!(Language::all().len(), 5);
+        for language in Language::all() {
+            assert_eq!(Language::from_name(language.name()), Some(*language));
+        }
+        for (name, language) in [
+            ("ESC/POS", Language::EscPos),
+            ("ZPL", Language::Zpl),
+            ("ZPL II", Language::Zpl),
+            ("EPL", Language::Epl),
+            ("EPL2/PPLB", Language::Epl),
+            ("PPLB", Language::Epl),
+            ("PPLA", Language::Ppla),
+            ("TSPL", Language::Tspl),
+        ] {
+            assert_eq!(Language::from_name(name), Some(language), "{name}");
+        }
+        assert_eq!(Language::from_name(" zpl "), Some(Language::Zpl));
+        assert_eq!(Language::from_name("DPL"), None);
+        assert_eq!(Language::EscPos.name(), "ESC/POS");
+    }
+
+    #[test]
+    fn escpos_bytes_have_black_as_one_and_cut_at_the_end() {
+        let job = LabelJob::new(Language::EscPos, 203);
+        let bytes = encode_bitmap(&small(), &job).unwrap_or_else(|e| panic!("{e}"));
+        let expected = [
+            0x1B, b'@', 0x1B, b'a', 1, 0x1D, b'v', b'0', 0, 2, 0, 2, 0, 0xF0, 0x00, 0x00, 0x0F, 0x1D, b'V',
+            66, 24,
+        ];
+        assert_eq!(bytes, expected);
+    }
+
+    #[test]
+    fn escpos_centers_a_picture_on_whole_bytes() {
+        // 12 dots become 16, with 2 spare dots on each side.
+        let mut bitmap = Bitmap::new(12, 1);
+        bitmap.fill(0, 0, 12, 1, true);
+        let job = LabelJob::new(Language::EscPos, 203);
+        let bytes = encode_bitmap(&bitmap, &job).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(bytes[9..15], [2, 0, 1, 0, 0x3F, 0xFC]);
+    }
+
+    #[test]
+    fn escpos_takes_its_own_resolutions_and_copies_repeat_the_receipt() {
+        let check = |dpi, copies| {
+            let job = LabelJob { copies, ..LabelJob::new(Language::EscPos, dpi) };
+            encode_bitmap(&small(), &job)
+        };
+        let one = check(203, 1).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(check(180, 1), Ok(one.clone()));
+        assert_eq!(check(203, 2), Ok(one.repeat(2)));
+        assert!(matches!(check(300, 1), Err(LabelError::InvalidJob(_))));
+        assert!(matches!(check(203, 100), Err(LabelError::InvalidJob(_))));
+        let at_180 = LabelJob::new(Language::Zpl, 180);
+        assert!(matches!(encode_bitmap(&small(), &at_180), Err(LabelError::InvalidJob(_))));
+    }
+
+    #[test]
+    fn a_row_too_wide_for_escpos_and_an_empty_receipt_are_refused() {
+        let job = LabelJob::new(Language::EscPos, 203);
+        assert!(matches!(encode_bitmap(&Bitmap::new(2048, 1), &job), Err(LabelError::InvalidPage(_))));
+        assert!(matches!(encode_bitmap(&Bitmap::new(0, 0), &job), Err(LabelError::InvalidPage(_))));
     }
 
     #[test]

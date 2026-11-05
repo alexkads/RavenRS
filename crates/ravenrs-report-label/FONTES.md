@@ -53,6 +53,37 @@ Etiqueta acima de 99999 bytes sai em várias faixas `^FO`/`^GF`, por causa do li
 
 Uma linha PPLA conta seus bytes em dois dígitos, então acima de 255 bytes por linha (2040 pontos) o resultado é erro. O manual é da série Mercury; as outras Argox e a Elgin podem variar. O [fórum do ACBr](https://www.projetoacbr.com.br/forum/topic/55108-elgin-l42pro-n%C3%A3o-carrega-imagem-impress%C3%A3o-acbretq/) registra uma L42 Pro que não carregava imagem BMP/PCX em PPLA, PPLB e EPL2 por lá, e o caminho aqui é outro (HEX e `GW`), mas é um sinal para testar cedo.
 
+### ESC/POS
+
+A referência da Epson (`download4.epson.biz`, `support.epson.net`) recusa leitura automática com 403. O que vem dela foi lido só em trechos de busca, e o manual completo lido foi o da Bematech, no modo ESC/POS.
+
+| Item | Situação | Fonte |
+|---|---|---|
+| `GS v 0 m xL xH yL yH d…` (`1D 76 30`), `m = 0` normal, largura em bytes, altura em pontos | confirmado | [MP-4200 TH Programmer's Manual, rev. 1.0, 2010, capítulos 3 e 4](https://www.bztech.com.br/arquivos/manual-programacao-bematech-mp-4200-th.pdf) e trecho da [referência Epson](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lv_0.html) |
+| **1 imprime, 0 não imprime** | confirmado no manual Bematech | "Setting a bit to 1 prints a dot". Na Epson, só por fórum |
+| Epson marca `GS v 0` como obsoleto e recomenda `GS ( L` | confirmado por trecho | mesma página da Epson. Mantive `GS v 0`: é o único dos dois nas listas do TM-T20II e da MP-4200 TH que li |
+| Largura de 1 a 255 bytes e altura de 1 a 4607 pontos | trecho de busca, sem o modelo | mesma página da Epson. A tabela por modelo não abriu; o limite do TM-T20 fica sem confirmar |
+| **Bloco de 1024 linhas** | escolha nossa | bem abaixo do limite, porque ele muda por modelo e o bloco precisa caber no buffer. Que os blocos saem sem emenda visível é lembrança: conferir no papel |
+| `ESC a 1` centraliza o raster | confirmado no manual Bematech | "ESC a is affective on raster bit images", no capítulo ESC/Bema. Na Epson, lembrança |
+| `ESC @` inicializa | confirmado | manual Bematech, nos dois modos |
+| `GS V 66 n`: avança até o corte mais `n` e corta | confirmado | manual Bematech, cap. 4; [Epson](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/cutting_paper.html) por trecho, corte parcial. A unidade de `n` depende de `GS P`, então `n = 24` é só uma margem |
+| Corte total `GS V 65 n` | confirmado na Epson, **fora da lista da MP-4200 TH** | a [TM-T20II](https://www.datona.cz/sites/default/files/support/TM-T20II_escape_sekvence.pdf) aceita `A` e `B` e a Epson dá 65 = total por trecho. O manual Bematech só lista `GS V 66 n` com avanço, e `GS V 0/48` e `1/49` sem avanço. Na MP-4200 TH, o corte total do layout precisa ser conferido no papel; o corte parcial e o do fim do cupom (66) estão nas duas |
+| Gaveta `ESC p m t1 t2` | confirmado | manual Bematech e TM-T20II: `m` = pino (0 = pino 2), tempos em unidades de 2 ms. Os valores 25 e 250 (50 ms, 500 ms) são escolha nossa |
+| Avanço `ESC d n` | confirmado | manual Bematech e TM-T20II |
+| **Bipe: não há comando comum** | variante escolhida | **Usei a da Epson**, `ESC ( A 3 0 97 n c` (`1B 28 41 03 00 61 01 01`), da TM-T20II, que é para campainha externa opcional. A MP-4200 TH em ESC/POS tem outra forma, `ESC ( A 5 0 97 100 c t1 t2`. Como o comando diz o próprio tamanho, espero que ela o ignore, sem confirmação. `ESC B`, de impressoras compatíveis, é lembrança e não foi usado. Elgin i9: sem fonte. **O bipe pode ficar mudo fora da Epson com campainha** |
+| 180 dpi | lembrança | modelos antigos, como a TM-T88IV. Um [revendedor](https://umd.com.au/itd/var/epson_tmt20.html) dá 180 para a TM-T20, contra os 203 do manual da Epson. Aceito para não recusar essas impressoras |
+| Cópias | escolha nossa | não há comando: o cupom é reenviado. O limite de 99 só evita engano de digitação |
+| `darkness` e `gap_mm` | ignorados | sem comando portátil para escuridão; bobina não tem vão |
+
+### Largura da bobina
+
+| Bobina | Pontos a 203 dpi | Largura da página | Situação |
+|---|---|---|---|
+| 80 mm | 576 (72 mm) | 204,3 pt (72,07 mm) | confirmado para a TM-T20II pelo [guia técnico](https://manualowl.com/m/Epson/TM-T20II/Manual/624190?page=22), por trecho. Manual Bematech: largura de impressão de 72 mm em papel de 80 mm no modo ESC/Bema, e 73,5 mm fixos em ESC/POS, onde 576 cabe |
+| 58 mm | 384 (48 mm) | 136,2 pt (48,03 mm) | **parcial.** O manual Bematech dá 48 mm em papel de 58 mm, mas só no modo ESC/Bema: em ESC/POS ele diz que o papel fica fixo em 80 mm. A TM-T20II usa 52,5 mm (420 pontos) ou 47,3 mm (378 pontos) em 58 mm, e nesse segundo ajuste 384 passa 6 pontos, que a impressora descarta |
+
+72 mm exatos dão 575 pontos, e não 576. O crate completa até o múltiplo de 8, centralizando, então funciona, com meio ponto de deslocamento no máximo. Para não haver ajuste, use as larguras da tabela. A folha da [Elgin i9](https://www.bztech.com.br/arquivos/folheto-impressora-nao-fiscal-elgin-i9.pdf) dá papel de 57,5 e 80 mm e 203 dpi, sem pontos por linha.
+
 ## Mínimos de código de barras
 
 - **EAN/UPC, 0,264 mm: confirmado.** 80% do nominal de 0,33 mm, em [GS1 GSCN 16-354](https://www.gs1.org/docs/barcodes/GSCN_16-354_Remove_Ambiguity.pdf), [GS1 Suécia](https://gs1.se/en/?p=2524) e [GS1 Canadá](https://www.gs1ca.org/gs1ca-components/documents/EAN-UPC-Symbol-Reference.pdf). Li resumos e notas da GS1, não a tabela das General Specifications. A 203 dpi isso dá 3 pontos (0,375 mm), porque 2 pontos são 0,250 mm; a 300 dpi dá 4 pontos (0,339 mm).
@@ -85,5 +116,14 @@ A 203 dpi, EAN-13 e UPC-A com 2 pontos dariam 0,250 mm, ou 75,8% do nominal, aba
 | TSC | TSPL | confirmado: manual TSPL da TSC |
 | Argox | PPLA, PPLB | confirmado: [manuais Argox](https://www.manualsdir.com/manuals/754567/argox-x-series.html?page=116) listam PPLA e PPLB; as Argox também listam PPLZ, não incluída |
 | Bematech LB-1000 | fora | sem fonte: o [guia rápido](https://www.bztech.com.br/arquivos/guia-rapido-bematech-lb-1000.pdf) não cita linguagem, e só o [fórum do ACBr](https://www.projetoacbr.com.br/forum/topic/11507-acbretq-bematech-lb-1000/) fala em firmware ZPL, EPL e DPL |
+
+| Epson TM-T20 | ESC/POS | confirmado em parte: o manual do usuário dá 203 dpi, em [trecho de busca](https://www.manualslib.com/manual/555355/Epson-Tm-T20.html?page=18). ESC/POS e `GS v 0` neste modelo são lembrança; a confirmação é da T20II |
+| Epson TM-T20II | ESC/POS | confirmado: [referência rápida ESC/POS](https://www.datona.cz/sites/default/files/support/TM-T20II_escape_sekvence.pdf), com `GS v 0` e `GS V m n` (cópia em site de terceiro) |
+| Elgin i9 | ESC/POS | confirmado: [folheto da Elgin](https://www.bztech.com.br/arquivos/folheto-impressora-nao-fiscal-elgin-i9.pdf), "ESC/POS", 203 dpi. O folheto não lista `GS v 0`, então o raster é lembrança |
+| Bematech MP-4200 TH | ESC/POS | confirmado: [manual de programação](https://www.bztech.com.br/arquivos/manual-programacao-bematech-mp-4200-th.pdf). Veja abaixo |
+
+**MP-4200 TH:** tem modo próprio, e é preciso configurar. Só um entre ESC/Bema e ESC/POS fica ativo. `GS F9h 5 n` (`1D F9 35 n`) escolhe e grava, com `n = 1` para ESC/POS; `GS F9h SP n` (`1D F9 20 n`) troca sem gravar. O `GS v 0` existe nos dois, mas o `GS V` só está na lista do ESC/POS: no ESC/Bema o corte é `ESC i`, `ESC w` ou `ESC m`. O crate não envia a troca, porque em outra marca o comando viraria lixo; a predefinição traz o aviso em `setup`. A versão MP-4200 HS fica de fora: os anúncios discordam sobre ESC/Bema.
+
+**Elgin e Bematech:** a Elgin comprou a unidade de hardware da Bematech da Totvs, em [maio de 2019](https://www.baguete.com.br/noticias/totvs-vende-bematech-para-elgin), sem o negócio de software. A [base de CNPJ](https://cnpj-api.com/en/cnpj/27101611000182) lista a Elgin S.A. como sócia da Bematech Hardware Ltda. e o folheto chama a i9 também de "Bematech i9 Full". As duas marcas são do mesmo grupo no hardware, mas o CNPJ da Bematech Hardware continua separado.
 
 **PPLB = EPL: indício, não confirmado pela Argox.** O ACBrETQ usa a mesma implementação para os dois, com o comentário "EPL2 = PPLB". Não encontrei a referência de comandos PPLB da Argox, então `GW` em PPLB fica de lembrança.

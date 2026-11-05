@@ -36,6 +36,7 @@ pub struct Editor {
     pub page: State<usize>,
     pub gallery_open: State<bool>,
     pub wizard_open: State<bool>,
+    pub thermal_open: State<bool>,
     pub drag: State<Option<FieldDrag>>,
     pub engine: Rc<RefCell<ReportEngine>>,
     /// Frames of the band bodies in the last paint, for drops.
@@ -56,6 +57,7 @@ impl Editor {
             page: State::new(0),
             gallery_open: State::new(true),
             wizard_open: State::new(false),
+            thermal_open: State::new(false),
             drag: State::new(None),
             engine: Rc::new(RefCell::new(ReportEngine::new())),
             band_frames: Rc::new(RefCell::new(Vec::new())),

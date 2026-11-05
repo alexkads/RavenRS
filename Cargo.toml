@@ -36,6 +36,7 @@ ravenrs-app-ui = { version = "27.1.13", path = "crates/ravenrs-app-ui" }
 ravenrs-app-derive = { version = "27.1.13", path = "crates/ravenrs-app-derive" }
 ravenrs-app-sqlite = { version = "27.1.13", path = "crates/ravenrs-app-sqlite" }
 ravenrs-app-library = { version = "27.1.13", path = "crates/ravenrs-app-library" }
+ravenrs-app-nfe = { version = "27.1.13", path = "crates/ravenrs-app-nfe" }
 ravenrs-app-report = { version = "27.1.13", path = "crates/ravenrs-app-report" }
 ravenrs-report-pdf = { version = "27.1.13", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.13", path = "crates/ravenrs-report-xlsx" }

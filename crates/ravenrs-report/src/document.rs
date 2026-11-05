@@ -106,6 +106,13 @@ pub enum Item {
         /// The content.
         content: String,
     },
+    /// Something for the printer to do here. Only a printer that takes commands hears it.
+    PrinterCommand {
+        /// How far down the page.
+        y: f32,
+        /// What it does.
+        command: crate::model::PrinterCommand,
+    },
     /// An area that opens an address when clicked. Prints nothing.
     Link {
         /// The clickable area.
@@ -368,7 +375,7 @@ impl Document {
                         );
                     }
                 }
-                Item::Bookmark { .. } | Item::BarcodeMark { .. } => {}
+                Item::Bookmark { .. } | Item::BarcodeMark { .. } | Item::PrinterCommand { .. } => {}
             }
         }
         s.push_str("</svg>");
