@@ -166,6 +166,10 @@ pub struct PlotStyle {
     pub tracks: bool,
     /// A big number and a caption in the middle of a doughnut or of rings.
     pub center: Option<(String, String)>,
+    /// Leaves gridlines out of [`Plot::layers`] and says where they go in
+    /// [`Plot::rules`], for a screen that can line them up with its pixels and fade
+    /// the data without them. Pages leave this off and get everything in the layers.
+    pub rules_apart: bool,
 }
 
 impl PlotStyle {
@@ -212,6 +216,7 @@ impl PlotStyle {
             sweep: 360.0,
             tracks: false,
             center: None,
+            rules_apart: false,
         }
     }
 
@@ -269,6 +274,8 @@ pub struct Sector {
     pub from: f32,
     /// Its last angle.
     pub to: f32,
+    /// Its color.
+    pub color: Color,
 }
 
 impl Sector {
@@ -281,6 +288,32 @@ impl Sector {
         let past_start = (dy.atan2(dx) - self.from).rem_euclid(TAU);
         past_start <= self.to - self.from
     }
+}
+
+/// A bar as it landed, for drawing it again over the picture.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Bar {
+    /// Which series.
+    pub series: usize,
+    /// Which category.
+    pub index: usize,
+    /// Where it is.
+    pub rect: Rect,
+    /// Its color.
+    pub color: Color,
+    /// Its corners: top left, top right, bottom right, bottom left.
+    pub radii: [f32; 4],
+}
+
+/// A thin straight line left out of the picture.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Rule {
+    /// Where it is.
+    pub rect: Rect,
+    /// Its color.
+    pub color: Color,
 }
 
 /// What is under a point of the chart.
@@ -309,6 +342,10 @@ pub struct Plot {
     pub sectors: Vec<Sector>,
     /// Where the data is, inside the axes.
     pub area: Rect,
+    /// The bars of a bar chart.
+    pub bars: Vec<Bar>,
+    /// Gridlines, behind the layers, when [`PlotStyle::rules_apart`] asks for them.
+    pub rules: Vec<Rule>,
 }
 
 impl From<ChartDrawing> for Plot {
@@ -328,6 +365,14 @@ impl Plot {
             return Some(Hit { index: sector.index, series: Some(sector.series) });
         }
         self.spots.iter().find(|s| s.band.contains(point)).map(|s| Hit { index: s.index, series: None })
+    }
+
+    /// Whether `point` is over the slice of this category, once it has grown by `by`.
+    pub fn over_grown_slice(&self, point: Point, index: usize, by: f32) -> bool {
+        self.sectors
+            .iter()
+            .filter(|s| s.index == index)
+            .any(|s| Sector { outer: s.outer + by, ..*s }.contains(point))
     }
 
     /// Whether this category has any place on the chart, and how many there are.
@@ -513,17 +558,20 @@ pub fn curve_through(points: &[Point], curve: Curve) -> Vec<PathSegment> {
     }
 }
 
+/// The corners of a bar, clockwise from the top left, kept to what fits in it.
+fn bar_corners(rect: Rect, start: f32, end: f32, horizontal: bool) -> [f32; 4] {
+    let limit = rect.width().min(rect.height()) / 2.0;
+    let (start, end) = (start.clamp(0.0, limit), end.clamp(0.0, limit));
+    if horizontal { [start, end, end, start] } else { [end, end, start, start] }
+}
+
 /// A rectangle with its own radius at the start and at the end of its length.
 fn bar_path(rect: Rect, start: f32, end: f32, horizontal: bool) -> Vec<PathSegment> {
     if (start - end).abs() < f32::EPSILON {
         return vector::rectangle(rect, start);
     }
     let (x0, x1, y0, y1) = (rect.x(), rect.max_x(), rect.y(), rect.max_y());
-    let limit = rect.width().min(rect.height()) / 2.0;
-    let (start, end) = (start.clamp(0.0, limit), end.clamp(0.0, limit));
-    // Going clockwise from the top left corner.
-    let [top_left, top_right, bottom_right, bottom_left] =
-        if horizontal { [start, end, end, start] } else { [end, end, start, start] };
+    let [top_left, top_right, bottom_right, bottom_left] = bar_corners(rect, start, end, horizontal);
     let at = Point::new;
     let k = 1.0 - 0.552_284_8;
     vec![
@@ -576,6 +624,15 @@ fn stacked(data: &ChartData, stack: Stack) -> Vec<Vec<(f64, f64)>> {
                 .collect()
         })
         .collect()
+}
+
+/// A gridline, wherever this chart wants them.
+fn push_rule(plot: &mut Plot, style: &PlotStyle, rect: Rect, color: Color) {
+    if style.rules_apart {
+        plot.rules.push(Rule { rect, color });
+    } else {
+        plot.layers.push(fill(vector::rectangle(rect, 0.0), color));
+    }
 }
 
 struct Axes {
@@ -717,7 +774,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
             } else {
                 Rect::new(area.x(), at - 0.5, area.width(), 1.0)
             };
-            plot.layers.push(fill(vector::rectangle(line, 0.0), grid));
+            push_rule(plot, style, line, grid);
         }
         if style.value_axis {
             let label = tick_text(*value);
@@ -748,7 +805,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
             } else {
                 Rect::new(at - 0.5, area.y(), 1.0, area.height())
             };
-            plot.layers.push(fill(vector::rectangle(line, 0.0), grid));
+            push_rule(plot, style, line, grid);
         }
     }
 
@@ -842,8 +899,11 @@ fn bars(
                 _ => (0.0, 0.0),
             };
             let path = bar_path(rect, first, end, horizontal);
+            let radii = bar_corners(rect, first, end, horizontal);
+            let shown = if style.active == Some(i) { with_alpha(color, 0.8) } else { color };
+            plot.bars.push(Bar { series: s, index: i, rect, color: shown, radii });
             if style.active == Some(i) {
-                plot.layers.push(fill(path.clone(), with_alpha(color, 0.8)));
+                plot.layers.push(fill(path.clone(), shown));
                 plot.layers.push(Layer::Dashed { path, width: 2.0, dash: 4.0, color });
             } else {
                 plot.layers.push(fill(path, color));
@@ -960,7 +1020,7 @@ fn lines(
 }
 
 /// A slice of a ring around `center`; a slice of a circle when `inner` is zero.
-fn slice_path(center: Point, inner: f32, outer: f32, from: f32, to: f32) -> Vec<PathSegment> {
+pub fn slice_path(center: Point, inner: f32, outer: f32, from: f32, to: f32) -> Vec<PathSegment> {
     let at = |r: f32, a: f32| Point::new(center.x + r * a.cos(), center.y + r * a.sin());
     let mut path = vec![PathSegment::Move(at(outer, from))];
     arc(&mut path, center, outer, from, to);
@@ -1033,6 +1093,7 @@ fn pie(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
                 outer: reach,
                 from: angle,
                 to: end,
+                color,
             });
             let middle = (angle + end) / 2.0;
             let inside = if inner > 0.0 { (reach + inner) / 2.0 } else { reach * 0.62 };
@@ -1198,6 +1259,7 @@ fn radar(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
             outer: radius + room,
             from: angle - half,
             to: angle + half,
+            color: Color::TRANSPARENT,
         });
     }
 }
@@ -1263,6 +1325,7 @@ fn radial(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
                 outer: radius,
                 from: *from,
                 to: *to,
+                color: *color,
             });
             let mid = (*from + *to) / 2.0;
             plot.marks.push(Mark { series: *s, index: 0, at: at(middle, mid), color: *color });
@@ -1309,6 +1372,7 @@ fn radial(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
             outer,
             from: start,
             to: start + sweep,
+            color,
         });
         plot.marks.push(Mark { series: 0, index: i, at: at(middle, end), color });
         if style.category_labels.is_some() || style.value_labels.is_some() {
@@ -1354,6 +1418,18 @@ mod tests {
 
     fn rects_of(plot: &Plot) -> usize {
         plot.layers.iter().filter(|l| matches!(l, Layer::Shape(s) if s.fill.is_some())).count()
+    }
+
+    #[test]
+    fn gridlines_stay_in_the_layers_unless_asked_otherwise() {
+        let data = data(&[("A", &[1.0, 2.0, 3.0])]);
+        let page = draw(&data, AREA, &PlotStyle::new(ChartKind::Bar));
+        assert!(page.rules.is_empty());
+        let screen = PlotStyle { rules_apart: true, ..PlotStyle::new(ChartKind::Bar) };
+        let screen = draw(&data, AREA, &screen);
+        assert!(!screen.rules.is_empty());
+        assert_eq!(rects_of(&page), rects_of(&screen) + screen.rules.len(), "the same lines, elsewhere");
+        assert_eq!(screen.bars.len(), 3);
     }
 
     #[test]

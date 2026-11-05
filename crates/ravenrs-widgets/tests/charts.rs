@@ -452,3 +452,192 @@ fn a_chart_that_comes_back_keeps_its_picture() {
     ui.update();
     assert_eq!(picture(&ui), Some(first), "the same image, so nothing is drawn or uploaded again");
 }
+
+fn settle(ui: &mut Ui, from: f64) -> f64 {
+    let mut time = from;
+    for _ in 0..120 {
+        time += 1.0 / 30.0;
+        at_time(ui, time);
+    }
+    time
+}
+
+fn move_to(ui: &mut Ui, x: f32, y: f32) {
+    ui.handle_event(&ravenrs_core::Event::PointerMove { position: Point::new(x, y) });
+    ui.update();
+    ui.update();
+}
+
+fn opacity(ui: &Ui) -> f32 {
+    images(ui)[0].opacity
+}
+
+fn slices_on_top(ui: &Ui) -> usize {
+    ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Path(_))).count()
+}
+
+/// The quads in the color of a bar, drawn over the picture.
+fn bars_on_top(ui: &Ui, color: ravenrs_core::Color) -> Vec<Rect> {
+    let primitives = ui.scene().primitives();
+    let start = primitives.iter().position(|p| matches!(p, Primitive::Image(_))).unwrap_or(0);
+    primitives[start..]
+        .iter()
+        .filter_map(|p| match p {
+            // Not the tooltip's square nor the legend's.
+            Primitive::Quad(q) if q.fill == color.into() && q.rect.height() > 12.0 => Some(q.rect),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn the_rest_of_the_bars_fade_around_the_one_under_the_pointer() {
+    let mut ui = chart_ui(bars());
+    at_time(&mut ui, 0.0);
+    assert_eq!(opacity(&ui), 1.0, "still, it is as it was drawn");
+    move_to(&mut ui, 100.0, 100.0);
+    let time = settle(&mut ui, 0.0);
+    assert!(opacity(&ui) < 0.7, "{}", opacity(&ui));
+    let first = Theme::raven_dark().color(Semantic::Chart1);
+    assert_eq!(bars_on_top(&ui, first).len(), 1, "only the bar in focus stays at full strength");
+
+    move_to(&mut ui, 400.0, 500.0);
+    settle(&mut ui, time);
+    assert_eq!(opacity(&ui), 1.0, "and it all comes back");
+    assert!(bars_on_top(&ui, first).is_empty());
+    assert!(!ui.needs_redraw(), "and it stops asking for frames");
+}
+
+#[test]
+fn focus_can_be_turned_off() {
+    let mut ui = chart_ui(bars().no_hover_focus());
+    at_time(&mut ui, 0.0);
+    move_to(&mut ui, 100.0, 100.0);
+    settle(&mut ui, 0.0);
+    assert_eq!(opacity(&ui), 1.0);
+    assert_eq!(image_node(&mut ui).value.as_deref(), Some("A, First: 1, Second: 5"), "the tooltip stays");
+
+    let pie = Chart::new(ChartKind::Pie).categories(["A", "B"]).series("S", [1.0, 1.0]);
+    let mut ui = chart_ui(pie.no_hover_focus());
+    at_time(&mut ui, 0.0);
+    move_to(&mut ui, 500.0, 100.0);
+    settle(&mut ui, 0.0);
+    assert_eq!(slices_on_top(&ui), 0);
+}
+
+#[test]
+fn a_slice_comes_forward_without_making_the_pie_smaller() {
+    let pie = || Chart::new(ChartKind::Pie).categories(["A", "B"]).series("S", [1.0, 1.0]).hide_legend();
+    let plain = chart_ui(pie().no_hover_focus());
+    let mut ui = chart_ui(pie());
+    assert_eq!(images(&ui)[0].image.pixels(), images(&plain)[0].image.pixels(), "same pie when still");
+    at_time(&mut ui, 0.0);
+    move_to(&mut ui, 500.0, 100.0);
+    assert_eq!(slices_on_top(&ui), 0, "it rises from where it is");
+    settle(&mut ui, 0.0);
+    assert_eq!(slices_on_top(&ui), 1);
+    assert!(opacity(&ui) < 0.7);
+    assert_eq!(images(&ui)[0].image.pixels(), images(&plain)[0].image.pixels(), "the picture is untouched");
+}
+
+/// Where the cursor of a line chart is: the thin upright line over the picture.
+fn cursor_of(ui: &Ui) -> Option<ravenrs_core::Quad> {
+    let primitives = ui.scene().primitives();
+    let start = primitives.iter().position(|p| matches!(p, Primitive::Image(_)))?;
+    primitives[start..].iter().find_map(|p| match p {
+        Primitive::Quad(q) if q.rect.width() <= 1.0 && q.rect.height() > 50.0 => Some(*q),
+        _ => None,
+    })
+}
+
+#[test]
+fn the_cursor_glides_between_categories_and_fades_when_the_pointer_leaves() {
+    let mut ui = chart_ui(line().hide_legend());
+    at_time(&mut ui, 0.0);
+    move_to(&mut ui, 20.0, 100.0);
+    let time = settle(&mut ui, 0.0);
+    let start = cursor_of(&ui).expect("the cursor").rect.x();
+
+    move_to(&mut ui, 780.0, 100.0);
+    at_time(&mut ui, time + 0.03);
+    let moving = cursor_of(&ui).expect("the cursor").rect.x();
+    let time = settle(&mut ui, time + 0.03);
+    let end = cursor_of(&ui).expect("the cursor").rect.x();
+    assert!(start < moving && moving < end, "{start}, {moving}, {end}");
+
+    move_to(&mut ui, 400.0, 500.0);
+    assert!(cursor_of(&ui).is_some(), "it does not vanish at once");
+    settle(&mut ui, time);
+    assert!(cursor_of(&ui).is_none(), "it is gone in the end");
+    assert!(!ui.needs_redraw());
+}
+
+#[test]
+fn the_cursor_does_not_glide_in_from_where_it_last_was() {
+    let mut ui = chart_ui(line().hide_legend());
+    at_time(&mut ui, 0.0);
+    move_to(&mut ui, 20.0, 100.0);
+    let time = settle(&mut ui, 0.0);
+    move_to(&mut ui, 400.0, 500.0);
+    let time = settle(&mut ui, time);
+    move_to(&mut ui, 780.0, 100.0);
+    at_time(&mut ui, time + 0.03);
+    let right_away = cursor_of(&ui).expect("the cursor").rect.x();
+    settle(&mut ui, time + 0.03);
+    assert_eq!(right_away, cursor_of(&ui).expect("the cursor").rect.x());
+}
+
+#[test]
+fn without_motion_the_cursor_goes_straight_to_the_category() {
+    let mut ui = chart_ui(line().hide_legend().no_hover_motion());
+    at_time(&mut ui, 0.0);
+    move_to(&mut ui, 20.0, 100.0);
+    let time = settle(&mut ui, 0.0);
+    move_to(&mut ui, 780.0, 100.0);
+    at_time(&mut ui, time + 0.03);
+    let right_away = cursor_of(&ui).expect("the cursor").rect.x();
+    settle(&mut ui, time + 0.03);
+    assert_eq!(right_away, cursor_of(&ui).expect("the cursor").rect.x());
+}
+
+#[test]
+fn gridlines_land_on_whole_pixels_wherever_the_chart_is() {
+    let mut ui = ui(VStack::new((Spacer::new().height(10.3), line().height(100.0)))
+        .align(Align::Stretch)
+        .spacing(0.0));
+    ui.set_viewport(Size::new(800.0, 600.0), 2.0);
+    ui.update();
+    let rules: Vec<Rect> = ui
+        .scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| match p {
+            Primitive::Quad(q) if q.rect.height() <= 1.0 && q.rect.width() > 100.0 => Some(q.rect),
+            _ => None,
+        })
+        .collect();
+    assert!(rules.len() >= 2, "{rules:?}");
+    for rule in rules {
+        let y = rule.y() * 2.0;
+        assert!((y - y.round()).abs() < 0.001, "{rule:?}");
+    }
+}
+
+#[test]
+fn less_motion_means_no_glide_and_no_fade() {
+    let mut ui = chart_ui(line().hide_legend());
+    ui.set_reduced_motion(true);
+    at_time(&mut ui, 0.0);
+    move_to(&mut ui, 20.0, 100.0);
+    at_time(&mut ui, 0.01);
+    let start = cursor_of(&ui).expect("right away").rect.x();
+    move_to(&mut ui, 780.0, 100.0);
+    at_time(&mut ui, 0.02);
+    let end = cursor_of(&ui).expect("right away").rect.x();
+    settle(&mut ui, 0.02);
+    assert_eq!(end, cursor_of(&ui).expect("still there").rect.x());
+    assert!(end > start + 100.0);
+    move_to(&mut ui, 400.0, 500.0);
+    at_time(&mut ui, 5.0);
+    assert!(cursor_of(&ui).is_none(), "gone at once");
+}

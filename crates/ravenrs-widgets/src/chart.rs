@@ -2,19 +2,21 @@
 //! reports; here its shapes become a picture and its labels become text. Both are
 //! kept between frames, so a rebuild that changes nothing uploads nothing.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::fmt;
 use std::rc::Rc;
 
+use ravenrs_animation::Transition;
 use ravenrs_core::{
-    Color, CursorIcon, Effect, ImageData, ImageQuad, Insets, Key, Point, Quad, Rect, Role, Size,
+    Color, CursorIcon, Effect, ImageData, ImageQuad, Insets, Key, PathElement, PathFill, Point, Quad, Rect,
+    Role, Size,
 };
 use ravenrs_graphics::barcode::{self, Pattern};
 use ravenrs_graphics::chart::{
     self, ChartData, ChartDrawing, ChartLabel, ChartOptions, ChartStyle, LabelAlign, SeriesData,
 };
 use ravenrs_graphics::plot::{self, Plot, PlotStyle};
-use ravenrs_graphics::vector::{self, Shape};
+use ravenrs_graphics::vector::{self, PathSegment, Shape};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
@@ -43,6 +45,17 @@ const LEGEND_ICON: f32 = 12.0;
 const TOOLTIP_MIN_WIDTH: f32 = 128.0;
 const TOOLTIP_INDICATOR: f32 = 10.0;
 const ACTIVE_DOT: f32 = 5.0;
+/// How far the ring around an active dot reaches past it.
+const ACTIVE_HALO: f32 = 5.0;
+/// How solid that ring is.
+const HALO_ALPHA: f32 = 0.22;
+/// How much of its strength a chart gives up around the bar or slice in focus.
+const FOCUS_DIM: f32 = 0.45;
+/// How far a slice in focus comes forward. It stays under the gap a chart keeps
+/// from its title and legend, so a pie needs no smaller radius to make room for it.
+const SLICE_LIFT: f32 = 6.0;
+/// How solid the line through the points of the category in focus is.
+const CURSOR_ALPHA: f32 = 0.55;
 const DOT_ICON: f32 = 18.0;
 
 /// Lays a drawing out in a rectangle, at a number of pixels per logical pixel.
@@ -161,10 +174,20 @@ fn typeset(label: &ChartLabel, cx: &mut PaintCx<'_>) -> (TextLayout, Point, Colo
     (layout, Point::new(x, y), label.color)
 }
 
-/// What stands out over the picture while a category is active.
-#[derive(Clone, Copy)]
+/// What stands out over the picture while a category is in focus, or was until a
+/// moment ago: all of it fades, so it is drawn for as long as `focus` is above zero.
+#[derive(Clone)]
 struct Highlight {
-    index: usize,
+    /// The category, between two of them while it glides from one to the other.
+    at: f32,
+    /// From nothing to in full.
+    focus: f32,
+    /// How much the picture fades at full focus.
+    dim: f32,
+    /// How far forward each category's slice is, from 0 to 1 (a spring may pass 1).
+    lifts: Vec<f32>,
+    /// The line between slices, which a slice drawn over them has to leave alone.
+    separator: f32,
     /// A strip behind the bars.
     strip: bool,
     /// A line through the points.
@@ -176,12 +199,66 @@ struct Highlight {
     ring_color: Color,
 }
 
+fn mix(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
+impl Highlight {
+    /// The two categories it is between, and how far from the first to the second.
+    fn between(&self) -> (usize, usize, f32) {
+        let at = self.at.max(0.0);
+        (at.floor() as usize, at.ceil() as usize, at.fract())
+    }
+
+    /// The opacity of the picture.
+    fn opacity(&self) -> f32 {
+        1.0 - self.dim * self.focus
+    }
+}
+
+/// Keeps a thin line on whole pixels, so that it stays sharp and of one width. Its
+/// place on the page is only known here, and it may fall anywhere.
+fn snapped(rect: Rect, scale: f32) -> Rect {
+    let snap = |at: f32, length: f32| {
+        let thick = (length * scale).round().max(1.0);
+        ((at * scale).round() / scale, thick / scale)
+    };
+    if rect.width() < rect.height() {
+        let (x, width) = snap(rect.x(), rect.width());
+        Rect::new(x, rect.y(), width, rect.height())
+    } else {
+        let (y, height) = snap(rect.y(), rect.height());
+        Rect::new(rect.x(), y, rect.width(), height)
+    }
+}
+
+fn paint_rules(plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
+    for rule in &plot.rules {
+        let rect = Rect::new(
+            frame.x() + rule.rect.x(),
+            frame.y() + rule.rect.y(),
+            rule.rect.width(),
+            rule.rect.height(),
+        );
+        cx.scene.push_quad(Quad::new(snapped(rect, cx.scale), rule.color));
+    }
+}
+
 fn paint_strip(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
     if !highlight.strip {
         return;
     }
-    let Some(spot) = plot.spots.iter().find(|s| s.index == highlight.index) else { return };
-    let (band, area) = (spot.band, plot.area);
+    let (from, to, t) = highlight.between();
+    let spot = |index: usize| plot.spots.iter().find(|s| s.index == index);
+    let (Some(from), Some(to)) = (spot(from), spot(to)) else { return };
+    let (a, b) = (from.band, to.band);
+    let band = Rect::new(
+        mix(a.x(), b.x(), t),
+        mix(a.y(), b.y(), t),
+        mix(a.width(), b.width(), t),
+        mix(a.height(), b.height(), t),
+    );
+    let area = plot.area;
     let along_x = (band.width() - frame.width()).abs() > 0.5;
     let strip = if along_x {
         Rect::new(band.x(), area.y(), band.width(), area.height())
@@ -189,24 +266,98 @@ fn paint_strip(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx
         Rect::new(area.x(), band.y(), area.width(), band.height())
     };
     let strip = Rect::new(frame.x() + strip.x(), frame.y() + strip.y(), strip.width(), strip.height());
-    cx.scene.push_quad(Quad::new(strip, highlight.strip_color));
+    let color = highlight.strip_color;
+    cx.scene.push_quad(Quad::new(strip, color.with_alpha(color.a * highlight.focus)));
+}
+
+/// The bars near the focus, over a picture that faded: what they gain is what the
+/// picture lost, in proportion to how close they are, so focus hands over from one
+/// category to the next as it passes.
+fn paint_focused_bars(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
+    if highlight.dim <= 0.0 {
+        return;
+    }
+    for bar in &plot.bars {
+        let distance = (bar.index as f32 - highlight.at).abs();
+        if distance >= 1.0 {
+            continue;
+        }
+        let rect = Rect::new(
+            frame.x() + bar.rect.x(),
+            frame.y() + bar.rect.y(),
+            bar.rect.width(),
+            bar.rect.height(),
+        );
+        let color = bar.color.with_alpha(bar.color.a * (1.0 - distance));
+        let mut quad = Quad::new(rect, color);
+        quad.corner_radii = bar.radii;
+        cx.scene.push_quad(quad);
+    }
+}
+
+fn path_elements(path: &[PathSegment]) -> Vec<PathElement> {
+    path.iter()
+        .map(|segment| match segment {
+            PathSegment::Move(p) => PathElement::MoveTo(*p),
+            PathSegment::Line(p) => PathElement::LineTo(*p),
+            PathSegment::Cubic(a, b, c) => PathElement::CubicTo(*a, *b, *c),
+            _ => PathElement::Close,
+        })
+        .collect()
+}
+
+/// The slices that came forward, over a picture that faded.
+fn paint_lifted_slices(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
+    let reach = plot.sectors.iter().map(|s| s.outer).fold(0.0, f32::max);
+    for sector in &plot.sectors {
+        let lift = highlight.lifts.get(sector.index).copied().unwrap_or(0.0);
+        if lift <= 0.001 {
+            continue;
+        }
+        // Only the outside ring has anywhere to go.
+        let outer = if sector.outer >= reach { sector.outer + SLICE_LIFT * lift } else { sector.outer };
+        // The picture has half the separator over each side of this slice: staying
+        // off it keeps the slice the same width as it comes forward.
+        let inset = (highlight.separator / 2.0) / outer.max(1.0);
+        let inset = inset.min((sector.to - sector.from) / 4.0);
+        let path =
+            plot::slice_path(sector.center, sector.inner, outer, sector.from + inset, sector.to - inset);
+        let color = sector.color.with_alpha(sector.color.a * lift.clamp(0.0, 1.0));
+        cx.scene.push_path(PathFill {
+            transform: [1.0, 0.0, 0.0, 1.0, frame.x(), frame.y()],
+            ..PathFill::solid(path_elements(&path), color)
+        });
+    }
 }
 
 fn paint_highlight(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
-    if highlight.line
-        && let Some(spot) = plot.spots.iter().find(|s| s.index == highlight.index)
-    {
-        let line =
-            Rect::new(frame.x() + spot.center.x - 0.5, frame.y() + plot.area.y(), 1.0, plot.area.height());
-        cx.scene.push_quad(Quad::new(line, highlight.line_color));
+    let (from, to, t) = highlight.between();
+    if highlight.line {
+        let spot = |index: usize| plot.spots.iter().find(|s| s.index == index);
+        if let (Some(a), Some(b)) = (spot(from), spot(to)) {
+            let x = frame.x() + mix(a.center.x, b.center.x, t) - 0.5;
+            let line = snapped(Rect::new(x, frame.y() + plot.area.y(), 1.0, plot.area.height()), cx.scale);
+            let color = highlight.line_color;
+            cx.scene.push_quad(Quad::new(line, color.with_alpha(color.a * highlight.focus)));
+        }
     }
     if highlight.dots {
-        for mark in plot.marks.iter().filter(|m| m.index == highlight.index) {
-            let side = ACTIVE_DOT * 2.0;
-            let rect =
-                Rect::new(frame.x() + mark.at.x - ACTIVE_DOT, frame.y() + mark.at.y - ACTIVE_DOT, side, side);
-            cx.scene
-                .push_quad(Quad::new(rect, mark.color).radius(ACTIVE_DOT).border(2.0, highlight.ring_color));
+        let focus = highlight.focus;
+        let radius = ACTIVE_DOT * mix(0.6, 1.0, focus);
+        let halo = radius + ACTIVE_HALO * focus;
+        for mark in plot.marks.iter().filter(|m| m.index == from) {
+            let next = plot.marks.iter().find(|m| m.index == to && m.series == mark.series).unwrap_or(mark);
+            let x = frame.x() + mix(mark.at.x, next.at.x, t);
+            let y = frame.y() + mix(mark.at.y, next.at.y, t);
+            let color = if t < 0.5 { mark.color } else { next.color };
+            let round = |r: f32| Rect::new(x - r, y - r, r * 2.0, r * 2.0);
+            cx.scene.push_quad(Quad::new(round(halo), color.with_alpha(HALO_ALPHA * focus)).radius(halo));
+            let ring = highlight.ring_color;
+            cx.scene.push_quad(
+                Quad::new(round(radius), color.with_alpha(color.a * focus))
+                    .radius(radius)
+                    .border(2.0, ring.with_alpha(ring.a * focus)),
+            );
         }
     }
 }
@@ -233,10 +384,14 @@ fn plot_node(
             if let Some(highlight) = &highlight {
                 paint_strip(highlight, &picture.drawing, frame, paint);
             }
+            paint_rules(&picture.drawing, frame, paint);
             if let Some(image) = &picture.image {
-                paint.scene.push_image(ImageQuad::new(frame, image.clone()));
+                let opacity = highlight.as_ref().map_or(1.0, Highlight::opacity);
+                paint.scene.push_image(ImageQuad { opacity, ..ImageQuad::new(frame, image.clone()) });
             }
             if let Some(highlight) = &highlight {
+                paint_focused_bars(highlight, &picture.drawing, frame, paint);
+                paint_lifted_slices(highlight, &picture.drawing, frame, paint);
                 paint_highlight(highlight, &picture.drawing, frame, paint);
             }
             for (layout, at, color) in picture.labels.iter().chain(&picture.dot_icons) {
@@ -593,6 +748,8 @@ pub struct Chart {
     item_colors: Vec<Semantic>,
     vary_colors: bool,
     negative: Option<Semantic>,
+    hover_focus: bool,
+    hover_motion: bool,
 }
 
 /// What [`PlotStyle`] takes as it is. The theme and the data fill in the rest.
@@ -695,6 +852,8 @@ impl Chart {
             item_colors: Vec::new(),
             vary_colors: false,
             negative: None,
+            hover_focus: true,
+            hover_motion: true,
         }
     }
 
@@ -993,6 +1152,21 @@ impl Chart {
         self
     }
 
+    /// Keeps the chart as it is around the category under the pointer: the other
+    /// bars and slices do not fade, and no slice comes forward. The tooltip and the
+    /// cursor stay.
+    pub fn no_hover_focus(mut self) -> Self {
+        self.hover_focus = false;
+        self
+    }
+
+    /// The cursor, its dots and the focus go straight from one category to the next,
+    /// with no glide and no fade, as they do when the system asks for less motion.
+    pub fn no_hover_motion(mut self) -> Self {
+        self.hover_motion = false;
+        self
+    }
+
     /// Where the legend goes (under the chart by default).
     pub fn legend_at(mut self, at: ChartLegend) -> Self {
         self.legend_at = at;
@@ -1107,6 +1281,7 @@ impl Chart {
         style.sweep = look.sweep;
         style.tracks = look.tracks;
         style.center.clone_from(&look.center);
+        style.rules_apart = true;
         style
     }
 
@@ -1244,13 +1419,41 @@ impl Chart {
         let cursor = self.tooltip.as_ref().is_some_and(|t| !t.no_cursor);
         let is_bar = self.kind == ChartKind::Bar;
         let is_line = matches!(self.kind, ChartKind::Line | ChartKind::Area);
-        let highlight = shown.map(|index| Highlight {
-            index,
+        let is_round = matches!(self.kind, ChartKind::Pie | ChartKind::Doughnut);
+        let m = theme.motion;
+        let moving =
+            |transition: Transition| if self.hover_motion { transition } else { Transition::Instant };
+
+        // What stands out outlasts the pointer for as long as it takes to fade.
+        let held = cx.use_state(|| Rc::new(Cell::new(None::<usize>))).peek().clone();
+        if shown.is_some() {
+            held.set(shown);
+        }
+        let focus = cx.animated(if shown.is_some() { 1.0_f32 } else { 0.0 }, moving(m.base));
+        // Coming from nothing, it starts in place: it only glides between categories.
+        let target = held.get().unwrap_or(0) as f32;
+        let at = cx.animated(target, if focus < 0.02 { Transition::Instant } else { moving(m.snappy) });
+        // Kept last among the states of this view, as their number follows the data.
+        let wants_lift = is_round && self.hover_focus && self.tooltip.is_some();
+        let lifts: Vec<f32> = if wants_lift {
+            (0..self.categories.len())
+                .map(|i| cx.animated(if shown == Some(i) { 1.0_f32 } else { 0.0 }, moving(m.snappy)))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let lifting = lifts.iter().any(|lift| *lift > 0.001);
+        let highlight = (focus > 0.001 || lifting).then(|| Highlight {
+            at,
+            focus,
+            dim: if self.hover_focus && (is_bar || is_round) { FOCUS_DIM } else { 0.0 },
+            lifts,
+            separator: style.separator,
             strip: is_bar && cursor,
             line: is_line && cursor,
             dots: is_line || self.kind == ChartKind::Radar,
             strip_color: theme.color(Semantic::Control).with_alpha(0.6),
-            line_color: theme.color(Semantic::Border),
+            line_color: theme.color(Semantic::InkMuted).with_alpha(CURSOR_ALPHA),
             ring_color: theme.color(Semantic::SurfaceElevated),
         });
         let drawing: DrawingFn = Rc::new(move |rect, _| plot::draw(&data, rect, &style));
@@ -1264,7 +1467,12 @@ impl Chart {
                 Rc::new(move |position, frame| {
                     let local = Point::new(position.x - frame.x(), position.y - frame.y());
                     follow.set(Some(local));
-                    let hit = seen.borrow().drawing.hit(local).map(|hit| hit.index);
+                    let picture = seen.borrow();
+                    let hit = picture.drawing.hit(local).map(|hit| hit.index).or_else(|| {
+                        // A slice that came forward answers for what it covers now.
+                        let lifted = write.get().filter(|_| wants_lift)?;
+                        picture.drawing.over_grown_slice(local, lifted, SLICE_LIFT).then_some(lifted)
+                    });
                     if write.get() != hit {
                         write.set(hit);
                     }
@@ -1319,7 +1527,6 @@ impl Chart {
             semantics = semantics.value(panel.spoken());
         }
         cx.semantics(node, semantics);
-        let m = theme.motion;
         cx.motion(node, Motion::new().enter(Effect::hidden(), m.base));
 
         let mut parts = Vec::new();
