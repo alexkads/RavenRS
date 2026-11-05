@@ -356,7 +356,7 @@ impl Gallery {
             return Box::new(
                 VStack::new((
                     Select::new(self.page.binding(), pages).width(240.0).label("Page"),
-                    ThemeSwitcher,
+                    ThemeSwitcher::new(),
                 ))
                 .spacing(10.0)
                 .padding((12.0, 16.0)),
@@ -375,7 +375,7 @@ impl Gallery {
                     "Search (⌘K)",
                 ),
                 Tooltip::new(IconButton::new(IconName::Bell), "Notifications"),
-                ThemeSwitcher,
+                ThemeSwitcher::new(),
             ))
             .spacing(8.0)
             .align(Align::Center)

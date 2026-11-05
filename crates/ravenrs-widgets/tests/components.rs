@@ -225,7 +225,7 @@ fn tooltip_appears_on_hover() {
 
 #[test]
 fn theme_switcher_changes_app_theme() {
-    let mut ui = ui(VStack::new((ThemeSwitcher,)));
+    let mut ui = ui(VStack::new((ThemeSwitcher::new(),)));
     let light = Theme::raven_light();
     // Segments: Dark, Light, Glass; each ~80px wide starting at x=3.
     let segments: Vec<Rect> = quads(&ui).into_iter().map(|q| q.rect).collect();
@@ -233,6 +233,21 @@ fn theme_switcher_changes_app_theme() {
     click(&mut ui, Point::new(control.x() + control.width() / 2.0, control.center().y));
     assert_eq!(ui.theme().name, light.name);
     assert_eq!(ui.scene().clear_color(), light.color(Semantic::Canvas));
+}
+
+#[test]
+fn theme_switcher_offers_the_apps_own_themes() {
+    let own = |name, theme: Theme| Theme { name, ..theme };
+    let light = own("Own light", Theme::raven_light());
+    let switcher = ThemeSwitcher::new().themes(
+        own("Own dark", Theme::raven_dark()),
+        light,
+        own("Own glass", Theme::raven_glass()),
+    );
+    let mut ui = ui(VStack::new((switcher,)));
+    let control = quads(&ui)[0].rect;
+    click(&mut ui, Point::new(control.x() + control.width() / 2.0, control.center().y));
+    assert_eq!(ui.theme().name, light.name);
 }
 
 #[test]

@@ -83,7 +83,7 @@ fn guide_snippets_build_and_render() {
             Toggle::new(enabled.binding()),
             TextField::new(name.binding()),
             Slider::new(volume.binding()),
-            ThemeSwitcher,
+            ThemeSwitcher::new(),
             grid(),
         )),
         Theme::raven_light(),

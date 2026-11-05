@@ -15,6 +15,7 @@ pub mod paths;
 pub mod reminders;
 pub mod reports;
 pub mod seed;
+pub mod themes;
 pub mod ui;
 pub mod update;
 

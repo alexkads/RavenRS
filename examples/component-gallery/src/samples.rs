@@ -609,7 +609,7 @@ fn color_swatch() -> impl View {
 
 // sample: ThemeSwitcher, 90
 fn theme_switcher() -> impl View {
-    ThemeSwitcher
+    ThemeSwitcher::new()
 }
 // end
 

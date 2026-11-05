@@ -14,8 +14,8 @@ use crate::backup::{self, CopyReason};
 use crate::db::{Database, DbResult};
 use crate::model::{date_label, parse_date};
 use crate::reminders::{self, ReminderSettings};
-use crate::seed;
 use crate::update::{self, UpdateStatus};
+use crate::{seed, themes};
 
 /// Below this width the theme's three choices no longer fit in half of it.
 const TWO_COLUMNS_FROM: f32 = 760.0;
@@ -287,7 +287,11 @@ pub(crate) fn settings(
         UpdateStatus::NoAnswer(reason) => format!("Não consegui verificar se há versão nova: {reason}"),
     };
 
-    let appearance = titled_card("Aparência", help::APARENCIA, ThemeSwitcher);
+    let appearance = titled_card(
+        "Aparência",
+        help::APARENCIA,
+        ThemeSwitcher::new().themes(themes::dark(), themes::light(), themes::glass()),
+    );
     let performance = titled_card(
         "Desempenho",
         help::DESEMPENHO,

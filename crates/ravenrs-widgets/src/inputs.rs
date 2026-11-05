@@ -960,13 +960,36 @@ impl View for SegmentedControl {
     }
 }
 
-/// Switches the app between Raven Dark, Raven Light and Raven Glass.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ThemeSwitcher;
+/// Switches the app between its dark, light and glass themes: Raven Dark, Raven Light and
+/// Raven Glass, unless the app has its own.
+#[derive(Clone, Copy, Debug)]
+pub struct ThemeSwitcher {
+    themes: [Theme; 3],
+}
+
+impl Default for ThemeSwitcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ThemeSwitcher {
+    /// A switcher over the themes that come with RavenRS.
+    pub fn new() -> Self {
+        Self { themes: [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()] }
+    }
+
+    /// Offers the application's own themes in the same three places. Each is told apart by
+    /// its name, so it needs one of its own.
+    pub fn themes(mut self, dark: Theme, light: Theme, glass: Theme) -> Self {
+        self.themes = [dark, light, glass];
+        self
+    }
+}
 
 impl View for ThemeSwitcher {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let themes = [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()];
+        let themes = self.themes;
         let labels = cx.labels();
         let state = cx.theme_state();
         let read = state.clone();
