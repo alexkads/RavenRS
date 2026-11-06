@@ -41,11 +41,10 @@ impl TelegramPump {
 impl View for TelegramPump {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         static STARTED: OnceLock<AtomicBool> = OnceLock::new();
-        if self.path.is_some()
+        if let Some(path) = self.path.clone()
             && crate::telegram::token_configured()
             && !STARTED.get_or_init(AtomicBool::default).swap(true, Ordering::AcqRel)
         {
-            let path = self.path.clone().expect("path checked");
             let waker = cx.ui_waker();
             let paired = self.paired.clone();
             thread::spawn(move || {

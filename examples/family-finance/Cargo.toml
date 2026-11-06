@@ -22,6 +22,8 @@ tracing-subscriber.workspace = true
 jiff = "0.2"
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 sha2 = "0.10"
+# Reads the text of a receipt in Rust, on every system.
+pdf-extract = "0.12"
 uuid.workspace = true
 # "bundled" compiles SQLite into the app, so nobody has to install it.
 rusqlite.workspace = true

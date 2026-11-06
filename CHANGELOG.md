@@ -4,6 +4,14 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+
+- `ThemeSwitcher` is `Clone` but no longer `Copy`, since it can hold a callback.
+
+### Added
+
+- `ThemeSwitcher::on_change(action)`: runs with the theme the user picks, so the app can remember it for the next launch.
+
 ## [27.1.14] - 2026-11-05
 
 ### Breaking

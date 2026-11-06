@@ -49,16 +49,22 @@ FF_SCREENSHOTS=$PWD/target/screens cargo test -p family-finance --test screens
 
 ## Telegram bot (optional)
 
-The optional `raven-telegram` binary uses Telegram long polling (`getUpdates`), so it needs no public webhook endpoint. In Ajustes, choose **Conectar Telegram** and scan the QR: it opens the bot with a one-time code that expires after 10 minutes and binds one private chat to this database. Only that chat can send PDFs up to 14 MB. The bot uses local `pdftotext` to find one total; then send `despesa Categoria` or `receita Categoria`. It reuses that category for the same type or creates it with a zero budget and saves the transaction immediately. `/cancelar` discards the pending amount. Generating another QR replaces unclaimed codes; **Desvincular** revokes the chat and every unclaimed code.
+Receipts can come in through Telegram: send a PDF to your bot, answer `despesa Categoria` or `receita Categoria`, and the transaction is saved. The bot uses Telegram long polling (`getUpdates`): the app only makes outgoing HTTPS requests, so it needs no server of its own, no public address and no open port. It runs inside the app, so transactions are saved while the app is open; Telegram keeps the messages for up to 24 hours until it reads them.
 
-Run the bot beside the desktop app and pass it the same existing SQLite file:
+1. In Telegram, open @BotFather, send `/newbot` and copy the token it gives you. Each Raven installation needs a bot of its own.
+2. In Ajustes, on the **Telegram** card, paste the token and press **Salvar token**. It is kept only on this computer, in `~/.raven-financas/telegram_bot_token` (readable only by you on macOS and Linux), and never shown or logged.
+3. With more than one account, choose under **Conta dos lançamentos** the account the bot's transactions go to.
+4. Press **Conectar Telegram** and scan the QR. It opens the bot with a one-time code that expires after 10 minutes and binds one private chat to this database. The link comes from Telegram without holding up the window.
+
+Only the paired chat can send PDFs, up to 14 MB. The app reads the receipt's text itself, in Rust, the same on every system, and looks for one total; if it finds none or more than one, it asks for another receipt. When `pdftotext` happens to be installed, its reading gets a second chance. The category is reused when one with the same name exists for that type, ignoring accents and case, or created with no monthly limit. `/cancelar` discards the pending amount, and a pending amount waits 60 seconds. Generating another QR replaces unclaimed codes; **Desvincular** revokes the chat and every unclaimed code. Telegram receives the receipt; reading its value stays on this computer.
+
+Without the window, the `raven-telegram` binary serves the same database. Telegram answers only one reader per bot, so run it **instead of** the app, never beside it:
 
 ```bash
-TELEGRAM_BOT_TOKEN=... RAVEN_ACCOUNT_ID=1 \
-  cargo run -p family-finance --bin raven-telegram -- ~/.raven-financas/financas.db
+cargo run -p family-finance --bin raven-telegram -- ~/.raven-financas/financas.db
 ```
 
-`RAVEN_ACCOUNT_ID` must identify an existing account in that database. `TELEGRAM_BOT_TOKEN` is the BotFather token: keep it only in the environment of the desktop and bot processes; Raven never stores, shows or logs it. Telegram receives the receipt; value extraction stays local and requires the `pdftotext` binary. A bot token supports one running `raven-telegram` process, so each Raven installation needs its own bot token.
+It uses the token saved in Ajustes, or `TELEGRAM_BOT_TOKEN`, and the account chosen in Ajustes, or `RAVEN_ACCOUNT_ID`.
 
 ## Installing and updating
 

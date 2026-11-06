@@ -264,11 +264,10 @@ impl Database {
         let mut seen = HashSet::new();
         let keys = categories
             .iter()
-            .map(|(id, name, flow)| {
+            .filter_map(|(id, name, flow)| {
                 let key = category_key(name);
                 seen.insert((flow.clone(), key.clone())).then_some((*id, key))
             })
-            .flatten()
             .collect::<Vec<_>>();
         self.atomically(|db| {
             for (id, key) in &keys {

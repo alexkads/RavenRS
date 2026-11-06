@@ -962,9 +962,19 @@ impl View for SegmentedControl {
 
 /// Switches the app between its dark, light and glass themes: Raven Dark, Raven Light and
 /// Raven Glass, unless the app has its own.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone)]
 pub struct ThemeSwitcher {
     themes: [Theme; 3],
+    on_change: Option<Rc<dyn Fn(Theme)>>,
+}
+
+impl std::fmt::Debug for ThemeSwitcher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ThemeSwitcher")
+            .field("themes", &self.themes.map(|theme| theme.name))
+            .field("on_change", &self.on_change.is_some())
+            .finish()
+    }
 }
 
 impl Default for ThemeSwitcher {
@@ -976,7 +986,7 @@ impl Default for ThemeSwitcher {
 impl ThemeSwitcher {
     /// A switcher over the themes that come with RavenRS.
     pub fn new() -> Self {
-        Self { themes: [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()] }
+        Self { themes: [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()], on_change: None }
     }
 
     /// Offers the application's own themes in the same three places. Each is told apart by
@@ -985,17 +995,31 @@ impl ThemeSwitcher {
         self.themes = [dark, light, glass];
         self
     }
+
+    /// Runs `action` with the theme the user picks, after the app switches to it, so the
+    /// app can remember the choice for the next launch.
+    pub fn on_change(mut self, action: impl Fn(Theme) + 'static) -> Self {
+        self.on_change = Some(Rc::new(action));
+        self
+    }
 }
 
 impl View for ThemeSwitcher {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let themes = self.themes;
+        let on_change = self.on_change.clone();
         let labels = cx.labels();
         let state = cx.theme_state();
         let read = state.clone();
         let binding = Binding::new(
             move || read.with(|t| themes.iter().position(|x| x.name == t.name).unwrap_or(0)),
-            move |i: usize| state.set(themes[i.min(themes.len() - 1)]),
+            move |i: usize| {
+                let theme = themes[i.min(themes.len() - 1)];
+                state.set(theme);
+                if let Some(action) = &on_change {
+                    action(theme);
+                }
+            },
         );
         cx.child(
             &SegmentedControl::with_icons(
