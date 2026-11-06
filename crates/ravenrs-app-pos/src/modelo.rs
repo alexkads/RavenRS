@@ -88,6 +88,11 @@ pub fn configuracao_entity() -> EntityInfo {
         .field(text("pin", "PIN para desbloquear").default_value("1234"))
         .field(text("impressora_cupom", "Impressora de cupom").default_value(""))
         .field(text("impressora_etiqueta", "Impressora de etiquetas").default_value(""))
+        .field(text("driver_cupom", "Driver da impressora de cupom").default_value("elgin.i9.cupom"))
+        .field(
+            text("driver_etiqueta", "Driver da impressora de etiquetas")
+                .default_value("elgin.l42-pro.etiqueta"),
+        )
         .field(
             FieldInfo::new("impostos", FieldKind::Decimal(2))
                 .caption("Impostos sobre a venda (%)")

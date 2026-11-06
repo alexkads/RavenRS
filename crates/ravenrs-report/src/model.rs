@@ -524,11 +524,14 @@ pub struct PrinterSettings {
     pub dpi: u32,
     /// Where it is: `host:9100` on the network, `cups:name` on this computer, or a file path.
     pub connection: String,
+    /// The driver of the model, by its id, for what differs on it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub driver: Option<String>,
 }
 
 impl Default for PrinterSettings {
     fn default() -> Self {
-        Self { language: "ESC/POS".to_owned(), dpi: 203, connection: String::new() }
+        Self { language: "ESC/POS".to_owned(), dpi: 203, connection: String::new(), driver: None }
     }
 }
 

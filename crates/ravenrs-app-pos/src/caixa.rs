@@ -17,7 +17,7 @@ use ravenrs_pagamento::simulador::SimuladorProvedor;
 use ravenrs_pagamento::{EntradaOperador, IdPagamento, Impressao, Passo, PedidoPagamento, Pergunta};
 use ravenrs_pos::{Carrinho, Forma, Linha, gtin_fiscal, ler_codigo, ler_valor, troco, valor_em_texto};
 use ravenrs_reactive::State;
-use ravenrs_report_label::{LabelJob, Language, output_for};
+use ravenrs_report_label::{Language, output_for};
 use ravenrs_report_viewer::{DocumentViewer, ViewerState};
 use ravenrs_widgets::AnyView;
 use rust_decimal::Decimal;
@@ -25,6 +25,7 @@ use rust_decimal::Decimal;
 use crate::codigos::produto_por_codigo;
 use crate::modelo::{CLIENTE, CONFIGURACAO, MOVIMENTO, PRODUTO};
 use crate::pagamento::{Tef, cartao_da_aprovacao, novo_id, tef_simulado, tipo_do_provedor};
+use crate::perifericos::Perifericos;
 
 const TIPO_RASCUNHO: &str = "venda";
 
@@ -159,6 +160,8 @@ pub struct Caixa {
     pub simulador: Option<SimuladorProvedor>,
     /// The sale being charged, until the note decides.
     em_cobranca: Rc<RefCell<Option<VendaEmCobranca>>>,
+    /// The drivers of the devices.
+    pub perifericos: Perifericos,
 }
 
 /// The provider of a checkout.
@@ -196,6 +199,7 @@ impl Caixa {
             tef: TefDoCaixa(tef_simulado().0),
             simulador: None,
             em_cobranca: Rc::new(RefCell::new(None)),
+            perifericos: Perifericos::default(),
         }
     }
 
@@ -601,7 +605,7 @@ impl Caixa {
             session.present("Cupom", move || Box::new(DocumentViewer::new(shown.clone(), &state)) as AnyView);
             return;
         }
-        let job = LabelJob::new(Language::EscPos, 203);
+        let job = self.perifericos.trabalho(&configuracao(session, "driver_cupom"), Language::EscPos);
         let bytes = match label_bytes(&documento, &job) {
             Ok(bytes) => bytes,
             Err(why) => return tell(why),

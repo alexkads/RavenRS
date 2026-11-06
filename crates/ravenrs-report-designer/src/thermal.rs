@@ -43,7 +43,12 @@ fn prepared(dialog: &ThermalDialog, settings: &PrinterSettings) -> Result<(Vec<u
     if let Some(problem) = document.errors.first() {
         return Err(problem.clone());
     }
-    let job = LabelJob::new(language, settings.dpi);
+    let mut job = LabelJob::new(language, settings.dpi);
+    if let Some(preset) = presets().iter().find(|preset| Some(&preset.driver_id) == settings.driver.as_ref())
+        && preset.languages.contains(&language)
+    {
+        job.ajustes = preset.ajustes;
+    }
     let bytes = compile(&document, &job).map_err(|error| error.to_string())?;
     let mut engine = ReportEngine::new();
     let mut pictures = Vec::new();
@@ -89,10 +94,15 @@ impl View for ThermalDialog {
                 move || chosen_read.get(),
                 move |i: usize| {
                     chosen_write.set(i);
-                    if let Some(language) =
-                        presets().get(i).and_then(|preset| preset.languages.first().copied())
-                    {
-                        change(&write, |s| s.language = language.name().to_owned());
+                    if let Some(preset) = presets().get(i) {
+                        let driver = preset.driver_id.clone();
+                        let language = preset.languages.first().copied();
+                        change(&write, |s| {
+                            s.driver = Some(driver);
+                            if let Some(language) = language {
+                                s.language = language.name().to_owned();
+                            }
+                        });
                     }
                 },
             ),

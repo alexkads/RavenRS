@@ -491,3 +491,21 @@ fn the_provider_can_ask_and_the_operator_answers() {
     b.tecla(Key::Escape);
     assert_eq!(*b.pos.caixa().tela.peek(), Tela::Pagando, "Esc cancels with the provider");
 }
+
+#[test]
+fn the_devices_say_their_exact_model_driver_version_and_how_far_they_were_tested() {
+    let mut b = balcao();
+    b.pos.sessao().expect("a session").open_view(ravenrs_app_pos::VIEW_PERIFERICOS);
+    b.assentar();
+    assert!(b.diz("Periféricos"));
+    assert!(b.diz("L42 Pro"), "a label printer by its model");
+    assert!(b.diz("PPC930"), "a pinpad by its model");
+    assert!(b.diz("versão"));
+    assert!(b.diz("documentação") || b.diz("Presumido"), "nothing was tested on a device yet");
+    let trabalho = b
+        .pos
+        .caixa()
+        .perifericos
+        .trabalho("bematech.mp-4200-th.cupom", ravenrs_report_label::Language::EscPos);
+    assert_eq!(trabalho.language, ravenrs_report_label::Language::EscPos);
+}

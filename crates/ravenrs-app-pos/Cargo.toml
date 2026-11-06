@@ -21,6 +21,7 @@ ravenrs-app-ui.workspace = true
 ravenrs-layout.workspace = true
 ravenrs-nfe.workspace = true
 ravenrs-pagamento.workspace = true
+ravenrs-perifericos.workspace = true
 ravenrs-pos.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-report.workspace = true

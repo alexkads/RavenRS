@@ -34,6 +34,8 @@ pub const VIEW_ETIQUETAS: &str = "PosEtiquetas_DashboardView";
 pub const VIEW_ENTRADA: &str = "PosEntrada_DashboardView";
 /// The view of pricing.
 pub const VIEW_PRECO: &str = "PosPreco_DashboardView";
+/// The view of the devices.
+pub const VIEW_PERIFERICOS: &str = "PosPerifericos_DashboardView";
 
 fn sessao(cx: &ravenrs_app::ActionContext) -> Result<Session, String> {
     Session::of(cx).ok_or_else(|| "esta ação precisa das telas".to_owned())
@@ -67,11 +69,12 @@ fn perguntar(
 
 /// The window with the rest of what can be done.
 pub(crate) fn abrir_outras_funcoes(session: &Session) {
-    let opcoes: [(&str, &str); 5] = [
+    let opcoes: [(&str, &str); 6] = [
         ("Notas emitidas", "NfeDocumento_ListView"),
         ("Emitente", "NfeEmitente_ListView"),
         ("Modelos de cupom e etiqueta", "ReportDefinition_ListView"),
         ("Clientes", "PosCliente_ListView"),
+        ("Periféricos e drivers", VIEW_PERIFERICOS),
         ("Configuração do caixa", "PosConfiguracao_ListView"),
     ];
     let aberta = session.clone();
@@ -417,6 +420,9 @@ impl Pos {
             .dashboard(DashboardInfo::new("PosEtiquetas", "Etiquetas").control("Etiquetas", "pos.etiquetas"))
             .dashboard(DashboardInfo::new("PosEntrada", "Entrada").control("Entrada", "pos.entrada"))
             .dashboard(DashboardInfo::new("PosPreco", "Preços").control("Preços", "pos.preco"))
+            .dashboard(
+                DashboardInfo::new("PosPerifericos", "Periféricos").control("Periféricos", "pos.perifericos"),
+            )
             .with_session(move |session| {
                 *sessao_guardada.borrow_mut() = Some(session.clone());
                 for aviso in caixa.recuperar_pagamentos() {
@@ -446,6 +452,16 @@ impl Pos {
                 session.register_control("pos.entrada", move || {
                     Box::new(TelaEntrada { entradas: entradas_aqui.clone(), session: aqui.clone() }.grow(1.0))
                         as AnyView
+                });
+                let (aqui, perifericos) = (session.clone(), caixa.perifericos.clone());
+                session.register_control("pos.perifericos", move || {
+                    Box::new(
+                        crate::perifericos::TelaPerifericos {
+                            perifericos: perifericos.clone(),
+                            session: aqui.clone(),
+                        }
+                        .grow(1.0),
+                    ) as AnyView
                 });
                 let aqui = session.clone();
                 session.register_control("pos.preco", move || {

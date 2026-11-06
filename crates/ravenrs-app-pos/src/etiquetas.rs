@@ -139,7 +139,13 @@ impl View for TelaEtiquetas {
                 .placeholder("192.168.0.50:9100 ou cups:etiquetas");
 
         let idioma = Language::all()[linguagem.get().min(Language::all().len() - 1)];
-        let job = LabelJob::new(idioma, 203);
+        let mut job = LabelJob::new(idioma, 203);
+        // What differs on the model chosen, while its language is the one in use.
+        if let Some(preset) = presets().get(impressora.get())
+            && preset.languages.contains(&idioma)
+        {
+            job.ajustes = preset.ajustes;
+        }
         let amostra: Vec<(Object, u32)> = if escolhidos.is_empty() {
             produtos.first().map(|produto| (produto.clone(), 1)).into_iter().collect()
         } else {
