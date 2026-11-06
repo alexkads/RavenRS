@@ -21,6 +21,7 @@ mod training;
 pub use assistant::{ASSISTANT_INTRO, ASSISTANT_TOOLS};
 pub use opening::Opening;
 pub use spoken::spoken;
+mod telegram_card;
 mod updates;
 
 use std::path::PathBuf;
@@ -84,9 +85,6 @@ pub struct App {
     training: training::TrainingState,
     recorder: FlightRecorder,
     reporter: BugReporter,
-    telegram_link: State<Option<String>>,
-    telegram_token: State<String>,
-    telegram_token_saved: State<bool>,
     telegram_paired: Arc<AtomicBool>,
     overdue: Memo<u64, usize>,
     icon: Memo<u8, Option<ImageData>>,
@@ -144,9 +142,6 @@ impl App {
             budgets: BudgetsState::new(today),
             reports: ReportsState::new(today),
             records: RecordsState::new(),
-            telegram_link: State::new(None),
-            telegram_token: State::new(String::new()),
-            telegram_token_saved: State::new(crate::telegram::token_configured()),
             telegram_paired: Arc::default(),
             overdue: Memo::new(),
             icon: Memo::new(),
@@ -403,9 +398,6 @@ impl App {
                 &self.forms,
                 &self.news,
                 &self.page,
-                &self.telegram_link,
-                &self.telegram_token,
-                &self.telegram_token_saved,
                 self.training.models.clone(),
                 self.training.voices.clone(),
                 window,

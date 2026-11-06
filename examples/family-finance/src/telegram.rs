@@ -98,6 +98,7 @@ pub fn pairing_hash(token: &str) -> String {
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
+/// Whether a BotFather token is saved in Ajustes or given in `TELEGRAM_BOT_TOKEN`.
 pub fn token_configured() -> bool {
     bot_token().is_ok()
 }
@@ -133,7 +134,7 @@ pub fn save_bot_token(token: &str) -> Result<(), String> {
 /// Looks up the bot's public username without exposing its BotFather token to the UI.
 pub fn pairing_link(token: &str) -> Result<String, String> {
     let bot_token = bot_token()?;
-    let url = format!("https://api.telegram.org/bot{bot_token}/getMe");
+    let url = format!("{}/bot{bot_token}/getMe", api_base());
     let mut response = telegram_agent().get(&url).call().map_err(|_| "falha ao comunicar com Telegram")?;
     let parsed: TelegramResponse<TelegramBot> = serde_json::from_slice(
         &response.body_mut().read_to_vec().map_err(|_| "resposta inválida do Telegram")?,
@@ -155,6 +156,8 @@ pub fn serve(db_path: PathBuf) -> Result<(), String> {
     serve_with_waker(db_path, None, None)
 }
 
+/// Long-polls Telegram beside the window: wakes the UI after each message and raises
+/// `paired` when a chat claims a QR, so the window can confirm it.
 pub fn serve_with_waker(
     db_path: PathBuf,
     waker: Option<UiWaker>,
@@ -209,12 +212,32 @@ fn bot_token() -> Result<String, String> {
     if let Some(token) = std::env::var("TELEGRAM_BOT_TOKEN").ok().filter(|v| !v.trim().is_empty()) {
         return Ok(token.trim().to_owned());
     }
-    let home = std::env::var_os("HOME").map(PathBuf::from).ok_or("configure TELEGRAM_BOT_TOKEN")?;
-    std::fs::read_to_string(home.join("fin_bot"))
+    Err("salve o token do bot em Ajustes, no cartão Telegram".to_owned())
+}
+
+/// Telegram's Bot API, or the stand-in a test points `TELEGRAM_API_BASE` at.
+fn api_base() -> String {
+    std::env::var("TELEGRAM_API_BASE")
         .ok()
-        .map(|token| token.trim().to_owned())
-        .filter(|token| !token.is_empty())
-        .ok_or_else(|| "configure TELEGRAM_BOT_TOKEN or save the bot token in ~/fin_bot".to_owned())
+        .filter(|base| !base.trim().is_empty())
+        .map_or_else(|| "https://api.telegram.org".to_owned(), |base| base.trim_end_matches('/').to_owned())
+}
+
+/// The file beside the database that keeps the account receipts go to.
+fn account_file(db_path: &Path) -> PathBuf {
+    db_path.with_extension("telegram-conta")
+}
+
+/// The account chosen in Ajustes for this database, if any.
+pub fn chosen_account(db_path: &Path) -> Option<i64> {
+    std::fs::read_to_string(account_file(db_path)).ok()?.trim().parse().ok()
+}
+
+/// Remembers the account the bot's transactions go to.
+pub fn choose_account(db_path: &Path, account_id: i64) {
+    if let Err(error) = std::fs::write(account_file(db_path), account_id.to_string()) {
+        tracing::warn!(%error, "could not save the Telegram account");
+    }
 }
 
 fn checked_db_path(path: PathBuf) -> Result<PathBuf, String> {
@@ -351,7 +374,7 @@ fn telegram_call<T: for<'de> Deserialize<'de>>(
     body: Value,
 ) -> Result<T, String> {
     let agent = telegram_agent();
-    let url = format!("https://api.telegram.org/bot{}/{method}", service.config.bot_token);
+    let url = format!("{}/bot{}/{method}", api_base(), service.config.bot_token);
     let mut response = agent
         .post(&url)
         .header("content-type", "application/json")
@@ -375,7 +398,7 @@ fn send_message(service: &Service, chat: i64, text: &str) -> Result<(), String> 
 fn download_pdf(service: &Service, file_id: &str) -> Result<Vec<u8>, String> {
     let file: TelegramFile = telegram_call(service, "getFile", json!({"file_id":file_id}))?;
     let agent = telegram_agent();
-    let url = format!("https://api.telegram.org/file/bot{}/{}", service.config.bot_token, file.file_path);
+    let url = format!("{}/file/bot{}/{}", api_base(), service.config.bot_token, file.file_path);
     let mut response = agent.get(&url).call().map_err(|error| {
         format!(
             "falha ao baixar PDF do Telegram: {}",
@@ -394,30 +417,38 @@ fn download_pdf(service: &Service, file_id: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+/// Finds the one total in a receipt. The text is read in Rust, the same on every system;
+/// when that text has no single total and `pdftotext` happens to be installed, its
+/// reading gets a second chance.
 fn extract_total_from_pdf(pdf: &[u8]) -> Result<i64, String> {
-    let nonce = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|_| "não foi possível preparar o PDF")?
-        .as_nanos();
+    let ours = text_in_pdf(pdf)
+        .ok_or_else(|| "o PDF não tem texto extraível. Envie outro comprovante.".to_owned())
+        .and_then(|text| extract_total_from_text(&text));
+    match ours {
+        Ok(total) => Ok(total),
+        Err(reason) => match total_with_pdftotext(pdf) {
+            Some(Ok(total)) => Ok(total),
+            _ => Err(reason),
+        },
+    }
+}
+
+/// The PDF's text. A malformed file can make the reader panic; that is no text.
+fn text_in_pdf(pdf: &[u8]) -> Option<String> {
+    std::panic::catch_unwind(|| pdf_extract::extract_text_from_mem(pdf).ok()).ok().flatten()
+}
+
+/// The total as `pdftotext` reads it, or `None` when it is not installed or fails.
+fn total_with_pdftotext(pdf: &[u8]) -> Option<Result<i64, String>> {
+    let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos();
     let path = std::env::temp_dir().join(format!("raven-financas-{}-{nonce}.pdf", std::process::id()));
-    let mut file = File::options()
-        .create_new(true)
-        .write(true)
-        .open(&path)
-        .map_err(|_| "não foi possível preparar o PDF")?;
-    if file.write_all(pdf).is_err() {
-        let _ = remove_file(&path);
-        return Err("não foi possível preparar o PDF".into());
-    }
-    let output = Command::new("pdftotext").arg("-layout").arg(&path).arg("-").output();
+    let written =
+        File::options().create_new(true).write(true).open(&path).and_then(|mut file| file.write_all(pdf));
+    let output =
+        written.is_ok().then(|| Command::new("pdftotext").arg("-layout").arg(&path).arg("-").output());
     let _ = remove_file(&path);
-    let output = output.map_err(|_| "não foi possível ler o PDF neste computador")?;
-    if !output.status.success() {
-        return Err("o PDF não tem texto extraível. Envie outro comprovante.".into());
-    }
-    let text = String::from_utf8(output.stdout)
-        .map_err(|_| "o PDF não tem texto extraível. Envie outro comprovante.")?;
-    extract_total_from_text(&text)
+    let output = output?.ok().filter(|output| output.status.success())?;
+    Some(extract_total_from_text(&String::from_utf8(output.stdout).ok()?))
 }
 
 fn extract_total_from_text(text: &str) -> Result<i64, String> {
@@ -494,9 +525,12 @@ fn save_transaction(path: &Path, amount_cents: i64, flow: Flow, category: &str) 
     let accounts = db.accounts().map_err(|e| e.to_string())?;
     let account_id = match std::env::var("RAVEN_ACCOUNT_ID") {
         Ok(id) => id.parse().map_err(|_| "RAVEN_ACCOUNT_ID inválido")?,
-        Err(_) if accounts.len() == 1 => accounts[0].id,
-        Err(_) if accounts.is_empty() => return Err("cadastre uma conta no Raven antes de lançar".into()),
-        Err(_) => return Err("configure RAVEN_ACCOUNT_ID: este Raven tem mais de uma conta".into()),
+        Err(_) => match (chosen_account(path), accounts.as_slice()) {
+            (Some(id), _) => id,
+            (None, [only]) => only.id,
+            (None, []) => return Err("cadastre uma conta no Raven antes de lançar".into()),
+            (None, _) => return Err("escolha em Ajustes, no cartão Telegram, a conta dos lançamentos".into()),
+        },
     };
     if !accounts.iter().any(|a| a.id == account_id) {
         return Err("a conta configurada não existe no Raven".into());
