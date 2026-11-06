@@ -108,9 +108,40 @@ pub fn app_com_pos(arquivo: Option<&Path>) -> Result<(AnyView, Pos), String> {
     app.build().map(|view| (view, pos)).map_err(|error| error.0)
 }
 
+/// Puts a purchase from a supplier at the sandbox, addressed to the sample store, so that
+/// "Buscar na SEFAZ" on the entry of goods has something to find. Nothing of it leaves the computer.
+pub fn compra_de_exemplo(pos: &Pos) -> Result<(), String> {
+    use ravenrs_app_nfe::engine::sandbox::{Fornecedor, gerar_nota_de_compra};
+    use ravenrs_app_nfe::engine::{Csosn, Item};
+    let Some(sandbox) = pos.caixa().service.sandbox_ativo() else { return Ok(()) };
+    let item = |codigo: &str, gtin: &str, descricao: &str, ncm: &str, quantidade: &str, valor: &str| {
+        Ok::<_, String>(Item {
+            codigo: codigo.to_owned(),
+            gtin: Some(gtin.to_owned()),
+            descricao: descricao.to_owned(),
+            ncm: ncm.to_owned(),
+            cest: None,
+            cfop: "5102".to_owned(),
+            unidade: "UN".to_owned(),
+            quantidade: quantidade.parse().map_err(|error| format!("{error}"))?,
+            valor_unitario: valor.parse().map_err(|error| format!("{error}"))?,
+            desconto: Default::default(),
+            csosn: Csosn::S102,
+            origem: 0,
+        })
+    };
+    let fornecedor = Fornecedor::novo("ATACADO EXEMPLO LTDA", "11444777000161", "11222333000181");
+    let itens = vec![
+        item("AT-ARROZ", "7891000053508", "ARROZ BRANCO T1 5KG", "10063021", "10", "19.90")?,
+        item("AT-CAFE", "7891000315507", "CAFE TORRADO 500G", "09012100", "12", "12.40")?,
+    ];
+    let xml = gerar_nota_de_compra(&fornecedor, itens).map_err(|error| error.to_string())?;
+    sandbox.colocar_nota_recebida(&xml).map_err(|error| error.to_string())
+}
+
 /// The window. What goes wrong on the way shows on it.
 pub fn app(arquivo: Option<&Path>) -> AnyView {
-    match app_com_pos(arquivo) {
+    match app_com_pos(arquivo).and_then(|(view, pos)| compra_de_exemplo(&pos).map(|()| (view, pos))) {
         Ok((view, _)) => view,
         Err(why) => Box::new(Alert::new("Mini-PDV", why).tone(Tone::Danger)),
     }

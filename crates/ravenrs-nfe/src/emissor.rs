@@ -366,6 +366,13 @@ impl Emissor {
         self.distribuir(&dados)
     }
 
+    /// Picks up the wait an earlier emissor left, from [`Self::proxima_consulta_em`], so that a new
+    /// one, or the program started again, still holds back the query until then.
+    pub fn aguardar_consulta_ate(&self, proxima: Option<Instante>) {
+        let mut atual = self.proxima_consulta.lock().unwrap_or_else(PoisonError::into_inner);
+        *atual = (*atual).max(proxima);
+    }
+
     /// When the next [`Self::buscar_documentos`] may run; `None` means it may run now.
     #[must_use]
     pub fn proxima_consulta_em(&self) -> Option<Instante> {

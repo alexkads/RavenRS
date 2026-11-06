@@ -5,11 +5,11 @@ use std::sync::Arc;
 
 use ravenrs_app::{Object, ObjectSpace, Query, SpaceError, Value, next_number};
 use ravenrs_app_ui::Session;
-use ravenrs_nfe::sandbox::{SandboxSigner, SefazSandbox};
+use ravenrs_nfe::sandbox::{Instante, SandboxSigner, SefazSandbox};
 use ravenrs_nfe::{
     Ambiente, BetaAck, Cancelamento, ChaveAcesso, DocumentoDestinatario, Emissao, Emissor, Emitente,
-    Endereco, HttpRequest, HttpResponse, Modelo, NfeError, Rascunho, Signer, Situacao, Transport,
-    TransportError, Uf,
+    Endereco, HttpRequest, HttpResponse, Modelo, NfeError, Rascunho, Signer, Situacao, TipoManifestacao,
+    Transport, TransportError, Uf,
 };
 use rust_decimal::Decimal;
 
@@ -258,6 +258,116 @@ impl NfeService {
                 done(session, ended);
             },
         );
+    }
+}
+
+impl NfeService {
+    /// Asks the SEFAZ for the purchases addressed to the issuer since the last time, out of the way
+    /// of the screens. A summary gets the acknowledgement it asks for, and then its full XML. What
+    /// comes back is the full XML of each purchase, ready for the entry of goods.
+    ///
+    /// Where the query stopped (`ultNSU`) and the hour the national environment asked to wait are
+    /// kept on the issuer, so that neither a new search nor the program started again repeats a
+    /// query too soon: that is rejection 656, and it blocks the CNPJ for one hour. A document that
+    /// fails does not lose the others, nor the place where the query stopped.
+    pub fn buscar_compras(
+        &self,
+        session: &Session,
+        done: impl FnOnce(&Session, Result<Vec<String>, String>) + 'static,
+    ) {
+        let montado = (|| -> Result<(Emissor, u64), String> {
+            let space = session.frame().space();
+            let record = emitente_salvo(&*space.borrow()).ok_or("Cadastre o emitente.")?;
+            let (emitente, _) = emitente_do_registro(&record)?;
+            let emissor = self.emissor(emitente).map_err(|error| error.to_string())?;
+            let inteiro = |field: &str| match record.get(field) {
+                Value::Number(numero) if numero > 0.0 => Some(numero as i64),
+                _ => None,
+            };
+            emissor.aguardar_consulta_ate(inteiro("proxima_consulta").map(Instante));
+            Ok((emissor, inteiro("ultimo_nsu").map_or(0, |nsu| nsu as u64)))
+        })();
+        let (emissor, ultimo) = match montado {
+            Ok(montado) => montado,
+            Err(why) => return done(session, Err(why)),
+        };
+        session.run_background(
+            "Buscando notas de compra",
+            move |progress| {
+                let lote = match emissor.buscar_documentos(ultimo) {
+                    Ok(lote) => lote,
+                    Err(error) => return Busca { erro: Some(error.to_string()), ..Busca::default() },
+                };
+                let mut busca = Busca { ult_nsu: Some(lote.ult_nsu), ..Busca::default() };
+                let total = lote.documentos.len().max(1) as f32;
+                for (indice, documento) in lote.documentos.iter().enumerate() {
+                    progress.report(indice as f32 / total, "Baixando as notas");
+                    if documento.eh_nota_completa() {
+                        busca.completas.push(documento.xml.clone());
+                    } else if documento.eh_resumo() {
+                        match baixar_resumo(&emissor, &documento.xml) {
+                            Ok(xmls) => busca.completas.extend(xmls),
+                            Err(why) => busca.erro = Some(why),
+                        }
+                    }
+                }
+                busca.proxima = emissor.proxima_consulta_em();
+                busca
+            },
+            move |session, busca: Busca| {
+                guardar_busca(session, busca.ult_nsu, busca.proxima);
+                match (busca.erro, busca.completas.is_empty()) {
+                    (Some(why), true) => done(session, Err(why)),
+                    _ => done(session, Ok(busca.completas)),
+                }
+            },
+        );
+    }
+}
+
+/// What a search for purchases brought.
+#[derive(Default)]
+struct Busca {
+    completas: Vec<String>,
+    ult_nsu: Option<u64>,
+    proxima: Option<Instante>,
+    erro: Option<String>,
+}
+
+/// Registers the acknowledgement of a summary and fetches its full XML.
+fn baixar_resumo(emissor: &Emissor, resumo: &str) -> Result<Vec<String>, String> {
+    let chave = chave_do_resumo(resumo).ok_or("Resumo de nota sem chave de acesso.")?;
+    let chave = ChaveAcesso::parse(&chave).map_err(|error| error.to_string())?;
+    emissor
+        .manifestar(&chave, TipoManifestacao::Ciencia, None, &agora_com_fuso())
+        .map_err(|error| error.to_string())?;
+    let baixado = emissor.baixar_por_chave(&chave).map_err(|error| error.to_string())?;
+    Ok(baixado.documentos.into_iter().filter(|doc| doc.eh_nota_completa()).map(|doc| doc.xml).collect())
+}
+
+/// The key a summary of a document is about.
+fn chave_do_resumo(xml: &str) -> Option<String> {
+    let inicio = xml.find("<chNFe>")? + "<chNFe>".len();
+    let fim = xml[inicio..].find("</chNFe>")? + inicio;
+    Some(xml[inicio..fim].trim().to_owned())
+}
+
+/// Remembers where the next query for purchases starts, and when it may run.
+fn guardar_busca(session: &Session, ult_nsu: Option<u64>, proxima: Option<Instante>) {
+    let space = session.frame().space();
+    let mut space = space.borrow_mut();
+    let result = (|| -> Result<(), SpaceError> {
+        if let Some(mut record) = emitente_salvo(&*space) {
+            if let Some(nsu) = ult_nsu {
+                record.set("ultimo_nsu", nsu as f64);
+            }
+            record.set("proxima_consulta", proxima.map_or(0.0, |momento| momento.0 as f64));
+            space.save(record)?;
+        }
+        space.commit()
+    })();
+    if result.is_err() {
+        space.rollback();
     }
 }
 

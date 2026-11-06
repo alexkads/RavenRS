@@ -38,6 +38,18 @@ pub fn emitente_entity() -> EntityInfo {
         .field(text("uf", "UF"))
         .field(text("cep", "CEP"))
         .field(FieldInfo::new("serie", FieldKind::Integer).caption("Série").default_value(1.0))
+        .field(
+            FieldInfo::new("ultimo_nsu", FieldKind::Integer)
+                .caption("Último NSU das notas recebidas")
+                .default_value(0.0)
+                .read_only(),
+        )
+        .field(
+            FieldInfo::new("proxima_consulta", FieldKind::Integer)
+                .caption("Próxima consulta de notas recebidas (segundos desde 1970)")
+                .default_value(0.0)
+                .read_only(),
+        )
         .rule(Rule::required("razao_social"))
         .rule(Rule::required("cnpj"))
 }

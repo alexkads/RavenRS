@@ -448,10 +448,17 @@ impl Pos {
                         .grow(1.0),
                     ) as AnyView
                 });
-                let (aqui, entradas_aqui) = (session.clone(), entradas.clone());
+                let (aqui, entradas_aqui, service) =
+                    (session.clone(), entradas.clone(), caixa.service.clone());
                 session.register_control("pos.entrada", move || {
-                    Box::new(TelaEntrada { entradas: entradas_aqui.clone(), session: aqui.clone() }.grow(1.0))
-                        as AnyView
+                    Box::new(
+                        TelaEntrada {
+                            entradas: entradas_aqui.clone(),
+                            session: aqui.clone(),
+                            service: service.clone(),
+                        }
+                        .grow(1.0),
+                    ) as AnyView
                 });
                 let (aqui, perifericos) = (session.clone(), caixa.perifericos.clone());
                 session.register_control("pos.perifericos", move || {

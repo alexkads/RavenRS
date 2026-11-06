@@ -509,3 +509,55 @@ fn the_devices_say_their_exact_model_driver_version_and_how_far_they_were_tested
         .trabalho("bematech.mp-4200-th.cupom", ravenrs_report_label::Language::EscPos);
     assert_eq!(trabalho.language, ravenrs_report_label::Language::EscPos);
 }
+
+#[test]
+fn purchases_addressed_to_the_store_come_from_the_sefaz() {
+    use ravenrs_app_nfe::engine::sandbox::gerar_nota_de_compra;
+    let mut b = balcao();
+    let xml = gerar_nota_de_compra(
+        &fornecedor(),
+        vec![item_comprado("F-CAFE", None, "CAFE ESPECIAL", "4", "20.00")],
+    )
+    .expect("a purchase");
+    b.pos
+        .caixa()
+        .service
+        .sandbox_ativo()
+        .expect("a sandbox")
+        .colocar_nota_recebida(&xml)
+        .expect("it is there");
+    b.pos.sessao().expect("a session").open_view(ravenrs_app_pos::VIEW_ENTRADA);
+    b.assentar();
+    b.clicar("Buscar na SEFAZ");
+    let sessao = b.pos.sessao().expect("a session");
+    sessao.finish_background();
+    b.assentar();
+    assert!(b.diz("1 nota de compra encontrada na SEFAZ."), "found it");
+    let encontradas = b.pos.entradas().encontradas.peek().clone();
+    assert_eq!(encontradas.len(), 1);
+    assert!(encontradas[0].0.contains("ATACADO EXEMPLO"));
+}
+
+#[test]
+fn the_sample_purchase_is_waiting_at_the_sandbox() {
+    let mut b = balcao();
+    mini_pdv::compra_de_exemplo(&b.pos).expect("it is put there");
+    b.pos.sessao().expect("a session").open_view(ravenrs_app_pos::VIEW_ENTRADA);
+    b.assentar();
+    b.clicar("Buscar na SEFAZ");
+    b.pos.sessao().expect("a session").finish_background();
+    b.assentar();
+    let encontradas = b.pos.entradas().encontradas.peek().clone();
+    assert_eq!(encontradas.len(), 1, "{encontradas:?}");
+    b.clicar(&format!("Abrir: {}", encontradas[0].0));
+    b.assentar();
+    assert!(b.diz("ARROZ BRANCO T1 5KG"), "the purchase opens for the entry of goods");
+    // Everything was delivered (ultNSU = maxNSU): the national environment asks for one hour, and
+    // a new search, even by another emissor, is held back here instead of earning a 656.
+    let enviadas = b.pos.caixa().service.sandbox_ativo().expect("a sandbox").requests().len();
+    b.clicar("Buscar na SEFAZ");
+    b.pos.sessao().expect("a session").finish_background();
+    b.assentar();
+    assert!(b.diz("aguarde até"), "held back");
+    assert_eq!(b.pos.caixa().service.sandbox_ativo().expect("a sandbox").requests().len(), enviadas);
+}

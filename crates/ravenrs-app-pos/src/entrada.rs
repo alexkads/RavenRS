@@ -43,6 +43,8 @@ pub struct Entradas {
     pub atualizar_precos: State<bool>,
     /// What went wrong, or how it ended.
     pub aviso: State<Option<(Tone, String)>>,
+    /// Purchases found at the SEFAZ, by what tells them apart, with their XML.
+    pub encontradas: State<Vec<(String, String)>>,
     /// The labels suggested by what arrived, by the product's code, for the screen of labels.
     pub etiquetas: State<BTreeMap<String, String>>,
 }
@@ -57,6 +59,7 @@ impl Default for Entradas {
             atualizar_precos: State::new(true),
             aviso: State::new(None),
             etiquetas: State::new(BTreeMap::new()),
+            encontradas: State::new(Vec::new()),
         }
     }
 }
@@ -146,19 +149,62 @@ fn linha_de_compra(item: &ItemRecebido, fator: Decimal) -> LinhaCompra {
 }
 
 impl Entradas {
-    /// Reads an invoice from its XML, refusing one already in stock or addressed to someone else.
-    pub fn carregar(&self, session: &Session, xml: &str) -> Result<(), String> {
-        let nota = ler_nota_recebida(xml).map_err(|error| error.to_string())?;
+    /// Whether the invoice with this key is already in stock.
+    pub fn ja_entrou(&self, session: &Session, chave: &str) -> bool {
         let space = session.frame().space();
         let space = space.borrow();
-        let ja_entrou = space
+        space
             .query(MOVIMENTO, &Query::all())
             .unwrap_or_default()
             .iter()
-            .any(|movimento| texto(movimento, "documento") == nota.chave);
-        if ja_entrou {
+            .any(|movimento| texto(movimento, "documento") == chave)
+    }
+
+    /// Takes in what the SEFAZ sent, leaving out what is in stock, listed or open already: after
+    /// the acknowledgement the national environment sends the full invoice again, under a new NSU.
+    /// Says how many are new.
+    pub fn receber_da_sefaz(&self, session: &Session, xmls: Vec<String>) -> usize {
+        let mut vistas: Vec<String> = self
+            .encontradas
+            .peek()
+            .iter()
+            .filter_map(|(_, xml)| ler_nota_recebida(xml).ok().map(|nota| nota.chave))
+            .collect();
+        if let Some(aberta) = self.nota.peek().as_ref() {
+            vistas.push(aberta.chave.clone());
+        }
+        let mut novas = Vec::new();
+        for xml in xmls {
+            let Ok(nota) = ler_nota_recebida(&xml) else { continue };
+            if vistas.contains(&nota.chave) || self.ja_entrou(session, &nota.chave) {
+                continue;
+            }
+            vistas.push(nota.chave.clone());
+            let titulo =
+                format!("{}, nota {}, R$ {}", nota.emitente_nome, nota.numero, valor_em_texto(nota.total));
+            novas.push((titulo, xml));
+        }
+        let quantas = novas.len();
+        self.encontradas.update(|todas| todas.extend(novas));
+        self.aviso.set(Some((
+            Tone::Accent,
+            match quantas {
+                0 => "Nenhuma nota nova na SEFAZ.".to_owned(),
+                1 => "1 nota de compra encontrada na SEFAZ.".to_owned(),
+                _ => format!("{quantas} notas de compra encontradas na SEFAZ."),
+            },
+        )));
+        quantas
+    }
+
+    /// Reads an invoice from its XML, refusing one already in stock or addressed to someone else.
+    pub fn carregar(&self, session: &Session, xml: &str) -> Result<(), String> {
+        let nota = ler_nota_recebida(xml).map_err(|error| error.to_string())?;
+        if self.ja_entrou(session, &nota.chave) {
             return Err(format!("A nota {} já entrou no estoque.", nota.numero));
         }
+        let space = session.frame().space();
+        let space = space.borrow();
         if let Some(emitente) = ravenrs_app_nfe::emitente_salvo_de(&*space)
             && !nota.destinada_a(&texto(&emitente, "cnpj"))
         {
@@ -366,6 +412,7 @@ pub fn criar_codigo_de_barras(session: &Session, id: &Value) -> Result<String, S
 pub(crate) struct TelaEntrada {
     pub(crate) entradas: Entradas,
     pub(crate) session: Session,
+    pub(crate) service: ravenrs_app_nfe::NfeService,
 }
 
 impl View for TelaEntrada {
@@ -393,9 +440,22 @@ impl View for TelaEntrada {
                 });
             })
         };
+        let buscar = {
+            let (entradas, session, service) = (entradas.clone(), session.clone(), self.service.clone());
+            Button::new("Buscar na SEFAZ").style(ButtonStyle::Secondary).on_click(move || {
+                let entradas = entradas.clone();
+                service.buscar_compras(&session, move |session, buscado| match buscado {
+                    Ok(xmls) => {
+                        entradas.receber_da_sefaz(session, xmls);
+                    }
+                    Err(why) => entradas.aviso.set(Some((Tone::Danger, why))),
+                });
+            })
+        };
         let topo: Vec<AnyView> = vec![
             Box::new(Text::new("Entrada de mercadoria").style(TextStyle::Title)),
             Box::new(Spacer::new()),
+            Box::new(buscar),
             Box::new(importar),
         ];
         let mut corpo: Vec<AnyView> = vec![Box::new(HStack::new(topo).spacing(12.0).align(Align::Center))];
@@ -408,6 +468,17 @@ impl View for TelaEntrada {
                 Button::new("Imprimir as etiquetas de gôndola sugeridas")
                     .style(ButtonStyle::Primary)
                     .on_click(move || session.open_view(VIEW_ETIQUETAS)),
+            ));
+        }
+        for (titulo, xml) in entradas.encontradas.get() {
+            let (e, s) = (entradas.clone(), session.clone());
+            corpo.push(Box::new(
+                Button::new(format!("Abrir: {titulo}")).style(ButtonStyle::Secondary).on_click(move || {
+                    if let Err(why) = e.carregar(&s, &xml) {
+                        e.aviso.set(Some((Tone::Danger, why)));
+                    }
+                    e.encontradas.update(|all| all.retain(|(_, outro)| *outro != xml));
+                }),
             ));
         }
         match entradas.nota.get() {
