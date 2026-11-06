@@ -510,3 +510,72 @@ fn a_row_shows_the_keys_that_do_the_same() {
     let found = node(&tree, "Procurar").and_then(|row| row.description.clone());
     assert_eq!(found.as_deref(), Some("⌘K"), "the keys are read with the row");
 }
+
+/// With motion on, for what is about the way there.
+fn moving_ui(root: impl View + 'static) -> Ui {
+    let mut ui = Ui::new(root, Theme::raven_dark());
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    ui.set_time(0.0);
+    ui.update();
+    ui
+}
+
+#[test]
+fn the_names_keep_their_width_while_the_edge_covers_them() {
+    let state = SidebarState::new(true);
+    let bar = Sidebar::new(rows()).collapsible(SidebarCollapse::Icons).state(state.clone());
+    let mut ui = moving_ui(page(bar));
+    let open = bounds(&mut ui, "Home");
+
+    state.set_open(false);
+    ui.set_time(0.05);
+    ui.update();
+    ui.set_time(0.1);
+    ui.update();
+    let moving = bounds(&mut ui, "Navigation").width();
+    assert!(moving > 60.0 && moving < 248.0, "on its way: {moving}");
+    assert_eq!(bounds(&mut ui, "Home").width(), open.width(), "the row does not squeeze");
+
+    ui.set_time(0.3);
+    ui.update();
+    ui.update();
+    assert_eq!(bounds(&mut ui, "Navigation").width(), 60.0, "over in a fifth of a second");
+}
+
+#[test]
+fn a_selected_pill_follows_its_control_when_the_layout_around_it_moves() {
+    let gap = State::new(0.0_f32);
+    let (read, selected) = (gap.clone(), State::new(0_usize));
+    let shown = selected.clone();
+    let view = view_fn(move || {
+        HStack::new((
+            Text::new("").width(read.get().max(1.0)),
+            SegmentedControl::new(shown.binding(), ["One", "Two"]).label("Choice"),
+        ))
+    });
+    let mut ui = moving_ui(view);
+    ui.set_time(1.0);
+    ui.update();
+
+    gap.set(200.0);
+    ui.set_time(1.016);
+    ui.update();
+    let pill = bounds(&mut ui, "One");
+    let on_it = ui.scene().primitives().iter().any(|p| match p {
+        ravenrs_core::Primitive::Quad(q) => (q.rect.x() - pill.x()).abs() < 0.5 && q.rect.width() > 10.0,
+        _ => false,
+    });
+    assert!(on_it, "the pill is at {pill:?} on the very next frame");
+
+    selected.set(1);
+    ui.set_time(1.05);
+    ui.update();
+    ui.set_time(1.09);
+    ui.update();
+    let two = bounds(&mut ui, "Two");
+    let slid = ui.scene().primitives().iter().any(|p| match p {
+        ravenrs_core::Primitive::Quad(q) => q.rect.x() > pill.x() + 0.5 && q.rect.x() < two.x() - 0.5,
+        _ => false,
+    });
+    assert!(slid, "choosing another still slides between them");
+}

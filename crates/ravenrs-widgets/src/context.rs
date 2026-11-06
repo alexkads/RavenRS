@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 use ravenrs_animation::{Animatable, Animated, Transition};
 use ravenrs_core::{
-    Border, Brush, Color, CursorIcon, Key, Modifiers, NumericValue, Point, Rect, Role, Scene, Shadow, Size,
-    Toggled,
+    AccessTree, Border, Brush, Color, CursorIcon, Key, Modifiers, NumericValue, Point, Rect, Role, Scene,
+    Shadow, Size, Toggled,
 };
 use ravenrs_layout::{LayoutError, LayoutId, LayoutStyle, LayoutTree};
 use ravenrs_reactive::State;
@@ -168,6 +168,8 @@ pub enum UiActivity<'a> {
     PointerMoved(Point),
     /// The primary button went down here.
     Clicked(Point),
+    /// What is on screen, as asked for with [`BuildCx::ask_for_access_tree`].
+    Described(&'a AccessTree),
 }
 
 /// Receives what happens in the UI, with the clock; see [`BuildCx::observe_activity`].
@@ -181,7 +183,7 @@ pub enum Placement {
     Below,
     /// Above the anchor, left edges aligned.
     Above,
-    /// To the right of the anchor, top edges aligned.
+    /// To the right of the anchor, top edges aligned; to its left when only that fits.
     Right,
     /// Centered above the anchor (tooltips).
     AboveCenter,
@@ -189,12 +191,28 @@ pub enum Placement {
     RightCenter,
     /// To the left of the anchor, centers aligned (tooltips beside a rail).
     LeftCenter,
+    /// To the right of the anchor, bottom edges aligned.
+    RightEnd,
+    /// To the left of the anchor, top edges aligned.
+    LeftStart,
+    /// To the left of the anchor, bottom edges aligned.
+    LeftEnd,
     /// Covers the whole viewport (dialogs, sheets); the anchor is ignored.
     Fill,
     /// At a point in the viewport (context menus); the anchor is ignored.
     At(Point),
     /// The bottom-right corner of the viewport (toasts).
     BottomRight,
+    /// The bottom-left corner of the viewport; the anchor is ignored.
+    BottomLeft,
+    /// The middle of the bottom edge of the viewport; the anchor is ignored.
+    BottomCenter,
+    /// The top-left corner of the viewport; the anchor is ignored.
+    TopLeft,
+    /// The middle of the top edge of the viewport; the anchor is ignored.
+    TopCenter,
+    /// The top-right corner of the viewport; the anchor is ignored.
+    TopRight,
 }
 
 /// A keyboard shortcut that works wherever focus is (unless the focused
@@ -391,6 +409,8 @@ pub(crate) struct Element {
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
     /// The wheel over it moves what this widget scrolls.
     pub scrolls_with_widget: bool,
+    /// A wheel that only turns up and down moves this scroll container sideways.
+    pub wheel_sideways: bool,
     pub on_context_menu: Option<Rc<dyn Fn(Point)>>,
     pub on_file_drop: Option<Rc<dyn Fn(Vec<crate::PickedFile>)>>,
     pub on_context_menu_in: Option<Rc<dyn Fn(Point, Rect)>>,
@@ -428,6 +448,7 @@ impl Element {
             on_double_click: None,
             on_pinch: None,
             scrolls_with_widget: false,
+            wheel_sideways: false,
             on_context_menu: None,
             on_file_drop: None,
             on_context_menu_in: None,
@@ -506,9 +527,18 @@ impl LocalStore {
     }
 }
 
+thread_local! {
+    // A build happens on every change and most never replace the words, while
+    // `Labels` holds hundreds of strings: built once, or each build pays for them.
+    static DEFAULT_LABELS: Rc<crate::Labels> = Rc::new(crate::Labels::default());
+}
+
 /// What a [`View`] uses to describe itself during a build: theme access,
 /// interaction state, child building, layout boxes, painting and behavior.
 pub struct BuildCx<'a> {
+    /// The views that asked about the pointer, so that it moving elsewhere rebuilds nothing.
+    pub(crate) hover_readers: Rc<RefCell<HashSet<WidgetId>>>,
+    pub(crate) view_profile: Option<Rc<RefCell<crate::ui::ViewProfile>>>,
     pub(crate) theme: Theme,
     pub(crate) theme_state: State<Theme>,
     pub(crate) viewport: Size,
@@ -528,6 +558,7 @@ pub struct BuildCx<'a> {
     sidebar: Option<Rc<crate::nav::SidebarScope>>,
     pub(crate) shortcuts: Vec<Shortcut>,
     pub(crate) activity: Option<ActivityObserver>,
+    pub(crate) access_tree_asked: bool,
     pub(crate) wake: Option<f64>,
     pub(crate) modifiers: Rc<std::cell::Cell<Modifiers>>,
     pub(crate) local: &'a mut LocalStore,
@@ -543,6 +574,8 @@ pub struct BuildCx<'a> {
     pub(crate) reduced_motion: bool,
     /// A value from [`Self::animated`] is still moving.
     pub(crate) value_moving: bool,
+    /// The text color of the view being built, for content that takes it from what it is in.
+    foreground: Option<Color>,
     scopes: Vec<Scope>,
 }
 
@@ -570,6 +603,8 @@ impl<'a> BuildCx<'a> {
         ui_waker: crate::UiWaker,
     ) -> Self {
         Self {
+            hover_readers: Rc::default(),
+            view_profile: None,
             // Read through the state so a theme change rebuilds the UI.
             theme: theme_state.get(),
             theme_state,
@@ -585,11 +620,12 @@ impl<'a> BuildCx<'a> {
             scroll_requests: Vec::new(),
             focus_request: None,
             now: 0.0,
-            labels: Rc::new(crate::Labels::default()),
+            labels: DEFAULT_LABELS.with(Rc::clone),
             ui_waker,
             sidebar: None,
             shortcuts: Vec::new(),
             activity: None,
+            access_tree_asked: false,
             wake: None,
             modifiers,
             local,
@@ -604,8 +640,25 @@ impl<'a> BuildCx<'a> {
             motion_enabled: false,
             reduced_motion: false,
             value_moving: false,
+            foreground: None,
             scopes: vec![Scope { id: WidgetId::ROOT, next_child: 0, next_state: 0, next_motion: 0 }],
         }
+    }
+
+    /// The text color of the view being built, if a view around it set one with
+    /// [`Self::with_foreground`]. Colors do not cascade by themselves, so this is how
+    /// a [`Kbd`](crate::Kbd) inside a filled button reads as part of the button.
+    pub fn foreground(&self) -> Option<Color> {
+        self.foreground
+    }
+
+    /// Builds what `build` builds with `color` as its [`Self::foreground`]. Layers opened
+    /// inside it start without one, since they are not painted over this view.
+    pub fn with_foreground<R>(&mut self, color: Color, build: impl FnOnce(&mut Self) -> R) -> R {
+        let outer = self.foreground.replace(color);
+        let result = build(self);
+        self.foreground = outer;
+        result
     }
 
     /// The theme in effect for this build.
@@ -683,11 +736,13 @@ impl<'a> BuildCx<'a> {
 
     /// The pointer is over this view's interactive element.
     pub fn is_hovered(&self) -> bool {
+        self.hover_readers.borrow_mut().insert(self.widget_id());
         self.interaction.hovered == Some(self.widget_id())
     }
 
     /// The pointer is over this view or over any interactive element inside it.
     pub fn is_hover_within(&self) -> bool {
+        self.hover_readers.borrow_mut().insert(self.widget_id());
         self.hover_chain.contains(&self.widget_id())
     }
 
@@ -752,7 +807,14 @@ impl<'a> BuildCx<'a> {
     fn build_scoped(&mut self, key: u64, view: &dyn View) -> NodeId {
         let id = self.widget_id().child(key);
         self.scopes.push(Scope { id, next_child: 0, next_state: 0, next_motion: 0 });
+        let profile = self.view_profile.clone();
+        if let Some(profile) = &profile {
+            profile.borrow_mut().enter(view.type_name(), self.elements.len(), self.text.stats().shapes);
+        }
         let node = view.build(self);
+        if let Some(profile) = &profile {
+            profile.borrow_mut().leave(self.elements.len(), self.text.stats().shapes);
+        }
         self.scopes.pop();
         node
     }
@@ -931,6 +993,13 @@ impl<'a> BuildCx<'a> {
         self.scroll.viewports.get(&self.widget_id()).copied()
     }
 
+    /// The size that the keyed child built with `key` ended up with in the last layout, if
+    /// it asked with [`Self::report_frame`]: for a view that places its children by how much
+    /// room each one took, before building them again.
+    pub fn keyed_child_frame(&self, key: u64) -> Option<Size> {
+        self.scroll.viewports.get(&self.widget_id().child(key ^ (1 << 63))).copied()
+    }
+
     /// Scrolls this widget's scroll container to `offset` after the build
     /// (clamped to its content), e.g. to keep a selected row visible.
     pub fn set_scroll_offset(&mut self, offset: Point) {
@@ -949,6 +1018,13 @@ impl<'a> BuildCx<'a> {
     /// It runs on every frame, so it has to be quick. The last call of a build wins.
     pub fn observe_activity(&mut self, observer: ActivityObserver) {
         self.activity = Some(observer);
+    }
+
+    /// Asks that [`Self::observe_activity`] be told what is on screen once this frame
+    /// is painted, as [`UiActivity::Described`]. Building that description costs more
+    /// than a frame should, so it comes only when asked for.
+    pub fn ask_for_access_tree(&mut self) {
+        self.access_tree_asked = true;
     }
 
     /// Asks for a rebuild at `time` (seconds, the same clock as [`Self::now`]):
@@ -1101,6 +1177,14 @@ impl<'a> BuildCx<'a> {
         }
     }
 
+    /// Makes a wheel that only turns up and down move this scroll container sideways,
+    /// for a strip with nothing to scroll in the other direction.
+    pub fn wheel_scrolls_sideways(&mut self, node: NodeId) {
+        if let Some(e) = self.element_mut(node) {
+            e.wheel_sideways = true;
+        }
+    }
+
     /// Lets a scroll container (see [`Self::scrollable`]) scroll sideways too.
     pub fn scroll_horizontally(&mut self, node: NodeId) {
         if let Some(e) = self.element_mut(node) {
@@ -1161,11 +1245,27 @@ impl<'a> BuildCx<'a> {
         // The slot comes before the content: overlays are placed and painted in
         // order, so one opened from inside this one must come after it, or it
         // would be placed with no anchor yet and painted underneath.
+        let key = 0x6f76_6572_6c61_7900 + self.overlays.len() as u64;
+        self.keyed_overlay(key, anchor, placement, view, on_dismiss);
+    }
+
+    /// Like [`Self::overlay`], for a layer that must stay the same one when other
+    /// layers before it come and go. A plain overlay is told apart by its place among
+    /// them, so a new one before it makes it start over, and animate in again.
+    pub fn keyed_overlay(
+        &mut self,
+        key: u64,
+        anchor: NodeId,
+        placement: Placement,
+        view: &dyn View,
+        on_dismiss: Option<Rc<dyn Fn()>>,
+    ) {
         let slot = self.overlays.len();
-        let key = 0x6f76_6572_6c61_7900 + slot as u64;
         let gap = self.theme.spacing.s2;
         self.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss, floating: false });
+        let outer = self.foreground.take();
         let root = self.keyed_child(key, view);
+        self.foreground = outer;
         self.overlays[slot].root = root;
     }
 
@@ -1186,7 +1286,9 @@ impl<'a> BuildCx<'a> {
             on_dismiss: None,
             floating: true,
         });
+        let outer = self.foreground.take();
         let root = self.keyed_child(key, view);
+        self.foreground = outer;
         self.overlays[slot].root = root;
     }
 

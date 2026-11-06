@@ -7,9 +7,9 @@
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
 use family_finance::db::Database;
-use family_finance::seed;
 use family_finance::ui::App;
 use family_finance::update::Updater;
+use family_finance::{seed, themes};
 use ravenrs::core::{AccessAction, AccessNode, AccessTree, Key};
 use ravenrs::movie::{HotspotKind, Movie, MovieLibrary, OverlayKind, RecordError, Recorder, Region};
 use ravenrs::prelude::*;
@@ -569,7 +569,7 @@ fn record(title: &str, script: Script) -> Movie {
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today).expect("seed");
     let app = App::new(db, today, None, Updater::idle());
-    let mut take = Recorder::new(app, Theme::raven_light(), SIZE);
+    let mut take = Recorder::new(app, themes::light(), SIZE);
     script(&mut take).unwrap_or_else(|e| panic!("the script of {title} no longer fits the app: {e}"));
     edit(take.finish().expect("film"), title)
 }
@@ -649,7 +649,7 @@ fn the_scripts_still_fit_the_app() {
             let db = Database::in_memory().expect("database");
             seed::load_demo(&db, today).expect("seed");
             let app = App::new(db, today, None, Updater::idle());
-            let mut take = Recorder::new(app, Theme::raven_light(), SIZE);
+            let mut take = Recorder::new(app, themes::light(), SIZE);
             script(&mut take).err().map(|e| format!("{title}: {e}"))
         })
         .collect();
@@ -665,7 +665,7 @@ fn the_assistant_opens_the_film_from_any_screen() {
     let today = Date::new(2026, 11, 15).expect("valid date");
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today).expect("seed");
-    let mut ui = Ui::new(App::new(db, today, None, Updater::idle()), Theme::raven_light());
+    let mut ui = Ui::new(App::new(db, today, None, Updater::idle()), themes::light());
     ui.set_viewport(SIZE, 1.0);
     ui.update();
 
@@ -775,7 +775,7 @@ fn real_model_answers_in_the_chat_with_the_numbers_of_the_database() {
     let db = Database::open(&path).expect("database");
     seed::load_demo(&db, today).expect("seed");
     let total: i64 = db.accounts().expect("accounts").iter().map(|a| a.balance_cents).sum();
-    let mut ui = Ui::new(App::new(db, today, Some(path), Updater::idle()), Theme::raven_light());
+    let mut ui = Ui::new(App::new(db, today, Some(path), Updater::idle()), themes::light());
     ui.set_viewport(SIZE, 1.0);
     ui.update();
     let click = |ui: &mut Ui, name: &str| {

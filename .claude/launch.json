@@ -2,6 +2,18 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "calculator-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "examples/calculator/web",
+        "8096"
+      ],
+      "port": 8096
+    },
+    {
       "name": "gallery-web",
       "runtimeExecutable": "python3",
       "runtimeArgs": [

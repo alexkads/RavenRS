@@ -743,3 +743,57 @@ mod formulas {
         assert!(says(&mut ui, "Error:"), "it stays open, and the footer keeps the last good one");
     }
 }
+
+/// The quads of each row, by their top, whose fill is exactly this color.
+fn tops_in(ui: &Ui, color: ravenrs_core::Color) -> Vec<f32> {
+    let mut tops: Vec<f32> = ui
+        .scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| match p {
+            Primitive::Quad(q) if q.fill == color.into() && q.rect.width() > 100.0 => Some(q.rect.y()),
+            _ => None,
+        })
+        .collect();
+    tops.sort_by(f32::total_cmp);
+    tops.dedup();
+    tops
+}
+
+fn striped_ui(grid: DataGrid) -> Ui {
+    let mut ui = Ui::new(grid.height(400.0), Theme::raven_light());
+    ui.set_viewport(Size::new(800.0, 500.0), 1.0);
+    ui.update();
+    ui.update();
+    ui
+}
+
+#[test]
+fn striped_rows_tint_every_other_row_with_the_control_color() {
+    let theme = Theme::raven_light();
+    let tint = theme.color(ravenrs_style::Semantic::Control).faded(0.4);
+    assert!(tops_in(&striped_ui(DataGrid::new(data(10), columns())), tint).is_empty(), "off by default");
+
+    let tops = tops_in(&striped_ui(DataGrid::new(data(10), columns()).striped(true)), tint);
+    assert!(tops.len() >= 4, "{tops:?}");
+    let gap = tops[1] - tops[0];
+    assert!(
+        tops.windows(2).all(|pair| (pair[1] - pair[0] - gap).abs() < 0.5),
+        "evenly, every other row: {tops:?}"
+    );
+}
+
+#[test]
+fn rows_can_have_their_own_colors_and_go_without_lines() {
+    let (even, odd) =
+        (ravenrs_core::Color::rgba(0.9, 0.5, 0.1, 1.0), ravenrs_core::Color::rgba(0.1, 0.5, 0.9, 1.0));
+    let ui = striped_ui(DataGrid::new(data(10), columns()).even_row(even).odd_row(odd));
+    let (evens, odds) = (tops_in(&ui, even), tops_in(&ui, odd));
+    assert!(!evens.is_empty() && !odds.is_empty());
+    assert!(odds[0] < evens[0], "the first row is an odd one");
+
+    let line = Theme::raven_light().color(ravenrs_style::Semantic::Border).faded(0.6);
+    let with = striped_ui(DataGrid::new(data(10), columns()));
+    let without = striped_ui(DataGrid::new(data(10), columns()).horizontal_lines(false));
+    assert!(tops_in(&without, line).len() < tops_in(&with, line).len());
+}

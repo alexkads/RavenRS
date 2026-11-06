@@ -3,7 +3,7 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{CursorIcon, Insets, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -18,6 +18,7 @@ pub struct WizardStep {
     title: String,
     content: AnyView,
     check: Option<StepCheck>,
+    failed: bool,
 }
 
 impl fmt::Debug for WizardStep {
@@ -29,13 +30,20 @@ impl fmt::Debug for WizardStep {
 impl WizardStep {
     /// A step with this title and content.
     pub fn new(title: impl Into<String>, content: impl View + 'static) -> Self {
-        Self { title: title.into(), content: Box::new(content), check: None }
+        Self { title: title.into(), content: Box::new(content), check: None, failed: false }
     }
 
     /// What has to hold to leave this step forward. The error is shown on the step,
     /// and going back never asks.
     pub fn check(mut self, check: impl Fn() -> Result<(), String> + 'static) -> Self {
         self.check = Some(Rc::new(check));
+        self
+    }
+
+    /// Marks the step as having a problem, in the row of steps at the top, whichever
+    /// step is showing. It does not stop anyone from leaving it: [`Self::check`] does.
+    pub fn failed(mut self, failed: bool) -> Self {
+        self.failed = failed;
         self
     }
 }
@@ -98,81 +106,290 @@ impl Wizard {
     }
 }
 
-struct StepMark<'a> {
-    index: usize,
-    title: &'a str,
-    current: usize,
-    step: Binding<usize>,
-    error: State<Option<String>>,
+/// Where a step of a task stands.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum StepState {
+    /// Not reached yet.
+    #[default]
+    Upcoming,
+    /// The one being done now.
+    Current,
+    /// Finished.
+    Done,
+    /// Has a problem to look at.
+    Error,
 }
 
-impl View for StepMark<'_> {
+/// The round mark of a step. Besides its color it has a shape of its own in each state:
+/// a number, a check mark, or an alert over a ring.
+fn step_dot(cx: &mut BuildCx<'_>, number: usize, state: StepState, size: f32) -> NodeId {
+    let theme = *cx.theme();
+    let (muted, on_accent, danger) =
+        (theme.color(Semantic::InkMuted), theme.color(Semantic::OnAccent), theme.color(Semantic::Danger));
+    let icon_size = size * 7.0 / 12.0;
+    let mark = match state {
+        StepState::Done => util::icon(cx, IconName::Check, icon_size, on_accent),
+        StepState::Error => util::icon(cx, IconName::CircleAlert, icon_size, danger),
+        StepState::Current | StepState::Upcoming => {
+            let color = if state == StepState::Current { on_accent } else { muted };
+            util::label(cx, &number.to_string(), TextStyle::Callout, Some(Weight::SEMIBOLD), color)
+        }
+    };
+    let paint = match state {
+        StepState::Done | StepState::Current => QuadPaint::new(theme.color(Semantic::Accent)),
+        StepState::Upcoming => QuadPaint::new(theme.color(Semantic::Ink).with_alpha(0.08)),
+        StepState::Error => QuadPaint {
+            border: Some(Border { width: 1.0, color: danger }),
+            ..QuadPaint::new(Color::TRANSPARENT)
+        },
+    };
+    cx.container(
+        LayoutStyle {
+            width: Some(size),
+            height: Some(size),
+            align: Align::Center,
+            justify: Justify::Center,
+            ..LayoutStyle::stack(Axis::Horizontal)
+        },
+        &[mark],
+        Paint::Quad(QuadPaint { corner_radius: theme.radii.full, ..paint }),
+    )
+}
+
+/// The word for a state, for screen readers; the current step says so by being selected.
+fn step_state_text(cx: &BuildCx<'_>, state: StepState) -> Option<String> {
+    let labels = cx.labels();
+    match state {
+        StepState::Done => Some(labels.wizard_done.clone()),
+        StepState::Error => Some(labels.wizard_error.clone()),
+        StepState::Current | StepState::Upcoming => None,
+    }
+}
+
+/// The round mark of a step by itself: its number, a check mark when done, or an alert
+/// when it has a problem. For a list of steps, see [`StepIndicator`].
+///
+/// ```
+/// use ravenrs_widgets::{StepBadge, StepState, Ui};
+///
+/// let mut ui = Ui::new(StepBadge::new(2).state(StepState::Done), ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+#[derive(Clone, Copy, Debug)]
+pub struct StepBadge {
+    number: usize,
+    state: StepState,
+    size: f32,
+}
+
+impl StepBadge {
+    /// The mark of the step with this number, not reached yet.
+    pub fn new(number: usize) -> Self {
+        Self { number, state: StepState::Upcoming, size: 24.0 }
+    }
+
+    /// Where the step stands.
+    pub fn state(mut self, state: StepState) -> Self {
+        self.state = state;
+        self
+    }
+
+    /// Its diameter in logical pixels (24 by default).
+    pub fn size(mut self, size: f32) -> Self {
+        self.size = size;
+        self
+    }
+}
+
+impl View for StepBadge {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let node = step_dot(cx, self.number, self.state, self.size);
+        let mut semantics = Semantics::new(Role::Image)
+            .name(self.number.to_string())
+            .selected(self.state == StepState::Current);
+        if let Some(text) = step_state_text(cx, self.state) {
+            semantics = semantics.description(text);
+        }
+        cx.semantics(node, semantics);
+        node
+    }
+}
+
+/// One line of the row of steps: its mark, its title, and what it says under the title.
+struct StepRow<'a> {
+    number: usize,
+    title: &'a str,
+    note: Option<&'a str>,
+    state: StepState,
+    on_click: Option<Rc<dyn Fn()>>,
+    stretch: bool,
+}
+
+impl View for StepRow<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let (done, here) = (self.index < self.current, self.index == self.current);
-        let ink = theme.color(Semantic::Ink);
-        let muted = theme.color(Semantic::InkMuted);
-        let on_accent = theme.color(Semantic::OnAccent);
-        let mark = if done {
-            util::icon(cx, IconName::Check, 14.0, on_accent)
-        } else {
-            let number = (self.index + 1).to_string();
-            let color = if here { on_accent } else { muted };
-            util::label(cx, &number, TextStyle::Callout, Some(Weight::SEMIBOLD), color)
-        };
-        let fill = if done || here { theme.color(Semantic::Accent) } else { ink.with_alpha(0.08) };
-        let dot = cx.container(
-            LayoutStyle {
-                width: Some(24.0),
-                height: Some(24.0),
-                align: Align::Center,
-                justify: Justify::Center,
-                ..LayoutStyle::stack(Axis::Horizontal)
-            },
-            &[mark],
-            Paint::Quad(QuadPaint { corner_radius: theme.radii.full, ..QuadPaint::new(fill) }),
-        );
+        let (ink, muted) = (theme.color(Semantic::Ink), theme.color(Semantic::InkMuted));
+        let here = self.state == StepState::Current;
+        let dot = step_dot(cx, self.number, self.state, 24.0);
+        cx.semantics(dot, Semantics::hidden());
         let weight = here.then_some(Weight::SEMIBOLD);
-        let title =
-            util::label(cx, self.title, TextStyle::Callout, weight, if here || done { ink } else { muted });
+        let color = if self.state == StepState::Upcoming { muted } else { ink };
+        let title = util::label(cx, self.title, TextStyle::Callout, weight, color);
+        let text = match self.note {
+            Some(note) => {
+                let note = util::label(cx, note, TextStyle::Caption, None, muted);
+                cx.container(
+                    LayoutStyle { grow: 1.0, spacing: 2.0, ..LayoutStyle::stack(Axis::Vertical) },
+                    &[title, note],
+                    Paint::None,
+                )
+            }
+            None => title,
+        };
+        let clickable = self.on_click.is_some();
         let node = cx.container(
             LayoutStyle {
                 padding: Insets::symmetric(4.0, 6.0),
                 spacing: 8.0,
                 align: Align::Center,
+                align_self: self.stretch.then_some(Align::Stretch),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
-            &[dot, title],
+            &[dot, text],
             Paint::Quad(QuadPaint {
                 corner_radius: theme.radii.sm,
-                ..QuadPaint::new(if done && cx.is_hovered() {
+                ..QuadPaint::new(if clickable && cx.is_hovered() {
                     ink.with_alpha(0.05)
                 } else {
-                    ravenrs_core::Color::TRANSPARENT
+                    Color::TRANSPARENT
                 })
             }),
         );
-        cx.semantics(dot, Semantics::hidden());
-        let labels = cx.labels();
-        let description = if done { labels.wizard_done.clone() } else { String::new() };
-        if done {
-            let (step, error, index) = (self.step.clone(), self.error.clone(), self.index);
-            cx.semantics(
-                node,
-                Semantics::new(Role::Button).name(self.title.to_owned()).description(description),
-            );
-            cx.on_click(
-                node,
-                Rc::new(move || {
-                    error.set(None);
-                    step.set(index);
-                }),
-            );
+        let role = if clickable { Role::Button } else { Role::ListItem };
+        let mut semantics = Semantics::new(role).name(self.title.to_owned());
+        // The note goes before the state, the way it reads on the screen.
+        let description: Vec<String> =
+            self.note.map(str::to_owned).into_iter().chain(step_state_text(cx, self.state)).collect();
+        if !description.is_empty() {
+            semantics = semantics.description(description.join(", "));
+        }
+        if here || !clickable {
+            semantics = semantics.selected(here);
+        }
+        cx.semantics(node, semantics);
+        if let Some(on_click) = &self.on_click {
+            cx.on_click(node, on_click.clone());
             cx.focusable(node, theme.radii.sm);
             cx.cursor(node, CursorIcon::Pointer);
-        } else {
-            cx.semantics(node, Semantics::new(Role::ListItem).name(self.title.to_owned()).selected(here));
         }
+        node
+    }
+}
+
+/// One step shown by a [`StepIndicator`].
+#[derive(Clone, Debug)]
+pub struct IndicatorStep {
+    title: String,
+    state: StepState,
+    note: Option<String>,
+}
+
+impl IndicatorStep {
+    /// A step with this title, in this state.
+    pub fn new(title: impl Into<String>, state: StepState) -> Self {
+        Self { title: title.into(), state, note: None }
+    }
+
+    /// A short line under the title, such as what is missing.
+    pub fn note(mut self, note: impl Into<String>) -> Self {
+        self.note = Some(note.into());
+        self
+    }
+}
+
+/// Where a task in steps stands, for an app that lays out the steps itself. A
+/// [`Wizard`] has its own row of these.
+///
+/// ```
+/// use ravenrs_widgets::{IndicatorStep, StepIndicator, StepState, Ui};
+///
+/// let steps = StepIndicator::new(vec![
+///     IndicatorStep::new("Client", StepState::Done),
+///     IndicatorStep::new("Photos", StepState::Error).note("Two are missing"),
+///     IndicatorStep::new("Review", StepState::Current),
+/// ])
+/// .vertical()
+/// .on_select(|step| println!("go to {step}"));
+/// let mut ui = Ui::new(steps, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+pub struct StepIndicator {
+    steps: Vec<IndicatorStep>,
+    vertical: bool,
+    on_select: Option<Rc<dyn Fn(usize)>>,
+}
+
+impl fmt::Debug for StepIndicator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StepIndicator").field("steps", &self.steps).finish_non_exhaustive()
+    }
+}
+
+impl StepIndicator {
+    /// A row of these steps.
+    pub fn new(steps: Vec<IndicatorStep>) -> Self {
+        Self { steps, vertical: false, on_select: None }
+    }
+
+    /// Lists the steps one under the other.
+    pub fn vertical(mut self) -> Self {
+        self.vertical = true;
+        self
+    }
+
+    /// Makes the steps buttons: a click, Enter or Space runs `handler` with the step's
+    /// position, 0 being the first.
+    pub fn on_select(mut self, handler: impl Fn(usize) + 'static) -> Self {
+        self.on_select = Some(Rc::new(handler));
+        self
+    }
+}
+
+impl View for StepIndicator {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let labels = cx.labels();
+        let mut rows = Vec::with_capacity(self.steps.len());
+        for (i, step) in self.steps.iter().enumerate() {
+            let on_click = self.on_select.clone().map(|select| Rc::new(move || select(i)) as Rc<dyn Fn()>);
+            rows.push(cx.keyed_child(
+                i as u64,
+                &StepRow {
+                    number: i + 1,
+                    title: &step.title,
+                    note: step.note.as_deref(),
+                    state: step.state,
+                    on_click,
+                    stretch: self.vertical,
+                },
+            ));
+        }
+        let style = if self.vertical {
+            LayoutStyle { spacing: 4.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) }
+        } else {
+            LayoutStyle {
+                spacing: 4.0,
+                wrap: true,
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            }
+        };
+        let node = cx.container(style, &rows, Paint::None);
+        let current = self.steps.iter().position(|s| s.state == StepState::Current).map_or(0, |i| i + 1);
+        cx.semantics(
+            node,
+            Semantics::new(Role::List).name((labels.wizard_progress)(current, self.steps.len())),
+        );
         node
     }
 }
@@ -213,12 +430,27 @@ impl View for Wizard {
         let current = self.step.get().min(count - 1);
         let mut marks = Vec::with_capacity(count);
         for (index, step) in self.steps.iter().enumerate() {
-            let mark = StepMark {
-                index,
+            let state = match index.cmp(&current) {
+                _ if step.failed => StepState::Error,
+                std::cmp::Ordering::Less => StepState::Done,
+                std::cmp::Ordering::Equal => StepState::Current,
+                std::cmp::Ordering::Greater => StepState::Upcoming,
+            };
+            // Steps already gone through can be reopened.
+            let on_click = (index < current).then(|| {
+                let (moved, error) = (self.step.clone(), error.clone());
+                Rc::new(move || {
+                    error.set(None);
+                    moved.set(index);
+                }) as Rc<dyn Fn()>
+            });
+            let mark = StepRow {
+                number: index + 1,
                 title: &step.title,
-                current,
-                step: self.step.clone(),
-                error: error.clone(),
+                note: None,
+                state,
+                on_click,
+                stretch: false,
             };
             marks.push(cx.keyed_child(index as u64, &mark));
         }

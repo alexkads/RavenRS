@@ -61,6 +61,10 @@ ravenrs-criteria  (expression language, no RavenRS dependencies)
 ravenrs-graphics  ──► ravenrs-core  (shapes, chart layout, barcodes; shared, knows no engine)
         ▲
         │
+ravenrs-lottie  ──► ravenrs-core  (reads Lottie files into curves; no GPU, no widgets)
+        ▲
+        └── ravenrs-widgets  (`Lottie`, with the `lottie` feature)
+
 ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
         ▲
         │
@@ -101,7 +105,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-platform-web` | `app` (canvas, events, frames), `access` (ARIA mirror), `error` |
 | `ravenrs-criteria` | `ast`, `parse`, `format`, `eval`, `functions`, `validate`, `sql`, `value` |
 | `ravenrs-report` | `model`, `engine`, `document`, `base64`, `paint`, `wizard`, `samples` |
-| `ravenrs-graphics` | `vector`, `chart`, `barcode`; also the optional layout behind `Chart` and `Barcode` in `ravenrs-widgets` |
+| `ravenrs-graphics` | `vector`, `chart`, `plot`, `sankey`, `barcode`; also the optional layout behind `Chart` and `Barcode` in `ravenrs-widgets` |
+| `ravenrs-lottie` | `document` (reading a file, and what it asks for that is not done yet), `property` (keyframes), `geometry` (trim, dash, stroke), `player` (one moment as `PathFill`s) |
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-grid-export` | `lib` |
 | `ravenrs-app-derive` | `lib` |
@@ -123,12 +128,18 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 
 | Module | Components |
 |---|---|
-| `stack`, `card`, `canvas`, `fill`, `text`, `icon`, `icon_set`, `image` | Layout primitives, `Footer`, cards, custom drawing, text, icons, images |
-| `button`, `inputs`, `text_field`, `choice`, `calendar`, `date` | Buttons, form controls, text input, `ToggleGroup`, `Pagination`, `Label`, `AspectRatio`, `Calendar`, `DatePicker`, `EventCalendar`, `RecurrenceEditor` |
+| `stack`, `card`, `canvas`, `fill`, `text`, `icon`, `icon_set`, `image` | Layout primitives, `ZStack`, `ScrollEdgeArrow`, `PropertyRow`, `PageHeader`, `TitleBar`, `Footer`, cards, custom drawing, text, icons, images |
+| `button`, `inputs`, `text_field`, `choice`, `calendar`, `date` | Buttons, `ButtonGroup`, form controls, text input, `ToggleGroup`, `FavoriteToggle`, `SwatchGrid`, `NinePointAnchor`, `ColorPair`, `Pagination`, `Label`, `AspectRatio`, `Calendar`, `DatePicker`, `EventCalendar`, `RecurrenceEditor` |
+| `files` | `FileUpload`, `DropZone`, `ImageField` and the service that brings files in |
+| `quick_edit` | `ValueSlider`, `InlineRename`: controls that stay small until they are used |
+| `dock` | `DockArea`: the arrangement in `dock::layout` (`DockLayout`: a tree of ids, its moves and its saved text) and `dock::geometry` (rectangles and what lies under a drag), both without `Ui`, and the drawing in `dock::area` |
+| `lists` | Long lists and what is built on them: `VirtualList`, `Filmstrip`, `PagedDocumentView`, `FileBrowser`, `YearView`, `SortableList`, `DocumentTabs`, with the arithmetic of a reorder drag in one module (`lists::reorder`) |
+| `imaging` | Instruments for pictures, fed by the caller's data: `Histogram`, `Ruler`, `ColorWheel`, `CurveEditor`, `ZoomControl`, `ZoomPanView`, `Minimap`, `RuleOfThirdsGrid`, `RubberBand`, `Marquee`, `TransformHandles`, `Protractor`, `CropOverlay`, `Eyedropper`, `CompareView`, `ImageLightbox` |
 | `scheduler`, `recurrence` | `Scheduler` and its time axis, and `RecurrenceRule`, which needs no UI |
 | `nav`, `ribbon` | `Tabs`, `Sidebar` and its parts, `Breadcrumb`, `Disclosure`, `Ribbon` |
-| `overlay`, `floating` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `SplashScreen`, `Toaster`, `Combobox`, `CommandPalette` |
-| `display`, `data`, `extras` | Badges and alerts; lists, tables and charts; `Spinner`, `Carousel`, `Splitter`, `Menubar`, `InputOtp`, `FormField` |
+| `overlay`, `floating`, `shortcuts` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `SplashScreen`, `Toaster`, `Combobox`, `CommandPalette`, then `ShortcutSheet`, `ShortcutHintBar` |
+| `chat`, `rich_text`, `conversation` | `Chat`, `ChatMedia`, `FloatingPanel`; `RichText`; `AttachmentStrip`, `AudioPlayerButton`, `SelectionBar` |
+| `display`, `status`, `data`, `extras` | Badges and alerts; `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `HeroBanner`, `MultiProgress`, `ShimmerText`, `DaySeparator`; lists, tables and charts; `Spinner`, `Carousel`, `Splitter`, `SplitPanes`, `SplitHandle`, `Menubar`, `InputOtp`, `FormField` |
 | `grid/` | `DataGrid`: `query` (pure pipeline), `model`, `view` |
 
 Examples use the public API, among them `feature-center`, every feature of the application framework, and: `hello-world`, `component-gallery` (one demo per component), `report-designer` and `family-finance`, a desktop app on SQLite that also finds what is missing in the framework. The design tokens are defined in [docs/design-system](docs/design-system), and `ravenrs-style` mirrors them value for value.
@@ -149,8 +160,10 @@ Renderer::render:  batch quads/glyphs ──► upload instances ──► one r
 
 * **Build** walks the view tree. Each `View::build` creates layout boxes and paint instructions through `BuildCx`. The whole build runs inside a reactive `Observer`, so every `State` read is recorded.
 * **Layout** runs Taffy over the boxes. Text leaves are measured by Parley through Taffy's measure callback, so wrapping participates in flexbox sizing.
-* **Paint** walks the element tree in order and appends primitives (`Quad`, `GlyphRun`) to the `Scene`. Focus rings are painted after the focused element's children so they sit on top.
+* **Paint** walks the element tree in order and appends primitives (`Quad`, `GlyphRun`, `PathFill`) to the `Scene`. Focus rings are painted after the focused element's children so they sit on top. An element outside its clip adds nothing, though it still gets a place in the order, because it can take focus and its children can stand outside it.
 * **Render** turns the scene into instanced draws. Consecutive primitives of the same kind are merged into one draw call; painter's order is preserved.
+
+Every rebuild runs from the root, so its cost follows the size of the screen, not the size of the change. What keeps that cheap: text is shaped once (`TextSystem` keeps recent layouts), the pointer moving over views that never asked about it builds nothing, and drawing that moves repeats only the paint through `Paint::Live`.
 
 Nothing runs between frames. An idle app sleeps on the desktop (`ControlFlow::Wait`) and schedules no animation frames on the web. Work on another thread sends its result through a channel and calls a `UiWaker`, the one handle that may leave the UI thread; state itself stays on that thread. While an animation runs, frames repeat only the paint phase ([§6.5](#65-motion)).
 
@@ -212,7 +225,7 @@ Parity with the DevExpress DataGrid feature set:
 | Search panel across visible columns | ✓ |
 | Grouping, nested, expand/collapse (click or arrows), group panel chips | ✓ (by dragging headers to the panel, reorder or ungroup by dragging chips, expand and collapse all) |
 | Group summaries and footer totals (sum, average, min, max, count) | ✓ |
-| Column resizing (drag), column chooser (show/hide), min widths | ✓ |
+| Column resizing (drag), columns that keep their width, column chooser (show/hide), min widths | ✓ |
 | Selection: single, multiple with check boxes, Shift ranges, Ctrl toggle, select all | ✓ |
 | Keyboard navigation (arrows, Home/End, Page Up/Down, Space, Enter/F2) with auto-scroll | ✓ |
 | Cell editing (double-click, Enter, F2; Enter commits, Escape cancels), typed parsing | ✓ |
@@ -295,9 +308,9 @@ Phase R1 is done. `ravenrs-report-pdf`, `ravenrs-report-xlsx` export the `Docume
 * **Soft shadows** are separate instances drawn under their shape: the coverage is an `erf` approximation over the same SDF, which gives a Gaussian-looking falloff in one pass with no blur texture.
 * **Text** is shaped by Parley, rasterized per glyph by `swash` (outline, alpha mask, 4 horizontal sub-pixel positions, no hinting) into an R8 atlas packed with shelves, and drawn as textured quads snapped to the device pixel grid. The atlas grows (×2 up to the device limit) when it fills; at the limit it is cleared.
 * **Color.** Tokens are sRGB. The renderer prefers non-sRGB surface formats so blending happens in sRGB space, as in browsers and design tools; on `*Srgb` targets the shaders linearize colors first. Output is premultiplied alpha.
-* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: `crates/ravenrs-render/tests/offscreen.rs` checks pixels of real scenes and `crates/ravenrs/tests/visual.rs` compares golden images.
+* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: `crates/ravenrs-render/tests/offscreen.rs` checks pixels of real scenes and `crates/ravenrs/tests/visual.rs` compares golden images. GPU timing is off unless asked for, and its answers arrive frames later through buffers mapped in the background, so it never makes a frame wait (`timing.rs`).
 
-**Why not Vello (yet).** Vello's main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Vello remains the candidate for arbitrary vector paths (charts, icons, `Canvas` paths) behind the same `Scene` boundary.
+**Why not Vello (yet).** Vello's main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Arbitrary vector paths have their own pipeline, `Primitive::Path`: edges add up the exact area they cover in each pixel of a coverage texture, in one pass, and the main pass paints from it in scene order. It needs no compute, tessellation or multisampling.
 
 **Glass and blur (planned).** Raven Glass's backdrop blur needs a layer compositor: render the content behind a glass surface to an intermediate texture, blur it (separable Gaussian, downsampled), then composite. Until that lands, glass surfaces render their translucent fill; this is the documented degradation path for platforms where the extra passes are too costly.
 
@@ -316,6 +329,8 @@ Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at we
 **Diagnostics (desktop only for now).** The native platform wraps every root in `DiagnosticsHost`, which adds no element and no wake-up while closed. Ctrl+Shift+D (Cmd+Shift+D on a Mac) or the `RAVENRS_DIAG` variable opens a panel with the GPU in use, the alternatives, what is wrong and what recent frames cost, with text to copy. `ravenrs::native::diagnose` gives the same GPU report without a window, for a command line option. The data is plain types in `ravenrs-core`, so widgets and the renderer still only meet through it. Its performance test redraws the window for 5 seconds and judges the frames per second, which do count the GPU's work, since a busy GPU holds back the next frame. Each frame asks for the next only while it runs. The other durations are CPU time: there are no GPU timestamps, so a busy GPU only shows as waiting in acquire or present. The web platform does not record frames yet.
 
 With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug report: `ravenrs_core::new_issue_url` puts the report in the URL of a new issue, percent-encoded and cut to `MAX_ISSUE_URL`, and `ravenrs::native::open_url` opens it in the browser. The app sends nothing; the person reviews and submits on that page. The report is made to be shared: `VK_DRIVER_FILES` and `VK_ICD_FILENAMES` keep only file names, the panel passes everything it shows through `redact_user_paths`, and no app data reaches it. The panel says this next to the button, above the exact text.
+
+**Tray (desktop, `tray` feature).** With `AppIdentity::close_to_tray`, closing the window hides it, or destroys it on Wayland, which cannot hide one, and keeps the `Ui` and its state behind an icon: `tray-icon` on macOS and Windows, `ksni` on Linux, which asks for no GTK. Where nothing hosts the icon, as on plain GNOME, closing the window closes the app. A copy of the app started meanwhile finds the first through a local TCP port, asks it to open its window and leaves.
 
 **Web (`ravenrs-platform-web`).** Plain `web-sys` on a `<canvas>`:
 
@@ -347,12 +362,12 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | `State`, `Binding`, `Derived`, dependency tracking | ✓ | | |
 | Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
 | `View`, `Component`, `BuildCx`, `view_fn`, `responsive`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`ravenrs-macros`) |
-| Layout: `VStack`, `HStack`, `Grid`, `ScrollView`, `Spacer`, `Footer`, `Section`, `Card`, `Splitter`, `AspectRatio` | ✓ | | `ZStack`, virtualized `List` |
-| Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `TextField`, `TextArea`, `NumberField`, `MaskedField`, `TimePicker`, `DateTimePicker`, `LookupField`, `FormLayout`, `Toolbar`, `SplitButton`, `ConfirmDialog`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `Select`, `Combobox`, `ToggleButton`, `ToggleGroup`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher`; text selection in `TextField` | ✓ | | multi-line text |
-| Navigation: `Tabs`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView`, docking |
-| Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette` | ✓ | | |
+| Layout: `VStack`, `HStack`, `ZStack`, `Grid`, `ScrollView`, `Spacer`, `Footer`, `PropertyRow`, `PageHeader`, `Section`, `Card`, `Splitter`, `SplitPanes`, `SplitHandle`, `DockArea`, `AspectRatio`, `VirtualList` (rows of any height, measured and kept by key), `SortableList` | ✓ | | |
+| Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `ButtonGroup`, `TextField`, `TextArea`, `NumberField`, `MaskedField`, `TimePicker`, `DateTimePicker`, `LookupField`, `FormLayout`, `Toolbar`, `FloatingToolbar`, `TitleBar`, `SplitButton`, `ConfirmDialog`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `ValueSlider`, `InlineRename`, `Stepper`, `SegmentedControl`, `Select`, `Combobox`, `ToggleButton`, `ToggleGroup`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher`, `FavoriteToggle`, `SwatchGrid`, `NinePointAnchor`, `ColorPair`; text selection in `TextField` | ✓ | | multi-line text |
+| Navigation: `Tabs` (underlined, segmented), `DocumentTabs`, `FileBrowser`, `YearView`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView` |
+| Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette`, `ShortcutSheet` | ✓ | | |
 | Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |
-| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Text`, `Icon` (about 200 Lucide icons), `Badge`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `Chart` (line, area, bar, pie, doughnut, scatter, sparkline), `BarChart`, `AreaChart`, `Barcode` (QR Code and six linear formats), `Canvas` | ✓ | | image loading from URLs, radar, funnel and financial charts |
+| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Filmstrip`, `PagedDocumentView`, `ImageLightbox`, `CompareView`, `Eyedropper`, `CropOverlay`, `Protractor`, `TransformHandles`, `Marquee`, `RubberBand`, `RuleOfThirdsGrid`, `Minimap`, `ZoomPanView`, `ZoomControl`, `CurveEditor`, `ColorWheel`, `Ruler`, `Histogram`, `Text`, `RichText`, `AttachmentStrip`, `AudioPlayerButton`, `SelectionBar`, `Icon` (about 200 Lucide icons), `Badge`, `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `HeroBanner`, `MultiProgress`, `ShimmerText`, `DaySeparator`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `Chart` (line, area, bar, pie, doughnut, radar, radial, scatter, sparkline, candlestick), `SankeyChart`, `BarChart`, `AreaChart`, `Barcode` (QR Code and six linear formats), `Canvas`, `Lottie` | ✓ | | image loading from URLs, funnel charts |
 | `GlassCard` | | translucent fill only | backdrop blur |
 | Rounded rects, borders, gradients, soft shadows, text, images (mipmapped, rounded), rectangular clipping | ✓ | | rounded clipping, radial gradients, transforms, layers |
 | Raven Dark / Light / Glass tokens, runtime theme switching, reduced motion from the theme token, `Ui::set_reduced_motion` and the browser's `prefers-reduced-motion` | ✓ | | reading the setting on the desktop (winit does not expose it) |
@@ -362,7 +377,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web | | caret and selection for screen readers, right-to-left |
 | Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
 | Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
-| Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`, budgets in [docs/QUALITY.md](docs/QUALITY.md)) | | GPU timestamps |
+| Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`), a gate of exact counters and frame times (`crates/ravenrs-perf`, budgets in [docs/QUALITY.md](docs/QUALITY.md)), the diagnostics panel with GPU timestamps ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) | | stepping through a frozen frame, a map of what was rebuilt, invalidation by subtree |
 | Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions, frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
 
 ## 12. Decisions log

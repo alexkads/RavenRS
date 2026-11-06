@@ -195,3 +195,143 @@ impl Roving {
         );
     }
 }
+
+/// The outline of a five-pointed star, for what the icon font only has as a line.
+pub(crate) fn star_path(center: ravenrs_core::Point, radius: f32) -> Vec<ravenrs_core::PathElement> {
+    use ravenrs_core::{PathElement, Point};
+    let mut path = Vec::with_capacity(11);
+    for point in 0..10 {
+        let reach = if point % 2 == 0 { radius } else { radius * 0.45 };
+        let angle = -std::f32::consts::FRAC_PI_2 + point as f32 * std::f32::consts::PI / 5.0;
+        let at = Point::new(center.x + reach * angle.cos(), center.y + reach * angle.sin());
+        path.push(if point == 0 { PathElement::MoveTo(at) } else { PathElement::LineTo(at) });
+    }
+    path.push(PathElement::Close);
+    path
+}
+
+/// The outline of a heart that fills `frame`, from a drawing on a grid of 24.
+pub(crate) fn heart_path(frame: ravenrs_core::Rect) -> Vec<ravenrs_core::PathElement> {
+    use ravenrs_core::{PathElement, Point};
+    let at = |x: f32, y: f32| {
+        Point::new(frame.x() + x / 24.0 * frame.width(), frame.y() + y / 24.0 * frame.height())
+    };
+    vec![
+        PathElement::MoveTo(at(12.0, 21.0)),
+        PathElement::CubicTo(at(5.0, 15.5), at(2.0, 12.0), at(2.0, 8.0)),
+        PathElement::CubicTo(at(2.0, 5.0), at(4.5, 3.0), at(7.0, 3.0)),
+        PathElement::CubicTo(at(9.0, 3.0), at(11.0, 4.0), at(12.0, 6.0)),
+        PathElement::CubicTo(at(13.0, 4.0), at(15.0, 3.0), at(17.0, 3.0)),
+        PathElement::CubicTo(at(19.5, 3.0), at(22.0, 5.0), at(22.0, 8.0)),
+        PathElement::CubicTo(at(22.0, 12.0), at(19.0, 15.5), at(12.0, 21.0)),
+        PathElement::Close,
+    ]
+}
+
+/// The outline of a dashed rounded rectangle, just inside `frame`: each corner in one piece,
+/// and on each side as many dashes as fit, evenly spread, so that no corner gets a stub.
+pub(crate) fn dashed_outline(
+    frame: ravenrs_core::Rect,
+    radius: f32,
+    width: f32,
+    dash: f32,
+    gap: f32,
+) -> Vec<ravenrs_core::PathElement> {
+    use ravenrs_core::{PathElement, Point};
+
+    let mut path = Vec::new();
+    if frame.width() <= 0.0 || frame.height() <= 0.0 {
+        return path;
+    }
+    let outer = radius.min(frame.width() / 2.0).min(frame.height() / 2.0).max(0.0);
+    let corner = outer.max(width);
+    let mut rectangle = |x: f32, y: f32, w: f32, h: f32| {
+        path.extend([
+            PathElement::MoveTo(Point::new(x, y)),
+            PathElement::LineTo(Point::new(x + w, y)),
+            PathElement::LineTo(Point::new(x + w, y + h)),
+            PathElement::LineTo(Point::new(x, y + h)),
+            PathElement::Close,
+        ]);
+    };
+    // Where the dashes of a side of this length start, and how far apart.
+    let dashes = |length: f32| {
+        let length = length.max(0.0);
+        let count = if length > 0.0 { ((length - gap) / (dash + gap)).round().max(1.0) } else { 0.0 };
+        let dash = dash.min(length);
+        let space = ((length - count * dash) / (count + 1.0)).max(0.0);
+        (0..count as u32).map(move |i| space + (dash + space) * i as f32).map(move |from| (from, dash))
+    };
+    let across = frame.width() - corner * 2.0;
+    for (from, long) in dashes(across) {
+        let x = frame.x() + corner + from;
+        rectangle(x, frame.y(), long, width);
+        rectangle(x, frame.max_y() - width, long, width);
+    }
+    let down = frame.height() - corner * 2.0;
+    for (from, long) in dashes(down) {
+        let y = frame.y() + corner + from;
+        rectangle(frame.x(), y, width, long);
+        rectangle(frame.max_x() - width, y, width, long);
+    }
+    // A quarter of a circle as a cubic curve.
+    const K: f32 = 0.552_284_8;
+    let centers = [
+        (frame.x() + corner, frame.y() + corner, -1.0, -1.0),
+        (frame.max_x() - corner, frame.y() + corner, 1.0, -1.0),
+        (frame.max_x() - corner, frame.max_y() - corner, 1.0, 1.0),
+        (frame.x() + corner, frame.max_y() - corner, -1.0, 1.0),
+    ];
+    for (cx, cy, sx, sy) in centers {
+        let at = |dx: f32, dy: f32| Point::new(cx + sx * dx, cy + sy * dy);
+        path.push(PathElement::MoveTo(at(corner, 0.0)));
+        path.push(PathElement::CubicTo(at(corner, corner * K), at(corner * K, corner), at(0.0, corner)));
+        let rest = corner - width;
+        path.push(PathElement::LineTo(at(0.0, rest)));
+        path.push(PathElement::CubicTo(at(rest * K, rest), at(rest, rest * K), at(rest, 0.0)));
+        path.push(PathElement::Close);
+    }
+    path
+}
+
+#[cfg(test)]
+mod dash_tests {
+    use ravenrs_core::{PathElement, Point, Rect};
+
+    use super::dashed_outline;
+
+    fn points(path: &[PathElement]) -> Vec<Point> {
+        path.iter()
+            .flat_map(|element| match *element {
+                PathElement::MoveTo(p) | PathElement::LineTo(p) => vec![p],
+                PathElement::CubicTo(a, b, c) => vec![a, b, c],
+                PathElement::Close => vec![],
+            })
+            .collect()
+    }
+
+    #[test]
+    fn dashes_stay_inside_the_frame_at_any_size() {
+        for (w, h) in [(400.0, 200.0), (30.0, 30.0), (9.0, 200.0), (1.0, 1.0), (0.5, 40.0)] {
+            let frame = Rect::new(10.0, 20.0, w, h);
+            let path = dashed_outline(frame, 8.0, 1.0, 6.0, 4.0);
+            assert!(!path.is_empty());
+            for p in points(&path) {
+                let inside = p.x >= frame.x() - 2.0
+                    && p.x <= frame.max_x() + 2.0
+                    && p.y >= frame.y() - 2.0
+                    && p.y <= frame.max_y() + 2.0;
+                assert!(inside, "{p:?} out of {frame:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_long_side_has_as_many_dashes_as_fit_and_an_empty_frame_has_none() {
+        let path = dashed_outline(Rect::new(0.0, 0.0, 216.0, 16.0), 8.0, 1.0, 6.0, 4.0);
+        let contours = path.iter().filter(|e| matches!(e, PathElement::MoveTo(_))).count();
+        // 20 dashes on the top and on the bottom, none on the sides, four corners.
+        assert_eq!(contours, 44);
+        assert!(dashed_outline(Rect::new(0.0, 0.0, 0.0, 40.0), 8.0, 1.0, 6.0, 4.0).is_empty());
+    }
+}

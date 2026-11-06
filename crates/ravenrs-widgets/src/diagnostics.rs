@@ -5,18 +5,19 @@ use std::fmt;
 use std::rc::Rc;
 
 use ravenrs_core::{
-    Bottleneck, DiagnosticFinding, DiagnosticReport, FrameLog, FrameSample, Percentiles, PerformanceResult,
-    PerformanceVerdict, new_issue_url, redact_user_paths,
+    Bottleneck, BuildCause, DiagnosticFinding, DiagnosticReport, FrameLog, FrameSample, Percentiles,
+    PerformanceResult, PerformanceVerdict, Quad, Rect, ViewCost, new_issue_url, redact_user_paths,
 };
 use ravenrs_reactive::State;
+use ravenrs_style::{Semantic, Theme};
 
 use crate::context::{BuildCx, NodeId, Placement};
 use crate::floating::{SheetLayer, Side};
 use crate::labels::Labels;
 use crate::view::View;
 use crate::{
-    Alert, Button, ButtonStyle, CodeBlock, Grid, IconName, ProgressBar, ScrollView, Stat, Tone, VStack,
-    ViewExt as _,
+    Alert, Button, ButtonStyle, Canvas, CodeBlock, Grid, IconName, ProgressBar, ScrollView, Stat, Text, Tone,
+    VStack, ViewExt as _,
 };
 
 /// How often the open panel shows new numbers, in seconds. Its own rebuilds are
@@ -26,6 +27,14 @@ const REFRESH: f64 = 0.5;
 const TEST_SECONDS: f64 = 5.0;
 /// The panel's width in logical pixels.
 const PANEL_WIDTH: f32 = 520.0;
+/// The height of the picture of the latest frames.
+const TIMELINE_HEIGHT: f32 = 96.0;
+/// What the picture's height stands for, in seconds: two frames at 60 Hz.
+const TIMELINE_SPAN: f32 = 0.0333;
+/// The line across the picture: a frame at 120 Hz.
+const FRAME_BUDGET: f32 = 1.0 / 120.0;
+/// How many views the panel lists.
+const VIEWS_SHOWN: usize = 8;
 
 type ReportSource = Rc<dyn Fn() -> DiagnosticReport>;
 type OpenUrl = Rc<dyn Fn(&str) -> Result<(), String>>;
@@ -66,6 +75,7 @@ pub struct Diagnostics {
     /// another build by doing so. `test_runs` is what tells the UI about a new one.
     test: Rc<Cell<TestPhase>>,
     test_runs: State<u32>,
+    view_costs: Rc<RefCell<Vec<ViewCost>>>,
 }
 
 impl fmt::Debug for Diagnostics {
@@ -84,6 +94,7 @@ impl Default for Diagnostics {
             bug_reporter: Rc::default(),
             test: Rc::default(),
             test_runs: State::new(0),
+            view_costs: Rc::default(),
         }
     }
 }
@@ -131,6 +142,16 @@ impl Diagnostics {
     /// Adds a frame to the log.
     pub fn record(&self, sample: FrameSample) {
         self.frames.borrow_mut().record(sample);
+    }
+
+    /// Says what each type of view cost in the latest build; see `Ui::view_costs`.
+    pub fn set_view_costs(&self, costs: Vec<ViewCost>) {
+        *self.view_costs.borrow_mut() = costs;
+    }
+
+    /// The latest frames in the Trace Event format, which Perfetto opens.
+    pub fn trace_json(&self) -> String {
+        self.frames.borrow().trace_json()
     }
 
     /// Sets how to describe the GPU. Describing it can take a moment, so `source`
@@ -293,6 +314,81 @@ fn result_alert(labels: &Labels, result: &PerformanceResult) -> Alert {
         .tone(tone)
 }
 
+/// A bar per recent frame, split by where its time went.
+fn timeline(frames: Vec<FrameSample>, theme: &Theme) -> Canvas {
+    let colors = [
+        theme.color(Semantic::Accent),
+        theme.color(Semantic::Success),
+        theme.color(Semantic::Warning),
+        theme.color(Semantic::Danger),
+        theme.color(Semantic::InkMuted),
+    ];
+    let budget = theme.color(Semantic::Ink);
+    let surface = theme.color(Semantic::Surface);
+    Canvas::new(move |area: Rect, scene| {
+        scene.push_quad(Quad::new(area, surface));
+        let width = area.width() / frames.len().max(1) as f32;
+        for (i, frame) in frames.iter().enumerate() {
+            let phases = frame.work.phases;
+            let other = frame.update.saturating_sub(phases.total());
+            let parts = [
+                phases.build,
+                phases.layout + phases.place,
+                phases.paint + other,
+                frame.render + frame.render_work.gpu.unwrap_or_default(),
+                frame.acquire + frame.present,
+            ];
+            let mut bottom = area.max_y();
+            for (part, color) in parts.iter().zip(colors) {
+                let height = part.as_secs_f32() / TIMELINE_SPAN * area.height();
+                let top = (bottom - height).max(area.y());
+                let x = area.x() + i as f32 * width;
+                scene.push_quad(Quad::new(Rect::new(x, top, (width - 0.5).max(0.5), bottom - top), color));
+                bottom = top;
+            }
+        }
+        let y = area.max_y() - FRAME_BUDGET / TIMELINE_SPAN * area.height();
+        scene.push_quad(Quad::new(Rect::new(area.x(), y, area.width(), 1.0), budget));
+    })
+    .size(PANEL_WIDTH - 48.0, TIMELINE_HEIGHT)
+}
+
+/// Why the recent frames rebuilt the screen, the most common first.
+fn causes_text(labels: &Labels, frames: &[FrameSample]) -> String {
+    let mut lines: Vec<(u32, &str)> = BuildCause::ALL
+        .iter()
+        .zip(&labels.diagnostics_causes)
+        .map(|(cause, name)| {
+            let count = frames.iter().filter(|f| f.work.cause == Some(*cause)).count() as u32;
+            (count, name.as_str())
+        })
+        .filter(|(count, _)| *count > 0)
+        .collect();
+    if lines.is_empty() {
+        return labels.diagnostics_why_none.clone();
+    }
+    lines.sort_by_key(|line| std::cmp::Reverse(line.0));
+    lines.iter().map(|(count, name)| format!("{name}: {count}")).collect::<Vec<_>>().join("\n")
+}
+
+fn views_text(costs: &[ViewCost]) -> String {
+    costs
+        .iter()
+        .take(VIEWS_SHOWN)
+        .map(|cost| {
+            format!(
+                "{:<24} {:>5}x {:>8.1?} {:>5} elements {:>5} shapes",
+                cost.short_name(),
+                cost.count,
+                cost.time,
+                cost.elements,
+                cost.shapes
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn stage(name: &str, stage: Percentiles) -> Stat {
     Stat::new(format!("{name} · p95 {:.1?}", stage.p95), format!("{:.1?}", stage.median))
 }
@@ -307,6 +403,11 @@ impl View for Panel<'_> {
         let spacing = cx.theme().spacing.s3;
         let report = self.diagnostics.report().unwrap_or_default();
         let summary = self.diagnostics.frames.borrow().summary();
+        let frames: Vec<FrameSample> = self.diagnostics.frames.borrow().samples().copied().collect();
+        let work = summary.latest.render_work;
+        let theme = cx.theme();
+        let clipboard = cx.clipboard();
+        let capture = self.diagnostics.clone();
         // The exact text a bug report would carry, so what is read here is what is shared.
         let measured = match phase {
             TestPhase::Done(result) => result.to_string(),
@@ -356,6 +457,38 @@ impl View for Panel<'_> {
                 )
                 .spacing(spacing),
                 report_bug,
+                VStack::new((
+                    Text::new(labels.diagnostics_timeline.clone()),
+                    timeline(frames.clone(), theme),
+                    Text::new(labels.diagnostics_timeline_detail.clone()).foreground(Semantic::InkMuted),
+                ))
+                .spacing(spacing),
+                VStack::new((
+                    Text::new(labels.diagnostics_why.clone()),
+                    CodeBlock::new(causes_text(&labels, &frames)),
+                    Text::new(labels.diagnostics_views.clone()),
+                    CodeBlock::new(views_text(&self.diagnostics.view_costs.borrow())),
+                    Text::new(labels.diagnostics_batches.clone()),
+                    CodeBlock::new(format!(
+                        "kind {}, image {}, clip {}",
+                        work.breaks_kind, work.breaks_image, work.breaks_clip
+                    )),
+                    Text::new(labels.diagnostics_memory.clone()),
+                    CodeBlock::new(format!(
+                        "glyph atlas {} px, {:.0}% full, {} resets\n{} images, {} KB sent per frame, GPU {}",
+                        work.atlas_size,
+                        work.atlas_used as f32 / 10.0,
+                        work.atlas_resets,
+                        work.cached_images,
+                        work.uploaded_bytes / 1024,
+                        work.gpu.map_or_else(|| "not timed".to_owned(), |gpu| format!("{gpu:.1?}")),
+                    )),
+                ))
+                .spacing(spacing),
+                Button::new(labels.diagnostics_copy_trace.clone())
+                    .icon(IconName::Copy)
+                    .style(ButtonStyle::Secondary)
+                    .on_click(move || clipboard.write(&capture.trace_json())),
                 CodeBlock::new(text),
             ))
             .grow(1.0),

@@ -1,5 +1,152 @@
 [
   {
+    "versao": "0.1.30",
+    "data": "2026-11-05",
+    "titulo": "Cores novas, em verde-limão.",
+    "importante": false,
+    "novidades": [
+      "O tema claro agora é o padrão, com tons de verde-limão.",
+      "O tema escuro ficou mais vivo: grafite no lugar do quase preto, com destaques em limão."
+    ],
+    "por_que_atualizar": "Para usar o app com cores mais alegres, nos dois temas."
+  },
+  {
+    "versao": "0.1.29",
+    "data": "2026-11-05",
+    "titulo": "Gráficos mais fáceis de ler.",
+    "importante": false,
+    "novidades": [
+      "Ao passar o mouse num gráfico, o item apontado fica em destaque e os outros se apagam um pouco.",
+      "Mudar o tamanho da janela com o Painel aberto ficou bem mais leve."
+    ],
+    "por_que_atualizar": "Para ler melhor os gráficos e a janela responder mais rápido ao mudar de tamanho."
+  },
+  {
+    "versao": "0.1.28",
+    "data": "2026-11-04",
+    "titulo": "Menos trabalho a cada clique.",
+    "importante": false,
+    "novidades": [
+      "O programa parou de reler a lista de novidades a cada mudança na tela: agora só lê quando você abre essa janela.",
+      "Telas com muitos desenhos e animações grandes passam a aparecer completas."
+    ],
+    "por_que_atualizar": "Para o programa gastar menos o computador enquanto você usa."
+  },
+  {
+    "versao": "0.1.27",
+    "data": "2026-11-04",
+    "titulo": "O programa ficou mais rápido.",
+    "importante": false,
+    "novidades": [
+      "O Painel abre na hora quando você volta a ele, sem aquela pequena travada ao redesenhar os gráficos.",
+      "As listas longas rolam com mais suavidade, e o programa gasta menos o computador enquanto você usa."
+    ],
+    "por_que_atualizar": "Para o programa responder mais rápido ao abrir as telas e ao rolar as listas."
+  },
+  {
+    "versao": "0.1.26",
+    "data": "2026-11-03",
+    "titulo": "Uma abertura nova, com a logo ganhando vida.",
+    "importante": false,
+    "novidades": [
+      "Ao abrir o programa, a logo agora se desenha na tela: um traço de luz vira o corvo, a asa se abre e a moeda cai no bico.",
+      "Quem usa o sistema com movimento reduzido vê a logo pronta, sem a animação."
+    ],
+    "por_que_atualizar": "Para ver a nova abertura do programa."
+  },
+  {
+    "versao": "0.1.25",
+    "data": "2026-11-03",
+    "titulo": "Janelas de formulário sem tremer, e o Dock traz o programa de volta.",
+    "importante": false,
+    "novidades": [
+      "As janelas de formulário, como Nova conta, abrem sem tremer e fecham de forma suave, em vez de sumir de repente.",
+      "No Mac, com o programa na bandeja, clicar no ícone dele no Dock abre a janela de novo."
+    ],
+    "por_que_atualizar": "Para abrir formulários com mais conforto e voltar ao programa pelo Dock."
+  },
+  {
+    "versao": "0.1.24",
+    "data": "2026-11-03",
+    "titulo": "O menu lateral recolhe e abre bem mais rápido.",
+    "importante": false,
+    "novidades": [
+      "O menu lateral e os submenus agora recolhem e abrem em um quinto de segundo, em vez de mais de um segundo.",
+      "Os nomes do menu não se espremem mais durante o movimento, e os controles da tela não se soltam do lugar."
+    ],
+    "por_que_atualizar": "Para usar o menu sem esperar."
+  },
+  {
+    "versao": "0.1.23",
+    "data": "2026-11-03",
+    "titulo": "Listas mais fáceis de ler, com linhas alternadas.",
+    "importante": false,
+    "novidades": [
+      "Em Lançamentos, Contas a pagar e nas demais listas, uma linha sim, outra não tem um fundo suave, o que ajuda a seguir a linha até o valor.",
+      "A linha sob o ponteiro e a linha selecionada ficaram um pouco mais marcadas, para não se confundirem com esse fundo.",
+      "Os treinamentos foram regravados com as telas novas."
+    ],
+    "por_que_atualizar": "Para ler as listas com mais conforto."
+  },
+  {
+    "versao": "0.1.22",
+    "data": "2026-11-03",
+    "titulo": "Agora dá para recolher os submenus do menu lateral.",
+    "importante": false,
+    "novidades": [
+      "Em Contas a pagar, Relatórios e Cadastros, clique de novo na linha do menu para recolher o submenu, e mais uma vez para abrir."
+    ],
+    "por_que_atualizar": "Para deixar o menu lateral mais limpo quando quiser."
+  },
+  {
+    "versao": "0.1.21",
+    "data": "2026-11-03",
+    "titulo": "O sistema agora avisa sobre as contas vencidas.",
+    "importante": false,
+    "novidades": [
+      "O programa usa as notificações do sistema para avisar sobre contas vencidas, mesmo com a janela fechada na bandeja.",
+      "Em Ajustes, no cartão Avisos, você escolhe sobre quais contas ser avisado, a partir de que hora e se o aviso se repete todo dia.",
+      "O botão Testar aviso mostra como a notificação aparece. Com o programa encerrado, não há aviso."
+    ],
+    "por_que_atualizar": "Para não perder o vencimento de uma conta."
+  },
+  {
+    "versao": "0.1.20",
+    "data": "2026-11-03",
+    "titulo": "A janela volta da bandeja na hora, e relatar um problema ficou mais fácil.",
+    "importante": false,
+    "novidades": [
+      "Ao abrir pela bandeja, a janela volta na hora, sem tela preta.",
+      "Em Relatar problema, você pode arrastar uma caixa em volta do que está errado e dizer se é um erro, algo confuso ou uma sugestão.",
+      "O relato mostra tudo o que vai junto antes de ser enviado, como o que está sob a caixa e os últimos erros do programa."
+    ],
+    "por_que_atualizar": "Para voltar da bandeja sem espera e mostrar com mais clareza o que deu errado."
+  },
+  {
+    "versao": "0.1.19",
+    "data": "2026-11-03",
+    "titulo": "Ao fechar a janela, o programa continua na bandeja.",
+    "importante": false,
+    "novidades": [
+      "Ao fechar a janela, o programa continua aberto, com um ícone perto do relógio.",
+      "Clique no ícone para abrir a janela de novo, do jeito que estava, ou para sair do programa.",
+      "Abrir o programa de novo traz de volta a mesma janela, em vez de abrir outra cópia.",
+      "No Linux, sem um lugar para o ícone, como no GNOME sem a extensão AppIndicator, fechar a janela encerra o programa, como antes."
+    ],
+    "por_que_atualizar": "Para deixar o programa aberto sem ocupar a tela."
+  },
+  {
+    "versao": "0.1.18",
+    "data": "2026-11-03",
+    "titulo": "O programa agora abre com uma tela de abertura.",
+    "importante": false,
+    "novidades": [
+      "Ao abrir o programa, a janela aparece logo, com o ícone, o nome e o que está sendo feito naquele momento.",
+      "Se os dados não puderem ser abertos, o aviso aparece na própria janela."
+    ],
+    "por_que_atualizar": "Para ver o que o programa está fazendo enquanto abre."
+  },
+  {
     "versao": "0.1.17",
     "data": "2026-11-03",
     "titulo": "Listas mais limpas: filtros alinhados às colunas e menu Agrupar.",

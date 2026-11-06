@@ -1,11 +1,17 @@
+use std::cell::Cell;
 use std::rc::Rc;
 
-use ravenrs_core::{Insets, Role};
+use ravenrs_core::{CursorIcon, Insets, LinearGradient, Point, Quad, Rect, Role, Scene, Size};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
-use ravenrs_style::{Semantic, TextStyle};
+use ravenrs_reactive::State;
+use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{Button, ButtonSize, ButtonStyle, Divider, Text, View, ViewSeq};
+use crate::overlay::{Entry, MenuList};
+use crate::{
+    AnyView, Button, ButtonSize, ButtonStyle, Divider, IconButton, IconName, Text, Tooltip, View, ViewSeq,
+    util,
+};
 
 macro_rules! stack {
     ($(#[$doc:meta])* $name:ident, $axis:expr) => {
@@ -106,6 +112,311 @@ stack!(
     HStack,
     Axis::Horizontal
 );
+
+/// Views on top of each other, the later ones above, in a box as large as the largest.
+///
+/// Its height comes from the last layout, so the first frame settles in a second
+/// layout of the same update. A layer keeps its own height: to fill the stack, give it
+/// a height. [`align`](Self::align) places the smaller ones.
+///
+/// ```
+/// use ravenrs_widgets::{Text, ZStack, VStack};
+/// use ravenrs_layout::Align;
+///
+/// let same_place = ZStack::new((
+///     VStack::new((Text::new("Taller"), Text::new("content"))),
+///     Text::new("Over it"),
+/// ))
+/// .align(Align::Center);
+/// ```
+#[derive(Debug)]
+pub struct ZStack<C> {
+    children: C,
+    align: Align,
+}
+
+impl<C: ViewSeq> ZStack<C> {
+    /// Children are a tuple of views (up to 12) or a `Vec`, the first one at the back.
+    pub fn new(children: C) -> Self {
+        Self { children, align: Align::Stretch }
+    }
+
+    /// Where the smaller layers go, along both axes. `Stretch`, the default, gives them the
+    /// whole width and puts them at the top.
+    pub fn align(mut self, align: Align) -> Self {
+        self.align = align;
+        self
+    }
+}
+
+/// One layer of a [`ZStack`]: a box of no height, so that the layers overlap, around
+/// a box that reports the height the content really takes.
+struct ZLayer<'a> {
+    content: NodeId,
+    height: &'a Cell<f32>,
+}
+
+impl View for ZLayer<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let inner = cx.container(
+            LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            &[self.content],
+            Paint::None,
+        );
+        cx.report_frame(inner);
+        self.height.set(cx.scroll_viewport().map_or(0.0, |size| size.height));
+        cx.container(
+            LayoutStyle { height: Some(0.0), align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            &[inner],
+            Paint::None,
+        )
+    }
+}
+
+impl<C: ViewSeq> View for ZStack<C> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let content = cx.children(&self.children);
+        let heights = vec![Cell::new(0.0_f32); content.len()];
+        let layers: Vec<NodeId> = content
+            .iter()
+            .zip(&heights)
+            .map(|(&content, height)| cx.child(&ZLayer { content, height }))
+            .collect();
+        let tallest = heights.iter().map(Cell::get).fold(0.0, f32::max);
+        let share = match self.align {
+            Align::Center => 0.5,
+            Align::End => 1.0,
+            _ => 0.0,
+        };
+        for (layer, height) in layers.iter().zip(&heights) {
+            cx.translate(*layer, Point::new(0.0, (tallest - height.get()) * share));
+        }
+        // Across, a column already takes the widest of its children; only the height needs the
+        // layers to report theirs.
+        cx.container(
+            LayoutStyle {
+                height: Some(tallest),
+                align: self.align,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &layers,
+            Paint::None,
+        )
+    }
+}
+
+/// A label on the left and its value on the right, for lists of properties.
+///
+/// A value that does not fit is cut with an ellipsis, and an empty one shows a dash.
+///
+/// ```
+/// use ravenrs_widgets::{Badge, PropertyRow, VStack};
+///
+/// let details = VStack::new((
+///     PropertyRow::new("Camera", "NIKON D3100"),
+///     PropertyRow::new("Lens", ""),
+///     PropertyRow::with("Status", Badge::new("Edited")),
+/// ));
+/// ```
+pub struct PropertyRow {
+    label: String,
+    value: PropertyValue,
+}
+
+enum PropertyValue {
+    Text(String),
+    View(AnyView),
+}
+
+impl std::fmt::Debug for PropertyRow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PropertyRow").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
+impl PropertyRow {
+    /// A row showing `value` as text.
+    pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
+        Self { label: label.into(), value: PropertyValue::Text(value.into()) }
+    }
+
+    /// A row with a view as its value, such as a badge or a switch.
+    pub fn with(label: impl Into<String>, value: impl View + 'static) -> Self {
+        Self { label: label.into(), value: PropertyValue::View(Box::new(value)) }
+    }
+}
+
+impl View for PropertyRow {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let attrs = util::attrs(&theme, TextStyle::Callout, None);
+        // The label keeps its size: it is the value that gives way.
+        let min_width = Some(cx.measure_text(&self.label, &attrs).width.ceil());
+        let label = cx.text(
+            &self.label,
+            &attrs,
+            theme.color(Semantic::InkMuted),
+            LayoutStyle { min_width, ..LayoutStyle::leaf() },
+        );
+        let (value, spoken) = match &self.value {
+            PropertyValue::Text(text) => {
+                let shown = if text.trim().is_empty() { "—" } else { text };
+                let node = cx.text_truncated(shown, &attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
+                cx.semantics(label, Semantics::hidden());
+                cx.semantics(node, Semantics::hidden());
+                (node, Some(shown.to_owned()))
+            }
+            PropertyValue::View(view) => (cx.child(view.as_ref()), None),
+        };
+        let node = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s2,
+                justify: Justify::SpaceBetween,
+                align: Align::Center,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[label, value],
+            Paint::None,
+        );
+        if let Some(spoken) = spoken {
+            cx.semantics(node, Semantics::new(Role::Label).name(self.label.clone()).value(spoken));
+        }
+        node
+    }
+}
+
+/// The top of a page: its title, a line about it, badges beside the title and actions at the end.
+///
+/// ```
+/// use ravenrs_widgets::{Badge, Button, PageHeader};
+///
+/// let header = PageHeader::new("Sessions")
+///     .description("Every shoot, newest first.")
+///     .badge(Badge::new("12"))
+///     .action(Button::new("New session"));
+/// ```
+pub struct PageHeader {
+    title: String,
+    description: Option<String>,
+    badges: Vec<AnyView>,
+    actions: Vec<AnyView>,
+    compact: bool,
+}
+
+impl std::fmt::Debug for PageHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PageHeader").field("title", &self.title).finish_non_exhaustive()
+    }
+}
+
+impl PageHeader {
+    /// A header with this title.
+    pub fn new(title: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            description: None,
+            badges: Vec::new(),
+            actions: Vec::new(),
+            compact: false,
+        }
+    }
+
+    /// The line about the page. A long one is cut with an ellipsis.
+    pub fn description(mut self, text: impl Into<String>) -> Self {
+        self.description = Some(text.into());
+        self
+    }
+
+    /// Adds a view beside the title, usually a badge.
+    pub fn badge(mut self, badge: impl View + 'static) -> Self {
+        self.badges.push(Box::new(badge));
+        self
+    }
+
+    /// Adds a view at the end of the header, usually a button.
+    pub fn action(mut self, action: impl View + 'static) -> Self {
+        self.actions.push(Box::new(action));
+        self
+    }
+
+    /// A single line, with a smaller title and the description beside it, for tool screens.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
+    }
+}
+
+impl View for PageHeader {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let ink = theme.color(Semantic::Ink);
+        let (style, weight, level) = if self.compact {
+            (TextStyle::Headline, Some(Weight::SEMIBOLD), 2)
+        } else {
+            (TextStyle::Title, None, 1)
+        };
+        let title = util::label(cx, &self.title, style, weight, ink);
+        cx.semantics(title, Semantics::new(Role::Heading).level(level));
+        let description = self.description.as_ref().map(|text| {
+            let attrs = util::attrs(&theme, TextStyle::Callout, None);
+            cx.text_truncated(text, &attrs, theme.color(Semantic::InkMuted), LayoutStyle::leaf())
+        });
+        let mut top = vec![title];
+        if self.compact {
+            top.extend(description);
+        }
+        top.extend(self.badges.iter().map(|badge| cx.child(badge.as_ref())));
+        let top = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s2,
+                align: Align::Center,
+                min_width: Some(0.0),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &top,
+            Paint::None,
+        );
+        let mut text = vec![top];
+        if !self.compact {
+            text.extend(description);
+        }
+        let text = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s1,
+                grow: 1.0,
+                min_width: Some(0.0),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &text,
+            Paint::None,
+        );
+        let mut children = vec![text];
+        if !self.actions.is_empty() {
+            let actions: Vec<NodeId> = self.actions.iter().map(|action| cx.child(action.as_ref())).collect();
+            children.push(cx.container(
+                LayoutStyle {
+                    spacing: theme.spacing.s2,
+                    align: Align::Center,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &actions,
+                Paint::None,
+            ));
+        }
+        cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s4,
+                align: Align::Center,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &children,
+            Paint::None,
+        )
+    }
+}
 
 /// Flexible empty space that pushes its siblings apart inside a stack.
 #[derive(Clone, Copy, Debug, Default)]
@@ -227,6 +538,231 @@ impl<C: ViewSeq> View for ScrollView<C> {
             cx.scroll_horizontally(node);
         }
         node
+    }
+}
+
+/// How long the fade of a [`ScrollEdgeArrow`] is, in logical pixels.
+const EDGE_ARROW_LENGTH: f32 = 40.0;
+/// The least an arrow of a [`ScrollEdgeArrow`] scrolls, in logical pixels.
+const EDGE_ARROW_LEAST_STEP: f32 = 200.0;
+
+/// A strip that scrolls, with an arrow over a fade at each end that has more to show. The
+/// arrow scrolls most of the strip at a time, and leaves when that end is reached.
+///
+/// The strip is horizontal unless [`ScrollEdgeArrow::vertical`]. Children keep their size
+/// when they have one, so give them a width: without it they share the room first, as in any
+/// row, down to what their content needs. Every scroll builds the strip again to know
+/// whether an arrow still applies, so what goes in should be cheap to build.
+///
+/// ```
+/// use ravenrs_widgets::{Button, ScrollEdgeArrow, Ui};
+///
+/// let photos: Vec<Button> = (1..=30).map(|n| Button::new(format!("Photo {n}"))).collect();
+/// let strip = ScrollEdgeArrow::new(photos).spacing(8.0);
+/// let mut ui = Ui::new(strip, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+pub struct ScrollEdgeArrow<C> {
+    children: C,
+    vertical: bool,
+    spacing: f32,
+    padding: Insets,
+    height: Option<f32>,
+    fade: Semantic,
+}
+
+impl<C> std::fmt::Debug for ScrollEdgeArrow<C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScrollEdgeArrow").field("vertical", &self.vertical).finish_non_exhaustive()
+    }
+}
+
+impl<C: ViewSeq> ScrollEdgeArrow<C> {
+    /// A horizontal strip of `children` (a tuple of up to 12 views or a `Vec`).
+    pub fn new(children: C) -> Self {
+        Self {
+            children,
+            vertical: false,
+            spacing: 8.0,
+            padding: Insets::default(),
+            height: None,
+            fade: Semantic::Canvas,
+        }
+    }
+
+    /// Scrolls up and down, taking the height its parent gives it.
+    pub fn vertical(mut self) -> Self {
+        self.vertical = true;
+        self
+    }
+
+    /// Gap between children, in logical pixels (default 8).
+    pub fn spacing(mut self, spacing: f32) -> Self {
+        self.spacing = spacing;
+        self
+    }
+
+    /// Inner padding in logical pixels.
+    pub fn padding(mut self, padding: impl Into<Insets>) -> Self {
+        self.padding = padding.into();
+        self
+    }
+
+    /// A fixed height. A horizontal strip takes the height of its children by default.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = Some(height);
+        self
+    }
+
+    /// The color the arrows fade from, which should be what is behind the strip
+    /// ([`Semantic::Canvas`] by default).
+    pub fn fade(mut self, fade: Semantic) -> Self {
+        self.fade = fade;
+        self
+    }
+}
+
+/// One arrow of a [`ScrollEdgeArrow`], which any view that scrolls by itself can also use.
+pub(crate) struct EdgeArrow {
+    /// At the end of the strip rather than at its start.
+    pub forward: bool,
+    pub vertical: bool,
+    /// Its frame inside its parent.
+    pub frame: Rect,
+    pub fade: Semantic,
+    pub label: String,
+    pub on_click: Rc<dyn Fn()>,
+}
+
+impl View for EdgeArrow {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let ink = theme.color(Semantic::Ink);
+        let color = if cx.is_hovered() { ink } else { ink.with_alpha(ink.a * 0.7) };
+        let icon_name = match (self.vertical, self.forward) {
+            (false, false) => IconName::ChevronLeft,
+            (false, true) => IconName::ChevronRight,
+            (true, false) => IconName::ChevronUp,
+            (true, true) => IconName::ChevronDown,
+        };
+        let icon = util::icon(cx, icon_name, 20.0, color);
+        let solid = if self.forward { 1.0 } else { 0.0 };
+        let (start, end) = if self.vertical {
+            (Point::new(0.5, solid), Point::new(0.5, 1.0 - solid))
+        } else {
+            (Point::new(solid, 0.5), Point::new(1.0 - solid, 0.5))
+        };
+        let from = theme.color(self.fade);
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((self.frame.x(), self.frame.y())),
+                width: Some(self.frame.width()),
+                height: Some(self.frame.height()),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[icon],
+            Paint::Quad(QuadPaint::new(LinearGradient { start, end, from, to: from.with_alpha(0.0) })),
+        );
+        cx.on_click(node, self.on_click.clone());
+        cx.semantics(node, Semantics::new(Role::Button).name(self.label.clone()));
+        cx.focusable(node, theme.radii.sm);
+        cx.cursor(node, CursorIcon::Pointer);
+        node
+    }
+}
+
+impl<C: ViewSeq> View for ScrollEdgeArrow<C> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let labels = cx.labels();
+        let vertical = self.vertical;
+        let along = move |size: Size| if vertical { size.height } else { size.width };
+        let view = cx.scroll_viewport().unwrap_or(Size::ZERO);
+        let content = cx.measured_content().unwrap_or(Size::ZERO);
+        let last = (along(content) - along(view)).max(0.0);
+        let offset = cx.scroll_offset();
+
+        // An arrow can only ask: a scroll happens during a build.
+        let wanted: State<Option<f32>> = cx.use_state(|| None);
+        let asked = wanted.get();
+        let here = asked.map_or(if vertical { offset.y } else { offset.x }, |to| to.clamp(0.0, last));
+        if asked.is_some() {
+            wanted.set(None);
+            cx.set_scroll_offset(if vertical {
+                Point::new(offset.x, here)
+            } else {
+                Point::new(here, offset.y)
+            });
+        }
+
+        let children = cx.children(&self.children);
+        let strip = cx.container(
+            LayoutStyle {
+                spacing: self.spacing,
+                padding: self.padding,
+                align: if vertical { Align::Stretch } else { Align::Center },
+                overflow_hidden: true,
+                grow: 1.0,
+                min_width: Some(0.0),
+                min_height: Some(0.0),
+                ..LayoutStyle::stack(if vertical { Axis::Vertical } else { Axis::Horizontal })
+            },
+            &children,
+            Paint::None,
+        );
+        // Rebuilt on every scroll, and told the size of what scrolls: that is what the arrows go by.
+        cx.scrollable_virtual(strip, !vertical);
+        cx.measure_content(strip);
+
+        let step = (along(view) * 0.8).max(EDGE_ARROW_LEAST_STEP);
+        let arrow = |forward: bool| {
+            let at_end = along(view) - EDGE_ARROW_LENGTH;
+            let frame = match (vertical, forward) {
+                (false, false) => Rect::new(0.0, 0.0, EDGE_ARROW_LENGTH, view.height),
+                (false, true) => Rect::new(at_end, 0.0, EDGE_ARROW_LENGTH, view.height),
+                (true, false) => Rect::new(0.0, 0.0, view.width, EDGE_ARROW_LENGTH),
+                (true, true) => Rect::new(0.0, at_end, view.width, EDGE_ARROW_LENGTH),
+            };
+            let label = if forward { &labels.scroll_forward } else { &labels.scroll_back };
+            let wanted = wanted.clone();
+            let target = if forward { here + step } else { here - step };
+            EdgeArrow {
+                forward,
+                vertical,
+                frame,
+                fade: self.fade,
+                label: label.clone(),
+                on_click: Rc::new(move || wanted.set(Some(target))),
+            }
+        };
+        let show_back = here > 0.5;
+        let show_forward = here < last - 0.5;
+        let mut nodes = vec![strip];
+        let back = show_back.then(|| cx.keyed_child(1, &arrow(false)));
+        let forward = show_forward.then(|| cx.keyed_child(2, &arrow(true)));
+        nodes.extend(back);
+        nodes.extend(forward);
+        // Going off the end takes away the arrow that had the keyboard: it moves to the other one.
+        if asked.is_some() {
+            match (back, forward) {
+                (Some(other), None) | (None, Some(other)) => cx.request_focus_node(other),
+                _ => {}
+            }
+        }
+        cx.container(
+            LayoutStyle {
+                height: self.height,
+                grow: if vertical && self.height.is_none() { 1.0 } else { 0.0 },
+                min_width: Some(0.0),
+                min_height: Some(0.0),
+                align: Align::Stretch,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &nodes,
+            Paint::None,
+        )
     }
 }
 
@@ -455,6 +991,180 @@ impl View for FooterArea<'_> {
     }
 }
 
+/// The height of a [`TitleBar`], in logical pixels.
+const TITLE_BAR_HEIGHT: f32 = 38.0;
+
+/// A title bar drawn by the app: what comes first, the title, the actions and the buttons of
+/// the window. A button shows only when it has a handler. A double click on the bar does the
+/// same as the maximize button.
+///
+/// It draws and calls back, and that is all. What the handlers do to the window is up to the
+/// app. **It cannot drag the window nor hide the frame the system draws**, because those belong
+/// to the platform layer, which offers neither yet: for now the system's own bar stays above it.
+///
+/// ```
+/// use ravenrs_widgets::{IconButton, IconName, TitleBar, Ui};
+///
+/// let bar = TitleBar::new("Report.pdf")
+///     .action(IconButton::new(IconName::Search).label("Search"))
+///     .on_minimize(|| {})
+///     .on_maximize(|| {})
+///     .on_close(|| {});
+/// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+pub struct TitleBar {
+    title: String,
+    leading: Option<AnyView>,
+    actions: Vec<AnyView>,
+    on_minimize: Option<Rc<dyn Fn()>>,
+    on_maximize: Option<Rc<dyn Fn()>>,
+    on_close: Option<Rc<dyn Fn()>>,
+    on_context_menu: Option<Rc<dyn Fn(Point)>>,
+    maximized: bool,
+    active: bool,
+}
+
+impl std::fmt::Debug for TitleBar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TitleBar").field("title", &self.title).finish_non_exhaustive()
+    }
+}
+
+impl TitleBar {
+    /// A bar with this title and no buttons.
+    pub fn new(title: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            leading: None,
+            actions: Vec::new(),
+            on_minimize: None,
+            on_maximize: None,
+            on_close: None,
+            on_context_menu: None,
+            maximized: false,
+            active: true,
+        }
+    }
+
+    /// Any view before the title, such as an icon or a menu.
+    pub fn leading(mut self, view: impl View + 'static) -> Self {
+        self.leading = Some(Box::new(view));
+        self
+    }
+
+    /// Appends a view to the area between the title and the window's buttons.
+    pub fn action(mut self, view: impl View + 'static) -> Self {
+        self.actions.push(Box::new(view));
+        self
+    }
+
+    /// Shows the minimize button, which runs `handler`.
+    pub fn on_minimize(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_minimize = Some(Rc::new(handler));
+        self
+    }
+
+    /// Shows the maximize button, which runs `handler`, as a double click on the bar does.
+    pub fn on_maximize(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_maximize = Some(Rc::new(handler));
+        self
+    }
+
+    /// Shows the close button, which runs `handler`.
+    pub fn on_close(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_close = Some(Rc::new(handler));
+        self
+    }
+
+    /// Called with the pointer's place on a right click on the bar, for a menu of the window.
+    pub fn on_context_menu(mut self, handler: impl Fn(Point) + 'static) -> Self {
+        self.on_context_menu = Some(Rc::new(handler));
+        self
+    }
+
+    /// The window is maximized: the maximize button shows and says that it restores.
+    pub fn maximized(mut self, maximized: bool) -> Self {
+        self.maximized = maximized;
+        self
+    }
+
+    /// Whether the window has the keyboard (it does by default). Without it the bar goes quiet,
+    /// which is how to tell which of two windows side by side is listening.
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
+    }
+}
+
+impl View for TitleBar {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let mut children = Vec::new();
+        if let Some(leading) = &self.leading {
+            children.push(cx.keyed_child(1, leading));
+        }
+        let ink = theme.color(if self.active { Semantic::Ink } else { Semantic::InkMuted });
+        children.push(cx.text_truncated(
+            &self.title,
+            &util::attrs(&theme, TextStyle::Callout, Some(Weight::MEDIUM)),
+            ink,
+            LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::leaf() },
+        ));
+        for (i, action) in self.actions.iter().enumerate() {
+            children.push(cx.keyed_child(10 + i as u64, action));
+        }
+        let (middle_icon, middle_label) = if self.maximized {
+            (IconName::Copy, &labels.window_restore)
+        } else {
+            (IconName::Square, &labels.window_maximize)
+        };
+        let buttons = [
+            (&self.on_minimize, IconName::Minus, &labels.window_minimize),
+            (&self.on_maximize, middle_icon, middle_label),
+            (&self.on_close, IconName::X, &labels.close),
+        ];
+        for (i, (handler, icon, label)) in buttons.into_iter().enumerate() {
+            if let Some(handler) = handler.clone() {
+                let button = Tooltip::new(
+                    IconButton::new(icon)
+                        .label(label.clone())
+                        .size(ButtonSize::Mini)
+                        .on_click(move || handler()),
+                    label.clone(),
+                );
+                children.push(cx.keyed_child(2 + i as u64, &button));
+            }
+        }
+        let fill = theme.color(if self.active { Semantic::Surface } else { Semantic::Canvas });
+        let line = theme.color(Semantic::Border);
+        let node = cx.container(
+            LayoutStyle {
+                height: Some(TITLE_BAR_HEIGHT),
+                padding: Insets::symmetric(0.0, theme.spacing.s3),
+                spacing: theme.spacing.s2,
+                align: Align::Center,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &children,
+            Paint::Custom(Rc::new(move |f: Rect, scene: &mut Scene| {
+                scene.push_quad(Quad::new(f, fill));
+                scene.push_quad(Quad::new(Rect::new(f.x(), f.max_y() - 1.0, f.width(), 1.0), line));
+            })),
+        );
+        if let Some(maximize) = &self.on_maximize {
+            cx.on_double_click(node, maximize.clone());
+        }
+        if let Some(menu) = &self.on_context_menu {
+            cx.on_context_menu(node, menu.clone());
+        }
+        cx.semantics(node, Semantics::new(Role::Group).name(self.title.clone()));
+        node
+    }
+}
+
 /// The one line at the foot of an app window that is always there: the version,
 /// what is going on in the background, a notice with its actions.
 ///
@@ -595,21 +1305,83 @@ impl View for StatusBar {
     }
 }
 
+/// One place of a [`ToolRail`]: a tool, and the others that can take its place.
+#[derive(Clone, Debug)]
+pub struct ToolRailItem {
+    tools: Vec<RailToolInfo>,
+}
+
+#[derive(Clone, Debug)]
+struct RailToolInfo {
+    icon: crate::IconName,
+    name: String,
+    shortcut: Option<String>,
+}
+
+impl ToolRailItem {
+    /// A place holding this tool.
+    pub fn new(icon: crate::IconName, name: impl Into<String>) -> Self {
+        Self { tools: vec![RailToolInfo { icon, name: name.into(), shortcut: None }] }
+    }
+
+    /// Shows this key beside the tool added last, such as `"M"` (display only).
+    pub fn shortcut(mut self, keys: impl Into<String>) -> Self {
+        if let Some(tool) = self.tools.last_mut() {
+            tool.shortcut = Some(keys.into());
+        }
+        self
+    }
+
+    /// Adds a tool that shares this place. The others open in a menu at its side, by
+    /// holding the button down, by a right click or with the Right arrow, and the
+    /// place shows the last one used.
+    pub fn variant(mut self, icon: crate::IconName, name: impl Into<String>) -> Self {
+        self.tools.push(RailToolInfo { icon, name: name.into(), shortcut: None });
+        self
+    }
+}
+
+#[derive(Clone, Debug)]
+enum RailEntry {
+    Tool(ToolRailItem),
+    Separator,
+}
+
+/// How long a press on a tool with variants takes to open them, in seconds.
+const RAIL_HOLD: f64 = 0.4;
+/// The side of a tool's button when the rail shows only icons.
+const RAIL_ICON_BUTTON: f32 = 36.0;
+
 /// A narrow bar of tools with their names under their icons, of which one is
 /// open: what sits along the side of an editor, with the open tool's panel next to it.
 ///
+/// `selected` counts every tool in order, the variants of a place included. It can
+/// also show only icons, in one column or more, with lines between groups of tools.
+///
 /// ```
 /// use ravenrs_reactive::State;
-/// use ravenrs_widgets::{IconName, ToolRail};
+/// use ravenrs_widgets::{IconName, ToolRail, ToolRailItem};
 ///
 /// let open = State::new(0);
 /// let rail = ToolRail::new(open.binding(), [(IconName::Type, "Text"), (IconName::ZoomIn, "Zoom")]);
+///
+/// let tool = State::new(0);
+/// let editor = ToolRail::new(tool.binding(), [(IconName::Pencil, "Brush")])
+///     .separator()
+///     .tool(
+///         ToolRailItem::new(IconName::Square, "Rectangle")
+///             .shortcut("M")
+///             .variant(IconName::Circle, "Ellipse"),
+///     )
+///     .columns(2);
 /// ```
 #[derive(Debug)]
 pub struct ToolRail {
     selected: ravenrs_reactive::Binding<usize>,
-    tools: Vec<(crate::IconName, String)>,
-    width: f32,
+    entries: Vec<RailEntry>,
+    width: Option<f32>,
+    columns: usize,
+    icons_only: bool,
 }
 
 impl ToolRail {
@@ -618,39 +1390,125 @@ impl ToolRail {
         selected: ravenrs_reactive::Binding<usize>,
         tools: impl IntoIterator<Item = (crate::IconName, S)>,
     ) -> Self {
-        let tools = tools.into_iter().map(|(icon, name)| (icon, name.into())).collect();
-        Self { selected, tools, width: 76.0 }
+        let entries =
+            tools.into_iter().map(|(icon, name)| RailEntry::Tool(ToolRailItem::new(icon, name))).collect();
+        Self { selected, entries, width: None, columns: 1, icons_only: false }
     }
 
-    /// Its width, in logical pixels (76 by default).
+    /// Adds a place with a tool and its variants.
+    pub fn tool(mut self, item: ToolRailItem) -> Self {
+        self.entries.push(RailEntry::Tool(item));
+        self
+    }
+
+    /// Adds a line between two groups of tools.
+    pub fn separator(mut self) -> Self {
+        self.entries.push(RailEntry::Separator);
+        self
+    }
+
+    /// Its width, in logical pixels (76 by default, or what the columns take).
     pub fn width(mut self, width: f32) -> Self {
-        self.width = width;
+        self.width = Some(width);
+        self
+    }
+
+    /// Shows only icons, with the names as tooltips.
+    pub fn icons_only(mut self, icons_only: bool) -> Self {
+        self.icons_only = icons_only;
+        self
+    }
+
+    /// Lays the tools out in this many columns (1 by default). With more than one, it
+    /// shows only icons.
+    pub fn columns(mut self, columns: usize) -> Self {
+        self.columns = columns.max(1);
         self
     }
 }
 
 struct RailTool<'a> {
-    icon: crate::IconName,
-    name: &'a str,
-    selected: bool,
-    choose: Rc<dyn Fn()>,
+    tools: &'a [RailToolInfo],
+    /// Where this place's tools start, counting every tool of the rail.
+    first: usize,
+    selected: ravenrs_reactive::Binding<usize>,
+    icons_only: bool,
+}
+
+impl RailTool<'_> {
+    /// The menu of the tools that share this place.
+    fn variants(&self, shown: usize, last_used: &ravenrs_reactive::State<usize>) -> Vec<Entry> {
+        self.tools
+            .iter()
+            .enumerate()
+            .map(|(i, tool)| {
+                let (selected, last_used, tool_at) =
+                    (self.selected.clone(), last_used.clone(), self.first + i);
+                let mut item = crate::MenuItem::new(tool.name.clone())
+                    .icon(tool.icon)
+                    .checked(i == shown)
+                    .on_select(move || {
+                        last_used.set(i);
+                        selected.set(tool_at);
+                    });
+                if let Some(keys) = &tool.shortcut {
+                    item = item.shortcut(keys.clone());
+                }
+                Entry::Item(item)
+            })
+            .collect()
+    }
 }
 
 impl View for RailTool<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let hovered = cx.is_hovered();
-        let ink = theme.color(if self.selected { Semantic::Ink } else { Semantic::InkMuted });
-        let icon = crate::util::icon(cx, self.icon, 18.0, ink);
-        let name = crate::util::label(cx, self.name, TextStyle::Caption, None, ink);
-        let fill = if self.selected {
+        let last_used = cx.use_state(|| 0_usize);
+        let current = self.selected.get();
+        let ours = current.checked_sub(self.first).filter(|i| *i < self.tools.len());
+        // A place shows the tool in use, or the last one used.
+        let shown = ours.unwrap_or_else(|| (*last_used.peek()).min(self.tools.len() - 1));
+        let tool = &self.tools[shown];
+        let has_variants = self.tools.len() > 1;
+        let is_selected = ours.is_some();
+        let ink = theme.color(if is_selected { Semantic::Ink } else { Semantic::InkMuted });
+        let mut parts = vec![crate::util::icon(cx, tool.icon, 18.0, ink)];
+        if !self.icons_only {
+            parts.push(crate::util::label(cx, &tool.name, TextStyle::Caption, None, ink));
+        }
+        if has_variants {
+            // A small mark in the corner says there is more here.
+            parts.push(cx.container(
+                LayoutStyle {
+                    width: Some(4.0),
+                    height: Some(4.0),
+                    absolute: Some((
+                        if self.icons_only { RAIL_ICON_BUTTON - 8.0 } else { 6.0 },
+                        if self.icons_only { RAIL_ICON_BUTTON - 8.0 } else { 6.0 },
+                    )),
+                    ..LayoutStyle::leaf()
+                },
+                &[],
+                Paint::Quad(QuadPaint { corner_radius: 2.0, ..QuadPaint::new(ink) }),
+            ));
+        }
+        let fill = if is_selected {
             theme.color(Semantic::Accent).faded(0.2)
         } else if hovered {
             theme.color(Semantic::Ink).faded(0.05)
         } else {
             ravenrs_core::Color::TRANSPARENT
         };
-        let node = cx.container(
+        let style = if self.icons_only {
+            LayoutStyle {
+                width: Some(RAIL_ICON_BUTTON),
+                height: Some(RAIL_ICON_BUTTON),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Vertical)
+            }
+        } else {
             LayoutStyle {
                 height: Some(56.0),
                 spacing: theme.spacing.s1,
@@ -658,14 +1516,80 @@ impl View for RailTool<'_> {
                 justify: Justify::Center,
                 align_self: Some(Align::Stretch),
                 ..LayoutStyle::stack(Axis::Vertical)
-            },
-            &[icon, name],
+            }
+        };
+        let node = cx.container(
+            style,
+            &parts,
             Paint::Quad(QuadPaint { corner_radius: theme.radii.md, ..QuadPaint::new(fill) }),
         );
-        cx.semantics(node, Semantics::new(Role::Button).name(self.name.to_owned()).selected(self.selected));
-        cx.on_click(node, self.choose.clone());
+        let open: ravenrs_reactive::State<bool> = cx.use_state(|| false);
+        let is_open = has_variants && open.get();
+        let mut semantics = Semantics::new(Role::Button).name(tool.name.clone()).selected(is_selected);
+        if has_variants {
+            semantics = semantics.expanded(is_open);
+        }
+        cx.semantics(node, semantics);
+        // A press that opened the variants does not also choose when it is released.
+        let held = cx.use_state(|| Rc::new(Cell::new(None::<f64>))).get();
+        let opened_by_hold = cx.use_state(|| Rc::new(Cell::new(false))).get();
+        if has_variants {
+            if cx.is_pressed() && !is_open {
+                let now = cx.now();
+                let due = held.get().unwrap_or(now + RAIL_HOLD);
+                held.set(Some(due));
+                if now >= due {
+                    opened_by_hold.set(true);
+                    open.set(true);
+                } else {
+                    cx.wake_at(due);
+                }
+            } else {
+                held.set(None);
+            }
+        }
+        let (selected, tool_at, swallow) =
+            (self.selected.clone(), self.first + shown, opened_by_hold.clone());
+        cx.on_click(
+            node,
+            Rc::new(move || {
+                if !swallow.replace(false) {
+                    selected.set(tool_at);
+                }
+            }),
+        );
         cx.focusable(node, theme.radii.md);
         cx.cursor(node, ravenrs_core::CursorIcon::Pointer);
+        if !has_variants {
+            return node;
+        }
+        let at_right = open.clone();
+        cx.on_key(
+            node,
+            Rc::new(move |key, _| {
+                let opens = *key == ravenrs_core::Key::ArrowRight;
+                if opens {
+                    at_right.set(true);
+                }
+                opens
+            }),
+        );
+        let on_menu = open.clone();
+        cx.on_context_menu(node, Rc::new(move |_| on_menu.set(true)));
+        let was_open = cx.use_state(|| Rc::new(Cell::new(false))).get();
+        if is_open {
+            was_open.set(true);
+            let close: Rc<dyn Fn()> = Rc::new(move || open.set(false));
+            let entries = self.variants(shown, &last_used);
+            cx.overlay(
+                node,
+                crate::Placement::Right,
+                &MenuList { entries: &entries, close: close.clone(), on_side: None },
+                Some(close),
+            );
+        } else if was_open.replace(false) {
+            cx.request_focus_node(node);
+        }
         node
     }
 }
@@ -673,22 +1597,61 @@ impl View for RailTool<'_> {
 impl View for ToolRail {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let current = self.selected.get();
-        let mut children = Vec::with_capacity(self.tools.len());
-        for (index, (icon, name)) in self.tools.iter().enumerate() {
-            let selected = self.selected.clone();
-            children.push(cx.child(&RailTool {
-                icon: *icon,
-                name,
-                selected: index == current,
-                choose: Rc::new(move || selected.set(index)),
-            }));
+        let icons_only = self.icons_only || self.columns > 1;
+        let gap = 2.0;
+        let padding = theme.spacing.s1;
+        let columns = self.columns as f32;
+        let width = self.width.unwrap_or(if icons_only {
+            columns * RAIL_ICON_BUTTON + (columns - 1.0) * gap + padding * 2.0
+        } else {
+            76.0
+        });
+        let mut children = Vec::with_capacity(self.entries.len());
+        let mut row = Vec::with_capacity(self.columns);
+        let mut first = 0;
+        let flush = |cx: &mut BuildCx<'_>, row: &mut Vec<NodeId>, children: &mut Vec<NodeId>| {
+            if !row.is_empty() {
+                children.push(cx.container(
+                    LayoutStyle { spacing: gap, ..LayoutStyle::stack(Axis::Horizontal) },
+                    row,
+                    Paint::None,
+                ));
+                row.clear();
+            }
+        };
+        for entry in &self.entries {
+            match entry {
+                RailEntry::Tool(item) => {
+                    let place =
+                        RailTool { tools: &item.tools, first, selected: self.selected.clone(), icons_only };
+                    let name = item.tools.first().map_or("", |tool| tool.name.as_str());
+                    let node = if icons_only {
+                        cx.keyed_child(first as u64, &crate::Tooltip::new(place, name.to_owned()))
+                    } else {
+                        cx.keyed_child(first as u64, &place)
+                    };
+                    first += item.tools.len();
+                    if self.columns > 1 {
+                        row.push(node);
+                        if row.len() == self.columns {
+                            flush(cx, &mut row, &mut children);
+                        }
+                    } else {
+                        children.push(node);
+                    }
+                }
+                RailEntry::Separator => {
+                    flush(cx, &mut row, &mut children);
+                    children.push(cx.child(&Divider::horizontal()));
+                }
+            }
         }
+        flush(cx, &mut row, &mut children);
         cx.container(
             LayoutStyle {
-                width: Some(self.width),
-                spacing: 2.0,
-                padding: Insets::uniform(theme.spacing.s1),
+                width: Some(width),
+                spacing: gap,
+                padding: Insets::uniform(padding),
                 align: Align::Stretch,
                 ..LayoutStyle::stack(Axis::Vertical)
             },

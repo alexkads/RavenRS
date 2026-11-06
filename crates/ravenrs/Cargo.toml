@@ -14,11 +14,17 @@ categories = ["gui", "graphics", "wasm"]
 readme = "README.md"
 
 [features]
-default = ["decode", "charts"]
+default = ["decode", "charts", "lottie"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["ravenrs-widgets/decode"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`.
 charts = ["ravenrs-widgets/charts"]
+# `Lottie`, a player of Lottie animations of our own.
+lottie = ["ravenrs-widgets/lottie"]
+# The icon beside the clock of `AppIdentity::close_to_tray`, on the desktop.
+tray = ["ravenrs-platform-native/tray"]
+# The system's notifications of `SystemNotifier`, on the desktop.
+notifications = ["ravenrs-platform-native/notifications"]
 
 [dependencies]
 ravenrs-core.workspace = true
@@ -38,6 +44,7 @@ ravenrs-platform-native.workspace = true
 ravenrs-platform-web.workspace = true
 
 [dev-dependencies]
+ravenrs-lottie.workspace = true
 pollster.workspace = true
 image = { workspace = true }
 

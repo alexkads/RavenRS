@@ -1,12 +1,10 @@
 {
-  "versao": "0.1.17",
-  "titulo": "Listas mais limpas: filtros alinhados às colunas e menu Agrupar.",
+  "versao": "0.1.30",
+  "titulo": "Cores novas, em verde-limão.",
   "importante": false,
   "novidades": [
-    "Em Lançamentos e Contas a pagar, a linha de filtros agora acompanha as colunas, com o texto no mesmo alinhamento de cada uma.",
-    "Para agrupar, use o menu Agrupar na barra da lista. O espaço para soltar a coluna não aparece mais o tempo todo.",
-    "Selecionar uma linha não muda mais a altura da barra da lista.",
-    "Os treinamentos foram regravados com as telas novas."
+    "O tema claro agora é o padrão, com tons de verde-limão.",
+    "O tema escuro ficou mais vivo: grafite no lugar do quase preto, com destaques em limão."
   ],
-  "por_que_atualizar": "Para ter listas mais fáceis de ler e filtrar."
+  "por_que_atualizar": "Para usar o app com cores mais alegres, nos dois temas."
 }

@@ -4,7 +4,7 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Point, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
@@ -38,10 +38,21 @@ pub(crate) fn panel(cx: &mut BuildCx<'_>, children: &[NodeId], padding: f32, min
     node
 }
 
-/// Shows a short label above its content while the pointer is over it.
+/// Shows a short label above its content while the pointer is over it, with the key
+/// that does the same when there is one.
+///
+/// ```
+/// use ravenrs_widgets::{Button, Tooltip, Ui, ViewExt};
+///
+/// let save = Tooltip::new(Button::new("Save"), "Save the file").shortcut("⌘S");
+/// let open = Button::new("Open").tooltip("Open a file");
+/// let mut ui = Ui::new(ravenrs_widgets::VStack::new((save, open)), ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Tooltip<V> {
     content: V,
     text: String,
+    shortcut: Option<String>,
 }
 
 impl<V> fmt::Debug for Tooltip<V> {
@@ -53,21 +64,48 @@ impl<V> fmt::Debug for Tooltip<V> {
 impl<V: View> Tooltip<V> {
     /// Shows `text` over `content` on hover.
     pub fn new(content: V, text: impl Into<String>) -> Self {
-        Self { content, text: text.into() }
+        Self { content, text: text.into(), shortcut: None }
+    }
+
+    /// Shows this key as a key cap beside the text, such as `"⌘S"`.
+    pub fn shortcut(mut self, keys: impl Into<String>) -> Self {
+        self.shortcut = Some(keys.into());
+        self
     }
 }
 
 pub(crate) struct Bubble<'a>(pub &'a str);
 
+/// The bubble of a tooltip that also shows a key.
+struct KeyBubble<'a> {
+    text: &'a str,
+    keys: Option<&'a str>,
+}
+
 impl View for Bubble<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        KeyBubble { text: self.0, keys: None }.build(cx)
+    }
+}
+
+impl View for KeyBubble<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         // Inverted colors read as a tooltip in every theme.
-        let text =
-            util::label(cx, self.0, TextStyle::Callout, Some(Weight::MEDIUM), theme.color(Semantic::Canvas));
+        let ink = theme.color(Semantic::Canvas);
+        let mut children = vec![util::label(cx, self.text, TextStyle::Callout, Some(Weight::MEDIUM), ink)];
+        if let Some(keys) = self.keys {
+            let cap = crate::Kbd::new(keys.to_owned()).inherit_color();
+            children.push(cx.with_foreground(ink, |cx| cx.child(&cap)));
+        }
         let node = cx.container(
-            LayoutStyle { padding: Insets::symmetric(5.0, 10.0), ..LayoutStyle::stack(Axis::Horizontal) },
-            &[text],
+            LayoutStyle {
+                padding: Insets::symmetric(5.0, 10.0),
+                spacing: theme.spacing.s2,
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &children,
             Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(theme.color(Semantic::Ink)) }),
         );
         // The text is already the name or description of the anchor.
@@ -80,7 +118,7 @@ impl View for Bubble<'_> {
 impl<V: View> View for Tooltip<V> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let child = cx.child(&self.content);
-        cx.label_control(child, &self.text, None);
+        cx.label_control(child, &self.text, self.shortcut.as_deref());
         let node = cx.container(
             LayoutStyle { align_self: Some(Align::Fit), ..LayoutStyle::stack(Axis::Horizontal) },
             &[child],
@@ -89,7 +127,8 @@ impl<V: View> View for Tooltip<V> {
         // Hoverable even when the content itself is not interactive.
         cx.cursor(node, CursorIcon::Default);
         if cx.is_hover_within() {
-            cx.overlay(node, Placement::AboveCenter, &Bubble(&self.text), None);
+            let bubble = KeyBubble { text: &self.text, keys: self.shortcut.as_deref() };
+            cx.overlay(node, Placement::AboveCenter, &bubble, None);
         }
         node
     }
@@ -188,12 +227,29 @@ impl View for HelpTip {
     }
 }
 
-/// Floating content anchored below a view, open while `open` is true. Clicking
-/// outside or pressing Escape closes it.
+/// Floating content anchored to a view, open while `open` is true. Clicking
+/// outside or pressing Escape closes it. It opens below the view on a panel, unless
+/// told otherwise.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Button, Placement, Popover, Text, Ui};
+///
+/// let open = State::new(true);
+/// let popover = Popover::new(open.binding(), Button::new("Refused"), Text::new("Two files"))
+///     .placement(Placement::Above)
+///     .surface(false);
+/// let mut ui = Ui::new(popover, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Popover<A, C> {
     open: Binding<bool>,
     anchor: A,
     content: C,
+    placement: Placement,
+    surface: bool,
+    padding: f32,
+    min_width: f32,
 }
 
 impl<A, C> fmt::Debug for Popover<A, C> {
@@ -205,7 +261,61 @@ impl<A, C> fmt::Debug for Popover<A, C> {
 impl<A: View, C: View> Popover<A, C> {
     /// Shows `content` below `anchor` while `open` is true.
     pub fn new(open: Binding<bool>, anchor: A, content: C) -> Self {
-        Self { open, anchor, content }
+        Self {
+            open,
+            anchor,
+            content,
+            placement: Placement::Below,
+            surface: true,
+            padding: 16.0,
+            min_width: 220.0,
+        }
+    }
+
+    /// Where it opens relative to the anchor ([`Placement::Below`] by default).
+    pub fn placement(mut self, placement: Placement) -> Self {
+        self.placement = placement;
+        self
+    }
+
+    /// Whether the content sits on the floating panel (it does by default). Without it,
+    /// the content draws its own surface and takes only the room it needs.
+    pub fn surface(mut self, surface: bool) -> Self {
+        self.surface = surface;
+        self
+    }
+
+    /// The space between the panel and the content, in logical pixels (16 by default).
+    pub fn padding(mut self, padding: f32) -> Self {
+        self.padding = padding;
+        self
+    }
+
+    /// The narrowest the panel gets, in logical pixels (220 by default).
+    pub fn min_width(mut self, width: f32) -> Self {
+        self.min_width = width;
+        self
+    }
+}
+
+struct PopoverLayer<'a> {
+    content: &'a dyn View,
+    surface: bool,
+    padding: f32,
+    min_width: f32,
+}
+
+impl View for PopoverLayer<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let child = cx.child(self.content);
+        if self.surface {
+            return panel(cx, &[child], self.padding, self.min_width);
+        }
+        let node = cx.container(LayoutStyle::stack(Axis::Vertical), &[child], Paint::None);
+        // Clicks on the content stay in it, panel or not.
+        cx.cursor(node, CursorIcon::Default);
+        motion::popup(cx, node);
+        node
     }
 }
 
@@ -223,24 +333,39 @@ impl<A: View, C: View> View for Popover<A, C> {
         let anchor = cx.child(&self.anchor);
         if self.open.get() {
             let close = self.open.clone();
-            cx.overlay(
-                anchor,
-                Placement::Below,
-                &PanelOf(&self.content),
-                Some(Rc::new(move || close.set(false))),
-            );
+            let layer = PopoverLayer {
+                content: &self.content,
+                surface: self.surface,
+                padding: self.padding,
+                min_width: self.min_width,
+            };
+            cx.overlay(anchor, self.placement, &layer, Some(Rc::new(move || close.set(false))));
         }
         anchor
     }
 }
 
-/// One entry of a [`DropdownMenu`].
+/// One entry of a [`DropdownMenu`] or a [`ContextMenu`](crate::ContextMenu). It can run an
+/// action, show a check mark, show any view, or open a submenu at its side.
+///
+/// ```
+/// use ravenrs_widgets::{DropdownMenu, MenuItem, Ui};
+///
+/// let menu = DropdownMenu::new("View")
+///     .item(MenuItem::new("Show grid").checked(true))
+///     .item(MenuItem::new("Export").item(MenuItem::new("As PDF")).item(MenuItem::new("As CSV")));
+/// let mut ui = Ui::new(menu, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct MenuItem {
     label: String,
     icon: Option<IconName>,
     shortcut: Option<String>,
     destructive: bool,
     on_select: Option<Rc<dyn Fn()>>,
+    checked: Option<bool>,
+    element: Option<AnyView>,
+    submenu: Vec<Entry>,
 }
 
 impl fmt::Debug for MenuItem {
@@ -252,7 +377,16 @@ impl fmt::Debug for MenuItem {
 impl MenuItem {
     /// A menu item labeled `label`.
     pub fn new(label: impl Into<String>) -> Self {
-        Self { label: label.into(), icon: None, shortcut: None, destructive: false, on_select: None }
+        Self {
+            label: label.into(),
+            icon: None,
+            shortcut: None,
+            destructive: false,
+            on_select: None,
+            checked: None,
+            element: None,
+            submenu: Vec::new(),
+        }
     }
 
     /// Shows an icon before the label.
@@ -276,6 +410,34 @@ impl MenuItem {
     /// Runs `handler` when the item is chosen; the menu closes first.
     pub fn on_select(mut self, handler: impl Fn() + 'static) -> Self {
         self.on_select = Some(Rc::new(handler));
+        self
+    }
+
+    /// Makes it an item that is on or off: a check mark shows while it is on, and screen
+    /// readers hear which. What choosing it does is still up to [`Self::on_select`].
+    pub fn checked(mut self, checked: bool) -> Self {
+        self.checked = Some(checked);
+        self
+    }
+
+    /// Shows this view in the row instead of the label, such as a color with its name.
+    /// The label still names the item for screen readers.
+    pub fn element(mut self, view: impl View + 'static) -> Self {
+        self.element = Some(Box::new(view));
+        self
+    }
+
+    /// Adds an item to this item's submenu, which opens at its side on hover, on click or
+    /// with the Right arrow; Left and Escape come back. An item with a submenu does not
+    /// run [`Self::on_select`].
+    pub fn item(mut self, item: MenuItem) -> Self {
+        self.submenu.push(Entry::Item(item));
+        self
+    }
+
+    /// Adds a separator line to this item's submenu.
+    pub fn separator(mut self) -> Self {
+        self.submenu.push(Entry::Separator);
         self
     }
 }
@@ -360,6 +522,145 @@ struct ListRow<'a> {
     role: Role,
     /// Left (false) or Right (true) in a menubar menu: open the neighbor menu.
     on_side: Option<Rc<dyn Fn(bool)>>,
+    /// Shown instead of the label, which still names the row.
+    element: Option<&'a dyn View>,
+    /// An item that is on or off, as opposed to a plain command.
+    toggled: Option<bool>,
+    /// What this row opens at its side.
+    submenu: &'a [Entry],
+    /// The row of this list whose submenu is open, set when any row of the list has one.
+    /// The flag says the submenu takes the keyboard, as it does unless the pointer opened it.
+    open_submenu: Option<State<Option<(usize, bool)>>>,
+    /// How the pointer is moving over this list, set along with `open_submenu`.
+    aim: Option<SubmenuAim>,
+    /// Told when the pointer is over this list, if it is itself a submenu.
+    pointer_in: Option<Rc<dyn Fn()>>,
+}
+
+/// How long the pointer can cross other rows on its way to an open submenu.
+const SUBMENU_GRACE: f64 = 0.25;
+
+/// What lets the pointer go diagonally to a submenu: crossing the rows between would
+/// otherwise close it. A move that is mostly sideways gets a moment; the row it is over
+/// takes over when that ends, unless the pointer has reached the submenu.
+#[derive(Clone)]
+struct SubmenuAim {
+    last: Rc<Cell<Option<Point>>>,
+    /// The row waiting to take over, and whether it has a submenu of its own.
+    waiting: State<Option<(usize, bool)>>,
+    due: Rc<Cell<Option<f64>>>,
+}
+
+impl SubmenuAim {
+    /// Keeps the position and says whether this move can be going to the side.
+    fn sideways(&self, position: Point) -> bool {
+        self.last.replace(Some(position)).is_some_and(|from| {
+            let (dx, dy) = (position.x - from.x, position.y - from.y);
+            dx != 0.0 && dy.abs() <= dx.abs() * 2.0
+        })
+    }
+
+    fn cancel(&self) {
+        if self.waiting.peek().is_some() {
+            self.waiting.set(None);
+        }
+    }
+}
+
+/// Makes this row's submenu the open one, or none if it has none.
+fn switch_submenu(
+    open: &State<Option<(usize, bool)>>,
+    index: usize,
+    has_submenu: bool,
+    focus_to: &util::FocusTarget,
+) {
+    let current = *open.peek();
+    open.set(has_submenu.then_some((index, false)));
+    // The submenu that goes away may hold the keyboard.
+    if current.is_some_and(|(_, focused)| focused) {
+        focus_to.request(index);
+    }
+}
+
+impl ListRow<'_> {
+    /// Opens this row's submenu from the keyboard or a click.
+    fn opener(&self) -> Option<Rc<dyn Fn()>> {
+        let open = self.open_submenu.clone().filter(|_| !self.submenu.is_empty())?;
+        let index = self.roving.index;
+        Some(Rc::new(move || open.set(Some((index, true)))))
+    }
+
+    /// While the pointer moves over this row, its submenu is the open one, if it has one.
+    fn follow_pointer(&self, cx: &mut BuildCx<'_>, node: NodeId) {
+        let pointer_in = self.pointer_in.clone();
+        let list = self.open_submenu.clone().zip(self.aim.clone());
+        if list.is_none() && pointer_in.is_none() {
+            return;
+        }
+        let (index, has_submenu, focus_to) =
+            (self.roving.index, !self.submenu.is_empty(), self.roving.focus_to.clone());
+        cx.on_pointer_move(
+            node,
+            Rc::new(move |position, _| {
+                if let Some(pointer_in) = &pointer_in {
+                    pointer_in();
+                }
+                let Some((open, aim)) = &list else { return };
+                let sideways = aim.sideways(position);
+                let current = *open.peek();
+                if current.map(|(i, _)| i) == has_submenu.then_some(index) {
+                    aim.cancel();
+                    return;
+                }
+                if current.is_some() && sideways {
+                    if *aim.waiting.peek() != Some((index, has_submenu)) {
+                        aim.waiting.set(Some((index, has_submenu)));
+                    }
+                    return;
+                }
+                aim.cancel();
+                switch_submenu(open, index, has_submenu, &focus_to);
+            }),
+        );
+    }
+
+    /// Builds the submenu at the side of this row while it is the open one.
+    fn submenu_overlay(&self, cx: &mut BuildCx<'_>, node: NodeId) {
+        let Some(open) = &self.open_submenu else { return };
+        let Some((_, focused)) = open.get().filter(|(i, _)| *i == self.roving.index) else { return };
+        if self.submenu.is_empty() {
+            return;
+        }
+        let close_submenu: Rc<dyn Fn()> = {
+            let (open, focus_to, index) = (open.clone(), self.roving.focus_to.clone(), self.roving.index);
+            Rc::new(move || {
+                open.set(None);
+                focus_to.request(index);
+            })
+        };
+        // Left comes back here; Right goes on to the next menu of a menubar, as anywhere else.
+        let on_side: Rc<dyn Fn(bool)> = {
+            let (close, outer) = (close_submenu.clone(), self.on_side.clone());
+            Rc::new(move |forward| {
+                if !forward {
+                    close();
+                } else if let Some(outer) = &outer {
+                    outer(true);
+                }
+            })
+        };
+        let reached = self.aim.clone().map(|aim| Rc::new(move || aim.cancel()) as Rc<dyn Fn()>);
+        let list = MenuLevel {
+            entries: self.submenu,
+            close: self.close.clone(),
+            on_side: Some(on_side),
+            takes_focus: focused,
+            pointer_in: reached,
+        };
+        // Told apart by the flag: asked again from the keyboard, it starts over and takes focus.
+        let key = 0x7375_626d_656e_7500 + u64::from(focused);
+        cx.keyed_overlay(key, node, Placement::Right, &list, Some(close_submenu));
+    }
 }
 
 impl View for ListRow<'_> {
@@ -373,7 +674,10 @@ impl View for ListRow<'_> {
             children.push(util::icon(cx, icon, 16.0, muted));
         }
         let weight = self.checked.then_some(Weight::SEMIBOLD);
-        let label = util::label(cx, self.label, TextStyle::Body, weight, ink);
+        let label = match self.element {
+            Some(element) => cx.keyed_child(1, element),
+            None => util::label(cx, self.label, TextStyle::Body, weight, ink),
+        };
         children.push(cx.container(
             LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
             &[label],
@@ -390,7 +694,14 @@ impl View for ListRow<'_> {
                 theme.color(Semantic::Accent).lerp(ink, 0.3),
             ));
         }
-        let fill = if hovered { theme.color(Semantic::Ink).with_alpha(0.07) } else { Color::TRANSPARENT };
+        let opener = self.opener();
+        let is_open =
+            self.open_submenu.as_ref().and_then(|o| o.get()).is_some_and(|(i, _)| i == self.roving.index);
+        if opener.is_some() {
+            children.push(util::icon(cx, IconName::ChevronRight, 16.0, muted));
+        }
+        let lit = hovered || (is_open && opener.is_some());
+        let fill = if lit { theme.color(Semantic::Ink).with_alpha(0.07) } else { Color::TRANSPARENT };
         let style = LayoutStyle {
             padding: Insets::symmetric(0.0, 10.0),
             height: Some(34.0),
@@ -411,32 +722,53 @@ impl View for ListRow<'_> {
         if let Some(t) = self.trailing {
             semantics = semantics.name(self.label).description(t);
         }
+        if self.element.is_some() {
+            semantics = semantics.name(self.label);
+        }
+        if let Some(on) = self.toggled {
+            semantics = semantics.toggled(on);
+        }
+        if opener.is_some() {
+            semantics = semantics.expanded(is_open);
+        }
         cx.semantics(node, semantics);
-        let (action, close) = (self.on_click.clone(), self.close.clone());
-        cx.on_click(
-            node,
-            Rc::new(move || {
-                close();
-                if let Some(a) = &action {
-                    a();
-                }
-            }),
-        );
+        if let Some(open) = &opener {
+            let open = open.clone();
+            cx.on_click(node, Rc::new(move || open()));
+        } else {
+            let (action, close) = (self.on_click.clone(), self.close.clone());
+            cx.on_click(
+                node,
+                Rc::new(move || {
+                    close();
+                    if let Some(a) = &action {
+                        a();
+                    }
+                }),
+            );
+        }
         cx.focusable(node, 7.0);
-        let before: Option<crate::KeyHandler> = self.on_side.clone().map(|side| {
+        let before: Option<crate::KeyHandler> = (self.on_side.is_some() || opener.is_some()).then(|| {
+            let (side, opener) = (self.on_side.clone(), opener.clone());
             Rc::new(move |key: &ravenrs_core::Key, _: ravenrs_core::Modifiers| match key {
-                ravenrs_core::Key::ArrowLeft => {
-                    side(false);
+                ravenrs_core::Key::ArrowRight if opener.is_some() => {
+                    if let Some(open) = &opener {
+                        open();
+                    }
                     true
                 }
-                ravenrs_core::Key::ArrowRight => {
-                    side(true);
+                ravenrs_core::Key::ArrowLeft | ravenrs_core::Key::ArrowRight if side.is_some() => {
+                    if let Some(side) = &side {
+                        side(*key == ravenrs_core::Key::ArrowRight);
+                    }
                     true
                 }
                 _ => false,
             }) as crate::KeyHandler
         });
         self.roving.wire_with(cx, node, None, before);
+        self.follow_pointer(cx, node);
+        self.submenu_overlay(cx, node);
         cx.cursor(node, CursorIcon::Pointer);
         node
     }
@@ -456,9 +788,56 @@ pub(crate) struct MenuList<'a> {
 
 impl View for MenuList<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        MenuLevel {
+            entries: self.entries,
+            close: self.close.clone(),
+            on_side: self.on_side.clone(),
+            takes_focus: true,
+            pointer_in: None,
+        }
+        .build(cx)
+    }
+}
+
+/// One panel of a menu, the first one or a submenu. `close` closes the whole menu.
+struct MenuLevel<'a> {
+    entries: &'a [Entry],
+    close: Rc<dyn Fn()>,
+    on_side: Option<Rc<dyn Fn(bool)>>,
+    /// A submenu the pointer opened leaves the keyboard where it was.
+    takes_focus: bool,
+    /// A submenu tells the list that opened it when the pointer gets here.
+    pointer_in: Option<Rc<dyn Fn()>>,
+}
+
+impl View for MenuLevel<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let mut rows = Vec::new();
         let count = self.entries.iter().filter(|e| matches!(e, Entry::Item(_))).count();
-        let focus_to = list_focus(cx, 0);
+        let focus_to = util::roving_cell(cx, self.takes_focus.then_some(0));
+        let open_submenu: State<Option<(usize, bool)>> = cx.use_state(|| None);
+        // Plain menus never pay for following the pointer.
+        let has_submenus =
+            self.entries.iter().any(|e| matches!(e, Entry::Item(item) if !item.submenu.is_empty()));
+        let aim = SubmenuAim {
+            last: cx.use_state(|| Rc::new(Cell::new(None))).get(),
+            waiting: cx.use_state(|| None),
+            due: cx.use_state(|| Rc::new(Cell::new(None))).get(),
+        };
+        if let Some((row, its_own)) = aim.waiting.get() {
+            let now = cx.now();
+            let due = aim.due.get().unwrap_or(now + SUBMENU_GRACE);
+            if now >= due {
+                aim.due.set(None);
+                aim.waiting.set(None);
+                switch_submenu(&open_submenu, row, its_own, &focus_to);
+            } else {
+                aim.due.set(Some(due));
+                cx.wake_at(due);
+            }
+        } else {
+            aim.due.set(None);
+        }
         let mut item_index = 0;
         for (i, entry) in self.entries.iter().enumerate() {
             match entry {
@@ -470,12 +849,18 @@ impl View for MenuList<'_> {
                         label: &item.label,
                         icon: item.icon,
                         trailing: item.shortcut.as_deref(),
-                        checked: false,
+                        checked: item.checked == Some(true),
                         destructive: item.destructive,
                         close: self.close.clone(),
                         on_click: item.on_select.clone(),
                         role: Role::MenuItem,
                         on_side: self.on_side.clone(),
+                        element: item.element.as_deref().map(|view| view as &dyn View),
+                        toggled: item.checked,
+                        submenu: &item.submenu,
+                        open_submenu: has_submenus.then(|| open_submenu.clone()),
+                        aim: has_submenus.then(|| aim.clone()),
+                        pointer_in: self.pointer_in.clone(),
                     };
                     rows.push(cx.keyed_child(i as u64, &row));
                 }
@@ -495,6 +880,9 @@ impl View for MenuList<'_> {
         }
         let node = panel(cx, &rows, 6.0, 220.0);
         cx.semantics(node, Semantics::new(Role::Menu));
+        if let Some(pointer_in) = self.pointer_in.clone() {
+            cx.on_pointer_move(node, Rc::new(move |_, _| pointer_in()));
+        }
         node
     }
 }
@@ -546,6 +934,8 @@ pub struct Select {
     label: Option<String>,
     state: util::EditorState,
     fill: bool,
+    size: crate::ButtonSize,
+    searchable: bool,
 }
 
 impl Select {
@@ -558,7 +948,64 @@ impl Select {
             fill: false,
             label: None,
             state: util::EditorState::default(),
+            size: crate::ButtonSize::Medium,
+            searchable: false,
         }
+    }
+
+    /// A select over values of any type, each with the text that shows it: `value` holds
+    /// the value itself, not its position. A value that is not among the options shows
+    /// nothing until one is picked.
+    ///
+    /// ```
+    /// use ravenrs_reactive::State;
+    /// use ravenrs_widgets::{Select, Ui};
+    ///
+    /// #[derive(Clone, PartialEq)]
+    /// enum Quality {
+    ///     Draft,
+    ///     Final,
+    /// }
+    ///
+    /// let quality = State::new(Quality::Final);
+    /// let select = Select::of(quality.binding(), [(Quality::Draft, "Draft"), (Quality::Final, "Final")]);
+    /// let mut ui = Ui::new(select, ravenrs_style::Theme::raven_dark());
+    /// ui.update();
+    /// ```
+    pub fn of<T: Clone + PartialEq + 'static>(
+        value: Binding<T>,
+        options: impl IntoIterator<Item = (T, impl Into<String>)>,
+    ) -> Self {
+        let (values, labels): (Vec<T>, Vec<String>) =
+            options.into_iter().map(|(value, label)| (value, label.into())).unzip();
+        let values = Rc::new(values);
+        let (read, write, known) = (value.clone(), value, values.clone());
+        // Past the end when it is not among the options, which shows nothing.
+        let selected = Binding::new(
+            move || {
+                let current = read.get();
+                known.iter().position(|v| *v == current).unwrap_or(usize::MAX)
+            },
+            move |i: usize| {
+                if let Some(value) = values.get(i) {
+                    write.set(value.clone());
+                }
+            },
+        );
+        Self::new(selected, labels)
+    }
+
+    /// Opens with a search box that filters the options as you type.
+    pub fn searchable(mut self) -> Self {
+        self.searchable = true;
+        self
+    }
+
+    /// Sets the height and text size to line up with a [`Button`] of the same size
+    /// (`Medium` by default).
+    pub fn size(mut self, size: crate::ButtonSize) -> Self {
+        self.size = size;
+        self
     }
 
     /// Takes the width of its parent, as other fields of a form do.
@@ -603,7 +1050,9 @@ pub(crate) struct Options<'a> {
 impl View for Options<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let current = self.selected.get();
-        let (count, focus_to) = (self.options.len(), list_focus(cx, current));
+        let count = self.options.len();
+        // Nothing to start from when the value is not among the options.
+        let focus_to = list_focus(cx, if current < count { current } else { 0 });
         let rows: Vec<NodeId> = self
             .options
             .iter()
@@ -621,6 +1070,12 @@ impl View for Options<'_> {
                     on_click: Some(Rc::new(move || selected.set(i))),
                     role: Role::ListBoxOption,
                     on_side: None,
+                    element: None,
+                    toggled: None,
+                    submenu: &[],
+                    open_submenu: None,
+                    aim: None,
+                    pointer_in: None,
                 };
                 cx.keyed_child(i as u64, &row)
             })
@@ -635,11 +1090,14 @@ impl View for Select {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let open: State<bool> = cx.use_state(|| false);
+        let query: State<String> = cx.use_state(String::new);
+        let highlight: State<usize> = cx.use_state(|| 0);
         let state = self.state;
         let is_open = open.get() && state.accepts_input();
         let hovered = cx.is_hovered() && state.accepts_input();
         let current = self.options.get(self.selected.get()).map_or("", String::as_str);
-        let label = util::label(cx, current, TextStyle::Body, None, state.ink(theme.color(Semantic::Ink)));
+        let label =
+            util::label(cx, current, self.size.text_style(), None, state.ink(theme.color(Semantic::Ink)));
         let label = cx.container(
             LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
             &[label],
@@ -648,7 +1106,7 @@ impl View for Select {
         let chevron = util::icon(
             cx,
             if is_open { IconName::ChevronUp } else { IconName::ChevronDown },
-            16.0,
+            if self.size == crate::ButtonSize::Mini { 12.0 } else { 16.0 },
             state.ink(theme.color(Semantic::InkMuted)),
         );
         let border = if is_open {
@@ -661,9 +1119,16 @@ impl View for Select {
             }
         };
         let style = LayoutStyle {
-            padding: Insets::symmetric(0.0, 12.0),
+            padding: Insets::symmetric(
+                0.0,
+                if matches!(self.size, crate::ButtonSize::Small | crate::ButtonSize::Mini) {
+                    8.0
+                } else {
+                    12.0
+                },
+            ),
             width: (!self.fill).then_some(self.width),
-            height: Some(40.0),
+            height: Some(self.size.height()),
             spacing: 8.0,
             align: Align::Center,
             align_self: Some(if self.fill { Align::Stretch } else { Align::Fit }),
@@ -688,8 +1153,23 @@ impl View for Select {
             cx.focusable(node, theme.radii.md);
             return node;
         }
-        let toggle = open.clone();
-        cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
+        // A new search each time, starting from the current option.
+        let reset: Rc<dyn Fn()> = {
+            let (query, highlight, selected) = (query.clone(), highlight.clone(), self.selected.clone());
+            let count = self.options.len();
+            Rc::new(move || {
+                query.set(String::new());
+                highlight.set(Some(selected.get()).filter(|i| *i < count).unwrap_or(0));
+            })
+        };
+        let (toggle, new_search) = (open.clone(), reset.clone());
+        cx.on_click(
+            node,
+            Rc::new(move || {
+                new_search();
+                toggle.update(|o| *o = !*o);
+            }),
+        );
         // Arrow keys open the list too, like a native select.
         let opener = open.clone();
         cx.on_key(
@@ -697,6 +1177,7 @@ impl View for Select {
             Rc::new(move |key, _| {
                 let opens = matches!(key, ravenrs_core::Key::ArrowDown | ravenrs_core::Key::ArrowUp);
                 if opens {
+                    reset();
                     opener.set(true);
                 }
                 opens
@@ -715,20 +1196,52 @@ impl View for Select {
                 let open = open.clone();
                 Rc::new(move || open.set(false))
             };
-            let list = Options {
-                options: &self.options,
-                selected: self.selected.clone(),
-                close: close.clone(),
-                width: self.width,
-            };
-            cx.overlay(node, Placement::Below, &list, Some(close));
+            if self.searchable {
+                let pick: Rc<dyn Fn(usize)> = {
+                    let (selected, close) = (self.selected.clone(), close.clone());
+                    Rc::new(move |i| {
+                        selected.set(i);
+                        close();
+                    })
+                };
+                let list = crate::floating::SearchPanel {
+                    options: &self.options,
+                    current: Some(self.selected.get()),
+                    pick,
+                    query,
+                    highlight,
+                    open: open.clone(),
+                    width: self.width,
+                };
+                cx.overlay(node, Placement::Below, &list, Some(close));
+            } else {
+                let list = Options {
+                    options: &self.options,
+                    selected: self.selected.clone(),
+                    close: close.clone(),
+                    width: self.width,
+                };
+                cx.overlay(node, Placement::Below, &list, Some(close));
+            }
         }
         node
     }
 }
 
 /// A modal dialog over a dimmed backdrop, shown while `open` is true.
-/// Clicking the backdrop, the close button or pressing Escape closes it.
+/// Clicking the backdrop, the close button or pressing Escape closes it, and each of
+/// the three can be turned off for what must not be dismissed by accident.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Dialog, Ui};
+///
+/// let open = State::new(true);
+/// // Only its own buttons or Escape close it: a stray click does not lose what was typed.
+/// let dialog = Dialog::new(open.binding(), "Discard the changes?").close_on_backdrop(false).close_button(false);
+/// let mut ui = Ui::new(dialog, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Dialog {
     open: Binding<bool>,
     title: String,
@@ -737,6 +1250,9 @@ pub struct Dialog {
     actions: Vec<AnyView>,
     width: f32,
     close_label: Option<String>,
+    close_on_escape: bool,
+    close_on_backdrop: bool,
+    close_button: bool,
 }
 
 impl fmt::Debug for Dialog {
@@ -756,6 +1272,9 @@ impl Dialog {
             actions: Vec::new(),
             width: 460.0,
             close_label: None,
+            close_on_escape: true,
+            close_on_backdrop: true,
+            close_button: true,
         }
     }
 
@@ -784,6 +1303,24 @@ impl Dialog {
         self
     }
 
+    /// Whether Escape closes it (it does by default).
+    pub fn close_on_escape(mut self, close: bool) -> Self {
+        self.close_on_escape = close;
+        self
+    }
+
+    /// Whether a click on the backdrop closes it (it does by default).
+    pub fn close_on_backdrop(mut self, close: bool) -> Self {
+        self.close_on_backdrop = close;
+        self
+    }
+
+    /// Whether it shows the X in its corner (it does by default).
+    pub fn close_button(mut self, show: bool) -> Self {
+        self.close_button = show;
+        self
+    }
+
     /// Buttons at the bottom-right, in order.
     pub fn action(mut self, action: impl View + 'static) -> Self {
         self.actions.push(Box::new(action));
@@ -807,16 +1344,21 @@ impl View for DialogLayer<'_> {
             &[title],
             Paint::None,
         );
-        let x = cx.child(
-            &IconButton::new(IconName::X)
-                .label(d.close_label.clone().unwrap_or_else(|| cx.labels().close.clone()))
-                .size(crate::ButtonSize::Small)
-                .on_click(move || close.set(false)),
-        );
         cx.semantics(title, Semantics::new(Role::Heading).level(2));
+        let mut header = vec![title];
+        if d.close_button {
+            header.push(
+                cx.child(
+                    &IconButton::new(IconName::X)
+                        .label(d.close_label.clone().unwrap_or_else(|| cx.labels().close.clone()))
+                        .size(crate::ButtonSize::Small)
+                        .on_click(move || close.set(false)),
+                ),
+            );
+        }
         let header = cx.container(
             LayoutStyle { align: Align::Center, spacing: 12.0, ..LayoutStyle::stack(Axis::Horizontal) },
-            &[title, x],
+            &header,
             Paint::None,
         );
         let mut body = vec![header];
@@ -865,8 +1407,9 @@ impl View for DialogLayer<'_> {
         cx.motion(
             card,
             Motion::new()
-                .enter(Effect::moved(0.0, 8.0).with_scale(0.96), theme.motion.gentle)
-                .exit(Effect::IDENTITY.with_scale(0.98), theme.motion.fast),
+                .surface_exit()
+                .enter(Effect::moved(0.0, 8.0).with_scale(0.96), theme.motion.fast)
+                .exit(Effect { opacity: 0.0, ..Effect::IDENTITY.with_scale(0.98) }, theme.motion.fast),
         );
         let scrim = motion::scrim(cx, viewport);
         let backdrop = cx.container(
@@ -880,8 +1423,16 @@ impl View for DialogLayer<'_> {
             &[scrim, card],
             Paint::None,
         );
-        let close = d.open.clone();
-        cx.on_click(backdrop, Rc::new(move || close.set(false)));
+        // Still a target when it does not close: the click must not reach what is behind.
+        let close = d.close_on_backdrop.then(|| d.open.clone());
+        cx.on_click(
+            backdrop,
+            Rc::new(move || {
+                if let Some(close) = &close {
+                    close.set(false);
+                }
+            }),
+        );
         backdrop
     }
 }
@@ -890,12 +1441,17 @@ impl View for Dialog {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let anchor = cx.empty();
         if self.open.get() {
-            let close = self.open.clone();
+            // It takes Escape even when it does not close, or a layer under it would.
+            let close = self.close_on_escape.then(|| self.open.clone());
             cx.overlay(
                 anchor,
                 Placement::Fill,
                 &DialogLayer { dialog: self },
-                Some(Rc::new(move || close.set(false))),
+                Some(Rc::new(move || {
+                    if let Some(close) = &close {
+                        close.set(false);
+                    }
+                })),
             );
         }
         anchor

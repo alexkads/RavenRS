@@ -1,7 +1,7 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Quad, Rect, Role, Scene};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
@@ -39,12 +39,21 @@ pub enum ButtonSize {
 }
 
 impl ButtonSize {
-    fn height(self) -> f32 {
+    pub(crate) fn height(self) -> f32 {
         match self {
             Self::Mini => 22.0,
             Self::Small => 32.0,
             Self::Medium => 40.0,
             Self::Large => 48.0,
+        }
+    }
+
+    /// The text of a control of this size.
+    pub(crate) fn text_style(self) -> TextStyle {
+        match self {
+            Self::Mini => TextStyle::Caption,
+            Self::Small => TextStyle::Callout,
+            _ => TextStyle::Body,
         }
     }
 
@@ -126,6 +135,34 @@ pub(crate) fn control_colors(
     }
 }
 
+/// How a control that stays on looks, in any style.
+fn selected_colors(
+    theme: &Theme,
+    style: ButtonStyle,
+    hovered: bool,
+    disabled: bool,
+) -> (Color, Color, Border) {
+    let (ink, accent) = (theme.color(Semantic::Ink), theme.color(Semantic::Accent));
+    let (fill, label, border) = match style {
+        ButtonStyle::Primary => {
+            let on_accent = theme.color(Semantic::OnAccent);
+            (theme.color(Semantic::AccentPressed), on_accent, on_accent.with_alpha(0.6))
+        }
+        ButtonStyle::Danger => {
+            let fill = theme.color(Semantic::Danger).lerp(Color::BLACK, 0.18);
+            (fill, Color::WHITE, Color::WHITE.with_alpha(0.6))
+        }
+        // A tint that follows the theme, so the two neutral styles light up the same way.
+        _ => (accent.with_alpha(0.18), accent.lerp(ink, 0.3), accent.with_alpha(0.55)),
+    };
+    let fill = if hovered && !disabled { fill.lerp(ink, 0.06) } else { fill };
+    if disabled {
+        (util::faded(fill), util::faded(label), Border { width: 1.0, color: util::faded(border) })
+    } else {
+        (fill, label, Border { width: 1.0, color: border })
+    }
+}
+
 /// A clickable, focusable button. Activates on click, Enter or Space.
 ///
 /// ```
@@ -152,6 +189,17 @@ pub struct Button {
     disabled: bool,
     full_width: bool,
     accessible_name: Option<String>,
+    loading: bool,
+    selected: Option<bool>,
+    shortcut: Option<String>,
+    join: Option<Join>,
+}
+
+/// Where a button stands in a [`ButtonGroup`].
+#[derive(Clone, Copy, Debug)]
+struct Join {
+    first: bool,
+    last: bool,
 }
 
 impl fmt::Debug for Button {
@@ -173,6 +221,10 @@ impl Button {
             disabled: false,
             full_width: false,
             accessible_name: None,
+            loading: false,
+            selected: None,
+            shortcut: None,
+            join: None,
         }
     }
 
@@ -224,14 +276,45 @@ impl Button {
         self.full_width = true;
         self
     }
+
+    /// Shows an animated indicator over the content, which keeps its place so that the
+    /// button does not change width, and ignores clicks until it is done. It keeps
+    /// keyboard focus, and screen readers hear that it is loading and unavailable.
+    pub fn loading(mut self, loading: bool) -> Self {
+        self.loading = loading;
+        self
+    }
+
+    /// Lights the button up as being on, and announces it as a button that toggles.
+    /// What a click does is still up to [`Self::on_click`].
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.selected = Some(selected);
+        self
+    }
+
+    /// Shows a key cap after the label, in the label's color, such as `"F8"`. It only
+    /// shows the key: [`BuildCx::shortcut`] makes the key work.
+    pub fn shortcut(mut self, keys: impl Into<String>) -> Self {
+        self.shortcut = Some(keys.into());
+        self
+    }
 }
 
 impl View for Button {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let pressed = cx.is_pressed() && !self.disabled;
-        let (fill, label_color, border) =
-            control_colors(&theme, self.style, cx.is_hovered(), pressed, self.disabled);
+        let inert = self.disabled || self.loading;
+        let pressed = cx.is_pressed() && !inert;
+        let hovered = cx.is_hovered() && !inert;
+        let (fill, label_color, border) = if self.selected == Some(true) {
+            let (fill, label, border) = selected_colors(&theme, self.style, hovered, self.disabled);
+            (fill, label, Some(border))
+        } else {
+            control_colors(&theme, self.style, hovered, pressed, self.disabled)
+        };
+        // While loading, the content is still laid out, unseen, to hold the width.
+        let spinner_color = label_color;
+        let label_color = if self.loading { label_color.with_alpha(0.0) } else { label_color };
         let icon_size = match self.size {
             ButtonSize::Mini => 12.0,
             ButtonSize::Small => 14.0,
@@ -242,34 +325,70 @@ impl View for Button {
             children.push(util::icon(cx, icon, icon_size, label_color));
         }
         if !self.label.is_empty() {
-            let style = match self.size {
-                ButtonSize::Mini => TextStyle::Caption,
-                ButtonSize::Small => TextStyle::Callout,
-                _ => TextStyle::Body,
-            };
+            let style = self.size.text_style();
             children.push(util::label(cx, &self.label, style, Some(Weight::SEMIBOLD), label_color));
         }
         if let Some(icon) = self.trailing_icon {
             children.push(util::icon(cx, icon, icon_size, label_color));
         }
+        if let Some(keys) = &self.shortcut {
+            let cap = crate::Kbd::new(keys.clone()).inherit_color();
+            let cap = cx.with_foreground(label_color, |cx| cx.child(&cap));
+            // Part of the description, not of the name.
+            cx.semantics(cap, Semantics::hidden());
+            children.push(cap);
+        }
         let height = self.size.height();
         let icon_only = self.label.is_empty();
+        let spacing = if self.size == ButtonSize::Mini { 4.0 } else { 8.0 };
+        if self.loading {
+            let content = cx.container(
+                LayoutStyle {
+                    spacing,
+                    align: Align::Center,
+                    justify: Justify::Center,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &children,
+                crate::extras::spinner_paint(icon_size, spinner_color),
+            );
+            children = vec![content];
+        }
         let style = LayoutStyle {
             padding: Insets::symmetric(0.0, if icon_only { 0.0 } else { self.size.padding_x() }),
             width: icon_only.then_some(height),
             height: Some(height),
-            spacing: if self.size == ButtonSize::Mini { 4.0 } else { 8.0 },
+            spacing,
             align: Align::Center,
             justify: Justify::Center,
             align_self: Some(if self.full_width { Align::Stretch } else { Align::Fit }),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let radius = theme.radii.md;
-        let paint = Paint::Quad(QuadPaint { fill: fill.into(), corner_radius: radius, border, shadow: None });
-        let node = cx.container(style, &children, paint);
-        let squeeze = if pressed { Effect::scaled(0.97) } else { Effect::IDENTITY };
-        cx.motion(node, Motion::new().paint(theme.motion.fast).effect(squeeze, theme.motion.snappy));
-        let mut semantics = Semantics::new(Role::Button).disabled(self.disabled);
+        let node = if let Some(join) = self.join {
+            // No squeeze when pressed, which would open a gap between neighbors.
+            cx.container(style, &children, joined_paint(join, fill, radius, border))
+        } else {
+            let paint =
+                Paint::Quad(QuadPaint { fill: fill.into(), corner_radius: radius, border, shadow: None });
+            let node = cx.container(style, &children, paint);
+            let squeeze = if pressed { Effect::scaled(0.97) } else { Effect::IDENTITY };
+            cx.motion(node, Motion::new().paint(theme.motion.fast).effect(squeeze, theme.motion.snappy));
+            node
+        };
+        let mut semantics = Semantics::new(Role::Button).disabled(inert);
+        if let Some(selected) = self.selected {
+            semantics = semantics.toggled(selected);
+        }
+        // The accessibility tree has no "busy" state: the word carries it.
+        let description = match (self.loading, &self.shortcut) {
+            (true, Some(keys)) => Some(format!("{}. {keys}", cx.labels().loading)),
+            (true, None) => Some(cx.labels().loading.clone()),
+            (false, keys) => keys.clone(),
+        };
+        if let Some(description) = description {
+            semantics = semantics.description(description);
+        }
         if let Some(name) = &self.accessible_name {
             semantics = semantics.name(name.clone());
         } else if let (true, Some(icon)) = (icon_only, self.icon) {
@@ -279,11 +398,83 @@ impl View for Button {
         }
         cx.semantics(node, semantics);
         if !self.disabled {
-            if let Some(handler) = &self.on_click {
+            if let (Some(handler), false) = (&self.on_click, self.loading) {
                 cx.on_click(node, handler.clone());
             }
             cx.focusable(node, radius);
-            cx.cursor(node, CursorIcon::Pointer);
+            if !self.loading {
+                cx.cursor(node, CursorIcon::Pointer);
+            }
+        }
+        node
+    }
+}
+
+/// A button in a group: rounded only on the group's outer corners, and over the edge of the
+/// one before it, so that a line between two is one line.
+fn joined_paint(join: Join, fill: Color, radius: f32, border: Option<Border>) -> Paint {
+    let (left, right) = (if join.first { radius } else { 0.0 }, if join.last { radius } else { 0.0 });
+    let overlap = if join.first || border.is_none() { 0.0 } else { border.map_or(0.0, |b| b.width) };
+    Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
+        let rect = Rect::new(frame.x() - overlap, frame.y(), frame.width() + overlap, frame.height());
+        let mut quad = Quad::new(rect, fill);
+        quad.corner_radii = [left, right, right, left];
+        quad.border = border;
+        scene.push_quad(quad);
+    }))
+}
+
+/// Buttons glued side by side, as one control. Each one stays a whole [`Button`], with its own
+/// style, icon, state and handler; marking one as chosen is up to whoever makes them.
+///
+/// ```
+/// use ravenrs_widgets::{Button, ButtonGroup, ButtonStyle};
+///
+/// let group = ButtonGroup::new([
+///     Button::new("Day"),
+///     Button::new("Week").style(ButtonStyle::Secondary),
+///     Button::new("Month").style(ButtonStyle::Secondary),
+/// ])
+/// .label("Period");
+/// ```
+#[derive(Debug)]
+pub struct ButtonGroup {
+    buttons: Vec<Button>,
+    label: Option<String>,
+}
+
+impl ButtonGroup {
+    /// Glues these buttons, in order.
+    pub fn new(buttons: impl IntoIterator<Item = Button>) -> Self {
+        let mut buttons: Vec<Button> = buttons.into_iter().collect();
+        let last = buttons.len().saturating_sub(1);
+        for (index, button) in buttons.iter_mut().enumerate() {
+            button.join = Some(Join { first: index == 0, last: index == last });
+        }
+        Self { buttons, label: None }
+    }
+
+    /// What the buttons are about, for screen readers.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
+impl View for ButtonGroup {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let buttons: Vec<NodeId> = self.buttons.iter().map(|button| cx.child(button)).collect();
+        let node = cx.container(
+            LayoutStyle {
+                align: Align::Center,
+                align_self: Some(Align::Fit),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &buttons,
+            Paint::None,
+        );
+        if let Some(label) = &self.label {
+            cx.semantics(node, Semantics::new(Role::Group).name(label.clone()));
         }
         node
     }
@@ -329,6 +520,12 @@ impl IconButton {
     /// Sets the size; the button stays square (`Medium`, 40 px, by default).
     pub fn size(mut self, size: ButtonSize) -> Self {
         self.button = self.button.size(size);
+        self
+    }
+
+    /// Lights the button up as being on, and announces it as a button that toggles.
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.button = self.button.selected(selected);
         self
     }
 }

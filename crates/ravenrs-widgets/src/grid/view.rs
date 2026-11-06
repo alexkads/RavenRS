@@ -77,6 +77,9 @@ pub struct DataGrid {
     height: Option<f32>,
     row_height: f32,
     striped: bool,
+    even_row: Option<Color>,
+    odd_row: Option<Color>,
+    horizontal_lines: bool,
     on_export: Option<Rc<dyn Fn(String)>>,
     on_row_activate: Option<Rc<dyn Fn(usize)>>,
     remote: Option<RemoteRows>,
@@ -107,6 +110,12 @@ type CellEditHandler = Rc<dyn Fn(&CellEdit) -> Result<(), String>>;
 type RowTest = Rc<dyn Fn(&Row) -> bool>;
 
 /// Room for one button of a [`GridRowAction`].
+/// How much of the theme's control color a shaded row shows.
+const STRIPED_ROW: f32 = 0.4;
+/// The same under the pointer, always more than a shaded row.
+const HOVERED_ROW: f32 = 0.85;
+/// How much accent a selected row shows, always more than either.
+const SELECTED_ROW: f32 = 0.13;
 const ROW_ACTION_WIDTH: f32 = 34.0;
 /// Room for the arrow that opens a row's details, and for a row's check box.
 const DETAIL_ARROW_WIDTH: f32 = 32.0;
@@ -237,6 +246,9 @@ impl DataGrid {
             height: None,
             row_height: 36.0,
             striped: false,
+            even_row: None,
+            odd_row: None,
+            horizontal_lines: true,
             on_export: None,
             on_row_activate: None,
             remote: None,
@@ -478,9 +490,28 @@ impl DataGrid {
         self
     }
 
-    /// Shades every other row.
+    /// Shades every other row with a tint of the theme's control color, which leaves
+    /// the accent to the selection. Counting starts again after each group row.
     pub fn striped(mut self, striped: bool) -> Self {
         self.striped = striped;
+        self
+    }
+
+    /// Paints the second, fourth and so on rows in this color, in place of [`Self::striped`].
+    pub fn even_row(mut self, color: Color) -> Self {
+        self.even_row = Some(color);
+        self
+    }
+
+    /// Paints the first, third and so on rows in this color.
+    pub fn odd_row(mut self, color: Color) -> Self {
+        self.odd_row = Some(color);
+        self
+    }
+
+    /// Whether a line separates the rows. On by default.
+    pub fn horizontal_lines(mut self, show: bool) -> Self {
+        self.horizontal_lines = show;
         self
     }
 
@@ -952,11 +983,13 @@ fn column_menu(s: &Shared<'_>, c: usize, labels: &crate::Labels) -> Vec<Entry> {
             edit.set(Some(c));
         })));
     }
-    let (widths, width) = (h.widths.clone(), fit_width(s, c));
-    entries.push(Entry::Item(
-        item(&labels.grid_fit_column, IconName::Columns3)
-            .on_select(move || widths.update(|ws| ws[c] = width)),
-    ));
+    if s.grid.columns[c].resizable {
+        let (widths, width) = (h.widths.clone(), fit_width(s, c));
+        entries.push(Entry::Item(
+            item(&labels.grid_fit_column, IconName::Columns3)
+                .on_select(move || widths.update(|ws| ws[c] = width)),
+        ));
+    }
     let q = h.query.clone();
     entries.push(Entry::Item(item(&labels.grid_hide_column, IconName::EyeOff).on_select(move || {
         q.update(|q| {
@@ -1589,7 +1622,9 @@ impl View for HeaderCell<'_> {
             menu_node = Some(node);
             parts.push(node);
         }
-        parts.push(cx.keyed_child(3, &ResizeHandle { column: c, shared: s }));
+        if col.resizable {
+            parts.push(cx.keyed_child(3, &ResizeHandle { column: c, shared: s }));
+        }
 
         let fixed = s.fixed_x(c);
         let lit =
@@ -1895,6 +1930,8 @@ impl View for WaitingRow<'_> {
 
 struct DataRow<'a> {
     index: usize,
+    /// Second, fourth and so on since the last group row.
+    even: bool,
     row: usize,
     values: Row,
     shared: &'a Shared<'a>,
@@ -1911,17 +1948,23 @@ impl View for DataRow<'_> {
         let mode = s.grid.selection_mode;
         let mut cells = Vec::with_capacity(s.visible.len() + 1);
         let mut fixed_cells = Vec::new();
-        let ink = theme.color(Semantic::Ink);
+        let control = theme.color(Semantic::Control);
         let fill = if selected {
-            theme.color(Semantic::Accent).with_alpha(0.1)
+            theme.color(Semantic::Accent).with_alpha(SELECTED_ROW)
         } else if hovered {
-            ink.with_alpha(0.035)
-        } else if s.grid.striped && index % 2 == 1 {
-            ink.with_alpha(0.02)
+            control.faded(HOVERED_ROW)
+        } else if self.even {
+            s.grid.even_row.unwrap_or_else(|| {
+                if s.grid.striped { control.faded(STRIPED_ROW) } else { Color::TRANSPARENT }
+            })
+        } else {
+            s.grid.odd_row.unwrap_or(Color::TRANSPARENT)
+        };
+        let line = if s.grid.horizontal_lines {
+            theme.color(Semantic::Border).faded(if s.grid.striped { 0.5 } else { 0.6 })
         } else {
             Color::TRANSPARENT
         };
-        let line = theme.color(Semantic::Border).faded(0.6);
         // What stays in place has to cover what scrolls under it.
         let surface = theme.color(Semantic::Surface);
         let solid = move |edge: Option<Color>| -> Paint {
@@ -3435,12 +3478,19 @@ impl View for DataGrid {
             &[],
             Paint::None,
         ));
+        // Only with groups is the count not just the place in the list.
+        let mut since_group = (base + first)
+            - result.rows[..(base + first).min(result.rows.len())]
+                .iter()
+                .rposition(|row| matches!(row, ViewRow::Group { .. }))
+                .map_or(0, |group| group + 1);
         for i in (first..last).map(|i| base + i) {
             if let Some(remote) = &self.remote {
                 let node = match remote.row(i) {
-                    Some(values) => {
-                        cx.keyed_child(i as u64, &DataRow { index: i, row: i, values, shared: &shared })
-                    }
+                    Some(values) => cx.keyed_child(
+                        i as u64,
+                        &DataRow { index: i, even: i % 2 == 1, row: i, values, shared: &shared },
+                    ),
                     None => cx.keyed_child(i as u64 | (1 << 61), &WaitingRow { shared: &shared }),
                 };
                 body_rows.push(node);
@@ -3455,12 +3505,22 @@ impl View for DataGrid {
             let node = match &result.rows[i] {
                 ViewRow::Data(r) => cx.keyed_child(
                     *r as u64,
-                    &DataRow { index: i, row: *r, values: rows[*r].clone(), shared: &shared },
+                    &DataRow {
+                        index: i,
+                        even: since_group % 2 == 1,
+                        row: *r,
+                        values: rows[*r].clone(),
+                        shared: &shared,
+                    },
                 ),
                 ViewRow::Group { key, .. } => {
+                    since_group = 0;
                     cx.keyed_child(hash_of(key) | (1 << 62), &GroupRow { index: i, shared: &shared })
                 }
             };
+            if matches!(result.rows[i], ViewRow::Data(_)) {
+                since_group += 1;
+            }
             body_rows.push(node);
             if let ViewRow::Data(r) = &result.rows[i]
                 && expanded.contains(r)

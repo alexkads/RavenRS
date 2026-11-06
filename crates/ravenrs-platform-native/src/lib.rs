@@ -10,7 +10,9 @@
 mod access;
 mod diagnostics;
 mod files;
+mod notice;
 mod sound;
+mod tray;
 
 /// The system clipboard through `arboard`. When it cannot be opened (no
 /// display server, say), copy and paste stay inside the app.
@@ -32,6 +34,8 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use std::rc::Rc;
+
 use ravenrs_core::{
     AccessTree, CursorIcon, Event, FrameSample, ImageData, Key, Modifiers, Point, PointerButton, Size,
 };
@@ -48,6 +52,8 @@ use winit::window::{Icon, Window, WindowAttributes, WindowId};
 
 pub use diagnostics::diagnose;
 pub use files::{OpenDialog, SaveDialog, open_url, open_with_system};
+pub use notice::SystemNotifier;
+pub use tray::SystemTray;
 
 /// Wheel pixels that ask for twice the size, with Ctrl held.
 const WHEEL_PER_ZOOM: f32 = 400.0;
@@ -63,6 +69,8 @@ enum UserEvent {
     Wake,
     /// A touchpad pinch on Wayland, which winit does not deliver.
     Pinch(f32),
+    /// From the icon beside the clock, or from opening the app a second time.
+    Tray(tray::TrayAction),
 }
 
 impl From<accesskit_winit::Event> for UserEvent {
@@ -176,17 +184,18 @@ pub struct AppIdentity {
     labels: Option<Labels>,
     diagnostics: Option<Diagnostics>,
     new_issue_url: Option<String>,
+    tray: Option<SystemTray>,
 }
 
 impl AppIdentity {
     /// No name: what [`run`] and [`run_with_icon`] open as.
     fn anonymous(icon: Option<ImageData>) -> Self {
-        Self { id: String::new(), icon, labels: None, diagnostics: None, new_issue_url: None }
+        Self { id: String::new(), icon, labels: None, diagnostics: None, new_issue_url: None, tray: None }
     }
 
     /// The app known as `id`, which is the name of its `.desktop` file on Linux.
     pub fn new(id: impl Into<String>) -> Self {
-        Self { id: id.into(), icon: None, labels: None, diagnostics: None, new_issue_url: None }
+        Self { id: id.into(), icon: None, labels: None, diagnostics: None, new_issue_url: None, tray: None }
     }
 
     /// Sets the words of the whole UI, including the diagnostics panel.
@@ -215,6 +224,14 @@ impl AppIdentity {
         self.icon = Some(icon);
         self
     }
+
+    /// Closing the window keeps the app running behind an icon beside the clock, which
+    /// shows [`Self::icon`] and needs it. Opening the app again, or clicking its icon in the
+    /// Dock on macOS, brings the same window back. See [`SystemTray`] for where the system has no such icon.
+    pub fn close_to_tray(mut self, tray: SystemTray) -> Self {
+        self.tray = Some(tray);
+        self
+    }
 }
 
 /// Like [`run`], for an app the system should recognize as itself.
@@ -241,8 +258,13 @@ fn run_window(
     options: WindowOptions,
     identity: AppIdentity,
 ) -> Result<(), PlatformError> {
-    let AppIdentity { id, icon, labels, diagnostics, new_issue_url } = identity;
+    let AppIdentity { id, icon, labels, diagnostics, new_issue_url, tray } = identity;
     let app_id = (!id.is_empty()).then_some(id);
+    let single_copy = app_id.as_deref().filter(|_| tray.is_some());
+    if single_copy.is_some_and(tray::ask_running_copy) {
+        tracing::info!("the app was already running, and opened its window");
+        return Ok(());
+    }
     let event_loop = EventLoop::<UserEvent>::with_user_event()
         .build()
         .map_err(|e| PlatformError::EventLoop(e.to_string()))?;
@@ -268,6 +290,16 @@ fn run_window(
     }
     ui.set_sound(sound::SystemSound::default());
     ui.set_file_picker(files::SystemFilePicker);
+    let answer = event_loop.create_proxy();
+    let tray_notify: tray::Notify = Arc::new(move |action| {
+        // It only fails once the loop is gone, when there is nothing left to tell.
+        let _ = answer.send_event(UserEvent::Tray(action));
+    });
+    if let Some(id) = single_copy
+        && let Err(e) = tray::listen_for_other_copies(id, tray_notify.clone())
+    {
+        tracing::warn!(error = %e, "opening the app again will start a second copy");
+    }
     let mut app = App {
         display: event_loop.owned_display_handle(),
         diagnostics,
@@ -278,10 +310,17 @@ fn run_window(
         icon,
         app_id,
         window: None,
+        tray,
+        tray_notify,
+        in_tray: None,
+        away_in_tray: false,
+        place: None,
+        maximized: false,
         pointer: None,
         modifiers: Modifiers::default(),
         last_click: None,
         started: std::time::Instant::now(),
+        looking: false,
         error: None,
     };
     event_loop.run_app(&mut app).map_err(|e| PlatformError::EventLoop(e.to_string()))?;
@@ -322,14 +361,37 @@ struct App {
     icon: Option<ImageData>,
     app_id: Option<String>,
     window: Option<WindowState>,
+    tray: Option<SystemTray>,
+    tray_notify: tray::Notify,
+    /// The icon on screen, while the window is closed behind it.
+    in_tray: Option<tray::Shown>,
+    /// The app was seen in the background since it went to the icon, so coming to the
+    /// front now is someone asking for it, as with a click on the Dock.
+    away_in_tray: bool,
+    /// Where the window was when closed behind the icon, for opening it there.
+    place: Option<PhysicalPosition<i32>>,
+    maximized: bool,
     /// Last pointer position in logical pixels.
     pointer: Option<Point>,
     modifiers: Modifiers,
     /// Time and place of the last primary release, to detect double clicks.
     last_click: Option<(std::time::Instant, Point)>,
     started: std::time::Instant,
+    /// The diagnostics panel is open, so the frames are being looked at closely.
+    looking: bool,
     error: Option<PlatformError>,
 }
+
+/// On macOS a closed window leaves the app in front, and then a click on the Dock would
+/// not change anything anyone could see.
+#[cfg(all(feature = "tray", target_os = "macos"))]
+fn leave_the_front(event_loop: &ActiveEventLoop) {
+    use winit::platform::macos::ActiveEventLoopExtMacOS as _;
+    event_loop.hide_application();
+}
+
+#[cfg(not(all(feature = "tray", target_os = "macos")))]
+fn leave_the_front(_event_loop: &ActiveEventLoop) {}
 
 /// The same setting serves Wayland's app id and X11's `WM_CLASS`.
 #[cfg(any(
@@ -358,11 +420,16 @@ fn with_app_id(attributes: WindowAttributes, _id: &str) -> WindowAttributes {
 
 impl App {
     fn create_window(&mut self, event_loop: &ActiveEventLoop) -> Result<WindowState, PlatformError> {
-        // Hidden until the accessibility adapter is attached, as AccessKit requires.
+        // Hidden until `show_window`, so nobody waits looking at an empty window.
+        // AccessKit also requires it until the adapter is attached.
         let mut attributes = Window::default_attributes()
             .with_visible(false)
             .with_title(self.options.title.clone())
             .with_inner_size(LogicalSize::new(self.options.size.width, self.options.size.height));
+        if let Some(place) = self.place {
+            attributes = attributes.with_position(place);
+        }
+        attributes = attributes.with_maximized(self.maximized);
         if let Some(min) = self.options.min_size {
             attributes = attributes.with_min_inner_size(LogicalSize::new(min.width, min.height));
         }
@@ -380,8 +447,79 @@ impl App {
         let adapter =
             accesskit_winit::Adapter::with_event_loop_proxy(event_loop, &window, self.proxy.clone());
         self.access = Some(Access { adapter, active: false, last: None });
-        window.set_visible(true);
         self.init_gpu(window)
+    }
+
+    /// Closes the window behind the icon, keeping the UI and its state. `false` if the
+    /// system shows no icon, and only closing the app is left.
+    ///
+    /// The window is only hidden, so that it comes back at once, with its last frame.
+    /// Wayland cannot hide one, so there it is destroyed, and that system shows a new
+    /// window only once it has something to show.
+    fn close_to_tray(&mut self, event_loop: &ActiveEventLoop) -> bool {
+        let (Some(tray), Some(icon), Some(state)) = (&self.tray, &self.icon, &self.window) else {
+            return false;
+        };
+        let id = self.app_id.as_deref().unwrap_or_default();
+        match tray::show(tray, id, icon, self.tray_notify.clone()) {
+            Ok(shown) => self.in_tray = Some(shown),
+            Err(e) => {
+                tracing::info!(error = %e, "no icon beside the clock, so closing the window closes the app");
+                return false;
+            }
+        }
+        let window = &state.window;
+        if !self.on_wayland() {
+            window.set_visible(false);
+            self.away_in_tray = false;
+            leave_the_front(event_loop);
+            return true;
+        }
+        let size = window.inner_size().to_logical::<f32>(window.scale_factor());
+        self.options.size = Size::new(size.width, size.height);
+        self.place = window.outer_position().ok();
+        self.maximized = window.is_maximized();
+        // These hold the window, which only closes when the last of them lets go.
+        state.gpu.device.set_device_lost_callback(|_, _| {});
+        self.ui.set_waker(|| {});
+        self.access = None;
+        self.pointer = None;
+        self.window = None;
+        true
+    }
+
+    /// Brings the window back, or to the front if it never left.
+    fn open_window(&mut self, event_loop: &ActiveEventLoop) {
+        self.in_tray = None;
+        if let Some(state) = &self.window {
+            state.window.set_visible(true);
+            state.window.set_minimized(false);
+            state.window.focus_window();
+            state.window.request_redraw();
+            return;
+        }
+        match self.create_window(event_loop) {
+            Ok(state) => self.show_window(state),
+            Err(e) => {
+                tracing::error!(error = %e, "could not open the window again");
+                self.error = Some(e);
+                event_loop.exit();
+            }
+        }
+    }
+
+    /// Puts a new window on screen. On macOS its first frame, the slow one with the
+    /// shaders and the glyphs, is drawn while hidden, so that nobody sees it black.
+    fn show_window(&mut self, state: WindowState) {
+        let window = state.window.clone();
+        self.window = Some(state);
+        if cfg!(target_os = "macos") {
+            self.redraw();
+        }
+        window.set_visible(true);
+        window.focus_window();
+        // What was drawn while hidden does not count for the system.
+        window.request_redraw();
     }
 
     /// Sends the accessibility tree to the screen reader if one is listening
@@ -472,6 +610,10 @@ impl App {
     }
 
     fn redraw(&mut self) {
+        // Some systems still ask for frames of a hidden window. Coming back draws what changed.
+        if self.in_tray.is_some() {
+            return;
+        }
         let lost = self.window.as_ref().is_some_and(|s| s.device_lost.load(Ordering::SeqCst));
         if lost && let Some(old) = self.window.take() {
             let window = old.window.clone();
@@ -484,6 +626,17 @@ impl App {
         self.ui.set_time(self.started.elapsed().as_secs_f64());
         let Some(state) = &mut self.window else { return };
         let scale = self.ui.scale();
+        // Looking costs a little, so it only happens while the panel is open.
+        let looking = self.diagnostics.is_open();
+        if looking != self.looking {
+            self.looking = looking;
+            let start = self.started;
+            let clock: Option<Rc<dyn Fn() -> f64>> =
+                looking.then(|| Rc::new(move || start.elapsed().as_secs_f64()) as Rc<dyn Fn() -> f64>);
+            self.ui.set_phase_clock(clock);
+            self.ui.set_view_profiling(looking);
+            state.renderer.set_gpu_timing(looking);
+        }
         let started = std::time::Instant::now();
         let scene = self.ui.update();
         let updated = started.elapsed();
@@ -519,7 +672,12 @@ impl App {
             "frame rendered"
         );
         let total = started.elapsed();
+        if looking {
+            self.diagnostics.set_view_costs(self.ui.view_costs());
+        }
         self.diagnostics.record(FrameSample {
+            work: self.ui.take_frame_work(),
+            render_work: stats.work(),
             update: updated,
             acquire: acquired - updated,
             render: rendered - acquired,
@@ -579,6 +737,13 @@ fn map_button(button: MouseButton) -> PointerButton {
 
 impl App {
     /// On Wayland, winit does not deliver a touchpad's pinch, so it is heard apart.
+    fn on_wayland(&self) -> bool {
+        use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
+        self.display
+            .display_handle()
+            .is_ok_and(|handle| matches!(handle.as_raw(), RawDisplayHandle::Wayland(_)))
+    }
+
     fn listen_for_wayland_pinches(&self) {
         use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
         let Ok(handle) = self.display.display_handle() else { return };
@@ -604,7 +769,16 @@ impl ApplicationHandler<UserEvent> for App {
 
     /// Sleeps until input arrives or until the UI's next timed wake-up.
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        match self.ui.next_wake() {
+        if self.in_tray.is_some()
+            && let Some(active) = tray::app_is_active()
+        {
+            if !active {
+                self.away_in_tray = true;
+            } else if self.away_in_tray {
+                self.open_window(event_loop);
+            }
+        }
+        match self.ui.next_wake().filter(|_| self.in_tray.is_none()) {
             Some(at) => {
                 let at = self.started + std::time::Duration::from_secs_f64(at.max(0.0));
                 event_loop.set_control_flow(ControlFlow::WaitUntil(at));
@@ -619,7 +793,7 @@ impl ApplicationHandler<UserEvent> for App {
         }
         match self.create_window(event_loop) {
             Ok(state) => {
-                self.window = Some(state);
+                self.show_window(state);
                 self.listen_for_wayland_pinches();
             }
             Err(e) => {
@@ -630,10 +804,12 @@ impl ApplicationHandler<UserEvent> for App {
         }
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: UserEvent) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
         use accesskit_winit::WindowEvent as A;
         let event = match event {
             UserEvent::Access(event) => event,
+            UserEvent::Tray(tray::TrayAction::Open) => return self.open_window(event_loop),
+            UserEvent::Tray(tray::TrayAction::Quit) => return event_loop.exit(),
             UserEvent::Pinch(delta) => {
                 if let Some(position) = self.pointer {
                     self.dispatch(Event::Pinch { position, delta });
@@ -680,7 +856,11 @@ impl ApplicationHandler<UserEvent> for App {
             access.adapter.process_event(&state.window, &event);
         }
         match event {
-            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::CloseRequested => {
+                if !self.close_to_tray(event_loop) {
+                    event_loop.exit();
+                }
+            }
             WindowEvent::Resized(size) => {
                 if let Some(state) = &mut self.window {
                     state.config.width = size.width.max(1);

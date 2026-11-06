@@ -50,6 +50,8 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Filmes de treinamento e relato de bug | `crates/ravenrs-movie/src/`: `movie`, `project`, `composition`, `record`, `player`, `editor`, `flight` | Testes em `crates/ravenrs-movie/tests/`; filme é lista de desenho, nunca pixels |
 | Editor de relatórios | `crates/ravenrs-report-designer/src/`; `examples/report-designer` só o executa | `examples/report-designer/tests/designer.rs` |
 | Relatórios guardados e painéis no framework | `crates/ravenrs-app-report/src/`: `stored`, `analytics` | `crates/ravenrs-app-report/tests/stored.rs` |
+| Desempenho: cenas, gate, tempos | `crates/ravenrs-perf/src/scenes/`, `perf/baseline.json`; `Ui::stats`, `RenderStats` | Skill `ravenrs-desempenho`, `docs/QUALITY.md`, `docs/PERFORMANCE.md` |
+| Ferramentas do painel de diagnóstico | `crates/ravenrs-widgets/src/diagnostics.rs`, dados em `crates/ravenrs-core/src/diagnostics.rs` | `crates/ravenrs-widgets/tests/performance_tools.rs`, `docs/PERFORMANCE.md` |
 | Ícones | `scripts/gen-icons.py` regenera a fonte e o `IconName` | Não edite `icon_set.rs` à mão |
 
 Ao entregar ou adiar algo, atualize a tabela de status em §11 do `ARCHITECTURE.md`. Foi a parte que mais ficou defasada.

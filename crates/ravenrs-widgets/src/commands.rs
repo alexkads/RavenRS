@@ -5,12 +5,13 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::Key;
-use ravenrs_layout::{Align, Axis, LayoutStyle};
+use ravenrs_core::{Border, CursorIcon, Insets, Key, Point, Role, Size};
+use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
 
-use crate::context::{BuildCx, NodeId, Paint, Placement, Semantics};
+use crate::chat::{PANEL_MARGIN, move_by_handle, panel_inside};
+use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::overlay::{Entry, MenuList};
 use crate::{AnyView, Button, ButtonSize, ButtonStyle, Dialog, IconButton, IconName, MenuItem, View, util};
 
@@ -217,6 +218,41 @@ enum ToolbarEntry {
     View(AnyView, f32),
 }
 
+/// Makes the keys of these commands work for as long as they are built.
+fn register_hotkeys(cx: &mut BuildCx<'_>, entries: &[ToolbarEntry]) {
+    // Shift first: without it, the same key would answer before.
+    for wants_shift in [true, false] {
+        for entry in entries {
+            if let ToolbarEntry::Action(ToolbarAction {
+                hotkey: Some(hotkey),
+                on_click: Some(handler),
+                disabled: false,
+                ..
+            }) = entry
+                && hotkey.shift == wants_shift
+            {
+                hotkey.register(cx, handler.clone());
+            }
+        }
+    }
+}
+
+/// The element of one entry of a bar of commands.
+fn entry_node(cx: &mut BuildCx<'_>, index: usize, entry: &ToolbarEntry) -> NodeId {
+    match entry {
+        ToolbarEntry::Action(action) => cx.keyed_child(index as u64, action.view().as_ref()),
+        ToolbarEntry::View(view, _) => cx.keyed_child(index as u64, view.as_ref()),
+        ToolbarEntry::Separator => {
+            let line = cx.theme().color(Semantic::Border);
+            cx.container(
+                LayoutStyle { width: Some(1.0), height: Some(18.0), ..LayoutStyle::leaf() },
+                &[],
+                Paint::Quad(QuadPaint::new(line)),
+            )
+        }
+    }
+}
+
 /// A row of commands. What does not fit moves to a menu at its end, from the
 /// last command back, so the order never changes.
 ///
@@ -234,6 +270,7 @@ enum ToolbarEntry {
 pub struct Toolbar {
     entries: Vec<ToolbarEntry>,
     label: Option<String>,
+    aligned_end: bool,
 }
 
 impl fmt::Debug for Toolbar {
@@ -272,6 +309,12 @@ impl Toolbar {
         self.label = Some(label.into());
         self
     }
+
+    /// Takes the room left in its row, with the commands at the far end.
+    pub(crate) fn aligned_end(mut self) -> Self {
+        self.aligned_end = true;
+        self
+    }
 }
 
 /// How many entries of these widths fit in `available`, leaving room for the
@@ -293,22 +336,7 @@ pub(crate) fn entries_that_fit(widths: &[f32], available: f32, more: f32, gap: f
 
 impl View for Toolbar {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let theme = *cx.theme();
-        // Shift first: without it, the same key would answer before.
-        for wants_shift in [true, false] {
-            for entry in &self.entries {
-                if let ToolbarEntry::Action(ToolbarAction {
-                    hotkey: Some(hotkey),
-                    on_click: Some(handler),
-                    disabled: false,
-                    ..
-                }) = entry
-                    && hotkey.shift == wants_shift
-                {
-                    hotkey.register(cx, handler.clone());
-                }
-            }
-        }
+        register_hotkeys(cx, &self.entries);
         let widths: Vec<f32> = self
             .entries
             .iter()
@@ -332,15 +360,7 @@ impl View for Toolbar {
 
         let mut children = Vec::with_capacity(shown + 1);
         for (i, entry) in self.entries[..shown].iter().enumerate() {
-            children.push(match entry {
-                ToolbarEntry::Action(action) => cx.keyed_child(i as u64, action.view().as_ref()),
-                ToolbarEntry::View(view, _) => cx.keyed_child(i as u64, view.as_ref()),
-                ToolbarEntry::Separator => cx.container(
-                    LayoutStyle { width: Some(1.0), height: Some(18.0), ..LayoutStyle::leaf() },
-                    &[],
-                    Paint::Quad(crate::context::QuadPaint::new(theme.color(Semantic::Border))),
-                ),
-            });
+            children.push(entry_node(cx, i, entry));
         }
         let hidden = self.entries[shown..]
             .iter()
@@ -360,6 +380,8 @@ impl View for Toolbar {
                 height: Some(36.0),
                 min_width: Some(0.0),
                 overflow_hidden: true,
+                grow: if self.aligned_end { 1.0 } else { 0.0 },
+                justify: if self.aligned_end { Justify::End } else { Justify::Start },
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
             &children,
@@ -373,6 +395,256 @@ impl View for Toolbar {
         }
         cx.semantics(node, semantics);
         node
+    }
+}
+
+/// How opaque a [`FloatingToolbar`] is, so that it says it is over what is under it.
+const FLOATING_OPACITY: f32 = 0.92;
+
+/// A translucent row of commands floating over its content, such as a zoom bar over a photo.
+/// Clicks on it never reach the content. Tab goes through its commands.
+///
+/// With [`FloatingToolbar::movable`] it has a handle: dragging it, or its arrow keys, take the
+/// bar anywhere in the content, and a double click brings it home. Smaller content than the bar
+/// leaves it at the top left corner.
+///
+/// ```
+/// use ravenrs_layout::Align;
+/// use ravenrs_widgets::{FloatingToolbar, IconName, Text, ToolbarAction, Ui};
+///
+/// let bar = FloatingToolbar::new(Text::new("A photo"))
+///     .label("Zoom")
+///     .action(ToolbarAction::new("Fit").on_click(|| {}))
+///     .separator()
+///     .action(ToolbarAction::new("Zoom in").icon(IconName::Plus).icon_only().on_click(|| {}))
+///     .place(Align::Start, Align::End);
+/// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+pub struct FloatingToolbar<C> {
+    content: C,
+    bar: FloatingBar,
+    fill: bool,
+}
+
+/// What a [`FloatingToolbar`] has apart from its content.
+struct FloatingBar {
+    entries: Vec<ToolbarEntry>,
+    label: Option<String>,
+    across: Align,
+    down: Align,
+    margin: f32,
+    place: Option<Binding<Option<Point>>>,
+}
+
+impl<C> fmt::Debug for FloatingToolbar<C> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FloatingToolbar").field("entries", &self.bar.entries.len()).finish_non_exhaustive()
+    }
+}
+
+impl<C: View> FloatingToolbar<C> {
+    /// An empty bar at the bottom center of `content`.
+    pub fn new(content: C) -> Self {
+        Self {
+            content,
+            bar: FloatingBar {
+                entries: Vec::new(),
+                label: None,
+                across: Align::Center,
+                down: Align::End,
+                margin: 12.0,
+                place: None,
+            },
+            fill: false,
+        }
+    }
+
+    /// Appends a command.
+    pub fn action(mut self, action: ToolbarAction) -> Self {
+        self.bar.entries.push(ToolbarEntry::Action(action));
+        self
+    }
+
+    /// Appends a line between groups of commands.
+    pub fn separator(mut self) -> Self {
+        self.bar.entries.push(ToolbarEntry::Separator);
+        self
+    }
+
+    /// Appends any view, such as a [`ValueSlider`](crate::ValueSlider).
+    pub fn view(mut self, view: impl View + 'static) -> Self {
+        self.bar.entries.push(ToolbarEntry::View(Box::new(view), 0.0));
+        self
+    }
+
+    /// The name screen readers announce.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.bar.label = Some(label.into());
+        self
+    }
+
+    /// Which side of the content it stays on, across and down: `Start`, `Center` or `End`.
+    /// At the bottom center by default.
+    pub fn place(mut self, across: Align, down: Align) -> Self {
+        self.bar.across = across;
+        self.bar.down = down;
+        self
+    }
+
+    /// How far from the edges of the content it stays, in logical pixels (12 by default).
+    pub fn margin(mut self, margin: f32) -> Self {
+        self.bar.margin = margin;
+        self
+    }
+
+    /// Adds a handle that moves the bar. `place` is where it was left, from the top left
+    /// corner of the content, written when the drag ends so that the app can keep it; `None`
+    /// is the place given by [`Self::place`].
+    pub fn movable(mut self, place: Binding<Option<Point>>) -> Self {
+        self.bar.place = Some(place);
+        self
+    }
+
+    /// Takes the free space of the parent, for content that fills a stage or a whole screen.
+    pub fn fill(mut self) -> Self {
+        self.fill = true;
+        self
+    }
+}
+
+/// The handle of a movable [`FloatingToolbar`].
+struct BarHandle<'a> {
+    at: Point,
+    largest: Point,
+    place: &'a Binding<Option<Point>>,
+    dragging: State<Option<Point>>,
+    name: String,
+}
+
+impl View for BarHandle<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let ink = theme.color(if cx.is_hovered() { Semantic::Ink } else { Semantic::InkMuted });
+        let icon = util::icon(cx, IconName::EllipsisVertical, 14.0, ink);
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(16.0),
+                height: Some(ButtonSize::Small.height()),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[icon],
+            Paint::None,
+        );
+        move_by_handle(cx, node, self.at, self.largest, self.place, &self.dragging);
+        let home = self.place.clone();
+        cx.on_double_click(node, Rc::new(move || home.set(None)));
+        cx.semantics(node, Semantics::new(Role::Button).name(self.name.clone()));
+        cx.focusable(node, theme.radii.sm);
+        cx.cursor(node, CursorIcon::Pointer);
+        node
+    }
+}
+
+/// Where the bar goes along one side of the content.
+fn along(side: Align, room: f32, size: f32, margin: f32) -> f32 {
+    let at = match side {
+        Align::Center => (room - size) / 2.0,
+        Align::End => room - size - margin,
+        _ => margin,
+    };
+    at.max(PANEL_MARGIN)
+}
+
+/// The bar itself. Its own view, so that the size it reports is the bar's.
+struct BarSurface<'a> {
+    bar: &'a FloatingBar,
+    stage: Size,
+}
+
+impl View for BarSurface<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let bar = self.bar;
+        // Both sizes come from the last layout, and a change in either builds again.
+        let size = cx.scroll_viewport().unwrap_or(Size::ZERO);
+        let largest = Point::new(
+            (self.stage.width - size.width - PANEL_MARGIN).max(PANEL_MARGIN),
+            (self.stage.height - size.height - PANEL_MARGIN).max(PANEL_MARGIN),
+        );
+        let home = Point::new(
+            along(bar.across, self.stage.width, size.width, bar.margin),
+            along(bar.down, self.stage.height, size.height, bar.margin),
+        );
+        let dragging: State<Option<Point>> = cx.use_state(|| None);
+        let at = dragging
+            .get()
+            .or_else(|| bar.place.as_ref().and_then(Binding::get))
+            .map_or(home, |wanted| panel_inside(wanted, largest));
+
+        let mut children = Vec::with_capacity(bar.entries.len() + 1);
+        if let Some(place) = &bar.place {
+            let name = match &bar.label {
+                Some(label) => format!("{}: {label}", cx.labels().panel_move),
+                None => cx.labels().panel_move.clone(),
+            };
+            let handle = BarHandle { at, largest, place, dragging, name };
+            children.push(cx.keyed_child(u64::MAX, &handle));
+        }
+        for (i, entry) in bar.entries.iter().enumerate() {
+            children.push(entry_node(cx, i, entry));
+        }
+        let fill = theme.color(Semantic::SurfaceElevated);
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((at.x, at.y)),
+                padding: Insets::uniform(theme.spacing.s1),
+                spacing: TOOLBAR_GAP,
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &children,
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.lg,
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                shadow: Some(theme.elevation.raised),
+                ..QuadPaint::new(fill.with_alpha(fill.a * FLOATING_OPACITY))
+            }),
+        );
+        cx.report_frame(node);
+        // What lands on it stays on it, instead of reaching the content.
+        cx.cursor(node, CursorIcon::Default);
+        let mut semantics = Semantics::new(Role::Toolbar);
+        if let Some(label) = &bar.label {
+            semantics = semantics.name(label.clone());
+        }
+        cx.semantics(node, semantics);
+        node
+    }
+}
+
+impl<C: View> View for FloatingToolbar<C> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        register_hotkeys(cx, &self.bar.entries);
+        let content = cx.child(&self.content);
+        let stage = cx.scroll_viewport().unwrap_or(Size::ZERO);
+        let surface = cx.child(&BarSurface { bar: &self.bar, stage });
+        let root = cx.container(
+            LayoutStyle {
+                align: Align::Stretch,
+                align_self: Some(Align::Stretch),
+                grow: if self.fill { 1.0 } else { 0.0 },
+                min_height: self.fill.then_some(0.0),
+                min_width: self.fill.then_some(0.0),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[content, surface],
+            Paint::None,
+        );
+        cx.report_frame(root);
+        root
     }
 }
 
@@ -392,7 +664,7 @@ impl View for MoreMenu {
 }
 
 /// A square button that opens `entries` under it, and takes focus back after.
-fn menu_trigger(
+pub(crate) fn menu_trigger(
     cx: &mut BuildCx<'_>,
     entries: &[Entry],
     icon: IconName,

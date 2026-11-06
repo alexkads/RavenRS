@@ -539,3 +539,72 @@ fn the_model_editor_changes_a_caption_for_the_administrator_only() {
     let caio = Center::memory("caio");
     assert!(caio.session().set_model_setting(&["NavigationItems"], "Caption", "x").is_err());
 }
+
+/// Draws a list in each theme, to look at a change on the real screens:
+/// `FC_SCREENSHOTS=folder cargo test -p feature-center --test tour draw_the_lists`.
+#[test]
+fn draw_the_lists() {
+    use ravenrs_render::{GpuContext, Renderer, wgpu};
+    const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+    let Some(folder) = std::env::var_os("FC_SCREENSHOTS") else { return };
+    let folder = std::path::Path::new(&folder);
+    std::fs::create_dir_all(folder).expect("folder");
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
+    let Ok(gpu) = pollster::block_on(GpuContext::new(&instance, None)) else { return };
+    let (width, height, scale) = (1360_u32, 860_u32, 2.0_f32);
+    let mut c = Center::memory("ana");
+    c.ui.set_viewport(Size::new(width as f32, height as f32), scale);
+    c.open_list("ManyRows");
+    let (w, h) = (width * 2, height * 2);
+    for (name, theme) in
+        [("claro", Theme::raven_light()), ("escuro", Theme::raven_dark()), ("vidro", Theme::raven_glass())]
+    {
+        c.ui.set_theme(theme);
+        c.settle();
+        let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("screen"),
+            size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let target = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        Renderer::new(&gpu.device, &gpu.queue, FORMAT).render(c.ui.scene(), &target, (w, h), scale);
+        let padded =
+            (w * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+        let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("readback"),
+            size: u64::from(padded * h),
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+        let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        encoder.copy_texture_to_buffer(
+            texture.as_image_copy(),
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(padded),
+                    rows_per_image: Some(h),
+                },
+            },
+            wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        );
+        gpu.queue.submit(Some(encoder.finish()));
+        let slice = buffer.slice(..);
+        slice.map_async(wgpu::MapMode::Read, |r| r.expect("map readback"));
+        gpu.device.poll(wgpu::PollType::wait_indefinitely()).expect("poll");
+        let data = slice.get_mapped_range().expect("mapped range");
+        let mut pixels = Vec::with_capacity((w * h * 4) as usize);
+        for row in 0..h {
+            let start = (row * padded) as usize;
+            pixels.extend_from_slice(&data[start..start + (w * 4) as usize]);
+        }
+        let file = folder.join(format!("lista-{name}.png"));
+        image::RgbaImage::from_raw(w, h, pixels).expect("image").save(file).expect("save");
+    }
+}

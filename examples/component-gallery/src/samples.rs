@@ -4,6 +4,8 @@
 //! `scripts/gen-component-pages.py` reads the markers: `// sample: Name, height`
 //! before a function and `// end` after it.
 
+use std::collections::BTreeSet;
+
 use ravenrs::layout::{Axis, LayoutStyle};
 use ravenrs::prelude::*;
 
@@ -35,7 +37,7 @@ samples! {
     "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "Toolbar" => toolbar, "SplitButton" => split_button,
     "ConfirmDialog" => confirm_dialog,
     "TreeView" => tree_view, "TagBox" => tag_box, "ColorPicker" => color_picker,
-    "DateRangePicker" => date_range_picker, "Wizard" => wizard, "FileUpload" => file_upload,
+    "DateRangePicker" => date_range_picker, "Wizard" => wizard, "StepIndicator" => step_indicator, "StepBadge" => step_badge, "FileUpload" => file_upload,
     "ImageField" => image_field, "TileLayout" => tile_layout, "CardView" => card_view,
     "AppShell" => app_shell,
     "Ribbon" => ribbon, "Menubar" => menubar, "Tabs" => tabs, "Sidebar" => sidebar,
@@ -45,13 +47,41 @@ samples! {
     "Tooltip" => tooltip, "HelpTip" => help_tip, "SidebarBrand" => sidebar_brand, "DropdownMenu" => dropdown_menu, "ContextMenu" => context_menu,
     "SplashScreen" => splash_screen, "CommandPalette" => command_palette, "Toaster" => toaster,
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
-    "Chart" => chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
+    "Chart" => chart, "ChartReference" => chart_reference, "SankeyChart" => sankey_chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
-    "ScrollView" => scroll_view, "Splitter" => splitter, "Card" => card, "GlassCard" => glass_card,
+    "ScrollView" => scroll_view, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "DockArea" => dock_area, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
-    "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
+    "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "RichText" => rich_text, "AttachmentStrip" => attachment_strip, "AudioPlayerButton" => audio_player_button, "SelectionBar" => selection_bar, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
-    "Icon" => icon, "Image" => image, "Carousel" => carousel, "Canvas" => canvas,
+    "Dot" => dot, "OverlayBadge" => overlay_badge, "Rating" => rating, "IconTile" => icon_tile, "EmptyState" => empty_state, "HeroBanner" => hero_banner, "MultiProgress" => multi_progress, "ShimmerText" => shimmer_text, "DaySeparator" => day_separator,
+    "ShortcutSheet" => shortcut_sheet, "ShortcutHintBar" => shortcut_hint_bar,
+    "FloatingToolbar" => floating_toolbar, "TitleBar" => title_bar, "DropZone" => drop_zone, "ScrollEdgeArrow" => scroll_edge_arrow, "ValueSlider" => value_slider, "InlineRename" => inline_rename,
+    "ZStack" => z_stack, "PropertyRow" => property_row, "PageHeader" => page_header, "ButtonGroup" => button_group,
+    "FavoriteToggle" => favorite_toggle, "SwatchGrid" => swatch_grid, "NinePointAnchor" => nine_point_anchor, "ColorPair" => color_pair,
+    "Histogram" => histogram,
+    "Ruler" => ruler,
+    "ColorWheel" => color_wheel,
+    "CurveEditor" => curve_editor,
+    "ZoomControl" => zoom_control,
+    "ZoomPanView" => zoom_pan_view,
+    "Minimap" => minimap,
+    "RuleOfThirdsGrid" => rule_of_thirds_grid,
+    "RubberBand" => rubber_band,
+    "Marquee" => marquee,
+    "TransformHandles" => transform_handles,
+    "Protractor" => protractor,
+    "CropOverlay" => crop_overlay,
+    "Eyedropper" => eyedropper,
+    "CompareView" => compare_view,
+    "ImageLightbox" => image_lightbox,
+    "VirtualList" => virtual_list,
+    "Filmstrip" => filmstrip,
+    "PagedDocumentView" => paged_document_view,
+    "FileBrowser" => file_browser,
+    "YearView" => year_view,
+    "SortableList" => sortable_list,
+    "DocumentTabs" => document_tabs,
+    "Icon" => icon, "Image" => image, "Lottie" => lottie, "Carousel" => carousel, "Canvas" => canvas,
 }
 
 /// A colored picture to show in the image examples.
@@ -63,7 +93,7 @@ fn picture(hue: f32) -> ImageData {
     .unwrap_or_else(|| unreachable!("the size is not zero"))
 }
 
-// sample: Button, 150
+// sample: Button, 200
 fn button() -> impl View {
     let clicks = State::new(0);
     let add = clicks.clone();
@@ -73,6 +103,13 @@ fn button() -> impl View {
             Button::new("Cancel").style(ButtonStyle::Secondary),
             Button::new("More").style(ButtonStyle::Ghost),
             Button::new("Delete").style(ButtonStyle::Danger).icon(IconName::Trash2),
+        ))
+        .spacing(8.0)
+        .wrap(),
+        HStack::new((
+            Button::new("Saving").loading(true),
+            Button::new("Grid view").style(ButtonStyle::Secondary).selected(true),
+            Button::new("Open").shortcut("F8"),
         ))
         .spacing(8.0)
         .wrap(),
@@ -89,6 +126,7 @@ fn icon_button() -> impl View {
         IconButton::new(IconName::Copy).label("Duplicate"),
         IconButton::new(IconName::Settings).label("Settings").style(ButtonStyle::Secondary),
         IconButton::new(IconName::Plus).label("New").style(ButtonStyle::Primary),
+        IconButton::new(IconName::Bold).label("Bold").selected(true),
     ))
     .spacing(8.0)
 }
@@ -98,8 +136,13 @@ fn icon_button() -> impl View {
 fn toggle_button() -> impl View {
     let bold = State::new(true);
     let italic = State::new(false);
-    HStack::new((ToggleButton::new(bold.binding(), "Bold"), ToggleButton::new(italic.binding(), "Italic")))
-        .spacing(8.0)
+    let open = State::new(true);
+    HStack::new((
+        ToggleButton::new(bold.binding(), "Bold"),
+        ToggleButton::new(italic.binding(), "Italic"),
+        ToggleButton::new(open.binding(), "Open").count(12).pill(),
+    ))
+    .spacing(8.0)
 }
 // end
 
@@ -130,7 +173,7 @@ fn toggle() -> impl View {
     let email = State::new(false);
     VStack::new((
         Toggle::new(push.binding()).label("Push notifications"),
-        Toggle::new(email.binding()).label("Email digest"),
+        Toggle::new(email.binding()).label("Email digest").small(),
     ))
     .spacing(12.0)
 }
@@ -155,13 +198,25 @@ fn radio_group() -> impl View {
 }
 // end
 
-// sample: Slider, 110
+// sample: Slider, 200
 fn slider() -> impl View {
     let volume = State::new(0.6_f32);
+    let (exposure, warmth) = (State::new(1.5_f32), State::new(0.4_f32));
     let shown = volume.clone();
     VStack::new((
         Slider::new(volume.binding()).label("Volume"),
         Text::dynamic(move || format!("{:.0}%", shown.get() * 100.0)).foreground(Semantic::InkMuted),
+        // Fills from zero, a double click goes back to it, and the value sits at the right.
+        Slider::new(exposure.binding())
+            .range(-5.0, 5.0)
+            .step(0.1)
+            .neutral(0.0)
+            .label("Exposure")
+            .show_value(),
+        // The colors on the track say what the value means.
+        Slider::new(warmth.binding())
+            .track_colors([Color::hex(0x3b82f6), Color::hex(0xfacc15)])
+            .label("Temperature"),
     ))
     .spacing(12.0)
     .align(Align::Stretch)
@@ -171,7 +226,8 @@ fn slider() -> impl View {
 // sample: TextArea, 170
 fn text_area() -> impl View {
     let notes = State::new(String::from("Two lines\nto start with."));
-    TextArea::new(notes.binding()).placeholder("Notes").rows(4)
+    // Grows from 2 to 6 lines as you type; `.rows(4)` would fix the height.
+    TextArea::new(notes.binding()).placeholder("Notes").grows(2, 6)
 }
 // end
 
@@ -427,6 +483,31 @@ fn date_range_picker() -> impl View {
 }
 // end
 
+// sample: StepIndicator, 180
+fn step_indicator() -> impl View {
+    StepIndicator::new(vec![
+        IndicatorStep::new("Client", StepState::Done),
+        IndicatorStep::new("Photos", StepState::Error).note("Two are missing"),
+        IndicatorStep::new("Review", StepState::Current),
+        IndicatorStep::new("Send", StepState::Upcoming),
+    ])
+    .vertical()
+    .on_select(|_step| {})
+}
+// end
+
+// sample: StepBadge, 80
+fn step_badge() -> impl View {
+    HStack::new((
+        StepBadge::new(1).state(StepState::Done),
+        StepBadge::new(2).state(StepState::Error),
+        StepBadge::new(3).state(StepState::Current),
+        StepBadge::new(4),
+    ))
+    .spacing(8.0)
+}
+// end
+
 // sample: Wizard, 280
 fn wizard() -> impl View {
     let step = State::new(0);
@@ -528,7 +609,7 @@ fn color_swatch() -> impl View {
 
 // sample: ThemeSwitcher, 90
 fn theme_switcher() -> impl View {
-    ThemeSwitcher
+    ThemeSwitcher::new()
 }
 // end
 
@@ -544,12 +625,18 @@ fn theme_editor() -> impl View {
 }
 // end
 
-// sample: TextField, 130
+// sample: TextField, 180
 fn text_field() -> impl View {
     let name = State::new(String::new());
+    let price = State::new(String::from("49,90"));
     let shown = name.clone();
     VStack::new((
-        TextField::new(name.binding()).placeholder("Full name").icon(IconName::User),
+        TextField::new(name.binding()).placeholder("Full name").icon(IconName::User).clearable(),
+        TextField::new(price.binding())
+            .placeholder("Price")
+            .size(ButtonSize::Small)
+            .prefix(Text::new("R$").foreground(Semantic::InkMuted))
+            .suffix(Badge::new("per month")),
         Text::dynamic(move || format!("Hello, {}", shown.get())).foreground(Semantic::InkMuted),
     ))
     .spacing(12.0)
@@ -557,10 +644,19 @@ fn text_field() -> impl View {
 }
 // end
 
-// sample: Select, 280
+// sample: Select, 320
 fn select() -> impl View {
     let range = State::new(0);
-    Select::new(range.binding(), ["Last 7 days", "Last 30 days", "This year"]).label("Date range")
+    // `Select::of` holds the value itself; `.searchable()` adds a search box.
+    let currency = State::new("BRL");
+    VStack::new((
+        Select::new(range.binding(), ["Last 7 days", "Last 30 days", "This year"]).label("Date range"),
+        Select::of(currency.binding(), [("BRL", "Real"), ("EUR", "Euro"), ("USD", "Dollar")])
+            .label("Currency")
+            .size(ButtonSize::Small)
+            .searchable(),
+    ))
+    .spacing(8.0)
 }
 // end
 
@@ -690,6 +786,8 @@ fn tabs() -> impl View {
         .tab("Activity", Text::new("Ana merged #482").foreground(Semantic::InkMuted))
         .tab("Settings", Text::new("Each tab builds when selected.").foreground(Semantic::InkMuted))
         .tab("Billing", Stat::new("Next invoice", "R$ 1.240"))
+        // `TabsVariant::Segmented` makes it a track, `.item` a tab without content.
+        .variant(TabsVariant::Underline)
 }
 // end
 
@@ -729,7 +827,8 @@ fn sidebar() -> impl View {
 
 // sample: Breadcrumb, 80
 fn breadcrumb() -> impl View {
-    Breadcrumb::new(["Workspace", "Projects", "RavenRS", "Settings"])
+    // `on_navigate` makes every location but the last one a link.
+    Breadcrumb::new(["Workspace", "Projects", "RavenRS", "Settings"]).on_navigate(|_level| {})
 }
 // end
 
@@ -753,6 +852,8 @@ fn accordion() -> impl View {
 // sample: Disclosure, 130
 fn disclosure() -> impl View {
     Disclosure::new("Advanced options", Text::new("Shown when open.").foreground(Semantic::InkMuted))
+        // Tells what is inside while it is closed. `.switch` and `.expanded` take bindings.
+        .mark(Dot::new().tone(Tone::Warning).label("Changed"))
 }
 // end
 
@@ -765,7 +866,9 @@ fn dialog() -> impl View {
         Dialog::new(open.binding(), "Delete the project?")
             .description("This cannot be undone.")
             .action(Button::new("Cancel").style(ButtonStyle::Secondary).on_click(move || cancel.set(false)))
-            .action(Button::new("Delete").style(ButtonStyle::Danger).on_click(move || confirm.set(false))),
+            .action(Button::new("Delete").style(ButtonStyle::Danger).on_click(move || confirm.set(false)))
+            // A stray click outside must not close this one.
+            .close_on_backdrop(false),
     ))
 }
 // end
@@ -846,6 +949,8 @@ fn popover() -> impl View {
             .spacing(8.0)
             .width(220.0),
     )
+    // `Placement::Above` and the others work too; `.surface(false)` drops the panel.
+    .placement(Placement::Below)
 }
 // end
 
@@ -862,7 +967,12 @@ fn hover_card() -> impl View {
 fn tooltip() -> impl View {
     VStack::new((
         Spacer::new().min(40.0),
-        Tooltip::new(Button::new("Hover me").style(ButtonStyle::Secondary), "It stays out of the way"),
+        HStack::new((
+            Tooltip::new(Button::new("Hover me").style(ButtonStyle::Secondary), "It stays out of the way"),
+            Button::new("Save").style(ButtonStyle::Secondary).tooltip("Save the file"),
+            Tooltip::new(Button::new("Open").style(ButtonStyle::Secondary), "Open a file").shortcut("⌘O"),
+        ))
+        .spacing(8.0),
     ))
 }
 // end
@@ -884,11 +994,14 @@ fn sidebar_brand() -> impl View {
 }
 // end
 
-// sample: DropdownMenu, 260
+// sample: DropdownMenu, 360
 fn dropdown_menu() -> impl View {
     DropdownMenu::new("Actions")
         .item(MenuItem::new("Edit").icon(IconName::Pencil).shortcut("⌘E"))
         .item(MenuItem::new("Share").icon(IconName::Share2))
+        .item(MenuItem::new("Export").item(MenuItem::new("As PDF")).item(MenuItem::new("As CSV")))
+        .item(MenuItem::new("Show grid").checked(true))
+        .item(MenuItem::new("Label").element(Badge::new("Family").tone(Tone::Accent)))
         .separator()
         .item(MenuItem::new("Delete").icon(IconName::Trash2).destructive())
 }
@@ -905,6 +1018,7 @@ fn context_menu() -> impl View {
             .corner_radius(12.0),
     )
     .item(MenuItem::new("Copy").icon(IconName::Copy).shortcut("⌘C"))
+    .item(MenuItem::new("Sort by").item(MenuItem::new("Name")).item(MenuItem::new("Date")))
     .item(MenuItem::new("Delete").icon(IconName::Trash2).destructive())
 }
 // end
@@ -929,7 +1043,8 @@ fn toaster() -> impl View {
     VStack::new((
         Button::new("Show toast")
             .on_click(move || show.show("Report exported", "sales-q3.pdf is ready.", Tone::Success)),
-        Toaster::new(toasts),
+        // `toasts.show_until_closed` keeps one up until it is closed.
+        Toaster::new(toasts).position(ToastPosition::BottomRight),
     ))
 }
 // end
@@ -992,6 +1107,37 @@ fn chart() -> impl View {
         .series("2025", [12.0, 18.0, 15.0, 21.0, 19.0, 24.0])
         .series("2026", [14.0, 21.0, 26.0, 24.0, 31.0, 35.0])
         .height(260.0)
+}
+// end
+
+// sample: ChartReference, 280
+fn chart_reference() -> impl View {
+    Chart::new(ChartKind::Bar)
+        .categories(["Jan", "Feb", "Mar", "Apr", "May", "Jun"])
+        .series("Sales", [12.0, 18.0, 15.0, 21.0, 19.0, 24.0])
+        .show_value_axis()
+        .grid_dashed()
+        .value_domain(0.0, 25.0)
+        .tooltip(ChartTooltip::new().value_format(|value| format!("{value:.0} units")))
+        .reference(ChartReference::new(20.0).label("Target").color(Semantic::Warning))
+        .height(260.0)
+}
+// end
+
+// sample: SankeyChart, 340
+fn sankey_chart() -> impl View {
+    SankeyChart::new()
+        .title("Where the money goes")
+        .flow("Salary", "Taxes", 1200.0)
+        .flow("Salary", "Home", 1500.0)
+        .flow("Salary", "Savings", 800.0)
+        .flow("Freelance", "Savings", 600.0)
+        .flow("Home", "Rent", 1100.0)
+        .flow("Home", "Power", 400.0)
+        .flow("Savings", "Funds", 900.0)
+        .flow("Savings", "Stocks", 500.0)
+        .format(|value| format!("$ {value:.0}"))
+        .height(300.0)
 }
 // end
 
@@ -1077,6 +1223,29 @@ fn splitter() -> impl View {
 }
 // end
 
+// sample: SplitPanes, 230
+fn split_panes() -> impl View {
+    SplitPanes::horizontal()
+        .pane(SplitPane::new(Text::new("Sessions").padding(16.0)).size(180.0).range(120.0, 260.0))
+        .pane(SplitPane::new(Text::new("Receipt").padding(16.0)).range(120.0, f32::MAX))
+        .pane(SplitPane::new(Text::new("Activity").padding(16.0)).size(180.0).range(120.0, 260.0))
+        .height(190.0)
+}
+// end
+
+// sample: SplitHandle, 120
+fn split_handle() -> impl View {
+    let height = State::new(120.0_f32);
+    // The size is yours to use; the bar only changes it.
+    VStack::new((
+        Text::new("Drag the bar, or focus it and use the arrow keys."),
+        SplitHandle::new(Axis::Vertical, height.binding()).range(80.0, 300.0).inverted(),
+    ))
+    .spacing(8.0)
+    .align(Align::Stretch)
+}
+// end
+
 // sample: Card, 150
 fn card() -> impl View {
     Card::new(
@@ -1086,6 +1255,8 @@ fn card() -> impl View {
         ))
         .spacing(4.0),
     )
+    // Set it on the chosen card of a group.
+    .selected(false)
 }
 // end
 
@@ -1101,6 +1272,7 @@ fn section() -> impl View {
         "Notifications",
         (Text::new("Grouped content under a title.").foreground(Semantic::InkMuted),),
     )
+    .action(Button::new("Edit").style(ButtonStyle::Secondary).size(ButtonSize::Small))
 }
 // end
 
@@ -1170,6 +1342,61 @@ fn movie_assistant() -> impl View {
 }
 // end
 
+// sample: RichText, 170
+fn rich_text() -> impl View {
+    let opened = State::new(String::from("No link opened yet"));
+    let told = opened.clone();
+    VStack::new((
+        RichText::new(
+            "*Ready:* _your order_ ~left~ is at `Desk 4`.\n* Details at https://example.com/orders\n> Open until six",
+        )
+        .on_link(move |address| told.set(format!("Asked to open {address}"))),
+        Text::bound(&opened, Clone::clone).style(TextStyle::Caption).foreground(Semantic::InkMuted),
+    ))
+    .spacing(8.0)
+    .align(Align::Stretch)
+    .width(360.0)
+}
+// end
+
+// sample: AttachmentStrip, 120
+fn attachment_strip() -> impl View {
+    // The app holds the list, and changes it when told.
+    AttachmentStrip::new([
+        Attachment::new("report.pdf").size(120_000),
+        Attachment::new("beach.jpg").size(2_400_000).icon(IconName::Image).send_as(
+            ["photo", "document"],
+            0,
+            |_how| {},
+        ),
+    ])
+    .on_remove(|_index| {})
+    .width(420.0)
+}
+// end
+
+// sample: AudioPlayerButton, 150
+fn audio_player_button() -> impl View {
+    // A second of a low tone, computed here. An app delivers its own recording.
+    let tone: Vec<f32> =
+        (0..44_100).map(|i| (i as f32 / 44_100.0 * 220.0 * std::f32::consts::TAU).sin() * 0.2).collect();
+    AudioPlayerButton::new()
+        .clip(SoundClip::new(tone, 44_100))
+        .transcript("What was said goes here, to open when wanted.")
+        .width(320.0)
+}
+// end
+
+// sample: SelectionBar, 60
+fn selection_bar() -> impl View {
+    SelectionBar::new(3)
+        .on_exit(|| {})
+        .action(ToolbarAction::new("Copy").icon(IconName::Copy).icon_only().on_click(|| {}))
+        .action(ToolbarAction::new("Favorite").icon(IconName::Star).icon_only().on_click(|| {}))
+        .width(420.0)
+}
+// end
+
 // sample: Chat, 420
 fn chat() -> impl View {
     /// Keeps the messages, here while the page rebuilds. A real app keeps them in its state.
@@ -1184,7 +1411,10 @@ fn chat() -> impl View {
                 .intro("It does not know who answers: yours adds to the messages, now or later.")
                 .examples(["How do I start?", "Where are my files?"])
                 .on_send(move |text| {
-                    let reply = ChatMessage::assistant(format!("You asked: {text}"))
+                    // Marks, links and a file in the bubble are asked for message by message.
+                    let reply = ChatMessage::assistant(format!("*You asked:* {text}"))
+                        .formatted()
+                        .media(ChatMedia::document("answer.pdf").size(48_000).on_open(|| {}))
                         .card(|| Box::new(Button::new("Open it").size(ButtonSize::Small)));
                     answers.update(|all| all.push(reply));
                 });
@@ -1203,6 +1433,7 @@ fn floating_panel() -> impl View {
     impl View for Corner {
         fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
             let open = cx.use_state(|| false);
+            // `.movable` and `.minimized` take bindings, for the app to remember them.
             cx.child(&FloatingPanel::new(open.binding(), "Assistant", || {
                 Box::new(Text::new("The app stays usable behind this panel."))
             }))
@@ -1236,13 +1467,16 @@ fn model_picker() -> impl View {
 }
 // end
 
-// sample: ToolRail, 200
+// sample: ToolRail, 280
 fn tool_rail() -> impl View {
     let open = State::new(0);
     ToolRail::new(
         open.binding(),
         [(IconName::Type, "Text"), (IconName::ZoomIn, "Zoom"), (IconName::Layers, "Fades")],
     )
+    // Hold the button, right-click or press Right for the tools that share its place.
+    .separator()
+    .tool(ToolRailItem::new(IconName::Square, "Shape").variant(IconName::Circle, "Ellipse"))
 }
 // end
 
@@ -1327,11 +1561,12 @@ fn text() -> impl View {
 }
 // end
 
-// sample: Alert, 220
+// sample: Alert, 260
 fn alert() -> impl View {
     VStack::new((
         Alert::new("Deployment finished", "The site is live.").tone(Tone::Success),
         Alert::new("Payment failed", "Update your card.").tone(Tone::Danger),
+        Alert::message("Moving deletes the originals.").tone(Tone::Warning).compact(),
     ))
     .spacing(10.0)
     .align(Align::Stretch)
@@ -1345,6 +1580,8 @@ fn badge() -> impl View {
         Badge::new("New").tone(Tone::Accent),
         Badge::new("Paid").tone(Tone::Success).icon(IconName::Check),
         Badge::new("Overdue").tone(Tone::Danger),
+        Badge::new("Draft").outline(),
+        Badge::new("Family").color(Color::hex(0x8b5cf6)).height(26.0),
     ))
     .spacing(8.0)
     .wrap()
@@ -1353,29 +1590,63 @@ fn badge() -> impl View {
 
 // sample: Avatar, 90
 fn avatar() -> impl View {
-    HStack::new((Avatar::new("Ana Lima"), Avatar::new("Bruno Reis"), Avatar::new("Carla Dias").size(44.0)))
-        .spacing(8.0)
-        .align(Align::Center)
+    HStack::new((
+        Avatar::new("Ana Lima"),
+        Avatar::new("Bruno Reis").border(2.0, Semantic::Accent),
+        Avatar::new("Carla Dias").size(44.0).image(Image::new(picture(1.0))),
+    ))
+    .spacing(8.0)
+    .align(Align::Center)
 }
 // end
 
 // sample: Kbd, 80
 fn kbd() -> impl View {
-    HStack::new((Kbd::new("⌘"), Kbd::new("Shift"), Kbd::new("K"))).spacing(6.0)
+    HStack::new((
+        Kbd::new("⌘"),
+        Kbd::new("Shift"),
+        Kbd::new("K"),
+        // The button gives the key its own color.
+        Button::new("Open").size(ButtonSize::Small).shortcut("F8"),
+    ))
+    .spacing(6.0)
+    .align(Align::Center)
 }
 // end
 
-// sample: ProgressBar, 110
+// sample: ProgressBar, 170
 fn progress_bar() -> impl View {
-    VStack::new((ProgressBar::new(0.25), ProgressBar::new(0.9).tone(Tone::Success)))
-        .spacing(14.0)
-        .align(Align::Stretch)
+    VStack::new((
+        ProgressBar::new(0.25),
+        ProgressBar::new(0.9).tone(Tone::Success),
+        ProgressBar::new(0.4).label("Copying").percent().detail("12 of 30 photos").height(4.0),
+    ))
+    .spacing(14.0)
+    .align(Align::Stretch)
 }
 // end
 
 // sample: Spinner, 80
 fn spinner() -> impl View {
     Spinner::new()
+}
+// end
+
+// sample: Lottie, 140
+/// A Lottie file: a ring that draws itself, on and on. Any file from LottieFiles goes here.
+const LOADING_RING: &str = r#"{"v":"5.7.0","fr":30,"ip":0,"op":60,"w":100,"h":100,"layers":[{"ty":4,"ks":{},
+"ip":0,"op":60,"st":0,"shapes":[{"ty":"gr","it":[{"ty":"el","p":{"a":0,"k":[50,50]},"s":{"a":0,"k":[70,70]}},
+{"ty":"tm","s":{"a":1,"k":[{"t":0,"s":[0],"o":{"x":[0.4],"y":[0]},"i":{"x":[0.2],"y":[1]}},{"t":30,"s":[0],
+"o":{"x":[0.4],"y":[0]},"i":{"x":[0.2],"y":[1]}},{"t":60,"s":[100]}]},"e":{"a":1,"k":[{"t":0,"s":[0],
+"o":{"x":[0.4],"y":[0]},"i":{"x":[0.2],"y":[1]}},{"t":30,"s":[100]}]},"o":{"a":0,"k":0},"m":1},
+{"ty":"st","c":{"a":0,"k":[0.25,0.34,0.86,1]},"o":{"a":0,"k":100},"w":{"a":0,"k":9},"lc":2,"lj":2},
+{"ty":"tr","a":{"a":0,"k":[0,0]},"p":{"a":0,"k":[0,0]},"s":{"a":0,"k":[100,100]},"r":{"a":0,"k":0},"o":{"a":0,"k":100}}]}]}]}"#;
+
+fn lottie() -> impl View {
+    match LottieAnimation::from_json(LOADING_RING.as_bytes()) {
+        Ok(animation) => Some(Lottie::new(animation).size(96.0, 96.0).alt("A ring that draws itself")),
+        Err(_) => None,
+    }
 }
 // end
 
@@ -1389,6 +1660,733 @@ fn skeleton() -> impl View {
             .grow(1.0),
     ))
     .spacing(14.0)
+}
+// end
+
+// sample: Dot, 60
+fn dot() -> impl View {
+    HStack::new((
+        Dot::new().tone(Tone::Warning).label("Not saved"),
+        Text::new("Not saved").style(TextStyle::Callout),
+        Dot::new().tone(Tone::Success).size(10.0).label("Online"),
+        Text::new("Online").style(TextStyle::Callout),
+    ))
+    .spacing(8.0)
+    .align(Align::Center)
+}
+// end
+
+// sample: FloatingToolbar, 230
+fn floating_toolbar() -> impl View {
+    let (place, level) = (State::new(None::<Point>), State::new(100.0_f32));
+    FloatingToolbar::new(
+        Spacer::new().frame(None, Some(200.0)).background(Semantic::Control).corner_radius(8.0),
+    )
+    .label("Zoom")
+    .movable(place.binding())
+    .action(ToolbarAction::new("Fit"))
+    .action(ToolbarAction::new("Fill"))
+    .separator()
+    .action(ToolbarAction::new("Zoom out").icon(IconName::Minus).icon_only())
+    .view(ValueSlider::new(level.binding()).range(10.0, 400.0).step(10.0).unit("%").label("Zoom level"))
+    .action(ToolbarAction::new("Zoom in").icon(IconName::Plus).icon_only())
+}
+// end
+
+// sample: TitleBar, 90
+fn title_bar() -> impl View {
+    let maximized = State::new(false);
+    view_fn(move || {
+        let toggle = maximized.clone();
+        TitleBar::new("Report.pdf")
+            .leading(Icon::new(IconName::File).size(16.0))
+            .action(IconButton::new(IconName::Search).label("Search").size(ButtonSize::Mini))
+            .maximized(maximized.get())
+            .on_minimize(|| {})
+            .on_maximize(move || toggle.update(|on| *on = !*on))
+            .on_close(|| {})
+    })
+}
+// end
+
+// sample: ScrollEdgeArrow, 110
+fn scroll_edge_arrow() -> impl View {
+    let photos: Vec<AnyView> = (1..=24)
+        .map(|n| -> AnyView {
+            Box::new(
+                Text::new(format!("Photo {n}"))
+                    .style(TextStyle::Callout)
+                    .centered()
+                    .frame(Some(120.0), Some(72.0))
+                    .background(Semantic::Control)
+                    .corner_radius(6.0),
+            )
+        })
+        .collect();
+    ScrollEdgeArrow::new(photos).fade(Semantic::SurfaceElevated)
+}
+// end
+
+// sample: Histogram, 130
+fn histogram() -> impl View {
+    let hill = |center: f32| -> Vec<f32> {
+        (0..256).map(|i| 400.0 * (-((i as f32 - center) / 40.0).powi(2)).exp() + 10.0).collect()
+    };
+    Histogram::new([
+        HistogramChannel::new("Red", Color::rgb(0.9, 0.15, 0.15), hill(90.0)),
+        HistogramChannel::new("Green", Color::rgb(0.15, 0.8, 0.2), hill(128.0)),
+        HistogramChannel::new("Blue", Color::rgb(0.2, 0.3, 0.95), hill(170.0)),
+    ])
+    .zones(5)
+    .height(110.0)
+}
+// end
+
+// sample: Ruler, 70
+fn ruler() -> impl View {
+    VStack::new((
+        Ruler::horizontal().scale(2.0).origin(-20.0).marker(60.0),
+        Ruler::horizontal().scale(0.2).whole_units(),
+    ))
+    .spacing(8.0)
+    .align(Align::Stretch)
+}
+// end
+
+// sample: ColorWheel, 180
+fn color_wheel() -> impl View {
+    let tint = State::new(HueSaturation::new(30.0, 0.4));
+    let shown = tint.clone();
+    HStack::new((
+        ColorWheel::new(tint.binding()).diameter(160.0).label("Shadows"),
+        Text::bound(&shown, |v| format!("{:.0}°, {:.0}%", v.hue, v.saturation * 100.0))
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
+    ))
+    .spacing(16.0)
+}
+// end
+
+// sample: CurveEditor, 210
+fn curve_editor() -> impl View {
+    let points = State::new(vec![
+        Point::new(0.0, 0.0),
+        Point::new(0.3, 0.2),
+        Point::new(0.7, 0.85),
+        Point::new(1.0, 1.0),
+    ]);
+    let hill: Vec<f32> = (0..128).map(|i| 50.0 * (-((i as f32 - 60.0) / 30.0).powi(2)).exp()).collect();
+    CurveEditor::new(points.binding())
+        .height(190.0)
+        .histogram([HistogramChannel::new("Light", Color::rgb(0.6, 0.6, 0.6), hill)], HistogramScale::Linear)
+        .label("Tone curve")
+}
+// end
+
+// sample: ZoomControl, 60
+fn zoom_control() -> impl View {
+    let view = State::new(ZoomView::at(1.5));
+    ZoomControl::new(view.binding())
+}
+// end
+
+// sample: ZoomPanView, 260
+fn zoom_pan_view() -> impl View {
+    let view = State::new(ZoomView::fit());
+    let content = Size::new(1200.0, 800.0);
+    let picture = |frame: ZoomPanPaint, scene: &mut Scene| {
+        scene.push_quad(Quad::new(frame.placed, Color::rgb(0.16, 0.3, 0.5)));
+        let side = 120.0 * frame.scale;
+        for (i, color) in [Color::rgb(0.9, 0.45, 0.3), Color::rgb(0.95, 0.8, 0.3)].into_iter().enumerate() {
+            let x = frame.placed.x() + frame.placed.width() * (0.2 + 0.4 * i as f32);
+            let y = frame.placed.y() + frame.placed.height() * 0.35;
+            scene.push_quad(Quad::new(Rect::new(x, y, side, side), color).radius(side / 2.0));
+        }
+    };
+    VStack::new((
+        ZoomControl::new(view.binding()),
+        ZoomPanView::custom(view.binding(), content, picture).size(420.0, 200.0).label("Sample picture"),
+    ))
+    .spacing(8.0)
+}
+// end
+
+// sample: Minimap, 170
+fn minimap() -> impl View {
+    let view = State::new(ZoomView::at(1.0));
+    let picture = |frame: ZoomPanPaint, scene: &mut Scene| {
+        scene.push_quad(Quad::new(frame.placed, Color::rgb(0.2, 0.45, 0.7)));
+        let sun = Rect::new(
+            frame.placed.x() + frame.placed.width() * 0.6,
+            frame.placed.y() + frame.placed.height() * 0.2,
+            80.0 * frame.scale,
+            80.0 * frame.scale,
+        );
+        scene.push_quad(Quad::new(sun, Color::rgb(0.95, 0.8, 0.3)).radius(40.0 * frame.scale));
+    };
+    let content = Size::new(800.0, 500.0);
+    HStack::new((
+        Minimap::custom(view.binding(), content, picture),
+        ZoomPanView::custom(view.binding(), content, picture).size(240.0, 150.0),
+    ))
+    .spacing(12.0)
+}
+// end
+
+// sample: RuleOfThirdsGrid, 190
+fn rule_of_thirds_grid() -> impl View {
+    let picture = Canvas::new(|frame, scene| {
+        let sky = LinearGradient::vertical(Color::rgb(0.3, 0.45, 0.7), Color::rgb(0.85, 0.6, 0.45));
+        scene.push_quad(Quad::new(frame, sky));
+    })
+    .size(300.0, 170.0);
+    RuleOfThirdsGrid::new().guide(CompositionGuide::GoldenRatio).stage(picture)
+}
+// end
+
+// sample: RubberBand, 190
+fn rubber_band() -> impl View {
+    let selection = State::new(None::<Rect>);
+    let chosen = State::new(String::from("Drag over the box"));
+    let told = chosen.clone();
+    VStack::new((
+        Text::bound(&chosen, Clone::clone),
+        RubberBand::new(selection.binding())
+            .on_select(move |r| told.set(format!("{:.0} × {:.0}", r.width(), r.height())))
+            .size(320.0, 130.0),
+    ))
+    .spacing(8.0)
+}
+// end
+
+// sample: Marquee, 170
+fn marquee() -> impl View {
+    let lasso =
+        [Point::new(20.0, 30.0), Point::new(120.0, 40.0), Point::new(100.0, 120.0), Point::new(30.0, 110.0)];
+    HStack::new((
+        Marquee::rect(Rect::new(20.0, 20.0, 110.0, 100.0)).size(150.0, 140.0),
+        Marquee::path(lasso).size(150.0, 140.0),
+    ))
+    .spacing(12.0)
+}
+// end
+
+// sample: TransformHandles, 240
+fn transform_handles() -> impl View {
+    let layer = State::new(BoxTransform::new(Rect::new(110.0, 70.0, 180.0, 100.0)).rotated(-8.0));
+    let shown = layer.clone();
+    let picture = Canvas::new(move |frame, scene| {
+        let p = shown.get();
+        let at = p.rect.translate(frame.origin);
+        scene.push_quad(Quad::new(frame, Color::rgb(0.2, 0.27, 0.35)));
+        scene.push_quad(Quad::new(at, Color::rgb(0.3, 0.55, 0.75).with_alpha(0.6)));
+    })
+    .size(420.0, 230.0);
+    TransformHandles::new(layer.binding()).stage(picture)
+}
+// end
+
+// sample: Protractor, 70
+fn protractor() -> impl View {
+    let angle = State::new(7.5_f32);
+    Protractor::new(angle.binding()).label("Straighten")
+}
+// end
+
+// sample: CropOverlay, 300
+fn crop_overlay() -> impl View {
+    let crop = State::new(CropArea::new(Rect::new(70.0, 30.0, 240.0, 150.0)));
+    let picture = Canvas::new(|frame, scene| {
+        let sky = LinearGradient::vertical(Color::rgb(0.3, 0.45, 0.7), Color::rgb(0.85, 0.6, 0.45));
+        scene.push_quad(Quad::new(frame, sky));
+    })
+    .size(400.0, 220.0);
+    VStack::new((
+        CropOverlay::new(crop.binding()).stage(picture),
+        Protractor::new(crop.binding().map(|c| c.angle, |c, angle| c.angle = angle)).width(400.0),
+    ))
+    .spacing(8.0)
+}
+// end
+
+// sample: Eyedropper, 190
+fn eyedropper() -> impl View {
+    let shown = State::new(Color::rgb(0.5, 0.5, 0.5));
+    let told = shown.clone();
+    let dropper = EyedropperState::new().on_pick(move |color| told.set(color));
+    let ramp = |x: f32, y: f32| Color::rgb(x / 300.0, y / 130.0, 0.5);
+    let picture = Canvas::new(move |frame, scene| {
+        for i in 0..30 {
+            let x = i as f32 * 10.0;
+            let band = Rect::new(frame.x() + x, frame.y(), 10.0, frame.height());
+            scene.push_quad(Quad::new(band, ramp(x, 65.0)));
+        }
+    })
+    .size(300.0, 130.0);
+    let swatch = Canvas::new(move |frame, scene| {
+        scene.push_quad(Quad::new(frame, shown.get()).radius(4.0));
+    })
+    .size(28.0, 28.0);
+    VStack::new((
+        HStack::new((Eyedropper::new(&dropper), swatch)).spacing(8.0),
+        EyedropperArea::new(&dropper, move |at| Some(ramp(at.x, at.y))).stage(picture),
+    ))
+    .spacing(8.0)
+}
+// end
+
+// sample: CompareView, 210
+fn compare_view() -> AnyView {
+    let tone = |warm: f32| {
+        ImageData::from_fn(240, 160, move |x, y| {
+            let light = 0.25 + 0.5 * x as f32 / 240.0;
+            Color::rgb(light + warm, light, light - warm + 0.2 * y as f32 / 160.0)
+        })
+    };
+    match (tone(0.0), tone(0.2)) {
+        (Some(before), Some(after)) => {
+            Box::new(CompareView::new(before, after).mode(CompareMode::Divider).size(420.0, 200.0))
+        }
+        _ => Box::new(Text::new("No pictures")),
+    }
+}
+// end
+
+// sample: ImageLightbox, 60
+fn image_lightbox() -> impl View {
+    let open = State::new(None::<usize>);
+    let opener = open.clone();
+    let shades = [0.25_f32, 0.45, 0.65];
+    let pictures = shades.into_iter().filter_map(|shade| {
+        let image = ImageData::from_fn(320, 200, move |x, _| Color::rgb(shade, 0.3, x as f32 / 320.0))?;
+        Some(LightboxItem::new(image).caption(format!("Shade {shade}")))
+    });
+    VStack::new((
+        Button::new("Open pictures").on_click(move || opener.set(Some(0))),
+        ImageLightbox::new(open.binding(), pictures),
+    ))
+}
+// end
+
+// sample: VirtualList, 280
+fn virtual_list() -> impl View {
+    // Ten thousand rows of different heights: only what shows exists.
+    let selected = State::new(None::<usize>);
+    VirtualList::new(10_000, |index| {
+        let tall = 1 + index % 3;
+        let words = vec!["A row that says how tall it is"; tall].join("\n");
+        VStack::new((Text::new(format!("Row {index}")), Text::new(words))).padding(8.0)
+    })
+    .key(|index| index as u64)
+    .selection(selected.binding())
+    .height(260.0)
+}
+// end
+
+// sample: Filmstrip, 130
+fn filmstrip() -> impl View {
+    let selected = State::new(BTreeSet::from([2_usize]));
+    Filmstrip::new(5_000, |cell: FilmstripCell| {
+        // The cell belongs to the app: its picture, its stars, its badges.
+        let shade = (cell.index % 10) as f32 / 10.0;
+        let picture = ImageData::from_fn(64, 64, move |x, y| {
+            Color::rgb(0.2 + shade * 0.5, 0.3 + y as f32 / 200.0, 0.7 - x as f32 / 200.0)
+        });
+        let picture: AnyView = match picture {
+            Some(picture) => Box::new(Image::new(picture).height(72.0).stretch()),
+            None => Box::new(Spacer::new()),
+        };
+        VStack::new((picture, Rating::read_only((cell.index % 6) as u32).size(11.0)))
+            .spacing(4.0)
+            .align(Align::Center)
+    })
+    .cell_name(|index| format!("Photo {}", index + 1))
+    .selection(selected.binding())
+    .mode(SelectionMode::Multiple)
+    .cell_width(120.0)
+    .height(112.0)
+    .fade(Semantic::SurfaceElevated)
+}
+// end
+
+// sample: PagedDocumentView, 420
+fn paged_document_view() -> impl View {
+    let sheet = ImageData::from_fn(120, 170, |x, y| {
+        // Lines of a page, where a real app would hand over a rendered PDF.
+        let line = y % 12 < 3 && (10..110).contains(&x) && (14..156).contains(&y);
+        if line { Color::rgb(0.55, 0.55, 0.6) } else { Color::rgb(0.98, 0.98, 0.97) }
+    });
+    PagedDocumentView::new(
+        48,
+        |_| Size::new(420.0, 595.0),
+        // Page 3 has not been drawn yet: it shows a placeholder of the right size.
+        move |page| sheet.clone().filter(|_| page != 2),
+    )
+    .height(400.0)
+}
+// end
+
+// sample: FileBrowser, 320
+fn file_browser() -> impl View {
+    let entries = vec![
+        FileEntry::folder("Weddings").modified("Oct 12, 2026", 12),
+        FileEntry::folder("Portraits").modified("Sep 3, 2026", 3),
+        FileEntry::file("catalog.db", 48_302_112).modified("Nov 2, 2026", 32),
+        FileEntry::file("notes.txt", 2_204).modified("Oct 30, 2026", 30).icon(IconName::FileText),
+        FileEntry::file("cover.jpg", 3_480_000).modified("Aug 21, 2026", 1).icon(IconName::Image),
+    ];
+    FileBrowser::new(["Backups", "2026", "Studio"], entries).height(300.0)
+}
+// end
+
+// sample: YearView, 700
+fn year_view() -> impl View {
+    let year = State::new(2026);
+    let chosen = State::new(None::<Date>);
+    YearView::new(year.binding())
+        .selected(chosen.binding())
+        .today(Date::new(2026, 11, 5).unwrap_or_else(|| Date::from_days(0)))
+        .marks(|day| match day.day() % 11 {
+            0 => Some(DayMark::new().tone(Tone::Accent).label("Shoot")),
+            5 => Some(DayMark::new().tone(Tone::Success).label("Delivery")),
+            _ => None,
+        })
+}
+// end
+
+// sample: SortableList, 210
+fn sortable_list() -> impl View {
+    let layers = State::new(vec!["Exposure", "Curves", "Grain", "Vignette"]);
+    view_fn(move || {
+        let shown = layers.get();
+        let (names, moved) = (shown.clone(), layers.clone());
+        SortableList::new(shown.len(), move |index| Text::new(shown[index]))
+            .row_name(move |index| names[index].to_owned())
+            .on_reorder(move |from, to| {
+                moved.update(|list| {
+                    let layer = list.remove(from);
+                    list.insert(to, layer);
+                });
+            })
+    })
+}
+// end
+
+// sample: DockArea, 420
+fn dock_area() -> impl View {
+    let layout = State::new(
+        DockLayout::new()
+            .center(DockNode::tabs(["photo", "grid"]))
+            .left(DockNode::tabs(["folders", "search"]), 220.0)
+            .right(DockNode::vertical([DockNode::tabs(["layers"]), DockNode::tabs(["history"])]), 200.0)
+            .bottom(DockNode::tabs(["log"]), 110.0),
+    );
+    let panels = vec![
+        DockPanel::new("photo", "Photo").icon(IconName::Camera).closable(false),
+        DockPanel::new("grid", "Grid"),
+        DockPanel::new("folders", "Folders").icon(IconName::Folder),
+        DockPanel::new("search", "Search").icon(IconName::Search),
+        DockPanel::new("layers", "Layers"),
+        DockPanel::new("history", "History"),
+        DockPanel::new("log", "Log"),
+    ];
+    DockArea::new(layout.binding(), panels, |id| -> AnyView {
+        Box::new(VStack::new((Text::new(format!("What {id} shows")),)).padding(12.0))
+    })
+    // Keep this text, and give it to DockLayout::parse the next time.
+    .on_end(|layout| println!("{}", layout.to_text()))
+    .height(420.0)
+}
+// end
+
+// sample: DocumentTabs, 70
+fn document_tabs() -> impl View {
+    let tabs = State::new(vec![
+        DocumentTab::new(1, "Wedding").icon(IconName::Camera),
+        DocumentTab::new(2, "Portraits").unsaved(true).color(Color::rgb(0.25, 0.55, 0.95)),
+        DocumentTab::new(3, "Studio with a long name that does not fit"),
+        DocumentTab::new(4, "Home").closable(false),
+    ]);
+    let active = State::new(1_u64);
+    view_fn(move || {
+        let (closed, moved, renamed) = (tabs.clone(), tabs.clone(), tabs.clone());
+        DocumentTabs::new(tabs.get(), active.binding())
+            .on_close(move |id| closed.update(|list| list.retain(|tab| tab.id != id)))
+            .on_reorder(move |from, to| {
+                moved.update(|list| {
+                    let tab = list.remove(from);
+                    list.insert(to, tab);
+                });
+            })
+            .on_rename(move |id, name| {
+                renamed.update(|list| {
+                    if let Some(tab) = list.iter_mut().find(|tab| tab.id == id) {
+                        tab.title = name;
+                    }
+                });
+            })
+            .on_new(|| {})
+            .fade(Semantic::SurfaceElevated)
+    })
+}
+// end
+
+// sample: DropZone, 140
+fn drop_zone() -> impl View {
+    let count = State::new(0_usize);
+    let (shown, add) = (count.clone(), count);
+    DropZone::new(
+        Text::bound(&shown, |n| format!("{n} files received. Drop more, or press Enter here."))
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
+    )
+    .label("Files of the session")
+    .min_height(96.0)
+    .choosable()
+    .on_files(move |files| add.update(|n| *n += files.len()))
+}
+// end
+
+// sample: ValueSlider, 70
+fn value_slider() -> impl View {
+    let (opacity, size) = (State::new(80.0_f32), State::new(24.0_f32));
+    HStack::new((
+        ValueSlider::new(opacity.binding())
+            .range(0.0, 100.0)
+            .step(1.0)
+            .unit("%")
+            .label("Opacity")
+            .show_label(),
+        ValueSlider::new(size.binding()).range(1.0, 200.0).step(1.0).unit(" px").label("Size").field(),
+    ))
+    .spacing(24.0)
+    .align(Align::Center)
+}
+// end
+
+// sample: InlineRename, 80
+fn inline_rename() -> impl View {
+    let name = State::new(String::from("Warm evening"));
+    VStack::new((
+        InlineRename::new(name.binding()).label("Preset name").width(220.0),
+        Text::new("Double click it, or press F2 on it.")
+            .style(TextStyle::Caption)
+            .foreground(Semantic::InkMuted),
+    ))
+    .spacing(4.0)
+}
+// end
+
+// sample: OverlayBadge, 90
+fn overlay_badge() -> impl View {
+    HStack::new((
+        OverlayBadge::new(Avatar::new("Ana Lima"), Dot::new().tone(Tone::Success).size(10.0).label("Online"))
+            .corner(FloatingCorner::BottomRight)
+            .inset(5.0),
+        OverlayBadge::new(
+            Button::new("Inbox").style(ButtonStyle::Secondary),
+            Badge::new("3").tone(Tone::Danger),
+        ),
+    ))
+    .spacing(32.0)
+    .align(Align::Center)
+}
+// end
+
+// sample: Rating, 100
+fn rating() -> impl View {
+    let score = State::new(3u32);
+    VStack::new((
+        Rating::new(score.binding()).label("Photo rating").clearable(),
+        Rating::read_only(4).size(14.0),
+    ))
+    .spacing(10.0)
+}
+// end
+
+// sample: IconTile, 80
+fn icon_tile() -> impl View {
+    HStack::new((
+        IconTile::new(IconName::CircleCheck).tone(Tone::Success),
+        IconTile::new(IconName::TriangleAlert).tone(Tone::Warning),
+        IconTile::new(IconName::Image).size(32.0),
+    ))
+    .spacing(12.0)
+    .align(Align::Center)
+}
+// end
+
+// sample: EmptyState, 260
+fn empty_state() -> impl View {
+    EmptyState::new("No photos yet")
+        .icon(IconName::Image)
+        .description("Import a folder to start. The originals stay where they are.")
+        .action(Button::new("Import"))
+        .action(Button::new("Learn more").style(ButtonStyle::Ghost))
+}
+// end
+
+// sample: HeroBanner, 170
+fn hero_banner() -> impl View {
+    VStack::new((
+        HeroBanner::new("You can remove the card").icon(IconName::CircleCheck).tone(Tone::Success),
+        HeroBanner::new("Do not remove the card").icon(IconName::CircleAlert).tone(Tone::Danger),
+    ))
+    .spacing(10.0)
+    .align(Align::Stretch)
+}
+// end
+
+// sample: MultiProgress, 170
+fn multi_progress() -> impl View {
+    MultiProgress::new().label("Import").meter("Local copy", 84, 120).meter("Previews", 12, 84)
+}
+// end
+
+// sample: ShimmerText, 60
+fn shimmer_text() -> impl View {
+    ShimmerText::new("Looking for updates")
+}
+// end
+
+// sample: DaySeparator, 110
+fn day_separator() -> impl View {
+    let today = Date::new(2026, 11, 4).unwrap_or_else(|| Date::from_days(0));
+    VStack::new((
+        DaySeparator::of(today, today),
+        DaySeparator::of(today.add_days(-1), today),
+        DaySeparator::new("Last week"),
+    ))
+    .spacing(14.0)
+    .align(Align::Stretch)
+}
+// end
+
+// sample: ShortcutSheet, 110
+fn shortcut_sheet() -> impl View {
+    let open = State::new(false);
+    let show = open.clone();
+    VStack::new((
+        Button::new("Keyboard shortcuts")
+            .style(ButtonStyle::Secondary)
+            .icon(IconName::Keyboard)
+            .on_click(move || show.set(true)),
+        ShortcutSheet::new(open.binding())
+            .group("Navigate", [("←", "Previous photo"), ("→", "Next photo")])
+            .group("Rate", [("1–5", "Give a score"), ("0", "Take it away")]),
+    ))
+}
+// end
+
+// sample: ShortcutHintBar, 60
+fn shortcut_hint_bar() -> impl View {
+    ShortcutHintBar::new()
+        .leading("3 of 40")
+        .hint(["←", "→"], "move")
+        .hint(["1", "5"], "rate")
+        .hint(["P"], "pick")
+}
+// end
+
+// sample: ZStack, 110
+fn z_stack() -> impl View {
+    ZStack::new((
+        Canvas::new(|frame, scene| {
+            scene.push_quad(Quad::new(frame, Color::hex(0x4c66ee)).radius(8.0));
+        })
+        .size(220.0, 80.0),
+        Badge::new("On top").tone(Tone::Success),
+    ))
+    .align(Align::Center)
+}
+// end
+
+// sample: PropertyRow, 130
+fn property_row() -> impl View {
+    VStack::new((
+        PropertyRow::new("Camera", "NIKON D3100"),
+        PropertyRow::new("Lens", ""),
+        PropertyRow::with("Status", Badge::new("Edited").tone(Tone::Success)),
+    ))
+    .spacing(6.0)
+    .align(Align::Stretch)
+}
+// end
+
+// sample: PageHeader, 130
+fn page_header() -> impl View {
+    PageHeader::new("Sessions")
+        .description("Every shoot, newest first.")
+        .badge(Badge::new("12"))
+        .action(Button::new("New session").icon(IconName::Plus))
+}
+// end
+
+// sample: ButtonGroup, 80
+fn button_group() -> impl View {
+    let period = State::new(0);
+    view_fn(move || {
+        let chosen = period.get();
+        let item = |index, label: &str| {
+            let period = period.clone();
+            let style = if chosen == index { ButtonStyle::Primary } else { ButtonStyle::Secondary };
+            Button::new(label).style(style).on_click(move || period.set(index))
+        };
+        ButtonGroup::new([item(0, "Day"), item(1, "Week"), item(2, "Month")]).label("Period")
+    })
+}
+// end
+
+// sample: FavoriteToggle, 70
+fn favorite_toggle() -> impl View {
+    let (heart, star) = (State::new(true), State::new(false));
+    HStack::new((
+        FavoriteToggle::new(heart.binding()).label("Warm portrait"),
+        FavoriteToggle::new(star.binding()).label("Pinned").star(),
+    ))
+    .spacing(8.0)
+}
+// end
+
+// sample: SwatchGrid, 160
+fn swatch_grid() -> impl View {
+    let (front, back) = (State::new(Color::hex(0xe11d48)), State::new(Color::hex(0x2563eb)));
+    let (for_front, for_back, shown) = (front.clone(), back.clone(), front.clone());
+    VStack::new((
+        view_fn(move || {
+            let (for_front, for_back) = (for_front.clone(), for_back.clone());
+            SwatchGrid::new([
+                (Color::hex(0xe11d48), "Rose"),
+                (Color::hex(0xf59e0b), "Amber"),
+                (Color::hex(0x16a34a), "Green"),
+                (Color::hex(0x2563eb), "Blue"),
+                (Color::hex(0x7c3aed), "Violet"),
+                (Color::hex(0x111827), "Ink"),
+            ])
+            .columns(3)
+            .selected(Some(shown.get()))
+            .on_pick(move |color, held| {
+                // With Cmd or Ctrl, the color goes to the background.
+                if held.meta || held.ctrl { for_back.set(color) } else { for_front.set(color) }
+            })
+        }),
+        Text::new("Click: foreground. Cmd or Ctrl and click: background.").style(TextStyle::Caption),
+    ))
+    .spacing(6.0)
+}
+// end
+
+// sample: NinePointAnchor, 70
+fn nine_point_anchor() -> impl View {
+    let point = State::new(AnchorPoint::Center);
+    NinePointAnchor::new(point.binding()).cell_size(12.0)
+}
+// end
+
+// sample: ColorPair, 90
+fn color_pair() -> impl View {
+    let (front, back) = (State::new(Color::hex(0xe11d48)), State::new(Color::WHITE));
+    ColorPair::new(front.binding(), back.binding()).defaults(Color::BLACK, Color::WHITE)
 }
 // end
 
@@ -1406,7 +2404,8 @@ fn icon() -> impl View {
 // sample: Image, 150
 fn image() -> impl View {
     HStack::new((
-        Image::new(picture(1.0)).size(160.0, 90.0).corner_radius(12.0),
+        // `.crossfade` dissolves into the next image the app hands it.
+        Image::new(picture(1.0)).size(160.0, 90.0).corner_radius(12.0).crossfade(0.2),
         Image::new(picture(0.3)).size(90.0, 90.0).corner_radius(45.0),
     ))
     .spacing(12.0)

@@ -93,6 +93,11 @@ pub(crate) const BACKUP: Help = (
     "Um arquivo com todos os seus dados, para guardar fora deste computador.",
     "Para trazer os dados de volta, aqui ou em outro computador, use Restaurar backup.",
 );
+pub(crate) const AVISOS: Help = (
+    "Avisos",
+    "O sistema avisa sobre as contas vencidas, mesmo com a janela fechada na bandeja.",
+    "Com o programa encerrado não há aviso, porque nada está rodando.",
+);
 pub(crate) const APARENCIA: Help = ("Aparência", "Muda só o visual do app. Seus dados continuam iguais.", "");
 pub(crate) const DESEMPENHO: Help = (
     "Desempenho",

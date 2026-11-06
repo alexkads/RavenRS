@@ -482,3 +482,53 @@ fn a_dialog_stays_solid_while_it_opens_and_only_its_backdrop_fades() {
         .collect();
     assert!(panels.contains(&white), "the panel is at full strength in mid-flight: {panels:?}");
 }
+
+#[test]
+fn a_dialog_opens_without_a_long_tail_and_leaves_as_one_surface() {
+    let open = State::new(false);
+    let shown = open.clone();
+    let view = view_fn(move || {
+        Dialog::new(shown.binding(), "Title").content(Text::new("Inside")).action(Button::new("Save"))
+    });
+    let mut ui = Ui::new(view, Theme::raven_dark());
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    let mut now = 0.0;
+    ui.set_time(now);
+    ui.update();
+    let frame = |ui: &mut Ui, now: &mut f64| {
+        *now += 1.0 / 60.0;
+        ui.set_time(*now);
+        ui.update();
+    };
+    frame(&mut ui, &mut now);
+
+    open.set(true);
+    frame(&mut ui, &mut now);
+    let mut frames = 0;
+    while ui.is_animating() && frames < 120 {
+        frame(&mut ui, &mut now);
+        frames += 1;
+    }
+    assert!(frames <= 20, "it settles at once, and text does not shiver: {frames} frames");
+
+    open.set(false);
+    frame(&mut ui, &mut now);
+    let mut faded_content_over_a_solid_panel = false;
+    for _ in 0..30 {
+        frame(&mut ui, &mut now);
+        let alphas: Vec<f32> = ui
+            .scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| match p {
+                ravenrs_core::Primitive::Glyphs(g) => Some(g.color.a),
+                _ => None,
+            })
+            .collect();
+        if alphas.iter().any(|a| *a > 0.05 && *a < 0.9) {
+            faded_content_over_a_solid_panel = true;
+        }
+    }
+    assert!(faded_content_over_a_solid_panel, "its content fades on the way out");
+    assert!(!ui.is_animating(), "and then it is gone");
+}

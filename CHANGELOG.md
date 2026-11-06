@@ -4,6 +4,140 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.14] - 2026-11-05
+
+### Breaking
+
+- `ThemeSwitcher` is no longer a unit struct. Write `ThemeSwitcher::new()` where you wrote `ThemeSwitcher`.
+
+### Added
+
+- `ThemeSwitcher::themes(dark, light, glass)`: an app offers its own three themes in the switcher instead of the standard ones.
+
+## [27.1.13] - 2026-11-05
+
+### Breaking
+
+- `ProgressBar` is no longer `Copy`, because it now holds a label and a detail. Clone it where you copied it.
+- `Breadcrumb` and `Section` are no longer `Send`, `Sync`, `UnwindSafe` or `RefUnwindSafe`, because they now hold closures and views. Views were already built and kept on one thread.
+
+### Added
+
+- `DockArea` and `DockLayout`: panels in a tree of splits and groups of tabs at the left, the right, the bottom and the center. A tab goes to another group, to one side of it or to a border with a drag and a mark on the target, or by Alt and Shift with an arrow and the "Move to…" of its menu; it reorders with a drag or Alt and an arrow. Bars resize within limits by pointer and keys, docks collapse from the strips on their edges, and panels close and come back where they were. The arrangement holds ids alone, and what a panel shows comes from a function of the app. `DockLayout::to_text` and `parse` save it as versioned JSON: an unknown id is left out, and a text that cannot be read is a clear error.
+- `ChatMessage::media` and `ChatMedia`: a photo that holds its place until it arrives, a document as a card or a recording with `AudioPlayerButton`, in the bubble, above the text. `ChatMessage::formatted` reads the text as a `RichText`, and `Chat::on_link` gets its links. Messages that ask for neither stay as they were.
+- `monotone_slopes` in `ravenrs-core`: the slopes of a curve that never swings past its points, which charts and `CurveEditor` now share.
+- `SelectionBar`: how many things are chosen, a way out by a button or Escape, and actions over a `Toolbar`, which go to a menu when they do not fit and are disabled while nothing is chosen.
+- `AudioPlayerButton`: plays a recording and stops it over `Sound::speak_clip`, with progress drawn without rebuilding, audio the app can deliver after the press, and a transcript to open or ask for. Another recording sends it back to rest.
+- `AttachmentStrip`: the files about to go with a message, as rows with an icon or thumbnail, a name that gives way, the size, a menu such as "Send as" when there is a choice, and a button to take each one out.
+- `RichText`: bold, italic, struck text, code, lists, quotes and links in plain text, with the marks chat apps use. It wraps between words, links take a click, Enter or Space and go to `on_link`, and text with nothing to format costs what a `Text` costs. Italics are a muted color and code a chip, because `ravenrs-text` has one style per text and embeds no italic or monospace font.
+- `DocumentTabs`: tabs for open documents that close with a button, Delete or the menu, change places by a drag or Alt and the arrows, are renamed with a double click, F2 or the menu, and carry a color and a dot for what was not saved. Tabs that do not fit scroll with arrows, and the menu takes the app's own items.
+- `SortableList`: rows put in order by a drag, with a line at the target, or with Alt and the arrows, Home and End. Each move is announced to screen readers, and Escape calls a drag off. The drag arithmetic lives in one module, which `DocumentTabs` shares.
+- `YearView`: the twelve months of a year, with marks on the days, a click on any of them and one Tab stop that walks past the end of the year. As many months go on a line as fit.
+- `FileBrowser`: an explorer of folders and files from the app's data, with a clickable breadcrumb, sorting with folders first, selection with modifiers, icons, sizes and dates. It never touches the file system, and folders of any size stay virtual.
+- `PagedDocumentView`: a bar with page, total and `ZoomControl` over a column of pages of which only those that show are built, with the pictures handed over by the app page by page and a placeholder until each is ready.
+- `Filmstrip`: a horizontal strip of thumbnails of any length, whose cells come from the app. Single or multiple selection with modifiers, the arrows, Home and End, arrows on the ends that have more to show, and the selected cell kept in view.
+- `VirtualList`: a list of any length with rows of any height, measured as they appear and remembered by key. It jumps to a row, can stay at the end as a chat does, and holds what is on screen still when rows come in above. It can also run sideways.
+- `BuildCx::keyed_child_frame`, for a view that places its children by the room each one took, and `BuildCx::wheel_scrolls_sideways`, for a strip that a plain wheel should move.
+- `ImageLightbox`: a picture over the whole app, with zoom by `ZoomPanView`, the arrows to go on, Escape to close, a caption and a counter. Each picture starts fitted, and an arrow pans once it is zoomed in.
+- `CompareView`: two pictures side by side, with one that can be chosen, or across a divider that a drag and the arrows move. A drag paints without a build.
+- `Eyedropper`: a button that arms, and `EyedropperArea` over a picture, which asks the caller for the color of the point clicked. `EyedropperState::pick` tells it directly. Escape disarms. It does not capture the screen.
+- `CropOverlay`: a crop over a picture, built on `TransformHandles`, with a veil outside, thirds inside, a fine grid while it turns, a fixed proportion and an angle. It stays inside the content and hands back `CropArea`; the frame turns over a still picture, since the renderer has no transforms.
+- `Protractor`: a band of ticks along an arc that sets an angle by a drag from anywhere on it, with a double click back to zero, the keyboard and the value in words.
+- `TransformHandles`: eight handles, a turn and a pivot around a `BoxTransform`, in the units of a `ContentSpace`. Corners hold the proportions until Shift, Alt resizes around the pivot, and the keyboard moves, resizes and turns. It hands back geometry and turns no picture. A drag paints without a build.
+- `Marquee`: the animated outline of a selection around a rectangle, a closed path or loose segments, which reads over any picture and asks for no frames with reduced motion.
+- `RubberBand`: a rectangle drawn with a drag, in the units of the content, that goes through a `Binding` and selects on release. Escape cancels, and the keyboard moves and resizes it. A drag paints without a build.
+- `RuleOfThirdsGrid`: composition lines over a picture, as thirds, equal divisions, squares or the golden ratio, in the units of a `ContentSpace` that can follow a `ZoomPanView`. It takes no input.
+- `Minimap`: a small copy of the content with a rectangle around what is in view, by the same `ZoomView` as `ZoomPanView`, which a press, a drag or the arrow keys move.
+- `ZoomPanView`: zoom and pan over an image or a drawing, by pinch, Cmd/Ctrl with the wheel, the wheel and a drag to move, a double click and the keyboard, with a coast that stops asking for frames and respects reduced motion. Gestures paint without a build.
+- `ZoomControl`: fit, 1:1, the percentage and the buttons that zoom in and out, through a `ZoomView` that `ZoomPanView` and `Minimap` can share.
+- `CurveEditor`: points you drag over a curve that never swings past them. A press adds one, a double click or Delete removes it, and the keyboard chooses, moves and adds. It can show a baseline and a histogram behind, and `CurveEditor::value_at` gives the same curve for applying it.
+- `ColorWheel`: hue and saturation on a disc, by a drag or the arrow keys, with Shift to keep the hue and a double click to take the color out. The disc is computed once per size and shared.
+- `Ruler`: horizontal or vertical, in the units of the caller, with scale, origin and marker, and a round step that keeps marks apart at any zoom.
+- `Histogram`: overlapping channels from ready-made bins, whose colors add up as light does, in a linear or logarithmic scale, with a mark at each end that clips.
+- `DropZone`: a dashed area around any content that takes dropped files, by the same rules as `FileUpload`, and says when files are over the window with a stronger edge and words. `choosable` lets the keyboard bring files through the system's chooser, and `quiet` keeps the dashes off until then.
+- `ScrollEdgeArrow`: a strip that scrolls, horizontal or vertical, with an arrow over a fade at each end that has more to show. `Labels` gains `scroll_back` and `scroll_forward`.
+- `FloatingToolbar`: a translucent row of commands over its content, placed by side, that takes the clicks that land on it; `movable` adds a handle, with the arrow keys and a double click that brings it home. `TitleBar`: title, actions and the window's buttons, drawing and calling back only. It does not drag the window nor hide the system's frame, which belong to the platform layer. `Labels` gains `window_minimize`, `window_maximize` and `window_restore`.
+- `ValueSlider`: a value in small, as "100% ▾", that opens a `Slider` in a popover with the keyboard in it; with `field` the number can be typed. `InlineRename`: a name that turns into a field by a double click, F2 or Enter; Enter and leaving confirm, Escape cancels. `TextField::select_on_open`. `Labels` gains `value_adjust`, `rename` and `rename_hint`.
+- `Chart`: under the pointer the other bars and slices fade, a slice comes forward, and the cursor and its dots glide between categories and fade out. `no_hover_focus` and `no_hover_motion` turn this off; less motion in the system does the same for the movement.
+- `ChartTooltip`: `show_percent`, `value_color`, `no_indicator_for` and `content`. It takes the side with room on both axes and stays off what is in focus.
+- `Chart`: `grid_dashed`, `grid_columns`, `value_ticks`, `align_axis_ends`, `value_domain`, `reference_line` and `reference` with `ChartReference`.
+- `Chart`: `label_guides` puts the labels of a pie or a doughnut in columns with elbowed lines, none over another, and `slice_radii` gives each slice its own radius.
+- `Chart`: `bars_from` with `ChartBarFrom` makes bars grow from the top or the right, `min_bar_length` keeps a least length, `labels_at_zero` puts categories on the line of zero on the other side from the bar, and `gradient` now fills bars from tip to base too.
+- `Chart`: a `ChartKind::Scatter` or a sparkline given a `tooltip` gets the tooltip, the cursor, the dots in focus and the arrow keys. Without one it stays a plain picture that takes no focus.
+- `ChartKind::Candlestick` and `Chart::candles`, with an axis of round numbers that does not have to start at zero. Rising candles are outlines and falling ones are solid. `Labels` gains `candle_open`, `candle_high`, `candle_low` and `candle_close`. Reports can draw the kind, as shapes, though none offers it yet.
+- `SankeyChart`: how much flows from what to what, with `SankeyAlign`, ribbons in a gradient, the rest fading around the focus, arrow keys, and every flow read aloud. Flows in a circle say which nodes they go through in place of the diagram. Its layout is `ravenrs_graphics::sankey`; `Labels` gains `sankey_cycle`.
+- `Semantic::ChartGrid` (`chart-grid`), `Placement::RightEnd`, `LeftStart` and `LeftEnd`.
+
+### Changed
+
+- The handle of a `Splitter` is now a stop in the Tab order, so its panes can be resized from the keyboard.
+- `Chart` measures its labels with the real font, and its gridlines land on whole pixels. Reports draw as before.
+- The gap between slices of a `Chart` is now really empty, so what is behind the chart shows through it, rather than being painted in the color of the surface.
+- `Chart` draws bars as quads, with no picture, and gridlines stop at their sides, so a bar that fades shows none through it. A line with more points than columns draws straight lines through the extremes of each column, its picture covers only what it draws, and a new size costs far less. See `docs/QUALITY.md`.
+
+### Fixed
+
+- A stack in a `Chart` rounds whatever is on its ends, also when the last series is zero or the stack goes below zero, and an empty series leaves no line across it.
+- Categories closer together than a pixel no longer pile up on the axis of a `Chart`.
+
+## [27.1.12] - 2026-11-04
+
+### Fixed
+- Shapes of curves past what the coverage atlas holds in a frame are no longer left out. Only about 25 shapes the size of a 2560x1600 window fit before; now the main pass splits to draw more, in scene order.
+
+### Added
+- `examples/calculator`, a small screen for comparing performance between versions, measured by the gate.
+- `ravenrs-perf capacity`: how much of each kind of work fits in a frame on this machine. `ravenrs-perf` also measures the Feature Center.
+
+### Changed
+- The finance example reads its history of versions only while the dialog showing it is open.
+
+## [27.1.11] - 2026-11-04
+
+### Breaking
+- `FrameSample` has new fields, `work` and `render_work`, and `RenderStats` has new fields for draw call splits, bytes uploaded, the glyph atlas and GPU time. Building one field by field needs `..Default::default()`.
+
+### Added
+- The diagnostics panel shows a timeline of the latest frames, why the screen was rebuilt, the costliest types of view, draw call splits and GPU resources, and copies a capture that Perfetto opens. It now opens on the web too, with Ctrl/Cmd+Shift+D. [docs/PERFORMANCE.md](docs/PERFORMANCE.md) explains how to read it.
+- `Ui::stats`, `Ui::take_frame_work`, `Ui::set_phase_clock`, `Ui::phase_times`, `Ui::set_view_profiling`, `Ui::view_costs`, `TextSystem::stats` and `Renderer::set_gpu_timing`, which measure the work of a frame. They cost nothing until asked for.
+- `View::type_name`, the name a view's cost is shown under.
+- `ravenrs-perf`, not published: a gate of exact counters for every scene against `perf/baseline.json`, part of `scripts/check.sh`, plus frame times by phase.
+
+### Changed
+- What is outside its clip is not painted. A scrolling list of 1,000 cards went from 68,904 instances per frame to 482, and scrolling it from 5.7 ms to 0.66 ms on the CPU.
+- `TextSystem` keeps recent layouts, so a rebuild does not shape the same text again, and text cut to fit is not measured again on every paint.
+- The pointer moving over views that never asked about it no longer rebuilds the screen.
+- `Lottie` repeats only the painting while it plays, instead of rebuilding the screen. It now asks for frames at 60 Hz, like other animated drawing.
+- A chart that returns to the screen unchanged keeps its picture: opening the finance example's dashboard again went from 25.4 ms to 1.1 ms.
+- `RenderStats::draw_calls` now counts the draw call for the coverage of shapes.
+
+## [27.1.10] - 2026-11-03
+
+### Breaking
+- `BugReport` has new fields, `kind`, `area`, `elements` and `errors`, so building one field by field needs `..BugReport::default()`. Older `.ravenbug` files still open.
+
+### Added
+- `ravenrs-lottie` and the `Lottie` widget, with the `lottie` feature, on by default: a Lottie player of our own, with no third-party vector code. It draws Bodymovin JSON as curves on the GPU, with shapes, masks, mattes, precompositions, trims, dashes, repeaters, gradients, embedded images and the Fill effect, and `LottieAnimation::unsupported` says what a file asks for that it does not do yet. Against lottie-web, on 16 files straight from LottieFiles, 13 match and 3 come close.
+- `Primitive::Path` and `Scene::push_path`: any filled shape made of curves, with solid, gradient or image paint and a clip of another shape. Each pixel gets the exact area covered, with no tessellation or multisampling.
+- `SplashScreen::reveal_after` holds the name and status back while an animated logo plays, keeping their places.
+- `BugReporter` lets the person choose what kind of report it is and drag a box around the problem, which names what is under it and lights it in the film. All that goes along is listed before sending.
+- `RecentErrors`: a `tracing` layer that keeps the last warnings and errors, for `BugReporter::errors`.
+- `DataGrid::even_row`, `odd_row` and `horizontal_lines`.
+- `SystemNotifier`, with the `notifications` feature: the system's own notifications on macOS, Windows and Linux.
+- `BuildCx::ask_for_access_tree` and `UiActivity::Described`: what is on screen, for an observer, only when asked for.
+- `BuildCx::keyed_overlay`: a layer that stays the same one when other layers before it come and go.
+- `AppIdentity::close_to_tray` and `SystemTray`, with the `tray` feature: closing the window keeps the app running behind an icon beside the clock, and opening it again, or clicking its icon in the Dock on macOS, brings the same window back. Where the system shows no such icon, such as plain GNOME, closing the window closes the app.
+
+### Changed
+- `DataGrid::striped` is now visible in every theme, tinting rows with the control color, and starts counting again after each group row. Lists generated by `ravenrs-app-ui` are striped. Rows under the pointer and selected rows are a little stronger, to stay apart from the stripes.
+- A sidebar opens and closes in 200 ms instead of over a second, and its names no longer squeeze on the way: the edge covers them. Submenus and other folding parts also take 200 ms.
+
+### Fixed
+- Dialogs and menus open in 120 ms without shivering, and leave by fading as one surface instead of vanishing. `Motion::surface_exit` does it for panels of your own.
+- A selected pill or tab marker no longer comes loose when the layout around it moves, as when a sidebar closes.
+- `SplashScreen` no longer starts over, showing the page behind it, when an app with layers of its own appears under it.
+- A native window stays hidden until the GPU is ready and, on macOS, until its first frame is drawn, so nobody sees it empty or black.
+
 ## [27.1.9] - 2026-11-03
 
 ### Breaking
@@ -417,7 +551,8 @@ The first public release.
 - `scripts/check.sh` runs formatting, clippy (native and wasm32), the tests and the web builds locally.
 - `scripts/deploy-pages.sh` publishes the landing page, the live gallery and the API docs.
 
-[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.9...HEAD
+[Unreleased]: https://github.com/alexkads/RavenRS/compare/v27.1.10...HEAD
+[27.1.10]: https://github.com/alexkads/RavenRS/compare/v27.1.9...v27.1.10
 [27.1.3]: https://github.com/alexkads/RavenRS/compare/v27.1.2...v27.1.3
 [27.1.2]: https://github.com/alexkads/RavenRS/compare/v27.1.1...v27.1.2
 [27.1.1]: https://github.com/alexkads/RavenRS/compare/v27.1.0...v27.1.1

@@ -6,9 +6,11 @@
 //! * [`chart`] lays numbers out as shapes and labels.
 //! * [`plot`] lays them out the way dashboards show them, in a richer picture that
 //!   says what is under the pointer.
+//! * [`sankey`] lays a graph of flows out as nodes and ribbons, or says why it cannot.
 //! * [`barcode`] turns text into the modules a scanner reads.
 
 pub mod barcode;
 pub mod chart;
 pub mod plot;
+pub mod sankey;
 pub mod vector;

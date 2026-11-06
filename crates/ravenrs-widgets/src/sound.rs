@@ -1,5 +1,6 @@
 //! Sound and a spoken voice, as a service the platform layer provides.
 
+use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -121,33 +122,51 @@ impl SoundProvider for Silence {
 /// sound.speak("Clique em Salvar.", "pt-BR");
 /// ```
 #[derive(Clone)]
-pub struct Sound(Rc<dyn SoundProvider>);
+pub struct Sound {
+    provider: Rc<dyn SoundProvider>,
+    /// Goes up each time something takes the place of what was being said, since a provider
+    /// does not report it, and whoever started it needs to know.
+    turn: Rc<Cell<u64>>,
+}
 
 impl Sound {
     /// Wraps a provider.
     pub fn new(provider: impl SoundProvider + 'static) -> Self {
-        Self(Rc::new(provider))
+        Self { provider: Rc::new(provider), turn: Rc::default() }
     }
 
     /// Starts `clip`, over whatever is already playing.
     pub fn play(&self, clip: &SoundClip) {
-        self.0.play(clip);
+        self.provider.play(clip);
     }
 
     /// Says `text` with the system's voice for `language`, in place of anything
     /// still being said.
     pub fn speak(&self, text: &str, language: &str) {
-        self.0.speak(text, language);
+        self.next_turn();
+        self.provider.speak(text, language);
     }
 
     /// Says a recording, in place of anything still being said.
     pub fn speak_clip(&self, clip: &SoundClip) {
-        self.0.speak_clip(clip);
+        self.next_turn();
+        self.provider.speak_clip(clip);
     }
 
     /// Stops what is being said.
     pub fn stop_speaking(&self) {
-        self.0.stop_speaking();
+        self.next_turn();
+        self.provider.stop_speaking();
+    }
+
+    fn next_turn(&self) {
+        self.turn.set(self.turn.get() + 1);
+    }
+
+    /// Which saying is the current one: a number that changes when another starts or this
+    /// one is stopped.
+    pub(crate) fn turn(&self) -> u64 {
+        self.turn.get()
     }
 }
 

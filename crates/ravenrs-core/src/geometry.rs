@@ -198,9 +198,44 @@ impl From<(f32, f32)> for Insets {
     }
 }
 
+/// The slope at each of `points` (in order, with growing `x`) of a curve that never swings
+/// past them: Fritsch-Carlson, with a harmonic mean. Charts and curve editors share it so
+/// that a curve reads the same in both. Fewer than two points have no slope to speak of, so
+/// they get zeros.
+pub fn monotone_slopes(points: &[Point]) -> Vec<f32> {
+    let secant = |a: Point, b: Point| {
+        let run = b.x - a.x;
+        if run.abs() < f32::EPSILON { 0.0 } else { (b.y - a.y) / run }
+    };
+    let n = points.len();
+    let mut slopes = vec![0.0; n];
+    if n < 2 {
+        return slopes;
+    }
+    slopes[0] = secant(points[0], points[1]);
+    slopes[n - 1] = secant(points[n - 2], points[n - 1]);
+    for i in 1..n - 1 {
+        let (before, after) = (secant(points[i - 1], points[i]), secant(points[i], points[i + 1]));
+        slopes[i] = if before * after <= 0.0 { 0.0 } else { 2.0 * before * after / (before + after) };
+    }
+    slopes
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn monotone_slopes_flatten_at_a_turn_and_keep_a_straight_line() {
+        let line = [Point::new(0.0, 0.0), Point::new(10.0, 5.0), Point::new(20.0, 10.0)];
+        assert_eq!(monotone_slopes(&line), [0.5, 0.5, 0.5]);
+        let peak = [Point::new(0.0, 0.0), Point::new(10.0, 10.0), Point::new(20.0, 0.0)];
+        assert_eq!(monotone_slopes(&peak), [1.0, 0.0, -1.0]);
+        let uneven = [Point::new(0.0, 0.0), Point::new(10.0, 10.0), Point::new(30.0, 20.0)];
+        assert_eq!(monotone_slopes(&uneven)[1], 2.0 * 1.0 * 0.5 / 1.5);
+        assert_eq!(monotone_slopes(&[Point::ZERO]), [0.0]);
+        assert!(monotone_slopes(&[]).is_empty());
+    }
 
     #[test]
     fn contains_is_half_open() {

@@ -70,6 +70,11 @@ pub struct Gallery {
     newsletter: State<bool>,
     density: State<usize>,
     volume: State<f32>,
+    exposure: State<f32>,
+    warmth: State<f32>,
+    currency: State<&'static str>,
+    invoice: State<String>,
+    message: State<String>,
     seats: State<i32>,
     range: State<usize>,
     tab: State<usize>,
@@ -144,6 +149,11 @@ impl Gallery {
             density: State::new(1),
             swatch: State::new(0),
             volume: State::new(0.62),
+            exposure: State::new(1.5),
+            warmth: State::new(0.4),
+            currency: State::new("BRL"),
+            invoice: State::new(String::from("49,90")),
+            message: State::new(String::new()),
             seats: State::new(5),
             range: State::new(1),
             tab: State::new(0),
@@ -262,6 +272,28 @@ fn demo<V: View + 'static>(title: &str, description: &str, content: V) -> impl V
     .corner_radius(18.0)
 }
 
+/// A sample built once, so that what it holds survives the page's rebuilds.
+struct KeptSample(String);
+
+impl View for KeptSample {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let name = self.0.clone();
+        let sample = cx.use_state(move || std::rc::Rc::new(samples::sample(&name))).get();
+        cx.child(sample.as_ref())
+    }
+}
+
+/// One demo per named sample, for a run of small components on a page.
+fn sample_demos(items: &[(&str, &str)]) -> impl View + use<> {
+    let demos: Vec<AnyView> = items
+        .iter()
+        .map(|(name, description)| -> AnyView {
+            Box::new(demo(name, description, KeptSample((*name).to_owned())))
+        })
+        .collect();
+    VStack::new(demos).spacing(24.0).align(Align::Stretch)
+}
+
 fn page_header(title: &str, description: &str) -> impl View + use<> {
     VStack::new((
         Text::new(title).style(TextStyle::Display),
@@ -324,7 +356,7 @@ impl Gallery {
             return Box::new(
                 VStack::new((
                     Select::new(self.page.binding(), pages).width(240.0).label("Page"),
-                    ThemeSwitcher,
+                    ThemeSwitcher::new(),
                 ))
                 .spacing(10.0)
                 .padding((12.0, 16.0)),
@@ -343,7 +375,7 @@ impl Gallery {
                     "Search (⌘K)",
                 ),
                 Tooltip::new(IconButton::new(IconName::Bell), "Notifications"),
-                ThemeSwitcher,
+                ThemeSwitcher::new(),
             ))
             .spacing(8.0)
             .align(Align::Center)
@@ -441,6 +473,7 @@ impl Gallery {
                 "Buttons",
                 "Actions in four styles and three sizes, with icons, focus rings and keyboard support.",
             ),
+            sample_demos(&[("ButtonGroup", "Buttons glued side by side, as one control.")]),
             demo(
                 "Styles",
                 "One primary action per view; the rest are secondary or ghost.",
@@ -488,6 +521,19 @@ impl Gallery {
                 .spacing(6.0)
                 .wrap(),
             ),
+            demo(
+                "States",
+                "Loading holds the width and ignores clicks; selected stays lit; a shortcut takes the label's color.",
+                HStack::new((
+                    Button::new("Saving").loading(true),
+                    Button::new("Grid view").style(ButtonStyle::Secondary).selected(true),
+                    IconButton::new(IconName::Bold).label("Bold").selected(true),
+                    Button::new("Open").shortcut("F8"),
+                ))
+                .spacing(12.0)
+                .align(Align::Center)
+                .wrap(),
+            ),
         ))
         .spacing(24.0)
         .align(Align::Stretch)
@@ -500,6 +546,15 @@ impl Gallery {
                 "Forms",
                 "Inputs bound to state. Every control works with the mouse and the keyboard.",
             ),
+            sample_demos(&[
+                ("ValueSlider", "A value in small, which opens a slider or can be typed."),
+                ("DropZone", "A dashed area around any content, which takes dropped files."),
+                ("InlineRename", "A name that turns into a field, by a double click or F2."),
+                ("FavoriteToggle", "A heart or a star, filled when on."),
+                ("SwatchGrid", "Colors to pick, with the arrow keys or a click that can carry a modifier."),
+                ("NinePointAnchor", "A point of reference on a box, moved by the arrow keys."),
+                ("ColorPair", "Two colors, with a button that swaps them."),
+            ]),
             Grid::new(
                 columns(width, 2),
                 (
@@ -566,6 +621,15 @@ impl Gallery {
                             Text::dynamic(move || format!("Volume: {:.0}%", volume.get() * 100.0))
                                 .style(TextStyle::Callout)
                                 .foreground(Semantic::InkMuted),
+                            Slider::new(self.exposure.binding())
+                                .range(-5.0, 5.0)
+                                .step(0.1)
+                                .neutral(0.0)
+                                .label("Exposure")
+                                .show_value(),
+                            Slider::new(self.warmth.binding())
+                                .track_colors([Color::hex(0x3b82f6), Color::hex(0xfacc15)])
+                                .label("Temperature"),
                         ))
                         .spacing(10.0)
                         .align(Align::Stretch),
@@ -663,6 +727,26 @@ impl Gallery {
                 columns(width, 2),
                 (
                     demo(
+                        "Fields with more inside",
+                        "Views before and after the text, a clear button, sizes, a box that grows and a select by value with search.",
+                        VStack::new((
+                            TextField::new(self.invoice.binding())
+                                .placeholder("Price")
+                                .size(ButtonSize::Small)
+                                .prefix(Text::new("R$").foreground(Semantic::InkMuted))
+                                .suffix(Badge::new("per month"))
+                                .clearable(),
+                            TextArea::new(self.message.binding()).placeholder("Type a message").grows(2, 5),
+                            Select::of(self.currency.binding(), [("BRL", "Real"), ("EUR", "Euro"), ("USD", "Dollar")])
+                                .label("Currency")
+                                .size(ButtonSize::Small)
+                                .searchable(),
+                            Toggle::new(self.autosave.binding()).label("Small switch").small(),
+                        ))
+                        .spacing(10.0)
+                        .align(Align::Stretch),
+                    ),
+                    demo(
                         "Trees and tags",
                         "Items inside items, with the keyboard; several values as tags, adding new ones.",
                         VStack::new((samples::sample("TreeView"), samples::sample("TagBox")))
@@ -679,6 +763,13 @@ impl Gallery {
                         "Steps",
                         "A step can refuse to be left, saying why; steps already done can be reopened.",
                         samples::sample("Wizard"),
+                    ),
+                    demo(
+                        "Where the steps stand",
+                        "The same marks for an app that lays out its own steps, with one that has a problem.",
+                        VStack::new((samples::sample("StepIndicator"), samples::sample("StepBadge")))
+                            .spacing(16.0)
+                            .align(Align::Stretch),
                     ),
                     demo(
                         "Files",
@@ -798,6 +889,11 @@ impl Gallery {
     fn navigation(&self, _width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Navigation", "Tabs, breadcrumbs, sidebars and disclosures."),
+            sample_demos(&[
+                ("DocumentTabs", "Tabs for open documents that close, move, rename, carry a color and say what was not saved."),
+                ("FileBrowser", "Folders and files from the app's data, with a breadcrumb, sorting and selection."),
+                ("YearView", "The twelve months of a year, with marks on the days and a click on any of them."),
+            ]),
             demo(
                 "Sidebar",
                 "Closes to icons or off the screen with the button or Cmd/Ctrl+B, with groups, submenus, actions and badges. Below 768 px it opens as a sheet.",
@@ -885,6 +981,12 @@ impl Gallery {
                                 .item(MenuItem::new("Edit").icon(IconName::Pencil).shortcut("⌘E").on_select(log("Edit", &self.last_action)))
                                 .item(MenuItem::new("Duplicate").icon(IconName::Copy).shortcut("⌘D").on_select(log("Duplicate", &self.last_action)))
                                 .item(MenuItem::new("Share").icon(IconName::Share2).on_select(log("Share", &self.last_action)))
+                                .item(MenuItem::new("Export")
+                                    .icon(IconName::Download)
+                                    .item(MenuItem::new("As PDF").on_select(log("As PDF", &self.last_action)))
+                                    .item(MenuItem::new("As CSV").on_select(log("As CSV", &self.last_action))))
+                                .item(MenuItem::new("Pinned").checked(true))
+                                .item(MenuItem::new("Label").element(Badge::new("Family").tone(Tone::Accent)))
                                 .separator()
                                 .item(MenuItem::new("Delete").icon(IconName::Trash2).destructive().on_select(log("Delete", &self.last_action))),
                             Text::bound(&self.last_action, Clone::clone).style(TextStyle::Callout).foreground(Semantic::InkMuted),
@@ -916,6 +1018,8 @@ impl Gallery {
                             Tooltip::new(Badge::new("Beta").tone(Tone::Accent), "Available to early adopters"),
                             Tooltip::new(Avatar::new("Ana Lima"), "Ana Lima, Design"),
                             Tooltip::new(Kbd::new("⌘K"), "Open the command palette"),
+                            Tooltip::new(Button::new("Save").style(ButtonStyle::Secondary), "Save the file").shortcut("⌘S"),
+                            Button::new("Open").style(ButtonStyle::Secondary).tooltip("Open a file"),
                         ))
                         .spacing(16.0)
                         .align(Align::Center)
@@ -1017,6 +1121,11 @@ impl Gallery {
                     "Splash screen",
                     "Covers the window while the app loads, then fades out. This one pretends to load for three seconds.",
                     samples::sample("SplashScreen"),
+                ),
+                demo(
+                    "Lottie",
+                    "Plays Lottie files with our own engine, drawn as curves on the GPU, sharp at any size.",
+                    samples::sample("Lottie"),
                 ),
                 demo(
                     "Toasts and command palette",
@@ -1203,6 +1312,16 @@ impl Gallery {
                 "Layout & navigation",
                 "Resizable panels, carousels, menus, toggles, pagination and loaders.",
             ),
+            sample_demos(&[
+                ("VirtualList", "A list of any length with rows of any height, which can jump to a row and stay at the end."),
+                ("SortableList", "Rows put in order by dragging or with Alt and the arrows, with a line at the target."),
+                ("ZStack", "Views on top of each other, in a box as large as the largest."),
+                ("FloatingToolbar", "A translucent row of commands over its content, with a handle that moves it."),
+                ("ScrollEdgeArrow", "A strip that scrolls, with an arrow at each end that has more to show."),
+                ("TitleBar", "A title bar of the app's own: it draws and calls back, and does not move the window."),
+                ("PropertyRow", "A label and its value at the two ends of a line."),
+                ("PageHeader", "Title, description, badges and actions."),
+            ]),
             demo(
                 "Tiles",
                 "A dashboard to rearrange: drag by the grip, resize by the corner, or use the arrows on the grip.",
@@ -1278,6 +1397,11 @@ impl Gallery {
                 .ratio(0.32)
                 .height(200.0),
             ),
+            sample_demos(&[
+                ("SplitPanes", "Any number of panes, with limits, by mouse or keyboard."),
+                ("SplitHandle", "The bar by itself, for a pane you lay out."),
+                ("DockArea", "Panels in a tree of splits and tabs. Drag a tab to another group or a border, or use its menu; bars resize, docks collapse, and the arrangement is saved as text."),
+            ]),
             demo(
                 "Carousel",
                 "Arrows, dots and autoplay every 5 seconds.",
@@ -1778,6 +1902,27 @@ impl Gallery {
                 "Images",
                 "Textures with mipmaps, rounded corners and cover, fit or fill. PNG and JPEG decode with Image::from_bytes; these are generated in Rust.",
             ),
+            sample_demos(&[
+                // imaging widgets
+                ("Filmstrip", "A strip of thumbnails of any length, whose cells come from the app."),
+                ("PagedDocumentView", "A bar with page and zoom over pages that are built only when they show."),
+                ("ImageLightbox", "A picture over the whole app, with zoom, arrows, caption and counter."),
+                ("CompareView", "Two pictures side by side or across a divider you drag."),
+                ("Eyedropper", "A button that arms, takes the color you supply for the point clicked, and disarms."),
+                ("CropOverlay", "A crop with a veil, a fixed proportion and an angle, which hands back geometry."),
+                ("Protractor", "A band of ticks that sets an angle, with a double click back to zero."),
+                ("TransformHandles", "Eight handles, a turn and a pivot, which hand back geometry."),
+                ("Marquee", "The animated outline of a selection, which stops with reduced motion."),
+                ("RubberBand", "A rectangle drawn with a drag, selected on release."),
+                ("RuleOfThirdsGrid", "Thirds, a fine grid, squares or the golden ratio over a picture."),
+                ("Minimap", "A small copy with a rectangle around what is in view, which moves the view."),
+                ("ZoomPanView", "Zoom and pan over an image or drawing: pinch, wheel, drag, double click and keys."),
+                ("ZoomControl", "Fit, 1:1, the percentage and the buttons that zoom in and out."),
+                ("CurveEditor", "Points you drag over a smooth curve, with the keyboard too."),
+                ("ColorWheel", "Hue and saturation on a disc, by a drag or the arrow keys."),
+                ("Ruler", "A ruler in your units, with a round step for any zoom."),
+                ("Histogram", "Overlapping channels from ready-made bins, with marks when an end clips."),
+            ]),
             Grid::new(
                 columns(width, 4),
                 vec![
@@ -1819,6 +1964,23 @@ impl Gallery {
     fn feedback(&self, width: f32) -> impl View + use<> {
         VStack::new((
             page_header("Feedback", "Alerts, progress and loading placeholders."),
+            sample_demos(&[
+                ("RichText", "Bold, italic, code and links in plain text, with the marks chat apps use. Links take the keyboard, and the app decides how to open them."),
+                ("AttachmentStrip", "The files about to go with a message: icon or thumbnail, name, size, how to send each one and a button to take it out."),
+                ("AudioPlayerButton", "Plays a recording and stops it, with progress and a transcript to open. The app can deliver the audio after the press."),
+                ("SelectionBar", "What to do with several things chosen: how many, a way out, and actions that go to a menu when they do not fit. Escape leaves."),
+                ("Dot", "A small mark of state, named for screen readers."),
+                ("OverlayBadge", "A small view on a corner of another."),
+                ("Rating", "Stars to give with the pointer, the arrows or a digit, or just to read."),
+                ("IconTile", "An icon in a square tinted with its color."),
+                ("EmptyState", "What an area says when it has nothing, and what to do about it."),
+                ("HeroBanner", "A strong band, readable from across the room."),
+                ("MultiProgress", "Work with more than one part."),
+                ("ShimmerText", "A light passing over the text, while motion is allowed."),
+                ("DaySeparator", "Dividing a list by day."),
+                ("ShortcutSheet", "The keys of a screen, in a dialog."),
+                ("ShortcutHintBar", "A line of hints under what they act on."),
+            ]),
             demo(
                 "Timeline",
                 "Blocks along time on named tracks, under a ruler with markers and a playhead. The app holds the data and gets back what people do.",
@@ -1893,6 +2055,15 @@ impl Gallery {
                             ProgressBar::new(0.62),
                             ProgressBar::new(0.9).tone(Tone::Success),
                             ProgressBar::new(0.97).tone(Tone::Danger),
+                            ProgressBar::new(0.4).label("Copying").percent().detail("12 of 30 photos").height(4.0),
+                            Alert::message("Moving deletes the originals.").tone(Tone::Warning).compact(),
+                            HStack::new((
+                                Badge::new("Draft").outline(),
+                                Badge::new("Family").color(Color::hex(0x8b5cf6)).height(26.0),
+                                Avatar::new("Ana Lima").border(2.0, Semantic::Accent),
+                            ))
+                            .spacing(8.0)
+                            .align(Align::Center),
                         ))
                         .spacing(16.0)
                         .align(Align::Stretch),
@@ -2033,6 +2204,10 @@ impl Gallery {
         VStack::new((
             page_header("Charts", "Every pattern of the shadcn/ui catalog. Shapes in a picture at the screen's density, labels as real text."),
             charts::ChartCatalog { columns: columns(width, 2) },
+            sample_demos(&[
+                ("ChartReference", "A dashed line at a value that matters, over an axis of fixed ends."),
+                ("SankeyChart", "How much flows from what to what. Walk it with the arrow keys; flows in a circle say so."),
+            ]),
             demo(
                 "Area chart",
                 "A smoothed series over a filled area.",
@@ -2094,12 +2269,53 @@ impl Gallery {
                             .height(260.0),
                     ),
                     demo(
+                        "Pie with guides",
+                        "Labels in a column on each side, none over another, and a real gap between slices.",
+                        Chart::new(ChartKind::Pie)
+                            .categories(["Rent", "Food", "Fun", "Car", "Gym", "Pets", "Taxes"])
+                            .series("Spent", [42.0, 20.0, 1.5, 2.0, 1.0, 12.0, 18.0])
+                            .category_labels(ChartLabelAt::Outside)
+                            .label_guides()
+                            .hide_legend()
+                            .height(260.0),
+                    ),
+                    demo(
+                        "Bars from the top",
+                        "Bars can grow from any side, fill from tip to base and keep a least length.",
+                        Chart::new(ChartKind::Bar)
+                            .categories(["Jan", "Feb", "Mar", "Apr", "May", "Jun"])
+                            .series("Depth", [12.0, 0.2, 15.0, 9.0, 22.0, 17.0])
+                            .bars_from(ChartBarFrom::Top)
+                            .gradient()
+                            .min_bar_length(4.0)
+                            .show_value_axis()
+                            .height(260.0),
+                    ),
+                    demo(
+                        "Candlestick",
+                        "What a price did each day: rising candles are outlines, falling ones are solid.",
+                        Chart::new(ChartKind::Candlestick)
+                            .categories(["Mon", "Tue", "Wed", "Thu", "Fri", "Mon", "Tue", "Wed"])
+                            .candles([
+                                [100.0, 112.0, 98.0, 110.0],
+                                [110.0, 111.0, 101.0, 102.0],
+                                [102.0, 108.0, 99.0, 106.0],
+                                [106.0, 120.0, 105.0, 118.0],
+                                [118.0, 119.0, 109.0, 111.0],
+                                [111.0, 113.0, 100.0, 103.0],
+                                [103.0, 104.0, 92.0, 95.0],
+                                [95.0, 105.0, 94.0, 104.0],
+                            ])
+                            .height(260.0),
+                    ),
+                    demo(
                         "Scatter chart",
                         "Dots at numeric positions.",
                         Chart::new(ChartKind::Scatter)
                             .categories(["1", "2", "3", "4", "5", "6", "7", "8"])
                             .positions([1.0, 2.0, 3.5, 4.0, 5.5, 6.0, 7.5, 9.0])
                             .series("Latency", [12.0, 19.0, 17.0, 26.0, 24.0, 33.0, 30.0, 41.0])
+                            .tooltip(ChartTooltip::new())
                             .height(260.0),
                     ),
                     demo(
@@ -2109,6 +2325,7 @@ impl Gallery {
                             Stat::new("Revenue", "R$ 128k").delta("+12.4%", true),
                             Chart::new(ChartKind::Sparkline)
                                 .series("Revenue", [4.0, 6.0, 5.0, 8.0, 7.0, 10.0, 9.0, 13.0])
+                                .tooltip(ChartTooltip::new().hide_label())
                                 .size(140.0, 44.0),
                         ))
                         .spacing(24.0)
@@ -2391,8 +2608,8 @@ mod tests {
         }
     }
 
-    /// The lowest text to the right of `left`, which leaves out a fixed sidebar.
-    fn first_glyph_y(ui: &Ui, left: f32) -> f32 {
+    /// Where text is to the right of `left`, which leaves out a fixed sidebar.
+    fn glyph_rows(ui: &Ui, left: f32) -> Vec<f32> {
         ui.scene()
             .primitives()
             .iter()
@@ -2400,7 +2617,7 @@ mod tests {
                 ravenrs::core::Primitive::Glyphs(g) => g.glyphs.first().filter(|g| g.x >= left).map(|g| g.y),
                 _ => None,
             })
-            .fold(f32::MIN, f32::max)
+            .collect()
     }
 
     #[test]
@@ -2410,7 +2627,7 @@ mod tests {
             ui.set_viewport(size, 1.0);
             ui.update();
             let left = if size.width > 800.0 { 248.0 } else { 0.0 };
-            let before = first_glyph_y(&ui, left);
+            let before = glyph_rows(&ui, left);
             let at = Point::new(size.width - 60.0, size.height - 100.0);
             assert!(
                 ui.handle_event(&ravenrs::core::Event::Scroll {
@@ -2420,7 +2637,11 @@ mod tests {
                 "the page scrolls at {size:?}"
             );
             assert!(
-                (first_glyph_y(&ui, left) - (before - 200.0)).abs() < 0.5,
+                {
+                    // What was on screen and still is moved; what comes in was not painted before.
+                    let after = glyph_rows(&ui, left);
+                    before.iter().any(|y| after.iter().any(|new| (new - (y - 200.0)).abs() < 0.5))
+                },
                 "content moved up by 200px at {size:?}"
             );
         }

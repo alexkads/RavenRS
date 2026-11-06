@@ -47,10 +47,12 @@ mod clipboard;
 mod color_picker;
 mod commands;
 mod context;
+mod conversation;
 mod data;
 mod date;
 mod diagnostics;
 mod display;
+mod dock;
 mod editors;
 mod event_calendar;
 mod extras;
@@ -63,21 +65,31 @@ pub mod grid;
 mod icon;
 mod icon_set;
 mod image;
+mod imaging;
 mod inputs;
 mod labels;
+mod lists;
 mod lookup;
+#[cfg(feature = "lottie")]
+mod lottie;
 mod model_picker;
 mod modifiers;
 mod motion;
 mod nav;
 mod overlay;
+mod quick_edit;
 mod recurrence;
 mod release_notes;
 mod remote;
 mod ribbon;
+mod rich_text;
+#[cfg(feature = "charts")]
+mod sankey;
 mod scheduler;
+mod shortcuts;
 mod sound;
 mod stack;
+mod status;
 mod tag_box;
 mod text;
 mod text_field;
@@ -85,46 +97,60 @@ mod theme;
 mod tiles;
 mod timeline;
 mod tree;
-mod ui;
+pub(crate) mod ui;
 mod util;
 mod view;
 mod wizard;
 
-pub use button::{Button, ButtonSize, ButtonStyle, IconButton};
+pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
 #[cfg(feature = "charts")]
 pub use chart::{
-    AreaChart, BarChart, Barcode, Chart, ChartCard, ChartCurve, ChartGrid, ChartIndicator, ChartKind,
-    ChartLabelAt, ChartLegend, ChartPolarGrid, ChartStack, ChartTooltip, Symbology,
+    AreaChart, BarChart, Barcode, Chart, ChartBarFrom, ChartCard, ChartCurve, ChartGrid, ChartIndicator,
+    ChartKind, ChartLabelAt, ChartLegend, ChartPolarGrid, ChartReference, ChartStack, ChartTooltip,
+    Symbology,
 };
-pub use chat::{Chat, ChatAuthor, ChatMessage, FloatingCorner, FloatingPanel};
-pub use choice::{AspectRatio, ColorSwatch, Label, Pagination, ToggleButton, ToggleGroup};
+pub use chat::{Chat, ChatAuthor, ChatMedia, ChatMessage, FloatingCorner, FloatingPanel};
+pub use choice::{
+    AnchorPoint, AspectRatio, ColorPair, ColorSwatch, FavoriteToggle, Label, NinePointAnchor, Pagination,
+    SwatchGrid, ToggleButton, ToggleGroup,
+};
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 pub use color_picker::ColorPicker;
-pub use commands::{ConfirmDialog, Hotkey, SplitButton, Toolbar, ToolbarAction};
+pub use commands::{ConfirmDialog, FloatingToolbar, Hotkey, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
     ActivityObserver, BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint,
     PaintCx, Placement, QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
 };
+pub use conversation::{Attachment, AttachmentStrip, AudioPlayerButton, SelectionBar};
 pub use data::{Column, List, ListItem, Table};
 pub use date::{Date, days_in_month, is_leap_year};
 pub use diagnostics::{Diagnostics, DiagnosticsHost};
 pub use display::{
     Alert, AlertAction, Avatar, Badge, Divider, Kbd, ProgressBar, Section, Skeleton, Stat, Tone,
 };
+pub use dock::{
+    DockArea, DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode, DockPanel, DockSide,
+    DockTabBar,
+};
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
 pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
-pub use extras::{Carousel, FormField, InputOtp, Menubar, Rule, Spinner, Splitter, validate};
+pub use extras::{
+    Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane, SplitPanes, Splitter,
+    validate,
+};
 #[cfg(feature = "decode")]
 pub use files::ImageField;
-pub use files::{FilePicker, FilePickerProvider, FileRequest, FileUpload, NoFilePicker, PickedFile};
+pub use files::{
+    DropZone, FilePicker, FilePickerProvider, FileRequest, FileUpload, NoFilePicker, PickedFile,
+};
 pub use fill::Fill;
 pub use filter_builder::{FilterBuilder, FilterField, FilterFieldKind};
 pub use floating::{
     Combobox, Command, CommandPalette, ContextMenu, HoverCard, Sheet, Side, SplashScreen, Toast, ToastExtras,
-    Toaster, Toasts,
+    ToastPosition, Toaster, Toasts,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use grid::{
@@ -138,27 +164,53 @@ pub use icon_set::IconName;
 #[cfg(feature = "decode")]
 pub use image::decode_image;
 pub use image::{ContentMode, DecodeError, Image};
+pub use imaging::{
+    BoxHandle, BoxTransform, ColorWheel, CompareMode, CompareSide, CompareView, CompositionGuide,
+    ContentSpace, CropArea, CropOverlay, CurveEditor, Eyedropper, EyedropperArea, EyedropperState, Histogram,
+    HistogramChannel, HistogramScale, HueSaturation, ImageLightbox, LightboxItem, Marquee, Minimap,
+    Protractor, RubberBand, RuleOfThirdsGrid, Ruler, TransformHandles, ZoomControl, ZoomPanPaint,
+    ZoomPanView, ZoomView,
+};
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};
+pub use lists::{
+    DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
+    FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,
+};
 pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
+#[cfg(feature = "lottie")]
+pub use lottie::Lottie;
 pub use model_picker::{ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus};
 pub use modifiers::{Styled, ViewExt};
 pub use motion::{Collapse, Motion};
 pub use nav::{
     Accordion, Breadcrumb, Disclosure, Sidebar, SidebarBrand, SidebarCollapse, SidebarGroup, SidebarInset,
     SidebarItem, SidebarParts, SidebarSection, SidebarSkeleton, SidebarState, SidebarTrigger, SidebarVariant,
-    Tabs,
+    Tabs, TabsVariant,
 };
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
+pub use quick_edit::{InlineRename, ValueSlider};
+#[cfg(feature = "lottie")]
+pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
 pub use recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
 pub use remote::UiWaker;
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
+pub use rich_text::RichText;
+#[cfg(feature = "charts")]
+pub use sankey::{SankeyAlign, SankeyChart};
 pub use scheduler::{
     Resource, Scheduler, SchedulerChange, SchedulerEvent, SchedulerRange, TimeAxis, TimePoint, TimeScale,
 };
+pub use shortcuts::{ShortcutHintBar, ShortcutSheet};
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
-pub use stack::{Footer, Grid, HStack, ScrollView, Spacer, StatusBar, ToolRail, VStack};
+pub use stack::{
+    Footer, Grid, HStack, PageHeader, PropertyRow, ScrollEdgeArrow, ScrollView, Spacer, StatusBar, TitleBar,
+    ToolRail, ToolRailItem, VStack, ZStack,
+};
+pub use status::{
+    DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
+};
 pub use tag_box::TagBox;
 pub use text::Text;
 pub use text_field::TextField;
@@ -166,6 +218,6 @@ pub use theme::{ThemeEditor, ThemePicker};
 pub use tiles::{CardView, Tile, TileLayout, TileSpot};
 pub use timeline::{Timeline, TimelineEdit, TimelineItem, TimelineMarker, TimelineTrack};
 pub use tree::{TreeNode, TreeView};
-pub use ui::Ui;
+pub use ui::{Ui, UiStats};
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};
-pub use wizard::{Wizard, WizardStep};
+pub use wizard::{IndicatorStep, StepBadge, StepIndicator, StepState, Wizard, WizardStep};

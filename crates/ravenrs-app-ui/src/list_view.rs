@@ -704,6 +704,7 @@ impl View for ListView {
             None => DataGrid::new(data, columns),
         };
         let grid = grid
+            .striped(true)
             .key_column(key_at)
             .selection_mode(if self.single { SelectionMode::Single } else { SelectionMode::Multiple })
             .selected_keys(selected)

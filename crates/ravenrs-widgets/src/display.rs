@@ -7,7 +7,7 @@ use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::{Button, ButtonSize, ButtonStyle, IconName, View, ViewSeq, util};
+use crate::{Button, ButtonSize, ButtonStyle, Fill, IconName, Image, View, ViewSeq, util};
 
 /// How far a badge's text goes from its tone toward the ink.
 const BADGE_TEXT_TOWARD_INK: f32 = 0.3;
@@ -59,12 +59,15 @@ pub struct Badge {
     text: String,
     tone: Tone,
     icon: Option<IconName>,
+    color: Option<Color>,
+    outline: bool,
+    height: Option<f32>,
 }
 
 impl Badge {
     /// A neutral badge with this text.
     pub fn new(text: impl Into<String>) -> Self {
-        Self { text: text.into(), tone: Tone::Neutral, icon: None }
+        Self { text: text.into(), tone: Tone::Neutral, icon: None, color: None, outline: false, height: None }
     }
 
     /// Sets the color tone.
@@ -79,6 +82,25 @@ impl Badge {
         self
     }
 
+    /// Uses this color instead of the tone's, for categories that have their own.
+    /// The text moves toward the ink, so that it stays readable on the tint.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    /// Only the outline, without the tinted fill.
+    pub fn outline(mut self) -> Self {
+        self.outline = true;
+        self
+    }
+
+    /// Fixes the height in logical pixels, to line up with what is beside it.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = Some(height);
+        self
+    }
+
     pub(crate) fn text(&self) -> &str {
         &self.text
     }
@@ -87,7 +109,7 @@ impl Badge {
 impl View for Badge {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let color = self.tone.color(&theme);
+        let color = self.color.unwrap_or_else(|| self.tone.color(&theme));
         // Toward the ink, so that small text on its own tint keeps 4.5:1 in every theme.
         let ink = color.lerp(theme.color(Semantic::Ink), BADGE_TEXT_TOWARD_INK);
         let mut children = Vec::new();
@@ -96,39 +118,89 @@ impl View for Badge {
         }
         children.push(util::label(cx, &self.text, TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
         let style = LayoutStyle {
-            padding: Insets::symmetric(3.0, 9.0),
+            padding: Insets::symmetric(if self.height.is_some() { 0.0 } else { 3.0 }, 9.0),
+            height: self.height,
             spacing: 4.0,
             align: Align::Center,
             align_self: Some(Align::Fit),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
+        let (fill, edge) =
+            if self.outline { (Color::TRANSPARENT, 0.6) } else { (color.with_alpha(0.14), 0.28) };
         let paint = QuadPaint {
-            fill: color.with_alpha(0.14).into(),
+            fill: fill.into(),
             corner_radius: 999.0,
-            border: Some(Border { width: 1.0, color: color.with_alpha(0.28) }),
+            border: Some(Border { width: 1.0, color: color.with_alpha(edge) }),
             shadow: None,
         };
         cx.container(style, &children, Paint::Quad(paint))
     }
 }
 
-/// A round avatar showing initials on a color picked from the name.
+/// A round avatar showing a picture, or initials on a color picked from the name.
 #[derive(Clone, Debug)]
 pub struct Avatar {
     name: String,
     size: f32,
+    image: Option<Image>,
+    border: Option<(f32, Fill)>,
 }
 
 impl Avatar {
     /// An avatar showing the initials of `name`, 36 logical pixels across.
     pub fn new(name: impl Into<String>) -> Self {
-        Self { name: name.into(), size: 36.0 }
+        Self { name: name.into(), size: 36.0, image: None, border: None }
     }
 
     /// Sets the diameter in logical pixels.
     pub fn size(mut self, size: f32) -> Self {
         self.size = size;
         self
+    }
+
+    /// Shows this picture instead of the initials, cropped to the circle. The name still
+    /// tells screen readers who it is.
+    pub fn image(mut self, image: Image) -> Self {
+        self.image = Some(image);
+        self
+    }
+
+    /// Draws a ring of `width` logical pixels, as on the selected one of a row. A picture
+    /// shrinks to fit inside it.
+    pub fn border(mut self, width: f32, fill: impl Into<Fill>) -> Self {
+        self.border = Some((width, fill.into()));
+        self
+    }
+
+    /// The picture inside its ring, which would otherwise paint over the ring.
+    fn draw_image(&self, cx: &mut BuildCx<'_>, image: &Image) -> NodeId {
+        let theme = *cx.theme();
+        let ring = self.border.map(|(width, fill)| Border { width, color: fill.resolve(&theme) });
+        let inset = ring.map_or(0.0, |r| r.width);
+        let inner = (self.size - 2.0 * inset).max(0.0);
+        let picture = cx.child(
+            &image
+                .clone()
+                .size(inner, inner)
+                .corner_radius(inner / 2.0)
+                .content_mode(crate::ContentMode::Cover),
+        );
+        cx.semantics(picture, Semantics::hidden());
+        let style = LayoutStyle {
+            width: Some(self.size),
+            height: Some(self.size),
+            padding: Insets::uniform(inset),
+            ..LayoutStyle::stack(Axis::Horizontal)
+        };
+        let paint = QuadPaint {
+            fill: Color::TRANSPARENT.into(),
+            corner_radius: self.size / 2.0,
+            border: ring,
+            shadow: None,
+        };
+        let node = cx.container(style, &[picture], Paint::Quad(paint));
+        cx.semantics(node, Semantics::new(Role::Image).name(self.name.clone()));
+        node
     }
 
     fn initials(&self) -> String {
@@ -143,6 +215,9 @@ impl Avatar {
 
 impl View for Avatar {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        if let Some(image) = &self.image {
+            return self.draw_image(cx, image);
+        }
         let theme = *cx.theme();
         let palette = [
             theme.color(Semantic::Accent),
@@ -172,7 +247,10 @@ impl View for Avatar {
         let paint = QuadPaint {
             fill: base.with_alpha(0.28).into(),
             corner_radius: self.size / 2.0,
-            border: Some(Border { width: 1.0, color: base.with_alpha(0.5) }),
+            border: Some(match self.border {
+                Some((width, fill)) => Border { width, color: fill.resolve(&theme) },
+                None => Border { width: 1.0, color: base.with_alpha(0.5) },
+            }),
             shadow: None,
         };
         let node = cx.container(style, &[text], Paint::Quad(paint));
@@ -184,34 +262,46 @@ impl View for Avatar {
 
 /// A keyboard key, for shortcuts: `Kbd::new("⌘K")`.
 #[derive(Clone, Debug)]
-pub struct Kbd(String);
+pub struct Kbd {
+    keys: String,
+    inherit: bool,
+}
 
 impl Kbd {
     /// A key cap showing `keys`.
     pub fn new(keys: impl Into<String>) -> Self {
-        Self(keys.into())
+        Self { keys: keys.into(), inherit: false }
+    }
+
+    /// Takes its color from what it is in ([`BuildCx::with_foreground`]) and drops its own
+    /// fill, so that on a filled button the key reads as part of the button instead of a
+    /// gray box. [`Button::shortcut`] and [`Tooltip::shortcut`](crate::Tooltip::shortcut)
+    /// do this. With no color around it, it uses its usual one.
+    pub fn inherit_color(mut self) -> Self {
+        self.inherit = true;
+        self
     }
 }
 
 impl View for Kbd {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let text = util::label(
-            cx,
-            &self.0,
-            TextStyle::Caption,
-            Some(Weight::MEDIUM),
-            theme.color(Semantic::InkMuted),
-        );
+        let inherited = cx.foreground().filter(|_| self.inherit);
+        let ink = inherited.unwrap_or_else(|| theme.color(Semantic::InkMuted));
+        let text = util::label(cx, &self.keys, TextStyle::Caption, Some(Weight::MEDIUM), ink);
         let style = LayoutStyle {
             padding: Insets { top: 1.0, bottom: 2.0, left: 6.0, right: 6.0 },
             align_self: Some(Align::Center),
             ..LayoutStyle::stack(Axis::Horizontal)
         };
         let paint = QuadPaint {
-            fill: theme.color(Semantic::Control).into(),
+            fill: if inherited.is_some() { Color::TRANSPARENT } else { theme.color(Semantic::Control) }
+                .into(),
             corner_radius: theme.radii.sm,
-            border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+            border: Some(Border {
+                width: 1.0,
+                color: inherited.map_or(theme.color(Semantic::Border), |c| c.with_alpha(c.a * 0.4)),
+            }),
             shadow: None,
         };
         cx.container(style, &[text], Paint::Quad(paint))
@@ -250,23 +340,74 @@ impl View for Divider {
     }
 }
 
-/// A horizontal progress bar; `value` from 0.0 to 1.0.
-#[derive(Clone, Copy, Debug)]
+/// A horizontal progress bar; `value` from 0.0 to 1.0. It can carry a label and a
+/// percentage above it and a detail below.
+///
+/// ```
+/// use ravenrs_widgets::{ProgressBar, Ui};
+///
+/// let bar = ProgressBar::new(0.4).label("Copying").percent().detail("12 of 30 photos").height(4.0);
+/// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+#[derive(Clone, Debug)]
 pub struct ProgressBar {
     value: f32,
     tone: Tone,
     height: f32,
+    color: Option<Color>,
+    label: Option<String>,
+    detail: Option<String>,
+    percent: bool,
 }
 
 impl ProgressBar {
     /// A progress bar at `value`, clamped to 0.0–1.0.
     pub fn new(value: f32) -> Self {
-        Self { value: value.clamp(0.0, 1.0), tone: Tone::Accent, height: 6.0 }
+        Self {
+            value: value.clamp(0.0, 1.0),
+            tone: Tone::Accent,
+            height: 6.0,
+            color: None,
+            label: None,
+            detail: None,
+            percent: false,
+        }
     }
 
     /// Sets the fill color tone (accent by default).
     pub fn tone(mut self, tone: Tone) -> Self {
         self.tone = tone;
+        self
+    }
+
+    /// Fills with this color instead of the tone's.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    /// Sets the thickness of the bar in logical pixels (6 by default).
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = height.max(1.0);
+        self
+    }
+
+    /// What is progressing, above the bar. It also names it for screen readers.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Shows the percentage above the bar, at its end.
+    pub fn percent(mut self) -> Self {
+        self.percent = true;
+        self
+    }
+
+    /// A line in small text below the bar, such as how many are done.
+    pub fn detail(mut self, detail: impl Into<String>) -> Self {
+        self.detail = Some(detail.into());
         self
     }
 }
@@ -275,8 +416,9 @@ impl View for ProgressBar {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let track = theme.color(Semantic::Control);
-        let fill =
-            if self.tone == Tone::Accent { theme.color(Semantic::Accent) } else { self.tone.color(&theme) };
+        let fill = self.color.unwrap_or_else(|| {
+            if self.tone == Tone::Accent { theme.color(Semantic::Accent) } else { self.tone.color(&theme) }
+        });
         let h = self.height;
         let value = cx.animated(self.value, theme.motion.snappy).clamp(0.0, 1.0);
         let style = LayoutStyle { height: Some(h), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
@@ -293,13 +435,63 @@ impl View for ProgressBar {
             })),
         );
         let percent = (f64::from(self.value) * 100.0).round();
-        cx.semantics(
-            node,
-            Semantics::new(Role::ProgressIndicator)
-                .numeric(percent, 0.0, 100.0, None)
-                .value(format!("{percent}%")),
+        let mut semantics = Semantics::new(Role::ProgressIndicator)
+            .numeric(percent, 0.0, 100.0, None)
+            .value(format!("{percent}%"));
+        if let Some(label) = &self.label {
+            semantics = semantics.name(label.clone());
+        }
+        if let Some(detail) = &self.detail {
+            semantics = semantics.description(detail.clone());
+        }
+        if self.label.is_none() && self.detail.is_none() && !self.percent {
+            cx.semantics(node, semantics);
+            return node;
+        }
+        let (ink, muted) = (theme.color(Semantic::Ink), theme.color(Semantic::InkMuted));
+        let mut rows = Vec::with_capacity(3);
+        if self.label.is_some() || self.percent {
+            let mut head = Vec::with_capacity(2);
+            let name = self.label.as_deref().unwrap_or_default();
+            let name = util::label(cx, name, TextStyle::Callout, None, ink);
+            cx.semantics(name, Semantics::hidden());
+            head.push(cx.container(
+                LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::stack(Axis::Horizontal) },
+                &[name],
+                Paint::None,
+            ));
+            if self.percent {
+                let number = util::label(cx, &format!("{percent}%"), TextStyle::Callout, None, muted);
+                cx.semantics(number, Semantics::hidden());
+                head.push(number);
+            }
+            rows.push(cx.container(
+                LayoutStyle {
+                    spacing: theme.spacing.s2,
+                    align_self: Some(Align::Stretch),
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &head,
+                Paint::None,
+            ));
+        }
+        rows.push(node);
+        if let Some(detail) = &self.detail {
+            let line = util::label(cx, detail, TextStyle::Caption, None, muted);
+            cx.semantics(line, Semantics::hidden());
+            rows.push(line);
+        }
+        let column = cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s1,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &rows,
+            Paint::None,
         );
-        node
+        cx.semantics(column, semantics);
+        column
     }
 }
 
@@ -359,6 +551,7 @@ pub struct Alert<A = ()> {
     title: String,
     message: String,
     tone: Tone,
+    compact: bool,
     action: A,
 }
 
@@ -385,7 +578,7 @@ impl<A> std::fmt::Debug for Alert<A> {
 impl Alert {
     /// An accent-toned alert with a title and a message.
     pub fn new(title: impl Into<String>, message: impl Into<String>) -> Self {
-        Self { title: title.into(), message: message.into(), tone: Tone::Accent, action: () }
+        Self { title: title.into(), message: message.into(), tone: Tone::Accent, compact: false, action: () }
     }
 
     /// An alert that is only its message, for when a title would just repeat where it is.
@@ -400,6 +593,7 @@ impl Alert {
             title: self.title,
             message: self.message,
             tone: self.tone,
+            compact: self.compact,
             action: AlertAction { label: label.into(), on_click: Rc::new(on_click) },
         }
     }
@@ -412,7 +606,78 @@ impl<A> Alert<A> {
         self
     }
 
+    /// A thin strip in small text with a stripe at its edge, for a warning that sits
+    /// right next to what it is about, as in a side panel.
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
+    }
+
+    /// The strip of [`Self::compact`]. The fill stays a tint: a solid color in a dark
+    /// panel would shout over the text it carries.
+    fn draw_compact(&self, cx: &mut BuildCx<'_>, action: Option<&AlertAction>) -> NodeId {
+        let theme = *cx.theme();
+        let color = self.tone.color(&theme);
+        let ink = color.lerp(theme.color(Semantic::Ink), BADGE_TEXT_TOWARD_INK);
+        let stripe = cx.container(
+            LayoutStyle { width: Some(2.0), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() },
+            &[],
+            Paint::Quad(QuadPaint::new(color)),
+        );
+        let icon = util::icon(cx, self.tone.icon(), 14.0, color);
+        let mut lines = Vec::with_capacity(2);
+        if !self.title.is_empty() {
+            lines.push(util::label(cx, &self.title, TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
+        }
+        lines.push(util::label(cx, &self.message, TextStyle::Caption, None, ink));
+        let text = cx.container(
+            LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::stack(Axis::Vertical) },
+            &lines,
+            Paint::None,
+        );
+        let mut items = vec![icon, text];
+        if let Some(action) = action {
+            let on_click = action.on_click.clone();
+            let button = Button::new(action.label.clone())
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Mini)
+                .on_click(move || on_click());
+            items.push(cx.child(&button));
+        }
+        let inner = cx.container(
+            LayoutStyle {
+                padding: Insets::symmetric(theme.spacing.s1, theme.spacing.s2),
+                spacing: theme.spacing.s2,
+                grow: 1.0,
+                min_width: Some(0.0),
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &items,
+            Paint::None,
+        );
+        let node = cx.container(
+            LayoutStyle {
+                align_self: Some(Align::Stretch),
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[stripe, inner],
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.sm,
+                ..QuadPaint::new(color.with_alpha(0.15))
+            }),
+        );
+        cx.clip(node);
+        let role = if self.tone == Tone::Danger { Role::Alert } else { Role::Status };
+        cx.semantics(node, Semantics::new(role));
+        node
+    }
+
     fn draw(&self, cx: &mut BuildCx<'_>, action: Option<&AlertAction>) -> NodeId {
+        if self.compact {
+            return self.draw_compact(cx, action);
+        }
         let theme = *cx.theme();
         let color = self.tone.color(&theme);
         let icon = util::icon(cx, self.tone.icon(), 18.0, color);
@@ -546,10 +811,12 @@ impl View for Stat {
     }
 }
 
-/// A titled group of content with an optional description.
+/// A titled group of content with an optional description, and actions at the end of
+/// its header.
 pub struct Section<C> {
     title: String,
     description: Option<String>,
+    actions: Vec<crate::AnyView>,
     content: C,
 }
 
@@ -562,12 +829,18 @@ impl<C> std::fmt::Debug for Section<C> {
 impl<C: ViewSeq> Section<C> {
     /// A section titled `title` around `content`.
     pub fn new(title: impl Into<String>, content: C) -> Self {
-        Self { title: title.into(), description: None, content }
+        Self { title: title.into(), description: None, actions: Vec::new(), content }
     }
 
     /// Adds a muted description under the title.
     pub fn description(mut self, text: impl Into<String>) -> Self {
         self.description = Some(text.into());
+        self
+    }
+
+    /// Adds a view, usually a button, at the end of the header. Several line up in order.
+    pub fn action(mut self, action: impl View + 'static) -> Self {
+        self.actions.push(Box::new(action));
         self
     }
 }
@@ -586,6 +859,28 @@ impl<C: ViewSeq> View for Section<C> {
             &header,
             Paint::None,
         );
+        let header = if self.actions.is_empty() {
+            header
+        } else {
+            let header = cx.container(
+                LayoutStyle { grow: 1.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+                &[header],
+                Paint::None,
+            );
+            let mut row = vec![header];
+            for (i, action) in self.actions.iter().enumerate() {
+                row.push(cx.keyed_child(u64::MAX - i as u64, action.as_ref()));
+            }
+            cx.container(
+                LayoutStyle {
+                    spacing: theme.spacing.s2,
+                    align: Align::Center,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &row,
+                Paint::None,
+            )
+        };
         let mut children = vec![header];
         children.extend(cx.children(&self.content));
         let style =

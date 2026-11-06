@@ -1,0 +1,33 @@
+[package]
+name = "ravenrs-perf"
+description = "The performance gate of RavenRS: scenes, exact counters of the work each frame does, and frame times."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+# Only for this repository: it pulls in the examples, and the baseline lives here.
+publish = false
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-layout.workspace = true
+ravenrs-reactive.workspace = true
+ravenrs-render.workspace = true
+ravenrs-style.workspace = true
+ravenrs-text.workspace = true
+ravenrs-widgets = { workspace = true, features = ["charts", "lottie"] }
+calculator = { path = "../../examples/calculator" }
+component-gallery = { path = "../../examples/component-gallery" }
+family-finance = { path = "../../examples/family-finance" }
+feature-center = { path = "../../examples/feature-center" }
+ravenrs-app-ui.workspace = true
+pollster.workspace = true
+serde_json.workspace = true
+# Keeps `unsafe impl GlobalAlloc` in the dependency, so this crate can forbid unsafe code too.
+stats_alloc = "0.1.10"
+
+[lints]
+workspace = true

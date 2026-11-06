@@ -44,6 +44,147 @@ pub struct Labels {
     pub color_hex: String,
     /// A [`DateRangePicker`](crate::DateRangePicker) with no period.
     pub pick_date_range: String,
+    /// Where a candle of a [`Chart`](crate::Chart) opened.
+    pub candle_open: String,
+    /// The highest a candle of a [`Chart`](crate::Chart) went.
+    pub candle_high: String,
+    /// The lowest a candle of a [`Chart`](crate::Chart) went.
+    pub candle_low: String,
+    /// Where a candle of a [`Chart`](crate::Chart) closed.
+    pub candle_close: String,
+    /// What a [`SankeyChart`](crate::SankeyChart) says when its flows go in a circle,
+    /// before the names of the nodes.
+    pub sankey_cycle: String,
+    /// A [`VirtualList`](crate::VirtualList)'s name.
+    pub list_name: String,
+    /// A [`Filmstrip`](crate::Filmstrip)'s name.
+    pub filmstrip_name: String,
+    /// A [`PagedDocumentView`](crate::PagedDocumentView)'s name.
+    pub document_name: String,
+    /// A page of a [`PagedDocumentView`](crate::PagedDocumentView), before its number.
+    pub page_word: String,
+    /// Between a page's number and the total, such as `" of "`.
+    pub page_of: String,
+    /// Goes to the previous page of a [`PagedDocumentView`](crate::PagedDocumentView).
+    pub previous_page: String,
+    /// Goes to the next page of a [`PagedDocumentView`](crate::PagedDocumentView).
+    pub next_page: String,
+    /// A [`FileBrowser`](crate::FileBrowser)'s name.
+    pub file_browser_name: String,
+    /// The column of names of a [`FileBrowser`](crate::FileBrowser).
+    pub file_name: String,
+    /// The column of sizes of a [`FileBrowser`](crate::FileBrowser).
+    pub file_size: String,
+    /// An [`AttachmentStrip`](crate::AttachmentStrip)'s name.
+    pub attachments: String,
+    /// Takes a file out of an [`AttachmentStrip`](crate::AttachmentStrip), before its name.
+    pub attachment_remove: String,
+    /// How a file will be sent, with `{what}` for the way chosen.
+    pub attachment_send_as: String,
+    /// A [`SelectionBar`](crate::SelectionBar)'s name.
+    pub selection_bar: String,
+    /// Leaves a selection.
+    pub selection_exit: String,
+    /// What a [`SelectionBar`](crate::SelectionBar) says with nothing chosen.
+    pub selection_none: String,
+    /// What a [`SelectionBar`](crate::SelectionBar) says with one thing chosen.
+    pub selection_one: String,
+    /// What a [`SelectionBar`](crate::SelectionBar) says with more, with `{count}`.
+    pub selection_many: String,
+    /// The name of an [`AudioPlayerButton`](crate::AudioPlayerButton)'s progress.
+    pub audio_player: String,
+    /// Plays a recording.
+    pub audio_play: String,
+    /// Stops a recording.
+    pub audio_stop: String,
+    /// A recording is on its way.
+    pub audio_loading: String,
+    /// Shows or hides what was said in a recording.
+    pub audio_transcript: String,
+    /// Asks for what was said in a recording.
+    pub audio_transcribe: String,
+    /// What was said in a recording is on its way.
+    pub audio_transcribing: String,
+    /// A recording with no one speaking.
+    pub audio_no_speech: String,
+    /// A photo in a [`Chat`](crate::Chat) with no description.
+    pub chat_photo: String,
+    /// A photo in a [`Chat`](crate::Chat) is on its way.
+    pub chat_photo_loading: String,
+    /// Opens a file in a [`Chat`](crate::Chat), with `{what}` for what it is.
+    pub chat_open: String,
+    /// The column of dates of a [`FileBrowser`](crate::FileBrowser).
+    pub file_modified: String,
+    /// What a [`FileBrowser`](crate::FileBrowser) says of a folder.
+    pub folder_word: String,
+    /// What a [`FileBrowser`](crate::FileBrowser) shows in a folder with nothing in it.
+    pub folder_empty: String,
+    /// A [`YearView`](crate::YearView)'s button to the year before.
+    pub previous_year: String,
+    /// A [`YearView`](crate::YearView)'s button to the year after.
+    pub next_year: String,
+    /// What a [`YearView`](crate::YearView) says of a marked day without words of its own.
+    pub day_marked: String,
+    /// A [`SortableList`](crate::SortableList)'s name.
+    pub sortable_name: String,
+    /// How to move a row of a [`SortableList`](crate::SortableList) from the keyboard.
+    pub sortable_hint: String,
+    /// What is announced after a reorder. `{position}` and `{total}` are filled in.
+    pub moved_to: String,
+    /// A [`DocumentTabs`](crate::DocumentTabs)' name.
+    pub document_tabs_name: String,
+    /// A [`DockArea`](crate::DockArea)'s name.
+    pub dock_area_name: String,
+    /// The name of the tabs of a group of a [`DockArea`](crate::DockArea).
+    pub dock_tabs_name: String,
+    /// What a [`DockArea`](crate::DockArea) says with nothing in its center.
+    pub dock_empty: String,
+    /// The left dock of a [`DockArea`](crate::DockArea), in a menu.
+    pub dock_left: String,
+    /// The right dock of a [`DockArea`](crate::DockArea), in a menu.
+    pub dock_right: String,
+    /// The bottom dock of a [`DockArea`](crate::DockArea), in a menu.
+    pub dock_bottom: String,
+    /// The center of a [`DockArea`](crate::DockArea), in a menu.
+    pub dock_center: String,
+    /// The item of a [`DockArea`](crate::DockArea)'s menu that opens where a panel can go.
+    pub dock_move_to: String,
+    /// Joins a group of a [`DockArea`](crate::DockArea), with `{title}` for what shows in it.
+    pub dock_with: String,
+    /// Opens a group to the right of a panel's own in a [`DockArea`](crate::DockArea).
+    pub dock_split_right: String,
+    /// Opens a group below a panel's own in a [`DockArea`](crate::DockArea).
+    pub dock_split_below: String,
+    /// Closes a panel of a [`DockArea`](crate::DockArea), in a menu.
+    pub dock_close: String,
+    /// The item of a [`DockArea`](crate::DockArea)'s menu that lists closed panels.
+    pub dock_reopen: String,
+    /// The button that closes a panel, with `{title}`.
+    pub dock_close_panel: String,
+    /// The button with a panel's menu, with `{title}`.
+    pub dock_options: String,
+    /// Collapses a dock, with `{place}`.
+    pub dock_hide: String,
+    /// Brings a dock back, with `{place}`.
+    pub dock_show: String,
+    /// The bar that resizes a dock, with `{place}`.
+    pub dock_resize: String,
+    /// The bar between two parts of a split, with `{first}` and `{second}`.
+    pub dock_resize_pair: String,
+    /// What is announced after a panel moved, with `{place}`.
+    pub dock_moved: String,
+    /// What is announced after a panel closed, with `{title}`.
+    pub dock_closed: String,
+    /// Closes a tab of a [`DocumentTabs`](crate::DocumentTabs).
+    pub close_tab: String,
+    /// Opens a new tab of a [`DocumentTabs`](crate::DocumentTabs).
+    pub new_tab: String,
+    /// Closes the other tabs of a [`DocumentTabs`](crate::DocumentTabs).
+    pub close_other_tabs: String,
+    /// Closes the tabs to the right in a [`DocumentTabs`](crate::DocumentTabs).
+    pub close_tabs_to_right: String,
+    /// What a [`DocumentTabs`](crate::DocumentTabs) says of a document with unsaved changes.
+    pub unsaved: String,
     /// Goes to the previous step of a [`Wizard`](crate::Wizard).
     pub wizard_back: String,
     /// Goes to the next step of a [`Wizard`](crate::Wizard).
@@ -54,6 +195,32 @@ pub struct Labels {
     pub wizard_cancel: String,
     /// A step of a [`Wizard`](crate::Wizard) already done.
     pub wizard_done: String,
+    /// A step of a [`Wizard`](crate::Wizard) or a [`StepIndicator`](crate::StepIndicator) with a problem.
+    pub wizard_error: String,
+    /// The bar between two panes, for screen readers.
+    pub split_resize: String,
+    /// What dragging a [`FloatingPanel`](crate::FloatingPanel) by its header does.
+    pub panel_move: String,
+    /// Reduces a [`FloatingPanel`](crate::FloatingPanel) to its header.
+    pub panel_minimize: String,
+    /// Brings back a reduced [`FloatingPanel`](crate::FloatingPanel).
+    pub panel_restore: String,
+    /// The arrow of a [`ScrollEdgeArrow`](crate::ScrollEdgeArrow) toward the start.
+    pub scroll_back: String,
+    /// The arrow of a [`ScrollEdgeArrow`](crate::ScrollEdgeArrow) toward the end.
+    pub scroll_forward: String,
+    /// The minimize button of a [`TitleBar`](crate::TitleBar).
+    pub window_minimize: String,
+    /// The maximize button of a [`TitleBar`](crate::TitleBar).
+    pub window_maximize: String,
+    /// The same button of a [`TitleBar`](crate::TitleBar) when the window is maximized.
+    pub window_restore: String,
+    /// Names a [`ValueSlider`](crate::ValueSlider) that was not given a label.
+    pub value_adjust: String,
+    /// Names the field of an [`InlineRename`](crate::InlineRename) that was not given a label.
+    pub rename: String,
+    /// How to start an [`InlineRename`](crate::InlineRename), for screen readers.
+    pub rename_hint: String,
     /// What a [`FileUpload`](crate::FileUpload) asks for.
     pub file_drop: String,
     /// Opens the chooser of a [`FileUpload`](crate::FileUpload).
@@ -174,6 +341,24 @@ pub struct Labels {
     pub diagnostics_test_fps: String,
     /// A performance test found nothing to blame.
     pub diagnostics_test_cause_none: String,
+    /// Diagnostics panel: title of the picture of the latest frames.
+    pub diagnostics_timeline: String,
+    /// Diagnostics panel: under it, what the colors and the line mean.
+    pub diagnostics_timeline_detail: String,
+    /// Diagnostics panel: why the views ran again.
+    pub diagnostics_why: String,
+    /// Diagnostics panel: nothing ran again.
+    pub diagnostics_why_none: String,
+    /// Diagnostics panel: the names of the causes, in the order of `BuildCause::ALL`.
+    pub diagnostics_causes: [String; 10],
+    /// Diagnostics panel: the views that cost the most.
+    pub diagnostics_views: String,
+    /// Diagnostics panel: what splits the draw calls.
+    pub diagnostics_batches: String,
+    /// Diagnostics panel: the GPU's resources and memory.
+    pub diagnostics_memory: String,
+    /// Diagnostics panel: the button that copies a capture of the frames.
+    pub diagnostics_copy_trace: String,
     /// A performance test blames drawing.
     pub diagnostics_test_cause_gpu: String,
     /// A performance test blames building the screen.
@@ -312,6 +497,68 @@ pub struct Labels {
     pub zoom_in: String,
     /// Zooms a scheduler's time axis out.
     pub zoom_out: String,
+    /// A [`Histogram`](crate::Histogram)'s name.
+    pub histogram: String,
+    /// What a [`Histogram`](crate::Histogram) says when a channel piles up at its low end.
+    pub histogram_clipped_low: String,
+    /// What a [`Histogram`](crate::Histogram) says when a channel piles up at its high end.
+    pub histogram_clipped_high: String,
+    /// A [`Ruler`](crate::Ruler)'s name.
+    pub ruler: String,
+    /// A [`ColorWheel`](crate::ColorWheel)'s name.
+    pub color_wheel: String,
+    /// The distance from gray on a [`ColorWheel`](crate::ColorWheel).
+    pub color_saturation: String,
+    /// A [`CurveEditor`](crate::CurveEditor)'s name.
+    pub curve_editor: String,
+    /// One point of a [`CurveEditor`](crate::CurveEditor), before its position in the list.
+    pub curve_point: String,
+    /// After the number of points of a [`CurveEditor`](crate::CurveEditor).
+    pub curve_points: String,
+    /// The horizontal value of a point of a [`CurveEditor`](crate::CurveEditor).
+    pub curve_input: String,
+    /// The vertical value of a point of a [`CurveEditor`](crate::CurveEditor).
+    pub curve_output: String,
+    /// A [`ZoomControl`](crate::ZoomControl)'s name.
+    pub zoom: String,
+    /// Shows the whole content, in a [`ZoomControl`](crate::ZoomControl).
+    pub zoom_fit: String,
+    /// What the 1:1 button of a [`ZoomControl`](crate::ZoomControl) is called by screen readers.
+    pub zoom_actual: String,
+    /// A [`ZoomPanView`](crate::ZoomPanView)'s name.
+    pub zoom_view: String,
+    /// A [`Minimap`](crate::Minimap)'s name.
+    pub minimap: String,
+    /// A [`RubberBand`](crate::RubberBand)'s name.
+    pub rubber_band: String,
+    /// A [`Marquee`](crate::Marquee)'s name.
+    pub marquee: String,
+    /// A [`TransformHandles`](crate::TransformHandles)'s name.
+    pub transform: String,
+    /// A [`CropOverlay`](crate::CropOverlay)'s name.
+    pub crop: String,
+    /// A [`Protractor`](crate::Protractor)'s name.
+    pub protractor: String,
+    /// An [`Eyedropper`](crate::Eyedropper)'s name.
+    pub eyedropper: String,
+    /// What an [`Eyedropper`](crate::Eyedropper)'s tooltip says.
+    pub eyedropper_hint: String,
+    /// An armed [`EyedropperArea`](crate::EyedropperArea)'s name.
+    pub eyedropper_area: String,
+    /// A [`CompareView`](crate::CompareView)'s name.
+    pub compare: String,
+    /// The caption over the first picture of a [`CompareView`](crate::CompareView).
+    pub compare_first: String,
+    /// The caption over the second picture of a [`CompareView`](crate::CompareView).
+    pub compare_second: String,
+    /// An [`ImageLightbox`](crate::ImageLightbox)'s name, for a picture with no caption.
+    pub lightbox: String,
+    /// Goes to the previous picture of an [`ImageLightbox`](crate::ImageLightbox).
+    pub lightbox_previous: String,
+    /// Goes to the next picture of an [`ImageLightbox`](crate::ImageLightbox).
+    pub lightbox_next: String,
+    /// Which picture of how many an [`ImageLightbox`](crate::ImageLightbox) is showing.
+    pub lightbox_counter: fn(usize, usize) -> String,
     /// A recurrence editor's name.
     pub recurrence_name: String,
     /// Once, daily, weekly, monthly and yearly, as an editor offers them.
@@ -460,6 +707,30 @@ pub struct Labels {
     pub grid_rows: String,
     /// After the count of selected rows.
     pub grid_selected: String,
+    /// What a [`Rating`](crate::Rating) is called when nothing says what is rated.
+    pub rating: String,
+    /// Where a [`Rating`](crate::Rating) stands, from its score and its maximum.
+    pub rating_value: fn(u32, u32) -> String,
+    /// A [`DaySeparator`](crate::DaySeparator) for the day before today.
+    pub yesterday: String,
+    /// The title of a [`ShortcutSheet`](crate::ShortcutSheet).
+    pub shortcut_sheet: String,
+    /// What a [`FavoriteToggle`](crate::FavoriteToggle) is called when nothing says what it marks.
+    pub favorite: String,
+    /// A [`SwatchGrid`](crate::SwatchGrid)'s name.
+    pub swatches: String,
+    /// A [`NinePointAnchor`](crate::NinePointAnchor)'s name.
+    pub anchor_point: String,
+    /// The points of a [`NinePointAnchor`](crate::NinePointAnchor), row by row from the top left.
+    pub anchor_names: [String; 9],
+    /// The upper color of a [`ColorPair`](crate::ColorPair).
+    pub color_foreground: String,
+    /// The lower color of a [`ColorPair`](crate::ColorPair).
+    pub color_background: String,
+    /// Swaps the colors of a [`ColorPair`](crate::ColorPair).
+    pub color_swap: String,
+    /// Puts back the first colors of a [`ColorPair`](crate::ColorPair).
+    pub color_reset: String,
     /// Count, sum, average, smallest and largest, as a grid's footer calls them.
     pub grid_summaries: [String; 5],
 }
@@ -532,6 +803,29 @@ impl Default for Labels {
             diagnostics_test_poor: "Performance is poor".into(),
             diagnostics_test_fps: "frames per second".into(),
             diagnostics_test_cause_none: "The app should feel fluid on this computer.".into(),
+            diagnostics_timeline: "Latest frames".into(),
+            diagnostics_timeline_detail:
+                "Each bar is a frame: views, layout, paint, GPU work, waiting. The line is the 120 Hz budget."
+                    .into(),
+            diagnostics_why: "Why the screen was rebuilt".into(),
+            diagnostics_why_none: "Nothing rebuilt it in these frames.".into(),
+            diagnostics_causes: [
+                "First build",
+                "Data changed",
+                "Pointer moved",
+                "Press or release",
+                "Focus moved",
+                "Scrolled",
+                "Window resized",
+                "A view's timer",
+                "Another thread",
+                "System",
+            ]
+            .map(String::from),
+            diagnostics_views: "Costliest views in the latest build".into(),
+            diagnostics_batches: "Draw calls split by".into(),
+            diagnostics_memory: "GPU resources".into(),
+            diagnostics_copy_trace: "Copy capture for Perfetto".into(),
             diagnostics_test_cause_gpu:
                 "The time goes into drawing: this computer's graphics cannot redraw the window in time."
                     .into(),
@@ -627,11 +921,29 @@ impl Default for Labels {
             color_alpha: "Opacity".into(),
             color_hex: "Hexadecimal color".into(),
             pick_date_range: "Pick a period".into(),
+            candle_open: "Open".into(),
+            candle_high: "High".into(),
+            candle_low: "Low".into(),
+            candle_close: "Close".into(),
+            sankey_cycle: "These flows go in a circle".into(),
             wizard_back: "Back".into(),
             wizard_next: "Next".into(),
             wizard_finish: "Finish".into(),
             wizard_cancel: "Cancel".into(),
             wizard_done: "Done".into(),
+            wizard_error: "Needs attention".into(),
+            split_resize: "Resize".into(),
+            scroll_back: "Scroll back".into(),
+            scroll_forward: "Scroll forward".into(),
+            window_minimize: "Minimize".into(),
+            window_maximize: "Maximize".into(),
+            window_restore: "Restore".into(),
+            value_adjust: "Adjust the value".into(),
+            rename: "Rename".into(),
+            rename_hint: "Double click or press F2 to rename".into(),
+            panel_move: "Move".into(),
+            panel_minimize: "Minimize".into(),
+            panel_restore: "Restore".into(),
             file_drop: "Drop files here".into(),
             file_choose: "Choose files".into(),
             file_remove: "Remove".into(),
@@ -644,6 +956,71 @@ impl Default for Labels {
             image_invalid: "Cannot show this image".into(),
             tile_move: "Move".into(),
             tile_resize: "Resize".into(),
+            list_name: "List".into(),
+            filmstrip_name: "Thumbnails".into(),
+            document_name: "Document".into(),
+            page_word: "Page".into(),
+            page_of: " of ".into(),
+            previous_page: "Previous page".into(),
+            next_page: "Next page".into(),
+            file_browser_name: "Files".into(),
+            file_name: "Name".into(),
+            file_size: "Size".into(),
+            attachments: "Attachments".into(),
+            attachment_remove: "Remove".into(),
+            attachment_send_as: "Send as {what}".into(),
+            selection_bar: "Selection actions".into(),
+            selection_exit: "Leave selection".into(),
+            selection_none: "Nothing selected".into(),
+            selection_one: "1 selected".into(),
+            selection_many: "{count} selected".into(),
+            audio_player: "Audio progress".into(),
+            audio_play: "Play audio".into(),
+            audio_stop: "Stop".into(),
+            audio_loading: "Loading…".into(),
+            audio_transcript: "Transcript".into(),
+            audio_transcribe: "Transcribe".into(),
+            audio_transcribing: "Transcribing…".into(),
+            audio_no_speech: "(no speech)".into(),
+            chat_photo: "Photo".into(),
+            chat_photo_loading: "Loading photo…".into(),
+            chat_open: "Open {what}".into(),
+            file_modified: "Modified".into(),
+            folder_word: "Folder".into(),
+            folder_empty: "This folder is empty.".into(),
+            previous_year: "Previous year".into(),
+            next_year: "Next year".into(),
+            day_marked: "Marked".into(),
+            sortable_name: "Sortable list".into(),
+            sortable_hint: "Drag it, or press Alt and an arrow, to move it".into(),
+            moved_to: "Moved to position {position} of {total}".into(),
+            dock_area_name: "Docked panels".into(),
+            dock_tabs_name: "Panels".into(),
+            dock_empty: "No panels here".into(),
+            dock_left: "Left dock".into(),
+            dock_right: "Right dock".into(),
+            dock_bottom: "Bottom dock".into(),
+            dock_center: "Center".into(),
+            dock_move_to: "Move to…".into(),
+            dock_with: "With {title}".into(),
+            dock_split_right: "Split to the right".into(),
+            dock_split_below: "Split below".into(),
+            dock_close: "Close panel".into(),
+            dock_reopen: "Reopen".into(),
+            dock_close_panel: "Close {title}".into(),
+            dock_options: "Options of {title}".into(),
+            dock_hide: "Hide {place}".into(),
+            dock_show: "Show {place}".into(),
+            dock_resize: "Resize {place}".into(),
+            dock_resize_pair: "Resize between {first} and {second}".into(),
+            dock_moved: "Moved to {place}".into(),
+            dock_closed: "{title} closed".into(),
+            document_tabs_name: "Open documents".into(),
+            close_tab: "Close tab".into(),
+            new_tab: "New tab".into(),
+            close_other_tabs: "Close other tabs".into(),
+            close_tabs_to_right: "Close tabs to the right".into(),
+            unsaved: "Unsaved changes".into(),
             cards_name: "Cards".into(),
             grid_expand_row: "Show details".into(),
             grid_collapse_row: "Hide details".into(),
@@ -662,6 +1039,37 @@ impl Default for Labels {
             scheduler_resources: "Resources".into(),
             zoom_in: "Zoom in".into(),
             zoom_out: "Zoom out".into(),
+            histogram: "Histogram".into(),
+            histogram_clipped_low: "Shadows clipped".into(),
+            histogram_clipped_high: "Highlights clipped".into(),
+            ruler: "Ruler".into(),
+            color_wheel: "Color wheel".into(),
+            color_saturation: "Saturation".into(),
+            curve_editor: "Curve".into(),
+            curve_point: "Point".into(),
+            curve_points: "points".into(),
+            curve_input: "input".into(),
+            curve_output: "output".into(),
+            zoom: "Zoom".into(),
+            zoom_fit: "Fit".into(),
+            zoom_actual: "Actual size".into(),
+            zoom_view: "Zoomable view".into(),
+            minimap: "Navigator".into(),
+            rubber_band: "Selection area".into(),
+            marquee: "Selection".into(),
+            transform: "Transform box".into(),
+            crop: "Crop area".into(),
+            protractor: "Angle".into(),
+            eyedropper: "Pick a color".into(),
+            eyedropper_hint: "Click a point of the picture (Esc cancels)".into(),
+            eyedropper_area: "Picture to pick a color from".into(),
+            compare: "Comparison".into(),
+            compare_first: "Before".into(),
+            compare_second: "After".into(),
+            lightbox: "Picture viewer".into(),
+            lightbox_previous: "Previous picture".into(),
+            lightbox_next: "Next picture".into(),
+            lightbox_counter: |at, of| format!("{at} of {of}"),
             recurrence_name: "Repeats".into(),
             recurrence_frequencies: owned(["Once", "Daily", "Weekly", "Monthly", "Yearly"]),
             recurrence_every: "Every".into(),
@@ -741,6 +1149,28 @@ impl Default for Labels {
             grid_of: "of".into(),
             grid_rows: "rows".into(),
             grid_selected: "selected".into(),
+            rating: "Rating".into(),
+            rating_value: |score, max| format!("{score} of {max}"),
+            yesterday: "Yesterday".into(),
+            shortcut_sheet: "Keyboard shortcuts".into(),
+            favorite: "Favorite".into(),
+            swatches: "Swatches".into(),
+            anchor_point: "Reference point".into(),
+            anchor_names: owned([
+                "Top left",
+                "Top",
+                "Top right",
+                "Left",
+                "Center",
+                "Right",
+                "Bottom left",
+                "Bottom",
+                "Bottom right",
+            ]),
+            color_foreground: "Foreground".into(),
+            color_background: "Background".into(),
+            color_swap: "Swap foreground and background".into(),
+            color_reset: "Default colors".into(),
             grid_summaries: owned(["Count", "Sum", "Avg", "Min", "Max"]),
         }
     }
@@ -799,6 +1229,15 @@ impl Labels {
             diagnostics_test_poor: "Desempenho ruim".into(),
             diagnostics_test_fps: "quadros por segundo".into(),
             diagnostics_test_cause_none: "O app deve parecer fluido neste computador.".into(),
+            diagnostics_timeline: "Últimos quadros".into(),
+            diagnostics_timeline_detail: "Cada barra é um quadro: views, layout, pintura, trabalho da GPU, espera. A linha é o orçamento de 120 Hz.".into(),
+            diagnostics_why: "Por que a tela foi refeita".into(),
+            diagnostics_why_none: "Nada a refez nestes quadros.".into(),
+            diagnostics_causes: ["Primeira construção", "Dados mudaram", "Ponteiro moveu", "Pressionar ou soltar", "Foco moveu", "Rolagem", "Janela redimensionada", "Relógio de uma view", "Outra thread", "Sistema"].map(String::from),
+            diagnostics_views: "Views mais caras na última construção".into(),
+            diagnostics_batches: "Draw calls separados por".into(),
+            diagnostics_memory: "Recursos da GPU".into(),
+            diagnostics_copy_trace: "Copiar captura para o Perfetto".into(),
             diagnostics_test_cause_gpu: "O tempo vai no desenho: a parte gráfica deste computador não consegue redesenhar a janela a tempo.".into(),
             diagnostics_test_cause_interface: "O tempo vai em montar a tela, no processador.".into(),
             diagnostics_software: "Desenhando na CPU".into(),
@@ -891,11 +1330,29 @@ impl Labels {
             color_alpha: "Opacidade".into(),
             color_hex: "Cor em hexadecimal".into(),
             pick_date_range: "Escolher período".into(),
+            candle_open: "Abertura".into(),
+            candle_high: "Máxima".into(),
+            candle_low: "Mínima".into(),
+            candle_close: "Fechamento".into(),
+            sankey_cycle: "Estes fluxos andam em círculo".into(),
             wizard_back: "Voltar".into(),
             wizard_next: "Avançar".into(),
             wizard_finish: "Concluir".into(),
             wizard_cancel: "Cancelar".into(),
             wizard_done: "Concluída".into(),
+            wizard_error: "Precisa de atenção".into(),
+            split_resize: "Redimensionar".into(),
+            scroll_back: "Rolar para trás".into(),
+            scroll_forward: "Rolar para a frente".into(),
+            window_minimize: "Minimizar".into(),
+            window_maximize: "Maximizar".into(),
+            window_restore: "Restaurar".into(),
+            value_adjust: "Ajustar o valor".into(),
+            rename: "Renomear".into(),
+            rename_hint: "Clique duas vezes ou aperte F2 para renomear".into(),
+            panel_move: "Mover".into(),
+            panel_minimize: "Minimizar".into(),
+            panel_restore: "Restaurar".into(),
             file_drop: "Solte os arquivos aqui".into(),
             file_choose: "Escolher arquivos".into(),
             file_remove: "Remover".into(),
@@ -908,6 +1365,71 @@ impl Labels {
             image_invalid: "Não foi possível mostrar a imagem".into(),
             tile_move: "Mover".into(),
             tile_resize: "Redimensionar".into(),
+            list_name: "Lista".into(),
+            filmstrip_name: "Miniaturas".into(),
+            document_name: "Documento".into(),
+            page_word: "Página".into(),
+            page_of: " de ".into(),
+            previous_page: "Página anterior".into(),
+            next_page: "Próxima página".into(),
+            file_browser_name: "Arquivos".into(),
+            file_name: "Nome".into(),
+            file_size: "Tamanho".into(),
+            attachments: "Anexos".into(),
+            attachment_remove: "Tirar".into(),
+            attachment_send_as: "Enviar como {what}".into(),
+            selection_bar: "Ações da seleção".into(),
+            selection_exit: "Sair da seleção".into(),
+            selection_none: "Nada selecionado".into(),
+            selection_one: "1 selecionado".into(),
+            selection_many: "{count} selecionados".into(),
+            audio_player: "Progresso do áudio".into(),
+            audio_play: "Tocar o áudio".into(),
+            audio_stop: "Parar".into(),
+            audio_loading: "Carregando…".into(),
+            audio_transcript: "Transcrição".into(),
+            audio_transcribe: "Transcrever".into(),
+            audio_transcribing: "Transcrevendo…".into(),
+            audio_no_speech: "(áudio sem fala)".into(),
+            chat_photo: "Foto".into(),
+            chat_photo_loading: "Carregando a foto…".into(),
+            chat_open: "Abrir {what}".into(),
+            file_modified: "Modificado".into(),
+            folder_word: "Pasta".into(),
+            folder_empty: "Esta pasta está vazia.".into(),
+            previous_year: "Ano anterior".into(),
+            next_year: "Próximo ano".into(),
+            day_marked: "Marcado".into(),
+            sortable_name: "Lista ordenável".into(),
+            sortable_hint: "Arraste, ou aperte Alt e uma seta, para mover".into(),
+            moved_to: "Movido para a posição {position} de {total}".into(),
+            dock_area_name: "Painéis encaixados".into(),
+            dock_tabs_name: "Painéis".into(),
+            dock_empty: "Nenhum painel aqui".into(),
+            dock_left: "Doca esquerda".into(),
+            dock_right: "Doca direita".into(),
+            dock_bottom: "Doca inferior".into(),
+            dock_center: "Centro".into(),
+            dock_move_to: "Mover para…".into(),
+            dock_with: "Junto de {title}".into(),
+            dock_split_right: "Dividir à direita".into(),
+            dock_split_below: "Dividir abaixo".into(),
+            dock_close: "Fechar painel".into(),
+            dock_reopen: "Reabrir".into(),
+            dock_close_panel: "Fechar {title}".into(),
+            dock_options: "Opções de {title}".into(),
+            dock_hide: "Ocultar {place}".into(),
+            dock_show: "Mostrar {place}".into(),
+            dock_resize: "Redimensionar {place}".into(),
+            dock_resize_pair: "Redimensionar entre {first} e {second}".into(),
+            dock_moved: "Movido para {place}".into(),
+            dock_closed: "{title} fechado".into(),
+            document_tabs_name: "Documentos abertos".into(),
+            close_tab: "Fechar guia".into(),
+            new_tab: "Nova guia".into(),
+            close_other_tabs: "Fechar as outras guias".into(),
+            close_tabs_to_right: "Fechar as guias à direita".into(),
+            unsaved: "Alterações não salvas".into(),
             cards_name: "Cartões".into(),
             grid_expand_row: "Mostrar detalhes".into(),
             grid_collapse_row: "Ocultar detalhes".into(),
@@ -926,6 +1448,37 @@ impl Labels {
             scheduler_resources: "Recursos".into(),
             zoom_in: "Aproximar".into(),
             zoom_out: "Afastar".into(),
+            histogram: "Histograma".into(),
+            histogram_clipped_low: "Sombras recortadas".into(),
+            histogram_clipped_high: "Realces recortados".into(),
+            ruler: "Régua".into(),
+            color_wheel: "Roda de cores".into(),
+            color_saturation: "Saturação".into(),
+            curve_editor: "Curva".into(),
+            curve_point: "Ponto".into(),
+            curve_points: "pontos".into(),
+            curve_input: "entrada".into(),
+            curve_output: "saída".into(),
+            zoom: "Zoom".into(),
+            zoom_fit: "Encaixar".into(),
+            zoom_actual: "Tamanho real".into(),
+            zoom_view: "Vista ampliável".into(),
+            minimap: "Navegador".into(),
+            rubber_band: "Área de seleção".into(),
+            marquee: "Seleção".into(),
+            transform: "Caixa de transformação".into(),
+            crop: "Área de recorte".into(),
+            protractor: "Ângulo".into(),
+            eyedropper: "Escolher uma cor".into(),
+            eyedropper_hint: "Clique num ponto da imagem (Esc cancela)".into(),
+            eyedropper_area: "Imagem de onde escolher a cor".into(),
+            compare: "Comparação".into(),
+            compare_first: "Antes".into(),
+            compare_second: "Depois".into(),
+            lightbox: "Visualizador de imagens".into(),
+            lightbox_previous: "Imagem anterior".into(),
+            lightbox_next: "Próxima imagem".into(),
+            lightbox_counter: |at, of| format!("{at} de {of}"),
             recurrence_name: "Repetição".into(),
             recurrence_frequencies: owned(["Uma vez", "Diária", "Semanal", "Mensal", "Anual"]),
             recurrence_every: "A cada".into(),
@@ -1005,8 +1558,93 @@ impl Labels {
             grid_of: "de".into(),
             grid_rows: "linhas".into(),
             grid_selected: "selecionadas".into(),
+            rating: "Nota".into(),
+            rating_value: |score, max| format!("{score} de {max}"),
+            yesterday: "Ontem".into(),
+            shortcut_sheet: "Atalhos de teclado".into(),
+            favorite: "Favorito".into(),
+            swatches: "Amostras".into(),
+            anchor_point: "Ponto de referência".into(),
+            anchor_names: owned([
+                "Superior esquerdo", "Superior", "Superior direito", "Esquerda", "Centro", "Direita",
+                "Inferior esquerdo", "Inferior", "Inferior direito",
+            ]),
+            color_foreground: "Frente".into(),
+            color_background: "Fundo".into(),
+            color_swap: "Trocar frente e fundo".into(),
+            color_reset: "Cores padrão".into(),
             grid_summaries: owned(["Qtd.", "Soma", "Média", "Mín.", "Máx."]),
         }
+    }
+
+    /// A place of a [`DockArea`](crate::DockArea).
+    pub fn dock_place(&self, side: crate::DockSide) -> &str {
+        match side {
+            crate::DockSide::Left => &self.dock_left,
+            crate::DockSide::Right => &self.dock_right,
+            crate::DockSide::Bottom => &self.dock_bottom,
+            _ => &self.dock_center,
+        }
+    }
+
+    /// A place in the middle of a sentence.
+    fn dock_place_lower(&self, side: crate::DockSide) -> String {
+        self.dock_place(side).to_lowercase()
+    }
+
+    /// The item that joins the group where `title` shows.
+    pub fn dock_with_name(&self, title: &str) -> String {
+        self.dock_with.replace("{title}", title)
+    }
+
+    /// The name of the button that closes the panel `title`.
+    pub fn dock_close_name(&self, title: &str) -> String {
+        self.dock_close_panel.replace("{title}", title)
+    }
+
+    /// The name of the button with the menu of the panel `title`.
+    pub fn dock_options_name(&self, title: &str) -> String {
+        self.dock_options.replace("{title}", title)
+    }
+
+    /// The name of the strip that collapses a dock.
+    pub fn dock_hide_name(&self, side: crate::DockSide) -> String {
+        self.dock_hide.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// The name of the strip that brings a dock back.
+    pub fn dock_show_name(&self, side: crate::DockSide) -> String {
+        self.dock_show.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// The name of the bar that resizes a dock.
+    pub fn dock_resize_name(&self, side: crate::DockSide) -> String {
+        self.dock_resize.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// The name of the bar between two parts of a split.
+    pub fn dock_resize_between(&self, first: &str, second: &str) -> String {
+        self.dock_resize_pair.replace("{first}", first).replace("{second}", second)
+    }
+
+    /// What is announced after a panel went to a place.
+    pub fn dock_moved_to(&self, side: crate::DockSide) -> String {
+        self.dock_moved.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// What is announced after the panel `title` closed.
+    pub fn dock_closed_name(&self, title: &str) -> String {
+        self.dock_closed.replace("{title}", title)
+    }
+
+    /// What is announced after a reorder, such as "Moved to position 2 of 5".
+    pub fn moved_to_position(&self, position: usize, total: usize) -> String {
+        self.moved_to.replace("{position}", &position.to_string()).replace("{total}", &total.to_string())
+    }
+
+    /// The name of a page, such as "Page 2 of 9".
+    pub fn page_name(&self, number: usize, total: usize) -> String {
+        format!("{} {number}{}{total}", self.page_word, self.page_of)
     }
 
     /// A month and its year: `November 2026`, `novembro de 2026`.

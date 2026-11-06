@@ -130,7 +130,7 @@ Pick a theme when you start the app, or switch at runtime:
 ravenrs::native::run(app(), ravenrs::native::WindowOptions::new("App").theme(Theme::raven_light()))
 ```
 
-`ThemeSwitcher` toggles Raven Dark, Light and Glass, `ThemePicker` does it from a small menu, and `ThemeEditor` changes the tokens of the theme on screen and hands them over as JSON (`Theme::to_tokens_json`, `Theme::from_tokens_json`); any component can do the same with `cx.theme_state().set(...)`. Components use semantic roles (`Semantic::Ink`, `Semantic::Accent`, `Semantic::SurfaceElevated`…) so they follow the theme automatically. The tokens are documented in [docs/design-system](design-system/README.md).
+`ThemeSwitcher::new()` toggles Raven Dark, Light and Glass, or the app's own three with `.themes(dark, light, glass)`, `ThemePicker` does it from a small menu, and `ThemeEditor` changes the tokens of the theme on screen and hands them over as JSON (`Theme::to_tokens_json`, `Theme::from_tokens_json`); any component can do the same with `cx.theme_state().set(...)`. Components use semantic roles (`Semantic::Ink`, `Semantic::Accent`, `Semantic::SurfaceElevated`…) so they follow the theme automatically. The tokens are documented in [docs/design-system](design-system/README.md).
 
 ## 6. The data grid
 
@@ -156,5 +156,6 @@ Sorting, the filter row (`>100`, `10..20`, `yes`, or an expression such as `[Sea
 ## Next
 
 - Browse every component in the [live gallery](https://alexkads.github.io/RavenRS/) and its [source](../examples/component-gallery/src/lib.rs).
+- Install [Raven Finanças](../examples/family-finance), a complete family finance app built with RavenRS, to see it all in everyday use.
 - Read the [architecture](../ARCHITECTURE.md) to see how build, layout, paint and render fit together.
 - The [API documentation](https://alexkads.github.io/RavenRS/api/ravenrs/) lists every type and method.

@@ -19,7 +19,9 @@
 mod atlas;
 mod gpu;
 mod images;
+mod paths;
 mod renderer;
+mod timing;
 
 pub use gpu::{GpuContext, GpuError, gpu_report, preferred_surface_format, surface_report};
 pub use renderer::{RenderStats, Renderer};

@@ -18,13 +18,14 @@ mod scene;
 pub use access::{AccessAction, AccessNode, AccessTree, NumericValue, Role, Toggled};
 pub use color::Color;
 pub use diagnostics::{
-    AdapterReport, Bottleneck, DiagnosticFinding, DiagnosticReport, FrameLog, FrameSample, FrameSummary,
-    GpuReport, MAX_ISSUE_URL, Percentiles, PerformanceResult, PerformanceVerdict, SurfaceReport,
-    SystemReport, new_issue_url, redact_user_paths,
+    AdapterReport, Bottleneck, BuildCause, BuildCauses, DiagnosticFinding, DiagnosticReport, FrameLog,
+    FrameSample, FrameSummary, FrameWork, GpuReport, MAX_ISSUE_URL, Percentiles, PerformanceResult,
+    PerformanceVerdict, PhaseTimes, RenderWork, SurfaceReport, SystemReport, ViewCost, new_issue_url,
+    redact_user_paths,
 };
 pub use event::{CursorIcon, Event, Key, Modifiers, PointerButton};
-pub use geometry::{Insets, Point, Rect, Size};
+pub use geometry::{Insets, Point, Rect, Size, monotone_slopes};
 pub use scene::{
-    Border, Brush, Effect, FontRef, GlyphRun, ImageData, ImageQuad, LinearGradient, PositionedGlyph,
-    Primitive, Quad, Scene, Shadow,
+    Border, Brush, ColorStop, Effect, FillRule, FontRef, GlyphRun, ImageData, ImageQuad, LinearGradient,
+    PathClip, PathElement, PathFill, PathPaint, PositionedGlyph, Primitive, Quad, Scene, Shadow,
 };

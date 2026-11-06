@@ -153,7 +153,7 @@ fn list_components_filters_by_group_and_text() {
     assert!(!listed.contains(&"BuildCx"), "support types are not components");
     assert!(all["groups"].as_array().unwrap().contains(&json!("Navigation")));
 
-    let inputs = client.call("list_components", json!({ "group": "inputs" }));
+    let inputs = client.call("list_components", json!({ "group": "text and choices" }));
     let inputs = names(&inputs["components"]);
     assert!(inputs.contains(&"Slider"));
     assert!(!inputs.contains(&"Ribbon"));
@@ -265,7 +265,7 @@ fn design_tokens_map_to_rust_names() {
 #[test]
 fn parity_status_searches_both_documents() {
     let mut client = Client::start();
-    let tabs = client.call("parity_status", json!({ "document": "components", "query": "tabs" }));
+    let tabs = client.call("parity_status", json!({ "document": "components", "query": "tabstrip" }));
     assert_eq!(tabs["rows"][0]["status"], "done");
     assert_eq!(tabs["rows"][0]["document"], "components");
     assert_eq!(tabs["rows"][0]["section"], "Navigation");

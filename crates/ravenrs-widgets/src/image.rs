@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -41,7 +42,18 @@ pub fn decode_image(bytes: &[u8]) -> Result<ImageData, DecodeError> {
 }
 
 /// Shows an image. Without a size it takes the image's own size in logical
-/// pixels; with only a width (or height) it keeps the aspect ratio.
+/// pixels; with only a width (or height) it keeps the aspect ratio. With
+/// [`crossfade`](Self::crossfade), a new image dissolves over the one before it.
+///
+/// ```
+/// use ravenrs_core::ImageData;
+/// use ravenrs_widgets::{Image, Ui};
+///
+/// let pixel = ImageData::from_rgba8(1, 1, vec![200, 80, 40, 255]).expect("one pixel");
+/// let photo = Image::new(pixel).size(160.0, 90.0).crossfade(0.2).alt("A photo");
+/// let mut ui = Ui::new(photo, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 #[derive(Clone, Debug)]
 pub struct Image {
     data: ImageData,
@@ -52,6 +64,14 @@ pub struct Image {
     stretch: bool,
     opacity: f32,
     alt: Option<String>,
+    crossfade: Option<f64>,
+}
+
+/// The image on the way out while another comes in.
+struct Fade {
+    current: ImageData,
+    previous: Option<ImageData>,
+    started: f64,
 }
 
 impl Image {
@@ -66,6 +86,7 @@ impl Image {
             stretch: false,
             opacity: 1.0,
             alt: None,
+            crossfade: None,
         }
     }
 
@@ -122,6 +143,51 @@ impl Image {
         self.opacity = opacity;
         self
     }
+
+    /// When the image changes, dissolves from the old one to the new one over this many
+    /// seconds. It asks for frames only while that lasts, and with reduced motion the new
+    /// one simply appears. Pass a clone of the same [`ImageData`] while the picture is the
+    /// same: new data counts as a new image, even with the same pixels.
+    pub fn crossfade(mut self, seconds: f64) -> Self {
+        self.crossfade = Some(seconds);
+        self
+    }
+
+    /// The image going out, if one is, and when it started. Kept by this view, because the
+    /// app only ever hands over the current one.
+    fn fading_out(&self, cx: &mut BuildCx<'_>, seconds: f64) -> Option<(ImageData, f64)> {
+        let (data, now) = (self.data.clone(), cx.now());
+        let fade = cx
+            .use_state(|| Rc::new(RefCell::new(Fade { current: data, previous: None, started: 0.0 })))
+            .get();
+        let mut fade = fade.borrow_mut();
+        if fade.current != self.data {
+            let old = std::mem::replace(&mut fade.current, self.data.clone());
+            fade.previous = (!cx.reduced_motion() && seconds > 0.0).then_some(old);
+            fade.started = now;
+        }
+        if now >= fade.started + seconds {
+            fade.previous = None;
+        }
+        fade.previous.clone().map(|old| (old, fade.started))
+    }
+}
+
+/// Draws `data` into `frame` the way an [`Image`] does.
+fn push_image(
+    scene: &mut ravenrs_core::Scene,
+    data: &ImageData,
+    frame: Rect,
+    (mode, radius, opacity): (ContentMode, f32, f32),
+) {
+    if frame.is_empty() {
+        return;
+    }
+    let (rect, uv) = placement(mode, frame, data.aspect_ratio());
+    let mut quad = ImageQuad::new(rect, data.clone()).radius(radius);
+    quad.uv = uv;
+    quad.opacity = opacity;
+    scene.push_image(quad);
 }
 
 /// The destination rectangle and source UVs for drawing `aspect` into `frame`.
@@ -167,21 +233,20 @@ impl View for Image {
             align_self: self.stretch.then_some(Align::Stretch),
             ..LayoutStyle::leaf()
         };
-        let (data, mode, radius, opacity) = (self.data.clone(), self.mode, self.radius, self.opacity);
-        let node = cx.container(
-            style,
-            &[],
-            Paint::Custom(Rc::new(move |frame: Rect, scene| {
-                if frame.is_empty() {
-                    return;
-                }
-                let (rect, uv) = placement(mode, frame, aspect);
-                let mut quad = ImageQuad::new(rect, data.clone()).radius(radius);
-                quad.uv = uv;
-                quad.opacity = opacity;
-                scene.push_image(quad);
-            })),
-        );
+        let (data, look) = (self.data.clone(), (self.mode, self.radius, self.opacity));
+        let fading = self.crossfade.and_then(|seconds| Some((self.fading_out(cx, seconds)?, seconds)));
+        let paint = if let Some(((old, started), seconds)) = fading {
+            // At the end it builds once more, to the plain image that asks for nothing.
+            cx.wake_at(started + seconds);
+            Paint::Live(Rc::new(move |frame: Rect, time, scene| {
+                let t = (((time - started) / seconds) as f32).clamp(0.0, 1.0);
+                push_image(scene, &old, frame, (look.0, look.1, look.2 * (1.0 - t)));
+                push_image(scene, &data, frame, (look.0, look.1, look.2 * t));
+            }))
+        } else {
+            Paint::Custom(Rc::new(move |frame: Rect, scene| push_image(scene, &data, frame, look)))
+        };
+        let node = cx.container(style, &[], paint);
         if let Some(alt) = &self.alt {
             cx.semantics(node, Semantics::new(Role::Image).name(alt.clone()));
         }

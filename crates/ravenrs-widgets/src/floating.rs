@@ -7,6 +7,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+use ravenrs_animation::Transition;
 use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
@@ -286,6 +287,10 @@ impl View for Sheet {
 const SPLASH_CONTENT_WIDTH: f32 = 320.0;
 /// The size of a [`SplashScreen`]'s icon, in logical pixels.
 const SPLASH_ICON_SIZE: f32 = 64.0;
+/// How long after the name the rest of a [`SplashScreen`] appears, in seconds.
+const SPLASH_REST_LAG: f64 = 0.2;
+/// Keeps a [`SplashScreen`] the same layer whatever opens before it.
+const SPLASH_OVERLAY_KEY: u64 = 0x7370_6c61_7368;
 
 /// The opening screen that covers the window while the app loads: a logo or
 /// icon, the app's name, a status message and its progress.
@@ -318,6 +323,7 @@ pub struct SplashScreen {
     icon: Option<IconName>,
     status: Option<String>,
     progress: Option<f32>,
+    reveal_after: f64,
 }
 
 impl fmt::Debug for SplashScreen {
@@ -329,7 +335,15 @@ impl fmt::Debug for SplashScreen {
 impl SplashScreen {
     /// A splash screen for the app called `name`, shown while `visible` is true.
     pub fn new(visible: Binding<bool>, name: impl Into<String>) -> Self {
-        Self { visible, name: name.into(), logo: None, icon: None, status: None, progress: None }
+        Self {
+            visible,
+            name: name.into(),
+            logo: None,
+            icon: None,
+            status: None,
+            progress: None,
+            reveal_after: 0.0,
+        }
     }
 
     /// Shows the app's own artwork above the name, such as an [`Image`](crate::Image).
@@ -356,6 +370,21 @@ impl SplashScreen {
         self.progress = Some(value);
         self
     }
+
+    /// Holds the name back this many seconds, and what is under it a little longer,
+    /// for an animated [`Self::logo`] to play alone. Their places are kept, so nothing
+    /// moves when they appear, and screen readers have them from the start. Where
+    /// motion is reduced they show at once.
+    pub fn reveal_after(mut self, seconds: f64) -> Self {
+        self.reveal_after = seconds;
+        self
+    }
+}
+
+/// Fades in `node` once `held` turns false, keeping its place until then.
+fn held_back(cx: &mut BuildCx<'_>, node: NodeId, held: bool, hidden: Effect, transition: Transition) {
+    let effect = if held { hidden } else { Effect::IDENTITY };
+    cx.motion(node, Motion::new().effect(effect, transition));
 }
 
 /// The status message, as a live region.
@@ -396,6 +425,17 @@ impl View for SplashLayer<'_> {
         let viewport = cx.viewport();
         let width = (viewport.width - theme.spacing.s6 * 2.0).clamp(0.0, SPLASH_CONTENT_WIDTH);
 
+        let now = cx.now();
+        let began = cx.use_state(|| now).get();
+        let reveal = if cx.reduced_motion() { 0.0 } else { s.reveal_after };
+        let name_at = began + reveal;
+        let rest_at = if reveal > 0.0 { name_at + SPLASH_REST_LAG } else { name_at };
+        for at in [name_at, rest_at] {
+            if now < at {
+                cx.wake_at(at);
+            }
+        }
+
         let mut content = Vec::new();
         if let Some(logo) = &s.logo {
             content.push(cx.child(logo.as_ref()));
@@ -404,24 +444,31 @@ impl View for SplashLayer<'_> {
         }
         let attrs = util::attrs(&theme, TextStyle::Title, None);
         let style = LayoutStyle { max_width: Some(width), ..LayoutStyle::leaf() };
-        content.push(cx.text_truncated(&s.name, &attrs, theme.color(Semantic::Ink), style));
+        let name = cx.text_truncated(&s.name, &attrs, theme.color(Semantic::Ink), style);
+        held_back(cx, name, now < name_at, Effect::hidden().with_scale(1.04), theme.motion.slow);
+        content.push(name);
 
         // Changing the node's identity is what makes every platform read a new message.
         if let Some(status) = &s.status {
             let mut hasher = DefaultHasher::new();
             status.hash(&mut hasher);
-            content.push(cx.keyed_child(hasher.finish(), &SplashStatus(status, width)));
+            let status = cx.keyed_child(hasher.finish(), &SplashStatus(status, width));
+            let holder = cx.container(LayoutStyle::stack(Axis::Vertical), &[status], Paint::None);
+            held_back(cx, holder, now < rest_at, Effect::hidden(), theme.motion.base);
+            content.push(holder);
         }
 
         let spinner =
             crate::VStack::new((crate::Spinner::new().size(theme.spacing.s6),)).align(Align::Center);
         let spinner = motion::collapse(cx, s.progress.is_none(), &spinner);
         let bar = motion::collapse(cx, s.progress.is_some(), &SplashBar(s.progress.unwrap_or(1.0)));
-        content.push(cx.container(
+        let indicator = cx.container(
             LayoutStyle { width: Some(width), align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
             &[spinner, bar],
             Paint::None,
-        ));
+        );
+        held_back(cx, indicator, now < rest_at, Effect::hidden(), theme.motion.base);
+        content.push(indicator);
 
         let node = cx.container(
             LayoutStyle {
@@ -453,7 +500,8 @@ impl View for SplashScreen {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let anchor = cx.empty();
         if self.visible.get() {
-            cx.overlay(anchor, Placement::Fill, &SplashLayer(self), None);
+            // The app usually appears under it, with layers of its own built first.
+            cx.keyed_overlay(SPLASH_OVERLAY_KEY, anchor, Placement::Fill, &SplashLayer(self), None);
         }
         anchor
     }
@@ -472,11 +520,59 @@ pub struct Toast {
     extras: ToastExtras,
 }
 
-/// What a toast can do besides showing: a button, and something to run once it is gone.
+/// Where in the window a [`Toaster`] stacks its toasts.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
+pub enum ToastPosition {
+    /// The top-left corner.
+    TopLeft,
+    /// The middle of the top edge.
+    TopCenter,
+    /// The top-right corner.
+    TopRight,
+    /// The bottom-left corner.
+    BottomLeft,
+    /// The middle of the bottom edge.
+    BottomCenter,
+    /// The bottom-right corner.
+    #[default]
+    BottomRight,
+}
+
+impl ToastPosition {
+    fn placement(self) -> Placement {
+        match self {
+            Self::TopLeft => Placement::TopLeft,
+            Self::TopCenter => Placement::TopCenter,
+            Self::TopRight => Placement::TopRight,
+            Self::BottomLeft => Placement::BottomLeft,
+            Self::BottomCenter => Placement::BottomCenter,
+            Self::BottomRight => Placement::BottomRight,
+        }
+    }
+
+    /// Where a toast comes from and goes to: the edge it is nearest to.
+    fn travel(self) -> Effect {
+        match self {
+            Self::TopLeft | Self::BottomLeft => Effect::moved(-32.0, 0.0),
+            Self::TopRight | Self::BottomRight => Effect::moved(32.0, 0.0),
+            Self::TopCenter => Effect::moved(0.0, -32.0),
+            Self::BottomCenter => Effect::moved(0.0, 32.0),
+        }
+    }
+
+    fn at_bottom(self) -> bool {
+        matches!(self, Self::BottomLeft | Self::BottomCenter | Self::BottomRight)
+    }
+}
+
+/// What a toast can do besides showing: a button, something to run once it is gone, and
+/// a place of its own.
 #[derive(Clone, Default)]
 pub struct ToastExtras {
     action: Option<(String, Rc<dyn Fn()>)>,
     on_close: Option<Rc<dyn Fn()>>,
+    position: Option<ToastPosition>,
 }
 
 impl fmt::Debug for ToastExtras {
@@ -495,7 +591,9 @@ impl PartialEq for ToastExtras {
             _ => false,
         };
         let action = |extras: &Self| extras.action.as_ref().map(|(_, run)| run.clone());
-        same(&action(self), &action(other)) && same(&self.on_close, &other.on_close)
+        same(&action(self), &action(other))
+            && same(&self.on_close, &other.on_close)
+            && self.position == other.position
     }
 }
 
@@ -514,6 +612,12 @@ impl ToastExtras {
     /// Runs this once the toast is gone, by itself or closed by a person.
     pub fn on_close(mut self, run: impl Fn() + 'static) -> Self {
         self.on_close = Some(Rc::new(run));
+        self
+    }
+
+    /// Shows this toast here instead of where its [`Toaster`] puts the others.
+    pub fn position(mut self, position: ToastPosition) -> Self {
+        self.position = Some(position);
         self
     }
 }
@@ -553,7 +657,13 @@ impl Toasts {
         self.show_with(title, message, tone, seconds, ToastExtras::new());
     }
 
-    /// Shows a toast for `seconds` seconds, with a button or something to run once it is gone.
+    /// Shows a toast that stays until a person closes it or [`Self::dismiss`] does.
+    pub fn show_until_closed(&self, title: impl Into<String>, message: impl Into<String>, tone: Tone) {
+        self.show_for(title, message, tone, f64::INFINITY);
+    }
+
+    /// Shows a toast for `seconds` seconds, with a button or something to run once it is
+    /// gone. With `f64::INFINITY` it stays until closed.
     pub fn show_with(
         &self,
         title: impl Into<String>,
@@ -601,18 +711,39 @@ impl Toasts {
     }
 }
 
-/// Displays [`Toasts`] stacked in the bottom-right corner; each disappears
-/// after its duration or when closed.
+/// Displays [`Toasts`] stacked in a corner of the window, the bottom-right one unless
+/// told otherwise; each disappears after its duration or when closed.
+///
+/// ```
+/// use ravenrs_widgets::{ToastExtras, ToastPosition, Toaster, Toasts, Tone, Ui};
+///
+/// let toasts = Toasts::new();
+/// let toaster = Toaster::new(toasts.clone()).position(ToastPosition::TopCenter);
+/// let mut ui = Ui::new(toaster, ravenrs_style::Theme::raven_dark());
+///
+/// toasts.show_until_closed("Sending", "Three files left.", Tone::Accent);
+/// let corner = ToastExtras::new().position(ToastPosition::BottomRight);
+/// toasts.show_with("Slow connection", "It may take longer.", Tone::Warning, 8.0, corner);
+/// ui.update();
+/// ```
 #[derive(Debug)]
 pub struct Toaster {
     toasts: Toasts,
     bottom_inset: f32,
+    position: ToastPosition,
 }
 
 impl Toaster {
     /// Displays the toasts of `toasts`.
     pub fn new(toasts: Toasts) -> Self {
-        Self { toasts, bottom_inset: 0.0 }
+        Self { toasts, bottom_inset: 0.0, position: ToastPosition::default() }
+    }
+
+    /// Where in the window the toasts stack (the bottom-right corner by default). A toast
+    /// can ask for another place with [`ToastExtras::position`].
+    pub fn position(mut self, position: ToastPosition) -> Self {
+        self.position = position;
+        self
     }
 
     /// Lifts the toasts by this much, in logical pixels, to clear something fixed
@@ -622,6 +753,9 @@ impl Toaster {
         self
     }
 }
+
+/// The layers of a [`Toaster`], one for each corner in use.
+const TOAST_OVERLAY_KEY: u64 = 0x746f_6173_7400_0000;
 
 fn tell_gone(gone: &[Toast]) {
     for toast in gone {
@@ -643,7 +777,7 @@ fn tone_color(theme: &Theme, tone: Tone) -> (Color, IconName) {
     }
 }
 
-struct ToastStack<'a>(&'a [Toast], Toasts, f32);
+struct ToastStack<'a>(&'a [Toast], Toasts, f32, ToastPosition);
 
 impl View for ToastStack<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -711,15 +845,18 @@ impl View for ToastStack<'_> {
                 Motion::new()
                     .key(t.id)
                     .layout(theme.motion.snappy)
-                    .enter(Effect::moved(32.0, 0.0), theme.motion.gentle)
-                    .exit(Effect::moved(32.0, 0.0), theme.motion.fast),
+                    .enter(self.3.travel(), theme.motion.gentle)
+                    .exit(self.3.travel(), theme.motion.fast),
             );
             cards.push(card);
         }
         cx.container(
             LayoutStyle {
                 spacing: 10.0,
-                padding: Insets { bottom: self.2, ..Insets::uniform(0.0) },
+                padding: Insets {
+                    bottom: if self.3.at_bottom() { self.2 } else { 0.0 },
+                    ..Insets::uniform(0.0)
+                },
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &cards,
@@ -744,7 +881,10 @@ impl View for Toaster {
             if now >= until {
                 expired = true;
             } else {
-                cx.wake_at(until);
+                // One that stays until closed has no moment to wake for.
+                if until.is_finite() {
+                    cx.wake_at(until);
+                }
                 visible.push(t.clone());
             }
         }
@@ -754,11 +894,18 @@ impl View for Toaster {
             self.toasts.list.update(|l| l.retain(|t| ids.contains(&t.id)));
             tell_gone(&gone);
         }
-        if !visible.is_empty() {
-            cx.overlay(
+        let place = |t: &Toast| t.extras.position.unwrap_or(self.position);
+        let mut places: Vec<ToastPosition> = visible.iter().map(place).collect();
+        places.sort_unstable();
+        places.dedup();
+        for position in places {
+            let here: Vec<Toast> = visible.iter().filter(|t| place(t) == position).cloned().collect();
+            // By corner: a stack that comes or goes does not make another start over.
+            cx.keyed_overlay(
+                TOAST_OVERLAY_KEY + position as u64,
                 anchor,
-                Placement::BottomRight,
-                &ToastStack(&visible, self.toasts.clone(), self.bottom_inset),
+                position.placement(),
+                &ToastStack(&here, self.toasts.clone(), self.bottom_inset, position),
                 None,
             );
         }
@@ -1125,28 +1272,26 @@ pub(crate) fn search_row(
     row
 }
 
-struct ComboPanel<'a> {
-    combo: &'a Combobox,
-    query: State<String>,
-    highlight: State<usize>,
-    open: State<bool>,
+/// A search box over a list of options, as a [`Combobox`] and a searchable
+/// [`Select`](crate::Select) open. `pick` also has to close it.
+pub(crate) struct SearchPanel<'a> {
+    pub options: &'a [String],
+    pub current: Option<usize>,
+    pub pick: Rc<dyn Fn(usize)>,
+    pub query: State<String>,
+    pub highlight: State<usize>,
+    pub open: State<bool>,
+    pub width: f32,
 }
 
-impl View for ComboPanel<'_> {
+impl View for SearchPanel<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let q = self.query.get();
         let matches: Vec<usize> =
-            (0..self.combo.options.len()).filter(|&i| fuzzy_match(&self.combo.options[i], &q)).collect();
+            (0..self.options.len()).filter(|&i| fuzzy_match(&self.options[i], &q)).collect();
         let hl = self.highlight.get().min(matches.len().saturating_sub(1));
-        let current = self.combo.selected.get();
-        let pick = {
-            let (sel, open) = (self.combo.selected.clone(), self.open.clone());
-            Rc::new(move |i: usize| {
-                sel.set(Some(i));
-                open.set(false);
-            })
-        };
+        let (current, pick) = (self.current, self.pick.clone());
         let (h, m, p, open) =
             (self.highlight.clone(), Rc::new(matches.clone()), pick.clone(), self.open.clone());
         let field = cx.child(
@@ -1173,13 +1318,7 @@ impl View for ComboPanel<'_> {
         let mut rows = vec![field];
         for (n, &i) in matches.iter().enumerate().take(50) {
             let p = pick.clone();
-            rows.push(search_row(
-                cx,
-                &self.combo.options[i],
-                current == Some(i),
-                n == hl,
-                Rc::new(move || p(i)),
-            ));
+            rows.push(search_row(cx, &self.options[i], current == Some(i), n == hl, Rc::new(move || p(i))));
         }
         if matches.is_empty() {
             rows.push(util::label(
@@ -1190,7 +1329,7 @@ impl View for ComboPanel<'_> {
                 theme.color(Semantic::InkMuted),
             ));
         }
-        let node = panel(cx, &rows, 6.0, self.combo.width);
+        let node = panel(cx, &rows, 6.0, self.width);
         cx.semantics(node, Semantics::new(Role::ListBox));
         node
     }
@@ -1273,7 +1412,22 @@ impl View for Combobox {
         cx.cursor(node, CursorIcon::Pointer);
         if is_open {
             let close = open.clone();
-            let panel = ComboPanel { combo: self, query, highlight, open: open.clone() };
+            let pick: Rc<dyn Fn(usize)> = {
+                let (selected, open) = (self.selected.clone(), open.clone());
+                Rc::new(move |i| {
+                    selected.set(Some(i));
+                    open.set(false);
+                })
+            };
+            let panel = SearchPanel {
+                options: &self.options,
+                current: self.selected.get(),
+                pick,
+                query,
+                highlight,
+                open: open.clone(),
+                width: self.width,
+            };
             cx.overlay(node, Placement::Below, &panel, Some(Rc::new(move || close.set(false))));
         }
         node

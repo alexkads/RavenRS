@@ -56,6 +56,8 @@ pub enum Semantic {
     Chart4,
     /// `chart-5`: the fifth series of a chart.
     Chart5,
+    /// `chart-grid`: the gridlines of a chart.
+    ChartGrid,
 }
 
 /// The color tokens of one theme.
@@ -118,6 +120,7 @@ impl Palette {
             Semantic::Chart3 => self.chart_color(0x8b5cf6, 0xa78bfa),
             Semantic::Chart4 => self.chart_color(0xe08a00, 0xfbbf24),
             Semantic::Chart5 => self.chart_color(0xdb2777, 0xf472b6),
+            Semantic::ChartGrid => self.border,
         }
     }
 

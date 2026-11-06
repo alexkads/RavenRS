@@ -1,17 +1,16 @@
 //! Native entry point: `cargo run -p family-finance`.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use family_finance::db::{Database, DbResult};
-use family_finance::ui::App;
+use family_finance::themes;
+use family_finance::ui::Opening;
 use family_finance::update::{self, Updater};
 use family_finance::{icon, paths, today};
-use ravenrs::native::{AppIdentity, PlatformError, WindowOptions, diagnose, run, run_as};
+use ravenrs::movie::RecentErrors;
+use ravenrs::native::{AppIdentity, PlatformError, SystemTray, WindowOptions, diagnose, run_as};
 use ravenrs::prelude::*;
-
-fn open(path: &Path) -> DbResult<Database> {
-    Database::open(path)
-}
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
 
 fn main() -> Result<(), PlatformError> {
     let mut arguments = std::env::args().skip(1);
@@ -26,42 +25,35 @@ fn main() -> Result<(), PlatformError> {
         print!("{}", diagnose());
         return Ok(());
     }
-    tracing_subscriber::fmt()
-        .with_env_filter(
+    let errors = RecentErrors::default();
+    tracing_subscriber::registry()
+        .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "info,wgpu=warn,naga=warn".into()),
         )
+        .with(tracing_subscriber::fmt::layer())
+        .with(errors.clone())
         .init();
+    // Another file is another app, as when testing beside the installed one.
+    let everyday = first.is_none();
     let path = first.map_or_else(paths::database, PathBuf::from);
-    let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(Theme::raven_light());
-    match open(&path) {
-        Ok(db) => {
-            let copies = family_finance::backup::copies_folder(&path);
-            if let Err(e) = family_finance::backup::keep_daily_copy(&db, &copies, today()) {
-                tracing::warn!(error = %e, "could not keep the copy of the day");
-            }
-            let updater = Updater::idle();
-            updater.watch();
-            let app = App::new(db, today(), Some(path), updater);
-            let identity = AppIdentity::new(paths::APP_ID)
-                .labels(Labels::pt_br())
-                .diagnostics(app.diagnostics())
-                .new_issue_url("https://github.com/alexkads/RavenRS/issues/new");
-            let identity = match icon() {
-                Some(icon) => identity.icon(icon),
-                None => identity,
-            };
-            run_as(app, options, identity)
-        }
-        Err(e) => {
-            tracing::error!(error = %e, path = %path.display(), "could not open the database");
-            run(
-                VStack::new((
-                    Alert::new("Não foi possível abrir o banco de dados", e.to_string()).tone(Tone::Danger),
-                ))
-                .padding(32.0),
-                options.size(640.0, 200.0),
-            )
-        }
+    if everyday {
+        family_finance::reminders::watch(path.clone());
     }
+    let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(themes::remembered());
+    let diagnostics = Diagnostics::default();
+    let identity = AppIdentity::new(paths::APP_ID)
+        .labels(Labels::pt_br())
+        .diagnostics(diagnostics.clone())
+        .new_issue_url("https://github.com/alexkads/RavenRS/issues/new");
+    let identity = match icon() {
+        Some(icon) => identity.icon(icon),
+        None => identity,
+    };
+    let identity = if everyday {
+        identity.close_to_tray(SystemTray::new("Raven Finanças").open("Abrir o Raven Finanças").quit("Sair"))
+    } else {
+        identity
+    };
+    run_as(Opening::new(path, today(), Updater::idle(), diagnostics, errors), options, identity)
 }

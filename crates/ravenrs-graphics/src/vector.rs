@@ -55,9 +55,61 @@ pub enum Layer {
         /// Its color.
         color: Color,
     },
+    /// Another layer, seen only inside a rectangle. Outputs that only write shapes
+    /// write it whole.
+    Clipped {
+        /// Where it shows.
+        rect: Rect,
+        /// What shows.
+        layer: Box<Layer>,
+    },
+}
+
+/// The box around an outline: its curves stay inside the box of their control points.
+fn outline_bounds(path: &[PathSegment]) -> Option<(f32, f32, f32, f32)> {
+    let mut found: Option<(f32, f32, f32, f32)> = None;
+    let mut grow = |p: &Point| {
+        let (x0, y0, x1, y1) = found.unwrap_or((p.x, p.y, p.x, p.y));
+        found = Some((x0.min(p.x), y0.min(p.y), x1.max(p.x), y1.max(p.y)));
+    };
+    for segment in path {
+        match segment {
+            PathSegment::Move(p) | PathSegment::Line(p) => grow(p),
+            PathSegment::Cubic(a, b, c) => {
+                grow(a);
+                grow(b);
+                grow(c);
+            }
+            PathSegment::Close => {}
+        }
+    }
+    found
+}
+
+fn inflated(bounds: (f32, f32, f32, f32), by: f32) -> Rect {
+    let (x0, y0, x1, y1) = bounds;
+    Rect::new(x0 - by, y0 - by, x1 - x0 + by * 2.0, y1 - y0 + by * 2.0)
 }
 
 impl Layer {
+    /// A box it stays inside of, once drawn, or `None` if it draws nothing.
+    pub fn bounds(&self) -> Option<Rect> {
+        match self {
+            Self::Shape(shape) => {
+                let reach = shape.stroke.map_or(0.0, |(width, _)| width / 2.0);
+                outline_bounds(&shape.path).map(|b| inflated(b, reach + 1.0))
+            }
+            Self::Gradient { path, .. } => outline_bounds(path).map(|b| inflated(b, 1.0)),
+            Self::Dashed { path, width, .. } => outline_bounds(path).map(|b| inflated(b, width / 2.0 + 1.0)),
+            Self::Clipped { rect, layer } => {
+                let inner = layer.bounds()?;
+                let (x0, y0) = (rect.x().max(inner.x()), rect.y().max(inner.y()));
+                let (x1, y1) = (rect.max_x().min(inner.max_x()), rect.max_y().min(inner.max_y()));
+                (x1 > x0 && y1 > y0).then(|| Rect::new(x0, y0, x1 - x0, y1 - y0))
+            }
+        }
+    }
+
     /// The closest a plain [`Shape`] gets, for outputs that only write shapes.
     pub fn to_shape(&self) -> Shape {
         match self {
@@ -71,6 +123,7 @@ impl Layer {
             Self::Dashed { path, width, color, .. } => {
                 Shape { path: path.clone(), fill: None, stroke: Some((*width, *color)) }
             }
+            Self::Clipped { layer, .. } => layer.to_shape(),
         }
     }
 }
@@ -173,15 +226,20 @@ enum LayerRef<'a> {
     Layer(&'a Layer),
 }
 
-fn draw_shape(pixmap: &mut tiny_skia::Pixmap, shape: &Shape, transform: tiny_skia::Transform) {
+fn draw_shape(
+    pixmap: &mut tiny_skia::Pixmap,
+    shape: &Shape,
+    transform: tiny_skia::Transform,
+    mask: Option<&tiny_skia::Mask>,
+) {
     let Some(path) = build_path(&shape.path) else { return };
     if let Some(fill) = shape.fill {
         let paint = paint_of(fill);
-        pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, transform, None);
+        pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, transform, mask);
     }
     if let Some((width, color)) = shape.stroke {
         let paint = paint_of(color);
-        pixmap.stroke_path(&path, &paint, &round_stroke(width), transform, None);
+        pixmap.stroke_path(&path, &paint, &round_stroke(width), transform, mask);
     }
 }
 
@@ -204,9 +262,20 @@ fn skia_color(color: Color) -> tiny_skia::Color {
     .unwrap_or(tiny_skia::Color::TRANSPARENT)
 }
 
-fn draw_layer(pixmap: &mut tiny_skia::Pixmap, layer: &Layer, transform: tiny_skia::Transform) {
+fn draw_layer(
+    pixmap: &mut tiny_skia::Pixmap,
+    layer: &Layer,
+    transform: tiny_skia::Transform,
+    mask: Option<&tiny_skia::Mask>,
+) {
     match layer {
-        Layer::Shape(shape) => draw_shape(pixmap, shape, transform),
+        Layer::Shape(shape) => draw_shape(pixmap, shape, transform, mask),
+        Layer::Clipped { rect, layer } => {
+            let Some(mut own) = tiny_skia::Mask::new(pixmap.width(), pixmap.height()) else { return };
+            let Some(outline) = build_path(&rectangle(*rect, 0.0)) else { return };
+            own.fill_path(&outline, tiny_skia::FillRule::Winding, true, transform);
+            draw_layer(pixmap, layer, transform, Some(&own));
+        }
         Layer::Gradient { path, top, bottom } => {
             let Some(path) = build_path(path) else { return };
             let stops = vec![
@@ -223,7 +292,7 @@ fn draw_layer(pixmap: &mut tiny_skia::Pixmap, layer: &Layer, transform: tiny_ski
                 return;
             };
             let paint = tiny_skia::Paint { anti_alias: true, shader, ..tiny_skia::Paint::default() };
-            pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, transform, None);
+            pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, transform, mask);
         }
         Layer::Dashed { path, width, dash, color } => {
             let Some(path) = build_path(path) else { return };
@@ -232,7 +301,7 @@ fn draw_layer(pixmap: &mut tiny_skia::Pixmap, layer: &Layer, transform: tiny_ski
                 dash: tiny_skia::StrokeDash::new(vec![*dash, *dash], 0.0),
                 ..round_stroke(*width)
             };
-            pixmap.stroke_path(&path, &paint, &stroke, transform, None);
+            pixmap.stroke_path(&path, &paint, &stroke, transform, mask);
         }
     }
 }
@@ -249,8 +318,8 @@ fn rasterize_all<'a>(
     let transform = tiny_skia::Transform::from_translate(-rect.x(), -rect.y()).post_scale(scale, scale);
     for layer in layers {
         match layer {
-            LayerRef::Shape(shape) => draw_shape(&mut pixmap, shape, transform),
-            LayerRef::Layer(layer) => draw_layer(&mut pixmap, layer, transform),
+            LayerRef::Shape(shape) => draw_shape(&mut pixmap, shape, transform, None),
+            LayerRef::Layer(layer) => draw_layer(&mut pixmap, layer, transform, None),
         }
     }
     // The pixmap is premultiplied; images hold straight alpha.
@@ -363,6 +432,18 @@ mod tests {
         let image = rasterize_layers(&[layer], Rect::new(0.0, 0.0, 40.0, 10.0), 1.0).expect("an image");
         assert!(pixel(&image, 4, 5)[3] > 200, "a dash");
         assert_eq!(pixel(&image, 12, 5)[3], 0, "a gap");
+    }
+
+    #[test]
+    fn a_clipped_layer_shows_only_inside_its_rectangle() {
+        let area = Rect::new(0.0, 0.0, 40.0, 40.0);
+        let layer = Layer::Clipped {
+            rect: Rect::new(0.0, 0.0, 40.0, 15.0),
+            layer: Box::new(Layer::Shape(Shape::filled(rectangle(area, 0.0), RED))),
+        };
+        let image = rasterize_layers(&[layer], area, 1.0).expect("an image");
+        assert_eq!(pixel(&image, 5, 5)[3], 255, "inside");
+        assert_eq!(pixel(&image, 5, 30)[3], 0, "outside");
     }
 
     #[test]

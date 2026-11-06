@@ -4,7 +4,7 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, Insets, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, PathFill, Quad, Rect, Role, Scene};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
@@ -115,7 +115,7 @@ impl fmt::Debug for FilePicker {
 }
 
 /// A size as people read it.
-fn size_text(bytes: u64) -> String {
+pub(crate) fn size_text(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["KB", "MB", "GB", "TB"];
     if bytes < 1024 {
         return format!("{bytes} B");
@@ -185,6 +185,317 @@ fn refusal_text(labels: &crate::Labels, name: &str, reason: Refusal) -> String {
 
 fn normalized(extensions: impl IntoIterator<Item = impl Into<String>>) -> Vec<String> {
     extensions.into_iter().map(|e| e.into().trim_start_matches('.').to_lowercase()).collect()
+}
+
+/// What opens the system's chooser for these rules, and hands over what comes back.
+fn chooser(cx: &BuildCx<'_>, rules: &Rules, on_files: Rc<dyn Fn(Vec<PickedFile>)>) -> Rc<dyn Fn()> {
+    let (picker, waker) = (cx.file_picker(), cx.ui_waker());
+    let request = FileRequest {
+        extensions: rules.extensions.clone(),
+        multiple: rules.most_files != Some(1),
+        most_bytes: Some(rules.most_bytes),
+    };
+    Rc::new(move || {
+        let (on_files, waker) = (on_files.clone(), waker.clone());
+        picker.pick(&request, move |files| {
+            on_files(files);
+            waker.wake();
+        });
+    })
+}
+
+/// One line for each refused file, saying why.
+fn push_refusals(cx: &mut BuildCx<'_>, refused: &[(String, Refusal)], rows: &mut Vec<NodeId>) {
+    let (theme, labels) = (*cx.theme(), cx.labels());
+    for (name, reason) in refused {
+        let line = refusal_text(&labels, name, *reason);
+        let text = util::label(cx, &line, TextStyle::Callout, None, theme.color(Semantic::Danger));
+        cx.semantics(text, Semantics::new(Role::Alert).name(line));
+        rows.push(text);
+    }
+}
+
+/// How thick the dashes of a [`DropZone`] are, in logical pixels, at rest and with files over it.
+const ZONE_STROKE: (f32, f32) = (1.0, 2.0);
+const ZONE_DASH: f32 = 6.0;
+const ZONE_GAP: f32 = 4.0;
+/// How much of what is under the hint of a [`DropZone`] still shows.
+const ZONE_HINT_OPACITY: f32 = 0.88;
+
+/// A dashed area around any content, which takes files dropped on it and shows when they are
+/// over the window. Unlike [`FileUpload`] it keeps no list: the files go to
+/// [`DropZone::on_files`], and what it holds and how it looks are up to the content.
+///
+/// A dropped file lands in the zone under the pointer. While it is being dragged, every zone
+/// on the screen lights up, because the platforms say only that files are over the window, and
+/// not where. A keyboard cannot drop anything, so [`DropZone::choosable`] is there for that.
+///
+/// ```
+/// use ravenrs_widgets::{DropZone, Text, Ui};
+///
+/// let zone = DropZone::new(Text::new("Photos of the session"))
+///     .accept(["jpg", "png"])
+///     .on_files(|files| println!("{} files", files.len()));
+/// let mut ui = Ui::new(zone, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+pub struct DropZone<C> {
+    content: C,
+    rules: Rules,
+    on_files: Option<Rc<dyn Fn(Vec<PickedFile>)>>,
+    on_refused: Option<Rc<dyn Fn(Vec<String>)>>,
+    label: Option<String>,
+    hint: Option<String>,
+    show_hint: bool,
+    choosable: bool,
+    quiet: bool,
+    padding: Option<f32>,
+    min_height: Option<f32>,
+    fill: bool,
+    disabled: bool,
+}
+
+impl<C> fmt::Debug for DropZone<C> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DropZone").field("rules", &self.rules).finish_non_exhaustive()
+    }
+}
+
+impl<C: View> DropZone<C> {
+    /// A zone around `content`, taking any file.
+    pub fn new(content: C) -> Self {
+        Self {
+            content,
+            rules: Rules { extensions: Vec::new(), most_bytes: DEFAULT_MOST_BYTES, most_files: None },
+            on_files: None,
+            on_refused: None,
+            label: None,
+            hint: None,
+            show_hint: true,
+            choosable: false,
+            quiet: false,
+            padding: None,
+            min_height: None,
+            fill: false,
+            disabled: false,
+        }
+    }
+
+    /// Called with the files it took. It is not called when all of them were refused.
+    pub fn on_files(mut self, handler: impl Fn(Vec<PickedFile>) + 'static) -> Self {
+        self.on_files = Some(Rc::new(handler));
+        self
+    }
+
+    /// Called with one sentence for each refused file, in the words of [`crate::Labels`], for
+    /// showing them elsewhere. Without it they show inside the zone, under the content.
+    pub fn on_refused(mut self, handler: impl Fn(Vec<String>) + 'static) -> Self {
+        self.on_refused = Some(Rc::new(handler));
+        self
+    }
+
+    /// Only these extensions, such as `["pdf", "png"]`. Any file by default.
+    pub fn accept(mut self, extensions: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.rules.extensions = normalized(extensions);
+        self
+    }
+
+    /// The largest file taken, in bytes. 100 MiB by default.
+    pub fn most_bytes(mut self, bytes: u64) -> Self {
+        self.rules.most_bytes = bytes;
+        self
+    }
+
+    /// The most files taken from one drop. No limit by default.
+    pub fn most_files(mut self, files: usize) -> Self {
+        self.rules.most_files = Some(files.max(1));
+        self
+    }
+
+    /// The name screen readers announce. By default, the words of the hint.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// What shows over the content while files are over the window. By default,
+    /// [`file_drop`](crate::Labels::file_drop) of the labels.
+    pub fn hint(mut self, hint: impl Into<String>) -> Self {
+        self.hint = Some(hint.into());
+        self
+    }
+
+    /// Shows nothing over the content while files are over the window, only the stronger edge.
+    pub fn no_hint(mut self) -> Self {
+        self.show_hint = false;
+        self
+    }
+
+    /// Makes the whole zone a button that opens the system's chooser, with a click, Enter or
+    /// Space, so that the keyboard can bring files too. Leave it off when the content has
+    /// its own way of choosing.
+    pub fn choosable(mut self) -> Self {
+        self.choosable = true;
+        self
+    }
+
+    /// Draws the dashes only while files are over the window, for a zone that is a whole
+    /// screen and should not look like one until then.
+    pub fn quiet(mut self) -> Self {
+        self.quiet = true;
+        self
+    }
+
+    /// The space around the content, in logical pixels (`space-4` by default).
+    pub fn padding(mut self, padding: f32) -> Self {
+        self.padding = Some(padding);
+        self
+    }
+
+    /// The shortest it gets, in logical pixels.
+    pub fn min_height(mut self, height: f32) -> Self {
+        self.min_height = Some(height);
+        self
+    }
+
+    /// Takes the free space of the parent, for a zone that is a whole screen.
+    pub fn fill(mut self) -> Self {
+        self.fill = true;
+        self
+    }
+
+    /// Turns it off: it takes no files and does not react to them.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+}
+
+/// What a [`DropZone`] shows over its content while files are over the window.
+fn zone_hint(cx: &mut BuildCx<'_>, words: &str, size: ravenrs_core::Size) -> NodeId {
+    let theme = *cx.theme();
+    let accent = theme.color(Semantic::Accent);
+    let icon = util::icon(cx, IconName::CloudUpload, 22.0, accent);
+    let text = util::label(cx, words, TextStyle::Callout, None, theme.color(Semantic::Ink));
+    cx.semantics(text, Semantics::hidden());
+    let fill = theme.color(Semantic::Surface);
+    let node = cx.container(
+        LayoutStyle {
+            absolute: Some((0.0, 0.0)),
+            width: Some(size.width),
+            height: Some(size.height),
+            spacing: theme.spacing.s2,
+            align: Align::Center,
+            justify: Justify::Center,
+            ..LayoutStyle::stack(Axis::Vertical)
+        },
+        &[icon, text],
+        Paint::Quad(QuadPaint {
+            corner_radius: theme.radii.md,
+            ..QuadPaint::new(fill.with_alpha(fill.a * ZONE_HINT_OPACITY))
+        }),
+    );
+    cx.semantics(node, Semantics::new(Role::Status).name(words));
+    node
+}
+
+impl<C: View> View for DropZone<C> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let refused: State<Vec<(String, Refusal)>> = cx.use_state(Vec::new);
+        let over = cx.files_over() && !self.disabled;
+        let bring: Rc<dyn Fn(Vec<PickedFile>)> = {
+            let (rules, shown) = (self.rules.clone(), refused.clone());
+            let (on_files, on_refused) = (self.on_files.clone(), self.on_refused.clone());
+            let labels = labels.clone();
+            Rc::new(move |arrived| {
+                if arrived.is_empty() {
+                    return;
+                }
+                let mut kept = Vec::new();
+                let out = rules.take(&mut kept, arrived);
+                match &on_refused {
+                    Some(tell) if !out.is_empty() => {
+                        tell(out.iter().map(|(name, why)| refusal_text(&labels, name, *why)).collect());
+                    }
+                    Some(_) => {}
+                    None => shown.set(out),
+                }
+                if let (Some(on_files), false) = (&on_files, kept.is_empty()) {
+                    on_files(kept);
+                }
+            })
+        };
+
+        let mut rows = vec![cx.child(&self.content)];
+        push_refusals(cx, &refused.get(), &mut rows);
+        let words = self.hint.as_deref().unwrap_or(&labels.file_drop);
+        if over && self.show_hint {
+            let size = cx.scroll_viewport().unwrap_or(ravenrs_core::Size::ZERO);
+            rows.push(zone_hint(cx, words, size));
+        }
+
+        let accent = theme.color(Semantic::Accent);
+        let base = theme.color(Semantic::Border);
+        let edge = if over {
+            accent
+        } else if self.disabled {
+            util::faded(base)
+        } else {
+            base
+        };
+        let stroke = if over { ZONE_STROKE.1 } else { ZONE_STROKE.0 };
+        let tint = over.then(|| accent.with_alpha(0.08));
+        let dashed = over || !self.quiet;
+        let radius = theme.radii.md;
+        let root = cx.container(
+            LayoutStyle {
+                padding: Insets::uniform(self.padding.unwrap_or(theme.spacing.s4)),
+                spacing: theme.spacing.s2,
+                min_height: self.min_height.or(self.fill.then_some(0.0)),
+                min_width: self.fill.then_some(0.0),
+                grow: if self.fill { 1.0 } else { 0.0 },
+                align: Align::Stretch,
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &rows,
+            Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
+                if let Some(tint) = tint {
+                    scene.push_quad(Quad::new(frame, tint).radius(radius));
+                }
+                if dashed {
+                    let outline = util::dashed_outline(frame, radius, stroke, ZONE_DASH, ZONE_GAP);
+                    scene.push_path(PathFill::solid(outline, edge));
+                }
+            })),
+        );
+        // The hint needs the size; and a drop looks for its place among what can be pointed at.
+        cx.report_frame(root);
+        cx.cursor(
+            root,
+            if self.choosable && !self.disabled { CursorIcon::Pointer } else { CursorIcon::Default },
+        );
+        let name = self.label.as_deref().unwrap_or(words);
+        if self.disabled {
+            cx.semantics(root, Semantics::new(Role::Group).name(name).disabled(true));
+            return root;
+        }
+        if self.choosable {
+            let choose = chooser(cx, &self.rules, bring.clone());
+            cx.on_click(root, choose);
+            cx.focusable(root, radius);
+            cx.semantics(
+                root,
+                Semantics::new(Role::Button).name(name).description(labels.file_choose.clone()),
+            );
+        } else {
+            cx.semantics(root, Semantics::new(Role::Group).name(name));
+        }
+        cx.on_file_drop(root, bring);
+        root
+    }
 }
 
 /// A place to bring files, with the system's chooser or by dropping them, and the list
@@ -343,25 +654,13 @@ impl View for FileUpload {
             let muted = state.ink(theme.color(Semantic::InkMuted));
             let icon = util::icon(cx, IconName::CloudUpload, 22.0, muted);
             let hint = util::label(cx, &labels.file_drop, TextStyle::Callout, None, muted);
-            let (picker, on_files) = (cx.file_picker(), bring.clone());
-            let request = FileRequest {
-                extensions: self.rules.extensions.clone(),
-                multiple: self.rules.most_files != Some(1),
-                most_bytes: Some(self.rules.most_bytes),
-            };
-            let waker = cx.ui_waker();
+            let choose = chooser(cx, &self.rules, bring.clone());
             let mut button = Button::new(labels.file_choose.clone())
                 .style(ButtonStyle::Secondary)
                 .size(ButtonSize::Small)
                 .disabled(state.disabled);
             if state.accepts_input() {
-                button = button.on_click(move || {
-                    let (on_files, waker) = (on_files.clone(), waker.clone());
-                    picker.pick(&request, move |files| {
-                        on_files(files);
-                        waker.wake();
-                    });
-                });
+                button = button.on_click(move || choose());
             }
             let button = cx.child(&button);
             let mut hints = vec![hint];
@@ -397,12 +696,7 @@ impl View for FileUpload {
             }
             rows.push(zone);
         }
-        for (name, reason) in refused.get() {
-            let line = refusal_text(&labels, &name, reason);
-            let text = util::label(cx, &line, TextStyle::Callout, None, theme.color(Semantic::Danger));
-            cx.semantics(text, Semantics::new(Role::Alert).name(line));
-            rows.push(text);
-        }
+        push_refusals(cx, &refused.get(), &mut rows);
         let files = self.files.get();
         let can_remove = state.accepts_input();
         for file in &files {

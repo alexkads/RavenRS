@@ -84,6 +84,37 @@ fn it_covers_the_window_from_the_first_frame_with_an_opaque_canvas() {
     assert!(ui.next_wake().is_some(), "the spinner is live, so frames keep coming while it loads");
 }
 
+/// The app under a splash: it shows up late, and has layers of its own.
+struct LatePage(State<bool>);
+
+impl View for LatePage {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let anchor = cx.empty();
+        if self.0.get() {
+            cx.overlay(anchor, Placement::Fill, &Text::new("A layer of the page"), None);
+        }
+        anchor
+    }
+}
+
+#[test]
+fn a_page_with_layers_appearing_under_it_does_not_make_it_fade_in_again() {
+    let (visible, page) = (State::new(true), State::new(false));
+    let mut ui =
+        running(VStack::new((LatePage(page.clone()), SplashScreen::new(visible.binding(), "Raven"))));
+    let mut t = 0.0;
+    frames(&mut ui, &mut t, 2);
+
+    page.set(true);
+    // Long enough for a layer that started over to show through.
+    frames(&mut ui, &mut t, 12);
+
+    let Brush::Solid(fill) = cover(&ui).expect("the splash covers the window").fill else {
+        panic!("a solid fill")
+    };
+    assert_eq!(fill.a, Theme::raven_dark().color(Semantic::Canvas).a, "still opaque, hiding the page");
+}
+
 #[test]
 fn it_opens_later_with_a_fade() {
     let visible = State::new(false);
@@ -267,4 +298,34 @@ fn a_logo_takes_the_place_of_the_icon() {
     );
     let tree = ui.access_tree();
     assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("Artwork")));
+}
+
+/// How visible the first text painted is, which is the name.
+fn name_opacity(ui: &Ui) -> f32 {
+    ui.scene()
+        .primitives()
+        .iter()
+        .find_map(|p| if let Primitive::Glyphs(run) = p { Some(run.color.a) } else { None })
+        .unwrap_or(0.0)
+}
+
+#[test]
+fn the_name_waits_for_the_logo_and_keeps_its_place() {
+    let visible = State::new(true);
+    let mut ui = running(SplashScreen::new(visible.binding(), "Raven").progress(0.5).reveal_after(1.0));
+    let place = |ui: &mut Ui| {
+        let tree = ui.access_tree();
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some("Raven")).map(|n| n.bounds)
+    };
+    let before = place(&mut ui);
+    assert!(before.is_some(), "screen readers have it from the start");
+    assert!(name_opacity(&ui) < 0.01, "hidden while the logo plays");
+    assert_eq!(ui.next_wake(), Some(1.0), "its time wakes the window, with nothing running till then");
+
+    let mut t = 1.0;
+    ui.set_time(t);
+    ui.update();
+    frames(&mut ui, &mut t, 60);
+    assert!(name_opacity(&ui) > 0.99, "shown at its time");
+    assert_eq!(place(&mut ui), before, "nothing moved when it appeared");
 }

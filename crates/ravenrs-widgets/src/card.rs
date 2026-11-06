@@ -19,6 +19,7 @@ pub struct Card<V> {
     border: bool,
     spacing: Option<f32>,
     on_click: Option<Rc<dyn Fn()>>,
+    selected: Option<bool>,
 }
 
 impl<V: fmt::Debug> fmt::Debug for Card<V> {
@@ -39,6 +40,7 @@ impl<V: View> Card<V> {
             border: true,
             spacing: None,
             on_click: None,
+            selected: None,
         }
     }
 
@@ -85,16 +87,31 @@ impl<V: View> Card<V> {
         self
     }
 
+    /// Marks it as the chosen one among others: a thicker accent border and a tint of
+    /// the accent, with screen readers told which. Works with or without
+    /// [`Self::on_click`], and shows even with [`Self::border`] off.
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.selected = Some(selected);
+        self
+    }
+
     fn paint(&self, cx: &BuildCx<'_>, fill: Color) -> QuadPaint {
         let theme = cx.theme();
         let active = self.on_click.is_some() && (cx.is_hovered() || cx.is_focus_visible());
+        let selected = self.selected == Some(true);
+        let accent = theme.color(Semantic::Accent);
         QuadPaint {
-            fill: fill.into(),
+            fill: if selected { fill.lerp(accent, 0.12).into() } else { fill.into() },
             corner_radius: self.corner_radius.unwrap_or(theme.radii.xl),
-            border: self.border.then(|| Border {
-                width: 1.0,
-                color: theme.color(if active { Semantic::Accent } else { Semantic::Border }),
-            }),
+            // The width says it too, so being chosen is not told by color alone.
+            border: if selected {
+                Some(Border { width: 2.0, color: accent })
+            } else {
+                self.border.then(|| Border {
+                    width: 1.0,
+                    color: theme.color(if active { Semantic::Accent } else { Semantic::Border }),
+                })
+            },
             shadow: self.shadow.unwrap_or(Some(theme.elevation.soft)),
         }
     }
@@ -114,10 +131,16 @@ impl<V: View> Card<V> {
             crate::motion::control(cx, node);
         }
         if let Some(handler) = &self.on_click {
-            cx.semantics(node, Semantics::new(Role::Button));
+            let mut semantics = Semantics::new(Role::Button);
+            if let Some(selected) = self.selected {
+                semantics = semantics.selected(selected);
+            }
+            cx.semantics(node, semantics);
             cx.on_click(node, handler.clone());
             cx.focusable(node, corner_radius);
             cx.cursor(node, CursorIcon::Pointer);
+        } else if let Some(selected) = self.selected {
+            cx.semantics(node, Semantics::new(Role::Group).selected(selected));
         }
         node
     }

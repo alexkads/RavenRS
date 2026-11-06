@@ -13,15 +13,46 @@ use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics, Wi
 use crate::floating::SheetLayer;
 use crate::overlay::Bubble;
 use crate::{
-    AnyView, Badge, ButtonSize, Divider, IconButton, IconName, Motion, ScrollView, Side, Skeleton, Tooltip,
-    View, ViewSeq, motion, util,
+    AnyView, Badge, ButtonSize, Divider, IconButton, IconName, Motion, ScrollView, Side, Skeleton, Toggle,
+    Tooltip, View, ViewSeq, motion, util,
 };
+
+/// How a [`Tabs`] bar looks.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TabsVariant {
+    /// Labels over a hairline, with a line that slides under the open one.
+    #[default]
+    Underline,
+    /// A rounded track with the open tab raised in it, for a few short choices.
+    Segmented,
+}
 
 /// A tab bar with one content view per tab; only the selected one is built.
 /// Arrow keys move between tabs and open them; Home and End jump to the ends.
+///
+/// With [`item`](Self::item) instead of [`tab`](Self::tab), it is only the bar, and
+/// what `selected` changes is up to the app.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{ButtonSize, Tabs, TabsVariant, Ui};
+///
+/// let view = State::new(0);
+/// let bar = Tabs::new(view.binding())
+///     .variant(TabsVariant::Segmented)
+///     .size(ButtonSize::Small)
+///     .item("Password")
+///     .item("Link by e-mail");
+/// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Tabs {
     selected: Binding<usize>,
-    tabs: Vec<(String, AnyView)>,
+    tabs: Vec<(String, Option<AnyView>)>,
+    variant: TabsVariant,
+    size: ButtonSize,
+    disabled: bool,
 }
 
 impl fmt::Debug for Tabs {
@@ -33,12 +64,44 @@ impl fmt::Debug for Tabs {
 impl Tabs {
     /// Empty tabs; `selected` holds the zero-based index of the open tab.
     pub fn new(selected: Binding<usize>) -> Self {
-        Self { selected, tabs: Vec::new() }
+        Self {
+            selected,
+            tabs: Vec::new(),
+            variant: TabsVariant::Underline,
+            size: ButtonSize::Medium,
+            disabled: false,
+        }
     }
 
     /// Adds a tab with this label and content.
     pub fn tab(mut self, label: impl Into<String>, content: impl View + 'static) -> Self {
-        self.tabs.push((label.into(), Box::new(content)));
+        self.tabs.push((label.into(), Some(Box::new(content))));
+        self
+    }
+
+    /// Adds a tab with this label and no content, for an app that shows what goes with
+    /// it elsewhere.
+    pub fn item(mut self, label: impl Into<String>) -> Self {
+        self.tabs.push((label.into(), None));
+        self
+    }
+
+    /// How the bar looks ([`TabsVariant::Underline`] by default).
+    pub fn variant(mut self, variant: TabsVariant) -> Self {
+        self.variant = variant;
+        self
+    }
+
+    /// The bar's size, on the scale of the buttons (`Medium` by default).
+    pub fn size(mut self, size: ButtonSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Keeps the open tab from changing, such as while waiting for an answer that
+    /// belongs to it. The bar fades and the tabs ignore input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
         self
     }
 }
@@ -48,15 +111,27 @@ struct TabButton {
     roving: util::Roving,
     label: String,
     selected: Binding<usize>,
+    variant: TabsVariant,
+    size: ButtonSize,
+    disabled: bool,
 }
 
-impl View for TabButton {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+impl TabButton {
+    fn ink(&self, cx: &BuildCx<'_>, on: bool) -> Color {
+        let theme = cx.theme();
+        if self.disabled {
+            util::faded(theme.color(if on { Semantic::Ink } else { Semantic::InkMuted }))
+        } else if on || cx.is_hovered() {
+            theme.color(Semantic::Ink)
+        } else {
+            theme.color(Semantic::InkMuted)
+        }
+    }
+
+    fn underline(&self, cx: &mut BuildCx<'_>, on: bool) -> NodeId {
         let theme = *cx.theme();
-        let on = self.selected.get() == self.roving.index;
-        let color =
-            if on || cx.is_hovered() { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
-        let label = util::label(cx, &self.label, TextStyle::Body, Some(Weight::SEMIBOLD), color);
+        let color = self.ink(cx, on);
+        let label = util::label(cx, &self.label, self.size.text_style(), Some(Weight::SEMIBOLD), color);
         motion::control(cx, label);
         let label = cx.container(
             LayoutStyle { padding: Insets::symmetric(0.0, 2.0), ..LayoutStyle::stack(Axis::Horizontal) },
@@ -77,13 +152,60 @@ impl View for TabButton {
         if on {
             cx.motion(marker, Motion::new().shared_layout(self.scope, 0, theme.motion.snappy));
         }
+        let (top, gap) = match self.size {
+            ButtonSize::Medium | ButtonSize::Large => (8.0, 10.0),
+            ButtonSize::Small | ButtonSize::Mini => (4.0, 6.0),
+        };
         let style = LayoutStyle {
-            padding: Insets { top: 8.0, ..Insets::ZERO },
-            spacing: 10.0,
+            padding: Insets { top, ..Insets::ZERO },
+            spacing: gap,
             ..LayoutStyle::stack(Axis::Vertical)
         };
-        let node = cx.container(style, &[label, marker], Paint::None);
-        cx.semantics(node, Semantics::new(Role::Tab).selected(on));
+        cx.container(style, &[label, marker], Paint::None)
+    }
+
+    fn segment(&self, cx: &mut BuildCx<'_>, on: bool) -> NodeId {
+        let theme = *cx.theme();
+        let color = self.ink(cx, on);
+        let weight = on.then_some(Weight::SEMIBOLD);
+        let label = util::label(cx, &self.label, self.size.text_style(), weight, color);
+        let paint = if on {
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.sm,
+                shadow: Some(theme.elevation.soft),
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+            })
+        } else {
+            Paint::None
+        };
+        let node = cx.container(
+            LayoutStyle {
+                height: Some(self.size.height() - 2.0 * SEGMENT_TRACK_PADDING),
+                padding: Insets::symmetric(0.0, theme.spacing.s3),
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[label],
+            paint,
+        );
+        motion::control(cx, node);
+        node
+    }
+}
+
+impl View for TabButton {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let on = self.selected.get() == self.roving.index;
+        let node = match self.variant {
+            TabsVariant::Underline => self.underline(cx, on),
+            TabsVariant::Segmented => self.segment(cx, on),
+        };
+        cx.semantics(node, Semantics::new(Role::Tab).selected(on).disabled(self.disabled));
+        if self.disabled {
+            return node;
+        }
         let (selected, index) = (self.selected.clone(), self.roving.index);
         cx.on_click(node, Rc::new(move || selected.set(index)));
         // Tabs activate as focus moves (WAI-ARIA tabs, automatic activation).
@@ -95,9 +217,13 @@ impl View for TabButton {
     }
 }
 
+/// What separates the track of segmented tabs from the piece inside it.
+const SEGMENT_TRACK_PADDING: f32 = 3.0;
+
 impl View for Tabs {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let border = cx.theme().color(Semantic::Border);
+        let theme = *cx.theme();
+        let border = theme.color(Semantic::Border);
         let (count, focus_to) = (self.tabs.len(), util::roving_cell(cx, None));
         let scope = cx.widget_id();
         let buttons: Vec<NodeId> = self
@@ -106,26 +232,51 @@ impl View for Tabs {
             .enumerate()
             .map(|(index, (label, _))| {
                 let roving = util::Roving { index, count, focus_to: focus_to.clone() };
-                cx.child(&TabButton { scope, roving, label: label.clone(), selected: self.selected.clone() })
+                cx.child(&TabButton {
+                    scope,
+                    roving,
+                    label: label.clone(),
+                    selected: self.selected.clone(),
+                    variant: self.variant,
+                    size: self.size,
+                    disabled: self.disabled,
+                })
             })
             .collect();
-        let bar = cx.container(
-            LayoutStyle {
-                spacing: 24.0,
-                align_self: Some(Align::Stretch),
-                // Tabs that do not fit go to another line instead of running over each other.
-                wrap: true,
-                ..LayoutStyle::stack(Axis::Horizontal)
-            },
-            &buttons,
-            Paint::Custom(Rc::new(move |f: Rect, scene| {
-                scene.push_quad(Quad::new(Rect::new(f.x(), f.max_y() - 1.0, f.width(), 1.0), border));
-            })),
-        );
+        let bar = match self.variant {
+            TabsVariant::Underline => cx.container(
+                LayoutStyle {
+                    spacing: 24.0,
+                    align_self: Some(Align::Stretch),
+                    // Tabs that do not fit go to another line instead of running over each other.
+                    wrap: true,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &buttons,
+                Paint::Custom(Rc::new(move |f: Rect, scene| {
+                    scene.push_quad(Quad::new(Rect::new(f.x(), f.max_y() - 1.0, f.width(), 1.0), border));
+                })),
+            ),
+            TabsVariant::Segmented => cx.container(
+                LayoutStyle {
+                    padding: Insets::uniform(SEGMENT_TRACK_PADDING),
+                    spacing: 2.0,
+                    align: Align::Center,
+                    align_self: Some(Align::Start),
+                    wrap: true,
+                    ..LayoutStyle::stack(Axis::Horizontal)
+                },
+                &buttons,
+                Paint::Quad(QuadPaint {
+                    corner_radius: theme.radii.md,
+                    ..QuadPaint::new(theme.color(Semantic::Ink).with_alpha(0.06))
+                }),
+            ),
+        };
         cx.semantics(bar, Semantics::new(Role::TabList));
         let selected = self.selected.get().min(self.tabs.len().saturating_sub(1));
         let mut children = vec![bar];
-        if let Some((label, content)) = self.tabs.get(selected) {
+        if let Some((label, Some(content))) = self.tabs.get(selected) {
             // Keyed by tab so each tab keeps its own local state.
             let content = cx.keyed_child(selected as u64, content.as_ref());
             // A box that fills the space, so content that grows still does.
@@ -600,7 +751,8 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
         };
         // Reduced motion makes this instant. Labels stay until the column has
         // narrowed, and the column's edge uncovers them on the way back.
-        let width = cx.animated(target, theme.motion.gentle);
+        // Asked for many times a day, so it ends quickly and at once, without a spring's tail.
+        let width = cx.animated(target, theme.motion.base);
         let scope = Rc::new(SidebarScope {
             icons: self.collapse == SidebarCollapse::Icons && !open && width <= target + 0.5,
             in_sheet: narrow,
@@ -645,13 +797,14 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
         let inset = margin.min(width / 2.0);
         let card_width = (width - 2.0 * inset).max(0.0);
         let full_width = (self.width - 2.0 * margin).max(0.0);
+        let reduced = scope.icons;
         let column = SidebarColumn {
             children: &self.children,
             parts,
             scope,
-            // Off-screen closing uncovers a column of constant width; closing to
-            // icons reflows it, so the icons can end up centered.
-            width: if self.collapse == SidebarCollapse::Hidden { full_width } else { card_width },
+            // The column keeps its width while the edge covers and uncovers it, so that
+            // nothing inside changes on the way, as names squeezing letter by letter.
+            width: if reduced { card_width } else { full_width },
             full_width,
             height: None,
         };
@@ -1522,14 +1675,84 @@ impl View for SidebarSkeleton {
     }
 }
 
-/// A path of locations, the last one being the current page.
-#[derive(Clone, Debug)]
-pub struct Breadcrumb(Vec<String>);
+/// A path of locations, the last one being the current page. With
+/// [`on_navigate`](Self::on_navigate) the locations before it can be clicked.
+///
+/// ```
+/// use ravenrs_widgets::{Breadcrumb, IconName, Ui};
+///
+/// let path = Breadcrumb::new(["Archive", "2026", "Weddings"])
+///     .root_icon(IconName::Cloud)
+///     .on_navigate(|index| println!("go to level {index}"));
+/// let mut ui = Ui::new(path, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+#[derive(Clone)]
+pub struct Breadcrumb {
+    items: Vec<String>,
+    root_icon: Option<IconName>,
+    on_navigate: Option<Rc<dyn Fn(usize)>>,
+}
+
+impl fmt::Debug for Breadcrumb {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Breadcrumb").field(&self.items).finish()
+    }
+}
 
 impl Breadcrumb {
     /// A breadcrumb of `items`, from the root to the current page.
     pub fn new(items: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self(items.into_iter().map(Into::into).collect())
+        Self { items: items.into_iter().map(Into::into).collect(), root_icon: None, on_navigate: None }
+    }
+
+    /// Makes every location but the current page a link: a click, Enter or Space runs
+    /// `handler` with its position, 0 being the root.
+    pub fn on_navigate(mut self, handler: impl Fn(usize) + 'static) -> Self {
+        self.on_navigate = Some(Rc::new(handler));
+        self
+    }
+
+    /// Shows an icon before the first location.
+    pub fn root_icon(mut self, icon: IconName) -> Self {
+        self.root_icon = Some(icon);
+        self
+    }
+}
+
+/// A location of a [`Breadcrumb`] that can be gone back to.
+struct BreadcrumbLink<'a> {
+    label: &'a str,
+    icon: Option<IconName>,
+    go: Rc<dyn Fn()>,
+}
+
+impl View for BreadcrumbLink<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let lit = cx.is_hovered() || cx.is_focus_visible();
+        let color = theme.color(if lit { Semantic::Ink } else { Semantic::InkMuted });
+        let mut parts = Vec::new();
+        if let Some(icon) = self.icon {
+            parts.push(util::icon(cx, icon, 14.0, color));
+        }
+        parts.push(util::label(cx, self.label, TextStyle::Callout, None, color));
+        let fill = if lit { theme.color(Semantic::Ink).with_alpha(0.06) } else { Color::TRANSPARENT };
+        let node = cx.container(
+            LayoutStyle {
+                padding: Insets::symmetric(2.0, 4.0),
+                spacing: 4.0,
+                align: Align::Center,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &parts,
+            Paint::Quad(QuadPaint { corner_radius: theme.radii.sm, ..QuadPaint::new(fill) }),
+        );
+        cx.semantics(node, Semantics::new(Role::Link).name(self.label.to_owned()));
+        cx.on_click(node, self.go.clone());
+        cx.focusable(node, theme.radii.sm);
+        cx.cursor(node, CursorIcon::Pointer);
+        node
     }
 }
 
@@ -1537,13 +1760,23 @@ impl View for Breadcrumb {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let mut children = Vec::new();
-        for (i, item) in self.0.iter().enumerate() {
-            let last = i + 1 == self.0.len();
+        for (i, item) in self.items.iter().enumerate() {
+            let last = i + 1 == self.items.len();
             if i > 0 {
                 children.push(util::icon(cx, IconName::ChevronRight, 14.0, theme.color(Semantic::InkMuted)));
             }
+            let icon = self.root_icon.filter(|_| i == 0);
+            if let Some(navigate) = self.on_navigate.as_ref().filter(|_| !last) {
+                let navigate = navigate.clone();
+                let link = BreadcrumbLink { label: item, icon, go: Rc::new(move || navigate(i)) };
+                children.push(cx.keyed_child(i as u64, &link));
+                continue;
+            }
             let color = if last { theme.color(Semantic::Ink) } else { theme.color(Semantic::InkMuted) };
             let weight = if last { Some(Weight::SEMIBOLD) } else { None };
+            if let Some(icon) = icon {
+                children.push(util::icon(cx, icon, 14.0, color));
+            }
             children.push(util::label(cx, item, TextStyle::Callout, weight, color));
         }
         let node = cx.container(
@@ -1556,11 +1789,31 @@ impl View for Breadcrumb {
     }
 }
 
-/// A header that shows or hides its content. Remembers whether it is open.
+/// A header that shows or hides its content. Remembers whether it is open, or leaves
+/// that to the app with [`expanded`](Self::expanded). The header can carry any view as
+/// its title, a mark such as a [`Dot`](crate::Dot), and an on/off switch of its own.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{Disclosure, Dot, Text, Tone, Ui};
+///
+/// let (open, enabled) = (State::new(true), State::new(false));
+/// let panel = Disclosure::new("Effects", Text::new("Vignette and grain"))
+///     .expanded(open.binding())
+///     .mark(Dot::new().tone(Tone::Warning).label("Changed"))
+///     .switch(enabled.binding());
+/// let mut ui = Ui::new(panel, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
 pub struct Disclosure {
     title: String,
+    title_view: Option<AnyView>,
+    mark: Option<AnyView>,
+    switch: Option<Binding<bool>>,
     content: AnyView,
     open_by_default: bool,
+    expanded: Option<Binding<bool>>,
+    key: Option<u64>,
 }
 
 impl fmt::Debug for Disclosure {
@@ -1572,12 +1825,56 @@ impl fmt::Debug for Disclosure {
 impl Disclosure {
     /// A collapsed disclosure with this title and content.
     pub fn new(title: impl Into<String>, content: impl View + 'static) -> Self {
-        Self { title: title.into(), content: Box::new(content), open_by_default: false }
+        Self {
+            title: title.into(),
+            title_view: None,
+            mark: None,
+            switch: None,
+            content: Box::new(content),
+            open_by_default: false,
+            expanded: None,
+            key: None,
+        }
     }
 
     /// Whether it starts open (closed by default).
     pub fn open(mut self, open: bool) -> Self {
         self.open_by_default = open;
+        self
+    }
+
+    /// Keeps whether it is open in this binding, so the app decides and can remember it.
+    /// [`Self::open`] no longer matters.
+    pub fn expanded(mut self, expanded: Binding<bool>) -> Self {
+        self.expanded = Some(expanded);
+        self
+    }
+
+    /// Shows this view in the header instead of the title, which still names it for
+    /// screen readers.
+    pub fn title_view(mut self, view: impl View + 'static) -> Self {
+        self.title_view = Some(Box::new(view));
+        self
+    }
+
+    /// Shows this view at the end of the header, so what is inside can be told while it
+    /// is closed. A [`Dot`](crate::Dot) with a label says it to screen readers as well.
+    pub fn mark(mut self, mark: impl View + 'static) -> Self {
+        self.mark = Some(Box::new(mark));
+        self
+    }
+
+    /// Puts an on/off switch at the end of the header, named after the title. Using it
+    /// does not open or close the disclosure.
+    pub fn switch(mut self, value: Binding<bool>) -> Self {
+        self.switch = Some(value);
+        self
+    }
+
+    /// What tells this disclosure apart inside an [`Accordion`], so it keeps its state
+    /// when the list changes (its position by default).
+    pub fn key(mut self, key: u64) -> Self {
+        self.key = Some(key);
         self
     }
 }
@@ -1603,12 +1900,35 @@ impl View for Disclosure {
         let theme = *cx.theme();
         let default = self.open_by_default;
         let open = cx.use_state(move || default);
-        let is_open = open.get();
+        let is_open = self.expanded.as_ref().map_or_else(|| open.get(), Binding::get);
         let hovered = cx.is_hovered();
         let chevron = if is_open { IconName::ChevronDown } else { IconName::ChevronRight };
         let icon = util::icon(cx, chevron, 16.0, theme.color(Semantic::InkMuted));
-        let title =
-            util::label(cx, &self.title, TextStyle::Body, Some(Weight::SEMIBOLD), theme.color(Semantic::Ink));
+        let title = match &self.title_view {
+            Some(view) => cx.keyed_child(1, view.as_ref()),
+            None => util::label(
+                cx,
+                &self.title,
+                TextStyle::Body,
+                Some(Weight::SEMIBOLD),
+                theme.color(Semantic::Ink),
+            ),
+        };
+        let mut parts = vec![icon, title];
+        if self.mark.is_some() || self.switch.is_some() {
+            // What follows sits at the far end of the header.
+            parts.push(cx.container(LayoutStyle { grow: 1.0, ..LayoutStyle::leaf() }, &[], Paint::None));
+        }
+        if let Some(mark) = &self.mark {
+            parts.push(cx.keyed_child(2, mark.as_ref()));
+        }
+        if let Some(value) = &self.switch {
+            let switch = Toggle::new(value.clone()).small();
+            let node = cx.keyed_child(3, &switch);
+            let name = self.title.clone();
+            cx.update_semantics(node, |s| s.name = Some(name));
+            parts.push(node);
+        }
         let header_fill = if hovered {
             theme.color(Semantic::Ink).with_alpha(0.04)
         } else {
@@ -1621,13 +1941,26 @@ impl View for Disclosure {
                 align: Align::Center,
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
-            &[icon, title],
+            &parts,
             Paint::Quad(QuadPaint { corner_radius: 8.0, ..QuadPaint::new(header_fill) }),
         );
         motion::control(cx, header);
-        cx.semantics(header, Semantics::new(Role::Button).expanded(is_open));
-        let toggle = open.clone();
-        cx.on_click(header, Rc::new(move || toggle.update(|o| *o = !*o)));
+        let mut semantics = Semantics::new(Role::Button).expanded(is_open);
+        if self.title_view.is_some() || self.mark.is_some() || self.switch.is_some() {
+            semantics = semantics.name(self.title.clone());
+        }
+        cx.semantics(header, semantics);
+        let toggle: Rc<dyn Fn()> = match &self.expanded {
+            Some(expanded) => {
+                let expanded = expanded.clone();
+                Rc::new(move || expanded.set(!expanded.get()))
+            }
+            None => {
+                let open = open.clone();
+                Rc::new(move || open.update(|o| *o = !*o))
+            }
+        };
+        cx.on_click(header, toggle);
         cx.focusable(header, 8.0);
         cx.cursor(header, CursorIcon::Pointer);
         let body = motion::collapse(cx, is_open, &DisclosureBody(self.content.as_ref()));
@@ -1657,7 +1990,7 @@ impl View for Accordion {
             if i > 0 {
                 children.push(cx.child(&crate::Divider::horizontal()));
             }
-            children.push(cx.keyed_child(i as u64, item));
+            children.push(cx.keyed_child(item.key.unwrap_or(i as u64), item));
         }
         cx.container(
             LayoutStyle { spacing: 2.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },

@@ -17,11 +17,12 @@ use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, MenuItem, Mo
 #[derive(Clone, Copy, Debug)]
 pub struct Spinner {
     size: f32,
+    color: Option<Color>,
 }
 
 impl Default for Spinner {
     fn default() -> Self {
-        Self { size: 20.0 }
+        Self { size: 20.0, color: None }
     }
 }
 
@@ -36,30 +37,44 @@ impl Spinner {
         self.size = size;
         self
     }
+
+    /// Sets the color; by default it comes from the theme accent, which disappears
+    /// on an accent fill.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+}
+
+/// Paints a spinner of `size` at the center of the element's frame. Being only a paint, it
+/// can sit behind content that must keep its size, as in a loading button.
+pub(crate) fn spinner_paint(size: f32, color: Color) -> Paint {
+    Paint::Live(Rc::new(move |f: Rect, time, scene| {
+        let c = f.center();
+        let dot = (size * 0.18).max(2.0);
+        let r = size / 2.0 - dot / 2.0;
+        // One turn every 0.8 s; the brightness moves continuously around the ring.
+        let head = (time / 0.8).fract() as f32 * 8.0;
+        for i in 0..8 {
+            let a = i as f32 / 8.0 * std::f32::consts::TAU;
+            let age = (i as f32 - head).rem_euclid(8.0);
+            let alpha = 1.0 - age / 9.0;
+            let rect = Rect::new(c.x + r * a.cos() - dot / 2.0, c.y + r * a.sin() - dot / 2.0, dot, dot);
+            scene.push_quad(Quad::new(rect, color.with_alpha(color.a * alpha)).radius(dot / 2.0));
+        }
+    }))
 }
 
 impl View for Spinner {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let (size, color) = (self.size, theme.color(Semantic::Accent).lerp(theme.color(Semantic::Ink), 0.2));
+        let size = self.size;
+        let color =
+            self.color.unwrap_or_else(|| theme.color(Semantic::Accent).lerp(theme.color(Semantic::Ink), 0.2));
         let node = cx.container(
             LayoutStyle { width: Some(size), height: Some(size), ..LayoutStyle::leaf() },
             &[],
-            Paint::Live(Rc::new(move |f: Rect, time, scene| {
-                let c = f.center();
-                let dot = (size * 0.18).max(2.0);
-                let r = size / 2.0 - dot / 2.0;
-                // One turn every 0.8 s; the brightness moves continuously around the ring.
-                let head = (time / 0.8).fract() as f32 * 8.0;
-                for i in 0..8 {
-                    let a = i as f32 / 8.0 * std::f32::consts::TAU;
-                    let age = (i as f32 - head).rem_euclid(8.0);
-                    let alpha = 1.0 - age / 9.0;
-                    let rect =
-                        Rect::new(c.x + r * a.cos() - dot / 2.0, c.y + r * a.sin() - dot / 2.0, dot, dot);
-                    scene.push_quad(Quad::new(rect, color.with_alpha(alpha)).radius(dot / 2.0));
-                }
-            })),
+            spinner_paint(size, color),
         );
         let name = cx.labels().loading.clone();
         cx.semantics(node, Semantics::new(Role::ProgressIndicator).name(name));
@@ -257,7 +272,411 @@ impl View for Carousel {
     }
 }
 
-/// Two panes with a draggable divider between them.
+/// How far an arrow key moves the bar between panes, in logical pixels.
+const SPLIT_STEP: f32 = 16.0;
+/// How wide the bar between panes is, grip and room around it, in logical pixels.
+pub(crate) const SPLIT_BAR: f32 = 10.0;
+
+/// The line and the grip of the bar between panes.
+fn split_bar_paint(vertical_stack: bool, line: Color, grip: Color) -> Paint {
+    Paint::Custom(Rc::new(move |f: Rect, scene| {
+        let c = f.center();
+        if vertical_stack {
+            scene.push_quad(Quad::new(Rect::new(f.x(), c.y - 0.5, f.width(), 1.0), line));
+            scene.push_quad(Quad::new(Rect::new(c.x - 12.0, c.y - 2.0, 24.0, 4.0), grip).radius(2.0));
+        } else {
+            scene.push_quad(Quad::new(Rect::new(c.x - 0.5, f.y(), 1.0, f.height()), line));
+            scene.push_quad(Quad::new(Rect::new(c.x - 2.0, c.y - 12.0, 4.0, 24.0), grip).radius(2.0));
+        }
+    }))
+}
+
+/// What an arrow key does to the bar between panes: it moves the way the arrow points.
+/// Across a stack, Up and Down still work, as the keys assistive technology sends.
+fn split_arrow(key: &Key, vertical_stack: bool) -> Option<f32> {
+    match (key, vertical_stack) {
+        (Key::ArrowUp, true) | (Key::ArrowLeft | Key::ArrowDown, false) => Some(-1.0),
+        (Key::ArrowDown, true) | (Key::ArrowRight | Key::ArrowUp, false) => Some(1.0),
+        _ => None,
+    }
+}
+
+/// A bar to drag that changes a size, for a pane an app lays out itself, such as a strip
+/// along the bottom of a window. Arrow keys move it too, Shift goes further, and Home and
+/// End go to the limits. [`SplitPanes`] is built on it.
+///
+/// ```
+/// use ravenrs_layout::Axis;
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{SplitHandle, Ui};
+///
+/// let height = State::new(120.0_f32);
+/// // The strip is below the bar, so it grows as the bar goes up.
+/// let bar = SplitHandle::new(Axis::Vertical, height.binding()).range(80.0, 300.0).inverted();
+/// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+pub struct SplitHandle {
+    axis: Axis,
+    value: Binding<f32>,
+    min: f32,
+    max: f32,
+    inverted: bool,
+    label: Option<String>,
+    on_end: Option<Rc<dyn Fn()>>,
+}
+
+impl fmt::Debug for SplitHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SplitHandle").field("axis", &self.axis).finish_non_exhaustive()
+    }
+}
+
+impl SplitHandle {
+    /// A bar between things laid out along `axis`, which writes the size it controls to
+    /// `value`. It lies across that axis: along `Axis::Horizontal`, it stands upright.
+    pub fn new(axis: Axis, value: Binding<f32>) -> Self {
+        Self { axis, value, min: 0.0, max: f32::MAX, inverted: false, label: None, on_end: None }
+    }
+
+    /// The smallest and the largest the size can get.
+    pub fn range(mut self, min: f32, max: f32) -> Self {
+        self.min = min;
+        self.max = max.max(min);
+        self
+    }
+
+    /// The size grows as the bar moves left or up, for a pane after the bar.
+    pub fn inverted(mut self) -> Self {
+        self.inverted = true;
+        self
+    }
+
+    /// Its name for screen readers (from [`Labels`](crate::Labels) by default).
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Runs when a drag ends or a key moved it, the moment to save the size.
+    pub fn on_end(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_end = Some(Rc::new(handler));
+        self
+    }
+}
+
+impl View for SplitHandle {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let vertical = self.axis == Axis::Vertical;
+        let lit = cx.is_hovered() || cx.is_focus_visible();
+        let (line, grip) = (
+            theme.color(Semantic::Border),
+            theme.color(if lit { Semantic::InkMuted } else { Semantic::Border }),
+        );
+        let style = if vertical {
+            LayoutStyle { height: Some(SPLIT_BAR), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() }
+        } else {
+            LayoutStyle { width: Some(SPLIT_BAR), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() }
+        };
+        let node = cx.container(style, &[], split_bar_paint(vertical, line, grip));
+        let (min, max, sign) = (self.min, self.max, if self.inverted { -1.0 } else { 1.0 });
+        let name = self.label.clone().unwrap_or_else(|| cx.labels().split_resize.clone());
+        let step = Some(f64::from(SPLIT_STEP));
+        let current = self.value.get();
+        // There is no separator role with a value in the tree yet; a slider says what this does.
+        cx.semantics(
+            node,
+            Semantics::new(Role::Slider).name(name).numeric(
+                f64::from(current),
+                f64::from(min),
+                f64::from(max),
+                step,
+            ),
+        );
+        let start = cx.use_state(|| Rc::new(Cell::new((0.0_f32, 0.0_f32)))).get();
+        let (value, on_end) = (self.value.clone(), self.on_end.clone());
+        cx.on_drag(
+            node,
+            Rc::new(move |d| {
+                let position = if vertical { d.position.y } else { d.position.x };
+                match d.phase {
+                    DragPhase::Start => start.set((position, value.get())),
+                    DragPhase::Move => {
+                        let (from, base) = start.get();
+                        value.set((base + sign * (position - from)).clamp(min, max));
+                    }
+                    DragPhase::End => {
+                        if let Some(on_end) = &on_end {
+                            on_end();
+                        }
+                    }
+                }
+            }),
+        );
+        let (value, on_end) = (self.value.clone(), self.on_end.clone());
+        cx.on_key(
+            node,
+            Rc::new(move |key, modifiers| {
+                let next = match key {
+                    Key::Home => min,
+                    Key::End => max,
+                    _ => {
+                        let Some(arrow) = split_arrow(key, vertical) else { return false };
+                        let far = if modifiers.shift { 4.0 } else { 1.0 };
+                        (value.get() + sign * arrow * far * SPLIT_STEP).clamp(min, max)
+                    }
+                };
+                value.set(next);
+                if let Some(on_end) = &on_end {
+                    on_end();
+                }
+                true
+            }),
+        );
+        cx.focusable(node, 2.0);
+        cx.cursor(node, if vertical { CursorIcon::RowResize } else { CursorIcon::ColResize });
+        node
+    }
+}
+
+/// One pane of a [`SplitPanes`].
+pub struct SplitPane {
+    content: AnyView,
+    size: Option<f32>,
+    min: f32,
+    max: f32,
+    visible: bool,
+}
+
+impl fmt::Debug for SplitPane {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SplitPane").field("size", &self.size).finish_non_exhaustive()
+    }
+}
+
+impl SplitPane {
+    /// A pane around `content`. Without [`Self::size`], it takes the room the others leave.
+    pub fn new(content: impl View + 'static) -> Self {
+        Self { content: Box::new(content), size: None, min: 0.0, max: f32::MAX, visible: true }
+    }
+
+    /// Its size to start with along the stack, in logical pixels.
+    pub fn size(mut self, size: f32) -> Self {
+        self.size = Some(size);
+        self
+    }
+
+    /// The smallest and the largest it can get, in logical pixels. A narrow window takes
+    /// room from the panes down to their smallest.
+    pub fn range(mut self, min: f32, max: f32) -> Self {
+        self.min = min;
+        self.max = max.max(min);
+        self
+    }
+
+    /// Whether it is showing (it is by default). A hidden pane keeps its size for later,
+    /// and takes its bar with it.
+    pub fn visible(mut self, visible: bool) -> Self {
+        self.visible = visible;
+        self
+    }
+}
+
+/// The sizes the visible panes get in `room`: what they ask for within their limits, with
+/// the free room going to those that do not ask, and any lack taken from the last ones.
+fn split_sizes(room: f32, asked: &[Option<f32>], limits: &[(f32, f32)]) -> Vec<f32> {
+    let mut sizes: Vec<f32> =
+        asked.iter().zip(limits).map(|(size, (min, max))| size.unwrap_or(*min).clamp(*min, *max)).collect();
+    let free = room - asked.iter().zip(&sizes).filter(|(a, _)| a.is_some()).map(|(_, s)| *s).sum::<f32>();
+    let flexible = asked.iter().filter(|a| a.is_none()).count();
+    if flexible > 0 {
+        let share = (free / flexible as f32).max(0.0);
+        for ((size, ask), (min, max)) in sizes.iter_mut().zip(asked).zip(limits) {
+            if ask.is_none() {
+                *size = share.clamp(*min, *max);
+            }
+        }
+    }
+    let mut over = sizes.iter().sum::<f32>() - room;
+    for (size, (min, _)) in sizes.iter_mut().zip(limits).rev() {
+        if over <= 0.0 {
+            break;
+        }
+        let taken = (*size - min).min(over).max(0.0);
+        *size -= taken;
+        over -= taken;
+    }
+    sizes
+}
+
+/// Any number of panes side by side or stacked, with a bar to drag between each two.
+/// Panes can have limits, and the sizes can be kept by the app to remember them.
+///
+/// ```
+/// use ravenrs_widgets::{SplitPane, SplitPanes, Text, Ui};
+///
+/// let columns = SplitPanes::horizontal()
+///     .pane(SplitPane::new(Text::new("Sessions")).size(280.0).range(200.0, 400.0))
+///     .pane(SplitPane::new(Text::new("Receipt")).range(320.0, f32::MAX))
+///     .pane(SplitPane::new(Text::new("Activity")).size(300.0).range(240.0, 420.0))
+///     .height(400.0);
+/// let mut ui = Ui::new(columns, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// ```
+#[derive(Debug)]
+pub struct SplitPanes {
+    axis: Axis,
+    panes: Vec<SplitPane>,
+    sizes: Option<Binding<Vec<Option<f32>>>>,
+    height: Option<f32>,
+    on_end: Option<SplitEnd>,
+}
+
+/// Runs when a bar stops moving.
+struct SplitEnd(Rc<dyn Fn()>);
+
+impl fmt::Debug for SplitEnd {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("SplitEnd")
+    }
+}
+
+impl SplitPanes {
+    /// No panes yet, to go side by side.
+    pub fn horizontal() -> Self {
+        Self { axis: Axis::Horizontal, panes: Vec::new(), sizes: None, height: None, on_end: None }
+    }
+
+    /// No panes yet, to stack.
+    pub fn vertical() -> Self {
+        Self { axis: Axis::Vertical, ..Self::horizontal() }
+    }
+
+    /// Adds a pane.
+    pub fn pane(mut self, pane: SplitPane) -> Self {
+        self.panes.push(pane);
+        self
+    }
+
+    /// Keeps the sizes here, one for each pane, hidden ones included; `None` is a pane
+    /// that takes the room left. What is missing comes from [`SplitPane::size`].
+    pub fn sizes(mut self, sizes: Binding<Vec<Option<f32>>>) -> Self {
+        self.sizes = Some(sizes);
+        self
+    }
+
+    /// Runs when a drag ends or a key moved a bar, the moment to save the sizes.
+    pub fn on_end(mut self, handler: impl Fn() + 'static) -> Self {
+        self.on_end = Some(SplitEnd(Rc::new(handler)));
+        self
+    }
+
+    /// Its height, in logical pixels. Without it, it takes the room its parent has.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = Some(height);
+        self
+    }
+}
+
+impl View for SplitPanes {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let vertical = self.axis == Axis::Vertical;
+        let own: State<Vec<Option<f32>>> = cx.use_state(Vec::new);
+        let store = self.sizes.clone().unwrap_or_else(|| own.binding());
+        let stored = store.get();
+        let asked_of = |i: usize, pane: &SplitPane| stored.get(i).copied().unwrap_or(pane.size);
+        let shown: Vec<usize> =
+            self.panes.iter().enumerate().filter(|(_, p)| p.visible).map(|(i, _)| i).collect();
+        let asked: Vec<Option<f32>> = shown.iter().map(|&i| asked_of(i, &self.panes[i])).collect();
+        let limits: Vec<(f32, f32)> = shown.iter().map(|&i| (self.panes[i].min, self.panes[i].max)).collect();
+        // Known from the second build on, when the bars need it.
+        let room = cx.scroll_viewport().map(|v| {
+            (if vertical { v.height } else { v.width }) - shown.len().saturating_sub(1) as f32 * SPLIT_BAR
+        });
+        let sizes = room.map(|room| split_sizes(room, &asked, &limits));
+        let mut children = Vec::with_capacity(shown.len() * 2);
+        for (at, &index) in shown.iter().enumerate() {
+            if at > 0 {
+                let (a, b) = (at - 1, at);
+                let (size_a, size_b) = sizes.as_ref().map_or_else(
+                    || (asked[a].unwrap_or(limits[a].0), asked[b].unwrap_or(limits[b].0)),
+                    |s| (s[a], s[b]),
+                );
+                let both = size_a + size_b;
+                let min = limits[a].0.max(both - limits[b].1);
+                let max = limits[a].1.min(both - limits[b].0).max(min);
+                let write = store.clone();
+                let panes = (shown[a], shown[b]);
+                let fixed = (asked[a].is_some(), asked[b].is_some());
+                let defaults: Vec<Option<f32>> = self.panes.iter().map(|p| p.size).collect();
+                let value = Binding::new(
+                    move || size_a,
+                    move |next: f32| {
+                        let mut all = write.get();
+                        if all.len() < defaults.len() {
+                            let have = all.len();
+                            all.extend_from_slice(&defaults[have..]);
+                        }
+                        // A pane that takes what is left goes on doing so, unless both do.
+                        if fixed.0 || !fixed.1 {
+                            all[panes.0] = Some(next);
+                        }
+                        if fixed.1 {
+                            all[panes.1] = Some(both - next);
+                        }
+                        write.set(all);
+                    },
+                );
+                let mut bar = SplitHandle::new(self.axis, value).range(min, max);
+                if let Some(end) = &self.on_end {
+                    let end = end.0.clone();
+                    bar = bar.on_end(move || end());
+                }
+                children.push(cx.keyed_child(u64::MAX - index as u64, &bar));
+            }
+            let pane = &self.panes[index];
+            let content = cx.keyed_child(index as u64, pane.content.as_ref());
+            // What takes the room left grows; the others hold their size.
+            let size = asked[at].map(|asked| sizes.as_ref().map_or(asked, |s| s[at]));
+            let node = cx.container(
+                LayoutStyle {
+                    grow: if size.is_some() { 0.0 } else { 1.0 },
+                    width: if vertical { None } else { size.or(Some(0.0)) },
+                    height: if vertical { size.or(Some(0.0)) } else { None },
+                    min_width: Some(0.0),
+                    min_height: Some(0.0),
+                    align: Align::Stretch,
+                    overflow_hidden: true,
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[content],
+                Paint::None,
+            );
+            cx.clip(node);
+            children.push(node);
+        }
+        let node = cx.container(
+            LayoutStyle {
+                height: self.height,
+                grow: if self.height.is_none() { 1.0 } else { 0.0 },
+                min_width: Some(0.0),
+                min_height: Some(0.0),
+                align: Align::Stretch,
+                align_self: Some(Align::Stretch),
+                overflow_hidden: true,
+                ..LayoutStyle::stack(self.axis)
+            },
+            &children,
+            Paint::None,
+        );
+        cx.report_frame(node);
+        node
+    }
+}
+
+/// Two panes with a draggable divider between them. Arrow keys move the divider too. For
+/// more panes, or limits in logical pixels, see [`SplitPanes`].
 ///
 /// ```
 /// use ravenrs_widgets::{Splitter, Text, Ui};
@@ -274,6 +693,7 @@ pub struct Splitter<A, B> {
     vertical: bool,
     initial: f32,
     height: f32,
+    limits: (f32, f32),
 }
 
 impl<A, B> fmt::Debug for Splitter<A, B> {
@@ -285,17 +705,24 @@ impl<A, B> fmt::Debug for Splitter<A, B> {
 impl<A: View, B: View> Splitter<A, B> {
     /// Side-by-side panes.
     pub fn horizontal(first: A, second: B) -> Self {
-        Self { first, second, vertical: false, initial: 0.5, height: 260.0 }
+        Self { first, second, vertical: false, initial: 0.5, height: 260.0, limits: (0.1, 0.9) }
     }
 
     /// Stacked panes.
     pub fn vertical(first: A, second: B) -> Self {
-        Self { first, second, vertical: true, initial: 0.5, height: 260.0 }
+        Self { first, second, vertical: true, initial: 0.5, height: 260.0, limits: (0.1, 0.9) }
     }
 
-    /// The first pane's initial share, 0.1 to 0.9.
+    /// The first pane's initial share, within the limits (0.1 to 0.9 by default).
     pub fn ratio(mut self, ratio: f32) -> Self {
-        self.initial = ratio.clamp(0.1, 0.9);
+        self.initial = ratio;
+        self
+    }
+
+    /// The smallest and the largest share of the first pane (0.1 and 0.9 by default).
+    pub fn limits(mut self, min: f32, max: f32) -> Self {
+        let min = min.clamp(0.0, 1.0);
+        self.limits = (min, max.clamp(min, 1.0));
         self
     }
 
@@ -309,7 +736,8 @@ impl<A: View, B: View> Splitter<A, B> {
 impl<A: View, B: View> View for Splitter<A, B> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let initial = self.initial;
+        let (min, max) = self.limits;
+        let initial = self.initial.clamp(min, max);
         let ratio: State<f32> = cx.use_state(move || initial);
         let r = ratio.get();
         let pane = |grow: f32| LayoutStyle {
@@ -330,38 +758,14 @@ impl<A: View, B: View> View for Splitter<A, B> {
         cx.clip(b);
         let vertical = self.vertical;
         let (line, grip) = (theme.color(Semantic::Border), theme.color(Semantic::InkMuted));
-        let hovered = cx.is_hover_within();
+        let lit = cx.is_hover_within() || cx.is_focus_visible();
         let handle_style = if vertical {
-            LayoutStyle { height: Some(10.0), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() }
+            LayoutStyle { height: Some(SPLIT_BAR), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() }
         } else {
-            LayoutStyle { width: Some(10.0), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() }
+            LayoutStyle { width: Some(SPLIT_BAR), align_self: Some(Align::Stretch), ..LayoutStyle::leaf() }
         };
-        let handle = cx.container(
-            handle_style,
-            &[],
-            Paint::Custom(Rc::new(move |f: Rect, scene| {
-                let c = f.center();
-                if vertical {
-                    scene.push_quad(Quad::new(Rect::new(f.x(), c.y - 0.5, f.width(), 1.0), line));
-                    scene.push_quad(
-                        Quad::new(
-                            Rect::new(c.x - 12.0, c.y - 2.0, 24.0, 4.0),
-                            if hovered { grip } else { line },
-                        )
-                        .radius(2.0),
-                    );
-                } else {
-                    scene.push_quad(Quad::new(Rect::new(c.x - 0.5, f.y(), 1.0, f.height()), line));
-                    scene.push_quad(
-                        Quad::new(
-                            Rect::new(c.x - 2.0, c.y - 12.0, 4.0, 24.0),
-                            if hovered { grip } else { line },
-                        )
-                        .radius(2.0),
-                    );
-                }
-            })),
-        );
+        let handle =
+            cx.container(handle_style, &[], split_bar_paint(vertical, line, if lit { grip } else { line }));
         let drag = ratio.clone();
         cx.on_drag(
             handle,
@@ -374,11 +778,39 @@ impl<A: View, B: View> View for Splitter<A, B> {
                 } else {
                     (d.position.x, d.container.x(), d.container.width())
                 };
-                if len > 10.0 {
-                    drag.set(((pos - start - 5.0) / (len - 10.0)).clamp(0.1, 0.9));
+                if len > SPLIT_BAR {
+                    drag.set(((pos - start - SPLIT_BAR / 2.0) / (len - SPLIT_BAR)).clamp(min, max));
                 }
             }),
         );
+        let name = cx.labels().split_resize.clone();
+        cx.semantics(
+            handle,
+            Semantics::new(Role::Slider).name(name).numeric(
+                f64::from(r),
+                f64::from(min),
+                f64::from(max),
+                Some(0.02),
+            ),
+        );
+        let keys = ratio.clone();
+        cx.on_key(
+            handle,
+            Rc::new(move |key, modifiers| {
+                let next = match key {
+                    Key::Home => min,
+                    Key::End => max,
+                    _ => {
+                        let Some(arrow) = split_arrow(key, vertical) else { return false };
+                        let far = if modifiers.shift { 0.08 } else { 0.02 };
+                        (*keys.peek() + arrow * far).clamp(min, max)
+                    }
+                };
+                keys.set(next);
+                true
+            }),
+        );
+        cx.focusable(handle, 2.0);
         cx.cursor(handle, if vertical { CursorIcon::RowResize } else { CursorIcon::ColResize });
         let node = cx.container(
             LayoutStyle {

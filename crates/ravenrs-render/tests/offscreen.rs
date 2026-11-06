@@ -5,7 +5,12 @@
 
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
-use ravenrs_core::{Color, LinearGradient, Point, Quad, Rect, Scene, Shadow};
+use std::sync::Arc;
+
+use ravenrs_core::{
+    Color, ColorStop, FillRule, ImageData, LinearGradient, PathElement, PathFill, PathPaint, Point, Quad,
+    Rect, Scene, Shadow,
+};
 use ravenrs_render::{GpuContext, Renderer, wgpu};
 use ravenrs_text::{TextAttrs, TextSystem};
 
@@ -264,4 +269,226 @@ fn images_draw_with_rounded_corners_uv_crop_and_mipmaps() {
         1.0,
     );
     assert_eq!((stats.images, stats.cached_images), (3, 2), "textures are reused across frames");
+}
+
+fn box_path(x0: f32, y0: f32, x1: f32, y1: f32) -> Vec<PathElement> {
+    let p = Point::new;
+    vec![
+        PathElement::MoveTo(p(x0, y0)),
+        PathElement::LineTo(p(x1, y0)),
+        PathElement::LineTo(p(x1, y1)),
+        PathElement::LineTo(p(x0, y1)),
+        PathElement::Close,
+    ]
+}
+
+/// A circle of four cubic curves.
+fn circle_path(cx: f32, cy: f32, r: f32) -> Vec<PathElement> {
+    let k = r * 0.552_284_8;
+    let p = Point::new;
+    vec![
+        PathElement::MoveTo(p(cx + r, cy)),
+        PathElement::CubicTo(p(cx + r, cy + k), p(cx + k, cy + r), p(cx, cy + r)),
+        PathElement::CubicTo(p(cx - k, cy + r), p(cx - r, cy + k), p(cx - r, cy)),
+        PathElement::CubicTo(p(cx - r, cy - k), p(cx - k, cy - r), p(cx, cy - r)),
+        PathElement::CubicTo(p(cx + k, cy - r), p(cx + r, cy - k), p(cx + r, cy)),
+        PathElement::Close,
+    ]
+}
+
+fn draw_paths(paths: Vec<PathFill>) -> Option<(u32, u32, Vec<u8>)> {
+    let gpu = gpu()?;
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    let mut scene = Scene::new();
+    scene.set_clear_color(Color::rgba(0.0, 0.0, 0.0, 1.0));
+    for path in paths {
+        scene.push_path(path);
+    }
+    Some(render(&gpu, &mut renderer, &scene, 1.0))
+}
+
+#[test]
+fn a_path_edge_covers_exactly_the_part_of_the_pixel_it_takes() {
+    let white = Color::rgba(1.0, 1.0, 1.0, 1.0);
+    // The left edge halfway through a pixel, the top a quarter of the way into one.
+    let Some(img) = draw_paths(vec![PathFill::solid(box_path(10.5, 10.25, 30.0, 30.0), white)]) else {
+        return;
+    };
+    assert_eq!(pixel(&img, 9, 20)[0], 0, "outside");
+    assert!(close(pixel(&img, 10, 20), [128, 128, 128, 255], 2), "half: {:?}", pixel(&img, 10, 20));
+    assert!(close(pixel(&img, 20, 10), [191, 191, 191, 255], 2), "three quarters: {:?}", pixel(&img, 20, 10));
+    assert!(close(pixel(&img, 10, 10), [96, 96, 96, 255], 2), "their product: {:?}", pixel(&img, 10, 10));
+    assert_eq!(pixel(&img, 20, 20)[0], 255, "inside");
+    assert_eq!(pixel(&img, 30, 20)[0], 0, "and nothing past the right edge");
+}
+
+#[test]
+fn a_slanted_edge_gets_its_true_area_too() {
+    let white = Color::rgba(1.0, 1.0, 1.0, 1.0);
+    let p = Point::new;
+    // A diagonal through the corners of each pixel leaves half of each.
+    let triangle = vec![
+        PathElement::MoveTo(p(10.0, 10.0)),
+        PathElement::LineTo(p(50.0, 50.0)),
+        PathElement::LineTo(p(10.0, 50.0)),
+        PathElement::Close,
+    ];
+    let Some(img) = draw_paths(vec![PathFill::solid(triangle, white)]) else { return };
+    assert!(close(pixel(&img, 30, 30), [128, 128, 128, 255], 2), "{:?}", pixel(&img, 30, 30));
+    assert_eq!(pixel(&img, 20, 40)[0], 255);
+    assert_eq!(pixel(&img, 40, 20)[0], 0);
+    // A shallow one: at this column the edge is a third of the way down the row, and
+    // the shape is what is under it.
+    let shallow = vec![
+        PathElement::MoveTo(p(10.0, 20.0)),
+        PathElement::LineTo(p(70.0, 21.0)),
+        PathElement::LineTo(p(70.0, 40.0)),
+        PathElement::LineTo(p(10.0, 40.0)),
+        PathElement::Close,
+    ];
+    let Some(img) = draw_paths(vec![PathFill::solid(shallow, white)]) else { return };
+    let along = f32::from(pixel(&img, 30, 20)[0]) / 255.0;
+    assert!((along - (1.0 - 20.5 / 60.0)).abs() < 0.02, "{along}");
+}
+
+#[test]
+fn a_curved_path_keeps_the_area_of_a_circle() {
+    let white = Color::rgba(1.0, 1.0, 1.0, 1.0);
+    let Some(img) = draw_paths(vec![PathFill::solid(circle_path(50.0, 50.0, 30.0), white)]) else { return };
+    let total: f32 = img.2.as_chunks::<4>().0.iter().map(|px| f32::from(px[0]) / 255.0).sum();
+    let circle = std::f32::consts::PI * 30.0 * 30.0;
+    assert!((total - circle).abs() < circle * 0.002, "{total} of {circle}");
+    let partial = img.2.as_chunks::<4>().0.iter().filter(|px| px[0] > 0 && px[0] < 255).count();
+    assert!(partial > 100, "soft edges: {partial}");
+}
+
+#[test]
+fn the_fill_rules_treat_a_hole_differently() {
+    let white = Color::rgba(1.0, 1.0, 1.0, 1.0);
+    let mut both = box_path(10.0, 10.0, 60.0, 60.0);
+    both.extend(box_path(25.0, 25.0, 45.0, 45.0));
+    let nonzero = PathFill::solid(both.clone(), white);
+    let Some(img) = draw_paths(vec![nonzero]) else { return };
+    assert_eq!(pixel(&img, 35, 35)[0], 255, "wound twice the same way, still inside");
+    let even_odd = PathFill { rule: FillRule::EvenOdd, ..PathFill::solid(both, white) };
+    let Some(img) = draw_paths(vec![even_odd]) else { return };
+    assert_eq!(pixel(&img, 35, 35)[0], 0, "an even count is outside");
+    assert_eq!(pixel(&img, 15, 35)[0], 255);
+}
+
+#[test]
+fn gradients_opacity_and_transform_reach_the_pixels() {
+    let black = Color::rgba(0.0, 0.0, 0.0, 1.0);
+    let white = Color::rgba(1.0, 1.0, 1.0, 1.0);
+    let stops: Arc<[ColorStop]> =
+        Arc::from([ColorStop { offset: 0.0, color: black }, ColorStop { offset: 1.0, color: white }]);
+    let linear = PathFill {
+        paint: PathPaint::Linear {
+            start: Point::new(0.0, 0.0),
+            end: Point::new(100.0, 0.0),
+            stops: stops.clone(),
+        },
+        ..PathFill::solid(box_path(0.0, 0.0, 100.0, 50.0), white)
+    };
+    let Some(img) = draw_paths(vec![linear]) else { return };
+    assert!(close(pixel(&img, 50, 20), [128, 128, 128, 255], 4), "{:?}", pixel(&img, 50, 20));
+    assert!(pixel(&img, 90, 20)[0] > 215);
+
+    let radial = PathFill {
+        paint: PathPaint::Radial { center: Point::new(50.0, 50.0), radius: 40.0, stops },
+        ..PathFill::solid(box_path(0.0, 0.0, 100.0, 100.0), white)
+    };
+    let Some(img) = draw_paths(vec![radial]) else { return };
+    assert!(pixel(&img, 50, 50)[0] < 10, "{:?}", pixel(&img, 50, 50));
+    assert!(close(pixel(&img, 70, 50), [128, 128, 128, 255], 6), "{:?}", pixel(&img, 70, 50));
+
+    let moved = PathFill {
+        transform: [2.0, 0.0, 0.0, 2.0, 40.0, 10.0],
+        opacity: 0.5,
+        ..PathFill::solid(box_path(0.0, 0.0, 10.0, 10.0), white)
+    };
+    let Some(img) = draw_paths(vec![moved]) else { return };
+    assert!(close(pixel(&img, 50, 20), [128, 128, 128, 255], 2), "{:?}", pixel(&img, 50, 20));
+    assert_eq!(pixel(&img, 39, 20)[0], 0);
+    assert_eq!(pixel(&img, 61, 20)[0], 0);
+}
+
+#[test]
+fn paths_keep_their_place_among_other_primitives_and_obey_the_clip() {
+    let Some(gpu) = gpu() else { return };
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    let (red, green) = (Color::rgba(1.0, 0.0, 0.0, 1.0), Color::rgba(0.0, 1.0, 0.0, 1.0));
+    let mut scene = Scene::new();
+    scene.set_clear_color(Color::rgba(0.0, 0.0, 0.0, 1.0));
+    scene.push_quad(Quad::new(Rect::new(0.0, 0.0, 40.0, 40.0), red));
+    scene.push_path(PathFill::solid(box_path(20.0, 0.0, 60.0, 40.0), green));
+    scene.push_quad(Quad::new(Rect::new(50.0, 0.0, 40.0, 40.0), red));
+    scene.push_clip(Rect::new(0.0, 50.0, 30.0, 30.0));
+    scene.push_path(PathFill::solid(box_path(10.0, 40.0, 100.0, 90.0), green));
+    scene.pop_clip();
+    let img = render(&gpu, &mut renderer, &scene, 2.0);
+    assert_eq!(pixel(&img, 20, 20), [255, 0, 0, 255], "the quad before it");
+    assert_eq!(pixel(&img, 60, 20), [0, 255, 0, 255], "the path over that");
+    assert_eq!(pixel(&img, 110, 20), [255, 0, 0, 255], "and the quad after over the path");
+    assert_eq!(pixel(&img, 40, 120), [0, 255, 0, 255], "inside the clip");
+    assert_eq!(pixel(&img, 80, 120), [0, 0, 0, 255], "past it");
+    assert_eq!(pixel(&img, 40, 90), [0, 0, 0, 255], "above it");
+}
+
+#[test]
+fn an_image_seen_through_a_path_goes_where_it_is_placed() {
+    // Red on the left half, and fully transparent green on the right.
+    let pixels = [[255, 0, 0, 255], [255, 0, 0, 255], [0, 255, 0, 0], [0, 255, 0, 0]].concat();
+    let image = ImageData::from_rgba8(4, 1, pixels).expect("pixels");
+    let paint = |placement| PathPaint::Image { image: image.clone(), placement };
+    let path = |x0, placement| PathFill {
+        elements: box_path(x0, 0.0, x0 + 40.0, 40.0).into(),
+        rule: FillRule::NonZero,
+        paint: paint(placement),
+        transform: PathFill::IDENTITY,
+        opacity: 1.0,
+        clip: None,
+    };
+    let flipped = [-40.0, 0.0, 0.0, 40.0, 140.0, 0.0];
+    let Some(drawn) = draw_paths(vec![path(20.0, [40.0, 0.0, 0.0, 40.0, 20.0, 0.0]), path(100.0, flipped)])
+    else {
+        return;
+    };
+    let at = |x: u32, y: u32| {
+        let p = pixel(&drawn, x, y);
+        [p[0], p[1], p[2]]
+    };
+    assert_eq!(at(25, 20), [255, 0, 0], "its opaque side");
+    assert_eq!(at(55, 20), [0, 0, 0], "what is transparent shows what is behind, with no green");
+    assert_eq!(at(10, 20), [0, 0, 0], "nothing past the outline");
+    assert_eq!(at(135, 20), [255, 0, 0], "mirrored, the opaque side is now on the right");
+    assert_eq!(at(105, 20), [0, 0, 0]);
+    let blend = at(40, 20);
+    assert!(blend[0] > 0 && blend[0] < 255 && blend[1] == 0, "edges fade, and never toward green: {blend:?}");
+}
+
+#[test]
+fn more_shapes_than_the_coverage_atlas_holds_are_all_drawn_in_order() {
+    let Some(gpu) = gpu() else { return };
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    let (white, red) = (Color::rgba(1.0, 1.0, 1.0, 1.0), Color::rgba(1.0, 0.0, 0.0, 1.0));
+    let blue = Color::rgba(0.0, 0.0, 1.0, 1.0);
+    let window = box_path(0.0, 0.0, W as f32, H as f32);
+    let mut scene = Scene::new();
+    scene.set_clear_color(Color::rgba(0.0, 0.0, 0.0, 1.0));
+    // At 4x, 800x400 pixels each: about 209 fit in an atlas of 8192.
+    for _ in 0..300 {
+        scene.push_path(PathFill::solid(window.clone(), white));
+    }
+    // What comes between shapes keeps its place, even with an atlas filled twice around it.
+    scene.push_quad(Quad::new(Rect::new(0.0, 0.0, 100.0, 100.0), blue));
+    for _ in 0..300 {
+        scene.push_path(PathFill::solid(box_path(0.0, 0.0, W as f32, 50.0), white));
+    }
+    scene.push_path(PathFill::solid(box_path(0.0, 0.0, 50.0, 50.0), red));
+    let img = render(&gpu, &mut renderer, &scene, 4.0);
+    assert_eq!(pixel(&img, 40, 40), [255, 0, 0, 255], "the last shape of all is on top");
+    assert_eq!(pixel(&img, 40, 300), [0, 0, 255, 255], "the quad, over the first shapes");
+    assert_eq!(pixel(&img, 600, 300), [255, 255, 255, 255], "the first shapes, past the quad");
+    assert_eq!(pixel(&img, 300, 40), [255, 255, 255, 255], "the second shapes, over the quad");
 }

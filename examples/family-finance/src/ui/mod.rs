@@ -9,6 +9,7 @@ mod entities;
 mod forms;
 mod help;
 mod ledger;
+mod opening;
 mod records;
 mod reports;
 mod request;
@@ -18,6 +19,7 @@ mod store;
 mod training;
 
 pub use assistant::{ASSISTANT_INTRO, ASSISTANT_TOOLS};
+pub use opening::Opening;
 pub use spoken::spoken;
 mod updates;
 
@@ -34,7 +36,7 @@ use budgets::BudgetsState;
 use dashboard::DashboardState;
 use forms::Forms;
 use ledger::LedgerState;
-use ravenrs::movie::{BugReporter, FlightRecorder};
+use ravenrs::movie::{BugReporter, FlightRecorder, RecentErrors};
 use records::RecordsState;
 use reports::ReportsState;
 use store::{Memo, NARROW_WINDOW, Page, Store};
@@ -66,6 +68,8 @@ const FLIGHT_SECONDS: f64 = 240.0;
 pub struct App {
     store: Store,
     page: State<usize>,
+    /// The screen whose parts were folded in the menu.
+    menu_folded: State<Option<usize>>,
     palette: State<bool>,
     sidebar: SidebarState,
     news: updates::NewsDialog,
@@ -102,15 +106,30 @@ impl App {
 
     /// An app over this database. `path` is only shown in the settings.
     pub fn new(db: Database, today: Date, path: Option<PathBuf>, updater: Updater) -> Self {
+        Self::in_window(db, today, path, updater, Diagnostics::default(), RecentErrors::default())
+    }
+
+    /// Like [`Self::new`], for a window that already has its diagnostics panel, and
+    /// with what keeps the errors logged, for bug reports.
+    pub fn in_window(
+        db: Database,
+        today: Date,
+        path: Option<PathBuf>,
+        updater: Updater,
+        diagnostics: Diagnostics,
+        errors: RecentErrors,
+    ) -> Self {
         let training = training::TrainingState::new(path.as_deref());
         let sidebar = Self::remembered_menu(path.as_deref());
         let (ledger, bills) = (LedgerState::new(today, path.as_deref()), BillsState::new(path.as_deref()));
-        let store = Store::new(db, today, path, updater);
+        let mut store = Store::new(db, today, path, updater);
+        store.diagnostics = diagnostics;
         let recorder = FlightRecorder::new(FLIGHT_SECONDS);
-        let reporter = training::reporter(&store, &recorder);
+        let reporter = training::reporter(&store, &recorder, errors);
         Self {
             store,
             page: State::new(0),
+            menu_folded: State::new(None),
             palette: State::new(false),
             sidebar,
             news: updates::NewsDialog::new(),
@@ -137,6 +156,12 @@ impl App {
     /// Opens a screen, by its place in the sidebar. Screenshots and tests start here.
     pub fn open_page(&self, page: usize) {
         self.page.set(page);
+    }
+
+    /// The screen that is open, by its place in the sidebar. The performance scenes
+    /// move through the screens with it after the app went on screen.
+    pub fn page_state(&self) -> State<usize> {
+        self.page.clone()
     }
 
     /// The app's icon, decoded once: views build often.
@@ -175,7 +200,8 @@ impl App {
         SidebarItem::new(icon, label).compact().selected(self.page.get() == i).on_click(move || page.set(i))
     }
 
-    /// A row with the parts of a screen, unfolded while that screen is open.
+    /// A row with the parts of a screen, unfolded while that screen is open, unless
+    /// the person folded it.
     fn menu_parts<'a>(
         &self,
         i: usize,
@@ -183,8 +209,14 @@ impl App {
         parts: impl IntoIterator<Item = (&'a str, Rc<dyn Fn()>)>,
     ) -> SidebarItem {
         let current = self.page.get() == i;
-        let read = self.page.clone();
-        let mut row = self.menu_row(i).expanded_binding(Binding::new(move || read.get() == i, |_: bool| {}));
+        let (read, read_folded, folded) =
+            (self.page.clone(), self.menu_folded.clone(), self.menu_folded.clone());
+        let page = self.page.clone();
+        let mut row = self.menu_row(i).expanded_binding(Binding::new(
+            move || read.get() == i && read_folded.get() != Some(i),
+            // Clicking the row of the screen already open folds it; any other opens that screen.
+            move |open: bool| folded.set((!open && page.get() == i).then_some(i)),
+        ));
         for (place, (label, open)) in parts.into_iter().enumerate() {
             let page = self.page.clone();
             row = row.item(

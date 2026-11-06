@@ -12,7 +12,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 4. **Keyboard.** Reachable with Tab. Enter and Space activate. Arrow keys, Home and End follow the [WAI-ARIA Authoring Practices](https://www.w3.org/WAI/ARIA/apg/patterns/) pattern for that widget. Escape closes overlays.
 5. **Themes.** Built only from semantic tokens, so it is correct in Raven Dark, Light and Glass. Text meets WCAG AA contrast, which `ravenrs-style` tests for every theme.
 6. **Edge cases.** Empty data, a single item, huge counts, non-ASCII text, out-of-range values (clamped, never panicking) and a zero-size viewport.
-7. **Performance.** Stays inside the budgets below. Large collections are virtualized.
+7. **Performance.** Meets the [performance contract](#performance-contract) and stays inside the budgets below. Large collections are virtualized.
 8. **Tests.** At least one behavior test that drives it through `Ui` (pointer and keyboard). Property tests for any pure logic. A golden image for any component whose drawing is non-trivial.
 9. **Docs and demo.** A section in the [component gallery](../examples/component-gallery) that shows its variants and states.
 
@@ -32,6 +32,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 | `cargo +1.88 check` | The declared minimum Rust version (MSRV) still builds |
 | `--no-default-features` | Optional features really are optional |
 | `cargo bench --no-run` | Benchmarks keep compiling |
+| `cargo run --release -p ravenrs-perf -- gate` | Performance regressions: the exact work of every scene against `perf/baseline.json` |
 | Web builds | The examples build and bind for WebAssembly |
 
 GPU tests skip themselves, with a message, on machines without a GPU adapter. To accept an intended visual change, regenerate the golden images with `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test visual`, then review the PNG diff in the commit. A failing run writes `*.actual.png` next to the golden image.
@@ -39,6 +40,93 @@ GPU tests skip themselves, with a message, on machines without a GPU adapter. To
 Release checks, run by hand before each publish:
 - `cargo semver-checks` against the previous release.
 - `cargo llvm-cov` for coverage, at 75% line coverage as of 0.1. Coverage is a signal, not a target.
+
+## Performance method
+
+Optimizing guarantees nothing; a gate that fails on regressions does. There are two instruments, and [the skill](../.claude/skills/ravenrs-desempenho/SKILL.md) is the runbook for both.
+
+**The gate** counts the work of each scene with a real runtime and a real renderer, offscreen: builds, layouts, placements, paints, shaping, allocations in the UI, draw calls and why they split, instances, bytes uploaded, glyphs rasterized, atlas resets. These numbers are exact, so any difference from `perf/baseline.json` fails, improvements included: they have to be accepted with `gate --bless`, which shows up in the diff. Each run repeats itself and fails if the two passes disagree, and it fails without a GPU. On the screens of real applications (`app-*`), allocations are only reported, since they depend on the app's data and the clock. Ceilings in the scene registration keep repeated blessing from eroding the budget. Outside macOS, only ceilings bind. `scripts/perf-plant.py` proves it works by planting regressions.
+
+**Frame time** is measured apart, before each release, with `scripts/perf-time.sh`: the best p99 of three processes, because noise on a laptop almost only adds time. On battery the result is invalid. `ravenrs-perf cold` measures what warm numbers hide, the first time a screen opens.
+
+Budgets for the reference machine, a 14" MacBook Pro with M2 Pro and a 120 Hz screen, at p99:
+
+| Class | CPU | GPU |
+|---|---|---|
+| Interaction: hover, scroll, animation | 4 ms | 3 ms |
+| Rebuild: new data, opening a screen, resizing | 16.67 ms | 3 ms |
+| Idle | no frames, no wakes | |
+
+Time is guaranteed only for the registered scenes on that machine. Counters reflect the same logic everywhere, but a latency on another machine does not follow from them. The system compositor is outside the measurement, and Metal's clock is coarse: short passes often read as zero.
+
+### What was measured
+
+On the reference machine at 1280x800 at 2x, with nothing else running. CPU time in milliseconds at p99, per frame:
+
+| Scene | Elements | Hover before | Hover now | Scroll before | Scroll now | Instances before | Instances now | Draw calls before | Draw calls now |
+|---|---|---|---|---|---|---|---|---|---|
+| `curve-small` | 105 | 0.90 | 0.36 | 0.05 | 0.05 | 684 | 485 | 61 | 44 |
+| `curve-medium` | 1,005 | 5.48 | 2.71 | 0.44 | 0.08 | 6,804 | 482 | 601 | 43 |
+| `curve-large` | 10,005 | 59.81 | 30.72 | 5.70 | 0.66 | 68,904 | 482 | 6,001 | 43 |
+| `data-grid` | 210 | 1.18 | 0.85 | 1.25 | 0.85 | 644 | 526 | 71 | 62 |
+| `scheduler` scroll | 711 | | | 4.56 | 1.41 | 808 | 696 | 452 | 389 |
+| `app-finance-dashboard` | 320 | 1.91 | 1.24 | 0.34 | 0.19 | 1,041 | 802 | 116 | 101 |
+| `app-finance-entries` | 423 | 1.82 | 1.11 | 1.82 | 1.13 | 1,293 | 1,237 | 118 | 116 |
+
+The "before" column was measured with the same scenes before the work on the core. A Lottie playing went from a rebuild of the whole screen per frame to none. The finance dashboard opening for the second time went from 25.4 ms to 1.1 ms in its worst frame.
+
+The `calculator` scene measures `examples/calculator` as it is, a small screen that stays the same between versions. A click on it, on the same machine: 0.16 ms on the CPU, 0.13 ms recording the GPU's work, 41 instances in 41 draw calls.
+
+Where things stand:
+
+- **Scrolling and animating no longer depend on the size of the screen.** Only what can be seen is painted and sent to the GPU.
+- **A rebuild still follows the size of the screen.** About 2.7 µs per element, and layout is now 75% of that. The 4 ms budget holds up to about 1,500 elements. The real screens measured have 200 to 420. Beyond that, the next step would be invalidation by subtree, which changes the API of `View` and `BuildCx`.
+- **The GPU is not the bottleneck.** Under 2 ms in every scene.
+- **Batching does little on small screens.** Text and shapes alternate, so the calculator needs one draw call per instance. It costs nothing visible today, and painting order would have to be kept by any fix.
+- **Resizing a window with charts.** Bars and gridlines are quads now, with no picture to draw or send; a line with more points than columns draws only what can be told apart; and a picture covers only what it draws. The `chart` scenes, dragging the window to a new width each frame, p99 of CPU and of recording the GPU's work, before and after:
+
+  | Scene | CPU before | CPU now | Recording before | Recording now |
+  |---|---|---|---|---|
+  | `chart`, a line of 5,000 points | 26.0 | 13.9 | 7.2 | 5.7 |
+  | `chart-bars`, three series of 12 bars | 5.5 | 0.1 | 6.3 | 0.1 |
+  | `chart-board`, area, bars, doughnut and line | 7.2 | 5.5 | 4.7 | 3.2 |
+  | `chart-sankey`, ten flows between ten nodes, as quads and curves | | 0.04 | | 0.1 |
+
+  The finance dashboard went from 19.7 ms to 7.4 ms on the same measure. Lines, areas and slices stay pictures: each scene fits the 16.67 ms of a rebuild, and curves would be drawn again into the atlas on every frame, hover included, at a cost of about 1/26 of a frame per window-sized shape (see below). This comparison was reasoned from those limits, not measured.
+- **Not measured:** the delay from input to the screen in a real window, the system compositor, and other machines.
+- **Not done:** the gate does not yet fail a public component missing from every scene's `covers`.
+
+### How much the renderer can draw
+
+`ravenrs-perf capacity` grows each kind of work until a frame stops fitting, counting until the GPU finishes, at 2560x1600. On the reference machine:
+
+| Work | Fits at 120 Hz | Fits at 60 Hz | Limited by |
+|---|---|---|---|
+| Rounded quads | 30,000 | 60,000 | GPU |
+| Quads with a soft shadow | 4,600 | 9,300 | GPU, the area of the blur |
+| Text | 180,000 glyphs | 370,000 glyphs | CPU |
+| A quad and a line of 43 glyphs in turn | 1,700 | 3,600 | Both; draw calls about double the cost |
+| Quads each with its own clip | 18,000 | 38,000 | Both |
+| Small shapes of curves | 6,700 | 13,400 | Both |
+| Window-sized shapes of curves | 26 | 56 | GPU |
+| Different images | 13,700 | 27,600 | CPU |
+| Translucent layers over the whole window | 39 | 81 | GPU |
+
+The real screens measured use 500 to 1,400 instances, so the renderer has about 20 times the room they need. It is not what limits a screen; a rebuild is.
+
+Shapes of curves share a coverage atlas of at most 8192x8192. Past that, the main pass splits to draw another page, so nothing is left out, at the cost of a pass per page.
+
+### Performance contract
+
+Each component answers for these, through a scene in `crates/ravenrs-perf/src/scenes/` listing it in `covers`:
+
+1. **A scene** at its worst realistic case, using only the public API. Simple components can share one.
+2. **A class:** static, virtualized, animated or picture.
+3. **Scale:** going from N to 10N items, a virtualized component's counters grow at most 1.2 times.
+4. **No useless work:** an interaction that does not change text shapes nothing, and an animation builds nothing.
+5. **Idle:** no wakes without an animation running or when paused.
+6. **Cold cost declared** for a picture: its cache key and what it does with large data.
+7. **Ceilings** on draw calls, batch breaks and allocations per interaction.
 
 ## Performance budgets
 
@@ -137,6 +225,10 @@ Status against the definition of done. **Behavior** names the test suites that d
 | Chat, FloatingPanel | chat | | ✅ field, examples, send and sphere work with Tab + Enter, arrow keys move the sphere between corners and Escape closes the panel, tested | Answers are a `status`, announced as they appear; the panel is a named group |
 | ReleaseNotes, CodeBlock | release_notes | | ✅ versions and buttons work with Tab + Enter, tested | Lists its versions as buttons; the copy button says when it copied |
 | MoviePlayer, MovieAssistant, MovieEditor, BugReporter | ravenrs-movie | | ✅ controls, chapters, marks and blocks work with Tab + Enter; dragging on the canvas and the timeline has no keyboard way yet: 🟡 | Marks say what they teach; a film is an image with a name |
+| Lottie | lottie | ✅ decoration unless given `alt`, then an image with that name | n/a | Takes no input; shows its last frame still where motion is reduced, tested. `crates/ravenrs/tests/lottie_corpus.rs` measures real files against lottie-web |
+| SplitPanes, SplitHandle | structural_extensions | | ✅ Arrows, Shift and Home and End move the bar, tested | |
+| StepIndicator, StepBadge | structural_extensions | | ✅ Tab and Enter on the steps that are buttons, tested | |
+| Dot, OverlayBadge, Rating, IconTile, EmptyState, HeroBanner, MultiProgress, ShimmerText, DaySeparator, ShortcutSheet, ShortcutHintBar, PropertyRow, PageHeader, ZStack, ButtonGroup, FavoriteToggle, SwatchGrid, NinePointAnchor, ColorPair | simple_pieces | | ✅ Rating, SwatchGrid and NinePointAnchor take arrows, the rest Tab and Enter where they act, tested | |
 | Media and feedback: Image, Icon, Carousel, Avatar, Badge, Alert, ProgressBar, Spinner, Skeleton, Kbd, Divider | layout_and_content, components, batch_parity | ✅ partial | 🟡 Carousel arrows, untested | |
 
 ✅ means the WAI-ARIA keys for that widget work and a test covers them. 🟡 means it is reachable and activatable but the full pattern is missing or untested.

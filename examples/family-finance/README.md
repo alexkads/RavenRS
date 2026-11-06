@@ -19,7 +19,7 @@ The first run opens on a sample family, so there is something to explore. **Ajus
 | Orçamentos | `ProgressBar`, `Alert`, `Dialog` |
 | Relatórios | `ravenrs-report`, `ravenrs-report-viewer`, `ravenrs-report-export`, charts and barcodes from `ravenrs-graphics` |
 | Cadastros | `Tabs`, `ListItem`, `FormField` |
-| Ajustes | `ThemeSwitcher` |
+| Ajustes | `ThemeSwitcher` with the themes of `src/themes.rs` |
 | Exports and backup | `ravenrs::native::SaveDialog`, `open_with_system` |
 | An optional local AI model | `ravenrs_ai::ModelManager` in Ajustes offers only what fits this machine, to download, test, use and remove. With one in use, the assistant in `src/ui/assistant.rs` answers about the money, opens screens and prepares entries: the model only chooses a tool, `src/ui/request.rs` reads amounts, dates, names, repetition, installments and barcodes from the person's words, the numbers come from the database, and nothing is saved until the person confirms |
 | Treinamentos and reporting a problem | `ravenrs::movie`: `MovieChat` in a `FloatingPanel` on every screen and `MovieAssistant`, where a question opens the right moment of the six films recorded by `tests/training.rs`, with sound, a voice and boxes that explain each step, `FlightRecorder`, `BugReporter` |

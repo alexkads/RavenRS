@@ -2,19 +2,22 @@
 //! reports; here its shapes become a picture and its labels become text. Both are
 //! kept between frames, so a rebuild that changes nothing uploads nothing.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
+use ravenrs_animation::Transition;
 use ravenrs_core::{
-    Color, CursorIcon, Effect, ImageData, ImageQuad, Insets, Key, Point, Quad, Rect, Role, Size,
+    Brush, Color, CursorIcon, Effect, ImageData, ImageQuad, Insets, Key, PathElement, PathFill, Point, Quad,
+    Rect, Role, Size,
 };
 use ravenrs_graphics::barcode::{self, Pattern};
 use ravenrs_graphics::chart::{
     self, ChartData, ChartDrawing, ChartLabel, ChartOptions, ChartStyle, LabelAlign, SeriesData,
 };
 use ravenrs_graphics::plot::{self, Plot, PlotStyle};
-use ravenrs_graphics::vector::{self, Shape};
+use ravenrs_graphics::vector::{self, PathSegment, Shape};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
@@ -29,7 +32,7 @@ pub use ravenrs_graphics::plot::{
 
 use crate::context::{BuildCx, NodeId, Paint, PaintCx, Placement, QuadPaint, Semantics};
 use crate::motion::{self, Motion};
-use crate::{Card, IconName, View, util};
+use crate::{AnyView, Card, IconName, View, util};
 
 /// The widest a bar gets, so a few bars in a wide chart still read as bars.
 const MAX_BAR_WIDTH: f32 = 44.0;
@@ -43,14 +46,91 @@ const LEGEND_ICON: f32 = 12.0;
 const TOOLTIP_MIN_WIDTH: f32 = 128.0;
 const TOOLTIP_INDICATOR: f32 = 10.0;
 const ACTIVE_DOT: f32 = 5.0;
+/// How far the ring around an active dot reaches past it.
+const ACTIVE_HALO: f32 = 5.0;
+/// How solid that ring is.
+const HALO_ALPHA: f32 = 0.22;
+/// How much of its strength a chart gives up around the bar or slice in focus.
+const FOCUS_DIM: f32 = 0.45;
+/// How far a slice in focus comes forward. It stays under the gap a chart keeps
+/// from its title and legend, so a pie needs no smaller radius to make room for it.
+const SLICE_LIFT: f32 = 6.0;
+/// How much a slice's way forward it takes it to be solid.
+const LIFT_SOLID_FROM: f32 = 4.0;
+/// How solid the line through the points of the category in focus is.
+const CURSOR_ALPHA: f32 = 0.55;
 const DOT_ICON: f32 = 18.0;
+const CANDLE_OUTLINE: f32 = 1.5;
 
-/// Lays a drawing out in a rectangle, at a number of pixels per logical pixel.
-type DrawingFn = Rc<dyn Fn(Rect, f32) -> Plot>;
-type ValueFormat = Rc<dyn Fn(f64) -> String>;
+/// Lays a drawing out in a rectangle, at a number of pixels per logical pixel, and
+/// with a way to know how wide its text is.
+type DrawingFn = Rc<dyn Fn(Rect, f32, plot::Measure<'_>) -> Plot>;
+pub(crate) type ValueFormat = Rc<dyn Fn(f64) -> String>;
+/// Writes the panel of a tooltip, given the index and the name of a category.
+type TooltipContent = Rc<dyn Fn(usize, &str) -> AnyView>;
+/// The color of a value in a tooltip, given its series and the value.
+type ValueColor = Rc<dyn Fn(usize, f64) -> Option<Semantic>>;
 type TickFormat = Rc<dyn Fn(&str) -> String>;
 /// Which tab is chosen, and the name and the total of each.
 type ChartTabs = (Binding<usize>, Vec<(String, String)>);
+
+/// Bytes of pictures kept after their chart is gone: about ten charts filling a laptop's
+/// screen at 2x.
+const PICTURES_KEPT_BYTES: usize = 128 << 20;
+
+/// A picture that is not on screen anymore.
+struct KeptPicture {
+    layers: Vec<vector::Layer>,
+    size: (u32, u32),
+    image: Option<ImageData>,
+    bytes: usize,
+}
+
+thread_local! {
+    /// Drawing a chart on the CPU is what costs most in opening a screen, and a screen
+    /// that opens again shows the same chart. The most recent one comes last.
+    static PICTURES: RefCell<Vec<KeptPicture>> = const { RefCell::new(Vec::new()) };
+}
+
+/// The part of `area` these layers draw on, on whole pixels: drawing and sending the
+/// rest of the frame, empty, is what a chart's picture spends the most on.
+fn drawn_part(layers: &[vector::Layer], area: Rect, scale: f32) -> Option<Rect> {
+    let (mut x0, mut y0, mut x1, mut y1) =
+        (f32::INFINITY, f32::INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+    for bounds in layers.iter().filter_map(vector::Layer::bounds) {
+        x0 = x0.min(bounds.x());
+        y0 = y0.min(bounds.y());
+        x1 = x1.max(bounds.max_x());
+        y1 = y1.max(bounds.max_y());
+    }
+    let (left, top) = ((x0.max(area.x()) * scale).floor(), (y0.max(area.y()) * scale).floor());
+    let (right, bottom) = ((x1.min(area.max_x()) * scale).ceil(), (y1.min(area.max_y()) * scale).ceil());
+    (right > left && bottom > top)
+        .then(|| Rect::new(left / scale, top / scale, (right - left) / scale, (bottom - top) / scale))
+}
+
+/// The picture of these layers, drawn now only if none is kept.
+fn picture_of(layers: &[vector::Layer], area: Rect, scale: f32) -> Option<ImageData> {
+    let size = ((area.width() * scale).round() as u32, (area.height() * scale).round() as u32);
+    PICTURES.with_borrow_mut(|kept| {
+        if let Some(found) = kept.iter().position(|p| p.size == size && p.layers == layers) {
+            let picture = kept.remove(found);
+            let image = picture.image.clone();
+            kept.push(picture);
+            return image;
+        }
+        // A little under its width, for rounding not to make the picture a pixel wider.
+        let whole = Rect::new(area.x(), area.y(), area.width() - 0.01 / scale, area.height() - 0.01 / scale);
+        let image = vector::rasterize_layers(layers, whole, scale);
+        let bytes = size.0 as usize * size.1 as usize * 4;
+        kept.push(KeptPicture { layers: layers.to_vec(), size, image: image.clone(), bytes });
+        let mut total: usize = kept.iter().map(|p| p.bytes).sum();
+        while total > PICTURES_KEPT_BYTES && kept.len() > 1 {
+            total -= kept.remove(0).bytes;
+        }
+        image
+    })
+}
 
 /// What a drawing looked like when it was last painted, relative to its frame.
 #[derive(Default)]
@@ -59,10 +139,16 @@ struct Picture {
     size: Size,
     scale: f32,
     drawing: Plot,
-    image: Option<ImageData>,
+    image: Option<(Rect, ImageData)>,
     labels: Vec<(TextLayout, Point, Color)>,
     dot_icons: Vec<(TextLayout, Point, Color)>,
+    /// How wide each label is, as a rebuild asks again for the same ones.
+    widths: HashMap<u32, HashMap<String, f32>>,
 }
+
+/// Measured widths a chart keeps, more than even a long series has categories: one
+/// forgotten while the same labels are still in use would be measured again each frame.
+const WIDTHS_KEPT: usize = 1 << 15;
 
 impl Picture {
     /// Brings the picture up to date, redoing only what changed.
@@ -73,9 +159,27 @@ impl Picture {
             return;
         }
         let area = Rect::new(0.0, 0.0, size.width, size.height);
-        let drawing = source(area, cx.scale);
+        if self.scale != cx.scale || self.widths.values().map(HashMap::len).sum::<usize>() > WIDTHS_KEPT {
+            self.widths.clear();
+        }
+        let drawing = {
+            let (text, widths) = (RefCell::new(&mut *cx.text), RefCell::new(&mut self.widths));
+            let measure = |content: &str, size: f32| {
+                let mut widths = widths.borrow_mut();
+                let of_size = widths.entry(size.to_bits()).or_default();
+                if let Some(width) = of_size.get(content) {
+                    return *width;
+                }
+                let attrs = label_attrs(size, false);
+                let width = text.borrow_mut().layout(content, &attrs).measure(None).width;
+                of_size.insert(content.to_owned(), width);
+                width
+            };
+            source(area, cx.scale, &measure)
+        };
         if !same_pixels || drawing.layers != self.drawing.layers {
-            self.image = vector::rasterize_layers(&drawing.layers, area, cx.scale);
+            self.image = drawn_part(&drawing.layers, area, cx.scale)
+                .and_then(|part| picture_of(&drawing.layers, part, cx.scale).map(|image| (part, image)));
         }
         if drawing.labels != self.drawing.labels {
             self.labels = drawing.labels.iter().map(|label| typeset(label, cx)).collect();
@@ -103,14 +207,18 @@ impl Picture {
     }
 }
 
-fn typeset(label: &ChartLabel, cx: &mut PaintCx<'_>) -> (TextLayout, Point, Color) {
-    let attrs = TextAttrs {
-        size: label.size,
-        line_height: label.size * LABEL_LINE_HEIGHT,
-        weight: if label.bold { Weight::SEMIBOLD.0 } else { Weight::REGULAR.0 },
+pub(crate) fn label_attrs(size: f32, bold: bool) -> TextAttrs {
+    TextAttrs {
+        size,
+        line_height: size * LABEL_LINE_HEIGHT,
+        weight: if bold { Weight::SEMIBOLD.0 } else { Weight::REGULAR.0 },
         letter_spacing: 0.0,
         family: None,
-    };
+    }
+}
+
+pub(crate) fn typeset(label: &ChartLabel, cx: &mut PaintCx<'_>) -> (TextLayout, Point, Color) {
+    let attrs = label_attrs(label.size, label.bold);
     let mut layout = cx.text.layout(&label.text, &attrs);
     let measured = layout.measure(None);
     let x = match label.align {
@@ -122,10 +230,20 @@ fn typeset(label: &ChartLabel, cx: &mut PaintCx<'_>) -> (TextLayout, Point, Colo
     (layout, Point::new(x, y), label.color)
 }
 
-/// What stands out over the picture while a category is active.
-#[derive(Clone, Copy)]
+/// What stands out over the picture while a category is in focus, or was until a
+/// moment ago: all of it fades, so it is drawn for as long as `focus` is above zero.
+#[derive(Clone)]
 struct Highlight {
-    index: usize,
+    /// The category, between two of them while it glides from one to the other.
+    at: f32,
+    /// From nothing to in full.
+    focus: f32,
+    /// How much the picture fades at full focus.
+    dim: f32,
+    /// How far forward each category's slice is, from 0 to 1 (a spring may pass 1).
+    lifts: Vec<f32>,
+    /// The gap between slices, which a slice drawn over them has to leave alone.
+    separator: f32,
     /// A strip behind the bars.
     strip: bool,
     /// A line through the points.
@@ -137,12 +255,78 @@ struct Highlight {
     ring_color: Color,
 }
 
+fn mix(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
+impl Highlight {
+    /// The two categories it is between, and how far from the first to the second.
+    fn between(&self) -> (usize, usize, f32) {
+        let at = self.at.max(0.0);
+        (at.floor() as usize, at.ceil() as usize, at.fract())
+    }
+
+    /// The opacity of the picture.
+    fn opacity(&self) -> f32 {
+        1.0 - self.dim * self.focus
+    }
+}
+
+/// Keeps a thin line on whole pixels, so that it stays sharp and of one width. Its
+/// place on the page is only known here, and it may fall anywhere.
+fn snapped(rect: Rect, scale: f32) -> Rect {
+    let snap = |at: f32, length: f32| {
+        let thick = (length * scale).round().max(1.0);
+        ((at * scale).round() / scale, thick / scale)
+    };
+    if rect.width() < rect.height() {
+        let (x, width) = snap(rect.x(), rect.width());
+        Rect::new(x, rect.y(), width, rect.height())
+    } else {
+        let (y, height) = snap(rect.y(), rect.height());
+        Rect::new(rect.x(), y, rect.width(), height)
+    }
+}
+
+fn paint_rules(plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
+    for rule in &plot.rules {
+        let rect = Rect::new(
+            frame.x() + rule.rect.x(),
+            frame.y() + rule.rect.y(),
+            rule.rect.width(),
+            rule.rect.height(),
+        );
+        cx.scene.push_quad(Quad::new(snapped(rect, cx.scale), rule.color));
+    }
+}
+
+fn paint_top_rules(plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
+    for rule in &plot.top_rules {
+        let rect = Rect::new(
+            frame.x() + rule.rect.x(),
+            frame.y() + rule.rect.y(),
+            rule.rect.width(),
+            rule.rect.height(),
+        );
+        cx.scene.push_quad(Quad::new(snapped(rect, cx.scale), rule.color));
+    }
+}
+
 fn paint_strip(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
     if !highlight.strip {
         return;
     }
-    let Some(spot) = plot.spots.iter().find(|s| s.index == highlight.index) else { return };
-    let (band, area) = (spot.band, plot.area);
+    let (from, to, t) = highlight.between();
+    let spot = |index: usize| plot.spots.iter().find(|s| s.index == index);
+    let (Some(from), Some(to)) = (spot(from), spot(to)) else { return };
+    let (a, b) = (from.band, to.band);
+    let band = Rect::new(
+        mix(a.x(), b.x(), t),
+        mix(a.y(), b.y(), t),
+        mix(a.width(), b.width(), t),
+        mix(a.height(), b.height(), t),
+    );
+    let area = plot.area;
     let along_x = (band.width() - frame.width()).abs() > 0.5;
     let strip = if along_x {
         Rect::new(band.x(), area.y(), band.width(), area.height())
@@ -150,24 +334,130 @@ fn paint_strip(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx
         Rect::new(area.x(), band.y(), area.width(), band.height())
     };
     let strip = Rect::new(frame.x() + strip.x(), frame.y() + strip.y(), strip.width(), strip.height());
-    cx.scene.push_quad(Quad::new(strip, highlight.strip_color));
+    let color = highlight.strip_color;
+    cx.scene.push_quad(Quad::new(strip, color.with_alpha(color.a * highlight.focus)));
+}
+
+/// The bars. Around the focus they fade, less the closer they are to it, so focus
+/// hands over from one category to the next as it passes.
+fn paint_bars(highlight: Option<&Highlight>, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
+    for bar in &plot.bars {
+        let faded = highlight.map_or(0.0, |highlight| {
+            let distance = (bar.index as f32 - highlight.at).abs().min(1.0);
+            highlight.dim * highlight.focus * distance
+        });
+        let rect = Rect::new(
+            frame.x() + bar.rect.x(),
+            frame.y() + bar.rect.y(),
+            bar.rect.width(),
+            bar.rect.height(),
+        );
+        let strength = 1.0 - faded;
+        let brush: Brush = match bar.gradient {
+            Some(gradient) => ravenrs_core::LinearGradient {
+                from: gradient.from.with_alpha(gradient.from.a * strength),
+                to: gradient.to.with_alpha(gradient.to.a * strength),
+                ..gradient
+            }
+            .into(),
+            None => bar.color.with_alpha(bar.color.a * strength).into(),
+        };
+        let mut quad = Quad::new(rect, brush);
+        quad.corner_radii = bar.radii;
+        cx.scene.push_quad(quad);
+    }
+}
+
+/// The candles. A body that rose is an outline and one that fell is solid, so that
+/// which it did does not rest on the color alone.
+fn paint_candles(highlight: Option<&Highlight>, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
+    let place =
+        |rect: Rect| Rect::new(frame.x() + rect.x(), frame.y() + rect.y(), rect.width(), rect.height());
+    for candle in &plot.candles {
+        let faded = highlight.map_or(0.0, |highlight| {
+            let distance = (candle.index as f32 - highlight.at).abs().min(1.0);
+            highlight.dim * highlight.focus * distance
+        });
+        let color = candle.color.with_alpha(candle.color.a * (1.0 - faded));
+        for wick in candle.wicks {
+            if wick.height() > 0.0 {
+                cx.scene.push_quad(Quad::new(snapped(place(wick), cx.scale), color));
+            }
+        }
+        let body =
+            Quad::new(place(candle.body), if candle.rising { Color::TRANSPARENT } else { color }).radius(1.0);
+        cx.scene.push_quad(if candle.rising { body.border(CANDLE_OUTLINE, color) } else { body });
+    }
+}
+
+pub(crate) fn path_elements(path: &[PathSegment]) -> Vec<PathElement> {
+    path.iter()
+        .map(|segment| match segment {
+            PathSegment::Move(p) => PathElement::MoveTo(*p),
+            PathSegment::Line(p) => PathElement::LineTo(*p),
+            PathSegment::Cubic(a, b, c) => PathElement::CubicTo(*a, *b, *c),
+            _ => PathElement::Close,
+        })
+        .collect()
+}
+
+/// The slices that came forward, over a picture that faded.
+fn paint_lifted_slices(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
+    let outermost = plot.sectors.iter().map(|s| s.inner).fold(0.0, f32::max);
+    for sector in &plot.sectors {
+        let lift = highlight.lifts.get(sector.index).copied().unwrap_or(0.0);
+        if lift <= 0.001 {
+            continue;
+        }
+        // Only the outside ring has anywhere to go.
+        let outer = if sector.inner >= outermost { sector.outer + SLICE_LIFT * lift } else { sector.outer };
+        // The same gap as in the picture keeps the slice the same width as it comes forward.
+        let path = plot::gapped_slice(
+            sector.center,
+            sector.inner,
+            outer,
+            sector.from,
+            sector.to,
+            highlight.separator,
+        );
+        // Solid for most of its way, so that it never looks like a ghost of itself, and
+        // only at the very end does it hand over to the slice in the picture.
+        let color = sector.color.with_alpha(sector.color.a * (lift * LIFT_SOLID_FROM).clamp(0.0, 1.0));
+        cx.scene.push_path(PathFill {
+            transform: [1.0, 0.0, 0.0, 1.0, frame.x(), frame.y()],
+            ..PathFill::solid(path_elements(&path), color)
+        });
+    }
 }
 
 fn paint_highlight(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
-    if highlight.line
-        && let Some(spot) = plot.spots.iter().find(|s| s.index == highlight.index)
-    {
-        let line =
-            Rect::new(frame.x() + spot.center.x - 0.5, frame.y() + plot.area.y(), 1.0, plot.area.height());
-        cx.scene.push_quad(Quad::new(line, highlight.line_color));
+    let (from, to, t) = highlight.between();
+    if highlight.line {
+        let spot = |index: usize| plot.spots.iter().find(|s| s.index == index);
+        if let (Some(a), Some(b)) = (spot(from), spot(to)) {
+            let x = frame.x() + mix(a.center.x, b.center.x, t) - 0.5;
+            let line = snapped(Rect::new(x, frame.y() + plot.area.y(), 1.0, plot.area.height()), cx.scale);
+            let color = highlight.line_color;
+            cx.scene.push_quad(Quad::new(line, color.with_alpha(color.a * highlight.focus)));
+        }
     }
     if highlight.dots {
-        for mark in plot.marks.iter().filter(|m| m.index == highlight.index) {
-            let side = ACTIVE_DOT * 2.0;
-            let rect =
-                Rect::new(frame.x() + mark.at.x - ACTIVE_DOT, frame.y() + mark.at.y - ACTIVE_DOT, side, side);
-            cx.scene
-                .push_quad(Quad::new(rect, mark.color).radius(ACTIVE_DOT).border(2.0, highlight.ring_color));
+        let focus = highlight.focus;
+        let radius = ACTIVE_DOT * mix(0.6, 1.0, focus);
+        let halo = radius + ACTIVE_HALO * focus;
+        for mark in plot.marks.iter().filter(|m| m.index == from) {
+            let next = plot.marks.iter().find(|m| m.index == to && m.series == mark.series).unwrap_or(mark);
+            let x = frame.x() + mix(mark.at.x, next.at.x, t);
+            let y = frame.y() + mix(mark.at.y, next.at.y, t);
+            let color = if t < 0.5 { mark.color } else { next.color };
+            let round = |r: f32| Rect::new(x - r, y - r, r * 2.0, r * 2.0);
+            cx.scene.push_quad(Quad::new(round(halo), color.with_alpha(HALO_ALPHA * focus)).radius(halo));
+            let ring = highlight.ring_color;
+            cx.scene.push_quad(
+                Quad::new(round(radius), color.with_alpha(color.a * focus))
+                    .radius(radius)
+                    .border(2.0, ring.with_alpha(ring.a * focus)),
+            );
         }
     }
 }
@@ -194,9 +484,18 @@ fn plot_node(
             if let Some(highlight) = &highlight {
                 paint_strip(highlight, &picture.drawing, frame, paint);
             }
-            if let Some(image) = &picture.image {
-                paint.scene.push_image(ImageQuad::new(frame, image.clone()));
+            paint_rules(&picture.drawing, frame, paint);
+            paint_bars(highlight.as_ref(), &picture.drawing, frame, paint);
+            paint_candles(highlight.as_ref(), &picture.drawing, frame, paint);
+            if let Some((part, image)) = &picture.image {
+                let opacity = highlight.as_ref().map_or(1.0, Highlight::opacity);
+                let at = Rect::new(frame.x() + part.x(), frame.y() + part.y(), part.width(), part.height());
+                paint.scene.push_image(ImageQuad { opacity, ..ImageQuad::new(at, image.clone()) });
             }
+            if let Some(highlight) = &highlight {
+                paint_lifted_slices(highlight, &picture.drawing, frame, paint);
+            }
+            paint_top_rules(&picture.drawing, frame, paint);
             if let Some(highlight) = &highlight {
                 paint_highlight(highlight, &picture.drawing, frame, paint);
             }
@@ -216,7 +515,7 @@ fn drawing_node(cx: &mut BuildCx<'_>, style: LayoutStyle, drawing: DrawingFn) ->
 
 /// The colors of a chart in this theme: none of them means anything, unlike status
 /// colors, and past the theme's five come those of the shared palette.
-fn palette(theme: &Theme) -> Vec<Color> {
+pub(crate) fn palette(theme: &Theme) -> Vec<Color> {
     [Semantic::Chart1, Semantic::Chart2, Semantic::Chart3, Semantic::Chart4, Semantic::Chart5]
         .map(|role| theme.color(role))
         .into_iter()
@@ -225,7 +524,7 @@ fn palette(theme: &Theme) -> Vec<Color> {
 }
 
 /// Shows a number on an axis: at most two decimals, none when they are zeros.
-fn plain_number(value: f64) -> String {
+pub(crate) fn plain_number(value: f64) -> String {
     let text = format!("{value:.2}");
     text.trim_end_matches('0').trim_end_matches('.').to_owned()
 }
@@ -272,6 +571,10 @@ pub struct ChartTooltip {
     total: Option<String>,
     icons: bool,
     no_cursor: bool,
+    percent: bool,
+    value_color: Option<ValueColor>,
+    no_indicator: Vec<String>,
+    content: Option<TooltipContent>,
 }
 
 impl fmt::Debug for ChartTooltip {
@@ -328,6 +631,34 @@ impl ChartTooltip {
         self
     }
 
+    /// Writes after each value its share: of the circle in a pie or a doughnut, of
+    /// the category in the others.
+    pub fn show_percent(mut self) -> Self {
+        self.percent = true;
+        self
+    }
+
+    /// Colors a value by what it says, such as a loss in red. It is given the index
+    /// of the series and the value; `None` leaves it in the color of the text.
+    pub fn value_color(mut self, color: impl Fn(usize, f64) -> Option<Semantic> + 'static) -> Self {
+        self.value_color = Some(Rc::new(color));
+        self
+    }
+
+    /// The row of this series has no square or bar, for a value that is not one of
+    /// those the chart tells apart, such as a target.
+    pub fn no_indicator_for(mut self, series: impl Into<String>) -> Self {
+        self.no_indicator.push(series.into());
+        self
+    }
+
+    /// Writes the panel with a view of your own, given the index and the name of the
+    /// category. A screen reader still hears the values.
+    pub fn content(mut self, content: impl Fn(usize, &str) -> AnyView + 'static) -> Self {
+        self.content = Some(Rc::new(content));
+        self
+    }
+
     /// Leaves out the strip or line that marks the category on the chart.
     pub fn no_cursor(mut self) -> Self {
         self.no_cursor = true;
@@ -335,20 +666,47 @@ impl ChartTooltip {
     }
 }
 
+impl ChartTooltip {
+    fn color_of_value(&self, series: usize, value: f64, theme: &Theme) -> Option<Color> {
+        self.value_color.as_ref().and_then(|color| color(series, value)).map(|role| theme.color(role))
+    }
+}
+
 /// One row of a tooltip or legend.
-struct KeyRow {
-    name: String,
+pub(crate) struct KeyRow {
+    pub(crate) name: String,
     color: Color,
     icon: Option<IconName>,
     value: Option<f64>,
+    /// Its share of the whole, already written.
+    share: Option<String>,
+    value_color: Option<Color>,
+    no_indicator: bool,
 }
 
-struct TooltipPanel {
-    title: Option<String>,
-    rows: Vec<KeyRow>,
-    total: Option<(String, f64)>,
-    tooltip: ChartTooltip,
-    format: ValueFormat,
+impl KeyRow {
+    pub(crate) fn named(name: String, color: Color, icon: Option<IconName>, value: Option<f64>) -> Self {
+        Self { name, color, icon, value, share: None, value_color: None, no_indicator: false }
+    }
+}
+
+/// A share of a whole, with no decimals to write in the reader's language.
+fn percent_text(part: f64, whole: f64) -> Option<String> {
+    if whole <= 0.0 || !part.is_finite() {
+        return None;
+    }
+    let percent = part.abs() / whole * 100.0;
+    Some(if percent > 0.0 && percent < 1.0 { "<1%".to_owned() } else { format!("{percent:.0}%") })
+}
+
+pub(crate) struct TooltipPanel {
+    pub(crate) title: Option<String>,
+    pub(crate) rows: Vec<KeyRow>,
+    pub(crate) total: Option<(String, f64)>,
+    pub(crate) tooltip: ChartTooltip,
+    pub(crate) format: ValueFormat,
+    pub(crate) index: usize,
+    pub(crate) category: String,
 }
 
 fn indicator_node(cx: &mut BuildCx<'_>, indicator: ChartIndicator, color: Color) -> Option<NodeId> {
@@ -380,7 +738,10 @@ impl TooltipPanel {
         let mut parts = Vec::new();
         if let (true, Some(icon)) = (self.tooltip.icons, row.icon) {
             parts.push(util::icon(cx, icon, LEGEND_ICON, muted));
-        } else if !strong && let Some(mark) = indicator_node(cx, self.tooltip.indicator, row.color) {
+        } else if !strong
+            && !row.no_indicator
+            && let Some(mark) = indicator_node(cx, self.tooltip.indicator, row.color)
+        {
             parts.push(mark);
         }
         let weight = strong.then_some(Weight::SEMIBOLD);
@@ -393,7 +754,11 @@ impl TooltipPanel {
         parts.push(gap);
         if let Some(value) = row.value {
             let format = self.tooltip.value_format.as_ref().unwrap_or(&self.format);
-            parts.push(util::label(cx, &format(value), TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
+            let tone = row.value_color.unwrap_or(ink);
+            parts.push(util::label(cx, &format(value), TextStyle::Caption, Some(Weight::SEMIBOLD), tone));
+        }
+        if let Some(share) = &row.share {
+            parts.push(util::label(cx, share, TextStyle::Caption, None, muted));
         }
         cx.container(
             LayoutStyle {
@@ -412,17 +777,21 @@ impl View for TooltipPanel {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let mut lines = Vec::new();
-        if let Some(title) = &self.title {
-            let ink = theme.color(Semantic::Ink);
-            lines.push(util::label(cx, title, TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
-        }
-        for row in &self.rows {
-            lines.push(self.row(cx, row, false));
-        }
-        if let Some((name, total)) = &self.total {
-            let row =
-                KeyRow { name: name.clone(), color: Color::TRANSPARENT, icon: None, value: Some(*total) };
-            lines.push(self.row(cx, &row, true));
+        if let Some(content) = &self.tooltip.content {
+            let view = content(self.index, &self.category);
+            lines.push(cx.child(&*view));
+        } else {
+            if let Some(title) = &self.title {
+                let ink = theme.color(Semantic::Ink);
+                lines.push(util::label(cx, title, TextStyle::Caption, Some(Weight::SEMIBOLD), ink));
+            }
+            for row in &self.rows {
+                lines.push(self.row(cx, row, false));
+            }
+            if let Some((name, total)) = &self.total {
+                let row = KeyRow::named(name.clone(), Color::TRANSPARENT, None, Some(*total));
+                lines.push(self.row(cx, &row, true));
+            }
         }
         let node = cx.container(
             LayoutStyle {
@@ -454,6 +823,58 @@ impl View for TooltipPanel {
         );
         node
     }
+}
+
+/// A dashed line across a [`Chart`] at a value that matters, such as a target.
+///
+/// ```
+/// use ravenrs_style::Semantic;
+/// use ravenrs_widgets::{Chart, ChartKind, ChartReference};
+///
+/// let chart = Chart::new(ChartKind::Bar)
+///     .categories(["Jan", "Feb"])
+///     .series("Sales", [12.0, 18.0])
+///     .reference(ChartReference::new(15.0).label("Target").color(Semantic::Danger));
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChartReference {
+    value: f64,
+    label: Option<String>,
+    color: Option<Semantic>,
+}
+
+impl ChartReference {
+    /// A line at this value, in the color of secondary text.
+    pub fn new(value: f64) -> Self {
+        Self { value, label: None, color: None }
+    }
+
+    /// What it says, at its end.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Its color.
+    pub fn color(mut self, color: Semantic) -> Self {
+        self.color = Some(color);
+        self
+    }
+}
+
+/// Where the bars of a [`Chart`] grow from.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ChartBarFrom {
+    /// Up from the bottom.
+    #[default]
+    Bottom,
+    /// Down from the top, with their categories over them.
+    Top,
+    /// To the right from the left, as [`Chart::horizontal`] does.
+    Left,
+    /// To the left from the right, with their categories beside them.
+    Right,
 }
 
 /// Where a [`Chart`]'s legend goes.
@@ -520,8 +941,9 @@ impl View for LegendRow {
 
 /// A chart of any [`ChartKind`]. Its shapes are drawn into a picture at the screen's
 /// density, and its labels are real text. Over the picture it says what each value
-/// is, under the pointer or with the arrow keys; [`ChartKind::Scatter`] and the
-/// sparklines stay as plain pictures.
+/// is, under the pointer or with the arrow keys. [`ChartKind::Scatter`] and the
+/// sparklines stay as plain pictures, which take no focus, until given a
+/// [`tooltip`](Self::tooltip).
 ///
 /// Available with the `charts` feature, on by default.
 ///
@@ -550,10 +972,14 @@ pub struct Chart {
     look: Look,
     legend_at: ChartLegend,
     tooltip: Option<ChartTooltip>,
+    /// The small kinds only say anything if asked to.
+    tooltip_asked: bool,
     dot_icon: Option<IconName>,
     item_colors: Vec<Semantic>,
     vary_colors: bool,
     negative: Option<Semantic>,
+    hover_focus: bool,
+    hover_motion: bool,
 }
 
 /// What [`PlotStyle`] takes as it is. The theme and the data fill in the rest.
@@ -564,6 +990,9 @@ struct Look {
     gradient: bool,
     fill_opacity: Option<f32>,
     horizontal: bool,
+    reversed: bool,
+    min_bar: Option<f32>,
+    labels_at_zero: bool,
     bar_radius: Option<f32>,
     active: Option<usize>,
     dots: bool,
@@ -571,10 +1000,18 @@ struct Look {
     category_labels: Option<ChartLabelAt>,
     tick_format: Option<TickFormat>,
     grid: ChartGrid,
+    grid_dashed: bool,
+    domain: Option<(f64, f64)>,
+    references: Vec<ChartReference>,
+    ends_aligned: bool,
+    grid_columns: Option<usize>,
+    value_ticks: Option<usize>,
     category_axis: bool,
     value_axis: bool,
     tight_scale: bool,
     no_separator: bool,
+    slice_radii: Vec<f32>,
+    label_guides: bool,
     hole: Option<f32>,
     concentric: bool,
     polar_grid: Option<ChartPolarGrid>,
@@ -597,6 +1034,9 @@ impl Default for Look {
             gradient: false,
             fill_opacity: None,
             horizontal: false,
+            reversed: false,
+            min_bar: None,
+            labels_at_zero: false,
             bar_radius: None,
             active: None,
             dots: false,
@@ -604,10 +1044,18 @@ impl Default for Look {
             category_labels: None,
             tick_format: None,
             grid: ChartGrid::Horizontal,
+            grid_dashed: false,
+            domain: None,
+            references: Vec::new(),
+            ends_aligned: false,
+            grid_columns: None,
+            value_ticks: None,
             category_axis: true,
             value_axis: false,
             tight_scale: false,
             no_separator: false,
+            slice_radii: Vec::new(),
+            label_guides: false,
             hole: None,
             concentric: false,
             polar_grid: None,
@@ -652,10 +1100,13 @@ impl Chart {
             look: Look::default(),
             legend_at: ChartLegend::Bottom,
             tooltip: Some(ChartTooltip::new()),
+            tooltip_asked: false,
             dot_icon: None,
             item_colors: Vec::new(),
             vary_colors: false,
             negative: None,
+            hover_focus: true,
+            hover_motion: true,
         }
     }
 
@@ -680,6 +1131,33 @@ impl Chart {
             icon: None,
             values: values.into_iter().collect(),
         }));
+        self
+    }
+
+    /// The candles of a [`ChartKind::Candlestick`], one per category, each with its open,
+    /// high, low and close, in that order. Rising candles are outlines and falling ones
+    /// are solid, in the theme's colors for success and danger.
+    ///
+    /// ```
+    /// use ravenrs_widgets::{Chart, ChartKind};
+    ///
+    /// let prices = Chart::new(ChartKind::Candlestick)
+    ///     .categories(["Mon", "Tue"])
+    ///     .candles([[100.0, 112.0, 98.0, 110.0], [110.0, 111.0, 101.0, 102.0]]);
+    /// ```
+    pub fn candles(mut self, candles: impl IntoIterator<Item = [f64; 4]>) -> Self {
+        let candles: Vec<[f64; 4]> = candles.into_iter().collect();
+        // Their names come from the language of the screen, when they are shown.
+        self.series = (0..4)
+            .map(|at| {
+                Rc::new(Series {
+                    name: String::new(),
+                    color: None,
+                    icon: None,
+                    values: candles.iter().map(|candle| candle[at]).collect(),
+                })
+            })
+            .collect();
         self
     }
 
@@ -766,7 +1244,8 @@ impl Chart {
         self
     }
 
-    /// Fills areas from strong at the top to faint at the bottom.
+    /// Fills areas from strong at the top to faint at the bottom, and bars from strong
+    /// at the tip to fainter at the base.
     pub fn gradient(mut self) -> Self {
         self.look.gradient = true;
         self
@@ -781,6 +1260,27 @@ impl Chart {
     /// Bars lie down, with their categories on the left.
     pub fn horizontal(mut self) -> Self {
         self.look.horizontal = true;
+        self
+    }
+
+    /// Where bars grow from: up from the bottom by default.
+    pub fn bars_from(mut self, from: ChartBarFrom) -> Self {
+        self.look.horizontal = matches!(from, ChartBarFrom::Left | ChartBarFrom::Right);
+        self.look.reversed = matches!(from, ChartBarFrom::Top | ChartBarFrom::Right);
+        self
+    }
+
+    /// The shortest a bar with a value gets, in logical pixels, however small the value
+    /// is (half a pixel by default). A value of zero stays as good as nothing.
+    pub fn min_bar_length(mut self, length: f32) -> Self {
+        self.look.min_bar = Some(length);
+        self
+    }
+
+    /// The categories of bars sit on the line of zero, on its other side from the bar,
+    /// instead of along the edge of the chart: for values both ways from zero.
+    pub fn labels_at_zero(mut self) -> Self {
+        self.look.labels_at_zero = true;
         self
     }
 
@@ -850,6 +1350,53 @@ impl Chart {
         self
     }
 
+    /// Draws the gridlines in dashes.
+    pub fn grid_dashed(mut self) -> Self {
+        self.look.grid_dashed = true;
+        self
+    }
+
+    /// Upright gridlines evenly spread into this many columns, instead of one at each
+    /// category or number.
+    pub fn grid_columns(mut self, columns: usize) -> Self {
+        self.look.grid_columns = Some(columns);
+        self
+    }
+
+    /// About how many steps the value axis has (4 by default). Round numbers decide
+    /// how many exactly.
+    pub fn value_ticks(mut self, ticks: usize) -> Self {
+        self.look.value_ticks = Some(ticks);
+        self
+    }
+
+    /// The first category along the axis starts at its point and the last one ends at
+    /// its point, so that they line up with the ends of a line or an area. The last one
+    /// always shows, however many others there is no room for.
+    pub fn align_axis_ends(mut self) -> Self {
+        self.look.ends_aligned = true;
+        self
+    }
+
+    /// The value axis goes exactly from `min` to `max`, and what is past them is cut
+    /// off. Its numbers are the round ones in between. Not for expanded stacks.
+    pub fn value_domain(mut self, min: f64, max: f64) -> Self {
+        self.look.domain = Some((min, max));
+        self
+    }
+
+    /// A dashed line across the data at this value. The scale stretches to show it,
+    /// unless [`Self::value_domain`] fixed it.
+    pub fn reference_line(self, value: f64) -> Self {
+        self.reference(ChartReference::new(value))
+    }
+
+    /// A dashed line across the data with its own text or color.
+    pub fn reference(mut self, reference: ChartReference) -> Self {
+        self.look.references.push(reference);
+        self
+    }
+
     /// Leaves out the categories along the axis.
     pub fn hide_category_axis(mut self) -> Self {
         self.look.category_axis = false;
@@ -868,9 +1415,24 @@ impl Chart {
         self
     }
 
-    /// Leaves out the line between slices.
+    /// Leaves out the gap between slices, through which what is behind the chart shows.
     pub fn no_separator(mut self) -> Self {
         self.look.no_separator = true;
+        self
+    }
+
+    /// How far each slice reaches, in order, as a share from 0 to 1 of the room from
+    /// the hole to the edge. A slice with no number here reaches the edge.
+    pub fn slice_radii(mut self, shares: impl IntoIterator<Item = f32>) -> Self {
+        self.look.slice_radii = shares.into_iter().collect();
+        self
+    }
+
+    /// Labels asked for outside a pie or a doughnut sit in a column on each side, none
+    /// over another, each joined to its slice by a line with an elbow. The chart gets
+    /// smaller to give them the room they need.
+    pub fn label_guides(mut self) -> Self {
+        self.look.label_guides = true;
         self
     }
 
@@ -942,15 +1504,33 @@ impl Chart {
         self
     }
 
-    /// What it says about the category under the pointer. A plain tooltip by default.
+    /// What it says about the category under the pointer. A plain tooltip by default,
+    /// except on a [`ChartKind::Scatter`] and a sparkline: with this they also get the
+    /// cursor, the dots in focus, and the arrow keys.
     pub fn tooltip(mut self, tooltip: ChartTooltip) -> Self {
         self.tooltip = Some(tooltip);
+        self.tooltip_asked = true;
         self
     }
 
     /// Says nothing under the pointer and takes no keyboard focus.
     pub fn hide_tooltip(mut self) -> Self {
         self.tooltip = None;
+        self
+    }
+
+    /// Keeps the chart as it is around the category under the pointer: the other
+    /// bars and slices do not fade, and no slice comes forward. The tooltip and the
+    /// cursor stay.
+    pub fn no_hover_focus(mut self) -> Self {
+        self.hover_focus = false;
+        self
+    }
+
+    /// The cursor, its dots and the focus go straight from one category to the next,
+    /// with no glide and no fade, as they do when the system asks for less motion.
+    pub fn no_hover_motion(mut self) -> Self {
+        self.hover_motion = false;
         self
     }
 
@@ -961,7 +1541,10 @@ impl Chart {
     }
 
     /// Every series' values, as a screen reader hears them.
-    fn spoken_values(&self) -> String {
+    fn spoken_values(&self, labels: &crate::Labels) -> String {
+        if self.kind == ChartKind::Candlestick {
+            return self.spoken_candles(labels);
+        }
         let named = self.series.len() > 1;
         let parts: Vec<String> = self
             .series
@@ -988,6 +1571,31 @@ impl Chart {
             })
             .collect();
         parts.join("; ")
+    }
+
+    fn candle_names(labels: &crate::Labels) -> [&str; 4] {
+        [&labels.candle_open, &labels.candle_high, &labels.candle_low, &labels.candle_close]
+    }
+
+    /// Each candle, as a screen reader hears it.
+    fn spoken_candles(&self, labels: &crate::Labels) -> String {
+        let names = Self::candle_names(labels);
+        let mut spoken: Vec<String> = self
+            .categories
+            .iter()
+            .take(SPOKEN_VALUES)
+            .enumerate()
+            .map(|(i, category)| {
+                let values = self.series.iter().zip(names).filter_map(|(series, name)| {
+                    series.values.get(i).map(|value| format!("{name} {}", (self.format)(*value)))
+                });
+                format!("{category}: {}", values.collect::<Vec<_>>().join(", "))
+            })
+            .collect();
+        if self.categories.len() > SPOKEN_VALUES {
+            spoken.push("…".to_owned());
+        }
+        spoken.join("; ")
     }
 
     /// Whether this chart is one of the plain pictures.
@@ -1021,7 +1629,7 @@ impl Chart {
         }
         style.ink = theme.color(Semantic::Ink);
         style.muted = theme.color(Semantic::InkMuted);
-        style.grid = theme.color(Semantic::Border);
+        style.grid = theme.color(Semantic::ChartGrid);
         style.surface = theme.color(Semantic::SurfaceElevated);
         style.track = theme.color(Semantic::Control);
         style.size = theme.text(TextStyle::Caption).size;
@@ -1032,9 +1640,16 @@ impl Chart {
             style.fill_opacity = opacity;
         }
         style.horizontal = look.horizontal;
+        style.reversed = look.reversed;
+        if let Some(length) = look.min_bar {
+            style.min_bar = length.max(0.0);
+        }
+        style.labels_at_zero = look.labels_at_zero;
         let bars = if self.series.len() > 1 { theme.radii.sm } else { theme.radii.md };
         style.bar_radius = look.bar_radius.unwrap_or(bars);
         style.negative = self.negative.map(|role| theme.color(role));
+        style.rising = theme.color(Semantic::Success);
+        style.falling = theme.color(Semantic::Danger);
         style.active = look.active;
         style.dots = look.dots && self.dot_icon.is_none();
         style.value_labels = look.value_labels;
@@ -1046,12 +1661,26 @@ impl Chart {
             style.tick_format = Rc::new(move |text| format(text));
         }
         style.grid_lines = look.grid;
+        style.grid_dashed = look.grid_dashed;
+        style.ends_aligned = look.ends_aligned;
+        style.domain = look.domain;
+        style.references = look
+            .references
+            .iter()
+            .map(|r| plot::Reference::new(r.value, r.label.clone(), r.color.map(|role| theme.color(role))))
+            .collect();
+        style.grid_columns = look.grid_columns;
+        if let Some(ticks) = look.value_ticks {
+            style.value_ticks = ticks;
+        }
         style.category_axis = look.category_axis;
-        style.value_axis = look.value_axis;
+        style.value_axis = look.value_axis || self.kind == ChartKind::Candlestick;
         style.tight_scale = look.tight_scale;
         if look.no_separator {
             style.separator = 0.0;
         }
+        style.slice_radii.clone_from(&look.slice_radii);
+        style.label_guides = look.label_guides;
         if let Some(hole) = look.hole {
             style.hole = hole;
         }
@@ -1068,10 +1697,16 @@ impl Chart {
         style.sweep = look.sweep;
         style.tracks = look.tracks;
         style.center.clone_from(&look.center);
+        style.rules_apart = true;
+        style.bars_apart = true;
         style
     }
 
     fn legend_rows(&self, colors: &[Color], theme: &Theme) -> Vec<KeyRow> {
+        // Up and down are no series to tell apart.
+        if self.kind == ChartKind::Candlestick {
+            return Vec::new();
+        }
         if self.colors_by_category() {
             let first = self.series.first().map(|s| s.values.as_slice());
             return self
@@ -1079,11 +1714,8 @@ impl Chart {
                 .iter()
                 .enumerate()
                 .filter(|(i, _)| first.is_none_or(|values| values.get(*i).is_some_and(|v| *v > 0.0)))
-                .map(|(i, name)| KeyRow {
-                    name: name.clone(),
-                    color: self.category_color(i, colors, theme),
-                    icon: None,
-                    value: None,
+                .map(|(i, name)| {
+                    KeyRow::named(name.clone(), self.category_color(i, colors, theme), None, None)
                 })
                 .collect();
         }
@@ -1093,11 +1725,8 @@ impl Chart {
         self.series
             .iter()
             .enumerate()
-            .map(|(i, series)| KeyRow {
-                name: series.name.clone(),
-                color: self.color_of_series(i, colors),
-                icon: series.icon,
-                value: None,
+            .map(|(i, series)| {
+                KeyRow::named(series.name.clone(), self.color_of_series(i, colors), series.icon, None)
             })
             .collect()
     }
@@ -1109,17 +1738,32 @@ impl Chart {
         index: usize,
         colors: &[Color],
         theme: &Theme,
+        labels: &crate::Labels,
     ) -> TooltipPanel {
-        let category = self.categories.get(index).cloned().unwrap_or_default();
+        // A dot may have only its position to go by.
+        let named = self.categories.get(index).filter(|name| !name.is_empty()).cloned();
+        let category = named.unwrap_or_else(|| {
+            self.positions.get(index).map(|position| (self.format)(*position)).unwrap_or_default()
+        });
         let rows: Vec<KeyRow> = if self.colors_by_category() && !self.look.concentric {
-            let value = self.series.first().and_then(|s| s.values.get(index)).copied();
-            vec![KeyRow {
-                name: category.clone(),
-                color: self.category_color(index, colors, theme),
-                icon: None,
-                value,
-            }]
+            let values = self.series.first().map_or(&[][..], |s| s.values.as_slice());
+            let value = values.get(index).copied();
+            let mut row =
+                KeyRow::named(category.clone(), self.category_color(index, colors, theme), None, value);
+            if tooltip.percent {
+                let whole: f64 = values.iter().filter(|v| **v > 0.0).sum();
+                row.share = value.and_then(|value| percent_text(value, whole));
+            }
+            row.value_color = value.and_then(|value| tooltip.color_of_value(0, value, theme));
+            vec![row]
         } else {
+            let whole: f64 = self
+                .series
+                .iter()
+                .filter_map(|s| s.values.get(index))
+                .filter(|v| v.is_finite())
+                .map(|v| v.abs())
+                .sum();
             self.series
                 .iter()
                 .enumerate()
@@ -1130,12 +1774,29 @@ impl Chart {
                     } else {
                         self.color_of_series(i, colors)
                     };
-                    Some(KeyRow { name: series.name.clone(), color, icon: series.icon, value: Some(value) })
+                    let mut row = KeyRow::named(series.name.clone(), color, series.icon, Some(value));
+                    if tooltip.percent {
+                        row.share = percent_text(value, whole);
+                    }
+                    row.value_color = tooltip.color_of_value(i, value, theme);
+                    row.no_indicator = tooltip.no_indicator.contains(&series.name);
+                    Some(row)
                 })
                 .collect()
         };
+        let mut rows = rows;
+        if self.kind == ChartKind::Candlestick {
+            let at = |s: usize| self.series.get(s).and_then(|series| series.values.get(index)).copied();
+            let rising = at(3) >= at(0);
+            let color = theme.color(if rising { Semantic::Success } else { Semantic::Danger });
+            for (row, name) in rows.iter_mut().zip(Self::candle_names(labels)) {
+                row.name = name.to_owned();
+                row.color = color;
+            }
+        }
         let by_category = self.colors_by_category() && !self.look.concentric;
-        let title = if tooltip.hide_label || by_category {
+        let name = category.clone();
+        let title = if tooltip.hide_label || by_category || (category.is_empty() && tooltip.label.is_none()) {
             None
         } else if let Some(label) = &tooltip.label {
             Some(label.clone())
@@ -1149,11 +1810,20 @@ impl Chart {
             .total
             .as_ref()
             .map(|name| (name.clone(), rows.iter().filter_map(|row| row.value).sum::<f64>()));
-        TooltipPanel { title, rows, total, tooltip: tooltip.clone(), format: self.format.clone() }
+        TooltipPanel {
+            title,
+            rows,
+            total,
+            tooltip: tooltip.clone(),
+            format: self.format.clone(),
+            index,
+            category: name,
+        }
     }
 
     fn build_plot(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
+        let labels = cx.labels();
         let colors = palette(&theme);
         let style = self.plot_style(&theme, &colors);
         let series = self.series.iter().enumerate().map(|(i, series)| SeriesData {
@@ -1166,6 +1836,7 @@ impl Chart {
             positions: Vec::new(),
             series: series.collect(),
         };
+        let plain = self.is_plain();
         let picture = cx.use_state(|| Rc::new(RefCell::new(Picture::default()))).peek().clone();
         let active: State<Option<usize>> = cx.use_state(|| None::<usize>);
         let hovered = cx.is_hover_within();
@@ -1178,15 +1849,39 @@ impl Chart {
         let spot = shown.and_then(|index| {
             let picture = picture.borrow();
             let place = picture.drawing.anchor_of(index)?;
-            // It follows the pointer along what is free: up and down a column, along a
-            // row, or anywhere over a slice. With the keyboard it stays on the category.
-            let at = match pointer.get().filter(|_| hovered) {
-                Some(p) if picture.drawing.spots.is_empty() => p,
-                Some(p) if self.look.horizontal => Point::new(p.x, place.y),
-                Some(p) => Point::new(place.x, p.y),
-                None => place,
+            // It follows the pointer without covering what is in focus: along a column
+            // or a row it stays beside the strip, and around a circle it goes outward.
+            // Each way it takes the side with the most room. With the keyboard it stays
+            // on the category.
+            let follows = pointer.get().filter(|_| hovered);
+            let size = picture.size;
+            let spot = picture.drawing.spots.iter().find(|s| s.index == index);
+            let round = spot.is_none();
+            let along = follows.unwrap_or(place);
+            let (past_x, past_y) = (along.x > size.width / 2.0, along.y > size.height / 2.0);
+            let is_bar = matches!(self.kind, ChartKind::Bar | ChartKind::Candlestick);
+            let at = match (follows, spot) {
+                (Some(p), Some(spot)) if self.look.horizontal && is_bar => {
+                    Point::new(p.x, if past_y { spot.band.y() } else { spot.band.max_y() })
+                }
+                (Some(p), Some(spot)) if is_bar => {
+                    Point::new(if past_x { spot.band.x() } else { spot.band.max_x() }, p.y)
+                }
+                (Some(p), Some(_)) => Point::new(place.x, p.y),
+                (Some(p), None) => p,
+                (None, _) => place,
             };
-            Some((at, at.x > picture.size.width / 2.0))
+            let to_the_left = if round { !past_x } else { past_x };
+            let rises = if round { !past_y } else { past_y };
+            let placement = match (follows.is_some(), to_the_left, rises) {
+                (false, false, _) => Placement::RightCenter,
+                (false, true, _) => Placement::LeftCenter,
+                (true, false, false) => Placement::Right,
+                (true, false, true) => Placement::RightEnd,
+                (true, true, false) => Placement::LeftStart,
+                (true, true, true) => Placement::LeftEnd,
+            };
+            Some((at, placement))
         });
         let anchor = spot.map(|(at, _)| {
             cx.container(
@@ -1203,18 +1898,50 @@ impl Chart {
         children.extend(anchor);
 
         let cursor = self.tooltip.as_ref().is_some_and(|t| !t.no_cursor);
-        let is_bar = self.kind == ChartKind::Bar;
-        let is_line = matches!(self.kind, ChartKind::Line | ChartKind::Area);
-        let highlight = shown.map(|index| Highlight {
-            index,
+        let is_bar = matches!(self.kind, ChartKind::Bar | ChartKind::Candlestick);
+        let is_line = plain || matches!(self.kind, ChartKind::Line | ChartKind::Area);
+        let is_round = matches!(self.kind, ChartKind::Pie | ChartKind::Doughnut);
+        let m = theme.motion;
+        let moving =
+            |transition: Transition| if self.hover_motion { transition } else { Transition::Instant };
+
+        // What stands out outlasts the pointer for as long as it takes to fade.
+        let held = cx.use_state(|| Rc::new(Cell::new(None::<usize>))).peek().clone();
+        if shown.is_some() {
+            held.set(shown);
+        }
+        let focus = cx.animated(if shown.is_some() { 1.0_f32 } else { 0.0 }, moving(m.base));
+        // Coming from nothing, it starts in place: it only glides between categories.
+        let target = held.get().unwrap_or(0) as f32;
+        let at = cx.animated(target, if focus < 0.02 { Transition::Instant } else { moving(m.snappy) });
+        // Kept last among the states of this view, as their number follows the data.
+        let wants_lift = is_round && self.hover_focus && self.tooltip.is_some();
+        let lifts: Vec<f32> = if wants_lift {
+            (0..self.categories.len())
+                .map(|i| cx.animated(if shown == Some(i) { 1.0_f32 } else { 0.0 }, moving(m.snappy)))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let lifting = lifts.iter().any(|lift| *lift > 0.001);
+        let highlight = (focus > 0.001 || lifting).then(|| Highlight {
+            at,
+            focus,
+            dim: if self.hover_focus && (is_bar || is_round) { FOCUS_DIM } else { 0.0 },
+            lifts,
+            separator: style.separator,
             strip: is_bar && cursor,
             line: is_line && cursor,
             dots: is_line || self.kind == ChartKind::Radar,
             strip_color: theme.color(Semantic::Control).with_alpha(0.6),
-            line_color: theme.color(Semantic::Border),
+            line_color: theme.color(Semantic::InkMuted).with_alpha(CURSOR_ALPHA),
             ring_color: theme.color(Semantic::SurfaceElevated),
         });
-        let drawing: DrawingFn = Rc::new(move |rect, _| plot::draw(&data, rect, &style));
+        let drawing: DrawingFn = if plain {
+            self.small_drawing(&theme, &colors, true)
+        } else {
+            Rc::new(move |rect, _, measure| plot::draw_measured(&data, rect, &style, measure))
+        };
         let node_style = LayoutStyle { grow: 1.0, align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
         let node = plot_node(cx, node_style, picture.clone(), drawing, self.dot_icon, highlight, &children);
 
@@ -1225,7 +1952,12 @@ impl Chart {
                 Rc::new(move |position, frame| {
                     let local = Point::new(position.x - frame.x(), position.y - frame.y());
                     follow.set(Some(local));
-                    let hit = seen.borrow().drawing.hit(local).map(|hit| hit.index);
+                    let picture = seen.borrow();
+                    let hit = picture.drawing.hit(local).map(|hit| hit.index).or_else(|| {
+                        // A slice that came forward answers for what it covers now.
+                        let lifted = write.get().filter(|_| wants_lift)?;
+                        picture.drawing.over_grown_slice(local, lifted, SLICE_LIFT).then_some(lifted)
+                    });
                     if write.get() != hit {
                         write.set(hit);
                     }
@@ -1260,35 +1992,34 @@ impl Chart {
             cx.focusable(node, theme.radii.sm);
         }
 
-        if let (Some(tooltip), Some(index), Some((_, on_right)), Some(anchor)) =
+        if let (Some(tooltip), Some(index), Some((_, placement)), Some(anchor)) =
             (&self.tooltip, shown, spot, anchor)
         {
-            let panel = self.tooltip_panel(tooltip, index, &colors, &theme);
-            let placement = if on_right { Placement::LeftCenter } else { Placement::RightCenter };
+            let panel = self.tooltip_panel(tooltip, index, &colors, &theme, &labels);
             cx.overlay(anchor, placement, &panel, None);
         }
 
         let name = self.alt.as_deref().unwrap_or(&self.title);
-        let values = self.spoken_values();
+        let values = self.spoken_values(&labels);
         let mut semantics = if name.is_empty() {
             Semantics::new(Role::Image).name(values)
         } else {
             Semantics::new(Role::Image).name(name.to_owned()).description(values)
         };
         if let (Some(tooltip), Some(index)) = (&self.tooltip, shown) {
-            let panel = self.tooltip_panel(tooltip, index, &colors, &theme);
+            let panel = self.tooltip_panel(tooltip, index, &colors, &theme, &labels);
             semantics = semantics.value(panel.spoken());
         }
         cx.semantics(node, semantics);
-        let m = theme.motion;
         cx.motion(node, Motion::new().enter(Effect::hidden(), m.base));
 
         let mut parts = Vec::new();
-        if !self.title.is_empty() {
+        // The small kinds have their title and legend in their picture.
+        if !self.title.is_empty() && !plain {
             let ink = theme.color(Semantic::Ink);
             parts.push(util::label(cx, &self.title, TextStyle::Callout, Some(Weight::SEMIBOLD), ink));
         }
-        let rows = if self.legend { self.legend_rows(&colors, &theme) } else { Vec::new() };
+        let rows = if self.legend && !plain { self.legend_rows(&colors, &theme) } else { Vec::new() };
         let legend = (!rows.is_empty()).then(|| cx.child(&LegendRow { rows }));
         if self.legend_at == ChartLegend::Top {
             parts.extend(legend);
@@ -1314,11 +2045,14 @@ impl Chart {
 
 impl TooltipPanel {
     /// The same as the panel, for a screen reader.
-    fn spoken(&self) -> String {
+    pub(crate) fn spoken(&self) -> String {
         let format = self.tooltip.value_format.as_ref().unwrap_or(&self.format);
         let mut parts: Vec<String> = self.title.iter().cloned().collect();
         parts.extend(self.rows.iter().map(|row| match row.value {
-            Some(value) => format!("{}: {}", row.name, format(value)),
+            Some(value) => match &row.share {
+                Some(share) => format!("{}: {} ({share})", row.name, format(value)),
+                None => format!("{}: {}", row.name, format(value)),
+            },
             None => row.name.clone(),
         }));
         if let Some((name, total)) = &self.total {
@@ -1328,13 +2062,9 @@ impl TooltipPanel {
     }
 }
 
-impl View for Chart {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        if !self.is_plain() {
-            return self.build_plot(cx);
-        }
-        let theme = *cx.theme();
-        let colors = palette(&theme);
+impl Chart {
+    /// How a scatter chart or a sparkline is drawn, the same with a tooltip or without.
+    fn small_drawing(&self, theme: &Theme, colors: &[Color], placed: bool) -> DrawingFn {
         let series = self.series.iter().enumerate().map(|(i, series)| SeriesData {
             name: series.name.clone(),
             color: series.color.unwrap_or(colors[i % colors.len()]),
@@ -1350,16 +2080,28 @@ impl View for Chart {
         let size = theme.text(TextStyle::Caption).size / 0.85;
         let (ink, muted) = (theme.color(Semantic::Ink), theme.color(Semantic::InkMuted));
         let (grid, separator) = (theme.color(Semantic::Border), theme.color(Semantic::SurfaceElevated));
-        let bar_radius = theme.radii.sm;
-        let drawing: DrawingFn = Rc::new(move |rect, _| {
-            chart::draw_styled(
-                &data,
-                rect,
-                &ChartOptions { kind, title: &title, legend, size, ink, muted, grid, format: &*format },
-                &ChartStyle { palette: &colors, separator, bar_radius, max_bar_width: MAX_BAR_WIDTH },
-            )
-            .into()
-        });
+        let (bar_radius, colors) = (theme.radii.sm, colors.to_vec());
+        Rc::new(move |rect, _, _| {
+            let options =
+                ChartOptions { kind, title: &title, legend, size, ink, muted, grid, format: &*format };
+            let look = ChartStyle { palette: &colors, separator, bar_radius, max_bar_width: MAX_BAR_WIDTH };
+            if placed {
+                plot::draw_small(&data, rect, &options, &look)
+            } else {
+                chart::draw_styled(&data, rect, &options, &look).into()
+            }
+        })
+    }
+}
+
+impl View for Chart {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        if !self.is_plain() || (self.tooltip_asked && self.tooltip.is_some()) {
+            return self.build_plot(cx);
+        }
+        let theme = *cx.theme();
+        let colors = palette(&theme);
+        let drawing = self.small_drawing(&theme, &colors, false);
         let style = LayoutStyle {
             width: self.width,
             height: Some(self.height),
@@ -1367,7 +2109,7 @@ impl View for Chart {
             ..LayoutStyle::leaf()
         };
         let node = drawing_node(cx, style, drawing);
-        let values = self.spoken_values();
+        let values = self.spoken_values(&cx.labels());
         let name = self.alt.as_deref().unwrap_or(&self.title);
         let semantics = if name.is_empty() {
             Semantics::new(Role::Image).name(values)
@@ -1799,7 +2541,7 @@ impl View for Barcode {
         let style = LayoutStyle { width: Some(width), height: Some(height), ..LayoutStyle::leaf() };
         let (show_text, text_size, radius) =
             (self.show_text, theme.text(TextStyle::Caption).size, theme.radii.sm);
-        let drawing: DrawingFn = Rc::new(move |rect, scale| {
+        let drawing: DrawingFn = Rc::new(move |rect, scale, _| {
             barcode_drawing(&pattern, show_text, text_size, radius, rect, scale).into()
         });
         let node = drawing_node(cx, style, drawing);

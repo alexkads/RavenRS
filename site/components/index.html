@@ -36,7 +36,7 @@
       <h2 id="actions-and-inputs"><a class="anchor" href="#actions-and-inputs" aria-label="Link to Actions and inputs">#</a>Actions and inputs</h2>
       <p class="sub">Buttons and controls that take a value.</p>
       <ul class="items">
-        <li><a href="button/" data-api="struct.Button.html">Button</a><span class="sep"> - </span><span class="desc">Clickable, focusable button with styles, sizes and icons</span></li>
+        <li><a href="button/" data-api="struct.Button.html">Button</a><span class="sep"> - </span><span class="desc">Clickable, focusable button with styles, sizes, icons, loading and selected states</span></li>
         <li><a href="iconbutton/" data-api="struct.IconButton.html">IconButton</a><span class="sep"> - </span><span class="desc">Square, icon-only button for toolbars</span></li>
         <li><a href="togglebutton/" data-api="struct.ToggleButton.html">ToggleButton</a><span class="sep"> - </span><span class="desc">Button that stays pressed, like bold or mute</span></li>
         <li><a href="togglegroup/" data-api="struct.ToggleGroup.html">ToggleGroup</a><span class="sep"> - </span><span class="desc">Row of toggle buttons where one or several can be on</span></li>
@@ -44,9 +44,9 @@
         <li><a href="toggle/" data-api="struct.Toggle.html">Toggle</a><span class="sep"> - </span><span class="desc">On/off switch</span></li>
         <li><a href="checkbox/" data-api="struct.Checkbox.html">Checkbox</a><span class="sep"> - </span><span class="desc">Check box with a label</span></li>
         <li><a href="radiogroup/" data-api="struct.RadioGroup.html">RadioGroup</a><span class="sep"> - </span><span class="desc">One choice among several, shown as radio buttons</span></li>
-        <li><a href="slider/" data-api="struct.Slider.html">Slider</a><span class="sep"> - </span><span class="desc">Draggable value between a minimum and a maximum</span></li>
+        <li><a href="slider/" data-api="struct.Slider.html">Slider</a><span class="sep"> - </span><span class="desc">Draggable value between a minimum and a maximum, with a colored track or a neutral point</span></li>
         <li><a href="stepper/" data-api="struct.Stepper.html">Stepper</a><span class="sep"> - </span><span class="desc">Decrement, value and increment for small quantities</span></li>
-        <li><a href="textarea/" data-api="struct.TextArea.html">TextArea</a><span class="sep"> - </span><span class="desc">Text on several lines, scrolling past its height</span></li>
+        <li><a href="textarea/" data-api="struct.TextArea.html">TextArea</a><span class="sep"> - </span><span class="desc">Text on several lines, scrolling past its height or growing with the text</span></li>
         <li><a href="numberfield/" data-api="struct.NumberField.html">NumberField</a><span class="sep"> - </span><span class="desc">A typed number or amount of money, formatted when you leave</span></li>
         <li><a href="maskedfield/" data-api="struct.MaskedField.html">MaskedField</a><span class="sep"> - </span><span class="desc">Text that follows a pattern, like a phone number</span></li>
         <li><a href="timepicker/" data-api="struct.TimePicker.html">TimePicker</a><span class="sep"> - </span><span class="desc">A time of day, typed or picked from a list</span></li>
@@ -57,9 +57,12 @@
         <li><a href="tagbox/" data-api="struct.TagBox.html">TagBox</a><span class="sep"> - </span><span class="desc">Several values from a list, shown as tags</span></li>
         <li><a href="colorpicker/" data-api="struct.ColorPicker.html">ColorPicker</a><span class="sep"> - </span><span class="desc">A color from a palette, a shade square or typed</span></li>
         <li><a href="daterangepicker/" data-api="struct.DateRangePicker.html">DateRangePicker</a><span class="sep"> - </span><span class="desc">A period in two clicks, or ready-made</span></li>
+        <li><a href="dropzone/" data-api="struct.DropZone.html">DropZone</a><span class="sep"> - </span><span class="desc">Dashed area around any content, which takes dropped files</span></li>
         <li><a href="fileupload/" data-api="struct.FileUpload.html">FileUpload</a><span class="sep"> - </span><span class="desc">Files from the chooser or dropped, with a reason when refused</span></li>
         <li><a href="imagefield/" data-api="struct.ImageField.html">ImageField</a><span class="sep"> - </span><span class="desc">A picture chosen by the person</span></li>
         <li><a href="wizard/" data-api="struct.Wizard.html">Wizard</a><span class="sep"> - </span><span class="desc">A task in steps that can refuse to be left</span></li>
+        <li><a href="stepindicator/" data-api="struct.StepIndicator.html">StepIndicator</a><span class="sep"> - </span><span class="desc">Where a task in steps stands, for an app's own layout</span></li>
+        <li><a href="stepbadge/" data-api="struct.StepBadge.html">StepBadge</a><span class="sep"> - </span><span class="desc">The round mark of a step</span></li>
         <li><a href="toolbar/" data-api="struct.Toolbar.html">Toolbar</a><span class="sep"> - </span><span class="desc">Commands that fold into a menu when out of room</span></li>
         <li><a href="splitbutton/" data-api="struct.SplitButton.html">SplitButton</a><span class="sep"> - </span><span class="desc">A main command with a menu of alternatives</span></li>
         <li><a href="confirmdialog/" data-api="struct.ConfirmDialog.html">ConfirmDialog</a><span class="sep"> - </span><span class="desc">A question before something that cannot be undone</span></li>
@@ -67,19 +70,33 @@
         <li><a href="themeswitcher/" data-api="struct.ThemeSwitcher.html">ThemeSwitcher</a><span class="sep"> - </span><span class="desc">Switches between Raven Dark, Raven Light and Raven Glass</span></li>
         <li><a href="themepicker/" data-api="struct.ThemePicker.html">ThemePicker</a><span class="sep"> - </span><span class="desc">A small menu of themes that says which one is on.</span></li>
         <li><a href="themeeditor/" data-api="struct.ThemeEditor.html">ThemeEditor</a><span class="sep"> - </span><span class="desc">Changes the tokens of the theme on screen, with live contrast and JSON to copy and paste.</span></li>
+        <li><a href="floatingtoolbar/" data-api="struct.FloatingToolbar.html">FloatingToolbar</a><span class="sep"> - </span><span class="desc">Translucent row of commands over its content, with a handle that moves it</span></li>
+        <li><a href="scrolledgearrow/" data-api="struct.ScrollEdgeArrow.html">ScrollEdgeArrow</a><span class="sep"> - </span><span class="desc">A strip that scrolls, with an arrow at each end that has more to show</span></li>
+        <li><a href="titlebar/" data-api="struct.TitleBar.html">TitleBar</a><span class="sep"> - </span><span class="desc">Title, actions and window buttons drawn by the app; does not move the window</span></li>
+        <li><a href="buttongroup/" data-api="struct.ButtonGroup.html">ButtonGroup</a><span class="sep"> - </span><span class="desc">Buttons glued side by side, as one control</span></li>
+        <li><a href="valueslider/" data-api="struct.ValueSlider.html">ValueSlider</a><span class="sep"> - </span><span class="desc">A value in small that opens a slider or can be typed</span></li>
+        <li><a href="inlinerename/" data-api="struct.InlineRename.html">InlineRename</a><span class="sep"> - </span><span class="desc">A name that turns into a field by a double click or F2</span></li>
+        <li><a href="favoritetoggle/" data-api="struct.FavoriteToggle.html">FavoriteToggle</a><span class="sep"> - </span><span class="desc">Heart or star that marks a favorite: filled when on</span></li>
+        <li><a href="swatchgrid/" data-api="struct.SwatchGrid.html">SwatchGrid</a><span class="sep"> - </span><span class="desc">Grid of color swatches; the handler gets the keys held with the click</span></li>
+        <li><a href="ninepointanchor/" data-api="struct.NinePointAnchor.html">NinePointAnchor</a><span class="sep"> - </span><span class="desc">Three by three grid for a point of reference, moved by the arrow keys</span></li>
+        <li><a href="colorpair/" data-api="struct.ColorPair.html">ColorPair</a><span class="sep"> - </span><span class="desc">Foreground and background colors, one over the other, with a swap button</span></li>
       </ul>
     </section>
     <section class="group" aria-labelledby="forms">
       <h2 id="forms"><a class="anchor" href="#forms" aria-label="Link to Forms">#</a>Forms</h2>
       <p class="sub">Fields, pickers and the layout around them.</p>
       <ul class="items">
-        <li><a href="textfield/" data-api="struct.TextField.html">TextField</a><span class="sep"> - </span><span class="desc">Single-line text input with selection and clipboard</span></li>
+        <li><a href="textfield/" data-api="struct.TextField.html">TextField</a><span class="sep"> - </span><span class="desc">Single-line text input with selection, clipboard, views inside and a clear button</span></li>
         <li><a href="select/" data-api="struct.Select.html">Select</a><span class="sep"> - </span><span class="desc">Picks one option from a list in a field-like trigger</span></li>
         <li><a href="combobox/" data-api="struct.Combobox.html">Combobox</a><span class="sep"> - </span><span class="desc">Select with a search box that filters the options</span></li>
         <li><a href="datepicker/" data-api="struct.DatePicker.html">DatePicker</a><span class="sep"> - </span><span class="desc">Field that opens a calendar in a popover</span></li>
         <li><a href="calendar/" data-api="struct.Calendar.html">Calendar</a><span class="sep"> - </span><span class="desc">Month grid to pick a date</span></li>
         <li><a href="eventcalendar/" data-api="struct.EventCalendar.html">EventCalendar</a><span class="sep"> - </span><span class="desc">A month with its events inside each day</span></li>
         <li><a href="chat/" data-api="struct.Chat.html">Chat</a><span class="sep"> - </span><span class="desc">Conversation over a field to write in, with examples and cards to act on</span></li>
+        <li><a href="richtext/" data-api="struct.RichText.html">RichText</a><span class="sep"> - </span><span class="desc">Bold, italic, code and links in plain text, with the marks chat apps use</span></li>
+        <li><a href="attachmentstrip/" data-api="struct.AttachmentStrip.html">AttachmentStrip</a><span class="sep"> - </span><span class="desc">Files about to go with a message, with size, how to send each one and a way to take it out</span></li>
+        <li><a href="audioplayerbutton/" data-api="struct.AudioPlayerButton.html">AudioPlayerButton</a><span class="sep"> - </span><span class="desc">Plays and stops a recording, with progress and a transcript to open</span></li>
+        <li><a href="selectionbar/" data-api="struct.SelectionBar.html">SelectionBar</a><span class="sep"> - </span><span class="desc">How many are chosen, a way out and what to do with them, with Escape to leave</span></li>
         <li><a href="floatingpanel/" data-api="struct.FloatingPanel.html">FloatingPanel</a><span class="sep"> - </span><span class="desc">Glowing sphere in a corner that opens a panel over the app and drags between corners</span></li>
         <li><a href="modelpicker/" data-api="struct.ModelPicker.html">ModelPicker</a><span class="sep"> - </span><span class="desc">Local AI models to download, try, use and remove</span></li>
         <li><a href="codeblock/" data-api="struct.CodeBlock.html">CodeBlock</a><span class="sep"> - </span><span class="desc">A command to copy</span></li>
@@ -98,6 +115,9 @@
       <h2 id="navigation"><a class="anchor" href="#navigation" aria-label="Link to Navigation">#</a>Navigation</h2>
       <p class="sub">Moving around an application.</p>
       <ul class="items">
+        <li><a href="documenttabs/" data-api="struct.DocumentTabs.html">DocumentTabs</a><span class="sep"> - </span><span class="desc">Tabs for open documents that close, move, rename and say what was not saved</span></li>
+        <li><a href="filebrowser/" data-api="struct.FileBrowser.html">FileBrowser</a><span class="sep"> - </span><span class="desc">Folders and files from the app, with a breadcrumb, sorting and selection</span></li>
+        <li><a href="yearview/" data-api="struct.YearView.html">YearView</a><span class="sep"> - </span><span class="desc">The twelve months of a year, with marks on the days</span></li>
         <li><a href="ribbon/" data-api="struct.Ribbon.html">Ribbon</a><span class="sep"> - </span><span class="desc">Office-style command bar with tabs, groups and quick access</span></li>
         <li><a href="menubar/" data-api="struct.Menubar.html">Menubar</a><span class="sep"> - </span><span class="desc">Horizontal bar of menus such as File, Edit and View</span></li>
         <li><a href="tabs/" data-api="struct.Tabs.html">Tabs</a><span class="sep"> - </span><span class="desc">Tab bar with one content view per tab</span></li>
@@ -118,9 +138,9 @@
         <li><a href="splashscreen/" data-api="struct.SplashScreen.html">SplashScreen</a><span class="sep"> - </span><span class="desc">Opening screen that covers the window while the app loads</span></li>
         <li><a href="popover/" data-api="struct.Popover.html">Popover</a><span class="sep"> - </span><span class="desc">Floating content anchored below a view</span></li>
         <li><a href="hovercard/" data-api="struct.HoverCard.html">HoverCard</a><span class="sep"> - </span><span class="desc">Rich content shown while the pointer is over a trigger</span></li>
-        <li><a href="tooltip/" data-api="struct.Tooltip.html">Tooltip</a><span class="sep"> - </span><span class="desc">Short label shown on hover</span></li>
+        <li><a href="tooltip/" data-api="struct.Tooltip.html">Tooltip</a><span class="sep"> - </span><span class="desc">Short label shown on hover, with an optional key cap</span></li>
         <li><a href="helptip/" data-api="struct.HelpTip.html">HelpTip</a><span class="sep"> - </span><span class="desc">A small question mark that explains something</span></li>
-        <li><a href="dropdownmenu/" data-api="struct.DropdownMenu.html">DropdownMenu</a><span class="sep"> - </span><span class="desc">Button that opens a list of actions</span></li>
+        <li><a href="dropdownmenu/" data-api="struct.DropdownMenu.html">DropdownMenu</a><span class="sep"> - </span><span class="desc">Button that opens a list of actions, with submenus and check marks</span></li>
         <li><a href="contextmenu/" data-api="struct.ContextMenu.html">ContextMenu</a><span class="sep"> - </span><span class="desc">Menu opened at the pointer on right click</span></li>
         <li><a href="commandpalette/" data-api="struct.CommandPalette.html">CommandPalette</a><span class="sep"> - </span><span class="desc">Searchable list of commands, opened with Cmd/Ctrl+K</span></li>
         <li><a href="toaster/" data-api="struct.Toaster.html">Toaster</a><span class="sep"> - </span><span class="desc">Stacked notifications that dismiss themselves</span></li>
@@ -130,13 +150,17 @@
       <h2 id="data"><a class="anchor" href="#data" aria-label="Link to Data">#</a>Data</h2>
       <p class="sub">Showing records and numbers.</p>
       <ul class="items">
+        <li><a href="virtuallist/" data-api="struct.VirtualList.html">VirtualList</a><span class="sep"> - </span><span class="desc">A list of any length with rows of any height, which jumps to a row and stays at the end</span></li>
+        <li><a href="sortablelist/" data-api="struct.SortableList.html">SortableList</a><span class="sep"> - </span><span class="desc">Rows put in order by a drag or with Alt and the arrows</span></li>
         <li><a href="treeview/" data-api="struct.TreeView.html">TreeView</a><span class="sep"> - </span><span class="desc">Items inside items: opens, selects, checks and filters</span></li>
         <li><a href="cardview/" data-api="struct.CardView.html">CardView</a><span class="sep"> - </span><span class="desc">Records as cards, only those in sight are built</span></li>
         <li><a href="datagrid/" data-api="grid/struct.DataGrid.html">DataGrid</a><span class="sep"> - </span><span class="desc">Virtualized grid for 100,000 rows: sorting, filters, grouping and export</span></li>
         <li><a href="table/" data-api="struct.Table.html">Table</a><span class="sep"> - </span><span class="desc">Simple table with a header, hover rows and numeric columns</span></li>
         <li><a href="list/" data-api="struct.List.html">List</a><span class="sep"> - </span><span class="desc">Bordered list with icons, titles and trailing text</span></li>
         <li><a href="stat/" data-api="struct.Stat.html">Stat</a><span class="sep"> - </span><span class="desc">Headline number with a label and a change indicator</span></li>
-        <li><a href="chart/" data-api="struct.Chart.html">Chart</a><span class="sep"> - </span><span class="desc">Area, bar, line, pie, doughnut, radar and radial charts in the patterns of the shadcn/ui catalog, with tooltips and keyboard; scatter and sparklines too</span></li>
+        <li><a href="chart/" data-api="struct.Chart.html">Chart</a><span class="sep"> - </span><span class="desc">Area, bar, line, pie, doughnut, radar and radial charts in the patterns of the shadcn/ui catalog, with tooltips, keyboard, a focus that glides between categories, lines of reference and a fixed axis; scatter, sparklines and candlesticks too</span></li>
+        <li><a href="chartreference/" data-api="struct.ChartReference.html">ChartReference</a><span class="sep"> - </span><span class="desc">A dashed line at a value that matters, with a label, over a chart</span></li>
+        <li><a href="sankeychart/" data-api="struct.SankeyChart.html">SankeyChart</a><span class="sep"> - </span><span class="desc">How much flows from what to what: ribbons between nodes, arrow keys, and a clear message when the flows go in a circle</span></li>
         <li><a href="chartcard/" data-api="struct.ChartCard.html">ChartCard</a><span class="sep"> - </span><span class="desc">A chart's card: title, description, what changes it, tabs with totals, and how it trends</span></li>
         <li><a href="barchart/" data-api="struct.BarChart.html">BarChart</a><span class="sep"> - </span><span class="desc">Bar chart with labels and faint gridlines</span></li>
         <li><a href="areachart/" data-api="struct.AreaChart.html">AreaChart</a><span class="sep"> - </span><span class="desc">Smooth area chart of evenly spaced values</span></li>
@@ -154,6 +178,9 @@
         <li><a href="spacer/" data-api="struct.Spacer.html">Spacer</a><span class="sep"> - </span><span class="desc">Flexible space that pushes its siblings apart</span></li>
         <li><a href="scrollview/" data-api="struct.ScrollView.html">ScrollView</a><span class="sep"> - </span><span class="desc">Scrolling stack, vertical or horizontal</span></li>
         <li><a href="splitter/" data-api="struct.Splitter.html">Splitter</a><span class="sep"> - </span><span class="desc">Two panes with a draggable divider</span></li>
+        <li><a href="splitpanes/" data-api="struct.SplitPanes.html">SplitPanes</a><span class="sep"> - </span><span class="desc">Any number of panes with a bar between each two, and limits</span></li>
+        <li><a href="splithandle/" data-api="struct.SplitHandle.html">SplitHandle</a><span class="sep"> - </span><span class="desc">A bar to drag that changes a size</span></li>
+        <li><a href="dockarea/" data-api="struct.DockArea.html">DockArea</a><span class="sep"> - </span><span class="desc">Panels in a tree of splits and tabs that move by a drag, by keys or by a menu, resize, collapse, close, and save their arrangement as text</span></li>
         <li><a href="card/" data-api="struct.Card.html">Card</a><span class="sep"> - </span><span class="desc">Grouped surface lifted off the canvas</span></li>
         <li><a href="glasscard/" data-api="struct.GlassCard.html">GlassCard</a><span class="sep"> - </span><span class="desc">Translucent card for Raven Glass compositions</span></li>
         <li><a href="section/" data-api="struct.Section.html">Section</a><span class="sep"> - </span><span class="desc">Titled group of content with an optional description</span></li>
@@ -161,6 +188,9 @@
         <li><a href="footer/" data-api="struct.Footer.html">Footer</a><span class="sep"> - </span><span class="desc">Band that ends a page or app, with left, center and right areas</span></li>
         <li><a href="aspectratio/" data-api="struct.AspectRatio.html">AspectRatio</a><span class="sep"> - </span><span class="desc">Keeps content at a width-to-height ratio</span></li>
         <li><a href="collapse/" data-api="struct.Collapse.html">Collapse</a><span class="sep"> - </span><span class="desc">Animates its content's height as it opens and closes</span></li>
+        <li><a href="zstack/" data-api="struct.ZStack.html">ZStack</a><span class="sep"> - </span><span class="desc">Views on top of each other, in a box as large as the largest</span></li>
+        <li><a href="propertyrow/" data-api="struct.PropertyRow.html">PropertyRow</a><span class="sep"> - </span><span class="desc">A label on the left and its value on the right</span></li>
+        <li><a href="pageheader/" data-api="struct.PageHeader.html">PageHeader</a><span class="sep"> - </span><span class="desc">Title, description, badges and actions at the top of a page</span></li>
       </ul>
     </section>
     <section class="group" aria-labelledby="display-and-feedback">
@@ -172,18 +202,48 @@
         <li><a href="badge/" data-api="struct.Badge.html">Badge</a><span class="sep"> - </span><span class="desc">Small pill for status, counts and categories</span></li>
         <li><a href="avatar/" data-api="struct.Avatar.html">Avatar</a><span class="sep"> - </span><span class="desc">Round avatar with initials colored from the name</span></li>
         <li><a href="kbd/" data-api="struct.Kbd.html">Kbd</a><span class="sep"> - </span><span class="desc">Keyboard key, for showing shortcuts</span></li>
-        <li><a href="progressbar/" data-api="struct.ProgressBar.html">ProgressBar</a><span class="sep"> - </span><span class="desc">Horizontal progress bar</span></li>
+        <li><a href="progressbar/" data-api="struct.ProgressBar.html">ProgressBar</a><span class="sep"> - </span><span class="desc">Horizontal progress bar, with a label, a percentage and a detail</span></li>
         <li><a href="spinner/" data-api="struct.Spinner.html">Spinner</a><span class="sep"> - </span><span class="desc">Indeterminate activity indicator</span></li>
         <li><a href="skeleton/" data-api="struct.Skeleton.html">Skeleton</a><span class="sep"> - </span><span class="desc">Placeholder block shown while content loads</span></li>
+        <li><a href="dot/" data-api="struct.Dot.html">Dot</a><span class="sep"> - </span><span class="desc">Small round mark of state, such as not saved</span></li>
+        <li><a href="overlaybadge/" data-api="struct.OverlayBadge.html">OverlayBadge</a><span class="sep"> - </span><span class="desc">A small view on a corner of another</span></li>
+        <li><a href="rating/" data-api="struct.Rating.html">Rating</a><span class="sep"> - </span><span class="desc">Stars for a score, to read or to give with the pointer and the keyboard</span></li>
+        <li><a href="icontile/" data-api="struct.IconTile.html">IconTile</a><span class="sep"> - </span><span class="desc">An icon in a square tinted with its color</span></li>
+        <li><a href="emptystate/" data-api="struct.EmptyState.html">EmptyState</a><span class="sep"> - </span><span class="desc">What an area shows when it has nothing: icon, title, sentence and actions</span></li>
+        <li><a href="herobanner/" data-api="struct.HeroBanner.html">HeroBanner</a><span class="sep"> - </span><span class="desc">Wide band in a strong color, readable from across the room</span></li>
+        <li><a href="multiprogress/" data-api="struct.MultiProgress.html">MultiProgress</a><span class="sep"> - </span><span class="desc">Several progress bars stacked, for work with more than one part</span></li>
+        <li><a href="shimmertext/" data-api="struct.ShimmerText.html">ShimmerText</a><span class="sep"> - </span><span class="desc">Text with a light passing over it, still when motion is reduced</span></li>
+        <li><a href="dayseparator/" data-api="struct.DaySeparator.html">DaySeparator</a><span class="sep"> - </span><span class="desc">A line with a word in the middle that divides a list by day</span></li>
+        <li><a href="shortcutsheet/" data-api="struct.ShortcutSheet.html">ShortcutSheet</a><span class="sep"> - </span><span class="desc">Dialog listing the keys of a screen, in groups</span></li>
+        <li><a href="shortcuthintbar/" data-api="struct.ShortcutHintBar.html">ShortcutHintBar</a><span class="sep"> - </span><span class="desc">Line of key hints under what they act on</span></li>
       </ul>
     </section>
     <section class="group" aria-labelledby="media">
       <h2 id="media"><a class="anchor" href="#media" aria-label="Link to Media">#</a>Media</h2>
       <p class="sub">Pictures and custom drawing.</p>
       <ul class="items">
+        <li><a href="filmstrip/" data-api="struct.Filmstrip.html">Filmstrip</a><span class="sep"> - </span><span class="desc">A strip of thumbnails of any length, whose cells come from the app</span></li>
+        <li><a href="pageddocumentview/" data-api="struct.PagedDocumentView.html">PagedDocumentView</a><span class="sep"> - </span><span class="desc">A bar with page and zoom over pages built only when they show</span></li>
         <li><a href="icon/" data-api="struct.Icon.html">Icon</a><span class="sep"> - </span><span class="desc">Vector icon from the built-in Lucide set</span></li>
         <li><a href="image/" data-api="struct.Image.html">Image</a><span class="sep"> - </span><span class="desc">Shows an image, with fit modes</span></li>
+        <li><a href="lottie/" data-api="struct.Lottie.html">Lottie</a><span class="sep"> - </span><span class="desc">Plays Lottie animation files, drawn as curves on the GPU</span></li>
         <li><a href="carousel/" data-api="struct.Carousel.html">Carousel</a><span class="sep"> - </span><span class="desc">Slides with buttons, position dots and optional autoplay</span></li>
+        <li><a href="histogram/" data-api="struct.Histogram.html">Histogram</a><span class="sep"> - </span><span class="desc">Overlapping channels from ready-made bins, linear or logarithmic, with clip marks</span></li>
+        <li><a href="ruler/" data-api="struct.Ruler.html">Ruler</a><span class="sep"> - </span><span class="desc">Horizontal or vertical ruler in your units, with a round step for any zoom</span></li>
+        <li><a href="colorwheel/" data-api="struct.ColorWheel.html">ColorWheel</a><span class="sep"> - </span><span class="desc">Hue and saturation on a disc, by a drag or the arrow keys</span></li>
+        <li><a href="curveeditor/" data-api="struct.CurveEditor.html">CurveEditor</a><span class="sep"> - </span><span class="desc">Points you drag over a smooth curve, with an optional histogram behind</span></li>
+        <li><a href="zoomcontrol/" data-api="struct.ZoomControl.html">ZoomControl</a><span class="sep"> - </span><span class="desc">Fit, 1:1, the percentage and buttons that zoom in and out</span></li>
+        <li><a href="zoompanview/" data-api="struct.ZoomPanView.html">ZoomPanView</a><span class="sep"> - </span><span class="desc">Zoom and pan with pinch, wheel, drag, keys and inertia, within limits</span></li>
+        <li><a href="minimap/" data-api="struct.Minimap.html">Minimap</a><span class="sep"> - </span><span class="desc">Small copy of the content with a draggable rectangle around what is in view</span></li>
+        <li><a href="ruleofthirdsgrid/" data-api="struct.RuleOfThirdsGrid.html">RuleOfThirdsGrid</a><span class="sep"> - </span><span class="desc">Composition lines over a picture: thirds, divisions, squares or the golden ratio</span></li>
+        <li><a href="rubberband/" data-api="struct.RubberBand.html">RubberBand</a><span class="sep"> - </span><span class="desc">A rectangle drawn with a drag, in the units of the content, selected on release</span></li>
+        <li><a href="marquee/" data-api="struct.Marquee.html">Marquee</a><span class="sep"> - </span><span class="desc">Marching ants around a rectangle, a path or loose segments</span></li>
+        <li><a href="transformhandles/" data-api="struct.TransformHandles.html">TransformHandles</a><span class="sep"> - </span><span class="desc">Eight handles, a turn and a pivot over a box, returning its geometry</span></li>
+        <li><a href="protractor/" data-api="struct.Protractor.html">Protractor</a><span class="sep"> - </span><span class="desc">A band of ticks along an arc that sets an angle</span></li>
+        <li><a href="cropoverlay/" data-api="struct.CropOverlay.html">CropOverlay</a><span class="sep"> - </span><span class="desc">A crop with a veil, proportion and angle, returning the rectangle and the angle</span></li>
+        <li><a href="eyedropper/" data-api="struct.Eyedropper.html">Eyedropper</a><span class="sep"> - </span><span class="desc">An armed button that takes the color of the point clicked, supplied by the caller</span></li>
+        <li><a href="compareview/" data-api="struct.CompareView.html">CompareView</a><span class="sep"> - </span><span class="desc">Two pictures side by side or across a divider you drag</span></li>
+        <li><a href="imagelightbox/" data-api="struct.ImageLightbox.html">ImageLightbox</a><span class="sep"> - </span><span class="desc">A picture over the whole app, with zoom, arrows, Esc, caption and counter</span></li>
         <li><a href="canvas/" data-api="struct.Canvas.html">Canvas</a><span class="sep"> - </span><span class="desc">Box that draws whatever its closure appends to the scene</span></li>
       </ul>
     </section>

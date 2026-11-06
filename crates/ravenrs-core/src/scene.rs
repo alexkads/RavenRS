@@ -288,6 +288,119 @@ impl ImageQuad {
     }
 }
 
+/// One step of a [`PathFill`]'s outline.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PathElement {
+    /// Starts a contour here.
+    MoveTo(Point),
+    /// A straight line to here.
+    LineTo(Point),
+    /// A cubic Bézier curve through two control points, ending at the last point.
+    CubicTo(Point, Point, Point),
+    /// Closes the contour. A contour left open is closed anyway when filled.
+    Close,
+}
+
+/// Which parts of a self-crossing outline count as inside.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FillRule {
+    /// Inside wherever the contours wind around the point at all.
+    #[default]
+    NonZero,
+    /// Inside wherever an odd number of contours surround the point.
+    EvenOdd,
+}
+
+/// A color along a gradient, from `0.0` to `1.0`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ColorStop {
+    /// Where along the gradient.
+    pub offset: f32,
+    /// The color there.
+    pub color: Color,
+}
+
+/// What fills a [`PathFill`], in the coordinates of its outline.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum PathPaint {
+    /// One color.
+    Solid(Color),
+    /// Colors along the line from `start` to `end`.
+    Linear {
+        /// Where the first stop is.
+        start: Point,
+        /// Where the last stop is.
+        end: Point,
+        /// The colors, by increasing offset.
+        stops: Arc<[ColorStop]>,
+    },
+    /// Colors from `center` outward to `radius`.
+    Radial {
+        /// Where the first stop is.
+        center: Point,
+        /// How far the last stop is.
+        radius: f32,
+        /// The colors, by increasing offset.
+        stops: Arc<[ColorStop]>,
+    },
+    /// An image, seen through the outline.
+    Image {
+        /// The picture.
+        image: ImageData,
+        /// Takes the image's own square, from 0 to 1 on each side, to where it goes:
+        /// the same six numbers as [`PathFill::transform`].
+        placement: [f32; 6],
+    },
+}
+
+/// What a [`PathFill`] is seen through, in the same coordinates: another outline.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PathClip {
+    /// The outline.
+    pub elements: Arc<[PathElement]>,
+    /// Which parts of it are inside.
+    pub rule: FillRule,
+    /// Shows what is outside the outline, instead of what is inside.
+    pub inverted: bool,
+}
+
+/// A shape made of curves, filled with exact coverage at each pixel, so it stays
+/// sharp at any size. A stroke is a fill of its expanded outline.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PathFill {
+    /// The outline.
+    pub elements: Arc<[PathElement]>,
+    /// Which parts of it are inside.
+    pub rule: FillRule,
+    /// What fills it.
+    pub paint: PathPaint,
+    /// `[a, b, c, d, e, f]`, taking `(x, y)` to `(a x + c y + e, b x + d y + f)` in
+    /// logical pixels.
+    pub transform: [f32; 6],
+    /// Multiplies its alpha, from `0.0` to `1.0`.
+    pub opacity: f32,
+    /// Shows it only through this outline.
+    pub clip: Option<Arc<PathClip>>,
+}
+
+impl PathFill {
+    /// The transform that changes nothing.
+    pub const IDENTITY: [f32; 6] = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+
+    /// `elements` filled with one color, in logical pixels.
+    pub fn solid(elements: impl Into<Arc<[PathElement]>>, color: Color) -> Self {
+        Self {
+            elements: elements.into(),
+            rule: FillRule::NonZero,
+            paint: PathPaint::Solid(color),
+            transform: Self::IDENTITY,
+            opacity: 1.0,
+            clip: None,
+        }
+    }
+}
+
 /// One entry of the display list.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
@@ -298,6 +411,8 @@ pub enum Primitive {
     Glyphs(GlyphRun),
     /// A textured rectangle.
     Image(ImageQuad),
+    /// A filled shape made of curves.
+    Path(PathFill),
     /// Restricts everything until the matching [`Primitive::PopClip`] to the
     /// intersection of this rectangle and the enclosing clip.
     PushClip(Rect),
@@ -400,6 +515,19 @@ impl Effect {
                     (g.x, g.y) = (p.x, p.y);
                 }
             }
+            Primitive::Path(path) => {
+                path.opacity *= self.opacity;
+                let [a, b, c, d, e, f] = path.transform;
+                let k = self.scale;
+                path.transform = [
+                    a * k,
+                    b * k,
+                    c * k,
+                    d * k,
+                    pivot.x + self.offset.x + (e - pivot.x) * k,
+                    pivot.y + self.offset.y + (f - pivot.y) * k,
+                ];
+            }
             Primitive::Image(image) => {
                 image.rect = self.rect(image.rect, pivot);
                 image.corner_radii = image.corner_radii.map(|r| r * self.scale);
@@ -443,6 +571,11 @@ impl Scene {
     /// Color the frame is cleared to before drawing.
     pub fn clear_color(&self) -> Color {
         self.clear_color
+    }
+
+    /// Appends a shape made of curves.
+    pub fn push_path(&mut self, path: PathFill) {
+        self.primitives.push(Primitive::Path(path));
     }
 
     /// Appends a rounded rectangle.

@@ -46,9 +46,11 @@ Spacing is a 4px grid: `space-1` (4) through `space-12` (48). Screens pad by `sp
 Rules for components:
 
 - Use `theme.motion`, not numbers of your own, and declare motion with `cx.motion`.
+- What people fold and unfold many times a day, as a sidebar and its submenus, takes `base`. A spring's long tail reads as hesitation there.
+- While a sidebar narrows its edge covers the content, which does not reflow: names never squeeze letter by letter.
 - Exits are shorter than entrances: the user has already moved on.
 - Scale subtly (0.96 and up). Popups grow from their anchor, with `Motion::anchored`.
-- A surface with content stays solid while it moves: dialogs, menus and panels never fade. Opacity applies to each shape on its own, so a fading panel shows the page through its fields. Only its backdrop fades.
+- A surface with content comes in solid: opacity applies to each shape on its own, so a panel fading in shows the page through its fields. Leaving, they fade as one surface with `Motion::surface_exit`, content first and panel after. They take `fast`, without a spring, whose tail makes text shiver.
 - A row in a virtualized list has no enter animation, because scrolling would set it off.
 
 ## Components
@@ -65,7 +67,7 @@ Rules for components:
 | Data | `DataGrid`, `Table`, `List`, `Stat`, `Chart`, `AreaChart`, `BarChart`, `Barcode`, `Avatar`, `Image`, `Carousel` |
 | Feedback | `Alert`, `ProgressBar`, `Skeleton`, `Spinner` |
 
-Charts take their series from `chart-1` to `chart-5`, which each theme defines to read on its background. They mean nothing on their own, unlike `success` and `danger`, so a series never looks like a warning. Use a status color for a value only when it says that status, such as a budget over its limit.
+Charts take their series from `chart-1` to `chart-5`, which each theme defines to read on its background. They mean nothing on their own, unlike `success` and `danger`, so a series never looks like a warning. Use a status color for a value only when it says that status, such as a budget over its limit. Their gridlines take `chart-grid`, which follows `border`.
 
 Modules of RavenRS itself, such as the report designer, follow the same rule as any app: they use these components and tokens, and what is missing joins the library first. Printed paper is the one surface that stays light in every theme, drawn with Raven Light tokens.
 
@@ -79,6 +81,7 @@ These rules came out of reviewing `examples/feature-center` screen by screen, an
 - **Title or trail.** One level is a page title in `headline`. A breadcrumb appears only when there is somewhere to go back to.
 - **Fields fill their column.** References, colors and date with time take the same width as the text fields around them. A fixed width is a choice made at the call site.
 - **Say it once.** A collection in a tab has no heading or label of its own, and a nested list leaves out the column of its owner. An `Alert` has no title when one would only repeat where it is: use `Alert::message`.
+- **Long lists are striped.** `DataGrid::striped` tints every other row with `bg-300` at 40%, under the pointer at 85%, and the accent stays for the selection at 13%, so the three never get confused. Lists generated from a model do it by themselves.
 - **Grids show data first.** The filter row is flat, with each filter's text starting where its column's does, at the end for numbers. The group panel shows only when something is grouped or when asked for with `group_panel(true)`; the Group menu is always in the bar.
 - **Nothing moves under the pointer.** Selecting a row does not change the height of what is above it. Prefer replacing a status for adding to it.
 - **One piece, no frame.** A dashboard with a single item has no tile around it. What only helps while handling something, such as a tile's resize corner, shows only under the pointer.

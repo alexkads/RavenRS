@@ -13,9 +13,10 @@ use super::updates;
 use crate::backup::{self, CopyReason};
 use crate::db::{Database, DbResult};
 use crate::model::{date_label, parse_date};
-use crate::seed;
+use crate::reminders::{self, ReminderSettings};
 use crate::telegram;
 use crate::update::{self, UpdateStatus};
+use crate::{seed, themes};
 
 /// Below this width the theme's three choices no longer fit in half of it.
 const TWO_COLUMNS_FROM: f32 = 760.0;
@@ -61,6 +62,106 @@ fn info_row(label: &str, value: String) -> impl View + use<> {
         Text::new(value).style(TextStyle::Callout),
     ))
     .spacing(8.0)
+}
+
+/// The choices about the system's notifications, saved as they change.
+struct RemindersCard {
+    store: Store,
+}
+
+impl RemindersCard {
+    /// One choice, kept on screen and in the file the thread that tells reads.
+    fn choice<T: Clone + PartialEq + 'static>(
+        file: Option<PathBuf>,
+        shown: &State<ReminderSettings>,
+        read: fn(&ReminderSettings) -> T,
+        write: fn(&mut ReminderSettings, T),
+    ) -> Binding<T> {
+        let (seen, changed) = (shown.clone(), shown.clone());
+        Binding::new(
+            move || read(&seen.get()),
+            move |value: T| {
+                changed.update(|settings| write(settings, value.clone()));
+                let Some(file) = &file else { return };
+                let mut saved = ReminderSettings::load(file);
+                write(&mut saved, value);
+                if let Err(e) = saved.save(file) {
+                    tracing::warn!(error = %e, "could not save the notification choices");
+                }
+            },
+        )
+    }
+}
+
+impl View for RemindersCard {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let file = self.store.path.as_deref().map(reminders::settings_file);
+        let first = file.clone();
+        let shown = cx.use_state(move || first.as_deref().map(ReminderSettings::load).unwrap_or_default());
+        let enabled = shown.get().enabled;
+        let on = Self::choice(file.clone(), &shown, |s| s.enabled, |s, value| s.enabled = value);
+        let advance = Self::choice(file.clone(), &shown, |s| s.advance, |s, value| s.advance = value);
+        let hour = Self::choice(
+            file.clone(),
+            &shown,
+            |s| usize::from(s.hour),
+            |s, value| s.hour = u8::try_from(value).unwrap_or(9),
+        );
+        let daily = Self::choice(file, &shown, |s| s.every_day, |s, value| s.every_day = value);
+        let hours: Vec<String> = (0..24).map(|hour| format!("{hour:02}:00")).collect();
+        let (store, test_shown) = (self.store.clone(), shown.clone());
+        let card = titled_card(
+            "Avisos",
+            help::AVISOS,
+            VStack::new((
+                Toggle::new(on).label("Avisar sobre as contas a pagar"),
+                FormField::new(
+                    "Avisar sobre",
+                    SegmentedControl::new(
+                        advance,
+                        ["Só vencidas", "No dia", "1 dia antes", "3 dias antes", "7 dias antes"],
+                    )
+                    .label("Avisar sobre"),
+                ),
+                FormField::new("A partir de", Select::new(hour, hours).label("A partir de").width(120.0)),
+                Toggle::new(daily).label("Repetir todo dia enquanto a conta não for paga"),
+                Text::new(
+                    "O aviso aparece mesmo com a janela fechada na bandeja, uma vez por dia. Com o programa encerrado, não há aviso. Se ele não aparecer, confira as notificações do sistema.",
+                )
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted),
+                Button::new("Testar aviso")
+                    .icon(IconName::Bell)
+                    .size(ButtonSize::Small)
+                    .style(ButtonStyle::Secondary)
+                    .disabled(!enabled)
+                    .on_click(move || test_notice(&store, &test_shown.get())),
+            ))
+            .spacing(12.0)
+            .align(Align::Start),
+        );
+        cx.child(&card)
+    }
+}
+
+/// Shows what would go now, or says that there is nothing to tell.
+fn test_notice(store: &Store, settings: &ReminderSettings) {
+    let every = ReminderSettings { every_day: true, ..settings.clone() };
+    let bills = store.read(|db| db.open_bills());
+    let (title, body) = match reminders::notice_about(&bills, store.today, &every) {
+        Some(notice) => (notice.title, notice.body),
+        None => ("Nenhuma conta para avisar".to_owned(), "É assim que os avisos vão aparecer.".to_owned()),
+    };
+    std::thread::spawn(move || {
+        if let Err(e) = reminders::notifier().send(&title, &body) {
+            tracing::warn!(error = %e, "the system refused the notification");
+        }
+    });
+    store.toasts.show(
+        "Aviso enviado ao sistema",
+        "Se ele não aparecer, confira as notificações do sistema.",
+        Tone::Neutral,
+    );
 }
 
 fn make_backup(store: &Store) {
@@ -223,7 +324,7 @@ pub(crate) fn settings(
         UpdateStatus::NoAnswer(reason) => format!("Não consegui verificar se há versão nova: {reason}"),
     };
 
-    let appearance = titled_card("Aparência", help::APARENCIA, ThemeSwitcher);
+    let appearance = titled_card("Aparência", help::APARENCIA, themes::RememberedSwitcher);
     let performance = titled_card(
         "Desempenho",
         help::DESEMPENHO,
@@ -558,6 +659,7 @@ pub(crate) fn settings(
         help::AJUSTES,
         "Onde seus dados ficam e como o app se atualiza.",
         ScrollView::new((VStack::new((
+            RemindersCard { store: store.clone() },
             backups,
             Grid::new(columns, (appearance, performance)).spacing(16.0),
             assistant,

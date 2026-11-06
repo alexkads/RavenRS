@@ -35,6 +35,7 @@ pub struct Motion {
     pub(crate) shape_only: bool,
     pub(crate) underlay: bool,
     pub(crate) shared: Option<(WidgetId, u64)>,
+    pub(crate) surface_exit: bool,
     pub(crate) effect: (Effect, Transition),
     pub(crate) enter: Option<(Effect, Transition)>,
     pub(crate) exit: Option<(Effect, Transition)>,
@@ -57,6 +58,7 @@ impl Motion {
             shape_only: false,
             underlay: false,
             shared: None,
+            surface_exit: false,
             effect: (Effect::IDENTITY, Transition::Instant),
             enter: None,
             exit: None,
@@ -87,6 +89,15 @@ impl Motion {
     pub const fn shared_layout(mut self, scope: WidgetId, tag: u64, transition: Transition) -> Self {
         self.shared = Some((scope, tag));
         self.layout = Some(transition);
+        self
+    }
+
+    /// The exit fades this node as one surface: its content goes first, over the still
+    /// solid panel, and then the panel. Opacity applies to each shape on its own, so
+    /// fading all at once would show the panel through its fields, in a gray like metal.
+    /// The panel must be the first thing the node paints.
+    pub const fn surface_exit(mut self) -> Self {
+        self.surface_exit = true;
         self
     }
 
@@ -286,7 +297,10 @@ struct Track {
     paint: Option<PaintTrack>,
     text: Option<Animated<Color>>,
     rect: Option<Animated<Rect>>,
+    /// Which widget holds a shared object now. It slides only when this changes.
+    owner: Option<WidgetId>,
     exit: Option<(Effect, Transition)>,
+    surface_exit: bool,
     snapshot: Snapshot,
 }
 
@@ -299,6 +313,7 @@ struct Ghost {
     layer: GhostLayer,
     effect: Animated<Effect>,
     nested: Vec<(Range<usize>, Point, Animated<Effect>)>,
+    surface_exit: bool,
 }
 
 /// The values to paint a node with this frame.
@@ -375,12 +390,15 @@ impl MotionSystem {
                         paint: None,
                         text: None,
                         rect: None,
+                        owner: None,
                         exit: None,
+                        surface_exit: false,
                         snapshot: Snapshot::default(),
                     })
                 }
             };
             track.seen = build;
+            track.surface_exit = m.surface_exit;
             track.exit = m.exit.map(|(e, t)| {
                 if self.reduced {
                     (Effect { opacity: e.opacity, ..Effect::IDENTITY }, t.without_bounce())
@@ -443,16 +461,23 @@ impl MotionSystem {
                 layer: snapshot.layer,
                 effect,
                 nested,
+                surface_exit: track.surface_exit,
             });
         }
     }
 
     /// Moves layout targets to the node's frame, measured without scrolling so
     /// that scrolling does not count as moving. `snap` lands them at once.
-    pub fn sync_frame(&mut self, key: MotionKey, frame: Rect, t: Transition, snap: bool) {
+    ///
+    /// A shared object slides from one widget to another. While it stays on the same
+    /// one it just follows it, or it would come loose when the layout around it moves.
+    pub fn sync_frame(&mut self, key: MotionKey, owner: WidgetId, frame: Rect, t: Transition, snap: bool) {
         let t = if snap || !self.enabled || self.reduced { Transition::Instant } else { t };
         let now = self.clock;
         if let Some(track) = self.tracks.get_mut(&key) {
+            let shared = matches!(key, MotionKey::Shared(..));
+            let t = if shared && track.owner == Some(owner) { Transition::Instant } else { t };
+            track.owner = Some(owner);
             match &mut track.rect {
                 Some(rect) => rect.set_target(frame, t, now),
                 None => track.rect = Some(Animated::new(frame)),
@@ -541,6 +566,7 @@ impl MotionSystem {
             layer: GhostLayer::Top,
             effect,
             nested: Vec::new(),
+            surface_exit: false,
         });
     }
 
@@ -567,7 +593,16 @@ impl MotionSystem {
                 let r = start + range.start..start + range.end;
                 scene.apply_effect(r, e.value(now), *pivot);
             }
-            scene.apply_effect(start..scene.len(), g.effect.value(now), g.pivot);
+            let effect = g.effect.value(now);
+            if g.surface_exit {
+                let panel = Effect { opacity: (effect.opacity * 2.0).min(1.0), ..effect };
+                let content = Effect { opacity: (effect.opacity * 2.0 - 1.0).max(0.0), ..effect };
+                let first = (start + 1).min(scene.len());
+                scene.apply_effect(start..first, panel, g.pivot);
+                scene.apply_effect(first..scene.len(), content, g.pivot);
+            } else {
+                scene.apply_effect(start..scene.len(), effect, g.pivot);
+            }
             scene.pop_clip();
             true
         });
@@ -633,7 +668,7 @@ pub(crate) fn collapse(cx: &mut BuildCx<'_>, open: bool, content: &dyn View) -> 
     struct Body<'a>(bool, &'a dyn View);
     impl View for Body<'_> {
         fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-            let transition = cx.theme().motion.gentle;
+            let transition = cx.theme().motion.base;
             let target = if self.0 { 1.0_f32 } else { 0.0 };
             let progress = cx.animated(target, transition).clamp(0.0, 1.0);
             let at_rest = (progress - target).abs() < f32::EPSILON;
@@ -664,16 +699,18 @@ pub(crate) const SURFACE_EXIT_SCALE: f32 = 0.98;
 
 /// How floating panels appear: from the side of their anchor.
 ///
-/// It stays solid while it moves. Opacity applies to each shape on its own, so a panel
-/// fading in would show what is behind it through its fields, in a gray like metal.
+/// Quick and without a spring: a spring's tail keeps the scale changing by fractions of a
+/// pixel, and the text shivers. It comes in solid, since a panel fading in would show
+/// what is behind it through its fields, and leaves as one surface.
 pub(crate) fn popup(cx: &mut BuildCx<'_>, node: NodeId) {
     let m = cx.theme().motion;
     cx.motion(
         node,
         Motion::new()
             .anchored()
-            .enter(Effect::scaled(SURFACE_ENTER_SCALE), m.snappy)
-            .exit(Effect::scaled(SURFACE_EXIT_SCALE), m.fast),
+            .surface_exit()
+            .enter(Effect::scaled(SURFACE_ENTER_SCALE), m.fast)
+            .exit(Effect { opacity: 0.0, ..Effect::scaled(SURFACE_EXIT_SCALE) }, m.fast),
     );
 }
 
