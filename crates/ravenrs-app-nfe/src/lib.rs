@@ -7,6 +7,7 @@
 //! the receipt a report people can change in the standard designer.
 
 mod cupom;
+mod danfse;
 mod module;
 mod service;
 
@@ -14,6 +15,12 @@ pub use cupom::{
     CAMPOS_OBRIGATORIOS, CUPOM_LINHA, MODELO_DANFE, campos_faltando, cupom_entity, cupom_report,
     danfe_report, linhas_do_documento, modelos_de_cupom, modelos_de_danfe, renderizar_cupom,
 };
+pub use danfse::{
+    CAMPOS_OBRIGATORIOS_DANFSE, MODELO_DANFSE, NFSE_LINHA, campo_da_danfse, campos_faltando_danfse,
+    danfse_entity, danfse_report, linha_da_nfse, modelos_de_danfse, preparar_danfse, renderizar_danfse,
+};
 pub use module::{NFE_DOCUMENTO, NFE_EMITENTE, NfeModule, documento_entity, emitente_entity};
 pub use ravenrs_nfe as engine;
+/// The NFS-e engine, beta like the NF-e.
+pub use ravenrs_nfse as nfse;
 pub use service::{EmissaoFinal, NfeService, TextoVenda, emitente_do_registro, emitente_salvo_de, uf_de};

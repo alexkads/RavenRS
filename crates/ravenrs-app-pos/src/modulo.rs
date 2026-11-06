@@ -405,6 +405,9 @@ impl Pos {
         for (nome, modelo) in modelos_de_cupom().into_iter().chain(modelos_de_danfe()) {
             relatorios = relatorios.predefined(nome, CUPOM_LINHA, modelo);
         }
+        for (nome, modelo) in ravenrs_app_nfe::modelos_de_danfse() {
+            relatorios = relatorios.predefined(nome, ravenrs_app_nfe::NFSE_LINHA, modelo);
+        }
         let (caixa, palavras) = (self.caixa.clone(), Rc::new(ReportWords::pt_br()));
         let entradas = self.entradas.clone();
         let sessao_guardada = self.sessao.clone();

@@ -23,6 +23,7 @@ ravenrs-app.workspace = true
 ravenrs-app-report.workspace = true
 ravenrs-app-ui.workspace = true
 ravenrs-nfe.workspace = true
+ravenrs-nfse.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-report.workspace = true
 ravenrs-report-label.workspace = true

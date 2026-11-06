@@ -5029,6 +5029,7 @@ dependencies = [
  "ravenrs-app-report",
  "ravenrs-app-ui",
  "ravenrs-nfe",
+ "ravenrs-nfse",
  "ravenrs-reactive",
  "ravenrs-report",
  "ravenrs-report-label",

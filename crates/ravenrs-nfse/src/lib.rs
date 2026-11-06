@@ -35,6 +35,7 @@
 
 mod ambiente;
 pub mod chave;
+pub mod danfse;
 pub mod dps;
 mod emissor;
 mod erro;

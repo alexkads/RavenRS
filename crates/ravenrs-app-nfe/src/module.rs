@@ -186,7 +186,7 @@ impl NfeModule {
 
     /// The entities it brings, for storage.
     pub fn entidades() -> Vec<EntityInfo> {
-        vec![emitente_entity(), documento_entity(), cupom_entity()]
+        vec![emitente_entity(), documento_entity(), cupom_entity(), crate::danfse::danfse_entity()]
     }
 }
 
