@@ -14,12 +14,18 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+use opus_decoder::OpusDecoder;
+use ravenrs_ai::{HEARING_CATALOG, HEARING_RATE, LocalModel, ModelFolder, ModelState, Transcriber};
+
 use crate::db::Database;
 use crate::model::{Category, Flow, Member, TransactionInput};
 use crate::today;
 
 const PENDING_TTL: Duration = Duration::from_secs(5 * 60);
 const MAX_PDF_BYTES: u64 = 14 * 1024 * 1024;
+/// A voice note is heard up to a minute: enough for "despesa, mercado, foi a Ana".
+const MAX_VOICE_SECONDS: usize = 60;
+const MAX_VOICE_BYTES: u64 = 2 * 1024 * 1024;
 
 #[derive(Clone)]
 struct Config {
@@ -30,6 +36,8 @@ struct Config {
 struct Service {
     config: Config,
     pending: Mutex<HashMap<i64, Pending>>,
+    /// The model that hears, kept loaded between voice notes.
+    transcriber: Mutex<Option<(&'static str, Transcriber)>>,
 }
 
 #[derive(Debug)]
@@ -68,6 +76,7 @@ struct Message {
     from: Option<User>,
     document: Option<Document>,
     text: Option<String>,
+    voice: Option<Voice>,
 }
 
 #[derive(Deserialize)]
@@ -80,6 +89,14 @@ struct Chat {
 #[derive(Deserialize)]
 struct User {
     id: i64,
+}
+
+/// A voice note: Opus in an Ogg file, as Telegram records it.
+#[derive(Deserialize)]
+struct Voice {
+    file_id: String,
+    duration: Option<u64>,
+    file_size: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -183,7 +200,7 @@ pub fn serve_with_waker(
     paired: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 ) -> Result<(), String> {
     let config = Config { db_path: checked_db_path(db_path)?, bot_token: bot_token()? };
-    let service = Service { config, pending: Mutex::new(HashMap::new()) };
+    let service = Service { config, pending: Mutex::new(HashMap::new()), transcriber: Mutex::new(None) };
     let mut offset = 0;
     loop {
         if bot_token().is_ok_and(|token| token != service.config.bot_token) {
@@ -240,7 +257,13 @@ fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
         "rf:no" => "/cancelar",
         _ => return None,
     };
-    Some(Message { chat: message.chat, from: Some(tap.from), document: None, text: Some(command.to_owned()) })
+    Some(Message {
+        chat: message.chat,
+        from: Some(tap.from),
+        document: None,
+        text: Some(command.to_owned()),
+        voice: None,
+    })
 }
 
 fn bot_token() -> Result<String, String> {
@@ -333,7 +356,14 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
         )?;
         return Ok(());
     }
-    let Some(text) = message.text.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty()) else {
+    let text = match message.voice {
+        Some(voice) => match hear(service, chat, &voice)? {
+            Some(text) => Some(text),
+            None => return Ok(()),
+        },
+        None => message.text,
+    };
+    let Some(text) = text.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty()) else {
         return Ok(());
     };
     let said = folded(&text);
@@ -477,10 +507,10 @@ fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result
     let keys = |words: &[String]| words.iter().map(|word| folded(word)).collect::<Vec<_>>();
 
     let found = keys(&words).iter().enumerate().find_map(|(i, key)| {
-        if EXPENSE_WORDS.contains(&key.as_str()) {
+        if EXPENSE_WORDS.iter().any(|word| sounds_like(key, word)) {
             Some((i, Flow::Expense))
         } else {
-            INCOME_WORDS.contains(&key.as_str()).then_some((i, Flow::Income))
+            INCOME_WORDS.iter().any(|word| sounds_like(key, word)).then_some((i, Flow::Income))
         }
     });
     let Some((at, flow)) = found else {
@@ -536,6 +566,20 @@ fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result
         None => capitalized(&words.join(" ")),
     };
     Ok(Reply { flow, category, member })
+}
+
+/// The same word, or a long one heard with one letter wrong: Whisper writes "despeza".
+fn sounds_like(heard: &str, word: &str) -> bool {
+    if heard == word {
+        return true;
+    }
+    let (a, b): (Vec<char>, Vec<char>) = (heard.chars().collect(), word.chars().collect());
+    if a.len().min(b.len()) < 6 || a.len().abs_diff(b.len()) > 1 {
+        return false;
+    }
+    let same_start = a.iter().zip(&b).take_while(|(x, y)| x == y).count();
+    let same_end = a.iter().rev().zip(b.iter().rev()).take_while(|(x, y)| x == y).count();
+    same_start + same_end + 1 >= a.len().max(b.len())
 }
 
 /// Where `run` appears whole in `words`.
@@ -616,25 +660,119 @@ fn send_with_buttons(
 }
 
 fn download_pdf(service: &Service, file_id: &str) -> Result<Vec<u8>, String> {
-    let file: TelegramFile = telegram_call(service, "getFile", json!({"file_id":file_id}))?;
+    download(service, file_id, MAX_PDF_BYTES)
+        .map_err(|why| why.unwrap_or_else(|| "PDF vazio ou maior que 14 MB".into()))
+}
+
+/// A file someone sent, up to `limit` bytes. `Err(None)` when it is empty or too big.
+fn download(service: &Service, file_id: &str, limit: u64) -> Result<Vec<u8>, Option<String>> {
+    let file: TelegramFile = telegram_call(service, "getFile", json!({"file_id":file_id})).map_err(Some)?;
     let agent = telegram_agent();
     let url = format!("{}/file/bot{}/{}", api_base(), service.config.bot_token, file.file_path);
     let mut response = agent.get(&url).call().map_err(|error| {
-        format!(
-            "falha ao baixar PDF do Telegram: {}",
+        Some(format!(
+            "falha ao baixar o arquivo do Telegram: {}",
             error.to_string().replace(&service.config.bot_token, "[oculto]")
-        )
+        ))
     })?;
-    let bytes = response
-        .body_mut()
-        .with_config()
-        .limit(MAX_PDF_BYTES + 1)
-        .read_to_vec()
-        .map_err(|e| e.to_string())?;
-    if bytes.is_empty() || bytes.len() as u64 > MAX_PDF_BYTES {
-        return Err("PDF vazio ou maior que 14 MB".into());
+    let bytes =
+        response.body_mut().with_config().limit(limit + 1).read_to_vec().map_err(|e| Some(e.to_string()))?;
+    if bytes.is_empty() || bytes.len() as u64 > limit {
+        return Err(None);
     }
     Ok(bytes)
+}
+
+/// The words of a voice note, said back so the person sees what was understood. `None`
+/// when there was nothing to hear it for, or nothing to hear it with; the person is told.
+fn hear(service: &Service, chat: i64, voice: &Voice) -> Result<Option<String>, String> {
+    let waiting = service.pending.lock().map_err(|_| "estado do bot indisponível")?.contains_key(&chat);
+    if !waiting {
+        send_message(service, chat, "Não há PDF aguardando. Envie o comprovante e depois o áudio.")?;
+        return Ok(None);
+    }
+    if voice.duration.is_some_and(|seconds| seconds > MAX_VOICE_SECONDS as u64)
+        || voice.file_size.is_some_and(|bytes| bytes > MAX_VOICE_BYTES)
+    {
+        send_message(service, chat, "Envie um áudio de até 1 minuto.")?;
+        return Ok(None);
+    }
+    let folder = hearing_folder(&service.config.db_path);
+    let Some(model) = model_that_hears(&folder) else {
+        send_message(
+            service,
+            chat,
+            "Para entender áudios, baixe e use um modelo em Ajustes, no cartão Telegram. Por enquanto, escreva a resposta.",
+        )?;
+        return Ok(None);
+    };
+    send_message(service, chat, "Ouvindo…")?;
+    let bytes = download(service, &voice.file_id, MAX_VOICE_BYTES)
+        .map_err(|why| why.unwrap_or_else(|| "áudio vazio ou maior que 2 MB".into()))?;
+    let samples = voice_samples(&bytes)?;
+    let mut kept = service.transcriber.lock().map_err(|_| "estado do bot indisponível")?;
+    if kept.as_ref().is_none_or(|(id, _)| *id != model.id) {
+        let transcriber = Transcriber::load(&folder, &model).map_err(|e| e.to_string())?;
+        *kept = Some((model.id, transcriber));
+    }
+    let (_, transcriber) = kept.as_mut().ok_or("modelo de áudio indisponível")?;
+    let heard = transcriber.transcribe(&samples, "pt").map_err(|e| e.to_string())?;
+    if heard.text.is_empty() {
+        send_message(service, chat, "Não entendi o áudio. Tente de novo ou escreva a resposta.")?;
+        return Ok(None);
+    }
+    send_message(service, chat, &format!("Entendi: “{}”", heard.text))?;
+    Ok(Some(heard.text))
+}
+
+/// Where the models that hear live: beside the database, with the other models.
+pub fn hearing_folder(db_path: &Path) -> ModelFolder {
+    ModelFolder::new(db_path.parent().unwrap_or(Path::new(".")).join("modelos").join("ouvido"))
+}
+
+/// The model chosen in Ajustes to hear voice notes, if it is all there.
+fn model_that_hears(folder: &ModelFolder) -> Option<LocalModel> {
+    let id = std::fs::read_to_string(folder.root().join("in-use")).ok()?;
+    let model = HEARING_CATALOG.iter().find(|model| model.id == id.trim())?;
+    (folder.state(model) == ModelState::Installed).then_some(*model)
+}
+
+/// A voice note as mono samples at the rate Whisper hears: Telegram records Opus in an
+/// Ogg file, which is decoded here in Rust, the same on every system.
+fn voice_samples(ogg: &[u8]) -> Result<Vec<f32>, String> {
+    let unreadable = || "não consegui ler o áudio. Envie de novo ou escreva a resposta.".to_owned();
+    std::panic::catch_unwind(|| decode_voice(ogg)).map_err(|_| unreadable())?.ok_or_else(unreadable)
+}
+
+fn decode_voice(ogg: &[u8]) -> Option<Vec<f32>> {
+    let mut reader = ogg::PacketReader::new(std::io::Cursor::new(ogg));
+    let head = reader.read_packet().ok()??;
+    if !head.data.starts_with(b"OpusHead") {
+        return None;
+    }
+    let channels = usize::from(*head.data.get(9)?).clamp(1, 2);
+    // The samples an encoder put before the sound, counted at 48 kHz.
+    let skip =
+        usize::from(u16::from_le_bytes([*head.data.get(10)?, *head.data.get(11)?])) * HEARING_RATE / 48_000;
+    let mut decoder = OpusDecoder::new(HEARING_RATE as u32, channels).ok()?;
+    let mut frame = vec![0.0_f32; OpusDecoder::MAX_FRAME_SIZE_48K * channels];
+    let mut samples = Vec::new();
+    while let Some(packet) = reader.read_packet().ok()? {
+        if packet.data.starts_with(b"OpusTags") {
+            continue;
+        }
+        let decoded = decoder.decode_float(&packet.data, &mut frame, false).ok()?;
+        samples.extend(
+            frame
+                .get(..decoded * channels)?
+                .chunks(channels)
+                .map(|s| s.iter().sum::<f32>() / channels as f32),
+        );
+        if samples.len() > (MAX_VOICE_SECONDS + 1) * HEARING_RATE {
+            return None;
+        }
+    }
+    Some(samples.split_off(skip.min(samples.len())))
 }
 
 /// Finds the one total in a receipt. The text is read in Rust, the same on every system;
@@ -823,6 +961,15 @@ mod tests {
     }
 
     #[test]
+    fn hears_a_keyword_with_one_letter_wrong() {
+        let reply = read_reply("Despeza de padaria", &[], &[]).expect("heard");
+        assert_eq!((reply.flow, reply.category.as_str()), (Flow::Expense, "Padaria"));
+        assert_eq!(read_reply("Receitta Salário", &[], &[]).expect("heard").flow, Flow::Income);
+        assert!(read_reply("gasta padaria", &[], &[]).is_err(), "short words must be exact");
+        assert!(read_reply("dispensa padaria", &[], &[]).is_err(), "two letters off is another word");
+    }
+
+    #[test]
     fn asks_about_a_name_nobody_registered() {
         let members = [member(1, "Ana")];
         let question = read_reply("despesa de mercado, foi o Pedro", &members, &[]).expect_err("unknown");
@@ -831,6 +978,40 @@ mod tests {
             read_reply("despesa Mercado Pedro", &members, &[]).expect("typed").category,
             "Mercado Pedro"
         );
+    }
+
+    const VOICE_NOTE: &[u8] = include_bytes!("../tests/fixtures/voz-despesa.ogg");
+
+    #[test]
+    fn decodes_a_telegram_voice_note() {
+        let samples = voice_samples(VOICE_NOTE).expect("decoded");
+        let seconds = samples.len() as f32 / HEARING_RATE as f32;
+        assert!((3.5..4.0).contains(&seconds), "{seconds} s, as the file says 3.8 s");
+        let loudness = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
+        assert!(loudness > 0.01, "someone speaks: {loudness}");
+        assert!(voice_samples(b"OggS not really").is_err());
+        assert!(voice_samples(&[]).is_err());
+    }
+
+    /// Hears the voice note with a real model, when its folder is given: the folder of
+    /// Ajustes, with the model in use (`modelos/ouvido`). Whisper Small passes; Base
+    /// mishears this synthetic voice.
+    #[test]
+    fn hears_a_voice_note_and_reads_it() {
+        let Some(root) = std::env::var_os("RAVEN_WHISPER_FOLDER") else {
+            return;
+        };
+        let folder = ModelFolder::new(root);
+        let model = model_that_hears(&folder).expect("a model in use");
+        let mut transcriber = Transcriber::load(&folder, &model).expect("loaded");
+        let heard =
+            transcriber.transcribe(&voice_samples(VOICE_NOTE).expect("decoded"), "pt").expect("heard");
+        println!("{}: “{}” in {:.1} s", model.name, heard.text, heard.seconds);
+        let members = [member(1, "Ana")];
+        let categories = [category(7, "Mercado", Flow::Expense)];
+        let reply = read_reply(&heard.text, &members, &categories).expect("read");
+        assert_eq!((reply.flow, reply.category.as_str()), (Flow::Expense, "Mercado"), "{}", heard.text);
+        assert_eq!(reply.member, Some(member(1, "Ana")), "{}", heard.text);
     }
 
     #[test]

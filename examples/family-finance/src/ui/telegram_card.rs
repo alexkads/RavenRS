@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 use ravenrs::prelude::*;
+use ravenrs_ai::{HEARING_CATALOG, ModelManager, ModelManagerLabels};
 
 use super::help;
 use super::store::{Store, titled_card};
@@ -164,6 +165,15 @@ impl View for TelegramCard {
         let typed = cx.use_state(String::new);
         let saved = cx.use_state(telegram::token_configured);
         let chosen = cx.use_state(|| 0_u64);
+        let path = self.store.path.clone();
+        let hearing = cx
+            .use_state(move || {
+                path.as_deref().map(|path| {
+                    ModelManager::new(HEARING_CATALOG, telegram::hearing_folder(path))
+                        .labels(ModelManagerLabels::pt_br())
+                })
+            })
+            .get();
         let shared: Shared = cx.use_state(Shared::default).get();
         let waker = cx.ui_waker();
         let _revision = self.store.version();
@@ -252,6 +262,19 @@ impl View for TelegramCard {
                 qr,
                 failure,
                 HStack::new((connect, unlink)).spacing(8.0).wrap(),
+                hearing.map(|models| {
+                    VStack::new((
+                        Text::new("Entender áudios").style(TextStyle::Headline),
+                        Text::new(
+                            "Para responder por áudio, baixe e use um modelo. Ele roda só neste computador: o áudio não vai para nenhum outro lugar.",
+                        )
+                        .style(TextStyle::Callout)
+                        .foreground(Semantic::InkMuted),
+                        models,
+                    ))
+                    .spacing(8.0)
+                    .align(Align::Start)
+                }),
             ))
             .spacing(10.0)
             .align(Align::Start),

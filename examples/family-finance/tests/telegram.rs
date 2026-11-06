@@ -221,6 +221,13 @@ fn document(chat: i64, file: &str, size: u64) -> Value {
     } })
 }
 
+fn voice(chat: i64) -> Value {
+    json!({ "message": {
+        "chat": { "id": chat, "type": "private" }, "from": { "id": chat },
+        "voice": { "file_id": "voz.ogg", "duration": 4, "mime_type": "audio/ogg", "file_size": 10_000 }
+    } })
+}
+
 /// A tap on a button the bot sent, carrying its `callback_data`.
 fn tap(chat: i64, data: &str) -> Value {
     json!({ "callback_query": {
@@ -343,8 +350,10 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
     assert_eq!(fake.say_within(group, Duration::from_secs(2), || ()), None, "groups are ignored");
 
     assert!(fake.say(text(CHAT, "despesa Mercado")).contains("Não há PDF aguardando"));
+    assert!(fake.say(voice(CHAT)).contains("Não há PDF aguardando"), "a voice note needs a receipt first");
     assert!(fake.say(document(CHAT, "pix.pdf", 20 * 1024 * 1024)).contains("Envie um PDF de até 14 MB"));
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
+    assert!(fake.say(voice(CHAT)).contains("Para entender áudios"), "no model yet: says where to get one");
     assert!(fake.say(text(CHAT, "Salário")).contains("despesa ou receita"), "asks again, amount kept");
     let question = fake.say(text(CHAT, "receita Salário"));
     assert!(

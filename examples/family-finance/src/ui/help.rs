@@ -131,8 +131,8 @@ pub(crate) const ATUALIZACAO: Help = (
 );
 pub(crate) const TELEGRAM: Help = (
     "Telegram",
-    "Conecta um chat privado para enviar comprovantes PDF a este Raven.",
-    "Escaneie o QR, abra o bot e toque em Iniciar.",
+    "Conecta um chat privado para enviar comprovantes PDF a este Raven. Depois do PDF, responda por texto ou por áudio: despesa ou receita, a categoria e, se quiser, quem gastou.",
+    "Escaneie o QR, abra o bot e toque em Iniciar. Nada é lançado antes de você tocar em Confirmar.",
 );
 pub(crate) const RECOMECAR: Help = (
     "Recomeçar",

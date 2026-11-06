@@ -4,6 +4,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `ravenrs-ai` hears: `HEARING_CATALOG` offers Whisper Base and Small, and `Transcriber` turns mono speech at `HEARING_RATE` (16 kHz) into text on the CPU, in plain Rust, the way OpenAI's reference reads it. `ModelManager` downloads them like the other models, and its speed test times ten seconds of hearing.
+- `ModelFamily::Whisper`.
+
 ## [27.1.15] - 2026-11-06
 
 ### Breaking

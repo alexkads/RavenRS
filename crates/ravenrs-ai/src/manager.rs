@@ -12,7 +12,29 @@ use ravenrs_widgets::{
     BuildCx, ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus, NodeId, UiWaker, View,
 };
 
-use crate::{LocalAssistant, LocalEngine, LocalModel, Machine, ModelError, ModelFolder, ModelState};
+use crate::{
+    HEARING_RATE, LocalAssistant, LocalEngine, LocalModel, Machine, ModelError, ModelFamily, ModelFolder,
+    ModelState, Transcriber,
+};
+
+/// How a model that hears does on this machine, on a quiet tone it has to listen to whole.
+fn hearing_test(folder: &ModelFolder, model: &LocalModel, started: Instant) -> Option<Tested> {
+    let mut transcriber = Transcriber::load(folder, model).ok()?;
+    let tone: Vec<f32> = (0..TEST_HEARING_SECONDS * HEARING_RATE)
+        .map(|i| (i as f32 * 440.0 * std::f32::consts::TAU / HEARING_RATE as f32).sin() * 0.01)
+        .collect();
+    transcriber.transcribe(&tone, "pt").ok()?;
+    let seconds = started.elapsed().as_secs_f64();
+    let heard = TEST_HEARING_SECONDS as f64;
+    let tokens_per_second = if seconds <= heard / 5.0 {
+        FAST
+    } else if seconds <= heard {
+        USABLE
+    } else {
+        0.0
+    };
+    Some(Tested { seconds, tokens_per_second })
+}
 
 /// How many times a download tells the UI it moved: one per cent is plenty.
 const STEPS: u64 = 100;
@@ -27,6 +49,9 @@ const TEST_TOKENS: usize = 40;
 /// read as it arrives.
 const FAST: f64 = 15.0;
 const USABLE: f64 = 5.0;
+/// What a model that hears is tested with: ten seconds, heard in two feels instant, and
+/// in ten it keeps up with whoever speaks.
+const TEST_HEARING_SECONDS: usize = 10;
 
 /// The words a [`ModelManager`] shows. English by default.
 #[derive(Clone, Debug)]
@@ -284,6 +309,14 @@ impl ModelManager {
         let (model, folder) = (entry.model, self.folder.clone());
         std::thread::spawn(move || {
             let started = Instant::now();
+            if model.family == ModelFamily::Whisper {
+                let outcome = hearing_test(&folder, &model, started);
+                if let Ok(mut done) = run.lock() {
+                    *done = Some(outcome);
+                }
+                waker.wake();
+                return;
+            }
             let outcome = LocalEngine::load(&folder, &model).ok().and_then(|mut engine| {
                 let generated = engine.generate(TEST_SYSTEM, TEST_USER, TEST_TOKENS, &mut |_| true).ok()?;
                 (generated.tokens > 0).then(|| Tested {
