@@ -38,7 +38,7 @@ impl View for TelegramVisual {
                 true,
             ),
             Self::Connected => {
-                (Icon::new(IconName::CircleCheck).size(72.0).color(Semantic::Success).build(cx), false)
+                (Icon::new(IconName::CircleCheck).size(28.0).color(Semantic::Success).build(cx), false)
             }
         };
         let motion = if theme {
@@ -435,11 +435,16 @@ pub(crate) fn settings(
             Text::new(if saved { "Token salvo neste computador." } else { "Informe e salve o token antes de conectar." })
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
-            Text::new(if linked { "Um chat está conectado." } else { "Nenhum chat conectado." })
-                .style(TextStyle::Callout)
-                .foreground(Semantic::InkMuted),
+            HStack::new((
+                linked.then_some(TelegramVisual::Connected),
+                Text::new(if linked { "Telegram conectado" } else { "Nenhum chat conectado." })
+                    .style(TextStyle::Callout)
+                    .foreground(if linked { Semantic::Success } else { Semantic::InkMuted }),
+            ))
+            .spacing(8.0)
+            .align(Align::Center),
             if linked {
-                Some(Box::new(TelegramVisual::Connected) as AnyView)
+                None
             } else {
                 shown_link.clone().map(|link| Box::new(TelegramVisual::Qr(link)) as AnyView)
             },
@@ -497,8 +502,8 @@ pub(crate) fn settings(
             .spacing(8.0)
             .wrap(),
         ))
-        .spacing(12.0)
-        .align(Align::Start),
+        .spacing(10.0)
+        .align(Align::Stretch),
     );
     let start_over = titled_card(
         "Recomeçar",
