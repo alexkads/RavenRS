@@ -15,23 +15,27 @@ Tudo aqui é **beta, prova de conceito**. Nenhuma nota foi a um servidor real da
 | `crates/ravenrs-report-label/FONTES.md` | O que cada manual de impressora confirmou |
 | `docs/PAGAMENTOS.md` | Pagamentos: origem das regras e homologação de cada provedor |
 | `docs/TEF-COMPARATIVO.md`, `docs/PERIFERICOS.md` | Comparativo de TEF; periféricos como dados, em `ravenrs-perifericos` |
-| `docs/NFSE.md` | Pesquisa do Padrão Nacional. A NFS-e ainda não tem código |
+| `docs/NFSE.md` | Pesquisa do Padrão Nacional e de onde veio cada escolha da NFS-e |
+| `crates/ravenrs-nfse/README.md` | Uso do emissor de NFS-e, o `SefinSandbox` e o que não foi confirmado |
+| `crates/ravenrs-dfe/README.md` | O que a NF-e e a NFS-e compartilham |
 
 ## Onde mexer
 
 | Tarefa | Onde | Também |
 |---|---|---|
 | Regra do documento, totais, chave, XML | `crates/ravenrs-nfe/src/`: `modelo`, `totais`, `chave`, `documento`, `xml` | `REGRAS.md`, testes em `tests/fluxo.rs`, XSD |
-| Assinatura e C14N | `assinatura`, `c14n` | `tests/externos.rs`, que confere com `xmllint` e `openssl` |
+| Assinatura e C14N | `crates/ravenrs-dfe/src/`: `assinatura`, `c14n` | `crates/ravenrs-nfe/tests/externos.rs`, que confere com `xmllint` e `openssl`. **Nunca copie para outro motor**: o que serve a mais de um vai para o `ravenrs-dfe` |
+| Transporte, handlers e rotas de sandbox, GZip, certificados de teste | `crates/ravenrs-dfe/src/`: `transporte`, `interceptacao`, `compactacao`, `certificados` | Os sandboxes usam a mesma `Cadeia` |
+| NFS-e: DPS, emissão, recuperação, cancelamento | `crates/ravenrs-nfse/src/`: `modelo`, `dps`, `emissor`, `evento`, `retorno` | `tests/fluxo.rs`; regra nova do sandbox em `sandbox::REGRAS`, com fonte e confiança |
 | Serviço novo da SEFAZ | `soap`, `retorno`, `urls`, depois um handler em `sandbox/` | O sandbox tem de responder igual ao formato real |
 | Conferência ou rejeição nova do sandbox | Regra em `sandbox/catalogo.rs`, verificação em `sandbox/analise.rs`; o que depende do que o servidor guarda fica em `sandbox/conferencia.rs` | Regra com data vai em `sandbox/vigencia.rs` |
 | Cenário pronto | `sandbox/cenarios.rs` | Aparece no painel de `crates/ravenrs-app-pos/src/telas.rs` |
-| Rede real, A1 | `http.rs`, atrás da feature `http`, só nativo | `tests/http_mtls.rs` |
-| Tela e registro das notas | `crates/ravenrs-app-nfe/src/`: `module`, `service`, `cupom` | O motor não conhece `ravenrs-app` |
+| Rede real, A1 | `crates/ravenrs-dfe/src/http.rs`, atrás da feature `http`, só nativo | `crates/ravenrs-nfe/tests/http_mtls.rs` |
+| Tela e registro das notas | `crates/ravenrs-app-nfe/src/`: `module`, `service`, `cupom`, `danfse` | O motor não conhece `ravenrs-app` |
 | Regra do carrinho, sem tela | `crates/ravenrs-pos/src/` | Testes no próprio crate |
 | Tela do caixa, produtos, etiquetas, entrada | `crates/ravenrs-app-pos/src/` | `examples/mini-pdv/tests/caixa.rs` |
 | Recurso que não é só de caixa | `ravenrs-app`, `ravenrs-app-ui` ou `ravenrs-widgets`, nunca em `examples/mini-pdv` | Demonstração em `examples/feature-center` |
-| Layout de cupom, DANFE ou etiqueta | Relatório guardado, no editor padrão (`ravenrs-report-designer`) | **Não existe outro editor de layouts** |
+| Layout de cupom, DANFE, DANFSe ou etiqueta | Relatório guardado, no editor padrão (`ravenrs-report-designer`) | **Não existe outro editor de layouts** |
 | Linguagem de impressora, saída | `crates/ravenrs-report-label/src/`: `language`, `raster`, `output`, `preset` | `FONTES.md`, `tests/roundtrip.rs`, `escpos.rs`, `reading.rs` |
 | Provedor de pagamento | `crates/ravenrs-pagamento/src/`, atrás de `ProvedorPagamento` | Simulador em `simulador/`, `docs/PAGAMENTOS.md` |
 | Código de barras, GTIN | `crates/ravenrs-barcode/src/lib.rs` | `ravenrs-graphics` só desenha |

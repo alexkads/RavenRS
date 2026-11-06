@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- `ravenrs-nfe` (beta): `Signer::sign_rsa_sha1` and `Signer::sign_rsa` return `DfeError`, and `HttpRequest` has a new field, `metodo`; build one with `HttpRequest::post`. `CasoFalha::regra` is now the trait `RegraDoCaso`. The lab keys moved to `crates/ravenrs-dfe/fixtures/laboratorio`.
+
 - `Modifiers` has a new public field, `base_key`, the letter of the key while Alt composes another character. A literal without `..Modifiers::default()` stops compiling.
 - `Key` has a new variant, `Key::Function`. `Key` was already `#[non_exhaustive]`, so a `match` still compiles, but F1 to F24 no longer arrive the way they did.
 - `Hotkey` can now carry Alt, through `Hotkey::alt`, and its `label` says so. Code that only builds hotkeys does not change.
@@ -18,6 +20,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 - **Beta, proof of concept:** `ravenrs-nfe`, NF-e and NFC-e with no GUI, and `SefazSandbox`, a local SEFAZ in the style of MSW that replaces the `Transport` and checks what arrives. It is not homologated and has never talked to a real SEFAZ. `Ambiente` has no production variant, and an emitter only exists with `BetaAck`.
 - **Beta, proof of concept:** `ravenrs-app-nfe`, the module with the issuer, the documents issued, consulting, canceling and the receipt as a stored report. A notice that cannot be dismissed says it is a beta.
+- **Beta, proof of concept:** `ravenrs-dfe`, what the fiscal engines share: XML, C14N, enveloped XMLDSig with `Algoritmo::NFE` (SHA-1) or `Algoritmo::SHA256`, `Transport` with `Metodo` (POST, GET, HEAD), the MSW-style `Cadeia` of handlers with `Rota`, GZip + Base64 with a limit, and the laboratory of ICP-Brasil test certificates. `ravenrs-nfe` re-exports what moved, with the same paths.
+- **Beta, proof of concept:** `ravenrs-nfse`, NFS-e of the national standard: the DPS, `POST /nfse`, recovery of a lost answer by the Id of the DPS, query, cancellation and the agreement of the city, with `SefinSandbox`. Never sent to the Sefin; see its README for what is not confirmed.
+- **Beta, proof of concept:** the DANFSe A4 as a stored report in `ravenrs-app-nfe`, with the QR Code and the notice of no legal validity the NT 008 asks.
 - **Beta, proof of concept:** `ravenrs-pagamento`, electronic payments with a journal, a provider simulator, the ABECS protocol and IntPos files. Never tested against a real provider, pinpad or card.
 - **Beta, proof of concept:** `ravenrs-app-pos` and `examples/mini-pdv`, a checkout used from the keyboard and a scanner, with shelf labels and receipts made in the standard report designer. `ravenrs-pos` has its rules, with no screens.
 - **Beta, proof of concept:** `ravenrs-perifericos`, printers, label printers, pinpads and scanners described as data. See `docs/PERIFERICOS.md`.

@@ -53,7 +53,7 @@ impl StatusAbecs {
     pub const OK: Self = Self(0);
     /// Secure communication was asked for and does not exist.
     pub const NOSEC: Self = Self(3);
-    /// The [CLEAR] key.
+    /// The `CLEAR` key.
     pub const BACKSP: Self = Self(8);
     /// A call out of order, or a command it does not know.
     pub const INVCALL: Self = Self(10);
@@ -61,7 +61,7 @@ impl StatusAbecs {
     pub const INVPARM: Self = Self(11);
     /// The time given to the customer ran out.
     pub const TIMEOUT: Self = Self(12);
-    /// The customer pressed [CANCEL].
+    /// The customer pressed `CANCEL`.
     pub const CANCEL: Self = Self(13);
     /// A mandatory parameter is missing.
     pub const MANDAT: Self = Self(19);

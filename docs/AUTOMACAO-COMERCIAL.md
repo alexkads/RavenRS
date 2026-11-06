@@ -37,7 +37,9 @@ A coluna "Como foi verificado" diz o que de fato aconteceu. "Sem janela" quer di
 |---|---|---|
 | NFC-e (65) e NF-e (55), síncrono, Simples Nacional (CRT 1, CSOSN 102 e 500) | `ravenrs-nfe` | XML validado com `xmllint` contra o XSD `PL_010`, em cópias do sped-nfe. **Nunca foi a um servidor real** |
 | Chave de acesso, DV, CNPJ alfanumérico | `ravenrs-nfe` | Testes do crate; DV do CNPJ de memória, ver `REGRAS.md` |
-| C14N inclusiva e XMLDSig | `ravenrs-nfe` | C14N comparada com `xmllint --c14n`; assinatura verificada com `openssl` |
+| C14N inclusiva e XMLDSig, SHA-1 ou SHA-256 | `ravenrs-dfe`, comum à NF-e e à NFS-e | C14N comparada com `xmllint --c14n`; assinatura SHA-1 verificada com `openssl`; SHA-256 só nos testes do crate |
+| NFS-e do Padrão Nacional: DPS, emissão, recuperação pelo Id, consulta, cancelamento e convênio | `ravenrs-nfse` | Só contra o `SefinSandbox`. Ordem lida no XSD v1.01, sem `xmllint`. **Nunca foi à Sefin** |
+| DANFSe A4 no editor de relatórios | `ravenrs-app-nfe` | Teste do render: uma página, aviso, chave e QR acima de 1,52 cm. Endereço do QR não confirmado |
 | SOAP 1.2, status, autorização, consulta e cancelamento | `ravenrs-nfe` | Só contra o sandbox |
 | Rede real com A1, TLS verificado, mTLS | `ravenrs-nfe`, feature `http` | Servidor mTLS local, com certificado de teste. **Nunca falou com a SEFAZ** |
 | Sandbox da SEFAZ no estilo MSW, que confere assinatura, ordem, totais e duplicidade | `ravenrs-nfe::sandbox` | Testes do crate. Passar nele não garante autorização real |

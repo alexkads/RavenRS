@@ -91,11 +91,13 @@ ravenrs-report-label    ──► ravenrs-report, ravenrs-text  (Document ──
 ravenrs-report-designer ──► ravenrs-report-viewer, ravenrs-report-export, ravenrs-report-label, ravenrs-widgets  (the designer)
 examples/report-designer  ──► ravenrs, ravenrs-report-designer
 
-ravenrs-nfe        ──► ravenrs-barcode  (BETA: NF-e and NFC-e with no GUI; everything leaves through `Transport`)
+ravenrs-dfe        (BETA: XML, C14N, XMLDSig, `Transport`, sandbox handlers, certificates; shared by the fiscal engines)
+ravenrs-nfe        ──► ravenrs-dfe, ravenrs-barcode  (BETA: NF-e and NFC-e with no GUI; everything leaves through `Transport`)
+ravenrs-nfse       ──► ravenrs-dfe  (BETA: NFS-e of the national standard with no GUI; `SefinSandbox`)
 ravenrs-pagamento  (BETA: payments with no GUI; everything goes through `ProvedorPagamento`)
 ravenrs-perifericos  (BETA: peripherals as data, in versioned manifests)
 ravenrs-pos        (the rules of a counter with no GUI and nothing fiscal)
-ravenrs-app-nfe    ──► ravenrs-nfe, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)
+ravenrs-app-nfe    ──► ravenrs-nfe, ravenrs-nfse, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)
 ravenrs-app-pos    ──► ravenrs-pos, ravenrs-app-nfe, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)
 examples/mini-pdv  ──► ravenrs-app-pos, ravenrs-app-nfe, ravenrs-app-sqlite  (native only: it only puts them together)
 ```
@@ -122,7 +124,9 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-lottie` | `document` (reading a file, and what it asks for that is not done yet), `property` (keyframes), `geometry` (trim, dash, stroke), `player` (one moment as `PathFill`s) |
 | `ravenrs-barcode` | `lib` (`Symbology`, `Pattern`, `encode`, GTIN) |
 | `ravenrs-report-label` | `raster` (a page as dots), `bitmap`, `language` (`LabelJob`, `Language`, `compile`), `output` (TCP 9100, CUPS, file, Windows share), `preset` |
-| `ravenrs-nfe` | `modelo`, `totais`, `chave`, `documento` and `xml` (deterministic XML), `c14n`, `assinatura`, `soap`, `retorno`, `urls`, `ambiente` (no production), `transporte` (`Transport`), `sandbox` (`SefazSandbox`, handlers and scenarios; `catalogo`, `analise`, `autopsia`, `certificados`, `vigencia`), `http` (feature `http`, native only) |
+| `ravenrs-dfe` | `xml`, `c14n`, `assinatura` (`Algoritmo`, `Signer`), `transporte` (`Transport`, `Metodo`), `interceptacao` (`Cadeia`, `OnUnhandled`, `Rota`), `compactacao`, `certificado_x509`, `certificados` (the laboratory), `tempo`, `http` (feature `http`, native only) |
+| `ravenrs-nfe` | `modelo`, `totais`, `chave`, `documento` (deterministic XML), `soap`, `retorno`, `urls`, `ambiente` (no production), `sandbox` (`SefazSandbox`, handlers and scenarios; `catalogo`, `analise`, `autopsia`, `certificados`, `vigencia`); re-exports `xml`, `c14n`, `assinatura`, `transporte` and `http` from `ravenrs-dfe` |
+| `ravenrs-nfse` | `modelo`, `dps` (deterministic XML), `chave`, `evento` (cancellation), `retorno` (JSON), `danfse` (the rules of the NT 008), `ambiente` (no production), `sandbox` (`SefinSandbox`, routes, scenarios, `REGRAS`) |
 | `ravenrs-pagamento` | `dominio`, `provedor`, `pagamentos`, `diario` (written before it acts), `fiscal`, `simulador`, `abecs`, `intpos`, `sitef`, `mercado_pago`, `stone` |
 | `ravenrs-perifericos` | `manifesto`, `catalogo`, `registro`, `armazem`, `comando`, `transporte`, `embutidos`, `data` |
 | `ravenrs-pos` | `lib` (`Carrinho`, `Leitura`, totals, payments), `entrada`, `preco` |
@@ -403,6 +407,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions, frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
 
 | Reports on label and receipt printers: ZPL II, EPL2/PPLB, PPLA, TSPL, ESC/POS (`ravenrs-report-label`), columns, a continuous page, commands for the printer and printing straight from the designer | output read back by a parser and a separate decoder | never printed on a physical printer | checking each brand on paper |
+| NFS-e of the national standard (`ravenrs-nfse`, DANFSe in `ravenrs-app-nfe`), with `SefinSandbox` | | **beta, proof of concept**: order of the DPS read in the XSD v1.01, never validated by `xmllint` nor sent to the Sefin. No production | see [docs/NFSE.md](docs/NFSE.md) |
 | NF-e and NFC-e (`ravenrs-nfe`, `ravenrs-app-nfe`), with `SefazSandbox` | | **beta, proof of concept**: XML checked against the official XSD, signature against `openssl`, and never sent to a real SEFAZ. No production | see [docs/AUTOMACAO-COMERCIAL.md](docs/AUTOMACAO-COMERCIAL.md) |
 | Payments (`ravenrs-pagamento`), with a simulator | | **beta, proof of concept**: never tested against a real provider, pinpad or card | see [docs/PAGAMENTOS.md](docs/PAGAMENTOS.md) |
 | Point of sale (`ravenrs-pos`, `ravenrs-app-pos`, `examples/mini-pdv`) | the rules of a cart, in `ravenrs-pos` | **beta, proof of concept**: tested with no window, against the sandbox | see [docs/AUTOMACAO-COMERCIAL.md](docs/AUTOMACAO-COMERCIAL.md) |
