@@ -113,8 +113,11 @@ impl WindowController for Sempre {
                 .hotkey("esc")
                 .category(ActionCategory::Navigation)
                 .on_execute(move |cx| {
-                    if !caixa.voltar() {
-                        sessao(cx)?.open_view(VIEW_INICIO);
+                    let session = sessao(cx)?;
+                    if matches!(*caixa.tela.peek(), crate::Tela::Cobrando { .. }) {
+                        caixa.responder(&session, ravenrs_pagamento::EntradaOperador::Cancelar);
+                    } else if !caixa.voltar() {
+                        session.open_view(VIEW_INICIO);
                     }
                     Ok(())
                 }),
@@ -355,7 +358,22 @@ pub struct Pos {
 impl Pos {
     /// A point of sale issuing through this service.
     pub fn new(service: NfeService) -> Self {
-        Self { caixa: Caixa::new(service), entradas: Entradas::default(), sessao: Rc::default() }
+        let (tef, simulador) = crate::pagamento::tef_simulado();
+        Self::com_tef(service, tef, Some(simulador))
+    }
+
+    /// A point of sale charging cards and Pix through this provider; `simulador` is the one behind it
+    /// when it is simulated, for the screens to offer its scenarios.
+    pub fn com_tef(
+        service: NfeService,
+        tef: Rc<dyn crate::Tef>,
+        simulador: Option<ravenrs_pagamento::simulador::SimuladorProvedor>,
+    ) -> Self {
+        Self {
+            caixa: Caixa::new(service).com_tef(tef, simulador),
+            entradas: Entradas::default(),
+            sessao: Rc::default(),
+        }
     }
 
     /// The session of the window, once it is put together.
@@ -401,6 +419,9 @@ impl Pos {
             .dashboard(DashboardInfo::new("PosPreco", "Preços").control("Preços", "pos.preco"))
             .with_session(move |session| {
                 *sessao_guardada.borrow_mut() = Some(session.clone());
+                for aviso in caixa.recuperar_pagamentos() {
+                    session.show_message(Message::new(aviso, MessageKind::Warning));
+                }
                 let aqui = session.clone();
                 session.register_control("pos.inicio", move || {
                     Box::new(TelaInicio { session: aqui.clone() }.grow(1.0)) as AnyView

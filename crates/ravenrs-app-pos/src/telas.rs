@@ -3,6 +3,8 @@
 use ravenrs_app_ui::Session;
 use ravenrs_layout::{Align, Justify};
 use ravenrs_nfe::sandbox::{autorizacao, cenarios};
+use ravenrs_pagamento::simulador::{cenarios as tef_cenarios, iniciar as tef_iniciar};
+use ravenrs_pagamento::{EntradaOperador, Pergunta, TipoCampo};
 use ravenrs_pos::{Forma, valor_em_texto};
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -191,6 +193,83 @@ impl TelaCaixa {
         )
     }
 
+    fn cobrando(&self, pergunta: Option<&Pergunta>, mensagem: &str) -> AnyView {
+        let responder = |entrada: EntradaOperador| {
+            let (caixa, session) = (self.caixa.clone(), self.session.clone());
+            move || caixa.responder(&session, entrada.clone())
+        };
+        let mut linhas: Vec<AnyView> =
+            vec![Box::new(Text::new("Pagamento no cartão ou Pix").style(TextStyle::Title))];
+        match pergunta {
+            None => {
+                linhas.push(Box::new(Spinner::new()));
+                linhas.push(Box::new(Text::new(mensagem.to_owned()).style(TextStyle::Headline)));
+            }
+            Some(Pergunta::Mensagem { texto, exige_ok }) => {
+                linhas.push(Box::new(Text::new(texto.clone()).style(TextStyle::Headline)));
+                if *exige_ok {
+                    linhas.push(Box::new(
+                        Button::new("OK")
+                            .style(ButtonStyle::Primary)
+                            .on_click(responder(EntradaOperador::Ok)),
+                    ));
+                }
+            }
+            Some(Pergunta::Confirmacao { texto }) => {
+                linhas.push(Box::new(Text::new(texto.clone()).style(TextStyle::Headline)));
+                linhas.push(Box::new(
+                    HStack::new(vec![
+                        Box::new(
+                            Button::new("Sim")
+                                .style(ButtonStyle::Primary)
+                                .on_click(responder(EntradaOperador::Sim)),
+                        ) as AnyView,
+                        Box::new(Button::new("Não").on_click(responder(EntradaOperador::Nao))),
+                    ])
+                    .spacing(8.0),
+                ));
+            }
+            Some(Pergunta::Menu { titulo, opcoes }) => {
+                linhas.push(Box::new(Text::new(titulo.clone()).style(TextStyle::Headline)));
+                for (indice, opcao) in opcoes.iter().enumerate() {
+                    linhas.push(Box::new(
+                        Button::new(opcao.texto.clone())
+                            .style(ButtonStyle::Secondary)
+                            .full_width()
+                            .on_click(responder(EntradaOperador::Opcao(indice))),
+                    ));
+                }
+            }
+            Some(Pergunta::Campo { rotulo, tipo, .. }) => {
+                let (caixa, session) = (self.caixa.clone(), self.session.clone());
+                let mut campo =
+                    ScanField::new(move |lido| caixa.responder(&session, EntradaOperador::Texto(lido.text)))
+                        .placeholder(rotulo.clone());
+                if *tipo == TipoCampo::Mascarado {
+                    campo = campo.placeholder(format!("{rotulo} (oculto)"));
+                }
+                linhas.push(Box::new(FormField::new(rotulo.clone(), campo)));
+            }
+            Some(Pergunta::QrCode { conteudo, mensagem }) => {
+                if let Some(texto) = mensagem {
+                    linhas.push(Box::new(Text::new(texto.clone()).style(TextStyle::Headline)));
+                }
+                linhas.push(Box::new(
+                    ravenrs_widgets::Barcode::qr(conteudo.clone())
+                        .alt("QR Code do Pix")
+                        .width(240.0)
+                        .height(240.0),
+                ));
+            }
+        }
+        linhas.push(Box::new(
+            Button::new("Esc  Cancelar o pagamento")
+                .style(ButtonStyle::Secondary)
+                .on_click(responder(EntradaOperador::Cancelar)),
+        ));
+        Box::new(VStack::new(linhas).spacing(16.0).align(Align::Center).justify(Justify::Center).grow(1.0))
+    }
+
     fn enviando(&self) -> AnyView {
         Box::new(
             VStack::new(vec![
@@ -321,6 +400,28 @@ impl View for CenariosSandbox {
             ("Serviço paralisado (108)", cenarios::paralisado_108),
             ("Sem resposta (tempo esgotado)", cenarios::timeout),
         ];
+        if let Some(simulador) = &self.caixa.simulador {
+            lines.push(Box::new(Text::new("Cartão e Pix simulados").style(TextStyle::Headline)));
+            type CenarioTef = fn(
+                &ravenrs_pagamento::simulador::RequisicaoSimulada,
+            ) -> ravenrs_pagamento::simulador::Resposta;
+            let tef: [(&str, CenarioTef); 4] = [
+                ("Cartão negado", tef_cenarios::negado),
+                ("Pix com QR Code", tef_cenarios::qr_pix),
+                ("Pergunta parcelas", tef_cenarios::pergunta_parcelas),
+                ("Sem o código de autorização", tef_cenarios::c_aut_ausente),
+            ];
+            for (nome, cenario) in tef {
+                let simulador = simulador.clone();
+                lines.push(Box::new(
+                    Button::new(nome)
+                        .style(ButtonStyle::Secondary)
+                        .full_width()
+                        .on_click(move || simulador.use_once(tef_iniciar(cenario))),
+                ));
+            }
+            lines.push(Box::new(Text::new("Notas na SEFAZ").style(TextStyle::Headline)));
+        }
         for (nome, cenario) in opcoes {
             let sandbox = sandbox.clone();
             lines.push(Box::new(
@@ -340,6 +441,7 @@ impl View for TelaCaixa {
             Tela::Vendendo => self.vendendo(),
             Tela::Pagando => self.pagando(cx),
             Tela::Enviando => self.enviando(),
+            Tela::Cobrando { pergunta, mensagem } => self.cobrando(pergunta.as_ref(), &mensagem),
             Tela::Resultado(fim) => self.resultado(&fim),
         };
         cx.child(&VStack::new(vec![self.cabecalho(), corpo]).spacing(0.0).align(Align::Stretch).grow(1.0))

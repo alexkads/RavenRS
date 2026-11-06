@@ -1,10 +1,11 @@
 //! The state of the checkout and what can be done to it. The screens only show this and call it.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use ravenrs_app::{FieldValue, Message, MessageKind, Object, Query, Value, drafts, save_draft, take_draft};
 use ravenrs_app_nfe::engine::{
-    Csosn, Destinatario, DocumentoDestinatario, Endereco, FormaPagamento, Item, Modelo, Rascunho,
+    Cartao, Csosn, Destinatario, DocumentoDestinatario, Endereco, FormaPagamento, Item, Modelo, Rascunho,
 };
 use ravenrs_app_nfe::{
     CUPOM_LINHA, EmissaoFinal, MODELO_DANFE, NfeService, TextoVenda, linhas_do_documento, renderizar_cupom,
@@ -12,6 +13,8 @@ use ravenrs_app_nfe::{
 };
 use ravenrs_app_report::{ReportWords, label_bytes, send_to_printer, stored_reports_for};
 use ravenrs_app_ui::Session;
+use ravenrs_pagamento::simulador::SimuladorProvedor;
+use ravenrs_pagamento::{EntradaOperador, IdPagamento, Impressao, Passo, PedidoPagamento, Pergunta};
 use ravenrs_pos::{Carrinho, Forma, Linha, gtin_fiscal, ler_codigo, ler_valor, troco, valor_em_texto};
 use ravenrs_reactive::State;
 use ravenrs_report_label::{LabelJob, Language, output_for};
@@ -21,6 +24,7 @@ use rust_decimal::Decimal;
 
 use crate::codigos::produto_por_codigo;
 use crate::modelo::{CLIENTE, CONFIGURACAO, MOVIMENTO, PRODUTO};
+use crate::pagamento::{Tef, cartao_da_aprovacao, novo_id, tef_simulado, tipo_do_provedor};
 
 const TIPO_RASCUNHO: &str = "venda";
 
@@ -31,6 +35,13 @@ pub enum Tela {
     Vendendo,
     /// Taking the payment.
     Pagando,
+    /// The card or Pix is being charged: the provider asks or waits.
+    Cobrando {
+        /// What the provider asks the operator, if it asks.
+        pergunta: Option<Pergunta>,
+        /// What the screen says while it waits.
+        mensagem: String,
+    },
     /// The document is on its way.
     Enviando,
     /// How it ended.
@@ -81,6 +92,7 @@ fn rascunho_de(
     destinatario: Option<&Destinatario>,
     forma: Forma,
     recebido: Decimal,
+    cartao: Option<Cartao>,
     numero: u32,
     serie: u16,
 ) -> Rascunho {
@@ -102,7 +114,10 @@ fn rascunho_de(
             origem: 0,
         });
     }
-    rascunho = rascunho.com_pagamento(forma_fiscal(forma), recebido);
+    rascunho = match cartao {
+        Some(cartao) => rascunho.com_pagamento_cartao(forma_fiscal(forma), recebido, cartao),
+        None => rascunho.com_pagamento(forma_fiscal(forma), recebido),
+    };
     if let Some(destinatario) = destinatario {
         rascunho = rascunho.com_destinatario(destinatario.clone());
     } else if let Some(cliente) = &carrinho.cliente {
@@ -138,6 +153,32 @@ pub struct Caixa {
     pub service: NfeService,
     /// The words of the stored reports.
     pub palavras: Rc<ReportWords>,
+    /// Card and Pix.
+    pub(crate) tef: TefDoCaixa,
+    /// The simulator behind it, when there is no real provider.
+    pub simulador: Option<SimuladorProvedor>,
+    /// The sale being charged, until the note decides.
+    em_cobranca: Rc<RefCell<Option<VendaEmCobranca>>>,
+}
+
+/// The provider of a checkout.
+#[derive(Clone)]
+pub(crate) struct TefDoCaixa(pub(crate) Rc<dyn Tef>);
+
+impl std::fmt::Debug for TefDoCaixa {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("TefDoCaixa")
+    }
+}
+
+/// What a sale is while its card or Pix is charged.
+#[derive(Clone, Debug)]
+struct VendaEmCobranca {
+    id: IdPagamento,
+    carrinho: Carrinho,
+    forma: Forma,
+    recebido: Decimal,
+    destinatario: Option<Destinatario>,
 }
 
 impl Caixa {
@@ -152,7 +193,96 @@ impl Caixa {
             nota_grande: State::new(false),
             service,
             palavras: Rc::new(ReportWords::pt_br()),
+            tef: TefDoCaixa(tef_simulado().0),
+            simulador: None,
+            em_cobranca: Rc::new(RefCell::new(None)),
         }
+    }
+
+    /// A checkout charging cards and Pix through this provider.
+    pub fn com_tef(mut self, tef: Rc<dyn Tef>, simulador: Option<SimuladorProvedor>) -> Self {
+        self.tef = TefDoCaixa(tef);
+        self.simulador = simulador;
+        self
+    }
+
+    /// Settles what an earlier session left open with the provider, and says what it found.
+    pub fn recuperar_pagamentos(&self) -> Vec<String> {
+        match self.tef.0.recuperar() {
+            Ok(encontrados) => encontrados
+                .into_iter()
+                .map(|recuperado| format!("Pagamento pendente resolvido: {:?}", recuperado.desfecho))
+                .collect(),
+            Err(why) => vec![format!("Não foi possível conferir os pagamentos pendentes: {why}")],
+        }
+    }
+
+    /// What the operator answered the provider.
+    pub fn responder(&self, session: &Session, entrada: EntradaOperador) {
+        let Some(id) = self.em_cobranca.borrow().as_ref().map(|venda| venda.id.clone()) else { return };
+        let passo = self.tef.0.continuar(&id, entrada);
+        self.seguir(session, passo);
+    }
+
+    /// What comes of a step of the provider.
+    fn seguir(&self, session: &Session, passo: Result<Passo, String>) {
+        let voltar = |motivo: String| {
+            self.em_cobranca.borrow_mut().take();
+            self.problema.set(Some(motivo));
+            self.tela.set(Tela::Pagando);
+        };
+        match passo {
+            Err(why) => voltar(why),
+            Ok(Passo::Negado { motivo, .. }) => voltar(format!("Pagamento não autorizado: {motivo}")),
+            Ok(Passo::Cancelado { motivo }) => voltar(format!("Pagamento cancelado: {motivo}")),
+            Ok(Passo::Perguntar(pergunta)) => {
+                let espera = matches!(pergunta, Pergunta::QrCode { .. });
+                self.tela.set(Tela::Cobrando { pergunta: Some(pergunta), mensagem: String::new() });
+                if espera {
+                    self.aguardar(session, 1000);
+                }
+            }
+            Ok(Passo::Aguardar { mensagem, tentar_em_ms }) => {
+                self.tela.set(Tela::Cobrando {
+                    pergunta: None,
+                    mensagem: mensagem.unwrap_or_else(|| "Aguardando o pagamento".to_owned()),
+                });
+                self.aguardar(session, tentar_em_ms);
+            }
+            Ok(Passo::Aprovado(aprovacao)) => {
+                let Some(venda) = self.em_cobranca.borrow().clone() else { return };
+                let cartao = cartao_da_aprovacao(&aprovacao.dados_fiscais);
+                let alertas = aprovacao.dados_fiscais.alertas.len();
+                if alertas > 0 {
+                    session.show_message(Message::new(
+                        format!("O provedor não trouxe tudo o que a nota pede ({alertas} alertas)."),
+                        MessageKind::Warning,
+                    ));
+                }
+                self.emitir(
+                    session,
+                    venda.carrinho,
+                    venda.forma,
+                    venda.recebido,
+                    venda.destinatario,
+                    Some(cartao),
+                );
+            }
+        }
+    }
+
+    /// Asks the provider again after a while, out of the way of the screen.
+    fn aguardar(&self, session: &Session, milissegundos: u32) {
+        let caixa = self.clone();
+        session.run_background(
+            "Aguardando o pagamento",
+            move |_| std::thread::sleep(std::time::Duration::from_millis(u64::from(milissegundos.min(5000)))),
+            move |session, ()| {
+                if matches!(*caixa.tela.peek(), Tela::Cobrando { .. }) {
+                    caixa.responder(session, EntradaOperador::Nada);
+                }
+            },
+        );
     }
 
     /// Takes in what the scanner or the operator gave.
@@ -187,7 +317,7 @@ impl Caixa {
                 self.tela.set(Tela::Pagando);
             }
             Tela::Pagando => self.confirmar(session),
-            Tela::Enviando => {}
+            Tela::Enviando | Tela::Cobrando { .. } => {}
             Tela::Resultado(fim) => {
                 if fim.autorizada {
                     self.nova_venda();
@@ -271,7 +401,7 @@ impl Caixa {
                 self.tela.set(Tela::Vendendo);
                 true
             }
-            Tela::Enviando => true,
+            Tela::Enviando | Tela::Cobrando { .. } => true,
             Tela::Resultado(fim) => {
                 if fim.autorizada {
                     self.nova_venda();
@@ -315,7 +445,41 @@ impl Caixa {
             None
         };
         self.problema.set(None);
+        if let Some(tipo) = tipo_do_provedor(forma) {
+            let id = match novo_id(carrinho.linhas.len() as u64) {
+                Ok(id) => id,
+                Err(why) => return self.problema.set(Some(why)),
+            };
+            let centavos = (total * Decimal::ONE_HUNDRED).round();
+            let pedido = match u64::try_from(centavos.mantissa())
+                .map_err(|_| "Valor inválido.".to_owned())
+                .and_then(|valor| PedidoPagamento::new(id.clone(), valor, tipo).map_err(|e| format!("{e:?}")))
+            {
+                Ok(pedido) => pedido,
+                Err(why) => return self.problema.set(Some(why)),
+            };
+            *self.em_cobranca.borrow_mut() =
+                Some(VendaEmCobranca { id, carrinho, forma, recebido, destinatario });
+            self.tela.set(Tela::Cobrando { pergunta: None, mensagem: "Iniciando o pagamento".to_owned() });
+            let passo = self.tef.0.iniciar(pedido);
+            self.seguir(session, passo);
+            return;
+        }
+        self.emitir(session, carrinho, forma, recebido, destinatario, None);
+    }
+
+    /// Issues the note of a sale paid; for a card, the approval becomes final only with the note.
+    fn emitir(
+        &self,
+        session: &Session,
+        carrinho: Carrinho,
+        forma: Forma,
+        recebido: Decimal,
+        destinatario: Option<Destinatario>,
+        cartao: Option<Cartao>,
+    ) {
         self.tela.set(Tela::Enviando);
+        let pagamento = self.em_cobranca.borrow_mut().take().map(|venda| venda.id);
         let venda = TextoVenda {
             pagamento: forma.nome().to_owned(),
             recebido,
@@ -329,12 +493,21 @@ impl Caixa {
         self.service.emitir(
             session,
             move |numero, serie| {
-                rascunho_de(&carrinho, destinatario.as_ref(), forma, recebido, numero, serie)
+                rascunho_de(&carrinho, destinatario.as_ref(), forma, recebido, cartao, numero, serie)
             },
             venda,
             move |session, fim| {
                 let autorizada = fim.autorizada;
                 let chave = fim.chave.clone();
+                if let Some(id) = &pagamento {
+                    let impressao = if autorizada { Impressao::Concluida } else { Impressao::Falhou };
+                    if let Err(why) = caixa.tef.0.concluir(id, impressao) {
+                        session.show_message(Message::new(
+                            format!("O pagamento ficou pendente no provedor: {why}"),
+                            MessageKind::Warning,
+                        ));
+                    }
+                }
                 if autorizada {
                     baixar_estoque(session, &vendidos, &chave);
                 }

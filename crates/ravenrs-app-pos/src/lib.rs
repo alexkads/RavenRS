@@ -8,6 +8,7 @@ mod entrada;
 mod etiquetas;
 mod modelo;
 mod modulo;
+mod pagamento;
 mod preco;
 mod telas;
 
@@ -19,3 +20,4 @@ pub use modelo::{
     configuracao_entity, entidades, movimento_entity, produto_entity, vinculo_entity,
 };
 pub use modulo::{Pos, VIEW_CAIXA, VIEW_ENTRADA, VIEW_ETIQUETAS, VIEW_INICIO, VIEW_PRECO};
+pub use pagamento::{Tef, cartao_da_aprovacao, tef_simulado, tipo_do_provedor};

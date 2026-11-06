@@ -432,3 +432,62 @@ fn an_invoice_for_someone_else_is_refused() {
         .expect("a purchase");
     assert!(b.pos.entradas().carregar(&session, &xml).unwrap_err().contains("CNPJ"));
 }
+
+fn pagar_com(b: &mut Balcao, tecla_alt: char) {
+    b.abrir_caixa();
+    b.bipar("7891000100202");
+    b.tecla(Key::Function(9));
+    b.com_alt(tecla_alt);
+    b.tecla(Key::Function(9));
+}
+
+fn operacoes(b: &Balcao) -> Vec<String> {
+    let simulador = b.pos.caixa().simulador.clone().expect("a simulator");
+    simulador.requests().iter().map(|r| format!("{:?}", r.operacao)).collect()
+}
+
+#[test]
+fn a_card_approved_goes_into_the_note_and_is_confirmed_only_after_it() {
+    let mut b = balcao();
+    pagar_com(&mut b, '2');
+    b.aguardar_nota();
+    let Tela::Resultado(fim) = b.pos.caixa().tela.peek().clone() else { panic!("no result") };
+    assert!(fim.autorizada, "{}: {}", fim.c_stat, fim.motivo);
+    let feitas = operacoes(&b);
+    assert!(feitas.iter().any(|o| o.contains("Confirmar")), "confirmed after the note: {feitas:?}");
+}
+
+#[test]
+fn a_card_refused_goes_back_to_the_payment() {
+    use ravenrs_pagamento::simulador::{cenarios, iniciar};
+    let mut b = balcao();
+    b.pos.caixa().simulador.clone().expect("a simulator").use_once(iniciar(cenarios::negado));
+    pagar_com(&mut b, '3');
+    assert_eq!(*b.pos.caixa().tela.peek(), Tela::Pagando);
+    assert!(b.diz("não autorizado"));
+}
+
+#[test]
+fn a_note_refused_after_the_card_undoes_the_card() {
+    use ravenrs_pagamento::simulador::{cenarios, iniciar};
+    let mut b = balcao();
+    // Approved without the authorization code: an integrated card group without cAut is refused.
+    b.pos.caixa().simulador.clone().expect("a simulator").use_once(iniciar(cenarios::c_aut_ausente));
+    pagar_com(&mut b, '2');
+    b.aguardar_nota();
+    let Tela::Resultado(fim) = b.pos.caixa().tela.peek().clone() else { panic!("no result") };
+    assert!(!fim.autorizada, "the note is refused");
+    let feitas = operacoes(&b);
+    assert!(feitas.iter().any(|o| o.contains("Desfazer")), "the card was undone: {feitas:?}");
+}
+
+#[test]
+fn the_provider_can_ask_and_the_operator_answers() {
+    use ravenrs_pagamento::simulador::{cenarios, iniciar};
+    let mut b = balcao();
+    b.pos.caixa().simulador.clone().expect("a simulator").use_once(iniciar(cenarios::menu_debito_credito));
+    pagar_com(&mut b, '2');
+    assert!(matches!(*b.pos.caixa().tela.peek(), Tela::Cobrando { pergunta: Some(_), .. }));
+    b.tecla(Key::Escape);
+    assert_eq!(*b.pos.caixa().tela.peek(), Tela::Pagando, "Esc cancels with the provider");
+}
