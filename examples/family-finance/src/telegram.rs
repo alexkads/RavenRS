@@ -15,7 +15,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::db::Database;
-use crate::model::{Flow, TransactionInput};
+use crate::model::{Category, Flow, Member, TransactionInput};
 use crate::today;
 
 const PENDING_TTL: Duration = Duration::from_secs(60);
@@ -303,27 +303,44 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
     let pending = service.pending.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);
     match pending {
         Some(Pending::Amount { amount_cents, since }) if since.elapsed() <= PENDING_TTL => {
-            let Some((flow, category)) = parse_category_command(&text) else {
+            let keep = || -> Result<(), String> {
                 service
                     .pending
                     .lock()
                     .map_err(|_| "estado do bot indisponível")?
                     .insert(chat, Pending::Amount { amount_cents, since });
-                send_message(service, chat, "Use `despesa Categoria` ou `receita Categoria`.")?;
-                return Ok(());
+                Ok(())
             };
-            if let Err(error) = save_transaction(&service.config.db_path, amount_cents, flow, &category) {
-                service
-                    .pending
-                    .lock()
-                    .map_err(|_| "estado do bot indisponível")?
-                    .insert(chat, Pending::Amount { amount_cents, since });
+            let reply = Database::open(&service.config.db_path)
+                .and_then(|db| Ok((db.members()?, db.categories()?)))
+                .map_err(|e| e.to_string())
+                .and_then(|(members, categories)| Ok(read_reply(&text, &members, &categories)));
+            let reply = match reply {
+                Ok(Ok(reply)) => reply,
+                Ok(Err(question)) => {
+                    keep()?;
+                    send_message(service, chat, &question)?;
+                    return Ok(());
+                }
+                Err(error) => {
+                    keep()?;
+                    return Err(error);
+                }
+            };
+            if let Err(error) = save_transaction(&service.config.db_path, amount_cents, &reply) {
+                keep()?;
                 return Err(error);
             }
+            let who = reply.member.as_ref().map(|member| format!(" ({})", member.name)).unwrap_or_default();
             send_message(
                 service,
                 chat,
-                &format!("{} de R$ {} salva em {}.", flow.label(), format_brl(amount_cents), category),
+                &format!(
+                    "{} de R$ {} salva em {}{who}.",
+                    reply.flow.label(),
+                    format_brl(amount_cents),
+                    reply.category
+                ),
             )?;
         }
         Some(Pending::Amount { .. }) => {
@@ -346,17 +363,147 @@ fn unix_seconds() -> i64 {
         .unwrap_or_default()
 }
 
-fn parse_category_command(text: &str) -> Option<(Flow, String)> {
-    let (kind, category) = text.trim().split_once(char::is_whitespace)?;
-    let category = category.split_whitespace().collect::<Vec<_>>().join(" ");
-    if category.is_empty() {
+/// What a reply says about a receipt: typed (`despesa Mercado Ana`) or spoken
+/// ("despesa de mercado, quem gastou foi a Ana").
+#[derive(Debug, PartialEq, Eq)]
+struct Reply {
+    flow: Flow,
+    category: String,
+    member: Option<Member>,
+}
+
+const EXPENSE_WORDS: &[&str] =
+    &["despesa", "gasto", "gastei", "gastou", "paguei", "pagou", "comprei", "comprou"];
+const INCOME_WORDS: &[&str] = &["receita", "recebi", "recebeu", "ganhei", "ganhou", "entrada"];
+/// Words that only join the others; they are dropped from the ends of a category.
+const JOINING_WORDS: &[&str] = &[
+    "a",
+    "o",
+    "as",
+    "os",
+    "de",
+    "da",
+    "do",
+    "das",
+    "dos",
+    "com",
+    "em",
+    "na",
+    "no",
+    "e",
+    "foi",
+    "quem",
+    "gastou",
+    "recebeu",
+    "pagou",
+    "por",
+    "pela",
+    "pelo",
+    "para",
+    "pra",
+    "categoria",
+    "reais",
+    "real",
+];
+/// What comes before a name nobody registered: "por Pedro", "foi o Pedro", "quem gastou Pedro".
+const NAME_MARKERS: &[&str] = &["por", "foi", "quem"];
+
+/// Reads a reply against the people and categories this Raven already has. A name
+/// that is not a member is asked about, never created.
+fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result<Reply, String> {
+    let mut words: Vec<String> = text
+        .split_whitespace()
+        .map(|word| word.trim_matches(|c: char| !c.is_alphanumeric()).to_owned())
+        .filter(|word| !word.is_empty())
+        .collect();
+    let keys = |words: &[String]| words.iter().map(|word| folded(word)).collect::<Vec<_>>();
+
+    let found = keys(&words).iter().enumerate().find_map(|(i, key)| {
+        if EXPENSE_WORDS.contains(&key.as_str()) {
+            Some((i, Flow::Expense))
+        } else {
+            INCOME_WORDS.contains(&key.as_str()).then_some((i, Flow::Income))
+        }
+    });
+    let Some((at, flow)) = found else {
+        return Err(
+            "Diga se é despesa ou receita, por exemplo: `despesa Mercado` ou `despesa Mercado Ana`.".into()
+        );
+    };
+    words.remove(at);
+
+    let member = members
+        .iter()
+        .filter_map(|member| {
+            let name = member.name.split_whitespace().map(folded).collect::<Vec<_>>();
+            find_run(&keys(&words), &name).map(|at| (at, name.len(), member))
+        })
+        .max_by_key(|(_, len, _)| *len);
+    let member = match member {
+        Some((at, len, member)) => {
+            words.drain(at..at + len);
+            Some(member.clone())
+        }
+        None => {
+            if let Some(name) = unknown_name(&words) {
+                return Err(format!(
+                    "Não encontrei “{name}” entre os membros do Raven. Cadastre em Membros ou responda sem o nome."
+                ));
+            }
+            None
+        }
+    };
+
+    words.retain(|word| !word.chars().any(|c| c.is_ascii_digit()) && folded(word) != "r");
+    while words.first().is_some_and(|word| JOINING_WORDS.contains(&folded(word).as_str())) {
+        words.remove(0);
+    }
+    while words.last().is_some_and(|word| JOINING_WORDS.contains(&folded(word).as_str())) {
+        words.pop();
+    }
+    if words.is_empty() {
+        return Err("Faltou a categoria, por exemplo: `despesa Mercado`.".into());
+    }
+    let said = keys(&words);
+    let known = categories
+        .iter()
+        .filter(|category| category.flow == flow)
+        .filter(|category| {
+            let name = category.name.split_whitespace().map(folded).collect::<Vec<_>>();
+            find_run(&said, &name).is_some()
+        })
+        .max_by_key(|category| category.name.len());
+    let category = match known {
+        Some(category) => category.name.clone(),
+        None => capitalized(&words.join(" ")),
+    };
+    Ok(Reply { flow, category, member })
+}
+
+/// Where `run` appears whole in `words`.
+fn find_run(words: &[String], run: &[String]) -> Option<usize> {
+    if run.is_empty() || run.len() > words.len() {
         return None;
     }
-    match kind.to_lowercase().as_str() {
-        "despesa" => Some((Flow::Expense, category)),
-        "receita" => Some((Flow::Income, category)),
-        _ => None,
-    }
+    words.windows(run.len()).position(|window| window == run)
+}
+
+/// A name after "por", "foi" or "quem", at the end of a reply, that no member has.
+fn unknown_name(words: &[String]) -> Option<String> {
+    let keys = words.iter().map(|word| folded(word)).collect::<Vec<_>>();
+    let marker = keys.iter().rposition(|key| NAME_MARKERS.contains(&key.as_str()))?;
+    let name = words[marker + 1..]
+        .iter()
+        .zip(&keys[marker + 1..])
+        .skip_while(|(_, key)| JOINING_WORDS.contains(&key.as_str()))
+        .map(|(word, _)| word.as_str())
+        .collect::<Vec<_>>();
+    (!name.is_empty() && name.len() <= 3).then(|| name.join(" "))
+}
+
+fn capitalized(text: &str) -> String {
+    let mut chars = text.chars();
+    chars.next().map(|first| first.to_uppercase().chain(chars).collect()).unwrap_or_default()
 }
 
 fn format_brl(cents: i64) -> String {
@@ -520,7 +667,7 @@ fn folded(text: &str) -> String {
         .collect()
 }
 
-fn save_transaction(path: &Path, amount_cents: i64, flow: Flow, category: &str) -> Result<i64, String> {
+fn save_transaction(path: &Path, amount_cents: i64, reply: &Reply) -> Result<i64, String> {
     let db = Database::open(path).map_err(|e| e.to_string())?;
     let accounts = db.accounts().map_err(|e| e.to_string())?;
     let account_id = match std::env::var("RAVEN_ACCOUNT_ID") {
@@ -536,15 +683,15 @@ fn save_transaction(path: &Path, amount_cents: i64, flow: Flow, category: &str) 
         return Err("a conta configurada não existe no Raven".into());
     }
     db.atomically(|db| {
-        let category_id = db.find_or_create_category(category, flow)?;
+        let category_id = db.find_or_create_category(&reply.category, reply.flow)?;
         db.add_transaction(&TransactionInput {
             date: today(),
-            description: format!("Comprovante PDF — {category}"),
+            description: format!("Comprovante PDF — {}", reply.category),
             amount_cents,
-            flow,
+            flow: reply.flow,
             account_id,
             category_id,
-            member_id: None,
+            member_id: reply.member.as_ref().map(|member| member.id),
         })
     })
     .map_err(|e| e.to_string())
@@ -554,14 +701,63 @@ fn save_transaction(path: &Path, amount_cents: i64, flow: Flow, category: &str) 
 mod tests {
     use super::*;
 
+    fn member(id: i64, name: &str) -> Member {
+        Member { id, name: name.into() }
+    }
+
+    fn category(id: i64, name: &str, flow: Flow) -> Category {
+        Category { id, name: name.into(), flow, budget_cents: 0 }
+    }
+
     #[test]
-    fn parses_category_command() {
+    fn reads_typed_replies() {
+        let read = |text| read_reply(text, &[], &[]);
+        let reply = read(" despesa   Café da Casa ").expect("typed");
         assert_eq!(
-            parse_category_command(" despesa   Café da Casa "),
-            Some((Flow::Expense, "Café da Casa".into()))
+            (reply.flow, reply.category.as_str(), reply.member),
+            (Flow::Expense, "Café da Casa", None)
         );
-        assert_eq!(parse_category_command("receita Salário"), Some((Flow::Income, "Salário".into())));
-        assert_eq!(parse_category_command("Mercado"), None);
+        assert_eq!(read("receita Salário").expect("income").flow, Flow::Income);
+        assert!(read("Mercado").is_err(), "no flow, no guess");
+        assert!(read("despesa").is_err(), "no category");
+    }
+
+    #[test]
+    fn finds_who_spent_among_the_members() {
+        let members = [member(1, "Ana"), member(2, "Ana Paula"), member(3, "João")];
+        let categories = [category(7, "Mercado", Flow::Expense), category(8, "Mercado", Flow::Income)];
+        let read = |text| read_reply(text, &members, &categories).expect(text);
+
+        let typed = read("despesa Mercado Ana");
+        assert_eq!((typed.category.as_str(), typed.member), ("Mercado", Some(member(1, "Ana"))));
+        assert_eq!(
+            read("despesa Mercado Ana Paula").member,
+            Some(member(2, "Ana Paula")),
+            "the longest name"
+        );
+        assert_eq!(read("despesa Farmácia joao").member, Some(member(3, "João")), "without the accent");
+
+        let spoken = read("Despesa de mercado, quem gastou foi a Ana.");
+        assert_eq!(
+            (spoken.flow, spoken.category.as_str()),
+            (Flow::Expense, "Mercado"),
+            "the existing category"
+        );
+        assert_eq!(spoken.member, Some(member(1, "Ana")));
+        let spoken = read("Gastei 50 reais na farmácia, foi o João");
+        assert_eq!((spoken.category.as_str(), spoken.member), ("Farmácia", Some(member(3, "João"))));
+        assert_eq!(read("Recebi salário").category, "Salário");
+    }
+
+    #[test]
+    fn asks_about_a_name_nobody_registered() {
+        let members = [member(1, "Ana")];
+        let question = read_reply("despesa de mercado, foi o Pedro", &members, &[]).expect_err("unknown");
+        assert!(question.contains("Pedro"), "{question}");
+        assert_eq!(
+            read_reply("despesa Mercado Pedro", &members, &[]).expect("typed").category,
+            "Mercado Pedro"
+        );
     }
 
     #[test]

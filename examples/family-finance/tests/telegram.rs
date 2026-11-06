@@ -291,6 +291,7 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
     let db = Database::open(&path).expect("database");
     db.add_account("Carteira", AccountKind::Cash, 0).expect("account");
     let bank = db.add_account("Banco", AccountKind::Checking, 0).expect("account");
+    let ana = db.add_member("Ana").expect("member");
     choose_account(&path, bank);
     let code = "0123456789abcdef0123456789abcdef";
     db.begin_telegram_pairing(&pairing_hash(code), now()).expect("pairing");
@@ -334,25 +335,40 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
     assert!(fake.say(text(CHAT, "despesa Mercado")).contains("Não há PDF aguardando"));
     assert!(fake.say(document(CHAT, "pix.pdf", 20 * 1024 * 1024)).contains("Envie um PDF de até 14 MB"));
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
-    assert!(fake.say(text(CHAT, "Salário")).contains("Use `despesa Categoria`"), "asks again, amount kept");
+    assert!(fake.say(text(CHAT, "Salário")).contains("despesa ou receita"), "asks again, amount kept");
     assert!(fake.say(text(CHAT, "receita Salário")).contains("salva em Salário"));
     assert!(
         fake.say(document(CHAT, "boleto.pdf", 2_000)).contains("R$ 543,58"),
         "the amount paid, not the discount"
     );
-    assert!(fake.say(text(CHAT, "despesa  energia   elétrica")).contains("salva em energia elétrica"));
+    assert!(
+        fake.say(text(CHAT, "despesa energia elétrica, foi o Pedro")).contains("Pedro"),
+        "asks, amount kept"
+    );
+    assert!(
+        fake.say(text(CHAT, "despesa  energia   elétrica  Ana")).contains("salva em Energia elétrica (Ana)")
+    );
     assert!(fake.say(document(CHAT, "saldo.pdf", 2_000)).contains("mais de um valor"), "never guesses");
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
     assert!(fake.say(text(CHAT, "/cancelar")).contains("cancelado"));
     assert!(fake.say(text(CHAT, "despesa Aluguel")).contains("Não há PDF aguardando"));
 
-    let saved: Vec<(i64, i64)> = {
+    let saved: Vec<(i64, i64, Option<i64>)> = {
         let conn = rusqlite::Connection::open(&path).expect("open");
-        let mut query =
-            conn.prepare("SELECT account_id, amount_cents FROM transactions ORDER BY amount_cents").unwrap();
-        query.query_map([], |row| Ok((row.get(0)?, row.get(1)?))).unwrap().map(Result::unwrap).collect()
+        let mut query = conn
+            .prepare("SELECT account_id, amount_cents, member_id FROM transactions ORDER BY amount_cents")
+            .unwrap();
+        query
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
     };
-    assert_eq!(saved, [(bank, 54_358), (bank, 300_000)], "both receipts, in the account chosen in Ajustes");
+    assert_eq!(
+        saved,
+        [(bank, 54_358, Some(ana)), (bank, 300_000, None)],
+        "both receipts, in the account chosen in Ajustes, with who spent"
+    );
 
     db.revoke_telegram_pairings(now()).expect("revoke");
     assert!(
