@@ -371,7 +371,12 @@ pub(crate) fn settings(
                         let link = match telegram::pairing_link(&token) {
                             Ok(link) => link,
                             Err(error) => {
-                                pair_store.toasts.show_for("Não foi possível conectar Telegram", error, Tone::Danger, 8.0);
+                                pair_store.toasts.show_for(
+                                    "Não foi possível conectar Telegram",
+                                    error,
+                                    Tone::Danger,
+                                    8.0,
+                                );
                                 return;
                             }
                         };
@@ -379,9 +384,12 @@ pub(crate) fn settings(
                             .duration_since(SystemTime::UNIX_EPOCH)
                             .map(|duration| duration.as_secs() as i64)
                             .unwrap_or_default();
-                        if pair_store.write("Escaneie o QR com o Telegram.", |db| {
-                            db.begin_telegram_pairing(&telegram::pairing_hash(&token), now)
-                        }).is_some() {
+                        if pair_store
+                            .write("Escaneie o QR com o Telegram.", |db| {
+                                db.begin_telegram_pairing(&telegram::pairing_hash(&token), now)
+                            })
+                            .is_some()
+                        {
                             pairing.set(Some(link));
                         }
                     }),
@@ -394,7 +402,10 @@ pub(crate) fn settings(
                             .duration_since(SystemTime::UNIX_EPOCH)
                             .map(|duration| duration.as_secs() as i64)
                             .unwrap_or_default();
-                        if revoke_store.write("Telegram desvinculado.", |db| db.revoke_telegram_pairings(now)).is_some() {
+                        if revoke_store
+                            .write("Telegram desvinculado.", |db| db.revoke_telegram_pairings(now))
+                            .is_some()
+                        {
                             revoke_link.set(None);
                         }
                     }),

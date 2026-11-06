@@ -117,10 +117,8 @@ pub fn pairing_link(token: &str) -> Result<String, String> {
 
 /// Long-polls Telegram, so Raven needs no public webhook port.
 pub fn serve(db_path: PathBuf) -> Result<(), String> {
-    let config = Config {
-        db_path: checked_db_path(db_path)?,
-        bot_token: required_env("TELEGRAM_BOT_TOKEN")?,
-    };
+    let config =
+        Config { db_path: checked_db_path(db_path)?, bot_token: required_env("TELEGRAM_BOT_TOKEN")? };
     let service = Service { config, pending: Mutex::new(HashMap::new()) };
     let mut offset = 0;
     loop {
@@ -157,7 +155,8 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
     let user = message.from.as_ref().map(|user| user.id).ok_or_else(|| "remetente ausente".to_owned())?;
     if let Some(token) = message.text.as_deref().and_then(start_token) {
         let db = Database::open(&service.config.db_path).map_err(|e| e.to_string())?;
-        if db.claim_telegram_pairing(&pairing_hash(token), chat, user, unix_seconds())
+        if db
+            .claim_telegram_pairing(&pairing_hash(token), chat, user, unix_seconds())
             .map_err(|e| e.to_string())?
         {
             service.pending.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);

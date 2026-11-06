@@ -49,16 +49,16 @@ FF_SCREENSHOTS=$PWD/target/screens cargo test -p family-finance --test screens
 
 ## Telegram bot (optional)
 
-The optional `raven-telegram` binary uses Telegram long polling (`getUpdates`), so it needs no public webhook endpoint. It accepts PDF receipts up to 14 MB only from the configured private chat and uses local `pdftotext` to find one total. Then send `despesa Categoria` or `receita Categoria`; it reuses that category for the same type or creates it with a zero budget and saves the transaction immediately. `/cancelar` discards the pending amount. Pending state is in memory and expires after 60 seconds.
+The optional `raven-telegram` binary uses Telegram long polling (`getUpdates`), so it needs no public webhook endpoint. In Ajustes, choose **Conectar Telegram** and scan the QR: it opens the bot with a one-time code that expires after 10 minutes and binds one private chat to this database. Only that chat can send PDFs up to 14 MB. The bot uses local `pdftotext` to find one total; then send `despesa Categoria` or `receita Categoria`. It reuses that category for the same type or creates it with a zero budget and saves the transaction immediately. `/cancelar` discards the pending amount. Generating another QR replaces unclaimed codes; **Desvincular** revokes the chat and every unclaimed code.
 
-Use a dedicated SQLite database or a separate copy of the family-finance database; do not point the bot at the database used by the desktop app. The bot refuses the default `~/.raven-financas/financas.db` path. The path argument must already exist:
+Run the bot beside the desktop app and pass it the same existing SQLite file:
 
 ```bash
-TELEGRAM_BOT_TOKEN=... TELEGRAM_ALLOWED_CHAT_ID=... RAVEN_ACCOUNT_ID=1 \
-  cargo run -p family-finance --bin raven-telegram -- /tmp/raven-financas-telegram-test.db
+TELEGRAM_BOT_TOKEN=... RAVEN_ACCOUNT_ID=1 \
+  cargo run -p family-finance --bin raven-telegram -- ~/.raven-financas/financas.db
 ```
 
-`TELEGRAM_ALLOWED_CHAT_ID` is the numeric ID of the private Telegram chat and its user. `RAVEN_ACCOUNT_ID` must identify an existing account in the selected database. The bot needs `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_ID`, and `RAVEN_ACCOUNT_ID` in its environment. Telegram receives the receipt; value extraction stays local and requires the `pdftotext` binary. Keep the bot token private. Run the bot separately from the desktop app, and use a disposable copy while evaluating the integration.
+`RAVEN_ACCOUNT_ID` must identify an existing account in that database. `TELEGRAM_BOT_TOKEN` is the BotFather token: keep it only in the environment of the desktop and bot processes; Raven never stores, shows or logs it. Telegram receives the receipt; value extraction stays local and requires the `pdftotext` binary. A bot token supports one running `raven-telegram` process, so each Raven installation needs its own bot token.
 
 ## Installing and updating
 

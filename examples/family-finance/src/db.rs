@@ -569,10 +569,8 @@ impl Database {
             return Err(DbError::Rule("O código de pareamento é inválido.".to_owned()));
         }
         self.atomically(|db| {
-            db.conn.execute(
-                "UPDATE telegram_pairings SET status = 'expired' WHERE status = 'pending'",
-                [],
-            )?;
+            db.conn
+                .execute("UPDATE telegram_pairings SET status = 'expired' WHERE status = 'pending'", [])?;
             db.conn.execute(
                 "INSERT INTO telegram_pairings (token_hash, status, created_at, expires_at)
                  VALUES (?1, 'pending', ?2, ?2 + 600)",
@@ -583,7 +581,13 @@ impl Database {
     }
 
     /// Consumes a valid QR code and makes this private Telegram chat the one active link.
-    pub fn claim_telegram_pairing(&self, token_hash: &str, chat_id: i64, user_id: i64, now: i64) -> DbResult<bool> {
+    pub fn claim_telegram_pairing(
+        &self,
+        token_hash: &str,
+        chat_id: i64,
+        user_id: i64,
+        now: i64,
+    ) -> DbResult<bool> {
         if chat_id == 0
             || user_id == 0
             || token_hash.len() != 64
@@ -642,7 +646,8 @@ impl Database {
                  WHERE status = 'active'",
                 [now],
             )?;
-            db.conn.execute("UPDATE telegram_pairings SET status = 'expired' WHERE status = 'pending'", [])?;
+            db.conn
+                .execute("UPDATE telegram_pairings SET status = 'expired' WHERE status = 'pending'", [])?;
             Ok(())
         })
     }
