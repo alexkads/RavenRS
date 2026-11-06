@@ -98,9 +98,13 @@ pub fn pairing_hash(token: &str) -> String {
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
+pub fn token_configured() -> bool {
+    bot_token().is_ok()
+}
+
 /// Looks up the bot's public username without exposing its BotFather token to the UI.
 pub fn pairing_link(token: &str) -> Result<String, String> {
-    let bot_token = required_env("TELEGRAM_BOT_TOKEN")?;
+    let bot_token = bot_token()?;
     let url = format!("https://api.telegram.org/bot{bot_token}/getMe");
     let mut response = telegram_agent().get(&url).call().map_err(|_| "falha ao comunicar com Telegram")?;
     let parsed: TelegramResponse<TelegramBot> = serde_json::from_slice(
@@ -128,8 +132,7 @@ pub fn serve_with_waker(
     waker: Option<UiWaker>,
     paired: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 ) -> Result<(), String> {
-    let config =
-        Config { db_path: checked_db_path(db_path)?, bot_token: required_env("TELEGRAM_BOT_TOKEN")? };
+    let config = Config { db_path: checked_db_path(db_path)?, bot_token: bot_token()? };
     let service = Service { config, pending: Mutex::new(HashMap::new()) };
     let mut offset = 0;
     loop {
@@ -165,8 +168,16 @@ pub fn serve_with_waker(
     }
 }
 
-fn required_env(key: &str) -> Result<String, String> {
-    std::env::var(key).ok().filter(|v| !v.trim().is_empty()).ok_or_else(|| format!("configure {key}"))
+fn bot_token() -> Result<String, String> {
+    if let Some(token) = std::env::var("TELEGRAM_BOT_TOKEN").ok().filter(|v| !v.trim().is_empty()) {
+        return Ok(token.trim().to_owned());
+    }
+    let home = std::env::var_os("HOME").map(PathBuf::from).ok_or("configure TELEGRAM_BOT_TOKEN")?;
+    std::fs::read_to_string(home.join("fin_bot"))
+        .ok()
+        .map(|token| token.trim().to_owned())
+        .filter(|token| !token.is_empty())
+        .ok_or_else(|| "configure TELEGRAM_BOT_TOKEN or save the bot token in ~/fin_bot".to_owned())
 }
 
 fn checked_db_path(path: PathBuf) -> Result<PathBuf, String> {
