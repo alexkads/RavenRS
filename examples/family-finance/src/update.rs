@@ -71,6 +71,9 @@ const STAGE_EVERY: Duration = Duration::from_secs(1);
 pub const RETRY_AFTER: Duration = Duration::from_secs(24 * 3600);
 /// A lock older than this belongs to an installer that died without removing it.
 pub const LOCK_EXPIRES: Duration = Duration::from_secs(3 * 3600);
+/// A running installer writes to its log at least this often; a lock whose log has
+/// been quiet for longer belongs to a window that closed in the middle.
+pub const LOG_QUIET_FOR: Duration = Duration::from_secs(20 * 60);
 
 /// What a version brings, written for the people using the app.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
@@ -233,12 +236,42 @@ pub fn installer_command(file: &Path) -> (String, Vec<String>) {
     }
 }
 
-/// An installer is running. The lock holds the time it began.
+/// An installer is running. The lock holds the time it began, and the installer's
+/// log, beside it, must still be getting written: the window that took the lock may
+/// have closed before it could let go.
 pub fn is_locked(lock: &Path, now: u64) -> bool {
-    std::fs::read_to_string(lock)
+    let Some(began) = std::fs::read_to_string(lock).ok().and_then(|text| text.trim().parse::<u64>().ok())
+    else {
+        return false;
+    };
+    let written = std::fs::metadata(lock.with_file_name("atualizacao.log"))
+        .and_then(|meta| meta.modified())
         .ok()
-        .and_then(|text| text.trim().parse::<u64>().ok())
-        .is_some_and(|began| now.saturating_sub(began) < LOCK_EXPIRES.as_secs())
+        .and_then(|when| when.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|since| since.as_secs());
+    lock_is_live(began, written, now)
+}
+
+/// The rule behind [`is_locked`]: begun less than [`LOCK_EXPIRES`] ago, and its log
+/// written in the last [`LOG_QUIET_FOR`]. A log older than the lock is the last run's.
+pub fn lock_is_live(began: u64, log_written: Option<u64>, now: u64) -> bool {
+    let last_sign = log_written.filter(|&written| written >= began).unwrap_or(began);
+    now.saturating_sub(began) < LOCK_EXPIRES.as_secs()
+        && now.saturating_sub(last_sign) < LOG_QUIET_FOR.as_secs()
+}
+
+/// The end of the installer's log, for the details of a failure.
+pub fn installer_log_tail(lines: usize) -> Option<String> {
+    let text =
+        std::fs::read(installer_log()).ok().map(|bytes| String::from_utf8_lossy(&bytes).into_owned())?;
+    let kept: Vec<&str> = text.lines().rev().take(lines).collect();
+    let tail = kept.into_iter().rev().collect::<Vec<_>>().join("\n");
+    (!tail.trim().is_empty()).then_some(tail)
+}
+
+/// Where the installer writes what it does.
+pub fn installer_log() -> PathBuf {
+    paths::home().join("atualizacao.log")
 }
 
 fn seconds_now() -> u64 {
@@ -306,6 +339,8 @@ pub enum NoticeAction {
     Retry,
     /// The news again, where the steps for doing it by hand are.
     HowToUpdate,
+    /// Why it failed, the step it stopped at and the end of the installer's log.
+    Details,
     /// Opens the installed version.
     Reopen,
     /// Asks the network again.
@@ -324,6 +359,7 @@ impl NoticeAction {
             Self::Update => "Atualizar",
             Self::Retry | Self::CheckAgain => "Tentar de novo",
             Self::HowToUpdate => "Como atualizar",
+            Self::Details => "Ver detalhes",
             Self::Reopen => "Reabrir agora",
             Self::Later => "Depois",
             Self::Close => "Fechar",
@@ -361,7 +397,7 @@ pub fn notice(
     let said = |text: String, busy, important, actions: &[NoticeAction]| {
         Some(Notice { text, busy, important, actions: actions.to_vec() })
     };
-    use NoticeAction::{CheckAgain, Close, HowToUpdate, Later, News, Reopen, Retry, Update};
+    use NoticeAction::{CheckAgain, Close, Details, Later, News, Reopen, Retry, Update};
     match status {
         UpdateStatus::Quiet => None,
         UpdateStatus::Checking => said("Procurando versão nova…".to_owned(), true, false, &[]),
@@ -420,11 +456,15 @@ pub fn notice(
             news.importante,
             &[Reopen],
         ),
-        UpdateStatus::Failed(_, reason) => said(
-            format!("A atualização não deu certo, e a versão {current} continua funcionando. {reason}"),
+        // The reason goes in the details: here it would be cut, and the end is what matters.
+        UpdateStatus::Failed(news, _) => said(
+            format!(
+                "A atualização para a versão {} não deu certo; a {current} continua funcionando.",
+                news.versao
+            ),
             false,
             false,
-            &[Retry, HowToUpdate, Close],
+            &[Retry, Details, Close],
         ),
     }
 }
@@ -542,6 +582,11 @@ impl Updater {
         if let Some(waker) = self.waker.borrow().as_ref() {
             waker.wake();
         }
+    }
+
+    /// The step the installer was on, as it last said.
+    pub fn stage(&self) -> Option<String> {
+        self.stage.borrow().clone()
     }
 
     /// What the status bar says now.
@@ -773,7 +818,7 @@ fn run_installer(version: &str, on_stage: &dyn Fn(String)) -> Result<(), String>
     let (lock, memory) = (home.join("atualizacao.trava"), home.join("atualizacao.json"));
     let now = seconds_now();
     if is_locked(&lock, now) {
-        return Err("outra atualização já está em andamento neste computador.".to_owned());
+        return follow_other_installer(&lock, version, on_stage);
     }
     std::fs::write(&lock, now.to_string()).map_err(|e| e.to_string())?;
     let result = compile_and_check(&home, version, on_stage);
@@ -785,6 +830,38 @@ fn run_installer(version: &str, on_stage: &dyn Fn(String)) -> Result<(), String>
     };
     write_memory(&memory, &remembered);
     result
+}
+
+/// Another window is installing: follows its steps until it lets go of the lock,
+/// then asks the installed app which version it is.
+fn follow_other_installer(lock: &Path, version: &str, on_stage: &dyn Fn(String)) -> Result<(), String> {
+    let log = lock.with_file_name("atualizacao.log");
+    let mut told = None;
+    while is_locked(lock, seconds_now()) {
+        let stage = std::fs::read(&log).ok().and_then(|text| last_stage(&String::from_utf8_lossy(&text)));
+        let stage = format!("outra janela está atualizando — {}", stage.as_deref().unwrap_or("começando"));
+        if told.as_ref() != Some(&stage) {
+            told = Some(stage.clone());
+            on_stage(stage);
+        }
+        std::thread::sleep(STAGE_EVERY);
+    }
+    installed_answers(version)
+}
+
+/// The installed app opens and says it is `version`.
+fn installed_answers(version: &str) -> Result<(), String> {
+    let binary = paths::installed_binary().ok_or("não sei onde o app fica neste sistema.")?;
+    let output = std::process::Command::new(binary)
+        .arg("--versao")
+        .output()
+        .map_err(|e| format!("o app novo não abriu: {e}"))?;
+    let answered = String::from_utf8_lossy(&output.stdout);
+    if answered.trim() == version {
+        Ok(())
+    } else {
+        Err(format!("o instalado responde {}, e não {version}.", answered.trim()))
+    }
 }
 
 /// Runs the installer, telling each step it announces in its log as it gets there.
@@ -826,17 +903,7 @@ fn compile_and_check(home: &Path, version: &str, on_stage: &dyn Fn(String)) -> R
     if !status.success() {
         return Err(format!("a compilação falhou; veja {}.", home.join("atualizacao.log").display()));
     }
-    let binary = paths::installed_binary().ok_or("não sei onde o app fica neste sistema.")?;
-    let output = std::process::Command::new(binary)
-        .arg("--versao")
-        .output()
-        .map_err(|e| format!("o app novo não abriu: {e}"))?;
-    let answered = String::from_utf8_lossy(&output.stdout);
-    if answered.trim() == version {
-        Ok(())
-    } else {
-        Err(format!("o instalado responde {}, e não {version}.", answered.trim()))
-    }
+    installed_answers(version)
 }
 
 #[cfg(test)]
@@ -973,8 +1040,9 @@ mod tests {
         assert_eq!(ready.actions, [Reopen]);
 
         let failed = say(&UpdateStatus::Failed(n.clone(), "sem disco.".to_owned())).unwrap();
-        assert!(failed.text.contains("a versão 0.1.0 continua funcionando. sem disco."));
-        assert_eq!(failed.actions, [Retry, HowToUpdate, Close]);
+        assert!(failed.text.contains("a 0.1.0 continua funcionando."));
+        assert!(!failed.text.contains("sem disco"), "the reason is in the details, where it is not cut");
+        assert_eq!(failed.actions, [Retry, Details, Close]);
 
         let checking = say(&UpdateStatus::Checking).unwrap();
         assert!(checking.busy && checking.actions.is_empty());
@@ -1195,5 +1263,19 @@ mod tests {
         assert!(is_locked(&lock, 200));
         assert!(!is_locked(&lock, 100 + LOCK_EXPIRES.as_secs()));
         let _ = std::fs::remove_file(&lock);
+    }
+
+    #[test]
+    fn a_lock_whose_log_went_quiet_was_left_by_a_closed_window() {
+        let (quiet, began) = (LOG_QUIET_FOR.as_secs(), 1_000);
+        assert!(lock_is_live(began, None, began + 60), "just begun, no log yet");
+        assert!(!lock_is_live(began, None, began + quiet + 1), "never wrote a line");
+        assert!(lock_is_live(began, Some(began + 3_000), began + 3_000 + 60), "compiling, still writing");
+        assert!(!lock_is_live(began, Some(began + 600), began + 600 + quiet + 1), "stopped writing");
+        assert!(!lock_is_live(began, Some(began - 50), began + quiet + 1), "that log is the last run's");
+        assert!(
+            !lock_is_live(began, Some(began + 9_000), began + LOCK_EXPIRES.as_secs()),
+            "never past the limit"
+        );
     }
 }

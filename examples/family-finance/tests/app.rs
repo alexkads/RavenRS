@@ -338,8 +338,11 @@ fn asking_in_the_settings_answers_at_the_foot() {
     updater.set_status(UpdateStatus::Failed(news_of("99.0.0"), "sem disco.".to_owned()));
     settle(&mut ui);
     let mut ui = app_with(updater);
-    assert!(says(&mut ui, "A atualização não deu certo"));
-    press(&mut ui, Role::Button, "Como atualizar");
+    assert!(says(&mut ui, "A atualização para a versão 99.0.0 não deu certo"));
+    press(&mut ui, Role::Button, "Ver detalhes");
+    assert!(says(&mut ui, "Detalhes da atualização"));
+    assert!(says(&mut ui, "Sem disco."), "the whole reason, which the status bar would cut");
+    press(&mut ui, Role::Button, "Como atualizar à mão");
     assert!(says(&mut ui, "Se a atualização pelo app falhar"));
     assert!(says(&mut ui, "install.cmd"), "the command by hand is there to copy");
 }
