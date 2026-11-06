@@ -339,7 +339,12 @@ fn download_pdf(service: &Service, file_id: &str) -> Result<Vec<u8>, String> {
     let file: TelegramFile = telegram_call(service, "getFile", json!({"file_id":file_id}))?;
     let agent = telegram_agent();
     let url = format!("https://api.telegram.org/file/bot{}/{}", service.config.bot_token, file.file_path);
-    let mut response = agent.get(&url).call().map_err(|_| "falha ao baixar PDF do Telegram")?;
+    let mut response = agent.get(&url).call().map_err(|error| {
+        format!(
+            "falha ao baixar PDF do Telegram: {}",
+            error.to_string().replace(&service.config.bot_token, "[oculto]")
+        )
+    })?;
     let bytes = response
         .body_mut()
         .with_config()
