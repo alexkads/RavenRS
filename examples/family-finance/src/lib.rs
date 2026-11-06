@@ -14,6 +14,7 @@ pub mod money;
 pub mod paths;
 pub mod reports;
 pub mod seed;
+pub mod telegram;
 pub mod ui;
 pub mod update;
 

@@ -47,6 +47,19 @@ The filter on Lançamentos is the part to read first. What the user types, such 
 FF_SCREENSHOTS=$PWD/target/screens cargo test -p family-finance --test screens
 ```
 
+## Telegram bot (optional)
+
+The optional `raven-telegram` binary uses Telegram long polling (`getUpdates`), so it needs no public webhook endpoint. It accepts PDF receipts up to 14 MB only from the configured private chat and uses local `pdftotext` to find one total. Then send `despesa Categoria` or `receita Categoria`; it reuses that category for the same type or creates it with a zero budget and saves the transaction immediately. `/cancelar` discards the pending amount. Pending state is in memory and expires after 60 seconds.
+
+Use a dedicated SQLite database or a separate copy of the family-finance database; do not point the bot at the database used by the desktop app. The bot refuses the default `~/.raven-financas/financas.db` path. The path argument must already exist:
+
+```bash
+TELEGRAM_BOT_TOKEN=... TELEGRAM_ALLOWED_CHAT_ID=... RAVEN_ACCOUNT_ID=1 \
+  cargo run -p family-finance --bin raven-telegram -- /tmp/raven-financas-telegram-test.db
+```
+
+`TELEGRAM_ALLOWED_CHAT_ID` is the numeric ID of the private Telegram chat and its user. `RAVEN_ACCOUNT_ID` must identify an existing account in the selected database. The bot needs `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_ID`, and `RAVEN_ACCOUNT_ID` in its environment. Telegram receives the receipt; value extraction stays local and requires the `pdftotext` binary. Keep the bot token private. Run the bot separately from the desktop app, and use a disposable copy while evaluating the integration.
+
 ## Installing and updating
 
 The app is not packaged. It installs and updates by compiling the master branch on the user's machine, the way VintageLightbox does, using `install.cmd`, one file that runs on all three systems. It gets what it needs first, Rust and a C compiler, so the first run can take a while; updates reuse what was compiled. It asks for an administrator's permission only to install those tools.

@@ -5,18 +5,12 @@ use std::path::{Path, PathBuf};
 use family_finance::db::{Database, DbResult};
 use family_finance::ui::App;
 use family_finance::update::{self, Updater};
-use family_finance::{icon, paths, seed, today};
+use family_finance::{icon, paths, today};
 use ravenrs::native::{AppIdentity, PlatformError, WindowOptions, diagnose, run, run_as};
 use ravenrs::prelude::*;
 
 fn open(path: &Path) -> DbResult<Database> {
-    let db = Database::open(path)?;
-    // The first run opens on a family's sample data, so there is something to
-    // explore; Settings starts over for real use.
-    if db.is_empty()? {
-        seed::load_demo(&db, today())?;
-    }
-    Ok(db)
+    Database::open(path)
 }
 
 fn main() -> Result<(), PlatformError> {

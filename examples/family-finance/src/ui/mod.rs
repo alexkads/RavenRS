@@ -79,6 +79,7 @@ pub struct App {
     training: training::TrainingState,
     recorder: FlightRecorder,
     reporter: BugReporter,
+    telegram_link: State<Option<String>>,
     overdue: Memo<u64, usize>,
     icon: Memo<u8, Option<ImageData>>,
 }
@@ -120,6 +121,7 @@ impl App {
             budgets: BudgetsState::new(today),
             reports: ReportsState::new(today),
             records: RecordsState::new(),
+            telegram_link: State::new(None),
             overdue: Memo::new(),
             icon: Memo::new(),
         }
@@ -362,6 +364,7 @@ impl App {
                 &self.forms,
                 &self.news,
                 &self.page,
+                &self.telegram_link,
                 self.training.models.clone(),
                 self.training.voices.clone(),
                 window,

@@ -14,6 +14,7 @@ use crate::backup::{self, CopyReason};
 use crate::db::{Database, DbResult};
 use crate::model::{date_label, parse_date};
 use crate::seed;
+use crate::telegram;
 use crate::update::{self, UpdateStatus};
 
 /// Below this width the theme's three choices no longer fit in half of it.
@@ -157,6 +158,7 @@ pub(crate) fn settings(
     forms: &Forms,
     news: &updates::NewsDialog,
     page: &State<usize>,
+    telegram_link: &State<Option<String>>,
     models: Option<ravenrs_ai::ModelManager>,
     voices: Option<ravenrs_ai::VoiceManager>,
     window: Size,
@@ -346,6 +348,63 @@ pub(crate) fn settings(
         .spacing(10.0)
         .align(Align::Stretch),
     );
+    let linked = store.read(|db| db.has_telegram_pairing());
+    let (pair_store, revoke_store, pairing, revoke_link) =
+        (store.clone(), store.clone(), telegram_link.clone(), telegram_link.clone());
+    let shown_link = telegram_link.get();
+    let telegram = titled_card(
+        "Telegram",
+        "Conecte um único chat privado para enviar comprovantes PDF a este Raven.",
+        VStack::new((
+            Text::new(if linked { "Um chat está conectado." } else { "Nenhum chat conectado." })
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted),
+            shown_link.clone().map(|link| {
+                Barcode::qr(link).size(180.0, 180.0).alt("QR para conectar o Telegram a este Raven")
+            }),
+            HStack::new((
+                Button::new(if shown_link.is_some() { "Gerar novo QR" } else { "Conectar Telegram" })
+                    .icon(IconName::Link)
+                    .size(ButtonSize::Small)
+                    .on_click(move || {
+                        let token = telegram::pairing_token();
+                        let link = match telegram::pairing_link(&token) {
+                            Ok(link) => link,
+                            Err(error) => {
+                                pair_store.toasts.show_for("Não foi possível conectar Telegram", error, Tone::Danger, 8.0);
+                                return;
+                            }
+                        };
+                        let now = SystemTime::now()
+                            .duration_since(SystemTime::UNIX_EPOCH)
+                            .map(|duration| duration.as_secs() as i64)
+                            .unwrap_or_default();
+                        if pair_store.write("Escaneie o QR com o Telegram.", |db| {
+                            db.begin_telegram_pairing(&telegram::pairing_hash(&token), now)
+                        }).is_some() {
+                            pairing.set(Some(link));
+                        }
+                    }),
+                Button::new("Desvincular")
+                    .icon(IconName::X)
+                    .size(ButtonSize::Small)
+                    .style(ButtonStyle::Secondary)
+                    .on_click(move || {
+                        let now = SystemTime::now()
+                            .duration_since(SystemTime::UNIX_EPOCH)
+                            .map(|duration| duration.as_secs() as i64)
+                            .unwrap_or_default();
+                        if revoke_store.write("Telegram desvinculado.", |db| db.revoke_telegram_pairings(now)).is_some() {
+                            revoke_link.set(None);
+                        }
+                    }),
+            ))
+            .spacing(8.0)
+            .wrap(),
+        ))
+        .spacing(12.0)
+        .align(Align::Start),
+    );
     let start_over = titled_card(
         "Recomeçar",
         help::RECOMECAR,
@@ -405,6 +464,7 @@ pub(crate) fn settings(
             voice,
             copies,
             Grid::new(columns, (data, updates_card)).spacing(16.0),
+            telegram,
             start_over,
         ))
         .spacing(16.0)
