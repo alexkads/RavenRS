@@ -128,6 +128,9 @@ fn release_note(news: &News) -> ReleaseNote {
             if new { "Por que atualizar" } else { "Por que ela importa" },
             news.por_que_atualizar.clone(),
         );
+    if !news.contribuidores.is_empty() {
+        note = note.section("Quem contribuiu", news.contribuidores.join(", "));
+    }
     if let Some(day) = news.data.as_deref().and_then(parse_date) {
         note = note.date(crate::model::date_label(day));
     }

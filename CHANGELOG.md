@@ -6,14 +6,22 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
-- `ThemeSwitcher` is `Clone` but no longer `Copy`, since it can hold a callback.
 - `FilterField` has a new public field, `values`; build it with `FilterField::new` instead of a struct literal.
 
 ### Added
 
-- `ThemeSwitcher::on_change(action)`: runs with the theme the user picks, so the app can remember it for the next launch.
 - `DataGrid`: the filter panel has an "Edit filter" button that opens the `FilterBuilder` over every column's expression at once, as the DevExpress filter panel does. It is there whenever something is filtered, with or without `filter_builder(true)`.
 - `FilterBuilder`: "is any of" and "is none of" (`In` and `Not ... In`), picked as tags. A filter by value from a column's menu now opens as a line instead of raw text. `FilterField::values` lists what to pick from; the grid fills it with the column's values.
+
+## [27.1.15] - 2026-11-06
+
+### Breaking
+
+- `ThemeSwitcher` is `Clone` but no longer `Copy`, `Send` or `Sync`, since it can hold a callback. Like every other view, build it on the UI thread.
+
+### Added
+
+- `ThemeSwitcher::on_change(action)`: runs with the theme the user picks, so the app can remember it for the next launch.
 
 ## [27.1.14] - 2026-11-05
 

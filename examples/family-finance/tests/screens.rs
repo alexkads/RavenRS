@@ -623,6 +623,7 @@ fn draw_every_screen() {
         importante: false,
         novidades: vec!["Anexar boleto".to_owned()],
         por_que_atualizar: "Para não perder o papel.".to_owned(),
+        contribuidores: Vec::new(),
     }));
     let mut update = app(themes::light(), 0, updater);
     capture(&gpu, &mut update, size, &folder.join("atualizacao.png"));
@@ -634,6 +635,7 @@ fn draw_every_screen() {
         importante: important,
         novidades: vec!["Anexar boleto".to_owned(), "Abrir o boleto a partir da conta".to_owned()],
         por_que_atualizar: "Para não perder o papel.".to_owned(),
+        contribuidores: Vec::new(),
     };
     let states = [
         ("rodape-importante", UpdateStatus::Available(news(true, "0.2.0"))),
