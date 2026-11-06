@@ -5228,6 +5228,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-nfse"
+version = "27.1.13"
+dependencies = [
+ "ravenrs-dfe",
+ "rust_decimal",
+ "serde_json",
+]
+
+[[package]]
 name = "ravenrs-pagamento"
 version = "27.1.13"
 dependencies = [

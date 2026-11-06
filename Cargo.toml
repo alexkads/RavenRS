@@ -28,6 +28,7 @@ ravenrs-barcode = { version = "27.1.13", path = "crates/ravenrs-barcode" }
 ravenrs-graphics = { version = "27.1.13", path = "crates/ravenrs-graphics" }
 ravenrs-nfe = { version = "27.1.13", path = "crates/ravenrs-nfe" }
 ravenrs-dfe = { version = "27.1.13", path = "crates/ravenrs-dfe" }
+ravenrs-nfse = { version = "27.1.13", path = "crates/ravenrs-nfse" }
 ravenrs-pagamento = { version = "27.1.13", path = "crates/ravenrs-pagamento" }
 ravenrs-report = { version = "27.1.13", path = "crates/ravenrs-report" }
 ravenrs-report-export = { version = "27.1.13", path = "crates/ravenrs-report-export" }
