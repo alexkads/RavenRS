@@ -22,6 +22,39 @@ const TWO_COLUMNS_FROM: f32 = 760.0;
 /// How many of the kept copies the page lists; the newest are the ones that matter.
 const COPIES_SHOWN: usize = 5;
 
+enum TelegramVisual {
+    Qr(String),
+    Connected,
+}
+
+impl View for TelegramVisual {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let (node, theme) = match self {
+            Self::Qr(link) => (
+                Barcode::qr(link.clone())
+                    .size(180.0, 180.0)
+                    .alt("QR para conectar o Telegram a este Raven")
+                    .build(cx),
+                true,
+            ),
+            Self::Connected => {
+                (Icon::new(IconName::CircleCheck).size(72.0).color(Semantic::Success).build(cx), false)
+            }
+        };
+        let motion = if theme {
+            Motion::new()
+                .enter(Effect::hidden(), cx.theme().motion.gentle)
+                .exit(Effect::hidden(), cx.theme().motion.fast)
+        } else {
+            Motion::new()
+                .enter(Effect::hidden().with_scale(0.7), cx.theme().motion.snappy)
+                .exit(Effect::hidden().with_scale(0.7), cx.theme().motion.fast)
+        };
+        cx.motion(node, motion);
+        node
+    }
+}
+
 fn info_row(label: &str, value: String) -> impl View + use<> {
     HStack::new((
         Text::new(label.to_owned()).style(TextStyle::Callout).foreground(Semantic::InkMuted).width(150.0),
@@ -365,9 +398,11 @@ pub(crate) fn settings(
             Text::new(if linked { "Um chat está conectado." } else { "Nenhum chat conectado." })
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
-            shown_link.clone().map(|link| {
-                Barcode::qr(link).size(180.0, 180.0).alt("QR para conectar o Telegram a este Raven")
-            }),
+            if linked {
+                Some(Box::new(TelegramVisual::Connected) as AnyView)
+            } else {
+                shown_link.clone().map(|link| Box::new(TelegramVisual::Qr(link)) as AnyView)
+            },
             HStack::new((
                 Button::new(if shown_link.is_some() { "Gerar novo QR" } else { "Conectar Telegram" })
                     .icon(IconName::Link)

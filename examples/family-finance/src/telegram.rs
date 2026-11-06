@@ -1,5 +1,6 @@
 //! Small Telegram long-polling bridge for PDF receipts.
 
+use ravenrs::prelude::UiWaker;
 use std::collections::HashMap;
 use std::fs::{File, remove_file};
 use std::io::Write;
@@ -119,6 +120,14 @@ pub fn pairing_link(token: &str) -> Result<String, String> {
 
 /// Long-polls Telegram, so Raven needs no public webhook port.
 pub fn serve(db_path: PathBuf) -> Result<(), String> {
+    serve_with_waker(db_path, None, None)
+}
+
+pub fn serve_with_waker(
+    db_path: PathBuf,
+    waker: Option<UiWaker>,
+    paired: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+) -> Result<(), String> {
     let config =
         Config { db_path: checked_db_path(db_path)?, bot_token: required_env("TELEGRAM_BOT_TOKEN")? };
     let service = Service { config, pending: Mutex::new(HashMap::new()) };
@@ -136,8 +145,20 @@ pub fn serve(db_path: PathBuf) -> Result<(), String> {
                 && message.from.is_some()
             {
                 let chat = message.chat.id;
+                let is_pairing = message.text.as_deref().and_then(start_token).is_some();
+                let user = message.from.as_ref().map(|user| user.id).unwrap_or_default();
                 if let Err(error) = handle_message(&service, message) {
                     let _ = send_message(&service, chat, &format!("Não consegui processar: {error}"));
+                } else if is_pairing
+                    && Database::open(&service.config.db_path)
+                        .and_then(|db| db.telegram_chat_is_linked(chat, user))
+                        .unwrap_or(false)
+                    && let Some(paired) = &paired
+                {
+                    paired.store(true, std::sync::atomic::Ordering::Release);
+                }
+                if let Some(waker) = &waker {
+                    waker.wake();
                 }
             }
         }

@@ -23,6 +23,7 @@ mod updates;
 
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::{Arc, atomic::AtomicBool};
 
 use ravenrs::core::Key;
 use ravenrs::prelude::*;
@@ -80,6 +81,7 @@ pub struct App {
     recorder: FlightRecorder,
     reporter: BugReporter,
     telegram_link: State<Option<String>>,
+    telegram_paired: Arc<AtomicBool>,
     overdue: Memo<u64, usize>,
     icon: Memo<u8, Option<ImageData>>,
 }
@@ -122,6 +124,7 @@ impl App {
             reports: ReportsState::new(today),
             records: RecordsState::new(),
             telegram_link: State::new(None),
+            telegram_paired: Arc::default(),
             overdue: Memo::new(),
             icon: Memo::new(),
         }
@@ -406,6 +409,7 @@ impl App {
         let page = self.page_view(window);
         let main = VStack::new((
             updates::UpdatePump(self.store.updater.clone()),
+            updates::TelegramPump::new(self.store.path.clone(), self.telegram_paired.clone()),
             self.recorder.clone(),
             self.toolbar(page.subtitle, page.help, window),
             Divider::horizontal(),
