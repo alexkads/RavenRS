@@ -348,14 +348,20 @@ pub(crate) fn settings(
         .spacing(10.0)
         .align(Align::Stretch),
     );
+    let _revision = store.version();
     let linked = store.read(|db| db.has_telegram_pairing());
     let (pair_store, revoke_store, pairing, revoke_link) =
         (store.clone(), store.clone(), telegram_link.clone(), telegram_link.clone());
     let shown_link = telegram_link.get();
     let telegram = titled_card(
         "Telegram",
-        "Conecte um único chat privado para enviar comprovantes PDF a este Raven.",
+        help::TELEGRAM,
         VStack::new((
+            Text::new(
+                "Envie seus comprovantes em PDF pelo Telegram. Depois, responda se é despesa ou receita e informe a categoria.",
+            )
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
             Text::new(if linked { "Um chat está conectado." } else { "Nenhum chat conectado." })
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
@@ -393,22 +399,24 @@ pub(crate) fn settings(
                             pairing.set(Some(link));
                         }
                     }),
-                Button::new("Desvincular")
-                    .icon(IconName::X)
-                    .size(ButtonSize::Small)
-                    .style(ButtonStyle::Secondary)
-                    .on_click(move || {
-                        let now = SystemTime::now()
-                            .duration_since(SystemTime::UNIX_EPOCH)
-                            .map(|duration| duration.as_secs() as i64)
-                            .unwrap_or_default();
-                        if revoke_store
-                            .write("Telegram desvinculado.", |db| db.revoke_telegram_pairings(now))
-                            .is_some()
-                        {
-                            revoke_link.set(None);
-                        }
-                    }),
+                linked.then(|| {
+                    Button::new("Desvincular")
+                        .icon(IconName::X)
+                        .size(ButtonSize::Small)
+                        .style(ButtonStyle::Secondary)
+                        .on_click(move || {
+                            let now = SystemTime::now()
+                                .duration_since(SystemTime::UNIX_EPOCH)
+                                .map(|duration| duration.as_secs() as i64)
+                                .unwrap_or_default();
+                            if revoke_store
+                                .write("Telegram desvinculado.", |db| db.revoke_telegram_pairings(now))
+                                .is_some()
+                            {
+                                revoke_link.set(None);
+                            }
+                        })
+                }),
             ))
             .spacing(8.0)
             .wrap(),

@@ -102,8 +102,10 @@ pub fn pairing_link(token: &str) -> Result<String, String> {
     let bot_token = required_env("TELEGRAM_BOT_TOKEN")?;
     let url = format!("https://api.telegram.org/bot{bot_token}/getMe");
     let mut response = telegram_agent().get(&url).call().map_err(|_| "falha ao comunicar com Telegram")?;
-    let parsed: TelegramResponse<TelegramBot> =
-        response.body_mut().read_json().map_err(|_| "resposta inválida do Telegram")?;
+    let parsed: TelegramResponse<TelegramBot> = serde_json::from_slice(
+        &response.body_mut().read_to_vec().map_err(|_| "resposta inválida do Telegram")?,
+    )
+    .map_err(|_| "resposta inválida do Telegram")?;
     if !parsed.ok {
         return Err(parsed.description.unwrap_or_else(|| "Telegram API recusou a operação".into()));
     }
@@ -281,9 +283,15 @@ fn telegram_call<T: for<'de> Deserialize<'de>>(
 ) -> Result<T, String> {
     let agent = telegram_agent();
     let url = format!("https://api.telegram.org/bot{}/{method}", service.config.bot_token);
-    let mut response = agent.post(&url).send_json(body).map_err(|_| "falha ao comunicar com Telegram")?;
-    let parsed: TelegramResponse<T> =
-        response.body_mut().read_json().map_err(|_| "resposta inválida do Telegram")?;
+    let mut response = agent
+        .post(&url)
+        .header("content-type", "application/json")
+        .send(serde_json::to_vec(&body).map_err(|_| "requisição inválida")?)
+        .map_err(|_| "falha ao comunicar com Telegram")?;
+    let parsed: TelegramResponse<T> = serde_json::from_slice(
+        &response.body_mut().read_to_vec().map_err(|_| "resposta inválida do Telegram")?,
+    )
+    .map_err(|_| "resposta inválida do Telegram")?;
     if !parsed.ok {
         return Err(parsed.description.unwrap_or_else(|| "Telegram API recusou a operação".into()));
     }

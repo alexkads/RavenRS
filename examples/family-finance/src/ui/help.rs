@@ -124,6 +124,11 @@ pub(crate) const ATUALIZACAO: Help = (
     "O app baixa o código e compila neste computador.",
     "A versão atual só é trocada depois de a nova provar que abre.",
 );
+pub(crate) const TELEGRAM: Help = (
+    "Telegram",
+    "Conecta um chat privado para enviar comprovantes PDF a este Raven.",
+    "Escaneie o QR, abra o bot e toque em Iniciar.",
+);
 pub(crate) const RECOMECAR: Help = (
     "Recomeçar",
     "Troca tudo o que está no app, por dados de exemplo ou por um app vazio.",
