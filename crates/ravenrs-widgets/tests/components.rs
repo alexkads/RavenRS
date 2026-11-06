@@ -1,5 +1,8 @@
 //! Behavior of the component library, driven through the public `Ui` API.
 
+use std::cell::Cell;
+use std::rc::Rc;
+
 use ravenrs_core::{Event, Key, Modifiers, Point, PointerButton, Primitive, Quad, Rect, Size};
 use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, Theme};
@@ -248,6 +251,18 @@ fn theme_switcher_offers_the_apps_own_themes() {
     let control = quads(&ui)[0].rect;
     click(&mut ui, Point::new(control.x() + control.width() / 2.0, control.center().y));
     assert_eq!(ui.theme().name, light.name);
+}
+
+#[test]
+fn theme_switcher_tells_the_app_which_theme_was_picked() {
+    let picked = Rc::new(Cell::new(None));
+    let told = picked.clone();
+    let switcher = ThemeSwitcher::new().on_change(move |theme| told.set(Some(theme.name)));
+    let mut ui = ui(VStack::new((switcher,)));
+    let control = quads(&ui)[0].rect;
+    click(&mut ui, Point::new(control.x() + control.width() / 2.0, control.center().y));
+    assert_eq!(picked.get(), Some(Theme::raven_light().name));
+    assert_eq!(ui.theme().name, Theme::raven_light().name);
 }
 
 #[test]
