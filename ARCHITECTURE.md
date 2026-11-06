@@ -236,7 +236,7 @@ Parity with the DevExpress DataGrid feature set:
 | Columns pinned to the left | ✓ |
 | Multi-level (banded) headers, columns pinned to the right | planned |
 | Filter by value (checklists) with a filter panel | ✓ |
-| Filter builder | ✓ `FilterBuilder`, also in the toolbar with `filter_builder` |
+| Filter builder | ✓ `FilterBuilder`, also in the toolbar with `filter_builder` and behind "Edit filter" on the filter panel, over the whole filter |
 | Paging UI, infinite scroll and rows on a server (`RemoteRows`: bounded memory, settled requests, no totals needed, keyset by `after`) | ✓ |
 | Summaries changed at run time, with formulas over `ravenrs-criteria` | ✓ |
 | Row add and delete (`on_add_row`, `on_delete_rows`), buttons on rows (`row_action`), edits that can be refused (`on_cell_edit`) | ✓ |
