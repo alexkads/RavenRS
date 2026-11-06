@@ -67,17 +67,18 @@ impl FakeTelegram {
         serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap()
     }
 
-    fn push(&self, message: Value) {
+    fn push(&self, update: Value) {
         ureq::post(&format!("{}/_push", self.base))
             .header("content-type", "application/json")
-            .send(json!({ "message": message }).to_string())
+            .send(update.to_string())
             .expect("push");
     }
 
-    /// Sends what the person types and returns the bot's answer, or `None` after `wait`.
-    fn say_within(&self, message: Value, wait: Duration, mut tick: impl FnMut()) -> Option<String> {
+    /// Sends what the person does (a message or a tap) and returns the bot's answer, or
+    /// `None` after `wait`.
+    fn say_within(&self, update: Value, wait: Duration, mut tick: impl FnMut()) -> Option<String> {
         let before = self.sent().len();
-        self.push(message);
+        self.push(update);
         let deadline = Instant::now() + wait;
         while Instant::now() < deadline {
             tick();
@@ -90,8 +91,8 @@ impl FakeTelegram {
         None
     }
 
-    fn say(&self, message: Value) -> String {
-        self.say_within(message, Duration::from_secs(20), || ()).unwrap_or_else(|| "(sem resposta)".into())
+    fn say(&self, update: Value) -> String {
+        self.say_within(update, Duration::from_secs(20), || ()).unwrap_or_else(|| "(sem resposta)".into())
     }
 }
 
@@ -201,6 +202,7 @@ fn route(
             lock.lock().unwrap().sent.push(body.clone());
             reply(json!({ "message_id": 1 }))
         }
+        (_, "answerCallbackQuery" | "editMessageReplyMarkup") => reply(json!(true)),
         (_, "getFile") => reply(json!({ "file_id": body["file_id"], "file_path": body["file_id"] })),
         _ => ("404 Not Found", json!({"ok": false, "description": "Not Found"}).to_string().into_bytes()),
     }
@@ -209,14 +211,22 @@ fn route(
 // ---------------------------------------------------------------- what the person sends
 
 fn text(chat: i64, said: &str) -> Value {
-    json!({ "chat": { "id": chat, "type": "private" }, "from": { "id": chat }, "text": said })
+    json!({ "message": { "chat": { "id": chat, "type": "private" }, "from": { "id": chat }, "text": said } })
 }
 
 fn document(chat: i64, file: &str, size: u64) -> Value {
-    json!({
+    json!({ "message": {
         "chat": { "id": chat, "type": "private" }, "from": { "id": chat },
         "document": { "file_id": file, "mime_type": "application/pdf", "file_size": size }
-    })
+    } })
+}
+
+/// A tap on a button the bot sent, carrying its `callback_data`.
+fn tap(chat: i64, data: &str) -> Value {
+    json!({ "callback_query": {
+        "id": "q", "from": { "id": chat }, "data": data,
+        "message": { "message_id": 9, "chat": { "id": chat, "type": "private" } }
+    } })
 }
 
 /// A one-page PDF with these lines in Helvetica, as plain as a bank's receipt.
@@ -328,15 +338,24 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
         "one use"
     );
     assert!(fake.say(document(STRANGER, "pix.pdf", 2_000)).contains("Escaneie o QR"), "only the paired chat");
-    let group =
-        json!({ "chat": { "id": -5, "type": "group" }, "from": { "id": CHAT }, "text": "despesa Mercado" });
+    let group = json!({ "message":
+        { "chat": { "id": -5, "type": "group" }, "from": { "id": CHAT }, "text": "despesa Mercado" } });
     assert_eq!(fake.say_within(group, Duration::from_secs(2), || ()), None, "groups are ignored");
 
     assert!(fake.say(text(CHAT, "despesa Mercado")).contains("Não há PDF aguardando"));
     assert!(fake.say(document(CHAT, "pix.pdf", 20 * 1024 * 1024)).contains("Envie um PDF de até 14 MB"));
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
     assert!(fake.say(text(CHAT, "Salário")).contains("despesa ou receita"), "asks again, amount kept");
-    assert!(fake.say(text(CHAT, "receita Salário")).contains("salva em Salário"));
+    let question = fake.say(text(CHAT, "receita Salário"));
+    assert!(
+        question.contains("Receita · Salário · R$ 3000,00") && question.contains("Confirma?"),
+        "{question}"
+    );
+    let buttons = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"][0].clone();
+    assert_eq!(buttons.as_array().map(Vec::len), Some(3), "Confirmar, Corrigir e Cancelar: {buttons}");
+    assert!(fake.say(tap(STRANGER, "rf:ok")).contains("Escaneie o QR"), "a stranger's tap saves nothing");
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("Receita · Salário · R$ 3000,00 salva"));
+
     assert!(
         fake.say(document(CHAT, "boleto.pdf", 2_000)).contains("R$ 543,58"),
         "the amount paid, not the discount"
@@ -345,13 +364,20 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
         fake.say(text(CHAT, "despesa energia elétrica, foi o Pedro")).contains("Pedro"),
         "asks, amount kept"
     );
-    assert!(
-        fake.say(text(CHAT, "despesa  energia   elétrica  Ana")).contains("salva em Energia elétrica (Ana)")
-    );
+    assert!(fake.say(text(CHAT, "despesa energia elétrica")).contains("Despesa · Energia elétrica · R$"));
+    assert!(fake.say(tap(CHAT, "rf:fix")).contains("Envie de novo"), "Corrigir asks again, amount kept");
+    let question = fake.say(text(CHAT, "despesa  energia   elétrica  Ana"));
+    assert!(question.contains("Despesa · Energia elétrica · Ana · R$ 543,58"), "{question}");
+    assert!(fake.say(text(CHAT, "sim")).contains("salva"), "a typed yes confirms too");
+
     assert!(fake.say(document(CHAT, "saldo.pdf", 2_000)).contains("mais de um valor"), "never guesses");
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
     assert!(fake.say(text(CHAT, "/cancelar")).contains("cancelado"));
     assert!(fake.say(text(CHAT, "despesa Aluguel")).contains("Não há PDF aguardando"));
+    assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
+    assert!(fake.say(text(CHAT, "despesa Aluguel")).contains("Confirma?"));
+    assert!(fake.say(tap(CHAT, "rf:no")).contains("cancelado"), "Cancelar saves nothing");
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("Não há PDF aguardando"), "an old button does nothing");
 
     let saved: Vec<(i64, i64, Option<i64>)> = {
         let conn = rusqlite::Connection::open(&path).expect("open");

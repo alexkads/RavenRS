@@ -18,7 +18,7 @@ use crate::db::Database;
 use crate::model::{Category, Flow, Member, TransactionInput};
 use crate::today;
 
-const PENDING_TTL: Duration = Duration::from_secs(60);
+const PENDING_TTL: Duration = Duration::from_secs(5 * 60);
 const MAX_PDF_BYTES: u64 = 14 * 1024 * 1024;
 
 #[derive(Clone)]
@@ -34,13 +34,32 @@ struct Service {
 
 #[derive(Debug)]
 enum Pending {
+    /// The receipt's amount, waiting for what it was.
     Amount { amount_cents: i64, since: Instant },
+    /// Everything read, waiting for the person to confirm before anything is saved.
+    Confirm { amount_cents: i64, reply: Reply, since: Instant },
 }
 
 #[derive(Deserialize)]
 struct Update {
     update_id: i64,
     message: Option<Message>,
+    callback_query: Option<CallbackQuery>,
+}
+
+/// A tap on one of the buttons under the bot's question.
+#[derive(Deserialize)]
+struct CallbackQuery {
+    id: String,
+    from: User,
+    message: Option<CallbackMessage>,
+    data: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CallbackMessage {
+    message_id: i64,
+    chat: Chat,
 }
 
 #[derive(Deserialize)]
@@ -173,11 +192,13 @@ pub fn serve_with_waker(
         let updates: Vec<Update> = telegram_call(
             &service,
             "getUpdates",
-            json!({"offset":offset,"timeout":25,"allowed_updates":["message"]}),
+            json!({"offset":offset,"timeout":25,"allowed_updates":["message","callback_query"]}),
         )?;
         for update in updates {
             offset = update.update_id + 1;
-            if let Some(message) = update.message
+            let message =
+                update.message.or_else(|| update.callback_query.and_then(|tap| tapped(&service, tap)));
+            if let Some(message) = message
                 && message.chat.kind == "private"
                 && message.from.is_some()
             {
@@ -200,6 +221,26 @@ pub fn serve_with_waker(
             }
         }
     }
+}
+
+/// A button tap, as the command it stands for. The buttons go away once tapped, so the
+/// same question cannot be answered twice.
+fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
+    let _: Result<Value, _> =
+        telegram_call(service, "answerCallbackQuery", json!({"callback_query_id": tap.id}));
+    let message = tap.message?;
+    let _: Result<Value, _> = telegram_call(
+        service,
+        "editMessageReplyMarkup",
+        json!({"chat_id": message.chat.id, "message_id": message.message_id, "reply_markup": {"inline_keyboard": []}}),
+    );
+    let command = match tap.data.as_deref()? {
+        "rf:ok" => "/confirmar",
+        "rf:fix" => "/corrigir",
+        "rf:no" => "/cancelar",
+        _ => return None,
+    };
+    Some(Message { chat: message.chat, from: Some(tap.from), document: None, text: Some(command.to_owned()) })
 }
 
 fn bot_token() -> Result<String, String> {
@@ -286,7 +327,7 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
             service,
             chat,
             &format!(
-                "Valor encontrado: R$ {}. Envie `despesa Categoria` ou `receita Categoria` em até 60 segundos.",
+                "Valor encontrado: R$ {}. Envie `despesa Categoria` ou `receita Categoria`, e quem gastou se quiser, em até 5 minutos.",
                 format_brl(amount_cents)
             ),
         )?;
@@ -295,60 +336,77 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
     let Some(text) = message.text.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty()) else {
         return Ok(());
     };
-    if text == "/cancelar" {
-        service.pending.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);
+    let said = folded(&text);
+    let pending = service.pending.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);
+    let keep = |pending: Pending| -> Result<(), String> {
+        service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, pending);
+        Ok(())
+    };
+    if text == "/cancelar"
+        || (matches!(pending, Some(Pending::Confirm { .. })) && NO_WORDS.contains(&said.as_str()))
+    {
         send_message(service, chat, "Lançamento cancelado.")?;
         return Ok(());
     }
-    let pending = service.pending.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);
+    let confirmed = text == "/confirmar" || YES_WORDS.contains(&said.as_str());
     match pending {
-        Some(Pending::Amount { amount_cents, since }) if since.elapsed() <= PENDING_TTL => {
-            let keep = || -> Result<(), String> {
-                service
-                    .pending
-                    .lock()
-                    .map_err(|_| "estado do bot indisponível")?
-                    .insert(chat, Pending::Amount { amount_cents, since });
-                Ok(())
-            };
-            let reply = Database::open(&service.config.db_path)
-                .and_then(|db| Ok((db.members()?, db.categories()?)))
-                .map_err(|e| e.to_string())
-                .and_then(|(members, categories)| Ok(read_reply(&text, &members, &categories)));
-            let reply = match reply {
-                Ok(Ok(reply)) => reply,
-                Ok(Err(question)) => {
-                    keep()?;
-                    send_message(service, chat, &question)?;
-                    return Ok(());
-                }
-                Err(error) => {
-                    keep()?;
-                    return Err(error);
-                }
-            };
-            if let Err(error) = save_transaction(&service.config.db_path, amount_cents, &reply) {
-                keep()?;
-                return Err(error);
-            }
-            let who = reply.member.as_ref().map(|member| format!(" ({})", member.name)).unwrap_or_default();
-            send_message(
-                service,
-                chat,
-                &format!(
-                    "{} de R$ {} salva em {}{who}.",
-                    reply.flow.label(),
-                    format_brl(amount_cents),
-                    reply.category
-                ),
-            )?;
-        }
-        Some(Pending::Amount { .. }) => {
+        Some(Pending::Amount { since, .. } | Pending::Confirm { since, .. })
+            if since.elapsed() > PENDING_TTL =>
+        {
             send_message(service, chat, "O prazo para esse PDF terminou. Envie-o novamente.")?;
         }
-        _ => send_message(service, chat, "Não há PDF aguardando. Envie o comprovante novamente.")?,
+        Some(Pending::Confirm { amount_cents, reply, since }) if confirmed => {
+            if let Err(error) = save_transaction(&service.config.db_path, amount_cents, &reply) {
+                keep(Pending::Confirm { amount_cents, reply, since })?;
+                return Err(error);
+            }
+            send_message(service, chat, &format!("{} salva.", summary(amount_cents, &reply)))?;
+        }
+        Some(Pending::Confirm { amount_cents, .. }) if text == "/corrigir" => {
+            keep(Pending::Amount { amount_cents, since: Instant::now() })?;
+            send_message(service, chat, "Envie de novo, por exemplo: `despesa Mercado Ana`.")?;
+        }
+        Some(Pending::Amount { amount_cents, since } | Pending::Confirm { amount_cents, since, .. })
+            if !confirmed && !text.starts_with('/') =>
+        {
+            let read = Database::open(&service.config.db_path)
+                .and_then(|db| Ok((db.members()?, db.categories()?)))
+                .map_err(|e| e.to_string())
+                .map(|(members, categories)| read_reply(&text, &members, &categories));
+            match read {
+                Ok(Ok(reply)) => {
+                    let question = format!("{}\nConfirma?", summary(amount_cents, &reply));
+                    keep(Pending::Confirm { amount_cents, reply, since })?;
+                    send_with_buttons(service, chat, &question, &CONFIRM_BUTTONS)?;
+                }
+                Ok(Err(question)) => {
+                    keep(Pending::Amount { amount_cents, since })?;
+                    send_message(service, chat, &question)?;
+                }
+                Err(error) => {
+                    keep(Pending::Amount { amount_cents, since })?;
+                    return Err(error);
+                }
+            }
+        }
+        Some(pending) => {
+            keep(pending)?;
+            send_message(service, chat, "Responda com os botões, ou envie `despesa Categoria` de novo.")?;
+        }
+        None => send_message(service, chat, "Não há PDF aguardando. Envie o comprovante novamente.")?,
     }
     Ok(())
+}
+
+const YES_WORDS: &[&str] = &["sim", "confirmar", "confirmo", "confirma", "ok"];
+const NO_WORDS: &[&str] = &["nao", "cancelar", "cancela"];
+const CONFIRM_BUTTONS: [(&str, &str); 3] =
+    [("Confirmar", "rf:ok"), ("Corrigir", "rf:fix"), ("Cancelar", "rf:no")];
+
+/// One line with everything that will be saved: "Despesa · Mercado · Ana · R$ 87,50".
+fn summary(amount_cents: i64, reply: &Reply) -> String {
+    let who = reply.member.as_ref().map(|member| format!(" · {}", member.name)).unwrap_or_default();
+    format!("{} · {}{who} · R$ {}", reply.flow.label(), reply.category, format_brl(amount_cents))
 }
 
 fn start_token(text: &str) -> Option<&str> {
@@ -539,6 +597,21 @@ fn telegram_call<T: for<'de> Deserialize<'de>>(
 
 fn send_message(service: &Service, chat: i64, text: &str) -> Result<(), String> {
     let _: Value = telegram_call(service, "sendMessage", json!({"chat_id":chat,"text":text}))?;
+    Ok(())
+}
+
+/// A message with one row of buttons; each sends its `data` back as a callback.
+fn send_with_buttons(
+    service: &Service,
+    chat: i64,
+    text: &str,
+    buttons: &[(&str, &str)],
+) -> Result<(), String> {
+    let row: Vec<Value> =
+        buttons.iter().map(|(label, data)| json!({"text": label, "callback_data": data})).collect();
+    let markup = json!({ "inline_keyboard": [row] });
+    let _: Value =
+        telegram_call(service, "sendMessage", json!({"chat_id":chat,"text":text,"reply_markup":markup}))?;
     Ok(())
 }
 
