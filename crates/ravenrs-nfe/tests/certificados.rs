@@ -5,7 +5,7 @@ mod comum;
 
 use comum::*;
 use ravenrs_nfe::sandbox::certificados::{
-    CasoFalha, NOME_AC, cita_icp_brasil, eh_do_laboratorio, pem_certificado,
+    CasoFalha, NOME_AC, RegraDoCaso, cita_icp_brasil, eh_do_laboratorio, pem_certificado,
 };
 use ravenrs_nfe::sandbox::{
     CertificadoGerado, Confianca, ErroToken, Falha, GeradorCertificado, InfoCertificado, RegraDeFalha,
@@ -113,7 +113,7 @@ fn homologation_refuses_a_certificate_of_the_laboratory() {
             fn certificate_der(&self) -> &[u8] {
                 self.0.certificate_der()
             }
-            fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, NfeError> {
+            fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, ravenrs_nfe::DfeError> {
                 self.0.sign_rsa_sha1(message)
             }
         }
@@ -134,8 +134,8 @@ fn homologation_refuses_a_certificate_of_the_laboratory() {
 
 fn certificado_externo() -> RsaSigner {
     RsaSigner::from_pem(
-        include_str!("../fixtures/laboratorio/externo-cert.pem"),
-        include_str!("../fixtures/laboratorio/externo-key.pem"),
+        include_str!("../../ravenrs-dfe/fixtures/laboratorio/externo-cert.pem"),
+        include_str!("../../ravenrs-dfe/fixtures/laboratorio/externo-key.pem"),
     )
     .expect("signer")
 }
@@ -298,7 +298,7 @@ mod pfx {
         let resultado =
             HttpTransport::builder(&a1).raizes_pem(pem_certificado(gerado.cadeia()).as_bytes()).build();
         match resultado {
-            Err(NfeError::Configuracao(motivo)) => {
+            Err(ravenrs_nfe::DfeError::Configuracao(motivo)) => {
                 assert!(motivo.contains("fora do laboratório"), "{motivo}");
             }
             other => panic!("deveria recusar: {other:?}"),

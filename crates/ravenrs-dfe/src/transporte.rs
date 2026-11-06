@@ -2,9 +2,36 @@
 
 use std::fmt;
 
-/// An HTTP request, ready to go. The method is always POST.
+/// The HTTP method. SOAP services only use POST; the REST APIs of the NFS-e also read with GET and
+/// ask whether something exists with HEAD.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Metodo {
+    /// Sends a document or an event. The default.
+    #[default]
+    Post,
+    /// Reads something.
+    Get,
+    /// Asks whether something exists, with no body in the answer.
+    Head,
+}
+
+impl Metodo {
+    /// The name, as it goes on the wire.
+    #[must_use]
+    pub const fn nome(self) -> &'static str {
+        match self {
+            Self::Post => "POST",
+            Self::Get => "GET",
+            Self::Head => "HEAD",
+        }
+    }
+}
+
+/// An HTTP request, ready to go.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HttpRequest {
+    /// The method.
+    pub metodo: Metodo,
     /// The full address.
     pub url: String,
     /// The headers, in order.
@@ -14,6 +41,32 @@ pub struct HttpRequest {
 }
 
 impl HttpRequest {
+    /// A POST with these headers and body.
+    #[must_use]
+    pub fn post(url: impl Into<String>, headers: Vec<(String, String)>, body: Vec<u8>) -> Self {
+        Self { metodo: Metodo::Post, url: url.into(), headers, body }
+    }
+
+    /// A GET, with no body.
+    #[must_use]
+    pub fn get(url: impl Into<String>, headers: Vec<(String, String)>) -> Self {
+        Self { metodo: Metodo::Get, url: url.into(), headers, body: Vec::new() }
+    }
+
+    /// A HEAD, with no body.
+    #[must_use]
+    pub fn head(url: impl Into<String>, headers: Vec<(String, String)>) -> Self {
+        Self { metodo: Metodo::Head, url: url.into(), headers, body: Vec::new() }
+    }
+
+    /// The path of the address, without host and query: `/nfse/123` of `https://h/nfse/123?x=1`.
+    #[must_use]
+    pub fn caminho(&self) -> &str {
+        let sem_esquema = self.url.split_once("://").map_or(self.url.as_str(), |(_, resto)| resto);
+        let caminho = sem_esquema.find('/').map_or("/", |inicio| &sem_esquema[inicio..]);
+        caminho.split(['?', '#']).next().unwrap_or("/")
+    }
+
     /// The value of a header, ignoring case in its name.
     #[must_use]
     pub fn header(&self, name: &str) -> Option<&str> {
@@ -44,7 +97,8 @@ pub enum TransportError {
     Tls(String),
     /// The server answered with a redirect, which is never followed.
     Redirecionamento(String),
-    /// The sandbox got a request no handler answers, with `on_unhandled(Error)`.
+    /// The sandbox got a request no handler answers, with `on_unhandled(Error)`. For a REST service,
+    /// `acao` is the method and the path.
     NaoTratado {
         /// The address.
         url: String,
@@ -84,5 +138,18 @@ pub trait Transport: Send + Sync {
     /// Whether this transport keeps everything local. `Ambiente::Sandbox` only accepts one that does.
     fn intercepta(&self) -> bool {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_path_leaves_out_host_and_query() {
+        let pedido = HttpRequest::get("https://sefin.nfse.gov.br/SefinNacional/nfse/123?x=1", Vec::new());
+        assert_eq!(pedido.caminho(), "/SefinNacional/nfse/123");
+        assert_eq!(HttpRequest::head("https://h", Vec::new()).caminho(), "/");
+        assert_eq!(pedido.metodo.nome(), "GET");
     }
 }

@@ -8,7 +8,7 @@ use rsa::traits::PublicKeyParts;
 use rsa::{Pkcs1v15Sign, RsaPublicKey};
 use sha1::{Digest, Sha1};
 
-use super::tempo::Instante;
+use crate::tempo::Instante;
 
 const OID_SHA256_RSA: &[u8] = &[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b];
 const OID_SHA1_RSA: &[u8] = &[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x05];
@@ -416,4 +416,14 @@ fn outro_nome(san: &[u8], tipo: &[u8]) -> Option<String> {
         return std::str::from_utf8(valor.content).ok().map(str::to_string);
     }
     None
+}
+
+/// Whether a certificate came from the laboratory, whichever test authority signed it.
+#[must_use]
+pub fn eh_do_laboratorio(der: &[u8]) -> bool {
+    InfoCertificado::ler(der).is_some_and(|info| {
+        let tem =
+            |texto: &Option<String>| texto.as_deref().is_some_and(|nome| nome.contains("RAVENRS SANDBOX"));
+        tem(&info.emissor_cn) || tem(&info.emissor_org) || tem(&info.titular_cn)
+    })
 }

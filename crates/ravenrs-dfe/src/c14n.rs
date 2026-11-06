@@ -8,7 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::error::NfeError;
+use crate::erro::DfeError;
 use crate::xml::{Document, Element, Node};
 
 const XML_NS: &str = "http://www.w3.org/XML/1998/namespace";
@@ -18,7 +18,7 @@ const DSIG_NS: &str = "http://www.w3.org/2000/09/xmldsig#";
 type Scope = BTreeMap<String, String>;
 
 /// Canonicalizes a whole document, with the processing instructions around its root.
-pub fn canonicalize_document(document: &Document) -> Result<String, NfeError> {
+pub fn canonicalize_document(document: &Document) -> Result<String, DfeError> {
     let mut out = String::new();
     for node in &document.prolog {
         write_pi(&mut out, node);
@@ -37,22 +37,22 @@ pub fn canonicalize_document(document: &Document) -> Result<String, NfeError> {
 ///
 /// `omit_signature` removes `Signature` elements of XMLDSig, which is the
 /// `enveloped-signature` transform.
-pub fn canonicalize_by_id(root: &Element, id: &str, omit_signature: bool) -> Result<String, NfeError> {
+pub fn canonicalize_by_id(root: &Element, id: &str, omit_signature: bool) -> Result<String, DfeError> {
     canonicalize_where(root, &|element| element.attr("Id") == Some(id), omit_signature)
-        .ok_or_else(|| NfeError::Xml(format!("elemento com Id {id} não encontrado")))?
+        .ok_or_else(|| DfeError::Xml(format!("elemento com Id {id} não encontrado")))?
 }
 
 /// Canonicalizes the first element with this local name, taken from the tree under `root`.
-pub fn canonicalize_by_name(root: &Element, local: &str) -> Result<String, NfeError> {
+pub fn canonicalize_by_name(root: &Element, local: &str) -> Result<String, DfeError> {
     canonicalize_where(root, &|element| element.local_name() == local, false)
-        .ok_or_else(|| NfeError::Xml(format!("elemento {local} não encontrado")))?
+        .ok_or_else(|| DfeError::Xml(format!("elemento {local} não encontrado")))?
 }
 
 fn canonicalize_where(
     root: &Element,
     matches: &dyn Fn(&Element) -> bool,
     omit_signature: bool,
-) -> Option<Result<String, NfeError>> {
+) -> Option<Result<String, DfeError>> {
     let mut path = Vec::new();
     if !find_path(root, matches, &mut path) {
         return None;
@@ -100,13 +100,13 @@ struct Options {
     omit_signature: bool,
 }
 
-fn extend_scope(scope: &mut Scope, element: &Element) -> Result<(), NfeError> {
+fn extend_scope(scope: &mut Scope, element: &Element) -> Result<(), DfeError> {
     for (key, value) in &element.attrs {
         if key == "xmlns" {
             scope.insert(String::new(), value.clone());
         } else if let Some(prefix) = key.strip_prefix("xmlns:") {
             if value.is_empty() {
-                return Err(NfeError::Xml(format!("prefixo {prefix} sem namespace")));
+                return Err(DfeError::Xml(format!("prefixo {prefix} sem namespace")));
             }
             scope.insert(prefix.to_string(), value.clone());
         }
@@ -130,7 +130,7 @@ fn write_element(
     rendered: &Scope,
     inherited_xml: &[(&str, &str)],
     options: Options,
-) -> Result<(), NfeError> {
+) -> Result<(), DfeError> {
     let mut scope = parent_scope.clone();
     extend_scope(&mut scope, element)?;
 
@@ -174,7 +174,7 @@ fn write_element(
             other => scope
                 .get(other)
                 .cloned()
-                .ok_or_else(|| NfeError::Xml(format!("prefixo {other} não declarado")))?,
+                .ok_or_else(|| DfeError::Xml(format!("prefixo {other} não declarado")))?,
         };
         attributes.push((uri, local, key, value));
     }

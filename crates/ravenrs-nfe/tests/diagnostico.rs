@@ -221,6 +221,7 @@ fn byte_order_mark() {
     assert_eq!(diagnosticar(&recebido)[0].c_stat, 588);
     let dentro = format!("\u{feff}{}", envelope(Servico::Autorizacao, &lote(1, &documento.xml)));
     let pedido = ravenrs_nfe::HttpRequest {
+        metodo: Default::default(),
         url: "https://x/a".into(),
         headers: vec![("Content-Type".into(), Servico::Autorizacao.content_type())],
         body: dentro.into_bytes(),

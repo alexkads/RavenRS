@@ -109,21 +109,11 @@ pub(super) fn ret_distribuicao(
     max_nsu: u64,
     documentos: &[(u64, String, String)],
 ) -> String {
-    use std::io::Write;
-
-    use base64::Engine;
-
     let mut lote = String::new();
     if !documentos.is_empty() {
         lote.push_str("<loteDistDFeInt>");
         for (nsu, schema, xml) in documentos {
-            let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-            let comprimido = gz
-                .write_all(xml.as_bytes())
-                .and_then(|()| gz.try_finish())
-                .map(|()| gz.get_ref().clone())
-                .unwrap_or_default();
-            let base = base64::engine::general_purpose::STANDARD.encode(comprimido);
+            let base = ravenrs_dfe::compactacao::gzip_base64(xml).unwrap_or_default();
             lote.push_str(&format!("<docZip NSU=\"{nsu:015}\" schema=\"{schema}\">{base}</docZip>"));
         }
         lote.push_str("</loteDistDFeInt>");

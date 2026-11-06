@@ -62,7 +62,7 @@ Tudo sem rede e sem tela, em `ravenrs_nfe::sandbox`:
 
 `sandbox::certificados` emite e-CNPJ de teste no formato ICP-Brasil, pela AC `RAVENRS SANDBOX AC - SEM VALOR`: A1 em PFX real (com a feature `http`), A3 simulado com `TokenSimulado`, e um construtor para cada falha. Eles não saem do laboratório: `Ambiente::Homologacao` e `HttpTransport` recusam certificado desta AC, e o sandbox recusa qualquer outro.
 
-As chaves em `fixtures/laboratorio/` e tudo em `fixtures/http-test/` são públicas de propósito e não valem nada. `scripts/gerar-chaves-laboratorio.sh` e `scripts/gerar-fixtures.sh` regeneram os arquivos.
+As chaves do laboratório ficam em `crates/ravenrs-dfe/fixtures/laboratorio/` e tudo em `fixtures/http-test/` é público de propósito e não vale nada. `crates/ravenrs-dfe/scripts/gerar-chaves-laboratorio.sh` e `scripts/gerar-fixtures.sh` regeneram os arquivos.
 
 ### Entrada de mercadoria
 

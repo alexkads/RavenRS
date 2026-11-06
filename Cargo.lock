@@ -5130,6 +5130,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-dfe"
+version = "27.1.13"
+dependencies = [
+ "base64 0.23.1",
+ "flate2",
+ "p12-keystore",
+ "quick-xml",
+ "rsa",
+ "sha1 0.10.7",
+ "ureq",
+ "zeroize",
+]
+
+[[package]]
 name = "ravenrs-graphics"
 version = "27.1.13"
 dependencies = [
@@ -5203,16 +5217,14 @@ version = "27.1.13"
 dependencies = [
  "base64 0.23.1",
  "flate2",
- "p12-keystore",
  "quick-xml",
  "ravenrs-barcode",
+ "ravenrs-dfe",
  "rsa",
  "rust_decimal",
  "rustls",
  "serde_json",
  "sha1 0.10.7",
- "ureq",
- "zeroize",
 ]
 
 [[package]]

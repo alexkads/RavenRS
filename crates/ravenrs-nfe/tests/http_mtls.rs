@@ -10,7 +10,7 @@ use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
 
 use ravenrs_nfe::http::{CertificadoA1, HttpTransport, SenhaA1};
-use ravenrs_nfe::{HttpRequest, NfeError, Servico, Signer, Transport, TransportError};
+use ravenrs_nfe::{DfeError, HttpRequest, NfeError, Servico, Signer, Transport, TransportError};
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::server::WebPkiClientVerifier;
@@ -213,7 +213,7 @@ fn wrong_password_says_nothing_about_it() {
     let pfx = std::fs::read(fixture("client.p12")).expect("pfx");
     let erro = CertificadoA1::from_pfx(&pfx, &SenhaA1::new("senha-errada-123")).expect_err("wrong");
     let texto = format!("{erro} {erro:?}");
-    assert!(matches!(erro, NfeError::Assinatura(_)));
+    assert!(matches!(erro, DfeError::Assinatura(_)));
     assert!(!texto.contains("senha-errada-123"));
 }
 
@@ -238,14 +238,14 @@ fn certificate_also_signs() {
 #[test]
 fn roots_are_required_and_must_be_certificates() {
     let a1 = certificado("client.p12");
-    assert!(matches!(HttpTransport::builder(&a1).build(), Err(NfeError::Configuracao(_))));
+    assert!(matches!(HttpTransport::builder(&a1).build(), Err(DfeError::Configuracao(_))));
     assert!(matches!(
         HttpTransport::builder(&a1).raizes_pem(b"nada aqui").build(),
-        Err(NfeError::Configuracao(_))
+        Err(DfeError::Configuracao(_))
     ));
     assert!(matches!(
         HttpTransport::builder(&a1).raizes_pem_arquivo(&fixture("nao-existe.pem")),
-        Err(NfeError::Configuracao(_))
+        Err(DfeError::Configuracao(_))
     ));
 }
 

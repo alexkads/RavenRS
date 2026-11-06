@@ -108,11 +108,11 @@ pub fn envelope(servico: Servico, dados: &str) -> String {
 /// Builds the request of a service.
 #[must_use]
 pub fn request(servico: Servico, url: &str, dados: &str) -> HttpRequest {
-    HttpRequest {
-        url: url.to_string(),
-        headers: vec![("Content-Type".to_string(), servico.content_type())],
-        body: envelope(servico, dados).into_bytes(),
-    }
+    HttpRequest::post(
+        url,
+        vec![("Content-Type".to_string(), servico.content_type())],
+        envelope(servico, dados).into_bytes(),
+    )
 }
 
 #[cfg(test)]

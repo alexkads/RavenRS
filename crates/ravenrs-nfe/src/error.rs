@@ -65,6 +65,31 @@ impl fmt::Display for NfeError {
 
 impl std::error::Error for NfeError {}
 
+impl From<ravenrs_dfe::DfeError> for NfeError {
+    fn from(erro: ravenrs_dfe::DfeError) -> Self {
+        use ravenrs_dfe::DfeError;
+        match erro {
+            DfeError::Configuracao(motivo) => Self::Configuracao(motivo),
+            DfeError::Xml(motivo) => Self::Xml(motivo),
+            DfeError::Assinatura(motivo) => Self::Assinatura(motivo),
+            DfeError::Transporte(erro) => Self::Transporte(erro),
+            outro => Self::Xml(outro.to_string()),
+        }
+    }
+}
+
+impl From<NfeError> for ravenrs_dfe::DfeError {
+    fn from(erro: NfeError) -> Self {
+        match erro {
+            NfeError::Configuracao(motivo) => Self::Configuracao(motivo),
+            NfeError::Xml(motivo) => Self::Xml(motivo),
+            NfeError::Assinatura(motivo) => Self::Assinatura(motivo),
+            NfeError::Transporte(erro) => Self::Transporte(erro),
+            outro => Self::Configuracao(outro.to_string()),
+        }
+    }
+}
+
 impl From<TransportError> for NfeError {
     fn from(erro: TransportError) -> Self {
         Self::Transporte(erro)

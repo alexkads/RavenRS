@@ -537,6 +537,7 @@ fn wrong_envelope_or_action_comes_back_as_a_fault() {
 
     // Broken XML.
     let pedido = HttpRequest {
+        metodo: Default::default(),
         url: "https://x/a".into(),
         headers: vec![("Content-Type".into(), Servico::Autorizacao.content_type())],
         body: b"<nao-fecha>".to_vec(),
@@ -546,6 +547,7 @@ fn wrong_envelope_or_action_comes_back_as_a_fault() {
 
 fn pedido_de_inutilizacao() -> HttpRequest {
     HttpRequest {
+        metodo: Default::default(),
         url: "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeinutilizacao4.asmx".into(),
         headers: vec![(
             "Content-Type".into(),
@@ -620,8 +622,8 @@ fn sandbox_environment_refuses_a_transport_that_reaches_the_network() {
     assert!(matches!(resultado, Err(NfeError::Configuracao(_))));
 
     let externo = ravenrs_nfe::RsaSigner::from_pem(
-        include_str!("../fixtures/laboratorio/externo-cert.pem"),
-        include_str!("../fixtures/laboratorio/externo-key.pem"),
+        include_str!("../../ravenrs-dfe/fixtures/laboratorio/externo-cert.pem"),
+        include_str!("../../ravenrs-dfe/fixtures/laboratorio/externo-key.pem"),
     )
     .expect("signer");
     let homologacao = Emissor::builder(BetaAck::i_understand_this_is_experimental())

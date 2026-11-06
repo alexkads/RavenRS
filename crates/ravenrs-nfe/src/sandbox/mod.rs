@@ -49,7 +49,8 @@ pub mod analise;
 pub mod autopsia;
 pub mod catalogo;
 pub mod cenarios;
-pub mod certificado_x509;
+pub use ravenrs_dfe::certificado_x509;
+use ravenrs_dfe::{Cadeia, DfeError};
 pub mod certificados;
 pub mod compras;
 mod conferencia;
@@ -58,7 +59,7 @@ pub mod gravacao;
 pub mod incidente;
 pub mod mascara;
 mod resposta;
-pub mod tempo;
+pub use ravenrs_dfe::tempo;
 pub mod vigencia;
 
 pub use analise::{Analise, Diagnostico, Opcoes, analisar, diagnosticar};
@@ -93,12 +94,12 @@ pub struct SandboxSigner(CertificadoGerado);
 impl SandboxSigner {
     /// The certificate that fits any issuer.
     pub fn new() -> Result<Self, NfeError> {
-        certificados::certificado_curinga().map(Self)
+        certificados::certificado_curinga().map(Self).map_err(NfeError::from)
     }
 
     /// A certificate with this company's CNPJ.
     pub fn para(razao_social: &str, cnpj: &str) -> Result<Self, NfeError> {
-        GeradorCertificado::novo(razao_social, cnpj).emitir().map(Self)
+        GeradorCertificado::novo(razao_social, cnpj).emitir().map(Self).map_err(NfeError::from)
     }
 }
 
@@ -107,11 +108,11 @@ impl Signer for SandboxSigner {
         self.0.der()
     }
 
-    fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, NfeError> {
+    fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, DfeError> {
         self.0.sign_rsa_sha1(message)
     }
 
-    fn sign_rsa(&self, hash: HashAssinatura, message: &[u8]) -> Result<Vec<u8>, NfeError> {
+    fn sign_rsa(&self, hash: HashAssinatura, message: &[u8]) -> Result<Vec<u8>, DfeError> {
         self.0.sign_rsa(hash, message)
     }
 }
@@ -245,28 +246,10 @@ pub fn post(
     handler(Alvo::Url(trecho_url.into()), f)
 }
 
-/// What to do with a request nothing answers, like `onUnhandledRequest` in MSW.
-#[derive(Clone)]
-pub enum OnUnhandled {
-    /// Fails it with [`TransportError::NaoTratado`]. The default.
-    Error,
-    /// Records it in [`SefazSandbox::warnings`] and answers a SOAP fault with HTTP 404.
-    ///
-    /// Unlike MSW, a warning never goes to the network: only `Passthrough` does that.
-    Warn,
-    /// Sends it through this transport. This is the only way a request can leave the sandbox.
-    Passthrough(Arc<dyn Transport>),
-}
-
-impl std::fmt::Debug for OnUnhandled {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::Error => "Error",
-            Self::Warn => "Warn",
-            Self::Passthrough(_) => "Passthrough",
-        })
-    }
-}
+/// What to do with a request nothing answers, like `onUnhandledRequest` in MSW. Shared with the
+/// other sandboxes; here `Warn` records it in [`SefazSandbox::warnings`] and answers a SOAP fault
+/// with HTTP 404.
+pub use ravenrs_dfe::OnUnhandled;
 
 /// A request the sandbox received, and what became of it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -312,15 +295,8 @@ pub struct PassoFiscal {
     pub diagnosticos: Vec<Diagnostico>,
 }
 
-struct EntradaHandler {
-    handler: Handler,
-    once: bool,
-    id: u64,
-}
-
 struct Estado {
-    iniciais: Vec<Handler>,
-    handlers: Vec<EntradaHandler>,
+    handlers: Cadeia<Handler>,
     on_unhandled: OnUnhandled,
     pedidos: Vec<RegistroPedido>,
     avisos: Vec<String>,
@@ -333,24 +309,9 @@ struct Estado {
     falhas: Vec<RegraDeFalha>,
     ancoras: Vec<Vec<u8>>,
     revogados: Vec<String>,
-    proximo_id: u64,
 }
 
 impl Estado {
-    fn adicionar(&mut self, handler: Handler, once: bool) {
-        let id = self.proximo_id;
-        self.proximo_id += 1;
-        self.handlers.push(EntradaHandler { handler, once, id });
-    }
-
-    fn restaurar(&mut self) {
-        self.handlers.clear();
-        let iniciais = self.iniciais.clone();
-        for handler in iniciais {
-            self.adicionar(handler, false);
-        }
-    }
-
     fn agora(&self) -> Option<Instante> {
         if !self.tem_relogio {
             return None;
@@ -399,9 +360,8 @@ impl SefazSandbox {
 
     fn construir(conferir: bool, iniciais: Vec<Handler>) -> Self {
         let ancoras = AcTeste::padrao().map(|ac| vec![ac.spki().to_vec()]).unwrap_or_default();
-        let mut estado = Estado {
-            iniciais,
-            handlers: Vec::new(),
+        let estado = Estado {
+            handlers: Cadeia::com_iniciais(iniciais),
             on_unhandled: OnUnhandled::Error,
             pedidos: Vec::new(),
             avisos: Vec::new(),
@@ -414,9 +374,7 @@ impl SefazSandbox {
             falhas: Vec::new(),
             ancoras,
             revogados: vec![certificados::serial_revogado_padrao()],
-            proximo_id: 0,
         };
-        estado.restaurar();
         Self { estado: Arc::new(Mutex::new(estado)), protocolos: Arc::new(AtomicU64::new(1)) }
     }
 
@@ -472,18 +430,18 @@ impl SefazSandbox {
 
     /// Adds a handler that wins over the older ones, like `server.use`.
     pub fn use_handler(&self, handler: Handler) {
-        self.lock().adicionar(handler, false);
+        self.lock().handlers.adicionar(handler, false);
     }
 
     /// Adds a handler that answers once and goes away.
     pub fn use_once(&self, handler: Handler) {
-        self.lock().adicionar(handler, true);
+        self.lock().handlers.adicionar(handler, true);
     }
 
     /// Goes back to the initial handlers. What was already issued stays, and injected failures go.
     pub fn reset_handlers(&self) {
         let mut estado = self.lock();
-        estado.restaurar();
+        estado.handlers.restaurar();
         estado.falhas.clear();
     }
 
@@ -611,24 +569,11 @@ impl SefazSandbox {
     ///
     /// Handlers run with the lock released, so one can call back into the sandbox.
     fn rodar_handlers(&self, pedido: &SandboxRequest) -> Option<Resposta> {
-        let candidatos: Vec<(u64, bool, Handler)> = {
-            let estado = self.lock();
-            estado
-                .handlers
-                .iter()
-                .rev()
-                .filter(|entrada| entrada.handler.atende(pedido))
-                .map(|entrada| (entrada.id, entrada.once, entrada.handler.clone()))
-                .collect()
-        };
+        let candidatos = self.lock().handlers.candidatos(|handler| handler.atende(pedido));
         for (id, once, handler) in candidatos {
-            if once {
-                let mut estado = self.lock();
-                let Some(posicao) = estado.handlers.iter().position(|e| e.id == id) else {
-                    // Another thread used it first.
-                    continue;
-                };
-                estado.handlers.remove(posicao);
+            // Another thread may have used it first.
+            if once && !self.lock().handlers.consumir(id) {
+                continue;
             }
             let resposta = (handler.responder)(pedido);
             if !matches!(resposta, Resposta::Proximo) {

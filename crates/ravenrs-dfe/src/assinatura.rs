@@ -12,7 +12,7 @@ use rsa::{Pkcs1v15Sign, RsaPrivateKey, RsaPublicKey};
 use sha1::{Digest, Sha1};
 
 use crate::c14n::{canonicalize_by_id, canonicalize_by_name};
-use crate::error::NfeError;
+use crate::erro::DfeError;
 use crate::xml::{self, Element, escape_attr};
 
 const DSIG_NS: &str = "http://www.w3.org/2000/09/xmldsig#";
@@ -20,6 +20,8 @@ const C14N_ALG: &str = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
 const RSA_SHA1_ALG: &str = "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
 const ENVELOPED_ALG: &str = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
 const SHA1_ALG: &str = "http://www.w3.org/2000/09/xmldsig#sha1";
+const RSA_SHA256_ALG: &str = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+const SHA256_ALG: &str = "http://www.w3.org/2001/04/xmlenc#sha256";
 
 /// Whatever holds a signing key. The default is [`RsaSigner`]; a token reader could be another.
 pub trait Signer: Send + Sync {
@@ -27,22 +29,22 @@ pub trait Signer: Send + Sync {
     fn certificate_der(&self) -> &[u8];
 
     /// Signs `message` with RSA PKCS#1 v1.5 over SHA-1.
-    fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, NfeError>;
+    fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, DfeError>;
 
     /// Signs `message` with RSA PKCS#1 v1.5 over this hash. The NF-e only uses SHA-1; SHA-256 is
     /// here for the NFS-e, and a signer that does not offer it says so.
-    fn sign_rsa(&self, hash: HashAssinatura, message: &[u8]) -> Result<Vec<u8>, NfeError> {
+    fn sign_rsa(&self, hash: HashAssinatura, message: &[u8]) -> Result<Vec<u8>, DfeError> {
         match hash {
             HashAssinatura::Sha1 => self.sign_rsa_sha1(message),
             HashAssinatura::Sha256 => {
-                Err(NfeError::Assinatura("este assinador não oferece SHA-256".to_string()))
+                Err(DfeError::Assinatura("este assinador não oferece SHA-256".to_string()))
             }
         }
     }
 }
 
 /// The hash under a signature.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum HashAssinatura {
     /// SHA-1, which is what the NF-e layout asks.
     Sha1,
@@ -50,19 +52,75 @@ pub enum HashAssinatura {
     Sha256,
 }
 
-/// Signs with RSA PKCS#1 v1.5 over this hash.
-pub(crate) fn assinar_rsa(
+impl HashAssinatura {
+    /// The `SignatureMethod` of RSA over this hash.
+    #[must_use]
+    pub const fn uri_assinatura(self) -> &'static str {
+        match self {
+            Self::Sha1 => RSA_SHA1_ALG,
+            Self::Sha256 => RSA_SHA256_ALG,
+        }
+    }
+
+    /// The `DigestMethod` of this hash.
+    #[must_use]
+    pub const fn uri_resumo(self) -> &'static str {
+        match self {
+            Self::Sha1 => SHA1_ALG,
+            Self::Sha256 => SHA256_ALG,
+        }
+    }
+
+    /// The hash whose `SignatureMethod` is this one.
+    #[must_use]
+    pub fn de_uri_assinatura(uri: &str) -> Option<Self> {
+        [Self::Sha1, Self::Sha256].into_iter().find(|hash| hash.uri_assinatura() == uri)
+    }
+
+    /// The hash whose `DigestMethod` is this one.
+    #[must_use]
+    pub fn de_uri_resumo(uri: &str) -> Option<Self> {
+        [Self::Sha1, Self::Sha256].into_iter().find(|hash| hash.uri_resumo() == uri)
+    }
+
+    /// The digest of these bytes.
+    #[must_use]
+    pub fn resumir(self, bytes: &[u8]) -> Vec<u8> {
+        match self {
+            Self::Sha1 => Sha1::digest(bytes).to_vec(),
+            Self::Sha256 => rsa::sha2::Sha256::digest(bytes).to_vec(),
+        }
+    }
+}
+
+/// How an enveloped signature is made: always inclusive C14N, with this hash in the reference and
+/// under RSA. The NF-e uses [`Algoritmo::NFE`]; the NFS-e is not settled yet, so it chooses.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Algoritmo {
+    /// The hash of the digest and of the signature.
+    pub hash: HashAssinatura,
+}
+
+impl Algoritmo {
+    /// What the NF-e layout asks: RSA-SHA1 and SHA-1.
+    pub const NFE: Self = Self { hash: HashAssinatura::Sha1 };
+    /// RSA-SHA256 and SHA-256.
+    pub const SHA256: Self = Self { hash: HashAssinatura::Sha256 };
+}
+
+/// Signs with RSA PKCS#1 v1.5 over this hash, with a key in memory.
+pub fn assinar_rsa(
     chave: &RsaPrivateKey,
     hash: HashAssinatura,
     mensagem: &[u8],
-) -> Result<Vec<u8>, NfeError> {
+) -> Result<Vec<u8>, DfeError> {
     let assinatura = match hash {
         HashAssinatura::Sha1 => chave.sign(Pkcs1v15Sign::new::<Sha1>(), &Sha1::digest(mensagem)),
         HashAssinatura::Sha256 => {
             chave.sign(Pkcs1v15Sign::new::<rsa::sha2::Sha256>(), &rsa::sha2::Sha256::digest(mensagem))
         }
     };
-    assinatura.map_err(|erro| NfeError::Assinatura(erro.to_string()))
+    assinatura.map_err(|erro| DfeError::Assinatura(erro.to_string()))
 }
 
 /// A signer with an RSA key in memory.
@@ -80,16 +138,16 @@ impl fmt::Debug for RsaSigner {
 
 impl RsaSigner {
     /// A signer from a certificate in DER and a PKCS#8 key in DER.
-    pub fn from_der(certificate: Vec<u8>, key_pkcs8: &[u8]) -> Result<Self, NfeError> {
+    pub fn from_der(certificate: Vec<u8>, key_pkcs8: &[u8]) -> Result<Self, DfeError> {
         let key = RsaPrivateKey::from_pkcs8_der(key_pkcs8)
-            .map_err(|erro| NfeError::Assinatura(format!("chave privada: {erro}")))?;
+            .map_err(|erro| DfeError::Assinatura(format!("chave privada: {erro}")))?;
         Ok(Self { key, certificate })
     }
 
     /// A signer from a certificate and a PKCS#8 key, both in PEM.
-    pub fn from_pem(certificate: &str, key_pkcs8: &str) -> Result<Self, NfeError> {
+    pub fn from_pem(certificate: &str, key_pkcs8: &str) -> Result<Self, DfeError> {
         let key = RsaPrivateKey::from_pkcs8_pem(key_pkcs8)
-            .map_err(|erro| NfeError::Assinatura(format!("chave privada: {erro}")))?;
+            .map_err(|erro| DfeError::Assinatura(format!("chave privada: {erro}")))?;
         Ok(Self { key, certificate: pem_certificate(certificate)? })
     }
 }
@@ -99,36 +157,49 @@ impl Signer for RsaSigner {
         &self.certificate
     }
 
-    fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, NfeError> {
+    fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, DfeError> {
         assinar_rsa(&self.key, HashAssinatura::Sha1, message)
     }
 
-    fn sign_rsa(&self, hash: HashAssinatura, message: &[u8]) -> Result<Vec<u8>, NfeError> {
+    fn sign_rsa(&self, hash: HashAssinatura, message: &[u8]) -> Result<Vec<u8>, DfeError> {
         assinar_rsa(&self.key, hash, message)
     }
 }
 
 /// Reads the first certificate out of a PEM text.
-pub fn pem_certificate(pem: &str) -> Result<Vec<u8>, NfeError> {
+pub fn pem_certificate(pem: &str) -> Result<Vec<u8>, DfeError> {
     const BEGIN: &str = "-----BEGIN CERTIFICATE-----";
     const END: &str = "-----END CERTIFICATE-----";
-    let erro = || NfeError::Assinatura("certificado PEM não encontrado".to_string());
+    let erro = || DfeError::Assinatura("certificado PEM não encontrado".to_string());
     let start = pem.find(BEGIN).ok_or_else(erro)? + BEGIN.len();
     let end = pem[start..].find(END).ok_or_else(erro)? + start;
     let body: String = pem[start..end].split_whitespace().collect();
-    STANDARD.decode(body).map_err(|e| NfeError::Assinatura(format!("certificado PEM: {e}")))
+    STANDARD.decode(body).map_err(|e| DfeError::Assinatura(format!("certificado PEM: {e}")))
 }
 
-/// Signs the element with this `Id` and places `Signature` as the last child of `parent`.
+/// Signs the element with this `Id` and places `Signature` as the last child of `parent`, the way
+/// the NF-e asks ([`Algoritmo::NFE`]).
 pub fn sign_enveloped(
     xml_text: &str,
     parent: &str,
     id: &str,
     signer: &dyn Signer,
-) -> Result<String, NfeError> {
+) -> Result<String, DfeError> {
+    assinar_envelopado(xml_text, parent, id, signer, Algoritmo::NFE)
+}
+
+/// Signs the element with this `Id` and places `Signature` as the last child of `parent`, with
+/// this algorithm.
+pub fn assinar_envelopado(
+    xml_text: &str,
+    parent: &str,
+    id: &str,
+    signer: &dyn Signer,
+    algoritmo: Algoritmo,
+) -> Result<String, DfeError> {
     let root = xml::parse(xml_text)?;
     let canonical = canonicalize_by_id(&root, id, true)?;
-    let digest = STANDARD.encode(Sha1::digest(canonical.as_bytes()));
+    let digest = STANDARD.encode(algoritmo.hash.resumir(canonical.as_bytes()));
     let certificate = STANDARD.encode(signer.certificate_der());
 
     let signed_info = format!(
@@ -147,17 +218,17 @@ pub fn sign_enveloped(
             "</SignedInfo>",
         ),
         c14n = C14N_ALG,
-        rsa = RSA_SHA1_ALG,
+        rsa = algoritmo.hash.uri_assinatura(),
         id = escape_attr(id),
         enveloped = ENVELOPED_ALG,
-        sha1 = SHA1_ALG,
+        sha1 = algoritmo.hash.uri_resumo(),
         digest = digest,
     );
 
     let closing = format!("</{parent}>");
     let position = xml_text
         .rfind(&closing)
-        .ok_or_else(|| NfeError::Assinatura(format!("elemento {parent} não encontrado")))?;
+        .ok_or_else(|| DfeError::Assinatura(format!("elemento {parent} não encontrado")))?;
     let (head, tail) = xml_text.split_at(position);
     let compose = |value: &str| {
         format!(
@@ -168,7 +239,7 @@ pub fn sign_enveloped(
     // SignedInfo is canonicalized in its final place, so it sees the namespaces it will really have.
     let placed = xml::parse(&compose(""))?;
     let canonical_info = canonicalize_by_name(&placed, "SignedInfo")?;
-    let signature = signer.sign_rsa_sha1(canonical_info.as_bytes())?;
+    let signature = signer.sign_rsa(algoritmo.hash, canonical_info.as_bytes())?;
     Ok(compose(&STANDARD.encode(signature)))
 }
 
@@ -181,11 +252,22 @@ pub enum FalhaAssinatura {
     Difere(String),
 }
 
-/// Checks the `Signature` child of `parent` against the certificate inside it.
+/// Checks the `Signature` child of `parent` against the certificate inside it, accepting only what
+/// the NF-e asks ([`Algoritmo::NFE`]).
 ///
 /// `parent` must be the document as sent, with itself as the root of canonicalization.
 /// `id_esperado` is the `Id` the reference has to point at. The trust chain is not looked at.
 pub fn verify_enveloped(parent: &Element, id_esperado: &str) -> Result<(), FalhaAssinatura> {
+    verificar_envelopado(parent, id_esperado, &[HashAssinatura::Sha1]).map(|_| ())
+}
+
+/// Checks the `Signature` child of `parent` with any of these hashes, and says which one it used.
+/// The same hash has to be in the reference and under RSA.
+pub fn verificar_envelopado(
+    parent: &Element,
+    id_esperado: &str,
+    aceitos: &[HashAssinatura],
+) -> Result<HashAssinatura, FalhaAssinatura> {
     let fora = |motivo: &str| FalhaAssinatura::ForaDoPadrao(motivo.to_string());
     let signature = parent.child("Signature").ok_or_else(|| fora("Signature ausente"))?;
     if signature.attr("xmlns") != Some(DSIG_NS) {
@@ -196,9 +278,11 @@ pub fn verify_enveloped(parent: &Element, id_esperado: &str) -> Result<(), Falha
     if algorithm(info.child("CanonicalizationMethod")).as_deref() != Some(C14N_ALG) {
         return Err(fora("CanonicalizationMethod incorreto"));
     }
-    if algorithm(info.child("SignatureMethod")).as_deref() != Some(RSA_SHA1_ALG) {
-        return Err(fora("SignatureMethod incorreto"));
-    }
+    let hash = algorithm(info.child("SignatureMethod"))
+        .as_deref()
+        .and_then(HashAssinatura::de_uri_assinatura)
+        .filter(|hash| aceitos.contains(hash))
+        .ok_or_else(|| fora("SignatureMethod incorreto"))?;
     let references: Vec<&Element> = info.elements().filter(|e| e.local_name() == "Reference").collect();
     let [reference] = references.as_slice() else {
         return Err(fora("é preciso exatamente uma Reference"));
@@ -215,7 +299,9 @@ pub fn verify_enveloped(parent: &Element, id_esperado: &str) -> Result<(), Falha
     if transforms != [Some(ENVELOPED_ALG), Some(C14N_ALG)] {
         return Err(fora("Transforms incorretos"));
     }
-    if algorithm(reference.child("DigestMethod")).as_deref() != Some(SHA1_ALG) {
+    if algorithm(reference.child("DigestMethod")).as_deref().and_then(HashAssinatura::de_uri_resumo)
+        != Some(hash)
+    {
         return Err(fora("DigestMethod incorreto"));
     }
     let decode = |element: Option<&Element>, name: &str| -> Result<Vec<u8>, FalhaAssinatura> {
@@ -234,7 +320,7 @@ pub fn verify_enveloped(parent: &Element, id_esperado: &str) -> Result<(), Falha
     )?;
 
     let canonical = canonicalize_by_id(parent, id_esperado, true).map_err(|erro| fora(&erro.to_string()))?;
-    if Sha1::digest(canonical.as_bytes()).as_slice() != digest.as_slice() {
+    if hash.resumir(canonical.as_bytes()) != digest {
         return Err(FalhaAssinatura::Difere("DigestValue não confere".to_string()));
     }
 
@@ -244,26 +330,31 @@ pub fn verify_enveloped(parent: &Element, id_esperado: &str) -> Result<(), Falha
         RsaPublicKey::from_public_key_der(spki).map_err(|_| fora("a chave do certificado não é RSA"))?;
     let canonical_info =
         canonicalize_by_name(parent, "SignedInfo").map_err(|erro| fora(&erro.to_string()))?;
-    let info_digest = Sha1::digest(canonical_info.as_bytes());
-    key.verify(Pkcs1v15Sign::new::<Sha1>(), &info_digest, &signature_value)
-        .map_err(|_| FalhaAssinatura::Difere("SignatureValue não confere".to_string()))
+    let info_digest = hash.resumir(canonical_info.as_bytes());
+    let esquema = match hash {
+        HashAssinatura::Sha1 => Pkcs1v15Sign::new::<Sha1>(),
+        HashAssinatura::Sha256 => Pkcs1v15Sign::new::<rsa::sha2::Sha256>(),
+    };
+    key.verify(esquema, &info_digest, &signature_value)
+        .map_err(|_| FalhaAssinatura::Difere("SignatureValue não confere".to_string()))?;
+    Ok(hash)
 }
 
 /// Finds `subjectPublicKeyInfo` in an X.509 certificate.
 fn subject_public_key_info(certificate: &[u8]) -> Option<&[u8]> {
-    let cert = crate::sandbox::certificado_x509::ler(certificate)?;
-    let tbs = crate::sandbox::certificado_x509::ler(cert.content)?;
-    let first = crate::sandbox::certificado_x509::ler(tbs.content)?;
+    let cert = crate::certificado_x509::ler(certificate)?;
+    let tbs = crate::certificado_x509::ler(cert.content)?;
+    let first = crate::certificado_x509::ler(tbs.content)?;
     let mut rest = first.rest;
     // The optional version comes as [0]; without it the first field was already the serial.
     if first.tag == 0xa0 {
-        rest = crate::sandbox::certificado_x509::ler(rest)?.rest;
+        rest = crate::certificado_x509::ler(rest)?.rest;
     }
     // Signature algorithm, issuer, validity and subject come before the key.
     for _ in 0..4 {
-        rest = crate::sandbox::certificado_x509::ler(rest)?.rest;
+        rest = crate::certificado_x509::ler(rest)?.rest;
     }
-    Some(crate::sandbox::certificado_x509::ler(rest)?.whole)
+    Some(crate::certificado_x509::ler(rest)?.whole)
 }
 
 #[cfg(test)]
@@ -318,6 +409,29 @@ mod tests {
             verify_enveloped(&root, "NFe1"),
             Err(FalhaAssinatura::Difere("SignatureValue não confere".to_string()))
         );
+    }
+
+    #[test]
+    fn sha256_signs_and_verifies_only_where_it_is_accepted() {
+        let doc =
+            "<DPS xmlns=\"http://www.sped.fazenda.gov.br/nfse\"><infDPS Id=\"DPS1\"><a>1</a></infDPS></DPS>";
+        let signed = assinar_envelopado(doc, "DPS", "DPS1", &signer(), Algoritmo::SHA256).expect("signed");
+        assert!(signed.contains(RSA_SHA256_ALG) && signed.contains(SHA256_ALG));
+        let root = xml::parse(&signed).expect("xml");
+        let ambos = [HashAssinatura::Sha1, HashAssinatura::Sha256];
+        assert_eq!(verificar_envelopado(&root, "DPS1", &ambos), Ok(HashAssinatura::Sha256));
+        // The NF-e only takes SHA-1.
+        assert!(matches!(verify_enveloped(&root, "DPS1"), Err(FalhaAssinatura::ForaDoPadrao(_))));
+        let mudado = xml::parse(&signed.replace("<a>1</a>", "<a>2</a>")).expect("xml");
+        assert!(matches!(verificar_envelopado(&mudado, "DPS1", &ambos), Err(FalhaAssinatura::Difere(_))));
+    }
+
+    #[test]
+    fn digest_and_signature_must_use_the_same_hash() {
+        let signed = sign_enveloped(DOC, "NFe", "NFe1", &signer()).expect("signed");
+        let root = xml::parse(&signed.replace(SHA1_ALG, SHA256_ALG)).expect("xml");
+        let ambos = [HashAssinatura::Sha1, HashAssinatura::Sha256];
+        assert!(matches!(verificar_envelopado(&root, "NFe1", &ambos), Err(FalhaAssinatura::ForaDoPadrao(_))));
     }
 
     #[test]

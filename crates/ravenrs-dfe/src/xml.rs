@@ -6,7 +6,7 @@
 use quick_xml::Reader;
 use quick_xml::events::{BytesStart, Event};
 
-use crate::error::NfeError;
+use crate::erro::DfeError;
 
 /// The deepest nesting accepted; no document of this layout comes close.
 const PROFUNDIDADE_MAXIMA: usize = 128;
@@ -184,7 +184,7 @@ fn write_element(out: &mut String, element: &Element) {
 }
 
 /// Reads a whole document.
-pub fn parse_document(xml: &str) -> Result<Document, NfeError> {
+pub fn parse_document(xml: &str) -> Result<Document, DfeError> {
     let xml = xml.strip_prefix('\u{feff}').unwrap_or(xml);
     let mut reader = Reader::from_str(xml);
     let config = reader.config_mut();
@@ -267,15 +267,15 @@ pub fn parse_document(xml: &str) -> Result<Document, NfeError> {
 }
 
 /// Reads a document and keeps only its root element.
-pub fn parse(xml: &str) -> Result<Element, NfeError> {
+pub fn parse(xml: &str) -> Result<Element, DfeError> {
     parse_document(xml).map(|document| document.root)
 }
 
-fn xml_error(motivo: &str) -> NfeError {
-    NfeError::Xml(motivo.to_string())
+fn xml_error(motivo: &str) -> DfeError {
+    DfeError::Xml(motivo.to_string())
 }
 
-fn attach(element: Element, stack: &mut [Element], root: &mut Option<Element>) -> Result<(), NfeError> {
+fn attach(element: Element, stack: &mut [Element], root: &mut Option<Element>) -> Result<(), DfeError> {
     if let Some(parent) = stack.last_mut() {
         parent.children.push(Node::Element(element));
         Ok(())
@@ -288,7 +288,7 @@ fn attach(element: Element, stack: &mut [Element], root: &mut Option<Element>) -
 }
 
 /// Adds text from the document; outside the root it may only be blank.
-fn push_text(stack: &mut [Element], text: &str, _after_root: bool) -> Result<(), NfeError> {
+fn push_text(stack: &mut [Element], text: &str, _after_root: bool) -> Result<(), DfeError> {
     if stack.is_empty() {
         if text.chars().all(|c| matches!(c, ' ' | '\t' | '\n' | '\r')) {
             return Ok(());
@@ -298,7 +298,7 @@ fn push_text(stack: &mut [Element], text: &str, _after_root: bool) -> Result<(),
     push_nonblank(stack, text)
 }
 
-fn push_nonblank(stack: &mut [Element], text: &str) -> Result<(), NfeError> {
+fn push_nonblank(stack: &mut [Element], text: &str) -> Result<(), DfeError> {
     let Some(parent) = stack.last_mut() else {
         return Err(xml_error("referência fora do elemento raiz"));
     };
@@ -310,7 +310,7 @@ fn push_nonblank(stack: &mut [Element], text: &str) -> Result<(), NfeError> {
     Ok(())
 }
 
-fn start_element(start: &BytesStart<'_>) -> Result<Element, NfeError> {
+fn start_element(start: &BytesStart<'_>) -> Result<Element, DfeError> {
     let name =
         std::str::from_utf8(start.name().as_ref()).map_err(|erro| xml_error(&erro.to_string()))?.to_string();
     let mut attrs = Vec::new();
@@ -331,7 +331,7 @@ fn normalize_lines(text: &str) -> String {
 }
 
 /// Resolves an attribute value: literal white space becomes a space, references do not.
-fn attr_value(raw: &str) -> Result<String, NfeError> {
+fn attr_value(raw: &str) -> Result<String, DfeError> {
     let normalized = normalize_lines(raw);
     let mut out = String::with_capacity(normalized.len());
     let mut rest = normalized.as_str();
@@ -365,7 +365,7 @@ fn attr_value(raw: &str) -> Result<String, NfeError> {
     Ok(out)
 }
 
-fn predefined(name: &str) -> Result<char, NfeError> {
+fn predefined(name: &str) -> Result<char, DfeError> {
     match name {
         "amp" => Ok('&'),
         "lt" => Ok('<'),

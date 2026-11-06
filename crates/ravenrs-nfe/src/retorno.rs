@@ -421,15 +421,9 @@ impl LoteDfe {
     }
 }
 
-/// The largest size a decompressed document may reach. A gzip bomb stops here.
-const LIMITE_DOCUMENTO: u64 = 20 * 1024 * 1024;
-
-/// Reads the distribution return, decompressing each document with a limit.
+/// Reads the distribution return, decompressing each document with the limit of
+/// [`ravenrs_dfe::compactacao::LIMITE_DOCUMENTO`], so a gzip bomb stops there.
 pub fn ler_distribuicao(resposta: &HttpResponse) -> Result<LoteDfe, NfeError> {
-    use std::io::Read;
-
-    use base64::Engine;
-
     let element = corpo(resposta, "retDistDFeInt")?;
     let retorno = comum(&element, resposta.status)?;
     let numero = |tag: &str| element.child_text(tag).and_then(|t| t.parse::<u64>().ok()).unwrap_or(0);
@@ -440,18 +434,8 @@ pub fn ler_distribuicao(resposta: &HttpResponse) -> Result<LoteDfe, NfeError> {
                 status: resposta.status,
                 motivo: motivo.to_string(),
             };
-            let texto: String = zip.text().split_whitespace().collect();
-            let bytes = base64::engine::general_purpose::STANDARD
-                .decode(texto)
-                .map_err(|_| invalido("docZip não é base64"))?;
-            let mut xml = String::new();
-            flate2::read::GzDecoder::new(bytes.as_slice())
-                .take(LIMITE_DOCUMENTO + 1)
-                .read_to_string(&mut xml)
-                .map_err(|_| invalido("docZip não é GZip de texto UTF-8"))?;
-            if xml.len() as u64 > LIMITE_DOCUMENTO {
-                return Err(invalido("documento descompactado grande demais"));
-            }
+            let xml = ravenrs_dfe::compactacao::de_gzip_base64(&zip.text())
+                .map_err(|erro| invalido(&format!("docZip: {erro}")))?;
             documentos.push(DocumentoDfe {
                 nsu: zip.attr("NSU").and_then(|n| n.parse().ok()),
                 schema: zip.attr("schema").unwrap_or_default().to_string(),

@@ -18,9 +18,9 @@ use ureq::tls::{Certificate, ClientCert, PemItem, PrivateKey, RootCerts, TlsConf
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::assinatura::{RsaSigner, Signer};
-use crate::error::NfeError;
-use crate::sandbox::certificados::eh_do_laboratorio;
-use crate::transporte::{HttpRequest, HttpResponse, Transport, TransportError};
+use crate::certificado_x509::eh_do_laboratorio;
+use crate::erro::DfeError;
+use crate::transporte::{HttpRequest, HttpResponse, Metodo, Transport, TransportError};
 
 /// The largest response read, far above any return of these services.
 const LIMITE_RESPOSTA: u64 = 10 * 1024 * 1024;
@@ -73,9 +73,9 @@ impl fmt::Debug for CertificadoA1 {
 
 impl CertificadoA1 {
     /// Reads a PFX. A wrong password and a damaged file give the same error text.
-    pub fn from_pfx(pfx: &[u8], senha: &SenhaA1) -> Result<Self, NfeError> {
+    pub fn from_pfx(pfx: &[u8], senha: &SenhaA1) -> Result<Self, DfeError> {
         let erro =
-            || NfeError::Assinatura("não foi possível abrir o PFX: senha ou arquivo inválido".to_string());
+            || DfeError::Assinatura("não foi possível abrir o PFX: senha ou arquivo inválido".to_string());
         let cofre = KeyStore::from_pkcs12(pfx, &senha.0, Pkcs12ImportPolicy::Strict).map_err(|_| erro())?;
         let (_, entrada) = cofre.private_key_chain().ok_or_else(erro)?;
         let cadeia: Vec<Vec<u8>> =
@@ -92,7 +92,7 @@ impl Signer for CertificadoA1 {
         self.signer.certificate_der()
     }
 
-    fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, NfeError> {
+    fn sign_rsa_sha1(&self, message: &[u8]) -> Result<Vec<u8>, DfeError> {
         self.signer.sign_rsa_sha1(message)
     }
 }
@@ -114,9 +114,9 @@ impl HttpTransportBuilder<'_> {
     }
 
     /// Sets the trusted roots, from a PEM file.
-    pub fn raizes_pem_arquivo(mut self, caminho: &Path) -> Result<Self, NfeError> {
+    pub fn raizes_pem_arquivo(mut self, caminho: &Path) -> Result<Self, DfeError> {
         let pem = std::fs::read(caminho).map_err(|erro| {
-            NfeError::Configuracao(format!("não foi possível ler {}: {erro}", caminho.display()))
+            DfeError::Configuracao(format!("não foi possível ler {}: {erro}", caminho.display()))
         })?;
         self.raizes = Some(pem);
         Ok(self)
@@ -130,26 +130,26 @@ impl HttpTransportBuilder<'_> {
     }
 
     /// Finishes the transport. Having no root is an error: nothing here trusts by default.
-    pub fn build(self) -> Result<HttpTransport, NfeError> {
+    pub fn build(self) -> Result<HttpTransport, DfeError> {
         if self.certificado.cadeia.iter().any(|der| eh_do_laboratorio(der)) {
-            return Err(NfeError::Configuracao(
+            return Err(DfeError::Configuracao(
                 "este certificado foi gerado pelo sandbox e não vale fora do laboratório: use um certificado ICP-Brasil real"
                     .to_string(),
             ));
         }
         let pem = self.raizes.ok_or_else(|| {
-            NfeError::Configuracao("informe as raízes confiáveis (cadeia ICP-Brasil)".to_string())
+            DfeError::Configuracao("informe as raízes confiáveis (cadeia ICP-Brasil)".to_string())
         })?;
         let mut raizes = Vec::new();
         for item in ureq::tls::parse_pem(&pem) {
             let item =
-                item.map_err(|erro| NfeError::Configuracao(format!("arquivo de raízes inválido: {erro}")))?;
+                item.map_err(|erro| DfeError::Configuracao(format!("arquivo de raízes inválido: {erro}")))?;
             if let PemItem::Certificate(certificado) = item {
                 raizes.push(certificado);
             }
         }
         if raizes.is_empty() {
-            return Err(NfeError::Configuracao("o arquivo de raízes não tem certificados".to_string()));
+            return Err(DfeError::Configuracao("o arquivo de raízes não tem certificados".to_string()));
         }
         let cadeia: Vec<Certificate<'static>> =
             self.certificado.cadeia.iter().map(|der| Certificate::from_der(der).to_owned()).collect();
@@ -159,7 +159,7 @@ impl HttpTransportBuilder<'_> {
             Zeroizing::new(STANDARD.encode(self.certificado.chave.as_slice())).as_str()
         ));
         let chave = PrivateKey::from_pem(pem_chave.as_bytes())
-            .map_err(|_| NfeError::Assinatura("chave do PFX ilegível".to_string()))?;
+            .map_err(|_| DfeError::Assinatura("chave do PFX ilegível".to_string()))?;
         let tls = TlsConfig::builder()
             .provider(TlsProvider::Rustls)
             .client_cert(Some(ClientCert::new_with_certs(&cadeia, chave)))
@@ -217,11 +217,27 @@ fn mapear_erro(erro: ureq::Error) -> TransportError {
 
 impl Transport for HttpTransport {
     fn send(&self, request: &HttpRequest) -> Result<HttpResponse, TransportError> {
-        let mut pedido = self.agent.post(&request.url);
-        for (nome, valor) in &request.headers {
-            pedido = pedido.header(nome.as_str(), valor.as_str());
+        let mut resposta = match request.metodo {
+            Metodo::Post => {
+                let mut pedido = self.agent.post(&request.url);
+                for (nome, valor) in &request.headers {
+                    pedido = pedido.header(nome.as_str(), valor.as_str());
+                }
+                pedido.send(request.body.as_slice())
+            }
+            Metodo::Get | Metodo::Head => {
+                let mut pedido = if request.metodo == Metodo::Get {
+                    self.agent.get(&request.url)
+                } else {
+                    self.agent.head(&request.url)
+                };
+                for (nome, valor) in &request.headers {
+                    pedido = pedido.header(nome.as_str(), valor.as_str());
+                }
+                pedido.call()
+            }
         }
-        let mut resposta = pedido.send(request.body.as_slice()).map_err(mapear_erro)?;
+        .map_err(mapear_erro)?;
         let status = resposta.status().as_u16();
         let headers: Vec<(String, String)> = resposta
             .headers()

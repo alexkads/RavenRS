@@ -72,8 +72,15 @@ impl Signer for SharedSigner {
     fn certificate_der(&self) -> &[u8] {
         self.0.certificate_der()
     }
-    fn sign_rsa_sha1(&self, data: &[u8]) -> Result<Vec<u8>, NfeError> {
+    fn sign_rsa_sha1(&self, data: &[u8]) -> Result<Vec<u8>, ravenrs_nfe::DfeError> {
         self.0.sign_rsa_sha1(data)
+    }
+    fn sign_rsa(
+        &self,
+        hash: ravenrs_nfe::HashAssinatura,
+        data: &[u8],
+    ) -> Result<Vec<u8>, ravenrs_nfe::DfeError> {
+        self.0.sign_rsa(hash, data)
     }
 }
 

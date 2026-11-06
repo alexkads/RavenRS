@@ -73,8 +73,6 @@
 //! ```
 
 pub mod ambiente;
-pub mod assinatura;
-pub mod c14n;
 pub mod chave;
 pub mod documento;
 mod emissor;
@@ -85,12 +83,14 @@ pub mod retorno;
 pub mod sandbox;
 pub mod soap;
 pub mod totais;
-pub mod transporte;
 pub mod urls;
-pub mod xml;
 
+// The pieces every fiscal document shares live in `ravenrs-dfe`; they stay reachable from here.
+pub use ravenrs_dfe::{DfeError, assinatura, c14n, transporte, xml};
+
+/// Mutual TLS with an A1 certificate, from `ravenrs-dfe`.
 #[cfg(all(feature = "http", not(target_arch = "wasm32")))]
-pub mod http;
+pub use ravenrs_dfe::http;
 
 pub use ambiente::{Ambiente, BetaAck, Modelo, Origem, Uf};
 pub use assinatura::{FalhaAssinatura, HashAssinatura, RsaSigner, Signer};

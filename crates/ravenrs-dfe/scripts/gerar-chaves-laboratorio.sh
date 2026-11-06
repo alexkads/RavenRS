@@ -1,7 +1,7 @@
 #!/bin/sh
 # Regenerates the RSA keys the sandbox certificate generator uses, and the outside certificate
 # the sandbox must refuse. All of it is public on purpose and has no value: certificates are
-# issued from these keys at run time, by `ravenrs_nfe::sandbox::certificados`.
+# issued from these keys at run time, by `ravenrs_dfe::certificados`.
 # Keys are bundled because generating RSA takes seconds in a debug build, on every test.
 # Usage: scripts/gerar-chaves-laboratorio.sh [path to an OpenSSL 3 binary]
 set -eu
