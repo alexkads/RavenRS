@@ -94,7 +94,7 @@ When it opens and every hour after that, the app reads `novidades.json` from mas
 
 The training films are in `assets/treinamentos/`, recorded from the app itself: six films, about 16 minutes and 700 KB in all, since a film stores no pixels and no sound. After screens change, a test fails if a script no longer fits, and `FF_RECORD_TRAINING=1 cargo test -p family-finance --test training` records them again.
 
-**To release**, make one commit with three changes: `version` in `Cargo.toml`, `novidades.json`, and the same entry with its `data` on top of `historico-de-novidades.json`. A test holds them together. Make it the last commit of the release: anyone who compiled 0.1.N will not compile another 0.1.N.
+**To release**, make one commit with three changes: `version` in `Cargo.toml`, `novidades.json`, and the same entry with its `data` on top of `historico-de-novidades.json`. Each entry names who made the version in `contribuidores`, one name per person, as in the git log since the previous version; the news shows them under **Quem contribuiu**. A test holds them together. Make it the last commit of the release: anyone who compiled 0.1.N will not compile another 0.1.N.
 
 Updates come over HTTPS from this repository, with no signature of their own.
 

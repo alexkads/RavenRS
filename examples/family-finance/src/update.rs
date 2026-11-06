@@ -13,7 +13,8 @@
 //! | the app checks the version of the installed binary | the status bar says so; the open app goes on |
 //!
 //! Releasing is one commit: the `version` in `Cargo.toml`, `novidades.json` and
-//! the same entry on top of `historico-de-novidades.json`. Tests hold the three together.
+//! the same entry on top of `historico-de-novidades.json`, with `contribuidores`
+//! naming who made it. Tests hold the three together.
 //!
 //! The installer is saved to a file and never piped into a shell: a failed
 //! `curl | sh` hands `sh` an empty script, which exits successfully having done nothing.
@@ -88,6 +89,9 @@ pub struct News {
     pub novidades: Vec<String>,
     /// Why it is worth updating now.
     pub por_que_atualizar: String,
+    /// Who made this version, by name. Older copies ignore it.
+    #[serde(default)]
+    pub contribuidores: Vec<String>,
 }
 
 /// Reads `novidades.json`. A broken one is no news: better silent than a blank announcement.
@@ -847,6 +851,7 @@ mod tests {
             importante: false,
             novidades: vec![],
             por_que_atualizar: "Porque sim".to_owned(),
+            contribuidores: Vec::new(),
         }
     }
 
@@ -863,6 +868,10 @@ mod tests {
     fn the_three_release_files_agree() {
         let news = parse_news(include_str!("../novidades.json")).unwrap_or_else(|| panic!("novidades.json"));
         assert_eq!(news.versao, CURRENT, "raise novidades.json together with Cargo.toml");
+        assert!(
+            !news.contribuidores.is_empty() && news.contribuidores.iter().all(|name| !name.trim().is_empty()),
+            "novidades.json names who made the version in contribuidores"
+        );
         let history = history();
         let top = history.first().unwrap_or_else(|| panic!("empty history"));
         assert!(top.data.is_some(), "the history records the day");
