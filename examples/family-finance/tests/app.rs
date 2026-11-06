@@ -290,6 +290,7 @@ fn news_of(version: &str) -> News {
         importante: false,
         novidades: vec!["Anexar boleto".to_owned()],
         por_que_atualizar: "Para não perder o papel.".to_owned(),
+        contribuidores: Vec::new(),
     }
 }
 

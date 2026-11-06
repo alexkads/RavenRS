@@ -4,9 +4,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.15] - 2026-11-06
+
 ### Breaking
 
-- `ThemeSwitcher` is `Clone` but no longer `Copy`, since it can hold a callback.
+- `ThemeSwitcher` is `Clone` but no longer `Copy`, `Send` or `Sync`, since it can hold a callback. Like every other view, build it on the UI thread.
 
 ### Added
 
