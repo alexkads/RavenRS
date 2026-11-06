@@ -1,10 +1,15 @@
 {
-  "versao": "0.1.30",
-  "titulo": "Cores novas, em verde-limão.",
+  "versao": "0.1.31",
+  "titulo": "Comprovantes pelo Telegram.",
   "importante": false,
   "novidades": [
-    "O tema claro agora é o padrão, com tons de verde-limão.",
-    "O tema escuro ficou mais vivo: grafite no lugar do quase preto, com destaques em limão."
+    "Mande um comprovante em PDF para o seu bot do Telegram, responda se é despesa ou receita e a categoria, e o lançamento é criado.",
+    "Para ligar, abra Ajustes, cole o token do bot criado no @BotFather, escolha a conta e escaneie o QR com o celular.",
+    "O tema escolhido em Ajustes continua o mesmo quando você abre o app de novo."
   ],
-  "por_que_atualizar": "Para usar o app com cores mais alegres, nos dois temas."
+  "por_que_atualizar": "Para lançar despesas e receitas direto do celular, sem digitar o valor.",
+  "contribuidores": [
+    "Matheus Braga de Carvalho",
+    "Alex S S Fonseca"
+  ]
 }
