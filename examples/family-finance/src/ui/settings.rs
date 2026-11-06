@@ -192,6 +192,8 @@ pub(crate) fn settings(
     news: &updates::NewsDialog,
     page: &State<usize>,
     telegram_link: &State<Option<String>>,
+    telegram_token: &State<String>,
+    telegram_token_saved: &State<bool>,
     models: Option<ravenrs_ai::ModelManager>,
     voices: Option<ravenrs_ai::VoiceManager>,
     window: Size,
@@ -385,6 +387,9 @@ pub(crate) fn settings(
     let linked = store.read(|db| db.has_telegram_pairing());
     let (pair_store, revoke_store, pairing, revoke_link) =
         (store.clone(), store.clone(), telegram_link.clone(), telegram_link.clone());
+    let (token_input, token_typed, save_token, token_store) =
+        (telegram_token.clone(), telegram_token.clone(), telegram_token_saved.clone(), store.clone());
+    let saved = telegram_token_saved.get();
     let shown_link = telegram_link.get();
     let telegram = titled_card(
         "Telegram",
@@ -395,6 +400,41 @@ pub(crate) fn settings(
             )
             .style(TextStyle::Callout)
             .foreground(Semantic::InkMuted),
+            Text::new(
+                "No Telegram, abra @BotFather, envie /newbot e siga as instruções para criar seu bot. Cole aqui o token recebido; ele fica salvo somente neste computador. Depois, conecte e escaneie o QR code.",
+            )
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
+            HStack::new((
+                TextField::new(token_input.binding())
+                    .secure()
+                    .placeholder("Token do bot recebido do BotFather")
+                    .stretch()
+                    .grow(1.0),
+                Button::new("Salvar token")
+                    .icon(IconName::Check)
+                    .size(ButtonSize::Small)
+                    .style(ButtonStyle::Secondary)
+                    .on_click(move || match telegram::save_bot_token(&token_typed.get()) {
+                        Ok(()) => {
+                            token_typed.set(String::new());
+                            save_token.set(true);
+                        }
+                        Err(error) => {
+                            token_store.toasts.show_for(
+                                "Não foi possível salvar o token",
+                                error,
+                                Tone::Danger,
+                                8.0,
+                            );
+                        }
+                    }),
+            ))
+            .spacing(8.0)
+            .align(Align::Center),
+            Text::new(if saved { "Token salvo neste computador." } else { "Informe e salve o token antes de conectar." })
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted),
             Text::new(if linked { "Um chat está conectado." } else { "Nenhum chat conectado." })
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
@@ -407,6 +447,7 @@ pub(crate) fn settings(
                 Button::new(if shown_link.is_some() { "Gerar novo QR" } else { "Conectar Telegram" })
                     .icon(IconName::Link)
                     .size(ButtonSize::Small)
+                    .disabled(!saved)
                     .on_click(move || {
                         let token = telegram::pairing_token();
                         let link = match telegram::pairing_link(&token) {

@@ -2,7 +2,7 @@
 
 use ravenrs::prelude::UiWaker;
 use std::collections::HashMap;
-use std::fs::{File, remove_file};
+use std::fs::{File, OpenOptions, remove_file};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -102,6 +102,34 @@ pub fn token_configured() -> bool {
     bot_token().is_ok()
 }
 
+/// Saves the user's BotFather token privately beside Raven's local data.
+pub fn save_bot_token(token: &str) -> Result<(), String> {
+    let token = token.trim();
+    if token.is_empty() {
+        return Err("cole o token recebido do BotFather".into());
+    }
+    let directory = crate::paths::home();
+    std::fs::create_dir_all(&directory).map_err(|e| format!("não foi possível criar a pasta local: {e}"))?;
+    let path = directory.join("telegram_bot_token");
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        options.mode(0o600);
+        let mut file = options.open(&path).map_err(|e| format!("não foi possível salvar o token: {e}"))?;
+        file.write_all(token.as_bytes()).map_err(|e| format!("não foi possível salvar o token: {e}"))?;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
+            .map_err(|e| format!("não foi possível proteger o token: {e}"))?;
+    }
+    #[cfg(not(unix))]
+    {
+        let mut file = options.open(&path).map_err(|e| format!("não foi possível salvar o token: {e}"))?;
+        file.write_all(token.as_bytes()).map_err(|e| format!("não foi possível salvar o token: {e}"))?;
+    }
+    Ok(())
+}
+
 /// Looks up the bot's public username without exposing its BotFather token to the UI.
 pub fn pairing_link(token: &str) -> Result<String, String> {
     let bot_token = bot_token()?;
@@ -136,6 +164,9 @@ pub fn serve_with_waker(
     let service = Service { config, pending: Mutex::new(HashMap::new()) };
     let mut offset = 0;
     loop {
+        if bot_token().is_ok_and(|token| token != service.config.bot_token) {
+            return Err("token do Telegram alterado; reconectando".into());
+        }
         let updates: Vec<Update> = telegram_call(
             &service,
             "getUpdates",
@@ -169,6 +200,12 @@ pub fn serve_with_waker(
 }
 
 fn bot_token() -> Result<String, String> {
+    if let Some(token) = std::fs::read_to_string(crate::paths::home().join("telegram_bot_token"))
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+    {
+        return Ok(token.trim().to_owned());
+    }
     if let Some(token) = std::env::var("TELEGRAM_BOT_TOKEN").ok().filter(|v| !v.trim().is_empty()) {
         return Ok(token.trim().to_owned());
     }
