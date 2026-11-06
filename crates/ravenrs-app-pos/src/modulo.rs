@@ -19,9 +19,10 @@ use crate::entrada::{Entradas, TelaEntrada, criar_codigo_de_barras};
 use crate::etiquetas::TelaEtiquetas;
 use crate::modelo::{
     PRODUTO, cliente_entity, codigo_entity, configuracao_entity, movimento_entity, produto_entity,
-    vinculo_entity,
+    servico_entity, vinculo_entity,
 };
 use crate::preco::TelaPreco;
+use crate::servico::{Servicos, TelaServico};
 use crate::telas::{TelaCaixa, TelaInicio};
 
 /// The view of the first screen.
@@ -36,6 +37,8 @@ pub const VIEW_ENTRADA: &str = "PosEntrada_DashboardView";
 pub const VIEW_PRECO: &str = "PosPreco_DashboardView";
 /// The view of the devices.
 pub const VIEW_PERIFERICOS: &str = "PosPerifericos_DashboardView";
+/// The view of selling a service.
+pub const VIEW_SERVICO: &str = "PosVendaServico_DashboardView";
 
 fn sessao(cx: &ravenrs_app::ActionContext) -> Result<Session, String> {
     Session::of(cx).ok_or_else(|| "esta ação precisa das telas".to_owned())
@@ -69,8 +72,10 @@ fn perguntar(
 
 /// The window with the rest of what can be done.
 pub(crate) fn abrir_outras_funcoes(session: &Session) {
-    let opcoes: [(&str, &str); 6] = [
+    let opcoes: [(&str, &str); 8] = [
         ("Notas emitidas", "NfeDocumento_ListView"),
+        ("NFS-e emitidas", "NfseDocumento_ListView"),
+        ("Serviços", "PosServico_ListView"),
         ("Emitente", "NfeEmitente_ListView"),
         ("Modelos de cupom e etiqueta", "ReportDefinition_ListView"),
         ("Clientes", "PosCliente_ListView"),
@@ -158,6 +163,7 @@ impl ViewController for NoInicio {
             ir("Pos.Etiquetas", "Etiquetas", "f4", VIEW_ETIQUETAS),
             ir("Pos.Entrada", "Entrada", "f6", VIEW_ENTRADA),
             ir("Pos.Preco", "Preços", "f7", VIEW_PRECO),
+            ir("Pos.Servico", "Vender serviço", "f8", VIEW_SERVICO),
             Action::simple("Pos.Outras", "Outras funções").hotkey("f5").target_view(VIEW_INICIO).on_execute(
                 |cx| {
                     abrir_outras_funcoes(&sessao(cx)?);
@@ -316,6 +322,7 @@ impl Module for PosModule {
     fn entities(&self) -> Vec<ravenrs_app::EntityInfo> {
         vec![
             produto_entity(),
+            servico_entity(),
             cliente_entity(),
             configuracao_entity(),
             vinculo_entity(),
@@ -355,6 +362,7 @@ fn etiqueta_padrao() -> ravenrs_report::Report {
 pub struct Pos {
     caixa: Caixa,
     entradas: Entradas,
+    servicos: Servicos,
     sessao: Rc<std::cell::RefCell<Option<Session>>>,
 }
 
@@ -375,6 +383,7 @@ impl Pos {
         Self {
             caixa: Caixa::new(service).com_tef(tef, simulador),
             entradas: Entradas::default(),
+            servicos: Servicos::default(),
             sessao: Rc::default(),
         }
     }
@@ -387,6 +396,11 @@ impl Pos {
     /// What arrives from suppliers.
     pub fn entradas(&self) -> &Entradas {
         &self.entradas
+    }
+
+    /// The services sold, with an NFS-e.
+    pub fn servicos(&self) -> &Servicos {
+        &self.servicos
     }
 
     /// Its checkout.
@@ -410,6 +424,7 @@ impl Pos {
         }
         let (caixa, palavras) = (self.caixa.clone(), Rc::new(ReportWords::pt_br()));
         let entradas = self.entradas.clone();
+        let servicos = self.servicos.clone();
         let sessao_guardada = self.sessao.clone();
         app.language(Language::BrazilianPortuguese)
             .theme(Theme::raven_light())
@@ -426,10 +441,22 @@ impl Pos {
             .dashboard(
                 DashboardInfo::new("PosPerifericos", "Periféricos").control("Periféricos", "pos.perifericos"),
             )
+            .dashboard(
+                DashboardInfo::new("PosVendaServico", "Serviços").control("Serviços", "pos.servico"),
+            )
             .with_session(move |session| {
                 *sessao_guardada.borrow_mut() = Some(session.clone());
                 for aviso in caixa.recuperar_pagamentos() {
                     session.show_message(Message::new(aviso, MessageKind::Warning));
+                }
+                let sem_resposta = ravenrs_app_nfe::nfses_pendentes(&*session.frame().space().borrow()).len();
+                if sem_resposta > 0 {
+                    session.show_message(Message::new(
+                        format!(
+                            "{sem_resposta} DPS de NFS-e sem resposta certa. Em Vender serviço (F8), envie de novo: vai a mesma DPS."
+                        ),
+                        MessageKind::Warning,
+                    ));
                 }
                 let aqui = session.clone();
                 session.register_control("pos.inicio", move || {
@@ -469,6 +496,19 @@ impl Pos {
                         crate::perifericos::TelaPerifericos {
                             perifericos: perifericos.clone(),
                             session: aqui.clone(),
+                        }
+                        .grow(1.0),
+                    ) as AnyView
+                });
+                let (aqui, servicos_aqui, service, palavras_servico) =
+                    (session.clone(), servicos.clone(), caixa.service.clone(), Rc::new(ReportWords::pt_br()));
+                session.register_control("pos.servico", move || {
+                    Box::new(
+                        TelaServico {
+                            servicos: servicos_aqui.clone(),
+                            service: service.clone(),
+                            session: aqui.clone(),
+                            palavras: palavras_servico.clone(),
                         }
                         .grow(1.0),
                     ) as AnyView

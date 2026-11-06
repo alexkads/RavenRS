@@ -22,6 +22,7 @@ ravenrs-core.workspace = true
 rust_decimal = { version = "1", default-features = false, features = ["std"] }
 ravenrs-nfe.workspace = true
 ravenrs-pagamento.workspace = true
+ravenrs-app-report.workspace = true
 ravenrs-report-label.workspace = true
 ravenrs-report.workspace = true
 ravenrs-style.workspace = true

@@ -561,3 +561,119 @@ fn the_sample_purchase_is_waiting_at_the_sandbox() {
     assert!(b.diz("aguarde até"), "held back");
     assert_eq!(b.pos.caixa().service.sandbox_ativo().expect("a sandbox").requests().len(), enviadas);
 }
+
+/// Waits for the DPS to come back from the sandbox of the Sefin.
+fn aguardar_dps(b: &mut Balcao) {
+    b.pos.sessao().expect("a session").finish_background();
+    b.assentar();
+    assert!(!b.pos.servicos().venda.peek().enviando, "the DPS came back");
+}
+
+fn registros_nfse(b: &Balcao) -> Vec<ravenrs_app::Object> {
+    use ravenrs_app::Query;
+    let space = b.pos.sessao().expect("a session").frame().space();
+    let found = space.borrow().query(ravenrs_app_nfe::NFSE_DOCUMENTO, &Query::all());
+    found.expect("query")
+}
+
+#[test]
+fn a_service_sold_at_the_counter_gets_its_nfse_and_its_danfse() {
+    let mut b = balcao();
+    b.tecla(Key::Function(8));
+    assert!(b.diz("Venda de serviço"), "F8 opens the sale of a service");
+    assert_eq!(b.pos.servicos().venda.peek().valor, "150,00", "the price of the first service");
+    b.clicar("Emitir NFS-e");
+    aguardar_dps(&mut b);
+    let fim = b.pos.servicos().venda.peek().fim.clone().expect("it ended");
+    assert!(fim.autorizada, "{}", fim.motivo);
+    assert_eq!(fim.numero_dps, 1);
+    assert_eq!(fim.chave.len(), 50);
+    assert!(b.diz(&format!("NFS-e {} autorizada", fim.numero_nfse)));
+    let registros = registros_nfse(&b);
+    assert_eq!(registros.len(), 1);
+    assert_eq!(registros[0].get("situacao"), ravenrs_app::Value::Text("Autorizada".to_owned()));
+    let sessao = b.pos.sessao().expect("a session");
+    let danfse =
+        ravenrs_app_nfe::documento_danfse(&sessao, &registros[0], &ravenrs_app_report::ReportWords::pt_br())
+            .expect("a DANFSe");
+    assert_eq!(danfse.pages.len(), 1);
+    assert!(danfse.page_contains(0, "SEM VALIDADE"));
+    b.clicar("Imprimir DANFSe");
+    assert!(b.diz("DANFSe"), "the DANFSe opens on the screen");
+    sessao.close_presented();
+    b.assentar();
+
+    b.clicar("Emitir NFS-e");
+    aguardar_dps(&mut b);
+    let segunda = b.pos.servicos().venda.peek().fim.clone().expect("it ended");
+    assert_eq!(segunda.numero_dps, 2, "the next DPS takes the next number");
+}
+
+#[test]
+fn a_dps_without_an_answer_stays_pending_and_goes_again_with_the_same_number() {
+    use ravenrs_app_nfe::nfse::sandbox::cenarios;
+    let mut b = balcao();
+    let sefin = b.pos.caixa().service.sefin_ativo().expect("a sandbox").clone();
+    sefin.use_once(cenarios::timeout());
+    b.tecla(Key::Function(8));
+    b.clicar("Emitir NFS-e");
+    aguardar_dps(&mut b);
+    let fim = b.pos.servicos().venda.peek().fim.clone().expect("it ended");
+    assert!(fim.pendente && !fim.autorizada, "{fim:?}");
+    assert!(b.diz("DPS 1 pendente"));
+    assert_eq!(sefin.emitidas(), 0, "nothing was made");
+
+    b.clicar("Enviar de novo: DPS 1, R$ 150,00");
+    aguardar_dps(&mut b);
+    let fim = b.pos.servicos().venda.peek().fim.clone().expect("it ended");
+    assert!(fim.autorizada, "{}", fim.motivo);
+    assert_eq!(fim.numero_dps, 1, "the same DPS, never a new number");
+    assert_eq!(registros_nfse(&b).len(), 1);
+}
+
+#[test]
+fn a_lost_answer_is_found_by_the_id_of_the_dps() {
+    use ravenrs_app_nfe::nfse::sandbox::cenarios;
+    let mut b = balcao();
+    let sefin = b.pos.caixa().service.sefin_ativo().expect("a sandbox").clone();
+    sefin.use_once(cenarios::resposta_perdida());
+    b.tecla(Key::Function(8));
+    b.clicar("Emitir NFS-e");
+    aguardar_dps(&mut b);
+    let fim = b.pos.servicos().venda.peek().fim.clone().expect("it ended");
+    assert!(fim.autorizada && fim.recuperada, "{fim:?}");
+    assert_eq!(sefin.emitidas(), 1, "one NFS-e, not two");
+}
+
+#[test]
+fn a_dps_kept_before_the_program_closed_is_pending_when_it_opens_again() {
+    use ravenrs_app_nfe::nfse::sandbox::cenarios;
+    let pasta = std::env::temp_dir().join(format!("mini-pdv-nfse-{}", std::process::id()));
+    std::fs::create_dir_all(&pasta).expect("a folder");
+    let arquivo = pasta.join("pdv.sqlite");
+    let _ = std::fs::remove_file(&arquivo);
+    {
+        let (view, pos) = app_com_pos(Some(&arquivo)).expect("it builds");
+        let mut ui = Ui::new(view, Theme::raven_light());
+        ui.set_viewport(Size::new(1366.0, 768.0), 1.0);
+        let mut b = Balcao { ui, pos };
+        b.assentar();
+        b.pos.caixa().service.sefin_ativo().expect("a sandbox").use_once(cenarios::timeout());
+        b.tecla(Key::Function(8));
+        b.clicar("Emitir NFS-e");
+        aguardar_dps(&mut b);
+    }
+    let (view, pos) = app_com_pos(Some(&arquivo)).expect("it opens again");
+    let mut ui = Ui::new(view, Theme::raven_light());
+    ui.set_viewport(Size::new(1366.0, 768.0), 1.0);
+    let mut b = Balcao { ui, pos };
+    b.assentar();
+    assert!(b.diz("sem resposta certa"), "the window says so when it opens");
+    b.tecla(Key::Function(8));
+    b.clicar("Enviar de novo: DPS 1, R$ 150,00");
+    aguardar_dps(&mut b);
+    let fim = b.pos.servicos().venda.peek().fim.clone().expect("it ended");
+    assert!(fim.autorizada, "{}", fim.motivo);
+    assert_eq!(fim.numero_dps, 1);
+    let _ = std::fs::remove_dir_all(&pasta);
+}

@@ -32,9 +32,10 @@ Tudo funciona sem mouse. As teclas ficam sempre na barra de baixo, e F1 lista as
 | F2 | Lançar vendas |
 | F3 | Produtos |
 | F4 | Etiquetas |
-| F5 | Outras funções: notas emitidas, emitente, modelos de cupom e etiqueta, clientes e configuração |
+| F5 | Outras funções: notas e NFS-e emitidas, serviços, emitente, modelos de cupom e etiqueta, clientes e configuração |
 | F6 | Entrada de mercadoria |
 | F7 | Formação de preço |
+| F8 | Vender serviço, com NFS-e do Padrão Nacional no sandbox da Sefin. Uma DPS sem resposta certa fica pendente e vai de novo igual, com o mesmo número |
 
 ### No caixa
 

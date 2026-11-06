@@ -27,6 +27,7 @@ ravenrs-nfse.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-report.workspace = true
 ravenrs-report-label.workspace = true
+ravenrs-report-viewer.workspace = true
 ravenrs-widgets.workspace = true
 rust_decimal = { version = "1", default-features = false, features = ["std"] }
 serde_json.workspace = true

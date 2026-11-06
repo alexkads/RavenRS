@@ -1,6 +1,6 @@
 # NFS-e Padrão Nacional: pesquisa para o PDV (hoje: 05/11/2026)
 
-> **Situação em 06/11/2026.** O menor escopo da seção 6 virou código: `crates/ravenrs-nfse` (motor e `SefinSandbox`), `crates/ravenrs-dfe` (o crate comum) e a DANFSe A4 em `crates/ravenrs-app-nfe`. O que segue sem confirmação está no README do `ravenrs-nfse`. O caixa ainda não emite NFS-e.
+> **Situação em 06/11/2026.** O menor escopo da seção 6 virou código: `crates/ravenrs-nfse` (motor e `SefinSandbox`), `crates/ravenrs-dfe` (o crate comum) e a DANFSe A4 em `crates/ravenrs-app-nfe`. O que segue sem confirmação está no README do `ravenrs-nfse`. O caixa emite pela tela "Vender serviço" (F8), só contra o sandbox.
 
 **Legenda.** [C] li na fonte. [S] fonte secundária. [L] lembrança não confirmada.
 

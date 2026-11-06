@@ -95,16 +95,19 @@ impl Transport for SharedTransport {
     }
 }
 
-struct Inner {
-    ambiente: Ambiente,
-    signer: Arc<dyn Signer>,
-    transport: Arc<dyn Transport>,
+pub(crate) struct Inner {
+    pub(crate) ambiente: Ambiente,
+    pub(crate) signer: Arc<dyn Signer>,
+    pub(crate) transport: Arc<dyn Transport>,
     sandbox: Option<SefazSandbox>,
+    /// Where the NFS-e goes: the same way out in homologation, its own sandbox otherwise.
+    pub(crate) nfse_transport: Arc<dyn Transport>,
+    pub(crate) sefin: Option<ravenrs_nfse::sandbox::SefinSandbox>,
 }
 
 /// How documents go out. A clone is the same service.
 #[derive(Clone)]
-pub struct NfeService(Rc<Inner>);
+pub struct NfeService(pub(crate) Rc<Inner>);
 
 impl std::fmt::Debug for NfeService {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -116,25 +119,32 @@ impl NfeService {
     /// Everything stays on this computer: nothing reaches the SEFAZ.
     pub fn sandbox(_ack: BetaAck) -> Result<Self, NfeError> {
         let sandbox = SefazSandbox::new();
+        let sefin = ravenrs_nfse::sandbox::SefinSandbox::new();
         Ok(Self(Rc::new(Inner {
             ambiente: Ambiente::Sandbox,
             signer: Arc::new(SandboxSigner::new()?),
             transport: Arc::new(sandbox.clone()),
             sandbox: Some(sandbox),
+            nfse_transport: Arc::new(sefin.clone()),
+            sefin: Some(sefin),
         })))
     }
 
-    /// The real homologation servers, with this signer and way out. They have no fiscal value.
+    /// The real homologation servers, with this signer and way out. They have no fiscal value. The
+    /// NFS-e goes the same way to the restricted production of the Sefin Nacional.
     pub fn homologacao(
         _ack: BetaAck,
         signer: impl Signer + 'static,
         transport: impl Transport + 'static,
     ) -> Self {
+        let transport: Arc<dyn Transport> = Arc::new(transport);
         Self(Rc::new(Inner {
             ambiente: Ambiente::Homologacao,
             signer: Arc::new(signer),
-            transport: Arc::new(transport),
+            nfse_transport: transport.clone(),
+            transport,
             sandbox: None,
+            sefin: None,
         }))
     }
 
@@ -409,7 +419,7 @@ pub(crate) fn agora_com_fuso() -> String {
     format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}-03:00")
 }
 
-fn texto(record: &Object, field: &str) -> String {
+pub(crate) fn texto(record: &Object, field: &str) -> String {
     match record.get(field) {
         Value::Text(text) => text.trim().to_owned(),
         _ => String::new(),

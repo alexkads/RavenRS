@@ -40,6 +40,7 @@ A coluna "Como foi verificado" diz o que de fato aconteceu. "Sem janela" quer di
 | C14N inclusiva e XMLDSig, SHA-1 ou SHA-256 | `ravenrs-dfe`, comum à NF-e e à NFS-e | C14N comparada com `xmllint --c14n`; assinatura SHA-1 verificada com `openssl`; SHA-256 só nos testes do crate |
 | NFS-e do Padrão Nacional: DPS, emissão, recuperação pelo Id, consulta, cancelamento e convênio | `ravenrs-nfse` | Só contra o `SefinSandbox`. Ordem lida no XSD v1.01, sem `xmllint`. **Nunca foi à Sefin** |
 | DANFSe A4 no editor de relatórios | `ravenrs-app-nfe` | Teste do render: uma página, aviso, chave e QR acima de 1,52 cm. Endereço do QR não confirmado |
+| Venda de serviço no caixa (F8): cadastro de serviço com `cTribNac`, NFS-e em segundo plano, DPS guardada antes do envio, reenvio da mesma DPS depois de reabrir o programa, cancelamento e DANFSe na tela | `ravenrs-app-nfe` (`servico`), `ravenrs-app-pos` | `examples/mini-pdv/tests/caixa.rs`, contra o `SefinSandbox`: autorizada, resposta perdida, timeout e programa fechado com a DPS pendente. Sem pagamento por TEF e sem venda mista |
 | SOAP 1.2, status, autorização, consulta e cancelamento | `ravenrs-nfe` | Só contra o sandbox |
 | Rede real com A1, TLS verificado, mTLS | `ravenrs-nfe`, feature `http` | Servidor mTLS local, com certificado de teste. **Nunca falou com a SEFAZ** |
 | Sandbox da SEFAZ no estilo MSW, que confere assinatura, ordem, totais e duplicidade | `ravenrs-nfe::sandbox` | Testes do crate. Passar nele não garante autorização real |
@@ -107,7 +108,7 @@ Sem isto, nada do resto importa. Aqui se descobre quanto do que está pronto sob
 | Manifestação do destinatário | Para quem recebe NF-e, e para a entrada de mercadoria | Desenvolvimento. Decidir se entra na primeira versão: **dono** |
 | CRT 3 e IBS/CBS | Regime Normal e reforma tributária. CRT 3 exige `IBSCBS` em homologação desde 01/07/2026, segundo fonte secundária. A obrigatoriedade para CRT 1 a partir de 2027 não foi conferida | **Dono**: atender só Simples no início ou não. Contador para a regra |
 | Lei 12.741 (`vTotTrib`) | Lacuna declarada em `REGRAS.md` | Desenvolvimento |
-| NFS-e | Ainda não tem código. A pesquisa e cinco decisões do dono estão em [`NFSE.md`](NFSE.md) | **Dono** |
+| NFS-e | Motor, sandbox, DANFSe e venda de serviço no caixa existem, só contra o sandbox. Faltam a produção restrita, o pagamento do serviço pelo TEF e a venda mista. As decisões do dono estão em [`NFSE.md`](NFSE.md) | **Dono** para as decisões; contador para a venda mista |
 | Fim do autorizador assíncrono | Já só usamos o síncrono. Acompanhar notas técnicas, porque o leiaute continua mudando | Contínuo |
 
 ### Bloco C: a loja funcionando no dia a dia

@@ -14,7 +14,9 @@ use ravenrs_widgets::{
 };
 
 use crate::caixa::{Caixa, Tela, configuracao};
-use crate::modulo::{VIEW_CAIXA, VIEW_ENTRADA, VIEW_ETIQUETAS, VIEW_PRECO, abrir_outras_funcoes};
+use crate::modulo::{
+    VIEW_CAIXA, VIEW_ENTRADA, VIEW_ETIQUETAS, VIEW_PRECO, VIEW_SERVICO, abrir_outras_funcoes,
+};
 
 fn titulo(text: impl Into<String>) -> Text {
     Text::new(text).style(TextStyle::Caption).foreground(Semantic::InkMuted)
@@ -514,6 +516,12 @@ impl View for TelaInicio {
                 "Custo, impostos, custos fixos e margem até o preço.",
                 "F7",
                 abrir(VIEW_PRECO),
+            ),
+            cartao(
+                "Vender serviço",
+                "Instalação, conserto e entrega com NFS-e do Padrão Nacional.",
+                "F8",
+                abrir(VIEW_SERVICO),
             ),
         ])
         .spacing(16.0)

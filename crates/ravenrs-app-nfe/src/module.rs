@@ -38,6 +38,12 @@ pub fn emitente_entity() -> EntityInfo {
         .field(text("uf", "UF"))
         .field(text("cep", "CEP"))
         .field(FieldInfo::new("serie", FieldKind::Integer).caption("Série").default_value(1.0))
+        .field(text("inscricao_municipal", "Inscrição municipal (NFS-e)"))
+        .field(
+            FieldInfo::new("serie_dps", FieldKind::Integer)
+                .caption("Série da DPS (NFS-e)")
+                .default_value(1.0),
+        )
         .field(
             FieldInfo::new("ultimo_nsu", FieldKind::Integer)
                 .caption("Último NSU das notas recebidas")
@@ -186,7 +192,13 @@ impl NfeModule {
 
     /// The entities it brings, for storage.
     pub fn entidades() -> Vec<EntityInfo> {
-        vec![emitente_entity(), documento_entity(), cupom_entity(), crate::danfse::danfse_entity()]
+        vec![
+            emitente_entity(),
+            documento_entity(),
+            cupom_entity(),
+            crate::danfse::danfse_entity(),
+            crate::servico::nfse_entity(),
+        ]
     }
 }
 
@@ -200,7 +212,10 @@ impl Module for NfeModule {
     }
 
     fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
-        vec![Box::new(Documentos { service: self.service.clone() })]
+        vec![
+            Box::new(Documentos { service: self.service.clone() }),
+            Box::new(crate::servico::NfsesEmitidas { service: self.service.clone() }),
+        ]
     }
 
     fn notices(&self) -> Vec<Notice> {

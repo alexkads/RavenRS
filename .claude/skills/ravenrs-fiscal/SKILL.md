@@ -32,6 +32,7 @@ Tudo aqui é **beta, prova de conceito**. Nenhuma nota foi a um servidor real da
 | Cenário pronto | `sandbox/cenarios.rs` | Aparece no painel de `crates/ravenrs-app-pos/src/telas.rs` |
 | Rede real, A1 | `crates/ravenrs-dfe/src/http.rs`, atrás da feature `http`, só nativo | `crates/ravenrs-nfe/tests/http_mtls.rs` |
 | Tela e registro das notas | `crates/ravenrs-app-nfe/src/`: `module`, `service`, `cupom`, `danfse` | O motor não conhece `ravenrs-app` |
+| NFS-e no app: DPS guardada, reenvio, cancelamento, DANFSe | `crates/ravenrs-app-nfe/src/servico.rs`; tela em `crates/ravenrs-app-pos/src/servico.rs` | A DPS é gravada antes do envio e nunca ganha outro número: o que não teve resposta vai de novo igual |
 | Regra do carrinho, sem tela | `crates/ravenrs-pos/src/` | Testes no próprio crate |
 | Tela do caixa, produtos, etiquetas, entrada | `crates/ravenrs-app-pos/src/` | `examples/mini-pdv/tests/caixa.rs` |
 | Recurso que não é só de caixa | `ravenrs-app`, `ravenrs-app-ui` ou `ravenrs-widgets`, nunca em `examples/mini-pdv` | Demonstração em `examples/feature-center` |

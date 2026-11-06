@@ -7,7 +7,7 @@ use std::rc::Rc;
 use ravenrs_app::{ObjectSpace, Query};
 use ravenrs_app_nfe::engine::BetaAck;
 use ravenrs_app_nfe::{NFE_EMITENTE, NfeService};
-use ravenrs_app_pos::{CLIENTE, CONFIGURACAO, PRODUTO, Pos, entidades};
+use ravenrs_app_pos::{CLIENTE, CONFIGURACAO, PRODUTO, Pos, SERVICO, entidades};
 use ravenrs_app_sqlite::{SqliteDatabase, TableMap};
 use ravenrs_app_ui::App;
 use ravenrs_widgets::{Alert, AnyView, Tone};
@@ -52,6 +52,7 @@ fn semear(space: &mut dyn ObjectSpace) -> Result<(), String> {
             ("nome_fantasia", "Mercado Exemplo"),
             ("cnpj", "11222333000181"),
             ("inscricao_estadual", "110042490114"),
+            ("inscricao_municipal", "12345678"),
             ("logradouro", "Rua de Exemplo"),
             ("numero", "100"),
             ("bairro", "Centro"),
@@ -63,6 +64,20 @@ fn semear(space: &mut dyn ObjectSpace) -> Result<(), String> {
             emitente.set(campo, valor.to_owned());
         }
         space.save(emitente).map_err(erro)?;
+    }
+    if space.query(SERVICO, &Query::all()).map_err(erro)?.is_empty() {
+        // `cTribNac` of the national list: item, subitem and breakdown. Check them with an accountant.
+        for (codigo, descricao, ctrib, preco) in [
+            ("S1", "Instalação e configuração de balança", "140101", 15_000.0),
+            ("S2", "Manutenção de equipamento de cozinha", "140101", 9_000.0),
+        ] {
+            let mut servico = space.new_object(SERVICO).map_err(erro)?;
+            servico.set("codigo", codigo.to_owned());
+            servico.set("descricao", descricao.to_owned());
+            servico.set("codigo_tributacao_nacional", ctrib.to_owned());
+            servico.set("preco", preco);
+            space.save(servico).map_err(erro)?;
+        }
     }
     if space.query(CLIENTE, &Query::all()).map_err(erro)?.is_empty() {
         let mut cliente = space.new_object(CLIENTE).map_err(erro)?;

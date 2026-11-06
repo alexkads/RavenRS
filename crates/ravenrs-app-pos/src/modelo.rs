@@ -15,6 +15,29 @@ pub const VINCULO: &str = "PosVinculoFornecedor";
 pub const MOVIMENTO: &str = "PosMovimento";
 /// The entity of the other barcodes of products.
 pub const CODIGO: &str = "PosCodigoBarras";
+/// The entity of services, sold with an NFS-e.
+pub const SERVICO: &str = "PosServico";
+
+/// What is sold as a service, with an NFS-e of the national standard.
+pub fn servico_entity() -> EntityInfo {
+    let text = |name: &str, caption: &str| FieldInfo::new(name, FieldKind::Text).caption(caption);
+    EntityInfo::new(SERVICO)
+        .caption("Serviços")
+        .navigation("Cadastros")
+        .icon("wrench")
+        .field(FieldInfo::new("id", FieldKind::Guid).key())
+        .field(text("descricao", "Descrição").default_property())
+        .field(text("codigo", "Código interno"))
+        .field(text("codigo_tributacao_nacional", "Código de tributação nacional (cTribNac)"))
+        .field(FieldInfo::new("preco", FieldKind::Money).caption("Preço").default_value(0.0))
+        .rule(Rule::required("descricao"))
+        .rule(Rule::required("codigo"))
+        .rule(Rule::unique("codigo"))
+        .rule(
+            Rule::matches("codigo_tributacao_nacional", "^[0-9]{6}$")
+                .message("O código de tributação nacional tem 6 dígitos: item, subitem e desdobro."),
+        )
+}
 
 /// What is sold.
 pub fn produto_entity() -> EntityInfo {
@@ -178,6 +201,7 @@ pub fn movimento_entity() -> EntityInfo {
 pub fn entidades() -> Vec<EntityInfo> {
     let mut all = vec![
         produto_entity(),
+        servico_entity(),
         cliente_entity(),
         configuracao_entity(),
         vinculo_entity(),
