@@ -74,6 +74,7 @@ TEMPLATE = """<!doctype html>
     <h2>A to Z</h2>
     <ul>{index}</ul>
   </aside>
+  <script src="../side.js"></script>
   <main>
     <p class="crumb"><a href="../">Components</a> / {name}</p>
     <h1>{name}</h1>
