@@ -14,6 +14,7 @@ use crate::backup::{self, CopyReason};
 use crate::db::{Database, DbResult};
 use crate::model::{date_label, parse_date};
 use crate::reminders::{self, ReminderSettings};
+use crate::telegram;
 use crate::update::{self, UpdateStatus};
 use crate::{seed, themes};
 
@@ -21,6 +22,39 @@ use crate::{seed, themes};
 const TWO_COLUMNS_FROM: f32 = 760.0;
 /// How many of the kept copies the page lists; the newest are the ones that matter.
 const COPIES_SHOWN: usize = 5;
+
+enum TelegramVisual {
+    Qr(String),
+    Connected,
+}
+
+impl View for TelegramVisual {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let (node, theme) = match self {
+            Self::Qr(link) => (
+                Barcode::qr(link.clone())
+                    .size(180.0, 180.0)
+                    .alt("QR para conectar o Telegram a este Raven")
+                    .build(cx),
+                true,
+            ),
+            Self::Connected => {
+                (Icon::new(IconName::CircleCheck).size(28.0).color(Semantic::Success).build(cx), false)
+            }
+        };
+        let motion = if theme {
+            Motion::new()
+                .enter(Effect::hidden(), cx.theme().motion.gentle)
+                .exit(Effect::hidden(), cx.theme().motion.fast)
+        } else {
+            Motion::new()
+                .enter(Effect::hidden().with_scale(0.7), cx.theme().motion.snappy)
+                .exit(Effect::hidden().with_scale(0.7), cx.theme().motion.fast)
+        };
+        cx.motion(node, motion);
+        node
+    }
+}
 
 fn info_row(label: &str, value: String) -> impl View + use<> {
     HStack::new((
@@ -258,6 +292,9 @@ pub(crate) fn settings(
     forms: &Forms,
     news: &updates::NewsDialog,
     page: &State<usize>,
+    telegram_link: &State<Option<String>>,
+    telegram_token: &State<String>,
+    telegram_token_saved: &State<bool>,
     models: Option<ravenrs_ai::ModelManager>,
     voices: Option<ravenrs_ai::VoiceManager>,
     window: Size,
@@ -287,11 +324,7 @@ pub(crate) fn settings(
         UpdateStatus::NoAnswer(reason) => format!("Não consegui verificar se há versão nova: {reason}"),
     };
 
-    let appearance = titled_card(
-        "Aparência",
-        help::APARENCIA,
-        ThemeSwitcher::new().themes(themes::dark(), themes::light(), themes::glass()),
-    );
+    let appearance = titled_card("Aparência", help::APARENCIA, themes::RememberedSwitcher);
     let performance = titled_card(
         "Desempenho",
         help::DESEMPENHO,
@@ -451,6 +484,128 @@ pub(crate) fn settings(
         .spacing(10.0)
         .align(Align::Stretch),
     );
+    let _revision = store.version();
+    let linked = store.read(|db| db.has_telegram_pairing());
+    let (pair_store, revoke_store, pairing, revoke_link) =
+        (store.clone(), store.clone(), telegram_link.clone(), telegram_link.clone());
+    let (token_input, token_typed, save_token, token_store) =
+        (telegram_token.clone(), telegram_token.clone(), telegram_token_saved.clone(), store.clone());
+    let saved = telegram_token_saved.get();
+    let shown_link = telegram_link.get();
+    let telegram = titled_card(
+        "Telegram",
+        help::TELEGRAM,
+        VStack::new((
+            Text::new(
+                "Envie seus comprovantes em PDF pelo Telegram. Depois, responda se é despesa ou receita e informe a categoria.",
+            )
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
+            Text::new(
+                "No Telegram, abra @BotFather, envie /newbot e siga as instruções para criar seu bot. Cole aqui o token recebido; ele fica salvo somente neste computador. Depois, conecte e escaneie o QR code.",
+            )
+            .style(TextStyle::Callout)
+            .foreground(Semantic::InkMuted),
+            HStack::new((
+                TextField::new(token_input.binding())
+                    .secure()
+                    .placeholder("Token do bot recebido do BotFather")
+                    .stretch()
+                    .grow(1.0),
+                Button::new("Salvar token")
+                    .icon(IconName::Check)
+                    .size(ButtonSize::Small)
+                    .style(ButtonStyle::Secondary)
+                    .on_click(move || match telegram::save_bot_token(&token_typed.get()) {
+                        Ok(()) => {
+                            token_typed.set(String::new());
+                            save_token.set(true);
+                        }
+                        Err(error) => {
+                            token_store.toasts.show_for(
+                                "Não foi possível salvar o token",
+                                error,
+                                Tone::Danger,
+                                8.0,
+                            );
+                        }
+                    }),
+            ))
+            .spacing(8.0)
+            .align(Align::Center),
+            Text::new(if saved { "Token salvo neste computador." } else { "Informe e salve o token antes de conectar." })
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted),
+            HStack::new((
+                linked.then_some(TelegramVisual::Connected),
+                Text::new(if linked { "Telegram conectado" } else { "Nenhum chat conectado." })
+                    .style(TextStyle::Callout)
+                    .foreground(if linked { Semantic::Success } else { Semantic::InkMuted }),
+            ))
+            .spacing(8.0)
+            .align(Align::Center),
+            if linked {
+                None
+            } else {
+                shown_link.clone().map(|link| Box::new(TelegramVisual::Qr(link)) as AnyView)
+            },
+            HStack::new((
+                Button::new(if shown_link.is_some() { "Gerar novo QR" } else { "Conectar Telegram" })
+                    .icon(IconName::Link)
+                    .size(ButtonSize::Small)
+                    .disabled(!saved)
+                    .on_click(move || {
+                        let token = telegram::pairing_token();
+                        let link = match telegram::pairing_link(&token) {
+                            Ok(link) => link,
+                            Err(error) => {
+                                pair_store.toasts.show_for(
+                                    "Não foi possível conectar Telegram",
+                                    error,
+                                    Tone::Danger,
+                                    8.0,
+                                );
+                                return;
+                            }
+                        };
+                        let now = SystemTime::now()
+                            .duration_since(SystemTime::UNIX_EPOCH)
+                            .map(|duration| duration.as_secs() as i64)
+                            .unwrap_or_default();
+                        if pair_store
+                            .write("Escaneie o QR com o Telegram.", |db| {
+                                db.begin_telegram_pairing(&telegram::pairing_hash(&token), now)
+                            })
+                            .is_some()
+                        {
+                            pairing.set(Some(link));
+                        }
+                    }),
+                linked.then(|| {
+                    Button::new("Desvincular")
+                        .icon(IconName::X)
+                        .size(ButtonSize::Small)
+                        .style(ButtonStyle::Secondary)
+                        .on_click(move || {
+                            let now = SystemTime::now()
+                                .duration_since(SystemTime::UNIX_EPOCH)
+                                .map(|duration| duration.as_secs() as i64)
+                                .unwrap_or_default();
+                            if revoke_store
+                                .write("Telegram desvinculado.", |db| db.revoke_telegram_pairings(now))
+                                .is_some()
+                            {
+                                revoke_link.set(None);
+                            }
+                        })
+                }),
+            ))
+            .spacing(8.0)
+            .wrap(),
+        ))
+        .spacing(10.0)
+        .align(Align::Stretch),
+    );
     let start_over = titled_card(
         "Recomeçar",
         help::RECOMECAR,
@@ -511,6 +666,7 @@ pub(crate) fn settings(
             voice,
             copies,
             Grid::new(columns, (data, updates_card)).spacing(16.0),
+            telegram,
             start_over,
         ))
         .spacing(16.0)

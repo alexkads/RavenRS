@@ -40,7 +40,7 @@ fn main() -> Result<(), PlatformError> {
     if everyday {
         family_finance::reminders::watch(path.clone());
     }
-    let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(themes::light());
+    let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(themes::remembered());
     let diagnostics = Diagnostics::default();
     let identity = AppIdentity::new(paths::APP_ID)
         .labels(Labels::pt_br())

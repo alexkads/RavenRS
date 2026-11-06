@@ -10,6 +10,7 @@ use family_finance::model::{
 use family_finance::{reports, seed};
 use ravenrs::prelude::{Date, Frequency, RecurrenceEnd, RecurrenceRule};
 use ravenrs_report::ReportEngine;
+use rusqlite::Connection;
 
 fn date(y: i32, m: u8, d: u8) -> Date {
     Date::new(y, m, d).expect("valid date")
@@ -272,7 +273,7 @@ fn a_file_database_keeps_its_data_and_migrates_once() {
     let path = folder.join("nested").join("financas.db");
     {
         let db = Database::open(&path).expect("create");
-        assert_eq!(db.schema_version().expect("version"), 2);
+        assert_eq!(db.schema_version().expect("version"), 4);
         assert!(db.is_empty().expect("empty"));
         db.add_account("Banco", AccountKind::Cash, 5_00).expect("account");
         db.backup_to(&folder.join("copia.db")).expect("backup");
@@ -283,6 +284,35 @@ fn a_file_database_keeps_its_data_and_migrates_once() {
     let copy = Database::open(&folder.join("copia.db")).expect("the backup opens");
     assert_eq!(copy.accounts().expect("accounts")[0].name, "Banco");
     drop((again, copy));
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
+#[test]
+fn a_legacy_database_gets_category_keys_without_failing_on_equivalent_names() {
+    let folder = std::env::temp_dir().join(format!("family-finance-legacy-{}", std::process::id()));
+    let path = folder.join("financas.db");
+    std::fs::create_dir_all(&folder).expect("folder");
+    let legacy = Connection::open(&path).expect("legacy database");
+    legacy
+        .execute_batch(
+            "CREATE TABLE categories (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+                flow TEXT NOT NULL CHECK (flow IN ('expense', 'income')),
+                budget_cents INTEGER NOT NULL DEFAULT 0 CHECK (budget_cents >= 0),
+                UNIQUE (name, flow)
+            );
+            INSERT INTO categories (name, flow) VALUES ('Café', 'expense'), ('cafe', 'expense');
+            PRAGMA user_version = 2;",
+        )
+        .expect("legacy schema");
+    drop(legacy);
+
+    let db = Database::open(&path).expect("migrate legacy database");
+    assert_eq!(db.schema_version().expect("version"), 4);
+    assert_eq!(db.find_or_create_category("CAFE", Flow::Expense).expect("reuse"), 1);
+    assert_eq!(db.categories().expect("categories").len(), 2);
+    drop(db);
     std::fs::remove_dir_all(&folder).expect("clean up");
 }
 

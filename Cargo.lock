@@ -1601,9 +1601,11 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "tracing",
  "tracing-subscriber",
  "ureq",
+ "uuid",
 ]
 
 [[package]]

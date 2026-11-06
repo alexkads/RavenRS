@@ -2,6 +2,14 @@
 
 use ravenrs::movie::BugReporter;
 use ravenrs::prelude::*;
+use std::path::PathBuf;
+use std::sync::OnceLock;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+use std::thread;
+use std::time::Duration;
 
 use crate::model::parse_date;
 use crate::update::{self, News, NoticeAction, UpdateStatus, Updater};
@@ -14,6 +22,48 @@ impl View for UpdatePump {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         self.0.connect(cx.ui_waker());
         self.0.poll();
+        cx.empty()
+    }
+}
+
+/// Runs the paired Telegram bot beside this Raven instance and refreshes the UI on incoming messages.
+pub(crate) struct TelegramPump {
+    path: Option<PathBuf>,
+    paired: Arc<AtomicBool>,
+}
+
+impl TelegramPump {
+    pub(crate) fn new(path: Option<PathBuf>, paired: Arc<AtomicBool>) -> Self {
+        Self { path, paired }
+    }
+}
+
+impl View for TelegramPump {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        static STARTED: OnceLock<AtomicBool> = OnceLock::new();
+        if self.path.is_some()
+            && crate::telegram::token_configured()
+            && !STARTED.get_or_init(AtomicBool::default).swap(true, Ordering::AcqRel)
+        {
+            let path = self.path.clone().expect("path checked");
+            let waker = cx.ui_waker();
+            let paired = self.paired.clone();
+            thread::spawn(move || {
+                loop {
+                    if let Err(error) = crate::telegram::serve_with_waker(
+                        path.clone(),
+                        Some(waker.clone()),
+                        Some(paired.clone()),
+                    ) {
+                        tracing::warn!(error = %error, "Telegram listener stopped; retrying");
+                        thread::sleep(Duration::from_secs(5));
+                    }
+                }
+            });
+        }
+        if self.paired.swap(false, Ordering::AcqRel) {
+            cx.sound().play(&SoundClip::click());
+        }
         cx.empty()
     }
 }

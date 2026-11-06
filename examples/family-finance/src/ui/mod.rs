@@ -25,6 +25,7 @@ mod updates;
 
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::{Arc, atomic::AtomicBool};
 
 use ravenrs::core::Key;
 use ravenrs::prelude::*;
@@ -83,6 +84,10 @@ pub struct App {
     training: training::TrainingState,
     recorder: FlightRecorder,
     reporter: BugReporter,
+    telegram_link: State<Option<String>>,
+    telegram_token: State<String>,
+    telegram_token_saved: State<bool>,
+    telegram_paired: Arc<AtomicBool>,
     overdue: Memo<u64, usize>,
     icon: Memo<u8, Option<ImageData>>,
 }
@@ -139,6 +144,10 @@ impl App {
             budgets: BudgetsState::new(today),
             reports: ReportsState::new(today),
             records: RecordsState::new(),
+            telegram_link: State::new(None),
+            telegram_token: State::new(String::new()),
+            telegram_token_saved: State::new(crate::telegram::token_configured()),
+            telegram_paired: Arc::default(),
             overdue: Memo::new(),
             icon: Memo::new(),
         }
@@ -394,6 +403,9 @@ impl App {
                 &self.forms,
                 &self.news,
                 &self.page,
+                &self.telegram_link,
+                &self.telegram_token,
+                &self.telegram_token_saved,
                 self.training.models.clone(),
                 self.training.voices.clone(),
                 window,
@@ -435,6 +447,7 @@ impl App {
         let page = self.page_view(window);
         let main = VStack::new((
             updates::UpdatePump(self.store.updater.clone()),
+            updates::TelegramPump::new(self.store.path.clone(), self.telegram_paired.clone()),
             self.recorder.clone(),
             self.toolbar(page.subtitle, page.help, window),
             Divider::horizontal(),

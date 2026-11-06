@@ -82,6 +82,19 @@ pub fn glass() -> Theme {
 mod tests {
     use super::*;
 
+    #[test]
+    fn restores_saved_themes_and_defaults_to_light() {
+        let path = std::env::temp_dir().join(format!("raven-theme-{}", uuid::Uuid::new_v4()));
+        assert_eq!(read_theme(&path).name, light().name);
+        for (saved, expected) in [("dark", dark()), ("light", light()), ("glass", glass())] {
+            std::fs::write(&path, saved).unwrap();
+            assert_eq!(read_theme(&path).name, expected.name);
+        }
+        std::fs::write(&path, "invalid").unwrap();
+        assert_eq!(read_theme(&path).name, light().name);
+        std::fs::remove_file(path).unwrap();
+    }
+
     fn over(color: Color, ground: Color) -> Color {
         ground.lerp(color.with_alpha(1.0), color.a)
     }
@@ -115,5 +128,55 @@ mod tests {
     fn each_theme_has_its_own_name() {
         assert_ne!(light().name, dark().name);
         assert_ne!(dark().name, glass().name);
+    }
+}
+
+/// The theme selected on this computer, or light on the first launch.
+pub fn remembered() -> Theme {
+    read_theme(&crate::paths::home().join("theme"))
+}
+
+fn read_theme(path: &std::path::Path) -> Theme {
+    match std::fs::read_to_string(path).as_deref() {
+        Ok("dark") => dark(),
+        Ok("glass") => glass(),
+        _ => light(),
+    }
+}
+
+/// Selects an application theme and remembers it between launches.
+#[derive(Debug)]
+pub struct RememberedSwitcher;
+
+impl View for RememberedSwitcher {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let themes = [dark(), light(), glass()];
+        let state = cx.theme_state();
+        let read = state.clone();
+        let binding = Binding::new(
+            move || read.with(|t| themes.iter().position(|theme| theme.name == t.name).unwrap_or(1)),
+            move |index: usize| {
+                let index = index.min(2);
+                let folder = crate::paths::home();
+                if let Err(error) = std::fs::create_dir_all(&folder)
+                    .and_then(|()| std::fs::write(folder.join("theme"), ["dark", "light", "glass"][index]))
+                {
+                    tracing::warn!(%error, "could not save the selected theme");
+                }
+                state.set(themes[index]);
+            },
+        );
+        let labels = cx.labels();
+        cx.child(
+            &SegmentedControl::with_icons(
+                binding,
+                [
+                    (IconName::Moon, labels.theme_dark.as_str()),
+                    (IconName::Sun, labels.theme_light.as_str()),
+                    (IconName::Layers, labels.theme_glass.as_str()),
+                ],
+            )
+            .label(labels.theme.clone()),
+        )
     }
 }

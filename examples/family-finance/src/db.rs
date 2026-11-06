@@ -4,6 +4,7 @@
 //! Writes that touch more than one row run in a transaction, so paying a bill
 //! can never leave a payment without its transaction.
 
+use std::collections::HashSet;
 use std::fmt;
 use std::path::Path;
 use std::rc::Rc;
@@ -144,6 +145,23 @@ const MIGRATIONS: &[&str] = &[
         PRIMARY KEY (schedule_id, day)
     );
 "#,
+    r#"
+    ALTER TABLE categories ADD COLUMN normalized_name TEXT;
+"#,
+    r#"
+    CREATE TABLE telegram_pairings (
+        id INTEGER PRIMARY KEY,
+        token_hash TEXT NOT NULL UNIQUE,
+        chat_id INTEGER UNIQUE,
+        user_id INTEGER,
+        status TEXT NOT NULL CHECK (status IN ('pending', 'active', 'revoked', 'expired')),
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        paired_at INTEGER,
+        revoked_at INTEGER
+    );
+    CREATE INDEX telegram_pairings_active ON telegram_pairings (chat_id, user_id, status);
+"#,
 ];
 
 const BILL_COLUMNS: &str = "b.id, b.description, b.category_id, c.name, b.member_id, COALESCE(m.name, ''),
@@ -151,6 +169,27 @@ const BILL_COLUMNS: &str = "b.id, b.description, b.category_id, c.name, b.member
     b.transaction_id";
 const BILL_JOINS: &str =
     "FROM bills b JOIN categories c ON c.id = b.category_id LEFT JOIN members m ON m.id = b.member_id";
+
+/// The visible name keeps its accents and casing; the key makes equivalent names one category.
+fn category_name(name: &str) -> String {
+    name.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn category_key(name: &str) -> String {
+    category_name(name)
+        .chars()
+        .flat_map(char::to_lowercase)
+        .map(|c| match c {
+            'á' | 'à' | 'â' | 'ã' | 'ä' | 'å' => 'a',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'í' | 'ì' | 'î' | 'ï' => 'i',
+            'ó' | 'ò' | 'ô' | 'õ' | 'ö' => 'o',
+            'ú' | 'ù' | 'û' | 'ü' => 'u',
+            'ç' => 'c',
+            other => other,
+        })
+        .collect()
+}
 
 /// What a backup file holds, read before anything is replaced.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -208,7 +247,36 @@ impl Database {
             tx.pragma_update(None, "user_version", i as i64 + 1)?;
             tx.commit()?;
         }
+        self.fill_category_keys()?;
+        self.conn.execute_batch(
+            "CREATE UNIQUE INDEX IF NOT EXISTS categories_flow_normalized_name
+             ON categories (flow, normalized_name)",
+        )?;
         Ok(())
+    }
+
+    fn fill_category_keys(&self) -> DbResult<()> {
+        let mut query = self.conn.prepare_cached("SELECT id, name, flow FROM categories")?;
+        let rows = query.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?))
+        })?;
+        let categories = rows.collect::<Result<Vec<_>, _>>()?;
+        let mut seen = HashSet::new();
+        let keys = categories
+            .iter()
+            .map(|(id, name, flow)| {
+                let key = category_key(name);
+                seen.insert((flow.clone(), key.clone())).then_some((*id, key))
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+        self.atomically(|db| {
+            for (id, key) in &keys {
+                db.conn
+                    .execute("UPDATE categories SET normalized_name = ?2 WHERE id = ?1", params![id, key])?;
+            }
+            Ok(())
+        })
     }
 
     /// The number of migrations applied.
@@ -458,20 +526,139 @@ impl Database {
 
     /// Adds a category and returns the key.
     pub fn add_category(&self, name: &str, flow: Flow, budget_cents: i64) -> DbResult<i64> {
+        let name = category_name(name);
         self.conn.execute(
-            "INSERT INTO categories (name, flow, budget_cents) VALUES (?1, ?2, ?3)",
-            params![name.trim(), flow.code(), budget_cents],
+            "INSERT INTO categories (name, normalized_name, flow, budget_cents) VALUES (?1, ?2, ?3, ?4)",
+            params![name, category_key(&name), flow.code(), budget_cents],
         )?;
         Ok(self.conn.last_insert_rowid())
     }
 
     /// Changes a category.
     pub fn update_category(&self, id: i64, name: &str, flow: Flow, budget_cents: i64) -> DbResult<()> {
+        let name = category_name(name);
         self.conn.execute(
-            "UPDATE categories SET name = ?2, flow = ?3, budget_cents = ?4 WHERE id = ?1",
-            params![id, name.trim(), flow.code(), budget_cents],
+            "UPDATE categories SET name = ?2, normalized_name = ?3, flow = ?4, budget_cents = ?5 WHERE id = ?1",
+            params![id, name, category_key(&name), flow.code(), budget_cents],
         )?;
         Ok(())
+    }
+
+    /// Finds a category under its normalized name, or creates it with no monthly limit.
+    pub fn find_or_create_category(&self, name: &str, flow: Flow) -> DbResult<i64> {
+        let name = category_name(name);
+        let key = category_key(&name);
+        self.atomically(|db| {
+            db.conn.execute(
+                "INSERT INTO categories (name, normalized_name, flow, budget_cents)
+                 VALUES (?1, ?2, ?3, 0)
+                 ON CONFLICT(flow, normalized_name) DO NOTHING",
+                params![name, key, flow.code()],
+            )?;
+            Ok(db.conn.query_row(
+                "SELECT id FROM categories WHERE flow = ?1 AND normalized_name = ?2",
+                params![flow.code(), key],
+                |row| row.get(0),
+            )?)
+        })
+    }
+
+    /// Replaces every unclaimed QR code with one short-lived pairing request.
+    pub fn begin_telegram_pairing(&self, token_hash: &str, now: i64) -> DbResult<()> {
+        if token_hash.len() != 64 || !token_hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(DbError::Rule("O código de pareamento é inválido.".to_owned()));
+        }
+        self.atomically(|db| {
+            db.conn
+                .execute("UPDATE telegram_pairings SET status = 'expired' WHERE status = 'pending'", [])?;
+            db.conn.execute(
+                "INSERT INTO telegram_pairings (token_hash, status, created_at, expires_at)
+                 VALUES (?1, 'pending', ?2, ?2 + 600)",
+                params![token_hash, now],
+            )?;
+            Ok(())
+        })
+    }
+
+    /// Consumes a valid QR code and makes this private Telegram chat the one active link.
+    pub fn claim_telegram_pairing(
+        &self,
+        token_hash: &str,
+        chat_id: i64,
+        user_id: i64,
+        now: i64,
+    ) -> DbResult<bool> {
+        if chat_id == 0
+            || user_id == 0
+            || token_hash.len() != 64
+            || !token_hash.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Ok(false);
+        }
+        self.atomically(|db| {
+            db.conn.execute(
+                "UPDATE telegram_pairings SET status = 'expired' WHERE status = 'pending' AND expires_at <= ?1",
+                [now],
+            )?;
+            let valid: Option<i64> = db.conn.query_row(
+                "SELECT id FROM telegram_pairings WHERE token_hash = ?1 AND status = 'pending' AND expires_at > ?2",
+                params![token_hash, now],
+                |row| row.get(0),
+            )
+            .optional()?;
+            if valid.is_none() {
+                return Ok(false);
+            }
+            db.conn.execute(
+                "UPDATE telegram_pairings
+                 SET status = 'revoked', revoked_at = ?1, chat_id = NULL, user_id = NULL
+                 WHERE status = 'active'",
+                [now],
+            )?;
+            db.conn.execute(
+                "UPDATE telegram_pairings SET chat_id = ?2, user_id = ?3, status = 'active', paired_at = ?4
+                 WHERE token_hash = ?1",
+                params![token_hash, chat_id, user_id, now],
+            )?;
+            Ok(true)
+        })
+    }
+
+    /// Whether this private chat owns the active Telegram link for this database.
+    pub fn telegram_chat_is_linked(&self, chat_id: i64, user_id: i64) -> DbResult<bool> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT 1 FROM telegram_pairings WHERE chat_id = ?1 AND user_id = ?2 AND status = 'active'",
+                params![chat_id, user_id],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some())
+    }
+
+    /// Revokes the active link and every still-unclaimed QR code.
+    pub fn revoke_telegram_pairings(&self, now: i64) -> DbResult<()> {
+        self.atomically(|db| {
+            db.conn.execute(
+                "UPDATE telegram_pairings
+                 SET status = 'revoked', revoked_at = ?1, chat_id = NULL, user_id = NULL
+                 WHERE status = 'active'",
+                [now],
+            )?;
+            db.conn
+                .execute("UPDATE telegram_pairings SET status = 'expired' WHERE status = 'pending'", [])?;
+            Ok(())
+        })
+    }
+
+    /// Whether one private Telegram chat is paired now.
+    pub fn has_telegram_pairing(&self) -> DbResult<bool> {
+        Ok(self
+            .conn
+            .query_row("SELECT 1 FROM telegram_pairings WHERE status = 'active'", [], |_| Ok(()))
+            .optional()?
+            .is_some())
     }
 
     /// Sets a category's monthly limit.
