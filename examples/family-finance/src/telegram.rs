@@ -449,11 +449,14 @@ fn folded(text: &str) -> String {
 
 fn save_transaction(path: &Path, amount_cents: i64, flow: Flow, category: &str) -> Result<i64, String> {
     let db = Database::open(path).map_err(|e| e.to_string())?;
-    let account_id: i64 = std::env::var("RAVEN_ACCOUNT_ID")
-        .map_err(|_| "configure RAVEN_ACCOUNT_ID")?
-        .parse()
-        .map_err(|_| "RAVEN_ACCOUNT_ID inválido")?;
-    if !db.accounts().map_err(|e| e.to_string())?.iter().any(|a| a.id == account_id) {
+    let accounts = db.accounts().map_err(|e| e.to_string())?;
+    let account_id = match std::env::var("RAVEN_ACCOUNT_ID") {
+        Ok(id) => id.parse().map_err(|_| "RAVEN_ACCOUNT_ID inválido")?,
+        Err(_) if accounts.len() == 1 => accounts[0].id,
+        Err(_) if accounts.is_empty() => return Err("cadastre uma conta no Raven antes de lançar".into()),
+        Err(_) => return Err("configure RAVEN_ACCOUNT_ID: este Raven tem mais de uma conta".into()),
+    };
+    if !accounts.iter().any(|a| a.id == account_id) {
         return Err("a conta configurada não existe no Raven".into());
     }
     db.atomically(|db| {
