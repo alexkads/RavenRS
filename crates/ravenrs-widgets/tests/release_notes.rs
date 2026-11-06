@@ -104,3 +104,31 @@ fn a_long_command_stays_inside_a_narrow_column() {
     let copy = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Copy")).expect("copy");
     assert!(copy.bounds.max_x() <= 320.0, "the button stays in: {:?}", copy.bounds);
 }
+
+#[test]
+fn links_run_their_action_when_clicked() {
+    let opened = State::new(String::new());
+    let told = opened.clone();
+    let note = ReleaseNote::new("Version 4", "The fourth").links(
+        "Issues",
+        [4, 5].map(|n| {
+            (format!("#{n}"), {
+                let told = told.clone();
+                move || told.set(format!("issue {n}"))
+            })
+        }),
+    );
+    let selected = State::new(0);
+    let mut ui = ui(ReleaseNotes::new(vec![note], selected.binding()), 1000.0);
+    assert!(has(&ui.access_tree(), "Issues"));
+    click(&mut ui, "#5");
+    assert_eq!(opened.get(), "issue 5");
+}
+
+#[test]
+fn no_links_leave_no_heading() {
+    let note = ReleaseNote::new("Version 4", "The fourth").links("Issues", Vec::<(String, fn())>::new());
+    let selected = State::new(0);
+    let mut ui = ui(ReleaseNotes::new(vec![note], selected.binding()), 1000.0);
+    assert!(!has(&ui.access_tree(), "Issues"));
+}
