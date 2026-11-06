@@ -62,6 +62,14 @@ def main() -> None:
     sub = subset.Subsetter(opts)
     sub.populate(unicodes=[codepoints[n] for n in names])
     sub.subset(font)
+    # Lucide's font leaves every left side bearing at 0, while the outlines
+    # start further right. Rasterizers place the outline by the bearing, so the
+    # icons drew up to 2px left of center. Sync each bearing with its outline.
+    glyf, hmtx = font["glyf"], font["hmtx"]
+    for name in font.getGlyphOrder():
+        glyph = glyf[name]
+        advance, _ = hmtx[name]
+        hmtx[name] = (advance, getattr(glyph, "xMin", 0) if glyph.numberOfContours else 0)
     # A distinct family name so it never collides with an installed Lucide.
     for rec in font["name"].names:
         if rec.nameID in (1, 4, 16):
