@@ -233,15 +233,14 @@
   /* Reporting */
   .rgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 56px; align-items: center; }
   .fan { position: relative; height: 470px; }
-  .pg { --off: 0; position: absolute; left: 50%; top: 30px; width: 260px; height: 360px; margin-left: -130px; border-radius: 12px; background: #ffffff; border: 1px solid #dadde5; box-shadow: 0 12px 32px rgba(17, 24, 39, 0.4); padding: 18px; display: flex; flex-direction: column; gap: 8px; transform: translateY(calc(var(--i) * -3px)) rotate(calc((var(--i) - 2.5) * 0.6deg)); transform-origin: 50% 120%; will-change: transform; }
-  .pg .hd { height: 24px; border-radius: 5px; background: #3f57db; }
-  .pg .ln { height: 8px; border-radius: 4px; background: #dadde5; }
-  .pg .ln.s { width: 60%; }
-  .pg .row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 6px; }
-  .pg .row i { height: 8px; border-radius: 3px; background: #ebedf2; display: block; }
-  .pg .row.z i { background: #dfe4fb; }
-  .pg .tot { margin-top: auto; height: 14px; border-radius: 4px; background: #1f8a5b; width: 45%; align-self: flex-end; }
-  .pg .no { font: 400 10px/1 var(--sans); color: #5a6375; text-align: right; }
+  .pg { position: absolute; left: 50%; top: 30px; width: 260px; aspect-ratio: 520 / 735; margin-left: -130px; display: block; border-radius: 10px; transform: translateY(calc(var(--i) * -3px)) rotate(calc((var(--i) - 2.5) * 0.6deg)); transform-origin: 50% 120%; will-change: transform; outline-offset: 6px; }
+  .pg img { display: block; width: 100%; height: 100%; border-radius: 10px; background: #fff; border: 1px solid #dadde5; box-shadow: 0 12px 32px rgba(17, 24, 39, 0.4); transition: transform var(--base) cubic-bezier(0.2, 0.9, 0.2, 1), box-shadow var(--base), filter var(--base); }
+  .pg .tip { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 0); opacity: 0; white-space: nowrap; pointer-events: none; background: var(--bg1); border-color: var(--line); color: var(--ink); box-shadow: var(--sh-soft); transition: opacity var(--fast), transform var(--fast); }
+  .pg:hover, .pg:focus-visible { z-index: 10; }
+  .pg:hover img, .pg:focus-visible img { transform: translateY(-22px) scale(1.06); box-shadow: 0 0 0 2px var(--accent), 0 16px 36px rgba(0, 0, 0, 0.45); }
+  .pg:hover .tip, .pg:focus-visible .tip { opacity: 1; transform: translate(-50%, -8px); }
+  /* The others step back by darkening, not by turning see-through, which looked like a smudge. */
+  .fan:hover .pg:not(:hover) img { filter: brightness(0.62); }
   .timer { position: absolute; right: 0; bottom: 0; padding: 16px 20px; display: flex; flex-direction: column; gap: 6px; border-radius: var(--r-lg); }
   .report-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 56px; }
   .report-grid > div { padding: 20px; border-radius: var(--r-lg); display: flex; flex-direction: column; gap: 6px; }
@@ -326,7 +325,7 @@
     .demo-phone { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 24px; }
     .stage-note { display: none; }
     .fan { height: 380px; }
-    .pg { width: 200px; height: 280px; margin-left: -100px; padding: 14px; gap: 6px; }
+    .pg { width: 200px; margin-left: -100px; }
     .timer { padding: 12px 14px; }
     .mini .sidebar { display: none; }
     .tile { width: 260px; }
@@ -579,14 +578,14 @@
           <a class="btn sec lg" href="https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING-PARITY.md">Feature matrix</a>
         </div>
       </div>
-      <div class="fan" id="fan" aria-hidden="true">
-        <div class="pg" style="--i:0"><div class="hd"></div><div class="ln"></div><div class="ln s"></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="tot"></div><div class="no">Page 1 of 305</div></div>
-        <div class="pg" style="--i:1"><div class="hd"></div><div class="ln"></div><div class="ln s"></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="tot"></div><div class="no">Page 2 of 305</div></div>
-        <div class="pg" style="--i:2"><div class="hd"></div><div class="ln"></div><div class="ln s"></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="tot"></div><div class="no">Page 3 of 305</div></div>
-        <div class="pg" style="--i:3"><div class="hd"></div><div class="ln"></div><div class="ln s"></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="tot"></div><div class="no">Page 4 of 305</div></div>
-        <div class="pg" style="--i:4"><div class="hd"></div><div class="ln"></div><div class="ln s"></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="tot"></div><div class="no">Page 5 of 305</div></div>
-        <div class="pg" style="--i:5"><div class="hd"></div><div class="ln"></div><div class="ln s"></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="row z"><i></i><i></i><i></i></div><div class="row"><i></i><i></i><i></i></div><div class="tot"></div><div class="no">Page 6 of 305</div></div>
-        <div class="card timer"><span class="t-caption">Laid out</span><span class="t-title" style="font-variant-numeric:tabular-nums" id="page-count">305 pages</span><span class="badge ok" style="align-self:flex-start">about 0.2 s</span></div>
+      <div class="fan" id="fan">
+        <a class="pg" style="--i:0" href="designer/" aria-label="Customer list, grouped by letter. Open the report designer"><img src="assets/reports/page-1.jpg" alt="" width="520" height="735" loading="lazy" decoding="async"><span class="tip badge">Customer list · Open in the designer</span></a>
+        <a class="pg" style="--i:1" href="designer/" aria-label="Invoice with items and totals. Open the report designer"><img src="assets/reports/page-2.jpg" alt="" width="520" height="735" loading="lazy" decoding="async"><span class="tip badge">Invoice · Open in the designer</span></a>
+        <a class="pg" style="--i:2" href="designer/" aria-label="Sales dashboard with charts. Open the report designer"><img src="assets/reports/page-3.jpg" alt="" width="520" height="735" loading="lazy" decoding="async"><span class="tip badge">Sales dashboard · Open in the designer</span></a>
+        <a class="pg" style="--i:3" href="designer/" aria-label="Sales by region, page 305 of 305. Open the report designer"><img src="assets/reports/page-4.jpg" alt="" width="520" height="735" loading="lazy" decoding="async"><span class="tip badge">Sales by region · 305 · Open in the designer</span></a>
+        <a class="pg" style="--i:4" href="designer/" aria-label="Sales by region, page 2 of 305. Open the report designer"><img src="assets/reports/page-5.jpg" alt="" width="520" height="735" loading="lazy" decoding="async"><span class="tip badge">Sales by region · 2 · Open in the designer</span></a>
+        <a class="pg" style="--i:5" href="designer/" aria-label="Sales by region, page 1 of 305. Open the report designer"><img src="assets/reports/page-6.jpg" alt="" width="520" height="735" loading="lazy" decoding="async"><span class="tip badge">Sales by region · 1 · Open in the designer</span></a>
+        <div class="card timer" aria-hidden="true"><span class="t-caption">Laid out</span><span class="t-title" style="font-variant-numeric:tabular-nums" id="page-count">305 pages</span><span class="badge ok" style="align-self:flex-start">about 0.2 s</span></div>
       </div>
     </div>
     <div class="report-grid">
@@ -947,7 +946,8 @@
       cw: stage.clientWidth, ch: stage.clientHeight,
       storyTop: docTop(story), storyH: story.offsetHeight, innerH: sinner.offsetHeight, sticky: getComputedStyle(sinner).position === 'sticky',
       statsTop: docTop(stats), fanTop: docTop(fan), roadTop: docTop(road), roadH: road.offsetHeight,
-      spread: clamp((fan.clientWidth - (pages[0]?.offsetWidth || 260)) / 5, 12, 62),
+      // Narrow fans spread less, so the tilted pages stay on screen.
+      spread: clamp((fan.clientWidth - (pages[0]?.offsetWidth || 260)) / (fan.clientWidth < 500 ? 7.5 : 5), 12, 62),
       marqTop: docTop(marq), marqBottom: docTop(marq) + marq.offsetHeight,
     };
     last = {};

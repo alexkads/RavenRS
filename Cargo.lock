@@ -5305,9 +5305,13 @@ name = "report-designer"
 version = "27.1.19"
 dependencies = [
  "console_error_panic_hook",
+ "image",
  "js-sys",
+ "pollster",
  "ravenrs",
+ "ravenrs-report",
  "ravenrs-report-designer",
+ "serde_json",
  "tracing",
  "tracing-subscriber",
  "wasm-bindgen",
