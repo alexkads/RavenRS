@@ -7,7 +7,7 @@ description: Roteiro completo para testar o desempenho gráfico do RavenRS - gat
 
 Tudo aqui se repete com um comando. A regra é medir antes de otimizar, e nunca aceitar uma mudança sem o número de antes e o de depois.
 
-**Só quando o Alex pedir.** Nenhum passo desta skill é regra fixa. Não rode o gate (nem tempos, frames frios, capacidade ou regressões plantadas) por iniciativa própria: nem depois de mexer no core ou num componente, nem antes de abrir PR ou publicar. Quando uma mudança puder afetar desempenho, diga isso em uma linha e ofereça a medição; ela só roda se ele pedir. O `scripts/check.sh` também não roda o gate, a menos que seja chamado com `RAVENRS_GATE=1`.
+**Só quando o Alex pedir.** Nenhum passo desta skill é regra fixa. Não rode o gate (nem tempos, frames frios, capacidade ou regressões plantadas) por iniciativa própria: nem depois de mexer no core ou num componente, nem antes de abrir PR ou publicar. Quando uma mudança puder afetar desempenho, diga isso em uma linha e ofereça a medição; ela só roda se ele pedir. O `scripts/check.sh --full` também não roda o gate, a menos que seja chamado com `RAVENRS_GATE=1`.
 
 Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree.
 
@@ -29,7 +29,7 @@ Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree.
 cargo run --release -p ravenrs-perf -- gate
 ```
 
-Conta o trabalho de cada cena e compara com `perf/baseline.json`: builds, layouts, paints, shapings, alocações, draw calls, instâncias e bytes enviados à GPU. Roda duas vezes e reprova se as rodadas divergirem. Leva cerca de 40 s. Só entra no `scripts/check.sh` com `RAVENRS_GATE=1 ./scripts/check.sh`.
+Conta o trabalho de cada cena e compara com `perf/baseline.json`: builds, layouts, paints, shapings, alocações, draw calls, instâncias e bytes enviados à GPU. Roda duas vezes e reprova se as rodadas divergirem. Leva cerca de 40 s. Só entra no `scripts/check.sh --full` com `RAVENRS_GATE=1 ./scripts/check.sh --full`.
 
 Se reprovar, descubra a causa antes de qualquer outra coisa. Só atualize a baseline se a mudança for intencional, e revise o diff:
 

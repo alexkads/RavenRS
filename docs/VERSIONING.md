@@ -40,7 +40,7 @@ Breaking changes are the ones that Cargo SemVer and [`cargo semver-checks`](http
 
 ## Release checklist
 
-1. `scripts/check.sh` passes, including the golden-image tests.
+1. `scripts/check.sh --full` passes, including the golden-image tests.
 2. `cargo semver-checks` runs against the previous release. Until 28.1.0, what it finds goes under *Breaking* in the CHANGELOG; from then on it has to agree with the version bump.
 3. Benchmarks are within the budgets in [QUALITY.md](QUALITY.md).
 4. CHANGELOG has an entry, plus a migration guide for a major.

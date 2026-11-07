@@ -18,7 +18,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 
 ## Enforced checks
 
-`scripts/check.sh` runs every check, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate.
+`scripts/check.sh --full` runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate. Without `--full` it is the quick check for each pull request: rustfmt, and clippy and the tests of the packages the change reaches (`scripts/changed-packages.py`).
 
 | Check | What it catches |
 |---|---|
