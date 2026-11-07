@@ -481,6 +481,8 @@ pub struct Labels {
     pub verification_code: String,
     /// A question's button that gives up on it.
     pub cancel: String,
+    /// Before the word a [`ConfirmDialog`](crate::ConfirmDialog) asks to be typed.
+    pub confirm_by_typing: String,
     /// The menu of commands that did not fit.
     pub more_commands: String,
     /// A number's decimal separator.
@@ -1061,6 +1063,7 @@ impl Default for Labels {
             culture: "en-US".into(),
             verification_code: "Verification code".into(),
             cancel: "Cancel".into(),
+            confirm_by_typing: "To confirm, type".into(),
             more_commands: "More".into(),
             decimal_separator: '.',
             group_separator: ',',
@@ -1519,6 +1522,7 @@ impl Labels {
             culture: "pt-BR".into(),
             verification_code: "Código de verificação".into(),
             cancel: "Cancelar".into(),
+            confirm_by_typing: "Para confirmar, digite".into(),
             more_commands: "Mais".into(),
             decimal_separator: ',',
             group_separator: '.',

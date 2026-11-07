@@ -13,7 +13,10 @@ use ravenrs_style::{Semantic, TextStyle};
 use crate::chat::{PANEL_MARGIN, move_by_handle, panel_inside};
 use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::overlay::{Entry, MenuList};
-use crate::{AnyView, Button, ButtonSize, ButtonStyle, Dialog, IconButton, IconName, MenuItem, View, util};
+use crate::{
+    AnyView, Button, ButtonSize, ButtonStyle, Dialog, IconButton, IconName, MenuItem, Text, TextField,
+    VStack, View, util,
+};
 
 /// Room a button takes besides its label: its padding, and the icon if it has one.
 const BUTTON_PADDING: f32 = 26.0;
@@ -829,6 +832,9 @@ struct Question {
     title: String,
     message: String,
     action: String,
+    /// The word that has to be typed, exactly, before the action can run.
+    word: Option<String>,
+    typed: State<String>,
     run: Rc<dyn Fn()>,
 }
 
@@ -858,12 +864,26 @@ impl ConfirmDialog {
         action: impl Into<String>,
         run: impl Fn() + 'static,
     ) {
-        self.0.set(Some(Rc::new(Question {
-            title: title.into(),
-            message: message.into(),
-            action: action.into(),
-            run: Rc::new(run),
-        })));
+        self.put(title.into(), message.into(), action.into(), None, Rc::new(run));
+    }
+
+    /// Like [`ask`](Self::ask), for what is too costly to answer with one click: the
+    /// button called `action` only works after `word` is typed exactly as it is, capitals
+    /// included, so a hurried click never runs `run`.
+    pub fn ask_typing(
+        &self,
+        title: impl Into<String>,
+        message: impl Into<String>,
+        action: impl Into<String>,
+        word: impl Into<String>,
+        run: impl Fn() + 'static,
+    ) {
+        self.put(title.into(), message.into(), action.into(), Some(word.into()), Rc::new(run));
+    }
+
+    fn put(&self, title: String, message: String, action: String, word: Option<String>, run: Rc<dyn Fn()>) {
+        let typed = State::new(String::new());
+        self.0.set(Some(Rc::new(Question { title, message, action, word, typed, run })));
     }
 }
 
@@ -881,20 +901,44 @@ impl View for ConfirmDialog {
         );
         let (cancel, done, run) = (self.0.clone(), self.0.clone(), question.run.clone());
         let labels = cx.labels();
+        let typed_right = question.word.as_ref().is_none_or(|word| question.typed.get() == *word);
+        let mut dialog = Dialog::new(open, question.title.clone()).description(question.message.clone());
+        if let Some(word) = &question.word {
+            let (answered, run, word_typed) = (self.0.clone(), question.run.clone(), word.clone());
+            let field = TextField::new(question.typed.binding())
+                .placeholder(word.clone())
+                .autofocus()
+                .on_submit(move |text| {
+                    if text == word_typed {
+                        answered.set(None);
+                        run();
+                    }
+                });
+            dialog = dialog.content(
+                VStack::new((
+                    Text::new(format!("{} {word}", labels.confirm_by_typing)).style(TextStyle::Callout),
+                    field,
+                ))
+                .spacing(8.0)
+                .align(Align::Stretch),
+            );
+        }
         cx.child(
-            &Dialog::new(open, question.title.clone())
-                .description(question.message.clone())
+            &dialog
                 .action(
                     Button::new(labels.cancel.clone())
                         .style(ButtonStyle::Secondary)
                         .on_click(move || cancel.set(None)),
                 )
-                .action(Button::new(question.action.clone()).style(ButtonStyle::Danger).on_click(
-                    move || {
-                        done.set(None);
-                        run();
-                    },
-                )),
+                .action(
+                    Button::new(question.action.clone())
+                        .style(ButtonStyle::Danger)
+                        .disabled(!typed_right)
+                        .on_click(move || {
+                            done.set(None);
+                            run();
+                        }),
+                ),
         )
     }
 }
