@@ -2116,6 +2116,11 @@ impl Gallery {
                     .align(Align::Stretch),
                 ),
                 demo(
+                    "Scroll-driven scene",
+                    "The section holds while you scroll, and each step fades in and out with the scroll, not a clock.",
+                    samples::sample("ScrollScene").unwrap_or_else(|| Box::new(Text::new("ScrollScene"))),
+                ),
+                demo(
                     "Shared selection",
                     "One marker that travels between items, under the labels.",
                     VStack::new((

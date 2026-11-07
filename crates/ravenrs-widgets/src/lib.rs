@@ -87,6 +87,7 @@ mod rich_text;
 #[cfg(feature = "charts")]
 mod sankey;
 mod scheduler;
+mod scroll_scene;
 mod shortcuts;
 mod sound;
 mod stack;
@@ -204,6 +205,7 @@ pub use sankey::{SankeyAlign, SankeyChart};
 pub use scheduler::{
     Resource, Scheduler, SchedulerChange, SchedulerEvent, SchedulerRange, TimeAxis, TimePoint, TimeScale,
 };
+pub use scroll_scene::{ScrollLink, ScrollLinked, ScrollRange, ScrollScene, Sticky};
 pub use shortcuts::{ShortcutHintBar, ShortcutSheet};
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
 pub use stack::{

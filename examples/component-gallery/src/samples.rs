@@ -49,7 +49,7 @@ samples! {
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
     "Chart" => chart, "ChartReference" => chart_reference, "SankeyChart" => sankey_chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
-    "ScrollView" => scroll_view, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "DockArea" => dock_area, "Card" => card, "GlassCard" => glass_card,
+    "ScrollView" => scroll_view, "ScrollScene" => scroll_scene, "ScrollLinked" => scroll_linked, "Sticky" => sticky, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "DockArea" => dock_area, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
     "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "RichText" => rich_text, "AttachmentStrip" => attachment_strip, "AudioPlayerButton" => audio_player_button, "SelectionBar" => selection_bar, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
@@ -1222,6 +1222,71 @@ fn spacer() -> impl View {
 fn scroll_view() -> impl View {
     let rows: Vec<AnyView> = (1..=30).map(|n| Box::new(Text::new(format!("Row {n}"))) as AnyView).collect();
     ScrollView::new(rows).spacing(8.0).height(180.0)
+}
+// end
+
+// sample: ScrollScene, 320
+fn scroll_scene() -> impl View {
+    // Each step fades in, holds for its share of the scene and fades out.
+    let step = |title: &'static str, text: &'static str, from: f32, to: f32| {
+        let away = Effect::hidden().then(Effect::moved(0.0, 16.0));
+        let card = Card::new(
+            VStack::new((
+                Text::new(title).style(TextStyle::Title),
+                Text::new(text).foreground(Semantic::InkMuted),
+            ))
+            .spacing(6.0),
+        );
+        let link = ScrollLink::keyframes([
+            (from - 0.08, away),
+            (from + 0.02, Effect::IDENTITY),
+            (to - 0.02, Effect::IDENTITY),
+            (to + 0.08, away),
+        ]);
+        ScrollLinked::new(card, link)
+    };
+    let steps = ZStack::new((
+        step("1. State", "A click changes a value.", -1.0, 0.33),
+        step("2. Layout", "Only what read it moves.", 0.33, 0.66),
+        step("3. Paint", "The GPU draws the frame.", 0.66, 2.0),
+    ));
+    ScrollView::new((
+        Text::new("Scroll down: the scene holds while its steps change.").foreground(Semantic::InkMuted),
+        ScrollScene::new(steps).length(600.0),
+        Text::new("Here the scene lets go.").foreground(Semantic::InkMuted),
+        Canvas::new(|_, _| {}).size(10.0, 200.0),
+    ))
+    .spacing(12.0)
+    .height(280.0)
+}
+// end
+
+// sample: ScrollLinked, 260
+fn scroll_linked() -> impl View {
+    let card = |text: &'static str| {
+        ScrollLinked::new(Card::new(Text::new(text)), ScrollLink::fade_in().range(ScrollRange::Enter))
+    };
+    ScrollView::new((
+        card("Each card fades in"),
+        card("and rises into place"),
+        card("as it enters the view,"),
+        card("following the scroll"),
+        card("and not a clock."),
+    ))
+    .spacing(80.0)
+    .height(220.0)
+}
+// end
+
+// sample: Sticky, 260
+fn sticky() -> impl View {
+    let section = |name: &'static str| {
+        let rows: Vec<AnyView> =
+            (1..=6).map(|n| Box::new(Text::new(format!("{name} {n}"))) as AnyView).collect();
+        VStack::new((Sticky::new(Badge::new(name).tone(Tone::Accent)), VStack::new(rows).spacing(8.0)))
+            .spacing(8.0)
+    };
+    ScrollView::new((section("Inputs"), section("Overlays"), section("Data"))).spacing(16.0).height(220.0)
 }
 // end
 

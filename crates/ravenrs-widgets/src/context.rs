@@ -424,6 +424,12 @@ pub(crate) struct Element {
     /// Report the size of the content (see [`BuildCx::measured_content`]).
     pub measure: bool,
     pub report_frame: bool,
+    /// Stays this far below the top of its scroll container while its parent passes.
+    pub pin: Option<f32>,
+    /// The track of a scroll scene: what [`crate::ScrollRange::Scene`] measures.
+    pub scroll_track: Option<crate::scroll_scene::ScrollTrack>,
+    /// Painted through this effect of the scroll position.
+    pub scroll_link: Option<crate::ScrollLink>,
 }
 
 impl Element {
@@ -458,6 +464,9 @@ impl Element {
             motion: None,
             measure: false,
             report_frame: false,
+            pin: None,
+            scroll_track: None,
+            scroll_link: None,
         }
     }
 
@@ -1212,6 +1221,35 @@ impl<'a> BuildCx<'a> {
     pub fn translate(&mut self, node: NodeId, offset: Point) {
         if let Some(e) = self.element_mut(node) {
             e.translate = offset;
+        }
+    }
+
+    /// Keeps the node on screen while its parent scrolls past, `top` pixels below the
+    /// top of the scroll container around it, and lets it leave with the bottom of the
+    /// parent: CSS `position: sticky`. It is moved when frames are placed, so clicks,
+    /// focus and assistive technology find it where it shows. See [`crate::Sticky`].
+    pub fn pin(&mut self, node: NodeId, top: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.pin = Some(top);
+        }
+    }
+
+    /// Marks the node as the track of a scroll scene: content pinned `top` pixels
+    /// below the top of the scroll container for `length` pixels of scrolling. Links
+    /// inside it that measure [`crate::ScrollRange::Scene`] run from 0 to 1 over that
+    /// length. See [`crate::ScrollScene`].
+    pub fn scroll_track(&mut self, node: NodeId, top: f32, length: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.scroll_track = Some(crate::scroll_scene::ScrollTrack { top, length });
+        }
+    }
+
+    /// Paints the node and its subtree with the effect `link` gives for the current
+    /// scroll position, worked out on every paint without rebuilding. Layout and hit
+    /// testing are unaffected. See [`crate::ScrollLinked`].
+    pub fn scroll_linked(&mut self, node: NodeId, link: crate::ScrollLink) {
+        if let Some(e) = self.element_mut(node) {
+            e.scroll_link = Some(link);
         }
     }
 

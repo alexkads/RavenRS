@@ -192,6 +192,9 @@ pub struct Ui {
     motions: Vec<MotionEntry>,
     /// What scrolling added to each element's frame.
     shifts: Vec<Point>,
+    /// The visible area of the scroll container around each element (the window for
+    /// those outside any), for pinned elements and scroll-linked effects.
+    views: Vec<Rect>,
     /// The picture's palette, to notice a theme change.
     painted_palette: Option<ravenrs_style::Palette>,
     /// The next build lands colors at once, because the picture crossfades.
@@ -289,6 +292,7 @@ impl Ui {
             motion: MotionSystem::default(),
             motions: Vec::new(),
             shifts: Vec::new(),
+            views: Vec::new(),
             painted_palette: None,
             crossfade: false,
             snap_layout: false,
@@ -1284,6 +1288,8 @@ impl Ui {
         self.frames.resize(self.elements.len(), Rect::ZERO);
         self.shifts.clear();
         self.shifts.resize(self.elements.len(), Point::ZERO);
+        self.views.clear();
+        self.views.resize(self.elements.len(), Rect::from_origin_size(Point::ZERO, self.viewport));
         self.place(root, Point::ZERO);
         let overlays = std::mem::take(&mut self.overlays);
         for overlay in &overlays {
@@ -1344,20 +1350,32 @@ impl Ui {
     /// Sets absolute frames for `node` and its subtree; `origin` is where the
     /// node's own frame starts (its layout location is ignored for roots).
     fn place(&mut self, node: NodeId, origin: Point) {
-        let mut stack = vec![(node, origin, true, Point::ZERO)];
-        while let Some((node, parent_origin, is_root, shift)) = stack.pop() {
+        let window = Rect::from_origin_size(Point::ZERO, self.viewport);
+        let mut stack = vec![(node, origin, true, Point::ZERO, window, window)];
+        while let Some((node, parent_origin, is_root, mut shift, parent_frame, view)) = stack.pop() {
             let i = node.0 as usize;
             let Ok(local) = self.layout.frame(self.elements[i].layout) else { continue };
-            let frame = if is_root {
+            let mut frame = if is_root {
                 Rect::from_origin_size(parent_origin, local.size)
             } else {
                 local.translate(parent_origin)
             };
+            // Sticky: held below the top of the view, and taken away by the parent's bottom.
+            if let Some(top) = self.elements[i].pin.filter(|_| !is_root) {
+                let lowest = (parent_frame.max_y() - frame.height()).max(frame.y());
+                let y = frame.y().max(view.y() + top).min(lowest);
+                let moved = Point::new(0.0, y - frame.y());
+                frame = frame.translate(moved);
+                shift = shift + moved;
+            }
             self.frames[i] = frame;
             self.shifts[i] = shift;
+            self.views[i] = view;
             let mut child_origin = frame.origin + self.elements[i].translate;
             let mut child_shift = shift;
+            let mut child_view = view;
             if self.elements[i].scroll {
+                child_view = frame;
                 let offset = self.clamped_offset(i);
                 child_origin = child_origin - offset;
                 child_shift = child_shift - offset;
@@ -1372,7 +1390,7 @@ impl Ui {
             }
             let element = &self.elements[i];
             for child in &element.children {
-                stack.push((*child, child_origin, false, child_shift));
+                stack.push((*child, child_origin, false, child_shift, frame, child_view));
             }
         }
     }
@@ -1424,6 +1442,32 @@ impl Ui {
             let tree = self.access_tree();
             self.tell_activity(crate::context::UiActivity::Described(&tree));
         }
+    }
+
+    /// The effect element `i`'s scroll link gives at the current scroll position.
+    fn scroll_effect(&self, i: usize) -> Effect {
+        let Some(link) = &self.elements[i].scroll_link else { return Effect::IDENTITY };
+        let mut scene = None;
+        if link.scroll_range() == crate::ScrollRange::Scene {
+            let mut node = Some(NodeId(i as u32));
+            while let Some(n) = node {
+                let k = n.0 as usize;
+                if let Some(track) = self.elements[k].scroll_track {
+                    scene = Some((k, track));
+                    break;
+                }
+                node = self.parents.get(k).copied().flatten();
+            }
+        }
+        let progress = match scene {
+            Some((k, track)) => {
+                link.scroll_range().progress(self.frames[i], self.views[k], Some((self.frames[k], track)))
+            }
+            None => link.scroll_range().progress(self.frames[i], self.views[i], None),
+        };
+        let effect = link.effect_at(progress);
+        // Asked for less motion, the scroll still fades things, but nothing moves or grows.
+        if self.reduced_motion() { Effect::IDENTITY.with_opacity(effect.opacity) } else { effect }
     }
 
     fn reduced_motion(&self) -> bool {
@@ -1486,6 +1530,8 @@ impl Ui {
             Some((_, s)) => (s.quad, s.text, s.frame.unwrap_or(frame), s.effect),
             None => (None, None, frame, Effect::IDENTITY),
         };
+        let linked = self.scroll_effect(i);
+        effect = effect.then(linked);
         // Off screen, its pixels would be thrown away: what it draws goes nowhere, though its
         // children still get their turn, since they can stand outside it. A node under an
         // effect may land elsewhere, one leaving is captured for its way out, and one
@@ -1561,7 +1607,10 @@ impl Ui {
                 .border(ix.focus_ring_width, theme.color(Semantic::FocusRing));
             self.scene.push_quad(ring);
         }
-        let Some(entry) = motion else { return };
+        let Some(entry) = motion else {
+            self.scene.apply_effect(start..self.scene.len(), linked, frame.center());
+            return;
+        };
         let end = self.scene.len();
         if !entry.motion.shape_only && visual.origin != frame.origin {
             self.scene.apply_effect(
