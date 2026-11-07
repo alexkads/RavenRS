@@ -107,13 +107,17 @@ Só para saber se a aplicação continua funcionando, com janela de verdade num 
 ./scripts/vm-linux.sh test family-finance
 ```
 
-Liga a VM `ravenrs-linux`, copia este checkout, compila, abre o app, confirma que ele continua vivo depois de 30 s e salva uma captura da tela. Olhe a captura com a ferramenta de leitura de imagem, porque processo vivo não prova que desenhou. Repita com outros exemplos, como `feature-center` e `component-gallery`, e desligue ao terminar:
+Liga a VM `ravenrs-linux`, instala o compilador, os pacotes `-dev` e o Rust, copia este checkout, compila, abre o app sob o `twm`, confirma que ele continua vivo depois de 30 s e salva uma captura da tela. Leva uns 10 minutos, porque compila do zero. Olhe a captura com a ferramenta de leitura de imagem, porque processo vivo não prova que desenhou. Repita com outros exemplos, como `feature-center` e `component-gallery`. O título da janela sai com acentos trocados: é o `twm`, não o app.
+
+**Sempre termine com `stop`, mesmo depois de uma falha:**
 
 ```bash
 ./scripts/vm-linux.sh stop
 ```
 
-Para recriar a VM do zero, rode `create`. Se o último passo do instalador do VirtualBox falhar com uma tela vermelha, envie Enter com `VBoxManage controlvm ravenrs-linux keyboardputscancode 1c 9c`, espere o login e rode `provision`. A senha é só dessa VM e fica em `~/VirtualBox VMs/ravenrs-linux.password`.
+Ele desliga a VM e volta o disco à base `limpa`, descartando tudo o que o teste trouxe: compilação, crates, Rust e pacotes. A base tem só o que roda um app e ocupa menos de 1 GB. Se o `stop` disser outro tamanho, algo ficou para trás.
+
+Para mudar o que fica na base, edite `RUNTIME` ou `BUILD` no script e rode `seal`, que parte da base atual, limpa, compacta o disco e grava a base nova. Para recriar a VM do zero, rode `create` e depois `seal`. Se o último passo do instalador do VirtualBox falhar com uma tela vermelha, envie Enter com `VBoxManage controlvm ravenrs-linux keyboardputscancode 1c 9c`, espere o login e rode `provision`. A senha é só dessa VM e fica em `~/VirtualBox VMs/ravenrs-linux.password`; o acesso diário é pela chave `ravenrs-linux.key`, na mesma pasta.
 
 Windows continua só nas máquinas do Alex.
 
