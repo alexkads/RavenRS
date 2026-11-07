@@ -179,6 +179,7 @@ impl Component for Designer {
             StatusBar { editor: e.clone(), cache: self.cache.clone(), themes: on_its_own },
             on_its_own.then(|| Gallery { editor: e.clone() }),
             on_its_own.then(|| WizardDialog { editor: e.clone(), state: self.wizard.clone() }),
+            ExpressionDialog(e.clone()),
             FieldGhost(e.clone()),
             Shortcuts { editor: e, cache: self.cache.clone(), params: self.params.clone() },
         ))
@@ -388,6 +389,13 @@ impl Designer {
                             .enabled(selected),
                     ),
             )
+            .group(RibbonGroup::new("Dados").item({
+                let e = e.clone();
+                RibbonItem::button("Expressão", IconName::Code)
+                    .large()
+                    .enabled(e.control_has_expression())
+                    .on_click(move || e.open_expression(editor::ExpressionTarget::Control))
+            }))
             .group(
                 RibbonGroup::new("Fonte")
                     .item(style_toggle(
@@ -1060,6 +1068,65 @@ impl View for ZoomBar {
             ))
             .spacing(SPACING.s1)
             .align(Align::Center),
+        )
+    }
+}
+
+/// The expression editor, opened from an expression's button: the expression with
+/// the report's fields, calculated fields and parameters, applied or dropped as a whole.
+struct ExpressionDialog(Editor);
+
+impl View for ExpressionDialog {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let e = &self.0;
+        let report = e.report.get();
+        let data = report.embedded_data().cloned().unwrap_or_default();
+        let kind = |k: FieldKind| match k {
+            FieldKind::Number => FilterFieldKind::Number,
+            FieldKind::Date => FilterFieldKind::Date,
+            FieldKind::Boolean => FilterFieldKind::Boolean,
+            _ => FilterFieldKind::Text,
+        };
+        let mut fields: Vec<FilterField> = wizard::fields(&data, report.data_member.as_deref())
+            .into_iter()
+            .filter(|f| f.kind != FieldKind::Collection)
+            .map(|f| FilterField::new(f.path.clone(), f.path.clone(), kind(f.kind)))
+            .collect();
+        fields.extend(
+            report
+                .calculated_fields
+                .iter()
+                .map(|f| FilterField::new(f.name.clone(), f.name.clone(), FilterFieldKind::Number)),
+        );
+        let parameters = report.parameters.iter().map(|p| {
+            let k = match p.kind {
+                ravenrs_report::ParameterKind::Number => FilterFieldKind::Number,
+                ravenrs_report::ParameterKind::Date => FilterFieldKind::Date,
+                ravenrs_report::ParameterKind::Boolean => FilterFieldKind::Boolean,
+                _ => FilterFieldKind::Text,
+            };
+            FilterField::new(p.name.clone(), p.label.clone().unwrap_or_else(|| p.name.clone()), k)
+        });
+        let (read, write) = (e.expression.clone(), e.expression.clone());
+        let open = Binding::new(
+            move || read.get().is_some(),
+            move |on: bool| {
+                if !on {
+                    write.set(None)
+                }
+            },
+        );
+        let apply = e.clone();
+        cx.child(
+            &Dialog::new(open, "Editor de expressões")
+                .description("Clique num item para ver o que ele faz; clique de novo, ou em Inserir, para colocá-lo no cursor.")
+                .width(860.0)
+                .close_label("Cancelar")
+                .content(Localized::new(
+                    Labels::pt_br(),
+                    ExpressionEditor::new(e.expression_draft.binding()).fields(fields).parameters(parameters).rows(6),
+                ))
+                .action(Button::new("Aplicar").icon(IconName::Check).on_click(move || apply.apply_expression())),
         )
     }
 }

@@ -141,7 +141,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Toolbox, property grid, report explorer, group & sort | | 🟡 toolbox down the left and on the Ribbon, property grid docked under the field list and report explorer. Group & sort panel ⬜ [R4] |
 | Snap grid, resize, move across bands, undo/redo, zoom | | ✅ |
 | Snap lines, align/size tools, rulers, multi-select | | 🟡 rulers in centimeters marking the selected control; cut, copy, paste, bring to front and send to back on the Ribbon. Snap lines, align/size tools and multi-select ⬜ [R4] |
-| Expression editor, format editor, validation (design analyzer) | | 🟡 format picker; render errors listed. Expression editor with function list ⬜ [R4] |
+| Expression editor, format editor, validation (design analyzer) | | 🟡 format picker; render errors listed; expression editor with fields, parameters, functions by group, operators, constants, search and a check while typing. Syntax highlighting and completion in the text ⬜ [R4] |
 | Report wizard (table, labels, templates) | | 🟡 table wizard (fields, grouping, totals) and templates (invoice, sales, customer list). Labels wizard ⬜ [R4] |
 | Localization editor, scripts | | ⬜ [R5]; scripts are intentionally not planned (expressions cover them safely) |
 | AI: prompt to report, AI expressions | | ⬜ [R5] |

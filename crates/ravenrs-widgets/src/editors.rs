@@ -120,6 +120,8 @@ pub struct TextArea {
     grows: Option<(usize, usize)>,
     width: Option<f32>,
     state: util::EditorState,
+    /// Caret and selection kept by whoever built the area, so it can insert at the caret.
+    cursor: Option<State<Cursor>>,
 }
 
 impl fmt::Debug for TextArea {
@@ -138,7 +140,15 @@ impl TextArea {
             grows: None,
             width: None,
             state: util::EditorState::default(),
+            cursor: None,
         }
+    }
+
+    /// Keeps the caret and selection in `cursor`, for a component that inserts text where
+    /// the caret is.
+    pub(crate) fn cursor(mut self, cursor: State<Cursor>) -> Self {
+        self.cursor = Some(cursor);
+        self
     }
 
     /// Muted text shown while the value is empty.
@@ -224,7 +234,8 @@ impl View for TextArea {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let state = self.state;
-        let cursor: State<Cursor> = cx.use_state(|| Cursor::at(usize::MAX));
+        let own: State<Cursor> = cx.use_state(|| Cursor::at(usize::MAX));
+        let cursor = self.cursor.clone().unwrap_or(own);
         let followed: State<usize> = cx.use_state(|| usize::MAX);
         let focused = cx.is_focused() && !state.disabled;
         let hovered = cx.is_hovered() && !state.disabled;

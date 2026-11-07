@@ -5,7 +5,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::prelude::*;
-use ravenrs_report::{Control, Report, ReportEngine};
+use ravenrs_report::{Control, ControlKind, Report, ReportEngine};
 
 use crate::bands::BandRef;
 
@@ -25,6 +25,17 @@ pub struct FieldDrag {
     pub at: Point,
 }
 
+/// An expression the expression editor can open.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExpressionTarget {
+    /// The selected control's expression: a field, a barcode's or a bookmark's.
+    Control,
+    /// The report's filter.
+    Filter,
+    /// What a group is grouped by.
+    Group(usize),
+}
+
 /// Everything panels share. Cheap to clone.
 #[derive(Clone)]
 pub struct Editor {
@@ -39,6 +50,9 @@ pub struct Editor {
     pub drag: State<Option<FieldDrag>>,
     /// The control last copied or cut, for Paste.
     pub copied: State<Option<Control>>,
+    /// The expression open in the expression editor, and the text being edited.
+    pub expression: State<Option<ExpressionTarget>>,
+    pub expression_draft: State<String>,
     pub engine: Rc<RefCell<ReportEngine>>,
     /// Frames of the band bodies in the last paint, for drops.
     pub band_frames: Rc<RefCell<Vec<(BandRef, Rect)>>>,
@@ -60,6 +74,8 @@ impl Editor {
             wizard_open: State::new(false),
             drag: State::new(None),
             copied: State::new(None),
+            expression: State::new(None),
+            expression_draft: State::new(String::new()),
             engine: Rc::new(RefCell::new(ReportEngine::new())),
             band_frames: Rc::new(RefCell::new(Vec::new())),
             history: Rc::new(RefCell::new((Vec::new(), Vec::new()))),
@@ -194,6 +210,64 @@ impl Editor {
             });
             self.selection.set(Selection::Band(b));
         }
+    }
+
+    /// The text of an expression, empty if there is none.
+    pub fn expression_of(&self, target: ExpressionTarget) -> String {
+        match target {
+            ExpressionTarget::Control => self
+                .selected_control()
+                .and_then(|(_, _, c)| match c.kind {
+                    ControlKind::Label(l) => l.expression,
+                    ControlKind::Barcode(b) => b.expression,
+                    ControlKind::Bookmark(b) => b.expression,
+                    _ => None,
+                })
+                .unwrap_or_default(),
+            ExpressionTarget::Filter => self.report.with(|r| r.filter.clone().unwrap_or_default()),
+            ExpressionTarget::Group(i) => {
+                self.report.with(|r| r.groups.get(i).map(|g| g.expression.clone()).unwrap_or_default())
+            }
+        }
+    }
+
+    /// Whether the selected control has an expression to edit.
+    pub fn control_has_expression(&self) -> bool {
+        self.selected_control().is_some_and(|(_, _, c)| match c.kind {
+            ControlKind::Label(l) => l.expression.is_some(),
+            ControlKind::Barcode(b) => b.expression.is_some(),
+            ControlKind::Bookmark(b) => b.expression.is_some(),
+            _ => false,
+        })
+    }
+
+    /// Opens the expression editor on `target`.
+    pub fn open_expression(&self, target: ExpressionTarget) {
+        self.expression_draft.set(self.expression_of(target));
+        self.expression.set(Some(target));
+    }
+
+    /// Writes the expression being edited and closes the editor.
+    pub fn apply_expression(&self) {
+        let Some(target) = self.expression.get() else { return };
+        let text = self.expression_draft.get();
+        match target {
+            ExpressionTarget::Control => self.edit_control("expression", |c| match &mut c.kind {
+                ControlKind::Label(l) => l.expression = Some(text),
+                ControlKind::Barcode(b) => b.expression = Some(text),
+                ControlKind::Bookmark(b) => b.expression = Some(text),
+                _ => {}
+            }),
+            ExpressionTarget::Filter => {
+                self.edit(|r| r.filter = (!text.trim().is_empty()).then_some(text));
+            }
+            ExpressionTarget::Group(i) => self.edit(|r| {
+                if let Some(g) = r.groups.get_mut(i) {
+                    g.expression = text;
+                }
+            }),
+        }
+        self.expression.set(None);
     }
 
     /// Keeps a copy of the selected control for Paste.
