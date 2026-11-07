@@ -408,10 +408,8 @@ fn an_opening_says_its_words_once_they_come_in_and_the_poster_shows_them() {
     let movie = opened_and_closed(&noisy_film());
     assert_eq!(movie.poster_ms(), ravenrs_movie::CardLook::Opening.words_in_ms());
     let heard = Heard::default();
-    let mut ui = Ui::new(
-        MoviePlayer::new(movie).narration(narration_of("Welcome. Part one")),
-        Theme::raven_light(),
-    );
+    let mut ui =
+        Ui::new(MoviePlayer::new(movie).narration(narration_of("Welcome. Part one")), Theme::raven_light());
     ui.set_sound(heard.clone());
     ui.set_viewport(Size::new(1200.0, 900.0), 1.0);
     ui.set_time(0.0);

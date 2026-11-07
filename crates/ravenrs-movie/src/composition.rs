@@ -288,11 +288,7 @@ impl Composition {
                 scene.pop_clip();
             });
             let node = cx.container(
-                LayoutStyle {
-                    width: Some(logo_size),
-                    height: Some(logo_size),
-                    ..LayoutStyle::leaf()
-                },
+                LayoutStyle { width: Some(logo_size), height: Some(logo_size), ..LayoutStyle::leaf() },
                 &[],
                 Paint::Custom(draw),
             );
@@ -309,11 +305,7 @@ impl Composition {
         let line_width = 120.0 * size * line_in;
         column.push(gap(cx, 12.0 * size));
         let line = cx.container(
-            LayoutStyle {
-                width: Some(line_width.max(0.5)),
-                height: Some(3.0 * size),
-                ..LayoutStyle::leaf()
-            },
+            LayoutStyle { width: Some(line_width.max(0.5)), height: Some(3.0 * size), ..LayoutStyle::leaf() },
             &[],
             Paint::Quad(QuadPaint { corner_radius: 2.0, ..QuadPaint::new(ink.faded(0.7 * line_in)) }),
         );

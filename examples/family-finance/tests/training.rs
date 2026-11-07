@@ -38,11 +38,27 @@ const AFTER_CARD_MS: u64 = 900;
 /// How each film says goodbye, by its file: the title and the line under it.
 const FAREWELLS: [(&str, &str, &str); 6] = [
     ("visao-geral", "A casa é sua!", "Agora cada real tem endereço. Que venham meses leves."),
-    ("lancamentos", "Anotou, controlou!", "Cada lançamento é um passo, e o seu dinheiro agradece a caminhada."),
-    ("contas", "Surpresa, só as boas!", "Com os vencimentos em dia, a cabeça fica livre para o resto do mês."),
-    ("agenda", "O calendário joga no seu time", "Com tudo marcado, sobra tempo para o que importa de verdade."),
+    (
+        "lancamentos",
+        "Anotou, controlou!",
+        "Cada lançamento é um passo, e o seu dinheiro agradece a caminhada.",
+    ),
+    (
+        "contas",
+        "Surpresa, só as boas!",
+        "Com os vencimentos em dia, a cabeça fica livre para o resto do mês.",
+    ),
+    (
+        "agenda",
+        "O calendário joga no seu time",
+        "Com tudo marcado, sobra tempo para o que importa de verdade.",
+    ),
     ("planejamento", "O futuro já tem um plano", "Sonho com meta vira conquista. A próxima é sua!"),
-    ("cadastros", "Tudo no lugar, tudo seguro", "Casa arrumada e backup feito: pode seguir tranquilo. Até a próxima!"),
+    (
+        "cadastros",
+        "Tudo no lugar, tudo seguro",
+        "Casa arrumada e backup feito: pode seguir tranquilo. Até a próxima!",
+    ),
 ];
 
 /// The films: the name shown in the app, the file, and how each one goes.
@@ -641,7 +657,10 @@ fn the_voice_and_the_boxes_go_together_from_the_opening_to_the_farewell() {
             let said = format!("{}. {}", spot.title, spot.text);
             if let Some(seconds) = narration.seconds(&said) {
                 let voice = (seconds * 1000.0) as u64;
-                assert!(spot.until_ms - spot.from_ms >= voice, "{file}: the box goes before its voice: {said}");
+                assert!(
+                    spot.until_ms - spot.from_ms >= voice,
+                    "{file}: the box goes before its voice: {said}"
+                );
             }
         }
         let clips = &film.project().clips;
@@ -654,7 +673,18 @@ fn the_voice_and_the_boxes_go_together_from_the_opening_to_the_farewell() {
         let (look, opening, _) = card(clips.first()).expect("an opening");
         assert_eq!((look, opening.as_str()), (CardLook::Opening, *title), "{file}");
         let (look, goodbye, line) = card(clips.last()).expect("a farewell");
-        assert_eq!((look, (goodbye.as_str(), line.as_str())), (CardLook::Closing, farewell_of(file)), "{file}");
+        assert_eq!(
+            (look, (goodbye.as_str(), line.as_str())),
+            (CardLook::Closing, farewell_of(file)),
+            "{file}"
+        );
+        for clip in [clips.first(), clips.last()].into_iter().flatten() {
+            let (look, title, line) = card(Some(clip)).expect("a card");
+            let said = format!("{title}. {line}");
+            let voice = narration.seconds(&said).unwrap_or_else(|| panic!("{file}: no recording of {said}"));
+            let voice = (voice * 1000.0) as u64;
+            assert!(clip.duration_ms() >= look.speaks_from_ms() + voice, "{file}: {said} is cut");
+        }
         let last = film.hotspots().iter().map(|spot| spot.until_ms).max().unwrap_or(0);
         assert!(film.duration_ms() >= last + FAREWELL_MS, "{file}: it ends before its last box");
     }
@@ -873,6 +903,7 @@ fn real_model_answers_in_the_chat_with_the_numbers_of_the_database() {
 /// Records what the films say with Kokoro's `pm_santa`, into wave files for `pack_narration`
 /// when `FF_NARRATION_WAVS` says where: `FF_AI_MODELS=folder cargo test --release -p family-finance --test training record_narration -- --ignored --nocapture`.
 /// `FF_NARRATION_SPEAKER` picks another of its voices, and `FF_NARRATION_MODEL` another model.
+/// `FF_NARRATION_ADD=1` records only what `narracao.voz` does not say yet and adds it there.
 #[test]
 #[ignore = "needs the real voice model"]
 fn record_narration() {
@@ -934,6 +965,23 @@ fn record_narration() {
                 std::fs::write(format!("{wavs}/{index:03}-{take}.wav"), wav_of(&sound)).expect("wav");
             }
         }
+        return;
+    }
+    // Only what the narration of the app does not say yet, added to it: the takes
+    // chosen before stay as they are.
+    if std::env::var("FF_NARRATION_ADD").is_ok() {
+        let narration = Narration::new(NARRATION);
+        let mut added = Vec::new();
+        for text in said.iter().filter(|text| narration.clip(text).is_none()) {
+            let mut sound = Vec::new();
+            for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+                sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
+                sound.extend_from_slice(&silence);
+            }
+            println!("{:.1}s | {text}", sound.len() as f32 / SPEECH_RATE as f32);
+            added.push((text.clone(), sound));
+        }
+        std::fs::write(&out, Narration::pack_onto(NARRATION, &added, SPEECH_RATE)).expect("the file");
         return;
     }
     // Only what no recording in the folder has yet, after a film changed.

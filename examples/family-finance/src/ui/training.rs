@@ -93,9 +93,9 @@ pub(crate) fn training(state: &TrainingState) -> Page {
                         None => assistant,
                     }
                     .labels(AssistantLabels::pt_br())
-                        .cue(cue.clone())
-                        .narration(Narration::new(NARRATION))
-                        .width((content_width(size) - SCROLLBAR).max(320.0))
+                    .cue(cue.clone())
+                    .narration(Narration::new(NARRATION))
+                    .width((content_width(size) - SCROLLBAR).max(320.0))
                     .height(size.height - AROUND_THE_PAGE - PAGE_INSETS.top - PAGE_INSETS.bottom)
                 }),
                 None => Box::new(
