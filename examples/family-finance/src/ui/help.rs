@@ -131,7 +131,7 @@ pub(crate) const ATUALIZACAO: Help = (
 );
 pub(crate) const TELEGRAM: Help = (
     "Telegram",
-    "Conecta um chat privado para lançar neste Raven, por texto ou por áudio: “gastei 50 no mercado, foi a Ana”. Também responde perguntas, como “quanto gastei com mercado esse mês?”, e aceita o PDF do comprovante; depois dele, diga despesa ou receita, a categoria e, se quiser, quem gastou.",
+    "Conecta um chat privado para lançar neste Raven, por texto ou por áudio: “gastei 50 no mercado, foi a Ana”. Também responde perguntas, como “quanto gastei com mercado esse mês?”, avisa de contas, orçamento estourado e o resumo da semana (desligue em /avisos), e aceita o PDF do comprovante; depois dele, diga despesa ou receita, a categoria e, se quiser, quem gastou.",
     "Escaneie o QR, abra o bot e toque em Iniciar. Nada é lançado antes de você tocar em Confirmar, e Desfazer apaga o último lançamento do chat por 5 minutos.",
 );
 pub(crate) const RECOMECAR: Help = (
