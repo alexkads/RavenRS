@@ -660,6 +660,18 @@ fn draw_every_screen() {
     dialog.perform_action(id, AccessAction::Click);
     capture(&gpu, &mut dialog, size, &folder.join("novidades.png"));
 
+    // Why an update failed, in full: the status bar has no room for it.
+    let updater = Updater::idle();
+    let reason = "a compilação falhou; veja ~/.raven-financas/atualizacao.log.";
+    updater.set_status(UpdateStatus::Failed(news(false, "0.2.0"), reason.to_owned()));
+    let mut details = app(themes::light(), 0, updater);
+    details.set_viewport(size, 2.0);
+    details.update();
+    let tree = details.access_tree();
+    let id = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Ver detalhes")).expect("the button").id;
+    details.perform_action(id, AccessAction::Click);
+    capture(&gpu, &mut details, size, &folder.join("atualizacao-detalhes.png"));
+
     // The agenda's month, and the form that plans something.
     for (buttons, name) in [
         (vec![(Role::RadioButton, "Mês")], "agenda-mes"),
