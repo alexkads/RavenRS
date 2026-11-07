@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.17] - 2026-11-07
+
 ### Breaking
 
 - `Labels::tag_add`, `wizard_progress`, `theme_changed`, `theme_contrast`, `short_date`, `lightbox_counter` and `rating_value` are templates now, with `{0}`, `{1}` where the values go, and no longer functions. Methods of the same name fill them in: `labels.short_date(day)` instead of `(labels.short_date)(day)`. `theme_changed` has three forms, for none, one and more.
@@ -19,6 +21,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `EntityInfo::focus_order` and `#[object(focus_order = "...")]`: fields that come first on the form, on the screen and for Tab.
 - `ravenrs-app-ui` announces saving, a save that fails its rules, deleting and the list that opened, through `Session::announcer`, and names fields and commands from the model.
 - `FormField::accessible_name` / `accessible_description`, `AccessibleControl`, `Button::accessible_description`, `IconButton::description`, `ToolbarAction::accessible_name` / `accessible_description` (a command with keys says them), and `Ui::shortcuts`.
+- Background actions: `Action::background` and `in_background` run the work on a thread of its own, with a `JobContext` that reports progress, checks `cancelled`, and saves, deletes or tells. The `Frame` applies what comes back to the `ObjectSpace` on the UI thread, commits it and rolls back a batch that fails; the action stays off (`REASON_RUNNING`) while it runs, and an error or a panic becomes a message. `App::action` declares an action with no module or controller. The generated window shows a progress bar and Cancel at the foot of the navigation.
+- `ConfirmDialog::ask_typing`: the button acts only after the exact word is typed, capitals included; Enter in the field confirms too. Its words are `Labels::confirm_by_typing`.
 
 ### Changed
 
