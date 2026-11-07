@@ -5,9 +5,11 @@ use std::rc::Rc;
 use ravenrs_app::{
     ActionCategory, AppearanceTarget, ModelNode, Object, RuleKind, Severity, ViewInfo, Violation,
 };
+use ravenrs_app_a11y::AccessibleText;
 use ravenrs_layout::Align;
 use ravenrs_widgets::{
-    Alert, AnyView, BuildCx, FormField, FormGroup, FormLayout, NodeId, Text, Tone, VStack, View,
+    AccessibleControl, Alert, AnyView, BuildCx, FormField, FormGroup, FormLayout, NodeId, Text, Tone, VStack,
+    View,
 };
 
 use crate::editors::EditorRequest;
@@ -108,14 +110,23 @@ impl DetailView {
         };
         let name = item.and_then(|n| n.text("Editor")).unwrap_or("");
         let editor = self.session.editors().editor(name, &request);
+        let spoken = AccessibleText::of_field(info, item, &caption);
         // A check box says its own name.
         if matches!(info.kind, ravenrs_app::FieldKind::Boolean) {
             let (error, note) = (state.error_of(field), state.note_of(field));
             if error.is_none() && note.is_none() {
-                return Some(editor);
+                if !spoken.says_more() {
+                    return Some(editor);
+                }
+                let mut named = AccessibleControl::new(editor).name(spoken.name);
+                if let Some(description) = spoken.description {
+                    named = named.description(description);
+                }
+                return Some(Box::new(named));
             }
             let (note, tone) = note.map_or((None, Tone::Neutral), |(note, tone)| (Some(note), tone));
-            return Some(Box::new(FormField::new(caption, editor).error_text(error).note_text(note, tone)));
+            let wrapped = FormField::new(caption, editor).error_text(error).note_text(note, tone);
+            return Some(Box::new(Self::spoken(wrapped, spoken)));
         }
         let required = form
             .entity
@@ -138,7 +149,16 @@ impl DetailView {
         if let Some(tint) = look.back.or(around.back) {
             wrapped = wrapped.tint(semantic_of(tint));
         }
-        Some(Box::new(wrapped))
+        Some(Box::new(Self::spoken(wrapped, spoken)))
+    }
+
+    /// A field as screen readers are to hear it, when the model says more than its label.
+    fn spoken(field: FormField<AnyView>, spoken: AccessibleText) -> FormField<AnyView> {
+        let field = if spoken.renamed { field.accessible_name(spoken.name) } else { field };
+        match spoken.description {
+            Some(description) => field.accessible_description(description),
+            None => field,
+        }
     }
 
     fn group(

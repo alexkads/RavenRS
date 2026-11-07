@@ -140,8 +140,8 @@ pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, 
 pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
 pub use expression_editor::ExpressionEditor;
 pub use extras::{
-    Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane, SplitPanes, Splitter,
-    validate,
+    AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
+    SplitPanes, Splitter, validate,
 };
 #[cfg(feature = "decode")]
 pub use files::ImageField;

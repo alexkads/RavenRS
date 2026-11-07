@@ -33,7 +33,7 @@ const MORE_ROOM: f32 = 36.0;
 /// assert_eq!(Hotkey::command("s").shift().label(), Hotkey::command("S").shift().label());
 /// assert!(Hotkey::key(ravenrs_core::Key::Delete).label().contains("Del"));
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Hotkey {
     key: Key,
     command: bool,
@@ -49,6 +49,10 @@ impl Hotkey {
     /// This letter or digit with Cmd or Ctrl.
     pub fn command(character: &str) -> Self {
         Self { key: Key::Character(character.to_lowercase()), command: true, shift: false }
+    }
+
+    pub(crate) fn of(key: Key, command: bool, shift: bool) -> Self {
+        Self { key, command, shift }
     }
 
     /// Needs Shift too.
@@ -97,6 +101,8 @@ pub struct ToolbarAction {
     icon_only: bool,
     hotkey: Option<Hotkey>,
     on_click: Option<Rc<dyn Fn()>>,
+    accessible_name: Option<String>,
+    accessible_description: Option<String>,
 }
 
 impl fmt::Debug for ToolbarAction {
@@ -116,7 +122,29 @@ impl ToolbarAction {
             icon_only: false,
             hotkey: None,
             on_click: None,
+            accessible_name: None,
+            accessible_description: None,
         }
+    }
+
+    /// What screen readers call it, instead of its label.
+    pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
+        self.accessible_name = Some(name.into());
+        self
+    }
+
+    /// What screen readers say after its name. Its keys follow, when it has them.
+    pub fn accessible_description(mut self, text: impl Into<String>) -> Self {
+        self.accessible_description = Some(text.into());
+        self
+    }
+
+    /// What screen readers say after its name: its description, then its keys.
+    fn description(&self) -> Option<String> {
+        let keys = self.hotkey.as_ref().map(Hotkey::label);
+        let parts: Vec<&str> =
+            [self.accessible_description.as_deref(), keys.as_deref()].into_iter().flatten().collect();
+        (!parts.is_empty()).then(|| parts.join(". "))
     }
 
     /// An icon before the label.
@@ -174,21 +202,33 @@ impl ToolbarAction {
                 handler();
             }
         };
+        let name = self.accessible_name.clone().unwrap_or_else(|| self.label.clone());
+        let description = self.description();
         match (self.icon_only, self.icon) {
-            (true, Some(icon)) => Box::new(
-                IconButton::new(icon)
-                    .label(self.label.clone())
+            (true, Some(icon)) => {
+                let mut button = IconButton::new(icon)
+                    .label(name)
                     .style(self.style)
                     .size(ButtonSize::Small)
                     .disabled(self.disabled)
-                    .on_click(click),
-            ),
+                    .on_click(click);
+                if let Some(description) = description {
+                    button = button.description(description);
+                }
+                Box::new(button)
+            }
             (_, icon) => {
                 let mut button = Button::new(self.label.clone())
                     .style(self.style)
                     .size(ButtonSize::Small)
                     .disabled(self.disabled)
                     .on_click(click);
+                if self.accessible_name.is_some() {
+                    button = button.accessible_name(name);
+                }
+                if let Some(description) = description {
+                    button = button.accessible_description(description);
+                }
                 if let Some(icon) = icon {
                     button = button.icon(icon);
                 }

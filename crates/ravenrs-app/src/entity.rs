@@ -176,6 +176,10 @@ pub struct FieldInfo {
     pub criteria_of: Option<String>,
     /// It never leaves storage through a secured space, for anyone, and no screen shows it.
     pub secret: bool,
+    /// What screen readers call it, when the caption is not enough. The caption by default.
+    pub accessible_name: Option<String>,
+    /// What screen readers say after its name, such as what goes in it. The hint by default.
+    pub accessible_description: Option<String>,
 }
 
 /// `opening_cents` as `Opening cents`.
@@ -222,6 +226,8 @@ impl FieldInfo {
             predefined: Vec::new(),
             criteria_of: None,
             secret: false,
+            accessible_name: None,
+            accessible_description: None,
             kind,
         }
     }
@@ -312,6 +318,19 @@ impl FieldInfo {
     /// What the form says under it.
     pub fn hint(mut self, text: impl Into<String>) -> Self {
         self.hint = Some(text.into());
+        self
+    }
+
+    /// What screen readers call it, instead of its caption: for a caption that only makes sense
+    /// next to what is around it, such as `Até` for the end of a period.
+    pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
+        self.accessible_name = Some(name.into());
+        self
+    }
+
+    /// What screen readers say after its name, instead of its hint.
+    pub fn accessible_description(mut self, text: impl Into<String>) -> Self {
+        self.accessible_description = Some(text.into());
         self
     }
 
@@ -605,6 +624,9 @@ pub struct EntityInfo {
     pub data_access: DataAccess,
     /// Places on its form for actions, by the name of their `ActionCategory::InForm`.
     pub form_actions: Vec<String>,
+    /// The fields its form goes through first with the keyboard, in this order. The form shows
+    /// them in the same order, so the eye and the keyboard go the same way.
+    pub focus_order: Vec<String>,
 }
 
 impl EntityInfo {
@@ -633,6 +655,7 @@ impl EntityInfo {
             list_editable: false,
             data_access: DataAccess::Client,
             form_actions: Vec::new(),
+            focus_order: Vec::new(),
         }
     }
 
@@ -717,6 +740,13 @@ impl EntityInfo {
     /// A place on its form for the actions of `ActionCategory::InForm` with this name.
     pub fn form_actions(mut self, name: impl Into<String>) -> Self {
         self.form_actions.push(name.into());
+        self
+    }
+
+    /// The fields its form goes through first with the keyboard, in this order; the others follow
+    /// in the order they were declared. The form shows them in the same order.
+    pub fn focus_order(mut self, fields: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.focus_order = fields.into_iter().map(Into::into).collect();
         self
     }
 
@@ -823,6 +853,11 @@ impl EntityInfo {
                 if let Some(problem) = ravenrs_criteria::validate(&parsed, &self.schema()).first() {
                     return wrong(format!("the field {}: {problem}", field.name));
                 }
+            }
+        }
+        for field in &self.focus_order {
+            if self.field_named(field).is_none() {
+                return wrong(format!("the focus order names {field}, which is not a field"));
             }
         }
         for machine in &self.state_machines {

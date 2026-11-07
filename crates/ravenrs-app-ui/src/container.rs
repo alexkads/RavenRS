@@ -3,6 +3,7 @@
 use ravenrs_app::{
     Action, ActionCategory, ActionInput, ActionKind, ChoiceItem, FieldKind, FrameContext, Value,
 };
+use ravenrs_app_a11y::AccessibleText;
 use ravenrs_core::Key;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
@@ -161,6 +162,13 @@ impl ActionContainer {
             _ => {
                 let mut entry =
                     ToolbarAction::new(action.caption().to_owned()).disabled(!action.is_enabled());
+                let spoken = AccessibleText::of_action(action);
+                if spoken.renamed {
+                    entry = entry.accessible_name(spoken.name);
+                }
+                if let Some(description) = spoken.description {
+                    entry = entry.accessible_description(description);
+                }
                 if primary {
                     entry = entry.style(ButtonStyle::Primary);
                 }

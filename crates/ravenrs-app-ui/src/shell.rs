@@ -571,6 +571,8 @@ impl View for AppShell {
         parts.push(cx.child(session.confirm()));
         parts.push(cx.child(&PopupHost::new(session.clone())));
         parts.push(cx.child(&session.toaster()));
+        // What changed, for screen readers; it takes no room.
+        parts.push(cx.child(&session.announcer().region()));
         cx.container(
             LayoutStyle {
                 grow: 1.0,

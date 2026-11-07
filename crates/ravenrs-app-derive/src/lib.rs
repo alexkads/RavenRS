@@ -12,8 +12,8 @@ use syn::{Data, DeriveInput, Error, Fields, Ident, LitInt, LitStr, Result, parse
 ///
 /// On the struct, `#[object(caption = "...", navigation = "...", icon = "...",
 /// list_criteria = "...", form_columns = 2, cloneable, transient, checks_on_leave, list_editable,
-/// data_access = "server", form_actions = "name")]`, where `data_access` is `client`, `server` or
-/// `data_view`.
+/// data_access = "server", form_actions = "name", focus_order = "a,b")]`, where `data_access` is
+/// `client`, `server` or `data_view`, and `focus_order` the fields the form goes through first.
 ///
 /// On a field, `#[field(...)]`:
 ///
@@ -30,6 +30,8 @@ use syn::{Data, DeriveInput, Error, Fields, Ident, LitInt, LitStr, Result, parse
 /// * On a form: `editor = "..."`, `placeholder = "..."`, `hint = "..."`, `wide`, `autofocus`,
 ///   `group = "..."` for the titled group it goes in, `edit_mask = "(00) 0000-0000"`,
 ///   `predefined = "a,b"` for values to pick from, `criteria_of = "Entity"` for a filter builder.
+/// * For screen readers: `accessible_name = "..."` instead of the caption, and
+///   `accessible_description = "..."` instead of the hint.
 /// * `display_format = "{:.2} %"`, how its value shows when it is not being edited.
 /// * On a reference: `lookup_filter = "[flow] = ?flow"`, `none_caption = "..."`. On a collection:
 ///   `back_reference = "..."`, `aggregated`. `secret` never leaves a secured space. `non_cloneable` stays behind on cloning, and
@@ -73,6 +75,7 @@ struct ObjectAttrs {
     list_editable: bool,
     data_access: Option<LitStr>,
     form_actions: Vec<LitStr>,
+    focus_order: Option<LitStr>,
 }
 
 fn object_attrs(input: &DeriveInput) -> Result<ObjectAttrs> {
@@ -107,10 +110,12 @@ fn object_attrs(input: &DeriveInput) -> Result<ObjectAttrs> {
                 attrs.data_access = Some(text);
             } else if meta.path.is_ident("form_actions") {
                 attrs.form_actions.push(meta.value()?.parse()?);
+            } else if meta.path.is_ident("focus_order") {
+                attrs.focus_order = Some(meta.value()?.parse()?);
             } else {
                 return Err(meta.error(
                     "unknown setting: use caption, navigation, icon, list_criteria, form_columns, cloneable, \
-                     transient, checks_on_leave, list_editable, data_access or form_actions",
+                     transient, checks_on_leave, list_editable, data_access, form_actions or focus_order",
                 ));
             }
             Ok(())
@@ -141,6 +146,8 @@ struct FieldAttrs {
     editor: Option<LitStr>,
     placeholder: Option<LitStr>,
     hint: Option<LitStr>,
+    accessible_name: Option<LitStr>,
+    accessible_description: Option<LitStr>,
     lookup_filter: Option<LitStr>,
     none_caption: Option<LitStr>,
     back_reference: Option<LitStr>,
@@ -242,6 +249,10 @@ fn field_attrs(field: &syn::Field) -> Result<FieldAttrs> {
                 attrs.placeholder = Some(meta.value()?.parse()?);
             } else if named("hint") {
                 attrs.hint = Some(meta.value()?.parse()?);
+            } else if named("accessible_name") {
+                attrs.accessible_name = Some(meta.value()?.parse()?);
+            } else if named("accessible_description") {
+                attrs.accessible_description = Some(meta.value()?.parse()?);
             } else if named("lookup_filter") {
                 let text: LitStr = meta.value()?.parse()?;
                 Criteria::parse(&text.value()).map_err(|e| Error::new(text.span(), e.to_string()))?;
@@ -277,7 +288,7 @@ fn field_attrs(field: &syn::Field) -> Result<FieldAttrs> {
                     "unknown setting: use key, typed_key, caption, default_property, read_only, no_list, \
                      no_detail, lookup, money, long, color, date, guid, tags, decimals, reference, collection, \
                      calculated, default, required, unique, min, max, matches, message, editor, placeholder, \
-                     hint, lookup_filter, none_caption, back_reference, most_bytes, wide, autofocus, \
+                     hint, accessible_name, accessible_description, lookup_filter, none_caption, back_reference, most_bytes, wide, autofocus, \
                      non_cloneable, secret, aggregated, group, display_format, edit_mask, predefined or criteria_of",
                 ));
             }
@@ -535,6 +546,12 @@ fn field_tokens(ident: &Ident, ty: &syn::Type, attrs: &FieldAttrs) -> Tokens {
     if let Some(text) = &attrs.hint {
         then(quote!(.hint(#text)));
     }
+    if let Some(text) = &attrs.accessible_name {
+        then(quote!(.accessible_name(#text)));
+    }
+    if let Some(text) = &attrs.accessible_description {
+        then(quote!(.accessible_description(#text)));
+    }
     if let Some(text) = &attrs.lookup_filter {
         then(quote!(.lookup_filter(#text)));
     }
@@ -717,6 +734,13 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     }
     if let Some(columns) = &object.form_columns {
         info = quote!(#info.form_columns(#columns));
+    }
+    if let Some(order) = &object.focus_order {
+        let fields = split_names(order);
+        if let Some(missing) = fields.iter().find(|field| !names.contains(field)) {
+            return Err(Error::new(order.span(), format!("this struct has no field `{missing}`")));
+        }
+        info = quote!(#info.focus_order([#(#fields),*]));
     }
     if object.cloneable {
         info = quote!(#info.cloneable());

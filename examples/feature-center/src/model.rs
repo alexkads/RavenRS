@@ -16,6 +16,7 @@ const RELATIONS: &str = "Relações";
 const PROCESSES: &str = "Estados e lembretes";
 const SECURITY: &str = "Segurança";
 const AUDIT: &str = "Auditoria";
+const ACCESSIBILITY: &str = "Acessibilidade";
 
 /// What tells a demonstration apart in the navigation.
 fn icon_of(name: &str) -> &'static str {
@@ -40,6 +41,7 @@ fn icon_of(name: &str) -> &'static str {
         "AuditCreation" => "file-text",
         "AuditFields" => "shapes",
         "AuditOwner" => "layers",
+        "AccessibilityDemo" => "keyboard",
         _ => "file",
     }
 }
@@ -408,6 +410,35 @@ pub const CUSTOM_FIELDS: &str = r#"{ "Entities": { "CustomFieldsDemo": { "Member
     "twice": { "$new": true, "Kind": "Integer", "Caption": "Valor dobrado", "Expression": "[amount] * 2" }
 } } } }"#;
 
+/// The entity of the accessibility demonstration, where its action lives.
+pub const ACCESSIBILITY_DEMO: &str = "AccessibilityDemo";
+
+fn accessibility() -> EntityInfo {
+    demo(
+        ACCESSIBILITY_DEMO,
+        "Leitores de tela e teclado",
+        ACCESSIBILITY,
+        "Tudo aqui vem do modelo, sem tela escrita à mão. De e Até se chamam Início do período e Fim do período no leitor de tela, \
+         e Até diz o que entra na conta. O Tab passa primeiro por Nome e Valor, que o formulário mostra antes, na mesma ordem. \
+         Salvar e apagar são anunciados, e a Action Conferir diz o que faz e o seu atalho, e anuncia o registro conferido.",
+    )
+    .field(FieldInfo::new("from", FieldKind::Date).caption("De").accessible_name("Início do período"))
+    .field(
+        FieldInfo::new("until", FieldKind::Date)
+            .caption("Até")
+            .accessible_name("Fim do período")
+            .accessible_description("O último dia que entra na conta"),
+    )
+    .field(title())
+    .field(FieldInfo::new("amount", FieldKind::Money).caption("Valor"))
+    .field(
+        FieldInfo::new("checked", FieldKind::Boolean)
+            .caption("Conferido")
+            .accessible_description("Marcado pela Action Conferir"),
+    )
+    .focus_order(["name", "amount"])
+}
+
 /// Every entity of the center that is not from a module.
 pub fn entities() -> Vec<EntityInfo> {
     let mut all = vec![
@@ -430,5 +461,6 @@ pub fn entities() -> Vec<EntityInfo> {
     all.push(reminders());
     all.push(secured());
     all.extend(audits());
+    all.push(accessibility());
     all
 }

@@ -440,6 +440,8 @@ struct ActionInner {
     prepare: Option<Prepare>,
     hotkey: Option<String>,
     icon: Option<String>,
+    accessible_name: Option<String>,
+    accessible_description: Option<String>,
     requires: Option<crate::Operation>,
     on_execute: Option<Handler>,
     on_cancel: Option<Notice>,
@@ -498,6 +500,8 @@ impl Action {
             hotkey: None,
             requires: None,
             icon: None,
+            accessible_name: None,
+            accessible_description: None,
             on_execute: None,
             on_cancel: None,
             on_executing: None,
@@ -660,6 +664,17 @@ impl Action {
         self.change(|a| a.icon = Some(icon.into()))
     }
 
+    /// What screen readers call it, instead of its caption: for a caption that only makes sense
+    /// on the screen, such as an arrow.
+    pub fn accessible_name(self, name: impl Into<String>) -> Self {
+        self.change(|a| a.accessible_name = Some(name.into()))
+    }
+
+    /// What screen readers say after its name, such as what it does to the selected records.
+    pub fn accessible_description(self, text: impl Into<String>) -> Self {
+        self.change(|a| a.accessible_description = Some(text.into()))
+    }
+
     /// What it does.
     pub fn on_execute(self, handler: impl Fn(&ActionContext) -> Result<(), String> + 'static) -> Self {
         self.change(|a| a.on_execute = Some(Rc::new(handler)))
@@ -734,6 +749,16 @@ impl Action {
     /// The name of its icon.
     pub fn icon_name(&self) -> Option<&str> {
         self.0.icon.as_deref()
+    }
+
+    /// What screen readers call it, when it is not its caption.
+    pub fn accessible_name_text(&self) -> Option<&str> {
+        self.0.accessible_name.as_deref()
+    }
+
+    /// What screen readers say after its name, when anything.
+    pub fn accessible_description_text(&self) -> Option<&str> {
+        self.0.accessible_description.as_deref()
     }
 
     /// The validation contexts to pass before it runs.
