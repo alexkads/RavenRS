@@ -1,0 +1,15 @@
+ravenrs-sheet
+=============
+
+The code under src/ comes from GridCraft (https://github.com/storytold/gridcraft), commit
+dea064b8573a7662a4589d1a20e9504f906f7635, crates core, numfmt, formula, functions, math, model, calc, xlsx,
+chart, pdf and engine, brought together as modules of this one crate (core is named base here).
+
+GridCraft
+Copyright (c) 2026 ArtCraft Team and the GridCraft contributors.
+Licensed under the MIT License or the Apache License, Version 2.0, at your option.
+
+The ArtCraft and GridCraft names and logos are trademarks of the ArtCraft Team and are not
+covered by the licence above; this crate uses neither.
+
+Changes from GridCraft are recorded in the RavenRS git history.

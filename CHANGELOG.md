@@ -4,6 +4,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `ravenrs-spreadsheet`: the `Spreadsheet` component and `SpreadsheetState`. It opens XLSX, XLS, ODS and CSV and saves XLSX, with formulas that recalculate, editing in the cell and in the formula bar, selection with the pointer and the keys, the clipboard, undo, bold, italic, underline, alignment, number formats, column widths and sheet tabs, on the desktop and the web. `examples/spreadsheet` shows a household budget in it.
+- `ravenrs-sheet`: the spreadsheet engine underneath, from GridCraft (MIT OR Apache-2.0): 500+ functions with dynamic arrays, incremental recalculation, number formats, XLSX and CSV reading and writing, charts, and sessions in which every action is a command with undo. It runs in WebAssembly too.
+
 ## [27.1.19] - 2026-11-07
 
 ### Breaking

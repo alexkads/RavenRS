@@ -1,0 +1,19 @@
+{
+ "spreadsheet.add_sheet": "Add sheet",
+ "spreadsheet.align_center": "Center",
+ "spreadsheet.align_left": "Align left",
+ "spreadsheet.align_right": "Align right",
+ "spreadsheet.auto_sum": "AutoSum",
+ "spreadsheet.bold": "Bold",
+ "spreadsheet.currency": "Currency",
+ "spreadsheet.formula": "Value or formula",
+ "spreadsheet.grid": "Spreadsheet",
+ "spreadsheet.italic": "Italic",
+ "spreadsheet.open": "Open",
+ "spreadsheet.percent": "Percentage",
+ "spreadsheet.redo": "Redo",
+ "spreadsheet.save": "Save",
+ "spreadsheet.strikethrough": "Strikethrough",
+ "spreadsheet.underline": "Underline",
+ "spreadsheet.undo": "Undo"
+}
