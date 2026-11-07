@@ -234,6 +234,16 @@ fn release_note(news: &News) -> ReleaseNote {
     if !news.contribuidores.is_empty() {
         note = note.section("Quem contribuiu", news.contribuidores.join(", "));
     }
+    note = note.links(
+        "Issues resolvidas",
+        news.issues.iter().map(|&number| {
+            (format!("#{number}"), move || {
+                if let Err(error) = ravenrs::native::open_url(&update::issue_url(number)) {
+                    tracing::warn!(%error, number, "could not open the issue");
+                }
+            })
+        }),
+    );
     if let Some(day) = news.data.as_deref().and_then(parse_date) {
         note = note.date(crate::model::date_label(day));
     }

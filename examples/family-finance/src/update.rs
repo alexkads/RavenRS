@@ -36,6 +36,15 @@ use crate::paths;
 /// The running version.
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
 
+/// Where an issue of this repository is read, by its number.
+pub fn issue_url(number: u32) -> String {
+    format!("https://github.com/alexkads/RavenRS/issues/{number}")
+}
+
+/// The first version whose news must name the issues it closes.
+#[cfg(test)]
+const ISSUES_FROM: &str = "0.1.32";
+
 /// Where the app reads what is new, in order: `raw` follows the branch at once
 /// and Pages is the copy. An installed app only knows the addresses it was
 /// compiled with, so addresses are only ever added.
@@ -92,6 +101,9 @@ pub struct News {
     pub novidades: Vec<String>,
     /// Why it is worth updating now.
     pub por_que_atualizar: String,
+    /// The GitHub issues this version closes, by number. Older copies ignore it.
+    #[serde(default)]
+    pub issues: Vec<u32>,
     /// Who made this version, by name. Older copies ignore it.
     #[serde(default)]
     pub contribuidores: Vec<String>,
@@ -919,6 +931,7 @@ mod tests {
             novidades: vec![],
             por_que_atualizar: "Porque sim".to_owned(),
             contribuidores: Vec::new(),
+            issues: Vec::new(),
         }
     }
 
@@ -939,6 +952,9 @@ mod tests {
             !news.contribuidores.is_empty() && news.contribuidores.iter().all(|name| !name.trim().is_empty()),
             "novidades.json names who made the version in contribuidores"
         );
+        if !is_newer(ISSUES_FROM, &news.versao) {
+            assert!(!news.issues.is_empty(), "novidades.json lists the issues this version closes in issues");
+        }
         let history = history();
         let top = history.first().unwrap_or_else(|| panic!("empty history"));
         assert!(top.data.is_some(), "the history records the day");
