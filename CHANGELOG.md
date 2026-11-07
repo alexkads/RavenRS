@@ -4,6 +4,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `ExpressionEditor`: writes an expression as text, as the DevExpress expression editor does, with the fields, constants, operators and functions by group, a search, what the chosen one does, and Insert or a double click to write it at the caret. What does not read is said at once, and only text that reads reaches the binding. The grid's filter editor has it as a Text tab beside the lines.
+- `TextCaret`: shares where a `TextArea`'s caret is (`TextArea::caret`), so the app can insert at it.
+
 ## [27.1.16] - 2026-11-06
 
 ### Breaking

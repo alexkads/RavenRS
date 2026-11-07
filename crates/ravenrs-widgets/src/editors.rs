@@ -17,6 +17,66 @@ use crate::{ButtonSize, DatePicker, IconButton, IconName, VStack, View, util};
 
 // ---------------------------------------------------------------- TextArea
 
+/// Where a [`TextArea`]'s caret and selection are, shared with the app so a button can
+/// insert at the caret, as an expression editor inserts a field or a function. Positions
+/// count characters, not bytes.
+///
+/// ```
+/// use ravenrs_reactive::State;
+/// use ravenrs_widgets::{TextArea, TextCaret};
+///
+/// let text = State::new(String::from("Hello"));
+/// let caret = TextCaret::new();
+/// let area = TextArea::new(text.binding()).caret(caret.clone());
+/// caret.insert(&text.binding(), ", world");
+/// assert_eq!(text.get(), "Hello, world");
+/// # drop(area);
+/// ```
+#[derive(Clone, Debug)]
+pub struct TextCaret(State<Cursor>);
+
+impl Default for TextCaret {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TextCaret {
+    /// A caret at the end of the text.
+    pub fn new() -> Self {
+        Self(State::new(Cursor::at(usize::MAX)))
+    }
+
+    /// The caret, at most `len`, the length of the text in characters.
+    pub fn position(&self, len: usize) -> usize {
+        self.0.get().caret.min(len)
+    }
+
+    /// The selected range, if any, at most `len`.
+    pub fn selection(&self, len: usize) -> Option<(usize, usize)> {
+        self.0.get().selection().map(|(a, b)| (a.min(len), b.min(len)))
+    }
+
+    /// Puts the caret at `at`, with nothing selected.
+    pub fn place(&self, at: usize) {
+        self.0.set(Cursor::at(at));
+    }
+
+    /// Writes `piece` over the selection, or at the caret, and leaves the caret after it.
+    pub fn insert(&self, value: &Binding<String>, piece: &str) {
+        let mut text = value.get();
+        let len = text.chars().count();
+        let (from, to) = self.selection(len).unwrap_or_else(|| {
+            let at = self.position(len);
+            (at, at)
+        });
+        let (a, b) = (crate::text_field::byte_index(&text, from), crate::text_field::byte_index(&text, to));
+        text.replace_range(a..b, piece);
+        self.place(from + piece.chars().count());
+        value.set(text);
+    }
+}
+
 /// Lines shown by default in a [`TextArea`].
 const DEFAULT_ROWS: usize = 4;
 /// Width assumed until the first layout says how wide a [`TextArea`] is.
@@ -115,6 +175,7 @@ fn line_of(lines: &[(usize, usize)], caret: usize) -> usize {
 /// ```
 pub struct TextArea {
     value: Binding<String>,
+    caret: Option<TextCaret>,
     placeholder: String,
     rows: usize,
     grows: Option<(usize, usize)>,
@@ -133,6 +194,7 @@ impl TextArea {
     pub fn new(value: Binding<String>) -> Self {
         Self {
             value,
+            caret: None,
             placeholder: String::new(),
             rows: DEFAULT_ROWS,
             grows: None,
@@ -144,6 +206,12 @@ impl TextArea {
     /// Muted text shown while the value is empty.
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
         self.placeholder = text.into();
+        self
+    }
+
+    /// Shares where the caret is, so the app can insert at it (see [`TextCaret`]).
+    pub fn caret(mut self, caret: TextCaret) -> Self {
+        self.caret = Some(caret);
         self
     }
 
@@ -224,7 +292,8 @@ impl View for TextArea {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let state = self.state;
-        let cursor: State<Cursor> = cx.use_state(|| Cursor::at(usize::MAX));
+        let own: State<Cursor> = cx.use_state(|| Cursor::at(usize::MAX));
+        let cursor = self.caret.as_ref().map_or(own, |c| c.0.clone());
         let followed: State<usize> = cx.use_state(|| usize::MAX);
         let focused = cx.is_focused() && !state.disabled;
         let hovered = cx.is_hovered() && !state.disabled;
