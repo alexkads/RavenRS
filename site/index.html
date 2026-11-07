@@ -110,7 +110,7 @@
   @keyframes fill { to { transform: scaleX(1); } }
 
   /* Nav */
-  .nav { position: sticky; top: 0; z-index: 40; background: rgba(11, 13, 18, 0.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+  .nav { position: sticky; top: 0; z-index: 40; background: rgba(11, 13, 18, 0.94); border-bottom: 1px solid var(--line); }
   .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 12px; }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font: 600 17px/1 var(--sans); }
   .brand:hover { color: var(--ink); }
@@ -123,14 +123,14 @@
   /* Hero */
   .hero { --stage: min(100svh, 920px); position: relative; height: calc(var(--stage) + 1000px); }
   .stage { position: sticky; top: 0; height: var(--stage); min-height: 640px; overflow: hidden; }
-  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; contain: strict; }
   .stage .glow { position: absolute; left: 50%; top: -240px; width: 1100px; height: 700px; transform: translateX(-50%); background: radial-gradient(ellipse at center, rgba(76, 102, 238, 0.22), transparent 65%); pointer-events: none; }
-  .htext { position: relative; z-index: 2; padding-top: clamp(40px, 8vh, 88px); text-align: center; opacity: clamp(0, calc(1 - var(--hp, 0) * 2.6), 1); transform: translateY(calc(var(--hp, 0) * -160px)) scale(calc(1 - var(--hp, 0) * 0.12)); }
+  .htext { position: relative; z-index: 2; padding-top: clamp(40px, 8vh, 88px); text-align: center; will-change: transform, opacity; }
   .eyebrow { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; animation: rise 0.8s 1.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
   h1 { font: 600 clamp(44px, 7vw, 88px)/1 var(--sans); letter-spacing: -0.04em; margin: 24px auto 22px; color: var(--ink); max-width: 13ch; }
   h1 .w { display: inline-block; animation: wordIn 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) both; margin-right: 0.22em; }
   h1 .sh { background: linear-gradient(100deg, var(--ink) 15%, #8fa3ff 45%, #c9d3ff 52%, var(--ink) 85%); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: wordIn 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) both, sheen 6s 3s ease-in-out infinite; }
-  @keyframes wordIn { from { opacity: 0; transform: translateY(0.5em); filter: blur(10px); } }
+  @keyframes wordIn { from { opacity: 0; transform: translateY(0.5em); } }
   @keyframes sheen { 0%, 100% { background-position: 100% 0; } 50% { background-position: 0 0; } }
   @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
   .lede { font: 400 clamp(17px, 1.6vw, 19px)/1.6 var(--sans); color: var(--muted); max-width: 58ch; margin: 0 auto 32px; animation: rise 0.8s 2.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
@@ -141,10 +141,10 @@
   .install .caret { width: 2px; height: 18px; background: var(--ink); animation: blink 1s steps(1) infinite; }
   @keyframes type { to { width: 17ch; } }
   @keyframes blink { 50% { opacity: 0; } }
-  .scrollhint { position: absolute; z-index: 2; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; opacity: clamp(0, calc(1 - var(--hp, 0) * 5), 1); }
+  .scrollhint { position: absolute; z-index: 2; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; will-change: opacity; }
   .scrollhint i { width: 1px; height: 44px; background: linear-gradient(var(--muted), transparent); transform-origin: top; animation: drip 1.8s ease-in-out infinite; }
   @keyframes drip { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
-  .caption { position: absolute; z-index: 2; left: 16px; right: 16px; bottom: 36px; display: flex; justify-content: center; opacity: clamp(0, calc((var(--hp, 0) - 0.78) * 6), 1); transform: translateY(calc((1 - var(--hp, 0)) * 40px)); }
+  .caption { position: absolute; z-index: 2; left: 16px; right: 16px; bottom: 36px; display: flex; justify-content: center; opacity: 0; will-change: transform, opacity; }
   .caption .card { display: flex; align-items: center; gap: 12px; padding: 10px 16px 10px 12px; border-radius: 999px; font: 400 15px/1.3 var(--sans); color: var(--ink); }
 
   /* Live demo */
@@ -162,7 +162,7 @@
   .sgrid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr); gap: 48px; align-items: start; }
   .steps { list-style: none; margin: 28px 0 0; padding: 0 0 0 14px; display: grid; gap: 2px; position: relative; }
   .steps::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 1px; background: var(--bg3); }
-  .steps::after { content: ""; position: absolute; left: 0; top: 10px; width: 2px; border-radius: 1px; height: calc(var(--sp, 0) * (100% - 20px)); background: var(--accent); }
+  .steps .fill { position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 1px; background: var(--accent); transform-origin: top; transform: scaleY(0); will-change: transform; }
   .step { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 12px; align-items: center; padding: 8px 12px; border-radius: var(--r-md); cursor: pointer; width: 100%; min-height: 44px; transition: background var(--fast); }
   .step:hover { background: rgba(238, 241, 247, 0.05); }
   .step:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
@@ -174,11 +174,13 @@
   .step[aria-current="step"] .t { color: var(--ink); }
   .step[aria-current="step"] .d { max-height: 120px; opacity: 1; margin-top: 4px; }
   .panel { overflow: hidden; }
+  .panes { display: grid; }
+  .pane { grid-area: 1 / 1; will-change: opacity, transform; }
+  .pane.off { visibility: hidden; }
   .panel .bar { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--bg1); font: 400 13px/1 var(--mono); color: var(--muted); }
   .viz { height: 300px; position: relative; display: grid; place-items: center; background: var(--bg0); border-bottom: 1px solid var(--line); overflow: hidden; }
-  .viz > div { animation: vizIn 0.5s cubic-bezier(0.2, 0.9, 0.2, 1) both; }
-  @keyframes vizIn { from { opacity: 0; transform: translateY(18px) scale(0.97); filter: blur(6px); } }
-  pre.code { margin: 0; padding: 20px 24px; min-height: 210px; font: 400 13.5px/1.75 var(--mono); color: #c9d1e3; white-space: pre; overflow-x: auto; animation: vizIn 0.45s 0.05s both; }
+  @keyframes vizIn { from { opacity: 0; transform: translateY(18px) scale(0.97); } }
+  pre.code { margin: 0; padding: 20px 24px; min-height: 210px; font: 400 13.5px/1.75 var(--mono); color: #c9d1e3; white-space: pre; overflow-x: auto; }
   .k { color: #c792ea; } .ty { color: #8fa3ff; } .s { color: #a5d6a7; } .nu { color: #f7b267; } .c { color: #6b7488; font-style: italic; } .f { color: #82cfff; }
   .odo .win { height: 48px; overflow: hidden; display: inline-block; vertical-align: top; }
   .odo .col { display: flex; flex-direction: column; animation: odo 6s steps(1) infinite; }
@@ -216,9 +218,9 @@
   @keyframes march { to { transform: translateX(26px); } }
 
   /* Components */
-  .marq { display: grid; gap: 16px; transform: skewX(calc(var(--skew, 0) * 1deg)); margin: 48px 0 0; }
+  .marq { display: grid; gap: 16px; margin: 48px 0 0; will-change: transform; }
   .marqbox { overflow: hidden; padding: 4px 0 12px; -webkit-mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
-  .lane { display: flex; gap: 16px; width: max-content; animation: lane 60s linear infinite; align-items: stretch; }
+  .lane { display: flex; gap: 16px; width: max-content; animation: lane 60s linear infinite; align-items: stretch; will-change: transform; }
   .lane.rev { animation-direction: reverse; animation-duration: 66s; }
   .marqbox:hover .lane { animation-play-state: paused; }
   @keyframes lane { to { transform: translateX(-50%); } }
@@ -230,8 +232,7 @@
   /* Reporting */
   .rgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 56px; align-items: center; }
   .fan { position: relative; height: 470px; }
-  .pg { --off: 0; position: absolute; left: 50%; top: 30px; width: 260px; height: 360px; margin-left: -130px; border-radius: 12px; background: #ffffff; border: 1px solid #dadde5; box-shadow: 0 12px 32px rgba(17, 24, 39, 0.4); padding: 18px; display: flex; flex-direction: column; gap: 8px; transform: translateY(calc(var(--i) * -3px)) rotate(calc((var(--i) - 2.5) * 0.6deg)); transition: transform 1s cubic-bezier(0.2, 0.9, 0.2, 1); transition-delay: calc(var(--i) * 70ms); transform-origin: 50% 120%; }
-  .fan.open .pg { transform: translateX(calc((var(--i) - 2.5) * 62px)) rotate(calc((var(--i) - 2.5) * 7deg)); }
+  .pg { --off: 0; position: absolute; left: 50%; top: 30px; width: 260px; height: 360px; margin-left: -130px; border-radius: 12px; background: #ffffff; border: 1px solid #dadde5; box-shadow: 0 12px 32px rgba(17, 24, 39, 0.4); padding: 18px; display: flex; flex-direction: column; gap: 8px; transform: translateY(calc(var(--i) * -3px)) rotate(calc((var(--i) - 2.5) * 0.6deg)); transform-origin: 50% 120%; will-change: transform; }
   .pg .hd { height: 24px; border-radius: 5px; background: #3f57db; }
   .pg .ln { height: 8px; border-radius: 4px; background: #dadde5; }
   .pg .ln.s { width: 60%; }
@@ -272,7 +273,7 @@
   /* Roadmap */
   .road { position: relative; margin-top: 40px; padding: 8px 24px; }
   .roadbar { height: 6px; border-radius: 3px; background: var(--bg3); overflow: hidden; margin: 0 0 8px; }
-  .roadbar b { display: block; height: 100%; border-radius: 3px; background: var(--accent); width: calc(var(--rp, 0) * 100%); }
+  .roadbar b { display: block; height: 100%; border-radius: 3px; background: var(--accent); transform-origin: left; transform: scaleX(0); will-change: transform; }
   .ph { display: grid; grid-template-columns: 24px 96px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line); }
   .ph:last-child { border-bottom: 0; }
   .ph .dot { width: 12px; height: 12px; border-radius: 4px; background: var(--bg3); border: 1px solid var(--line); justify-self: center; }
@@ -406,7 +407,7 @@
         <span class="badge acc">From state to pixels</span>
         <h2 class="h2" id="story-title">One frame, six steps, no webview.</h2>
         <p class="sub">Scroll to follow a click through the engine, or pick a step.</p>
-        <ol class="steps">
+        <ol class="steps"><li class="fill" aria-hidden="true"></li>
           <li><button type="button" class="step" data-step="0" aria-current="step"><span class="n">1</span><span class="t">State</span><span class="d">A click updates State. RavenRS knows exactly which views read it.</span></button></li>
           <li><button type="button" class="step" data-step="1"><span class="n">2</span><span class="t">View</span><span class="d">Declarative builders describe the tree. Plain Rust, no macros required.</span></button></li>
           <li><button type="button" class="step" data-step="2"><span class="n">3</span><span class="t">Layout</span><span class="d">Flex and grid solve sizes and positions, only for what changed.</span></button></li>
@@ -418,6 +419,7 @@
       <div class="card panel">
         <div class="bar"><span class="dot" style="background:#ef5b5b"></span><span class="dot" style="background:#e8a23a"></span><span class="dot" style="background:#3fb984"></span><span style="margin-left:10px" id="step-file">state.rs</span><span class="badge ok" style="margin-left:auto;font-family:var(--sans)">60 fps</span></div>
 
+        <div class="panes">
         <div class="pane" data-pane="0">
           <div class="viz"><div style="display:flex;flex-direction:column;align-items:center;gap:18px">
             <div class="card" style="padding:24px;display:flex;align-items:center;gap:28px">
@@ -435,7 +437,7 @@
     .<span class="f">on_click</span>(<span class="k">move</span> || inc.<span class="f">update</span>(|n| *n += <span class="nu">1</span>))</pre>
         </div>
 
-        <div class="pane" data-pane="1" hidden>
+        <div class="pane off" data-pane="1" style="opacity:0">
           <div class="viz"><div class="tree">
             <span class="node root">VStack</span>
             <div class="kids"><span class="node" style="animation-delay:.15s">Text</span><span class="node" style="animation-delay:.3s">Card</span><span class="node" style="animation-delay:.45s">Button</span></div>
@@ -449,7 +451,7 @@
 .<span class="f">spacing</span>(<span class="nu">16.0</span>)</pre>
         </div>
 
-        <div class="pane" data-pane="2" hidden>
+        <div class="pane off" data-pane="2" style="opacity:0">
           <div class="viz"><div class="lay"><div class="a"><span class="t-caption" style="color:#fff">Fixed</span></div><div class="b"><span class="t-caption">Grow 1</span></div><div class="cc"><span class="t-caption" style="color:#bff0d9">Hug</span></div></div></div>
 <pre class="code"><span class="c">// Flex and grid, solved once per change.</span>
 <span class="ty">HStack</span>::<span class="f">new</span>((sidebar, content.<span class="f">grow</span>(<span class="nu">1.0</span>), inspector))
@@ -457,14 +459,14 @@
     .<span class="f">padding</span>(<span class="nu">32.0</span>)</pre>
         </div>
 
-        <div class="pane" data-pane="3" hidden>
+        <div class="pane off" data-pane="3" style="opacity:0">
           <div class="viz"><div class="atlas" aria-hidden="true"><span>R</span><span style="animation-delay:.06s">a</span><span style="animation-delay:.12s">v</span><span style="animation-delay:.18s">e</span><span style="animation-delay:.24s">n</span><span style="animation-delay:.3s">R</span><span style="animation-delay:.36s">S</span><span style="animation-delay:.42s">·</span><span style="animation-delay:.48s">I</span><span style="animation-delay:.54s">n</span><span style="animation-delay:.6s">t</span><span style="animation-delay:.66s">e</span><span style="animation-delay:.72s">r</span><span style="animation-delay:.78s">·</span><span style="animation-delay:.84s">1</span><span style="animation-delay:.9s">6</span></div></div>
 <pre class="code"><span class="c">// Parley shapes and wraps; swash rasterizes into a GPU atlas</span>
 <span class="c">// at the display's own scale factor. Inter ships built in.</span>
 <span class="ty">Text</span>::<span class="f">new</span>(<span class="s">"RavenRS"</span>).<span class="f">style</span>(<span class="ty">TextStyle</span>::Title)</pre>
         </div>
 
-        <div class="pane" data-pane="4" hidden>
+        <div class="pane off" data-pane="4" style="opacity:0">
           <div class="viz"><div class="sdf"><div class="rings"></div><div class="shape"><span class="t-caption">Revenue</span><span class="t-title">R$ 128.450</span><span class="badge ok" style="align-self:flex-start"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>+12.4%</span></div></div></div>
 <pre class="code"><span class="c">// One signed-distance shader: corners, borders,</span>
 <span class="c">// gradients and soft shadows, crisp at any scale.</span>
@@ -473,7 +475,7 @@
     .<span class="f">shadow</span>(<span class="ty">Shadow</span>::<span class="f">soft</span>())</pre>
         </div>
 
-        <div class="pane" data-pane="5" hidden>
+        <div class="pane off" data-pane="5" style="opacity:0">
           <div class="viz"><div class="frames">
             <div class="frow"><span class="t-callout" style="color:var(--ink)">macOS</span><span class="tr"><b></b></span><span class="badge">Metal</span></div>
             <div class="frow"><span class="t-callout" style="color:var(--ink)">Windows</span><span class="tr"><b style="animation-delay:-.3s"></b></span><span class="badge">DX12</span></div>
@@ -485,6 +487,7 @@
     ravenrs::<span class="f">run</span>(<span class="s">"Counter"</span>, app);   <span class="c">// desktop</span>
 }
 <span class="c">// cargo build --target wasm32-unknown-unknown  → browser</span></pre>
+        </div>
         </div>
       </div>
     </div>
@@ -673,6 +676,7 @@
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const smooth = (t) => t * t * (3 - 2 * t);
 
   // Copy the install command.
   $('#copy').addEventListener('click', async (e) => {
@@ -685,14 +689,14 @@
   // Command palette.
   const palette = $('#palette'), input = $('#pal-input'), items = $$('#pal-list .palitem');
   let opener = null;
-  const openPal = () => { opener = document.activeElement; palette.hidden = false; input.value = ''; filter(); input.focus(); };
-  const closePal = () => { palette.hidden = true; if (opener) opener.focus(); };
   const filter = () => {
     const q = input.value.trim().toLowerCase();
     let shown = 0;
     items.forEach((a) => { const on = !q || a.textContent.toLowerCase().includes(q); a.hidden = !on; shown += on; });
     $('#pal-empty').hidden = shown > 0;
   };
+  const openPal = () => { opener = document.activeElement; palette.hidden = false; input.value = ''; filter(); input.focus(); };
+  const closePal = () => { palette.hidden = true; if (opener) opener.focus(); };
   $('#open-palette').addEventListener('click', openPal);
   input.addEventListener('input', filter);
   palette.addEventListener('click', (e) => { if (e.target === palette) closePal(); });
@@ -701,20 +705,6 @@
     else if (e.key === 'Escape' && !palette.hidden) closePal();
     else if (e.key === 'Enter' && document.activeElement === input) { const first = items.find((a) => !a.hidden); if (first) first.click(); }
   });
-
-  // Steps of the pipeline.
-  const story = $('#pipeline');
-  const steps = $$('.step', story), panes = $$('.pane', story);
-  const files = ['state.rs', 'view.rs', 'layout.rs', 'text.rs', 'paint.rs', 'main.rs'];
-  let current = 0, lastScrolled = -1;
-  const show = (i) => {
-    if (i === current) return;
-    current = i;
-    steps.forEach((b, n) => n === i ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current'));
-    panes.forEach((p, n) => { p.hidden = n !== i; });
-    $('#step-file').textContent = files[i];
-  };
-  steps.forEach((b) => b.addEventListener('click', () => { lastScrolled = -2; show(+b.dataset.step); }));
 
   // Platforms and themes.
   const mini = $('#mini'), backdrop = $('#backdrop');
@@ -728,147 +718,314 @@
   segment('#platform-seg', 'platform', (v) => { mini.dataset.platform = v; });
   segment('#theme-seg', 'theme', (v) => { mini.dataset.theme = v; backdrop.dataset.theme = v; });
 
-  // Counters, the page fan and the roadmap bar.
-  const counters = $$('#stats [data-count]');
-  const fmt = (n) => Math.round(n).toLocaleString('en-US');
-  let countFrom = 0, counted = false;
-  const fan = $('#fan'), road = $('#road'), hero = $('#top'), stage = $('.stage', hero), marq = $('#marq');
-
-  // Scroll-driven state, measured once per frame.
-  let hp = 0, heroVisible = true, skew = 0, lastY = scrollY, ticking = false;
-  const measure = () => {
-    ticking = false;
-    const vh = innerHeight;
-    skew = clamp(skew + (scrollY - lastY) * 0.08, -10, 10);
-    lastY = scrollY;
-    const hr = hero.getBoundingClientRect();
-    hp = clamp(-hr.top / Math.max(1, hr.height - stage.offsetHeight), 0, 1);
-    heroVisible = hr.bottom > 0;
-    hero.style.setProperty('--hp', hp.toFixed(3));
-    const sr = story.getBoundingClientRect();
-    const inner = story.firstElementChild.offsetHeight;
-    if (sr.height > inner + 200) {
-      const p = clamp((64 - sr.top) / Math.max(1, sr.height - inner - 64), 0, 1);
-      story.style.setProperty('--sp', p.toFixed(3));
-      const idx = Math.min(5, Math.floor(p * 6));
-      if (sr.top < vh && sr.bottom > 0 && idx !== lastScrolled) { lastScrolled = idx; show(idx); }
+  // The hero's field of quads, drawn by the GPU: one instanced draw call per frame.
+  // Waves, the pointer and the floor standing up into an app screen are all computed
+  // in the vertex shader; the CPU only sends the time, the scroll and the pointer.
+  const field = (() => {
+    const canvas = $('#field');
+    const gl = canvas.getContext('webgl2', { antialias: false, alpha: true, premultipliedAlpha: true, depth: false, stencil: false, powerPreference: 'high-performance' });
+    const none = { quads: 0, draw() {}, live: false };
+    if (!gl) { canvas.hidden = true; return none; }
+    const C = innerWidth < 700 ? 72 : 128, R = Math.round(C * 0.5625);
+    const css = getComputedStyle(document.documentElement);
+    const rgb = (n) => { const h = css.getPropertyValue(n).trim().replace('#', ''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255); };
+    const P = { bg0: rgb('--bg0'), bg1: rgb('--bg1'), bg2: rgb('--bg2'), bg3: rgb('--bg3'), line: rgb('--line'), ink: rgb('--ink'), muted: rgb('--muted'), red: rgb('--bad'), yel: rgb('--warn'), grn: rgb('--ok'), acc: rgb('--accent') };
+    const inR = (u, v, a, b, c, d) => u >= a && u <= b && v >= c && v <= d;
+    // Per instance: u, v, r, g, b, bar index (-1 when the cell is not a chart bar).
+    const data = new Float32Array(C * R * 6);
+    let o = 0;
+    for (let j = 0; j < R; j++) for (let i = 0; i < C; i++) {
+      const u = (i + 0.5) / C, v = (j + 0.5) / R;
+      let col = P.bg0, bar = -1;
+      if (v < 0.075) {
+        col = P.bg1;
+        if (inR(u, v, 0.012, 0.028, 0.02, 0.06)) col = P.red;
+        else if (inR(u, v, 0.036, 0.052, 0.02, 0.06)) col = P.yel;
+        else if (inR(u, v, 0.06, 0.076, 0.02, 0.06)) col = P.grn;
+      } else if (u < 0.2) {
+        col = P.bg1;
+        if (inR(u, v, 0.02, 0.18, 0.13, 0.2)) col = inR(u, v, 0.03, 0.05, 0.14, 0.19) ? P.acc : P.bg3;
+        else if (inR(u, v, 0.03, 0.15, 0.25, 0.28) || inR(u, v, 0.03, 0.13, 0.33, 0.36) || inR(u, v, 0.03, 0.16, 0.41, 0.44) || inR(u, v, 0.03, 0.12, 0.49, 0.52)) col = P.line;
+      } else {
+        if (inR(u, v, 0.24, 0.48, 0.11, 0.15)) col = P.ink;
+        else if (inR(u, v, 0.24, 0.42, 0.18, 0.2)) col = P.muted;
+        else if (inR(u, v, 0.84, 0.96, 0.11, 0.18)) col = P.acc;
+        else if (inR(u, v, 0.71, 0.82, 0.11, 0.18)) col = P.bg3;
+        for (const [a, b] of [[0.24, 0.47], [0.495, 0.725], [0.75, 0.96]]) if (inR(u, v, a, b, 0.25, 0.43)) {
+          col = P.bg2;
+          if (inR(u, v, a + 0.02, a + 0.1, 0.28, 0.3)) col = P.muted;
+          if (inR(u, v, a + 0.02, a + 0.14, 0.32, 0.37)) col = P.ink;
+          if (inR(u, v, a + 0.02, a + 0.07, 0.39, 0.41)) col = P.grn;
+        }
+        if (inR(u, v, 0.24, 0.7, 0.48, 0.94)) {
+          col = P.bg2;
+          if (inR(u, v, 0.27, 0.67, 0.53, 0.9) && ((u - 0.27) % 0.04) < 0.028) { col = P.acc; bar = Math.floor((u - 0.27) / 0.04); }
+        }
+        if (inR(u, v, 0.725, 0.96, 0.48, 0.94)) {
+          col = P.bg2;
+          if (inR(u, v, 0.745, 0.92, 0.53, 0.55) || inR(u, v, 0.745, 0.88, 0.6, 0.62) || inR(u, v, 0.745, 0.9, 0.67, 0.69) || inR(u, v, 0.745, 0.86, 0.74, 0.76)) col = P.line;
+          if (inR(u, v, 0.745, 0.94, 0.83, 0.9)) col = P.acc;
+        }
+      }
+      data[o++] = u; data[o++] = v; data[o++] = col[0]; data[o++] = col[1]; data[o++] = col[2]; data[o++] = bar;
     }
-    const st = $('#stats').getBoundingClientRect();
-    if (!counted && st.top < vh * 0.9 && st.bottom > 0) { counted = true; countFrom = performance.now(); }
-    if (!fan.classList.contains('open') && fan.getBoundingClientRect().top < vh * 0.7) fan.classList.add('open');
-    const rr = road.getBoundingClientRect();
-    road.style.setProperty('--rp', (clamp((vh * 0.65 - rr.top) / Math.max(1, rr.height * 0.8), 0, 1) * (3 / 7)).toFixed(3));
-  };
-  const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(measure); } };
-  addEventListener('scroll', onScroll, { passive: true });
-  addEventListener('resize', onScroll);
 
-  // The hero's field of quads: a wave-like floor that stands up into an app screen.
-  const canvas = $('#field');
-  const g = canvas.getContext('2d');
-  const C = innerWidth < 700 ? 64 : 96, R = Math.round(C * 0.5625);
-  $('#quad-count').textContent = (C * R).toLocaleString('en-US') + ' quads';
-  const css = getComputedStyle(document.documentElement);
-  const hex = (h) => { h = h.trim().replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; };
-  const tok = (n) => hex(css.getPropertyValue(n));
-  const pal = { bg0: tok('--bg0'), bg1: tok('--bg1'), bg2: tok('--bg2'), bg3: tok('--bg3'), line: tok('--line'), ink: tok('--ink'), muted: tok('--muted'), red: tok('--bad'), yel: tok('--warn'), grn: tok('--ok') };
-  const acc = tok('--accent');
-  const inR = (u, v, a, b, c, d) => u >= a && u <= b && v >= c && v <= d;
-  const cells = [];
-  for (let j = 0; j < R; j++) for (let i = 0; i < C; i++) {
-    const u = (i + 0.5) / C, v = (j + 0.5) / R;
-    let col = pal.bg0, bar = -1;
-    if (v < 0.075) {
-      col = pal.bg1;
-      if (inR(u, v, 0.012, 0.028, 0.02, 0.06)) col = pal.red;
-      else if (inR(u, v, 0.036, 0.052, 0.02, 0.06)) col = pal.yel;
-      else if (inR(u, v, 0.06, 0.076, 0.02, 0.06)) col = pal.grn;
-    } else if (u < 0.2) {
-      col = pal.bg1;
-      if (inR(u, v, 0.02, 0.18, 0.13, 0.2)) col = inR(u, v, 0.03, 0.05, 0.14, 0.19) ? acc : pal.bg3;
-      else if (inR(u, v, 0.03, 0.15, 0.25, 0.28) || inR(u, v, 0.03, 0.13, 0.33, 0.36) || inR(u, v, 0.03, 0.16, 0.41, 0.44) || inR(u, v, 0.03, 0.12, 0.49, 0.52)) col = pal.line;
+    const vs = `#version 300 es
+      layout(location = 0) in vec2 aCorner;
+      layout(location = 1) in vec2 aUV;
+      layout(location = 2) in vec3 aCol;
+      layout(location = 3) in float aBar;
+      uniform vec2 uRes;
+      uniform vec2 uGrid;
+      uniform vec2 uMouse;
+      uniform float uTime;
+      uniform float uE;
+      uniform vec3 uAcc;
+      uniform vec3 uBg2;
+      out vec4 vCol;
+      void main() {
+        float e = uE;
+        float W = min(uRes.x * 0.9, 1180.0) * 0.5;
+        float s = 2.3 - 1.3 * e;
+        float Hh = W * uGrid.y / uGrid.x;
+        float a = 1.22 * (1.0 - e);
+        float ca = cos(a), sa = sin(a);
+        float D = 900.0;
+        vec2 c = vec2(uRes.x * 0.5, uRes.y * (0.7 - 0.2 * e));
+        float amp = 30.0 * (1.0 - e);
+        float x = (aUV.x * 2.0 - 1.0) * W * s;
+        float py = (aUV.y * 2.0 - 1.0) * Hh * s;
+        float h = amp * (sin(x * 0.006 + uTime * 1.1) + 0.6 * sin(py * 0.01 - uTime * 1.5) + 0.4 * sin((x + py) * 0.004 + uTime * 0.6));
+        float dz = D + py * sa + h * ca;
+        if (dz < 60.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vCol = vec4(0.0); return; }
+        float k = D / dz;
+        vec2 p = vec2(c.x + x * k, c.y + (py * ca - h * sa) * k);
+        vec2 d = p - uMouse;
+        float near = exp(-dot(d, d) / 9000.0);
+        p.y -= near * 46.0 * (1.0 - e);
+        float fl = clamp((h / max(amp, 0.001) + 1.4) / 2.8, 0.0, 1.0);
+        float depth = clamp(k * 0.9, 0.0, 1.0);
+        vec3 floorCol = vec3(uAcc.r * 0.55 + 0.616 * 0.45 * fl, uAcc.g * 0.55 + 0.69 * 0.45 * fl, uAcc.b * 0.6 + 0.4 * fl);
+        float floorA = (0.15 + 0.85 * fl) * depth + near * 0.6;
+        vec3 ui = aCol;
+        if (aBar >= 0.0) {
+          float top = 0.9 - 0.37 * (0.35 + 0.55 * (0.5 + 0.5 * sin(aBar * 1.7 + uTime * 1.2)));
+          if (aUV.y < top) ui = uBg2;
+        }
+        float sweep = mod(uTime * 0.22, 1.8) - 0.4;
+        float shine = max(0.0, 1.0 - abs(aUV.x - sweep - aUV.y * 0.3) * 9.0) * 0.25 + near * 0.3;
+        ui += (1.0 - ui) * shine * e;
+        vec3 col = mix(floorCol, ui, e);
+        float alpha = min(1.0, mix(floorA, 1.0, e));
+        float size = max(1.0, (2.0 * W / uGrid.x) * s * k * (0.2 + 0.66 * e));
+        p += aCorner * size;
+        gl_Position = vec4(p.x / uRes.x * 2.0 - 1.0, 1.0 - p.y / uRes.y * 2.0, 0.0, 1.0);
+        vCol = vec4(col * alpha, alpha);
+      }`;
+    const fs = `#version 300 es
+      precision mediump float;
+      in vec4 vCol;
+      out vec4 outColor;
+      void main() { outColor = vCol; }`;
+    const shader = (type, src) => {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+      return sh;
+    };
+    let prog;
+    try {
+      prog = gl.createProgram();
+      gl.attachShader(prog, shader(gl.VERTEX_SHADER, vs));
+      gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, fs));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    } catch (err) {
+      console.warn('RavenRS field disabled:', err);
+      canvas.hidden = true;
+      return none;
+    }
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    const attr = (loc, n, off) => { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, 24, off); gl.vertexAttribDivisor(loc, 1); };
+    attr(1, 2, 0); attr(2, 3, 8); attr(3, 1, 20);
+    gl.useProgram(prog);
+    const U = {};
+    ['uRes', 'uGrid', 'uMouse', 'uTime', 'uE', 'uAcc', 'uBg2'].forEach((n) => { U[n] = gl.getUniformLocation(prog, n); });
+    gl.uniform2f(U.uGrid, C, R);
+    gl.uniform3fv(U.uAcc, P.acc);
+    gl.uniform3fv(U.uBg2, P.bg2);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(0, 0, 0, 0);
+    const self = { quads: C * R, live: true, w: 0, h: 0 };
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); self.live = false; canvas.hidden = true; });
+    self.draw = (t, e, mouse, cw, ch) => {
+      if (!self.live || !cw || !ch) return;
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      const w = Math.round(cw * dpr), h = Math.round(ch * dpr);
+      if (w !== self.w || h !== self.h) { canvas.width = self.w = w; canvas.height = self.h = h; gl.viewport(0, 0, w, h); }
+      gl.uniform2f(U.uRes, cw, ch);
+      gl.uniform2f(U.uMouse, mouse.x, mouse.y);
+      gl.uniform1f(U.uTime, reduce ? 0 : t / 1000);
+      gl.uniform1f(U.uE, e);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, C * R);
+    };
+    return self;
+  })();
+  if (field.quads) $('#quad-count').textContent = field.quads.toLocaleString('en-US') + ' quads';
+
+  // Elements the scroll drives.
+  const hero = $('#top'), stage = $('.stage', hero), htext = $('.htext', hero), hint = $('.scrollhint', hero), caption = $('.caption', hero);
+  const story = $('#pipeline'), sinner = story.firstElementChild, stepFill = $('.steps .fill', story);
+  const steps = $$('.step', story), panes = $$('.pane', story);
+  const files = ['state.rs', 'view.rs', 'layout.rs', 'text.rs', 'paint.rs', 'main.rs'];
+  const stats = $('#stats'), counters = $$('[data-count]', stats);
+  const fan = $('#fan'), pages = $$('.pg', fan), pageCount = $('#page-count');
+  const road = $('#road'), roadFill = $('.roadbar b', road), marq = $('#marq');
+
+  // Positions are read only on load and resize. Each frame does arithmetic on scrollY
+  // and writes transform and opacity, which the compositor handles without layout.
+  let L = null;
+  const docTop = (el) => el.getBoundingClientRect().top + scrollY;
+  const layout = () => {
+    const heroTop = docTop(hero);
+    L = {
+      vh: innerHeight,
+      heroTop, heroBottom: heroTop + hero.offsetHeight, heroSpan: Math.max(1, hero.offsetHeight - stage.offsetHeight),
+      cw: stage.clientWidth, ch: stage.clientHeight,
+      storyTop: docTop(story), storyH: story.offsetHeight, innerH: sinner.offsetHeight, sticky: getComputedStyle(sinner).position === 'sticky',
+      statsTop: docTop(stats), fanTop: docTop(fan), roadTop: docTop(road), roadH: road.offsetHeight,
+      marqTop: docTop(marq), marqBottom: docTop(marq) + marq.offsetHeight,
+    };
+    last = {};
+    kick();
+  };
+
+  let current = -1;
+  const setStep = (i) => {
+    if (i === current) return;
+    current = i;
+    steps.forEach((b, n) => n === i ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current'));
+    $('#step-file').textContent = files[i];
+  };
+  // Each pane holds fully for most of its stretch and cross-fades into the next one.
+  const showPanes = (local) => {
+    panes.forEach((p, i) => {
+      let d = local - (i + 0.5);
+      if ((i === 0 && d < 0) || (i === panes.length - 1 && d > 0)) d = 0;
+      const op = clamp(1 - (Math.abs(d) - 0.38) / 0.24, 0, 1);
+      p.style.opacity = op.toFixed(3);
+      p.style.transform = `translate3d(0, ${(-d * 18).toFixed(1)}px, 0)`;
+      p.classList.toggle('off', op === 0);
+    });
+  };
+  steps.forEach((b) => b.addEventListener('click', () => {
+    const i = +b.dataset.step;
+    if (L.sticky) {
+      const span = Math.max(1, L.storyH - L.innerH - 64);
+      scrollTo({ top: L.storyTop - 64 + span * (i + 0.5) / 6, behavior: reduce ? 'auto' : 'smooth' });
     } else {
-      if (inR(u, v, 0.24, 0.48, 0.11, 0.15)) col = pal.ink;
-      else if (inR(u, v, 0.24, 0.42, 0.18, 0.2)) col = pal.muted;
-      else if (inR(u, v, 0.84, 0.96, 0.11, 0.18)) col = acc;
-      else if (inR(u, v, 0.71, 0.82, 0.11, 0.18)) col = pal.bg3;
-      for (const [a, b] of [[0.24, 0.47], [0.495, 0.725], [0.75, 0.96]]) if (inR(u, v, a, b, 0.25, 0.43)) {
-        col = pal.bg2;
-        if (inR(u, v, a + 0.02, a + 0.1, 0.28, 0.3)) col = pal.muted;
-        if (inR(u, v, a + 0.02, a + 0.14, 0.32, 0.37)) col = pal.ink;
-        if (inR(u, v, a + 0.02, a + 0.07, 0.39, 0.41)) col = pal.grn;
-      }
-      if (inR(u, v, 0.24, 0.7, 0.48, 0.94)) {
-        col = pal.bg2;
-        if (inR(u, v, 0.27, 0.67, 0.53, 0.9) && ((u - 0.27) % 0.04) < 0.028) { col = acc; bar = Math.floor((u - 0.27) / 0.04); }
-      }
-      if (inR(u, v, 0.725, 0.96, 0.48, 0.94)) {
-        col = pal.bg2;
-        if (inR(u, v, 0.745, 0.92, 0.53, 0.55) || inR(u, v, 0.745, 0.88, 0.6, 0.62) || inR(u, v, 0.745, 0.9, 0.67, 0.69) || inR(u, v, 0.745, 0.86, 0.74, 0.76)) col = pal.line;
-        if (inR(u, v, 0.745, 0.94, 0.83, 0.9)) col = acc;
-      }
+      showPanes(i + 0.5);
+      setStep(i);
     }
-    cells.push({ u, v, col, bar });
-  }
-  let mouse = { x: -9999, y: -9999 };
-  canvas.addEventListener('pointermove', (e) => { const r = canvas.getBoundingClientRect(); mouse = { x: e.clientX - r.left, y: e.clientY - r.top }; });
-  canvas.addEventListener('pointerleave', () => { mouse = { x: -9999, y: -9999 }; });
-  let sp = 0;
-  const draw = (t) => {
-    const cw = canvas.clientWidth, ch = canvas.clientHeight;
-    if (!cw || !ch) return;
-    const dpr = Math.min(2, devicePixelRatio || 1);
-    if (canvas.width !== Math.round(cw * dpr) || canvas.height !== Math.round(ch * dpr)) { canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr); }
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.clearRect(0, 0, cw, ch);
-    const time = reduce ? 0 : t / 1000;
-    sp += (hp - sp) * (reduce ? 1 : 0.1);
-    const e = sp * sp * (3 - 2 * sp);
-    const W = Math.min(cw * 0.9, 1180) / 2, s = 2.3 - 1.3 * e, Hh = W * R / C;
-    const a = 1.22 * (1 - e), ca = Math.cos(a), sa = Math.sin(a), D = 900;
-    const cx = cw / 2, cy = ch * (0.7 - 0.2 * e);
-    const amp = 30 * (1 - e), cell = (2 * W) / C;
-    const sweep = ((time * 0.22) % 1.8) - 0.4;
-    for (const q of cells) {
-      const x = (q.u * 2 - 1) * W * s, py = (q.v * 2 - 1) * Hh * s;
-      const h = amp * (Math.sin(x * 0.006 + time * 1.1) + 0.6 * Math.sin(py * 0.01 - time * 1.5) + 0.4 * Math.sin((x + py) * 0.004 + time * 0.6));
-      const dz = D + py * sa + h * ca;
-      if (dz < 60) continue;
-      const k = D / dz, sx = cx + x * k;
-      let sy = cy + (py * ca - h * sa) * k;
-      const dx = sx - mouse.x, dy = sy - mouse.y, near = Math.exp(-(dx * dx + dy * dy) / 9000);
-      sy -= near * 46 * (1 - e);
-      if (sx < -20 || sx > cw + 20 || sy < -20 || sy > ch + 20) continue;
-      const fl = clamp((h / (amp || 1) + 1.4) / 2.8, 0, 1), depth = clamp(k * 0.9, 0, 1);
-      const fr = acc[0] * 0.55 + 157 * 0.45 * fl, fg = acc[1] * 0.55 + 176 * 0.45 * fl, fb = acc[2] * 0.6 + 255 * 0.4 * fl;
-      const fa = (0.15 + 0.85 * fl) * depth + near * 0.6;
-      let [ur, ug, ub] = q.col;
-      if (q.bar >= 0) {
-        const top = 0.9 - 0.37 * (0.35 + 0.55 * (0.5 + 0.5 * Math.sin(q.bar * 1.7 + time * 1.2)));
-        if (q.v < top) [ur, ug, ub] = pal.bg2;
-      }
-      const shine = Math.max(0, 1 - Math.abs(q.u - sweep - q.v * 0.3) * 9) * 0.25 + near * 0.3;
-      ur += (255 - ur) * shine * e; ug += (255 - ug) * shine * e; ub += (255 - ub) * shine * e;
-      const size = Math.max(1, cell * s * k * (0.2 + 0.66 * e));
-      g.fillStyle = `rgba(${(fr + (ur - fr) * e) | 0},${(fg + (ug - fg) * e) | 0},${(fb + (ub - fb) * e) | 0},${Math.min(1, fa + (1 - fa) * e).toFixed(3)})`;
-      g.fillRect(sx - size / 2, sy - size / 2, size, size);
-    }
-  };
+  }));
 
-  let drawn = false;
+  const mouse = { x: -1e4, y: -1e4 };
+  addEventListener('pointermove', (e) => {
+    if (!L || scrollY > L.heroBottom) return;
+    const r = stage.getBoundingClientRect();
+    mouse.x = e.clientX - r.left;
+    mouse.y = e.clientY - r.top;
+  }, { passive: true });
+  document.addEventListener('pointerleave', () => { mouse.x = mouse.y = -1e4; });
+
+  let running = false, last = {}, lastY = scrollY, skew = 0, eased = 0, countFrom = 0, counted = false;
+  const fmt = (n) => Math.round(n).toLocaleString('en-US');
+  const visible = (top, bottom, y) => y + L.vh > top && y < bottom;
+
   const frame = (t) => {
-    requestAnimationFrame(frame);
-    skew *= 0.9;
-    marq.style.setProperty('--skew', skew.toFixed(2));
-    if (countFrom) {
-      const k = clamp((t - countFrom) / 1500, 0, 1), eased = 1 - Math.pow(1 - k, 3);
-      counters.forEach((el) => { el.textContent = fmt(+el.dataset.count * (reduce ? 1 : eased)) + (el.dataset.suffix || ''); });
-      if (k >= 1) countFrom = 0;
+    running = false;
+    const y = scrollY, vh = L.vh;
+    let busy = false;
+
+    // Hero: text lifts away and the floor stands up into a screen.
+    const hp = clamp((y - L.heroTop) / L.heroSpan, 0, 1);
+    if (y < L.heroBottom) {
+      if (hp !== last.hp) {
+        last.hp = hp;
+        htext.style.opacity = clamp(1 - hp * 2.6, 0, 1).toFixed(3);
+        htext.style.transform = `translate3d(0, ${(-hp * 160).toFixed(1)}px, 0) scale(${(1 - hp * 0.12).toFixed(4)})`;
+        hint.style.opacity = clamp(1 - hp * 5, 0, 1).toFixed(3);
+        caption.style.opacity = clamp((hp - 0.78) * 6, 0, 1).toFixed(3);
+        caption.style.transform = `translate3d(0, ${((1 - hp) * 40).toFixed(1)}px, 0)`;
+      }
+      eased += (hp - eased) * (reduce ? 1 : 0.14);
+      if (Math.abs(hp - eased) < 1e-4) eased = hp;
+      field.draw(t, smooth(eased), mouse, L.cw, L.ch);
+      busy = field.live && !reduce;
     }
-    if (heroVisible || !drawn) { draw(t); drawn = true; }
+
+    // Components: the lanes lean with the speed of the scroll.
+    skew = clamp(skew * 0.86 + (y - lastY) * 0.05, -8, 8);
+    if (Math.abs(skew) < 0.01) skew = 0; else busy = true;
+    if (visible(L.marqTop, L.marqBottom, y) && skew !== last.skew) { last.skew = skew; marq.style.transform = `skewX(${skew.toFixed(2)}deg)`; }
+
+    // State to pixels: the steps follow the scroll continuously.
+    if (L.sticky && visible(L.storyTop, L.storyTop + L.storyH, y)) {
+      const p = clamp((y + 64 - L.storyTop) / Math.max(1, L.storyH - L.innerH - 64), 0, 1);
+      if (p !== last.sp) {
+        last.sp = p;
+        stepFill.style.transform = `scaleY(${p.toFixed(4)})`;
+        showPanes(p * 6);
+        setStep(Math.min(5, Math.floor(p * 6)));
+      }
+    }
+
+    // Counters run once, when they come into view.
+    if (!counted && y + vh * 0.9 > L.statsTop) { counted = true; countFrom = t; }
+    if (countFrom) {
+      const k = reduce ? 1 : clamp((t - countFrom) / 1500, 0, 1), c = 1 - Math.pow(1 - k, 3);
+      counters.forEach((el) => { el.textContent = fmt(+el.dataset.count * c) + (el.dataset.suffix || ''); });
+      if (k < 1) busy = true; else countFrom = 0;
+    }
+
+    // Reports: the pages fan out as the section scrolls in.
+    if (visible(L.fanTop - vh, L.fanTop + vh, y)) {
+      const f = smooth(clamp((y + vh * 0.9 - L.fanTop) / (vh * 0.55), 0, 1));
+      if (f !== last.fan) {
+        last.fan = f;
+        pages.forEach((pg, i) => {
+          const off = i - 2.5;
+          pg.style.transform = `translate3d(${(off * 62 * f).toFixed(1)}px, ${(-3 * i * (1 - f)).toFixed(1)}px, 0) rotate(${(off * 0.6 * (1 - f) + off * 7 * f).toFixed(2)}deg)`;
+        });
+        pageCount.textContent = fmt(305 * f) + ' pages';
+      }
+    }
+
+    // Roadmap: three of seven phases done.
+    if (visible(L.roadTop, L.roadTop + L.roadH, y)) {
+      const r = clamp((y + vh * 0.65 - L.roadTop) / (L.roadH * 0.8), 0, 1) * (3 / 7);
+      if (r !== last.road) { last.road = r; roadFill.style.transform = `scaleX(${r.toFixed(4)})`; }
+    }
+
+    lastY = y;
+    if (busy) kick();
   };
-  measure();
-  requestAnimationFrame(frame);
+  const kick = () => { if (!running && L) { running = true; requestAnimationFrame(frame); } };
+  addEventListener('scroll', kick, { passive: true });
+  addEventListener('resize', layout);
+  if ('ResizeObserver' in window) new ResizeObserver(() => layout()).observe(document.body);
+  document.fonts?.ready.then(layout);
+  layout();
 })();
 </script>
 </body>
