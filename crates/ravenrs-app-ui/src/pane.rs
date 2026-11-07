@@ -54,18 +54,28 @@ impl PaneWords {
         delete_answer: impl Into<String>,
     ) -> Self {
         let answer: String = delete_answer.into();
+        let texts = ravenrs_app_i18n::Texts::new(ravenrs_app_i18n::Language::BrazilianPortuguese);
         Self {
             new_title: new_title.into(),
             edit_title: edit_title.into(),
             add: add.into(),
-            save_changes: "Salvar alterações".into(),
-            cancel: "Cancelar".into(),
-            edit_row: "Alterar".into(),
+            save_changes: String::new(),
+            cancel: String::new(),
+            edit_row: String::new(),
             delete_row: answer.clone(),
             delete_question: delete_question.into(),
             delete_detail: delete_detail.into(),
             delete_answer: answer,
         }
+        .with_texts(&texts)
+    }
+
+    /// The words that are the same for every pane, from a catalog of texts in its language.
+    pub fn with_texts(mut self, texts: &ravenrs_app_i18n::Texts) -> Self {
+        self.save_changes = texts.get("pane.save_changes");
+        self.cancel = texts.get("pane.cancel");
+        self.edit_row = texts.get("pane.edit_row");
+        self
     }
 }
 

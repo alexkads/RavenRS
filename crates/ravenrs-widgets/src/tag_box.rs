@@ -153,7 +153,7 @@ impl View for TagPanel<'_> {
         let exists = self.field.options.iter().any(|o| o.label.eq_ignore_ascii_case(&typed))
             || chosen.iter().any(|k| k.eq_ignore_ascii_case(&typed));
         if self.field.allow_new && !typed.is_empty() && !exists {
-            shown.push(LookupItem::new(typed.clone(), (cx.labels().tag_add)(&typed)));
+            shown.push(LookupItem::new(typed.clone(), cx.labels().tag_add(&typed)));
         }
         let hl = highlight.get().min(shown.len().saturating_sub(1));
         let shown = Rc::new(shown);

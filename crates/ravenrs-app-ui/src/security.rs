@@ -28,8 +28,6 @@ pub(crate) const SET_PASSWORD: &str = "SetPassword";
 pub(crate) const MODEL_EDITOR: &str = "ModelEditor";
 pub(crate) const MODEL_EDITOR_VIEW: &str = "ModelEditor_DashboardView";
 const CARD_WIDTH: f32 = 380.0;
-/// Their words in Brazilian Portuguese.
-const PT_BR: &str = include_str!("security_pt_br.json");
 
 fn message_of(words: &Words, error: &PasswordError) -> String {
     match error {
@@ -234,6 +232,7 @@ pub struct SecuredApp {
     space: SpaceMaker,
     application: MakeApp,
     language: Language,
+    texts: crate::app::TextPacks,
     roles: Vec<Role>,
     merge: RoleMerge,
     audit: Option<AuditSettings>,
@@ -260,6 +259,7 @@ impl SecuredApp {
             space: Rc::new(move || Box::new(space()) as Box<dyn ObjectSpace>),
             application: Rc::new(application),
             language: Language::default(),
+            texts: Vec::new(),
             roles: Vec::new(),
             merge: RoleMerge::default(),
             audit: None,
@@ -272,6 +272,13 @@ impl SecuredApp {
     /// The language of its screens.
     pub fn language(mut self, language: Language) -> Self {
         self.language = language;
+        self
+    }
+
+    /// Adds or replaces words, as [`App::texts`] does, for the screen of signing in and for the
+    /// application of each person.
+    pub fn texts(mut self, language: impl Into<String>, json: impl Into<String>) -> Self {
+        self.texts.push((language.into(), json.into()));
         self
     }
 
@@ -321,7 +328,8 @@ impl SecuredApp {
             space.commit().map_err(wrong)?;
         }
         let stage = if directory.is_empty().map_err(wrong)? { Stage::FirstUser } else { Stage::SignIn };
-        let words = self.language.words();
+        let texts = crate::app::texts_of(self.language, &self.texts)?;
+        let words = Words::from_texts(&texts);
         let authenticator: Rc<dyn Authenticator> = match self.authenticator {
             Some(authenticator) => authenticator,
             None => Rc::new(directory.clone()),
@@ -330,6 +338,8 @@ impl SecuredApp {
             title: self.title,
             words,
             language: self.language,
+            texts: self.texts,
+            labels: ravenrs_widgets::Labels::from_texts(&texts),
             space: self.space,
             application: self.application,
             merge: self.merge,
@@ -344,7 +354,7 @@ impl SecuredApp {
             error: State::new(None),
             entered: RefCell::new(0),
         }));
-        Ok(Box::new(Localized::new(gate.0.language.labels(), gate)))
+        Ok(Box::new(Localized::new(gate.0.labels.clone(), gate)))
     }
 
     /// Puts it together, showing on the screen what is wrong with how it was declared.
@@ -368,6 +378,8 @@ struct GateInner {
     title: String,
     words: Words,
     language: Language,
+    texts: crate::app::TextPacks,
+    labels: ravenrs_widgets::Labels,
     space: SpaceMaker,
     application: MakeApp,
     merge: RoleMerge,
@@ -468,10 +480,13 @@ impl Gate {
         };
         let (gate, words) = (self.clone(), inner.words.clone());
         let audited = trail.is_some();
-        let app = (inner.application)(&identity)
-            .language(inner.language)
+        let mut app = (inner.application)(&identity).language(inner.language);
+        for (language, json) in &inner.texts {
+            app = app.texts(language.clone(), json.clone());
+        }
+        let app = app
             .module(SecurityModule { words: words.clone(), audited })
-            .translation("pt-BR", PT_BR)
+            .translation("pt-BR", ravenrs_app_i18n::model::SECURITY_PT_BR)
             .dashboard(
                 ravenrs_app::DashboardInfo::new(MODEL_EDITOR, words.model_editor.clone())
                     .navigation("Administration")

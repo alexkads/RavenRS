@@ -1021,7 +1021,7 @@ fn draw_handler(cx: &mut BuildCx<'_>, s: &Scheduler, editing: &Editing) -> Optio
 
 /// A moment as a person reads it on this scale.
 fn time_label(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
-    let date = (labels.short_date)(time.date());
+    let date = labels.short_date(time.date());
     match scale {
         TimeScale::Hours => {
             let (hour, minute) = time.hour_minute();
@@ -1054,7 +1054,7 @@ fn tick_text(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
 fn group_text(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
     let date = time.date();
     match scale {
-        TimeScale::Hours => (labels.short_date)(date),
+        TimeScale::Hours => labels.short_date(date),
         TimeScale::Days | TimeScale::Weeks => labels.month_title(date),
         TimeScale::Months => date.year().to_string(),
     }
@@ -1179,8 +1179,8 @@ impl Scheduler {
         if !self.card {
             let title = format!(
                 "{} – {}",
-                (labels.short_date)(axis.start.date()),
-                (labels.short_date)(axis.end.plus_minutes(-1).date())
+                labels.short_date(axis.start.date()),
+                labels.short_date(axis.end.plus_minutes(-1).date())
             );
             items.push(util::label(cx, &title, TextStyle::Headline, None, cx.theme().color(Semantic::Ink)));
             items.extend(today_button);

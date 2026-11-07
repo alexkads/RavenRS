@@ -7,6 +7,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_core::{AccessTree, Border, Color, CursorIcon, Point, Primitive, Rect, Role, Size};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
@@ -344,56 +345,39 @@ pub struct BugLabels {
 
 impl Default for BugLabels {
     fn default() -> Self {
-        Self {
-            title: "Report a problem".into(),
-            intro: "Tell the team what happened. You see everything before it goes.".into(),
-            description: "What happened?".into(),
-            include_film: "Include a film of the last minutes".into(),
-            film_warning: "The film shows what was on your screen. Watch it, and cover what should not go."
-                .into(),
-            edit_film: "Cover or cut parts of the film".into(),
-            done_editing: "Done".into(),
-            send: "Send".into(),
-            cancel: "Cancel".into(),
-            kind: "What is it?".into(),
-            kinds: vec!["Something is wrong".into(), "It is confusing".into(), "A suggestion".into()],
-            mark: "Mark the problem on screen".into(),
-            mark_again: "Mark it again".into(),
-            mark_hint: "Drag a box around the problem.".into(),
-            goes_along: "Goes along with the report".into(),
-            elements: "On screen, under the box".into(),
-            errors: "Latest errors".into(),
-            player: MovieLabels::default(),
-            editor: EditorLabels::default(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl BugLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            title: texts.get("movie.bug.title"),
+            intro: texts.get("movie.bug.intro"),
+            description: texts.get("movie.bug.description"),
+            include_film: texts.get("movie.bug.include_film"),
+            film_warning: texts.get("movie.bug.film_warning"),
+            edit_film: texts.get("movie.bug.edit_film"),
+            done_editing: texts.get("movie.bug.done_editing"),
+            send: texts.get("movie.bug.send"),
+            cancel: texts.get("movie.bug.cancel"),
+            kind: texts.get("movie.bug.kind"),
+            kinds: texts.list("movie.bug.kinds"),
+            mark: texts.get("movie.bug.mark"),
+            mark_again: texts.get("movie.bug.mark_again"),
+            mark_hint: texts.get("movie.bug.mark_hint"),
+            goes_along: texts.get("movie.bug.goes_along"),
+            elements: texts.get("movie.bug.elements"),
+            errors: texts.get("movie.bug.errors"),
+            player: MovieLabels::from_texts(texts),
+            editor: EditorLabels::from_texts(texts),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            title: "Relatar um problema".into(),
-            intro: "Conte à equipe o que aconteceu. Você vê tudo antes de sair daqui.".into(),
-            description: "O que aconteceu?".into(),
-            include_film: "Incluir um filme dos últimos minutos".into(),
-            film_warning: "O filme mostra o que estava na sua tela. Assista e cubra o que não deve ir."
-                .into(),
-            edit_film: "Cobrir ou cortar partes do filme".into(),
-            done_editing: "Concluir".into(),
-            send: "Enviar".into(),
-            cancel: "Cancelar".into(),
-            kind: "O que é?".into(),
-            kinds: vec!["Algo está errado".into(), "Está confuso".into(), "Uma sugestão".into()],
-            mark: "Marcar o problema na tela".into(),
-            mark_again: "Marcar de novo".into(),
-            mark_hint: "Arraste uma caixa em volta do problema.".into(),
-            goes_along: "Vai junto com o relato".into(),
-            elements: "Na tela, sob a caixa".into(),
-            errors: "Últimos erros".into(),
-            player: MovieLabels::pt_br(),
-            editor: EditorLabels::pt_br(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 

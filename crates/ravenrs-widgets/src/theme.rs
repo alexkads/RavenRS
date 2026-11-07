@@ -125,7 +125,7 @@ fn color_field(
     let ratio = flattened(theme.palette.get(role), canvas)
         .contrast_ratio(flattened(theme.palette.get(ground), canvas));
     let tone = if ratio < LEGIBLE { Tone::Warning } else { Tone::Neutral };
-    field.note_text(Some((cx.labels().theme_contrast)(ratio, ground.token())), tone)
+    field.note_text(Some(cx.labels().theme_contrast(ratio, ground.token())), tone)
 }
 
 fn stepper_field(
@@ -252,9 +252,7 @@ impl View for ThemeEditor {
             });
         let bar = HStack::new((
             self.picker.clone(),
-            Text::new((labels.theme_changed)(changed))
-                .style(TextStyle::Callout)
-                .foreground(Semantic::InkMuted),
+            Text::new(labels.theme_changed(changed)).style(TextStyle::Callout).foreground(Semantic::InkMuted),
             Spacer::new(),
             restore,
             copy,

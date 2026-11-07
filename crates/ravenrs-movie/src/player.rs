@@ -3,6 +3,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_core::{Border, CursorIcon, Key, Role};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
@@ -90,46 +91,35 @@ pub struct MovieLabels {
 
 impl Default for MovieLabels {
     fn default() -> Self {
-        Self {
-            play: "Play".into(),
-            pause: "Pause".into(),
-            restart: "From the start".into(),
-            guided: "Stop at each step".into(),
-            next_step: "Continue".into(),
-            chapters: "Chapters".into(),
-            position: "Position".into(),
-            movie: "Film".into(),
-            sound: "Sound".into(),
-            narration: "Narration".into(),
-            language: "en-US".into(),
-            step_of: "Step {} of {}".into(),
-            finished: "You finished this film".into(),
-            watch_again: "Watch again".into(),
-            next_film: "Next: {}".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl MovieLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            play: texts.get("movie.player.play"),
+            pause: texts.get("movie.player.pause"),
+            restart: texts.get("movie.player.restart"),
+            guided: texts.get("movie.player.guided"),
+            next_step: texts.get("movie.player.next_step"),
+            chapters: texts.get("movie.player.chapters"),
+            position: texts.get("movie.player.position"),
+            movie: texts.get("movie.player.movie"),
+            sound: texts.get("movie.player.sound"),
+            narration: texts.get("movie.player.narration"),
+            language: texts.get("movie.player.language"),
+            step_of: texts.get("movie.player.step_of"),
+            finished: texts.get("movie.player.finished"),
+            watch_again: texts.get("movie.player.watch_again"),
+            next_film: texts.get("movie.player.next_film"),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            play: "Reproduzir".into(),
-            pause: "Pausar".into(),
-            restart: "Do início".into(),
-            guided: "Parar em cada passo".into(),
-            next_step: "Continuar".into(),
-            chapters: "Capítulos".into(),
-            position: "Posição".into(),
-            movie: "Filme".into(),
-            sound: "Som".into(),
-            narration: "Narração".into(),
-            step_of: "Passo {} de {}".into(),
-            finished: "Você terminou este filme".into(),
-            watch_again: "Ver de novo".into(),
-            next_film: "Próximo: {}".into(),
-            language: "pt-BR".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 

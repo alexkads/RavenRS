@@ -290,7 +290,7 @@ impl Rating {
         );
         let labels = cx.labels();
         let name = self.label.clone().unwrap_or_else(|| labels.rating.clone());
-        cx.semantics(node, Semantics::new(Role::Image).name(name).value((labels.rating_value)(value, max)));
+        cx.semantics(node, Semantics::new(Role::Image).name(name).value(labels.rating_value(value, max)));
         node
     }
 
@@ -342,7 +342,7 @@ impl Rating {
             Semantics::new(Role::Slider)
                 .name(name)
                 .numeric(f64::from(value), 0.0, f64::from(max), Some(1.0))
-                .value((labels.rating_value)(value, max)),
+                .value(labels.rating_value(value, max)),
         );
         let keys = binding.clone();
         cx.on_key(
@@ -915,7 +915,7 @@ impl View for DaySeparator {
                 match today.to_days() - day.to_days() {
                     0 => labels.today.clone(),
                     1 => labels.yesterday.clone(),
-                    _ => (labels.short_date)(*day),
+                    _ => labels.short_date(*day),
                 }
             }
         };

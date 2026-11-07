@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::rc::Rc;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_criteria::{Criteria, Environment, Scope, Value};
 
 use crate::{EntityInfo, ModelError, Object, ObjectSpace, Query};
@@ -398,38 +399,31 @@ pub struct RuleWords {
 
 impl Default for RuleWords {
     fn default() -> Self {
-        Self {
-            required: "{0} is required".into(),
-            too_low: "{0} cannot be below {1}".into(),
-            too_high: "{0} cannot be above {1}".into(),
-            invalid: "{0} is not valid".into(),
-            comparison: "{0} does not compare as it should".into(),
-            record: "This record is not valid".into(),
-            must_be_true: "{0} has to be checked".into(),
-            duplicate: "There is already a record with this {0}".into(),
-            none_exists: "A record it needs does not exist".into(),
-            not_referenced: "Nothing points to this record yet".into(),
-            decimal: '.',
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl RuleWords {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            required: texts.get("rules.required"),
+            too_low: texts.get("rules.too_low"),
+            too_high: texts.get("rules.too_high"),
+            invalid: texts.get("rules.invalid"),
+            comparison: texts.get("rules.comparison"),
+            record: texts.get("rules.record"),
+            must_be_true: texts.get("rules.must_be_true"),
+            duplicate: texts.get("rules.duplicate"),
+            none_exists: texts.get("rules.none_exists"),
+            not_referenced: texts.get("rules.not_referenced"),
+            decimal: texts.char("format.decimal", '.'),
+        }
+    }
+
     /// In Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            required: "{0} é obrigatório".into(),
-            too_low: "{0} não pode ser menor que {1}".into(),
-            too_high: "{0} não pode ser maior que {1}".into(),
-            invalid: "{0} não é válido".into(),
-            comparison: "{0} não está como deveria".into(),
-            record: "Este registro não é válido".into(),
-            must_be_true: "{0} precisa ser marcado".into(),
-            duplicate: "Já existe um registro com este valor em {0}".into(),
-            none_exists: "Um registro necessário não existe".into(),
-            not_referenced: "Nada aponta para este registro ainda".into(),
-            decimal: ',',
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 

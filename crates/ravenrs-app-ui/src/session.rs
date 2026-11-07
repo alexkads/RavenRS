@@ -10,6 +10,7 @@ use ravenrs_app::{
     ModelNode, ModelStore, Object, ObjectSpace, Query, RuleWords, Severity, Value, ViewInfo, ViewKind,
     Violation, merge_changes, validate,
 };
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_reactive::State;
 use ravenrs_widgets::{ConfirmDialog, Date, FilePicker, ToastExtras, Toaster, Toasts, Tone};
 
@@ -162,161 +163,89 @@ pub struct Words {
 
 impl Default for Words {
     fn default() -> Self {
-        Self {
-            new: "New".into(),
-            delete: "Delete".into(),
-            save: "Save".into(),
-            save_and_close: "Save and close".into(),
-            save_and_new: "Save and new".into(),
-            cancel: "Cancel".into(),
-            previous: "Previous".into(),
-            next: "Next".into(),
-            refresh: "Refresh".into(),
-            back: "Back".into(),
-            delete_question: "Delete?".into(),
-            delete_detail: "This cannot be undone.".into(),
-            discard_question: "Discard the changes?".into(),
-            discard_detail: "What you changed here was not saved.".into(),
-            discard: "Discard".into(),
-            new_record: "New".into(),
-            variant: "View".into(),
-            link: "Link".into(),
-            unlink: "Unlink".into(),
-            save_first: "Save this record to add to this list.".into(),
-            filter: "Filter".into(),
-            clone: "Clone".into(),
-            clone_unsaved: "Save the changes before cloning.".into(),
-            save_file: "Save file".into(),
-            warning_question: "Save anyway?".into(),
-            warning_answer: "Save anyway".into(),
-            conflict_question: "Someone else changed this record".into(),
-            conflict_detail: "They changed {0} too. Saving keeps your value there, and their other changes."
-                .into(),
-            conflict_answer: "Keep mine".into(),
-            list_editor_needs: "This view needs a field that fits:".into(),
-            no_resource: "No resource".into(),
-            chart_count: "Records".into(),
-            reminders: "Reminders".into(),
-            snooze: "In 15 minutes".into(),
-            dismiss: "Dismiss".into(),
-            open: "Open".into(),
-            yes: "Yes".into(),
-            no: "No".into(),
-            access_denied: "You are not allowed to do this.".into(),
-            protected_value: "Protected".into(),
-            sign_in: "Sign in".into(),
-            sign_out: "Sign out".into(),
-            sign_in_failed:
-                "The name or the password is not right, or the account is waiting after too many attempts."
-                    .into(),
-            user_name: "Name".into(),
-            password: "Password".into(),
-            current_password: "Current password".into(),
-            new_password: "New password".into(),
-            repeat_password: "Repeat the password".into(),
-            sign_in_unavailable: "Signing in is not available right now. Try again.".into(),
-            passwords_differ: "The two passwords are not the same.".into(),
-            password_too_short: "A password has at least 8 characters.".into(),
-            password_wrong_current: "The current password is not right.".into(),
-            password_saved: "Password changed.".into(),
-            save_password: "Save password".into(),
-            change_password: "Change password".into(),
-            set_password: "Set password".into(),
-            must_change_password: "This password was given to you. Choose your own to go on.".into(),
-            first_user: "Nobody can sign in yet. This creates the administrator.".into(),
-            create_user: "Create administrator".into(),
-            model_editor: "Application model".into(),
-            search_model: "Search the model".into(),
-            pick_model_node: "Pick a node to see its settings.".into(),
-            apply: "Apply".into(),
-            restore_model: "Restore all".into(),
-            record_gone: "Someone else deleted this record.".into(),
-            rules: RuleWords::default(),
-            money_prefix: "$ ".into(),
-            thousands: ',',
-            decimal: '.',
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl Words {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            new: texts.get("ui.new"),
+            delete: texts.get("ui.delete"),
+            save: texts.get("ui.save"),
+            save_and_close: texts.get("ui.save_and_close"),
+            save_and_new: texts.get("ui.save_and_new"),
+            cancel: texts.get("ui.cancel"),
+            previous: texts.get("ui.previous"),
+            next: texts.get("ui.next"),
+            refresh: texts.get("ui.refresh"),
+            back: texts.get("ui.back"),
+            delete_question: texts.get("ui.delete_question"),
+            delete_detail: texts.get("ui.delete_detail"),
+            discard_question: texts.get("ui.discard_question"),
+            discard_detail: texts.get("ui.discard_detail"),
+            discard: texts.get("ui.discard"),
+            new_record: texts.get("ui.new_record"),
+            variant: texts.get("ui.variant"),
+            link: texts.get("ui.link"),
+            unlink: texts.get("ui.unlink"),
+            save_first: texts.get("ui.save_first"),
+            filter: texts.get("ui.filter"),
+            clone: texts.get("ui.clone"),
+            clone_unsaved: texts.get("ui.clone_unsaved"),
+            save_file: texts.get("ui.save_file"),
+            warning_question: texts.get("ui.warning_question"),
+            warning_answer: texts.get("ui.warning_answer"),
+            conflict_question: texts.get("ui.conflict_question"),
+            conflict_detail: texts.get("ui.conflict_detail"),
+            conflict_answer: texts.get("ui.conflict_answer"),
+            list_editor_needs: texts.get("ui.list_editor_needs"),
+            no_resource: texts.get("ui.no_resource"),
+            chart_count: texts.get("ui.chart_count"),
+            reminders: texts.get("ui.reminders"),
+            snooze: texts.get("ui.snooze"),
+            dismiss: texts.get("ui.dismiss"),
+            open: texts.get("ui.open"),
+            yes: texts.get("ui.yes"),
+            no: texts.get("ui.no"),
+            access_denied: texts.get("ui.access_denied"),
+            protected_value: texts.get("ui.protected_value"),
+            sign_in: texts.get("ui.sign_in"),
+            sign_out: texts.get("ui.sign_out"),
+            sign_in_failed: texts.get("ui.sign_in_failed"),
+            user_name: texts.get("ui.user_name"),
+            password: texts.get("ui.password"),
+            current_password: texts.get("ui.current_password"),
+            new_password: texts.get("ui.new_password"),
+            repeat_password: texts.get("ui.repeat_password"),
+            sign_in_unavailable: texts.get("ui.sign_in_unavailable"),
+            passwords_differ: texts.get("ui.passwords_differ"),
+            password_too_short: texts.get("ui.password_too_short"),
+            password_wrong_current: texts.get("ui.password_wrong_current"),
+            password_saved: texts.get("ui.password_saved"),
+            save_password: texts.get("ui.save_password"),
+            change_password: texts.get("ui.change_password"),
+            set_password: texts.get("ui.set_password"),
+            must_change_password: texts.get("ui.must_change_password"),
+            first_user: texts.get("ui.first_user"),
+            create_user: texts.get("ui.create_user"),
+            model_editor: texts.get("ui.model_editor"),
+            search_model: texts.get("ui.search_model"),
+            pick_model_node: texts.get("ui.pick_model_node"),
+            apply: texts.get("ui.apply"),
+            restore_model: texts.get("ui.restore_model"),
+            record_gone: texts.get("ui.record_gone"),
+            rules: RuleWords::from_texts(texts),
+            money_prefix: texts.get("format.money_prefix"),
+            thousands: texts.char("format.thousands", ','),
+            decimal: texts.char("format.decimal", '.'),
+        }
+    }
+
     /// In Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            new: "Novo".into(),
-            delete: "Excluir".into(),
-            save: "Salvar".into(),
-            save_and_close: "Salvar e fechar".into(),
-            save_and_new: "Salvar e novo".into(),
-            cancel: "Cancelar".into(),
-            previous: "Anterior".into(),
-            next: "Próximo".into(),
-            refresh: "Atualizar".into(),
-            back: "Voltar".into(),
-            delete_question: "Excluir?".into(),
-            delete_detail: "Não será possível desfazer.".into(),
-            discard_question: "Descartar as alterações?".into(),
-            discard_detail: "O que você mudou aqui não foi salvo.".into(),
-            discard: "Descartar".into(),
-            new_record: "Novo".into(),
-            variant: "Visão".into(),
-            link: "Vincular".into(),
-            unlink: "Desvincular".into(),
-            save_first: "Salve este registro para acrescentar a esta lista.".into(),
-            filter: "Filtro".into(),
-            clone: "Clonar".into(),
-            clone_unsaved: "Salve as alterações antes de clonar.".into(),
-            save_file: "Salvar arquivo".into(),
-            warning_question: "Salvar assim mesmo?".into(),
-            warning_answer: "Salvar assim mesmo".into(),
-            conflict_question: "Outra pessoa alterou este registro".into(),
-            conflict_detail:
-                "Ela também alterou {0}. Salvar mantém o seu valor ali, e as outras alterações dela.".into(),
-            conflict_answer: "Manter o meu".into(),
-            list_editor_needs: "Esta visão precisa de um campo que sirva:".into(),
-            no_resource: "Sem recurso".into(),
-            chart_count: "Registros".into(),
-            reminders: "Lembretes".into(),
-            snooze: "Em 15 minutos".into(),
-            dismiss: "Dispensar".into(),
-            open: "Abrir".into(),
-            yes: "Sim".into(),
-            no: "Não".into(),
-            access_denied: "Você não tem permissão para fazer isso.".into(),
-            protected_value: "Protegido".into(),
-            sign_in: "Entrar".into(),
-            sign_out: "Sair".into(),
-            sign_in_failed:
-                "O nome ou a senha não conferem, ou a conta está aguardando depois de muitas tentativas."
-                    .into(),
-            user_name: "Nome".into(),
-            password: "Senha".into(),
-            current_password: "Senha atual".into(),
-            new_password: "Nova senha".into(),
-            repeat_password: "Repita a senha".into(),
-            sign_in_unavailable: "Não foi possível entrar agora. Tente de novo.".into(),
-            passwords_differ: "As duas senhas não são iguais.".into(),
-            password_too_short: "A senha precisa ter pelo menos 8 caracteres.".into(),
-            password_wrong_current: "A senha atual não confere.".into(),
-            password_saved: "Senha alterada.".into(),
-            save_password: "Salvar senha".into(),
-            change_password: "Trocar senha".into(),
-            set_password: "Definir senha".into(),
-            must_change_password: "Esta senha foi definida por outra pessoa. Escolha a sua para continuar."
-                .into(),
-            first_user: "Ninguém consegue entrar ainda. Isto cria o administrador.".into(),
-            create_user: "Criar administrador".into(),
-            model_editor: "Modelo da aplicação".into(),
-            search_model: "Buscar no modelo".into(),
-            pick_model_node: "Escolha um nó para ver as configurações.".into(),
-            apply: "Aplicar".into(),
-            restore_model: "Restaurar tudo".into(),
-            record_gone: "Outra pessoa excluiu este registro.".into(),
-            rules: RuleWords::pt_br(),
-            money_prefix: "R$ ".into(),
-            thousands: '.',
-            decimal: ',',
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 
@@ -420,6 +349,7 @@ struct SessionInner {
     lists_field_errors: Cell<bool>,
     list_editors: Rc<RefCell<BTreeMap<String, crate::list_view::ListEditorFactory>>>,
     attachment_store: Rc<RefCell<Option<Rc<dyn AttachmentStore>>>>,
+    texts: Rc<RefCell<Texts>>,
     model_store: Rc<RefCell<Option<Rc<dyn ModelStore>>>>,
     /// What the list of the popup about to open has to meet.
     popup_filter: RefCell<Option<Criteria>>,
@@ -490,6 +420,7 @@ impl Session {
             lists_field_errors: Cell::new(true),
             list_editors: Rc::default(),
             attachment_store: Rc::default(),
+            texts: Rc::default(),
             model_store: Rc::default(),
             popup_filter: RefCell::default(),
             pending: RefCell::default(),
@@ -564,6 +495,7 @@ impl Session {
             lists_field_errors: Cell::new(parent.lists_field_errors.get()),
             list_editors: parent.list_editors.clone(),
             attachment_store: parent.attachment_store.clone(),
+            texts: parent.texts.clone(),
             model_store: parent.model_store.clone(),
             popup_filter: RefCell::default(),
             pending: RefCell::default(),
@@ -1033,6 +965,17 @@ impl Session {
     /// The words of the screens.
     pub fn words(&self) -> &Words {
         &self.0.words
+    }
+
+    /// Every text of the application in its language, with what it added over the ones that come
+    /// with the framework, for words of its own by key.
+    pub fn texts(&self) -> Texts {
+        self.0.texts.borrow().clone()
+    }
+
+    /// The texts [`texts`](Self::texts) gives, for this session and the ones inside it.
+    pub fn use_texts(&self, texts: Texts) {
+        *self.0.texts.borrow_mut() = texts;
     }
 
     pub(crate) fn editors(&self) -> &EditorRegistry {

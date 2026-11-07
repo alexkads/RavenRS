@@ -1,0 +1,6 @@
+{
+ "sqlite.failed": "Não foi possível acessar o banco de dados: {0}",
+ "sqlite.in_use": "Este registro está em uso. Remova antes o que depende dele.",
+ "sqlite.rule": "Os dados não passaram nas regras do banco.",
+ "sqlite.unique": "Já existe um registro com este valor em {0}."
+}

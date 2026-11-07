@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_reactive::State;
 use ravenrs_widgets::{
     BuildCx, ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus, NodeId, UiWaker, View,
@@ -89,44 +90,34 @@ pub struct ModelManagerLabels {
 
 impl Default for ModelManagerLabels {
     fn default() -> Self {
-        Self {
-            picker: ModelPickerLabels::default(),
-            understood: "Understood".into(),
-            not_measured: "not measured".into(),
-            license: "License".into(),
-            memory: "Memory".into(),
-            decimal_comma: false,
-            network_error: "The download failed. Check the connection and try again.".into(),
-            disk_error: "The model could not be written to this disk.".into(),
-            wrong_file: "What arrived is not the published model, so it was not installed.".into(),
-            answered_in: "Answered the test in".into(),
-            fast: "Fast.".into(),
-            usable: "Usable, but you will see it write.".into(),
-            slow: "Slow on this machine. You may prefer to remove it.".into(),
-            did_not_run: "This model did not run on this machine.".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl ModelManagerLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            picker: ModelPickerLabels::from_texts(texts),
+            understood: texts.get("ai.models.understood"),
+            not_measured: texts.get("ai.models.not_measured"),
+            license: texts.get("ai.models.license"),
+            memory: texts.get("ai.models.memory"),
+            decimal_comma: texts.char("format.decimal", '.') == ',',
+            network_error: texts.get("ai.models.network_error"),
+            disk_error: texts.get("ai.models.disk_error"),
+            wrong_file: texts.get("ai.models.wrong_file"),
+            answered_in: texts.get("ai.models.answered_in"),
+            fast: texts.get("ai.models.fast"),
+            usable: texts.get("ai.models.usable"),
+            slow: texts.get("ai.models.slow"),
+            did_not_run: texts.get("ai.models.did_not_run"),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            picker: ModelPickerLabels::pt_br(),
-            understood: "Acerto".into(),
-            not_measured: "não medido".into(),
-            license: "Licença".into(),
-            memory: "Memória".into(),
-            decimal_comma: true,
-            network_error: "O download falhou. Confira a conexão e tente de novo.".into(),
-            disk_error: "Não foi possível gravar o modelo neste disco.".into(),
-            wrong_file: "O que chegou não é o modelo publicado, então não foi instalado.".into(),
-            answered_in: "Respondeu o teste em".into(),
-            fast: "Rápido.".into(),
-            usable: "Dá para usar, mas você vai vê-lo escrevendo.".into(),
-            slow: "Lento nesta máquina. Talvez seja melhor remover.".into(),
-            did_not_run: "Este modelo não rodou nesta máquina.".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 
     fn details(&self, model: &LocalModel) -> String {

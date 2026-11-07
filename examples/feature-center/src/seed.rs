@@ -152,6 +152,7 @@ fn demos(space: &mut dyn ObjectSpace) -> Result<(), String> {
         "CustomFieldsDemo",
         &[("id", n(1.0)), ("name", t("Com campos do modelo")), ("amount", n(21.0)), ("segment", t("Varejo"))],
     )?;
+    add(space, "TextsDemo", &[("id", n(1.0)), ("name", t("Ana"))])?;
     for (id, name) in [(1.0, ("Ana", "Lima")), (2.0, ("Bia", "Rocha"))] {
         // People come from the library of ready-made records.
         add(space, "Person", &[("id", n(id)), ("first_name", t(name.0)), ("last_name", t(name.1))])?;

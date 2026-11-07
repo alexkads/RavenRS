@@ -303,6 +303,7 @@ Start with `ravenrs`. The others come in as you need them.
 | [`ravenrs-report-server`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report-server) | Layouts, rendering over HTTP and scheduled delivery. |
 | [`ravenrs-grid-export`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-grid-export) | What a `DataGrid` shows, as Excel, PDF or CSV. |
 | [`ravenrs-app`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app), [`-derive`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-derive), [`-ui`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui) | The application framework: model, attributes and generated screens. |
+| [`ravenrs-app-i18n`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-i18n) | Languages and words of the screens and components, by key, with English to fall back on. |
 | [`ravenrs-app-sqlite`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-sqlite), [`-report`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-report), [`-library`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-library) | Storage, reports inside an application, and ready-made records. |
 | [`ravenrs-ai`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-ai) | Local models and voice. |
 | [`ravenrs-movie`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-movie) | Vector training films and bug reports. |
