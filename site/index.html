@@ -155,6 +155,7 @@
   .titlebar .title { margin-left: 8px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .window iframe { display: block; width: 100%; height: min(760px, 80vh); border: 0; background: var(--bg0); }
   .stage-note { margin-top: 14px; text-align: center; }
+  .demo-phone { display: none; }
 
   /* State to pixels */
   .story { position: relative; height: 3400px; border-top: 1px solid var(--line); }
@@ -174,7 +175,7 @@
   .step[aria-current="step"] .t { color: var(--ink); }
   .step[aria-current="step"] .d { max-height: 120px; opacity: 1; margin-top: 4px; }
   .panel { overflow: hidden; }
-  .panes { display: grid; }
+  .panes { display: grid; grid-template-columns: minmax(0, 1fr); }
   .pane { grid-area: 1 / 1; will-change: opacity, transform; }
   .pane.off { visibility: hidden; }
   .panel .bar { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--bg1); font: 400 13px/1 var(--mono); color: var(--muted); }
@@ -313,17 +314,49 @@
     .sinner { position: relative; top: 0; }
     .stats, .report-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .ph { grid-template-columns: 24px minmax(0, 1fr); row-gap: 6px; }
-    .ph .t-caption, .ph .badge { grid-column: 2; justify-self: start; }
+    .ph .t-caption, .ph p, .ph .badge { grid-column: 2; justify-self: start; }
     .hide-sm { display: none !important; }
     .atlas { grid-template-columns: repeat(6, 40px); }
     .backdrop { padding: 16px; }
     .mini .main { padding: 18px; grid-template-columns: minmax(0, 1fr); }
     .searchbtn { width: auto; }
   }
+  @media (max-width: 700px) {
+    .window .frame { display: none; }
+    .demo-phone { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 24px; }
+    .stage-note { display: none; }
+    .fan { height: 380px; }
+    .pg { width: 200px; height: 280px; margin-left: -100px; padding: 14px; gap: 6px; }
+    .timer { padding: 12px 14px; }
+    .mini .sidebar { display: none; }
+    .tile { width: 260px; }
+  }
   @media (max-width: 520px) {
+    h1 { font-size: clamp(36px, 10.5vw, 44px); margin: 18px auto 14px; }
+    .lede { font-size: 16px; margin-bottom: 22px; }
+    .eyebrow .t-callout { display: none; }
+    .cta { gap: 10px; }
+    .cta .btn.lg { height: 44px; padding: 0 18px; font-size: 15px; }
+    .scrollhint { display: none; }
+    .htext { padding-top: 28px; }
+    h2.h2 { font-size: 30px; }
+    .sub { font-size: 16px; }
+    .viz { height: 240px; }
+    .lay { padding: 8px; gap: 6px; }
+    .lay > div { height: 96px; }
+    .frow { grid-template-columns: 64px minmax(0, 1fr) 64px; gap: 8px; }
+    pre.code { font-size: 12px; padding: 16px; min-height: 0; }
+    .road { padding: 4px 16px; }
+    .closing { padding: 110px 0 100px; }
+    .orbit { width: 520px; height: 520px; margin: -260px 0 0 -260px; }
+    .orbit.o2 { width: 340px; height: 340px; margin: -170px 0 0 -170px; }
     .stats, .report-grid { grid-template-columns: minmax(0, 1fr); }
-    .fan { height: 420px; transform: scale(0.8); transform-origin: top center; }
     .install { width: 100%; justify-content: center; }
+  }
+  @media (max-width: 380px) {
+    .brand .badge { display: none; }
+    .nav .wrap { gap: 8px; }
+    .searchbtn { margin: 0 2px; }
   }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -394,7 +427,12 @@
         <span class="title t-callout">component-gallery · running in your browser on WebGPU</span>
         <span class="badge ok">Live · Rust → WASM</span>
       </div>
-      <iframe src="demo/" title="RavenRS component gallery, rendered with WebGPU" loading="lazy"></iframe>
+      <iframe class="frame" data-src="demo/" title="RavenRS component gallery, rendered with WebGPU" loading="lazy"></iframe>
+      <div class="demo-phone">
+        <span class="t-headline">Best on a larger screen</span>
+        <span class="t-callout">The gallery is a desktop-class app compiled to WebAssembly (about 3 MB). Open it when you are on Wi-Fi.</span>
+        <a class="btn pri" href="demo/">Open the live demo</a>
+      </div>
     </div>
     <p class="stage-note t-callout"><a href="demo/" target="_blank" rel="noopener">Open full screen</a></p>
   </div>
@@ -525,7 +563,7 @@
       <div class="card stat"><span class="t-caption">Report pages</span><span class="t-metric" data-count="305">305</span><span class="badge">In about 0.2 s</span></div>
       <div class="card stat"><span class="t-caption">Platforms</span><span class="t-metric" data-count="4">4</span><span class="badge">One renderer</span></div>
     </div>
-    <p style="margin:28px 0 0"><a class="btn ghost" href="components/" style="padding-left:0">Browse every component and its API<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a></p>
+    <p style="margin:28px 0 0"><a class="btn ghost" href="components/" style="padding-left:0;white-space:normal;height:auto;min-height:40px;text-align:left">Browse every component and its API<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a></p>
   </div>
 </section>
 
@@ -791,7 +829,8 @@
         float a = 1.22 * (1.0 - e);
         float ca = cos(a), sa = sin(a);
         float D = 900.0;
-        vec2 c = vec2(uRes.x * 0.5, uRes.y * (0.7 - 0.2 * e));
+        float base = uRes.x < uRes.y ? 0.86 : 0.7; // a portrait screen leaves more room below the text
+        vec2 c = vec2(uRes.x * 0.5, uRes.y * (base - (base - 0.5) * e));
         float amp = 30.0 * (1.0 - e);
         float x = (aUV.x * 2.0 - 1.0) * W * s;
         float py = (aUV.y * 2.0 - 1.0) * Hh * s;
@@ -883,6 +922,10 @@
   })();
   if (field.quads) $('#quad-count').textContent = field.quads.toLocaleString('en-US') + ' quads';
 
+  // The live demo loads only where it has room: phones get a link to it instead.
+  const demoFrame = $('.window .frame');
+  if (demoFrame && matchMedia('(min-width: 701px)').matches) demoFrame.src = demoFrame.dataset.src;
+
   // Elements the scroll drives.
   const hero = $('#top'), stage = $('.stage', hero), htext = $('.htext', hero), hint = $('.scrollhint', hero), caption = $('.caption', hero);
   const story = $('#pipeline'), sinner = story.firstElementChild, stepFill = $('.steps .fill', story);
@@ -904,6 +947,7 @@
       cw: stage.clientWidth, ch: stage.clientHeight,
       storyTop: docTop(story), storyH: story.offsetHeight, innerH: sinner.offsetHeight, sticky: getComputedStyle(sinner).position === 'sticky',
       statsTop: docTop(stats), fanTop: docTop(fan), roadTop: docTop(road), roadH: road.offsetHeight,
+      spread: clamp((fan.clientWidth - (pages[0]?.offsetWidth || 260)) / 5, 12, 62),
       marqTop: docTop(marq), marqBottom: docTop(marq) + marq.offsetHeight,
     };
     last = {};
@@ -1005,7 +1049,7 @@
         last.fan = f;
         pages.forEach((pg, i) => {
           const off = i - 2.5;
-          pg.style.transform = `translate3d(${(off * 62 * f).toFixed(1)}px, ${(-3 * i * (1 - f)).toFixed(1)}px, 0) rotate(${(off * 0.6 * (1 - f) + off * 7 * f).toFixed(2)}deg)`;
+          pg.style.transform = `translate3d(${(off * L.spread * f).toFixed(1)}px, ${(-3 * i * (1 - f)).toFixed(1)}px, 0) rotate(${(off * 0.6 * (1 - f) + off * (L.spread / 9) * f).toFixed(2)}deg)`;
         });
         pageCount.textContent = fmt(305 * f) + ' pages';
       }
