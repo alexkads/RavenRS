@@ -29,12 +29,51 @@ pub struct WebOptions {
     pub theme: Theme,
     /// Mirrors the UI as invisible ARIA elements for screen readers (on by default).
     pub accessibility: bool,
+    /// Which browser graphics API draws the canvas.
+    pub backend: WebBackend,
+}
+
+/// The browser graphics API RavenRS draws with.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WebBackend {
+    /// WebGPU where the browser has it, WebGL2 otherwise or if WebGPU fails to start.
+    #[default]
+    Auto,
+    /// WebGPU only: a browser without it shows [`WebError::WebGpuUnavailable`].
+    WebGpu,
+    /// WebGL2 only. It starts in nearly every browser and phone, including ones where
+    /// WebGPU is missing or turned off; pages that must open everywhere use it.
+    WebGl2,
+}
+
+impl WebBackend {
+    /// The backends to try, in order.
+    fn order(self) -> Vec<wgpu::Backends> {
+        match self {
+            Self::WebGpu => vec![wgpu::Backends::BROWSER_WEBGPU],
+            Self::WebGl2 => vec![wgpu::Backends::GL],
+            Self::Auto if webgpu_available() => vec![wgpu::Backends::BROWSER_WEBGPU, wgpu::Backends::GL],
+            Self::Auto => vec![wgpu::Backends::GL],
+        }
+    }
 }
 
 impl WebOptions {
     /// Mounts on the `<canvas>` with this id, in the default theme.
     pub fn new(canvas_id: impl Into<String>) -> Self {
-        Self { canvas_id: canvas_id.into(), theme: Theme::default(), accessibility: true }
+        Self {
+            canvas_id: canvas_id.into(),
+            theme: Theme::default(),
+            accessibility: true,
+            backend: WebBackend::Auto,
+        }
+    }
+
+    /// Draws with this graphics API instead of choosing one.
+    pub fn backend(mut self, backend: WebBackend) -> Self {
+        self.backend = backend;
+        self
     }
 
     /// Starts in `theme` instead of Raven Dark.
@@ -56,6 +95,8 @@ struct Gpu {
     context: GpuContext,
     renderer: Renderer,
     lost: Arc<AtomicBool>,
+    /// The graphics API this device runs on, to start the same one again after a loss.
+    backends: wgpu::Backends,
 }
 
 struct State {
@@ -180,6 +221,17 @@ fn document() -> Result<Document, WebError> {
 }
 
 /// Shows `message` in a small panel right after the canvas.
+/// Puts a copy of `canvas` in its place, without the graphics context it gave out.
+fn fresh_canvas(canvas: &HtmlCanvasElement) -> Result<HtmlCanvasElement, WebError> {
+    let copy = canvas
+        .clone_node()
+        .map_err(|e| WebError::Js(format!("{e:?}")))?
+        .dyn_into::<HtmlCanvasElement>()
+        .map_err(|_| WebError::Js("the canvas copy is not a canvas".into()))?;
+    canvas.replace_with_with_node_1(&copy).map_err(|e| WebError::Js(format!("{e:?}")))?;
+    Ok(copy)
+}
+
 fn show_error(canvas: &HtmlCanvasElement, message: &str) {
     let Ok(doc) = document() else { return };
     let Ok(panel) = doc.create_element("div") else { return };
@@ -440,9 +492,13 @@ fn physical(css: Size, dpr: f32, limit: u32) -> (u32, u32) {
     (w, h)
 }
 
-async fn create_gpu(canvas: &HtmlCanvasElement, scheduler: &Rc<Scheduler>) -> Result<Gpu, WebError> {
+async fn create_gpu(
+    canvas: &HtmlCanvasElement,
+    scheduler: &Rc<Scheduler>,
+    backends: wgpu::Backends,
+) -> Result<Gpu, WebError> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-        backends: wgpu::Backends::BROWSER_WEBGPU,
+        backends,
         ..wgpu::InstanceDescriptor::new_without_display_handle()
     });
     let surface = instance
@@ -476,7 +532,7 @@ async fn create_gpu(canvas: &HtmlCanvasElement, scheduler: &Rc<Scheduler>) -> Re
     });
     let renderer = Renderer::new(&context.device, &context.queue, format);
     scheduler.schedule();
-    Ok(Gpu { surface, config, context, renderer, lost })
+    Ok(Gpu { surface, config, context, renderer, lost, backends })
 }
 
 /// Mounts `root` on the canvas and starts rendering.
@@ -489,7 +545,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         .and_then(|e| e.dyn_into::<HtmlCanvasElement>().ok())
         .ok_or_else(|| WebError::CanvasNotFound(options.canvas_id.clone()))?;
 
-    if !webgpu_available() {
+    if options.backend == WebBackend::WebGpu && !webgpu_available() {
         let e = WebError::WebGpuUnavailable;
         show_error(&canvas, &e.to_string());
         return Err(e);
@@ -510,12 +566,29 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
             }
         }));
     }
-    let gpu = match create_gpu(&canvas, &scheduler).await {
-        Ok(gpu) => gpu,
-        Err(e) => {
-            show_error(&canvas, &e.to_string());
-            return Err(e);
+    let mut canvas = canvas;
+    let mut started = None;
+    let mut failure = None;
+    for (n, backends) in options.backend.order().into_iter().enumerate() {
+        // A canvas keeps the first kind of context it gave out: the next API gets a fresh one.
+        if n > 0 {
+            canvas = fresh_canvas(&canvas)?;
         }
+        match create_gpu(&canvas, &scheduler, backends).await {
+            Ok(gpu) => {
+                started = Some(gpu);
+                break;
+            }
+            Err(e) => {
+                tracing::warn!(?backends, error = %e, "graphics did not start; trying the next API");
+                failure = Some(e);
+            }
+        }
+    }
+    let Some(gpu) = started else {
+        let e = failure.unwrap_or(WebError::WebGpuUnavailable);
+        show_error(&canvas, &e.to_string());
+        return Err(e);
     };
 
     let diagnostics = Diagnostics::default();
@@ -985,8 +1058,9 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
         if !s.recovering {
             s.recovering = true;
             let (state, sched, canvas) = (state.clone(), scheduler.clone(), s.canvas.clone());
+            let backends = s.gpu.as_ref().map_or(wgpu::Backends::BROWSER_WEBGPU, |g| g.backends);
             wasm_bindgen_futures::spawn_local(async move {
-                let result = create_gpu(&canvas, &sched).await;
+                let result = create_gpu(&canvas, &sched, backends).await;
                 let Ok(mut s) = state.try_borrow_mut() else { return };
                 s.recovering = false;
                 match result {
