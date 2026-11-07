@@ -33,6 +33,7 @@ mod entity;
 mod files;
 mod frame;
 mod functions;
+mod job;
 mod model;
 mod module;
 mod object;
@@ -44,7 +45,7 @@ mod workflow;
 pub use action::{
     Action, ActionCategory, ActionContext, ActionError, ActionInput, ActionKind, ActionResult, ChoiceItem,
     CriteriaMode, Message, MessageKind, Nesting, REASON_APPEARANCE, REASON_CONTROLLER, REASON_CRITERIA,
-    REASON_SCOPE, REASON_SECURITY, REASON_SELECTION, Reasons, Selection, TargetScope,
+    REASON_RUNNING, REASON_SCOPE, REASON_SECURITY, REASON_SELECTION, Reasons, Selection, TargetScope,
 };
 pub use appearance::{Appearance, AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
 pub use controller::{ViewController, WindowController};
@@ -54,6 +55,7 @@ pub use entity::{
 pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
 pub use functions::{environment, register_function};
+pub use job::{Job, JobChange, JobContext, JobWaker, JobWork};
 #[cfg(not(target_arch = "wasm32"))]
 pub use model::FileStore;
 pub use model::{

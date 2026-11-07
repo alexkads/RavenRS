@@ -284,6 +284,16 @@ fn every_kind_of_action_runs() {
     c.press("Somar");
     assert_eq!(c.stored("ActionDemo", 1.0).get("amount"), Value::Number(78.0));
     c.select("ActionDemo", 1.0);
+    c.run("DemoBackground", ActionInput::None);
+    let start = std::time::Instant::now();
+    while !c.session().frame().jobs().is_empty() {
+        assert!(start.elapsed() < std::time::Duration::from_secs(5), "the work never ended");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        c.settle();
+    }
+    assert_eq!(c.stored("ActionDemo", 1.0).get("amount"), Value::Number(88.0), "kept from its own thread");
+    assert!(c.says("Somou 10 em segundo plano."));
+    c.select("ActionDemo", 1.0);
     let only_open = c.session().frame().action("DemoCriteria").expect("there");
     assert!(only_open.is_enabled());
     c.select("ActionDemo", 3.0);

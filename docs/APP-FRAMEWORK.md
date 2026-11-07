@@ -191,6 +191,37 @@ Or people pick it from a menu, with `ViewVariant::new("chart", "Chart").editor(C
 
 These read through the view's unit of work, so permissions, filters and the way picked all count. See `examples/quick-plan`, in a window and in the browser.
 
+## Work away from the screen
+
+```rust
+App::new("Raven Sweep")
+    .entity::<Folder>()
+    .action(|| {
+        Action::background("Scan", "Varrer", |job| {
+            for (done, path) in roots().iter().enumerate() {
+                if job.cancelled() {
+                    return Ok(());
+                }
+                job.progress(done as f32 / roots().len() as f32, format!("lendo {path}"));
+                job.save(folder_of(path)?);
+            }
+            Ok(())
+        })
+        .target_entity("Folder")
+    })
+```
+
+`App::action` adds an action with no module or controller to write. It is made again for each window, so each turns it on and off by itself.
+
+`Action::background`, or `in_background` on any action, runs its work on a thread of its own once the action runs, after its question and `on_execute`. The work sees what was selected and what people gave it, and hands back through its `JobContext`:
+
+- `progress(0.5, "lendo Caches")` says how far it got. `doing("…")` says what it is doing when it cannot tell how far.
+- `save` and `delete` hand back records. They are kept in the frame's unit of work, on the screen's thread, and committed as they come; a change that fails undoes the ones that came with it and is told.
+- `tell` shows a message, and an error it returns is shown too, as is a panic.
+- `cancelled()` says someone pressed Cancel. It stops by returning, and what it handed back stays.
+
+While it runs the action is off, by the reason `REASON_RUNNING`, so it never runs twice at once. The navigation shows each running job with its bar and Cancel. Lists read again as records come, and `on_executed` runs once the work ended. Nothing polls: the work wakes the screen. In the browser, where there are no threads, the work runs right away and the screen freezes while it does.
+
 ## States and reminders
 
 ```rust
@@ -284,6 +315,8 @@ Keep these in mind:
 - `SecuredApp` makes an application anew at each sign-in, with storage made before that: fields a layer adds have to be declared to storage by hand, so `App::storage_for` is not for it.
 
 - Search, filters and export of a list are `DataGrid`'s own, not actions the model can move.
+- Background work shows its progress in the navigation of `AppShell`. A pane embedded in a screen of your own keeps what the work hands back, but shows no bar.
+- Background work hands back records and messages; it does not open views or ask questions.
 - Where an action shows comes from its category. There is no mapping of actions to places in the model yet.
 - Without an attachment store, a picture or file stays as text in its field, and the whole record is read with it. With one, replacing a file does not yet remove the old content from the store.
 - What links and unlinks in a list inside a form is kept right away, and not with the form's save. A new record has to be saved before its list opens.
