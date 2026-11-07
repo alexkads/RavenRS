@@ -38,6 +38,8 @@ ravenrs-app-library = { version = "27.1.19", path = "crates/ravenrs-app-library"
 ravenrs-app-report = { version = "27.1.19", path = "crates/ravenrs-app-report" }
 ravenrs-report-pdf = { version = "27.1.19", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.19", path = "crates/ravenrs-report-xlsx" }
+ravenrs-sheet = { version = "27.1.19", path = "crates/ravenrs-sheet" }
+ravenrs-spreadsheet = { version = "27.1.19", path = "crates/ravenrs-spreadsheet" }
 ravenrs-report-server = { version = "27.1.19", path = "crates/ravenrs-report-server" }
 ravenrs-report-viewer = { version = "27.1.19", path = "crates/ravenrs-report-viewer" }
 ravenrs-report-designer = { version = "27.1.19", path = "crates/ravenrs-report-designer" }

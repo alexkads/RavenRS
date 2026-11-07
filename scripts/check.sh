@@ -45,7 +45,7 @@ step "clippy (native)"
 cargo clippy --workspace --all-targets -- -D warnings
 
 step "clippy (wasm32)"
-cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-i18n -p ravenrs-app-a11y -p ravenrs-app-ui -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer --target wasm32-unknown-unknown -- -D warnings
+cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-i18n -p ravenrs-app-a11y -p ravenrs-app-ui -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer -p ravenrs-sheet -p ravenrs-spreadsheet -p spreadsheet --target wasm32-unknown-unknown -- -D warnings
 
 step "tests: unit, behavior, property, doc, GPU pixel and golden-image (GPU tests skip without an adapter)"
 cargo test --workspace
@@ -60,7 +60,7 @@ fi
 
 step "minimum supported Rust version (1.88)"
 if rustup toolchain list | grep -q '^1.88'; then
-    cargo +1.88 check --workspace --exclude ravenrs-app-sqlite --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf
+    cargo +1.88 check --workspace --exclude ravenrs-sheet --exclude ravenrs-spreadsheet --exclude spreadsheet --exclude ravenrs-app-sqlite --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf
 else
     echo "skipped: install it with 'rustup toolchain install 1.88'"
 fi

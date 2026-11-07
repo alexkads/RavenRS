@@ -106,7 +106,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Signature | | | ✓ | ⬜ |
 | Rich text editor | | ✓ | ✓ | ⬜ |
 | Code editor | | ✓ | | ⬜ |
-| Spreadsheet | | ✓ | ✓ | ⬜ |
+| Spreadsheet | | ✓ | ✓ | 🟡 `Spreadsheet` (`ravenrs-spreadsheet`): opens XLSX, XLS, ODS and CSV and saves XLSX, 500+ functions with recalculation, editing in the cell and the formula bar, pointer and keyboard selection, clipboard, undo, bold, italic, underline, alignment, number formats, column widths, sheet tabs. Planned: every command on a ribbon, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find |
 
 ## Data
 

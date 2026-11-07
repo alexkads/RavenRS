@@ -84,6 +84,18 @@
         "8097"
       ],
       "port": 8097
+    },
+    {
+      "name": "spreadsheet-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "examples/spreadsheet/web",
+        "8093"
+      ],
+      "port": 8093
     }
   ]
 }
