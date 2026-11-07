@@ -493,8 +493,9 @@ const JOINING_WORDS: &[&str] = &[
     "reais",
     "real",
 ];
-/// What comes before a name nobody registered: "por Pedro", "foi o Pedro", "quem gastou Pedro".
-const NAME_MARKERS: &[&str] = &["por", "foi", "quem"];
+/// What comes before a name nobody registered: "por Pedro", "foi o Pedro", "quem gastou Pedro",
+/// "para o Pedro".
+const NAME_MARKERS: &[&str] = &["por", "foi", "quem", "para", "pra"];
 
 /// Reads a reply against the people and categories this Raven already has. A name
 /// that is not a member is asked about, never created.
@@ -524,11 +525,18 @@ fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result
         .iter()
         .filter_map(|member| {
             let name = member.name.split_whitespace().map(folded).collect::<Vec<_>>();
-            find_run(&keys(&words), &name).map(|at| (at, name.len(), member))
+            let said = keys(&words);
+            let exact = find_run(&said, &name).map(|at| (at, true));
+            let heard = || {
+                said.windows(name.len().max(1))
+                    .position(|window| window.iter().zip(&name).all(|(a, b)| sounds_like(a, b)))
+                    .map(|at| (at, false))
+            };
+            exact.or_else(heard).map(|(at, exact)| (at, name.len(), exact, member))
         })
-        .max_by_key(|(_, len, _)| *len);
+        .max_by_key(|(_, len, exact, _)| (*len, *exact));
     let member = match member {
-        Some((at, len, member)) => {
+        Some((at, len, _, member)) => {
             words.drain(at..at + len);
             Some(member.clone())
         }
@@ -590,7 +598,7 @@ fn find_run(words: &[String], run: &[String]) -> Option<usize> {
     words.windows(run.len()).position(|window| window == run)
 }
 
-/// A name after "por", "foi" or "quem", at the end of a reply, that no member has.
+/// A name after "por", "foi", "quem", "para" or "pra", at the end of a reply, that no member has.
 fn unknown_name(words: &[String]) -> Option<String> {
     let keys = words.iter().map(|word| folded(word)).collect::<Vec<_>>();
     let marker = keys.iter().rposition(|key| NAME_MARKERS.contains(&key.as_str()))?;
@@ -960,6 +968,28 @@ mod tests {
         assert_eq!(read("Recebi salário").category, "Salário");
     }
 
+    /// What Whisper wrote in the first real test: "Mateus" for Matheus, after "para".
+    #[test]
+    fn hears_a_member_with_one_letter_wrong() {
+        let members = [member(1, "Matheus"), member(2, "Ana")];
+        let categories = [category(7, "Mercado", Flow::Expense)];
+        let heard = read_reply("Despeza de mercado para o Mateus.", &members, &categories).expect("heard");
+        assert_eq!((heard.category.as_str(), heard.member), ("Mercado", Some(member(1, "Matheus"))));
+        let new = read_reply("Despeza de mercado para o Mateus.", &members, &[]).expect("heard");
+        assert_eq!(new.category, "Mercado", "a new category without the name");
+
+        let both = [member(1, "Matheus"), member(2, "Mateus")];
+        assert_eq!(
+            read_reply("despesa Mercado Mateus", &both, &[]).expect("exact").member,
+            Some(member(2, "Mateus")),
+            "the exact name wins"
+        );
+        assert!(
+            read_reply("despesa Mercado Ane", &members, &[]).is_ok_and(|r| r.member.is_none()),
+            "short names must be exact"
+        );
+    }
+
     #[test]
     fn hears_a_keyword_with_one_letter_wrong() {
         let reply = read_reply("Despeza de padaria", &[], &[]).expect("heard");
@@ -973,6 +1003,10 @@ mod tests {
     fn asks_about_a_name_nobody_registered() {
         let members = [member(1, "Ana")];
         let question = read_reply("despesa de mercado, foi o Pedro", &members, &[]).expect_err("unknown");
+        assert!(question.contains("Pedro"), "{question}");
+        let question = read_reply("despesa de mercado para o Pedro", &members, &[]).expect_err("unknown");
+        assert!(question.contains("Pedro"), "{question}");
+        let question = read_reply("despesa de farmácia pra Pedro", &members, &[]).expect_err("unknown");
         assert!(question.contains("Pedro"), "{question}");
         assert_eq!(
             read_reply("despesa Mercado Pedro", &members, &[]).expect("typed").category,
