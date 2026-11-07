@@ -1,24 +1,26 @@
 ---
 name: ravenrs-desempenho
-description: Roteiro completo para testar o desempenho gráfico do RavenRS - gate de contadores exatos, tempos por fase, frames frios e regressões plantadas. Use sempre que o usuário pedir para testar, medir ou conferir desempenho, FPS, lentidão, travamento ou "rodar os testes de performance", ao mexer em ui.rs, context.rs, ravenrs-text, ravenrs-layout, ravenrs-render ou em componente pesado, ao adicionar componente novo, e antes de publicar uma versão, mesmo que o pedido não cite esta skill.
+description: Roteiro completo para testar o desempenho gráfico do RavenRS - gate de contadores exatos, tempos por fase, frames frios e regressões plantadas. Use somente quando o Alex pedir para testar, medir ou conferir desempenho, FPS, lentidão, travamento, o gate ou "rodar os testes de performance". Nada aqui roda por conta própria, nem ao mexer no core, em componente ou antes de publicar.
 ---
 
 # Desempenho do RavenRS
 
 Tudo aqui se repete com um comando. A regra é medir antes de otimizar, e nunca aceitar uma mudança sem o número de antes e o de depois.
 
+**Só quando o Alex pedir.** Nenhum passo desta skill é regra fixa. Não rode o gate (nem tempos, frames frios, capacidade ou regressões plantadas) por iniciativa própria: nem depois de mexer no core ou num componente, nem antes de abrir PR ou publicar. Quando uma mudança puder afetar desempenho, diga isso em uma linha e ofereça a medição; ela só roda se ele pedir. O `scripts/check.sh` também não roda o gate, a menos que seja chamado com `RAVENRS_GATE=1`.
+
 Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree.
 
-## Quando rodar o quê
+## Quando rodar o quê (quando ele pedir)
 
-| Situação | O que rodar |
+| Pedido | O que rodar |
 |---|---|
-| Qualquer mudança no core ou em componente | Gate |
+| "Roda o gate" ou "confere se piorou" | Gate |
 | Quero saber onde o tempo vai | Relatório e tempos |
 | "Está travando ao abrir" | Frames frios |
 | Quero ver numa tela real | Painel de diagnóstico |
 | Mexi no renderer, ou a pergunta é sobre a GPU | Capacidade |
-| Antes de publicar | Gate, tempos, frames frios e o teste funcional no Linux |
+| "Mede tudo antes de publicar" | Gate, tempos, frames frios e o teste funcional no Linux |
 | Mudei o próprio gate | Regressões plantadas |
 
 ## 1. Gate: contadores exatos
@@ -27,7 +29,7 @@ Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree.
 cargo run --release -p ravenrs-perf -- gate
 ```
 
-Conta o trabalho de cada cena e compara com `perf/baseline.json`: builds, layouts, paints, shapings, alocações, draw calls, instâncias e bytes enviados à GPU. Roda duas vezes e reprova se as rodadas divergirem. Leva cerca de 40 s e faz parte de `scripts/check.sh`.
+Conta o trabalho de cada cena e compara com `perf/baseline.json`: builds, layouts, paints, shapings, alocações, draw calls, instâncias e bytes enviados à GPU. Roda duas vezes e reprova se as rodadas divergirem. Leva cerca de 40 s. Só entra no `scripts/check.sh` com `RAVENRS_GATE=1 ./scripts/check.sh`.
 
 Se reprovar, descubra a causa antes de qualquer outra coisa. Só atualize a baseline se a mudança for intencional, e revise o diff:
 
@@ -125,7 +127,7 @@ Aumenta cada tipo de trabalho até o frame não caber, contando até a GPU termi
 
 ## Componente novo
 
-Todo componente entra numa cena em `crates/ravenrs-perf/src/scenes/`, com `covers` listando o nome dele, no pior caso realista. Depois rode `gate --bless` e revise o diff. O contrato completo está em `docs/QUALITY.md`.
+Todo componente entra numa cena em `crates/ravenrs-perf/src/scenes/`, com `covers` listando o nome dele, no pior caso realista. Rodar `gate --bless` e revisar o diff fica para quando ele pedir a medição. O contrato completo está em `docs/QUALITY.md`.
 
 ## O que relatar ao terminar
 

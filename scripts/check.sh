@@ -43,8 +43,11 @@ fi
 step "benchmarks compile"
 cargo bench --workspace --no-run --quiet
 
-step "performance gate: exact counters against perf/baseline.json"
-cargo run --release -q -p ravenrs-perf -- gate
+# Only when asked: RAVENRS_GATE=1 ./scripts/check.sh
+if [ "${RAVENRS_GATE:-0}" = "1" ]; then
+    step "performance gate: exact counters against perf/baseline.json"
+    cargo run --release -q -p ravenrs-perf -- gate
+fi
 
 step "API docs (broken links fail)"
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf --quiet
