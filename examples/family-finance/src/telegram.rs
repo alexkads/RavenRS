@@ -398,6 +398,13 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
     let Some(text) = text.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty()) else {
         return Ok(());
     };
+    if !text.starts_with('/') {
+        let db = Database::open(&service.config.db_path).map_err(|e| e.to_string())?;
+        if let Some(answer) = crate::questions::answer(&db, today(), &text) {
+            // A question leaves whatever is pending as it was.
+            return send_message(service, chat, &answer.map_err(|e| e.to_string())?);
+        }
+    }
     let said = folded(&text);
     let pending = service.pending.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);
     let keep = |pending: Pending| -> Result<(), String> {
