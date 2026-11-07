@@ -11,7 +11,9 @@ use family_finance::ui::App;
 use family_finance::update::Updater;
 use family_finance::{seed, themes};
 use ravenrs::core::{AccessAction, AccessNode, AccessTree, Key};
-use ravenrs::movie::{HotspotKind, Movie, MovieLibrary, OverlayKind, RecordError, Recorder, Region};
+use ravenrs::movie::{
+    CardLook, HotspotKind, Movie, MovieLibrary, Narration, OverlayKind, RecordError, Recorder, Region,
+};
 use ravenrs::prelude::*;
 
 const SIZE: Size = Size::new(1280.0, 800.0);
@@ -22,6 +24,42 @@ const ZOOM_BEFORE_MS: u64 = 1_100;
 const ZOOM_AFTER_MS: u64 = 1_400;
 
 type Script = fn(&mut Recorder) -> Result<(), RecordError>;
+
+/// What the films say, recorded: each box lasts as long as its recording.
+const NARRATION: &[u8] = include_bytes!("../assets/treinamentos/narracao.voz");
+/// The line under the title of every opening.
+const OPENING_LINE: &str = "Treinamento do Raven Finanças";
+/// How long the opening and the farewell stay at least, in milliseconds.
+const OPENING_MS: u64 = 4_200;
+const FAREWELL_MS: u64 = 5_200;
+/// The breath after the voice of a card, before what comes next.
+const AFTER_CARD_MS: u64 = 900;
+
+/// How each film says goodbye, by its file: the title and the line under it.
+const FAREWELLS: [(&str, &str, &str); 6] = [
+    ("visao-geral", "A casa é sua!", "Agora cada real tem endereço. Que venham meses leves."),
+    (
+        "lancamentos",
+        "Anotou, controlou!",
+        "Cada lançamento é um passo, e o seu dinheiro agradece a caminhada.",
+    ),
+    (
+        "contas",
+        "Surpresa, só as boas!",
+        "Com os vencimentos em dia, a cabeça fica livre para o resto do mês.",
+    ),
+    (
+        "agenda",
+        "O calendário joga no seu time",
+        "Com tudo marcado, sobra tempo para o que importa de verdade.",
+    ),
+    ("planejamento", "O futuro já tem um plano", "Sonho com meta vira conquista. A próxima é sua!"),
+    (
+        "cadastros",
+        "Tudo no lugar, tudo seguro",
+        "Casa arrumada e backup feito: pode seguir tranquilo. Até a próxima!",
+    ),
+];
 
 /// The films: the name shown in the app, the file, and how each one goes.
 const FILMS: [(&str, &str, Script); 6] = [
@@ -540,8 +578,25 @@ fn records(take: &mut Recorder) -> Result<(), RecordError> {
     Ok(())
 }
 
-/// The finishing touches, the same ones the editor offers.
-fn edit(film: Movie, title: &str) -> Movie {
+/// How long a card stays: at least `least`, and long enough for its recording to be
+/// said from when the player starts saying it.
+fn card_ms(look: CardLook, title: &str, line: &str, least: u64) -> u64 {
+    let said = format!("{title}. {line}");
+    let voice = Narration::new(NARRATION).seconds(&said).map_or(0, |seconds| (seconds * 1000.0) as u64);
+    least.max(look.speaks_from_ms() + voice + AFTER_CARD_MS)
+}
+
+/// The farewell of the film in `file`.
+fn farewell_of(file: &str) -> (&'static str, &'static str) {
+    FAREWELLS
+        .iter()
+        .find(|(name, _, _)| *name == file)
+        .map(|(_, title, line)| (*title, *line))
+        .expect("every film says goodbye")
+}
+
+/// The finishing touches, the same ones the editor offers, and the opening and the farewell.
+fn edit(film: Movie, title: &str, file: &str) -> Movie {
     let mut project = film.project().clone();
     let total = project.duration_ms();
     // The camera goes to where each step happens, so that it can be read. A step close
@@ -557,21 +612,26 @@ fn edit(film: Movie, title: &str) -> Movie {
         project.add_overlay(OverlayKind::Zoom { region }, start, ZOOM_BEFORE_MS + ZOOM_AFTER_MS);
         zoomed_until = step.from_ms + ZOOM_AFTER_MS;
     }
-    project.add_overlay(OverlayKind::FadeOut, total.saturating_sub(800), 800);
     project.add_overlay(OverlayKind::PointerHighlight, 0, total);
-    project.insert_title(0, title, "Treinamento do Raven Finanças", 2500);
+    let (goodbye, line) = farewell_of(file);
+    let farewell = card_ms(CardLook::Closing, goodbye, line, FAREWELL_MS);
+    project.insert_card(total, goodbye, line, farewell, CardLook::Closing);
+    let opening = card_ms(CardLook::Opening, title, OPENING_LINE, OPENING_MS);
+    project.insert_card(0, title, OPENING_LINE, opening, CardLook::Opening);
+    let end = project.duration_ms();
+    project.add_overlay(OverlayKind::FadeOut, end.saturating_sub(800), 800);
     project.add_overlay(OverlayKind::FadeIn, 0, 600);
     film.with_project(project)
 }
 
-fn record(title: &str, script: Script) -> Movie {
+fn record(title: &str, file: &str, script: Script) -> Movie {
     let today = Date::new(2026, 11, 15).expect("valid date");
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today).expect("seed");
     let app = App::new(db, today, None, Updater::idle());
-    let mut take = Recorder::new(app, themes::light(), SIZE);
+    let mut take = Recorder::new(app, themes::light(), SIZE).narration(Narration::new(NARRATION));
     script(&mut take).unwrap_or_else(|e| panic!("the script of {title} no longer fits the app: {e}"));
-    edit(take.finish().expect("film"), title)
+    edit(take.finish().expect("film"), title, file)
 }
 
 fn path_of(file: &str) -> String {
@@ -585,11 +645,56 @@ fn films_in_the_app() -> MovieLibrary {
     })
 }
 
+/// Each box stays up for as long as its voice speaks, so the next one never cuts it,
+/// and each film opens with its title, ends with its farewell and outlasts its voice.
+#[test]
+fn the_voice_and_the_boxes_go_together_from_the_opening_to_the_farewell() {
+    let narration = Narration::new(NARRATION);
+    let library = films_in_the_app();
+    for (index, (title, file, _)) in FILMS.iter().enumerate() {
+        let (_, film) = library.get(index).expect("film");
+        for spot in film.hotspots() {
+            let said = format!("{}. {}", spot.title, spot.text);
+            if let Some(seconds) = narration.seconds(&said) {
+                let voice = (seconds * 1000.0) as u64;
+                assert!(
+                    spot.until_ms - spot.from_ms >= voice,
+                    "{file}: the box goes before its voice: {said}"
+                );
+            }
+        }
+        let clips = &film.project().clips;
+        let card = |clip: Option<&ravenrs::movie::Clip>| match clip.map(|clip| &clip.kind) {
+            Some(ravenrs::movie::ClipKind::Title { title, subtitle, look, .. }) => {
+                Some((*look, title.clone(), subtitle.clone()))
+            }
+            _ => None,
+        };
+        let (look, opening, _) = card(clips.first()).expect("an opening");
+        assert_eq!((look, opening.as_str()), (CardLook::Opening, *title), "{file}");
+        let (look, goodbye, line) = card(clips.last()).expect("a farewell");
+        assert_eq!(
+            (look, (goodbye.as_str(), line.as_str())),
+            (CardLook::Closing, farewell_of(file)),
+            "{file}"
+        );
+        for clip in [clips.first(), clips.last()].into_iter().flatten() {
+            let (look, title, line) = card(Some(clip)).expect("a card");
+            let said = format!("{title}. {line}");
+            let voice = narration.seconds(&said).unwrap_or_else(|| panic!("{file}: no recording of {said}"));
+            let voice = (voice * 1000.0) as u64;
+            assert!(clip.duration_ms() >= look.speaks_from_ms() + voice, "{file}: {said} is cut");
+        }
+        let last = film.hotspots().iter().map(|spot| spot.until_ms).max().unwrap_or(0);
+        assert!(film.duration_ms() >= last + FAREWELL_MS, "{file}: it ends before its last box");
+    }
+}
+
 #[test]
 fn the_films_in_the_app_open_and_teach_each_part() {
     if std::env::var_os("FF_RECORD_TRAINING").is_some() {
         for (title, file, script) in FILMS {
-            std::fs::write(path_of(file), record(title, script).to_bytes()).expect("written");
+            std::fs::write(path_of(file), record(title, file, script).to_bytes()).expect("written");
         }
     }
     let library = films_in_the_app();
@@ -798,6 +903,7 @@ fn real_model_answers_in_the_chat_with_the_numbers_of_the_database() {
 /// Records what the films say with Kokoro's `pm_santa`, into wave files for `pack_narration`
 /// when `FF_NARRATION_WAVS` says where: `FF_AI_MODELS=folder cargo test --release -p family-finance --test training record_narration -- --ignored --nocapture`.
 /// `FF_NARRATION_SPEAKER` picks another of its voices, and `FF_NARRATION_MODEL` another model.
+/// `FF_NARRATION_ADD=1` records only what `narracao.voz` does not say yet and adds it there.
 #[test]
 #[ignore = "needs the real voice model"]
 fn record_narration() {
@@ -811,6 +917,13 @@ fn record_narration() {
             let movie =
                 ravenrs::movie::Movie::from_bytes(&std::fs::read(path).expect("film")).expect("a film");
             said.extend(movie.hotspots().iter().map(|spot| format!("{}. {}", spot.title, spot.text)));
+            // The opening and the farewell are said too.
+            said.extend(movie.project().clips.iter().filter_map(|clip| match &clip.kind {
+                ravenrs::movie::ClipKind::Title { title, subtitle, look, .. } if *look != CardLook::Plain => {
+                    Some(format!("{title}. {subtitle}"))
+                }
+                _ => None,
+            }));
         }
     }
     said.sort();
@@ -852,6 +965,23 @@ fn record_narration() {
                 std::fs::write(format!("{wavs}/{index:03}-{take}.wav"), wav_of(&sound)).expect("wav");
             }
         }
+        return;
+    }
+    // Only what the narration of the app does not say yet, added to it: the takes
+    // chosen before stay as they are.
+    if std::env::var("FF_NARRATION_ADD").is_ok() {
+        let narration = Narration::new(NARRATION);
+        let mut added = Vec::new();
+        for text in said.iter().filter(|text| narration.clip(text).is_none()) {
+            let mut sound = Vec::new();
+            for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+                sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
+                sound.extend_from_slice(&silence);
+            }
+            println!("{:.1}s | {text}", sound.len() as f32 / SPEECH_RATE as f32);
+            added.push((text.clone(), sound));
+        }
+        std::fs::write(&out, Narration::pack_onto(NARRATION, &added, SPEECH_RATE)).expect("the file");
         return;
     }
     // Only what no recording in the folder has yet, after a film changed.

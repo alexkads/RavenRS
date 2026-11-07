@@ -26,6 +26,41 @@ impl Region {
     }
 }
 
+/// How a title card looks and moves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum CardLook {
+    /// The title and the line under it, still.
+    #[default]
+    Plain,
+    /// The opening of a film: the logo plays, then the title and the line under it
+    /// come in. The player says them once they are in.
+    Opening,
+    /// The farewell at the end: the logo plays again, then the parting words come in,
+    /// and the player says them.
+    Closing,
+}
+
+impl CardLook {
+    /// When the words of a card of this look are all in, in milliseconds from its start.
+    pub const fn words_in_ms(self) -> u64 {
+        match self {
+            Self::Plain => 0,
+            Self::Opening => 1_700,
+            Self::Closing => 1_300,
+        }
+    }
+
+    /// When the player starts saying the words, in milliseconds from the card's start.
+    pub const fn speaks_from_ms(self) -> u64 {
+        match self {
+            Self::Plain => 0,
+            Self::Opening => 1_100,
+            Self::Closing => 700,
+        }
+    }
+}
+
 /// What a clip shows.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ClipKind {
@@ -44,6 +79,9 @@ pub enum ClipKind {
         subtitle: String,
         /// How long it stays, in milliseconds.
         duration_ms: u64,
+        /// How it looks and moves.
+        #[serde(default)]
+        look: CardLook,
     },
 }
 
@@ -357,6 +395,18 @@ impl Project {
 
     /// Puts a card in at `ms`, cutting the clip there if needed. What is after it moves on.
     pub fn insert_title(&mut self, ms: u64, title: &str, subtitle: &str, duration_ms: u64) -> usize {
+        self.insert_card(ms, title, subtitle, duration_ms, CardLook::Plain)
+    }
+
+    /// A [`Self::insert_title`] of a `look`: an opening at 0, a farewell at the end.
+    pub fn insert_card(
+        &mut self,
+        ms: u64,
+        title: &str,
+        subtitle: &str,
+        duration_ms: u64,
+        look: CardLook,
+    ) -> usize {
         self.split(ms);
         let mut index = self.clips.len();
         let mut start = 0;
@@ -369,7 +419,8 @@ impl Project {
         }
         let at = self.clip_start_ms(index);
         self.open_gap(at, duration_ms);
-        let kind = ClipKind::Title { title: title.to_owned(), subtitle: subtitle.to_owned(), duration_ms };
+        let kind =
+            ClipKind::Title { title: title.to_owned(), subtitle: subtitle.to_owned(), duration_ms, look };
         self.clips.insert(index, Clip { kind, speed: 1.0 });
         index
     }

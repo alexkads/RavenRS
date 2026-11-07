@@ -45,6 +45,8 @@ pub(crate) struct TrainingState {
     /// them by, as in a database in memory.
     pub(crate) models: Option<ModelManager>,
     pub(crate) voices: Option<VoiceManager>,
+    /// The animated logo of the splash, which also opens and closes each film.
+    pub(crate) logo: Option<LottieAnimation>,
 }
 
 impl TrainingState {
@@ -67,6 +69,7 @@ impl TrainingState {
                 VoiceManager::new(VOICE_CATALOG, folder.join("modelos").join("voz"))
                     .labels(VoiceLabels::pt_br())
             }),
+            logo: LottieAnimation::from_json(super::opening::ANIMATED_LOGO).ok(),
         }
     }
 }
@@ -77,20 +80,24 @@ const NARRATION: &[u8] = include_bytes!("../../assets/treinamentos/narracao.voz"
 
 /// The page with the films.
 pub(crate) fn training(state: &TrainingState) -> Page {
-    let (library, cue) = (state.library.clone(), state.cue.clone());
+    let (library, cue, logo) = (state.library.clone(), state.cue.clone(), state.logo.clone());
     Page::new(
         help::TREINAMENTOS,
         "Pergunte o que quer aprender, ou escolha um assunto e assista no seu ritmo.",
         ScrollView::new((VStack::new((responsive(move |size| -> AnyView {
             match &library {
-                Some(library) => Box::new(
-                    MovieAssistant::new(library.clone())
-                        .labels(AssistantLabels::pt_br())
-                        .cue(cue.clone())
-                        .narration(Narration::new(NARRATION))
-                        .width((content_width(size) - SCROLLBAR).max(320.0))
-                        .height(size.height - AROUND_THE_PAGE - PAGE_INSETS.top - PAGE_INSETS.bottom),
-                ),
+                Some(library) => Box::new({
+                    let assistant = MovieAssistant::new(library.clone());
+                    match &logo {
+                        Some(logo) => assistant.logo(logo.clone()),
+                        None => assistant,
+                    }
+                    .labels(AssistantLabels::pt_br())
+                    .cue(cue.clone())
+                    .narration(Narration::new(NARRATION))
+                    .width((content_width(size) - SCROLLBAR).max(320.0))
+                    .height(size.height - AROUND_THE_PAGE - PAGE_INSETS.top - PAGE_INSETS.bottom)
+                }),
                 None => Box::new(
                     Alert::new("Treinamentos indisponíveis", "O arquivo dos filmes não pôde ser lido.")
                         .tone(Tone::Danger),
