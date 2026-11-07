@@ -367,6 +367,22 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
         "{question}"
     );
     assert!(fake.say(tap(CHAT, "rf:ok")).contains("salva"), "said in one message, saved without a PDF");
+    assert!(fake.say(text(CHAT, "gastei 7 na padaria")).contains("Não encontrei a categoria “Padaria”"));
+    assert!(fake.say(tap(CHAT, "rf:new")).contains("Despesa · Padaria (nova) · R$ 7,00"));
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("Despesa · Padaria · R$ 7,00 salva."));
+    let rows = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"].clone();
+    assert_eq!(rows[0][0]["text"], "Desfazer", "{rows}");
+    assert!(fake.say(tap(STRANGER, "rf:undo")).contains("Escaneie o QR"), "only the chat that saved it");
+    assert!(fake.say(tap(CHAT, "rf:undo")).contains("Desfeito: Despesa · Padaria · R$ 7,00 apagada."));
+    assert!(
+        fake.say(text(CHAT, "desfazer")).contains("Não há lançamento recente"),
+        "only the last one, once"
+    );
+    let padaria: i64 = rusqlite::Connection::open(&path)
+        .unwrap()
+        .query_row("SELECT count(*) FROM categories WHERE name = 'Padaria'", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(padaria, 0, "the category created with it goes too");
     assert!(fake.say(document(CHAT, "pix.pdf", 20 * 1024 * 1024)).contains("Envie um PDF de até 14 MB"));
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
     assert!(fake.say(voice(CHAT)).contains("Para entender áudios"), "no model yet: says where to get one");
