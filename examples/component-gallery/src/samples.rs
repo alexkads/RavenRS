@@ -34,7 +34,7 @@ samples! {
     "RecurrenceEditor" => recurrence_editor, "InputOtp" => input_otp, "FormField" => form_field, "Label" => label,
     "TextArea" => text_area, "NumberField" => number_field, "MaskedField" => masked_field,
     "TimePicker" => time_picker, "DateTimePicker" => date_time_picker, "LookupField" => lookup_field,
-    "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "Toolbar" => toolbar, "SplitButton" => split_button,
+    "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "ExpressionEditor" => expression_editor, "Toolbar" => toolbar, "SplitButton" => split_button,
     "ConfirmDialog" => confirm_dialog,
     "TreeView" => tree_view, "TagBox" => tag_box, "ColorPicker" => color_picker,
     "DateRangePicker" => date_range_picker, "Wizard" => wizard, "StepIndicator" => step_indicator, "StepBadge" => step_badge, "FileUpload" => file_upload,
@@ -346,6 +346,17 @@ fn filter_builder() -> impl View {
             FilterField::new("Active", "Active", FilterFieldKind::Boolean),
         ],
     )
+}
+// end
+
+// sample: ExpressionEditor, 560
+fn expression_editor() -> impl View {
+    let expression = State::new(String::from("[Price] * [Quantity] > 100"));
+    ExpressionEditor::new(expression.binding()).fields([
+        FilterField::new("Name", "Name", FilterFieldKind::Text),
+        FilterField::new("Price", "Price", FilterFieldKind::Number),
+        FilterField::new("Quantity", "Quantity", FilterFieldKind::Number),
+    ])
 }
 // end
 
