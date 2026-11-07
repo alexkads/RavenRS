@@ -273,7 +273,7 @@ fn a_file_database_keeps_its_data_and_migrates_once() {
     let path = folder.join("nested").join("financas.db");
     {
         let db = Database::open(&path).expect("create");
-        assert_eq!(db.schema_version().expect("version"), 4);
+        assert_eq!(db.schema_version().expect("version"), 5);
         assert!(db.is_empty().expect("empty"));
         db.add_account("Banco", AccountKind::Cash, 5_00).expect("account");
         db.backup_to(&folder.join("copia.db")).expect("backup");
@@ -284,6 +284,31 @@ fn a_file_database_keeps_its_data_and_migrates_once() {
     let copy = Database::open(&folder.join("copia.db")).expect("the backup opens");
     assert_eq!(copy.accounts().expect("accounts")[0].name, "Banco");
     drop((again, copy));
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
+/// The chat paired before several chats were possible stays paired, for no one in particular.
+#[test]
+fn a_chat_paired_before_the_update_stays_paired() {
+    let folder = std::env::temp_dir().join(format!("family-finance-pairing-{}", std::process::id()));
+    let path = folder.join("financas.db");
+    {
+        let db = Database::open(&path).expect("create");
+        let hash = "ab".repeat(32);
+        db.begin_telegram_pairing(&hash, None, 1_000).expect("pairing");
+        assert!(db.claim_telegram_pairing(&hash, 10, 10, 1_001).expect("paired"));
+    }
+    // The database as version 4 left it: no member column.
+    let old = Connection::open(&path).expect("open");
+    old.execute_batch("ALTER TABLE telegram_pairings DROP COLUMN member_id; PRAGMA user_version = 4;")
+        .expect("version 4");
+    drop(old);
+
+    let db = Database::open(&path).expect("migrate");
+    assert_eq!(db.schema_version().expect("version"), 5);
+    assert!(db.telegram_chat_is_linked(10, 10).expect("read"), "still paired");
+    assert_eq!(db.telegram_chat_member(10).expect("read"), None);
+    drop(db);
     std::fs::remove_dir_all(&folder).expect("clean up");
 }
 
@@ -309,7 +334,7 @@ fn a_legacy_database_gets_category_keys_without_failing_on_equivalent_names() {
     drop(legacy);
 
     let db = Database::open(&path).expect("migrate legacy database");
-    assert_eq!(db.schema_version().expect("version"), 4);
+    assert_eq!(db.schema_version().expect("version"), 5);
     assert_eq!(db.find_or_create_category("CAFE", Flow::Expense).expect("reuse"), 1);
     assert_eq!(db.categories().expect("categories").len(), 2);
     drop(db);
