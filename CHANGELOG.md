@@ -4,8 +4,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+
+- `WebOptions` has a `backend` field: code that builds it field by field adds `backend: WebBackend::Auto`. A browser without WebGPU no longer stops at `WebError::WebGpuUnavailable` unless `WebBackend::WebGpu` is asked for; it opens with WebGL2.
+
 ### Added
 
+- The web backend also draws with WebGL2, so RavenRS opens in browsers and phones without WebGPU. `WebBackend::Auto`, the default, uses WebGPU where it is and WebGL2 otherwise or if WebGPU fails to start; `WebOptions::backend` asks for `WebBackend::WebGpu` or `WebBackend::WebGl2`. A WebGL2 device asks only for WebGL2's limits. The WebAssembly grows by about 0.7 MB compressed.
 - `ravenrs-spreadsheet`: the `Spreadsheet` component and `SpreadsheetState`. It opens XLSX, XLS, ODS and CSV and saves XLSX, with formulas that recalculate, editing in the cell and in the formula bar, selection with the pointer and the keys, the clipboard, undo, bold, italic, underline, alignment, number formats, column widths and sheet tabs, on the desktop and the web. `examples/spreadsheet` shows a household budget in it.
 - `ravenrs-sheet`: the spreadsheet engine underneath, from GridCraft (MIT OR Apache-2.0): 500+ functions with dynamic arrays, incremental recalculation, number formats, XLSX and CSV reading and writing, charts, and sessions in which every action is a command with undo. It runs in WebAssembly too.
 - Scroll-driven pages. `Sticky` keeps its content on screen while its section scrolls past, like CSS `position: sticky`, and clicks, focus and screen readers find it where it shows. `ScrollScene` holds its content for a length of scrolling, the stage for steps that change as the reader scrolls. `ScrollLinked` paints its content with the `Effect` a `ScrollLink` gives for the scroll position: a `ScrollRange` (the scene, the pass across the view, entering, leaving), a window with `between`, an `Easing`, and keyframes or any function, with `fade_in`, `fade_out`, `parallax` and `grow_from` ready. Scrolling still neither rebuilds nor lays out again. With reduced motion, linked effects only fade. The same powers are on `BuildCx`: `pin`, `scroll_track` and `scroll_linked`.

@@ -256,7 +256,7 @@ cargo install wasm-bindgen-cli --version 0.2.130 --locked
 ./scripts/build-web.sh component-gallery && python3 -m http.server -d examples/component-gallery/web 8080
 ```
 
-Then open http://localhost:8080 in a browser with WebGPU (Chrome, Edge, Safari 18+, or Firefox with WebGPU enabled). Without WebGPU, the page explains what is missing.
+Then open http://localhost:8080 in a current browser. RavenRS draws with WebGPU where the browser has it and with WebGL2 otherwise, so it also opens on phones and browsers without WebGPU; `WebOptions::backend` can ask for one of them.
 
 ## Quality you can check
 
@@ -320,7 +320,7 @@ Start with `ravenrs`. The others come in as you need them.
 | [`ravenrs-render`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-render) | The `wgpu` renderer: SDF shapes, shadows, gradients, images, glyph atlas, clipping. |
 | [`ravenrs-core`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-core) | Geometry, colors, input events and the `Scene` display list. |
 | [`ravenrs-platform-native`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-native) | Desktop windows with [winit](https://github.com/rust-windowing/winit). |
-| [`ravenrs-platform-web`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-web) | `<canvas>` + WebGPU in the browser. |
+| [`ravenrs-platform-web`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-web) | `<canvas>` + WebGPU or WebGL2 in the browser. |
 | [`ravenrs-wayland-gestures`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-wayland-gestures) | Touchpad pinches on Wayland. |
 | [`ravenrs-mcp`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp) | A read-only MCP server for coding assistants. A tool, not a dependency of your app. |
 

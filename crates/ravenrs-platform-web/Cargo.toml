@@ -18,6 +18,8 @@ ravenrs-core.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets.workspace = true
 ravenrs-render.workspace = true
+# WebGL2 alongside WebGPU, for browsers and phones without WebGPU.
+wgpu = { workspace = true, features = ["webgl"] }
 tracing.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
