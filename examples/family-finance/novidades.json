@@ -1,19 +1,17 @@
 {
-  "versao": "0.1.35",
-  "titulo": "Pergunte ao bot do Telegram, receba avisos e tenha um chat por pessoa.",
+  "versao": "0.1.36",
+  "titulo": "Treinamentos com a voz no tempo certo, abertura com a logo e despedida.",
   "importante": false,
   "novidades": [
-    "Pergunte ao bot do Telegram, por texto ou áudio: \"quanto gastei com mercado esse mês?\", \"quanto a Ana gastou?\", \"qual o saldo?\" ou \"quais contas vencem?\". Os números vêm do seu banco, nunca de um palpite.",
-    "O bot avisa das contas vencidas ou a vencer, do orçamento estourado e manda um resumo às segundas. Cada aviso tem o botão Desligar, e /avisos mostra e muda tudo.",
-    "Se o Raven estava fechado, o bot responde as mensagens que ficaram esperando e diz quantas eram.",
-    "Cada pessoa da família pode ter o próprio chat: em Ajustes, no cartão Telegram, escolha de quem é o QR. O que ela lança e pergunta sai em nome dela."
+    "Nos treinamentos, cada caixa fica na tela o tempo exato da narração: a fala não é mais cortada pela caixa seguinte, e o vídeo só termina depois da última palavra.",
+    "Cada vídeo abre com a logo animada do Raven Finanças e o nome do assunto, narrados pelo Santa.",
+    "E termina com uma despedida própria e otimista, como \"A casa é sua! Agora cada real tem endereço.\""
   ],
-  "por_que_atualizar": "Para perguntar ao bot quanto foi gasto, receber os avisos no Telegram e dar um chat a cada pessoa da família.",
+  "por_que_atualizar": "Para assistir aos treinamentos com a voz e as caixas juntas, do começo ao fim.",
   "contribuidores": [
-    "Matheus Braga de Carvalho",
     "Alex S S Fonseca"
   ],
   "issues": [
-    101
+    104
   ]
 }
