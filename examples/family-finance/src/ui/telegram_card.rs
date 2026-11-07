@@ -1,5 +1,5 @@
-//! The Telegram card in Ajustes: the bot's token, the account receipts go to, and the QR
-//! that pairs one private chat with this database.
+//! The Telegram card in Ajustes: the bot's token, the account receipts go to, the QR that
+//! pairs a private chat with this database for one member, and the chats linked.
 
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
@@ -61,10 +61,11 @@ impl TelegramCard {
         Self { store: store.clone() }
     }
 
-    fn connect(&self, shared: &Shared, waker: UiWaker) {
+    fn connect(&self, shared: &Shared, waker: UiWaker, member: Option<i64>) {
         let token = telegram::pairing_token();
         let hash = telegram::pairing_hash(&token);
-        if self.store.write("Gerando o QR…", |db| db.begin_telegram_pairing(&hash, now())).is_none() {
+        if self.store.write("Gerando o QR…", |db| db.begin_telegram_pairing(&hash, member, now())).is_none()
+        {
             return;
         }
         set(shared, Pairing::Asking);
@@ -206,12 +207,24 @@ impl View for TelegramCard {
         let shared: Shared = cx.use_state(Shared::default).get();
         let waker = cx.ui_waker();
         let _revision = self.store.version();
-        let linked = self.store.read(|db| db.has_telegram_pairing());
+        let links = self.store.read(|db| db.telegram_links());
+        let members = self.store.read(|db| db.members());
+        let for_member = cx.use_state(|| 0_usize);
         let pairing = shared.lock().map(|slot| slot.clone()).unwrap_or_default();
+        // Once scanned, or expired, a QR is gone: the next one is for another chat.
+        let waiting = self.store.read(|db| db.telegram_qr_waiting(now()));
+        let pairing = match pairing {
+            Pairing::Ready(_) if !waiting => Pairing::Idle,
+            pairing => pairing,
+        };
         let has_token = saved.get();
+        // The member the next QR is for: one of them, or no one in particular, last.
+        let member_ids: Vec<Option<i64>> =
+            members.iter().map(|member| Some(member.id)).chain(std::iter::once(None)).collect();
+        let member = member_ids.get(for_member.get()).copied().flatten();
 
-        let qr = match (&pairing, linked) {
-            (Pairing::Ready(link), false) => Some(
+        let qr = match &pairing {
+            Pairing::Ready(link) => Some(
                 VStack::new((
                     Qr(link.clone()),
                     Text::new(format!("Com o Telegram neste computador, abra: {link}"))
@@ -232,52 +245,84 @@ impl View for TelegramCard {
             _ => None,
         };
         let asking = matches!(pairing, Pairing::Asking);
-        let connect = (!linked).then(|| {
+        let connect = {
             let label = match pairing {
                 Pairing::Asking => "Gerando QR…",
                 Pairing::Ready(_) | Pairing::Failed(_) => "Gerar novo QR",
-                Pairing::Idle => "Conectar Telegram",
+                Pairing::Idle if links.is_empty() => "Conectar Telegram",
+                Pairing::Idle => "Conectar outro chat",
             };
             let (card, shared, waker) = (TelegramCard::new(&self.store), shared.clone(), waker.clone());
             Button::new(label)
                 .icon(IconName::Link)
                 .size(ButtonSize::Small)
                 .disabled(!has_token || asking)
-                .on_click(move || card.connect(&shared, waker.clone()))
+                .on_click(move || card.connect(&shared, waker.clone(), member))
+        };
+        let choose = (!members.is_empty()).then(|| {
+            let names: Vec<String> = members
+                .iter()
+                .map(|member| member.name.clone())
+                .chain(std::iter::once("Ninguém em particular".to_owned()))
+                .collect();
+            Select::new(for_member.binding(), names).label("QR para").width(220.0)
         });
-        let status = linked.then(|| {
-            let (store, shared) = (self.store.clone(), shared.clone());
-            Alert::new(
-                "Telegram conectado",
-                "Os comprovantes que você enviar ao bot aparecem aqui para conferir.",
-            )
-            .tone(Tone::Success)
-            .action("Desvincular", move || {
-                if store.write("Telegram desvinculado.", |db| db.revoke_telegram_pairings(now())).is_some() {
-                    set(&shared, Pairing::Idle);
-                }
-            })
-        });
-        let pairing_area = (!linked).then(|| {
+        let status = (!links.is_empty()).then(|| {
+            let rows: Vec<AnyView> = links
+                .iter()
+                .map(|link| {
+                    let (store, chat) = (self.store.clone(), link.chat_id);
+                    let who =
+                        link.member.as_ref().map_or("Ninguém em particular", |member| member.name.as_str());
+                    let row: AnyView = Box::new(
+                        HStack::new((
+                            Icon::new(IconName::Link).size(14.0).color(Semantic::Success),
+                            Text::new(format!("{who} · chat {chat}")).style(TextStyle::Body).grow(1.0),
+                            Button::new("Desvincular")
+                                .size(ButtonSize::Small)
+                                .style(ButtonStyle::Ghost)
+                                .on_click(move || {
+                                    store.write("Chat desvinculado.", |db| {
+                                        db.revoke_telegram_chat(chat, now())
+                                    });
+                                }),
+                        ))
+                        .spacing(8.0)
+                        .align(Align::Center),
+                    );
+                    row
+                })
+                .collect();
             VStack::new((
-                HStack::new((
-                    connect,
-                    Text::new(if has_token {
-                        "Nenhum chat conectado."
-                    } else {
-                        "Salve o token para conectar."
-                    })
-                    .style(TextStyle::Callout)
-                    .foreground(Semantic::InkMuted),
-                ))
-                .spacing(10.0)
-                .align(Align::Center),
-                qr,
-                failure,
+                Alert::new(
+                    "Telegram conectado",
+                    "Cada chat lança em nome do seu membro, a menos que a mensagem diga outra pessoa.",
+                )
+                .tone(Tone::Success),
+                VStack::new(rows).spacing(4.0).align(Align::Stretch),
+            ))
+            .spacing(8.0)
+            .align(Align::Stretch)
+        });
+        let pairing_area = VStack::new((
+            HStack::new((
+                choose,
+                connect,
+                Text::new(match (has_token, links.is_empty()) {
+                    (false, _) => "Salve o token para conectar.",
+                    (true, true) => "Nenhum chat conectado.",
+                    (true, false) => "Um QR por pessoa, cada um no seu Telegram.",
+                })
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted),
             ))
             .spacing(10.0)
-            .align(Align::Start)
-        });
+            .align(Align::Center),
+            qr,
+            failure,
+        ))
+        .spacing(10.0)
+        .align(Align::Start);
         let audio = hearing.map(|models| {
             VStack::new((
                 Divider::horizontal(),
@@ -298,7 +343,7 @@ impl View for TelegramCard {
             help::TELEGRAM,
             VStack::new((
                 Text::new(
-                    "Envie seus comprovantes em PDF pelo Telegram. Depois, responda se é despesa ou receita e informe a categoria.",
+                    "Cada pessoa conecta o próprio Telegram e lança em seu nome, por texto, áudio ou PDF do comprovante.",
                 )
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
