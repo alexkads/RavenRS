@@ -11,11 +11,16 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Added
 
 - `ravenrs-mcp` creates report layouts: `report_layout_format` describes the `.rvreport.json` format with examples made by `ravenrs-report`, `create_report_layout` builds a table layout from sample rows or from fields and a data URL, `check_report_layout` reports JSON errors by line and column, checks every expression and renders the layout, and `report_layout_templates` returns the ready layouts. The server still has no side effects: it returns JSON for the assistant to save.
-- `DataGrid`: the filter panel has an "Edit filter" button that opens the `FilterBuilder` over every column's expression at once, as the DevExpress filter panel does. It is there whenever something is filtered, with or without `filter_builder(true)`.
+- `DataGrid`: the filter panel has an "Edit filter" button that opens the `FilterBuilder` over every column's expression at once. It is there whenever something is filtered, with or without `filter_builder(true)`.
 - `FilterBuilder`: "is any of" and "is none of" (`In` and `Not ... In`), picked as tags. A filter by value from a column's menu now opens as a line instead of raw text. `FilterField::values` lists what to pick from; the grid fills it with the column's values.
 - `ReleaseNote::links(heading, links)`: a heading over links, each a label and what clicking it does, such as opening the issue a change came from.
 - `ravenrs-ai` hears: `HEARING_CATALOG` offers Whisper Base and Small, and `Transcriber` turns mono speech at `HEARING_RATE` (16 kHz) into text on the CPU, in plain Rust, the way OpenAI's reference reads it. `ModelManager` downloads them like the other models, and its speed test times ten seconds of hearing.
 - `ModelFamily::Whisper`.
+- `ExpressionEditor`: edits an expression of the criteria language, with fields, parameters, functions by group, operators and constants to search and insert at the caret, each item's signature and description, and a check while typing that gives the line and column of a syntax error and lists unknown names. Its words are in `Labels` (`expression_*`). The report designer opens it from the button beside an expression, the filter and a group's field, and from Expression on the Home page.
+
+### Changed
+
+- The report designer is laid out as a full report editor: a toolbox down the left, rulers in centimeters across the page and beside each band (marking the selected control), the field list and report explorer as tabs over the properties on the right with a bar to drag between them, Design / Preview / JSON tabs under the document and a zoom slider in the status bar. The Ribbon's Home page has Edit (cut, copy, paste, delete), Font (bold, larger, smaller), Alignment and Layout (bring to front, send to back); printing and export moved to an Output page and stay in the File menu and the quick access bar.
 
 ## [27.1.15] - 2026-11-06
 

@@ -55,6 +55,7 @@ mod display;
 mod dock;
 mod editors;
 mod event_calendar;
+mod expression_editor;
 mod extras;
 mod files;
 mod fill;
@@ -137,6 +138,7 @@ pub use dock::{
 };
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
 pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
+pub use expression_editor::ExpressionEditor;
 pub use extras::{
     Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane, SplitPanes, Splitter,
     validate,

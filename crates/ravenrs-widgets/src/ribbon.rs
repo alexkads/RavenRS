@@ -1,4 +1,4 @@
-//! An Office-style ribbon, after the DevExpress Ribbon control: application
+//! An Office-style ribbon: application
 //! menu, Quick Access Toolbar, pages (tabs) with groups of large and small
 //! commands, contextual page categories, search, and a collapsed mode.
 
