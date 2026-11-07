@@ -4609,6 +4609,7 @@ version = "27.1.15"
 dependencies = [
  "proc-macro2",
  "ravenrs-criteria",
+ "ravenrs-report",
  "rmcp",
  "serde",
  "serde_json",

@@ -1,4 +1,5 @@
-//! The MCP tools. Each one is read-only and answers from embedded data.
+//! The MCP tools. None has side effects: they answer from embedded data, and the report
+//! tools return layouts as JSON for the caller to save.
 
 use std::collections::BTreeSet;
 
@@ -11,6 +12,7 @@ use serde_json::{Value, json};
 use crate::api::{Index, Item, Member, Usage, code_blocks_with};
 use crate::docs;
 use crate::expression::{self, SchemaInput};
+use crate::report::{self, CreateInput};
 
 /// Members listed per list in one answer, unless a filter narrows them down.
 const MAX_MEMBERS: usize = 60;
@@ -18,7 +20,9 @@ const MAX_MEMBERS: usize = 60;
 const INSTRUCTIONS: &str = "Answers questions about the RavenRS GUI framework for Rust, from the sources and docs \
 of the version this server was built from. Check component_api and component_examples before writing a view \
 instead of guessing builder methods. Use design_tokens to find the semantic name of a color or text style, \
-parity_status before promising that a feature exists, and validate_expression for filters and report expressions.";
+parity_status before promising that a feature exists, and validate_expression for filters and report expressions. \
+To make a report, read report_layout_format, start from create_report_layout or report_layout_templates, edit the \
+JSON and confirm it with check_report_layout before saving it as a .rvreport.json file.";
 
 #[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
 struct ListComponents {
@@ -78,6 +82,22 @@ struct ExpressionFunctions {
     category: Option<String>,
     /// Only functions whose signature or description contains this text.
     query: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+struct ReportTemplates {
+    /// One of invoice, sales_by_region, sales_dashboard or customer_list. Without it, the list.
+    name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct CheckReportLayout {
+    /// The layout, as the JSON object or as its text.
+    layout: Value,
+    /// Rows to render it over instead of the data embedded in it, as a JSON array.
+    data: Option<Value>,
+    /// Parameter values by name, such as {"MinTotal": 100}.
+    parameters: Option<Value>,
 }
 
 /// The server. It holds no state: the data is static and parsed once, on first use.
@@ -221,6 +241,38 @@ impl RavenServer {
     )]
     fn expression_functions(&self, Parameters(input): Parameters<ExpressionFunctions>) -> CallToolResult {
         CallToolResult::structured(expression::functions(input.category.as_deref(), input.query.as_deref()))
+    }
+
+    #[tool(
+        description = "Describe the RavenRS report layout format (*.rvreport.json): bands, every kind of control with a JSON example, styles, data sources, expressions and a complete example layout. Read it before writing or editing a layout.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn report_layout_format(&self) -> CallToolResult {
+        CallToolResult::structured(report::format())
+    }
+
+    #[tool(
+        description = "Create a report layout: a table report with title, column headers on every page, zebra rows, optional grouping with subtotals, grand totals and page numbers. Give sample rows in data (embedded in the layout), or fields with an optional data_url fetched by the report server. Returns the layout JSON, a file name and the check of the result; save it as a .rvreport.json file. Nothing is written.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn create_report_layout(&self, Parameters(input): Parameters<CreateInput>) -> CallToolResult {
+        answer(report::create(&input))
+    }
+
+    #[tool(
+        description = "Check a report layout without saving anything: JSON errors with line and column, every expression parsed (syntax errors make it invalid) and checked against the fields, calculated fields and parameters (unknown names are warnings, since sample data may lack fields), and a render over its data (or the data given) that reports how many pages it makes and any expression errors.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn check_report_layout(&self, Parameters(input): Parameters<CheckReportLayout>) -> CallToolResult {
+        answer(report::check(&input.layout, input.data.as_ref(), input.parameters.as_ref()))
+    }
+
+    #[tool(
+        description = "List the ready report layouts (invoice, sales by region, sales dashboard, customer list), or return the layout JSON of one to start from.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn report_layout_templates(&self, Parameters(input): Parameters<ReportTemplates>) -> CallToolResult {
+        answer(report::templates(input.name.as_deref()))
     }
 }
 
