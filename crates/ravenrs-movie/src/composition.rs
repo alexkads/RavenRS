@@ -2,15 +2,16 @@
 
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, Effect, Point, Primitive, Quad, Rect, Role, Scene};
+use ravenrs_core::{Border, Color, Effect, Insets, PathFill, Point, Primitive, Quad, Rect, Role, Scene};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle};
 use ravenrs_widgets::{
-    BuildCx, Icon, IconName, NodeId, Paint, QuadPaint, Semantics, Text, VStack, View, ViewExt,
+    BuildCx, Icon, IconName, LottieAnimation, NodeId, Paint, QuadPaint, Semantics, Text, VStack, View,
+    ViewExt,
 };
 
 use crate::movie::Movie;
-use crate::project::{CalloutStyle, ClipKind, Overlay, OverlayKind, Place, Region};
+use crate::project::{CalloutStyle, CardLook, ClipKind, Overlay, OverlayKind, Place, Region};
 
 /// How long a zoom takes to travel, in milliseconds.
 const ZOOM_TRAVEL_MS: f32 = 500.0;
@@ -20,6 +21,10 @@ const POINTER_SIZE: f32 = 20.0;
 const HALO_RADIUS: f32 = 30.0;
 /// How long a soft callout takes to appear, in milliseconds.
 const SOFT_MS: f32 = 300.0;
+/// How long each line of an opening or a farewell takes to come in, in milliseconds.
+const WORDS_IN_MS: f32 = 500.0;
+/// How far a line rises as it comes in, in logical pixels of a 960-wide film.
+const WORDS_RISE: f32 = 14.0;
 
 /// What part of the film fills the screen at a moment.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -116,6 +121,13 @@ fn patch(cx: &mut BuildCx<'_>, frame: Rect, paint: QuadPaint) -> NodeId {
     node
 }
 
+/// Room between the lines of a card.
+fn gap(cx: &mut BuildCx<'_>, height: f32) -> NodeId {
+    let node = cx.container(LayoutStyle { height: Some(height), ..LayoutStyle::leaf() }, &[], Paint::None);
+    cx.semantics(node, Semantics::hidden());
+    node
+}
+
 /// One moment of an edited film, `width` wide and as tall as its proportions say.
 /// The player and the editor both draw with it, so what is edited is what is shown.
 #[derive(Debug)]
@@ -124,17 +136,25 @@ pub struct Composition {
     at_ms: u64,
     width: f32,
     whole: bool,
+    logo: Option<LottieAnimation>,
 }
 
 impl Composition {
     /// The moment `at_ms` of the timeline of `movie`.
     pub fn new(movie: Movie, at_ms: u64) -> Self {
-        Self { movie, at_ms, width: 960.0, whole: false }
+        Self { movie, at_ms, width: 960.0, whole: false, logo: None }
     }
 
     /// Its width, in logical pixels (960 by default).
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
+        self
+    }
+
+    /// The app's animated logo, which plays on the opening and the farewell cards
+    /// ([`CardLook`]), in the time of the film: it follows a pause or a jump.
+    pub fn logo(mut self, logo: Option<LottieAnimation>) -> Self {
+        self.logo = logo;
         self
     }
 
@@ -187,17 +207,24 @@ impl Composition {
 
     fn title_card(&self, cx: &mut BuildCx<'_>, clip: usize) -> NodeId {
         let theme = *cx.theme();
-        let (title, subtitle) = match self.movie.project().clips.get(clip).map(|c| &c.kind) {
-            Some(ClipKind::Title { title, subtitle, .. }) => (title.clone(), subtitle.clone()),
-            _ => (String::new(), String::new()),
+        let (title, subtitle, look) = match self.movie.project().clips.get(clip).map(|c| &c.kind) {
+            Some(ClipKind::Title { title, subtitle, look, .. }) => (title.clone(), subtitle.clone(), *look),
+            _ => (String::new(), String::new(), CardLook::Plain),
         };
-        let words = VStack::new((
-            Text::new(title).style(TextStyle::Display).foreground(Semantic::OnAccent),
-            Text::new(subtitle).foreground(Semantic::OnAccent),
-        ))
-        .spacing(8.0)
-        .align(Align::Center);
-        let words = cx.child(&words);
+        // The app's color, so that a film opens as something and not as an empty page.
+        let accent = theme.color(Semantic::Accent);
+        let ink = theme.color(Semantic::OnAccent);
+        let words = if look == CardLook::Plain {
+            let words = VStack::new((
+                Text::new(title).style(TextStyle::Display).foreground(ink),
+                Text::new(subtitle).foreground(ink),
+            ))
+            .spacing(8.0)
+            .align(Align::Center);
+            vec![cx.child(&words)]
+        } else {
+            self.moving_card(cx, clip, look, title, subtitle)
+        };
         cx.container(
             LayoutStyle {
                 absolute: Some((0.0, 0.0)),
@@ -207,10 +234,104 @@ impl Composition {
                 justify: Justify::Center,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
-            &[words],
-            // The app's color, so that a film opens as something and not as an empty page.
-            Paint::Quad(QuadPaint::new(theme.color(Semantic::Accent))),
+            &words,
+            Paint::Quad(QuadPaint::new(accent)),
         )
+    }
+
+    /// An opening or a farewell: two soft lights drift on the app's color, the logo
+    /// plays, and the words come in one after the other, rising a little.
+    fn moving_card(
+        &self,
+        cx: &mut BuildCx<'_>,
+        clip: usize,
+        look: CardLook,
+        title: String,
+        subtitle: String,
+    ) -> Vec<NodeId> {
+        let theme = *cx.theme();
+        let ink = theme.color(Semantic::OnAccent);
+        let reduced = cx.reduced_motion();
+        let inside = self.at_ms.saturating_sub(self.movie.project().clip_start_ms(clip));
+        let inside = if reduced { u64::MAX / 4 } else { inside };
+        let size = self.width / 960.0;
+        // When each line comes in, counted back from when they are all in.
+        let all_in = look.words_in_ms() as f32;
+        let coming = |from: f32| smooth((inside as f32 - from) / WORDS_IN_MS);
+        let (title_in, line_in, subtitle_in) =
+            (coming(all_in - 900.0), coming(all_in - 700.0), coming(all_in - WORDS_IN_MS));
+        let mut children = Vec::new();
+
+        let drift = (inside.min(20_000) as f32 / 1000.0) * 6.0 * size;
+        for (x, y, radius, alpha) in [
+            (0.18 * self.width - drift, 0.22 * self.height(), 260.0 * size, 0.10),
+            (0.84 * self.width + drift, 0.86 * self.height(), 340.0 * size, 0.07),
+        ] {
+            let frame = Rect::new(x - radius, y - radius, radius * 2.0, radius * 2.0);
+            let paint = QuadPaint { corner_radius: radius, ..QuadPaint::new(ink.faded(alpha)) };
+            children.push(patch(cx, frame, paint));
+        }
+
+        let mut column = Vec::new();
+        let logo_size = if look == CardLook::Opening { 168.0 } else { 128.0 } * size;
+        if let Some(logo) = self.logo.clone() {
+            let seconds = (inside as f64 / 1000.0).min(logo.duration());
+            let (width, height) = (logo.width().max(1.0), logo.height().max(1.0));
+            let draw = Rc::new(move |frame: Rect, scene: &mut Scene| {
+                let scale = (frame.width() / width).min(frame.height() / height);
+                let x = frame.x() + (frame.width() - width * scale) / 2.0;
+                let y = frame.y() + (frame.height() - height * scale) / 2.0;
+                scene.push_clip(Rect::new(x, y, width * scale, height * scale));
+                for path in logo.paths_at(seconds, scale * 2.0) {
+                    scene.push_path(PathFill { transform: [scale, 0.0, 0.0, scale, x, y], ..path });
+                }
+                scene.pop_clip();
+            });
+            let node = cx.container(
+                LayoutStyle {
+                    width: Some(logo_size),
+                    height: Some(logo_size),
+                    ..LayoutStyle::leaf()
+                },
+                &[],
+                Paint::Custom(draw),
+            );
+            cx.semantics(node, Semantics::hidden());
+            column.push(node);
+            column.push(gap(cx, 20.0 * size));
+        }
+        let rise = |amount: f32| Insets { top: (1.0 - amount) * WORDS_RISE * size, ..Insets::default() };
+        let heading = Text::new(title)
+            .style(TextStyle::Display)
+            .foreground(ink.faded(title_in))
+            .padding(rise(title_in));
+        column.push(cx.child(&heading));
+        let line_width = 120.0 * size * line_in;
+        column.push(gap(cx, 12.0 * size));
+        let line = cx.container(
+            LayoutStyle {
+                width: Some(line_width.max(0.5)),
+                height: Some(3.0 * size),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            Paint::Quad(QuadPaint { corner_radius: 2.0, ..QuadPaint::new(ink.faded(0.7 * line_in)) }),
+        );
+        cx.semantics(line, Semantics::hidden());
+        column.push(line);
+        column.push(gap(cx, 12.0 * size));
+        let under = Text::new(subtitle)
+            .style(TextStyle::Title)
+            .foreground(ink.faded(0.9 * subtitle_in))
+            .padding(rise(subtitle_in));
+        column.push(cx.child(&under));
+        let column = cx.container(
+            LayoutStyle { align: Align::Center, ..LayoutStyle::stack(Axis::Vertical) },
+            &column,
+            Paint::None,
+        );
+        children.push(column);
+        children
     }
 
     fn overlay(&self, cx: &mut BuildCx<'_>, overlay: &Overlay, camera: Camera, children: &mut Vec<NodeId>) {

@@ -5,6 +5,7 @@ use ravenrs_style::Theme;
 use ravenrs_widgets::{Ui, View};
 
 use crate::movie::{FilmBuilder, Hotspot, HotspotKind, Movie, MovieError};
+use crate::narration::Narration;
 
 const FRAME: f64 = 1.0 / 30.0;
 /// How fast the pointer travels, in logical pixels a second, and its limits.
@@ -15,6 +16,8 @@ const SECONDS_PER_LETTER: f64 = 0.06;
 const READING_PER_LETTER: f64 = 0.075;
 const READING_LEAST: f64 = 2.0;
 const READING_START: f64 = 0.8;
+/// The breath after a recorded box, before the next thing happens.
+const AFTER_SPEAKING: f64 = 0.6;
 
 /// What can stop a recording.
 #[derive(Debug)]
@@ -65,6 +68,7 @@ pub struct Recorder {
     pointer: Point,
     logical: Size,
     film: FilmBuilder,
+    narration: Option<Narration>,
 }
 
 impl Recorder {
@@ -81,9 +85,30 @@ impl Recorder {
             pointer: Point::new(size.width / 2.0, size.height / 2.0),
             logical: size,
             film: FilmBuilder::new(size, background),
+            narration: None,
         };
         recorder.tick();
         recorder
+    }
+
+    /// The recordings the player will say the boxes with. Each box then lasts as
+    /// long as its recording, and a little more, so that the voice and the box
+    /// end together and the film never ends while the voice is still speaking.
+    /// A box with no recording lasts as long as reading it takes.
+    #[must_use]
+    pub fn narration(mut self, narration: Narration) -> Self {
+        self.narration = Some(narration);
+        self
+    }
+
+    /// How long a box stays: as long as its recording, or as reading it takes.
+    /// The player says the title and then the text.
+    fn speaking_seconds(&self, title: &str, text: &str) -> f64 {
+        let said = format!("{title}. {text}");
+        match self.narration.as_ref().and_then(|narration| narration.seconds(&said)) {
+            Some(seconds) => (seconds + AFTER_SPEAKING).max(READING_LEAST),
+            None => reading_seconds(title, text),
+        }
     }
 
     fn milliseconds(&self) -> u64 {
@@ -137,7 +162,7 @@ impl Recorder {
     /// for as long as it takes to read or hear.
     pub fn intro(&mut self, title: &str, text: &str) -> &mut Self {
         self.chapter(title, text);
-        let seconds = reading_seconds(title, text);
+        let seconds = self.speaking_seconds(title, text);
         self.film.hotspot(Hotspot {
             kind: HotspotKind::Note,
             x: 0.0,
@@ -152,9 +177,11 @@ impl Recorder {
         self.wait(seconds)
     }
 
-    /// A [`Self::note`] that lasts as long as `text` takes to read or hear.
+    /// A [`Self::note`] that lasts as long as `text` takes to hear, or to read
+    /// when it has no recording.
     pub fn explain(&mut self, name: &str, title: &str, text: &str) -> Result<&mut Self, RecordError> {
-        self.note(name, title, text, reading_seconds(title, text))
+        let seconds = self.speaking_seconds(title, text);
+        self.note(name, title, text, seconds)
     }
 
     /// Slides the pointer to the middle of what is called `name`.
@@ -249,7 +276,7 @@ impl Recorder {
     pub fn guide(&mut self, name: &str, title: &str, text: &str) -> Result<&mut Self, RecordError> {
         // The pointer gets there first: the step asks for what it is already on.
         self.move_to(name)?;
-        let seconds = reading_seconds(title, text);
+        let seconds = self.speaking_seconds(title, text);
         let hotspot = self.hotspot(name, HotspotKind::Stop, title, text, seconds)?;
         self.film.hotspot(hotspot);
         Ok(self.wait(seconds))

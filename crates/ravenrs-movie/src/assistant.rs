@@ -7,7 +7,7 @@ use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, TextStyle};
 use ravenrs_widgets::{
-    BuildCx, Card, IconName, ListItem, NodeId, Paint, Placement, SegmentedControl, Select, Text, TextField,
+    BuildCx, Card, IconName, ListItem, LottieAnimation, NodeId, Paint, Placement, SegmentedControl, Select, Text, TextField,
     VStack, View, ViewExt,
 };
 
@@ -79,6 +79,7 @@ pub struct MovieAssistant {
     labels: AssistantLabels,
     cue: Option<MovieCue>,
     narration: Option<Narration>,
+    logo: Option<LottieAnimation>,
 }
 
 impl MovieAssistant {
@@ -91,6 +92,7 @@ impl MovieAssistant {
             labels: AssistantLabels::default(),
             cue: None,
             narration: None,
+            logo: None,
         }
     }
 
@@ -111,6 +113,13 @@ impl MovieAssistant {
     #[must_use]
     pub fn narration(mut self, narration: Narration) -> Self {
         self.narration = Some(narration);
+        self
+    }
+
+    /// The app's animated logo, played on the films' opening and farewell cards.
+    #[must_use]
+    pub fn logo(mut self, logo: LottieAnimation) -> Self {
+        self.logo = Some(logo);
         self
     }
 
@@ -269,6 +278,9 @@ impl View for MovieAssistant {
                 MoviePlayer::new(movie.clone()).width(self.width).labels(self.labels.player.clone()).cue(cue);
             if let Some(height) = self.height {
                 player = player.max_film_height(height - AROUND_THE_FILM);
+            }
+            if let Some(logo) = &self.logo {
+                player = player.logo(logo.clone());
             }
             if let Some(narration) = &self.narration {
                 player = player.narration(narration.clone());

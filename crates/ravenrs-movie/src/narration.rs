@@ -160,6 +160,12 @@ impl Narration {
         Some(SoundClip::new(decode(body, samples), RATE))
     }
 
+    /// How long the recording of `text` lasts, in seconds, without decoding it.
+    pub fn seconds(&self, text: &str) -> Option<f64> {
+        let (samples, _) = *self.entries.get(&key_of(text))?;
+        Some(samples as f64 / f64::from(RATE))
+    }
+
     /// How many recordings it has.
     pub fn len(&self) -> usize {
         self.entries.len()
@@ -237,6 +243,8 @@ mod tests {
         let bytes = Narration::pack(&[("Oi".to_owned(), tone(24_000, 1.0))], 24_000);
         let narration = Narration::new(Box::leak(bytes.into_boxed_slice()));
         let clip = narration.clip("Oi").expect("the recording");
+        assert_eq!(narration.seconds("Oi"), Some(1.0));
+        assert_eq!(narration.seconds("Tchau"), None);
         assert_eq!(clip.rate(), RATE);
         assert_eq!(clip.samples().len(), RATE as usize);
         let wanted = leveled(&tone(RATE, 1.0));

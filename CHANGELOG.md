@@ -4,6 +4,19 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+
+- `ClipKind::Title` has a `look` field: code that builds it field by field adds `look: CardLook::Plain`. Films saved before read as `Plain`.
+
+### Added
+
+- `ravenrs-movie` opens and closes films with moving cards: `CardLook::Opening` and `CardLook::Closing`, put in with `Project::insert_card`, show the app's animated logo playing in the time of the film (it follows a pause or a jump), then the title, a line and the words under it coming in. `Composition::logo`, `MoviePlayer::logo` and `MovieAssistant::logo` take the logo, a `LottieAnimation`. The player says the words of a card once they are in, only from a recording, and `Movie::poster_ms` shows an opening with its words.
+- `Recorder::narration`: with the recordings the player will use, each box of a recorded film lasts as long as its recording and a breath, instead of a time guessed from its letters. `Narration::seconds` says how long a recording lasts without decoding it.
+
+### Fixed
+
+- A recorded film no longer cuts its voice: a box that lasted less than its recording was replaced, mid-sentence, by the next one, and a film that ended on such a box stopped the voice at its end.
+
 ## [27.1.18] - 2026-11-07
 
 ### Breaking

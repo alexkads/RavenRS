@@ -10,14 +10,14 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
     BuildCx, Button, ButtonSize, ButtonStyle, Card, HStack, Icon, IconButton, IconName, List, ListItem,
-    NodeId, Paint, QuadPaint, ScrollView, Semantics, Slider, Sound, SoundClip, Text, Toggle, VStack, View,
-    ViewExt,
+    LottieAnimation, NodeId, Paint, QuadPaint, ScrollView, Semantics, Slider, Sound, SoundClip, Text, Toggle,
+    VStack, View, ViewExt,
 };
 
 use crate::composition::{Composition, camera_at};
 use crate::movie::{FilmSound, Hotspot, HotspotKind, Movie};
 use crate::narration::Narration;
-use crate::project::Region;
+use crate::project::{CardLook, ClipKind, Place, Region};
 
 /// The film offered at the end: its name and what opening it does.
 type NextFilm = (String, Rc<dyn Fn()>);
@@ -403,6 +403,7 @@ struct Stage<'a> {
     /// The explanation over the film, and whether it waits for a click.
     explaining: Option<Hotspot>,
     next: Option<&'a NextFilm>,
+    logo: Option<LottieAnimation>,
 }
 
 impl View for Stage<'_> {
@@ -415,7 +416,7 @@ impl View for Stage<'_> {
         let logical = self.movie.logical_size();
         let height = height_of(self.width, logical);
         let camera = camera_at(self.movie, at, self.width, false);
-        let film = Composition::new(self.movie.clone(), at).width(self.width);
+        let film = Composition::new(self.movie.clone(), at).width(self.width).logo(self.logo.clone());
         let film = cx.child(&film);
         cx.semantics(film, Semantics::new(Role::Image).name(self.labels.movie.clone()));
         let mut children = vec![film];
@@ -583,6 +584,7 @@ pub struct MoviePlayer {
     labels: MovieLabels,
     cue: Option<MovieCue>,
     narration: Option<Narration>,
+    logo: Option<LottieAnimation>,
     next: Option<NextFilm>,
     on_finished: Option<Rc<dyn Fn()>>,
 }
@@ -603,6 +605,7 @@ impl MoviePlayer {
             labels: MovieLabels::default(),
             cue: None,
             narration: None,
+            logo: None,
             next: None,
             on_finished: None,
         }
@@ -642,6 +645,30 @@ impl MoviePlayer {
     pub fn narration(mut self, narration: Narration) -> Self {
         self.narration = Some(narration);
         self
+    }
+
+    /// The app's animated logo, played on the film's opening and farewell cards.
+    #[must_use]
+    pub fn logo(mut self, logo: LottieAnimation) -> Self {
+        self.logo = Some(logo);
+        self
+    }
+
+    /// What an opening or a farewell card says at `at`, once its words are coming
+    /// in: told apart from the boxes by a number of its own. Only a recording says
+    /// it, since the system's voice would be a second voice in the film.
+    fn card_said(&self, at: u64) -> Option<(usize, String)> {
+        let project = self.movie.project();
+        let Some(Place::Title(index)) = project.place_at(at) else {
+            return None;
+        };
+        let Some(ClipKind::Title { title, subtitle, look, .. }) = project.clips.get(index).map(|c| &c.kind)
+        else {
+            return None;
+        };
+        let inside = at.saturating_sub(project.clip_start_ms(index));
+        (*look != CardLook::Plain && inside >= look.speaks_from_ms())
+            .then(|| (usize::MAX - index, format!("{title}. {subtitle}")))
     }
 
     /// The words it shows.
@@ -869,6 +896,13 @@ impl MoviePlayer {
                 Some(clip) => sound.speak_clip(&clip),
                 None => sound.speak(&said, &self.labels.language),
             }
+        } else if let Some((index, said)) = self.card_said(at).filter(|_| speaking && explaining.is_none())
+            && playhead.spoken.get() != Some(index)
+        {
+            playhead.spoken.set(Some(index));
+            if let Some(clip) = self.narration.as_ref().and_then(|narration| narration.clip(&said)) {
+                sound.speak_clip(&clip);
+            }
         }
     }
 }
@@ -978,6 +1012,7 @@ impl View for MoviePlayer {
             labels: &self.labels,
             explaining: explained.clone().filter(|_| boxes),
             next: self.next.as_ref(),
+            logo: self.logo.clone(),
         };
         let stage = cx.child(&stage);
         // A hairline and a shadow, so a film that opens on white still has an edge.

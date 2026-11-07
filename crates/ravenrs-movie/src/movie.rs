@@ -276,16 +276,22 @@ impl Movie {
         &self.chapters
     }
 
-    /// A moment to show before it plays: past any fade from black at the start.
+    /// A moment to show before it plays: past any fade from black at the start, and
+    /// past the coming in of an opening card, so that it shows its words.
     pub fn poster_ms(&self) -> u64 {
-        self.project
+        let faded = self
+            .project
             .overlays
             .iter()
             .filter(|o| matches!(o.kind, OverlayKind::FadeIn) && o.start_ms == 0)
             .map(crate::project::Overlay::end_ms)
             .max()
-            .unwrap_or(0)
-            .min(self.duration_ms())
+            .unwrap_or(0);
+        let opened = match self.project.clips.first().map(|clip| &clip.kind) {
+            Some(crate::project::ClipKind::Title { look, .. }) => look.words_in_ms(),
+            _ => 0,
+        };
+        faded.max(opened).min(self.duration_ms())
     }
 
     /// The chapter playing at `ms` of the timeline.

@@ -393,3 +393,60 @@ fn a_faster_speed_gets_there_sooner() {
     run_to(&mut ui, 0.0, 2.0);
     assert!(says_time(&mut ui, "0:03"), "two seconds at one and a half times");
 }
+
+fn opened_and_closed(film: &Movie) -> Movie {
+    use ravenrs_movie::CardLook;
+    let mut project = film.project().clone();
+    let end = project.duration_ms();
+    project.insert_card(end, "Até logo", "Você já sabe o caminho", 3000, CardLook::Closing);
+    project.insert_card(0, "Welcome", "Part one", 3000, CardLook::Opening);
+    film.with_project(project)
+}
+
+#[test]
+fn an_opening_says_its_words_once_they_come_in_and_the_poster_shows_them() {
+    let movie = opened_and_closed(&noisy_film());
+    assert_eq!(movie.poster_ms(), ravenrs_movie::CardLook::Opening.words_in_ms());
+    let heard = Heard::default();
+    let mut ui = Ui::new(
+        MoviePlayer::new(movie).narration(narration_of("Welcome. Part one")),
+        Theme::raven_light(),
+    );
+    ui.set_sound(heard.clone());
+    ui.set_viewport(Size::new(1200.0, 900.0), 1.0);
+    ui.set_time(0.0);
+    ui.update();
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, 0.8);
+    assert_eq!(heard.count("recording"), 0, "the logo plays first");
+    run_to(&mut ui, 0.8, 2.0);
+    assert_eq!(heard.count("recording"), 1, "then the words are said, once");
+    assert!(!heard.said("en-US: Welcome. Part one"), "never by the system's voice");
+}
+
+#[test]
+fn a_farewell_with_no_recording_stays_quiet() {
+    let movie = opened_and_closed(&noisy_film());
+    let end = movie.duration_ms();
+    let (mut ui, heard) = heard_player(movie);
+    click(&mut ui, "Stop at each step");
+    click(&mut ui, "Play");
+    run_to(&mut ui, 0.0, end as f64 / 1000.0 - 0.5);
+    assert!(!heard.said("Até logo"), "a second voice would not match the film's");
+}
+
+#[test]
+fn a_recorded_box_lasts_as_long_as_its_recording() {
+    use ravenrs_movie::Recorder;
+    let three_seconds = Narration::pack(&[("Hi. There".to_owned(), vec![0.1; 48_000])], 16_000);
+    let narration = Narration::new(Box::leak(three_seconds.into_boxed_slice()));
+    let mut recorder =
+        Recorder::new(Text::new("App"), Theme::raven_light(), Size::new(400.0, 300.0)).narration(narration);
+    recorder.intro("Hi", "There").intro("Not", "recorded");
+    let movie = recorder.finish().expect("film");
+    let spots = movie.hotspots();
+    let lasts = |i: usize| spots[i].until_ms - spots[i].from_ms;
+    assert!((3_550..=3_650).contains(&lasts(0)), "its recording and a breath: {}", lasts(0));
+    assert!((2_000..=2_400).contains(&lasts(1)), "as long as reading it: {}", lasts(1));
+    assert!(movie.duration_ms() >= spots[1].until_ms, "the film lasts until the last box ends");
+}

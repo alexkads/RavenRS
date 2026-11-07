@@ -20,7 +20,7 @@ ravenrs-layout.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-style.workspace = true
 ravenrs-text.workspace = true
-ravenrs-widgets.workspace = true
+ravenrs-widgets = { workspace = true, features = ["lottie"] }
 flate2 = "1.1"
 serde.workspace = true
 serde_json.workspace = true
