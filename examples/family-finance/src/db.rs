@@ -669,6 +669,15 @@ impl Database {
         })
     }
 
+    /// The private Telegram chats paired now, which the bot's notices go to.
+    pub fn telegram_chats(&self) -> DbResult<Vec<i64>> {
+        let mut query = self.conn.prepare_cached(
+            "SELECT chat_id FROM telegram_pairings WHERE status = 'active' AND chat_id IS NOT NULL",
+        )?;
+        let rows = query.query_map([], |row| row.get(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     /// Whether one private Telegram chat is paired now.
     pub fn has_telegram_pairing(&self) -> DbResult<bool> {
         Ok(self

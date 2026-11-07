@@ -20,9 +20,12 @@ use ravenrs_ai::{HEARING_CATALOG, HEARING_RATE, LocalModel, ModelFolder, ModelSt
 
 use crate::db::Database;
 use crate::model::{Category, Flow, Member, TransactionInput};
+use crate::reminders::{ReminderSettings, TelegramNotice, TelegramNotices};
 use crate::today;
 
 const PENDING_TTL: Duration = Duration::from_secs(5 * 60);
+/// How often the bot looks for notices to send: bills, budgets, the weekly summary.
+const NOTICE_LOOK: Duration = Duration::from_secs(600);
 /// How long the last transaction a chat saved can be undone from the chat.
 const UNDO_TTL: Duration = Duration::from_secs(5 * 60);
 const MAX_PDF_BYTES: u64 = 14 * 1024 * 1024;
@@ -233,7 +236,12 @@ pub fn serve_with_waker(
         saved: Mutex::new(HashMap::new()),
     };
     let mut offset = 0;
+    let mut looked: Option<Instant> = None;
     loop {
+        if looked.is_none_or(|at| at.elapsed() >= NOTICE_LOOK) {
+            tell(&service);
+            looked = Some(Instant::now());
+        }
         if bot_token().is_ok_and(|token| token != service.config.bot_token) {
             return Err("token do Telegram alterado; reconectando".into());
         }
@@ -263,6 +271,10 @@ pub fn serve_with_waker(
                 {
                     paired.store(true, std::sync::atomic::Ordering::Release);
                 }
+                if is_pairing {
+                    // A chat just connected hears what is due today right away.
+                    tell(&service);
+                }
                 if let Some(waker) = &waker {
                     waker.wake();
                 }
@@ -288,6 +300,10 @@ fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
         "rf:no" => "/cancelar".to_owned(),
         "rf:new" => "/criar".to_owned(),
         "rf:undo" => "/desfazer".to_owned(),
+        data if data.starts_with("rf:aviso:") => {
+            let (word, on) = data["rf:aviso:".len()..].split_once(':')?;
+            format!("/avisos {word} {}", if on == "on" { "ligar" } else { "desligar" })
+        }
         data => format!("/categoria {}", data.strip_prefix("rf:cat:")?.parse::<i64>().ok()?),
     };
     Some(Message {
@@ -411,6 +427,12 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
         service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, pending);
         Ok(())
     };
+    if text == "/avisos" || text.starts_with("/avisos ") {
+        if let Some(pending) = pending {
+            keep(pending)?;
+        }
+        return notices_command(service, chat, &text);
+    }
     if text == "/desfazer" || said == "desfazer" {
         if let Some(pending) = pending {
             keep(pending)?;
@@ -521,6 +543,82 @@ fn undo(service: &Service, chat: i64) -> Result<(), String> {
         let _ = db.delete_category(transaction.input.category_id);
     }
     send_message(service, chat, &format!("Desfeito: {} apagada.", saved.summary))
+}
+
+/// Sends every paired chat what is due, each notice with a button that turns its kind off.
+/// A failure is logged, never fatal: notices are not worth stopping the bot for.
+fn tell(service: &Service) {
+    let path = &service.config.db_path;
+    let file = TelegramNotices::file(path);
+    let mut notices = TelegramNotices::load(&file);
+    let chosen = ReminderSettings::load(&crate::reminders::settings_file(path));
+    let hour = u8::try_from(jiff::Zoned::now().hour()).unwrap_or_default();
+    let due = Database::open(path)
+        .and_then(|db| Ok((db.telegram_chats()?, notices.due(&db, today(), hour, &chosen)?)));
+    let (chats, due) = match due {
+        Ok((chats, due)) if !chats.is_empty() => (chats, due),
+        Ok(_) => return,
+        Err(error) => return tracing::warn!(%error, "could not look for Telegram notices"),
+    };
+    for (kind, text) in &due {
+        let off = [vec![(format!("Desligar: {}", kind.label()), format!("rf:aviso:{}:off", kind.word()))]];
+        for chat in &chats {
+            if let Err(error) = send_with_buttons(service, *chat, text, &off) {
+                tracing::warn!(%error, "could not send a Telegram notice");
+            }
+        }
+    }
+    if let Err(error) = notices.save(&file) {
+        tracing::warn!(%error, "could not save what the Telegram notices told");
+    }
+}
+
+/// `/avisos` lists the notices with a button to turn each on or off; `/avisos contas
+/// desligar` does it.
+fn notices_command(service: &Service, chat: i64, text: &str) -> Result<(), String> {
+    let file = TelegramNotices::file(&service.config.db_path);
+    let mut notices = TelegramNotices::load(&file);
+    let mut words = text.split_whitespace().skip(1);
+    if let (Some(word), Some(state)) = (words.next(), words.next()) {
+        let kind = TelegramNotice::ALL.into_iter().find(|kind| kind.word() == folded(word));
+        let on = match state {
+            "ligar" => true,
+            "desligar" => false,
+            _ => {
+                return send_message(
+                    service,
+                    chat,
+                    "Use `/avisos contas ligar` ou `/avisos contas desligar`.",
+                );
+            }
+        };
+        let Some(kind) = kind else {
+            return send_message(service, chat, "Os avisos são: contas, orcamento e resumo.");
+        };
+        notices.set(kind, on);
+        notices.save(&file)?;
+        let done = if on { "ligado" } else { "desligado" };
+        return send_message(
+            service,
+            chat,
+            &format!("Aviso {done}: {}. Veja todos em /avisos.", kind.label()),
+        );
+    }
+    let rows: Vec<Vec<(String, String)>> = TelegramNotice::ALL
+        .iter()
+        .map(|kind| {
+            let (label, state) = if notices.is_on(*kind) { ("Desligar", "off") } else { ("Ligar", "on") };
+            vec![(format!("{label}: {}", kind.label()), format!("rf:aviso:{}:{state}", kind.word()))]
+        })
+        .collect();
+    let lines: Vec<String> = TelegramNotice::ALL
+        .iter()
+        .map(|kind| {
+            format!("{}: {}", kind.label(), if notices.is_on(*kind) { "ligado" } else { "desligado" })
+        })
+        .collect();
+    let text = format!("Avisos do Raven, a partir da hora escolhida em Ajustes:\n{}", lines.join("\n"));
+    send_with_buttons(service, chat, &text, &rows)
 }
 
 const NOTHING_WAITING: &str = "Nada aguardando. Para lançar, diga o valor: `gastei 50 no mercado, foi a Ana`. Ou envie o PDF do comprovante.";

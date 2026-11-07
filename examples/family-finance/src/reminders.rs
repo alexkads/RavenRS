@@ -130,6 +130,173 @@ pub fn notice_about(bills: &[Bill], today: Date, settings: &ReminderSettings) ->
     Some(Notice { title, body, bills: wanted.iter().map(|bill| bill.id).collect() })
 }
 
+/// A kind of notice the Telegram bot sends, which the chat can turn off.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TelegramNotice {
+    /// Bills overdue or coming, with the advance and the hour chosen in Ajustes.
+    Bills,
+    /// A category's spending past its monthly limit, once per category and month.
+    Budget,
+    /// Last week's income and spending, on Mondays.
+    Weekly,
+}
+
+impl TelegramNotice {
+    /// Every kind, in the order `/avisos` lists them.
+    pub const ALL: [Self; 3] = [Self::Bills, Self::Budget, Self::Weekly];
+
+    /// The word for it in a chat command: `/avisos contas desligar`.
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Bills => "contas",
+            Self::Budget => "orcamento",
+            Self::Weekly => "resumo",
+        }
+    }
+
+    /// Its name, as the chat shows it.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Bills => "Contas a vencer",
+            Self::Budget => "Orçamento estourado",
+            Self::Weekly => "Resumo semanal",
+        }
+    }
+}
+
+/// What the Telegram bot tells and has told, in its own file beside the database: the
+/// system notifications keep theirs, so turning one off leaves the other.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TelegramNotices {
+    /// Whether it tells about bills.
+    pub bills: bool,
+    /// Whether it tells about budgets.
+    pub budget: bool,
+    /// Whether it sends the weekly summary.
+    pub weekly: bool,
+    /// The last day it told about bills.
+    pub bills_day: String,
+    /// The budgets already told about, as `YYYY-MM:category`.
+    pub budget_told: Vec<String>,
+    /// The Monday it last sent the summary.
+    pub weekly_day: String,
+}
+
+impl Default for TelegramNotices {
+    fn default() -> Self {
+        Self {
+            bills: true,
+            budget: true,
+            weekly: true,
+            bills_day: String::new(),
+            budget_told: Vec::new(),
+            weekly_day: String::new(),
+        }
+    }
+}
+
+impl TelegramNotices {
+    /// The file beside the database.
+    pub fn file(database: &Path) -> PathBuf {
+        database.with_extension("telegram-avisos.json")
+    }
+
+    /// What is in the file. A missing or damaged one is the default: everything on.
+    pub fn load(file: &Path) -> Self {
+        std::fs::read(file).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok()).unwrap_or_default()
+    }
+
+    /// Writes the file whole.
+    pub fn save(&self, file: &Path) -> Result<(), String> {
+        let bytes = serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?;
+        let partial = file.with_extension("telegram-avisos.parcial");
+        std::fs::write(&partial, bytes).map_err(|e| e.to_string())?;
+        std::fs::rename(&partial, file).map_err(|e| e.to_string())
+    }
+
+    /// Whether `kind` is on.
+    pub fn is_on(&self, kind: TelegramNotice) -> bool {
+        match kind {
+            TelegramNotice::Bills => self.bills,
+            TelegramNotice::Budget => self.budget,
+            TelegramNotice::Weekly => self.weekly,
+        }
+    }
+
+    /// Turns `kind` on or off.
+    pub fn set(&mut self, kind: TelegramNotice, on: bool) {
+        match kind {
+            TelegramNotice::Bills => self.bills = on,
+            TelegramNotice::Budget => self.budget = on,
+            TelegramNotice::Weekly => self.weekly = on,
+        }
+    }
+
+    /// What to tell now, from the hour chosen in Ajustes, each at most once: bills once a
+    /// day, a budget once a month, the summary once a week. Marks what it returns as told.
+    pub fn due(
+        &mut self,
+        db: &Database,
+        today: Date,
+        hour: u8,
+        chosen: &ReminderSettings,
+    ) -> crate::db::DbResult<Vec<(TelegramNotice, String)>> {
+        let mut said = Vec::new();
+        if hour < chosen.hour {
+            return Ok(said);
+        }
+        let day = today.to_string();
+        if self.bills && self.bills_day != day {
+            let settings = ReminderSettings { every_day: true, ..chosen.clone() };
+            if let Some(notice) = notice_about(&db.open_bills()?, today, &settings) {
+                said.push((TelegramNotice::Bills, format!("{}: {}", notice.title, notice.body)));
+            }
+            self.bills_day = day.clone();
+        }
+        if self.budget {
+            let month = &day[..7];
+            self.budget_told.retain(|told| told.starts_with(month));
+            for line in db.budget_lines(today)? {
+                let key = format!("{month}:{}", line.category_id);
+                if line.budget_cents > 0
+                    && line.spent_cents > line.budget_cents
+                    && !self.budget_told.contains(&key)
+                {
+                    said.push((
+                        TelegramNotice::Budget,
+                        format!(
+                            "Orçamento estourado: {} já gastou {} de {} neste mês ({}%).",
+                            line.category,
+                            format_brl(line.spent_cents),
+                            format_brl(line.budget_cents),
+                            line.spent_cents * 100 / line.budget_cents
+                        ),
+                    ));
+                    self.budget_told.push(key);
+                }
+            }
+        }
+        if self.weekly && today.weekday() == 1 && self.weekly_day != day {
+            let (from, to) = (today.add_days(-7), today);
+            let totals = db.totals_between(from, to)?;
+            let short = |date: Date| format!("{:02}/{:02}", date.day(), date.month());
+            said.push((
+                TelegramNotice::Weekly,
+                format!(
+                    "Resumo da semana ({} a {}): gastos {}, receitas {}.",
+                    short(from),
+                    short(to.add_days(-1)),
+                    format_brl(totals.expense_cents),
+                    format_brl(totals.income_cents)
+                ),
+            ));
+            self.weekly_day = day;
+        }
+        Ok(said)
+    }
+}
+
 /// Who the notifications are from, as the installer registers it.
 pub fn notifier() -> SystemNotifier {
     SystemNotifier::new("Raven Finanças").bundle_id("dev.ravenrs.family-finance").opens_window(paths::APP_ID)
@@ -228,6 +395,55 @@ mod tests {
 
         let once = ReminderSettings { every_day: false, told: many.bills.clone(), ..week };
         assert!(notice_about(&bills, day(15), &once).is_none(), "nothing new");
+    }
+
+    #[test]
+    fn the_telegram_tells_each_thing_once_from_the_chosen_hour() {
+        use crate::model::{AccountKind, Flow, TransactionInput};
+        let db = Database::in_memory().expect("database");
+        crate::seed::load_demo(&db, day(15)).expect("seed");
+        let market = db.add_category("Feira", Flow::Expense, 100_00).expect("category");
+        let bank = db.add_account("Conta da feira", AccountKind::Checking, 0).expect("account");
+        let spend = |cents| {
+            db.add_transaction(&TransactionInput {
+                date: day(10),
+                description: "feira".into(),
+                amount_cents: cents,
+                flow: Flow::Expense,
+                account_id: bank,
+                category_id: market,
+                member_id: None,
+            })
+            .expect("transaction")
+        };
+        spend(150_00);
+        let chosen = ReminderSettings::default();
+        let monday = day(16);
+        assert_eq!(monday.weekday(), 1);
+
+        let mut notices = TelegramNotices::default();
+        assert!(notices.due(&db, monday, 8, &chosen).expect("read").is_empty(), "too early");
+        let said = notices.due(&db, monday, 9, &chosen).expect("read");
+        let kinds: Vec<TelegramNotice> = said.iter().map(|(kind, _)| *kind).collect();
+        assert!(kinds.contains(&TelegramNotice::Bills), "{said:?}");
+        assert!(kinds.contains(&TelegramNotice::Weekly), "{said:?}");
+        let feira = said.iter().find(|(_, text)| text.contains("Feira")).expect("the budget past its limit");
+        assert_eq!(feira.1, "Orçamento estourado: Feira já gastou R$ 150,00 de R$ 100,00 neste mês (150%).");
+        assert!(said.iter().any(|(_, text)| text.starts_with("Resumo da semana (09/11 a 15/11): gastos R$")));
+
+        assert!(notices.due(&db, monday, 20, &chosen).expect("read").is_empty(), "each once");
+        spend(10_00);
+        let tuesday = notices.due(&db, day(17), 9, &chosen).expect("read");
+        assert!(
+            tuesday.iter().all(|(kind, _)| *kind == TelegramNotice::Bills),
+            "bills daily, the rest not: {tuesday:?}"
+        );
+
+        let mut off = TelegramNotices::default();
+        for kind in TelegramNotice::ALL {
+            off.set(kind, false);
+        }
+        assert!(off.due(&db, monday, 9, &chosen).expect("read").is_empty(), "turned off");
     }
 
     #[test]

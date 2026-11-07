@@ -12,7 +12,8 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 use family_finance::db::Database;
-use family_finance::model::AccountKind;
+use family_finance::model::{AccountKind, BillInput, Flow, Recurrence, TransactionInput};
+use family_finance::reminders::{ReminderSettings, TelegramNotice, TelegramNotices, settings_file};
 use family_finance::telegram::{choose_account, pairing_hash};
 use serde_json::{Value, json};
 
@@ -310,6 +311,12 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
     let bank = db.add_account("Banco", AccountKind::Checking, 0).expect("account");
     let ana = db.add_member("Ana").expect("member");
     choose_account(&path, bank);
+    // The notices have a test of their own; here they would come on Mondays between answers.
+    let mut quiet = TelegramNotices::default();
+    for kind in TelegramNotice::ALL {
+        quiet.set(kind, false);
+    }
+    quiet.save(&TelegramNotices::file(&path)).expect("notices off");
     let code = "0123456789abcdef0123456789abcdef";
     db.begin_telegram_pairing(&pairing_hash(code), now()).expect("pairing");
     fake.file("pix.pdf", receipt(&["Comprovante de Pix", "Valor", "R$ 3.000,00", "Para: Maria Silva"]));
@@ -484,6 +491,83 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
         fake.say(document(CHAT, "pix.pdf", 2_000)).contains("Escaneie o QR"),
         "Desvincular cuts the chat off"
     );
+    drop(db);
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
+fn the_bot_tells_what_is_due_and_each_notice_turns_off() {
+    let fake = FakeTelegram::start(Duration::ZERO);
+    let home = folder("avisos");
+    let path = home.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    let bank = db.add_account("Banco", AccountKind::Checking, 0).expect("account");
+    let market = db.add_category("Mercado", Flow::Expense, 10_000).expect("category");
+    let today = family_finance::today();
+    db.add_transaction(&TransactionInput {
+        date: today,
+        description: "feira".into(),
+        amount_cents: 15_000,
+        flow: Flow::Expense,
+        account_id: bank,
+        category_id: market,
+        member_id: None,
+    })
+    .expect("transaction");
+    db.add_bill(&BillInput {
+        description: "Luz".into(),
+        category_id: market,
+        member_id: None,
+        amount_cents: 18_000,
+        due: today.add_days(-2),
+        recurrence: Recurrence::None,
+        installments: 1,
+        barcode: String::new(),
+    })
+    .expect("bill");
+    // From midnight, so the test holds at any hour; the summary is for Mondays only.
+    ReminderSettings { hour: 0, ..ReminderSettings::default() }.save(&settings_file(&path)).expect("hour");
+    let mut notices = TelegramNotices::default();
+    notices.set(TelegramNotice::Weekly, false);
+    notices.save(&TelegramNotices::file(&path)).expect("notices");
+    let code = "fedcba9876543210fedcba9876543210";
+    db.begin_telegram_pairing(&pairing_hash(code), now()).expect("pairing");
+
+    let mut command = Command::new(env!("CARGO_BIN_EXE_raven-telegram"));
+    command.arg(&path).stdout(Stdio::null()).stderr(Stdio::null());
+    isolated(&mut command, &fake, &home);
+    let _bot = Bot(command.spawn().expect("raven-telegram"));
+
+    fake.say(text(CHAT, &format!("/start rf1_{code}")));
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let told = loop {
+        let sent = fake.sent();
+        if sent.len() >= 3 || Instant::now() > deadline {
+            break sent;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    let texts: Vec<&str> = told.iter().filter_map(|m| m["text"].as_str()).collect();
+    assert!(texts[0].contains("Telegram conectado"), "{texts:?}");
+    assert!(texts.iter().any(|t| t.starts_with("1 conta vencida: Luz")), "{texts:?}");
+    let budget = told
+        .iter()
+        .find(|m| m["text"].as_str().is_some_and(|t| t.starts_with("Orçamento estourado: Mercado")))
+        .expect("the budget past its limit");
+    assert_eq!(budget["reply_markup"]["inline_keyboard"][0][0]["callback_data"], "rf:aviso:orcamento:off");
+    assert_eq!(told.len(), 3, "each once: {texts:?}");
+
+    assert!(fake.say(tap(STRANGER, "rf:aviso:orcamento:off")).contains("Escaneie o QR"));
+    assert!(fake.say(tap(CHAT, "rf:aviso:orcamento:off")).contains("Aviso desligado: Orçamento estourado"));
+    assert!(!TelegramNotices::load(&TelegramNotices::file(&path)).budget, "kept beside the database");
+    let list = fake.say(text(CHAT, "/avisos"));
+    assert!(
+        list.contains("Contas a vencer: ligado") && list.contains("Orçamento estourado: desligado"),
+        "{list}"
+    );
+    let rows = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"].clone();
+    assert_eq!(rows[1][0]["callback_data"], "rf:aviso:orcamento:on", "{rows}");
+    assert!(fake.say(text(CHAT, "/avisos resumo ligar")).contains("Aviso ligado: Resumo semanal"));
     drop(db);
     let _ = std::fs::remove_dir_all(&home);
 }
