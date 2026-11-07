@@ -651,6 +651,10 @@ pub struct Labels {
     pub grid_filter_label: String,
     /// Opens the editor of a grid's whole filter.
     pub grid_edit_filter: String,
+    /// The tab of a grid's filter editor that builds the filter line by line.
+    pub grid_filter_visual: String,
+    /// The tab of a grid's filter editor that writes the filter as an expression.
+    pub grid_filter_text: String,
     /// Every value of a grid's column, in its filter.
     pub grid_all_values: String,
     /// A grid's menu of saved arrangements.
@@ -1200,6 +1204,8 @@ impl Default for Labels {
             ],
             grid_filter_label: "Filter".into(),
             grid_edit_filter: "Edit filter".into(),
+            grid_filter_visual: "Visual".into(),
+            grid_filter_text: "Text".into(),
             grid_all_values: "All".into(),
             grid_scenario: "Scenario".into(),
             grid_scenario_save: "Save scenario…".into(),
@@ -1659,6 +1665,8 @@ impl Labels {
             ],
             grid_filter_label: "Filtro".into(),
             grid_edit_filter: "Editar filtro".into(),
+            grid_filter_visual: "Visual".into(),
+            grid_filter_text: "Texto".into(),
             grid_all_values: "Todos".into(),
             grid_scenario: "Cenário".into(),
             grid_scenario_save: "Gravar cenário…".into(),
