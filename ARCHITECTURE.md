@@ -78,6 +78,8 @@ ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-expo
 ravenrs-app-library    ──► ravenrs-app  (ready-made records)
 ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-designer  (reports and panels)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
+ravenrs-sheet          (spreadsheet engine from GridCraft: formulas, recalculation, XLSX; depends on nothing in RavenRS)
+ravenrs-spreadsheet    ──► ravenrs-sheet, ravenrs-widgets  (`Spreadsheet`: the engine ──► screen)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
         ▲
@@ -119,6 +121,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |
+| `ravenrs-sheet` | `base` (addresses, values, dates), `numfmt`, `formula`, `functions`, `math`, `model`, `calc`, `xlsx`, `chart`, `pdf`, `engine` (`Session`: every action a command with undo). Kept as it came from GridCraft, with its own `rustfmt.toml` and `clippy.toml` |
+| `ravenrs-spreadsheet` | `lib` (`Spreadsheet`, labels), `state` (`SpreadsheetState`), `surface` (the painted grid, pointer and keys), `geometry` |
 | `ravenrs-ai` | `machine` (memory and disk), `models` (`LocalModel`, `ModelFolder`: download checked by hash, remove), `catalog`, `manager` (`ModelManager`). Desktop only |
 | `ravenrs-movie` | `movie` (the film: draw lists, each thing stored once), `project` (non-destructive edits), `composition` (one moment drawn), `record` (`Recorder`), `player` (with sound and the boxes that explain each step), `search` (`MovieLibrary`), `assistant` (`MovieAssistant`), `chat` (`MovieChat`), `editor`, `flight` (`FlightRecorder`, `BugReporter`) |
 | `ravenrs-report-server` | `config`, `store`, `cron`, `job`, `render`, `deliver`, `scheduler`, `http`, `main` |
@@ -377,6 +381,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Web: canvas, WebGPU, DPR, pointer, wheel, touch scrolling, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), clipboard copy, sound and voice, rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | pinch and momentum scrolling |
 | Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web | | caret and selection for screen readers, right-to-left |
 | Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
+| Spreadsheet: `Spreadsheet` over `ravenrs-sheet` (500+ functions, dynamic arrays, XLSX/XLS/ODS/CSV in, XLSX/CSV out), editing in the cell and the formula bar, selection by pointer and keys, clipboard, undo, fonts, fills, borders, merges, number formats, column widths, sheet tabs | ✓ | | ribbon of every command, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find, the culture's separators |
 | Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`), a gate of exact counters and frame times (`crates/ravenrs-perf`, budgets in [docs/QUALITY.md](docs/QUALITY.md)), the diagnostics panel with GPU timestamps ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) | | stepping through a frozen frame, a map of what was rebuilt, invalidation by subtree |
 | Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions, frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
@@ -393,3 +398,4 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | 6 | Display list (`Scene`) as the widget/renderer boundary | Widgets calling the renderer | Headless widget tests; swappable renderers. |
 | 7 | Builders before macros | `VStack!{}` proc macros first | Real, type-checked API first; macros later as sugar over it. |
 | 8 | Non-sRGB surface formats preferred | Linear blending | Matches how designers and browsers blend, so tokens look as designed. |
+| 9 | The spreadsheet engine is GridCraft's, brought in as `ravenrs-sheet` | Writing an engine; a git dependency on GridCraft | GridCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has 1,800 tests for formulas, recalculation and XLSX. It is not on crates.io, so a git dependency would stop RavenRS publishing; the code lives here with `NOTICE` naming the commit it came from. Only the view is ours (`ravenrs-spreadsheet`), built on `ravenrs-widgets`. |

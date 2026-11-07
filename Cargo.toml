@@ -38,6 +38,8 @@ ravenrs-app-library = { version = "27.1.19", path = "crates/ravenrs-app-library"
 ravenrs-app-report = { version = "27.1.19", path = "crates/ravenrs-app-report" }
 ravenrs-report-pdf = { version = "27.1.19", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.19", path = "crates/ravenrs-report-xlsx" }
+ravenrs-sheet = { version = "27.1.19", path = "crates/ravenrs-sheet" }
+ravenrs-spreadsheet = { version = "27.1.19", path = "crates/ravenrs-spreadsheet" }
 ravenrs-report-server = { version = "27.1.19", path = "crates/ravenrs-report-server" }
 ravenrs-report-viewer = { version = "27.1.19", path = "crates/ravenrs-report-viewer" }
 ravenrs-report-designer = { version = "27.1.19", path = "crates/ravenrs-report-designer" }
@@ -95,6 +97,12 @@ expect_used = "warn"
 [profile.dev]
 # Each worktree has its own target/; keep backtraces with file and line, drop the rest.
 debug = "line-tables-only"
+
+# The spreadsheet evaluator budgets its stack for recursive LAMBDA calls; unoptimised frames are
+# several times larger, so the same formula would stop much earlier in debug builds.
+[profile.dev.package.ravenrs-sheet]
+opt-level = 1
+
 
 [profile.release]
 # Smaller WASM binaries; native release builds benefit as well.
