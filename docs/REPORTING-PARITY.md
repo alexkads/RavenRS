@@ -126,7 +126,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 | Source | Reference | RavenRS |
 |---|---|---|
-| JSON (inline, file, web service with headers) | | ✅ inline JSON stored with the layout. URL source ⬜ [R2] |
+| JSON (inline, file, web service with headers) | | ✅ inline JSON stored with the layout; URL source with headers on the server (`DataSourceKind::Url`, hosts allowed by configuration). URL source in the designer ⬜ [R2] |
 | Objects | .NET objects | ✅ any `serde::Serialize` Rust value |
 | SQL with query builder, stored procedures | MSSQL, Oracle, MySQL, PostgreSQL… | ⬜ [R5]: PostgreSQL, MySQL, SQL Server on the server, by connection name |
 | Excel / CSV | | ⬜ [R5] |
@@ -138,9 +138,9 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Feature | Reference | RavenRS |
 |---|---|---|
 | Field list (drag to create controls) | | ✅ in the web designer |
-| Toolbox, property grid, report explorer, group & sort | | 🟡 toolbox on the Ribbon, property grid, band list. Group & sort panel ⬜ [R4] |
+| Toolbox, property grid, report explorer, group & sort | | 🟡 toolbox down the left and on the Ribbon, property grid docked under the field list and report explorer. Group & sort panel ⬜ [R4] |
 | Snap grid, resize, move across bands, undo/redo, zoom | | ✅ |
-| Snap lines, align/size tools, rulers, multi-select | | ⬜ [R4] |
+| Snap lines, align/size tools, rulers, multi-select | | 🟡 rulers in centimeters marking the selected control; cut, copy, paste, bring to front and send to back on the Ribbon. Snap lines, align/size tools and multi-select ⬜ [R4] |
 | Expression editor, format editor, validation (design analyzer) | | 🟡 format picker; render errors listed. Expression editor with function list ⬜ [R4] |
 | Report wizard (table, labels, templates) | | 🟡 table wizard (fields, grouping, totals) and templates (invoice, sales, customer list). Labels wizard ⬜ [R4] |
 | Localization editor, scripts | | ⬜ [R5]; scripts are intentionally not planned (expressions cover them safely) |

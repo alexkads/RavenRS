@@ -13,7 +13,7 @@ use ravenrs_report::barcode::Symbology;
 use ravenrs_report::chart::ChartKind;
 use ravenrs_report::wizard::{self, FieldInfo, FieldKind, WizardOptions};
 use ravenrs_report::{
-    Control, DataSource, DataSourceKind, DateTime, Line, Report, Style, Table, TableRow, samples,
+    Control, DataSource, DataSourceKind, DateTime, Line, Report, Style, Table, TableRow, TextAlign, samples,
 };
 use ravenrs_report_viewer::{DocumentViewer, ParameterLabels, ParameterPanel, ViewerLabels, ViewerState};
 use ravenrs_style::{RADII, SPACING};
@@ -151,10 +151,13 @@ impl Designer {
 const WIZARD_SOURCES: [(&str, usize); 2] =
     [("Vendas (300 pedidos)", 300), ("Vendas (10.000 pedidos)", 10_000)];
 
-/// Width of the field and band panel.
-pub(crate) const LEFT_WIDTH: f32 = 264.0;
-/// Width of the properties panel: nine color swatches and its padding.
-pub(crate) const PROPERTIES_WIDTH: f32 = 320.0;
+/// Width of the toolbox: one column of icon buttons.
+pub(crate) const TOOLBOX_WIDTH: f32 = 48.0;
+/// Width of the docked panels: nine color swatches and their padding.
+pub(crate) const DOCK_WIDTH: f32 = 320.0;
+/// The least and the most zoom of the design surface.
+const ZOOM_LEAST: f32 = 0.5;
+const ZOOM_MOST: f32 = 3.0;
 
 impl Component for Designer {
     fn body(&self) -> impl View {
@@ -166,16 +169,11 @@ impl Component for Designer {
             self.embedded_bar(),
             design.then(|| self.ribbon()),
             FillRow((
-                design.then(|| self.left_panel()),
+                design.then(|| self.toolbox()),
                 design.then(Divider::vertical),
                 CenterPane { editor: e.clone(), cache: self.cache.clone(), params: self.params.clone() },
                 design.then(Divider::vertical),
-                design.then(|| {
-                    VStack::new((props::Properties(e.clone()),))
-                        .width(PROPERTIES_WIDTH)
-                        .align(Align::Stretch)
-                        .background(Semantic::Surface)
-                }),
+                design.then(|| self.dock()),
             )),
             Divider::horizontal(),
             StatusBar { editor: e.clone(), cache: self.cache.clone(), themes: on_its_own },
@@ -190,10 +188,16 @@ impl Component for Designer {
     }
 }
 
-/// Switches between the design surface, the preview and the JSON, for the
-/// screens that have no ribbon.
-fn mode_switch(e: &Editor) -> SegmentedControl {
-    SegmentedControl::new(e.tab.binding(), ["Design", "Visualizar", "JSON"]).label("Exibição")
+/// The tabs under the document that switch between the design surface, the preview
+/// and the JSON, as tabs of the document.
+fn view_tabs(e: &Editor) -> impl View + use<> {
+    HStack::new((Tabs::new(e.tab.binding())
+        .item("Design")
+        .item("Visualizar")
+        .item("JSON")
+        .size(ButtonSize::Small),))
+    .padding(Insets::symmetric(0.0, SPACING.s3))
+    .background(Semantic::Surface)
 }
 
 /// A row that takes the space left and never grows past it, so the panels
@@ -213,6 +217,28 @@ impl<C: ViewSeq> View for FillRow<C> {
             },
             &children,
             Paint::None,
+        )
+    }
+}
+
+/// A column of the window as tall as the row it is in, so what grows inside it takes
+/// the height left: the toolbox and the docked panels.
+struct Column<V>(V, f32);
+
+impl<V: View> View for Column<V> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let content = cx.child(&self.0);
+        cx.container(
+            LayoutStyle {
+                width: Some(self.1),
+                min_height: Some(0.0),
+                overflow_hidden: true,
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[content],
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Surface))),
         )
     }
 }
@@ -254,25 +280,51 @@ impl Designer {
             item.on_click(move || print_report(&ed, &cache, &params))
         };
         let (pm_e, pm_c, pm_p) = (e.clone(), self.cache.clone(), self.params.clone());
-        let insert = |label: &'static str, icon: IconName, make: fn() -> Control| {
-            let e = e.clone();
-            RibbonItem::button(label, icon).on_click(move || {
-                let band = e.target_band();
-                let mut c = make();
-                let (x, y) = e.free_spot(band, c.height);
-                c.x = x;
-                c.y = y;
-                e.add_control(band, c);
-                e.tab.set(0);
-            })
-        };
         let (e1, e2, e3, e4, e5, e6) = (e.clone(), e.clone(), e.clone(), e.clone(), e.clone(), e.clone());
         let (z1, z2) = (e.clone(), e.clone());
-        let (t0, t1, t2) = (e.clone(), e.clone(), e.clone());
-        let tab_toggle = |i: usize, label: &'static str, icon: IconName, ed: Editor| {
-            let (read, write) = (ed.tab.clone(), ed.tab.clone());
-            RibbonItem::toggle(label, icon, Binding::new(move || read.get() == i, move |_| write.set(i)))
-                .large()
+        let selected = e.selected_control().is_some();
+        let action = |label: &'static str, icon: IconName, run: fn(&Editor)| {
+            let e = e.clone();
+            RibbonItem::button(label, icon).on_click(move || run(&e))
+        };
+        // A toggle over the selected control's style, off and dimmed with nothing selected.
+        let style_toggle =
+            |label: &'static str, icon: IconName, is: fn(&Style) -> bool, set: fn(&mut Style, bool)| {
+                let (read, write) = (e.clone(), e.clone());
+                RibbonItem::toggle(
+                    label,
+                    icon,
+                    Binding::new(
+                        move || read.selected_control().is_some_and(|(_, _, c)| is(&c.style)),
+                        move |on| write.edit_control(label, |c| set(&mut c.style, on)),
+                    ),
+                )
+                .small()
+                .enabled(selected)
+            };
+        let align = |label: &'static str, icon: IconName, to: TextAlign| {
+            let (read, write) = (e.clone(), e.clone());
+            RibbonItem::toggle(
+                label,
+                icon,
+                Binding::new(
+                    move || {
+                        read.selected_control()
+                            .is_some_and(|(_, _, c)| c.style.text_align.unwrap_or_default() == to)
+                    },
+                    move |_| write.edit_control("align", |c| c.style.text_align = Some(to)),
+                ),
+            )
+            .small()
+            .enabled(selected)
+        };
+        let font_step = |label: &'static str, icon: IconName, by: f32| {
+            let e = e.clone();
+            RibbonItem::button(label, icon).small().enabled(selected).on_click(move || {
+                e.edit_control("font size", |c| {
+                    c.style.font_size = Some((c.style.font_size.unwrap_or(10.0) + by).clamp(4.0, 72.0));
+                })
+            })
         };
         let on_its_own = self.embedded.is_none();
         let mut file_menu = vec![
@@ -318,19 +370,86 @@ impl Designer {
         } else {
             home
         };
+        let has_copy = e.copied.with(Option::is_some);
+        // The Home page: clipboard, font, alignment, layout, zoom.
+        let home = home
+            .group(
+                RibbonGroup::new("Editar")
+                    .item(action("Colar", IconName::ClipboardPaste, Editor::paste).large().enabled(has_copy))
+                    .item(
+                        action("Recortar", IconName::Scissors, Editor::cut_selected)
+                            .small()
+                            .enabled(selected),
+                    )
+                    .item(action("Copiar", IconName::Copy, Editor::copy_selected).small().enabled(selected))
+                    .item(
+                        action("Excluir", IconName::Trash2, Editor::delete_selected)
+                            .small()
+                            .enabled(selected),
+                    ),
+            )
+            .group(
+                RibbonGroup::new("Fonte")
+                    .item(style_toggle(
+                        "Negrito",
+                        IconName::Bold,
+                        |s| s.bold == Some(true),
+                        |s, on| s.bold = on.then_some(true),
+                    ))
+                    .item(font_step("Aumentar fonte", IconName::Plus, 1.0))
+                    .item(font_step("Diminuir fonte", IconName::Minus, -1.0)),
+            )
+            .group(
+                RibbonGroup::new("Alinhamento")
+                    .item(align("À esquerda", IconName::AlignLeft, TextAlign::Left))
+                    .item(align("Centralizar", IconName::AlignCenter, TextAlign::Center))
+                    .item(align("À direita", IconName::AlignRight, TextAlign::Right)),
+            )
+            .group(
+                RibbonGroup::new("Layout")
+                    .item({
+                        let e = e.clone();
+                        RibbonItem::button("Trazer para a frente", IconName::ArrowUp)
+                            .small()
+                            .enabled(selected)
+                            .on_click(move || e.reorder_selected(true))
+                    })
+                    .item({
+                        let e = e.clone();
+                        RibbonItem::button("Enviar para trás", IconName::ArrowDown)
+                            .small()
+                            .enabled(selected)
+                            .on_click(move || e.reorder_selected(false))
+                    }),
+            )
+            .group(
+                RibbonGroup::new("Zoom")
+                    .item(
+                        RibbonItem::button("Aproximar", IconName::ZoomIn)
+                            .small()
+                            .on_click(move || z1.zoom.update(|z| *z = (*z + 0.25).min(ZOOM_MOST))),
+                    )
+                    .item(
+                        RibbonItem::button("Afastar", IconName::ZoomOut)
+                            .small()
+                            .on_click(move || z2.zoom.update(|z| *z = (*z - 0.25).max(ZOOM_LEAST))),
+                    ),
+            );
+        let mut controls = RibbonGroup::new("Controles");
+        for (i, (label, icon, make)) in TOOLS.into_iter().enumerate() {
+            let e = e.clone();
+            let item = RibbonItem::button(label, icon).on_click(move || insert_tool(&e, make));
+            controls = controls.item(if i < 6 { item.large() } else { item.small() });
+        }
         Ribbon::new()
             .app_menu("Arquivo", file_menu)
             .quick_access(RibbonItem::button("Desfazer", IconName::Undo2).on_click(move || e4.undo()))
             .quick_access(RibbonItem::button("Refazer", IconName::Redo2).on_click(move || e5.redo()))
             .quick_access(printer(RibbonItem::button("Imprimir", IconName::Printer)))
+            .page(home)
+            .page(RibbonPage::new("Inserir").group(controls))
             .page(
-                home.group(
-                    RibbonGroup::new("Exibir")
-                        .item(tab_toggle(0, "Design", IconName::Pencil, t0))
-                        .item(tab_toggle(1, "Visualizar", IconName::Eye, t1))
-                        .item(tab_toggle(2, "JSON", IconName::Code, t2)),
-                )
-                .group(
+                RibbonPage::new("Saída").group(
                     RibbonGroup::new("Saída")
                         .item(printer(RibbonItem::button("Imprimir", IconName::Printer).large()))
                         .item(exporter(
@@ -345,133 +464,114 @@ impl Designer {
                             RibbonItem::button("CSV", IconName::Download).small(),
                             preview::Export::Csv,
                         )),
-                )
-                .group(
-                    RibbonGroup::new("Zoom")
-                        .item(
-                            RibbonItem::button("Aproximar", IconName::ZoomIn)
-                                .small()
-                                .on_click(move || z1.zoom.update(|z| *z = (*z + 0.25).min(3.0))),
-                        )
-                        .item(
-                            RibbonItem::button("Afastar", IconName::ZoomOut)
-                                .small()
-                                .on_click(move || z2.zoom.update(|z| *z = (*z - 0.25).max(0.5))),
-                        ),
-                ),
-            )
-            .page(
-                RibbonPage::new("Inserir").group(
-                    RibbonGroup::new("Controles")
-                        .item(
-                            insert("Rótulo", IconName::Type, || {
-                                Control::label("Texto").at(0.0, 0.0, 140.0, 18.0)
-                            })
-                            .large(),
-                        )
-                        .item(
-                            insert("Campo", IconName::Database, || {
-                                Control::field("[Customer]").at(0.0, 0.0, 140.0, 18.0)
-                            })
-                            .large(),
-                        )
-                        .item(
-                            insert("Tabela", IconName::Table, || {
-                                Control::table(
-                                    Table::new().row(
-                                        TableRow::new(18.0)
-                                            .text(120.0, "Coluna 1")
-                                            .text(120.0, "Coluna 2")
-                                            .text(120.0, "Coluna 3"),
-                                    ),
-                                )
-                            })
-                            .large(),
-                        )
-                        .item(
-                            insert("Imagem", IconName::Image, || {
-                                Control::picture("").at(0.0, 0.0, 100.0, 60.0)
-                            })
-                            .large(),
-                        )
-                        .item(
-                            insert("Código de barras", IconName::Tag, || {
-                                Control::barcode(Symbology::Code128, "[Id]").at(0.0, 0.0, 160.0, 50.0)
-                            })
-                            .large(),
-                        )
-                        .item(
-                            insert("Gráfico", IconName::ChartColumn, || {
-                                Control::chart(ChartKind::Bar, "[Region]", "[Quantity] * [UnitPrice]")
-                                    .at(0.0, 0.0, 320.0, 180.0)
-                            })
-                            .large(),
-                        )
-                        .item(
-                            insert("Link", IconName::Link, || {
-                                Control::link("Abrir site", "https://").at(0.0, 0.0, 140.0, 18.0)
-                            })
-                            .small(),
-                        )
-                        .item(
-                            insert("Marcador", IconName::Bookmark, || {
-                                Control::bookmark("[Customer]", 0).at(0.0, 0.0, 120.0, 12.0)
-                            })
-                            .small(),
-                        )
-                        .item(
-                            insert("Linha", IconName::Minus, || Control {
-                                kind: ravenrs_report::ControlKind::Line(Line::default()),
-                                ..Control::line().at(0.0, 0.0, 200.0, 4.0)
-                            })
-                            .small(),
-                        )
-                        .item(
-                            insert("Retângulo", IconName::Square, || {
-                                Control::rect(4.0)
-                                    .at(0.0, 0.0, 120.0, 40.0)
-                                    .style(Style::new().background("#f4f5f8").border("all", 0.75, "#dadde5"))
-                            })
-                            .small(),
-                        )
-                        .item(
-                            insert("Caixa de seleção", IconName::CircleCheck, || {
-                                Control::check_box("[Paid]", "Pago").at(0.0, 0.0, 100.0, 18.0)
-                            })
-                            .small(),
-                        )
-                        .item(
-                            insert("Total", IconName::Sigma, || {
-                                Control::field("Sum([Total])")
-                                    .format("C2")
-                                    .at(0.0, 0.0, 140.0, 18.0)
-                                    .style(Style::new().bold())
-                            })
-                            .small(),
-                        )
-                        .item(
-                            insert("Página N de M", IconName::FileText, || {
-                                Control::field("FormatString('Página {0} de {1}', PageNumber(), PageCount())")
-                                    .at(0.0, 0.0, 160.0, 16.0)
-                            })
-                            .small(),
-                        ),
                 ),
             )
     }
 
-    fn left_panel(&self) -> impl View + use<> {
+    /// The toolbox down the left side: the pointer, then one button per
+    /// control, which drops it into the band in use.
+    fn toolbox(&self) -> impl View + use<> {
         let e = self.editor.clone();
-        VStack::new((
-            SegmentedControl::new(self.left_tab.binding(), ["Campos", "Bandas"]).label("Painel"),
-            LeftContent { editor: e, tab: self.left_tab.clone() },
-        ))
-        .spacing(SPACING.s3)
-        .padding(SPACING.s3)
-        .width(LEFT_WIDTH)
-        .align(Align::Stretch)
-        .background(Semantic::Surface)
+        let pick = Binding::new(
+            || 0,
+            move |i: usize| {
+                if let Some((_, _, make)) = i.checked_sub(1).and_then(|i| TOOLS.get(i)) {
+                    insert_tool(&e, *make);
+                }
+            },
+        );
+        let mut rail =
+            ToolRail::new(pick, [(IconName::MousePointer, "Ponteiro")]).icons_only(true).separator();
+        for (name, icon, _) in TOOLS {
+            rail = rail.tool(ToolRailItem::new(icon, name));
+        }
+        Column(ScrollView::new((rail.width(TOOLBOX_WIDTH),)).grow(1.0), TOOLBOX_WIDTH)
     }
+
+    /// The panels docked on the right: the field list and the report
+    /// explorer as tabs on top, the properties below, with a bar to drag between them.
+    fn dock(&self) -> impl View + use<> {
+        let e = self.editor.clone();
+        let fixed = State::new(0);
+        let top = VStack::new((
+            Tabs::new(self.left_tab.binding())
+                .item("Lista de campos")
+                .item("Explorador")
+                .size(ButtonSize::Small),
+            VStack::new((LeftContent { editor: e.clone(), tab: self.left_tab.clone() },))
+                .padding(SPACING.s3)
+                .align(Align::Stretch)
+                .grow(1.0),
+        ))
+        .align(Align::Stretch)
+        .grow(1.0);
+        let bottom = VStack::new((
+            Tabs::new(fixed.binding()).item("Propriedades").size(ButtonSize::Small),
+            props::Properties(e),
+        ))
+        .align(Align::Stretch)
+        .grow(1.0);
+        Column(
+            SplitPanes::vertical()
+                .pane(SplitPane::new(top).size(320.0).range(160.0, 640.0))
+                .pane(SplitPane::new(bottom).range(220.0, f32::MAX)),
+            DOCK_WIDTH,
+        )
+    }
+}
+
+/// A control of the toolbox: its name, its icon and how a new one starts.
+type Tool = (&'static str, IconName, fn() -> Control);
+
+/// The controls of the toolbox and of the Insert page, in order.
+const TOOLS: [Tool; 13] =
+    [
+        ("Rótulo", IconName::Type, || Control::label("Texto").at(0.0, 0.0, 140.0, 18.0)),
+        ("Campo", IconName::Database, || Control::field("[Customer]").at(0.0, 0.0, 140.0, 18.0)),
+        ("Tabela", IconName::Table, || {
+            Control::table(Table::new().row(
+                TableRow::new(18.0).text(120.0, "Coluna 1").text(120.0, "Coluna 2").text(120.0, "Coluna 3"),
+            ))
+        }),
+        ("Imagem", IconName::Image, || Control::picture("").at(0.0, 0.0, 100.0, 60.0)),
+        ("Código de barras", IconName::Tag, || {
+            Control::barcode(Symbology::Code128, "[Id]").at(0.0, 0.0, 160.0, 50.0)
+        }),
+        ("Gráfico", IconName::ChartColumn, || {
+            Control::chart(ChartKind::Bar, "[Region]", "[Quantity] * [UnitPrice]").at(0.0, 0.0, 320.0, 180.0)
+        }),
+        ("Caixa de seleção", IconName::CircleCheck, || {
+            Control::check_box("[Paid]", "Pago").at(0.0, 0.0, 100.0, 18.0)
+        }),
+        ("Linha", IconName::Minus, || Control {
+            kind: ravenrs_report::ControlKind::Line(Line::default()),
+            ..Control::line().at(0.0, 0.0, 200.0, 4.0)
+        }),
+        ("Retângulo", IconName::Square, || {
+            Control::rect(4.0)
+                .at(0.0, 0.0, 120.0, 40.0)
+                .style(Style::new().background("#f4f5f8").border("all", 0.75, "#dadde5"))
+        }),
+        ("Total", IconName::Sigma, || {
+            Control::field("Sum([Total])").format("C2").at(0.0, 0.0, 140.0, 18.0).style(Style::new().bold())
+        }),
+        ("Página N de M", IconName::FileText, || {
+            Control::field("FormatString('Página {0} de {1}', PageNumber(), PageCount())")
+                .at(0.0, 0.0, 160.0, 16.0)
+        }),
+        ("Link", IconName::Link, || Control::link("Abrir site", "https://").at(0.0, 0.0, 140.0, 18.0)),
+        ("Marcador", IconName::Bookmark, || Control::bookmark("[Customer]", 0).at(0.0, 0.0, 120.0, 12.0)),
+    ];
+
+/// Drops a new control into the band in use, at a free spot, and selects it.
+fn insert_tool(e: &Editor, make: fn() -> Control) {
+    let band = e.target_band();
+    let mut c = make();
+    let (x, y) = e.free_spot(band, c.height);
+    c.x = x;
+    c.y = y;
+    e.add_control(band, c);
+    e.tab.set(0);
 }
 
 struct LeftContent {
@@ -740,7 +840,20 @@ impl View for CenterPane {
         // A click on the empty canvas selects the report itself.
         let sel = e.selection.clone();
         cx.on_click(node, Rc::new(move || sel.set(Selection::None)));
-        node
+        let divider = cx.child(&Divider::horizontal());
+        let tabs = cx.child(&view_tabs(e));
+        cx.container(
+            LayoutStyle {
+                grow: 1.0,
+                min_width: Some(0.0),
+                min_height: Some(0.0),
+                overflow_hidden: true,
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[node, divider, tabs],
+            Paint::None,
+        )
     }
 }
 
@@ -757,13 +870,11 @@ impl View for PreviewPane {
         let doc = preview::document(e, &self.cache, &params);
         let state = cx.use_state(|| ViewerState::sharing(e.page.clone(), e.zoom.clone()));
         let report = e.report.get();
-        let mode = e.clone();
         let (pe, pc, pp) = (e.clone(), self.cache.clone(), self.params.clone());
         // The designer has its own print button, which renders the report as it stands.
         let viewer = DocumentViewer::new(doc, &state.get())
             .labels(ViewerLabels::pt_br())
             .print_button(false)
-            .toolbar_leading(move || vec![Box::new(mode_switch(&mode)) as AnyView])
             .toolbar_trailing(move || {
                 let print = (pe.clone(), pc.clone(), pp.clone());
                 let mut items: Vec<AnyView> = vec![Box::new(
@@ -839,10 +950,6 @@ impl View for JsonPane {
             .collect();
         cx.child(
             &VStack::new((
-                HStack::new((mode_switch(&self.0),))
-                    .padding(Insets::symmetric(SPACING.s2, SPACING.s4))
-                    .background(Semantic::Surface),
-                Divider::horizontal(),
                 HStack::new((
                     VStack::new((
                         Text::new("Definição do relatório").style(TextStyle::Headline),
@@ -910,7 +1017,7 @@ impl View for StatusBar {
                 Spacer::new(),
                 page.map(muted),
                 muted(render),
-                muted(format!("Zoom {:.0}%", e.zoom.get() * 100.0)),
+                ZoomBar(e.clone()),
                 self.themes.then(|| {
                     SegmentedControl::with_icons(
                         theme,
@@ -923,6 +1030,36 @@ impl View for StatusBar {
             .align(Align::Center)
             .padding(Insets::symmetric(SPACING.s1, SPACING.s4))
             .background(Semantic::Surface),
+        )
+    }
+}
+
+/// The zoom at the right of the status bar: out, a slider, in and the percentage.
+struct ZoomBar(Editor);
+
+impl View for ZoomBar {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let zoom = &self.0.zoom;
+        let (out, into) = (zoom.clone(), zoom.clone());
+        cx.child(
+            &HStack::new((
+                IconButton::new(IconName::Minus)
+                    .label("Afastar")
+                    .on_click(move || out.update(|z| *z = (*z - 0.25).max(ZOOM_LEAST))),
+                Slider::new(zoom.binding())
+                    .range(ZOOM_LEAST, ZOOM_MOST)
+                    .step(0.05)
+                    .width(120.0)
+                    .label("Zoom"),
+                IconButton::new(IconName::Plus)
+                    .label("Aproximar")
+                    .on_click(move || into.update(|z| *z = (*z + 0.25).min(ZOOM_MOST))),
+                Text::new(format!("{:.0}%", zoom.get() * 100.0))
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted),
+            ))
+            .spacing(SPACING.s1)
+            .align(Align::Center),
         )
     }
 }

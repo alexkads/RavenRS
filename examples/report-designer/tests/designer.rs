@@ -2,7 +2,7 @@
 //! field onto a band, undo, and an accessibility audit of its controls.
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
-use ravenrs::core::{Event, Key, Modifiers, PointerButton};
+use ravenrs::core::{Event, Key, Modifiers, PointerButton, Toggled};
 use ravenrs::prelude::*;
 use report_designer::Designer;
 
@@ -65,7 +65,7 @@ fn opens_with_the_template_gallery_and_every_template_loads() {
         assert!(names(&mut ui, Role::Dialog).is_empty(), "{template} closes the gallery");
         audit(&mut ui, template);
         // Back to the design surface, and to the gallery from the ribbon.
-        press(&mut ui, Role::RadioButton, "Design");
+        press(&mut ui, Role::Tab, "Design");
         press(&mut ui, Role::Button, "Modelos");
     }
 }
@@ -166,7 +166,7 @@ fn the_preview_has_no_side_panels_and_turns_pages_one_at_a_time() {
     assert!(page(&mut ui).starts_with("Página 3 de "));
     press(&mut ui, Role::Button, "Anterior");
     assert!(page(&mut ui).starts_with("Página 2 de "), "back goes one page, not to the first");
-    press(&mut ui, Role::RadioButton, "Design");
+    press(&mut ui, Role::Tab, "Design");
     assert!(has(&mut ui, Role::Button, "Modelos"), "the ribbon comes back");
 }
 
@@ -183,4 +183,36 @@ fn clicking_a_field_adds_it_once_and_every_theme_is_available() {
         press(&mut ui, Role::RadioButton, theme);
         audit(&mut ui, theme);
     }
+}
+
+#[test]
+fn the_panels_sit_on_the_right_with_the_properties_under_the_field_list() {
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Vendas por região");
+    press(&mut ui, Role::Tab, "Design");
+    let tree = ui.access_tree();
+    let fields = tree.find(Role::Tab, "Lista de campos").expect("field list tab").bounds;
+    let props = tree.find(Role::Tab, "Propriedades").expect("properties tab").bounds;
+    assert!(fields.x() > 1000.0, "docked on the right: {fields:?}");
+    assert!(props.y() - fields.y() >= 300.0, "the field list keeps its room: {fields:?} {props:?}");
+}
+
+#[test]
+fn the_toolbox_inserts_and_the_home_page_copies_pastes_and_formats() {
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    let count = |ui: &mut Ui, name: &str| {
+        ui.access_tree().nodes.iter().filter(|n| n.name.as_deref().is_some_and(|s| s == name)).count()
+    };
+    let before = count(&mut ui, "Texto");
+    press(&mut ui, Role::Button, "Rótulo");
+    let inserted = count(&mut ui, "Texto");
+    assert!(inserted > before, "the toolbox drops a label into the band");
+    press(&mut ui, Role::Button, "Copiar");
+    press(&mut ui, Role::Button, "Colar");
+    assert_eq!(count(&mut ui, "Texto"), inserted + 1, "paste adds a copy");
+    let bold = |ui: &mut Ui| ui.access_tree().find(Role::Button, "Negrito").and_then(|n| n.toggled);
+    assert_eq!(bold(&mut ui), Some(Toggled::False));
+    press(&mut ui, Role::Button, "Negrito");
+    assert_eq!(bold(&mut ui), Some(Toggled::True), "bold applies to the pasted label");
 }
