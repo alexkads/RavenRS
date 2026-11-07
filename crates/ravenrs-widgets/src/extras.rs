@@ -1153,6 +1153,8 @@ pub struct FormField<V> {
     told_error: Option<String>,
     told_note: Option<(String, crate::Tone)>,
     fill: Option<Semantic>,
+    accessible_name: Option<String>,
+    accessible_description: Option<String>,
 }
 
 impl<V> fmt::Debug for FormField<V> {
@@ -1175,7 +1177,23 @@ impl<V: View> FormField<V> {
             told_error: None,
             told_note: None,
             fill: None,
+            accessible_name: None,
+            accessible_description: None,
         }
+    }
+
+    /// What screen readers call the control, instead of the label: for a label that only makes
+    /// sense next to what is around it.
+    pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
+        self.accessible_name = Some(name.into());
+        self
+    }
+
+    /// What screen readers say after its name, instead of the hint. An error or a note still
+    /// comes first.
+    pub fn accessible_description(mut self, text: impl Into<String>) -> Self {
+        self.accessible_description = Some(text.into());
+        self
     }
 
     /// Marks the label with `*` and adds the [`validate::required`] rule (for the value set by [`FormField::validate`]).
@@ -1260,6 +1278,15 @@ impl<V: View> View for FormField<V> {
         });
         let note = self.told_note.as_ref().map(|(note, _)| note.as_str());
         cx.label_control(content, self.label.text(), error.as_deref().or(note).or(self.hint.as_deref()));
+        if self.accessible_name.is_some() || self.accessible_description.is_some() {
+            let told = error.as_deref().or(note);
+            let description = match (told, self.accessible_description.as_deref()) {
+                (Some(told), Some(own)) => Some(format!("{told}. {own}")),
+                (None, Some(own)) => Some(own.to_owned()),
+                (_, None) => None,
+            };
+            cx.rename_control(content, self.accessible_name.as_deref(), description.as_deref());
+        }
         if let Some(e) = error {
             let icon = util::icon(cx, IconName::CircleAlert, 14.0, theme.color(Semantic::Danger));
             let text = util::label(cx, &e, TextStyle::Callout, None, theme.color(Semantic::Danger));
@@ -1301,6 +1328,56 @@ impl<V: View> View for FormField<V> {
             &children,
             paint,
         )
+    }
+}
+
+/// A control with a name and a description of its own for screen readers, for one that has no
+/// label around it to take them from, such as a check box that says its own caption.
+///
+/// ```
+/// use ravenrs_core::Role;
+/// use ravenrs_reactive::Binding;
+/// use ravenrs_widgets::{AccessibleControl, Checkbox, Ui};
+///
+/// let check = Checkbox::new("Ativo", Binding::constant(true));
+/// let named = AccessibleControl::new(check).name("Conta ativa").description("Aparece nos lançamentos");
+/// let mut ui = Ui::new(named, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// let tree = ui.access_tree();
+/// let node = tree.find(Role::CheckBox, "Conta ativa").expect("renamed");
+/// assert_eq!(node.description.as_deref(), Some("Aparece nos lançamentos"));
+/// ```
+#[derive(Debug)]
+pub struct AccessibleControl<V> {
+    content: V,
+    name: Option<String>,
+    description: Option<String>,
+}
+
+impl<V: View> AccessibleControl<V> {
+    /// `content`, as it calls itself.
+    pub fn new(content: V) -> Self {
+        Self { content, name: None, description: None }
+    }
+
+    /// What screen readers call it.
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    /// What screen readers say after its name.
+    pub fn description(mut self, text: impl Into<String>) -> Self {
+        self.description = Some(text.into());
+        self
+    }
+}
+
+impl<V: View> View for AccessibleControl<V> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let node = cx.child(&self.content);
+        cx.rename_control(node, self.name.as_deref(), self.description.as_deref());
+        node
     }
 }
 

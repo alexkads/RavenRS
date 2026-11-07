@@ -1754,6 +1754,7 @@ dependencies = [
  "pollster",
  "ravenrs",
  "ravenrs-app",
+ "ravenrs-app-a11y",
  "ravenrs-app-library",
  "ravenrs-app-report",
  "ravenrs-app-sqlite",
@@ -4270,6 +4271,7 @@ dependencies = [
  "console_error_panic_hook",
  "ravenrs",
  "ravenrs-app",
+ "ravenrs-app-a11y",
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-style",
@@ -4286,6 +4288,7 @@ dependencies = [
  "console_error_panic_hook",
  "ravenrs",
  "ravenrs-app",
+ "ravenrs-app-a11y",
  "ravenrs-app-report",
  "ravenrs-app-ui",
  "ravenrs-core",
@@ -4485,6 +4488,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-app-a11y"
+version = "27.1.16"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-core",
+ "ravenrs-layout",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
+]
+
+[[package]]
 name = "ravenrs-app-derive"
 version = "27.1.16"
 dependencies = [
@@ -4550,6 +4565,7 @@ name = "ravenrs-app-ui"
 version = "27.1.16"
 dependencies = [
  "ravenrs-app",
+ "ravenrs-app-a11y",
  "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-criteria",

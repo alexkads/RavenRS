@@ -62,6 +62,21 @@ impl Ui {
         AccessTree { root: ROOT_ID, nodes, focus }
     }
 
+    /// The keyboard shortcuts the latest frame answers to, in the order they were registered,
+    /// for tools that look for two commands on the same keys.
+    pub fn shortcuts(&self) -> Vec<crate::Hotkey> {
+        self.shortcuts
+            .iter()
+            .map(|s| {
+                let key = match &s.key {
+                    Key::Character(c) => Key::Character(c.to_lowercase()),
+                    other => other.clone(),
+                };
+                crate::Hotkey::of(key, s.command, s.shift)
+            })
+            .collect()
+    }
+
     /// Performs an action assistive technology asked for on the node with
     /// this id (from the latest [`Ui::access_tree`]). Returns true if the UI
     /// needs a redraw.

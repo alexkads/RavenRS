@@ -379,6 +379,7 @@ impl App {
         let shell = AppShell::from_factory(application, factory, words, self.editors);
         let session = shell.session();
         session.use_texts(texts.clone());
+        session.set_access_words(ravenrs_app_a11y::AccessWords::for_language(self.language.code()));
         for (name, editor) in self.list_editors {
             session.register_list_editor(name, move |request| editor(request));
         }

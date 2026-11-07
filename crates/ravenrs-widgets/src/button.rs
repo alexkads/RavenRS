@@ -189,6 +189,7 @@ pub struct Button {
     disabled: bool,
     full_width: bool,
     accessible_name: Option<String>,
+    accessible_description: Option<String>,
     loading: bool,
     selected: Option<bool>,
     shortcut: Option<String>,
@@ -221,6 +222,7 @@ impl Button {
             disabled: false,
             full_width: false,
             accessible_name: None,
+            accessible_description: None,
             loading: false,
             selected: None,
             shortcut: None,
@@ -232,6 +234,13 @@ impl Button {
     /// buttons should always have one.
     pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
         self.accessible_name = Some(name.into());
+        self
+    }
+
+    /// Sets what screen readers say after its name, such as what it does. Its shortcut and
+    /// whether it is busy follow.
+    pub fn accessible_description(mut self, text: impl Into<String>) -> Self {
+        self.accessible_description = Some(text.into());
         self
     }
 
@@ -381,11 +390,13 @@ impl View for Button {
             semantics = semantics.toggled(selected);
         }
         // The accessibility tree has no "busy" state: the word carries it.
-        let description = match (self.loading, &self.shortcut) {
-            (true, Some(keys)) => Some(format!("{}. {keys}", cx.labels().loading)),
-            (true, None) => Some(cx.labels().loading.clone()),
-            (false, keys) => keys.clone(),
-        };
+        let busy = self.loading.then(|| cx.labels().loading.clone());
+        let parts: Vec<&str> =
+            [self.accessible_description.as_deref(), busy.as_deref(), self.shortcut.as_deref()]
+                .into_iter()
+                .flatten()
+                .collect();
+        let description = (!parts.is_empty()).then(|| parts.join(". "));
         if let Some(description) = description {
             semantics = semantics.description(description);
         }
@@ -508,6 +519,12 @@ impl IconButton {
     /// the icon's name is used, which rarely describes the action well.
     pub fn label(mut self, name: impl Into<String>) -> Self {
         self.button = self.button.accessible_name(name);
+        self
+    }
+
+    /// Sets what screen readers say after its name.
+    pub fn description(mut self, text: impl Into<String>) -> Self {
+        self.button = self.button.accessible_description(text);
         self
     }
 

@@ -945,6 +945,21 @@ impl<'a> BuildCx<'a> {
         }
     }
 
+    /// Gives the control at or under `node` this name and this description, replacing what it
+    /// had: for a name that says more than the label on the screen.
+    pub(crate) fn rename_control(&mut self, node: NodeId, name: Option<&str>, description: Option<&str>) {
+        let Some(i) = self.control_in(node) else { return };
+        let e = &mut self.elements[i];
+        let s = e.semantics.get_or_insert_with(|| Box::new(Semantics::new(Role::Button)));
+        if let Some(name) = name {
+            s.name = Some(name.to_owned());
+            s.fallback_name = false;
+        }
+        if let Some(description) = description {
+            s.description = Some(description.to_owned());
+        }
+    }
+
     /// Makes the node reachable with Tab; the focus ring uses `corner_radius`.
     pub fn focusable(&mut self, node: NodeId, corner_radius: f32) {
         if let Some(e) = self.element_mut(node) {
