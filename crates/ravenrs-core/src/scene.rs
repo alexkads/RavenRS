@@ -464,6 +464,27 @@ impl Effect {
         self
     }
 
+    /// The effect `t` of the way from `self` to `to`: `0.0` is `self`, `1.0` is `to`.
+    /// `t` is not clamped, so springs and overshooting curves carry through.
+    pub fn lerp(self, to: Self, t: f32) -> Self {
+        let mix = |a: f32, b: f32| a + (b - a) * t;
+        Self {
+            opacity: mix(self.opacity, to.opacity).clamp(0.0, 1.0),
+            offset: Point::new(mix(self.offset.x, to.offset.x), mix(self.offset.y, to.offset.y)),
+            scale: mix(self.scale, to.scale).max(0.0),
+        }
+    }
+
+    /// `self` followed by `next`, as one effect: opacities and scales multiply and
+    /// offsets add, the way two nested elements with these effects would look.
+    pub fn then(self, next: Self) -> Self {
+        Self {
+            opacity: self.opacity * next.opacity,
+            offset: Point::new(self.offset.x + next.offset.x, self.offset.y + next.offset.y),
+            scale: self.scale * next.scale,
+        }
+    }
+
     /// True when applying the effect would change nothing.
     pub fn is_identity(&self) -> bool {
         *self == Self::IDENTITY

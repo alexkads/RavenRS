@@ -218,6 +218,7 @@ Status against the definition of done. **Behavior** names the test suites that d
 | Table, List, Stat | components | ✅ partial | n/a | |
 | Chart, BarChart, AreaChart, Barcode | charts, components | ✅ a chart reads its values; a code reads its text or `alt` | n/a | The layout's own tests are in `ravenrs-graphics` |
 | Layout: stacks, Grid, ScrollView, Splitter, AspectRatio, Card, Section | layout_and_content, components, keyboard_and_basics | ✅ partial | 🟡 Splitter arrows, untested | AspectRatio content now fills its box |
+| Sticky, ScrollScene, ScrollLinked | scroll_scene | ✅ pinned content is placed before hit testing, so the tree and clicks see it where it shows, tested | n/a, takes no input | Scrolling rebuilds nothing, tested. Under reduced motion links only fade, tested |
 | Footer | footer | | ✅ no focus stop of its own; its links are buttons (Tab + Enter), tested | `contentinfo` landmark, tested. Stacks by window width, not by its container's |
 | StatusBar | status_bar | | ✅ no focus stop of its own; its actions are buttons (Tab + Enter), tested | `contentinfo` landmark; the center is a `status` |
 | Timeline, ToolRail | timeline | | 🟡 blocks, markers and tools work with Tab + Enter; moving and trimming need the pointer, so apps offer them in fields too | Blocks and markers are named buttons |

@@ -4,6 +4,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- Scroll-driven pages. `Sticky` keeps its content on screen while its section scrolls past, like CSS `position: sticky`, and clicks, focus and screen readers find it where it shows. `ScrollScene` holds its content for a length of scrolling, the stage for steps that change as the reader scrolls. `ScrollLinked` paints its content with the `Effect` a `ScrollLink` gives for the scroll position: a `ScrollRange` (the scene, the pass across the view, entering, leaving), a window with `between`, an `Easing`, and keyframes or any function, with `fade_in`, `fade_out`, `parallax` and `grow_from` ready. Scrolling still neither rebuilds nor lays out again. With reduced motion, linked effects only fade. The same powers are on `BuildCx`: `pin`, `scroll_track` and `scroll_linked`.
+- `Effect::lerp` interpolates between two effects and `Effect::then` combines them.
+
 ## [27.1.19] - 2026-11-07
 
 ### Breaking
