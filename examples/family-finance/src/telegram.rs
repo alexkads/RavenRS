@@ -23,6 +23,8 @@ use crate::model::{Category, Flow, Member, TransactionInput};
 use crate::today;
 
 const PENDING_TTL: Duration = Duration::from_secs(5 * 60);
+/// How long the last transaction a chat saved can be undone from the chat.
+const UNDO_TTL: Duration = Duration::from_secs(5 * 60);
 const MAX_PDF_BYTES: u64 = 14 * 1024 * 1024;
 /// A voice note is heard up to a minute: enough for "despesa, mercado, foi a Ana".
 const MAX_VOICE_SECONDS: usize = 60;
@@ -39,6 +41,17 @@ struct Service {
     pending: Mutex<HashMap<i64, Pending>>,
     /// The model that hears, kept loaded between voice notes.
     transcriber: Mutex<Option<(&'static str, Transcriber)>>,
+    /// The last transaction each chat saved, which `/desfazer` takes back for a while.
+    saved: Mutex<HashMap<i64, Saved>>,
+}
+
+/// A transaction the bot saved, for `/desfazer`.
+struct Saved {
+    id: i64,
+    summary: String,
+    /// Whether its category was created with it, and goes when it goes, if nothing else uses it.
+    new_category: bool,
+    at: Instant,
 }
 
 /// A transaction on its way, one chat at a time.
@@ -213,7 +226,12 @@ pub fn serve_with_waker(
     paired: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 ) -> Result<(), String> {
     let config = Config { db_path: checked_db_path(db_path)?, bot_token: bot_token()? };
-    let service = Service { config, pending: Mutex::new(HashMap::new()), transcriber: Mutex::new(None) };
+    let service = Service {
+        config,
+        pending: Mutex::new(HashMap::new()),
+        transcriber: Mutex::new(None),
+        saved: Mutex::new(HashMap::new()),
+    };
     let mut offset = 0;
     loop {
         if bot_token().is_ok_and(|token| token != service.config.bot_token) {
@@ -269,6 +287,7 @@ fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
         "rf:fix" => "/corrigir".to_owned(),
         "rf:no" => "/cancelar".to_owned(),
         "rf:new" => "/criar".to_owned(),
+        "rf:undo" => "/desfazer".to_owned(),
         data => format!("/categoria {}", data.strip_prefix("rf:cat:")?.parse::<i64>().ok()?),
     };
     Some(Message {
@@ -385,6 +404,12 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
         service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, pending);
         Ok(())
     };
+    if text == "/desfazer" || said == "desfazer" {
+        if let Some(pending) = pending {
+            keep(pending)?;
+        }
+        return undo(service, chat);
+    }
     let asking = pending.as_ref().is_some_and(|p| matches!(p.step, Step::Category(_) | Step::Confirm(_)));
     if text == "/cancelar" || (asking && NO_WORDS.contains(&said.as_str())) {
         send_message(service, chat, "Lançamento cancelado.")?;
@@ -396,12 +421,19 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
     let command = confirmed || text.starts_with('/');
     match pending {
         Some(Pending { step: Step::Confirm(reply), amount_cents, from_pdf, since }) if confirmed => {
-            if let Err(error) = save_transaction(&service.config.db_path, amount_cents, from_pdf, &reply) {
-                keep(Pending { amount_cents, from_pdf, since, step: Step::Confirm(reply) })?;
-                return Err(error);
-            }
-            let saved = Reply { known: true, ..reply };
-            send_message(service, chat, &format!("{} salva.", summary(amount_cents, &saved)))?;
+            let id = match save_transaction(&service.config.db_path, amount_cents, from_pdf, &reply) {
+                Ok(id) => id,
+                Err(error) => {
+                    keep(Pending { amount_cents, from_pdf, since, step: Step::Confirm(reply) })?;
+                    return Err(error);
+                }
+            };
+            let new_category = !reply.known;
+            let summary = summary(amount_cents, &Reply { known: true, ..reply });
+            let rows = [vec![("Desfazer".to_owned(), "rf:undo".to_owned())]];
+            send_with_buttons(service, chat, &format!("{summary} salva."), &rows)?;
+            let saved = Saved { id, summary, new_category, at: Instant::now() };
+            service.saved.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, saved);
         }
         Some(Pending { step: Step::Confirm(_), amount_cents, from_pdf, .. }) if text == "/corrigir" => {
             keep(Pending { amount_cents, from_pdf, since: Instant::now(), step: Step::Amount })?;
@@ -456,6 +488,32 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
         None => send_message(service, chat, NOTHING_WAITING)?,
     }
     Ok(())
+}
+
+/// Takes back the last transaction this chat saved, while it is recent: only that one, and
+/// only from the chat that saved it. A category created with it goes too, if unused.
+fn undo(service: &Service, chat: i64) -> Result<(), String> {
+    let saved = service.saved.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);
+    let Some(saved) = saved else {
+        return send_message(service, chat, "Não há lançamento recente deste chat para desfazer.");
+    };
+    if saved.at.elapsed() > UNDO_TTL {
+        return send_message(
+            service,
+            chat,
+            "O prazo para desfazer terminou. Apague o lançamento no Raven, em Lançamentos.",
+        );
+    }
+    let db = Database::open(&service.config.db_path).map_err(|e| e.to_string())?;
+    let Some(transaction) = db.transaction(saved.id).map_err(|e| e.to_string())? else {
+        return send_message(service, chat, "Esse lançamento já foi apagado no Raven.");
+    };
+    db.delete_transaction(saved.id).map_err(|e| e.to_string())?;
+    if saved.new_category {
+        // Refused while another transaction or a bill uses it, and then it stays.
+        let _ = db.delete_category(transaction.input.category_id);
+    }
+    send_message(service, chat, &format!("Desfeito: {} apagada.", saved.summary))
 }
 
 const NOTHING_WAITING: &str = "Nada aguardando. Para lançar, diga o valor: `gastei 50 no mercado, foi a Ana`. Ou envie o PDF do comprovante.";
