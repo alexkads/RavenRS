@@ -4,9 +4,16 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Changed
+
+- The report designer is laid out as a full report editor: a toolbox down the left, rulers in centimeters across the page and beside each band (marking the selected control), the field list and report explorer as tabs over the properties on the right with a bar to drag between them, Design / Preview / JSON tabs under the document and a zoom slider in the status bar. The Ribbon's Home page has Edit (cut, copy, paste, delete), Font (bold, larger, smaller), Alignment and Layout (bring to front, send to back); printing and export moved to an Output page and stay in the File menu and the quick access bar.
+
+## [27.1.16] - 2026-11-06
+
 ### Breaking
 
 - `FilterField` has a new public field, `values`; build it with `FilterField::new` instead of a struct literal.
+- `ReleaseNote` is no longer `Send`, `Sync` or `UnwindSafe`, since `links` holds what each click does. Like every other view, build it on the UI thread.
 
 ### Added
 
@@ -17,9 +24,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `ModelFamily::Whisper`.
 - `ExpressionEditor`: edits an expression of the criteria language, with fields, parameters, functions by group, operators and constants to search and insert at the caret, each item's signature and description, and a check while typing that gives the line and column of a syntax error and lists unknown names. Its words are in `Labels` (`expression_*`). The report designer opens it from the button beside an expression, the filter and a group's field, and from Expression on the Home page.
 
-### Changed
+### Fixed
 
-- The report designer is laid out as a full report editor: a toolbox down the left, rulers in centimeters across the page and beside each band (marking the selected control), the field list and report explorer as tabs over the properties on the right with a bar to drag between them, Design / Preview / JSON tabs under the document and a zoom slider in the status bar. The Ribbon's Home page has Edit (cut, copy, paste, delete), Font (bold, larger, smaller), Alignment and Layout (bring to front, send to back); printing and export moved to an Output page and stay in the File menu and the quick access bar.
+- Icons sit at the center of their box: the Lucide font left every glyph's left side bearing at 0, so each one was drawn left of center (the checkbox check by 1.75 px at 14 px). `RavenIcons.ttf` and `scripts/gen-icons.py` now set it to the glyph's own left edge.
 
 ## [27.1.15] - 2026-11-06
 
