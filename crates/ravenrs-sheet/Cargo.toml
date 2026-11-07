@@ -31,7 +31,7 @@ sha1 = { version = "0.11", default-features = false }
 sha2 = { version = "0.11", default-features = false }
 thiserror = "2"
 web-time = "1.1.0"
-zip = { version = "3", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [features]
 # Builds password-encrypted workbooks in code for tests elsewhere; never enabled in a shipped build.
@@ -42,7 +42,7 @@ js-sys.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
-zip = { version = "3", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [lints.rust]
 unsafe_code = "forbid"

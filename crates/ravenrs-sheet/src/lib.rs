@@ -18,6 +18,8 @@
 //! Nothing here draws or depends on a window, so it also runs on servers and in WebAssembly.
 //! The engine comes from GridCraft (MIT OR Apache-2.0); see `NOTICE`.
 #![allow(missing_docs)]
+// The engine's docs point at private helpers to explain how things fit together.
+#![allow(rustdoc::private_intra_doc_links)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod base;
