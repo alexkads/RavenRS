@@ -96,7 +96,7 @@ cargo test -p ravenrs-widgets
 cargo clippy -p ravenrs-platform-web --target wasm32-unknown-unknown -- -D warnings
 ```
 
-O portão é `scripts/check.sh`: o projeto não tem CI hospedado, então rode antes de publicar. Ele cobre formatação, clippy em desktop e wasm32, testes, imagens de referência, documentação e builds web.
+O portão é `scripts/check.sh`, porque o projeto não tem CI hospedado. Sem argumento, ele é rápido: formatação, mais clippy e testes dos pacotes que a mudança atinge. Com `--full`, roda antes de publicar e cobre clippy em desktop e wasm32, todos os testes com as imagens de referência, documentação e builds web.
 
 Mudança visual intencional exige regenerar as imagens de referência e revisar o diff dos PNGs:
 

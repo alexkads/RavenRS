@@ -19,13 +19,21 @@ You need Rust stable 1.88+. For the web build, also `rustup target add wasm32-un
 cargo run -p component-gallery --release
 ```
 
-Before opening a pull request, run every check locally (the project has no hosted CI):
+Before opening a pull request, run the checks locally (the project has no hosted CI):
 
 ```bash
 ./scripts/check.sh
 ```
 
-It runs rustfmt, clippy with warnings as errors for desktop and wasm32, all tests and both web builds. Renderer tests draw on your GPU and skip themselves when no adapter is available.
+It runs rustfmt, then clippy with warnings as errors and the tests of the packages your change reaches: those whose files changed against `origin/master`, and every package that depends on them. A change to `Cargo.toml`, `Cargo.lock` or `.cargo/` reaches the whole workspace.
+
+Before a release, run everything:
+
+```bash
+./scripts/check.sh --full
+```
+
+That adds wasm32, optional features, the minimum Rust version, dependency checks, benchmarks, API docs and the web builds. Renderer tests draw on your GPU and skip themselves when no adapter is available.
 
 ## Adding a component
 
