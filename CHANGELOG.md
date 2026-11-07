@@ -4,6 +4,14 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+
+- `SpeechSettings` has a `speaker` field: code that builds it field by field adds `speaker: None`.
+
+### Added
+
+- `ravenrs-ai` speaks with Kokoro 82M, in Rust: `VOICE_CATALOG` offers it first, with the Brazilian voices `pf_dora`, `pm_alex` and `pm_santa` (`KOKORO_SPEAKERS`). `SpeechSettings::speaker` picks one, `SpeechEngine::pieces` splits a text as each model says it best, and `VoiceManager` shows the three voices when Kokoro is in use. The phonemes come from the crate's own rules for Brazilian Portuguese (stress, open and nasal vowels, how a word changes before the next), without espeak-ng. `ModelFamily::Kokoro` is new.
+
 ## [27.1.17] - 2026-11-07
 
 ### Breaking

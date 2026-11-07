@@ -795,13 +795,14 @@ fn real_model_answers_in_the_chat_with_the_numbers_of_the_database() {
     let _ = std::fs::remove_dir_all(folder);
 }
 
-/// Records what the films say with LFM3 Audio, into wave files for `pack_narration` when
-/// `FF_NARRATION_WAVS` says where: `FF_AI_MODELS=folder cargo test --release -p family-finance --test training record_narration -- --ignored --nocapture`.
+/// Records what the films say with Kokoro's `pm_santa`, into wave files for `pack_narration`
+/// when `FF_NARRATION_WAVS` says where: `FF_AI_MODELS=folder cargo test --release -p family-finance --test training record_narration -- --ignored --nocapture`.
+/// `FF_NARRATION_SPEAKER` picks another of its voices, and `FF_NARRATION_MODEL` another model.
 #[test]
 #[ignore = "needs the real voice model"]
 fn record_narration() {
     use ravenrs::movie::Narration;
-    use ravenrs_ai::{ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, model_by_id, sentences};
+    use ravenrs_ai::{ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, model_by_id};
     let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/treinamentos");
     let mut said: Vec<String> = Vec::new();
     for file in std::fs::read_dir(&folder).expect("films") {
@@ -815,14 +816,20 @@ fn record_narration() {
     said.sort();
     said.dedup();
     let limit = std::env::var("FF_NARRATION_LIMIT").ok().and_then(|limit| limit.parse().ok());
-    let settings = if std::env::var("FF_NARRATION_STEADIER").is_ok() {
+    let mut settings = if std::env::var("FF_NARRATION_STEADIER").is_ok() {
         SpeechSettings::steadier()
     } else {
         SpeechSettings::default()
     };
     let out = std::env::var("FF_NARRATION_OUT").map_or_else(|_| folder.join("narracao.voz"), Into::into);
     let root = std::env::var("FF_AI_MODELS").expect("FF_AI_MODELS");
-    let model = model_by_id("lfm3-audio-2b-q4").expect("known");
+    let wanted = std::env::var("FF_NARRATION_MODEL").unwrap_or_else(|_| "kokoro-82m".to_owned());
+    let model = model_by_id(&wanted).expect("known");
+    if model.family == ravenrs_ai::ModelFamily::Kokoro {
+        // The training films speak with Santa, which suits them.
+        settings.speaker =
+            Some(std::env::var("FF_NARRATION_SPEAKER").unwrap_or_else(|_| "pm_santa".to_owned()));
+    }
     let mut engine = SpeechEngine::load(&ModelFolder::new(root), &model).expect("the model");
     let silence = vec![0.0_f32; (SPEECH_RATE / 4) as usize];
     let mut recordings: Vec<(String, Vec<f32>)> = Vec::new();
@@ -836,7 +843,7 @@ fn record_narration() {
             let text = family_finance::ui::spoken(&said[index]);
             for take in 1..=6_u64 {
                 let settings = SpeechSettings { seed: take * 7919, ..settings.clone() };
-                let parts = if take % 2 == 0 { vec![text.clone()] } else { sentences(&text) };
+                let parts = if take % 2 == 0 { vec![text.clone()] } else { engine.pieces(&text) };
                 let mut sound = Vec::new();
                 for part in &parts {
                     sound.extend(engine.speak(part, &settings, &mut |_| true).expect("sound"));
@@ -865,8 +872,8 @@ fn record_narration() {
         }
         for (index, text) in said.iter().filter(|text| !have.contains(*text)).enumerate() {
             let mut sound = Vec::new();
-            for sentence in sentences(&family_finance::ui::spoken(text)) {
-                sound.extend(engine.speak(&sentence, &settings, &mut |_| true).expect("sound"));
+            for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+                sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
                 sound.extend_from_slice(&silence);
             }
             println!("new: {text}");
@@ -877,8 +884,8 @@ fn record_narration() {
     }
     for text in said.iter().take(limit.unwrap_or(usize::MAX)) {
         let mut sound = Vec::new();
-        for sentence in sentences(&family_finance::ui::spoken(text)) {
-            sound.extend(engine.speak(&sentence, &settings, &mut |_| true).expect("sound"));
+        for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+            sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
             sound.extend_from_slice(&silence);
         }
         let seconds = sound.len() as f32 / SPEECH_RATE as f32;

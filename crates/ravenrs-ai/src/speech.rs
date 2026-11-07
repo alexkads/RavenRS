@@ -1,5 +1,6 @@
-//! Speech from LFM3 Audio, following its model card: the model writes frames of codes,
-//! a small decoder finds each frame's codes, and the codec turns them into 24 kHz sound.
+//! Speech, from Kokoro 82M or LFM3 Audio. In LFM3 Audio, following its model card, the
+//! model writes frames of codes, a small decoder finds each frame's codes, and the codec
+//! turns them into 24 kHz sound.
 
 use std::fs::File;
 
@@ -8,13 +9,14 @@ use candle_core::{Device, Module, Tensor};
 use candle_nn::ops::rms_norm;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 use candle_transformers::quantized_nn::RmsNorm;
-use rustfft::FftPlanner;
-use rustfft::num_complex::Complex32;
 use tokenizers::Tokenizer;
 
 use crate::engine::EngineError;
+use crate::kokoro::{self, Kokoro, Noise};
 use crate::lfm3::{self, Heads, LayerKind, LayerNames, Reach, Stack, mask, rotation};
-use crate::{LocalModel, ModelFolder};
+use crate::phonemes::phonemes_pt_br;
+use crate::spectrum::{hann, inverse_stft};
+use crate::{LocalModel, ModelFamily, ModelFolder};
 
 /// How many samples of sound a second has.
 pub const SPEECH_RATE: u32 = 24_000;
@@ -69,13 +71,20 @@ pub enum SpeechVoice {
     Male,
 }
 
+/// The voices of Kokoro 82M in Brazilian Portuguese, by the names its makers gave them.
+pub const KOKORO_SPEAKERS: &[&str] = &["pf_dora", "pm_alex", "pm_santa"];
+
 /// How to speak. The default is what the model card recommends, in Portuguese.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SpeechSettings {
-    /// One of [`SPEECH_LANGUAGES`].
+    /// One of [`SPEECH_LANGUAGES`]. Kokoro speaks only Portuguese.
     pub language: String,
-    /// The voice.
+    /// The voice, when no speaker is named.
     pub voice: SpeechVoice,
+    /// One of the model's own voices, such as `pm_santa` among [`KOKORO_SPEAKERS`]. Without
+    /// one, Kokoro speaks as `pf_dora` for [`SpeechVoice::Female`] and `pm_alex` for
+    /// [`SpeechVoice::Male`]. LFM3 Audio has none and leaves it out.
+    pub speaker: Option<String>,
     /// How free each code is to vary; 0 always takes the likeliest.
     pub temperature: f32,
     /// How many codes it chooses among; 0 is all of them.
@@ -93,6 +102,7 @@ impl Default for SpeechSettings {
         Self {
             language: "Portuguese".to_owned(),
             voice: SpeechVoice::Female,
+            speaker: None,
             temperature: 1.0,
             top_k: 128,
             repetition_penalty: 1.1,
@@ -301,42 +311,173 @@ impl Codec {
 /// Sound from frames of half log magnitudes and half angles, as the codec writes them.
 fn from_spectrum(frames: &[Vec<f32>]) -> Vec<f32> {
     let bins = FFT_SIZE / 2 + 1;
-    let fft = FftPlanner::new().plan_fft_inverse(FFT_SIZE);
-    let window: Vec<f32> = (0..FFT_SIZE)
-        .map(|place| {
-            let turn = 2.0 * std::f32::consts::PI * place as f32 / FFT_SIZE as f32;
-            0.5 - 0.5 * turn.cos()
-        })
-        .collect();
-    let size = (frames.len() - 1) * HOP + FFT_SIZE;
-    let (mut sound, mut envelope) = (vec![0.0_f32; size], vec![0.0_f32; size]);
-    let mut buffer = vec![Complex32::new(0.0, 0.0); FFT_SIZE];
-    for (index, frame) in frames.iter().enumerate() {
-        for bin in 0..bins {
-            let value = Complex32::from_polar(frame[bin].exp(), frame[bin + bins]);
-            buffer[bin] = value;
-            if bin > 0 && bin < FFT_SIZE / 2 {
-                buffer[FFT_SIZE - bin] = value.conj();
-            }
-        }
-        fft.process(&mut buffer);
-        let start = index * HOP;
-        for place in 0..FFT_SIZE {
-            sound[start + place] += buffer[place].re / FFT_SIZE as f32 * window[place];
-            envelope[start + place] += window[place] * window[place];
-        }
-    }
+    let magnitudes: Vec<Vec<f32>> =
+        frames.iter().map(|frame| frame[..bins].iter().map(|value| value.exp()).collect()).collect();
+    let angles: Vec<Vec<f32>> = frames.iter().map(|frame| frame[bins..2 * bins].to_vec()).collect();
+    let sound = inverse_stft(&magnitudes, &angles, FFT_SIZE, HOP, &hann(FFT_SIZE));
     let trim = (FFT_SIZE - HOP) / 2;
-    sound[trim..size - trim]
-        .iter()
-        .zip(&envelope[trim..size - trim])
-        .map(|(sound, envelope)| sound / envelope)
-        .collect()
+    sound[trim..sound.len() - trim].to_vec()
 }
 
-/// LFM3 Audio in memory. Loading takes a while and speaking blocks, so keep it away
-/// from the UI thread.
+/// The voice in memory: Kokoro 82M or LFM3 Audio, by the model's family. Loading takes a
+/// while and speaking blocks, so keep it away from the UI thread.
 pub struct SpeechEngine {
+    inner: Inner,
+}
+
+enum Inner {
+    Kokoro(Box<KokoroSpeech>),
+    Lfm3(Box<Lfm3Speech>),
+}
+
+impl std::fmt::Debug for SpeechEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SpeechEngine").finish_non_exhaustive()
+    }
+}
+
+/// The most phonemes Kokoro says at once: a little under what it can, since it rushes at
+/// the end of its longest.
+const KOKORO_PIECE: usize = 400;
+/// Fewer than this and Kokoro says them weakly: short sentences go together.
+const KOKORO_SHORTEST: usize = 60;
+
+impl SpeechEngine {
+    /// Loads `model` from `folder`. Kokoro needs `model.pth`, `config.json` and its voices;
+    /// LFM3 Audio needs `model.gguf`, `projector.gguf` and `tokenizer.json`.
+    ///
+    /// # Errors
+    ///
+    /// When its files are missing or cannot be read.
+    pub fn load(folder: &ModelFolder, model: &LocalModel) -> Result<Self, EngineError> {
+        let inner = if model.family == ModelFamily::Kokoro {
+            Inner::Kokoro(Box::new(KokoroSpeech::load(folder, model)?))
+        } else {
+            Inner::Lfm3(Box::new(Lfm3Speech::load(folder, model)?))
+        };
+        Ok(Self { inner })
+    }
+
+    /// Says `text` as the settings ask. `go_on` hears how much is ready and returning
+    /// false stops it with what it has.
+    ///
+    /// # Errors
+    ///
+    /// When it stops in the middle, or Kokoro is asked for a language other than
+    /// Portuguese or a speaker it does not have.
+    pub fn speak(
+        &mut self,
+        text: &str,
+        settings: &SpeechSettings,
+        go_on: &mut dyn FnMut(usize) -> bool,
+    ) -> Result<Vec<f32>, EngineError> {
+        match &mut self.inner {
+            Inner::Kokoro(engine) => engine.speak(text, settings, go_on),
+            Inner::Lfm3(engine) => engine.speak(text, settings, go_on),
+        }
+    }
+
+    /// How `text` is best said, a piece at a time: by sentences for LFM3 Audio, and for
+    /// Kokoro sentences joined while they are short, since it says short ones weakly.
+    pub fn pieces(&self, text: &str) -> Vec<String> {
+        let sentences = crate::sentences(text);
+        if !matches!(self.inner, Inner::Kokoro(_)) {
+            return sentences;
+        }
+        let mut pieces: Vec<String> = Vec::new();
+        for sentence in sentences {
+            match pieces.last_mut() {
+                Some(last)
+                    if last.chars().count() < KOKORO_SHORTEST
+                        || last.chars().count() + sentence.chars().count() < KOKORO_PIECE / 2 =>
+                {
+                    last.push(' ');
+                    last.push_str(&sentence);
+                }
+                _ => pieces.push(sentence),
+            }
+        }
+        pieces
+    }
+}
+
+/// Kokoro 82M with its Brazilian voices.
+struct KokoroSpeech {
+    model: Kokoro,
+    voices: Vec<(&'static str, kokoro::Voice)>,
+}
+
+impl KokoroSpeech {
+    fn load(folder: &ModelFolder, model: &LocalModel) -> Result<Self, EngineError> {
+        let load = |why: String| EngineError::Load(why);
+        let named = |name: &str| {
+            let file = model.files.iter().find(|file| file.name == name);
+            file.map(|file| folder.path_of(model, file)).ok_or_else(|| load(format!("no {name}")))
+        };
+        let kokoro = Kokoro::load(&named("model.pth")?, &named("config.json")?).map_err(load)?;
+        let mut voices = Vec::new();
+        for speaker in KOKORO_SPEAKERS {
+            let voice = kokoro::Voice::load(&named(&format!("{speaker}.pt"))?).map_err(load)?;
+            voices.push((*speaker, voice));
+        }
+        Ok(Self { model: kokoro, voices })
+    }
+
+    fn speak(
+        &mut self,
+        text: &str,
+        settings: &SpeechSettings,
+        go_on: &mut dyn FnMut(usize) -> bool,
+    ) -> Result<Vec<f32>, EngineError> {
+        let run = |why: String| EngineError::Run(why);
+        if settings.language != "Portuguese" {
+            return Err(run(format!("Kokoro speaks Portuguese, not {}", settings.language)));
+        }
+        let wanted = settings.speaker.as_deref().unwrap_or(match settings.voice {
+            SpeechVoice::Female => "pf_dora",
+            SpeechVoice::Male => "pm_alex",
+        });
+        let voice = self
+            .voices
+            .iter()
+            .find(|(name, _)| *name == wanted)
+            .map(|(_, voice)| voice)
+            .ok_or_else(|| run(format!("no voice {wanted}")))?;
+        let mut noise = Noise::new(settings.seed);
+        let mut sound = Vec::new();
+        for (done, piece) in phoneme_pieces(&phonemes_pt_br(text)).iter().enumerate() {
+            if !go_on(done) {
+                break;
+            }
+            sound.extend(self.model.speak(piece, voice, 1.0, &mut noise).map_err(|e| run(e.to_string()))?);
+        }
+        Ok(sound)
+    }
+}
+
+/// Phonemes cut where a sentence or clause ends, each piece at most [`KOKORO_PIECE`].
+fn phoneme_pieces(phonemes: &str) -> Vec<String> {
+    let mut pieces = Vec::new();
+    let mut piece = String::new();
+    for word in phonemes.split(' ') {
+        let longer = piece.chars().count() + word.chars().count() + 1;
+        let pause = piece.ends_with(['.', '!', '?', ';', ':', ',']);
+        if !piece.is_empty() && (longer > kokoro::MOST_PHONEMES || (longer > KOKORO_PIECE && pause)) {
+            pieces.push(std::mem::take(&mut piece));
+        }
+        if !piece.is_empty() {
+            piece.push(' ');
+        }
+        piece.push_str(word);
+    }
+    if !piece.is_empty() {
+        pieces.push(piece);
+    }
+    pieces
+}
+
+/// LFM3 Audio in memory.
+struct Lfm3Speech {
     model: lfm3::ModelWeights,
     depth: DepthDecoder,
     /// One row for each code of each codebook, for feeding a frame back.
@@ -346,20 +487,8 @@ pub struct SpeechEngine {
     device: Device,
 }
 
-impl std::fmt::Debug for SpeechEngine {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SpeechEngine").finish_non_exhaustive()
-    }
-}
-
-impl SpeechEngine {
-    /// Loads `model` from `folder`, which needs `model.gguf`, `projector.gguf` and
-    /// `tokenizer.json`.
-    ///
-    /// # Errors
-    ///
-    /// When its files are missing or cannot be read.
-    pub fn load(folder: &ModelFolder, model: &LocalModel) -> Result<Self, EngineError> {
+impl Lfm3Speech {
+    fn load(folder: &ModelFolder, model: &LocalModel) -> Result<Self, EngineError> {
         let load = |why: String| EngineError::Load(why);
         let named = |name: &str| {
             let file = model.files.iter().find(|file| file.name == name);
@@ -378,13 +507,8 @@ impl SpeechEngine {
         Ok(Self { model: weights, depth, frame_embeds, codec, tokenizer, device })
     }
 
-    /// Says `text` as the settings ask. `go_on` hears how many frames are ready, each
-    /// of 80 ms, and returning false stops it with what it has.
-    ///
-    /// # Errors
-    ///
-    /// When it stops in the middle.
-    pub fn speak(
+    /// `go_on` hears how many frames are ready, each of 80 ms.
+    fn speak(
         &mut self,
         text: &str,
         settings: &SpeechSettings,
@@ -533,6 +657,16 @@ fn parts_of<R: std::io::Seek + std::io::Read>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn long_phonemes_are_cut_where_a_sentence_ends() {
+        let sentence = "ˈabræ ʊz ˌaʒˈusʧys. ".repeat(40);
+        let pieces = phoneme_pieces(sentence.trim());
+        assert!(pieces.len() > 1);
+        assert!(pieces.iter().all(|piece| piece.chars().count() <= kokoro::MOST_PHONEMES));
+        assert!(pieces[..pieces.len() - 1].iter().all(|piece| piece.ends_with('.')));
+        assert_eq!(pieces.join(" "), sentence.trim());
+    }
 
     #[test]
     fn the_prompt_is_the_one_on_the_model_card() {
