@@ -24,6 +24,8 @@ pub const REASON_CRITERIA: &str = "criteria";
 pub const REASON_APPEARANCE: &str = "appearance";
 /// The reason permissions turned an action off.
 pub const REASON_SECURITY: &str = "security";
+/// Off while its work runs away from the screen.
+pub const REASON_RUNNING: &str = "running";
 
 /// Why something is on or off: pairs of reason and answer. It is on only if every answer is yes,
 /// so one part of the application turning it off cannot be undone by another.
@@ -248,6 +250,8 @@ pub enum ActionResult {
     OpenUrl(String),
     /// Records changed, so what shows them has to read again.
     RecordsChanged,
+    /// Its work started away from the screen, as the job with this id.
+    Started(u64),
 }
 
 /// What people gave an action that asks for something.
@@ -443,6 +447,7 @@ struct ActionInner {
     on_cancel: Option<Notice>,
     on_executing: Option<Guard>,
     on_executed: Option<Notice>,
+    background: Option<crate::JobWork>,
     active: State<Reasons>,
     enabled: State<Reasons>,
 }
@@ -501,6 +506,7 @@ impl Action {
             on_cancel: None,
             on_executing: None,
             on_executed: None,
+            background: None,
             active: State::new(Reasons::default()),
             enabled: State::new(Reasons::default()),
         }))
@@ -509,6 +515,32 @@ impl Action {
     /// A button: it just runs.
     pub fn simple(id: impl Into<String>, caption: impl Into<String>) -> Self {
         Self::new(id, caption, ActionKind::Simple)
+    }
+
+    /// A button whose work runs away from the screen, on a thread of its own: it shows how far it
+    /// got, can be stopped, and what it hands back is kept on the screen's thread. While it runs,
+    /// the action is off, so it never runs twice at once.
+    ///
+    /// ```
+    /// use ravenrs_app::{Action, Selection};
+    ///
+    /// let archive = Action::background("Archive", "Arquivar", |job| {
+    ///     for record in job.selected() {
+    ///         let mut record = record.clone();
+    ///         record.set("Archived", true);
+    ///         job.save(record);
+    ///     }
+    ///     Ok(())
+    /// })
+    /// .selection(Selection::RequireMultiple);
+    /// assert!(archive.is_background());
+    /// ```
+    pub fn background(
+        id: impl Into<String>,
+        caption: impl Into<String>,
+        work: impl Fn(&crate::JobContext) -> Result<(), String> + Send + Sync + 'static,
+    ) -> Self {
+        Self::simple(id, caption).in_background(work)
     }
 
     /// Opens a view in a window, and runs on OK.
@@ -537,6 +569,24 @@ impl Action {
             f(inner);
         }
         self
+    }
+
+    /// Runs this work away from the screen once it runs, after `on_execute`, with what people gave
+    /// it. See [`Action::background`].
+    pub fn in_background(
+        self,
+        work: impl Fn(&crate::JobContext) -> Result<(), String> + Send + Sync + 'static,
+    ) -> Self {
+        self.change(|a| a.background = Some(std::sync::Arc::new(work)))
+    }
+
+    /// Whether its work runs away from the screen.
+    pub fn is_background(&self) -> bool {
+        self.0.background.is_some()
+    }
+
+    pub(crate) fn work(&self) -> Option<crate::JobWork> {
+        self.0.background.clone()
     }
 
     /// Where it belongs.

@@ -91,6 +91,34 @@ pub struct App {
     steps: Vec<SessionStep>,
     administrator: Option<String>,
     security: Option<(Rc<ravenrs_app::SecurityContext>, ravenrs_app::SpaceMaker)>,
+    actions: Vec<ActionMaker>,
+}
+
+type ActionMaker = Rc<dyn Fn() -> ravenrs_app::Action>;
+
+/// The actions an application declared one by one, as a module.
+struct OwnActions(Vec<ActionMaker>);
+
+impl Module for OwnActions {
+    fn name(&self) -> &str {
+        "OwnActions"
+    }
+
+    fn view_controllers(&self) -> Vec<Box<dyn ravenrs_app::ViewController>> {
+        vec![Box::new(OwnActionsController(self.0.iter().map(|make| make()).collect()))]
+    }
+}
+
+struct OwnActionsController(Vec<ravenrs_app::Action>);
+
+impl ravenrs_app::ViewController for OwnActionsController {
+    fn id(&self) -> &str {
+        "OwnActions"
+    }
+
+    fn actions(&self) -> Vec<ravenrs_app::Action> {
+        self.0.clone()
+    }
 }
 
 impl std::fmt::Debug for App {
@@ -115,6 +143,7 @@ impl App {
             steps: Vec::new(),
             administrator: None,
             security: None,
+            actions: Vec::new(),
         }
     }
 
@@ -163,6 +192,39 @@ impl App {
     /// Adds a record declared at run time.
     pub fn entity_info(mut self, entity: ravenrs_app::EntityInfo) -> Self {
         self.builder = self.builder.entity(entity);
+        self
+    }
+
+    /// Adds an action of its own, with no module to write. It is made again for each window, so
+    /// each one turns it on and off by itself; its target entity or view says where it shows.
+    ///
+    /// ```
+    /// use ravenrs_app::{Action, BusinessObject, Selection};
+    /// use ravenrs_app_ui::App;
+    ///
+    /// #[derive(BusinessObject)]
+    /// struct Bill {
+    ///     #[field(key)]
+    ///     id: i64,
+    ///     paid: bool,
+    /// }
+    ///
+    /// let app = App::new("Contas").entity::<Bill>().action(|| {
+    ///     Action::background("Pay", "Pagar", |job| {
+    ///         for bill in job.selected() {
+    ///             let mut bill = bill.clone();
+    ///             bill.set("paid", true);
+    ///             job.save(bill);
+    ///         }
+    ///         Ok(())
+    ///     })
+    ///     .target_entity("Bill")
+    ///     .selection(Selection::RequireMultiple)
+    /// });
+    /// # let _ = app;
+    /// ```
+    pub fn action(mut self, make: impl Fn() -> ravenrs_app::Action + 'static) -> Self {
+        self.actions.push(Rc::new(make));
         self
     }
 
@@ -281,6 +343,9 @@ impl App {
         let mut builder = self.builder.module(SystemModule::with_words(words.clone()));
         for add in self.modules {
             builder = add(builder);
+        }
+        if !self.actions.is_empty() {
+            builder = builder.module(OwnActions(self.actions));
         }
         let mut application = builder.build()?;
         if let Some(text) = &self.administrator {

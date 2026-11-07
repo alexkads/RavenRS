@@ -24,6 +24,7 @@ mod dashboard;
 mod detail_view;
 mod editors;
 mod form;
+mod jobs;
 mod list_editors;
 mod list_view;
 mod model_editor;

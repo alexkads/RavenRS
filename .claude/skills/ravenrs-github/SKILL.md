@@ -38,7 +38,7 @@ Não há GitHub Actions: a conta não pode usá-lo. A validação é local, e o 
 ./scripts/check.sh
 ```
 
-Ele roda rustfmt, clippy (desktop e wasm32), testes, documentação, `cargo deny` e o gate de desempenho. Se o gate reprovar, siga a skill `ravenrs-desempenho` antes de abençoar a baseline. Linux e Windows ficam nas limitações, a menos que tenham sido rodados.
+Esse é o rápido, para todo PR: rustfmt, mais clippy e testes só dos pacotes que a mudança atinge e dos que dependem deles (`scripts/changed-packages.py`, contra `origin/master`). O completo, com wasm32, features opcionais, MSRV, `cargo deny`, benchmarks, documentação e builds web, é `./scripts/check.sh --full`. Ele roda antes de publicar uma versão, ou quando o Alex pedir. O gate de desempenho só roda quando ele pedir (skill `ravenrs-desempenho`). Linux e Windows ficam nas limitações, a menos que tenham sido rodados.
 
 ## 4. Revisão e merge
 
