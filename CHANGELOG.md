@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.19] - 2026-11-07
+
 ### Breaking
 
 - `ClipKind::Title` has a `look` field: code that builds it field by field adds `look: CardLook::Plain`. Films saved before read as `Plain`.
