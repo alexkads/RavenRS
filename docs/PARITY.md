@@ -87,7 +87,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Range slider | | ✓ | ✓ | ⬜ |
 | Select / Drop-down list | ✓ | ✓ | ✓ | ✅ `Select`: by index or by value (`Select::of`), search, sizes |
 | Combobox / Autocomplete | ✓ | ✓ | ✓ | ✅ `Combobox` |
-| Filter builder | | ✓ | ✓ | ✅ `FilterBuilder`: lines and groups over the expression language; what it cannot show stays as text; also in the `DataGrid` toolbar |
+| Filter builder | | ✓ | ✓ | ✅ `FilterBuilder`: lines and groups over the expression language; "is any of" and "is none of" with values to pick; what it cannot show stays as text; also in the `DataGrid` toolbar and behind "Edit filter" on its filter panel, which opens every column's expression as one |
 | Lookup (records loaded on demand) | | ✓ | ✓ | ✅ `LookupField`: from memory or a callback, ignores stale answers |
 | Multi-select / Tag box | | ✓ | ✓ | ✅ `TagBox`: search, new values, a limit |
 | Numeric input / Spin editor | | ✓ | ✓ | ✅ `NumberField` (range, step, separators, money in whole cents), `Stepper` |
