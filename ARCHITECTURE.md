@@ -214,7 +214,7 @@ Rich components need more than layout and paint; the runtime provides them gener
 
 `DataGrid` is split in two layers. `grid::query` is a pure pipeline over rows (filter → search → sort → group → summarize) with no UI dependency: it is unit-tested on its own, including a 100,000-row sort-and-group run. The view caches the query result per (query, data version) and builds only the rows inside the viewport plus a small overscan, with spacers above and below; scrolling rebuilds just that window (`BuildCx::scrollable_virtual`, `scroll_viewport`, `set_scroll_offset`). Data lives in `GridData`, shared copy-on-write so edits invalidate the cache exactly once.
 
-Parity with the DevExpress DataGrid feature set:
+Parity with the feature set of commercial data grids:
 
 | Feature | RavenRS |
 |---|---|
@@ -249,7 +249,7 @@ Parity with the DevExpress DataGrid feature set:
 
 ## 6.3 Criteria language
 
-`ravenrs-criteria` is one expression language for filters, report totals, rules and SQL `WHERE` clauses, modeled on the behavior of the DevExpress Criteria Language. It knows nothing about reports or UI, and nothing specific to a module belongs in it.
+`ravenrs-criteria` is one expression language for filters, report totals, rules and SQL `WHERE` clauses, with the syntax and behavior business developers already know from filter languages of commercial suites. It knows nothing about reports or UI, and nothing specific to a module belongs in it.
 
 * **Tree.** `Criteria` is public: parse it from text (`parse`), build it in code, walk it, and print it back to text that parses to the same tree (`format`).
 * **Evaluation.** `Scope` interprets the tree in memory over any `Record`, such as JSON, a map or your own rows. `Environment` holds parameters and custom functions.

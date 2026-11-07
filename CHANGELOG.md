@@ -10,7 +10,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
-- `DataGrid`: the filter panel has an "Edit filter" button that opens the `FilterBuilder` over every column's expression at once, as the DevExpress filter panel does. It is there whenever something is filtered, with or without `filter_builder(true)`.
+- `DataGrid`: the filter panel has an "Edit filter" button that opens the `FilterBuilder` over every column's expression at once. It is there whenever something is filtered, with or without `filter_builder(true)`.
 - `FilterBuilder`: "is any of" and "is none of" (`In` and `Not ... In`), picked as tags. A filter by value from a column's menu now opens as a line instead of raw text. `FilterField::values` lists what to pick from; the grid fills it with the column's values.
 - `ReleaseNote::links(heading, links)`: a heading over links, each a label and what clicking it does, such as opening the issue a change came from.
 - `ravenrs-ai` hears: `HEARING_CATALOG` offers Whisper Base and Small, and `Transcriber` turns mono speech at `HEARING_RATE` (16 kHz) into text on the CPU, in plain Rust, the way OpenAI's reference reads it. `ModelManager` downloads them like the other models, and its speed test times ten seconds of hearing.
