@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.18] - 2026-11-07
+
 ### Breaking
 
 - `SpeechSettings` has a `speaker` field: code that builds it field by field adds `speaker: None`.

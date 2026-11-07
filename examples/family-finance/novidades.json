@@ -1,22 +1,18 @@
 {
-  "versao": "0.1.33",
-  "titulo": "Lançar pelo Telegram sem comprovante, e desfazer pelo chat.",
+  "versao": "0.1.34",
+  "titulo": "Uma voz nova e natural, com três locutores.",
   "importante": false,
   "novidades": [
-    "No Telegram, lance só com uma mensagem, escrita ou falada: \"gastei 50 no mercado, foi a Ana\". O bot lê o valor, até por extenso, como \"cinquenta reais e noventa centavos\".",
-    "Se a categoria ainda não existe, o bot mostra as mais usadas para escolher, ou Criar, e nunca cria uma sem você pedir.",
-    "Errou? O botão Desfazer, depois do \"salva\", apaga o último lançamento do chat por 5 minutos.",
-    "O bot reconhece quem gastou mesmo com uma letra trocada no áudio, e o nome depois de \"para\": \"despesa de mercado para o Mateus\".",
-    "Em Ajustes, o cartão do Telegram ficou mais organizado: o estado no topo e o token recolhido depois de salvo.",
-    "Começar do zero e Carregar dados de exemplo pedem um backup recente e a palavra digitada em caixa alta antes de apagar ou trocar os dados."
+    "O assistente ganhou uma voz nova, que fala português do Brasil com naturalidade. Ela roda neste computador, como antes, e gera a fala mais de duas vezes mais rápido.",
+    "Escolha quem fala entre três locutores: Dora, Alex e Santa. Em Ajustes, na Voz do assistente, baixe a Kokoro 82M e escolha o locutor.",
+    "Os vídeos de treinamento foram narrados de novo, agora com o Santa."
   ],
-  "por_que_atualizar": "Para lançar pelo Telegram só dizendo o valor, sem PDF, desfazer um engano pelo chat e não perder dados por um clique sem querer.",
+  "por_que_atualizar": "Para ouvir o assistente e os treinamentos com uma voz natural em português, do locutor que você preferir.",
   "contribuidores": [
-    "Matheus Braga de Carvalho",
     "Alex S S Fonseca"
   ],
   "issues": [
-    23,
-    26
+    85,
+    93
   ]
 }

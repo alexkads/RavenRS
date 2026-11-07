@@ -1,5 +1,24 @@
 [
   {
+    "versao": "0.1.34",
+    "data": "2026-11-07",
+    "titulo": "Uma voz nova e natural, com três locutores.",
+    "importante": false,
+    "novidades": [
+      "O assistente ganhou uma voz nova, que fala português do Brasil com naturalidade. Ela roda neste computador, como antes, e gera a fala mais de duas vezes mais rápido.",
+      "Escolha quem fala entre três locutores: Dora, Alex e Santa. Em Ajustes, na Voz do assistente, baixe a Kokoro 82M e escolha o locutor.",
+      "Os vídeos de treinamento foram narrados de novo, agora com o Santa."
+    ],
+    "por_que_atualizar": "Para ouvir o assistente e os treinamentos com uma voz natural em português, do locutor que você preferir.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      85,
+      93
+    ]
+  },
+  {
     "versao": "0.1.33",
     "data": "2026-11-07",
     "titulo": "Lançar pelo Telegram sem comprovante, e desfazer pelo chat.",
