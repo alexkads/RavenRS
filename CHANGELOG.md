@@ -4,9 +4,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.16] - 2026-11-06
+
 ### Breaking
 
 - `FilterField` has a new public field, `values`; build it with `FilterField::new` instead of a struct literal.
+- `ReleaseNote` is no longer `Send`, `Sync` or `UnwindSafe`, since `links` holds what each click does. Like every other view, build it on the UI thread.
 
 ### Added
 
@@ -15,6 +18,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `ReleaseNote::links(heading, links)`: a heading over links, each a label and what clicking it does, such as opening the issue a change came from.
 - `ravenrs-ai` hears: `HEARING_CATALOG` offers Whisper Base and Small, and `Transcriber` turns mono speech at `HEARING_RATE` (16 kHz) into text on the CPU, in plain Rust, the way OpenAI's reference reads it. `ModelManager` downloads them like the other models, and its speed test times ten seconds of hearing.
 - `ModelFamily::Whisper`.
+
+### Fixed
+
+- Icons sit at the center of their box: the Lucide font left every glyph's left side bearing at 0, so each one was drawn left of center (the checkbox check by 1.75 px at 14 px). `RavenIcons.ttf` and `scripts/gen-icons.py` now set it to the glyph's own left edge.
 
 ## [27.1.15] - 2026-11-06
 

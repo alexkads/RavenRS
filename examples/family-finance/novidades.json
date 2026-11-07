@@ -1,15 +1,23 @@
 {
-  "versao": "0.1.31",
-  "titulo": "Comprovantes pelo Telegram.",
+  "versao": "0.1.32",
+  "titulo": "Telegram por áudio e atualização que explica o que deu errado.",
   "importante": false,
   "novidades": [
-    "Mande um comprovante em PDF para o seu bot do Telegram, responda se é despesa ou receita e a categoria, e o lançamento é criado.",
-    "Para ligar, abra Ajustes, cole o token do bot criado no @BotFather, escolha a conta e escaneie o QR com o celular.",
-    "O tema escolhido em Ajustes continua o mesmo quando você abre o app de novo."
+    "No Telegram, responda ao comprovante falando ou escrevendo, e diga quem gastou: \"despesa de mercado, quem gastou foi a Ana\".",
+    "Antes de lançar, o bot mostra o que vai gravar com os botões Confirmar, Corrigir e Cancelar.",
+    "Para entender áudios, baixe um modelo em Ajustes, no cartão Telegram. Ele roda só neste computador.",
+    "Se uma atualização não der certo, Ver detalhes mostra o motivo inteiro e o fim do registro do instalador, para copiar ou tentar de novo.",
+    "Em Lançamentos, o painel do filtro ganhou Editar filtro, com é um de e não é nenhum de.",
+    "Os ícones ficaram centralizados, como o check da caixa de marcação.",
+    "As novidades agora mostram quem contribuiu e as issues resolvidas em cada versão."
   ],
-  "por_que_atualizar": "Para lançar despesas e receitas direto do celular, sem digitar o valor.",
+  "por_que_atualizar": "Para lançar comprovantes pelo Telegram falando, confirmar antes de gravar e entender uma atualização que falhe.",
   "contribuidores": [
     "Matheus Braga de Carvalho",
     "Alex S S Fonseca"
+  ],
+  "issues": [
+    4,
+    6
   ]
 }
