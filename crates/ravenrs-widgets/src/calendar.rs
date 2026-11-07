@@ -440,7 +440,7 @@ impl View for DatePicker {
         let icon = util::icon(cx, IconName::Calendar, 16.0, state.ink(theme.color(Semantic::InkMuted)));
         let labels = cx.labels();
         let (text, color) = match self.value.get() {
-            Some(d) => ((labels.short_date)(d), theme.color(Semantic::Ink)),
+            Some(d) => (labels.short_date(d), theme.color(Semantic::Ink)),
             None => {
                 let hint = self.placeholder.clone().unwrap_or_else(|| labels.pick_date.clone());
                 (hint, theme.color(Semantic::InkMuted))
@@ -695,7 +695,7 @@ impl View for DateRangePicker {
         let chosen = self.value.get();
         let (text, color) = match chosen {
             Some(r) => (
-                format!("{} – {}", (labels.short_date)(r.start), (labels.short_date)(r.end)),
+                format!("{} – {}", labels.short_date(r.start), labels.short_date(r.end)),
                 theme.color(Semantic::Ink),
             ),
             None => (

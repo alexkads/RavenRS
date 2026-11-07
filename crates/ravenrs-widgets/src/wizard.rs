@@ -388,7 +388,7 @@ impl View for StepIndicator {
         let current = self.steps.iter().position(|s| s.state == StepState::Current).map_or(0, |i| i + 1);
         cx.semantics(
             node,
-            Semantics::new(Role::List).name((labels.wizard_progress)(current, self.steps.len())),
+            Semantics::new(Role::List).name(labels.wizard_progress(current, self.steps.len())),
         );
         node
     }
@@ -464,7 +464,7 @@ impl View for Wizard {
             &marks,
             Paint::None,
         );
-        cx.semantics(header, Semantics::new(Role::List).name((labels.wizard_progress)(current + 1, count)));
+        cx.semantics(header, Semantics::new(Role::List).name(labels.wizard_progress(current + 1, count)));
         let step = &self.steps[current];
         let mut body = Vec::new();
         if let Some(message) = error.get() {

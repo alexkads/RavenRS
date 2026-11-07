@@ -2,6 +2,7 @@
 
 use std::collections::BTreeSet;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, TextStyle};
@@ -39,24 +40,24 @@ pub struct AssistantLabels {
 
 impl Default for AssistantLabels {
     fn default() -> Self {
-        Self {
-            placeholder: "Ask how to do something".into(),
-            nothing_found: "No film talks about that. Try other words.".into(),
-            film: "Film".into(),
-            player: MovieLabels::default(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl AssistantLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            placeholder: texts.get("movie.assistant.placeholder"),
+            nothing_found: texts.get("movie.assistant.nothing_found"),
+            film: texts.get("movie.assistant.film"),
+            player: MovieLabels::from_texts(texts),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            placeholder: "Pergunte como fazer alguma coisa".into(),
-            nothing_found: "Nenhum filme fala sobre isso. Tente outras palavras.".into(),
-            film: "Assunto".into(),
-            player: MovieLabels::pt_br(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 

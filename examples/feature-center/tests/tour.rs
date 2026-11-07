@@ -154,7 +154,7 @@ impl Center {
 }
 
 /// Every list of the navigation, with what it is there to show.
-const DEMONSTRATIONS: [(&str, &str); 19] = [
+const DEMONSTRATIONS: [(&str, &str); 20] = [
     ("Regras", "ValidationRules"),
     ("Avisos e informações", "ValidationSoft"),
     ("Ao sair do campo", "ValidationOnLeave"),
@@ -162,6 +162,7 @@ const DEMONSTRATIONS: [(&str, &str); 19] = [
     ("Tipos de Action", "ActionDemo"),
     ("Todos os tipos", "EditorsDemo"),
     ("Campos personalizados", "CustomFieldsDemo"),
+    ("Textos por chave", "TextsDemo"),
     ("Uma lista, cinco visões", "ListEditorsDemo"),
     ("Variantes e filtros", "VariantsDemo"),
     ("Edição na lista", "EditableList"),
@@ -303,6 +304,17 @@ fn every_kind_of_action_runs() {
         c.ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some("Carimbar")),
         "inside the form"
     );
+}
+
+#[test]
+fn texts_by_key_replace_words_and_add_the_center_s_own() {
+    let mut c = Center::memory("ana");
+    c.open_list("TextsDemo");
+    assert!(c.says("Recarregar"), "a word of the screens the center replaced: {:?}", c.texts());
+    assert!(!c.texts().iter().any(|text| text == "Atualizar"), "and the one it replaced is gone");
+    c.select("TextsDemo", 1.0);
+    c.run("DemoHello", ActionInput::None);
+    assert!(c.says("Olá, Ana! Este texto veio do catálogo."), "a key of its own: {:?}", c.texts());
 }
 
 #[test]

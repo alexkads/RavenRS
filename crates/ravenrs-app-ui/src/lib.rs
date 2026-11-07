@@ -37,7 +37,7 @@ mod shell;
 mod system;
 mod values;
 
-pub use app::{App, Language};
+pub use app::App;
 pub use container::{ActionButton, ActionContainer};
 pub use dashboard::DashboardView;
 pub use detail_view::DetailView;
@@ -49,6 +49,7 @@ pub use list_editors::{
 pub use list_view::{CellText, ColumnShape, GridShape, ListEditorRequest, ListSource, ListView, OpenHandler};
 pub use model_editor::ModelEditor;
 pub use pane::{EntityPane, PaneWords};
+pub use ravenrs_app_i18n::{Catalog, Language, Texts};
 pub use security::SecuredApp;
 pub use session::{CollectionSource, FormCaption, Session, Words};
 pub use shell::{AppShell, FrameTemplate, MainTemplate, TemplateParts};

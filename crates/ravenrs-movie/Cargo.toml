@@ -14,6 +14,7 @@ keywords = ["video", "manual", "gui", "wasm"]
 categories = ["gui", "multimedia::video"]
 
 [dependencies]
+ravenrs-app-i18n.workspace = true
 ravenrs-core.workspace = true
 ravenrs-layout.workspace = true
 ravenrs-reactive.workspace = true

@@ -7,45 +7,23 @@ use ravenrs_app::{
     Application, ApplicationBuilder, AttachmentStore, BusinessObject, MemoryDatabase, ModelError, ModelStore,
     Module, ObjectSpace,
 };
+use ravenrs_app_i18n::{Catalog, Language, Texts};
 use ravenrs_widgets::{Alert, AnyView, Labels, Localized, Tone};
 
 use crate::editors::EditorRegistry;
 use crate::session::{SpaceFactory, Words};
 use crate::{AppShell, SystemModule};
 
-/// The language of the screens and of everything inside them.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum Language {
-    /// English.
-    #[default]
-    English,
-    /// Brazilian Portuguese.
-    BrazilianPortuguese,
-}
+/// Texts given as JSON, by the code of their language, to put over the ones that come with it.
+pub(crate) type TextPacks = Vec<(String, String)>;
 
-impl Language {
-    pub(crate) fn words(self) -> Words {
-        match self {
-            Self::English => Words::default(),
-            Self::BrazilianPortuguese => Words::pt_br(),
-        }
+/// The texts that come with the framework with these over them, in this language.
+pub(crate) fn texts_of(language: Language, packs: &[(String, String)]) -> Result<Texts, ModelError> {
+    let mut catalog = Catalog::builtin();
+    for (code, json) in packs {
+        catalog.merge_json(code, json).map_err(|error| ModelError(error.0))?;
     }
-
-    /// What a translation of the model is known by.
-    fn code(self) -> &'static str {
-        match self {
-            Self::English => "en",
-            Self::BrazilianPortuguese => "pt-BR",
-        }
-    }
-
-    pub(crate) fn labels(self) -> Labels {
-        match self {
-            Self::English => Labels::default(),
-            Self::BrazilianPortuguese => Labels::pt_br(),
-        }
-    }
+    Ok(catalog.texts(language))
 }
 
 type Seed = Box<dyn FnOnce(&mut dyn ObjectSpace) -> Result<(), String>>;
@@ -81,6 +59,7 @@ type SessionStep = Box<dyn FnOnce(&crate::Session)>;
 pub struct App {
     builder: ApplicationBuilder,
     language: Language,
+    texts: TextPacks,
     modules: Vec<Box<dyn FnOnce(ApplicationBuilder) -> ApplicationBuilder>>,
     editors: EditorRegistry,
     seed: Option<Seed>,
@@ -133,6 +112,7 @@ impl App {
         Self {
             builder: Application::builder(title),
             language: Language::default(),
+            texts: Vec::new(),
             modules: Vec::new(),
             editors: EditorRegistry::default(),
             seed: None,
@@ -180,6 +160,15 @@ impl App {
     /// The language of its screens.
     pub fn language(mut self, language: Language) -> Self {
         self.language = language;
+        self
+    }
+
+    /// Adds or replaces words of its screens, and of any component in them, as a flat JSON of keys
+    /// in the language of this code: `{ "ui.save": "Gravar" }`. The keys that come with it are in
+    /// `ravenrs-app-i18n`; keys of its own, for its modules, go here too, and screens read them with
+    /// [`Session::texts`](crate::Session::texts). Given more than once, the last one wins.
+    pub fn texts(mut self, language: impl Into<String>, json: impl Into<String>) -> Self {
+        self.texts.push((language.into(), json.into()));
         self
     }
 
@@ -241,7 +230,8 @@ impl App {
     }
 
     /// The model in another language, as a difference in JSON. The one for its
-    /// [`language`](Self::language), `en` or `pt-BR`, is the one used.
+    /// [`language`](Self::language), `en` or `pt-BR`, is the one used. Words of the screens, not of
+    /// the model, go to [`texts`](Self::texts).
     pub fn translation(mut self, language: impl Into<String>, difference: impl Into<String>) -> Self {
         self.builder = self.builder.translation(language, difference);
         self
@@ -339,7 +329,8 @@ impl App {
 
     /// Puts it together, or says what is wrong with how it was declared.
     pub fn build(self) -> Result<AnyView, ModelError> {
-        let words = self.language.words();
+        let texts = texts_of(self.language, &self.texts)?;
+        let words = Words::from_texts(&texts);
         let mut builder = self.builder.module(SystemModule::with_words(words.clone()));
         for add in self.modules {
             builder = add(builder);
@@ -387,6 +378,7 @@ impl App {
         }
         let shell = AppShell::from_factory(application, factory, words, self.editors);
         let session = shell.session();
+        session.use_texts(texts.clone());
         session.set_access_words(ravenrs_app_a11y::AccessWords::for_language(self.language.code()));
         for (name, editor) in self.list_editors {
             session.register_list_editor(name, move |request| editor(request));
@@ -400,7 +392,7 @@ impl App {
         if let Some(store) = self.model_store {
             session.use_model_store(store).map_err(ModelError)?;
         }
-        Ok(Box::new(Localized::new(self.language.labels(), shell)))
+        Ok(Box::new(Localized::new(Labels::from_texts(&texts), shell)))
     }
 
     /// Puts it together, showing on the screen what is wrong with how it was declared.

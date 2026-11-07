@@ -4,6 +4,7 @@ use ravenrs_app::{
     Action, ActionCategory, ActionInput, ChoiceItem, CriteriaMode, FieldKind, Message, MessageKind, Module,
     Object, Selection, Value, ViewController,
 };
+use ravenrs_app_ui::Session;
 
 const ENTITY: &str = "ActionDemo";
 
@@ -119,6 +120,23 @@ impl ViewController for Showcase {
                 Ok(())
             }))
             .selection(Selection::RequireMultiple),
+            Action::simple("DemoHello", "Dizer olá")
+                .target_entity("TextsDemo")
+                .category(ActionCategory::Edit)
+                .selection(Selection::RequireSingle)
+                .on_execute(|cx| {
+                    let session =
+                        Session::of(cx).ok_or_else(|| "esta Action precisa das telas".to_owned())?;
+                    let name = match cx.selected.first().map(|record| record.get("name")) {
+                        Some(Value::Text(name)) => name,
+                        _ => String::new(),
+                    };
+                    cx.message(Message::new(
+                        session.texts().format("center.hello", &[&name]),
+                        MessageKind::Success,
+                    ));
+                    Ok(())
+                }),
             Action::simple("DemoInForm", "Carimbar")
                 .target_entity(ENTITY)
                 .category(ActionCategory::InForm("Tools".into()))

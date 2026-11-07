@@ -107,7 +107,8 @@ fn application() -> App {
         .module(AnalyticsModule::new(words()))
         .administrator_settings(model::CUSTOM_FIELDS)
         .translation("pt-BR", ravenrs_app_library::PT_BR)
-        .translation("pt-BR", ravenrs_app_report::PT_BR);
+        .translation("pt-BR", ravenrs_app_report::PT_BR)
+        .texts("pt-BR", model::TEXTS);
     for entity in model::entities() {
         app = app.entity_info(entity);
     }

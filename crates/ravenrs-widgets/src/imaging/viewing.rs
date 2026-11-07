@@ -594,7 +594,7 @@ impl View for LightboxLayer<'_> {
         if let Some(caption) = &item.caption {
             words.push(util::label(cx, caption, TextStyle::Callout, None, ink));
         }
-        let counter = (labels.lightbox_counter)(index + 1, count);
+        let counter = labels.lightbox_counter(index + 1, count);
         words.push(util::label(cx, &counter, TextStyle::Caption, None, theme.color(Semantic::InkMuted)));
         let words = lightbox_chip(cx, &words);
         let bottom = lightbox_row(cx, viewport.height - 44.0, Justify::Center, &[words]);

@@ -28,6 +28,7 @@ fn icon_of(name: &str) -> &'static str {
         "ActionDemo" => "zap",
         "EditorsDemo" => "pencil",
         "CustomFieldsDemo" => "sliders-horizontal",
+        "TextsDemo" => "languages",
         "ListEditorsDemo" => "chart-column",
         "VariantsDemo" => "filter",
         "EditableList" => "table",
@@ -404,6 +405,24 @@ fn custom_fields() -> EntityInfo {
     .field(FieldInfo::new("amount", FieldKind::Integer).caption("Valor"))
 }
 
+fn texts() -> EntityInfo {
+    demo(
+        "TextsDemo",
+        "Textos por chave",
+        APPEARANCE,
+        "Os textos das telas e dos componentes vêm de um catálogo por chave, com o inglês por trás. \
+         O centro passa um JSON que troca Atualizar por Recarregar em toda a aplicação e acrescenta center.hello, \
+         que a Action Dizer olá lê, sem nenhum código de tela.",
+    )
+    .field(title())
+}
+
+/// What the center adds to the texts and what it replaces, as an application would give them.
+pub const TEXTS: &str = r#"{
+    "ui.refresh": "Recarregar",
+    "center.hello": "Olá, {0}! Este texto veio do catálogo."
+}"#;
+
 /// The difference that adds fields to [`custom_fields`], as an administrator would give it.
 pub const CUSTOM_FIELDS: &str = r#"{ "Entities": { "CustomFieldsDemo": { "Members": {
     "segment": { "$new": true, "Kind": "Text", "Caption": "Segmento" },
@@ -449,6 +468,7 @@ pub fn entities() -> Vec<EntityInfo> {
         actions(),
         all_editors(),
         custom_fields(),
+        texts(),
         plan(),
         variants(),
         editable(),

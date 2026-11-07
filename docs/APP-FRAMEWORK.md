@@ -11,6 +11,7 @@ Declare what a record is, and get the screens: navigation, a list, a form, comma
 | `ravenrs-app` | No GUI. `#[derive(BusinessObject)]` and `#[derive(BusinessEnum)]`, from `ravenrs-app-derive`; `EntityInfo` and `Object`; `generate_model`, `ModelLayers`, `Diff`, `ModelStore`, `check_model`; `ObjectSpace` and `MemoryDatabase`; `Action`, `TargetScope`, `ViewController`, `WindowController`, `Frame`; `Module`, `Application` |
 | `ravenrs-app-a11y` | `AccessibleText`, `Announcer` and `LiveRegion`, `AccessWords`, `Audit`: names from the model, announcements, and an audit that walks an application |
 | `ravenrs-app-ui` | `App`, `AppShell`, `EntityPane`, `ListView`, `DetailView`, `EditorRegistry`, `ActionContainer`, `FrameTemplate`, `SystemModule`, `Words` |
+| `ravenrs-app-i18n` | `Language`, `Catalog` and `Texts`: every word of the screens and of the components by key, in English and Brazilian Portuguese, with the translations of the model that come with the framework |
 | `ravenrs-app-sqlite` | `SqliteDatabase`, `TableMap`: on tables it creates or tables that exist, on a connection the app shares |
 | `ravenrs-app-report` | `ReportModule`: an action that lays out a list as a report and shows it in the viewer |
 | `ravenrs-app-library` | `LibraryModule`: people, organizations, addresses, tasks, events, notes and files, to use or extend, with `PT_BR` for their words |
@@ -167,6 +168,7 @@ EntityInfo::new("Order")
 
 - Screens use only `ravenrs-widgets`. What is missing goes there first, with tests and a gallery entry, and never into these crates.
 - `ravenrs-widgets` knows nothing of `ravenrs-app`, and `ravenrs-criteria` nothing of either.
+- `ravenrs-app-i18n` depends on nothing of RavenRS, so the components read their words from it too. A new word is a key in each language's JSON, never a text written in code.
 - Money is a whole number of cents, kept in a number, and never a fraction.
 - Tests drive whole applications through `Ui::access_tree`, with no window: see `crates/ravenrs-app-ui/tests/e2e.rs`.
 
@@ -265,6 +267,26 @@ Permissions on `ReportDefinition` say who sees or changes a report, like any oth
 
 A panel is a record with tiles, edited on its own form: a title, an entity, a kind, what goes along the axis, values as `field:Sum`, and a filter. A tile that cannot be drawn says why, and the others still show.
 
+## Languages and words
+
+Every word the framework shows has a key in `ravenrs-app-i18n`: `ui.save` for the screens, `report.show` for reports, `rules.required` for rules, `widgets.close` for the components, `viewer.print` for the document viewer, and so on, with `format.decimal`, `format.thousands` and `format.money_prefix` for numbers. They come in English and Brazilian Portuguese, in `crates/ravenrs-app-i18n/texts/<language>/<part>.json`. A language without a key falls back to English, and a key nobody has shows as itself.
+
+An application picks the language and, when it wants other words, gives a flat JSON of keys. Nothing of it is code of the screens:
+
+```rust
+App::new("Raven Contas")
+    .language(Language::BrazilianPortuguese)
+    .texts("pt-BR", r#"{ "ui.refresh": "Recarregar", "shop.hello": "Olá, {0}!" }"#)
+```
+
+What it replaces reaches every screen and every component inside them, as `Labels` comes from the same catalog. Keys of its own, for a module or an action, are read with `Session::texts()`, and `format` fills in `{0}`, `{1}`. `SecuredApp::texts` does the same for the screen of signing in and the application of each person. A module that brings words of its own ships them as a JSON constant for the application to give to `texts`.
+
+Each set of words has `from_texts(&Texts)`: `Words`, `RuleWords`, `ReportWords` (and `ReportWords::of(language)`), `Labels`, `ViewerLabels`, `ParameterLabels`, the labels of `ravenrs-movie` and `ravenrs-ai`, and `SqlWords`. `default()` is English and `pt_br()` Brazilian Portuguese, both from the catalog, so a new language is a folder of JSON. `PaneWords::with_texts` takes the words a pane shares with the others.
+
+The words of the model are a translation, not texts: `App::translation` takes a difference in JSON, and `export_captions` and `import_captions` make and read a sheet for whoever translates. The ones that come with the framework are in `ravenrs_app_i18n::model`, and `ravenrs_app_report::PT_BR` is one of them. `Catalog::missing` lists the keys a language does not have yet.
+
+In the feature center, *Textos por chave* replaces a word of every list and has an action that reads a key of the center's own.
+
 ## Security
 
 ```rust
@@ -357,7 +379,8 @@ Audit::new().theme(Theme::raven_light()).open("Novo").app(&mut ui).assert_clean(
 - Clippy's `duplicated_attributes` flags `#[appearance]` or `#[rule]` attributes that repeat a condition or a context. Allow it where they do, as a derive cannot do it for you.
 - Only text and number fields tell when they are left. Validation contexts do not reach into collections yet.
 - `register_function` is per thread, as all of an application's state is. A function of the application is not translated to SQL, so a filter with one reads the whole table.
-- A translation changes the model's words; `Words` follows `App::language` and does not change at run time.
+- A translation changes the model's words; `Words` and the texts follow `App::language` and do not change at run time.
+- `Culture` in `ravenrs-criteria`, which formats numbers and dates inside expressions and reports, is apart from the catalog. So are the words of the report designer.
 - A pane finds a row's key by the order of the entity's fields, so a layer that reorders its columns breaks its buttons.
 - Putting two people's changes together reads and then writes, in two steps. Two programs on one SQLite file can still meet between them, until there is a server.
 - Editing on a list needs a list that holds its records, so not `Server`, `DataView` or a given source. A cell that fails is marked, and its message shows only when it is edited.

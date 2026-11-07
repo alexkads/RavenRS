@@ -1,0 +1,5 @@
+{
+ "format.decimal": ",",
+ "format.money_prefix": "R$ ",
+ "format.thousands": "."
+}

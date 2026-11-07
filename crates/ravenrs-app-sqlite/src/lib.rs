@@ -31,6 +31,7 @@ use ravenrs_app::{
     AttachmentStore, Change, ChangeSet, Diff, EntityInfo, FieldInfo, FieldKind, ModelError, ModelStore,
     Object, ObjectSpace, Query, SpaceError, SpaceEvent, SpaceWatcher, Value, key_of, key_text, run_query,
 };
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_criteria::{DateTime, Dialect, Environment, SqlParam, to_sql};
 use rusqlite::types::{Value as SqlValue, ValueRef};
 use rusqlite::{Connection, ErrorCode, OptionalExtension, params_from_iter};
@@ -111,24 +112,24 @@ pub struct SqlWords {
 
 impl Default for SqlWords {
     fn default() -> Self {
-        Self {
-            unique: "There is already a record with this {0}".into(),
-            in_use: "This record is in use. Remove what depends on it first.".into(),
-            rule: "The data did not pass the rules of the database.".into(),
-            failed: "The database could not be reached: {0}".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl SqlWords {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            unique: texts.get("sqlite.unique"),
+            in_use: texts.get("sqlite.in_use"),
+            rule: texts.get("sqlite.rule"),
+            failed: texts.get("sqlite.failed"),
+        }
+    }
+
     /// In Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            unique: "Já existe um registro com este valor em {0}.".into(),
-            in_use: "Este registro está em uso. Remova antes o que depende dele.".into(),
-            rule: "Os dados não passaram nas regras do banco.".into(),
-            failed: "Não foi possível acessar o banco de dados: {0}".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 

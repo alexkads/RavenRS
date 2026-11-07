@@ -3,6 +3,7 @@
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_reactive::Binding;
 use ravenrs_widgets::{BuildCx, Chat, ChatMessage, List, ListItem, NodeId, UiWaker, View};
 
@@ -33,27 +34,24 @@ pub struct MovieChatLabels {
 
 impl Default for MovieChatLabels {
     fn default() -> Self {
-        Self {
-            placeholder: "Ask how to do something".into(),
-            intro: "Ask how to do something and I will open the moment of the training film that shows it."
-                .into(),
-            found: "These moments of the films show it:".into(),
-            nothing_found: "No film talks about that. Try other words.".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl MovieChatLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            placeholder: texts.get("movie.chat.placeholder"),
+            intro: texts.get("movie.chat.intro"),
+            found: texts.get("movie.chat.found"),
+            nothing_found: texts.get("movie.chat.nothing_found"),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            placeholder: "Pergunte como fazer alguma coisa".into(),
-            intro:
-                "Pergunte como fazer alguma coisa, e eu abro o momento do filme de treinamento que mostra."
-                    .into(),
-            found: "Estes momentos dos filmes mostram isso:".into(),
-            nothing_found: "Nenhum filme fala sobre isso. Tente outras palavras.".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 

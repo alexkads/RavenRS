@@ -4446,6 +4446,7 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-layout",
  "ravenrs-reactive",
@@ -4477,6 +4478,7 @@ dependencies = [
  "jiff",
  "proptest",
  "ravenrs-app-derive",
+ "ravenrs-app-i18n",
  "ravenrs-criteria",
  "ravenrs-reactive",
  "regex-lite",
@@ -4509,6 +4511,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-app-i18n"
+version = "27.1.16"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "ravenrs-app-library"
 version = "27.1.16"
 dependencies = [
@@ -4525,6 +4534,7 @@ name = "ravenrs-app-report"
 version = "27.1.16"
 dependencies = [
  "ravenrs-app",
+ "ravenrs-app-i18n",
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-criteria",
@@ -4545,6 +4555,7 @@ name = "ravenrs-app-sqlite"
 version = "27.1.16"
 dependencies = [
  "ravenrs-app",
+ "ravenrs-app-i18n",
  "ravenrs-criteria",
  "rusqlite",
 ]
@@ -4555,6 +4566,7 @@ version = "27.1.16"
 dependencies = [
  "ravenrs-app",
  "ravenrs-app-a11y",
+ "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-criteria",
  "ravenrs-grid-export",
@@ -4638,6 +4650,7 @@ name = "ravenrs-movie"
 version = "27.1.16"
 dependencies = [
  "flate2",
+ "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-layout",
  "ravenrs-reactive",
@@ -4813,6 +4826,7 @@ dependencies = [
 name = "ravenrs-report-viewer"
 version = "27.1.16"
 dependencies = [
+ "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-layout",
  "ravenrs-platform-native",
@@ -4875,6 +4889,7 @@ dependencies = [
  "image",
  "proptest",
  "ravenrs-animation",
+ "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-criteria",
  "ravenrs-graphics",

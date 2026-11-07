@@ -9,6 +9,7 @@ use ravenrs_app::{
     Action, ActionCategory, EntityInfo, FieldInfo, FieldKind, Message, MessageKind, Module, Object,
     ObjectSpace, Operation, Query, Selection, TargetScope, Value, ViewController, ViewKind,
 };
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_app_ui::Session;
 use ravenrs_reactive::State;
 use ravenrs_report::wizard::{self, ColumnWords, WizardOptions};
@@ -30,7 +31,7 @@ const SAMPLE_ROWS: usize = 200;
 const VIEWER_HEIGHT: f32 = 720.0;
 
 /// Their words in Brazilian Portuguese, as a difference for `translation`.
-pub const PT_BR: &str = include_str!("pt_br.json");
+pub const PT_BR: &str = ravenrs_app_i18n::model::REPORTS_PT_BR;
 
 /// What the screens of stored reports say.
 #[derive(Clone, Debug)]
@@ -62,38 +63,36 @@ pub struct ReportWords {
 
 impl Default for ReportWords {
     fn default() -> Self {
-        Self {
-            show: "Show".into(),
-            design: "Design".into(),
-            show_in_report: "Show in report".into(),
-            save: "Save".into(),
-            close: "Close".into(),
-            saved: "Report saved.".into(),
-            none_for_list: "There is no report for this list yet.".into(),
-            unknown_entity: "This report is about an entity that does not exist:".into(),
-            broken_layout: "This report's layout cannot be read:".into(),
-            pick_report: "Which report?".into(),
-            open_panel: "Open panel".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl ReportWords {
+    /// The ones that come with the framework, in this language.
+    pub fn of(language: Language) -> Self {
+        Self::from_texts(&Texts::new(language))
+    }
+
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            show: texts.get("report.show"),
+            design: texts.get("report.design"),
+            show_in_report: texts.get("report.show_in_report"),
+            save: texts.get("report.save"),
+            close: texts.get("report.close"),
+            saved: texts.get("report.saved"),
+            none_for_list: texts.get("report.none_for_list"),
+            unknown_entity: texts.get("report.unknown_entity"),
+            broken_layout: texts.get("report.broken_layout"),
+            pick_report: texts.get("report.pick_report"),
+            open_panel: texts.get("report.open_panel"),
+        }
+    }
+
     /// In Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            show: "Visualizar".into(),
-            design: "Desenhar".into(),
-            show_in_report: "Mostrar em relatório".into(),
-            save: "Salvar".into(),
-            close: "Fechar".into(),
-            saved: "Relatório salvo.".into(),
-            none_for_list: "Ainda não há relatório para esta lista.".into(),
-            unknown_entity: "Este relatório é sobre uma entidade que não existe:".into(),
-            broken_layout: "O layout deste relatório não pode ser lido:".into(),
-            pick_report: "Qual relatório?".into(),
-            open_panel: "Abrir painel".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 

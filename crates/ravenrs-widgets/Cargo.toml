@@ -14,6 +14,7 @@ keywords = ["gui", "ui", "widgets", "components", "datagrid"]
 categories = ["gui"]
 
 [dependencies]
+ravenrs-app-i18n.workspace = true
 ravenrs-core.workspace = true
 ravenrs-animation.workspace = true
 ravenrs-reactive.workspace = true

@@ -1193,6 +1193,6 @@ fn the_zoom_of_a_picture_does_not_follow_to_the_next() {
 #[test]
 fn a_lightbox_speaks_portuguese_with_labels() {
     let labels = Labels::pt_br();
-    assert_eq!((labels.lightbox_counter)(2, 7), "2 de 7");
+    assert_eq!(labels.lightbox_counter(2, 7), "2 de 7");
     assert_eq!(labels.compare_first, "Antes");
 }

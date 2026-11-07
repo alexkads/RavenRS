@@ -1,0 +1,23 @@
+[package]
+name = "ravenrs-app-i18n"
+description = "Languages and words of a RavenRS business application: a catalog of texts by key, with English to fall back on, and the translations of the model that come with it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-i18n"
+keywords = ["application", "framework", "i18n", "localization"]
+categories = ["internationalization", "localization"]
+
+[dependencies]
+serde_json.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

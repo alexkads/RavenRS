@@ -1,0 +1,19 @@
+{
+ "viewer.fit_width": "Ajustar à largura",
+ "viewer.next": "Próxima",
+ "viewer.next_match": "Próximo resultado",
+ "viewer.no_matches": "Não encontrado",
+ "viewer.of": "de",
+ "viewer.page": "Página",
+ "viewer.parameters.apply": "Aplicar",
+ "viewer.parameters.reset": "Redefinir",
+ "viewer.previous": "Anterior",
+ "viewer.previous_match": "Resultado anterior",
+ "viewer.print": "Imprimir",
+ "viewer.report_error": "Erro no relatório",
+ "viewer.search": "Buscar",
+ "viewer.thumbnail_of_page": "Miniatura da página",
+ "viewer.thumbnails": "Miniaturas",
+ "viewer.zoom_in": "Aproximar",
+ "viewer.zoom_out": "Afastar"
+}

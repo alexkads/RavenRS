@@ -4,7 +4,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+
+- `Labels::tag_add`, `wizard_progress`, `theme_changed`, `theme_contrast`, `short_date`, `lightbox_counter` and `rating_value` are templates now, with `{0}`, `{1}` where the values go, and no longer functions. Methods of the same name fill them in: `labels.short_date(day)` instead of `(labels.short_date)(day)`. `theme_changed` has three forms, for none, one and more.
+
 ### Added
+
+- **`ravenrs-app-i18n`**: `Language`, `Catalog` and `Texts`. Every word of the application framework and of the components has a key, in English and Brazilian Portuguese, in JSON by part; a language without a key falls back to English. `App::texts` and `SecuredApp::texts` add or replace words with a flat JSON of keys, and `Session::texts` reads them, keys of the application's own included. `Words`, `RuleWords`, `ReportWords`, `SqlWords`, `Labels`, `ModelPickerLabels`, `ViewerLabels`, `ParameterLabels`, the labels of `ravenrs-movie` and of `ravenrs-ai` have `from_texts`, and their `default()` and `pt_br()` come from the catalog. `ravenrs_app_ui::Language` is the one of this crate, and the translations of the model that come with the framework are in `ravenrs_app_i18n::model`.
 
 - `ExpressionEditor`: edits an expression of the criteria language, with fields, parameters, functions by group, operators and constants to search and insert at the caret, each item's signature and description, and a check while typing that gives the line and column of a syntax error and lists unknown names. Its words are in `Labels` (`expression_*`). The report designer opens it from the button beside an expression, the filter and a group's field, and from Expression on the Home page.
 - `ravenrs-mcp` creates report layouts: `report_layout_format` describes the `.rvreport.json` format with examples made by `ravenrs-report`, `create_report_layout` builds a table layout from sample rows or from fields and a data URL, `check_report_layout` reports JSON errors by line and column, checks every expression and renders the layout, and `report_layout_templates` returns the ready layouts. The server still has no side effects: it returns JSON for the assistant to save.

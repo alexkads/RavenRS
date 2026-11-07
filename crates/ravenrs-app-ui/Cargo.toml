@@ -19,6 +19,7 @@ default = ["images"]
 images = ["ravenrs-widgets/decode"]
 
 [dependencies]
+ravenrs-app-i18n.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-a11y.workspace = true
 ravenrs-core.workspace = true
