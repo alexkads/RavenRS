@@ -12,7 +12,7 @@ RavenRS follows the release model of commercial component vendors, adapted so th
 | `R` | Feature release within the year: 1 in the first half, 2 in the second. Additions only. | `27.1` |
 | `P` | Maintenance release: fixes, performance and documentation. Monthly, or sooner for serious bugs. | `27.1.3` |
 
-Vendors name releases the same way: DevExpress ships `25.1` and `25.2`, and Telerik ships `2025.1`. The difference is that in RavenRS, `27.1 → 27.2` never breaks your build. `ravenrs = "27"` in `Cargo.toml` follows every feature and maintenance release of that year automatically. Breaking changes wait for the next year's `.1` release, from 28.1.0 on: see below for what holds until then.
+Commercial component vendors name releases the same way, such as `25.1` and `25.2`, or `2025.1`. The difference is that in RavenRS, `27.1 → 27.2` never breaks your build. `ravenrs = "27"` in `Cargo.toml` follows every feature and maintenance release of that year automatically. Breaking changes wait for the next year's `.1` release, from 28.1.0 on: see below for what holds until then.
 
 ## Calendar
 

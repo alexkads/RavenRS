@@ -195,7 +195,7 @@ impl RavenServer {
     }
 
     #[tool(
-        description = "Check whether a feature exists: searches the parity trackers against shadcn/ui, DevExpress and Telerik (components) and DevExpress Reporting (reporting), and returns each row's status (done, partial or planned) with counts.",
+        description = "Check whether a feature exists: searches the parity trackers against shadcn/ui and two commercial component suites (components) and commercial reporting suites (reporting), and returns each row's status (done, partial or planned) with counts.",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn parity_status(&self, Parameters(input): Parameters<ParityStatus>) -> CallToolResult {

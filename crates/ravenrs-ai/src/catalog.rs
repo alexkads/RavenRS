@@ -300,7 +300,7 @@ pub const CATALOG: &[LocalModel] = &[
 
 /// A model of [`CATALOG`] by its id.
 pub fn model_by_id(id: &str) -> Option<LocalModel> {
-    CATALOG.iter().chain(VOICE_CATALOG).find(|model| model.id == id).copied()
+    CATALOG.iter().chain(VOICE_CATALOG).chain(HEARING_CATALOG).find(|model| model.id == id).copied()
 }
 
 /// The models that speak. They are offered apart from [`CATALOG`], since an app uses one
@@ -333,3 +333,68 @@ pub const VOICE_CATALOG: &[LocalModel] = &[LocalModel {
         },
     ],
 }];
+
+/// The models that hear: speech becomes text with a
+/// [`Transcriber`](crate::Transcriber). Offered apart, like [`VOICE_CATALOG`].
+///
+/// Memory was measured at its peak on a laptop's CPU, hearing a four-second voice note:
+/// Base in 4 seconds, Small in 10. With a synthetic voice only Small got the sentence
+/// right, so Base suits clear speech and Small is the one to offer first.
+pub const HEARING_CATALOG: &[LocalModel] = &[
+    LocalModel {
+        id: "whisper-base",
+        name: "Whisper Base",
+        license: "Apache 2.0",
+        family: ModelFamily::Whisper,
+        memory: 588_984_320,
+        understood: None,
+        files: &[
+            ModelFile {
+                name: "model.safetensors",
+                url: "https://huggingface.co/openai/whisper-base/resolve/e37978b90ca9030d5170a5c07aadb050351a65bb/model.safetensors",
+                bytes: 290_403_936,
+                sha256: "07cadb9f25677c8d50df603e66a98fbd842cce45047139baeb16e6219a1e807b",
+            },
+            ModelFile {
+                name: "config.json",
+                url: "https://huggingface.co/openai/whisper-base/resolve/e37978b90ca9030d5170a5c07aadb050351a65bb/config.json",
+                bytes: 1_983,
+                sha256: "a153c53883a6799b6f056b4a8d1a515c9926d03994682ba88a7616618d7da0c1",
+            },
+            ModelFile {
+                name: "tokenizer.json",
+                url: "https://huggingface.co/openai/whisper-base/resolve/e37978b90ca9030d5170a5c07aadb050351a65bb/tokenizer.json",
+                bytes: 2_480_466,
+                sha256: "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+            },
+        ],
+    },
+    LocalModel {
+        id: "whisper-small",
+        name: "Whisper Small",
+        license: "Apache 2.0",
+        family: ModelFamily::Whisper,
+        memory: 1_942_667_264,
+        understood: None,
+        files: &[
+            ModelFile {
+                name: "model.safetensors",
+                url: "https://huggingface.co/openai/whisper-small/resolve/973afd24965f72e36ca33b3055d56a652f456b4d/model.safetensors",
+                bytes: 966_995_080,
+                sha256: "1d7734884874f1a1513ed9aa760a4f8e97aaa02fd6d93a3a85d27b2ae9ca596b",
+            },
+            ModelFile {
+                name: "config.json",
+                url: "https://huggingface.co/openai/whisper-small/resolve/973afd24965f72e36ca33b3055d56a652f456b4d/config.json",
+                bytes: 1_967,
+                sha256: "e6a2b489da1b5aed65a8eb8d1e7466fa867ad5643a8bc138ba708bd56b2875c4",
+            },
+            ModelFile {
+                name: "tokenizer.json",
+                url: "https://huggingface.co/openai/whisper-small/resolve/973afd24965f72e36ca33b3055d56a652f456b4d/tokenizer.json",
+                bytes: 2_480_466,
+                sha256: "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+            },
+        ],
+    },
+];
