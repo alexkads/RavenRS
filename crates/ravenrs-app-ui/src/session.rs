@@ -86,6 +86,10 @@ pub struct Words {
     pub chart_count: String,
     /// Things to be reminded of.
     pub reminders: String,
+    /// Background work that cannot say what it is doing.
+    pub working: String,
+    /// Background work asked to stop, until it does.
+    pub stopping: String,
     /// Reminds again later.
     pub snooze: String,
     /// Stops reminding.
@@ -197,6 +201,8 @@ impl Default for Words {
             no_resource: "No resource".into(),
             chart_count: "Records".into(),
             reminders: "Reminders".into(),
+            working: "Working…".into(),
+            stopping: "Stopping…".into(),
             snooze: "In 15 minutes".into(),
             dismiss: "Dismiss".into(),
             open: "Open".into(),
@@ -277,6 +283,8 @@ impl Words {
             no_resource: "Sem recurso".into(),
             chart_count: "Registros".into(),
             reminders: "Lembretes".into(),
+            working: "Trabalhando…".into(),
+            stopping: "Parando…".into(),
             snooze: "Em 15 minutos".into(),
             dismiss: "Dispensar".into(),
             open: "Abrir".into(),
@@ -1646,6 +1654,11 @@ impl Session {
     /// An action changed records: what is selected reads again, so actions go by what they are now,
     /// and a form with nothing typed in shows what they are now. What someone typed stays, and
     /// saving puts it together with what changed.
+    /// Background work changed records, or ended: what shows records and actions reads again.
+    pub(crate) fn after_background_work(&self) {
+        self.reread_after_action();
+    }
+
     fn reread_after_action(&self) {
         let frame = &self.0.frame;
         let fresh: Vec<Object> = frame

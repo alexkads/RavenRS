@@ -191,14 +191,15 @@ impl AppShell {
                 .on_click(move || showing.update(|(_, open)| *open = true))
         });
         let account = self.session.account();
-        if reminders.is_none() && account.is_none() && !self.theme_menu {
+        let running = crate::jobs::running(&self.session);
+        if running.is_none() && reminders.is_none() && account.is_none() && !self.theme_menu {
             return Box::new(sidebar);
         }
         let last: AnyView = match account {
             Some(account) => self.account_of(account),
             None => Box::new(self.theme_menu.then_some(ThemePicker::new())),
         };
-        Box::new(sidebar.footer(VStack::new((reminders, last)).spacing(4.0).align(Align::Stretch)))
+        Box::new(sidebar.footer(VStack::new((running, reminders, last)).spacing(4.0).align(Align::Stretch)))
     }
 
     fn account_of(&self, account: crate::session::Account) -> AnyView {
@@ -500,6 +501,7 @@ impl PopupHost {
 impl View for PopupHost {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let session = &self.session;
+        crate::jobs::keep(cx, session);
         let mut parts = Vec::new();
         // Made once for each time it opens.
         let held: State<Option<(String, PopupParts)>> = cx.use_state(|| None);

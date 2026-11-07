@@ -16,6 +16,7 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Mapping actions to containers in the model | ⬜ by category for now | |
 | Actions inside a form's layout | ✅ `ActionCategory::InForm`, `EntityInfo::form_actions` | |
 | Messages from actions | ✅ `ActionContext::message`: kind, duration, a button and what runs once it is gone | |
+| Actions whose work runs in the background, with progress and cancel | ✅ `Action::background`, `JobContext`; the window shows the bar and Cancel, lists read again as records come | |
 | View and window controllers, frames, modules | ✅ | |
 | Templates | 🟡 `FrameTemplate`; one built in | |
 | List views | 🟡 `ListView` over `DataGrid`; search, filters, sorting, grouping, column menu, summaries and export are the grid's own | |
