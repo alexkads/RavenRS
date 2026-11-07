@@ -321,6 +321,8 @@ pub struct MotionTokens {
     pub snappy: Transition,
     /// Panels and sheets, by physics (`spring-gentle`).
     pub gentle: Transition,
+    /// A chart's data drawing in (`duration-draw`).
+    pub draw_in: Transition,
 }
 
 /// A complete theme: palette plus the shared scales.
@@ -355,6 +357,7 @@ const MOTION: MotionTokens = MotionTokens {
     slow: Transition::slow(),
     snappy: Transition::snappy(),
     gentle: Transition::gentle(),
+    draw_in: Transition::draw_in(),
 };
 
 const fn shadow(y: f32, blur: f32, color: Color) -> Shadow {

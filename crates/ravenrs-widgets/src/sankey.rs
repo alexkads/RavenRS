@@ -167,6 +167,8 @@ pub struct SankeyChart {
     gradient: bool,
     text_size: f32,
     no_tooltip: bool,
+    appear: bool,
+    appear_key: u64,
 }
 
 impl std::fmt::Debug for SankeyChart {
@@ -201,6 +203,8 @@ impl SankeyChart {
             gradient: true,
             text_size: 12.0,
             no_tooltip: false,
+            appear: true,
+            appear_key: 0,
         }
     }
 
@@ -273,6 +277,19 @@ impl SankeyChart {
     /// Says nothing under the pointer and takes no keyboard focus.
     pub fn hide_tooltip(mut self) -> Self {
         self.no_tooltip = true;
+        self
+    }
+
+    /// The flows are whole from the first frame, instead of drawing in from the left
+    /// the first time the chart is painted.
+    pub fn no_appear(mut self) -> Self {
+        self.appear = false;
+        self
+    }
+
+    /// Draws the flows in again whenever `key` changes.
+    pub fn appear_key(mut self, key: impl std::hash::Hash) -> Self {
+        self.appear_key = chart::appear_key_of(key);
         self
     }
 
@@ -385,7 +402,11 @@ impl View for SankeyChart {
         let active: State<Option<Item>> = cx.use_state(|| None::<Item>);
         let hovered = cx.is_hover_within();
         let focused = cx.is_focused();
-        let shown = active.get().filter(|_| (hovered || focused) && !self.no_tooltip);
+        // The flows draw in from the left the first time it is painted, and the
+        // tooltip waits until they are whole.
+        let draw_in = if self.appear { theme.motion.draw_in } else { ravenrs_animation::Transition::Instant };
+        let progress = cx.appear(self.appear_key, draw_in);
+        let shown = active.get().filter(|_| (hovered || focused) && !self.no_tooltip && progress >= 1.0);
 
         // What stands out outlasts the pointer for as long as it takes to fade.
         let held = cx.use_state(|| Rc::new(Cell::new(None::<Item>))).peek().clone();
@@ -432,6 +453,11 @@ impl View for SankeyChart {
                 }
                 let mut picture = seen.borrow_mut();
                 picture.refresh(&own, frame.size, ink, paint);
+                let drawing_in = progress < 1.0;
+                if drawing_in {
+                    let whole = Rect::new(0.0, 0.0, frame.width(), frame.height());
+                    paint.scene.push_clip(chart::revealed(frame, whole, progress.max(0.0)));
+                }
                 let layout = &picture.layout;
                 for (index, flow) in layout.flows.iter().enumerate() {
                     let on = focus.is_some_and(|f| f.touches_flow(layout, index));
@@ -465,6 +491,9 @@ impl View for SankeyChart {
                 for (layout, at, color) in &picture.labels {
                     let origin = Point::new(frame.x() + at.x, frame.y() + at.y);
                     layout.paint(origin, *color, paint.scene);
+                }
+                if drawing_in {
+                    paint.scene.pop_clip();
                 }
             })),
         );
@@ -530,7 +559,9 @@ impl View for SankeyChart {
             semantics = semantics.value(self.panel(item, &colors, &theme).spoken());
         }
         cx.semantics(node, semantics);
-        cx.motion(node, Motion::new().enter(Effect::hidden(), m.base));
+        if !self.appear {
+            cx.motion(node, Motion::new().enter(Effect::hidden(), m.base));
+        }
 
         let mut parts = Vec::new();
         if !self.title.is_empty() {

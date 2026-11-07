@@ -4,6 +4,16 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+
+- `MotionTokens` has a `draw_in` field (the `duration-draw` token, `Transition::draw_in`): code that builds it field by field adds `draw_in: Transition::draw_in()`.
+
+### Added
+
+- A chart's data draws in the first time it is painted, over a second that starts fast and settles softly, with its axes, grid and their labels there from the first frame: lines, areas, dots, candles and the flows of a `SankeyChart` come in from the left, bars grow out of the zero line together, a pie or a doughnut sweeps clockwise with its labels and guides coming in at the end, and a radar grows out of its center over rings that stay put. The tooltip waits until the data is whole, and with less motion asked for it is whole at once. `Chart::no_appear` and `SankeyChart::no_appear` turn it off, and `appear_key` draws it in again when its key changes. It runs on the GPU over the pictures a chart already keeps, so it draws none anew.
+- `BuildCx::appear`: how far a view has appeared since it was first built, for content that draws itself in.
+- `ravenrs-graphics`: a `Plot` says which layers are its `backdrop` and its `notes`, which labels are `data_labels`, where bars start (`baseline`), and its `uncut_rules`, which `rules_around_bars` cuts again for bars of another length.
+
 ## [27.1.19] - 2026-11-07
 
 ### Breaking

@@ -445,6 +445,19 @@ pub struct Plot {
     pub rules: Vec<Rule>,
     /// Lines of reference, over the layers, when [`PlotStyle::rules_apart`] asks for them.
     pub top_rules: Vec<Rule>,
+    /// How many of the first layers are the backdrop the data is drawn over, such as
+    /// the rings and spokes of a radar, which stay put while the data draws in.
+    pub backdrop: usize,
+    /// The layers that only point at the data, such as the guide from a slice to its
+    /// label: they come in with the labels, once the data is nearly whole.
+    pub notes: Vec<usize>,
+    /// The labels that belong to the data, such as a bar's value, and not to an axis.
+    pub data_labels: Vec<usize>,
+    /// Where the value axis has its zero, inside the area: what bars grow out of.
+    pub baseline: Option<f32>,
+    /// The gridlines before [`Self::rules`] stopped at the bars, for bars of another
+    /// length, such as while they grow, to cut them again with [`rules_around_bars`].
+    pub uncut_rules: Vec<Rule>,
 }
 
 impl From<ChartDrawing> for Plot {
@@ -1132,6 +1145,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     if is_bar {
         bars(data, &towers, style, &axes, band, plot);
         if style.bars_apart {
+            plot.uncut_rules = plot.rules.clone();
             plot.rules = rules_around_bars(&plot.rules, &plot.bars);
         }
     } else if is_candle {
@@ -1193,7 +1207,7 @@ fn line_around_bar(line: Rect, bar: &Bar, out: &mut Vec<Rect>) {
 }
 
 /// Gridlines stop where a bar starts and go on where it ends.
-fn rules_around_bars(rules: &[Rule], bars: &[Bar]) -> Vec<Rule> {
+pub fn rules_around_bars(rules: &[Rule], bars: &[Bar]) -> Vec<Rule> {
     let mut kept = Vec::with_capacity(rules.len());
     let (mut pieces, mut next) = (Vec::new(), Vec::new());
     for rule in rules {
@@ -1266,6 +1280,7 @@ fn bars(
     let start = if horizontal { axes.area.y() } else { axes.area.x() };
     let size = style.size;
     let reversed = axes.reversed;
+    plot.baseline = Some(axes.at(0.0_f64.clamp(axes.low, axes.high)));
     for (s, series) in data.series.iter().enumerate() {
         let series_color = style.color_of(s);
         let series_color = if series.color == Color::TRANSPARENT { series_color } else { series.color };
@@ -1399,6 +1414,7 @@ fn bars(
                     }
                     _ => centered(content, center, size, ink_over(color)),
                 });
+                plot.data_labels.push(plot.labels.len() - 1);
             };
             if let Some(at) = style.value_labels {
                 write(number, at);
@@ -1566,10 +1582,12 @@ fn lines(
             let above = Point::new(top.x, top.y - size * 1.1);
             if style.value_labels.is_some() {
                 let value = series.values.get(*place).copied().unwrap_or(0.0);
+                plot.data_labels.push(plot.labels.len());
                 plot.labels.push(centered((style.format)(value), above, size, style.ink));
             }
             if style.category_labels.is_some() {
                 let name = data.categories.get(*place).map(|c| (style.tick_format)(c)).unwrap_or_default();
+                plot.data_labels.push(plot.labels.len());
                 plot.labels.push(centered(name, above, size, style.ink));
             }
         }
@@ -1680,6 +1698,7 @@ fn place_guides(
                 PathSegment::Line(elbow),
                 PathSegment::Line(Point::new(column, y)),
             ];
+            plot.notes.push(plot.layers.len());
             plot.layers.push(stroke(path, 1.0, with_alpha(guide.color, 0.8)));
             let wide = ruler.width(&guide.text, style.size).ceil() + 2.0;
             let (x, align) = if sign > 0.0 {
@@ -1688,6 +1707,7 @@ fn place_guides(
                 (column - GUIDE_GAP - wide, LabelAlign::Right)
             };
             let place = Rect::new(x, y - line_height / 2.0, wide, line_height);
+            plot.data_labels.push(plot.labels.len());
             plot.labels.push(text(guide.text.clone(), place, align, style.size, style.ink));
         }
     }
@@ -1802,6 +1822,7 @@ fn pie(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: 
                             center.x + (reach + OUTSIDE_LINE) * cos,
                             center.y + (reach + OUTSIDE_LINE) * sin,
                         );
+                        plot.notes.push(plot.layers.len());
                         plot.layers.push(stroke(
                             vec![PathSegment::Move(from), PathSegment::Line(to)],
                             1.0,
@@ -1809,11 +1830,13 @@ fn pie(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: 
                         ));
                         let wide = ruler.width(&content, style.size) + 6.0;
                         let tip = Point::new(to.x + cos * wide / 2.0, to.y + sin * style.size * 0.7);
+                        plot.data_labels.push(plot.labels.len());
                         plot.labels.push(centered(content, tip, style.size, style.ink));
                     }
                     _ => {
                         let at =
                             Point::new(center.x + inside * middle.cos(), center.y + inside * middle.sin());
+                        plot.data_labels.push(plot.labels.len());
                         plot.labels.push(centered(content, at, style.size, ink_over(color)));
                     }
                 };
@@ -1886,6 +1909,7 @@ fn radar(data: &ChartData, rect: Rect, style: &PlotStyle, plot: &mut Plot) {
             }
         }
     }
+    plot.backdrop = plot.layers.len();
     for (s, series) in data.series.iter().enumerate() {
         let color = if series.color == Color::TRANSPARENT { style.color_of(s) } else { series.color };
         let points: Vec<Point> = (0..count)
@@ -2787,5 +2811,41 @@ mod tests {
             format: &|value| value.to_string(),
         };
         assert!(!crate::chart::draw(&values, AREA, &options).shapes.is_empty());
+    }
+
+    #[test]
+    fn what_draws_in_is_told_from_what_stays_put() {
+        // Bars grow out of the zero line, which a negative value puts above the bottom.
+        let style = PlotStyle {
+            bars_apart: true,
+            value_labels: Some(LabelAt::Outside),
+            ..PlotStyle::new(ChartKind::Bar)
+        };
+        let plot = draw(&data(&[("a", &[-2.0, 4.0])]), AREA, &style);
+        let zero = plot.baseline.expect("a zero line");
+        assert!(zero > plot.area.y() && zero < plot.area.max_y());
+        assert!(
+            plot.bars.iter().all(|b| (b.rect.y() - zero).abs() < 0.5 || (b.rect.max_y() - zero).abs() < 0.5)
+        );
+        // Their values are on the data and the axis labels are not.
+        assert_eq!(plot.data_labels.len(), 2);
+        assert!(plot.data_labels.iter().all(|i| ["-2", "4"].contains(&plot.labels[*i].text.as_str())));
+        assert!(plot.labels.len() > plot.data_labels.len(), "the axis keeps its labels");
+
+        // A radar's rings and spokes are its backdrop.
+        let mut style = PlotStyle::new(ChartKind::Radar);
+        style.rings = 3;
+        let plot = draw(&data(&[("a", &[1.0, 2.0, 3.0, 4.0])]), AREA, &style);
+        assert_eq!(plot.backdrop, 3 + 4);
+        assert!(plot.layers.len() > plot.backdrop, "the series come after it");
+
+        // A pie's guides only point at the slices.
+        let mut style = PlotStyle::new(ChartKind::Pie);
+        style.value_labels = Some(LabelAt::Outside);
+        style.label_guides = true;
+        let plot = draw(&data(&[("a", &[1.0, 2.0, 3.0])]), AREA, &style);
+        assert_eq!(plot.notes.len(), 3);
+        assert_eq!(plot.data_labels.len(), 3);
+        assert_eq!(plot.layers.len() - plot.notes.len(), plot.sectors.len());
     }
 }

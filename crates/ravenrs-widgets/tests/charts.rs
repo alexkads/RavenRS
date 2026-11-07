@@ -1071,3 +1071,150 @@ fn candles_fade_around_the_one_in_focus_and_ask_for_no_frames_when_still() {
     });
     assert!(faded, "the others do not");
 }
+
+/// A chart on a screen whose clock runs from the first frame, as on a platform.
+fn drawing_in(view: impl View + 'static) -> Ui {
+    let mut ui = Ui::new(VStack::new((view,)).align(Align::Stretch), Theme::raven_dark());
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    ui.set_time(0.0);
+    ui.update();
+    ui
+}
+
+/// The clip the chart's picture is painted through, if any.
+fn clip_of_picture(ui: &Ui) -> Option<Rect> {
+    let mut clips = Vec::new();
+    for primitive in ui.scene().primitives() {
+        match primitive {
+            Primitive::PushClip(rect) => clips.push(*rect),
+            Primitive::PopClip => {
+                clips.pop();
+            }
+            Primitive::Image(_) => return clips.last().copied(),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn paths(ui: &Ui) -> usize {
+    ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Path(_))).count()
+}
+
+#[test]
+fn a_line_draws_in_from_the_left_with_its_axes_there_from_the_start() {
+    let mut ui = drawing_in(line().hide_legend());
+    let first = clip_of_picture(&ui).expect("a reveal").width();
+    let labels = glyph_runs(&ui);
+    at_time(&mut ui, 0.15);
+    let later = clip_of_picture(&ui).expect("still a reveal").width();
+    assert!(later > first, "{first} then {later}");
+    settle(&mut ui, 0.15);
+    assert_eq!(clip_of_picture(&ui), None, "whole, with no clip left");
+    assert_eq!(glyph_runs(&ui), labels, "the axis labels were there all along");
+    assert!(!ui.is_animating());
+}
+
+#[test]
+fn bars_grow_out_of_the_zero_line_together() {
+    let chart =
+        Chart::new(ChartKind::Bar).categories(["A", "B", "C"]).series("S", [-4.0, 8.0, 16.0]).hide_legend();
+    let color = Theme::raven_dark().color(Semantic::Chart1);
+    let mut ui = drawing_in(chart);
+    at_time(&mut ui, 0.1);
+    let growing = bars_on_top(&ui, color);
+    settle(&mut ui, 0.1);
+    let whole = bars_on_top(&ui, color);
+    assert_eq!(whole.len(), 3);
+    // The negative one hangs from the zero line, where the others stand.
+    let zero = whole[0].y();
+    assert!((whole[1].max_y() - zero).abs() < 0.5);
+    let share = |i: usize| {
+        let bar = growing.iter().find(|r| (r.x() - whole[i].x()).abs() < 0.5);
+        bar.map_or(0.0, |bar| bar.height() / whole[i].height())
+    };
+    assert!(share(2) > 0.0 && share(2) < 0.99, "{}", share(2));
+    assert!((share(1) - share(2)).abs() < 0.02, "together: {} and {}", share(1), share(2));
+    let tall = growing.iter().find(|r| (r.x() - whole[2].x()).abs() < 0.5).expect("the tallest");
+    assert!((tall.max_y() - zero).abs() < 0.5, "it stands on zero");
+}
+
+#[test]
+fn a_pie_sweeps_and_a_radar_spreads_over_its_rings() {
+    let pie = Chart::new(ChartKind::Pie).categories(["A", "B", "C"]).series("S", [1.0, 2.0, 3.0]);
+    let mut ui = drawing_in(pie);
+    at_time(&mut ui, 0.05);
+    assert_eq!(paths(&ui), 3, "the slices are drawn as they sweep");
+    settle(&mut ui, 0.05);
+    assert_eq!(paths(&ui), 0);
+    assert_eq!(images(&ui).len(), 1, "and then the picture again");
+
+    let radar =
+        Chart::new(ChartKind::Radar).categories(["A", "B", "C", "D"]).series("S", [1.0, 2.0, 3.0, 4.0]);
+    let mut ui = drawing_in(radar);
+    at_time(&mut ui, 0.05);
+    let [rings, data] = images(&ui).try_into().expect("the rings and the data apart");
+    assert!(data.rect.width() < rings.rect.width() * 0.99);
+    let (inner, outer) = (data.rect, rings.rect);
+    let inside = inner.x() > outer.x()
+        && inner.y() > outer.y()
+        && inner.max_x() < outer.max_x()
+        && inner.max_y() < outer.max_y();
+    assert!(inside, "out of the center: {inner:?} in {outer:?}");
+    settle(&mut ui, 0.05);
+    assert_eq!(images(&ui).len(), 1);
+}
+
+#[test]
+fn the_tooltip_waits_until_the_data_is_whole() {
+    let mut ui = drawing_in(bars());
+    at_time(&mut ui, 0.1);
+    hover(&mut ui, 100.0, 100.0);
+    assert_eq!(image_node(&mut ui).value, None);
+    settle(&mut ui, 0.1);
+    hover(&mut ui, 101.0, 100.0);
+    assert!(image_node(&mut ui).value.is_some());
+}
+
+#[test]
+fn less_motion_or_no_appear_shows_the_data_whole_at_once() {
+    let mut ui = Ui::new(VStack::new((line(),)).align(Align::Stretch), Theme::raven_dark());
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    ui.set_reduced_motion(true);
+    ui.set_time(0.0);
+    ui.update();
+    assert_eq!(clip_of_picture(&ui), None);
+
+    let ui = drawing_in(line().no_appear());
+    assert_eq!(clip_of_picture(&ui), None);
+}
+
+#[test]
+fn a_new_key_draws_the_data_in_again() {
+    let period = State::new(0_u32);
+    let p = period.clone();
+    let mut ui = drawing_in(view_fn(move || line().appear_key(p.get())));
+    settle(&mut ui, 0.0);
+    assert_eq!(clip_of_picture(&ui), None);
+    period.set(1);
+    ui.update();
+    assert!(clip_of_picture(&ui).is_some(), "it draws in again");
+}
+
+#[test]
+fn a_sankey_draws_in_from_the_left() {
+    let sankey = SankeyChart::new().flow("Salary", "Budget", 100.0).flow("Budget", "Rent", 60.0);
+    let clip = |ui: &Ui| {
+        ui.scene()
+            .primitives()
+            .iter()
+            .find_map(|p| if let Primitive::PushClip(r) = p { Some(*r) } else { None })
+    };
+    let mut ui = drawing_in(sankey.clone());
+    let first = clip(&ui).expect("a reveal").width();
+    at_time(&mut ui, 0.2);
+    assert!(clip(&ui).expect("still a reveal").width() > first);
+    settle(&mut ui, 0.2);
+    assert_eq!(clip(&ui), None);
+    assert_eq!(clip(&drawing_in(sankey.no_appear())), None);
+}
