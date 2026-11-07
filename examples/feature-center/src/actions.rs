@@ -110,6 +110,48 @@ impl ViewController for Showcase {
     }
 }
 
+/// The action of the accessibility demonstration: words of its own for screen readers, keys, and
+/// an announcement of what it did.
+struct Accessible;
+
+impl ViewController for Accessible {
+    fn id(&self) -> &str {
+        "AccessibilityShowcase"
+    }
+
+    fn actions(&self) -> Vec<Action> {
+        vec![
+            Action::simple("AccessibilityCheck", "Conferir")
+                .target_entity(crate::model::ACCESSIBILITY_DEMO)
+                .category(ActionCategory::Edit)
+                .selection(Selection::RequireSingle)
+                .icon("check")
+                .hotkey("command+shift+k")
+                .accessible_description("Marca o selecionado como conferido")
+                .on_execute(|cx| {
+                    let mut space = cx.space.borrow_mut();
+                    let mut names = Vec::new();
+                    for record in &cx.selected {
+                        let found = space.find(crate::model::ACCESSIBILITY_DEMO, &record.get("id"));
+                        let Some(mut stored) = found.map_err(|e| e.to_string())? else { continue };
+                        stored.set("checked", true);
+                        if let Value::Text(name) = stored.get("name") {
+                            names.push(name);
+                        }
+                        space.save(stored).map_err(|e| e.to_string())?;
+                    }
+                    space.commit().map_err(|e| e.to_string())?;
+                    drop(space);
+                    cx.records_changed();
+                    if let Some(session) = ravenrs_app_ui::Session::of(cx) {
+                        session.announcer().polite(format!("Conferido: {}", names.join(", ")));
+                    }
+                    Ok(())
+                }),
+        ]
+    }
+}
+
 /// Everything of the center's own that is not an entity.
 #[derive(Debug)]
 pub struct CenterModule;
@@ -120,7 +162,7 @@ impl Module for CenterModule {
     }
 
     fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
-        vec![Box::new(Showcase)]
+        vec![Box::new(Showcase), Box::new(Accessible)]
     }
 
     fn model_difference(&self) -> Option<&'static str> {

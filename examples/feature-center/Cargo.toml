@@ -30,6 +30,7 @@ console_error_panic_hook.workspace = true
 web-sys = { workspace = true, features = ["console"] }
 
 [dev-dependencies]
+ravenrs-app-a11y.workspace = true
 image.workspace = true
 pollster.workspace = true
 ravenrs-core.workspace = true

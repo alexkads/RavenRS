@@ -9,6 +9,7 @@ Declare what a record is, and get the screens: navigation, a list, a form, comma
 | Crate | What it has |
 |---|---|
 | `ravenrs-app` | No GUI. `#[derive(BusinessObject)]` and `#[derive(BusinessEnum)]`, from `ravenrs-app-derive`; `EntityInfo` and `Object`; `generate_model`, `ModelLayers`, `Diff`, `ModelStore`, `check_model`; `ObjectSpace` and `MemoryDatabase`; `Action`, `TargetScope`, `ViewController`, `WindowController`, `Frame`; `Module`, `Application` |
+| `ravenrs-app-a11y` | `AccessibleText`, `Announcer` and `LiveRegion`, `AccessWords`, `Audit`: names from the model, announcements, and an audit that walks an application |
 | `ravenrs-app-ui` | `App`, `AppShell`, `EntityPane`, `ListView`, `DetailView`, `EditorRegistry`, `ActionContainer`, `FrameTemplate`, `SystemModule`, `Words` |
 | `ravenrs-app-sqlite` | `SqliteDatabase`, `TableMap`: on tables it creates or tables that exist, on a connection the app shares |
 | `ravenrs-app-report` | `ReportModule`: an action that lays out a list as a report and shows it in the viewer |
@@ -71,6 +72,9 @@ Records live in memory for now, so they are gone when the application closes. `s
 | `calculated = "[a] + [b]"` | Follows from the others, checked at compile time |
 | `default = ...` | What a new record starts with |
 | `required`, `unique`, `min = 1`, `max = 10`, `matches = "..."` | What it has to meet on saving, and `message = "..."` what to say then |
+| `accessible_name = "..."`, `accessible_description = "..."` | What screen readers call it instead of the caption, and say after it instead of the hint |
+
+On the struct, `#[object(focus_order = "name,amount")]` puts these fields first on the form, in this order, on the screen and for Tab.
 
 `String`, `bool`, `i32`, `i64`, `u32`, `u64`, `usize`, `f64` and `Option` of them work as they are. Any other type implements `FieldValue`, which `#[derive(BusinessEnum)]` does for an enum.
 
@@ -269,7 +273,33 @@ Keep these in mind:
 - Argon2id runs on the UI thread, about a fraction of a second, when signing in or changing a password.
 - A web build keeps records in memory for now, so users last as long as the page.
 
+## Accessibility
+
+Every generated application reaches screen readers and the keyboard with nothing written for them. `ravenrs-app-a11y` holds what the framework does about it, and `ravenrs-app-ui` uses it everywhere.
+
+- **Names.** A field is called by its caption, and an action by its caption, unless the declaration says otherwise: `FieldInfo::accessible_name` and `accessible_description`, `Action::accessible_name` and `accessible_description`, or the same on `#[field(...)]`. The model copies a field's words to its form item as `AccessibleName` and `AccessibleDescription`, so a translation or an administrator changes them as they change the caption. A field's description replaces its hint for screen readers; an error or a note on the field still comes first.
+- **Focus order.** `EntityInfo::focus_order` puts fields first on the form, and the form shows them in the same order, so the eye and Tab go the same way. A focus order that names a field that is not there stops `Application::build`.
+- **Shortcuts.** An action with a `hotkey` says its keys after its description.
+- **Announcements.** Saving says `Saved: ` and the record's name, a save that fails its rules says why at once, deleting says how many, and opening a list says its title. They come from `Session::announcer`, which an application uses for its own news, or silences with `set_quiet`. The region takes no room, and keeps the last three, so one said right after another is not lost. Messages and toasts were already statuses and alerts.
+- **Words.** The words of the announcements have keys under `a11y.`, in English and Brazilian Portuguese, and follow `App::language`. `AccessWords::from_lookup` takes them from wherever the application keeps its words, which is where the framework's catalog of words plugs in.
+
+### The audit
+
+```rust,ignore
+let mut ui = Ui::new(quick_app::app(), Theme::raven_dark());
+ui.set_viewport(Size::new(1200.0, 800.0), 1.0);
+Audit::new().theme(Theme::raven_light()).open("Novo").app(&mut ui).assert_clean();
+```
+
+`Audit::app` walks the application with no window: the screen it opens on, every item of the navigation, and on each, the buttons given to `open`. On every screen it reports a control with no name, an id that appears twice, focus on a node that is not there, Tab that does not move or goes round some controls and never reaches the others, a window over the screen that Escape does not close, and two commands on the same keys. On the theme on screen and on every theme given, it checks text and the focus ring against the WCAG AA contrast. `Audit::screen` looks at one screen, and `check_tree`, `check_focus`, `check_theme` and `check_shortcuts` are there one by one. `quick-app`, `quick-plan` and `feature-center` run it in their tests, and any example can.
+
 ## Known gaps
+
+- The audit checks the contrast of a theme's pairs of tokens, not of each pixel drawn: a color a rule or a screen chose for itself is not checked. It does not look at the size of targets, at text resized, or at the reading order against the screen.
+- A focus order reorders fields within their group of the form. Moving a field to another group is still done in the model.
+- A field has no keys of its own to reach it; shortcuts are for actions.
+- The words of the announcements live in `ravenrs-app-a11y` until the framework keeps all its words in one catalog.
+- The region of announcements is in the window, so while a window is open over it, what changes behind is heard once that window closes.
 
 - State machines are declared in code. People cannot define states or ways while the application runs.
 - A reminder someone else set or changed shows the next time records are read here, as nothing polls. Reminders do not go anywhere outside the application.

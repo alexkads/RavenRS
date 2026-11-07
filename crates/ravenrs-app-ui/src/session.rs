@@ -10,6 +10,7 @@ use ravenrs_app::{
     ModelNode, ModelStore, Object, ObjectSpace, Query, RuleWords, Severity, Value, ViewInfo, ViewKind,
     Violation, merge_changes, validate,
 };
+use ravenrs_app_a11y::{AccessWords, Announcer};
 use ravenrs_reactive::State;
 use ravenrs_widgets::{ConfirmDialog, Date, FilePicker, ToastExtras, Toaster, Toasts, Tone};
 
@@ -432,6 +433,9 @@ struct SessionInner {
     siblings: RefCell<Vec<Value>>,
     /// Who is signed in and how they leave.
     account: RefCell<Option<Account>>,
+    /// Where screen readers hear what changed, and in which words.
+    announcer: Announcer,
+    access_words: Rc<RefCell<AccessWords>>,
 }
 
 /// Who is signed in, for the window to show.
@@ -497,6 +501,8 @@ impl Session {
             today: Cell::new(today),
             siblings: RefCell::default(),
             account: RefCell::default(),
+            announcer: Announcer::new(),
+            access_words: Rc::default(),
         })
     }
 
@@ -571,6 +577,8 @@ impl Session {
             today: Cell::new(parent.today.get()),
             siblings: RefCell::default(),
             account: RefCell::default(),
+            announcer: parent.announcer.clone(),
+            access_words: parent.access_words.clone(),
         })
     }
 
@@ -1085,6 +1093,31 @@ impl Session {
         self.0.application.borrow().entities().iter().find(|e| e.name == name).cloned()
     }
 
+    /// Where screen readers hear what changed: saving, deleting, the screen that opened. Its
+    /// region is in the window; an application says more with it.
+    pub fn announcer(&self) -> &Announcer {
+        &self.0.announcer
+    }
+
+    /// The words of what screen readers hear, from the language of the application unless given.
+    pub fn set_access_words(&self, words: AccessWords) {
+        *self.0.access_words.borrow_mut() = words;
+    }
+
+    /// The words of what screen readers hear.
+    pub fn access_words(&self) -> AccessWords {
+        self.0.access_words.borrow().clone()
+    }
+
+    /// What names a record when it is announced: its default property, or what its entity is called.
+    fn spoken_name(entity: &EntityInfo, object: &Object) -> String {
+        entity
+            .default_property()
+            .map(|field| crate::values::display(field, &object.get(&field.name)))
+            .filter(|name| !name.trim().is_empty())
+            .unwrap_or_else(|| entity.caption.clone())
+    }
+
     /// Goes up whenever records may have changed; reading it builds again when they do.
     pub fn revision(&self) -> u64 {
         self.0.revision.get()
@@ -1238,6 +1271,9 @@ impl Session {
             Ok(view) => {
                 self.0.form.set(None);
                 self.0.history.set(vec![id.to_owned()]);
+                if let Some(title) = model.at(&["Views", id]).and_then(|node| node.text("Caption")) {
+                    self.0.announcer.polite(self.access_words().showing(title));
+                }
                 self.show(view);
                 self.touch();
             }
@@ -1365,7 +1401,9 @@ impl Session {
         if !errors.is_empty() {
             self.0.error.set(None);
             self.0.checking.set(true);
-            return Err(errors.join("; "));
+            let why = errors.join("; ");
+            self.0.announcer.assertive(self.access_words().not_saved(&why));
+            return Err(why);
         }
         self.0.checking.set(false);
         let then: Rc<dyn Fn(&Self)> = Rc::new(then);
@@ -1460,6 +1498,7 @@ impl Session {
         match done {
             Ok(()) => {
                 self.0.error.set(None);
+                self.0.announcer.polite(self.access_words().saved(&Self::spoken_name(&form.entity, &object)));
                 let saved = form.entity.key_field().map(|f| object.get(&f.name));
                 self.touch();
                 if let Some(key) = saved {
@@ -1552,6 +1591,7 @@ impl Session {
         };
         match done {
             Ok(()) => {
+                self.0.announcer.polite(self.access_words().deleted(objects.len()));
                 self.touch();
                 let leaving_form = self.0.form.peek().is_some();
                 if leaving_form {
