@@ -71,7 +71,8 @@ impl TrainingState {
     }
 }
 
-/// What the films say, recorded with LFM3 Audio, so that nobody needs the model to hear it.
+/// What the films say, recorded with the `pm_santa` voice of Kokoro, so that nobody needs the
+/// model to hear it.
 const NARRATION: &[u8] = include_bytes!("../../assets/treinamentos/narracao.voz");
 
 /// The page with the films.

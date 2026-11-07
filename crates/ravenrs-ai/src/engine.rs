@@ -97,7 +97,7 @@ pub(crate) fn prompt_of(family: ModelFamily, system: &str, user: &str) -> (Strin
             &["<|im_end|>"],
         ),
         // It does not converse: a `Transcriber` runs it.
-        ModelFamily::Whisper => (String::new(), &[]),
+        ModelFamily::Whisper | ModelFamily::Kokoro => (String::new(), &[]),
     }
 }
 
@@ -219,6 +219,7 @@ impl LocalEngine {
                 lfm3::ModelWeights::from_gguf(&content, &mut file, &device).map(Weights::Lfm3)
             }
             ModelFamily::Whisper => return Err(load("Whisper hears; a Transcriber runs it".into())),
+            ModelFamily::Kokoro => return Err(load("Kokoro speaks; a SpeechEngine runs it".into())),
         }
         .map_err(|e| load(e.to_string()))?;
         let tokenizer = Tokenizer::from_file(named("tokenizer.json")?).map_err(|e| load(e.to_string()))?;

@@ -22,8 +22,8 @@ use ravenrs_widgets::{
 use serde_json::{Value, json};
 
 use crate::{
-    LocalModel, Machine, ModelFolder, ModelManager, ModelManagerLabels, SPEECH_LANGUAGES, SPEECH_RATE,
-    SpeechEngine, SpeechSettings, SpeechVoice,
+    KOKORO_SPEAKERS, LocalModel, Machine, ModelFamily, ModelFolder, ModelManager, ModelManagerLabels,
+    SPEECH_LANGUAGES, SPEECH_RATE, SpeechEngine, SpeechSettings, SpeechVoice,
 };
 
 const STAYS_LOADED: Duration = Duration::from_secs(120);
@@ -80,7 +80,7 @@ impl LocalVoice {
                 }
                 let Some(speaking) = engine.as_mut() else { continue };
                 let mut free_at = Instant::now();
-                for sentence in sentences(&job.text) {
+                for sentence in speaking.pieces(&job.text) {
                     let current = || job.turn == now.load(Ordering::Acquire);
                     if !current() {
                         break;
@@ -175,6 +175,7 @@ fn to_json(settings: &SpeechSettings, read_aloud: bool) -> Value {
     json!({
         "language": settings.language,
         "voice": match settings.voice { SpeechVoice::Female => "female", SpeechVoice::Male => "male" },
+        "speaker": settings.speaker,
         "temperature": settings.temperature,
         "top_k": settings.top_k,
         "repetition_penalty": settings.repetition_penalty,
@@ -193,6 +194,11 @@ fn from_json(value: &Value) -> (SpeechSettings, bool) {
     }
     if value.get("voice").and_then(Value::as_str) == Some("male") {
         settings.voice = SpeechVoice::Male;
+    }
+    if let Some(speaker) = value.get("speaker").and_then(Value::as_str)
+        && KOKORO_SPEAKERS.contains(&speaker)
+    {
+        settings.speaker = Some(speaker.to_owned());
     }
     let number = |name: &str| value.get(name).and_then(Value::as_f64).filter(|number| *number >= 0.0);
     if let Some(number) = number("temperature") {
@@ -226,6 +232,10 @@ pub struct VoiceLabels {
     pub female: String,
     /// The male voice.
     pub male: String,
+    /// The field for the model's own voices.
+    pub speaker: String,
+    /// The name of each of [`KOKORO_SPEAKERS`], in its order.
+    pub speakers: Vec<String>,
     /// The switch that reads answers aloud.
     pub read_aloud: String,
     /// The button that plays a sample.
@@ -266,6 +276,8 @@ impl VoiceLabels {
             voice: texts.get("ai.voice.voice"),
             female: texts.get("ai.voice.female"),
             male: texts.get("ai.voice.male"),
+            speaker: texts.get("ai.voice.speaker"),
+            speakers: texts.list("ai.voice.speakers"),
             read_aloud: texts.get("ai.voice.read_aloud"),
             listen: texts.get("ai.voice.listen"),
             sample: texts.get("ai.voice.sample"),
@@ -297,6 +309,7 @@ pub struct VoiceManager {
     saved: Rc<RefCell<Value>>,
     language: State<usize>,
     gender: State<usize>,
+    speaker: State<usize>,
     temperature: State<f32>,
     top_k: State<f32>,
     repetition_penalty: State<f32>,
@@ -335,6 +348,13 @@ impl VoiceManager {
             saved: Rc::new(RefCell::new(to_json(&settings, read_aloud))),
             language: State::new(language),
             gender: State::new(usize::from(settings.voice == SpeechVoice::Male)),
+            speaker: State::new(
+                settings
+                    .speaker
+                    .as_deref()
+                    .and_then(|speaker| KOKORO_SPEAKERS.iter().position(|name| *name == speaker))
+                    .unwrap_or(0),
+            ),
             temperature: State::new(settings.temperature),
             top_k: State::new(settings.top_k as f32),
             repetition_penalty: State::new(settings.repetition_penalty),
@@ -352,12 +372,23 @@ impl VoiceManager {
         self
     }
 
+    /// Whether the voice in use is Kokoro, which has voices of its own and speaks only
+    /// Portuguese.
+    fn kokoro(&self) -> bool {
+        self.models.model_in_use().is_some_and(|model| model.family == ModelFamily::Kokoro)
+    }
+
     /// How to speak, as it is set now.
     pub fn settings(&self) -> SpeechSettings {
         let language = SPEECH_LANGUAGES.get(self.language.get()).copied().unwrap_or("Portuguese");
+        let kokoro = self.kokoro();
         SpeechSettings {
-            language: language.to_owned(),
+            language: if kokoro { "Portuguese" } else { language }.to_owned(),
             voice: if self.gender.get() == 1 { SpeechVoice::Male } else { SpeechVoice::Female },
+            speaker: KOKORO_SPEAKERS
+                .get(self.speaker.get())
+                .filter(|_| kokoro)
+                .map(|name| (*name).to_owned()),
             temperature: self.temperature.get(),
             top_k: self.top_k.get().round() as usize,
             repetition_penalty: self.repetition_penalty.get(),
@@ -479,6 +510,25 @@ impl View for VoiceManager {
         ))
         .spacing(theme.spacing.s3)
         .align(Align::Stretch);
+        let listen = HStack::new((Button::new(labels.listen.clone())
+            .icon(IconName::Volume2)
+            .size(ButtonSize::Small)
+            .on_click(move || speaking.say(sample.clone(), waker.clone())),))
+        .align(Align::Center);
+        let read_aloud = Toggle::new(self.read_aloud.binding()).label(labels.read_aloud.clone());
+        if self.kokoro() {
+            // Kokoro has its own voices and nothing fine to set.
+            let controls = VStack::new((
+                SegmentedControl::new(self.speaker.binding(), labels.speakers.clone())
+                    .label(labels.speaker.clone()),
+                read_aloud,
+                listen,
+            ))
+            .spacing(theme.spacing.s3)
+            .align(Align::Stretch);
+            return cx
+                .child(&VStack::new((models, controls)).spacing(theme.spacing.s4).align(Align::Stretch));
+        }
         let controls = VStack::new((
             HStack::new((
                 Select::new(self.language.binding(), labels.languages.clone()).label(labels.language.clone()),
@@ -488,12 +538,8 @@ impl View for VoiceManager {
             .spacing(theme.spacing.s3)
             .align(Align::Center)
             .wrap(),
-            Toggle::new(self.read_aloud.binding()).label(labels.read_aloud.clone()),
-            HStack::new((Button::new(labels.listen.clone())
-                .icon(IconName::Volume2)
-                .size(ButtonSize::Small)
-                .on_click(move || speaking.say(sample.clone(), waker.clone())),))
-            .align(Align::Center),
+            read_aloud,
+            listen,
             Disclosure::new(labels.advanced.clone(), fine),
         ))
         .spacing(theme.spacing.s3)
@@ -524,6 +570,7 @@ mod tests {
             top_k: 64,
             repetition_penalty: 1.2,
             repetition_window: 128,
+            speaker: Some("pm_santa".to_owned()),
             ..SpeechSettings::default()
         };
         assert_eq!(from_json(&to_json(&settings, false)), (settings, false));
@@ -531,7 +578,7 @@ mod tests {
 
     #[test]
     fn what_is_strange_stays_as_recommended() {
-        let strange = json!({"language": "Klingon", "temperature": -1, "repetition_penalty": 0.1});
+        let strange = json!({"language": "Klingon", "temperature": -1, "repetition_penalty": 0.1, "speaker": "af_heart"});
         assert_eq!(from_json(&strange), (SpeechSettings::default(), true));
     }
 }
