@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RADII","SPACING","TYPOGRAPHY"],"enum":["Material","Semantic","TextStyle"],"struct":["Elevation","Interaction","MotionTokens","Palette","Radii","Spacing","Theme","TypeStyle","Typography","Weight"]};

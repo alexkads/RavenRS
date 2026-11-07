@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CHUNK","KEPT_CHUNKS","LOCAL_ROWS","OWNERS","PLANS","REGIONS","SERVER_ROWS"],"fn":["columns","main","row","server"],"struct":["Asked","Poc"]};
