@@ -1,12 +1,13 @@
 //! Questions the Telegram bot answers, by text or by voice, with the numbers the reports
 //! use: the `ledger` view behind "Extrato do mês", the accounts' balances and the open
 //! bills. "quanto gastei com mercado esse mês?", "quanto a Ana gastou em outubro?",
-//! "quanto recebi mês passado?", "qual o saldo?", "quais contas vencem?".
+//! "quanto recebi mês passado?", "qual o saldo?", "quais contas vencem?". Everyone sees the
+//! whole family's numbers, as in the app; "eu", "meu" and "gastei" are the chat's member.
 
 use ravenrs::prelude::Date;
 
 use crate::db::{Database, DbResult};
-use crate::model::Flow;
+use crate::model::{Flow, Member};
 use crate::money::format_brl;
 
 const MONTHS: [&str; 12] = [
@@ -62,8 +63,13 @@ const FILLER: &[&str] = &[
 /// The most bills or categories one answer lists.
 const LISTED: usize = 5;
 
+/// Words in the first person singular: the one asking, who is `me` when the chat has a member.
+const ME: &[&str] =
+    &["eu", "meu", "minha", "meus", "minhas", "gastei", "paguei", "comprei", "recebi", "ganhei"];
+
 /// The answer to `text`, if it is a question; one not understood says what can be asked.
-pub fn answer(db: &Database, today: Date, text: &str) -> Option<DbResult<String>> {
+/// `me` is the member the chat speaks for, if any.
+pub fn answer(db: &Database, today: Date, text: &str, me: Option<&Member>) -> Option<DbResult<String>> {
     let keys: Vec<String> = text
         .split_whitespace()
         .map(|word| folded(word.trim_matches(|c: char| !c.is_alphanumeric())))
@@ -71,12 +77,12 @@ pub fn answer(db: &Database, today: Date, text: &str) -> Option<DbResult<String>
         .collect();
     let asks = keys.first().is_some_and(|key| STARTS.contains(&key.as_str()))
         || (text.trim_end().ends_with('?') && !text.chars().any(|c| c.is_ascii_digit()));
-    asks.then(|| answer_to(db, today, &keys))
+    asks.then(|| answer_to(db, today, &keys, me))
 }
 
 const HELP: &str = "Posso responder: quanto gastei (com uma categoria, de uma pessoa, este mês, mês passado ou em outubro), quanto recebi, qual o saldo e quais contas vencem.";
 
-fn answer_to(db: &Database, today: Date, keys: &[String]) -> DbResult<String> {
+fn answer_to(db: &Database, today: Date, keys: &[String], me: Option<&Member>) -> DbResult<String> {
     let has = |words: &[&str]| keys.iter().any(|key| words.contains(&key.as_str()));
     if has(&["saldo"]) || (has(&["quanto"]) && has(&["tenho", "temos"])) {
         return balance(db);
@@ -105,10 +111,12 @@ fn answer_to(db: &Database, today: Date, keys: &[String]) -> DbResult<String> {
         .filter_map(|category| found(keys, &category.name).map(|words| (words, category)))
         .max_by_key(|(words, _)| words.len());
     let members = db.members()?;
-    let member = members
+    let named = members
         .iter()
         .filter_map(|member| found(keys, &member.name).map(|words| (words, member)))
         .max_by_key(|(words, _)| words.len());
+    // A member named wins; "eu" or "gastei" is the one asking; "gastamos" is everyone.
+    let member = named.or_else(|| me.filter(|_| has(ME)).map(|me| (Vec::new(), me)));
     for (words, _) in category
         .iter()
         .map(|(w, c)| (w, c.name.as_str()))
@@ -288,7 +296,7 @@ mod tests {
     }
 
     fn ask(db: &Database, today: Date, text: &str) -> String {
-        answer(db, today, text).expect(text).expect("database")
+        answer(db, today, text, None).expect(text).expect("database")
     }
 
     #[test]
@@ -320,6 +328,30 @@ mod tests {
     }
 
     #[test]
+    fn i_is_the_member_of_the_chat() {
+        let (db, today) = family();
+        let ana = db.members().unwrap().into_iter().next().expect("Ana");
+        let mine = |text: &str| answer(&db, today, text, Some(&ana)).expect(text).expect("database");
+        assert!(
+            mine("quanto gastei?").starts_with("Gastos de Ana em novembro de 2026: R$ 70,00"),
+            "gastei is Ana"
+        );
+        assert!(mine("quanto eu gastei com mercado?").starts_with("Gastos com Mercado de Ana"), "eu is Ana");
+        assert!(
+            mine("quanto gastamos?").starts_with("Gastos em novembro de 2026: R$ 100,00"),
+            "gastamos is everyone"
+        );
+        assert!(
+            mine("quanto a família gastou com mercado?").starts_with("Gastos com Mercado em"),
+            "the whole family"
+        );
+        assert!(
+            ask(&db, today, "quanto gastei?").starts_with("Gastos em novembro"),
+            "a chat with no member: everyone"
+        );
+    }
+
+    #[test]
     fn never_answers_about_something_it_does_not_know() {
         let (db, today) = family();
         assert_eq!(
@@ -327,9 +359,9 @@ mod tests {
             "Não encontrei “academia” entre as categorias de despesa nem entre os membros."
         );
         assert_eq!(ask(&db, today, "qual a capital da França?"), HELP);
-        assert!(answer(&db, today, "gastei 50 no mercado").is_none(), "a transaction, not a question");
-        assert!(answer(&db, today, "gastei 50 no mercado?").is_none(), "an amount is never a question");
-        assert!(answer(&db, today, "despesa Mercado").is_none());
+        assert!(answer(&db, today, "gastei 50 no mercado", None).is_none(), "a transaction, not a question");
+        assert!(answer(&db, today, "gastei 50 no mercado?", None).is_none(), "an amount is never a question");
+        assert!(answer(&db, today, "despesa Mercado", None).is_none());
     }
 
     #[test]

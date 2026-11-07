@@ -20,6 +20,7 @@ use serde_json::{Value, json};
 const BOT_TOKEN: &str = "123456:TESTE";
 const CHAT: i64 = 111;
 const STRANGER: i64 = 222;
+const BRUNO: i64 = 333;
 
 // ---------------------------------------------------------------- the stand-in Telegram
 
@@ -318,7 +319,7 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
     }
     quiet.save(&TelegramNotices::file(&path)).expect("notices off");
     let code = "0123456789abcdef0123456789abcdef";
-    db.begin_telegram_pairing(&pairing_hash(code), now()).expect("pairing");
+    db.begin_telegram_pairing(&pairing_hash(code), None, now()).expect("pairing");
     fake.file("pix.pdf", receipt(&["Comprovante de Pix", "Valor", "R$ 3.000,00", "Para: Maria Silva"]));
     fake.file(
         "boleto.pdf",
@@ -486,7 +487,7 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
         "said and sent, in the account chosen in Ajustes, with who spent"
     );
 
-    db.revoke_telegram_pairings(now()).expect("revoke");
+    db.revoke_telegram_chat(CHAT, now()).expect("revoke");
     assert!(
         fake.say(document(CHAT, "pix.pdf", 2_000)).contains("Escaneie o QR"),
         "Desvincular cuts the chat off"
@@ -531,7 +532,7 @@ fn the_bot_tells_what_is_due_and_each_notice_turns_off() {
     notices.set(TelegramNotice::Weekly, false);
     notices.save(&TelegramNotices::file(&path)).expect("notices");
     let code = "fedcba9876543210fedcba9876543210";
-    db.begin_telegram_pairing(&pairing_hash(code), now()).expect("pairing");
+    db.begin_telegram_pairing(&pairing_hash(code), None, now()).expect("pairing");
 
     let mut command = Command::new(env!("CARGO_BIN_EXE_raven-telegram"));
     command.arg(&path).stdout(Stdio::null()).stderr(Stdio::null());
@@ -585,7 +586,7 @@ fn the_bot_says_how_many_messages_waited_while_it_was_closed() {
     }
     quiet.save(&TelegramNotices::file(&path)).expect("notices off");
     let code = "00112233445566778899aabbccddeeff";
-    db.begin_telegram_pairing(&pairing_hash(code), now()).expect("pairing");
+    db.begin_telegram_pairing(&pairing_hash(code), None, now()).expect("pairing");
     // Sent an hour ago, while the app was closed; Telegram kept them.
     let earlier = |mut update: Value| {
         update["message"]["date"] = json!(now() - 3600);
@@ -624,6 +625,60 @@ fn the_bot_says_how_many_messages_waited_while_it_was_closed() {
     );
     std::thread::sleep(Duration::from_secs(1));
     assert_eq!(fake.sent().len(), 5, "told once");
+    drop(db);
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+/// One chat per person: who sends is who spent, unless the message names someone else.
+#[test]
+fn each_chat_speaks_for_its_member() {
+    let fake = FakeTelegram::start(Duration::ZERO);
+    let home = folder("membros");
+    let path = home.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    db.add_account("Banco", AccountKind::Checking, 0).expect("account");
+    let ana = db.add_member("Ana").expect("member");
+    let bruno = db.add_member("Bruno").expect("member");
+    db.add_category("Mercado", Flow::Expense, 0).expect("category");
+    let mut quiet = TelegramNotices::default();
+    for kind in TelegramNotice::ALL {
+        quiet.set(kind, false);
+    }
+    quiet.save(&TelegramNotices::file(&path)).expect("notices off");
+
+    let mut command = Command::new(env!("CARGO_BIN_EXE_raven-telegram"));
+    command.arg(&path).stdout(Stdio::null()).stderr(Stdio::null());
+    isolated(&mut command, &fake, &home);
+    let _bot = Bot(command.spawn().expect("raven-telegram"));
+
+    let ana_code = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    db.begin_telegram_pairing(&pairing_hash(ana_code), Some(ana), now()).expect("pairing");
+    let hello = fake.say(text(CHAT, &format!("/start rf1_{ana_code}")));
+    assert!(hello.contains("Telegram conectado a este Raven em nome de Ana"), "{hello}");
+    let bruno_code = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    db.begin_telegram_pairing(&pairing_hash(bruno_code), Some(bruno), now()).expect("pairing");
+    assert!(fake.say(text(BRUNO, &format!("/start rf1_{bruno_code}"))).contains("em nome de Bruno"));
+    assert!(fake.say(text(STRANGER, "qual o saldo?")).contains("Escaneie o QR"), "no QR, no access");
+
+    let question = fake.say(text(CHAT, "gastei 50 no mercado"));
+    assert!(question.contains("Despesa · Mercado · Ana · R$ 50,00"), "Ana's chat: {question}");
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("salva"));
+    let question = fake.say(text(BRUNO, "gastei 20 no mercado"));
+    assert!(question.contains("Despesa · Mercado · Bruno · R$ 20,00"), "Bruno's chat: {question}");
+    assert!(fake.say(tap(BRUNO, "rf:ok")).contains("salva"));
+    let question = fake.say(text(BRUNO, "gastei 7 no mercado, foi a Ana"));
+    assert!(question.contains("Despesa · Mercado · Ana · R$ 7,00"), "the name said wins: {question}");
+    assert!(fake.say(tap(BRUNO, "rf:no")).contains("cancelado"));
+
+    let mine = fake.say(text(BRUNO, "quanto gastei?"));
+    assert!(mine.starts_with("Gastos de Bruno em ") && mine.contains("R$ 20,00"), "{mine}");
+    let all = fake.say(text(BRUNO, "quanto gastamos?"));
+    assert!(all.contains("R$ 70,00"), "everyone sees the whole family: {all}");
+    assert!(fake.say(text(CHAT, "quanto o Bruno gastou?")).contains("R$ 20,00"), "Ana can ask about Bruno");
+
+    db.revoke_telegram_chat(CHAT, now()).expect("unlink Ana's chat");
+    assert!(fake.say(text(CHAT, "quanto gastei?")).contains("Escaneie o QR"), "unlinked");
+    assert!(fake.say(text(BRUNO, "quanto gastei?")).starts_with("Gastos de Bruno"), "Bruno's chat stays");
     drop(db);
     let _ = std::fs::remove_dir_all(&home);
 }
@@ -715,7 +770,8 @@ fn window_side() {
         fake.say_within(text(CHAT, &format!("/start rf1_{code}")), Duration::from_secs(20), &mut tick);
     assert!(answer.is_some_and(|a| a.contains("Telegram conectado")), "the bot inside the window answered");
     wait_for(&mut ui, "Telegram conectado");
-    assert!(find(&mut ui, "Gerar novo QR").is_none(), "no QR to make while a chat is paired");
+    assert!(find(&mut ui, "Gerar novo QR").is_none(), "the QR was used: no QR left on screen");
+    assert!(find(&mut ui, "Conectar outro chat").is_some(), "another person can pair a chat of their own");
     press(&mut ui, "Desvincular");
     wait_for(&mut ui, "Nenhum chat conectado.");
 }

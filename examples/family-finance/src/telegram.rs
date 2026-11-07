@@ -409,7 +409,13 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
             .map_err(|e| e.to_string())?
         {
             service.pending.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);
-            send_message(service, chat, "Telegram conectado a este Raven. Agora envie um PDF.")?;
+            let who = db.telegram_chat_member(chat).map_err(|e| e.to_string())?;
+            let who = who.map(|member| format!(" em nome de {}", member.name)).unwrap_or_default();
+            send_message(
+                service,
+                chat,
+                &format!("Telegram conectado a este Raven{who}. Para lançar, diga: `gastei 50 no mercado`."),
+            )?;
         } else {
             send_message(service, chat, "Esse QR expirou ou já foi usado. Gere outro no Raven.")?;
         }
@@ -458,7 +464,8 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
     };
     if !text.starts_with('/') {
         let db = Database::open(&service.config.db_path).map_err(|e| e.to_string())?;
-        if let Some(answer) = crate::questions::answer(&db, today(), &text) {
+        let me = db.telegram_chat_member(chat).map_err(|e| e.to_string())?;
+        if let Some(answer) = crate::questions::answer(&db, today(), &text, me.as_ref()) {
             // A question leaves whatever is pending as it was.
             return send_message(service, chat, &answer.map_err(|e| e.to_string())?);
         }
@@ -670,9 +677,13 @@ const NOTHING_WAITING: &str = "Nada aguardando. Para lançar, diga o valor: `gas
 fn read(service: &Service, chat: i64, pending: Pending, text: &str) -> Result<(), String> {
     let Pending { amount_cents, from_pdf, since, .. } = pending;
     let read = Database::open(&service.config.db_path)
-        .and_then(|db| Ok((db.members()?, db.categories()?)))
+        .and_then(|db| Ok((db.members()?, db.categories()?, db.telegram_chat_member(chat)?)))
         .map_err(|e| e.to_string())
-        .map(|(members, categories)| read_reply(text, &members, &categories));
+        .map(|(members, categories, me)| {
+            // Who sends is who spent, unless the message names someone else.
+            read_reply(text, &members, &categories)
+                .map(|reply| Reply { member: reply.member.or(me), ..reply })
+        });
     let waiting = Pending { amount_cents, from_pdf, since, step: Step::Amount };
     match read {
         Ok(Ok(reply)) => {
@@ -1658,7 +1669,7 @@ mod tests {
     fn pairing_expires_after_ten_minutes() {
         let db = Database::in_memory().expect("database");
         let hash = pairing_hash("expired");
-        db.begin_telegram_pairing(&hash, 1_000).expect("pairing");
+        db.begin_telegram_pairing(&hash, None, 1_000).expect("pairing");
         assert!(!db.claim_telegram_pairing(&hash, 10, 10, 1_600).expect("expired"));
         assert!(!db.telegram_chat_is_linked(10, 10).expect("not linked"));
     }
@@ -1667,7 +1678,7 @@ mod tests {
     fn pairing_token_is_single_use() {
         let db = Database::in_memory().expect("database");
         let hash = pairing_hash("one-use");
-        db.begin_telegram_pairing(&hash, 1_000).expect("pairing");
+        db.begin_telegram_pairing(&hash, None, 1_000).expect("pairing");
         assert!(db.claim_telegram_pairing(&hash, 10, 10, 1_001).expect("first use"));
         assert!(!db.claim_telegram_pairing(&hash, 20, 20, 1_002).expect("second use"));
         assert!(db.telegram_chat_is_linked(10, 10).expect("linked"));
@@ -1677,17 +1688,74 @@ mod tests {
     fn revoking_pairing_disconnects_the_chat() {
         let db = Database::in_memory().expect("database");
         let hash = pairing_hash("revoke");
-        db.begin_telegram_pairing(&hash, 1_000).expect("pairing");
+        db.begin_telegram_pairing(&hash, None, 1_000).expect("pairing");
         assert!(db.claim_telegram_pairing(&hash, 10, 10, 1_001).expect("link"));
-        db.revoke_telegram_pairings(1_002).expect("revoke");
+        db.revoke_telegram_chat(10, 1_002).expect("revoke");
         assert!(!db.telegram_chat_is_linked(10, 10).expect("revoked"));
+    }
+
+    /// One chat per person: each QR is for a member, and a new one leaves the others linked.
+    #[test]
+    fn several_chats_stay_linked_each_with_its_member() {
+        let db = Database::in_memory().expect("database");
+        let ana = db.add_member("Ana").expect("member");
+        let bruno = db.add_member("Bruno").expect("member");
+        db.begin_telegram_pairing(&pairing_hash("ana"), Some(ana), 1_000).expect("pairing");
+        assert!(db.claim_telegram_pairing(&pairing_hash("ana"), 10, 10, 1_001).expect("Ana's chat"));
+        db.begin_telegram_pairing(&pairing_hash("bruno"), Some(bruno), 1_002).expect("pairing");
+        assert!(db.claim_telegram_pairing(&pairing_hash("bruno"), 20, 20, 1_003).expect("Bruno's chat"));
+        assert!(db.telegram_chat_is_linked(10, 10).expect("Ana still linked"), "a new QR leaves the others");
+        assert!(db.telegram_chat_is_linked(20, 20).expect("Bruno linked"));
+        assert_eq!(db.telegram_chat_member(10).expect("read").map(|m| m.name), Some("Ana".to_owned()));
+        assert_eq!(db.telegram_chat_member(20).expect("read").map(|m| m.name), Some("Bruno".to_owned()));
+        assert_eq!(db.telegram_chats().expect("chats"), [10, 20]);
+
+        // Still no access without a QR, nor from another account in a linked chat's place.
+        assert!(!db.telegram_chat_is_linked(30, 30).expect("unlinked"));
+        assert!(!db.telegram_chat_is_linked(10, 99).expect("another user"));
+        // An unclaimed QR is replaced by the next one, as before.
+        db.begin_telegram_pairing(&pairing_hash("old"), None, 1_004).expect("pairing");
+        db.begin_telegram_pairing(&pairing_hash("new"), None, 1_005).expect("pairing");
+        assert!(!db.claim_telegram_pairing(&pairing_hash("old"), 30, 30, 1_006).expect("replaced"));
+        assert!(db.telegram_qr_waiting(1_006).expect("read"));
+        assert!(!db.telegram_qr_waiting(1_005 + 600).expect("read"), "ten minutes");
+    }
+
+    #[test]
+    fn unlinking_one_chat_leaves_the_others() {
+        let db = Database::in_memory().expect("database");
+        let ana = db.add_member("Ana").expect("member");
+        for (code, chat) in [("a", 10), ("b", 20)] {
+            db.begin_telegram_pairing(&pairing_hash(code), Some(ana), 1_000).expect("pairing");
+            assert!(db.claim_telegram_pairing(&pairing_hash(code), chat, chat, 1_001).expect("link"));
+        }
+        db.begin_telegram_pairing(&pairing_hash("waiting"), None, 1_002).expect("pairing");
+        db.revoke_telegram_chat(10, 1_003).expect("revoke");
+        assert!(!db.telegram_chat_is_linked(10, 10).expect("read"), "the one unlinked");
+        assert!(db.telegram_chat_is_linked(20, 20).expect("read"), "the other stays");
+        assert!(
+            !db.claim_telegram_pairing(&pairing_hash("waiting"), 30, 30, 1_004).expect("read"),
+            "QRs expire too"
+        );
+
+        // A chat that pairs again keeps one link, for its new member.
+        let bruno = db.add_member("Bruno").expect("member");
+        db.begin_telegram_pairing(&pairing_hash("again"), Some(bruno), 1_005).expect("pairing");
+        assert!(db.claim_telegram_pairing(&pairing_hash("again"), 20, 20, 1_006).expect("link"));
+        let links = db.telegram_links().expect("links");
+        assert_eq!(links.len(), 1, "{links:?}");
+        assert_eq!(links[0].member.as_ref().map(|m| m.name.as_str()), Some("Bruno"));
+        // A member removed leaves the chat linked, for no one in particular.
+        db.delete_member(bruno).expect("delete");
+        assert!(db.telegram_chat_is_linked(20, 20).expect("read"));
+        assert_eq!(db.telegram_chat_member(20).expect("read"), None);
     }
 
     #[test]
     fn unlinked_chat_is_rejected() {
         let db = Database::in_memory().expect("database");
         let hash = pairing_hash("linked");
-        db.begin_telegram_pairing(&hash, 1_000).expect("pairing");
+        db.begin_telegram_pairing(&hash, None, 1_000).expect("pairing");
         assert!(db.claim_telegram_pairing(&hash, 10, 10, 1_001).expect("link"));
         assert!(!db.telegram_chat_is_linked(20, 20).expect("unlinked"));
     }
