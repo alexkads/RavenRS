@@ -37,6 +37,8 @@ pub struct Editor {
     pub gallery_open: State<bool>,
     pub wizard_open: State<bool>,
     pub drag: State<Option<FieldDrag>>,
+    /// The control last copied or cut, for Paste.
+    pub copied: State<Option<Control>>,
     pub engine: Rc<RefCell<ReportEngine>>,
     /// Frames of the band bodies in the last paint, for drops.
     pub band_frames: Rc<RefCell<Vec<(BandRef, Rect)>>>,
@@ -57,6 +59,7 @@ impl Editor {
             gallery_open: State::new(true),
             wizard_open: State::new(false),
             drag: State::new(None),
+            copied: State::new(None),
             engine: Rc::new(RefCell::new(ReportEngine::new())),
             band_frames: Rc::new(RefCell::new(Vec::new())),
             history: Rc::new(RefCell::new((Vec::new(), Vec::new()))),
@@ -190,6 +193,53 @@ impl Editor {
                 }
             });
             self.selection.set(Selection::Band(b));
+        }
+    }
+
+    /// Keeps a copy of the selected control for Paste.
+    pub fn copy_selected(&self) {
+        if let Some((_, _, c)) = self.selected_control() {
+            self.copied.set(Some(c));
+        }
+    }
+
+    /// Copies the selected control and deletes it.
+    pub fn cut_selected(&self) {
+        if self.selected_control().is_some() {
+            self.copy_selected();
+            self.delete_selected();
+        }
+    }
+
+    /// Adds the copied control to the band in use, a little below and to the right
+    /// of where it was, or at a free spot if it came from another band.
+    pub fn paste(&self) {
+        let Some(mut c) = self.copied.get() else { return };
+        let band = self.target_band();
+        let width = self.report.with(|r| r.page.content_width());
+        c.x = snap((c.x + 8.0).min((width - c.width).max(0.0)));
+        c.y = snap(c.y + 8.0);
+        self.add_control(band, c.clone());
+        // The next paste lands below this one, as in a stack of copies.
+        self.copied.set(Some(c));
+    }
+
+    /// Moves the selected control over the others in its band (`front`), or under them.
+    pub fn reorder_selected(&self, front: bool) {
+        let Selection::Control(b, i) = self.selection.get() else { return };
+        let mut to = None;
+        self.edit(|r| {
+            if let Some(band) = b.get_mut(r)
+                && i < band.controls.len()
+            {
+                let c = band.controls.remove(i);
+                let at = if front { band.controls.len() } else { 0 };
+                band.controls.insert(at, c);
+                to = Some(at);
+            }
+        });
+        if let Some(at) = to {
+            self.selection.set(Selection::Control(b, at));
         }
     }
 
