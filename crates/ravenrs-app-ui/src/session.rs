@@ -87,6 +87,10 @@ pub struct Words {
     pub chart_count: String,
     /// Things to be reminded of.
     pub reminders: String,
+    /// Background work that cannot say what it is doing.
+    pub working: String,
+    /// Background work asked to stop, until it does.
+    pub stopping: String,
     /// Reminds again later.
     pub snooze: String,
     /// Stops reminding.
@@ -204,6 +208,8 @@ impl Words {
             no_resource: texts.get("ui.no_resource"),
             chart_count: texts.get("ui.chart_count"),
             reminders: texts.get("ui.reminders"),
+            working: texts.get("ui.working"),
+            stopping: texts.get("ui.stopping"),
             snooze: texts.get("ui.snooze"),
             dismiss: texts.get("ui.dismiss"),
             open: texts.get("ui.open"),
@@ -1589,6 +1595,11 @@ impl Session {
     /// An action changed records: what is selected reads again, so actions go by what they are now,
     /// and a form with nothing typed in shows what they are now. What someone typed stays, and
     /// saving puts it together with what changed.
+    /// Background work changed records, or ended: what shows records and actions reads again.
+    pub(crate) fn after_background_work(&self) {
+        self.reread_after_action();
+    }
+
     fn reread_after_action(&self) {
         let frame = &self.0.frame;
         let fresh: Vec<Object> = frame

@@ -43,6 +43,8 @@
  "ui.record_gone": "Outra pessoa excluiu este registro.",
  "ui.refresh": "Atualizar",
  "ui.reminders": "Lembretes",
+ "ui.working": "Trabalhando…",
+ "ui.stopping": "Parando…",
  "ui.repeat_password": "Repita a senha",
  "ui.restore_model": "Restaurar tudo",
  "ui.save": "Salvar",

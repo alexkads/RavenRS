@@ -97,6 +97,29 @@ impl ViewController for Showcase {
                 .selection(Selection::RequireMultiple)
                 .target_criteria("[state] = 'open'", CriteriaMode::TrueForAll)
                 .on_execute(|cx| change(cx, "state", |_| Value::Text("closed".into()))),
+            // The work runs on a thread of its own: the window shows how far it got and a way to
+            // stop it, and the records it hands back are kept here.
+            on_entity(Action::background("DemoBackground", "Em segundo plano", |job| {
+                let total = job.selected().len().max(1) as f32;
+                for (done, record) in job.selected().iter().enumerate() {
+                    if job.cancelled() {
+                        job.tell("Parou no meio; o que já foi feito ficou.", MessageKind::Warning);
+                        return Ok(());
+                    }
+                    job.progress(
+                        done as f32 / total,
+                        format!("Somando 10 em {}", record.get("name").to_text()),
+                    );
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    let mut record = record.clone();
+                    let amount = record.get("amount").as_number().unwrap_or(0.0);
+                    record.set("amount", amount + 10.0);
+                    job.save(record);
+                }
+                job.tell("Somou 10 em segundo plano.", MessageKind::Success);
+                Ok(())
+            }))
+            .selection(Selection::RequireMultiple),
             Action::simple("DemoHello", "Dizer olá")
                 .target_entity("TextsDemo")
                 .category(ActionCategory::Edit)

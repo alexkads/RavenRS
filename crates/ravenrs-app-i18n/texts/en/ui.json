@@ -43,6 +43,8 @@
  "ui.record_gone": "Someone else deleted this record.",
  "ui.refresh": "Refresh",
  "ui.reminders": "Reminders",
+ "ui.working": "Working…",
+ "ui.stopping": "Stopping…",
  "ui.repeat_password": "Repeat the password",
  "ui.restore_model": "Restore all",
  "ui.save": "Save",
