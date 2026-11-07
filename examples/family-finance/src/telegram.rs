@@ -14,12 +14,18 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+use opus_decoder::OpusDecoder;
+use ravenrs_ai::{HEARING_CATALOG, HEARING_RATE, LocalModel, ModelFolder, ModelState, Transcriber};
+
 use crate::db::Database;
-use crate::model::{Flow, TransactionInput};
+use crate::model::{Category, Flow, Member, TransactionInput};
 use crate::today;
 
-const PENDING_TTL: Duration = Duration::from_secs(60);
+const PENDING_TTL: Duration = Duration::from_secs(5 * 60);
 const MAX_PDF_BYTES: u64 = 14 * 1024 * 1024;
+/// A voice note is heard up to a minute: enough for "despesa, mercado, foi a Ana".
+const MAX_VOICE_SECONDS: usize = 60;
+const MAX_VOICE_BYTES: u64 = 2 * 1024 * 1024;
 
 #[derive(Clone)]
 struct Config {
@@ -30,17 +36,38 @@ struct Config {
 struct Service {
     config: Config,
     pending: Mutex<HashMap<i64, Pending>>,
+    /// The model that hears, kept loaded between voice notes.
+    transcriber: Mutex<Option<(&'static str, Transcriber)>>,
 }
 
 #[derive(Debug)]
 enum Pending {
+    /// The receipt's amount, waiting for what it was.
     Amount { amount_cents: i64, since: Instant },
+    /// Everything read, waiting for the person to confirm before anything is saved.
+    Confirm { amount_cents: i64, reply: Reply, since: Instant },
 }
 
 #[derive(Deserialize)]
 struct Update {
     update_id: i64,
     message: Option<Message>,
+    callback_query: Option<CallbackQuery>,
+}
+
+/// A tap on one of the buttons under the bot's question.
+#[derive(Deserialize)]
+struct CallbackQuery {
+    id: String,
+    from: User,
+    message: Option<CallbackMessage>,
+    data: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CallbackMessage {
+    message_id: i64,
+    chat: Chat,
 }
 
 #[derive(Deserialize)]
@@ -49,6 +76,7 @@ struct Message {
     from: Option<User>,
     document: Option<Document>,
     text: Option<String>,
+    voice: Option<Voice>,
 }
 
 #[derive(Deserialize)]
@@ -61,6 +89,14 @@ struct Chat {
 #[derive(Deserialize)]
 struct User {
     id: i64,
+}
+
+/// A voice note: Opus in an Ogg file, as Telegram records it.
+#[derive(Deserialize)]
+struct Voice {
+    file_id: String,
+    duration: Option<u64>,
+    file_size: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -164,7 +200,7 @@ pub fn serve_with_waker(
     paired: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 ) -> Result<(), String> {
     let config = Config { db_path: checked_db_path(db_path)?, bot_token: bot_token()? };
-    let service = Service { config, pending: Mutex::new(HashMap::new()) };
+    let service = Service { config, pending: Mutex::new(HashMap::new()), transcriber: Mutex::new(None) };
     let mut offset = 0;
     loop {
         if bot_token().is_ok_and(|token| token != service.config.bot_token) {
@@ -173,11 +209,13 @@ pub fn serve_with_waker(
         let updates: Vec<Update> = telegram_call(
             &service,
             "getUpdates",
-            json!({"offset":offset,"timeout":25,"allowed_updates":["message"]}),
+            json!({"offset":offset,"timeout":25,"allowed_updates":["message","callback_query"]}),
         )?;
         for update in updates {
             offset = update.update_id + 1;
-            if let Some(message) = update.message
+            let message =
+                update.message.or_else(|| update.callback_query.and_then(|tap| tapped(&service, tap)));
+            if let Some(message) = message
                 && message.chat.kind == "private"
                 && message.from.is_some()
             {
@@ -200,6 +238,32 @@ pub fn serve_with_waker(
             }
         }
     }
+}
+
+/// A button tap, as the command it stands for. The buttons go away once tapped, so the
+/// same question cannot be answered twice.
+fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
+    let _: Result<Value, _> =
+        telegram_call(service, "answerCallbackQuery", json!({"callback_query_id": tap.id}));
+    let message = tap.message?;
+    let _: Result<Value, _> = telegram_call(
+        service,
+        "editMessageReplyMarkup",
+        json!({"chat_id": message.chat.id, "message_id": message.message_id, "reply_markup": {"inline_keyboard": []}}),
+    );
+    let command = match tap.data.as_deref()? {
+        "rf:ok" => "/confirmar",
+        "rf:fix" => "/corrigir",
+        "rf:no" => "/cancelar",
+        _ => return None,
+    };
+    Some(Message {
+        chat: message.chat,
+        from: Some(tap.from),
+        document: None,
+        text: Some(command.to_owned()),
+        voice: None,
+    })
 }
 
 fn bot_token() -> Result<String, String> {
@@ -286,52 +350,93 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
             service,
             chat,
             &format!(
-                "Valor encontrado: R$ {}. Envie `despesa Categoria` ou `receita Categoria` em até 60 segundos.",
+                "Valor encontrado: R$ {}. Envie `despesa Categoria` ou `receita Categoria`, e quem gastou se quiser, em até 5 minutos.",
                 format_brl(amount_cents)
             ),
         )?;
         return Ok(());
     }
-    let Some(text) = message.text.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty()) else {
+    let text = match message.voice {
+        Some(voice) => match hear(service, chat, &voice)? {
+            Some(text) => Some(text),
+            None => return Ok(()),
+        },
+        None => message.text,
+    };
+    let Some(text) = text.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty()) else {
         return Ok(());
     };
-    if text == "/cancelar" {
-        service.pending.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);
+    let said = folded(&text);
+    let pending = service.pending.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);
+    let keep = |pending: Pending| -> Result<(), String> {
+        service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, pending);
+        Ok(())
+    };
+    if text == "/cancelar"
+        || (matches!(pending, Some(Pending::Confirm { .. })) && NO_WORDS.contains(&said.as_str()))
+    {
         send_message(service, chat, "Lançamento cancelado.")?;
         return Ok(());
     }
-    let pending = service.pending.lock().map_err(|_| "estado do bot indisponível")?.remove(&chat);
+    let confirmed = text == "/confirmar" || YES_WORDS.contains(&said.as_str());
     match pending {
-        Some(Pending::Amount { amount_cents, since }) if since.elapsed() <= PENDING_TTL => {
-            let Some((flow, category)) = parse_category_command(&text) else {
-                service
-                    .pending
-                    .lock()
-                    .map_err(|_| "estado do bot indisponível")?
-                    .insert(chat, Pending::Amount { amount_cents, since });
-                send_message(service, chat, "Use `despesa Categoria` ou `receita Categoria`.")?;
-                return Ok(());
-            };
-            if let Err(error) = save_transaction(&service.config.db_path, amount_cents, flow, &category) {
-                service
-                    .pending
-                    .lock()
-                    .map_err(|_| "estado do bot indisponível")?
-                    .insert(chat, Pending::Amount { amount_cents, since });
-                return Err(error);
-            }
-            send_message(
-                service,
-                chat,
-                &format!("{} de R$ {} salva em {}.", flow.label(), format_brl(amount_cents), category),
-            )?;
-        }
-        Some(Pending::Amount { .. }) => {
+        Some(Pending::Amount { since, .. } | Pending::Confirm { since, .. })
+            if since.elapsed() > PENDING_TTL =>
+        {
             send_message(service, chat, "O prazo para esse PDF terminou. Envie-o novamente.")?;
         }
-        _ => send_message(service, chat, "Não há PDF aguardando. Envie o comprovante novamente.")?,
+        Some(Pending::Confirm { amount_cents, reply, since }) if confirmed => {
+            if let Err(error) = save_transaction(&service.config.db_path, amount_cents, &reply) {
+                keep(Pending::Confirm { amount_cents, reply, since })?;
+                return Err(error);
+            }
+            send_message(service, chat, &format!("{} salva.", summary(amount_cents, &reply)))?;
+        }
+        Some(Pending::Confirm { amount_cents, .. }) if text == "/corrigir" => {
+            keep(Pending::Amount { amount_cents, since: Instant::now() })?;
+            send_message(service, chat, "Envie de novo, por exemplo: `despesa Mercado Ana`.")?;
+        }
+        Some(Pending::Amount { amount_cents, since } | Pending::Confirm { amount_cents, since, .. })
+            if !confirmed && !text.starts_with('/') =>
+        {
+            let read = Database::open(&service.config.db_path)
+                .and_then(|db| Ok((db.members()?, db.categories()?)))
+                .map_err(|e| e.to_string())
+                .map(|(members, categories)| read_reply(&text, &members, &categories));
+            match read {
+                Ok(Ok(reply)) => {
+                    let question = format!("{}\nConfirma?", summary(amount_cents, &reply));
+                    keep(Pending::Confirm { amount_cents, reply, since })?;
+                    send_with_buttons(service, chat, &question, &CONFIRM_BUTTONS)?;
+                }
+                Ok(Err(question)) => {
+                    keep(Pending::Amount { amount_cents, since })?;
+                    send_message(service, chat, &question)?;
+                }
+                Err(error) => {
+                    keep(Pending::Amount { amount_cents, since })?;
+                    return Err(error);
+                }
+            }
+        }
+        Some(pending) => {
+            keep(pending)?;
+            send_message(service, chat, "Responda com os botões, ou envie `despesa Categoria` de novo.")?;
+        }
+        None => send_message(service, chat, "Não há PDF aguardando. Envie o comprovante novamente.")?,
     }
     Ok(())
+}
+
+const YES_WORDS: &[&str] = &["sim", "confirmar", "confirmo", "confirma", "ok"];
+const NO_WORDS: &[&str] = &["nao", "cancelar", "cancela"];
+const CONFIRM_BUTTONS: [(&str, &str); 3] =
+    [("Confirmar", "rf:ok"), ("Corrigir", "rf:fix"), ("Cancelar", "rf:no")];
+
+/// One line with everything that will be saved: "Despesa · Mercado · Ana · R$ 87,50".
+fn summary(amount_cents: i64, reply: &Reply) -> String {
+    let who = reply.member.as_ref().map(|member| format!(" · {}", member.name)).unwrap_or_default();
+    format!("{} · {}{who} · R$ {}", reply.flow.label(), reply.category, format_brl(amount_cents))
 }
 
 fn start_token(text: &str) -> Option<&str> {
@@ -346,17 +451,161 @@ fn unix_seconds() -> i64 {
         .unwrap_or_default()
 }
 
-fn parse_category_command(text: &str) -> Option<(Flow, String)> {
-    let (kind, category) = text.trim().split_once(char::is_whitespace)?;
-    let category = category.split_whitespace().collect::<Vec<_>>().join(" ");
-    if category.is_empty() {
+/// What a reply says about a receipt: typed (`despesa Mercado Ana`) or spoken
+/// ("despesa de mercado, quem gastou foi a Ana").
+#[derive(Debug, PartialEq, Eq)]
+struct Reply {
+    flow: Flow,
+    category: String,
+    member: Option<Member>,
+}
+
+const EXPENSE_WORDS: &[&str] =
+    &["despesa", "gasto", "gastei", "gastou", "paguei", "pagou", "comprei", "comprou"];
+const INCOME_WORDS: &[&str] = &["receita", "recebi", "recebeu", "ganhei", "ganhou", "entrada"];
+/// Words that only join the others; they are dropped from the ends of a category.
+const JOINING_WORDS: &[&str] = &[
+    "a",
+    "o",
+    "as",
+    "os",
+    "de",
+    "da",
+    "do",
+    "das",
+    "dos",
+    "com",
+    "em",
+    "na",
+    "no",
+    "e",
+    "foi",
+    "quem",
+    "gastou",
+    "recebeu",
+    "pagou",
+    "por",
+    "pela",
+    "pelo",
+    "para",
+    "pra",
+    "categoria",
+    "reais",
+    "real",
+];
+/// What comes before a name nobody registered: "por Pedro", "foi o Pedro", "quem gastou Pedro".
+const NAME_MARKERS: &[&str] = &["por", "foi", "quem"];
+
+/// Reads a reply against the people and categories this Raven already has. A name
+/// that is not a member is asked about, never created.
+fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result<Reply, String> {
+    let mut words: Vec<String> = text
+        .split_whitespace()
+        .map(|word| word.trim_matches(|c: char| !c.is_alphanumeric()).to_owned())
+        .filter(|word| !word.is_empty())
+        .collect();
+    let keys = |words: &[String]| words.iter().map(|word| folded(word)).collect::<Vec<_>>();
+
+    let found = keys(&words).iter().enumerate().find_map(|(i, key)| {
+        if EXPENSE_WORDS.iter().any(|word| sounds_like(key, word)) {
+            Some((i, Flow::Expense))
+        } else {
+            INCOME_WORDS.iter().any(|word| sounds_like(key, word)).then_some((i, Flow::Income))
+        }
+    });
+    let Some((at, flow)) = found else {
+        return Err(
+            "Diga se é despesa ou receita, por exemplo: `despesa Mercado` ou `despesa Mercado Ana`.".into()
+        );
+    };
+    words.remove(at);
+
+    let member = members
+        .iter()
+        .filter_map(|member| {
+            let name = member.name.split_whitespace().map(folded).collect::<Vec<_>>();
+            find_run(&keys(&words), &name).map(|at| (at, name.len(), member))
+        })
+        .max_by_key(|(_, len, _)| *len);
+    let member = match member {
+        Some((at, len, member)) => {
+            words.drain(at..at + len);
+            Some(member.clone())
+        }
+        None => {
+            if let Some(name) = unknown_name(&words) {
+                return Err(format!(
+                    "Não encontrei “{name}” entre os membros do Raven. Cadastre em Membros ou responda sem o nome."
+                ));
+            }
+            None
+        }
+    };
+
+    words.retain(|word| !word.chars().any(|c| c.is_ascii_digit()) && folded(word) != "r");
+    while words.first().is_some_and(|word| JOINING_WORDS.contains(&folded(word).as_str())) {
+        words.remove(0);
+    }
+    while words.last().is_some_and(|word| JOINING_WORDS.contains(&folded(word).as_str())) {
+        words.pop();
+    }
+    if words.is_empty() {
+        return Err("Faltou a categoria, por exemplo: `despesa Mercado`.".into());
+    }
+    let said = keys(&words);
+    let known = categories
+        .iter()
+        .filter(|category| category.flow == flow)
+        .filter(|category| {
+            let name = category.name.split_whitespace().map(folded).collect::<Vec<_>>();
+            find_run(&said, &name).is_some()
+        })
+        .max_by_key(|category| category.name.len());
+    let category = match known {
+        Some(category) => category.name.clone(),
+        None => capitalized(&words.join(" ")),
+    };
+    Ok(Reply { flow, category, member })
+}
+
+/// The same word, or a long one heard with one letter wrong: Whisper writes "despeza".
+fn sounds_like(heard: &str, word: &str) -> bool {
+    if heard == word {
+        return true;
+    }
+    let (a, b): (Vec<char>, Vec<char>) = (heard.chars().collect(), word.chars().collect());
+    if a.len().min(b.len()) < 6 || a.len().abs_diff(b.len()) > 1 {
+        return false;
+    }
+    let same_start = a.iter().zip(&b).take_while(|(x, y)| x == y).count();
+    let same_end = a.iter().rev().zip(b.iter().rev()).take_while(|(x, y)| x == y).count();
+    same_start + same_end + 1 >= a.len().max(b.len())
+}
+
+/// Where `run` appears whole in `words`.
+fn find_run(words: &[String], run: &[String]) -> Option<usize> {
+    if run.is_empty() || run.len() > words.len() {
         return None;
     }
-    match kind.to_lowercase().as_str() {
-        "despesa" => Some((Flow::Expense, category)),
-        "receita" => Some((Flow::Income, category)),
-        _ => None,
-    }
+    words.windows(run.len()).position(|window| window == run)
+}
+
+/// A name after "por", "foi" or "quem", at the end of a reply, that no member has.
+fn unknown_name(words: &[String]) -> Option<String> {
+    let keys = words.iter().map(|word| folded(word)).collect::<Vec<_>>();
+    let marker = keys.iter().rposition(|key| NAME_MARKERS.contains(&key.as_str()))?;
+    let name = words[marker + 1..]
+        .iter()
+        .zip(&keys[marker + 1..])
+        .skip_while(|(_, key)| JOINING_WORDS.contains(&key.as_str()))
+        .map(|(word, _)| word.as_str())
+        .collect::<Vec<_>>();
+    (!name.is_empty() && name.len() <= 3).then(|| name.join(" "))
+}
+
+fn capitalized(text: &str) -> String {
+    let mut chars = text.chars();
+    chars.next().map(|first| first.to_uppercase().chain(chars).collect()).unwrap_or_default()
 }
 
 fn format_brl(cents: i64) -> String {
@@ -395,26 +644,135 @@ fn send_message(service: &Service, chat: i64, text: &str) -> Result<(), String> 
     Ok(())
 }
 
+/// A message with one row of buttons; each sends its `data` back as a callback.
+fn send_with_buttons(
+    service: &Service,
+    chat: i64,
+    text: &str,
+    buttons: &[(&str, &str)],
+) -> Result<(), String> {
+    let row: Vec<Value> =
+        buttons.iter().map(|(label, data)| json!({"text": label, "callback_data": data})).collect();
+    let markup = json!({ "inline_keyboard": [row] });
+    let _: Value =
+        telegram_call(service, "sendMessage", json!({"chat_id":chat,"text":text,"reply_markup":markup}))?;
+    Ok(())
+}
+
 fn download_pdf(service: &Service, file_id: &str) -> Result<Vec<u8>, String> {
-    let file: TelegramFile = telegram_call(service, "getFile", json!({"file_id":file_id}))?;
+    download(service, file_id, MAX_PDF_BYTES)
+        .map_err(|why| why.unwrap_or_else(|| "PDF vazio ou maior que 14 MB".into()))
+}
+
+/// A file someone sent, up to `limit` bytes. `Err(None)` when it is empty or too big.
+fn download(service: &Service, file_id: &str, limit: u64) -> Result<Vec<u8>, Option<String>> {
+    let file: TelegramFile = telegram_call(service, "getFile", json!({"file_id":file_id})).map_err(Some)?;
     let agent = telegram_agent();
     let url = format!("{}/file/bot{}/{}", api_base(), service.config.bot_token, file.file_path);
     let mut response = agent.get(&url).call().map_err(|error| {
-        format!(
-            "falha ao baixar PDF do Telegram: {}",
+        Some(format!(
+            "falha ao baixar o arquivo do Telegram: {}",
             error.to_string().replace(&service.config.bot_token, "[oculto]")
-        )
+        ))
     })?;
-    let bytes = response
-        .body_mut()
-        .with_config()
-        .limit(MAX_PDF_BYTES + 1)
-        .read_to_vec()
-        .map_err(|e| e.to_string())?;
-    if bytes.is_empty() || bytes.len() as u64 > MAX_PDF_BYTES {
-        return Err("PDF vazio ou maior que 14 MB".into());
+    let bytes =
+        response.body_mut().with_config().limit(limit + 1).read_to_vec().map_err(|e| Some(e.to_string()))?;
+    if bytes.is_empty() || bytes.len() as u64 > limit {
+        return Err(None);
     }
     Ok(bytes)
+}
+
+/// The words of a voice note, said back so the person sees what was understood. `None`
+/// when there was nothing to hear it for, or nothing to hear it with; the person is told.
+fn hear(service: &Service, chat: i64, voice: &Voice) -> Result<Option<String>, String> {
+    let waiting = service.pending.lock().map_err(|_| "estado do bot indisponível")?.contains_key(&chat);
+    if !waiting {
+        send_message(service, chat, "Não há PDF aguardando. Envie o comprovante e depois o áudio.")?;
+        return Ok(None);
+    }
+    if voice.duration.is_some_and(|seconds| seconds > MAX_VOICE_SECONDS as u64)
+        || voice.file_size.is_some_and(|bytes| bytes > MAX_VOICE_BYTES)
+    {
+        send_message(service, chat, "Envie um áudio de até 1 minuto.")?;
+        return Ok(None);
+    }
+    let folder = hearing_folder(&service.config.db_path);
+    let Some(model) = model_that_hears(&folder) else {
+        send_message(
+            service,
+            chat,
+            "Para entender áudios, baixe e use um modelo em Ajustes, no cartão Telegram. Por enquanto, escreva a resposta.",
+        )?;
+        return Ok(None);
+    };
+    send_message(service, chat, "Ouvindo…")?;
+    let bytes = download(service, &voice.file_id, MAX_VOICE_BYTES)
+        .map_err(|why| why.unwrap_or_else(|| "áudio vazio ou maior que 2 MB".into()))?;
+    let samples = voice_samples(&bytes)?;
+    let mut kept = service.transcriber.lock().map_err(|_| "estado do bot indisponível")?;
+    if kept.as_ref().is_none_or(|(id, _)| *id != model.id) {
+        let transcriber = Transcriber::load(&folder, &model).map_err(|e| e.to_string())?;
+        *kept = Some((model.id, transcriber));
+    }
+    let (_, transcriber) = kept.as_mut().ok_or("modelo de áudio indisponível")?;
+    let heard = transcriber.transcribe(&samples, "pt").map_err(|e| e.to_string())?;
+    if heard.text.is_empty() {
+        send_message(service, chat, "Não entendi o áudio. Tente de novo ou escreva a resposta.")?;
+        return Ok(None);
+    }
+    send_message(service, chat, &format!("Entendi: “{}”", heard.text))?;
+    Ok(Some(heard.text))
+}
+
+/// Where the models that hear live: beside the database, with the other models.
+pub fn hearing_folder(db_path: &Path) -> ModelFolder {
+    ModelFolder::new(db_path.parent().unwrap_or(Path::new(".")).join("modelos").join("ouvido"))
+}
+
+/// The model chosen in Ajustes to hear voice notes, if it is all there.
+fn model_that_hears(folder: &ModelFolder) -> Option<LocalModel> {
+    let id = std::fs::read_to_string(folder.root().join("in-use")).ok()?;
+    let model = HEARING_CATALOG.iter().find(|model| model.id == id.trim())?;
+    (folder.state(model) == ModelState::Installed).then_some(*model)
+}
+
+/// A voice note as mono samples at the rate Whisper hears: Telegram records Opus in an
+/// Ogg file, which is decoded here in Rust, the same on every system.
+fn voice_samples(ogg: &[u8]) -> Result<Vec<f32>, String> {
+    let unreadable = || "não consegui ler o áudio. Envie de novo ou escreva a resposta.".to_owned();
+    std::panic::catch_unwind(|| decode_voice(ogg)).map_err(|_| unreadable())?.ok_or_else(unreadable)
+}
+
+fn decode_voice(ogg: &[u8]) -> Option<Vec<f32>> {
+    let mut reader = ogg::PacketReader::new(std::io::Cursor::new(ogg));
+    let head = reader.read_packet().ok()??;
+    if !head.data.starts_with(b"OpusHead") {
+        return None;
+    }
+    let channels = usize::from(*head.data.get(9)?).clamp(1, 2);
+    // The samples an encoder put before the sound, counted at 48 kHz.
+    let skip =
+        usize::from(u16::from_le_bytes([*head.data.get(10)?, *head.data.get(11)?])) * HEARING_RATE / 48_000;
+    let mut decoder = OpusDecoder::new(HEARING_RATE as u32, channels).ok()?;
+    let mut frame = vec![0.0_f32; OpusDecoder::MAX_FRAME_SIZE_48K * channels];
+    let mut samples = Vec::new();
+    while let Some(packet) = reader.read_packet().ok()? {
+        if packet.data.starts_with(b"OpusTags") {
+            continue;
+        }
+        let decoded = decoder.decode_float(&packet.data, &mut frame, false).ok()?;
+        samples.extend(
+            frame
+                .get(..decoded * channels)?
+                .chunks(channels)
+                .map(|s| s.iter().sum::<f32>() / channels as f32),
+        );
+        if samples.len() > (MAX_VOICE_SECONDS + 1) * HEARING_RATE {
+            return None;
+        }
+    }
+    Some(samples.split_off(skip.min(samples.len())))
 }
 
 /// Finds the one total in a receipt. The text is read in Rust, the same on every system;
@@ -520,7 +878,7 @@ fn folded(text: &str) -> String {
         .collect()
 }
 
-fn save_transaction(path: &Path, amount_cents: i64, flow: Flow, category: &str) -> Result<i64, String> {
+fn save_transaction(path: &Path, amount_cents: i64, reply: &Reply) -> Result<i64, String> {
     let db = Database::open(path).map_err(|e| e.to_string())?;
     let accounts = db.accounts().map_err(|e| e.to_string())?;
     let account_id = match std::env::var("RAVEN_ACCOUNT_ID") {
@@ -536,15 +894,15 @@ fn save_transaction(path: &Path, amount_cents: i64, flow: Flow, category: &str) 
         return Err("a conta configurada não existe no Raven".into());
     }
     db.atomically(|db| {
-        let category_id = db.find_or_create_category(category, flow)?;
+        let category_id = db.find_or_create_category(&reply.category, reply.flow)?;
         db.add_transaction(&TransactionInput {
             date: today(),
-            description: format!("Comprovante PDF — {category}"),
+            description: format!("Comprovante PDF — {}", reply.category),
             amount_cents,
-            flow,
+            flow: reply.flow,
             account_id,
             category_id,
-            member_id: None,
+            member_id: reply.member.as_ref().map(|member| member.id),
         })
     })
     .map_err(|e| e.to_string())
@@ -554,14 +912,106 @@ fn save_transaction(path: &Path, amount_cents: i64, flow: Flow, category: &str) 
 mod tests {
     use super::*;
 
+    fn member(id: i64, name: &str) -> Member {
+        Member { id, name: name.into() }
+    }
+
+    fn category(id: i64, name: &str, flow: Flow) -> Category {
+        Category { id, name: name.into(), flow, budget_cents: 0 }
+    }
+
     #[test]
-    fn parses_category_command() {
+    fn reads_typed_replies() {
+        let read = |text| read_reply(text, &[], &[]);
+        let reply = read(" despesa   Café da Casa ").expect("typed");
         assert_eq!(
-            parse_category_command(" despesa   Café da Casa "),
-            Some((Flow::Expense, "Café da Casa".into()))
+            (reply.flow, reply.category.as_str(), reply.member),
+            (Flow::Expense, "Café da Casa", None)
         );
-        assert_eq!(parse_category_command("receita Salário"), Some((Flow::Income, "Salário".into())));
-        assert_eq!(parse_category_command("Mercado"), None);
+        assert_eq!(read("receita Salário").expect("income").flow, Flow::Income);
+        assert!(read("Mercado").is_err(), "no flow, no guess");
+        assert!(read("despesa").is_err(), "no category");
+    }
+
+    #[test]
+    fn finds_who_spent_among_the_members() {
+        let members = [member(1, "Ana"), member(2, "Ana Paula"), member(3, "João")];
+        let categories = [category(7, "Mercado", Flow::Expense), category(8, "Mercado", Flow::Income)];
+        let read = |text| read_reply(text, &members, &categories).expect(text);
+
+        let typed = read("despesa Mercado Ana");
+        assert_eq!((typed.category.as_str(), typed.member), ("Mercado", Some(member(1, "Ana"))));
+        assert_eq!(
+            read("despesa Mercado Ana Paula").member,
+            Some(member(2, "Ana Paula")),
+            "the longest name"
+        );
+        assert_eq!(read("despesa Farmácia joao").member, Some(member(3, "João")), "without the accent");
+
+        let spoken = read("Despesa de mercado, quem gastou foi a Ana.");
+        assert_eq!(
+            (spoken.flow, spoken.category.as_str()),
+            (Flow::Expense, "Mercado"),
+            "the existing category"
+        );
+        assert_eq!(spoken.member, Some(member(1, "Ana")));
+        let spoken = read("Gastei 50 reais na farmácia, foi o João");
+        assert_eq!((spoken.category.as_str(), spoken.member), ("Farmácia", Some(member(3, "João"))));
+        assert_eq!(read("Recebi salário").category, "Salário");
+    }
+
+    #[test]
+    fn hears_a_keyword_with_one_letter_wrong() {
+        let reply = read_reply("Despeza de padaria", &[], &[]).expect("heard");
+        assert_eq!((reply.flow, reply.category.as_str()), (Flow::Expense, "Padaria"));
+        assert_eq!(read_reply("Receitta Salário", &[], &[]).expect("heard").flow, Flow::Income);
+        assert!(read_reply("gasta padaria", &[], &[]).is_err(), "short words must be exact");
+        assert!(read_reply("dispensa padaria", &[], &[]).is_err(), "two letters off is another word");
+    }
+
+    #[test]
+    fn asks_about_a_name_nobody_registered() {
+        let members = [member(1, "Ana")];
+        let question = read_reply("despesa de mercado, foi o Pedro", &members, &[]).expect_err("unknown");
+        assert!(question.contains("Pedro"), "{question}");
+        assert_eq!(
+            read_reply("despesa Mercado Pedro", &members, &[]).expect("typed").category,
+            "Mercado Pedro"
+        );
+    }
+
+    const VOICE_NOTE: &[u8] = include_bytes!("../tests/fixtures/voz-despesa.ogg");
+
+    #[test]
+    fn decodes_a_telegram_voice_note() {
+        let samples = voice_samples(VOICE_NOTE).expect("decoded");
+        let seconds = samples.len() as f32 / HEARING_RATE as f32;
+        assert!((3.5..4.0).contains(&seconds), "{seconds} s, as the file says 3.8 s");
+        let loudness = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
+        assert!(loudness > 0.01, "someone speaks: {loudness}");
+        assert!(voice_samples(b"OggS not really").is_err());
+        assert!(voice_samples(&[]).is_err());
+    }
+
+    /// Hears the voice note with a real model, when its folder is given: the folder of
+    /// Ajustes, with the model in use (`modelos/ouvido`). Whisper Small passes; Base
+    /// mishears this synthetic voice.
+    #[test]
+    fn hears_a_voice_note_and_reads_it() {
+        let Some(root) = std::env::var_os("RAVEN_WHISPER_FOLDER") else {
+            return;
+        };
+        let folder = ModelFolder::new(root);
+        let model = model_that_hears(&folder).expect("a model in use");
+        let mut transcriber = Transcriber::load(&folder, &model).expect("loaded");
+        let heard =
+            transcriber.transcribe(&voice_samples(VOICE_NOTE).expect("decoded"), "pt").expect("heard");
+        println!("{}: “{}” in {:.1} s", model.name, heard.text, heard.seconds);
+        let members = [member(1, "Ana")];
+        let categories = [category(7, "Mercado", Flow::Expense)];
+        let reply = read_reply(&heard.text, &members, &categories).expect("read");
+        assert_eq!((reply.flow, reply.category.as_str()), (Flow::Expense, "Mercado"), "{}", heard.text);
+        assert_eq!(reply.member, Some(member(1, "Ana")), "{}", heard.text);
     }
 
     #[test]

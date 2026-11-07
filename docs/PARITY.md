@@ -1,8 +1,8 @@
-# Component parity: shadcn/ui, DevExpress, Telerik
+# Component parity with reference libraries
 
 RavenRS aims to be more complete than the three reference libraries. This table tracks every component family they offer and where RavenRS stands. It is updated with each batch.
 
-Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned. Columns S/D/T mark whether shadcn/ui, DevExpress or Telerik ships it.
+Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned. Column S marks whether shadcn/ui ships it; D and T mark two commercial component suites for desktop and web.
 
 ## Summary
 
@@ -87,7 +87,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Range slider | | ✓ | ✓ | ⬜ |
 | Select / Drop-down list | ✓ | ✓ | ✓ | ✅ `Select`: by index or by value (`Select::of`), search, sizes |
 | Combobox / Autocomplete | ✓ | ✓ | ✓ | ✅ `Combobox` |
-| Filter builder | | ✓ | ✓ | ✅ `FilterBuilder`: lines and groups over the expression language; what it cannot show stays as text; also in the `DataGrid` toolbar |
+| Filter builder | | ✓ | ✓ | ✅ `FilterBuilder`: lines and groups over the expression language; "is any of" and "is none of" with values to pick; what it cannot show stays as text; also in the `DataGrid` toolbar and behind "Edit filter" on its filter panel, which opens every column's expression as one |
 | Lookup (records loaded on demand) | | ✓ | ✓ | ✅ `LookupField`: from memory or a callback, ignores stale answers |
 | Multi-select / Tag box | | ✓ | ✓ | ✅ `TagBox`: search, new values, a limit |
 | Numeric input / Spin editor | | ✓ | ✓ | ✅ `NumberField` (range, step, separators, money in whole cents), `Stepper` |

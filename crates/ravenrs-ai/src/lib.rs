@@ -3,6 +3,7 @@
 mod assistant;
 mod catalog;
 mod engine;
+mod hearing;
 mod lfm3;
 mod machine;
 mod manager;
@@ -12,8 +13,9 @@ mod tools;
 mod voice;
 
 pub use assistant::LocalAssistant;
-pub use catalog::{CATALOG, VOICE_CATALOG, model_by_id};
+pub use catalog::{CATALOG, HEARING_CATALOG, VOICE_CATALOG, model_by_id};
 pub use engine::{EngineError, Generated, LocalEngine};
+pub use hearing::{HEARING_RATE, Transcribed, Transcriber};
 pub use machine::Machine;
 pub use manager::{ModelManager, ModelManagerLabels};
 pub use models::{LocalModel, ModelError, ModelFamily, ModelFile, ModelFolder, ModelState};

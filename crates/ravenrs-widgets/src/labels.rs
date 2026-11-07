@@ -459,6 +459,10 @@ pub struct Labels {
     pub filter_is_empty: String,
     /// A [`FilterBuilder`](crate::FilterBuilder)'s word: is not empty.
     pub filter_is_not_empty: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: is any of.
+    pub filter_any_of: String,
+    /// A [`FilterBuilder`](crate::FilterBuilder)'s word: is none of.
+    pub filter_none_of: String,
     /// A [`Ribbon`](crate::Ribbon)'s name.
     pub ribbon: String,
     /// A [`Ribbon`](crate::Ribbon)'s search box.
@@ -619,6 +623,8 @@ pub struct Labels {
     pub grid_clear_filter: String,
     /// Before what a grid is filtering by.
     pub grid_filter_label: String,
+    /// Opens the editor of a grid's whole filter.
+    pub grid_edit_filter: String,
     /// Every value of a grid's column, in its filter.
     pub grid_all_values: String,
     /// A grid's menu of saved arrangements.
@@ -905,6 +911,8 @@ impl Default for Labels {
             filter_starts_with: "starts with".into(),
             filter_is_empty: "is empty".into(),
             filter_is_not_empty: "is not empty".into(),
+            filter_any_of: "is any of".into(),
+            filter_none_of: "is none of".into(),
             ribbon: "Ribbon".into(),
             ribbon_search: "Tell me what you want to do".into(),
             ribbon_pin: "Pin the ribbon".into(),
@@ -1118,6 +1126,7 @@ impl Default for Labels {
             grid_filter_values: "Filter by value".into(),
             grid_clear_filter: "Clear filter".into(),
             grid_filter_label: "Filter".into(),
+            grid_edit_filter: "Edit filter".into(),
             grid_all_values: "All".into(),
             grid_scenario: "Scenario".into(),
             grid_scenario_save: "Save scenario…".into(),
@@ -1314,6 +1323,8 @@ impl Labels {
             filter_starts_with: "começa com".into(),
             filter_is_empty: "está vazio".into(),
             filter_is_not_empty: "não está vazio".into(),
+            filter_any_of: "é um de".into(),
+            filter_none_of: "não é nenhum de".into(),
             ribbon: "Faixa de opções".into(),
             ribbon_search: "Diga o que você deseja fazer".into(),
             ribbon_pin: "Fixar a faixa de opções".into(),
@@ -1527,6 +1538,7 @@ impl Labels {
             grid_filter_values: "Filtrar por valor".into(),
             grid_clear_filter: "Limpar filtro".into(),
             grid_filter_label: "Filtro".into(),
+            grid_edit_filter: "Editar filtro".into(),
             grid_all_values: "Todos".into(),
             grid_scenario: "Cenário".into(),
             grid_scenario_save: "Gravar cenário…".into(),

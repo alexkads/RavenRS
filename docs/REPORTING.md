@@ -1,8 +1,8 @@
 # RavenRS Reporting — design and roadmap
 
-> Status: phase R1 done, 2026-11-01. Reference product: [DevExpress Reporting](https://www.devexpress.com/subscriptions/reporting/).
+> Status: phase R1 done, 2026-11-01.
 
-RavenRS Reporting turns data into paginated documents. It covers what the DevExpress Reporting subscription covers: a report engine, a document viewer, exports, an end-user report designer and a report server. Everything is in Rust and runs on desktop, in the browser (WebAssembly) and on servers.
+RavenRS Reporting turns data into paginated documents. It covers what a complete commercial reporting suite covers: a report engine, a document viewer, exports, an end-user report designer and a report server. Everything is in Rust and runs on desktop, in the browser (WebAssembly) and on servers.
 
 ## Goals
 
@@ -89,7 +89,7 @@ Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-graphics`, `ravenrs-report-
 
 ## Delivery phases
 
-Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every RavenRS feature. [REPORTING-PARITY.md](REPORTING-PARITY.md) tracks every DevExpress feature against these phases.
+Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every RavenRS feature. [REPORTING-PARITY.md](REPORTING-PARITY.md) tracks every feature of a complete reporting suite against these phases.
 
 | Phase | Delivers | Status |
 |---|---|---|
@@ -108,7 +108,7 @@ Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every
   * The server resolves `url` data sources when a report runs, only from hosts in its configuration; `sql` sources are planned.
   * Connections and secrets live in the server's configuration, referred to by name, and never in a layout.
 * **Render on demand.** An HTTP API: `POST /render` with a layout (or its name), parameters and a format returns PDF or XLSX.
-* **Scheduled jobs**, following the job model of DevExpress Report Server:
+* **Scheduled jobs**, following the job model report servers use:
   * A cron-like schedule.
   * A report and its parameter values, fixed or by expression (for example, last month).
   * Recipients, individually or on one shared email.
@@ -119,7 +119,7 @@ Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every
 ## Decisions
 
 * **Logic that more than one engine can use lives in a shared crate.** `ravenrs-criteria` (expressions), `ravenrs-graphics` (shapes, charts, barcodes) and `ravenrs-report-export` (files) know nothing about who calls them, so reports, the UI and later modules cannot drift apart.
-* **Own engine, not a port.** The model follows DevExpress concepts (bands, criteria-style expressions) so users feel at home, but the format is JSON and the code is ours.
+* **Own engine, not a port.** The model uses the concepts report authors already know (bands, criteria-style expressions) so they feel at home, but the format is JSON and the code is ours.
 * **`pdf-writer` + `subsetter`** (MIT/Apache, used by Typst) instead of a homemade PDF serializer: proven output, small, no C dependencies.
 * **`rust_xlsxwriter`** (MIT/Apache) for XLSX.
 * **XLSX cells come from the `Document`, not the data.** A text box keeps the value behind its text, so a spreadsheet gets real numbers and dates on a grid that matches the page. Pages flow into one sheet; the page header prints once and page footers, whose page numbers would mean nothing there, are left out.
