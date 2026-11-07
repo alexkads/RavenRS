@@ -1,8 +1,8 @@
-# Component parity: shadcn/ui, DevExpress, Telerik
+# Component parity with reference libraries
 
 RavenRS aims to be more complete than the three reference libraries. This table tracks every component family they offer and where RavenRS stands. It is updated with each batch.
 
-Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned. Columns S/D/T mark whether shadcn/ui, DevExpress or Telerik ships it.
+Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned. Column S marks whether shadcn/ui ships it; D and T mark two commercial component suites for desktop and web.
 
 ## Summary
 

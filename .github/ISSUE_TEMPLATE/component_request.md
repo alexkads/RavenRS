@@ -8,7 +8,7 @@ labels: component
 
 **What it is for** (the job it does in a real app)
 
-**Reference** (shadcn/ui, DevExpress, Telerik or another library, with a link)
+**Reference** (another library that has it, with a link)
 
 **Must-have behavior** (keyboard, states, variants)
 

@@ -61,7 +61,7 @@ Ao entregar ou adiar algo, atualize a tabela de status em §11 do `ARCHITECTURE.
 Estas regras são o que mantém o projeto testável e portátil, por isso vale parar e discutir antes de quebrar qualquer uma:
 
 - **Widgets e renderer só se encontram no `Scene`.** `ravenrs-widgets` nunca toca a GPU e `ravenrs-render` não conhece widgets. Assim os testes de widgets rodam sem GPU e o renderer continua substituível.
-- **`ravenrs-criteria` não depende de nada do RavenRS** e não recebe nada específico de um módulo. Filtros, regras de segurança e um futuro equivalente ao XAF vão usar a mesma linguagem.
+- **`ravenrs-criteria` não depende de nada do RavenRS** e não recebe nada específico de um módulo. Filtros, regras de segurança e um futuro framework de aplicações vão usar a mesma linguagem.
 - **Lógica útil a mais de um motor vai para um crate compartilhado, nunca para uma cópia.** `ravenrs-criteria`, `ravenrs-graphics` e `ravenrs-report-export` não conhecem quem os chama. Antes de escrever lógica num motor, procure se outro já tem.
 - **`ravenrs-report` não depende de GPU nem de janela**, porque também roda em servidores. Layout gera um `Document` uma vez, e visualizador e exportadores desenham esse mesmo resultado.
 - **Tudo que não é cola de plataforma compila para `wasm32-unknown-unknown`:** sem threads, sem `SharedArrayBuffer` e sem bloquear. Fontes são embutidas, porque o navegador não expõe as do sistema.
@@ -75,7 +75,7 @@ Os módulos próprios, como o editor de relatórios, servem de exemplo para quem
 
 - Use os componentes de `ravenrs-widgets` e os tokens. O que faltar entra antes na biblioteca, e só depois é usado no módulo.
 - Evite `Paint::Quad`, `Paint::Custom`, cores literais e medidas soltas. A exceção é conteúdo de documento ou superfície de edição, como o papel do relatório, e mesmo assim as cores vêm de tokens.
-- O modelo DevExpress orienta o comportamento, mas a implementação é própria. Não copie código nem documentação de lá ou de outros projetos.
+- O produto de referência orienta o comportamento, mas a implementação é própria. Não copie código nem documentação de lá ou de outros projetos, e não cite o nome dele em nada que vai para o repositório: descreva o recurso pelo que ele faz.
 
 ## Convenções
 
