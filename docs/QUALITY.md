@@ -32,7 +32,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 | `cargo +1.88 check` | The declared minimum Rust version (MSRV) still builds |
 | `--no-default-features` | Optional features really are optional |
 | `cargo bench --no-run` | Benchmarks keep compiling |
-| `cargo run --release -p ravenrs-perf -- gate` | Performance regressions: the exact work of every scene against `perf/baseline.json` |
+| `cargo run --release -p ravenrs-perf -- gate`, only with `RAVENRS_GATE=1` | Performance regressions: the exact work of every scene against `perf/baseline.json`. It runs when asked for, not on every check |
 | Web builds | The examples build and bind for WebAssembly |
 
 GPU tests skip themselves, with a message, on machines without a GPU adapter. To accept an intended visual change, regenerate the golden images with `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test visual`, then review the PNG diff in the commit. A failing run writes `*.actual.png` next to the golden image.
