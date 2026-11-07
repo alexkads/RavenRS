@@ -572,6 +572,62 @@ fn the_bot_tells_what_is_due_and_each_notice_turns_off() {
     let _ = std::fs::remove_dir_all(&home);
 }
 
+#[test]
+fn the_bot_says_how_many_messages_waited_while_it_was_closed() {
+    let fake = FakeTelegram::start(Duration::ZERO);
+    let home = folder("atrasadas");
+    let path = home.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    db.add_account("Banco", AccountKind::Checking, 0).expect("account");
+    let mut quiet = TelegramNotices::default();
+    for kind in TelegramNotice::ALL {
+        quiet.set(kind, false);
+    }
+    quiet.save(&TelegramNotices::file(&path)).expect("notices off");
+    let code = "00112233445566778899aabbccddeeff";
+    db.begin_telegram_pairing(&pairing_hash(code), now()).expect("pairing");
+    // Sent an hour ago, while the app was closed; Telegram kept them.
+    let earlier = |mut update: Value| {
+        update["message"]["date"] = json!(now() - 3600);
+        update
+    };
+    fake.push(earlier(text(CHAT, &format!("/start rf1_{code}"))));
+    fake.push(earlier(text(CHAT, "qual o saldo?")));
+    fake.push(earlier(text(STRANGER, "qual o saldo?")));
+
+    let mut command = Command::new(env!("CARGO_BIN_EXE_raven-telegram"));
+    command.arg(&path).stdout(Stdio::null()).stderr(Stdio::null());
+    isolated(&mut command, &fake, &home);
+    let _bot = Bot(command.spawn().expect("raven-telegram"));
+
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let sent = loop {
+        let sent = fake.sent();
+        if sent.len() >= 4 || Instant::now() > deadline {
+            break sent;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    let said: Vec<(i64, &str)> =
+        sent.iter().map(|m| (m["chat_id"].as_i64().unwrap(), m["text"].as_str().unwrap())).collect();
+    assert_eq!(said.len(), 4, "{said:?}");
+    assert!(
+        said[0].1.contains("Telegram conectado") && said[1].1.starts_with("Saldo:"),
+        "answered in order: {said:?}"
+    );
+    assert_eq!(said[2], (STRANGER, "Escaneie o QR em Ajustes no Raven para conectar este chat."));
+    assert_eq!(said[3].0, CHAT, "only the paired chat hears about it: {said:?}");
+    assert!(said[3].1.starts_with("O Raven estava fechado: respondi agora 2 mensagens"), "{said:?}");
+    assert!(
+        fake.say(text(CHAT, "qual o saldo?")).starts_with("Saldo:"),
+        "a message on time is just answered"
+    );
+    std::thread::sleep(Duration::from_secs(1));
+    assert_eq!(fake.sent().len(), 5, "told once");
+    drop(db);
+    let _ = std::fs::remove_dir_all(&home);
+}
+
 // ---------------------------------------------------------------- the card in Ajustes
 
 /// The window needs the stand-in's address in its environment, which a test cannot set on

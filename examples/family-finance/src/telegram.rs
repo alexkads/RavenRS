@@ -24,6 +24,10 @@ use crate::reminders::{ReminderSettings, TelegramNotice, TelegramNotices};
 use crate::today;
 
 const PENDING_TTL: Duration = Duration::from_secs(5 * 60);
+/// A message older than this when the bot starts waited for it: the app was closed.
+const LATE_AFTER: i64 = 60;
+/// The most updates Telegram hands over at once; fewer means nothing more is waiting.
+const UPDATES_AT_ONCE: usize = 100;
 /// How often the bot looks for notices to send: bills, budgets, the weekly summary.
 const NOTICE_LOOK: Duration = Duration::from_secs(600);
 /// How long the last transaction a chat saved can be undone from the chat.
@@ -102,6 +106,8 @@ struct CallbackMessage {
 #[derive(Deserialize)]
 struct Message {
     chat: Chat,
+    /// When it was sent, in Unix seconds.
+    date: Option<i64>,
     from: Option<User>,
     document: Option<Document>,
     text: Option<String>,
@@ -237,6 +243,9 @@ pub fn serve_with_waker(
     };
     let mut offset = 0;
     let mut looked: Option<Instant> = None;
+    let started = unix_seconds();
+    // The messages that waited while the app was closed, per chat: how many, and the first.
+    let mut late: HashMap<i64, (usize, i64)> = HashMap::new();
     loop {
         if looked.is_none_or(|at| at.elapsed() >= NOTICE_LOOK) {
             tell(&service);
@@ -250,8 +259,16 @@ pub fn serve_with_waker(
             "getUpdates",
             json!({"offset":offset,"timeout":25,"allowed_updates":["message","callback_query"]}),
         )?;
+        let drained = updates.len() < UPDATES_AT_ONCE;
         for update in updates {
             offset = update.update_id + 1;
+            if let Some(message) = &update.message
+                && let Some(date) = message.date.filter(|date| *date < started - LATE_AFTER)
+            {
+                let (count, first) = late.entry(message.chat.id).or_insert((0, date));
+                *count += 1;
+                *first = (*first).min(date);
+            }
             let message =
                 update.message.or_else(|| update.callback_query.and_then(|tap| tapped(&service, tap)));
             if let Some(message) = message
@@ -279,6 +296,30 @@ pub fn serve_with_waker(
                     waker.wake();
                 }
             }
+        }
+        if drained && !late.is_empty() {
+            tell_late(&service, std::mem::take(&mut late));
+        }
+    }
+}
+
+/// Tells each paired chat how many of its messages waited while the app was closed and
+/// were answered just now, so a late answer is not taken for a new one.
+fn tell_late(service: &Service, late: HashMap<i64, (usize, i64)>) {
+    let chats = match Database::open(&service.config.db_path).and_then(|db| db.telegram_chats()) {
+        Ok(chats) => chats,
+        Err(error) => return tracing::warn!(%error, "could not read the Telegram chats"),
+    };
+    for (chat, (count, first)) in late.into_iter().filter(|(chat, _)| chats.contains(chat)) {
+        let when = jiff::Timestamp::from_second(first)
+            .map(|at| at.to_zoned(jiff::tz::TimeZone::system()).strftime("%d/%m às %H:%M").to_string())
+            .unwrap_or_default();
+        let messages = if count == 1 { "1 mensagem".to_owned() } else { format!("{count} mensagens") };
+        let text = format!(
+            "O Raven estava fechado: respondi agora {messages} que chegaram enquanto isso, desde {when}. Confira as respostas acima."
+        );
+        if let Err(error) = send_message(service, chat, &text) {
+            tracing::warn!(%error, "could not tell about the late messages");
         }
     }
 }
@@ -308,6 +349,7 @@ fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
     };
     Some(Message {
         chat: message.chat,
+        date: None,
         from: Some(tap.from),
         document: None,
         text: Some(command),
