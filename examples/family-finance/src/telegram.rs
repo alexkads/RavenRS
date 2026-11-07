@@ -1,4 +1,5 @@
-//! Small Telegram long-polling bridge for PDF receipts.
+//! Small Telegram long-polling bridge: transactions said in a message, by text or by voice,
+//! or sent as PDF receipts.
 
 use ravenrs::prelude::UiWaker;
 use std::collections::HashMap;
@@ -40,14 +41,24 @@ struct Service {
     transcriber: Mutex<Option<(&'static str, Transcriber)>>,
 }
 
+/// A transaction on its way, one chat at a time.
 #[derive(Debug)]
-enum Pending {
-    /// The receipt's amount, waiting for what it was.
-    Amount { amount_cents: i64, since: Instant },
+struct Pending {
+    amount_cents: i64,
+    /// Whether the amount came from a receipt's PDF rather than the message itself.
+    from_pdf: bool,
+    since: Instant,
+    step: Step,
+}
+
+#[derive(Debug)]
+enum Step {
+    /// The amount, waiting for what it was.
+    Amount,
     /// A category no one has yet, waiting for the person to pick one or create it.
-    Category { amount_cents: i64, reply: Reply, since: Instant },
+    Category(Reply),
     /// Everything read, waiting for the person to confirm before anything is saved.
-    Confirm { amount_cents: i64, reply: Reply, since: Instant },
+    Confirm(Reply),
 }
 
 #[derive(Deserialize)]
@@ -344,11 +355,10 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
         }
         let bytes = download_pdf(service, &document.file_id)?;
         let amount_cents = extract_total_from_pdf(&bytes)?;
-        service
-            .pending
-            .lock()
-            .map_err(|_| "estado do bot indisponível")?
-            .insert(chat, Pending::Amount { amount_cents, since: Instant::now() });
+        service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(
+            chat,
+            Pending { amount_cents, from_pdf: true, since: Instant::now(), step: Step::Amount },
+        );
         send_message(
             service,
             chat,
@@ -375,81 +385,109 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
         service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, pending);
         Ok(())
     };
-    if text == "/cancelar"
-        || (matches!(pending, Some(Pending::Confirm { .. } | Pending::Category { .. }))
-            && NO_WORDS.contains(&said.as_str()))
-    {
+    let asking = pending.as_ref().is_some_and(|p| matches!(p.step, Step::Category(_) | Step::Confirm(_)));
+    if text == "/cancelar" || (asking && NO_WORDS.contains(&said.as_str())) {
         send_message(service, chat, "Lançamento cancelado.")?;
         return Ok(());
     }
+    let expired = pending.as_ref().is_some_and(|p| p.since.elapsed() > PENDING_TTL);
+    let pending = pending.filter(|_| !expired);
     let confirmed = text == "/confirmar" || YES_WORDS.contains(&said.as_str());
+    let command = confirmed || text.starts_with('/');
     match pending {
-        Some(
-            Pending::Amount { since, .. } | Pending::Category { since, .. } | Pending::Confirm { since, .. },
-        ) if since.elapsed() > PENDING_TTL => {
-            send_message(service, chat, "O prazo para esse PDF terminou. Envie-o novamente.")?;
-        }
-        Some(Pending::Confirm { amount_cents, reply, since }) if confirmed => {
-            if let Err(error) = save_transaction(&service.config.db_path, amount_cents, &reply) {
-                keep(Pending::Confirm { amount_cents, reply, since })?;
+        Some(Pending { step: Step::Confirm(reply), amount_cents, from_pdf, since }) if confirmed => {
+            if let Err(error) = save_transaction(&service.config.db_path, amount_cents, from_pdf, &reply) {
+                keep(Pending { amount_cents, from_pdf, since, step: Step::Confirm(reply) })?;
                 return Err(error);
             }
             let saved = Reply { known: true, ..reply };
             send_message(service, chat, &format!("{} salva.", summary(amount_cents, &saved)))?;
         }
-        Some(Pending::Confirm { amount_cents, .. }) if text == "/corrigir" => {
-            keep(Pending::Amount { amount_cents, since: Instant::now() })?;
+        Some(Pending { step: Step::Confirm(_), amount_cents, from_pdf, .. }) if text == "/corrigir" => {
+            keep(Pending { amount_cents, from_pdf, since: Instant::now(), step: Step::Amount })?;
             send_message(service, chat, "Envie de novo, por exemplo: `despesa Mercado Ana`.")?;
         }
-        Some(Pending::Category { amount_cents, reply, since }) if text == "/criar" => {
-            ask(service, chat, Pending::Confirm { amount_cents, reply, since })?;
+        Some(Pending { step: Step::Category(reply), amount_cents, from_pdf, since }) if text == "/criar" => {
+            ask(service, chat, Pending { amount_cents, from_pdf, since, step: Step::Confirm(reply) })?;
         }
-        Some(Pending::Category { amount_cents, mut reply, since }) if text.starts_with("/categoria ") => {
+        Some(Pending { step: Step::Category(mut reply), amount_cents, from_pdf, since })
+            if text.starts_with("/categoria ") =>
+        {
             let id = text["/categoria ".len()..].parse::<i64>().ok();
             let chosen = Database::open(&service.config.db_path)
                 .and_then(|db| db.categories())
                 .map_err(|e| e.to_string())?
                 .into_iter()
                 .find(|category| Some(category.id) == id && category.flow == reply.flow);
-            match chosen {
+            let step = match chosen {
                 Some(category) => {
                     (reply.category, reply.known) = (category.name, true);
-                    ask(service, chat, Pending::Confirm { amount_cents, reply, since })?;
+                    Step::Confirm(reply)
                 }
-                None => ask(service, chat, Pending::Category { amount_cents, reply, since })?,
-            }
+                None => Step::Category(reply),
+            };
+            ask(service, chat, Pending { amount_cents, from_pdf, since, step })?;
         }
-        Some(
-            Pending::Amount { amount_cents, since }
-            | Pending::Category { amount_cents, since, .. }
-            | Pending::Confirm { amount_cents, since, .. },
-        ) if !confirmed && !text.starts_with('/') => {
-            let read = Database::open(&service.config.db_path)
-                .and_then(|db| Ok((db.members()?, db.categories()?)))
-                .map_err(|e| e.to_string())
-                .map(|(members, categories)| read_reply(&text, &members, &categories));
-            match read {
-                Ok(Ok(reply)) if reply.known => {
-                    ask(service, chat, Pending::Confirm { amount_cents, reply, since })?;
+        pending if !command => match take_amount(&text) {
+            Err(question) => {
+                if let Some(pending) = pending {
+                    keep(pending)?;
                 }
-                Ok(Ok(reply)) => ask(service, chat, Pending::Category { amount_cents, reply, since })?,
-                Ok(Err(question)) => {
-                    keep(Pending::Amount { amount_cents, since })?;
-                    send_message(service, chat, &question)?;
-                }
-                Err(error) => {
-                    keep(Pending::Amount { amount_cents, since })?;
-                    return Err(error);
-                }
+                send_message(service, chat, &question)?;
             }
-        }
+            Ok(Some((amount_cents, rest))) => {
+                let said =
+                    Pending { amount_cents, from_pdf: false, since: Instant::now(), step: Step::Amount };
+                read(service, chat, said, &rest)?;
+            }
+            Ok(None) => match pending {
+                Some(pending) => read(service, chat, pending, &text)?,
+                None if expired => {
+                    send_message(service, chat, "O prazo desse lançamento terminou. Envie de novo.")?;
+                }
+                None => send_message(service, chat, NOTHING_WAITING)?,
+            },
+        },
         Some(pending) => {
             keep(pending)?;
             send_message(service, chat, "Responda com os botões, ou envie `despesa Categoria` de novo.")?;
         }
-        None => send_message(service, chat, "Não há PDF aguardando. Envie o comprovante novamente.")?,
+        None if expired => send_message(service, chat, "O prazo desse lançamento terminou. Envie de novo.")?,
+        None => send_message(service, chat, NOTHING_WAITING)?,
     }
     Ok(())
+}
+
+const NOTHING_WAITING: &str = "Nada aguardando. Para lançar, diga o valor: `gastei 50 no mercado, foi a Ana`. Ou envie o PDF do comprovante.";
+
+/// Reads what `text` says about the pending amount and asks the next question: which
+/// category, whether to save, or what is missing, the amount kept.
+fn read(service: &Service, chat: i64, pending: Pending, text: &str) -> Result<(), String> {
+    let Pending { amount_cents, from_pdf, since, .. } = pending;
+    let read = Database::open(&service.config.db_path)
+        .and_then(|db| Ok((db.members()?, db.categories()?)))
+        .map_err(|e| e.to_string())
+        .map(|(members, categories)| read_reply(text, &members, &categories));
+    let waiting = Pending { amount_cents, from_pdf, since, step: Step::Amount };
+    match read {
+        Ok(Ok(reply)) => {
+            let step = if reply.known { Step::Confirm(reply) } else { Step::Category(reply) };
+            ask(service, chat, Pending { step, ..waiting })
+        }
+        Ok(Err(question)) => {
+            let question = if from_pdf {
+                question
+            } else {
+                format!("Valor: R$ {}. {question}", format_brl(amount_cents))
+            };
+            service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, waiting);
+            send_message(service, chat, &question)
+        }
+        Err(error) => {
+            service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, waiting);
+            Err(error)
+        }
+    }
 }
 
 const YES_WORDS: &[&str] = &["sim", "confirmar", "confirmo", "confirma", "ok"];
@@ -462,8 +500,8 @@ const CATEGORY_CHOICES: usize = 6;
 /// Keeps `pending` and asks its question: confirm what will be saved, or which category,
 /// since a category is never created without the person saying so.
 fn ask(service: &Service, chat: i64, pending: Pending) -> Result<(), String> {
-    let (rows, question) = match &pending {
-        Pending::Category { reply, .. } => {
+    let (rows, question) = match &pending.step {
+        Step::Category(reply) => {
             let used = Database::open(&service.config.db_path)
                 .and_then(|db| db.categories_by_use(reply.flow))
                 .map_err(|e| e.to_string())?;
@@ -483,11 +521,11 @@ fn ask(service: &Service, chat: i64, pending: Pending) -> Result<(), String> {
             let pick = if used.is_empty() { "Crie" } else { "Escolha uma das mais usadas ou crie" };
             (rows, format!("Não encontrei a categoria “{}” em {kind}. {pick}:", reply.category))
         }
-        Pending::Confirm { amount_cents, reply, .. } => {
+        Step::Confirm(reply) => {
             let row = CONFIRM_BUTTONS.iter().map(|(label, data)| ((*label).to_owned(), (*data).to_owned()));
-            (vec![row.collect()], format!("{}\nConfirma?", summary(*amount_cents, reply)))
+            (vec![row.collect()], format!("{}\nConfirma?", summary(pending.amount_cents, reply)))
         }
-        Pending::Amount { .. } => return Err("nada a perguntar".into()),
+        Step::Amount => return Err("nada a perguntar".into()),
     };
     service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, pending);
     send_with_buttons(service, chat, &question, &rows)
@@ -571,10 +609,10 @@ fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result
     let keys = |words: &[String]| words.iter().map(|word| folded(word)).collect::<Vec<_>>();
 
     let found = keys(&words).iter().enumerate().find_map(|(i, key)| {
-        if EXPENSE_WORDS.iter().any(|word| sounds_like(key, word)) {
+        if EXPENSE_WORDS.iter().any(|word| sounds_like(key, word, 5)) {
             Some((i, Flow::Expense))
         } else {
-            INCOME_WORDS.iter().any(|word| sounds_like(key, word)).then_some((i, Flow::Income))
+            INCOME_WORDS.iter().any(|word| sounds_like(key, word, 5)).then_some((i, Flow::Income))
         }
     });
     let Some((at, flow)) = found else {
@@ -592,7 +630,7 @@ fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result
             let exact = find_run(&said, &name).map(|at| (at, true));
             let heard = || {
                 said.windows(name.len().max(1))
-                    .position(|window| window.iter().zip(&name).all(|(a, b)| sounds_like(a, b)))
+                    .position(|window| window.iter().zip(&name).all(|(a, b)| sounds_like(a, b, 6)))
                     .map(|at| (at, false))
             };
             exact.or_else(heard).map(|(at, exact)| (at, name.len(), exact, member))
@@ -639,13 +677,15 @@ fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result
     Ok(Reply { flow, category, known, member })
 }
 
-/// The same word, or a long one heard with one letter wrong: Whisper writes "despeza".
-fn sounds_like(heard: &str, word: &str) -> bool {
+/// The same word, or one of 6 letters or more heard with one letter wrong, missing or
+/// extra: Whisper writes "despeza", and "astei" for "gastei". Neither may be shorter than
+/// `shortest`: 5 for the keywords, 6 for names, so "Marina" is not taken for Maria.
+fn sounds_like(heard: &str, word: &str, shortest: usize) -> bool {
     if heard == word {
         return true;
     }
     let (a, b): (Vec<char>, Vec<char>) = (heard.chars().collect(), word.chars().collect());
-    if a.len().min(b.len()) < 6 || a.len().abs_diff(b.len()) > 1 {
+    if a.len().max(b.len()) < 6 || a.len().min(b.len()) < shortest || a.len().abs_diff(b.len()) > 1 {
         return false;
     }
     let same_start = a.iter().zip(&b).take_while(|(x, y)| x == y).count();
@@ -683,6 +723,169 @@ fn unknown_name(words: &[String], categories: &[Category]) -> Option<String> {
         }
     }
     (!name.is_empty() && name.len() <= 3).then(|| name.join(" "))
+}
+
+/// The amount a message says, in cents, and the message without it: "50", "50,90",
+/// "R$ 1.234,56", "2 mil reais", "cinquenta reais e noventa centavos". Spelled-out numbers
+/// count only before "reais" or "centavos", since "um" is also "a". Two amounts are asked
+/// about, unless only one is marked as money (R$, reais, centavos or a comma).
+fn take_amount(text: &str) -> Result<Option<(i64, String)>, String> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let keys: Vec<String> = words
+        .iter()
+        .map(|word| {
+            let key = folded(word);
+            let key = key.strip_prefix("r$").unwrap_or(&key);
+            key.trim_matches(|c: char| !c.is_alphanumeric()).to_owned()
+        })
+        .collect();
+    let mut found = Vec::new();
+    let mut at = 0;
+    while at < keys.len() {
+        match amount_at(&keys, at) {
+            Some((cents, end, marked)) => {
+                let marked =
+                    marked || folded(words[at]).starts_with("r$") || at > 0 && keys[at - 1].is_empty();
+                found.push((at, end, cents, marked));
+                at = end;
+            }
+            None => at += 1,
+        }
+    }
+    let marked: Vec<_> = found.iter().filter(|amount| amount.3).collect();
+    let (start, end, cents) = match (found.as_slice(), marked.as_slice()) {
+        ([], _) => return Ok(None),
+        ([(start, end, cents, _)], _) | (_, [(start, end, cents, _)]) => (*start, *end, *cents),
+        _ => {
+            return Err(
+                "Encontrei mais de um valor na mensagem. Diga só um, por exemplo: `gastei 50 no mercado`."
+                    .into(),
+            );
+        }
+    };
+    let rest = words.iter().enumerate().filter(|(i, _)| !(start..end).contains(i)).map(|(_, word)| *word);
+    Ok(Some((cents, rest.collect::<Vec<_>>().join(" "))))
+}
+
+/// An amount starting at `keys[at]`: its cents, where it ends, and whether a currency
+/// word or a comma marks it as money.
+fn amount_at(keys: &[String], at: usize) -> Option<(i64, usize, bool)> {
+    let word = |i: usize| keys.get(i).map_or("", String::as_str);
+    let (mut cents, mut end, spelled, comma) = match digits_in_cents(word(at)) {
+        Some(cents) => (cents, at + 1, false, word(at).contains(',')),
+        None => {
+            let (units, end) = spelled_number(keys, at)?;
+            (units.checked_mul(100)?, end, true, false)
+        }
+    };
+    if !spelled && word(end) == "mil" {
+        cents = cents.checked_mul(1000)?;
+        end += 1;
+    }
+    if word(end) == "centavos" {
+        return (cents < 10_000).then_some((cents / 100, end + 1, true));
+    }
+    let currency = matches!(word(end), "reais" | "real" | "conto" | "contos");
+    if currency {
+        end += 1;
+        let small = digits_in_cents(word(end + 1))
+            .filter(|_| !word(end + 1).contains(','))
+            .map(|cents| (cents / 100, end + 2))
+            .or_else(|| spelled_number(keys, end + 1));
+        if word(end) == "e"
+            && let Some((extra, after)) = small
+            && extra < 100
+            && word(after) == "centavos"
+        {
+            cents += extra;
+            end = after + 1;
+        }
+    }
+    if spelled && !currency {
+        return None;
+    }
+    (cents > 0 && cents <= 100_000_000).then_some((cents, end, currency || comma))
+}
+
+/// "50" → 5000, "50,9" → 5090, "1.234,56" → 123456, "1.234" → 123400, "50.90" → 5090.
+fn digits_in_cents(key: &str) -> Option<i64> {
+    if !key.starts_with(|c: char| c.is_ascii_digit())
+        || !key.chars().all(|c| c.is_ascii_digit() || c == '.' || c == ',')
+    {
+        return None;
+    }
+    let (whole, fraction) = match key.rsplit_once(',') {
+        Some((whole, fraction)) => (whole, fraction),
+        None => match key.rsplit_once('.') {
+            Some((whole, fraction)) if fraction.len() <= 2 && !whole.contains('.') => (whole, fraction),
+            _ => (key, ""),
+        },
+    };
+    if fraction.len() > 2 || fraction.contains('.') || whole.contains(',') {
+        return None;
+    }
+    let whole: i64 = whole.replace('.', "").parse().ok()?;
+    let fraction: i64 = if fraction.is_empty() { 0 } else { format!("{fraction:0<2}").parse().ok()? };
+    whole.checked_mul(100)?.checked_add(fraction)
+}
+
+/// A number spelled out from `keys[at]`, "mil duzentos e trinta e cinco", and where it ends.
+fn spelled_number(keys: &[String], at: usize) -> Option<(i64, usize)> {
+    let value = |key: &str| -> Option<i64> {
+        Some(match key {
+            "um" | "uma" => 1,
+            "dois" | "duas" => 2,
+            "tres" => 3,
+            "quatro" => 4,
+            "cinco" => 5,
+            "seis" => 6,
+            "sete" => 7,
+            "oito" => 8,
+            "nove" => 9,
+            "dez" => 10,
+            "onze" => 11,
+            "doze" => 12,
+            "treze" => 13,
+            "catorze" | "quatorze" => 14,
+            "quinze" => 15,
+            "dezesseis" => 16,
+            "dezessete" => 17,
+            "dezoito" => 18,
+            "dezenove" => 19,
+            "vinte" => 20,
+            "trinta" => 30,
+            "quarenta" => 40,
+            "cinquenta" => 50,
+            "sessenta" => 60,
+            "setenta" => 70,
+            "oitenta" => 80,
+            "noventa" => 90,
+            "cem" | "cento" => 100,
+            "duzentos" | "duzentas" => 200,
+            "trezentos" | "trezentas" => 300,
+            "quatrocentos" | "quatrocentas" => 400,
+            "quinhentos" | "quinhentas" => 500,
+            "seiscentos" | "seiscentas" => 600,
+            "setecentos" | "setecentas" => 700,
+            "oitocentos" | "oitocentas" => 800,
+            "novecentos" | "novecentas" => 900,
+            _ => return None,
+        })
+    };
+    let is_number = |i: usize| keys.get(i).is_some_and(|key| key == "mil" || value(key).is_some());
+    let (mut total, mut group, mut end) = (0, 0, at);
+    while let Some(key) = keys.get(end) {
+        if key == "mil" {
+            total += group.max(1) * 1000;
+            group = 0;
+        } else if let Some(units) = value(key) {
+            group += units;
+        } else if !(key == "e" && end > at && is_number(end + 1)) {
+            break;
+        }
+        end += 1;
+    }
+    (end > at).then_some((total + group, end))
 }
 
 fn capitalized(text: &str) -> String {
@@ -768,13 +971,8 @@ fn download(service: &Service, file_id: &str, limit: u64) -> Result<Vec<u8>, Opt
 }
 
 /// The words of a voice note, said back so the person sees what was understood. `None`
-/// when there was nothing to hear it for, or nothing to hear it with; the person is told.
+/// when there was nothing to hear it with, or nothing heard; the person is told.
 fn hear(service: &Service, chat: i64, voice: &Voice) -> Result<Option<String>, String> {
-    let waiting = service.pending.lock().map_err(|_| "estado do bot indisponível")?.contains_key(&chat);
-    if !waiting {
-        send_message(service, chat, "Não há PDF aguardando. Envie o comprovante e depois o áudio.")?;
-        return Ok(None);
-    }
     if voice.duration.is_some_and(|seconds| seconds > MAX_VOICE_SECONDS as u64)
         || voice.file_size.is_some_and(|bytes| bytes > MAX_VOICE_BYTES)
     {
@@ -962,7 +1160,7 @@ fn folded(text: &str) -> String {
         .collect()
 }
 
-fn save_transaction(path: &Path, amount_cents: i64, reply: &Reply) -> Result<i64, String> {
+fn save_transaction(path: &Path, amount_cents: i64, from_pdf: bool, reply: &Reply) -> Result<i64, String> {
     let db = Database::open(path).map_err(|e| e.to_string())?;
     let accounts = db.accounts().map_err(|e| e.to_string())?;
     let account_id = match std::env::var("RAVEN_ACCOUNT_ID") {
@@ -981,7 +1179,11 @@ fn save_transaction(path: &Path, amount_cents: i64, reply: &Reply) -> Result<i64
         let category_id = db.find_or_create_category(&reply.category, reply.flow)?;
         db.add_transaction(&TransactionInput {
             date: today(),
-            description: format!("Comprovante PDF — {}", reply.category),
+            description: format!(
+                "{} — {}",
+                if from_pdf { "Comprovante PDF" } else { "Telegram" },
+                reply.category
+            ),
             amount_cents,
             flow: reply.flow,
             account_id,
@@ -1072,7 +1274,16 @@ mod tests {
         assert_eq!((reply.flow, reply.category.as_str()), (Flow::Expense, "Padaria"));
         assert_eq!(read_reply("Receitta Salário", &[], &[]).expect("heard").flow, Flow::Income);
         assert!(read_reply("gasta padaria", &[], &[]).is_err(), "short words must be exact");
+        assert_eq!(
+            read_reply("Astei no mercado", &[], &[]).expect("heard").flow,
+            Flow::Expense,
+            "a letter missing"
+        );
         assert!(read_reply("dispensa padaria", &[], &[]).is_err(), "two letters off is another word");
+        assert!(
+            sounds_like("mateus", "matheus", 6) && !sounds_like("marina", "maria", 6),
+            "names: 6 letters"
+        );
     }
 
     #[test]
@@ -1121,7 +1332,42 @@ mod tests {
         );
     }
 
+    #[test]
+    fn reads_the_amount_said_in_a_message() {
+        let amount = |text: &str| take_amount(text).expect(text).map(|(cents, _)| cents);
+        assert_eq!(amount("gastei 50 no mercado, foi a Ana"), Some(5_000));
+        assert_eq!(amount("gastei 50,90 no mercado"), Some(5_090));
+        assert_eq!(amount("paguei R$ 1.234,56 de aluguel"), Some(123_456));
+        assert_eq!(amount("paguei R$1.234,56 de aluguel"), Some(123_456));
+        assert_eq!(amount("despesa 1.234 aluguel"), Some(123_400), "a dot before three digits is thousands");
+        assert_eq!(amount("despesa 50.9 padaria"), Some(5_090), "Whisper may write a dot for the comma");
+        assert_eq!(amount("recebi 2 mil reais de salário"), Some(200_000));
+        assert_eq!(amount("gastei cinquenta reais no mercado"), Some(5_000));
+        assert_eq!(amount("gastei cento e vinte e cinco reais e cinquenta centavos"), Some(12_550));
+        assert_eq!(amount("paguei mil e duzentos reais de aluguel"), Some(120_000));
+        assert_eq!(amount("gastei 50 reais e 90 centavos"), Some(5_090));
+        assert_eq!(amount("noventa centavos de bala"), Some(90));
+        assert_eq!(amount("Gastei um real de bala."), Some(100));
+        assert_eq!(amount("despesa de uma pizza"), None, "\"uma\" is an article without reais");
+        assert_eq!(amount("despesa Mercado Ana"), None);
+        assert_eq!(amount("comprei 2 pães por R$ 9,80"), Some(980), "only one is money");
+        assert!(take_amount("gastei 50 no mercado e 30 na farmácia").is_err(), "two amounts are asked about");
+        assert_eq!(amount("despesa 0 mercado"), None);
+
+        let (_, rest) = take_amount("Gastei R$ 50,90 no mercado, foi a Ana").expect("read").expect("amount");
+        assert_eq!(rest, "Gastei R$ no mercado, foi a Ana");
+        let members = [member(1, "Ana")];
+        let reply = read_reply(&rest, &members, &[category(7, "Mercado", Flow::Expense)]).expect("read");
+        assert_eq!(
+            (reply.flow, reply.category.as_str(), reply.member),
+            (Flow::Expense, "Mercado", Some(member(1, "Ana")))
+        );
+        let (_, rest) = take_amount("gastei cinquenta reais na farmácia").expect("read").expect("amount");
+        assert_eq!(read_reply(&rest, &[], &[]).expect("read").category, "Farmácia");
+    }
+
     const VOICE_NOTE: &[u8] = include_bytes!("../tests/fixtures/voz-despesa.ogg");
+    const SPENT_NOTE: &[u8] = include_bytes!("../tests/fixtures/voz-gasto.ogg");
 
     #[test]
     fn decodes_a_telegram_voice_note() {
@@ -1153,6 +1399,20 @@ mod tests {
         let reply = read_reply(&heard.text, &members, &categories).expect("read");
         assert_eq!((reply.flow, reply.category.as_str()), (Flow::Expense, "Mercado"), "{}", heard.text);
         assert_eq!(reply.member, Some(member(1, "Ana")), "{}", heard.text);
+
+        // "Gastei cinquenta reais no mercado, foi a Ana.", with no receipt: Base writes
+        // "Astei 50 reais no mercado, foi a...", and the amount, the flow and the category hold.
+        let heard =
+            transcriber.transcribe(&voice_samples(SPENT_NOTE).expect("decoded"), "pt").expect("heard");
+        println!("{}: “{}” in {:.1} s", model.name, heard.text, heard.seconds);
+        let (amount, rest) = take_amount(&heard.text).expect("one amount").expect("an amount");
+        let reply = read_reply(&rest, &members, &categories).expect("read");
+        assert_eq!(
+            (amount, reply.flow, reply.category.as_str()),
+            (5_000, Flow::Expense, "Mercado"),
+            "{}",
+            heard.text
+        );
     }
 
     #[test]

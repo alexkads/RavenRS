@@ -349,8 +349,24 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
         { "chat": { "id": -5, "type": "group" }, "from": { "id": CHAT }, "text": "despesa Mercado" } });
     assert_eq!(fake.say_within(group, Duration::from_secs(2), || ()), None, "groups are ignored");
 
-    assert!(fake.say(text(CHAT, "despesa Mercado")).contains("Não há PDF aguardando"));
-    assert!(fake.say(voice(CHAT)).contains("Não há PDF aguardando"), "a voice note needs a receipt first");
+    assert!(fake.say(text(CHAT, "despesa Mercado")).contains("diga o valor"), "no amount, nothing waiting");
+    assert!(
+        fake.say(voice(CHAT)).contains("Para entender áudios"),
+        "a voice note needs no receipt, only a model"
+    );
+    assert!(fake.say(text(CHAT, "gastei 50 no mercado e 30 na farmácia")).contains("mais de um valor"));
+    let question = fake.say(text(CHAT, "50 reais no mercado"));
+    assert!(question.contains("Valor: R$ 50,00") && question.contains("despesa ou receita"), "{question}");
+    assert!(fake.say(text(CHAT, "despesa Mercado Ana")).contains("Não encontrei a categoria “Mercado”"));
+    let question = fake.say(tap(CHAT, "rf:new"));
+    assert!(question.contains("Despesa · Mercado (nova) · Ana · R$ 50,00"), "the amount kept: {question}");
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("salva"));
+    let question = fake.say(text(CHAT, "Gastei R$ 12,90 no mercado, foi a Ana."));
+    assert!(
+        question.contains("Despesa · Mercado · Ana · R$ 12,90") && question.contains("Confirma?"),
+        "{question}"
+    );
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("salva"), "said in one message, saved without a PDF");
     assert!(fake.say(document(CHAT, "pix.pdf", 20 * 1024 * 1024)).contains("Envie um PDF de até 14 MB"));
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
     assert!(fake.say(voice(CHAT)).contains("Para entender áudios"), "no model yet: says where to get one");
@@ -395,13 +411,17 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
     assert!(fake.say(document(CHAT, "saldo.pdf", 2_000)).contains("mais de um valor"), "never guesses");
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
     assert!(fake.say(text(CHAT, "/cancelar")).contains("cancelado"));
-    assert!(fake.say(text(CHAT, "despesa Aluguel")).contains("Não há PDF aguardando"));
+    assert!(fake.say(text(CHAT, "despesa Aluguel")).contains("Nada aguardando"));
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
     let question = fake.say(text(CHAT, "despesa Aluguel"));
     assert!(question.contains("Escolha uma das mais usadas ou crie"), "{question}");
     let rows = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"].clone();
-    assert_eq!(rows[0][0]["text"], "Energia elétrica", "the category already used: {rows}");
-    let energy = rows[0][0]["callback_data"].as_str().unwrap().to_owned();
+    assert_eq!(
+        (rows[0][0]["text"].as_str(), rows[0][1]["text"].as_str()),
+        (Some("Mercado"), Some("Energia elétrica")),
+        "the most used first: {rows}"
+    );
+    let energy = rows[0][1]["callback_data"].as_str().unwrap().to_owned();
     assert!(
         fake.say(tap(CHAT, "rf:cat:999")).contains("Não encontrei a categoria"),
         "a category that is gone"
@@ -411,23 +431,29 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
         "picked, not created"
     );
     assert!(fake.say(tap(CHAT, "rf:no")).contains("cancelado"), "Cancelar saves nothing");
-    assert!(fake.say(tap(CHAT, "rf:ok")).contains("Não há PDF aguardando"), "an old button does nothing");
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("Nada aguardando"), "an old button does nothing");
 
-    let saved: Vec<(i64, i64, Option<i64>)> = {
+    let saved: Vec<(i64, i64, Option<i64>, String)> = {
         let conn = rusqlite::Connection::open(&path).expect("open");
         let mut query = conn
-            .prepare("SELECT account_id, amount_cents, member_id FROM transactions ORDER BY amount_cents")
+            .prepare("SELECT account_id, amount_cents, member_id, description FROM transactions ORDER BY amount_cents")
             .unwrap();
         query
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
             .unwrap()
             .map(Result::unwrap)
             .collect()
     };
+    let said = |cents, member, description: &str| (bank, cents, member, description.to_owned());
     assert_eq!(
         saved,
-        [(bank, 54_358, Some(ana)), (bank, 300_000, None)],
-        "both receipts, in the account chosen in Ajustes, with who spent"
+        [
+            said(1_290, Some(ana), "Telegram — Mercado"),
+            said(5_000, Some(ana), "Telegram — Mercado"),
+            said(54_358, Some(ana), "Comprovante PDF — Energia elétrica"),
+            said(300_000, None, "Comprovante PDF — Salário"),
+        ],
+        "said and sent, in the account chosen in Ajustes, with who spent"
     );
 
     db.revoke_telegram_pairings(now()).expect("revoke");
