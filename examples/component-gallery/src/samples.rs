@@ -34,7 +34,7 @@ samples! {
     "RecurrenceEditor" => recurrence_editor, "InputOtp" => input_otp, "FormField" => form_field, "Label" => label,
     "TextArea" => text_area, "NumberField" => number_field, "MaskedField" => masked_field,
     "TimePicker" => time_picker, "DateTimePicker" => date_time_picker, "LookupField" => lookup_field,
-    "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "Toolbar" => toolbar, "SplitButton" => split_button,
+    "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "ExpressionEditor" => expression_editor, "Toolbar" => toolbar, "SplitButton" => split_button,
     "ConfirmDialog" => confirm_dialog,
     "TreeView" => tree_view, "TagBox" => tag_box, "ColorPicker" => color_picker,
     "DateRangePicker" => date_range_picker, "Wizard" => wizard, "StepIndicator" => step_indicator, "StepBadge" => step_badge, "FileUpload" => file_upload,
@@ -718,6 +718,16 @@ fn recurrence_editor() -> impl View {
     let start = Date::new(2026, 11, 5).unwrap_or_else(|| unreachable!("a real date"));
     let rule = State::new(RecurrenceRule::new(Frequency::Weekly).on_weekdays([1, 4]));
     RecurrenceEditor::new(rule.binding(), start)
+}
+// end
+
+// sample: ExpressionEditor, 420
+fn expression_editor() -> impl View {
+    let expression = State::new("[Quantity] * [UnitPrice]".to_owned());
+    ExpressionEditor::new(expression.binding())
+        .field(FilterField::new("Quantity", "Quantity", FilterFieldKind::Number))
+        .field(FilterField::new("UnitPrice", "Unit price", FilterFieldKind::Number))
+        .parameter(FilterField::new("MinTotal", "Least total", FilterFieldKind::Number))
 }
 // end
 
