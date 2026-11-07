@@ -1,5 +1,28 @@
 [
   {
+    "versao": "0.1.33",
+    "data": "2026-11-07",
+    "titulo": "Lançar pelo Telegram sem comprovante, e desfazer pelo chat.",
+    "importante": false,
+    "novidades": [
+      "No Telegram, lance só com uma mensagem, escrita ou falada: \"gastei 50 no mercado, foi a Ana\". O bot lê o valor, até por extenso, como \"cinquenta reais e noventa centavos\".",
+      "Se a categoria ainda não existe, o bot mostra as mais usadas para escolher, ou Criar, e nunca cria uma sem você pedir.",
+      "Errou? O botão Desfazer, depois do \"salva\", apaga o último lançamento do chat por 5 minutos.",
+      "O bot reconhece quem gastou mesmo com uma letra trocada no áudio, e o nome depois de \"para\": \"despesa de mercado para o Mateus\".",
+      "Em Ajustes, o cartão do Telegram ficou mais organizado: o estado no topo e o token recolhido depois de salvo.",
+      "Começar do zero e Carregar dados de exemplo pedem um backup recente e a palavra digitada em caixa alta antes de apagar ou trocar os dados."
+    ],
+    "por_que_atualizar": "Para lançar pelo Telegram só dizendo o valor, sem PDF, desfazer um engano pelo chat e não perder dados por um clique sem querer.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      23,
+      26
+    ]
+  },
+  {
     "versao": "0.1.32",
     "data": "2026-11-06",
     "titulo": "Telegram por áudio e atualização que explica o que deu errado.",
