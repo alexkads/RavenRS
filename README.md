@@ -306,6 +306,7 @@ Start with `ravenrs`. The others come in as you need them.
 | [`ravenrs-app-sqlite`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-sqlite), [`-report`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-report), [`-library`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-library) | Storage, reports inside an application, and ready-made records. |
 | [`ravenrs-ai`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-ai) | Local models and voice. |
 | [`ravenrs-movie`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-movie) | Vector training films and bug reports. |
+| [`ravenrs-movie-video`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-movie-video) | Films as video files for video sites and social networks: wide, vertical and square, with subtitles, chapters and a cover. |
 | [`ravenrs-criteria`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-criteria) | The expression language, independent of any UI. |
 | [`ravenrs-graphics`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-graphics) | Vector shapes, chart layout and barcodes, shared by every engine. |
 | [`ravenrs-lottie`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lottie) | A Lottie player of our own: reads the file and works out each frame's curves. |

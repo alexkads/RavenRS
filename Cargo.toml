@@ -43,6 +43,7 @@ ravenrs-criteria = { version = "27.1.16", path = "crates/ravenrs-criteria", defa
 ravenrs-ai = { version = "27.1.16", path = "crates/ravenrs-ai" }
 ravenrs-lottie = { version = "27.1.16", path = "crates/ravenrs-lottie" }
 ravenrs-movie = { version = "27.1.16", path = "crates/ravenrs-movie" }
+ravenrs-movie-video = { version = "27.1.16", path = "crates/ravenrs-movie-video" }
 
 wgpu = "30.0.1"
 # Without "wayland-csd-adwaita": its font stack (ttf-parser) is unmaintained (RUSTSEC-2026-0192);
