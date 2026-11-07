@@ -2,7 +2,7 @@
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server that gives coding assistants accurate answers about [RavenRS](https://github.com/alexkads/RavenRS). It is a development tool: your app does not depend on it.
 
-It is read-only and works offline. It speaks MCP over stdio, opens no sockets and reads no files. Everything it knows is embedded at build time, so it always describes the RavenRS it was built from.
+It has no side effects and works offline. It speaks MCP over stdio, opens no sockets and reads or writes no files: the report tools return layouts as JSON for the assistant to save. Everything it knows is embedded at build time, so it always describes the RavenRS it was built from.
 
 ## Install
 
@@ -47,6 +47,10 @@ Any other MCP client needs the same command:
 | `parity_status` | Status of a feature in `docs/PARITY.md` and `docs/REPORTING-PARITY.md` | `document`, `query`, `status`, `limit` |
 | `validate_expression` | Syntax and schema check of a `ravenrs-criteria` expression; never evaluates it | `expression`, `schema` |
 | `expression_functions` | Functions and aggregates of the expression language | `category`, `query` |
+| `report_layout_format` | The `.rvreport.json` format: bands, each control with a JSON example, styles, data sources and a complete layout, all produced by `ravenrs-report` itself | |
+| `create_report_layout` | A table layout from sample rows, or from fields and a data URL for the report server: title, columns with captions and formats, grouping, totals, culture, landscape, accent color, checked before it is returned | `title`, `data`, `fields`, `data_url`, `data_member`, `columns`, `group_by`, `totals`, `culture`, `landscape`, `accent`, `source_name` |
+| `check_report_layout` | JSON errors with line and column, every expression checked against fields, calculated fields and parameters, and a render that reports pages and expression errors | `layout`, `data`, `parameters` |
+| `report_layout_templates` | The ready layouts (invoice, sales by region, sales dashboard, customer list), or the JSON of one | `name` |
 
 ## How it works
 

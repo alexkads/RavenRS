@@ -1,4 +1,5 @@
-//! A read-only MCP server for developers building with RavenRS.
+//! An MCP server for developers building with RavenRS. It has no side effects: it
+//! answers questions and returns report layouts as JSON for the caller to save.
 //!
 //! Everything it answers from is embedded at build time, so it reads no files,
 //! opens no sockets and always describes the RavenRS it was built from. See the
@@ -7,6 +8,7 @@
 mod api;
 mod docs;
 mod expression;
+mod report;
 mod server;
 
 use rmcp::ServiceExt;

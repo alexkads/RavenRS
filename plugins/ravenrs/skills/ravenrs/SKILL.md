@@ -19,6 +19,7 @@ Builder method names vary by component, so confirm them before writing a view. I
 | Which color or text style is this? | `design_tokens` |
 | Does this feature exist yet? | `parity_status` |
 | Is this expression valid? Which functions exist? | `validate_expression`, `expression_functions` |
+| How do I make a report? | `report_layout_format`, then `create_report_layout` or `report_layout_templates`; confirm with `check_report_layout` and save the JSON as a `.rvreport.json` file |
 
 Without the server, use the [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/) and the [gallery source](https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery/src/lib.rs). Check `parity_status` or [docs/PARITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) before promising a feature, because some are still planned. When a feature is missing, say so and propose composing it from what exists.
 
