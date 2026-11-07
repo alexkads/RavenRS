@@ -4,6 +4,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `ExpressionEditor`: edits an expression of the criteria language, with fields, parameters, functions by group, operators and constants to search and insert at the caret, each item's signature and description, and a check while typing that gives the line and column of a syntax error and lists unknown names. Its words are in `Labels` (`expression_*`). The report designer opens it from the button beside an expression, the filter and a group's field, and from Expression on the Home page.
+
 ### Changed
 
 - The report designer is laid out as a full report editor: a toolbox down the left, rulers in centimeters across the page and beside each band (marking the selected control), the field list and report explorer as tabs over the properties on the right with a bar to drag between them, Design / Preview / JSON tabs under the document and a zoom slider in the status bar. The Ribbon's Home page has Edit (cut, copy, paste, delete), Font (bold, larger, smaller), Alignment and Layout (bring to front, send to back); printing and export moved to an Output page and stay in the File menu and the quick access bar.
@@ -22,7 +26,6 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `ReleaseNote::links(heading, links)`: a heading over links, each a label and what clicking it does, such as opening the issue a change came from.
 - `ravenrs-ai` hears: `HEARING_CATALOG` offers Whisper Base and Small, and `Transcriber` turns mono speech at `HEARING_RATE` (16 kHz) into text on the CPU, in plain Rust, the way OpenAI's reference reads it. `ModelManager` downloads them like the other models, and its speed test times ten seconds of hearing.
 - `ModelFamily::Whisper`.
-- `ExpressionEditor`: edits an expression of the criteria language, with fields, parameters, functions by group, operators and constants to search and insert at the caret, each item's signature and description, and a check while typing that gives the line and column of a syntax error and lists unknown names. Its words are in `Labels` (`expression_*`). The report designer opens it from the button beside an expression, the filter and a group's field, and from Expression on the Home page.
 
 ### Fixed
 
