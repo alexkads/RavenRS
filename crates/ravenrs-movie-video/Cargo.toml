@@ -1,0 +1,31 @@
+[package]
+name = "ravenrs-movie-video"
+description = "Turns a RavenRS film into an ordinary video file, with its boxes, clicks and narration, to publish outside the app."
+version.workspace = true
+edition.workspace = true
+# The H.264 coder needs 1.89 (its `wide` dependency), one above the workspace.
+rust-version = "1.89"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-movie-video"
+keywords = ["video", "h264", "export", "gui"]
+categories = ["gui", "multimedia::video"]
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-movie.workspace = true
+ravenrs-render.workspace = true
+ravenrs-style.workspace = true
+ravenrs-widgets.workspace = true
+openh264 = "0.9.9"
+image.workspace = true
+pollster.workspace = true
+
+[dev-dependencies]
+ravenrs-core.workspace = true
+
+[lints]
+workspace = true

@@ -69,3 +69,8 @@ that finds nothing never reaches the model.
 `MovieEditor` previews the picture only, with no sound.
 
 `Narration` holds what the films say, recorded ahead of time and compressed to about 8 KB a second, so that nobody who watches needs a voice model. `MoviePlayer::narration` and `MovieAssistant::narration` play it in place of the system's voice, which still says whatever has no recording.
+
+**Publishing** outside the app starts from `MovieFrame`, one moment of a film with its box and no
+controls, and `SocialFrame`, the same moment laid out for a phone screen with the words under the
+film. `Movie::following` brings the camera close to each spot explained, and `Soundtrack` gives
+the whole sound as samples. The `ravenrs-movie-video` crate turns these into a video file.

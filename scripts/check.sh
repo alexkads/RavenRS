@@ -28,7 +28,7 @@ fi
 
 step "minimum supported Rust version (1.88)"
 if rustup toolchain list | grep -q '^1.88'; then
-    cargo +1.88 check --workspace --exclude ravenrs-app-sqlite --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf
+    cargo +1.88 check --workspace --exclude ravenrs-app-sqlite --exclude ravenrs-movie-video --exclude channel-video --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf
 else
     echo "skipped: install it with 'rustup toolchain install 1.88'"
 fi
@@ -47,7 +47,7 @@ step "performance gate: exact counters against perf/baseline.json"
 cargo run --release -q -p ravenrs-perf -- gate
 
 step "API docs (broken links fail)"
-RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf --quiet
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude channel-video --exclude ravenrs-perf --quiet
 ./scripts/check-component-list.py
 
 step "web builds"
