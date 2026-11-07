@@ -216,3 +216,25 @@ fn the_toolbox_inserts_and_the_home_page_copies_pastes_and_formats() {
     press(&mut ui, Role::Button, "Negrito");
     assert_eq!(bold(&mut ui), Some(Toggled::True), "bold applies to the pasted label");
 }
+
+#[test]
+fn the_expression_editor_opens_from_the_filter_and_applies_what_is_inserted() {
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Vendas por região");
+    press(&mut ui, Role::Tab, "Design");
+    press(&mut ui, Role::Button, "Editar expressão");
+    assert!(names(&mut ui, Role::Dialog).contains(&"Editor de expressões".to_owned()));
+    press(&mut ui, Role::Button, "Operadores");
+    press(&mut ui, Role::Button, "And");
+    press(&mut ui, Role::Button, "And");
+    press(&mut ui, Role::Button, "Constantes");
+    press(&mut ui, Role::Button, "True");
+    press(&mut ui, Role::Button, "Inserir");
+    press(&mut ui, Role::Button, "Aplicar");
+    assert!(names(&mut ui, Role::Dialog).is_empty(), "applying closes the editor");
+    let tree = ui.access_tree();
+    assert!(
+        tree.nodes.iter().any(|n| n.value.as_deref() == Some("[Total] >= ?MinTotal And True")),
+        "the filter field shows the new expression"
+    );
+}
