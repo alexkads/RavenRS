@@ -2748,6 +2748,8 @@ impl DataGrid {
 
     fn filter_dialog(&self, cx: &mut BuildCx<'_>, h: &Handles, rows: &[Row]) -> NodeId {
         let columns: Rc<Vec<GridColumn>> = Rc::new(self.columns.clone());
+        // The values to pick from cost a pass over the rows, so only an open editor pays it.
+        let open = h.building_filter.get();
         let fields = self.columns.iter().enumerate().filter(|(_, c)| c.filterable).map(|(i, column)| {
             let kind = if column.number.is_some() {
                 crate::FilterFieldKind::Number
@@ -2759,30 +2761,31 @@ impl DataGrid {
                     _ => crate::FilterFieldKind::Text,
                 }
             };
-            crate::FilterField::new(column.title.clone(), column.title.clone(), kind)
+            let values = if open && kind != crate::FilterFieldKind::Boolean {
+                values_of(rows, column, i)
+                    .into_iter()
+                    .filter_map(|(shown, value)| {
+                        let key = match value {
+                            Value::Text(text) => text,
+                            Value::Number(n) => n.to_string(),
+                            Value::Date(date) => date.to_string(),
+                            _ => return None,
+                        };
+                        Some(crate::LookupItem::new(key, shown))
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            crate::FilterField::new(column.title.clone(), column.title.clone(), kind).values(values)
         });
         let (read, write) = (h.query.clone(), h.query.clone());
-        let holder = columns.clone();
         let text = Binding::new(
-            move || {
-                read.with(|q| {
-                    builder_column(q, &holder)
-                        .map(|c| q.filter(c))
-                        .filter(|f| f.contains('['))
-                        .unwrap_or("")
-                        .to_owned()
-                })
-            },
-            move |text: String| {
-                write.update(|q| {
-                    if let Some(c) = builder_column(q, &columns) {
-                        q.set_filter(c, text);
-                    }
-                });
-            },
+            move || read.with(whole_filter),
+            move |text: String| write.update(|q| set_whole_filter(q, &columns, text)),
         );
         cx.child(
-            &Dialog::new(h.building_filter.binding(), cx.labels().grid_filter_label.clone())
+            &Dialog::new(h.building_filter.binding(), cx.labels().grid_edit_filter.clone())
                 .content(crate::FilterBuilder::new(text, fields))
                 .width(640.0),
         )
@@ -3089,6 +3092,32 @@ fn apply_layout(h: &Handles, columns: &[GridColumn], wanted: &GridLayout) {
 /// The keys of rows that stay on a server: there is no list of them to walk.
 /// Where the filter builder keeps its expression: the column that has one, or else a
 /// column whose filter it would not replace.
+/// Every expression the columns filter by, as one: what the filter editor opens.
+/// Short filter-row text, such as `ana` or `>10`, stays in its column.
+fn whole_filter(query: &GridQuery) -> String {
+    let parts: Vec<&str> = query.filters.iter().map(|f| f.trim()).filter(|f| f.contains('[')).collect();
+    if parts.len() < 2 {
+        return parts.first().map_or_else(String::new, |f| (*f).to_owned());
+    }
+    use ravenrs_criteria::Criteria;
+    match parts.iter().map(|f| Criteria::parse(f)).collect::<Result<Vec<_>, _>>() {
+        Ok(all) => all.into_iter().reduce(Criteria::and).map(|c| c.to_string()).unwrap_or_default(),
+        Err(_) => parts.iter().map(|f| format!("({f})")).collect::<Vec<_>>().join(" And "),
+    }
+}
+
+/// Writes what the filter editor made in place of every expression the columns had,
+/// in the column of the first one so it stays where it was.
+fn set_whole_filter(query: &mut GridQuery, columns: &[GridColumn], text: String) {
+    let target = builder_column(query, columns);
+    for f in query.filters.iter_mut().filter(|f| f.contains('[')) {
+        f.clear();
+    }
+    if let Some(c) = target {
+        query.set_filter(c, text);
+    }
+}
+
 fn builder_column(query: &GridQuery, columns: &[GridColumn]) -> Option<usize> {
     let open = || (0..columns.len()).filter(|&c| columns[c].filterable);
     open()
@@ -3329,7 +3358,9 @@ impl View for DataGrid {
         if let Some(scenarios) = &self.scenarios {
             sections.push(self.scenario_dialog(cx, &h, scenarios));
         }
-        if self.filter_builder {
+        // The filter line opens the editor too, so it is there whenever something is filtered.
+        let filtering = query.filters.iter().any(|f| !f.trim().is_empty());
+        if self.filter_builder || filtering || h.building_filter.get() {
             sections.push(self.filter_dialog(cx, &h, &rows));
         }
 
@@ -3638,6 +3669,14 @@ impl View for DataGrid {
             let icon = util::icon(cx, IconName::Filter, 14.0, theme.color(Semantic::Accent));
             let text = format!("{}: {}", labels.grid_filter_label, filters.join(" · "));
             let label = util::label(cx, &text, TextStyle::Callout, None, muted);
+            let open = h.building_filter.clone();
+            let edit = cx.child(
+                &Button::new(labels.grid_edit_filter.clone())
+                    .style(ButtonStyle::Ghost)
+                    .size(ButtonSize::Small)
+                    .icon(IconName::Pencil)
+                    .on_click(move || open.set(true)),
+            );
             let q = h.query.clone();
             let clear = cx.child(
                 &Button::new(labels.grid_clear_filter.clone())
@@ -3654,7 +3693,7 @@ impl View for DataGrid {
                     align_self: Some(Align::Stretch),
                     ..LayoutStyle::stack(Axis::Horizontal)
                 },
-                &[icon, label, clear],
+                &[icon, label, edit, clear],
                 Paint::Custom(Rc::new(move |f: Rect, scene| {
                     scene.push_quad(Quad::new(Rect::new(f.x(), f.y(), f.width(), 1.0), line));
                 })),
@@ -3848,6 +3887,27 @@ mod tests {
         assert_eq!(builder_column(&query, &columns), Some(1), "with no room, the first");
         query.set_filter(2, "[B] = 'x'".to_owned());
         assert_eq!(builder_column(&query, &columns), Some(2), "its own expression, wherever it is");
+    }
+
+    #[test]
+    fn the_editor_opens_every_expression_as_one() {
+        let columns = [GridColumn::text("A"), GridColumn::text("B"), GridColumn::text("C")];
+        let mut query = GridQuery::default();
+        assert_eq!(whole_filter(&query), "");
+        query.set_filter(0, "ana".to_owned());
+        query.set_filter(1, "[B] In ('x', 'y')".to_owned());
+        assert_eq!(whole_filter(&query), "[B] In ('x', 'y')", "typed text stays in its column");
+        query.set_filter(2, "[C] = 'z' Or [C] = 'w'".to_owned());
+        assert_eq!(whole_filter(&query), "[B] In ('x', 'y') And ([C] = 'z' Or [C] = 'w')");
+
+        set_whole_filter(&mut query, &columns, "[C] = 'z'".to_owned());
+        assert_eq!(query.filter(0), "ana");
+        assert_eq!(query.filter(1), "[C] = 'z'", "where the first expression was");
+        assert_eq!(query.filter(2), "");
+        assert_eq!(whole_filter(&query), "[C] = 'z'");
+        set_whole_filter(&mut query, &columns, String::new());
+        assert_eq!(whole_filter(&query), "");
+        assert_eq!(query.filter(0), "ana");
     }
 
     #[test]

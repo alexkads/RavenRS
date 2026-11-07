@@ -321,3 +321,31 @@ fn a_cell_can_look_different_by_what_its_row_holds() {
     assert_eq!(count(false), 0);
     assert_eq!(count(true), 1, "only the cell that fits");
 }
+
+#[test]
+fn the_filter_line_opens_the_whole_filter_in_the_editor() {
+    let data = GridData::new(vec![
+        vec!["Rent".into(), "Home".into()],
+        vec!["Power".into(), "Home".into()],
+        vec!["Movies".into(), "Fun".into()],
+    ]);
+    let mut start = GridLayout::default();
+    let mut filter = FilterLayout::default();
+    filter.title = "Category".into();
+    filter.text = "[Category] In ('Home')".into();
+    start.filters.push(filter);
+    let layout = State::new(start);
+    let grid = DataGrid::new(data, [GridColumn::text("Name"), GridColumn::text("Category")])
+        .layout(layout.binding());
+    let mut ui = ui(grid);
+    assert!(named(&mut ui, Role::Dialog, "Edit filter").is_none());
+    let edit = named(&mut ui, Role::Button, "Edit filter").expect("the filter line offers the editor");
+    click(&mut ui, edit);
+    assert!(named(&mut ui, Role::Dialog, "Edit filter").is_some(), "it opens");
+    let tree = ui.access_tree();
+    let shown = |text: &str| {
+        tree.nodes.iter().any(|n| n.name.as_deref() == Some(text) || n.value.as_deref() == Some(text))
+    };
+    assert!(shown("is any of"), "the list reads as a line, not as an expression");
+    assert!(shown("Home"), "with what it picked");
+}
