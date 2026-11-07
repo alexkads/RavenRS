@@ -1,0 +1,48 @@
+[package]
+name = "ravenrs-sheet"
+description = "Headless spreadsheet engine for RavenRS: cells, styles, formulas with 500+ functions, recalculation, number formats and XLSX/CSV reading and writing."
+version.workspace = true
+edition.workspace = true
+# The engine came from GridCraft, which needs a newer compiler than the rest of the workspace.
+rust-version = "1.95"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-sheet"
+keywords = ["spreadsheet", "xlsx", "excel", "formula", "wasm"]
+categories = ["parser-implementations", "encoding", "mathematics"]
+
+[dependencies]
+image.workspace = true
+aes = { version = "0.9", default-features = false }
+chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
+log = "0.4"
+quick-xml = "0.41"
+ratex-font = "=0.1.14"
+ratex-layout = "=0.1.14"
+ratex-parser = "=0.1.14"
+ratex-types = "=0.1.14"
+regex = { version = "1", default-features = false, features = ["std", "unicode", "perf"] }
+serde = { workspace = true, features = ["rc"] }
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+sha1 = { version = "0.11", default-features = false }
+sha2 = { version = "0.11", default-features = false }
+thiserror = "2"
+web-time = "1.1.0"
+zip = { version = "3", default-features = false, features = ["deflate"] }
+
+[features]
+# Builds password-encrypted workbooks in code for tests elsewhere; never enabled in a shipped build.
+test-support = []
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+zip = { version = "3", default-features = false, features = ["deflate"] }
+
+[lints.rust]
+unsafe_code = "forbid"

@@ -96,6 +96,12 @@ expect_used = "warn"
 # Each worktree has its own target/; keep backtraces with file and line, drop the rest.
 debug = "line-tables-only"
 
+# The spreadsheet evaluator budgets its stack for recursive LAMBDA calls; unoptimised frames are
+# several times larger, so the same formula would stop much earlier in debug builds.
+[profile.dev.package.ravenrs-sheet]
+opt-level = 1
+
+
 [profile.release]
 # Smaller WASM binaries; native release builds benefit as well.
 lto = "thin"
