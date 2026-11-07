@@ -621,6 +621,8 @@ pub struct Labels {
     pub grid_column_menu: String,
     /// Filters a grid's column by its values.
     pub grid_filter_values: String,
+    /// Placeholder of the search in a column's filter list.
+    pub grid_filter_search: String,
     /// Removes a grid's filters.
     pub grid_clear_filter: String,
     /// The text of an [`ExpressionEditor`](crate::ExpressionEditor).
@@ -1151,6 +1153,7 @@ impl Default for Labels {
             grid_hide_panel: "Hide group panel".into(),
             grid_column_menu: "Column menu".into(),
             grid_filter_values: "Filter by value".into(),
+            grid_filter_search: "Search values".into(),
             grid_clear_filter: "Clear filter".into(),
             expression_text: "Expression".into(),
             expression_search: "Search".into(),
@@ -1610,6 +1613,7 @@ impl Labels {
             grid_hide_panel: "Ocultar painel de agrupamento".into(),
             grid_column_menu: "Menu da coluna".into(),
             grid_filter_values: "Filtrar por valor".into(),
+            grid_filter_search: "Buscar valores".into(),
             grid_clear_filter: "Limpar filtro".into(),
             expression_text: "Expressão".into(),
             expression_search: "Buscar".into(),

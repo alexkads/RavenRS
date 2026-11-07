@@ -483,6 +483,56 @@ mod arranging {
     }
 
     #[test]
+    fn a_filter_list_offers_only_what_the_other_filters_leave() {
+        let data = GridData::new(vec![
+            vec!["Pro".into(), "BR".into(), 10.0.into()],
+            vec!["Free".into(), "US".into(), 20.0.into()],
+            vec!["Team".into(), "CL".into(), 30.0.into()],
+        ]);
+        let mut ui = ui(Localized::new(Labels::pt_br(), DataGrid::new(data, columns()).height(500.0)));
+        let open = |ui: &mut Ui, column: &str| {
+            let at = header(ui, column).center();
+            ui.handle_event(&Event::PointerMove { position: at });
+            settle(ui);
+            press(ui, &format!("Filtrar por valor {column}"));
+        };
+        let offered = |ui: &mut Ui| -> Vec<String> {
+            ui.access_tree()
+                .nodes
+                .iter()
+                .filter(|n| n.role == Role::CheckBox)
+                .filter_map(|n| n.name.clone())
+                .collect()
+        };
+        let check = |ui: &mut Ui, value: &str| {
+            let tree = ui.access_tree();
+            let id = tree
+                .nodes
+                .iter()
+                .find(|n| n.role == Role::CheckBox && n.name.as_deref() == Some(value))
+                .expect("the value")
+                .id;
+            ui.perform_action(id, AccessAction::Click);
+            settle(ui);
+        };
+
+        open(&mut ui, "Plan");
+        assert_eq!(offered(&mut ui), ["Free", "Pro", "Team"]);
+        let placeholder = ui.access_tree().nodes.iter().any(|n| {
+            [&n.name, &n.value, &n.description].iter().any(|t| t.as_deref() == Some("Buscar valores"))
+        });
+        assert!(placeholder, "the search is about the values");
+        check(&mut ui, "Pro");
+        assert!(says(&mut ui, "1 de 3"));
+
+        open(&mut ui, "Country");
+        assert_eq!(offered(&mut ui), ["BR"], "only what the plan filter leaves");
+
+        open(&mut ui, "Plan");
+        assert_eq!(offered(&mut ui), ["Free", "Pro", "Team"], "its own filter does not narrow it");
+    }
+
+    #[test]
     fn a_pinned_column_stays_put_while_the_others_scroll() {
         let wide = || {
             vec![
