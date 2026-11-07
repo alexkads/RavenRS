@@ -356,8 +356,16 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
     assert!(fake.say(voice(CHAT)).contains("Para entender áudios"), "no model yet: says where to get one");
     assert!(fake.say(text(CHAT, "Salário")).contains("despesa ou receita"), "asks again, amount kept");
     let question = fake.say(text(CHAT, "receita Salário"));
+    assert!(question.contains("Não encontrei a categoria “Salário” em receitas. Crie:"), "{question}");
+    let rows = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"].clone();
+    assert_eq!(
+        rows.as_array().map(Vec::len),
+        Some(1),
+        "no income category yet, only Criar and Cancelar: {rows}"
+    );
+    let question = fake.say(tap(CHAT, "rf:new"));
     assert!(
-        question.contains("Receita · Salário · R$ 3000,00") && question.contains("Confirma?"),
+        question.contains("Receita · Salário (nova) · R$ 3000,00") && question.contains("Confirma?"),
         "{question}"
     );
     let buttons = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"][0].clone();
@@ -373,10 +381,15 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
         fake.say(text(CHAT, "despesa energia elétrica, foi o Pedro")).contains("Pedro"),
         "asks, amount kept"
     );
-    assert!(fake.say(text(CHAT, "despesa energia elétrica")).contains("Despesa · Energia elétrica · R$"));
+    assert!(fake.say(text(CHAT, "despesa energia elétrica")).contains("Não encontrei a categoria"));
+    assert!(fake.say(tap(CHAT, "rf:new")).contains("Despesa · Energia elétrica (nova) · R$"));
     assert!(fake.say(tap(CHAT, "rf:fix")).contains("Envie de novo"), "Corrigir asks again, amount kept");
-    let question = fake.say(text(CHAT, "despesa  energia   elétrica  Ana"));
-    assert!(question.contains("Despesa · Energia elétrica · Ana · R$ 543,58"), "{question}");
+    assert!(
+        fake.say(text(CHAT, "despesa  energia   elétrica  Ana")).contains("Não encontrei a categoria"),
+        "still not created: nothing was saved"
+    );
+    let question = fake.say(tap(CHAT, "rf:new"));
+    assert!(question.contains("Despesa · Energia elétrica (nova) · Ana · R$ 543,58"), "{question}");
     assert!(fake.say(text(CHAT, "sim")).contains("salva"), "a typed yes confirms too");
 
     assert!(fake.say(document(CHAT, "saldo.pdf", 2_000)).contains("mais de um valor"), "never guesses");
@@ -384,7 +397,19 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
     assert!(fake.say(text(CHAT, "/cancelar")).contains("cancelado"));
     assert!(fake.say(text(CHAT, "despesa Aluguel")).contains("Não há PDF aguardando"));
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
-    assert!(fake.say(text(CHAT, "despesa Aluguel")).contains("Confirma?"));
+    let question = fake.say(text(CHAT, "despesa Aluguel"));
+    assert!(question.contains("Escolha uma das mais usadas ou crie"), "{question}");
+    let rows = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"].clone();
+    assert_eq!(rows[0][0]["text"], "Energia elétrica", "the category already used: {rows}");
+    let energy = rows[0][0]["callback_data"].as_str().unwrap().to_owned();
+    assert!(
+        fake.say(tap(CHAT, "rf:cat:999")).contains("Não encontrei a categoria"),
+        "a category that is gone"
+    );
+    assert!(
+        fake.say(tap(CHAT, &energy)).contains("Despesa · Energia elétrica · R$ 3000,00"),
+        "picked, not created"
+    );
     assert!(fake.say(tap(CHAT, "rf:no")).contains("cancelado"), "Cancelar saves nothing");
     assert!(fake.say(tap(CHAT, "rf:ok")).contains("Não há PDF aguardando"), "an old button does nothing");
 

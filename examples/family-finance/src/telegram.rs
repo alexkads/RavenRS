@@ -44,6 +44,8 @@ struct Service {
 enum Pending {
     /// The receipt's amount, waiting for what it was.
     Amount { amount_cents: i64, since: Instant },
+    /// A category no one has yet, waiting for the person to pick one or create it.
+    Category { amount_cents: i64, reply: Reply, since: Instant },
     /// Everything read, waiting for the person to confirm before anything is saved.
     Confirm { amount_cents: i64, reply: Reply, since: Instant },
 }
@@ -252,16 +254,17 @@ fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
         json!({"chat_id": message.chat.id, "message_id": message.message_id, "reply_markup": {"inline_keyboard": []}}),
     );
     let command = match tap.data.as_deref()? {
-        "rf:ok" => "/confirmar",
-        "rf:fix" => "/corrigir",
-        "rf:no" => "/cancelar",
-        _ => return None,
+        "rf:ok" => "/confirmar".to_owned(),
+        "rf:fix" => "/corrigir".to_owned(),
+        "rf:no" => "/cancelar".to_owned(),
+        "rf:new" => "/criar".to_owned(),
+        data => format!("/categoria {}", data.strip_prefix("rf:cat:")?.parse::<i64>().ok()?),
     };
     Some(Message {
         chat: message.chat,
         from: Some(tap.from),
         document: None,
-        text: Some(command.to_owned()),
+        text: Some(command),
         voice: None,
     })
 }
@@ -373,16 +376,17 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
         Ok(())
     };
     if text == "/cancelar"
-        || (matches!(pending, Some(Pending::Confirm { .. })) && NO_WORDS.contains(&said.as_str()))
+        || (matches!(pending, Some(Pending::Confirm { .. } | Pending::Category { .. }))
+            && NO_WORDS.contains(&said.as_str()))
     {
         send_message(service, chat, "Lançamento cancelado.")?;
         return Ok(());
     }
     let confirmed = text == "/confirmar" || YES_WORDS.contains(&said.as_str());
     match pending {
-        Some(Pending::Amount { since, .. } | Pending::Confirm { since, .. })
-            if since.elapsed() > PENDING_TTL =>
-        {
+        Some(
+            Pending::Amount { since, .. } | Pending::Category { since, .. } | Pending::Confirm { since, .. },
+        ) if since.elapsed() > PENDING_TTL => {
             send_message(service, chat, "O prazo para esse PDF terminou. Envie-o novamente.")?;
         }
         Some(Pending::Confirm { amount_cents, reply, since }) if confirmed => {
@@ -390,25 +394,45 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
                 keep(Pending::Confirm { amount_cents, reply, since })?;
                 return Err(error);
             }
-            send_message(service, chat, &format!("{} salva.", summary(amount_cents, &reply)))?;
+            let saved = Reply { known: true, ..reply };
+            send_message(service, chat, &format!("{} salva.", summary(amount_cents, &saved)))?;
         }
         Some(Pending::Confirm { amount_cents, .. }) if text == "/corrigir" => {
             keep(Pending::Amount { amount_cents, since: Instant::now() })?;
             send_message(service, chat, "Envie de novo, por exemplo: `despesa Mercado Ana`.")?;
         }
-        Some(Pending::Amount { amount_cents, since } | Pending::Confirm { amount_cents, since, .. })
-            if !confirmed && !text.starts_with('/') =>
-        {
+        Some(Pending::Category { amount_cents, reply, since }) if text == "/criar" => {
+            ask(service, chat, Pending::Confirm { amount_cents, reply, since })?;
+        }
+        Some(Pending::Category { amount_cents, mut reply, since }) if text.starts_with("/categoria ") => {
+            let id = text["/categoria ".len()..].parse::<i64>().ok();
+            let chosen = Database::open(&service.config.db_path)
+                .and_then(|db| db.categories())
+                .map_err(|e| e.to_string())?
+                .into_iter()
+                .find(|category| Some(category.id) == id && category.flow == reply.flow);
+            match chosen {
+                Some(category) => {
+                    (reply.category, reply.known) = (category.name, true);
+                    ask(service, chat, Pending::Confirm { amount_cents, reply, since })?;
+                }
+                None => ask(service, chat, Pending::Category { amount_cents, reply, since })?,
+            }
+        }
+        Some(
+            Pending::Amount { amount_cents, since }
+            | Pending::Category { amount_cents, since, .. }
+            | Pending::Confirm { amount_cents, since, .. },
+        ) if !confirmed && !text.starts_with('/') => {
             let read = Database::open(&service.config.db_path)
                 .and_then(|db| Ok((db.members()?, db.categories()?)))
                 .map_err(|e| e.to_string())
                 .map(|(members, categories)| read_reply(&text, &members, &categories));
             match read {
-                Ok(Ok(reply)) => {
-                    let question = format!("{}\nConfirma?", summary(amount_cents, &reply));
-                    keep(Pending::Confirm { amount_cents, reply, since })?;
-                    send_with_buttons(service, chat, &question, &CONFIRM_BUTTONS)?;
+                Ok(Ok(reply)) if reply.known => {
+                    ask(service, chat, Pending::Confirm { amount_cents, reply, since })?;
                 }
+                Ok(Ok(reply)) => ask(service, chat, Pending::Category { amount_cents, reply, since })?,
                 Ok(Err(question)) => {
                     keep(Pending::Amount { amount_cents, since })?;
                     send_message(service, chat, &question)?;
@@ -432,11 +456,48 @@ const YES_WORDS: &[&str] = &["sim", "confirmar", "confirmo", "confirma", "ok"];
 const NO_WORDS: &[&str] = &["nao", "cancelar", "cancela"];
 const CONFIRM_BUTTONS: [(&str, &str); 3] =
     [("Confirmar", "rf:ok"), ("Corrigir", "rf:fix"), ("Cancelar", "rf:no")];
+/// How many of the most used categories are offered when the one said does not exist.
+const CATEGORY_CHOICES: usize = 6;
+
+/// Keeps `pending` and asks its question: confirm what will be saved, or which category,
+/// since a category is never created without the person saying so.
+fn ask(service: &Service, chat: i64, pending: Pending) -> Result<(), String> {
+    let (rows, question) = match &pending {
+        Pending::Category { reply, .. } => {
+            let used = Database::open(&service.config.db_path)
+                .and_then(|db| db.categories_by_use(reply.flow))
+                .map_err(|e| e.to_string())?;
+            let mut rows: Vec<Vec<(String, String)>> = used
+                .iter()
+                .take(CATEGORY_CHOICES)
+                .map(|category| (category.name.clone(), format!("rf:cat:{}", category.id)))
+                .collect::<Vec<_>>()
+                .chunks(2)
+                .map(<[_]>::to_vec)
+                .collect();
+            rows.push(vec![
+                (format!("Criar “{}”", reply.category), "rf:new".to_owned()),
+                ("Cancelar".to_owned(), "rf:no".to_owned()),
+            ]);
+            let kind = if reply.flow == Flow::Income { "receitas" } else { "despesas" };
+            let pick = if used.is_empty() { "Crie" } else { "Escolha uma das mais usadas ou crie" };
+            (rows, format!("Não encontrei a categoria “{}” em {kind}. {pick}:", reply.category))
+        }
+        Pending::Confirm { amount_cents, reply, .. } => {
+            let row = CONFIRM_BUTTONS.iter().map(|(label, data)| ((*label).to_owned(), (*data).to_owned()));
+            (vec![row.collect()], format!("{}\nConfirma?", summary(*amount_cents, reply)))
+        }
+        Pending::Amount { .. } => return Err("nada a perguntar".into()),
+    };
+    service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, pending);
+    send_with_buttons(service, chat, &question, &rows)
+}
 
 /// One line with everything that will be saved: "Despesa · Mercado · Ana · R$ 87,50".
 fn summary(amount_cents: i64, reply: &Reply) -> String {
     let who = reply.member.as_ref().map(|member| format!(" · {}", member.name)).unwrap_or_default();
-    format!("{} · {}{who} · R$ {}", reply.flow.label(), reply.category, format_brl(amount_cents))
+    let new = if reply.known { "" } else { " (nova)" };
+    format!("{} · {}{new}{who} · R$ {}", reply.flow.label(), reply.category, format_brl(amount_cents))
 }
 
 fn start_token(text: &str) -> Option<&str> {
@@ -457,6 +518,8 @@ fn unix_seconds() -> i64 {
 struct Reply {
     flow: Flow,
     category: String,
+    /// Whether the category already exists; one that does not is asked about first.
+    known: bool,
     member: Option<Member>,
 }
 
@@ -541,7 +604,7 @@ fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result
             Some(member.clone())
         }
         None => {
-            if let Some(name) = unknown_name(&words) {
+            if let Some(name) = unknown_name(&words, categories) {
                 return Err(format!(
                     "Não encontrei “{name}” entre os membros do Raven. Cadastre em Membros ou responda sem o nome."
                 ));
@@ -569,11 +632,11 @@ fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result
             find_run(&said, &name).is_some()
         })
         .max_by_key(|category| category.name.len());
-    let category = match known {
-        Some(category) => category.name.clone(),
-        None => capitalized(&words.join(" ")),
+    let (category, known) = match known {
+        Some(category) => (category.name.clone(), true),
+        None => (capitalized(&words.join(" ")), false),
     };
-    Ok(Reply { flow, category, member })
+    Ok(Reply { flow, category, known, member })
 }
 
 /// The same word, or a long one heard with one letter wrong: Whisper writes "despeza".
@@ -599,15 +662,26 @@ fn find_run(words: &[String], run: &[String]) -> Option<usize> {
 }
 
 /// A name after "por", "foi", "quem", "para" or "pra", at the end of a reply, that no member has.
-fn unknown_name(words: &[String]) -> Option<String> {
+/// "para" also comes before a place ("para o mercado"), so after it only a capitalized word
+/// that names no category is taken for a name.
+fn unknown_name(words: &[String], categories: &[Category]) -> Option<String> {
     let keys = words.iter().map(|word| folded(word)).collect::<Vec<_>>();
     let marker = keys.iter().rposition(|key| NAME_MARKERS.contains(&key.as_str()))?;
-    let name = words[marker + 1..]
+    let (name, name_keys): (Vec<&str>, Vec<String>) = words[marker + 1..]
         .iter()
         .zip(&keys[marker + 1..])
         .skip_while(|(_, key)| JOINING_WORDS.contains(&key.as_str()))
-        .map(|(word, _)| word.as_str())
-        .collect::<Vec<_>>();
+        .map(|(word, key)| (word.as_str(), key.clone()))
+        .unzip();
+    if matches!(keys[marker].as_str(), "para" | "pra") {
+        let capitalized = name.first().and_then(|word| word.chars().next()).is_some_and(char::is_uppercase);
+        let a_category = categories
+            .iter()
+            .any(|category| category.name.split_whitespace().map(folded).collect::<Vec<_>>() == name_keys);
+        if !capitalized || a_category {
+            return None;
+        }
+    }
     (!name.is_empty() && name.len() <= 3).then(|| name.join(" "))
 }
 
@@ -652,16 +726,18 @@ fn send_message(service: &Service, chat: i64, text: &str) -> Result<(), String> 
     Ok(())
 }
 
-/// A message with one row of buttons; each sends its `data` back as a callback.
+/// A message with rows of buttons, each a label and the `data` it sends back as a callback.
 fn send_with_buttons(
     service: &Service,
     chat: i64,
     text: &str,
-    buttons: &[(&str, &str)],
+    rows: &[Vec<(String, String)>],
 ) -> Result<(), String> {
-    let row: Vec<Value> =
-        buttons.iter().map(|(label, data)| json!({"text": label, "callback_data": data})).collect();
-    let markup = json!({ "inline_keyboard": [row] });
+    let rows: Vec<Vec<Value>> = rows
+        .iter()
+        .map(|row| row.iter().map(|(label, data)| json!({"text": label, "callback_data": data})).collect())
+        .collect();
+    let markup = json!({ "inline_keyboard": rows });
     let _: Value =
         telegram_call(service, "sendMessage", json!({"chat_id":chat,"text":text,"reply_markup":markup}))?;
     Ok(())
@@ -1011,6 +1087,37 @@ mod tests {
         assert_eq!(
             read_reply("despesa Mercado Pedro", &members, &[]).expect("typed").category,
             "Mercado Pedro"
+        );
+    }
+
+    #[test]
+    fn says_when_a_category_is_new() {
+        let categories = [category(7, "Mercado", Flow::Expense), category(8, "Salário", Flow::Income)];
+        let read = |text| read_reply(text, &[], &categories).expect(text);
+        assert!(read("despesa de mercado").known);
+        assert!(!read("despesa Feira").known, "asked about before it is created");
+        assert!(!read("despesa Salário").known, "an income category is not an expense one");
+        let new = read("despesa Feira");
+        assert_eq!(summary(1_000, &new), "Despesa · Feira (nova) · R$ 10,00");
+    }
+
+    /// "para" comes before a person and before a place: the effect #84 left behind.
+    #[test]
+    fn para_before_a_place_is_a_category() {
+        let members = [member(1, "Ana")];
+        let place = read_reply("despesa para o mercado", &members, &[]).expect("a place");
+        assert_eq!((place.category.as_str(), place.known, place.member), ("Mercado", false, None));
+        let known = [category(7, "Mercado", Flow::Expense)];
+        let spoken = read_reply("Despesa para o Mercado", &members, &known).expect("a category");
+        assert_eq!(
+            (spoken.category.as_str(), spoken.known),
+            ("Mercado", true),
+            "capitalized, but a category"
+        );
+        assert!(read_reply("despesa para o Pedro", &members, &known).is_err(), "a name is still asked about");
+        assert_eq!(
+            read_reply("despesa de mercado para a Ana", &members, &known).expect("member").member,
+            Some(member(1, "Ana"))
         );
     }
 

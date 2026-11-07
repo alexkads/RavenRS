@@ -523,6 +523,24 @@ impl Database {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// The categories of one flow, the most used first, then by name.
+    pub fn categories_by_use(&self, flow: Flow) -> DbResult<Vec<Category>> {
+        let mut query = self.conn.prepare_cached(
+            "SELECT c.id, c.name, c.flow, c.budget_cents FROM categories c
+             LEFT JOIN transactions t ON t.category_id = c.id
+             WHERE c.flow = ?1 GROUP BY c.id ORDER BY count(t.id) DESC, c.name",
+        )?;
+        let rows = query.query_map([flow.code()], |r| {
+            Ok(Category {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                flow: Flow::from_code(&r.get::<_, String>(2)?),
+                budget_cents: r.get(3)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     /// Adds a category and returns the key.
     pub fn add_category(&self, name: &str, flow: Flow, budget_cents: i64) -> DbResult<i64> {
         let name = category_name(name);
