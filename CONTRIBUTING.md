@@ -7,7 +7,9 @@ Thank you for helping make RavenRS the most complete free component library for 
 - **Report a bug** with the bug template: what you did, what you expected, what happened, platform and browser.
 - **Request a component** with the component template. Check [docs/PARITY.md](docs/PARITY.md) first; it lists what exists and what is planned.
 - **Improve docs and examples.** If something in the guide confused you, it will confuse others.
-- **Send a pull request.** For anything larger than a fix, open an issue first so we can agree on the API.
+- **Start with an issue.** Every change, even a fix, begins as an issue that says what and why. It is where we agree on the approach before the code.
+- **Send a pull request that closes it.** One branch per issue; the description follows the template (what changes and why, how it was tested, limitations) and says `Closes #N`. Explain every new or updated dependency. What is left undone becomes a new issue.
+- **The release notes cite the issues.** Each Raven Finanças version lists the issues it closes and who contributed. The whole workflow is in [`.claude/skills/ravenrs-github/SKILL.md`](.claude/skills/ravenrs-github/SKILL.md).
 
 ## Building
 

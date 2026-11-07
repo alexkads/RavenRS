@@ -12,6 +12,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 - `DataGrid`: the filter panel has an "Edit filter" button that opens the `FilterBuilder` over every column's expression at once, as the DevExpress filter panel does. It is there whenever something is filtered, with or without `filter_builder(true)`.
 - `FilterBuilder`: "is any of" and "is none of" (`In` and `Not ... In`), picked as tags. A filter by value from a column's menu now opens as a line instead of raw text. `FilterField::values` lists what to pick from; the grid fills it with the column's values.
+- `ReleaseNote::links(heading, links)`: a heading over links, each a label and what clicking it does, such as opening the issue a change came from.
 
 ## [27.1.15] - 2026-11-06
 
