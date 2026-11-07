@@ -1,23 +1,22 @@
 {
-  "versao": "0.1.32",
-  "titulo": "Telegram por áudio e atualização que explica o que deu errado.",
+  "versao": "0.1.33",
+  "titulo": "Lançar pelo Telegram sem comprovante, e desfazer pelo chat.",
   "importante": false,
   "novidades": [
-    "No Telegram, responda ao comprovante falando ou escrevendo, e diga quem gastou: \"despesa de mercado, quem gastou foi a Ana\".",
-    "Antes de lançar, o bot mostra o que vai gravar com os botões Confirmar, Corrigir e Cancelar.",
-    "Para entender áudios, baixe um modelo em Ajustes, no cartão Telegram. Ele roda só neste computador.",
-    "Se uma atualização não der certo, Ver detalhes mostra o motivo inteiro e o fim do registro do instalador, para copiar ou tentar de novo.",
-    "Em Lançamentos, o painel do filtro ganhou Editar filtro, com é um de e não é nenhum de.",
-    "Os ícones ficaram centralizados, como o check da caixa de marcação.",
-    "As novidades agora mostram quem contribuiu e as issues resolvidas em cada versão."
+    "No Telegram, lance só com uma mensagem, escrita ou falada: \"gastei 50 no mercado, foi a Ana\". O bot lê o valor, até por extenso, como \"cinquenta reais e noventa centavos\".",
+    "Se a categoria ainda não existe, o bot mostra as mais usadas para escolher, ou Criar, e nunca cria uma sem você pedir.",
+    "Errou? O botão Desfazer, depois do \"salva\", apaga o último lançamento do chat por 5 minutos.",
+    "O bot reconhece quem gastou mesmo com uma letra trocada no áudio, e o nome depois de \"para\": \"despesa de mercado para o Mateus\".",
+    "Em Ajustes, o cartão do Telegram ficou mais organizado: o estado no topo e o token recolhido depois de salvo.",
+    "Começar do zero e Carregar dados de exemplo pedem um backup recente e a palavra digitada em caixa alta antes de apagar ou trocar os dados."
   ],
-  "por_que_atualizar": "Para lançar comprovantes pelo Telegram falando, confirmar antes de gravar e entender uma atualização que falhe.",
+  "por_que_atualizar": "Para lançar pelo Telegram só dizendo o valor, sem PDF, desfazer um engano pelo chat e não perder dados por um clique sem querer.",
   "contribuidores": [
     "Matheus Braga de Carvalho",
     "Alex S S Fonseca"
   ],
   "issues": [
-    4,
-    6
+    23,
+    26
   ]
 }
