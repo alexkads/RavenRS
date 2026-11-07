@@ -541,6 +541,8 @@ struct Cached {
 #[derive(Clone)]
 struct Handles {
     building_filter: State<bool>,
+    /// The filter editor's tab: 0 for lines, 1 for text.
+    filter_tab: State<usize>,
     expanded: Binding<BTreeSet<usize>>,
     query: State<GridQuery>,
     widths: State<Vec<f32>>,
@@ -2436,6 +2438,7 @@ impl DataGrid {
             resize,
             modifiers: cx.modifiers(),
             building_filter: cx.use_state(|| false),
+            filter_tab: cx.use_state(|| 0),
             expanded: {
                 let local = cx.use_state(BTreeSet::new);
                 self.expanded_rows.clone().unwrap_or_else(|| local.binding())
@@ -2784,10 +2787,17 @@ impl DataGrid {
             move || read.with(whole_filter),
             move |text: String| write.update(|q| set_whole_filter(q, &columns, text)),
         );
+        let fields: Vec<crate::FilterField> = fields.collect();
+        let labels = cx.labels();
+        let tabs = crate::Tabs::new(h.filter_tab.binding())
+            .variant(crate::TabsVariant::Segmented)
+            .size(ButtonSize::Small)
+            .tab(labels.grid_filter_visual.clone(), crate::FilterBuilder::new(text.clone(), fields.clone()))
+            .tab(labels.grid_filter_text.clone(), crate::ExpressionEditor::new(text, fields));
         cx.child(
-            &Dialog::new(h.building_filter.binding(), cx.labels().grid_edit_filter.clone())
-                .content(crate::FilterBuilder::new(text, fields))
-                .width(640.0),
+            &Dialog::new(h.building_filter.binding(), labels.grid_edit_filter.clone())
+                .content(tabs)
+                .width(720.0),
         )
     }
 

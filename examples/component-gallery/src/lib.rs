@@ -655,9 +655,13 @@ impl Gallery {
                         .spacing(12.0),
                     ),
                     demo(
-                        "Form layout and filter builder",
-                        "Groups in columns that collapse when there is no room; a filter made of lines.",
-                        VStack::new((samples::sample("FormLayout"), samples::sample("FilterBuilder")))
+                        "Form layout, filter builder and expression editor",
+                        "Groups in columns that collapse when there is no room; a filter made of lines; an expression written with every field and function at hand.",
+                        VStack::new((
+                            samples::sample("FormLayout"),
+                            samples::sample("FilterBuilder"),
+                            samples::sample("ExpressionEditor"),
+                        ))
                             .spacing(16.0)
                             .align(Align::Stretch),
                     ),

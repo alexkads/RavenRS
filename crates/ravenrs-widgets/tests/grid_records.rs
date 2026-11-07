@@ -349,3 +349,52 @@ fn the_filter_line_opens_the_whole_filter_in_the_editor() {
     assert!(shown("is any of"), "the list reads as a line, not as an expression");
     assert!(shown("Home"), "with what it picked");
 }
+
+#[test]
+fn the_filter_can_be_written_as_text_with_everything_at_hand() {
+    let data = GridData::new(vec![vec!["Rent".into(), "Home".into()], vec!["Movies".into(), "Fun".into()]]);
+    let mut start = GridLayout::default();
+    let mut filter = FilterLayout::default();
+    filter.title = "Category".into();
+    filter.text = "[Category] In ('Home')".into();
+    start.filters.push(filter);
+    let layout = State::new(start);
+    let grid = DataGrid::new(data, [GridColumn::text("Name"), GridColumn::text("Category")])
+        .layout(layout.binding());
+    let mut ui = ui(grid);
+    let edit = named(&mut ui, Role::Button, "Edit filter").expect("the editor");
+    click(&mut ui, edit);
+    let tab = {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some("Text") && matches!(n.role, Role::Tab | Role::Button))
+            .map(|n| n.bounds.center())
+            .expect("the text tab")
+    };
+    click(&mut ui, tab);
+    let text_of = |ui: &mut Ui| {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::TextInput && n.name.as_deref() == Some("Expression"))
+            .and_then(|n| n.value.clone())
+    };
+    assert_eq!(text_of(&mut ui).as_deref(), Some("[Category] In ('Home')"));
+    assert!(says(&mut ui, "Fields") && says(&mut ui, "Functions"), "what can be inserted");
+
+    // A field written right after the list does not read: it is said, and the grid keeps its filter.
+    let name = {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .rev()
+            .find(|n| n.name.as_deref() == Some("Name"))
+            .map(|n| n.bounds.center())
+            .expect("the field")
+    };
+    double_click(&mut ui, name);
+    assert_eq!(text_of(&mut ui).as_deref(), Some("[Category] In ('Home')[Name]"));
+    let filter = layout.get().filters.iter().map(|f| f.text.clone()).collect::<Vec<_>>();
+    assert!(filter.contains(&"[Category] In ('Home')".to_owned()), "{filter:?}");
+}

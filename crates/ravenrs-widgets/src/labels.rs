@@ -463,6 +463,72 @@ pub struct Labels {
     pub filter_any_of: String,
     /// A [`FilterBuilder`](crate::FilterBuilder)'s word: is none of.
     pub filter_none_of: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: fields.
+    pub expression_fields: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: constants.
+    pub expression_constants: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: operators.
+    pub expression_operators: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: functions.
+    pub expression_functions: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: logical functions.
+    pub expression_logical: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: text functions.
+    pub expression_text: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: math functions.
+    pub expression_math: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: date functions.
+    pub expression_date: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: aggregates.
+    pub expression_aggregate: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: reporting functions.
+    pub expression_reporting: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: the tree of groups.
+    pub expression_categories: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: the list of items.
+    pub expression_items: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: search.
+    pub expression_search: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: insert.
+    pub expression_insert: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: the null constant.
+    pub expression_null: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: a text constant.
+    pub expression_text_value: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: a date constant.
+    pub expression_date_value: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: And.
+    pub expression_and: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: Or.
+    pub expression_or: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: Not.
+    pub expression_not: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: Between.
+    pub expression_between: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: Like.
+    pub expression_like: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: +.
+    pub expression_add: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: -.
+    pub expression_subtract: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: *.
+    pub expression_multiply: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: /.
+    pub expression_divide: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: %.
+    pub expression_modulo: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: a text field.
+    pub expression_kind_text: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: a number field.
+    pub expression_kind_number: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: a yes/no field.
+    pub expression_kind_boolean: String,
+    /// An [`ExpressionEditor`](crate::ExpressionEditor)'s word: a date field.
+    pub expression_kind_date: String,
+    /// Names the grid filter editor's tab of lines.
+    pub grid_filter_visual: String,
+    /// Names the grid filter editor's tab of text.
+    pub grid_filter_text: String,
     /// A [`Ribbon`](crate::Ribbon)'s name.
     pub ribbon: String,
     /// A [`Ribbon`](crate::Ribbon)'s search box.
@@ -913,6 +979,40 @@ impl Default for Labels {
             filter_is_not_empty: "is not empty".into(),
             filter_any_of: "is any of".into(),
             filter_none_of: "is none of".into(),
+            expression_fields: "Fields".into(),
+            expression_constants: "Constants".into(),
+            expression_operators: "Operators".into(),
+            expression_functions: "Functions".into(),
+            expression_logical: "Logical".into(),
+            expression_text: "Text".into(),
+            expression_math: "Math".into(),
+            expression_date: "Date and time".into(),
+            expression_aggregate: "Aggregates".into(),
+            expression_reporting: "Reporting".into(),
+            expression_categories: "What can be inserted".into(),
+            expression_items: "Items".into(),
+            expression_search: "Search".into(),
+            expression_insert: "Insert".into(),
+            expression_null: "No value".into(),
+            expression_text_value: "A text, between apostrophes. Write '' for an apostrophe inside it."
+                .into(),
+            expression_date_value: "A date, between hashes, such as #2026-11-02#.".into(),
+            expression_and: "Both sides hold.".into(),
+            expression_or: "Either side holds.".into(),
+            expression_not: "The opposite of what follows.".into(),
+            expression_between: "Between two values, both included: [Price] Between(1, 10).".into(),
+            expression_like: "Follows a pattern: % is any text, _ is one character.".into(),
+            expression_add: "Plus.".into(),
+            expression_subtract: "Minus.".into(),
+            expression_multiply: "Times.".into(),
+            expression_divide: "Divided by.".into(),
+            expression_modulo: "What is left of the division.".into(),
+            expression_kind_text: "A text field.".into(),
+            expression_kind_number: "A number field.".into(),
+            expression_kind_boolean: "A yes or no field.".into(),
+            expression_kind_date: "A date field.".into(),
+            grid_filter_visual: "Visual".into(),
+            grid_filter_text: "Text".into(),
             ribbon: "Ribbon".into(),
             ribbon_search: "Tell me what you want to do".into(),
             ribbon_pin: "Pin the ribbon".into(),
@@ -1325,6 +1425,39 @@ impl Labels {
             filter_is_not_empty: "não está vazio".into(),
             filter_any_of: "é um de".into(),
             filter_none_of: "não é nenhum de".into(),
+            expression_fields: "Campos".into(),
+            expression_constants: "Constantes".into(),
+            expression_operators: "Operadores".into(),
+            expression_functions: "Funções".into(),
+            expression_logical: "Lógicas".into(),
+            expression_text: "Texto".into(),
+            expression_math: "Matemáticas".into(),
+            expression_date: "Data e hora".into(),
+            expression_aggregate: "Agregações".into(),
+            expression_reporting: "Relatório".into(),
+            expression_categories: "O que pode ser inserido".into(),
+            expression_items: "Itens".into(),
+            expression_search: "Buscar".into(),
+            expression_insert: "Inserir".into(),
+            expression_null: "Sem valor".into(),
+            expression_text_value: "Um texto, entre apóstrofos. Escreva '' para um apóstrofo dentro dele.".into(),
+            expression_date_value: "Uma data, entre cerquilhas, como #2026-11-02#.".into(),
+            expression_and: "Os dois lados valem.".into(),
+            expression_or: "Um dos lados vale.".into(),
+            expression_not: "O contrário do que vem depois.".into(),
+            expression_between: "Entre dois valores, inclusive: [Preço] Between(1, 10).".into(),
+            expression_like: "Segue um padrão: % é qualquer texto, _ é um caractere.".into(),
+            expression_add: "Mais.".into(),
+            expression_subtract: "Menos.".into(),
+            expression_multiply: "Vezes.".into(),
+            expression_divide: "Dividido por.".into(),
+            expression_modulo: "O resto da divisão.".into(),
+            expression_kind_text: "Um campo de texto.".into(),
+            expression_kind_number: "Um campo numérico.".into(),
+            expression_kind_boolean: "Um campo de sim ou não.".into(),
+            expression_kind_date: "Um campo de data.".into(),
+            grid_filter_visual: "Visual".into(),
+            grid_filter_text: "Texto".into(),
             ribbon: "Faixa de opções".into(),
             ribbon_search: "Diga o que você deseja fazer".into(),
             ribbon_pin: "Fixar a faixa de opções".into(),

@@ -191,7 +191,7 @@ Status against the definition of done. **Behavior** names the test suites that d
 | Slider | components | ✅ | ✅ arrows, Home/End, tested | |
 | Stepper | keyboard_and_basics | | ✅ arrows, Home/End, tested | Keyboard added in this pass |
 | TextArea, NumberField, MaskedField, TimePicker, DateTimePicker | editors | | ✅ typing, arrows, tested | |
-| LookupField, FormLayout, FilterBuilder | components | | ✅ type, arrows, Enter, tested | |
+| LookupField, FormLayout, FilterBuilder, ExpressionEditor | components | | ✅ type, arrows, Enter, tested | |
 | Toolbar, SplitButton, ConfirmDialog | components | | ✅ buttons and menus, tested | |
 | TreeView, CardView | app_components | | ✅ one Tab stop; arrows, Home/End, Enter, Space, tested | Virtualized |
 | ThemePicker, ThemeEditor | components | | ✅ built from `DropdownMenu`, `ColorPicker` and `Stepper`, which bring their keys and names; tested by name |
