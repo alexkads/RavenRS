@@ -357,10 +357,17 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
     assert!(fake.say(text(CHAT, "gastei 50 no mercado e 30 na farmácia")).contains("mais de um valor"));
     let question = fake.say(text(CHAT, "50 reais no mercado"));
     assert!(question.contains("Valor: R$ 50,00") && question.contains("despesa ou receita"), "{question}");
+    assert!(fake.say(text(CHAT, "qual o saldo?")).contains("Saldo: R$"), "a question in the middle");
+    assert!(fake.say(text(STRANGER, "qual o saldo?")).contains("Escaneie o QR"), "only the paired chat asks");
     assert!(fake.say(text(CHAT, "despesa Mercado Ana")).contains("Não encontrei a categoria “Mercado”"));
     let question = fake.say(tap(CHAT, "rf:new"));
     assert!(question.contains("Despesa · Mercado (nova) · Ana · R$ 50,00"), "the amount kept: {question}");
     assert!(fake.say(tap(CHAT, "rf:ok")).contains("salva"));
+    let answer = fake.say(text(CHAT, "Quanto a Ana gastou com mercado esse mês?"));
+    assert!(
+        answer.starts_with("Gastos com Mercado de Ana em ") && answer.contains("R$ 50,00 (1 lançamento)"),
+        "{answer}"
+    );
     let question = fake.say(text(CHAT, "Gastei R$ 12,90 no mercado, foi a Ana."));
     assert!(
         question.contains("Despesa · Mercado · Ana · R$ 12,90") && question.contains("Confirma?"),
