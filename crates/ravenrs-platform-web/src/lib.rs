@@ -6,8 +6,8 @@
 //! nothing. Nothing blocks the main thread: adapter and device creation are
 //! awaited, and no threads or `SharedArrayBuffer` are required.
 //!
-//! [`WebBackend::Auto`] uses WebGPU where the browser has it and WebGL2 otherwise;
-//! [`WebOptions::backend`] can ask for one of them. When none starts, `start`
+//! `WebBackend::Auto` uses WebGPU where the browser has it and WebGL2 otherwise;
+//! `WebOptions::backend` can ask for one of them. When none starts, `start`
 //! returns the error and shows a short explanation next to the canvas.
 //!
 //! This crate is empty on non-wasm targets.
