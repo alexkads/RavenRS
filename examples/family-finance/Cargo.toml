@@ -38,5 +38,9 @@ ravenrs-app-sqlite.workspace = true
 image.workspace = true
 pollster.workspace = true
 
+# The house follows its own rules: `cargo run -p ravenrs-lint -- -p family-finance` (scripts/check.sh runs it).
+[package.metadata.ravenrs-lint]
+language = "pt-BR"
+
 [lints]
 workspace = true

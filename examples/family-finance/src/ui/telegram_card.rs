@@ -184,7 +184,7 @@ impl TelegramCard {
                         .foreground(Semantic::Warning)
                 }),
             ))
-            .spacing(6.0),
+            .spacing(8.0),
         )
     }
 }
@@ -231,7 +231,7 @@ impl View for TelegramCard {
                         .style(TextStyle::Caption)
                         .foreground(Semantic::InkMuted),
                 ))
-                .spacing(6.0)
+                .spacing(8.0)
                 .align(Align::Start),
             ),
             _ => None,
@@ -316,12 +316,12 @@ impl View for TelegramCard {
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
             ))
-            .spacing(10.0)
+            .spacing(12.0)
             .align(Align::Center),
             qr,
             failure,
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Start);
         let audio = hearing.map(|models| {
             VStack::new((
@@ -334,7 +334,7 @@ impl View for TelegramCard {
                 .foreground(Semantic::InkMuted),
                 models,
             ))
-            .spacing(10.0)
+            .spacing(12.0)
             .align(Align::Stretch)
         });
 

@@ -293,7 +293,7 @@ pub(crate) fn dashboard(
                                     .style(TextStyle::Callout)
                                     .foreground(Semantic::InkMuted),
                             ))
-                            .spacing(6.0)
+                            .spacing(8.0)
                             .align(Align::Center),
                         ))
                         .spacing(4.0)
@@ -305,7 +305,7 @@ pub(crate) fn dashboard(
                             .style(ButtonStyle::Secondary)
                             .on_click(move || pay.start(&pay_store, id)),
                     ))
-                    .spacing(10.0)
+                    .spacing(12.0)
                     .align(Align::Center),
                 ) as AnyView
             })
@@ -351,7 +351,7 @@ pub(crate) fn dashboard(
                         Text::new(a.name.clone()).style(TextStyle::Body).grow(1.0),
                         Text::new(format_brl(a.balance_cents)).style(TextStyle::Body),
                     ))
-                    .spacing(10.0)
+                    .spacing(12.0)
                     .align(Align::Center),
                 ) as AnyView
             })
@@ -359,7 +359,7 @@ pub(crate) fn dashboard(
         let accounts_card = titled_card(
             "Saldo por conta",
             help::POR_CONTA,
-            VStack::new(accounts).spacing(14.0).align(Align::Stretch),
+            VStack::new(accounts).spacing(16.0).align(Align::Stretch),
         );
 
         let top: AnyView = if wide {

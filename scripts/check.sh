@@ -18,6 +18,12 @@ done_in() { printf '\n\033[1;32m%s in %dm%02ds.\033[0m\n' "$1" $(((SECONDS - sta
 step "rustfmt"
 cargo fmt --all --check
 
+# The examples are the showcase, and the house follows its own rules.
+step "ravenrs-lint on the examples"
+for example in family-finance component-gallery; do
+    cargo run -q -p ravenrs-lint -- -p "$example"
+done
+
 if [ "${1:-}" != "--full" ]; then
     packages=$(./scripts/changed-packages.py)
     if [ -z "$packages" ]; then

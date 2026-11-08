@@ -17,7 +17,8 @@ use crate::config::{Config, Language};
 pub enum Lint {
     /// A `Color` value written in the interface (`Color::rgb`, `Color::WHITE`, `Color { .. }`).
     /// It looks right in one theme and wrong in the others. Defining a theme (`Theme { .. }`,
-    /// `Palette { .. }` or a function returning one) is where colors belong, so it is left alone.
+    /// `Palette { .. }` or a function returning one) is where colors belong, so it is left alone,
+    /// and so are the pixels of a picture drawn with `ImageData::from_fn`.
     RawColor,
     /// `.font_size(..)`: text sizes come from `TextStyle` steps. A printed report's `Style` is
     /// measured in points and left alone.
@@ -144,13 +145,18 @@ pub(crate) fn check(file: &syn::File, config: &Config, lines: usize) -> Vec<Find
     };
     walker.visit_file(file);
     let mut findings = walker.findings;
+    // Tests live beside the code they test, as Rust does it; only the rest has to stay short.
+    let lines = lines.saturating_sub(test_lines(&file.items));
     if lines > config.max_file_lines {
         findings.push(Finding {
             lint: Lint::OversizedFile,
             line: 1,
             column: 1,
             end_column: 2,
-            message: format!("this file has {lines} lines, more than the {} allowed", config.max_file_lines),
+            message: format!(
+                "this file has {lines} lines besides its tests, more than the {} allowed",
+                config.max_file_lines
+            ),
             help:
                 "split it into modules by responsibility, such as one per screen, a `model` and a `storage` \
                    module; move each `impl` with its type"
@@ -158,6 +164,30 @@ pub(crate) fn check(file: &syn::File, config: &Config, lines: usize) -> Vec<Find
         });
     }
     findings
+}
+
+/// The lines taken by test code (`#[cfg(test)]` modules, `#[test]` functions) among `items`,
+/// including inline modules nested in them.
+fn test_lines(items: &[syn::Item]) -> usize {
+    items
+        .iter()
+        .map(|item| {
+            let attrs = match item {
+                syn::Item::Mod(module) => &module.attrs,
+                syn::Item::Fn(function) => &function.attrs,
+                syn::Item::Impl(block) => &block.attrs,
+                _ => return 0,
+            };
+            if is_test_code(attrs) {
+                let span = item.span();
+                span.end().line.saturating_sub(span.start().line) + 1
+            } else if let syn::Item::Mod(syn::ItemMod { content: Some((_, inner)), .. }) = item {
+                test_lines(inner)
+            } else {
+                0
+            }
+        })
+        .sum()
 }
 
 /// The methods called on one builder, from the expression that made it.
@@ -180,7 +210,7 @@ struct Walker<'c> {
     /// Primary buttons seen in each function being walked.
     primaries: Vec<Vec<Span>>,
     /// Inside a theme being defined (`Theme { .. }`, `Palette { .. }`, or a function returning one),
-    /// where literal colors belong.
+    /// or the pixels of an `ImageData::from_fn`, where literal colors belong.
     in_theme: usize,
     /// Icon buttons a `Tooltip` names, keyed like `chains`.
     named: HashSet<(usize, usize)>,
@@ -490,7 +520,11 @@ impl<'ast> Visit<'ast> for Walker<'_> {
                 self.blocking(path);
             }
         }
+        // The pixels of a picture made in code are its content, not the interface's colors.
+        let picture = call_path(node).is_some_and(|path| ends_with(path, &["ImageData", "from_fn"]));
+        self.in_theme += usize::from(picture);
         visit::visit_expr_call(self, node);
+        self.in_theme -= usize::from(picture);
     }
 
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
