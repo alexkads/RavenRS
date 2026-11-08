@@ -21,6 +21,7 @@ impl<C> fmt::Debug for List<C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: ViewSeq> List<C> {
     /// A list of `rows`, usually [`ListItem`]s.
     pub fn new(rows: C) -> Self {
@@ -80,6 +81,7 @@ impl fmt::Debug for ListItem {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListItem {
     /// A row with this title.
     pub fn new(title: impl Into<String>) -> Self {
@@ -225,6 +227,7 @@ pub struct Column {
     align_end: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Column {
     /// A column with this header title, weight 1.0, left-aligned.
     pub fn new(title: impl Into<String>) -> Self {
@@ -251,6 +254,7 @@ pub struct Table {
     rows: Vec<Vec<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Table {
     /// An empty table with these columns.
     pub fn new(columns: impl IntoIterator<Item = Column>) -> Self {

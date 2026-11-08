@@ -1,0 +1,50 @@
+# Examples the playground's interpreter does not read yet, with why. They open compiled.
+# The test `coverage_of_the_interpreter` keeps this list exact: a new example has to run,
+# and one that starts to run comes off the list.
+
+Alert: `Alert` has no method `tone` the playground knows
+AppShell: items inside a function are not read here
+AudioPlayerButton: expected a Arc, found Vec
+BarChart: the playground does not know `BarChart` yet
+Barcode: the playground does not know `Symbology` yet
+Chart: the playground does not know `ChartKind` yet
+ChartCard: the playground does not know `ChartKind` yet
+ChartReference: the playground does not know `ChartKind` yet
+Chat: items inside a function are not read here
+ColorPicker: `ColorPicker` has no method `palette` the playground knows
+CompareView: expected a Box, found closure
+CropOverlay: `CropOverlay` has no method `stage` the playground knows
+DataGrid: expected a Vec, found Vec
+DateTimePicker: the playground does not build `DateTime` from its fields yet
+DockArea: `DockNode::tabs` is not one the playground knows yet
+Eyedropper: expected a Box, found closure
+FileBrowser: expected a Rc, found Vec
+Filmstrip: expected a Box, found closure
+FloatingPanel: items inside a function are not read here
+FormField: the playground does not know `validate` yet
+ImageLightbox: this expression is not read by the playground yet
+Lottie: the playground does not know `LottieAnimation` yet
+Marquee: `Marquee` has no method `size` the playground knows
+Minimap: `Minimap::custom` is not one the playground knows yet
+ModelPicker: the playground does not build `ModelChoice` from its fields yet
+MovieAssistant: items inside a function are not read here
+MoviePlayer: items inside a function are not read here
+PagedDocumentView: expected a Box, found closure
+Playground: the playground does not know `Playground` yet
+QuadField: expected a Box, found closure
+RichText: the playground does not know `Clone` yet
+RubberBand: the playground does not know `Clone` yet
+RuleOfThirdsGrid: `RuleOfThirdsGrid` has no method `stage` the playground knows
+ScrollScene: expected a Effect), found tuple
+Select: `Select::of` is not one the playground knows yet
+ShortcutHintBar: `ShortcutHintBar` has no method `hint` the playground knows
+ShortcutSheet: `ShortcutSheet` has no method `group` the playground knows
+Sidebar: `Sidebar` has no method `collapsible` the playground knows
+SplashScreen: items inside a function are not read here
+Timeline: the playground does not build `TimelineMarker` from its fields yet
+ToggleGroup: expected a Option, found tuple
+ToolRail: the playground does not know `ToolRail` yet
+TransformHandles: `TransformHandles` has no method `stage` the playground knows
+Wizard: expected a Box, found closure
+YearView: expected a Box, found closure
+ZoomPanView: `ZoomPanView::custom` is not one the playground knows yet

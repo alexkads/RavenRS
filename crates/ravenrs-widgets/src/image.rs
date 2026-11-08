@@ -11,6 +11,7 @@ use crate::context::{BuildCx, NodeId, Paint, Semantics};
 /// How an image fills its frame when their aspect ratios differ.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ContentMode {
     /// Fills the frame, cropping the overflowing part (CSS `object-fit: cover`).
     #[default]
@@ -74,6 +75,7 @@ struct Fade {
     started: f64,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Image {
     /// An image of decoded RGBA pixels, `Cover` mode.
     pub fn new(data: ImageData) -> Self {

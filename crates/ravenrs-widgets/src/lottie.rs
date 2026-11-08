@@ -43,6 +43,7 @@ impl fmt::Debug for Lottie {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Lottie {
     /// Plays `animation` at its own size, over and over.
     pub fn new(animation: Animation) -> Self {

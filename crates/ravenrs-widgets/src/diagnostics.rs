@@ -99,6 +99,7 @@ impl Default for Diagnostics {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Diagnostics {
     /// Whether the panel is open.
     pub fn is_open(&self) -> bool {
@@ -196,6 +197,7 @@ impl<V> fmt::Debug for DiagnosticsHost<V> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> DiagnosticsHost<V> {
     /// Hosts `root` with the panel `diagnostics` controls.
     pub fn new(root: V, diagnostics: Diagnostics) -> Self {

@@ -58,6 +58,7 @@ pub struct GridPage {
     pub totals: Vec<Option<f64>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridPage {
     /// These rows, with more after them or not.
     pub fn new(rows: Vec<Row>, has_more: bool) -> Self {
@@ -121,6 +122,7 @@ impl fmt::Debug for GridResponder {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridResponder {
     /// Gives the rows. Call it on the UI thread.
     pub fn send(self, page: GridPage) {
@@ -215,6 +217,7 @@ impl fmt::Debug for RemoteRows {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RemoteRows {
     /// Rows that `loader` brings, in chunks of 100, keeping 8 of them.
     pub fn new(loader: impl Fn(GridRequest, GridResponder) + 'static) -> Self {

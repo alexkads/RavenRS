@@ -3,6 +3,7 @@ use crate::Point;
 /// Platform-neutral input event, already converted to logical pixels.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Event {
     /// The pointer moved without a button change.
     PointerMove {
@@ -67,6 +68,7 @@ pub enum Event {
 /// Mouse button or equivalent touch/pen action.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum PointerButton {
     /// Left mouse button, or a primary touch/pen contact.
     Primary,
@@ -82,6 +84,7 @@ pub enum PointerButton {
 /// forwarded as `Character` or `Other` for widgets to interpret.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Key {
     /// Enter or Return.
     Enter,
@@ -133,6 +136,7 @@ pub struct Modifiers {
 /// Cursor the UI asks the platform to show.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CursorIcon {
     /// Platform default arrow.
     #[default]

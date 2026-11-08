@@ -23,6 +23,7 @@ pub struct CodeBlock {
     code: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CodeBlock {
     /// A block showing `code`.
     pub fn new(code: impl Into<String>) -> Self {
@@ -97,6 +98,7 @@ pub struct ReleaseNote {
     badge: Option<(String, Tone)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ReleaseNote {
     /// A note on `version`, as the app words it, with the title of the release.
     pub fn new(version: impl Into<String>, title: impl Into<String>) -> Self {
@@ -251,6 +253,7 @@ pub struct ReleaseNotes {
     height: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ReleaseNotes {
     /// The versions in `notes`, newest first, on the one at `selected`.
     pub fn new(notes: Vec<ReleaseNote>, selected: Binding<usize>) -> Self {

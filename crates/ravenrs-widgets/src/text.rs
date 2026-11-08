@@ -34,6 +34,7 @@ impl fmt::Debug for Text {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Text {
     /// Static text.
     pub fn new(text: impl Into<String>) -> Self {

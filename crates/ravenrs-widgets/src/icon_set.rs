@@ -2,6 +2,7 @@
 
 /// Icons available to [`Icon`](crate::Icon), from the Lucide set.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum IconName {
     /// The Lucide `search` icon.
     Search,
@@ -405,6 +406,7 @@ pub enum IconName {
     FlagTriangleRight,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl IconName {
     /// Every icon, in catalog order.
     pub const ALL: &[IconName] = &[

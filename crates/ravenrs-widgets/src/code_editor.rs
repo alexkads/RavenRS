@@ -14,6 +14,7 @@ use crate::{TextArea, Tone, View};
 /// The language a [`CodeEditor`] colors.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CodeLanguage {
     /// No colors.
     Plain,
@@ -40,6 +41,7 @@ pub struct CodeDiagnostic {
     pub tone: Tone,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CodeDiagnostic {
     /// An error at `line` and `column` (both from 1), covering `length` characters.
     pub fn error(line: usize, column: usize, length: usize, message: impl Into<String>) -> Self {
@@ -104,6 +106,7 @@ impl fmt::Debug for CodeEditor {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CodeEditor {
     /// An editor of `value`, as Rust, with line numbers and an indent of 4 spaces.
     pub fn new(value: Binding<String>) -> Self {

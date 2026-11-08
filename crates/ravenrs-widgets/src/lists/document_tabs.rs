@@ -41,6 +41,7 @@ pub struct DocumentTab {
     pub closable: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DocumentTab {
     /// A tab called `title`.
     pub fn new(id: u64, title: impl Into<String>) -> Self {
@@ -110,6 +111,7 @@ impl fmt::Debug for DocumentTabs {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DocumentTabs {
     /// These tabs, in this order, with the id of the open one in `active`.
     pub fn new(tabs: Vec<DocumentTab>, active: Binding<u64>) -> Self {

@@ -73,6 +73,8 @@ ravenrs-report-export  ──► the exporters  (one entry point: format, name, 
 ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
 ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
 ravenrs-app-derive     ──► ravenrs-criteria  (the derives, re-exported by ravenrs-app)
+ravenrs-live           ──► ravenrs-reactive, syn  (interprets the Rust of examples; host types through a Registry)
+ravenrs-live-derive    (#[expose]: registers an impl block or enum; used behind `live` in core, style, layout, widgets)
 ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
 ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)
 ravenrs-app-library    ──► ravenrs-app  (ready-made records)
@@ -112,6 +114,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-grid-export` | `lib` |
 | `ravenrs-app-derive` | `lib` |
+| `ravenrs-live` | `value` (values, host objects, conversions), `registry` (what the host offers), `eval` (the interpreter), `bridge` (what `#[expose]` calls through) |
+| `ravenrs-live-derive` | `lib` |
 | `ravenrs-app-sqlite` | `lib` |
 | `ravenrs-app-library` | `lib` |
 | `ravenrs-app-report` | `lib`, `stored`, `analytics` |

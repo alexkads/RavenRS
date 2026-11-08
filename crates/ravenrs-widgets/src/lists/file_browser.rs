@@ -46,6 +46,7 @@ pub struct FileEntry {
     pub icon: Option<IconName>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FileEntry {
     fn new(name: String, is_folder: bool, size: Option<u64>) -> Self {
         Self { id: name.clone(), name, is_folder, size, modified: None, modified_order: 0, icon: None }
@@ -84,6 +85,7 @@ impl FileEntry {
 /// What a [`FileBrowser`] sorts by.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FileSortColumn {
     /// By name, ignoring case.
     #[default]
@@ -163,6 +165,7 @@ impl fmt::Debug for FileBrowser {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FileBrowser {
     /// The folder at `path`, from the root, with `entries` inside it. Keep the entries in an
     /// `Rc` between builds when they are many: they are sorted again only when they are not the

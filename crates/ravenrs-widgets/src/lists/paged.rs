@@ -55,6 +55,7 @@ impl fmt::Debug for PagedDocumentView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PagedDocumentView {
     /// A document of `count` pages, each of the size given by `page_size` at 100%, with the
     /// picture given by `picture` when it shows. Asked only for what shows, on each build, so it

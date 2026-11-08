@@ -12,6 +12,7 @@ pub struct Icon {
     color: Fill,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Icon {
     /// A 16 px icon in the `Ink` color.
     pub fn new(name: IconName) -> Self {

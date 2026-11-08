@@ -18,6 +18,7 @@ const AVATAR_TEXT_TOWARD_INK: f32 = 0.5;
 /// never color alone.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Tone {
     /// Gray, for neutral information.
     #[default]
@@ -32,6 +33,7 @@ pub enum Tone {
     Danger,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Tone {
     pub(crate) fn color(self, theme: &Theme) -> Color {
         match self {
@@ -64,6 +66,7 @@ pub struct Badge {
     height: Option<f32>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Badge {
     /// A neutral badge with this text.
     pub fn new(text: impl Into<String>) -> Self {
@@ -146,6 +149,7 @@ pub struct Avatar {
     border: Option<(f32, Fill)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Avatar {
     /// An avatar showing the initials of `name`, 36 logical pixels across.
     pub fn new(name: impl Into<String>) -> Self {
@@ -267,6 +271,7 @@ pub struct Kbd {
     inherit: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Kbd {
     /// A key cap showing `keys`.
     pub fn new(keys: impl Into<String>) -> Self {
@@ -314,6 +319,7 @@ pub struct Divider {
     vertical: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Divider {
     /// A horizontal line that stretches across its stack.
     pub fn horizontal() -> Self {
@@ -361,6 +367,7 @@ pub struct ProgressBar {
     percent: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ProgressBar {
     /// A progress bar at `value`, clamped to 0.0–1.0.
     pub fn new(value: f32) -> Self {
@@ -503,6 +510,7 @@ pub struct Skeleton {
     radius: Option<f32>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Skeleton {
     /// A block that stretches across its stack.
     pub fn line(height: f32) -> Self {
@@ -575,6 +583,7 @@ impl<A> std::fmt::Debug for Alert<A> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Alert {
     /// An accent-toned alert with a title and a message.
     pub fn new(title: impl Into<String>, message: impl Into<String>) -> Self {
@@ -599,6 +608,7 @@ impl Alert {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl<A> Alert<A> {
     /// Sets the color tone and icon.
     pub fn tone(mut self, tone: Tone) -> Self {
@@ -754,6 +764,7 @@ pub struct Stat {
     large: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Stat {
     /// A stat showing `value` under `label`.
     pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
@@ -826,6 +837,7 @@ impl<C> std::fmt::Debug for Section<C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: ViewSeq> Section<C> {
     /// A section titled `title` around `content`.
     pub fn new(title: impl Into<String>, content: C) -> Self {

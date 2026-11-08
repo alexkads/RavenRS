@@ -28,6 +28,7 @@ pub struct TileSpot {
     pub rows: u16,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TileSpot {
     /// A tile taking this many cells.
     pub fn new(key: impl Into<String>, columns: u16, rows: u16) -> Self {
@@ -48,6 +49,7 @@ impl fmt::Debug for Tile {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Tile {
     /// A tile known by `key`, under this title.
     pub fn new(key: impl Into<String>, title: impl Into<String>, content: impl View + 'static) -> Self {
@@ -130,6 +132,7 @@ impl fmt::Debug for TileLayout {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TileLayout {
     /// A layout bound to where the tiles stand, to keep between sessions. Tiles not in
     /// the list take one cell, after the others.
@@ -183,6 +186,7 @@ struct Cells {
     row_step: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Cells {
     /// The cell under a point inside the layout.
     fn at(&self, x: f32, y: f32) -> (usize, usize) {
@@ -541,6 +545,7 @@ impl fmt::Debug for CardView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CardView {
     /// `count` cards, each the view `card` gives for its index.
     pub fn new(count: usize, card: impl Fn(usize) -> AnyView + 'static) -> Self {

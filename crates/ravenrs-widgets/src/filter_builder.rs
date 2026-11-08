@@ -16,6 +16,7 @@ use crate::{
 /// What a field of a [`FilterBuilder`] holds, which says how its values are written.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FilterFieldKind {
     /// Text.
     #[default]
@@ -42,6 +43,7 @@ pub struct FilterField {
     pub values: Vec<LookupItem>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FilterField {
     /// A field with this name in the expression, and this caption on the screen.
     pub fn new(name: impl Into<String>, caption: impl Into<String>, kind: FilterFieldKind) -> Self {
@@ -86,6 +88,7 @@ const ALL_OPS: [Op; 12] = [
     Op::IsNotEmpty,
 ];
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Op {
     fn takes_value(self) -> bool {
         !matches!(self, Op::IsEmpty | Op::IsNotEmpty)
@@ -328,6 +331,7 @@ impl fmt::Debug for FilterBuilder {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FilterBuilder {
     /// A builder over the expression in `value`, offering `fields`.
     pub fn new(value: Binding<String>, fields: impl IntoIterator<Item = FilterField>) -> Self {
@@ -343,6 +347,7 @@ struct Editor {
     fields: Rc<Vec<FilterField>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Editor {
     fn change(&self, path: &[usize], f: impl FnOnce(&mut Node)) {
         let mut tree = self.tree.get();

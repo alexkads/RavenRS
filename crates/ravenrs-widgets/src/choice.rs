@@ -20,6 +20,7 @@ pub struct ToggleButton {
     look: ToggleLook,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToggleButton {
     /// A toggle button bound to `value`; clicking flips it.
     pub fn new(value: Binding<bool>, label: impl Into<String>) -> Self {
@@ -138,6 +139,7 @@ pub struct ToggleGroup {
     multiple: Option<Binding<BTreeSet<usize>>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToggleGroup {
     /// Exactly one item is on (like text alignment).
     pub fn single(
@@ -235,6 +237,7 @@ pub struct Pagination {
     compact: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Pagination {
     /// `page` is zero-based; `pages` is the total count.
     pub fn new(page: Binding<usize>, pages: usize) -> Self {
@@ -400,6 +403,7 @@ impl std::fmt::Debug for ColorSwatch {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ColorSwatch {
     /// A swatch of `color`. `label` is what screen readers announce, such as "Accent".
     pub fn new(color: Color, label: impl Into<String>) -> Self {
@@ -485,6 +489,7 @@ pub struct FavoriteToggle {
     color: Option<Color>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FavoriteToggle {
     /// A heart bound to `value`; clicking flips it.
     pub fn new(value: Binding<bool>) -> Self {
@@ -595,6 +600,7 @@ impl std::fmt::Debug for SwatchGrid {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SwatchGrid {
     /// A grid of these colors, each with the name screen readers announce.
     pub fn new<S: Into<String>>(colors: impl IntoIterator<Item = (Color, S)>) -> Self {
@@ -694,6 +700,7 @@ impl View for SwatchGrid {
 
 /// One of the nine points of a [`NinePointAnchor`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum AnchorPoint {
     /// The top left corner.
     TopLeft,
@@ -716,6 +723,7 @@ pub enum AnchorPoint {
     BottomRight,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl AnchorPoint {
     /// All nine, row by row from the top left.
     pub const ALL: [Self; 9] = [
@@ -765,6 +773,7 @@ pub struct NinePointAnchor {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NinePointAnchor {
     /// A grid bound to `value`.
     pub fn new(value: Binding<AnchorPoint>) -> Self {
@@ -905,6 +914,7 @@ impl std::fmt::Debug for ColorPair {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ColorPair {
     /// A pair bound to these two colors.
     pub fn new(foreground: Binding<Color>, background: Binding<Color>) -> Self {
@@ -1055,6 +1065,7 @@ pub struct Label {
     ink: Option<Semantic>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Label {
     /// A label with this text.
     pub fn new(text: impl Into<String>) -> Self {
@@ -1128,6 +1139,7 @@ pub struct AspectRatio<V> {
     content: V,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> AspectRatio<V> {
     /// Sizes `content` to `ratio` = width / height (e.g. `16.0 / 9.0`); at least 0.01.
     pub fn new(ratio: f32, content: V) -> Self {

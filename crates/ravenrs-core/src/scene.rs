@@ -11,6 +11,7 @@ use crate::{Color, Point, Rect};
 /// How a shape is filled.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Brush {
     /// A single flat color.
     Solid(Color),
@@ -44,6 +45,7 @@ pub struct LinearGradient {
     pub to: Color,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LinearGradient {
     /// Top-to-bottom gradient from `from` to `to`.
     pub const fn vertical(from: Color, to: Color) -> Self {
@@ -72,6 +74,7 @@ pub struct Shadow {
     pub color: Color,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Shadow {
     /// The `shadow-soft` token of Raven Dark: `0 8px 24px rgba(0,0,0,0.35)`.
     pub const fn soft() -> Self {
@@ -100,6 +103,7 @@ pub struct Quad {
     pub shadow: Option<Shadow>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Quad {
     /// Creates a sharp-cornered quad with no border or shadow.
     ///
@@ -144,6 +148,7 @@ pub struct FontRef {
     pub index: u32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FontRef {
     /// Borrows the raw font file bytes.
     pub fn bytes(&self) -> &[u8] {
@@ -197,6 +202,7 @@ pub struct ImageData {
     pixels: Arc<[u8]>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ImageData {
     /// Wraps RGBA8 pixels. Returns `None` when the buffer does not match the size.
     pub fn from_rgba8(width: u32, height: u32, pixels: impl Into<Arc<[u8]>>) -> Option<Self> {
@@ -275,6 +281,7 @@ pub struct ImageQuad {
     pub opacity: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ImageQuad {
     /// Draws the whole image stretched into `rect`, opaque and sharp-cornered.
     pub fn new(rect: Rect, image: ImageData) -> Self {
@@ -290,6 +297,7 @@ impl ImageQuad {
 
 /// One step of a [`PathFill`]'s outline.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum PathElement {
     /// Starts a contour here.
     MoveTo(Point),
@@ -303,6 +311,7 @@ pub enum PathElement {
 
 /// Which parts of a self-crossing outline count as inside.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FillRule {
     /// Inside wherever the contours wind around the point at all.
     #[default]
@@ -323,6 +332,7 @@ pub struct ColorStop {
 /// What fills a [`PathFill`], in the coordinates of its outline.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum PathPaint {
     /// One color.
     Solid(Color),
@@ -384,6 +394,7 @@ pub struct PathFill {
     pub clip: Option<Arc<PathClip>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PathFill {
     /// The transform that changes nothing.
     pub const IDENTITY: [f32; 6] = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
@@ -404,6 +415,7 @@ impl PathFill {
 /// One entry of the display list.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Primitive {
     /// A rounded rectangle.
     Quad(Quad),
@@ -433,6 +445,7 @@ pub struct Effect {
     pub scale: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Effect {
     /// No change.
     pub const IDENTITY: Self = Self { opacity: 1.0, offset: Point::new(0.0, 0.0), scale: 1.0 };
@@ -573,6 +586,7 @@ pub struct Scene {
     clear_color: Color,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Scene {
     /// Creates an empty display list with a transparent clear color.
     pub fn new() -> Self {

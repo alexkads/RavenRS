@@ -21,6 +21,7 @@ macro_rules! stack {
             style: LayoutStyle,
         }
 
+        #[cfg_attr(feature = "live", ravenrs_live::expose)]
         impl<C: ViewSeq> $name<C> {
             /// Children are a tuple of views (up to 12) or a `Vec`.
             pub fn new(children: C) -> Self {
@@ -135,6 +136,7 @@ pub struct ZStack<C> {
     align: Align,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: ViewSeq> ZStack<C> {
     /// Children are a tuple of views (up to 12) or a `Vec`, the first one at the back.
     pub fn new(children: C) -> Self {
@@ -235,6 +237,7 @@ impl std::fmt::Debug for PropertyRow {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PropertyRow {
     /// A row showing `value` as text.
     pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
@@ -311,6 +314,7 @@ impl std::fmt::Debug for PageHeader {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PageHeader {
     /// A header with this title.
     pub fn new(title: impl Into<String>) -> Self {
@@ -424,6 +428,7 @@ pub struct Spacer {
     min: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Spacer {
     /// A spacer with no minimum size.
     pub fn new() -> Self {
@@ -465,6 +470,7 @@ impl<C> std::fmt::Debug for ScrollView<C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: ViewSeq> ScrollView<C> {
     /// A scroll view of `children` (a tuple of up to 12 views or a `Vec`).
     pub fn new(children: C) -> Self {
@@ -577,6 +583,7 @@ impl<C> std::fmt::Debug for ScrollEdgeArrow<C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: ViewSeq> ScrollEdgeArrow<C> {
     /// A horizontal strip of `children` (a tuple of up to 12 views or a `Vec`).
     pub fn new(children: C) -> Self {
@@ -778,6 +785,7 @@ impl<C> std::fmt::Debug for Grid<C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: ViewSeq> Grid<C> {
     /// A grid of `columns` equal columns (at least 1).
     pub fn new(columns: u16, children: C) -> Self {
@@ -857,6 +865,7 @@ impl Default for Footer {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Footer {
     /// An empty footer with a divider on top.
     pub fn new() -> Self {
@@ -1031,6 +1040,7 @@ impl std::fmt::Debug for TitleBar {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TitleBar {
     /// A bar with this title and no buttons.
     pub fn new(title: impl Into<String>) -> Self {
@@ -1197,6 +1207,7 @@ impl std::fmt::Debug for StatusBar {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl StatusBar {
     /// Its height, in logical pixels, for what has to clear it.
     pub const HEIGHT: f32 = 28.0;
@@ -1318,6 +1329,7 @@ struct RailToolInfo {
     shortcut: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToolRailItem {
     /// A place holding this tool.
     pub fn new(icon: crate::IconName, name: impl Into<String>) -> Self {
@@ -1384,6 +1396,7 @@ pub struct ToolRail {
     icons_only: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToolRail {
     /// A rail of these tools; `selected` says which one is open.
     pub fn new<S: Into<String>>(
@@ -1435,6 +1448,7 @@ struct RailTool<'a> {
     icons_only: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RailTool<'_> {
     /// The menu of the tools that share this place.
     fn variants(&self, shown: usize, last_used: &ravenrs_reactive::State<usize>) -> Vec<Entry> {

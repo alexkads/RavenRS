@@ -71,6 +71,7 @@ impl fmt::Debug for ExpressionEditor {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ExpressionEditor {
     /// An editor of `value`, offering the built-in functions, operators and constants.
     pub fn new(value: Binding<String>) -> Self {
@@ -216,6 +217,7 @@ fn problem_name(problem: &Problem) -> String {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl ExpressionEditor {
     /// What the check says about `text`, if anything.
     fn status(&self, text: &str, labels: &crate::Labels) -> Option<Alert> {

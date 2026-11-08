@@ -12,6 +12,7 @@ pub struct Point {
     pub y: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Point {
     /// The origin, `(0, 0)`.
     pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
@@ -45,6 +46,7 @@ pub struct Size {
     pub height: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Size {
     /// A zero-area size.
     pub const ZERO: Self = Self { width: 0.0, height: 0.0 };
@@ -69,6 +71,7 @@ pub struct Rect {
     pub size: Size,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Rect {
     /// An empty rectangle at the origin.
     pub const ZERO: Self = Self { origin: Point::ZERO, size: Size::ZERO };
@@ -170,6 +173,7 @@ pub struct Insets {
     pub left: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Insets {
     /// No inset on any side.
     pub const ZERO: Self = Self::uniform(0.0);
@@ -182,6 +186,22 @@ impl Insets {
     /// `vertical` on top and bottom, `horizontal` on left and right.
     pub const fn symmetric(vertical: f32, horizontal: f32) -> Self {
         Self { top: vertical, right: horizontal, bottom: vertical, left: horizontal }
+    }
+}
+
+/// `16.0`, `(8.0, 12.0)` or an `Insets` already made, in the playground's interpreter.
+#[cfg(feature = "live")]
+impl ravenrs_live::FromLive for Insets {
+    fn from_live(value: ravenrs_live::Value) -> Result<Self, String> {
+        match value.read() {
+            ravenrs_live::Value::Host(host) => host.take_as::<Insets>(),
+            ravenrs_live::Value::Tuple(items) if items.len() == 2 => {
+                let (a, b) =
+                    <(f32, f32) as ravenrs_live::FromLive>::from_live(ravenrs_live::Value::Tuple(items))?;
+                Ok(Self::from((a, b)))
+            }
+            other => <f32 as ravenrs_live::FromLive>::from_live(other).map(Self::from),
+        }
     }
 }
 

@@ -150,6 +150,7 @@ struct Picture {
 /// forgotten while the same labels are still in use would be measured again each frame.
 const WIDTHS_KEPT: usize = 1 << 15;
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Picture {
     /// Brings the picture up to date, redoing only what changed.
     fn refresh(&mut self, source: &DrawingFn, dot_icon: Option<IconName>, size: Size, cx: &mut PaintCx<'_>) {
@@ -259,6 +260,7 @@ fn mix(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Highlight {
     /// The two categories it is between, and how far from the first to the second.
     fn between(&self) -> (usize, usize, f32) {
@@ -539,6 +541,7 @@ struct Series {
 /// How a row of a [`ChartTooltip`] shows its color.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ChartIndicator {
     /// A small square.
     #[default]
@@ -583,6 +586,7 @@ impl fmt::Debug for ChartTooltip {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChartTooltip {
     /// A tooltip with the category on top and a square before each series.
     pub fn new() -> Self {
@@ -666,6 +670,7 @@ impl ChartTooltip {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl ChartTooltip {
     fn color_of_value(&self, series: usize, value: f64, theme: &Theme) -> Option<Color> {
         self.value_color.as_ref().and_then(|color| color(series, value)).map(|role| theme.color(role))
@@ -684,6 +689,7 @@ pub(crate) struct KeyRow {
     no_indicator: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl KeyRow {
     pub(crate) fn named(name: String, color: Color, icon: Option<IconName>, value: Option<f64>) -> Self {
         Self { name, color, icon, value, share: None, value_color: None, no_indicator: false }
@@ -731,6 +737,7 @@ fn indicator_node(cx: &mut BuildCx<'_>, indicator: ChartIndicator, color: Color)
     })
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TooltipPanel {
     fn row(&self, cx: &mut BuildCx<'_>, row: &KeyRow, strong: bool) -> NodeId {
         let theme = *cx.theme();
@@ -843,6 +850,7 @@ pub struct ChartReference {
     color: Option<Semantic>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChartReference {
     /// A line at this value, in the color of secondary text.
     pub fn new(value: f64) -> Self {
@@ -865,6 +873,7 @@ impl ChartReference {
 /// Where the bars of a [`Chart`] grow from.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ChartBarFrom {
     /// Up from the bottom.
     #[default]
@@ -880,6 +889,7 @@ pub enum ChartBarFrom {
 /// Where a [`Chart`]'s legend goes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ChartLegend {
     /// Under the chart.
     #[default]
@@ -1083,6 +1093,7 @@ impl fmt::Debug for Chart {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Chart {
     /// An empty chart, 220 logical pixels tall, as wide as its parent allows.
     pub fn new(kind: ChartKind) -> Self {
@@ -2043,6 +2054,7 @@ impl Chart {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl TooltipPanel {
     /// The same as the panel, for a screen reader.
     pub(crate) fn spoken(&self) -> String {
@@ -2062,6 +2074,7 @@ impl TooltipPanel {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Chart {
     /// How a scatter chart or a sparkline is drawn, the same with a tooltip or without.
     fn small_drawing(&self, theme: &Theme, colors: &[Color], placed: bool) -> DrawingFn {
@@ -2130,6 +2143,7 @@ pub struct BarChart {
     height: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl BarChart {
     /// A chart of `(label, value)` bars; negative values are clamped to 0.
     pub fn new(data: impl IntoIterator<Item = (impl Into<String>, f32)>) -> Self {
@@ -2164,6 +2178,7 @@ pub struct AreaChart {
     tone: Semantic,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AreaChart {
     /// A chart of these values, evenly spaced from left to right.
     pub fn new(values: impl IntoIterator<Item = f32>) -> Self {
@@ -2222,6 +2237,7 @@ impl<V> fmt::Debug for ChartCard<V> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> ChartCard<V> {
     /// A card around `content`.
     pub fn new(content: V) -> Self {
@@ -2443,6 +2459,7 @@ pub struct Barcode {
     alt: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Barcode {
     /// A code of this format holding `data`.
     pub fn new(symbology: Symbology, data: impl Into<String>) -> Self {

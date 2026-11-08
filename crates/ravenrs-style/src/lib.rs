@@ -13,6 +13,7 @@ use ravenrs_core::{Color, Insets, Point, Shadow};
 /// component follows the active theme.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Semantic {
     /// `bg-000`: the canvas behind everything.
     Canvas,
@@ -95,6 +96,7 @@ pub struct Palette {
     pub danger: Color,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Palette {
     /// Resolves a semantic role to this palette's color.
     pub fn get(&self, role: Semantic) -> Color {
@@ -138,6 +140,7 @@ impl Palette {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Weight(pub f32);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Weight {
     /// Regular weight (400).
     pub const REGULAR: Self = Self(400.0);
@@ -165,6 +168,7 @@ pub struct TypeStyle {
 /// Named steps of the type scale.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum TextStyle {
     /// Large dashboard numbers (42px).
     Metric,
@@ -202,6 +206,7 @@ pub struct Typography {
     pub caption: TypeStyle,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Typography {
     /// Returns the type style for a named step.
     pub fn get(&self, style: TextStyle) -> TypeStyle {
@@ -288,6 +293,7 @@ pub struct Elevation {
 /// renderer for a backdrop blur where available.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Material {
     /// Opaque fills.
     Solid,
@@ -361,6 +367,7 @@ const fn shadow(y: f32, blur: f32, color: Color) -> Shadow {
     Shadow { offset: Point::new(0.0, y), blur, color }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Theme {
     /// The default theme: deep neutrals with a single blue-violet accent.
     pub const fn raven_dark() -> Self {

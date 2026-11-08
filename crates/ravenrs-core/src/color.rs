@@ -12,6 +12,7 @@ pub struct Color {
     pub a: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Color {
     /// Fully transparent black.
     pub const TRANSPARENT: Self = Self::rgba(0.0, 0.0, 0.0, 0.0);

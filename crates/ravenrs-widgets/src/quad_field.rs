@@ -48,6 +48,7 @@ impl fmt::Debug for QuadField {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl QuadField {
     /// A field of `columns × rows` squares forming the picture `picture(u, v, seconds)`,
     /// where `u` and `v` run from 0 to 1 across and down.

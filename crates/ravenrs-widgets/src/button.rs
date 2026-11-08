@@ -11,6 +11,7 @@ use crate::{IconName, Motion, View, util};
 /// Visual emphasis of a [`Button`] or other control.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ButtonStyle {
     /// Accent fill; one per view.
     #[default]
@@ -26,6 +27,7 @@ pub enum ButtonStyle {
 /// Height and horizontal padding of a [`Button`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ButtonSize {
     /// 32 px tall, smaller text; dense toolbars and table rows.
     Small,
@@ -38,6 +40,7 @@ pub enum ButtonSize {
     Mini,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl ButtonSize {
     pub(crate) fn height(self) -> f32 {
         match self {
@@ -209,6 +212,7 @@ impl fmt::Debug for Button {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Button {
     /// A primary, medium button with this label. An empty label makes it icon-only.
     pub fn new(label: impl Into<String>) -> Self {
@@ -454,6 +458,7 @@ pub struct ButtonGroup {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ButtonGroup {
     /// Glues these buttons, in order.
     pub fn new(buttons: impl IntoIterator<Item = Button>) -> Self {
@@ -497,6 +502,7 @@ pub struct IconButton {
     button: Button,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl IconButton {
     /// A ghost icon button showing `icon`.
     pub fn new(icon: IconName) -> Self {

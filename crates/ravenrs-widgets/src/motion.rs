@@ -49,6 +49,7 @@ impl Default for Motion {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Motion {
     /// Nothing animates yet.
     pub const fn new() -> Self {
@@ -178,6 +179,7 @@ struct PaintTrack {
     shadow_shape: Animated<Rect>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PaintTrack {
     fn new(q: &QuadPaint) -> Self {
         let (border, shadow) = (border_of(q, None), shadow_of(q, None));
@@ -346,6 +348,7 @@ pub(crate) struct MotionSystem {
     nested: Vec<NestedLayer>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MotionSystem {
     /// Applies reduced motion: nothing travels, but things may still fade.
     fn adapt(&self, effect: Effect, t: Transition) -> (Effect, Transition) {
@@ -623,6 +626,7 @@ pub(crate) enum NodePaint {
     Other,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NodePaint {
     pub(crate) fn of(paint: &Paint, text: Option<Color>) -> Self {
         match (paint, text) {
@@ -646,6 +650,7 @@ impl std::fmt::Debug for Collapse {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Collapse {
     /// Shows `content` at full height while `open` is true, and nothing otherwise.
     pub fn new(open: bool, content: impl View + 'static) -> Self {

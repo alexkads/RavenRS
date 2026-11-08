@@ -157,6 +157,7 @@ impl fmt::Debug for TextArea {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TextArea {
     /// An empty-placeholder area bound to `value`.
     pub fn new(value: Binding<String>) -> Self {
@@ -744,6 +745,7 @@ impl std::fmt::Debug for NumberField {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NumberField {
     /// Called when the keyboard goes elsewhere after being here.
     pub fn on_leave(mut self, handler: impl Fn() + 'static) -> Self {
@@ -987,6 +989,7 @@ enum MaskSlot {
     Literal(char),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MaskSlot {
     fn accepts(self, c: char) -> bool {
         match self {
@@ -1083,6 +1086,7 @@ pub struct MaskedField {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MaskedField {
     /// A field bound to `value`, following `mask`.
     pub fn new(value: Binding<String>, mask: impl Into<String>) -> Self {
@@ -1190,6 +1194,7 @@ pub struct Time {
     minute: u8,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Time {
     /// Returns `None` for an impossible time.
     pub fn new(hour: u8, minute: u8) -> Option<Self> {
@@ -1242,6 +1247,7 @@ pub struct TimePicker {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TimePicker {
     /// A picker bound to `value`; `None` is empty.
     pub fn new(value: Binding<Option<Time>>) -> Self {
@@ -1370,6 +1376,7 @@ pub struct DateTimePicker {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DateTimePicker {
     /// `month` is shown when no date is selected yet.
     pub fn new(value: Binding<Option<DateTime>>, month: Date) -> Self {

@@ -56,6 +56,7 @@ impl fmt::Debug for ValueSlider {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ValueSlider {
     /// A control over 0.0–1.0 bound to `value`, stepping by 0.01.
     pub fn new(value: Binding<f32>) -> Self {
@@ -356,6 +357,7 @@ impl fmt::Debug for InlineRename {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl InlineRename {
     /// A name bound to `value`, which changes only when the new name is confirmed.
     pub fn new(value: Binding<String>) -> Self {

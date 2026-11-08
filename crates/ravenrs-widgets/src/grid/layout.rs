@@ -125,6 +125,7 @@ impl Default for GridLayout {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridLayout {
     /// The layout as JSON, to keep in a file or a database.
     pub fn to_json(&self) -> String {
@@ -148,6 +149,7 @@ pub struct GridScenario {
     pub layout: GridLayout,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridScenario {
     /// A scenario under this name.
     pub fn new(name: impl Into<String>, layout: GridLayout) -> Self {
@@ -180,6 +182,7 @@ pub(crate) struct Arrangement {
     pub formulas: Vec<Option<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Arrangement {
     pub fn new(columns: &[GridColumn], group_panel: bool, page_size: Option<usize>) -> Self {
         Self {

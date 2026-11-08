@@ -41,6 +41,7 @@ impl ClipboardProvider for MemoryClipboard {
 #[derive(Clone)]
 pub struct Clipboard(Rc<dyn ClipboardProvider>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Clipboard {
     /// Wraps a provider.
     pub fn new(provider: impl ClipboardProvider + 'static) -> Self {

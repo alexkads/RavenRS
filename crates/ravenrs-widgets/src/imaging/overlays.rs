@@ -24,6 +24,7 @@ use crate::{AnyView, ButtonSize, IconButton, IconName, Tooltip, View};
 /// or a crop is told in the units of the content whatever the zoom.
 #[derive(Clone, Debug, Default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ContentSpace {
     /// The widget's own box is the content, one unit per logical pixel from its top left corner.
     #[default]
@@ -35,6 +36,7 @@ pub enum ContentSpace {
     View(Binding<ZoomView>, Size),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl ContentSpace {
     /// Where the whole content lands on screen, for a widget at `frame`.
     pub fn placed(&self, frame: Rect) -> Rect {
@@ -113,6 +115,7 @@ pub(super) struct ContentMap {
     pub content: Size,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ContentMap {
     pub fn screen(&self, at: Point) -> Point {
         Point::new(self.placed.x() + at.x * self.scale, self.placed.y() + at.y * self.scale)
@@ -167,6 +170,7 @@ impl fmt::Debug for OverlayBox {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl OverlayBox {
     pub fn size(&mut self, width: f32, height: f32) {
         self.width = Some(width);
@@ -291,6 +295,7 @@ pub(super) fn gesture_paint(live: bool, draw: impl Fn(Rect, &mut Scene) + 'stati
 /// The lines a [`RuleOfThirdsGrid`] draws.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CompositionGuide {
     /// Two lines each way, at a third and two thirds.
     #[default]
@@ -303,6 +308,7 @@ pub enum CompositionGuide {
     GoldenRatio,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl CompositionGuide {
     /// Where the lines cross each axis, as shares of a box of this size.
     fn lines(self, width: f32, height: f32) -> (Vec<f32>, Vec<f32>) {
@@ -404,6 +410,7 @@ pub struct RuleOfThirdsGrid {
     color: Option<Color>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RuleOfThirdsGrid {
     /// Thirds over the whole content.
     pub fn new() -> Self {
@@ -505,6 +512,7 @@ impl fmt::Debug for RubberBand {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RubberBand {
     /// A band bound to `selection`, in the units of its [space](Self::space).
     pub fn new(selection: Binding<Option<Rect>>) -> Self {
@@ -562,6 +570,7 @@ fn clamped(at: Point, bounds: Rect) -> Point {
     Point::new(at.x.clamp(bounds.x(), bounds.max_x()), at.y.clamp(bounds.y(), bounds.max_y()))
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl RubberBand {
     fn on_key(
         selection: &Binding<Option<Rect>>,
@@ -743,6 +752,7 @@ struct Strokes<'a> {
     path: Vec<PathElement>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Strokes<'_> {
     fn line(&mut self, a: Point, b: Point) {
         let (x, y) = (a.x.min(b.x), a.y.min(b.y));
@@ -821,6 +831,7 @@ pub struct Marquee {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Marquee {
     /// Around a rectangle.
     pub fn rect(rect: Rect) -> Self {
@@ -924,6 +935,7 @@ impl Default for EyedropperState {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EyedropperState {
     /// Not armed, with no color yet.
     pub fn new() -> Self {
@@ -1006,6 +1018,7 @@ pub struct Eyedropper {
     hint: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Eyedropper {
     /// The button of this eyedropper.
     pub fn new(state: &EyedropperState) -> Self {
@@ -1085,6 +1098,7 @@ impl fmt::Debug for EyedropperArea {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EyedropperArea {
     /// An area of this eyedropper that reads colors with `sampler`.
     pub fn new(state: &EyedropperState, sampler: impl Fn(Point) -> Option<Color> + 'static) -> Self {

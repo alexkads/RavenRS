@@ -34,6 +34,7 @@ pub struct DayMark {
     pub label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DayMark {
     /// A mark in the neutral tone.
     pub fn new() -> Self {
@@ -86,6 +87,7 @@ impl fmt::Debug for YearView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl YearView {
     /// The year in `year`, which its buttons and the keyboard also change.
     pub fn new(year: Binding<i32>) -> Self {

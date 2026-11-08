@@ -89,6 +89,7 @@ struct OpenView {
     inner_shapes: u64,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ViewProfile {
     pub(crate) fn enter(&mut self, name: &'static str, elements: usize, shapes: u64) {
         let started = (self.clock)();
@@ -237,6 +238,7 @@ impl fmt::Debug for Ui {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Ui {
     /// A runtime for `root` under `theme`, with an 800×600 viewport at scale 1.
     pub fn new(root: impl View + 'static, theme: Theme) -> Self {

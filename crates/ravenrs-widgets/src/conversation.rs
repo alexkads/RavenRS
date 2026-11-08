@@ -46,6 +46,7 @@ impl fmt::Debug for Attachment {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Attachment {
     /// A file called `name`.
     pub fn new(name: impl Into<String>) -> Self {
@@ -121,6 +122,7 @@ impl fmt::Debug for AttachmentStrip {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AttachmentStrip {
     /// A strip with these files.
     pub fn new(attachments: impl IntoIterator<Item = Attachment>) -> Self {
@@ -264,6 +266,7 @@ impl fmt::Debug for SelectionBar {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SelectionBar {
     /// A bar over `count` things chosen.
     pub fn new(count: usize) -> Self {
@@ -391,6 +394,7 @@ impl fmt::Debug for AudioPlayerButton {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AudioPlayerButton {
     /// A player with nothing to play yet.
     pub fn new() -> Self {

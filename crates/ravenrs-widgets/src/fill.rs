@@ -4,6 +4,7 @@ use ravenrs_style::{Semantic, Theme};
 /// A color given either as a theme role (preferred, follows theme changes) or
 /// as a literal color.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Fill {
     /// A theme color role, resolved against the current theme.
     Semantic(Semantic),
@@ -11,6 +12,7 @@ pub enum Fill {
     Color(Color),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Fill {
     /// The concrete color under `theme`.
     pub fn resolve(self, theme: &Theme) -> Color {

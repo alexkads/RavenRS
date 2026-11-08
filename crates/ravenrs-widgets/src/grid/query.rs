@@ -29,6 +29,7 @@ pub struct GridQuery {
     pub hidden: Vec<bool>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridQuery {
     /// The filter text of `column` (zero-based), or `""`.
     pub fn filter(&self, column: usize) -> &str {
@@ -94,6 +95,7 @@ impl GridQuery {
 
 /// A visible row of the grid: a group header or a data row.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ViewRow {
     /// A group header.
     Group {
@@ -155,6 +157,7 @@ enum NumberTest {
     Compare(NumTest, f64),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Filter {
     fn parse(filter: &str) -> Self {
         let f = filter.trim();
@@ -564,6 +567,7 @@ pub fn to_tsv(columns: &[GridColumn], rows: &[Row], visible: &[usize], selected:
 /// A file format of a grid's Export menu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum GridExportFormat {
     /// An Excel workbook, with real numbers and dates.
     Xlsx,
@@ -576,6 +580,7 @@ pub enum GridExportFormat {
 /// What a column holds, for a file to show it well.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum GridTableKind {
     /// Text, already as shown.
     Text,

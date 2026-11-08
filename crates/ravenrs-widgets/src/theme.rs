@@ -32,6 +32,7 @@ impl Default for ThemePicker {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ThemePicker {
     /// A menu of the themes that come with RavenRS.
     pub fn new() -> Self {
@@ -89,6 +90,7 @@ impl Default for ThemeEditor {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ThemeEditor {
     /// An editor over the theme of the application.
     pub fn new() -> Self {

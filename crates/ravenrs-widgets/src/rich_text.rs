@@ -20,6 +20,7 @@ struct Marks {
     code: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Marks {
     fn with(self, mark: char) -> Self {
         match mark {
@@ -54,6 +55,7 @@ enum Block {
     Code(String),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Block {
     fn is_plain(&self) -> bool {
         match self {
@@ -245,6 +247,7 @@ impl fmt::Debug for RichText {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RichText {
     /// Text that may have marks in it.
     pub fn new(text: impl Into<String>) -> Self {
@@ -402,6 +405,7 @@ impl View for LinkPiece {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl RichText {
     /// One word, made of one or more pieces, with the space that follows it.
     fn word(

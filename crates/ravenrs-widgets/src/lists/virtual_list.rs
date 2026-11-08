@@ -80,6 +80,7 @@ struct Track {
     visible: Option<Range<usize>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Track {
     fn total(&self) -> f32 {
         self.tops.last().map_or(0.0, |end| end + self.padding)
@@ -252,6 +253,7 @@ impl fmt::Debug for VirtualList {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl VirtualList {
     /// A list of `count` rows, with `item` making the view of each one when it shows.
     pub fn new<V: View + 'static>(count: usize, item: impl Fn(usize) -> V + 'static) -> Self {

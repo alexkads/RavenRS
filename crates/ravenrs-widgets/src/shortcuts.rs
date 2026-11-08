@@ -44,6 +44,7 @@ pub struct ShortcutSheet {
     width: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ShortcutSheet {
     /// A sheet shown while `open` is true.
     pub fn new(open: Binding<bool>) -> Self {
@@ -79,6 +80,7 @@ struct SheetBody {
     groups: Vec<ShortcutGroup>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SheetBody {
     fn row(cx: &mut BuildCx<'_>, keys: &str, does: &str) -> NodeId {
         let theme = *cx.theme();
@@ -181,6 +183,7 @@ pub struct ShortcutHintBar {
     hints: Vec<(Vec<String>, String)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ShortcutHintBar {
     /// A line with no hints yet.
     pub fn new() -> Self {

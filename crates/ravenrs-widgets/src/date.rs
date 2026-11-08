@@ -35,6 +35,7 @@ pub const MONTH_NAMES: [&str; 12] = [
     "December",
 ];
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Date {
     /// Returns `None` for impossible dates (e.g. February 30).
     pub fn new(year: i32, month: u8, day: u8) -> Option<Self> {

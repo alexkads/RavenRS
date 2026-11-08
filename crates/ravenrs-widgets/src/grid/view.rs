@@ -28,6 +28,7 @@ use crate::{
 /// How rows can be selected.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum SelectionMode {
     /// Rows cannot be selected.
     None,
@@ -131,6 +132,7 @@ struct RowTops {
     open: Vec<usize>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RowTops {
     fn top(&self, row: usize) -> f32 {
         row as f32 * self.row_height + self.open.partition_point(|&o| o < row) as f32 * self.detail_height
@@ -163,6 +165,7 @@ pub struct GridCellStyle {
     pub bold: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridCellStyle {
     /// A cell with this color of text, this color behind it, and heavier text or not.
     pub fn new(ink: Option<Semantic>, fill: Option<Semantic>, bold: bool) -> Self {
@@ -199,6 +202,7 @@ impl fmt::Debug for GridRowAction {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridRowAction {
     /// A button with this icon that runs `on_click` with its row. Screen readers hear
     /// `label` and the row, such as "Delete Acme", from
@@ -223,6 +227,7 @@ impl fmt::Debug for DataGrid {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DataGrid {
     /// What it says when there is no data at all, as opposed to filters leaving nothing.
     pub fn empty_text(mut self, text: impl Into<String>) -> Self {
@@ -618,6 +623,7 @@ struct Shared<'a> {
     ranges: Rc<Vec<(usize, usize)>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Shared<'_> {
     fn fixed_x(&self, column: usize) -> Option<f32> {
         self.fixed.iter().find(|(c, _)| *c == column).map(|(_, x)| *x)
@@ -1355,6 +1361,7 @@ struct ValueFilter {
     search: State<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ValueFilter {
     fn write(&self, chosen: &BTreeSet<String>) {
         let literals: Vec<String> = self
@@ -1445,6 +1452,7 @@ struct ValueFilterHandle {
     chosen: State<BTreeSet<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ValueFilterHandle {
     fn of(filter: &ValueFilter) -> Self {
         Self {
@@ -2397,6 +2405,7 @@ impl View for GroupRow<'_> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl DataGrid {
     fn handles(&self, cx: &mut BuildCx<'_>) -> Handles {
         let initial = {

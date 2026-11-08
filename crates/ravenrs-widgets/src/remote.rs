@@ -52,6 +52,7 @@ impl fmt::Debug for UiWaker {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl UiWaker {
     /// Asks for a rebuild. Calls made before it happens count as one.
     pub fn wake(&self) {

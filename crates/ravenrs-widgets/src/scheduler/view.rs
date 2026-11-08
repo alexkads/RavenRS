@@ -61,6 +61,7 @@ pub struct Resource {
     pub group: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Resource {
     /// A row with this name.
     pub fn new(id: u64, name: impl Into<String>) -> Self {
@@ -103,6 +104,7 @@ pub struct SchedulerEvent {
     pub resizable: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SchedulerEvent {
     /// A bar on this row, from `start` to `end`.
     pub fn new(id: u64, resource: u64, start: TimePoint, end: TimePoint, title: impl Into<String>) -> Self {
@@ -229,6 +231,7 @@ impl fmt::Debug for Scheduler {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Scheduler {
     /// A scheduler over this stretch of time. Zooming and moving through time change `axis`.
     pub fn new(axis: Binding<TimeAxis>) -> Self {
@@ -382,6 +385,7 @@ enum Row {
     Resource { index: usize, y: f32, height: f32 },
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Row {
     fn y(&self) -> f32 {
         match self {
@@ -453,6 +457,7 @@ struct Editing {
     reveal: Rc<Cell<Option<(f32, f32)>>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Editing {
     fn resource_at(&self, y: f32) -> Option<u64> {
         let found = self.rows.iter().find(|(_, top, height)| y >= *top && y < top + height);
@@ -678,6 +683,7 @@ struct Bar<'a> {
     on_delete: Option<Rc<dyn Fn(u64)>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Bar<'_> {
     fn color(&self, theme: &Theme) -> ravenrs_core::Color {
         match self.dragging {
@@ -939,6 +945,7 @@ struct Lanes {
     draw: Option<Rc<dyn Fn(Drag)>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Lanes {
     fn build(&self, cx: &mut BuildCx<'_>, s: &Scheduler, editing: &Editing) -> NodeId {
         let node = cx.container(
@@ -1100,6 +1107,7 @@ fn placed_text(
     )
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Scheduler {
     /// Groups stay together, in the order their first resource appears.
     fn lane_height(&self) -> f32 {

@@ -52,6 +52,7 @@ impl fmt::Debug for SortableList {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SortableList {
     /// A list of `count` rows, in the order the app keeps.
     pub fn new<V: View + 'static>(count: usize, item: impl Fn(usize) -> V + 'static) -> Self {

@@ -33,6 +33,7 @@ pub struct CalendarEvent {
     pub done: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CalendarEvent {
     /// An event on this day.
     pub fn new(id: u64, date: Date, title: impl Into<String>) -> Self {
@@ -89,6 +90,7 @@ impl std::fmt::Debug for EventCalendar {
 /// The height of a day with room for its events, in logical pixels.
 const DAY_HEIGHT: f32 = 104.0;
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EventCalendar {
     /// `month` holds the month shown (any day of it), so the app can load its
     /// events; `selected` holds the day picked.
@@ -418,6 +420,7 @@ pub struct RecurrenceEditor {
     start: Date,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RecurrenceEditor {
     /// An editor of `rule`, for something first happening on `start`.
     pub fn new(rule: Binding<RecurrenceRule>, start: Date) -> Self {

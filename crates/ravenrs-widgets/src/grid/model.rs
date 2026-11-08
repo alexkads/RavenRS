@@ -13,6 +13,7 @@ use crate::date::Date;
 /// A cell value.
 #[derive(Clone, Debug, Default, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Value {
     /// No value; shown as an empty cell.
     #[default]
@@ -27,6 +28,7 @@ pub enum Value {
     Date(Date),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Value {
     /// The numeric value: numbers as is, booleans as 0.0 or 1.0, otherwise `None`.
     pub fn as_f64(&self) -> Option<f64> {
@@ -116,6 +118,7 @@ pub type Row = Vec<Value>;
 
 /// Order of a sorted column.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum SortDirection {
     /// Smallest first.
     Ascending,
@@ -123,6 +126,7 @@ pub enum SortDirection {
     Descending,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl SortDirection {
     pub(crate) fn apply(self, o: Ordering) -> Ordering {
         match self {
@@ -135,6 +139,7 @@ impl SortDirection {
 /// An aggregate shown in group rows and in the footer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Summary {
     /// Number of non-empty cells.
     Count,
@@ -148,6 +153,7 @@ pub enum Summary {
     Max,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Summary {
     /// Short caption shown before the aggregate ("Sum", "Avg"…).
     pub fn label(self) -> &'static str {
@@ -164,6 +170,7 @@ impl Summary {
 /// Horizontal alignment of a column's cells.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CellAlign {
     /// Left-aligned (text default).
     #[default]
@@ -195,6 +202,7 @@ impl Default for NumberFormat {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NumberFormat {
     /// Formats `n`; non-finite numbers give an empty string.
     pub fn format(&self, n: f64) -> String {
@@ -249,6 +257,7 @@ impl fmt::Debug for GridColumn {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridColumn {
     /// A text column.
     pub fn text(title: impl Into<String>) -> Self {
@@ -487,6 +496,7 @@ pub struct GridData {
     rows: State<Rc<Vec<Row>>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridData {
     /// Data over these rows.
     pub fn new(rows: Vec<Row>) -> Self {

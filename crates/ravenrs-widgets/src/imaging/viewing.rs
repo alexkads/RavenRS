@@ -23,6 +23,7 @@ use crate::{ButtonSize, ButtonStyle, IconButton, IconName, Motion, View, util};
 /// How a [`CompareView`] shows its two pictures.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CompareMode {
     /// One beside the other.
     #[default]
@@ -33,6 +34,7 @@ pub enum CompareMode {
 
 /// One of the two pictures of a [`CompareView`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CompareSide {
     /// The first picture.
     First,
@@ -91,6 +93,7 @@ impl fmt::Debug for CompareView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CompareView {
     /// Compares two pictures, side by side.
     pub fn new(first: ImageData, second: ImageData) -> Self {
@@ -379,6 +382,7 @@ pub struct LightboxItem {
     caption: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LightboxItem {
     /// A picture with no caption.
     pub fn new(image: ImageData) -> Self {
@@ -424,6 +428,7 @@ impl fmt::Debug for ImageLightbox {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ImageLightbox {
     /// A lightbox over these pictures, shown while `open` holds the index of one.
     pub fn new(open: Binding<Option<usize>>, items: impl IntoIterator<Item = LightboxItem>) -> Self {

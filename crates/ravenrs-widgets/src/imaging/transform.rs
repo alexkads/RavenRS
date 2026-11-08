@@ -39,6 +39,7 @@ pub struct BoxTransform {
     pub pivot: Point,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl BoxTransform {
     /// An upright box that turns around its middle.
     pub const fn new(rect: Rect) -> Self {
@@ -146,6 +147,7 @@ impl BoxTransform {
 
 /// One of the eight handles of a [`TransformHandles`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum BoxHandle {
     /// The top left corner.
     TopLeft,
@@ -165,6 +167,7 @@ pub enum BoxHandle {
     Left,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl BoxHandle {
     /// All of them, clockwise from the top left.
     pub const ALL: [Self; 8] = [
@@ -207,6 +210,7 @@ struct Resize {
     least: Size,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Resize {
     /// `start` with its handle moved by this much along the box's own axes. The opposite handle,
     /// or the pivot, stays where it was on screen.
@@ -416,6 +420,7 @@ fn cursor_of(part: Part, angle: f32) -> CursorIcon {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Rules {
     fn resize(&self, handle: BoxHandle, start: BoxTransform, scale: f32, modifiers: Modifiers) -> Resize {
         let least = self.min_size / scale.max(f32::EPSILON);
@@ -599,6 +604,7 @@ impl fmt::Debug for TransformHandles {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TransformHandles {
     /// Handles bound to `value`, in the units of its [space](Self::space).
     pub fn new(value: Binding<BoxTransform>) -> Self {
@@ -962,6 +968,7 @@ struct ProtractorArc {
     most: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ProtractorArc {
     /// The radius of the circle through the ends and the top of the arc.
     fn radius(&self) -> f32 {
@@ -1015,6 +1022,7 @@ impl fmt::Debug for Protractor {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Protractor {
     /// A band bound to `value`, in degrees, from -45 to 45 in steps of 0.1.
     pub fn new(value: Binding<f32>) -> Self {
@@ -1221,6 +1229,7 @@ pub struct CropArea {
     pub angle: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CropArea {
     /// An upright rectangle.
     pub const fn new(rect: Rect) -> Self {
@@ -1269,6 +1278,7 @@ pub struct CropOverlay {
     handles: TransformHandles,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CropOverlay {
     /// A crop bound to `area`, in the units of its [space](Self::space).
     pub fn new(area: Binding<CropArea>) -> Self {

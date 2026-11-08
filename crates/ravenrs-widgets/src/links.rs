@@ -47,6 +47,7 @@ pub struct Links {
     opened: Rc<RefCell<Vec<String>>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Links {
     /// Opens `url`. `#name` scrolls to that anchor on the next frame.
     pub fn open(&self, url: &str) {
@@ -91,6 +92,7 @@ pub struct Link {
     muted: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Link {
     /// A link showing `label` that opens `url`.
     pub fn new(label: impl Into<String>, url: impl Into<String>) -> Self {

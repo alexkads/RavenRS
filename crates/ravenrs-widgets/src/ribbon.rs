@@ -17,6 +17,7 @@ use crate::{IconName, MenuItem, TextField, Tone, Tooltip, View, util};
 /// How much room a ribbon command takes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum RibbonSize {
     /// A tall button: large icon above a (wrapping) label.
     #[default]
@@ -48,6 +49,7 @@ impl fmt::Debug for RibbonItem {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RibbonItem {
     /// A command button (large by default).
     pub fn button(label: impl Into<String>, icon: IconName) -> Self {
@@ -133,6 +135,7 @@ impl fmt::Debug for RibbonGroup {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RibbonGroup {
     /// An empty group with this caption.
     pub fn new(title: impl Into<String>) -> Self {
@@ -162,6 +165,7 @@ pub struct RibbonPage {
     visible: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RibbonPage {
     /// An empty page with this tab title.
     pub fn new(title: impl Into<String>) -> Self {
@@ -223,6 +227,7 @@ impl Default for Ribbon {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Ribbon {
     /// An empty ribbon.
     pub fn new() -> Self {

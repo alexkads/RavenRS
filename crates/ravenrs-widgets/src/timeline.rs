@@ -41,6 +41,7 @@ impl std::fmt::Debug for TimelineItem {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TimelineItem {
     /// A block known to the app as `id`, from `start_ms` for `duration_ms`.
     pub fn new(id: u64, start_ms: u64, duration_ms: u64, label: impl Into<String>) -> Self {
@@ -96,6 +97,7 @@ pub struct TimelineTrack {
     items: Vec<TimelineItem>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TimelineTrack {
     /// A track named `label`, `height` logical pixels tall.
     pub fn new(label: impl Into<String>, height: f32, items: Vec<TimelineItem>) -> Self {
@@ -115,6 +117,7 @@ pub struct TimelineMarker {
 /// What someone did to a block, for the app to apply.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum TimelineEdit {
     /// A drag began on this block: the moves that follow are one gesture.
     Began {
@@ -184,6 +187,7 @@ impl std::fmt::Debug for Timeline {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Timeline {
     /// A timeline of these tracks, top to bottom.
     pub fn new(tracks: Vec<TimelineTrack>) -> Self {

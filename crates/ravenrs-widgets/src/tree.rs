@@ -29,6 +29,7 @@ pub struct TreeNode {
     disabled: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TreeNode {
     /// An item the app knows by `key`, showing `label`.
     pub fn new(key: impl Into<String>, label: impl Into<String>) -> Self {
@@ -181,6 +182,7 @@ impl fmt::Debug for TreeView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TreeView {
     /// A tree of these items, all closed.
     pub fn new(nodes: Vec<TreeNode>) -> Self {
@@ -265,6 +267,7 @@ struct TreeActions {
     active: State<Option<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TreeActions {
     fn set_open(&self, key: &str, open: bool) {
         self.expanded.update(|set| {

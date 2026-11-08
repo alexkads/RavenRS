@@ -28,6 +28,7 @@ pub struct LookupItem {
     pub label: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LookupItem {
     /// An option with this key and text.
     pub fn new(key: impl Into<String>, label: impl Into<String>) -> Self {
@@ -59,6 +60,7 @@ impl fmt::Debug for LookupResponder {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LookupResponder {
     /// Answers with these options.
     pub fn respond(&self, items: Vec<LookupItem>) {
@@ -127,6 +129,7 @@ impl fmt::Debug for LookupField {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LookupField {
     /// A lookup over options already in memory.
     pub fn new(selected: Binding<Option<LookupItem>>, items: Vec<LookupItem>) -> Self {

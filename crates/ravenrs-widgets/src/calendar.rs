@@ -21,6 +21,7 @@ pub struct DateRange {
     pub end: Date,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DateRange {
     /// The days between these two, in whichever order they come.
     pub fn new(a: Date, b: Date) -> Self {
@@ -68,6 +69,7 @@ impl std::fmt::Debug for Calendar {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Calendar {
     /// `month` is the month shown first (any day of it).
     pub fn new(selected: Binding<Option<Date>>, month: Date) -> Self {
@@ -126,6 +128,7 @@ pub(crate) struct GridKeys {
     pub focus_to: Rc<Cell<Option<Date>>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridKeys {
     /// Moves the cursor (and the shown month, if needed) for a navigation key.
     pub fn handler(&self, from: Date) -> crate::context::KeyHandler {
@@ -342,6 +345,7 @@ pub struct DatePicker {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DatePicker {
     /// `month` is shown when no date is selected yet.
     pub fn new(value: Binding<Option<Date>>, month: Date) -> Self {
@@ -421,6 +425,7 @@ impl View for CalendarPanel<'_> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl DatePicker {
     /// The name screen readers announce, such as "Due date". Inside a
     /// [`crate::FormField`], its label is used instead.
@@ -537,6 +542,7 @@ impl std::fmt::Debug for DateRangePicker {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DateRangePicker {
     /// `month` is shown when no period is chosen yet.
     pub fn new(value: Binding<Option<DateRange>>, month: Date) -> Self {

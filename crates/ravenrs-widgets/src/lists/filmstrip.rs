@@ -74,6 +74,7 @@ impl fmt::Debug for Filmstrip {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Filmstrip {
     /// A strip of `count` cells, with `cell` making the view of each one when it shows.
     pub fn new<V: View + 'static>(count: usize, cell: impl Fn(FilmstripCell) -> V + 'static) -> Self {

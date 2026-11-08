@@ -44,6 +44,7 @@ pub(crate) struct Hsv {
     pub(crate) alpha: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Hsv {
     fn of(color: Color) -> Self {
         let (r, g, b) = (color.r, color.g, color.b);
@@ -132,6 +133,7 @@ impl fmt::Debug for ColorPicker {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ColorPicker {
     /// A field bound to a color, or to none yet.
     pub fn new(value: Binding<Option<Color>>) -> Self {
@@ -189,6 +191,7 @@ struct Draft {
     value: Binding<Option<Color>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Draft {
     fn change(&self, f: impl FnOnce(&mut Hsv)) {
         let mut hsv = *self.hsv.peek();

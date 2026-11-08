@@ -18,6 +18,7 @@ use crate::{Text, View};
 #[derive(Clone)]
 pub struct TimeLink(Rc<dyn Fn(f64, Rect) -> Effect>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TimeLink {
     /// The effect is `f(seconds, frame)`.
     pub fn new(f: impl Fn(f64, Rect) -> Effect + 'static) -> Self {
@@ -55,6 +56,7 @@ pub struct Ticker<C> {
     reverse: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> Ticker<C> {
     /// A strip of `content` moving left at 40 pixels a second.
     pub fn new(content: C) -> Self {
@@ -123,6 +125,7 @@ impl fmt::Debug for CountUp {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CountUp {
     /// Counts up to `value`, shown as a whole number with thousands separators.
     pub fn new(value: f64) -> Self {
@@ -216,6 +219,7 @@ pub struct Anchor<C> {
     content: C,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> Anchor<C> {
     /// `content`, reachable as `#name`.
     pub fn new(name: impl Into<String>, content: C) -> Self {

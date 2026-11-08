@@ -40,6 +40,7 @@ pub struct Hotkey {
     shift: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Hotkey {
     /// This key alone.
     pub fn key(key: Key) -> Self {
@@ -111,6 +112,7 @@ impl fmt::Debug for ToolbarAction {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToolbarAction {
     /// A ghost button with this text.
     pub fn new(label: impl Into<String>) -> Self {
@@ -322,6 +324,7 @@ impl fmt::Debug for Toolbar {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Toolbar {
     /// An empty toolbar.
     pub fn new() -> Self {
@@ -486,6 +489,7 @@ impl<C> fmt::Debug for FloatingToolbar<C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> FloatingToolbar<C> {
     /// An empty bar at the bottom center of `content`.
     pub fn new(content: C) -> Self {
@@ -770,6 +774,7 @@ impl fmt::Debug for SplitButton {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SplitButton {
     /// A primary button with this text and an empty menu.
     pub fn new(label: impl Into<String>) -> Self {
@@ -890,6 +895,7 @@ impl Default for ConfirmDialog {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ConfirmDialog {
     /// A dialog with nothing to ask yet.
     pub fn new() -> Self {

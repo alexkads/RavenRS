@@ -17,6 +17,7 @@ pub use taffy::NodeId as LayoutId;
 /// Direction in which a stack places its children.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Axis {
     /// Children top to bottom.
     #[default]
@@ -28,6 +29,7 @@ pub enum Axis {
 /// Cross-axis alignment of a stack's children.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Align {
     /// Align to the leading edge of the cross axis.
     #[default]
@@ -47,6 +49,7 @@ pub enum Align {
 /// Main-axis distribution of a stack's children.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Justify {
     /// Pack children at the start of the main axis.
     #[default]
@@ -100,6 +103,7 @@ pub struct LayoutStyle {
     pub absolute: Option<(f32, f32)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LayoutStyle {
     /// A stack along `axis` with default spacing, padding and alignment.
     pub fn stack(axis: Axis) -> Self {
@@ -193,6 +197,7 @@ impl LayoutStyle {
 /// Space offered to a measured leaf along one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Available {
     /// A definite number of logical pixels.
     Definite(f32),
@@ -202,6 +207,7 @@ pub enum Available {
     MaxContent,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Available {
     /// The width to wrap at, if any.
     pub fn limit(self) -> Option<f32> {
@@ -271,6 +277,7 @@ fn to_available(a: AvailableSpace) -> Available {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C> LayoutTree<C> {
     /// Creates an empty tree.
     ///

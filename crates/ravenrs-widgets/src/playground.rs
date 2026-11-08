@@ -88,6 +88,7 @@ impl fmt::Debug for Playground {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Playground {
     /// A playground whose code `runner` runs.
     pub fn new(runner: impl Runner + 'static) -> Self {

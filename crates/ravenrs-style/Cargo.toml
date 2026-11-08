@@ -13,7 +13,12 @@ documentation = "https://docs.rs/ravenrs-style"
 keywords = ["gui", "theme", "design-tokens"]
 categories = ["gui"]
 
+[features]
+# Registers its types with the playground's interpreter.
+live = ["dep:ravenrs-live"]
+
 [dependencies]
+ravenrs-live = { workspace = true, optional = true }
 ravenrs-core.workspace = true
 ravenrs-animation.workspace = true
 serde_json.workspace = true

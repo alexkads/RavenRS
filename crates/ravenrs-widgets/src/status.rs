@@ -42,6 +42,7 @@ pub struct Dot {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Dot {
     /// A neutral dot, 8 logical pixels across.
     pub fn new() -> Self {
@@ -115,6 +116,7 @@ pub struct OverlayBadge<C, B> {
     visible: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View, B: View> OverlayBadge<C, B> {
     /// `badge` on the top right corner of `content`.
     pub fn new(content: C, badge: B) -> Self {
@@ -201,6 +203,7 @@ pub struct Rating {
     clearable: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Rating {
     fn with(value: Option<Binding<u32>>, fixed: u32) -> Self {
         Self {
@@ -422,6 +425,7 @@ pub struct IconTile {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl IconTile {
     /// A neutral tile of 48 logical pixels showing `icon`.
     pub fn new(icon: IconName) -> Self {
@@ -507,6 +511,7 @@ impl fmt::Debug for EmptyState {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EmptyState {
     /// An empty state with this title.
     pub fn new(title: impl Into<String>) -> Self {
@@ -597,6 +602,7 @@ impl fmt::Debug for HeroBanner {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl HeroBanner {
     /// A banner saying `title`, in the accent tone.
     pub fn new(title: impl Into<String>) -> Self {
@@ -708,6 +714,7 @@ pub struct MultiProgress {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MultiProgress {
     /// No bars yet.
     pub fn new() -> Self {
@@ -772,6 +779,7 @@ pub struct ShimmerText {
     active: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ShimmerText {
     /// `text` with the light passing over it.
     pub fn new(text: impl Into<String>) -> Self {
@@ -892,6 +900,7 @@ enum DayText {
     Day { day: Date, today: Date },
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DaySeparator {
     /// A separator with this text.
     pub fn new(text: impl Into<String>) -> Self {

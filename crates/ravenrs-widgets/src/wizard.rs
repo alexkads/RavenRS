@@ -27,6 +27,7 @@ impl fmt::Debug for WizardStep {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl WizardStep {
     /// A step with this title and content.
     pub fn new(title: impl Into<String>, content: impl View + 'static) -> Self {
@@ -81,6 +82,7 @@ impl fmt::Debug for Wizard {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Wizard {
     /// A wizard over these steps, bound to the index of the one showing.
     pub fn new(step: Binding<usize>, steps: Vec<WizardStep>) -> Self {
@@ -109,6 +111,7 @@ impl Wizard {
 /// Where a step of a task stands.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum StepState {
     /// Not reached yet.
     #[default]
@@ -183,6 +186,7 @@ pub struct StepBadge {
     size: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl StepBadge {
     /// The mark of the step with this number, not reached yet.
     pub fn new(number: usize) -> Self {
@@ -295,6 +299,7 @@ pub struct IndicatorStep {
     note: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl IndicatorStep {
     /// A step with this title, in this state.
     pub fn new(title: impl Into<String>, state: StepState) -> Self {
@@ -336,6 +341,7 @@ impl fmt::Debug for StepIndicator {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl StepIndicator {
     /// A row of these steps.
     pub fn new(steps: Vec<IndicatorStep>) -> Self {

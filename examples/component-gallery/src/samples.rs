@@ -2671,12 +2671,29 @@ pub fn sample_code(name: &str) -> Option<String> {
     Some(format!("use ravenrs::prelude::*;\n\n{}\n", &body[..end]))
 }
 
-/// The example of a component in a [`Playground`], with its code beside it.
-///
-/// For now the result is the compiled example: editing the code does not change it yet.
+/// What the examples can call, with the helpers they share.
+pub fn sample_runner() -> LiveRunner {
+    let mut registry = live_registry();
+    registry.free_function("picture", |args| {
+        let hue = args.first().and_then(|v| match v.read() {
+            ravenrs::live::Value::Float(n) => Some(n as f32),
+            ravenrs::live::Value::Int(n) => Some(n as f32),
+            _ => None,
+        });
+        let hue = hue.ok_or("`picture` takes a hue, such as 0.4")?;
+        Ok(ravenrs::live::Value::Host(ravenrs::live::Host::cloneable("ImageData", picture(hue))))
+    });
+    LiveRunner::with_registry(registry)
+}
+
+/// The example of a component in a [`Playground`], with its code beside it. Edits run through
+/// the interpreter; an example it cannot read yet opens compiled, and says so.
 pub struct SamplePlayground {
     name: String,
     code: String,
+    runner: LiveRunner,
+    /// Why the interpreter cannot read the example as it is, if it cannot.
+    compiled: Option<String>,
 }
 
 impl std::fmt::Debug for SamplePlayground {
@@ -2690,21 +2707,31 @@ impl SamplePlayground {
     pub fn new(name: &str) -> Option<Self> {
         let code = sample_code(name)?;
         sample(name)?;
-        Some(Self { name: name.to_owned(), code })
+        let runner = sample_runner();
+        let compiled = runner.run(&code).err().map(|problems| problems[0].message.clone());
+        Some(Self { name: name.to_owned(), code, runner, compiled })
     }
 }
 
 impl View for SamplePlayground {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let name = self.name.clone();
-        let runner = move |_: &str| -> Result<AnyView, Vec<CodeDiagnostic>> {
-            Ok(sample(&name).unwrap_or_else(|| Box::new(Spacer::new())))
+        let (name, original, live) = (self.name.clone(), self.code.clone(), self.runner.clone());
+        let runner = move |source: &str| -> Result<AnyView, Vec<CodeDiagnostic>> {
+            match live.run(source) {
+                Ok(view) => Ok(view),
+                // The example as written always shows, compiled, until the interpreter reads it.
+                Err(_) if source == original => Ok(sample(&name).unwrap_or_else(|| Box::new(Spacer::new()))),
+                Err(problems) => Err(problems),
+            }
         };
-        let playground = Playground::new(runner)
-            .title(self.name.clone())
-            .example(self.name.clone(), self.code.clone())
-            .note("Editing the code does not change the result yet: what runs is the compiled example.");
+        let mut playground =
+            Playground::new(runner).title(self.name.clone()).example(self.name.clone(), self.code.clone());
+        if let Some(reason) = &self.compiled {
+            playground = playground.note(format!(
+                "This example runs compiled: the playground cannot read it yet ({reason}). Edits show what it reads."
+            ));
+        }
         let content = cx.child(&playground);
         cx.container(
             LayoutStyle {
@@ -2735,6 +2762,39 @@ mod tests {
             ui.update();
         }
         assert!(SampleApp::new("Nope").is_none());
+    }
+
+    /// Every example runs from its code in the interpreter, except those in
+    /// `live-pending.txt`, which says why each one does not yet.
+    #[test]
+    fn coverage_of_the_interpreter() {
+        let runner = sample_runner();
+        let pending: BTreeSet<&str> = include_str!("../live-pending.txt")
+            .lines()
+            .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
+            .filter_map(|line| line.split(':').next())
+            .collect();
+        let mut failing = BTreeSet::new();
+        let mut unexpected = Vec::new();
+        for name in NAMES {
+            let code = sample_code(name).unwrap_or_default();
+            match runner.run(&code) {
+                Ok(view) => {
+                    let mut ui = Ui::new(view, Theme::raven_dark());
+                    ui.set_viewport(Size::new(800.0, 500.0), 1.0);
+                    ui.update();
+                }
+                Err(problems) => {
+                    failing.insert(*name);
+                    if !pending.contains(name) {
+                        unexpected.push(format!("{name}: {}", problems[0].message));
+                    }
+                }
+            }
+        }
+        assert!(unexpected.is_empty(), "these do not run in the interpreter:\n{}", unexpected.join("\n"));
+        let now_running: Vec<&&str> = pending.difference(&failing).collect();
+        assert!(now_running.is_empty(), "these run now, take them off live-pending.txt: {now_running:?}");
     }
 
     #[test]

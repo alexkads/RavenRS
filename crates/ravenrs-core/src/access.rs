@@ -8,6 +8,7 @@ use crate::Rect;
 /// What kind of control or content a node is, as assistive technology names it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Role {
     /// The application window, the root of the tree.
     Window,
@@ -99,6 +100,7 @@ pub enum Role {
     TreeItem,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Role {
     /// Roles whose accessible name comes from the text inside them when no
     /// explicit name is given, as in ARIA's "name from content".
@@ -126,6 +128,7 @@ impl Role {
 
 /// State of a check box, switch or toggle button.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Toggled {
     /// Off or unchecked.
     False,
@@ -157,6 +160,7 @@ pub struct NumericValue {
 /// What assistive technology can ask a node to do.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum AccessAction {
     /// Activate it, as a click or Enter would.
     Click,
@@ -212,6 +216,7 @@ pub struct AccessNode {
     pub actions: Vec<AccessAction>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AccessNode {
     /// A node with no name, state, children or actions.
     pub fn new(id: u64, role: Role, bounds: Rect) -> Self {
@@ -249,6 +254,7 @@ pub struct AccessTree {
     pub focus: Option<u64>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AccessTree {
     /// The node with this id.
     pub fn get(&self, id: u64) -> Option<&AccessNode> {

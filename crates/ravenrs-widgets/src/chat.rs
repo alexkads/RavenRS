@@ -68,6 +68,7 @@ impl fmt::Debug for ChatMedia {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChatMedia {
     /// A photo. While it is `None` it holds a space of the same size, so that what is above
     /// does not jump when it arrives.
@@ -248,6 +249,7 @@ impl View for ChatMedia {
 /// Who wrote a [`ChatMessage`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ChatAuthor {
     /// The person at the screen.
     Person,
@@ -274,6 +276,7 @@ impl fmt::Debug for ChatMessage {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChatMessage {
     /// What the person wrote.
     pub fn person(text: impl Into<String>) -> Self {
@@ -363,6 +366,7 @@ impl fmt::Debug for Chat {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Chat {
     /// A conversation over `messages`.
     pub fn new(messages: Binding<Vec<ChatMessage>>) -> Self {
@@ -438,6 +442,7 @@ struct Send {
     busy: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Send {
     fn text(&self, text: &str) {
         let text = text.trim();
@@ -656,6 +661,7 @@ impl View for Chat {
 /// A corner of the window, where a [`FloatingPanel`] rests.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FloatingCorner {
     /// Top left.
     TopLeft,
@@ -668,6 +674,7 @@ pub enum FloatingCorner {
     BottomRight,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl FloatingCorner {
     fn is_right(self) -> bool {
         matches!(self, Self::TopRight | Self::BottomRight)
@@ -742,6 +749,7 @@ impl fmt::Debug for FloatingPanel {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FloatingPanel {
     /// A closed panel called `title`, the name screen readers give its sphere.
     pub fn new(

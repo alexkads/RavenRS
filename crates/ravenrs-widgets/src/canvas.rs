@@ -35,6 +35,7 @@ impl fmt::Debug for Canvas {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Canvas {
     /// A canvas drawn by `draw`, called on every paint with the absolute frame.
     pub fn new(draw: impl Fn(Rect, &mut Scene) + 'static) -> Self {

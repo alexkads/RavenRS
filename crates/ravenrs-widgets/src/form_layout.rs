@@ -35,6 +35,7 @@ impl fmt::Debug for FormGroup {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FormGroup {
     /// A group with no title.
     pub fn new() -> Self {
@@ -122,6 +123,7 @@ impl fmt::Debug for FormLayout {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FormLayout {
     /// An empty form with one column.
     pub fn new() -> Self {

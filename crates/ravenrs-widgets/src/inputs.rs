@@ -35,6 +35,7 @@ struct ChoiceOption {
     selected: Binding<usize>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChoiceOption {
     fn index(&self) -> usize {
         self.roving.index
@@ -57,6 +58,7 @@ pub struct Toggle {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Toggle {
     /// A switch bound to `value`.
     pub fn new(value: Binding<bool>) -> Self {
@@ -166,6 +168,7 @@ pub struct Checkbox {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Checkbox {
     /// A check box bound to `value`, with this label.
     pub fn new(label: impl Into<String>, value: Binding<bool>) -> Self {
@@ -282,6 +285,7 @@ pub struct RadioGroup {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RadioGroup {
     /// Radio buttons for `options`; `selected` holds the zero-based index.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
@@ -413,6 +417,7 @@ impl std::fmt::Debug for Slider {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Slider {
     /// A slider over 0.0–1.0 bound to `value`, stepping by 0.01.
     pub fn new(value: Binding<f32>) -> Self {
@@ -726,6 +731,7 @@ pub struct Stepper {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Stepper {
     /// A stepper bound to `value`, unbounded.
     pub fn new(value: Binding<i32>) -> Self {
@@ -849,6 +855,7 @@ pub struct SegmentedControl {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SegmentedControl {
     /// Segments for `options`; `selected` holds the zero-based index.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
@@ -983,6 +990,7 @@ impl Default for ThemeSwitcher {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ThemeSwitcher {
     /// A switcher over the themes that come with RavenRS.
     pub fn new() -> Self {

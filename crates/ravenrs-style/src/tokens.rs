@@ -10,6 +10,7 @@ const RADIUS_RANGE: std::ops::RangeInclusive<f64> = 0.0..=64.0;
 /// The sizes text can take when it comes from text.
 const SIZE_RANGE: std::ops::RangeInclusive<f64> = 8.0..=96.0;
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Semantic {
     /// The colors a theme chooses. The others follow from these.
     pub const TOKENS: [Self; 15] = [
@@ -59,6 +60,7 @@ impl Semantic {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Palette {
     /// Changes the color of a role. Roles that follow from others, as in charts, stay as they are.
     pub fn set(&mut self, role: Semantic, color: Color) {
@@ -83,6 +85,7 @@ impl Palette {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Radii {
     /// The radii a theme chooses, by name. `full` is not one: it only means a pill.
     pub const TOKENS: [&'static str; 4] = ["sm", "md", "lg", "xl"];
@@ -110,6 +113,7 @@ impl Radii {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl TextStyle {
     /// Every step of the scale, largest first.
     pub const TOKENS: [Self; 7] =
@@ -129,6 +133,7 @@ impl TextStyle {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Typography {
     /// Changes the size of a step, with its line height in the same proportion.
     pub fn set_size(&mut self, style: TextStyle, size: f32) {
@@ -164,6 +169,7 @@ fn from_hex(text: &str) -> Option<Color> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Theme {
     /// The themes that come with RavenRS.
     pub const fn builtin() -> [Self; 3] {
