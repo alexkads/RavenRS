@@ -2815,6 +2815,8 @@ impl View for SamplePlayground {
         let title = if single { self.examples[0].0.clone() } else { "Playground".to_owned() };
         let mut playground =
             Playground::new(runner).title(title).source(source.binding()).chosen_example(chosen.binding());
+        // On a component's page the example is the point: the output waits folded.
+        playground = playground.output_open(!single);
         for (name, code) in self.examples.iter() {
             playground = playground.example(name.clone(), code.clone());
         }
@@ -2834,6 +2836,9 @@ impl View for SamplePlayground {
         cx.container(
             LayoutStyle {
                 grow: 1.0,
+                // Held to the window, so an example taller than it scrolls in the result.
+                min_width: Some(0.0),
+                min_height: Some(0.0),
                 padding: Insets::uniform(16.0),
                 align: Align::Stretch,
                 ..LayoutStyle::stack(Axis::Vertical)
@@ -2848,6 +2853,55 @@ impl View for SamplePlayground {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The height `gen-component-pages.py` gives the playground of an example on its page,
+    /// with the numbers it uses.
+    fn stage_height(name: &str) -> f32 {
+        let script = include_str!("../../../scripts/gen-component-pages.py");
+        let names = "PAGE, BAR, LINE, EDITOR, STATUS, AROUND_EXAMPLE = ";
+        let line = script.lines().find_map(|l| l.strip_prefix(names)).expect("the numbers of the page");
+        let n: Vec<f32> = line.split(", ").map(|v| v.trim().parse().expect("a number")).collect();
+        let source = include_str!("samples.rs");
+        let marker = format!("\n// sample: {name}, ");
+        let rest = &source[source.find(&marker).expect("its marker") + marker.len()..];
+        let example: f32 = rest[..rest.find('\n').expect("a line")].parse().expect("its height");
+        let lines = (sample_code(name).expect("its code").matches('\n').count() + 1) as f32;
+        n[0] + n[1] + (lines * n[2] + n[3] + n[4]).max(example + n[5])
+    }
+
+    /// On a component's page the playground fits its box: every line of the code shows, and
+    /// the status under it and the folded output under the example, nothing cut at the bottom.
+    #[test]
+    fn the_playground_of_each_page_fits_its_box() {
+        let mut cut = Vec::new();
+        for name in NAMES {
+            let Some(playground) = SamplePlayground::new(name) else { continue };
+            let height = stage_height(name);
+            let mut ui = Ui::new(playground, Theme::raven_dark());
+            ui.set_viewport(Size::new(824.0, height), 1.0);
+            ui.update();
+            ui.update();
+            let tree = ui.access_tree();
+            let bottom = |label: &str| {
+                tree.nodes
+                    .iter()
+                    .find(|n| n.name.as_deref().is_some_and(|s| s.starts_with(label)))
+                    .map_or(f32::MAX, |n| n.bounds.max_y())
+            };
+            let lowest = bottom("No problems").max(bottom("Show the output"));
+            let lines = sample_code(name).unwrap_or_default().matches('\n').count() + 1;
+            let needed = lines as f32 * 22.0 + 12.0;
+            let editor = tree
+                .nodes
+                .iter()
+                .find(|n| n.role == ravenrs::core::Role::TextInput)
+                .map_or(0.0, |n| n.bounds.height());
+            if lowest > height - 16.0 || editor < needed {
+                cut.push(format!("{name}: bottom {lowest} in {height}, code {editor} of {needed}"));
+            }
+        }
+        assert!(cut.is_empty(), "cut at the bottom: {cut:#?}");
+    }
 
     #[test]
     fn names_are_unique_and_every_example_builds() {

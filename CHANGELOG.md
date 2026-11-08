@@ -25,6 +25,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- On a component's page the playground fits its box: every line of the code and the status under it show, the code gets the wider side (the result starts at 40%), and an example taller than the room scrolls in the result instead of pushing the rest out. `Playground::output_open(false)` starts the output folded, as the component pages do; a problem opens it. The page's code block shows the `use` lines the playground shows.
 - An `Action` changed through a copy, as the playground's interpreter makes one, kept none of the change: `selection`, `on_execute` and the rest were lost without a word. The change now goes to an action of its own. `ActionContext` copies too, so a closure written in the playground gets it instead of `()`.
 
 ## [27.1.20] - 2026-11-07
