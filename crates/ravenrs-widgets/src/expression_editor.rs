@@ -55,6 +55,7 @@ const ITEMS_WIDTH: f32 = 200.0;
 /// let mut ui = Ui::new(editor, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ExpressionEditor {
     value: Binding<String>,
     fields: Vec<FilterField>,
@@ -71,6 +72,7 @@ impl fmt::Debug for ExpressionEditor {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ExpressionEditor {
     /// An editor of `value`, offering the built-in functions, operators and constants.
     pub fn new(value: Binding<String>) -> Self {
@@ -216,6 +218,7 @@ fn problem_name(problem: &Problem) -> String {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl ExpressionEditor {
     /// What the check says about `text`, if anything.
     fn status(&self, text: &str, labels: &crate::Labels) -> Option<Alert> {

@@ -70,6 +70,7 @@ type Extra = (String, IconName, Rc<dyn Fn(&str)>);
 /// let mut ui = Ui::new(playground, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Playground {
     runner: Rc<dyn Runner>,
     examples: Vec<(String, String)>,
@@ -88,6 +89,7 @@ impl fmt::Debug for Playground {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Playground {
     /// A playground whose code `runner` runs.
     pub fn new(runner: impl Runner + 'static) -> Self {

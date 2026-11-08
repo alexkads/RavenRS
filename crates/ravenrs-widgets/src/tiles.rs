@@ -19,6 +19,7 @@ const CARD_OVERSCAN: usize = 2;
 /// Where a tile stands: which tile, and how many cells it takes. The order of a list
 /// of these is the order on the screen.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TileSpot {
     /// The tile, by [`Tile::new`]'s key.
     pub key: String,
@@ -28,6 +29,7 @@ pub struct TileSpot {
     pub rows: u16,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TileSpot {
     /// A tile taking this many cells.
     pub fn new(key: impl Into<String>, columns: u16, rows: u16) -> Self {
@@ -36,6 +38,7 @@ impl TileSpot {
 }
 
 /// One tile of a [`TileLayout`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Tile {
     key: String,
     title: String,
@@ -48,6 +51,7 @@ impl fmt::Debug for Tile {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Tile {
     /// A tile known by `key`, under this title.
     pub fn new(key: impl Into<String>, title: impl Into<String>, content: impl View + 'static) -> Self {
@@ -115,6 +119,7 @@ fn reconcile(saved: &[TileSpot], defaults: &[TileSpot]) -> Vec<TileSpot> {
 /// let mut ui = Ui::new(tiles, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TileLayout {
     spots: Binding<Vec<TileSpot>>,
     tiles: Vec<Tile>,
@@ -130,6 +135,7 @@ impl fmt::Debug for TileLayout {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TileLayout {
     /// A layout bound to where the tiles stand, to keep between sessions. Tiles not in
     /// the list take one cell, after the others.
@@ -183,6 +189,7 @@ struct Cells {
     row_step: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Cells {
     /// The cell under a point inside the layout.
     fn at(&self, x: f32, y: f32) -> (usize, usize) {
@@ -522,6 +529,7 @@ type CardBuilder = Rc<dyn Fn(usize) -> AnyView>;
 /// let mut ui = Ui::new(cards, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CardView {
     count: usize,
     card: CardBuilder,
@@ -541,6 +549,7 @@ impl fmt::Debug for CardView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CardView {
     /// `count` cards, each the view `card` gives for its index.
     pub fn new(count: usize, card: impl Fn(usize) -> AnyView + 'static) -> Self {

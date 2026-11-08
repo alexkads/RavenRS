@@ -61,6 +61,7 @@ impl<V> fmt::Debug for Tooltip<V> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> Tooltip<V> {
     /// Shows `text` over `content` on hover.
     pub fn new(content: V, text: impl Into<String>) -> Self {
@@ -181,12 +182,14 @@ const HELP_WIDTH: f32 = 280.0;
 /// pointer and on keyboard focus, and a click keeps it open until a click elsewhere.
 /// Screen readers get the same words as the button's description.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct HelpTip {
     title: String,
     text: String,
     how: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl HelpTip {
     /// Explains what `title` is.
     pub fn new(title: impl Into<String>, text: impl Into<String>) -> Self {
@@ -258,6 +261,7 @@ impl<A, C> fmt::Debug for Popover<A, C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<A: View, C: View> Popover<A, C> {
     /// Shows `content` below `anchor` while `open` is true.
     pub fn new(open: Binding<bool>, anchor: A, content: C) -> Self {
@@ -357,6 +361,7 @@ impl<A: View, C: View> View for Popover<A, C> {
 /// let mut ui = Ui::new(menu, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MenuItem {
     label: String,
     icon: Option<IconName>,
@@ -374,6 +379,7 @@ impl fmt::Debug for MenuItem {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MenuItem {
     /// A menu item labeled `label`.
     pub fn new(label: impl Into<String>) -> Self {
@@ -450,6 +456,7 @@ pub(crate) enum Entry {
 /// A button that opens a list of actions. The first item takes focus as the
 /// menu opens; arrow keys move, Enter runs, Escape closes, and focus returns
 /// to the button.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DropdownMenu {
     label: String,
     icon: Option<IconName>,
@@ -464,6 +471,7 @@ impl fmt::Debug for DropdownMenu {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DropdownMenu {
     /// A secondary button labeled `label` with an empty menu.
     pub fn new(label: impl Into<String>) -> Self {
@@ -551,6 +559,7 @@ struct SubmenuAim {
     due: Rc<Cell<Option<f64>>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SubmenuAim {
     /// Keeps the position and says whether this move can be going to the side.
     fn sideways(&self, position: Point) -> bool {
@@ -582,6 +591,7 @@ fn switch_submenu(
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListRow<'_> {
     /// Opens this row's submenu from the keyboard or a click.
     fn opener(&self) -> Option<Rc<dyn Fn()>> {
@@ -927,6 +937,7 @@ impl View for DropdownMenu {
 /// an arrow key opens the list with the current option focused; arrows move,
 /// Enter picks, Escape closes, and focus returns to the field.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Select {
     selected: Binding<usize>,
     options: Vec<String>,
@@ -938,6 +949,7 @@ pub struct Select {
     searchable: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Select {
     /// A select over `options`; `selected` holds the zero-based index of the choice.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
@@ -1242,6 +1254,7 @@ impl View for Select {
 /// let mut ui = Ui::new(dialog, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Dialog {
     open: Binding<bool>,
     title: String,
@@ -1261,6 +1274,7 @@ impl fmt::Debug for Dialog {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Dialog {
     /// A dialog shown while `open` is true.
     pub fn new(open: Binding<bool>, title: impl Into<String>) -> Self {

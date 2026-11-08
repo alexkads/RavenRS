@@ -15,6 +15,7 @@ use crate::view::View;
 /// [`Localized`].
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Labels {
     /// Closes a dialog or a sheet.
     pub close: String,
@@ -801,6 +802,7 @@ impl Default for Labels {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Labels {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -1405,6 +1407,7 @@ pub struct Localized<V> {
     content: V,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> Localized<V> {
     /// `content`, using `labels`.
     pub fn new(labels: Labels, content: V) -> Self {

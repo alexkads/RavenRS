@@ -18,6 +18,7 @@ pub type JobWaker = Arc<dyn Fn() + Send + Sync>;
 /// A change a job hands back, kept by the frame on the screen's thread.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum JobChange {
     /// Keep this record, new or changed.
     Save(Object),
@@ -43,6 +44,7 @@ fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Shared {
     fn wake(&self) {
         let waker = locked(&self.waker).clone();
@@ -71,6 +73,7 @@ impl Shared {
 /// }
 /// # let _ = count;
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct JobContext {
     selected: Vec<Object>,
     input: ActionInput,
@@ -83,6 +86,7 @@ impl fmt::Debug for JobContext {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl JobContext {
     /// The records selected when it started, as they were then.
     pub fn selected(&self) -> &[Object] {
@@ -136,6 +140,7 @@ static NEXT_JOB: AtomicU64 = AtomicU64::new(1);
 
 /// A job that started, as the screen sees it. A handle: the frame keeps one while it runs.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Job {
     id: u64,
     action: String,
@@ -149,6 +154,7 @@ impl fmt::Debug for Job {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Job {
     /// Starts this work on a thread of its own (or right here, where there are no threads) and
     /// wakes the screen with `waker` each time it has something to show.

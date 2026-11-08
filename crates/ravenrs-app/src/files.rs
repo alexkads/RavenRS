@@ -16,6 +16,7 @@ pub trait AttachmentStore {
 
 /// Files that last as long as the program, as on the web with no server.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MemoryAttachmentStore {
     files: RefCell<BTreeMap<String, Vec<u8>>>,
     next: Cell<u64>,

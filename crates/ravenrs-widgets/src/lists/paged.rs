@@ -39,6 +39,7 @@ const MOST_ZOOM: f32 = 8.0;
 /// let mut ui = Ui::new(document, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PagedDocumentView {
     count: usize,
     page_size: Rc<dyn Fn(usize) -> Size>,
@@ -55,6 +56,7 @@ impl fmt::Debug for PagedDocumentView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PagedDocumentView {
     /// A document of `count` pages, each of the size given by `page_size` at 100%, with the
     /// picture given by `picture` when it shows. Asked only for what shows, on each build, so it

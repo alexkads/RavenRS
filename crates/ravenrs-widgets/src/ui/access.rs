@@ -17,6 +17,7 @@ pub(crate) struct AccessMap {
     nodes: HashMap<u64, NodeId>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Ui {
     /// The accessibility tree of the latest frame: roles, names, states and
     /// frames of everything on screen, for screen readers. Call it after
@@ -128,6 +129,7 @@ struct Builder<'a> {
     active: Option<u64>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Builder<'_> {
     fn id_for(&mut self, widget: WidgetId) -> u64 {
         let n = self.seen.entry(widget).or_insert(0);

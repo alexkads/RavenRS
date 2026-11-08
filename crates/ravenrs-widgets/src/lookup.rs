@@ -21,6 +21,7 @@ const FIELD_MIN_WIDTH: f32 = 180.0;
 
 /// An option of a [`LookupField`]: the key the app knows it by, and the text people see.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct LookupItem {
     /// What identifies it, such as a primary key.
     pub key: String,
@@ -28,6 +29,7 @@ pub struct LookupItem {
     pub label: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LookupItem {
     /// An option with this key and text.
     pub fn new(key: impl Into<String>, label: impl Into<String>) -> Self {
@@ -38,6 +40,7 @@ impl LookupItem {
 /// What a [`LookupField`] wants: up to `limit` options matching `query`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct LookupRequest {
     /// What was typed in the search box; empty at first.
     pub query: String,
@@ -48,6 +51,7 @@ pub struct LookupRequest {
 /// Delivers the answer to a [`LookupRequest`], now or later on the UI thread. An
 /// answer to a search that was since replaced is ignored.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct LookupResponder {
     answers: State<Answer>,
     request: u64,
@@ -59,6 +63,7 @@ impl fmt::Debug for LookupResponder {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LookupResponder {
     /// Answers with these options.
     pub fn respond(&self, items: Vec<LookupItem>) {
@@ -111,6 +116,7 @@ type Loader = Rc<dyn Fn(LookupRequest, LookupResponder)>;
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct LookupField {
     selected: Binding<Option<LookupItem>>,
     load: Loader,
@@ -127,6 +133,7 @@ impl fmt::Debug for LookupField {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LookupField {
     /// A lookup over options already in memory.
     pub fn new(selected: Binding<Option<LookupItem>>, items: Vec<LookupItem>) -> Self {

@@ -46,10 +46,12 @@ pub mod ids {
 /// The actions every application needs. Searching, filtering and exporting a list come with
 /// [`DataGrid`](ravenrs_widgets::DataGrid), and are not repeated here.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SystemModule {
     words: Words,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SystemModule {
     /// With its words in English.
     pub fn new() -> Self {
@@ -416,10 +418,12 @@ impl ViewController for CloneController {
 /// same record, and only a list marked as belonging to the record is cloned with it. Everything
 /// else is left out, so it does not copy a whole graph by accident.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CloneModule {
     words: Words,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CloneModule {
     /// With these words.
     pub fn with_words(words: Words) -> Self {

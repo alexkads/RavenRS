@@ -6,6 +6,7 @@ use serde_json::Value as Json;
 
 /// A node of the application model: an id, settings and nodes under it.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelNode {
     /// What it is known by among the nodes beside it.
     pub id: String,
@@ -15,6 +16,7 @@ pub struct ModelNode {
     pub children: Vec<ModelNode>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModelNode {
     /// A node with no settings and nothing under it.
     pub fn new(id: impl Into<String>) -> Self {

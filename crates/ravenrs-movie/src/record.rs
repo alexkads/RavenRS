@@ -22,6 +22,7 @@ const AFTER_SPEAKING: f64 = 0.6;
 /// What can stop a recording.
 #[derive(Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum RecordError {
     /// The script names something that is not on the screen.
     NotOnScreen {
@@ -62,6 +63,7 @@ fn reading_seconds(title: &str, text: &str) -> f64 {
 /// Runs an app from a script and films it: the steps are the ones a person would
 /// take, found by the names screen readers see. See the [crate documentation](crate).
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Recorder {
     ui: Ui,
     clock: f64,
@@ -71,6 +73,7 @@ pub struct Recorder {
     narration: Option<Narration>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Recorder {
     /// Films `root` in a window of `size`.
     pub fn new(root: impl View + 'static, theme: Theme, size: Size) -> Self {

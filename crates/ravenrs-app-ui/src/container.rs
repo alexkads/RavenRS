@@ -95,11 +95,13 @@ fn add_choice(
 /// A place on the screen for actions of some categories: what is in place shows, what is
 /// off shows faded, and what does not fit folds into a menu. Keys work while it shows.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ActionContainer {
     session: Session,
     categories: Vec<ActionCategory>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ActionContainer {
     /// A place for these categories, in the order the actions came; for all of them, with none.
     pub fn new(session: Session, categories: impl IntoIterator<Item = ActionCategory>) -> Self {
@@ -227,6 +229,7 @@ impl View for ActionContainer {
 
 /// One action as a button of its own, for a screen that places its commands itself.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ActionButton {
     session: Session,
     id: String,
@@ -235,6 +238,7 @@ pub struct ActionButton {
     hide_when_off: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ActionButton {
     /// The button of the action with this id.
     pub fn new(session: Session, id: impl Into<String>) -> Self {

@@ -10,6 +10,7 @@ use crate::vector::{self, PathSegment, Shape};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ChartKind {
     /// Vertical bars, side by side per series.
     #[default]

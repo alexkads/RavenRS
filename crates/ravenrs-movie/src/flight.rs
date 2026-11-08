@@ -55,6 +55,7 @@ struct Flight {
     described: Option<AccessTree>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Flight {
     /// The stretch being written, starting another when this one is full. Two
     /// stretches of half the time each always hold at least that half, and old
@@ -150,10 +151,12 @@ impl Flight {
 /// assert!(recorder.film().is_none(), "nothing on screen yet");
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlightRecorder {
     flight: Rc<RefCell<Flight>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlightRecorder {
     /// A recorder that keeps at least half of `seconds`, and up to all of them.
     pub fn new(seconds: f64) -> Self {
@@ -221,6 +224,7 @@ impl View for FlightRecorder {
 
 /// What someone says about a bug, for the development team.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct BugReport {
     /// What kind of report it is, in the words of [`BugLabels::kinds`].
     pub kind: String,
@@ -253,6 +257,7 @@ struct ReportHeader {
     details: Vec<(String, String)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl BugReport {
     /// The report as the bytes of one file.
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -302,6 +307,7 @@ impl BugReport {
 /// The words a [`BugReporter`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct BugLabels {
     /// The dialog's title.
     pub title: String,
@@ -349,6 +355,7 @@ impl Default for BugLabels {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl BugLabels {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -399,6 +406,7 @@ struct Draft {
 /// which names what is under it and lights it in the film, and everything else that
 /// goes along is listed before they send. Where the report goes is up to the app.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct BugReporter {
     recorder: FlightRecorder,
     open: State<bool>,
@@ -423,6 +431,7 @@ impl std::fmt::Debug for BugReporter {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl BugReporter {
     /// A reporter over what `recorder` keeps; `on_send` gets the finished report.
     pub fn new(recorder: FlightRecorder, on_send: impl Fn(BugReport) + 'static) -> Self {

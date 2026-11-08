@@ -20,6 +20,7 @@ use crate::{
 
 /// Something on a [`EventCalendar`]'s day.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CalendarEvent {
     /// Given back by [`EventCalendar::on_event`].
     pub id: u64,
@@ -33,6 +34,7 @@ pub struct CalendarEvent {
     pub done: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CalendarEvent {
     /// An event on this day.
     pub fn new(id: u64, date: Date, title: impl Into<String>) -> Self {
@@ -71,6 +73,7 @@ impl CalendarEvent {
 /// let mut ui = Ui::new(calendar, ravenrs_style::Theme::raven_light());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EventCalendar {
     month: Binding<Date>,
     selected: Binding<Option<Date>>,
@@ -89,6 +92,7 @@ impl std::fmt::Debug for EventCalendar {
 /// The height of a day with room for its events, in logical pixels.
 const DAY_HEIGHT: f32 = 104.0;
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EventCalendar {
     /// `month` holds the month shown (any day of it), so the app can load its
     /// events; `selected` holds the day picked.
@@ -413,11 +417,13 @@ impl View for EventCalendar {
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RecurrenceEditor {
     rule: Binding<RecurrenceRule>,
     start: Date,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RecurrenceEditor {
     /// An editor of `rule`, for something first happening on `start`.
     pub fn new(rule: Binding<RecurrenceRule>, start: Date) -> Self {

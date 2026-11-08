@@ -139,6 +139,7 @@ const GUTTER_GAP: f32 = 16.0;
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TextArea {
     value: Binding<String>,
     placeholder: String,
@@ -157,6 +158,7 @@ impl fmt::Debug for TextArea {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TextArea {
     /// An empty-placeholder area bound to `value`.
     pub fn new(value: Binding<String>) -> Self {
@@ -721,6 +723,7 @@ pub(crate) fn parse_number(text: &str, decimal: char, group: char) -> Option<f64
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct NumberField {
     value: Binding<Option<f64>>,
     min: f64,
@@ -744,6 +747,7 @@ impl std::fmt::Debug for NumberField {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NumberField {
     /// Called when the keyboard goes elsewhere after being here.
     pub fn on_leave(mut self, handler: impl Fn() + 'static) -> Self {
@@ -987,6 +991,7 @@ enum MaskSlot {
     Literal(char),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MaskSlot {
     fn accepts(self, c: char) -> bool {
         match self {
@@ -1073,6 +1078,7 @@ fn mask_fill(slots: &[MaskSlot], raw: &str) -> String {
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MaskedField {
     value: Binding<String>,
     mask: String,
@@ -1083,6 +1089,7 @@ pub struct MaskedField {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MaskedField {
     /// A field bound to `value`, following `mask`.
     pub fn new(value: Binding<String>, mask: impl Into<String>) -> Self {
@@ -1185,11 +1192,13 @@ impl View for MaskedField {
 /// assert!(Time::new(24, 0).is_none());
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Time {
     hour: u8,
     minute: u8,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Time {
     /// Returns `None` for an impossible time.
     pub fn new(hour: u8, minute: u8) -> Option<Self> {
@@ -1215,6 +1224,7 @@ impl fmt::Display for Time {
 
 /// A date and a time of day, with no time zone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DateTime {
     /// The day.
     pub date: Date,
@@ -1234,6 +1244,7 @@ pub struct DateTime {
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimePicker {
     value: Binding<Option<Time>>,
     step: u16,
@@ -1242,6 +1253,7 @@ pub struct TimePicker {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TimePicker {
     /// A picker bound to `value`; `None` is empty.
     pub fn new(value: Binding<Option<Time>>) -> Self {
@@ -1362,6 +1374,7 @@ impl View for TimePicker {
 /// A [`DatePicker`] beside a [`TimePicker`], over one value. Picking a date first
 /// sets the time to midnight, and clearing the time clears both.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DateTimePicker {
     value: Binding<Option<DateTime>>,
     month: Date,
@@ -1370,6 +1383,7 @@ pub struct DateTimePicker {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DateTimePicker {
     /// `month` is shown when no date is selected yet.
     pub fn new(value: Binding<Option<DateTime>>, month: Date) -> Self {

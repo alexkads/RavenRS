@@ -6,12 +6,18 @@ mod composition;
 mod editor;
 mod errors;
 mod flight;
+#[cfg(feature = "live")]
+mod live_list;
 mod movie;
 mod narration;
 mod player;
 mod project;
 mod record;
 mod search;
+// What the generated registrations name views as.
+#[cfg(feature = "live")]
+#[allow(unused_imports)]
+use ravenrs_widgets::AnyView;
 
 pub use assistant::{AssistantLabels, MovieAssistant};
 pub use chat::{MovieAnswers, MovieChat, MovieChatLabels, MovieWriter};
@@ -27,3 +33,9 @@ pub use project::{
 };
 pub use record::{RecordError, Recorder};
 pub use search::{Answer, Moment, MomentKind, MovieLibrary};
+
+/// Registers this crate's types with a playground's interpreter (feature `live`).
+#[cfg(feature = "live")]
+pub fn live_expose(registry: &mut ravenrs_live::Registry) {
+    live_list::expose_all(registry);
+}
