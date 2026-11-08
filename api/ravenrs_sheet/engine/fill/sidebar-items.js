@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_FILL_CELLS"],"enum":["DateUnit","FillMode"],"fn":["fill","flash_fill","holds_source_in_corner","series","starts_with_date"],"struct":["SeriesOptions"]};

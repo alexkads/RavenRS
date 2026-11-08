@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_EXAMPLE"],"fn":["callee","code_blocks_with","dedent","docs","edit_distance","has_word","is_pub","is_test","use_names"],"static":["RUST_SOURCES"],"struct":["FileCx","FoundImpl","Index","Item","Member","Usage","UsageFinder"]};

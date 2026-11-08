@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["cell_text","edit_text","format","formula_hidden","number_format","range_text","stats","value_text","value_text_as"],"struct":["Stats"]};

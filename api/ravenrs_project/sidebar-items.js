@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RAVENRS_VERSION","WASM_BINDGEN_VERSION"],"struct":["Dependency","Project","ProjectFile"]};

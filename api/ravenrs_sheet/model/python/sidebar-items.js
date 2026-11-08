@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BLOCKED","FILE_PREFIX","MAX_FORMULA_CHARS","MAX_RESULT_CELLS"],"fn":["is_py_formula","normalize_code","rewrite_xl","xl_calls"],"struct":["PyCode","PyOutput","XlCall"]};

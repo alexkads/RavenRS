@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["TEXT_CONTRAST","UI_CONTRAST"],"enum":["Problem","Urgency"],"fn":["check_focus","check_shortcuts","check_theme","check_tree","is_control"],"mod":["words"],"struct":["AccessibleText","Announcement","Announcer","Audit","Finding","LiveRegion","Report"]};

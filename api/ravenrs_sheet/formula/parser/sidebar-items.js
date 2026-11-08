@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_FORMULA_LEN"],"fn":["normalize_function_name","parse","parse_closing_parens","parse_name","parse_struct"],"struct":["ParseError"]};

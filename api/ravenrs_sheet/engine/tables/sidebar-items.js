@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["gallery","look","parse_style_name","table_cell_style"],"struct":["TableLook"]};

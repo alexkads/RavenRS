@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CellError","Value"],"fn":["compare","compare_numbers","compare_text","number_to_text","sci_text","sort_compare","trim_decimal"],"struct":["Array"]};

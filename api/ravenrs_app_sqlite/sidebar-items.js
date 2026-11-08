@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["entities_from_schema"],"struct":["SqlWords","SqliteAttachmentStore","SqliteBuilder","SqliteDatabase","SqliteModelStore","SqliteObjectSpace","TableMap"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_COL_WIDTH","DEFAULT_ROW_HEIGHT"],"enum":["SheetViewMode","Visibility"],"fn":["points_to_chars"],"struct":["LineIndex","Sheet","SheetUid"]};

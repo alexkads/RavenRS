@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ANALYTICS_DASHBOARD","ANALYTICS_TILE","PT_BR","REPORT","REPORT_DEFINITION"],"fn":["analytics_entities","report_entity"],"struct":["AnalyticsModule","ReportModule","ReportWords","StoredReportsModule"]};

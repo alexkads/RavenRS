@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_CALC_FIELDS","MAX_FORMULA_LEN"],"fn":["compile","eval"],"struct":["CalcSet","Compiled"]};

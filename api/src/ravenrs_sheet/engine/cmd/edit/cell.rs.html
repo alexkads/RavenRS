@@ -1,0 +1,357 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/ravenrs-sheet/src/engine/cmd/edit/cell.rs`."><title>cell.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="ravenrs_sheet" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_sheet/engine/cmd/edit/</div>cell.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use super</span>::{
+<a href=#2 id=2 data-nosnippet>2</a>    Cell, CellRef, EngineError, Formula, Json, MAX_ROWS, RangeRef, <span class="prelude-ty">Result</span>, Session, StyleId, Value, bad, bool_param, cell_param_on, edit, json,
+<a href=#3 id=3 data-nosnippet>3</a>    locked_cell_error, str_param, target_range, target_ranges, target_sheet,
+<a href=#4 id=4 data-nosnippet>4</a>};
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a><span class="comment">// ---------------------------------------------------------------- entry
+<a href=#7 id=7 data-nosnippet>7</a>
+<a href=#8 id=8 data-nosnippet>8</a></span><span class="doccomment">/// Typing `=PY(` doesn't make a Python cell; this says what does.
+<a href=#9 id=9 data-nosnippet>9</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PY_FORMULA: <span class="kw-2">&amp;</span>str = <span class="string">"Python cells are made with the python.set command (the code as `code`), not by typing =PY(…)."</span>;
+<a href=#10 id=10 data-nosnippet>10</a>
+<a href=#11 id=11 data-nosnippet>11</a><span class="doccomment">/// Whether typing `input` into a cell enters a formula: `=…`, or `+…`/`-…` followed by a name or
+<a href=#12 id=12 data-nosnippet>12</a>/// a parenthesis (not a number), as Excel takes `+SUM(1)`.
+<a href=#13 id=13 data-nosnippet>13</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_formula_input(input: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href=#14 id=14 data-nosnippet>14</a>    input.starts_with(<span class="string">'='</span>)
+<a href=#15 id=15 data-nosnippet>15</a>        || (input.len() &gt; <span class="number">1
+<a href=#16 id=16 data-nosnippet>16</a>            </span>&amp;&amp; (input.starts_with(<span class="string">'+'</span>) || input.starts_with(<span class="string">'-'</span>))
+<a href=#17 id=17 data-nosnippet>17</a>            &amp;&amp; <span class="kw">crate</span>::base::parse::parse_number_text(input).is_none()
+<a href=#18 id=18 data-nosnippet>18</a>            &amp;&amp; input.chars().nth(<span class="number">1</span>).is_some_and(|c| c.is_ascii_alphabetic() || c == <span class="string">'('</span>))
+<a href=#19 id=19 data-nosnippet>19</a>}
+<a href=#20 id=20 data-nosnippet>20</a>
+<a href=#21 id=21 data-nosnippet>21</a><span class="doccomment">/// What typing `input` into a cell produces (constant or formula, plus an automatic number
+<a href=#22 id=22 data-nosnippet>22</a>/// format). Inherits the destination's cell, row or column style, including its number
+<a href=#23 id=23 data-nosnippet>23</a>/// format, before parsing. Errors when the formula can't be parsed.
+<a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>input_to_cell(input: <span class="kw-2">&amp;</span>str, sheet: usize, at: CellRef, wb: <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::model::Workbook) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Cell&gt;&gt; {
+<a href=#25 id=25 data-nosnippet>25</a>    <span class="kw">let </span>style = wb.sheet(sheet).map(|sh| sh.style_id(at)).unwrap_or_default();
+<a href=#26 id=26 data-nosnippet>26</a>    <span class="kw">if </span>input.is_empty() {
+<a href=#27 id=27 data-nosnippet>27</a>        <span class="kw">let </span>c = Cell { value: Value::Empty, formula: <span class="prelude-val">None</span>, style, py: <span class="prelude-val">None </span>};
+<a href=#28 id=28 data-nosnippet>28</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="kw">if </span>c.is_blank() { <span class="prelude-val">None </span>} <span class="kw">else </span>{ <span class="prelude-val">Some</span>(c) });
+<a href=#29 id=29 data-nosnippet>29</a>    }
+<a href=#30 id=30 data-nosnippet>30</a>    <span class="kw">let </span>fmt_is_text = wb.styles.get(style).num_fmt.as_str() == <span class="string">"@"</span>;
+<a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">if </span>fmt_is_text {
+<a href=#32 id=32 data-nosnippet>32</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Cell { value: Value::text(input), formula: <span class="prelude-val">None</span>, style, py: <span class="prelude-val">None </span>}));
+<a href=#33 id=33 data-nosnippet>33</a>    }
+<a href=#34 id=34 data-nosnippet>34</a>    <span class="kw">let </span>is_formula = is_formula_input(input);
+<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">if </span>is_formula &amp;&amp; <span class="kw">crate</span>::model::python::is_py_formula(input) {
+<a href=#36 id=36 data-nosnippet>36</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(EngineError::Other(PY_FORMULA.into()));
+<a href=#37 id=37 data-nosnippet>37</a>    }
+<a href=#38 id=38 data-nosnippet>38</a>    <span class="kw">if </span>is_formula {
+<a href=#39 id=39 data-nosnippet>39</a>        <span class="kw">let </span>body = input.strip_prefix(<span class="string">'='</span>).unwrap_or(input);
+<a href=#40 id=40 data-nosnippet>40</a>        <span class="kw">let </span>expr = wb.name_call_case(parse_typed_formula(body)<span class="question-mark">?</span>);
+<a href=#41 id=41 data-nosnippet>41</a>        check_arg_counts(<span class="kw-2">&amp;</span>expr)<span class="question-mark">?</span>;
+<a href=#42 id=42 data-nosnippet>42</a>        <span class="kw">let </span><span class="kw-2">mut </span>cell = Cell::formula(Formula::from_expr(expr));
+<a href=#43 id=43 data-nosnippet>43</a>        cell.style = style;
+<a href=#44 id=44 data-nosnippet>44</a>        <span class="comment">// Formulas whose result is a date/time get a format from functions like TODAY().
+<a href=#45 id=45 data-nosnippet>45</a>        </span><span class="kw">if </span>wb.styles.get(style).num_fmt.as_str() == <span class="string">"General" </span>{
+<a href=#46 id=46 data-nosnippet>46</a>            <span class="kw">let </span>f = cell.formula.as_ref().map(|f| f.text.to_ascii_uppercase()).unwrap_or_default();
+<a href=#47 id=47 data-nosnippet>47</a>            <span class="kw">let </span>auto = <span class="kw">if </span>f.starts_with(<span class="string">"TODAY("</span>)
+<a href=#48 id=48 data-nosnippet>48</a>                || f.starts_with(<span class="string">"DATE("</span>)
+<a href=#49 id=49 data-nosnippet>49</a>                || f.starts_with(<span class="string">"EDATE("</span>)
+<a href=#50 id=50 data-nosnippet>50</a>                || f.starts_with(<span class="string">"EOMONTH("</span>)
+<a href=#51 id=51 data-nosnippet>51</a>                || f.starts_with(<span class="string">"WORKDAY("</span>)
+<a href=#52 id=52 data-nosnippet>52</a>            {
+<a href=#53 id=53 data-nosnippet>53</a>                <span class="prelude-val">Some</span>(<span class="string">"m/d/yyyy"</span>)
+<a href=#54 id=54 data-nosnippet>54</a>            } <span class="kw">else if </span>f.starts_with(<span class="string">"NOW("</span>) {
+<a href=#55 id=55 data-nosnippet>55</a>                <span class="prelude-val">Some</span>(<span class="string">"m/d/yyyy h:mm"</span>)
+<a href=#56 id=56 data-nosnippet>56</a>            } <span class="kw">else if </span>f.starts_with(<span class="string">"TIME("</span>) {
+<a href=#57 id=57 data-nosnippet>57</a>                <span class="prelude-val">Some</span>(<span class="string">"h:mm AM/PM"</span>)
+<a href=#58 id=58 data-nosnippet>58</a>            } <span class="kw">else </span>{
+<a href=#59 id=59 data-nosnippet>59</a>                <span class="prelude-val">None
+<a href=#60 id=60 data-nosnippet>60</a>            </span>};
+<a href=#61 id=61 data-nosnippet>61</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(code) = auto {
+<a href=#62 id=62 data-nosnippet>62</a>                cell.style = wb.styles.derive(style, |s| s.num_fmt = <span class="kw">crate</span>::model::NumFmt::new(code));
+<a href=#63 id=63 data-nosnippet>63</a>            }
+<a href=#64 id=64 data-nosnippet>64</a>        }
+<a href=#65 id=65 data-nosnippet>65</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cell));
+<a href=#66 id=66 data-nosnippet>66</a>    }
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="kw">let </span><span class="kw-2">mut </span>parsed = <span class="kw">crate</span>::base::parse::parse_input(input, wb.date_system);
+<a href=#68 id=68 data-nosnippet>68</a>    <span class="comment">// Like Excel's automatic percent entry: a bare number of 1 or more typed into a cell already
+<a href=#69 id=69 data-nosnippet>69</a>    // formatted as a percentage is a percent (3 -&gt; 3%); smaller numbers are taken as fractions.
+<a href=#70 id=70 data-nosnippet>70</a>    </span><span class="kw">if </span>parsed.format.is_none()
+<a href=#71 id=71 data-nosnippet>71</a>        &amp;&amp; !input.contains(<span class="string">'%'</span>)
+<a href=#72 id=72 data-nosnippet>72</a>        &amp;&amp; wb.styles.get(style).num_fmt.as_str().ends_with(<span class="string">'%'</span>)
+<a href=#73 id=73 data-nosnippet>73</a>        &amp;&amp; <span class="kw">let </span>Value::Number(n) = parsed.value
+<a href=#74 id=74 data-nosnippet>74</a>        &amp;&amp; n.abs() &gt;= <span class="number">1.0
+<a href=#75 id=75 data-nosnippet>75</a>    </span>{
+<a href=#76 id=76 data-nosnippet>76</a>        parsed.value = Value::Number(n / <span class="number">100.0</span>);
+<a href=#77 id=77 data-nosnippet>77</a>    }
+<a href=#78 id=78 data-nosnippet>78</a>    <span class="kw">let </span><span class="kw-2">mut </span>style = style;
+<a href=#79 id=79 data-nosnippet>79</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(code) = parsed.format {
+<a href=#80 id=80 data-nosnippet>80</a>        <span class="kw">let </span>cur = wb.styles.get(style).num_fmt.as_str().to_string();
+<a href=#81 id=81 data-nosnippet>81</a>        <span class="kw">if </span>cur == <span class="string">"General" </span>{
+<a href=#82 id=82 data-nosnippet>82</a>            style = wb.styles.derive(style, |s| s.num_fmt = <span class="kw">crate</span>::model::NumFmt::new(code));
+<a href=#83 id=83 data-nosnippet>83</a>        }
+<a href=#84 id=84 data-nosnippet>84</a>    }
+<a href=#85 id=85 data-nosnippet>85</a>    <span class="comment">// Wrap text automatically when the input has line breaks (Alt+Enter).
+<a href=#86 id=86 data-nosnippet>86</a>    </span><span class="kw">if </span>input.contains(<span class="string">'\n'</span>) &amp;&amp; !wb.styles.get(style).align.wrap {
+<a href=#87 id=87 data-nosnippet>87</a>        style = wb.styles.derive(style, |s| s.align.wrap = <span class="bool-val">true</span>);
+<a href=#88 id=88 data-nosnippet>88</a>    }
+<a href=#89 id=89 data-nosnippet>89</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Cell { value: parsed.value, formula: <span class="prelude-val">None</span>, style, py: <span class="prelude-val">None </span>}))
+<a href=#90 id=90 data-nosnippet>90</a>}
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a><span class="doccomment">/// Parses a formula as it is typed (without the `=`). Excel closes missing parentheses for you,
+<a href=#93 id=93 data-nosnippet>93</a>/// and refuses a formula that still doesn't parse.
+<a href=#94 id=94 data-nosnippet>94</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>parse_typed_formula(body: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::formula::Expr&gt; {
+<a href=#95 id=95 data-nosnippet>95</a>    <span class="comment">// Excel closes missing parentheses for you.
+<a href=#96 id=96 data-nosnippet>96</a>    </span><span class="kw">let </span>parsed = <span class="kw">crate</span>::formula::parse_closing_parens(body, <span class="kw">crate</span>::formula::parse);
+<a href=#97 id=97 data-nosnippet>97</a>    parsed.map_err(|e| EngineError::Other(<span class="macro">format!</span>(<span class="string">"There's a problem with this formula: {e}"</span>)))
+<a href=#98 id=98 data-nosnippet>98</a>}
+<a href=#99 id=99 data-nosnippet>99</a>
+<a href=#100 id=100 data-nosnippet>100</a><span class="doccomment">/// Like Excel, a formula that calls a built-in function with too few or too many arguments is
+<a href=#101 id=101 data-nosnippet>101</a>/// refused when it's entered, rather than stored to show `#VALUE!`. Functions the registry doesn't
+<a href=#102 id=102 data-nosnippet>102</a>/// hold (special forms like LET, LAMBDA, OFFSET, INDIRECT, SUBTOTAL), defined LAMBDA names and
+<a href=#103 id=103 data-nosnippet>103</a>/// unknown functions are skipped.
+<a href=#104 id=104 data-nosnippet>104</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>check_arg_counts(expr: <span class="kw-2">&amp;</span><span class="kw">crate</span>::formula::Expr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#105 id=105 data-nosnippet>105</a>    <span class="kw">let </span><span class="kw-2">mut </span>bad = <span class="prelude-val">None</span>;
+<a href=#106 id=106 data-nosnippet>106</a>    expr.walk(<span class="kw-2">&amp;mut </span>|e| {
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">if </span>bad.is_none()
+<a href=#108 id=108 data-nosnippet>108</a>            &amp;&amp; <span class="kw">let </span><span class="kw">crate</span>::formula::Expr::Call(name, args) = e
+<a href=#109 id=109 data-nosnippet>109</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(spec) = <span class="kw">crate</span>::functions::lookup(name)
+<a href=#110 id=110 data-nosnippet>110</a>            &amp;&amp; !spec.accepts(args.len())
+<a href=#111 id=111 data-nosnippet>111</a>        {
+<a href=#112 id=112 data-nosnippet>112</a>            <span class="kw">let </span>few = args.len() &lt; spec.min_args;
+<a href=#113 id=113 data-nosnippet>113</a>            bad = <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{} has too {} arguments. Use {}"</span>, spec.name, <span class="kw">if </span>few { <span class="string">"few" </span>} <span class="kw">else </span>{ <span class="string">"many" </span>}, spec.signature));
+<a href=#114 id=114 data-nosnippet>114</a>        }
+<a href=#115 id=115 data-nosnippet>115</a>    });
+<a href=#116 id=116 data-nosnippet>116</a>    <span class="kw">match </span>bad {
+<a href=#117 id=117 data-nosnippet>117</a>        <span class="prelude-val">Some</span>(msg) =&gt; <span class="prelude-val">Err</span>(EngineError::Other(msg)),
+<a href=#118 id=118 data-nosnippet>118</a>        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(()),
+<a href=#119 id=119 data-nosnippet>119</a>    }
+<a href=#120 id=120 data-nosnippet>120</a>}
+<a href=#121 id=121 data-nosnippet>121</a>
+<a href=#122 id=122 data-nosnippet>122</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>cell_set(s: <span class="kw-2">&amp;mut </span>Session, p: <span class="kw-2">&amp;</span>Json) -&gt; <span class="prelude-ty">Result</span>&lt;Json&gt; {
+<a href=#123 id=123 data-nosnippet>123</a>    <span class="kw">let </span>sheet = target_sheet(s, p)<span class="question-mark">?</span>;
+<a href=#124 id=124 data-nosnippet>124</a>    <span class="kw">let </span>at = <span class="kw">match </span>cell_param_on(s, p, <span class="string">"cell"</span>, sheet)<span class="question-mark">? </span>{
+<a href=#125 id=125 data-nosnippet>125</a>        <span class="prelude-val">Some</span>(c) =&gt; c,
+<a href=#126 id=126 data-nosnippet>126</a>        <span class="prelude-val">None </span>=&gt; s.doc()<span class="question-mark">?</span>.selection.active,
+<a href=#127 id=127 data-nosnippet>127</a>    };
+<a href=#128 id=128 data-nosnippet>128</a>    <span class="comment">// Both spellings take a string, number or boolean, as typed (#697).
+<a href=#129 id=129 data-nosnippet>129</a>    </span><span class="kw">let </span>input = p.get(<span class="string">"input"</span>).or_else(|| p.get(<span class="string">"value"</span>)).map(json_to_input).ok_or_else(|| bad(<span class="string">"cell.set"</span>, <span class="string">"missing `input` (or `value`)"</span>))<span class="question-mark">?</span>;
+<a href=#130 id=130 data-nosnippet>130</a>    <span class="kw">let </span>array = bool_param(p, <span class="string">"array"</span>).unwrap_or(<span class="bool-val">false</span>);
+<a href=#131 id=131 data-nosnippet>131</a>    <span class="kw">let </span>d = s.doc()<span class="question-mark">?</span>;
+<a href=#132 id=132 data-nosnippet>132</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(sh) = d.wb.sheet(sheet)
+<a href=#133 id=133 data-nosnippet>133</a>        &amp;&amp; sh.is_protected()
+<a href=#134 id=134 data-nosnippet>134</a>        &amp;&amp; d.wb.styles.get(sh.style_id(at)).protection.locked
+<a href=#135 id=135 data-nosnippet>135</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(m) = locked_cell_error(sh, at, <span class="kw-2">&amp;</span>d.unlocked_ranges)
+<a href=#136 id=136 data-nosnippet>136</a>    {
+<a href=#137 id=137 data-nosnippet>137</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(EngineError::Other(m));
+<a href=#138 id=138 data-nosnippet>138</a>    }
+<a href=#139 id=139 data-nosnippet>139</a>    <span class="kw">let </span>active_sheet = s.doc()<span class="question-mark">?</span>.wb.active_sheet();
+<a href=#140 id=140 data-nosnippet>140</a>    edit(s, |cx| {
+<a href=#141 id=141 data-nosnippet>141</a>        <span class="kw">if </span>array {
+<a href=#142 id=142 data-nosnippet>142</a>            <span class="comment">// Legacy Ctrl+Shift+Enter array formula over the selection, when the selection holds
+<a href=#143 id=143 data-nosnippet>143</a>            // the cell; a cell elsewhere (or on another sheet) gets a one-cell array.
+<a href=#144 id=144 data-nosnippet>144</a>            </span><span class="kw">let </span>selected = cx.sel.current();
+<a href=#145 id=145 data-nosnippet>145</a>            <span class="kw">let </span>range = <span class="kw">if </span>sheet == active_sheet &amp;&amp; selected.contains(at) { selected } <span class="kw">else </span>{ RangeRef::cell(at) };
+<a href=#146 id=146 data-nosnippet>146</a>            <span class="comment">// A table header can't hold an array's value, and a table resizes under it.
+<a href=#147 id=147 data-nosnippet>147</a>            </span><span class="kw">if </span>!range.is_single() &amp;&amp; cx.wb.sheet(sheet).is_some_and(|sh| sh.tables.iter().any(|t| t.range.intersects(<span class="kw-2">&amp;</span>range))) {
+<a href=#148 id=148 data-nosnippet>148</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(EngineError::Other(<span class="string">"Multi-cell array formulas aren't allowed in tables."</span>.into()));
+<a href=#149 id=149 data-nosnippet>149</a>            }
+<a href=#150 id=150 data-nosnippet>150</a>            <span class="kw">let </span><span class="kw-2">mut </span>cell = input_to_cell(<span class="kw-2">&amp;</span>input, sheet, range.start, <span class="kw-2">&amp;mut </span>cx.wb)<span class="question-mark">?</span>.unwrap_or_default();
+<a href=#151 id=151 data-nosnippet>151</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = cell.formula.as_mut() {
+<a href=#152 id=152 data-nosnippet>152</a>                std::sync::Arc::make_mut(f).array = <span class="prelude-val">Some</span>(range);
+<a href=#153 id=153 data-nosnippet>153</a>            }
+<a href=#154 id=154 data-nosnippet>154</a>            <span class="kw">let </span>sh = cx.sheet_mut(sheet)<span class="question-mark">?</span>;
+<a href=#155 id=155 data-nosnippet>155</a>            <span class="comment">// The array takes the whole range: other cells in it lose their contents.
+<a href=#156 id=156 data-nosnippet>156</a>            </span><span class="kw">for </span>c <span class="kw">in </span>range.iter().skip(<span class="number">1</span>).take(<span class="number">1_000_000</span>) {
+<a href=#157 id=157 data-nosnippet>157</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(old) = sh.cells.get(c).filter(|x| x.has_content()) {
+<a href=#158 id=158 data-nosnippet>158</a>                    <span class="kw">let </span>style = old.style;
+<a href=#159 id=159 data-nosnippet>159</a>                    sh.set_cell(c, Cell { style, ..Cell::default() });
+<a href=#160 id=160 data-nosnippet>160</a>                }
+<a href=#161 id=161 data-nosnippet>161</a>            }
+<a href=#162 id=162 data-nosnippet>162</a>            sh.set_cell(range.start, cell);
+<a href=#163 id=163 data-nosnippet>163</a>            cx.touch(sheet, range.start);
+<a href=#164 id=164 data-nosnippet>164</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(Json::Null);
+<a href=#165 id=165 data-nosnippet>165</a>        }
+<a href=#166 id=166 data-nosnippet>166</a>        <span class="kw">let </span>cell = input_to_cell(<span class="kw-2">&amp;</span>input, sheet, at, <span class="kw-2">&amp;mut </span>cx.wb)<span class="question-mark">?</span>;
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="kw">let </span>sh = cx.sheet_mut(sheet)<span class="question-mark">?</span>;
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="kw">match </span>cell {
+<a href=#169 id=169 data-nosnippet>169</a>            <span class="prelude-val">Some</span>(c) =&gt; sh.set_cell(at, c),
+<a href=#170 id=170 data-nosnippet>170</a>            <span class="prelude-val">None </span>=&gt; {
+<a href=#171 id=171 data-nosnippet>171</a>                sh.remove_cell(at);
+<a href=#172 id=172 data-nosnippet>172</a>            }
+<a href=#173 id=173 data-nosnippet>173</a>        }
+<a href=#174 id=174 data-nosnippet>174</a>        <span class="kw">crate</span>::engine::cmd::data::grow_autofilter(sh, at);
+<a href=#175 id=175 data-nosnippet>175</a>        cx.touch(sheet, at);
+<a href=#176 id=176 data-nosnippet>176</a>        <span class="prelude-val">Ok</span>(Json::Null)
+<a href=#177 id=177 data-nosnippet>177</a>    })<span class="question-mark">?</span>;
+<a href=#178 id=178 data-nosnippet>178</a>    <span class="kw">let </span>v = s.doc()<span class="question-mark">?</span>.wb.sheet(sheet).map(|sh| sh.value(at)).unwrap_or_default();
+<a href=#179 id=179 data-nosnippet>179</a>    <span class="prelude-val">Ok</span>(<span class="macro">json!</span>({<span class="string">"cell"</span>: at.a1(), <span class="string">"value"</span>: v.display()}))
+<a href=#180 id=180 data-nosnippet>180</a>}
+<a href=#181 id=181 data-nosnippet>181</a>
+<a href=#182 id=182 data-nosnippet>182</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>json_to_input(v: <span class="kw-2">&amp;</span>Json) -&gt; String {
+<a href=#183 id=183 data-nosnippet>183</a>    <span class="kw">match </span>v {
+<a href=#184 id=184 data-nosnippet>184</a>        Json::Null =&gt; String::new(),
+<a href=#185 id=185 data-nosnippet>185</a>        Json::Bool(b) =&gt; {
+<a href=#186 id=186 data-nosnippet>186</a>            <span class="kw">if </span><span class="kw-2">*</span>b {
+<a href=#187 id=187 data-nosnippet>187</a>                <span class="string">"TRUE"</span>.into()
+<a href=#188 id=188 data-nosnippet>188</a>            } <span class="kw">else </span>{
+<a href=#189 id=189 data-nosnippet>189</a>                <span class="string">"FALSE"</span>.into()
+<a href=#190 id=190 data-nosnippet>190</a>            }
+<a href=#191 id=191 data-nosnippet>191</a>        }
+<a href=#192 id=192 data-nosnippet>192</a>        Json::Number(n) =&gt; n.to_string(),
+<a href=#193 id=193 data-nosnippet>193</a>        Json::String(s) =&gt; s.clone(),
+<a href=#194 id=194 data-nosnippet>194</a>        other =&gt; other.to_string(),
+<a href=#195 id=195 data-nosnippet>195</a>    }
+<a href=#196 id=196 data-nosnippet>196</a>}
+<a href=#197 id=197 data-nosnippet>197</a>
+<a href=#198 id=198 data-nosnippet>198</a><span class="doccomment">/// How many converted strings `range.setValues` reports back, and how much of each input and
+<a href=#199 id=199 data-nosnippet>199</a>/// stored text: the report is a diagnostic, so a big write must not put a second copy of its data
+<a href=#200 id=200 data-nosnippet>200</a>/// in the result.
+<a href=#201 id=201 data-nosnippet>201</a></span><span class="kw">const </span>MAX_REPORTED_CONVERSIONS: usize = <span class="number">20</span>;
+<a href=#202 id=202 data-nosnippet>202</a><span class="kw">const </span>MAX_REPORTED_CHARS: usize = <span class="number">32</span>;
+<a href=#203 id=203 data-nosnippet>203</a>
+<a href=#204 id=204 data-nosnippet>204</a><span class="doccomment">/// `text` cut to [`MAX_REPORTED_CHARS`] characters for the conversion report, with `…` when it was
+<a href=#205 id=205 data-nosnippet>205</a>/// cut. Counting characters keeps a multi-byte input whole.
+<a href=#206 id=206 data-nosnippet>206</a></span><span class="kw">fn </span>clipped(text: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href=#207 id=207 data-nosnippet>207</a>    <span class="kw">let </span><span class="kw-2">mut </span>out: String = text.chars().take(MAX_REPORTED_CHARS).collect();
+<a href=#208 id=208 data-nosnippet>208</a>    <span class="kw">if </span>out.len() &lt; text.len() {
+<a href=#209 id=209 data-nosnippet>209</a>        out.push(<span class="string">'…'</span>);
+<a href=#210 id=210 data-nosnippet>210</a>    }
+<a href=#211 id=211 data-nosnippet>211</a>    out
+<a href=#212 id=212 data-nosnippet>212</a>}
+<a href=#213 id=213 data-nosnippet>213</a>
+<a href=#214 id=214 data-nosnippet>214</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>range_set_values(s: <span class="kw-2">&amp;mut </span>Session, p: <span class="kw-2">&amp;</span>Json) -&gt; <span class="prelude-ty">Result</span>&lt;Json&gt; {
+<a href=#215 id=215 data-nosnippet>215</a>    <span class="kw">let </span>sheet = target_sheet(s, p)<span class="question-mark">?</span>;
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="kw">let </span>start = target_range(s, p)<span class="question-mark">?</span>.start;
+<a href=#217 id=217 data-nosnippet>217</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(rows) = p.get(<span class="string">"values"</span>).and_then(Json::as_array) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Err</span>(bad(<span class="string">"range.setValues"</span>, <span class="string">"missing `values` (array of rows)"</span>)) };
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="comment">// A string is run through typed input by default, which reads it with en-US rules: a caller
+<a href=#219 id=219 data-nosnippet>219</a>    // sending "05.04.2026" from a dd.mm.yyyy export got 4 May, and "2.500" became 2.5, in silence
+<a href=#220 id=220 data-nosnippet>220</a>    // (#2255). `parse: false` stores a string as the text it is; numbers, booleans and formulas
+<a href=#221 id=221 data-nosnippet>221</a>    // are unaffected either way.
+<a href=#222 id=222 data-nosnippet>222</a>    </span><span class="kw">let </span>parse = <span class="kw">match </span>p.get(<span class="string">"parse"</span>) {
+<a href=#223 id=223 data-nosnippet>223</a>        <span class="prelude-val">None </span>| <span class="prelude-val">Some</span>(Json::Null) =&gt; <span class="bool-val">true</span>,
+<a href=#224 id=224 data-nosnippet>224</a>        <span class="prelude-val">Some</span>(Json::Bool(b)) =&gt; <span class="kw-2">*</span>b,
+<a href=#225 id=225 data-nosnippet>225</a>        <span class="prelude-val">Some</span>(other) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(bad(<span class="string">"range.setValues"</span>, <span class="macro">format!</span>(<span class="string">"parse {other}: true or false"</span>))),
+<a href=#226 id=226 data-nosnippet>226</a>    };
+<a href=#227 id=227 data-nosnippet>227</a>    <span class="kw">if </span>rows.len() &gt; MAX_ROWS <span class="kw">as </span>usize {
+<a href=#228 id=228 data-nosnippet>228</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(bad(<span class="string">"range.setValues"</span>, <span class="string">"too many rows"</span>));
+<a href=#229 id=229 data-nosnippet>229</a>    }
+<a href=#230 id=230 data-nosnippet>230</a>    <span class="kw">let </span><span class="kw-2">mut </span>count = <span class="number">0</span>;
+<a href=#231 id=231 data-nosnippet>231</a>    <span class="comment">// The strings typed input read as something other than the text given, for the result: a
+<a href=#232 id=232 data-nosnippet>232</a>    // caller can notice a "05.04.2026" that became a date without reading the file back (#2255).
+<a href=#233 id=233 data-nosnippet>233</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>converted: Vec&lt;(CellRef, String)&gt; = Vec::new();
+<a href=#234 id=234 data-nosnippet>234</a>    <span class="kw">let </span><span class="kw-2">mut </span>converted_count = <span class="number">0</span>;
+<a href=#235 id=235 data-nosnippet>235</a>    edit(s, |cx| {
+<a href=#236 id=236 data-nosnippet>236</a>        <span class="kw">for </span>(ri, row) <span class="kw">in </span>rows.iter().enumerate() {
+<a href=#237 id=237 data-nosnippet>237</a>            <span class="kw">let </span>cols: Vec&lt;<span class="kw-2">&amp;</span>Json&gt; = <span class="kw">match </span>row.as_array() {
+<a href=#238 id=238 data-nosnippet>238</a>                <span class="prelude-val">Some</span>(a) =&gt; a.iter().collect(),
+<a href=#239 id=239 data-nosnippet>239</a>                <span class="prelude-val">None </span>=&gt; <span class="macro">vec!</span>[row],
+<a href=#240 id=240 data-nosnippet>240</a>            };
+<a href=#241 id=241 data-nosnippet>241</a>            <span class="kw">for </span>(ci, v) <span class="kw">in </span>cols.iter().enumerate() {
+<a href=#242 id=242 data-nosnippet>242</a>                <span class="kw">let </span><span class="prelude-val">Some</span>(at) = start.offset(ri <span class="kw">as </span>i64, ci <span class="kw">as </span>i64) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href=#243 id=243 data-nosnippet>243</a>                <span class="kw">let </span>input = json_to_input(v);
+<a href=#244 id=244 data-nosnippet>244</a>                <span class="kw">let </span>cell = <span class="kw">match </span>v {
+<a href=#245 id=245 data-nosnippet>245</a>                    Json::Number(n) =&gt; <span class="prelude-val">Some</span>(Cell {
+<a href=#246 id=246 data-nosnippet>246</a>                        value: Value::number(n.as_f64().unwrap_or(<span class="number">0.0</span>)),
+<a href=#247 id=247 data-nosnippet>247</a>                        formula: <span class="prelude-val">None</span>,
+<a href=#248 id=248 data-nosnippet>248</a>                        style: cx.wb.sheet(sheet).map(|sh| sh.style_id(at)).unwrap_or_default(),
+<a href=#249 id=249 data-nosnippet>249</a>                        py: <span class="prelude-val">None</span>,
+<a href=#250 id=250 data-nosnippet>250</a>                    }),
+<a href=#251 id=251 data-nosnippet>251</a>                    Json::Bool(b) =&gt; <span class="prelude-val">Some</span>(Cell {
+<a href=#252 id=252 data-nosnippet>252</a>                        value: Value::Bool(<span class="kw-2">*</span>b),
+<a href=#253 id=253 data-nosnippet>253</a>                        formula: <span class="prelude-val">None</span>,
+<a href=#254 id=254 data-nosnippet>254</a>                        style: cx.wb.sheet(sheet).map(|sh| sh.style_id(at)).unwrap_or_default(),
+<a href=#255 id=255 data-nosnippet>255</a>                        py: <span class="prelude-val">None</span>,
+<a href=#256 id=256 data-nosnippet>256</a>                    }),
+<a href=#257 id=257 data-nosnippet>257</a>                    <span class="comment">// Text as given: no date or number reading, and a leading `'` is part of the
+<a href=#258 id=258 data-nosnippet>258</a>                    // text rather than the marker that makes it text. A formula is still a
+<a href=#259 id=259 data-nosnippet>259</a>                    // formula, which is what the ticket asks for and what `=` means in a cell.
+<a href=#260 id=260 data-nosnippet>260</a>                    </span>Json::String(text) <span class="kw">if </span>!parse &amp;&amp; !text.starts_with(<span class="string">'='</span>) =&gt; {
+<a href=#261 id=261 data-nosnippet>261</a>                        <span class="kw">if </span>text.is_empty() {
+<a href=#262 id=262 data-nosnippet>262</a>                            <span class="comment">// An empty string clears the cell, as `null` and the default path do:
+<a href=#263 id=263 data-nosnippet>263</a>                            // an empty text cell is not blank, and a script clearing cells with
+<a href=#264 id=264 data-nosnippet>264</a>                            // `""` would leave cells `COUNTA` counts. The cell keeps its formatting.
+<a href=#265 id=265 data-nosnippet>265</a>                            </span>input_to_cell(<span class="string">""</span>, sheet, at, <span class="kw-2">&amp;mut </span>cx.wb)<span class="question-mark">?
+<a href=#266 id=266 data-nosnippet>266</a>                        </span>} <span class="kw">else </span>{
+<a href=#267 id=267 data-nosnippet>267</a>                            <span class="kw">let </span><span class="kw-2">mut </span>style = cx.wb.sheet(sheet).map(|sh| sh.style_id(at)).unwrap_or_default();
+<a href=#268 id=268 data-nosnippet>268</a>                            <span class="comment">// Line breaks still turn on Wrap Text, as typed input does.
+<a href=#269 id=269 data-nosnippet>269</a>                            </span><span class="kw">if </span>text.contains(<span class="string">'\n'</span>) &amp;&amp; !cx.wb.styles.get(style).align.wrap {
+<a href=#270 id=270 data-nosnippet>270</a>                                style = cx.wb.styles.derive(style, |s| s.align.wrap = <span class="bool-val">true</span>);
+<a href=#271 id=271 data-nosnippet>271</a>                            }
+<a href=#272 id=272 data-nosnippet>272</a>                            <span class="prelude-val">Some</span>(Cell { value: Value::Text(text.as_str().into()), formula: <span class="prelude-val">None</span>, style, py: <span class="prelude-val">None </span>})
+<a href=#273 id=273 data-nosnippet>273</a>                        }
+<a href=#274 id=274 data-nosnippet>274</a>                    }
+<a href=#275 id=275 data-nosnippet>275</a>                    <span class="kw">_ </span>=&gt; input_to_cell(<span class="kw-2">&amp;</span>input, sheet, at, <span class="kw-2">&amp;mut </span>cx.wb)<span class="question-mark">?</span>,
+<a href=#276 id=276 data-nosnippet>276</a>                };
+<a href=#277 id=277 data-nosnippet>277</a>                <span class="comment">// A string that became a formula was written as one (`=`), which is deliberate;
+<a href=#278 id=278 data-nosnippet>278</a>                // only a number (dates and times included), boolean or error is a reading of the
+<a href=#279 id=279 data-nosnippet>279</a>                // string and worth reporting.
+<a href=#280 id=280 data-nosnippet>280</a>                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(c) = <span class="kw-2">&amp;</span>cell
+<a href=#281 id=281 data-nosnippet>281</a>                    &amp;&amp; <span class="macro">matches!</span>(v, Json::String(<span class="kw">_</span>))
+<a href=#282 id=282 data-nosnippet>282</a>                    &amp;&amp; c.formula.is_none()
+<a href=#283 id=283 data-nosnippet>283</a>                    &amp;&amp; <span class="macro">matches!</span>(c.value, Value::Number(<span class="kw">_</span>) | Value::Bool(<span class="kw">_</span>) | Value::Error(<span class="kw">_</span>))
+<a href=#284 id=284 data-nosnippet>284</a>                {
+<a href=#285 id=285 data-nosnippet>285</a>                    converted_count += <span class="number">1</span>;
+<a href=#286 id=286 data-nosnippet>286</a>                    <span class="kw">if </span>converted.len() &lt; MAX_REPORTED_CONVERSIONS {
+<a href=#287 id=287 data-nosnippet>287</a>                        converted.push((at, input.clone()));
+<a href=#288 id=288 data-nosnippet>288</a>                    }
+<a href=#289 id=289 data-nosnippet>289</a>                }
+<a href=#290 id=290 data-nosnippet>290</a>                <span class="kw">let </span>sh = cx.sheet_mut(sheet)<span class="question-mark">?</span>;
+<a href=#291 id=291 data-nosnippet>291</a>                <span class="kw">match </span>cell {
+<a href=#292 id=292 data-nosnippet>292</a>                    <span class="prelude-val">Some</span>(c) =&gt; sh.set_cell(at, c),
+<a href=#293 id=293 data-nosnippet>293</a>                    <span class="prelude-val">None </span>=&gt; {
+<a href=#294 id=294 data-nosnippet>294</a>                        sh.remove_cell(at);
+<a href=#295 id=295 data-nosnippet>295</a>                    }
+<a href=#296 id=296 data-nosnippet>296</a>                }
+<a href=#297 id=297 data-nosnippet>297</a>                <span class="kw">crate</span>::engine::cmd::data::grow_autofilter(sh, at);
+<a href=#298 id=298 data-nosnippet>298</a>                cx.touch(sheet, at);
+<a href=#299 id=299 data-nosnippet>299</a>                count += <span class="number">1</span>;
+<a href=#300 id=300 data-nosnippet>300</a>            }
+<a href=#301 id=301 data-nosnippet>301</a>        }
+<a href=#302 id=302 data-nosnippet>302</a>        <span class="prelude-val">Ok</span>(())
+<a href=#303 id=303 data-nosnippet>303</a>    })<span class="question-mark">?</span>;
+<a href=#304 id=304 data-nosnippet>304</a>    <span class="kw">let </span>d = s.doc()<span class="question-mark">?</span>;
+<a href=#305 id=305 data-nosnippet>305</a>    <span class="kw">let </span>reported: Vec&lt;Json&gt; =
+<a href=#306 id=306 data-nosnippet>306</a>        d.wb.sheet(sheet)
+<a href=#307 id=307 data-nosnippet>307</a>            .map(|sh| {
+<a href=#308 id=308 data-nosnippet>308</a>                converted
+<a href=#309 id=309 data-nosnippet>309</a>                .iter()
+<a href=#310 id=310 data-nosnippet>310</a>                .map(|(at, input)| <span class="macro">json!</span>({<span class="string">"cell"</span>: at.a1(), <span class="string">"input"</span>: clipped(input), <span class="string">"stored"</span>: clipped(<span class="kw-2">&amp;</span><span class="kw">crate</span>::engine::display::cell_text(<span class="kw-2">&amp;</span>d.wb, sh, <span class="kw-2">*</span>at))}))
+<a href=#311 id=311 data-nosnippet>311</a>                .collect()
+<a href=#312 id=312 data-nosnippet>312</a>            })
+<a href=#313 id=313 data-nosnippet>313</a>            .unwrap_or_default();
+<a href=#314 id=314 data-nosnippet>314</a>    <span class="prelude-val">Ok</span>(<span class="macro">json!</span>({<span class="string">"cells"</span>: count, <span class="string">"convertedCount"</span>: converted_count, <span class="string">"converted"</span>: reported}))
+<a href=#315 id=315 data-nosnippet>315</a>}
+<a href=#316 id=316 data-nosnippet>316</a>
+<a href=#317 id=317 data-nosnippet>317</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>range_fill(s: <span class="kw-2">&amp;mut </span>Session, p: <span class="kw-2">&amp;</span>Json) -&gt; <span class="prelude-ty">Result</span>&lt;Json&gt; {
+<a href=#318 id=318 data-nosnippet>318</a>    <span class="kw">let </span>sheet = target_sheet(s, p)<span class="question-mark">?</span>;
+<a href=#319 id=319 data-nosnippet>319</a>    <span class="kw">let </span>ranges = target_ranges(s, p)<span class="question-mark">?</span>;
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="kw">let </span>input = str_param(p, <span class="string">"input"</span>).unwrap_or(<span class="string">""</span>).to_string();
+<a href=#321 id=321 data-nosnippet>321</a>    <span class="kw">let </span>origin = s.doc()<span class="question-mark">?</span>.selection.active;
+<a href=#322 id=322 data-nosnippet>322</a>    edit(s, |cx| {
+<a href=#323 id=323 data-nosnippet>323</a>        <span class="comment">// Each cell gets what typing the input there gives: the automatic number format where
+<a href=#324 id=324 data-nosnippet>324</a>        // it's General, its own format otherwise, text where it's Text. That depends only on
+<a href=#325 id=325 data-nosnippet>325</a>        // the cell's style, so the input is parsed once per style.
+<a href=#326 id=326 data-nosnippet>326</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>by_style: std::collections::HashMap&lt;StyleId, <span class="prelude-ty">Option</span>&lt;Cell&gt;&gt; = std::collections::HashMap::new();
+<a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">for </span>r <span class="kw">in </span><span class="kw-2">&amp;</span>ranges {
+<a href=#328 id=328 data-nosnippet>328</a>            <span class="kw">if </span>r.count() &gt; <span class="number">2_000_000 </span>{
+<a href=#329 id=329 data-nosnippet>329</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(bad(<span class="string">"range.fill"</span>, <span class="string">"range too large"</span>));
+<a href=#330 id=330 data-nosnippet>330</a>            }
+<a href=#331 id=331 data-nosnippet>331</a>            <span class="kw">for </span>at <span class="kw">in </span>r.iter() {
+<a href=#332 id=332 data-nosnippet>332</a>                <span class="kw">let </span>style = cx.wb.sheet(sheet).map(|sh| sh.style_id(at)).unwrap_or_default();
+<a href=#333 id=333 data-nosnippet>333</a>                <span class="kw">let </span>base = <span class="kw">match </span>by_style.get(<span class="kw-2">&amp;</span>style) {
+<a href=#334 id=334 data-nosnippet>334</a>                    <span class="prelude-val">Some</span>(c) =&gt; c.clone(),
+<a href=#335 id=335 data-nosnippet>335</a>                    <span class="prelude-val">None </span>=&gt; {
+<a href=#336 id=336 data-nosnippet>336</a>                        <span class="kw">let </span>c = input_to_cell(<span class="kw-2">&amp;</span>input, sheet, at, <span class="kw-2">&amp;mut </span>cx.wb)<span class="question-mark">?</span>;
+<a href=#337 id=337 data-nosnippet>337</a>                        by_style.insert(style, c.clone());
+<a href=#338 id=338 data-nosnippet>338</a>                        c
+<a href=#339 id=339 data-nosnippet>339</a>                    }
+<a href=#340 id=340 data-nosnippet>340</a>                };
+<a href=#341 id=341 data-nosnippet>341</a>                <span class="kw">let </span><span class="kw-2">mut </span>cell = base.unwrap_or_default();
+<a href=#342 id=342 data-nosnippet>342</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = <span class="kw-2">&amp;</span>cell.formula
+<a href=#343 id=343 data-nosnippet>343</a>                    &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(e) = f.expr()
+<a href=#344 id=344 data-nosnippet>344</a>                {
+<a href=#345 id=345 data-nosnippet>345</a>                    <span class="kw">let </span>shifted = <span class="kw">crate</span>::formula::adjust::shift_relative(e, at.row <span class="kw">as </span>i64 - origin.row <span class="kw">as </span>i64, at.col <span class="kw">as </span>i64 - origin.col <span class="kw">as </span>i64);
+<a href=#346 id=346 data-nosnippet>346</a>                    cell.formula = <span class="prelude-val">Some</span>(std::sync::Arc::new(Formula::from_expr(shifted)));
+<a href=#347 id=347 data-nosnippet>347</a>                }
+<a href=#348 id=348 data-nosnippet>348</a>                <span class="kw">let </span>sh = cx.sheet_mut(sheet)<span class="question-mark">?</span>;
+<a href=#349 id=349 data-nosnippet>349</a>                sh.set_cell(at, cell);
+<a href=#350 id=350 data-nosnippet>350</a>                <span class="kw">crate</span>::engine::cmd::data::grow_autofilter(sh, at);
+<a href=#351 id=351 data-nosnippet>351</a>                cx.touch(sheet, at);
+<a href=#352 id=352 data-nosnippet>352</a>            }
+<a href=#353 id=353 data-nosnippet>353</a>        }
+<a href=#354 id=354 data-nosnippet>354</a>        <span class="prelude-val">Ok</span>(Json::Null)
+<a href=#355 id=355 data-nosnippet>355</a>    })
+<a href=#356 id=356 data-nosnippet>356</a>}
+</code></pre></div></section></main></body></html>

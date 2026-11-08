@@ -1,0 +1,495 @@
+[
+  {
+    "versao": "0.1.36",
+    "data": "2026-11-07",
+    "titulo": "Treinamentos com a voz no tempo certo, abertura com a logo e despedida.",
+    "importante": false,
+    "novidades": [
+      "Nos treinamentos, cada caixa fica na tela o tempo exato da narração: a fala não é mais cortada pela caixa seguinte, e o vídeo só termina depois da última palavra.",
+      "Cada vídeo abre com a logo animada do Raven Finanças e o nome do assunto, narrados pelo Santa.",
+      "E termina com uma despedida própria e otimista, como \"A casa é sua! Agora cada real tem endereço.\""
+    ],
+    "por_que_atualizar": "Para assistir aos treinamentos com a voz e as caixas juntas, do começo ao fim.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      104
+    ]
+  },
+  {
+    "versao": "0.1.35",
+    "data": "2026-11-07",
+    "titulo": "Pergunte ao bot do Telegram, receba avisos e tenha um chat por pessoa.",
+    "importante": false,
+    "novidades": [
+      "Pergunte ao bot do Telegram, por texto ou áudio: \"quanto gastei com mercado esse mês?\", \"quanto a Ana gastou?\", \"qual o saldo?\" ou \"quais contas vencem?\". Os números vêm do seu banco, nunca de um palpite.",
+      "O bot avisa das contas vencidas ou a vencer, do orçamento estourado e manda um resumo às segundas. Cada aviso tem o botão Desligar, e /avisos mostra e muda tudo.",
+      "Se o Raven estava fechado, o bot responde as mensagens que ficaram esperando e diz quantas eram.",
+      "Cada pessoa da família pode ter o próprio chat: em Ajustes, no cartão Telegram, escolha de quem é o QR. O que ela lança e pergunta sai em nome dela."
+    ],
+    "por_que_atualizar": "Para perguntar ao bot quanto foi gasto, receber os avisos no Telegram e dar um chat a cada pessoa da família.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      101
+    ]
+  },
+  {
+    "versao": "0.1.34",
+    "data": "2026-11-07",
+    "titulo": "Uma voz nova e natural, com três locutores.",
+    "importante": false,
+    "novidades": [
+      "O assistente ganhou uma voz nova, que fala português do Brasil com naturalidade. Ela roda neste computador, como antes, e gera a fala mais de duas vezes mais rápido.",
+      "Escolha quem fala entre três locutores: Dora, Alex e Santa. Em Ajustes, na Voz do assistente, baixe a Kokoro 82M e escolha o locutor.",
+      "Os vídeos de treinamento foram narrados de novo, agora com o Santa."
+    ],
+    "por_que_atualizar": "Para ouvir o assistente e os treinamentos com uma voz natural em português, do locutor que você preferir.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      85,
+      93
+    ]
+  },
+  {
+    "versao": "0.1.33",
+    "data": "2026-11-07",
+    "titulo": "Lançar pelo Telegram sem comprovante, e desfazer pelo chat.",
+    "importante": false,
+    "novidades": [
+      "No Telegram, lance só com uma mensagem, escrita ou falada: \"gastei 50 no mercado, foi a Ana\". O bot lê o valor, até por extenso, como \"cinquenta reais e noventa centavos\".",
+      "Se a categoria ainda não existe, o bot mostra as mais usadas para escolher, ou Criar, e nunca cria uma sem você pedir.",
+      "Errou? O botão Desfazer, depois do \"salva\", apaga o último lançamento do chat por 5 minutos.",
+      "O bot reconhece quem gastou mesmo com uma letra trocada no áudio, e o nome depois de \"para\": \"despesa de mercado para o Mateus\".",
+      "Em Ajustes, o cartão do Telegram ficou mais organizado: o estado no topo e o token recolhido depois de salvo.",
+      "Começar do zero e Carregar dados de exemplo pedem um backup recente e a palavra digitada em caixa alta antes de apagar ou trocar os dados."
+    ],
+    "por_que_atualizar": "Para lançar pelo Telegram só dizendo o valor, sem PDF, desfazer um engano pelo chat e não perder dados por um clique sem querer.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      23,
+      26
+    ]
+  },
+  {
+    "versao": "0.1.32",
+    "data": "2026-11-06",
+    "titulo": "Telegram por áudio e atualização que explica o que deu errado.",
+    "importante": false,
+    "novidades": [
+      "No Telegram, responda ao comprovante falando ou escrevendo, e diga quem gastou: \"despesa de mercado, quem gastou foi a Ana\".",
+      "Antes de lançar, o bot mostra o que vai gravar com os botões Confirmar, Corrigir e Cancelar.",
+      "Para entender áudios, baixe um modelo em Ajustes, no cartão Telegram. Ele roda só neste computador.",
+      "Se uma atualização não der certo, Ver detalhes mostra o motivo inteiro e o fim do registro do instalador, para copiar ou tentar de novo.",
+      "Em Lançamentos, o painel do filtro ganhou Editar filtro, com é um de e não é nenhum de.",
+      "Os ícones ficaram centralizados, como o check da caixa de marcação.",
+      "As novidades agora mostram quem contribuiu e as issues resolvidas em cada versão."
+    ],
+    "por_que_atualizar": "Para lançar comprovantes pelo Telegram falando, confirmar antes de gravar e entender uma atualização que falhe.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      4,
+      6
+    ]
+  },
+  {
+    "versao": "0.1.31",
+    "data": "2026-11-06",
+    "titulo": "Comprovantes pelo Telegram.",
+    "importante": false,
+    "novidades": [
+      "Mande um comprovante em PDF para o seu bot do Telegram, responda se é despesa ou receita e a categoria, e o lançamento é criado.",
+      "Para ligar, abra Ajustes, cole o token do bot criado no @BotFather, escolha a conta e escaneie o QR com o celular.",
+      "O tema escolhido em Ajustes continua o mesmo quando você abre o app de novo."
+    ],
+    "por_que_atualizar": "Para lançar despesas e receitas direto do celular, sem digitar o valor.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ]
+  },
+  {
+    "versao": "0.1.30",
+    "data": "2026-11-05",
+    "titulo": "Cores novas, em verde-limão.",
+    "importante": false,
+    "novidades": [
+      "O tema claro agora é o padrão, com tons de verde-limão.",
+      "O tema escuro ficou mais vivo: grafite no lugar do quase preto, com destaques em limão."
+    ],
+    "por_que_atualizar": "Para usar o app com cores mais alegres, nos dois temas."
+  },
+  {
+    "versao": "0.1.29",
+    "data": "2026-11-05",
+    "titulo": "Gráficos mais fáceis de ler.",
+    "importante": false,
+    "novidades": [
+      "Ao passar o mouse num gráfico, o item apontado fica em destaque e os outros se apagam um pouco.",
+      "Mudar o tamanho da janela com o Painel aberto ficou bem mais leve."
+    ],
+    "por_que_atualizar": "Para ler melhor os gráficos e a janela responder mais rápido ao mudar de tamanho."
+  },
+  {
+    "versao": "0.1.28",
+    "data": "2026-11-04",
+    "titulo": "Menos trabalho a cada clique.",
+    "importante": false,
+    "novidades": [
+      "O programa parou de reler a lista de novidades a cada mudança na tela: agora só lê quando você abre essa janela.",
+      "Telas com muitos desenhos e animações grandes passam a aparecer completas."
+    ],
+    "por_que_atualizar": "Para o programa gastar menos o computador enquanto você usa."
+  },
+  {
+    "versao": "0.1.27",
+    "data": "2026-11-04",
+    "titulo": "O programa ficou mais rápido.",
+    "importante": false,
+    "novidades": [
+      "O Painel abre na hora quando você volta a ele, sem aquela pequena travada ao redesenhar os gráficos.",
+      "As listas longas rolam com mais suavidade, e o programa gasta menos o computador enquanto você usa."
+    ],
+    "por_que_atualizar": "Para o programa responder mais rápido ao abrir as telas e ao rolar as listas."
+  },
+  {
+    "versao": "0.1.26",
+    "data": "2026-11-03",
+    "titulo": "Uma abertura nova, com a logo ganhando vida.",
+    "importante": false,
+    "novidades": [
+      "Ao abrir o programa, a logo agora se desenha na tela: um traço de luz vira o corvo, a asa se abre e a moeda cai no bico.",
+      "Quem usa o sistema com movimento reduzido vê a logo pronta, sem a animação."
+    ],
+    "por_que_atualizar": "Para ver a nova abertura do programa."
+  },
+  {
+    "versao": "0.1.25",
+    "data": "2026-11-03",
+    "titulo": "Janelas de formulário sem tremer, e o Dock traz o programa de volta.",
+    "importante": false,
+    "novidades": [
+      "As janelas de formulário, como Nova conta, abrem sem tremer e fecham de forma suave, em vez de sumir de repente.",
+      "No Mac, com o programa na bandeja, clicar no ícone dele no Dock abre a janela de novo."
+    ],
+    "por_que_atualizar": "Para abrir formulários com mais conforto e voltar ao programa pelo Dock."
+  },
+  {
+    "versao": "0.1.24",
+    "data": "2026-11-03",
+    "titulo": "O menu lateral recolhe e abre bem mais rápido.",
+    "importante": false,
+    "novidades": [
+      "O menu lateral e os submenus agora recolhem e abrem em um quinto de segundo, em vez de mais de um segundo.",
+      "Os nomes do menu não se espremem mais durante o movimento, e os controles da tela não se soltam do lugar."
+    ],
+    "por_que_atualizar": "Para usar o menu sem esperar."
+  },
+  {
+    "versao": "0.1.23",
+    "data": "2026-11-03",
+    "titulo": "Listas mais fáceis de ler, com linhas alternadas.",
+    "importante": false,
+    "novidades": [
+      "Em Lançamentos, Contas a pagar e nas demais listas, uma linha sim, outra não tem um fundo suave, o que ajuda a seguir a linha até o valor.",
+      "A linha sob o ponteiro e a linha selecionada ficaram um pouco mais marcadas, para não se confundirem com esse fundo.",
+      "Os treinamentos foram regravados com as telas novas."
+    ],
+    "por_que_atualizar": "Para ler as listas com mais conforto."
+  },
+  {
+    "versao": "0.1.22",
+    "data": "2026-11-03",
+    "titulo": "Agora dá para recolher os submenus do menu lateral.",
+    "importante": false,
+    "novidades": [
+      "Em Contas a pagar, Relatórios e Cadastros, clique de novo na linha do menu para recolher o submenu, e mais uma vez para abrir."
+    ],
+    "por_que_atualizar": "Para deixar o menu lateral mais limpo quando quiser."
+  },
+  {
+    "versao": "0.1.21",
+    "data": "2026-11-03",
+    "titulo": "O sistema agora avisa sobre as contas vencidas.",
+    "importante": false,
+    "novidades": [
+      "O programa usa as notificações do sistema para avisar sobre contas vencidas, mesmo com a janela fechada na bandeja.",
+      "Em Ajustes, no cartão Avisos, você escolhe sobre quais contas ser avisado, a partir de que hora e se o aviso se repete todo dia.",
+      "O botão Testar aviso mostra como a notificação aparece. Com o programa encerrado, não há aviso."
+    ],
+    "por_que_atualizar": "Para não perder o vencimento de uma conta."
+  },
+  {
+    "versao": "0.1.20",
+    "data": "2026-11-03",
+    "titulo": "A janela volta da bandeja na hora, e relatar um problema ficou mais fácil.",
+    "importante": false,
+    "novidades": [
+      "Ao abrir pela bandeja, a janela volta na hora, sem tela preta.",
+      "Em Relatar problema, você pode arrastar uma caixa em volta do que está errado e dizer se é um erro, algo confuso ou uma sugestão.",
+      "O relato mostra tudo o que vai junto antes de ser enviado, como o que está sob a caixa e os últimos erros do programa."
+    ],
+    "por_que_atualizar": "Para voltar da bandeja sem espera e mostrar com mais clareza o que deu errado."
+  },
+  {
+    "versao": "0.1.19",
+    "data": "2026-11-03",
+    "titulo": "Ao fechar a janela, o programa continua na bandeja.",
+    "importante": false,
+    "novidades": [
+      "Ao fechar a janela, o programa continua aberto, com um ícone perto do relógio.",
+      "Clique no ícone para abrir a janela de novo, do jeito que estava, ou para sair do programa.",
+      "Abrir o programa de novo traz de volta a mesma janela, em vez de abrir outra cópia.",
+      "No Linux, sem um lugar para o ícone, como no GNOME sem a extensão AppIndicator, fechar a janela encerra o programa, como antes."
+    ],
+    "por_que_atualizar": "Para deixar o programa aberto sem ocupar a tela."
+  },
+  {
+    "versao": "0.1.18",
+    "data": "2026-11-03",
+    "titulo": "O programa agora abre com uma tela de abertura.",
+    "importante": false,
+    "novidades": [
+      "Ao abrir o programa, a janela aparece logo, com o ícone, o nome e o que está sendo feito naquele momento.",
+      "Se os dados não puderem ser abertos, o aviso aparece na própria janela."
+    ],
+    "por_que_atualizar": "Para ver o que o programa está fazendo enquanto abre."
+  },
+  {
+    "versao": "0.1.17",
+    "data": "2026-11-03",
+    "titulo": "Listas mais limpas: filtros alinhados às colunas e menu Agrupar.",
+    "importante": false,
+    "novidades": [
+      "Em Lançamentos e Contas a pagar, a linha de filtros agora acompanha as colunas, com o texto no mesmo alinhamento de cada uma.",
+      "Para agrupar, use o menu Agrupar na barra da lista. O espaço para soltar a coluna não aparece mais o tempo todo.",
+      "Selecionar uma linha não muda mais a altura da barra da lista.",
+      "Os treinamentos foram regravados com as telas novas."
+    ],
+    "por_que_atualizar": "Para ter listas mais fáceis de ler e filtrar."
+  },
+  {
+    "versao": "0.1.16",
+    "data": "2026-11-02",
+    "titulo": "Zoom com gesto de pinça nos relatórios, e valores dos gráficos que deslizam.",
+    "importante": false,
+    "novidades": [
+      "Nos relatórios, o gesto de pinça no touchpad agora também faz zoom no Linux com Wayland, e responde a movimentos pequenos em qualquer sistema.",
+      "Nos gráficos, o quadro com os valores desliza até a posição nova e acompanha o ponteiro."
+    ],
+    "por_que_atualizar": "Para dar zoom nos relatórios com o touchpad e acompanhar os valores dos gráficos com mais conforto."
+  },
+  {
+    "versao": "0.1.15",
+    "data": "2026-11-02",
+    "titulo": "Gráficos novos no Painel e grades que você organiza do seu jeito.",
+    "importante": false,
+    "novidades": [
+      "O Painel ganhou gráficos novos: o saldo por período, receitas e despesas lado a lado, e para onde foi o dinheiro. Passe o ponteiro para ver os valores.",
+      "Em Lançamentos e Contas a pagar, arraste uma coluna para o espaço acima dela para agrupar, e arraste os grupos para trocar a ordem.",
+      "Grave o arranjo da tela em Cenário e volte a ele com um clique, mesmo depois de fechar o app.",
+      "Clique em um total no rodapé para trocar a soma por média, mínimo, máximo ou uma fórmula sua.",
+      "Trocar de relatório não muda mais as coisas de lugar, e Contas a pagar ficou mais fácil de ler."
+    ],
+    "por_que_atualizar": "Para organizar suas listas do seu jeito e entender melhor para onde vai o dinheiro."
+  },
+  {
+    "versao": "0.1.14",
+    "data": "2026-11-02",
+    "titulo": "Os treinamentos ganharam uma voz nova, e o assistente não duplica mais o que você salva.",
+    "importante": true,
+    "novidades": [
+      "Depois de salvar uma despesa ou conta pelo assistente, o botão vira \"Salvo\", ou \"Paga\" no caso de um pagamento. Antes, clicar de novo criava uma cópia.",
+      "Os filmes de treinamento agora têm narração gravada com o LFM3 Audio, sem precisar baixar nada para ouvir.",
+      "Enquanto o assistente pensa, uma nova pergunta espera a resposta, e o que você escreveu continua no campo."
+    ],
+    "por_que_atualizar": "Para não criar despesas e contas repetidas sem querer."
+  },
+  {
+    "versao": "0.1.13",
+    "data": "2026-11-02",
+    "titulo": "Um visual novo em todas as telas, com a Agenda redesenhada e treinamentos mais fáceis de acompanhar.",
+    "importante": false,
+    "novidades": [
+      "A Agenda virou uma linha do tempo por pessoa: arraste para remarcar, desfaça com Ctrl+Z, filtre pelo nome e use o botão direito para ver as ações.",
+      "O menu lateral agora tem submenus e a busca de comandos, e pode ser recolhido com o botão Recolher menu ou com ⌘B. Ele lembra como você deixou.",
+      "Os botões \"?\" explicam o que cada parte da tela faz e como usar.",
+      "Nos treinamentos, a imagem se aproxima de cada passo e o ponteiro mostra onde clicar. O filme pode ser mais rápido, as setas pulam 5 segundos e, no final, ele oferece o próximo assunto.",
+      "A barra de rolagem some quando não está em uso e não passa mais por cima dos campos, e as janelas abrem sem aquele efeito acinzentado no tema claro."
+    ],
+    "por_que_atualizar": "Para usar a nova Agenda e aprender o app com treinamentos mais claros."
+  },
+  {
+    "versao": "0.1.12",
+    "data": "2026-11-02",
+    "titulo": "O assistente agora pode falar, com uma voz gerada neste computador.",
+    "importante": false,
+    "novidades": [
+      "Em Ajustes, o cartão Voz do assistente permite baixar o LFM3 Audio, escolher idioma e voz, e ouvir um exemplo. São cerca de 1,3 GB para baixar e 3,7 GB de memória quando está em uso.",
+      "As respostas do chat têm um botão para ouvir e podem ser lidas em voz alta assim que chegam.",
+      "O assistente não atrapalha mais listas e janelas: elas abrem por cima dele, o que você escreveu continua lá e o Esc fecha primeiro a lista.",
+      "Em computadores mais lentos, o assistente não fica pensando sem fim: depois de um minuto, ele avisa e continua respondendo sem a IA."
+    ],
+    "por_que_atualizar": "Para ouvir as respostas do assistente e usá-lo sem que ele atrapalhe o resto da tela."
+  },
+  {
+    "versao": "0.1.11",
+    "data": "2026-11-02",
+    "titulo": "Agora você pode usar o LFM3 como IA do assistente.",
+    "importante": false,
+    "novidades": [
+      "Em Ajustes, a lista de IAs que rodam neste computador ganhou o LFM3 1.7B: cerca de 1,1 GB para baixar e 4 GB de memória quando está em uso.",
+      "O assistente entende melhor o que a IA escolheu, mesmo quando ela escreve o nome de uma ação com acento."
+    ],
+    "por_que_atualizar": "Para experimentar o LFM3 no assistente, ainda sem nada sair do computador."
+  },
+  {
+    "versao": "0.1.10",
+    "data": "2026-11-02",
+    "titulo": "Treinamentos e assistente repaginados, e telas que se adaptam a qualquer janela.",
+    "importante": false,
+    "novidades": [
+      "Em Treinamentos, o filme cabe na janela com os controles sempre à vista, e as respostas abrem sobre o filme sem empurrá-lo.",
+      "O assistente responde primeiro em palavras e depois oferece o filme, e o botão no canto ficou mais discreto.",
+      "Em janelas pequenas, a barra lateral abre por um botão e as telas se reorganizam sem sobrepor nada. O valor nunca some das tabelas.",
+      "As cores de situação agora são as mesmas em todas as telas, com selos mais fáceis de ler, e os treinamentos foram regravados."
+    ],
+    "por_que_atualizar": "Para aprender e consultar com menos bagunça, em qualquer tamanho de janela."
+  },
+  {
+    "versao": "0.1.9",
+    "data": "2026-11-02",
+    "titulo": "Telas mais limpas, com o que precisa de atenção em primeiro lugar.",
+    "importante": false,
+    "novidades": [
+      "O painel mostra as próximas contas antes dos gráficos, e o alerta de contas tem um botão que leva direto a elas.",
+      "Em Lançamentos e Contas a pagar, a tabela ficou com menos colunas e sem a linha de filtros fixa. Os filtros estão no menu Filtrar.",
+      "A esfera do assistente ficou menor e não cobre mais os botões, e uma despesa nova já começa na categoria que você mais usa.",
+      "Os treinamentos foram regravados com as telas novas."
+    ],
+    "por_que_atualizar": "Para ver primeiro o que precisa de atenção e lançar despesas com menos cliques."
+  },
+  {
+    "versao": "0.1.8",
+    "data": "2026-11-01",
+    "titulo": "Um assistente no canto da tela, que pode usar uma IA rodando neste computador.",
+    "importante": false,
+    "novidades": [
+      "A esfera no canto da tela abre o assistente: pergunte como fazer alguma coisa, e ele abre o momento certo do filme. Dá para arrastá-la para outro canto.",
+      "Em Ajustes, você pode baixar uma IA que roda neste computador. Aparecem só as que cabem aqui, e dá para testar a velocidade e remover.",
+      "Com uma IA em uso, o assistente responde sobre saldo, gastos e contas, abre telas e prepara despesas e contas a partir de uma frase. Nada é gravado sem você conferir e salvar, e nada sai do computador."
+    ],
+    "por_que_atualizar": "Para achar o que precisa perguntando, e lançar despesas e contas escrevendo uma frase."
+  },
+  {
+    "versao": "0.1.7",
+    "data": "2026-11-01",
+    "titulo": "Os treinamentos agora falam, fazem som e explicam cada passo na tela.",
+    "importante": false,
+    "novidades": [
+      "Os treinamentos passaram de um filme curto para seis filmes, cerca de 16 minutos, sobre cada parte do app e as regras de cada tela.",
+      "Uma voz lê em voz alta o que está sendo feito, e dá para ouvir os cliques e a digitação. Som e narração têm cada um seu botão de desligar.",
+      "Uma caixa aparece junto de cada ação, explicando o que fazer e por quê."
+    ],
+    "por_que_atualizar": "Para aprender a usar o app assistindo e ouvindo, no seu ritmo."
+  },
+  {
+    "versao": "0.1.6",
+    "data": "2026-11-01",
+    "titulo": "O app agora usa a placa de vídeo do computador sempre que ela está disponível.",
+    "importante": false,
+    "novidades": [
+      "Em computadores mais antigos com Linux, o app podia desenhar pelo processador mesmo havendo placa de vídeo, o que o deixava lento. Agora ele usa a placa.",
+      "Se a placa de vídeo não aceitar o que o app precisa, ele tenta as outras opções em vez de não abrir.",
+      "O painel de diagnóstico explica melhor quando a placa de vídeo não está sendo usada."
+    ],
+    "por_que_atualizar": "Para o app ficar mais rápido em computadores mais antigos."
+  },
+  {
+    "versao": "0.1.5",
+    "data": "2026-11-01",
+    "titulo": "Achou o app lento? Agora ele mesmo testa e diz o que está acontecendo.",
+    "importante": false,
+    "novidades": [
+      "Em Ajustes, o botão Testar desempenho mede o app por 5 segundos e diz se está bom, razoável ou ruim, sem precisar de atalho nem de terminal.",
+      "O resultado mostra quantos quadros por segundo este computador desenha e onde o tempo vai: no desenho ou em montar a tela.",
+      "Quando o app não consegue usar a placa de vídeo, o resultado avisa."
+    ],
+    "por_que_atualizar": "Para saber em 5 segundos como o app roda neste computador e por quê."
+  },
+  {
+    "versao": "0.1.4",
+    "data": "2026-11-01",
+    "titulo": "Tire dúvidas na página Treinamentos: você pergunta e o filme abre no ponto certo.",
+    "importante": false,
+    "novidades": [
+      "Em Treinamentos, digite sua dúvida e o filme abre no momento que explica aquilo.",
+      "A busca entende as palavras dos capítulos e dos passos, com ou sem acento, e funciona sem internet.",
+      "Novo painel de diagnóstico, com Ctrl+Shift+D (Cmd+Shift+D no Mac), que mostra como o app está usando a placa de vídeo.",
+      "O painel de diagnóstico tem um botão que abre um relato de bug já preenchido na página do projeto."
+    ],
+    "por_que_atualizar": "Para achar a resposta de uma dúvida sem precisar assistir ao filme inteiro."
+  },
+  {
+    "versao": "0.1.3",
+    "data": "2026-11-01",
+    "titulo": "Treinamentos dentro do app, backup e restauração mais claros, e um jeito fácil de relatar problemas.",
+    "importante": false,
+    "novidades": [
+      "Nova página Treinamentos: um filme com capítulos, que para em cada passo e espera o seu clique.",
+      "Os Ajustes mostram quando foi o último backup, e dá para restaurar um arquivo vendo antes o que há nele.",
+      "O app guarda sozinho uma cópia por dia e outra antes de trocar seus dados, e você pode voltar a qualquer uma.",
+      "Relatar problema, no rodapé: você revê os últimos minutos, cobre o que quiser e salva o relato em um arquivo.",
+      "Rolar dentro de uma janela não move mais a tela de trás."
+    ],
+    "por_que_atualizar": "Seus dados ficam mais protegidos: há cópias automáticas e dá para restaurar um backup com segurança."
+  },
+  {
+    "versao": "0.1.2",
+    "data": "2026-11-01",
+    "titulo": "O ícone do app aparece no Linux com GNOME, como no Fedora.",
+    "importante": false,
+    "novidades": [
+      "A janela agora se identifica para o sistema, e o GNOME mostra o ícone do Raven Finanças nela."
+    ],
+    "por_que_atualizar": "Sem esta versão, a janela do app pode aparecer sem ícone no GNOME."
+  },
+  {
+    "versao": "0.1.1",
+    "data": "2026-11-01",
+    "titulo": "O app agora avisa de versão nova no rodapé, sem atrapalhar o que você está fazendo.",
+    "importante": false,
+    "novidades": [
+      "Um rodapé sempre mostra a versão em uso; um clique nela mostra o que aquela versão trouxe.",
+      "O app procura versão nova ao abrir e de hora em hora, e mostra em que etapa a atualização está.",
+      "As novidades agora têm a lista de versões e o comando para instalar à mão, se precisar.",
+      "Gesto de pinça para dar zoom nos relatórios e botão de imprimir.",
+      "A tabela de dados ficou legível no tema Vidro."
+    ],
+    "por_que_atualizar": "Sem esta versão, você só fica sabendo de uma atualização ao abrir o app."
+  },
+  {
+    "versao": "0.1.0",
+    "data": "2026-11-01",
+    "titulo": "Primeira versão: despesas da família, contas a pagar e relatórios, tudo guardado no seu computador.",
+    "importante": false,
+    "novidades": [
+      "Lançamentos com filtros, busca, agrupamento e filtro avançado por expressão.",
+      "Contas a pagar com parcelas, repetição mensal ou anual e pagamento em um clique.",
+      "Orçamento por categoria, com alerta de quando o limite estoura.",
+      "Relatórios para ver na tela e exportar em PDF, Excel e CSV."
+    ],
+    "por_que_atualizar": "É a primeira versão: a partir dela, o app avisa sozinho quando sair outra."
+  }
+]

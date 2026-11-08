@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["go_to_names","specs"]};

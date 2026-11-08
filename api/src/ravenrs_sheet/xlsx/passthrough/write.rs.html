@@ -1,0 +1,332 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/ravenrs-sheet/src/xlsx/passthrough/write.rs`."><title>write.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_sheet" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_sheet/xlsx/passthrough/</div>write.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span><span class="kw">super</span>::read::{map_rel_ids, vml_block_max};
+<a href=#2 id=2 data-nosnippet>2</a><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#3 id=3 data-nosnippet>3</a>
+<a href=#4 id=4 data-nosnippet>4</a><span class="comment">// ---------------------------------------------------------------- writing
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a></span><span class="doccomment">/// Names given to kept parts while a package is written.
+<a href=#7 id=7 data-nosnippet>7</a></span><span class="attr">#[derive(Default)]
+<a href=#8 id=8 data-nosnippet>8</a></span><span class="kw">pub struct </span>KeptOut {
+<a href=#9 id=9 data-nosnippet>9</a>    used: HashSet&lt;String&gt;,
+<a href=#10 id=10 data-nosnippet>10</a>    n: u32,
+<a href=#11 id=11 data-nosnippet>11</a>    <span class="doccomment">/// The highest VML shape block a kept header and footer drawing uses: notes go after it.
+<a href=#12 id=12 data-nosnippet>12</a>    </span>vml_blocks: u32,
+<a href=#13 id=13 data-nosnippet>13</a>    <span class="doccomment">/// Package-root relationships (type, target, external), added when `_rels/.rels` is written.
+<a href=#14 id=14 data-nosnippet>14</a>    </span>root: Vec&lt;(String, String, bool)&gt;,
+<a href=#15 id=15 data-nosnippet>15</a>}
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a><span class="kw">impl </span>KeptOut {
+<a href=#18 id=18 data-nosnippet>18</a>    <span class="doccomment">/// Reserves a part name GridCraft writes itself, so kept parts don't take it. False when it is
+<a href=#19 id=19 data-nosnippet>19</a>    /// taken.
+<a href=#20 id=20 data-nosnippet>20</a>    </span><span class="kw">pub fn </span>reserve(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href=#21 id=21 data-nosnippet>21</a>        <span class="self">self</span>.used.insert(name.to_ascii_lowercase())
+<a href=#22 id=22 data-nosnippet>22</a>    }
+<a href=#23 id=23 data-nosnippet>23</a>
+<a href=#24 id=24 data-nosnippet>24</a>    <span class="doccomment">/// Reserves the VML shape blocks the kept header and footer drawings of `wb` use, so that the
+<a href=#25 id=25 data-nosnippet>25</a>    /// notes drawings GridCraft writes don't reuse their shape ids.
+<a href=#26 id=26 data-nosnippet>26</a>    </span><span class="kw">pub fn </span>reserve_vml_blocks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, wb: <span class="kw-2">&amp;</span>Workbook) {
+<a href=#27 id=27 data-nosnippet>27</a>        <span class="kw">let </span>vmls =
+<a href=#28 id=28 data-nosnippet>28</a>            wb.sheets.iter().filter_map(|s| s.preserved.as_deref()).flat_map(|p| <span class="kw-2">&amp;</span>p.parts).filter(|q| q.content_type.eq_ignore_ascii_case(CT_VML));
+<a href=#29 id=29 data-nosnippet>29</a>        <span class="kw">let </span>max = vmls.map(|q| vml_block_max(<span class="kw-2">&amp;</span>String::from_utf8_lossy(<span class="kw-2">&amp;</span>q.data))).max().unwrap_or(<span class="number">0</span>);
+<a href=#30 id=30 data-nosnippet>30</a>        <span class="self">self</span>.vml_blocks = u32::try_from(max).unwrap_or(u32::MAX);
+<a href=#31 id=31 data-nosnippet>31</a>    }
+<a href=#32 id=32 data-nosnippet>32</a>
+<a href=#33 id=33 data-nosnippet>33</a>    <span class="doccomment">/// The shape block of the `n`th notes drawing.
+<a href=#34 id=34 data-nosnippet>34</a>    </span><span class="kw">pub fn </span>notes_block(<span class="kw-2">&amp;</span><span class="self">self</span>, n: u32) -&gt; u32 {
+<a href=#35 id=35 data-nosnippet>35</a>        n.saturating_add(<span class="self">self</span>.vml_blocks)
+<a href=#36 id=36 data-nosnippet>36</a>    }
+<a href=#37 id=37 data-nosnippet>37</a>
+<a href=#38 id=38 data-nosnippet>38</a>    <span class="doccomment">/// A part name for a kept part: its original name when that can't collide with anything
+<a href=#39 id=39 data-nosnippet>39</a>    /// written, otherwise a fresh one in the same folder.
+<a href=#40 id=40 data-nosnippet>40</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>claim(<span class="kw-2">&amp;mut </span><span class="self">self</span>, original: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href=#41 id=41 data-nosnippet>41</a>        <span class="kw">let </span>lower = original.to_ascii_lowercase();
+<a href=#42 id=42 data-nosnippet>42</a>        <span class="kw">let </span>own = OWN_DIRS.iter().any(|d| lower.starts_with(d));
+<a href=#43 id=43 data-nosnippet>43</a>        <span class="kw">if </span>own &amp;&amp; <span class="self">self</span>.used.insert(lower) {
+<a href=#44 id=44 data-nosnippet>44</a>            <span class="kw">return </span>original.to_string();
+<a href=#45 id=45 data-nosnippet>45</a>        }
+<a href=#46 id=46 data-nosnippet>46</a>        <span class="kw">let </span>(dir, file) = package::split_dir(original);
+<a href=#47 id=47 data-nosnippet>47</a>        <span class="kw">let </span>(stem, ext) = <span class="kw">match </span>file.rsplit_once(<span class="string">'.'</span>) {
+<a href=#48 id=48 data-nosnippet>48</a>            <span class="prelude-val">Some</span>((s, e)) =&gt; (s, <span class="macro">format!</span>(<span class="string">".{e}"</span>)),
+<a href=#49 id=49 data-nosnippet>49</a>            <span class="prelude-val">None </span>=&gt; (file, String::new()),
+<a href=#50 id=50 data-nosnippet>50</a>        };
+<a href=#51 id=51 data-nosnippet>51</a>        <span class="kw">let </span>stem = <span class="kw">if </span>own { <span class="macro">format!</span>(<span class="string">"{stem}_"</span>) } <span class="kw">else </span>{ <span class="string">"kept"</span>.to_string() };
+<a href=#52 id=52 data-nosnippet>52</a>        <span class="kw">loop </span>{
+<a href=#53 id=53 data-nosnippet>53</a>            <span class="self">self</span>.n = <span class="self">self</span>.n.saturating_add(<span class="number">1</span>);
+<a href=#54 id=54 data-nosnippet>54</a>            <span class="kw">let </span>file = <span class="macro">format!</span>(<span class="string">"{stem}{}{ext}"</span>, <span class="self">self</span>.n);
+<a href=#55 id=55 data-nosnippet>55</a>            <span class="kw">let </span>cand = <span class="kw">if </span>dir.is_empty() { file } <span class="kw">else </span>{ <span class="macro">format!</span>(<span class="string">"{dir}/{file}"</span>) };
+<a href=#56 id=56 data-nosnippet>56</a>            <span class="kw">if </span><span class="self">self</span>.used.insert(cand.to_ascii_lowercase()) || <span class="self">self</span>.n == u32::MAX {
+<a href=#57 id=57 data-nosnippet>57</a>                <span class="kw">return </span>cand;
+<a href=#58 id=58 data-nosnippet>58</a>            }
+<a href=#59 id=59 data-nosnippet>59</a>        }
+<a href=#60 id=60 data-nosnippet>60</a>    }
+<a href=#61 id=61 data-nosnippet>61</a>}
+<a href=#62 id=62 data-nosnippet>62</a>
+<a href=#63 id=63 data-nosnippet>63</a><span class="doccomment">/// Original part name (normalized) → written part name.
+<a href=#64 id=64 data-nosnippet>64</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>NameMap = HashMap&lt;String, String&gt;;
+<a href=#65 id=65 data-nosnippet>65</a>
+<a href=#66 id=66 data-nosnippet>66</a><span class="kw">fn </span>rel_target(r: <span class="kw-2">&amp;</span>PreservedRel, names: <span class="kw-2">&amp;</span>NameMap) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="kw">if </span>r.external { <span class="prelude-val">Some</span>(r.target.clone()) } <span class="kw">else </span>{ names.get(<span class="kw-2">&amp;</span>normalize(<span class="kw-2">&amp;</span>r.target)).map(|n| <span class="macro">format!</span>(<span class="string">"/{n}"</span>)) }
+<a href=#68 id=68 data-nosnippet>68</a>}
+<a href=#69 id=69 data-nosnippet>69</a>
+<a href=#70 id=70 data-nosnippet>70</a><span class="doccomment">/// A kept part's relationships, ids unchanged, targets renamed.
+<a href=#71 id=71 data-nosnippet>71</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>part_rels_xml(rels: <span class="kw-2">&amp;</span>[PreservedRel], names: <span class="kw-2">&amp;</span>NameMap) -&gt; String {
+<a href=#72 id=72 data-nosnippet>72</a>    <span class="kw">let </span><span class="kw-2">mut </span>s = <span class="macro">format!</span>(<span class="string">"{XML_DECL}&lt;Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"&gt;"</span>);
+<a href=#73 id=73 data-nosnippet>73</a>    <span class="kw">for </span>r <span class="kw">in </span>rels {
+<a href=#74 id=74 data-nosnippet>74</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(target) = rel_target(r, names) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href=#75 id=75 data-nosnippet>75</a>        <span class="kw">let _ </span>= <span class="macro">write!</span>(
+<a href=#76 id=76 data-nosnippet>76</a>            s,
+<a href=#77 id=77 data-nosnippet>77</a>            <span class="string">"&lt;Relationship Id=\"{}\" Type=\"{}\" Target=\"{}\"{}/&gt;"</span>,
+<a href=#78 id=78 data-nosnippet>78</a>            esc_attr(<span class="kw-2">&amp;</span>r.id),
+<a href=#79 id=79 data-nosnippet>79</a>            esc_attr(<span class="kw-2">&amp;</span>r.rel_type),
+<a href=#80 id=80 data-nosnippet>80</a>            esc_attr(<span class="kw-2">&amp;</span>target),
+<a href=#81 id=81 data-nosnippet>81</a>            <span class="kw">if </span>r.external { <span class="string">" TargetMode=\"External\"" </span>} <span class="kw">else </span>{ <span class="string">"" </span>}
+<a href=#82 id=82 data-nosnippet>82</a>        );
+<a href=#83 id=83 data-nosnippet>83</a>    }
+<a href=#84 id=84 data-nosnippet>84</a>    s.push_str(<span class="string">"&lt;/Relationships&gt;"</span>);
+<a href=#85 id=85 data-nosnippet>85</a>    s
+<a href=#86 id=86 data-nosnippet>86</a>}
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>write_parts(out: <span class="kw-2">&amp;mut </span>Out, parts: <span class="kw-2">&amp;</span>[PreservedPart]) -&gt; NameMap {
+<a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">let </span><span class="kw-2">mut </span>names = NameMap::new();
+<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">for </span>p <span class="kw">in </span>parts {
+<a href=#91 id=91 data-nosnippet>91</a>        names.entry(normalize(<span class="kw-2">&amp;</span>p.name)).or_insert_with(|| out.kept.claim(<span class="kw-2">&amp;</span>p.name));
+<a href=#92 id=92 data-nosnippet>92</a>    }
+<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">let </span><span class="kw-2">mut </span>written = HashSet::new();
+<a href=#94 id=94 data-nosnippet>94</a>    <span class="kw">for </span>p <span class="kw">in </span>parts {
+<a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(new) = names.get(<span class="kw-2">&amp;</span>normalize(<span class="kw-2">&amp;</span>p.name)).cloned() <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href=#96 id=96 data-nosnippet>96</a>        <span class="kw">if </span>!written.insert(new.clone()) {
+<a href=#97 id=97 data-nosnippet>97</a>            <span class="kw">continue</span>;
+<a href=#98 id=98 data-nosnippet>98</a>        }
+<a href=#99 id=99 data-nosnippet>99</a>        out.part(<span class="kw-2">&amp;</span>new, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>p.content_type), p.data.to_vec());
+<a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">if </span>!p.rels.is_empty() {
+<a href=#101 id=101 data-nosnippet>101</a>            out.part(<span class="kw-2">&amp;</span>rels_part_name(<span class="kw-2">&amp;</span>new), <span class="prelude-val">None</span>, part_rels_xml(<span class="kw-2">&amp;</span>p.rels, <span class="kw-2">&amp;</span>names).into_bytes());
+<a href=#102 id=102 data-nosnippet>102</a>        }
+<a href=#103 id=103 data-nosnippet>103</a>    }
+<a href=#104 id=104 data-nosnippet>104</a>    names
+<a href=#105 id=105 data-nosnippet>105</a>}
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a><span class="doccomment">/// Adds the owner's relationships; returns old id → new id.
+<a href=#108 id=108 data-nosnippet>108</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>attach(rels: <span class="kw-2">&amp;mut </span>Rels, list: <span class="kw-2">&amp;</span>[PreservedRel], names: <span class="kw-2">&amp;</span>NameMap) -&gt; HashMap&lt;String, String&gt; {
+<a href=#109 id=109 data-nosnippet>109</a>    <span class="kw">let </span><span class="kw-2">mut </span>ids = HashMap::new();
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">for </span>r <span class="kw">in </span>list {
+<a href=#111 id=111 data-nosnippet>111</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(target) = rel_target(r, names) {
+<a href=#112 id=112 data-nosnippet>112</a>            <span class="kw">let </span>id = rels.add_raw(<span class="kw-2">&amp;</span>r.rel_type, <span class="kw-2">&amp;</span>target, r.external);
+<a href=#113 id=113 data-nosnippet>113</a>            ids.insert(r.id.clone(), id);
+<a href=#114 id=114 data-nosnippet>114</a>        }
+<a href=#115 id=115 data-nosnippet>115</a>    }
+<a href=#116 id=116 data-nosnippet>116</a>    ids
+<a href=#117 id=117 data-nosnippet>117</a>}
+<a href=#118 id=118 data-nosnippet>118</a>
+<a href=#119 id=119 data-nosnippet>119</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>remap(x: <span class="kw-2">&amp;</span>str, ids: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#120 id=120 data-nosnippet>120</a>    map_rel_ids(x, <span class="kw-2">&amp;mut </span>|id| ids.get(id).cloned())
+<a href=#121 id=121 data-nosnippet>121</a>}
+<a href=#122 id=122 data-nosnippet>122</a>
+<a href=#123 id=123 data-nosnippet>123</a><span class="doccomment">/// A kept chart sheet being written: its `&lt;sheet&gt;` entry's fields and its new relationship id.
+<a href=#124 id=124 data-nosnippet>124</a></span><span class="kw">pub struct </span>KeptSheet {
+<a href=#125 id=125 data-nosnippet>125</a>    before: usize,
+<a href=#126 id=126 data-nosnippet>126</a>    name: String,
+<a href=#127 id=127 data-nosnippet>127</a>    visibility: Visibility,
+<a href=#128 id=128 data-nosnippet>128</a>    rid: String,
+<a href=#129 id=129 data-nosnippet>129</a>    sheet_id: u32,
+<a href=#130 id=130 data-nosnippet>130</a>}
+<a href=#131 id=131 data-nosnippet>131</a>
+<a href=#132 id=132 data-nosnippet>132</a><span class="doccomment">/// The `sheetId`s of the written sheets: each keeps the one the file gave it, unless another
+<a href=#133 id=133 data-nosnippet>133</a>/// sheet took it first (a copied sheet) or it has none (a new sheet), and those get the next id
+<a href=#134 id=134 data-nosnippet>134</a>/// that no sheet asks for.
+<a href=#135 id=135 data-nosnippet>135</a></span><span class="kw">pub struct </span>SheetIds {
+<a href=#136 id=136 data-nosnippet>136</a>    wanted: HashSet&lt;u32&gt;,
+<a href=#137 id=137 data-nosnippet>137</a>    given: HashSet&lt;u32&gt;,
+<a href=#138 id=138 data-nosnippet>138</a>    next: u32,
+<a href=#139 id=139 data-nosnippet>139</a>}
+<a href=#140 id=140 data-nosnippet>140</a>
+<a href=#141 id=141 data-nosnippet>141</a><span class="kw">impl </span>SheetIds {
+<a href=#142 id=142 data-nosnippet>142</a>    <span class="kw">pub fn </span>new(wb: <span class="kw-2">&amp;</span>Workbook, kept: <span class="kw-2">&amp;</span>WorkbookKept) -&gt; SheetIds {
+<a href=#143 id=143 data-nosnippet>143</a>        <span class="kw">let </span>wanted: HashSet&lt;u32&gt; = wb.sheets.iter().map(|s| s.file_id).chain(kept.sheets.iter().map(|s| s.sheet_id)).filter(|<span class="kw-2">&amp;</span>id| id != <span class="number">0</span>).collect();
+<a href=#144 id=144 data-nosnippet>144</a>        SheetIds { wanted, given: HashSet::new(), next: <span class="number">1 </span>}
+<a href=#145 id=145 data-nosnippet>145</a>    }
+<a href=#146 id=146 data-nosnippet>146</a>
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">pub fn </span>take(<span class="kw-2">&amp;mut </span><span class="self">self</span>, wanted: u32) -&gt; u32 {
+<a href=#148 id=148 data-nosnippet>148</a>        <span class="kw">if </span>wanted != <span class="number">0 </span>&amp;&amp; <span class="self">self</span>.given.insert(wanted) {
+<a href=#149 id=149 data-nosnippet>149</a>            <span class="kw">return </span>wanted;
+<a href=#150 id=150 data-nosnippet>150</a>        }
+<a href=#151 id=151 data-nosnippet>151</a>        <span class="kw">while </span><span class="self">self</span>.wanted.contains(<span class="kw-2">&amp;</span><span class="self">self</span>.next) || <span class="self">self</span>.given.contains(<span class="kw-2">&amp;</span><span class="self">self</span>.next) {
+<a href=#152 id=152 data-nosnippet>152</a>            <span class="self">self</span>.next += <span class="number">1</span>;
+<a href=#153 id=153 data-nosnippet>153</a>        }
+<a href=#154 id=154 data-nosnippet>154</a>        <span class="self">self</span>.given.insert(<span class="self">self</span>.next);
+<a href=#155 id=155 data-nosnippet>155</a>        <span class="self">self</span>.next
+<a href=#156 id=156 data-nosnippet>156</a>    }
+<a href=#157 id=157 data-nosnippet>157</a>}
+<a href=#158 id=158 data-nosnippet>158</a>
+<a href=#159 id=159 data-nosnippet>159</a><span class="doccomment">/// The workbook's kept content as written.
+<a href=#160 id=160 data-nosnippet>160</a></span><span class="attr">#[derive(Default)]
+<a href=#161 id=161 data-nosnippet>161</a></span><span class="kw">pub struct </span>WorkbookKept {
+<a href=#162 id=162 data-nosnippet>162</a>    <span class="doccomment">/// Workbook XML elements that go right after `&lt;sheets&gt;` (`&lt;externalReferences&gt;`).
+<a href=#163 id=163 data-nosnippet>163</a>    </span><span class="kw">pub </span>elements: String,
+<a href=#164 id=164 data-nosnippet>164</a>    sheets: Vec&lt;KeptSheet&gt;,
+<a href=#165 id=165 data-nosnippet>165</a>}
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a><span class="kw">impl </span>WorkbookKept {
+<a href=#168 id=168 data-nosnippet>168</a>    <span class="doccomment">/// Where the model's sheet `i` is in the file's sheet list: chart sheets come between worksheets.
+<a href=#169 id=169 data-nosnippet>169</a>    </span><span class="kw">pub fn </span>file_index(<span class="kw-2">&amp;</span><span class="self">self</span>, i: usize) -&gt; usize {
+<a href=#170 id=170 data-nosnippet>170</a>        i + <span class="self">self</span>.sheets.iter().filter(|s| s.before &lt;= i).count()
+<a href=#171 id=171 data-nosnippet>171</a>    }
+<a href=#172 id=172 data-nosnippet>172</a>
+<a href=#173 id=173 data-nosnippet>173</a>    <span class="doccomment">/// The `&lt;sheet&gt;` entries of the chart sheets that go right before the model's sheet `i`
+<a href=#174 id=174 data-nosnippet>174</a>    /// (`i` = the number of sheets for those that come last), with their ids from `ids`.
+<a href=#175 id=175 data-nosnippet>175</a>    </span><span class="kw">pub fn </span>sheet_entries(<span class="kw-2">&amp;</span><span class="self">self</span>, i: usize, last: bool, ids: <span class="kw-2">&amp;mut </span>SheetIds) -&gt; String {
+<a href=#176 id=176 data-nosnippet>176</a>        <span class="kw">let </span><span class="kw-2">mut </span>x = String::new();
+<a href=#177 id=177 data-nosnippet>177</a>        <span class="kw">for </span>s <span class="kw">in </span><span class="self">self</span>.sheets.iter().filter(|s| <span class="kw">if </span>last { s.before &gt;= i } <span class="kw">else </span>{ s.before == i }) {
+<a href=#178 id=178 data-nosnippet>178</a>            <span class="kw">let </span>state = <span class="kw">match </span>s.visibility {
+<a href=#179 id=179 data-nosnippet>179</a>                Visibility::Visible =&gt; <span class="string">""</span>,
+<a href=#180 id=180 data-nosnippet>180</a>                Visibility::Hidden =&gt; <span class="string">" state=\"hidden\""</span>,
+<a href=#181 id=181 data-nosnippet>181</a>                Visibility::VeryHidden =&gt; <span class="string">" state=\"veryHidden\""</span>,
+<a href=#182 id=182 data-nosnippet>182</a>            };
+<a href=#183 id=183 data-nosnippet>183</a>            <span class="kw">let </span>name: String = s.name.chars().take(<span class="number">31</span>).collect();
+<a href=#184 id=184 data-nosnippet>184</a>            <span class="kw">let </span>id = ids.take(s.sheet_id);
+<a href=#185 id=185 data-nosnippet>185</a>            <span class="kw">let _ </span>= <span class="macro">write!</span>(x, <span class="string">"&lt;sheet name=\"{}\" sheetId=\"{id}\"{state} r:id=\"{}\"/&gt;"</span>, esc_attr(<span class="kw-2">&amp;</span>name), esc_attr(<span class="kw-2">&amp;</span>s.rid));
+<a href=#186 id=186 data-nosnippet>186</a>        }
+<a href=#187 id=187 data-nosnippet>187</a>        x
+<a href=#188 id=188 data-nosnippet>188</a>    }
+<a href=#189 id=189 data-nosnippet>189</a>}
+<a href=#190 id=190 data-nosnippet>190</a>
+<a href=#191 id=191 data-nosnippet>191</a><span class="doccomment">/// The part names reachable from `root` through kept parts' relationships (normalized).
+<a href=#192 id=192 data-nosnippet>192</a></span><span class="kw">fn </span>reachable(p: <span class="kw-2">&amp;</span>Preserved, root: <span class="kw-2">&amp;</span>PreservedRel) -&gt; HashSet&lt;String&gt; {
+<a href=#193 id=193 data-nosnippet>193</a>    <span class="kw">let </span>by_name: HashMap&lt;String, <span class="kw-2">&amp;</span>PreservedPart&gt; = p.parts.iter().map(|q| (normalize(<span class="kw-2">&amp;</span>q.name), q)).collect();
+<a href=#194 id=194 data-nosnippet>194</a>    <span class="kw">let </span><span class="kw-2">mut </span>seen = HashSet::new();
+<a href=#195 id=195 data-nosnippet>195</a>    <span class="kw">let </span><span class="kw-2">mut </span>queue = VecDeque::from([normalize(<span class="kw-2">&amp;</span>root.target)]);
+<a href=#196 id=196 data-nosnippet>196</a>    <span class="kw">while let </span><span class="prelude-val">Some</span>(n) = queue.pop_front() {
+<a href=#197 id=197 data-nosnippet>197</a>        <span class="kw">if </span>!seen.insert(n.clone()) {
+<a href=#198 id=198 data-nosnippet>198</a>            <span class="kw">continue</span>;
+<a href=#199 id=199 data-nosnippet>199</a>        }
+<a href=#200 id=200 data-nosnippet>200</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(q) = by_name.get(<span class="kw-2">&amp;</span>n) {
+<a href=#201 id=201 data-nosnippet>201</a>            queue.extend(q.rels.iter().filter(|r| !r.external).map(|r| normalize(<span class="kw-2">&amp;</span>r.target)));
+<a href=#202 id=202 data-nosnippet>202</a>        }
+<a href=#203 id=203 data-nosnippet>203</a>    }
+<a href=#204 id=204 data-nosnippet>204</a>    seen
+<a href=#205 id=205 data-nosnippet>205</a>}
+<a href=#206 id=206 data-nosnippet>206</a>
+<a href=#207 id=207 data-nosnippet>207</a><span class="doccomment">/// Every formula (`&lt;c:f&gt;`) of a chart part, depth first.
+<a href=#208 id=208 data-nosnippet>208</a></span><span class="kw">fn </span>chart_formulas(el: <span class="kw-2">&amp;</span>xml::El, out: <span class="kw-2">&amp;mut </span>Vec&lt;String&gt;) {
+<a href=#209 id=209 data-nosnippet>209</a>    <span class="kw">if </span>el.name == <span class="string">"f" </span>&amp;&amp; !el.text.trim().is_empty() {
+<a href=#210 id=210 data-nosnippet>210</a>        out.push(el.text.trim().to_string());
+<a href=#211 id=211 data-nosnippet>211</a>    }
+<a href=#212 id=212 data-nosnippet>212</a>    <span class="kw">for </span>c <span class="kw">in </span><span class="kw-2">&amp;</span>el.children {
+<a href=#213 id=213 data-nosnippet>213</a>        chart_formulas(c, out);
+<a href=#214 id=214 data-nosnippet>214</a>    }
+<a href=#215 id=215 data-nosnippet>215</a>}
+<a href=#216 id=216 data-nosnippet>216</a>
+<a href=#217 id=217 data-nosnippet>217</a><span class="doccomment">/// The sheet names a formula such as `'My Sheet'!$A$1:$A$9,Data!$B$1` refers to. References to
+<a href=#218 id=218 data-nosnippet>218</a>/// other workbooks (`[1]Sheet!A1`) are not sheets of this one and are left out.
+<a href=#219 id=219 data-nosnippet>219</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>sheet_names_in(formula: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
+<a href=#220 id=220 data-nosnippet>220</a>    <span class="kw">let </span><span class="kw-2">mut </span>names = <span class="macro">vec!</span>[];
+<a href=#221 id=221 data-nosnippet>221</a>    <span class="kw">let </span>chars: Vec&lt;char&gt; = formula.chars().collect();
+<a href=#222 id=222 data-nosnippet>222</a>    <span class="kw">let </span>at = |i: usize| chars.get(i).copied();
+<a href=#223 id=223 data-nosnippet>223</a>    <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+<a href=#224 id=224 data-nosnippet>224</a>    <span class="kw">while let </span><span class="prelude-val">Some</span>(c) = at(i) {
+<a href=#225 id=225 data-nosnippet>225</a>        <span class="kw">let </span><span class="kw-2">mut </span>name = String::new();
+<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">let </span>start = i;
+<a href=#227 id=227 data-nosnippet>227</a>        <span class="kw">if </span>c == <span class="string">'\'' </span>{
+<a href=#228 id=228 data-nosnippet>228</a>            i += <span class="number">1</span>;
+<a href=#229 id=229 data-nosnippet>229</a>            <span class="kw">while let </span><span class="prelude-val">Some</span>(c) = at(i) {
+<a href=#230 id=230 data-nosnippet>230</a>                <span class="kw">if </span>c == <span class="string">'\'' </span>{
+<a href=#231 id=231 data-nosnippet>231</a>                    <span class="kw">if </span>at(i + <span class="number">1</span>) == <span class="prelude-val">Some</span>(<span class="string">'\''</span>) {
+<a href=#232 id=232 data-nosnippet>232</a>                        name.push(<span class="string">'\''</span>);
+<a href=#233 id=233 data-nosnippet>233</a>                        i += <span class="number">2</span>;
+<a href=#234 id=234 data-nosnippet>234</a>                        <span class="kw">continue</span>;
+<a href=#235 id=235 data-nosnippet>235</a>                    }
+<a href=#236 id=236 data-nosnippet>236</a>                    <span class="kw">break</span>;
+<a href=#237 id=237 data-nosnippet>237</a>                }
+<a href=#238 id=238 data-nosnippet>238</a>                name.push(c);
+<a href=#239 id=239 data-nosnippet>239</a>                i += <span class="number">1</span>;
+<a href=#240 id=240 data-nosnippet>240</a>            }
+<a href=#241 id=241 data-nosnippet>241</a>            i += <span class="number">1</span>;
+<a href=#242 id=242 data-nosnippet>242</a>        } <span class="kw">else </span>{
+<a href=#243 id=243 data-nosnippet>243</a>            <span class="kw">while let </span><span class="prelude-val">Some</span>(c) = at(i).filter(|c| !<span class="macro">matches!</span>(c, <span class="string">'!' </span>| <span class="string">',' </span>| <span class="string">'(' </span>| <span class="string">')' </span>| <span class="string">'\'' </span>| <span class="string">' '</span>)) {
+<a href=#244 id=244 data-nosnippet>244</a>                name.push(c);
+<a href=#245 id=245 data-nosnippet>245</a>                i += <span class="number">1</span>;
+<a href=#246 id=246 data-nosnippet>246</a>            }
+<a href=#247 id=247 data-nosnippet>247</a>        }
+<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">if </span>at(i) == <span class="prelude-val">Some</span>(<span class="string">'!'</span>) {
+<a href=#249 id=249 data-nosnippet>249</a>            <span class="kw">if </span>!name.is_empty() &amp;&amp; !name.starts_with(<span class="string">'['</span>) {
+<a href=#250 id=250 data-nosnippet>250</a>                names.push(name);
+<a href=#251 id=251 data-nosnippet>251</a>            }
+<a href=#252 id=252 data-nosnippet>252</a>            i += <span class="number">1</span>;
+<a href=#253 id=253 data-nosnippet>253</a>        } <span class="kw">else if </span>i == start {
+<a href=#254 id=254 data-nosnippet>254</a>            i += <span class="number">1</span>;
+<a href=#255 id=255 data-nosnippet>255</a>        }
+<a href=#256 id=256 data-nosnippet>256</a>    }
+<a href=#257 id=257 data-nosnippet>257</a>    names
+<a href=#258 id=258 data-nosnippet>258</a>}
+<a href=#259 id=259 data-nosnippet>259</a>
+<a href=#260 id=260 data-nosnippet>260</a><span class="doccomment">/// Whether a kept chart sheet can be written back: its chart's series must still refer to sheets
+<a href=#261 id=261 data-nosnippet>261</a>/// that exist under the same names (the chart is kept as it was, so a series on a deleted or
+<a href=#262 id=262 data-nosnippet>262</a>/// renamed sheet would be left pointing at nothing), and no worksheet may have taken its name.
+<a href=#263 id=263 data-nosnippet>263</a></span><span class="kw">fn </span>chart_sheet_usable(wb: <span class="kw-2">&amp;</span>Workbook, p: <span class="kw-2">&amp;</span>Preserved, s: <span class="kw-2">&amp;</span>PreservedSheet) -&gt; bool {
+<a href=#264 id=264 data-nosnippet>264</a>    <span class="kw">let </span>same = |a: <span class="kw-2">&amp;</span>str, b: <span class="kw-2">&amp;</span>str| a.chars().take(<span class="number">31</span>).collect::&lt;String&gt;().eq_ignore_ascii_case(<span class="kw-2">&amp;</span>b.chars().take(<span class="number">31</span>).collect::&lt;String&gt;());
+<a href=#265 id=265 data-nosnippet>265</a>    <span class="kw">if </span>wb.sheets.iter().any(|w| same(<span class="kw-2">&amp;</span>w.name, <span class="kw-2">&amp;</span>s.name)) {
+<a href=#266 id=266 data-nosnippet>266</a>        <span class="kw">return </span><span class="bool-val">false</span>;
+<a href=#267 id=267 data-nosnippet>267</a>    }
+<a href=#268 id=268 data-nosnippet>268</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(root) = p.rels.iter().find(|r| r.id == s.rel_id) <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+<a href=#269 id=269 data-nosnippet>269</a>    <span class="kw">let </span>parts = reachable(p, root);
+<a href=#270 id=270 data-nosnippet>270</a>    <span class="kw">let </span><span class="kw-2">mut </span>formulas = <span class="macro">vec!</span>[];
+<a href=#271 id=271 data-nosnippet>271</a>    <span class="kw">for </span>q <span class="kw">in </span>p.parts.iter().filter(|q| parts.contains(<span class="kw-2">&amp;</span>normalize(<span class="kw-2">&amp;</span>q.name)) &amp;&amp; q.content_type.contains(<span class="string">"chart"</span>)) {
+<a href=#272 id=272 data-nosnippet>272</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(x) = xml::parse(<span class="kw-2">&amp;</span>q.data) {
+<a href=#273 id=273 data-nosnippet>273</a>            chart_formulas(<span class="kw-2">&amp;</span>x, <span class="kw-2">&amp;mut </span>formulas);
+<a href=#274 id=274 data-nosnippet>274</a>        }
+<a href=#275 id=275 data-nosnippet>275</a>    }
+<a href=#276 id=276 data-nosnippet>276</a>    formulas.iter().flat_map(|f| sheet_names_in(f)).all(|n| wb.sheets.iter().any(|w| same(<span class="kw-2">&amp;</span>w.name, <span class="kw-2">&amp;</span>n)))
+<a href=#277 id=277 data-nosnippet>277</a>}
+<a href=#278 id=278 data-nosnippet>278</a>
+<a href=#279 id=279 data-nosnippet>279</a><span class="doccomment">/// Writes the workbook's kept parts and relationships. Chart sheets that can't be written back
+<a href=#280 id=280 data-nosnippet>280</a>/// (see [`chart_sheet_usable`]) are left out with the parts only they reach.
+<a href=#281 id=281 data-nosnippet>281</a></span><span class="kw">pub fn </span>write_workbook(wb: <span class="kw-2">&amp;</span>Workbook, wb_rels: <span class="kw-2">&amp;mut </span>Rels, out: <span class="kw-2">&amp;mut </span>Out) -&gt; WorkbookKept {
+<a href=#282 id=282 data-nosnippet>282</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(p) = wb.preserved.as_deref() <span class="kw">else </span>{ <span class="kw">return </span>WorkbookKept::default() };
+<a href=#283 id=283 data-nosnippet>283</a>    <span class="kw">let </span>(live, dropped): (Vec&lt;<span class="kw-2">&amp;</span>PreservedSheet&gt;, Vec&lt;<span class="kw-2">&amp;</span>PreservedSheet&gt;) = p.sheets.iter().partition(|s| chart_sheet_usable(wb, p, s));
+<a href=#284 id=284 data-nosnippet>284</a>    <span class="kw">let </span>root_of = |s: <span class="kw-2">&amp;</span>PreservedSheet| p.rels.iter().find(|r| r.id == s.rel_id);
+<a href=#285 id=285 data-nosnippet>285</a>    <span class="kw">let </span>dropped_ids: HashSet&lt;<span class="kw-2">&amp;</span>str&gt; = dropped.iter().map(|s| s.rel_id.as_str()).collect();
+<a href=#286 id=286 data-nosnippet>286</a>    <span class="comment">// Parts reached only by dropped chart sheets go with them.
+<a href=#287 id=287 data-nosnippet>287</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>gone: HashSet&lt;String&gt; = dropped.iter().filter_map(|s| root_of(s)).flat_map(|r| reachable(p, r)).collect();
+<a href=#288 id=288 data-nosnippet>288</a>    <span class="kw">if </span>!gone.is_empty() {
+<a href=#289 id=289 data-nosnippet>289</a>        <span class="kw">let </span>others = p.rels.iter().filter(|r| !dropped_ids.contains(r.id.as_str())).flat_map(|r| reachable(p, r));
+<a href=#290 id=290 data-nosnippet>290</a>        <span class="kw">for </span>n <span class="kw">in </span>others {
+<a href=#291 id=291 data-nosnippet>291</a>            gone.remove(<span class="kw-2">&amp;</span>n);
+<a href=#292 id=292 data-nosnippet>292</a>        }
+<a href=#293 id=293 data-nosnippet>293</a>    }
+<a href=#294 id=294 data-nosnippet>294</a>    <span class="kw">let </span>parts: Vec&lt;PreservedPart&gt; = p.parts.iter().filter(|q| !gone.contains(<span class="kw-2">&amp;</span>normalize(<span class="kw-2">&amp;</span>q.name))).cloned().collect();
+<a href=#295 id=295 data-nosnippet>295</a>    <span class="kw">let </span>rels: Vec&lt;PreservedRel&gt; = p.rels.iter().filter(|r| !dropped_ids.contains(r.id.as_str())).cloned().collect();
+<a href=#296 id=296 data-nosnippet>296</a>    <span class="kw">let </span>names = write_parts(out, <span class="kw-2">&amp;</span>parts);
+<a href=#297 id=297 data-nosnippet>297</a>    <span class="kw">let </span>ids = attach(wb_rels, <span class="kw-2">&amp;</span>rels, <span class="kw-2">&amp;</span>names);
+<a href=#298 id=298 data-nosnippet>298</a>    <span class="kw">for </span>r <span class="kw">in </span><span class="kw-2">&amp;</span>p.package_rels {
+<a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(target) = rel_target(r, <span class="kw-2">&amp;</span>names) {
+<a href=#300 id=300 data-nosnippet>300</a>            out.kept.root.push((r.rel_type.clone(), target, r.external));
+<a href=#301 id=301 data-nosnippet>301</a>        }
+<a href=#302 id=302 data-nosnippet>302</a>    }
+<a href=#303 id=303 data-nosnippet>303</a>    WorkbookKept {
+<a href=#304 id=304 data-nosnippet>304</a>        elements: p.elements.iter().filter(|e| e.slot == <span class="string">"externalReferences"</span>).filter_map(|e| remap(<span class="kw-2">&amp;</span>e.xml, <span class="kw-2">&amp;</span>ids)).collect(),
+<a href=#305 id=305 data-nosnippet>305</a>        sheets: live
+<a href=#306 id=306 data-nosnippet>306</a>            .iter()
+<a href=#307 id=307 data-nosnippet>307</a>            .filter_map(|s| {
+<a href=#308 id=308 data-nosnippet>308</a>                <span class="prelude-val">Some</span>(KeptSheet {
+<a href=#309 id=309 data-nosnippet>309</a>                    before: s.before,
+<a href=#310 id=310 data-nosnippet>310</a>                    name: s.name.clone(),
+<a href=#311 id=311 data-nosnippet>311</a>                    visibility: s.visibility,
+<a href=#312 id=312 data-nosnippet>312</a>                    rid: ids.get(<span class="kw-2">&amp;</span>s.rel_id)<span class="question-mark">?</span>.clone(),
+<a href=#313 id=313 data-nosnippet>313</a>                    sheet_id: s.sheet_id,
+<a href=#314 id=314 data-nosnippet>314</a>                })
+<a href=#315 id=315 data-nosnippet>315</a>            })
+<a href=#316 id=316 data-nosnippet>316</a>            .collect(),
+<a href=#317 id=317 data-nosnippet>317</a>    }
+<a href=#318 id=318 data-nosnippet>318</a>}
+<a href=#319 id=319 data-nosnippet>319</a>
+<a href=#320 id=320 data-nosnippet>320</a><span class="doccomment">/// The workbook's kept elements of `slot` that refer to no part (`fileVersion`, `ext`).
+<a href=#321 id=321 data-nosnippet>321</a></span><span class="kw">pub fn </span>workbook_elements(wb: <span class="kw-2">&amp;</span>Workbook, slot: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href=#322 id=322 data-nosnippet>322</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(p) = wb.preserved.as_deref() <span class="kw">else </span>{ <span class="kw">return </span>String::new() };
+<a href=#323 id=323 data-nosnippet>323</a>    p.elements.iter().filter(|e| e.slot == slot).map(|e| e.xml.as_str()).collect()
+<a href=#324 id=324 data-nosnippet>324</a>}
+<a href=#325 id=325 data-nosnippet>325</a>
+<a href=#326 id=326 data-nosnippet>326</a><span class="doccomment">/// Adds the kept package-root relationships (custom properties…) to `_rels/.rels`.
+<a href=#327 id=327 data-nosnippet>327</a></span><span class="kw">pub fn </span>write_package_rels(root: <span class="kw-2">&amp;mut </span>Rels, out: <span class="kw-2">&amp;mut </span>Out) {
+<a href=#328 id=328 data-nosnippet>328</a>    <span class="kw">for </span>(ty, target, external) <span class="kw">in </span>std::mem::take(<span class="kw-2">&amp;mut </span>out.kept.root) {
+<a href=#329 id=329 data-nosnippet>329</a>        root.add_raw(<span class="kw-2">&amp;</span>ty, <span class="kw-2">&amp;</span>target, external);
+<a href=#330 id=330 data-nosnippet>330</a>    }
+<a href=#331 id=331 data-nosnippet>331</a>}
+</code></pre></div></section></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MONTHS","WEEKDAYS"],"enum":["DateSystem"],"fn":["civil_from_days","datetime_from_serial","days_from_civil","days_in_month","days_in_month_in","is_leap","max_serial","serial_from_unix_ms","serial_from_ymd","serial_in_system","time_fraction","unix_now_ms"],"struct":["DateTime"]};

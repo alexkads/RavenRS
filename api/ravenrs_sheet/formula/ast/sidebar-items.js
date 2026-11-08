@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BinOp","Expr","RefKind","SheetSel","StructItem","TrimMode","UnOp"],"struct":["Anchor","Reference","StructRef"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_TIME_LIMIT_MS","MAX_EXECUTED_STEPS","MAX_INPUT_CELLS","MAX_PARAM_BYTES"],"fn":["approve","begin","check","check_params","footprint","gate","make_way","prepare","rolled_back","run"],"struct":["Begun","Footprint","Machine","Prepared","SheetFootprint","StepError","Stopwatch"],"type":["Bound"]};

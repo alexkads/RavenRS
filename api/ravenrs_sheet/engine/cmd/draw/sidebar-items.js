@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["ink_points","ink_width","specs"]};

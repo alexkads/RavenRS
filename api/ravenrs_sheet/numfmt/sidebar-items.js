@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_FORMAT_CODE_CHARS"],"enum":["FormatColor","FormatKind"],"fn":["builtin_format","builtin_id","format_general_fit","format_value","text_function"],"struct":["Formatted","NumberFormat"]};

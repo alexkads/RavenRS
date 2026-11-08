@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_SPIN_COUNT","MAX_SPIN_COUNT"],"enum":["PasswordHash"],"fn":["legacy_hash","salt_from"]};

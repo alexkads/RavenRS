@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["HAlign","Prim","Swatch","VAlign"],"fn":["default_palette","format_number","legend_entries","nice_scale","rasterize","render","render_sparkline","resolve","series_color","series_plot_kind","supports_trendline"],"struct":["ApproxMeasure","ChartData","Scale","SeriesData","TrendlineData"],"trait":["Measure"],"type":["Rgba"]};

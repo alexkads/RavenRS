@@ -1,0 +1,53 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Declares a struct as a business object: an entity for the model, and the way to and from a record."><title>BusinessObject in ravenrs_app - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ravenrs_app" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc derive"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">BusinessObject</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ravenrs_app/index.html">ravenrs_<wbr>app</a><span class="version">27.1.21</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">ravenrs_app</a></div><h1>Derive Macro <span class="derive">Business<wbr>Object</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ravenrs_app_derive/lib.rs.html#63">Source</a> </span></div><pre class="rust item-decl"><code>#[derive(BusinessObject)]
+{
+    <span class="comment">// Attributes available to this derive:</span>
+    #[object]
+    #[field]
+    #[rule]
+    #[appearance]
+    #[variant]
+    #[list_filter]
+    #[action]
+}
+</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Declares a struct as a business object: an entity for the model, and the way to and from
+a record.</p>
+<p>On the struct, <code>#[object(caption = "...", navigation = "...", icon = "...", list_criteria = "...", form_columns = 2, cloneable, transient, checks_on_leave, list_editable, data_access = "server", form_actions = "name", focus_order = "a,b")]</code>, where <code>data_access</code> is
+<code>client</code>, <code>server</code> or <code>data_view</code>, and <code>focus_order</code> the fields the form goes through first.</p>
+<p>On a field, <code>#[field(...)]</code>:</p>
+<ul>
+<li><code>key</code> numbered by the application, or <code>typed_key</code> typed by people. Exactly one field has one.
+With <code>guid</code>, a <code>key</code> is made up when a record is created instead of being numbered.</li>
+<li><code>caption = "..."</code> what people see.</li>
+<li><code>default_property</code> what names a record. <code>read_only</code>. <code>no_list</code>, <code>no_detail</code>, <code>lookup</code>.</li>
+<li>What it holds, when the type does not say: <code>money</code>, <code>long</code>, <code>color</code>, <code>date</code>, <code>guid</code>,
+<code>decimals = 2</code>, <code>reference = "Entity"</code>, <code>collection = "Entity"</code>, <code>tags = "a,b"</code>.</li>
+<li><code>calculated = "[a] + [b]"</code>, in the criteria language, checked here.</li>
+<li><code>default = ...</code> what a new record starts with.</li>
+<li><code>required</code>, <code>unique</code>, <code>min = 1</code>, <code>max = 10</code>, <code>matches = "^[A-Z]+$"</code>: what it has to meet on
+saving, and <code>message = "..."</code> what to say instead of the usual words.</li>
+<li>On a form: <code>editor = "..."</code>, <code>placeholder = "..."</code>, <code>hint = "..."</code>, <code>wide</code>, <code>autofocus</code>,
+<code>group = "..."</code> for the titled group it goes in, <code>edit_mask = "(00) 0000-0000"</code>,
+<code>predefined = "a,b"</code> for values to pick from, <code>criteria_of = "Entity"</code> for a filter builder.</li>
+<li>For screen readers: <code>accessible_name = "..."</code> instead of the caption, and
+<code>accessible_description = "..."</code> instead of the hint.</li>
+<li><code>display_format = "{:.2} %"</code>, how its value shows when it is not being edited.</li>
+<li>On a reference: <code>lookup_filter = "[flow] = ?flow"</code>, <code>none_caption = "..."</code>. On a collection:
+<code>back_reference = "..."</code>, <code>aggregated</code>. <code>secret</code> never leaves a secured space. <code>non_cloneable</code> stays behind on cloning, and
+<code>most_bytes = 1024</code> limits a picture or a file.</li>
+</ul>
+<p>On the struct, as many as needed:</p>
+<ul>
+<li><code>#[rule(criteria = "[a] &lt;= [b]", message = "...", context = "Pay", target = "[c] &gt; 0")]</code>, or
+<code>#[rule(unique = "a,b")]</code>. With <code>warning</code> people can go on anyway, and with <code>information</code> it
+only leaves a note. A message can say <code>{field}</code> and <code>{reference.field}</code>.</li>
+<li><code>#[appearance(names = "a,b*", criteria = "...", font = "danger", back = "warning", bold, enabled = false, visible = false, priority = 1, context = "list", action)]</code>. With <code>layout</code>,
+the names are groups of a form; with <code>action</code>, actions. A context is <code>list</code>, <code>detail</code> or a
+view’s id. Tints are <code>danger</code>, <code>warning</code>, <code>success</code>, <code>accent</code> and <code>muted</code>.</li>
+<li><code>#[action(caption = "...", set = "state = 'done'; finished = Today()", enabled = "...", selection = "many", confirm = "...", id = "...")]</code>: an action that sets fields of the records
+selected, each read from the record as it was, and keeps them once they meet the rules.
+<code>selection</code> is <code>one</code>, <code>many</code> (the default) or <code>any</code>; <code>enabled</code> is what every record selected
+has to meet for it to be on. Both expressions are checked here.</li>
+<li><code>#[variant(id = "...", caption = "...", filter = "...", columns = "a,b")]</code> and
+<code>#[list_filter(id = "...", caption = "...", filter = "...")]</code>, for people to pick on the list.</li>
+</ul>
+</div></details></section></div></main></body></html>

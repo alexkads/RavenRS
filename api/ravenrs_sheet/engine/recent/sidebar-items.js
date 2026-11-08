@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX"],"fn":["defaults","functions_in_formula","push"]};

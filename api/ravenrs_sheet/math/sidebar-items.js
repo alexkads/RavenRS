@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["GALLERY","MAX_DEPTH","MAX_EM","MAX_ITEMS","MAX_SOURCE_BYTES"],"enum":["Face","Item","PathCmd"],"fn":["check","layout","to_omml"],"static":["SOURCE_TOO_LONG"],"struct":["Glyph","MathError","MathList","Path","Rule"]};

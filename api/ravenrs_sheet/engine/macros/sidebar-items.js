@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RESERVED_SHORTCUTS"],"fn":["check","check_new_name","check_room","command_steps","count","find","fingerprint","fit_size","json_bytes","kept_name","load","macro_json","next_name","parse_macro","parse_shortcut","shortcut_conflict","shortcut_text","unique_name","with_names"],"mod":["debug","policy","recorder","resolve","run"]};

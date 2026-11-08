@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["HF_FIELDS","MAX_PAGES"],"fn":["codes_to_fields","expand_header_footer","fields_to_codes","hf_date_time","join_header_footer","layout_sheet","layouts","paper_size","print_range","render_pdf","specs","split_header_footer"],"struct":["HfContext","HfSection","PrintOptions","SheetLayout"]};

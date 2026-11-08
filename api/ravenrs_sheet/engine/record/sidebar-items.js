@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["NOT_RECORDED","RECORD_LIMIT","RECORD_MAX_BYTES"],"struct":["RecordedStep","Recorder"]};

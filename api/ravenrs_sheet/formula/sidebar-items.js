@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FormulaLocale"],"fn":["fold_name","parse_input","print_input","same_name"],"mod":["adjust","ast","lexer","parser","printer"]};

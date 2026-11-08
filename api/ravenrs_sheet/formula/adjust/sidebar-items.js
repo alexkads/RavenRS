@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Axis","Edit"],"fn":["adjust","delete_sheet","has_relative_refs","rename_sheet","shift_relative","shift_relative_wrapping"]};

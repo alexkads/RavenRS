@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["current_year","number_stored_as_text","parse_input","parse_number_text","parse_number_text_in"],"struct":["Parsed"]};

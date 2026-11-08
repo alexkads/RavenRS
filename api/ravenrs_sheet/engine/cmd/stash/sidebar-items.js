@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ESCAPE","MAX_ITEMS","MAX_ITEM_CHARS"],"fn":["chunk_formulas","get","get_json","holds_item","item_key","items","keys","remove","set","set_json","set_many","string_literals"],"struct":["Listing"]};

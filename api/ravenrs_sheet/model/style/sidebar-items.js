@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BorderStyle","Color","HAlign","PatternType","Underline","VAlign","VertAlign"],"fn":["apply_tint"],"struct":["Alignment","BorderLine","Borders","DxfStated","Fill","Font","NumFmt","Protection","Style","StyleId","StyleTable","Theme"]};

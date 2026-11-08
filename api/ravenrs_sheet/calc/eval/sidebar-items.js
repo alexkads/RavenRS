@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_CELLS","SPECIAL_FUNCTIONS"],"enum":["Ev"],"fn":["binary_values","is_known_function","precedents","r1c1_to_a1","resized_sum_range","zip2"],"struct":["Area","Evaluator","Lambda"],"trait":["Host"]};

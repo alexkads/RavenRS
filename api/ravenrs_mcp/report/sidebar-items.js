@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EXPRESSION_KEYS"],"fn":["check","check_report","create","expressions","format","kind_of","names","sample_row","schema_of","slug","templates"],"struct":["ColumnInput","CreateInput","FieldInput"],"type":["Template"]};

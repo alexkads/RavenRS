@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SAMPLES"],"fn":["blank_sheet","build","title"]};

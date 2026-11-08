@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SankeyAlign","SankeyError","SankeyHit"],"fn":["check","layout"],"struct":["SankeyFlow","SankeyLayout","SankeyLink","SankeyNode","SankeyStyle"]};
