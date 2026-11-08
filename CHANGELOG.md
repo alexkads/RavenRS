@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.21] - 2026-11-08
+
 ### Breaking
 
 - `MotionTokens` has a `draw_in` field (the `duration-draw` token, `Transition::draw_in`): code that builds it field by field adds `draw_in: Transition::draw_in()`.
@@ -27,6 +29,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Fixed
 
 - `CodeEditor`'s line numbers keep their background down to the bottom of the editor, even when the code ends higher, and no longer cover the editor's border.
+- An optimized build with the `live` feature never ended: `#[ravenrs_live::expose]` wrote `Name { .. }` for a struct as one expression with every field, and for `Labels`, with hundreds, the compiler worked on it for hours. A struct with more than 32 fields is now built from `..base`, or from its `Default` when every field is given, one field at a time. `ravenrs-widgets` with `live` builds in release in about a minute and a half.
 - On a component's page the playground fits its box: every line of the code and the status under it show, the code gets the wider side (the result starts at 40%), and an example taller than the room scrolls in the result instead of pushing the rest out. `Playground::output_open(false)` starts the output folded, as the component pages do; a problem opens it. The page's code block shows the `use` lines the playground shows.
 - `CodeEditor` scrolls sideways: a line longer than the editor no longer gets cut. The wheel or trackpad moves it, the caret brings its column into view as it moves or types, and the line numbers stay put over the code that passes under them. Shift with a wheel that only goes up and down scrolls sideways on the desktop, as browsers do.
 - An `Action` changed through a copy, as the playground's interpreter makes one, kept none of the change: `selection`, `on_execute` and the rest were lost without a word. The change now goes to an action of its own. `ActionContext` copies too, so a closure written in the playground gets it instead of `()`.

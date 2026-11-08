@@ -61,3 +61,27 @@ fn what_it_does_not_know_comes_back_with_its_place() {
         .expect("refused");
     assert!(problems[0].message.contains("wobble"), "{}", problems[0].message);
 }
+
+#[test]
+fn a_struct_with_hundreds_of_fields_is_written_from_another() {
+    // `Labels` is built field by field, so an optimized build of it stays quick.
+    let source = r#"
+        fn f() -> impl View {
+            let labels = Labels { close: "Fechar".to_owned(), ..Labels::default() };
+            Text::new(labels.close)
+        }
+    "#;
+    let view = LiveRunner::new().run(source).unwrap_or_else(|e| panic!("{e:?}"));
+    assert!(says(&mut shown(view), "Fechar"));
+
+    let problems = LiveRunner::new()
+        .run("fn f() -> impl View {\n    let labels = Labels { close: \"x\".to_owned() };\n    Text::new(labels.close)\n}")
+        .err()
+        .expect("refused");
+    assert!(problems[0].message.contains("is missing"), "{}", problems[0].message);
+    let problems = LiveRunner::new()
+        .run("fn f() -> impl View {\n    let labels = Labels { shut: \"x\".to_owned(), ..Labels::default() };\n    Text::new(labels.close)\n}")
+        .err()
+        .expect("refused");
+    assert!(problems[0].message.contains("no field `shut`"), "{}", problems[0].message);
+}
