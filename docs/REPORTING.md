@@ -125,3 +125,7 @@ Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every
 * **XLSX cells come from the `Document`, not the data.** A text box keeps the value behind its text, so a spreadsheet gets real numbers and dates on a grid that matches the page. Pages flow into one sheet; the page header prints once and page footers, whose page numbers would mean nothing there, are left out.
 * **Points (1/72 in) as the document unit;** the viewer scales to the screen.
 * **Layout separate from rendering:** the paginator produces a `Document` once, and the viewer and every exporter consume it, so they cannot drift apart.
+
+## Showing pages elsewhere
+
+`PageFan` (in `ravenrs-report-viewer`) shows real pages of rendered documents spread like a hand of cards, for pages that present reporting: each page is painted once with `paint_page` and reused, opens as the fan scrolls into view, comes forward under the pointer or keyboard focus, and opens its address when clicked.

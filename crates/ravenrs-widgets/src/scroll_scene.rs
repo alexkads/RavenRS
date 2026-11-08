@@ -26,7 +26,7 @@ use std::rc::Rc;
 
 use ravenrs_animation::Easing;
 use ravenrs_core::{Effect, Insets, Rect};
-use ravenrs_layout::{Axis, LayoutStyle};
+use ravenrs_layout::{Align, Axis, LayoutStyle};
 
 use crate::View;
 use crate::context::{BuildCx, NodeId, Paint};
@@ -225,7 +225,11 @@ impl<C: View> Sticky<C> {
 impl<C: View> View for Sticky<C> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let child = cx.child(&self.content);
-        let node = cx.container(LayoutStyle::stack(Axis::Vertical), &[child], Paint::None);
+        let node = cx.container(
+            LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            &[child],
+            Paint::None,
+        );
         cx.pin(node, self.top);
         node
     }
@@ -264,10 +268,15 @@ impl<C: View> ScrollScene<C> {
 impl<C: View> View for ScrollScene<C> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let child = cx.child(&self.content);
-        let pinned = cx.container(LayoutStyle::stack(Axis::Vertical), &[child], Paint::None);
+        let pinned = cx.container(
+            LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            &[child],
+            Paint::None,
+        );
         cx.pin(pinned, self.top);
         let style = LayoutStyle {
             padding: Insets { bottom: self.length, ..Insets::ZERO },
+            align: Align::Stretch,
             ..LayoutStyle::stack(Axis::Vertical)
         };
         let track = cx.container(style, &[pinned], Paint::None);
@@ -295,7 +304,11 @@ impl<C: View> ScrollLinked<C> {
 impl<C: View> View for ScrollLinked<C> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let child = cx.child(&self.content);
-        let node = cx.container(LayoutStyle::stack(Axis::Vertical), &[child], Paint::None);
+        let node = cx.container(
+            LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            &[child],
+            Paint::None,
+        );
         cx.scroll_linked(node, self.link.clone());
         node
     }

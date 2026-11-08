@@ -18,13 +18,15 @@ fi
 ./scripts/build-web.sh feature-center
 ./scripts/build-web.sh component-gallery
 ./scripts/build-web.sh report-designer
-cargo doc --no-deps --workspace --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude family-finance --quiet
+./scripts/build-web.sh site-home
+cargo doc --no-deps --workspace --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude site-home --exclude family-finance --quiet
 ./scripts/check-component-list.py
 
 site="$(mktemp -d)"
 trap 'rm -rf "$site"' EXIT
 mkdir -p "$site/demo" "$site/quick" "$site/hello" "$site/designer" "$site/assets" "$site/components"
-cp site/index.html "$site/"
+# The home page is a RavenRS app: its page and its WebAssembly go at the root.
+cp -R examples/site-home/web/. "$site/"
 cp -R site/components/. "$site/components/"
 ./scripts/gen-component-pages.py "$site/components"
 cp -R examples/component-gallery/web/. "$site/demo/"

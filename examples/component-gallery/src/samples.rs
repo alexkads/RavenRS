@@ -49,7 +49,7 @@ samples! {
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
     "Chart" => chart, "ChartReference" => chart_reference, "SankeyChart" => sankey_chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
-    "ScrollView" => scroll_view, "ScrollScene" => scroll_scene, "ScrollLinked" => scroll_linked, "Sticky" => sticky, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "DockArea" => dock_area, "Card" => card, "GlassCard" => glass_card,
+    "ScrollView" => scroll_view, "ScrollScene" => scroll_scene, "ScrollLinked" => scroll_linked, "Sticky" => sticky, "Link" => link, "Ticker" => ticker, "CountUp" => count_up, "Anchor" => anchor, "QuadField" => quad_field, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "DockArea" => dock_area, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
     "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "RichText" => rich_text, "AttachmentStrip" => attachment_strip, "AudioPlayerButton" => audio_player_button, "SelectionBar" => selection_bar, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
@@ -1287,6 +1287,90 @@ fn sticky() -> impl View {
             .spacing(8.0)
     };
     ScrollView::new((section("Inputs"), section("Overlays"), section("Data"))).spacing(16.0).height(220.0)
+}
+// end
+
+// sample: Link, 120
+fn link() -> impl View {
+    VStack::new((
+        Link::new(
+            "Read the getting started guide",
+            "https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md",
+        )
+        .icon(IconName::ArrowRight),
+        Link::new("Components", "https://alexkads.github.io/RavenRS/components/").muted(),
+    ))
+    .spacing(4.0)
+}
+// end
+
+// sample: Ticker, 120
+fn ticker() -> impl View {
+    let chips = HStack::new((
+        Badge::new("Button").tone(Tone::Accent),
+        Badge::new("DataGrid"),
+        Badge::new("Scheduler").tone(Tone::Success),
+        Badge::new("Ribbon"),
+        Badge::new("Chart").tone(Tone::Warning),
+        Badge::new("CommandPalette"),
+    ))
+    .spacing(10.0);
+    VStack::new((Ticker::new(chips).speed(40.0).gap(10.0),)).padding(8.0)
+}
+// end
+
+// sample: CountUp, 140
+fn count_up() -> impl View {
+    HStack::new((
+        VStack::new((
+            Text::new("ROWS").style(TextStyle::Caption).foreground(Semantic::InkMuted),
+            CountUp::new(100_000.0),
+        ))
+        .spacing(4.0),
+        VStack::new((
+            Text::new("COMPONENTS").style(TextStyle::Caption).foreground(Semantic::InkMuted),
+            CountUp::new(160.0).format(|v| format!("{v:.0}+")),
+        ))
+        .spacing(4.0),
+    ))
+    .spacing(48.0)
+}
+// end
+
+// sample: Anchor, 240
+fn anchor() -> impl View {
+    let rows: Vec<AnyView> = (1..=12).map(|n| Box::new(Text::new(format!("Row {n}"))) as AnyView).collect();
+    ScrollView::new((
+        Link::new("Jump to the summary", "#summary"),
+        VStack::new(rows).spacing(8.0),
+        Anchor::new("summary", Text::new("Summary").style(TextStyle::Title)),
+        Canvas::new(|_, _| {}).size(10.0, 160.0),
+    ))
+    .spacing(12.0)
+    .height(200.0)
+}
+// end
+
+// sample: QuadField, 320
+fn quad_field() -> impl View {
+    // Scroll inside: the waving floor stands up into a small dashboard.
+    let picture = |u: f32, v: f32, time: f64| {
+        let bar = ((u - 0.1) / 0.1).floor();
+        let height = 0.35 + 0.25 * (bar * 1.7 + time as f32).sin().abs();
+        if v < 0.15 {
+            Color::hex(0x222734)
+        } else if (0.1..0.9).contains(&u) && v > 0.9 - height {
+            Color::hex(0x4c66ee)
+        } else {
+            Color::hex(0x12151c)
+        }
+    };
+    ScrollView::new((
+        ScrollScene::new(QuadField::new(64, 36, picture).height(280.0)).length(600.0),
+        Canvas::new(|_, _| {}).size(10.0, 400.0),
+    ))
+    .spacing(0.0)
+    .height(280.0)
 }
 // end
 

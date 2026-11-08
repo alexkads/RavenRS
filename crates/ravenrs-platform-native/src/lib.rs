@@ -290,6 +290,7 @@ fn run_window(
     }
     ui.set_sound(sound::SystemSound::default());
     ui.set_file_picker(files::SystemFilePicker);
+    ui.set_links(SystemLinks);
     let answer = event_loop.create_proxy();
     let tray_notify: tray::Notify = Arc::new(move |action| {
         // It only fails once the loop is gone, when there is nothing left to tell.
@@ -970,6 +971,18 @@ impl ApplicationHandler<UserEvent> for App {
             WindowEvent::Focused(false) => self.dispatch(Event::FocusLost),
             WindowEvent::RedrawRequested => self.redraw(),
             _ => {}
+        }
+    }
+}
+
+/// Opens web addresses in the system's browser. Other addresses (relative paths, other
+/// schemes) are refused there, so they are only logged.
+struct SystemLinks;
+
+impl ravenrs_widgets::LinkOpener for SystemLinks {
+    fn open(&self, url: &str) {
+        if let Err(e) = files::open_url(url) {
+            tracing::warn!(url, error = %e, "the address did not open");
         }
     }
 }

@@ -110,7 +110,25 @@ struct State {
     diagnostics: Diagnostics,
     /// The diagnostics panel is open, so the frames are being looked at closely.
     looking: bool,
+    /// The graphics API the page started on, to start the same one after a device loss.
+    backends: wgpu::Backends,
+    /// A scroll still gliding after the finger lifted.
+    fling: Option<Fling>,
 }
+
+/// Momentum after a touch scroll: where it scrolls, how fast (pixels a second) and when
+/// it last moved.
+#[derive(Clone, Copy)]
+struct Fling {
+    at: Point,
+    velocity: Point,
+    last: f64,
+}
+
+/// Each second of gliding keeps this share of the speed, as touch scrolling does on phones.
+const FLING_KEEP_PER_SECOND: f64 = 0.135;
+/// Slower than this, in pixels a second, a glide stops.
+const FLING_STOP: f32 = 20.0;
 
 /// Schedules at most one `requestAnimationFrame` at a time. Kept apart from
 /// `State` so it can be called while `State` is borrowed (e.g. from a click
@@ -251,6 +269,9 @@ struct TouchScroll {
     start: Point,
     last: Point,
     scrolling: bool,
+    /// The finger's recent speed in pixels a second, and when it was last measured.
+    velocity: Point,
+    stamp: f64,
 }
 
 fn is_dragging(state: &Rc<RefCell<State>>) -> bool {
@@ -395,6 +416,19 @@ impl ravenrs_widgets::FilePickerProvider for BrowserFilePicker {
 
 /// Copies through `navigator.clipboard`. Reading is asynchronous in the
 /// browser, so pasting is left to the browser: it arrives as typed text.
+/// Navigates the page to the address, as a link on a web page does.
+struct BrowserLinks;
+
+impl ravenrs_widgets::LinkOpener for BrowserLinks {
+    fn open(&self, url: &str) {
+        if let Some(location) = web_sys::window().map(|w| w.location())
+            && let Err(e) = location.assign(url)
+        {
+            tracing::warn!(url, error = ?e, "the address did not open");
+        }
+    }
+}
+
 struct BrowserClipboard;
 
 impl ravenrs_widgets::ClipboardProvider for BrowserClipboard {
@@ -614,6 +648,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     });
     let mut ui = Ui::new(DiagnosticsHost::new(root, diagnostics.clone()), options.theme);
     ui.set_clipboard(BrowserClipboard);
+    ui.set_links(BrowserLinks);
     ui.set_file_picker(BrowserFilePicker);
     ui.set_sound(BrowserSound::default());
     let (css, dpr) = measure(&canvas);
@@ -626,6 +661,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     canvas.style().set_property("outline", "none").ok();
     canvas.style().set_property("touch-action", "none").ok();
 
+    let backends = gpu.backends;
     let state = Rc::new(RefCell::new(State {
         ui,
         canvas: canvas.clone(),
@@ -635,6 +671,8 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         mirror: None,
         diagnostics,
         looking: false,
+        backends,
+        fling: None,
     }));
 
     // The frame callback.
@@ -691,7 +729,17 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                         e.prevent_default();
                         focus_text_input.focus().ok();
                         if is_touch {
-                            touch.set(Some(TouchScroll { start: p, last: p, scrolling: false }));
+                            touch.set(Some(TouchScroll {
+                                start: p,
+                                last: p,
+                                scrolling: false,
+                                velocity: Point::ZERO,
+                                stamp: now_seconds(),
+                            }));
+                            // A finger on the page stops a glide, as on a phone.
+                            if let Ok(mut s) = state.try_borrow_mut() {
+                                s.fling = None;
+                            }
                         }
                     }
                     "pointermove" if is_touch => {
@@ -707,6 +755,16 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                                 }
                                 let delta = Point::new(p.x - t.last.x, p.y - t.last.y);
                                 dispatch(&state, &sched, Event::Scroll { position: t.start, delta });
+                                let now = now_seconds();
+                                let dt = (now - t.stamp) as f32;
+                                if dt > 0.0 {
+                                    let seen = Point::new(delta.x / dt, delta.y / dt);
+                                    t.velocity = Point::new(
+                                        t.velocity.x * 0.2 + seen.x * 0.8,
+                                        t.velocity.y * 0.2 + seen.y * 0.8,
+                                    );
+                                    t.stamp = now;
+                                }
                                 t.last = p;
                                 touch.set(Some(t));
                                 return;
@@ -715,8 +773,19 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                     }
                     "pointerup" | "pointercancel" => {
                         canvas.release_pointer_capture(e.pointer_id()).ok();
-                        let was_scrolling = touch.take().is_some_and(|t| t.scrolling);
-                        if was_scrolling {
+                        let ended = touch.take();
+                        if let Some(t) = ended.filter(|t| t.scrolling) {
+                            // A finger that was still moving when it lifted sends the page on.
+                            let now = now_seconds();
+                            let speed = t.velocity.x.hypot(t.velocity.y);
+                            if now - t.stamp < 0.1
+                                && speed > 2.0 * FLING_STOP
+                                && let Ok(mut s) = state.try_borrow_mut()
+                            {
+                                s.fling = Some(Fling { at: t.start, velocity: t.velocity, last: now });
+                                drop(s);
+                                sched.schedule();
+                            }
                             return;
                         }
                     }
@@ -1051,6 +1120,22 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
     let Ok(mut s) = state.try_borrow_mut() else { return };
     let s = &mut *s;
 
+    if let Some(mut fling) = s.fling {
+        let now = now_seconds();
+        let dt = (now - fling.last).clamp(0.0, 0.05);
+        let delta = Point::new(fling.velocity.x * dt as f32, fling.velocity.y * dt as f32);
+        s.ui.set_time(now);
+        let moved = s.ui.handle_event(&Event::Scroll { position: fling.at, delta });
+        let keep = FLING_KEEP_PER_SECOND.powf(dt) as f32;
+        fling.velocity = Point::new(fling.velocity.x * keep, fling.velocity.y * keep);
+        fling.last = now;
+        // It stops when it slows down or reaches the end of what scrolls.
+        s.fling = (moved && fling.velocity.x.hypot(fling.velocity.y) > FLING_STOP).then_some(fling);
+        if s.fling.is_some() {
+            scheduler.schedule();
+        }
+    }
+
     if s.gpu.as_ref().is_some_and(|g| g.lost.load(Ordering::SeqCst)) {
         s.gpu = None;
     }
@@ -1058,7 +1143,7 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
         if !s.recovering {
             s.recovering = true;
             let (state, sched, canvas) = (state.clone(), scheduler.clone(), s.canvas.clone());
-            let backends = s.gpu.as_ref().map_or(wgpu::Backends::BROWSER_WEBGPU, |g| g.backends);
+            let backends = s.backends;
             wasm_bindgen_futures::spawn_local(async move {
                 let result = create_gpu(&canvas, &sched, backends).await;
                 let Ok(mut s) = state.try_borrow_mut() else { return };
