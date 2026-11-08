@@ -847,6 +847,16 @@ impl Database {
 
     /// Income and expenses for the `count` months ending at `last`, oldest first; empty months included.
     pub fn monthly_totals(&self, last: Date, count: u32) -> DbResult<Vec<MonthTotals>> {
+        self.monthly_totals_of(last, count, None)
+    }
+
+    /// The same, only of `account` when one is given.
+    pub fn monthly_totals_of(
+        &self,
+        last: Date,
+        count: u32,
+        account: Option<i64>,
+    ) -> DbResult<Vec<MonthTotals>> {
         let first = last.first_of_month().add_months(1 - count as i32);
         let (_, end) = month_range(last);
         let mut months: Vec<MonthTotals> = (0..count)
@@ -857,9 +867,9 @@ impl Database {
             .collect();
         let mut query = self.conn.prepare_cached(
             "SELECT substr(date, 1, 7), flow, SUM(amount_cents) FROM transactions
-             WHERE date >= ?1 AND date < ?2 GROUP BY 1, 2",
+             WHERE date >= ?1 AND date < ?2 AND (?3 IS NULL OR account_id = ?3) GROUP BY 1, 2",
         )?;
-        let rows = query.query_map([first.to_string(), end.to_string()], |r| {
+        let rows = query.query_map(params![first.to_string(), end.to_string(), account], |r| {
             Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?))
         })?;
         for row in rows {
@@ -876,29 +886,39 @@ impl Database {
 
     /// Income and expenses from `from` up to, but not including, `to`.
     pub fn totals_between(&self, from: Date, to: Date) -> DbResult<MonthTotals> {
+        self.totals_between_of(from, to, None)
+    }
+
+    /// The same, only of `account` when one is given.
+    pub fn totals_between_of(&self, from: Date, to: Date, account: Option<i64>) -> DbResult<MonthTotals> {
         let mut query = self.conn.prepare_cached(
             "SELECT COALESCE(SUM(CASE flow WHEN 'income' THEN amount_cents END), 0),
                     COALESCE(SUM(CASE flow WHEN 'expense' THEN amount_cents END), 0)
-             FROM transactions WHERE date >= ?1 AND date < ?2",
+             FROM transactions WHERE date >= ?1 AND date < ?2 AND (?3 IS NULL OR account_id = ?3)",
         )?;
-        Ok(query.query_row([from.to_string(), to.to_string()], |r| {
+        Ok(query.query_row(params![from.to_string(), to.to_string(), account], |r| {
             Ok(MonthTotals { month: String::new(), income_cents: r.get(0)?, expense_cents: r.get(1)? })
         })?)
     }
 
     /// The total balance at the end of each of the `count` months ending at `last`, oldest first.
     pub fn balance_history(&self, last: Date, count: u32) -> DbResult<Vec<i64>> {
+        self.balance_history_of(last, count, None)
+    }
+
+    /// The same, only of `account` when one is given: its opening balance and its transactions.
+    pub fn balance_history_of(&self, last: Date, count: u32, account: Option<i64>) -> DbResult<Vec<i64>> {
         let first = last.first_of_month().add_months(1 - count as i32);
         let opening: i64 = self.conn.query_row(
-            "SELECT (SELECT COALESCE(SUM(opening_cents), 0) FROM accounts)
+            "SELECT (SELECT COALESCE(SUM(opening_cents), 0) FROM accounts WHERE ?2 IS NULL OR id = ?2)
                   + COALESCE((SELECT SUM(CASE flow WHEN 'income' THEN amount_cents ELSE -amount_cents END)
-                              FROM transactions WHERE date < ?1), 0)",
-            [first.to_string()],
+                              FROM transactions WHERE date < ?1 AND (?2 IS NULL OR account_id = ?2)), 0)",
+            params![first.to_string(), account],
             |r| r.get(0),
         )?;
         let mut balance = opening;
         Ok(self
-            .monthly_totals(last, count)?
+            .monthly_totals_of(last, count, account)?
             .into_iter()
             .map(|m| {
                 balance += m.income_cents - m.expense_cents;
@@ -909,14 +929,21 @@ impl Database {
 
     /// What each expense category spent in `month` against its limit, biggest spender first.
     pub fn budget_lines(&self, month: Date) -> DbResult<Vec<BudgetLine>> {
+        self.budget_lines_of(month, None)
+    }
+
+    /// The same, counting only what left `account` when one is given. The limits stay the
+    /// family's: they are not split between accounts.
+    pub fn budget_lines_of(&self, month: Date, account: Option<i64>) -> DbResult<Vec<BudgetLine>> {
         let (from, to) = month_range(month);
         let mut query = self.conn.prepare_cached(
             "SELECT c.id, c.name, c.budget_cents, COALESCE(SUM(t.amount_cents), 0)
              FROM categories c
              LEFT JOIN transactions t ON t.category_id = c.id AND t.flow = 'expense' AND t.date >= ?1 AND t.date < ?2
+                  AND (?3 IS NULL OR t.account_id = ?3)
              WHERE c.flow = 'expense' GROUP BY c.id ORDER BY 4 DESC, c.name",
         )?;
-        let rows = query.query_map([from.to_string(), to.to_string()], |r| {
+        let rows = query.query_map(params![from.to_string(), to.to_string(), account], |r| {
             Ok(BudgetLine {
                 category_id: r.get(0)?,
                 category: r.get(1)?,

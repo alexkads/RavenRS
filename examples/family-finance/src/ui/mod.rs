@@ -120,6 +120,7 @@ impl App {
         let training = training::TrainingState::new(path.as_deref());
         let sidebar = Self::remembered_menu(path.as_deref());
         let (ledger, bills) = (LedgerState::new(today, path.as_deref()), BillsState::new(path.as_deref()));
+        let dashboard = DashboardState::new(path.as_deref());
         let mut store = Store::new(db, today, path, updater);
         store.diagnostics = diagnostics;
         let recorder = FlightRecorder::new(FLIGHT_SECONDS);
@@ -135,7 +136,7 @@ impl App {
             recorder,
             reporter,
             forms: Forms::new(),
-            dashboard: DashboardState::new(),
+            dashboard,
             ledger,
             bills,
             agenda: AgendaState::new(today),

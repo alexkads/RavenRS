@@ -538,3 +538,80 @@ fn the_parts_of_a_screen_fold_and_unfold_in_the_menu() {
     press(&mut ui, Role::Button, "Contas a pagar");
     assert_eq!(unfolded(&mut ui), Some(true), "coming back opens it");
 }
+
+/// The number a `Stat` shows: the text right after its label, which it writes in capitals.
+fn stat(ui: &mut Ui, label: &str) -> Option<String> {
+    let tree = ui.access_tree();
+    let at = tree.nodes.iter().position(|n| n.name.as_deref() == Some(label.to_uppercase().as_str()))?;
+    tree.nodes.get(at + 1)?.name.clone()
+}
+
+fn choose_account(ui: &mut Ui, account: &str) {
+    press(ui, Role::ComboBox, "Conta");
+    press(ui, Role::ListBoxOption, account);
+}
+
+#[test]
+fn the_dashboard_shows_one_account_and_remembers_it() {
+    let folder = std::env::temp_dir().join(format!("family-finance-app-{}-account", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    let path = folder.join("financas.db");
+    let open = || {
+        let db = Database::open(&path).expect("database");
+        if db.is_empty().expect("empty") {
+            seed::load_demo(&db, today()).expect("seed");
+        }
+        let wallet =
+            db.accounts().expect("accounts").into_iter().find(|a| a.name == "Carteira").expect("a wallet");
+        let total: i64 = db.accounts().expect("accounts").iter().map(|a| a.balance_cents).sum();
+        let mut ui =
+            Ui::new(App::new(db, today(), Some(path.clone()), Updater::idle()), Theme::raven_light());
+        ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
+        settle(&mut ui);
+        (
+            ui,
+            family_finance::money::format_brl(wallet.balance_cents),
+            family_finance::money::format_brl(total),
+        )
+    };
+
+    let (mut ui, wallet, total) = open();
+    assert_eq!(stat(&mut ui, "Saldo das contas"), Some(total.clone()), "every account at first");
+    assert!(!says(&mut ui, "Contas a pagar e pagamentos programados"), "with nothing to explain");
+    choose_account(&mut ui, "Carteira");
+    assert_eq!(stat(&mut ui, "Saldo de Carteira"), Some(wallet.clone()), "its own balance");
+    assert!(
+        says(&mut ui, "Contas a pagar e pagamentos programados"),
+        "and says the bills are still everyone's"
+    );
+    assert!(says(&mut ui, "vencida"), "which still warn");
+    audit(&mut ui, "Painel de uma conta");
+    drop(ui);
+
+    let (mut ui, wallet, _) = open();
+    assert_eq!(stat(&mut ui, "Saldo de Carteira"), Some(wallet), "the choice is kept for the next opening");
+    choose_account(&mut ui, "Todas as contas");
+    assert!(stat(&mut ui, "Saldo das contas").is_some());
+    drop(ui);
+    let (mut ui, _, total) = open();
+    assert_eq!(stat(&mut ui, "Saldo das contas"), Some(total), "and so is going back to all of them");
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
+#[test]
+fn a_deleted_account_leaves_the_dashboard_on_all_of_them() {
+    let folder = std::env::temp_dir().join(format!("family-finance-app-{}-gone", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    let path = folder.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    seed::load_demo(&db, today()).expect("seed");
+    std::fs::write(path.with_extension("painel-conta"), "999").expect("an old choice");
+    let mut ui = Ui::new(App::new(db, today(), Some(path), Updater::idle()), Theme::raven_light());
+    ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
+    settle(&mut ui);
+    assert!(stat(&mut ui, "Saldo das contas").is_some());
+    assert!(says(&mut ui, "Todas as contas"), "the selector says so too");
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}

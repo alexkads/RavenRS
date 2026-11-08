@@ -1,5 +1,6 @@
 //! The first screen: where the money stands and what needs attention.
 
+use std::path::Path;
 use std::rc::Rc;
 
 use ravenrs::prelude::*;
@@ -25,6 +26,8 @@ const BILLS_WIDTH: f32 = 400.0;
 const PERIODS: [(&str, usize); 3] = [("12 meses", 12), ("6 meses", 6), ("3 meses", 3)];
 /// How many months income and expenses are compared over.
 const COMPARED_MONTHS: usize = 6;
+/// Beside the database, this file keeps the account the dashboard shows.
+const ACCOUNT_FILE: &str = "painel-conta";
 /// The slices of the spending ring, in order.
 const SERIES_COLORS: [Semantic; 5] =
     [Semantic::Chart1, Semantic::Chart2, Semantic::Chart3, Semantic::Chart4, Semantic::Chart5];
@@ -34,6 +37,8 @@ const RING_BESIDE_FROM: f32 = 620.0;
 
 #[derive(Default)]
 struct Numbers {
+    /// The account the numbers are of, or `None` for all of them.
+    account: Option<i64>,
     accounts: Vec<Account>,
     months: Vec<MonthTotals>,
     /// Last month up to this same day: a month that just began compares with this, not with a whole month.
@@ -48,15 +53,43 @@ struct Numbers {
 /// The screen's data, kept between rebuilds.
 #[derive(Clone)]
 pub(crate) struct DashboardState {
-    numbers: Memo<u64, Rc<Numbers>>,
+    numbers: Memo<(u64, Option<i64>), Rc<Numbers>>,
     /// Which of the [`PERIODS`] the balance chart covers.
     period: State<usize>,
+    /// The account chosen at the top, or `None` for all of them, kept between openings.
+    account: Binding<Option<i64>>,
 }
 
 impl DashboardState {
-    pub fn new() -> Self {
-        Self { numbers: Memo::new(), period: State::new(0) }
+    pub fn new(path: Option<&Path>) -> Self {
+        Self { numbers: Memo::new(), period: State::new(0), account: remembered_account(path) }
     }
+}
+
+/// Reads the account the dashboard was left on, and keeps it beside the database.
+fn remembered_account(path: Option<&Path>) -> Binding<Option<i64>> {
+    let file = path.map(|path| path.with_extension(ACCOUNT_FILE));
+    let kept = file.as_ref().and_then(|file| std::fs::read_to_string(file).ok()?.trim().parse().ok());
+    let account = State::new(kept);
+    let (read, write) = (account.clone(), account);
+    Binding::new(
+        move || read.get(),
+        move |value: Option<i64>| {
+            write.set(value);
+            if let Some(file) = &file {
+                let saved = match value {
+                    Some(id) => std::fs::write(file, id.to_string()),
+                    None => std::fs::remove_file(file).or_else(|e| match e.kind() {
+                        std::io::ErrorKind::NotFound => Ok(()),
+                        _ => Err(e),
+                    }),
+                };
+                if let Err(e) = saved {
+                    tracing::warn!(error = %e, "could not remember the dashboard's account");
+                }
+            }
+        },
+    )
 }
 
 /// A big number in a card, with its "?" in the corner.
@@ -96,17 +129,23 @@ pub(crate) fn dashboard(
     forms: &Forms,
     open_page: Rc<dyn Fn(usize)>,
 ) -> Page {
-    let numbers = state.numbers.get(store.version(), || {
+    let numbers = state.numbers.get((store.version(), state.account.get()), || {
         let today = store.today;
+        let accounts = store.read(|db| db.accounts());
+        // An account deleted since it was chosen leaves every account shown.
+        let account = state.account.get().filter(|id| accounts.iter().any(|a| a.id == *id));
         Rc::new(Numbers {
-            accounts: store.read(|db| db.accounts()),
-            months: store.read(|db| db.monthly_totals(today, 12)),
+            account,
+            accounts,
+            months: store.read(|db| db.monthly_totals_of(today, 12, account)),
             last_month_so_far: store.read(|db| {
                 let start = today.first_of_month().add_months(-1);
-                db.totals_between(start, shift_months(start, 0, today.day()).add_days(1))
+                db.totals_between_of(start, shift_months(start, 0, today.day()).add_days(1), account)
             }),
-            balances: store.read(|db| db.balance_history(today, 12)),
-            budget: store.read(|db| db.budget_lines(today)),
+            balances: store.read(|db| db.balance_history_of(today, 12, account)),
+            budget: store.read(|db| db.budget_lines_of(today, account)),
+            // Bills have no account until they are paid, so these stay the family's, and so
+            // do the payments planned with them, for the two cards to agree.
             open_bills: store.read(|db| db.open_bills()),
             planned_out_cents: store
                 .read(|db| db.occurrences(today, today.add_days(SOON_DAYS)))
@@ -122,7 +161,13 @@ pub(crate) fn dashboard(
         let numbers = numbers.clone();
         let content = content_width(size);
         let wide = content >= WIDE_FROM;
-        let total: i64 = numbers.accounts.iter().map(|a| a.balance_cents).sum();
+        let chosen = numbers.accounts.iter().find(|a| Some(a.id) == numbers.account);
+        let total: i64 = match chosen {
+            Some(account) => account.balance_cents,
+            None => numbers.accounts.iter().map(|a| a.balance_cents).sum(),
+        };
+        let balance_label =
+            chosen.map_or_else(|| "Saldo das contas".to_owned(), |a| format!("Saldo de {}", a.name));
         let empty = MonthTotals::default();
         let now = numbers.months.last().unwrap_or(&empty);
         let before = &numbers.last_month_so_far;
@@ -179,12 +224,12 @@ pub(crate) fn dashboard(
             .tight_scale()
             .format(reais)
             .tooltip(ChartTooltip::new().indicator(ChartIndicator::Line))
-            .alt("Saldo das contas por mês")
+            .alt(format!("{balance_label} por mês"))
             .height(if wide { 278.0 } else { 170.0 });
         let balance = Card::new(
             VStack::new((
                 HStack::new((
-                    Stat::new("Saldo das contas", format_brl(total)).large().grow(1.0),
+                    Stat::new(balance_label.clone(), format_brl(total)).large().grow(1.0),
                     tip(help::SALDO),
                     Select::new(state.period.binding(), PERIODS.map(|p| p.0)).label("Período").width(120.0),
                 ))
@@ -360,6 +405,27 @@ pub(crate) fn dashboard(
             VStack::new(accounts).spacing(14.0).align(Align::Stretch),
         );
 
+        let picked = numbers.account;
+        let choose = state.account.clone();
+        let choices = std::iter::once((None, "Todas as contas".to_owned()))
+            .chain(numbers.accounts.iter().map(|a| (Some(a.id), a.name.clone())));
+        // Bills are only tied to an account when paid, so they cannot follow the choice.
+        let family_bills = picked.is_some().then(|| {
+            Text::new("Contas a pagar e pagamentos programados continuam os da família toda.")
+                .style(TextStyle::Callout)
+                .foreground(Semantic::InkMuted)
+                .grow(1.0)
+        });
+        let account_bar = HStack::new((
+            Select::of(Binding::new(move || picked, move |value| choose.set(value)), choices)
+                .label("Conta")
+                .width(240.0),
+            tip(help::CONTA),
+            family_bills,
+        ))
+        .spacing(8.0)
+        .align(Align::Center);
+
         let top: AnyView = if wide {
             Box::new(
                 HStack::new((balance, bills_card.width(BILLS_WIDTH))).spacing(16.0).align(Align::Stretch),
@@ -370,8 +436,10 @@ pub(crate) fn dashboard(
         };
         let bottom = Grid::new(if wide { 2 } else { 1 }, (category_card, accounts_card)).spacing(16.0);
 
-        ScrollView::new((VStack::new((top, stats, flows, bottom)).spacing(16.0).align(Align::Stretch),))
-            .padding(PAGE_INSETS)
+        ScrollView::new((VStack::new((account_bar, top, stats, flows, bottom))
+            .spacing(16.0)
+            .align(Align::Stretch),))
+        .padding(PAGE_INSETS)
     });
     Page::new(help::PAINEL, format!("Hoje é {}", date_label(today)), body)
 }
