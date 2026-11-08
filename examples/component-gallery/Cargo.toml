@@ -11,7 +11,7 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ravenrs.workspace = true
+ravenrs = { workspace = true, features = ["code"] }
 ravenrs-grid-export.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-ui.workspace = true
