@@ -9,17 +9,44 @@ pub(super) const MAX_PDF_BYTES: u64 = 14 * 1024 * 1024;
 /// Finds the one total in a receipt. The text is read in Rust, the same on every system;
 /// when that text has no single total and `pdftotext` happens to be installed, its
 /// reading gets a second chance.
+#[cfg(test)]
 pub(super) fn extract_total_from_pdf(pdf: &[u8]) -> Result<i64, String> {
-    let ours = text_in_pdf(pdf)
-        .ok_or_else(|| "o PDF não tem texto extraível. Envie outro comprovante.".to_owned())
-        .and_then(|text| extract_total_from_text(&text));
-    match ours {
-        Ok(total) => Ok(total),
-        Err(reason) => match total_with_pdftotext(pdf) {
-            Some(Ok(total)) => Ok(total),
-            _ => Err(reason),
-        },
+    match total_in_pdf(pdf)? {
+        Total::One(cents) => Ok(cents),
+        Total::Several(_) => Err("Encontrei mais de um valor total no PDF.".into()),
     }
+}
+
+/// What a receipt says its total is.
+pub(super) enum Total {
+    One(i64),
+    /// The amounts it could be, for the person to choose: never guessed.
+    Several(Vec<i64>),
+}
+
+/// The most amounts offered as buttons when a receipt has several.
+const TOTAL_CHOICES: usize = 6;
+
+/// The receipt's total, read by us or, when that finds no single one, by `pdftotext`.
+pub(super) fn total_in_pdf(pdf: &[u8]) -> Result<Total, String> {
+    let ours = text_in_pdf(pdf).map(|text| totals_in_text(&text));
+    if let Some([one]) = ours.as_deref() {
+        return Ok(Total::One(*one));
+    }
+    let theirs = total_with_pdftotext(pdf);
+    if let Some([one]) = theirs.as_deref() {
+        return Ok(Total::One(*one));
+    }
+    let Some(mut values) = ours.filter(|v| !v.is_empty()).or(theirs.filter(|v| !v.is_empty())) else {
+        return Err(if text_in_pdf(pdf).is_none() {
+            "o PDF não tem texto extraível. Diga o valor: `gastei 22,74 no mercado`.".into()
+        } else {
+            "Não encontrei um valor total legível no PDF. Diga o valor: `gastei 22,74 no mercado`.".into()
+        });
+    };
+    values.dedup();
+    values.truncate(TOTAL_CHOICES);
+    Ok(Total::Several(values))
 }
 
 /// The PDF's text. A malformed file can make the reader panic; that is no text.
@@ -28,7 +55,7 @@ pub(super) fn text_in_pdf(pdf: &[u8]) -> Option<String> {
 }
 
 /// The total as `pdftotext` reads it, or `None` when it is not installed or fails.
-pub(super) fn total_with_pdftotext(pdf: &[u8]) -> Option<Result<i64, String>> {
+pub(super) fn total_with_pdftotext(pdf: &[u8]) -> Option<Vec<i64>> {
     let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos();
     let path = std::env::temp_dir().join(format!("raven-financas-{}-{nonce}.pdf", std::process::id()));
     let written =
@@ -37,16 +64,22 @@ pub(super) fn total_with_pdftotext(pdf: &[u8]) -> Option<Result<i64, String>> {
         written.is_ok().then(|| Command::new("pdftotext").arg("-layout").arg(&path).arg("-").output());
     let _ = remove_file(&path);
     let output = output?.ok().filter(|output| output.status.success())?;
-    Some(extract_total_from_text(&String::from_utf8(output.stdout).ok()?))
+    Some(totals_in_text(&String::from_utf8(output.stdout).ok()?))
 }
 
-pub(super) fn extract_total_from_text(text: &str) -> Result<i64, String> {
+/// The amounts that could be the total, sorted: on a total's line, or else after "R$".
+pub(super) fn totals_in_text(text: &str) -> Vec<i64> {
     let mut totals = text.lines().filter(|line| is_total_line(line)).flat_map(amounts_in).collect::<Vec<_>>();
     if totals.is_empty() {
         totals = text.lines().flat_map(amounts_after_currency).collect();
     }
     totals.sort_unstable();
-    match totals.as_slice() {
+    totals
+}
+
+#[cfg(test)]
+pub(super) fn extract_total_from_text(text: &str) -> Result<i64, String> {
+    match totals_in_text(text).as_slice() {
         [amount] => Ok(*amount),
         [] => Err("Não encontrei um valor total legível no PDF. Envie outro comprovante.".into()),
         _ => Err("Encontrei mais de um valor total no PDF. Envie outro comprovante.".into()),
