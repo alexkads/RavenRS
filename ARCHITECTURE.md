@@ -72,7 +72,9 @@ ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)
 ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)
 ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
 ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
-ravenrs-app-derive     ──► ravenrs-criteria  (the derives, re-exported by ravenrs-app)
+                           and ravenrs-app-spec with `source` (entities read from Rust source while running)
+ravenrs-app-spec       ──► ravenrs-criteria, syn  (what the derives read from a struct or enum, as data)
+ravenrs-app-derive     ──► ravenrs-app-spec  (the derives, re-exported by ravenrs-app)
 ravenrs-live           ──► ravenrs-reactive, syn  (interprets the Rust of examples; host types through a Registry)
 ravenrs-live-derive    (#[expose]: registers an impl block, struct, enum or module; behind `live` in core, style, layout, graphics, lottie, widgets, movie, app, app-ui)
 ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
@@ -113,6 +115,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-lottie` | `document` (reading a file, and what it asks for that is not done yet), `property` (keyframes), `geometry` (trim, dash, stroke), `player` (one moment as `PathFill`s) |
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-grid-export` | `lib` |
+| `ravenrs-app-spec` | `lib` |
 | `ravenrs-app-derive` | `lib` |
 | `ravenrs-live` | `value` (values, host objects, conversions), `registry` (what the host offers), `eval` (the interpreter), `bridge` (what `#[expose]` calls through) |
 | `ravenrs-live-derive` | `lib` |

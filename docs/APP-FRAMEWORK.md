@@ -79,6 +79,14 @@ On the struct, `#[object(focus_order = "name,amount")]` puts these fields first 
 
 `String`, `bool`, `i32`, `i64`, `u32`, `u64`, `usize`, `f64` and `Option` of them work as they are. Any other type implements `FieldValue`, which `#[derive(BusinessEnum)]` does for an enum.
 
+### Reading the same structs while the program runs
+
+With the `source` feature, `entities_from_source` reads Rust text with these structs and enums and gives their `EntityInfo`s without compiling, as the playground does. The derive and this function share `ravenrs-app-spec`, so they accept the same attributes and refuse the same mistakes with the same words, each with its line and column (`SourceError`). Only what a compiler would have to work out is refused on top: a type other than the ones above or an enum of the same file, and a `default`, `min` or `max` that is not a literal or an enum option.
+
+```rust,ignore
+let entities = ravenrs_app::entities_from_source(source)?; // Err holds every SourceError
+```
+
 ### Rules
 
 On the struct, as many as needed:

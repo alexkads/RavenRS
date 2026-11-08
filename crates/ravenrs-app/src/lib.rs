@@ -40,6 +40,8 @@ mod model;
 mod module;
 mod object;
 mod security;
+#[cfg(feature = "source")]
+mod source;
 mod space;
 mod validation;
 mod workflow;
@@ -79,6 +81,8 @@ pub use security::{
     SECURITY_TYPE_PERMISSION, SECURITY_USER, SECURITY_USER_ROLE, SecuredObjectSpace, SecurityContext,
     SpaceMaker, UserDirectory, audit_entity, hash_password, security_entities, verify_password,
 };
+#[cfg(feature = "source")]
+pub use source::{SourceError, entities_from_source, entities_from_spec};
 pub use space::{
     Change, ChangeSet, MemoryDatabase, MemoryObjectSpace, Merged, ObjectSpace, Query, SpaceError, SpaceEvent,
     SpaceWatcher, check_query, key_of, key_text, merge_changes, run_query,

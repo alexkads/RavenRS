@@ -4665,12 +4665,14 @@ dependencies = [
  "proptest",
  "ravenrs-app-derive",
  "ravenrs-app-i18n",
+ "ravenrs-app-spec",
  "ravenrs-core",
  "ravenrs-criteria",
  "ravenrs-live",
  "ravenrs-reactive",
  "regex-lite",
  "serde_json",
+ "syn 2.0.119",
  "trybuild",
  "uuid",
 ]
@@ -4693,8 +4695,7 @@ version = "27.1.20"
 dependencies = [
  "proc-macro2",
  "quote",
- "ravenrs-criteria",
- "regex-lite",
+ "ravenrs-app-spec",
  "syn 2.0.119",
 ]
 
@@ -4736,6 +4737,17 @@ dependencies = [
  "ravenrs-style",
  "ravenrs-widgets",
  "serde_json",
+]
+
+[[package]]
+name = "ravenrs-app-spec"
+version = "27.1.20"
+dependencies = [
+ "proc-macro2",
+ "ravenrs-app",
+ "ravenrs-criteria",
+ "regex-lite",
+ "syn 2.0.119",
 ]
 
 [[package]]
