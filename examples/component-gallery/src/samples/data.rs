@@ -37,7 +37,10 @@ fn tile_layout() -> impl View {
         .columns(3)
         .row_height(110.0)
         .tile(Tile::new("sales", "Sales", Stat::new("This month", "R$ 48,200")))
-        .tile(Tile::new("bills", "Bills", Stat::new("Open", "12")))
+        .tile(
+            Tile::new("bills", "Bills", Stat::new("Open", "12"))
+                .accessory(Badge::new("3 late").tone(Tone::Danger)),
+        )
         .tile(Tile::new("stock", "Stock", Stat::new("Items", "1,204")))
         .tile(Tile::new("people", "People", Stat::new("Active", "37")))
 }

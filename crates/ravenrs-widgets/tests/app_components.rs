@@ -531,6 +531,25 @@ fn a_tile_moves_by_dragging_its_handle() {
 }
 
 #[test]
+fn a_tile_puts_its_accessory_in_the_header_after_the_title() {
+    let spots = State::new(Vec::new());
+    let clicked = State::new(false);
+    let log = clicked.clone();
+    let mut ui = ui(TileLayout::new(spots.binding()).tile(
+        Tile::new("a", "Alpha", Text::new("A"))
+            .accessory(Button::new("Help").on_click(move || log.set(true))),
+    ));
+    ui.update();
+    let help = named(&mut ui, Role::Button, "Help").expect("the accessory").bounds;
+    let handle = named(&mut ui, Role::Button, "Move Alpha").expect("the handle").bounds;
+    let tile = tile_frame(&mut ui, "Alpha");
+    assert!(help.x() > handle.x(), "after the handle and the title");
+    assert!(help.y() < tile.y() + 36.0, "in the header, above the content");
+    press(&mut ui, Role::Button, "Help");
+    assert!(clicked.get(), "and it works like any control");
+}
+
+#[test]
 fn locked_tiles_have_no_handles() {
     let spots = State::new(Vec::new());
     let mut ui = ui(tiles(&spots).locked(true));

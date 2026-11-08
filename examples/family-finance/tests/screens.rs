@@ -198,6 +198,21 @@ fn draw_the_states() {
         let mut ui = app(theme, 8, Updater::idle());
         capture(&gpu, &mut ui, size, &folder.join(format!("{label}-treinamentos.png")));
     }
+    // The dashboard of one account, in both themes.
+    for (theme, label) in [(themes::light(), "claro"), (themes::dark(), "escuro")] {
+        let mut ui = app(theme, 0, Updater::idle());
+        ui.set_viewport(size, 2.0);
+        ui.update();
+        ui.update();
+        for (role, name) in [(Role::ComboBox, "Conta"), (Role::ListBoxOption, "Carteira")] {
+            let tree = ui.access_tree();
+            let found = tree.nodes.iter().find(|n| n.role == role && n.name.as_deref() == Some(name));
+            ui.perform_action(found.unwrap_or_else(|| panic!("no {name}")).id, AccessAction::Click);
+            ui.update();
+            ui.update();
+        }
+        capture(&gpu, &mut ui, size, &folder.join(format!("painel-conta-{label}.png")));
+    }
     // The agenda under the pointer: the tooltip with its row lit, and a right click.
     let mut agenda = app(themes::light(), 3, Updater::idle());
     agenda.set_viewport(size, 2.0);

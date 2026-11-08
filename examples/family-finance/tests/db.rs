@@ -237,6 +237,58 @@ fn the_budget_counts_only_that_month() {
 }
 
 #[test]
+fn the_numbers_of_one_account_leave_the_others_out() {
+    let f = fixture();
+    let wallet = f.db.add_account("Carteira", AccountKind::Cash, 30_00).expect("account");
+    expense(&f, date(2026, 3, 10), "Banco em março", 10_00);
+    expense(&f, date(2026, 4, 2), "Banco em abril", 20_00);
+    f.db.add_transaction(&TransactionInput {
+        date: date(2026, 4, 3),
+        description: "Feira".to_owned(),
+        amount_cents: 5_00,
+        flow: Flow::Expense,
+        account_id: wallet,
+        category_id: f.groceries,
+        member_id: None,
+    })
+    .expect("transaction");
+    f.db.add_transaction(&TransactionInput {
+        date: date(2026, 4, 5),
+        description: "Troco".to_owned(),
+        amount_cents: 2_00,
+        flow: Flow::Income,
+        account_id: wallet,
+        category_id: f.salary,
+        member_id: None,
+    })
+    .expect("transaction");
+    let last = date(2026, 4, 20);
+
+    let months = |account| {
+        f.db.monthly_totals_of(last, 2, account)
+            .expect("totals")
+            .iter()
+            .map(|m| (m.income_cents, m.expense_cents))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(months(Some(f.account)), [(0, 10_00), (0, 20_00)]);
+    assert_eq!(months(Some(wallet)), [(0, 0), (2_00, 5_00)]);
+    assert_eq!(months(None), [(0, 10_00), (2_00, 25_00)], "no account is every account");
+
+    let april = f.db.totals_between_of(date(2026, 4, 1), date(2026, 5, 1), Some(wallet)).expect("totals");
+    assert_eq!((april.income_cents, april.expense_cents), (2_00, 5_00));
+
+    // Each account starts from its own opening balance, not the family's.
+    assert_eq!(f.db.balance_history_of(last, 2, Some(f.account)).expect("history"), [90_00, 70_00]);
+    assert_eq!(f.db.balance_history_of(last, 2, Some(wallet)).expect("history"), [30_00, 27_00]);
+    assert_eq!(f.db.balance_history_of(last, 2, None).expect("history"), [120_00, 97_00]);
+
+    let spent = |account| f.db.budget_lines_of(last, account).expect("lines")[0].spent_cents;
+    assert_eq!((spent(Some(f.account)), spent(Some(wallet)), spent(None)), (20_00, 5_00, 25_00));
+    assert_eq!(f.db.budget_lines_of(last, Some(wallet)).expect("lines")[0].budget_cents, 500_00);
+}
+
+#[test]
 fn an_expression_filter_runs_in_the_database() {
     let f = fixture();
     expense(&f, date(2026, 3, 1), "Feira barata", 30_00);

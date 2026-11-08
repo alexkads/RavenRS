@@ -12,7 +12,7 @@ The first run opens on a sample family, so there is something to explore. **Ajus
 
 | Screen | RavenRS |
 |---|---|
-| Painel | `Stat`, `Alert`, `AreaChart`, `BarChart`, `Grid`, `List`, `responsive` |
+| Painel | `TileLayout`: each card moves by its handle and resizes by its corner, or from the keyboard on the handle (arrows move it, Shift with the arrows resizes it); the charts and the list of bills grow with their card, the layout is kept in `financas.painel-cards.json` and **Restaurar layout** puts the cards back. Below 900 px of content the cards stack in two columns. Also `Chart`, `Badge`, `responsive`, and a `Select` that shows one account or all of them: its balance and history, its income, expenses and spending by category. Bills have no account until they are paid, so the bills cards stay the whole family's and say so. The choice is kept beside the database in `financas.painel-conta` |
 | Lançamentos | `DataGrid` (filter row, search, grouping, totals, cell templates, CSV), `SegmentedControl`, `DropdownMenu`, `ravenrs-criteria` |
 | Contas a pagar | `DataGrid`, `Dialog`, `FormField`, `DatePicker`, `Select`, `Stepper` |
 | Agenda | `Scheduler` to move what is ahead, `EventCalendar` for the month, `RecurrenceEditor` to plan a receipt or a payment |
