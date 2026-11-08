@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RavenRS — Playground</title>
+    <meta name="description" content="Edit any RavenRS example in Rust, see it change in the browser, and download it as a Cargo project." />
+    <style>
+      html, body { height: 100%; margin: 0; overflow: hidden; background: #0b0d12; color: #eef1f7; font-family: system-ui, sans-serif; }
+      /* The canvas is sized by CSS; RavenRS matches its backing store to the device pixel ratio. */
+      #raven-canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <canvas id="raven-canvas" aria-label="RavenRS playground"></canvas>
+    <script type="module">
+      // The gallery's own build: on this page it opens the playground of every example.
+      import init from "../demo/pkg/component_gallery.js";
+      init();
+    </script>
+  </body>
+</html>

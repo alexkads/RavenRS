@@ -12,6 +12,7 @@ use ravenrs_report_viewer::PageFan;
 
 /// Where the rest of the site lives, relative to the home page.
 const DEMO: &str = "demo/";
+const PLAYGROUND: &str = "playground/";
 const DESIGNER: &str = "designer/";
 const COMPONENTS: &str = "components/";
 const API: &str = "api/ravenrs/";
@@ -155,6 +156,7 @@ fn nav(narrow: bool, palette: State<bool>) -> impl View {
         Box::new(
             HStack::new((
                 Link::new("Components", COMPONENTS).muted(),
+                Link::new("Playground", PLAYGROUND).muted(),
                 Link::new("Reports", "#reports").muted(),
                 Link::new("Docs", GUIDE).muted(),
                 Link::new("API", API).muted(),
@@ -803,6 +805,7 @@ fn command_palette(open: State<bool>, links: Links) -> impl View {
     CommandPalette::new(open.binding())
         .command(Command::new("Getting started", go(&links, GUIDE)).icon(IconName::BookOpen).group("Guides"))
         .command(Command::new("Component gallery", go(&links, DEMO)).icon(IconName::Play).group("Try it"))
+        .command(Command::new("Playground", go(&links, PLAYGROUND)).icon(IconName::Code).group("Try it"))
         .command(
             Command::new("Report designer", go(&links, DESIGNER)).icon(IconName::FileText).group("Try it"),
         )

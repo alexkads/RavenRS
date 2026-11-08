@@ -64,6 +64,7 @@ TEMPLATE = """<!doctype html>
   <ul>
     <li><a href="../" aria-current="page">Components</a></li>
     <li class="hide-sm"><a href="../../demo/">Live demo</a></li>
+    <li class="hide-sm"><a href="../../playground/">Playground</a></li>
     <li class="hide-sm"><a href="../../designer/">Reports</a></li>
     <li><a href="../../api/ravenrs/">API</a></li>
     <li class="hide-sm"><a href="https://github.com/alexkads/RavenRS">GitHub</a></li>
@@ -87,6 +88,7 @@ TEMPLATE = """<!doctype html>
       <button class="copy" type="button" hidden>Copy</button>
     </div>
     <pre class="code" tabindex="0"><code>{code}</code></pre>
+    <p><a class="more" href="../../playground/?example={name}">Open in the playground, with every example →</a></p>
     <p><a class="more" href="../../api/ravenrs_widgets/{api}">Full API of {name} →</a></p>
     <nav class="pager" aria-label="Other components">{previous}{following}</nav>
   </main>
