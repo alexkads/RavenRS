@@ -794,6 +794,8 @@ pub struct Labels {
     pub playground_line: String,
     /// Before the column of a problem.
     pub playground_column: String,
+    /// Saves what the code of a [`Playground`](crate::Playground) makes as a file to keep.
+    pub playground_download: String,
 }
 
 impl Default for Labels {
@@ -1189,6 +1191,7 @@ impl Labels {
             playground_last_good: texts.get("widgets.playground_last_good"),
             playground_line: texts.get("widgets.playground_line"),
             playground_column: texts.get("widgets.playground_column"),
+            playground_download: texts.get("widgets.playground_download"),
         }
     }
 

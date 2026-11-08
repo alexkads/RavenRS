@@ -48,6 +48,7 @@ impl View for Shown {
 
 /// A button the app adds to the bar, which gets the code as it is.
 type Extra = (String, IconName, Rc<dyn Fn(&str)>);
+type Download = Rc<dyn Fn(&str) -> Result<(String, Vec<u8>), Vec<CodeDiagnostic>>>;
 
 /// A place to write code and see what it makes, for documentation, tutorials and tools.
 ///
@@ -80,6 +81,7 @@ pub struct Playground {
     title: Option<String>,
     note: Option<String>,
     extras: Vec<Extra>,
+    download: Option<Download>,
     height: Option<f32>,
 }
 
@@ -102,6 +104,7 @@ impl Playground {
             title: None,
             note: None,
             extras: Vec::new(),
+            download: None,
             height: None,
         }
     }
@@ -146,6 +149,17 @@ impl Playground {
     /// A button in the bar that gets the code as it is.
     pub fn action(mut self, label: impl Into<String>, icon: IconName, then: impl Fn(&str) + 'static) -> Self {
         self.extras.push((label.into(), icon, Rc::new(then)));
+        self
+    }
+
+    /// A button that saves what `make` turns the code into, such as a project to build, with
+    /// the system's dialog on a desktop or as a download in a browser. `make` gives the file's
+    /// name and bytes, or the problems to mark in the code.
+    pub fn download(
+        mut self,
+        make: impl Fn(&str) -> Result<(String, Vec<u8>), Vec<CodeDiagnostic>> + 'static,
+    ) -> Self {
+        self.download = Some(Rc::new(make));
         self
     }
 
@@ -239,6 +253,19 @@ impl View for Playground {
                     .icon(*icon)
                     .style(ButtonStyle::Secondary)
                     .on_click(move || then(&code.get())),
+            ));
+        }
+        if let Some(make) = &self.download {
+            let (make, code, problems, picker) =
+                (make.clone(), source.clone(), problems.clone(), cx.file_picker());
+            bar.push(Box::new(
+                Button::new(labels.playground_download.clone())
+                    .icon(IconName::Download)
+                    .style(ButtonStyle::Secondary)
+                    .on_click(move || match make(&code.get()) {
+                        Ok((name, bytes)) => picker.save(&name, &bytes),
+                        Err(found) => problems.set(found),
+                    }),
             ));
         }
         let go = run.clone();
