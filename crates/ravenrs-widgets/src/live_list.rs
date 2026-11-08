@@ -85,6 +85,11 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     ravenrs_core::Effect::__live_expose(registry);
     ravenrs_core::Scene::__live_expose_fields(registry);
     ravenrs_core::Scene::__live_expose(registry);
+    ravenrs_core::MemoryStorage::__live_expose_fields(registry);
+    #[cfg(not(target_arch = "wasm32"))]
+    ravenrs_core::FileStorage::__live_expose_fields(registry);
+    #[cfg(not(target_arch = "wasm32"))]
+    ravenrs_core::FileStorage::__live_expose(registry);
     ravenrs_style::Semantic::__live_expose_variants(registry);
     ravenrs_style::Palette::__live_expose_fields(registry);
     ravenrs_style::Palette::__live_expose(registry);

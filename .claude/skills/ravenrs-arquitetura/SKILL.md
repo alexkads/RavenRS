@@ -39,6 +39,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Permissões, entrada e auditoria | `crates/ravenrs-app/src/security/`; telas em `crates/ravenrs-app-ui/src/security.rs` e `model_editor.rs` | `crates/ravenrs-app/tests/security.rs`, `crates/ravenrs-app-ui/tests/security.rs`, revisão com as skills `securitymaxxing:authz` e `authn` |
 | Lista como gráfico, agenda ou árvore | `crates/ravenrs-app-ui/src/list_editors.rs` | `crates/ravenrs-app-ui/tests/list_editors.rs`, `examples/quick-plan` |
 | Estados e lembretes | `crates/ravenrs-app/src/workflow.rs`; janela em `crates/ravenrs-app-ui/src/reminders.rs` | `crates/ravenrs-app/tests/workflow.rs`, `crates/ravenrs-app-ui/tests/workflow.rs` |
+| Ações declaradas (`#[action(set = ...)]`) | `crates/ravenrs-app/src/record_action.rs` (`RecordAction`, `Action::assign`); leitura de `campo = expressão; ...` em `Criteria::assignments` (`crates/ravenrs-criteria/src/parse.rs`); atributo em `ravenrs-app-spec` e `ravenrs-app-derive` | `crates/ravenrs-app/tests/record_actions.rs`, `tests/live.rs` (pelo interpretador), `crates/ravenrs-app-spec/tests/entities.rs` |
 | Recurso novo do framework | Uma demonstração em `examples/feature-center/src/model.rs` | `examples/feature-center/tests/tour.rs` |
 | Registros prontos | `crates/ravenrs-app-library/src/lib.rs`, palavras em `pt_br.json` | `crates/ravenrs-app-library/tests/library.rs` |
 | Relatório de uma lista | `crates/ravenrs-app-report/src/lib.rs`, sobre `Session::list_table` e `document_of` | `crates/ravenrs-app-report/tests/report.rs` |

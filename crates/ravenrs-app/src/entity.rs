@@ -618,6 +618,8 @@ pub struct EntityInfo {
     pub state_machines: Vec<crate::StateMachine>,
     /// When to remind people of a record.
     pub reminder: Option<crate::Reminder>,
+    /// Actions that set fields of the records selected.
+    pub actions: Vec<crate::RecordAction>,
     /// What the list editors are told about this list: an editor's settings node, and in it names and values.
     pub editor_settings: Vec<(String, String, String)>,
     /// How many columns its form's fields go in; by how many there are, unless given.
@@ -659,6 +661,7 @@ impl EntityInfo {
             variants: Vec::new(),
             description: None,
             state_machines: Vec::new(),
+            actions: Vec::new(),
             reminder: None,
             editor_settings: Vec::new(),
             form_columns: None,
@@ -797,6 +800,13 @@ impl EntityInfo {
         self.appearance(rule.criteria(format!("[{field}] = '{state}'")))
     }
 
+    /// An action that sets fields of the records selected. It comes by itself on its list and
+    /// its form.
+    pub fn action(mut self, action: crate::RecordAction) -> Self {
+        self.actions.push(action);
+        self
+    }
+
     /// Reminds people of its records.
     pub fn reminder(mut self, reminder: crate::Reminder) -> Self {
         self.reminder = Some(reminder);
@@ -874,6 +884,9 @@ impl EntityInfo {
             if self.field_named(field).is_none() {
                 return wrong(format!("the focus order names {field}, which is not a field"));
             }
+        }
+        for action in &self.actions {
+            action.check(self).map_err(|e| ModelError(format!("{}: {}", self.name, e.0)))?;
         }
         for machine in &self.state_machines {
             if self.field_named(&machine.field).is_none() {

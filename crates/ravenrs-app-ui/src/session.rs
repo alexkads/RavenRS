@@ -453,6 +453,8 @@ impl Session {
         let inner = Rc::new(inner);
         let frame = inner.frame.clone();
         frame.set_extension(Rc::new(SessionLink(Rc::downgrade(&inner))));
+        // Declared actions say what is wrong in the application's words.
+        frame.set_extension(Rc::new(inner.words.rules.clone()));
         let telling = Rc::downgrade(&inner);
         frame.set_messenger(move |message| {
             if let Some(inner) = telling.upgrade() {

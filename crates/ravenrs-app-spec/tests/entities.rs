@@ -30,6 +30,7 @@ struct Bank {
 #[appearance(names = "name", criteria = "[kind] = 'Savings'", font = "success", bold, context = "list")]
 #[variant(id = "savings", caption = "Poupanças", filter = "[kind] = 'Savings'", columns = "name, opening")]
 #[list_filter(id = "big", caption = "Grandes", filter = "[opening] > 1000")]
+#[action(caption = "Zerar", set = "opening = 0; notes = 'zerada'", enabled = "[opening] > 0", selection = "one", confirm = "Zerar a conta?")]
 struct Account {
     #[field(key)]
     id: i64,
@@ -76,6 +77,13 @@ struct Bank {
 #[appearance(names = "name", criteria = "[kind] = 'Savings'", font = "success", bold, context = "list")]
 #[variant(id = "savings", caption = "Poupanças", filter = "[kind] = 'Savings'", columns = "name, opening")]
 #[list_filter(id = "big", caption = "Grandes", filter = "[opening] > 1000")]
+#[action(
+    caption = "Zerar",
+    set = "opening = 0; notes = 'zerada'",
+    enabled = "[opening] > 0",
+    selection = "one",
+    confirm = "Zerar a conta?"
+)]
 #[allow(dead_code)]
 struct Account {
     #[field(key)]
@@ -99,6 +107,8 @@ fn source_gives_what_the_derive_gives() {
     assert_eq!(read[0], Bank::entity_info());
     assert_eq!(read[1], Account::entity_info());
     assert!(matches!(read[1].field_named("kind").map(|f| &f.kind), Some(FieldKind::Enum(o)) if o.len() == 2));
+    assert_eq!(read[1].actions.len(), 1, "the action comes from both");
+    assert_eq!(read[1].actions[0].set, "opening = 0; notes = 'zerada'");
 }
 
 #[test]
@@ -116,6 +126,13 @@ fn the_derive_s_words_come_with_their_place() {
 
     let errors = entities_from_source(
         "#[derive(BusinessObject)]\n#[rule(criteria = \"[nope] > 1\")]\nstruct A {\n    #[field(key)]\n    id: i64,\n}\n",
+    )
+    .unwrap_err();
+    assert_eq!(errors[0].message, "this struct has no field `nope`");
+    assert_eq!(errors[0].line, 2);
+
+    let errors = entities_from_source(
+        "#[derive(BusinessObject)]\n#[action(caption = \"Go\", set = \"id = [nope]\")]\nstruct A {\n    #[field(key)]\n    id: i64,\n}\n",
     )
     .unwrap_err();
     assert_eq!(errors[0].message, "this struct has no field `nope`");

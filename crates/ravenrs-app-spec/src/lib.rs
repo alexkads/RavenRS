@@ -36,6 +36,7 @@ macro_rules! opaque_debug {
 }
 
 opaque_debug!(
+    ActionSpec,
     ObjectSettings,
     KindSpec,
     FieldSettings,
@@ -355,6 +356,36 @@ pub struct ObjectSpec {
     pub appearance: Vec<AppearanceSpec>,
     /// Its view variants and list filters.
     pub choices: Vec<ChoiceSpec>,
+    /// Its actions, from `#[action(...)]`.
+    pub actions: Vec<ActionSpec>,
+}
+
+/// How many records an action takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SelectionSpec {
+    /// `selection = "one"`.
+    One,
+    /// `selection = "many"`, one or more.
+    Many,
+    /// `selection = "any"`, none or any number.
+    Any,
+}
+
+/// `#[action(...)]` on a struct: an action that sets fields of the records selected.
+#[derive(Clone)]
+pub struct ActionSpec {
+    /// `caption = "..."`.
+    pub caption: LitStr,
+    /// `id = "..."`.
+    pub id: Option<LitStr>,
+    /// `selection = "one" | "many" | "any"`.
+    pub selection: Option<SelectionSpec>,
+    /// `enabled = "..."`, checked to parse and to name only fields of the struct.
+    pub enabled: Option<LitStr>,
+    /// `set = "field = expression; ..."`, checked the same way.
+    pub set: LitStr,
+    /// `confirm = "..."`.
+    pub confirm: Option<LitStr>,
 }
 
 /// An option of a business enum.
@@ -795,6 +826,67 @@ fn struct_appearance(input: &DeriveInput, names: &[String]) -> Result<Vec<Appear
     Ok(rules)
 }
 
+fn struct_actions(input: &DeriveInput, names: &[String]) -> Result<Vec<ActionSpec>> {
+    let mut found = Vec::new();
+    for attr in input.attrs.iter().filter(|a| a.path().is_ident("action")) {
+        let (mut caption, mut id, mut selection, mut enabled, mut set, mut confirm) =
+            (None::<LitStr>, None, None, None, None::<LitStr>, None);
+        attr.parse_nested_meta(|meta| {
+            let named = |name: &str| meta.path.is_ident(name);
+            if named("caption") {
+                caption = Some(meta.value()?.parse()?);
+            } else if named("id") {
+                id = Some(meta.value()?.parse()?);
+            } else if named("selection") {
+                let text: LitStr = meta.value()?.parse()?;
+                selection = Some(match text.value().as_str() {
+                    "one" => SelectionSpec::One,
+                    "many" => SelectionSpec::Many,
+                    "any" => SelectionSpec::Any,
+                    _ => return Err(Error::new(text.span(), "use one, many or any")),
+                });
+            } else if named("enabled") {
+                let expression: LitStr = meta.value()?.parse()?;
+                check_expression(&expression, names)?;
+                enabled = Some(expression);
+            } else if named("set") {
+                let text: LitStr = meta.value()?.parse()?;
+                check_assignments(&text, names)?;
+                set = Some(text);
+            } else if named("confirm") {
+                confirm = Some(meta.value()?.parse()?);
+            } else {
+                return Err(
+                    meta.error("unknown setting: use caption, id, selection, enabled, set or confirm")
+                );
+            }
+            Ok(())
+        })?;
+        let (Some(caption), Some(set)) = (caption, set) else {
+            return Err(Error::new(attr.span(), "an action needs caption = \"...\" and set = \"...\""));
+        };
+        found.push(ActionSpec { caption, id, selection, enabled, set, confirm });
+    }
+    Ok(found)
+}
+
+/// Checks `field = expression; ...`: it parses, sets something, and names only fields of the
+/// struct.
+pub fn check_assignments(text: &LitStr, names: &[String]) -> Result<()> {
+    let found = Criteria::assignments(&text.value())
+        .map_err(|e| Error::new(text.span(), format!("this does not parse: {e}")))?;
+    if found.is_empty() {
+        return Err(Error::new(text.span(), "this sets nothing: use `field = expression; ...`"));
+    }
+    for (field, expression) in &found {
+        let unknown = std::iter::once(field.clone()).chain(expression.properties());
+        if let Some(unknown) = unknown.into_iter().find(|name| !names.contains(name)) {
+            return Err(Error::new(text.span(), format!("this struct has no field `{unknown}`")));
+        }
+    }
+    Ok(())
+}
+
 fn struct_choices(input: &DeriveInput, names: &[String]) -> Result<Vec<ChoiceSpec>> {
     let mut found = Vec::new();
     for attr in &input.attrs {
@@ -898,7 +990,8 @@ pub fn parse_object(input: &DeriveInput) -> Result<ObjectSpec> {
         settings.focus_order = order_fields;
     }
     let choices = struct_choices(input, &names)?;
-    Ok(ObjectSpec { name: name.clone(), settings, fields, rules, appearance, choices })
+    let actions = struct_actions(input, &names)?;
+    Ok(ObjectSpec { name: name.clone(), settings, fields, rules, appearance, choices, actions })
 }
 
 /// Reads an enum with `#[derive(BusinessEnum)]`.

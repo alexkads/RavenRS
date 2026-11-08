@@ -106,6 +106,21 @@ A form that fails its rules keeps nothing, and says what is wrong on each field 
 
 Appearance is about looks, and does not protect data. A column of a list hides only by a rule with no condition, since it is for all its rows. An action hidden by a rule on a list only fades, as hiding would move the buttons beside it.
 
+### Actions declared as data
+
+An action that only changes fields of the records selected needs no code:
+
+```rust
+#[derive(BusinessObject)]
+#[action(caption = "Concluir", selection = "many", enabled = "[state] <> 'done'",
+         set = "state = 'done'; finished = Today()", confirm = "Concluir as tarefas?")]
+struct Task { /* ... */ }
+```
+
+`set` is `field = expression; ...`, in the criteria language, and every expression reads the record as it was before any of them. Each record changed is checked against its rules in the `Save` context, and then all are kept, or none: one record that breaks a rule keeps every record as it was, and says what is wrong. `enabled` is what every record selected has to meet for the action to be on, as `target_criteria` with `TrueForAll`. `selection` is `one`, `many`, the default, or `any`. The id is `Entity.Caption` unless `id = "..."` gives one. The derive checks that both expressions parse and name only fields of the struct; `EntityInfo::action(RecordAction::new(...))` does the same at run time, and what is wrong comes out when the application is put together.
+
+`Action::assign(&entity, "field = expression; ...")` gives any action the same work, for one made in code with `on_execute` left out. State machines still guard what is kept, so an action that sets a state goes only by the ways declared.
+
 ### Inside an application that already exists
 
 `EntityPane` is a list beside its form, as a piece of a screen an application made itself, and `SqliteDatabase` maps onto its tables without touching their schema, on the connection it already has. `examples/family-finance/src/ui/records.rs` does this for its accounts, categories and family members: the tables and their migrations stay where they were.
@@ -381,6 +396,7 @@ Audit::new().theme(Theme::raven_light()).open("Novo").app(&mut ui).assert_clean(
 - The words of the announcements live in `ravenrs-app-a11y` until the framework keeps all its words in one catalog.
 - The region of announcements is in the window, so while a window is open over it, what changes behind is heard once that window closes.
 
+- A declared action sets fields and nothing else: it does not open views, ask for input or reach other records. One that needs to does it in `on_execute`.
 - State machines are declared in code. People cannot define states or ways while the application runs.
 - A reminder someone else set or changed shows the next time records are read here, as nothing polls. Reminders do not go anywhere outside the application.
 - `DocumentViewer` shows what the report engine lays out. It does not open PDF files, so an attached PDF is saved or opened with the system.

@@ -5,14 +5,14 @@ use std::collections::BTreeMap;
 
 use ravenrs_app_spec::{
     AppearancePiece, ChoiceSpec, ContextSpec, DataAccessSpec, FieldSpec, FileSpec, KindSpec, ObjectSpec,
-    RuleKindSpec, RuleSpec, SeveritySpec, TintSpec, TypeKind, parse_file, type_kind,
+    RuleKindSpec, RuleSpec, SelectionSpec, SeveritySpec, TintSpec, TypeKind, parse_file, type_kind,
 };
 use ravenrs_criteria::Value;
 use syn::spanned::Spanned;
 
 use crate::{
     AppearanceContext, AppearanceRule, AppearanceTarget, DataAccess, EntityInfo, EnumOption, FieldInfo,
-    FieldKind, ListFilter, Rule, RuleKind, Tint, ViewVariant,
+    FieldKind, ListFilter, RecordAction, Rule, RuleKind, Selection, Tint, ViewVariant,
 };
 
 /// Something wrong at a place of the source: its line and column (both from 1), how many
@@ -180,6 +180,26 @@ fn entity(
                 info.filter(list_filter)
             }
         };
+    }
+    for spec in &object.actions {
+        let mut action = RecordAction::new(spec.caption.value()).set(spec.set.value());
+        if let Some(id) = &spec.id {
+            action = action.id(id.value());
+        }
+        if let Some(selection) = spec.selection {
+            action = action.selection(match selection {
+                SelectionSpec::One => Selection::RequireSingle,
+                SelectionSpec::Many => Selection::RequireMultiple,
+                SelectionSpec::Any => Selection::Independent,
+            });
+        }
+        if let Some(enabled) = &spec.enabled {
+            action = action.enabled(enabled.value());
+        }
+        if let Some(question) = &spec.confirm {
+            action = action.confirm(question.value());
+        }
+        info = info.action(action);
     }
     if errors.is_empty() { Ok(info) } else { Err(errors) }
 }
