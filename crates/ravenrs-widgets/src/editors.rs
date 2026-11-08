@@ -174,7 +174,8 @@ impl TextArea {
         }
     }
 
-    /// Shows the text as code.
+    /// Shows the text as code. Only `CodeEditor`, of the `code` feature, asks for it.
+    #[cfg(feature = "code")]
     pub(crate) fn code(mut self, look: CodeLook) -> Self {
         self.code = Some(look);
         self
