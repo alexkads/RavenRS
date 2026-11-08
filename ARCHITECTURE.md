@@ -53,6 +53,7 @@ ravenrs-reactive ───┐      │              │              │        
                              ravenrs  (facade + prelude)
 
 ravenrs-mcp  ──► ravenrs-criteria  (tool for coding assistants; nothing depends on it)
+ravenrs-lint                       (lints for applications; reads sources with syn, depends on no RavenRS crate)
 
 ravenrs-criteria  (expression language, no RavenRS dependencies)
         ▲
@@ -136,6 +137,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-movie` | `movie` (the film: draw lists, each thing stored once), `project` (non-destructive edits), `composition` (one moment drawn), `record` (`Recorder`), `player` (with sound and the boxes that explain each step), `search` (`MovieLibrary`), `assistant` (`MovieAssistant`), `chat` (`MovieChat`), `editor`, `flight` (`FlightRecorder`, `BugReporter`) |
 | `ravenrs-report-server` | `config`, `store`, `cron`, `job`, `render`, `deliver`, `scheduler`, `http`, `main` |
 | `ravenrs-mcp` | `api` (index of the public API, parsed from embedded sources), `docs`, `expression`, `server` |
+| `ravenrs-lint` | `rules` (the syntax-tree walk and `allow` comments), `config` (`[metadata.ravenrs-lint]`), `workspace` (`cargo metadata`), `report` (compiler-style and JSON), `init` (strict lints, agents' instructions) |
 
 `ravenrs-widgets` has two parts. The runtime is `view`, `context` (`BuildCx`), `ui` and `ui/access`, `modifiers`, `clipboard`, `sound` and `util`. The components are grouped by family:
 

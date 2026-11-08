@@ -4829,6 +4829,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-lint"
+version = "27.1.21"
+dependencies = [
+ "proc-macro2",
+ "serde_json",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "ravenrs-live"
 version = "27.1.21"
 dependencies = [

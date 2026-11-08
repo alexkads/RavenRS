@@ -4,6 +4,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `ravenrs-lint`: lints for applications built with RavenRS, reported like the compiler's, from `cargo ravenrs-lint` or from `cargo test` with `ravenrs_lint::assert_clean()`. It reads the syntax tree and denies literal colors and font sizes, spacing off the 4px grid, captions without a verb, icon buttons without a name, more than one primary button, `State::new` and blocking work in `body` or `build`, and files over 600 lines. Exceptions need a written reason, in a comment or in `[package.metadata.ravenrs-lint]`. `--init` writes the strictest rustc and Clippy levels, a `clippy.toml`, the test and the same instructions for every coding agent (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`); `--gate` runs formatting, Clippy, the rules and the tests.
+
 ## [27.1.21] - 2026-11-08
 
 ### Breaking

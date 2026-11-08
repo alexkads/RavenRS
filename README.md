@@ -291,6 +291,12 @@ claude plugin install ravenrs@ravenrs
 
 For other MCP clients, configure the command `ravenrs-mcp` over stdio. The skill is a plain file: [`plugins/ravenrs/skills/ravenrs/SKILL.md`](https://github.com/alexkads/RavenRS/blob/master/plugins/ravenrs/skills/ravenrs/SKILL.md).
 
+Whoever writes the code, a person or any agent, [`ravenrs-lint`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lint) holds it to the same rules: it denies literal colors and sizes, spacing off the grid, unnamed icon buttons and state or blocking work in `body`, and `cargo ravenrs-lint --init` turns rustc and Clippy to their strictest and writes the rules into `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` and Copilot's instructions.
+
+```bash
+cargo install ravenrs-lint --locked && cargo ravenrs-lint --init
+```
+
 ## Crates
 
 Start with `ravenrs`. The others come in as you need them.
@@ -323,6 +329,7 @@ Start with `ravenrs`. The others come in as you need them.
 | [`ravenrs-platform-web`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-web) | `<canvas>` + WebGPU or WebGL2 in the browser. |
 | [`ravenrs-wayland-gestures`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-wayland-gestures) | Touchpad pinches on Wayland. |
 | [`ravenrs-mcp`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp) | A read-only MCP server for coding assistants. A tool, not a dependency of your app. |
+| [`ravenrs-lint`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lint) | Lints for applications: theme tokens, the 4px grid, named controls, no state or blocking work in `body`. A dev-dependency and `cargo ravenrs-lint`. |
 
 ## Roadmap
 

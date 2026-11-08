@@ -153,6 +153,18 @@ DataGrid::new(data, [
 
 Sorting, the filter row (`>100`, `10..20`, `yes`, or an expression such as `[Seats] > 10 And [Country] = 'Brazil'`), search, grouping, resizing, the column chooser, editing and CSV export work out of the box; only the visible rows are built, so 100,000+ rows stay smooth.
 
+## 7. Quality checks
+
+`ravenrs-lint` checks what the compiler cannot: colors from `Semantic` roles, text from `TextStyle`, the 4px grid, named icon buttons, one primary action, and no state or blocking work in `body`. Set it up once and it fails the build of anyone, person or coding agent, who breaks a rule:
+
+```bash
+cargo install ravenrs-lint --locked
+cargo ravenrs-lint --init --language en   # or pt-BR
+cargo ravenrs-lint --gate
+```
+
+`--init` turns on the strictest rustc and Clippy levels, adds a test so `cargo test` runs the rules, and writes the same instructions for Codex, Claude, Gemini and Copilot. See [its README](../crates/ravenrs-lint/README.md) for every rule.
+
 ## Next
 
 - Browse every component in the [live gallery](https://alexkads.github.io/RavenRS/) and its [source](../examples/component-gallery/src/lib.rs).
