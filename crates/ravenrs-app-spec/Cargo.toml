@@ -20,7 +20,9 @@ regex-lite.workspace = true
 syn = { workspace = true, features = ["derive", "clone-impls"] }
 
 [dev-dependencies]
-ravenrs-app = { workspace = true, features = ["source"] }
+# By path only: ravenrs-app depends on this crate, so a version here would ask crates.io for a
+# ravenrs-app that is published after it. Cargo leaves a path-only dev-dependency out.
+ravenrs-app = { path = "../ravenrs-app", features = ["source"] }
 
 [lints]
 workspace = true
