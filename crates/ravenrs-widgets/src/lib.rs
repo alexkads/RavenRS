@@ -69,6 +69,7 @@ mod image;
 mod imaging;
 mod inputs;
 mod labels;
+mod links;
 mod lists;
 mod lookup;
 #[cfg(feature = "lottie")]
@@ -78,6 +79,8 @@ mod modifiers;
 mod motion;
 mod nav;
 mod overlay;
+mod page_motion;
+mod quad_field;
 mod quick_edit;
 mod recurrence;
 mod release_notes;
@@ -176,6 +179,7 @@ pub use imaging::{
 };
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};
+pub use links::{Link, LinkOpener, Links};
 pub use lists::{
     DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
     FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,
@@ -192,6 +196,8 @@ pub use nav::{
     Tabs, TabsVariant,
 };
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
+pub use page_motion::{Anchor, CountUp, Ticker, TimeLink};
+pub use quad_field::QuadField;
 pub use quick_edit::{InlineRename, ValueSlider};
 #[cfg(feature = "lottie")]
 pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};

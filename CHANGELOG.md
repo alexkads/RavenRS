@@ -10,11 +10,22 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Showcase pages. `Link` opens an address through the new `Links` service (`BuildCx::links`, `Ui::set_links`): the browser navigates, the desktop asks the system's browser. A `#name` address glides the page to the `Anchor` of that name, landing below a pinned bar (`BuildCx::anchor`), and jumps under reduced motion. `CountUp` counts up to its number the first time it shows on screen, through `BuildCx::on_appear`, which calls a handler once when an element first shows. `Ticker` keeps a strip of content moving sideways through `BuildCx::time_linked` and `TimeLink`, an effect of the clock worked out when painting, without rebuilding; it stands still under reduced motion.
+- `QuadField` draws a plane of squares that waves like a floor, lifts under the pointer and, as the scroll goes through its scene, stands up into the picture a function paints, one color per square, on every frame without rebuilding. `BuildCx::scroll_progress` gives drawing like this the scroll progress along a `ScrollRange` before each paint.
+- `PageFan` in `ravenrs-report-viewer` spreads real pages of rendered reports like a hand of cards: they open as the fan scrolls in, the page under the pointer or keyboard focus comes forward with an accent ring while the others step back, and a click opens its address. Each page is painted once and reused.
+- On the web, a touch scroll keeps gliding after the finger lifts and slows down as on a phone; a finger on the page stops it.
+- `examples/site-home`: the project's home page as a RavenRS app, drawn with WebGL2 in every browser and phone. The floor of squares that stands up into an app screen, the six steps held by the scroll, live components in moving strips, counters, real report pages in a fan, the platforms and themes switching the whole page, and the command palette are all library components. `scripts/deploy-pages.sh` puts it at the root of the site, in place of the HTML page.
 - The web backend also draws with WebGL2, so RavenRS opens in browsers and phones without WebGPU. `WebBackend::Auto`, the default, uses WebGPU where it is and WebGL2 otherwise or if WebGPU fails to start; `WebOptions::backend` asks for `WebBackend::WebGpu` or `WebBackend::WebGl2`. A WebGL2 device asks only for WebGL2's limits. The WebAssembly grows by about 0.7 MB compressed.
 - `ravenrs-spreadsheet`: the `Spreadsheet` component and `SpreadsheetState`. It opens XLSX, XLS, ODS and CSV and saves XLSX, with formulas that recalculate, editing in the cell and in the formula bar, selection with the pointer and the keys, the clipboard, undo, bold, italic, underline, alignment, number formats, column widths and sheet tabs, on the desktop and the web. `examples/spreadsheet` shows a household budget in it.
 - `ravenrs-sheet`: the spreadsheet engine underneath, from GridCraft (MIT OR Apache-2.0): 500+ functions with dynamic arrays, incremental recalculation, number formats, XLSX and CSV reading and writing, charts, and sessions in which every action is a command with undo. It runs in WebAssembly too.
 - Scroll-driven pages. `Sticky` keeps its content on screen while its section scrolls past, like CSS `position: sticky`, and clicks, focus and screen readers find it where it shows. `ScrollScene` holds its content for a length of scrolling, the stage for steps that change as the reader scrolls. `ScrollLinked` paints its content with the `Effect` a `ScrollLink` gives for the scroll position: a `ScrollRange` (the scene, the pass across the view, entering, leaving), a window with `between`, an `Easing`, and keyframes or any function, with `fade_in`, `fade_out`, `parallax` and `grow_from` ready. Scrolling still neither rebuilds nor lays out again. With reduced motion, linked effects only fade. The same powers are on `BuildCx`: `pin`, `scroll_track` and `scroll_linked`.
 - `Effect::lerp` interpolates between two effects and `Effect::then` combines them.
+
+### Fixed
+
+- After the graphics device was lost, the web backend started WebGPU again even on a page that ran on WebGL2; it now starts the API the page was using.
+- `ravenrs::web` exports `WebBackend`, which the WebGL2 release added to `ravenrs-platform-web` but left out of the re-export.
+
 
 ## [27.1.19] - 2026-11-07
 

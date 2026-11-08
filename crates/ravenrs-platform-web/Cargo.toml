@@ -69,6 +69,7 @@ web-sys = { workspace = true, features = [
     "BaseAudioContext",
     "SpeechSynthesis",
     "SpeechSynthesisUtterance",
+    "Location",
 ] }
 
 [lints]

@@ -186,6 +186,11 @@ pub struct Ui {
     access_map: access::AccessMap,
     clipboard: crate::Clipboard,
     sound: crate::Sound,
+    links: crate::Links,
+    /// A scroll gliding to an anchor: which container, from and to, and when it began.
+    glide: Option<(WidgetId, f32, f32, f64)>,
+    /// Widgets whose `on_appear` already ran.
+    appeared: std::collections::HashSet<WidgetId>,
     file_picker: crate::FilePicker,
     files_over: State<bool>,
     motion: MotionSystem,
@@ -287,6 +292,9 @@ impl Ui {
             access_map: access::AccessMap::default(),
             clipboard: crate::Clipboard::default(),
             sound: crate::Sound::default(),
+            links: crate::Links::default(),
+            glide: None,
+            appeared: std::collections::HashSet::new(),
             file_picker: crate::FilePicker::default(),
             files_over: State::new(false),
             motion: MotionSystem::default(),
@@ -410,6 +418,17 @@ impl Ui {
     /// The clipboard widgets copy to and paste from.
     pub fn clipboard(&self) -> crate::Clipboard {
         self.clipboard.clone()
+    }
+
+    /// Installs how addresses open (the platform layers do). Until then they are only
+    /// recorded, which tests read through [`crate::Links::opened`].
+    pub fn set_links(&mut self, provider: impl crate::LinkOpener + 'static) {
+        self.links.set_opener(provider);
+    }
+
+    /// The links service views open addresses through.
+    pub fn links(&self) -> crate::Links {
+        self.links.clone()
     }
 
     /// Installs the system's sound (platform layers do this); the default is silence.
@@ -582,6 +601,7 @@ impl Ui {
 
     /// Rebuilds, lays out and paints as needed, then returns the current scene.
     pub fn update(&mut self) -> &Scene {
+        let anchor = self.links.take_anchor();
         if self.needs_rebuild() {
             self.rebuild();
             // The tree changed under a stationary pointer: refresh hover once.
@@ -594,12 +614,88 @@ impl Ui {
                 self.rebuild();
                 self.viewport_moved = false;
             }
+        } else if self.glide.is_some() && anchor.is_none() {
+            self.advance_glide();
         } else if self.motion.active || self.live_is_due() {
             // Only animations are due: the tree and its layout are still valid.
             let _span = tracing::trace_span!("ravenrs::motion_frame").entered();
             self.paint();
         }
+        if let Some(name) = anchor {
+            self.start_glide(&name);
+        }
         &self.scene
+    }
+
+    /// Starts scrolling the container around the anchor `name` so the anchor lands at
+    /// its offset below the top. Under reduced motion it jumps.
+    fn start_glide(&mut self, name: &str) {
+        let Some(i) = self.elements.iter().position(|e| e.anchor.as_ref().is_some_and(|(n, _)| &**n == name))
+        else {
+            tracing::debug!(name, "no anchor of that name");
+            return;
+        };
+        let offset = self.elements[i].anchor.as_ref().map_or(0.0, |a| a.1);
+        let mut node = self.parents.get(i).copied().flatten();
+        while let Some(n) = node {
+            let k = n.0 as usize;
+            if self.elements[k].scroll {
+                let current = self.clamped_offset(k);
+                let to = (current.y + self.frames[i].y() - self.frames[k].y() - offset)
+                    .clamp(0.0, self.max_offset(k).y);
+                let widget = self.elements[k].widget;
+                if self.reduced_motion() {
+                    self.scroll.offsets.insert(widget, Point::new(current.x, to));
+                    self.place_and_paint();
+                } else {
+                    self.glide = Some((widget, current.y, to, self.time));
+                    self.next_live = Some(self.time);
+                }
+                return;
+            }
+            node = self.parents.get(k).copied().flatten();
+        }
+    }
+
+    /// One frame of a glide: eases in and out over about half a second.
+    fn advance_glide(&mut self) {
+        let Some((widget, from, to, start)) = self.glide else { return };
+        const GLIDE: f64 = 0.55;
+        let t = ((self.time - start) / GLIDE).clamp(0.0, 1.0) as f32;
+        let eased = ravenrs_animation::Easing::EaseInOut.sample(t);
+        let x = self.scroll.offsets.get(&widget).map_or(0.0, |o| o.x);
+        self.scroll.offsets.insert(widget, Point::new(x, from + (to - from) * eased));
+        self.scrolled_at.insert(widget, self.time);
+        if t >= 1.0 {
+            self.glide = None;
+        } else {
+            self.next_live = Some(self.time + LIVE_FRAME);
+        }
+        self.place_and_paint();
+        self.refresh_hover();
+    }
+
+    /// Runs the `on_appear` handlers of elements that show for the first time.
+    fn tell_appeared(&mut self) {
+        let mut due = Vec::new();
+        for (i, e) in self.elements.iter().enumerate() {
+            let Some(handler) = &e.on_appear else { continue };
+            if self.appeared.contains(&e.widget) {
+                continue;
+            }
+            let (frame, view) = (self.frames[i], self.views[i]);
+            if frame.max_y() > view.y()
+                && frame.y() < view.max_y()
+                && frame.max_x() > view.x()
+                && frame.x() < view.max_x()
+            {
+                due.push((e.widget, handler.clone()));
+            }
+        }
+        for (widget, handler) in due {
+            self.appeared.insert(widget);
+            handler();
+        }
     }
 
     /// The last painted scene.
@@ -1099,6 +1195,7 @@ impl Ui {
         let modifiers = self.modifiers.clone();
         let clipboard = self.clipboard.clone();
         let sound = self.sound.clone();
+        let links = self.links.clone();
         let file_picker = self.file_picker.clone();
         let files_over = self.files_over.clone();
         let ui_waker = self.ui_waker.clone();
@@ -1131,6 +1228,7 @@ impl Ui {
                 );
                 cx.now = now;
                 cx.sound = sound;
+                cx.links = links;
                 cx.file_picker = file_picker;
                 cx.files_over = files_over;
                 cx.motion_clock = motion_clock;
@@ -1268,6 +1366,7 @@ impl Ui {
         if self.scroll_focus_into_view() {
             self.place_all();
         }
+        self.tell_appeared();
         let snap = std::mem::take(&mut self.snap_layout);
         for entry in &self.motions {
             if let Some(t) = entry.motion.layout {
@@ -1444,11 +1543,10 @@ impl Ui {
         }
     }
 
-    /// The effect element `i`'s scroll link gives at the current scroll position.
-    fn scroll_effect(&self, i: usize) -> Effect {
-        let Some(link) = &self.elements[i].scroll_link else { return Effect::IDENTITY };
+    /// How far the scroll is along `range` for element `i`, from 0 to 1.
+    fn progress_of(&self, i: usize, range: crate::ScrollRange) -> f32 {
         let mut scene = None;
-        if link.scroll_range() == crate::ScrollRange::Scene {
+        if range == crate::ScrollRange::Scene {
             let mut node = Some(NodeId(i as u32));
             while let Some(n) = node {
                 let k = n.0 as usize;
@@ -1459,13 +1557,16 @@ impl Ui {
                 node = self.parents.get(k).copied().flatten();
             }
         }
-        let progress = match scene {
-            Some((k, track)) => {
-                link.scroll_range().progress(self.frames[i], self.views[k], Some((self.frames[k], track)))
-            }
-            None => link.scroll_range().progress(self.frames[i], self.views[i], None),
-        };
-        let effect = link.effect_at(progress);
+        match scene {
+            Some((k, track)) => range.progress(self.frames[i], self.views[k], Some((self.frames[k], track))),
+            None => range.progress(self.frames[i], self.views[i], None),
+        }
+    }
+
+    /// The effect element `i`'s scroll link gives at the current scroll position.
+    fn scroll_effect(&self, i: usize) -> Effect {
+        let Some(link) = &self.elements[i].scroll_link else { return Effect::IDENTITY };
+        let effect = link.effect_at(self.progress_of(i, link.scroll_range()));
         // Asked for less motion, the scroll still fades things, but nothing moves or grows.
         if self.reduced_motion() { Effect::IDENTITY.with_opacity(effect.opacity) } else { effect }
     }
@@ -1530,7 +1631,15 @@ impl Ui {
             Some((_, s)) => (s.quad, s.text, s.frame.unwrap_or(frame), s.effect),
             None => (None, None, frame, Effect::IDENTITY),
         };
-        let linked = self.scroll_effect(i);
+        if let Some((range, cell)) = self.elements[i].progress_out.clone() {
+            cell.set(self.progress_of(i, range));
+        }
+        let mut linked = self.scroll_effect(i);
+        if let Some(link) = self.elements[i].time_link.clone() {
+            let time = if self.reduced_motion() { 0.0 } else { self.time };
+            self.has_live = true;
+            linked = linked.then(link.effect_at(time, frame));
+        }
         effect = effect.then(linked);
         // Off screen, its pixels would be thrown away: what it draws goes nowhere, though its
         // children still get their turn, since they can stand outside it. A node under an

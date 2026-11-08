@@ -430,6 +430,14 @@ pub(crate) struct Element {
     pub scroll_track: Option<crate::scroll_scene::ScrollTrack>,
     /// Painted through this effect of the scroll position.
     pub scroll_link: Option<crate::ScrollLink>,
+    /// A place links can scroll to (`#name`), and how far below the top it lands.
+    pub anchor: Option<(Rc<str>, f32)>,
+    /// Called once, the first time the element shows in its scroll container.
+    pub on_appear: Option<Rc<dyn Fn()>>,
+    /// Painted through this effect of the clock and the element's frame.
+    pub time_link: Option<crate::TimeLink>,
+    /// Told the scroll progress along this range before each paint.
+    pub progress_out: Option<(crate::ScrollRange, Rc<std::cell::Cell<f32>>)>,
 }
 
 impl Element {
@@ -467,6 +475,10 @@ impl Element {
             pin: None,
             scroll_track: None,
             scroll_link: None,
+            anchor: None,
+            on_appear: None,
+            time_link: None,
+            progress_out: None,
         }
     }
 
@@ -575,6 +587,7 @@ pub struct BuildCx<'a> {
     pub(crate) error: Option<LayoutError>,
     pub(crate) clipboard: crate::Clipboard,
     pub(crate) sound: crate::Sound,
+    pub(crate) links: crate::Links,
     pub(crate) file_picker: crate::FilePicker,
     pub(crate) files_over: State<bool>,
     pub(crate) motions: Vec<MotionEntry>,
@@ -642,6 +655,7 @@ impl<'a> BuildCx<'a> {
             error: None,
             clipboard,
             sound: crate::Sound::default(),
+            links: crate::Links::default(),
             file_picker: crate::FilePicker::default(),
             files_over: State::new(false),
             motions: Vec::new(),
@@ -704,6 +718,54 @@ impl<'a> BuildCx<'a> {
     /// The app-wide theme as state: set it to switch themes at runtime.
     pub fn theme_state(&self) -> State<Theme> {
         self.theme_state.clone()
+    }
+
+    /// Opens addresses: in the browser it navigates, on the desktop the system's
+    /// browser opens them. `#name` scrolls to the anchor of that name instead.
+    pub fn links(&self) -> crate::Links {
+        self.links.clone()
+    }
+
+    /// Marks the node as the place `#name` links scroll to, landing `offset` pixels
+    /// below the top of its scroll container (the height of a bar pinned over it).
+    pub fn anchor(&mut self, node: NodeId, name: &str, offset: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.anchor = Some((Rc::from(name), offset));
+        }
+    }
+
+    /// Calls `handler` once, after the first frame in which the node shows inside its
+    /// scroll container: counters that start when they are seen, content loaded when
+    /// it is reached. The handler runs outside the build, so it may set state.
+    pub fn on_appear(&mut self, node: NodeId, handler: Rc<dyn Fn()>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_appear = Some(handler);
+        }
+    }
+
+    /// Paints the node and its subtree with the effect `link` gives for the clock and
+    /// the node's frame, on every frame while it shows: a strip that keeps moving, a
+    /// gentle float. It neither rebuilds nor lays out. With reduced motion the clock
+    /// stands at zero.
+    pub fn time_linked(&mut self, node: NodeId, link: crate::TimeLink) {
+        if let Some(e) = self.element_mut(node) {
+            e.time_link = Some(link);
+        }
+    }
+
+    /// Writes into `progress`, before each paint of the node, how far the scroll is along
+    /// `range` from 0 to 1, for drawing that follows the scroll itself, such as a
+    /// [`crate::QuadField`]. Effects that only move, fade or scale use
+    /// [`Self::scroll_linked`] instead.
+    pub fn scroll_progress(
+        &mut self,
+        node: NodeId,
+        range: crate::ScrollRange,
+        progress: Rc<std::cell::Cell<f32>>,
+    ) {
+        if let Some(e) = self.element_mut(node) {
+            e.progress_out = Some((range, progress));
+        }
     }
 
     /// The system clipboard, for copy and paste handlers.
