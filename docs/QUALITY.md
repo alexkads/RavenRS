@@ -31,7 +31,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 | `cargo deny check` | Vulnerable, yanked or unlicensed dependencies, and unknown sources |
 | `cargo +1.88 check` | The declared minimum Rust version (MSRV) still builds |
 | `--no-default-features` | Optional features really are optional |
-| `cargo bench --no-run` | Benchmarks keep compiling |
+| `cargo bench --no-run`, only with `RAVENRS_GATE=1` | Benchmarks keep compiling. It runs when asked for, with the performance gate |
 | `cargo run --release -p ravenrs-perf -- gate`, only with `RAVENRS_GATE=1` | Performance regressions: the exact work of every scene against `perf/baseline.json`. It runs when asked for, not on every check |
 | Web builds | The examples build and bind for WebAssembly |
 

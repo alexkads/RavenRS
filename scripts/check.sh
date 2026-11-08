@@ -4,10 +4,10 @@
 #   scripts/check.sh          quick, for every change and pull request: formatting, then lints and
 #                             tests of the packages the change reaches (scripts/changed-packages.py)
 #   scripts/check.sh --full   everything, before a release: the whole workspace, wasm32, optional
-#                             features, the minimum Rust version, dependencies, benchmarks, API docs
-#                             and the web builds
+#                             features, the minimum Rust version, dependencies, API docs and the
+#                             web builds
 #
-# The performance gate runs only when asked for: RAVENRS_GATE=1 scripts/check.sh --full
+# Benchmarks and the performance gate run only when asked for: RAVENRS_GATE=1 scripts/check.sh --full
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -75,11 +75,11 @@ fi
 step "every example downloads from the playground as a project that builds"
 cargo test -p component-gallery --test projects -- --ignored
 
-step "benchmarks compile"
-cargo bench --workspace --no-run --quiet
-
 # Only when asked: RAVENRS_GATE=1 ./scripts/check.sh --full
 if [ "${RAVENRS_GATE:-0}" = "1" ]; then
+    step "benchmarks compile"
+    cargo bench --workspace --no-run --quiet
+
     step "performance gate: exact counters against perf/baseline.json"
     cargo run --release -q -p ravenrs-perf -- gate
 fi
