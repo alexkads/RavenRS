@@ -155,3 +155,18 @@ fn f() -> (i64, i64) {
 }"#;
     assert_eq!(eval(source), Value::Tuple(vec![Value::Int(7), Value::Int(7)]));
 }
+
+#[test]
+fn what_the_program_prints_is_kept_by_line_and_told() {
+    let told = std::rc::Rc::new(std::cell::Cell::new(0));
+    let count = told.clone();
+    ravenrs_live::on_output(move || count.set(count.get() + 1));
+    let _ = ravenrs_live::printed();
+    eval(r#"fn f() { let n = 2; println!("a {n}"); print!("b"); print!("c"); eprintln!(); println!("d") }"#);
+    assert_eq!(ravenrs_live::printed(), ["a 2", "bc", "d"]);
+    assert_eq!(told.get(), 5);
+    eval(r#"fn f() { print!("half") }"#);
+    assert!(ravenrs_live::printed().is_empty(), "a line waits for its end");
+    eval(r#"fn f() { println!(" done") }"#);
+    assert_eq!(ravenrs_live::printed(), ["half done"]);
+}

@@ -1,6 +1,7 @@
 //! A place to write code and see what it makes: a [`CodeEditor`] beside the result,
 //! examples to start from, and the problems the code has, marked where they are.
 
+use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -12,8 +13,9 @@ use ravenrs_style::{Semantic, TextStyle};
 use crate::code_editor::{CodeDiagnostic, CodeEditor, CodeLanguage};
 use crate::context::{BuildCx, NodeId};
 use crate::{
-    Alert, AnyView, Badge, Button, ButtonStyle, HStack, IconName, Keyed, ScrollView, SegmentedControl,
-    Select, Spacer, SplitPane, SplitPanes, Text, Tone, VStack, View, ViewExt,
+    Alert, AnyView, Badge, Button, ButtonStyle, Divider, Dot, DropdownMenu, HStack, IconButton, IconName,
+    Keyed, MenuItem, ScrollView, SegmentedControl, Select, Spacer, SplitPane, SplitPanes, Text, Tone, VStack,
+    View, ViewExt,
 };
 
 /// Below this width the code and the result take turns, as two tabs.
@@ -28,6 +30,42 @@ const RESULT_MIN_WIDTH: f32 = 320.0;
 pub trait Runner {
     /// The view `source` makes, or where and why it cannot make one.
     fn run(&self, source: &str) -> Result<AnyView, Vec<CodeDiagnostic>>;
+
+    /// What the code printed, and the problems of what it runs later, such as a closure on a
+    /// click, since the last time this was asked. Nothing, unless the runner keeps them.
+    fn take_output(&self) -> RunOutput {
+        RunOutput::default()
+    }
+
+    /// Calls `wake` whenever there is something new for [`Self::take_output`], so the
+    /// playground shows it as it comes. Nothing, unless the runner can tell.
+    fn watch(&self, wake: Rc<dyn Fn()>) {
+        let _ = wake;
+    }
+}
+
+/// What a [`Runner`] heard from the code since it was last asked.
+#[derive(Clone, Debug, Default, PartialEq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct RunOutput {
+    /// Lines it printed, in order.
+    pub lines: Vec<String>,
+    /// Problems of what it ran after the run itself, with their places.
+    pub problems: Vec<CodeDiagnostic>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl RunOutput {
+    /// Output with these lines and problems.
+    pub fn new(lines: Vec<String>, problems: Vec<CodeDiagnostic>) -> Self {
+        Self { lines, problems }
+    }
+
+    /// Whether there is nothing in it.
+    pub fn is_empty(&self) -> bool {
+        self.lines.is_empty() && self.problems.is_empty()
+    }
 }
 
 impl<F: Fn(&str) -> Result<AnyView, Vec<CodeDiagnostic>>> Runner for F {
@@ -49,6 +87,8 @@ impl View for Shown {
 /// A button the app adds to the bar, which gets the code as it is.
 type Extra = (String, IconName, Rc<dyn Fn(&str)>);
 type Download = Rc<dyn Fn(&str) -> Result<(String, Vec<u8>), Vec<CodeDiagnostic>>>;
+/// An extra button with the code already bound to it.
+type Bound = (String, IconName, Rc<dyn Fn()>);
 
 /// A place to write code and see what it makes, for documentation, tutorials and tools.
 ///
@@ -170,7 +210,29 @@ impl Playground {
     }
 }
 
+/// What the code said since the last run: the lines it printed and the problems of what ran
+/// later. Kept apart from the reactive state, so reading it while building changes nothing.
+#[derive(Default)]
+struct Log {
+    lines: Vec<String>,
+    problems: Vec<CodeDiagnostic>,
+}
+
+/// The most lines the console keeps, the oldest going first.
+const MOST_LINES: usize = 500;
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl Log {
+    fn add(&mut self, output: RunOutput) {
+        self.lines.extend(output.lines);
+        let over = self.lines.len().saturating_sub(MOST_LINES);
+        self.lines.drain(..over);
+        self.problems.extend(output.problems);
+    }
+}
+
 impl View for Playground {
+    #[allow(clippy::too_many_lines, reason = "one screen, built top to bottom")]
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let labels = cx.labels();
         let first = self.examples.first().map(|(_, code)| code.clone()).unwrap_or_default();
@@ -181,25 +243,52 @@ impl View for Playground {
         let result: State<Option<Shown>> = cx.use_state(|| None);
         let version: State<u64> = cx.use_state(|| 0);
         let problems: State<Vec<CodeDiagnostic>> = cx.use_state(Vec::new);
+        // 0 code, 1 result, 2 output: the tabs of a narrow playground.
         let tab = cx.use_state(|| 0usize);
+        // 0 console, 1 problems.
+        let output_tab = cx.use_state(|| 0usize);
+        let output_open = cx.use_state(|| true);
+        let log: State<Rc<RefCell<Log>>> = cx.use_state(Rc::default);
+        let heard: State<u64> = cx.use_state(|| 0);
         let started = cx.use_state(|| false);
+        let log = log.get();
 
         let run: Rc<dyn Fn()> = {
             let (runner, source, result, version, problems) =
                 (self.runner.clone(), source.clone(), result.clone(), version.clone(), problems.clone());
-            let tab = tab.clone();
-            Rc::new(move || match runner.run(&source.get()) {
-                Ok(view) => {
-                    result.set(Some(Shown(Rc::from(view))));
-                    version.update(|v| *v += 1);
-                    problems.set(Vec::new());
-                    tab.set(1);
+            let (tab, output_tab, output_open, log, heard) =
+                (tab.clone(), output_tab.clone(), output_open.clone(), log.clone(), heard.clone());
+            Rc::new(move || {
+                // What earlier runs left is not this run's.
+                let _ = runner.take_output();
+                *log.borrow_mut() = Log::default();
+                match runner.run(&source.get()) {
+                    Ok(view) => {
+                        result.set(Some(Shown(Rc::from(view))));
+                        version.update(|v| *v += 1);
+                        problems.set(Vec::new());
+                        if tab.get() == 0 {
+                            tab.set(1);
+                        }
+                        if output_tab.get() == 1 {
+                            output_tab.set(0);
+                        }
+                    }
+                    Err(found) => {
+                        problems.set(found);
+                        output_tab.set(1);
+                        output_open.set(true);
+                    }
                 }
-                Err(found) => problems.set(found),
+                log.borrow_mut().add(runner.take_output());
+                heard.update(|n| *n += 1);
             })
         };
         if !started.get() {
             started.set(true);
+            // What the code prints, or gets wrong later, shows as it comes.
+            let wake = heard.clone();
+            self.runner.watch(Rc::new(move || wake.update(|n| *n += 1)));
             // An empty kept code starts from the first example too.
             if source.get().is_empty()
                 && let Some((_, code)) = self.examples.first()
@@ -209,15 +298,23 @@ impl View for Playground {
             run();
         }
         cx.shortcut(Key::Enter, true, run.clone());
-
-        // The bar: what it is, the examples, and what to do with the code.
-        let mut bar: Vec<AnyView> = Vec::new();
-        if let Some(title) = &self.title {
-            bar.push(Box::new(Text::new(title.clone()).style(TextStyle::Headline)));
+        // Read so that what is heard builds the playground again; then taken in.
+        let _ = heard.get();
+        let fresh = self.runner.take_output();
+        if !fresh.is_empty() {
+            log.borrow_mut().add(fresh);
         }
-        bar.push(Box::new(Spacer::new()));
-        if self.examples.len() > 1 {
-            let (examples, chosen, fill) = (self.examples.clone(), example.clone(), source.clone());
+
+        let narrow = cx.viewport().width < TABS_BREAKPOINT;
+        let found = problems.get();
+        let late = log.borrow().problems.clone();
+        let printed = log.borrow().lines.clone();
+        let all_problems: Vec<CodeDiagnostic> = found.iter().chain(late.iter()).cloned().collect();
+
+        // The examples: picking one puts its code in and runs it.
+        let picker: Option<AnyView> = (self.examples.len() > 1).then(|| {
+            let (examples, chosen, fill, go) =
+                (self.examples.clone(), example.clone(), source.clone(), run.clone());
             let read = example.clone();
             let pick = Binding::new(
                 move || read.get(),
@@ -225,80 +322,139 @@ impl View for Playground {
                     chosen.set(i);
                     if let Some((_, code)) = examples.get(i) {
                         fill.set(code.clone());
+                        go();
                     }
                 },
             );
-            bar.push(Box::new(
+            Box::new(
                 Select::new(pick, self.examples.iter().map(|(name, _)| name.clone()))
                     .label(labels.playground_example.clone()),
-            ));
-        }
-        if !self.examples.is_empty() {
+            ) as AnyView
+        });
+        let restore: Option<Rc<dyn Fn()>> = (!self.examples.is_empty()).then(|| {
             let (examples, chosen, fill) = (self.examples.clone(), example.clone(), source.clone());
-            bar.push(Box::new(
-                Button::new(labels.playground_restore.clone())
-                    .icon(IconName::RotateCcw)
-                    .style(ButtonStyle::Secondary)
-                    .on_click(move || {
-                        if let Some((_, code)) = examples.get(chosen.get()) {
-                            fill.set(code.clone());
-                        }
-                    }),
-            ));
-        }
-        for (label, icon, then) in &self.extras {
-            let (then, code) = (then.clone(), source.clone());
-            bar.push(Box::new(
-                Button::new(label.clone())
-                    .icon(*icon)
-                    .style(ButtonStyle::Secondary)
-                    .on_click(move || then(&code.get())),
-            ));
-        }
-        if let Some(make) = &self.download {
+            Rc::new(move || {
+                if let Some((_, code)) = examples.get(chosen.get()) {
+                    fill.set(code.clone());
+                }
+            }) as Rc<dyn Fn()>
+        });
+        let download: Option<Rc<dyn Fn()>> = self.download.as_ref().map(|make| {
             let (make, code, problems, picker) =
                 (make.clone(), source.clone(), problems.clone(), cx.file_picker());
-            bar.push(Box::new(
-                Button::new(labels.playground_download.clone())
-                    .icon(IconName::Download)
-                    .style(ButtonStyle::Secondary)
-                    .on_click(move || match make(&code.get()) {
-                        Ok((name, bytes)) => picker.save(&name, &bytes),
-                        Err(found) => problems.set(found),
-                    }),
-            ));
-        }
-        let go = run.clone();
-        bar.push(Box::new(
+            let (output_tab, output_open) = (output_tab.clone(), output_open.clone());
+            Rc::new(move || match make(&code.get()) {
+                Ok((name, bytes)) => picker.save(&name, &bytes),
+                Err(found) => {
+                    problems.set(found);
+                    output_tab.set(1);
+                    output_open.set(true);
+                }
+            }) as Rc<dyn Fn()>
+        });
+        let extras: Vec<Bound> = self
+            .extras
+            .iter()
+            .map(|(label, icon, then)| {
+                let (then, code) = (then.clone(), source.clone());
+                (label.clone(), *icon, Rc::new(move || then(&code.get())) as Rc<dyn Fn()>)
+            })
+            .collect();
+        let run_button = || {
+            let go = run.clone();
             Button::new(labels.playground_run.clone())
                 .icon(IconName::Play)
                 .shortcut(if cfg!(target_os = "macos") { "⌘↵" } else { "Ctrl+↵" })
-                .on_click(move || go()),
-        ));
-        let narrow = cx.viewport().width < TABS_BREAKPOINT;
-        let bar = HStack::new(bar).spacing(8.0).align(Align::Center);
-        let bar = if narrow { bar.wrap() } else { bar };
+                .on_click(move || go())
+        };
 
-        // The code, with its problems under it.
-        let found = problems.get();
-        let mut code: Vec<AnyView> = vec![Box::new(
-            CodeEditor::new(source.clone()).language(self.language).diagnostics(found.clone()).fill(),
-        )];
-        for problem in found.iter().take(3) {
-            let place = format!(
-                "{} {}, {} {}",
-                labels.playground_line, problem.line, labels.playground_column, problem.column
-            );
-            let text = match &problem.hint {
-                Some(hint) => format!("{}. {hint}", problem.message),
-                None => problem.message.clone(),
-            };
-            let tone = if problem.tone == Tone::Warning { Tone::Warning } else { Tone::Danger };
-            code.push(Box::new(Alert::new(place, text).tone(tone)));
+        // The bar. Wide, every action is a button; narrow, the ones besides Run go in a menu.
+        let mut bar: Vec<AnyView> = Vec::new();
+        // Narrow, the examples take the title's place.
+        if let Some(title) = self.title.as_ref().filter(|_| !narrow || self.examples.len() < 2) {
+            bar.push(Box::new(Text::new(title.clone()).style(TextStyle::Headline)));
         }
-        let code = VStack::new(code).spacing(8.0).align(Align::Stretch).grow(1.0);
+        if narrow {
+            if let Some(picker) = picker {
+                bar.push(Box::new(VStack::new((picker,)).align(Align::Stretch).grow(1.0)));
+            } else {
+                bar.push(Box::new(Spacer::new()));
+            }
+            let mut menu = DropdownMenu::new(labels.playground_more.clone())
+                .icon(IconName::Ellipsis)
+                .icon_only()
+                .style(ButtonStyle::Ghost);
+            for (label, icon, then) in &extras {
+                let then = then.clone();
+                menu = menu.item(MenuItem::new(label.clone()).icon(*icon).on_select(move || then()));
+            }
+            if let Some(save) = &download {
+                let save = save.clone();
+                menu = menu.item(
+                    MenuItem::new(labels.playground_download.clone())
+                        .icon(IconName::Download)
+                        .on_select(move || save()),
+                );
+            }
+            if let Some(restore) = &restore {
+                let restore = restore.clone();
+                menu = menu.item(
+                    MenuItem::new(labels.playground_restore.clone())
+                        .icon(IconName::RotateCcw)
+                        .on_select(move || restore()),
+                );
+            }
+            bar.push(Box::new(menu));
+        } else {
+            if let Some(picker) = picker {
+                bar.push(picker);
+            }
+            bar.push(Box::new(Spacer::new()));
+            for (label, icon, then) in &extras {
+                let then = then.clone();
+                bar.push(Box::new(
+                    Button::new(label.clone()).icon(*icon).style(ButtonStyle::Ghost).on_click(move || then()),
+                ));
+            }
+            if let Some(restore) = &restore {
+                let restore = restore.clone();
+                bar.push(Box::new(
+                    Button::new(labels.playground_restore.clone())
+                        .icon(IconName::RotateCcw)
+                        .style(ButtonStyle::Ghost)
+                        .on_click(move || restore()),
+                ));
+            }
+            if let Some(save) = &download {
+                let save = save.clone();
+                bar.push(Box::new(
+                    Button::new(labels.playground_download.clone())
+                        .icon(IconName::Download)
+                        .style(ButtonStyle::Ghost)
+                        .on_click(move || save()),
+                ));
+            }
+            bar.push(Box::new(run_button()));
+        }
+        let bar = HStack::new(bar)
+            .spacing(8.0)
+            .align(Align::Center)
+            .padding((8.0, 12.0))
+            .background(Semantic::Surface);
 
-        // The result: the last one that worked, labeled when the code has changed since.
+        // How the code stands, under the editor and in the narrow footer.
+        let status = status_line(&labels, all_problems.len());
+
+        let code = VStack::new((
+            CodeEditor::new(source.clone()).language(self.language).diagnostics(found.clone()).fill(),
+            HStack::new((status,)).padding((6.0, 12.0)),
+        ))
+        .align(Align::Stretch)
+        .grow(1.0)
+        .background(Semantic::Surface)
+        .grow(1.0);
+
+        // The result: the last one that worked, faded and labeled when the code has changed since.
         let shown = result.get();
         let mut head: Vec<AnyView> = vec![Box::new(
             Text::new(labels.playground_result.to_uppercase())
@@ -309,44 +465,209 @@ impl View for Playground {
             head.push(Box::new(Badge::new(labels.playground_last_good.clone()).tone(Tone::Warning)));
         }
         let outcome: AnyView = match shown {
-            Some(view) => Box::new(ScrollView::new((Keyed::new(version.get(), view),)).grow(1.0)),
+            Some(view) => {
+                let view = ScrollView::new((Keyed::new(version.get(), view),)).grow(1.0);
+                if found.is_empty() { Box::new(view) } else { Box::new(view.opacity(0.45)) }
+            }
             None => Box::new(Spacer::new()),
         };
-        let outcome = VStack::new((HStack::new(head).spacing(8.0).align(Align::Center), outcome))
-            .spacing(8.0)
-            .align(Align::Stretch)
-            .grow(1.0)
-            .padding(12.0)
-            .background(Semantic::Canvas)
-            .corner_radius(cx.theme().radii.lg);
+        let radius = cx.theme().radii.lg;
+        let outcome = VStack::new((
+            HStack::new(head).spacing(8.0).align(Align::Center),
+            VStack::new((outcome,))
+                .align(Align::Stretch)
+                .grow(1.0)
+                .padding(16.0)
+                .background(Semantic::SurfaceElevated)
+                .corner_radius(radius)
+                .grow(1.0),
+        ))
+        .spacing(8.0)
+        .align(Align::Stretch)
+        .grow(1.0)
+        .padding(12.0)
+        .grow(1.0);
+
+        // The output: what the code printed, and its problems with their places.
+        let console: AnyView = if printed.is_empty() {
+            Box::new(
+                Text::new(labels.playground_nothing_printed.clone())
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted),
+            )
+        } else {
+            let text = printed.join("\n");
+            let shown = Binding::new(move || text.clone(), |_: String| {});
+            Box::new(
+                CodeEditor::new(shown)
+                    .language(CodeLanguage::Plain)
+                    .line_numbers(false)
+                    .read_only(true)
+                    .fill(),
+            )
+        };
+        let problem_list: AnyView = if all_problems.is_empty() {
+            Box::new(
+                Text::new(labels.playground_no_problems.clone())
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted),
+            )
+        } else {
+            let rows: Vec<AnyView> = all_problems
+                .iter()
+                .map(|problem| {
+                    let place = format!(
+                        "{} {}, {} {}",
+                        labels.playground_line, problem.line, labels.playground_column, problem.column
+                    );
+                    let text = match &problem.hint {
+                        Some(hint) => format!("{}. {hint}", problem.message),
+                        None => problem.message.clone(),
+                    };
+                    let tone = if problem.tone == Tone::Warning { Tone::Warning } else { Tone::Danger };
+                    Box::new(Alert::new(place, text).tone(tone)) as AnyView
+                })
+                .collect();
+            Box::new(ScrollView::new((VStack::new(rows).spacing(8.0).align(Align::Stretch),)).grow(1.0))
+        };
+        let output_tabs = SegmentedControl::new(
+            output_tab.binding(),
+            [
+                format!("{} {}", labels.playground_console, printed.len()),
+                format!("{} {}", labels.playground_problems, all_problems.len()),
+            ],
+        )
+        .label(labels.playground_output.clone());
+        let output_body: AnyView = if output_tab.get() == 0 { console } else { problem_list };
+
+        let clear = {
+            let (log, problems, heard) = (log.clone(), problems.clone(), heard.clone());
+            IconButton::new(IconName::Trash2)
+                .label(labels.playground_clear_output.clone())
+                .style(ButtonStyle::Ghost)
+                .on_click(move || {
+                    *log.borrow_mut() = Log::default();
+                    problems.set(Vec::new());
+                    heard.update(|n| *n += 1);
+                })
+        };
 
         let body: AnyView = if narrow {
             let tabs = SegmentedControl::new(
                 tab.binding(),
-                [labels.playground_code.clone(), labels.playground_result.clone()],
+                [
+                    labels.playground_code.clone(),
+                    labels.playground_result.clone(),
+                    format!("{} {}", labels.playground_output, printed.len() + all_problems.len()),
+                ],
             );
-            let page: AnyView = if tab.get() == 0 { Box::new(code) } else { Box::new(outcome) };
-            Box::new(VStack::new((tabs, page)).spacing(8.0).align(Align::Stretch).grow(1.0))
+            let page: AnyView = match tab.get() {
+                0 => Box::new(code),
+                1 => Box::new(outcome),
+                _ => Box::new(
+                    VStack::new((output_tabs, output_body))
+                        .spacing(8.0)
+                        .align(Align::Stretch)
+                        .grow(1.0)
+                        .padding(12.0)
+                        .grow(1.0),
+                ),
+            };
+            let footer = HStack::new((
+                VStack::new((status_line(&labels, all_problems.len()),)).grow(1.0),
+                run_button(),
+            ))
+            .spacing(8.0)
+            .align(Align::Center)
+            .padding((8.0, 12.0))
+            .background(Semantic::Surface);
+            Box::new(
+                VStack::new((VStack::new((tabs,)).align(Align::Stretch).padding((8.0, 12.0)), page, footer))
+                    .spacing(8.0)
+                    .align(Align::Stretch)
+                    .grow(1.0),
+            )
         } else {
+            let open = output_open.get();
+            let toggle = {
+                let open_now = output_open.clone();
+                IconButton::new(if open { IconName::ChevronDown } else { IconName::ChevronUp })
+                    .label(if open {
+                        labels.playground_hide_output.clone()
+                    } else {
+                        labels.playground_show_output.clone()
+                    })
+                    .style(ButtonStyle::Ghost)
+                    .on_click(move || open_now.update(|o| *o = !*o))
+            };
+            let output_head =
+                HStack::new((output_tabs, Spacer::new(), clear, toggle)).spacing(4.0).align(Align::Center);
+            let output: AnyView = if open {
+                Box::new(
+                    VStack::new((output_head, output_body))
+                        .spacing(8.0)
+                        .align(Align::Stretch)
+                        .height(OUTPUT_HEIGHT)
+                        .padding(12.0)
+                        .background(Semantic::Surface),
+                )
+            } else {
+                Box::new(
+                    VStack::new((output_head,))
+                        .align(Align::Stretch)
+                        .padding((6.0, 12.0))
+                        .background(Semantic::Surface),
+                )
+            };
+            let right = VStack::new((outcome, Divider::horizontal(), output)).align(Align::Stretch).grow(1.0);
             Box::new(
                 SplitPanes::horizontal()
                     .pane(SplitPane::new(code).range(CODE_MIN_WIDTH, f32::MAX))
-                    .pane(SplitPane::new(outcome).range(RESULT_MIN_WIDTH, f32::MAX))
+                    .pane(SplitPane::new(right).range(RESULT_MIN_WIDTH, f32::MAX))
                     .grow(1.0),
             )
         };
 
-        let mut parts: Vec<AnyView> = vec![Box::new(bar)];
+        let mut parts: Vec<AnyView> = vec![Box::new(bar), Box::new(Divider::horizontal())];
         if let Some(note) = &self.note {
             parts.push(Box::new(
-                Text::new(note.clone()).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+                Text::new(note.clone())
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted)
+                    .padding((8.0, 12.0)),
             ));
         }
         parts.push(body);
-        let whole = VStack::new(parts).spacing(12.0).align(Align::Stretch);
+        // The stack fills its box, so the body and the narrow footer reach its bottom.
+        let whole = VStack::new(parts).align(Align::Stretch).grow(1.0);
         match self.height {
-            Some(height) => cx.child(&whole.height(height)),
-            None => cx.child(&whole.grow(1.0)),
+            Some(height) => cx.child(&whole.background(Semantic::Canvas).height(height)),
+            None => cx.child(&whole.background(Semantic::Canvas).grow(1.0)),
         }
+    }
+}
+
+/// The height of the open output panel.
+const OUTPUT_HEIGHT: f32 = 200.0;
+
+fn status_line(labels: &crate::Labels, count: usize) -> AnyView {
+    if count == 0 {
+        Box::new(
+            HStack::new((
+                Dot::new().tone(Tone::Success),
+                Text::new(labels.playground_no_problems.clone()).style(TextStyle::Callout),
+            ))
+            .spacing(6.0)
+            .align(Align::Center),
+        )
+    } else {
+        Box::new(
+            HStack::new((
+                Dot::new().tone(Tone::Danger),
+                Text::new(format!("{}: {count}", labels.playground_problems)).style(TextStyle::Callout),
+            ))
+            .spacing(6.0)
+            .align(Align::Center),
+        )
     }
 }

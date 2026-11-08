@@ -307,4 +307,13 @@ impl Runner for LiveRunner {
             .map_err(|errors| errors.into_iter().map(diagnostic).collect::<Vec<_>>())?;
         AnyView::from_live(value).map_err(|message| vec![CodeDiagnostic::error(1, 1, 1, message)])
     }
+
+    fn take_output(&self) -> crate::RunOutput {
+        let problems = ravenrs_live::late_problems().into_iter().map(diagnostic).collect();
+        crate::RunOutput::new(ravenrs_live::printed(), problems)
+    }
+
+    fn watch(&self, wake: Rc<dyn Fn()>) {
+        ravenrs_live::on_output(move || wake());
+    }
 }

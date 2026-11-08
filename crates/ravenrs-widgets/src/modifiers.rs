@@ -60,6 +60,30 @@ pub trait ViewExt: View + Sized {
     fn tooltip(self, text: impl Into<String>) -> Tooltip<Self> {
         Tooltip::new(self, text)
     }
+    /// Draws the view and everything in it at this opacity, from `0.0` to `1.0`, easing to it
+    /// when it changes. Layout and input stay as they are; see [`Faded`].
+    fn opacity(self, opacity: f32) -> Faded<Self> {
+        Faded { content: self, opacity: opacity.clamp(0.0, 1.0) }
+    }
+}
+
+/// A view drawn at an opacity, such as the last result a playground keeps while its code has
+/// problems; see [`ViewExt::opacity`]. Each shape fades on its own, so overlapping shapes show
+/// through each other while it is partly faded.
+#[derive(Debug)]
+pub struct Faded<V> {
+    content: V,
+    opacity: f32,
+}
+
+impl<V: View> View for Faded<V> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let node = self.content.build(cx);
+        let effect = ravenrs_core::Effect { opacity: self.opacity, ..ravenrs_core::Effect::IDENTITY };
+        let transition = cx.theme().motion.fast;
+        cx.motion(node, crate::Motion::new().effect(effect, transition));
+        node
+    }
 }
 
 impl<V: View> ViewExt for V {}

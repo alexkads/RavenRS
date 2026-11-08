@@ -248,3 +248,116 @@ fn download_saves_what_the_code_makes_or_marks_why_not() {
     assert_eq!(saved.borrow().len(), 1, "nothing more is saved");
     assert!(shows(&mut ui, "Nothing to save"), "and the code says why");
 }
+
+/// Where a runner keeps the playground's wake.
+type Wake = std::rc::Rc<std::cell::RefCell<Option<std::rc::Rc<dyn Fn()>>>>;
+
+/// A runner that prints what it says, and can be told later that something failed.
+#[derive(Clone, Default)]
+struct Talking {
+    heard: std::rc::Rc<std::cell::RefCell<RunOutput>>,
+    wake: Wake,
+}
+
+impl Talking {
+    fn later(&self, line: Option<&str>, problem: Option<CodeDiagnostic>) {
+        let mut heard = self.heard.borrow_mut();
+        heard.lines.extend(line.map(str::to_owned));
+        heard.problems.extend(problem);
+        drop(heard);
+        let wake = self.wake.borrow().clone();
+        if let Some(wake) = wake {
+            wake();
+        }
+    }
+}
+
+impl Runner for Talking {
+    fn run(&self, source: &str) -> Result<AnyView, Vec<CodeDiagnostic>> {
+        let view = runner(source)?;
+        self.heard.borrow_mut().lines.push(format!("ran {}", source.trim()));
+        Ok(view)
+    }
+
+    fn take_output(&self) -> RunOutput {
+        std::mem::take(&mut *self.heard.borrow_mut())
+    }
+
+    fn watch(&self, wake: std::rc::Rc<dyn Fn()>) {
+        *self.wake.borrow_mut() = Some(wake);
+    }
+}
+
+fn press_named(ui: &mut Ui, name: &str) {
+    let spot = {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("no {name}"))
+            .bounds
+            .center()
+    };
+    click(ui, spot);
+}
+
+#[test]
+fn the_output_shows_what_the_code_printed_and_what_failed_later() {
+    let talking = Talking::default();
+    let mut ui = ui(Playground::new(talking.clone()).example("Hello", "say hello"));
+    assert!(shows(&mut ui, "ran say hello"), "what the run printed");
+    assert!(shows(&mut ui, "Console 1"));
+    assert!(shows(&mut ui, "No problems"));
+
+    talking.later(Some("clicked"), None);
+    ui.update();
+    assert!(shows(&mut ui, "clicked"), "a line printed later shows as it comes");
+    assert!(shows(&mut ui, "Console 2"));
+
+    talking.later(None, Some(CodeDiagnostic::error(3, 5, 2, "a closure failed")));
+    ui.update();
+    assert!(shows(&mut ui, "Problems: 1"), "what failed later counts as a problem");
+    press_named(&mut ui, "Clear the output");
+    assert!(shows(&mut ui, "Console 0") && shows(&mut ui, "No problems"));
+
+    press_named(&mut ui, "Hide the output");
+    assert!(shows(&mut ui, "Show the output"), "the output folds away");
+}
+
+#[test]
+fn a_problem_opens_the_output_on_its_list() {
+    let source = State::new(String::new());
+    let mut ui = ui(Playground::new(runner).example("Hello", "say hello").source(source.binding()));
+    press_named(&mut ui, "Hide the output");
+    source.set("yell".to_owned());
+    ui.update();
+    press(&mut ui, Key::Enter, Modifiers { ctrl: true, ..Modifiers::default() });
+    assert!(shows(&mut ui, "Hide the output"), "it opens again");
+    assert!(shows(&mut ui, "Line 1, column 1"), "on the problems");
+}
+
+#[test]
+fn picking_an_example_runs_it() {
+    let mut ui = ui(Playground::new(runner).example("Hello", "say hello").example("Bye", "say bye"));
+    assert!(result(&mut ui, "hello"));
+    press_named(&mut ui, "Example");
+    press_named(&mut ui, "Bye");
+    assert!(result(&mut ui, "bye"), "with no Run pressed");
+}
+
+#[test]
+fn a_narrow_playground_has_three_tabs_a_menu_and_run_at_the_bottom() {
+    let mut ui = ui_at(
+        Playground::new(runner)
+            .example("Hello", "say hello")
+            .action("Copy link", IconName::Link, |_| {})
+            .height(700.0),
+        390.0,
+    );
+    assert!(shows(&mut ui, "Code") && shows(&mut ui, "Result") && shows(&mut ui, "Output"));
+    assert!(shows(&mut ui, "More actions"), "the other actions go in a menu");
+    assert!(!shows(&mut ui, "Copy link"), "and not in the bar");
+    let tree = ui.access_tree();
+    let run = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Run")).expect("Run");
+    assert!(run.bounds.y() > 600.0, "Run sits at the bottom: {:?}", run.bounds);
+}

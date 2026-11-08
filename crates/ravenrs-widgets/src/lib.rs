@@ -203,7 +203,7 @@ pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
 #[cfg(feature = "lottie")]
 pub use lottie::Lottie;
 pub use model_picker::{ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus};
-pub use modifiers::{Styled, ViewExt};
+pub use modifiers::{Faded, Styled, ViewExt};
 pub use motion::{Collapse, Motion};
 pub use nav::{
     Accordion, Breadcrumb, Disclosure, Sidebar, SidebarBrand, SidebarCollapse, SidebarGroup, SidebarInset,
@@ -213,7 +213,7 @@ pub use nav::{
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
 pub use page_motion::{Anchor, CountUp, Ticker, TimeLink};
 #[cfg(feature = "code")]
-pub use playground::{Playground, Runner};
+pub use playground::{Playground, RunOutput, Runner};
 pub use quad_field::QuadField;
 pub use quick_edit::{InlineRename, ValueSlider};
 #[cfg(feature = "lottie")]

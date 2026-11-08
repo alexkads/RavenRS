@@ -528,10 +528,44 @@ impl FromLive for State<Value> {
 /// cannot stop the program, so it is kept for whoever shows problems.
 pub fn report(problem: LiveError) {
     LATE.with(|late| late.borrow_mut().push(problem));
+    tell_watcher();
 }
 
 thread_local! {
     static LATE: RefCell<Vec<LiveError>> = const { RefCell::new(Vec::new()) };
+    static PRINTED: RefCell<String> = const { RefCell::new(String::new()) };
+    static WATCHER: RefCell<Option<Rc<dyn Fn()>>> = const { RefCell::new(None) };
+}
+
+/// Keeps what `print!` and `println!` (and the `e` ones) wrote, for whoever shows it.
+pub(crate) fn print(text: &str) {
+    PRINTED.with(|printed| printed.borrow_mut().push_str(text));
+    tell_watcher();
+}
+
+/// The lines the program printed since the last time this was asked. A line still being
+/// written, with `print!` and no newline yet, waits for its end.
+pub fn printed() -> Vec<String> {
+    PRINTED.with(|printed| {
+        let mut printed = printed.borrow_mut();
+        let Some(end) = printed.rfind('\n') else { return Vec::new() };
+        let done: String = printed.drain(..=end).collect();
+        done.trim_end_matches('\n').split('\n').map(str::to_owned).collect()
+    })
+}
+
+/// Calls `watcher` whenever the program prints or a closure it gave fails later, so whoever
+/// shows that can read [`printed`] and [`late_problems`]. One at a time: a new one replaces it.
+pub fn on_output(watcher: impl Fn() + 'static) {
+    WATCHER.with(|kept| *kept.borrow_mut() = Some(Rc::new(watcher)));
+}
+
+fn tell_watcher() {
+    // Taken out first, so a watcher that prints does not find it borrowed.
+    let watcher = WATCHER.with(|kept| kept.borrow().clone());
+    if let Some(watcher) = watcher {
+        watcher();
+    }
 }
 
 /// What failed in closures the host called since the last time this was asked.
