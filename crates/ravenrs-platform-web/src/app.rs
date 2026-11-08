@@ -902,6 +902,8 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                 };
                 let position = Point::new(e.offset_x() as f32, e.offset_y() as f32);
                 let delta = Point::new((-e.delta_x() * unit) as f32, (-e.delta_y() * unit) as f32);
+                // Shift turns a wheel that only goes up and down sideways, where the browser does not.
+                let delta = if e.shift_key() && delta.x == 0.0 { Point::new(delta.y, 0.0) } else { delta };
                 // Browsers send a trackpad pinch as a wheel with Ctrl held. Taking it
                 // keeps the browser from zooming the whole page.
                 if e.ctrl_key() {

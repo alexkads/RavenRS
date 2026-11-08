@@ -25,6 +25,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- `CodeEditor` scrolls sideways: a line longer than the editor no longer gets cut. The wheel or trackpad moves it, the caret brings its column into view as it moves or types, and the line numbers stay put over the code that passes under them. Shift with a wheel that only goes up and down scrolls sideways on the desktop, as browsers do.
 - An `Action` changed through a copy, as the playground's interpreter makes one, kept none of the change: `selection`, `on_execute` and the rest were lost without a word. The change now goes to an action of its own. `ActionContext` copies too, so a closure written in the playground gets it instead of `()`.
 
 ## [27.1.20] - 2026-11-07

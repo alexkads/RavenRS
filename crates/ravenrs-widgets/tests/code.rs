@@ -361,3 +361,68 @@ fn a_narrow_playground_has_three_tabs_a_menu_and_run_at_the_bottom() {
     let run = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Run")).expect("Run");
     assert!(run.bounds.y() > 600.0, "Run sits at the bottom: {:?}", run.bounds);
 }
+
+/// Where each run of glyphs starts, with how many glyphs it has.
+fn runs(ui: &Ui) -> Vec<(f32, usize)> {
+    ui.scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| match p {
+            Primitive::Glyphs(g) => g.glyphs.first().map(|first| (first.x, g.glyphs.len())),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Where the longest run starts: the long line of code.
+fn long_line_x(ui: &Ui) -> f32 {
+    runs(ui).into_iter().max_by_key(|(_, count)| *count).expect("the long line").0
+}
+
+/// Where the line numbers start: the runs of one glyph.
+fn numbers_x(ui: &Ui) -> Vec<f32> {
+    runs(ui).into_iter().filter(|(_, count)| *count == 1).map(|(x, _)| x).collect()
+}
+
+fn long_code() -> State<String> {
+    State::new(format!("fn a() {{}}\nlet x = {};", "1234567890".repeat(20)))
+}
+
+#[test]
+fn a_long_line_scrolls_sideways_and_the_numbers_stay() {
+    let code = long_code();
+    let mut ui = ui_at(CodeEditor::new(code.binding()).language(CodeLanguage::Plain).rows(4), 400.0);
+    let (line, numbers) = (long_line_x(&ui), numbers_x(&ui));
+    assert_eq!(numbers.len(), 2, "two line numbers: {numbers:?}");
+    let spot = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.role == Role::TextInput)
+        .expect("the editor")
+        .bounds
+        .center();
+    ui.handle_event(&Event::Scroll { position: spot, delta: Point::new(-120.0, 0.0) });
+    ui.update();
+    assert!(
+        (line - long_line_x(&ui) - 120.0).abs() < 0.5,
+        "the code moved sideways: {line} to {}",
+        long_line_x(&ui)
+    );
+    assert_eq!(numbers_x(&ui), numbers, "the line numbers stay put");
+}
+
+#[test]
+fn the_caret_brings_its_column_into_view() {
+    let code = State::new(format!("let x = {};", "1234567890".repeat(20)));
+    let mut ui = ui_at(CodeEditor::new(code.binding()).language(CodeLanguage::Plain).rows(4), 400.0);
+    let start = long_line_x(&ui);
+    focus_editor(&mut ui);
+    key(&mut ui, Key::End);
+    ui.update();
+    let width = 208.0 * 7.0;
+    assert!(long_line_x(&ui) < start - width * 0.5, "End shows the end: {start} to {}", long_line_x(&ui));
+    key(&mut ui, Key::Home);
+    ui.update();
+    assert!((long_line_x(&ui) - start).abs() < 0.5, "Home shows the start again");
+}

@@ -337,16 +337,28 @@ impl View for TextArea {
             self.grows.map_or(self.rows, |(min, max)| lines.len().clamp(min, max))
         };
         let height = rows_shown as f32 * line_height + AREA_PADDING;
+        // In a monospaced font a character's place is its column times one advance, which
+        // also counts the spaces a measured piece would leave out at its end.
+        let advance = code.is_some().then(|| cx.measure_text("0000000000", &attrs).width / 10.0);
+        // The line numbers' width, and the room they keep beside the code.
+        let gutter_width = code.as_ref().filter(|c| c.line_numbers).map(|_| {
+            let digits = lines.len().max(1).to_string().len().max(2);
+            digits as f32 * cx.measure_text("0", &attrs).width
+        });
+        let gutter_room = gutter_width.map_or(0.0, |w| w + GUTTER_GAP);
         let cur = cursor.get();
         let caret = cur.caret.min(chars.len());
         let caret_line = line_of(&lines, caret);
 
         // Keep the caret in view after it moves, and leave the wheel alone otherwise.
-        let mut offset = cx.scroll_offset().y;
+        let scrolled = cx.scroll_offset();
+        let mut offset = scrolled.y;
+        // Code scrolls sideways too, since it does not wrap.
+        let mut sideways = if code.is_some() { scrolled.x } else { 0.0 };
         // Everything fits again once text is deleted, and nothing is left to scroll.
         if self.grows.is_some() && lines.len() <= rows_shown && offset > 0.0 {
             offset = 0.0;
-            cx.set_scroll_offset(Point::new(0.0, 0.0));
+            cx.set_scroll_offset(Point::new(sideways, 0.0));
         }
         if focused && followed.get() != caret {
             followed.set_if_changed(caret);
@@ -361,9 +373,26 @@ impl View for TextArea {
             } else {
                 offset
             };
-            if next != offset {
+            // Sideways, the caret's column stays in view, between the line numbers and the edge.
+            let across = match (advance, viewport) {
+                (Some(advance), Some(v)) => {
+                    let column = caret - lines[caret_line].0;
+                    let x = column as f32 * advance;
+                    let visible = (v.width - 2.0 * AREA_PADDING - gutter_room).max(advance);
+                    if x < sideways {
+                        (x - advance * 4.0).max(0.0)
+                    } else if x + advance > sideways + visible {
+                        x + advance * 4.0 - visible
+                    } else {
+                        sideways
+                    }
+                }
+                _ => sideways,
+            };
+            if next != offset || across != sideways {
                 offset = next;
-                cx.set_scroll_offset(Point::new(0.0, next));
+                sideways = across;
+                cx.set_scroll_offset(Point::new(across, next));
             }
         }
 
@@ -387,9 +416,6 @@ impl View for TextArea {
         } else {
             let spans =
                 code.as_ref().and_then(|c| c.highlight.as_ref()).map(|h| h(&text)).unwrap_or_default();
-            // In a monospaced font a character's place is its column times one advance, which
-            // also counts the spaces a measured piece would leave out at its end.
-            let advance = code.is_some().then(|| cx.measure_text("0000000000", &attrs).width / 10.0);
             for &(a, b) in &lines[first..last] {
                 let shown = piece(a, b);
                 let color = state.ink(theme.color(Semantic::Ink));
@@ -483,10 +509,16 @@ impl View for TextArea {
             })
             .unwrap_or_default();
         let gutter_marks: Vec<(f32, ravenrs_core::Color)> = marks.iter().map(|(y, c, _)| (*y, *c)).collect();
+        // Code is as wide as its longest line, and the area scrolls to it; room for the caret after.
+        let widest = advance.map(|advance| {
+            let columns = lines.iter().map(|&(a, b)| b - a).max().unwrap_or(0);
+            columns as f32 * advance + 2.0
+        });
         let content = cx.container(
             LayoutStyle {
                 align: Align::Start,
                 grow: if code.is_some() { 1.0 } else { 0.0 },
+                min_width: widest,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
             &rows,
@@ -517,10 +549,8 @@ impl View for TextArea {
         cx.semantics(content, Semantics::hidden());
 
         // Line numbers, built for the same lines in view, with spacers for the rest.
-        let gutter = code.as_ref().filter(|c| c.line_numbers).map(|_| {
-            let digits = lines.len().max(1).to_string().len().max(2);
-            let digit = cx.measure_text("0", &attrs).width;
-            let width = digits as f32 * digit;
+        let gutter_fill = state.fill(theme.color(code.as_ref().map_or(Semantic::Control, |c| c.background)));
+        let gutter = gutter_width.map(|width| {
             let mut numbers = Vec::with_capacity(last - first + 2);
             if first > 0 {
                 numbers.push(cx.container(
@@ -561,6 +591,10 @@ impl View for TextArea {
                 },
                 &numbers,
                 Paint::Custom(Rc::new(move |f: Rect, scene| {
+                    // Over the code that scrolls under it, from the area's edge to the gap.
+                    let under =
+                        Rect::new(f.x() - AREA_PADDING, f.y(), f.width() + AREA_PADDING - 4.0, f.height());
+                    scene.push_quad(Quad::new(under, gutter_fill));
                     for (y, color) in &gutter_marks {
                         let bar = Rect::new(f.x() - AREA_PADDING, f.y() + y, 3.0, line_height);
                         scene.push_quad(Quad::new(bar, *color));
@@ -568,7 +602,19 @@ impl View for TextArea {
                 })),
             );
             cx.semantics(column, Semantics::hidden());
-            column
+            // Drawn after the code and over it, and moved back by what the code scrolled
+            // sideways, so the numbers stay put.
+            let pinned = cx.container(
+                LayoutStyle { absolute: Some((AREA_PADDING, AREA_PADDING / 2.0)), ..LayoutStyle::leaf() },
+                &[column],
+                Paint::None,
+            );
+            cx.translate(pinned, Point::new(sideways, 0.0));
+            pinned
+        });
+        // What the line numbers take in the row, beside the code.
+        let gutter_space = gutter.map(|_| {
+            cx.container(LayoutStyle { width: Some(gutter_room), ..LayoutStyle::leaf() }, &[], Paint::None)
         });
 
         let border = if focused {
@@ -580,7 +626,7 @@ impl View for TextArea {
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
             }
         };
-        let children: Vec<NodeId> = gutter.into_iter().chain([content]).collect();
+        let children: Vec<NodeId> = gutter_space.into_iter().chain([content]).chain(gutter).collect();
         let background = code.as_ref().map_or(Semantic::Control, |c| c.background);
         let node = cx.container(
             LayoutStyle {
@@ -601,7 +647,7 @@ impl View for TextArea {
                 ..QuadPaint::new(state.fill(theme.color(background)))
             }),
         );
-        cx.scrollable_virtual(node, false);
+        cx.scrollable_virtual(node, code.is_some());
         crate::motion::control(cx, node);
         let mut semantics = Semantics::new(Role::TextInput).value(text.clone());
         if !self.placeholder.is_empty() {

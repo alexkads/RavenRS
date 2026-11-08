@@ -932,6 +932,9 @@ impl ApplicationHandler<UserEvent> for App {
                             Point::new((p.x / scale) as f32, (p.y / scale) as f32)
                         }
                     };
+                    // Shift turns a wheel that only goes up and down sideways, as browsers do.
+                    let delta =
+                        if self.modifiers.shift && delta.x == 0.0 { Point::new(delta.y, 0.0) } else { delta };
                     if self.modifiers.ctrl {
                         // How touchpads on Windows send a pinch, and how a mouse asks to zoom.
                         self.dispatch(Event::Pinch { position, delta: delta.y / WHEEL_PER_ZOOM });
