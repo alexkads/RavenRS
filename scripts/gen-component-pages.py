@@ -108,8 +108,35 @@ TEMPLATE = """<!doctype html>
 </html>
 """
 
+# What the playground of one example takes, in logical pixels: the page's padding and the bar,
+# then the taller of the code (its lines and the status under it) and the example (its own
+# height, the caption and padding around it, and the folded output). The gallery's tests check
+# these against its layout.
+PAGE, BAR, LINE, EDITOR, STATUS, AROUND_EXAMPLE = 32, 89, 22, 12, 46, 127
+
+
+def with_uses(code):
+    """The code as the playground shows it: what the gallery's file brings in for every example,
+    said in the ones that use it (`sample_code` in examples/component-gallery does the same)."""
+    uses = ""
+    for module, names in (("std::collections", ["BTreeSet"]), ("ravenrs::layout", ["Axis", "LayoutStyle"])):
+        used = [name for name in names if re.search(r"(?<![\w:])" + name + r"(?!\w)", code)]
+        if len(used) == 1:
+            uses += f"use {module}::{used[0]};\n"
+        elif used:
+            uses += f"use {module}::{{{', '.join(used)}}};\n"
+    return uses + "use ravenrs::prelude::*;\n\n" + code
+
+
+def stage_height(code, example):
+    # Its lines, and the empty one after.
+    lines = code.count("\n") + 1
+    return PAGE + BAR + max(lines * LINE + EDITOR + STATUS, example + AROUND_EXAMPLE)
+
+
 for position, (slug, api, name, description) in enumerate(ordered):
     height, code = samples[name]
+    code = with_uses(code)
     current = ' aria-current="page"'
     index = "".join(
         f'<li><a href="../{other[0]}/"{current if other[2] == name else ""}>{other[2]}</a></li>' for other in ordered
@@ -125,9 +152,8 @@ for position, (slug, api, name, description) in enumerate(ordered):
         plain=html.escape(html.unescape(description)),
         description=description,
         index=index,
-        # The playground shows the code beside the example: the taller of the two, and its bar.
-        height=max(code.count("\n") * 20 + 64, height + 56) + 150,
-        code=highlight("use ravenrs::prelude::*;\n\n" + code),
+        height=stage_height(code, height),
+        code=highlight(code),
         api=api,
         previous=previous,
         following=following,

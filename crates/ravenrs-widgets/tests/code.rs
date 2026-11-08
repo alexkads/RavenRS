@@ -361,3 +361,23 @@ fn a_narrow_playground_has_three_tabs_a_menu_and_run_at_the_bottom() {
     let run = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Run")).expect("Run");
     assert!(run.bounds.y() > 600.0, "Run sits at the bottom: {:?}", run.bounds);
 }
+
+#[test]
+fn the_output_can_start_folded_and_a_problem_opens_it() {
+    let source = State::new(String::new());
+    let mut ui =
+        ui(Playground::new(runner).example("Hello", "say hello").source(source.binding()).output_open(false));
+    assert!(shows(&mut ui, "Show the output"), "it starts folded");
+    source.set("yell".to_owned());
+    ui.update();
+    press(&mut ui, Key::Enter, Modifiers { ctrl: true, ..Modifiers::default() });
+    assert!(shows(&mut ui, "Hide the output"), "a problem opens it");
+}
+
+#[test]
+fn the_code_gets_the_wider_side() {
+    let mut ui = ui(Playground::new(runner).example("Hello", "say hello"));
+    let tree = ui.access_tree();
+    let code = tree.nodes.iter().find(|n| n.role == Role::TextInput).expect("the editor").bounds;
+    assert!(code.width() > 1200.0 * 0.55, "the code takes most of the width: {code:?}");
+}

@@ -22,6 +22,8 @@ use crate::{
 const TABS_BREAKPOINT: f32 = 768.0;
 const CODE_MIN_WIDTH: f32 = 320.0;
 const RESULT_MIN_WIDTH: f32 = 320.0;
+/// The share of the width the result starts with; the code, with its longer lines, gets the rest.
+const RESULT_SHARE: f32 = 0.4;
 
 /// What turns the code of a [`Playground`] into something to show.
 ///
@@ -123,6 +125,7 @@ pub struct Playground {
     extras: Vec<Extra>,
     download: Option<Download>,
     height: Option<f32>,
+    output_open: bool,
 }
 
 impl fmt::Debug for Playground {
@@ -146,6 +149,7 @@ impl Playground {
             extras: Vec::new(),
             download: None,
             height: None,
+            output_open: true,
         }
     }
 
@@ -203,6 +207,13 @@ impl Playground {
         self
     }
 
+    /// Whether the output starts open (it does by default). Folded, the result keeps the
+    /// room, as on a small page about one example; a problem opens it all the same.
+    pub fn output_open(mut self, open: bool) -> Self {
+        self.output_open = open;
+        self
+    }
+
     /// A fixed height; by default it takes the room its parent gives.
     pub fn height(mut self, height: f32) -> Self {
         self.height = Some(height);
@@ -247,7 +258,8 @@ impl View for Playground {
         let tab = cx.use_state(|| 0usize);
         // 0 console, 1 problems.
         let output_tab = cx.use_state(|| 0usize);
-        let output_open = cx.use_state(|| true);
+        let open_at_first = self.output_open;
+        let output_open = cx.use_state(move || open_at_first);
         let log: State<Rc<RefCell<Log>>> = cx.use_state(Rc::default);
         let heard: State<u64> = cx.use_state(|| 0);
         let started = cx.use_state(|| false);
@@ -623,7 +635,11 @@ impl View for Playground {
             Box::new(
                 SplitPanes::horizontal()
                     .pane(SplitPane::new(code).range(CODE_MIN_WIDTH, f32::MAX))
-                    .pane(SplitPane::new(right).range(RESULT_MIN_WIDTH, f32::MAX))
+                    .pane(
+                        SplitPane::new(right)
+                            .size((cx.viewport().width * RESULT_SHARE).max(RESULT_MIN_WIDTH))
+                            .range(RESULT_MIN_WIDTH, f32::MAX),
+                    )
                     .grow(1.0),
             )
         };
