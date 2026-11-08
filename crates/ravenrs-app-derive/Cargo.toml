@@ -19,8 +19,7 @@ proc-macro = true
 [dependencies]
 proc-macro2.workspace = true
 quote.workspace = true
-ravenrs-criteria.workspace = true
-regex-lite.workspace = true
+ravenrs-app-spec.workspace = true
 syn = { workspace = true, features = ["derive", "proc-macro"] }
 
 [lints]
