@@ -4,8 +4,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.22] - 2026-11-08
+
 ### Added
 
+- `Tile::accessory`: something at the end of a tile's header, after its title, such as a help button, a badge or a choice that changes what the tile shows. Raven Finanças' dashboard is now a `TileLayout` with it.
 - `ravenrs-lint`: lints for applications built with RavenRS, reported like the compiler's, from `cargo ravenrs-lint` or from `cargo test` with `ravenrs_lint::assert_clean()`. It reads the syntax tree and denies literal colors and font sizes, spacing off the 4px grid, captions without a verb, icon buttons without a name, more than one primary button, `State::new` and blocking work in `body` or `build`, and files over 600 lines. Exceptions need a written reason, in a comment or in `[package.metadata.ravenrs-lint]`. `--init` writes the strictest rustc and Clippy levels, a `clippy.toml`, the test and the same instructions for every coding agent (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`); `--gate` runs formatting, Clippy, the rules and the tests.
 
 ## [27.1.21] - 2026-11-08
@@ -16,7 +19,6 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
-- `Tile::accessory`: something at the end of a tile's header, after its title, such as a help button, a badge or a choice that changes what the tile shows. Raven Finanças' dashboard is now a `TileLayout` with it.
 - `Playground` goes full screen: a button beside Run (in the ⋯ menu below 768 px) puts it over the whole screen and brings it back, and the component pages allow it. Full screen is a service the platform installs, as links are: `FullScreen` and `FullScreenProvider`, through `BuildCx::full_screen`, `Ui::full_screen` and `Ui::set_full_screen`. The browser uses the page's full screen and hides the button where the frame does not allow it; the desktop turns the window into a borderless full screen.
 - `Playground` has a new layout: one bar (examples, the app's actions, Restore, Download project, Run), the code beside the result, and an **Output** panel under the result with Console, what the code prints, and Problems, where it went wrong, including closures that fail later on a click. Picking an example runs it. The last result that worked fades while the code has problems. Below 768 px: Code, Result and Output tabs, the other actions in a ⋯ menu and Run at the bottom. `Runner::take_output` and `Runner::watch` carry what a runner hears, and `LiveRunner` hears `println!` and its family through `ravenrs_live::printed` and `on_output`. `ViewExt::opacity` (`Faded`) draws any view faded, and `DropdownMenu::icon_only` shows only its icon.
 - A chart's data draws in the first time it is painted, over a second that starts fast and settles softly, with its axes, grid and their labels there from the first frame: lines, areas, dots, candles and the flows of a `SankeyChart` come in from the left, bars grow out of the zero line together, a pie or a doughnut sweeps clockwise with its labels and guides coming in at the end, and a radar grows out of its center over rings that stay put. The tooltip waits until the data is whole, and with less motion asked for it is whole at once. `Chart::no_appear` and `SankeyChart::no_appear` turn it off, and `appear_key` draws it in again when its key changes. It runs on the GPU over the pictures a chart already keeps, so it draws none anew.
