@@ -643,6 +643,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::CountUp::__live_expose(registry);
     crate::Anchor::<crate::AnyView>::__live_expose(registry);
     #[cfg(feature = "code")]
+    crate::RunOutput::__live_expose_fields(registry);
+    #[cfg(feature = "code")]
+    crate::RunOutput::__live_expose(registry);
+    #[cfg(feature = "code")]
     crate::Playground::__live_expose_fields(registry);
     #[cfg(feature = "code")]
     crate::Playground::__live_expose(registry);
@@ -882,6 +886,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::ExpressionEditor>(registry);
     crate::live::view::<crate::Eyedropper>(registry);
     crate::live::view::<crate::EyedropperArea>(registry);
+    crate::live::view::<crate::Faded<crate::AnyView>>(registry);
     crate::live::view::<crate::FavoriteToggle>(registry);
     crate::live::view::<crate::FileBrowser>(registry);
     crate::live::view::<crate::FileUpload>(registry);

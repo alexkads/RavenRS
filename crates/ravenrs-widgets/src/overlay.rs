@@ -462,6 +462,7 @@ pub struct DropdownMenu {
     icon: Option<IconName>,
     style: ButtonStyle,
     size: crate::ButtonSize,
+    icon_only: bool,
     entries: Vec<Entry>,
 }
 
@@ -480,8 +481,16 @@ impl DropdownMenu {
             icon: None,
             style: ButtonStyle::Secondary,
             size: crate::ButtonSize::Medium,
+            icon_only: false,
             entries: Vec::new(),
         }
+    }
+
+    /// Shows only the icon, for a tight bar; the label still names the button for screen
+    /// readers. Give it an [`Self::icon`].
+    pub fn icon_only(mut self) -> Self {
+        self.icon_only = true;
+        self
     }
 
     /// The trigger's size (`Medium` by default).
@@ -901,17 +910,26 @@ impl View for DropdownMenu {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let open: State<bool> = cx.use_state(|| false);
         let toggle = open.clone();
-        let mut trigger = Button::new(self.label.clone())
+        let shown = if self.icon_only { String::new() } else { self.label.clone() };
+        let mut trigger = Button::new(shown)
             .style(self.style)
             .size(self.size)
-            .trailing_icon(IconName::ChevronDown)
             .on_click(move || toggle.update(|o| *o = !*o));
+        if !self.icon_only {
+            trigger = trigger.trailing_icon(IconName::ChevronDown);
+        }
         if let Some(icon) = self.icon {
             trigger = trigger.icon(icon);
         }
         let anchor = cx.child(&trigger);
         let is_open = open.get();
-        cx.update_semantics(anchor, |s| s.expanded = Some(is_open));
+        let name = self.icon_only.then(|| self.label.clone());
+        cx.update_semantics(anchor, |s| {
+            s.expanded = Some(is_open);
+            if let Some(name) = name {
+                s.name = Some(name);
+            }
+        });
         let was_open = cx.use_state(|| Rc::new(Cell::new(false))).get();
         if is_open {
             was_open.set(true);

@@ -796,6 +796,24 @@ pub struct Labels {
     pub playground_column: String,
     /// Saves what the code of a [`Playground`](crate::Playground) makes as a file to keep.
     pub playground_download: String,
+    /// The panel under the result of a [`Playground`](crate::Playground).
+    pub playground_output: String,
+    /// What the code of a [`Playground`](crate::Playground) printed.
+    pub playground_console: String,
+    /// The problems of the code of a [`Playground`](crate::Playground).
+    pub playground_problems: String,
+    /// When the code of a [`Playground`](crate::Playground) has none.
+    pub playground_no_problems: String,
+    /// When the code of a [`Playground`](crate::Playground) printed nothing.
+    pub playground_nothing_printed: String,
+    /// Empties the output of a [`Playground`](crate::Playground).
+    pub playground_clear_output: String,
+    /// Folds the output of a [`Playground`](crate::Playground) away.
+    pub playground_hide_output: String,
+    /// Opens the output of a [`Playground`](crate::Playground) again.
+    pub playground_show_output: String,
+    /// The menu of a narrow [`Playground`](crate::Playground) with what is not Run.
+    pub playground_more: String,
 }
 
 impl Default for Labels {
@@ -1192,6 +1210,15 @@ impl Labels {
             playground_line: texts.get("widgets.playground_line"),
             playground_column: texts.get("widgets.playground_column"),
             playground_download: texts.get("widgets.playground_download"),
+            playground_output: texts.get("widgets.playground_output"),
+            playground_console: texts.get("widgets.playground_console"),
+            playground_problems: texts.get("widgets.playground_problems"),
+            playground_no_problems: texts.get("widgets.playground_no_problems"),
+            playground_nothing_printed: texts.get("widgets.playground_nothing_printed"),
+            playground_clear_output: texts.get("widgets.playground_clear_output"),
+            playground_hide_output: texts.get("widgets.playground_hide_output"),
+            playground_show_output: texts.get("widgets.playground_show_output"),
+            playground_more: texts.get("widgets.playground_more"),
         }
     }
 

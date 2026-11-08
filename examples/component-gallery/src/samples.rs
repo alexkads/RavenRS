@@ -2777,20 +2777,37 @@ impl SamplePlayground {
     }
 }
 
+/// Runs edited code through the interpreter. An example as written always shows, compiled,
+/// until the interpreter reads it; what the code prints comes from the interpreter.
+struct SampleRunner {
+    examples: Rc<Vec<(String, String)>>,
+    live: LiveRunner,
+}
+
+impl Runner for SampleRunner {
+    fn run(&self, source: &str) -> Result<AnyView, Vec<CodeDiagnostic>> {
+        match self.live.run(source) {
+            Ok(view) => Ok(view),
+            Err(problems) => match self.examples.iter().find(|(_, code)| code == source) {
+                Some((name, _)) => Ok(sample(name).unwrap_or_else(|| Box::new(Spacer::new()))),
+                None => Err(problems),
+            },
+        }
+    }
+
+    fn take_output(&self) -> RunOutput {
+        self.live.take_output()
+    }
+
+    fn watch(&self, wake: Rc<dyn Fn()>) {
+        self.live.watch(wake);
+    }
+}
+
 impl View for SamplePlayground {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let (examples, live) = (self.examples.clone(), self.runner.clone());
-        let runner = move |source: &str| -> Result<AnyView, Vec<CodeDiagnostic>> {
-            match live.run(source) {
-                Ok(view) => Ok(view),
-                // An example as written always shows, compiled, until the interpreter reads it.
-                Err(problems) => match examples.iter().find(|(_, code)| code == source) {
-                    Some((name, _)) => Ok(sample(name).unwrap_or_else(|| Box::new(Spacer::new()))),
-                    None => Err(problems),
-                },
-            }
-        };
+        let runner = SampleRunner { examples: self.examples.clone(), live: self.runner.clone() };
         let first = self.examples.get(self.start).map(|(_, code)| code.clone()).unwrap_or_default();
         let (start, single) = (self.start, self.single);
         let source = cx.use_state(move || first);

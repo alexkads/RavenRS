@@ -1178,7 +1178,13 @@ impl Runner {
                     };
                     return if holds { Ok(Value::Unit) } else { fail(span, "an assert failed") };
                 }
-                let Some((first, rest)) = items.split_first() else { return Ok(Value::Str(String::new())) };
+                let Some((first, rest)) = items.split_first() else {
+                    if matches!(name.as_str(), "println" | "eprintln") {
+                        crate::value::print("\n");
+                        return Ok(Value::Unit);
+                    }
+                    return Ok(Value::Str(String::new()));
+                };
                 let Expr::Lit(syn::ExprLit { lit: Lit::Str(template), .. }) = first else {
                     return fail(first.span(), "format! starts with a string literal");
                 };
@@ -1188,7 +1194,14 @@ impl Runner {
                 match name.as_str() {
                     "format" => Ok(Value::Str(text)),
                     "panic" => fail(span, text),
-                    _ => Ok(Value::Unit),
+                    "println" | "eprintln" => {
+                        crate::value::print(&format!("{text}\n"));
+                        Ok(Value::Unit)
+                    }
+                    _ => {
+                        crate::value::print(&text);
+                        Ok(Value::Unit)
+                    }
                 }
             }
             "unreachable" | "todo" | "unimplemented" => fail(span, format!("`{name}!` was reached")),
