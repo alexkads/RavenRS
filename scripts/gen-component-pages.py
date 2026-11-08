@@ -80,7 +80,7 @@ TEMPLATE = """<!doctype html>
     <h1>{name}</h1>
     <p class="lede">{description}.</p>
     <h2 class="block">Example</h2>
-    <p class="sub">This is the component itself, running in WebAssembly. Try it.</p>
+    <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
     <iframe class="stage" src="../../demo/?component={name}" title="Live example of {name}" height="{height}"></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
@@ -123,7 +123,8 @@ for position, (slug, api, name, description) in enumerate(ordered):
         plain=html.escape(html.unescape(description)),
         description=description,
         index=index,
-        height=height + 48,
+        # The playground shows the code beside the example: the taller of the two, and its bar.
+        height=max(code.count("\n") * 20 + 64, height + 56) + 150,
         code=highlight("use ravenrs::prelude::*;\n\n" + code),
         api=api,
         previous=previous,

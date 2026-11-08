@@ -37,6 +37,8 @@ decode = ["dep:image"]
 charts = ["dep:ravenrs-graphics"]
 # `Lottie`, a player of Lottie animations of our own.
 lottie = ["dep:ravenrs-lottie"]
+# `CodeEditor` and `Playground`, with Fira Mono embedded in `ravenrs-text`.
+code = ["ravenrs-text/mono"]
 
 [dev-dependencies]
 proptest.workspace = true

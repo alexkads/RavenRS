@@ -44,6 +44,8 @@ mod chart;
 mod chat;
 mod choice;
 mod clipboard;
+#[cfg(feature = "code")]
+mod code_editor;
 mod color_picker;
 mod commands;
 mod context;
@@ -80,6 +82,8 @@ mod motion;
 mod nav;
 mod overlay;
 mod page_motion;
+#[cfg(feature = "code")]
+mod playground;
 mod quad_field;
 mod quick_edit;
 mod recurrence;
@@ -123,6 +127,8 @@ pub use choice::{
     SwatchGrid, ToggleButton, ToggleGroup,
 };
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
+#[cfg(feature = "code")]
+pub use code_editor::{CodeDiagnostic, CodeEditor, CodeLanguage, highlight_rust};
 pub use color_picker::ColorPicker;
 pub use commands::{ConfirmDialog, FloatingToolbar, Hotkey, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
@@ -197,6 +203,8 @@ pub use nav::{
 };
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
 pub use page_motion::{Anchor, CountUp, Ticker, TimeLink};
+#[cfg(feature = "code")]
+pub use playground::{Playground, Runner};
 pub use quad_field::QuadField;
 pub use quick_edit::{InlineRename, ValueSlider};
 #[cfg(feature = "lottie")]
