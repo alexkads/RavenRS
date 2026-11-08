@@ -72,6 +72,9 @@ else
     echo "skipped: install it with 'cargo install cargo-deny --locked'"
 fi
 
+step "every example downloads from the playground as a project that builds"
+cargo test -p component-gallery --test projects -- --ignored
+
 step "benchmarks compile"
 cargo bench --workspace --no-run --quiet
 

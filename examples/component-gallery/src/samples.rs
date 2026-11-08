@@ -2668,7 +2668,48 @@ pub fn sample_code(name: &str) -> Option<String> {
     let body = &source[at..];
     let body = &body[body.find('\n')? + 1..];
     let end = body.find("\n// end")?;
-    Some(format!("use ravenrs::prelude::*;\n\n{}\n", &body[..end]))
+    let body = &body[..end];
+    // What this file brings in for every example, said in the ones that use it, so what a reader
+    // copies or downloads compiles.
+    // A name written in full, as `std::collections::BTreeSet`, needs nothing.
+    let unqualified = |name: &str| {
+        body.match_indices(name).any(|(at, _)| {
+            let before = body[..at].chars().next_back();
+            let after = body[at + name.len()..].chars().next();
+            let apart = |c: Option<char>| c.is_none_or(|c| !c.is_alphanumeric() && c != '_');
+            apart(before) && apart(after) && !body[..at].ends_with("::")
+        })
+    };
+    let mut uses = String::new();
+    for (module, names) in
+        [("std::collections", &["BTreeSet"][..]), ("ravenrs::layout", &["Axis", "LayoutStyle"])]
+    {
+        let used: Vec<&str> = names.iter().copied().filter(|name| unqualified(name)).collect();
+        match used.as_slice() {
+            [] => {}
+            [one] => uses.push_str(&format!("use {module}::{one};\n")),
+            many => uses.push_str(&format!("use {module}::{{{}}};\n", many.join(", "))),
+        }
+    }
+    Some(format!("{uses}use ravenrs::prelude::*;\n\n{body}\n"))
+}
+
+/// The Cargo project of an example as it is in the playground: the crates the gallery's
+/// examples use, and the helpers it calls.
+pub fn sample_project(name: &str, code: &str) -> ravenrs_project::Project {
+    let mut project = ravenrs_project::Project::new(format!("{name} example"))
+        .source(code)
+        .dependency("ravenrs", &["code"]);
+    if code.contains("ravenrs_app") {
+        project = project.dependency("ravenrs-app", &[]).dependency("ravenrs-app-ui", &[]);
+    }
+    if code.contains("picture(") {
+        let source = include_str!("samples.rs");
+        let start = source.find("/// A colored picture").unwrap_or(0);
+        let end = source[start..].find("\n}\n").map_or(source.len(), |at| start + at + 3);
+        project = project.helper(&source[start..end]);
+    }
+    project
 }
 
 /// What the examples can call, with the helpers they share.
@@ -2730,6 +2771,12 @@ impl View for SamplePlayground {
         };
         let mut playground =
             Playground::new(runner).title(self.name.clone()).example(self.name.clone(), self.code.clone());
+        let title = self.name.clone();
+        playground = playground.download(move |code| {
+            let project = sample_project(&title, code);
+            let bytes = project.zip().map_err(|problem| vec![CodeDiagnostic::error(1, 1, 1, problem)])?;
+            Ok((format!("{}.zip", project.crate_name()), bytes))
+        });
         if let Some(reason) = &self.compiled {
             playground = playground.note(format!(
                 "This example runs compiled: the playground cannot read it yet ({reason}). Edits show what it reads."
@@ -2832,7 +2879,9 @@ mod tests {
         for name in NAMES {
             let code = sample_code(name).unwrap_or_else(|| panic!("no code for {name}"));
             assert!(
-                code.starts_with("use ravenrs::prelude::*;\n\n") && code.contains("fn "),
+                code.starts_with("use ")
+                    && code.contains("use ravenrs::prelude::*;\n\n")
+                    && code.contains("fn "),
                 "{name}: {code}"
             );
             let mut ui =

@@ -199,3 +199,52 @@ fn an_action_gets_the_code() {
     click(&mut ui, spot);
     assert_eq!(got.get(), "say hello");
 }
+
+/// What was saved: names and bytes.
+type Saved = std::rc::Rc<std::cell::RefCell<Vec<(String, Vec<u8>)>>>;
+
+/// Keeps what the playground hands over to save.
+struct Saver(Saved);
+
+impl FilePickerProvider for Saver {
+    fn pick(&self, _request: &FileRequest, done: Box<dyn FnOnce(Vec<PickedFile>)>) {
+        done(Vec::new());
+    }
+
+    fn save(&self, name: &str, bytes: &[u8]) {
+        self.0.borrow_mut().push((name.to_owned(), bytes.to_vec()));
+    }
+}
+
+#[test]
+fn download_saves_what_the_code_makes_or_marks_why_not() {
+    let source = State::new(String::new());
+    let make = |code: &str| match code.strip_prefix("say ") {
+        Some(words) => Ok((format!("{words}.zip"), words.as_bytes().to_vec())),
+        None => Err(vec![CodeDiagnostic::error(1, 1, 3, "Nothing to save")]),
+    };
+    let mut ui =
+        ui(Playground::new(runner).example("Hello", "say hello").source(source.binding()).download(make));
+    let saved: Saved = std::rc::Rc::default();
+    ui.set_file_picker(Saver(std::rc::Rc::clone(&saved)));
+    ui.update();
+    let spot = |ui: &mut Ui| {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some("Download project"))
+            .expect("the button")
+            .bounds
+            .center()
+    };
+    let at = spot(&mut ui);
+    click(&mut ui, at);
+    assert_eq!(*saved.borrow(), [("hello.zip".to_owned(), b"hello".to_vec())]);
+
+    source.set("yell".to_owned());
+    ui.update();
+    let at = spot(&mut ui);
+    click(&mut ui, at);
+    assert_eq!(saved.borrow().len(), 1, "nothing more is saved");
+    assert!(shows(&mut ui, "Nothing to save"), "and the code says why");
+}

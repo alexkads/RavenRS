@@ -76,6 +76,7 @@ ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, 
 ravenrs-app-spec       ──► ravenrs-criteria, syn  (what the derives read from a struct or enum, as data)
 ravenrs-app-derive     ──► ravenrs-app-spec  (the derives, re-exported by ravenrs-app)
 ravenrs-live           ──► ravenrs-reactive, syn  (interprets the Rust of examples; host types through a Registry)
+ravenrs-project        ──► syn, zip  (code of the playground ──► a Cargo project, as files or a .zip)
 ravenrs-live-derive    (#[expose]: registers an impl block, struct, enum or module; behind `live` in core, style, layout, graphics, lottie, widgets, movie, app, app-ui)
 ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
 ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)
@@ -116,6 +117,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-grid-export` | `lib` |
 | `ravenrs-app-spec` | `lib` |
+| `ravenrs-project` | `lib` |
 | `ravenrs-app-derive` | `lib` |
 | `ravenrs-live` | `value` (values, host objects, conversions), `registry` (what the host offers), `eval` (the interpreter), `bridge` (what `#[expose]` calls through) |
 | `ravenrs-live-derive` | `lib` |
