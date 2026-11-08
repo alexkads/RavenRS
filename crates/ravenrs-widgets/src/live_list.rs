@@ -414,6 +414,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::FormGroup::__live_expose(registry);
     crate::FormLayout::__live_expose_fields(registry);
     crate::FormLayout::__live_expose(registry);
+    crate::FullScreen::__live_expose_fields(registry);
+    crate::FullScreen::__live_expose(registry);
     crate::ColumnLayout::__live_expose_fields(registry);
     crate::SortLayout::__live_expose_fields(registry);
     crate::FilterLayout::__live_expose_fields(registry);

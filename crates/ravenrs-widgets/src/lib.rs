@@ -64,6 +64,7 @@ mod fill;
 mod filter_builder;
 mod floating;
 mod form_layout;
+mod full_screen;
 pub mod grid;
 mod icon;
 mod icon_set;
@@ -169,6 +170,7 @@ pub use floating::{
     ToastPosition, Toaster, Toasts,
 };
 pub use form_layout::{FormGroup, FormLayout};
+pub use full_screen::{FullScreen, FullScreenProvider};
 pub use grid::{
     CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridCellStyle, GridColumn, GridData,
     GridExportFormat, GridLayout, GridPage, GridRequest, GridResponder, GridRowAction, GridScenario,

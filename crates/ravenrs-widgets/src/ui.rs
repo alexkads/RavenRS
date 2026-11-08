@@ -190,6 +190,7 @@ pub struct Ui {
     clipboard: crate::Clipboard,
     sound: crate::Sound,
     links: crate::Links,
+    full_screen: crate::FullScreen,
     /// A scroll gliding to an anchor: which container, from and to, and when it began.
     glide: Option<(WidgetId, f32, f32, f64)>,
     /// Widgets whose `on_appear` already ran.
@@ -297,6 +298,7 @@ impl Ui {
             clipboard: crate::Clipboard::default(),
             sound: crate::Sound::default(),
             links: crate::Links::default(),
+            full_screen: crate::FullScreen::default(),
             glide: None,
             appeared: std::collections::HashSet::new(),
             file_picker: crate::FilePicker::default(),
@@ -433,6 +435,18 @@ impl Ui {
     /// The links service views open addresses through.
     pub fn links(&self) -> crate::Links {
         self.links.clone()
+    }
+
+    /// Installs how the app enters and leaves full screen (the platform layers do).
+    /// Until then the request is only remembered.
+    pub fn set_full_screen(&mut self, provider: impl crate::FullScreenProvider + 'static) {
+        self.full_screen = crate::FullScreen::new(provider);
+        self.ask_build(BuildCause::System);
+    }
+
+    /// The full screen service views ask through.
+    pub fn full_screen(&self) -> crate::FullScreen {
+        self.full_screen.clone()
     }
 
     /// Installs the system's sound (platform layers do this); the default is silence.
@@ -1200,6 +1214,7 @@ impl Ui {
         let clipboard = self.clipboard.clone();
         let sound = self.sound.clone();
         let links = self.links.clone();
+        let full_screen = self.full_screen.clone();
         let file_picker = self.file_picker.clone();
         let files_over = self.files_over.clone();
         let ui_waker = self.ui_waker.clone();
@@ -1233,6 +1248,7 @@ impl Ui {
                 cx.now = now;
                 cx.sound = sound;
                 cx.links = links;
+                cx.full_screen = full_screen;
                 cx.file_picker = file_picker;
                 cx.files_over = files_over;
                 cx.motion_clock = motion_clock;

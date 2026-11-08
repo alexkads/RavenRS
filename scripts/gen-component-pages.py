@@ -82,7 +82,7 @@ TEMPLATE = """<!doctype html>
     <p class="lede">{description}.</p>
     <h2 class="block">Example</h2>
     <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
-    <iframe class="stage" src="../../demo/?component={name}" title="Live example of {name}" height="{height}"></iframe>
+    <iframe class="stage" src="../../demo/?component={name}" title="Live example of {name}" height="{height}" allow="fullscreen" allowfullscreen></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>

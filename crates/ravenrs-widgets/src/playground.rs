@@ -263,6 +263,9 @@ impl View for Playground {
         let log: State<Rc<RefCell<Log>>> = cx.use_state(Rc::default);
         let heard: State<u64> = cx.use_state(|| 0);
         let started = cx.use_state(|| false);
+        // Bumped on each request, so the bar redraws even where the screen does not resize.
+        let asked_screen = cx.use_state(|| 0u32);
+        asked_screen.get();
         let log = log.get();
 
         let run: Rc<dyn Fn()> = {
@@ -372,6 +375,24 @@ impl View for Playground {
                 (label.clone(), *icon, Rc::new(move || then(&code.get())) as Rc<dyn Fn()>)
             })
             .collect();
+        // Full screen, where the platform can give it.
+        let screen = cx.full_screen();
+        let toggle_screen: Option<Bound> = screen.available().then(|| {
+            let (icon, label) = if screen.is_on() {
+                (IconName::Minimize2, labels.playground_exit_full_screen.clone())
+            } else {
+                (IconName::Maximize2, labels.playground_full_screen.clone())
+            };
+            let asked = asked_screen.clone();
+            (
+                label,
+                icon,
+                Rc::new(move || {
+                    screen.toggle();
+                    asked.update(|n| *n = n.wrapping_add(1));
+                }) as Rc<dyn Fn()>,
+            )
+        });
         let run_button = || {
             let go = run.clone();
             Button::new(labels.playground_run.clone())
@@ -416,6 +437,10 @@ impl View for Playground {
                         .on_select(move || restore()),
                 );
             }
+            if let Some((label, icon, toggle)) = &toggle_screen {
+                let toggle = toggle.clone();
+                menu = menu.item(MenuItem::new(label.clone()).icon(*icon).on_select(move || toggle()));
+            }
             bar.push(Box::new(menu));
         } else {
             if let Some(picker) = picker {
@@ -444,6 +469,15 @@ impl View for Playground {
                         .icon(IconName::Download)
                         .style(ButtonStyle::Ghost)
                         .on_click(move || save()),
+                ));
+            }
+            if let Some((label, icon, toggle)) = &toggle_screen {
+                let toggle = toggle.clone();
+                bar.push(Box::new(
+                    IconButton::new(*icon)
+                        .label(label.clone())
+                        .style(ButtonStyle::Ghost)
+                        .on_click(move || toggle()),
                 ));
             }
             bar.push(Box::new(run_button()));

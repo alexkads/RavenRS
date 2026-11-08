@@ -382,6 +382,89 @@ fn the_code_gets_the_wider_side() {
     assert!(code.width() > 1200.0 * 0.55, "the code takes most of the width: {code:?}");
 }
 
+/// Where the control named `name` is, if it is shown.
+fn spot(ui: &mut Ui, role: Role, name: &str) -> Option<Point> {
+    let tree = ui.access_tree();
+    tree.nodes.iter().find(|n| n.role == role && n.name.as_deref() == Some(name)).map(|n| n.bounds.center())
+}
+
+#[test]
+fn the_playground_goes_full_screen_and_back() {
+    let mut ui = ui(Playground::new(runner).example("Hello", "say hello"));
+    let enter = spot(&mut ui, Role::Button, "Full screen").expect("the full screen button");
+    click(&mut ui, enter);
+    assert!(ui.full_screen().is_on(), "it asked for full screen");
+    let leave = spot(&mut ui, Role::Button, "Exit full screen").expect("the button now leaves it");
+    click(&mut ui, leave);
+    assert!(!ui.full_screen().is_on(), "it asked to leave");
+    assert!(spot(&mut ui, Role::Button, "Full screen").is_some());
+}
+
+/// A platform that cannot give full screen, as a frame that does not allow it.
+struct Refused;
+
+impl FullScreenProvider for Refused {
+    fn is_on(&self) -> bool {
+        false
+    }
+
+    fn set(&self, _on: bool) {}
+
+    fn available(&self) -> bool {
+        false
+    }
+}
+
+#[test]
+fn without_full_screen_there_is_no_button() {
+    let mut ui = ui(Playground::new(runner).example("Hello", "say hello"));
+    ui.set_full_screen(Refused);
+    ui.update();
+    assert!(spot(&mut ui, Role::Button, "Full screen").is_none());
+}
+
+#[test]
+fn narrow_the_full_screen_goes_in_the_menu() {
+    let mut ui = ui_at(Playground::new(runner).example("Hello", "say hello"), 420.0);
+    assert!(spot(&mut ui, Role::Button, "Full screen").is_none(), "no room for the button");
+    let more = spot(&mut ui, Role::Button, "More actions").expect("the menu");
+    click(&mut ui, more);
+    let item = spot(&mut ui, Role::MenuItem, "Full screen").expect("full screen in the menu");
+    click(&mut ui, item);
+    assert!(ui.full_screen().is_on());
+}
+
+#[test]
+fn the_line_numbers_reach_the_bottom_and_leave_the_border() {
+    let code = State::new("one\ntwo".to_owned());
+    let mut ui = ui(CodeEditor::new(code.binding()).language(CodeLanguage::Plain).rows(12));
+    ui.update();
+    let area = {
+        let tree = ui.access_tree();
+        tree.nodes.iter().find(|n| n.role == Role::TextInput).expect("the editor").bounds
+    };
+    let gutter = ui
+        .scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| match p {
+            Primitive::Quad(q)
+                if q.border.is_none() && q.rect.x() > area.x() && q.rect.x() < area.x() + 4.0 =>
+            {
+                Some(q.rect)
+            }
+            _ => None,
+        })
+        .max_by(|a, b| a.height().total_cmp(&b.height()))
+        .expect("the gutter's background");
+    assert!(gutter.x() >= area.x() + 1.0, "the border stays in sight: {gutter:?} in {area:?}");
+    assert!(
+        gutter.max_y() >= area.max_y() - 8.0,
+        "two lines, and still down to the bottom: {gutter:?} in {area:?}"
+    );
+    assert!(gutter.max_y() <= area.max_y() - 1.0, "the bottom border stays in sight: {gutter:?} in {area:?}");
+}
+
 /// Where each run of glyphs starts, with how many glyphs it has.
 fn runs(ui: &Ui) -> Vec<(f32, usize)> {
     ui.scene()
