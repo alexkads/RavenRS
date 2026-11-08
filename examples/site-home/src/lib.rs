@@ -1,6 +1,6 @@
 //! The RavenRS home page, built only from RavenRS components and drawn by RavenRS.
 //!
-//! On the web it starts from [`web_entry`] with WebGL2, so it opens in every browser
+//! On the web it starts from `web_entry` with WebGL2, so it opens in every browser
 //! and phone; `cargo run -p site-home` shows the same page in a window.
 
 use std::rc::Rc;

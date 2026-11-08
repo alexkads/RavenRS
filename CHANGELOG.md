@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.20] - 2026-11-07
+
 ### Breaking
 
 - `WebOptions` has a `backend` field: code that builds it field by field adds `backend: WebBackend::Auto`. A browser without WebGPU no longer stops at `WebError::WebGpuUnavailable` unless `WebBackend::WebGpu` is asked for; it opens with WebGL2.
