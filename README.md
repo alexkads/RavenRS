@@ -6,7 +6,7 @@
 
 The whole toolkit for serious applications, free and open source: 100+ components, a data grid for 100,000+ rows, a reporting suite with a server, `ravenrs-app`, which turns a Rust struct into a working application, training films that ship inside your app, and AI that stays on the machine. One codebase, drawn on the GPU, on Windows, macOS, Linux and the web.
 
-[**Try the live gallery**](https://alexkads.github.io/RavenRS/demo/) · [Report designer](https://alexkads.github.io/RavenRS/designer/) · [Install a real app](#install-a-real-app) · [An app from two structs](https://alexkads.github.io/RavenRS/quick/) · [Getting started](https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md) · [Components](https://alexkads.github.io/RavenRS/components/) · [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/)
+[**Try the live gallery**](https://alexkads.github.io/RavenRS/demo/) · [Playground](https://alexkads.github.io/RavenRS/playground/) · [Report designer](https://alexkads.github.io/RavenRS/designer/) · [Install a real app](#install-a-real-app) · [An app from two structs](https://alexkads.github.io/RavenRS/quick/) · [Getting started](https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md) · [Components](https://alexkads.github.io/RavenRS/components/) · [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/)
 
 ![License: MIT or Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-4c66ee)
 ![Rust 1.88+](https://img.shields.io/badge/rust-1.88%2B-4c66ee)

@@ -5,6 +5,7 @@
 //! before a function and `// end` after it.
 
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
 use ravenrs::layout::{Axis, LayoutStyle};
 use ravenrs::prelude::*;
@@ -2733,8 +2734,12 @@ pub fn sample_runner() -> LiveRunner {
 /// The example of a component in a [`Playground`], with its code beside it. Edits run through
 /// the interpreter; an example it cannot read yet opens compiled, and says so.
 pub struct SamplePlayground {
-    name: String,
-    code: String,
+    /// Each example, by its component's name, with its code.
+    examples: Rc<Vec<(String, String)>>,
+    /// The one it opens on.
+    start: usize,
+    /// One component's page, or the playground of all of them.
+    single: bool,
     runner: LiveRunner,
     /// Why the interpreter cannot read the example as it is, if it cannot.
     compiled: Option<String>,
@@ -2742,7 +2747,7 @@ pub struct SamplePlayground {
 
 impl std::fmt::Debug for SamplePlayground {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SamplePlayground").field("name", &self.name).finish_non_exhaustive()
+        f.debug_struct("SamplePlayground").field("examples", &self.examples.len()).finish_non_exhaustive()
     }
 }
 
@@ -2753,27 +2758,53 @@ impl SamplePlayground {
         sample(name)?;
         let runner = sample_runner();
         let compiled = runner.run(&code).err().map(|problems| problems[0].message.clone());
-        Some(Self { name: name.to_owned(), code, runner, compiled })
+        Some(Self {
+            examples: Rc::new(vec![(name.to_owned(), code)]),
+            start: 0,
+            single: true,
+            runner,
+            compiled,
+        })
+    }
+
+    /// The playground of every example, listed in its bar, opening on `start` when it has one.
+    pub fn all(start: Option<&str>) -> Self {
+        let examples: Vec<(String, String)> =
+            NAMES.iter().filter_map(|name| Some(((*name).to_owned(), sample_code(name)?))).collect();
+        let start =
+            start.and_then(|wanted| examples.iter().position(|(name, _)| name == wanted)).unwrap_or(0);
+        Self { examples: Rc::new(examples), start, single: false, runner: sample_runner(), compiled: None }
     }
 }
 
 impl View for SamplePlayground {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let (name, original, live) = (self.name.clone(), self.code.clone(), self.runner.clone());
+        let (examples, live) = (self.examples.clone(), self.runner.clone());
         let runner = move |source: &str| -> Result<AnyView, Vec<CodeDiagnostic>> {
             match live.run(source) {
                 Ok(view) => Ok(view),
-                // The example as written always shows, compiled, until the interpreter reads it.
-                Err(_) if source == original => Ok(sample(&name).unwrap_or_else(|| Box::new(Spacer::new()))),
-                Err(problems) => Err(problems),
+                // An example as written always shows, compiled, until the interpreter reads it.
+                Err(problems) => match examples.iter().find(|(_, code)| code == source) {
+                    Some((name, _)) => Ok(sample(name).unwrap_or_else(|| Box::new(Spacer::new()))),
+                    None => Err(problems),
+                },
             }
         };
+        let first = self.examples.get(self.start).map(|(_, code)| code.clone()).unwrap_or_default();
+        let (start, single) = (self.start, self.single);
+        let source = cx.use_state(move || first);
+        let chosen = cx.use_state(move || start);
+        let title = if single { self.examples[0].0.clone() } else { "Playground".to_owned() };
         let mut playground =
-            Playground::new(runner).title(self.name.clone()).example(self.name.clone(), self.code.clone());
-        let title = self.name.clone();
+            Playground::new(runner).title(title).source(source.binding()).chosen_example(chosen.binding());
+        for (name, code) in self.examples.iter() {
+            playground = playground.example(name.clone(), code.clone());
+        }
+        let examples = self.examples.clone();
         playground = playground.download(move |code| {
-            let project = sample_project(&title, code);
+            let name = examples.get(chosen.get()).map_or("Playground", |(name, _)| name.as_str());
+            let project = sample_project(name, code);
             let bytes = project.zip().map_err(|problem| vec![CodeDiagnostic::error(1, 1, 1, problem)])?;
             Ok((format!("{}.zip", project.crate_name()), bytes))
         });
@@ -2890,5 +2921,20 @@ mod tests {
             ui.update();
         }
         assert!(SamplePlayground::new("Nope").is_none());
+    }
+
+    #[test]
+    fn the_playground_of_all_lists_every_example_and_opens_on_the_one_asked() {
+        let all = SamplePlayground::all(Some("Slider"));
+        assert_eq!(all.examples.len(), NAMES.len());
+        assert_eq!(all.examples[all.start].0, "Slider");
+        assert_eq!(SamplePlayground::all(Some("Nope")).start, 0);
+        let mut ui = Ui::new(all, Theme::raven_dark());
+        ui.set_viewport(Size::new(1100.0, 600.0), 1.0);
+        ui.update();
+        ui.update();
+        let names: Vec<String> = ui.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect();
+        assert!(names.iter().any(|n| n == "Playground"), "{names:?}");
+        assert!(names.iter().any(|n| n == "Download project"));
     }
 }

@@ -2571,10 +2571,16 @@ mod web_entry {
         console_error_panic_hook::set_once();
         wasm_bindgen_futures::spawn_local(async {
             let options = ravenrs::web::WebOptions::new("raven-canvas");
-            // `?component=Button` shows that example in a playground, for the component pages.
-            let sample = requested_component().and_then(|name| super::samples::SamplePlayground::new(&name));
+            // `?component=Button` shows that example in a playground, for the component pages;
+            // the site's `/playground/`, or `?playground`, every example, opening on `?example=`.
+            let sample = requested("component").and_then(|name| super::samples::SamplePlayground::new(&name));
             let started = match sample {
                 Some(sample) => ravenrs::web::start(sample, options).await,
+                None if wants_playground() => {
+                    let start = requested("example");
+                    ravenrs::web::start(super::samples::SamplePlayground::all(start.as_deref()), options)
+                        .await
+                }
                 None => ravenrs::web::start(super::Gallery::new(), options).await,
             };
             match started {
@@ -2584,10 +2590,18 @@ mod web_entry {
         });
     }
 
-    fn requested_component() -> Option<String> {
+    fn requested(key: &str) -> Option<String> {
         let search = web_sys::window()?.location().search().ok()?;
         let params = web_sys::UrlSearchParams::new_with_str(&search).ok()?;
-        params.get("component")
+        params.get(key)
+    }
+
+    fn wants_playground() -> bool {
+        let Some(location) = web_sys::window().map(|window| window.location()) else { return false };
+        let path = location.pathname().unwrap_or_default();
+        let search = location.search().unwrap_or_default();
+        path.trim_end_matches('/').ends_with("/playground")
+            || web_sys::UrlSearchParams::new_with_str(&search).is_ok_and(|params| params.has("playground"))
     }
 
     #[wasm_bindgen]
