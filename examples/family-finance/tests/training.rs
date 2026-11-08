@@ -77,17 +77,17 @@ fn overview(take: &mut Recorder) -> Result<(), RecordError> {
         "O Painel é o resumo das suas finanças. Ele junta o saldo, o que entrou e saiu no mês e as contas que estão chegando.",
     );
     take.explain(
-        "SALDO DAS CONTAS",
+        "Saldo das contas",
         "Saldo das contas",
         "É a soma do dinheiro em todas as suas contas, com o que já foi lançado até hoje. O gráfico abaixo mostra se a sua reserva está crescendo ou diminuindo nos últimos 12 meses.",
     )?;
     take.explain(
-        "RECEITAS DO MÊS",
+        "Receitas do mês",
         "Receitas e despesas do mês",
         "Mostram o que entrou e o que saiu neste mês, comparados com o mesmo período do mês anterior.",
     )?;
     take.explain(
-        "A PAGAR EM 30 DIAS",
+        "A pagar em 30 dias",
         "A pagar em 30 dias",
         "É o que vai sair nos próximos 30 dias, somando as contas em aberto e os pagamentos programados na Agenda.",
     )?;

@@ -6,8 +6,8 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 use super::forms::Forms;
-use super::help::{self, Help, tip};
-use super::store::{Memo, PAGE_INSETS, Page, Store, content_width, titled_card};
+use super::help::{self, tip};
+use super::store::{Memo, PAGE_INSETS, Page, Store, content_width};
 use crate::model::{
     Account, Bill, BillStatus, BudgetLine, Flow, MonthTotals, date_label, month_label, month_short,
     parse_date, shift_months,
@@ -16,12 +16,6 @@ use crate::money::format_brl;
 
 /// How many days ahead count as "coming up".
 const SOON_DAYS: i32 = 30;
-/// From this width the balance and the next bills fit side by side, and so do three numbers.
-const WIDE_FROM: f32 = 900.0;
-/// A big number in reais needs half of this.
-const TWO_STATS_FROM: f32 = 600.0;
-/// The next bills, beside the balance on a wide window.
-const BILLS_WIDTH: f32 = 400.0;
 /// What the balance chart can cover, and how many months that is.
 const PERIODS: [(&str, usize); 3] = [("12 meses", 12), ("6 meses", 6), ("3 meses", 3)];
 /// How many months income and expenses are compared over.
@@ -32,8 +26,26 @@ const ACCOUNT_FILE: &str = "painel-conta";
 const SERIES_COLORS: [Semantic; 5] =
     [Semantic::Chart1, Semantic::Chart2, Semantic::Chart3, Semantic::Chart4, Semantic::Chart5];
 const RING_SIZE: f32 = 220.0;
-/// From this width the spending ring has its list beside it.
-const RING_BESIDE_FROM: f32 = 620.0;
+/// Beside the database, this file keeps where each card stands and its size.
+const LAYOUT_FILE: &str = "painel-cards.json";
+/// The cards, by key, and the cells each takes until the person moves it: `(key, columns, rows)`.
+const CARDS: [(&str, u16, u16); 8] = [
+    ("saldo", 4, 3),
+    ("proximas", 2, 3),
+    ("receitas", 2, 1),
+    ("despesas", 2, 1),
+    ("a-pagar", 2, 1),
+    ("fluxos", 6, 2),
+    ("categorias", 3, 2),
+    ("por-conta", 3, 2),
+];
+const COLUMNS: usize = 6;
+/// Below this width the cards go one under the other, in two columns.
+const WIDE_FROM: f32 = 900.0;
+const ROW_HEIGHT: f32 = 140.0;
+/// What `TileLayout` takes from a tile's height: the gap to the next row, its header and its
+/// bottom margin.
+const TILE_FRAME: f32 = 12.0 + 36.0 + 12.0;
 
 #[derive(Default)]
 struct Numbers {
@@ -58,12 +70,64 @@ pub(crate) struct DashboardState {
     period: State<usize>,
     /// The account chosen at the top, or `None` for all of them, kept between openings.
     account: Binding<Option<i64>>,
+    /// Where each card stands and how big, kept between openings.
+    layout: Binding<Vec<TileSpot>>,
 }
 
 impl DashboardState {
     pub fn new(path: Option<&Path>) -> Self {
-        Self { numbers: Memo::new(), period: State::new(0), account: remembered_account(path) }
+        Self {
+            numbers: Memo::new(),
+            period: State::new(0),
+            account: remembered_account(path),
+            layout: remembered_layout(path),
+        }
     }
+}
+
+fn default_layout() -> Vec<TileSpot> {
+    CARDS.iter().map(|&(key, columns, rows)| TileSpot::new(key, columns, rows)).collect()
+}
+
+/// Reads where the cards were left, and keeps each change beside the database. A file the
+/// app cannot read gives the cards their places again.
+fn remembered_layout(path: Option<&Path>) -> Binding<Vec<TileSpot>> {
+    let file = path.map(|path| path.with_extension(LAYOUT_FILE));
+    let kept = file
+        .as_ref()
+        .and_then(|file| std::fs::read_to_string(file).ok())
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_else(default_layout);
+    let layout = State::new(kept);
+    let (read, write) = (layout.clone(), layout);
+    Binding::new(
+        move || read.get(),
+        move |value: Vec<TileSpot>| {
+            // A resize reports every move of the pointer, most of them changing nothing.
+            if *write.peek() == value {
+                return;
+            }
+            if let Some(file) = &file
+                && let Err(e) = serde_json::to_string(&value)
+                    .map_err(std::io::Error::other)
+                    .and_then(|text| std::fs::write(file, text))
+            {
+                tracing::warn!(error = %e, "could not remember the dashboard's layout");
+            }
+            write.set(value);
+        },
+    )
+}
+
+/// The height a card's content has, for the cells it takes.
+fn room(spots: &[TileSpot], key: &str) -> f32 {
+    let rows = spots.iter().find(|s| s.key == key).map_or(1, |s| s.rows);
+    f32::from(rows) * (ROW_HEIGHT + 12.0) - TILE_FRAME
+}
+
+/// The columns a card takes.
+fn width_of(spots: &[TileSpot], key: &str) -> u16 {
+    spots.iter().find(|s| s.key == key).map_or(1, |s| s.columns)
 }
 
 /// Reads the account the dashboard was left on, and keeps it beside the database.
@@ -92,9 +156,16 @@ fn remembered_account(path: Option<&Path>) -> Binding<Option<i64>> {
     )
 }
 
-/// A big number in a card, with its "?" in the corner.
-fn stat_card(stat: Stat, help: Help) -> impl View {
-    Card::new(HStack::new((stat.grow(1.0), tip(help))).align(Align::Start))
+/// A big number with how it compares with last month; its title is the card's.
+fn figure(value: String, delta: Option<(String, bool, bool)>) -> impl View {
+    let delta = delta.map(|(text, up, good)| {
+        Badge::new(text).tone(if good { Tone::Success } else { Tone::Danger }).icon(if up {
+            IconName::TrendingUp
+        } else {
+            IconName::TrendingDown
+        })
+    });
+    VStack::new((Text::new(value).style(TextStyle::Metric), delta)).spacing(6.0).align(Align::Start)
 }
 
 fn tone_of(status: BillStatus) -> Tone {
@@ -159,8 +230,7 @@ pub(crate) fn dashboard(
     let (store, forms, state) = (store.clone(), forms.clone(), state.clone());
     let body = responsive(move |size| {
         let numbers = numbers.clone();
-        let content = content_width(size);
-        let wide = content >= WIDE_FROM;
+        let spots = state.layout.get();
         let chosen = numbers.accounts.iter().find(|a| Some(a.id) == numbers.account);
         let total: i64 = match chosen {
             Some(account) => account.balance_cents,
@@ -178,34 +248,18 @@ pub(crate) fn dashboard(
         let soon: Vec<&Bill> = numbers.open_bills.iter().filter(|b| b.due <= horizon).collect();
         let soon_total: i64 = soon.iter().map(|b| b.amount_cents).sum::<i64>() + numbers.planned_out_cents;
 
-        let mut income = Stat::new("Receitas do mês", format_brl(now.income_cents));
-        if let Some(change) = percent_change(now.income_cents, before.income_cents) {
-            income = income.delta(change, now.income_cents >= before.income_cents);
-        }
-        let mut expense = Stat::new("Despesas do mês", format_brl(now.expense_cents));
-        if let Some(change) = percent_change(now.expense_cents, before.expense_cents) {
-            // Spending less is the good direction here.
-            expense = expense.delta_toned(
-                change,
-                now.expense_cents >= before.expense_cents,
-                now.expense_cents <= before.expense_cents,
-            );
-        }
-        let stats = Grid::new(
-            if wide {
-                3
-            } else if content >= TWO_STATS_FROM {
-                2
-            } else {
-                1
-            },
-            (
-                stat_card(income, help::RECEITAS),
-                stat_card(expense, help::DESPESAS),
-                stat_card(Stat::new("A pagar em 30 dias", format_brl(soon_total)), help::A_PAGAR),
-            ),
-        )
-        .spacing(16.0);
+        let income = figure(
+            format_brl(now.income_cents),
+            percent_change(now.income_cents, before.income_cents).map(|change| {
+                (change, now.income_cents >= before.income_cents, now.income_cents >= before.income_cents)
+            }),
+        );
+        let expense = figure(
+            format_brl(now.expense_cents),
+            percent_change(now.expense_cents, before.expense_cents).map(|change| {
+                (change, now.expense_cents >= before.expense_cents, now.expense_cents <= before.expense_cents)
+            }),
+        );
 
         let months: Vec<String> = numbers
             .months
@@ -225,27 +279,31 @@ pub(crate) fn dashboard(
             .format(reais)
             .tooltip(ChartTooltip::new().indicator(ChartIndicator::Line))
             .alt(format!("{balance_label} por mês"))
-            .height(if wide { 278.0 } else { 170.0 });
-        let balance = Card::new(
-            VStack::new((
-                HStack::new((
-                    Stat::new(balance_label.clone(), format_brl(total)).large().grow(1.0),
-                    tip(help::SALDO),
-                    Select::new(state.period.binding(), PERIODS.map(|p| p.0)).label("Período").width(120.0),
-                ))
+            // Below the big number, the chart takes what the card has left.
+            .height((room(&spots, "saldo") - 64.0).max(60.0));
+        let balance = Tile::new(
+            "saldo",
+            balance_label.clone(),
+            VStack::new((Text::new(format_brl(total)).style(TextStyle::Metric), balance_chart))
                 .spacing(8.0)
-                .align(Align::Start),
-                balance_chart,
+                .align(Align::Stretch),
+        )
+        .accessory(
+            HStack::new((
+                tip(help::SALDO),
+                Select::new(state.period.binding(), PERIODS.map(|p| p.0))
+                    .label("Período")
+                    .size(ButtonSize::Small)
+                    .width(120.0),
             ))
             .spacing(8.0)
-            .align(Align::Stretch),
-        )
-        .grow(1.0);
+            .align(Align::Center),
+        );
 
         let recent = numbers.months.len().saturating_sub(COMPARED_MONTHS);
-        let flows = titled_card(
+        let flows = Tile::new(
+            "fluxos",
             "Receitas e despesas",
-            help::ENTRADAS_E_SAIDAS,
             Chart::new(ChartKind::Bar)
                 .categories(months.iter().skip(recent).cloned())
                 .series("Receitas", numbers.months.iter().skip(recent).map(|m| m.income_cents as f64 / 100.0))
@@ -256,8 +314,9 @@ pub(crate) fn dashboard(
                 .format(reais)
                 .tooltip(ChartTooltip::new().indicator(ChartIndicator::Dashed))
                 .alt("Receitas e despesas por mês")
-                .height(260.0),
-        );
+                .height(room(&spots, "fluxos").max(60.0)),
+        )
+        .accessory(tip(help::ENTRADAS_E_SAIDAS));
 
         let mut spent: Vec<(String, i64)> = numbers
             .budget
@@ -267,7 +326,6 @@ pub(crate) fn dashboard(
             .collect();
         spent.sort_by_key(|(_, cents)| std::cmp::Reverse(*cents));
         let spent_total: i64 = spent.iter().map(|(_, cents)| cents).sum();
-        // The theme has as many colors as a chart should have slices.
         if spent.len() > SERIES_COLORS.len() {
             let others: i64 = spent[SERIES_COLORS.len() - 1..].iter().map(|(_, cents)| cents).sum();
             spent.truncate(SERIES_COLORS.len() - 1);
@@ -292,15 +350,12 @@ pub(crate) fn dashboard(
             })
             .collect();
         let spending_title = format!("Despesas de {}", month_label(today));
-        let category_card: AnyView = if spending.is_empty() {
-            Box::new(titled_card(
-                &spending_title,
-                help::POR_CATEGORIA,
-                Text::new("Nenhuma despesa neste mês.").foreground(Semantic::InkMuted),
-            ))
+        let spending_view: AnyView = if spending.is_empty() {
+            Box::new(Text::new("Nenhuma despesa neste mês.").foreground(Semantic::InkMuted))
         } else {
             let whole = format_brl(spent_total);
             let whole = whole.rsplit_once(',').map_or(whole.as_str(), |(reais, _)| reais);
+            let size = room(&spots, "categorias").clamp(80.0, RING_SIZE);
             let ring = Chart::new(ChartKind::Doughnut)
                 .categories(spent.iter().map(|(name, _)| name.as_str()))
                 .series("Despesas", spent.iter().map(|(_, cents)| *cents as f64 / 100.0))
@@ -310,19 +365,24 @@ pub(crate) fn dashboard(
                 .format(reais)
                 .hide_legend()
                 .alt(spending_title.as_str())
-                .size(RING_SIZE, RING_SIZE);
+                .size(size, size);
             let list = VStack::new(spending).spacing(12.0).align(Align::Stretch).grow(1.0);
-            let together: AnyView = if content >= RING_BESIDE_FROM {
+            // A narrow card has room for the list only under the ring.
+            if width_of(&spots, "categorias") >= 3 {
                 Box::new(HStack::new((ring, list)).spacing(24.0).align(Align::Center))
             } else {
                 Box::new(VStack::new((ring, list)).spacing(16.0).align(Align::Center))
-            };
-            Box::new(titled_card(&spending_title, help::POR_CATEGORIA, together))
+            }
         };
+        let categories = Tile::new("categorias", spending_title.clone(), spending_view)
+            .accessory(tip(help::POR_CATEGORIA));
 
+        // As many bills as the card has room for, under the button to see them all.
+        let warning = if overdue.is_empty() { 0.0 } else { 36.0 };
+        let fit = ((room(&spots, "proximas") - 44.0 - warning) / 58.0).floor().max(1.0) as usize;
         let mut rows: Vec<AnyView> = soon
             .iter()
-            .take(5)
+            .take(fit)
             .map(|bill| {
                 let status = bill.status(today);
                 let (id, pay_store, pay) = (bill.id, store.clone(), forms.pay.clone());
@@ -361,18 +421,17 @@ pub(crate) fn dashboard(
         let go_bills = open_page.clone();
         let late = (!overdue.is_empty()).then(|| {
             let word = if overdue.len() == 1 { "vencida" } else { "vencidas" };
-            Badge::new(format!("{} {word} · {}", overdue.len(), format_brl(overdue_total))).tone(Tone::Danger)
+            HStack::new((
+                Badge::new(format!("{} {word} · {}", overdue.len(), format_brl(overdue_total)))
+                    .tone(Tone::Danger),
+                Spacer::new(),
+            ))
         });
-        let bills_card = Card::new(
+        let bills = Tile::new(
+            "proximas",
+            "Próximas contas",
             VStack::new((
-                HStack::new((
-                    Text::new("Próximas contas").style(TextStyle::Headline),
-                    tip(help::PROXIMAS),
-                    Spacer::new(),
-                    late,
-                ))
-                .spacing(8.0)
-                .align(Align::Center),
+                late,
                 VStack::new(rows).spacing(12.0).align(Align::Stretch),
                 Button::new("Ver todas as contas")
                     .style(ButtonStyle::Ghost)
@@ -382,7 +441,8 @@ pub(crate) fn dashboard(
             ))
             .spacing(12.0)
             .align(Align::Stretch),
-        );
+        )
+        .accessory(tip(help::PROXIMAS));
 
         let accounts: Vec<AnyView> = numbers
             .accounts
@@ -399,11 +459,12 @@ pub(crate) fn dashboard(
                 ) as AnyView
             })
             .collect();
-        let accounts_card = titled_card(
+        let per_account = Tile::new(
+            "por-conta",
             "Saldo por conta",
-            help::POR_CONTA,
             VStack::new(accounts).spacing(14.0).align(Align::Stretch),
-        );
+        )
+        .accessory(tip(help::POR_CONTA));
 
         let picked = numbers.account;
         let choose = state.account.clone();
@@ -414,32 +475,44 @@ pub(crate) fn dashboard(
             Text::new("Contas a pagar e pagamentos programados continuam os da família toda.")
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted)
-                .grow(1.0)
         });
+        let layout = state.layout.clone();
         let account_bar = HStack::new((
             Select::of(Binding::new(move || picked, move |value| choose.set(value)), choices)
                 .label("Conta")
                 .width(240.0),
             tip(help::CONTA),
             family_bills,
+            Spacer::new(),
+            Button::new("Restaurar layout")
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Small)
+                .icon(IconName::RotateCcw)
+                .disabled(spots == default_layout())
+                .on_click(move || layout.set(default_layout())),
+            tip(help::LAYOUT),
         ))
         .spacing(8.0)
         .align(Align::Center);
 
-        let top: AnyView = if wide {
-            Box::new(
-                HStack::new((balance, bills_card.width(BILLS_WIDTH))).spacing(16.0).align(Align::Stretch),
+        let tiles = TileLayout::new(state.layout.clone())
+            .columns(if content_width(size) >= WIDE_FROM { COLUMNS } else { 2 })
+            .min_column_width(140.0)
+            .row_height(ROW_HEIGHT)
+            .tile(balance)
+            .tile(bills)
+            .tile(Tile::new("receitas", "Receitas do mês", income).accessory(tip(help::RECEITAS)))
+            .tile(Tile::new("despesas", "Despesas do mês", expense).accessory(tip(help::DESPESAS)))
+            .tile(
+                Tile::new("a-pagar", "A pagar em 30 dias", figure(format_brl(soon_total), None))
+                    .accessory(tip(help::A_PAGAR)),
             )
-        } else {
-            // With little room, what needs doing comes first.
-            Box::new(VStack::new((bills_card, balance)).spacing(16.0).align(Align::Stretch))
-        };
-        let bottom = Grid::new(if wide { 2 } else { 1 }, (category_card, accounts_card)).spacing(16.0);
+            .tile(flows)
+            .tile(categories)
+            .tile(per_account);
 
-        ScrollView::new((VStack::new((account_bar, top, stats, flows, bottom))
-            .spacing(16.0)
-            .align(Align::Stretch),))
-        .padding(PAGE_INSETS)
+        ScrollView::new((VStack::new((account_bar, tiles)).spacing(16.0).align(Align::Stretch),))
+            .padding(PAGE_INSETS)
     });
     Page::new(help::PAINEL, format!("Hoje é {}", date_label(today)), body)
 }

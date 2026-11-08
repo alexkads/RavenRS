@@ -15,7 +15,12 @@ pub(crate) fn tip(help: Help) -> HelpTip {
 pub(crate) const PAINEL: Help = (
     "Painel",
     "O resumo das finanças da família: quanto há nas contas, o que entrou, o que saiu e o que está para vencer.",
-    "Comece pelas próximas contas. Dá para pagar direto daqui. Em Conta, no alto, veja os números de uma conta só.",
+    "Comece pelas próximas contas. Dá para pagar direto daqui. Em Conta, no alto, veja os números de uma conta só. Os cards mudam de lugar e de tamanho, do jeito que você preferir.",
+);
+pub(crate) const LAYOUT: Help = (
+    "Arrumar o painel",
+    "Cada card muda de lugar e de tamanho, e o painel fica assim nas próximas vezes. Restaurar layout devolve tudo ao lugar de antes.",
+    "Arraste o puxador ao lado do título para mudar o card de lugar, e o canto de baixo para mudar o tamanho. Pelo teclado, vá com Tab até o puxador: as setas mudam o card de lugar e Shift com as setas muda o tamanho.",
 );
 pub(crate) const CONTA: Help = (
     "Conta",

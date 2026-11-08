@@ -43,6 +43,7 @@ pub struct Tile {
     key: String,
     title: String,
     content: AnyView,
+    accessory: Option<AnyView>,
 }
 
 impl fmt::Debug for Tile {
@@ -55,7 +56,14 @@ impl fmt::Debug for Tile {
 impl Tile {
     /// A tile known by `key`, under this title.
     pub fn new(key: impl Into<String>, title: impl Into<String>, content: impl View + 'static) -> Self {
-        Self { key: key.into(), title: title.into(), content: Box::new(content) }
+        Self { key: key.into(), title: title.into(), content: Box::new(content), accessory: None }
+    }
+
+    /// Something at the end of the header, after the title, such as a help button or a
+    /// choice that changes what the tile shows.
+    pub fn accessory(mut self, accessory: impl View + 'static) -> Self {
+        self.accessory = Some(Box::new(accessory));
+        self
     }
 }
 
@@ -369,6 +377,9 @@ impl View for TileCard<'_> {
             }));
         }
         header.push(title);
+        if let Some(accessory) = &self.tile.accessory {
+            header.push(cx.child(accessory.as_ref()));
+        }
         let bar = cx.container(
             LayoutStyle {
                 height: Some(TILE_HEADER),
