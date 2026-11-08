@@ -180,6 +180,8 @@ pub(crate) fn dashboard(
             .format(reais)
             .tooltip(ChartTooltip::new().indicator(ChartIndicator::Line))
             .alt("Saldo das contas por mês")
+            // Another period is another picture: it draws in again.
+            .appear_key(period)
             .height(if wide { 278.0 } else { 170.0 });
         let balance = Card::new(
             VStack::new((
