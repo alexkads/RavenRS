@@ -538,3 +538,31 @@ fn the_parts_of_a_screen_fold_and_unfold_in_the_menu() {
     press(&mut ui, Role::Button, "Contas a pagar");
     assert_eq!(unfolded(&mut ui), Some(true), "coming back opens it");
 }
+
+/// How many clips the screen paints through: a line or an area drawing in is revealed through
+/// one more, which grows until the chart is whole.
+fn clips(ui: &Ui) -> usize {
+    ui.scene().primitives().iter().filter(|p| matches!(p, ravenrs::core::Primitive::PushClip(_))).count()
+}
+
+fn settle_from(ui: &mut Ui, from: f64) {
+    for step in 0..40 {
+        ui.set_time(from + f64::from(step) * 0.1);
+        ui.update();
+    }
+}
+
+#[test]
+fn another_period_draws_the_balance_in_again() {
+    let mut ui = app();
+    settle_from(&mut ui, 0.0);
+    let whole = clips(&ui);
+
+    press(&mut ui, Role::ComboBox, "Período");
+    press(&mut ui, Role::ListBoxOption, "6 meses");
+    ui.set_time(4.1);
+    ui.update();
+    assert_eq!(clips(&ui), whole + 1, "the balance is revealed again");
+    settle_from(&mut ui, 4.2);
+    assert_eq!(clips(&ui), whole, "until it is whole");
+}
