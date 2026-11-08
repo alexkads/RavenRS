@@ -30,6 +30,7 @@ struct Adpcm {
     step: i32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Adpcm {
     fn take(&mut self, code: u8) -> i32 {
         let step = STEPS[self.step as usize];
@@ -141,11 +142,13 @@ fn key_of(text: &str) -> u64 {
 /// Recordings of what films say, each found by its text. It shares the bytes, so
 /// cloning it is cheap. Give it to [`MoviePlayer::narration`](crate::MoviePlayer::narration).
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Narration {
     bytes: &'static [u8],
     entries: std::rc::Rc<HashMap<u64, (usize, usize)>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Narration {
     /// Reads what [`Narration::pack`] wrote. Bytes it does not understand hold no
     /// recordings, and the films use the system's voice.

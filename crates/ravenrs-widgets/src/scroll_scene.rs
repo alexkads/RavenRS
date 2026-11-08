@@ -34,6 +34,7 @@ use crate::context::{BuildCx, NodeId, Paint};
 /// Which stretch of scrolling a [`ScrollLink`] counts as going from 0 to 1.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ScrollRange {
     /// The nearest [`ScrollScene`] around the element: 0 when the scene pins, 1 when it
     /// lets go. Outside a scene, the same as [`Self::Through`].
@@ -56,6 +57,7 @@ pub(crate) struct ScrollTrack {
     pub length: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ScrollRange {
     /// How far along this range an element at `frame` is, inside the visible area
     /// `view` of its scroll container, from 0 to 1. `scene` is the frame and track of
@@ -90,6 +92,7 @@ impl ScrollRange {
 /// an [`Easing`], and describe the effect with keyframes or any function. Presets cover
 /// the usual entrances and exits.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ScrollLink {
     range: ScrollRange,
     from: f32,
@@ -109,6 +112,7 @@ impl fmt::Debug for ScrollLink {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ScrollLink {
     /// The effect is `map(t)`, where `t` runs from 0 to 1 over the window, after easing.
     pub fn custom(map: impl Fn(f32) -> Effect + 'static) -> Self {
@@ -209,6 +213,7 @@ pub struct Sticky<C> {
     top: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> Sticky<C> {
     /// Sticks to the very top of the scroll container.
     pub fn new(content: C) -> Self {
@@ -246,6 +251,7 @@ pub struct ScrollScene<C> {
     top: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> ScrollScene<C> {
     /// Holds `content` for one screen's worth of scrolling (800 pixels) by default.
     pub fn new(content: C) -> Self {
@@ -294,6 +300,7 @@ pub struct ScrollLinked<C> {
     link: ScrollLink,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> ScrollLinked<C> {
     /// `content` painted through `link`.
     pub fn new(content: C, link: ScrollLink) -> Self {

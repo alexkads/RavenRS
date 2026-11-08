@@ -56,6 +56,7 @@ type SessionStep = Box<dyn FnOnce(&crate::Session)>;
 /// # let _ = window;
 /// # Ok::<(), ravenrs_app::ModelError>(())
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct App {
     builder: ApplicationBuilder,
     language: Language,
@@ -106,6 +107,7 @@ impl std::fmt::Debug for App {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl App {
     /// An application with this title, and nothing in it yet.
     pub fn new(title: impl Into<String>) -> Self {

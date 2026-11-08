@@ -52,6 +52,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Relatórios guardados e painéis no framework | `crates/ravenrs-app-report/src/`: `stored`, `analytics` | `crates/ravenrs-app-report/tests/stored.rs` |
 | Desempenho: cenas, gate, tempos | `crates/ravenrs-perf/src/scenes/`, `perf/baseline.json`; `Ui::stats`, `RenderStats` | Skill `ravenrs-desempenho`, `docs/QUALITY.md`, `docs/PERFORMANCE.md` |
 | Ferramentas do painel de diagnóstico | `crates/ravenrs-widgets/src/diagnostics.rs`, dados em `crates/ravenrs-core/src/diagnostics.rs` | `crates/ravenrs-widgets/tests/performance_tools.rs`, `docs/PERFORMANCE.md` |
+| Playground e interpretador | `crates/ravenrs-live/src/` (`eval`, `bridge`, `registry`); `#[expose]` em `crates/ravenrs-live-derive`; `LiveRunner` e adaptadores em `crates/ravenrs-widgets/src/live.rs` | `scripts/gen-live.py` depois de componente novo (gera `live_list.rs` em widgets, movie, app e app-ui); o que não der para gerar fica à mão em `live.rs` de cada crate; `examples/component-gallery/live-pending.txt`; `crates/ravenrs-live/tests/eval.rs`, `crates/ravenrs-widgets/tests/live.rs` |
 | Ícones | `scripts/gen-icons.py` regenera a fonte e o `IconName` | Não edite `icon_set.rs` à mão |
 
 Ao entregar ou adiar algo, atualize a tabela de status em §11 do `ARCHITECTURE.md`. Foi a parte que mais ficou defasada.

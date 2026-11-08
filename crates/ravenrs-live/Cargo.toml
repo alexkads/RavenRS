@@ -1,0 +1,23 @@
+[package]
+name = "ravenrs-live"
+description = "An interpreter of the Rust small RavenRS examples are written in, for playgrounds that run without a compiler."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-live"
+keywords = ["interpreter", "playground", "gui", "rust"]
+categories = ["gui", "development-tools"]
+
+[dependencies]
+proc-macro2.workspace = true
+ravenrs-live-derive.workspace = true
+ravenrs-reactive.workspace = true
+syn = { workspace = true, features = ["full", "parsing", "clone-impls"] }
+
+[lints]
+workspace = true

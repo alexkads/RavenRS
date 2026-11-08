@@ -34,12 +34,14 @@ const MORE_ROOM: f32 = 36.0;
 /// assert!(Hotkey::key(ravenrs_core::Key::Delete).label().contains("Del"));
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Hotkey {
     key: Key,
     command: bool,
     shift: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Hotkey {
     /// This key alone.
     pub fn key(key: Key) -> Self {
@@ -93,6 +95,7 @@ impl Hotkey {
 }
 
 /// One command of a [`Toolbar`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ToolbarAction {
     label: String,
     icon: Option<IconName>,
@@ -111,6 +114,7 @@ impl fmt::Debug for ToolbarAction {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToolbarAction {
     /// A ghost button with this text.
     pub fn new(label: impl Into<String>) -> Self {
@@ -310,6 +314,7 @@ fn entry_node(cx: &mut BuildCx<'_>, index: usize, entry: &ToolbarEntry) -> NodeI
 /// ui.update();
 /// ```
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toolbar {
     entries: Vec<ToolbarEntry>,
     label: Option<String>,
@@ -322,6 +327,7 @@ impl fmt::Debug for Toolbar {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Toolbar {
     /// An empty toolbar.
     pub fn new() -> Self {
@@ -486,6 +492,7 @@ impl<C> fmt::Debug for FloatingToolbar<C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> FloatingToolbar<C> {
     /// An empty bar at the bottom center of `content`.
     pub fn new(content: C) -> Self {
@@ -754,6 +761,7 @@ pub(crate) fn menu_trigger(
 /// let mut ui = Ui::new(save, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitButton {
     label: String,
     icon: Option<IconName>,
@@ -770,6 +778,7 @@ impl fmt::Debug for SplitButton {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SplitButton {
     /// A primary button with this text and an empty menu.
     pub fn new(label: impl Into<String>) -> Self {
@@ -866,6 +875,7 @@ impl View for SplitButton {
 /// until it is answered; show [`ConfirmDialog`] once, and call
 /// [`ask`](Self::ask) from anywhere.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ConfirmDialog(State<Option<Rc<Question>>>);
 
 struct Question {
@@ -890,6 +900,7 @@ impl Default for ConfirmDialog {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ConfirmDialog {
     /// A dialog with nothing to ask yet.
     pub fn new() -> Self {

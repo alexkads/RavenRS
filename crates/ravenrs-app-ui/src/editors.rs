@@ -24,6 +24,7 @@ use crate::values::{
 /// What a control is being asked for.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EditorRequest {
     /// The field it edits.
     pub field: FieldInfo,
@@ -42,6 +43,7 @@ type EditorFactory = Rc<dyn Fn(&EditorRequest) -> AnyView>;
 /// Which control edits which kind of field, by name. The model's `Editor` setting
 /// picks one, so a field can change its control without touching code.
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EditorRegistry(BTreeMap<String, EditorFactory>);
 
 impl std::fmt::Debug for EditorRegistry {
@@ -50,6 +52,7 @@ impl std::fmt::Debug for EditorRegistry {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EditorRegistry {
     /// Registers a control by name, replacing one of the same name. The name of a
     /// kind of field, such as `Text`, replaces the built-in for it.
@@ -379,6 +382,7 @@ fn read_only_text(request: &EditorRequest) -> AnyView {
 /// A picture or a file on a form: taking one, and taking it out again.
 struct FileEditor(EditorRequest);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FileEditor {
     fn control(&self) -> AnyView {
         let request = &self.0;

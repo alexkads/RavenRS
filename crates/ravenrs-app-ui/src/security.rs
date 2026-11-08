@@ -56,6 +56,7 @@ struct PasswordForm {
     done: Rc<dyn Fn()>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PasswordForm {
     fn new(words: Words, asks_current: bool, submit: Submit, done: Rc<dyn Fn()>) -> Self {
         Self {
@@ -228,6 +229,7 @@ type Seed = Box<dyn FnOnce(&mut dyn ObjectSpace) -> Result<(), String>>;
 /// # let _ = window;
 /// # Ok::<(), ravenrs_app::ModelError>(())
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SecuredApp {
     space: SpaceMaker,
     application: MakeApp,
@@ -247,6 +249,7 @@ impl std::fmt::Debug for SecuredApp {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SecuredApp {
     /// Over what `space` makes, with no permissions of its own. `application` says what the
     /// application has, for whoever signed in; its storage and seed are replaced by what is here.
@@ -399,6 +402,7 @@ struct GateInner {
 #[derive(Clone)]
 struct Gate(Rc<GateInner>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Gate {
     fn forget_typed(&self) {
         self.0.password.set(String::new());

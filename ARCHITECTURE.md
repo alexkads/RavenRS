@@ -75,6 +75,8 @@ ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, 
                            and ravenrs-app-spec with `source` (entities read from Rust source while running)
 ravenrs-app-spec       ──► ravenrs-criteria, syn  (what the derives read from a struct or enum, as data)
 ravenrs-app-derive     ──► ravenrs-app-spec  (the derives, re-exported by ravenrs-app)
+ravenrs-live           ──► ravenrs-reactive, syn  (interprets the Rust of examples; host types through a Registry)
+ravenrs-live-derive    (#[expose]: registers an impl block, struct, enum or module; behind `live` in core, style, layout, graphics, lottie, widgets, movie, app, app-ui)
 ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
 ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)
 ravenrs-app-library    ──► ravenrs-app  (ready-made records)
@@ -115,6 +117,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-grid-export` | `lib` |
 | `ravenrs-app-spec` | `lib` |
 | `ravenrs-app-derive` | `lib` |
+| `ravenrs-live` | `value` (values, host objects, conversions), `registry` (what the host offers), `eval` (the interpreter), `bridge` (what `#[expose]` calls through) |
+| `ravenrs-live-derive` | `lib` |
 | `ravenrs-app-sqlite` | `lib` |
 | `ravenrs-app-library` | `lib` |
 | `ravenrs-app-report` | `lib`, `stored`, `analytics` |
@@ -372,7 +376,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
 | `View`, `Component`, `BuildCx`, `view_fn`, `responsive`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`ravenrs-macros`) |
 | Layout: `VStack`, `HStack`, `ZStack`, `Grid`, `ScrollView`, `Sticky`, `ScrollScene`, `ScrollLinked`, `Anchor`, `Ticker`, `CountUp`, `Link`, `QuadField`, `Spacer`, `Footer`, `PropertyRow`, `PageHeader`, `Section`, `Card`, `Splitter`, `SplitPanes`, `SplitHandle`, `DockArea`, `AspectRatio`, `VirtualList` (rows of any height, measured and kept by key), `SortableList` | ✓ | | |
-| Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `ButtonGroup`, `TextField`, `TextArea`, `NumberField`, `MaskedField`, `TimePicker`, `DateTimePicker`, `LookupField`, `FormLayout`, `Toolbar`, `FloatingToolbar`, `TitleBar`, `SplitButton`, `ConfirmDialog`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `ValueSlider`, `InlineRename`, `Stepper`, `SegmentedControl`, `Select`, `Combobox`, `ToggleButton`, `ToggleGroup`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher`, `FavoriteToggle`, `SwatchGrid`, `NinePointAnchor`, `ColorPair`; text selection in `TextField` | ✓ | | multi-line text |
+| Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `ButtonGroup`, `TextField`, `TextArea`, `CodeEditor`, `Playground` (feature `code`), `NumberField`, `MaskedField`, `TimePicker`, `DateTimePicker`, `LookupField`, `FormLayout`, `Toolbar`, `FloatingToolbar`, `TitleBar`, `SplitButton`, `ConfirmDialog`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `ValueSlider`, `InlineRename`, `Stepper`, `SegmentedControl`, `Select`, `Combobox`, `ToggleButton`, `ToggleGroup`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher`, `FavoriteToggle`, `SwatchGrid`, `NinePointAnchor`, `ColorPair`; text selection in `TextField` | ✓ | | multi-line text |
 | Navigation: `Tabs` (underlined, segmented), `DocumentTabs`, `FileBrowser`, `YearView`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView` |
 | Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette`, `ShortcutSheet` | ✓ | | |
 | Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |

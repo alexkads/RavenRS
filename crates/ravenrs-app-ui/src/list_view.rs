@@ -26,6 +26,7 @@ pub type OpenHandler = Rc<dyn Fn(&Value)>;
 
 /// What a list editor is asked to show: the records as the list reads them, and how to act on them.
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ListEditorRequest {
     /// The application it lives in.
     pub session: Session,
@@ -117,6 +118,7 @@ fn shown_fields<'a>(entity: &'a EntityInfo, view: &'a ModelNode, only: Option<&[
 
 /// The records of an entity in a grid: search, filters, sorting and export come with it. Opening
 /// a row opens its form.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ListView {
     session: Session,
     frame: Frame,
@@ -154,6 +156,7 @@ struct Reader {
     cell_text: Option<CellText>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Reader {
     /// What names each record of an entity, by its key as text.
     fn names_of(&self, entity_name: &str) -> BTreeMap<String, String> {
@@ -301,6 +304,7 @@ fn answer_remote(
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListView {
     /// The list of this view in the model, reading through this frame.
     pub fn new(session: Session, frame: Frame, view: ViewInfo) -> Self {
@@ -821,6 +825,7 @@ fn hash_of(text: &str) -> u64 {
     text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3))
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Session {
     /// The records of a list, the way it chose to see them, as this person can read them.
     pub fn list_records(&self, view: &ViewInfo) -> Vec<Object> {

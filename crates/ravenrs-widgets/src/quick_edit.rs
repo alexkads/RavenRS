@@ -35,6 +35,7 @@ const FIELD_WIDTH: f32 = 84.0;
 /// let mut ui = Ui::new(control, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ValueSlider {
     value: Binding<f32>,
     min: f32,
@@ -56,6 +57,7 @@ impl fmt::Debug for ValueSlider {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ValueSlider {
     /// A control over 0.0–1.0 bound to `value`, stepping by 0.01.
     pub fn new(value: Binding<f32>) -> Self {
@@ -338,6 +340,7 @@ pub(crate) fn is_f2(key: &Key) -> bool {
 /// let mut ui = Ui::new(rename, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct InlineRename {
     value: Binding<String>,
     editing: Option<Binding<bool>>,
@@ -356,6 +359,7 @@ impl fmt::Debug for InlineRename {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl InlineRename {
     /// A name bound to `value`, which changes only when the new name is confirmed.
     pub fn new(value: Binding<String>) -> Self {

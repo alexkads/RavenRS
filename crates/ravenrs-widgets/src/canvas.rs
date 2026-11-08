@@ -24,6 +24,7 @@ use crate::context::{BuildCx, DrawFn, NodeId, Paint};
 /// })
 /// .size(72.0, 48.0);
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Canvas {
     draw: DrawFn,
     style: LayoutStyle,
@@ -35,6 +36,7 @@ impl fmt::Debug for Canvas {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Canvas {
     /// A canvas drawn by `draw`, called on every paint with the absolute frame.
     pub fn new(draw: impl Fn(Rect, &mut Scene) + 'static) -> Self {

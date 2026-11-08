@@ -21,6 +21,7 @@ const MOMENTS: usize = 3;
 /// The words a [`MovieChat`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieChatLabels {
     /// Inside the empty field.
     pub placeholder: String,
@@ -38,6 +39,7 @@ impl Default for MovieChatLabels {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieChatLabels {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -72,6 +74,7 @@ impl MovieChatLabels {
 ///     println!("open {}", moment.title);
 /// });
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieChat {
     library: MovieLibrary,
     messages: Binding<Vec<ChatMessage>>,
@@ -87,6 +90,7 @@ impl std::fmt::Debug for MovieChat {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieChat {
     /// A conversation over `library`, keeping `messages`.
     pub fn new(
@@ -129,6 +133,7 @@ impl MovieChat {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieAnswers {
     /// What to say to a question: the moments that answer it, or that nothing does.
     /// For an app whose chat does more than talk about films.
@@ -162,6 +167,7 @@ impl MovieAnswers {
 
 /// What answering a question about the films takes. See [`MovieAnswers::answer`].
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieAnswers {
     /// The films.
     pub library: MovieLibrary,

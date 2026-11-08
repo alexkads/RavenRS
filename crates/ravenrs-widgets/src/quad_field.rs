@@ -31,6 +31,7 @@ type Picture = Rc<dyn Fn(f32, f32, f64) -> Color>;
 /// })
 /// .height(720.0);
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct QuadField {
     columns: u16,
     rows: u16,
@@ -48,6 +49,7 @@ impl fmt::Debug for QuadField {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl QuadField {
     /// A field of `columns × rows` squares forming the picture `picture(u, v, seconds)`,
     /// where `u` and `v` run from 0 to 1 across and down.

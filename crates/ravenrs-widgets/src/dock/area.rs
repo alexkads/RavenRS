@@ -41,6 +41,7 @@ type OnEnd = Rc<dyn Fn(&DockLayout)>;
 /// the function given to the area, by its id.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DockPanel {
     /// What identifies it, in the arrangement and in what is saved. It should never change.
     pub id: String,
@@ -52,6 +53,7 @@ pub struct DockPanel {
     pub closable: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DockPanel {
     /// A panel with this id, whose tab says `title`.
     pub fn new(id: impl Into<String>, title: impl Into<String>) -> Self {
@@ -74,6 +76,7 @@ impl DockPanel {
 /// When a group of a [`DockArea`] shows its tabs.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DockTabBar {
     /// Always, even for one panel.
     #[default]
@@ -121,6 +124,7 @@ pub enum DockTabBar {
 /// let mut ui = Ui::new(area, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DockArea {
     layout: Binding<DockLayout>,
     panels: Vec<DockPanel>,
@@ -139,6 +143,7 @@ impl fmt::Debug for DockArea {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DockArea {
     /// These panels in the arrangement of `layout`, each showing what `content` makes for its id.
     pub fn new(
@@ -301,6 +306,7 @@ struct Actions {
     labels: Rc<Labels>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Actions {
     fn apply(&self, change: impl FnOnce(&mut DockLayout) -> bool) -> bool {
         let mut next = self.layout.get();
@@ -427,6 +433,7 @@ struct DragContext {
     tab_bar: DockTabBar,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DragContext {
     fn aim_at(&self, id: &str, position: Point) -> Option<DropAim> {
         let root = self.frames.root.get();
@@ -930,6 +937,7 @@ impl View for DockArea {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl DockArea {
     #[allow(clippy::too_many_arguments, reason = "the parts of one build, private to it")]
     fn build_group(

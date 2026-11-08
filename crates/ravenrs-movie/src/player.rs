@@ -56,6 +56,7 @@ const SOUNDS_AT_MOST_MS: u64 = 400;
 /// The words a [`MoviePlayer`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieLabels {
     /// The play button.
     pub play: String,
@@ -95,6 +96,7 @@ impl Default for MovieLabels {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieLabels {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -139,12 +141,14 @@ pub(crate) fn clock_label(ms: u64) -> String {
 /// cue.go_to(61_500);
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieCue {
     request: Rc<Cell<Option<u64>>>,
     film: Rc<Cell<Option<usize>>>,
     changes: State<u64>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieCue {
     /// A cue that asks for nothing yet.
     pub fn new() -> Self {
@@ -196,6 +200,7 @@ struct Playhead {
     speed: Cell<usize>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Playhead {
     fn is_running(&self) -> bool {
         self.running.get().is_some()
@@ -577,6 +582,7 @@ impl View for Stage<'_> {
 /// let player = MoviePlayer::new(movie).width(960.0);
 /// # Ok::<(), ravenrs_movie::MovieError>(())
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MoviePlayer {
     movie: Movie,
     width: f32,
@@ -595,6 +601,7 @@ impl std::fmt::Debug for MoviePlayer {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MoviePlayer {
     /// A player for `movie`, stopped at its first picture.
     pub fn new(movie: Movie) -> Self {

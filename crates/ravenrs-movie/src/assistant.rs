@@ -27,6 +27,7 @@ const AROUND_THE_FILM: f32 = 184.0;
 /// The words a [`MovieAssistant`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AssistantLabels {
     /// Inside the empty question field.
     pub placeholder: String,
@@ -44,6 +45,7 @@ impl Default for AssistantLabels {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AssistantLabels {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -72,6 +74,7 @@ impl AssistantLabels {
 /// let assistant = MovieAssistant::new(MovieLibrary::new()).width(960.0);
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieAssistant {
     library: MovieLibrary,
     width: f32,
@@ -82,6 +85,7 @@ pub struct MovieAssistant {
     logo: Option<LottieAnimation>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieAssistant {
     /// An assistant over `library`, with an empty question.
     pub fn new(library: MovieLibrary) -> Self {
@@ -190,6 +194,7 @@ struct Open {
     cue: MovieCue,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Open {
     fn moment(&self, moment: &Moment) {
         self.film.set(moment.film);

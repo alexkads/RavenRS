@@ -41,12 +41,14 @@ impl LinkOpener for Recorder {
 /// assert_eq!(links.opened(), ["https://example.com/docs"]);
 /// ```
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Links {
     opener: Rc<RefCell<Option<Rc<dyn LinkOpener>>>>,
     anchor: Rc<RefCell<Option<String>>>,
     opened: Rc<RefCell<Vec<String>>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Links {
     /// Opens `url`. `#name` scrolls to that anchor on the next frame.
     pub fn open(&self, url: &str) {
@@ -83,6 +85,7 @@ impl fmt::Debug for Links {
 /// Text that opens an address when clicked or activated with the keyboard. `#name`
 /// scrolls to an anchor in the app.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Link {
     label: String,
     url: String,
@@ -91,6 +94,7 @@ pub struct Link {
     muted: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Link {
     /// A link showing `label` that opens `url`.
     pub fn new(label: impl Into<String>, url: impl Into<String>) -> Self {

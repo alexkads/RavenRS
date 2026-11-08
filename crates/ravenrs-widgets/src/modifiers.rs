@@ -64,6 +64,7 @@ pub trait ViewExt: View + Sized {
 
 impl<V: View> ViewExt for V {}
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> Styled<V> {
     fn new(content: V) -> Self {
         Self {

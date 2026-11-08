@@ -20,6 +20,7 @@ use crate::{DetailView, ListView, SystemModule};
 /// What a pane says about its records.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PaneWords {
     /// Over the form of a new record.
     pub new_title: String,
@@ -43,6 +44,7 @@ pub struct PaneWords {
     pub delete_answer: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PaneWords {
     /// What a pane says about its records, in Brazilian Portuguese where it does not say otherwise.
     pub fn new(
@@ -91,6 +93,7 @@ enum Outcome {
 
 /// A list of an entity's records beside a form that adds or changes them, with a button on each
 /// row to open it and one to take it away. It fits inside a screen an application made itself.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EntityPane {
     session: Session,
     entity: EntityInfo,
@@ -110,6 +113,7 @@ impl std::fmt::Debug for EntityPane {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EntityPane {
     /// A pane over this entity. `space` makes a unit of work for each record opened.
     pub fn new<S: ObjectSpace + 'static>(
@@ -270,6 +274,7 @@ struct Handles {
     failed: Option<FailHandler>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Handles {
     fn say(&self, outcome: Outcome) {
         if let Some(told) = &self.told {

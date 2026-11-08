@@ -15,6 +15,7 @@ pub trait ModelStore {
 
 /// A difference that came inside the program, as a module's does. It cannot change.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EmbeddedStore(pub &'static str);
 
 impl ModelStore for EmbeddedStore {
@@ -29,6 +30,7 @@ impl ModelStore for EmbeddedStore {
 
 /// A difference that lasts as long as the program, where nothing else is at hand.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MemoryModelStore(RefCell<Option<Diff>>);
 
 impl ModelStore for MemoryModelStore {
@@ -45,6 +47,7 @@ impl ModelStore for MemoryModelStore {
 /// A difference in a file. A failure while saving leaves the old file whole.
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FileStore(pub std::path::PathBuf);
 
 #[cfg(not(target_arch = "wasm32"))]

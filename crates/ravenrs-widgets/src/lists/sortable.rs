@@ -35,6 +35,7 @@ use crate::view::{AnyView, View};
 /// let mut ui = Ui::new(list, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SortableList {
     count: usize,
     item: Rc<dyn Fn(usize) -> AnyView>,
@@ -52,6 +53,7 @@ impl fmt::Debug for SortableList {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SortableList {
     /// A list of `count` rows, in the order the app keeps.
     pub fn new<V: View + 'static>(count: usize, item: impl Fn(usize) -> V + 'static) -> Self {

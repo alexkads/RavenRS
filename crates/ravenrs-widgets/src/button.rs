@@ -11,6 +11,7 @@ use crate::{IconName, Motion, View, util};
 /// Visual emphasis of a [`Button`] or other control.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ButtonStyle {
     /// Accent fill; one per view.
     #[default]
@@ -26,6 +27,7 @@ pub enum ButtonStyle {
 /// Height and horizontal padding of a [`Button`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ButtonSize {
     /// 32 px tall, smaller text; dense toolbars and table rows.
     Small,
@@ -38,6 +40,7 @@ pub enum ButtonSize {
     Mini,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ButtonSize {
     pub(crate) fn height(self) -> f32 {
         match self {
@@ -179,6 +182,7 @@ fn selected_colors(
 /// let mut ui = Ui::new(button, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Button {
     label: String,
     on_click: Option<Rc<dyn Fn()>>,
@@ -209,6 +213,7 @@ impl fmt::Debug for Button {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Button {
     /// A primary, medium button with this label. An empty label makes it icon-only.
     pub fn new(label: impl Into<String>) -> Self {
@@ -449,11 +454,13 @@ fn joined_paint(join: Join, fill: Color, radius: f32, border: Option<Border>) ->
 /// .label("Period");
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ButtonGroup {
     buttons: Vec<Button>,
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ButtonGroup {
     /// Glues these buttons, in order.
     pub fn new(buttons: impl IntoIterator<Item = Button>) -> Self {
@@ -493,10 +500,12 @@ impl View for ButtonGroup {
 
 /// A square, icon-only button (ghost by default), for toolbars.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct IconButton {
     button: Button,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl IconButton {
     /// A ghost icon button showing `icon`.
     pub fn new(icon: IconName) -> Self {
