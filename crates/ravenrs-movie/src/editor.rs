@@ -42,6 +42,7 @@ const UNDO_LIMIT: usize = 200;
 /// The words a [`MovieEditor`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EditorLabels {
     /// Tries the film the way people will watch it.
     pub try_it: String,
@@ -153,6 +154,7 @@ impl Default for EditorLabels {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EditorLabels {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -253,11 +255,13 @@ struct Inner {
 /// What is being edited, kept by the app so that it can be read and saved. All
 /// the edits the editor can make are methods here too, for scripts and tests.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EditorState {
     inner: Rc<Inner>,
     revision: State<u64>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EditorState {
     /// Starts editing `movie`, with whatever edits it already has.
     pub fn new(movie: Movie) -> Self {
@@ -841,6 +845,7 @@ type SaveHandler = Rc<dyn Fn(&Movie)>;
 /// });
 /// # Ok::<(), ravenrs_movie::MovieError>(())
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieEditor {
     state: EditorState,
     labels: EditorLabels,
@@ -869,6 +874,7 @@ fn muted(text: &str) -> Text {
     Text::new(text.to_owned()).style(TextStyle::Callout).foreground(Semantic::InkMuted)
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieEditor {
     /// An editor over `state`.
     pub fn new(state: EditorState) -> Self {

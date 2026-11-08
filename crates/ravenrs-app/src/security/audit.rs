@@ -13,6 +13,7 @@ use crate::{Change, EntityInfo, FieldInfo, FieldKind, Object, ObjectSpace, Query
 /// How much is written about the records of an entity.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum AuditMode {
     /// Everything, with the fields and their values, before and after.
     #[default]
@@ -27,12 +28,14 @@ pub enum AuditMode {
 
 /// What the audit trail covers.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AuditSettings {
     mode: AuditMode,
     modes: BTreeMap<String, AuditMode>,
     left_out: BTreeSet<(String, String)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AuditSettings {
     /// Everything, in this mode.
     pub fn new(mode: AuditMode) -> Self {
@@ -76,6 +79,7 @@ struct Line {
     new: Value,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Line {
     fn of(change: &'static str, entity: &str, key: &str) -> Self {
         Self {
@@ -101,6 +105,7 @@ impl Line {
 }
 
 /// What the audit trail needs: what it covers, who is acting, and what to add to the next commit.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AuditTrail {
     settings: AuditSettings,
     author: Rc<dyn Fn() -> String>,
@@ -115,6 +120,7 @@ impl std::fmt::Debug for AuditTrail {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AuditTrail {
     /// With these settings; `author` says who is acting.
     pub fn new(settings: AuditSettings, author: impl Fn() -> String + 'static) -> Self {
@@ -185,6 +191,7 @@ fn shown(field: &FieldInfo, value: &Value) -> Value {
 
 /// A unit of work that writes what it commits to the audit trail, in the same commit, so a change
 /// and its trail stay or go together. Changes made to the database some other way are not seen.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AuditedObjectSpace {
     inner: Box<dyn ObjectSpace>,
     trail: Rc<AuditTrail>,
@@ -199,6 +206,7 @@ impl std::fmt::Debug for AuditedObjectSpace {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AuditedObjectSpace {
     /// Over this, writing to this trail.
     pub fn new(inner: Box<dyn ObjectSpace>, trail: Rc<AuditTrail>) -> Self {
@@ -347,6 +355,7 @@ impl AuditedObjectSpace {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "objectspace"))]
 impl ObjectSpace for AuditedObjectSpace {
     fn entities(&self) -> Vec<EntityInfo> {
         self.inner.entities()

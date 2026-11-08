@@ -20,6 +20,7 @@ ravenrs-animation.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-layout.workspace = true
 ravenrs-text.workspace = true
+ravenrs-live = { workspace = true, optional = true }
 ravenrs-style.workspace = true
 ravenrs-criteria.workspace = true
 tracing.workspace = true
@@ -37,6 +38,18 @@ decode = ["dep:image"]
 charts = ["dep:ravenrs-graphics"]
 # `Lottie`, a player of Lottie animations of our own.
 lottie = ["dep:ravenrs-lottie"]
+# `CodeEditor` and `Playground`, with Fira Mono embedded in `ravenrs-text`.
+code = ["ravenrs-text/mono"]
+# `LiveRunner`: the Playground runs edited examples with the interpreter of ravenrs-live.
+live = [
+    "code",
+    "dep:ravenrs-live",
+    "ravenrs-core/live",
+    "ravenrs-style/live",
+    "ravenrs-layout/live",
+    "ravenrs-graphics?/live",
+    "ravenrs-lottie?/live",
+]
 
 [dev-dependencies]
 proptest.workspace = true

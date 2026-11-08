@@ -4612,6 +4612,7 @@ dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
  "ravenrs-layout",
+ "ravenrs-live",
  "ravenrs-lottie",
  "ravenrs-movie",
  "ravenrs-platform-native",
@@ -4666,6 +4667,7 @@ dependencies = [
  "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-live",
  "ravenrs-reactive",
  "regex-lite",
  "serde_json",
@@ -4757,6 +4759,7 @@ dependencies = [
  "ravenrs-criteria",
  "ravenrs-grid-export",
  "ravenrs-layout",
+ "ravenrs-live",
  "ravenrs-reactive",
  "ravenrs-report",
  "ravenrs-style",
@@ -4769,6 +4772,7 @@ name = "ravenrs-core"
 version = "27.1.20"
 dependencies = [
  "proptest",
+ "ravenrs-live",
 ]
 
 [[package]]
@@ -4786,6 +4790,7 @@ version = "27.1.20"
 dependencies = [
  "qrcodegen",
  "ravenrs-core",
+ "ravenrs-live",
  "serde",
  "tiny-skia",
 ]
@@ -4806,7 +4811,27 @@ version = "27.1.20"
 dependencies = [
  "proptest",
  "ravenrs-core",
+ "ravenrs-live",
  "taffy",
+]
+
+[[package]]
+name = "ravenrs-live"
+version = "27.1.20"
+dependencies = [
+ "proc-macro2",
+ "ravenrs-live-derive",
+ "ravenrs-reactive",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "ravenrs-live-derive"
+version = "27.1.20"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -4815,6 +4840,7 @@ version = "27.1.20"
 dependencies = [
  "image",
  "ravenrs-core",
+ "ravenrs-live",
  "serde_json",
 ]
 
@@ -4840,6 +4866,7 @@ dependencies = [
  "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-layout",
+ "ravenrs-live",
  "ravenrs-reactive",
  "ravenrs-style",
  "ravenrs-text",
@@ -5087,6 +5114,7 @@ version = "27.1.20"
 dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
+ "ravenrs-live",
  "serde_json",
 ]
 
@@ -5121,6 +5149,7 @@ dependencies = [
  "ravenrs-criteria",
  "ravenrs-graphics",
  "ravenrs-layout",
+ "ravenrs-live",
  "ravenrs-lottie",
  "ravenrs-reactive",
  "ravenrs-style",

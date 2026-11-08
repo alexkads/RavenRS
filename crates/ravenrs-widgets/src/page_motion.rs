@@ -16,8 +16,10 @@ use crate::{Text, View};
 /// Turns the clock (seconds) and an element's frame into an [`Effect`], worked out
 /// on every painted frame while the element shows. See [`BuildCx::time_linked`].
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimeLink(Rc<dyn Fn(f64, Rect) -> Effect>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TimeLink {
     /// The effect is `f(seconds, frame)`.
     pub fn new(f: impl Fn(f64, Rect) -> Effect + 'static) -> Self {
@@ -55,6 +57,7 @@ pub struct Ticker<C> {
     reverse: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> Ticker<C> {
     /// A strip of `content` moving left at 40 pixels a second.
     pub fn new(content: C) -> Self {
@@ -109,6 +112,7 @@ impl<C: View> View for Ticker<C> {
 
 /// A number that counts up from zero to its value, once, when it first shows on
 /// screen. Under reduced motion it shows the value at once.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CountUp {
     value: f64,
     format: Rc<dyn Fn(f64) -> String>,
@@ -123,6 +127,7 @@ impl fmt::Debug for CountUp {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CountUp {
     /// Counts up to `value`, shown as a whole number with thousands separators.
     pub fn new(value: f64) -> Self {
@@ -216,6 +221,7 @@ pub struct Anchor<C> {
     content: C,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> Anchor<C> {
     /// `content`, reachable as `#name`.
     pub fn new(name: impl Into<String>, content: C) -> Self {

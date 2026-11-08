@@ -11,6 +11,7 @@ use crate::{Color, Point, Rect};
 /// How a shape is filled.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Brush {
     /// A single flat color.
     Solid(Color),
@@ -33,6 +34,7 @@ impl From<LinearGradient> for Brush {
 /// A two-stop linear gradient. `start` and `end` are relative to the shape's
 /// rectangle: `(0, 0)` is its top-left corner and `(1, 1)` its bottom-right.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct LinearGradient {
     /// Gradient start, relative to the shape's rectangle.
     pub start: Point,
@@ -44,6 +46,7 @@ pub struct LinearGradient {
     pub to: Color,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LinearGradient {
     /// Top-to-bottom gradient from `from` to `to`.
     pub const fn vertical(from: Color, to: Color) -> Self {
@@ -53,6 +56,7 @@ impl LinearGradient {
 
 /// A solid stroke drawn inside a shape's edge.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Border {
     /// Stroke width in logical pixels.
     pub width: f32,
@@ -63,6 +67,7 @@ pub struct Border {
 /// A soft drop shadow. `blur` is the Gaussian standard deviation times two,
 /// matching what CSS `box-shadow` calls the blur radius.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Shadow {
     /// Shadow offset from the shape, in logical pixels.
     pub offset: Point,
@@ -72,6 +77,7 @@ pub struct Shadow {
     pub color: Color,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Shadow {
     /// The `shadow-soft` token of Raven Dark: `0 8px 24px rgba(0,0,0,0.35)`.
     pub const fn soft() -> Self {
@@ -87,6 +93,7 @@ impl Shadow {
 /// A rounded rectangle with optional border and shadow. The renderer draws it with
 /// a signed-distance function, so corners stay crisp at any scale factor.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Quad {
     /// Bounds of the rectangle, in logical pixels.
     pub rect: Rect,
@@ -100,6 +107,7 @@ pub struct Quad {
     pub shadow: Option<Shadow>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Quad {
     /// Creates a sharp-cornered quad with no border or shadow.
     ///
@@ -135,6 +143,7 @@ impl Quad {
 
 /// Font bytes plus a stable identity used as a cache key by the glyph atlas.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FontRef {
     /// Unique identity of these font bytes; equal ids must mean equal data.
     pub id: u64,
@@ -144,6 +153,7 @@ pub struct FontRef {
     pub index: u32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FontRef {
     /// Borrows the raw font file bytes.
     pub fn bytes(&self) -> &[u8] {
@@ -165,6 +175,7 @@ impl PartialEq for FontRef {
 
 /// One shaped glyph and its pen position.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PositionedGlyph {
     /// Glyph index inside the font.
     pub id: u32,
@@ -176,6 +187,7 @@ pub struct PositionedGlyph {
 
 /// Shaped glyphs sharing one font, size and color.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GlyphRun {
     /// Font the glyphs come from.
     pub font: FontRef,
@@ -190,6 +202,7 @@ pub struct GlyphRun {
 /// Decoded pixels: RGBA8, straight (not premultiplied) alpha, sRGB, row-major.
 /// Cloning is cheap; the renderer caches the GPU texture by `id`.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ImageData {
     id: u64,
     width: u32,
@@ -197,6 +210,7 @@ pub struct ImageData {
     pixels: Arc<[u8]>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ImageData {
     /// Wraps RGBA8 pixels. Returns `None` when the buffer does not match the size.
     pub fn from_rgba8(width: u32, height: u32, pixels: impl Into<Arc<[u8]>>) -> Option<Self> {
@@ -262,6 +276,7 @@ impl PartialEq for ImageData {
 
 /// An image drawn into a rectangle, with optional rounded corners.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ImageQuad {
     /// Destination rectangle in logical pixels.
     pub rect: Rect,
@@ -275,6 +290,7 @@ pub struct ImageQuad {
     pub opacity: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ImageQuad {
     /// Draws the whole image stretched into `rect`, opaque and sharp-cornered.
     pub fn new(rect: Rect, image: ImageData) -> Self {
@@ -290,6 +306,7 @@ impl ImageQuad {
 
 /// One step of a [`PathFill`]'s outline.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum PathElement {
     /// Starts a contour here.
     MoveTo(Point),
@@ -303,6 +320,7 @@ pub enum PathElement {
 
 /// Which parts of a self-crossing outline count as inside.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FillRule {
     /// Inside wherever the contours wind around the point at all.
     #[default]
@@ -313,6 +331,7 @@ pub enum FillRule {
 
 /// A color along a gradient, from `0.0` to `1.0`.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ColorStop {
     /// Where along the gradient.
     pub offset: f32,
@@ -323,6 +342,7 @@ pub struct ColorStop {
 /// What fills a [`PathFill`], in the coordinates of its outline.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum PathPaint {
     /// One color.
     Solid(Color),
@@ -356,6 +376,7 @@ pub enum PathPaint {
 
 /// What a [`PathFill`] is seen through, in the same coordinates: another outline.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PathClip {
     /// The outline.
     pub elements: Arc<[PathElement]>,
@@ -368,6 +389,7 @@ pub struct PathClip {
 /// A shape made of curves, filled with exact coverage at each pixel, so it stays
 /// sharp at any size. A stroke is a fill of its expanded outline.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PathFill {
     /// The outline.
     pub elements: Arc<[PathElement]>,
@@ -384,6 +406,7 @@ pub struct PathFill {
     pub clip: Option<Arc<PathClip>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PathFill {
     /// The transform that changes nothing.
     pub const IDENTITY: [f32; 6] = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
@@ -404,6 +427,7 @@ impl PathFill {
 /// One entry of the display list.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Primitive {
     /// A rounded rectangle.
     Quad(Quad),
@@ -423,6 +447,7 @@ pub enum Primitive {
 /// A visual change applied to painted content without touching layout: what a
 /// compositor would do to a layer, here done to the display list.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Effect {
     /// Multiplies alpha, `0.0` to `1.0`. Each primitive fades on its own, so
     /// shapes that overlap show through each other while partly faded.
@@ -433,6 +458,7 @@ pub struct Effect {
     pub scale: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Effect {
     /// No change.
     pub const IDENTITY: Self = Self { opacity: 1.0, offset: Point::new(0.0, 0.0), scale: 1.0 };
@@ -568,11 +594,26 @@ impl Default for Effect {
 
 /// An ordered display list. Reused between frames to avoid reallocating.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Scene {
     primitives: Vec<Primitive>,
     clear_color: Color,
 }
 
+/// A closure of the playground draws into a scene of its own, which is then added to the real
+/// one, as a `&mut Scene` cannot leave the paint.
+#[cfg(feature = "live")]
+impl ravenrs_live::bridge::Scratch for Scene {
+    fn fresh() -> Self {
+        Self::new()
+    }
+
+    fn merge_into(self, target: &mut Self) {
+        target.extend_from_slice(self.primitives());
+    }
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Scene {
     /// Creates an empty display list with a transparent clear color.
     pub fn new() -> Self {

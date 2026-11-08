@@ -77,6 +77,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 |---|---|---|---|---|
 | Text box | ✓ | ✓ | ✓ | ✅ `TextField` (selection, clipboard, views before and after the text, clear button, sizes) |
 | Text area (multi-line) | ✓ | ✓ | ✓ | ✅ `TextArea`: wraps, scrolls, builds only the lines in view, grows with the text between two limits |
+| Code editor | | ✓ | | ✅ `CodeEditor` (feature `code`): Fira Mono, line numbers, Rust colors by token, Tab and Shift+Tab indent, Enter keeps the indentation, diagnostics mark the line and underline the columns. No horizontal scrolling or folding yet |
+| Code playground | | | | ✅ `Playground` (feature `code`): code beside its result, examples, Restore, Ctrl/Cmd+Enter runs through a `Runner`, problems listed and marked, last result kept, tabs below 768 px. `LiveRunner` (feature `live`) runs edited Rust without a compiler through `ravenrs-live`: all 181 gallery examples, each building as many elements as compiled; what it cannot read yet would be listed in `examples/component-gallery/live-pending.txt` |
 | Label | ✓ | ✓ | ✓ | ✅ `Label` |
 | Form, field validation | ✓ | ✓ | ✓ | ✅ `FormField` + validators |
 | Form layout (groups, columns, tabs, error list) | | ✓ | ✓ | ✅ `FormLayout`, `FormGroup` |

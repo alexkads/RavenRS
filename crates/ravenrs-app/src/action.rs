@@ -30,8 +30,10 @@ pub const REASON_RUNNING: &str = "running";
 /// Why something is on or off: pairs of reason and answer. It is on only if every answer is yes,
 /// so one part of the application turning it off cannot be undone by another.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Reasons(BTreeMap<String, bool>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Reasons {
     /// Whether every answer is yes.
     pub fn all(&self) -> bool {
@@ -56,6 +58,7 @@ impl Reasons {
 
 /// What an action needs selected to be enabled.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Selection {
     /// Nothing in particular.
     #[default]
@@ -66,6 +69,7 @@ pub enum Selection {
     RequireMultiple,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Selection {
     fn allows(self, count: usize) -> bool {
         match self {
@@ -78,6 +82,7 @@ impl Selection {
 
 /// How [`Action::target_criteria`] counts the selected records.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CriteriaMode {
     /// All of them have to meet it.
     #[default]
@@ -89,6 +94,7 @@ pub enum CriteriaMode {
 /// Where an action belongs, which decides the place it shows in.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ActionCategory {
     /// Creating records.
     New,
@@ -114,6 +120,7 @@ pub enum ActionCategory {
 
 /// Whether views inside others count.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Nesting {
     /// Any view.
     #[default]
@@ -127,6 +134,7 @@ pub enum Nesting {
 /// Which views an action or a controller is for. Anything left out does not narrow it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TargetScope {
     /// Only views of this entity.
     pub entity: Option<String>,
@@ -138,6 +146,7 @@ pub struct TargetScope {
     pub nesting: Nesting,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TargetScope {
     /// Every view.
     pub fn any() -> Self {
@@ -190,6 +199,7 @@ impl TargetScope {
 
 /// One option of a single-choice action, which can hold others.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ChoiceItem {
     /// What the handler receives.
     pub id: String,
@@ -199,6 +209,7 @@ pub struct ChoiceItem {
     pub items: Vec<ChoiceItem>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChoiceItem {
     /// An option with nothing under it.
     pub fn new(id: impl Into<String>, caption: impl Into<String>) -> Self {
@@ -219,6 +230,7 @@ impl ChoiceItem {
 /// How an action asks for what it needs.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ActionKind {
     /// A button: it just runs.
     Simple,
@@ -238,6 +250,7 @@ pub enum ActionKind {
 /// What the running of an action asks for next, by whoever shows the application.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ActionResult {
     /// Nothing else.
     Done,
@@ -257,6 +270,7 @@ pub enum ActionResult {
 /// What people gave an action that asks for something.
 #[derive(Clone, Debug, Default, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ActionInput {
     /// Nothing.
     #[default]
@@ -272,6 +286,7 @@ pub enum ActionInput {
 /// How much a [`Message`] matters.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum MessageKind {
     /// Something to know.
     #[default]
@@ -287,6 +302,7 @@ pub enum MessageKind {
 /// Something to tell people, which goes away by itself.
 #[derive(Clone)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Message {
     /// What it says.
     pub text: String,
@@ -306,6 +322,7 @@ impl fmt::Debug for Message {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Message {
     /// A message saying this.
     pub fn new(text: impl Into<String>, kind: MessageKind) -> Self {
@@ -332,6 +349,7 @@ impl Message {
 }
 
 /// What an action sees while running.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ActionContext {
     /// The frame it runs in.
     pub frame: crate::Frame,
@@ -352,6 +370,7 @@ impl fmt::Debug for ActionContext {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ActionContext {
     pub(crate) fn new(
         frame: crate::Frame,
@@ -391,6 +410,7 @@ impl ActionContext {
 /// Why an action did not run.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ActionError {
     /// No action has this id.
     Unknown(String),
@@ -474,6 +494,7 @@ struct ActionInner {
 /// assert_eq!(pay.caption(), "Pagar");
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Action(Rc<ActionInner>);
 
 impl fmt::Debug for Action {
@@ -482,6 +503,7 @@ impl fmt::Debug for Action {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Action {
     fn new(id: impl Into<String>, caption: impl Into<String>, kind: ActionKind) -> Self {
         Self(Rc::new(ActionInner {

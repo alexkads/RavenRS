@@ -14,6 +14,7 @@ use crate::{EntityInfo, FieldKind, ModelError, Object};
 /// Why a space could not do what it was asked.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum SpaceError {
     /// There is no entity by this name.
     UnknownEntity(String),
@@ -59,6 +60,7 @@ impl std::error::Error for SpaceError {}
 
 /// What to read: a filter, an order and a page.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Query {
     /// Only the records this says true for.
     pub filter: Option<Criteria>,
@@ -72,6 +74,7 @@ pub struct Query {
     pub only: Option<Vec<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Query {
     /// Everything, in key order.
     pub fn all() -> Self {
@@ -107,6 +110,7 @@ impl Query {
 /// A change waiting for a commit.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Change {
     /// A new record.
     New(Object),
@@ -250,10 +254,12 @@ pub fn key_of(entity: &EntityInfo, object: &Object) -> Option<String> {
 /// What a unit of work has waiting, for whoever implements one: new, changed and deleted
 /// records, one change per record.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ChangeSet {
     changes: Vec<Change>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChangeSet {
     /// What waits, in the order it came.
     pub fn list(&self) -> &[Change] {
@@ -441,6 +447,7 @@ pub(crate) fn select(
 /// What comes of putting together what a person changed and what someone else kept meanwhile.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Merged {
     /// The record with both sets of changes. On a field both changed, it has this person's.
     pub record: Object,
@@ -489,6 +496,7 @@ struct Kept {
 /// opens, written after every commit. [`Self::export_json`] and [`Self::import_json`] move all
 /// of them in and out at once.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MemoryDatabase {
     entities: Rc<Vec<EntityInfo>>,
     tables: Rc<RefCell<Tables>>,
@@ -540,6 +548,7 @@ fn value_from_json(json: &serde_json::Value) -> Result<Value, String> {
     })
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MemoryDatabase {
     /// A database with these entities and no records.
     pub fn new(entities: Vec<EntityInfo>) -> Result<Self, ModelError> {
@@ -687,6 +696,7 @@ impl MemoryDatabase {
 }
 
 /// A unit of work over a [`MemoryDatabase`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MemoryObjectSpace {
     database: MemoryDatabase,
     environment: Environment,
@@ -700,6 +710,7 @@ impl fmt::Debug for MemoryObjectSpace {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MemoryObjectSpace {
     fn entity(&self, name: &str) -> Result<&EntityInfo, SpaceError> {
         self.database
@@ -761,6 +772,7 @@ impl MemoryObjectSpace {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "objectspace"))]
 impl ObjectSpace for MemoryObjectSpace {
     fn entities(&self) -> Vec<EntityInfo> {
         self.database.entities.as_ref().clone()

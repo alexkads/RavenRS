@@ -15,6 +15,7 @@ use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, MenuItem, Mo
 
 /// An indeterminate activity indicator. With reduced motion it is static.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Spinner {
     size: f32,
     color: Option<Color>,
@@ -26,6 +27,7 @@ impl Default for Spinner {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Spinner {
     /// A 20 px spinner.
     pub fn new() -> Self {
@@ -83,6 +85,7 @@ impl View for Spinner {
 }
 
 /// Slides with previous/next buttons, position dots and optional autoplay.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Carousel {
     slides: Vec<AnyView>,
     height: f32,
@@ -95,6 +98,7 @@ impl fmt::Debug for Carousel {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Carousel {
     /// A carousel over `slides`, starting at the first.
     pub fn new(slides: Vec<AnyView>) -> Self {
@@ -316,6 +320,7 @@ fn split_arrow(key: &Key, vertical_stack: bool) -> Option<f32> {
 /// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitHandle {
     axis: Axis,
     value: Binding<f32>,
@@ -332,6 +337,7 @@ impl fmt::Debug for SplitHandle {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SplitHandle {
     /// A bar between things laid out along `axis`, which writes the size it controls to
     /// `value`. It lies across that axis: along `Axis::Horizontal`, it stands upright.
@@ -441,6 +447,7 @@ impl View for SplitHandle {
 }
 
 /// One pane of a [`SplitPanes`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitPane {
     content: AnyView,
     size: Option<f32>,
@@ -455,6 +462,7 @@ impl fmt::Debug for SplitPane {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SplitPane {
     /// A pane around `content`. Without [`Self::size`], it takes the room the others leave.
     pub fn new(content: impl View + 'static) -> Self {
@@ -525,6 +533,7 @@ fn split_sizes(room: f32, asked: &[Option<f32>], limits: &[(f32, f32)]) -> Vec<f
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitPanes {
     axis: Axis,
     panes: Vec<SplitPane>,
@@ -542,6 +551,7 @@ impl fmt::Debug for SplitEnd {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SplitPanes {
     /// No panes yet, to go side by side.
     pub fn horizontal() -> Self {
@@ -702,6 +712,7 @@ impl<A, B> fmt::Debug for Splitter<A, B> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<A: View, B: View> Splitter<A, B> {
     /// Side-by-side panes.
     pub fn horizontal(first: A, second: B) -> Self {
@@ -833,6 +844,7 @@ impl<A: View, B: View> View for Splitter<A, B> {
 
 /// A horizontal bar of menus (File, Edit, View…).
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Menubar {
     menus: Vec<(String, Vec<Entry>)>,
 }
@@ -843,6 +855,7 @@ impl fmt::Debug for Menubar {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Menubar {
     /// An empty menubar; add menus with [`Menubar::menu`].
     pub fn new() -> Self {
@@ -982,6 +995,7 @@ impl View for Menubar {
 }
 
 /// Separate boxes for a one-time code; accepts digits by default.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct InputOtp {
     value: Binding<String>,
     length: usize,
@@ -994,6 +1008,7 @@ impl fmt::Debug for InputOtp {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl InputOtp {
     /// `length` boxes (clamped to 1–12) editing `value`.
     pub fn new(value: Binding<String>, length: usize) -> Self {
@@ -1092,6 +1107,7 @@ impl View for InputOtp {
 }
 
 /// Common validation rules for [`FormField::validate`].
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 pub mod validate {
     /// The field must not be empty.
     pub fn required(value: &str) -> Result<(), String> {
@@ -1163,6 +1179,7 @@ impl<V> fmt::Debug for FormField<V> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> FormField<V> {
     /// A field with this label above `content`.
     pub fn new(label: impl Into<String>, content: V) -> Self {
@@ -1354,6 +1371,7 @@ pub struct AccessibleControl<V> {
     description: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> AccessibleControl<V> {
     /// `content`, as it calls itself.
     pub fn new(content: V) -> Self {

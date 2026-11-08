@@ -16,6 +16,7 @@ use crate::{
 /// A record they cannot read is not there. A field they cannot read reads as empty, also for
 /// filters and sorting, so a filter cannot be used to guess it, and writing it back empty leaves
 /// what is stored.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SecuredObjectSpace {
     inner: Box<dyn ObjectSpace>,
     context: Rc<SecurityContext>,
@@ -49,6 +50,7 @@ fn reaches_out(criteria: &Criteria) -> bool {
     found
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SecuredObjectSpace {
     /// Over this, for the person of this context.
     pub fn new(inner: Box<dyn ObjectSpace>, context: Rc<SecurityContext>) -> Self {
@@ -200,6 +202,7 @@ fn as_seen(context: &SecurityContext, change: &Change) -> Change {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "objectspace"))]
 impl ObjectSpace for SecuredObjectSpace {
     fn entities(&self) -> Vec<EntityInfo> {
         self.inner.entities()

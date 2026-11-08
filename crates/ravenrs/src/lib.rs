@@ -13,6 +13,9 @@ struct SkillDoctests;
 pub use ravenrs_animation as animation;
 pub use ravenrs_core as core;
 pub use ravenrs_layout as layout;
+/// The interpreter behind `LiveRunner`, for registering more of an app's own types.
+#[cfg(feature = "live")]
+pub use ravenrs_live as live;
 pub use ravenrs_movie as movie;
 pub use ravenrs_reactive as reactive;
 pub use ravenrs_render as render;

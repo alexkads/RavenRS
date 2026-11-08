@@ -34,7 +34,7 @@ samples! {
     "RecurrenceEditor" => recurrence_editor, "InputOtp" => input_otp, "FormField" => form_field, "Label" => label,
     "TextArea" => text_area, "NumberField" => number_field, "MaskedField" => masked_field,
     "TimePicker" => time_picker, "DateTimePicker" => date_time_picker, "LookupField" => lookup_field,
-    "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "ExpressionEditor" => expression_editor, "Toolbar" => toolbar, "SplitButton" => split_button,
+    "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "ExpressionEditor" => expression_editor, "CodeEditor" => code_editor, "Playground" => playground, "Toolbar" => toolbar, "SplitButton" => split_button,
     "ConfirmDialog" => confirm_dialog,
     "TreeView" => tree_view, "TagBox" => tag_box, "ColorPicker" => color_picker,
     "DateRangePicker" => date_range_picker, "Wizard" => wizard, "StepIndicator" => step_indicator, "StepBadge" => step_badge, "FileUpload" => file_upload,
@@ -728,6 +728,36 @@ fn expression_editor() -> impl View {
         .field(FilterField::new("Quantity", "Quantity", FilterFieldKind::Number))
         .field(FilterField::new("UnitPrice", "Unit price", FilterFieldKind::Number))
         .parameter(FilterField::new("MinTotal", "Least total", FilterFieldKind::Number))
+}
+// end
+
+// sample: CodeEditor, 260
+fn code_editor() -> impl View {
+    let code = State::new(
+        "fn total(prices: &[f64]) -> f64 {\n    // Sum of every price\n    prices.iter().sum()\n}\n"
+            .to_owned(),
+    );
+    CodeEditor::new(code.binding())
+        .diagnostics(vec![
+            CodeDiagnostic::warning(3, 5, 6, "`prices` could be empty").hint("Return 0.0 first"),
+        ])
+        .rows(10)
+}
+// end
+
+// sample: Playground, 420
+fn playground() -> impl View {
+    let run = |code: &str| -> Result<AnyView, Vec<CodeDiagnostic>> {
+        match code.trim().strip_prefix("say ") {
+            Some(words) => Ok(Box::new(Text::new(words.to_owned()).style(TextStyle::Title))),
+            None => Err(vec![CodeDiagnostic::error(1, 1, 1, "Start with `say`").hint("Write `say hello`")]),
+        }
+    };
+    Playground::new(run)
+        .language(CodeLanguage::Plain)
+        .example("Hello", "say hello")
+        .example("Goodbye", "say goodbye")
+        .height(380.0)
 }
 // end
 
@@ -2630,6 +2660,95 @@ impl View for SampleApp {
     }
 }
 
+/// The code of a component's example, as its page shows it: what a reader copies.
+pub fn sample_code(name: &str) -> Option<String> {
+    let source = include_str!("samples.rs");
+    let marker = format!("\n// sample: {name}, ");
+    let at = source.find(&marker)? + marker.len();
+    let body = &source[at..];
+    let body = &body[body.find('\n')? + 1..];
+    let end = body.find("\n// end")?;
+    Some(format!("use ravenrs::prelude::*;\n\n{}\n", &body[..end]))
+}
+
+/// What the examples can call, with the helpers they share.
+pub fn sample_runner() -> LiveRunner {
+    let mut registry = live_registry();
+    registry.free_function("picture", |args| {
+        let hue = args.first().and_then(|v| match v.read() {
+            ravenrs::live::Value::Float(n) => Some(n as f32),
+            ravenrs::live::Value::Int(n) => Some(n as f32),
+            _ => None,
+        });
+        let hue = hue.ok_or("`picture` takes a hue, such as 0.4")?;
+        Ok(ravenrs::live::Value::Host(ravenrs::live::Host::cloneable("ImageData", picture(hue))))
+    });
+    ravenrs::movie::live_expose(&mut registry);
+    ravenrs_app::live_expose(&mut registry);
+    ravenrs_app_ui::live_expose(&mut registry);
+    LiveRunner::with_registry(registry)
+}
+
+/// The example of a component in a [`Playground`], with its code beside it. Edits run through
+/// the interpreter; an example it cannot read yet opens compiled, and says so.
+pub struct SamplePlayground {
+    name: String,
+    code: String,
+    runner: LiveRunner,
+    /// Why the interpreter cannot read the example as it is, if it cannot.
+    compiled: Option<String>,
+}
+
+impl std::fmt::Debug for SamplePlayground {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SamplePlayground").field("name", &self.name).finish_non_exhaustive()
+    }
+}
+
+impl SamplePlayground {
+    /// The playground of a component, if it has an example.
+    pub fn new(name: &str) -> Option<Self> {
+        let code = sample_code(name)?;
+        sample(name)?;
+        let runner = sample_runner();
+        let compiled = runner.run(&code).err().map(|problems| problems[0].message.clone());
+        Some(Self { name: name.to_owned(), code, runner, compiled })
+    }
+}
+
+impl View for SamplePlayground {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let (name, original, live) = (self.name.clone(), self.code.clone(), self.runner.clone());
+        let runner = move |source: &str| -> Result<AnyView, Vec<CodeDiagnostic>> {
+            match live.run(source) {
+                Ok(view) => Ok(view),
+                // The example as written always shows, compiled, until the interpreter reads it.
+                Err(_) if source == original => Ok(sample(&name).unwrap_or_else(|| Box::new(Spacer::new()))),
+                Err(problems) => Err(problems),
+            }
+        };
+        let mut playground =
+            Playground::new(runner).title(self.name.clone()).example(self.name.clone(), self.code.clone());
+        if let Some(reason) = &self.compiled {
+            playground = playground.note(format!(
+                "This example runs compiled: the playground cannot read it yet ({reason}). Edits show what it reads."
+            ));
+        }
+        let content = cx.child(&playground);
+        cx.container(
+            LayoutStyle {
+                grow: 1.0,
+                padding: Insets::uniform(16.0),
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[content],
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Canvas))),
+        )
+    }
+}
+
 /// Components without an example would make the site's list a promise it does not keep.
 #[cfg(test)]
 mod tests {
@@ -2646,5 +2765,81 @@ mod tests {
             ui.update();
         }
         assert!(SampleApp::new("Nope").is_none());
+    }
+
+    /// Every example runs from its code in the interpreter, except those in
+    /// `live-pending.txt`, which says why each one does not yet.
+    #[test]
+    fn coverage_of_the_interpreter() {
+        let runner = sample_runner();
+        let pending: BTreeSet<&str> = include_str!("../live-pending.txt")
+            .lines()
+            .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
+            .filter_map(|line| line.split(':').next())
+            .collect();
+        let mut failing = BTreeSet::new();
+        let mut unexpected = Vec::new();
+        for name in NAMES {
+            let code = sample_code(name).unwrap_or_default();
+            match runner.run(&code) {
+                Ok(view) => {
+                    let mut ui = Ui::new(view, Theme::raven_dark());
+                    ui.set_viewport(Size::new(800.0, 500.0), 1.0);
+                    ui.update();
+                    // What fails later, in a paint or a closure the component calls, counts too.
+                    let late = ravenrs::live::late_problems();
+                    if let Some(problem) = late.first() {
+                        failing.insert(*name);
+                        if !pending.contains(name) {
+                            unexpected.push(format!(
+                                "{name}: {} ({}:{})",
+                                problem.message, problem.line, problem.column
+                            ));
+                        }
+                        continue;
+                    }
+                    // The interpreted example builds as many elements as the compiled one.
+                    let mut compiled =
+                        Ui::new(sample(name).unwrap_or_else(|| panic!("{name}")), Theme::raven_dark());
+                    compiled.set_viewport(Size::new(800.0, 500.0), 1.0);
+                    compiled.update();
+                    if compiled.element_count() != ui.element_count() {
+                        failing.insert(*name);
+                        if !pending.contains(name) {
+                            unexpected.push(format!(
+                                "{name}: {} elements interpreted, {} compiled",
+                                ui.element_count(),
+                                compiled.element_count()
+                            ));
+                        }
+                    }
+                }
+                Err(problems) => {
+                    failing.insert(*name);
+                    if !pending.contains(name) {
+                        unexpected.push(format!("{name}: {}", problems[0].message));
+                    }
+                }
+            }
+        }
+        assert!(unexpected.is_empty(), "these do not run in the interpreter:\n{}", unexpected.join("\n"));
+        let now_running: Vec<&&str> = pending.difference(&failing).collect();
+        assert!(now_running.is_empty(), "these run now, take them off live-pending.txt: {now_running:?}");
+    }
+
+    #[test]
+    fn every_example_has_its_code_and_a_playground() {
+        for name in NAMES {
+            let code = sample_code(name).unwrap_or_else(|| panic!("no code for {name}"));
+            assert!(
+                code.starts_with("use ravenrs::prelude::*;\n\n") && code.contains("fn "),
+                "{name}: {code}"
+            );
+            let mut ui =
+                Ui::new(SamplePlayground::new(name).unwrap_or_else(|| panic!("{name}")), Theme::raven_dark());
+            ui.set_viewport(Size::new(1100.0, 600.0), 1.0);
+            ui.update();
+        }
+        assert!(SamplePlayground::new("Nope").is_none());
     }
 }

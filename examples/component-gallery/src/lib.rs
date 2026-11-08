@@ -2571,8 +2571,8 @@ mod web_entry {
         console_error_panic_hook::set_once();
         wasm_bindgen_futures::spawn_local(async {
             let options = ravenrs::web::WebOptions::new("raven-canvas");
-            // `?component=Button` shows that example alone, for the component pages.
-            let sample = requested_component().and_then(|name| super::samples::SampleApp::new(&name));
+            // `?component=Button` shows that example in a playground, for the component pages.
+            let sample = requested_component().and_then(|name| super::samples::SamplePlayground::new(&name));
             let started = match sample {
                 Some(sample) => ravenrs::web::start(sample, options).await,
                 None => ravenrs::web::start(super::Gallery::new(), options).await,

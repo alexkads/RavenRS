@@ -1,0 +1,63 @@
+//! Examples run by the interpreter, through `LiveRunner`.
+#![cfg(feature = "live")]
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
+use ravenrs_core::{Event, Point, PointerButton, Size};
+use ravenrs_style::Theme;
+use ravenrs_widgets::*;
+
+fn shown(view: AnyView) -> Ui {
+    let mut ui = Ui::new(view, Theme::raven_dark());
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    ui.update();
+    ui
+}
+
+fn says(ui: &mut Ui, words: &str) -> bool {
+    ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(words))
+}
+
+#[test]
+fn an_example_runs_and_its_closures_change_its_state() {
+    let source = r#"
+        use ravenrs::prelude::*;
+
+        fn counter() -> impl View {
+            let clicks = State::new(0);
+            let add = clicks.clone();
+            VStack::new((
+                Button::new("Add").style(ButtonStyle::Secondary).on_click(move || add.update(|n| *n += 1)),
+                Text::bound(&clicks, |n| format!("{n} clicks")).foreground(Semantic::InkMuted),
+            ))
+            .spacing(8.0)
+            .padding(12.0)
+        }
+    "#;
+    let view = LiveRunner::new().run(source).unwrap_or_else(|e| panic!("{e:?}"));
+    let mut ui = shown(view);
+    assert!(says(&mut ui, "0 clicks"));
+    let spot: Point = {
+        let tree = ui.access_tree();
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some("Add")).expect("the button").bounds.center()
+    };
+    for _ in 0..2 {
+        ui.handle_event(&Event::PointerMove { position: spot });
+        ui.handle_event(&Event::PointerDown { position: spot, button: PointerButton::Primary });
+        ui.handle_event(&Event::PointerUp { position: spot, button: PointerButton::Primary });
+        ui.update();
+    }
+    assert!(says(&mut ui, "2 clicks"), "the closure ran in the interpreter");
+}
+
+#[test]
+fn what_it_does_not_know_comes_back_with_its_place() {
+    let problems =
+        LiveRunner::new().run("fn f() -> impl View {\n    Gizmo::new()\n}").err().expect("refused");
+    assert_eq!(problems[0].line, 2);
+    assert!(problems[0].message.contains("Gizmo"), "{}", problems[0].message);
+    let problems = LiveRunner::new()
+        .run("fn f() -> impl View {\n    Button::new(\"a\").wobble()\n}")
+        .err()
+        .expect("refused");
+    assert!(problems[0].message.contains("wobble"), "{}", problems[0].message);
+}

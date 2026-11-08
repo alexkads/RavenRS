@@ -22,8 +22,10 @@ use crate::view::ViewSeq;
 /// view tree (or from an explicit key, see [`BuildCx::keyed_child`]). Hover,
 /// press and focus are remembered per `WidgetId`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct WidgetId(u64);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl WidgetId {
     pub(crate) const ROOT: Self = Self(0x5241_5645_4e52_5321);
 
@@ -43,10 +45,12 @@ impl WidgetId {
 /// A node of the element tree produced by one build. Only valid during the
 /// build that created it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct NodeId(pub(crate) u32);
 
 /// A rounded rectangle painted behind an element's children.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct QuadPaint {
     /// Fill color or gradient.
     pub fill: Brush,
@@ -58,6 +62,7 @@ pub struct QuadPaint {
     pub shadow: Option<Shadow>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl QuadPaint {
     /// A square-cornered quad with this fill, no border and no shadow.
     pub fn new(fill: impl Into<Brush>) -> Self {
@@ -91,6 +96,7 @@ pub type RichFn = Rc<dyn Fn(Rect, &mut PaintCx<'_>)>;
 /// What an element draws before its children.
 #[derive(Clone, Default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Paint {
     /// Draws nothing.
     #[default]
@@ -123,6 +129,7 @@ pub type KeyHandler = Rc<dyn Fn(&Key, Modifiers) -> bool>;
 /// Phase of a pointer drag that started on an element.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DragPhase {
     /// The pointer went down and started moving.
     Start,
@@ -134,6 +141,7 @@ pub enum DragPhase {
 
 /// A pointer drag on an element, in absolute logical pixels, with the element's frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Drag {
     /// Which part of the drag this event is.
     pub phase: DragPhase,
@@ -145,6 +153,7 @@ pub struct Drag {
     pub container: Rect,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Drag {
     /// Horizontal position inside the frame, from 0.0 (left) to 1.0 (right).
     pub fn fraction_x(&self) -> f32 {
@@ -178,6 +187,7 @@ pub type ActivityObserver = Rc<dyn Fn(UiActivity<'_>, f64)>;
 /// Where an overlay is placed relative to its anchor.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Placement {
     /// Below the anchor, left edges aligned.
     Below,
@@ -244,6 +254,7 @@ pub(crate) struct Shortcut {
 /// text inside it, text is announced as a label, and other boxes are
 /// transparent: their children belong to the nearest described ancestor.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Semantics {
     pub(crate) role: Role,
     pub(crate) name: Option<String>,
@@ -263,6 +274,7 @@ pub struct Semantics {
     pub(crate) fallback_name: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Semantics {
     /// A node with this role, named by its content when the role allows it.
     pub fn new(role: Role) -> Self {
@@ -440,6 +452,7 @@ pub(crate) struct Element {
     pub progress_out: Option<(crate::ScrollRange, Rc<std::cell::Cell<f32>>)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Element {
     pub(crate) fn new(widget: WidgetId, layout: LayoutId) -> Self {
         Self {
@@ -537,6 +550,7 @@ pub(crate) struct LocalStore {
     used: HashSet<(WidgetId, u32)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LocalStore {
     pub fn begin_build(&mut self) {
         self.used.clear();
@@ -607,6 +621,7 @@ impl fmt::Debug for BuildCx<'_> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<'a> BuildCx<'a> {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(

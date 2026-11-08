@@ -12,6 +12,7 @@ use super::model::{GridColumn, Row, SortDirection, Summary, Value};
 
 /// What the user asked the grid to show.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridQuery {
     /// Sort columns in priority order.
     pub sort: Vec<(usize, SortDirection)>,
@@ -29,6 +30,7 @@ pub struct GridQuery {
     pub hidden: Vec<bool>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridQuery {
     /// The filter text of `column` (zero-based), or `""`.
     pub fn filter(&self, column: usize) -> &str {
@@ -94,6 +96,7 @@ impl GridQuery {
 
 /// A visible row of the grid: a group header or a data row.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ViewRow {
     /// A group header.
     Group {
@@ -118,6 +121,7 @@ pub enum ViewRow {
 
 /// The output of [`run_query`]: what the grid shows.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct QueryResult {
     /// Visible rows in display order.
     pub rows: Vec<ViewRow>,
@@ -155,6 +159,7 @@ enum NumberTest {
     Compare(NumTest, f64),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Filter {
     fn parse(filter: &str) -> Self {
         let f = filter.trim();
@@ -564,6 +569,7 @@ pub fn to_tsv(columns: &[GridColumn], rows: &[Row], visible: &[usize], selected:
 /// A file format of a grid's Export menu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum GridExportFormat {
     /// An Excel workbook, with real numbers and dates.
     Xlsx,
@@ -576,6 +582,7 @@ pub enum GridExportFormat {
 /// What a column holds, for a file to show it well.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum GridTableKind {
     /// Text, already as shown.
     Text,
@@ -597,6 +604,7 @@ pub enum GridTableKind {
 /// A column of a [`GridTable`].
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridTableColumn {
     /// Its title.
     pub title: String,
@@ -609,6 +617,7 @@ pub struct GridTableColumn {
 /// The rows of a grid as it stands: the columns showing, the rows matching, in order.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridTable {
     /// The title of the file.
     pub title: String,

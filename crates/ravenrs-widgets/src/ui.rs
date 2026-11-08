@@ -56,6 +56,7 @@ fn touches(frame: Rect, clip: Rect) -> bool {
 /// Work a [`Ui`] has done since it was created. These are exact counts, so a test
 /// can demand that moving the pointer shapes no text or that an animation builds nothing.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct UiStats {
     /// Times the views ran.
     pub builds: u64,
@@ -89,6 +90,7 @@ struct OpenView {
     inner_shapes: u64,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ViewProfile {
     pub(crate) fn enter(&mut self, name: &'static str, elements: usize, shapes: u64) {
         let started = (self.clock)();
@@ -130,6 +132,7 @@ impl ViewProfile {
 /// Platform layers drive it with [`Ui::set_viewport`], [`Ui::handle_event`] and
 /// [`Ui::update`], and register a waker with [`Ui::set_waker`] to schedule a
 /// frame when state changes outside of event handling (timers, async tasks).
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Ui {
     root: Box<dyn View>,
     theme: State<Theme>,
@@ -237,6 +240,7 @@ impl fmt::Debug for Ui {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Ui {
     /// A runtime for `root` under `theme`, with an 800×600 viewport at scale 1.
     pub fn new(root: impl View + 'static, theme: Theme) -> Self {

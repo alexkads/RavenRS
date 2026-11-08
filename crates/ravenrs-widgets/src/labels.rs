@@ -15,6 +15,7 @@ use crate::view::View;
 /// [`Localized`].
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Labels {
     /// Closes a dialog or a sheet.
     pub close: String,
@@ -777,6 +778,22 @@ pub struct Labels {
     pub color_reset: String,
     /// Count, sum, average, smallest and largest, as a grid's footer calls them.
     pub grid_summaries: [String; 5],
+    /// Runs the code of a [`Playground`](crate::Playground).
+    pub playground_run: String,
+    /// Puts the chosen example of a [`Playground`](crate::Playground) back.
+    pub playground_restore: String,
+    /// The examples of a [`Playground`](crate::Playground).
+    pub playground_example: String,
+    /// The code tab of a [`Playground`](crate::Playground).
+    pub playground_code: String,
+    /// What the code of a [`Playground`](crate::Playground) makes.
+    pub playground_result: String,
+    /// The result a [`Playground`](crate::Playground) keeps while the code has problems.
+    pub playground_last_good: String,
+    /// Before the line of a problem.
+    pub playground_line: String,
+    /// Before the column of a problem.
+    pub playground_column: String,
 }
 
 impl Default for Labels {
@@ -785,6 +802,7 @@ impl Default for Labels {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Labels {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -1163,6 +1181,14 @@ impl Labels {
             color_swap: texts.get("widgets.color_swap"),
             color_reset: texts.get("widgets.color_reset"),
             grid_summaries: texts.array("widgets.grid_summaries"),
+            playground_run: texts.get("widgets.playground_run"),
+            playground_restore: texts.get("widgets.playground_restore"),
+            playground_example: texts.get("widgets.playground_example"),
+            playground_code: texts.get("widgets.playground_code"),
+            playground_result: texts.get("widgets.playground_result"),
+            playground_last_good: texts.get("widgets.playground_last_good"),
+            playground_line: texts.get("widgets.playground_line"),
+            playground_column: texts.get("widgets.playground_column"),
         }
     }
 
@@ -1381,6 +1407,7 @@ pub struct Localized<V> {
     content: V,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> Localized<V> {
     /// `content`, using `labels`.
     pub fn new(labels: Labels, content: V) -> Self {

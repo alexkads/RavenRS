@@ -52,6 +52,7 @@ pub(crate) struct NestedList {
     source: Option<ListSource>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NestedList {
     /// A list of records no storage keeps, given by this. There is nothing to link or unlink.
     pub fn given(parent: Session, target: &str, source: ListSource) -> Self {

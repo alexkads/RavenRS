@@ -16,6 +16,7 @@ use crate::{
 /// Where a [`ModelChoice`] stands.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ModelStatus {
     /// It can be downloaded.
     Available,
@@ -29,6 +30,7 @@ pub enum ModelStatus {
 
 /// A model offered by a [`ModelPicker`].
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelChoice {
     /// Its name.
     pub name: String,
@@ -47,6 +49,7 @@ pub struct ModelChoice {
 /// The words a [`ModelPicker`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelPickerLabels {
     /// Downloads a model.
     pub download: String,
@@ -78,6 +81,7 @@ impl Default for ModelPickerLabels {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModelPickerLabels {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -121,6 +125,7 @@ type OnChoice = Rc<dyn Fn(usize)>;
 /// }])
 /// .on_download(|index| println!("download {index}"));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelPicker {
     choices: Vec<ModelChoice>,
     labels: ModelPickerLabels,
@@ -137,6 +142,7 @@ impl fmt::Debug for ModelPicker {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModelPicker {
     /// A list of these models.
     pub fn new(choices: Vec<ModelChoice>) -> Self {
@@ -263,6 +269,7 @@ impl ModelPicker {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl ModelPicker {
     /// How a model reads in the list: its name and where it stands.
     fn option(&self, choice: &ModelChoice) -> String {

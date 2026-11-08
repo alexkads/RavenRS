@@ -7,6 +7,7 @@ use crate::date::{Date, days_in_month};
 /// How often a [`RecurrenceRule`] comes back.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Frequency {
     /// Only on its first day.
     Once,
@@ -21,6 +22,7 @@ pub enum Frequency {
     Yearly,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Frequency {
     /// Every frequency, in the order an editor offers them.
     pub const ALL: [Self; 5] = [Self::Once, Self::Daily, Self::Weekly, Self::Monthly, Self::Yearly];
@@ -29,6 +31,7 @@ impl Frequency {
 /// When a [`RecurrenceRule`] stops.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum RecurrenceEnd {
     /// It goes on.
     #[default]
@@ -56,6 +59,7 @@ pub enum RecurrenceEnd {
 /// assert_eq!(RecurrenceRule::parse(&rule.to_text()), Some(rule));
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RecurrenceRule {
     /// How often.
     pub frequency: Frequency,
@@ -77,6 +81,7 @@ impl Default for RecurrenceRule {
 /// iCalendar's names, from Sunday.
 const WEEKDAY_CODES: [&str; 7] = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RecurrenceRule {
     /// A rule at this frequency, every time, with no end.
     pub fn new(frequency: Frequency) -> Self {

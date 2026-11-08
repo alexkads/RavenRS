@@ -35,6 +35,7 @@ struct ChoiceOption {
     selected: Binding<usize>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChoiceOption {
     fn index(&self) -> usize {
         self.roving.index
@@ -50,6 +51,7 @@ impl ChoiceOption {
 
 /// An on/off switch.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toggle {
     value: Binding<bool>,
     label: Option<String>,
@@ -57,6 +59,7 @@ pub struct Toggle {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Toggle {
     /// A switch bound to `value`.
     pub fn new(value: Binding<bool>) -> Self {
@@ -159,6 +162,7 @@ impl View for Toggle {
 
 /// A check box with a label.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Checkbox {
     value: Binding<bool>,
     label: String,
@@ -166,6 +170,7 @@ pub struct Checkbox {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Checkbox {
     /// A check box bound to `value`, with this label.
     pub fn new(label: impl Into<String>, value: Binding<bool>) -> Self {
@@ -276,12 +281,14 @@ impl View for Checkbox {
 /// One choice among several, shown as radio buttons. Arrow keys move the
 /// selection and the focus together (wrapping); Home and End jump to the ends.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RadioGroup {
     selected: Binding<usize>,
     options: Vec<String>,
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RadioGroup {
     /// Radio buttons for `options`; `selected` holds the zero-based index.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
@@ -393,6 +400,7 @@ fn group_semantics(label: Option<&str>) -> Semantics {
 /// let mut ui = Ui::new(slider, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Slider {
     value: Binding<f32>,
     min: f32,
@@ -413,6 +421,7 @@ impl std::fmt::Debug for Slider {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Slider {
     /// A slider over 0.0–1.0 bound to `value`, stepping by 0.01.
     pub fn new(value: Binding<f32>) -> Self {
@@ -718,6 +727,7 @@ impl View for Slider {
 /// Decrement / value / increment, for small integer quantities. When focused,
 /// arrow keys step by one and Home / End jump to the limits.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Stepper {
     value: Binding<i32>,
     min: i32,
@@ -726,6 +736,7 @@ pub struct Stepper {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Stepper {
     /// A stepper bound to `value`, unbounded.
     pub fn new(value: Binding<i32>) -> Self {
@@ -843,12 +854,14 @@ impl View for Stepper {
 /// A row of mutually exclusive segments, like a compact tab bar. Arrow keys
 /// move the selection and the focus together (wrapping); Home and End jump to the ends.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SegmentedControl {
     selected: Binding<usize>,
     options: Vec<(Option<IconName>, String)>,
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SegmentedControl {
     /// Segments for `options`; `selected` holds the zero-based index.
     pub fn new(selected: Binding<usize>, options: impl IntoIterator<Item = impl Into<String>>) -> Self {
@@ -963,6 +976,7 @@ impl View for SegmentedControl {
 /// Switches the app between its dark, light and glass themes: Raven Dark, Raven Light and
 /// Raven Glass, unless the app has its own.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ThemeSwitcher {
     themes: [Theme; 3],
     on_change: Option<Rc<dyn Fn(Theme)>>,
@@ -983,6 +997,7 @@ impl Default for ThemeSwitcher {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ThemeSwitcher {
     /// A switcher over the themes that come with RavenRS.
     pub fn new() -> Self {

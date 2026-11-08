@@ -1,6 +1,6 @@
 [package]
 name = "ravenrs-text"
-description = "RavenRS text: shaping and line layout with Parley, with the Inter font embedded."
+description = "RavenRS text: shaping and line layout with Parley, with the Inter font embedded, and Fira Mono with the `mono` feature."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,6 +17,10 @@ include = ["src/**/*", "fonts/**/*", "Cargo.toml"]
 [dependencies]
 ravenrs-core.workspace = true
 parley.workspace = true
+
+[features]
+# Fira Mono embedded, as `MONO_FAMILY` and the generic `monospace`, for code.
+mono = []
 
 [dev-dependencies]
 criterion.workspace = true

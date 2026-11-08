@@ -13,7 +13,12 @@ documentation = "https://docs.rs/ravenrs-app"
 keywords = ["application", "framework", "model", "crud"]
 categories = ["gui", "data-structures"]
 
+[features]
+# Registers its types with the playground's interpreter.
+live = ["dep:ravenrs-live"]
+
 [dependencies]
+ravenrs-live = { workspace = true, optional = true }
 ravenrs-app-i18n.workspace = true
 argon2.workspace = true
 ravenrs-app-derive.workspace = true
