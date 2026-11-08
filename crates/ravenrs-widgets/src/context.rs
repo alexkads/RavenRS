@@ -602,6 +602,7 @@ pub struct BuildCx<'a> {
     pub(crate) clipboard: crate::Clipboard,
     pub(crate) sound: crate::Sound,
     pub(crate) links: crate::Links,
+    pub(crate) full_screen: crate::FullScreen,
     pub(crate) file_picker: crate::FilePicker,
     pub(crate) files_over: State<bool>,
     pub(crate) motions: Vec<MotionEntry>,
@@ -671,6 +672,7 @@ impl<'a> BuildCx<'a> {
             clipboard,
             sound: crate::Sound::default(),
             links: crate::Links::default(),
+            full_screen: crate::FullScreen::default(),
             file_picker: crate::FilePicker::default(),
             files_over: State::new(false),
             motions: Vec::new(),
@@ -739,6 +741,12 @@ impl<'a> BuildCx<'a> {
     /// browser opens them. `#name` scrolls to the anchor of that name instead.
     pub fn links(&self) -> crate::Links {
         self.links.clone()
+    }
+
+    /// Puts the app in full screen and takes it out: the page's full screen in the
+    /// browser, a borderless full screen window on the desktop.
+    pub fn full_screen(&self) -> crate::FullScreen {
+        self.full_screen.clone()
     }
 
     /// Marks the node as the place `#name` links scroll to, landing `offset` pixels

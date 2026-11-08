@@ -291,6 +291,8 @@ fn run_window(
     ui.set_sound(sound::SystemSound::default());
     ui.set_file_picker(files::SystemFilePicker);
     ui.set_links(SystemLinks);
+    let screen_window = ScreenWindow::default();
+    ui.set_full_screen(SystemFullScreen(screen_window.clone()));
     let answer = event_loop.create_proxy();
     let tray_notify: tray::Notify = Arc::new(move |action| {
         // It only fails once the loop is gone, when there is nothing left to tell.
@@ -311,6 +313,7 @@ fn run_window(
         icon,
         app_id,
         window: None,
+        screen_window,
         tray,
         tray_notify,
         in_tray: None,
@@ -362,6 +365,8 @@ struct App {
     icon: Option<ImageData>,
     app_id: Option<String>,
     window: Option<WindowState>,
+    /// The window full screen applies to, once there is one.
+    screen_window: ScreenWindow,
     tray: Option<SystemTray>,
     tray_notify: tray::Notify,
     /// The icon on screen, while the window is closed behind it.
@@ -448,6 +453,7 @@ impl App {
         let adapter =
             accesskit_winit::Adapter::with_event_loop_proxy(event_loop, &window, self.proxy.clone());
         self.access = Some(Access { adapter, active: false, last: None });
+        *self.screen_window.borrow_mut() = Arc::downgrade(&window);
         self.init_gpu(window)
     }
 
@@ -974,6 +980,24 @@ impl ApplicationHandler<UserEvent> for App {
             WindowEvent::Focused(false) => self.dispatch(Event::FocusLost),
             WindowEvent::RedrawRequested => self.redraw(),
             _ => {}
+        }
+    }
+}
+
+/// The window full screen applies to. Weak, so a window closed behind the icon still goes.
+type ScreenWindow = std::rc::Rc<std::cell::RefCell<std::sync::Weak<Window>>>;
+
+/// Full screen as a borderless window over the whole monitor it is on.
+struct SystemFullScreen(ScreenWindow);
+
+impl ravenrs_widgets::FullScreenProvider for SystemFullScreen {
+    fn is_on(&self) -> bool {
+        self.0.borrow().upgrade().is_some_and(|window| window.fullscreen().is_some())
+    }
+
+    fn set(&self, on: bool) {
+        if let Some(window) = self.0.borrow().upgrade() {
+            window.set_fullscreen(on.then_some(winit::window::Fullscreen::Borderless(None)));
         }
     }
 }

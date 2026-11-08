@@ -384,6 +384,8 @@
  "widgets.playground_hide_output": "Recolher a saída",
  "widgets.playground_show_output": "Abrir a saída",
  "widgets.playground_more": "Mais ações",
+ "widgets.playground_full_screen": "Tela cheia",
+ "widgets.playground_exit_full_screen": "Sair da tela cheia",
  "widgets.playground_example": "Exemplo",
  "widgets.playground_last_good": "Última versão que funcionou",
  "widgets.playground_line": "Linha",

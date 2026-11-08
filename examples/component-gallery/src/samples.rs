@@ -2839,7 +2839,8 @@ impl View for SamplePlayground {
                 // Held to the window, so an example taller than it scrolls in the result.
                 min_width: Some(0.0),
                 min_height: Some(0.0),
-                padding: Insets::uniform(16.0),
+                // In full screen the playground is the whole screen, edge to edge.
+                padding: Insets::uniform(if cx.full_screen().is_on() { 0.0 } else { 16.0 }),
                 align: Align::Stretch,
                 ..LayoutStyle::stack(Axis::Vertical)
             },

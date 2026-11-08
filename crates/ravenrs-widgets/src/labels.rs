@@ -814,6 +814,10 @@ pub struct Labels {
     pub playground_show_output: String,
     /// The menu of a narrow [`Playground`](crate::Playground) with what is not Run.
     pub playground_more: String,
+    /// Puts a [`Playground`](crate::Playground) in full screen.
+    pub playground_full_screen: String,
+    /// Takes a [`Playground`](crate::Playground) out of full screen.
+    pub playground_exit_full_screen: String,
 }
 
 impl Default for Labels {
@@ -1219,6 +1223,8 @@ impl Labels {
             playground_hide_output: texts.get("widgets.playground_hide_output"),
             playground_show_output: texts.get("widgets.playground_show_output"),
             playground_more: texts.get("widgets.playground_more"),
+            playground_full_screen: texts.get("widgets.playground_full_screen"),
+            playground_exit_full_screen: texts.get("widgets.playground_exit_full_screen"),
         }
     }
 

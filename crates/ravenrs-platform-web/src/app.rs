@@ -429,6 +429,32 @@ impl ravenrs_widgets::LinkOpener for BrowserLinks {
     }
 }
 
+/// The page's full screen. Inside a frame it works only where the frame allows it.
+struct BrowserFullScreen;
+
+impl ravenrs_widgets::FullScreenProvider for BrowserFullScreen {
+    fn is_on(&self) -> bool {
+        document().is_ok_and(|d| d.fullscreen_element().is_some())
+    }
+
+    fn set(&self, on: bool) {
+        let Ok(document) = document() else { return };
+        if on {
+            if let Some(page) = document.document_element()
+                && let Err(e) = page.request_fullscreen()
+            {
+                tracing::warn!(error = ?e, "the page did not go full screen");
+            }
+        } else if document.fullscreen_element().is_some() {
+            document.exit_fullscreen();
+        }
+    }
+
+    fn available(&self) -> bool {
+        document().is_ok_and(|d| d.fullscreen_enabled())
+    }
+}
+
 struct BrowserClipboard;
 
 impl ravenrs_widgets::ClipboardProvider for BrowserClipboard {
@@ -649,6 +675,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     let mut ui = Ui::new(DiagnosticsHost::new(root, diagnostics.clone()), options.theme);
     ui.set_clipboard(BrowserClipboard);
     ui.set_links(BrowserLinks);
+    ui.set_full_screen(BrowserFullScreen);
     ui.set_file_picker(BrowserFilePicker);
     ui.set_sound(BrowserSound::default());
     let (css, dpr) = measure(&canvas);

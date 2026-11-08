@@ -22,6 +22,8 @@ const DEFAULT_ROWS: usize = 4;
 /// Width assumed until the first layout says how wide a [`TextArea`] is.
 const FIRST_GUESS_WIDTH: f32 = 320.0;
 const AREA_PADDING: f32 = 12.0;
+/// What the area's border takes at its edge, focused or not, kept clear of the gutter.
+const BORDER_ROOM: f32 = 1.5;
 
 /// Breaks `text` into lines that fit `width`, as ranges of char indices. Line
 /// breaks in the text always break, the break itself belongs to no line, and
@@ -586,14 +588,20 @@ impl View for TextArea {
             let column = cx.container(
                 LayoutStyle {
                     width: Some(width + GUTTER_GAP),
+                    // Down to the area's bottom border, even when the code ends higher.
+                    min_height: viewport.map(|v| (v.height - AREA_PADDING / 2.0 - BORDER_ROOM).max(0.0)),
                     padding: Insets { right: GUTTER_GAP, ..Insets::default() },
                     ..LayoutStyle::stack(Axis::Vertical)
                 },
                 &numbers,
                 Paint::Custom(Rc::new(move |f: Rect, scene| {
-                    // Over the code that scrolls under it, from the area's edge to the gap.
-                    let under =
-                        Rect::new(f.x() - AREA_PADDING, f.y(), f.width() + AREA_PADDING - 4.0, f.height());
+                    // Over the code that scrolls under it, from inside the area's border to the gap.
+                    let under = Rect::new(
+                        f.x() - AREA_PADDING + BORDER_ROOM,
+                        f.y(),
+                        f.width() + AREA_PADDING - BORDER_ROOM - 4.0,
+                        f.height(),
+                    );
                     scene.push_quad(Quad::new(under, gutter_fill));
                     for (y, color) in &gutter_marks {
                         let bar = Rect::new(f.x() - AREA_PADDING, f.y() + y, 3.0, line_height);
