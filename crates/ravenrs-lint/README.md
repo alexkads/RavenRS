@@ -36,7 +36,7 @@ cargo ravenrs-lint --gate
 
 | Rule | Catches |
 |---|---|
-| `raw_color` | `Color::rgb`, `Color::WHITE`, `Color { .. }` in the interface; use `Semantic` roles. Defining a `Theme` or `Palette` is left alone |
+| `raw_color` | `Color::rgb`, `Color::WHITE`, `Color { .. }` in the interface; use `Semantic` roles. Defining a `Theme` or `Palette`, and the pixels of an `ImageData::from_fn`, are left alone |
 | `raw_font_size` | `.font_size(..)`; use `TextStyle` steps. A printed report's `Style` is left alone |
 | `off_grid_spacing` | Literal `padding`, `spacing`, `gap` and `Insets` that are not multiples of 4 |
 | `button_without_verb` | `Button` captions that do not start with a verb, in English or Brazilian Portuguese |
@@ -44,7 +44,7 @@ cargo ravenrs-lint --gate
 | `many_primary_buttons` | More than one primary `Button` in a function; `Button` is primary unless styled |
 | `state_in_body` | `State::new` in `body` or `build`, which run on every rebuild |
 | `blocking_in_body` | Files, processes, sleeping, blocking network calls or `block_on` in `body` or `build` |
-| `oversized_file` | Source files over 600 lines |
+| `oversized_file` | Source files over 600 lines, not counting their `#[cfg(test)]` modules |
 | `allow_without_reason` | `ravenrs-lint: allow(..)` comments that do not say why |
 | `unknown_lint` | `allow(..)` comments naming a rule that does not exist |
 

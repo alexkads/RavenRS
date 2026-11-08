@@ -201,7 +201,7 @@ fn ledger(take: &mut Recorder) -> Result<(), RecordError> {
     )?;
     take.click("Mês anterior")?;
     take.wait(1.0);
-    take.click("Este mês")?;
+    take.click("Ir para este mês")?;
     take.wait(0.6);
     take.guide(
         "Despesas",

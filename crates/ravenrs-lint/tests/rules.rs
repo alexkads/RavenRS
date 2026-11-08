@@ -32,6 +32,7 @@ fn literal_colors_are_caught_and_semantic_roles_pass() {
         lints("fn light() -> Theme { Theme { palette: Palette { bg: Color::hex(0xffffff) } } }").is_empty()
     );
     assert!(lints("fn v() { let t = Theme { palette: Palette { bg: Color::hex(0xffffff) } }; }").is_empty());
+    assert!(lints("fn v() { ImageData::from_fn(8, 8, |x, y| Color::rgb(0.2, 0.3, 0.4)); }").is_empty());
 }
 
 #[test]
@@ -138,6 +139,16 @@ fn long_files_are_caught() {
     config.max_file_lines = 3;
     assert_eq!(lints_in("fn a() {}\nfn b() {}\nfn c() {}\nfn d() {}\n", &config), [Lint::OversizedFile]);
     assert!(lints_in("fn a() {}\nfn b() {}\n", &config).is_empty());
+}
+
+#[test]
+fn tests_do_not_make_a_file_long() {
+    let mut config = Config::default();
+    config.max_file_lines = 3;
+    let tested = "fn a() {}\nfn b() {}\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn a() {}\n}\n";
+    assert!(lints_in(tested, &config).is_empty());
+    let long = "fn a() {}\nfn b() {}\nfn c() {}\nfn d() {}\n#[cfg(test)]\nmod tests {}\n";
+    assert_eq!(lints_in(long, &config), [Lint::OversizedFile]);
 }
 
 #[test]

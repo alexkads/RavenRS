@@ -23,15 +23,26 @@
 //! only speaks when there is a version, or when someone asked and is waiting for an answer.
 
 use std::cell::{Cell, RefCell};
-use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::time::{Duration, Instant};
 
 use ravenrs::prelude::UiWaker;
-use serde::{Deserialize, Serialize};
 
 use crate::paths;
+
+mod installer;
+mod news;
+
+pub use installer::{
+    INSTALL_COMMAND, INSTALLER_URL, InstallKind, LOCK_EXPIRES, LOG_QUIET_FOR, Memory, installer_command,
+    installer_is_whole, installer_log, installer_log_tail, installer_stage, is_locked, lock_is_live,
+};
+use installer::{download, read_memory, run_installer, seconds_now};
+pub use news::{
+    News, Notice, NoticeAction, UpdateStatus, history, is_newer, join_history, notice, parse_history,
+    parse_news,
+};
 
 /// The running version.
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
@@ -59,17 +70,6 @@ pub const HISTORY_URLS: [&str; 2] = [
     "https://alexkads.github.io/RavenRS/family-finance/historico-de-novidades.json",
 ];
 
-/// The installer the app downloads and runs, the same one the README shows.
-pub const INSTALLER_URL: &str =
-    "https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd";
-
-/// Running the installer by hand, for when updating from inside the app fails.
-pub const INSTALL_COMMAND: &str = if cfg!(target_os = "windows") {
-    "irm https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -OutFile \"$env:TEMP\\install.cmd\"; & \"$env:TEMP\\install.cmd\""
-} else {
-    "curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -o /tmp/install.cmd && sh /tmp/install.cmd"
-};
-
 /// How often an open app looks for a new version.
 pub const CHECK_EVERY: Duration = Duration::from_secs(3600);
 
@@ -78,106 +78,6 @@ const STAGE_EVERY: Duration = Duration::from_secs(1);
 
 /// How long before a version that failed is tried again without being asked.
 pub const RETRY_AFTER: Duration = Duration::from_secs(24 * 3600);
-/// A lock older than this belongs to an installer that died without removing it.
-pub const LOCK_EXPIRES: Duration = Duration::from_secs(3 * 3600);
-/// A running installer writes to its log at least this often; a lock whose log has
-/// been quiet for longer belongs to a window that closed in the middle.
-pub const LOG_QUIET_FOR: Duration = Duration::from_secs(20 * 60);
-
-/// What a version brings, written for the people using the app.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-pub struct News {
-    /// The version.
-    pub versao: String,
-    /// The release day; only the history has it.
-    #[serde(default)]
-    pub data: Option<String>,
-    /// One line: what people will notice first.
-    pub titulo: String,
-    /// An update that should not wait.
-    #[serde(default)]
-    pub importante: bool,
-    /// What changed.
-    pub novidades: Vec<String>,
-    /// Why it is worth updating now.
-    pub por_que_atualizar: String,
-    /// The GitHub issues this version closes, by number. Older copies ignore it.
-    #[serde(default)]
-    pub issues: Vec<u32>,
-    /// Who made this version, by name. Older copies ignore it.
-    #[serde(default)]
-    pub contribuidores: Vec<String>,
-}
-
-/// Reads `novidades.json`. A broken one is no news: better silent than a blank announcement.
-pub fn parse_news(text: &str) -> Option<News> {
-    let news: News = serde_json::from_str(text).ok()?;
-    (version_numbers(&news.versao).is_some() && !news.titulo.trim().is_empty()).then_some(news)
-}
-
-/// Reads a history file, skipping an entry it cannot understand.
-pub fn parse_history(text: &str) -> Vec<News> {
-    let items: Vec<serde_json::Value> = serde_json::from_str(text).unwrap_or_default();
-    items.into_iter().filter_map(|item| serde_json::from_value(item).ok()).collect()
-}
-
-/// Every version up to this one, newest first, compiled into the app.
-pub fn history() -> Vec<News> {
-    parse_history(include_str!("../historico-de-novidades.json"))
-}
-
-/// One list of versions, newest first, out of several. When a version is in
-/// more than one, the first list's account of it is the one that stays, with
-/// the date of whichever list has one.
-pub fn join_history(lists: impl IntoIterator<Item = Vec<News>>) -> Vec<News> {
-    let mut all: Vec<News> = Vec::new();
-    for news in lists.into_iter().flatten() {
-        match all.iter_mut().find(|known| known.versao == news.versao) {
-            // The announcement has no date; the history does.
-            Some(known) => known.data = known.data.take().or(news.data),
-            None => all.push(news),
-        }
-    }
-    all.sort_by_key(|news| std::cmp::Reverse(version_numbers(&news.versao)));
-    all
-}
-
-fn version_numbers(version: &str) -> Option<Vec<u64>> {
-    version.trim().split('.').map(|part| part.parse().ok()).collect()
-}
-
-/// `candidate` is a later version than `current`, comparing numbers (0.1.10 is after 0.1.9).
-pub fn is_newer(candidate: &str, current: &str) -> bool {
-    match (version_numbers(candidate), version_numbers(current)) {
-        (Some(a), Some(b)) => a > b,
-        _ => false,
-    }
-}
-
-/// How this copy of the app was installed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum InstallKind {
-    /// By the installer, which is the only thing that can update it.
-    Installed,
-    /// `cargo run`: whoever develops updates with `git pull`.
-    Development,
-}
-
-impl InstallKind {
-    /// The installer sets `FAMILY_FINANCE_INSTALLED` when it compiles.
-    pub fn current() -> Self {
-        if option_env!("FAMILY_FINANCE_INSTALLED").is_some() { Self::Installed } else { Self::Development }
-    }
-}
-
-/// Remembers an update that failed.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Memory {
-    /// The version that failed last.
-    pub failed: Option<String>,
-    /// When, in seconds since 1970.
-    pub when: Option<u64>,
-}
 
 /// What to do on learning the latest version.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -210,275 +110,6 @@ pub fn decide(
         && memory.when.is_some_and(|when| now.saturating_sub(when) < RETRY_AFTER.as_secs());
     let start = kind == InstallKind::Installed && !busy && !failed_recently;
     Decision::Announce { news, start }
-}
-
-/// The step the installer announced on a line of its log: `> text`.
-/// What it adds in parentheses is for a terminal: the status bar's sentence has
-/// no room for it, and its end is what must not get cut.
-pub fn installer_stage(line: &str) -> Option<String> {
-    let text = line.trim().strip_prefix("> ")?.trim();
-    let text = text.split(" (").next().unwrap_or(text).trim();
-    (!text.is_empty()).then(|| text.to_owned())
-}
-
-/// The last step announced in the log so far.
-fn last_stage(log: &str) -> Option<String> {
-    log.lines().rev().find_map(installer_stage)
-}
-
-/// The downloaded file really is the whole installer. An error page, an empty
-/// file or one cut at any point does not pass, because the end of the file has to be there.
-pub fn installer_is_whole(text: &str) -> bool {
-    let end = text.trim_end();
-    let last_line = end.strip_suffix('}').map(str::trim_end).and_then(|before| before.lines().last());
-    text.starts_with(":<<\"::FIM-DO-CMD\"")
-        && text.contains("\n#==POWERSHELL==")
-        && text.contains("\n#==FIM-POWERSHELL==")
-        && last_line.is_some_and(|line| line.contains("Fim do instalador"))
-}
-
-/// How to run the installer here: at low priority on Linux and macOS, so
-/// compiling does not compete with whoever is using the machine.
-pub fn installer_command(file: &Path) -> (String, Vec<String>) {
-    let path = file.display().to_string();
-    if cfg!(windows) {
-        ("cmd".to_owned(), vec!["/c".to_owned(), path])
-    } else {
-        ("nice".to_owned(), vec!["-n".to_owned(), "10".to_owned(), "sh".to_owned(), path])
-    }
-}
-
-/// An installer is running. The lock holds the time it began, and the installer's
-/// log, beside it, must still be getting written: the window that took the lock may
-/// have closed before it could let go.
-pub fn is_locked(lock: &Path, now: u64) -> bool {
-    let Some(began) = std::fs::read_to_string(lock).ok().and_then(|text| text.trim().parse::<u64>().ok())
-    else {
-        return false;
-    };
-    let written = std::fs::metadata(lock.with_file_name("atualizacao.log"))
-        .and_then(|meta| meta.modified())
-        .ok()
-        .and_then(|when| when.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|since| since.as_secs());
-    lock_is_live(began, written, now)
-}
-
-/// The rule behind [`is_locked`]: begun less than [`LOCK_EXPIRES`] ago, and its log
-/// written in the last [`LOG_QUIET_FOR`]. A log older than the lock is the last run's.
-pub fn lock_is_live(began: u64, log_written: Option<u64>, now: u64) -> bool {
-    let last_sign = log_written.filter(|&written| written >= began).unwrap_or(began);
-    now.saturating_sub(began) < LOCK_EXPIRES.as_secs()
-        && now.saturating_sub(last_sign) < LOG_QUIET_FOR.as_secs()
-}
-
-/// The end of the installer's log, for the details of a failure.
-pub fn installer_log_tail(lines: usize) -> Option<String> {
-    let text =
-        std::fs::read(installer_log()).ok().map(|bytes| String::from_utf8_lossy(&bytes).into_owned())?;
-    let kept: Vec<&str> = text.lines().rev().take(lines).collect();
-    let tail = kept.into_iter().rev().collect::<Vec<_>>().join("\n");
-    (!tail.trim().is_empty()).then_some(tail)
-}
-
-/// Where the installer writes what it does.
-pub fn installer_log() -> PathBuf {
-    paths::home().join("atualizacao.log")
-}
-
-fn seconds_now() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs())
-}
-
-fn read_memory(file: &Path) -> Memory {
-    std::fs::read(file).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok()).unwrap_or_default()
-}
-
-fn write_memory(file: &Path, memory: &Memory) {
-    if let Ok(text) = serde_json::to_vec_pretty(memory)
-        && let Err(e) = std::fs::write(file, text)
-    {
-        tracing::warn!(error = %e, "could not remember the failed update");
-    }
-}
-
-/// Where an update stands, for the status bar and the settings page.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub enum UpdateStatus {
-    /// Nothing to say yet, or up to date.
-    #[default]
-    Quiet,
-    /// A new version exists and is waiting for a click.
-    Available(News),
-    /// Compiling it now.
-    Compiling(News),
-    /// It is installed; reopening uses it.
-    Ready(News),
-    /// It failed, and the app that is open keeps working.
-    Failed(News, String),
-    /// A new version exists, but this copy updates with `git pull`.
-    Development(News),
-    /// Someone asked, and the answer has not come yet.
-    Checking,
-    /// Someone asked, and there is nothing newer.
-    UpToDate,
-    /// Someone asked, and the network did not answer.
-    NoAnswer(String),
-}
-
-impl UpdateStatus {
-    /// The version it is about, if any.
-    pub fn news(&self) -> Option<&News> {
-        match self {
-            Self::Available(news)
-            | Self::Compiling(news)
-            | Self::Ready(news)
-            | Self::Failed(news, _)
-            | Self::Development(news) => Some(news),
-            Self::Quiet | Self::Checking | Self::UpToDate | Self::NoAnswer(_) => None,
-        }
-    }
-}
-
-/// What a notice in the status bar offers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum NoticeAction {
-    /// Opens the news on the announced version.
-    News,
-    /// Installs the announced version.
-    Update,
-    /// Installs it again, after a failure.
-    Retry,
-    /// The news again, where the steps for doing it by hand are.
-    HowToUpdate,
-    /// Why it failed, the step it stopped at and the end of the installer's log.
-    Details,
-    /// Opens the installed version.
-    Reopen,
-    /// Asks the network again.
-    CheckAgain,
-    /// Hides the notice for this session.
-    Later,
-    /// Hides a notice that has been read.
-    Close,
-}
-
-impl NoticeAction {
-    /// The button's words.
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::News => "Ver novidades",
-            Self::Update => "Atualizar",
-            Self::Retry | Self::CheckAgain => "Tentar de novo",
-            Self::HowToUpdate => "Como atualizar",
-            Self::Details => "Ver detalhes",
-            Self::Reopen => "Reabrir agora",
-            Self::Later => "Depois",
-            Self::Close => "Fechar",
-        }
-    }
-
-    /// The button that moves things forward, drawn as the main one.
-    pub fn is_primary(self) -> bool {
-        matches!(self, Self::Update | Self::Reopen | Self::Retry | Self::CheckAgain)
-    }
-}
-
-/// What the status bar says about updates, in one line.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Notice {
-    /// The sentence.
-    pub text: String,
-    /// Something is under way.
-    pub busy: bool,
-    /// Tint this one: an important version that is waiting for a click.
-    pub important: bool,
-    /// Its buttons, in order.
-    pub actions: Vec<NoticeAction>,
-}
-
-/// The whole rule of what the status bar says, with nothing on screen, as
-/// VintageLightbox words it. `dismissed` is the version hidden for this session;
-/// what is under way and what waits for reopening cannot be hidden.
-pub fn notice(
-    status: &UpdateStatus,
-    current: &str,
-    stage: Option<&str>,
-    dismissed: Option<&str>,
-) -> Option<Notice> {
-    let said = |text: String, busy, important, actions: &[NoticeAction]| {
-        Some(Notice { text, busy, important, actions: actions.to_vec() })
-    };
-    use NoticeAction::{CheckAgain, Close, Details, Later, News, Reopen, Retry, Update};
-    match status {
-        UpdateStatus::Quiet => None,
-        UpdateStatus::Checking => said("Procurando versão nova…".to_owned(), true, false, &[]),
-        UpdateStatus::UpToDate => {
-            said(format!("Você está na versão mais recente ({current})."), false, false, &[Close])
-        }
-        UpdateStatus::NoAnswer(reason) => said(
-            format!("Não consegui verificar se há versão nova: {reason}"),
-            false,
-            false,
-            &[CheckAgain, Close],
-        ),
-        UpdateStatus::Available(news) | UpdateStatus::Development(news) | UpdateStatus::Failed(news, _)
-            if dismissed == Some(news.versao.as_str()) =>
-        {
-            None
-        }
-        UpdateStatus::Available(news) => {
-            let opening = if news.importante {
-                format!("Atualização importante: versão {}", news.versao)
-            } else {
-                format!("Versão {} disponível", news.versao)
-            };
-            said(
-                format!("{opening} — {}", news.titulo.trim()),
-                false,
-                news.importante,
-                &[News, Update, Later],
-            )
-        }
-        UpdateStatus::Development(news) => said(
-            format!(
-                "Versão {} no repositório. Esta cópia foi compilada à mão: atualize com git pull.",
-                news.versao
-            ),
-            false,
-            false,
-            &[News, Later],
-        ),
-        UpdateStatus::Compiling(news) => said(
-            format!(
-                "Atualizando para a versão {} em segundo plano — {}. O app continua funcionando.",
-                news.versao,
-                stage.unwrap_or("começando"),
-            ),
-            true,
-            false,
-            &[News],
-        ),
-        UpdateStatus::Ready(news) => said(
-            format!(
-                "Versão {} instalada. Ela entra na próxima vez que o app abrir — ou reabra agora.",
-                news.versao
-            ),
-            false,
-            news.importante,
-            &[Reopen],
-        ),
-        // The reason goes in the details: here it would be cut, and the end is what matters.
-        UpdateStatus::Failed(news, _) => said(
-            format!(
-                "A atualização para a versão {} não deu certo; a {current} continua funcionando.",
-                news.versao
-            ),
-            false,
-            false,
-            &[Retry, Details, Close],
-        ),
-    }
 }
 
 /// The hour has passed, and nothing is under way that a check would get in the way of.
@@ -801,13 +432,6 @@ impl Drop for WakeOnDrop {
     }
 }
 
-fn download(url: &str) -> Result<String, String> {
-    let config = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(20))).build();
-    let agent: ureq::Agent = config.into();
-    let mut response = agent.get(url).call().map_err(|e| e.to_string())?;
-    response.body_mut().read_to_string().map_err(|e| e.to_string())
-}
-
 /// The latest version the repository announces, or why it could not be known.
 fn latest_news() -> Result<News, String> {
     let mut reason = "a resposta não veio completa.".to_owned();
@@ -824,103 +448,10 @@ fn latest_news() -> Result<News, String> {
     Err(reason)
 }
 
-fn run_installer(version: &str, on_stage: &dyn Fn(String)) -> Result<(), String> {
-    let home = paths::home();
-    std::fs::create_dir_all(&home).map_err(|e| e.to_string())?;
-    let (lock, memory) = (home.join("atualizacao.trava"), home.join("atualizacao.json"));
-    let now = seconds_now();
-    if is_locked(&lock, now) {
-        return follow_other_installer(&lock, version, on_stage);
-    }
-    std::fs::write(&lock, now.to_string()).map_err(|e| e.to_string())?;
-    let result = compile_and_check(&home, version, on_stage);
-    // Without this the next start would take it for a running installer until the lock expires.
-    let _ = std::fs::remove_file(&lock);
-    let remembered = match &result {
-        Ok(()) => Memory::default(),
-        Err(_) => Memory { failed: Some(version.to_owned()), when: Some(seconds_now()) },
-    };
-    write_memory(&memory, &remembered);
-    result
-}
-
-/// Another window is installing: follows its steps until it lets go of the lock,
-/// then asks the installed app which version it is.
-fn follow_other_installer(lock: &Path, version: &str, on_stage: &dyn Fn(String)) -> Result<(), String> {
-    let log = lock.with_file_name("atualizacao.log");
-    let mut told = None;
-    while is_locked(lock, seconds_now()) {
-        let stage = std::fs::read(&log).ok().and_then(|text| last_stage(&String::from_utf8_lossy(&text)));
-        let stage = format!("outra janela está atualizando — {}", stage.as_deref().unwrap_or("começando"));
-        if told.as_ref() != Some(&stage) {
-            told = Some(stage.clone());
-            on_stage(stage);
-        }
-        std::thread::sleep(STAGE_EVERY);
-    }
-    installed_answers(version)
-}
-
-/// The installed app opens and says it is `version`.
-fn installed_answers(version: &str) -> Result<(), String> {
-    let binary = paths::installed_binary().ok_or("não sei onde o app fica neste sistema.")?;
-    let output = std::process::Command::new(binary)
-        .arg("--versao")
-        .output()
-        .map_err(|e| format!("o app novo não abriu: {e}"))?;
-    let answered = String::from_utf8_lossy(&output.stdout);
-    if answered.trim() == version {
-        Ok(())
-    } else {
-        Err(format!("o instalado responde {}, e não {version}.", answered.trim()))
-    }
-}
-
-/// Runs the installer, telling each step it announces in its log as it gets there.
-fn follow_installer(
-    mut command: std::process::Command,
-    log: &Path,
-    on_stage: &dyn Fn(String),
-) -> Result<std::process::ExitStatus, String> {
-    let mut child = command.spawn().map_err(|e| format!("não consegui rodar o instalador: {e}"))?;
-    let mut told = None;
-    loop {
-        // Not `read_to_string`: a line that is not UTF-8 must not hide the steps.
-        let stage = std::fs::read(log).ok().and_then(|text| last_stage(&String::from_utf8_lossy(&text)));
-        if stage.is_some() && stage != told {
-            told.clone_from(&stage);
-            on_stage(stage.unwrap_or_default());
-        }
-        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
-            return Ok(status);
-        }
-        std::thread::sleep(STAGE_EVERY);
-    }
-}
-
-fn compile_and_check(home: &Path, version: &str, on_stage: &dyn Fn(String)) -> Result<(), String> {
-    let text = download(INSTALLER_URL).map_err(|e| format!("não consegui baixar o instalador: {e}"))?;
-    if !installer_is_whole(&text) {
-        return Err("o instalador baixado veio incompleto; tente de novo mais tarde.".to_owned());
-    }
-    let file: PathBuf = home.join("install.cmd");
-    std::fs::write(&file, text).map_err(|e| e.to_string())?;
-    let (program, arguments) = installer_command(&file);
-    let log_path = home.join("atualizacao.log");
-    let log = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
-    let errors = log.try_clone().map_err(|e| e.to_string())?;
-    let mut command = std::process::Command::new(program);
-    command.args(arguments).env("FF_SEM_PAUSA", "1").stdout(log).stderr(errors);
-    let status = follow_installer(command, &log_path, on_stage)?;
-    if !status.success() {
-        return Err(format!("a compilação falhou; veja {}.", home.join("atualizacao.log").display()));
-    }
-    installed_answers(version)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::{installer::*, news::*};
 
     fn news(version: &str) -> News {
         News {
@@ -946,7 +477,8 @@ mod tests {
 
     #[test]
     fn the_three_release_files_agree() {
-        let news = parse_news(include_str!("../novidades.json")).unwrap_or_else(|| panic!("novidades.json"));
+        let news =
+            parse_news(include_str!("../../novidades.json")).unwrap_or_else(|| panic!("novidades.json"));
         assert_eq!(news.versao, CURRENT, "raise novidades.json together with Cargo.toml");
         assert!(
             !news.contribuidores.is_empty() && news.contribuidores.iter().all(|name| !name.trim().is_empty()),
@@ -1010,7 +542,7 @@ mod tests {
 
     #[test]
     fn the_installer_in_the_repository_is_whole_and_a_cut_one_is_not() {
-        let text = include_str!("../install.cmd");
+        let text = include_str!("../../install.cmd");
         assert!(installer_is_whole(text));
         assert!(!installer_is_whole(&text[..text.len() / 2]));
         assert!(!installer_is_whole("<html>error</html>"));
@@ -1184,7 +716,7 @@ mod tests {
 
     #[test]
     fn the_installer_announces_steps_on_every_system() {
-        let installer = include_str!("../install.cmd");
+        let installer = include_str!("../../install.cmd");
         assert!(installer.contains("printf '\\n> %s\\n'"), "sh");
         assert!(installer.contains("Write-Host \"> compilando"), "PowerShell");
     }
@@ -1223,7 +755,7 @@ mod tests {
 
     #[test]
     fn the_command_by_hand_is_the_one_the_readme_shows() {
-        let readme = include_str!("../README.md");
+        let readme = include_str!("../../README.md");
         assert!(readme.contains(INSTALL_COMMAND), "{INSTALL_COMMAND}");
     }
 
@@ -1241,7 +773,7 @@ mod tests {
 
     #[test]
     fn macos_lists_one_app_with_its_new_icon() {
-        let text = include_str!("../install.cmd");
+        let text = include_str!("../../install.cmd");
         // In the Applications folder, the previous version would show as a second app.
         assert!(text.contains(r#"ANTERIOR="$CASA/anterior/$NOME.app""#));
         // macOS keeps icons by path, so it has to be told the app changed.
@@ -1252,7 +784,7 @@ mod tests {
 
     #[test]
     fn gnome_finds_the_icon_through_the_window_id() {
-        let installer = include_str!("../install.cmd");
+        let installer = include_str!("../../install.cmd");
         let id = paths::APP_ID;
         assert!(installer.contains(&format!("share/applications/{id}.desktop")), "the file's name is the id");
         assert!(installer.contains(&format!("StartupWMClass={id}")));
@@ -1264,7 +796,7 @@ mod tests {
     fn an_update_recompiles_what_changed() {
         // Without -m the files keep their commit's date, older than the last build, so
         // Cargo skipped the crates that changed and the update failed to compile.
-        let text = include_str!("../install.cmd");
+        let text = include_str!("../../install.cmd");
         assert_eq!(text.matches("tar -xzmf").count(), 2, "on both sides of the installer");
         assert!(!text.contains("tar -xzf"));
     }

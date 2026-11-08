@@ -343,7 +343,7 @@ fn asking_in_the_settings_answers_at_the_foot() {
     press(&mut ui, Role::Button, "Ver detalhes");
     assert!(says(&mut ui, "Detalhes da atualização"));
     assert!(says(&mut ui, "Sem disco."), "the whole reason, which the status bar would cut");
-    press(&mut ui, Role::Button, "Como atualizar à mão");
+    press(&mut ui, Role::Button, "Ver como atualizar à mão");
     assert!(says(&mut ui, "Se a atualização pelo app falhar"));
     assert!(says(&mut ui, "install.cmd"), "the command by hand is there to copy");
 }

@@ -30,5 +30,9 @@ web-sys = { workspace = true, features = ["console", "Window", "Location", "UrlS
 image.workspace = true
 pollster.workspace = true
 
+# The house follows its own rules: `cargo run -p ravenrs-lint -- -p component-gallery` (scripts/check.sh runs it).
+[package.metadata.ravenrs-lint]
+language = "en"
+
 [lints]
 workspace = true
