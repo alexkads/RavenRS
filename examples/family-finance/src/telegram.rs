@@ -50,6 +50,9 @@ struct Service {
     transcriber: Mutex<Option<(&'static str, Transcriber)>>,
     /// The last transaction each chat saved, which `/desfazer` takes back for a while.
     saved: Mutex<HashMap<i64, Saved>>,
+    /// One HTTP client for every call: it keeps the connection to Telegram open, where a
+    /// new client per call paid a TLS handshake each time, three or four for one tap.
+    agent: ureq::Agent,
 }
 
 /// A transaction the bot saved, for `/desfazer`.
@@ -240,8 +243,9 @@ pub fn serve_with_waker(
         pending: Mutex::new(HashMap::new()),
         transcriber: Mutex::new(None),
         saved: Mutex::new(HashMap::new()),
+        agent: telegram_agent(),
     };
-    let mut offset = 0;
+    let mut offset = read_offset(&service);
     let mut looked: Option<Instant> = None;
     let started = unix_seconds();
     // The messages that waited while the app was closed, per chat: how many, and the first.
@@ -262,6 +266,7 @@ pub fn serve_with_waker(
         let drained = updates.len() < UPDATES_AT_ONCE;
         for update in updates {
             offset = update.update_id + 1;
+            keep_offset(&service, offset);
             if let Some(message) = &update.message
                 && let Some(date) = message.date.filter(|date| *date < started - LATE_AFTER)
             {
@@ -327,9 +332,24 @@ fn tell_late(service: &Service, late: HashMap<i64, (usize, i64)>) {
 /// A button tap, as the command it stands for. The buttons go away once tapped, so the
 /// same question cannot be answered twice.
 fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
-    let _: Result<Value, _> =
-        telegram_call(service, "answerCallbackQuery", json!({"callback_query_id": tap.id}));
-    let message = tap.message?;
+    let answer = |text: Option<&str>| {
+        let _: Result<Value, _> = telegram_call(
+            service,
+            "answerCallbackQuery",
+            json!({"callback_query_id": tap.id, "text": text.unwrap_or_default()}),
+        );
+    };
+    let Some(message) = tap.message else {
+        answer(None);
+        return None;
+    };
+    // A button whose question was answered, or that waited too long on a slow network and
+    // was tapped again, says so on itself instead of answering in the chat.
+    if is_stale(service, message.chat.id, tap.from.id, tap.data.as_deref().unwrap_or_default()) {
+        answer(Some("Esse botão já foi usado."));
+        return None;
+    }
+    answer(None);
     let _: Result<Value, _> = telegram_call(
         service,
         "editMessageReplyMarkup",
@@ -341,6 +361,9 @@ fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
         "rf:no" => "/cancelar".to_owned(),
         "rf:new" => "/criar".to_owned(),
         "rf:undo" => "/desfazer".to_owned(),
+        data if data.starts_with("rf:valor:") => {
+            format!("/valor {}", data["rf:valor:".len()..].parse::<i64>().ok()?)
+        }
         data if data.starts_with("rf:aviso:") => {
             let (word, on) = data["rf:aviso:".len()..].split_once(':')?;
             format!("/avisos {word} {}", if on == "on" { "ligar" } else { "desligar" })
@@ -355,6 +378,34 @@ fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
         text: Some(command),
         voice: None,
     })
+}
+
+/// Whether a tap from a linked chat answers a question that is no longer asked. A chat
+/// that is not linked is never stale here: it hears that it must scan the QR.
+fn is_stale(service: &Service, chat: i64, user: i64, data: &str) -> bool {
+    let linked = Database::open(&service.config.db_path)
+        .and_then(|db| db.telegram_chat_is_linked(chat, user))
+        .unwrap_or(false);
+    if !linked {
+        return false;
+    }
+    let step_is = |wanted: fn(&Step) -> bool| {
+        service.pending.lock().ok().is_none_or(|pending| {
+            pending.get(&chat).is_none_or(|p| p.since.elapsed() > PENDING_TTL || !wanted(&p.step))
+        })
+    };
+    match data {
+        "rf:ok" | "rf:fix" => step_is(|step| matches!(step, Step::Confirm(_))),
+        "rf:new" => step_is(|step| matches!(step, Step::Category(_))),
+        data if data.starts_with("rf:cat:") => step_is(|step| matches!(step, Step::Category(_))),
+        "rf:no" => step_is(|_| true),
+        "rf:undo" => service
+            .saved
+            .lock()
+            .ok()
+            .is_none_or(|saved| saved.get(&chat).is_none_or(|saved| saved.at.elapsed() > UNDO_TTL)),
+        _ => false,
+    }
 }
 
 fn bot_token() -> Result<String, String> {
@@ -376,6 +427,35 @@ fn api_base() -> String {
         .ok()
         .filter(|base| !base.trim().is_empty())
         .map_or_else(|| "https://api.telegram.org".to_owned(), |base| base.trim_end_matches('/').to_owned())
+}
+
+/// The file beside the database that keeps how far the bot has read. Telegram resends what
+/// it has not seen confirmed, so a bot that fell on a bad network and starts over from zero
+/// would answer the last messages twice.
+fn offset_file(db_path: &Path) -> PathBuf {
+    db_path.with_extension("telegram-offset")
+}
+
+/// Which bot an offset belongs to: update numbers are per bot, so another token starts over.
+fn bot_key(service: &Service) -> String {
+    pairing_hash(&service.config.bot_token)[..16].to_owned()
+}
+
+fn read_offset(service: &Service) -> i64 {
+    std::fs::read_to_string(offset_file(&service.config.db_path))
+        .ok()
+        .and_then(|text| {
+            let (key, offset) = text.trim().split_once(':')?;
+            (key == bot_key(service)).then(|| offset.parse().ok()).flatten()
+        })
+        .unwrap_or(0)
+}
+
+fn keep_offset(service: &Service, offset: i64) {
+    let text = format!("{}:{offset}", bot_key(service));
+    if let Err(error) = std::fs::write(offset_file(&service.config.db_path), text) {
+        tracing::warn!(%error, "could not keep how far the Telegram bot read");
+    }
 }
 
 /// The file beside the database that keeps the account receipts go to.
@@ -437,7 +517,21 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
             return Ok(());
         }
         let bytes = download_pdf(service, &document.file_id)?;
-        let amount_cents = extract_total_from_pdf(&bytes)?;
+        let amount_cents = match total_in_pdf(&bytes)? {
+            Total::One(cents) => cents,
+            Total::Several(values) => {
+                let rows: Vec<Vec<(String, String)>> = values
+                    .chunks(2)
+                    .map(|pair| {
+                        pair.iter()
+                            .map(|cents| (format!("R$ {}", format_brl(*cents)), format!("rf:valor:{cents}")))
+                            .collect()
+                    })
+                    .collect();
+                let question = "Encontrei mais de um valor no PDF. Qual é o total? Ou diga o valor: `gastei 22,74 no mercado`.";
+                return send_with_buttons(service, chat, question, &rows);
+            }
+        };
         service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(
             chat,
             Pending { amount_cents, from_pdf: true, since: Instant::now(), step: Step::Amount },
@@ -482,6 +576,22 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
         }
         return notices_command(service, chat, &text);
     }
+    if let Some(cents) = text.strip_prefix("/valor ").and_then(|cents| cents.parse::<i64>().ok()) {
+        if !(1..=100_000_000).contains(&cents) {
+            return send_message(service, chat, "Valor inválido.");
+        }
+        let chosen =
+            Pending { amount_cents: cents, from_pdf: true, since: Instant::now(), step: Step::Amount };
+        keep(chosen)?;
+        return send_message(
+            service,
+            chat,
+            &format!(
+                "Valor: R$ {}. Envie `despesa Categoria` ou `receita Categoria`, e quem gastou se quiser, em até 5 minutos.",
+                format_brl(cents)
+            ),
+        );
+    }
     if text == "/desfazer" || said == "desfazer" {
         if let Some(pending) = pending {
             keep(pending)?;
@@ -490,8 +600,14 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
     }
     let asking = pending.as_ref().is_some_and(|p| matches!(p.step, Step::Category(_) | Step::Confirm(_)));
     if text == "/cancelar" || (asking && NO_WORDS.contains(&said.as_str())) {
-        send_message(service, chat, "Lançamento cancelado.")?;
-        return Ok(());
+        let what = match pending {
+            Some(Pending { amount_cents, step: Step::Category(reply) | Step::Confirm(reply), .. }) => {
+                summary(amount_cents, &reply)
+            }
+            Some(Pending { amount_cents, .. }) => format!("R$ {}", format_brl(amount_cents)),
+            None => return send_message(service, chat, "❌ Nada a cancelar."),
+        };
+        return send_message(service, chat, &format!("❌ Cancelado: {what}. Nada foi salvo."));
     }
     let expired = pending.as_ref().is_some_and(|p| p.since.elapsed() > PENDING_TTL);
     let pending = pending.filter(|_| !expired);
@@ -509,13 +625,13 @@ fn handle_message(service: &Service, message: Message) -> Result<(), String> {
             let new_category = !reply.known;
             let summary = summary(amount_cents, &Reply { known: true, ..reply });
             let rows = [vec![("Desfazer".to_owned(), "rf:undo".to_owned())]];
-            send_with_buttons(service, chat, &format!("{summary} salva."), &rows)?;
+            send_with_buttons(service, chat, &format!("✅ Lançado: {summary}"), &rows)?;
             let saved = Saved { id, summary, new_category, at: Instant::now() };
             service.saved.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, saved);
         }
         Some(Pending { step: Step::Confirm(_), amount_cents, from_pdf, .. }) if text == "/corrigir" => {
             keep(Pending { amount_cents, from_pdf, since: Instant::now(), step: Step::Amount })?;
-            send_message(service, chat, "Envie de novo, por exemplo: `despesa Mercado Ana`.")?;
+            send_message(service, chat, "Envie de novo, por exemplo: `despesa Mercado`.")?;
         }
         Some(Pending { step: Step::Category(reply), amount_cents, from_pdf, since }) if text == "/criar" => {
             ask(service, chat, Pending { amount_cents, from_pdf, since, step: Step::Confirm(reply) })?;
@@ -591,7 +707,7 @@ fn undo(service: &Service, chat: i64) -> Result<(), String> {
         // Refused while another transaction or a bill uses it, and then it stays.
         let _ = db.delete_category(transaction.input.category_id);
     }
-    send_message(service, chat, &format!("Desfeito: {} apagada.", saved.summary))
+    send_message(service, chat, &format!("↩️ Desfeito: {}, apagado.", saved.summary))
 }
 
 /// Sends every paired chat what is due, each notice with a button that turns its kind off.
@@ -670,7 +786,8 @@ fn notices_command(service: &Service, chat: i64, text: &str) -> Result<(), Strin
     send_with_buttons(service, chat, &text, &rows)
 }
 
-const NOTHING_WAITING: &str = "Nada aguardando. Para lançar, diga o valor: `gastei 50 no mercado, foi a Ana`. Ou envie o PDF do comprovante.";
+const NOTHING_WAITING: &str =
+    "Nada aguardando. Para lançar, diga o valor: `gastei 50 no mercado`. Ou envie o PDF do comprovante.";
 
 /// Reads what `text` says about the pending amount and asks the next question: which
 /// category, whether to save, or what is missing, the amount kept.
@@ -833,7 +950,7 @@ fn read_reply(text: &str, members: &[Member], categories: &[Category]) -> Result
     });
     let Some((at, flow)) = found else {
         return Err(
-            "Diga se é despesa ou receita, por exemplo: `despesa Mercado` ou `despesa Mercado Ana`.".into()
+            "Diga se é despesa ou receita, por exemplo: `despesa Mercado` ou `gastei no mercado`.".into()
         );
     };
     words.remove(at);
@@ -1123,7 +1240,7 @@ fn telegram_call<T: for<'de> Deserialize<'de>>(
     method: &str,
     body: Value,
 ) -> Result<T, String> {
-    let agent = telegram_agent();
+    let agent = &service.agent;
     let url = format!("{}/bot{}/{method}", api_base(), service.config.bot_token);
     let mut response = agent
         .post(&url)
@@ -1170,7 +1287,7 @@ fn download_pdf(service: &Service, file_id: &str) -> Result<Vec<u8>, String> {
 /// A file someone sent, up to `limit` bytes. `Err(None)` when it is empty or too big.
 fn download(service: &Service, file_id: &str, limit: u64) -> Result<Vec<u8>, Option<String>> {
     let file: TelegramFile = telegram_call(service, "getFile", json!({"file_id":file_id})).map_err(Some)?;
-    let agent = telegram_agent();
+    let agent = &service.agent;
     let url = format!("{}/file/bot{}/{}", api_base(), service.config.bot_token, file.file_path);
     let mut response = agent.get(&url).call().map_err(|error| {
         Some(format!(
@@ -1276,17 +1393,44 @@ fn decode_voice(ogg: &[u8]) -> Option<Vec<f32>> {
 /// Finds the one total in a receipt. The text is read in Rust, the same on every system;
 /// when that text has no single total and `pdftotext` happens to be installed, its
 /// reading gets a second chance.
+#[cfg(test)]
 fn extract_total_from_pdf(pdf: &[u8]) -> Result<i64, String> {
-    let ours = text_in_pdf(pdf)
-        .ok_or_else(|| "o PDF não tem texto extraível. Envie outro comprovante.".to_owned())
-        .and_then(|text| extract_total_from_text(&text));
-    match ours {
-        Ok(total) => Ok(total),
-        Err(reason) => match total_with_pdftotext(pdf) {
-            Some(Ok(total)) => Ok(total),
-            _ => Err(reason),
-        },
+    match total_in_pdf(pdf)? {
+        Total::One(cents) => Ok(cents),
+        Total::Several(_) => Err("Encontrei mais de um valor total no PDF.".into()),
     }
+}
+
+/// What a receipt says its total is.
+enum Total {
+    One(i64),
+    /// The amounts it could be, for the person to choose: never guessed.
+    Several(Vec<i64>),
+}
+
+/// The most amounts offered as buttons when a receipt has several.
+const TOTAL_CHOICES: usize = 6;
+
+/// The receipt's total, read by us or, when that finds no single one, by `pdftotext`.
+fn total_in_pdf(pdf: &[u8]) -> Result<Total, String> {
+    let ours = text_in_pdf(pdf).map(|text| totals_in_text(&text));
+    if let Some([one]) = ours.as_deref() {
+        return Ok(Total::One(*one));
+    }
+    let theirs = total_with_pdftotext(pdf);
+    if let Some([one]) = theirs.as_deref() {
+        return Ok(Total::One(*one));
+    }
+    let Some(mut values) = ours.filter(|v| !v.is_empty()).or(theirs.filter(|v| !v.is_empty())) else {
+        return Err(if text_in_pdf(pdf).is_none() {
+            "o PDF não tem texto extraível. Diga o valor: `gastei 22,74 no mercado`.".into()
+        } else {
+            "Não encontrei um valor total legível no PDF. Diga o valor: `gastei 22,74 no mercado`.".into()
+        });
+    };
+    values.dedup();
+    values.truncate(TOTAL_CHOICES);
+    Ok(Total::Several(values))
 }
 
 /// The PDF's text. A malformed file can make the reader panic; that is no text.
@@ -1295,7 +1439,7 @@ fn text_in_pdf(pdf: &[u8]) -> Option<String> {
 }
 
 /// The total as `pdftotext` reads it, or `None` when it is not installed or fails.
-fn total_with_pdftotext(pdf: &[u8]) -> Option<Result<i64, String>> {
+fn total_with_pdftotext(pdf: &[u8]) -> Option<Vec<i64>> {
     let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos();
     let path = std::env::temp_dir().join(format!("raven-financas-{}-{nonce}.pdf", std::process::id()));
     let written =
@@ -1304,16 +1448,22 @@ fn total_with_pdftotext(pdf: &[u8]) -> Option<Result<i64, String>> {
         written.is_ok().then(|| Command::new("pdftotext").arg("-layout").arg(&path).arg("-").output());
     let _ = remove_file(&path);
     let output = output?.ok().filter(|output| output.status.success())?;
-    Some(extract_total_from_text(&String::from_utf8(output.stdout).ok()?))
+    Some(totals_in_text(&String::from_utf8(output.stdout).ok()?))
 }
 
-fn extract_total_from_text(text: &str) -> Result<i64, String> {
+/// The amounts that could be the total, sorted: on a total's line, or else after "R$".
+fn totals_in_text(text: &str) -> Vec<i64> {
     let mut totals = text.lines().filter(|line| is_total_line(line)).flat_map(amounts_in).collect::<Vec<_>>();
     if totals.is_empty() {
         totals = text.lines().flat_map(amounts_after_currency).collect();
     }
     totals.sort_unstable();
-    match totals.as_slice() {
+    totals
+}
+
+#[cfg(test)]
+fn extract_total_from_text(text: &str) -> Result<i64, String> {
+    match totals_in_text(text).as_slice() {
         [amount] => Ok(*amount),
         [] => Err("Não encontrei um valor total legível no PDF. Envie outro comprovante.".into()),
         _ => Err("Encontrei mais de um valor total no PDF. Envie outro comprovante.".into()),
