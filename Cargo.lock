@@ -4664,6 +4664,7 @@ dependencies = [
  "proptest",
  "ravenrs-app-derive",
  "ravenrs-app-i18n",
+ "ravenrs-core",
  "ravenrs-criteria",
  "ravenrs-reactive",
  "regex-lite",
@@ -4760,6 +4761,7 @@ dependencies = [
  "ravenrs-report",
  "ravenrs-style",
  "ravenrs-widgets",
+ "serde_json",
 ]
 
 [[package]]

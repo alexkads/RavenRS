@@ -31,5 +31,8 @@ ravenrs-report.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets = { workspace = true, features = ["charts"] }
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

@@ -60,11 +60,14 @@ pub use job::{Job, JobChange, JobContext, JobWaker, JobWork};
 pub use model::FileStore;
 pub use model::{
     Diff, EmbeddedStore, MemoryModelStore, MergedModel, ModelLayer, ModelLayers, ModelNode, ModelStore,
-    UnusableNode, check_model, generate_model,
+    StoredModel, UnusableNode, check_model, generate_model,
 };
 pub use module::{Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
+#[cfg(not(target_arch = "wasm32"))]
+pub use ravenrs_core::FileStorage;
+pub use ravenrs_core::{MemoryStorage, Storage};
 pub use ravenrs_criteria::{Criteria, Value};
 pub use security::{
     ADMINISTRATORS_ROLE, Access, AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError,

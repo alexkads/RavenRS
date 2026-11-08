@@ -42,6 +42,41 @@ impl ModelStore for MemoryModelStore {
     }
 }
 
+/// The person's own settings kept in a [`Storage`](ravenrs_core::Storage) under a name: a file on
+/// the desktop, the browser's IndexedDB on the web, beside the records.
+pub struct StoredModel {
+    storage: std::rc::Rc<dyn ravenrs_core::Storage>,
+    name: String,
+}
+
+impl std::fmt::Debug for StoredModel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StoredModel").field("name", &self.name).finish_non_exhaustive()
+    }
+}
+
+impl StoredModel {
+    /// Settings kept in `storage` under `name`.
+    pub fn new(storage: impl ravenrs_core::Storage + 'static, name: impl Into<String>) -> Self {
+        Self { storage: std::rc::Rc::new(storage), name: name.into() }
+    }
+}
+
+impl ModelStore for StoredModel {
+    fn load(&self) -> Result<Option<Diff>, ModelError> {
+        let failed = |e: String| ModelError(format!("{}: {e}", self.name));
+        let Some(bytes) = self.storage.read(&self.name).map_err(failed)? else { return Ok(None) };
+        let text = String::from_utf8(bytes).map_err(|e| failed(e.to_string()))?;
+        Diff::parse(&text).map(Some).map_err(|e| failed(e.to_string()))
+    }
+
+    fn save(&self, difference: &Diff) -> Result<(), ModelError> {
+        self.storage
+            .write(&self.name, difference.to_json().as_bytes())
+            .map_err(|e| ModelError(format!("{}: {e}", self.name)))
+    }
+}
+
 /// A difference in a file. A failure while saving leaves the old file whole.
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Debug)]
