@@ -4,9 +4,16 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+
+- `MotionTokens` has a `draw_in` field (the `duration-draw` token, `Transition::draw_in`): code that builds it field by field adds `draw_in: Transition::draw_in()`.
+
 ### Added
 
 - `Playground` has a new layout: one bar (examples, the app's actions, Restore, Download project, Run), the code beside the result, and an **Output** panel under the result with Console, what the code prints, and Problems, where it went wrong, including closures that fail later on a click. Picking an example runs it. The last result that worked fades while the code has problems. Below 768 px: Code, Result and Output tabs, the other actions in a ⋯ menu and Run at the bottom. `Runner::take_output` and `Runner::watch` carry what a runner hears, and `LiveRunner` hears `println!` and its family through `ravenrs_live::printed` and `on_output`. `ViewExt::opacity` (`Faded`) draws any view faded, and `DropdownMenu::icon_only` shows only its icon.
+- A chart's data draws in the first time it is painted, over a second that starts fast and settles softly, with its axes, grid and their labels there from the first frame: lines, areas, dots, candles and the flows of a `SankeyChart` come in from the left, bars grow out of the zero line together, a pie or a doughnut sweeps clockwise with its labels and guides coming in at the end, and a radar grows out of its center over rings that stay put. The tooltip waits until the data is whole, and with less motion asked for it is whole at once. `Chart::no_appear` and `SankeyChart::no_appear` turn it off, and `appear_key` draws it in again when its key changes. It runs on the GPU over the pictures a chart already keeps, so it draws none anew.
+- `BuildCx::appear`: how far a view has appeared since it was first built, for content that draws itself in.
+- `ravenrs-graphics`: a `Plot` says which layers are its `backdrop` and its `notes`, which labels are `data_labels`, where bars start (`baseline`), and its `uncut_rules`, which `rules_around_bars` cuts again for bars of another length.
 - The site also publishes to Vercel: `scripts/deploy-vercel.sh` (`--prod` for the production address) sends the same files `scripts/deploy-pages.sh` sends to GitHub Pages, both built here by `scripts/build-site.sh`. Vercel builds nothing.
 - The site has a playground at `/playground/`: every example in one place, picked from its bar, edited, run and downloaded as a Cargo project. `?example=Slider` opens on one. Each component page links to it, and so does the home page.
 - `ravenrs-project`: code of the playground becomes a Cargo project, `Cargo.toml` on the published crates, `src/lib.rs` with the code and the browser's entry, `src/main.rs`, `web/index.html`, a README and the records as `src/seed.json`, as files or one `.zip`. `Playground::download` adds the button that saves it, with the system's dialog or as a download, and marks in the code why it cannot. The gallery's playground downloads every example this way.

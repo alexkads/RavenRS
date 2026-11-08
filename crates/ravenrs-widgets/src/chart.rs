@@ -144,6 +144,18 @@ struct Picture {
     dot_icons: Vec<(TextLayout, Point, Color)>,
     /// How wide each label is, as a rebuild asks again for the same ones.
     widths: HashMap<u32, HashMap<String, f32>>,
+    /// The picture split in its backdrop, its data and its notes, drawn the first time
+    /// a draw-in asks for it.
+    parts: Option<Parts>,
+}
+
+/// The pictures of a chart's backdrop, of its data and of its notes, apart, for its
+/// data to draw in over a backdrop that stays put.
+#[derive(Default)]
+struct Parts {
+    backdrop: Option<(Rect, ImageData)>,
+    data: Option<(Rect, ImageData)>,
+    notes: Option<(Rect, ImageData)>,
 }
 
 /// Measured widths a chart keeps, more than even a long series has categories: one
@@ -179,6 +191,7 @@ impl Picture {
             source(area, cx.scale, &measure)
         };
         if !same_pixels || drawing.layers != self.drawing.layers {
+            self.parts = None;
             self.image = drawn_part(&drawing.layers, area, cx.scale)
                 .and_then(|part| picture_of(&drawing.layers, part, cx.scale).map(|image| (part, image)));
         }
@@ -205,6 +218,230 @@ impl Picture {
         self.size = size;
         self.scale = cx.scale;
         self.drawing = drawing;
+    }
+
+    /// Its backdrop, its data and its notes, each a picture of its own. They are only
+    /// drawn while the data draws in, and kept with the other pictures.
+    fn parts(&mut self) -> &Parts {
+        if self.parts.is_none() {
+            let area = Rect::new(0.0, 0.0, self.size.width, self.size.height);
+            let scale = self.scale;
+            let image = |layers: Vec<vector::Layer>| {
+                drawn_part(&layers, area, scale)
+                    .and_then(|part| picture_of(&layers, part, scale).map(|image| (part, image)))
+            };
+            let plot = &self.drawing;
+            let backdrop = plot.backdrop.min(plot.layers.len());
+            let (mut data, mut notes) = (Vec::new(), Vec::new());
+            for (i, layer) in plot.layers.iter().enumerate().skip(backdrop) {
+                if plot.notes.contains(&i) { notes.push(layer.clone()) } else { data.push(layer.clone()) }
+            }
+            self.parts = Some(Parts {
+                backdrop: image(plot.layers[..backdrop].to_vec()),
+                data: image(data),
+                notes: image(notes),
+            });
+        }
+        self.parts.get_or_insert_with(Parts::default)
+    }
+}
+
+/// How a chart's data draws in the first time it is painted. Its axes, its grid and
+/// their labels are there from the first frame.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DrawIn {
+    /// From the left across, as a pen would: lines, areas, dots and candles.
+    Reveal,
+    /// Out of the zero line, all bars together, a negative one to its own side.
+    Grow { horizontal: bool },
+    /// Clockwise from the first slice, with the labels coming in at the end.
+    Sweep { separator: f32 },
+    /// Out of the center, over rings and spokes that stay put.
+    Spread,
+}
+
+/// How far a chart's data has drawn in, from 0 to 1, and how it does.
+#[derive(Clone, Copy, Debug)]
+struct Appear {
+    how: DrawIn,
+    progress: f32,
+}
+
+/// How far into a sweep the labels and their guides start to come in, once the
+/// slices are mostly there.
+const LABELS_COME_IN: f32 = 0.7;
+/// How far before the first point a reveal starts, so a dot there shows whole as
+/// soon as the reveal reaches it.
+const REVEAL_BLEED: f32 = ACTIVE_DOT;
+
+/// What a chart's key to draw in again comes down to.
+pub(crate) fn appear_key_of(key: impl std::hash::Hash) -> u64 {
+    use std::hash::{BuildHasher, BuildHasherDefault, DefaultHasher};
+    BuildHasherDefault::<DefaultHasher>::default().hash_one(key)
+}
+
+/// Where a bar is once it has grown `t` of the way out of `baseline`.
+fn grown(rect: Rect, baseline: f32, horizontal: bool, t: f32) -> Rect {
+    let toward = |at: f32| baseline + (at - baseline) * t;
+    if horizontal {
+        let (a, b) = (toward(rect.x()), toward(rect.max_x()));
+        Rect::new(a, rect.y(), b - a, rect.height())
+    } else {
+        let (a, b) = (toward(rect.y()), toward(rect.max_y()));
+        Rect::new(rect.x(), a, rect.width(), b - a)
+    }
+}
+
+/// The angles of a slice `t` of the way into a sweep that starts at `start`.
+fn swept(from: f32, to: f32, start: f32, t: f32) -> (f32, f32) {
+    (start + (from - start) * t, start + (to - start) * t)
+}
+
+/// The part of a frame a reveal shows, `t` of the way from the plot's left edge to
+/// the frame's right one. It bleeds a dot's width past both, so dots show whole.
+pub(crate) fn revealed(frame: Rect, area: Rect, t: f32) -> Rect {
+    let left = frame.x() + area.x() - REVEAL_BLEED;
+    let right = left + (frame.max_x() + REVEAL_BLEED - left) * t;
+    let top = frame.y() - REVEAL_BLEED;
+    let x = frame.x() - REVEAL_BLEED;
+    Rect::new(x, top, (right - x).max(0.0), frame.height() + REVEAL_BLEED * 2.0)
+}
+
+/// One of the pictures, at `opacity`, scaled `by` around a point when it grows.
+fn paint_image(
+    part: Option<&(Rect, ImageData)>,
+    frame: Rect,
+    opacity: f32,
+    by: Option<(Point, f32)>,
+    cx: &mut PaintCx<'_>,
+) {
+    let Some((part, image)) = part else { return };
+    if opacity <= 0.0 {
+        return;
+    }
+    let part = match by {
+        Some((center, k)) => Rect::new(
+            center.x + (part.x() - center.x) * k,
+            center.y + (part.y() - center.y) * k,
+            part.width() * k,
+            part.height() * k,
+        ),
+        None => *part,
+    };
+    if part.width() <= 0.0 || part.height() <= 0.0 {
+        return;
+    }
+    let at = Rect::new(frame.x() + part.x(), frame.y() + part.y(), part.width(), part.height());
+    cx.scene.push_image(ImageQuad { opacity, ..ImageQuad::new(at, image.clone()) });
+}
+
+/// The labels, or only those on the data (`Some(true)`) or the others (`Some(false)`),
+/// at a share of their strength.
+fn paint_labels(picture: &Picture, frame: Rect, on_data: Option<bool>, strength: f32, cx: &mut PaintCx<'_>) {
+    if strength <= 0.0 {
+        return;
+    }
+    for (i, (layout, at, color)) in picture.labels.iter().enumerate() {
+        if on_data.is_some_and(|wanted| picture.drawing.data_labels.binary_search(&i).is_ok() != wanted) {
+            continue;
+        }
+        let origin = Point::new(frame.x() + at.x, frame.y() + at.y);
+        layout.paint(origin, color.with_alpha(color.a * strength), cx.scene);
+    }
+}
+
+fn paint_dot_icons(picture: &Picture, frame: Rect, strength: f32, cx: &mut PaintCx<'_>) {
+    if strength <= 0.0 {
+        return;
+    }
+    for (layout, at, color) in &picture.dot_icons {
+        let origin = Point::new(frame.x() + at.x, frame.y() + at.y);
+        layout.paint(origin, color.with_alpha(color.a * strength), cx.scene);
+    }
+}
+
+/// The slices of a round chart `t` of the way into their sweep, each ring from its
+/// own first slice.
+fn paint_swept_slices(plot: &Plot, frame: Rect, t: f32, separator: f32, cx: &mut PaintCx<'_>) {
+    for sector in &plot.sectors {
+        let start = plot
+            .sectors
+            .iter()
+            .filter(|s| s.series == sector.series)
+            .map(|s| s.from)
+            .fold(f32::INFINITY, f32::min);
+        let (from, to) = swept(sector.from, sector.to, start, t);
+        if to - from <= f32::EPSILON {
+            continue;
+        }
+        let path = plot::gapped_slice(sector.center, sector.inner, sector.outer, from, to, separator);
+        cx.scene.push_path(PathFill {
+            transform: [1.0, 0.0, 0.0, 1.0, frame.x(), frame.y()],
+            ..PathFill::solid(path_elements(&path), sector.color)
+        });
+    }
+}
+
+/// The data while it draws in, with its labels and notes, but not the labels of the axes.
+fn paint_drawing_in(appear: Appear, picture: &mut Picture, frame: Rect, cx: &mut PaintCx<'_>) {
+    let t = appear.progress.clamp(0.0, 1.0);
+    // The grid is there from the first frame. Only bars, as they grow, cut it anew.
+    if !matches!(appear.how, DrawIn::Grow { .. }) {
+        paint_rules(&picture.drawing.rules, frame, cx);
+    }
+    match appear.how {
+        DrawIn::Reveal => {
+            cx.scene.push_clip(revealed(frame, picture.drawing.area, t));
+            paint_bars(None, &picture.drawing.bars, frame, cx);
+            paint_candles(None, &picture.drawing, frame, cx);
+            paint_image(picture.image.as_ref(), frame, 1.0, None, cx);
+            paint_labels(picture, frame, Some(true), 1.0, cx);
+            paint_dot_icons(picture, frame, 1.0, cx);
+            cx.scene.pop_clip();
+        }
+        DrawIn::Grow { horizontal } => {
+            let plot = &picture.drawing;
+            let baseline =
+                plot.baseline.unwrap_or(if horizontal { plot.area.x() } else { plot.area.max_y() });
+            let bars: Vec<plot::Bar> = plot
+                .bars
+                .iter()
+                .map(|bar| {
+                    let mut bar = *bar;
+                    bar.rect = grown(bar.rect, baseline, horizontal, t);
+                    bar
+                })
+                .collect();
+            // The grid stops at the bars as they are now, and not where they will end.
+            let rules = if plot.uncut_rules.is_empty() {
+                plot.rules.clone()
+            } else {
+                plot::rules_around_bars(&plot.uncut_rules, &bars)
+            };
+            paint_rules(&rules, frame, cx);
+            paint_bars(None, &bars, frame, cx);
+            paint_image(picture.image.as_ref(), frame, t, None, cx);
+            paint_labels(picture, frame, Some(true), t, cx);
+            paint_dot_icons(picture, frame, t, cx);
+        }
+        DrawIn::Sweep { separator } => {
+            paint_swept_slices(&picture.drawing, frame, t, separator, cx);
+            let late = ((t - LABELS_COME_IN) / (1.0 - LABELS_COME_IN)).clamp(0.0, 1.0);
+            let notes = picture.parts().notes.clone();
+            paint_image(notes.as_ref(), frame, late, None, cx);
+            paint_labels(picture, frame, Some(true), late, cx);
+        }
+        DrawIn::Spread => {
+            let parts = picture.parts();
+            let (backdrop, data, notes) = (parts.backdrop.clone(), parts.data.clone(), parts.notes.clone());
+            let plot = &picture.drawing;
+            let center = plot.sectors.first().map_or_else(|| plot.area.center(), |s| s.center);
+            paint_image(backdrop.as_ref(), frame, 1.0, None, cx);
+            paint_image(data.as_ref(), frame, 1.0, Some((center, t)), cx);
+            paint_image(notes.as_ref(), frame, t, None, cx);
+            paint_labels(picture, frame, Some(true), t, cx);
+            paint_dot_icons(picture, frame, t, cx);
+        }
     }
 }
 
@@ -290,8 +527,8 @@ fn snapped(rect: Rect, scale: f32) -> Rect {
     }
 }
 
-fn paint_rules(plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
-    for rule in &plot.rules {
+fn paint_rules(rules: &[plot::Rule], frame: Rect, cx: &mut PaintCx<'_>) {
+    for rule in rules {
         let rect = Rect::new(
             frame.x() + rule.rect.x(),
             frame.y() + rule.rect.y(),
@@ -342,18 +579,18 @@ fn paint_strip(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut PaintCx
 
 /// The bars. Around the focus they fade, less the closer they are to it, so focus
 /// hands over from one category to the next as it passes.
-fn paint_bars(highlight: Option<&Highlight>, plot: &Plot, frame: Rect, cx: &mut PaintCx<'_>) {
-    for bar in &plot.bars {
+fn paint_bars(highlight: Option<&Highlight>, bars: &[plot::Bar], frame: Rect, cx: &mut PaintCx<'_>) {
+    for bar in bars {
+        let shape = bar.rect;
+        // One that has not started to grow yet.
+        if shape.width() <= 0.0 || shape.height() <= 0.0 {
+            continue;
+        }
         let faded = highlight.map_or(0.0, |highlight| {
             let distance = (bar.index as f32 - highlight.at).abs().min(1.0);
             highlight.dim * highlight.focus * distance
         });
-        let rect = Rect::new(
-            frame.x() + bar.rect.x(),
-            frame.y() + bar.rect.y(),
-            bar.rect.width(),
-            bar.rect.height(),
-        );
+        let rect = Rect::new(frame.x() + shape.x(), frame.y() + shape.y(), shape.width(), shape.height());
         let strength = 1.0 - faded;
         let brush: Brush = match bar.gradient {
             Some(gradient) => ravenrs_core::LinearGradient {
@@ -464,14 +701,15 @@ fn paint_highlight(highlight: &Highlight, plot: &Plot, frame: Rect, cx: &mut Pai
     }
 }
 
-/// A box that paints what `drawing` lays out for its frame, around `children`.
+/// A box that paints what `drawing` lays out for its frame, around `children`: what
+/// stands out in it now, and how far its data has drawn in.
 fn plot_node(
     cx: &mut BuildCx<'_>,
     style: LayoutStyle,
     picture: Rc<RefCell<Picture>>,
     drawing: DrawingFn,
     dot_icon: Option<IconName>,
-    highlight: Option<Highlight>,
+    (highlight, appear): (Option<Highlight>, Option<Appear>),
     children: &[NodeId],
 ) -> NodeId {
     cx.container(
@@ -486,24 +724,28 @@ fn plot_node(
             if let Some(highlight) = &highlight {
                 paint_strip(highlight, &picture.drawing, frame, paint);
             }
-            paint_rules(&picture.drawing, frame, paint);
-            paint_bars(highlight.as_ref(), &picture.drawing, frame, paint);
-            paint_candles(highlight.as_ref(), &picture.drawing, frame, paint);
-            if let Some((part, image)) = &picture.image {
+            let drawing_in = appear.filter(|appear| appear.progress < 1.0);
+            if let Some(appear) = drawing_in {
+                paint_drawing_in(appear, &mut picture, frame, paint);
+            } else {
+                paint_rules(&picture.drawing.rules, frame, paint);
+                paint_bars(highlight.as_ref(), &picture.drawing.bars, frame, paint);
+                paint_candles(highlight.as_ref(), &picture.drawing, frame, paint);
                 let opacity = highlight.as_ref().map_or(1.0, Highlight::opacity);
-                let at = Rect::new(frame.x() + part.x(), frame.y() + part.y(), part.width(), part.height());
-                paint.scene.push_image(ImageQuad { opacity, ..ImageQuad::new(at, image.clone()) });
-            }
-            if let Some(highlight) = &highlight {
-                paint_lifted_slices(highlight, &picture.drawing, frame, paint);
+                paint_image(picture.image.as_ref(), frame, opacity, None, paint);
+                if let Some(highlight) = &highlight {
+                    paint_lifted_slices(highlight, &picture.drawing, frame, paint);
+                }
             }
             paint_top_rules(&picture.drawing, frame, paint);
             if let Some(highlight) = &highlight {
                 paint_highlight(highlight, &picture.drawing, frame, paint);
             }
-            for (layout, at, color) in picture.labels.iter().chain(&picture.dot_icons) {
-                let origin = Point::new(frame.x() + at.x, frame.y() + at.y);
-                layout.paint(origin, *color, paint.scene);
+            if drawing_in.is_some() {
+                paint_labels(&picture, frame, Some(false), 1.0, paint);
+            } else {
+                paint_labels(&picture, frame, None, 1.0, paint);
+                paint_dot_icons(&picture, frame, 1.0, paint);
             }
         })),
     )
@@ -512,7 +754,7 @@ fn plot_node(
 /// A box that paints what `drawing` lays out for its frame.
 fn drawing_node(cx: &mut BuildCx<'_>, style: LayoutStyle, drawing: DrawingFn) -> NodeId {
     let picture = cx.use_state(|| Rc::new(RefCell::new(Picture::default()))).peek().clone();
-    plot_node(cx, style, picture, drawing, None, None, &[])
+    plot_node(cx, style, picture, drawing, None, (None, None), &[])
 }
 
 /// The colors of a chart in this theme: none of them means anything, unlike status
@@ -993,6 +1235,8 @@ pub struct Chart {
     negative: Option<Semantic>,
     hover_focus: bool,
     hover_motion: bool,
+    appear: bool,
+    appear_key: u64,
 }
 
 /// What [`PlotStyle`] takes as it is. The theme and the data fill in the rest.
@@ -1121,6 +1365,8 @@ impl Chart {
             negative: None,
             hover_focus: true,
             hover_motion: true,
+            appear: true,
+            appear_key: 0,
         }
     }
 
@@ -1548,6 +1794,31 @@ impl Chart {
         self
     }
 
+    /// The data is whole from the first frame, instead of drawing in the first time
+    /// the chart is painted.
+    pub fn no_appear(mut self) -> Self {
+        self.appear = false;
+        self
+    }
+
+    /// Draws the data in again whenever `key` changes, such as for a new period or
+    /// another tab. With none, it only draws in the first time the chart is painted.
+    pub fn appear_key(mut self, key: impl std::hash::Hash) -> Self {
+        self.appear_key = appear_key_of(key);
+        self
+    }
+
+    /// How its data draws in, or `None` when it only fades in.
+    fn draw_in(&self, separator: f32) -> Option<DrawIn> {
+        match self.kind {
+            ChartKind::Bar => Some(DrawIn::Grow { horizontal: self.look.horizontal }),
+            ChartKind::Pie | ChartKind::Doughnut => Some(DrawIn::Sweep { separator }),
+            ChartKind::Radar => Some(DrawIn::Spread),
+            ChartKind::RadialBar => None,
+            _ => Some(DrawIn::Reveal),
+        }
+    }
+
     /// Where the legend goes (under the chart by default).
     pub fn legend_at(mut self, at: ChartLegend) -> Self {
         self.legend_at = at;
@@ -1855,7 +2126,15 @@ impl Chart {
         let active: State<Option<usize>> = cx.use_state(|| None::<usize>);
         let hovered = cx.is_hover_within();
         let focused = cx.is_focused();
-        let shown = active.get().filter(|_| (hovered || focused) && self.tooltip.is_some());
+        let draw_in = self.draw_in(style.separator).filter(|_| self.appear);
+        let m = theme.motion;
+        // Asked for on every build, so the states after it keep their places.
+        let progress =
+            cx.appear(self.appear_key, if draw_in.is_some() { m.draw_in } else { Transition::Instant });
+        let appear = draw_in.map(|how| Appear { how, progress });
+        // The tooltip waits until the data is whole.
+        let whole = appear.is_none_or(|appear| appear.progress >= 1.0);
+        let shown = active.get().filter(|_| (hovered || focused) && self.tooltip.is_some() && whole);
         let pointer: State<Option<Point>> = cx.use_state(|| None::<Point>);
 
         // The anchor of the tooltip is where the last picture put this category.
@@ -1915,7 +2194,6 @@ impl Chart {
         let is_bar = matches!(self.kind, ChartKind::Bar | ChartKind::Candlestick);
         let is_line = plain || matches!(self.kind, ChartKind::Line | ChartKind::Area);
         let is_round = matches!(self.kind, ChartKind::Pie | ChartKind::Doughnut);
-        let m = theme.motion;
         let moving =
             |transition: Transition| if self.hover_motion { transition } else { Transition::Instant };
 
@@ -1957,7 +2235,15 @@ impl Chart {
             Rc::new(move |rect, _, measure| plot::draw_measured(&data, rect, &style, measure))
         };
         let node_style = LayoutStyle { grow: 1.0, align_self: Some(Align::Stretch), ..LayoutStyle::leaf() };
-        let node = plot_node(cx, node_style, picture.clone(), drawing, self.dot_icon, highlight, &children);
+        let node = plot_node(
+            cx,
+            node_style,
+            picture.clone(),
+            drawing,
+            self.dot_icon,
+            (highlight, appear),
+            &children,
+        );
 
         if self.tooltip.is_some() {
             let (write, seen, follow) = (active.clone(), picture.clone(), pointer.clone());
@@ -2025,7 +2311,10 @@ impl Chart {
             semantics = semantics.value(panel.spoken());
         }
         cx.semantics(node, semantics);
-        cx.motion(node, Motion::new().enter(Effect::hidden(), m.base));
+        // What does not draw in fades in.
+        if appear.is_none() {
+            cx.motion(node, Motion::new().enter(Effect::hidden(), m.base));
+        }
 
         let mut parts = Vec::new();
         // The small kinds have their title and legend in their picture.

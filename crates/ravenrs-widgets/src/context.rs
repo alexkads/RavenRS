@@ -1175,6 +1175,28 @@ impl<'a> BuildCx<'a> {
         value.value(now)
     }
 
+    /// How far a view has appeared, from 0 to 1, since it was first built: for
+    /// content that draws itself in, such as a chart's data. A new `key` starts it
+    /// over. Under reduced motion, or with motion off, it is 1 from the start. Call
+    /// it in the same order on every build, as with [`Self::animated`].
+    pub fn appear(&mut self, key: u64, transition: Transition) -> f32 {
+        let cell = self.use_state(|| Rc::new(RefCell::new((key, Animated::new(0.0_f32))))).peek().clone();
+        let mut cell = cell.borrow_mut();
+        if cell.0 != key {
+            *cell = (key, Animated::new(0.0));
+        }
+        let now = self.motion_clock;
+        let transition =
+            if !self.motion_enabled || self.reduced_motion { Transition::Instant } else { transition };
+        let value = &mut cell.1;
+        value.set_target(1.0, transition, now);
+        if value.step(now) {
+            self.value_moving = true;
+            self.wake_at(self.now);
+        }
+        value.value(now)
+    }
+
     /// The user asked for less motion, in the system settings or in the theme.
     /// [`Motion`] already respects this; check it for motion you draw yourself.
     pub fn reduced_motion(&self) -> bool {
