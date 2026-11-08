@@ -1,5 +1,24 @@
 [
   {
+    "versao": "0.1.37",
+    "data": "2026-11-08",
+    "titulo": "Gráficos que entram desenhando.",
+    "importante": false,
+    "novidades": [
+      "Os gráficos do Painel entram desenhando: o saldo surge da esquerda para a direita, as barras de receitas e despesas crescem a partir do zero e a rosca das despesas gira até se completar.",
+      "Ao trocar o período do gráfico de saldo, ele desenha de novo com os meses escolhidos.",
+      "Quem pediu menos movimento no sistema vê os gráficos prontos, sem animação."
+    ],
+    "por_que_atualizar": "Para ver os números chegarem na tela e perceber de relance o que mudou.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      108,
+      190
+    ]
+  },
+  {
     "versao": "0.1.36",
     "data": "2026-11-07",
     "titulo": "Treinamentos com a voz no tempo certo, abertura com a logo e despedida.",
