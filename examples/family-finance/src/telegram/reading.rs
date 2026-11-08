@@ -74,7 +74,7 @@ pub(super) fn read_reply(text: &str, members: &[Member], categories: &[Category]
     });
     let Some((at, flow)) = found else {
         return Err(
-            "Diga se é despesa ou receita, por exemplo: `despesa Mercado` ou `despesa Mercado Ana`.".into()
+            "Diga se é despesa ou receita, por exemplo: `despesa Mercado` ou `gastei no mercado`.".into()
         );
     };
     words.remove(at);

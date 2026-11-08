@@ -55,6 +55,9 @@ struct Service {
     transcriber: Mutex<Option<(&'static str, Transcriber)>>,
     /// The last transaction each chat saved, which `/desfazer` takes back for a while.
     saved: Mutex<HashMap<i64, Saved>>,
+    /// One HTTP client for every call: it keeps the connection to Telegram open, where a
+    /// new client per call paid a TLS handshake each time, three or four for one tap.
+    agent: ureq::Agent,
 }
 
 /// A transaction the bot saved, for `/desfazer`.
@@ -168,8 +171,9 @@ pub fn serve_with_waker(
         pending: Mutex::new(HashMap::new()),
         transcriber: Mutex::new(None),
         saved: Mutex::new(HashMap::new()),
+        agent: telegram_agent(),
     };
-    let mut offset = 0;
+    let mut offset = read_offset(&service);
     let mut looked: Option<Instant> = None;
     let started = unix_seconds();
     // The messages that waited while the app was closed, per chat: how many, and the first.
@@ -190,6 +194,7 @@ pub fn serve_with_waker(
         let drained = updates.len() < UPDATES_AT_ONCE;
         for update in updates {
             offset = update.update_id + 1;
+            keep_offset(&service, offset);
             if let Some(message) = &update.message
                 && let Some(date) = message.date.filter(|date| *date < started - LATE_AFTER)
             {
@@ -255,9 +260,24 @@ fn tell_late(service: &Service, late: HashMap<i64, (usize, i64)>) {
 /// A button tap, as the command it stands for. The buttons go away once tapped, so the
 /// same question cannot be answered twice.
 fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
-    let _: Result<Value, _> =
-        telegram_call(service, "answerCallbackQuery", json!({"callback_query_id": tap.id}));
-    let message = tap.message?;
+    let answer = |text: Option<&str>| {
+        let _: Result<Value, _> = telegram_call(
+            service,
+            "answerCallbackQuery",
+            json!({"callback_query_id": tap.id, "text": text.unwrap_or_default()}),
+        );
+    };
+    let Some(message) = tap.message else {
+        answer(None);
+        return None;
+    };
+    // A button whose question was answered, or that waited too long on a slow network and
+    // was tapped again, says so on itself instead of answering in the chat.
+    if is_stale(service, message.chat.id, tap.from.id, tap.data.as_deref().unwrap_or_default()) {
+        answer(Some("Esse botão já foi usado."));
+        return None;
+    }
+    answer(None);
     let _: Result<Value, _> = telegram_call(
         service,
         "editMessageReplyMarkup",
@@ -269,6 +289,9 @@ fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
         "rf:no" => "/cancelar".to_owned(),
         "rf:new" => "/criar".to_owned(),
         "rf:undo" => "/desfazer".to_owned(),
+        data if data.starts_with("rf:valor:") => {
+            format!("/valor {}", data["rf:valor:".len()..].parse::<i64>().ok()?)
+        }
         data if data.starts_with("rf:aviso:") => {
             let (word, on) = data["rf:aviso:".len()..].split_once(':')?;
             format!("/avisos {word} {}", if on == "on" { "ligar" } else { "desligar" })
@@ -283,6 +306,34 @@ fn tapped(service: &Service, tap: CallbackQuery) -> Option<Message> {
         text: Some(command),
         voice: None,
     })
+}
+
+/// Whether a tap from a linked chat answers a question that is no longer asked. A chat
+/// that is not linked is never stale here: it hears that it must scan the QR.
+fn is_stale(service: &Service, chat: i64, user: i64, data: &str) -> bool {
+    let linked = Database::open(&service.config.db_path)
+        .and_then(|db| db.telegram_chat_is_linked(chat, user))
+        .unwrap_or(false);
+    if !linked {
+        return false;
+    }
+    let step_is = |wanted: fn(&Step) -> bool| {
+        service.pending.lock().ok().is_none_or(|pending| {
+            pending.get(&chat).is_none_or(|p| p.since.elapsed() > PENDING_TTL || !wanted(&p.step))
+        })
+    };
+    match data {
+        "rf:ok" | "rf:fix" => step_is(|step| matches!(step, Step::Confirm(_))),
+        "rf:new" => step_is(|step| matches!(step, Step::Category(_))),
+        data if data.starts_with("rf:cat:") => step_is(|step| matches!(step, Step::Category(_))),
+        "rf:no" => step_is(|_| true),
+        "rf:undo" => service
+            .saved
+            .lock()
+            .ok()
+            .is_none_or(|saved| saved.get(&chat).is_none_or(|saved| saved.at.elapsed() > UNDO_TTL)),
+        _ => false,
+    }
 }
 
 fn bot_token() -> Result<String, String> {
@@ -304,6 +355,35 @@ fn api_base() -> String {
         .ok()
         .filter(|base| !base.trim().is_empty())
         .map_or_else(|| "https://api.telegram.org".to_owned(), |base| base.trim_end_matches('/').to_owned())
+}
+
+/// The file beside the database that keeps how far the bot has read. Telegram resends what
+/// it has not seen confirmed, so a bot that fell on a bad network and starts over from zero
+/// would answer the last messages twice.
+fn offset_file(db_path: &Path) -> PathBuf {
+    db_path.with_extension("telegram-offset")
+}
+
+/// Which bot an offset belongs to: update numbers are per bot, so another token starts over.
+fn bot_key(service: &Service) -> String {
+    pairing_hash(&service.config.bot_token)[..16].to_owned()
+}
+
+fn read_offset(service: &Service) -> i64 {
+    std::fs::read_to_string(offset_file(&service.config.db_path))
+        .ok()
+        .and_then(|text| {
+            let (key, offset) = text.trim().split_once(':')?;
+            (key == bot_key(service)).then(|| offset.parse().ok()).flatten()
+        })
+        .unwrap_or(0)
+}
+
+fn keep_offset(service: &Service, offset: i64) {
+    let text = format!("{}:{offset}", bot_key(service));
+    if let Err(error) = std::fs::write(offset_file(&service.config.db_path), text) {
+        tracing::warn!(%error, "could not keep how far the Telegram bot read");
+    }
 }
 
 /// The file beside the database that keeps the account receipts go to.

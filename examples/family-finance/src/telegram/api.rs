@@ -95,7 +95,7 @@ pub(super) fn telegram_call<T: for<'de> Deserialize<'de>>(
     method: &str,
     body: Value,
 ) -> Result<T, String> {
-    let agent = telegram_agent();
+    let agent = &service.agent;
     let url = format!("{}/bot{}/{method}", api_base(), service.config.bot_token);
     let mut response = agent
         .post(&url)
@@ -142,7 +142,7 @@ pub(super) fn download_pdf(service: &Service, file_id: &str) -> Result<Vec<u8>, 
 /// A file someone sent, up to `limit` bytes. `Err(None)` when it is empty or too big.
 pub(super) fn download(service: &Service, file_id: &str, limit: u64) -> Result<Vec<u8>, Option<String>> {
     let file: TelegramFile = telegram_call(service, "getFile", json!({"file_id":file_id})).map_err(Some)?;
-    let agent = telegram_agent();
+    let agent = &service.agent;
     let url = format!("{}/file/bot{}/{}", api_base(), service.config.bot_token, file.file_path);
     let mut response = agent.get(&url).call().map_err(|error| {
         Some(format!(

@@ -49,7 +49,21 @@ pub(super) fn handle_message(service: &Service, message: Message) -> Result<(), 
             return Ok(());
         }
         let bytes = download_pdf(service, &document.file_id)?;
-        let amount_cents = extract_total_from_pdf(&bytes)?;
+        let amount_cents = match total_in_pdf(&bytes)? {
+            Total::One(cents) => cents,
+            Total::Several(values) => {
+                let rows: Vec<Vec<(String, String)>> = values
+                    .chunks(2)
+                    .map(|pair| {
+                        pair.iter()
+                            .map(|cents| (format!("R$ {}", format_brl(*cents)), format!("rf:valor:{cents}")))
+                            .collect()
+                    })
+                    .collect();
+                let question = "Encontrei mais de um valor no PDF. Qual é o total? Ou diga o valor: `gastei 22,74 no mercado`.";
+                return send_with_buttons(service, chat, question, &rows);
+            }
+        };
         service.pending.lock().map_err(|_| "estado do bot indisponível")?.insert(
             chat,
             Pending { amount_cents, from_pdf: true, since: Instant::now(), step: Step::Amount },
@@ -94,6 +108,22 @@ pub(super) fn handle_message(service: &Service, message: Message) -> Result<(), 
         }
         return notices_command(service, chat, &text);
     }
+    if let Some(cents) = text.strip_prefix("/valor ").and_then(|cents| cents.parse::<i64>().ok()) {
+        if !(1..=100_000_000).contains(&cents) {
+            return send_message(service, chat, "Valor inválido.");
+        }
+        let chosen =
+            Pending { amount_cents: cents, from_pdf: true, since: Instant::now(), step: Step::Amount };
+        keep(chosen)?;
+        return send_message(
+            service,
+            chat,
+            &format!(
+                "Valor: R$ {}. Envie `despesa Categoria` ou `receita Categoria`, e quem gastou se quiser, em até 5 minutos.",
+                format_brl(cents)
+            ),
+        );
+    }
     if text == "/desfazer" || said == "desfazer" {
         if let Some(pending) = pending {
             keep(pending)?;
@@ -102,8 +132,14 @@ pub(super) fn handle_message(service: &Service, message: Message) -> Result<(), 
     }
     let asking = pending.as_ref().is_some_and(|p| matches!(p.step, Step::Category(_) | Step::Confirm(_)));
     if text == "/cancelar" || (asking && NO_WORDS.contains(&said.as_str())) {
-        send_message(service, chat, "Lançamento cancelado.")?;
-        return Ok(());
+        let what = match pending {
+            Some(Pending { amount_cents, step: Step::Category(reply) | Step::Confirm(reply), .. }) => {
+                summary(amount_cents, &reply)
+            }
+            Some(Pending { amount_cents, .. }) => format!("R$ {}", format_brl(amount_cents)),
+            None => return send_message(service, chat, "❌ Nada a cancelar."),
+        };
+        return send_message(service, chat, &format!("❌ Cancelado: {what}. Nada foi salvo."));
     }
     let expired = pending.as_ref().is_some_and(|p| p.since.elapsed() > PENDING_TTL);
     let pending = pending.filter(|_| !expired);
@@ -121,13 +157,13 @@ pub(super) fn handle_message(service: &Service, message: Message) -> Result<(), 
             let new_category = !reply.known;
             let summary = summary(amount_cents, &Reply { known: true, ..reply });
             let rows = [vec![("Desfazer".to_owned(), "rf:undo".to_owned())]];
-            send_with_buttons(service, chat, &format!("{summary} salva."), &rows)?;
+            send_with_buttons(service, chat, &format!("✅ Lançado: {summary}"), &rows)?;
             let saved = Saved { id, summary, new_category, at: Instant::now() };
             service.saved.lock().map_err(|_| "estado do bot indisponível")?.insert(chat, saved);
         }
         Some(Pending { step: Step::Confirm(_), amount_cents, from_pdf, .. }) if text == "/corrigir" => {
             keep(Pending { amount_cents, from_pdf, since: Instant::now(), step: Step::Amount })?;
-            send_message(service, chat, "Envie de novo, por exemplo: `despesa Mercado Ana`.")?;
+            send_message(service, chat, "Envie de novo, por exemplo: `despesa Mercado`.")?;
         }
         Some(Pending { step: Step::Category(reply), amount_cents, from_pdf, since }) if text == "/criar" => {
             ask(service, chat, Pending { amount_cents, from_pdf, since, step: Step::Confirm(reply) })?;
@@ -203,7 +239,7 @@ pub(super) fn undo(service: &Service, chat: i64) -> Result<(), String> {
         // Refused while another transaction or a bill uses it, and then it stays.
         let _ = db.delete_category(transaction.input.category_id);
     }
-    send_message(service, chat, &format!("Desfeito: {} apagada.", saved.summary))
+    send_message(service, chat, &format!("↩️ Desfeito: {}, apagado.", saved.summary))
 }
 
 /// Sends every paired chat what is due, each notice with a button that turns its kind off.
@@ -282,7 +318,8 @@ pub(super) fn notices_command(service: &Service, chat: i64, text: &str) -> Resul
     send_with_buttons(service, chat, &text, &rows)
 }
 
-pub(super) const NOTHING_WAITING: &str = "Nada aguardando. Para lançar, diga o valor: `gastei 50 no mercado, foi a Ana`. Ou envie o PDF do comprovante.";
+pub(super) const NOTHING_WAITING: &str =
+    "Nada aguardando. Para lançar, diga o valor: `gastei 50 no mercado`. Ou envie o PDF do comprovante.";
 
 /// Reads what `text` says about the pending amount and asks the next question: which
 /// category, whether to save, or what is missing, the amount kept.
