@@ -45,7 +45,7 @@ const WIDE_FROM: f32 = 900.0;
 const ROW_HEIGHT: f32 = 140.0;
 /// What `TileLayout` takes from a tile's height: the gap to the next row, its header and its
 /// bottom margin.
-const TILE_FRAME: f32 = 12.0 + 36.0 + 12.0;
+const TILE_FRAME: f32 = 12.0 + 48.0 + 16.0;
 
 #[derive(Default)]
 struct Numbers {

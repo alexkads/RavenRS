@@ -928,6 +928,16 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     } else {
         (0..ticks).map(|i| low + step * i as f64).collect()
     };
+    // A line fitted to its values keeps a little room above its peak and below its lowest
+    // point, instead of running along the edge of the plot; values all on one side of zero
+    // stay on it.
+    let fitted = style.tight_scale && !banded && domain.is_none() && style.stack != Stack::Expand;
+    let domain = domain.or_else(|| {
+        let room = (max - min) * 0.06;
+        let below = if min >= 0.0 { (min - room).max(0.0) } else { min - room };
+        let above = if max <= 0.0 { (max + room).min(0.0) } else { max + room };
+        (fitted && below < above).then_some((below, above))
+    });
     if let Some((from, to)) = domain {
         // Round numbers stay, as far as they are inside what was asked for.
         let slack = step * 1e-6;
