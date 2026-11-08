@@ -2,7 +2,7 @@
 
 use ravenrs_app::{
     AppearanceRule, AppearanceTarget, DataAccess, EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter,
-    Reminder, Rule, StateMachine, Tint, ViewVariant,
+    RecordAction, Reminder, Rule, StateMachine, Tint, ViewVariant,
 };
 use ravenrs_app_ui::{CALENDAR_EDITOR, CHART_EDITOR, SCHEDULER_EDITOR, TREE_EDITOR};
 
@@ -151,13 +151,22 @@ fn actions() -> EntityInfo {
         "Tipos de Action",
         ACTIONS,
         "Selecione um registro e use a barra: Action simples, com confirmação, com valor digitado, com escolha, com janela e abrindo um endereço. \
-         Só para abertos só acende quando todos os selecionados estão abertos, e dentro do formulário há uma Action no próprio layout.",
+         Só para abertos só acende quando todos os selecionados estão abertos, e dentro do formulário há uma Action no próprio layout. \
+         Fechar e dobrar não tem código: é declarada com o que muda em cada registro, passa pelas regras e grava todos ou nenhum.",
     )
     .field(title())
     .field(FieldInfo::new("state", options(&[("open", "Aberto"), ("closed", "Fechado")])).caption("Situação"))
     .field(FieldInfo::new("amount", FieldKind::Integer).caption("Valor"))
     .field(FieldInfo::new("priority", options(&[("low", "Baixa"), ("high", "Alta")])).caption("Prioridade"))
     .form_actions("Tools")
+    .rule(Rule::range("amount", None, Some(10_000.0)))
+    .action(
+        RecordAction::new("Fechar e dobrar")
+            .id("DemoDeclared")
+            .enabled("[state] = 'open'")
+            .set("state = 'closed'; amount = [amount] * 2")
+            .confirm("Fechar e dobrar o valor dos selecionados?"),
+    )
 }
 
 fn all_editors() -> EntityInfo {

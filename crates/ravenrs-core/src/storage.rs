@@ -29,6 +29,7 @@ pub trait Storage {
 
 /// Pieces of data kept in memory, gone when the program ends: for tests and previews.
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MemoryStorage(RefCell<BTreeMap<String, Vec<u8>>>);
 
 impl fmt::Debug for MemoryStorage {
@@ -71,11 +72,13 @@ impl<S: Storage + ?Sized> Storage for std::rc::Rc<S> {
 /// to a draft first and then takes the file's place, so a crash never leaves half a file.
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FileStorage {
     folder: std::path::PathBuf,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FileStorage {
     /// Files in `folder`, which is made when first written to.
     pub fn new(folder: impl Into<std::path::PathBuf>) -> Self {

@@ -435,6 +435,11 @@ impl ApplicationBuilder {
         if !with_states.is_empty() {
             modules.push(Box::new(crate::workflow::StateMachineModule(with_states)));
         }
+        let with_actions: Vec<EntityInfo> =
+            entities.iter().filter(|entity| !entity.actions.is_empty()).cloned().collect();
+        if !with_actions.is_empty() {
+            modules.push(Box::new(crate::record_action::RecordActionModule(with_actions)));
+        }
         let mut zero = generate_model(&entities)?;
         for dashboard in &self.dashboards {
             crate::model::add_dashboard(&mut zero, dashboard);

@@ -78,6 +78,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ModelNode::__live_expose(registry);
     crate::EmbeddedStore::__live_expose_fields(registry);
     crate::MemoryModelStore::__live_expose_fields(registry);
+    crate::StoredModel::__live_expose_fields(registry);
+    crate::StoredModel::__live_expose(registry);
     #[cfg(not(target_arch = "wasm32"))]
     crate::FileStore::__live_expose_fields(registry);
     crate::DashboardContent::__live_expose_variants(registry);
@@ -88,6 +90,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Application::__live_expose(registry);
     crate::ApplicationBuilder::__live_expose_fields(registry);
     crate::ApplicationBuilder::__live_expose(registry);
+    crate::RecordAction::__live_expose_fields(registry);
+    crate::RecordAction::__live_expose(registry);
     crate::AuditMode::__live_expose_variants(registry);
     crate::AuditSettings::__live_expose_fields(registry);
     crate::AuditSettings::__live_expose(registry);

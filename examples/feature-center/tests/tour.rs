@@ -307,6 +307,22 @@ fn every_kind_of_action_runs() {
 }
 
 #[test]
+fn a_declared_action_asks_sets_and_keeps_with_no_code() {
+    let mut c = Center::memory("ana");
+    c.open_list("ActionDemo");
+    c.select("ActionDemo", 2.0);
+    c.run("DemoDeclared", ActionInput::None);
+    assert!(c.says("Fechar e dobrar o valor dos selecionados?"), "it asks first");
+    c.press("Fechar e dobrar");
+    assert!(c.session().error().is_none(), "{:?}", c.session().error());
+    assert_eq!(c.stored("ActionDemo", 2.0).get("state"), Value::Text("closed".into()));
+    assert_eq!(c.stored("ActionDemo", 2.0).get("amount"), Value::Number(400.0));
+    c.select("ActionDemo", 2.0);
+    let declared = c.session().frame().action("DemoDeclared").expect("there");
+    assert!(!declared.is_enabled(), "only for what is open");
+}
+
+#[test]
 fn texts_by_key_replace_words_and_add_the_center_s_own() {
     let mut c = Center::memory("ana");
     c.open_list("TextsDemo");

@@ -392,7 +392,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Spreadsheet: `Spreadsheet` over `ravenrs-sheet` (500+ functions, dynamic arrays, XLSX/XLS/ODS/CSV in, XLSX/CSV out), editing in the cell and the formula bar, selection by pointer and keys, clipboard, undo, fonts, fills, borders, merges, number formats, column widths, sheet tabs | ✓ | | ribbon of every command, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find, the culture's separators |
 | Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`), a gate of exact counters and frame times (`crates/ravenrs-perf`, budgets in [docs/QUALITY.md](docs/QUALITY.md)), the diagnostics panel with GPU timestamps ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) | | stepping through a frozen frame, a map of what was rebuilt, invalidation by subtree |
-| Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions, frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
+| Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions (also declared as data), frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
 
 ## 12. Decisions log
 

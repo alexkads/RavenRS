@@ -46,6 +46,7 @@ impl ModelStore for MemoryModelStore {
 
 /// The person's own settings kept in a [`Storage`](ravenrs_core::Storage) under a name: a file on
 /// the desktop, the browser's IndexedDB on the web, beside the records.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct StoredModel {
     storage: std::rc::Rc<dyn ravenrs_core::Storage>,
     name: String,
@@ -57,6 +58,7 @@ impl std::fmt::Debug for StoredModel {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl StoredModel {
     /// Settings kept in `storage` under `name`.
     pub fn new(storage: impl ravenrs_core::Storage + 'static, name: impl Into<String>) -> Self {

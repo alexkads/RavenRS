@@ -4,8 +4,8 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as Tokens;
 use quote::{quote, quote_spanned};
 use ravenrs_app_spec::{
-    AppearancePiece, AppearanceSpec, ChoiceSpec, ContextSpec, DataAccessSpec, FieldSpec, KindSpec,
-    RuleKindSpec, RuleSpec, SeveritySpec, TintSpec, parse_enum, parse_object,
+    ActionSpec, AppearancePiece, AppearanceSpec, ChoiceSpec, ContextSpec, DataAccessSpec, FieldSpec,
+    KindSpec, RuleKindSpec, RuleSpec, SelectionSpec, SeveritySpec, TintSpec, parse_enum, parse_object,
 };
 use syn::spanned::Spanned;
 use syn::{DeriveInput, Error, Result, parse_macro_input};
@@ -49,9 +49,17 @@ use syn::{DeriveInput, Error, Result, parse_macro_input};
 ///   enabled = false, visible = false, priority = 1, context = "list", action)]`. With `layout`,
 ///   the names are groups of a form; with `action`, actions. A context is `list`, `detail` or a
 ///   view's id. Tints are `danger`, `warning`, `success`, `accent` and `muted`.
+/// * `#[action(caption = "...", set = "state = 'done'; finished = Today()", enabled = "...",
+///   selection = "many", confirm = "...", id = "...")]`: an action that sets fields of the records
+///   selected, each read from the record as it was, and keeps them once they meet the rules.
+///   `selection` is `one`, `many` (the default) or `any`; `enabled` is what every record selected
+///   has to meet for it to be on. Both expressions are checked here.
 /// * `#[variant(id = "...", caption = "...", filter = "...", columns = "a,b")]` and
 ///   `#[list_filter(id = "...", caption = "...", filter = "...")]`, for people to pick on the list.
-#[proc_macro_derive(BusinessObject, attributes(object, field, rule, appearance, variant, list_filter))]
+#[proc_macro_derive(
+    BusinessObject,
+    attributes(object, field, rule, appearance, variant, list_filter, action)
+)]
 pub fn derive_business_object(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     business_object(&input).unwrap_or_else(Error::into_compile_error).into()
@@ -270,6 +278,29 @@ fn choice_tokens(choice: &ChoiceSpec) -> Tokens {
     }
 }
 
+fn action_tokens(action: &ActionSpec) -> Tokens {
+    let (caption, set) = (&action.caption, &action.set);
+    let mut tokens = quote!(::ravenrs_app::RecordAction::new(#caption).set(#set));
+    if let Some(id) = &action.id {
+        tokens = quote!(#tokens.id(#id));
+    }
+    if let Some(selection) = action.selection {
+        let selection = match selection {
+            SelectionSpec::One => quote!(RequireSingle),
+            SelectionSpec::Many => quote!(RequireMultiple),
+            SelectionSpec::Any => quote!(Independent),
+        };
+        tokens = quote!(#tokens.selection(::ravenrs_app::Selection::#selection));
+    }
+    if let Some(enabled) = &action.enabled {
+        tokens = quote!(#tokens.enabled(#enabled));
+    }
+    if let Some(question) = &action.confirm {
+        tokens = quote!(#tokens.confirm(#question));
+    }
+    tokens
+}
+
 fn business_object(input: &DeriveInput) -> Result<Tokens> {
     let spec = parse_object(input)?;
     let name = &spec.name;
@@ -278,6 +309,7 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     let rules: Vec<Tokens> = spec.rules.iter().map(rule_tokens).collect();
     let appearance: Vec<Tokens> = spec.appearance.iter().map(appearance_tokens).collect();
     let choices: Vec<Tokens> = spec.choices.iter().map(choice_tokens).collect();
+    let actions: Vec<Tokens> = spec.actions.iter().map(action_tokens).collect();
     let to_values = spec.fields.iter().map(|field| {
         let (ident, ty) = (&field.ident, &field.ty);
         let text = ident.to_string();
@@ -339,7 +371,7 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     Ok(quote! {
         impl ::ravenrs_app::BusinessObject for #name {
             fn entity_info() -> ::ravenrs_app::EntityInfo {
-                #info #(.field(#infos))* #(.rule(#rules))* #(.appearance(#appearance))* #(#choices)*
+                #info #(.field(#infos))* #(.rule(#rules))* #(.appearance(#appearance))* #(#choices)* #(.action(#actions))*
             }
 
             fn to_object(&self) -> ::ravenrs_app::Object {

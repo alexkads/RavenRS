@@ -39,6 +39,7 @@ mod live_list;
 mod model;
 mod module;
 mod object;
+mod record_action;
 mod security;
 #[cfg(feature = "source")]
 mod source;
@@ -73,6 +74,7 @@ pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 pub use ravenrs_core::FileStorage;
 pub use ravenrs_core::{MemoryStorage, Storage};
 pub use ravenrs_criteria::{Criteria, Value};
+pub use record_action::RecordAction;
 pub use security::{
     ADMINISTRATORS_ROLE, Access, AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError,
     Authenticator, Credentials, Identity, MIN_PASSWORD_CHARS, Operation, PasswordError, PermissionPolicy,
