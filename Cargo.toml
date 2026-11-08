@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "examples/*"]
 
 [workspace.package]
-version = "27.1.19"
+version = "27.1.20"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -12,39 +12,45 @@ homepage = "https://alexkads.github.io/RavenRS/"
 authors = ["Alex S S Fonseca <alexkads@gmail.com>"]
 
 [workspace.dependencies]
-ravenrs = { version = "27.1.19", path = "crates/ravenrs" }
-ravenrs-core = { version = "27.1.19", path = "crates/ravenrs-core" }
-ravenrs-animation = { version = "27.1.19", path = "crates/ravenrs-animation" }
-ravenrs-reactive = { version = "27.1.19", path = "crates/ravenrs-reactive" }
-ravenrs-layout = { version = "27.1.19", path = "crates/ravenrs-layout" }
-ravenrs-text = { version = "27.1.19", path = "crates/ravenrs-text" }
-ravenrs-style = { version = "27.1.19", path = "crates/ravenrs-style" }
-ravenrs-render = { version = "27.1.19", path = "crates/ravenrs-render" }
-ravenrs-widgets = { version = "27.1.19", path = "crates/ravenrs-widgets", default-features = false }
-ravenrs-wayland-gestures = { version = "27.1.19", path = "crates/ravenrs-wayland-gestures" }
-ravenrs-platform-native = { version = "27.1.19", path = "crates/ravenrs-platform-native" }
-ravenrs-platform-web = { version = "27.1.19", path = "crates/ravenrs-platform-web" }
-ravenrs-graphics = { version = "27.1.19", path = "crates/ravenrs-graphics" }
-ravenrs-report = { version = "27.1.19", path = "crates/ravenrs-report" }
-ravenrs-report-export = { version = "27.1.19", path = "crates/ravenrs-report-export" }
-ravenrs-grid-export = { version = "27.1.19", path = "crates/ravenrs-grid-export" }
-ravenrs-app = { version = "27.1.19", path = "crates/ravenrs-app" }
-ravenrs-app-a11y = { version = "27.1.19", path = "crates/ravenrs-app-a11y" }
-ravenrs-app-ui = { version = "27.1.19", path = "crates/ravenrs-app-ui" }
-ravenrs-app-i18n = { version = "27.1.19", path = "crates/ravenrs-app-i18n" }
-ravenrs-app-derive = { version = "27.1.19", path = "crates/ravenrs-app-derive" }
-ravenrs-app-sqlite = { version = "27.1.19", path = "crates/ravenrs-app-sqlite" }
-ravenrs-app-library = { version = "27.1.19", path = "crates/ravenrs-app-library" }
-ravenrs-app-report = { version = "27.1.19", path = "crates/ravenrs-app-report" }
-ravenrs-report-pdf = { version = "27.1.19", path = "crates/ravenrs-report-pdf" }
-ravenrs-report-xlsx = { version = "27.1.19", path = "crates/ravenrs-report-xlsx" }
-ravenrs-report-server = { version = "27.1.19", path = "crates/ravenrs-report-server" }
-ravenrs-report-viewer = { version = "27.1.19", path = "crates/ravenrs-report-viewer" }
-ravenrs-report-designer = { version = "27.1.19", path = "crates/ravenrs-report-designer" }
-ravenrs-criteria = { version = "27.1.19", path = "crates/ravenrs-criteria", default-features = false }
-ravenrs-ai = { version = "27.1.19", path = "crates/ravenrs-ai" }
-ravenrs-lottie = { version = "27.1.19", path = "crates/ravenrs-lottie" }
-ravenrs-movie = { version = "27.1.19", path = "crates/ravenrs-movie" }
+ravenrs = { version = "27.1.20", path = "crates/ravenrs" }
+ravenrs-core = { version = "27.1.20", path = "crates/ravenrs-core" }
+ravenrs-animation = { version = "27.1.20", path = "crates/ravenrs-animation" }
+ravenrs-reactive = { version = "27.1.20", path = "crates/ravenrs-reactive" }
+ravenrs-layout = { version = "27.1.20", path = "crates/ravenrs-layout" }
+ravenrs-text = { version = "27.1.20", path = "crates/ravenrs-text" }
+ravenrs-style = { version = "27.1.20", path = "crates/ravenrs-style" }
+ravenrs-render = { version = "27.1.20", path = "crates/ravenrs-render" }
+ravenrs-widgets = { version = "27.1.20", path = "crates/ravenrs-widgets", default-features = false }
+ravenrs-wayland-gestures = { version = "27.1.20", path = "crates/ravenrs-wayland-gestures" }
+ravenrs-platform-native = { version = "27.1.20", path = "crates/ravenrs-platform-native" }
+ravenrs-platform-web = { version = "27.1.20", path = "crates/ravenrs-platform-web" }
+ravenrs-graphics = { version = "27.1.20", path = "crates/ravenrs-graphics" }
+ravenrs-report = { version = "27.1.20", path = "crates/ravenrs-report" }
+ravenrs-report-export = { version = "27.1.20", path = "crates/ravenrs-report-export" }
+ravenrs-grid-export = { version = "27.1.20", path = "crates/ravenrs-grid-export" }
+ravenrs-app = { version = "27.1.20", path = "crates/ravenrs-app" }
+ravenrs-app-a11y = { version = "27.1.20", path = "crates/ravenrs-app-a11y" }
+ravenrs-app-ui = { version = "27.1.20", path = "crates/ravenrs-app-ui" }
+ravenrs-app-i18n = { version = "27.1.20", path = "crates/ravenrs-app-i18n" }
+ravenrs-app-derive = { version = "27.1.20", path = "crates/ravenrs-app-derive" }
+ravenrs-live = { version = "27.1.20", path = "crates/ravenrs-live" }
+ravenrs-live-derive = { version = "27.1.20", path = "crates/ravenrs-live-derive" }
+ravenrs-app-sqlite = { version = "27.1.20", path = "crates/ravenrs-app-sqlite" }
+ravenrs-app-library = { version = "27.1.20", path = "crates/ravenrs-app-library" }
+ravenrs-app-report = { version = "27.1.20", path = "crates/ravenrs-app-report" }
+ravenrs-report-pdf = { version = "27.1.20", path = "crates/ravenrs-report-pdf" }
+ravenrs-report-xlsx = { version = "27.1.20", path = "crates/ravenrs-report-xlsx" }
+ravenrs-sheet = { version = "27.1.20", path = "crates/ravenrs-sheet" }
+ravenrs-spreadsheet = { version = "27.1.20", path = "crates/ravenrs-spreadsheet" }
+ravenrs-report-server = { version = "27.1.20", path = "crates/ravenrs-report-server" }
+ravenrs-report-viewer = { version = "27.1.20", path = "crates/ravenrs-report-viewer" }
+ravenrs-report-designer = { version = "27.1.20", path = "crates/ravenrs-report-designer" }
+ravenrs-criteria = { version = "27.1.20", path = "crates/ravenrs-criteria", default-features = false }
+ravenrs-ai = { version = "27.1.20", path = "crates/ravenrs-ai" }
+ravenrs-lottie = { version = "27.1.20", path = "crates/ravenrs-lottie" }
+ravenrs-movie = { version = "27.1.20", path = "crates/ravenrs-movie" }
+ravenrs-app-spec = { version = "27.1.20", path = "crates/ravenrs-app-spec" }
+ravenrs-project = { version = "27.1.20", path = "crates/ravenrs-project" }
 
 wgpu = "30.0.1"
 # Without "wayland-csd-adwaita": its font stack (ttf-parser) is unmaintained (RUSTSEC-2026-0192);
@@ -95,6 +101,12 @@ expect_used = "warn"
 [profile.dev]
 # Each worktree has its own target/; keep backtraces with file and line, drop the rest.
 debug = "line-tables-only"
+
+# The spreadsheet evaluator budgets its stack for recursive LAMBDA calls; unoptimised frames are
+# several times larger, so the same formula would stop much earlier in debug builds.
+[profile.dev.package.ravenrs-sheet]
+opt-level = 1
+
 
 [profile.release]
 # Smaller WASM binaries; native release builds benefit as well.

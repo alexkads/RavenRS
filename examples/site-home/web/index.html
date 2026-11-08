@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>RavenRS</title>
+    <meta name="description" content="RavenRS: beautiful native interfaces, powered by Rust. One declarative UI for desktop and the browser, drawn on the GPU. This page is a RavenRS app." />
+    <meta property="og:title" content="RavenRS" />
+    <meta property="og:description" content="Beautiful native interfaces, powered by Rust. This page is drawn entirely by RavenRS." />
+    <meta name="theme-color" content="#0b0d12" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d12'/%3E%3Crect x='7' y='7' width='18' height='18' rx='5' fill='%234c66ee'/%3E%3C/svg%3E" />
+    <style>
+      html, body { height: 100%; margin: 0; overflow: hidden; background: #0b0d12; color: #eef1f7; font-family: system-ui, sans-serif; }
+      /* The canvas is sized by CSS; RavenRS matches its backing store to the device pixel ratio. */
+      #raven-canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; }
+      .raven-error { position: fixed; inset: auto 16px 16px 16px; max-width: 560px; padding: 16px 20px; border-radius: 12px;
+        background: #181c25; border: 1px solid #2a3040; color: #eef1f7; line-height: 1.5; }
+      /* Shown while the app loads; removed once RavenRS has drawn its first frame. */
+      #opening { position: fixed; inset: 0; display: grid; place-items: center; background: #0b0d12; transition: opacity 0.4s ease; }
+      #opening.done { opacity: 0; pointer-events: none; }
+      #opening .mark { width: 64px; height: 64px; border-radius: 18px; background: #222734; display: grid; place-items: center; }
+      #opening .mark i { width: 30px; height: 30px; border-radius: 9px; background: #4c66ee; animation: beat 1.2s ease-in-out infinite; }
+      #opening p { margin: 20px 0 0; font: 600 12px/16px system-ui, sans-serif; letter-spacing: 0.4px; text-transform: uppercase; color: #9aa3b5; text-align: center; }
+      @keyframes beat { 50% { transform: scale(0.82); } }
+      @media (prefers-reduced-motion: reduce) { #opening .mark i { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <canvas id="raven-canvas" aria-label="RavenRS home page"></canvas>
+    <div id="opening" aria-hidden="true"><div><div class="mark"><i></i></div><p>Loading RavenRS</p></div></div>
+    <noscript>
+      <main style="padding: 24px; max-width: 720px">
+        <h1>Beautiful native interfaces, powered by Rust.</h1>
+        <p>RavenRS is a GUI framework in Rust: write your UI once, declaratively, and it draws every pixel on the GPU, in a native window on Windows, macOS and Linux, and in the browser. This page is itself a RavenRS app and needs JavaScript to run.</p>
+        <p>160+ components, a virtualized 100,000-row data grid, a report designer and engine, desktop and web from one codebase. Free and open source under MIT or Apache-2.0.</p>
+        <ul>
+          <li><a href="demo/">Component gallery</a></li>
+          <li><a href="designer/">Report designer</a></li>
+          <li><a href="components/">All components</a></li>
+          <li><a href="api/ravenrs/">API documentation</a></li>
+          <li><a href="https://github.com/alexkads/RavenRS">Source code on GitHub</a></li>
+        </ul>
+      </main>
+    </noscript>
+    <script type="module">
+      import init from "./pkg/site_home.js";
+      const opening = document.getElementById("opening");
+      init().then(() => {
+        // Two frames: one for RavenRS to draw, one for it to reach the screen.
+        requestAnimationFrame(() => requestAnimationFrame(() => opening.classList.add("done")));
+      }, () => opening.classList.add("done"));
+    </script>
+  </body>
+</html>

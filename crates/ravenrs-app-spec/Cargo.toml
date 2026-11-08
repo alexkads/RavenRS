@@ -1,0 +1,26 @@
+[package]
+name = "ravenrs-app-spec"
+description = "What the derives of ravenrs-app read from a business object or enum, as data: shared by the derive and by programs that read Rust source while they run."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-spec"
+keywords = ["application", "framework", "derive", "parsing"]
+categories = ["development-tools::procedural-macro-helpers", "parsing"]
+
+[dependencies]
+proc-macro2.workspace = true
+ravenrs-criteria.workspace = true
+regex-lite.workspace = true
+syn = { workspace = true, features = ["derive", "clone-impls"] }
+
+[dev-dependencies]
+ravenrs-app = { workspace = true, features = ["source"] }
+
+[lints]
+workspace = true

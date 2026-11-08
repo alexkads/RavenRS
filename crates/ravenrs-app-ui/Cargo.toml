@@ -17,8 +17,11 @@ categories = ["gui"]
 default = ["images"]
 # Pictures on forms, which need decoding. Without it, a picture field takes a file like any other.
 images = ["ravenrs-widgets/decode"]
+# Registers its types with the playground's interpreter.
+live = ["dep:ravenrs-live", "ravenrs-widgets/live", "ravenrs-app/live"]
 
 [dependencies]
+ravenrs-live = { workspace = true, optional = true }
 ravenrs-app-i18n.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-a11y.workspace = true
@@ -30,6 +33,9 @@ ravenrs-reactive.workspace = true
 ravenrs-report.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets = { workspace = true, features = ["charts"] }
+
+[dev-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true

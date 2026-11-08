@@ -16,6 +16,7 @@ use crate::{DetailView, EditorRegistry, SystemModule};
 /// What the window of a form says.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FormText {
     /// Its title.
     pub title: String,
@@ -25,6 +26,7 @@ pub struct FormText {
     pub save: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FormText {
     /// A window with this title and this button.
     pub fn new(title: impl Into<String>, save: impl Into<String>) -> Self {
@@ -54,6 +56,7 @@ struct FormInner {
 /// A form of an entity in a window. It checks its rules and hands the record over: keeping it is
 /// up to whoever asked, so a record with rules of its own keeps going through them. A handle.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EntityForm(Rc<FormInner>);
 
 impl std::fmt::Debug for EntityForm {
@@ -62,6 +65,7 @@ impl std::fmt::Debug for EntityForm {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EntityForm {
     /// A form of this entity, among these. References find their records in `space`.
     pub fn new<S: ObjectSpace + 'static>(

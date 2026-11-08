@@ -21,6 +21,7 @@ impl<C> fmt::Debug for List<C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: ViewSeq> List<C> {
     /// A list of `rows`, usually [`ListItem`]s.
     pub fn new(rows: C) -> Self {
@@ -65,6 +66,7 @@ enum Leading {
 }
 
 /// A list row: leading icon or avatar, title, subtitle and trailing text.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ListItem {
     title: String,
     subtitle: Option<String>,
@@ -80,6 +82,7 @@ impl fmt::Debug for ListItem {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListItem {
     /// A row with this title.
     pub fn new(title: impl Into<String>) -> Self {
@@ -219,12 +222,14 @@ impl View for ListItem {
 
 /// A table column: title, relative width and alignment.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Column {
     title: String,
     weight: f32,
     align_end: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Column {
     /// A column with this header title, weight 1.0, left-aligned.
     pub fn new(title: impl Into<String>) -> Self {
@@ -246,11 +251,13 @@ impl Column {
 
 /// A simple data table with a header, hover-highlighted rows and numeric columns.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Table {
     columns: Vec<Column>,
     rows: Vec<Vec<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Table {
     /// An empty table with these columns.
     pub fn new(columns: impl IntoIterator<Item = Column>) -> Self {

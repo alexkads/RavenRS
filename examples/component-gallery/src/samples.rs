@@ -5,6 +5,7 @@
 //! before a function and `// end` after it.
 
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
 use ravenrs::layout::{Axis, LayoutStyle};
 use ravenrs::prelude::*;
@@ -34,7 +35,7 @@ samples! {
     "RecurrenceEditor" => recurrence_editor, "InputOtp" => input_otp, "FormField" => form_field, "Label" => label,
     "TextArea" => text_area, "NumberField" => number_field, "MaskedField" => masked_field,
     "TimePicker" => time_picker, "DateTimePicker" => date_time_picker, "LookupField" => lookup_field,
-    "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "ExpressionEditor" => expression_editor, "Toolbar" => toolbar, "SplitButton" => split_button,
+    "FormLayout" => form_layout, "FilterBuilder" => filter_builder, "ExpressionEditor" => expression_editor, "CodeEditor" => code_editor, "Playground" => playground, "Toolbar" => toolbar, "SplitButton" => split_button,
     "ConfirmDialog" => confirm_dialog,
     "TreeView" => tree_view, "TagBox" => tag_box, "ColorPicker" => color_picker,
     "DateRangePicker" => date_range_picker, "Wizard" => wizard, "StepIndicator" => step_indicator, "StepBadge" => step_badge, "FileUpload" => file_upload,
@@ -49,7 +50,7 @@ samples! {
     "DataGrid" => data_grid, "Table" => table, "List" => list, "Stat" => stat,
     "Chart" => chart, "ChartReference" => chart_reference, "SankeyChart" => sankey_chart, "ChartCard" => chart_card, "BarChart" => bar_chart, "AreaChart" => area_chart, "Barcode" => barcode,
     "VStack" => v_stack, "HStack" => h_stack, "Grid" => grid, "Spacer" => spacer,
-    "ScrollView" => scroll_view, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "DockArea" => dock_area, "Card" => card, "GlassCard" => glass_card,
+    "ScrollView" => scroll_view, "ScrollScene" => scroll_scene, "ScrollLinked" => scroll_linked, "Sticky" => sticky, "Link" => link, "Ticker" => ticker, "CountUp" => count_up, "Anchor" => anchor, "QuadField" => quad_field, "Splitter" => splitter, "SplitPanes" => split_panes, "SplitHandle" => split_handle, "DockArea" => dock_area, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "Footer" => footer, "StatusBar" => status_bar, "ToolRail" => tool_rail, "Timeline" => timeline, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
     "MoviePlayer" => movie_player, "MovieAssistant" => movie_assistant, "Chat" => chat, "ModelPicker" => model_picker, "FloatingPanel" => floating_panel, "Text" => text, "CodeBlock" => code_block, "RichText" => rich_text, "AttachmentStrip" => attachment_strip, "AudioPlayerButton" => audio_player_button, "SelectionBar" => selection_bar, "ReleaseNotes" => release_notes, "Alert" => alert, "Badge" => badge, "Avatar" => avatar, "Kbd" => kbd,
     "ProgressBar" => progress_bar, "Spinner" => spinner, "Skeleton" => skeleton,
@@ -731,6 +732,36 @@ fn expression_editor() -> impl View {
 }
 // end
 
+// sample: CodeEditor, 260
+fn code_editor() -> impl View {
+    let code = State::new(
+        "fn total(prices: &[f64]) -> f64 {\n    // Sum of every price\n    prices.iter().sum()\n}\n"
+            .to_owned(),
+    );
+    CodeEditor::new(code.binding())
+        .diagnostics(vec![
+            CodeDiagnostic::warning(3, 5, 6, "`prices` could be empty").hint("Return 0.0 first"),
+        ])
+        .rows(10)
+}
+// end
+
+// sample: Playground, 420
+fn playground() -> impl View {
+    let run = |code: &str| -> Result<AnyView, Vec<CodeDiagnostic>> {
+        match code.trim().strip_prefix("say ") {
+            Some(words) => Ok(Box::new(Text::new(words.to_owned()).style(TextStyle::Title))),
+            None => Err(vec![CodeDiagnostic::error(1, 1, 1, "Start with `say`").hint("Write `say hello`")]),
+        }
+    };
+    Playground::new(run)
+        .language(CodeLanguage::Plain)
+        .example("Hello", "say hello")
+        .example("Goodbye", "say goodbye")
+        .height(380.0)
+}
+// end
+
 // sample: InputOtp, 90
 fn input_otp() -> impl View {
     let code = State::new(String::new());
@@ -1222,6 +1253,155 @@ fn spacer() -> impl View {
 fn scroll_view() -> impl View {
     let rows: Vec<AnyView> = (1..=30).map(|n| Box::new(Text::new(format!("Row {n}"))) as AnyView).collect();
     ScrollView::new(rows).spacing(8.0).height(180.0)
+}
+// end
+
+// sample: ScrollScene, 320
+fn scroll_scene() -> impl View {
+    // Each step fades in, holds for its share of the scene and fades out.
+    let step = |title: &'static str, text: &'static str, from: f32, to: f32| {
+        let away = Effect::hidden().then(Effect::moved(0.0, 16.0));
+        let card = Card::new(
+            VStack::new((
+                Text::new(title).style(TextStyle::Title),
+                Text::new(text).foreground(Semantic::InkMuted),
+            ))
+            .spacing(6.0),
+        );
+        let link = ScrollLink::keyframes([
+            (from - 0.08, away),
+            (from + 0.02, Effect::IDENTITY),
+            (to - 0.02, Effect::IDENTITY),
+            (to + 0.08, away),
+        ]);
+        ScrollLinked::new(card, link)
+    };
+    let steps = ZStack::new((
+        step("1. State", "A click changes a value.", -1.0, 0.33),
+        step("2. Layout", "Only what read it moves.", 0.33, 0.66),
+        step("3. Paint", "The GPU draws the frame.", 0.66, 2.0),
+    ));
+    ScrollView::new((
+        Text::new("Scroll down: the scene holds while its steps change.").foreground(Semantic::InkMuted),
+        ScrollScene::new(steps).length(600.0),
+        Text::new("Here the scene lets go.").foreground(Semantic::InkMuted),
+        Canvas::new(|_, _| {}).size(10.0, 200.0),
+    ))
+    .spacing(12.0)
+    .height(280.0)
+}
+// end
+
+// sample: ScrollLinked, 260
+fn scroll_linked() -> impl View {
+    let card = |text: &'static str| {
+        ScrollLinked::new(Card::new(Text::new(text)), ScrollLink::fade_in().range(ScrollRange::Enter))
+    };
+    ScrollView::new((
+        card("Each card fades in"),
+        card("and rises into place"),
+        card("as it enters the view,"),
+        card("following the scroll"),
+        card("and not a clock."),
+    ))
+    .spacing(80.0)
+    .height(220.0)
+}
+// end
+
+// sample: Sticky, 260
+fn sticky() -> impl View {
+    let section = |name: &'static str| {
+        let rows: Vec<AnyView> =
+            (1..=6).map(|n| Box::new(Text::new(format!("{name} {n}"))) as AnyView).collect();
+        VStack::new((Sticky::new(Badge::new(name).tone(Tone::Accent)), VStack::new(rows).spacing(8.0)))
+            .spacing(8.0)
+    };
+    ScrollView::new((section("Inputs"), section("Overlays"), section("Data"))).spacing(16.0).height(220.0)
+}
+// end
+
+// sample: Link, 120
+fn link() -> impl View {
+    VStack::new((
+        Link::new(
+            "Read the getting started guide",
+            "https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md",
+        )
+        .icon(IconName::ArrowRight),
+        Link::new("Components", "https://alexkads.github.io/RavenRS/components/").muted(),
+    ))
+    .spacing(4.0)
+}
+// end
+
+// sample: Ticker, 120
+fn ticker() -> impl View {
+    let chips = HStack::new((
+        Badge::new("Button").tone(Tone::Accent),
+        Badge::new("DataGrid"),
+        Badge::new("Scheduler").tone(Tone::Success),
+        Badge::new("Ribbon"),
+        Badge::new("Chart").tone(Tone::Warning),
+        Badge::new("CommandPalette"),
+    ))
+    .spacing(10.0);
+    VStack::new((Ticker::new(chips).speed(40.0).gap(10.0),)).padding(8.0)
+}
+// end
+
+// sample: CountUp, 140
+fn count_up() -> impl View {
+    HStack::new((
+        VStack::new((
+            Text::new("ROWS").style(TextStyle::Caption).foreground(Semantic::InkMuted),
+            CountUp::new(100_000.0),
+        ))
+        .spacing(4.0),
+        VStack::new((
+            Text::new("COMPONENTS").style(TextStyle::Caption).foreground(Semantic::InkMuted),
+            CountUp::new(160.0).format(|v| format!("{v:.0}+")),
+        ))
+        .spacing(4.0),
+    ))
+    .spacing(48.0)
+}
+// end
+
+// sample: Anchor, 240
+fn anchor() -> impl View {
+    let rows: Vec<AnyView> = (1..=12).map(|n| Box::new(Text::new(format!("Row {n}"))) as AnyView).collect();
+    ScrollView::new((
+        Link::new("Jump to the summary", "#summary"),
+        VStack::new(rows).spacing(8.0),
+        Anchor::new("summary", Text::new("Summary").style(TextStyle::Title)),
+        Canvas::new(|_, _| {}).size(10.0, 160.0),
+    ))
+    .spacing(12.0)
+    .height(200.0)
+}
+// end
+
+// sample: QuadField, 320
+fn quad_field() -> impl View {
+    // Scroll inside: the waving floor stands up into a small dashboard.
+    let picture = |u: f32, v: f32, time: f64| {
+        let bar = ((u - 0.1) / 0.1).floor();
+        let height = 0.35 + 0.25 * (bar * 1.7 + time as f32).sin().abs();
+        if v < 0.15 {
+            Color::hex(0x222734)
+        } else if (0.1..0.9).contains(&u) && v > 0.9 - height {
+            Color::hex(0x4c66ee)
+        } else {
+            Color::hex(0x12151c)
+        }
+    };
+    ScrollView::new((
+        ScrollScene::new(QuadField::new(64, 36, picture).height(280.0)).length(600.0),
+        Canvas::new(|_, _| {}).size(10.0, 400.0),
+    ))
+    .spacing(0.0)
+    .height(280.0)
 }
 // end
 
@@ -2481,6 +2661,172 @@ impl View for SampleApp {
     }
 }
 
+/// The code of a component's example, as its page shows it: what a reader copies.
+pub fn sample_code(name: &str) -> Option<String> {
+    let source = include_str!("samples.rs");
+    let marker = format!("\n// sample: {name}, ");
+    let at = source.find(&marker)? + marker.len();
+    let body = &source[at..];
+    let body = &body[body.find('\n')? + 1..];
+    let end = body.find("\n// end")?;
+    let body = &body[..end];
+    // What this file brings in for every example, said in the ones that use it, so what a reader
+    // copies or downloads compiles.
+    // A name written in full, as `std::collections::BTreeSet`, needs nothing.
+    let unqualified = |name: &str| {
+        body.match_indices(name).any(|(at, _)| {
+            let before = body[..at].chars().next_back();
+            let after = body[at + name.len()..].chars().next();
+            let apart = |c: Option<char>| c.is_none_or(|c| !c.is_alphanumeric() && c != '_');
+            apart(before) && apart(after) && !body[..at].ends_with("::")
+        })
+    };
+    let mut uses = String::new();
+    for (module, names) in
+        [("std::collections", &["BTreeSet"][..]), ("ravenrs::layout", &["Axis", "LayoutStyle"])]
+    {
+        let used: Vec<&str> = names.iter().copied().filter(|name| unqualified(name)).collect();
+        match used.as_slice() {
+            [] => {}
+            [one] => uses.push_str(&format!("use {module}::{one};\n")),
+            many => uses.push_str(&format!("use {module}::{{{}}};\n", many.join(", "))),
+        }
+    }
+    Some(format!("{uses}use ravenrs::prelude::*;\n\n{body}\n"))
+}
+
+/// The Cargo project of an example as it is in the playground: the crates the gallery's
+/// examples use, and the helpers it calls.
+pub fn sample_project(name: &str, code: &str) -> ravenrs_project::Project {
+    let mut project = ravenrs_project::Project::new(format!("{name} example"))
+        .source(code)
+        .dependency("ravenrs", &["code"]);
+    if code.contains("ravenrs_app") {
+        project = project.dependency("ravenrs-app", &[]).dependency("ravenrs-app-ui", &[]);
+    }
+    if code.contains("picture(") {
+        let source = include_str!("samples.rs");
+        let start = source.find("/// A colored picture").unwrap_or(0);
+        let end = source[start..].find("\n}\n").map_or(source.len(), |at| start + at + 3);
+        project = project.helper(&source[start..end]);
+    }
+    project
+}
+
+/// What the examples can call, with the helpers they share.
+pub fn sample_runner() -> LiveRunner {
+    let mut registry = live_registry();
+    registry.free_function("picture", |args| {
+        let hue = args.first().and_then(|v| match v.read() {
+            ravenrs::live::Value::Float(n) => Some(n as f32),
+            ravenrs::live::Value::Int(n) => Some(n as f32),
+            _ => None,
+        });
+        let hue = hue.ok_or("`picture` takes a hue, such as 0.4")?;
+        Ok(ravenrs::live::Value::Host(ravenrs::live::Host::cloneable("ImageData", picture(hue))))
+    });
+    ravenrs::movie::live_expose(&mut registry);
+    ravenrs_app::live_expose(&mut registry);
+    ravenrs_app_ui::live_expose(&mut registry);
+    LiveRunner::with_registry(registry)
+}
+
+/// The example of a component in a [`Playground`], with its code beside it. Edits run through
+/// the interpreter; an example it cannot read yet opens compiled, and says so.
+pub struct SamplePlayground {
+    /// Each example, by its component's name, with its code.
+    examples: Rc<Vec<(String, String)>>,
+    /// The one it opens on.
+    start: usize,
+    /// One component's page, or the playground of all of them.
+    single: bool,
+    runner: LiveRunner,
+    /// Why the interpreter cannot read the example as it is, if it cannot.
+    compiled: Option<String>,
+}
+
+impl std::fmt::Debug for SamplePlayground {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SamplePlayground").field("examples", &self.examples.len()).finish_non_exhaustive()
+    }
+}
+
+impl SamplePlayground {
+    /// The playground of a component, if it has an example.
+    pub fn new(name: &str) -> Option<Self> {
+        let code = sample_code(name)?;
+        sample(name)?;
+        let runner = sample_runner();
+        let compiled = runner.run(&code).err().map(|problems| problems[0].message.clone());
+        Some(Self {
+            examples: Rc::new(vec![(name.to_owned(), code)]),
+            start: 0,
+            single: true,
+            runner,
+            compiled,
+        })
+    }
+
+    /// The playground of every example, listed in its bar, opening on `start` when it has one.
+    pub fn all(start: Option<&str>) -> Self {
+        let examples: Vec<(String, String)> =
+            NAMES.iter().filter_map(|name| Some(((*name).to_owned(), sample_code(name)?))).collect();
+        let start =
+            start.and_then(|wanted| examples.iter().position(|(name, _)| name == wanted)).unwrap_or(0);
+        Self { examples: Rc::new(examples), start, single: false, runner: sample_runner(), compiled: None }
+    }
+}
+
+impl View for SamplePlayground {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let (examples, live) = (self.examples.clone(), self.runner.clone());
+        let runner = move |source: &str| -> Result<AnyView, Vec<CodeDiagnostic>> {
+            match live.run(source) {
+                Ok(view) => Ok(view),
+                // An example as written always shows, compiled, until the interpreter reads it.
+                Err(problems) => match examples.iter().find(|(_, code)| code == source) {
+                    Some((name, _)) => Ok(sample(name).unwrap_or_else(|| Box::new(Spacer::new()))),
+                    None => Err(problems),
+                },
+            }
+        };
+        let first = self.examples.get(self.start).map(|(_, code)| code.clone()).unwrap_or_default();
+        let (start, single) = (self.start, self.single);
+        let source = cx.use_state(move || first);
+        let chosen = cx.use_state(move || start);
+        let title = if single { self.examples[0].0.clone() } else { "Playground".to_owned() };
+        let mut playground =
+            Playground::new(runner).title(title).source(source.binding()).chosen_example(chosen.binding());
+        for (name, code) in self.examples.iter() {
+            playground = playground.example(name.clone(), code.clone());
+        }
+        let examples = self.examples.clone();
+        playground = playground.download(move |code| {
+            let name = examples.get(chosen.get()).map_or("Playground", |(name, _)| name.as_str());
+            let project = sample_project(name, code);
+            let bytes = project.zip().map_err(|problem| vec![CodeDiagnostic::error(1, 1, 1, problem)])?;
+            Ok((format!("{}.zip", project.crate_name()), bytes))
+        });
+        if let Some(reason) = &self.compiled {
+            playground = playground.note(format!(
+                "This example runs compiled: the playground cannot read it yet ({reason}). Edits show what it reads."
+            ));
+        }
+        let content = cx.child(&playground);
+        cx.container(
+            LayoutStyle {
+                grow: 1.0,
+                padding: Insets::uniform(16.0),
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[content],
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Canvas))),
+        )
+    }
+}
+
 /// Components without an example would make the site's list a promise it does not keep.
 #[cfg(test)]
 mod tests {
@@ -2497,5 +2843,98 @@ mod tests {
             ui.update();
         }
         assert!(SampleApp::new("Nope").is_none());
+    }
+
+    /// Every example runs from its code in the interpreter, except those in
+    /// `live-pending.txt`, which says why each one does not yet.
+    #[test]
+    fn coverage_of_the_interpreter() {
+        let runner = sample_runner();
+        let pending: BTreeSet<&str> = include_str!("../live-pending.txt")
+            .lines()
+            .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
+            .filter_map(|line| line.split(':').next())
+            .collect();
+        let mut failing = BTreeSet::new();
+        let mut unexpected = Vec::new();
+        for name in NAMES {
+            let code = sample_code(name).unwrap_or_default();
+            match runner.run(&code) {
+                Ok(view) => {
+                    let mut ui = Ui::new(view, Theme::raven_dark());
+                    ui.set_viewport(Size::new(800.0, 500.0), 1.0);
+                    ui.update();
+                    // What fails later, in a paint or a closure the component calls, counts too.
+                    let late = ravenrs::live::late_problems();
+                    if let Some(problem) = late.first() {
+                        failing.insert(*name);
+                        if !pending.contains(name) {
+                            unexpected.push(format!(
+                                "{name}: {} ({}:{})",
+                                problem.message, problem.line, problem.column
+                            ));
+                        }
+                        continue;
+                    }
+                    // The interpreted example builds as many elements as the compiled one.
+                    let mut compiled =
+                        Ui::new(sample(name).unwrap_or_else(|| panic!("{name}")), Theme::raven_dark());
+                    compiled.set_viewport(Size::new(800.0, 500.0), 1.0);
+                    compiled.update();
+                    if compiled.element_count() != ui.element_count() {
+                        failing.insert(*name);
+                        if !pending.contains(name) {
+                            unexpected.push(format!(
+                                "{name}: {} elements interpreted, {} compiled",
+                                ui.element_count(),
+                                compiled.element_count()
+                            ));
+                        }
+                    }
+                }
+                Err(problems) => {
+                    failing.insert(*name);
+                    if !pending.contains(name) {
+                        unexpected.push(format!("{name}: {}", problems[0].message));
+                    }
+                }
+            }
+        }
+        assert!(unexpected.is_empty(), "these do not run in the interpreter:\n{}", unexpected.join("\n"));
+        let now_running: Vec<&&str> = pending.difference(&failing).collect();
+        assert!(now_running.is_empty(), "these run now, take them off live-pending.txt: {now_running:?}");
+    }
+
+    #[test]
+    fn every_example_has_its_code_and_a_playground() {
+        for name in NAMES {
+            let code = sample_code(name).unwrap_or_else(|| panic!("no code for {name}"));
+            assert!(
+                code.starts_with("use ")
+                    && code.contains("use ravenrs::prelude::*;\n\n")
+                    && code.contains("fn "),
+                "{name}: {code}"
+            );
+            let mut ui =
+                Ui::new(SamplePlayground::new(name).unwrap_or_else(|| panic!("{name}")), Theme::raven_dark());
+            ui.set_viewport(Size::new(1100.0, 600.0), 1.0);
+            ui.update();
+        }
+        assert!(SamplePlayground::new("Nope").is_none());
+    }
+
+    #[test]
+    fn the_playground_of_all_lists_every_example_and_opens_on_the_one_asked() {
+        let all = SamplePlayground::all(Some("Slider"));
+        assert_eq!(all.examples.len(), NAMES.len());
+        assert_eq!(all.examples[all.start].0, "Slider");
+        assert_eq!(SamplePlayground::all(Some("Nope")).start, 0);
+        let mut ui = Ui::new(all, Theme::raven_dark());
+        ui.set_viewport(Size::new(1100.0, 600.0), 1.0);
+        ui.update();
+        ui.update();
+        let names: Vec<String> = ui.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect();
+        assert!(names.iter().any(|n| n == "Playground"), "{names:?}");
+        assert!(names.iter().any(|n| n == "Download project"));
     }
 }

@@ -17,6 +17,7 @@ pub const CONTEXT_DELETE: &str = "Delete";
 /// How a [`RuleKind::Text`] compares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum TextComparison {
     /// The field holds exactly the text.
     Equals,
@@ -33,6 +34,7 @@ pub enum TextComparison {
 /// How a [`RuleKind::Compare`] compares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Comparison {
     /// The same.
     Equal,
@@ -51,6 +53,7 @@ pub enum Comparison {
 /// What a [`RuleKind::Compare`] compares with.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Operand {
     /// This value.
     Value(Value),
@@ -61,6 +64,7 @@ pub enum Operand {
 /// How much not meeting a rule matters.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Severity {
     /// It stops what was being done until it is fixed.
     #[default]
@@ -71,6 +75,7 @@ pub enum Severity {
     Information,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Severity {
     fn from_name(name: &str) -> Option<Self> {
         match name {
@@ -87,6 +92,7 @@ type CustomRule = Rc<dyn Fn(&Object, &dyn ObjectSpace) -> Result<(), String>>;
 /// What a [`Rule`] asks for.
 #[derive(Clone)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum RuleKind {
     /// The field has something in it.
     Required,
@@ -163,6 +169,7 @@ impl fmt::Debug for RuleKind {
 /// One thing a record has to meet, in some contexts, and perhaps only when it fits.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Rule {
     /// What it is known by.
     pub id: String,
@@ -188,6 +195,7 @@ impl PartialEq for Rule {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Rule {
     /// A rule set in the model, under an entity's `Rules`: `Kind` is `Required`, `Range`, `Matches`,
     /// `Criteria` or `Unique`, with `Field`, `Min`, `Max`, `Pattern`, `Expression`, `Message`,
@@ -372,6 +380,7 @@ impl Rule {
 /// The words of what fails, where `{0}` is the name of the field.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RuleWords {
     /// [`RuleKind::Required`].
     pub required: String,
@@ -403,6 +412,7 @@ impl Default for RuleWords {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RuleWords {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -430,6 +440,7 @@ impl RuleWords {
 /// A rule that was not met.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Violation {
     /// The rule.
     pub rule: String,
@@ -441,6 +452,7 @@ pub struct Violation {
     pub severity: Severity,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Violation {
     /// Whether it stops what was being done.
     pub fn is_error(&self) -> bool {

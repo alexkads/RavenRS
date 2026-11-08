@@ -21,6 +21,7 @@ use crate::values::key_text;
 /// The words the generated screens use.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Words {
     /// Creates a record.
     pub new: String,
@@ -172,6 +173,7 @@ impl Default for Words {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Words {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -265,6 +267,7 @@ pub(crate) struct FormState {
     pub fields: BTreeMap<String, State<Value>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FormState {
     fn new(entity: EntityInfo, original: Object, is_new: bool) -> Self {
         let fields = entity
@@ -384,6 +387,7 @@ pub(crate) struct Account {
 /// What the screens of a running application share: the frame, the current form, and what
 /// has to happen next. A handle.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Session(Rc<SessionInner>);
 
 impl std::fmt::Debug for Session {
@@ -395,6 +399,7 @@ impl std::fmt::Debug for Session {
 /// How a frame finds its session.
 struct SessionLink(std::rc::Weak<SessionInner>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Session {
     pub(crate) fn new(
         application: Application,
@@ -448,6 +453,8 @@ impl Session {
         let inner = Rc::new(inner);
         let frame = inner.frame.clone();
         frame.set_extension(Rc::new(SessionLink(Rc::downgrade(&inner))));
+        // Declared actions say what is wrong in the application's words.
+        frame.set_extension(Rc::new(inner.words.rules.clone()));
         let telling = Rc::downgrade(&inner);
         frame.set_messenger(move |message| {
             if let Some(inner) = telling.upgrade() {

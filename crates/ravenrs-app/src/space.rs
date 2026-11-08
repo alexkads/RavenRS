@@ -6,13 +6,15 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_criteria::{Criteria, Environment, Scope, Value};
+use ravenrs_core::Storage;
+use ravenrs_criteria::{Criteria, DateTime, Environment, Scope, Value};
 
 use crate::{EntityInfo, FieldKind, ModelError, Object};
 
 /// Why a space could not do what it was asked.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum SpaceError {
     /// There is no entity by this name.
     UnknownEntity(String),
@@ -58,6 +60,7 @@ impl std::error::Error for SpaceError {}
 
 /// What to read: a filter, an order and a page.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Query {
     /// Only the records this says true for.
     pub filter: Option<Criteria>,
@@ -71,6 +74,7 @@ pub struct Query {
     pub only: Option<Vec<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Query {
     /// Everything, in key order.
     pub fn all() -> Self {
@@ -106,6 +110,7 @@ impl Query {
 /// A change waiting for a commit.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Change {
     /// A new record.
     New(Object),
@@ -249,10 +254,12 @@ pub fn key_of(entity: &EntityInfo, object: &Object) -> Option<String> {
 /// What a unit of work has waiting, for whoever implements one: new, changed and deleted
 /// records, one change per record.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ChangeSet {
     changes: Vec<Change>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChangeSet {
     /// What waits, in the order it came.
     pub fn list(&self) -> &[Change] {
@@ -440,6 +447,7 @@ pub(crate) fn select(
 /// What comes of putting together what a person changed and what someone else kept meanwhile.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Merged {
     /// The record with both sets of changes. On a field both changed, it has this person's.
     pub record: Object,
@@ -474,14 +482,73 @@ struct Tables {
     next_key: i64,
 }
 
+/// Where a [`MemoryDatabase`] keeps its records, and what went wrong the last time it tried.
+struct Kept {
+    storage: Rc<dyn Storage>,
+    name: String,
+    problem: Option<String>,
+}
+
 /// Records kept in memory, on desktop and in the browser. Any number of spaces share them, and
 /// each sees what the others committed.
-#[derive(Clone, Debug)]
+///
+/// With [`Self::stored_in`] they are also kept in a [`Storage`] between runs: read when it
+/// opens, written after every commit. [`Self::export_json`] and [`Self::import_json`] move all
+/// of them in and out at once.
+#[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MemoryDatabase {
     entities: Rc<Vec<EntityInfo>>,
     tables: Rc<RefCell<Tables>>,
+    kept: Rc<RefCell<Option<Kept>>>,
+    restored: bool,
 }
 
+impl fmt::Debug for MemoryDatabase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MemoryDatabase")
+            .field("entities", &self.entities.len())
+            .field("kept", &self.kept.borrow().as_ref().map(|k| k.name.clone()))
+            .finish_non_exhaustive()
+    }
+}
+
+/// The version of [`MemoryDatabase::export_json`]'s format.
+const RECORDS_FORMAT: u64 = 1;
+
+fn value_to_json(value: &Value) -> serde_json::Value {
+    match value {
+        Value::Null => serde_json::Value::Null,
+        Value::Bool(b) => serde_json::Value::Bool(*b),
+        Value::Number(n) => {
+            serde_json::Number::from_f64(*n).map_or(serde_json::Value::Null, serde_json::Value::Number)
+        }
+        Value::Text(text) => serde_json::Value::String(text.clone()),
+        Value::Date(moment) => serde_json::json!({ "days": moment.days, "seconds": moment.seconds }),
+        // A kind of value newer than this format is left out rather than misread later.
+        _ => serde_json::Value::Null,
+    }
+}
+
+fn value_from_json(json: &serde_json::Value) -> Result<Value, String> {
+    Ok(match json {
+        serde_json::Value::Null => Value::Null,
+        serde_json::Value::Bool(b) => Value::Bool(*b),
+        serde_json::Value::Number(n) => Value::Number(n.as_f64().ok_or("a number out of range")?),
+        serde_json::Value::String(text) => Value::Text(text.clone()),
+        serde_json::Value::Object(moment) => {
+            let days = moment.get("days").and_then(serde_json::Value::as_i64).ok_or("a date without days")?;
+            let seconds = moment.get("seconds").and_then(serde_json::Value::as_u64).unwrap_or(0);
+            Value::Date(DateTime {
+                days,
+                seconds: u32::try_from(seconds).map_err(|_| "seconds out of range")?,
+            })
+        }
+        serde_json::Value::Array(_) => return Err("a list where a value goes".to_owned()),
+    })
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MemoryDatabase {
     /// A database with these entities and no records.
     pub fn new(entities: Vec<EntityInfo>) -> Result<Self, ModelError> {
@@ -491,7 +558,130 @@ impl MemoryDatabase {
         Ok(Self {
             entities: Rc::new(entities),
             tables: Rc::new(RefCell::new(Tables { next_key: 1, ..Tables::default() })),
+            kept: Rc::new(RefCell::new(None)),
+            restored: false,
         })
+    }
+
+    /// Keeps the records in `storage` under `name`: what is there is read now, and every commit
+    /// writes them all back. Records of entities the database no longer has are left out.
+    pub fn stored_in(
+        mut self,
+        storage: impl Storage + 'static,
+        name: impl Into<String>,
+    ) -> Result<Self, SpaceError> {
+        let name = name.into();
+        if let Some(bytes) = storage.read(&name).map_err(SpaceError::Storage)? {
+            let text = String::from_utf8(bytes).map_err(|e| SpaceError::Storage(format!("{name}: {e}")))?;
+            self.load(&text, false).map_err(|e| SpaceError::Storage(format!("{name}: {e}")))?;
+            self.restored = true;
+        }
+        *self.kept.borrow_mut() = Some(Kept { storage: Rc::new(storage), name, problem: None });
+        Ok(self)
+    }
+
+    /// Whether [`Self::stored_in`] found records kept from before, so an app can put its first
+    /// records in only once.
+    pub fn was_restored(&self) -> bool {
+        self.restored
+    }
+
+    /// What went wrong the last time the records were written to their storage, if it did.
+    pub fn storage_problem(&self) -> Option<String> {
+        self.kept.borrow().as_ref().and_then(|kept| kept.problem.clone())
+    }
+
+    /// Every record, as JSON: `{"format": 1, "next_key": 7, "records": {"Account": [{...}]}}`.
+    /// Dates are `{"days": .., "seconds": ..}`; the rest are plain JSON values.
+    pub fn export_json(&self) -> String {
+        let tables = self.tables.borrow();
+        let records: serde_json::Map<String, serde_json::Value> = tables
+            .rows
+            .iter()
+            .map(|(entity, rows)| {
+                let rows = rows
+                    .values()
+                    .map(|object| {
+                        let fields =
+                            object.values().iter().map(|(k, v)| (k.clone(), value_to_json(v))).collect();
+                        serde_json::Value::Object(fields)
+                    })
+                    .collect();
+                (entity.clone(), serde_json::Value::Array(rows))
+            })
+            .collect();
+        let whole = serde_json::json!({
+            "format": RECORDS_FORMAT,
+            "next_key": tables.next_key,
+            "records": records,
+        });
+        serde_json::to_string_pretty(&whole).unwrap_or_else(|_| "{}".to_owned())
+    }
+
+    /// Puts these records, as [`Self::export_json`] writes them, in place of all there are, and
+    /// keeps them if the database is stored. Returns how many there are. Nothing changes if
+    /// anything is wrong: an entity it does not have, a record without its key, a value that
+    /// cannot be read.
+    pub fn import_json(&self, text: &str) -> Result<usize, SpaceError> {
+        let count = self.load(text, true).map_err(SpaceError::Storage)?;
+        self.persist();
+        Ok(count)
+    }
+
+    /// Reads records into the tables, all or nothing. Strict refuses entities it does not have.
+    fn load(&self, text: &str, strict: bool) -> Result<usize, String> {
+        let whole: serde_json::Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        let format = whole.get("format").and_then(serde_json::Value::as_u64).unwrap_or(RECORDS_FORMAT);
+        if format > RECORDS_FORMAT {
+            return Err(format!("records written by a newer version (format {format})"));
+        }
+        let mut rows: BTreeMap<String, BTreeMap<String, Object>> = BTreeMap::new();
+        let mut next_key = whole.get("next_key").and_then(serde_json::Value::as_i64).unwrap_or(1).max(1);
+        let empty = serde_json::Map::new();
+        let records = whole.get("records").and_then(serde_json::Value::as_object).unwrap_or(&empty);
+        for (name, list) in records {
+            let Some(entity) = self.entities.iter().find(|e| &e.name == name) else {
+                if strict {
+                    return Err(format!("there is no entity named {name}"));
+                }
+                continue;
+            };
+            let list = list.as_array().ok_or_else(|| format!("{name}: a list of records goes here"))?;
+            let table = rows.entry(name.clone()).or_default();
+            for record in list {
+                let fields = record.as_object().ok_or_else(|| format!("{name}: a record is an object"))?;
+                let mut values = BTreeMap::new();
+                for (field, value) in fields {
+                    values.insert(
+                        field.clone(),
+                        value_from_json(value).map_err(|e| format!("{name}.{field}: {e}"))?,
+                    );
+                }
+                let object = Object::from_values(name.clone(), values);
+                let key =
+                    key_of(entity, &object).ok_or_else(|| format!("{name}: a record without its key"))?;
+                if let Some(field) = entity.key_field()
+                    && matches!(field.kind, FieldKind::Integer)
+                    && let Value::Number(n) = object.get(&field.name)
+                {
+                    next_key = next_key.max(n as i64 + 1);
+                }
+                table.insert(key, object);
+            }
+        }
+        let count = rows.values().map(BTreeMap::len).sum();
+        let mut tables = self.tables.borrow_mut();
+        tables.rows = rows;
+        tables.next_key = next_key;
+        Ok(count)
+    }
+
+    /// Writes every record to the storage, if there is one, and remembers what went wrong.
+    fn persist(&self) {
+        let text = if self.kept.borrow().is_some() { self.export_json() } else { return };
+        if let Some(kept) = self.kept.borrow_mut().as_mut() {
+            kept.problem = kept.storage.write(&kept.name, text.as_bytes()).err();
+        }
     }
 
     /// A new unit of work over these records.
@@ -506,6 +696,7 @@ impl MemoryDatabase {
 }
 
 /// A unit of work over a [`MemoryDatabase`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MemoryObjectSpace {
     database: MemoryDatabase,
     environment: Environment,
@@ -519,6 +710,7 @@ impl fmt::Debug for MemoryObjectSpace {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MemoryObjectSpace {
     fn entity(&self, name: &str) -> Result<&EntityInfo, SpaceError> {
         self.database
@@ -580,6 +772,7 @@ impl MemoryObjectSpace {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "objectspace"))]
 impl ObjectSpace for MemoryObjectSpace {
     fn entities(&self) -> Vec<EntityInfo> {
         self.database.entities.as_ref().clone()
@@ -665,6 +858,7 @@ impl ObjectSpace for MemoryObjectSpace {
             }
         }
         self.changes.clear();
+        self.database.persist();
         // The commit stands; someone watching after it cannot undo it.
         let _ = self.tell(SpaceEvent::Committed(&changes));
         Ok(())

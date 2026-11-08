@@ -32,6 +32,7 @@ pub use space::SecuredObjectSpace;
 /// What can be done to a record.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Operation {
     /// See it.
     Read,
@@ -45,6 +46,7 @@ pub enum Operation {
 
 /// What a permission says.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Access {
     /// It can be done.
     Allow,
@@ -54,6 +56,7 @@ pub enum Access {
 
 /// What a role says about what no permission mentions.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum PermissionPolicy {
     /// Nothing can be done.
     #[default]
@@ -64,6 +67,7 @@ pub enum PermissionPolicy {
     AllowAll,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PermissionPolicy {
     fn allows(self, operation: Operation) -> bool {
         match self {
@@ -76,6 +80,7 @@ impl PermissionPolicy {
 
 /// How the answers of several roles of one person come together.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum RoleMerge {
     /// One role that allows it is enough. Each role is asked apart, so what one denies does not
     /// take away what another allows.
@@ -92,6 +97,7 @@ struct Condition {
     criteria: Option<Criteria>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Condition {
     fn new(source: &str) -> Self {
         Self { criteria: Criteria::parse(source).ok() }
@@ -136,6 +142,7 @@ struct MemberPermission {
 
 /// A set of permissions a person can have.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Role {
     name: String,
     policy: PermissionPolicy,
@@ -148,6 +155,7 @@ pub struct Role {
     actions: BTreeMap<String, Access>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Role {
     /// A role with this name, which allows nothing yet.
     pub fn new(name: impl Into<String>) -> Self {
@@ -424,6 +432,7 @@ fn strongest(said: impl Iterator<Item = Access>) -> Option<Access> {
 /// Who is using the application.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Identity {
     /// The key of their record, for `?CurrentUserId`.
     pub key: Value,
@@ -435,6 +444,7 @@ pub struct Identity {
     pub must_change_password: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Identity {
     /// Someone with this name and these roles, as another way of signing in would say.
     pub fn new(key: impl Into<Value>, name: impl Into<String>, roles: Vec<Role>) -> Self {
@@ -444,6 +454,7 @@ impl Identity {
 
 /// What one person can do: the answers of their roles, brought together.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Permissions {
     identity: Identity,
     merge: RoleMerge,
@@ -451,6 +462,7 @@ pub struct Permissions {
     environment: Environment,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Permissions {
     /// What this person can do over these entities.
     pub fn new(identity: Identity, entities: Vec<EntityInfo>, merge: RoleMerge) -> Self {

@@ -57,6 +57,7 @@ struct Picture {
     labels: Vec<(TextLayout, Point, ravenrs_core::Color)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Picture {
     fn refresh(&mut self, chart: &SankeyChart, size: Size, ink: ravenrs_core::Color, cx: &mut PaintCx<'_>) {
         let key = Laid {
@@ -112,6 +113,7 @@ struct Focus {
     strength: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Focus {
     /// Whether this flow is what is in focus, or goes in or out of the node that is.
     fn touches_flow(&self, layout: &SankeyLayout, flow: usize) -> bool {
@@ -154,6 +156,7 @@ impl Focus {
 ///     .flow("Savings", "Funds", 400.0);
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SankeyChart {
     names: Vec<String>,
     links: Vec<SankeyLink>,
@@ -187,6 +190,7 @@ impl Default for SankeyChart {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SankeyChart {
     /// An empty diagram, 300 logical pixels tall, as wide as its parent allows.
     pub fn new() -> Self {
@@ -584,6 +588,7 @@ impl View for SankeyChart {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl SankeyChart {
     /// Says what is wrong with the flows, in place of a diagram that cannot exist.
     fn problem(&self, cx: &mut BuildCx<'_>, problem: &sankey::SankeyError, theme: &Theme) -> NodeId {

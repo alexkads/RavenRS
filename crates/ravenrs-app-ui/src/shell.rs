@@ -33,6 +33,7 @@ const READING_WIDTH: f32 = 760.0;
 
 /// The pieces of a window, for a template to arrange.
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TemplateParts {
     /// The navigation.
     pub navigation: AnyView,
@@ -56,6 +57,7 @@ pub trait FrameTemplate {
 
 /// Navigation on the side, commands above the view.
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MainTemplate;
 
 impl FrameTemplate for MainTemplate {
@@ -75,6 +77,7 @@ fn hash_of(text: &str) -> u64 {
 }
 
 /// A whole application window, generated from its model.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AppShell {
     session: Session,
     template: Rc<dyn FrameTemplate>,
@@ -87,6 +90,7 @@ impl std::fmt::Debug for AppShell {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AppShell {
     /// A window over this application. `space` makes the unit of work of each view.
     pub fn new<S: ObjectSpace + 'static>(application: Application, space: impl Fn() -> S + 'static) -> Self {
@@ -477,6 +481,7 @@ pub(crate) struct PopupHost {
     session: Session,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PopupHost {
     pub(crate) fn new(session: Session) -> Self {
         Self { session }

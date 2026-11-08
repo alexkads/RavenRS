@@ -15,6 +15,7 @@ pub trait ModelStore {
 
 /// A difference that came inside the program, as a module's does. It cannot change.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EmbeddedStore(pub &'static str);
 
 impl ModelStore for EmbeddedStore {
@@ -29,6 +30,7 @@ impl ModelStore for EmbeddedStore {
 
 /// A difference that lasts as long as the program, where nothing else is at hand.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MemoryModelStore(RefCell<Option<Diff>>);
 
 impl ModelStore for MemoryModelStore {
@@ -42,9 +44,47 @@ impl ModelStore for MemoryModelStore {
     }
 }
 
+/// The person's own settings kept in a [`Storage`](ravenrs_core::Storage) under a name: a file on
+/// the desktop, the browser's IndexedDB on the web, beside the records.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct StoredModel {
+    storage: std::rc::Rc<dyn ravenrs_core::Storage>,
+    name: String,
+}
+
+impl std::fmt::Debug for StoredModel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StoredModel").field("name", &self.name).finish_non_exhaustive()
+    }
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl StoredModel {
+    /// Settings kept in `storage` under `name`.
+    pub fn new(storage: impl ravenrs_core::Storage + 'static, name: impl Into<String>) -> Self {
+        Self { storage: std::rc::Rc::new(storage), name: name.into() }
+    }
+}
+
+impl ModelStore for StoredModel {
+    fn load(&self) -> Result<Option<Diff>, ModelError> {
+        let failed = |e: String| ModelError(format!("{}: {e}", self.name));
+        let Some(bytes) = self.storage.read(&self.name).map_err(failed)? else { return Ok(None) };
+        let text = String::from_utf8(bytes).map_err(|e| failed(e.to_string()))?;
+        Diff::parse(&text).map(Some).map_err(|e| failed(e.to_string()))
+    }
+
+    fn save(&self, difference: &Diff) -> Result<(), ModelError> {
+        self.storage
+            .write(&self.name, difference.to_json().as_bytes())
+            .map_err(|e| ModelError(format!("{}: {e}", self.name)))
+    }
+}
+
 /// A difference in a file. A failure while saving leaves the old file whole.
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FileStore(pub std::path::PathBuf);
 
 #[cfg(not(target_arch = "wasm32"))]

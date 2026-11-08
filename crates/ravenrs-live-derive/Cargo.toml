@@ -1,0 +1,25 @@
+[package]
+name = "ravenrs-live-derive"
+description = "#[ravenrs_live::expose]: registers what an impl block or an enum offers with the interpreter of ravenrs-live."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-live-derive"
+keywords = ["interpreter", "playground", "macro"]
+categories = ["development-tools::procedural-macro-helpers"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2.workspace = true
+quote.workspace = true
+syn = { workspace = true, features = ["full", "parsing", "printing", "visit", "visit-mut", "clone-impls", "proc-macro"] }
+
+[lints]
+workspace = true

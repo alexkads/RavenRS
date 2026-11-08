@@ -19,6 +19,7 @@ const SHARES_SUM_TOLERANCE: f32 = 1e-3;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DockSide {
     /// The column on the left.
     Left,
@@ -30,6 +31,7 @@ pub enum DockSide {
     Center,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DockSide {
     /// The three docks that collapse and have a size of their own.
     pub(crate) const DOCKS: [Self; 3] = [Self::Left, Self::Right, Self::Bottom];
@@ -42,6 +44,7 @@ impl DockSide {
 /// A side of a group of tabs, where a split opens.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DockEdge {
     /// To its left.
     Left,
@@ -57,6 +60,7 @@ pub enum DockEdge {
 /// since the id of a panel is what stays the same as the tree changes around it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DockDrop {
     /// Into the group of `beside`, in the gap `at`: 0 is before its first tab, and anything past
     /// the end is after its last.
@@ -81,6 +85,7 @@ pub enum DockDrop {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DockNode {
     /// A group of panels, of which one shows.
     Tabs {
@@ -102,6 +107,7 @@ pub enum DockNode {
 
 /// A part of a split and how much of it it takes.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DockChild {
     /// Its part of the room, as a fraction: the parts of a split add up to one.
     pub share: f32,
@@ -109,6 +115,7 @@ pub struct DockChild {
     pub node: DockNode,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DockNode {
     /// A group of these panels, with the first one showing.
     pub fn tabs<S: Into<String>>(panels: impl IntoIterator<Item = S>) -> Self {
@@ -308,6 +315,7 @@ fn shown() -> bool {
     true
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Region {
     fn new(size: f32) -> Self {
         Self { node: None, size, open: true }
@@ -354,6 +362,7 @@ struct Closed {
 /// assert!(DockLayout::parse("not a layout").is_err());
 /// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DockLayout {
     #[serde(default)]
     center: Option<DockNode>,
@@ -377,6 +386,7 @@ impl Default for DockLayout {
 /// it has, or the one it starts from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DockLayoutError {
     /// It is not well-formed text in the format.
     Syntax {
@@ -420,6 +430,7 @@ struct Saved<'a> {
     layout: &'a DockLayout,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DockLayout {
     /// Nothing anywhere yet, with the docks at their usual sizes.
     pub fn new() -> Self {

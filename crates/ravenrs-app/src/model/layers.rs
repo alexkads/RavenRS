@@ -11,6 +11,7 @@ const NEW_NODE: &str = "$new";
 
 /// A layer of the model, from the lowest to the highest. The highest to set a value wins.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ModelLayer {
     /// What a module adds, by its name; modules stack in the order they first appear.
     Module(String),
@@ -20,6 +21,7 @@ pub enum ModelLayer {
     User,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModelLayer {
     /// Where it goes among layers: modules first, the person last.
     fn rank(&self) -> u8 {
@@ -40,8 +42,10 @@ impl ModelLayer {
 ///
 /// A node that this difference itself creates has `"$new": true`.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Diff(Map<String, Json>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Diff {
     /// A difference that changes nothing.
     pub fn new() -> Self {
@@ -119,6 +123,7 @@ impl Diff {
 /// A part of a difference that has no node to land on, as after the entity it
 /// refers to is gone. It is kept, and comes back into use if the node does.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct UnusableNode {
     /// The layer that holds it.
     pub layer: ModelLayer,
@@ -130,6 +135,7 @@ pub struct UnusableNode {
 
 /// The model as it stands, with all its layers applied.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MergedModel {
     /// The tree to read settings from.
     pub root: ModelNode,
@@ -173,11 +179,13 @@ fn apply(
 /// The generated model and the layers over it. Taking a setting off a layer brings back what
 /// the layer below says.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelLayers {
     zero: ModelNode,
     layers: Vec<(ModelLayer, Diff)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModelLayers {
     /// Layers over this generated model, all empty.
     pub fn new(zero: ModelNode) -> Self {

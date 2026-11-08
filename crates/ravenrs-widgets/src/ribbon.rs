@@ -17,6 +17,7 @@ use crate::{IconName, MenuItem, TextField, Tone, Tooltip, View, util};
 /// How much room a ribbon command takes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum RibbonSize {
     /// A tall button: large icon above a (wrapping) label.
     #[default]
@@ -28,6 +29,7 @@ pub enum RibbonSize {
 }
 
 /// A command in a ribbon group: a button, a toggle, or a button with a menu.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RibbonItem {
     label: String,
     icon: Option<IconName>,
@@ -48,6 +50,7 @@ impl fmt::Debug for RibbonItem {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RibbonItem {
     /// A command button (large by default).
     pub fn button(label: impl Into<String>, icon: IconName) -> Self {
@@ -118,6 +121,7 @@ impl RibbonItem {
 }
 
 /// A labeled set of commands inside a page.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RibbonGroup {
     title: String,
     items: Vec<RibbonItem>,
@@ -133,6 +137,7 @@ impl fmt::Debug for RibbonGroup {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RibbonGroup {
     /// An empty group with this caption.
     pub fn new(title: impl Into<String>) -> Self {
@@ -154,6 +159,7 @@ impl RibbonGroup {
 
 /// A tab of the ribbon.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RibbonPage {
     title: String,
     groups: Vec<RibbonGroup>,
@@ -162,6 +168,7 @@ pub struct RibbonPage {
     visible: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RibbonPage {
     /// An empty page with this tab title.
     pub fn new(title: impl Into<String>) -> Self {
@@ -203,6 +210,7 @@ impl RibbonPage {
 /// let mut ui = Ui::new(ribbon, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Ribbon {
     pages: Vec<RibbonPage>,
     app_menu: Option<(String, Vec<Entry>)>,
@@ -223,6 +231,7 @@ impl Default for Ribbon {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Ribbon {
     /// An empty ribbon.
     pub fn new() -> Self {

@@ -29,6 +29,12 @@ for name, path in sorted(links.items()):
 for name in sorted(views - listed - NOT_LISTED):
     problems.append(f"{name}: public component missing from the list")
 
+# The playground's interpreter has to know every component as it is.
+import subprocess
+generated = subprocess.run([sys.executable, str(root / "scripts/gen-live.py"), "--check"], capture_output=True, text=True)
+if generated.returncode != 0:
+    problems.append(generated.stderr.strip() or generated.stdout.strip())
+
 if problems:
     print("\n".join(problems), file=sys.stderr)
     sys.exit(1)

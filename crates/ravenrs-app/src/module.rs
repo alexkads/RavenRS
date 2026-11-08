@@ -59,6 +59,7 @@ pub trait Module {
 /// What a piece of a dashboard shows.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DashboardContent {
     /// A view of the model, by its id.
     View(String),
@@ -69,6 +70,7 @@ pub enum DashboardContent {
 /// A piece of a dashboard.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DashboardItem {
     /// What it is known by.
     pub id: String,
@@ -81,6 +83,7 @@ pub struct DashboardItem {
 /// Other views together. It is bound to no records: each piece keeps its own frame.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DashboardInfo {
     /// Its name, which its view's id starts with.
     pub name: String,
@@ -96,6 +99,7 @@ pub struct DashboardInfo {
     pub variants: Vec<(String, String, String)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DashboardInfo {
     /// A dashboard with nothing in it yet.
     pub fn new(name: impl Into<String>, caption: impl Into<String>) -> Self {
@@ -198,6 +202,7 @@ fn in_dependency_order(modules: Vec<Box<dyn Module>>) -> Result<Vec<Box<dyn Modu
 
 /// An application put together: its entities, its model and what makes frames. Layers from
 /// the administrator and the user go on with [`layers_mut`](Self::layers_mut).
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Application {
     title: String,
     modules: Vec<Box<dyn Module>>,
@@ -219,6 +224,7 @@ impl std::fmt::Debug for Application {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Application {
     /// Starts an application with this title.
     pub fn builder(title: impl Into<String>) -> ApplicationBuilder {
@@ -360,6 +366,7 @@ impl Application {
 }
 
 /// Collects what goes in an [`Application`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ApplicationBuilder {
     title: String,
     modules: Vec<Box<dyn Module>>,
@@ -375,6 +382,7 @@ impl std::fmt::Debug for ApplicationBuilder {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ApplicationBuilder {
     /// Adds a module.
     pub fn module(mut self, module: impl Module + 'static) -> Self {
@@ -426,6 +434,11 @@ impl ApplicationBuilder {
             entities.iter().filter(|entity| !entity.state_machines.is_empty()).cloned().collect();
         if !with_states.is_empty() {
             modules.push(Box::new(crate::workflow::StateMachineModule(with_states)));
+        }
+        let with_actions: Vec<EntityInfo> =
+            entities.iter().filter(|entity| !entity.actions.is_empty()).cloned().collect();
+        if !with_actions.is_empty() {
+            modules.push(Box::new(crate::record_action::RecordActionModule(with_actions)));
         }
         let mut zero = generate_model(&entities)?;
         for dashboard in &self.dashboards {

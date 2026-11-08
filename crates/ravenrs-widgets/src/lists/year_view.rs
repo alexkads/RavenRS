@@ -27,6 +27,7 @@ const LINES: [usize; 5] = [6, 4, 3, 2, 1];
 /// What marks a day of a [`YearView`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DayMark {
     /// The color of its dot.
     pub tone: Tone,
@@ -34,6 +35,7 @@ pub struct DayMark {
     pub label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DayMark {
     /// A mark in the neutral tone.
     pub fn new() -> Self {
@@ -70,6 +72,7 @@ impl DayMark {
 /// let mut ui = Ui::new(view, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct YearView {
     year: Binding<i32>,
     selected: Option<Binding<Option<Date>>>,
@@ -86,6 +89,7 @@ impl fmt::Debug for YearView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl YearView {
     /// The year in `year`, which its buttons and the keyboard also change.
     pub fn new(year: Binding<i32>) -> Self {

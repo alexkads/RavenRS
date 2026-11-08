@@ -13,6 +13,7 @@ use ravenrs_core::{Color, Insets, Point, Shadow};
 /// component follows the active theme.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Semantic {
     /// `bg-000`: the canvas behind everything.
     Canvas,
@@ -62,6 +63,7 @@ pub enum Semantic {
 
 /// The color tokens of one theme.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Palette {
     /// `bg-000`: the canvas behind everything.
     pub bg_000: Color,
@@ -95,6 +97,7 @@ pub struct Palette {
     pub danger: Color,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Palette {
     /// Resolves a semantic role to this palette's color.
     pub fn get(&self, role: Semantic) -> Color {
@@ -136,8 +139,10 @@ impl Palette {
 
 /// Font weight on the CSS 1–1000 scale.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Weight(pub f32);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Weight {
     /// Regular weight (400).
     pub const REGULAR: Self = Self(400.0);
@@ -151,6 +156,7 @@ impl Weight {
 
 /// One step of the type scale.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TypeStyle {
     /// Font size in logical pixels.
     pub size: f32,
@@ -165,6 +171,7 @@ pub struct TypeStyle {
 /// Named steps of the type scale.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum TextStyle {
     /// Large dashboard numbers (42px).
     Metric,
@@ -185,6 +192,7 @@ pub enum TextStyle {
 
 /// The type scale: one [`TypeStyle`] per [`TextStyle`].
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Typography {
     /// Style for [`TextStyle::Metric`].
     pub metric: TypeStyle,
@@ -202,6 +210,7 @@ pub struct Typography {
     pub caption: TypeStyle,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Typography {
     /// Returns the type style for a named step.
     pub fn get(&self, style: TextStyle) -> TypeStyle {
@@ -234,6 +243,7 @@ pub const TYPOGRAPHY: Typography = Typography {
 
 /// The 4px spacing grid (`space-*` tokens).
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Spacing {
     /// `space-1`: 4 logical pixels.
     pub s1: f32,
@@ -259,6 +269,7 @@ pub const SPACING: Spacing =
 
 /// Corner radii (`radius-*` tokens).
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Radii {
     /// `radius-sm`: small controls, in logical pixels.
     pub sm: f32,
@@ -277,6 +288,7 @@ pub const RADII: Radii = Radii { sm: 6.0, md: 10.0, lg: 16.0, xl: 24.0, full: 99
 
 /// Shadow tokens (`shadow-*`).
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Elevation {
     /// `shadow-soft`: cards and resting surfaces.
     pub soft: Shadow,
@@ -288,6 +300,7 @@ pub struct Elevation {
 /// renderer for a backdrop blur where available.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Material {
     /// Opaque fills.
     Solid,
@@ -297,6 +310,7 @@ pub enum Material {
 
 /// Interaction sizing and motion preferences that components must respect.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Interaction {
     /// Minimum control height for pointer input.
     pub min_target: f32,
@@ -310,6 +324,7 @@ pub struct Interaction {
 
 /// Motion tokens: how long things take and how they move.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MotionTokens {
     /// Hover, press and focus color (`duration-fast`).
     pub fast: Transition,
@@ -327,6 +342,7 @@ pub struct MotionTokens {
 
 /// A complete theme: palette plus the shared scales.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Theme {
     /// Display name, e.g. `"Raven Dark"`.
     pub name: &'static str,
@@ -364,6 +380,7 @@ const fn shadow(y: f32, blur: f32, color: Color) -> Shadow {
     Shadow { offset: Point::new(0.0, y), blur, color }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Theme {
     /// The default theme: deep neutrals with a single blue-violet accent.
     pub const fn raven_dark() -> Self {

@@ -33,6 +33,7 @@ pub(crate) struct Camera {
     scale: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Camera {
     /// A point of the film, on the screen.
     pub(crate) fn to_screen(self, p: Point) -> Point {
@@ -131,6 +132,7 @@ fn gap(cx: &mut BuildCx<'_>, height: f32) -> NodeId {
 /// One moment of an edited film, `width` wide and as tall as its proportions say.
 /// The player and the editor both draw with it, so what is edited is what is shown.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Composition {
     movie: Movie,
     at_ms: u64,
@@ -139,6 +141,7 @@ pub struct Composition {
     logo: Option<LottieAnimation>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Composition {
     /// The moment `at_ms` of the timeline of `movie`.
     pub fn new(movie: Movie, at_ms: u64) -> Self {

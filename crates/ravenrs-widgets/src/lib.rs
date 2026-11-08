@@ -44,6 +44,8 @@ mod chart;
 mod chat;
 mod choice;
 mod clipboard;
+#[cfg(feature = "code")]
+mod code_editor;
 mod color_picker;
 mod commands;
 mod context;
@@ -69,7 +71,12 @@ mod image;
 mod imaging;
 mod inputs;
 mod labels;
+mod links;
 mod lists;
+#[cfg(feature = "live")]
+mod live;
+#[cfg(feature = "live")]
+mod live_list;
 mod lookup;
 #[cfg(feature = "lottie")]
 mod lottie;
@@ -78,6 +85,10 @@ mod modifiers;
 mod motion;
 mod nav;
 mod overlay;
+mod page_motion;
+#[cfg(feature = "code")]
+mod playground;
+mod quad_field;
 mod quick_edit;
 mod recurrence;
 mod release_notes;
@@ -87,6 +98,7 @@ mod rich_text;
 #[cfg(feature = "charts")]
 mod sankey;
 mod scheduler;
+mod scroll_scene;
 mod shortcuts;
 mod sound;
 mod stack;
@@ -119,6 +131,8 @@ pub use choice::{
     SwatchGrid, ToggleButton, ToggleGroup,
 };
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
+#[cfg(feature = "code")]
+pub use code_editor::{CodeDiagnostic, CodeEditor, CodeLanguage, highlight_rust};
 pub use color_picker::ColorPicker;
 pub use commands::{ConfirmDialog, FloatingToolbar, Hotkey, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
@@ -175,10 +189,16 @@ pub use imaging::{
 };
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use labels::{Labels, Localized};
+pub use links::{Link, LinkOpener, Links};
 pub use lists::{
     DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
     FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,
 };
+#[cfg(feature = "live")]
+#[doc(hidden)]
+pub use live::view as __live_view;
+#[cfg(feature = "live")]
+pub use live::{LiveRunner, live_registry};
 pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
 #[cfg(feature = "lottie")]
 pub use lottie::Lottie;
@@ -191,6 +211,10 @@ pub use nav::{
     Tabs, TabsVariant,
 };
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
+pub use page_motion::{Anchor, CountUp, Ticker, TimeLink};
+#[cfg(feature = "code")]
+pub use playground::{Playground, Runner};
+pub use quad_field::QuadField;
 pub use quick_edit::{InlineRename, ValueSlider};
 #[cfg(feature = "lottie")]
 pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
@@ -204,6 +228,7 @@ pub use sankey::{SankeyAlign, SankeyChart};
 pub use scheduler::{
     Resource, Scheduler, SchedulerChange, SchedulerEvent, SchedulerRange, TimeAxis, TimePoint, TimeScale,
 };
+pub use scroll_scene::{ScrollLink, ScrollLinked, ScrollRange, ScrollScene, Sticky};
 pub use shortcuts::{ShortcutHintBar, ShortcutSheet};
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
 pub use stack::{

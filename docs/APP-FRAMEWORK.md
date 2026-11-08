@@ -79,6 +79,14 @@ On the struct, `#[object(focus_order = "name,amount")]` puts these fields first 
 
 `String`, `bool`, `i32`, `i64`, `u32`, `u64`, `usize`, `f64` and `Option` of them work as they are. Any other type implements `FieldValue`, which `#[derive(BusinessEnum)]` does for an enum.
 
+### Reading the same structs while the program runs
+
+With the `source` feature, `entities_from_source` reads Rust text with these structs and enums and gives their `EntityInfo`s without compiling, as the playground does. The derive and this function share `ravenrs-app-spec`, so they accept the same attributes and refuse the same mistakes with the same words, each with its line and column (`SourceError`). Only what a compiler would have to work out is refused on top: a type other than the ones above or an enum of the same file, and a `default`, `min` or `max` that is not a literal or an enum option.
+
+```rust,ignore
+let entities = ravenrs_app::entities_from_source(source)?; // Err holds every SourceError
+```
+
 ### Rules
 
 On the struct, as many as needed:
@@ -97,6 +105,21 @@ struct Bill { /* ... */ }
 A form that fails its rules keeps nothing, and says what is wrong on each field and in a list on top, which follows as people fix it. Rules are in the `Save` context unless they say otherwise. `Delete` applies on deleting, and an action names any other with `validation_contexts`. Rules do not run by themselves below the screens: `validate` is there for anything else that writes.
 
 Appearance is about looks, and does not protect data. A column of a list hides only by a rule with no condition, since it is for all its rows. An action hidden by a rule on a list only fades, as hiding would move the buttons beside it.
+
+### Actions declared as data
+
+An action that only changes fields of the records selected needs no code:
+
+```rust
+#[derive(BusinessObject)]
+#[action(caption = "Concluir", selection = "many", enabled = "[state] <> 'done'",
+         set = "state = 'done'; finished = Today()", confirm = "Concluir as tarefas?")]
+struct Task { /* ... */ }
+```
+
+`set` is `field = expression; ...`, in the criteria language, and every expression reads the record as it was before any of them. Each record changed is checked against its rules in the `Save` context, and then all are kept, or none: one record that breaks a rule keeps every record as it was, and says what is wrong. `enabled` is what every record selected has to meet for the action to be on, as `target_criteria` with `TrueForAll`. `selection` is `one`, `many`, the default, or `any`. The id is `Entity.Caption` unless `id = "..."` gives one. The derive checks that both expressions parse and name only fields of the struct; `EntityInfo::action(RecordAction::new(...))` does the same at run time, and what is wrong comes out when the application is put together.
+
+`Action::assign(&entity, "field = expression; ...")` gives any action the same work, for one made in code with `on_execute` left out. State machines still guard what is kept, so an action that sets a state goes only by the ways declared.
 
 ### Inside an application that already exists
 
@@ -196,6 +219,25 @@ Or people pick it from a menu, with `ViewVariant::new("chart", "Chart").editor(C
 | `Tree` | `Parent`, a reference to the same entity, `Title` |
 
 These read through the view's unit of work, so permissions, filters and the way picked all count. See `examples/quick-plan`, in a window and in the browser.
+
+## Records that stay
+
+`App::keep_in(storage)` keeps the records and the person's own settings between runs, with no database to set up. The records stay in memory while the app runs and are written after every commit; the `seed` runs only the first time, while nothing was kept yet.
+
+```rust,ignore
+// Desktop: a folder with one file for the records and one for the settings.
+App::new("Raven Contas").entity::<Account>().keep_in(FileStorage::new(data_folder));
+
+// Web: the browser's IndexedDB, read before the app opens (see examples/quick-app).
+let storage = ravenrs::web::IndexedDbStorage::open("raven-contas").await?;
+App::new("Raven Contas").entity::<Account>().keep_in(storage);
+```
+
+A `Storage` (in `ravenrs-core`) keeps named pieces of data: `FileStorage` on the desktop, `IndexedDbStorage` on the web, `MemoryStorage` for tests. Under `keep_in`, `MemoryDatabase::stored_in(storage, name)` reads what was kept and writes after each commit, `was_restored` says whether something was there, and `storage_problem` says what went wrong the last time it wrote, while the records stay in memory. `StoredModel` keeps the settings the same way.
+
+`MemoryDatabase::export_json` gives every record as JSON (dates as `{"days", "seconds"}`), and `import_json` puts such JSON in place of all records, all or nothing: an entity it does not have, a record without its key or a value it cannot read leaves everything as it was. Records of an entity removed from the code are set aside when the database opens, not refused.
+
+This is for one person's records on one machine. Several people sharing records need SQLite on a shared disk or a server.
 
 ## Work away from the screen
 
@@ -354,6 +396,7 @@ Audit::new().theme(Theme::raven_light()).open("Novo").app(&mut ui).assert_clean(
 - The words of the announcements live in `ravenrs-app-a11y` until the framework keeps all its words in one catalog.
 - The region of announcements is in the window, so while a window is open over it, what changes behind is heard once that window closes.
 
+- A declared action sets fields and nothing else: it does not open views, ask for input or reach other records. One that needs to does it in `on_execute`.
 - State machines are declared in code. People cannot define states or ways while the application runs.
 - A reminder someone else set or changed shows the next time records are read here, as nothing polls. Reminders do not go anywhere outside the application.
 - `DocumentViewer` shows what the report engine lays out. It does not open PDF files, so an attached PDF is saved or opened with the system.

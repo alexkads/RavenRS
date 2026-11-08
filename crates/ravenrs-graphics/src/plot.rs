@@ -17,6 +17,7 @@ use crate::vector::{self, Layer, PathSegment, Shape};
 /// How a line goes from one point to the next.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Curve {
     /// A smooth curve that may swing past the points.
     #[default]
@@ -32,6 +33,7 @@ pub enum Curve {
 /// How series share the same category.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Stack {
     /// Side by side, or over each other.
     #[default]
@@ -45,6 +47,7 @@ pub enum Stack {
 /// Which gridlines a chart has, as they look on the screen.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Grid {
     /// Level lines.
     #[default]
@@ -60,6 +63,7 @@ pub enum Grid {
 /// The shape of the grid of a radar or radial chart.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum PolarGrid {
     /// Polygons through the spokes.
     #[default]
@@ -73,6 +77,7 @@ pub enum PolarGrid {
 /// Where a label sits relative to what it names.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum LabelAt {
     /// Just outside it: above a point or a bar, around a slice.
     #[default]

@@ -35,6 +35,7 @@ const STOP_WORDS: &[&str] = &[
 /// What a moment of a film is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum MomentKind {
     /// The start of a chapter.
     Chapter,
@@ -46,6 +47,7 @@ pub enum MomentKind {
 
 /// A place in a film that can be asked for.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Moment {
     /// The film, by its position in the library.
     pub film: usize,
@@ -61,6 +63,7 @@ pub struct Moment {
 
 /// A moment that answers a question.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Answer {
     /// The moment.
     pub moment: Moment,
@@ -77,6 +80,7 @@ struct Indexed {
     chapter: Vec<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Indexed {
     fn length(&self) -> usize {
         self.title.len() + self.text.len()
@@ -112,10 +116,12 @@ struct Library {
 /// # Ok::<(), ravenrs_movie::MovieError>(())
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieLibrary {
     inner: Rc<Library>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieLibrary {
     /// A library with no films.
     pub fn new() -> Self {

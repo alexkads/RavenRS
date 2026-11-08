@@ -34,10 +34,15 @@ mod files;
 mod frame;
 mod functions;
 mod job;
+#[cfg(feature = "live")]
+mod live_list;
 mod model;
 mod module;
 mod object;
+mod record_action;
 mod security;
+#[cfg(feature = "source")]
+mod source;
 mod space;
 mod validation;
 mod workflow;
@@ -60,12 +65,16 @@ pub use job::{Job, JobChange, JobContext, JobWaker, JobWork};
 pub use model::FileStore;
 pub use model::{
     Diff, EmbeddedStore, MemoryModelStore, MergedModel, ModelLayer, ModelLayers, ModelNode, ModelStore,
-    UnusableNode, check_model, generate_model,
+    StoredModel, UnusableNode, check_model, generate_model,
 };
 pub use module::{Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
+#[cfg(not(target_arch = "wasm32"))]
+pub use ravenrs_core::FileStorage;
+pub use ravenrs_core::{MemoryStorage, Storage};
 pub use ravenrs_criteria::{Criteria, Value};
+pub use record_action::RecordAction;
 pub use security::{
     ADMINISTRATORS_ROLE, Access, AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError,
     Authenticator, Credentials, Identity, MIN_PASSWORD_CHARS, Operation, PasswordError, PermissionPolicy,
@@ -74,6 +83,8 @@ pub use security::{
     SECURITY_TYPE_PERMISSION, SECURITY_USER, SECURITY_USER_ROLE, SecuredObjectSpace, SecurityContext,
     SpaceMaker, UserDirectory, audit_entity, hash_password, security_entities, verify_password,
 };
+#[cfg(feature = "source")]
+pub use source::{SourceError, entities_from_source, entities_from_spec};
 pub use space::{
     Change, ChangeSet, MemoryDatabase, MemoryObjectSpace, Merged, ObjectSpace, Query, SpaceError, SpaceEvent,
     SpaceWatcher, check_query, key_of, key_text, merge_changes, run_query,
@@ -83,3 +94,9 @@ pub use validation::{
     Violation, validate, validate_in_place,
 };
 pub use workflow::{Reminder, StateMachine, Transition, check_transitions, local_now, reminders_of};
+
+/// Registers this crate's types with a playground's interpreter (feature `live`).
+#[cfg(feature = "live")]
+pub fn live_expose(registry: &mut ravenrs_live::Registry) {
+    live_list::expose_all(registry);
+}

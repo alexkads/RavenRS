@@ -16,6 +16,7 @@ use crate::{Action, ModelError, ModelNode, Object, ObjectSpace};
 
 /// What a view shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ViewKind {
     /// Many records.
     List,
@@ -28,6 +29,7 @@ pub enum ViewKind {
 /// A view, as the model describes it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ViewInfo {
     /// Its id in the model.
     pub id: String,
@@ -37,6 +39,7 @@ pub struct ViewInfo {
     pub entity: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ViewInfo {
     /// A view with this id.
     pub fn new(id: impl Into<String>, kind: ViewKind, entity: Option<&str>) -> Self {
@@ -59,6 +62,7 @@ impl ViewInfo {
 
 /// Where a frame is, which decides its template and what targets it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FrameContext {
     /// The main window.
     Main,
@@ -73,6 +77,7 @@ pub enum FrameContext {
 /// What a frame goes through, in order, for whoever shows it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FrameEvent {
     /// The view is about to change, to this one.
     ViewChanging(Option<String>),
@@ -131,6 +136,7 @@ struct FrameInner {
 /// Changing the view tells whoever watches, turns off the controllers that were on, changes the
 /// view, turns on those that fit the new one, and tells again.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Frame(Rc<FrameInner>);
 
 impl fmt::Debug for Frame {
@@ -139,6 +145,7 @@ impl fmt::Debug for Frame {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Frame {
     /// A frame with no view, with these controllers. Window controllers turn on now, if
     /// the context fits them, and stay on.

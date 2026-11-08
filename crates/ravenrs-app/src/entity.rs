@@ -8,6 +8,7 @@ use ravenrs_criteria::{Criteria, Environment, FieldType, Record, Schema, Scope, 
 /// What a field holds, which decides how it is edited and stored.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FieldKind {
     /// A line of text.
     Text,
@@ -45,6 +46,7 @@ pub enum FieldKind {
     Tags(Vec<EnumOption>),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FieldKind {
     /// How expressions see it.
     fn field_type(&self) -> FieldType {
@@ -99,6 +101,7 @@ impl FieldKind {
 
 /// One of the values of a [`FieldKind::Enum`].
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EnumOption {
     /// What is stored.
     pub code: String,
@@ -106,6 +109,7 @@ pub struct EnumOption {
     pub caption: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EnumOption {
     /// An option stored as `code` and shown as `caption`.
     pub fn new(code: impl Into<String>, caption: impl Into<String>) -> Self {
@@ -116,6 +120,7 @@ impl EnumOption {
 /// A field of an [`EntityInfo`].
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FieldInfo {
     /// Its name, in expressions and in the model.
     pub name: String,
@@ -189,6 +194,7 @@ fn caption_of(name: &str) -> String {
     chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FieldInfo {
     /// A field shown in lists and on the form.
     pub fn new(name: impl Into<String>, kind: FieldKind) -> Self {
@@ -470,6 +476,7 @@ impl FieldInfo {
 /// How a list gets its records.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DataAccess {
     /// All of them at once, kept in memory, so grouping and every search work on the spot.
     #[default]
@@ -480,6 +487,7 @@ pub enum DataAccess {
     DataView,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DataAccess {
     /// Its name in the model.
     pub fn name(self) -> &'static str {
@@ -502,6 +510,7 @@ impl DataAccess {
 
 /// Something wrong in how the application was declared, in words for its developer.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelError(pub String);
 
 impl fmt::Display for ModelError {
@@ -515,6 +524,7 @@ impl std::error::Error for ModelError {}
 /// Another way to see the list of an entity, which people pick from a menu once there are two.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ViewVariant {
     /// What it is known by.
     pub id: String,
@@ -528,6 +538,7 @@ pub struct ViewVariant {
     pub editor: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ViewVariant {
     /// A variant that shows every record.
     pub fn new(id: impl Into<String>, caption: impl Into<String>) -> Self {
@@ -556,6 +567,7 @@ impl ViewVariant {
 /// A filter ready for people to pick from a menu on a list.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ListFilter {
     /// What it is known by.
     pub id: String,
@@ -565,6 +577,7 @@ pub struct ListFilter {
     pub criteria: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListFilter {
     /// A filter that lets everything through, as the choice that takes the others off.
     pub fn new(id: impl Into<String>, caption: impl Into<String>) -> Self {
@@ -581,6 +594,7 @@ impl ListFilter {
 /// A kind of record.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EntityInfo {
     /// Its name, in the model and in code.
     pub name: String,
@@ -604,6 +618,8 @@ pub struct EntityInfo {
     pub state_machines: Vec<crate::StateMachine>,
     /// When to remind people of a record.
     pub reminder: Option<crate::Reminder>,
+    /// Actions that set fields of the records selected.
+    pub actions: Vec<crate::RecordAction>,
     /// What the list editors are told about this list: an editor's settings node, and in it names and values.
     pub editor_settings: Vec<(String, String, String)>,
     /// How many columns its form's fields go in; by how many there are, unless given.
@@ -629,6 +645,7 @@ pub struct EntityInfo {
     pub focus_order: Vec<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl EntityInfo {
     /// An entity with no fields yet.
     pub fn new(name: impl Into<String>) -> Self {
@@ -644,6 +661,7 @@ impl EntityInfo {
             variants: Vec::new(),
             description: None,
             state_machines: Vec::new(),
+            actions: Vec::new(),
             reminder: None,
             editor_settings: Vec::new(),
             form_columns: None,
@@ -782,6 +800,13 @@ impl EntityInfo {
         self.appearance(rule.criteria(format!("[{field}] = '{state}'")))
     }
 
+    /// An action that sets fields of the records selected. It comes by itself on its list and
+    /// its form.
+    pub fn action(mut self, action: crate::RecordAction) -> Self {
+        self.actions.push(action);
+        self
+    }
+
     /// Reminds people of its records.
     pub fn reminder(mut self, reminder: crate::Reminder) -> Self {
         self.reminder = Some(reminder);
@@ -859,6 +884,9 @@ impl EntityInfo {
             if self.field_named(field).is_none() {
                 return wrong(format!("the focus order names {field}, which is not a field"));
             }
+        }
+        for action in &self.actions {
+            action.check(self).map_err(|e| ModelError(format!("{}: {}", self.name, e.0)))?;
         }
         for machine in &self.state_machines {
             if self.field_named(&machine.field).is_none() {
@@ -1000,11 +1028,13 @@ impl EntityInfo {
 /// A record: its entity's name and a value per field. Dynamic, so filters, rules and
 /// permissions read every entity the same way.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Object {
     entity: String,
     values: BTreeMap<String, Value>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Object {
     /// A record of this entity with these values, as storage hands them over.
     pub fn from_values(entity: impl Into<String>, values: BTreeMap<String, Value>) -> Self {

@@ -17,6 +17,7 @@ const USER_FOLDERS: [&str; 4] = ["/home/", "/Users/", "\\Users\\", "\\users\\"];
 
 /// One GPU as the graphics API describes it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AdapterReport {
     /// The GPU's name.
     pub name: String,
@@ -47,6 +48,7 @@ impl fmt::Display for AdapterReport {
 
 /// How frames reach the window.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SurfaceReport {
     /// The pixel format in use.
     pub format: String,
@@ -58,6 +60,7 @@ pub struct SurfaceReport {
 
 /// The GPU an app ended up on and the ones it could have used.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GpuReport {
     /// The adapter in use.
     pub active: AdapterReport,
@@ -72,6 +75,7 @@ pub struct GpuReport {
 
 /// The machine and the build around the GPU.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SystemReport {
     /// The RavenRS version.
     pub version: String,
@@ -91,6 +95,7 @@ pub struct SystemReport {
 
 /// Something in a [`DiagnosticReport`] that explains a slow or broken app.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DiagnosticFinding {
     /// Frames are drawn on the CPU.
     SoftwareRendering,
@@ -115,6 +120,7 @@ impl fmt::Display for DiagnosticFinding {
 
 /// Everything known about where an app runs, to read or to paste into a bug report.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DiagnosticReport {
     /// The GPU, or why there is none.
     pub gpu: Result<GpuReport, String>,
@@ -129,6 +135,7 @@ impl Default for DiagnosticReport {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DiagnosticReport {
     /// What in this report explains a slow or broken app, most serious first.
     ///
@@ -289,6 +296,7 @@ pub fn new_issue_url(new_issue: &str, intro: &str, report: &str, truncated_note:
 
 /// Time spent in each phase of the UI runtime, once a clock was given to it.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PhaseTimes {
     /// Running the views.
     pub build: Duration,
@@ -300,6 +308,7 @@ pub struct PhaseTimes {
     pub paint: Duration,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PhaseTimes {
     /// All the phases together.
     pub fn total(&self) -> Duration {
@@ -310,6 +319,7 @@ impl PhaseTimes {
 /// Why the views ran again. It is the first question about a slow screen: every
 /// rebuild costs in proportion to the whole screen.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum BuildCause {
     /// The first build.
     #[default]
@@ -334,6 +344,7 @@ pub enum BuildCause {
     System,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl BuildCause {
     /// Every cause, in the order [`BuildCauses`] counts them.
     pub const ALL: [Self; 10] = [
@@ -352,10 +363,12 @@ impl BuildCause {
 
 /// How many builds each [`BuildCause`] caused.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct BuildCauses {
     counts: [u64; BuildCause::ALL.len()],
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl BuildCauses {
     /// Counts one build.
     pub fn add(&mut self, cause: BuildCause) {
@@ -370,6 +383,7 @@ impl BuildCauses {
 
 /// What the UI runtime did for one frame.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FrameWork {
     /// Time in each phase; zero unless a clock was given to the runtime.
     pub phases: PhaseTimes,
@@ -387,6 +401,7 @@ pub struct FrameWork {
 
 /// What a type of view cost in the latest build, not counting the views inside it.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ViewCost {
     /// The view's type, as the compiler names it.
     pub name: &'static str,
@@ -400,6 +415,7 @@ pub struct ViewCost {
     pub shapes: u32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ViewCost {
     /// The type's name without its path or generics: `VStack`, not
     /// `ravenrs_widgets::stack::VStack<(..)>`.
@@ -411,6 +427,7 @@ impl ViewCost {
 
 /// What the renderer's resources looked like after a frame.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RenderWork {
     /// Draw calls split because the kind of primitive changed.
     pub breaks_kind: u32,
@@ -437,6 +454,7 @@ pub struct RenderWork {
 /// What one frame cost. All durations are time on the CPU: waiting for a busy
 /// GPU shows up in [`Self::acquire`] and [`Self::present`], not in [`Self::render`].
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FrameSample {
     /// Rebuilding, laying out and painting the UI.
     pub update: Duration,
@@ -462,6 +480,7 @@ pub struct FrameSample {
     pub render_work: RenderWork,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FrameSample {
     /// The whole frame.
     pub fn total(&self) -> Duration {
@@ -471,6 +490,7 @@ impl FrameSample {
 
 /// The median and the 95th percentile of a duration.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Percentiles {
     /// Half of the frames took less than this.
     pub median: Duration,
@@ -478,6 +498,7 @@ pub struct Percentiles {
     pub p95: Duration,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Percentiles {
     fn of(mut values: Vec<Duration>) -> Self {
         values.sort_unstable();
@@ -491,6 +512,7 @@ impl Percentiles {
 
 /// The recent frames of a [`FrameLog`], summed up.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FrameSummary {
     /// Frames summed up.
     pub frames: usize,
@@ -537,6 +559,7 @@ const FAIR_FPS: f64 = 24.0;
 
 /// How a [`PerformanceResult`] feels to the person using the app.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum PerformanceVerdict {
     /// Fluid.
     Good,
@@ -548,6 +571,7 @@ pub enum PerformanceVerdict {
 
 /// Where the time of a slow frame goes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Bottleneck {
     /// Drawing: the GPU cannot fill the window in time, or there is none.
     Gpu,
@@ -557,6 +581,7 @@ pub enum Bottleneck {
 
 /// What redrawing the window nonstop for a few seconds showed.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PerformanceResult {
     /// Frames drawn per second. Unlike the durations of a [`FrameSummary`], this
     /// does count all the GPU's work: a busy GPU holds back the next frame.
@@ -597,11 +622,13 @@ impl fmt::Display for PerformanceResult {
 /// assert_eq!(log.summary().total.median, Duration::from_millis(4));
 /// ```
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FrameLog {
     samples: VecDeque<FrameSample>,
     recorded: u64,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FrameLog {
     /// Adds a frame, forgetting the oldest once the log is full.
     pub fn record(&mut self, sample: FrameSample) {

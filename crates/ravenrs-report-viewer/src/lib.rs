@@ -19,6 +19,7 @@
 //! # let _ = viewer;
 //! ```
 
+mod fan;
 mod parameters;
 mod print;
 mod search;
@@ -40,6 +41,7 @@ use ravenrs_widgets::{
     ViewExt,
 };
 
+pub use fan::PageFan;
 pub use parameters::{ParameterLabels, ParameterPanel, ParameterValues};
 pub use print::print;
 pub use search::{Match, find_matches};

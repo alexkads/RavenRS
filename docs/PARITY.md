@@ -22,6 +22,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Separator | ✓ | | | ✅ `Divider` |
 | Aspect ratio | ✓ | | | ✅ `AspectRatio` |
 | Scroll area | ✓ | ✓ | ✓ | ✅ `ScrollView` (vertical; horizontal inside DataGrid) |
+| Sticky content and scroll-driven effects | ✓ | ✓ | ✓ | ✅ `Sticky`, `ScrollScene`, `ScrollLinked` with `ScrollLink` (ranges, windows, easing, keyframes) |
+| Links, anchors, counters, marquees | ✓ | ✓ | ✓ | ✅ `Link`, `Anchor`, `CountUp`, `Ticker` with `TimeLink`, `QuadField` |
 | Resizable panels / Splitter | ✓ | ✓ | ✓ | ✅ `Splitter` for two panes, `SplitPanes` for any number with limits, `SplitHandle` for a bar of your own; all move with the keyboard |
 | Tile layout / Dashboard layout | | ✓ | ✓ | ✅ `TileLayout`: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep |
 | Docking / Dock manager | | ✓ | ✓ | ✅ `DockArea`: a tree of splits and tabs in four places; moves by a drag with a mark on the target, by keys or by a menu; bars with limits and keys; docks that collapse and panels that close and come back; an arrangement saved as versioned text, where an unknown id is left out. Floating panels are left out: the app this was modeled on does not float them either |
@@ -75,6 +77,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 |---|---|---|---|---|
 | Text box | ✓ | ✓ | ✓ | ✅ `TextField` (selection, clipboard, views before and after the text, clear button, sizes) |
 | Text area (multi-line) | ✓ | ✓ | ✓ | ✅ `TextArea`: wraps, scrolls, builds only the lines in view, grows with the text between two limits |
+| Code editor | | ✓ | | ✅ `CodeEditor` (feature `code`): Fira Mono, line numbers, Rust colors by token, Tab and Shift+Tab indent, Enter keeps the indentation, diagnostics mark the line and underline the columns. No horizontal scrolling or folding yet |
+| Code playground | | | | ✅ `Playground` (feature `code`): code beside its result, examples, Restore, Ctrl/Cmd+Enter runs through a `Runner`, problems listed and marked, last result kept, tabs below 768 px, and `download` to save what the code makes. The gallery downloads each example as a Cargo project (`ravenrs-project`) that `cargo run`s on the desktop and builds for the browser; `scripts/check.sh --full` builds all of them. `LiveRunner` (feature `live`) runs edited Rust without a compiler through `ravenrs-live`: all 181 gallery examples, each building as many elements as compiled; what it cannot read yet would be listed in `examples/component-gallery/live-pending.txt` |
 | Label | ✓ | ✓ | ✓ | ✅ `Label` |
 | Form, field validation | ✓ | ✓ | ✓ | ✅ `FormField` + validators |
 | Form layout (groups, columns, tabs, error list) | | ✓ | ✓ | ✅ `FormLayout`, `FormGroup` |
@@ -106,7 +110,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Signature | | | ✓ | ⬜ |
 | Rich text editor | | ✓ | ✓ | ⬜ |
 | Code editor | | ✓ | | ⬜ |
-| Spreadsheet | | ✓ | ✓ | ⬜ |
+| Spreadsheet | | ✓ | ✓ | 🟡 `Spreadsheet` (`ravenrs-spreadsheet`): opens XLSX, XLS, ODS and CSV and saves XLSX, 500+ functions with recalculation, editing in the cell and the formula bar, pointer and keyboard selection, clipboard, undo, bold, italic, underline, alignment, number formats, column widths, sheet tabs. Planned: every command on a ribbon, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find |
 
 ## Data
 

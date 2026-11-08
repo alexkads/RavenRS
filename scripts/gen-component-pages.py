@@ -64,6 +64,7 @@ TEMPLATE = """<!doctype html>
   <ul>
     <li><a href="../" aria-current="page">Components</a></li>
     <li class="hide-sm"><a href="../../demo/">Live demo</a></li>
+    <li class="hide-sm"><a href="../../playground/">Playground</a></li>
     <li class="hide-sm"><a href="../../designer/">Reports</a></li>
     <li><a href="../../api/ravenrs/">API</a></li>
     <li class="hide-sm"><a href="https://github.com/alexkads/RavenRS">GitHub</a></li>
@@ -80,13 +81,14 @@ TEMPLATE = """<!doctype html>
     <h1>{name}</h1>
     <p class="lede">{description}.</p>
     <h2 class="block">Example</h2>
-    <p class="sub">This is the component itself, running in WebAssembly. Try it.</p>
+    <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
     <iframe class="stage" src="../../demo/?component={name}" title="Live example of {name}" height="{height}"></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>
     </div>
     <pre class="code" tabindex="0"><code>{code}</code></pre>
+    <p><a class="more" href="../../playground/?example={name}">Open in the playground, with every example →</a></p>
     <p><a class="more" href="../../api/ravenrs_widgets/{api}">Full API of {name} →</a></p>
     <nav class="pager" aria-label="Other components">{previous}{following}</nav>
   </main>
@@ -123,7 +125,8 @@ for position, (slug, api, name, description) in enumerate(ordered):
         plain=html.escape(html.unescape(description)),
         description=description,
         index=index,
-        height=height + 48,
+        # The playground shows the code beside the example: the taller of the two, and its bar.
+        height=max(code.count("\n") * 20 + 64, height + 56) + 150,
         code=highlight("use ravenrs::prelude::*;\n\n" + code),
         api=api,
         previous=previous,

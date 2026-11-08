@@ -15,11 +15,13 @@ const ITEM_ROWS: u16 = 2;
 /// Several views together, each in a frame of its own, as the model says. A dashboard is bound to
 /// no records, and people can move and resize its pieces.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DashboardView {
     session: Session,
     view: ViewInfo,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DashboardView {
     /// The dashboard of this view in the model.
     pub fn new(session: Session, view: ViewInfo) -> Self {
