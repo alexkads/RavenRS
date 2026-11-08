@@ -65,6 +65,7 @@ pub struct App {
     editors: EditorRegistry,
     seed: Option<Seed>,
     storage: Option<Storage>,
+    kept: Option<Rc<dyn ravenrs_app::Storage>>,
     list_editors: Vec<(String, crate::list_view::ListEditorFactory)>,
     attachment_store: Option<Rc<dyn AttachmentStore>>,
     model_store: Option<Rc<dyn ModelStore>>,
@@ -119,6 +120,7 @@ impl App {
             editors: EditorRegistry::default(),
             seed: None,
             storage: None,
+            kept: None,
             list_editors: Vec::new(),
             attachment_store: None,
             model_store: None,
@@ -279,6 +281,18 @@ impl App {
         self
     }
 
+    /// Keeps the records and the person's own settings in `storage` between runs: a
+    /// [`FileStorage`](ravenrs_app::FileStorage) folder on the desktop, the browser's IndexedDB
+    /// on the web. The records stay in memory while the app runs and are written after every
+    /// commit, under `records`; the settings go under `settings`. The [`seed`](Self::seed) runs
+    /// only the first time, while nothing was kept yet.
+    pub fn keep_in(mut self, storage: impl ravenrs_app::Storage + 'static) -> Self {
+        let storage: Rc<dyn ravenrs_app::Storage> = Rc::new(storage);
+        self.model_store = Some(Rc::new(ravenrs_app::StoredModel::new(storage.clone(), "settings")));
+        self.kept = Some(storage);
+        self
+    }
+
     /// Keeps records elsewhere than in memory: this makes the unit of work of each view.
     pub fn storage<S: ObjectSpace + 'static>(mut self, space: impl Fn() -> S + 'static) -> Self {
         self.storage = Some(Box::new(move |_| {
@@ -354,9 +368,17 @@ impl App {
         if let Some((context, _)) = &self.security {
             application.set_security(context.clone());
         }
-        let factory: SpaceFactory = match self.storage {
-            Some(storage) => storage(&application),
-            None => {
+        let mut restored = false;
+        let factory: SpaceFactory = match (self.storage, self.kept) {
+            (Some(storage), _) => storage(&application),
+            (None, Some(kept)) => {
+                let database = MemoryDatabase::new(application.entities().to_vec())?
+                    .stored_in(kept, "records")
+                    .map_err(|e| ModelError(e.to_string()))?;
+                restored = database.was_restored();
+                Rc::new(move || Rc::new(RefCell::new(database.space())) as Rc<RefCell<dyn ObjectSpace>>)
+            }
+            (None, None) => {
                 let database = MemoryDatabase::new(application.entities().to_vec())?;
                 Rc::new(move || Rc::new(RefCell::new(database.space())) as Rc<RefCell<dyn ObjectSpace>>)
             }
@@ -372,7 +394,7 @@ impl App {
                 application.run_initial_records(&mut *space).map_err(ModelError)?;
             }
         }
-        if let Some(seed) = self.seed {
+        if let Some(seed) = self.seed.filter(|_| !restored) {
             let space = factory();
             let mut space = space.borrow_mut();
             seed(&mut *space).map_err(ModelError)?;

@@ -17,6 +17,8 @@
 mod access;
 mod app;
 mod error;
+mod storage;
 
 pub use app::{WebApp, WebBackend, WebOptions, start};
 pub use error::WebError;
+pub use storage::IndexedDbStorage;

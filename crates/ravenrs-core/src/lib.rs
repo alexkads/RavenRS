@@ -14,6 +14,7 @@ mod diagnostics;
 mod event;
 mod geometry;
 mod scene;
+mod storage;
 
 pub use access::{AccessAction, AccessNode, AccessTree, NumericValue, Role, Toggled};
 pub use color::Color;
@@ -29,3 +30,6 @@ pub use scene::{
     Border, Brush, ColorStop, Effect, FillRule, FontRef, GlyphRun, ImageData, ImageQuad, LinearGradient,
     PathClip, PathElement, PathFill, PathPaint, PositionedGlyph, Primitive, Quad, Scene, Shadow,
 };
+#[cfg(not(target_arch = "wasm32"))]
+pub use storage::FileStorage;
+pub use storage::{MemoryStorage, Storage};

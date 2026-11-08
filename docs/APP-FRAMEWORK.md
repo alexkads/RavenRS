@@ -205,6 +205,25 @@ Or people pick it from a menu, with `ViewVariant::new("chart", "Chart").editor(C
 
 These read through the view's unit of work, so permissions, filters and the way picked all count. See `examples/quick-plan`, in a window and in the browser.
 
+## Records that stay
+
+`App::keep_in(storage)` keeps the records and the person's own settings between runs, with no database to set up. The records stay in memory while the app runs and are written after every commit; the `seed` runs only the first time, while nothing was kept yet.
+
+```rust,ignore
+// Desktop: a folder with one file for the records and one for the settings.
+App::new("Raven Contas").entity::<Account>().keep_in(FileStorage::new(data_folder));
+
+// Web: the browser's IndexedDB, read before the app opens (see examples/quick-app).
+let storage = ravenrs::web::IndexedDbStorage::open("raven-contas").await?;
+App::new("Raven Contas").entity::<Account>().keep_in(storage);
+```
+
+A `Storage` (in `ravenrs-core`) keeps named pieces of data: `FileStorage` on the desktop, `IndexedDbStorage` on the web, `MemoryStorage` for tests. Under `keep_in`, `MemoryDatabase::stored_in(storage, name)` reads what was kept and writes after each commit, `was_restored` says whether something was there, and `storage_problem` says what went wrong the last time it wrote, while the records stay in memory. `StoredModel` keeps the settings the same way.
+
+`MemoryDatabase::export_json` gives every record as JSON (dates as `{"days", "seconds"}`), and `import_json` puts such JSON in place of all records, all or nothing: an entity it does not have, a record without its key or a value it cannot read leaves everything as it was. Records of an entity removed from the code are set aside when the database opens, not refused.
+
+This is for one person's records on one machine. Several people sharing records need SQLite on a shared disk or a server.
+
 ## Work away from the screen
 
 ```rust

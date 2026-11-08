@@ -35,7 +35,7 @@ pub mod native {
 /// The browser: a `<canvas>` driven by WebGPU.
 #[cfg(target_arch = "wasm32")]
 pub mod web {
-    pub use ravenrs_platform_web::{WebApp, WebBackend, WebError, WebOptions, start};
+    pub use ravenrs_platform_web::{IndexedDbStorage, WebApp, WebBackend, WebError, WebOptions, start};
 }
 
 /// Everything an app usually needs, in one import.

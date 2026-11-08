@@ -70,6 +70,15 @@ web-sys = { workspace = true, features = [
     "SpeechSynthesis",
     "SpeechSynthesisUtterance",
     "Location",
+    "IdbFactory",
+    "IdbOpenDbRequest",
+    "IdbRequest",
+    "IdbDatabase",
+    "IdbObjectStore",
+    "IdbTransaction",
+    "IdbTransactionMode",
+    "DomStringList",
+    "DomException",
 ] }
 
 [lints]
