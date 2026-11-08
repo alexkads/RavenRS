@@ -1034,6 +1034,65 @@ fn expose_enum(choice: &syn::ItemEnum, options: &Options) -> syn::Result<Tokens>
     })
 }
 
+/// From how many fields a struct literal is built field by field instead of in one expression.
+const LARGE_STRUCT: usize = 32;
+
+/// `Name { field: .., ..base }` for a struct with many fields. One expression with every field,
+/// as smaller structs get, becomes a function that an optimized build takes hours to compile
+/// (`Labels` has hundreds). Here the struct starts from `..base`, or from its `Default` when
+/// every field is given, and each field is changed by a function of its own.
+fn large_record(ty: &syn::Ident, name: &str, literal: &[(syn::Ident, String, Type, Tokens)]) -> Tokens {
+    let texts: Vec<&String> = literal.iter().map(|(_, t, ..)| t).collect();
+    let setters = literal.iter().map(|(ident, text, field_ty, make)| {
+        quote! {
+            {
+                #[inline(never)]
+                fn set(
+                    made: &mut #ty,
+                    fields: &mut ::std::collections::HashMap<::std::string::String, ::ravenrs_live::Value>,
+                ) -> ::std::result::Result<(), ::std::string::String> {
+                    if let ::std::option::Option::Some(value) = fields.remove(#text) {
+                        let value: #field_ty = #make;
+                        made.#ident = value;
+                    }
+                    ::std::result::Result::Ok(())
+                }
+                set(&mut made, &mut fields)?;
+            }
+        }
+    });
+    let base = Shape::Leaf(parse_quote!(#ty)).make(&quote!(base));
+    let made = to_value(&parse_quote!(#ty), &quote!(made));
+    quote! {
+        registry.record(#name, |fields: ::std::vec::Vec<(::std::string::String, ::ravenrs_live::Value)>, base: ::std::option::Option<::ravenrs_live::Value>| {
+            let mut fields: ::std::collections::HashMap<::std::string::String, ::ravenrs_live::Value> = fields.into_iter().collect();
+            let mut made: #ty = match base {
+                ::std::option::Option::Some(base) => #base,
+                ::std::option::Option::None => {
+                    for text in [#(#texts),*] {
+                        if !fields.contains_key(text) {
+                            return ::std::result::Result::Err(::std::format!("the field `{}` of `{}` is missing", text, #name));
+                        }
+                    }
+                    #[allow(unused_imports)]
+                    use ::ravenrs_live::bridge::{DefaultNone as _, DefaultSome as _};
+                    match (&&::ravenrs_live::bridge::DefaultOf::<#ty>::of()).make() {
+                        ::std::option::Option::Some(made) => made,
+                        ::std::option::Option::None => {
+                            return ::std::result::Result::Err(::std::format!("`{}` has too many fields to be written whole: start it from `..` another", #name));
+                        }
+                    }
+                }
+            };
+            #(#setters)*
+            if let ::std::option::Option::Some(extra) = fields.keys().next() {
+                return ::std::result::Result::Err(::std::format!("`{}` has no field `{}`", #name, extra));
+            }
+            ::std::result::Result::Ok(#made)
+        });
+    }
+}
+
 /// A struct's public fields: read with `value.field`, changed with `value.field = ..`, and the
 /// whole struct written as `Name { field: .., ..base }` when every field is public.
 fn expose_struct(declared: &syn::ItemStruct, options: &Options) -> syn::Result<Tokens> {
@@ -1100,7 +1159,9 @@ fn expose_struct(declared: &syn::ItemStruct, options: &Options) -> syn::Result<T
             None => all_public = false,
         }
     }
-    if all_public && !literal.is_empty() {
+    if all_public && literal.len() > LARGE_STRUCT {
+        registrations.push(large_record(ty, &name, &literal));
+    } else if all_public && !literal.is_empty() {
         let idents: Vec<&syn::Ident> = literal.iter().map(|(i, ..)| i).collect();
         let kept: Vec<syn::Ident> = idents.iter().map(|i| format_ident!("base_{}", i)).collect();
         let texts: Vec<&String> = literal.iter().map(|(_, t, ..)| t).collect();
