@@ -3,9 +3,12 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as Tokens;
 use quote::{quote, quote_spanned};
-use ravenrs_criteria::Criteria;
+use ravenrs_app_spec::{
+    AppearancePiece, AppearanceSpec, ChoiceSpec, ContextSpec, DataAccessSpec, FieldSpec, KindSpec,
+    RuleKindSpec, RuleSpec, SeveritySpec, TintSpec, parse_enum, parse_object,
+};
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Error, Fields, Ident, LitInt, LitStr, Result, parse_macro_input};
+use syn::{DeriveInput, Error, Result, parse_macro_input};
 
 /// Declares a struct as a business object: an entity for the model, and the way to and from
 /// a record.
@@ -62,448 +65,104 @@ pub fn derive_business_enum(input: TokenStream) -> TokenStream {
     business_enum(&input).unwrap_or_else(Error::into_compile_error).into()
 }
 
-#[derive(Default)]
-struct ObjectAttrs {
-    caption: Option<LitStr>,
-    navigation: Option<LitStr>,
-    icon: Option<LitStr>,
-    list_criteria: Option<LitStr>,
-    form_columns: Option<LitInt>,
-    cloneable: bool,
-    transient: bool,
-    checks_on_leave: bool,
-    list_editable: bool,
-    data_access: Option<LitStr>,
-    form_actions: Vec<LitStr>,
-    focus_order: Option<LitStr>,
+fn kind_tokens(kind: &KindSpec) -> Tokens {
+    match kind {
+        KindSpec::Money => quote!(::ravenrs_app::FieldKind::Money),
+        KindSpec::LongText => quote!(::ravenrs_app::FieldKind::LongText),
+        KindSpec::Color => quote!(::ravenrs_app::FieldKind::Color),
+        KindSpec::Date => quote!(::ravenrs_app::FieldKind::Date),
+        KindSpec::Guid => quote!(::ravenrs_app::FieldKind::Guid),
+        KindSpec::Tags(names) => quote!(::ravenrs_app::FieldKind::Tags(::std::vec![
+            #(::ravenrs_app::EnumOption::new(#names, #names)),*
+        ])),
+        KindSpec::Decimal(places) => quote!(::ravenrs_app::FieldKind::Decimal(#places)),
+        KindSpec::Reference(target) => quote!(::ravenrs_app::FieldKind::Reference(#target.to_owned())),
+        KindSpec::Collection(target) => quote!(::ravenrs_app::FieldKind::Collection(#target.to_owned())),
+    }
 }
 
-fn object_attrs(input: &DeriveInput) -> Result<ObjectAttrs> {
-    let mut attrs = ObjectAttrs::default();
-    for attr in input.attrs.iter().filter(|a| a.path().is_ident("object")) {
-        attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("caption") {
-                attrs.caption = Some(meta.value()?.parse()?);
-            } else if meta.path.is_ident("navigation") {
-                attrs.navigation = Some(meta.value()?.parse()?);
-            } else if meta.path.is_ident("icon") {
-                attrs.icon = Some(meta.value()?.parse()?);
-            } else if meta.path.is_ident("list_criteria") {
-                let text: LitStr = meta.value()?.parse()?;
-                Criteria::parse(&text.value()).map_err(|e| Error::new(text.span(), e.to_string()))?;
-                attrs.list_criteria = Some(text);
-            } else if meta.path.is_ident("form_columns") {
-                attrs.form_columns = Some(meta.value()?.parse()?);
-            } else if meta.path.is_ident("cloneable") {
-                attrs.cloneable = true;
-            } else if meta.path.is_ident("transient") {
-                attrs.transient = true;
-            } else if meta.path.is_ident("checks_on_leave") {
-                attrs.checks_on_leave = true;
-            } else if meta.path.is_ident("list_editable") {
-                attrs.list_editable = true;
-            } else if meta.path.is_ident("data_access") {
-                let text: LitStr = meta.value()?.parse()?;
-                if !["client", "server", "data_view"].contains(&text.value().as_str()) {
-                    return Err(Error::new(text.span(), "use client, server or data_view"));
-                }
-                attrs.data_access = Some(text);
-            } else if meta.path.is_ident("form_actions") {
-                attrs.form_actions.push(meta.value()?.parse()?);
-            } else if meta.path.is_ident("focus_order") {
-                attrs.focus_order = Some(meta.value()?.parse()?);
-            } else {
-                return Err(meta.error(
-                    "unknown setting: use caption, navigation, icon, list_criteria, form_columns, cloneable, \
-                     transient, checks_on_leave, list_editable, data_access, form_actions or focus_order",
-                ));
-            }
-            Ok(())
-        })?;
-    }
-    Ok(attrs)
-}
-
-#[derive(Default)]
-struct FieldAttrs {
-    key: bool,
-    typed_key: bool,
-    caption: Option<LitStr>,
-    default_property: bool,
-    read_only: bool,
-    no_list: bool,
-    no_detail: bool,
-    lookup: bool,
-    kind: Option<Tokens>,
-    calculated: Option<LitStr>,
-    default: Option<syn::Expr>,
-    required: bool,
-    unique: bool,
-    min: Option<syn::Expr>,
-    max: Option<syn::Expr>,
-    matches: Option<LitStr>,
-    message: Option<LitStr>,
-    editor: Option<LitStr>,
-    placeholder: Option<LitStr>,
-    hint: Option<LitStr>,
-    accessible_name: Option<LitStr>,
-    accessible_description: Option<LitStr>,
-    lookup_filter: Option<LitStr>,
-    none_caption: Option<LitStr>,
-    back_reference: Option<LitStr>,
-    most_bytes: Option<LitInt>,
-    wide: bool,
-    autofocus: bool,
-    non_cloneable: bool,
-    secret: bool,
-    aggregated: bool,
-    group: Option<LitStr>,
-    display_format: Option<LitStr>,
-    edit_mask: Option<LitStr>,
-    predefined: Option<LitStr>,
-    criteria_of: Option<LitStr>,
-}
-
-fn set_kind(attrs: &mut FieldAttrs, path: &syn::Path, kind: Tokens) -> Result<()> {
-    if attrs.kind.is_some() {
-        return Err(Error::new(path.span(), "a field holds one kind of thing: this says a second"));
-    }
-    attrs.kind = Some(kind);
-    Ok(())
-}
-
-fn field_attrs(field: &syn::Field) -> Result<FieldAttrs> {
-    let mut attrs = FieldAttrs::default();
-    for attr in field.attrs.iter().filter(|a| a.path().is_ident("field")) {
-        attr.parse_nested_meta(|meta| {
-            let path = &meta.path;
-            let named = |name: &str| path.is_ident(name);
-            if named("key") {
-                attrs.key = true;
-            } else if named("typed_key") {
-                attrs.typed_key = true;
-            } else if named("caption") {
-                attrs.caption = Some(meta.value()?.parse()?);
-            } else if named("default_property") {
-                attrs.default_property = true;
-            } else if named("read_only") {
-                attrs.read_only = true;
-            } else if named("no_list") {
-                attrs.no_list = true;
-            } else if named("no_detail") {
-                attrs.no_detail = true;
-            } else if named("lookup") {
-                attrs.lookup = true;
-            } else if named("money") {
-                set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::Money))?;
-            } else if named("long") {
-                set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::LongText))?;
-            } else if named("color") {
-                set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::Color))?;
-            } else if named("date") {
-                set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::Date))?;
-            } else if named("guid") {
-                set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::Guid))?;
-            } else if named("tags") {
-                let options: LitStr = meta.value()?.parse()?;
-                let names = split_names(&options);
-                set_kind(
-                    &mut attrs,
-                    path,
-                    quote!(::ravenrs_app::FieldKind::Tags(::std::vec![
-                        #(::ravenrs_app::EnumOption::new(#names, #names)),*
-                    ])),
-                )?;
-            } else if named("decimals") {
-                let places: LitInt = meta.value()?.parse()?;
-                let places: u8 = places.base10_parse()?;
-                set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::Decimal(#places)))?;
-            } else if named("reference") {
-                let target: LitStr = meta.value()?.parse()?;
-                set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::Reference(#target.to_owned())))?;
-            } else if named("collection") {
-                let target: LitStr = meta.value()?.parse()?;
-                set_kind(&mut attrs, path, quote!(::ravenrs_app::FieldKind::Collection(#target.to_owned())))?;
-            } else if named("calculated") {
-                attrs.calculated = Some(meta.value()?.parse()?);
-            } else if named("default") {
-                attrs.default = Some(meta.value()?.parse()?);
-            } else if named("required") {
-                attrs.required = true;
-            } else if named("unique") {
-                attrs.unique = true;
-            } else if named("min") {
-                attrs.min = Some(meta.value()?.parse()?);
-            } else if named("max") {
-                attrs.max = Some(meta.value()?.parse()?);
-            } else if named("matches") {
-                let pattern: LitStr = meta.value()?.parse()?;
-                regex_lite::Regex::new(&pattern.value())
-                    .map_err(|e| Error::new(pattern.span(), format!("this pattern is not valid: {e}")))?;
-                attrs.matches = Some(pattern);
-            } else if named("message") {
-                attrs.message = Some(meta.value()?.parse()?);
-            } else if named("editor") {
-                attrs.editor = Some(meta.value()?.parse()?);
-            } else if named("placeholder") {
-                attrs.placeholder = Some(meta.value()?.parse()?);
-            } else if named("hint") {
-                attrs.hint = Some(meta.value()?.parse()?);
-            } else if named("accessible_name") {
-                attrs.accessible_name = Some(meta.value()?.parse()?);
-            } else if named("accessible_description") {
-                attrs.accessible_description = Some(meta.value()?.parse()?);
-            } else if named("lookup_filter") {
-                let text: LitStr = meta.value()?.parse()?;
-                Criteria::parse(&text.value()).map_err(|e| Error::new(text.span(), e.to_string()))?;
-                attrs.lookup_filter = Some(text);
-            } else if named("none_caption") {
-                attrs.none_caption = Some(meta.value()?.parse()?);
-            } else if named("back_reference") {
-                attrs.back_reference = Some(meta.value()?.parse()?);
-            } else if named("most_bytes") {
-                attrs.most_bytes = Some(meta.value()?.parse()?);
-            } else if named("wide") {
-                attrs.wide = true;
-            } else if named("autofocus") {
-                attrs.autofocus = true;
-            } else if named("non_cloneable") {
-                attrs.non_cloneable = true;
-            } else if named("secret") {
-                attrs.secret = true;
-            } else if named("aggregated") {
-                attrs.aggregated = true;
-            } else if named("group") {
-                attrs.group = Some(meta.value()?.parse()?);
-            } else if named("display_format") {
-                attrs.display_format = Some(meta.value()?.parse()?);
-            } else if named("edit_mask") {
-                attrs.edit_mask = Some(meta.value()?.parse()?);
-            } else if named("predefined") {
-                attrs.predefined = Some(meta.value()?.parse()?);
-            } else if named("criteria_of") {
-                attrs.criteria_of = Some(meta.value()?.parse()?);
-            } else {
-                return Err(meta.error(
-                    "unknown setting: use key, typed_key, caption, default_property, read_only, no_list, \
-                     no_detail, lookup, money, long, color, date, guid, tags, decimals, reference, collection, \
-                     calculated, default, required, unique, min, max, matches, message, editor, placeholder, \
-                     hint, accessible_name, accessible_description, lookup_filter, none_caption, back_reference, most_bytes, wide, autofocus, \
-                     non_cloneable, secret, aggregated, group, display_format, edit_mask, predefined or criteria_of",
-                ));
-            }
-            Ok(())
-        })?;
-    }
-    if attrs.key && attrs.typed_key {
-        return Err(Error::new(field.span(), "a field is key or typed_key, not both"));
-    }
-    Ok(attrs)
-}
-
-fn check_expression(expression: &LitStr, names: &[String]) -> Result<()> {
-    let parsed = Criteria::parse(&expression.value())
-        .map_err(|e| Error::new(expression.span(), format!("this expression does not parse: {e}")))?;
-    for property in parsed.properties() {
-        if !names.contains(&property) {
-            return Err(Error::new(expression.span(), format!("this struct has no field `{property}`")));
-        }
-    }
-    Ok(())
-}
-
-fn field_rules(ident: &Ident, attrs: &FieldAttrs) -> Vec<Tokens> {
-    let name = ident.to_string();
-    let mut rules = Vec::new();
-    if attrs.required {
-        rules.push(quote!(::ravenrs_app::Rule::required(#name)));
-    }
-    if attrs.unique {
-        rules.push(quote!(::ravenrs_app::Rule::unique(#name)));
-    }
-    if attrs.min.is_some() || attrs.max.is_some() {
-        let limit = |value: &Option<syn::Expr>| match value {
-            Some(value) => quote!(::std::option::Option::Some((#value) as f64)),
-            None => quote!(::std::option::Option::None),
-        };
-        let (min, max) = (limit(&attrs.min), limit(&attrs.max));
-        rules.push(quote!(::ravenrs_app::Rule::range(#name, #min, #max)));
-    }
-    if let Some(pattern) = &attrs.matches {
-        rules.push(quote!(::ravenrs_app::Rule::matches(#name, #pattern)));
-    }
-    if let Some(message) = &attrs.message {
-        for rule in &mut rules {
-            *rule = quote!(#rule.message(#message));
-        }
-    }
-    rules
-}
-
-fn split_names(text: &LitStr) -> Vec<String> {
-    text.value().split(',').map(|name| name.trim().to_owned()).filter(|name| !name.is_empty()).collect()
-}
-
-#[derive(Default)]
-struct RuleAttrs {
-    criteria: Option<LitStr>,
-    unique: Option<LitStr>,
-    message: Option<LitStr>,
-    context: Option<LitStr>,
-    target: Option<LitStr>,
-    warning: bool,
-    information: bool,
-}
-
-fn struct_rules(input: &DeriveInput, names: &[String]) -> Result<Vec<Tokens>> {
-    let mut rules = Vec::new();
-    for attr in input.attrs.iter().filter(|a| a.path().is_ident("rule")) {
-        let mut found = RuleAttrs::default();
-        attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("warning") {
-                found.warning = true;
-                return Ok(());
-            }
-            if meta.path.is_ident("information") {
-                found.information = true;
-                return Ok(());
-            }
-            let slot = if meta.path.is_ident("criteria") {
-                &mut found.criteria
-            } else if meta.path.is_ident("unique") {
-                &mut found.unique
-            } else if meta.path.is_ident("message") {
-                &mut found.message
-            } else if meta.path.is_ident("context") {
-                &mut found.context
-            } else if meta.path.is_ident("target") {
-                &mut found.target
-            } else {
-                return Err(meta.error(
-                    "unknown setting: use criteria, unique, message, context, target, warning or information",
-                ));
+fn rule_tokens(rule: &RuleSpec) -> Tokens {
+    let mut tokens = match &rule.kind {
+        RuleKindSpec::Required(name) => quote!(::ravenrs_app::Rule::required(#name)),
+        RuleKindSpec::Unique(name) => quote!(::ravenrs_app::Rule::unique(#name)),
+        RuleKindSpec::Range { field, min, max } => {
+            let limit = |value: &Option<Box<syn::Expr>>| match value {
+                Some(value) => quote!(::std::option::Option::Some((#value) as f64)),
+                None => quote!(::std::option::Option::None),
             };
-            *slot = Some(meta.value()?.parse()?);
-            Ok(())
-        })?;
-        let id = format!("rule{}", rules.len());
-        let mut rule = match (&found.criteria, &found.unique) {
-            (Some(expression), None) => {
-                check_expression(expression, names)?;
-                quote!(::ravenrs_app::Rule::criteria(#id, #expression))
-            }
-            (None, Some(fields)) => {
-                let fields = split_names(fields);
-                if let Some(missing) = fields.iter().find(|f| !names.contains(f)) {
-                    return Err(Error::new(attr.span(), format!("this struct has no field `{missing}`")));
-                }
-                quote!(::ravenrs_app::Rule::new(
-                    #id,
-                    ::ravenrs_app::RuleKind::UniqueTogether(::std::vec![#(#fields.to_owned()),*]),
-                ))
-            }
-            _ => return Err(Error::new(attr.span(), "a rule says either criteria or unique")),
-        };
-        if let Some(text) = &found.message {
-            rule = quote!(#rule.message(#text));
+            let (min, max) = (limit(min), limit(max));
+            quote!(::ravenrs_app::Rule::range(#field, #min, #max))
         }
-        if let Some(text) = &found.context {
-            rule = quote!(#rule.contexts([#text]));
-        }
-        if let Some(expression) = &found.target {
-            check_expression(expression, names)?;
-            rule = quote!(#rule.target_criteria(#expression));
-        }
-        if found.warning && found.information {
-            return Err(Error::new(attr.span(), "a rule is a warning or information, not both"));
-        }
-        if found.warning {
-            rule = quote!(#rule.warning());
-        }
-        if found.information {
-            rule = quote!(#rule.information());
-        }
-        rules.push(rule);
+        RuleKindSpec::Matches(name, pattern) => quote!(::ravenrs_app::Rule::matches(#name, #pattern)),
+        RuleKindSpec::Criteria(id, expression) => quote!(::ravenrs_app::Rule::criteria(#id, #expression)),
+        RuleKindSpec::UniqueTogether(id, fields) => quote!(::ravenrs_app::Rule::new(
+            #id,
+            ::ravenrs_app::RuleKind::UniqueTogether(::std::vec![#(#fields.to_owned()),*]),
+        )),
+    };
+    if let Some(text) = &rule.message {
+        tokens = quote!(#tokens.message(#text));
     }
-    Ok(rules)
-}
-
-fn tint(text: &LitStr) -> Result<Tokens> {
-    Ok(match text.value().as_str() {
-        "danger" => quote!(::ravenrs_app::Tint::Danger),
-        "warning" => quote!(::ravenrs_app::Tint::Warning),
-        "success" => quote!(::ravenrs_app::Tint::Success),
-        "accent" => quote!(::ravenrs_app::Tint::Accent),
-        "muted" => quote!(::ravenrs_app::Tint::Muted),
-        _ => return Err(Error::new(text.span(), "use danger, warning, success, accent or muted")),
-    })
-}
-
-fn struct_appearance(input: &DeriveInput, names: &[String]) -> Result<Vec<Tokens>> {
-    let mut rules = Vec::new();
-    for attr in input.attrs.iter().filter(|a| a.path().is_ident("appearance")) {
-        let mut targets: Option<LitStr> = None;
-        let mut pieces = Vec::new();
-        attr.parse_nested_meta(|meta| {
-            let named = |name: &str| meta.path.is_ident(name);
-            if named("names") {
-                targets = Some(meta.value()?.parse()?);
-            } else if named("criteria") {
-                let expression: LitStr = meta.value()?.parse()?;
-                check_expression(&expression, names)?;
-                pieces.push(quote!(.criteria(#expression)));
-            } else if named("font") {
-                let color = tint(&meta.value()?.parse()?)?;
-                pieces.push(quote!(.font(#color)));
-            } else if named("back") {
-                let color = tint(&meta.value()?.parse()?)?;
-                pieces.push(quote!(.back(#color)));
-            } else if named("bold") {
-                pieces.push(quote!(.bold()));
-            } else if named("enabled") {
-                let on: syn::LitBool = meta.value()?.parse()?;
-                pieces.push(quote!(.enabled(#on)));
-            } else if named("visible") {
-                let on: syn::LitBool = meta.value()?.parse()?;
-                pieces.push(quote!(.visible(#on)));
-            } else if named("priority") {
-                let priority: LitInt = meta.value()?.parse()?;
-                pieces.push(quote!(.priority(#priority)));
-            } else if named("action") {
-                pieces.push(quote!(.target(::ravenrs_app::AppearanceTarget::Action)));
-            } else if named("layout") {
-                pieces.push(quote!(.target(::ravenrs_app::AppearanceTarget::Layout)));
-            } else if named("context") {
-                let context: LitStr = meta.value()?.parse()?;
-                let context = match context.value().as_str() {
-                    "list" => quote!(::ravenrs_app::AppearanceContext::List),
-                    "detail" => quote!(::ravenrs_app::AppearanceContext::Detail),
-                    _ => quote!(::ravenrs_app::AppearanceContext::View(#context.to_owned())),
-                };
-                pieces.push(quote!(.context(#context)));
-            } else {
-                return Err(meta.error(
-                    "unknown setting: use names, criteria, font, back, bold, enabled, visible, priority, \
-                     context, action or layout",
-                ));
-            }
-            Ok(())
-        })?;
-        let Some(targets) = targets else {
-            return Err(Error::new(attr.span(), "an appearance rule needs names = \"...\""));
-        };
-        let targets = split_names(&targets);
-        let id = format!("appearance{}", rules.len());
-        rules.push(quote!(::ravenrs_app::AppearanceRule::new(#id, [#(#targets),*]) #(#pieces)*));
+    if let Some(text) = &rule.context {
+        tokens = quote!(#tokens.contexts([#text]));
     }
-    Ok(rules)
+    if let Some(expression) = &rule.target {
+        tokens = quote!(#tokens.target_criteria(#expression));
+    }
+    match rule.severity {
+        SeveritySpec::Error => tokens,
+        SeveritySpec::Warning => quote!(#tokens.warning()),
+        SeveritySpec::Information => quote!(#tokens.information()),
+    }
 }
 
-fn field_tokens(ident: &Ident, ty: &syn::Type, attrs: &FieldAttrs) -> Tokens {
-    let name = ident.to_string();
+fn tint(color: TintSpec) -> Tokens {
+    match color {
+        TintSpec::Danger => quote!(::ravenrs_app::Tint::Danger),
+        TintSpec::Warning => quote!(::ravenrs_app::Tint::Warning),
+        TintSpec::Success => quote!(::ravenrs_app::Tint::Success),
+        TintSpec::Accent => quote!(::ravenrs_app::Tint::Accent),
+        TintSpec::Muted => quote!(::ravenrs_app::Tint::Muted),
+    }
+}
+
+fn appearance_tokens(rule: &AppearanceSpec) -> Tokens {
+    let (id, targets) = (&rule.id, &rule.targets);
+    let pieces = rule.pieces.iter().map(|piece| match piece {
+        AppearancePiece::Criteria(expression) => quote!(.criteria(#expression)),
+        AppearancePiece::Font(color) => {
+            let color = tint(*color);
+            quote!(.font(#color))
+        }
+        AppearancePiece::Back(color) => {
+            let color = tint(*color);
+            quote!(.back(#color))
+        }
+        AppearancePiece::Bold => quote!(.bold()),
+        AppearancePiece::Enabled(on) => quote!(.enabled(#on)),
+        AppearancePiece::Visible(on) => quote!(.visible(#on)),
+        AppearancePiece::Priority(priority) => quote!(.priority(#priority)),
+        AppearancePiece::Action => quote!(.target(::ravenrs_app::AppearanceTarget::Action)),
+        AppearancePiece::Layout => quote!(.target(::ravenrs_app::AppearanceTarget::Layout)),
+        AppearancePiece::Context(context) => {
+            let context = match context {
+                ContextSpec::List => quote!(::ravenrs_app::AppearanceContext::List),
+                ContextSpec::Detail => quote!(::ravenrs_app::AppearanceContext::Detail),
+                ContextSpec::View(view) => quote!(::ravenrs_app::AppearanceContext::View(#view.to_owned())),
+            };
+            quote!(.context(#context))
+        }
+    });
+    quote!(::ravenrs_app::AppearanceRule::new(#id, [#(#targets),*]) #(#pieces)*)
+}
+
+fn field_tokens(field: &FieldSpec) -> Tokens {
+    let (ty, attrs) = (&field.ty, &field.settings);
+    let name = field.ident.to_string();
     let kind = attrs
         .kind
-        .clone()
+        .as_ref()
+        .map(kind_tokens)
         .unwrap_or_else(|| quote_spanned!(ty.span()=> <#ty as ::ravenrs_app::FieldValue>::kind()));
     let mut info = quote!(::ravenrs_app::FieldInfo::new(#name, #kind));
     let mut then = |piece: Tokens| info = quote!(#info #piece);
@@ -588,8 +247,7 @@ fn field_tokens(ident: &Ident, ty: &syn::Type, attrs: &FieldAttrs) -> Tokens {
     if let Some(text) = &attrs.edit_mask {
         then(quote!(.edit_mask(#text)));
     }
-    if let Some(text) = &attrs.predefined {
-        let values = split_names(text);
+    if let Some(values) = &attrs.predefined {
         then(quote!(.predefined([#(#values),*])));
     }
     if let Some(text) = &attrs.criteria_of {
@@ -598,112 +256,42 @@ fn field_tokens(ident: &Ident, ty: &syn::Type, attrs: &FieldAttrs) -> Tokens {
     info
 }
 
-/// `#[variant(...)]` and `#[list_filter(...)]` on a struct, as calls on its entity.
-fn struct_choices(input: &DeriveInput, names: &[String]) -> Result<Vec<Tokens>> {
-    let mut found = Vec::new();
-    for attr in &input.attrs {
-        let is_variant = attr.path().is_ident("variant");
-        if !is_variant && !attr.path().is_ident("list_filter") {
-            continue;
-        }
-        let (mut id, mut caption, mut filter, mut columns) =
-            (None::<LitStr>, None::<LitStr>, None::<LitStr>, None::<LitStr>);
-        attr.parse_nested_meta(|meta| {
-            let slot = if meta.path.is_ident("id") {
-                &mut id
-            } else if meta.path.is_ident("caption") {
-                &mut caption
-            } else if meta.path.is_ident("filter") {
-                &mut filter
-            } else if is_variant && meta.path.is_ident("columns") {
-                &mut columns
-            } else {
-                return Err(meta.error("unknown setting: use id, caption, filter or, on a variant, columns"));
-            };
-            *slot = Some(meta.value()?.parse()?);
-            Ok(())
-        })?;
-        let (Some(id), Some(caption)) = (id, caption) else {
-            return Err(Error::new(attr.span(), "this needs an id and a caption"));
-        };
-        if let Some(text) = &filter {
-            let parsed =
-                Criteria::parse(&text.value()).map_err(|e| Error::new(text.span(), e.to_string()))?;
-            if let Some(unknown) = parsed.properties().iter().find(|name| !names.contains(name)) {
-                return Err(Error::new(text.span(), format!("there is no field {unknown}")));
-            }
-        }
-        let shown: Vec<String> = columns
-            .iter()
-            .flat_map(|text| text.value().split(',').map(|c| c.trim().to_owned()).collect::<Vec<_>>())
-            .collect();
-        if let (Some(text), Some(unknown)) = (&columns, shown.iter().find(|name| !names.contains(name))) {
-            return Err(Error::new(text.span(), format!("there is no field {unknown}")));
-        }
-        let filter =
-            filter.map(|text| if is_variant { quote!(.filter(#text)) } else { quote!(.criteria(#text)) });
-        found.push(if is_variant {
-            let shown = (!shown.is_empty()).then(|| quote!(.columns([#(#shown),*])));
+fn choice_tokens(choice: &ChoiceSpec) -> Tokens {
+    match choice {
+        ChoiceSpec::Variant { id, caption, filter, columns } => {
+            let filter = filter.as_ref().map(|text| quote!(.filter(#text)));
+            let shown = (!columns.is_empty()).then(|| quote!(.columns([#(#columns),*])));
             quote!(.variant(::ravenrs_app::ViewVariant::new(#id, #caption) #filter #shown))
-        } else {
+        }
+        ChoiceSpec::ListFilter { id, caption, filter } => {
+            let filter = filter.as_ref().map(|text| quote!(.criteria(#text)));
             quote!(.filter(::ravenrs_app::ListFilter::new(#id, #caption) #filter))
-        });
+        }
     }
-    Ok(found)
 }
 
 fn business_object(input: &DeriveInput) -> Result<Tokens> {
-    let name = &input.ident;
-    if !input.generics.params.is_empty() {
-        return Err(Error::new(input.generics.span(), "a business object cannot be generic"));
-    }
-    let Data::Struct(data) = &input.data else {
-        return Err(Error::new(name.span(), "a business object is a struct with named fields"));
-    };
-    let Fields::Named(fields) = &data.fields else {
-        return Err(Error::new(name.span(), "a business object is a struct with named fields"));
-    };
-    let object = object_attrs(input)?;
-    let names: Vec<String> =
-        fields.named.iter().filter_map(|f| f.ident.as_ref().map(Ident::to_string)).collect();
-    let mut infos = Vec::new();
-    let mut rules = Vec::new();
-    let mut to_values = Vec::new();
-    let mut from_values = Vec::new();
-    let mut keys = 0;
-    for field in &fields.named {
-        let Some(ident) = &field.ident else { continue };
-        let attrs = field_attrs(field)?;
-        if attrs.key || attrs.typed_key {
-            keys += 1;
-            if keys > 1 {
-                return Err(Error::new(
-                    ident.span(),
-                    "only one field can be the key, and another one already is",
-                ));
-            }
-        }
-        if let Some(expression) = &attrs.calculated {
-            check_expression(expression, &names)?;
-        }
-        infos.push(field_tokens(ident, &field.ty, &attrs));
-        rules.extend(field_rules(ident, &attrs));
-        let (text, ty) = (ident.to_string(), &field.ty);
-        to_values.push(quote_spanned!(ty.span()=>
+    let spec = parse_object(input)?;
+    let name = &spec.name;
+    let object = &spec.settings;
+    let infos: Vec<Tokens> = spec.fields.iter().map(field_tokens).collect();
+    let rules: Vec<Tokens> = spec.rules.iter().map(rule_tokens).collect();
+    let appearance: Vec<Tokens> = spec.appearance.iter().map(appearance_tokens).collect();
+    let choices: Vec<Tokens> = spec.choices.iter().map(choice_tokens).collect();
+    let to_values = spec.fields.iter().map(|field| {
+        let (ident, ty) = (&field.ident, &field.ty);
+        let text = ident.to_string();
+        quote_spanned!(ty.span()=>
             (#text.to_owned(), <#ty as ::ravenrs_app::FieldValue>::to_value(&self.#ident))
-        ));
-        from_values.push(quote_spanned!(ty.span()=>
+        )
+    });
+    let from_values = spec.fields.iter().map(|field| {
+        let (ident, ty) = (&field.ident, &field.ty);
+        let text = ident.to_string();
+        quote_spanned!(ty.span()=>
             #ident: <#ty as ::ravenrs_app::FieldValue>::from_value(object.get(#text))
-        ));
-    }
-    if keys == 0 {
-        return Err(Error::new(
-            name.span(),
-            "a business object needs a key: mark a field with #[field(key)] or #[field(typed_key)]",
-        ));
-    }
-    rules.extend(struct_rules(input, &names)?);
-    let appearance = struct_appearance(input, &names)?;
+        )
+    });
     let entity = name.to_string();
     let mut info = quote!(::ravenrs_app::EntityInfo::new(#entity));
     if let Some(caption) = &object.caption {
@@ -721,11 +309,11 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     if object.list_editable {
         info = quote!(#info.list_editable());
     }
-    if let Some(access) = &object.data_access {
-        let access = match access.value().as_str() {
-            "server" => quote!(::ravenrs_app::DataAccess::Server),
-            "data_view" => quote!(::ravenrs_app::DataAccess::DataView),
-            _ => quote!(::ravenrs_app::DataAccess::Client),
+    if let Some(access) = object.data_access {
+        let access = match access {
+            DataAccessSpec::Server => quote!(::ravenrs_app::DataAccess::Server),
+            DataAccessSpec::DataView => quote!(::ravenrs_app::DataAccess::DataView),
+            DataAccessSpec::Client => quote!(::ravenrs_app::DataAccess::Client),
         };
         info = quote!(#info.data_access(#access));
     }
@@ -735,11 +323,8 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     if let Some(columns) = &object.form_columns {
         info = quote!(#info.form_columns(#columns));
     }
-    if let Some(order) = &object.focus_order {
-        let fields = split_names(order);
-        if let Some(missing) = fields.iter().find(|field| !names.contains(field)) {
-            return Err(Error::new(order.span(), format!("this struct has no field `{missing}`")));
-        }
+    if !object.focus_order.is_empty() {
+        let fields = &object.focus_order;
         info = quote!(#info.focus_order([#(#fields),*]));
     }
     if object.cloneable {
@@ -751,7 +336,6 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     if object.checks_on_leave {
         info = quote!(#info.checks_on_leave());
     }
-    let choices = struct_choices(input, &names)?;
     Ok(quote! {
         impl ::ravenrs_app::BusinessObject for #name {
             fn entity_info() -> ::ravenrs_app::EntityInfo {
@@ -773,42 +357,24 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
 }
 
 fn business_enum(input: &DeriveInput) -> Result<Tokens> {
-    let name = &input.ident;
-    let Data::Enum(data) = &input.data else {
-        return Err(Error::new(name.span(), "a business enum is an enum with no data"));
-    };
-    let Some(first) = data.variants.first() else {
+    let spec = parse_enum(input)?;
+    let name = &spec.name;
+    let Some(first) = spec.options.first() else {
         return Err(Error::new(name.span(), "a business enum needs at least one option"));
     };
     let first = &first.ident;
-    let mut options = Vec::new();
-    let mut codes = Vec::new();
-    let mut parses = Vec::new();
-    for variant in &data.variants {
-        if !matches!(variant.fields, Fields::Unit) {
-            return Err(Error::new(variant.ident.span(), "an option of a business enum cannot hold data"));
-        }
-        let ident = &variant.ident;
-        let (mut caption, mut code) = (ident.to_string(), ident.to_string());
-        for attr in variant.attrs.iter().filter(|a| a.path().is_ident("option")) {
-            attr.parse_nested_meta(|meta| {
-                let value: LitStr = if meta.path.is_ident("caption") || meta.path.is_ident("code") {
-                    meta.value()?.parse()?
-                } else {
-                    return Err(meta.error("unknown setting: use caption or code"));
-                };
-                if meta.path.is_ident("caption") {
-                    caption = value.value();
-                } else {
-                    code = value.value();
-                }
-                Ok(())
-            })?;
-        }
-        options.push(quote!(::ravenrs_app::EnumOption::new(#code, #caption)));
-        codes.push(quote!(Self::#ident => #code));
-        parses.push(quote!(#code => Self::#ident));
-    }
+    let options = spec.options.iter().map(|o| {
+        let (code, caption) = (&o.code, &o.caption);
+        quote!(::ravenrs_app::EnumOption::new(#code, #caption))
+    });
+    let codes = spec.options.iter().map(|o| {
+        let (ident, code) = (&o.ident, &o.code);
+        quote!(Self::#ident => #code)
+    });
+    let parses = spec.options.iter().map(|o| {
+        let (ident, code) = (&o.ident, &o.code);
+        quote!(#code => Self::#ident)
+    });
     Ok(quote! {
         impl ::ravenrs_app::FieldValue for #name {
             fn kind() -> ::ravenrs_app::FieldKind {

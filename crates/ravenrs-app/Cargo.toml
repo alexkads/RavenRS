@@ -16,6 +16,8 @@ categories = ["gui", "data-structures"]
 [features]
 # Registers its types with the playground's interpreter.
 live = ["dep:ravenrs-live"]
+# `entities_from_source`: entities read from Rust source while the program runs.
+source = ["dep:ravenrs-app-spec", "dep:syn"]
 
 [dependencies]
 ravenrs-live = { workspace = true, optional = true }
@@ -27,6 +29,8 @@ ravenrs-reactive.workspace = true
 regex-lite.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
+ravenrs-app-spec = { workspace = true, optional = true }
+syn = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-bundle-platform", "tzdb-zoneinfo"] }
