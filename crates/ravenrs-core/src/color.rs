@@ -1,6 +1,7 @@
 /// A non-premultiplied RGBA color with components in `0.0..=1.0`, in the sRGB
 /// color space (the space design tokens are written in).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Color {
     /// Red component, `0.0..=1.0`.
     pub r: f32,

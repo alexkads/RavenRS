@@ -16,6 +16,7 @@ use crate::{Text, View};
 /// Turns the clock (seconds) and an element's frame into an [`Effect`], worked out
 /// on every painted frame while the element shows. See [`BuildCx::time_linked`].
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimeLink(Rc<dyn Fn(f64, Rect) -> Effect>);
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -111,6 +112,7 @@ impl<C: View> View for Ticker<C> {
 
 /// A number that counts up from zero to its value, once, when it first shows on
 /// screen. Under reduced motion it shows the value at once.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CountUp {
     value: f64,
     format: Rc<dyn Fn(f64) -> String>,

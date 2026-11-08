@@ -64,6 +64,7 @@ pub enum SelectionMode {
 /// let mut ui = Ui::new(grid, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DataGrid {
     empty_text: Option<String>,
     data: GridData,
@@ -156,6 +157,7 @@ impl RowTops {
 /// How a cell looks, by what its row holds. Colors come from the theme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridCellStyle {
     /// The color of the text.
     pub ink: Option<Semantic>,
@@ -176,6 +178,7 @@ impl GridCellStyle {
 /// A change someone made in a cell, before it is kept.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CellEdit {
     /// The row in the data.
     pub row: usize,
@@ -189,6 +192,7 @@ pub struct CellEdit {
 
 /// A button at the end of every row, such as Edit or Delete.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridRowAction {
     label: String,
     icon: IconName,

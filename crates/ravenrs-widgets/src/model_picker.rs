@@ -30,6 +30,7 @@ pub enum ModelStatus {
 
 /// A model offered by a [`ModelPicker`].
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelChoice {
     /// Its name.
     pub name: String,
@@ -48,6 +49,7 @@ pub struct ModelChoice {
 /// The words a [`ModelPicker`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelPickerLabels {
     /// Downloads a model.
     pub download: String,
@@ -123,6 +125,7 @@ type OnChoice = Rc<dyn Fn(usize)>;
 /// }])
 /// .on_download(|index| println!("download {index}"));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelPicker {
     choices: Vec<ModelChoice>,
     labels: ModelPickerLabels,

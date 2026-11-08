@@ -22,6 +22,7 @@ const COLUMNS: usize = 3;
 /// toolbar. For the three of them side by side, in a settings page, see
 /// [`ThemeSwitcher`](crate::ThemeSwitcher).
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ThemePicker {
     themes: Vec<Theme>,
 }
@@ -80,6 +81,7 @@ fn flattened(color: Color, canvas: Color) -> Color {
 /// sizes of text. It warns when text stops being legible on its ground, and copies what changed
 /// as JSON, or takes it back, so an application can keep it wherever it wants.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ThemeEditor {
     picker: ThemePicker,
 }

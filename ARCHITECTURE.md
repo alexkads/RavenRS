@@ -74,7 +74,7 @@ ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a
 ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
 ravenrs-app-derive     ──► ravenrs-criteria  (the derives, re-exported by ravenrs-app)
 ravenrs-live           ──► ravenrs-reactive, syn  (interprets the Rust of examples; host types through a Registry)
-ravenrs-live-derive    (#[expose]: registers an impl block or enum; used behind `live` in core, style, layout, widgets)
+ravenrs-live-derive    (#[expose]: registers an impl block, struct, enum or module; behind `live` in core, style, layout, graphics, lottie, widgets, movie, app, app-ui)
 ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
 ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)
 ravenrs-app-library    ──► ravenrs-app  (ready-made records)

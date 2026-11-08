@@ -20,6 +20,7 @@ const TICK_STEPS: [u32; 9] = [1, 2, 5, 10, 15, 30, 60, 120, 300];
 const LONGEST_TICK: u32 = 600;
 
 /// One block on a [`TimelineTrack`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimelineItem {
     id: u64,
     start_ms: u64,
@@ -91,6 +92,7 @@ impl TimelineItem {
 
 /// A row of a [`Timeline`].
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimelineTrack {
     label: String,
     height: f32,
@@ -107,6 +109,7 @@ impl TimelineTrack {
 
 /// A named moment, on the ruler of a [`Timeline`].
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimelineMarker {
     /// When.
     pub at_ms: u64,
@@ -170,6 +173,7 @@ fn clock(seconds: u32) -> String {
 /// .position_ms(4_000)
 /// .on_seek(|ms| println!("{ms}"));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Timeline {
     tracks: Vec<TimelineTrack>,
     markers: Vec<TimelineMarker>,

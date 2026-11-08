@@ -4666,6 +4666,7 @@ dependencies = [
  "ravenrs-app-derive",
  "ravenrs-app-i18n",
  "ravenrs-criteria",
+ "ravenrs-live",
  "ravenrs-reactive",
  "regex-lite",
  "serde_json",
@@ -4757,6 +4758,7 @@ dependencies = [
  "ravenrs-criteria",
  "ravenrs-grid-export",
  "ravenrs-layout",
+ "ravenrs-live",
  "ravenrs-reactive",
  "ravenrs-report",
  "ravenrs-style",
@@ -4786,6 +4788,7 @@ version = "27.1.19"
 dependencies = [
  "qrcodegen",
  "ravenrs-core",
+ "ravenrs-live",
  "serde",
  "tiny-skia",
 ]
@@ -4835,6 +4838,7 @@ version = "27.1.19"
 dependencies = [
  "image",
  "ravenrs-core",
+ "ravenrs-live",
  "serde_json",
 ]
 
@@ -4860,6 +4864,7 @@ dependencies = [
  "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-layout",
+ "ravenrs-live",
  "ravenrs-reactive",
  "ravenrs-style",
  "ravenrs-text",

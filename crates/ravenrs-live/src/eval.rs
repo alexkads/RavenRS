@@ -12,8 +12,8 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{BinOp, Expr, Lit, Pat, Stmt, Token, UnOp};
 
-use crate::registry::{Registry, use_registry};
-use crate::value::{Value, short};
+use crate::registry::{HostFn, Registry, use_registry};
+use crate::value::{Record, Value, short};
 
 /// Something wrong at a place of the program: its line and column (both from 1), how many
 /// characters it covers, and what is wrong.
@@ -34,6 +34,13 @@ impl LiveError {
         let (start, end) = (span.start(), span.end());
         let length = if end.line == start.line { end.column.saturating_sub(start.column).max(1) } else { 1 };
         Self { line: start.line.max(1), column: start.column + 1, length, message: message.into() }
+    }
+}
+
+impl LiveError {
+    /// An error with no place in the code, such as one the host found.
+    pub fn nowhere(message: impl Into<String>) -> Self {
+        Self { line: 1, column: 1, length: 1, message: message.into() }
     }
 }
 
@@ -96,25 +103,142 @@ impl Scope {
     }
 }
 
-/// What a whole program shares: the host, its functions and its constants.
-struct Program {
+/// A function of the program: a free one, or a method of a struct it declares.
+pub(crate) struct Function {
+    sig: syn::Signature,
+    block: syn::Block,
+}
+
+/// The shape of a struct the program declares.
+#[derive(Clone)]
+enum Shape {
+    Unit,
+    Tuple(usize),
+    Named(Vec<String>),
+}
+
+/// What a whole program shares: the host, its functions, constants, structs and methods. The
+/// items written inside a function join it when that function runs.
+pub(crate) struct Program {
     registry: Rc<Registry>,
-    functions: HashMap<String, Rc<syn::ItemFn>>,
-    constants: HashMap<String, Rc<Expr>>,
+    functions: RefCell<HashMap<String, Rc<Function>>>,
+    constants: RefCell<HashMap<String, Rc<Expr>>>,
+    structs: RefCell<HashMap<String, Shape>>,
+    methods: RefCell<HashMap<(String, String), Rc<Function>>>,
+}
+
+impl Program {
+    pub(crate) fn method(&self, ty: &str, name: &str) -> Option<Rc<Function>> {
+        self.methods.borrow().get(&(ty.to_owned(), name.to_owned())).cloned()
+    }
+
+    fn function(&self, name: &str) -> Option<Rc<Function>> {
+        self.functions.borrow().get(name).cloned()
+    }
+
+    /// Takes in an item: a function, constant, struct or `impl` block; `use` lines are read
+    /// and left alone.
+    fn declare(&self, item: &syn::Item) -> Result<(), LiveError> {
+        match item {
+            syn::Item::Fn(function) => {
+                let made = Function { sig: function.sig.clone(), block: (*function.block).clone() };
+                self.functions.borrow_mut().insert(function.sig.ident.to_string(), Rc::new(made));
+            }
+            syn::Item::Const(constant) => {
+                self.constants
+                    .borrow_mut()
+                    .insert(constant.ident.to_string(), Rc::new((*constant.expr).clone()));
+            }
+            syn::Item::Static(constant) => {
+                self.constants
+                    .borrow_mut()
+                    .insert(constant.ident.to_string(), Rc::new((*constant.expr).clone()));
+            }
+            syn::Item::Struct(declared) => {
+                if !declared.generics.params.is_empty() {
+                    return Err(LiveError::at(
+                        declared.generics.span(),
+                        "a struct of the playground takes no generics",
+                    ));
+                }
+                let shape = match &declared.fields {
+                    syn::Fields::Unit => Shape::Unit,
+                    syn::Fields::Unnamed(fields) => Shape::Tuple(fields.unnamed.len()),
+                    syn::Fields::Named(fields) => Shape::Named(
+                        fields
+                            .named
+                            .iter()
+                            .filter_map(|f| f.ident.as_ref().map(ToString::to_string))
+                            .collect(),
+                    ),
+                };
+                self.structs.borrow_mut().insert(declared.ident.to_string(), shape);
+            }
+            syn::Item::Impl(block) => {
+                let syn::Type::Path(path) = &*block.self_ty else {
+                    return Err(LiveError::at(
+                        block.self_ty.span(),
+                        "an `impl` here is for a struct of the program",
+                    ));
+                };
+                let ty = path.path.segments.last().map(|s| s.ident.to_string()).unwrap_or_default();
+                for item in &block.items {
+                    if let syn::ImplItem::Fn(method) = item {
+                        let made = Function { sig: method.sig.clone(), block: method.block.clone() };
+                        self.methods
+                            .borrow_mut()
+                            .insert((ty.clone(), method.sig.ident.to_string()), Rc::new(made));
+                    }
+                }
+            }
+            syn::Item::Use(_) => {}
+            other => {
+                return Err(LiveError::at(
+                    other.span(),
+                    "the playground reads functions, constants, structs, `impl` blocks and `use` only",
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Calls a function of the program with these arguments; a method gets its receiver first.
+pub(crate) fn call_function(
+    program: &Rc<Program>,
+    function: &Function,
+    arguments: Vec<Value>,
+) -> Result<Value, LiveError> {
+    use_registry(program.registry.clone());
+    let runner = Runner { program: program.clone() };
+    runner.call_fn(function, arguments, function.sig.ident.span())
+}
+
+/// What a closure runs: its own code, or a function named where a closure goes, as
+/// `.map(Some)`, `Text::bound(&s, Clone::clone)` or `.validate(b, validate::email)`.
+enum Body {
+    Code(Box<Code>),
+    Path(Vec<String>),
+    Host(HostFn),
+}
+
+/// A closure written in the program: its parameters, body and the variables it sees.
+struct Code {
+    params: Vec<Pat>,
+    body: Expr,
+    scope: Rc<Scope>,
 }
 
 /// A closure of the interpreted program, callable later by the host.
 pub struct Closure {
-    params: Vec<Pat>,
-    body: Expr,
-    scope: Rc<Scope>,
+    body: Body,
     program: Rc<Program>,
     span: Span,
 }
 
 impl fmt::Debug for Closure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Closure").field("params", &self.params.len()).finish_non_exhaustive()
+        f.debug_struct("Closure").finish_non_exhaustive()
     }
 }
 
@@ -122,19 +246,29 @@ impl Closure {
     /// Calls it with these arguments.
     pub fn call(&self, arguments: Vec<Value>) -> Result<Value, LiveError> {
         use_registry(self.program.registry.clone());
-        let scope = Scope::child(&self.scope);
-        if arguments.len() != self.params.len() {
+        let runner = Runner { program: self.program.clone() };
+        let (params, body, scope) = match &self.body {
+            Body::Code(code) => (&code.params, &code.body, &code.scope),
+            Body::Path(names) => {
+                return match runner.call_path(names, arguments, self.span) {
+                    Ok(value) | Err(Flow::Return(value)) => Ok(value),
+                    Err(flow) => Err(self.flow_error(flow)),
+                };
+            }
+            Body::Host(f) => return f(arguments).map_err(|e| self.error(e)),
+        };
+        let scope = Scope::child(scope);
+        if arguments.len() != params.len() {
             return Err(self.error(format!(
                 "this closure takes {} arguments, and got {}",
-                self.params.len(),
+                params.len(),
                 arguments.len()
             )));
         }
-        let runner = Runner { program: self.program.clone() };
-        for (pattern, value) in self.params.iter().zip(arguments) {
+        for (pattern, value) in params.iter().zip(arguments) {
             runner.bind(pattern, value, &scope).map_err(|flow| self.flow_error(flow))?;
         }
-        match runner.expr(&self.body, &scope) {
+        match runner.expr(body, &scope) {
             Ok(value) | Err(Flow::Return(value)) => Ok(value),
             Err(flow) => Err(self.flow_error(flow)),
         }
@@ -172,30 +306,19 @@ pub fn run(source: &str, entry: Option<&str>, registry: Rc<Registry>) -> Result<
             .map(|e| LiveError::at(e.span(), format!("this is not Rust the playground reads: {e}")))
             .collect::<Vec<_>>()
     })?;
-    let mut functions = HashMap::new();
-    let mut constants = HashMap::new();
+    let program = Rc::new(Program {
+        registry: registry.clone(),
+        functions: RefCell::default(),
+        constants: RefCell::default(),
+        structs: RefCell::default(),
+        methods: RefCell::default(),
+    });
     let mut first = None;
-    for item in file.items {
-        match item {
-            syn::Item::Fn(function) => {
-                let name = function.sig.ident.to_string();
-                first.get_or_insert_with(|| name.clone());
-                functions.insert(name, Rc::new(function));
-            }
-            syn::Item::Const(constant) => {
-                constants.insert(constant.ident.to_string(), Rc::new(*constant.expr));
-            }
-            syn::Item::Static(constant) => {
-                constants.insert(constant.ident.to_string(), Rc::new(*constant.expr));
-            }
-            syn::Item::Use(_) => {}
-            other => {
-                return Err(vec![LiveError::at(
-                    other.span(),
-                    "the playground reads functions, constants and `use` only",
-                )]);
-            }
+    for item in &file.items {
+        if let syn::Item::Fn(function) = item {
+            first.get_or_insert_with(|| function.sig.ident.to_string());
         }
+        program.declare(item).map_err(|e| vec![e])?;
     }
     let entry = entry.map(str::to_owned).or(first).ok_or_else(|| {
         vec![LiveError::at(
@@ -203,13 +326,12 @@ pub fn run(source: &str, entry: Option<&str>, registry: Rc<Registry>) -> Result<
             "there is no function to run: write `fn example() -> impl View { .. }`",
         )]
     })?;
-    use_registry(registry.clone());
-    let program = Rc::new(Program { registry, functions, constants });
+    use_registry(registry);
     let runner = Runner { program };
-    let function =
-        runner.program.functions.get(&entry).cloned().ok_or_else(|| {
-            vec![LiveError::at(Span::call_site(), format!("there is no function `{entry}`"))]
-        })?;
+    let function = runner
+        .program
+        .function(&entry)
+        .ok_or_else(|| vec![LiveError::at(Span::call_site(), format!("there is no function `{entry}`"))])?;
     runner.call_fn(&function, Vec::new(), function.sig.ident.span()).map_err(|e| vec![e])
 }
 
@@ -250,7 +372,7 @@ impl Runner {
         &self.program.registry
     }
 
-    fn call_fn(&self, function: &syn::ItemFn, arguments: Vec<Value>, span: Span) -> Result<Value, LiveError> {
+    fn call_fn(&self, function: &Function, arguments: Vec<Value>, span: Span) -> Result<Value, LiveError> {
         let scope = Scope::root();
         let params: Vec<&syn::FnArg> = function.sig.inputs.iter().collect();
         if params.len() != arguments.len() {
@@ -260,10 +382,12 @@ impl Runner {
             ));
         }
         for (param, value) in params.into_iter().zip(arguments) {
-            let syn::FnArg::Typed(typed) = param else {
-                return Err(LiveError::at(param.span(), "methods are not read here"));
-            };
-            self.bind(&typed.pat, value, &scope).map_err(|f| self.flow_error(f, span))?;
+            match param {
+                syn::FnArg::Typed(typed) => {
+                    self.bind(&typed.pat, value, &scope).map_err(|f| self.flow_error(f, span))?
+                }
+                syn::FnArg::Receiver(_) => scope.define("self", value),
+            }
         }
         match self.block(&function.block, &scope) {
             Ok(value) | Err(Flow::Return(value)) => Ok(value),
@@ -288,14 +412,41 @@ impl Runner {
                         Some(init) => self.expr(&init.expr, &scope)?,
                         None => Value::Unit,
                     };
-                    self.bind(&local.pat, value, &scope)?;
+                    match local.init.as_ref().and_then(|init| init.diverge.as_ref()) {
+                        // `let Ok(x) = .. else { .. };`: the `else` must leave.
+                        Some((_, otherwise)) => {
+                            if !self.matches(&local.pat, &value, &scope)? {
+                                self.expr(otherwise, &scope)?;
+                                return fail(
+                                    otherwise.span(),
+                                    "the `else` of a `let` has to leave: return, break or panic",
+                                );
+                            }
+                        }
+                        None => self.bind(&local.pat, value, &scope)?,
+                    }
                     Value::Unit
                 }
                 Stmt::Expr(expr, semicolon) => {
                     let value = self.expr(expr, &scope)?;
                     if semicolon.is_some() { Value::Unit } else { value }
                 }
-                Stmt::Item(item) => return fail(item.span(), "items inside a function are not read here"),
+                Stmt::Item(item) => {
+                    match item {
+                        // Named inside a function, they are seen only there.
+                        syn::Item::Fn(function) => {
+                            let name = function.sig.ident.to_string();
+                            self.program.declare(item)?;
+                            scope.define(&name, self.path_closure(vec![name.clone()], function.span()));
+                        }
+                        syn::Item::Const(constant) => {
+                            let value = self.expr(&constant.expr, &scope)?;
+                            scope.define(&constant.ident.to_string(), value);
+                        }
+                        other => self.program.declare(other)?,
+                    }
+                    Value::Unit
+                }
                 Stmt::Macro(mac) => {
                     let value = self.mac(&mac.mac, &scope)?;
                     if mac.semi_token.is_some() { Value::Unit } else { value }
@@ -363,6 +514,24 @@ impl Runner {
                 true
             }
             Pat::Lit(literal) => self.literal(&literal.lit)? == value.read(),
+            Pat::Struct(pattern) => {
+                let name = path_names(&pattern.path).last().cloned().unwrap_or_default();
+                let Value::Record(record) = value.read() else { return Ok(false) };
+                if record.name != name {
+                    return Ok(false);
+                }
+                for field in &pattern.fields {
+                    let key = match &field.member {
+                        syn::Member::Named(ident) => ident.to_string(),
+                        syn::Member::Unnamed(index) => index.index.to_string(),
+                    };
+                    let Some(inner) = record.field(&key) else { return Ok(false) };
+                    if !self.matches(&field.pat, &inner, scope)? {
+                        return Ok(false);
+                    }
+                }
+                true
+            }
             Pat::Range(range) => {
                 let Some(n) = number(value) else { return Ok(false) };
                 let low = match &range.start {
@@ -386,13 +555,30 @@ impl Runner {
             }
             Pat::TupleStruct(tuple) => {
                 let name = path_names(&tuple.path).last().cloned().unwrap_or_default();
-                match (name.as_str(), value.read()) {
-                    ("Some", Value::Option(Some(inner))) => match tuple.elems.first() {
-                        Some(pattern) => self.matches(pattern, &inner, scope)?,
-                        None => true,
-                    },
-                    ("Some", _) => false,
-                    _ => return fail(tuple.span(), "only `Some(..)` is read in patterns of this kind"),
+                let inner = match (name.as_str(), value.read()) {
+                    ("Some", Value::Option(Some(inner))) => *inner,
+                    ("Ok", Value::Result(Ok(inner))) | ("Err", Value::Result(Err(inner))) => *inner,
+                    ("Some" | "Ok" | "Err", _) => return Ok(false),
+                    (_, Value::Record(record)) if record.name == name => {
+                        let fields: Vec<Value> =
+                            record.fields.borrow().iter().map(|(_, v)| v.clone()).collect();
+                        for (pattern, field) in tuple.elems.iter().zip(fields) {
+                            if !self.matches(pattern, &field, scope)? {
+                                return Ok(false);
+                            }
+                        }
+                        return Ok(true);
+                    }
+                    _ => {
+                        return fail(
+                            tuple.span(),
+                            "only `Some(..)`, `Ok(..)`, `Err(..)` and the program's structs are read in patterns of this kind",
+                        );
+                    }
+                };
+                match tuple.elems.first() {
+                    Some(pattern) => self.matches(pattern, &inner, scope)?,
+                    None => true,
                 }
             }
             Pat::Path(path) => {
@@ -436,8 +622,21 @@ impl Runner {
                 if name == "None" {
                     return Ok(Value::Option(None));
                 }
-                if let Some(expr) = self.program.constants.get(name).cloned() {
+                let constant = self.program.constants.borrow().get(name).cloned();
+                if let Some(expr) = constant {
                     return self.expr(&expr, &Scope::root());
+                }
+                let shape = self.program.structs.borrow().get(name).cloned();
+                match shape {
+                    Some(Shape::Unit) => return Ok(self.record(name, Vec::new())),
+                    Some(Shape::Tuple(_)) => return Ok(self.path_closure(names.to_vec(), span)),
+                    _ => {}
+                }
+                if self.program.function(name).is_some()
+                    || matches!(name.as_str(), "Some" | "Ok" | "Err")
+                    || self.registry().find_free(name).is_some()
+                {
+                    return Ok(self.path_closure(names.to_vec(), span));
                 }
                 fail(span, format!("there is no `{name}` here"))
             }
@@ -448,6 +647,33 @@ impl Runner {
                 if let Some(value) = builtin_constant(ty, name) {
                     return Ok(value);
                 }
+                // A function named where a closure goes, as `Clone::clone` or `validate::email`.
+                if let Some(f) = self.registry().find_function(ty, name) {
+                    return Ok(Value::Closure(Rc::new(Closure {
+                        body: Body::Host(f),
+                        program: self.program.clone(),
+                        span,
+                    })));
+                }
+                if self.program.method(ty, name).is_some()
+                    || self.registry().find_method(ty, name).is_some()
+                    || matches!(
+                        ty.as_str(),
+                        "Clone"
+                            | "ToString"
+                            | "ToOwned"
+                            | "Into"
+                            | "From"
+                            | "Vec"
+                            | "String"
+                            | "Option"
+                            | "Box"
+                            | "Rc"
+                            | "Default"
+                    )
+                {
+                    return Ok(self.path_closure(names.to_vec(), span));
+                }
                 if self.registry().knows_type(ty) {
                     fail(span, format!("`{ty}` has no `{name}` the playground knows"))
                 } else {
@@ -455,6 +681,102 @@ impl Runner {
                 }
             }
             [] => fail(span, "an empty path"),
+        }
+    }
+
+    fn path_closure(&self, names: Vec<String>, span: Span) -> Value {
+        Value::Closure(Rc::new(Closure { body: Body::Path(names), program: self.program.clone(), span }))
+    }
+
+    fn record(&self, name: &str, fields: Vec<(String, Value)>) -> Value {
+        Value::Record(Rc::new(Record {
+            name: name.to_owned(),
+            fields: RefCell::new(fields),
+            program: Some(self.program.clone()),
+        }))
+    }
+
+    /// `Name { a, b: 2, ..base }`, for a struct of the program or one the host offers.
+    fn struct_literal(&self, literal: &syn::ExprStruct, scope: &Rc<Scope>) -> Eval {
+        let names = path_names(&literal.path);
+        let name = names.last().cloned().unwrap_or_default();
+        let mut fields = Vec::new();
+        for field in &literal.fields {
+            let key = match &field.member {
+                syn::Member::Named(ident) => ident.to_string(),
+                syn::Member::Unnamed(index) => index.index.to_string(),
+            };
+            fields.push((key, self.expr(&field.expr, scope)?));
+        }
+        let base = match &literal.rest {
+            Some(rest) => Some(self.expr(rest, scope)?),
+            None => None,
+        };
+        let shape = self.program.structs.borrow().get(&name).cloned();
+        if let Some(shape) = shape {
+            let Shape::Named(order) = shape else {
+                return fail(literal.span(), format!("`{name}` has no named fields"));
+            };
+            let base = match base.map(|b| b.read()) {
+                Some(Value::Record(record)) => record.fields.borrow().clone(),
+                Some(other) => {
+                    return fail(literal.span(), format!("`..` takes a {name}, not a {}", other.kind()));
+                }
+                None => Vec::new(),
+            };
+            let mut made = Vec::new();
+            for key in order {
+                let value = match fields.iter().position(|(k, _)| *k == key) {
+                    Some(at) => fields.remove(at).1,
+                    None => match base.iter().find(|(k, _)| *k == key) {
+                        Some((_, v)) => v.clone(),
+                        None => {
+                            return fail(literal.span(), format!("the field `{key}` of `{name}` is missing"));
+                        }
+                    },
+                };
+                made.push((key, value));
+            }
+            if let Some((extra, _)) = fields.first() {
+                return fail(literal.span(), format!("`{name}` has no field `{extra}`"));
+            }
+            return Ok(self.record(&name, made));
+        }
+        match self.registry().find_record(&name) {
+            Some(build) => build(fields, base).map_err(|e| Flow::Error(LiveError::at(literal.span(), e))),
+            None => fail(
+                literal.span(),
+                format!(
+                    "the playground does not build `{}` from its fields yet",
+                    short(&quote_path(&literal.path))
+                ),
+            ),
+        }
+    }
+
+    /// `value.field`, of a tuple, a struct of the program or a host value.
+    fn field(&self, value: &Value, member: &syn::Member, span: Span) -> Eval {
+        let key = match member {
+            syn::Member::Named(ident) => ident.to_string(),
+            syn::Member::Unnamed(index) => index.index.to_string(),
+        };
+        match value.read() {
+            Value::Tuple(items) => {
+                let at: usize = key.parse().unwrap_or(usize::MAX);
+                items.get(at).cloned().ok_or(()).or_else(|()| fail(span, "the tuple is shorter"))
+            }
+            Value::Record(record) => record
+                .field(&key)
+                .ok_or(())
+                .or_else(|()| fail(span, format!("a {} has no field `{key}`", record.name))),
+            Value::Host(host) => match self.registry().find_field(host.type_name(), &key) {
+                Some(get) => get(&Value::Host(host)).map_err(|e| Flow::Error(LiveError::at(span, e))),
+                None => fail(
+                    span,
+                    format!("the playground cannot read the field `{key}` of a {}", host.type_name()),
+                ),
+            },
+            other => fail(span, format!("a {} has no fields the playground reads", other.kind())),
         }
     }
 
@@ -488,11 +810,20 @@ impl Runner {
             }
             Expr::Range(range) => {
                 let start = match &range.start {
-                    Some(start) => self.int(start, scope)?,
-                    None => 0,
+                    Some(start) => self.expr(start, scope)?.read(),
+                    None => Value::Int(0),
                 };
                 let Some(end) = &range.end else { return fail(range.span(), "a range needs an end here") };
-                let end = self.int(end, scope)?;
+                let end_value = self.expr(end, scope)?.read();
+                if matches!(start, Value::Float(_)) || matches!(end_value, Value::Float(_)) {
+                    let (Some(a), Some(b)) = (number(&start), number(&end_value)) else {
+                        return fail(range.span(), "a range takes numbers");
+                    };
+                    return Ok(Value::FloatRange(a, b));
+                }
+                let (Value::Int(start), Value::Int(end)) = (start, end_value) else {
+                    return fail(range.span(), "a range takes numbers");
+                };
                 let end = if matches!(range.limits, syn::RangeLimits::Closed(_)) { end + 1 } else { end };
                 Ok(Value::Range(start, end))
             }
@@ -629,23 +960,25 @@ impl Runner {
                 Err(Flow::Return(value))
             }
             Expr::Closure(closure) => Ok(Value::Closure(Rc::new(Closure {
-                params: closure.inputs.iter().cloned().collect(),
-                body: (*closure.body).clone(),
-                scope: scope.clone(),
+                body: Body::Code(Box::new(Code {
+                    params: closure.inputs.iter().cloned().collect(),
+                    body: (*closure.body).clone(),
+                    scope: scope.clone(),
+                })),
                 program: self.program.clone(),
                 span: closure.span(),
             }))),
             Expr::Field(field) => {
                 let value = self.expr(&field.base, scope)?;
-                match (&field.member, value.read()) {
-                    (syn::Member::Unnamed(index), Value::Tuple(items)) => items
-                        .get(index.index as usize)
-                        .cloned()
-                        .ok_or(())
-                        .or_else(|()| fail(field.span(), "the tuple is shorter")),
-                    _ => fail(field.span(), format!("a {} has no fields the playground reads", value.kind())),
-                }
+                self.field(&value, &field.member, field.span())
             }
+            Expr::Try(tried) => match self.expr(&tried.expr, scope)?.read() {
+                Value::Option(Some(inner)) | Value::Result(Ok(inner)) => Ok(*inner),
+                none @ (Value::Option(None) | Value::Result(Err(_))) => Err(Flow::Return(none)),
+                other => {
+                    fail(tried.span(), format!("`?` takes an Option or a Result, not a {}", other.kind()))
+                }
+            },
             Expr::Index(index) => {
                 let items = self
                     .expr(&index.expr, scope)?
@@ -661,13 +994,7 @@ impl Runner {
             Expr::Macro(mac) => self.mac(&mac.mac, scope),
             Expr::Call(call) => self.call(call, scope),
             Expr::MethodCall(call) => self.method(call, scope),
-            Expr::Struct(literal) => fail(
-                literal.span(),
-                format!(
-                    "the playground does not build `{}` from its fields yet",
-                    short(&quote_path(&literal.path))
-                ),
-            ),
+            Expr::Struct(literal) => self.struct_literal(literal, scope),
             Expr::Let(binding) => {
                 let value = self.expr(&binding.expr, scope)?;
                 Ok(Value::Bool(self.matches(&binding.pat, &value, scope)?))
@@ -714,7 +1041,37 @@ impl Runner {
                 }
             }
             Expr::Paren(inner) => self.assign(&inner.expr, value, scope),
-            other => fail(other.span(), "only variables and `*place` can be assigned here"),
+            Expr::Field(field) => {
+                let key = match &field.member {
+                    syn::Member::Named(ident) => ident.to_string(),
+                    syn::Member::Unnamed(index) => index.index.to_string(),
+                };
+                match self.expr(&field.base, scope)?.read() {
+                    Value::Record(record) => {
+                        let mut fields = record.fields.borrow_mut();
+                        match fields.iter_mut().find(|(k, _)| *k == key) {
+                            Some((_, slot)) => *slot = value,
+                            None => {
+                                return fail(field.span(), format!("a {} has no field `{key}`", record.name));
+                            }
+                        }
+                        Ok(())
+                    }
+                    Value::Host(host) => match self.registry().find_set_field(host.type_name(), &key) {
+                        Some(set) => set(&Value::Host(host), value)
+                            .map_err(|e| Flow::Error(LiveError::at(field.span(), e))),
+                        None => fail(
+                            field.span(),
+                            format!(
+                                "the playground cannot change the field `{key}` of a {}",
+                                host.type_name()
+                            ),
+                        ),
+                    },
+                    other => fail(field.span(), format!("a {} has no fields to change", other.kind())),
+                }
+            }
+            other => fail(other.span(), "only variables, fields and `*place` can be assigned here"),
         }
     }
 
@@ -834,35 +1191,61 @@ impl Runner {
                     _ => Ok(Value::Unit),
                 }
             }
+            "unreachable" | "todo" | "unimplemented" => fail(span, format!("`{name}!` was reached")),
+            "matches" => {
+                let (value, pattern) = mac
+                    .parse_body_with(|input: syn::parse::ParseStream<'_>| {
+                        let value: Expr = input.parse()?;
+                        input.parse::<Token![,]>()?;
+                        let pattern = Pat::parse_multi_with_leading_vert(input)?;
+                        Ok((value, pattern))
+                    })
+                    .map_err(|e| Flow::Error(LiveError::at(e.span(), e.to_string())))?;
+                let value = self.expr(&value, scope)?;
+                Ok(Value::Bool(self.matches(&pattern, &value, &Scope::child(scope))?))
+            }
             _ => fail(span, format!("the playground does not read the macro `{name}!`")),
         }
     }
 
     fn call(&self, call: &syn::ExprCall, scope: &Rc<Scope>) -> Eval {
         let span = call.span();
-        let arguments = || self.all(call.args.iter(), scope);
         let Expr::Path(path) = &*call.func else {
             let callee = self.expr(&call.func, scope)?;
-            return self.call_value(&callee, arguments()?, span);
+            let arguments = self.all(call.args.iter(), scope)?;
+            return self.call_value(&callee, arguments, span);
         };
         let names = path_names(&path.path);
+        if let [name] = names.as_slice()
+            && let Some(callee) = scope.get(name)
+        {
+            let arguments = self.all(call.args.iter(), scope)?;
+            return self.call_value(&callee, arguments, span);
+        }
+        let arguments = self.all(call.args.iter(), scope)?;
+        self.call_path(&names, arguments, span)
+    }
+
+    /// Calls what a path names: a function of the program or of the host, a constructor the
+    /// interpreter knows, or a method written as `Type::method(value, ..)`.
+    fn call_path(&self, names: &[String], arguments: Vec<Value>, span: Span) -> Eval {
+        let first = || arguments.first().cloned().unwrap_or(Value::Unit);
         match names.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
-            ["Some"] => {
-                let mut values = arguments()?;
-                Ok(Value::Option(Some(Box::new(values.pop().unwrap_or(Value::Unit)))))
-            }
-            ["Ok"]
-            | ["Box", "new"]
+            ["Some"] => Ok(Value::Option(Some(Box::new(first())))),
+            ["Ok"] => Ok(Value::Result(Ok(Box::new(first())))),
+            ["Err"] => Ok(Value::Result(Err(Box::new(first())))),
+            ["Box", "new"]
             | ["Rc", "new"]
             | ["Arc", "new"]
             | ["String", "from"]
-            | ["Cell", "new"] => Ok(arguments()?.into_iter().next().unwrap_or(Value::Unit)),
+            | ["Cell", "new"]
+            | ["From", "from"]
+            | ["Into", "into"] => Ok(first()),
             ["Vec", "new"]
             | ["Vec", "with_capacity"]
             | ["BTreeSet" | "HashSet" | "BTreeMap" | "HashMap", "new"] => Ok(Value::List(Vec::new())),
             ["BTreeSet" | "HashSet" | "Vec", "from" | "from_iter"] => {
-                let first = arguments()?.into_iter().next().unwrap_or(Value::Unit);
-                let mut items = first.items().map_err(|e| Flow::Error(LiveError::at(span, e)))?;
+                let mut items = first().items().map_err(|e| Flow::Error(LiveError::at(span, e)))?;
                 if names[0].ends_with("Set") {
                     let mut kept: Vec<Value> = Vec::new();
                     for item in items.drain(..) {
@@ -876,44 +1259,55 @@ impl Runner {
                 Ok(Value::List(items))
             }
             ["f32" | "f64", "from"] => {
-                let first = arguments()?.into_iter().next().unwrap_or(Value::Unit);
-                number(&first).map(Value::Float).ok_or(()).or_else(|()| fail(span, "a number goes here"))
+                number(&first()).map(Value::Float).ok_or(()).or_else(|()| fail(span, "a number goes here"))
             }
-            [ty, "from" | "try_from"] if ty.starts_with('i') || ty.starts_with('u') => {
-                let first = arguments()?.into_iter().next().unwrap_or(Value::Unit);
-                number(&first)
-                    .map(|n| Value::Int(n as i64))
-                    .ok_or(())
-                    .or_else(|()| fail(span, "a number goes here"))
-            }
+            [ty, "from" | "try_from"] if ty.starts_with('i') || ty.starts_with('u') => number(&first())
+                .map(|n| Value::Int(n as i64))
+                .ok_or(())
+                .or_else(|()| fail(span, "a number goes here")),
             ["String", "new"] => Ok(Value::Str(String::new())),
-            ["State", "new"] | ["RefCell", "new"] => {
-                let first = arguments()?.into_iter().next().unwrap_or(Value::Unit);
-                Ok(Value::State(State::new(first)))
-            }
+            ["State", "new"] | ["RefCell", "new"] => Ok(Value::State(State::new(first()))),
             ["Default", "default"] => fail(span, "say the value instead of `Default::default()` here"),
             [name] => {
-                if let Some(callee) = scope.get(name) {
-                    return self.call_value(&callee, arguments()?, span);
+                let shape = self.program.structs.borrow().get(*name).cloned();
+                if let Some(Shape::Tuple(count)) = shape {
+                    if arguments.len() != count {
+                        return fail(span, format!("`{name}` takes {count} values"));
+                    }
+                    let fields = arguments.into_iter().enumerate().map(|(i, v)| (i.to_string(), v)).collect();
+                    return Ok(self.record(name, fields));
                 }
-                if let Some(function) = self.program.functions.get(*name).cloned() {
-                    return self.call_fn(&function, arguments()?, span).map_err(Flow::Error);
+                if let Some(function) = self.program.function(name) {
+                    return self.call_fn(&function, arguments, span).map_err(Flow::Error);
                 }
                 if let Some(host) = self.registry().find_free(name) {
-                    return host(arguments()?).map_err(|e| Flow::Error(LiveError::at(span, e)));
+                    return host(arguments).map_err(|e| Flow::Error(LiveError::at(span, e)));
                 }
                 fail(span, format!("there is no function `{name}` here"))
             }
             [.., ty, name] => {
-                let Some(host) = self.registry().find_function(ty, name) else {
-                    // A tuple variant, such as `Fill::Solid(color)`, registered as a function too.
-                    return if self.registry().knows_type(ty) {
-                        fail(span, format!("`{ty}::{name}` is not one the playground knows yet"))
-                    } else {
-                        fail(span, format!("the playground does not know `{ty}` yet"))
-                    };
-                };
-                host(arguments()?).map_err(|e| Flow::Error(LiveError::at(span, e)))
+                if let Some(method) = self.program.method(ty, name) {
+                    return self.call_fn(&method, arguments, span).map_err(Flow::Error);
+                }
+                if let Some(host) = self.registry().find_function(ty, name) {
+                    return host(arguments).map_err(|e| Flow::Error(LiveError::at(span, e)));
+                }
+                // `Type::method(value, ..)` is `value.method(..)`, as `Clone::clone` passed to a map.
+                let is_method = self.registry().find_method(ty, name).is_some()
+                    || matches!(
+                        *ty,
+                        "Clone" | "ToString" | "ToOwned" | "Into" | "Option" | "String" | "Vec" | "str"
+                    );
+                if is_method && !arguments.is_empty() {
+                    let mut arguments = arguments;
+                    let receiver = arguments.remove(0);
+                    return self.call_method(receiver, name, arguments, span);
+                }
+                if self.registry().knows_type(ty) {
+                    fail(span, format!("`{ty}::{name}` is not one the playground knows yet"))
+                } else {
+                    fail(span, format!("the playground does not know `{ty}` yet"))
+                }
             }
             [] => fail(span, "an empty path"),
         }
@@ -938,6 +1332,11 @@ impl Runner {
         let name = call.method.to_string();
         let receiver = self.expr(&call.receiver, scope)?;
         let arguments = self.all(call.args.iter(), scope)?;
+        self.call_method(receiver, &name, arguments, span)
+    }
+
+    fn call_method(&self, receiver: Value, name: &str, arguments: Vec<Value>, span: Span) -> Eval {
+        let name = name.to_owned();
         let err = |e: String| Flow::Error(LiveError::at(span, e));
         // `Place`s hold what a closure may change; most methods read them.
         if let Value::Place(place) = &receiver
@@ -950,11 +1349,43 @@ impl Runner {
             }
         }
         let value = receiver.read();
+        if let Value::Record(record) = &value {
+            if let Some(method) = self.program.method(&record.name, &name) {
+                let mut all = vec![value.clone()];
+                all.extend(arguments);
+                return self.call_fn(&method, all, span).map_err(Flow::Error);
+            }
+            if matches!(name.as_str(), "clone" | "to_owned") {
+                let fields = record.fields.borrow().clone();
+                return Ok(self.record(&record.name, fields));
+            }
+            return fail(span, format!("a {} has no method `{name}`", record.name));
+        }
+        if let Value::Binding(binding) = &value {
+            return match name.as_str() {
+                "get" => Ok(binding.get()),
+                "set" => {
+                    binding.set(arguments.into_iter().next().unwrap_or(Value::Unit));
+                    Ok(Value::Unit)
+                }
+                "update" => {
+                    let closure = self.closure_arg(arguments.first().unwrap_or(&Value::Unit), span)?;
+                    let place = Rc::new(RefCell::new(fresh(binding.get())));
+                    closure.call(vec![Value::Place(place.clone())]).map_err(Flow::Error)?;
+                    let changed = place.borrow().clone();
+                    binding.set(changed);
+                    Ok(Value::Unit)
+                }
+                "map" => self.lens(binding.clone(), &arguments, span),
+                "clone" | "binding" => Ok(value.clone()),
+                _ => fail(span, format!("a Binding has no method `{name}` the playground knows")),
+            };
+        }
         if let Value::Host(host) = &value {
             // Methods every view has, such as `.padding(..)`, are kept under `View`.
             let found = self
                 .registry()
-                .find_method(host.type_name(), &name)
+                .find_method_for(host.type_name(), &name, host.held_type())
                 .or_else(|| self.registry().find_method("View", &name));
             if let Some(f) = found {
                 let mut all = vec![value.clone()];
@@ -978,7 +1409,7 @@ impl Runner {
                 }
                 "update" => {
                     let closure = self.closure_arg(arguments.first().unwrap_or(&Value::Unit), span)?;
-                    let place = Rc::new(RefCell::new(state.get()));
+                    let place = Rc::new(RefCell::new(fresh(state.get())));
                     closure.call(vec![Value::Place(place.clone())]).map_err(Flow::Error)?;
                     let changed = place.borrow().clone();
                     state.set(changed);
@@ -988,11 +1419,50 @@ impl Runner {
                     let closure = self.closure_arg(arguments.first().unwrap_or(&Value::Unit), span)?;
                     closure.call(vec![state.get()]).map_err(Flow::Error)
                 }
+                "map" => self.lens(state.binding(), &arguments, span),
                 "clone" | "binding" => Ok(value),
                 _ => fail(span, format!("a State has no method `{name}` the playground knows")),
             };
         }
         builtin_method(self, &name, value, arguments, span)
+    }
+}
+
+/// A copy of a value whose host objects are copied too, so changing it through a place does
+/// not change the original before it is set back.
+fn fresh(value: Value) -> Value {
+    match value {
+        Value::Host(host) => Value::Host(host.duplicate().unwrap_or(host)),
+        Value::Tuple(items) => Value::Tuple(items.into_iter().map(fresh).collect()),
+        Value::List(items) => Value::List(items.into_iter().map(fresh).collect()),
+        Value::Option(Some(inner)) => Value::Option(Some(Box::new(fresh(*inner)))),
+        other => other,
+    }
+}
+
+impl Runner {
+    /// `binding.map(|whole| part, |whole, part| ..)`: a binding to a part of another.
+    fn lens(&self, whole: ravenrs_reactive::Binding<Value>, arguments: &[Value], span: Span) -> Eval {
+        let get = self.closure_arg(arguments.first().unwrap_or(&Value::Unit), span)?;
+        let set = self.closure_arg(arguments.get(1).unwrap_or(&Value::Unit), span)?;
+        let reader = whole.clone();
+        let binding = ravenrs_reactive::Binding::new(
+            move || match get.call(vec![reader.get()]) {
+                Ok(part) => part,
+                Err(problem) => {
+                    crate::value::report(problem);
+                    Value::Unit
+                }
+            },
+            move |part: Value| {
+                let place = Rc::new(RefCell::new(fresh(whole.get())));
+                match set.call(vec![Value::Place(place.clone()), part]) {
+                    Ok(_) => whole.set(place.borrow().clone()),
+                    Err(problem) => crate::value::report(problem),
+                }
+            },
+        );
+        Ok(Value::Binding(binding))
     }
 }
 
@@ -1190,6 +1660,51 @@ fn builtin_method(runner: &Runner, name: &str, value: Value, arguments: Vec<Valu
         "to_string" => return Ok(Value::Str(display(&value))),
         _ => {}
     }
+    if name == "contains"
+        && let Value::Range(..) | Value::FloatRange(..) = value
+    {
+        let (low, high, closed) = match value {
+            Value::FloatRange(a, b) => (a, b, false),
+            Value::Range(a, b) => (a as f64, b as f64, false),
+            _ => (0.0, 0.0, false),
+        };
+        let n = number(&arg(0)).ok_or(()).or_else(|()| fail(span, "`contains` takes a number here"))?;
+        return Ok(Value::Bool(n >= low && (n < high || (closed && n <= high))));
+    }
+    if let Value::Result(result) = &value {
+        let (ok, error) = match result {
+            Ok(v) => (Some((**v).clone()), None),
+            Err(e) => (None, Some((**e).clone())),
+        };
+        let wrap_ok = |v: Value| Value::Result(Ok(Box::new(v)));
+        return match name {
+            "is_ok" => Ok(Value::Bool(ok.is_some())),
+            "is_err" => Ok(Value::Bool(error.is_some())),
+            "ok" => Ok(Value::Option(ok.map(Box::new))),
+            "err" => Ok(Value::Option(error.map(Box::new))),
+            "unwrap" | "expect" => {
+                ok.ok_or(()).or_else(|()| fail(span, format!("unwrap on Err({:?})", error)))
+            }
+            "unwrap_or" => Ok(ok.unwrap_or_else(|| arg(0))),
+            "unwrap_or_else" => match ok {
+                Some(v) => Ok(v),
+                None => call(&closure(0)?, vec![error.unwrap_or(Value::Unit)]),
+            },
+            "map" => match ok {
+                Some(v) => Ok(wrap_ok(call(&closure(0)?, vec![v])?)),
+                None => Ok(value.clone()),
+            },
+            "map_err" => match error {
+                Some(e) => Ok(Value::Result(Err(Box::new(call(&closure(0)?, vec![e])?)))),
+                None => Ok(value.clone()),
+            },
+            "and_then" => match ok {
+                Some(v) => call(&closure(0)?, vec![v]),
+                None => Ok(value.clone()),
+            },
+            _ => fail(span, format!("a Result has no method `{name}` the playground knows")),
+        };
+    }
     match &value {
         Value::Int(_) | Value::Float(_) => {
             let n = number(&value).unwrap_or_default();
@@ -1244,6 +1759,20 @@ fn builtin_method(runner: &Runner, name: &str, value: Value, arguments: Vec<Valu
                 "to_uppercase" => Ok(Value::Str(text.to_uppercase())),
                 "to_lowercase" => Ok(Value::Str(text.to_lowercase())),
                 "trim" => Ok(Value::Str(text.trim().to_owned())),
+                "as_bytes" | "bytes" => {
+                    Ok(Value::List(text.bytes().map(|b| Value::Int(i64::from(b))).collect()))
+                }
+                "strip_prefix" => {
+                    Ok(Value::Option(text.strip_prefix(&pattern).map(|t| Box::new(Value::Str(t.to_owned())))))
+                }
+                "strip_suffix" => {
+                    Ok(Value::Option(text.strip_suffix(&pattern).map(|t| Box::new(Value::Str(t.to_owned())))))
+                }
+                "split_once" => Ok(Value::Option(text.split_once(&pattern).map(|(a, b)| {
+                    Box::new(Value::Tuple(vec![Value::Str(a.to_owned()), Value::Str(b.to_owned())]))
+                }))),
+                "trim_start" => Ok(Value::Str(text.trim_start().to_owned())),
+                "trim_end" => Ok(Value::Str(text.trim_end().to_owned())),
                 "chars" => Ok(Value::List(text.chars().map(Value::Char).collect())),
                 "contains" => Ok(Value::Bool(text.contains(&pattern))),
                 "starts_with" => Ok(Value::Bool(text.starts_with(&pattern))),
@@ -1300,6 +1829,11 @@ fn builtin_method(runner: &Runner, name: &str, value: Value, arguments: Vec<Valu
                     _ => Ok(Value::Option(None)),
                 },
                 "or" => Ok(if inner.is_some() { value.clone() } else { arg(0) }),
+                "ok_or" => Ok(Value::Result(match inner {
+                    Some(v) => Ok(Box::new(v)),
+                    None => Err(Box::new(arg(0))),
+                })),
+                "unwrap_or_default" => Ok(inner.unwrap_or(Value::Unit)),
                 _ => list_method(runner, name, value.items().map_err(err)?, &arguments, span),
             };
         }

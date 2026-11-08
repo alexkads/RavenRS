@@ -20,6 +20,7 @@ type KeyHandler = Rc<dyn Fn(&str)>;
 
 /// One item of a [`TreeView`], with the items under it.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TreeNode {
     key: String,
     label: String,
@@ -163,6 +164,7 @@ fn lines(nodes: &[TreeNode], expanded: &BTreeSet<String>, query: &str) -> Vec<Li
 /// let mut ui = Ui::new(tree, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TreeView {
     nodes: Vec<TreeNode>,
     selected: Option<Binding<Option<String>>>,

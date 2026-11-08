@@ -29,6 +29,7 @@ pub enum RibbonSize {
 }
 
 /// A command in a ribbon group: a button, a toggle, or a button with a menu.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RibbonItem {
     label: String,
     icon: Option<IconName>,
@@ -120,6 +121,7 @@ impl RibbonItem {
 }
 
 /// A labeled set of commands inside a page.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RibbonGroup {
     title: String,
     items: Vec<RibbonItem>,
@@ -157,6 +159,7 @@ impl RibbonGroup {
 
 /// A tab of the ribbon.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RibbonPage {
     title: String,
     groups: Vec<RibbonGroup>,
@@ -207,6 +210,7 @@ impl RibbonPage {
 /// let mut ui = Ui::new(ribbon, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Ribbon {
     pages: Vec<RibbonPage>,
     app_menu: Option<(String, Vec<Entry>)>,

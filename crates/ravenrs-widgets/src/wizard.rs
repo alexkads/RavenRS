@@ -14,6 +14,7 @@ use crate::{Alert, AnyView, Button, ButtonStyle, IconName, Tone, View, util};
 type StepCheck = Rc<dyn Fn() -> Result<(), String>>;
 
 /// One step of a [`Wizard`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct WizardStep {
     title: String,
     content: AnyView,
@@ -68,6 +69,7 @@ impl WizardStep {
 /// let mut ui = Ui::new(wizard, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Wizard {
     step: Binding<usize>,
     steps: Vec<WizardStep>,
@@ -180,6 +182,7 @@ fn step_state_text(cx: &BuildCx<'_>, state: StepState) -> Option<String> {
 /// ui.update();
 /// ```
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct StepBadge {
     number: usize,
     state: StepState,
@@ -293,6 +296,7 @@ impl View for StepRow<'_> {
 
 /// One step shown by a [`StepIndicator`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct IndicatorStep {
     title: String,
     state: StepState,
@@ -329,6 +333,7 @@ impl IndicatorStep {
 /// let mut ui = Ui::new(steps, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct StepIndicator {
     steps: Vec<IndicatorStep>,
     vertical: bool,

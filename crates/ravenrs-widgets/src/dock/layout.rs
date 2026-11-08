@@ -31,7 +31,7 @@ pub enum DockSide {
     Center,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DockSide {
     /// The three docks that collapse and have a size of their own.
     pub(crate) const DOCKS: [Self; 3] = [Self::Left, Self::Right, Self::Bottom];
@@ -107,6 +107,7 @@ pub enum DockNode {
 
 /// A part of a split and how much of it it takes.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DockChild {
     /// Its part of the room, as a fraction: the parts of a split add up to one.
     pub share: f32,
@@ -114,7 +115,7 @@ pub struct DockChild {
     pub node: DockNode,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DockNode {
     /// A group of these panels, with the first one showing.
     pub fn tabs<S: Into<String>>(panels: impl IntoIterator<Item = S>) -> Self {
@@ -361,6 +362,7 @@ struct Closed {
 /// assert!(DockLayout::parse("not a layout").is_err());
 /// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DockLayout {
     #[serde(default)]
     center: Option<DockNode>,

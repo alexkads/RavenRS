@@ -5,6 +5,7 @@ use std::ops::{Add, Sub};
 
 /// A point in logical pixels, origin at the top-left corner.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Point {
     /// Horizontal coordinate in logical pixels.
     pub x: f32,
@@ -39,6 +40,7 @@ impl Sub for Point {
 
 /// A size in logical pixels.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Size {
     /// Width in logical pixels.
     pub width: f32,
@@ -64,6 +66,7 @@ impl Size {
 
 /// An axis-aligned rectangle in logical pixels.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Rect {
     /// Top-left corner.
     pub origin: Point,
@@ -162,6 +165,7 @@ impl Rect {
 
 /// Distances from each edge, used for padding.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Insets {
     /// Top inset in logical pixels.
     pub top: f32,

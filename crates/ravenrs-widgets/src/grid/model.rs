@@ -28,7 +28,7 @@ pub enum Value {
     Date(Date),
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Value {
     /// The numeric value: numbers as is, booleans as 0.0 or 1.0, otherwise `None`.
     pub fn as_f64(&self) -> Option<f64> {
@@ -126,7 +126,7 @@ pub enum SortDirection {
     Descending,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SortDirection {
     pub(crate) fn apply(self, o: Ordering) -> Ordering {
         match self {
@@ -153,7 +153,7 @@ pub enum Summary {
     Max,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Summary {
     /// Short caption shown before the aggregate ("Sum", "Avg"…).
     pub fn label(self) -> &'static str {
@@ -183,6 +183,7 @@ pub enum CellAlign {
 
 /// How numbers are written: decimals, affixes and separators.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct NumberFormat {
     /// Digits after the decimal separator.
     pub decimals: usize,
@@ -227,6 +228,7 @@ pub type CellTemplate = Rc<dyn Fn(&Value) -> AnyView>;
 
 /// A data grid column: title, width, alignment, formatting and capabilities.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridColumn {
     pub(crate) title: String,
     pub(crate) field: Option<String>,
@@ -492,6 +494,7 @@ fn parse_date(text: &str) -> Option<Date> {
 /// The rows behind a data grid. Cloning shares the same data; editing replaces
 /// the row list copy-on-write, so query caches stay valid until a change.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridData {
     rows: State<Rc<Vec<Row>>>,
 }

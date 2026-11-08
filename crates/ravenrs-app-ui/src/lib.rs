@@ -27,6 +27,10 @@ mod form;
 mod jobs;
 mod list_editors;
 mod list_view;
+#[cfg(feature = "live")]
+mod live;
+#[cfg(feature = "live")]
+mod live_list;
 mod model_editor;
 mod nested;
 mod pane;
@@ -36,6 +40,10 @@ mod session;
 mod shell;
 mod system;
 mod values;
+// What the generated registrations name views as.
+#[cfg(feature = "live")]
+#[allow(unused_imports)]
+use ravenrs_widgets::AnyView;
 
 pub use app::App;
 pub use container::{ActionButton, ActionContainer};
@@ -54,3 +62,10 @@ pub use security::SecuredApp;
 pub use session::{CollectionSource, FormCaption, Session, Words};
 pub use shell::{AppShell, FrameTemplate, MainTemplate, TemplateParts};
 pub use system::{CloneModule, SystemModule, ids};
+
+/// Registers this crate's types with a playground's interpreter (feature `live`).
+#[cfg(feature = "live")]
+pub fn live_expose(registry: &mut ravenrs_live::Registry) {
+    live_list::expose_all(registry);
+    live::expose(registry);
+}

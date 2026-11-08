@@ -33,7 +33,7 @@ pub enum Tone {
     Danger,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Tone {
     pub(crate) fn color(self, theme: &Theme) -> Color {
         match self {
@@ -57,6 +57,7 @@ impl Tone {
 
 /// A small pill label: status, counts, categories.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Badge {
     text: String,
     tone: Tone,
@@ -142,6 +143,7 @@ impl View for Badge {
 
 /// A round avatar showing a picture, or initials on a color picked from the name.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Avatar {
     name: String,
     size: f32,
@@ -266,6 +268,7 @@ impl View for Avatar {
 
 /// A keyboard key, for shortcuts: `Kbd::new("⌘K")`.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Kbd {
     keys: String,
     inherit: bool,
@@ -315,6 +318,7 @@ impl View for Kbd {
 
 /// A hairline separator. Horizontal dividers stretch across their stack.
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Divider {
     vertical: bool,
 }
@@ -357,6 +361,7 @@ impl View for Divider {
 /// ui.update();
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ProgressBar {
     value: f32,
     tone: Tone,
@@ -504,6 +509,7 @@ impl View for ProgressBar {
 
 /// A placeholder block shown while content loads.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Skeleton {
     width: Option<f32>,
     height: f32,
@@ -566,6 +572,7 @@ pub struct Alert<A = ()> {
 /// What [`Alert::action`] adds to an alert. Its own type parameter, so an alert
 /// without a button stays `Send`.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AlertAction {
     label: String,
     on_click: Rc<dyn Fn()>,
@@ -608,7 +615,7 @@ impl Alert {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1", with = "A = (); A = crate::AlertAction"))]
 impl<A> Alert<A> {
     /// Sets the color tone and icon.
     pub fn tone(mut self, tone: Tone) -> Self {
@@ -757,6 +764,7 @@ impl View for Alert<AlertAction> {
 
 /// A headline number with a label and an optional change indicator.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Stat {
     label: String,
     value: String,

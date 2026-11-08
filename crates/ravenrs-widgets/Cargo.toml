@@ -41,7 +41,15 @@ lottie = ["dep:ravenrs-lottie"]
 # `CodeEditor` and `Playground`, with Fira Mono embedded in `ravenrs-text`.
 code = ["ravenrs-text/mono"]
 # `LiveRunner`: the Playground runs edited examples with the interpreter of ravenrs-live.
-live = ["code", "dep:ravenrs-live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live"]
+live = [
+    "code",
+    "dep:ravenrs-live",
+    "ravenrs-core/live",
+    "ravenrs-style/live",
+    "ravenrs-layout/live",
+    "ravenrs-graphics?/live",
+    "ravenrs-lottie?/live",
+]
 
 [dev-dependencies]
 proptest.workspace = true

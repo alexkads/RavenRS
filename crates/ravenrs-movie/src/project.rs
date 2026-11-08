@@ -8,6 +8,7 @@ const SHORTEST_MS: u64 = 100;
 
 /// A rectangle on the film, in the logical pixels of the app.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Region {
     /// Left.
     pub x: f32,
@@ -19,6 +20,7 @@ pub struct Region {
     pub height: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Region {
     /// A region at this place and of this size.
     pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
@@ -29,6 +31,7 @@ impl Region {
 /// How a title card looks and moves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CardLook {
     /// The title and the line under it, still.
     #[default]
@@ -41,6 +44,7 @@ pub enum CardLook {
     Closing,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CardLook {
     /// When the words of a card of this look are all in, in milliseconds from its start.
     pub const fn words_in_ms(self) -> u64 {
@@ -63,6 +67,7 @@ impl CardLook {
 
 /// What a clip shows.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ClipKind {
     /// A stretch of the film.
     Film {
@@ -87,6 +92,7 @@ pub enum ClipKind {
 
 /// One piece of the main track.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Clip {
     /// What it shows.
     pub kind: ClipKind,
@@ -94,6 +100,7 @@ pub struct Clip {
     pub speed: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Clip {
     /// How long it lasts on the timeline.
     pub fn duration_ms(&self) -> u64 {
@@ -108,6 +115,7 @@ impl Clip {
 
 /// How a callout looks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CalloutStyle {
     /// A light balloon with a colored edge.
     #[default]
@@ -118,6 +126,7 @@ pub enum CalloutStyle {
 
 /// A chapter added in the editor, at a moment of the timeline.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Marker {
     /// Its name.
     pub title: String,
@@ -128,6 +137,7 @@ pub struct Marker {
 /// What an overlay does.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum OverlayKind {
     /// A balloon with text, placed on the film.
     Callout {
@@ -183,6 +193,7 @@ pub enum OverlayKind {
 
 /// Something over the film for a while, on a track of the timeline.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Overlay {
     /// Its identity, which edits do not change.
     pub id: u64,
@@ -196,6 +207,7 @@ pub struct Overlay {
     pub kind: OverlayKind,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Overlay {
     /// When it ends on the timeline.
     pub fn end_ms(&self) -> u64 {
@@ -210,6 +222,7 @@ impl Overlay {
 
 /// What the timeline shows at a moment.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Place {
     /// This moment of the film.
     Film(u64),
@@ -219,6 +232,7 @@ pub enum Place {
 
 /// A film's edits.
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Project {
     /// The main track, in order.
     pub clips: Vec<Clip>,
@@ -230,6 +244,7 @@ pub struct Project {
     next_id: u64,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Project {
     /// No edits: the whole film of this duration, as it is.
     pub fn whole(duration_ms: u64) -> Self {

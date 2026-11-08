@@ -139,6 +139,7 @@ const GUTTER_GAP: f32 = 16.0;
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TextArea {
     value: Binding<String>,
     placeholder: String,
@@ -722,6 +723,7 @@ pub(crate) fn parse_number(text: &str, decimal: char, group: char) -> Option<f64
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct NumberField {
     value: Binding<Option<f64>>,
     min: f64,
@@ -1076,6 +1078,7 @@ fn mask_fill(slots: &[MaskSlot], raw: &str) -> String {
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MaskedField {
     value: Binding<String>,
     mask: String,
@@ -1189,6 +1192,7 @@ impl View for MaskedField {
 /// assert!(Time::new(24, 0).is_none());
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Time {
     hour: u8,
     minute: u8,
@@ -1220,6 +1224,7 @@ impl fmt::Display for Time {
 
 /// A date and a time of day, with no time zone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DateTime {
     /// The day.
     pub date: Date,
@@ -1239,6 +1244,7 @@ pub struct DateTime {
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimePicker {
     value: Binding<Option<Time>>,
     step: u16,
@@ -1368,6 +1374,7 @@ impl View for TimePicker {
 /// A [`DatePicker`] beside a [`TimePicker`], over one value. Picking a date first
 /// sets the time to midnight, and clearing the time clears both.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DateTimePicker {
     value: Binding<Option<DateTime>>,
     month: Date,

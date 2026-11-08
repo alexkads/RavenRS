@@ -12,7 +12,7 @@ pub enum Fill {
     Color(Color),
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Fill {
     /// The concrete color under `theme`.
     pub fn resolve(self, theme: &Theme) -> Color {

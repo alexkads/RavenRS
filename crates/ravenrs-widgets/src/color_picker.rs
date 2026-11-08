@@ -118,6 +118,7 @@ fn parse_hex(text: &str) -> Option<Color> {
 /// let mut ui = Ui::new(picker, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ColorPicker {
     value: Binding<Option<Color>>,
     palette: Vec<(Color, String)>,

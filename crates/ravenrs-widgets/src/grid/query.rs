@@ -12,6 +12,7 @@ use super::model::{GridColumn, Row, SortDirection, Summary, Value};
 
 /// What the user asked the grid to show.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridQuery {
     /// Sort columns in priority order.
     pub sort: Vec<(usize, SortDirection)>,
@@ -120,6 +121,7 @@ pub enum ViewRow {
 
 /// The output of [`run_query`]: what the grid shows.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct QueryResult {
     /// Visible rows in display order.
     pub rows: Vec<ViewRow>,
@@ -602,6 +604,7 @@ pub enum GridTableKind {
 /// A column of a [`GridTable`].
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridTableColumn {
     /// Its title.
     pub title: String,
@@ -614,6 +617,7 @@ pub struct GridTableColumn {
 /// The rows of a grid as it stands: the columns showing, the rows matching, in order.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridTable {
     /// The title of the file.
     pub title: String,

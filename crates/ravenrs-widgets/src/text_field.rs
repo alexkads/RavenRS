@@ -24,6 +24,7 @@ use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, View, util};
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TextField {
     value: Binding<String>,
     placeholder: String,

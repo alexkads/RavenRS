@@ -20,6 +20,7 @@ use crate::{
 
 /// Something on a [`EventCalendar`]'s day.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CalendarEvent {
     /// Given back by [`EventCalendar::on_event`].
     pub id: u64,
@@ -72,6 +73,7 @@ impl CalendarEvent {
 /// let mut ui = Ui::new(calendar, ravenrs_style::Theme::raven_light());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EventCalendar {
     month: Binding<Date>,
     selected: Binding<Option<Date>>,
@@ -415,6 +417,7 @@ impl View for EventCalendar {
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RecurrenceEditor {
     rule: Binding<RecurrenceRule>,
     start: Date,

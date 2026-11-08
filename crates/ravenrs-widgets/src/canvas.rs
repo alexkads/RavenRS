@@ -24,6 +24,7 @@ use crate::context::{BuildCx, DrawFn, NodeId, Paint};
 /// })
 /// .size(72.0, 48.0);
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Canvas {
     draw: DrawFn,
     style: LayoutStyle,

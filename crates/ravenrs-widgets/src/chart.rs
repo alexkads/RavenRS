@@ -565,6 +565,7 @@ pub enum ChartIndicator {
 ///     .show_total("Total");
 /// ```
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ChartTooltip {
     indicator: ChartIndicator,
     hide_label: bool,
@@ -844,6 +845,7 @@ impl View for TooltipPanel {
 ///     .reference(ChartReference::new(15.0).label("Target").color(Semantic::Danger));
 /// ```
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ChartReference {
     value: f64,
     label: Option<String>,
@@ -968,6 +970,7 @@ impl View for LegendRow {
 ///     .height(240.0);
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Chart {
     kind: ChartKind,
     categories: Vec<String>,
@@ -2138,6 +2141,7 @@ impl View for Chart {
 ///
 /// Available with the `charts` feature, on by default.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct BarChart {
     data: Vec<(String, f32)>,
     height: f32,
@@ -2172,6 +2176,7 @@ impl View for BarChart {
 ///
 /// Available with the `charts` feature, on by default.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AreaChart {
     values: Vec<f32>,
     height: f32,
@@ -2451,6 +2456,7 @@ impl<V: View> View for CardBody<'_, V> {
 /// let product = Barcode::new(Symbology::Ean13, "789123456789").size(240.0, 110.0);
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Barcode {
     symbology: Symbology,
     data: String,

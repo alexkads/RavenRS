@@ -48,6 +48,7 @@ pub enum TabsVariant {
 /// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Tabs {
     selected: Binding<usize>,
     tabs: Vec<(String, Option<AnyView>)>,
@@ -345,6 +346,7 @@ pub enum SidebarVariant {
 /// A sidebar narrower windows show as a sheet keeps that apart: closing the
 /// sheet does not change what the sidebar does when the window grows again.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SidebarState {
     open: Binding<bool>,
     sheet: State<bool>,
@@ -496,6 +498,7 @@ pub struct Sidebar<C, P = ()> {
 /// What [`Sidebar::state`], [`Sidebar::header`] and [`Sidebar::footer`] add to a
 /// sidebar. Its own type parameter, so a sidebar without them stays `Send`.
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SidebarParts {
     state: Option<SidebarState>,
     header: Option<AnyView>,
@@ -539,7 +542,7 @@ impl<C: ViewSeq> Sidebar<C> {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1", with = "P = (); P = crate::SidebarParts"))]
 impl<C: ViewSeq, P> Sidebar<C, P> {
     /// Width in logical pixels (default 248).
     pub fn width(mut self, width: f32) -> Self {
@@ -598,7 +601,7 @@ impl<C: ViewSeq, P> Sidebar<C, P> {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part2"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part2", with = "P = (); P = crate::SidebarParts"))]
 impl<C: ViewSeq, P: Into<SidebarParts>> Sidebar<C, P> {
     fn with_parts(self, change: impl FnOnce(&mut SidebarParts)) -> Sidebar<C, SidebarParts> {
         let mut parts = self.parts.into();
@@ -732,7 +735,7 @@ impl<C: ViewSeq> View for Sidebar<C, SidebarParts> {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part3"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part3", with = "P = (); P = crate::SidebarParts"))]
 impl<C: ViewSeq, P> Sidebar<C, P> {
     fn build_with(&self, cx: &mut BuildCx<'_>, parts: Option<&SidebarParts>) -> NodeId {
         let theme = *cx.theme();
@@ -912,6 +915,7 @@ impl View for SidebarRailStrip {
 
 /// The name of an app at the top of a [`Sidebar`], with its mark. Reduced to icons,
 /// only the mark stays, in line with the icons.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SidebarBrand {
     mark: AnyView,
     title: String,
@@ -1027,6 +1031,7 @@ impl<V: View> View for SidebarInset<V> {
 
 /// A button that opens and closes a [`Sidebar`], sharing its [`SidebarState`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SidebarTrigger(SidebarState);
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1062,6 +1067,7 @@ impl View for SidebarTrigger {
 
 /// A small caption that groups sidebar items. Reduced to icons, it is a hairline.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SidebarSection(String);
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1279,6 +1285,7 @@ impl<C: ViewSeq> View for SidebarGroup<C> {
 
 /// A sidebar row with an icon, a label, an optional count or badge, actions and
 /// a submenu.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SidebarItem {
     icon: Option<IconName>,
     label: String,
@@ -1635,6 +1642,7 @@ impl View for SidebarItem {
 
 /// Placeholder rows while a sidebar's items load.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SidebarSkeleton {
     rows: usize,
     icon: bool,
@@ -1705,6 +1713,7 @@ impl View for SidebarSkeleton {
 /// ui.update();
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Breadcrumb {
     items: Vec<String>,
     root_icon: Option<IconName>,
@@ -1823,6 +1832,7 @@ impl View for Breadcrumb {
 /// let mut ui = Ui::new(panel, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Disclosure {
     title: String,
     title_view: Option<AnyView>,
@@ -1993,6 +2003,7 @@ impl View for Disclosure {
 
 /// Disclosures separated by hairlines.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Accordion(Vec<Disclosure>);
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]

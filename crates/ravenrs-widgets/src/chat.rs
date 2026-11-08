@@ -45,6 +45,7 @@ const MEDIA_AUDIO_WIDTH: f32 = 240.0;
 /// ui.update();
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ChatMedia {
     kind: MediaKind,
     on_open: Option<Rc<dyn Fn()>>,
@@ -259,6 +260,7 @@ pub enum ChatAuthor {
 
 /// One message of a [`Chat`].
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ChatMessage {
     author: ChatAuthor,
     text: Arc<Mutex<String>>,
@@ -349,6 +351,7 @@ impl ChatMessage {
 ///     .examples(["How do I start?"])
 ///     .on_send(move |_text| answers.update(|m| m.push(ChatMessage::assistant("Hello!"))));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Chat {
     messages: Binding<Vec<ChatMessage>>,
     placeholder: String,
@@ -674,7 +677,7 @@ pub enum FloatingCorner {
     BottomRight,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FloatingCorner {
     fn is_right(self) -> bool {
         matches!(self, Self::TopRight | Self::BottomRight)
@@ -731,6 +734,7 @@ impl FloatingCorner {
 ///     Box::new(Text::new("Hello"))
 /// });
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FloatingPanel {
     open: Binding<bool>,
     title: String,

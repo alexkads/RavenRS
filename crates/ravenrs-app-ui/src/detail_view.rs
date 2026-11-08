@@ -18,11 +18,13 @@ use crate::values::semantic_of;
 
 /// The form of the record being edited. What each field uses comes from the model's `Editor`.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DetailView {
     session: Session,
     view: ViewInfo,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DetailView {
     /// The form of this view in the model.
     pub fn new(session: Session, view: ViewInfo) -> Self {
@@ -220,6 +222,7 @@ struct FormLook {
     violations: Vec<Violation>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FormLook {
     fn error_of(&self, field: &str) -> Option<String> {
         self.violations

@@ -41,6 +41,7 @@ impl LinkOpener for Recorder {
 /// assert_eq!(links.opened(), ["https://example.com/docs"]);
 /// ```
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Links {
     opener: Rc<RefCell<Option<Rc<dyn LinkOpener>>>>,
     anchor: Rc<RefCell<Option<String>>>,
@@ -84,6 +85,7 @@ impl fmt::Debug for Links {
 /// Text that opens an address when clicked or activated with the keyboard. `#name`
 /// scrolls to an anchor in the app.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Link {
     label: String,
     url: String,

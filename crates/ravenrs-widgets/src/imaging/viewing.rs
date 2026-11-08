@@ -74,6 +74,7 @@ fn paint_fitted(scene: &mut Scene, picture: &ZoomContent, content: Size, area: R
 ///     let compare = CompareView::new(before, after).mode(CompareMode::Divider).size(480.0, 320.0);
 /// }
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CompareView {
     first: ImageData,
     second: ImageData,
@@ -377,6 +378,7 @@ impl View for CompareView {
 
 /// One picture of an [`ImageLightbox`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct LightboxItem {
     image: ImageData,
     caption: Option<String>,
@@ -415,6 +417,7 @@ impl LightboxItem {
 ///     .collect();
 /// let lightbox = ImageLightbox::new(open.binding(), pictures);
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ImageLightbox {
     open: Binding<Option<usize>>,
     items: Rc<[LightboxItem]>,

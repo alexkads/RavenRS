@@ -33,6 +33,7 @@ const MOST_SHOWN: usize = 50;
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TagBox {
     selected: Binding<Vec<String>>,
     options: Vec<LookupItem>,

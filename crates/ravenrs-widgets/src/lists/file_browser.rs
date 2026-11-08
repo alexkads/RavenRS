@@ -29,6 +29,7 @@ const MODIFIED_WIDTH: f32 = 148.0;
 /// app knows, wherever that came from.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FileEntry {
     /// What the selection keeps. The name by default.
     pub id: String,
@@ -98,6 +99,7 @@ pub enum FileSortColumn {
 
 /// The order of a [`FileBrowser`]. Folders always come first.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FileSort {
     /// What it sorts by.
     pub column: FileSortColumn,
@@ -147,6 +149,7 @@ fn sorted(entries: &[FileEntry], sort: FileSort) -> Vec<usize> {
 /// let mut ui = Ui::new(browser, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FileBrowser {
     path: Vec<String>,
     entries: Rc<[FileEntry]>,

@@ -39,6 +39,7 @@ const MOST_ZOOM: f32 = 8.0;
 /// let mut ui = Ui::new(document, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PagedDocumentView {
     count: usize,
     page_size: Rc<dyn Fn(usize) -> Size>,

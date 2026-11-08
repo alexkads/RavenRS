@@ -35,6 +35,7 @@ const SHIMMER_FLOOR: f32 = 0.04;
 /// let unsaved = Dot::new().tone(Tone::Warning).label("Not saved");
 /// ```
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Dot {
     tone: Tone,
     color: Option<Color>,
@@ -192,6 +193,7 @@ impl<C: View, B: View> View for OverlayBadge<C, B> {
 /// let shown = Rating::read_only(4);
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Rating {
     value: Option<Binding<u32>>,
     fixed: u32,
@@ -417,6 +419,7 @@ impl View for Star {
 /// let tile = IconTile::new(IconName::TriangleAlert).tone(Tone::Warning);
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct IconTile {
     icon: IconName,
     tone: Tone,
@@ -498,6 +501,7 @@ impl View for IconTile {
 ///     .description("Import a folder to start.")
 ///     .action(Button::new("Import"));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EmptyState {
     title: String,
     description: Option<String>,
@@ -587,6 +591,7 @@ impl View for EmptyState {
 ///
 /// let banner = HeroBanner::new("You can remove the card").icon(IconName::CircleCheck).tone(Tone::Success);
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct HeroBanner {
     title: String,
     description: Option<String>,
@@ -709,6 +714,7 @@ impl View for HeroBanner {
 ///     .meter("Previews", 12, 40);
 /// ```
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MultiProgress {
     bars: Vec<ProgressBar>,
     label: Option<String>,
@@ -773,6 +779,7 @@ impl View for MultiProgress {
 /// let waiting = ShimmerText::new("Looking for updates");
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ShimmerText {
     text: String,
     style: TextStyle,
@@ -890,6 +897,7 @@ impl View for ShimmerText {
 /// let free = DaySeparator::new("Last week");
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DaySeparator {
     text: DayText,
 }

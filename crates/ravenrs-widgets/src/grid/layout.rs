@@ -12,6 +12,7 @@ use super::query::GridQuery;
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ColumnLayout {
     /// Its title.
     pub title: String,
@@ -27,6 +28,7 @@ pub struct ColumnLayout {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SortLayout {
     /// Its title.
     pub title: String,
@@ -38,6 +40,7 @@ pub struct SortLayout {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FilterLayout {
     /// Its title.
     pub title: String,
@@ -49,6 +52,7 @@ pub struct FilterLayout {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SummaryLayout {
     /// Its title.
     pub title: String,
@@ -91,6 +95,7 @@ fn summary_from(name: &str) -> Option<Summary> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridLayout {
     /// The columns, in the order they are shown.
     pub columns: Vec<ColumnLayout>,
@@ -142,6 +147,7 @@ impl GridLayout {
 /// A named [`GridLayout`], for someone to come back to with one click.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridScenario {
     /// The name it was saved under.
     pub name: String,

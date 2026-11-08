@@ -14,6 +14,7 @@ use crate::{ButtonSize, IconButton, IconName, View, util};
 
 /// Two days and the days between them, both included.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DateRange {
     /// The first day.
     pub start: Date,
@@ -53,6 +54,7 @@ impl DateRange {
 /// let mut ui = Ui::new(calendar, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Calendar {
     selected: Binding<Option<Date>>,
     initial_month: Date,
@@ -334,6 +336,7 @@ impl View for Calendar {
 
 /// A field that opens a calendar in a popover.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DatePicker {
     value: Binding<Option<Date>>,
     month: Date,
@@ -523,6 +526,7 @@ impl View for DatePicker {
 /// let mut ui = Ui::new(picker, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DateRangePicker {
     value: Binding<Option<DateRange>>,
     month: Date,

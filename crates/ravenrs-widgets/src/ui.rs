@@ -56,6 +56,7 @@ fn touches(frame: Rect, clip: Rect) -> bool {
 /// Work a [`Ui`] has done since it was created. These are exact counts, so a test
 /// can demand that moving the pointer shapes no text or that an animation builds nothing.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct UiStats {
     /// Times the views ran.
     pub builds: u64,
@@ -131,6 +132,7 @@ impl ViewProfile {
 /// Platform layers drive it with [`Ui::set_viewport`], [`Ui::handle_event`] and
 /// [`Ui::update`], and register a waker with [`Ui::set_waker`] to schedule a
 /// frame when state changes outside of event handling (timers, async tasks).
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Ui {
     root: Box<dyn View>,
     theme: State<Theme>,

@@ -24,7 +24,7 @@ lottie = ["ravenrs-widgets/lottie"]
 # `CodeEditor` and `Playground`, with a monospaced font embedded.
 code = ["ravenrs-widgets/code"]
 # `LiveRunner`, which runs edited examples in a `Playground` without a compiler.
-live = ["ravenrs-widgets/live", "dep:ravenrs-live"]
+live = ["ravenrs-widgets/live", "dep:ravenrs-live", "ravenrs-movie/live"]
 # The icon beside the clock of `AppIdentity::close_to_tray`, on the desktop.
 tray = ["ravenrs-platform-native/tray"]
 # The system's notifications of `SystemNotifier`, on the desktop.

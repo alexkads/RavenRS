@@ -34,6 +34,7 @@ const MORE_ROOM: f32 = 36.0;
 /// assert!(Hotkey::key(ravenrs_core::Key::Delete).label().contains("Del"));
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Hotkey {
     key: Key,
     command: bool,
@@ -94,6 +95,7 @@ impl Hotkey {
 }
 
 /// One command of a [`Toolbar`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ToolbarAction {
     label: String,
     icon: Option<IconName>,
@@ -312,6 +314,7 @@ fn entry_node(cx: &mut BuildCx<'_>, index: usize, entry: &ToolbarEntry) -> NodeI
 /// ui.update();
 /// ```
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toolbar {
     entries: Vec<ToolbarEntry>,
     label: Option<String>,
@@ -758,6 +761,7 @@ pub(crate) fn menu_trigger(
 /// let mut ui = Ui::new(save, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitButton {
     label: String,
     icon: Option<IconName>,
@@ -871,6 +875,7 @@ impl View for SplitButton {
 /// until it is answered; show [`ConfirmDialog`] once, and call
 /// [`ask`](Self::ask) from anywhere.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ConfirmDialog(State<Option<Rc<Question>>>);
 
 struct Question {

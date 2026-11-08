@@ -13,8 +13,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 ravenrs = { workspace = true, features = ["code", "live"] }
 ravenrs-grid-export.workspace = true
-ravenrs-app.workspace = true
-ravenrs-app-ui.workspace = true
+ravenrs-app = { workspace = true, features = ["live"] }
+ravenrs-app-ui = { workspace = true, features = ["live"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber.workspace = true

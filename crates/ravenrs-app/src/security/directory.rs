@@ -24,6 +24,7 @@ const LOCKED_MINUTES: i64 = 15;
 /// What someone gave to sign in.
 #[derive(Clone, Default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Credentials {
     /// Their name.
     pub name: String,
@@ -33,6 +34,7 @@ pub struct Credentials {
     pub extra: BTreeMap<String, String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Credentials {
     /// A name and a password.
     pub fn new(name: impl Into<String>, password: impl Into<String>) -> Self {
@@ -49,6 +51,7 @@ impl fmt::Debug for Credentials {
 /// Why someone could not sign in.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum AuthError {
     /// The name, the password or the state of the account did not fit. It never says which, so
     /// this cannot be used to find out who has an account.
@@ -78,6 +81,7 @@ pub trait Authenticator {
 /// Why a password could not be set.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum PasswordError {
     /// It is shorter than [`MIN_PASSWORD_CHARS`].
     TooShort,
@@ -120,6 +124,7 @@ fn failed(error: SpaceError) -> AuthError {
 
 /// The people who can sign in, kept as records.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct UserDirectory {
     space: SpaceMaker,
     roles: Rc<Vec<Role>>,
@@ -131,6 +136,7 @@ impl fmt::Debug for UserDirectory {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl UserDirectory {
     /// Over what this makes. `roles` are what the application declares in code: a role record of
     /// the same name gets what they say, and one is created if missing.
@@ -358,6 +364,7 @@ impl Authenticator for UserDirectory {
 
 /// Who is signed in and what the security system needs to answer for them. One per signed-in
 /// person, shared by their units of work.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SecurityContext {
     permissions: RefCell<Permissions>,
     directory: UserDirectory,
@@ -373,6 +380,7 @@ impl fmt::Debug for SecurityContext {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SecurityContext {
     /// For this person, over these entities.
     pub fn new(

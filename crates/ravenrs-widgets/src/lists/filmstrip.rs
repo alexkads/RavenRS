@@ -25,6 +25,7 @@ const ARROW_STEP: f32 = 0.8;
 /// What a cell of a [`Filmstrip`] is told when it is drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FilmstripCell {
     /// Its position in the strip.
     pub index: usize,
@@ -53,6 +54,7 @@ pub struct FilmstripCell {
 /// let mut ui = Ui::new(strip, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Filmstrip {
     count: usize,
     cell: Rc<dyn Fn(FilmstripCell) -> AnyView>,

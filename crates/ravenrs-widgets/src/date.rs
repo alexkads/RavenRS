@@ -14,6 +14,7 @@ use std::fmt;
 /// assert!(Date::new(2026, 2, 30).is_none());
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Date {
     year: i32,
     month: u8,

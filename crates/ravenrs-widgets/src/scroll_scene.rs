@@ -57,7 +57,7 @@ pub(crate) struct ScrollTrack {
     pub length: f32,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ScrollRange {
     /// How far along this range an element at `frame` is, inside the visible area
     /// `view` of its scroll container, from 0 to 1. `scene` is the frame and track of
@@ -92,6 +92,7 @@ impl ScrollRange {
 /// an [`Easing`], and describe the effect with keyframes or any function. Presets cover
 /// the usual entrances and exits.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ScrollLink {
     range: ScrollRange,
     from: f32,

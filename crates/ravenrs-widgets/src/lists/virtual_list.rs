@@ -222,6 +222,7 @@ impl Track {
 /// let mut ui = Ui::new(list, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct VirtualList {
     pub(crate) count: usize,
     pub(crate) item: Rc<dyn Fn(usize) -> AnyView>,

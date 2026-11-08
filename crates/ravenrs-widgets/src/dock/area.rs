@@ -41,6 +41,7 @@ type OnEnd = Rc<dyn Fn(&DockLayout)>;
 /// the function given to the area, by its id.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DockPanel {
     /// What identifies it, in the arrangement and in what is saved. It should never change.
     pub id: String,
@@ -123,6 +124,7 @@ pub enum DockTabBar {
 /// let mut ui = Ui::new(area, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DockArea {
     layout: Binding<DockLayout>,
     panels: Vec<DockPanel>,

@@ -221,6 +221,7 @@ impl<C: ViewSeq> View for ZStack<C> {
 ///     PropertyRow::with("Status", Badge::new("Edited")),
 /// ));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PropertyRow {
     label: String,
     value: PropertyValue,
@@ -300,6 +301,7 @@ impl View for PropertyRow {
 ///     .badge(Badge::new("12"))
 ///     .action(Button::new("New session"));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PageHeader {
     title: String,
     description: Option<String>,
@@ -424,6 +426,7 @@ impl View for PageHeader {
 
 /// Flexible empty space that pushes its siblings apart inside a stack.
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Spacer {
     min: f32,
 }
@@ -833,6 +836,7 @@ const FOOTER_BREAKPOINT: f32 = 640.0;
 ///     .center((Footer::link("Privacy"), Footer::link("Terms")))
 ///     .right((Footer::text("v27.1"), Badge::new("Online").tone(Tone::Success)));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Footer {
     left: Option<Box<dyn ViewSeq>>,
     center: Option<Box<dyn ViewSeq>>,
@@ -1022,6 +1026,7 @@ const TITLE_BAR_HEIGHT: f32 = 38.0;
 /// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TitleBar {
     title: String,
     leading: Option<AnyView>,
@@ -1194,6 +1199,7 @@ impl View for TitleBar {
 ///     .right((StatusBar::text("12 items"),));
 /// ```
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct StatusBar {
     left: Option<Box<dyn ViewSeq>>,
     center: Option<Box<dyn ViewSeq>>,
@@ -1318,6 +1324,7 @@ impl View for StatusBar {
 
 /// One place of a [`ToolRail`]: a tool, and the others that can take its place.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ToolRailItem {
     tools: Vec<RailToolInfo>,
 }
@@ -1388,6 +1395,7 @@ const RAIL_ICON_BUTTON: f32 = 36.0;
 ///     .columns(2);
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ToolRail {
     selected: ravenrs_reactive::Binding<usize>,
     entries: Vec<RailEntry>,

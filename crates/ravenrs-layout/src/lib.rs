@@ -64,6 +64,7 @@ pub enum Justify {
 
 /// The box model a widget asks for. `axis: None` makes a leaf.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct LayoutStyle {
     /// Stack direction, or `None` for a leaf.
     pub axis: Option<Axis>,
@@ -207,7 +208,7 @@ pub enum Available {
     MaxContent,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Available {
     /// The width to wrap at, if any.
     pub fn limit(self) -> Option<f32> {
@@ -221,6 +222,7 @@ impl Available {
 
 /// What a measured leaf is asked.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MeasureInput {
     /// Dimensions already fixed by the parent.
     pub known_width: Option<f32>,
@@ -234,6 +236,7 @@ pub struct MeasureInput {
 
 /// A failure reported by the underlying Taffy tree, e.g. an unknown node id.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct LayoutError(taffy::TaffyError);
 
 impl fmt::Display for LayoutError {

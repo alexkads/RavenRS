@@ -10,7 +10,7 @@ const RADIUS_RANGE: std::ops::RangeInclusive<f64> = 0.0..=64.0;
 /// The sizes text can take when it comes from text.
 const SIZE_RANGE: std::ops::RangeInclusive<f64> = 8.0..=96.0;
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Semantic {
     /// The colors a theme chooses. The others follow from these.
     pub const TOKENS: [Self; 15] = [
@@ -113,7 +113,7 @@ impl Radii {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TextStyle {
     /// Every step of the scale, largest first.
     pub const TOKENS: [Self; 7] =

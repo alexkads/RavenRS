@@ -122,6 +122,7 @@ pub enum Key {
 
 /// Modifier keys held during a key event.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Modifiers {
     /// Shift key held.
     pub shift: bool,

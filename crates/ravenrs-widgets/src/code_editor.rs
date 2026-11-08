@@ -26,6 +26,7 @@ pub enum CodeLanguage {
 /// Something found at a place in the code: what [`CodeEditor::diagnostics`] marks and
 /// what a [`crate::Playground`] lists under its editor.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CodeDiagnostic {
     /// The line, from 1.
     pub line: usize,
@@ -86,6 +87,7 @@ pub(crate) fn tone_color(tone: Tone) -> Semantic {
 /// let mut ui = Ui::new(editor, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CodeEditor {
     value: Binding<String>,
     language: CodeLanguage,

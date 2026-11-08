@@ -2683,6 +2683,9 @@ pub fn sample_runner() -> LiveRunner {
         let hue = hue.ok_or("`picture` takes a hue, such as 0.4")?;
         Ok(ravenrs::live::Value::Host(ravenrs::live::Host::cloneable("ImageData", picture(hue))))
     });
+    ravenrs::movie::live_expose(&mut registry);
+    ravenrs_app::live_expose(&mut registry);
+    ravenrs_app_ui::live_expose(&mut registry);
     LiveRunner::with_registry(registry)
 }
 
@@ -2783,6 +2786,33 @@ mod tests {
                     let mut ui = Ui::new(view, Theme::raven_dark());
                     ui.set_viewport(Size::new(800.0, 500.0), 1.0);
                     ui.update();
+                    // What fails later, in a paint or a closure the component calls, counts too.
+                    let late = ravenrs::live::late_problems();
+                    if let Some(problem) = late.first() {
+                        failing.insert(*name);
+                        if !pending.contains(name) {
+                            unexpected.push(format!(
+                                "{name}: {} ({}:{})",
+                                problem.message, problem.line, problem.column
+                            ));
+                        }
+                        continue;
+                    }
+                    // The interpreted example builds as many elements as the compiled one.
+                    let mut compiled =
+                        Ui::new(sample(name).unwrap_or_else(|| panic!("{name}")), Theme::raven_dark());
+                    compiled.set_viewport(Size::new(800.0, 500.0), 1.0);
+                    compiled.update();
+                    if compiled.element_count() != ui.element_count() {
+                        failing.insert(*name);
+                        if !pending.contains(name) {
+                            unexpected.push(format!(
+                                "{name}: {} elements interpreted, {} compiled",
+                                ui.element_count(),
+                                compiled.element_count()
+                            ));
+                        }
+                    }
                 }
                 Err(problems) => {
                     failing.insert(*name);

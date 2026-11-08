@@ -66,6 +66,7 @@ enum Leading {
 }
 
 /// A list row: leading icon or avatar, title, subtitle and trailing text.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ListItem {
     title: String,
     subtitle: Option<String>,
@@ -221,6 +222,7 @@ impl View for ListItem {
 
 /// A table column: title, relative width and alignment.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Column {
     title: String,
     weight: f32,
@@ -249,6 +251,7 @@ impl Column {
 
 /// A simple data table with a header, hover-highlighted rows and numeric columns.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Table {
     columns: Vec<Column>,
     rows: Vec<Vec<String>>,

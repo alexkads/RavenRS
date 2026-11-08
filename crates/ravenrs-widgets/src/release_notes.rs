@@ -19,6 +19,7 @@ const LIST_WIDTH: f32 = 220.0;
 /// A line of text to copy, such as a command: shown apart from the prose, with a
 /// button that puts it on the clipboard.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CodeBlock {
     code: String,
 }
@@ -89,6 +90,7 @@ impl std::fmt::Debug for Block {
 
 /// What one version brought, for a [`ReleaseNotes`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ReleaseNote {
     version: String,
     date: Option<String>,
@@ -247,6 +249,7 @@ impl ReleaseNote {
 /// );
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ReleaseNotes {
     notes: Vec<ReleaseNote>,
     selected: Binding<usize>,

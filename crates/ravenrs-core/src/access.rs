@@ -100,7 +100,7 @@ pub enum Role {
     TreeItem,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Role {
     /// Roles whose accessible name comes from the text inside them when no
     /// explicit name is given, as in ARIA's "name from content".
@@ -146,6 +146,7 @@ impl From<bool> for Toggled {
 
 /// A numeric value with its range (sliders, spin buttons, progress).
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct NumericValue {
     /// The current value.
     pub value: f64,
@@ -175,6 +176,7 @@ pub enum AccessAction {
 /// One node of the accessibility tree.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AccessNode {
     /// Identity, stable across frames for the same widget.
     pub id: u64,
@@ -245,6 +247,7 @@ impl AccessNode {
 
 /// The whole accessibility tree of one window, as of the latest frame.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AccessTree {
     /// Id of the root node (role [`Role::Window`]).
     pub root: u64,

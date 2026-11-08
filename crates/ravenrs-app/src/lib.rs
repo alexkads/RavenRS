@@ -34,6 +34,8 @@ mod files;
 mod frame;
 mod functions;
 mod job;
+#[cfg(feature = "live")]
+mod live_list;
 mod model;
 mod module;
 mod object;
@@ -83,3 +85,9 @@ pub use validation::{
     Violation, validate, validate_in_place,
 };
 pub use workflow::{Reminder, StateMachine, Transition, check_transitions, local_now, reminders_of};
+
+/// Registers this crate's types with a playground's interpreter (feature `live`).
+#[cfg(feature = "live")]
+pub fn live_expose(registry: &mut ravenrs_live::Registry) {
+    live_list::expose_all(registry);
+}

@@ -19,6 +19,7 @@ const CARD_OVERSCAN: usize = 2;
 /// Where a tile stands: which tile, and how many cells it takes. The order of a list
 /// of these is the order on the screen.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TileSpot {
     /// The tile, by [`Tile::new`]'s key.
     pub key: String,
@@ -37,6 +38,7 @@ impl TileSpot {
 }
 
 /// One tile of a [`TileLayout`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Tile {
     key: String,
     title: String,
@@ -117,6 +119,7 @@ fn reconcile(saved: &[TileSpot], defaults: &[TileSpot]) -> Vec<TileSpot> {
 /// let mut ui = Ui::new(tiles, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TileLayout {
     spots: Binding<Vec<TileSpot>>,
     tiles: Vec<Tile>,
@@ -526,6 +529,7 @@ type CardBuilder = Rc<dyn Fn(usize) -> AnyView>;
 /// let mut ui = Ui::new(cards, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CardView {
     count: usize,
     card: CardBuilder,

@@ -77,3 +77,81 @@ fn mistakes_say_where_they_are() {
     let e = error("fn f() { loop {} }");
     assert!(e.message.contains("not read"), "{e}");
 }
+
+#[test]
+fn results_question_marks_and_let_else() {
+    let source = r#"
+fn f() -> Option<i64> {
+    let half = |n: i64| -> Result<i64, String> { if n % 2 == 0 { Ok(n / 2) } else { Err(format!("{n} is odd")) } };
+    let Ok(four) = half(8) else { return None };
+    let tried = || -> Result<i64, String> { let a = half(four)?; half(a + 1) };
+    match tried() {
+        Ok(_) => None,
+        Err(why) if why.contains("odd") => Some(four + half(2).unwrap_or(0)),
+        Err(_) => None,
+    }
+}"#;
+    assert_eq!(eval(source), Value::Option(Some(Box::new(Value::Int(5)))));
+    assert_eq!(
+        eval(
+            "fn f() -> Option<i64> { let first = |v: Vec<i64>| -> Option<i64> { Some(v.first()? * 10) }; first(vec![]) }"
+        ),
+        Value::Option(None)
+    );
+    assert_eq!(eval("fn f() -> bool { matches!(Some(3), Some(1..=5)) }"), Value::Bool(true));
+}
+
+#[test]
+fn structs_and_impls_of_the_program() {
+    let source = r#"
+struct Counter { count: i64, step: i64 }
+struct Pair(i64, i64);
+
+impl Counter {
+    fn new(step: i64) -> Self { Counter { count: 0, step } }
+    fn bump(&mut self) { self.count += self.step; }
+    fn twice(&self) -> i64 { self.count * 2 }
+}
+
+fn f() -> i64 {
+    const START: i64 = 1;
+    fn add(a: i64, b: i64) -> i64 { a + b }
+    let mut counter = Counter::new(3);
+    counter.bump();
+    counter.bump();
+    let copy = Counter { step: 10, ..counter.clone() };
+    let Pair(a, b) = Pair(START, 2);
+    let Counter { count, .. } = copy;
+    add(counter.twice(), count) + a + b
+}"#;
+    assert_eq!(eval(source), Value::Int(12 + 6 + 3));
+}
+
+#[test]
+fn functions_as_values_float_ranges_and_lenses() {
+    assert_eq!(
+        eval(
+            "fn f() -> Vec<Option<i64>> { fn double(n: i64) -> i64 { n * 2 } vec![1, 2].into_iter().map(double).map(Some).collect() }"
+        ),
+        Value::List(vec![
+            Value::Option(Some(Box::new(Value::Int(2)))),
+            Value::Option(Some(Box::new(Value::Int(4))))
+        ])
+    );
+    assert_eq!(
+        eval(r#"fn f() -> Vec<String> { vec!["a"].into_iter().map(ToString::to_string).collect() }"#),
+        Value::List(vec![Value::Str("a".into())])
+    );
+    assert_eq!(
+        eval("fn f() -> bool { (0.1..0.9).contains(&0.5) && !(0.1..0.9).contains(&0.95) }"),
+        Value::Bool(true)
+    );
+    let source = r#"
+fn f() -> (i64, i64) {
+    let pair = State::new((1, 2));
+    let second = pair.binding().map(|p| p.1, |p, value| *p = (p.0, value));
+    second.set(7);
+    (pair.get().1, second.get())
+}"#;
+    assert_eq!(eval(source), Value::Tuple(vec![Value::Int(7), Value::Int(7)]));
+}

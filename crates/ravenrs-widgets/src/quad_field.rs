@@ -31,6 +31,7 @@ type Picture = Rc<dyn Fn(f32, f32, f64) -> Color>;
 /// })
 /// .height(720.0);
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct QuadField {
     columns: u16,
     rows: u16,

@@ -40,7 +40,7 @@ pub enum ButtonSize {
     Mini,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ButtonSize {
     pub(crate) fn height(self) -> f32 {
         match self {
@@ -182,6 +182,7 @@ fn selected_colors(
 /// let mut ui = Ui::new(button, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Button {
     label: String,
     on_click: Option<Rc<dyn Fn()>>,
@@ -453,6 +454,7 @@ fn joined_paint(join: Join, fill: Color, radius: f32, border: Option<Border>) ->
 /// .label("Period");
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ButtonGroup {
     buttons: Vec<Button>,
     label: Option<String>,
@@ -498,6 +500,7 @@ impl View for ButtonGroup {
 
 /// A square, icon-only button (ghost by default), for toolbars.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct IconButton {
     button: Button,
 }

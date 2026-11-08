@@ -22,7 +22,7 @@ pub enum Frequency {
     Yearly,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Frequency {
     /// Every frequency, in the order an editor offers them.
     pub const ALL: [Self; 5] = [Self::Once, Self::Daily, Self::Weekly, Self::Monthly, Self::Yearly];
@@ -59,6 +59,7 @@ pub enum RecurrenceEnd {
 /// assert_eq!(RecurrenceRule::parse(&rule.to_text()), Some(rule));
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RecurrenceRule {
     /// How often.
     pub frequency: Frequency,

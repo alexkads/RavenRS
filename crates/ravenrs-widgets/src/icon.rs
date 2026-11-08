@@ -6,6 +6,7 @@ use crate::{Fill, IconName, View, util};
 /// A vector icon from the built-in Lucide set, drawn as a glyph so it stays
 /// crisp at any size and takes the text color.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Icon {
     name: IconName,
     size: f32,

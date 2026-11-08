@@ -27,6 +27,7 @@ const LINES: [usize; 5] = [6, 4, 3, 2, 1];
 /// What marks a day of a [`YearView`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DayMark {
     /// The color of its dot.
     pub tone: Tone,
@@ -71,6 +72,7 @@ impl DayMark {
 /// let mut ui = Ui::new(view, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct YearView {
     year: Binding<i32>,
     selected: Option<Binding<Option<Date>>>,

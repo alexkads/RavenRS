@@ -23,6 +23,7 @@ enum Cell {
 
 /// A titled set of fields in a [`FormLayout`], filling its columns row by row.
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FormGroup {
     title: Option<String>,
     columns: Option<usize>,
@@ -110,6 +111,7 @@ impl View for Shared {
 /// ui.update();
 /// ```
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FormLayout {
     columns: Option<usize>,
     errors: Vec<String>,

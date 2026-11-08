@@ -22,6 +22,7 @@ use crate::view::ViewSeq;
 /// view tree (or from an explicit key, see [`BuildCx::keyed_child`]). Hover,
 /// press and focus are remembered per `WidgetId`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct WidgetId(u64);
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -44,10 +45,12 @@ impl WidgetId {
 /// A node of the element tree produced by one build. Only valid during the
 /// build that created it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct NodeId(pub(crate) u32);
 
 /// A rounded rectangle painted behind an element's children.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct QuadPaint {
     /// Fill color or gradient.
     pub fill: Brush,
@@ -138,6 +141,7 @@ pub enum DragPhase {
 
 /// A pointer drag on an element, in absolute logical pixels, with the element's frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Drag {
     /// Which part of the drag this event is.
     pub phase: DragPhase,
@@ -250,6 +254,7 @@ pub(crate) struct Shortcut {
 /// text inside it, text is announced as a label, and other boxes are
 /// transparent: their children belong to the nearest described ancestor.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Semantics {
     pub(crate) role: Role,
     pub(crate) name: Option<String>,

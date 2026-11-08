@@ -65,6 +65,7 @@ enum TestPhase {
 /// Frames are kept out of reactive state on purpose: recording one must never
 /// ask for another.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Diagnostics {
     open: State<bool>,
     frames: Rc<RefCell<FrameLog>>,

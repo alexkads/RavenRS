@@ -20,6 +20,7 @@ const DEFAULT_MOST_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 
 /// A file brought into the app, whole, in memory.
 #[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PickedFile {
     /// Its name, with no folder. Never trust it as a path.
     pub name: String,
@@ -52,6 +53,7 @@ impl fmt::Debug for PickedFile {
 /// What to ask of a [`FilePicker`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FileRequest {
     /// The extensions offered, such as `pdf`; empty offers every file.
     pub extensions: Vec<String>,
@@ -74,6 +76,7 @@ pub trait FilePickerProvider {
 
 /// A picker that chooses nothing, for where there is no system to ask (tests, headless use).
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct NoFilePicker;
 
 impl FilePickerProvider for NoFilePicker {
@@ -84,6 +87,7 @@ impl FilePickerProvider for NoFilePicker {
 
 /// A shared handle to the file chooser, from [`crate::BuildCx::file_picker`].
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FilePicker(Rc<dyn FilePickerProvider>);
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -515,6 +519,7 @@ impl<C: View> View for DropZone<C> {
 /// let mut ui = Ui::new(upload, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FileUpload {
     files: Binding<Vec<PickedFile>>,
     rules: Rules,
@@ -741,6 +746,7 @@ impl View for FileUpload {
 /// ui.update();
 /// ```
 #[cfg(feature = "decode")]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ImageField {
     value: Binding<Option<PickedFile>>,
     most_bytes: u64,

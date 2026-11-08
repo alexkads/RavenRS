@@ -35,6 +35,7 @@ const FIELD_WIDTH: f32 = 84.0;
 /// let mut ui = Ui::new(control, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ValueSlider {
     value: Binding<f32>,
     min: f32,
@@ -339,6 +340,7 @@ pub(crate) fn is_f2(key: &Key) -> bool {
 /// let mut ui = Ui::new(rename, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct InlineRename {
     value: Binding<String>,
     editing: Option<Binding<bool>>,

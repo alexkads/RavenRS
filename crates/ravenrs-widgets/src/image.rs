@@ -24,6 +24,7 @@ pub enum ContentMode {
 
 /// Why image bytes could not be decoded.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DecodeError(String);
 
 impl fmt::Display for DecodeError {
@@ -56,6 +57,7 @@ pub fn decode_image(bytes: &[u8]) -> Result<ImageData, DecodeError> {
 /// ui.update();
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Image {
     data: ImageData,
     mode: ContentMode,

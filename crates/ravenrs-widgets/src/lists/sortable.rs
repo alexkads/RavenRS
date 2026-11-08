@@ -35,6 +35,7 @@ use crate::view::{AnyView, View};
 /// let mut ui = Ui::new(list, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SortableList {
     count: usize,
     item: Rc<dyn Fn(usize) -> AnyView>,

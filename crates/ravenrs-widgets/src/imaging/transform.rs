@@ -30,6 +30,7 @@ use crate::util;
 
 /// A rectangle turned around a point, which is what a [`TransformHandles`] edits.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct BoxTransform {
     /// The box before turning, in the units of the content.
     pub rect: Rect,
@@ -167,7 +168,7 @@ pub enum BoxHandle {
     Left,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl BoxHandle {
     /// All of them, clockwise from the top left.
     pub const ALL: [Self; 8] = [
@@ -587,6 +588,7 @@ impl Rules {
 ///     .space(ContentSpace::Fit(Size::new(1200.0, 800.0)))
 ///     .size(600.0, 400.0);
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TransformHandles {
     value: Binding<BoxTransform>,
     frame: OverlayBox,
@@ -629,8 +631,6 @@ impl TransformHandles {
             crop_name: false,
         }
     }
-
-    overlay_builders!(frame);
 
     /// Whether the corners keep the proportions unless Shift is held (they do by default).
     pub fn keep_proportions(mut self, keep: bool) -> Self {
@@ -692,6 +692,8 @@ impl TransformHandles {
         self
     }
 }
+
+overlay_builders!(TransformHandles, frame);
 
 fn square(center: Point, side: f32, angle: f32) -> Vec<PathElement> {
     let half = side / 2.0;
@@ -1002,6 +1004,7 @@ impl ProtractorArc {
 /// let angle = State::new(0.0_f32);
 /// let straighten = Protractor::new(angle.binding()).range(-45.0, 45.0).label("Straighten");
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Protractor {
     value: Binding<f32>,
     least: f32,
@@ -1222,6 +1225,7 @@ impl View for Protractor {
 /// picture. A frame turned clockwise by `angle` holds what an upright frame would hold with the
 /// picture turned counterclockwise by it, around the middle of the rectangle.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CropArea {
     /// The rectangle before turning, in the units of the content.
     pub rect: Rect,
@@ -1274,6 +1278,7 @@ impl CropArea {
 /// let straighten = Protractor::new(crop.binding().map(|c| c.angle, |c, angle| c.angle = angle));
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CropOverlay {
     handles: TransformHandles,
 }
@@ -1309,8 +1314,6 @@ impl CropOverlay {
         handles.crop_name = true;
         Self { handles }
     }
-
-    overlay_builders!(handles.frame);
 
     /// Holds this width over height, or lets it go free with `None`. A crop of other proportions
     /// is cut down to these as soon as this changes.
@@ -1365,6 +1368,8 @@ impl CropOverlay {
         self
     }
 }
+
+overlay_builders!(CropOverlay, handles.frame);
 
 impl View for CropOverlay {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {

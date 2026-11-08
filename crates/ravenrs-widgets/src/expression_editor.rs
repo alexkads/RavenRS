@@ -55,6 +55,7 @@ const ITEMS_WIDTH: f32 = 200.0;
 /// let mut ui = Ui::new(editor, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ExpressionEditor {
     value: Binding<String>,
     fields: Vec<FilterField>,

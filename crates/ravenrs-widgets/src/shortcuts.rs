@@ -37,6 +37,7 @@ struct ShortcutGroup {
 ///     .group("Rate", [("1–5", "Give a score"), ("0", "Take it away")]);
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ShortcutSheet {
     open: Binding<bool>,
     title: Option<String>,
@@ -178,6 +179,7 @@ impl View for ShortcutSheet {
 ///     .hint(["1", "5"], "rate");
 /// ```
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ShortcutHintBar {
     leading: Option<String>,
     hints: Vec<(Vec<String>, String)>,

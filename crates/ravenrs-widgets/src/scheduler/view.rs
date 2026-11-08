@@ -50,6 +50,7 @@ const OVERSCAN: f32 = 200.0;
 
 /// A row of a [`Scheduler`]: a person, a room, a machine, an account.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Resource {
     /// What events refer to.
     pub id: u64,
@@ -83,6 +84,7 @@ impl Resource {
 
 /// A bar on a [`Scheduler`]. One with no length shows as a milestone.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SchedulerEvent {
     /// Given back when it changes.
     pub id: u64,
@@ -148,6 +150,7 @@ impl SchedulerEvent {
 
 /// A shaded stretch of time across all rows, such as a holiday or a deadline.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SchedulerRange {
     /// When it begins.
     pub start: TimePoint,
@@ -159,6 +162,7 @@ pub struct SchedulerRange {
 
 /// An event moved, resized, or drawn for the first time: where it would now be.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SchedulerChange {
     /// The event; for one being created, `None`.
     pub id: Option<u64>,
@@ -199,6 +203,7 @@ type OnChange = Rc<dyn Fn(SchedulerChange)>;
 /// let mut ui = Ui::new(scheduler, ravenrs_style::Theme::raven_light());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Scheduler {
     axis: Binding<TimeAxis>,
     resources: Vec<Resource>,

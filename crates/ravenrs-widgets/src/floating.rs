@@ -129,6 +129,7 @@ pub enum Side {
 }
 
 /// A panel that slides over the UI from one edge, over a dimmed backdrop.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Sheet {
     open: Binding<bool>,
     title: String,
@@ -320,6 +321,7 @@ const SPLASH_OVERLAY_KEY: u64 = 0x7370_6c61_7368;
 ///         .progress(progress.get())
 /// });
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplashScreen {
     visible: Binding<bool>,
     name: String,
@@ -514,6 +516,7 @@ impl View for SplashScreen {
 
 /// One notification in a [`Toaster`].
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toast {
     id: u64,
     title: String,
@@ -545,7 +548,7 @@ pub enum ToastPosition {
     BottomRight,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToastPosition {
     fn placement(self) -> Placement {
         match self {
@@ -576,6 +579,7 @@ impl ToastPosition {
 /// What a toast can do besides showing: a button, something to run once it is gone, and
 /// a place of its own.
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ToastExtras {
     action: Option<(String, Rc<dyn Fn()>)>,
     on_close: Option<Rc<dyn Fn()>>,
@@ -644,6 +648,7 @@ impl ToastExtras {
 /// ui.update();
 /// ```
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toasts {
     list: State<Vec<Toast>>,
     next: Rc<Cell<u64>>,
@@ -736,6 +741,7 @@ impl Toasts {
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toaster {
     toasts: Toasts,
     bottom_inset: f32,
@@ -924,6 +930,7 @@ impl View for Toaster {
 }
 
 /// An action in the [`CommandPalette`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Command {
     label: String,
     group: String,
@@ -992,6 +999,7 @@ pub(crate) fn fuzzy_match(text: &str, query: &str) -> bool {
 /// let mut ui = Ui::new(palette, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CommandPalette {
     open: Binding<bool>,
     commands: Vec<Command>,
@@ -1183,6 +1191,7 @@ impl View for CommandPalette {
 
 /// A select with a search box: type to filter the options.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Combobox {
     selected: Binding<Option<usize>>,
     options: Vec<String>,

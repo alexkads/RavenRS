@@ -31,6 +31,7 @@ pub enum FilterFieldKind {
 
 /// A field a [`FilterBuilder`] offers.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FilterField {
     /// The name in the expression.
     pub name: String,
@@ -320,6 +321,7 @@ fn node_at<'a>(root: &'a mut Node, path: &[usize]) -> Option<&'a mut Node> {
 /// let mut ui = Ui::new(builder, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FilterBuilder {
     value: Binding<String>,
     fields: Rc<Vec<FilterField>>,

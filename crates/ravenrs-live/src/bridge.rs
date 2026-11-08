@@ -105,7 +105,7 @@ impl<T: Clone + 'static> ArgHostBinding<ravenrs_reactive::Binding<T>>
     for &&Arg<ravenrs_reactive::Binding<T>>
 {
     fn make(self, value: Value) -> Result<ravenrs_reactive::Binding<T>, String> {
-        let Value::State(state) = value.read() else {
+        let Some(state) = value.as_binding() else {
             return Err(format!("expected a State, found {}", value.kind()));
         };
         let first = read_copy::<T>(&state.get())
@@ -153,7 +153,8 @@ pub fn any_to_value<A: 'static>(value: A) -> Value {
     })
 }
 
-fn closure_of(value: &Value) -> Result<std::rc::Rc<crate::Closure>, String> {
+/// The closure a value holds.
+pub fn closure_of(value: &Value) -> Result<std::rc::Rc<crate::Closure>, String> {
     match value.read() {
         Value::Closure(closure) => Ok(closure),
         other => Err(format!("expected a closure, found {}", other.kind())),
@@ -205,7 +206,7 @@ fn binding_of<T: Clone + 'static>(
     read: fn(&Value) -> Option<T>,
     write: fn(T) -> Value,
 ) -> Result<ravenrs_reactive::Binding<T>, String> {
-    let Value::State(state) = value.read() else {
+    let Some(state) = value.as_binding() else {
         return Err(format!("expected a State, found {}", value.kind()));
     };
     let first =
@@ -417,4 +418,332 @@ pub fn arg(values: &[Value], index: usize, count: usize) -> Result<Value, String
         return Err(format!("this takes {count} arguments, and got {}", values.len()));
     }
     Ok(values[index].clone())
+}
+
+/// The items of a list, for an argument made as a `Vec`.
+pub fn list(value: &Value) -> Result<Vec<Value>, String> {
+    value.items()
+}
+
+/// The items of a tuple of `count` values.
+pub fn tuple(value: &Value, count: usize) -> Result<Vec<Value>, String> {
+    match value.read() {
+        Value::Tuple(items) if items.len() == count => Ok(items),
+        other => Err(format!("expected a tuple of {count}, found {}", other.kind())),
+    }
+}
+
+/// `Ok(..)` or `Err(..)`, as the interpreter wrote it; any other value counts as `Ok`.
+pub fn result(value: &Value) -> Result<Value, Value> {
+    match value.read() {
+        Value::Result(Ok(v)) => Ok(*v),
+        Value::Result(Err(e)) => Err(*e),
+        other => Ok(other),
+    }
+}
+
+/// `Some(..)` or `None`; `()` counts as `None` and any other value as `Some`.
+pub fn option(value: &Value) -> Option<Value> {
+    match value.read() {
+        Value::Option(inner) => inner.map(|v| *v),
+        Value::Unit => None,
+        other => Some(other),
+    }
+}
+
+/// What a closure the host calls gives when it fails, by type.
+pub struct FallbackOf<T>(PhantomData<fn() -> T>);
+
+impl<T> std::fmt::Debug for FallbackOf<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "FallbackOf<{}>", host_name::<T>())
+    }
+}
+
+impl<T> FallbackOf<T> {
+    /// The fallback finder for `T`.
+    pub fn of() -> Self {
+        Self(PhantomData)
+    }
+}
+
+/// Through [`Fallback`](crate::Fallback).
+pub trait FallbackOwn<T> {
+    /// The function that makes the fallback.
+    fn get(self) -> Result<fn() -> T, String>;
+}
+
+impl<T: crate::Fallback> FallbackOwn<T> for &&&FallbackOf<T> {
+    fn get(self) -> Result<fn() -> T, String> {
+        Ok(T::fallback)
+    }
+}
+
+/// Through `Default`.
+pub trait FallbackDefault<T> {
+    /// The function that makes the fallback.
+    fn get(self) -> Result<fn() -> T, String>;
+}
+
+impl<T: Default> FallbackDefault<T> for &&FallbackOf<T> {
+    fn get(self) -> Result<fn() -> T, String> {
+        Ok(T::default)
+    }
+}
+
+/// None: such a closure cannot be made.
+pub trait FallbackNone<T> {
+    /// Why not.
+    fn get(self) -> Result<fn() -> T, String>;
+}
+
+impl<T> FallbackNone<T> for &FallbackOf<T> {
+    fn get(self) -> Result<fn() -> T, String> {
+        Err(format!("a closure that gives a {} cannot be written in the playground yet", host_name::<T>()))
+    }
+}
+
+/// A value the host lends a closure, as the interpreter's value.
+pub struct Borrowed<'a, T>(pub &'a T);
+
+impl<T> std::fmt::Debug for Borrowed<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Borrowed<{}>", host_name::<T>())
+    }
+}
+
+/// Copied into a plain value.
+pub trait BorrowedLive {
+    /// The value.
+    fn live(self) -> Value;
+}
+
+impl<T: IntoLive + Clone> BorrowedLive for &&&Borrowed<'_, T> {
+    fn live(self) -> Value {
+        self.0.clone().into_live()
+    }
+}
+
+/// Copied into a host value.
+pub trait BorrowedCopy {
+    /// The value.
+    fn live(self) -> Value;
+}
+
+impl<T: Clone + 'static> BorrowedCopy for &&Borrowed<'_, T> {
+    fn live(self) -> Value {
+        copied(self.0.clone())
+    }
+}
+
+/// Not copied: the closure gets `()`.
+pub trait BorrowedNone {
+    /// The value.
+    fn live(self) -> Value;
+}
+
+impl<T> BorrowedNone for &Borrowed<'_, T> {
+    fn live(self) -> Value {
+        Value::Unit
+    }
+}
+
+/// A field to copy out of a struct, when its type copies.
+pub struct CloneOf<'a, T>(pub &'a T);
+
+impl<T> std::fmt::Debug for CloneOf<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CloneOf<{}>", host_name::<T>())
+    }
+}
+
+/// It copies.
+pub trait CloneOfSome<T> {
+    /// The copy.
+    fn cloned(self) -> Option<T>;
+}
+
+impl<T: Clone> CloneOfSome<T> for &&CloneOf<'_, T> {
+    fn cloned(self) -> Option<T> {
+        Some(self.0.clone())
+    }
+}
+
+/// It does not.
+pub trait CloneOfNone<T> {
+    /// Nothing.
+    fn cloned(self) -> Option<T>;
+}
+
+impl<T> CloneOfNone<T> for &CloneOf<'_, T> {
+    fn cloned(self) -> Option<T> {
+        None
+    }
+}
+
+/// Something the host lends a closure to change, such as the scene a canvas draws into: the
+/// closure gets a fresh one, which is then added to the real one.
+pub trait Scratch: Sized + 'static {
+    /// An empty one.
+    fn fresh() -> Self;
+    /// Adds what was done to it to the real one.
+    fn merge_into(self, target: &mut Self);
+}
+
+/// How a `&mut T` reaches a closure.
+pub struct ScratchOf<T>(PhantomData<fn() -> T>);
+
+impl<T> std::fmt::Debug for ScratchOf<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ScratchOf<{}>", host_name::<T>())
+    }
+}
+
+impl<T> ScratchOf<T> {
+    /// The scratch maker for `T`.
+    pub fn of() -> Self {
+        Self(PhantomData)
+    }
+}
+
+/// Through [`Scratch`].
+pub trait ScratchSome<T> {
+    /// Whether it can.
+    fn check(self) -> Result<(), String>;
+    /// A fresh one, as a value.
+    fn fresh(self) -> Value;
+    /// Adds what the closure did to the real one.
+    fn merge(self, value: &Value, target: &mut T);
+}
+
+impl<T: Scratch> ScratchSome<T> for &&ScratchOf<T> {
+    fn check(self) -> Result<(), String> {
+        Ok(())
+    }
+    fn fresh(self) -> Value {
+        moved(T::fresh())
+    }
+    fn merge(self, value: &Value, target: &mut T) {
+        if let Value::Host(host) = value
+            && let Ok(made) = host.take::<T>()
+        {
+            made.merge_into(target);
+        }
+    }
+}
+
+/// It cannot.
+pub trait ScratchNone<T> {
+    /// Why not.
+    fn check(self) -> Result<(), String>;
+    /// Nothing.
+    fn fresh(self) -> Value;
+    /// Nothing.
+    fn merge(self, value: &Value, target: &mut T);
+}
+
+impl<T> ScratchNone<T> for &ScratchOf<T> {
+    fn check(self) -> Result<(), String> {
+        Err(format!("a closure that changes a {} cannot be written in the playground yet", host_name::<T>()))
+    }
+    fn fresh(self) -> Value {
+        Value::Unit
+    }
+    fn merge(self, _: &Value, _: &mut T) {}
+}
+
+/// Calls a closure of the program for the host, reporting a failure instead of stopping.
+pub fn call_back<R>(
+    closure: &crate::Closure,
+    arguments: Vec<Value>,
+    make: impl FnOnce(Value) -> Result<R, String>,
+    fallback: fn() -> R,
+) -> R {
+    match closure.call(arguments).and_then(|v| make(v).map_err(|e| closure.error(e))) {
+        Ok(value) => value,
+        Err(problem) => {
+            crate::value::report(problem);
+            fallback()
+        }
+    }
+}
+
+/// `Type::default()`, for types that have one.
+pub struct DefaultOf<T>(PhantomData<fn() -> T>);
+
+impl<T> std::fmt::Debug for DefaultOf<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DefaultOf<{}>", host_name::<T>())
+    }
+}
+
+impl<T> DefaultOf<T> {
+    /// The default maker for `T`.
+    pub fn of() -> Self {
+        Self(PhantomData)
+    }
+}
+
+/// It has one.
+pub trait DefaultSome<T> {
+    /// The default.
+    fn make(self) -> Option<T>;
+}
+
+impl<T: Default> DefaultSome<T> for &&DefaultOf<T> {
+    fn make(self) -> Option<T> {
+        Some(T::default())
+    }
+}
+
+/// It does not.
+pub trait DefaultNone<T> {
+    /// Nothing.
+    fn make(self) -> Option<T>;
+}
+
+impl<T> DefaultNone<T> for &DefaultOf<T> {
+    fn make(self) -> Option<T> {
+        None
+    }
+}
+
+/// A plain value of type `S` going where `impl Into<T>` goes, when `T: From<S>`.
+pub struct IntoFrom<T, S>(pub S, PhantomData<fn() -> T>);
+
+impl<T, S> std::fmt::Debug for IntoFrom<T, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "IntoFrom<{}, {}>", host_name::<T>(), host_name::<S>())
+    }
+}
+
+impl<T, S> IntoFrom<T, S> {
+    /// Holds the plain value.
+    pub fn new(value: S) -> Self {
+        Self(value, PhantomData)
+    }
+}
+
+/// `T: From<S>`.
+pub trait IntoFromSome<T> {
+    /// The converted value.
+    fn get(self) -> Option<T>;
+}
+
+impl<T: From<S>, S: Clone> IntoFromSome<T> for &&IntoFrom<T, S> {
+    fn get(self) -> Option<T> {
+        Some(T::from(self.0.clone()))
+    }
+}
+
+/// No such conversion.
+pub trait IntoFromNone<T> {
+    /// Nothing.
+    fn get(self) -> Option<T>;
+}
+
+impl<T, S> IntoFromNone<T> for &IntoFrom<T, S> {
+    fn get(self) -> Option<T> {
+        None
+    }
 }

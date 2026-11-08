@@ -182,6 +182,7 @@ const HELP_WIDTH: f32 = 280.0;
 /// pointer and on keyboard focus, and a click keeps it open until a click elsewhere.
 /// Screen readers get the same words as the button's description.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct HelpTip {
     title: String,
     text: String,
@@ -360,6 +361,7 @@ impl<A: View, C: View> View for Popover<A, C> {
 /// let mut ui = Ui::new(menu, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MenuItem {
     label: String,
     icon: Option<IconName>,
@@ -454,6 +456,7 @@ pub(crate) enum Entry {
 /// A button that opens a list of actions. The first item takes focus as the
 /// menu opens; arrow keys move, Enter runs, Escape closes, and focus returns
 /// to the button.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DropdownMenu {
     label: String,
     icon: Option<IconName>,
@@ -934,6 +937,7 @@ impl View for DropdownMenu {
 /// an arrow key opens the list with the current option focused; arrows move,
 /// Enter picks, Escape closes, and focus returns to the field.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Select {
     selected: Binding<usize>,
     options: Vec<String>,
@@ -1250,6 +1254,7 @@ impl View for Select {
 /// let mut ui = Ui::new(dialog, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Dialog {
     open: Binding<bool>,
     title: String,

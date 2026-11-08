@@ -406,7 +406,7 @@ pub enum IconName {
     FlagTriangleRight,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl IconName {
     /// Every icon, in catalog order.
     pub const ALL: &[IconName] = &[

@@ -24,6 +24,7 @@ const QUERY_SETTLE: f64 = 0.3;
 /// What a [`RemoteRows`] loader must bring.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridRequest {
     /// The first row wanted, from the start of the result.
     pub offset: usize,
@@ -47,6 +48,7 @@ pub struct GridRequest {
 /// What a [`RemoteRows`] loader brought.
 #[derive(Clone, Debug, Default, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridPage {
     /// The rows, at most as many as were asked for.
     pub rows: Vec<Row>,
@@ -107,6 +109,7 @@ struct Held {
 /// Answers one [`GridRequest`], now or later. An answer to a question nobody is asking
 /// any more, because the filters changed meanwhile, is dropped.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridResponder {
     held: Rc<RefCell<Held>>,
     tick: State<u64>,
@@ -202,6 +205,7 @@ type Loader = Rc<dyn Fn(GridRequest, GridResponder)>;
 /// let grid = DataGrid::remote(rows, [GridColumn::number("N")]);
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RemoteRows {
     held: Rc<RefCell<Held>>,
     tick: State<u64>,

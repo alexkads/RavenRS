@@ -29,6 +29,7 @@ use crate::{AnyView, View};
 ///     .exit(Effect::hidden(), Transition::fast());
 /// ```
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Motion {
     pub(crate) paint: Option<Transition>,
     pub(crate) layout: Option<Transition>,
@@ -639,6 +640,7 @@ impl NodePaint {
 
 /// Animates its content's height as it opens and closes: the "height: auto"
 /// transition. The content stays built until it has finished closing.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Collapse {
     open: bool,
     content: AnyView,

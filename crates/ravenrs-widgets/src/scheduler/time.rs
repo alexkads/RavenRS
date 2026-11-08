@@ -6,6 +6,7 @@ const MINUTES_PER_DAY: i64 = 24 * 60;
 
 /// A moment on a calendar, to the minute, with no time zone.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimePoint(i64);
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -82,6 +83,7 @@ const ZOOM_LEVELS: [(TimeScale, f32); 8] = [
 
 /// The stretch of time a [`Scheduler`](crate::Scheduler) shows, how wide it is and how it is marked.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimeAxis {
     /// Where it begins.
     pub start: TimePoint,

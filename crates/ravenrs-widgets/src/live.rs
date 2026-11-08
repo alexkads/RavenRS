@@ -2,15 +2,17 @@
 //! type, how views become an [`AnyView`], adapters for the few generic functions an example
 //! uses, and a [`Runner`] for the [`Playground`](crate::Playground).
 
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use ravenrs_live::{Fallback, FromLive, Registry, Value, bridge};
+use ravenrs_live::{Fallback, FromLive, Host, Record, Registry, Value, bridge};
 use ravenrs_reactive::State;
 
+use crate::context::{BuildCx, NodeId};
 use crate::{AnyView, CodeDiagnostic, Runner, Spacer, Text, View};
 
 /// How a view of type `T` goes where an [`AnyView`] goes.
-pub(crate) fn view<T: View + 'static>(registry: &mut Registry) {
+pub fn view<T: View + 'static>(registry: &mut Registry) {
     registry.conversion::<T, AnyView>(bridge::host_name::<T>(), |view| Box::new(view));
 }
 
@@ -21,6 +23,9 @@ impl FromLive for AnyView {
             // A bare text where a view goes reads as the text, as `impl Into<String>` would.
             Value::Str(text) => Ok(Box::new(Text::new(text))),
             Value::Unit | Value::Option(None) => Ok(Box::new(Spacer::new())),
+            Value::Option(Some(inner)) => AnyView::from_live(*inner),
+            // A struct of the program with `impl View for ..`.
+            Value::Record(record) if record.has_method("build") => Ok(Box::new(LiveView { record })),
             other => Err(format!("expected a view, found {}", other.kind())),
         }
     }
@@ -123,6 +128,119 @@ fn canvas(registry: &mut Registry) {
     });
 }
 
+/// A view the program declares itself, with `impl View for Name { fn build(&self, cx) .. }`.
+/// Its `build` runs in the interpreter at every build, with a `cx` that keeps its states.
+struct LiveView {
+    record: Rc<Record>,
+}
+
+/// What the program's `build` gets as `cx`: its states, kept between builds in order, the time,
+/// and the view it hands to `cx.child`.
+#[derive(Clone)]
+struct LiveCx {
+    states: Rc<RefCell<Vec<State<Value>>>>,
+    next: Rc<Cell<usize>>,
+    now: f64,
+    wake: Rc<Cell<Option<f64>>>,
+    child: Rc<RefCell<Option<AnyView>>>,
+}
+
+impl View for LiveView {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let states = cx.use_state(|| Rc::new(RefCell::new(Vec::<State<Value>>::new()))).get();
+        let live = LiveCx {
+            states,
+            next: Rc::new(Cell::new(0)),
+            now: cx.now(),
+            wake: Rc::new(Cell::new(None)),
+            child: Rc::new(RefCell::new(None)),
+        };
+        let given = Value::Host(Host::cloneable("BuildCx", live.clone()));
+        let built = Record::call_method(&self.record, "build", vec![given]);
+        if let Some(time) = live.wake.get() {
+            cx.wake_at(time);
+        }
+        let child = live.child.borrow_mut().take();
+        match (built, child) {
+            (Ok(_), Some(view)) => cx.child(&*view),
+            (Err(problem), _) => {
+                let text = Text::new(problem.to_string());
+                ravenrs_live::report(problem);
+                cx.child(&text)
+            }
+            (Ok(_), None) => cx.child(&Text::new("`build` gives its view with `cx.child(&view)`")),
+        }
+    }
+}
+
+/// What `cx` offers the program's own views.
+fn build_cx(registry: &mut Registry) {
+    fn this(args: &[Value]) -> Result<LiveCx, String> {
+        match args.first().map(Value::read) {
+            Some(Value::Host(host)) => host.take::<LiveCx>(),
+            _ => Err("this is a method of `cx`".to_owned()),
+        }
+    }
+    registry.method("BuildCx", "use_state", |args| {
+        let cx = this(&args)?;
+        let at = cx.next.get();
+        cx.next.set(at + 1);
+        if let Some(state) = cx.states.borrow().get(at) {
+            return Ok(Value::State(state.clone()));
+        }
+        let first = match args.get(1).map(Value::read) {
+            Some(Value::Closure(init)) => init.call(Vec::new()).map_err(|e| e.message)?,
+            Some(other) => other,
+            None => Value::Unit,
+        };
+        let state = State::new(first);
+        cx.states.borrow_mut().push(state.clone());
+        Ok(Value::State(state))
+    });
+    registry.method("BuildCx", "child", |args| {
+        let cx = this(&args)?;
+        let view = AnyView::from_live(args.get(1).cloned().unwrap_or(Value::Unit))?;
+        *cx.child.borrow_mut() = Some(view);
+        Ok(Value::Host(Host::cloneable("NodeId", ())))
+    });
+    registry.method("BuildCx", "now", |args| Ok(Value::Float(this(&args)?.now)));
+    registry.method("BuildCx", "wake_at", |args| {
+        let cx = this(&args)?;
+        let time = f64::from_live(args.get(1).cloned().unwrap_or(Value::Unit))?;
+        cx.wake.set(Some(cx.wake.get().map_or(time, |t| t.min(time))));
+        Ok(Value::Unit)
+    });
+}
+
+/// `Playground::new(|code: &str| ..)`: any `Runner`, written here as a closure of the program.
+fn playground(registry: &mut Registry) {
+    registry.function("Playground", "new", |args: Vec<Value>| {
+        let Some(Value::Closure(run)) = args.first().map(Value::read) else {
+            return Err("`Playground::new` takes a closure of the code".into());
+        };
+        let problem = |message: String| vec![CodeDiagnostic::error(1, 1, 1, message)];
+        let playground =
+            crate::Playground::new(move |source: &str| -> Result<AnyView, Vec<CodeDiagnostic>> {
+                let value = run.call(vec![Value::Str(source.to_owned())]).map_err(|e| problem(e.message))?;
+                match bridge::result(&value) {
+                    Ok(view) => AnyView::from_live(view).map_err(problem),
+                    Err(errors) => Err(errors
+                        .items()
+                        .map_err(problem)?
+                        .into_iter()
+                        .map(|e| match e.read() {
+                            Value::Host(host) => host.take_as::<CodeDiagnostic>().map_err(problem),
+                            other => {
+                                Err(problem(format!("expected a CodeDiagnostic, found {}", other.kind())))
+                            }
+                        })
+                        .collect::<Result<Vec<_>, _>>()?),
+                }
+            });
+        Ok(Value::Host(Host::new("Playground", playground)))
+    });
+}
+
 /// Everything the interpreter can reach in the components and the crates under them.
 pub fn live_registry() -> Registry {
     let mut registry = Registry::new();
@@ -135,6 +253,8 @@ pub fn live_registry() -> Registry {
     generic_functions(&mut registry);
     view_methods(&mut registry);
     canvas(&mut registry);
+    build_cx(&mut registry);
+    playground(&mut registry);
     registry
 }
 

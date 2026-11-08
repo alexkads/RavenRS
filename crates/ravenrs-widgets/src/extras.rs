@@ -15,6 +15,7 @@ use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, MenuItem, Mo
 
 /// An indeterminate activity indicator. With reduced motion it is static.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Spinner {
     size: f32,
     color: Option<Color>,
@@ -84,6 +85,7 @@ impl View for Spinner {
 }
 
 /// Slides with previous/next buttons, position dots and optional autoplay.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Carousel {
     slides: Vec<AnyView>,
     height: f32,
@@ -318,6 +320,7 @@ fn split_arrow(key: &Key, vertical_stack: bool) -> Option<f32> {
 /// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitHandle {
     axis: Axis,
     value: Binding<f32>,
@@ -444,6 +447,7 @@ impl View for SplitHandle {
 }
 
 /// One pane of a [`SplitPanes`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitPane {
     content: AnyView,
     size: Option<f32>,
@@ -529,6 +533,7 @@ fn split_sizes(room: f32, asked: &[Option<f32>], limits: &[(f32, f32)]) -> Vec<f
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitPanes {
     axis: Axis,
     panes: Vec<SplitPane>,
@@ -839,6 +844,7 @@ impl<A: View, B: View> View for Splitter<A, B> {
 
 /// A horizontal bar of menus (File, Edit, View…).
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Menubar {
     menus: Vec<(String, Vec<Entry>)>,
 }
@@ -989,6 +995,7 @@ impl View for Menubar {
 }
 
 /// Separate boxes for a one-time code; accepts digits by default.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct InputOtp {
     value: Binding<String>,
     length: usize,
@@ -1100,6 +1107,7 @@ impl View for InputOtp {
 }
 
 /// Common validation rules for [`FormField::validate`].
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 pub mod validate {
     /// The field must not be empty.
     pub fn required(value: &str) -> Result<(), String> {

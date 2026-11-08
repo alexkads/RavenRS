@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_reactive::State;
+use ravenrs_reactive::{Binding, State};
 
 use crate::LiveError;
 use crate::eval::Closure;
@@ -39,6 +39,11 @@ impl Host {
             }
         }
         Self { copy: Some(copy::<T>), ..Self::new(type_name, value) }
+    }
+
+    /// The Rust type it holds, while it holds one.
+    pub(crate) fn held_type(&self) -> Option<std::any::TypeId> {
+        self.cell.borrow().as_ref().map(|any| (**any).type_id())
     }
 
     /// The name the interpreter knows its type by.
@@ -112,10 +117,18 @@ pub enum Value {
     Option(Option<Box<Value>>),
     /// `a..b` or `a..=b`, as the numbers it gives.
     Range(i64, i64),
+    /// A range of floats, which only says what it contains: `0.1..0.9`.
+    FloatRange(f64, f64),
     /// A closure of the program.
     Closure(Rc<Closure>),
     /// A `State` of the program, holding interpreter values.
     State(State<Value>),
+    /// A binding that reads and writes part of another, as `Binding::map` makes.
+    Binding(Binding<Value>),
+    /// `Ok(..)` or `Err(..)`.
+    Result(Result<Box<Value>, Box<Value>>),
+    /// A value of a struct the program declares itself.
+    Record(Rc<Record>),
     /// A place a closure was given to change, as `|n| *n += 1` gets.
     Place(Rc<RefCell<Value>>),
     /// An object of the host program.
@@ -136,8 +149,19 @@ impl fmt::Debug for Value {
             Self::Option(Some(v)) => write!(f, "Some({v:?})"),
             Self::Option(None) => f.write_str("None"),
             Self::Range(a, b) => write!(f, "{a}..{b}"),
+            Self::FloatRange(a, b) => write!(f, "{a:?}..{b:?}"),
             Self::Closure(_) => f.write_str("<closure>"),
             Self::State(state) => write!(f, "State({:?})", state.get()),
+            Self::Binding(binding) => write!(f, "Binding({:?})", binding.get()),
+            Self::Result(Ok(v)) => write!(f, "Ok({v:?})"),
+            Self::Result(Err(v)) => write!(f, "Err({v:?})"),
+            Self::Record(record) => {
+                let mut out = f.debug_struct(&record.name);
+                for (name, value) in record.fields.borrow().iter() {
+                    out.field(name, value);
+                }
+                out.finish()
+            }
             Self::Place(place) => write!(f, "&mut {:?}", place.borrow()),
             Self::Host(host) => write!(f, "<{}>", host.type_name),
         }
@@ -157,12 +181,74 @@ impl PartialEq for Value {
             (Self::Tuple(a), Self::Tuple(b)) | (Self::List(a), Self::List(b)) => a == b,
             (Self::Option(a), Self::Option(b)) => a == b,
             (Self::Range(a, b), Self::Range(c, d)) => (a, b) == (c, d),
+            (Self::FloatRange(a, b), Self::FloatRange(c, d)) => (a, b) == (c, d),
+            (Self::Result(a), Self::Result(b)) => a == b,
+            (Self::Record(a), Self::Record(b)) => {
+                Rc::ptr_eq(&a, &b) || (a.name == b.name && *a.fields.borrow() == *b.fields.borrow())
+            }
             _ => false,
         }
     }
 }
 
+/// A value of a struct the program declares itself: its fields, which methods can change.
+pub struct Record {
+    /// The struct's name.
+    pub name: String,
+    /// Its fields, in the order written; a tuple struct's are named `0`, `1`, ...
+    pub fields: RefCell<Vec<(String, Value)>>,
+    pub(crate) program: Option<Rc<crate::eval::Program>>,
+}
+
+impl fmt::Debug for Record {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?}",
+            Value::Record(Rc::new(Record {
+                name: self.name.clone(),
+                fields: RefCell::new(self.fields.borrow().clone()),
+                program: None
+            }))
+        )
+    }
+}
+
+impl Record {
+    /// The value of a field.
+    pub fn field(&self, name: &str) -> Option<Value> {
+        self.fields.borrow().iter().find(|(n, _)| n == name).map(|(_, v)| v.clone())
+    }
+
+    /// Whether the program gave its type a method of this name, in any `impl` block.
+    pub fn has_method(&self, name: &str) -> bool {
+        self.program.as_ref().is_some_and(|program| program.method(&self.name, name).is_some())
+    }
+
+    /// Calls a method the program gave its type, with `this` as the receiver.
+    pub fn call_method(this: &Rc<Self>, name: &str, arguments: Vec<Value>) -> Result<Value, LiveError> {
+        let Some(program) = this.program.clone() else {
+            return Err(LiveError::nowhere(format!("a {} has no methods", this.name)));
+        };
+        let Some(method) = program.method(&this.name, name) else {
+            return Err(LiveError::nowhere(format!("a {} has no method `{name}`", this.name)));
+        };
+        let mut all = vec![Value::Record(this.clone())];
+        all.extend(arguments);
+        crate::eval::call_function(&program, &method, all)
+    }
+}
+
 impl Value {
+    /// A binding to what it holds, when it is a `State` or a binding.
+    pub fn as_binding(&self) -> Option<Binding<Value>> {
+        match self.read() {
+            Self::State(state) => Some(state.binding()),
+            Self::Binding(binding) => Some(binding),
+            _ => None,
+        }
+    }
+
     /// What a place holds, or the value itself.
     pub fn read(&self) -> Value {
         match self {
@@ -183,9 +269,12 @@ impl Value {
             Self::Tuple(_) => "tuple".into(),
             Self::List(_) => "Vec".into(),
             Self::Option(_) => "Option".into(),
-            Self::Range(..) => "range".into(),
+            Self::Range(..) | Self::FloatRange(..) => "range".into(),
             Self::Closure(_) => "closure".into(),
             Self::State(_) => "State".into(),
+            Self::Binding(_) => "Binding".into(),
+            Self::Result(_) => "Result".into(),
+            Self::Record(record) => record.name.clone(),
             Self::Place(place) => place.borrow().kind(),
             Self::Host(host) => host.type_name.into(),
         }
@@ -197,6 +286,7 @@ impl Value {
             Self::List(items) | Self::Tuple(items) => Ok(items),
             Self::Range(a, b) => Ok((a..b).map(Value::Int).collect()),
             Self::Option(option) => Ok(option.map(|v| *v).into_iter().collect()),
+            Self::Result(result) => Ok(result.ok().map(|v| *v).into_iter().collect()),
             Self::Str(text) => Ok(text.chars().map(Value::Char).collect()),
             other => Err(format!("a {} cannot be iterated", other.kind())),
         }
@@ -356,6 +446,25 @@ impl<T: FromLive> FromLive for Option<T> {
 impl<T: IntoLive> IntoLive for Option<T> {
     fn into_live(self) -> Value {
         Value::Option(self.map(|v| Box::new(v.into_live())))
+    }
+}
+
+impl<T: FromLive, E: FromLive> FromLive for Result<T, E> {
+    fn from_live(value: Value) -> Result<Self, String> {
+        match value.read() {
+            Value::Result(Ok(inner)) => T::from_live(*inner).map(Ok),
+            Value::Result(Err(inner)) => E::from_live(*inner).map(Err),
+            other => Err(wrong("Ok(..) or Err(..)", &other)),
+        }
+    }
+}
+
+impl<T: IntoLive, E: IntoLive> IntoLive for Result<T, E> {
+    fn into_live(self) -> Value {
+        Value::Result(match self {
+            Ok(v) => Ok(Box::new(v.into_live())),
+            Err(e) => Err(Box::new(e.into_live())),
+        })
     }
 }
 

@@ -52,6 +52,7 @@ pub enum HistogramScale {
 
 /// One series of a [`Histogram`]: ready-made bins and the color that shows them.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct HistogramChannel {
     label: String,
     color: Color,
@@ -235,6 +236,7 @@ fn stroke_outline(points: &[Point], width: f32) -> Vec<PathElement> {
 ///     .zones(5);
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Histogram {
     channels: Rc<[HistogramChannel]>,
     scale: HistogramScale,
@@ -432,6 +434,7 @@ fn ruler_number(value: f32, step: f32) -> String {
 /// let side = Ruler::vertical().scale(2.5).whole_units();
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Ruler {
     axis: Axis,
     scale: f32,
@@ -646,6 +649,7 @@ impl View for Ruler {
 
 /// A color as a [`ColorWheel`] holds it, without brightness.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct HueSaturation {
     /// Degrees, from 0 up to 360. Red is 0.
     pub hue: f32,
@@ -724,6 +728,7 @@ fn wheel_disc(side: u32, value: f32) -> Option<ImageData> {
 /// let wheel = ColorWheel::new(tint.binding()).diameter(140.0).label("Shadows");
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ColorWheel {
     value: Binding<HueSaturation>,
     diameter: f32,
@@ -960,6 +965,7 @@ fn curve_insert(points: &mut Vec<Point>, at: Point) -> Option<usize> {
 /// assert!(middle > 0.55 && middle < 1.0);
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CurveEditor {
     points: Binding<Vec<Point>>,
     width: Option<f32>,
@@ -1298,6 +1304,7 @@ pub(crate) fn zoom_stop(scale: f32, up: bool) -> f32 {
 /// While `fit` is on, [`ZoomPanView`] keeps the whole content in view and writes the scale
 /// this takes, so the value also reads correctly when the window is resized.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ZoomView {
     /// Screen pixels per unit of content: 1 is 100%.
     pub scale: f32,
@@ -1437,6 +1444,7 @@ fn zoom_percent(scale: f32, decimal: char) -> String {
 /// let control = ZoomControl::new(view.binding()).range(0.1, 8.0);
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ZoomControl {
     view: Binding<ZoomView>,
     least: f32,
@@ -1559,6 +1567,7 @@ impl View for ZoomControl {
 /// Where drawn content goes, for [`ZoomPanView::custom`] and [`Minimap::custom`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ZoomPanPaint {
     /// The box of the view on screen. Drawing is clipped to it.
     pub frame: Rect,
@@ -1867,6 +1876,7 @@ fn glide_spring() -> Spring {
 /// let controls = ZoomControl::new(view.binding());
 /// let map = Minimap::image(view.binding(), photo());
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ZoomPanView {
     view: Binding<ZoomView>,
     content: Size,
@@ -2132,6 +2142,7 @@ impl View for ZoomPanView {
 ///     let map = Minimap::image(view.binding(), thumbnail).content_size(Size::new(6400.0, 4800.0));
 /// }
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Minimap {
     view: Binding<ZoomView>,
     content: Size,

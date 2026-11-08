@@ -29,6 +29,7 @@ struct SendOptions {
 }
 
 /// A file in an [`AttachmentStrip`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Attachment {
     name: String,
     size: Option<u64>,
@@ -111,6 +112,7 @@ impl Attachment {
 /// let mut ui = Ui::new(strip, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AttachmentStrip {
     attachments: Vec<Attachment>,
     on_remove: Option<Rc<dyn Fn(usize)>>,
@@ -253,6 +255,7 @@ impl View for AttachmentStrip {
 /// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SelectionBar {
     count: usize,
     hint: Option<String>,
@@ -374,6 +377,7 @@ fn draw_progress(frame: Rect, fraction: f32, track: Color, fill: Color, scene: &
 /// ui.update();
 /// ```
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AudioPlayerButton {
     clip: Option<SoundClip>,
     seconds: Option<f32>,

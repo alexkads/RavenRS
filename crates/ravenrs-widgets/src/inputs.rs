@@ -51,6 +51,7 @@ impl ChoiceOption {
 
 /// An on/off switch.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toggle {
     value: Binding<bool>,
     label: Option<String>,
@@ -161,6 +162,7 @@ impl View for Toggle {
 
 /// A check box with a label.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Checkbox {
     value: Binding<bool>,
     label: String,
@@ -279,6 +281,7 @@ impl View for Checkbox {
 /// One choice among several, shown as radio buttons. Arrow keys move the
 /// selection and the focus together (wrapping); Home and End jump to the ends.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RadioGroup {
     selected: Binding<usize>,
     options: Vec<String>,
@@ -397,6 +400,7 @@ fn group_semantics(label: Option<&str>) -> Semantics {
 /// let mut ui = Ui::new(slider, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Slider {
     value: Binding<f32>,
     min: f32,
@@ -723,6 +727,7 @@ impl View for Slider {
 /// Decrement / value / increment, for small integer quantities. When focused,
 /// arrow keys step by one and Home / End jump to the limits.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Stepper {
     value: Binding<i32>,
     min: i32,
@@ -849,6 +854,7 @@ impl View for Stepper {
 /// A row of mutually exclusive segments, like a compact tab bar. Arrow keys
 /// move the selection and the focus together (wrapping); Home and End jump to the ends.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SegmentedControl {
     selected: Binding<usize>,
     options: Vec<(Option<IconName>, String)>,
@@ -970,6 +976,7 @@ impl View for SegmentedControl {
 /// Switches the app between its dark, light and glass themes: Raven Dark, Raven Light and
 /// Raven Glass, unless the app has its own.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ThemeSwitcher {
     themes: [Theme; 3],
     on_change: Option<Rc<dyn Fn(Theme)>>,

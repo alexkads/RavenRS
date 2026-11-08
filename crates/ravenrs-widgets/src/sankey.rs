@@ -156,6 +156,7 @@ impl Focus {
 ///     .flow("Savings", "Funds", 400.0);
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SankeyChart {
     names: Vec<String>,
     links: Vec<SankeyLink>,

@@ -195,6 +195,9 @@ pub use lists::{
     FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,
 };
 #[cfg(feature = "live")]
+#[doc(hidden)]
+pub use live::view as __live_view;
+#[cfg(feature = "live")]
 pub use live::{LiveRunner, live_registry};
 pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
 #[cfg(feature = "lottie")]

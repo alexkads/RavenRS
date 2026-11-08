@@ -230,6 +230,7 @@ fn read_aloud(blocks: &[Block]) -> String {
 /// ui.update();
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RichText {
     text: String,
     marks: bool,

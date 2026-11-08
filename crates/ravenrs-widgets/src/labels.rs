@@ -15,6 +15,7 @@ use crate::view::View;
 /// [`Localized`].
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Labels {
     /// Closes a dialog or a sheet.
     pub close: String,
