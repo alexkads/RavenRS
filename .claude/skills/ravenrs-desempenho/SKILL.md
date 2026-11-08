@@ -7,7 +7,7 @@ description: Roteiro completo para testar o desempenho gráfico do RavenRS - gat
 
 Tudo aqui se repete com um comando. A regra é medir antes de otimizar, e nunca aceitar uma mudança sem o número de antes e o de depois.
 
-**Só quando o Alex pedir.** Nenhum passo desta skill é regra fixa. Não rode o gate (nem tempos, frames frios, capacidade ou regressões plantadas) por iniciativa própria: nem depois de mexer no core ou num componente, nem antes de abrir PR ou publicar. Quando uma mudança puder afetar desempenho, diga isso em uma linha e ofereça a medição; ela só roda se ele pedir. O `scripts/check.sh --full` também não roda o gate, a menos que seja chamado com `RAVENRS_GATE=1`.
+**Só quando o Alex pedir.** Nenhum passo desta skill é regra fixa. Não rode o gate (nem tempos, frames frios, capacidade ou regressões plantadas) por iniciativa própria: nem depois de mexer no core ou num componente, nem antes de abrir PR ou publicar. Quando uma mudança puder afetar desempenho, diga isso em uma linha e ofereça a medição; ela só roda se ele pedir. O `scripts/check.sh --full` também não roda o gate nem compila os benchmarks, a menos que seja chamado com `RAVENRS_GATE=1`.
 
 Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree.
 
