@@ -41,6 +41,12 @@ Release checks, run by hand before each publish:
 - `cargo semver-checks` against the previous release.
 - `cargo llvm-cov` for coverage, at 75% line coverage as of 0.1. Coverage is a signal, not a target.
 
+## Applications built with RavenRS
+
+The rules above that a machine can check also bind applications, through [`ravenrs-lint`](../crates/ravenrs-lint/README.md). It reads an application's syntax tree and denies, like the compiler: literal colors and font sizes, spacing off the 4px grid, button captions without a verb, icon buttons without a name, more than one primary button in a view, `State::new` and blocking work in `body` or `build`, and files over 600 lines. Every rule is an error, and every exception needs a written reason. `cargo ravenrs-lint --init` adds the strictest rustc and Clippy levels, the test that runs the rules on `cargo test`, and the instructions coding agents read; `cargo ravenrs-lint --gate` is the one command that says the work is done.
+
+A rule a machine can check goes into `ravenrs-lint`, not only into this page or the skill.
+
 ## Performance method
 
 Optimizing guarantees nothing; a gate that fails on regressions does. There are two instruments, and [the skill](../.claude/skills/ravenrs-desempenho/SKILL.md) is the runbook for both.

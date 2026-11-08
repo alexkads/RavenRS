@@ -94,6 +94,14 @@ A control or screen is done when it meets the [quality bar](https://github.com/a
 - **Input:** out-of-range values are clamped, never a panic. Hit targets are at least 32px tall, 44px on touch.
 - **Copy:** buttons start with a verb. Errors say what happened and how to fix it.
 
+## The lint is the judge
+
+Applications are checked by [`ravenrs-lint`](https://github.com/alexkads/RavenRS/tree/master/crates/ravenrs-lint), which denies what this page asks for: literal colors and font sizes, spacing off the 4px grid, captions without a verb, unnamed icon buttons, more than one primary button, `State::new` and blocking work in `body` or `build`, and files over 600 lines.
+
+- Before saying a task is done, run `cargo ravenrs-lint --gate` (formatting, Clippy with `-D warnings`, the rules and the tests) and make it pass with no warnings.
+- When it fails, fix the code as the diagnostic's `help` says. Never silence a rule with `#[allow]`, a lower level in `Cargo.toml` or a `ravenrs-lint: allow(..)` comment just to pass; an exception that is truly right carries its reason and is mentioned to the user.
+- A project without it gets it with `cargo ravenrs-lint --init --language en` (or `pt-BR`), which also turns on the strictest rustc and Clippy levels and writes the same rules for every coding agent.
+
 ## Testing without a window
 
 `Ui` runs a view without a GPU, so behavior tests drive it directly:
