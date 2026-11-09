@@ -5,13 +5,13 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_animation::Easing;
-use ravenrs_core::{Effect, Rect};
+use ravenrs_animation::{Easing, Transition};
+use ravenrs_core::{Effect, Rect, Role};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_style::{Semantic, TextStyle};
 
-use crate::context::{BuildCx, NodeId, Paint};
-use crate::{Text, View};
+use crate::context::{BuildCx, NodeId, Paint, Semantics};
+use crate::{View, util};
 
 /// Turns the clock (seconds) and an element's frame into an [`Effect`], worked out
 /// on every painted frame while the element shows. See [`BuildCx::time_linked`].
@@ -110,8 +110,10 @@ impl<C: View> View for Ticker<C> {
     }
 }
 
-/// A number that counts up from zero to its value, once, when it first shows on
-/// screen. Under reduced motion it shows the value at once.
+/// A number that counts up from zero to its value when it first shows on screen, and
+/// from where it is to its new value whenever the value changes, even halfway through a
+/// count. Its digits keep one width, so the number does not shake as it counts. Under
+/// reduced motion it shows the value at once.
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CountUp {
     value: f64,
@@ -119,6 +121,7 @@ pub struct CountUp {
     style: TextStyle,
     seconds: f64,
     easing: Easing,
+    from_zero: bool,
 }
 
 impl fmt::Debug for CountUp {
@@ -137,6 +140,7 @@ impl CountUp {
             style: TextStyle::Metric,
             seconds: 1.5,
             easing: Easing::EaseOut,
+            from_zero: true,
         }
     }
 
@@ -152,7 +156,7 @@ impl CountUp {
         self
     }
 
-    /// How long the count takes (1.5 seconds by default).
+    /// How long a count takes (1.5 seconds by default).
     pub fn seconds(mut self, seconds: f64) -> Self {
         self.seconds = seconds.max(0.0);
         self
@@ -163,34 +167,61 @@ impl CountUp {
         self.easing = easing;
         self
     }
+
+    /// Shows its value from the start: only later changes count, as for a figure on a
+    /// dashboard that follows a filter.
+    pub fn start_at_value(mut self) -> Self {
+        self.from_zero = false;
+        self
+    }
 }
 
 impl View for CountUp {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
         let seen = cx.use_state(|| false);
-        let start = cx.use_state(|| None::<f64>);
-        let reduced = cx.reduced_motion();
-        let now = cx.now();
-        if seen.get() && start.get().is_none() {
-            start.set(Some(now));
+        let waiting = self.from_zero && !seen.get() && !cx.reduced_motion();
+        let target = if waiting { 0.0 } else { self.value };
+        let transition = Transition::tween(self.seconds as f32, self.easing);
+        let shown = cx.animated_numbers(&[target], transition)[0];
+        let attrs = util::attrs(&theme, self.style, None);
+        // The widest digit, measured once for each size, is the width of every digit.
+        let cell = cx.use_state(|| (0.0_f32, 0.0_f32));
+        let (size, mut digit) = cell.get();
+        if size != attrs.size {
+            digit = (0..10).map(|d| cx.measure_text(&d.to_string(), &attrs).width).fold(0.0, f32::max);
+            cell.set((attrs.size, digit));
         }
-        let shown = match start.get() {
-            _ if reduced || self.seconds == 0.0 => self.value,
-            None => 0.0,
-            Some(began) => {
-                let t = ((now - began) / self.seconds).clamp(0.0, 1.0) as f32;
-                if t < 1.0 {
-                    cx.wake_at(now + 1.0 / 60.0);
-                }
-                self.value * f64::from(self.easing.sample(t))
-            }
-        };
-        let text = cx.child(&Text::new((self.format)(shown)).style(self.style).foreground(Semantic::Ink));
-        let node = cx.container(
-            LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
-            &[text],
-            Paint::None,
-        );
+        let ink = theme.color(Semantic::Ink);
+        let text = (self.format)(shown);
+        // Each digit alone in a cell of that width; what is between digits as it comes, with
+        // its spaces kept from being trimmed at the end of a piece.
+        let mut glyphs = Vec::with_capacity(text.len());
+        let pieces = text.split_inclusive(|c: char| c.is_ascii_digit()).flat_map(|piece| {
+            let (before, last) = piece.split_at(piece.len() - piece.chars().last().map_or(0, char::len_utf8));
+            let digit = last.starts_with(|c: char| c.is_ascii_digit());
+            if digit { [before, last] } else { [piece, ""] }
+        });
+        for piece in pieces.filter(|p| !p.is_empty()) {
+            let is_digit = piece.starts_with(|c: char| c.is_ascii_digit());
+            let glyph = cx.text(&piece.replace(' ', "\u{a0}"), &attrs, ink, LayoutStyle::leaf());
+            cx.semantics(glyph, Semantics::hidden());
+            glyphs.push(if is_digit {
+                cx.container(
+                    LayoutStyle {
+                        width: Some(digit),
+                        align: Align::Center,
+                        ..LayoutStyle::stack(Axis::Vertical)
+                    },
+                    &[glyph],
+                    Paint::None,
+                )
+            } else {
+                glyph
+            });
+        }
+        let node = cx.container(LayoutStyle::stack(Axis::Horizontal), &glyphs, Paint::None);
+        cx.semantics(node, Semantics::new(Role::Label).name(text));
         cx.on_appear(node, Rc::new(move || seen.set(true)));
         node
     }

@@ -874,20 +874,43 @@ impl Axes {
     }
 }
 
-fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: &mut Plot) {
-    let count = data.categories.len();
+/// The style a cartesian chart draws this data with, or nothing when there is nothing to
+/// draw. Prices do not add up, so candles are never stacked.
+fn cartesian_style<'a>(data: &ChartData, style: &'a PlotStyle) -> Option<std::borrow::Cow<'a, PlotStyle>> {
     let is_candle = style.kind == ChartKind::Candlestick;
-    if count == 0 || data.series.is_empty() || (is_candle && data.series.len() < CANDLE_SERIES) {
-        return;
+    if data.categories.is_empty()
+        || data.series.is_empty()
+        || (is_candle && data.series.len() < CANDLE_SERIES)
+    {
+        return None;
     }
-    let unstacked;
-    // Prices do not add up.
-    let style = if is_candle && style.stack != Stack::None {
-        unstacked = PlotStyle { stack: Stack::None, ..style.clone() };
-        &unstacked
+    Some(if is_candle && style.stack != Stack::None {
+        std::borrow::Cow::Owned(PlotStyle { stack: Stack::None, ..style.clone() })
     } else {
-        style
-    };
+        std::borrow::Cow::Borrowed(style)
+    })
+}
+
+/// Where the value axis of a cartesian chart runs, and the values it stands on.
+struct Scale {
+    towers: Vec<Vec<(f64, f64)>>,
+    min: f64,
+    low: f64,
+    high: f64,
+    tick_values: Vec<f64>,
+    fixed: bool,
+}
+
+/// Where a cartesian chart's value axis starts and ends for this data, as drawing it picks:
+/// to ease from one set of data to another along a scale that moves with them, give the
+/// frames in between a [`PlotStyle::domain`] between the two.
+pub fn value_range(data: &ChartData, style: &PlotStyle) -> Option<(f64, f64)> {
+    let style = cartesian_style(data, style)?;
+    scale(data, &style).map(|scale| (scale.low, scale.high))
+}
+
+fn scale(data: &ChartData, style: &PlotStyle) -> Option<Scale> {
+    let is_candle = style.kind == ChartKind::Candlestick;
     let towers = stacked(data, style.stack);
     let is_bar = style.kind == ChartKind::Bar;
     let banded = is_bar || is_candle;
@@ -899,7 +922,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
         (min, max) = real.fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| (a.min(v), b.max(v)));
     }
     if !min.is_finite() {
-        return;
+        return None;
     }
     // A candle is about where the price went, not how far it is from zero.
     if !is_candle && (!style.tight_scale || is_bar) {
@@ -944,6 +967,17 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
         tick_values.retain(|v| *v >= from - slack && *v <= to + slack);
         (low, high) = (from, to);
     }
+    Some(Scale { towers, min, low, high, tick_values, fixed: domain.is_some() })
+}
+
+fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, plot: &mut Plot) {
+    let Some(style) = cartesian_style(data, style) else { return };
+    let style = style.as_ref();
+    let Some(Scale { towers, min, low, high, tick_values, fixed }) = scale(data, style) else { return };
+    let count = data.categories.len();
+    let is_candle = style.kind == ChartKind::Candlestick;
+    let is_bar = style.kind == ChartKind::Bar;
+    let banded = is_bar || is_candle;
     let tick_text = |value: f64| {
         if style.stack == Stack::Expand { format!("{:.0}%", value * 100.0) } else { (style.format)(value) }
     };
@@ -1010,7 +1044,7 @@ fn cartesian(data: &ChartData, rect: Rect, style: &PlotStyle, ruler: Ruler<'_>, 
     }
     let area = Rect::new(left, top, (right - left).max(1.0), (bottom - top).max(1.0));
     plot.area = area;
-    let axes = Axes { area, low, high, horizontal, reversed, fixed: domain.is_some() };
+    let axes = Axes { area, low, high, horizontal, reversed, fixed };
 
     // The grid.
     let grid = with_alpha(style.grid, style.grid.a * 0.8);

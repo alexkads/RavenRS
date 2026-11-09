@@ -156,8 +156,18 @@ fn remembered_account(path: Option<&Path>) -> Binding<Option<i64>> {
     )
 }
 
+/// A sum of money in big figures that, when it changes, as with another account, counts
+/// from what it showed to what it is.
+fn money(cents: i64) -> CountUp {
+    CountUp::new(cents as f64)
+        .format(|cents| format_brl(cents.round() as i64))
+        .style(TextStyle::Metric)
+        .start_at_value()
+        .seconds(0.75)
+}
+
 /// A big number with how it compares with last month; its title is the card's.
-fn figure(value: String, delta: Option<(String, bool, bool)>) -> impl View {
+fn figure(cents: i64, delta: Option<(String, bool, bool)>) -> impl View {
     let delta = delta.map(|(text, up, good)| {
         Badge::new(text).tone(if good { Tone::Success } else { Tone::Danger }).icon(if up {
             IconName::TrendingUp
@@ -165,7 +175,7 @@ fn figure(value: String, delta: Option<(String, bool, bool)>) -> impl View {
             IconName::TrendingDown
         })
     });
-    VStack::new((Text::new(value).style(TextStyle::Metric), delta)).spacing(8.0).align(Align::Start)
+    VStack::new((money(cents), delta)).spacing(8.0).align(Align::Start)
 }
 
 fn tone_of(status: BillStatus) -> Tone {
@@ -249,13 +259,13 @@ pub(crate) fn dashboard(
         let soon_total: i64 = soon.iter().map(|b| b.amount_cents).sum::<i64>() + numbers.planned_out_cents;
 
         let income = figure(
-            format_brl(now.income_cents),
+            now.income_cents,
             percent_change(now.income_cents, before.income_cents).map(|change| {
                 (change, now.income_cents >= before.income_cents, now.income_cents >= before.income_cents)
             }),
         );
         let expense = figure(
-            format_brl(now.expense_cents),
+            now.expense_cents,
             percent_change(now.expense_cents, before.expense_cents).map(|change| {
                 (change, now.expense_cents >= before.expense_cents, now.expense_cents <= before.expense_cents)
             }),
@@ -276,6 +286,7 @@ pub(crate) fn dashboard(
             .curve(ChartCurve::Monotone)
             .gradient()
             .tight_scale()
+            .animate_changes()
             .format(reais)
             .tooltip(ChartTooltip::new().indicator(ChartIndicator::Line))
             .alt(format!("{balance_label} por mês"))
@@ -286,9 +297,7 @@ pub(crate) fn dashboard(
         let balance = Tile::new(
             "saldo",
             balance_label.clone(),
-            VStack::new((Text::new(format_brl(total)).style(TextStyle::Metric), balance_chart))
-                .spacing(8.0)
-                .align(Align::Stretch),
+            VStack::new((money(total), balance_chart)).spacing(8.0).align(Align::Stretch),
         )
         .accessory(
             HStack::new((
@@ -314,6 +323,7 @@ pub(crate) fn dashboard(
                     numbers.months.iter().skip(recent).map(|m| m.expense_cents as f64 / 100.0),
                 )
                 .format(reais)
+                .animate_changes()
                 .tooltip(ChartTooltip::new().indicator(ChartIndicator::Dashed))
                 .alt("Receitas e despesas por mês")
                 .height(room(&spots, "fluxos").max(60.0)),
@@ -358,10 +368,14 @@ pub(crate) fn dashboard(
             let whole = format_brl(spent_total);
             let whole = whole.rsplit_once(',').map_or(whole.as_str(), |(reais, _)| reais);
             let size = room(&spots, "categorias").clamp(80.0, RING_SIZE);
+            // As many slices for every account, the missing ones empty, so that another
+            // account turns and grows them instead of drawing the ring again.
+            let slices = (0..SERIES_COLORS.len()).map(|i| spent.get(i));
             let ring = Chart::new(ChartKind::Doughnut)
-                .categories(spent.iter().map(|(name, _)| name.as_str()))
-                .series("Despesas", spent.iter().map(|(_, cents)| *cents as f64 / 100.0))
+                .categories(slices.clone().map(|s| s.map_or("", |(name, _)| name.as_str())))
+                .series("Despesas", slices.map(|s| s.map_or(0.0, |(_, cents)| *cents as f64 / 100.0)))
                 .item_colors(SERIES_COLORS)
+                .animate_changes()
                 .hole(0.72)
                 .center_text(whole, "no mês")
                 .format(reais)
@@ -506,7 +520,7 @@ pub(crate) fn dashboard(
             .tile(Tile::new("receitas", "Receitas do mês", income).accessory(tip(help::RECEITAS)))
             .tile(Tile::new("despesas", "Despesas do mês", expense).accessory(tip(help::DESPESAS)))
             .tile(
-                Tile::new("a-pagar", "A pagar em 30 dias", figure(format_brl(soon_total), None))
+                Tile::new("a-pagar", "A pagar em 30 dias", figure(soon_total, None))
                     .accessory(tip(help::A_PAGAR)),
             )
             .tile(flows)

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_animation::Transition;
+use ravenrs_animation::{CubicBezier, Easing, Transition};
 use ravenrs_core::{
     Brush, Color, CursorIcon, Effect, ImageData, ImageQuad, Insets, Key, PathElement, PathFill, Point, Quad,
     Rect, Role, Size,
@@ -34,6 +34,9 @@ use crate::context::{BuildCx, NodeId, Paint, PaintCx, Placement, QuadPaint, Sema
 use crate::motion::{self, Motion};
 use crate::{AnyView, Card, IconName, View, util};
 
+/// How a chart with [`Chart::animate_changes`] goes from its old data to the new: quick to
+/// start, settling softly, in the curve the data draws in with.
+const CHANGE: Transition = Transition::tween(0.75, Easing::Bezier(CubicBezier::new(0.25, 1.0, 0.5, 1.0)));
 /// The widest a bar gets, so a few bars in a wide chart still read as bars.
 const MAX_BAR_WIDTH: f32 = 44.0;
 const LABEL_LINE_HEIGHT: f32 = 1.3;
@@ -1236,6 +1239,7 @@ pub struct Chart {
     hover_focus: bool,
     hover_motion: bool,
     appear: bool,
+    animate_changes: bool,
     appear_key: u64,
 }
 
@@ -1366,6 +1370,7 @@ impl Chart {
             hover_focus: true,
             hover_motion: true,
             appear: true,
+            animate_changes: false,
             appear_key: 0,
         }
     }
@@ -1801,6 +1806,17 @@ impl Chart {
         self
     }
 
+    /// When the data changes to as many series and categories as before, the chart goes
+    /// from its old shape to the new one: lines and bars rise or fall to their new values,
+    /// slices turn and grow, and the value axis slides along with them. A change in the
+    /// middle starts from where the chart is. Under reduced motion it changes at once.
+    /// For a filter over the same categories; data that scrolls along, as a live feed
+    /// does, reads better without it.
+    pub fn animate_changes(mut self) -> Self {
+        self.animate_changes = true;
+        self
+    }
+
     /// Draws the data in again whenever `key` changes, such as for a new period or
     /// another tab. With none, it only draws in the first time the chart is painted.
     pub fn appear_key(mut self, key: impl std::hash::Hash) -> Self {
@@ -1831,6 +1847,8 @@ impl Chart {
             return self.spoken_candles(labels);
         }
         let named = self.series.len() > 1;
+        // A ring draws no slice for nothing, so there is nothing to hear for it either.
+        let round = matches!(self.kind, ChartKind::Pie | ChartKind::Doughnut);
         let parts: Vec<String> = self
             .series
             .iter()
@@ -1838,8 +1856,9 @@ impl Chart {
                 let mut spoken: Vec<String> = series
                     .values
                     .iter()
-                    .take(SPOKEN_VALUES)
                     .enumerate()
+                    .filter(|(_, value)| !round || **value > 0.0)
+                    .take(SPOKEN_VALUES)
                     .map(|(i, value)| {
                         let number = (self.format)(*value);
                         match self.categories.get(i) {
@@ -2106,21 +2125,49 @@ impl Chart {
         }
     }
 
+    /// With [`Self::animate_changes`], puts the data, and the value axis of a chart that
+    /// has one, where they are on the way to the new values. Asked for on every build, so
+    /// the states after it keep their places.
+    fn ease_changes(&self, cx: &mut BuildCx<'_>, data: &mut ChartData, style: &mut PlotStyle) {
+        let mut target: Vec<f64> = Vec::new();
+        let ranged =
+            matches!(self.kind, ChartKind::Line | ChartKind::Area | ChartKind::Bar) && style.domain.is_none();
+        let range = if self.animate_changes && ranged { plot::value_range(data, style) } else { None };
+        if self.animate_changes {
+            target.extend(data.series.iter().flat_map(|s| s.values.iter().copied()));
+            target.extend(range.into_iter().flat_map(|(low, high)| [low, high]));
+        }
+        let now = cx.animated_numbers(&target, CHANGE);
+        if now.iter().map(|v| v.to_bits()).eq(target.iter().map(|v| v.to_bits())) {
+            return;
+        }
+        let mut values = now.iter().copied();
+        for series in &mut data.series {
+            for value in &mut series.values {
+                *value = values.next().unwrap_or(*value);
+            }
+        }
+        if let (Some(low), Some(high)) = (values.next(), values.next()) {
+            style.domain = Some((low, high));
+        }
+    }
+
     fn build_plot(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let labels = cx.labels();
         let colors = palette(&theme);
-        let style = self.plot_style(&theme, &colors);
+        let mut style = self.plot_style(&theme, &colors);
         let series = self.series.iter().enumerate().map(|(i, series)| SeriesData {
             name: series.name.clone(),
             color: self.color_of_series(i, &colors),
             values: series.values.clone(),
         });
-        let data = ChartData {
+        let mut data = ChartData {
             categories: self.categories.clone(),
             positions: Vec::new(),
             series: series.collect(),
         };
+        self.ease_changes(cx, &mut data, &mut style);
         let plain = self.is_plain();
         let picture = cx.use_state(|| Rc::new(RefCell::new(Picture::default()))).peek().clone();
         let active: State<Option<usize>> = cx.use_state(|| None::<usize>);

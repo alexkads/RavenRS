@@ -1183,6 +1183,34 @@ impl<'a> BuildCx<'a> {
         value.value(now)
     }
 
+    /// Numbers that go from where they are to `target` along a tween, in full `f64`
+    /// precision: a counter, or a chart's data changing. A new target while they move
+    /// starts from where they are, with no jump. When the count of numbers changes, or
+    /// under reduced motion, or for a spring, they take the target at once. Call it in
+    /// the same order on every build, as with [`Self::animated`].
+    pub fn animated_numbers(&mut self, target: &[f64], transition: Transition) -> Vec<f64> {
+        let cell = self.use_state(|| Rc::new(RefCell::new(Numbers::at(target)))).peek().clone();
+        let mut run = cell.borrow_mut();
+        let now = self.motion_clock;
+        let (duration, easing) = match transition {
+            Transition::Tween { duration, easing } if self.motion_enabled && !self.reduced_motion => {
+                (f64::from(duration), easing)
+            }
+            _ => (0.0, ravenrs_animation::Easing::Linear),
+        };
+        // By bits, so a gap (NaN) in the data counts as the same gap.
+        if !run.to.iter().map(|v| v.to_bits()).eq(target.iter().map(|v| v.to_bits())) {
+            let from =
+                if run.to.len() == target.len() && duration > 0.0 { run.value(now) } else { target.to_vec() };
+            *run = Numbers { from, to: target.to_vec(), start: now, duration, easing };
+        }
+        if now < run.start + run.duration {
+            self.value_moving = true;
+            self.wake_at(self.now);
+        }
+        run.value(now)
+    }
+
     /// How far a view has appeared, from 0 to 1, since it was first built: for
     /// content that draws itself in, such as a chart's data. A new `key` starts it
     /// over. Under reduced motion, or with motion off, it is 1 from the start. Call
@@ -1467,5 +1495,31 @@ impl<'a> BuildCx<'a> {
             self.error = Some(e);
         }
         self.placeholder
+    }
+}
+
+/// What [`BuildCx::animated_numbers`] keeps between builds.
+struct Numbers {
+    from: Vec<f64>,
+    to: Vec<f64>,
+    start: f64,
+    duration: f64,
+    easing: ravenrs_animation::Easing,
+}
+
+impl Numbers {
+    fn at(values: &[f64]) -> Self {
+        let easing = ravenrs_animation::Easing::Linear;
+        Self { from: values.to_vec(), to: values.to_vec(), start: 0.0, duration: 0.0, easing }
+    }
+
+    /// Exactly the target once the time is up.
+    fn value(&self, now: f64) -> Vec<f64> {
+        let t = if self.duration > 0.0 { (now - self.start) / self.duration } else { 1.0 };
+        if t >= 1.0 {
+            return self.to.clone();
+        }
+        let eased = f64::from(self.easing.sample(t.max(0.0) as f32));
+        self.from.iter().zip(&self.to).map(|(a, b)| a + (b - a) * eased).collect()
     }
 }

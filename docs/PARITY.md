@@ -23,7 +23,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Aspect ratio | ✓ | | | ✅ `AspectRatio` |
 | Scroll area | ✓ | ✓ | ✓ | ✅ `ScrollView` (vertical; horizontal inside DataGrid) |
 | Sticky content and scroll-driven effects | ✓ | ✓ | ✓ | ✅ `Sticky`, `ScrollScene`, `ScrollLinked` with `ScrollLink` (ranges, windows, easing, keyframes) |
-| Links, anchors, counters, marquees | ✓ | ✓ | ✓ | ✅ `Link`, `Anchor`, `CountUp`, `Ticker` with `TimeLink`, `QuadField` |
+| Links, anchors, counters, marquees | ✓ | ✓ | ✓ | ✅ `Link`, `Anchor`, `CountUp` (also counts to a new value, with even digits), `Ticker` with `TimeLink`, `QuadField` |
 | Resizable panels / Splitter | ✓ | ✓ | ✓ | ✅ `Splitter` for two panes, `SplitPanes` for any number with limits, `SplitHandle` for a bar of your own; all move with the keyboard |
 | Tile layout / Dashboard layout | | ✓ | ✓ | ✅ `TileLayout`: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep; controls in a tile's header (`Tile::accessory`) |
 | Docking / Dock manager | | ✓ | ✓ | ✅ `DockArea`: a tree of splits and tabs in four places; moves by a drag with a mark on the target, by keys or by a menu; bars with limits and keys; docks that collapse and panels that close and come back; an arrangement saved as versioned text, where an unknown id is left out. Floating panels are left out: the app this was modeled on does not float them either |
@@ -143,7 +143,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Pie / donut | ✓ | ✓ | ✓ | ✅ `Chart`: rings, active slice, a slice that comes forward under the pointer, center text, labels, guides with an elbow, a real gap between slices, a radius per slice |
 | Radar, radial | | ✓ | ✓ | ✅ `Chart`: polygon and circle grids, filled, tracks, stacked |
 | Chart tooltip, legend, keyboard | ✓ | ✓ | ✓ | ✅ `ChartTooltip` (share, color by value, free content, either side on both axes), `ChartLegend`, arrow keys; cursor and dots that glide and fade |
-| Chart entrance | ✓ | ✓ | ✓ | 🟡 `Chart`, `SankeyChart`: the data draws in the first time it is painted, with axes and grid there from the first frame: lines, areas, candles and flows from the left, bars out of zero, pies clockwise, radars out of the center; the tooltip waits; `no_appear`, `appear_key`; radial bars only fade in ⬜ |
+| Chart entrance | ✓ | ✓ | ✓ | 🟡 `Chart`, `SankeyChart`: the data draws in the first time it is painted, with axes and grid there from the first frame: lines, areas, candles and flows from the left, bars out of zero, pies clockwise, radars out of the center; the tooltip waits; `no_appear`, `appear_key`; `animate_changes` moves from old data to new, with the axis; radial bars only fade in ⬜ |
 | Chart axes | ✓ | ✓ | ✓ | ✅ `Chart`: dashed grid, columns, steps of the axis, labels measured with the real font, aligned ends, lines of reference, fixed domain |
 | Scatter, bubble, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`, with a tooltip and cursor when asked; candlestick in `Chart`, with an axis of round numbers, outlines for what rose and the keyboard; bubble and funnel ⬜ |
 | Sankey | | ✓ | ✓ | ✅ `SankeyChart`: alignment, ribbons in a gradient, the rest fading around the focus, arrow keys, every flow read aloud, a clear message when the flows go in a circle |
