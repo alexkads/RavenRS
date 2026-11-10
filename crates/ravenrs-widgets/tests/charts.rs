@@ -1218,3 +1218,69 @@ fn a_sankey_draws_in_from_the_left() {
     assert_eq!(clip(&ui), None);
     assert_eq!(clip(&drawing_in(sankey.no_appear())), None);
 }
+
+/// The heights of the bars, left to right: quads in the first series' color.
+fn bar_heights(ui: &Ui) -> Vec<f32> {
+    let color = Theme::raven_dark().color(Semantic::Chart1);
+    let mut bars: Vec<Rect> = ui
+        .scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| match p {
+            Primitive::Quad(q) if q.fill == ravenrs_core::Brush::Solid(color) => Some(q.rect),
+            _ => None,
+        })
+        .collect();
+    bars.sort_by(|a, b| a.x().total_cmp(&b.x()));
+    bars.iter().map(|r| r.height()).collect()
+}
+
+/// Frame by frame, since the motion clock skips a long gap as a stall.
+fn run_to(ui: &mut Ui, from: f64, to: f64) {
+    let mut time = from;
+    while time < to {
+        time = (time + 1.0 / 60.0).min(to);
+        at_time(ui, time);
+    }
+}
+
+fn changing_bars(values: &State<[f64; 2]>) -> Ui {
+    let values = values.clone();
+    let mut ui = chart_ui_view(view_fn(move || {
+        Chart::new(ChartKind::Bar).categories(["A", "B"]).series("S", values.get()).animate_changes()
+    }));
+    // Past the first draw in.
+    at_time(&mut ui, 0.0);
+    run_to(&mut ui, 0.0, 2.0);
+    ui
+}
+
+#[test]
+fn a_chart_goes_from_its_old_data_to_the_new() {
+    let values = State::new([2.0, 4.0]);
+    let mut ui = changing_bars(&values);
+    let before = bar_heights(&ui);
+    values.set([4.0, 2.0]);
+    run_to(&mut ui, 2.0, 2.15);
+    let early = bar_heights(&ui);
+    assert!(early[0] > before[0] && early[0] < before[1], "A rises: {before:?} {early:?}");
+    assert!(early[1] < before[1] && early[1] > before[0], "B falls: {early:?}");
+    // Turned back halfway, it starts from where the bars are.
+    values.set([2.0, 4.0]);
+    run_to(&mut ui, 2.15, 2.17);
+    let turned = bar_heights(&ui);
+    assert!((turned[0] - early[0]).abs() < 4.0, "no jump: {early:?} {turned:?}");
+    run_to(&mut ui, 2.17, 3.5);
+    assert_eq!(bar_heights(&ui), before, "and it lands where it began");
+}
+
+#[test]
+fn under_reduced_motion_a_chart_changes_at_once() {
+    let values = State::new([2.0, 4.0]);
+    let mut ui = changing_bars(&values);
+    let before = bar_heights(&ui);
+    ui.set_reduced_motion(true);
+    values.set([4.0, 2.0]);
+    run_to(&mut ui, 2.0, 2.05);
+    assert_eq!(bar_heights(&ui), [before[1], before[0]]);
+}

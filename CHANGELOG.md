@@ -4,6 +4,18 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `Chart::animate_changes`: when the data changes to as many series and categories, the chart goes from its old shape to the new one in 0.75 s, quick to start and settling softly: lines and bars rise or fall, slices turn and grow, and the value axis slides along instead of jumping between round numbers. A change in the middle starts from where the chart is; under reduced motion it changes at once. `ravenrs_graphics::plot::value_range` gives the value axis a chart would pick for some data, for such in-between frames.
+- `CountUp` also counts when its value changes, from what it shows to the new value, even halfway through a count, and `CountUp::start_at_value` leaves out the first count from zero. Its digits keep the width of the widest one, so a number does not shake as it counts.
+- `BuildCx::animated_numbers`: a list of numbers that tweens from where it is to a new target in full `f64` precision, picking up from where it is when the target changes again, and at once under reduced motion.
+- Raven Finanças: on another account, the dashboard's figures count to their new values and its balance, income and expense and category charts move to their new shapes.
+
+### Fixed
+
+- `TileLayout` keeps the same 16 px margin around what a tile holds, on both sides of the header too, and its header is tall enough for a small control (a `Select`, a button) to keep 8 px above and below it. The corner that resizes is two diagonal strokes in that margin, along the curve of the edge, instead of a few dots over the content: faint while the pointer is over the tile, plain under the pointer and while it drags. A tile's content is 12 px shorter and 8 px narrower.
+- A chart with `tight_scale` keeps a little room above its peak and below its lowest point: the scale ends there instead of at the next round number, so a peak no longer runs along the top edge of the plot.
+
 ## [27.1.22] - 2026-11-08
 
 ### Added

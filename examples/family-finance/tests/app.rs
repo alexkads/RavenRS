@@ -653,6 +653,48 @@ fn a_deleted_account_leaves_the_dashboard_on_all_of_them() {
     std::fs::remove_dir_all(&folder).expect("clean up");
 }
 
+/// Frame by frame, as a window would, so the animations follow the clock.
+fn run_to(ui: &mut Ui, from: f64, to: f64) {
+    let mut time = from;
+    while time < to {
+        time = (time + 1.0 / 60.0).min(to);
+        ui.set_time(time);
+        ui.update();
+    }
+}
+
+#[test]
+fn another_account_counts_the_balance_to_its_own() {
+    let folder = std::env::temp_dir().join(format!("family-finance-app-{}-count", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    let path = folder.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    seed::load_demo(&db, today()).expect("seed");
+    let accounts = db.accounts().expect("accounts");
+    let wallet = accounts.iter().find(|a| a.name == "Carteira").expect("a wallet").balance_cents;
+    let total: i64 = accounts.iter().map(|a| a.balance_cents).sum();
+    let (wallet, total) =
+        (family_finance::money::format_brl(wallet), family_finance::money::format_brl(total));
+    let mut ui = Ui::new(App::new(db, today(), Some(path), Updater::idle()), Theme::raven_light());
+    ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
+    ui.set_time(0.0);
+    settle(&mut ui);
+    run_to(&mut ui, 0.0, 2.0);
+    assert_eq!(stat(&mut ui, "Saldo das contas"), Some(total.clone()), "no count on opening");
+    choose_account(&mut ui, "Carteira");
+    run_to(&mut ui, 2.0, 2.1);
+    let partway = stat(&mut ui, "Saldo de Carteira").expect("the balance");
+    assert!(partway != wallet && partway != total, "counting: {partway}");
+    run_to(&mut ui, 2.1, 3.2);
+    assert_eq!(stat(&mut ui, "Saldo de Carteira"), Some(wallet), "and it lands on the account's");
+    ui.set_reduced_motion(true);
+    choose_account(&mut ui, "Todas as contas");
+    run_to(&mut ui, 3.2, 3.25);
+    assert_eq!(stat(&mut ui, "Saldo das contas"), Some(total), "at once under reduced motion");
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
 fn card(ui: &mut Ui, title: &str) -> ravenrs::core::Rect {
     let tree = ui.access_tree();
     let found = tree.nodes.iter().find(|n| n.role == Role::Group && n.name.as_deref() == Some(title));

@@ -212,6 +212,37 @@ fn draw_the_states() {
             ui.update();
         }
         capture(&gpu, &mut ui, size, &folder.join(format!("painel-conta-{label}.png")));
+        // The pointer over the balance card brings out its resize corner.
+        let tree = ui.access_tree();
+        let card = tree
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::Group && n.name.as_deref() == Some("Saldo de Carteira"));
+        let bounds = card.expect("no balance card").bounds;
+        ui.handle_event(&Event::PointerMove {
+            position: ravenrs::core::Point::new(bounds.max_x() - 40.0, bounds.max_y() - 40.0),
+        });
+        ui.update();
+        ui.update();
+        capture(&gpu, &mut ui, size, &folder.join(format!("painel-card-{label}.png")));
+        // Back to every account, caught partway: numbers counting, charts on their way.
+        let mut time = 0.0;
+        let mut frames = |ui: &mut Ui, seconds: f64| {
+            for _ in 0..(seconds * 60.0) as usize {
+                time += 1.0 / 60.0;
+                ui.set_time(time);
+                ui.update();
+            }
+        };
+        frames(&mut ui, 1.5);
+        for (role, name) in [(Role::ComboBox, "Conta"), (Role::ListBoxOption, "Todas as contas")] {
+            let tree = ui.access_tree();
+            let found = tree.nodes.iter().find(|n| n.role == role && n.name.as_deref() == Some(name));
+            ui.perform_action(found.unwrap_or_else(|| panic!("no {name}")).id, AccessAction::Click);
+            frames(&mut ui, 0.05);
+        }
+        frames(&mut ui, 0.15);
+        capture(&gpu, &mut ui, size, &folder.join(format!("painel-trocando-{label}.png")));
     }
     // The agenda under the pointer: the tooltip with its row lit, and a right click.
     let mut agenda = app(themes::light(), 3, Updater::idle());

@@ -109,6 +109,48 @@ fn a_counter_waits_until_it_is_seen_and_then_counts_up() {
     assert!(names(&mut ui).iter().any(|n| n == "100,000"));
 }
 
+/// A counter bound to a value the test changes, and what it shows.
+fn counter(value: &ravenrs_reactive::State<f64>) -> impl View + 'static {
+    let value = value.clone();
+    view_fn(move || CountUp::new(value.get()).start_at_value().seconds(1.0).format(|v| format!("{v:.0}")))
+}
+
+fn shown(ui: &mut Ui) -> f64 {
+    names(ui).iter().find_map(|n| n.parse().ok()).expect("a number")
+}
+
+#[test]
+fn a_counter_counts_from_where_it_is_to_a_new_value() {
+    let value = ravenrs_reactive::State::new(100.0);
+    let mut ui = ui(counter(&value));
+    assert_eq!(shown(&mut ui), 100.0, "it starts at its value");
+    let width = bounds(&mut ui, "100").width();
+    value.set(200.0);
+    run(&mut ui, 0.0, 0.2);
+    let early = shown(&mut ui);
+    assert!(early > 140.0 && early < 200.0, "fast at first: {early}");
+    // Changed again halfway: from where it is, with no jump.
+    value.set(0.0);
+    run(&mut ui, 0.2, 0.22);
+    let turned = shown(&mut ui);
+    assert!((turned - early).abs() < 15.0, "from {early}, not from 200: {turned}");
+    run(&mut ui, 0.22, 1.5);
+    assert_eq!(shown(&mut ui), 0.0, "and it lands on the value");
+    value.set(888.0);
+    run(&mut ui, 1.5, 3.0);
+    assert!((bounds(&mut ui, "888").width() - width).abs() < 0.5, "digits keep one width");
+}
+
+#[test]
+fn under_reduced_motion_a_counter_changes_at_once() {
+    let value = ravenrs_reactive::State::new(100.0);
+    let mut ui = ui(counter(&value));
+    ui.set_reduced_motion(true);
+    value.set(200.0);
+    run(&mut ui, 0.0, 0.02);
+    assert_eq!(shown(&mut ui), 200.0);
+}
+
 const MARK: Color = Color::rgb(1.0, 0.0, 0.0);
 
 fn marker_x(ui: &Ui) -> f32 {
