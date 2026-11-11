@@ -3,6 +3,9 @@ name: ravenrs
 description: Builds and changes user interfaces with RavenRS, the Rust GUI framework that draws on the GPU on the desktop and in the browser. Use whenever the code depends on the `ravenrs` crates or the user mentions RavenRS, including screens, forms, DataGrid, Ribbon, custom components, themes and design tokens, accessibility, the WebAssembly build, `ravenrs-criteria` expressions and `ravenrs-report`.
 ---
 
+<!-- ravenrs:skill:begin -->
+<!-- cargo-ravenrs 27.1.22 -->
+
 # Building with RavenRS
 
 RavenRS is declarative and reactive. Views are typed builders composed in Rust, `State<T>` drives rebuilds, and everything is drawn with `wgpu`. The same code runs in a native window and on a browser `<canvas>`. There is no DOM, CSS or webview, so web habits do not apply.
@@ -141,3 +144,4 @@ Serve the folder over HTTP with a page that has `<canvas id="raven-canvas">`. It
 ## Expressions and reports
 
 `ravenrs-criteria` is the expression language used by filters and reports: `[Price] * [Qty] > ?Minimum`, `Iif([Paid], 'Yes', 'No')`, `[Items][[Qty] > 0].Sum([Qty] * [Price])`. Validate expressions with `validate_expression` before putting them in code. `ravenrs-report` defines reports as JSON or with a builder. See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING.md), and check `parity_status` with `document: "reporting"` before relying on a feature. Export to PDF and XLSX is still planned.
+<!-- ravenrs:skill:end -->
