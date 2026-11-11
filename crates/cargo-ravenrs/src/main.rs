@@ -50,8 +50,22 @@ async fn main() {
     let result = match cli.command {
         Commands::Mcp => ravenrs_mcp::serve_stdio().await.map_err(|e| e.to_string()),
         Commands::New { name, template, target, yes, no_git, no_ai, no_check, plugin } => {
-            let template = choose(template, yes, "Modelo (hello, app, app-sqlite, relatorios)", "hello");
-            let target = choose(target, yes, "Alvo (desktop, web, both)", "desktop");
+            let state = std::fs::read_to_string(name.join(".ravenrs-project.toml"))
+                .ok()
+                .and_then(|text| text.parse::<toml_edit::DocumentMut>().ok());
+            let template_default = state
+                .as_ref()
+                .and_then(|state| state.get("template"))
+                .and_then(toml_edit::Item::as_str)
+                .unwrap_or("hello");
+            let target_default = state
+                .as_ref()
+                .and_then(|state| state.get("target"))
+                .and_then(toml_edit::Item::as_str)
+                .unwrap_or("desktop");
+            let template =
+                choose(template, yes, "Modelo (hello, app, app-sqlite, relatorios)", template_default);
+            let target = choose(target, yes, "Alvo (desktop, web, both)", target_default);
             template.and_then(|template| target.map(|target| (template, target))).and_then(
                 |(template, target)| {
                     cargo_ravenrs::new_project(&name, &template, &target, !no_git, !no_ai, !no_check, plugin)
