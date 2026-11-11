@@ -22,7 +22,7 @@ RAVENRS_SITE_URL="${RAVENRS_SITE_URL:-https://ravenrs.vercel.app}" ./scripts/bui
 # and `site/vercel.json` sends `/api/...` there: every link stays as it is on GitHub Pages.
 mv "$site/api" "$site/reference"
 # Folders end in /, so the relative links of each page keep pointing where they should.
-cp site/vercel.json "$site/vercel.json"
+# build-site.sh generated vercel.json, including playground query redirects.
 
 cd "$site"
 # The project is made the first time; after that this only links to it.
