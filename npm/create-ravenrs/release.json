@@ -1,6 +1,7 @@
 {
   "version": "27.1.23",
-  "tag": "v27.1.23",
+  "cliVersion": "27.1.24",
+  "tag": "cargo-ravenrs-v27.1.24",
   "toolchain": "stable",
   "components": [
     "rustfmt",

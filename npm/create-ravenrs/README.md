@@ -249,10 +249,10 @@ web projects because the CLI itself is native. The CLI requires a rustup-managed
 
 The npm launcher can receive documentation and bootstrap patches independently of the Rust
 framework. Its `release.json` pins the exact CLI Git tag and framework version used for generation.
-**`create-ravenrs` 27.1.25 installs `cargo-ravenrs` / RavenRS 27.1.23.**
+**`create-ravenrs` 27.1.26 installs `cargo-ravenrs` 27.1.24 with RavenRS 27.1.23.**
 
 ```bash
-cargo install --git https://github.com/alexkads/RavenRS --tag v27.1.23 --locked cargo-ravenrs
+cargo install --git https://github.com/alexkads/RavenRS --tag cargo-ravenrs-v27.1.24 --locked cargo-ravenrs
 ```
 
 Templates, skill and MCP all come from that Rust release. npm-only updates do not silently
@@ -278,3 +278,10 @@ and [the complete Markdown documentation](https://alexkads.github.io/RavenRS/llm
 ## License
 
 RavenRS and this launcher are dual-licensed under **MIT OR Apache-2.0**.
+
+## Repeating creation in an existing folder
+
+Repeating creation preserves application source only when the original template and target match.
+A desktop project cannot be turned into a web project, or a hello project into an application, by
+reusing its folder in the creator. Choose another folder for a different template or target.
+The creator reports incompatible choices before installing prerequisites or changing files.

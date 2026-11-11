@@ -869,7 +869,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-ravenrs"
-version = "27.1.23"
+version = "27.1.24"
 dependencies = [
  "clap",
  "ravenrs-mcp",

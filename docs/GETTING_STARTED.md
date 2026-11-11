@@ -35,7 +35,7 @@ Already have Rust? Install the CLI directly. Use the release tag to keep the CLI
 examples, skill and framework crates on the same version:
 
 ```bash
-cargo install --git https://github.com/alexkads/RavenRS --tag v27.1.23 --locked cargo-ravenrs
+cargo install --git https://github.com/alexkads/RavenRS --tag cargo-ravenrs-v27.1.24 --locked cargo-ravenrs
 cargo ravenrs new minha-loja --template hello --target both --yes
 ```
 
@@ -322,3 +322,10 @@ and the log path. Use `npx create-ravenrs minha-loja --verbose` to stream all ou
 Escape cancels a menu; Ctrl+C cancels an active task. `NO_COLOR` disables colors. Redirected output
 and simple terminals show plain logs; narrow terminals use text prompts. `--yes` still authorizes
 prerequisite installation and selects defaults for unanswered choices.
+
+## Repeating creation in an existing folder
+
+Repeating creation preserves application source only when the original template and target match.
+A desktop project cannot be turned into a web project, or a hello project into an application, by
+reusing its folder in the creator. Choose another folder for a different template or target.
+The creator reports incompatible choices before installing prerequisites or changing files.
