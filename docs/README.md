@@ -33,3 +33,8 @@ You can start with high-level components and implement a custom view when you ne
 
 [Explore the architecture](../ARCHITECTURE.md), [browse the components](PARITY.md),
 or [build a record application](APP-FRAMEWORK.md).
+
+## Build with an AI assistant
+
+Read the [AI development guide](AI_DEVELOPMENT.md) for official context, version-matched MCP tools
+and machine-readable documentation. Start with the project skill and verify APIs against its release.

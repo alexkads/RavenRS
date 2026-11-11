@@ -15,6 +15,8 @@ const out = resolve(
 const version = (await readFile(resolve(root, "Cargo.toml"), "utf8")).match(
   /\[workspace\.package\][\s\S]*?version = "([^"]+)"/,
 )[1];
+const siteUrl = (process.env.RAVENRS_SITE_URL || "https://alexkads.github.io/RavenRS").replace(/\/$/, "");
+const documents = [];
 const pages = [
   ["Start here", "", "Introduction", "docs/README.md"],
   ["Start here", "getting-started", "Installation", "docs/GETTING_STARTED.md"],
@@ -24,6 +26,7 @@ const pages = [
     "CLI & AI assistants",
     "crates/cargo-ravenrs/README.md",
   ],
+  ["Start here", "ai", "AI-assisted development", "docs/AI_DEVELOPMENT.md"],
   ["Build applications", "architecture", "Architecture", "ARCHITECTURE.md"],
   [
     "Build applications",
@@ -78,6 +81,7 @@ for (const [index, [group, slug, title, source]] of pages.entries()) {
     /^---\n[\s\S]*?\n---\n/,
     "",
   );
+  documents.push({ title, slug, source, raw });
   await writeFile(resolve(dir, "index.md"), raw);
   const headings = [];
   const used = new Map();
@@ -141,9 +145,12 @@ for (const [index, [group, slug, title, source]] of pages.entries()) {
         `<a class="toc-level-${h.level}" href="#${h.id}">${escape(h.title)}</a>`,
     )
     .join("");
+  const canonical = `${siteUrl}/docs/${slug ? `${slug}/` : ""}`;
+  const structured = JSON.stringify({ "@context": "https://schema.org", "@type": "TechArticle", headline: title, url: canonical, version, about: { "@type": "SoftwareSourceCode", name: "RavenRS", codeRepository: "https://github.com/alexkads/RavenRS", programmingLanguage: "Rust", description: "Declarative, reactive Rust GUI framework for native desktop and WebAssembly applications, with GPU rendering, design tokens, forms and reporting." } }).replaceAll("<", "\\u003c");
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${escape(title)} · RavenRS Docs</title><meta name="description" content="${escape(title)} — the RavenRS guide to native and web applications in Rust.">
+<link rel="canonical" href="${escape(canonical)}"><meta property="og:title" content="${escape(title)} · RavenRS Docs"><meta property="og:type" content="article"><meta property="og:url" content="${escape(canonical)}"><script type="application/ld+json">${structured}</script>
 <meta name="color-scheme" content="light dark"><link rel="stylesheet" href="${base}docs.css">
 <script>try{const t=localStorage.getItem('ravenrs-docs-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
 <script type="module" src="${base}docs.js"></script></head>
@@ -175,3 +182,30 @@ await writeFile(resolve(out, "search.json"), JSON.stringify(searchIndex));
 console.log(
   `Built ${pages.length} documentation pages from Markdown into ${relative(root, out)}.`,
 );
+
+const overview = `# RavenRS
+
+> RavenRS is an open-source Rust GUI framework: one declarative, reactive UI for Windows, macOS, Linux and WebAssembly, with GPU rendering, semantic design tokens, records, forms and reporting.
+
+Framework version: ${version}. License: MIT OR Apache-2.0.
+
+Start with \`npx create-ravenrs minha-loja\`. The npm preparer pins its Rust CLI release independently of npm-only patches. For exact APIs, check the project's Cargo.toml and use its version-matched RavenRS MCP server (\`cargo ravenrs mcp\`). Do not infer APIs from other GUI frameworks.
+
+## Official guides
+
+`;
+const guideLinks = documents.map(({title, slug}) => `- [${title}](${siteUrl}/docs/${slug ? `${slug}/` : ""}index.md)`).join("\n");
+const links = `
+
+## Source and tools
+
+- [Repository](https://github.com/alexkads/RavenRS)
+- [Published Rust API](https://docs.rs/ravenrs/${version}/ravenrs/)
+- [npm preparer](https://www.npmjs.com/package/create-ravenrs)
+- [Combined guides](${siteUrl}/llms-full.txt)
+
+These files provide readable context; they do not guarantee AI indexing or training.
+`;
+await writeFile(resolve(out, "../llms.txt"), overview + guideLinks + links);
+await writeFile(resolve(out, "../llms-full.txt"), overview + guideLinks + links + documents.map(({title, slug, source, raw}) => `\n\n---\n\n# ${title}\n\nURL: ${siteUrl}/docs/${slug ? `${slug}/` : ""}\nSource: https://github.com/alexkads/RavenRS/blob/master/${source}\n\n${raw}`).join(""));
+await writeFile(resolve(out, "../sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${documents.map(({slug}) => `<url><loc>${escape(`${siteUrl}/docs/${slug ? `${slug}/` : ""}`)}</loc></url>`).join("")}</urlset>\n`);

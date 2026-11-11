@@ -1,12 +1,12 @@
 {
   "name": "create-ravenrs",
-  "version": "27.1.23",
-  "description": "Prepare Rust and create a RavenRS project with version-matched AI tooling.",
+  "version": "27.1.24",
+  "description": "Create Rust GUI apps for desktop and WebAssembly with RavenRS. Sets up Rust, scaffolds your project, and configures version-matched MCP and AI coding tools.",
   "type": "module",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alexkads/RavenRS.git",
+    "url": "git+https://github.com/alexkads/RavenRS.git",
     "directory": "npm/create-ravenrs"
   },
   "engines": {
@@ -19,7 +19,9 @@
     "bin",
     "src",
     "release.json",
-    "README.md"
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
   ],
   "scripts": {
     "test": "node --test",
@@ -29,5 +31,44 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "homepage": "https://alexkads.github.io/RavenRS/docs/getting-started/",
+  "bugs": {
+    "url": "https://github.com/alexkads/RavenRS/issues"
+  },
+  "author": {
+    "name": "Alex S S Fonseca",
+    "url": "https://github.com/alexkads"
+  },
+  "keywords": [
+    "ravenrs",
+    "rust",
+    "rust-gui",
+    "gui",
+    "desktop",
+    "native",
+    "cross-platform",
+    "webassembly",
+    "wasm",
+    "webgpu",
+    "wgpu",
+    "ui-framework",
+    "scaffolding",
+    "project-generator",
+    "create-app",
+    "cli",
+    "cargo",
+    "developer-tools",
+    "mcp",
+    "model-context-protocol",
+    "ai-coding",
+    "claude-code",
+    "github-copilot",
+    "cursor",
+    "vscode",
+    "codex",
+    "sqlite",
+    "crud",
+    "reporting"
+  ]
 }
