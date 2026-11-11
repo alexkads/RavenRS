@@ -22,9 +22,10 @@ source = "\n".join(p.read_text() for p in (root / "crates/ravenrs-widgets/src").
 public = set(re.findall(r"^pub struct (\w+)", source, re.M))
 views = {name for name in public if re.search(rf"impl(<[^>]*>)? (View|Component) for {name}\b", source)}
 
+docs = pathlib.Path(os.environ.get("RAVENRS_API_DOCS_DIR", pathlib.Path(os.environ.get("CARGO_TARGET_DIR", root / "target")) / "doc"))
 problems = []
 for name, path in sorted(links.items()):
-    if not (pathlib.Path(os.environ.get("CARGO_TARGET_DIR", root / "target")) / "doc" / path).exists():
+    if not (docs / path).exists():
         problems.append(f"{name}: no API page; run cargo doc, or fix the link")
 for name in sorted(views - listed - NOT_LISTED):
     problems.append(f"{name}: public component missing from the list")

@@ -4,6 +4,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- A shared canonical policy for Pages and Vercel, crawlable canvas content, static
+  playground examples, social PNG cards, complete sitemaps and a local SEO build gate.
+  ([#156](https://github.com/alexkads/RavenRS/issues/156))
+
 ## [27.1.27] - 2026-11-11
 
 ### Added
