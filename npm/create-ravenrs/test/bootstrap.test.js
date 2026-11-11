@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-const { version: VERSION } = JSON.parse(readFileSync(new URL('../release.json', import.meta.url), 'utf8'));
+const RELEASE = JSON.parse(readFileSync(new URL('../release.json', import.meta.url), 'utf8'));
+const VERSION = RELEASE.cliVersion || RELEASE.version;
 import { bootstrap, parse, rustInstaller } from '../src/bootstrap.js';
 
 function machine(overrides = {}) {
@@ -53,7 +54,7 @@ test('missing Rust is installed only with authorization and installed from the o
   assert.match(state.installs[0].url, /^https:\/\/static\.rust-lang\.org\/rustup\/dist\//);
   assert.deepEqual(state.runs[0].args, ['component', 'add', 'rustfmt', 'clippy', '--toolchain', 'stable']);
   assert.deepEqual(state.runs[1].args, ['target', 'add', 'wasm32-unknown-unknown', '--toolchain', 'stable']);
-  assert.deepEqual(state.runs[2].args, ['install', '--git', 'https://github.com/alexkads/RavenRS', '--tag', `v${VERSION}`, '--locked', 'cargo-ravenrs']);
+  assert.deepEqual(state.runs[2].args, ['install', '--git', 'https://github.com/alexkads/RavenRS', '--tag', RELEASE.tag, '--locked', 'cargo-ravenrs']);
   assert.equal(ctx.env.RUSTUP_TOOLCHAIN, 'stable');
 });
 
@@ -76,7 +77,7 @@ test('CLI updates use the matching tag and --force only after consent', async ()
   const { state, ctx } = machine({ cli: '0.1.0', answer: 's' });
   await bootstrap(['app', '--target', 'desktop'], ctx);
   assert.ok(state.runs[0].args.includes('--force'));
-  assert.ok(state.runs[0].args.includes(`v${VERSION}`));
+  assert.ok(state.runs[0].args.includes(RELEASE.tag));
 });
 
 test('missing toolchain is installed after consent without reinstalling rustup', async () => {
@@ -188,4 +189,39 @@ test('asynchronous generation errors stop before doctor; verbose is not forwarde
   assert.equal(calls[0][1],'new');
   assert.equal(state.runs.length,0);
   assert.ok(!parse(['app','--verbose']).forwarded.includes('--verbose'));
+});
+
+test('an existing project with a different model or target fails before all installations and writes', async () => {
+  for (const [template,target] of [['hello','both'],['app-sqlite','desktop'],['app-sqlite','both']]) {
+    const {state,ctx}=machine({rust:false,rustup:false,cli:null});
+    ctx.exists=async path=>path==='/work/minha-loja';
+    ctx.read=async()=>`version = "${RELEASE.version}"\ntemplate = "hello"\ntarget = "desktop"\nai = true\n`;
+    await assert.rejects(bootstrap(['minha-loja','--yes','--template',template,'--target',target],ctx),/já contém hello\/desktop.*Use outro nome/);
+    assert.equal(state.runs.length,0);
+    assert.equal(state.installs.length,0);
+    assert.equal(state.questions.length,0);
+  }
+});
+
+test('existing matching projects can be repeated and unowned folders fail without effects', async () => {
+  const {state,ctx}=machine();
+  ctx.exists=async path=>path==='/work/app';
+  ctx.read=async()=>`version = "${RELEASE.version}"\ntemplate = "hello"\ntarget = "desktop"\n`;
+  await bootstrap(['app','--yes'],ctx);
+  assert.equal(state.runs.length,2);
+  state.runs=[];
+  ctx.read=async()=>'';
+  await assert.rejects(bootstrap(['app','--yes'],ctx),/sem metadados compatíveis/);
+  assert.equal(state.runs.length,0);
+});
+
+test('rerunning without flags keeps the original template and target instead of hello/desktop defaults', async () => {
+  for(const yes of [true,false]) {
+    const {state,ctx}=machine();
+    ctx.exists=async path=>path==='/work/app';
+    ctx.read=async()=>`version = "${RELEASE.version}"\ntemplate = "app-sqlite"\ntarget = "both"\n`;
+    await bootstrap(['app',...(yes?['--yes']:[])],ctx);
+    assert.ok(state.runs[0].args.includes('app-sqlite'));
+    assert.ok(state.runs[0].args.includes('both'));
+  }
 });

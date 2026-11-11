@@ -1,4 +1,4 @@
-use crate::{VERSION, read};
+use crate::{CLI_VERSION, VERSION, read};
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
@@ -50,11 +50,14 @@ pub(crate) fn probe(command: &str, args: &[String], root: &Path) -> Result<(), S
         };
         send(
             &mut stdin,
-            json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"cargo-ravenrs-doctor","version":VERSION}}}),
+            json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"cargo-ravenrs-doctor","version":CLI_VERSION}}}),
         )?;
         let initialized = receive(1)?;
         if initialized["serverInfo"]["version"] != VERSION {
-            return Err(format!("MCP versão {}, CLI {VERSION}", initialized["serverInfo"]["version"]));
+            return Err(format!(
+                "MCP versão {}, framework esperado {VERSION}",
+                initialized["serverInfo"]["version"]
+            ));
         }
         send(&mut stdin, json!({"jsonrpc":"2.0","method":"notifications/initialized"}))?;
         send(&mut stdin, json!({"jsonrpc":"2.0","id":2,"method":"tools/list"}))?;
@@ -85,7 +88,7 @@ pub fn doctor(root: &Path) -> Result<(), String> {
             ));
         }
     }
-    println!("✓ Crates e CLI: {VERSION}");
+    println!("✓ CLI: {CLI_VERSION}; crates e MCP: {VERSION}");
     if root.join(".ravenrs-project.toml").is_file() && !root.join(".ravenrs-ai.toml").is_file() {
         let state: DocumentMut =
             read(&root.join(".ravenrs-project.toml"))?.parse().map_err(|e| format!("Projeto: {e}"))?;

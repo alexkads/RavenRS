@@ -14,6 +14,8 @@ test('packaging permits npm-only patches while rejecting stale Rust pins and inc
     await writeFile(join(root, 'Cargo.toml'), '[workspace.package]\nversion = "27.1.23"\n');
     await writeFile(join(root, 'rust-toolchain.toml'), 'channel = "stable"\ncomponents = ["rustfmt", "clippy"]\n');
     for (const name of ['LICENSE-MIT', 'LICENSE-APACHE']) await writeFile(join(root, name), `License fixture: ${name}`);
+    await mkdir(join(root, 'crates/cargo-ravenrs'), {recursive:true});
+    await writeFile(join(root, 'crates/cargo-ravenrs/Cargo.toml'), '[package]\nversion.workspace = true\n');
     const run = (...args) => spawnSync(process.execPath, [join(pkg, 'scripts/prepare-release.mjs'), ...args], {encoding:'utf8'});
     await writeFile(join(pkg, 'package.json'), JSON.stringify({version:'27.1.24'}));
     assert.equal(run().status, 0);
@@ -25,7 +27,16 @@ test('packaging permits npm-only patches while rejecting stale Rust pins and inc
     await writeFile(join(pkg, 'release.json'), JSON.stringify({...release,tag:'v27.1.24'}));
     assert.notEqual(run('--check').status, 0);
     assert.equal(run().status, 0);
-    for (const version of ['27.1.22', '27.2.24', '28.1.24']) {
+    await writeFile(join(root, 'crates/cargo-ravenrs/Cargo.toml'), '[package]\nversion = \"27.1.24\"\n');
+    assert.equal(run().status, 0);
+    const cliRelease = JSON.parse(await readFile(join(pkg, 'release.json')));
+    assert.equal(cliRelease.version, '27.1.23');
+    assert.equal(cliRelease.cliVersion, '27.1.24');
+    assert.equal(cliRelease.tag, 'cargo-ravenrs-v27.1.24');
+    await writeFile(join(root, 'Cargo.toml'), '[workspace.package]\nversion = \"27.1.24\"\n');
+    assert.notEqual(run().status, 0, 'framework pin cannot change without a new CLI version');
+    await writeFile(join(root, 'Cargo.toml'), '[workspace.package]\nversion = \"27.1.23\"\n');
+    for (const version of ['27.1.23', '27.1.22', '27.2.24', '28.1.24']) {
       await writeFile(join(pkg, 'package.json'), JSON.stringify({version}));
       assert.notEqual(run('--check').status, 0, version);
     }
@@ -37,5 +48,5 @@ test('public version reports the npm launcher and its pinned Rust release', asyn
   assert.equal(result.status, 0);
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url)));
   const release = JSON.parse(await readFile(new URL('../release.json', import.meta.url)));
-  assert.equal(result.stdout.trim(), `create-ravenrs ${pkg.version} (RavenRS ${release.version})`);
+  assert.equal(result.stdout.trim(), `create-ravenrs ${pkg.version} (CLI ${release.cliVersion || release.version} · RavenRS ${release.version})`);
 });

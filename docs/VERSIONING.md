@@ -60,3 +60,13 @@ from the package directory. Do not create a Rust `vYY.R.P` tag for an npm-only p
 For a new framework release, run `prepare-release` and ensure the npm version is unpublished
 before publishing. The prepack guard checks the pinned workspace release and toolchain;
 it does not query the registry for previously published versions.
+
+## CLI patches without a framework release
+
+`cargo-ravenrs` can use an explicit package version for a generator fix. Its framework version
+comes from `ravenrs-project`, so templates, dependency pins, skill and MCP remain matched.
+When the CLI version differs from the framework, publish an annotated `cargo-ravenrs-v<CLI>`
+tag and record both versions in the npm `release.json` with `prepare-release`. The npm launcher
+compares the installed CLI against `cliVersion`; doctor checks application crates against the
+framework version. Advance the CLI version whenever its framework pin changes, and keep the
+npm patch at least as high as the CLI patch. The prepare/prepack guard checks these constraints.

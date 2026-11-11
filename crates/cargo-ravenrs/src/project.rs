@@ -183,6 +183,19 @@ pub fn new_project(
         if !path.join("Cargo.toml").is_file() || !read(&path.join("Cargo.toml"))?.starts_with(&expected) {
             return Err(format!("{} já existe e não foi gerado por esta versão.", path.display()));
         }
+        let state: DocumentMut = read(&path.join(".ravenrs-project.toml"))?
+            .parse()
+            .map_err(|e| format!("Metadados do projeto inválidos: {e}"))?;
+        let previous_template =
+            state.get("template").and_then(Item::as_str).ok_or("Modelo original ausente nos metadados")?;
+        let previous_target =
+            state.get("target").and_then(Item::as_str).ok_or("Alvo original ausente nos metadados")?;
+        if previous_template != template || previous_target != target {
+            return Err(format!(
+                "{} já contém um projeto {previous_template}/{previous_target}; você escolheu {template}/{target}. Use outra pasta para criar esse modelo/alvo. O projeto existente não foi alterado.",
+                path.display()
+            ));
+        }
         println!("Projeto existente: preservando o código.");
     } else {
         std::fs::create_dir_all(path).map_err(|e| e.to_string())?;

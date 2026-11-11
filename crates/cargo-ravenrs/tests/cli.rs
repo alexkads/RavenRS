@@ -289,3 +289,77 @@ fn patch_checkout(root: &Path, workspace: &Path) {
     }
     fs::write(manifest_path, manifest).unwrap();
 }
+
+#[test]
+fn repeating_with_another_template_or_target_refuses_before_touching_existing_files() {
+    let dir = TempDir::new().unwrap();
+    success(&cli(dir.path(), &["new", "sample-app", "--yes", "--no-check", "--no-git"]));
+    let project = dir.path().join("sample-app");
+    fs::write(project.join("src/lib.rs"), "// user work must stay intact\n").unwrap();
+    fs::write(project.join("AGENTS.md"), "Personal instructions\n").unwrap();
+    let paths = ["Cargo.toml", "src/lib.rs", "AGENTS.md", ".ravenrs-project.toml", ".mcp.json"];
+    let before: Vec<_> = paths.iter().map(|p| fs::read(project.join(p)).unwrap()).collect();
+    for (template, target) in [("hello", "both"), ("app-sqlite", "desktop"), ("app-sqlite", "both")] {
+        let output = cli(
+            dir.path(),
+            &["new", "sample-app", "--template", template, "--target", target, "--yes", "--no-check"],
+        );
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(error.contains("hello/desktop"), "{error}");
+        assert!(error.contains("Use outra pasta"), "{error}");
+        for (path, original) in paths.iter().zip(&before) {
+            assert_eq!(fs::read(project.join(path)).unwrap(), *original, "{path}");
+        }
+        assert!(!project.join(".git").exists());
+    }
+}
+
+#[test]
+#[ignore = "runs every generated native screen against real dependencies"]
+fn every_template_main_screen_renders() {
+    let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().unwrap();
+    let target_dir = workspace.join("target/generated-projects");
+    for template in ["hello", "app", "app-sqlite", "relatorios"] {
+        let dir = TempDir::new().unwrap();
+        write_project(dir.path(), template, "both");
+        if std::env::var_os("RAVENRS_TEST_PUBLISHED").is_none() {
+            patch_checkout(dir.path(), &workspace);
+        }
+        eprintln!("Rendering {template}/both/native");
+        success(
+            &Command::new("cargo")
+                .args(["test", "--test", "screen", "--quiet"])
+                .current_dir(dir.path())
+                .env("CARGO_TARGET_DIR", &target_dir)
+                .output()
+                .unwrap(),
+        );
+    }
+}
+
+#[test]
+fn repeat_without_flags_keeps_the_original_nondefault_project_settings() {
+    let dir = TempDir::new().unwrap();
+    success(&cli(
+        dir.path(),
+        &[
+            "new",
+            "sample-app",
+            "--template",
+            "app-sqlite",
+            "--target",
+            "both",
+            "--yes",
+            "--no-check",
+            "--no-git",
+        ],
+    ));
+    let project = dir.path().join("sample-app");
+    let source = project.join("src/lib.rs");
+    fs::write(&source, "// user's application\n").unwrap();
+    let manifest = fs::read(project.join("Cargo.toml")).unwrap();
+    success(&cli(dir.path(), &["new", "sample-app", "--yes", "--no-check", "--no-git"]));
+    assert_eq!(fs::read_to_string(&source).unwrap(), "// user's application\n");
+    assert_eq!(fs::read(project.join("Cargo.toml")).unwrap(), manifest);
+}

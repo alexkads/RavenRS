@@ -7,8 +7,11 @@ pub use ai::configure_ai;
 pub use mcp::doctor;
 pub use project::{new_project, project_files};
 
-/// Version shared by the CLI, its templates, skill and embedded MCP server.
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Version of the generator executable.
+pub const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Framework version shared by templates, skill and the embedded MCP server.
+/// The CLI package may receive independent fixes without republishing the framework.
+pub const VERSION: &str = ravenrs_project::RAVENRS_VERSION;
 /// Skill embedded from the plugin in this release.
 pub const SKILL: &str = include_str!("../../../plugins/ravenrs/skills/ravenrs/SKILL.md");
 /// Toolchain shared by every template.
