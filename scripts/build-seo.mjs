@@ -460,17 +460,18 @@ await writeFile(
   join(out, "robots.txt"),
   `User-agent: *\nAllow: /\n\nSitemap: ${siteBase}/sitemap.xml\n`,
 );
-// The primary host serves query URLs using the same pre-rendered example HTML.
+// Redirect before the filesystem: rewrites cannot override playground/index.html.
 const config = JSON.parse(
   await readFile(join(root, "site/vercel.json"), "utf8"),
 );
-config.rewrites = [
+config.redirects = [
   ...samples.map((s) => ({
     source: "/playground/",
     has: [{ type: "query", key: "example", value: s.name }],
-    destination: `/playground/examples/${s.slug}/index.html`,
+    destination: `/playground/examples/${s.slug}/`,
+    permanent: true,
   })),
-  ...config.rewrites,
+  ...(config.redirects || []),
 ];
 await writeFile(
   join(out, "vercel.json"),

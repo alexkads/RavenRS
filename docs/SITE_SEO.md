@@ -45,7 +45,7 @@ when the interactive canvas initializes.
 
 Every example has a static route, such as `/playground/examples/button/`, with
 its own title, description and social PNG. Existing `/playground/?example=Button`
-links remain usable: Vercel rewrites the request to that example's HTML, while
+links remain usable: Vercel permanently redirects to that example's static route, while
 Pages navigates to its static route in the browser. Share static routes for
 previews on both hosts; Pages cannot vary its initial HTML by query string.
 

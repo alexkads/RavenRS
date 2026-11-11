@@ -168,13 +168,15 @@ for (const example of manifest.examples) {
   const page = manifest.pages.find((p) => p.route === route);
   check(page?.title.includes(example.name), route, "missing example metadata");
   check(
-    config.rewrites.some(
+    config.redirects.some(
       (r) =>
         r.has?.some((h) => h.key === "example" && h.value === example.name) &&
-        r.destination === `/${route}index.html`,
+        r.source === "/playground/" &&
+        r.permanent === true &&
+        r.destination === `/${route}`,
     ),
     route,
-    "missing query rewrite",
+    "missing permanent query redirect",
   );
 }
 if (errors.length) {
