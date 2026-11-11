@@ -35,7 +35,7 @@ Already have Rust? Install the CLI directly. Use the release tag to keep the CLI
 examples, skill and framework crates on the same version:
 
 ```bash
-cargo install --git https://github.com/alexkads/RavenRS --tag cargo-ravenrs-v27.1.24 --locked cargo-ravenrs
+cargo install --git https://github.com/alexkads/RavenRS --tag v27.1.27 --locked cargo-ravenrs
 cargo ravenrs new minha-loja --template hello --target both --yes
 ```
 

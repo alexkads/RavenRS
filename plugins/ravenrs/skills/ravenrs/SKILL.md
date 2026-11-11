@@ -4,7 +4,7 @@ description: Builds and changes user interfaces with RavenRS, the Rust GUI frame
 ---
 
 <!-- ravenrs:skill:begin -->
-<!-- cargo-ravenrs 27.1.23 -->
+<!-- cargo-ravenrs 27.1.27 -->
 
 # Building with RavenRS
 

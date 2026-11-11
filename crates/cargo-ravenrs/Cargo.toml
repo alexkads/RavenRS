@@ -1,7 +1,7 @@
 [package]
 name = "cargo-ravenrs"
 description = "Create, configure and diagnose RavenRS projects, with the embedded RavenRS MCP server."
-version = "27.1.24"
+version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -9,7 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-ravenrs-mcp = { path = "../ravenrs-mcp", version = "27.1.23" }
+ravenrs-mcp = { path = "../ravenrs-mcp", version = "27.1.27" }
 ravenrs-project.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

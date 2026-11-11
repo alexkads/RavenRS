@@ -5,42 +5,52 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-test('packaging permits npm-only patches while rejecting stale Rust pins and incompatible versions', async () => {
+test('packaging requires a unified workspace, CLI, plugin, npm and tag', async () => {
   const root = await mkdtemp(join(tmpdir(), 'ravenrs-release-'));
   try {
     const pkg = join(root, 'npm/create-ravenrs');
-    await mkdir(join(pkg, 'scripts'), { recursive: true });
+    await mkdir(join(pkg, 'scripts'), {recursive:true});
     await copyFile(new URL('../scripts/prepare-release.mjs', import.meta.url), join(pkg, 'scripts/prepare-release.mjs'));
-    await writeFile(join(root, 'Cargo.toml'), '[workspace.package]\nversion = "27.1.23"\n');
+    await writeFile(join(root, 'Cargo.toml'), '[workspace.package]\nversion = "27.1.27"\n');
     await writeFile(join(root, 'rust-toolchain.toml'), 'channel = "stable"\ncomponents = ["rustfmt", "clippy"]\n');
-    for (const name of ['LICENSE-MIT', 'LICENSE-APACHE']) await writeFile(join(root, name), `License fixture: ${name}`);
-    await mkdir(join(root, 'crates/cargo-ravenrs'), {recursive:true});
-    await writeFile(join(root, 'crates/cargo-ravenrs/Cargo.toml'), '[package]\nversion.workspace = true\n');
-    const run = (...args) => spawnSync(process.execPath, [join(pkg, 'scripts/prepare-release.mjs'), ...args], {encoding:'utf8'});
-    await writeFile(join(pkg, 'package.json'), JSON.stringify({version:'27.1.24'}));
-    assert.equal(run().status, 0);
-    assert.equal(JSON.parse(await readFile(join(pkg, 'package.json'))).version, '27.1.24');
-    const release = JSON.parse(await readFile(join(pkg, 'release.json')));
-    assert.equal(release.version, '27.1.23');
-    assert.equal(release.tag, 'v27.1.23');
-    assert.equal(run('--check').status, 0);
-    await writeFile(join(pkg, 'release.json'), JSON.stringify({...release,tag:'v27.1.24'}));
-    assert.notEqual(run('--check').status, 0);
-    assert.equal(run().status, 0);
-    await writeFile(join(root, 'crates/cargo-ravenrs/Cargo.toml'), '[package]\nversion = \"27.1.24\"\n');
-    assert.equal(run().status, 0);
-    const cliRelease = JSON.parse(await readFile(join(pkg, 'release.json')));
-    assert.equal(cliRelease.version, '27.1.23');
-    assert.equal(cliRelease.cliVersion, '27.1.24');
-    assert.equal(cliRelease.tag, 'cargo-ravenrs-v27.1.24');
-    await writeFile(join(root, 'Cargo.toml'), '[workspace.package]\nversion = \"27.1.24\"\n');
-    assert.notEqual(run().status, 0, 'framework pin cannot change without a new CLI version');
-    await writeFile(join(root, 'Cargo.toml'), '[workspace.package]\nversion = \"27.1.23\"\n');
-    for (const version of ['27.1.23', '27.1.22', '27.2.24', '28.1.24']) {
-      await writeFile(join(pkg, 'package.json'), JSON.stringify({version}));
-      assert.notEqual(run('--check').status, 0, version);
+    for (const name of ['LICENSE-MIT','LICENSE-APACHE']) await writeFile(join(root,name), `License fixture: ${name}`);
+    await mkdir(join(root,'crates/cargo-ravenrs'), {recursive:true});
+    const cli = join(root,'crates/cargo-ravenrs/Cargo.toml');
+    await writeFile(cli, '[package]\nversion.workspace = true\n');
+    await mkdir(join(root,'plugins/ravenrs/.claude-plugin'), {recursive:true});
+    const plugin = join(root,'plugins/ravenrs/.claude-plugin/plugin.json');
+    await writeFile(plugin, JSON.stringify({version:'27.1.27'}));
+    await mkdir(join(root,'plugins/ravenrs/skills/ravenrs'),{recursive:true});
+    await writeFile(join(root,'plugins/ravenrs/skills/ravenrs/SKILL.md'),'<!-- cargo-ravenrs 27.1.27 -->\n');
+    await writeFile(join(pkg,'package.json'),JSON.stringify({version:'27.1.26'}));
+    const run = (...args) => spawnSync(process.execPath,[join(pkg,'scripts/prepare-release.mjs'),...args],{encoding:'utf8'});
+    assert.equal(run().status,0);
+    assert.equal(JSON.parse(await readFile(join(pkg,'package.json'))).version,'27.1.27');
+    const release = JSON.parse(await readFile(join(pkg,'release.json')));
+    assert.equal(release.version,'27.1.27');
+    assert.equal(release.cliVersion,'27.1.27');
+    assert.equal(release.tag,'v27.1.27');
+    assert.equal(run('--check').status,0);
+    for(const version of ['27.1.26','27.1.28','27.2.27']){
+      await writeFile(join(pkg,'package.json'),JSON.stringify({version}));
+      assert.notEqual(run('--check').status,0,version);
     }
-  } finally { await rm(root, {recursive:true,force:true}); }
+    assert.equal(run().status,0);
+    await writeFile(join(pkg,'release.json'),JSON.stringify({...release,tag:'cargo-ravenrs-v27.1.27'}));
+    assert.notEqual(run('--check').status,0);
+    assert.equal(run().status,0);
+    await writeFile(cli,'[package]\nversion = "27.1.28"\n');
+    assert.notEqual(run().status,0);
+    await writeFile(cli,'[package]\nversion.workspace = true\n');
+    await writeFile(plugin,JSON.stringify({version:'27.1.26'}));
+    assert.notEqual(run('--check').status,0);
+    await writeFile(plugin,JSON.stringify({version:'27.1.27'}));
+    await writeFile(join(root,'plugins/ravenrs/skills/ravenrs/SKILL.md'),'<!-- cargo-ravenrs 27.1.26 -->\n');
+    assert.notEqual(run('--check').status,0);
+    assert.equal(run().status,0);
+    await writeFile(join(pkg,'LICENSE-MIT'),'stale license');
+    assert.notEqual(run('--check').status,0);
+  } finally { await rm(root,{recursive:true,force:true}); }
 });
 
 test('public version reports the npm launcher and its pinned Rust release', async () => {

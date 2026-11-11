@@ -189,7 +189,7 @@ const overview = `# RavenRS
 
 Framework version: ${version}. License: MIT OR Apache-2.0.
 
-Start with \`npx create-ravenrs minha-loja\`. The npm preparer pins its Rust CLI release independently of npm-only patches. For exact APIs, check the project's Cargo.toml and use its version-matched RavenRS MCP server (\`cargo ravenrs mcp\`). Do not infer APIs from other GUI frameworks.
+Start with \`npx create-ravenrs minha-loja\`. The npm preparer, Rust CLI and framework share this release version and use a pinned Git tag. For exact APIs, check the project's Cargo.toml and use its version-matched RavenRS MCP server (\`cargo ravenrs mcp\`). Do not infer APIs from other GUI frameworks.
 
 ## Official guides
 

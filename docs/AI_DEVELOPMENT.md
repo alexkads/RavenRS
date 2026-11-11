@@ -19,9 +19,8 @@ Claude Code, Cursor, VS Code / GitHub Copilot and Codex with a version-matched M
 project instructions and a RavenRS skill. Read the [installation guide](GETTING_STARTED.md)
 for prerequisites, consent prompts, templates and platform requirements.
 
-The npm wrapper can receive documentation or installer patches independently of the Rust
-framework. Its `release.json` pins the Rust CLI and Git tag; use that framework version when
-looking up APIs. Run `cargo ravenrs doctor` inside the project to check the setup.
+The npm wrapper, CLI and framework use the same release version. Its `release.json` pins
+the Rust CLI and Git tag; use that framework version when looking up APIs. Run `cargo ravenrs doctor` inside the project to check the setup.
 
 ## Give an assistant authoritative context
 
