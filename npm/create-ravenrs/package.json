@@ -1,0 +1,33 @@
+{
+  "name": "create-ravenrs",
+  "version": "27.1.22",
+  "description": "Prepare Rust and create a RavenRS project with version-matched AI tooling.",
+  "type": "module",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexkads/RavenRS.git",
+    "directory": "npm/create-ravenrs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "create-ravenrs": "bin/create-ravenrs.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "release.json",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "prepare-release": "node scripts/prepare-release.mjs",
+    "prepack": "node scripts/prepare-release.mjs --check",
+    "test:e2e:linux": "node scripts/e2e-linux.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
