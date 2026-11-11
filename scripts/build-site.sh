@@ -18,8 +18,11 @@ site="$(cd "$site" && pwd)"
 ./scripts/build-web.sh component-gallery
 ./scripts/build-web.sh report-designer
 ./scripts/build-web.sh site-home
-cargo doc --no-deps --workspace --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude site-home --exclude family-finance --quiet
+cargo doc --no-deps --workspace --features ravenrs-widgets/code --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude site-home --exclude family-finance --quiet
 ./scripts/check-component-list.py
+# Markdown is rendered locally; the same docs ship on Pages and Vercel.
+npm ci --prefix site/docs --ignore-scripts --no-audit --no-fund
+node scripts/build-docs.mjs "$site/docs"
 
 mkdir -p "$site/demo" "$site/playground" "$site/quick" "$site/hello" "$site/designer" "$site/assets" "$site/components"
 # The home page is a RavenRS app: its page and its WebAssembly go at the root.

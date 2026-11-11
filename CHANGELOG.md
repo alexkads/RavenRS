@@ -4,7 +4,17 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.23] - 2026-11-11
+
+### Security
+
+- Upgrade the MCP SDK to rmcp 3.9.0, fixing RUSTSEC-2026-0462 (unbounded HTTP client response buffering). RavenRS uses its stdio server transport.
+
 ### Added
+
+- A documentation portal at `/docs/`, generated locally from repository Markdown: navigation by topic, full-text search with Ctrl/Cmd+K, on-page index, highlighted copyable code, light/dark themes and mobile navigation. The same guide ships on GitHub Pages and Vercel; installation remains documented in `docs/GETTING_STARTED.md`.
+
+- `cargo-ravenrs`: create hello, app, SQLite and report projects for desktop and web, with version-matched AI instructions, skill and MCP configuration. Includes `new`, `ai`, `mcp` and `doctor`. `npx create-ravenrs` prepares Rust and the matching CLI before generating the project, with consent for installations and repeatable setup. ([#205](https://github.com/alexkads/RavenRS/issues/205), [#206](https://github.com/alexkads/RavenRS/pull/206), [#207](https://github.com/alexkads/RavenRS/pull/207))
 
 - `Chart::animate_changes`: when the data changes to as many series and categories, the chart goes from its old shape to the new one in 0.75 s, quick to start and settling softly: lines and bars rise or fall, slices turn and grow, and the value axis slides along instead of jumping between round numbers. A change in the middle starts from where the chart is; under reduced motion it changes at once. `ravenrs_graphics::plot::value_range` gives the value axis a chart would pick for some data, for such in-between frames.
 - `CountUp` also counts when its value changes, from what it shows to the new value, even halfway through a count, and `CountUp::start_at_value` leaves out the first count from zero. Its digits keep the width of the widest one, so a number does not shake as it counts.
@@ -12,6 +22,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - Raven Finanças: on another account, the dashboard's figures count to their new values and its balance, income and expense and category charts move to their new shapes.
 
 ### Fixed
+
+- `#[ravenrs_live::expose]` preserves conditional compilation on methods, constants and module functions. The `live` feature can be used without image decoding, including in `ravenrs-movie`.
 
 - `TileLayout` keeps the same 16 px margin around what a tile holds, on both sides of the header too, and its header is tall enough for a small control (a `Select`, a button) to keep 8 px above and below it. The corner that resizes is two diagonal strokes in that margin, along the curve of the edge, instead of a few dots over the content: faint while the pointer is over the tile, plain under the pointer and while it drags. A tile's content is 12 px shorter and 8 px narrower.
 - A chart with `tight_scale` keeps a little room above its peak and below its lowest point: the scale ends there instead of at the next round number, so a peak no longer runs along the top edge of the plot.

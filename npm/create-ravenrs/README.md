@@ -55,10 +55,9 @@ npm run test:e2e:linux -- /path/to/RavenRS-with-cargo-ravenrs
 ```
 
 `prepare-release` reads the workspace version and toolchain and records them in the package;
-`prepack` rejects stale release metadata. Publish only after a Git release tag contains
-`crates/cargo-ravenrs` and its lockfile. The `v27.1.22` tag predates this CLI, so this initial
-package version is a development placeholder and must advance with the CLI's first release.
-Publication is manual and requires Alex's explicit request.
+`prepack` rejects stale release metadata. The first supported release is `27.1.23`;
+its Git tag includes `crates/cargo-ravenrs` and the matching lockfile. Package versions
+and CLI tags advance together. Publication is performed by the maintainer after validation.
 
 The Linux test runs in a disposable Docker container (Docker Desktop's Linux VM on a Mac).
 It starts without Rust, uses an isolated Git fixture for the unpublished CLI tag and local

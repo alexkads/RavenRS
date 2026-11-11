@@ -50,6 +50,11 @@ fn templates_embed_the_versioned_examples_and_published_dependencies() {
             let files = project_files("sample-app", template, target).unwrap();
             let manifest = &files.iter().find(|f| f.path == "Cargo.toml").unwrap().contents;
             assert!(!manifest.contains("workspace = true"));
+            let parsed: toml_edit::DocumentMut = manifest.parse().unwrap();
+            assert_eq!(
+                parsed["package"]["rust-version"].as_str(),
+                Some(if template == "app-sqlite" { "1.89" } else { "1.88" })
+            );
             assert!(!manifest.contains("path ="));
             assert!(manifest.contains(&format!("={VERSION}")));
             assert_eq!(files.iter().any(|f| f.path == "web/index.html"), target != "desktop");

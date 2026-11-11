@@ -256,8 +256,7 @@ cargo ravenrs new minha-loja
 ```
 
 Use `--tag vYY.R.P` when installing to match a particular release.
-See [the CLI guide](crates/cargo-ravenrs/README.md). The npm package becomes available after
-the CLI's first release tag and npm publication.
+See [the CLI guide](crates/cargo-ravenrs/README.md).
 
 
 ## Run the examples

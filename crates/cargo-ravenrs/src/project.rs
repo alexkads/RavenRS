@@ -49,7 +49,9 @@ pub fn project_files(name: &str, template: &str, target: &str) -> Result<Vec<Pro
     manifest["package"]["name"] = value(name);
     manifest["package"]["version"] = value("0.1.0");
     for key in ["edition", "rust-version", "license"] {
-        manifest["package"][key] = workspace["workspace"]["package"][key].clone();
+        if manifest["package"][key].get("workspace").and_then(Item::as_bool) == Some(true) {
+            manifest["package"][key] = workspace["workspace"]["package"][key].clone();
+        }
     }
     manifest.as_table_mut().remove("lints");
     manifest.as_table_mut().remove("dev-dependencies");

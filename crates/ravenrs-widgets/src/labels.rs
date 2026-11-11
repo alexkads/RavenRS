@@ -778,45 +778,45 @@ pub struct Labels {
     pub color_reset: String,
     /// Count, sum, average, smallest and largest, as a grid's footer calls them.
     pub grid_summaries: [String; 5],
-    /// Runs the code of a [`Playground`](crate::Playground).
+    /// Runs the code of a `Playground`.
     pub playground_run: String,
-    /// Puts the chosen example of a [`Playground`](crate::Playground) back.
+    /// Puts the chosen example of a `Playground` back.
     pub playground_restore: String,
-    /// The examples of a [`Playground`](crate::Playground).
+    /// The examples of a `Playground`.
     pub playground_example: String,
-    /// The code tab of a [`Playground`](crate::Playground).
+    /// The code tab of a `Playground`.
     pub playground_code: String,
-    /// What the code of a [`Playground`](crate::Playground) makes.
+    /// What the code of a `Playground` makes.
     pub playground_result: String,
-    /// The result a [`Playground`](crate::Playground) keeps while the code has problems.
+    /// The result a `Playground` keeps while the code has problems.
     pub playground_last_good: String,
     /// Before the line of a problem.
     pub playground_line: String,
     /// Before the column of a problem.
     pub playground_column: String,
-    /// Saves what the code of a [`Playground`](crate::Playground) makes as a file to keep.
+    /// Saves what the code of a `Playground` makes as a file to keep.
     pub playground_download: String,
-    /// The panel under the result of a [`Playground`](crate::Playground).
+    /// The panel under the result of a `Playground`.
     pub playground_output: String,
-    /// What the code of a [`Playground`](crate::Playground) printed.
+    /// What the code of a `Playground` printed.
     pub playground_console: String,
-    /// The problems of the code of a [`Playground`](crate::Playground).
+    /// The problems of the code of a `Playground`.
     pub playground_problems: String,
-    /// When the code of a [`Playground`](crate::Playground) has none.
+    /// When the code of a `Playground` has none.
     pub playground_no_problems: String,
-    /// When the code of a [`Playground`](crate::Playground) printed nothing.
+    /// When the code of a `Playground` printed nothing.
     pub playground_nothing_printed: String,
-    /// Empties the output of a [`Playground`](crate::Playground).
+    /// Empties the output of a `Playground`.
     pub playground_clear_output: String,
-    /// Folds the output of a [`Playground`](crate::Playground) away.
+    /// Folds the output of a `Playground` away.
     pub playground_hide_output: String,
-    /// Opens the output of a [`Playground`](crate::Playground) again.
+    /// Opens the output of a `Playground` again.
     pub playground_show_output: String,
-    /// The menu of a narrow [`Playground`](crate::Playground) with what is not Run.
+    /// The menu of a narrow `Playground` with what is not Run.
     pub playground_more: String,
-    /// Puts a [`Playground`](crate::Playground) in full screen.
+    /// Puts a `Playground` in full screen.
     pub playground_full_screen: String,
-    /// Takes a [`Playground`](crate::Playground) out of full screen.
+    /// Takes a `Playground` out of full screen.
     pub playground_exit_full_screen: String,
 }
 

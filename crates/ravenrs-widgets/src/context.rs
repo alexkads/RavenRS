@@ -1507,6 +1507,7 @@ struct Numbers {
     easing: ravenrs_animation::Easing,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Numbers {
     fn at(values: &[f64]) -> Self {
         let easing = ravenrs_animation::Easing::Linear;

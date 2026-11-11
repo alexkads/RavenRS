@@ -1,6 +1,6 @@
 {
   "name": "create-ravenrs",
-  "version": "27.1.22",
+  "version": "27.1.23",
   "description": "Prepare Rust and create a RavenRS project with version-matched AI tooling.",
   "type": "module",
   "license": "MIT OR Apache-2.0",

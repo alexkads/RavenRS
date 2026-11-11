@@ -3,7 +3,7 @@ name = "tasks-sqlite"
 description = "A whole application from its records, in under 100 lines, in a window and in the browser."
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
+rust-version = "1.89"
 license.workspace = true
 publish = false
 
