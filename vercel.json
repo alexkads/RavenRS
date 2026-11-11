@@ -1,0 +1,2016 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "trailingSlash": true,
+  "rewrites": [
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Accordion"
+        }
+      ],
+      "destination": "/playground/examples/accordion/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Alert"
+        }
+      ],
+      "destination": "/playground/examples/alert/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Anchor"
+        }
+      ],
+      "destination": "/playground/examples/anchor/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "AppShell"
+        }
+      ],
+      "destination": "/playground/examples/appshell/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "AreaChart"
+        }
+      ],
+      "destination": "/playground/examples/areachart/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "AspectRatio"
+        }
+      ],
+      "destination": "/playground/examples/aspectratio/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "AttachmentStrip"
+        }
+      ],
+      "destination": "/playground/examples/attachmentstrip/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "AudioPlayerButton"
+        }
+      ],
+      "destination": "/playground/examples/audioplayerbutton/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Avatar"
+        }
+      ],
+      "destination": "/playground/examples/avatar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Badge"
+        }
+      ],
+      "destination": "/playground/examples/badge/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "BarChart"
+        }
+      ],
+      "destination": "/playground/examples/barchart/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Barcode"
+        }
+      ],
+      "destination": "/playground/examples/barcode/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Breadcrumb"
+        }
+      ],
+      "destination": "/playground/examples/breadcrumb/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Button"
+        }
+      ],
+      "destination": "/playground/examples/button/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ButtonGroup"
+        }
+      ],
+      "destination": "/playground/examples/buttongroup/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Calendar"
+        }
+      ],
+      "destination": "/playground/examples/calendar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Canvas"
+        }
+      ],
+      "destination": "/playground/examples/canvas/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Card"
+        }
+      ],
+      "destination": "/playground/examples/card/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "CardView"
+        }
+      ],
+      "destination": "/playground/examples/cardview/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Carousel"
+        }
+      ],
+      "destination": "/playground/examples/carousel/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Chart"
+        }
+      ],
+      "destination": "/playground/examples/chart/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ChartCard"
+        }
+      ],
+      "destination": "/playground/examples/chartcard/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ChartReference"
+        }
+      ],
+      "destination": "/playground/examples/chartreference/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Chat"
+        }
+      ],
+      "destination": "/playground/examples/chat/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Checkbox"
+        }
+      ],
+      "destination": "/playground/examples/checkbox/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "CodeBlock"
+        }
+      ],
+      "destination": "/playground/examples/codeblock/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "CodeEditor"
+        }
+      ],
+      "destination": "/playground/examples/codeeditor/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Collapse"
+        }
+      ],
+      "destination": "/playground/examples/collapse/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ColorPair"
+        }
+      ],
+      "destination": "/playground/examples/colorpair/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ColorPicker"
+        }
+      ],
+      "destination": "/playground/examples/colorpicker/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ColorSwatch"
+        }
+      ],
+      "destination": "/playground/examples/colorswatch/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ColorWheel"
+        }
+      ],
+      "destination": "/playground/examples/colorwheel/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Combobox"
+        }
+      ],
+      "destination": "/playground/examples/combobox/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "CommandPalette"
+        }
+      ],
+      "destination": "/playground/examples/commandpalette/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "CompareView"
+        }
+      ],
+      "destination": "/playground/examples/compareview/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ConfirmDialog"
+        }
+      ],
+      "destination": "/playground/examples/confirmdialog/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ContextMenu"
+        }
+      ],
+      "destination": "/playground/examples/contextmenu/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "CountUp"
+        }
+      ],
+      "destination": "/playground/examples/countup/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "CropOverlay"
+        }
+      ],
+      "destination": "/playground/examples/cropoverlay/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "CurveEditor"
+        }
+      ],
+      "destination": "/playground/examples/curveeditor/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "DataGrid"
+        }
+      ],
+      "destination": "/playground/examples/datagrid/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "DatePicker"
+        }
+      ],
+      "destination": "/playground/examples/datepicker/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "DateRangePicker"
+        }
+      ],
+      "destination": "/playground/examples/daterangepicker/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "DateTimePicker"
+        }
+      ],
+      "destination": "/playground/examples/datetimepicker/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "DaySeparator"
+        }
+      ],
+      "destination": "/playground/examples/dayseparator/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Dialog"
+        }
+      ],
+      "destination": "/playground/examples/dialog/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Disclosure"
+        }
+      ],
+      "destination": "/playground/examples/disclosure/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Divider"
+        }
+      ],
+      "destination": "/playground/examples/divider/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "DockArea"
+        }
+      ],
+      "destination": "/playground/examples/dockarea/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "DocumentTabs"
+        }
+      ],
+      "destination": "/playground/examples/documenttabs/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Dot"
+        }
+      ],
+      "destination": "/playground/examples/dot/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "DropdownMenu"
+        }
+      ],
+      "destination": "/playground/examples/dropdownmenu/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "DropZone"
+        }
+      ],
+      "destination": "/playground/examples/dropzone/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "EmptyState"
+        }
+      ],
+      "destination": "/playground/examples/emptystate/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "EventCalendar"
+        }
+      ],
+      "destination": "/playground/examples/eventcalendar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ExpressionEditor"
+        }
+      ],
+      "destination": "/playground/examples/expressioneditor/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Eyedropper"
+        }
+      ],
+      "destination": "/playground/examples/eyedropper/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "FavoriteToggle"
+        }
+      ],
+      "destination": "/playground/examples/favoritetoggle/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "FileBrowser"
+        }
+      ],
+      "destination": "/playground/examples/filebrowser/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "FileUpload"
+        }
+      ],
+      "destination": "/playground/examples/fileupload/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Filmstrip"
+        }
+      ],
+      "destination": "/playground/examples/filmstrip/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "FilterBuilder"
+        }
+      ],
+      "destination": "/playground/examples/filterbuilder/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "FloatingPanel"
+        }
+      ],
+      "destination": "/playground/examples/floatingpanel/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "FloatingToolbar"
+        }
+      ],
+      "destination": "/playground/examples/floatingtoolbar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Footer"
+        }
+      ],
+      "destination": "/playground/examples/footer/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "FormField"
+        }
+      ],
+      "destination": "/playground/examples/formfield/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "FormLayout"
+        }
+      ],
+      "destination": "/playground/examples/formlayout/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "GlassCard"
+        }
+      ],
+      "destination": "/playground/examples/glasscard/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Grid"
+        }
+      ],
+      "destination": "/playground/examples/grid/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "HelpTip"
+        }
+      ],
+      "destination": "/playground/examples/helptip/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "HeroBanner"
+        }
+      ],
+      "destination": "/playground/examples/herobanner/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Histogram"
+        }
+      ],
+      "destination": "/playground/examples/histogram/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "HoverCard"
+        }
+      ],
+      "destination": "/playground/examples/hovercard/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "HStack"
+        }
+      ],
+      "destination": "/playground/examples/hstack/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Icon"
+        }
+      ],
+      "destination": "/playground/examples/icon/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "IconButton"
+        }
+      ],
+      "destination": "/playground/examples/iconbutton/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "IconTile"
+        }
+      ],
+      "destination": "/playground/examples/icontile/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Image"
+        }
+      ],
+      "destination": "/playground/examples/image/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ImageField"
+        }
+      ],
+      "destination": "/playground/examples/imagefield/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ImageLightbox"
+        }
+      ],
+      "destination": "/playground/examples/imagelightbox/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "InlineRename"
+        }
+      ],
+      "destination": "/playground/examples/inlinerename/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "InputOtp"
+        }
+      ],
+      "destination": "/playground/examples/inputotp/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Kbd"
+        }
+      ],
+      "destination": "/playground/examples/kbd/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Label"
+        }
+      ],
+      "destination": "/playground/examples/label/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Link"
+        }
+      ],
+      "destination": "/playground/examples/link/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "List"
+        }
+      ],
+      "destination": "/playground/examples/list/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "LookupField"
+        }
+      ],
+      "destination": "/playground/examples/lookupfield/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Lottie"
+        }
+      ],
+      "destination": "/playground/examples/lottie/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Marquee"
+        }
+      ],
+      "destination": "/playground/examples/marquee/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "MaskedField"
+        }
+      ],
+      "destination": "/playground/examples/maskedfield/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Menubar"
+        }
+      ],
+      "destination": "/playground/examples/menubar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Minimap"
+        }
+      ],
+      "destination": "/playground/examples/minimap/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ModelPicker"
+        }
+      ],
+      "destination": "/playground/examples/modelpicker/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "MovieAssistant"
+        }
+      ],
+      "destination": "/playground/examples/movieassistant/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "MoviePlayer"
+        }
+      ],
+      "destination": "/playground/examples/movieplayer/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "MultiProgress"
+        }
+      ],
+      "destination": "/playground/examples/multiprogress/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "NinePointAnchor"
+        }
+      ],
+      "destination": "/playground/examples/ninepointanchor/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "NumberField"
+        }
+      ],
+      "destination": "/playground/examples/numberfield/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "OverlayBadge"
+        }
+      ],
+      "destination": "/playground/examples/overlaybadge/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "PagedDocumentView"
+        }
+      ],
+      "destination": "/playground/examples/pageddocumentview/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "PageHeader"
+        }
+      ],
+      "destination": "/playground/examples/pageheader/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Pagination"
+        }
+      ],
+      "destination": "/playground/examples/pagination/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Playground"
+        }
+      ],
+      "destination": "/playground/examples/playground/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Popover"
+        }
+      ],
+      "destination": "/playground/examples/popover/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ProgressBar"
+        }
+      ],
+      "destination": "/playground/examples/progressbar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "PropertyRow"
+        }
+      ],
+      "destination": "/playground/examples/propertyrow/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Protractor"
+        }
+      ],
+      "destination": "/playground/examples/protractor/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "QuadField"
+        }
+      ],
+      "destination": "/playground/examples/quadfield/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "RadioGroup"
+        }
+      ],
+      "destination": "/playground/examples/radiogroup/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Rating"
+        }
+      ],
+      "destination": "/playground/examples/rating/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "RecurrenceEditor"
+        }
+      ],
+      "destination": "/playground/examples/recurrenceeditor/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ReleaseNotes"
+        }
+      ],
+      "destination": "/playground/examples/releasenotes/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Ribbon"
+        }
+      ],
+      "destination": "/playground/examples/ribbon/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "RichText"
+        }
+      ],
+      "destination": "/playground/examples/richtext/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "RubberBand"
+        }
+      ],
+      "destination": "/playground/examples/rubberband/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "RuleOfThirdsGrid"
+        }
+      ],
+      "destination": "/playground/examples/ruleofthirdsgrid/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Ruler"
+        }
+      ],
+      "destination": "/playground/examples/ruler/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "SankeyChart"
+        }
+      ],
+      "destination": "/playground/examples/sankeychart/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Scheduler"
+        }
+      ],
+      "destination": "/playground/examples/scheduler/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ScrollEdgeArrow"
+        }
+      ],
+      "destination": "/playground/examples/scrolledgearrow/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ScrollLinked"
+        }
+      ],
+      "destination": "/playground/examples/scrolllinked/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ScrollScene"
+        }
+      ],
+      "destination": "/playground/examples/scrollscene/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ScrollView"
+        }
+      ],
+      "destination": "/playground/examples/scrollview/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Section"
+        }
+      ],
+      "destination": "/playground/examples/section/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "SegmentedControl"
+        }
+      ],
+      "destination": "/playground/examples/segmentedcontrol/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Select"
+        }
+      ],
+      "destination": "/playground/examples/select/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "SelectionBar"
+        }
+      ],
+      "destination": "/playground/examples/selectionbar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Sheet"
+        }
+      ],
+      "destination": "/playground/examples/sheet/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ShimmerText"
+        }
+      ],
+      "destination": "/playground/examples/shimmertext/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ShortcutHintBar"
+        }
+      ],
+      "destination": "/playground/examples/shortcuthintbar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ShortcutSheet"
+        }
+      ],
+      "destination": "/playground/examples/shortcutsheet/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Sidebar"
+        }
+      ],
+      "destination": "/playground/examples/sidebar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "SidebarBrand"
+        }
+      ],
+      "destination": "/playground/examples/sidebarbrand/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Skeleton"
+        }
+      ],
+      "destination": "/playground/examples/skeleton/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Slider"
+        }
+      ],
+      "destination": "/playground/examples/slider/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "SortableList"
+        }
+      ],
+      "destination": "/playground/examples/sortablelist/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Spacer"
+        }
+      ],
+      "destination": "/playground/examples/spacer/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Spinner"
+        }
+      ],
+      "destination": "/playground/examples/spinner/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "SplashScreen"
+        }
+      ],
+      "destination": "/playground/examples/splashscreen/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "SplitButton"
+        }
+      ],
+      "destination": "/playground/examples/splitbutton/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "SplitHandle"
+        }
+      ],
+      "destination": "/playground/examples/splithandle/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "SplitPanes"
+        }
+      ],
+      "destination": "/playground/examples/splitpanes/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Splitter"
+        }
+      ],
+      "destination": "/playground/examples/splitter/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Stat"
+        }
+      ],
+      "destination": "/playground/examples/stat/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "StatusBar"
+        }
+      ],
+      "destination": "/playground/examples/statusbar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "StepBadge"
+        }
+      ],
+      "destination": "/playground/examples/stepbadge/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "StepIndicator"
+        }
+      ],
+      "destination": "/playground/examples/stepindicator/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Stepper"
+        }
+      ],
+      "destination": "/playground/examples/stepper/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Sticky"
+        }
+      ],
+      "destination": "/playground/examples/sticky/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "SwatchGrid"
+        }
+      ],
+      "destination": "/playground/examples/swatchgrid/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Table"
+        }
+      ],
+      "destination": "/playground/examples/table/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Tabs"
+        }
+      ],
+      "destination": "/playground/examples/tabs/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "TagBox"
+        }
+      ],
+      "destination": "/playground/examples/tagbox/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Text"
+        }
+      ],
+      "destination": "/playground/examples/text/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "TextArea"
+        }
+      ],
+      "destination": "/playground/examples/textarea/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "TextField"
+        }
+      ],
+      "destination": "/playground/examples/textfield/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ThemeEditor"
+        }
+      ],
+      "destination": "/playground/examples/themeeditor/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ThemePicker"
+        }
+      ],
+      "destination": "/playground/examples/themepicker/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ThemeSwitcher"
+        }
+      ],
+      "destination": "/playground/examples/themeswitcher/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Ticker"
+        }
+      ],
+      "destination": "/playground/examples/ticker/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "TileLayout"
+        }
+      ],
+      "destination": "/playground/examples/tilelayout/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Timeline"
+        }
+      ],
+      "destination": "/playground/examples/timeline/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "TimePicker"
+        }
+      ],
+      "destination": "/playground/examples/timepicker/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "TitleBar"
+        }
+      ],
+      "destination": "/playground/examples/titlebar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Toaster"
+        }
+      ],
+      "destination": "/playground/examples/toaster/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Toggle"
+        }
+      ],
+      "destination": "/playground/examples/toggle/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ToggleButton"
+        }
+      ],
+      "destination": "/playground/examples/togglebutton/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ToggleGroup"
+        }
+      ],
+      "destination": "/playground/examples/togglegroup/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Toolbar"
+        }
+      ],
+      "destination": "/playground/examples/toolbar/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ToolRail"
+        }
+      ],
+      "destination": "/playground/examples/toolrail/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Tooltip"
+        }
+      ],
+      "destination": "/playground/examples/tooltip/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "TransformHandles"
+        }
+      ],
+      "destination": "/playground/examples/transformhandles/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "TreeView"
+        }
+      ],
+      "destination": "/playground/examples/treeview/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ValueSlider"
+        }
+      ],
+      "destination": "/playground/examples/valueslider/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "VirtualList"
+        }
+      ],
+      "destination": "/playground/examples/virtuallist/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "VStack"
+        }
+      ],
+      "destination": "/playground/examples/vstack/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "Wizard"
+        }
+      ],
+      "destination": "/playground/examples/wizard/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "YearView"
+        }
+      ],
+      "destination": "/playground/examples/yearview/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ZoomControl"
+        }
+      ],
+      "destination": "/playground/examples/zoomcontrol/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ZoomPanView"
+        }
+      ],
+      "destination": "/playground/examples/zoompanview/index.html"
+    },
+    {
+      "source": "/playground/",
+      "has": [
+        {
+          "type": "query",
+          "key": "example",
+          "value": "ZStack"
+        }
+      ],
+      "destination": "/playground/examples/zstack/index.html"
+    },
+    {
+      "source": "/api/:path*/",
+      "destination": "/reference/:path*/index.html"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/reference/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)\\.wasm",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/wasm"
+        }
+      ]
+    }
+  ]
+}

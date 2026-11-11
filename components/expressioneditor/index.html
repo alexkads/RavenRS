@@ -1,15 +1,13 @@
-<!doctype html>
-<html lang="en">
-<head>
+<!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ExpressionEditor · RavenRS</title>
-<meta name="description" content="An expression in several lines, with the fields, functions and operators that go in it and a check as it changes">
+<title>ExpressionEditor — Rust GUI component · RavenRS</title>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
 <link rel="stylesheet" href="../style.css">
-</head>
+<meta name="description" content="An expression in several lines, with the fields, functions and operators that go in it and a check as it changes. Explore a live ExpressionEditor example, Rust source and API documentation for desktop and WebAssembly."><link rel="canonical" href="https://ravenrs.vercel.app/components/expressioneditor/"><meta property="og:title" content="ExpressionEditor — Rust GUI component · RavenRS"><meta property="og:description" content="An expression in several lines, with the fields, functions and operators that go in it and a check as it changes. Explore a live ExpressionEditor example, Rust source and API documentation for desktop and WebAssembly."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/components/expressioneditor/"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/component-expressioneditor.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/component-expressioneditor.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="ExpressionEditor — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="ExpressionEditor — Rust GUI component · RavenRS"><meta name="twitter:description" content="An expression in several lines, with the fields, functions and operators that go in it and a check as it changes. Explore a live ExpressionEditor example, Rust source and API documentation for desktop and WebAssembly."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/component-expressioneditor.png"><meta name="twitter:image:alt" content="ExpressionEditor — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"ExpressionEditor — Rust GUI component · RavenRS","description":"An expression in several lines, with the fields, functions and operators that go in it and a check as it changes. Explore a live ExpressionEditor example, Rust source and API documentation for desktop and WebAssembly.","url":"https://ravenrs.vercel.app/components/expressioneditor/","version":"27.1.27","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 178 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.27","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head>
 <body>
 <nav class="nav" aria-label="Main">
   <a class="brand" href="../../"><span class="mark"><i></i></span>RavenRS</a>
@@ -34,10 +32,10 @@
     <p class="lede">An expression in several lines, with the fields, functions and operators that go in it and a check as it changes.</p>
     <h2 class="block">Example</h2>
     <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
-    <iframe class="stage" src="../../demo/?component=ExpressionEditor" title="Live example of ExpressionEditor" height="668" allow="fullscreen" allowfullscreen></iframe>
+    <iframe class="stage" src="../../demo/?component=ExpressionEditor" title="Live example of ExpressionEditor" height="668" allow="fullscreen" allowfullscreen=""></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
-      <button class="copy" type="button" hidden>Copy</button>
+      <button class="copy" type="button" hidden="">Copy</button>
     </div>
     <pre class="code" tabindex="0"><code><span class="t-keyword">use</span> ravenrs::prelude::*;
 
@@ -49,7 +47,7 @@
         .parameter(<span class="t-type">FilterField</span>::new(<span class="t-string">"MinTotal"</span>, <span class="t-string">"Least total"</span>, <span class="t-type">FilterFieldKind</span>::<span class="t-type">Number</span>))
 }
 </code></pre>
-    <p><a class="more" href="../../playground/?example=ExpressionEditor">Open in the playground, with every example →</a></p>
+    <p><a class="more" href="/RavenRS/playground/examples/expressioneditor/">Open in the playground, with every example →</a></p>
     <p><a class="more" href="../../api/ravenrs_widgets/struct.ExpressionEditor.html">Full API of ExpressionEditor →</a></p>
     <nav class="pager" aria-label="Other components"><a href="../eventcalendar/">← EventCalendar</a><a href="../eyedropper/">Eyedropper →</a></nav>
   </main>
@@ -65,5 +63,6 @@
     });
   }
 </script>
-</body>
-</html>
+
+
+</body></html>

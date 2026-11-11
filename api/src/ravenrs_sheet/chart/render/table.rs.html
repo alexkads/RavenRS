@@ -1,108 +1,108 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/ravenrs-sheet/src/chart/render/table.rs`."><title>table.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_sheet" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_sheet/chart/render/</div>table.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! The chart data table uses the same primitives as the plot, including in print/PDF output.
-<a href=#2 id=2 data-nosnippet>2</a>
-<a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span><span class="kw">super</span>::frame::{Bx, CatAxis, level_groups};
-<a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span><span class="kw">super</span>::legend::{Swatch, cat_label, draw_swatch, plot_kind};
-<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use super</span>::{AXIS, Chart, ChartData, ChartKind, Ctx, Fmt, HAlign, LABEL_SIZE, TEXT, VAlign};
-<a href=#6 id=6 data-nosnippet>6</a>
-<a href=#7 id=7 data-nosnippet>7</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>Layout {
-<a href=#8 id=8 data-nosnippet>8</a>    top: f32,
-<a href=#9 id=9 data-nosnippet>9</a>    row_height: f32,
-<a href=#10 id=10 data-nosnippet>10</a>    headers: usize,
-<a href=#11 id=11 data-nosnippet>11</a>    stub: f32,
-<a href=#12 id=12 data-nosnippet>12</a>    columns: usize,
-<a href=#13 id=13 data-nosnippet>13</a>}
-<a href=#14 id=14 data-nosnippet>14</a>
-<a href=#15 id=15 data-nosnippet>15</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>category_axis&lt;<span class="lifetime">'a</span>&gt;(layout: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Layout&gt;, labels: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[String], outer: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[Vec&lt;String&gt;]) -&gt; CatAxis&lt;<span class="lifetime">'a</span>&gt; {
-<a href=#16 id=16 data-nosnippet>16</a>    <span class="kw">match </span>layout {
-<a href=#17 id=17 data-nosnippet>17</a>        <span class="prelude-val">Some</span>(t) =&gt; CatAxis::Table(labels, t.stub),
-<a href=#18 id=18 data-nosnippet>18</a>        <span class="prelude-val">None </span>=&gt; CatAxis::Labels(labels, outer),
-<a href=#19 id=19 data-nosnippet>19</a>    }
-<a href=#20 id=20 data-nosnippet>20</a>}
-<a href=#21 id=21 data-nosnippet>21</a>
-<a href=#22 id=22 data-nosnippet>22</a><span class="doccomment">/// Reserve at most half the available height. A table that cannot fit is explicitly labelled
-<a href=#23 id=23 data-nosnippet>23</a>/// instead of dropping rows or allocating a series × point-sized matrix.
-<a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>reserve(ctx: <span class="kw-2">&amp;mut </span>Ctx, chart: <span class="kw-2">&amp;</span>Chart, data: <span class="kw-2">&amp;</span>ChartData, <span class="kw-2">mut </span>area: Bx, columns: usize) -&gt; (Bx, <span class="prelude-ty">Option</span>&lt;Layout&gt;) {
-<a href=#25 id=25 data-nosnippet>25</a>    <span class="kw">if </span>chart.data_table.is_none() || !chart.supports_data_table() {
-<a href=#26 id=26 data-nosnippet>26</a>        <span class="kw">return </span>(area, <span class="prelude-val">None</span>);
-<a href=#27 id=27 data-nosnippet>27</a>    }
-<a href=#28 id=28 data-nosnippet>28</a>    <span class="kw">let </span>headers = data.category_levels.len() + <span class="number">1</span>;
-<a href=#29 id=29 data-nosnippet>29</a>    <span class="kw">let </span>rows = headers + data.series.len();
-<a href=#30 id=30 data-nosnippet>30</a>    <span class="kw">let </span>row_height = LABEL_SIZE * <span class="number">1.4 </span>+ <span class="number">4.0</span>;
-<a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">let </span>height = row_height * rows <span class="kw">as </span>f32;
-<a href=#32 id=32 data-nosnippet>32</a>    <span class="kw">let </span>key_width = <span class="kw">if </span>chart.data_table.as_ref().is_some_and(|t| t.show_keys) { <span class="number">22.0 </span>} <span class="kw">else </span>{ <span class="number">0.0 </span>};
-<a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">let </span>names = data.series.iter().take(<span class="number">32</span>).map(|s| ctx.tw(<span class="kw-2">&amp;</span>s.name, LABEL_SIZE)).fold(<span class="number">0.0f32</span>, f32::max);
-<a href=#34 id=34 data-nosnippet>34</a>    <span class="kw">let </span>stub = (names + key_width + <span class="number">10.0</span>).clamp(<span class="number">24.0</span>, (area.w * <span class="number">0.3</span>).max(<span class="number">24.0</span>));
-<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">if </span>columns == <span class="number">0 </span>|| columns &gt; <span class="number">128 </span>|| data.series.len() &gt; <span class="number">32 </span>|| height &gt; area.h * <span class="number">0.5 </span>|| (area.w * <span class="number">0.6</span>) / (columns <span class="kw">as </span>f32) &lt; <span class="number">18.0 </span>{
-<a href=#36 id=36 data-nosnippet>36</a>        <span class="kw">let </span>message = ctx.fit(<span class="string">"Data table needs more space"</span>, LABEL_SIZE, area.w);
-<a href=#37 id=37 data-nosnippet>37</a>        ctx.text(area.cx(), area.bottom(), <span class="kw-2">&amp;</span>message, LABEL_SIZE, TEXT, (HAlign::Center, VAlign::Bottom));
-<a href=#38 id=38 data-nosnippet>38</a>        area.h -= row_height;
-<a href=#39 id=39 data-nosnippet>39</a>        <span class="kw">return </span>(area, <span class="prelude-val">None</span>);
-<a href=#40 id=40 data-nosnippet>40</a>    }
-<a href=#41 id=41 data-nosnippet>41</a>    area.h -= height;
-<a href=#42 id=42 data-nosnippet>42</a>    (area, <span class="prelude-val">Some</span>(Layout { top: area.bottom(), row_height, headers, stub, columns }))
-<a href=#43 id=43 data-nosnippet>43</a>}
-<a href=#44 id=44 data-nosnippet>44</a>
-<a href=#45 id=45 data-nosnippet>45</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>draw(ctx: <span class="kw-2">&amp;mut </span>Ctx, chart: <span class="kw-2">&amp;</span>Chart, data: <span class="kw-2">&amp;</span>ChartData, plot: Bx, layout: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Layout&gt;) {
-<a href=#46 id=46 data-nosnippet>46</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(layout) = layout <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#47 id=47 data-nosnippet>47</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(settings) = <span class="kw-2">&amp;</span>chart.data_table <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#48 id=48 data-nosnippet>48</a>    <span class="kw">let </span>x0 = plot.x - layout.stub;
-<a href=#49 id=49 data-nosnippet>49</a>    <span class="kw">let </span>top = layout.top;
-<a href=#50 id=50 data-nosnippet>50</a>    <span class="kw">let </span>rows = layout.headers + data.series.len();
-<a href=#51 id=51 data-nosnippet>51</a>    <span class="kw">let </span>bottom = top + layout.row_height * rows <span class="kw">as </span>f32;
-<a href=#52 id=52 data-nosnippet>52</a>    <span class="kw">let </span>cw = plot.w / layout.columns <span class="kw">as </span>f32;
-<a href=#53 id=53 data-nosnippet>53</a>    <span class="comment">// Outermost category level first, then the individual categories.
-<a href=#54 id=54 data-nosnippet>54</a>    </span><span class="kw">for </span>(i, level) <span class="kw">in </span>data.category_levels.iter().rev().enumerate() {
-<a href=#55 id=55 data-nosnippet>55</a>        <span class="kw">for </span>(first, end) <span class="kw">in </span>level_groups(level, layout.columns) {
-<a href=#56 id=56 data-nosnippet>56</a>            <span class="kw">let </span>text = level.get(first).map(String::as_str).unwrap_or(<span class="string">""</span>);
-<a href=#57 id=57 data-nosnippet>57</a>            <span class="kw">let </span>text = ctx.fit(text, LABEL_SIZE, (end - first) <span class="kw">as </span>f32 * cw - <span class="number">4.0</span>);
-<a href=#58 id=58 data-nosnippet>58</a>            <span class="kw">let </span>x = plot.x + (first + end) <span class="kw">as </span>f32 * cw / <span class="number">2.0</span>;
-<a href=#59 id=59 data-nosnippet>59</a>            ctx.text(x, top + (i <span class="kw">as </span>f32 + <span class="number">0.5</span>) * layout.row_height, <span class="kw-2">&amp;</span>text, LABEL_SIZE, TEXT, (HAlign::Center, VAlign::Middle));
-<a href=#60 id=60 data-nosnippet>60</a>        }
-<a href=#61 id=61 data-nosnippet>61</a>    }
-<a href=#62 id=62 data-nosnippet>62</a>    <span class="kw">let </span>header_y = top + (layout.headers <span class="kw">as </span>f32 - <span class="number">0.5</span>) * layout.row_height;
-<a href=#63 id=63 data-nosnippet>63</a>    <span class="kw">let </span>n = data.categories.len().max(data.series.iter().map(|s| s.values.len()).max().unwrap_or(<span class="number">0</span>));
-<a href=#64 id=64 data-nosnippet>64</a>    <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..layout.columns {
-<a href=#65 id=65 data-nosnippet>65</a>        <span class="kw">let </span>text = <span class="kw">if </span>j &lt; n { cat_label(data, j) } <span class="kw">else </span>{ String::new() };
-<a href=#66 id=66 data-nosnippet>66</a>        <span class="kw">let </span>text = ctx.fit(<span class="kw-2">&amp;</span>text, LABEL_SIZE, cw - <span class="number">4.0</span>);
-<a href=#67 id=67 data-nosnippet>67</a>        ctx.text(plot.x + (j <span class="kw">as </span>f32 + <span class="number">0.5</span>) * cw, header_y, <span class="kw-2">&amp;</span>text, LABEL_SIZE, TEXT, (HAlign::Center, VAlign::Middle));
-<a href=#68 id=68 data-nosnippet>68</a>    }
-<a href=#69 id=69 data-nosnippet>69</a>    <span class="kw">for </span>(i, series) <span class="kw">in </span>data.series.iter().enumerate() {
-<a href=#70 id=70 data-nosnippet>70</a>        <span class="kw">let </span>y = top + (layout.headers <span class="kw">as </span>f32 + i <span class="kw">as </span>f32 + <span class="number">0.5</span>) * layout.row_height;
-<a href=#71 id=71 data-nosnippet>71</a>        <span class="kw">let </span>name_x = <span class="kw">if </span>settings.show_keys { x0 + <span class="number">25.0 </span>} <span class="kw">else </span>{ x0 + <span class="number">4.0 </span>};
-<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">if </span>settings.show_keys {
-<a href=#73 id=73 data-nosnippet>73</a>            <span class="kw">let </span>swatch = <span class="kw">match </span>plot_kind(chart, series, i) {
-<a href=#74 id=74 data-nosnippet>74</a>                ChartKind::Line | ChartKind::LineStacked =&gt; Swatch::Line,
-<a href=#75 id=75 data-nosnippet>75</a>                ChartKind::LineMarkers =&gt; Swatch::LineMarker,
-<a href=#76 id=76 data-nosnippet>76</a>                <span class="kw">_ </span>=&gt; Swatch::Box,
-<a href=#77 id=77 data-nosnippet>77</a>            };
-<a href=#78 id=78 data-nosnippet>78</a>            draw_swatch(ctx, swatch, x0 + <span class="number">4.0</span>, y, <span class="number">7.0</span>, series.color);
-<a href=#79 id=79 data-nosnippet>79</a>        }
-<a href=#80 id=80 data-nosnippet>80</a>        <span class="kw">let </span>name = ctx.fit(<span class="kw-2">&amp;</span>series.name, LABEL_SIZE, plot.x - name_x - <span class="number">4.0</span>);
-<a href=#81 id=81 data-nosnippet>81</a>        ctx.text(name_x, y, <span class="kw-2">&amp;</span>name, LABEL_SIZE, TEXT, (HAlign::Left, VAlign::Middle));
-<a href=#82 id=82 data-nosnippet>82</a>        <span class="kw">let </span>fmt = Fmt::new(<span class="kw-2">&amp;</span>series.number_format);
-<a href=#83 id=83 data-nosnippet>83</a>        <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..layout.columns {
-<a href=#84 id=84 data-nosnippet>84</a>            <span class="kw">let </span>value = series.values.get(j).copied().flatten().map(|v| fmt.format(v, <span class="prelude-val">None</span>)).unwrap_or_default();
-<a href=#85 id=85 data-nosnippet>85</a>            <span class="kw">let </span>text = ctx.fit(<span class="kw-2">&amp;</span>value, LABEL_SIZE, cw - <span class="number">4.0</span>);
-<a href=#86 id=86 data-nosnippet>86</a>            ctx.text(plot.x + (j <span class="kw">as </span>f32 + <span class="number">0.5</span>) * cw, y, <span class="kw-2">&amp;</span>text, LABEL_SIZE, TEXT, (HAlign::Center, VAlign::Middle));
-<a href=#87 id=87 data-nosnippet>87</a>        }
-<a href=#88 id=88 data-nosnippet>88</a>    }
-<a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">if </span>settings.horizontal_border {
-<a href=#90 id=90 data-nosnippet>90</a>        <span class="kw">for </span>row <span class="kw">in </span><span class="number">1</span>..rows {
-<a href=#91 id=91 data-nosnippet>91</a>            ctx.hline(x0, plot.right(), top + row <span class="kw">as </span>f32 * layout.row_height, AXIS, <span class="number">0.75</span>);
-<a href=#92 id=92 data-nosnippet>92</a>        }
-<a href=#93 id=93 data-nosnippet>93</a>    }
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="kw">if </span>settings.vertical_border {
-<a href=#95 id=95 data-nosnippet>95</a>        ctx.vline(plot.x, top, bottom, AXIS, <span class="number">0.75</span>);
-<a href=#96 id=96 data-nosnippet>96</a>        <span class="comment">// The outer headers span groups; category dividers begin at the innermost header.
-<a href=#97 id=97 data-nosnippet>97</a>        </span><span class="kw">for </span>j <span class="kw">in </span><span class="number">1</span>..layout.columns {
-<a href=#98 id=98 data-nosnippet>98</a>            ctx.vline(plot.x + j <span class="kw">as </span>f32 * cw, top + (layout.headers - <span class="number">1</span>) <span class="kw">as </span>f32 * layout.row_height, bottom, AXIS, <span class="number">0.75</span>);
-<a href=#99 id=99 data-nosnippet>99</a>        }
-<a href=#100 id=100 data-nosnippet>100</a>    }
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">if </span>settings.outline {
-<a href=#102 id=102 data-nosnippet>102</a>        ctx.hline(x0, plot.right(), top, AXIS, <span class="number">0.75</span>);
-<a href=#103 id=103 data-nosnippet>103</a>        ctx.hline(x0, plot.right(), bottom, AXIS, <span class="number">0.75</span>);
-<a href=#104 id=104 data-nosnippet>104</a>        ctx.vline(x0, top, bottom, AXIS, <span class="number">0.75</span>);
-<a href=#105 id=105 data-nosnippet>105</a>        ctx.vline(plot.right(), top, bottom, AXIS, <span class="number">0.75</span>);
-<a href=#106 id=106 data-nosnippet>106</a>    }
-<a href=#107 id=107 data-nosnippet>107</a>}
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>table.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_sheet" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-sheet/src/chart/render/table.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_sheet/chart/render/table.rs.html"><meta property="og:title" content="table.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-sheet/src/chart/render/table.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_sheet/chart/render/table.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="table.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-sheet/src/chart/render/table.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"table.rs - source","description":"Source of the Rust file `crates/ravenrs-sheet/src/chart/render/table.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_sheet/chart/render/table.rs.html","version":"27.1.27","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 178 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.27","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_sheet/chart/render/</div>table.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! The chart data table uses the same primitives as the plot, including in print/PDF output.
+<a href="#2" id="2" data-nosnippet="">2</a>
+<a href="#3" id="3" data-nosnippet="">3</a></span><span class="kw">use </span><span class="kw">super</span>::frame::{Bx, CatAxis, level_groups};
+<a href="#4" id="4" data-nosnippet="">4</a><span class="kw">use </span><span class="kw">super</span>::legend::{Swatch, cat_label, draw_swatch, plot_kind};
+<a href="#5" id="5" data-nosnippet="">5</a><span class="kw">use super</span>::{AXIS, Chart, ChartData, ChartKind, Ctx, Fmt, HAlign, LABEL_SIZE, TEXT, VAlign};
+<a href="#6" id="6" data-nosnippet="">6</a>
+<a href="#7" id="7" data-nosnippet="">7</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>Layout {
+<a href="#8" id="8" data-nosnippet="">8</a>    top: f32,
+<a href="#9" id="9" data-nosnippet="">9</a>    row_height: f32,
+<a href="#10" id="10" data-nosnippet="">10</a>    headers: usize,
+<a href="#11" id="11" data-nosnippet="">11</a>    stub: f32,
+<a href="#12" id="12" data-nosnippet="">12</a>    columns: usize,
+<a href="#13" id="13" data-nosnippet="">13</a>}
+<a href="#14" id="14" data-nosnippet="">14</a>
+<a href="#15" id="15" data-nosnippet="">15</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>category_axis&lt;<span class="lifetime">'a</span>&gt;(layout: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Layout&gt;, labels: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[String], outer: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[Vec&lt;String&gt;]) -&gt; CatAxis&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#16" id="16" data-nosnippet="">16</a>    <span class="kw">match </span>layout {
+<a href="#17" id="17" data-nosnippet="">17</a>        <span class="prelude-val">Some</span>(t) =&gt; CatAxis::Table(labels, t.stub),
+<a href="#18" id="18" data-nosnippet="">18</a>        <span class="prelude-val">None </span>=&gt; CatAxis::Labels(labels, outer),
+<a href="#19" id="19" data-nosnippet="">19</a>    }
+<a href="#20" id="20" data-nosnippet="">20</a>}
+<a href="#21" id="21" data-nosnippet="">21</a>
+<a href="#22" id="22" data-nosnippet="">22</a><span class="doccomment">/// Reserve at most half the available height. A table that cannot fit is explicitly labelled
+<a href="#23" id="23" data-nosnippet="">23</a>/// instead of dropping rows or allocating a series × point-sized matrix.
+<a href="#24" id="24" data-nosnippet="">24</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>reserve(ctx: <span class="kw-2">&amp;mut </span>Ctx, chart: <span class="kw-2">&amp;</span>Chart, data: <span class="kw-2">&amp;</span>ChartData, <span class="kw-2">mut </span>area: Bx, columns: usize) -&gt; (Bx, <span class="prelude-ty">Option</span>&lt;Layout&gt;) {
+<a href="#25" id="25" data-nosnippet="">25</a>    <span class="kw">if </span>chart.data_table.is_none() || !chart.supports_data_table() {
+<a href="#26" id="26" data-nosnippet="">26</a>        <span class="kw">return </span>(area, <span class="prelude-val">None</span>);
+<a href="#27" id="27" data-nosnippet="">27</a>    }
+<a href="#28" id="28" data-nosnippet="">28</a>    <span class="kw">let </span>headers = data.category_levels.len() + <span class="number">1</span>;
+<a href="#29" id="29" data-nosnippet="">29</a>    <span class="kw">let </span>rows = headers + data.series.len();
+<a href="#30" id="30" data-nosnippet="">30</a>    <span class="kw">let </span>row_height = LABEL_SIZE * <span class="number">1.4 </span>+ <span class="number">4.0</span>;
+<a href="#31" id="31" data-nosnippet="">31</a>    <span class="kw">let </span>height = row_height * rows <span class="kw">as </span>f32;
+<a href="#32" id="32" data-nosnippet="">32</a>    <span class="kw">let </span>key_width = <span class="kw">if </span>chart.data_table.as_ref().is_some_and(|t| t.show_keys) { <span class="number">22.0 </span>} <span class="kw">else </span>{ <span class="number">0.0 </span>};
+<a href="#33" id="33" data-nosnippet="">33</a>    <span class="kw">let </span>names = data.series.iter().take(<span class="number">32</span>).map(|s| ctx.tw(<span class="kw-2">&amp;</span>s.name, LABEL_SIZE)).fold(<span class="number">0.0f32</span>, f32::max);
+<a href="#34" id="34" data-nosnippet="">34</a>    <span class="kw">let </span>stub = (names + key_width + <span class="number">10.0</span>).clamp(<span class="number">24.0</span>, (area.w * <span class="number">0.3</span>).max(<span class="number">24.0</span>));
+<a href="#35" id="35" data-nosnippet="">35</a>    <span class="kw">if </span>columns == <span class="number">0 </span>|| columns &gt; <span class="number">128 </span>|| data.series.len() &gt; <span class="number">32 </span>|| height &gt; area.h * <span class="number">0.5 </span>|| (area.w * <span class="number">0.6</span>) / (columns <span class="kw">as </span>f32) &lt; <span class="number">18.0 </span>{
+<a href="#36" id="36" data-nosnippet="">36</a>        <span class="kw">let </span>message = ctx.fit(<span class="string">"Data table needs more space"</span>, LABEL_SIZE, area.w);
+<a href="#37" id="37" data-nosnippet="">37</a>        ctx.text(area.cx(), area.bottom(), <span class="kw-2">&amp;</span>message, LABEL_SIZE, TEXT, (HAlign::Center, VAlign::Bottom));
+<a href="#38" id="38" data-nosnippet="">38</a>        area.h -= row_height;
+<a href="#39" id="39" data-nosnippet="">39</a>        <span class="kw">return </span>(area, <span class="prelude-val">None</span>);
+<a href="#40" id="40" data-nosnippet="">40</a>    }
+<a href="#41" id="41" data-nosnippet="">41</a>    area.h -= height;
+<a href="#42" id="42" data-nosnippet="">42</a>    (area, <span class="prelude-val">Some</span>(Layout { top: area.bottom(), row_height, headers, stub, columns }))
+<a href="#43" id="43" data-nosnippet="">43</a>}
+<a href="#44" id="44" data-nosnippet="">44</a>
+<a href="#45" id="45" data-nosnippet="">45</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>draw(ctx: <span class="kw-2">&amp;mut </span>Ctx, chart: <span class="kw-2">&amp;</span>Chart, data: <span class="kw-2">&amp;</span>ChartData, plot: Bx, layout: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Layout&gt;) {
+<a href="#46" id="46" data-nosnippet="">46</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(layout) = layout <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#47" id="47" data-nosnippet="">47</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(settings) = <span class="kw-2">&amp;</span>chart.data_table <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#48" id="48" data-nosnippet="">48</a>    <span class="kw">let </span>x0 = plot.x - layout.stub;
+<a href="#49" id="49" data-nosnippet="">49</a>    <span class="kw">let </span>top = layout.top;
+<a href="#50" id="50" data-nosnippet="">50</a>    <span class="kw">let </span>rows = layout.headers + data.series.len();
+<a href="#51" id="51" data-nosnippet="">51</a>    <span class="kw">let </span>bottom = top + layout.row_height * rows <span class="kw">as </span>f32;
+<a href="#52" id="52" data-nosnippet="">52</a>    <span class="kw">let </span>cw = plot.w / layout.columns <span class="kw">as </span>f32;
+<a href="#53" id="53" data-nosnippet="">53</a>    <span class="comment">// Outermost category level first, then the individual categories.
+<a href="#54" id="54" data-nosnippet="">54</a>    </span><span class="kw">for </span>(i, level) <span class="kw">in </span>data.category_levels.iter().rev().enumerate() {
+<a href="#55" id="55" data-nosnippet="">55</a>        <span class="kw">for </span>(first, end) <span class="kw">in </span>level_groups(level, layout.columns) {
+<a href="#56" id="56" data-nosnippet="">56</a>            <span class="kw">let </span>text = level.get(first).map(String::as_str).unwrap_or(<span class="string">""</span>);
+<a href="#57" id="57" data-nosnippet="">57</a>            <span class="kw">let </span>text = ctx.fit(text, LABEL_SIZE, (end - first) <span class="kw">as </span>f32 * cw - <span class="number">4.0</span>);
+<a href="#58" id="58" data-nosnippet="">58</a>            <span class="kw">let </span>x = plot.x + (first + end) <span class="kw">as </span>f32 * cw / <span class="number">2.0</span>;
+<a href="#59" id="59" data-nosnippet="">59</a>            ctx.text(x, top + (i <span class="kw">as </span>f32 + <span class="number">0.5</span>) * layout.row_height, <span class="kw-2">&amp;</span>text, LABEL_SIZE, TEXT, (HAlign::Center, VAlign::Middle));
+<a href="#60" id="60" data-nosnippet="">60</a>        }
+<a href="#61" id="61" data-nosnippet="">61</a>    }
+<a href="#62" id="62" data-nosnippet="">62</a>    <span class="kw">let </span>header_y = top + (layout.headers <span class="kw">as </span>f32 - <span class="number">0.5</span>) * layout.row_height;
+<a href="#63" id="63" data-nosnippet="">63</a>    <span class="kw">let </span>n = data.categories.len().max(data.series.iter().map(|s| s.values.len()).max().unwrap_or(<span class="number">0</span>));
+<a href="#64" id="64" data-nosnippet="">64</a>    <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..layout.columns {
+<a href="#65" id="65" data-nosnippet="">65</a>        <span class="kw">let </span>text = <span class="kw">if </span>j &lt; n { cat_label(data, j) } <span class="kw">else </span>{ String::new() };
+<a href="#66" id="66" data-nosnippet="">66</a>        <span class="kw">let </span>text = ctx.fit(<span class="kw-2">&amp;</span>text, LABEL_SIZE, cw - <span class="number">4.0</span>);
+<a href="#67" id="67" data-nosnippet="">67</a>        ctx.text(plot.x + (j <span class="kw">as </span>f32 + <span class="number">0.5</span>) * cw, header_y, <span class="kw-2">&amp;</span>text, LABEL_SIZE, TEXT, (HAlign::Center, VAlign::Middle));
+<a href="#68" id="68" data-nosnippet="">68</a>    }
+<a href="#69" id="69" data-nosnippet="">69</a>    <span class="kw">for </span>(i, series) <span class="kw">in </span>data.series.iter().enumerate() {
+<a href="#70" id="70" data-nosnippet="">70</a>        <span class="kw">let </span>y = top + (layout.headers <span class="kw">as </span>f32 + i <span class="kw">as </span>f32 + <span class="number">0.5</span>) * layout.row_height;
+<a href="#71" id="71" data-nosnippet="">71</a>        <span class="kw">let </span>name_x = <span class="kw">if </span>settings.show_keys { x0 + <span class="number">25.0 </span>} <span class="kw">else </span>{ x0 + <span class="number">4.0 </span>};
+<a href="#72" id="72" data-nosnippet="">72</a>        <span class="kw">if </span>settings.show_keys {
+<a href="#73" id="73" data-nosnippet="">73</a>            <span class="kw">let </span>swatch = <span class="kw">match </span>plot_kind(chart, series, i) {
+<a href="#74" id="74" data-nosnippet="">74</a>                ChartKind::Line | ChartKind::LineStacked =&gt; Swatch::Line,
+<a href="#75" id="75" data-nosnippet="">75</a>                ChartKind::LineMarkers =&gt; Swatch::LineMarker,
+<a href="#76" id="76" data-nosnippet="">76</a>                <span class="kw">_ </span>=&gt; Swatch::Box,
+<a href="#77" id="77" data-nosnippet="">77</a>            };
+<a href="#78" id="78" data-nosnippet="">78</a>            draw_swatch(ctx, swatch, x0 + <span class="number">4.0</span>, y, <span class="number">7.0</span>, series.color);
+<a href="#79" id="79" data-nosnippet="">79</a>        }
+<a href="#80" id="80" data-nosnippet="">80</a>        <span class="kw">let </span>name = ctx.fit(<span class="kw-2">&amp;</span>series.name, LABEL_SIZE, plot.x - name_x - <span class="number">4.0</span>);
+<a href="#81" id="81" data-nosnippet="">81</a>        ctx.text(name_x, y, <span class="kw-2">&amp;</span>name, LABEL_SIZE, TEXT, (HAlign::Left, VAlign::Middle));
+<a href="#82" id="82" data-nosnippet="">82</a>        <span class="kw">let </span>fmt = Fmt::new(<span class="kw-2">&amp;</span>series.number_format);
+<a href="#83" id="83" data-nosnippet="">83</a>        <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..layout.columns {
+<a href="#84" id="84" data-nosnippet="">84</a>            <span class="kw">let </span>value = series.values.get(j).copied().flatten().map(|v| fmt.format(v, <span class="prelude-val">None</span>)).unwrap_or_default();
+<a href="#85" id="85" data-nosnippet="">85</a>            <span class="kw">let </span>text = ctx.fit(<span class="kw-2">&amp;</span>value, LABEL_SIZE, cw - <span class="number">4.0</span>);
+<a href="#86" id="86" data-nosnippet="">86</a>            ctx.text(plot.x + (j <span class="kw">as </span>f32 + <span class="number">0.5</span>) * cw, y, <span class="kw-2">&amp;</span>text, LABEL_SIZE, TEXT, (HAlign::Center, VAlign::Middle));
+<a href="#87" id="87" data-nosnippet="">87</a>        }
+<a href="#88" id="88" data-nosnippet="">88</a>    }
+<a href="#89" id="89" data-nosnippet="">89</a>    <span class="kw">if </span>settings.horizontal_border {
+<a href="#90" id="90" data-nosnippet="">90</a>        <span class="kw">for </span>row <span class="kw">in </span><span class="number">1</span>..rows {
+<a href="#91" id="91" data-nosnippet="">91</a>            ctx.hline(x0, plot.right(), top + row <span class="kw">as </span>f32 * layout.row_height, AXIS, <span class="number">0.75</span>);
+<a href="#92" id="92" data-nosnippet="">92</a>        }
+<a href="#93" id="93" data-nosnippet="">93</a>    }
+<a href="#94" id="94" data-nosnippet="">94</a>    <span class="kw">if </span>settings.vertical_border {
+<a href="#95" id="95" data-nosnippet="">95</a>        ctx.vline(plot.x, top, bottom, AXIS, <span class="number">0.75</span>);
+<a href="#96" id="96" data-nosnippet="">96</a>        <span class="comment">// The outer headers span groups; category dividers begin at the innermost header.
+<a href="#97" id="97" data-nosnippet="">97</a>        </span><span class="kw">for </span>j <span class="kw">in </span><span class="number">1</span>..layout.columns {
+<a href="#98" id="98" data-nosnippet="">98</a>            ctx.vline(plot.x + j <span class="kw">as </span>f32 * cw, top + (layout.headers - <span class="number">1</span>) <span class="kw">as </span>f32 * layout.row_height, bottom, AXIS, <span class="number">0.75</span>);
+<a href="#99" id="99" data-nosnippet="">99</a>        }
+<a href="#100" id="100" data-nosnippet="">100</a>    }
+<a href="#101" id="101" data-nosnippet="">101</a>    <span class="kw">if </span>settings.outline {
+<a href="#102" id="102" data-nosnippet="">102</a>        ctx.hline(x0, plot.right(), top, AXIS, <span class="number">0.75</span>);
+<a href="#103" id="103" data-nosnippet="">103</a>        ctx.hline(x0, plot.right(), bottom, AXIS, <span class="number">0.75</span>);
+<a href="#104" id="104" data-nosnippet="">104</a>        ctx.vline(x0, top, bottom, AXIS, <span class="number">0.75</span>);
+<a href="#105" id="105" data-nosnippet="">105</a>        ctx.vline(plot.right(), top, bottom, AXIS, <span class="number">0.75</span>);
+<a href="#106" id="106" data-nosnippet="">106</a>    }
+<a href="#107" id="107" data-nosnippet="">107</a>}
 </code></pre></div></section></main></body></html>

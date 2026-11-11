@@ -80,6 +80,8 @@ or [build a record application](APP-FRAMEWORK.md).
 Read the [AI development guide](AI_DEVELOPMENT.md) for official context, version-matched MCP tools
 and machine-readable documentation. Start with the project skill and verify APIs against its release.
 
+Site maintainers: see [SEO and publication](SITE_SEO.md) for canonical URLs, social cards, sitemaps and local validation.
+
 
 ---
 
