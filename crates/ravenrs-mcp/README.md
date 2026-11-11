@@ -7,14 +7,16 @@ It has no side effects and works offline. It speaks MCP over stdio, opens no soc
 ## Install
 
 ```bash
-cargo install --git https://github.com/alexkads/RavenRS --locked ravenrs-mcp
+cargo install --git https://github.com/alexkads/RavenRS --locked cargo-ravenrs
+cargo ravenrs ai
+cargo ravenrs doctor
 ```
 
-To match the RavenRS your app uses, add `--tag vYY.R.P` for a release that includes the server. From a checkout, use `cargo install --path crates/ravenrs-mcp --locked`. The server is not on crates.io, because it embeds sources and docs from the whole workspace.
+To match the RavenRS your app uses, add `--tag vYY.R.P` for a release that includes the server. From a checkout, use `cargo install --path crates/cargo-ravenrs --locked`. The standalone `ravenrs-mcp` entry point remains available for existing clients. The server is not on crates.io, because it embeds sources and docs from the whole workspace.
 
 ## Connect
 
-The Claude Code plugin brings this server and the RavenRS skill together. `ravenrs-mcp` must be on your `PATH`.
+The Claude Code plugin brings this server and the RavenRS skill together. `cargo-ravenrs` must be on your `PATH`. New projects receive these files automatically with `cargo ravenrs new`.
 
 ```bash
 claude plugin marketplace add alexkads/RavenRS
@@ -27,13 +29,13 @@ claude plugin install ravenrs@ravenrs
 To add only the server to Claude Code:
 
 ```bash
-claude mcp add ravenrs -- ravenrs-mcp
+claude mcp add ravenrs -- cargo ravenrs mcp
 ```
 
 Any other MCP client needs the same command:
 
 ```json
-{ "mcpServers": { "ravenrs": { "command": "ravenrs-mcp" } } }
+{ "mcpServers": { "ravenrs": { "command": "cargo", "args": ["ravenrs", "mcp"] } } }
 ```
 
 ## Tools

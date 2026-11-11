@@ -166,6 +166,20 @@ impl Project {
         Ok(files)
     }
 
+    /// Project scaffolding for a complete app source, shared with `cargo ravenrs new`.
+    /// The source already exposes `app()`; its browser entry point stays unchanged.
+    pub fn files_from_app(&self) -> Vec<ProjectFile> {
+        let file = |path: &str, contents: String| ProjectFile { path: path.into(), contents };
+        vec![
+            file("Cargo.toml", self.manifest()),
+            file("src/lib.rs", self.source.clone()),
+            file("src/main.rs", self.main()),
+            file("web/index.html", self.page()),
+            file("README.md", self.readme()),
+            file(".gitignore", "/target\n/web/pkg\n*.sqlite\n*.sqlite-*\n".into()),
+        ]
+    }
+
     /// Every file of the project in one `.zip`, in a folder named after the crate.
     pub fn zip(&self) -> Result<Vec<u8>, String> {
         let folder = self.crate_name();

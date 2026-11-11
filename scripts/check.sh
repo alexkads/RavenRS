@@ -50,8 +50,11 @@ fi
 step "clippy (native)"
 cargo clippy --workspace --all-targets -- -D warnings
 
+step "CLI templates: every model and target compiles"
+cargo test -p cargo-ravenrs --test cli -- --ignored
+
 step "clippy (wasm32)"
-cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-i18n -p ravenrs-app-a11y -p ravenrs-app-ui -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer -p ravenrs-sheet -p ravenrs-spreadsheet -p spreadsheet --target wasm32-unknown-unknown -- -D warnings
+cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-i18n -p ravenrs-app-a11y -p ravenrs-app-ui -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer -p ravenrs-sheet -p ravenrs-spreadsheet -p spreadsheet -p tutorial-tasks -p tasks-sqlite --target wasm32-unknown-unknown -- -D warnings
 
 step "tests: unit, behavior, property, doc, GPU pixel and golden-image (GPU tests skip without an adapter)"
 cargo test --workspace

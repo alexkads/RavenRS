@@ -134,7 +134,8 @@ fn the_plugin_matches_the_server() {
     }
 
     let config: Value = serde_json::from_str(include_str!("../../../plugins/ravenrs/.mcp.json")).unwrap();
-    assert_eq!(config["mcpServers"]["ravenrs"]["command"], env!("CARGO_PKG_NAME"));
+    assert_eq!(config["mcpServers"]["ravenrs"]["command"], "cargo");
+    assert_eq!(config["mcpServers"]["ravenrs"]["args"], json!(["ravenrs", "mcp"]));
 }
 
 #[test]

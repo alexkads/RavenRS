@@ -236,6 +236,19 @@ impl Component for Counter {
 
 Need full control? Implement `View` and use `BuildCx`: layout boxes, any drawing through `Paint::Custom`, per-instance state with `cx.use_state`, floating layers with `cx.overlay`, virtualized scrolling, timers with `cx.wake_at`, and input through `on_click`, `on_key`, `on_drag`, `on_context_menu` and `shortcut`. Every built-in component is written this way.
 
+## Getting started
+
+```sh
+cargo install --git https://github.com/alexkads/RavenRS --locked cargo-ravenrs
+cargo ravenrs new minha-loja
+cd minha-loja
+cargo run
+```
+
+Choose `hello`, `app`, `app-sqlite` or `relatorios`, and desktop, web or both. The CLI
+embeds its templates, skill and MCP server from the same release. Use `--tag vYY.R.P`
+when installing to match a particular release. See [the CLI guide](crates/cargo-ravenrs/README.md).
+
 ## Run the examples
 
 Requirements: Rust stable 1.88+. For the browser: the `wasm32-unknown-unknown` target and `wasm-bindgen-cli` **0.2.130** (it must match the crate version).
@@ -275,21 +288,10 @@ RavenRS ships a skill and an MCP server so coding assistants write against the r
 - The **skill** teaches how to compose screens, use tokens instead of literal values, meet the [quality bar](https://github.com/alexkads/RavenRS/blob/master/docs/QUALITY.md) and build for the web.
 - The **MCP server** ([`ravenrs-mcp`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp)) is read-only and works offline. It lists components, shows their API and real examples, looks up design tokens, reports parity status and validates expressions.
 
-Install the server, then add the Claude Code plugin, which brings both:
-
-```bash
-cargo install --git https://github.com/alexkads/RavenRS --locked ravenrs-mcp
-```
-
-```bash
-claude plugin marketplace add alexkads/RavenRS
-```
-
-```bash
-claude plugin install ravenrs@ravenrs
-```
-
-For other MCP clients, configure the command `ravenrs-mcp` over stdio. The skill is a plain file: [`plugins/ravenrs/skills/ravenrs/SKILL.md`](https://github.com/alexkads/RavenRS/blob/master/plugins/ravenrs/skills/ravenrs/SKILL.md).
+`cargo ravenrs new` registers `cargo ravenrs mcp` for Claude Code, VS Code / Copilot,
+Cursor and Codex, copies the version-matched skill, and writes project instructions.
+For an existing app, run `cargo ravenrs ai`, then `cargo ravenrs doctor` to verify it.
+Use `--plugin` to select the versioned Claude marketplace plugin instead of the local skill.
 
 Whoever writes the code, a person or any agent, [`ravenrs-lint`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lint) holds it to the same rules: it denies literal colors and sizes, spacing off the grid, unnamed icon buttons and state or blocking work in `body`, and `cargo ravenrs-lint --init` turns rustc and Clippy to their strictest and writes the rules into `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` and Copilot's instructions.
 

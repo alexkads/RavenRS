@@ -2,6 +2,18 @@
 
 This guide builds a small app step by step: a window, then the same app in the browser, then state, your own components, themes and the data grid.
 
+To start with a complete project, including the MCP server and coding assistant instructions:
+
+```sh
+cargo install --git https://github.com/alexkads/RavenRS --locked cargo-ravenrs
+cargo ravenrs new hello-raven --template hello --target both --yes
+cd hello-raven
+cargo run
+cargo ravenrs doctor
+```
+
+The following sections explain the pieces the generator creates.
+
 ## 1. A window
 
 ```bash
