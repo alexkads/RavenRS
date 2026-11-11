@@ -11,6 +11,7 @@ function machine(overrides = {}) {
     log: s => state.logs.push(s),
     read: async path => path.endsWith('os-release') ? 'ID=debian' : '',
     exists: async () => false,
+    select: async (question, options, initial) => initial,
     ask: async q => { state.questions.push(q); return state.answer || 'n'; },
     installRust: async installer => { state.installs.push(installer); state.rust = state.rustup = state.toolchain = true; },
     probe(command, args) {
@@ -160,4 +161,31 @@ test('repeated bootstrap skips downloads and reinstalls', async () => {
   assert.equal(state.installs.length, 1);
   assert.equal(state.runs.length, 2);
   assert.equal(state.runs[0].args[1], 'new');
+});
+
+test('interactive choices happen before installation and are forwarded to the Rust CLI', async () => {
+  const {state,ctx}=machine({cli:null});
+  const selected=[];
+  ctx.select=async(question,options)=>{
+    assert.equal(state.runs.length,0);
+    selected.push(question);
+    return options.some(item=>item.value==='both')?'both':'app';
+  };
+  ctx.confirm=async()=>true;
+  await bootstrap(['my-app'],ctx);
+  assert.equal(selected.length,2);
+  assert.ok(state.runs.at(-2).args.includes('app'));
+  assert.ok(state.runs.at(-2).args.includes('both'));
+});
+
+test('asynchronous generation errors stop before doctor; verbose is not forwarded to Rust', async () => {
+  const {state,ctx}=machine();
+  const calls=[];
+  ctx.run=async(command,args)=>{calls.push(args);await new Promise(resolve=>setTimeout(resolve,5));throw new Error('compile failed');};
+  await assert.rejects(bootstrap(['app','--yes','--verbose'],ctx),/compile failed/);
+  assert.equal(ctx.verbose,true);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0][1],'new');
+  assert.equal(state.runs.length,0);
+  assert.ok(!parse(['app','--verbose']).forwarded.includes('--verbose'));
 });

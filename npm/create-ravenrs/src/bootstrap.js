@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { system } from './system.js';
-import { banner, step, nextSteps } from './ui.js';
+import { banner, step, nextSteps, choices, summary, paint } from './ui.js';
 const packageInfo = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const release = JSON.parse(await readFile(new URL('../release.json', import.meta.url), 'utf8'));
 const REPO = 'https://github.com/alexkads/RavenRS';
@@ -13,6 +13,7 @@ export function parse(args) {
     const arg = args[i];
     if (['--help', '-h', '--version', '-V'].includes(arg)) return { info: arg };
     if (arg === 'doctor' && !options.name) { options.doctor = true; continue; }
+    if (arg === '--verbose') { options.verbose = true; continue; }
     if (arg === '--yes' || arg === '-y') { options.yes = true; options.forwarded.push('--yes'); continue; }
     if (['--target', '--template'].includes(arg)) {
       const value = args[++i];
@@ -40,8 +41,8 @@ export function rustInstaller(platform, arch) {
 
 async function consent(ctx, options, question) {
   if (options.yes) return;
-  const answer = await ctx.ask(`${question} (s/N)`, 'n');
-  if (!['s', 'sim', 'y', 'yes'].includes(answer.toLowerCase())) throw new Error('Instalação cancelada. Nenhuma próxima etapa foi executada.');
+  const accepted = ctx.confirm ? await ctx.confirm(question) : ['s', 'sim', 'y', 'yes'].includes((await ctx.ask(`${question} (s/N)`, 'n')).toLowerCase());
+  if (!accepted) throw new Error('Instalação cancelada. Nenhuma próxima etapa foi executada.');
 }
 
 async function linuxDependencies(ctx, native) {
@@ -72,15 +73,22 @@ async function windowsTools(ctx, native) {
 export async function bootstrap(args, ctx = system()) {
   const options = parse(args);
   if (options.info) {
-    ctx.log(options.info.includes('version') || options.info === '-V' ? `create-ravenrs ${packageInfo.version} (RavenRS ${release.version})` : 'Uso: npx create-ravenrs <nome> [--template hello|app|app-sqlite|relatorios] [--target desktop|web|both] [--yes] [--no-git] [--no-ai] [--no-check] [--plugin]\n     npx create-ravenrs doctor (somente leitura)');
+    ctx.log(options.info.includes('version') || options.info === '-V' ? `create-ravenrs ${packageInfo.version} (RavenRS ${release.version})` : 'Uso: npx create-ravenrs <nome> [--template hello|app|app-sqlite|relatorios] [--target desktop|web|both] [--yes] [--no-git] [--no-ai] [--no-check] [--plugin] [--verbose]\n     npx create-ravenrs doctor (somente leitura)');
     return;
   }
-  ctx.log(banner(packageInfo.version, ctx.color, options.doctor));
-  if (!options.name && !options.doctor) options.name = await ctx.ask('Nome do projeto', 'meu-app');
+  ctx.verbose = Boolean(options.verbose);
+  ctx.log(banner(packageInfo.version, ctx.color, options.doctor, ctx.columns));
+  if (!options.name && !options.doctor) options.name = options.yes ? 'meu-app' : await ctx.ask('Qual é o nome do projeto?', 'meu-app');
+  if (!options.doctor) ctx.log(summary(options.name, options.template || (options.yes ? 'hello' : undefined), options.target || (options.yes ? 'desktop' : undefined), ctx.color));
   if (!options.doctor && !options.target) {
-    options.target = options.yes ? 'desktop' : await ctx.ask('Alvo (desktop, web, both)', 'desktop');
+    options.target = options.yes ? 'desktop' : await ctx.select('Onde sua ideia vai rodar?', choices.target, 'desktop', 'alvo');
     if (!TARGETS.has(options.target)) throw new Error('Alvo inválido.');
     options.forwarded.push('--target', options.target);
+  }
+  if (!options.doctor && !options.template) {
+    options.template = options.yes ? 'hello' : await ctx.select('Por onde você quer começar?', choices.template, 'hello', 'modelo');
+    if (!choices.template.some(item => item.value === options.template)) throw new Error('Modelo inválido.');
+    options.forwarded.push('--template', options.template);
   }
   // Doctor never prompts, downloads or installs, including rustup's automatic installs.
   if (options.doctor) {
@@ -108,7 +116,7 @@ export async function bootstrap(args, ctx = system()) {
   if (!toolchains.stdout.split('\n').some(line => line.startsWith(`${release.toolchain}-`) || line.startsWith(`${release.toolchain} `))) {
     if (options.doctor) throw new Error(`Toolchain ${release.toolchain} ausente.`);
     await consent(ctx, options, `Instalar toolchain ${release.toolchain}?`);
-    ctx.run('rustup', ['toolchain', 'install', release.toolchain, '--profile', 'minimal']);
+    await ctx.run('rustup', ['toolchain', 'install', release.toolchain, '--profile', 'minimal'], undefined, 'Preparando a toolchain Rust');
   }
   ctx.env.RUSTUP_TOOLCHAIN = release.toolchain;
   ctx.log(step(2, 'Toolchain', `${release.toolchain} · mesma versão do modelo`, ctx.color));
@@ -117,13 +125,13 @@ export async function bootstrap(args, ctx = system()) {
   if (missingComponents.length) {
     if (options.doctor) throw new Error(`Componentes do modelo ausentes: ${missingComponents.join(', ')}`);
     await consent(ctx, options, `Instalar componentes do modelo: ${missingComponents.join(', ')}?`);
-    ctx.run('rustup', ['component', 'add', ...missingComponents, '--toolchain', release.toolchain]);
+    await ctx.run('rustup', ['component', 'add', ...missingComponents, '--toolchain', release.toolchain], undefined, 'Preparando rustfmt e Clippy');
   }
   if (options.target !== 'desktop' && !options.doctor) {
     const targets = ctx.probe('rustup', ['target', 'list', '--installed', '--toolchain', release.toolchain]);
     if (!targets.stdout.split(/\s+/).includes('wasm32-unknown-unknown')) {
       await consent(ctx, options, 'Instalar o alvo wasm32-unknown-unknown?');
-      ctx.run('rustup', ['target', 'add', 'wasm32-unknown-unknown', '--toolchain', release.toolchain]);
+      await ctx.run('rustup', ['target', 'add', 'wasm32-unknown-unknown', '--toolchain', release.toolchain], undefined, 'Adicionando suporte ao navegador');
     }
   }
   const cli = ctx.probe('cargo', ['ravenrs', '--version']);
@@ -131,7 +139,7 @@ export async function bootstrap(args, ctx = system()) {
   if (installed !== release.version) {
     if (options.doctor) throw new Error(`cargo-ravenrs: ${installed || 'ausente'}; esperado ${release.version}.`);
     await consent(ctx, options, installed ? `Atualizar cargo-ravenrs de ${installed} para ${release.version}?` : `Instalar cargo-ravenrs ${release.version}? (a primeira compilação demora alguns minutos)`);
-    ctx.run('cargo', ['install', '--git', REPO, '--tag', release.tag, '--locked', ...(installed ? ['--force'] : []), 'cargo-ravenrs']);
+    await ctx.run('cargo', ['install', '--git', REPO, '--tag', release.tag, '--locked', ...(installed ? ['--force'] : []), 'cargo-ravenrs'], undefined, 'Compilando e instalando o CLI RavenRS');
     const installedNow = ctx.probe('cargo', ['ravenrs', '--version']);
     if (!installedNow.ok || installedNow.stdout.trim().split(/\s+/).at(-1) !== release.version) throw new Error('cargo-ravenrs instalado não corresponde à versão RavenRS registrada em release.json.');
   }
@@ -142,12 +150,14 @@ export async function bootstrap(args, ctx = system()) {
   if (ctx.platform !== 'linux' && ctx.platform !== 'win32') ctx.log(step(4, 'Sistema', 'tudo certo', ctx.color));
   const root = options.doctor ? ctx.cwd : resolve(ctx.cwd, options.name);
   if (!options.doctor) {
-    ctx.log(step(5, 'Seu projeto', `${options.name} · código e ferramentas de IA`, ctx.color));
-    ctx.run('cargo', ['ravenrs', 'new', options.name, ...options.forwarded]);
+    ctx.log(step(5, 'Seu projeto', `${options.name} · código${options.forwarded.includes('--no-ai') ? '' : ' e ferramentas de IA'}`, ctx.color));
+    await ctx.run('cargo', ['ravenrs', 'new', options.name, ...options.forwarded], undefined, 'Criando e validando sua aplicação');
   } else {
     ctx.log(step(5, 'Seu projeto', 'verificação sem alterações', ctx.color));
   }
   ctx.log(step(6, 'Doctor', 'conferindo os últimos detalhes', ctx.color));
-  ctx.run('cargo', ['ravenrs', 'doctor'], root);
-  if (!options.doctor) ctx.log(nextSteps(options.name, options.target === 'web', ctx.color));
+  await ctx.run('cargo', ['ravenrs', 'doctor'], root, 'Validando projeto e conexões MCP');
+  if (ctx.logFile && options.verbose) ctx.log(`${paint('│', '2', ctx.color)}  ${paint('Log completo', '2', ctx.color)}  ${ctx.logFile}`);
+  if (options.doctor) ctx.log(`\n  ${paint('✓ Tudo certo. Seu ambiente está pronto.', '1;32', ctx.color)}\n`);
+  if (!options.doctor) ctx.log(nextSteps(options.name, options.target === 'web', ctx.color, !options.forwarded.includes('--no-ai')));
 }

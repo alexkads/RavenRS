@@ -5,7 +5,7 @@ import { banner, step, nextSteps, failure } from '../src/ui.js';
 test('redirected terminal presentation contains no ANSI escapes', () => {
   const output = [banner('27.1.22'), step(1, 'Rust', 'encontrado'), nextSteps('minha-loja', false), failure('Erro')].join('\n');
   assert.ok(!output.includes('\u001b'));
-  assert.match(output, /R A V E N R S/);
+  assert.match(output, /create-ravenrs v27\.1\.22/);
   assert.match(output, /\$ cd minha-loja/);
   assert.match(output, /\$ cargo run/);
 });
