@@ -24,7 +24,7 @@ pub enum CodeLanguage {
 }
 
 /// Something found at a place in the code: what [`CodeEditor::diagnostics`] marks and
-/// what a [`crate::Playground`] lists under its editor.
+/// what a `Playground` lists under its editor.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CodeDiagnostic {
@@ -73,7 +73,7 @@ pub(crate) fn tone_color(tone: Tone) -> Semantic {
 
 /// A source code editor: monospaced, no wrapping, line numbers, colors for the
 /// language, Tab and Shift+Tab to indent, and Enter keeping the indentation. Ctrl or Cmd
-/// with Enter is left to shortcuts, so a surrounding [`crate::Playground`] can run the
+/// with Enter is left to shortcuts, so a surrounding `Playground` can run the
 /// code. Diagnostics mark their lines and underline what they cover.
 ///
 /// ```

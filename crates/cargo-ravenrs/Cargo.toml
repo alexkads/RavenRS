@@ -9,7 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-ravenrs-mcp = { path = "../ravenrs-mcp", version = "27.1.22" }
+ravenrs-mcp = { path = "../ravenrs-mcp", version = "27.1.23" }
 ravenrs-project.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

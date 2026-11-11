@@ -17,7 +17,7 @@ const DESIGNER: &str = "designer/";
 const COMPONENTS: &str = "components/";
 const API: &str = "api/ravenrs/";
 const GITHUB: &str = "https://github.com/alexkads/RavenRS";
-const GUIDE: &str = "https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md";
+const GUIDE: &str = "docs/getting-started/";
 /// Height of the bar pinned at the top; anchors land below it.
 const BAR: f32 = 64.0;
 

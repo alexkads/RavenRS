@@ -806,6 +806,11 @@ fn borrows(ty: &Type) -> bool {
     finder.0
 }
 
+fn conditional_registration(attrs: &[syn::Attribute], registration: Tokens) -> Tokens {
+    let conditions = attrs.iter().filter(|attribute| attribute.path().is_ident("cfg"));
+    quote!(#(#conditions)* { #registration })
+}
+
 fn expose_impl(block: &syn::ItemImpl, options: &Options) -> syn::Result<Tokens> {
     // The methods of a trait it implements are all there is to see, as public as the trait.
     let of_trait = block.trait_.is_some();
@@ -833,7 +838,7 @@ fn expose_impl(block: &syn::ItemImpl, options: &Options) -> syn::Result<Tokens> 
                     if let Some(registration) =
                         function_registration(&function.sig, &name, call, &map, options)
                     {
-                        registrations.push(registration);
+                        registrations.push(conditional_registration(&function.attrs, registration));
                     }
                 }
                 ImplItem::Const(constant) if matches!(constant.vis, syn::Visibility::Public(_)) => {
@@ -843,9 +848,12 @@ fn expose_impl(block: &syn::ItemImpl, options: &Options) -> syn::Result<Tokens> 
                     let ident = &constant.ident;
                     let text = ident.to_string();
                     let value = to_value(&substituted(&constant.ty, &map), &quote!(<#self_ty>::#ident));
-                    registrations.push(quote! {
-                        registry.constant(#name, #text, || #value);
-                    });
+                    registrations.push(conditional_registration(
+                        &constant.attrs,
+                        quote! {
+                            registry.constant(#name, #text, || #value);
+                        },
+                    ));
                 }
                 _ => {}
             }
@@ -1218,6 +1226,7 @@ fn expose_mod(module: &syn::ItemMod, options: &Options) -> syn::Result<Tokens> {
         .filter_map(|item| match item {
             Item::Fn(function) if matches!(function.vis, syn::Visibility::Public(_)) => {
                 function_registration(&function.sig, &name, Callee::Module, &map, options)
+                    .map(|registration| conditional_registration(&function.attrs, registration))
             }
             _ => None,
         })

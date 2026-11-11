@@ -1,6 +1,6 @@
 {
-  "version": "27.1.22",
-  "tag": "v27.1.22",
+  "version": "27.1.23",
+  "tag": "v27.1.23",
   "toolchain": "stable",
   "components": [
     "rustfmt",
