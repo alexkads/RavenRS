@@ -19,7 +19,7 @@ try {
   for (const file of files) {
     const target = join(temp, 'snapshot', file);
     await mkdir(dirname(target), { recursive: true });
-    await cp(join(source,file),target);
+    await cp(join(source,file),target, { dereference: true });
   }
   run('npm', ['pack', '--pack-destination', temp], npmRoot);
   const { version } = JSON.parse(await readFile(join(npmRoot,'package.json'),'utf8'));
