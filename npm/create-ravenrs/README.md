@@ -69,6 +69,25 @@ The default is the `hello` template for `desktop`. The first CLI installation co
 sources locally and can take a few minutes. Repeating the same command preserves your
 application source and reuses already matching prerequisites.
 
+## An installation you can follow
+
+![Interactive RavenRS project creation with keyboard navigation and template descriptions](https://raw.githubusercontent.com/alexkads/RavenRS/master/docs/media/create-ravenrs-cli.png)
+
+The interactive terminal offers arrow-key menus with template descriptions, a RavenRS wordmark,
+and animated progress with elapsed time and the current build activity. Choose the target and
+template before installation starts. Press Escape in a menu or Ctrl+C to cancel.
+
+Successful builds keep Cargo and Git output in a complete local log instead of flooding the
+terminal. If a process fails, the error includes its last output and the log path. To stream
+every command output while troubleshooting:
+
+```bash
+npx create-ravenrs minha-loja --verbose
+```
+
+Redirected output and simple terminals use readable plain logs. `NO_COLOR` disables colors.
+Narrow or short terminals use text prompts. No runtime npm dependencies are required.
+
 ## What the command does
 
 1. **Rust:** detects `rustc`, Cargo and rustup; offers the official Rust installer when needed.
@@ -167,6 +186,7 @@ npx create-ravenrs --version
 
 | Option | Behavior |
 | --- | --- |
+| `--verbose` | Stream complete subprocess output instead of the animated task view |
 | `--template <name>` | `hello`, `app`, `app-sqlite` or `relatorios` |
 | `--target <target>` | `desktop`, `web` or `both` |
 | `--yes`, `-y` | Authorize prerequisite installations and use defaults for unanswered choices |
@@ -229,7 +249,7 @@ web projects because the CLI itself is native. The CLI requires a rustup-managed
 
 The npm launcher can receive documentation and bootstrap patches independently of the Rust
 framework. Its `release.json` pins the exact CLI Git tag and framework version used for generation.
-**`create-ravenrs` 27.1.24 installs `cargo-ravenrs` / RavenRS 27.1.23.**
+**`create-ravenrs` 27.1.25 installs `cargo-ravenrs` / RavenRS 27.1.23.**
 
 ```bash
 cargo install --git https://github.com/alexkads/RavenRS --tag v27.1.23 --locked cargo-ravenrs

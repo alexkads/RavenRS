@@ -1,6 +1,6 @@
 {
   "name": "create-ravenrs",
-  "version": "27.1.24",
+  "version": "27.1.25",
   "description": "Create Rust GUI apps for desktop and WebAssembly with RavenRS. Sets up Rust, scaffolds your project, and configures version-matched MCP and AI coding tools.",
   "type": "module",
   "license": "MIT OR Apache-2.0",
