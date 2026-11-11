@@ -183,41 +183,54 @@
 <a href=#183 id=183 data-nosnippet>183</a>        <span class="kw">if </span>!path.join(<span class="string">"Cargo.toml"</span>).is_file() || !read(<span class="kw-2">&amp;</span>path.join(<span class="string">"Cargo.toml"</span>))<span class="question-mark">?</span>.starts_with(<span class="kw-2">&amp;</span>expected) {
 <a href=#184 id=184 data-nosnippet>184</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"{} já existe e não foi gerado por esta versão."</span>, path.display()));
 <a href=#185 id=185 data-nosnippet>185</a>        }
-<a href=#186 id=186 data-nosnippet>186</a>        <span class="macro">println!</span>(<span class="string">"Projeto existente: preservando o código."</span>);
-<a href=#187 id=187 data-nosnippet>187</a>    } <span class="kw">else </span>{
-<a href=#188 id=188 data-nosnippet>188</a>        std::fs::create_dir_all(path).map_err(|e| e.to_string())<span class="question-mark">?</span>;
-<a href=#189 id=189 data-nosnippet>189</a>        <span class="kw">for </span>file <span class="kw">in </span>files {
-<a href=#190 id=190 data-nosnippet>190</a>            write(path, <span class="kw-2">&amp;</span>file.path, <span class="kw-2">&amp;</span>file.contents)<span class="question-mark">?</span>;
-<a href=#191 id=191 data-nosnippet>191</a>        }
-<a href=#192 id=192 data-nosnippet>192</a>        write(
-<a href=#193 id=193 data-nosnippet>193</a>            path,
-<a href=#194 id=194 data-nosnippet>194</a>            <span class="string">".ravenrs-project.toml"</span>,
-<a href=#195 id=195 data-nosnippet>195</a>            <span class="kw-2">&amp;</span><span class="macro">format!</span>(
-<a href=#196 id=196 data-nosnippet>196</a>                <span class="string">"# cargo-ravenrs {VERSION}\nversion = \"{VERSION}\"\ntemplate = \"{template}\"\ntarget = \"{target}\"\nai = {ai}\n"
-<a href=#197 id=197 data-nosnippet>197</a>            </span>),
-<a href=#198 id=198 data-nosnippet>198</a>        )<span class="question-mark">?</span>;
-<a href=#199 id=199 data-nosnippet>199</a>    }
-<a href=#200 id=200 data-nosnippet>200</a>    <span class="kw">if </span>git &amp;&amp; !path.join(<span class="string">".git"</span>).exists() {
-<a href=#201 id=201 data-nosnippet>201</a>        run(path, <span class="string">"git"</span>, <span class="kw-2">&amp;</span>[<span class="string">"init"</span>])<span class="question-mark">?</span>;
-<a href=#202 id=202 data-nosnippet>202</a>    }
-<a href=#203 id=203 data-nosnippet>203</a>    <span class="kw">if </span>ai {
-<a href=#204 id=204 data-nosnippet>204</a>        configure_ai(path, plugin)<span class="question-mark">?</span>;
-<a href=#205 id=205 data-nosnippet>205</a>    }
-<a href=#206 id=206 data-nosnippet>206</a>    <span class="kw">if </span>check {
-<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">if </span>target != <span class="string">"web" </span>{
-<a href=#208 id=208 data-nosnippet>208</a>            run(path, <span class="string">"cargo"</span>, <span class="kw-2">&amp;</span>[<span class="string">"check"</span>])<span class="question-mark">?</span>;
-<a href=#209 id=209 data-nosnippet>209</a>        }
-<a href=#210 id=210 data-nosnippet>210</a>        <span class="kw">if </span>target != <span class="string">"desktop" </span>{
-<a href=#211 id=211 data-nosnippet>211</a>            run(path, <span class="string">"cargo"</span>, <span class="kw-2">&amp;</span>[<span class="string">"check"</span>, <span class="string">"--target"</span>, <span class="string">"wasm32-unknown-unknown"</span>])<span class="question-mark">?</span>;
-<a href=#212 id=212 data-nosnippet>212</a>        }
-<a href=#213 id=213 data-nosnippet>213</a>    }
-<a href=#214 id=214 data-nosnippet>214</a>    <span class="kw">crate</span>::mcp::probe(<span class="string">"cargo"</span>, <span class="kw-2">&amp;</span>[<span class="string">"ravenrs"</span>.into(), <span class="string">"mcp"</span>.into()], path)<span class="question-mark">?</span>;
-<a href=#215 id=215 data-nosnippet>215</a>    <span class="kw">let </span>next = <span class="kw">if </span>target == <span class="string">"web" </span>{
-<a href=#216 id=216 data-nosnippet>216</a>        <span class="string">"cargo check --target wasm32-unknown-unknown  # veja README.md para servir web/"
-<a href=#217 id=217 data-nosnippet>217</a>    </span>} <span class="kw">else </span>{
-<a href=#218 id=218 data-nosnippet>218</a>        <span class="string">"cargo run"
-<a href=#219 id=219 data-nosnippet>219</a>    </span>};
-<a href=#220 id=220 data-nosnippet>220</a>    <span class="macro">println!</span>(<span class="string">"Pronto.\n  cd {}\n  {next}\n  claude  # ou code .\n  cargo ravenrs doctor"</span>, path.display());
-<a href=#221 id=221 data-nosnippet>221</a>    <span class="prelude-val">Ok</span>(())
-<a href=#222 id=222 data-nosnippet>222</a>}
+<a href=#186 id=186 data-nosnippet>186</a>        <span class="kw">let </span>state: DocumentMut = read(<span class="kw-2">&amp;</span>path.join(<span class="string">".ravenrs-project.toml"</span>))<span class="question-mark">?
+<a href=#187 id=187 data-nosnippet>187</a>            </span>.parse()
+<a href=#188 id=188 data-nosnippet>188</a>            .map_err(|e| <span class="macro">format!</span>(<span class="string">"Metadados do projeto inválidos: {e}"</span>))<span class="question-mark">?</span>;
+<a href=#189 id=189 data-nosnippet>189</a>        <span class="kw">let </span>previous_template =
+<a href=#190 id=190 data-nosnippet>190</a>            state.get(<span class="string">"template"</span>).and_then(Item::as_str).ok_or(<span class="string">"Modelo original ausente nos metadados"</span>)<span class="question-mark">?</span>;
+<a href=#191 id=191 data-nosnippet>191</a>        <span class="kw">let </span>previous_target =
+<a href=#192 id=192 data-nosnippet>192</a>            state.get(<span class="string">"target"</span>).and_then(Item::as_str).ok_or(<span class="string">"Alvo original ausente nos metadados"</span>)<span class="question-mark">?</span>;
+<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">if </span>previous_template != template || previous_target != target {
+<a href=#194 id=194 data-nosnippet>194</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#195 id=195 data-nosnippet>195</a>                <span class="string">"{} já contém um projeto {previous_template}/{previous_target}; você escolheu {template}/{target}. Use outra pasta para criar esse modelo/alvo. O projeto existente não foi alterado."</span>,
+<a href=#196 id=196 data-nosnippet>196</a>                path.display()
+<a href=#197 id=197 data-nosnippet>197</a>            ));
+<a href=#198 id=198 data-nosnippet>198</a>        }
+<a href=#199 id=199 data-nosnippet>199</a>        <span class="macro">println!</span>(<span class="string">"Projeto existente: preservando o código."</span>);
+<a href=#200 id=200 data-nosnippet>200</a>    } <span class="kw">else </span>{
+<a href=#201 id=201 data-nosnippet>201</a>        std::fs::create_dir_all(path).map_err(|e| e.to_string())<span class="question-mark">?</span>;
+<a href=#202 id=202 data-nosnippet>202</a>        <span class="kw">for </span>file <span class="kw">in </span>files {
+<a href=#203 id=203 data-nosnippet>203</a>            write(path, <span class="kw-2">&amp;</span>file.path, <span class="kw-2">&amp;</span>file.contents)<span class="question-mark">?</span>;
+<a href=#204 id=204 data-nosnippet>204</a>        }
+<a href=#205 id=205 data-nosnippet>205</a>        write(
+<a href=#206 id=206 data-nosnippet>206</a>            path,
+<a href=#207 id=207 data-nosnippet>207</a>            <span class="string">".ravenrs-project.toml"</span>,
+<a href=#208 id=208 data-nosnippet>208</a>            <span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href=#209 id=209 data-nosnippet>209</a>                <span class="string">"# cargo-ravenrs {VERSION}\nversion = \"{VERSION}\"\ntemplate = \"{template}\"\ntarget = \"{target}\"\nai = {ai}\n"
+<a href=#210 id=210 data-nosnippet>210</a>            </span>),
+<a href=#211 id=211 data-nosnippet>211</a>        )<span class="question-mark">?</span>;
+<a href=#212 id=212 data-nosnippet>212</a>    }
+<a href=#213 id=213 data-nosnippet>213</a>    <span class="kw">if </span>git &amp;&amp; !path.join(<span class="string">".git"</span>).exists() {
+<a href=#214 id=214 data-nosnippet>214</a>        run(path, <span class="string">"git"</span>, <span class="kw-2">&amp;</span>[<span class="string">"init"</span>])<span class="question-mark">?</span>;
+<a href=#215 id=215 data-nosnippet>215</a>    }
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="kw">if </span>ai {
+<a href=#217 id=217 data-nosnippet>217</a>        configure_ai(path, plugin)<span class="question-mark">?</span>;
+<a href=#218 id=218 data-nosnippet>218</a>    }
+<a href=#219 id=219 data-nosnippet>219</a>    <span class="kw">if </span>check {
+<a href=#220 id=220 data-nosnippet>220</a>        <span class="kw">if </span>target != <span class="string">"web" </span>{
+<a href=#221 id=221 data-nosnippet>221</a>            run(path, <span class="string">"cargo"</span>, <span class="kw-2">&amp;</span>[<span class="string">"check"</span>])<span class="question-mark">?</span>;
+<a href=#222 id=222 data-nosnippet>222</a>        }
+<a href=#223 id=223 data-nosnippet>223</a>        <span class="kw">if </span>target != <span class="string">"desktop" </span>{
+<a href=#224 id=224 data-nosnippet>224</a>            run(path, <span class="string">"cargo"</span>, <span class="kw-2">&amp;</span>[<span class="string">"check"</span>, <span class="string">"--target"</span>, <span class="string">"wasm32-unknown-unknown"</span>])<span class="question-mark">?</span>;
+<a href=#225 id=225 data-nosnippet>225</a>        }
+<a href=#226 id=226 data-nosnippet>226</a>    }
+<a href=#227 id=227 data-nosnippet>227</a>    <span class="kw">crate</span>::mcp::probe(<span class="string">"cargo"</span>, <span class="kw-2">&amp;</span>[<span class="string">"ravenrs"</span>.into(), <span class="string">"mcp"</span>.into()], path)<span class="question-mark">?</span>;
+<a href=#228 id=228 data-nosnippet>228</a>    <span class="kw">let </span>next = <span class="kw">if </span>target == <span class="string">"web" </span>{
+<a href=#229 id=229 data-nosnippet>229</a>        <span class="string">"cargo check --target wasm32-unknown-unknown  # veja README.md para servir web/"
+<a href=#230 id=230 data-nosnippet>230</a>    </span>} <span class="kw">else </span>{
+<a href=#231 id=231 data-nosnippet>231</a>        <span class="string">"cargo run"
+<a href=#232 id=232 data-nosnippet>232</a>    </span>};
+<a href=#233 id=233 data-nosnippet>233</a>    <span class="macro">println!</span>(<span class="string">"Pronto.\n  cd {}\n  {next}\n  claude  # ou code .\n  cargo ravenrs doctor"</span>, path.display());
+<a href=#234 id=234 data-nosnippet>234</a>    <span class="prelude-val">Ok</span>(())
+<a href=#235 id=235 data-nosnippet>235</a>}
 </code></pre></div></section></main></body></html>

@@ -7,31 +7,34 @@
 <a href=#7 id=7 data-nosnippet>7</a><span class="kw">pub use </span>mcp::doctor;
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">pub use </span>project::{new_project, project_files};
 <a href=#9 id=9 data-nosnippet>9</a>
-<a href=#10 id=10 data-nosnippet>10</a><span class="doccomment">/// Version shared by the CLI, its templates, skill and embedded MCP server.
-<a href=#11 id=11 data-nosnippet>11</a></span><span class="kw">pub const </span>VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>);
-<a href=#12 id=12 data-nosnippet>12</a><span class="doccomment">/// Skill embedded from the plugin in this release.
-<a href=#13 id=13 data-nosnippet>13</a></span><span class="kw">pub const </span>SKILL: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../../../plugins/ravenrs/skills/ravenrs/SKILL.md"</span>);
-<a href=#14 id=14 data-nosnippet>14</a><span class="doccomment">/// Toolchain shared by every template.
-<a href=#15 id=15 data-nosnippet>15</a></span><span class="kw">pub const </span>TOOLCHAIN: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../../../rust-toolchain.toml"</span>);
-<a href=#16 id=16 data-nosnippet>16</a>
-<a href=#17 id=17 data-nosnippet>17</a><span class="kw">fn </span>read(path: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
-<a href=#18 id=18 data-nosnippet>18</a>    std::fs::read_to_string(path).map_err(|e| <span class="macro">format!</span>(<span class="string">"{}: {e}"</span>, path.display()))
-<a href=#19 id=19 data-nosnippet>19</a>}
-<a href=#20 id=20 data-nosnippet>20</a>
-<a href=#21 id=21 data-nosnippet>21</a><span class="kw">fn </span>write(root: <span class="kw-2">&amp;</span>std::path::Path, path: <span class="kw-2">&amp;</span>str, contents: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-<a href=#22 id=22 data-nosnippet>22</a>    <span class="kw">let </span>path = root.join(path);
-<a href=#23 id=23 data-nosnippet>23</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
-<a href=#24 id=24 data-nosnippet>24</a>        std::fs::create_dir_all(parent).map_err(|e| e.to_string())<span class="question-mark">?</span>;
-<a href=#25 id=25 data-nosnippet>25</a>    }
-<a href=#26 id=26 data-nosnippet>26</a>    std::fs::write(<span class="kw-2">&amp;</span>path, contents).map_err(|e| <span class="macro">format!</span>(<span class="string">"{}: {e}"</span>, path.display()))
-<a href=#27 id=27 data-nosnippet>27</a>}
-<a href=#28 id=28 data-nosnippet>28</a>
-<a href=#29 id=29 data-nosnippet>29</a><span class="kw">fn </span>run(root: <span class="kw-2">&amp;</span>std::path::Path, command: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-<a href=#30 id=30 data-nosnippet>30</a>    <span class="kw">let </span>status = std::process::Command::new(command)
-<a href=#31 id=31 data-nosnippet>31</a>        .args(args)
-<a href=#32 id=32 data-nosnippet>32</a>        .current_dir(root)
-<a href=#33 id=33 data-nosnippet>33</a>        .status()
-<a href=#34 id=34 data-nosnippet>34</a>        .map_err(|e| <span class="macro">format!</span>(<span class="string">"{command}: {e}"</span>))<span class="question-mark">?</span>;
-<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">if </span>status.success() { <span class="prelude-val">Ok</span>(()) } <span class="kw">else </span>{ <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"{command} {}: {status}"</span>, args.join(<span class="string">" "</span>))) }
-<a href=#36 id=36 data-nosnippet>36</a>}
+<a href=#10 id=10 data-nosnippet>10</a><span class="doccomment">/// Version of the generator executable.
+<a href=#11 id=11 data-nosnippet>11</a></span><span class="kw">pub const </span>CLI_VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>);
+<a href=#12 id=12 data-nosnippet>12</a><span class="doccomment">/// Framework version shared by templates, skill and the embedded MCP server.
+<a href=#13 id=13 data-nosnippet>13</a>/// The CLI package may receive independent fixes without republishing the framework.
+<a href=#14 id=14 data-nosnippet>14</a></span><span class="kw">pub const </span>VERSION: <span class="kw-2">&amp;</span>str = ravenrs_project::RAVENRS_VERSION;
+<a href=#15 id=15 data-nosnippet>15</a><span class="doccomment">/// Skill embedded from the plugin in this release.
+<a href=#16 id=16 data-nosnippet>16</a></span><span class="kw">pub const </span>SKILL: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../../../plugins/ravenrs/skills/ravenrs/SKILL.md"</span>);
+<a href=#17 id=17 data-nosnippet>17</a><span class="doccomment">/// Toolchain shared by every template.
+<a href=#18 id=18 data-nosnippet>18</a></span><span class="kw">pub const </span>TOOLCHAIN: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../../../rust-toolchain.toml"</span>);
+<a href=#19 id=19 data-nosnippet>19</a>
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">fn </span>read(path: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
+<a href=#21 id=21 data-nosnippet>21</a>    std::fs::read_to_string(path).map_err(|e| <span class="macro">format!</span>(<span class="string">"{}: {e}"</span>, path.display()))
+<a href=#22 id=22 data-nosnippet>22</a>}
+<a href=#23 id=23 data-nosnippet>23</a>
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">fn </span>write(root: <span class="kw-2">&amp;</span>std::path::Path, path: <span class="kw-2">&amp;</span>str, contents: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+<a href=#25 id=25 data-nosnippet>25</a>    <span class="kw">let </span>path = root.join(path);
+<a href=#26 id=26 data-nosnippet>26</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
+<a href=#27 id=27 data-nosnippet>27</a>        std::fs::create_dir_all(parent).map_err(|e| e.to_string())<span class="question-mark">?</span>;
+<a href=#28 id=28 data-nosnippet>28</a>    }
+<a href=#29 id=29 data-nosnippet>29</a>    std::fs::write(<span class="kw-2">&amp;</span>path, contents).map_err(|e| <span class="macro">format!</span>(<span class="string">"{}: {e}"</span>, path.display()))
+<a href=#30 id=30 data-nosnippet>30</a>}
+<a href=#31 id=31 data-nosnippet>31</a>
+<a href=#32 id=32 data-nosnippet>32</a><span class="kw">fn </span>run(root: <span class="kw-2">&amp;</span>std::path::Path, command: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+<a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">let </span>status = std::process::Command::new(command)
+<a href=#34 id=34 data-nosnippet>34</a>        .args(args)
+<a href=#35 id=35 data-nosnippet>35</a>        .current_dir(root)
+<a href=#36 id=36 data-nosnippet>36</a>        .status()
+<a href=#37 id=37 data-nosnippet>37</a>        .map_err(|e| <span class="macro">format!</span>(<span class="string">"{command}: {e}"</span>))<span class="question-mark">?</span>;
+<a href=#38 id=38 data-nosnippet>38</a>    <span class="kw">if </span>status.success() { <span class="prelude-val">Ok</span>(()) } <span class="kw">else </span>{ <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"{command} {}: {status}"</span>, args.join(<span class="string">" "</span>))) }
+<a href=#39 id=39 data-nosnippet>39</a>}
 </code></pre></div></section></main></body></html>

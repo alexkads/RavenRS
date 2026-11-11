@@ -2,9 +2,9 @@
 
 > RavenRS is an open-source Rust GUI framework: one declarative, reactive UI for Windows, macOS, Linux and WebAssembly, with GPU rendering, semantic design tokens, records, forms and reporting.
 
-Framework version: 27.1.23. License: MIT OR Apache-2.0.
+Framework version: 27.1.27. License: MIT OR Apache-2.0.
 
-Start with `npx create-ravenrs minha-loja`. The npm preparer pins its Rust CLI release independently of npm-only patches. For exact APIs, check the project's Cargo.toml and use its version-matched RavenRS MCP server (`cargo ravenrs mcp`). Do not infer APIs from other GUI frameworks.
+Start with `npx create-ravenrs minha-loja`. The npm preparer, Rust CLI and framework share this release version and use a pinned Git tag. For exact APIs, check the project's Cargo.toml and use its version-matched RavenRS MCP server (`cargo ravenrs mcp`). Do not infer APIs from other GUI frameworks.
 
 ## Official guides
 
@@ -25,7 +25,7 @@ Start with `npx create-ravenrs minha-loja`. The npm preparer pins its Rust CLI r
 ## Source and tools
 
 - [Repository](https://github.com/alexkads/RavenRS)
-- [Published Rust API](https://docs.rs/ravenrs/27.1.23/ravenrs/)
+- [Published Rust API](https://docs.rs/ravenrs/27.1.27/ravenrs/)
 - [npm preparer](https://www.npmjs.com/package/create-ravenrs)
 - [Combined guides](https://alexkads.github.io/RavenRS/llms-full.txt)
 

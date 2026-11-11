@@ -47,26 +47,18 @@ Breaking changes are the ones that Cargo SemVer and [`cargo semver-checks`](http
 5. All crates are published in dependency order, then the tag `vYY.R.P`, the GitHub release, and the site and API docs are updated.
 6. Every crate's documentation built on docs.rs (`https://docs.rs/crate/<name>/<version>/status.json`); it uses a recent nightly, so it can fail when stable passes.
 
-## npm preparer patches
+## Unified publication
 
-`npm/create-ravenrs/release.json` pins the Rust CLI version and Git tag used by the preparer.
-An npm-only documentation or installer patch can increment the npm patch version while
-keeping that Rust pin. The major and minor versions must match and the npm patch cannot
-be below the framework patch. `--version` reports both versions.
+Framework crates, the cargo-ravenrs CLI, the RavenRS plugin and the npm preparer ship together
+under the same YY.R.P version. Every release publishes all public crates, the versioned Git tag,
+the npm package, API documentation and both documentation sites. CLI and npm-only fixes are
+included in the next complete release; do not report them as a complete RavenRS release.
+A different publication strategy requires an explicit request from Alex.
 
-For an npm-only release, increment `package.json` and its lockfile, run the Node tests and
-`npm run prepack --prefix npm/create-ravenrs`, inspect `npm pack --dry-run`, then publish
-from the package directory. Do not create a Rust `vYY.R.P` tag for an npm-only patch.
-For a new framework release, run `prepare-release` and ensure the npm version is unpublished
-before publishing. The prepack guard checks the pinned workspace release and toolchain;
-it does not query the registry for previously published versions.
+The CLI inherits the workspace version. npm/create-ravenrs/release.json pins that same version,
+cliVersion and vYY.R.P Git tag. Run prepare-release after the workspace bump; prepack rejects
+any mismatch in package versions, pins, toolchain or bundled licenses. Before publication,
+confirm the chosen version is unpublished on crates.io and npm, then follow the checklist above.
 
-## CLI patches without a framework release
-
-`cargo-ravenrs` can use an explicit package version for a generator fix. Its framework version
-comes from `ravenrs-project`, so templates, dependency pins, skill and MCP remain matched.
-When the CLI version differs from the framework, publish an annotated `cargo-ravenrs-v<CLI>`
-tag and record both versions in the npm `release.json` with `prepare-release`. The npm launcher
-compares the installed CLI against `cliVersion`; doctor checks application crates against the
-framework version. Advance the CLI version whenever its framework pin changes, and keep the
-npm patch at least as high as the CLI patch. The prepare/prepack guard checks these constraints.
+Historical npm 27.1.24–27.1.26 and CLI-only 27.1.24 kept framework 27.1.23. Starting with 27.1.27,
+all release artifacts are aligned again.
