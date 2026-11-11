@@ -68,6 +68,42 @@ fn templates_embed_the_versioned_examples_and_published_dependencies() {
 }
 
 #[test]
+fn cargo_names_keep_case_underscores_and_repeated_separators_in_all_entry_points() {
+    for name in ["MyApp", "Main", "Native", "my--app", "my__app", "my-app-"] {
+        let files = project_files(name, "hello", "both").unwrap();
+        let krate = name.replace('-', "_");
+        assert!(files.iter().find(|f| f.path == "src/main.rs").unwrap().contents.contains("fn main()"));
+        assert!(
+            files.iter().find(|f| f.path == "src/main.rs").unwrap().contents.contains("ravenrs::native::run")
+        );
+        assert!(
+            files
+                .iter()
+                .find(|f| f.path == "src/main.rs")
+                .unwrap()
+                .contents
+                .contains(&format!("{krate}::app()"))
+        );
+        assert!(
+            files
+                .iter()
+                .find(|f| f.path == "web/index.html")
+                .unwrap()
+                .contents
+                .contains(&format!("pkg/{krate}.js"))
+        );
+        assert!(
+            files
+                .iter()
+                .find(|f| f.path == "tests/screen.rs")
+                .unwrap()
+                .contents
+                .contains(&format!("{krate}::app()"))
+        );
+    }
+}
+
+#[test]
 fn ai_is_idempotent_preserves_user_content_and_copies_the_skill() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();

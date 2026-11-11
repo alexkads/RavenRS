@@ -28,7 +28,22 @@ pub fn project_files(name: &str, template: &str, target: &str) -> Result<Vec<Pro
         "relatorios" => example!("report-designer"),
         _ => return Err("Modelo inválido: hello, app, app-sqlite ou relatorios.".into()),
     };
-    let mut files = Project::new(name).source(source).files_from_app();
+    let project = Project::new(name).source(source);
+    let normalized = project.crate_name().replace('-', "_");
+    let krate = name.replace('-', "_");
+    let mut files = project.files_from_app();
+    // Playground titles are normalized; Cargo names keep case and repeated separators.
+    for file in &mut files {
+        let suffix = match file.path.as_str() {
+            "src/main.rs" => Some((format!("{normalized}::app()"), format!("{krate}::app()"))),
+            "web/index.html" => Some((format!("pkg/{normalized}.js"), format!("pkg/{krate}.js"))),
+            "README.md" => Some((format!("/{normalized}.wasm"), format!("/{krate}.wasm"))),
+            _ => None,
+        };
+        if let Some((from, to)) = suffix {
+            file.contents = file.contents.replace(&from, &to);
+        }
+    }
     let mut manifest: DocumentMut = manifest.parse().map_err(|e| format!("Modelo: {e}"))?;
     let workspace: DocumentMut = WORKSPACE.parse().map_err(|e| format!("Workspace: {e}"))?;
     manifest["package"]["name"] = value(name);
