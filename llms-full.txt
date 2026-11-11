@@ -400,6 +400,19 @@ Read the [AI development guide](AI_DEVELOPMENT.md) for the RavenRS proposal, off
 version-matched MCP tools and a starting prompt. The site publishes `llms.txt` and `llms-full.txt`
 from these same guides so assistants can consult authoritative context.
 
+## Interactive installation
+
+![Interactive RavenRS project creation](media/create-ravenrs-cli.png)
+
+The npm preparer asks for your target and template before starting, with arrow-key selection
+and descriptions. During installation, animated tasks show elapsed time and current build activity.
+Full Cargo/Git output is saved to a temporary installation log; a failing task prints its last output
+and the log path. Use `npx create-ravenrs minha-loja --verbose` to stream all output.
+
+Escape cancels a menu; Ctrl+C cancels an active task. `NO_COLOR` disables colors. Redirected output
+and simple terminals show plain logs; narrow terminals use text prompts. `--yes` still authorizes
+prerequisite installation and selects defaults for unanswered choices.
+
 
 ---
 
