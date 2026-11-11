@@ -17,7 +17,7 @@ fi
 
 site="$(mktemp -d)"
 trap 'rm -rf "$site"' EXIT
-./scripts/build-site.sh "$site"
+RAVENRS_SITE_URL="${RAVENRS_SITE_URL:-https://ravenrs.vercel.app}" ./scripts/build-site.sh "$site"
 # Vercel keeps `api/` for functions and serves no file in it, so the API docs go in `reference/`
 # and `site/vercel.json` sends `/api/...` there: every link stays as it is on GitHub Pages.
 mv "$site/api" "$site/reference"

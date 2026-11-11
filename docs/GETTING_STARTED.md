@@ -303,3 +303,9 @@ cargo ravenrs-lint --gate
 - Install [Raven Finanças](../examples/family-finance), a complete family finance app built with RavenRS, to see it all in everyday use.
 - Read the [architecture](../ARCHITECTURE.md) to see how build, layout, paint and render fit together.
 - The [API documentation](https://alexkads.github.io/RavenRS/api/ravenrs/) lists every type and method.
+
+## Official context for AI assistants
+
+Read the [AI development guide](AI_DEVELOPMENT.md) for the RavenRS proposal, official Markdown sources,
+version-matched MCP tools and a starting prompt. The site publishes `llms.txt` and `llms-full.txt`
+from these same guides so assistants can consult authoritative context.

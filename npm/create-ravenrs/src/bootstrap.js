@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { system } from './system.js';
 import { banner, step, nextSteps } from './ui.js';
+const packageInfo = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const release = JSON.parse(await readFile(new URL('../release.json', import.meta.url), 'utf8'));
 const REPO = 'https://github.com/alexkads/RavenRS';
 const TARGETS = new Set(['desktop', 'web', 'both']);
@@ -71,10 +72,10 @@ async function windowsTools(ctx, native) {
 export async function bootstrap(args, ctx = system()) {
   const options = parse(args);
   if (options.info) {
-    ctx.log(options.info.includes('version') || options.info === '-V' ? `create-ravenrs ${release.version}` : 'Uso: npx create-ravenrs <nome> [--template hello|app|app-sqlite|relatorios] [--target desktop|web|both] [--yes] [--no-git] [--no-ai] [--no-check] [--plugin]\n     npx create-ravenrs doctor (somente leitura)');
+    ctx.log(options.info.includes('version') || options.info === '-V' ? `create-ravenrs ${packageInfo.version} (RavenRS ${release.version})` : 'Uso: npx create-ravenrs <nome> [--template hello|app|app-sqlite|relatorios] [--target desktop|web|both] [--yes] [--no-git] [--no-ai] [--no-check] [--plugin]\n     npx create-ravenrs doctor (somente leitura)');
     return;
   }
-  ctx.log(banner(release.version, ctx.color, options.doctor));
+  ctx.log(banner(packageInfo.version, ctx.color, options.doctor));
   if (!options.name && !options.doctor) options.name = await ctx.ask('Nome do projeto', 'meu-app');
   if (!options.doctor && !options.target) {
     options.target = options.yes ? 'desktop' : await ctx.ask('Alvo (desktop, web, both)', 'desktop');
@@ -132,7 +133,7 @@ export async function bootstrap(args, ctx = system()) {
     await consent(ctx, options, installed ? `Atualizar cargo-ravenrs de ${installed} para ${release.version}?` : `Instalar cargo-ravenrs ${release.version}? (a primeira compilação demora alguns minutos)`);
     ctx.run('cargo', ['install', '--git', REPO, '--tag', release.tag, '--locked', ...(installed ? ['--force'] : []), 'cargo-ravenrs']);
     const installedNow = ctx.probe('cargo', ['ravenrs', '--version']);
-    if (!installedNow.ok || installedNow.stdout.trim().split(/\s+/).at(-1) !== release.version) throw new Error('cargo-ravenrs instalado não corresponde à versão do pacote npm.');
+    if (!installedNow.ok || installedNow.stdout.trim().split(/\s+/).at(-1) !== release.version) throw new Error('cargo-ravenrs instalado não corresponde à versão RavenRS registrada em release.json.');
   }
   ctx.log(step(3, 'cargo-ravenrs', release.version, ctx.color));
   const libraries = await linuxDependencies(ctx, native);
