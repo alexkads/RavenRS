@@ -272,7 +272,7 @@ fn hero(size: Size, narrow: bool, links: Links) -> impl View {
         ))
         .spacing(12.0)
         .wrap(),
-        CodeBlock::new("cargo install --git https://github.com/alexkads/RavenRS --locked cargo-ravenrs\ncargo ravenrs new meu-app"),
+        CodeBlock::new("npx create-ravenrs minha-loja"),
     ))
     .spacing(20.0)
     .max_width(820.0)

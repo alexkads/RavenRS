@@ -238,16 +238,27 @@ Need full control? Implement `View` and use `BuildCx`: layout boxes, any drawing
 
 ## Getting started
 
+```bash
+npx create-ravenrs minha-loja
+```
+
+The guided setup prepares Rust and the matching CLI, then creates an app with the RavenRS
+MCP server, skill and instructions for coding assistants. Choose `hello`, `app`, `app-sqlite`
+or `relatorios`, and desktop, web or both. Use `--yes` for noninteractive setup. Existing
+installations are reused and system packages are reported with manual instructions.
+See [create-ravenrs](npm/create-ravenrs/README.md).
+
+If Rust is already installed:
+
 ```sh
 cargo install --git https://github.com/alexkads/RavenRS --locked cargo-ravenrs
 cargo ravenrs new minha-loja
-cd minha-loja
-cargo run
 ```
 
-Choose `hello`, `app`, `app-sqlite` or `relatorios`, and desktop, web or both. The CLI
-embeds its templates, skill and MCP server from the same release. Use `--tag vYY.R.P`
-when installing to match a particular release. See [the CLI guide](crates/cargo-ravenrs/README.md).
+Use `--tag vYY.R.P` when installing to match a particular release.
+See [the CLI guide](crates/cargo-ravenrs/README.md). The npm package becomes available after
+the CLI's first release tag and npm publication.
+
 
 ## Run the examples
 
