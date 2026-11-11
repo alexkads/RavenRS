@@ -4,7 +4,7 @@ Create a RavenRS app and give coding assistants the API, examples, design tokens
 instructions for the exact same release, without a separate MCP installation.
 
 ```sh
-cargo install --git https://github.com/alexkads/RavenRS --tag cargo-ravenrs-v27.1.24 --locked cargo-ravenrs
+cargo install --git https://github.com/alexkads/RavenRS --tag v27.1.27 --locked cargo-ravenrs
 cargo ravenrs new minha-loja --template app --target both --yes
 cd minha-loja
 cargo run
@@ -57,5 +57,4 @@ a build cache. Set `RAVENRS_TEST_PUBLISHED=1` to check against crates.io after p
 the corresponding framework release. The regular tests start the real MCP binary from
 each configuration and verify idempotence, version checks, and the embedded sources.
 
-The CLI package can receive a patch independently of the framework: CLI 27.1.24 uses
-RavenRS/templates/MCP 27.1.23. Its Git tag is `cargo-ravenrs-v27.1.24`.
+CLI, framework, templates and MCP use the same release version. The current Git tag is `v27.1.27`.

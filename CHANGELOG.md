@@ -4,6 +4,26 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.27] - 2026-11-11
+
+### Added
+
+- Interactive project creation with arrow-key target/template selection, contextual descriptions,
+  RavenRS branding, asynchronous build progress, saved diagnostic logs and `--verbose`. ([#213](https://github.com/alexkads/RavenRS/issues/213))
+- npm discovery metadata, complete installation reference, AI development guide, llms.txt,
+  llms-full.txt and structured documentation metadata on Pages and Vercel. ([#211](https://github.com/alexkads/RavenRS/issues/211))
+
+### Fixed
+
+- Repeating creation preserves the original template/target when choices are omitted and refuses
+  incompatible choices before changing files or installing prerequisites. All four templates are
+  checked on desktop, web and both targets, with native screen tests. ([#215](https://github.com/alexkads/RavenRS/issues/215))
+
+### Changed
+
+- Publish all framework crates, CLI, plugin, npm and documentation together as 27.1.27.
+  npm and CLI patches published since 27.1.23 are included in this complete release. ([#218](https://github.com/alexkads/RavenRS/issues/218))
+
 ## [27.1.23] - 2026-11-11
 
 ### Security
