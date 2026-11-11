@@ -46,3 +46,17 @@ Breaking changes are the ones that Cargo SemVer and [`cargo semver-checks`](http
 4. CHANGELOG has an entry, plus a migration guide for a major.
 5. All crates are published in dependency order, then the tag `vYY.R.P`, the GitHub release, and the site and API docs are updated.
 6. Every crate's documentation built on docs.rs (`https://docs.rs/crate/<name>/<version>/status.json`); it uses a recent nightly, so it can fail when stable passes.
+
+## npm preparer patches
+
+`npm/create-ravenrs/release.json` pins the Rust CLI version and Git tag used by the preparer.
+An npm-only documentation or installer patch can increment the npm patch version while
+keeping that Rust pin. The major and minor versions must match and the npm patch cannot
+be below the framework patch. `--version` reports both versions.
+
+For an npm-only release, increment `package.json` and its lockfile, run the Node tests and
+`npm run prepack --prefix npm/create-ravenrs`, inspect `npm pack --dry-run`, then publish
+from the package directory. Do not create a Rust `vYY.R.P` tag for an npm-only patch.
+For a new framework release, run `prepare-release` and ensure the npm version is unpublished
+before publishing. The prepack guard checks the pinned workspace release and toolchain;
+it does not query the registry for previously published versions.

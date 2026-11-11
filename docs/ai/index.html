@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AI-assisted development · RavenRS Docs</title><meta name="description" content="AI-assisted development — the RavenRS guide to native and web applications in Rust.">
+<link rel="canonical" href="https://alexkads.github.io/RavenRS/docs/ai/"><meta property="og:title" content="AI-assisted development · RavenRS Docs"><meta property="og:type" content="article"><meta property="og:url" content="https://alexkads.github.io/RavenRS/docs/ai/"><script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"AI-assisted development","url":"https://alexkads.github.io/RavenRS/docs/ai/","version":"27.1.23","about":{"@type":"SoftwareSourceCode","name":"RavenRS","codeRepository":"https://github.com/alexkads/RavenRS","programmingLanguage":"Rust","description":"Declarative, reactive Rust GUI framework for native desktop and WebAssembly applications, with GPU rendering, design tokens, forms and reporting."}}</script>
+<meta name="color-scheme" content="light dark"><link rel="stylesheet" href="../docs.css">
+<script>try{const t=localStorage.getItem('ravenrs-docs-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="../docs.js"></script></head>
+<body data-docs-base="../"><a class="skip" href="#content">Skip to content</a>
+<header class="header"><div class="header-brand"><a href="../../" class="brand" aria-label="RavenRS home"><span class="raven-mark" aria-hidden="true">R</span>RavenRS</a><span class="brand-divider">/</span><a href="../" class="docs-brand">Docs</a></div>
+<nav class="topnav" aria-label="Main"><a href="../" aria-current="page">Documentation</a><a href="../../components/">Components</a><a href="../../demo/">Examples</a></nav>
+<div class="header-actions"><button class="search-trigger" data-open-search><span aria-hidden="true">⌕</span><span class="search-label">Search documentation...</span><kbd>⌘ K</kbd></button><a class="github-link" href="https://github.com/alexkads/RavenRS">GitHub <span aria-hidden="true">↗</span></a><button class="icon-button" id="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme">◐</button><button class="icon-button mobile-menu" id="open-nav" aria-label="Open navigation">☰</button></div></header>
+<div class="docs-layout"><aside class="sidebar" aria-label="Documentation"><div class="version"><span>RavenRS</span><span class="version-label">v27.1.23<i></i></span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a><a href="../ai/" aria-current="page">AI-assisted development</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section><div class="sidebar-bottom"><a href="../../api/ravenrs/">API reference <span aria-hidden="true">↗</span></a><a href="https://github.com/alexkads/RavenRS/discussions">Community <span aria-hidden="true">↗</span></a></div></aside>
+<main id="content" tabindex="-1"><div class="article-top"><div class="breadcrumb"><a href="../">Docs</a><span>/</span><span>Start here</span><span>/</span><strong>AI-assisted development</strong></div><button class="page-copy" id="copy-page">Copy page <span aria-hidden="true">⧉</span></button></div><article class="prose"><h1 id="ai-assisted-development">AI-assisted development</h1>
+<p>RavenRS is an open-source Rust GUI framework for native desktop applications and the web.
+Its proposal is <strong>one declarative, reactive UI in Rust</strong>, shared across Windows, macOS, Linux
+and WebAssembly, with GPU rendering, reusable components and semantic design tokens.
+It includes tools for business applications: records, forms, SQLite templates and reporting.
+The repository is licensed under MIT OR Apache-2.0.</p>
+<h2 id="start-a-project-with-the-matching-tools">Start a project with the matching tools<a class="heading-anchor" href="#start-a-project-with-the-matching-tools" aria-label="Link to Start a project with the matching tools">#</a></h2>
+<div class="codeblock"><div class="codebar"><span class="code-language">bash</span><button type="button" data-copy-code aria-label="Copy bash code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>npx create-ravenrs minha-loja
+<span class="hljs-built_in">cd</span> minha-loja
+cargo run</code></pre></div>
+<p>The Node.js preparer installs the pinned Rust CLI and generates a project. It can configure
+Claude Code, Cursor, VS Code / GitHub Copilot and Codex with a version-matched MCP server,
+project instructions and a RavenRS skill. Read the <a href="../getting-started/">installation guide</a>
+for prerequisites, consent prompts, templates and platform requirements.</p>
+<p>The npm wrapper can receive documentation or installer patches independently of the Rust
+framework. Its <code>release.json</code> pins the Rust CLI and Git tag; use that framework version when
+looking up APIs. Run <code>cargo ravenrs doctor</code> inside the project to check the setup.</p>
+<h2 id="give-an-assistant-authoritative-context">Give an assistant authoritative context<a class="heading-anchor" href="#give-an-assistant-authoritative-context" aria-label="Link to Give an assistant authoritative context">#</a></h2>
+<p>Use these public sources when introducing RavenRS to an assistant:</p>
+<ul>
+<li><a href="https://alexkads.github.io/RavenRS/llms.txt">Documentation index</a>: a concise overview and links to official guides.</li>
+<li><a href="https://alexkads.github.io/RavenRS/llms-full.txt">Full documentation in Markdown</a>: the guides combined into one text file.</li>
+<li><a href="https://github.com/alexkads/RavenRS">Source repository</a>: implementations, examples, release tags and issue tracking.</li>
+<li><a href="https://docs.rs/ravenrs">Versioned Rust API</a>: reference for published releases; select the version used by the project.</li>
+</ul>
+<p>Every guide also has a <strong>View Markdown</strong> link and a <strong>Copy page</strong> button. The text endpoints
+are generated from the same repository documents as this site. They improve access to
+context; they do not guarantee indexing, inclusion in training data or recommendations by an AI.</p>
+<p>A useful starting prompt:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">text</span><button type="button" data-copy-code aria-label="Copy text code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>I am building a RavenRS application in Rust. Read the project&#x27;s AGENTS.md and
+RavenRS skill first. Check Cargo.toml for the framework version and use the
+configured RavenRS MCP server to inspect APIs and examples before writing code.
+Use the existing design tokens and high-level application components where they
+fit. Do not invent builder methods or assume compatibility with another GUI
+framework. Explain any platform or feature limitations and validate the changes.</code></pre></div>
+<h2 id="inspect-apis-instead-of-guessing">Inspect APIs instead of guessing<a class="heading-anchor" href="#inspect-apis-instead-of-guessing" aria-label="Link to Inspect APIs instead of guessing">#</a></h2>
+<p>The MCP server is started by <code>cargo ravenrs mcp</code>. It provides documentation and source
+lookup from the matching RavenRS release. Consult the <a href="../cli/">CLI reference</a>
+for configuration and the project&#39;s generated skill for the available tools and workflow.</p>
+<p>Before implementing a screen, an assistant should inspect the relevant component, its
+example and feature requirements. Prefer semantic design tokens to ad hoc values. For
+record-oriented screens, inspect <a href="../applications/">records and forms</a> before building
+all controls manually. Consult <a href="../architecture/">architecture</a> for reactive state,
+layout and rendering, and <a href="../reporting/">reporting</a> for report-specific APIs.</p>
+<h2 id="keep-context-current">Keep context current<a class="heading-anchor" href="#keep-context-current" aria-label="Link to Keep context current">#</a></h2>
+<p>After upgrading RavenRS, refresh managed assistant configuration with <code>cargo ravenrs ai</code>
+and run <code>cargo ravenrs doctor</code>. Review changes to generated instructions alongside the
+application. Custom instructions should describe your domain, conventions and validation;
+keep official API claims tied to the installed release.</p>
+<p>The supported platforms and installation limitations are documented in the
+<a href="../getting-started/">getting-started guide</a>. For missing capabilities or incorrect guidance,
+<a href="https://github.com/alexkads/RavenRS/issues">open an issue</a>.</p>
+</article><div class="page-feedback"><span>Help us improve these docs.</span><a href="https://github.com/alexkads/RavenRS/edit/master/docs/AI_DEVELOPMENT.md">Edit this page on GitHub <span aria-hidden="true">↗</span></a><a href="index.md">View Markdown <span aria-hidden="true">↗</span></a></div><nav class="pager" aria-label="Previous and next pages"><a class="pager-card " href="../cli/"><span>Previous</span><strong>← CLI & AI assistants</strong></a><a class="pager-card next" href="../architecture/"><span>Next</span><strong>Architecture →</strong></a></nav><footer class="footer">RavenRS 27.1.23<span>One UI. Native and web.</span></footer></main>
+<aside class="toc" aria-label="On this page"><h2>On this page</h2><nav><a class="toc-level-2" href="#start-a-project-with-the-matching-tools">Start a project with the matching tools</a><a class="toc-level-2" href="#give-an-assistant-authoritative-context">Give an assistant authoritative context</a><a class="toc-level-2" href="#inspect-apis-instead-of-guessing">Inspect APIs instead of guessing</a><a class="toc-level-2" href="#keep-context-current">Keep context current</a></nav><div class="toc-help"><span>Ready to build?</span><a href="../getting-started/">Create your first app →</a></div></aside></div>
+<dialog id="search-dialog" aria-label="Search documentation"><div class="search-field"><span aria-hidden="true">⌕</span><input id="docs-search" type="search" placeholder="What are you looking for?" aria-label="Search documentation" autocomplete="off"><button class="icon-button" data-close-search aria-label="Close search">Esc</button></div><div id="search-results" role="status"></div><div class="search-footer"><span>↑ ↓ to navigate</span><span>↵ to open</span><span>esc to close</span></div></dialog>
+<dialog id="mobile-nav" aria-label="Documentation navigation"><button class="icon-button close-nav" aria-label="Close navigation">✕</button><div class="version"><span>RavenRS Docs</span><span>v27.1.23</span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a><a href="../ai/" aria-current="page">AI-assisted development</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section></dialog><div id="copy-status" class="sr-only" role="status"></div></body></html>

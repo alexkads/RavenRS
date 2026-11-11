@@ -1,0 +1,32 @@
+# RavenRS
+
+> RavenRS is an open-source Rust GUI framework: one declarative, reactive UI for Windows, macOS, Linux and WebAssembly, with GPU rendering, semantic design tokens, records, forms and reporting.
+
+Framework version: 27.1.23. License: MIT OR Apache-2.0.
+
+Start with `npx create-ravenrs minha-loja`. The npm preparer pins its Rust CLI release independently of npm-only patches. For exact APIs, check the project's Cargo.toml and use its version-matched RavenRS MCP server (`cargo ravenrs mcp`). Do not infer APIs from other GUI frameworks.
+
+## Official guides
+
+- [Introduction](https://alexkads.github.io/RavenRS/docs/index.md)
+- [Installation](https://alexkads.github.io/RavenRS/docs/getting-started/index.md)
+- [CLI & AI assistants](https://alexkads.github.io/RavenRS/docs/cli/index.md)
+- [AI-assisted development](https://alexkads.github.io/RavenRS/docs/ai/index.md)
+- [Architecture](https://alexkads.github.io/RavenRS/docs/architecture/index.md)
+- [Design system](https://alexkads.github.io/RavenRS/docs/design-system/index.md)
+- [Records & forms](https://alexkads.github.io/RavenRS/docs/applications/index.md)
+- [Component coverage](https://alexkads.github.io/RavenRS/docs/components/index.md)
+- [Create reports](https://alexkads.github.io/RavenRS/docs/reporting/index.md)
+- [Report server](https://alexkads.github.io/RavenRS/docs/report-server/index.md)
+- [Quality & accessibility](https://alexkads.github.io/RavenRS/docs/quality/index.md)
+- [Performance](https://alexkads.github.io/RavenRS/docs/performance/index.md)
+- [Versions & upgrades](https://alexkads.github.io/RavenRS/docs/versioning/index.md)
+
+## Source and tools
+
+- [Repository](https://github.com/alexkads/RavenRS)
+- [Published Rust API](https://docs.rs/ravenrs/27.1.23/ravenrs/)
+- [npm preparer](https://www.npmjs.com/package/create-ravenrs)
+- [Combined guides](https://alexkads.github.io/RavenRS/llms-full.txt)
+
+These files provide readable context; they do not guarantee AI indexing or training.
