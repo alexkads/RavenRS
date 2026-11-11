@@ -161,6 +161,11 @@ fn marketplace_mode_is_versioned_and_does_not_copy_the_skill() {
     assert!(settings.contains(&format!("v{VERSION}")));
     assert!(!dir.path().join(".claude/skills/ravenrs/SKILL.md").exists());
     success(&cli(dir.path(), &["doctor"]));
+    let plugin: serde_json::Value =
+        serde_json::from_str(include_str!("../../../plugins/ravenrs/.mcp.json")).unwrap();
+    let generated: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.path().join(".mcp.json")).unwrap()).unwrap();
+    assert_eq!(plugin["mcpServers"]["ravenrs"], generated["mcpServers"]["ravenrs"]);
 }
 
 #[test]
