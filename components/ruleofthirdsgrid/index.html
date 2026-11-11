@@ -34,7 +34,7 @@
     <p class="lede">Composition lines over a picture: thirds, divisions, squares or the golden ratio.</p>
     <h2 class="block">Example</h2>
     <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
-    <iframe class="stage" src="../../demo/?component=RuleOfThirdsGrid" title="Live example of RuleOfThirdsGrid" height="438" allow="fullscreen" allowfullscreen></iframe>
+    <iframe class="stage" src="../../demo/?component=RuleOfThirdsGrid" title="Live example of RuleOfThirdsGrid" height="443" allow="fullscreen" allowfullscreen></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>
@@ -43,6 +43,7 @@
 
 <span class="t-keyword">fn</span> rule_of_thirds_grid() -&gt; <span class="t-keyword">impl</span> <span class="t-type">View</span> {
     <span class="t-keyword">let</span> picture = <span class="t-type">Canvas</span>::new(|frame, scene| {
+        <span class="t-comment">// ravenrs-lint: allow(raw_color) the sky of the stand-in photograph the grid is laid over</span>
         <span class="t-keyword">let</span> sky = <span class="t-type">LinearGradient</span>::vertical(<span class="t-type">Color</span>::rgb(<span class="t-number">0.3</span>, <span class="t-number">0.45</span>, <span class="t-number">0.7</span>), <span class="t-type">Color</span>::rgb(<span class="t-number">0.85</span>, <span class="t-number">0.6</span>, <span class="t-number">0.45</span>));
         scene.push_quad(<span class="t-type">Quad</span>::new(frame, sky));
     })

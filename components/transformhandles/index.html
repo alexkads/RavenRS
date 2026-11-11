@@ -34,7 +34,7 @@
     <p class="lede">Eight handles, a turn and a pivot over a box, returning its geometry.</p>
     <h2 class="block">Example</h2>
     <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
-    <iframe class="stage" src="../../demo/?component=TransformHandles" title="Live example of TransformHandles" height="509" allow="fullscreen" allowfullscreen></iframe>
+    <iframe class="stage" src="../../demo/?component=TransformHandles" title="Live example of TransformHandles" height="553" allow="fullscreen" allowfullscreen></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>
@@ -47,7 +47,9 @@
     <span class="t-keyword">let</span> picture = <span class="t-type">Canvas</span>::new(<span class="t-keyword">move</span> |frame, scene| {
         <span class="t-keyword">let</span> p = shown.get();
         <span class="t-keyword">let</span> at = p.rect.translate(frame.origin);
+        <span class="t-comment">// ravenrs-lint: allow(raw_color) the stand-in canvas behind the layer being transformed</span>
         scene.push_quad(<span class="t-type">Quad</span>::new(frame, <span class="t-type">Color</span>::rgb(<span class="t-number">0.2</span>, <span class="t-number">0.27</span>, <span class="t-number">0.35</span>)));
+        <span class="t-comment">// ravenrs-lint: allow(raw_color) the layer being transformed, as the user painted it</span>
         scene.push_quad(<span class="t-type">Quad</span>::new(at, <span class="t-type">Color</span>::rgb(<span class="t-number">0.3</span>, <span class="t-number">0.55</span>, <span class="t-number">0.75</span>).with_alpha(<span class="t-number">0.6</span>)));
     })
     .size(<span class="t-number">420.0</span>, <span class="t-number">230.0</span>);

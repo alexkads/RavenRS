@@ -45,7 +45,7 @@
     <span class="t-keyword">let</span> open = <span class="t-type">State</span>::new(false);
     <span class="t-keyword">let</span> show = open.clone();
     <span class="t-type">VStack</span>::new((
-        <span class="t-type">Button</span>::new(<span class="t-string">"Keyboard shortcuts"</span>)
+        <span class="t-type">Button</span>::new(<span class="t-string">"Show shortcuts"</span>)
             .style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Secondary</span>)
             .icon(<span class="t-type">IconName</span>::<span class="t-type">Keyboard</span>)
             .on_click(<span class="t-keyword">move</span> || show.set(true)),

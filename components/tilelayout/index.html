@@ -47,7 +47,10 @@
         .columns(<span class="t-number">3</span>)
         .row_height(<span class="t-number">110.0</span>)
         .tile(<span class="t-type">Tile</span>::new(<span class="t-string">"sales"</span>, <span class="t-string">"Sales"</span>, <span class="t-type">Stat</span>::new(<span class="t-string">"This month"</span>, <span class="t-string">"R$ 48,200"</span>)))
-        .tile(<span class="t-type">Tile</span>::new(<span class="t-string">"bills"</span>, <span class="t-string">"Bills"</span>, <span class="t-type">Stat</span>::new(<span class="t-string">"Open"</span>, <span class="t-string">"12"</span>)))
+        .tile(
+            <span class="t-type">Tile</span>::new(<span class="t-string">"bills"</span>, <span class="t-string">"Bills"</span>, <span class="t-type">Stat</span>::new(<span class="t-string">"Open"</span>, <span class="t-string">"12"</span>))
+                .accessory(<span class="t-type">Badge</span>::new(<span class="t-string">"3 late"</span>).tone(<span class="t-type">Tone</span>::<span class="t-type">Danger</span>)),
+        )
         .tile(<span class="t-type">Tile</span>::new(<span class="t-string">"stock"</span>, <span class="t-string">"Stock"</span>, <span class="t-type">Stat</span>::new(<span class="t-string">"Items"</span>, <span class="t-string">"1,204"</span>)))
         .tile(<span class="t-type">Tile</span>::new(<span class="t-string">"people"</span>, <span class="t-string">"People"</span>, <span class="t-type">Stat</span>::new(<span class="t-string">"Active"</span>, <span class="t-string">"37"</span>)))
 }

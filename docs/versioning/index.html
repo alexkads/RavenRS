@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Versions &amp; upgrades · RavenRS Docs</title><meta name="description" content="Versions &amp; upgrades — the RavenRS guide to native and web applications in Rust.">
+<meta name="color-scheme" content="light dark"><link rel="stylesheet" href="../docs.css">
+<script>try{const t=localStorage.getItem('ravenrs-docs-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="../docs.js"></script></head>
+<body data-docs-base="../"><a class="skip" href="#content">Skip to content</a>
+<header class="header"><div class="header-brand"><a href="../../" class="brand" aria-label="RavenRS home"><span class="raven-mark" aria-hidden="true">R</span>RavenRS</a><span class="brand-divider">/</span><a href="../" class="docs-brand">Docs</a></div>
+<nav class="topnav" aria-label="Main"><a href="../" aria-current="page">Documentation</a><a href="../../components/">Components</a><a href="../../demo/">Examples</a></nav>
+<div class="header-actions"><button class="search-trigger" data-open-search><span aria-hidden="true">⌕</span><span class="search-label">Search documentation...</span><kbd>⌘ K</kbd></button><a class="github-link" href="https://github.com/alexkads/RavenRS">GitHub <span aria-hidden="true">↗</span></a><button class="icon-button" id="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme">◐</button><button class="icon-button mobile-menu" id="open-nav" aria-label="Open navigation">☰</button></div></header>
+<div class="docs-layout"><aside class="sidebar" aria-label="Documentation"><div class="version"><span>RavenRS</span><span class="version-label">v27.1.23<i></i></span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" aria-current="page">Versions & upgrades</a></section><div class="sidebar-bottom"><a href="../../api/ravenrs/">API reference <span aria-hidden="true">↗</span></a><a href="https://github.com/alexkads/RavenRS/discussions">Community <span aria-hidden="true">↗</span></a></div></aside>
+<main id="content" tabindex="-1"><div class="article-top"><div class="breadcrumb"><a href="../">Docs</a><span>/</span><span>Reference</span><span>/</span><strong>Versions &amp; upgrades</strong></div><button class="page-copy" id="copy-page">Copy page <span aria-hidden="true">⧉</span></button></div><article class="prose"><h1 id="versioning-and-releases">Versioning and releases</h1>
+<blockquote>
+<p>Adopted on 2026-10-31. The first release under this model is 26.2.0, which follows 0.1.0.</p>
+</blockquote>
+<p>RavenRS follows the release model of commercial component vendors, adapted so that every version is also valid <a href="https://doc.rust-lang.org/cargo/reference/semver.html">Cargo SemVer</a>.</p>
+<h2 id="the-version-number-yy-r-p">The version number: <code>YY.R.P</code><a class="heading-anchor" href="#the-version-number-yy-r-p" aria-label="Link to The version number: YY.R.P">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Meaning</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>YY</code></td>
+<td>Year of the major release. The only place where breaking changes happen.</td>
+<td><code>27</code></td>
+</tr>
+<tr>
+<td><code>R</code></td>
+<td>Feature release within the year: 1 in the first half, 2 in the second. Additions only.</td>
+<td><code>27.1</code></td>
+</tr>
+<tr>
+<td><code>P</code></td>
+<td>Maintenance release: fixes, performance and documentation. Monthly, or sooner for serious bugs.</td>
+<td><code>27.1.3</code></td>
+</tr>
+</tbody></table>
+<p>Commercial component vendors name releases the same way, such as <code>25.1</code> and <code>25.2</code>, or <code>2025.1</code>. The difference is that in RavenRS, <code>27.1 → 27.2</code> never breaks your build. <code>ravenrs = &quot;27&quot;</code> in <code>Cargo.toml</code> follows every feature and maintenance release of that year automatically. Breaking changes wait for the next year&#39;s <code>.1</code> release, from 28.1.0 on: see below for what holds until then.</p>
+<h2 id="calendar">Calendar<a class="heading-anchor" href="#calendar" aria-label="Link to Calendar">#</a></h2>
+<p>A breaking change can bring a <code>YY.1.0</code> forward rather than slip into a feature release: 27.1.0 shipped in November 2026 for that reason. That was the last time: <strong><code>YY</code> and <code>R</code> now follow the calendar only</strong>. Until 27.2.0, in the second half of 2027, every release is the next <code>27.1.P</code>.</p>
+<p><strong>Until 28.1.0, any release may hold breaking changes</strong>, listed under <em>Breaking</em> in the CHANGELOG. The library is still taking shape, and holding its API still costs more than it saves. So until then <code>ravenrs = &quot;27&quot;</code> can break your build on <code>cargo update</code>: pin an exact version, <code>ravenrs = &quot;=27.1.8&quot;</code>, if that matters to you. The table below is what holds from 28.1.0 on.</p>
+<table>
+<thead>
+<tr>
+<th>When</th>
+<th>Release</th>
+<th>What it may contain</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>First half of the year</td>
+<td><code>YY.1.0</code></td>
+<td>New components and features, <strong>and</strong> the year&#39;s breaking changes, each listed in a migration guide</td>
+</tr>
+<tr>
+<td>Second half of the year</td>
+<td><code>YY.2.0</code></td>
+<td>New components and features only</td>
+</tr>
+<tr>
+<td>Monthly</td>
+<td><code>YY.R.P</code></td>
+<td>Fixes only</td>
+</tr>
+</tbody></table>
+<p>Each feature release has a public beta (<code>YY.R.0-beta.N</code>) about four weeks before the final release.</p>
+<h2 id="support">Support<a class="heading-anchor" href="#support" aria-label="Link to Support">#</a></h2>
+<ul>
+<li>The current year&#39;s line gets fixes. The previous year&#39;s line gets security and critical fixes for 12 months after the next major ships.</li>
+<li><strong>MSRV.</strong> A feature release may raise the minimum Rust version to one at least six months old. A maintenance release never raises it.</li>
+<li>Deprecations are announced in a feature release with <code>#[deprecated]</code> and a replacement, and are removed no earlier than the next major.</li>
+</ul>
+<h2 id="what-counts-as-breaking">What counts as breaking<a class="heading-anchor" href="#what-counts-as-breaking" aria-label="Link to What counts as breaking">#</a></h2>
+<p>Breaking changes are the ones that Cargo SemVer and <a href="https://github.com/obi1kenobi/cargo-semver-checks"><code>cargo semver-checks</code></a> treat as major. Enums that grow are <code>#[non_exhaustive]</code>, and builders have defaults, so new variants, fields and options are additions. Visual changes count too: a change that moves pixels in the golden-image tests ships only in a feature or major release, with a CHANGELOG entry.</p>
+<h2 id="release-checklist">Release checklist<a class="heading-anchor" href="#release-checklist" aria-label="Link to Release checklist">#</a></h2>
+<ol>
+<li><code>scripts/check.sh --full</code> passes, including the golden-image tests.</li>
+<li><code>cargo semver-checks</code> runs against the previous release. Until 28.1.0, what it finds goes under <em>Breaking</em> in the CHANGELOG; from then on it has to agree with the version bump.</li>
+<li>Benchmarks are within the budgets in <a href="../quality/">QUALITY.md</a>.</li>
+<li>CHANGELOG has an entry, plus a migration guide for a major.</li>
+<li>All crates are published in dependency order, then the tag <code>vYY.R.P</code>, the GitHub release, and the site and API docs are updated.</li>
+<li>Every crate&#39;s documentation built on docs.rs (<code>https://docs.rs/crate/&lt;name&gt;/&lt;version&gt;/status.json</code>); it uses a recent nightly, so it can fail when stable passes.</li>
+</ol>
+</article><div class="page-feedback"><span>Help us improve these docs.</span><a href="https://github.com/alexkads/RavenRS/edit/master/docs/VERSIONING.md">Edit this page on GitHub <span aria-hidden="true">↗</span></a><a href="index.md">View Markdown <span aria-hidden="true">↗</span></a></div><nav class="pager" aria-label="Previous and next pages"><a class="pager-card " href="../performance/"><span>Previous</span><strong>← Performance</strong></a><span></span></nav><footer class="footer">RavenRS 27.1.23<span>One UI. Native and web.</span></footer></main>
+<aside class="toc" aria-label="On this page"><h2>On this page</h2><nav><a class="toc-level-2" href="#the-version-number-yy-r-p">The version number: YY.R.P</a><a class="toc-level-2" href="#calendar">Calendar</a><a class="toc-level-2" href="#support">Support</a><a class="toc-level-2" href="#what-counts-as-breaking">What counts as breaking</a><a class="toc-level-2" href="#release-checklist">Release checklist</a></nav><div class="toc-help"><span>Ready to build?</span><a href="../getting-started/">Create your first app →</a></div></aside></div>
+<dialog id="search-dialog" aria-label="Search documentation"><div class="search-field"><span aria-hidden="true">⌕</span><input id="docs-search" type="search" placeholder="What are you looking for?" aria-label="Search documentation" autocomplete="off"><button class="icon-button" data-close-search aria-label="Close search">Esc</button></div><div id="search-results" role="status"></div><div class="search-footer"><span>↑ ↓ to navigate</span><span>↵ to open</span><span>esc to close</span></div></dialog>
+<dialog id="mobile-nav" aria-label="Documentation navigation"><button class="icon-button close-nav" aria-label="Close navigation">✕</button><div class="version"><span>RavenRS Docs</span><span>v27.1.23</span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" aria-current="page">Versions & upgrades</a></section></dialog><div id="copy-status" class="sr-only" role="status"></div></body></html>

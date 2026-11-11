@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SKILL","TOOLCHAIN","VERSION"],"fn":["configure_ai","doctor","new_project","project_files"]};

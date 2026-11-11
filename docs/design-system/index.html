@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Design system · RavenRS Docs</title><meta name="description" content="Design system — the RavenRS guide to native and web applications in Rust.">
+<meta name="color-scheme" content="light dark"><link rel="stylesheet" href="../docs.css">
+<script>try{const t=localStorage.getItem('ravenrs-docs-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="../docs.js"></script></head>
+<body data-docs-base="../"><a class="skip" href="#content">Skip to content</a>
+<header class="header"><div class="header-brand"><a href="../../" class="brand" aria-label="RavenRS home"><span class="raven-mark" aria-hidden="true">R</span>RavenRS</a><span class="brand-divider">/</span><a href="../" class="docs-brand">Docs</a></div>
+<nav class="topnav" aria-label="Main"><a href="../" aria-current="page">Documentation</a><a href="../../components/">Components</a><a href="../../demo/">Examples</a></nav>
+<div class="header-actions"><button class="search-trigger" data-open-search><span aria-hidden="true">⌕</span><span class="search-label">Search documentation...</span><kbd>⌘ K</kbd></button><a class="github-link" href="https://github.com/alexkads/RavenRS">GitHub <span aria-hidden="true">↗</span></a><button class="icon-button" id="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme">◐</button><button class="icon-button mobile-menu" id="open-nav" aria-label="Open navigation">☰</button></div></header>
+<div class="docs-layout"><aside class="sidebar" aria-label="Documentation"><div class="version"><span>RavenRS</span><span class="version-label">v27.1.23<i></i></span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" aria-current="page">Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section><div class="sidebar-bottom"><a href="../../api/ravenrs/">API reference <span aria-hidden="true">↗</span></a><a href="https://github.com/alexkads/RavenRS/discussions">Community <span aria-hidden="true">↗</span></a></div></aside>
+<main id="content" tabindex="-1"><div class="article-top"><div class="breadcrumb"><a href="../">Docs</a><span>/</span><span>Build applications</span><span>/</span><strong>Design system</strong></div><button class="page-copy" id="copy-page">Copy page <span aria-hidden="true">⧉</span></button></div><article class="prose"><h1 id="ravenrs">RavenRS</h1>
+<p>Beautiful native interfaces, powered by Rust. RavenRS draws every pixel itself on the GPU (wgpu), on the desktop and in the browser (WebAssembly + WebGPU), so this system is the single source of truth for how a RavenRS app looks everywhere. The Rust crate <code>ravenrs-style</code> mirrors these tokens value for value; when a token changes here, it changes there.</p>
+<h2 id="principles">Principles<a class="heading-anchor" href="#principles" aria-label="Link to Principles">#</a></h2>
+<ul>
+<li><strong>Calm surfaces, one sheen.</strong> Raven feathers read black until light hits them and a blue-violet sheen appears. Interfaces work the same way: deep neutral surfaces (<code>bg-000</code> to <code>bg-300</code>) and a single accent (<code>accent</code>) reserved for the one action or selection that matters on a screen.</li>
+<li><strong>Depth from light, not lines.</strong> Cards separate from the canvas through fill (<code>bg-200</code>) and a soft shadow (<code>shadow-soft</code>). The <code>border</code> hairline supports that edge; it is never the only cue.</li>
+<li><strong>Legible first.</strong> Text meets 4.5:1 on its ground in every theme (<code>ink</code> 15:1+, <code>ink-muted</code> 5.5:1+), focus is always visible (<code>focus-ring</code>), and hit targets are at least 32px tall (44px on touch).</li>
+<li><strong>Motion that explains.</strong> Springs move things that change place; color tweens (<code>duration-fast</code>) acknowledge input. With reduced motion requested, springs collapse to instant changes and fades.</li>
+</ul>
+<h2 id="themes">Themes<a class="heading-anchor" href="#themes" aria-label="Link to Themes">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Theme</th>
+<th>Use it for</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Raven Dark</td>
+<td>The default. Tools, editors, dashboards used for hours.</td>
+<td>Neutrals carry a slight blue bias toward the accent.</td>
+</tr>
+<tr>
+<td>Raven Light</td>
+<td>Documents, forms, bright environments.</td>
+<td>Shadows are fainter; <code>border</code> does more of the edge work.</td>
+</tr>
+<tr>
+<td>Raven Glass</td>
+<td>Overlays, sidebars and hero cards over rich backgrounds.</td>
+<td>Surfaces are translucent white over <code>bg-000</code>. Background blur is applied by the renderer where the platform supports it and degrades to the translucent fill otherwise.</td>
+</tr>
+</tbody></table>
+<p>A generated application has a theme menu in the footer of its navigation, unless it asks for <code>AppShell::without_theme_menu</code>. <code>ThemeEditor</code> changes colors, corners and text sizes by the token names below, and warns when text falls under 4.5:1. What it changes is kept as JSON holding only the differences from the base theme. Spacing is not offered: components still take it from a shared constant, so editing it would change only part of a screen.</p>
+<h2 id="color">Color<a class="heading-anchor" href="#color" aria-label="Link to Color">#</a></h2>
+<ul>
+<li><code>bg-000</code> is the canvas. <code>bg-100</code> holds panels and sidebars, <code>bg-200</code> cards, <code>bg-300</code> controls.</li>
+<li><code>ink</code> for content, <code>ink-muted</code> for labels and metadata. Never put <code>ink-muted</code> on <code>bg-300</code> for body text.</li>
+<li><code>accent</code> fills the primary button and marks selection. Text on it is always <code>on-accent</code>. Hover and press shift lightness (<code>accent-hover</code>, <code>accent-pressed</code>), not hue.</li>
+<li><code>success</code>, <code>warning</code> and <code>danger</code> signal state only and always come with a label or icon.</li>
+</ul>
+<h2 id="typography">Typography<a class="heading-anchor" href="#typography" aria-label="Link to Typography">#</a></h2>
+<p>Inter, embedded in every build (the web has no system fonts to fall back on), at two weights: 400 and 600. Scale: <code>metric</code> 42, <code>display</code> 32, <code>title</code> 22, <code>headline</code> 17, <code>body</code> 15, <code>callout</code> 13, <code>caption</code> 12. Numbers in <code>metric</code> use tabular figures. <code>caption</code> is uppercase with +0.4px tracking.</p>
+<h2 id="space-and-shape">Space and shape<a class="heading-anchor" href="#space-and-shape" aria-label="Link to Space and shape">#</a></h2>
+<p>Spacing is a 4px grid: <code>space-1</code> (4) through <code>space-12</code> (48). Screens pad by <code>space-8</code>, cards by <code>space-6</code>, stacks default to <code>space-4</code>. Radii grow with the size of the object: <code>radius-md</code> (10) for buttons, <code>radius-xl</code> (24) for cards, <code>radius-full</code> for pills.</p>
+<h2 id="motion">Motion<a class="heading-anchor" href="#motion" aria-label="Link to Motion">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Use</th>
+<th>Token (<code>theme.motion</code>)</th>
+<th>Rust API</th>
+<th>Parameters</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Hover, press, focus color</td>
+<td><code>fast</code></td>
+<td><code>Transition::fast()</code></td>
+<td><code>duration-fast</code>, ease-out</td>
+</tr>
+<tr>
+<td>Small layout and opacity changes</td>
+<td><code>base</code></td>
+<td><code>Transition::base()</code></td>
+<td><code>duration-base</code>, ease-in-out</td>
+</tr>
+<tr>
+<td>Things changing place or size</td>
+<td><code>snappy</code></td>
+<td><code>Transition::snappy()</code></td>
+<td>stiffness 380, damping 30</td>
+</tr>
+<tr>
+<td>Panels and sheets</td>
+<td><code>gentle</code></td>
+<td><code>Transition::gentle()</code></td>
+<td>stiffness 170, damping 26</td>
+</tr>
+</tbody></table>
+<p>Rules for components:</p>
+<ul>
+<li>Use <code>theme.motion</code>, not numbers of your own, and declare motion with <code>cx.motion</code>.</li>
+<li>What people fold and unfold many times a day, as a sidebar and its submenus, takes <code>base</code>. A spring&#39;s long tail reads as hesitation there.</li>
+<li>While a sidebar narrows its edge covers the content, which does not reflow: names never squeeze letter by letter.</li>
+<li>Exits are shorter than entrances: the user has already moved on.</li>
+<li>Scale subtly (0.96 and up). Popups grow from their anchor, with <code>Motion::anchored</code>.</li>
+<li>A surface with content comes in solid: opacity applies to each shape on its own, so a panel fading in shows the page through its fields. Leaving, they fade as one surface with <code>Motion::surface_exit</code>, content first and panel after. They take <code>fast</code>, without a spring, whose tail makes text shiver.</li>
+<li>A row in a virtualized list has no enter animation, because scrolling would set it off.</li>
+</ul>
+<h2 id="components">Components<a class="heading-anchor" href="#components" aria-label="Link to Components">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Components</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Text and icons</td>
+<td><code>Text</code>, <code>Icon</code>, <code>Label</code>, <code>Kbd</code>, <code>Badge</code></td>
+</tr>
+<tr>
+<td>Themes</td>
+<td><code>ThemeSwitcher</code>, <code>ThemePicker</code>, <code>ThemeEditor</code></td>
+</tr>
+<tr>
+<td>Actions</td>
+<td><code>Button</code>, <code>IconButton</code>, <code>ToggleButton</code>, <code>ToggleGroup</code>, <code>DropdownMenu</code>, <code>Ribbon</code>, <code>Menubar</code></td>
+</tr>
+<tr>
+<td>Forms</td>
+<td><code>TextField</code>, <code>Select</code>, <code>Combobox</code>, <code>DatePicker</code>, <code>Calendar</code>, <code>Checkbox</code>, <code>RadioGroup</code>, <code>Toggle</code>, <code>Slider</code>, <code>Stepper</code>, <code>SegmentedControl</code>, <code>InputOtp</code>, <code>ColorSwatch</code>, <code>FormField</code></td>
+</tr>
+<tr>
+<td>Surfaces</td>
+<td><code>Card</code>, <code>GlassCard</code> (translucent fill; blur needs the compositor), <code>Section</code>, <code>Divider</code>, <code>Splitter</code>, <code>Accordion</code>, <code>Disclosure</code></td>
+</tr>
+<tr>
+<td>Navigation</td>
+<td><code>Sidebar</code>, <code>SidebarItem</code>, <code>Tabs</code>, <code>Breadcrumb</code>, <code>Pagination</code>, <code>CommandPalette</code></td>
+</tr>
+<tr>
+<td>Overlays</td>
+<td><code>Dialog</code>, <code>Sheet</code>, <code>Popover</code>, <code>Tooltip</code>, <code>HoverCard</code>, <code>ContextMenu</code>, <code>Toaster</code></td>
+</tr>
+<tr>
+<td>Data</td>
+<td><code>DataGrid</code>, <code>Table</code>, <code>List</code>, <code>Stat</code>, <code>Chart</code>, <code>AreaChart</code>, <code>BarChart</code>, <code>Barcode</code>, <code>Avatar</code>, <code>Image</code>, <code>Carousel</code></td>
+</tr>
+<tr>
+<td>Feedback</td>
+<td><code>Alert</code>, <code>ProgressBar</code>, <code>Skeleton</code>, <code>Spinner</code></td>
+</tr>
+</tbody></table>
+<p>Charts take their series from <code>chart-1</code> to <code>chart-5</code>, which each theme defines to read on its background. They mean nothing on their own, unlike <code>success</code> and <code>danger</code>, so a series never looks like a warning. Use a status color for a value only when it says that status, such as a budget over its limit. Their gridlines take <code>chart-grid</code>, which follows <code>border</code>.</p>
+<p>Modules of RavenRS itself, such as the report designer, follow the same rule as any app: they use these components and tokens, and what is missing joins the library first. Printed paper is the one surface that stays light in every theme, drawn with Raven Light tokens.</p>
+<h2 id="screens">Screens<a class="heading-anchor" href="#screens" aria-label="Link to Screens">#</a></h2>
+<p>These rules came out of reviewing <code>examples/feature-center</code> screen by screen, and they hold for every component and application.</p>
+<ul>
+<li><strong>One action stands out.</strong> A window accents the one action that matters most: Save on a form, New on a list. Everything else in the bar stays a ghost button.</li>
+<li><strong>One page margin.</strong> Title, commands, description and content all start on the same line, <code>space-4</code> from the page&#39;s edge.</li>
+<li><strong>No space by accident.</strong> Stacks default to <code>space-4</code>. Put spacing in on purpose where pieces of a window meet, or it shows up as an empty band under a toolbar or a gap beside the navigation.</li>
+<li><strong>Title or trail.</strong> One level is a page title in <code>headline</code>. A breadcrumb appears only when there is somewhere to go back to.</li>
+<li><strong>Fields fill their column.</strong> References, colors and date with time take the same width as the text fields around them. A fixed width is a choice made at the call site.</li>
+<li><strong>Say it once.</strong> A collection in a tab has no heading or label of its own, and a nested list leaves out the column of its owner. An <code>Alert</code> has no title when one would only repeat where it is: use <code>Alert::message</code>.</li>
+<li><strong>Long lists are striped.</strong> <code>DataGrid::striped</code> tints every other row with <code>bg-300</code> at 40%, under the pointer at 85%, and the accent stays for the selection at 13%, so the three never get confused. Lists generated from a model do it by themselves.</li>
+<li><strong>Grids show data first.</strong> The filter row is flat, with each filter&#39;s text starting where its column&#39;s does, at the end for numbers. The group panel shows only when something is grouped or when asked for with <code>group_panel(true)</code>; the Group menu is always in the bar.</li>
+<li><strong>Nothing moves under the pointer.</strong> Selecting a row does not change the height of what is above it. Prefer replacing a status for adding to it.</li>
+<li><strong>One piece, no frame.</strong> A dashboard with a single item has no tile around it. What only helps while handling something, such as a tile&#39;s resize corner, shows only under the pointer.</li>
+<li><strong>One language.</strong> Every label follows the <code>Labels</code> of the application, including those in report viewers.</li>
+</ul>
+<h2 id="writing">Writing<a class="heading-anchor" href="#writing" aria-label="Link to Writing">#</a></h2>
+<p>Name things the way people see them: &quot;Get started&quot;, &quot;Save changes&quot;, &quot;Revenue&quot;. Buttons start with a verb. Errors say what happened and how to fix it.</p>
+</article><div class="page-feedback"><span>Help us improve these docs.</span><a href="https://github.com/alexkads/RavenRS/edit/master/docs/design-system/README.md">Edit this page on GitHub <span aria-hidden="true">↗</span></a><a href="index.md">View Markdown <span aria-hidden="true">↗</span></a></div><nav class="pager" aria-label="Previous and next pages"><a class="pager-card " href="../architecture/"><span>Previous</span><strong>← Architecture</strong></a><a class="pager-card next" href="../applications/"><span>Next</span><strong>Records & forms →</strong></a></nav><footer class="footer">RavenRS 27.1.23<span>One UI. Native and web.</span></footer></main>
+<aside class="toc" aria-label="On this page"><h2>On this page</h2><nav><a class="toc-level-2" href="#principles">Principles</a><a class="toc-level-2" href="#themes">Themes</a><a class="toc-level-2" href="#color">Color</a><a class="toc-level-2" href="#typography">Typography</a><a class="toc-level-2" href="#space-and-shape">Space and shape</a><a class="toc-level-2" href="#motion">Motion</a><a class="toc-level-2" href="#components">Components</a><a class="toc-level-2" href="#screens">Screens</a><a class="toc-level-2" href="#writing">Writing</a></nav><div class="toc-help"><span>Ready to build?</span><a href="../getting-started/">Create your first app →</a></div></aside></div>
+<dialog id="search-dialog" aria-label="Search documentation"><div class="search-field"><span aria-hidden="true">⌕</span><input id="docs-search" type="search" placeholder="What are you looking for?" aria-label="Search documentation" autocomplete="off"><button class="icon-button" data-close-search aria-label="Close search">Esc</button></div><div id="search-results" role="status"></div><div class="search-footer"><span>↑ ↓ to navigate</span><span>↵ to open</span><span>esc to close</span></div></dialog>
+<dialog id="mobile-nav" aria-label="Documentation navigation"><button class="icon-button close-nav" aria-label="Close navigation">✕</button><div class="version"><span>RavenRS Docs</span><span>v27.1.23</span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" aria-current="page">Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section></dialog><div id="copy-status" class="sr-only" role="status"></div></body></html>

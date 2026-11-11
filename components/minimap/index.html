@@ -34,7 +34,7 @@
     <p class="lede">Small copy of the content with a draggable rectangle around what is in view.</p>
     <h2 class="block">Example</h2>
     <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
-    <iframe class="stage" src="../../demo/?component=Minimap" title="Live example of Minimap" height="663" allow="fullscreen" allowfullscreen></iframe>
+    <iframe class="stage" src="../../demo/?component=Minimap" title="Live example of Minimap" height="707" allow="fullscreen" allowfullscreen></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>
@@ -44,6 +44,7 @@
 <span class="t-keyword">fn</span> minimap() -&gt; <span class="t-keyword">impl</span> <span class="t-type">View</span> {
     <span class="t-keyword">let</span> view = <span class="t-type">State</span>::new(<span class="t-type">ZoomView</span>::at(<span class="t-number">1.0</span>));
     <span class="t-keyword">let</span> picture = |frame: <span class="t-type">ZoomPanPaint</span>, scene: &amp;<span class="t-keyword">mut</span> <span class="t-type">Scene</span>| {
+        <span class="t-comment">// ravenrs-lint: allow(raw_color) the stand-in photograph the minimap shows: its colors are the content</span>
         scene.push_quad(<span class="t-type">Quad</span>::new(frame.placed, <span class="t-type">Color</span>::rgb(<span class="t-number">0.2</span>, <span class="t-number">0.45</span>, <span class="t-number">0.7</span>)));
         <span class="t-keyword">let</span> sun = <span class="t-type">Rect</span>::new(
             frame.placed.x() + frame.placed.width() * <span class="t-number">0.6</span>,
@@ -51,6 +52,7 @@
             <span class="t-number">80.0</span> * frame.scale,
             <span class="t-number">80.0</span> * frame.scale,
         );
+        <span class="t-comment">// ravenrs-lint: allow(raw_color) the stand-in photograph the minimap shows: its colors are the content</span>
         scene.push_quad(<span class="t-type">Quad</span>::new(sun, <span class="t-type">Color</span>::rgb(<span class="t-number">0.95</span>, <span class="t-number">0.8</span>, <span class="t-number">0.3</span>)).radius(<span class="t-number">40.0</span> * frame.scale));
     };
     <span class="t-keyword">let</span> content = <span class="t-type">Size</span>::new(<span class="t-number">800.0</span>, <span class="t-number">500.0</span>);

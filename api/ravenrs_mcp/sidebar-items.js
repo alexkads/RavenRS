@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["main"],"mod":["api","docs","expression","report","server"]};
+window.SIDEBAR_ITEMS = {"fn":["serve_stdio"]};

@@ -34,7 +34,7 @@
     <p class="lede">Small pill for status, counts and categories.</p>
     <h2 class="block">Example</h2>
     <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
-    <iframe class="stage" src="../../demo/?component=Badge" title="Live example of Badge" height="509" allow="fullscreen" allowfullscreen></iframe>
+    <iframe class="stage" src="../../demo/?component=Badge" title="Live example of Badge" height="531" allow="fullscreen" allowfullscreen></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>
@@ -48,6 +48,7 @@
         <span class="t-type">Badge</span>::new(<span class="t-string">"Paid"</span>).tone(<span class="t-type">Tone</span>::<span class="t-type">Success</span>).icon(<span class="t-type">IconName</span>::<span class="t-type">Check</span>),
         <span class="t-type">Badge</span>::new(<span class="t-string">"Overdue"</span>).tone(<span class="t-type">Tone</span>::<span class="t-type">Danger</span>),
         <span class="t-type">Badge</span>::new(<span class="t-string">"Draft"</span>).outline(),
+        <span class="t-comment">// ravenrs-lint: allow(raw_color) a tag keeps the color its owner picked for it, in every theme</span>
         <span class="t-type">Badge</span>::new(<span class="t-string">"Family"</span>).color(<span class="t-type">Color</span>::hex(0x8b5cf6)).height(<span class="t-number">26.0</span>),
     ))
     .spacing(<span class="t-number">8.0</span>)

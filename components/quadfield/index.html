@@ -34,7 +34,7 @@
     <p class="lede">A plane of squares that waves like a floor and stands up into a picture as the page scrolls.</p>
     <h2 class="block">Example</h2>
     <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
-    <iframe class="stage" src="../../demo/?component=QuadField" title="Live example of QuadField" height="685" allow="fullscreen" allowfullscreen></iframe>
+    <iframe class="stage" src="../../demo/?component=QuadField" title="Live example of QuadField" height="729" allow="fullscreen" allowfullscreen></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>
@@ -43,15 +43,17 @@
 
 <span class="t-keyword">fn</span> quad_field() -&gt; <span class="t-keyword">impl</span> <span class="t-type">View</span> {
     <span class="t-comment">// Scroll inside: the waving floor stands up into a small dashboard.</span>
-    <span class="t-keyword">let</span> picture = |u: f32, v: f32, time: f64| {
+    <span class="t-comment">// ravenrs-lint: allow(raw_color) the pixels of the scene, like those of an `ImageData::from_fn`</span>
+    <span class="t-keyword">let</span> (floor, bars, ground) = (<span class="t-type">Color</span>::hex(0x222734), <span class="t-type">Color</span>::hex(0x4c66ee), <span class="t-type">Color</span>::hex(0x12151c));
+    <span class="t-keyword">let</span> picture = <span class="t-keyword">move</span> |u: f32, v: f32, time: f64| {
         <span class="t-keyword">let</span> bar = ((u - <span class="t-number">0.1</span>) / <span class="t-number">0.1</span>).floor();
         <span class="t-keyword">let</span> height = <span class="t-number">0.35</span> + <span class="t-number">0.25</span> * (bar * <span class="t-number">1.7</span> + time <span class="t-keyword">as</span> f32).sin().abs();
         <span class="t-keyword">if</span> v &lt; <span class="t-number">0.15</span> {
-            <span class="t-type">Color</span>::hex(0x222734)
+            floor
         } <span class="t-keyword">else</span> <span class="t-keyword">if</span> (<span class="t-number">0.1..0.9</span>).contains(&amp;u) &amp;&amp; v &gt; <span class="t-number">0.9</span> - height {
-            <span class="t-type">Color</span>::hex(0x4c66ee)
+            bars
         } <span class="t-keyword">else</span> {
-            <span class="t-type">Color</span>::hex(0x12151c)
+            ground
         }
     };
     <span class="t-type">ScrollView</span>::new((

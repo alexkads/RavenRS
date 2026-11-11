@@ -48,15 +48,15 @@
         <span class="t-type">HStack</span>::new((
             <span class="t-type">Button</span>::new(<span class="t-string">"Save"</span>).on_click(<span class="t-keyword">move</span> || add.update(|n| *n += <span class="t-number">1</span>)),
             <span class="t-type">Button</span>::new(<span class="t-string">"Cancel"</span>).style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Secondary</span>),
-            <span class="t-type">Button</span>::new(<span class="t-string">"More"</span>).style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Ghost</span>),
+            <span class="t-type">Button</span>::new(<span class="t-string">"Show more"</span>).style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Ghost</span>),
             <span class="t-type">Button</span>::new(<span class="t-string">"Delete"</span>).style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Danger</span>).icon(<span class="t-type">IconName</span>::<span class="t-type">Trash2</span>),
         ))
         .spacing(<span class="t-number">8.0</span>)
         .wrap(),
         <span class="t-type">HStack</span>::new((
-            <span class="t-type">Button</span>::new(<span class="t-string">"Saving"</span>).loading(true),
-            <span class="t-type">Button</span>::new(<span class="t-string">"Grid view"</span>).style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Secondary</span>).selected(true),
-            <span class="t-type">Button</span>::new(<span class="t-string">"Open"</span>).shortcut(<span class="t-string">"F8"</span>),
+            <span class="t-type">Button</span>::new(<span class="t-string">"Upload"</span>).style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Secondary</span>).loading(true),
+            <span class="t-type">Button</span>::new(<span class="t-string">"Show grid"</span>).style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Secondary</span>).selected(true),
+            <span class="t-type">Button</span>::new(<span class="t-string">"Open"</span>).style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Ghost</span>).shortcut(<span class="t-string">"F8"</span>),
         ))
         .spacing(<span class="t-number">8.0</span>)
         .wrap(),

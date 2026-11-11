@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Performance · RavenRS Docs</title><meta name="description" content="Performance — the RavenRS guide to native and web applications in Rust.">
+<meta name="color-scheme" content="light dark"><link rel="stylesheet" href="../docs.css">
+<script>try{const t=localStorage.getItem('ravenrs-docs-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="../docs.js"></script></head>
+<body data-docs-base="../"><a class="skip" href="#content">Skip to content</a>
+<header class="header"><div class="header-brand"><a href="../../" class="brand" aria-label="RavenRS home"><span class="raven-mark" aria-hidden="true">R</span>RavenRS</a><span class="brand-divider">/</span><a href="../" class="docs-brand">Docs</a></div>
+<nav class="topnav" aria-label="Main"><a href="../" aria-current="page">Documentation</a><a href="../../components/">Components</a><a href="../../demo/">Examples</a></nav>
+<div class="header-actions"><button class="search-trigger" data-open-search><span aria-hidden="true">⌕</span><span class="search-label">Search documentation...</span><kbd>⌘ K</kbd></button><a class="github-link" href="https://github.com/alexkads/RavenRS">GitHub <span aria-hidden="true">↗</span></a><button class="icon-button" id="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme">◐</button><button class="icon-button mobile-menu" id="open-nav" aria-label="Open navigation">☰</button></div></header>
+<div class="docs-layout"><aside class="sidebar" aria-label="Documentation"><div class="version"><span>RavenRS</span><span class="version-label">v27.1.23<i></i></span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" aria-current="page">Performance</a><a href="../versioning/" >Versions & upgrades</a></section><div class="sidebar-bottom"><a href="../../api/ravenrs/">API reference <span aria-hidden="true">↗</span></a><a href="https://github.com/alexkads/RavenRS/discussions">Community <span aria-hidden="true">↗</span></a></div></aside>
+<main id="content" tabindex="-1"><div class="article-top"><div class="breadcrumb"><a href="../">Docs</a><span>/</span><span>Reference</span><span>/</span><strong>Performance</strong></div><button class="page-copy" id="copy-page">Copy page <span aria-hidden="true">⧉</span></button></div><article class="prose"><h1 id="finding-out-why-a-screen-is-slow">Finding out why a screen is slow</h1>
+<p>This guide is for anyone using RavenRS. Budgets, and how the library keeps to them, are in <a href="../quality/">QUALITY.md</a>.</p>
+<h2 id="open-the-panel">Open the panel<a class="heading-anchor" href="#open-the-panel" aria-label="Link to Open the panel">#</a></h2>
+<p>Press Ctrl+Shift+D, or Cmd+Shift+D on a Mac, in any app. On the desktop, <code>RAVENRS_DIAG=1</code> also opens it at start. While it is closed, none of this costs anything. While it is open, it also measures itself, so expect slightly higher numbers.</p>
+<h2 id="read-it-in-this-order">Read it in this order<a class="heading-anchor" href="#read-it-in-this-order" aria-label="Link to Read it in this order">#</a></h2>
+<p><strong>1. Latest frames.</strong> Each bar is a frame, split by where its time went: views, layout, paint, GPU work and waiting. The line across is the 120 Hz budget. Bars under the line are fine. If only a few spikes cross it, look at what you were doing at that moment.</p>
+<p><strong>2. Why the screen was rebuilt.</strong> Each rebuild runs every view on the screen, so its cost follows the size of the screen. This list says what caused them:</p>
+<table>
+<thead>
+<tr>
+<th>Cause</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Data changed</td>
+<td>A <code>State</code> is being set more often than it changes. Use <code>set_if_changed</code>.</td>
+</tr>
+<tr>
+<td>Pointer moved</td>
+<td>Normal for views that ask <code>is_hovered</code>. Do not ask unless the view looks different.</td>
+</tr>
+<tr>
+<td>A view&#39;s timer</td>
+<td><code>wake_at</code> rebuilds everything. For drawing that moves, use <code>Paint::Live</code>, which repeats only the painting.</td>
+</tr>
+<tr>
+<td>Scrolled</td>
+<td>Expected for a virtualized list, not for plain content.</td>
+</tr>
+</tbody></table>
+<p><strong>3. Costliest views.</strong> The types of view that took the longest in the latest build, without counting the views inside them. Your own components appear under their own names. If one is at the top, look for work done in <code>build</code> that could happen once.</p>
+<p><strong>4. Draw calls split by.</strong> Text and shapes alternating split them by kind, which is normal. Many splits by image mean many separate images on screen.</p>
+<p><strong>5. GPU resources.</strong> Atlas resets should stop once the screen has been shown. If they keep rising, too many different glyph sizes are in use.</p>
+<h2 id="take-a-capture">Take a capture<a class="heading-anchor" href="#take-a-capture" aria-label="Link to Take a capture">#</a></h2>
+<p>&quot;Copy capture for Perfetto&quot; copies the latest frames. Save them to a <code>.json</code> file and open it at <a href="https://ui.perfetto.dev">https://ui.perfetto.dev</a> to see every phase on a timeline, or attach it to a bug report.</p>
+<h2 id="what-makes-a-screen-cheap">What makes a screen cheap<a class="heading-anchor" href="#what-makes-a-screen-cheap" aria-label="Link to What makes a screen cheap">#</a></h2>
+<ul>
+<li><strong>Rebuilds are the expensive thing.</strong> They cost about 3 µs per element on a recent laptop, most of it in layout. Scrolling and animating do not rebuild, unless a view asks to.</li>
+<li><strong>What is off screen costs little.</strong> It is built and laid out but not painted, so a long list scrolls smoothly. Beyond about a thousand elements, use a virtualized view such as <code>DataGrid</code>, because each rebuild still runs them all.</li>
+<li><strong>Text is shaped once.</strong> The same text in the same style is reused between rebuilds, so showing a changing number costs little.</li>
+<li><strong>Charts are pictures.</strong> Their cost comes when their data or size changes. One that returns unchanged is not drawn again.</li>
+</ul>
+<h2 id="measuring-in-this-repository">Measuring in this repository<a class="heading-anchor" href="#measuring-in-this-repository" aria-label="Link to Measuring in this repository">#</a></h2>
+<p>See <a href="https://github.com/alexkads/RavenRS/blob/master/.claude/skills/ravenrs-desempenho/SKILL.md">the runbook</a>.</p>
+</article><div class="page-feedback"><span>Help us improve these docs.</span><a href="https://github.com/alexkads/RavenRS/edit/master/docs/PERFORMANCE.md">Edit this page on GitHub <span aria-hidden="true">↗</span></a><a href="index.md">View Markdown <span aria-hidden="true">↗</span></a></div><nav class="pager" aria-label="Previous and next pages"><a class="pager-card " href="../quality/"><span>Previous</span><strong>← Quality & accessibility</strong></a><a class="pager-card next" href="../versioning/"><span>Next</span><strong>Versions & upgrades →</strong></a></nav><footer class="footer">RavenRS 27.1.23<span>One UI. Native and web.</span></footer></main>
+<aside class="toc" aria-label="On this page"><h2>On this page</h2><nav><a class="toc-level-2" href="#open-the-panel">Open the panel</a><a class="toc-level-2" href="#read-it-in-this-order">Read it in this order</a><a class="toc-level-2" href="#take-a-capture">Take a capture</a><a class="toc-level-2" href="#what-makes-a-screen-cheap">What makes a screen cheap</a><a class="toc-level-2" href="#measuring-in-this-repository">Measuring in this repository</a></nav><div class="toc-help"><span>Ready to build?</span><a href="../getting-started/">Create your first app →</a></div></aside></div>
+<dialog id="search-dialog" aria-label="Search documentation"><div class="search-field"><span aria-hidden="true">⌕</span><input id="docs-search" type="search" placeholder="What are you looking for?" aria-label="Search documentation" autocomplete="off"><button class="icon-button" data-close-search aria-label="Close search">Esc</button></div><div id="search-results" role="status"></div><div class="search-footer"><span>↑ ↓ to navigate</span><span>↵ to open</span><span>esc to close</span></div></dialog>
+<dialog id="mobile-nav" aria-label="Documentation navigation"><button class="icon-button close-nav" aria-label="Close navigation">✕</button><div class="version"><span>RavenRS Docs</span><span>v27.1.23</span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" aria-current="page">Performance</a><a href="../versioning/" >Versions & upgrades</a></section></dialog><div id="copy-status" class="sr-only" role="status"></div></body></html>

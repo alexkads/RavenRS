@@ -34,7 +34,7 @@
     <p class="lede">Zoom and pan with pinch, wheel, drag, keys and inertia, within limits.</p>
     <h2 class="block">Example</h2>
     <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
-    <iframe class="stage" src="../../demo/?component=ZoomPanView" title="Live example of ZoomPanView" height="641" allow="fullscreen" allowfullscreen></iframe>
+    <iframe class="stage" src="../../demo/?component=ZoomPanView" title="Live example of ZoomPanView" height="685" allow="fullscreen" allowfullscreen></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>
@@ -45,8 +45,10 @@
     <span class="t-keyword">let</span> view = <span class="t-type">State</span>::new(<span class="t-type">ZoomView</span>::fit());
     <span class="t-keyword">let</span> content = <span class="t-type">Size</span>::new(<span class="t-number">1200.0</span>, <span class="t-number">800.0</span>);
     <span class="t-keyword">let</span> picture = |frame: <span class="t-type">ZoomPanPaint</span>, scene: &amp;<span class="t-keyword">mut</span> <span class="t-type">Scene</span>| {
+        <span class="t-comment">// ravenrs-lint: allow(raw_color) the stand-in photograph being zoomed: its colors are the content</span>
         scene.push_quad(<span class="t-type">Quad</span>::new(frame.placed, <span class="t-type">Color</span>::rgb(<span class="t-number">0.16</span>, <span class="t-number">0.3</span>, <span class="t-number">0.5</span>)));
         <span class="t-keyword">let</span> side = <span class="t-number">120.0</span> * frame.scale;
+        <span class="t-comment">// ravenrs-lint: allow(raw_color) the stand-in photograph being zoomed: its colors are the content</span>
         <span class="t-keyword">for</span> (i, color) <span class="t-keyword">in</span> [<span class="t-type">Color</span>::rgb(<span class="t-number">0.9</span>, <span class="t-number">0.45</span>, <span class="t-number">0.3</span>), <span class="t-type">Color</span>::rgb(<span class="t-number">0.95</span>, <span class="t-number">0.8</span>, <span class="t-number">0.3</span>)].into_iter().enumerate() {
             <span class="t-keyword">let</span> x = frame.placed.x() + frame.placed.width() * (<span class="t-number">0.2</span> + <span class="t-number">0.4</span> * i <span class="t-keyword">as</span> f32);
             <span class="t-keyword">let</span> y = frame.placed.y() + frame.placed.height() * <span class="t-number">0.35</span>;

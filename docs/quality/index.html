@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Quality &amp; accessibility · RavenRS Docs</title><meta name="description" content="Quality &amp; accessibility — the RavenRS guide to native and web applications in Rust.">
+<meta name="color-scheme" content="light dark"><link rel="stylesheet" href="../docs.css">
+<script>try{const t=localStorage.getItem('ravenrs-docs-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="../docs.js"></script></head>
+<body data-docs-base="../"><a class="skip" href="#content">Skip to content</a>
+<header class="header"><div class="header-brand"><a href="../../" class="brand" aria-label="RavenRS home"><span class="raven-mark" aria-hidden="true">R</span>RavenRS</a><span class="brand-divider">/</span><a href="../" class="docs-brand">Docs</a></div>
+<nav class="topnav" aria-label="Main"><a href="../" aria-current="page">Documentation</a><a href="../../components/">Components</a><a href="../../demo/">Examples</a></nav>
+<div class="header-actions"><button class="search-trigger" data-open-search><span aria-hidden="true">⌕</span><span class="search-label">Search documentation...</span><kbd>⌘ K</kbd></button><a class="github-link" href="https://github.com/alexkads/RavenRS">GitHub <span aria-hidden="true">↗</span></a><button class="icon-button" id="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme">◐</button><button class="icon-button mobile-menu" id="open-nav" aria-label="Open navigation">☰</button></div></header>
+<div class="docs-layout"><aside class="sidebar" aria-label="Documentation"><div class="version"><span>RavenRS</span><span class="version-label">v27.1.23<i></i></span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" aria-current="page">Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section><div class="sidebar-bottom"><a href="../../api/ravenrs/">API reference <span aria-hidden="true">↗</span></a><a href="https://github.com/alexkads/RavenRS/discussions">Community <span aria-hidden="true">↗</span></a></div></aside>
+<main id="content" tabindex="-1"><div class="article-top"><div class="breadcrumb"><a href="../">Docs</a><span>/</span><span>Reference</span><span>/</span><strong>Quality &amp; accessibility</strong></div><button class="page-copy" id="copy-page">Copy page <span aria-hidden="true">⧉</span></button></div><article class="prose"><h1 id="quality-bar">Quality bar</h1>
+<p>RavenRS components are meant to be used in production applications, at the level users expect from commercial component vendors. This page defines what &quot;done&quot; means for a component, which checks enforce it, the performance budgets, and where each component stands today.</p>
+<h2 id="definition-of-done-for-a-component">Definition of done for a component<a class="heading-anchor" href="#definition-of-done-for-a-component" aria-label="Link to Definition of done for a component">#</a></h2>
+<p>A component is ✅ in <a href="../components/">PARITY.md</a> only when all of these hold:</p>
+<ol>
+<li><strong>API.</strong> Typed builder methods with defaults that look right without configuration. Values come in through <code>Binding&lt;T&gt;</code>, events go out through closures. Every public item has rustdoc, and the type has a runnable example. Growable enums are <code>#[non_exhaustive]</code>.</li>
+<li><strong>States.</strong> Rest, hover, pressed, focused (keyboard ring), disabled, selected or checked where it applies, empty, loading and error where it applies, and overflow (long text, many items, a tiny viewport).</li>
+<li><strong>Screen readers.</strong> It sets a role and state with <code>Semantics</code>, and every control has a name: from its text, a <code>label</code>, a <code>FormField</code> or a <code>Tooltip</code>. The gallery audit (<code>examples/component-gallery/tests/accessibility.rs</code>) fails on any unnamed control.</li>
+<li><strong>Keyboard.</strong> Reachable with Tab. Enter and Space activate. Arrow keys, Home and End follow the <a href="https://www.w3.org/WAI/ARIA/apg/patterns/">WAI-ARIA Authoring Practices</a> pattern for that widget. Escape closes overlays.</li>
+<li><strong>Themes.</strong> Built only from semantic tokens, so it is correct in Raven Dark, Light and Glass. Text meets WCAG AA contrast, which <code>ravenrs-style</code> tests for every theme.</li>
+<li><strong>Edge cases.</strong> Empty data, a single item, huge counts, non-ASCII text, out-of-range values (clamped, never panicking) and a zero-size viewport.</li>
+<li><strong>Performance.</strong> Meets the <a href="#performance-contract">performance contract</a> and stays inside the budgets below. Large collections are virtualized.</li>
+<li><strong>Tests.</strong> At least one behavior test that drives it through <code>Ui</code> (pointer and keyboard). Property tests for any pure logic. A golden image for any component whose drawing is non-trivial.</li>
+<li><strong>Docs and demo.</strong> A section in the <a href="https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery">component gallery</a> that shows its variants and states.</li>
+</ol>
+<h2 id="enforced-checks">Enforced checks<a class="heading-anchor" href="#enforced-checks" aria-label="Link to Enforced checks">#</a></h2>
+<p><code>scripts/check.sh --full</code> runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate. Without <code>--full</code> it is the quick check for each pull request: rustfmt, and clippy and the tests of the packages the change reaches (<code>scripts/changed-packages.py</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>What it catches</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cargo fmt --check</code></td>
+<td>Formatting drift</td>
+</tr>
+<tr>
+<td><code>cargo clippy -D warnings</code> on native and <code>wasm32</code></td>
+<td>Lints, including <code>missing_docs</code> on every public item</td>
+</tr>
+<tr>
+<td><code>cargo test --workspace</code></td>
+<td>Unit, behavior, accessibility, property (<a href="https://docs.rs/proptest">proptest</a>) and doc tests</td>
+</tr>
+<tr>
+<td>GPU golden-image tests (<code>crates/ravenrs/tests/visual.rs</code>)</td>
+<td>Visual regressions in 6 scenes × dark and light; tolerance 24/255 per channel on at most 0.4% of pixels</td>
+</tr>
+<tr>
+<td>GPU pixel tests (<code>crates/ravenrs-render/tests/offscreen.rs</code>)</td>
+<td>Renderer correctness: shapes, clipping, images</td>
+</tr>
+<tr>
+<td><code>cargo doc -D warnings</code></td>
+<td>Broken intra-doc links</td>
+</tr>
+<tr>
+<td><code>cargo deny check</code></td>
+<td>Vulnerable, yanked or unlicensed dependencies, and unknown sources</td>
+</tr>
+<tr>
+<td><code>cargo +1.88 check</code></td>
+<td>The declared minimum Rust version (MSRV) still builds</td>
+</tr>
+<tr>
+<td><code>--no-default-features</code></td>
+<td>Optional features really are optional</td>
+</tr>
+<tr>
+<td><code>cargo bench --no-run</code>, only with <code>RAVENRS_GATE=1</code></td>
+<td>Benchmarks keep compiling. It runs when asked for, with the performance gate</td>
+</tr>
+<tr>
+<td><code>cargo run --release -p ravenrs-perf -- gate</code>, only with <code>RAVENRS_GATE=1</code></td>
+<td>Performance regressions: the exact work of every scene against <code>perf/baseline.json</code>. It runs when asked for, not on every check</td>
+</tr>
+<tr>
+<td>Web builds</td>
+<td>The examples build and bind for WebAssembly</td>
+</tr>
+</tbody></table>
+<p>GPU tests skip themselves, with a message, on machines without a GPU adapter. To accept an intended visual change, regenerate the golden images with <code>RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test visual</code>, then review the PNG diff in the commit. A failing run writes <code>*.actual.png</code> next to the golden image.</p>
+<p>Release checks, run by hand before each publish:</p>
+<ul>
+<li><code>cargo semver-checks</code> against the previous release.</li>
+<li><code>cargo llvm-cov</code> for coverage, at 75% line coverage as of 0.1. Coverage is a signal, not a target.</li>
+</ul>
+<h2 id="applications-built-with-ravenrs">Applications built with RavenRS<a class="heading-anchor" href="#applications-built-with-ravenrs" aria-label="Link to Applications built with RavenRS">#</a></h2>
+<p>The rules above that a machine can check also bind applications, through <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lint/README.md"><code>ravenrs-lint</code></a>. It reads an application&#39;s syntax tree and denies, like the compiler: literal colors and font sizes, spacing off the 4px grid, button captions without a verb, icon buttons without a name, more than one primary button in a view, <code>State::new</code> and blocking work in <code>body</code> or <code>build</code>, and files over 600 lines. Every rule is an error, and every exception needs a written reason. <code>cargo ravenrs-lint --init</code> adds the strictest rustc and Clippy levels, the test that runs the rules on <code>cargo test</code>, and the instructions coding agents read; <code>cargo ravenrs-lint --gate</code> is the one command that says the work is done.</p>
+<p>A rule a machine can check goes into <code>ravenrs-lint</code>, not only into this page or the skill.</p>
+<h2 id="performance-method">Performance method<a class="heading-anchor" href="#performance-method" aria-label="Link to Performance method">#</a></h2>
+<p>Optimizing guarantees nothing; a gate that fails on regressions does. There are two instruments, and <a href="https://github.com/alexkads/RavenRS/blob/master/.claude/skills/ravenrs-desempenho/SKILL.md">the skill</a> is the runbook for both.</p>
+<p><strong>The gate</strong> counts the work of each scene with a real runtime and a real renderer, offscreen: builds, layouts, placements, paints, shaping, allocations in the UI, draw calls and why they split, instances, bytes uploaded, glyphs rasterized, atlas resets. These numbers are exact, so any difference from <code>perf/baseline.json</code> fails, improvements included: they have to be accepted with <code>gate --bless</code>, which shows up in the diff. Each run repeats itself and fails if the two passes disagree, and it fails without a GPU. On the screens of real applications (<code>app-*</code>), allocations are only reported, since they depend on the app&#39;s data and the clock. Ceilings in the scene registration keep repeated blessing from eroding the budget. Outside macOS, only ceilings bind. <code>scripts/perf-plant.py</code> proves it works by planting regressions.</p>
+<p><strong>Frame time</strong> is measured apart, before each release, with <code>scripts/perf-time.sh</code>: the best p99 of three processes, because noise on a laptop almost only adds time. On battery the result is invalid. <code>ravenrs-perf cold</code> measures what warm numbers hide, the first time a screen opens.</p>
+<p>Budgets for the reference machine, a 14&quot; MacBook Pro with M2 Pro and a 120 Hz screen, at p99:</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>CPU</th>
+<th>GPU</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Interaction: hover, scroll, animation</td>
+<td>4 ms</td>
+<td>3 ms</td>
+</tr>
+<tr>
+<td>Rebuild: new data, opening a screen, resizing</td>
+<td>16.67 ms</td>
+<td>3 ms</td>
+</tr>
+<tr>
+<td>Idle</td>
+<td>no frames, no wakes</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>Time is guaranteed only for the registered scenes on that machine. Counters reflect the same logic everywhere, but a latency on another machine does not follow from them. The system compositor is outside the measurement, and Metal&#39;s clock is coarse: short passes often read as zero.</p>
+<h3 id="what-was-measured">What was measured<a class="heading-anchor" href="#what-was-measured" aria-label="Link to What was measured">#</a></h3>
+<p>On the reference machine at 1280x800 at 2x, with nothing else running. CPU time in milliseconds at p99, per frame:</p>
+<table>
+<thead>
+<tr>
+<th>Scene</th>
+<th>Elements</th>
+<th>Hover before</th>
+<th>Hover now</th>
+<th>Scroll before</th>
+<th>Scroll now</th>
+<th>Instances before</th>
+<th>Instances now</th>
+<th>Draw calls before</th>
+<th>Draw calls now</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>curve-small</code></td>
+<td>105</td>
+<td>0.90</td>
+<td>0.36</td>
+<td>0.05</td>
+<td>0.05</td>
+<td>684</td>
+<td>485</td>
+<td>61</td>
+<td>44</td>
+</tr>
+<tr>
+<td><code>curve-medium</code></td>
+<td>1,005</td>
+<td>5.48</td>
+<td>2.71</td>
+<td>0.44</td>
+<td>0.08</td>
+<td>6,804</td>
+<td>482</td>
+<td>601</td>
+<td>43</td>
+</tr>
+<tr>
+<td><code>curve-large</code></td>
+<td>10,005</td>
+<td>59.81</td>
+<td>30.72</td>
+<td>5.70</td>
+<td>0.66</td>
+<td>68,904</td>
+<td>482</td>
+<td>6,001</td>
+<td>43</td>
+</tr>
+<tr>
+<td><code>data-grid</code></td>
+<td>210</td>
+<td>1.18</td>
+<td>0.85</td>
+<td>1.25</td>
+<td>0.85</td>
+<td>644</td>
+<td>526</td>
+<td>71</td>
+<td>62</td>
+</tr>
+<tr>
+<td><code>scheduler</code> scroll</td>
+<td>711</td>
+<td></td>
+<td></td>
+<td>4.56</td>
+<td>1.41</td>
+<td>808</td>
+<td>696</td>
+<td>452</td>
+<td>389</td>
+</tr>
+<tr>
+<td><code>app-finance-dashboard</code></td>
+<td>320</td>
+<td>1.91</td>
+<td>1.24</td>
+<td>0.34</td>
+<td>0.19</td>
+<td>1,041</td>
+<td>802</td>
+<td>116</td>
+<td>101</td>
+</tr>
+<tr>
+<td><code>app-finance-entries</code></td>
+<td>423</td>
+<td>1.82</td>
+<td>1.11</td>
+<td>1.82</td>
+<td>1.13</td>
+<td>1,293</td>
+<td>1,237</td>
+<td>118</td>
+<td>116</td>
+</tr>
+</tbody></table>
+<p>The &quot;before&quot; column was measured with the same scenes before the work on the core. A Lottie playing went from a rebuild of the whole screen per frame to none. The finance dashboard opening for the second time went from 25.4 ms to 1.1 ms in its worst frame.</p>
+<p>The <code>calculator</code> scene measures <code>examples/calculator</code> as it is, a small screen that stays the same between versions. A click on it, on the same machine: 0.16 ms on the CPU, 0.13 ms recording the GPU&#39;s work, 41 instances in 41 draw calls.</p>
+<p>Where things stand:</p>
+<ul>
+<li><p><strong>Scrolling and animating no longer depend on the size of the screen.</strong> Only what can be seen is painted and sent to the GPU.</p>
+</li>
+<li><p><strong>A rebuild still follows the size of the screen.</strong> About 2.7 µs per element, and layout is now 75% of that. The 4 ms budget holds up to about 1,500 elements. The real screens measured have 200 to 420. Beyond that, the next step would be invalidation by subtree, which changes the API of <code>View</code> and <code>BuildCx</code>.</p>
+</li>
+<li><p><strong>The GPU is not the bottleneck.</strong> Under 2 ms in every scene.</p>
+</li>
+<li><p><strong>Batching does little on small screens.</strong> Text and shapes alternate, so the calculator needs one draw call per instance. It costs nothing visible today, and painting order would have to be kept by any fix.</p>
+</li>
+<li><p><strong>Resizing a window with charts.</strong> Bars and gridlines are quads now, with no picture to draw or send; a line with more points than columns draws only what can be told apart; and a picture covers only what it draws. The <code>chart</code> scenes, dragging the window to a new width each frame, p99 of CPU and of recording the GPU&#39;s work, before and after:</p>
+<table>
+<thead>
+<tr>
+<th>Scene</th>
+<th>CPU before</th>
+<th>CPU now</th>
+<th>Recording before</th>
+<th>Recording now</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>chart</code>, a line of 5,000 points</td>
+<td>26.0</td>
+<td>13.9</td>
+<td>7.2</td>
+<td>5.7</td>
+</tr>
+<tr>
+<td><code>chart-bars</code>, three series of 12 bars</td>
+<td>5.5</td>
+<td>0.1</td>
+<td>6.3</td>
+<td>0.1</td>
+</tr>
+<tr>
+<td><code>chart-board</code>, area, bars, doughnut and line</td>
+<td>7.2</td>
+<td>5.5</td>
+<td>4.7</td>
+<td>3.2</td>
+</tr>
+<tr>
+<td><code>chart-sankey</code>, ten flows between ten nodes, as quads and curves</td>
+<td></td>
+<td>0.04</td>
+<td></td>
+<td>0.1</td>
+</tr>
+</tbody></table>
+<p>The finance dashboard went from 19.7 ms to 7.4 ms on the same measure. Lines, areas and slices stay pictures: each scene fits the 16.67 ms of a rebuild, and curves would be drawn again into the atlas on every frame, hover included, at a cost of about 1/26 of a frame per window-sized shape (see below). This comparison was reasoned from those limits, not measured.</p>
+</li>
+<li><p><strong>Not measured:</strong> the delay from input to the screen in a real window, the system compositor, and other machines.</p>
+</li>
+<li><p><strong>Not done:</strong> the gate does not yet fail a public component missing from every scene&#39;s <code>covers</code>.</p>
+</li>
+</ul>
+<h3 id="how-much-the-renderer-can-draw">How much the renderer can draw<a class="heading-anchor" href="#how-much-the-renderer-can-draw" aria-label="Link to How much the renderer can draw">#</a></h3>
+<p><code>ravenrs-perf capacity</code> grows each kind of work until a frame stops fitting, counting until the GPU finishes, at 2560x1600. On the reference machine:</p>
+<table>
+<thead>
+<tr>
+<th>Work</th>
+<th>Fits at 120 Hz</th>
+<th>Fits at 60 Hz</th>
+<th>Limited by</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rounded quads</td>
+<td>30,000</td>
+<td>60,000</td>
+<td>GPU</td>
+</tr>
+<tr>
+<td>Quads with a soft shadow</td>
+<td>4,600</td>
+<td>9,300</td>
+<td>GPU, the area of the blur</td>
+</tr>
+<tr>
+<td>Text</td>
+<td>180,000 glyphs</td>
+<td>370,000 glyphs</td>
+<td>CPU</td>
+</tr>
+<tr>
+<td>A quad and a line of 43 glyphs in turn</td>
+<td>1,700</td>
+<td>3,600</td>
+<td>Both; draw calls about double the cost</td>
+</tr>
+<tr>
+<td>Quads each with its own clip</td>
+<td>18,000</td>
+<td>38,000</td>
+<td>Both</td>
+</tr>
+<tr>
+<td>Small shapes of curves</td>
+<td>6,700</td>
+<td>13,400</td>
+<td>Both</td>
+</tr>
+<tr>
+<td>Window-sized shapes of curves</td>
+<td>26</td>
+<td>56</td>
+<td>GPU</td>
+</tr>
+<tr>
+<td>Different images</td>
+<td>13,700</td>
+<td>27,600</td>
+<td>CPU</td>
+</tr>
+<tr>
+<td>Translucent layers over the whole window</td>
+<td>39</td>
+<td>81</td>
+<td>GPU</td>
+</tr>
+</tbody></table>
+<p>The real screens measured use 500 to 1,400 instances, so the renderer has about 20 times the room they need. It is not what limits a screen; a rebuild is.</p>
+<p>Shapes of curves share a coverage atlas of at most 8192x8192. Past that, the main pass splits to draw another page, so nothing is left out, at the cost of a pass per page.</p>
+<h3 id="performance-contract">Performance contract<a class="heading-anchor" href="#performance-contract" aria-label="Link to Performance contract">#</a></h3>
+<p>Each component answers for these, through a scene in <code>crates/ravenrs-perf/src/scenes/</code> listing it in <code>covers</code>:</p>
+<ol>
+<li><strong>A scene</strong> at its worst realistic case, using only the public API. Simple components can share one.</li>
+<li><strong>A class:</strong> static, virtualized, animated or picture.</li>
+<li><strong>Scale:</strong> going from N to 10N items, a virtualized component&#39;s counters grow at most 1.2 times.</li>
+<li><strong>No useless work:</strong> an interaction that does not change text shapes nothing, and an animation builds nothing.</li>
+<li><strong>Idle:</strong> no wakes without an animation running or when paused.</li>
+<li><strong>Cold cost declared</strong> for a picture: its cache key and what it does with large data.</li>
+<li><strong>Ceilings</strong> on draw calls, batch breaks and allocations per interaction.</li>
+</ol>
+<h2 id="performance-budgets">Performance budgets<a class="heading-anchor" href="#performance-budgets" aria-label="Link to Performance budgets">#</a></h2>
+<p>Measured with <code>cargo bench</code> (criterion) on an Apple M-series laptop, release profile. Budgets assume a 60 Hz frame (16.7 ms).</p>
+<table>
+<thead>
+<tr>
+<th>Benchmark</th>
+<th>Budget</th>
+<th>Measured</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Full frame: form with 40 cards (build + layout + paint)</td>
+<td>&lt; 8 ms</td>
+<td>1.6 ms</td>
+</tr>
+<tr>
+<td>Full frame: DataGrid with 100,000 rows</td>
+<td>&lt; 8 ms</td>
+<td>2.0 ms</td>
+</tr>
+<tr>
+<td>Animation frame: the same form, paint phase only</td>
+<td>&lt; 2 ms</td>
+<td>0.11 ms</td>
+</tr>
+<tr>
+<td>DataGrid query over 100k rows: no sort</td>
+<td>&lt; 16 ms</td>
+<td>1.0 ms</td>
+</tr>
+<tr>
+<td>… sort by a number</td>
+<td>&lt; 16 ms</td>
+<td>7.9 ms</td>
+</tr>
+<tr>
+<td>… sort by text, then number</td>
+<td>&lt; 16 ms</td>
+<td>12.3 ms</td>
+</tr>
+<tr>
+<td>… filter row range <code>100..200</code></td>
+<td>&lt; 16 ms</td>
+<td>0.9 ms</td>
+</tr>
+<tr>
+<td>… filter row expression over three conditions</td>
+<td>&lt; 16 ms</td>
+<td>8.6 ms</td>
+</tr>
+<tr>
+<td>… search across columns</td>
+<td>&lt; 16 ms</td>
+<td>3.2 ms</td>
+</tr>
+<tr>
+<td>… group with summaries</td>
+<td>&lt; 16 ms</td>
+<td>11.3 ms</td>
+</tr>
+<tr>
+<td>Shape a label / shape and wrap a paragraph</td>
+<td>&lt; 0.1 ms</td>
+<td>0.003 ms / 0.035 ms</td>
+</tr>
+<tr>
+<td>Report: grouped sales over 10,000 rows, 305 pages</td>
+<td>&lt; 300 ms</td>
+<td>80 ms native, about 200 ms in the browser</td>
+</tr>
+<tr>
+<td>Report: invoice</td>
+<td>&lt; 5 ms</td>
+<td>0.05 ms</td>
+</tr>
+</tbody></table>
+<p>Charts are pictures made on the CPU, so their cost is paid when the data or the size changes, and not on other frames: a rebuild that produces the same shapes keeps the same texture. Measured in WebAssembly on Node 24 with the <code>-Oz</code> profile, without SIMD, on the same laptop:</p>
+<table>
+<thead>
+<tr>
+<th>Chart</th>
+<th>Median</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>12 bars, 760x260 at 2x</td>
+<td>4.3 ms</td>
+</tr>
+<tr>
+<td>Line with 12 points, 760x260 at 2x</td>
+<td>6.1 ms</td>
+</tr>
+<tr>
+<td>Pie with 8 slices, 360x260 at 2x</td>
+<td>5.3 ms</td>
+</tr>
+<tr>
+<td><code>AreaChart</code>, 14 values, 760x200 at 2x</td>
+<td>10.8 ms</td>
+</tr>
+<tr>
+<td>Line with 12 points, 1600x900 at 2x</td>
+<td>22.2 ms</td>
+</tr>
+<tr>
+<td>Line with 1000 points, 760x260 at 2x</td>
+<td>55.8 ms</td>
+</tr>
+<tr>
+<td>QR Code, 160 at 2x</td>
+<td>2.1 ms</td>
+</tr>
+</tbody></table>
+<p>Dragging a window&#39;s edge redraws every visible chart on each frame, so more than a few at once, or a long series, go over 16.7 ms while it lasts.</p>
+<p>The size of a WebAssembly build, after <code>wasm-opt -Oz</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Build</th>
+<th>Bytes</th>
+<th>Gzipped</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>hello-world</code>, <code>charts</code> off</td>
+<td>2,805,367</td>
+<td>1,202,999</td>
+</tr>
+<tr>
+<td><code>hello-world</code>, <code>charts</code> on, not using it</td>
+<td>2,806,628</td>
+<td>1,203,232</td>
+</tr>
+<tr>
+<td><code>component-gallery</code> before charts used it</td>
+<td>3,301,057</td>
+<td>1,399,745</td>
+</tr>
+<tr>
+<td><code>component-gallery</code> using every chart and code</td>
+<td>3,582,964</td>
+<td>1,504,909</td>
+</tr>
+</tbody></table>
+<p>Link-time optimization drops what an app does not call, so the feature costs an app without charts about 0.2 KB gzipped. Turning it off saves compile time, not download size. An app that does use charts pays about 105 KB gzipped, its own demos included.</p>
+<p>The DataGrid caches the query result and reruns it only when the data or the query changes, so these costs are paid once per user action, not every frame. Version 0.1 broke the budget in three cases (search at 47 ms, filter at 31 ms, text sort at 23 ms). They were fixed by parsing filters once per query, matching text case-insensitively without allocating, computing sort keys only for matching rows, and replacing text comparisons with precomputed ranks.</p>
+<h2 id="component-audit">Component audit<a class="heading-anchor" href="#component-audit" aria-label="Link to Component audit">#</a></h2>
+<p>Status against the definition of done. <strong>Behavior</strong> names the test suites that drive the component. <strong>Visual</strong> marks golden-image coverage. Every component sets screen reader semantics, covered by <code>accessibility</code> (widgets) and the gallery audit. Right-to-left layout is missing for every component and is tracked once, in the gaps below.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Behavior tests</th>
+<th>Visual</th>
+<th>Keyboard</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Button, IconButton</td>
+<td>ui, keyboard_and_basics</td>
+<td>✅</td>
+<td>✅ Enter/Space, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>ToggleButton, ToggleGroup</td>
+<td>batch_parity, keyboard_and_basics</td>
+<td></td>
+<td>✅ arrows move focus, Space toggles, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>TextField</td>
+<td>components, properties, editing_and_clipboard</td>
+<td>✅</td>
+<td>✅ editing, word and line moves, Shift selection, select all, copy/cut/paste, mouse drag and double-click, tested; IME on web</td>
+<td>Passwords paste but never copy</td>
+</tr>
+<tr>
+<td>Select</td>
+<td>components, keyboard_and_basics</td>
+<td></td>
+<td>✅ Enter/Space/arrows open on the current option, arrows, Enter, focus returns, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Combobox</td>
+<td>batch_parity</td>
+<td></td>
+<td>✅ type, arrows, Enter, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Checkbox, Toggle</td>
+<td>components, batch_parity, keyboard_and_basics</td>
+<td>✅</td>
+<td>✅ Space, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>RadioGroup, SegmentedControl</td>
+<td>keyboard_and_basics</td>
+<td>✅</td>
+<td>✅ arrows, Home/End, wrap, tested</td>
+<td>Keyboard added in this pass</td>
+</tr>
+<tr>
+<td>Slider</td>
+<td>components</td>
+<td>✅</td>
+<td>✅ arrows, Home/End, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Stepper</td>
+<td>keyboard_and_basics</td>
+<td></td>
+<td>✅ arrows, Home/End, tested</td>
+<td>Keyboard added in this pass</td>
+</tr>
+<tr>
+<td>TextArea, NumberField, MaskedField, TimePicker, DateTimePicker</td>
+<td>editors</td>
+<td></td>
+<td>✅ typing, arrows, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>LookupField, FormLayout, FilterBuilder</td>
+<td>components</td>
+<td></td>
+<td>✅ type, arrows, Enter, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Toolbar, SplitButton, ConfirmDialog</td>
+<td>components</td>
+<td></td>
+<td>✅ buttons and menus, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>TreeView, CardView</td>
+<td>app_components</td>
+<td></td>
+<td>✅ one Tab stop; arrows, Home/End, Enter, Space, tested</td>
+<td>Virtualized</td>
+</tr>
+<tr>
+<td>ThemePicker, ThemeEditor</td>
+<td>components</td>
+<td></td>
+<td>✅ built from <code>DropdownMenu</code>, <code>ColorPicker</code> and <code>Stepper</code>, which bring their keys and names; tested by name</td>
+<td></td>
+</tr>
+<tr>
+<td>TagBox, ColorPicker, DateRangePicker</td>
+<td>app_components</td>
+<td></td>
+<td>✅ arrows, type, Enter, Escape, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Wizard, FileUpload, ImageField</td>
+<td>app_components</td>
+<td></td>
+<td>✅ buttons, tested</td>
+<td>Dropping files has no keyboard way; the chooser is the way</td>
+</tr>
+<tr>
+<td>TileLayout</td>
+<td>app_components</td>
+<td></td>
+<td>✅ arrows move, Shift with arrows resizes, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>DataGrid row details and Export menu</td>
+<td>app_components</td>
+<td></td>
+<td>✅ Right and Left, menu, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Disabled and read-only editors</td>
+<td>components</td>
+<td></td>
+<td>✅ out of the tab order, or readable, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>InputOtp</td>
+<td>batch_parity</td>
+<td></td>
+<td>✅ digits and Backspace, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>FormField, Label</td>
+<td>batch_parity, keyboard_and_basics</td>
+<td></td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>Calendar, DatePicker</td>
+<td>batch_parity, keyboard_and_basics</td>
+<td>✅</td>
+<td>✅ one Tab stop; arrows, Home/End, Page Up/Down, Enter, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>EventCalendar</td>
+<td>event_calendar</td>
+<td>✅</td>
+<td>✅ one Tab stop, shared with Calendar; arrows, Home/End, Page Up/Down, Enter, tested</td>
+<td>A day&#39;s name and description read out its events, tested</td>
+</tr>
+<tr>
+<td>Scheduler</td>
+<td>scheduler</td>
+<td>✅</td>
+<td>✅ events are Tab stops; arrows move, Shift resizes, Enter opens, Delete removes, tested</td>
+<td>Grid, rows and events named, with dates, tested. Pointer: drag, resize, draw, tested</td>
+</tr>
+<tr>
+<td>RecurrenceEditor</td>
+<td>event_calendar</td>
+<td>✅</td>
+<td>✅ made of tested controls</td>
+<td>Says the rule and its next days in words, tested</td>
+</tr>
+<tr>
+<td>Ribbon</td>
+<td>ribbon</td>
+<td>✅</td>
+<td>🟡 Tab + Enter; its menus are fully keyboard-operable</td>
+<td>Key tips planned</td>
+</tr>
+<tr>
+<td>DropdownMenu, ContextMenu, Menubar</td>
+<td>keyboard_and_basics, components, batch_parity</td>
+<td></td>
+<td>✅ first item focused on open, arrows, Enter, Escape, focus returns; Menubar Left/Right between titles and open menus, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Tabs</td>
+<td>components, layout_and_content, keyboard_and_basics</td>
+<td></td>
+<td>✅ arrows open tabs, Home/End, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Sidebar</td>
+<td>sidebar, layout_and_content, components</td>
+<td></td>
+<td>✅ Cmd/Ctrl+B, Tab + Enter, Up/Down/Home/End between rows, Left/Right fold submenus and groups, Escape closes the sheet, tested</td>
+<td><code>navigation</code> landmark; rail keeps names and shows tooltips on hover and on keyboard focus, tested. Width eases and is instant under reduced motion. Sheet goes by the window width, not its container&#39;s</td>
+</tr>
+<tr>
+<td>Breadcrumb, Pagination, Accordion, Disclosure</td>
+<td>components, layout_and_content, batch_parity</td>
+<td></td>
+<td>🟡 Tab + Enter</td>
+<td>Links and buttons by pattern; untested</td>
+</tr>
+<tr>
+<td>CommandPalette</td>
+<td>batch_parity</td>
+<td></td>
+<td>✅ ⌘K, type, arrows, Enter, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Dialog, Sheet, Popover, HoverCard, Tooltip, Toaster</td>
+<td>components, batch_parity, keyboard_and_basics</td>
+<td></td>
+<td>✅ Escape; Dialog and Sheet trap focus and return it, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>SplashScreen</td>
+<td>splash</td>
+<td></td>
+<td>✅ no focus stop: takes no input, focus leaves the page and returns on close, tested</td>
+<td>Status and progress announced, tested</td>
+</tr>
+<tr>
+<td>DataGrid</td>
+<td>datagrid, properties, editing_and_clipboard</td>
+<td>✅</td>
+<td>✅ row navigation, Page Up/Down, Enter edits, Cmd/Ctrl+C copies rows as tab-separated text, Cmd/Ctrl+A, tested</td>
+<td>See the DataGrid parity table in ARCHITECTURE.md</td>
+</tr>
+<tr>
+<td>Table, List, Stat</td>
+<td>components</td>
+<td>✅ partial</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>Chart, BarChart, AreaChart, Barcode</td>
+<td>charts, components</td>
+<td>✅ a chart reads its values; a code reads its text or <code>alt</code></td>
+<td>n/a</td>
+<td>The layout&#39;s own tests are in <code>ravenrs-graphics</code></td>
+</tr>
+<tr>
+<td>Layout: stacks, Grid, ScrollView, Splitter, AspectRatio, Card, Section</td>
+<td>layout_and_content, components, keyboard_and_basics</td>
+<td>✅ partial</td>
+<td>🟡 Splitter arrows, untested</td>
+<td>AspectRatio content now fills its box</td>
+</tr>
+<tr>
+<td>Link, Anchor, CountUp, Ticker</td>
+<td>page_motion</td>
+<td>✅ <code>Link</code> is a link with its label, focusable, tested by click</td>
+<td>✅ Enter opens it</td>
+<td>Anchors glide, and jump under reduced motion; tickers stand still, tested</td>
+</tr>
+<tr>
+<td>Sticky, ScrollScene, ScrollLinked</td>
+<td>scroll_scene</td>
+<td>✅ pinned content is placed before hit testing, so the tree and clicks see it where it shows, tested</td>
+<td>n/a, takes no input</td>
+<td>Scrolling rebuilds nothing, tested. Under reduced motion links only fade, tested</td>
+</tr>
+<tr>
+<td>Footer</td>
+<td>footer</td>
+<td></td>
+<td>✅ no focus stop of its own; its links are buttons (Tab + Enter), tested</td>
+<td><code>contentinfo</code> landmark, tested. Stacks by window width, not by its container&#39;s</td>
+</tr>
+<tr>
+<td>StatusBar</td>
+<td>status_bar</td>
+<td></td>
+<td>✅ no focus stop of its own; its actions are buttons (Tab + Enter), tested</td>
+<td><code>contentinfo</code> landmark; the center is a <code>status</code></td>
+</tr>
+<tr>
+<td>Timeline, ToolRail</td>
+<td>timeline</td>
+<td></td>
+<td>🟡 blocks, markers and tools work with Tab + Enter; moving and trimming need the pointer, so apps offer them in fields too</td>
+<td>Blocks and markers are named buttons</td>
+</tr>
+<tr>
+<td>ModelPicker</td>
+<td>model_picker</td>
+<td></td>
+<td>✅ every action is a button (Tab + Enter), tested through <code>ravenrs-ai</code></td>
+<td>Actions are named buttons; the progress bar reads its value</td>
+</tr>
+<tr>
+<td>Chat, FloatingPanel</td>
+<td>chat</td>
+<td></td>
+<td>✅ field, examples, send and sphere work with Tab + Enter, arrow keys move the sphere between corners and Escape closes the panel, tested</td>
+<td>Answers are a <code>status</code>, announced as they appear; the panel is a named group</td>
+</tr>
+<tr>
+<td>ReleaseNotes, CodeBlock</td>
+<td>release_notes</td>
+<td></td>
+<td>✅ versions and buttons work with Tab + Enter, tested</td>
+<td>Lists its versions as buttons; the copy button says when it copied</td>
+</tr>
+<tr>
+<td>MoviePlayer, MovieAssistant, MovieEditor, BugReporter</td>
+<td>ravenrs-movie</td>
+<td></td>
+<td>✅ controls, chapters, marks and blocks work with Tab + Enter; dragging on the canvas and the timeline has no keyboard way yet: 🟡</td>
+<td>Marks say what they teach; a film is an image with a name</td>
+</tr>
+<tr>
+<td>Lottie</td>
+<td>lottie</td>
+<td>✅ decoration unless given <code>alt</code>, then an image with that name</td>
+<td>n/a</td>
+<td>Takes no input; shows its last frame still where motion is reduced, tested. <code>crates/ravenrs/tests/lottie_corpus.rs</code> measures real files against lottie-web</td>
+</tr>
+<tr>
+<td>SplitPanes, SplitHandle</td>
+<td>structural_extensions</td>
+<td></td>
+<td>✅ Arrows, Shift and Home and End move the bar, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>StepIndicator, StepBadge</td>
+<td>structural_extensions</td>
+<td></td>
+<td>✅ Tab and Enter on the steps that are buttons, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Dot, OverlayBadge, Rating, IconTile, EmptyState, HeroBanner, MultiProgress, ShimmerText, DaySeparator, ShortcutSheet, ShortcutHintBar, PropertyRow, PageHeader, ZStack, ButtonGroup, FavoriteToggle, SwatchGrid, NinePointAnchor, ColorPair</td>
+<td>simple_pieces</td>
+<td></td>
+<td>✅ Rating, SwatchGrid and NinePointAnchor take arrows, the rest Tab and Enter where they act, tested</td>
+<td></td>
+</tr>
+<tr>
+<td>Media and feedback: Image, Icon, Carousel, Avatar, Badge, Alert, ProgressBar, Spinner, Skeleton, Kbd, Divider</td>
+<td>layout_and_content, components, batch_parity</td>
+<td>✅ partial</td>
+<td>🟡 Carousel arrows, untested</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>✅ means the WAI-ARIA keys for that widget work and a test covers them. 🟡 means it is reachable and activatable but the full pattern is missing or untested.</p>
+<p>Defects found and fixed during this audit:</p>
+<ul>
+<li>RadioGroup, SegmentedControl and Stepper had no keyboard support beyond Tab. Tabs, ToggleGroup, every menu, the Select list and the Calendar grid lacked their arrow-key patterns, and Calendar days could not take focus at all.</li>
+<li>Tab could leave an open Dialog or Sheet for the page behind it; focus now stays inside and returns to the opener on close.</li>
+<li>Focus moved by code hid the focus ring even when the user was navigating by keyboard.</li>
+<li><code>AspectRatio</code> content with modifiers (for example <code>Spacer::new().background(...)</code>) collapsed to zero height.</li>
+<li>The DataGrid query exceeded the frame budget on 100k rows (see above).</li>
+</ul>
+<h2 id="known-gaps">Known gaps<a class="heading-anchor" href="#known-gaps" aria-label="Link to Known gaps">#</a></h2>
+<p>These block a &quot;commercial-grade&quot; label and are prioritized ahead of new components of the same family:</p>
+<ol>
+<li><strong>Right-to-left layout.</strong> Parley shapes bidirectional text, but layouts do not mirror.</li>
+<li><strong>Remaining keyboard patterns</strong> in the 🟡 rows above: Ribbon key tips.</li>
+<li><strong>Visual coverage.</strong> Golden images exist for 7 scenes. Overlays and navigation have none yet.</li>
+<li><strong>Screen reader depth.</strong> Text fields do not expose caret position or selection, and the web mirror is rebuilt whole when the tree changes. Tested with macOS VoiceOver&#39;s API (System Events) and the browser&#39;s DOM; not yet with NVDA, Narrator or Orca.</li>
+</ol>
+</article><div class="page-feedback"><span>Help us improve these docs.</span><a href="https://github.com/alexkads/RavenRS/edit/master/docs/QUALITY.md">Edit this page on GitHub <span aria-hidden="true">↗</span></a><a href="index.md">View Markdown <span aria-hidden="true">↗</span></a></div><nav class="pager" aria-label="Previous and next pages"><a class="pager-card " href="../report-server/"><span>Previous</span><strong>← Report server</strong></a><a class="pager-card next" href="../performance/"><span>Next</span><strong>Performance →</strong></a></nav><footer class="footer">RavenRS 27.1.23<span>One UI. Native and web.</span></footer></main>
+<aside class="toc" aria-label="On this page"><h2>On this page</h2><nav><a class="toc-level-2" href="#definition-of-done-for-a-component">Definition of done for a component</a><a class="toc-level-2" href="#enforced-checks">Enforced checks</a><a class="toc-level-2" href="#applications-built-with-ravenrs">Applications built with RavenRS</a><a class="toc-level-2" href="#performance-method">Performance method</a><a class="toc-level-3" href="#what-was-measured">What was measured</a><a class="toc-level-3" href="#how-much-the-renderer-can-draw">How much the renderer can draw</a><a class="toc-level-3" href="#performance-contract">Performance contract</a><a class="toc-level-2" href="#performance-budgets">Performance budgets</a><a class="toc-level-2" href="#component-audit">Component audit</a><a class="toc-level-2" href="#known-gaps">Known gaps</a></nav><div class="toc-help"><span>Ready to build?</span><a href="../getting-started/">Create your first app →</a></div></aside></div>
+<dialog id="search-dialog" aria-label="Search documentation"><div class="search-field"><span aria-hidden="true">⌕</span><input id="docs-search" type="search" placeholder="What are you looking for?" aria-label="Search documentation" autocomplete="off"><button class="icon-button" data-close-search aria-label="Close search">Esc</button></div><div id="search-results" role="status"></div><div class="search-footer"><span>↑ ↓ to navigate</span><span>↵ to open</span><span>esc to close</span></div></dialog>
+<dialog id="mobile-nav" aria-label="Documentation navigation"><button class="icon-button close-nav" aria-label="Close navigation">✕</button><div class="version"><span>RavenRS Docs</span><span>v27.1.23</span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" aria-current="page">Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section></dialog><div id="copy-status" class="sr-only" role="status"></div></body></html>

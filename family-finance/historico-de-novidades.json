@@ -1,5 +1,47 @@
 [
   {
+    "versao": "0.1.38",
+    "data": "2026-11-08",
+    "titulo": "Painel do seu jeito, por conta, e bot do Telegram firme em rede ruim.",
+    "importante": false,
+    "novidades": [
+      "No Painel, cada card muda de lugar e de tamanho, pelo mouse ou pelo teclado. O arranjo fica guardado, e o botão Restaurar layout volta ao original.",
+      "O Painel mostra uma conta só ou todas: o saldo, o gráfico, as receitas, as despesas e as categorias seguem a conta escolhida, que fica guardada para a próxima vez.",
+      "O bot do Telegram não responde duas vezes depois de uma queda de rede, e um botão já usado avisa no próprio botão, sem encher o chat.",
+      "Os botões do bot respondem mais rápido, e as respostas ficaram mais claras: ✅ Lançado, ❌ Cancelado e ↩️ Desfeito.",
+      "Um comprovante em PDF com mais de um valor mostra os valores como botões para você escolher o total."
+    ],
+    "por_que_atualizar": "Para arrumar o Painel como prefere, ver cada conta separada e lançar pelo Telegram sem respostas repetidas, mesmo com a internet ruim.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      199,
+      200,
+      201
+    ]
+  },
+  {
+    "versao": "0.1.37",
+    "data": "2026-11-08",
+    "titulo": "Gráficos que entram desenhando.",
+    "importante": false,
+    "novidades": [
+      "Os gráficos do Painel entram desenhando: o saldo surge da esquerda para a direita, as barras de receitas e despesas crescem a partir do zero e a rosca das despesas gira até se completar.",
+      "Ao trocar o período do gráfico de saldo, ele desenha de novo com os meses escolhidos.",
+      "Quem pediu menos movimento no sistema vê os gráficos prontos, sem animação."
+    ],
+    "por_que_atualizar": "Para ver os números chegarem na tela e perceber de relance o que mudou.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      108,
+      190
+    ]
+  },
+  {
     "versao": "0.1.36",
     "data": "2026-11-07",
     "titulo": "Treinamentos com a voz no tempo certo, abertura com a logo e despedida.",

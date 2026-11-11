@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CLI &amp; AI assistants · RavenRS Docs</title><meta name="description" content="CLI &amp; AI assistants — the RavenRS guide to native and web applications in Rust.">
+<meta name="color-scheme" content="light dark"><link rel="stylesheet" href="../docs.css">
+<script>try{const t=localStorage.getItem('ravenrs-docs-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="../docs.js"></script></head>
+<body data-docs-base="../"><a class="skip" href="#content">Skip to content</a>
+<header class="header"><div class="header-brand"><a href="../../" class="brand" aria-label="RavenRS home"><span class="raven-mark" aria-hidden="true">R</span>RavenRS</a><span class="brand-divider">/</span><a href="../" class="docs-brand">Docs</a></div>
+<nav class="topnav" aria-label="Main"><a href="../" aria-current="page">Documentation</a><a href="../../components/">Components</a><a href="../../demo/">Examples</a></nav>
+<div class="header-actions"><button class="search-trigger" data-open-search><span aria-hidden="true">⌕</span><span class="search-label">Search documentation...</span><kbd>⌘ K</kbd></button><a class="github-link" href="https://github.com/alexkads/RavenRS">GitHub <span aria-hidden="true">↗</span></a><button class="icon-button" id="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme">◐</button><button class="icon-button mobile-menu" id="open-nav" aria-label="Open navigation">☰</button></div></header>
+<div class="docs-layout"><aside class="sidebar" aria-label="Documentation"><div class="version"><span>RavenRS</span><span class="version-label">v27.1.23<i></i></span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" aria-current="page">CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section><div class="sidebar-bottom"><a href="../../api/ravenrs/">API reference <span aria-hidden="true">↗</span></a><a href="https://github.com/alexkads/RavenRS/discussions">Community <span aria-hidden="true">↗</span></a></div></aside>
+<main id="content" tabindex="-1"><div class="article-top"><div class="breadcrumb"><a href="../">Docs</a><span>/</span><span>Start here</span><span>/</span><strong>CLI &amp; AI assistants</strong></div><button class="page-copy" id="copy-page">Copy page <span aria-hidden="true">⧉</span></button></div><article class="prose"><h1 id="cargo-ravenrs">cargo-ravenrs</h1>
+<p>Create a RavenRS app and give coding assistants the API, examples, design tokens and
+instructions for the exact same release, without a separate MCP installation.</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">sh</span><button type="button" data-copy-code aria-label="Copy sh code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>cargo install --git https://github.com/alexkads/RavenRS --locked cargo-ravenrs
+cargo ravenrs new minha-loja --template app --target both --<span class="hljs-built_in">yes</span>
+<span class="hljs-built_in">cd</span> minha-loja
+cargo run
+cargo <span class="hljs-built_in">test</span>
+cargo ravenrs doctor</code></pre></div>
+<p>For a released version, add <code>--tag vYY.R.P</code> to <code>cargo install</code>. This crate embeds workspace
+sources and is installed from Git, rather than crates.io. From a checkout use
+<code>cargo install --path crates/cargo-ravenrs --locked</code>.</p>
+<p><code>new</code> asks for the template and target in a terminal. With <code>--yes</code> or redirected input,
+it defaults to <code>hello</code> and <code>desktop</code>. Templates are <code>hello</code>, <code>app</code>, <code>app-sqlite</code>, and
+<code>relatorios</code>; targets are <code>desktop</code>, <code>web</code>, and <code>both</code>. SQLite is used on the desktop;
+the SQLite template uses IndexedDB in the browser. Source files are embedded from
+<code>examples/hello-world</code>, <code>tutorial-tasks</code>, <code>tasks-sqlite</code>, and <code>report-designer</code>.</p>
+<p>Flags: <code>--no-git</code>, <code>--no-ai</code>, <code>--no-check</code>, and <code>--plugin</code>. The last flag writes a
+version-pinned Claude marketplace registration instead of copying the local skill.
+A repeated <code>new</code> recognizes projects generated by this version and preserves their code;
+it refuses existing directories it does not own. It never migrates application source.</p>
+<p><code>cargo ravenrs mcp</code> serves the existing RavenRS MCP implementation over stdio.
+<code>cargo ravenrs ai</code> configures an existing project. It merges only RavenRS entries in
+JSON files, preserving other keys, and updates marked blocks in Markdown and Codex
+TOML. JSON whitespace is normalized. Invalid files are rejected before any configuration
+is written. Keep personal instructions outside the managed blocks. The local skill is
+copied byte-for-byte from the versioned plugin, and its marked body can be updated while
+preserving notes outside the block. An unmarked existing skill is preserved and reported.</p>
+<p><code>doctor</code> compares explicit RavenRS dependency versions with the CLI, checks managed
+files, and runs initialize + tools/list through all four registered commands. It reports
+stale files and versions with a nonzero exit code. Projects made with <code>--no-ai</code> are checked
+without requiring assistant files. Workspace-inherited dependency versions must be made
+explicit before using doctor on an existing project.</p>
+<p>Web projects include <code>web/index.html</code> and commands in <code>AGENTS.md</code> and <code>README.md</code> for
+building with the matching wasm-bindgen CLI and serving the result over HTTP.</p>
+<p>Validation:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">sh</span><button type="button" data-copy-code aria-label="Copy sh code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>cargo <span class="hljs-built_in">test</span> -p cargo-ravenrs -p ravenrs-mcp -p ravenrs-project
+cargo <span class="hljs-built_in">test</span> -p cargo-ravenrs --<span class="hljs-built_in">test</span> cli -- --ignored
+scripts/check.sh</code></pre></div>
+<p>The compilation matrix checks every template/target with local workspace patches, sharing
+a build cache. Set <code>RAVENRS_TEST_PUBLISHED=1</code> to check against crates.io after publishing
+the corresponding framework release. The regular tests start the real MCP binary from
+each configuration and verify idempotence, version checks, and the embedded sources.</p>
+</article><div class="page-feedback"><span>Help us improve these docs.</span><a href="https://github.com/alexkads/RavenRS/edit/master/crates/cargo-ravenrs/README.md">Edit this page on GitHub <span aria-hidden="true">↗</span></a><a href="index.md">View Markdown <span aria-hidden="true">↗</span></a></div><nav class="pager" aria-label="Previous and next pages"><a class="pager-card " href="../getting-started/"><span>Previous</span><strong>← Installation</strong></a><a class="pager-card next" href="../architecture/"><span>Next</span><strong>Architecture →</strong></a></nav><footer class="footer">RavenRS 27.1.23<span>One UI. Native and web.</span></footer></main>
+<aside class="toc" aria-label="On this page"><h2>On this page</h2><nav></nav><div class="toc-help"><span>Ready to build?</span><a href="../getting-started/">Create your first app →</a></div></aside></div>
+<dialog id="search-dialog" aria-label="Search documentation"><div class="search-field"><span aria-hidden="true">⌕</span><input id="docs-search" type="search" placeholder="What are you looking for?" aria-label="Search documentation" autocomplete="off"><button class="icon-button" data-close-search aria-label="Close search">Esc</button></div><div id="search-results" role="status"></div><div class="search-footer"><span>↑ ↓ to navigate</span><span>↵ to open</span><span>esc to close</span></div></dialog>
+<dialog id="mobile-nav" aria-label="Documentation navigation"><button class="icon-button close-nav" aria-label="Close navigation">✕</button><div class="version"><span>RavenRS Docs</span><span>v27.1.23</span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" aria-current="page">CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section></dialog><div id="copy-status" class="sr-only" role="status"></div></body></html>

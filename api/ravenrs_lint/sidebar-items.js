@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error","Language","Level","Lint"],"fn":["assert_clean","check_dir","check_package","check_source","init","packages","recommended_clippy","recommended_lints","render","render_json"],"struct":["Config","Diagnostic","InitReport","Package"]};

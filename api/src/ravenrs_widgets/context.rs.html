@@ -1183,290 +1183,345 @@
 <a href=#1183 id=1183 data-nosnippet>1183</a>        value.value(now)
 <a href=#1184 id=1184 data-nosnippet>1184</a>    }
 <a href=#1185 id=1185 data-nosnippet>1185</a>
-<a href=#1186 id=1186 data-nosnippet>1186</a>    <span class="doccomment">/// How far a view has appeared, from 0 to 1, since it was first built: for
-<a href=#1187 id=1187 data-nosnippet>1187</a>    /// content that draws itself in, such as a chart's data. A new `key` starts it
-<a href=#1188 id=1188 data-nosnippet>1188</a>    /// over. Under reduced motion, or with motion off, it is 1 from the start. Call
-<a href=#1189 id=1189 data-nosnippet>1189</a>    /// it in the same order on every build, as with [`Self::animated`].
-<a href=#1190 id=1190 data-nosnippet>1190</a>    </span><span class="kw">pub fn </span>appear(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: u64, transition: Transition) -&gt; f32 {
-<a href=#1191 id=1191 data-nosnippet>1191</a>        <span class="kw">let </span>cell = <span class="self">self</span>.use_state(|| Rc::new(RefCell::new((key, Animated::new(<span class="number">0.0_f32</span>))))).peek().clone();
-<a href=#1192 id=1192 data-nosnippet>1192</a>        <span class="kw">let </span><span class="kw-2">mut </span>cell = cell.borrow_mut();
-<a href=#1193 id=1193 data-nosnippet>1193</a>        <span class="kw">if </span>cell.<span class="number">0 </span>!= key {
-<a href=#1194 id=1194 data-nosnippet>1194</a>            <span class="kw-2">*</span>cell = (key, Animated::new(<span class="number">0.0</span>));
-<a href=#1195 id=1195 data-nosnippet>1195</a>        }
-<a href=#1196 id=1196 data-nosnippet>1196</a>        <span class="kw">let </span>now = <span class="self">self</span>.motion_clock;
-<a href=#1197 id=1197 data-nosnippet>1197</a>        <span class="kw">let </span>transition =
-<a href=#1198 id=1198 data-nosnippet>1198</a>            <span class="kw">if </span>!<span class="self">self</span>.motion_enabled || <span class="self">self</span>.reduced_motion { Transition::Instant } <span class="kw">else </span>{ transition };
-<a href=#1199 id=1199 data-nosnippet>1199</a>        <span class="kw">let </span>value = <span class="kw-2">&amp;mut </span>cell.<span class="number">1</span>;
-<a href=#1200 id=1200 data-nosnippet>1200</a>        value.set_target(<span class="number">1.0</span>, transition, now);
-<a href=#1201 id=1201 data-nosnippet>1201</a>        <span class="kw">if </span>value.step(now) {
-<a href=#1202 id=1202 data-nosnippet>1202</a>            <span class="self">self</span>.value_moving = <span class="bool-val">true</span>;
-<a href=#1203 id=1203 data-nosnippet>1203</a>            <span class="self">self</span>.wake_at(<span class="self">self</span>.now);
-<a href=#1204 id=1204 data-nosnippet>1204</a>        }
-<a href=#1205 id=1205 data-nosnippet>1205</a>        value.value(now)
-<a href=#1206 id=1206 data-nosnippet>1206</a>    }
-<a href=#1207 id=1207 data-nosnippet>1207</a>
-<a href=#1208 id=1208 data-nosnippet>1208</a>    <span class="doccomment">/// The user asked for less motion, in the system settings or in the theme.
-<a href=#1209 id=1209 data-nosnippet>1209</a>    /// [`Motion`] already respects this; check it for motion you draw yourself.
-<a href=#1210 id=1210 data-nosnippet>1210</a>    </span><span class="kw">pub fn </span>reduced_motion(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#1211 id=1211 data-nosnippet>1211</a>        <span class="self">self</span>.reduced_motion
+<a href=#1186 id=1186 data-nosnippet>1186</a>    <span class="doccomment">/// Numbers that go from where they are to `target` along a tween, in full `f64`
+<a href=#1187 id=1187 data-nosnippet>1187</a>    /// precision: a counter, or a chart's data changing. A new target while they move
+<a href=#1188 id=1188 data-nosnippet>1188</a>    /// starts from where they are, with no jump. When the count of numbers changes, or
+<a href=#1189 id=1189 data-nosnippet>1189</a>    /// under reduced motion, or for a spring, they take the target at once. Call it in
+<a href=#1190 id=1190 data-nosnippet>1190</a>    /// the same order on every build, as with [`Self::animated`].
+<a href=#1191 id=1191 data-nosnippet>1191</a>    </span><span class="kw">pub fn </span>animated_numbers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>[f64], transition: Transition) -&gt; Vec&lt;f64&gt; {
+<a href=#1192 id=1192 data-nosnippet>1192</a>        <span class="kw">let </span>cell = <span class="self">self</span>.use_state(|| Rc::new(RefCell::new(Numbers::at(target)))).peek().clone();
+<a href=#1193 id=1193 data-nosnippet>1193</a>        <span class="kw">let </span><span class="kw-2">mut </span>run = cell.borrow_mut();
+<a href=#1194 id=1194 data-nosnippet>1194</a>        <span class="kw">let </span>now = <span class="self">self</span>.motion_clock;
+<a href=#1195 id=1195 data-nosnippet>1195</a>        <span class="kw">let </span>(duration, easing) = <span class="kw">match </span>transition {
+<a href=#1196 id=1196 data-nosnippet>1196</a>            Transition::Tween { duration, easing } <span class="kw">if </span><span class="self">self</span>.motion_enabled &amp;&amp; !<span class="self">self</span>.reduced_motion =&gt; {
+<a href=#1197 id=1197 data-nosnippet>1197</a>                (f64::from(duration), easing)
+<a href=#1198 id=1198 data-nosnippet>1198</a>            }
+<a href=#1199 id=1199 data-nosnippet>1199</a>            <span class="kw">_ </span>=&gt; (<span class="number">0.0</span>, ravenrs_animation::Easing::Linear),
+<a href=#1200 id=1200 data-nosnippet>1200</a>        };
+<a href=#1201 id=1201 data-nosnippet>1201</a>        <span class="comment">// By bits, so a gap (NaN) in the data counts as the same gap.
+<a href=#1202 id=1202 data-nosnippet>1202</a>        </span><span class="kw">if </span>!run.to.iter().map(|v| v.to_bits()).eq(target.iter().map(|v| v.to_bits())) {
+<a href=#1203 id=1203 data-nosnippet>1203</a>            <span class="kw">let </span>from =
+<a href=#1204 id=1204 data-nosnippet>1204</a>                <span class="kw">if </span>run.to.len() == target.len() &amp;&amp; duration &gt; <span class="number">0.0 </span>{ run.value(now) } <span class="kw">else </span>{ target.to_vec() };
+<a href=#1205 id=1205 data-nosnippet>1205</a>            <span class="kw-2">*</span>run = Numbers { from, to: target.to_vec(), start: now, duration, easing };
+<a href=#1206 id=1206 data-nosnippet>1206</a>        }
+<a href=#1207 id=1207 data-nosnippet>1207</a>        <span class="kw">if </span>now &lt; run.start + run.duration {
+<a href=#1208 id=1208 data-nosnippet>1208</a>            <span class="self">self</span>.value_moving = <span class="bool-val">true</span>;
+<a href=#1209 id=1209 data-nosnippet>1209</a>            <span class="self">self</span>.wake_at(<span class="self">self</span>.now);
+<a href=#1210 id=1210 data-nosnippet>1210</a>        }
+<a href=#1211 id=1211 data-nosnippet>1211</a>        run.value(now)
 <a href=#1212 id=1212 data-nosnippet>1212</a>    }
 <a href=#1213 id=1213 data-nosnippet>1213</a>
-<a href=#1214 id=1214 data-nosnippet>1214</a>    <span class="doccomment">/// Asks the runtime to report the size of the content of `node`, read back
-<a href=#1215 id=1215 data-nosnippet>1215</a>    /// with [`Self::measured_content`] on the next build.
-<a href=#1216 id=1216 data-nosnippet>1216</a>    </span><span class="kw">pub fn </span>measure_content(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
-<a href=#1217 id=1217 data-nosnippet>1217</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1218 id=1218 data-nosnippet>1218</a>            e.measure = <span class="bool-val">true</span>;
-<a href=#1219 id=1219 data-nosnippet>1219</a>        }
-<a href=#1220 id=1220 data-nosnippet>1220</a>    }
-<a href=#1221 id=1221 data-nosnippet>1221</a>
-<a href=#1222 id=1222 data-nosnippet>1222</a>    <span class="doccomment">/// Makes the size this node ended up with readable on the next build, with
-<a href=#1223 id=1223 data-nosnippet>1223</a>    /// [`Self::scroll_viewport`], and builds again when it changes: for a view that
-<a href=#1224 id=1224 data-nosnippet>1224</a>    /// arranges itself by the room it got.
-<a href=#1225 id=1225 data-nosnippet>1225</a>    </span><span class="kw">pub fn </span>report_frame(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
-<a href=#1226 id=1226 data-nosnippet>1226</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1227 id=1227 data-nosnippet>1227</a>            e.report_frame = <span class="bool-val">true</span>;
-<a href=#1228 id=1228 data-nosnippet>1228</a>        }
-<a href=#1229 id=1229 data-nosnippet>1229</a>    }
-<a href=#1230 id=1230 data-nosnippet>1230</a>
-<a href=#1231 id=1231 data-nosnippet>1231</a>    <span class="doccomment">/// The size of the content of this view's measured node in the last layout.
-<a href=#1232 id=1232 data-nosnippet>1232</a>    </span><span class="kw">pub fn </span>measured_content(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Size&gt; {
-<a href=#1233 id=1233 data-nosnippet>1233</a>        <span class="self">self</span>.scroll.contents.get(<span class="kw-2">&amp;</span><span class="self">self</span>.widget_id()).copied()
+<a href=#1214 id=1214 data-nosnippet>1214</a>    <span class="doccomment">/// How far a view has appeared, from 0 to 1, since it was first built: for
+<a href=#1215 id=1215 data-nosnippet>1215</a>    /// content that draws itself in, such as a chart's data. A new `key` starts it
+<a href=#1216 id=1216 data-nosnippet>1216</a>    /// over. Under reduced motion, or with motion off, it is 1 from the start. Call
+<a href=#1217 id=1217 data-nosnippet>1217</a>    /// it in the same order on every build, as with [`Self::animated`].
+<a href=#1218 id=1218 data-nosnippet>1218</a>    </span><span class="kw">pub fn </span>appear(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: u64, transition: Transition) -&gt; f32 {
+<a href=#1219 id=1219 data-nosnippet>1219</a>        <span class="kw">let </span>cell = <span class="self">self</span>.use_state(|| Rc::new(RefCell::new((key, Animated::new(<span class="number">0.0_f32</span>))))).peek().clone();
+<a href=#1220 id=1220 data-nosnippet>1220</a>        <span class="kw">let </span><span class="kw-2">mut </span>cell = cell.borrow_mut();
+<a href=#1221 id=1221 data-nosnippet>1221</a>        <span class="kw">if </span>cell.<span class="number">0 </span>!= key {
+<a href=#1222 id=1222 data-nosnippet>1222</a>            <span class="kw-2">*</span>cell = (key, Animated::new(<span class="number">0.0</span>));
+<a href=#1223 id=1223 data-nosnippet>1223</a>        }
+<a href=#1224 id=1224 data-nosnippet>1224</a>        <span class="kw">let </span>now = <span class="self">self</span>.motion_clock;
+<a href=#1225 id=1225 data-nosnippet>1225</a>        <span class="kw">let </span>transition =
+<a href=#1226 id=1226 data-nosnippet>1226</a>            <span class="kw">if </span>!<span class="self">self</span>.motion_enabled || <span class="self">self</span>.reduced_motion { Transition::Instant } <span class="kw">else </span>{ transition };
+<a href=#1227 id=1227 data-nosnippet>1227</a>        <span class="kw">let </span>value = <span class="kw-2">&amp;mut </span>cell.<span class="number">1</span>;
+<a href=#1228 id=1228 data-nosnippet>1228</a>        value.set_target(<span class="number">1.0</span>, transition, now);
+<a href=#1229 id=1229 data-nosnippet>1229</a>        <span class="kw">if </span>value.step(now) {
+<a href=#1230 id=1230 data-nosnippet>1230</a>            <span class="self">self</span>.value_moving = <span class="bool-val">true</span>;
+<a href=#1231 id=1231 data-nosnippet>1231</a>            <span class="self">self</span>.wake_at(<span class="self">self</span>.now);
+<a href=#1232 id=1232 data-nosnippet>1232</a>        }
+<a href=#1233 id=1233 data-nosnippet>1233</a>        value.value(now)
 <a href=#1234 id=1234 data-nosnippet>1234</a>    }
 <a href=#1235 id=1235 data-nosnippet>1235</a>
-<a href=#1236 id=1236 data-nosnippet>1236</a>    <span class="doccomment">/// Registers an app-wide keyboard shortcut for as long as this view is built.
-<a href=#1237 id=1237 data-nosnippet>1237</a>    /// With `command`, it needs Cmd (macOS) or Ctrl held, e.g. Cmd/Ctrl+K.
-<a href=#1238 id=1238 data-nosnippet>1238</a>    </span><span class="kw">pub fn </span>shortcut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Key, command: bool, handler: Rc&lt;<span class="kw">dyn </span>Fn()&gt;) {
-<a href=#1239 id=1239 data-nosnippet>1239</a>        <span class="self">self</span>.shortcuts.push(Shortcut { key, command, shift: <span class="bool-val">false</span>, handler });
+<a href=#1236 id=1236 data-nosnippet>1236</a>    <span class="doccomment">/// The user asked for less motion, in the system settings or in the theme.
+<a href=#1237 id=1237 data-nosnippet>1237</a>    /// [`Motion`] already respects this; check it for motion you draw yourself.
+<a href=#1238 id=1238 data-nosnippet>1238</a>    </span><span class="kw">pub fn </span>reduced_motion(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#1239 id=1239 data-nosnippet>1239</a>        <span class="self">self</span>.reduced_motion
 <a href=#1240 id=1240 data-nosnippet>1240</a>    }
 <a href=#1241 id=1241 data-nosnippet>1241</a>
-<a href=#1242 id=1242 data-nosnippet>1242</a>    <span class="doccomment">/// Makes the wheel over `node` move what this widget scrolls, for a part that
-<a href=#1243 id=1243 data-nosnippet>1243</a>    /// follows the scroll without being inside it, such as frozen row names.
-<a href=#1244 id=1244 data-nosnippet>1244</a>    </span><span class="kw">pub fn </span>scroll_with_widget(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
+<a href=#1242 id=1242 data-nosnippet>1242</a>    <span class="doccomment">/// Asks the runtime to report the size of the content of `node`, read back
+<a href=#1243 id=1243 data-nosnippet>1243</a>    /// with [`Self::measured_content`] on the next build.
+<a href=#1244 id=1244 data-nosnippet>1244</a>    </span><span class="kw">pub fn </span>measure_content(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
 <a href=#1245 id=1245 data-nosnippet>1245</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1246 id=1246 data-nosnippet>1246</a>            e.scrolls_with_widget = <span class="bool-val">true</span>;
+<a href=#1246 id=1246 data-nosnippet>1246</a>            e.measure = <span class="bool-val">true</span>;
 <a href=#1247 id=1247 data-nosnippet>1247</a>        }
 <a href=#1248 id=1248 data-nosnippet>1248</a>    }
 <a href=#1249 id=1249 data-nosnippet>1249</a>
-<a href=#1250 id=1250 data-nosnippet>1250</a>    <span class="doccomment">/// Like [`Self::shortcut`], for a key that also needs Shift. Register it before the
-<a href=#1251 id=1251 data-nosnippet>1251</a>    /// same key without Shift, which would otherwise answer first.
-<a href=#1252 id=1252 data-nosnippet>1252</a>    </span><span class="kw">pub fn </span>shortcut_with_shift(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Key, command: bool, handler: Rc&lt;<span class="kw">dyn </span>Fn()&gt;) {
-<a href=#1253 id=1253 data-nosnippet>1253</a>        <span class="self">self</span>.shortcuts.push(Shortcut { key, command, shift: <span class="bool-val">true</span>, handler });
-<a href=#1254 id=1254 data-nosnippet>1254</a>    }
-<a href=#1255 id=1255 data-nosnippet>1255</a>
-<a href=#1256 id=1256 data-nosnippet>1256</a>    <span class="doccomment">/// Calls `handler` with the pointer position on a secondary (right) click.
-<a href=#1257 id=1257 data-nosnippet>1257</a>    </span><span class="kw">pub fn </span>on_context_menu(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, handler: Rc&lt;<span class="kw">dyn </span>Fn(Point)&gt;) {
-<a href=#1258 id=1258 data-nosnippet>1258</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1259 id=1259 data-nosnippet>1259</a>            e.on_context_menu = <span class="prelude-val">Some</span>(handler);
-<a href=#1260 id=1260 data-nosnippet>1260</a>        }
-<a href=#1261 id=1261 data-nosnippet>1261</a>    }
-<a href=#1262 id=1262 data-nosnippet>1262</a>
-<a href=#1263 id=1263 data-nosnippet>1263</a>    <span class="doccomment">/// The same, also saying the element's absolute frame, for a menu that depends
-<a href=#1264 id=1264 data-nosnippet>1264</a>    /// on where inside the element it was opened.
-<a href=#1265 id=1265 data-nosnippet>1265</a>    </span><span class="kw">pub fn </span>on_context_menu_in(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, handler: Rc&lt;<span class="kw">dyn </span>Fn(Point, Rect)&gt;) {
-<a href=#1266 id=1266 data-nosnippet>1266</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1267 id=1267 data-nosnippet>1267</a>            e.on_context_menu_in = <span class="prelude-val">Some</span>(handler);
-<a href=#1268 id=1268 data-nosnippet>1268</a>        }
-<a href=#1269 id=1269 data-nosnippet>1269</a>    }
-<a href=#1270 id=1270 data-nosnippet>1270</a>
-<a href=#1271 id=1271 data-nosnippet>1271</a>    <span class="doccomment">/// Calls `handler` with the pointer position and the element's absolute frame
-<a href=#1272 id=1272 data-nosnippet>1272</a>    /// whenever the pointer moves over it, for something that depends on where inside
-<a href=#1273 id=1273 data-nosnippet>1273</a>    /// it the pointer is. [`is_hover_within`](Self::is_hover_within) says when it left.
-<a href=#1274 id=1274 data-nosnippet>1274</a>    </span><span class="kw">pub fn </span>on_pointer_move(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, handler: Rc&lt;<span class="kw">dyn </span>Fn(Point, Rect)&gt;) {
-<a href=#1275 id=1275 data-nosnippet>1275</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1276 id=1276 data-nosnippet>1276</a>            e.on_pointer_move = <span class="prelude-val">Some</span>(handler);
-<a href=#1277 id=1277 data-nosnippet>1277</a>        }
-<a href=#1278 id=1278 data-nosnippet>1278</a>    }
-<a href=#1279 id=1279 data-nosnippet>1279</a>
-<a href=#1280 id=1280 data-nosnippet>1280</a>    <span class="doccomment">/// Moves keyboard focus to this widget's focusable element after the build,
-<a href=#1281 id=1281 data-nosnippet>1281</a>    /// scrolling the containers around it until it shows.
-<a href=#1282 id=1282 data-nosnippet>1282</a>    </span><span class="kw">pub fn </span>request_focus(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#1283 id=1283 data-nosnippet>1283</a>        <span class="self">self</span>.focus_request = <span class="prelude-val">Some</span>(<span class="self">self</span>.widget_id());
-<a href=#1284 id=1284 data-nosnippet>1284</a>    }
-<a href=#1285 id=1285 data-nosnippet>1285</a>
-<a href=#1286 id=1286 data-nosnippet>1286</a>    <span class="doccomment">/// Moves keyboard focus to the widget that built `node` (a child's trigger
-<a href=#1287 id=1287 data-nosnippet>1287</a>    /// button, say) after the build.
-<a href=#1288 id=1288 data-nosnippet>1288</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>request_focus_node(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
-<a href=#1289 id=1289 data-nosnippet>1289</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.elements.get(node.<span class="number">0 </span><span class="kw">as </span>usize) {
-<a href=#1290 id=1290 data-nosnippet>1290</a>            <span class="self">self</span>.focus_request = <span class="prelude-val">Some</span>(e.widget);
-<a href=#1291 id=1291 data-nosnippet>1291</a>        }
-<a href=#1292 id=1292 data-nosnippet>1292</a>    }
-<a href=#1293 id=1293 data-nosnippet>1293</a>
-<a href=#1294 id=1294 data-nosnippet>1294</a>    <span class="doccomment">/// Keyboard modifiers as of the latest input event, readable from click
-<a href=#1295 id=1295 data-nosnippet>1295</a>    /// handlers (e.g. Shift-click to extend a selection).
-<a href=#1296 id=1296 data-nosnippet>1296</a>    </span><span class="kw">pub fn </span>modifiers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Rc&lt;std::cell::Cell&lt;Modifiers&gt;&gt; {
-<a href=#1297 id=1297 data-nosnippet>1297</a>        <span class="self">self</span>.modifiers.clone()
-<a href=#1298 id=1298 data-nosnippet>1298</a>    }
-<a href=#1299 id=1299 data-nosnippet>1299</a>
-<a href=#1300 id=1300 data-nosnippet>1300</a>    <span class="doccomment">/// A scroll container in both directions whose content is rebuilt on every
-<a href=#1301 id=1301 data-nosnippet>1301</a>    /// scroll (see [`Self::scroll_viewport`]).
-<a href=#1302 id=1302 data-nosnippet>1302</a>    </span><span class="kw">pub fn </span>scrollable_virtual(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, horizontal: bool) {
+<a href=#1250 id=1250 data-nosnippet>1250</a>    <span class="doccomment">/// Makes the size this node ended up with readable on the next build, with
+<a href=#1251 id=1251 data-nosnippet>1251</a>    /// [`Self::scroll_viewport`], and builds again when it changes: for a view that
+<a href=#1252 id=1252 data-nosnippet>1252</a>    /// arranges itself by the room it got.
+<a href=#1253 id=1253 data-nosnippet>1253</a>    </span><span class="kw">pub fn </span>report_frame(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
+<a href=#1254 id=1254 data-nosnippet>1254</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1255 id=1255 data-nosnippet>1255</a>            e.report_frame = <span class="bool-val">true</span>;
+<a href=#1256 id=1256 data-nosnippet>1256</a>        }
+<a href=#1257 id=1257 data-nosnippet>1257</a>    }
+<a href=#1258 id=1258 data-nosnippet>1258</a>
+<a href=#1259 id=1259 data-nosnippet>1259</a>    <span class="doccomment">/// The size of the content of this view's measured node in the last layout.
+<a href=#1260 id=1260 data-nosnippet>1260</a>    </span><span class="kw">pub fn </span>measured_content(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Size&gt; {
+<a href=#1261 id=1261 data-nosnippet>1261</a>        <span class="self">self</span>.scroll.contents.get(<span class="kw-2">&amp;</span><span class="self">self</span>.widget_id()).copied()
+<a href=#1262 id=1262 data-nosnippet>1262</a>    }
+<a href=#1263 id=1263 data-nosnippet>1263</a>
+<a href=#1264 id=1264 data-nosnippet>1264</a>    <span class="doccomment">/// Registers an app-wide keyboard shortcut for as long as this view is built.
+<a href=#1265 id=1265 data-nosnippet>1265</a>    /// With `command`, it needs Cmd (macOS) or Ctrl held, e.g. Cmd/Ctrl+K.
+<a href=#1266 id=1266 data-nosnippet>1266</a>    </span><span class="kw">pub fn </span>shortcut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Key, command: bool, handler: Rc&lt;<span class="kw">dyn </span>Fn()&gt;) {
+<a href=#1267 id=1267 data-nosnippet>1267</a>        <span class="self">self</span>.shortcuts.push(Shortcut { key, command, shift: <span class="bool-val">false</span>, handler });
+<a href=#1268 id=1268 data-nosnippet>1268</a>    }
+<a href=#1269 id=1269 data-nosnippet>1269</a>
+<a href=#1270 id=1270 data-nosnippet>1270</a>    <span class="doccomment">/// Makes the wheel over `node` move what this widget scrolls, for a part that
+<a href=#1271 id=1271 data-nosnippet>1271</a>    /// follows the scroll without being inside it, such as frozen row names.
+<a href=#1272 id=1272 data-nosnippet>1272</a>    </span><span class="kw">pub fn </span>scroll_with_widget(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
+<a href=#1273 id=1273 data-nosnippet>1273</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1274 id=1274 data-nosnippet>1274</a>            e.scrolls_with_widget = <span class="bool-val">true</span>;
+<a href=#1275 id=1275 data-nosnippet>1275</a>        }
+<a href=#1276 id=1276 data-nosnippet>1276</a>    }
+<a href=#1277 id=1277 data-nosnippet>1277</a>
+<a href=#1278 id=1278 data-nosnippet>1278</a>    <span class="doccomment">/// Like [`Self::shortcut`], for a key that also needs Shift. Register it before the
+<a href=#1279 id=1279 data-nosnippet>1279</a>    /// same key without Shift, which would otherwise answer first.
+<a href=#1280 id=1280 data-nosnippet>1280</a>    </span><span class="kw">pub fn </span>shortcut_with_shift(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Key, command: bool, handler: Rc&lt;<span class="kw">dyn </span>Fn()&gt;) {
+<a href=#1281 id=1281 data-nosnippet>1281</a>        <span class="self">self</span>.shortcuts.push(Shortcut { key, command, shift: <span class="bool-val">true</span>, handler });
+<a href=#1282 id=1282 data-nosnippet>1282</a>    }
+<a href=#1283 id=1283 data-nosnippet>1283</a>
+<a href=#1284 id=1284 data-nosnippet>1284</a>    <span class="doccomment">/// Calls `handler` with the pointer position on a secondary (right) click.
+<a href=#1285 id=1285 data-nosnippet>1285</a>    </span><span class="kw">pub fn </span>on_context_menu(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, handler: Rc&lt;<span class="kw">dyn </span>Fn(Point)&gt;) {
+<a href=#1286 id=1286 data-nosnippet>1286</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1287 id=1287 data-nosnippet>1287</a>            e.on_context_menu = <span class="prelude-val">Some</span>(handler);
+<a href=#1288 id=1288 data-nosnippet>1288</a>        }
+<a href=#1289 id=1289 data-nosnippet>1289</a>    }
+<a href=#1290 id=1290 data-nosnippet>1290</a>
+<a href=#1291 id=1291 data-nosnippet>1291</a>    <span class="doccomment">/// The same, also saying the element's absolute frame, for a menu that depends
+<a href=#1292 id=1292 data-nosnippet>1292</a>    /// on where inside the element it was opened.
+<a href=#1293 id=1293 data-nosnippet>1293</a>    </span><span class="kw">pub fn </span>on_context_menu_in(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, handler: Rc&lt;<span class="kw">dyn </span>Fn(Point, Rect)&gt;) {
+<a href=#1294 id=1294 data-nosnippet>1294</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1295 id=1295 data-nosnippet>1295</a>            e.on_context_menu_in = <span class="prelude-val">Some</span>(handler);
+<a href=#1296 id=1296 data-nosnippet>1296</a>        }
+<a href=#1297 id=1297 data-nosnippet>1297</a>    }
+<a href=#1298 id=1298 data-nosnippet>1298</a>
+<a href=#1299 id=1299 data-nosnippet>1299</a>    <span class="doccomment">/// Calls `handler` with the pointer position and the element's absolute frame
+<a href=#1300 id=1300 data-nosnippet>1300</a>    /// whenever the pointer moves over it, for something that depends on where inside
+<a href=#1301 id=1301 data-nosnippet>1301</a>    /// it the pointer is. [`is_hover_within`](Self::is_hover_within) says when it left.
+<a href=#1302 id=1302 data-nosnippet>1302</a>    </span><span class="kw">pub fn </span>on_pointer_move(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, handler: Rc&lt;<span class="kw">dyn </span>Fn(Point, Rect)&gt;) {
 <a href=#1303 id=1303 data-nosnippet>1303</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1304 id=1304 data-nosnippet>1304</a>            e.scroll = <span class="bool-val">true</span>;
-<a href=#1305 id=1305 data-nosnippet>1305</a>            e.scroll_x = horizontal;
-<a href=#1306 id=1306 data-nosnippet>1306</a>            e.clip = <span class="bool-val">true</span>;
-<a href=#1307 id=1307 data-nosnippet>1307</a>            e.rebuild_on_scroll = <span class="bool-val">true</span>;
-<a href=#1308 id=1308 data-nosnippet>1308</a>        }
-<a href=#1309 id=1309 data-nosnippet>1309</a>    }
-<a href=#1310 id=1310 data-nosnippet>1310</a>
-<a href=#1311 id=1311 data-nosnippet>1311</a>    <span class="doccomment">/// Makes a wheel that only turns up and down move this scroll container sideways,
-<a href=#1312 id=1312 data-nosnippet>1312</a>    /// for a strip with nothing to scroll in the other direction.
-<a href=#1313 id=1313 data-nosnippet>1313</a>    </span><span class="kw">pub fn </span>wheel_scrolls_sideways(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
-<a href=#1314 id=1314 data-nosnippet>1314</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1315 id=1315 data-nosnippet>1315</a>            e.wheel_sideways = <span class="bool-val">true</span>;
-<a href=#1316 id=1316 data-nosnippet>1316</a>        }
-<a href=#1317 id=1317 data-nosnippet>1317</a>    }
-<a href=#1318 id=1318 data-nosnippet>1318</a>
-<a href=#1319 id=1319 data-nosnippet>1319</a>    <span class="doccomment">/// Lets a scroll container (see [`Self::scrollable`]) scroll sideways too.
-<a href=#1320 id=1320 data-nosnippet>1320</a>    </span><span class="kw">pub fn </span>scroll_horizontally(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
-<a href=#1321 id=1321 data-nosnippet>1321</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1322 id=1322 data-nosnippet>1322</a>            e.scroll_x = <span class="bool-val">true</span>;
-<a href=#1323 id=1323 data-nosnippet>1323</a>        }
-<a href=#1324 id=1324 data-nosnippet>1324</a>    }
-<a href=#1325 id=1325 data-nosnippet>1325</a>
-<a href=#1326 id=1326 data-nosnippet>1326</a>    <span class="doccomment">/// Moves the node's children by `offset` when painting (e.g. a header that
-<a href=#1327 id=1327 data-nosnippet>1327</a>    /// follows a body's horizontal scroll).
-<a href=#1328 id=1328 data-nosnippet>1328</a>    </span><span class="kw">pub fn </span>translate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, offset: Point) {
-<a href=#1329 id=1329 data-nosnippet>1329</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1330 id=1330 data-nosnippet>1330</a>            e.translate = offset;
-<a href=#1331 id=1331 data-nosnippet>1331</a>        }
-<a href=#1332 id=1332 data-nosnippet>1332</a>    }
-<a href=#1333 id=1333 data-nosnippet>1333</a>
-<a href=#1334 id=1334 data-nosnippet>1334</a>    <span class="doccomment">/// Keeps the node on screen while its parent scrolls past, `top` pixels below the
-<a href=#1335 id=1335 data-nosnippet>1335</a>    /// top of the scroll container around it, and lets it leave with the bottom of the
-<a href=#1336 id=1336 data-nosnippet>1336</a>    /// parent: CSS `position: sticky`. It is moved when frames are placed, so clicks,
-<a href=#1337 id=1337 data-nosnippet>1337</a>    /// focus and assistive technology find it where it shows. See [`crate::Sticky`].
-<a href=#1338 id=1338 data-nosnippet>1338</a>    </span><span class="kw">pub fn </span>pin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, top: f32) {
-<a href=#1339 id=1339 data-nosnippet>1339</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1340 id=1340 data-nosnippet>1340</a>            e.pin = <span class="prelude-val">Some</span>(top);
-<a href=#1341 id=1341 data-nosnippet>1341</a>        }
-<a href=#1342 id=1342 data-nosnippet>1342</a>    }
-<a href=#1343 id=1343 data-nosnippet>1343</a>
-<a href=#1344 id=1344 data-nosnippet>1344</a>    <span class="doccomment">/// Marks the node as the track of a scroll scene: content pinned `top` pixels
-<a href=#1345 id=1345 data-nosnippet>1345</a>    /// below the top of the scroll container for `length` pixels of scrolling. Links
-<a href=#1346 id=1346 data-nosnippet>1346</a>    /// inside it that measure [`crate::ScrollRange::Scene`] run from 0 to 1 over that
-<a href=#1347 id=1347 data-nosnippet>1347</a>    /// length. See [`crate::ScrollScene`].
-<a href=#1348 id=1348 data-nosnippet>1348</a>    </span><span class="kw">pub fn </span>scroll_track(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, top: f32, length: f32) {
+<a href=#1304 id=1304 data-nosnippet>1304</a>            e.on_pointer_move = <span class="prelude-val">Some</span>(handler);
+<a href=#1305 id=1305 data-nosnippet>1305</a>        }
+<a href=#1306 id=1306 data-nosnippet>1306</a>    }
+<a href=#1307 id=1307 data-nosnippet>1307</a>
+<a href=#1308 id=1308 data-nosnippet>1308</a>    <span class="doccomment">/// Moves keyboard focus to this widget's focusable element after the build,
+<a href=#1309 id=1309 data-nosnippet>1309</a>    /// scrolling the containers around it until it shows.
+<a href=#1310 id=1310 data-nosnippet>1310</a>    </span><span class="kw">pub fn </span>request_focus(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#1311 id=1311 data-nosnippet>1311</a>        <span class="self">self</span>.focus_request = <span class="prelude-val">Some</span>(<span class="self">self</span>.widget_id());
+<a href=#1312 id=1312 data-nosnippet>1312</a>    }
+<a href=#1313 id=1313 data-nosnippet>1313</a>
+<a href=#1314 id=1314 data-nosnippet>1314</a>    <span class="doccomment">/// Moves keyboard focus to the widget that built `node` (a child's trigger
+<a href=#1315 id=1315 data-nosnippet>1315</a>    /// button, say) after the build.
+<a href=#1316 id=1316 data-nosnippet>1316</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>request_focus_node(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
+<a href=#1317 id=1317 data-nosnippet>1317</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.elements.get(node.<span class="number">0 </span><span class="kw">as </span>usize) {
+<a href=#1318 id=1318 data-nosnippet>1318</a>            <span class="self">self</span>.focus_request = <span class="prelude-val">Some</span>(e.widget);
+<a href=#1319 id=1319 data-nosnippet>1319</a>        }
+<a href=#1320 id=1320 data-nosnippet>1320</a>    }
+<a href=#1321 id=1321 data-nosnippet>1321</a>
+<a href=#1322 id=1322 data-nosnippet>1322</a>    <span class="doccomment">/// Keyboard modifiers as of the latest input event, readable from click
+<a href=#1323 id=1323 data-nosnippet>1323</a>    /// handlers (e.g. Shift-click to extend a selection).
+<a href=#1324 id=1324 data-nosnippet>1324</a>    </span><span class="kw">pub fn </span>modifiers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Rc&lt;std::cell::Cell&lt;Modifiers&gt;&gt; {
+<a href=#1325 id=1325 data-nosnippet>1325</a>        <span class="self">self</span>.modifiers.clone()
+<a href=#1326 id=1326 data-nosnippet>1326</a>    }
+<a href=#1327 id=1327 data-nosnippet>1327</a>
+<a href=#1328 id=1328 data-nosnippet>1328</a>    <span class="doccomment">/// A scroll container in both directions whose content is rebuilt on every
+<a href=#1329 id=1329 data-nosnippet>1329</a>    /// scroll (see [`Self::scroll_viewport`]).
+<a href=#1330 id=1330 data-nosnippet>1330</a>    </span><span class="kw">pub fn </span>scrollable_virtual(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, horizontal: bool) {
+<a href=#1331 id=1331 data-nosnippet>1331</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1332 id=1332 data-nosnippet>1332</a>            e.scroll = <span class="bool-val">true</span>;
+<a href=#1333 id=1333 data-nosnippet>1333</a>            e.scroll_x = horizontal;
+<a href=#1334 id=1334 data-nosnippet>1334</a>            e.clip = <span class="bool-val">true</span>;
+<a href=#1335 id=1335 data-nosnippet>1335</a>            e.rebuild_on_scroll = <span class="bool-val">true</span>;
+<a href=#1336 id=1336 data-nosnippet>1336</a>        }
+<a href=#1337 id=1337 data-nosnippet>1337</a>    }
+<a href=#1338 id=1338 data-nosnippet>1338</a>
+<a href=#1339 id=1339 data-nosnippet>1339</a>    <span class="doccomment">/// Makes a wheel that only turns up and down move this scroll container sideways,
+<a href=#1340 id=1340 data-nosnippet>1340</a>    /// for a strip with nothing to scroll in the other direction.
+<a href=#1341 id=1341 data-nosnippet>1341</a>    </span><span class="kw">pub fn </span>wheel_scrolls_sideways(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
+<a href=#1342 id=1342 data-nosnippet>1342</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1343 id=1343 data-nosnippet>1343</a>            e.wheel_sideways = <span class="bool-val">true</span>;
+<a href=#1344 id=1344 data-nosnippet>1344</a>        }
+<a href=#1345 id=1345 data-nosnippet>1345</a>    }
+<a href=#1346 id=1346 data-nosnippet>1346</a>
+<a href=#1347 id=1347 data-nosnippet>1347</a>    <span class="doccomment">/// Lets a scroll container (see [`Self::scrollable`]) scroll sideways too.
+<a href=#1348 id=1348 data-nosnippet>1348</a>    </span><span class="kw">pub fn </span>scroll_horizontally(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
 <a href=#1349 id=1349 data-nosnippet>1349</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1350 id=1350 data-nosnippet>1350</a>            e.scroll_track = <span class="prelude-val">Some</span>(<span class="kw">crate</span>::scroll_scene::ScrollTrack { top, length });
+<a href=#1350 id=1350 data-nosnippet>1350</a>            e.scroll_x = <span class="bool-val">true</span>;
 <a href=#1351 id=1351 data-nosnippet>1351</a>        }
 <a href=#1352 id=1352 data-nosnippet>1352</a>    }
 <a href=#1353 id=1353 data-nosnippet>1353</a>
-<a href=#1354 id=1354 data-nosnippet>1354</a>    <span class="doccomment">/// Paints the node and its subtree with the effect `link` gives for the current
-<a href=#1355 id=1355 data-nosnippet>1355</a>    /// scroll position, worked out on every paint without rebuilding. Layout and hit
-<a href=#1356 id=1356 data-nosnippet>1356</a>    /// testing are unaffected. See [`crate::ScrollLinked`].
-<a href=#1357 id=1357 data-nosnippet>1357</a>    </span><span class="kw">pub fn </span>scroll_linked(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, link: <span class="kw">crate</span>::ScrollLink) {
-<a href=#1358 id=1358 data-nosnippet>1358</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1359 id=1359 data-nosnippet>1359</a>            e.scroll_link = <span class="prelude-val">Some</span>(link);
-<a href=#1360 id=1360 data-nosnippet>1360</a>        }
-<a href=#1361 id=1361 data-nosnippet>1361</a>    }
-<a href=#1362 id=1362 data-nosnippet>1362</a>
-<a href=#1363 id=1363 data-nosnippet>1363</a>    <span class="doccomment">/// Calls `handler` on a zoom gesture over the node, with how much larger was
-<a href=#1364 id=1364 data-nosnippet>1364</a>    /// asked for relative to now: 0.02 is 2% larger, and a negative value is smaller.
-<a href=#1365 id=1365 data-nosnippet>1365</a>    </span><span class="kw">pub fn </span>on_pinch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, handler: Rc&lt;<span class="kw">dyn </span>Fn(f32)&gt;) {
-<a href=#1366 id=1366 data-nosnippet>1366</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1367 id=1367 data-nosnippet>1367</a>            e.on_pinch = <span class="prelude-val">Some</span>(handler);
-<a href=#1368 id=1368 data-nosnippet>1368</a>        }
-<a href=#1369 id=1369 data-nosnippet>1369</a>    }
-<a href=#1370 id=1370 data-nosnippet>1370</a>
-<a href=#1371 id=1371 data-nosnippet>1371</a>    <span class="doccomment">/// Calls `handler` on a double click on the node.
-<a href=#1372 id=1372 data-nosnippet>1372</a>    </span><span class="kw">pub fn </span>on_double_click(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, handler: Rc&lt;<span class="kw">dyn </span>Fn()&gt;) {
-<a href=#1373 id=1373 data-nosnippet>1373</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1374 id=1374 data-nosnippet>1374</a>            e.on_double_click = <span class="prelude-val">Some</span>(handler);
-<a href=#1375 id=1375 data-nosnippet>1375</a>        }
-<a href=#1376 id=1376 data-nosnippet>1376</a>    }
-<a href=#1377 id=1377 data-nosnippet>1377</a>
-<a href=#1378 id=1378 data-nosnippet>1378</a>    <span class="doccomment">/// Makes the node a vertical scroll container: its children scroll with the
-<a href=#1379 id=1379 data-nosnippet>1379</a>    /// wheel or trackpad, are clipped, and a scrollbar shows while they move.
-<a href=#1380 id=1380 data-nosnippet>1380</a>    /// Give the node `LayoutStyle::overflow_hidden` so it does not grow to fit.
-<a href=#1381 id=1381 data-nosnippet>1381</a>    </span><span class="kw">pub fn </span>scrollable(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
-<a href=#1382 id=1382 data-nosnippet>1382</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1383 id=1383 data-nosnippet>1383</a>            e.scroll = <span class="bool-val">true</span>;
-<a href=#1384 id=1384 data-nosnippet>1384</a>            e.clip = <span class="bool-val">true</span>;
-<a href=#1385 id=1385 data-nosnippet>1385</a>        }
-<a href=#1386 id=1386 data-nosnippet>1386</a>    }
-<a href=#1387 id=1387 data-nosnippet>1387</a>
-<a href=#1388 id=1388 data-nosnippet>1388</a>    <span class="doccomment">/// Puts this scroll container's scrollbar `by` past its right edge, in the room around it.
-<a href=#1389 id=1389 data-nosnippet>1389</a>    </span><span class="kw">pub fn </span>scrollbar_outside(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, by: f32) {
-<a href=#1390 id=1390 data-nosnippet>1390</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
-<a href=#1391 id=1391 data-nosnippet>1391</a>            e.scrollbar_outside = by;
-<a href=#1392 id=1392 data-nosnippet>1392</a>        }
-<a href=#1393 id=1393 data-nosnippet>1393</a>    }
-<a href=#1394 id=1394 data-nosnippet>1394</a>
-<a href=#1395 id=1395 data-nosnippet>1395</a>    <span class="doccomment">/// Builds `view` as a floating layer above the rest of the UI, placed relative
-<a href=#1396 id=1396 data-nosnippet>1396</a>    /// to `anchor`. `on_dismiss` is called on a click outside the layer and its
-<a href=#1397 id=1397 data-nosnippet>1397</a>    /// anchor, or on Escape.
-<a href=#1398 id=1398 data-nosnippet>1398</a>    </span><span class="kw">pub fn </span>overlay(
-<a href=#1399 id=1399 data-nosnippet>1399</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#1400 id=1400 data-nosnippet>1400</a>        anchor: NodeId,
-<a href=#1401 id=1401 data-nosnippet>1401</a>        placement: Placement,
-<a href=#1402 id=1402 data-nosnippet>1402</a>        view: <span class="kw-2">&amp;</span><span class="kw">dyn </span>View,
-<a href=#1403 id=1403 data-nosnippet>1403</a>        on_dismiss: <span class="prelude-ty">Option</span>&lt;Rc&lt;<span class="kw">dyn </span>Fn()&gt;&gt;,
-<a href=#1404 id=1404 data-nosnippet>1404</a>    ) {
-<a href=#1405 id=1405 data-nosnippet>1405</a>        <span class="comment">// The slot comes before the content: overlays are placed and painted in
-<a href=#1406 id=1406 data-nosnippet>1406</a>        // order, so one opened from inside this one must come after it, or it
-<a href=#1407 id=1407 data-nosnippet>1407</a>        // would be placed with no anchor yet and painted underneath.
-<a href=#1408 id=1408 data-nosnippet>1408</a>        </span><span class="kw">let </span>key = <span class="number">0x6f76_6572_6c61_7900 </span>+ <span class="self">self</span>.overlays.len() <span class="kw">as </span>u64;
-<a href=#1409 id=1409 data-nosnippet>1409</a>        <span class="self">self</span>.keyed_overlay(key, anchor, placement, view, on_dismiss);
-<a href=#1410 id=1410 data-nosnippet>1410</a>    }
-<a href=#1411 id=1411 data-nosnippet>1411</a>
-<a href=#1412 id=1412 data-nosnippet>1412</a>    <span class="doccomment">/// Like [`Self::overlay`], for a layer that must stay the same one when other
-<a href=#1413 id=1413 data-nosnippet>1413</a>    /// layers before it come and go. A plain overlay is told apart by its place among
-<a href=#1414 id=1414 data-nosnippet>1414</a>    /// them, so a new one before it makes it start over, and animate in again.
-<a href=#1415 id=1415 data-nosnippet>1415</a>    </span><span class="kw">pub fn </span>keyed_overlay(
-<a href=#1416 id=1416 data-nosnippet>1416</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#1417 id=1417 data-nosnippet>1417</a>        key: u64,
-<a href=#1418 id=1418 data-nosnippet>1418</a>        anchor: NodeId,
-<a href=#1419 id=1419 data-nosnippet>1419</a>        placement: Placement,
-<a href=#1420 id=1420 data-nosnippet>1420</a>        view: <span class="kw-2">&amp;</span><span class="kw">dyn </span>View,
-<a href=#1421 id=1421 data-nosnippet>1421</a>        on_dismiss: <span class="prelude-ty">Option</span>&lt;Rc&lt;<span class="kw">dyn </span>Fn()&gt;&gt;,
-<a href=#1422 id=1422 data-nosnippet>1422</a>    ) {
-<a href=#1423 id=1423 data-nosnippet>1423</a>        <span class="kw">let </span>slot = <span class="self">self</span>.overlays.len();
-<a href=#1424 id=1424 data-nosnippet>1424</a>        <span class="kw">let </span>gap = <span class="self">self</span>.theme.spacing.s2;
-<a href=#1425 id=1425 data-nosnippet>1425</a>        <span class="self">self</span>.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss, floating: <span class="bool-val">false </span>});
-<a href=#1426 id=1426 data-nosnippet>1426</a>        <span class="kw">let </span>outer = <span class="self">self</span>.foreground.take();
-<a href=#1427 id=1427 data-nosnippet>1427</a>        <span class="kw">let </span>root = <span class="self">self</span>.keyed_child(key, view);
-<a href=#1428 id=1428 data-nosnippet>1428</a>        <span class="self">self</span>.foreground = outer;
-<a href=#1429 id=1429 data-nosnippet>1429</a>        <span class="self">self</span>.overlays[slot].root = root;
-<a href=#1430 id=1430 data-nosnippet>1430</a>    }
-<a href=#1431 id=1431 data-nosnippet>1431</a>
-<a href=#1432 id=1432 data-nosnippet>1432</a>    <span class="doccomment">/// Builds `view` as a layer that stays open beside the UI, like a chat in a
-<a href=#1433 id=1433 data-nosnippet>1433</a>    /// corner: it is under every menu and dialog, wherever it is built, keeps its state
-<a href=#1434 id=1434 data-nosnippet>1434</a>    /// when they open, and is not closed by a click outside it.
-<a href=#1435 id=1435 data-nosnippet>1435</a>    </span><span class="kw">pub fn </span>floating_overlay(<span class="kw-2">&amp;mut </span><span class="self">self</span>, anchor: NodeId, placement: Placement, view: <span class="kw-2">&amp;</span><span class="kw">dyn </span>View) {
-<a href=#1436 id=1436 data-nosnippet>1436</a>        <span class="comment">// Its key does not depend on the other layers, which come and go.
-<a href=#1437 id=1437 data-nosnippet>1437</a>        </span><span class="kw">let </span>key = <span class="number">0x666c_6f61_7400_0000 </span>+ <span class="self">self</span>.floating_overlays;
-<a href=#1438 id=1438 data-nosnippet>1438</a>        <span class="self">self</span>.floating_overlays += <span class="number">1</span>;
-<a href=#1439 id=1439 data-nosnippet>1439</a>        <span class="kw">let </span>slot = <span class="self">self</span>.overlays.len();
-<a href=#1440 id=1440 data-nosnippet>1440</a>        <span class="kw">let </span>gap = <span class="self">self</span>.theme.spacing.s2;
-<a href=#1441 id=1441 data-nosnippet>1441</a>        <span class="self">self</span>.overlays.push(Overlay {
-<a href=#1442 id=1442 data-nosnippet>1442</a>            root: anchor,
-<a href=#1443 id=1443 data-nosnippet>1443</a>            anchor,
-<a href=#1444 id=1444 data-nosnippet>1444</a>            placement,
-<a href=#1445 id=1445 data-nosnippet>1445</a>            gap,
-<a href=#1446 id=1446 data-nosnippet>1446</a>            on_dismiss: <span class="prelude-val">None</span>,
-<a href=#1447 id=1447 data-nosnippet>1447</a>            floating: <span class="bool-val">true</span>,
-<a href=#1448 id=1448 data-nosnippet>1448</a>        });
-<a href=#1449 id=1449 data-nosnippet>1449</a>        <span class="kw">let </span>outer = <span class="self">self</span>.foreground.take();
-<a href=#1450 id=1450 data-nosnippet>1450</a>        <span class="kw">let </span>root = <span class="self">self</span>.keyed_child(key, view);
-<a href=#1451 id=1451 data-nosnippet>1451</a>        <span class="self">self</span>.foreground = outer;
-<a href=#1452 id=1452 data-nosnippet>1452</a>        <span class="self">self</span>.overlays[slot].root = root;
-<a href=#1453 id=1453 data-nosnippet>1453</a>    }
-<a href=#1454 id=1454 data-nosnippet>1454</a>
-<a href=#1455 id=1455 data-nosnippet>1455</a>    <span class="kw">fn </span>element_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Element&gt; {
-<a href=#1456 id=1456 data-nosnippet>1456</a>        <span class="self">self</span>.elements.get_mut(node.<span class="number">0 </span><span class="kw">as </span>usize)
-<a href=#1457 id=1457 data-nosnippet>1457</a>    }
-<a href=#1458 id=1458 data-nosnippet>1458</a>
-<a href=#1459 id=1459 data-nosnippet>1459</a>    <span class="kw">fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, element: Element) -&gt; NodeId {
-<a href=#1460 id=1460 data-nosnippet>1460</a>        <span class="self">self</span>.elements.push(element);
-<a href=#1461 id=1461 data-nosnippet>1461</a>        NodeId((<span class="self">self</span>.elements.len() - <span class="number">1</span>) <span class="kw">as </span>u32)
-<a href=#1462 id=1462 data-nosnippet>1462</a>    }
-<a href=#1463 id=1463 data-nosnippet>1463</a>
-<a href=#1464 id=1464 data-nosnippet>1464</a>    <span class="kw">fn </span>fail(<span class="kw-2">&amp;mut </span><span class="self">self</span>, e: LayoutError) -&gt; LayoutId {
-<a href=#1465 id=1465 data-nosnippet>1465</a>        <span class="macro">tracing::error!</span>(error = %e, <span class="string">"layout node could not be created"</span>);
-<a href=#1466 id=1466 data-nosnippet>1466</a>        <span class="kw">if </span><span class="self">self</span>.error.is_none() {
-<a href=#1467 id=1467 data-nosnippet>1467</a>            <span class="self">self</span>.error = <span class="prelude-val">Some</span>(e);
-<a href=#1468 id=1468 data-nosnippet>1468</a>        }
-<a href=#1469 id=1469 data-nosnippet>1469</a>        <span class="self">self</span>.placeholder
-<a href=#1470 id=1470 data-nosnippet>1470</a>    }
-<a href=#1471 id=1471 data-nosnippet>1471</a>}
+<a href=#1354 id=1354 data-nosnippet>1354</a>    <span class="doccomment">/// Moves the node's children by `offset` when painting (e.g. a header that
+<a href=#1355 id=1355 data-nosnippet>1355</a>    /// follows a body's horizontal scroll).
+<a href=#1356 id=1356 data-nosnippet>1356</a>    </span><span class="kw">pub fn </span>translate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, offset: Point) {
+<a href=#1357 id=1357 data-nosnippet>1357</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1358 id=1358 data-nosnippet>1358</a>            e.translate = offset;
+<a href=#1359 id=1359 data-nosnippet>1359</a>        }
+<a href=#1360 id=1360 data-nosnippet>1360</a>    }
+<a href=#1361 id=1361 data-nosnippet>1361</a>
+<a href=#1362 id=1362 data-nosnippet>1362</a>    <span class="doccomment">/// Keeps the node on screen while its parent scrolls past, `top` pixels below the
+<a href=#1363 id=1363 data-nosnippet>1363</a>    /// top of the scroll container around it, and lets it leave with the bottom of the
+<a href=#1364 id=1364 data-nosnippet>1364</a>    /// parent: CSS `position: sticky`. It is moved when frames are placed, so clicks,
+<a href=#1365 id=1365 data-nosnippet>1365</a>    /// focus and assistive technology find it where it shows. See [`crate::Sticky`].
+<a href=#1366 id=1366 data-nosnippet>1366</a>    </span><span class="kw">pub fn </span>pin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, top: f32) {
+<a href=#1367 id=1367 data-nosnippet>1367</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1368 id=1368 data-nosnippet>1368</a>            e.pin = <span class="prelude-val">Some</span>(top);
+<a href=#1369 id=1369 data-nosnippet>1369</a>        }
+<a href=#1370 id=1370 data-nosnippet>1370</a>    }
+<a href=#1371 id=1371 data-nosnippet>1371</a>
+<a href=#1372 id=1372 data-nosnippet>1372</a>    <span class="doccomment">/// Marks the node as the track of a scroll scene: content pinned `top` pixels
+<a href=#1373 id=1373 data-nosnippet>1373</a>    /// below the top of the scroll container for `length` pixels of scrolling. Links
+<a href=#1374 id=1374 data-nosnippet>1374</a>    /// inside it that measure [`crate::ScrollRange::Scene`] run from 0 to 1 over that
+<a href=#1375 id=1375 data-nosnippet>1375</a>    /// length. See [`crate::ScrollScene`].
+<a href=#1376 id=1376 data-nosnippet>1376</a>    </span><span class="kw">pub fn </span>scroll_track(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, top: f32, length: f32) {
+<a href=#1377 id=1377 data-nosnippet>1377</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1378 id=1378 data-nosnippet>1378</a>            e.scroll_track = <span class="prelude-val">Some</span>(<span class="kw">crate</span>::scroll_scene::ScrollTrack { top, length });
+<a href=#1379 id=1379 data-nosnippet>1379</a>        }
+<a href=#1380 id=1380 data-nosnippet>1380</a>    }
+<a href=#1381 id=1381 data-nosnippet>1381</a>
+<a href=#1382 id=1382 data-nosnippet>1382</a>    <span class="doccomment">/// Paints the node and its subtree with the effect `link` gives for the current
+<a href=#1383 id=1383 data-nosnippet>1383</a>    /// scroll position, worked out on every paint without rebuilding. Layout and hit
+<a href=#1384 id=1384 data-nosnippet>1384</a>    /// testing are unaffected. See [`crate::ScrollLinked`].
+<a href=#1385 id=1385 data-nosnippet>1385</a>    </span><span class="kw">pub fn </span>scroll_linked(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, link: <span class="kw">crate</span>::ScrollLink) {
+<a href=#1386 id=1386 data-nosnippet>1386</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1387 id=1387 data-nosnippet>1387</a>            e.scroll_link = <span class="prelude-val">Some</span>(link);
+<a href=#1388 id=1388 data-nosnippet>1388</a>        }
+<a href=#1389 id=1389 data-nosnippet>1389</a>    }
+<a href=#1390 id=1390 data-nosnippet>1390</a>
+<a href=#1391 id=1391 data-nosnippet>1391</a>    <span class="doccomment">/// Calls `handler` on a zoom gesture over the node, with how much larger was
+<a href=#1392 id=1392 data-nosnippet>1392</a>    /// asked for relative to now: 0.02 is 2% larger, and a negative value is smaller.
+<a href=#1393 id=1393 data-nosnippet>1393</a>    </span><span class="kw">pub fn </span>on_pinch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, handler: Rc&lt;<span class="kw">dyn </span>Fn(f32)&gt;) {
+<a href=#1394 id=1394 data-nosnippet>1394</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1395 id=1395 data-nosnippet>1395</a>            e.on_pinch = <span class="prelude-val">Some</span>(handler);
+<a href=#1396 id=1396 data-nosnippet>1396</a>        }
+<a href=#1397 id=1397 data-nosnippet>1397</a>    }
+<a href=#1398 id=1398 data-nosnippet>1398</a>
+<a href=#1399 id=1399 data-nosnippet>1399</a>    <span class="doccomment">/// Calls `handler` on a double click on the node.
+<a href=#1400 id=1400 data-nosnippet>1400</a>    </span><span class="kw">pub fn </span>on_double_click(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, handler: Rc&lt;<span class="kw">dyn </span>Fn()&gt;) {
+<a href=#1401 id=1401 data-nosnippet>1401</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1402 id=1402 data-nosnippet>1402</a>            e.on_double_click = <span class="prelude-val">Some</span>(handler);
+<a href=#1403 id=1403 data-nosnippet>1403</a>        }
+<a href=#1404 id=1404 data-nosnippet>1404</a>    }
+<a href=#1405 id=1405 data-nosnippet>1405</a>
+<a href=#1406 id=1406 data-nosnippet>1406</a>    <span class="doccomment">/// Makes the node a vertical scroll container: its children scroll with the
+<a href=#1407 id=1407 data-nosnippet>1407</a>    /// wheel or trackpad, are clipped, and a scrollbar shows while they move.
+<a href=#1408 id=1408 data-nosnippet>1408</a>    /// Give the node `LayoutStyle::overflow_hidden` so it does not grow to fit.
+<a href=#1409 id=1409 data-nosnippet>1409</a>    </span><span class="kw">pub fn </span>scrollable(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) {
+<a href=#1410 id=1410 data-nosnippet>1410</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1411 id=1411 data-nosnippet>1411</a>            e.scroll = <span class="bool-val">true</span>;
+<a href=#1412 id=1412 data-nosnippet>1412</a>            e.clip = <span class="bool-val">true</span>;
+<a href=#1413 id=1413 data-nosnippet>1413</a>        }
+<a href=#1414 id=1414 data-nosnippet>1414</a>    }
+<a href=#1415 id=1415 data-nosnippet>1415</a>
+<a href=#1416 id=1416 data-nosnippet>1416</a>    <span class="doccomment">/// Puts this scroll container's scrollbar `by` past its right edge, in the room around it.
+<a href=#1417 id=1417 data-nosnippet>1417</a>    </span><span class="kw">pub fn </span>scrollbar_outside(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId, by: f32) {
+<a href=#1418 id=1418 data-nosnippet>1418</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.element_mut(node) {
+<a href=#1419 id=1419 data-nosnippet>1419</a>            e.scrollbar_outside = by;
+<a href=#1420 id=1420 data-nosnippet>1420</a>        }
+<a href=#1421 id=1421 data-nosnippet>1421</a>    }
+<a href=#1422 id=1422 data-nosnippet>1422</a>
+<a href=#1423 id=1423 data-nosnippet>1423</a>    <span class="doccomment">/// Builds `view` as a floating layer above the rest of the UI, placed relative
+<a href=#1424 id=1424 data-nosnippet>1424</a>    /// to `anchor`. `on_dismiss` is called on a click outside the layer and its
+<a href=#1425 id=1425 data-nosnippet>1425</a>    /// anchor, or on Escape.
+<a href=#1426 id=1426 data-nosnippet>1426</a>    </span><span class="kw">pub fn </span>overlay(
+<a href=#1427 id=1427 data-nosnippet>1427</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#1428 id=1428 data-nosnippet>1428</a>        anchor: NodeId,
+<a href=#1429 id=1429 data-nosnippet>1429</a>        placement: Placement,
+<a href=#1430 id=1430 data-nosnippet>1430</a>        view: <span class="kw-2">&amp;</span><span class="kw">dyn </span>View,
+<a href=#1431 id=1431 data-nosnippet>1431</a>        on_dismiss: <span class="prelude-ty">Option</span>&lt;Rc&lt;<span class="kw">dyn </span>Fn()&gt;&gt;,
+<a href=#1432 id=1432 data-nosnippet>1432</a>    ) {
+<a href=#1433 id=1433 data-nosnippet>1433</a>        <span class="comment">// The slot comes before the content: overlays are placed and painted in
+<a href=#1434 id=1434 data-nosnippet>1434</a>        // order, so one opened from inside this one must come after it, or it
+<a href=#1435 id=1435 data-nosnippet>1435</a>        // would be placed with no anchor yet and painted underneath.
+<a href=#1436 id=1436 data-nosnippet>1436</a>        </span><span class="kw">let </span>key = <span class="number">0x6f76_6572_6c61_7900 </span>+ <span class="self">self</span>.overlays.len() <span class="kw">as </span>u64;
+<a href=#1437 id=1437 data-nosnippet>1437</a>        <span class="self">self</span>.keyed_overlay(key, anchor, placement, view, on_dismiss);
+<a href=#1438 id=1438 data-nosnippet>1438</a>    }
+<a href=#1439 id=1439 data-nosnippet>1439</a>
+<a href=#1440 id=1440 data-nosnippet>1440</a>    <span class="doccomment">/// Like [`Self::overlay`], for a layer that must stay the same one when other
+<a href=#1441 id=1441 data-nosnippet>1441</a>    /// layers before it come and go. A plain overlay is told apart by its place among
+<a href=#1442 id=1442 data-nosnippet>1442</a>    /// them, so a new one before it makes it start over, and animate in again.
+<a href=#1443 id=1443 data-nosnippet>1443</a>    </span><span class="kw">pub fn </span>keyed_overlay(
+<a href=#1444 id=1444 data-nosnippet>1444</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#1445 id=1445 data-nosnippet>1445</a>        key: u64,
+<a href=#1446 id=1446 data-nosnippet>1446</a>        anchor: NodeId,
+<a href=#1447 id=1447 data-nosnippet>1447</a>        placement: Placement,
+<a href=#1448 id=1448 data-nosnippet>1448</a>        view: <span class="kw-2">&amp;</span><span class="kw">dyn </span>View,
+<a href=#1449 id=1449 data-nosnippet>1449</a>        on_dismiss: <span class="prelude-ty">Option</span>&lt;Rc&lt;<span class="kw">dyn </span>Fn()&gt;&gt;,
+<a href=#1450 id=1450 data-nosnippet>1450</a>    ) {
+<a href=#1451 id=1451 data-nosnippet>1451</a>        <span class="kw">let </span>slot = <span class="self">self</span>.overlays.len();
+<a href=#1452 id=1452 data-nosnippet>1452</a>        <span class="kw">let </span>gap = <span class="self">self</span>.theme.spacing.s2;
+<a href=#1453 id=1453 data-nosnippet>1453</a>        <span class="self">self</span>.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss, floating: <span class="bool-val">false </span>});
+<a href=#1454 id=1454 data-nosnippet>1454</a>        <span class="kw">let </span>outer = <span class="self">self</span>.foreground.take();
+<a href=#1455 id=1455 data-nosnippet>1455</a>        <span class="kw">let </span>root = <span class="self">self</span>.keyed_child(key, view);
+<a href=#1456 id=1456 data-nosnippet>1456</a>        <span class="self">self</span>.foreground = outer;
+<a href=#1457 id=1457 data-nosnippet>1457</a>        <span class="self">self</span>.overlays[slot].root = root;
+<a href=#1458 id=1458 data-nosnippet>1458</a>    }
+<a href=#1459 id=1459 data-nosnippet>1459</a>
+<a href=#1460 id=1460 data-nosnippet>1460</a>    <span class="doccomment">/// Builds `view` as a layer that stays open beside the UI, like a chat in a
+<a href=#1461 id=1461 data-nosnippet>1461</a>    /// corner: it is under every menu and dialog, wherever it is built, keeps its state
+<a href=#1462 id=1462 data-nosnippet>1462</a>    /// when they open, and is not closed by a click outside it.
+<a href=#1463 id=1463 data-nosnippet>1463</a>    </span><span class="kw">pub fn </span>floating_overlay(<span class="kw-2">&amp;mut </span><span class="self">self</span>, anchor: NodeId, placement: Placement, view: <span class="kw-2">&amp;</span><span class="kw">dyn </span>View) {
+<a href=#1464 id=1464 data-nosnippet>1464</a>        <span class="comment">// Its key does not depend on the other layers, which come and go.
+<a href=#1465 id=1465 data-nosnippet>1465</a>        </span><span class="kw">let </span>key = <span class="number">0x666c_6f61_7400_0000 </span>+ <span class="self">self</span>.floating_overlays;
+<a href=#1466 id=1466 data-nosnippet>1466</a>        <span class="self">self</span>.floating_overlays += <span class="number">1</span>;
+<a href=#1467 id=1467 data-nosnippet>1467</a>        <span class="kw">let </span>slot = <span class="self">self</span>.overlays.len();
+<a href=#1468 id=1468 data-nosnippet>1468</a>        <span class="kw">let </span>gap = <span class="self">self</span>.theme.spacing.s2;
+<a href=#1469 id=1469 data-nosnippet>1469</a>        <span class="self">self</span>.overlays.push(Overlay {
+<a href=#1470 id=1470 data-nosnippet>1470</a>            root: anchor,
+<a href=#1471 id=1471 data-nosnippet>1471</a>            anchor,
+<a href=#1472 id=1472 data-nosnippet>1472</a>            placement,
+<a href=#1473 id=1473 data-nosnippet>1473</a>            gap,
+<a href=#1474 id=1474 data-nosnippet>1474</a>            on_dismiss: <span class="prelude-val">None</span>,
+<a href=#1475 id=1475 data-nosnippet>1475</a>            floating: <span class="bool-val">true</span>,
+<a href=#1476 id=1476 data-nosnippet>1476</a>        });
+<a href=#1477 id=1477 data-nosnippet>1477</a>        <span class="kw">let </span>outer = <span class="self">self</span>.foreground.take();
+<a href=#1478 id=1478 data-nosnippet>1478</a>        <span class="kw">let </span>root = <span class="self">self</span>.keyed_child(key, view);
+<a href=#1479 id=1479 data-nosnippet>1479</a>        <span class="self">self</span>.foreground = outer;
+<a href=#1480 id=1480 data-nosnippet>1480</a>        <span class="self">self</span>.overlays[slot].root = root;
+<a href=#1481 id=1481 data-nosnippet>1481</a>    }
+<a href=#1482 id=1482 data-nosnippet>1482</a>
+<a href=#1483 id=1483 data-nosnippet>1483</a>    <span class="kw">fn </span>element_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: NodeId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Element&gt; {
+<a href=#1484 id=1484 data-nosnippet>1484</a>        <span class="self">self</span>.elements.get_mut(node.<span class="number">0 </span><span class="kw">as </span>usize)
+<a href=#1485 id=1485 data-nosnippet>1485</a>    }
+<a href=#1486 id=1486 data-nosnippet>1486</a>
+<a href=#1487 id=1487 data-nosnippet>1487</a>    <span class="kw">fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, element: Element) -&gt; NodeId {
+<a href=#1488 id=1488 data-nosnippet>1488</a>        <span class="self">self</span>.elements.push(element);
+<a href=#1489 id=1489 data-nosnippet>1489</a>        NodeId((<span class="self">self</span>.elements.len() - <span class="number">1</span>) <span class="kw">as </span>u32)
+<a href=#1490 id=1490 data-nosnippet>1490</a>    }
+<a href=#1491 id=1491 data-nosnippet>1491</a>
+<a href=#1492 id=1492 data-nosnippet>1492</a>    <span class="kw">fn </span>fail(<span class="kw-2">&amp;mut </span><span class="self">self</span>, e: LayoutError) -&gt; LayoutId {
+<a href=#1493 id=1493 data-nosnippet>1493</a>        <span class="macro">tracing::error!</span>(error = %e, <span class="string">"layout node could not be created"</span>);
+<a href=#1494 id=1494 data-nosnippet>1494</a>        <span class="kw">if </span><span class="self">self</span>.error.is_none() {
+<a href=#1495 id=1495 data-nosnippet>1495</a>            <span class="self">self</span>.error = <span class="prelude-val">Some</span>(e);
+<a href=#1496 id=1496 data-nosnippet>1496</a>        }
+<a href=#1497 id=1497 data-nosnippet>1497</a>        <span class="self">self</span>.placeholder
+<a href=#1498 id=1498 data-nosnippet>1498</a>    }
+<a href=#1499 id=1499 data-nosnippet>1499</a>}
+<a href=#1500 id=1500 data-nosnippet>1500</a>
+<a href=#1501 id=1501 data-nosnippet>1501</a><span class="doccomment">/// What [`BuildCx::animated_numbers`] keeps between builds.
+<a href=#1502 id=1502 data-nosnippet>1502</a></span><span class="kw">struct </span>Numbers {
+<a href=#1503 id=1503 data-nosnippet>1503</a>    from: Vec&lt;f64&gt;,
+<a href=#1504 id=1504 data-nosnippet>1504</a>    to: Vec&lt;f64&gt;,
+<a href=#1505 id=1505 data-nosnippet>1505</a>    start: f64,
+<a href=#1506 id=1506 data-nosnippet>1506</a>    duration: f64,
+<a href=#1507 id=1507 data-nosnippet>1507</a>    easing: ravenrs_animation::Easing,
+<a href=#1508 id=1508 data-nosnippet>1508</a>}
+<a href=#1509 id=1509 data-nosnippet>1509</a>
+<a href=#1510 id=1510 data-nosnippet>1510</a><span class="attr">#[cfg_attr(feature = <span class="string">"live"</span>, ravenrs_live::expose)]
+<a href=#1511 id=1511 data-nosnippet>1511</a></span><span class="kw">impl </span>Numbers {
+<a href=#1512 id=1512 data-nosnippet>1512</a>    <span class="kw">fn </span>at(values: <span class="kw-2">&amp;</span>[f64]) -&gt; <span class="self">Self </span>{
+<a href=#1513 id=1513 data-nosnippet>1513</a>        <span class="kw">let </span>easing = ravenrs_animation::Easing::Linear;
+<a href=#1514 id=1514 data-nosnippet>1514</a>        <span class="self">Self </span>{ from: values.to_vec(), to: values.to_vec(), start: <span class="number">0.0</span>, duration: <span class="number">0.0</span>, easing }
+<a href=#1515 id=1515 data-nosnippet>1515</a>    }
+<a href=#1516 id=1516 data-nosnippet>1516</a>
+<a href=#1517 id=1517 data-nosnippet>1517</a>    <span class="doccomment">/// Exactly the target once the time is up.
+<a href=#1518 id=1518 data-nosnippet>1518</a>    </span><span class="kw">fn </span>value(<span class="kw-2">&amp;</span><span class="self">self</span>, now: f64) -&gt; Vec&lt;f64&gt; {
+<a href=#1519 id=1519 data-nosnippet>1519</a>        <span class="kw">let </span>t = <span class="kw">if </span><span class="self">self</span>.duration &gt; <span class="number">0.0 </span>{ (now - <span class="self">self</span>.start) / <span class="self">self</span>.duration } <span class="kw">else </span>{ <span class="number">1.0 </span>};
+<a href=#1520 id=1520 data-nosnippet>1520</a>        <span class="kw">if </span>t &gt;= <span class="number">1.0 </span>{
+<a href=#1521 id=1521 data-nosnippet>1521</a>            <span class="kw">return </span><span class="self">self</span>.to.clone();
+<a href=#1522 id=1522 data-nosnippet>1522</a>        }
+<a href=#1523 id=1523 data-nosnippet>1523</a>        <span class="kw">let </span>eased = f64::from(<span class="self">self</span>.easing.sample(t.max(<span class="number">0.0</span>) <span class="kw">as </span>f32));
+<a href=#1524 id=1524 data-nosnippet>1524</a>        <span class="self">self</span>.from.iter().zip(<span class="kw-2">&amp;</span><span class="self">self</span>.to).map(|(a, b)| a + (b - a) * eased).collect()
+<a href=#1525 id=1525 data-nosnippet>1525</a>    }
+<a href=#1526 id=1526 data-nosnippet>1526</a>}
 </code></pre></div></section></main></body></html>

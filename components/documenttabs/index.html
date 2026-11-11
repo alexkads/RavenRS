@@ -34,7 +34,7 @@
     <p class="lede">Tabs for open documents that close, move, rename and say what was not saved.</p>
     <h2 class="block">Example</h2>
     <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
-    <iframe class="stage" src="../../demo/?component=DocumentTabs" title="Live example of DocumentTabs" height="883" allow="fullscreen" allowfullscreen></iframe>
+    <iframe class="stage" src="../../demo/?component=DocumentTabs" title="Live example of DocumentTabs" height="905" allow="fullscreen" allowfullscreen></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>
@@ -44,6 +44,7 @@
 <span class="t-keyword">fn</span> document_tabs() -&gt; <span class="t-keyword">impl</span> <span class="t-type">View</span> {
     <span class="t-keyword">let</span> tabs = <span class="t-type">State</span>::new(vec![
         <span class="t-type">DocumentTab</span>::new(<span class="t-number">1</span>, <span class="t-string">"Wedding"</span>).icon(<span class="t-type">IconName</span>::<span class="t-type">Camera</span>),
+        <span class="t-comment">// ravenrs-lint: allow(raw_color) the tab keeps the color its owner picked for that document</span>
         <span class="t-type">DocumentTab</span>::new(<span class="t-number">2</span>, <span class="t-string">"Portraits"</span>).unsaved(true).color(<span class="t-type">Color</span>::rgb(<span class="t-number">0.25</span>, <span class="t-number">0.55</span>, <span class="t-number">0.95</span>)),
         <span class="t-type">DocumentTab</span>::new(<span class="t-number">3</span>, <span class="t-string">"Studio with a long name that does not fit"</span>),
         <span class="t-type">DocumentTab</span>::new(<span class="t-number">4</span>, <span class="t-string">"Home"</span>).closable(false),

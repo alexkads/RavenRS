@@ -34,7 +34,7 @@
     <p class="lede">Views on top of each other, in a box as large as the largest.</p>
     <h2 class="block">Example</h2>
     <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
-    <iframe class="stage" src="../../demo/?component=ZStack" title="Live example of ZStack" height="465" allow="fullscreen" allowfullscreen></iframe>
+    <iframe class="stage" src="../../demo/?component=ZStack" title="Live example of ZStack" height="399" allow="fullscreen" allowfullscreen></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>
@@ -43,10 +43,7 @@
 
 <span class="t-keyword">fn</span> z_stack() -&gt; <span class="t-keyword">impl</span> <span class="t-type">View</span> {
     <span class="t-type">ZStack</span>::new((
-        <span class="t-type">Canvas</span>::new(|frame, scene| {
-            scene.push_quad(<span class="t-type">Quad</span>::new(frame, <span class="t-type">Color</span>::hex(0x4c66ee)).radius(<span class="t-number">8.0</span>));
-        })
-        .size(<span class="t-number">220.0</span>, <span class="t-number">80.0</span>),
+        <span class="t-type">Spacer</span>::new().frame(<span class="t-type">Some</span>(<span class="t-number">220.0</span>), <span class="t-type">Some</span>(<span class="t-number">80.0</span>)).background(<span class="t-type">Semantic</span>::<span class="t-type">Accent</span>).corner_radius(<span class="t-number">8.0</span>),
         <span class="t-type">Badge</span>::new(<span class="t-string">"On top"</span>).tone(<span class="t-type">Tone</span>::<span class="t-type">Success</span>),
     ))
     .align(<span class="t-type">Align</span>::<span class="t-type">Center</span>)

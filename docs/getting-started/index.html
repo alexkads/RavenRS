@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Installation · RavenRS Docs</title><meta name="description" content="Installation — the RavenRS guide to native and web applications in Rust.">
+<meta name="color-scheme" content="light dark"><link rel="stylesheet" href="../docs.css">
+<script>try{const t=localStorage.getItem('ravenrs-docs-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="../docs.js"></script></head>
+<body data-docs-base="../"><a class="skip" href="#content">Skip to content</a>
+<header class="header"><div class="header-brand"><a href="../../" class="brand" aria-label="RavenRS home"><span class="raven-mark" aria-hidden="true">R</span>RavenRS</a><span class="brand-divider">/</span><a href="../" class="docs-brand">Docs</a></div>
+<nav class="topnav" aria-label="Main"><a href="../" aria-current="page">Documentation</a><a href="../../components/">Components</a><a href="../../demo/">Examples</a></nav>
+<div class="header-actions"><button class="search-trigger" data-open-search><span aria-hidden="true">⌕</span><span class="search-label">Search documentation...</span><kbd>⌘ K</kbd></button><a class="github-link" href="https://github.com/alexkads/RavenRS">GitHub <span aria-hidden="true">↗</span></a><button class="icon-button" id="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme">◐</button><button class="icon-button mobile-menu" id="open-nav" aria-label="Open navigation">☰</button></div></header>
+<div class="docs-layout"><aside class="sidebar" aria-label="Documentation"><div class="version"><span>RavenRS</span><span class="version-label">v27.1.23<i></i></span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" aria-current="page">Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section><div class="sidebar-bottom"><a href="../../api/ravenrs/">API reference <span aria-hidden="true">↗</span></a><a href="https://github.com/alexkads/RavenRS/discussions">Community <span aria-hidden="true">↗</span></a></div></aside>
+<main id="content" tabindex="-1"><div class="article-top"><div class="breadcrumb"><a href="../">Docs</a><span>/</span><span>Start here</span><span>/</span><strong>Installation</strong></div><button class="page-copy" id="copy-page">Copy page <span aria-hidden="true">⧉</span></button></div><article class="prose"><h1 id="getting-started-with-ravenrs">Getting started with RavenRS</h1>
+<p>This guide builds a small app step by step: a window, then the same app in the browser, then state, your own components, themes and the data grid.</p>
+<h2 id="create-your-project">Create your project<a class="heading-anchor" href="#create-your-project" aria-label="Link to Create your project">#</a></h2>
+<p>With Node.js 20 or newer, start with one command:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">bash</span><button type="button" data-copy-code aria-label="Copy bash code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>npx create-ravenrs minha-loja</code></pre></div>
+<p>The guided setup prepares Rust and the matching RavenRS CLI, then asks for a template and
+whether to build for desktop, the browser or both. It creates application code, a screen test,
+Git and the files your coding assistant needs. You can also use <code>npm create ravenrs@latest minha-loja</code>.</p>
+<p>For an unattended setup, choose the model and target explicitly:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">bash</span><button type="button" data-copy-code aria-label="Copy bash code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>npx create-ravenrs minha-loja --<span class="hljs-built_in">yes</span> --template app --target both
+<span class="hljs-built_in">cd</span> minha-loja
+cargo run
+cargo <span class="hljs-built_in">test</span>
+cargo ravenrs doctor</code></pre></div>
+<p>Without <code>--yes</code>, installing Rust, a missing toolchain component or the CLI requires your
+confirmation. Existing matching installations are reused. Repeating the command preserves
+application code. The first CLI installation compiles Rust sources locally and takes a few minutes.
+The setup never runs <code>sudo</code>: it prints the Linux packages or Windows MSVC Build Tools you
+need to install yourself. Windows requires the C++ workload and Windows SDK even when the
+application targets the browser, because the generator itself is a native program.</p>
+<p>Already have Rust? Install the CLI directly. Use the release tag to keep the CLI, MCP,
+examples, skill and framework crates on the same version:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">bash</span><button type="button" data-copy-code aria-label="Copy bash code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>cargo install --git https://github.com/alexkads/RavenRS --tag v27.1.23 --locked cargo-ravenrs
+cargo ravenrs new minha-loja --template hello --target both --<span class="hljs-built_in">yes</span></code></pre></div>
+<h2 id="choose-a-template-and-target">Choose a template and target<a class="heading-anchor" href="#choose-a-template-and-target" aria-label="Link to Choose a template and target">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Template</th>
+<th>Starting point</th>
+<th>Storage</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>hello</code></td>
+<td>A card, a counter and buttons</td>
+<td>Reactive state</td>
+</tr>
+<tr>
+<td><code>app</code></td>
+<td>A task list with navigation, forms and commands from <code>ravenrs-app</code></td>
+<td>In memory</td>
+</tr>
+<tr>
+<td><code>app-sqlite</code></td>
+<td>The same task application with persistence</td>
+<td>SQLite on desktop; IndexedDB in the browser</td>
+</tr>
+<tr>
+<td><code>relatorios</code></td>
+<td>The RavenRS report designer</td>
+<td>Report layouts</td>
+</tr>
+</tbody></table>
+<p>Use <code>--target desktop</code>, <code>--target web</code> or <code>--target both</code>. The default with <code>--yes</code> is
+<code>hello</code> for <code>desktop</code>. The SQLite model requires Rust 1.89 or newer; the bootstrap installs
+the stable toolchain for you. Templates and the skill are embedded in the CLI from its release;
+they are not fetched from the changing <code>master</code> branch.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--yes</code></td>
+<td>Accept prerequisite installations and use defaults for unanswered choices</td>
+</tr>
+<tr>
+<td><code>--no-git</code></td>
+<td>Skip <code>git init</code></td>
+</tr>
+<tr>
+<td><code>--no-ai</code></td>
+<td>Skip assistant configuration</td>
+</tr>
+<tr>
+<td><code>--no-check</code></td>
+<td>Skip the final application compilation; keep the MCP handshake</td>
+</tr>
+<tr>
+<td><code>--plugin</code></td>
+<td>Use the version-pinned Claude marketplace plugin instead of a copied local skill</td>
+</tr>
+</tbody></table>
+<h2 id="your-project-structure">Your project structure<a class="heading-anchor" href="#your-project-structure" aria-label="Link to Your project structure">#</a></h2>
+<div class="codeblock"><div class="codebar"><span class="code-language">text</span><button type="button" data-copy-code aria-label="Copy text code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>minha-loja/
+├── Cargo.toml              # published crate versions, no checkout paths
+├── rust-toolchain.toml
+├── src/
+│   ├── main.rs             # native window
+│   └── lib.rs              # app() and the shared UI
+├── tests/screen.rs         # main-screen render test
+├── web/index.html          # when web or both is selected
+├── AGENTS.md               # commands and project rules
+└── CLAUDE.md               # points to AGENTS.md</code></pre></div>
+<p>Start changing <code>app()</code> in <code>src/lib.rs</code>. The desktop entry point opens that view in a
+native window. A web target includes its browser entry point and HTML canvas. Run
+<code>cargo test</code> to check that the main screen still renders.</p>
+<h2 id="work-with-a-coding-assistant">Work with a coding assistant<a class="heading-anchor" href="#work-with-a-coding-assistant" aria-label="Link to Work with a coding assistant">#</a></h2>
+<p>The generator registers the same offline MCP server for Claude Code (<code>.mcp.json</code>),
+VS Code / Copilot (<code>.vscode/mcp.json</code>), Cursor (<code>.cursor/mcp.json</code>) and Codex
+(<code>.codex/config.toml</code>). Every configuration launches <code>cargo ravenrs mcp</code>.</p>
+<p>Open the folder with <code>claude</code>, <code>code .</code> or your preferred assistant. The project includes
+the version-matched RavenRS skill and <code>AGENTS.md</code> commands. The instructions tell the
+assistant to consult <code>component_api</code> and <code>component_examples</code> before inventing a method,
+use design tokens and existing components, and build record applications with <code>ravenrs-app</code>.
+Claude settings allow the project&#39;s Cargo commands and read-only RavenRS MCP tools.
+Your editor may still require its normal workspace trust approval.</p>
+<p>For a project that already exists, run:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">bash</span><button type="button" data-copy-code aria-label="Copy bash code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>cargo ravenrs ai
+cargo ravenrs doctor</code></pre></div>
+<p>After updating framework versions, install the matching CLI tag and run <code>ai</code> again.
+It updates marked blocks and RavenRS configuration entries, preserving custom instructions
+outside those blocks. Keep personal notes outside the generated markers. It does not migrate
+application source. Use <code>cargo ravenrs ai --plugin</code> for the marketplace mode.</p>
+<p><code>doctor</code> checks explicit dependency versions, generated AI files and real MCP handshakes.
+It exits with an error when a version or configuration is stale. With the npm entry point,
+<code>npx create-ravenrs doctor</code> also checks prerequisites and never installs anything.
+Workspace-inherited dependency versions are tracked separately in
+<a href="https://github.com/alexkads/RavenRS/issues/209">issue #209</a>.</p>
+<h2 id="run-in-the-browser">Run in the browser<a class="heading-anchor" href="#run-in-the-browser" aria-label="Link to Run in the browser">#</a></h2>
+<p>Choose <code>web</code> or <code>both</code> when creating the app. In the generated project:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">bash</span><button type="button" data-copy-code aria-label="Copy bash code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>cargo check --target wasm32-unknown-unknown
+cargo build --release --lib --target wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.130 --locked
+wasm-bindgen --target web --out-dir web/pkg target/wasm32-unknown-unknown/release/minha_loja.wasm
+python3 -m http.server -d web 8080</code></pre></div>
+<p>Open <code>http://localhost:8080</code>. Replace <code>minha_loja</code> with your package name, using underscores
+for hyphens. <code>wasm-bindgen-cli</code> must match the framework&#39;s pinned <code>wasm-bindgen</code> version.
+Serve the page over HTTP rather than opening the HTML file directly.</p>
+<h2 id="understand-the-pieces">Understand the pieces<a class="heading-anchor" href="#understand-the-pieces" aria-label="Link to Understand the pieces">#</a></h2>
+<p>The following walkthrough shows how to build these pieces yourself: a window, browser entry
+point, state, components, themes and a data grid. For the CLI&#39;s behavior and validation details,
+see <a href="../cli/">cargo-ravenrs</a> and
+<a href="https://github.com/alexkads/RavenRS/blob/master/npm/create-ravenrs/README.md">create-ravenrs</a>.</p>
+<h2 id="1-a-window">1. A window<a class="heading-anchor" href="#1-a-window" aria-label="Link to 1. A window">#</a></h2>
+<div class="codeblock"><div class="codebar"><span class="code-language">bash</span><button type="button" data-copy-code aria-label="Copy bash code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>cargo new hello-raven &amp;&amp; <span class="hljs-built_in">cd</span> hello-raven</code></pre></div>
+<div class="codeblock"><div class="codebar"><span class="code-language">bash</span><button type="button" data-copy-code aria-label="Copy bash code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>cargo add ravenrs</code></pre></div>
+<div class="codeblock"><div class="codebar"><span class="code-language">rust</span><button type="button" data-copy-code aria-label="Copy rust code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code><span class="hljs-comment">// src/main.rs</span>
+<span class="hljs-keyword">use</span> ravenrs::prelude::*;
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">app</span>() <span class="hljs-punctuation">-&gt;</span> <span class="hljs-keyword">impl</span> <span class="hljs-title class_">View</span> {
+    VStack::<span class="hljs-title function_ invoke__">new</span>((
+        Text::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-string">&quot;Hello, RavenRS&quot;</span>).<span class="hljs-title function_ invoke__">style</span>(TextStyle::Display),
+        Text::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-string">&quot;Drawn on the GPU.&quot;</span>).<span class="hljs-title function_ invoke__">foreground</span>(Semantic::InkMuted),
+    ))
+    .<span class="hljs-title function_ invoke__">padding</span>(<span class="hljs-number">32.0</span>)
+}
+
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">main</span>() <span class="hljs-punctuation">-&gt;</span> <span class="hljs-type">Result</span>&lt;(), ravenrs::native::PlatformError&gt; {
+    ravenrs::native::<span class="hljs-title function_ invoke__">run</span>(<span class="hljs-title function_ invoke__">app</span>(), ravenrs::native::WindowOptions::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-string">&quot;Hello&quot;</span>).<span class="hljs-title function_ invoke__">size</span>(<span class="hljs-number">800.0</span>, <span class="hljs-number">500.0</span>))
+}</code></pre></div>
+<div class="codeblock"><div class="codebar"><span class="code-language">bash</span><button type="button" data-copy-code aria-label="Copy bash code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>cargo run</code></pre></div>
+<h2 id="2-the-same-app-in-the-browser">2. The same app in the browser<a class="heading-anchor" href="#2-the-same-app-in-the-browser" aria-label="Link to 2. The same app in the browser">#</a></h2>
+<p>Put the UI in <code>src/lib.rs</code> so both targets share it, and add a web entry point:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">toml</span><button type="button" data-copy-code aria-label="Copy toml code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code><span class="hljs-section">[lib]</span>
+<span class="hljs-attr">crate-type</span> = [<span class="hljs-string">&quot;cdylib&quot;</span>, <span class="hljs-string">&quot;rlib&quot;</span>]
+
+<span class="hljs-section">[target.&#x27;cfg(target_arch = &quot;wasm32&quot;)&#x27;.dependencies]</span>
+<span class="hljs-attr">wasm-bindgen</span> = <span class="hljs-string">&quot;=0.2.130&quot;</span>
+<span class="hljs-attr">wasm-bindgen-futures</span> = <span class="hljs-string">&quot;0.4&quot;</span></code></pre></div>
+<div class="codeblock"><div class="codebar"><span class="code-language">rust</span><button type="button" data-copy-code aria-label="Copy rust code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code><span class="hljs-comment">// src/lib.rs</span>
+<span class="hljs-keyword">use</span> ravenrs::prelude::*;
+
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">fn</span> <span class="hljs-title function_">app</span>() <span class="hljs-punctuation">-&gt;</span> <span class="hljs-keyword">impl</span> <span class="hljs-title class_">View</span> {
+    Text::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-string">&quot;Hello from the browser&quot;</span>).<span class="hljs-title function_ invoke__">style</span>(TextStyle::Display).<span class="hljs-title function_ invoke__">padding</span>(<span class="hljs-number">32.0</span>)
+}
+
+<span class="hljs-meta">#[cfg(target_arch = <span class="hljs-string">&quot;wasm32&quot;</span>)]</span>
+<span class="hljs-meta">#[wasm_bindgen::prelude::wasm_bindgen(start)]</span>
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">fn</span> <span class="hljs-title function_">start</span>() {
+    wasm_bindgen_futures::<span class="hljs-title function_ invoke__">spawn_local</span>(<span class="hljs-keyword">async</span> {
+        <span class="hljs-comment">// Keep the returned app alive for as long as the page shows it.</span>
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> <span class="hljs-variable">Ok</span>(app) = ravenrs::web::<span class="hljs-title function_ invoke__">start</span>(<span class="hljs-title function_ invoke__">app</span>(), ravenrs::web::WebOptions::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-string">&quot;raven-canvas&quot;</span>)).<span class="hljs-keyword">await</span> {
+            std::mem::<span class="hljs-title function_ invoke__">forget</span>(app);
+        }
+    });
+}</code></pre></div>
+<p>A page with a <code>&lt;canvas id=&quot;raven-canvas&quot;&gt;</code> sized by CSS hosts it; <a href="https://github.com/alexkads/RavenRS/blob/master/examples/hello-world/web/index.html"><code>examples/hello-world/web/index.html</code></a> is a complete one, and <a href="https://github.com/alexkads/RavenRS/blob/master/scripts/build-web.sh"><code>scripts/build-web.sh</code></a> shows the build (<code>cargo build --target wasm32-unknown-unknown</code> followed by <code>wasm-bindgen --target web</code>).</p>
+<h2 id="3-state">3. State<a class="heading-anchor" href="#3-state" aria-label="Link to 3. State">#</a></h2>
+<p><code>State&lt;T&gt;</code> holds a value. Views that read it rebuild when it changes; nothing else does.</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">rust</span><button type="button" data-copy-code aria-label="Copy rust code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code><span class="hljs-keyword">let</span> <span class="hljs-variable">count</span> = State::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-number">0</span>);
+<span class="hljs-keyword">let</span> <span class="hljs-variable">inc</span> = count.<span class="hljs-title function_ invoke__">clone</span>();
+VStack::<span class="hljs-title function_ invoke__">new</span>((
+    Text::<span class="hljs-title function_ invoke__">bound</span>(&amp;count, |n| <span class="hljs-built_in">format!</span>(<span class="hljs-string">&quot;{n} clicks&quot;</span>)),
+    Button::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-string">&quot;Click&quot;</span>).<span class="hljs-title function_ invoke__">on_click</span>(<span class="hljs-keyword">move</span> || inc.<span class="hljs-title function_ invoke__">update</span>(|n| *n += <span class="hljs-number">1</span>)),
+))</code></pre></div>
+<p>Controls take a <code>Binding&lt;T&gt;</code>, a read/write view of a state: <code>Toggle::new(enabled.binding())</code>, <code>TextField::new(name.binding())</code>, <code>Slider::new(volume.binding())</code>. <code>Binding::map</code> focuses on one field of a struct, and <code>Derived&lt;T&gt;</code> caches a value computed from other states.</p>
+<h2 id="4-your-own-components">4. Your own components<a class="heading-anchor" href="#4-your-own-components" aria-label="Link to 4. Your own components">#</a></h2>
+<p>A <code>Component</code> keeps its state in fields and composes views in <code>body</code>:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">rust</span><button type="button" data-copy-code aria-label="Copy rust code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code><span class="hljs-keyword">struct</span> <span class="hljs-title class_">Counter</span> { count: State&lt;<span class="hljs-type">i32</span>&gt; }
+
+<span class="hljs-keyword">impl</span> <span class="hljs-title class_">Component</span> <span class="hljs-keyword">for</span> <span class="hljs-title class_">Counter</span> {
+    <span class="hljs-keyword">fn</span> <span class="hljs-title function_">body</span>(&amp;<span class="hljs-keyword">self</span>) <span class="hljs-punctuation">-&gt;</span> <span class="hljs-keyword">impl</span> <span class="hljs-title class_">View</span> {
+        <span class="hljs-keyword">let</span> <span class="hljs-variable">c</span> = <span class="hljs-keyword">self</span>.count.<span class="hljs-title function_ invoke__">clone</span>();
+        Button::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-string">&quot;Add&quot;</span>).<span class="hljs-title function_ invoke__">on_click</span>(<span class="hljs-keyword">move</span> || c.<span class="hljs-title function_ invoke__">update</span>(|n| *n += <span class="hljs-number">1</span>))
+    }
+}</code></pre></div>
+<p>For full control, implement <code>View</code> and use <code>BuildCx</code>. This badge draws itself, reacts to hover and handles clicks:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">rust</span><button type="button" data-copy-code aria-label="Copy rust code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code><span class="hljs-keyword">struct</span> <span class="hljs-title class_">Pill</span>(&amp;<span class="hljs-symbol">&#x27;static</span> <span class="hljs-type">str</span>);
+
+<span class="hljs-keyword">impl</span> <span class="hljs-title class_">View</span> <span class="hljs-keyword">for</span> <span class="hljs-title class_">Pill</span> {
+    <span class="hljs-keyword">fn</span> <span class="hljs-title function_">build</span>(&amp;<span class="hljs-keyword">self</span>, cx: &amp;<span class="hljs-keyword">mut</span> BuildCx&lt;<span class="hljs-symbol">&#x27;_</span>&gt;) <span class="hljs-punctuation">-&gt;</span> NodeId {
+        <span class="hljs-keyword">let</span> <span class="hljs-variable">theme</span> = *cx.<span class="hljs-title function_ invoke__">theme</span>();
+        <span class="hljs-keyword">let</span> <span class="hljs-variable">fill</span> = <span class="hljs-keyword">if</span> cx.<span class="hljs-title function_ invoke__">is_hovered</span>() { theme.<span class="hljs-title function_ invoke__">color</span>(Semantic::Accent) } <span class="hljs-keyword">else</span> { theme.<span class="hljs-title function_ invoke__">color</span>(Semantic::Control) };
+        <span class="hljs-keyword">let</span> <span class="hljs-variable">label</span> = cx.<span class="hljs-title function_ invoke__">child</span>(&amp;Text::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-keyword">self</span>.<span class="hljs-number">0</span>));
+        <span class="hljs-keyword">let</span> <span class="hljs-variable">node</span> = cx.<span class="hljs-title function_ invoke__">container</span>(
+            ravenrs::layout::LayoutStyle { padding: (<span class="hljs-number">6.0</span>, <span class="hljs-number">12.0</span>).<span class="hljs-title function_ invoke__">into</span>(), ..<span class="hljs-built_in">Default</span>::<span class="hljs-title function_ invoke__">default</span>() },
+            &amp;[label],
+            Paint::<span class="hljs-title function_ invoke__">Quad</span>(QuadPaint { corner_radius: <span class="hljs-number">999.0</span>, ..QuadPaint::<span class="hljs-title function_ invoke__">new</span>(fill) }),
+        );
+        cx.<span class="hljs-title function_ invoke__">on_click</span>(node, std::rc::Rc::<span class="hljs-title function_ invoke__">new</span>(|| <span class="hljs-built_in">println!</span>(<span class="hljs-string">&quot;clicked&quot;</span>)));
+        cx.<span class="hljs-title function_ invoke__">cursor</span>(node, CursorIcon::Pointer);
+        node
+    }
+}</code></pre></div>
+<p><code>cx.use_state</code> gives a view instance its own state (open/closed, scroll position), <code>cx.overlay</code> opens a floating layer, <code>cx.wake_at</code> schedules a rebuild (animations, timers) and <code>cx.shortcut</code> registers app-wide keys.</p>
+<h2 id="5-themes">5. Themes<a class="heading-anchor" href="#5-themes" aria-label="Link to 5. Themes">#</a></h2>
+<p>Pick a theme when you start the app, or switch at runtime:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">rust</span><button type="button" data-copy-code aria-label="Copy rust code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>ravenrs::native::<span class="hljs-title function_ invoke__">run</span>(<span class="hljs-title function_ invoke__">app</span>(), ravenrs::native::WindowOptions::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-string">&quot;App&quot;</span>).<span class="hljs-title function_ invoke__">theme</span>(Theme::<span class="hljs-title function_ invoke__">raven_light</span>()))</code></pre></div>
+<p><code>ThemeSwitcher::new()</code> toggles Raven Dark, Light and Glass, or the app&#39;s own three with <code>.themes(dark, light, glass)</code>, <code>ThemePicker</code> does it from a small menu, and <code>ThemeEditor</code> changes the tokens of the theme on screen and hands them over as JSON (<code>Theme::to_tokens_json</code>, <code>Theme::from_tokens_json</code>); any component can do the same with <code>cx.theme_state().set(...)</code>. Components use semantic roles (<code>Semantic::Ink</code>, <code>Semantic::Accent</code>, <code>Semantic::SurfaceElevated</code>…) so they follow the theme automatically. The tokens are documented in <a href="../design-system/">docs/design-system</a>.</p>
+<h2 id="6-the-data-grid">6. The data grid<a class="heading-anchor" href="#6-the-data-grid" aria-label="Link to 6. The data grid">#</a></h2>
+<div class="codeblock"><div class="codebar"><span class="code-language">rust</span><button type="button" data-copy-code aria-label="Copy rust code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code><span class="hljs-keyword">use</span> ravenrs::widgets::grid::Value;
+
+<span class="hljs-keyword">let</span> <span class="hljs-variable">data</span> = GridData::<span class="hljs-title function_ invoke__">new</span>(<span class="hljs-built_in">vec!</span>[
+    <span class="hljs-built_in">vec!</span>[Value::<span class="hljs-title function_ invoke__">from</span>(<span class="hljs-string">&quot;Northwind&quot;</span>), Value::<span class="hljs-title function_ invoke__">from</span>(<span class="hljs-string">&quot;Brazil&quot;</span>), Value::<span class="hljs-title function_ invoke__">from</span>(<span class="hljs-number">240</span>)],
+    <span class="hljs-built_in">vec!</span>[Value::<span class="hljs-title function_ invoke__">from</span>(<span class="hljs-string">&quot;Aurora&quot;</span>), Value::<span class="hljs-title function_ invoke__">from</span>(<span class="hljs-string">&quot;Chile&quot;</span>), Value::<span class="hljs-title function_ invoke__">from</span>(<span class="hljs-number">86</span>)],
+]);
+
+DataGrid::<span class="hljs-title function_ invoke__">new</span>(data, [
+    GridColumn::<span class="hljs-title function_ invoke__">text</span>(<span class="hljs-string">&quot;Customer&quot;</span>).<span class="hljs-title function_ invoke__">editable</span>(),
+    GridColumn::<span class="hljs-title function_ invoke__">text</span>(<span class="hljs-string">&quot;Country&quot;</span>),
+    GridColumn::<span class="hljs-title function_ invoke__">number</span>(<span class="hljs-string">&quot;Seats&quot;</span>).<span class="hljs-title function_ invoke__">summary</span>(Summary::Sum),
+])
+.<span class="hljs-title function_ invoke__">selection_mode</span>(SelectionMode::Multiple)
+.<span class="hljs-title function_ invoke__">height</span>(<span class="hljs-number">480.0</span>)</code></pre></div>
+<p>Sorting, the filter row (<code>&gt;100</code>, <code>10..20</code>, <code>yes</code>, or an expression such as <code>[Seats] &gt; 10 And [Country] = &#39;Brazil&#39;</code>), search, grouping, resizing, the column chooser, editing and CSV export work out of the box; only the visible rows are built, so 100,000+ rows stay smooth.</p>
+<h2 id="7-quality-checks">7. Quality checks<a class="heading-anchor" href="#7-quality-checks" aria-label="Link to 7. Quality checks">#</a></h2>
+<p><code>ravenrs-lint</code> checks what the compiler cannot: colors from <code>Semantic</code> roles, text from <code>TextStyle</code>, the 4px grid, named icon buttons, one primary action, and no state or blocking work in <code>body</code>. Set it up once and it fails the build of anyone, person or coding agent, who breaks a rule:</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">bash</span><button type="button" data-copy-code aria-label="Copy bash code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>cargo install ravenrs-lint --locked
+cargo ravenrs-lint --init --language en   <span class="hljs-comment"># or pt-BR</span>
+cargo ravenrs-lint --gate</code></pre></div>
+<p><code>--init</code> turns on the strictest rustc and Clippy levels, adds a test so <code>cargo test</code> runs the rules, and writes the same instructions for Codex, Claude, Gemini and Copilot. See <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lint/README.md">its README</a> for every rule.</p>
+<h2 id="next">Next<a class="heading-anchor" href="#next" aria-label="Link to Next">#</a></h2>
+<ul>
+<li>Browse every component in the <a href="https://alexkads.github.io/RavenRS/">live gallery</a> and its <a href="https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery/src/lib.rs">source</a>.</li>
+<li>Install <a href="https://github.com/alexkads/RavenRS/blob/master/examples/family-finance">Raven Finanças</a>, a complete family finance app built with RavenRS, to see it all in everyday use.</li>
+<li>Read the <a href="../architecture/">architecture</a> to see how build, layout, paint and render fit together.</li>
+<li>The <a href="https://alexkads.github.io/RavenRS/api/ravenrs/">API documentation</a> lists every type and method.</li>
+</ul>
+</article><div class="page-feedback"><span>Help us improve these docs.</span><a href="https://github.com/alexkads/RavenRS/edit/master/docs/GETTING_STARTED.md">Edit this page on GitHub <span aria-hidden="true">↗</span></a><a href="index.md">View Markdown <span aria-hidden="true">↗</span></a></div><nav class="pager" aria-label="Previous and next pages"><a class="pager-card " href="../"><span>Previous</span><strong>← Introduction</strong></a><a class="pager-card next" href="../cli/"><span>Next</span><strong>CLI & AI assistants →</strong></a></nav><footer class="footer">RavenRS 27.1.23<span>One UI. Native and web.</span></footer></main>
+<aside class="toc" aria-label="On this page"><h2>On this page</h2><nav><a class="toc-level-2" href="#create-your-project">Create your project</a><a class="toc-level-2" href="#choose-a-template-and-target">Choose a template and target</a><a class="toc-level-2" href="#your-project-structure">Your project structure</a><a class="toc-level-2" href="#work-with-a-coding-assistant">Work with a coding assistant</a><a class="toc-level-2" href="#run-in-the-browser">Run in the browser</a><a class="toc-level-2" href="#understand-the-pieces">Understand the pieces</a><a class="toc-level-2" href="#1-a-window">1. A window</a><a class="toc-level-2" href="#2-the-same-app-in-the-browser">2. The same app in the browser</a><a class="toc-level-2" href="#3-state">3. State</a><a class="toc-level-2" href="#4-your-own-components">4. Your own components</a><a class="toc-level-2" href="#5-themes">5. Themes</a><a class="toc-level-2" href="#6-the-data-grid">6. The data grid</a><a class="toc-level-2" href="#7-quality-checks">7. Quality checks</a><a class="toc-level-2" href="#next">Next</a></nav><div class="toc-help"><span>Ready to build?</span><a href="../getting-started/">Create your first app →</a></div></aside></div>
+<dialog id="search-dialog" aria-label="Search documentation"><div class="search-field"><span aria-hidden="true">⌕</span><input id="docs-search" type="search" placeholder="What are you looking for?" aria-label="Search documentation" autocomplete="off"><button class="icon-button" data-close-search aria-label="Close search">Esc</button></div><div id="search-results" role="status"></div><div class="search-footer"><span>↑ ↓ to navigate</span><span>↵ to open</span><span>esc to close</span></div></dialog>
+<dialog id="mobile-nav" aria-label="Documentation navigation"><button class="icon-button close-nav" aria-label="Close navigation">✕</button><div class="version"><span>RavenRS Docs</span><span>v27.1.23</span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" aria-current="page">Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section></dialog><div id="copy-status" class="sr-only" role="status"></div></body></html>

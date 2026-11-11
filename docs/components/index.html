@@ -1,0 +1,1517 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Component coverage · RavenRS Docs</title><meta name="description" content="Component coverage — the RavenRS guide to native and web applications in Rust.">
+<meta name="color-scheme" content="light dark"><link rel="stylesheet" href="../docs.css">
+<script>try{const t=localStorage.getItem('ravenrs-docs-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="../docs.js"></script></head>
+<body data-docs-base="../"><a class="skip" href="#content">Skip to content</a>
+<header class="header"><div class="header-brand"><a href="../../" class="brand" aria-label="RavenRS home"><span class="raven-mark" aria-hidden="true">R</span>RavenRS</a><span class="brand-divider">/</span><a href="../" class="docs-brand">Docs</a></div>
+<nav class="topnav" aria-label="Main"><a href="../" aria-current="page">Documentation</a><a href="../../components/">Components</a><a href="../../demo/">Examples</a></nav>
+<div class="header-actions"><button class="search-trigger" data-open-search><span aria-hidden="true">⌕</span><span class="search-label">Search documentation...</span><kbd>⌘ K</kbd></button><a class="github-link" href="https://github.com/alexkads/RavenRS">GitHub <span aria-hidden="true">↗</span></a><button class="icon-button" id="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme">◐</button><button class="icon-button mobile-menu" id="open-nav" aria-label="Open navigation">☰</button></div></header>
+<div class="docs-layout"><aside class="sidebar" aria-label="Documentation"><div class="version"><span>RavenRS</span><span class="version-label">v27.1.23<i></i></span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" aria-current="page">Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section><div class="sidebar-bottom"><a href="../../api/ravenrs/">API reference <span aria-hidden="true">↗</span></a><a href="https://github.com/alexkads/RavenRS/discussions">Community <span aria-hidden="true">↗</span></a></div></aside>
+<main id="content" tabindex="-1"><div class="article-top"><div class="breadcrumb"><a href="../">Docs</a><span>/</span><span>Build applications</span><span>/</span><strong>Component coverage</strong></div><button class="page-copy" id="copy-page">Copy page <span aria-hidden="true">⧉</span></button></div><article class="prose"><h1 id="component-parity-with-reference-libraries">Component parity with reference libraries</h1>
+<p>RavenRS aims to be more complete than the three reference libraries. This table tracks every component family they offer and where RavenRS stands. It is updated with each batch.</p>
+<p>Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned. Column S marks whether shadcn/ui ships it; D and T mark two commercial component suites for desktop and web.</p>
+<h2 id="summary">Summary<a class="heading-anchor" href="#summary" aria-label="Link to Summary">#</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Families tracked</th>
+<th>✅</th>
+<th>🟡</th>
+<th>⬜</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>All</td>
+<td>122</td>
+<td>82</td>
+<td>7</td>
+<td>33</td>
+</tr>
+</tbody></table>
+<h2 id="layout-and-structure">Layout and structure<a class="heading-anchor" href="#layout-and-structure" aria-label="Link to Layout and structure">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Stack (VStack/HStack), Spacer</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Overlap (ZStack)</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ZStack</code>: as large as the largest layer</td>
+</tr>
+<tr>
+<td>Page header, property row</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>PageHeader</code>, <code>PropertyRow</code></td>
+</tr>
+<tr>
+<td>Grid layout</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Grid</code></td>
+</tr>
+<tr>
+<td>Card</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Card</code> with a selected state, <code>GlassCard</code> (blur planned)</td>
+</tr>
+<tr>
+<td>Separator</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ <code>Divider</code></td>
+</tr>
+<tr>
+<td>Aspect ratio</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ <code>AspectRatio</code></td>
+</tr>
+<tr>
+<td>Scroll area</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>ScrollView</code> (vertical; horizontal inside DataGrid)</td>
+</tr>
+<tr>
+<td>Sticky content and scroll-driven effects</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Sticky</code>, <code>ScrollScene</code>, <code>ScrollLinked</code> with <code>ScrollLink</code> (ranges, windows, easing, keyframes)</td>
+</tr>
+<tr>
+<td>Links, anchors, counters, marquees</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Link</code>, <code>Anchor</code>, <code>CountUp</code> (also counts to a new value, with even digits), <code>Ticker</code> with <code>TimeLink</code>, <code>QuadField</code></td>
+</tr>
+<tr>
+<td>Resizable panels / Splitter</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Splitter</code> for two panes, <code>SplitPanes</code> for any number with limits, <code>SplitHandle</code> for a bar of your own; all move with the keyboard</td>
+</tr>
+<tr>
+<td>Tile layout / Dashboard layout</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>TileLayout</code>: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep; controls in a tile&#39;s header (<code>Tile::accessory</code>)</td>
+</tr>
+<tr>
+<td>Docking / Dock manager</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>DockArea</code>: a tree of splits and tabs in four places; moves by a drag with a mark on the target, by keys or by a menu; bars with limits and keys; docks that collapse and panels that close and come back; an arrangement saved as versioned text, where an unknown id is left out. Floating panels are left out: the app this was modeled on does not float them either</td>
+</tr>
+<tr>
+<td>Window (floating)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>FloatingPanel::movable</code>: moves and reduces, does not resize</td>
+</tr>
+<tr>
+<td>App bar / Toolbar</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Toolbar</code>, <code>ToolbarAction</code>: what does not fit folds into a menu</td>
+</tr>
+<tr>
+<td>Toolbar floating over content</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code>FloatingToolbar</code>: translucent, placed by side, moved by a handle or the arrows</td>
+</tr>
+<tr>
+<td>Arrows on the ends of a scrolling strip</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code>ScrollEdgeArrow</code>: only where there is more to show, with the keyboard kept at the end</td>
+</tr>
+<tr>
+<td>Custom title bar</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>🟡 <code>TitleBar</code>: title, actions and the window&#39;s buttons, drawing and calling back only. Dragging the window and hiding the system&#39;s frame belong to the platform layer, which offers neither yet</td>
+</tr>
+<tr>
+<td>Footer</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>Footer</code></td>
+</tr>
+<tr>
+<td>Status bar</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>StatusBar</code></td>
+</tr>
+<tr>
+<td>Tool rail</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ToolRail</code>: variants in a menu at the side, lines between groups, icons only, several columns</td>
+</tr>
+<tr>
+<td>Timeline with tracks</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code>Timeline</code></td>
+</tr>
+</tbody></table>
+<h2 id="navigation">Navigation<a class="heading-anchor" href="#navigation" aria-label="Link to Navigation">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tabs / TabStrip</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Tabs</code>: underlined or segmented, sizes, the bar alone, disabled while waiting</td>
+</tr>
+<tr>
+<td>Document tabs</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>DocumentTabs</code>: close, reorder by drag or keys, rename, color, a dot for what was not saved, context menu, scrolling with arrows</td>
+</tr>
+<tr>
+<td>Sidebar / Drawer navigation</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Sidebar</code>: closes to icons or off the screen, a rail along its edge, a brand, keys on a row, header and footer, groups, submenus, actions, badges, skeleton, sheet in narrow windows, floating and inset variants. Drag to resize: <code>Splitter</code></td>
+</tr>
+<tr>
+<td>Breadcrumb</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Breadcrumb</code>: locations can be links, an icon at the root</td>
+</tr>
+<tr>
+<td>Pagination / Pager</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Pagination</code></td>
+</tr>
+<tr>
+<td>Accordion / PanelBar</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Accordion</code>, <code>Disclosure</code>: any view as title, a mark, an on/off switch, open state kept by the app</td>
+</tr>
+<tr>
+<td>Menu / Menubar</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Menubar</code></td>
+</tr>
+<tr>
+<td>Ribbon (Office-style command bar)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Ribbon</code> (app menu, quick access, contextual tabs, collapse; key tips and gallery items planned)</td>
+</tr>
+<tr>
+<td>Navigation menu (mega menu)</td>
+<td>✓</td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Context menu</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>ContextMenu</code>: submenus, check marks and any view in a row, like <code>DropdownMenu</code></td>
+</tr>
+<tr>
+<td>Stepper / Wizard</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Wizard</code>: a step can refuse to be left or be marked with a problem; steps done can be reopened. <code>StepIndicator</code>, <code>StepBadge</code> for an app&#39;s own layout</td>
+</tr>
+<tr>
+<td>Bottom navigation</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>TreeView</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>TreeView</code>: keyboard, selection, three-state checks, filter, items on demand, virtualized</td>
+</tr>
+<tr>
+<td>Command palette</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ <code>CommandPalette</code></td>
+</tr>
+</tbody></table>
+<h2 id="buttons-and-actions">Buttons and actions<a class="heading-anchor" href="#buttons-and-actions" aria-label="Link to Buttons and actions">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Button (variants, sizes, icons)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Button</code>, <code>IconButton</code>: loading that holds the width, selected, key cap in the label&#39;s color</td>
+</tr>
+<tr>
+<td>Toggle button</td>
+<td>✓</td>
+<td></td>
+<td>✓</td>
+<td>✅ <code>ToggleButton</code>: count and pill shape</td>
+</tr>
+<tr>
+<td>Favorite mark</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>FavoriteToggle</code>: heart or star</td>
+</tr>
+<tr>
+<td>Swatch grid, color pair, nine-point anchor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>SwatchGrid</code> (the handler gets the modifiers), <code>ColorPair</code>, <code>NinePointAnchor</code></td>
+</tr>
+<tr>
+<td>Toggle group / Button group</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>ToggleGroup</code>, and <code>ButtonGroup</code> for buttons glued side by side</td>
+</tr>
+<tr>
+<td>Dropdown button</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>DropdownMenu</code>: submenus opened by hover, click or the Right arrow, check marks and any view in a row</td>
+</tr>
+<tr>
+<td>Split button</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>SplitButton</code></td>
+</tr>
+<tr>
+<td>Floating action button</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Speed dial</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Floating action button with a panel</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>FloatingPanel</code>: a round button that drags between corners, or placed anywhere by its header with the place kept by the app; reduces to its header</td>
+</tr>
+</tbody></table>
+<h2 id="inputs-and-editors">Inputs and editors<a class="heading-anchor" href="#inputs-and-editors" aria-label="Link to Inputs and editors">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Text box</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>TextField</code> (selection, clipboard, views before and after the text, clear button, sizes)</td>
+</tr>
+<tr>
+<td>Text area (multi-line)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>TextArea</code>: wraps, scrolls, builds only the lines in view, grows with the text between two limits</td>
+</tr>
+<tr>
+<td>Code editor</td>
+<td></td>
+<td>✓</td>
+<td></td>
+<td>✅ <code>CodeEditor</code> (feature <code>code</code>): Fira Mono, line numbers, Rust colors by token, Tab and Shift+Tab indent, Enter keeps the indentation, diagnostics mark the line and underline the columns. No horizontal scrolling or folding yet</td>
+</tr>
+<tr>
+<td>Code playground</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>Playground</code> (feature <code>code</code>): one bar, code beside its result, an Output panel with Console (<code>println!</code>) and Problems (also from closures that fail later), examples that run when picked, Restore, Ctrl/Cmd+Enter runs through a <code>Runner</code>, problems marked on their lines, last result kept and faded, Code/Result/Output tabs with a ⋯ menu below 768 px, and <code>download</code> to save what the code makes. The gallery downloads each example as a Cargo project (<code>ravenrs-project</code>) that <code>cargo run</code>s on the desktop and builds for the browser; <code>scripts/check.sh --full</code> builds all of them. <code>LiveRunner</code> (feature <code>live</code>) runs edited Rust without a compiler through <code>ravenrs-live</code>: all 181 gallery examples, each building as many elements as compiled; what it cannot read yet would be listed in <code>examples/component-gallery/live-pending.txt</code></td>
+</tr>
+<tr>
+<td>Label</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Label</code></td>
+</tr>
+<tr>
+<td>Form, field validation</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>FormField</code> + validators</td>
+</tr>
+<tr>
+<td>Form layout (groups, columns, tabs, error list)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>FormLayout</code>, <code>FormGroup</code></td>
+</tr>
+<tr>
+<td>Checkbox</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Radio group</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Switch</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Toggle</code>, with a small size</td>
+</tr>
+<tr>
+<td>Slider</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Slider</code>: marks, colored track, fill from a neutral value that a double click returns to, value at the right</td>
+</tr>
+<tr>
+<td>Value in small that opens a slider</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ValueSlider</code>: a button, or a field with <code>field</code>, and the keyboard goes into the slider</td>
+</tr>
+<tr>
+<td>Rename in place</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code>InlineRename</code>: double click, F2 or Enter; Enter and leaving confirm, Escape cancels</td>
+</tr>
+<tr>
+<td>Range slider</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Select / Drop-down list</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Select</code>: by index or by value (<code>Select::of</code>), search, sizes</td>
+</tr>
+<tr>
+<td>Combobox / Autocomplete</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Combobox</code></td>
+</tr>
+<tr>
+<td>Filter builder</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>FilterBuilder</code>: lines and groups over the expression language; &quot;is any of&quot; and &quot;is none of&quot; with values to pick; what it cannot show stays as text; also in the <code>DataGrid</code> toolbar and behind &quot;Edit filter&quot; on its filter panel, which opens every column&#39;s expression as one</td>
+</tr>
+<tr>
+<td>Lookup (records loaded on demand)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>LookupField</code>: from memory or a callback, ignores stale answers</td>
+</tr>
+<tr>
+<td>Multi-select / Tag box</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>TagBox</code>: search, new values, a limit</td>
+</tr>
+<tr>
+<td>Numeric input / Spin editor</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>NumberField</code> (range, step, separators, money in whole cents), <code>Stepper</code></td>
+</tr>
+<tr>
+<td>Masked input</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>MaskedField</code></td>
+</tr>
+<tr>
+<td>One-time code (OTP)</td>
+<td>✓</td>
+<td></td>
+<td>✓</td>
+<td>✅ <code>InputOtp</code></td>
+</tr>
+<tr>
+<td>Calendar</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Calendar</code></td>
+</tr>
+<tr>
+<td>Year view</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>YearView</code>: twelve months with marks per day, clicks and one Tab stop</td>
+</tr>
+<tr>
+<td>Date picker</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>DatePicker</code></td>
+</tr>
+<tr>
+<td>Date range picker</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>DateRangePicker</code>: two months, ready-made periods</td>
+</tr>
+<tr>
+<td>Time picker / DateTime picker</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>TimePicker</code>, <code>DateTimePicker</code></td>
+</tr>
+<tr>
+<td>Theme picker and token editor</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code>ThemePicker</code>: menu of themes. <code>ThemeEditor</code>: colors, corners and text sizes by token name, applied at once, with live contrast and JSON to copy and paste</td>
+</tr>
+<tr>
+<td>Color picker / palette / gradient</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>ColorPicker</code>: palette, shade square, hue and opacity bars, hexadecimal; gradients planned</td>
+</tr>
+<tr>
+<td>Rating</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Rating</code>: read-only at the cost of one element, or given with the pointer, arrows, Home, End and digits</td>
+</tr>
+<tr>
+<td>File upload</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>FileUpload</code>, <code>ImageField</code>: the system&#39;s chooser and drops, on desktop and web; sending is up to the app</td>
+</tr>
+<tr>
+<td>Drop zone</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>DropZone</code>: around any content, with the rules of <code>FileUpload</code>; every zone lights up during the drag, since platforms say only that files are over the window</td>
+</tr>
+<tr>
+<td>Signature</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Rich text editor</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Code editor</td>
+<td></td>
+<td>✓</td>
+<td></td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Spreadsheet</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>Spreadsheet</code> (<code>ravenrs-spreadsheet</code>): opens XLSX, XLS, ODS and CSV and saves XLSX, 500+ functions with recalculation, editing in the cell and the formula bar, pointer and keyboard selection, clipboard, undo, bold, italic, underline, alignment, number formats, column widths, sheet tabs. Planned: every command on a ribbon, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find</td>
+</tr>
+</tbody></table>
+<h2 id="data">Data<a class="heading-anchor" href="#data" aria-label="Link to Data">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Table</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Table</code></td>
+</tr>
+<tr>
+<td>Data grid</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>DataGrid</code>; see its parity table in ARCHITECTURE.md</td>
+</tr>
+<tr>
+<td>Tree list / Tree grid</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Pivot grid</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>List / List view</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>List</code>, <code>ListItem</code></td>
+</tr>
+<tr>
+<td>Virtual list with rows of any height</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>VirtualList</code>: measured in layout and kept by key, jump to a row, stays at the end, still when rows enter above, keyboard and semantics of a list</td>
+</tr>
+<tr>
+<td>Sortable list</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>SortableList</code>: a drag with a line at the target, Alt and the arrows, announced to screen readers. It keeps every row built, so it is for lists of a screenful</td>
+</tr>
+<tr>
+<td>List box (with reordering)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Card view / Tile view</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>CardView</code>: virtualized, as many columns as fit, keyboard and selection</td>
+</tr>
+<tr>
+<td>Scheduler (resource timeline)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>Scheduler</code>; gaps listed under &quot;Scheduler&quot; below</td>
+</tr>
+<tr>
+<td>Calendar with events</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>EventCalendar</code></td>
+</tr>
+<tr>
+<td>Recurrence editor</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>RecurrenceEditor</code>, <code>RecurrenceRule</code> (reads and writes iCalendar&#39;s <code>RRULE</code>)</td>
+</tr>
+<tr>
+<td>Gantt</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Kanban / Task board</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Timeline</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>File manager</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>FileBrowser</code>: breadcrumb, sorting, selection, icon, size and date over the app&#39;s data, virtualized. No upload, tree of folders or thumbnails view</td>
+</tr>
+</tbody></table>
+<h2 id="charts-and-visualization">Charts and visualization<a class="heading-anchor" href="#charts-and-visualization" aria-label="Link to Charts and visualization">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bar / column chart</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Chart</code>, <code>BarChart</code>: horizontal, grouped, stacked, negative, labels, active, focus that fades the rest, gradient, least length, growing from any side, categories on the line of zero</td>
+</tr>
+<tr>
+<td>Area chart, sparkline</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Chart</code>, <code>AreaChart</code>: stacked, expanded, gradient, curves; a sparkline with a tooltip and cursor when asked</td>
+</tr>
+<tr>
+<td>Line chart</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Chart</code>: natural, monotone, linear and step curves, dots, icons, labels</td>
+</tr>
+<tr>
+<td>Pie / donut</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Chart</code>: rings, active slice, a slice that comes forward under the pointer, center text, labels, guides with an elbow, a real gap between slices, a radius per slice</td>
+</tr>
+<tr>
+<td>Radar, radial</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Chart</code>: polygon and circle grids, filled, tracks, stacked</td>
+</tr>
+<tr>
+<td>Chart tooltip, legend, keyboard</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>ChartTooltip</code> (share, color by value, free content, either side on both axes), <code>ChartLegend</code>, arrow keys; cursor and dots that glide and fade</td>
+</tr>
+<tr>
+<td>Chart entrance</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>Chart</code>, <code>SankeyChart</code>: the data draws in the first time it is painted, with axes and grid there from the first frame: lines, areas, candles and flows from the left, bars out of zero, pies clockwise, radars out of the center; the tooltip waits; <code>no_appear</code>, <code>appear_key</code>; <code>animate_changes</code> moves from old data to new, with the axis; radial bars only fade in ⬜</td>
+</tr>
+<tr>
+<td>Chart axes</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Chart</code>: dashed grid, columns, steps of the axis, labels measured with the real font, aligned ends, lines of reference, fixed domain</td>
+</tr>
+<tr>
+<td>Scatter, bubble, funnel, financial</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 scatter in <code>Chart</code>, with a tooltip and cursor when asked; candlestick in <code>Chart</code>, with an axis of round numbers, outlines for what rose and the keyboard; bubble and funnel ⬜</td>
+</tr>
+<tr>
+<td>Sankey</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>SankeyChart</code>: alignment, ribbons in a gradient, the rest fading around the focus, arrow keys, every flow read aloud, a clear message when the flows go in a circle</td>
+</tr>
+<tr>
+<td>Gauges (linear, circular, arc)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>ProgressBar</code>, <code>Chart</code> with <code>RadialBar</code></td>
+</tr>
+</tbody></table>
+<p>The whole <a href="https://ui.shadcn.com/charts">shadcn/ui chart catalog</a> can be built with <code>Chart</code> and <code>ChartCard</code>: all 70 patterns are in the gallery&#39;s Charts page, under their names (<code>examples/component-gallery/src/charts.rs</code>).
+| Maps | | ✓ | ✓ | ⬜ |
+| Diagram / Org chart | | ✓ | ✓ | ⬜ |
+| QR code / Barcode | | ✓ | ✓ | ✅ <code>Barcode</code>: QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF |</p>
+<h2 id="overlays-and-feedback">Overlays and feedback<a class="heading-anchor" href="#overlays-and-feedback" aria-label="Link to Overlays and feedback">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dialog / Alert dialog</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Dialog</code>, <code>ConfirmDialog</code>: Escape, the backdrop and the X can each be turned off</td>
+</tr>
+<tr>
+<td>Sheet / Drawer (side panel)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Sheet</code></td>
+</tr>
+<tr>
+<td>Splash screen</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>SplashScreen</code></td>
+</tr>
+<tr>
+<td>Tray icon, closing to it</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>AppIdentity::close_to_tray</code></td>
+</tr>
+<tr>
+<td>System notifications</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>SystemNotifier</code></td>
+</tr>
+<tr>
+<td>Popover</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Popover</code>: any placement, with or without the panel</td>
+</tr>
+<tr>
+<td>Tooltip</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Tooltip</code> with a key cap, and <code>.tooltip()</code> on any view</td>
+</tr>
+<tr>
+<td>Hover card</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ <code>HoverCard</code></td>
+</tr>
+<tr>
+<td>Toast / Notification</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Toaster</code>: six places, per stack or per toast, and toasts that stay until closed</td>
+</tr>
+<tr>
+<td>Alert / Callout</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Alert</code>: with a compact strip</td>
+</tr>
+<tr>
+<td>Code snippet with copy</td>
+<td></td>
+<td>✓</td>
+<td></td>
+<td>✅ <code>CodeBlock</code></td>
+</tr>
+<tr>
+<td>Release notes</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ReleaseNotes</code></td>
+</tr>
+<tr>
+<td>Training film and player</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ravenrs::movie</code>: <code>Recorder</code>, <code>MoviePlayer</code>, with click and key sounds, a voice and boxes that explain each step</td>
+</tr>
+<tr>
+<td>Question that opens a film at the right moment</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>MovieAssistant</code>, <code>MovieLibrary</code>: words the films hold, no model</td>
+</tr>
+<tr>
+<td>Film editor with timeline</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>MovieEditor</code>; its preview has no sound</td>
+</tr>
+<tr>
+<td>Bug report with a film</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>FlightRecorder</code>, <code>BugReporter</code></td>
+</tr>
+<tr>
+<td>Progress bar</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>ProgressBar</code>: label, percentage, detail, height, color</td>
+</tr>
+<tr>
+<td>Loader / Spinner</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Spinner</code></td>
+</tr>
+<tr>
+<td>Lottie animation</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Lottie</code>; no expressions, text layers, 3D, blend modes or effects other than Fill yet, and <code>.lottie</code> archives need unpacking first</td>
+</tr>
+<tr>
+<td>Skeleton</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Badge</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Chip / Chip list</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>Badge</code> (tone or own color, outline, height); removable chips via <code>Button</code> with an icon</td>
+</tr>
+</tbody></table>
+<h2 id="media-and-content">Media and content<a class="heading-anchor" href="#media-and-content" aria-label="Link to Media and content">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Avatar</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Avatar</code>: initials or picture, with a ring</td>
+</tr>
+<tr>
+<td>Icon set</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ 200 Lucide icons</td>
+</tr>
+<tr>
+<td>Image</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Image</code>: dissolves into the next one if asked, and asks for frames only meanwhile</td>
+</tr>
+<tr>
+<td>Carousel / Scroll view</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Carousel</code></td>
+</tr>
+<tr>
+<td>Kbd</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ takes the color of what it is in, on request</td>
+</tr>
+<tr>
+<td>List of shortcuts</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ShortcutSheet</code>, <code>ShortcutHintBar</code>, over <code>Kbd</code> and <code>Dialog</code></td>
+</tr>
+<tr>
+<td>Empty state</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ <code>EmptyState</code>, over <code>IconTile</code></td>
+</tr>
+<tr>
+<td>Status dot, badge on a corner</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code>Dot</code>, <code>OverlayBadge</code></td>
+</tr>
+<tr>
+<td>Banner, stacked meters, text with a shine</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>HeroBanner</code>, <code>MultiProgress</code>, <code>ShimmerText</code> (still with reduced motion)</td>
+</tr>
+<tr>
+<td>Day divider in a list</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>DaySeparator</code></td>
+</tr>
+<tr>
+<td>Typography scale</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Text</code> styles</td>
+</tr>
+<tr>
+<td>PDF viewer</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>PagedDocumentView</code>: bar, zoom and virtual pages, with pictures from the app. Reading the PDF and searching it are up to the app</td>
+</tr>
+<tr>
+<td>Filmstrip</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>Filmstrip</code>: virtual, cells from the app, selection with modifiers, keyboard, arrows on the ends</td>
+</tr>
+<tr>
+<td>Histogram</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>Histogram</code>: channels from ready-made bins, added up as light, linear or logarithmic, with marks at clipped ends</td>
+</tr>
+<tr>
+<td>Ruler</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>Ruler</code>: horizontal or vertical, in the units of the caller, with a round step for the zoom, origin and marker; vertical numbers stack, since text does not rotate</td>
+</tr>
+<tr>
+<td>Color wheel</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ColorWheel</code>: hue and saturation on a disc that is computed once and shared, with arrow keys and Shift to keep the hue</td>
+</tr>
+<tr>
+<td>Curve editor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>CurveEditor</code>: points over a monotone curve, added with a press, removed with a double click or Delete, moved with the arrows; baseline and histogram behind</td>
+</tr>
+<tr>
+<td>Zoom control</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ZoomControl</code>: fit, 1:1, percentage, + and −, through a <code>ZoomView</code> shared with <code>ZoomPanView</code> and <code>Minimap</code></td>
+</tr>
+<tr>
+<td>Zoom and pan</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ZoomPanView</code>: pinch, Cmd/Ctrl with the wheel, wheel and drag to move, double click, keys, inertia that respects reduced motion, limits. Content is an image or a closure: the runtime has no transform for a subtree</td>
+</tr>
+<tr>
+<td>Minimap</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>Minimap</code>: a small copy with the rectangle of what is in view, by the same <code>ZoomView</code> as <code>ZoomPanView</code>, with drag and arrow keys</td>
+</tr>
+<tr>
+<td>Composition grid</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>RuleOfThirdsGrid</code>: thirds, equal divisions, squares or the golden ratio, in a box or over a <code>ZoomPanView</code>, taking no input</td>
+</tr>
+<tr>
+<td>Rubber band selection</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>RubberBand</code>: a rectangle drawn with a drag in <code>Binding</code>, selected on release, with the keyboard; costs no builds while dragged if nobody else reads it</td>
+</tr>
+<tr>
+<td>Selection outline</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>Marquee</code>: marching ants around a rectangle, a path or loose segments, which stop and ask for no frames with reduced motion</td>
+</tr>
+<tr>
+<td>Transform box</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>TransformHandles</code>: eight handles, turn and pivot over a <code>BoxTransform</code> in content units, with Shift and Alt as in image editors and the keyboard. It returns geometry and turns nothing, since the renderer has no transforms; <code>CursorIcon</code> has no diagonals, so corners show the hand</td>
+</tr>
+<tr>
+<td>Protractor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>Protractor</code>: a band of ticks along an arc that sets an angle by a drag from anywhere, a double click back to zero, keys and value</td>
+</tr>
+<tr>
+<td>Crop</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>CropOverlay</code>: on <code>TransformHandles</code> and the lines of <code>RuleOfThirdsGrid</code>, with a veil outside, fixed proportion and angle, returning rectangle and angle. The frame turns over a still picture, since the renderer has no transforms</td>
+</tr>
+<tr>
+<td>Eyedropper</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>Eyedropper</code> and <code>EyedropperArea</code>: an armed button that takes the color of the point clicked, which the caller supplies with a closure or <code>EyedropperState::pick</code>; Esc disarms. It does not capture the screen, and <code>CursorIcon</code> has no dropper, so the cursor is the hand</td>
+</tr>
+<tr>
+<td>Compare images</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>CompareView</code>: two images side by side or with a divider dragged or moved with the arrows, through <code>ImageQuad.uv</code>, with captions and an optional chosen side</td>
+</tr>
+<tr>
+<td>Image lightbox</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ImageLightbox</code>: a picture over the whole app with zoom by <code>ZoomPanView</code>, arrows, Esc, caption and counter, from <code>Labels</code></td>
+</tr>
+<tr>
+<td>Image editor</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Text with marks and links</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>RichText</code>: <code>*bold*</code>, <code>_italic_</code>, <code>~struck~</code>, <code>`code`</code>, fenced blocks, lists, quotes and web addresses as links with click and keyboard, wrapped word by word. <code>ravenrs-text</code> has one style per text and no italic or monospace font, so italics are told apart by a muted color and code by a chip</td>
+</tr>
+<tr>
+<td>Attachments of a message</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>AttachmentStrip</code>: icon or thumbnail, name that gives way, size, a menu for how to send it when there is a choice and a button to remove it; the app holds the list</td>
+</tr>
+<tr>
+<td>Audio player</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>AudioPlayerButton</code>: play and stop over <code>SoundProvider::speak_clip</code>, progress by the clock, drawn without rebuilding, audio the app can deliver after the press, and a transcript to open or ask for. A new recording sends the old one back to rest. It has no seek, since the service does not report or change where it is</td>
+</tr>
+<tr>
+<td>Bar over a multiple selection</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>SelectionBar</code>: the count from <code>Labels</code>, a way out by button or Esc, and actions over <code>Toolbar</code>, which go to a menu when they do not fit and wait for something chosen</td>
+</tr>
+<tr>
+<td>Chat</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>Chat</code>, with marks and links by <code>RichText</code> and a photo, a document or a recording in the bubble by <code>ChatMedia</code>; <code>MovieChat</code> over training films</td>
+</tr>
+<tr>
+<td>Choosing local AI models</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code>ModelPicker</code>; <code>ravenrs_ai::ModelManager</code> offers only what fits</td>
+</tr>
+</tbody></table>
+<h2 id="reporting">Reporting<a class="heading-anchor" href="#reporting" aria-label="Link to Reporting">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Report engine (bands, groups, summaries, expressions)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>ravenrs-report</code>; see <a href="https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING-PARITY.md">REPORTING-PARITY.md</a></td>
+</tr>
+<tr>
+<td>Document viewer (pages, zoom, search, thumbnails)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code>ravenrs-report-viewer</code></td>
+</tr>
+<tr>
+<td>End-user report designer</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>examples/report-designer</code>, <a href="https://alexkads.github.io/RavenRS/designer/">live</a></td>
+</tr>
+<tr>
+<td>Export: PDF, XLSX, DOCX, CSV, HTML, images</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code>ravenrs-report-pdf</code>, <code>ravenrs-report-xlsx</code> (XLSX and CSV), SVG per page, Excel, PDF and CSV from <code>DataGrid</code>; DOCX, HTML and PNG planned</td>
+</tr>
+</tbody></table>
+<h2 id="platform-capabilities">Platform capabilities<a class="heading-anchor" href="#platform-capabilities" aria-label="Link to Platform capabilities">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Themes (light, dark, custom tokens)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ Raven Dark, Light, Glass</td>
+</tr>
+<tr>
+<td>Keyboard navigation and focus</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Screen reader support</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓ AccessKit on desktop, ARIA mirror on the web</td>
+</tr>
+<tr>
+<td>Right-to-left</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜ (Parley supports bidi; layout mirroring planned)</td>
+</tr>
+<tr>
+<td>Localization (formats, strings)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 number formats; <code>Labels</code> and <code>Localized</code> for component text (Ribbon, Carousel and InputOtp still fixed)</td>
+</tr>
+<tr>
+<td>Animations</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ springs, transitions, shared layout, enter and exit; 🟡 no rotation or group opacity yet</td>
+</tr>
+<tr>
+<td>Native desktop and browser from one codebase</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ (none of the three does both)</td>
+</tr>
+</tbody></table>
+<h2 id="scheduler">Scheduler<a class="heading-anchor" href="#scheduler" aria-label="Link to Scheduler">#</a></h2>
+<p>The reference is <a href="https://bryntum.com/products/scheduler/">Bryntum Scheduler</a>. The behavior is the model and the implementation is our own.</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rows of resources, time axis with two header rows, bars by time</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Hours, days, weeks and months, with zoom keeping the same time</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Drag along time and between rows, resize by the ends, draw on an empty stretch</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Snap to the scale, refusal through <code>can_drop</code>, locked and fixed-length events</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Overlapping events on lanes, with the row growing</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Rows sharing the height left over (<code>fill_rows</code>)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>A full look: tinted bars with a stripe, a second line on bars, avatars, today&#39;s column (<code>card</code>, <code>event_detail</code>, <code>avatars</code>)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Weekend shading, marked time ranges, a line at now, opening at now</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Collapsible groups of resources</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Keyboard for events; names and dates for screen readers</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Only what is in view is built</td>
+<td>✅ tested with 5,000 rows</td>
+</tr>
+<tr>
+<td>Recurring events</td>
+<td>✅ <code>RecurrenceRule</code>; the app expands the days</td>
+</tr>
+<tr>
+<td>Scrolling the wheel over the resources column</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Scrolling by itself while dragging near an edge</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Tooltip while hovering over or dragging an event</td>
+<td>✅ with <code>card</code></td>
+</tr>
+<tr>
+<td>Scrolling a bar into view when keyboard focus moves to it</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Dependencies between events</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Resource tree of any depth, multiple assignment, extra columns</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Working hours, non-continuous axis, vertical mode, nested events</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Summaries and histograms per row or period</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Dragging from a list or grid onto the timeline, or between schedulers</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Menus on events and on empty stretches (<code>event_menu</code>, <code>lane_menu</code>), zoom with a pinch or Ctrl and the wheel</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Undo and redo</td>
+<td>🟡 the app keeps the moves, as in Raven Finanças&#39; agenda; none built in</td>
+</tr>
+<tr>
+<td>Built-in event editor</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Export to PDF, PNG, Excel and ICS, printing</td>
+<td>⬜</td>
+</tr>
+</tbody></table>
+</article><div class="page-feedback"><span>Help us improve these docs.</span><a href="https://github.com/alexkads/RavenRS/edit/master/docs/PARITY.md">Edit this page on GitHub <span aria-hidden="true">↗</span></a><a href="index.md">View Markdown <span aria-hidden="true">↗</span></a></div><nav class="pager" aria-label="Previous and next pages"><a class="pager-card " href="../applications/"><span>Previous</span><strong>← Records & forms</strong></a><a class="pager-card next" href="../reporting/"><span>Next</span><strong>Create reports →</strong></a></nav><footer class="footer">RavenRS 27.1.23<span>One UI. Native and web.</span></footer></main>
+<aside class="toc" aria-label="On this page"><h2>On this page</h2><nav><a class="toc-level-2" href="#summary">Summary</a><a class="toc-level-2" href="#layout-and-structure">Layout and structure</a><a class="toc-level-2" href="#navigation">Navigation</a><a class="toc-level-2" href="#buttons-and-actions">Buttons and actions</a><a class="toc-level-2" href="#inputs-and-editors">Inputs and editors</a><a class="toc-level-2" href="#data">Data</a><a class="toc-level-2" href="#charts-and-visualization">Charts and visualization</a><a class="toc-level-2" href="#overlays-and-feedback">Overlays and feedback</a><a class="toc-level-2" href="#media-and-content">Media and content</a><a class="toc-level-2" href="#reporting">Reporting</a><a class="toc-level-2" href="#platform-capabilities">Platform capabilities</a><a class="toc-level-2" href="#scheduler">Scheduler</a></nav><div class="toc-help"><span>Ready to build?</span><a href="../getting-started/">Create your first app →</a></div></aside></div>
+<dialog id="search-dialog" aria-label="Search documentation"><div class="search-field"><span aria-hidden="true">⌕</span><input id="docs-search" type="search" placeholder="What are you looking for?" aria-label="Search documentation" autocomplete="off"><button class="icon-button" data-close-search aria-label="Close search">Esc</button></div><div id="search-results" role="status"></div><div class="search-footer"><span>↑ ↓ to navigate</span><span>↵ to open</span><span>esc to close</span></div></dialog>
+<dialog id="mobile-nav" aria-label="Documentation navigation"><button class="icon-button close-nav" aria-label="Close navigation">✕</button><div class="version"><span>RavenRS Docs</span><span>v27.1.23</span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" >Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" aria-current="page">Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section></dialog><div id="copy-status" class="sr-only" role="status"></div></body></html>

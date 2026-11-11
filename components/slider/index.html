@@ -55,8 +55,8 @@
             .neutral(<span class="t-number">0.0</span>)
             .label(<span class="t-string">"Exposure"</span>)
             .show_value(),
-        <span class="t-comment">// The colors on the track say what the value means.</span>
         <span class="t-type">Slider</span>::new(warmth.binding())
+            <span class="t-comment">// ravenrs-lint: allow(raw_color) the colors on the track say what the value means, cold to warm</span>
             .track_colors([<span class="t-type">Color</span>::hex(0x3b82f6), <span class="t-type">Color</span>::hex(0xfacc15)])
             .label(<span class="t-string">"Temperature"</span>),
     ))

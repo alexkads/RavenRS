@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Architecture · RavenRS Docs</title><meta name="description" content="Architecture — the RavenRS guide to native and web applications in Rust.">
+<meta name="color-scheme" content="light dark"><link rel="stylesheet" href="../docs.css">
+<script>try{const t=localStorage.getItem('ravenrs-docs-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<script type="module" src="../docs.js"></script></head>
+<body data-docs-base="../"><a class="skip" href="#content">Skip to content</a>
+<header class="header"><div class="header-brand"><a href="../../" class="brand" aria-label="RavenRS home"><span class="raven-mark" aria-hidden="true">R</span>RavenRS</a><span class="brand-divider">/</span><a href="../" class="docs-brand">Docs</a></div>
+<nav class="topnav" aria-label="Main"><a href="../" aria-current="page">Documentation</a><a href="../../components/">Components</a><a href="../../demo/">Examples</a></nav>
+<div class="header-actions"><button class="search-trigger" data-open-search><span aria-hidden="true">⌕</span><span class="search-label">Search documentation...</span><kbd>⌘ K</kbd></button><a class="github-link" href="https://github.com/alexkads/RavenRS">GitHub <span aria-hidden="true">↗</span></a><button class="icon-button" id="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme">◐</button><button class="icon-button mobile-menu" id="open-nav" aria-label="Open navigation">☰</button></div></header>
+<div class="docs-layout"><aside class="sidebar" aria-label="Documentation"><div class="version"><span>RavenRS</span><span class="version-label">v27.1.23<i></i></span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" aria-current="page">Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section><div class="sidebar-bottom"><a href="../../api/ravenrs/">API reference <span aria-hidden="true">↗</span></a><a href="https://github.com/alexkads/RavenRS/discussions">Community <span aria-hidden="true">↗</span></a></div></aside>
+<main id="content" tabindex="-1"><div class="article-top"><div class="breadcrumb"><a href="../">Docs</a><span>/</span><span>Build applications</span><span>/</span><strong>Architecture</strong></div><button class="page-copy" id="copy-page">Copy page <span aria-hidden="true">⧉</span></button></div><article class="prose"><h1 id="ravenrs-architecture">RavenRS Architecture</h1>
+<p>RavenRS is a declarative GUI framework written in Rust. One UI description runs in a native window (Windows, macOS, Linux) and in the browser (WebAssembly + WebGPU), and RavenRS draws every pixel itself with <code>wgpu</code>. This document records the decisions behind the first milestone, why they were made, and what is implemented, experimental or planned.</p>
+<h2 id="1-goals-and-constraints">1. Goals and constraints<a class="heading-anchor" href="#1-goals-and-constraints" aria-label="Link to 1. Goals and constraints">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>What it means in practice</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rust-first</td>
+<td>All framework logic is Rust. No code from the original Raven GUI (C) is used.</td>
+</tr>
+<tr>
+<td>GPU-first</td>
+<td>Rendering goes through <code>wgpu</code> and WGSL shaders on every platform.</td>
+</tr>
+<tr>
+<td>WebAssembly-first</td>
+<td>Every crate that is not platform glue compiles for <code>wasm32-unknown-unknown</code>. No threads, no <code>SharedArrayBuffer</code>, no blocking.</td>
+</tr>
+<tr>
+<td>Canvas-first</td>
+<td>On the web the UI is drawn into one <code>&lt;canvas&gt;</code>. The DOM hosts the canvas and delivers input, nothing else.</td>
+</tr>
+<tr>
+<td>Declarative-first</td>
+<td>Views are small values composed with builders; state changes trigger rebuilds of what depends on them.</td>
+</tr>
+<tr>
+<td>Beautiful by default</td>
+<td>Components read semantic design tokens; nothing is styled by hand in app code unless the app wants to.</td>
+</tr>
+<tr>
+<td>Performance-first</td>
+<td>Frames are produced only on demand; buffers and allocations are reused; there is no GPU→CPU readback in normal rendering.</td>
+</tr>
+</tbody></table>
+<h2 id="2-ecosystem-survey">2. Ecosystem survey<a class="heading-anchor" href="#2-ecosystem-survey" aria-label="Link to 2. Ecosystem survey">#</a></h2>
+<p>The survey was done against the official repositories and docs (October 2026). Nothing was copied from these projects; they informed design choices only.</p>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>License</th>
+<th>Rendering</th>
+<th>State model</th>
+<th>Layout</th>
+<th>Text</th>
+<th>Web</th>
+<th>Lesson for RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="https://github.com/oscar-soirey/Raven">Raven</a> (C)</td>
+<td>Apache-2.0</td>
+<td>Vulkan behind a function table, separate render thread</td>
+<td>UI thread + job system</td>
+<td>Two-pass measure/arrange</td>
+<td>unverified</td>
+<td>none</td>
+<td>Keep the renderer behind a narrow interface. <em>This is the closest match to &quot;the original Raven GUI&quot;; the identification is probable, not confirmed.</em></td>
+</tr>
+<tr>
+<td><a href="https://github.com/zed-industries/zed/tree/main/crates/gpui">GPUI</a></td>
+<td>Apache-2.0</td>
+<td>Metal; wgpu on Linux</td>
+<td>Entities owned by the app, handles + contexts</td>
+<td>Taffy</td>
+<td>Platform text stacks</td>
+<td>Experimental <code>gpui_web</code></td>
+<td>Context-passing ownership avoids <code>Rc&lt;RefCell&gt;</code> sprawl.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/linebender/xilem">Xilem / Masonry</a></td>
+<td>Apache-2.0</td>
+<td>Vello on wgpu</td>
+<td>View tree diffed into a retained widget tree</td>
+<td>Masonry&#39;s own</td>
+<td>Parley</td>
+<td>DOM backend (<code>xilem_web</code>)</td>
+<td>Separating the API layer from a retained widget core lets several API styles share it.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/iced-rs/iced">Iced</a></td>
+<td>MIT</td>
+<td>wgpu, tiny-skia fallback</td>
+<td>The Elm Architecture</td>
+<td>Own</td>
+<td>cosmic-text (fork)</td>
+<td>Yes, WebGL feature</td>
+<td>Bundle a font for WASM; the browser gives you no system fonts.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/slint-ui/slint">Slint</a></td>
+<td>GPL-3.0 / royalty-free / commercial</td>
+<td>femtovg, Skia, software, optional wgpu</td>
+<td>Compiled DSL with property bindings</td>
+<td>Own + Taffy</td>
+<td>Parley (optional)</td>
+<td>Yes</td>
+<td>Trim text features per target to keep WASM small.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/project-blinc/Blinc">Blinc</a></td>
+<td>Apache-2.0</td>
+<td>wgpu, SDF primitives, glass</td>
+<td>Signals + state machines</td>
+<td>Flexbox builder</td>
+<td>Own atlas</td>
+<td>WebGPU preview</td>
+<td>Closest prior art to RavenRS; validates the SDF + atlas approach.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/linebender/vello">Vello</a></td>
+<td>Apache-2.0 OR MIT</td>
+<td>Compute-shader 2D renderer; <code>vello_cpu</code>, <code>vello_gpu</code> variants</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>Needs WebGPU compute</td>
+<td>Do not make compute-only rendering the only path.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/DioxusLabs/taffy">Taffy</a></td>
+<td>MIT</td>
+<td>—</td>
+<td>—</td>
+<td>Flexbox, Grid, Block</td>
+<td>Measure callback</td>
+<td>Yes</td>
+<td>Wire text into layout through the measure function from day one.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gfx-rs/wgpu">wgpu</a></td>
+<td>MIT OR Apache-2.0</td>
+<td>Vulkan, Metal, DX12, GL, WebGPU</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>WebGPU and WebGL2</td>
+<td>Pin the major version; breaking releases arrive roughly quarterly.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/linebender/parley">Parley</a></td>
+<td>Apache-2.0 OR MIT</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>HarfRust shaping, Skrifa outlines, ICU4X</td>
+<td>Yes</td>
+<td>Mature rich-text layout without platform dependencies.</td>
+</tr>
+</tbody></table>
+<h2 id="3-crate-graph">3. Crate graph<a class="heading-anchor" href="#3-crate-graph" aria-label="Link to 3. Crate graph">#</a></h2>
+<div class="codeblock"><div class="codebar"><span class="code-language">text</span><button type="button" data-copy-code aria-label="Copy text code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>ravenrs-core ─────────────┬──────────────┬──────────────┬─────────────┐
+ (geometry, color,      │              │              │             │
+  events, Scene)        ▼              ▼              ▼             ▼
+                  ravenrs-layout    ravenrs-text     ravenrs-style   ravenrs-render
+                   (Taffy)        (Parley)       (tokens)      (wgpu, swash)
+ravenrs-reactive ───┐      │              │              │             │
+ (State, Binding, │      └──────┬───────┴──────────────┘             │
+  Derived)        └────► ravenrs-widgets                               │
+                         (View, Component, BuildCx, Ui)              │
+                                │                                    │
+                ┌───────────────┴───────────────┐                    │
+                ▼                               ▼                    │
+     ravenrs-platform-native             ravenrs-platform-web ◄──────────┘
+       (winit + wgpu)              (canvas + WebGPU, wasm32 only)
+                └───────────────┬───────────────┘
+                                ▼
+                             ravenrs  (facade + prelude)
+
+ravenrs-mcp  ──► ravenrs-criteria  (tool for coding assistants; nothing depends on it)
+ravenrs-lint                       (lints for applications; reads sources with syn, depends on no RavenRS crate)
+
+ravenrs-criteria  (expression language, no RavenRS dependencies)
+        ▲
+        ├── ravenrs-widgets  (DataGrid filter expressions, number layout)
+        │
+ravenrs-graphics  ──► ravenrs-core  (shapes, chart layout, barcodes; shared, knows no engine)
+        ▲
+        │
+ravenrs-lottie  ──► ravenrs-core  (reads Lottie files into curves; no GPU, no widgets)
+        ▲
+        └── ravenrs-widgets  (`Lottie`, with the `lottie` feature)
+
+ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
+        ▲
+        │
+ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)
+ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)
+ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
+ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
+                           and ravenrs-app-spec with `source` (entities read from Rust source while running)
+ravenrs-app-spec       ──► ravenrs-criteria, syn  (what the derives read from a struct or enum, as data)
+ravenrs-app-derive     ──► ravenrs-app-spec  (the derives, re-exported by ravenrs-app)
+ravenrs-live           ──► ravenrs-reactive, syn  (interprets the Rust of examples; host types through a Registry)
+ravenrs-project        ──► syn, zip  (code of the playground ──► a Cargo project, as files or a .zip)
+ravenrs-live-derive    (#[expose]: registers an impl block, struct, enum or module; behind `live` in core, style, layout, graphics, lottie, widgets, movie, app, app-ui)
+ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
+ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)
+ravenrs-app-library    ──► ravenrs-app  (ready-made records)
+ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-designer  (reports and panels)
+ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
+ravenrs-sheet          (spreadsheet engine from GridCraft: formulas, recalculation, XLSX; depends on nothing in RavenRS)
+ravenrs-spreadsheet    ──► ravenrs-sheet, ravenrs-widgets  (`Spreadsheet`: the engine ──► screen)
+ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
+ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
+        ▲
+        ├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)
+        │
+ravenrs-report-designer ──► ravenrs-report-viewer, ravenrs-report-export, ravenrs-widgets  (the designer)
+examples/report-designer  ──► ravenrs, ravenrs-report-designer</code></pre></div>
+<p><code>ravenrs-criteria</code> (the expression language) depends on nothing else in RavenRS, so any module can use it for filters, rules and validation. <code>ravenrs-report</code> (the report engine) depends only on <code>ravenrs-core</code>, <code>ravenrs-text</code> and <code>ravenrs-criteria</code>, so it also runs on servers. <code>ravenrs-widgets</code> uses <code>ravenrs-criteria</code> without its JSON feature, for <code>DataGrid</code> filter expressions and number layout. The <code>ravenrs</code> facade re-exports neither of them; apps depend on them directly. See <a href="#63-criteria-language">§6.3</a>, <a href="#64-reporting">§6.4</a> and <a href="../reporting/">docs/REPORTING.md</a>.</p>
+<p>There are no cycles. <code>ravenrs-render</code> also uses <code>ravenrs-text</code>, and the platform crates are where widgets and the renderer come together. <code>ravenrs-widgets</code> never touches the GPU and <code>ravenrs-render</code> knows nothing about widgets; they meet only through <code>ravenrs_core::Scene</code>, a plain display list. That boundary keeps widgets testable without a GPU (the widget tests run headless) and keeps the renderer replaceable.</p>
+<h2 id="3-1-where-things-live">3.1 Where things live<a class="heading-anchor" href="#3-1-where-things-live" aria-label="Link to 3.1 Where things live">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Crate</th>
+<th>Modules</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ravenrs-core</code></td>
+<td><code>geometry</code>, <code>color</code>, <code>event</code>, <code>scene</code> (the display list), <code>access</code> (the accessibility tree), <code>csv</code> (field quoting for every CSV export)</td>
+</tr>
+<tr>
+<td><code>ravenrs-animation</code></td>
+<td><code>spring</code>, <code>easing</code>, <code>oklab</code>, <code>animated</code> (pure functions of time)</td>
+</tr>
+<tr>
+<td><code>ravenrs-reactive</code></td>
+<td><code>state</code>, <code>binding</code>, <code>derived</code>, <code>observer</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-render</code></td>
+<td><code>renderer</code> (batching and passes), <code>gpu</code> (surface and device), <code>atlas</code> (glyphs), <code>images</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-platform-native</code></td>
+<td><code>lib</code> (winit loop), <code>access</code> (AccessKit)</td>
+</tr>
+<tr>
+<td><code>ravenrs-wayland-gestures</code></td>
+<td>Touchpad pinches on Wayland, until winit delivers them; the only <code>unsafe</code> call</td>
+</tr>
+<tr>
+<td><code>ravenrs-wayland-gestures</code></td>
+<td>Touchpad pinches on Wayland, until winit delivers them; the only <code>unsafe</code> call</td>
+</tr>
+<tr>
+<td><code>ravenrs-platform-web</code></td>
+<td><code>app</code> (canvas, events, frames), <code>access</code> (ARIA mirror), <code>error</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-criteria</code></td>
+<td><code>ast</code>, <code>parse</code>, <code>format</code>, <code>eval</code>, <code>functions</code>, <code>validate</code>, <code>sql</code>, <code>value</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-report</code></td>
+<td><code>model</code>, <code>engine</code>, <code>document</code>, <code>base64</code>, <code>paint</code>, <code>wizard</code>, <code>samples</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-graphics</code></td>
+<td><code>vector</code>, <code>chart</code>, <code>plot</code>, <code>sankey</code>, <code>barcode</code>; also the optional layout behind <code>Chart</code> and <code>Barcode</code> in <code>ravenrs-widgets</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-lottie</code></td>
+<td><code>document</code> (reading a file, and what it asks for that is not done yet), <code>property</code> (keyframes), <code>geometry</code> (trim, dash, stroke), <code>player</code> (one moment as <code>PathFill</code>s)</td>
+</tr>
+<tr>
+<td><code>ravenrs-report-export</code></td>
+<td><code>lib</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-grid-export</code></td>
+<td><code>lib</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-app-spec</code></td>
+<td><code>lib</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-project</code></td>
+<td><code>lib</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-app-derive</code></td>
+<td><code>lib</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-live</code></td>
+<td><code>value</code> (values, host objects, conversions), <code>registry</code> (what the host offers), <code>eval</code> (the interpreter), <code>bridge</code> (what <code>#[expose]</code> calls through)</td>
+</tr>
+<tr>
+<td><code>ravenrs-live-derive</code></td>
+<td><code>lib</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-app-sqlite</code></td>
+<td><code>lib</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-app-library</code></td>
+<td><code>lib</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-app-report</code></td>
+<td><code>lib</code>, <code>stored</code>, <code>analytics</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-report-designer</code></td>
+<td><code>lib</code>, <code>editor</code>, <code>bands</code>, <code>surface</code>, <code>props</code>, <code>preview</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-app-ui</code></td>
+<td><code>app</code>, <code>pane</code>, <code>form</code>, <code>session</code>, <code>shell</code>, <code>list_view</code>, <code>detail_view</code>, <code>nested</code>, <code>dashboard</code>, <code>editors</code>, <code>container</code>, <code>system</code>, <code>values</code>, <code>security</code>, <code>model_editor</code>, <code>list_editors</code>, <code>reminders</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-app</code></td>
+<td><code>entity</code>, <code>object</code>, <code>model</code> (<code>node</code>, <code>layers</code>, <code>store</code>, <code>generate</code>, <code>captions</code>), <code>space</code>, <code>action</code>, <code>controller</code>, <code>frame</code>, <code>module</code>, <code>functions</code>, <code>files</code>, <code>workflow</code>, <code>security</code> (<code>space</code>, <code>directory</code>, <code>password</code>, <code>records</code>, <code>audit</code>)</td>
+</tr>
+<tr>
+<td><code>ravenrs-report-pdf</code></td>
+<td><code>lib</code> (pages, fonts)</td>
+</tr>
+<tr>
+<td><code>ravenrs-report-xlsx</code></td>
+<td><code>lib</code> (grid, cells, CSV), <code>format</code> (Excel number formats)</td>
+</tr>
+<tr>
+<td><code>ravenrs-report-viewer</code></td>
+<td><code>lib</code> (<code>DocumentViewer</code>), <code>search</code>, <code>parameters</code> (<code>ParameterPanel</code>)</td>
+</tr>
+<tr>
+<td><code>ravenrs-sheet</code></td>
+<td><code>base</code> (addresses, values, dates), <code>numfmt</code>, <code>formula</code>, <code>functions</code>, <code>math</code>, <code>model</code>, <code>calc</code>, <code>xlsx</code>, <code>chart</code>, <code>pdf</code>, <code>engine</code> (<code>Session</code>: every action a command with undo). Kept as it came from GridCraft, with its own <code>rustfmt.toml</code> and <code>clippy.toml</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-spreadsheet</code></td>
+<td><code>lib</code> (<code>Spreadsheet</code>, labels), <code>state</code> (<code>SpreadsheetState</code>), <code>surface</code> (the painted grid, pointer and keys), <code>geometry</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-ai</code></td>
+<td><code>machine</code> (memory and disk), <code>models</code> (<code>LocalModel</code>, <code>ModelFolder</code>: download checked by hash, remove), <code>catalog</code>, <code>manager</code> (<code>ModelManager</code>). Desktop only</td>
+</tr>
+<tr>
+<td><code>ravenrs-movie</code></td>
+<td><code>movie</code> (the film: draw lists, each thing stored once), <code>project</code> (non-destructive edits), <code>composition</code> (one moment drawn), <code>record</code> (<code>Recorder</code>), <code>player</code> (with sound and the boxes that explain each step), <code>search</code> (<code>MovieLibrary</code>), <code>assistant</code> (<code>MovieAssistant</code>), <code>chat</code> (<code>MovieChat</code>), <code>editor</code>, <code>flight</code> (<code>FlightRecorder</code>, <code>BugReporter</code>)</td>
+</tr>
+<tr>
+<td><code>ravenrs-report-server</code></td>
+<td><code>config</code>, <code>store</code>, <code>cron</code>, <code>job</code>, <code>render</code>, <code>deliver</code>, <code>scheduler</code>, <code>http</code>, <code>main</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-mcp</code></td>
+<td><code>api</code> (index of the public API, parsed from embedded sources), <code>docs</code>, <code>expression</code>, <code>server</code></td>
+</tr>
+<tr>
+<td><code>ravenrs-lint</code></td>
+<td><code>rules</code> (the syntax-tree walk and <code>allow</code> comments), <code>config</code> (<code>[metadata.ravenrs-lint]</code>), <code>workspace</code> (<code>cargo metadata</code>), <code>report</code> (compiler-style and JSON), <code>init</code> (strict lints, agents&#39; instructions)</td>
+</tr>
+</tbody></table>
+<p><code>ravenrs-widgets</code> has two parts. The runtime is <code>view</code>, <code>context</code> (<code>BuildCx</code>), <code>ui</code> and <code>ui/access</code>, <code>modifiers</code>, <code>clipboard</code>, <code>sound</code> and <code>util</code>. The components are grouped by family:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Components</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>stack</code>, <code>card</code>, <code>canvas</code>, <code>fill</code>, <code>text</code>, <code>icon</code>, <code>icon_set</code>, <code>image</code></td>
+<td>Layout primitives, <code>ZStack</code>, <code>ScrollEdgeArrow</code>, <code>PropertyRow</code>, <code>PageHeader</code>, <code>TitleBar</code>, <code>Footer</code>, cards, custom drawing, text, icons, images</td>
+</tr>
+<tr>
+<td><code>button</code>, <code>inputs</code>, <code>text_field</code>, <code>choice</code>, <code>calendar</code>, <code>date</code></td>
+<td>Buttons, <code>ButtonGroup</code>, form controls, text input, <code>ToggleGroup</code>, <code>FavoriteToggle</code>, <code>SwatchGrid</code>, <code>NinePointAnchor</code>, <code>ColorPair</code>, <code>Pagination</code>, <code>Label</code>, <code>AspectRatio</code>, <code>Calendar</code>, <code>DatePicker</code>, <code>EventCalendar</code>, <code>RecurrenceEditor</code></td>
+</tr>
+<tr>
+<td><code>files</code></td>
+<td><code>FileUpload</code>, <code>DropZone</code>, <code>ImageField</code> and the service that brings files in</td>
+</tr>
+<tr>
+<td><code>quick_edit</code></td>
+<td><code>ValueSlider</code>, <code>InlineRename</code>: controls that stay small until they are used</td>
+</tr>
+<tr>
+<td><code>dock</code></td>
+<td><code>DockArea</code>: the arrangement in <code>dock::layout</code> (<code>DockLayout</code>: a tree of ids, its moves and its saved text) and <code>dock::geometry</code> (rectangles and what lies under a drag), both without <code>Ui</code>, and the drawing in <code>dock::area</code></td>
+</tr>
+<tr>
+<td><code>lists</code></td>
+<td>Long lists and what is built on them: <code>VirtualList</code>, <code>Filmstrip</code>, <code>PagedDocumentView</code>, <code>FileBrowser</code>, <code>YearView</code>, <code>SortableList</code>, <code>DocumentTabs</code>, with the arithmetic of a reorder drag in one module (<code>lists::reorder</code>)</td>
+</tr>
+<tr>
+<td><code>imaging</code></td>
+<td>Instruments for pictures, fed by the caller&#39;s data: <code>Histogram</code>, <code>Ruler</code>, <code>ColorWheel</code>, <code>CurveEditor</code>, <code>ZoomControl</code>, <code>ZoomPanView</code>, <code>Minimap</code>, <code>RuleOfThirdsGrid</code>, <code>RubberBand</code>, <code>Marquee</code>, <code>TransformHandles</code>, <code>Protractor</code>, <code>CropOverlay</code>, <code>Eyedropper</code>, <code>CompareView</code>, <code>ImageLightbox</code></td>
+</tr>
+<tr>
+<td><code>scheduler</code>, <code>recurrence</code></td>
+<td><code>Scheduler</code> and its time axis, and <code>RecurrenceRule</code>, which needs no UI</td>
+</tr>
+<tr>
+<td><code>nav</code>, <code>ribbon</code></td>
+<td><code>Tabs</code>, <code>Sidebar</code> and its parts, <code>Breadcrumb</code>, <code>Disclosure</code>, <code>Ribbon</code></td>
+</tr>
+<tr>
+<td><code>overlay</code>, <code>floating</code>, <code>shortcuts</code></td>
+<td><code>Tooltip</code>, <code>Popover</code>, <code>DropdownMenu</code>, <code>Select</code>, <code>Dialog</code>, then <code>ContextMenu</code>, <code>HoverCard</code>, <code>Sheet</code>, <code>SplashScreen</code>, <code>Toaster</code>, <code>Combobox</code>, <code>CommandPalette</code>, then <code>ShortcutSheet</code>, <code>ShortcutHintBar</code></td>
+</tr>
+<tr>
+<td><code>chat</code>, <code>rich_text</code>, <code>conversation</code></td>
+<td><code>Chat</code>, <code>ChatMedia</code>, <code>FloatingPanel</code>; <code>RichText</code>; <code>AttachmentStrip</code>, <code>AudioPlayerButton</code>, <code>SelectionBar</code></td>
+</tr>
+<tr>
+<td><code>display</code>, <code>status</code>, <code>data</code>, <code>extras</code></td>
+<td>Badges and alerts; <code>Dot</code>, <code>OverlayBadge</code>, <code>Rating</code>, <code>IconTile</code>, <code>EmptyState</code>, <code>HeroBanner</code>, <code>MultiProgress</code>, <code>ShimmerText</code>, <code>DaySeparator</code>; lists, tables and charts; <code>Spinner</code>, <code>Carousel</code>, <code>Splitter</code>, <code>SplitPanes</code>, <code>SplitHandle</code>, <code>Menubar</code>, <code>InputOtp</code>, <code>FormField</code></td>
+</tr>
+<tr>
+<td><code>grid/</code></td>
+<td><code>DataGrid</code>: <code>query</code> (pure pipeline), <code>model</code>, <code>view</code></td>
+</tr>
+</tbody></table>
+<p>Examples use the public API, among them <code>feature-center</code>, every feature of the application framework, and: <code>hello-world</code>, <code>component-gallery</code> (one demo per component), <code>report-designer</code> and <code>family-finance</code>, a desktop app on SQLite that also finds what is missing in the framework. The design tokens are defined in <a href="https://github.com/alexkads/RavenRS/blob/master/docs/design-system">docs/design-system</a>, and <code>ravenrs-style</code> mirrors them value for value.</p>
+<h2 id="4-the-frame-pipeline">4. The frame pipeline<a class="heading-anchor" href="#4-the-frame-pipeline" aria-label="Link to 4. The frame pipeline">#</a></h2>
+<div class="codeblock"><div class="codebar"><span class="code-language">text</span><button type="button" data-copy-code aria-label="Copy text code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>input event ──► Ui::handle_event ──► hit test ──► handler ──► State::set
+                                                                  │
+                         Observer marks the UI dirty, calls the waker
+                                                                  ▼
+platform schedules one frame (winit request_redraw / requestAnimationFrame)
+                                                                  ▼
+Ui::update:  build (views → elements, tracked)  ──►  layout (Taffy)  ──►  paint (Scene)
+                                                                  ▼
+Renderer::render:  batch quads/glyphs ──► upload instances ──► one render pass ──► present</code></pre></div>
+<ul>
+<li><strong>Build</strong> walks the view tree. Each <code>View::build</code> creates layout boxes and paint instructions through <code>BuildCx</code>. The whole build runs inside a reactive <code>Observer</code>, so every <code>State</code> read is recorded.</li>
+<li><strong>Layout</strong> runs Taffy over the boxes. Text leaves are measured by Parley through Taffy&#39;s measure callback, so wrapping participates in flexbox sizing.</li>
+<li><strong>Paint</strong> walks the element tree in order and appends primitives (<code>Quad</code>, <code>GlyphRun</code>, <code>PathFill</code>) to the <code>Scene</code>. Focus rings are painted after the focused element&#39;s children so they sit on top. An element outside its clip adds nothing, though it still gets a place in the order, because it can take focus and its children can stand outside it.</li>
+<li><strong>Render</strong> turns the scene into instanced draws. Consecutive primitives of the same kind are merged into one draw call; painter&#39;s order is preserved.</li>
+</ul>
+<p>Every rebuild runs from the root, so its cost follows the size of the screen, not the size of the change. What keeps that cheap: text is shaped once (<code>TextSystem</code> keeps recent layouts), the pointer moving over views that never asked about it builds nothing, and drawing that moves repeats only the paint through <code>Paint::Live</code>.</p>
+<p>Nothing runs between frames. An idle app sleeps on the desktop (<code>ControlFlow::Wait</code>) and schedules no animation frames on the web. Work on another thread sends its result through a channel and calls a <code>UiWaker</code>, the one handle that may leave the UI thread; state itself stays on that thread. While an animation runs, frames repeat only the paint phase (<a href="#65-motion">§6.5</a>).</p>
+<h2 id="5-reactive-system">5. Reactive system<a class="heading-anchor" href="#5-reactive-system" aria-label="Link to 5. Reactive system">#</a></h2>
+<p><code>ravenrs-reactive</code> is single-threaded by design: <code>Rc</code>, <code>Cell</code>, <code>RefCell</code>, no locks. UI state lives on the UI thread on every platform, including the browser main thread.</p>
+<ul>
+<li><code>State&lt;T&gt;</code> owns a value. <code>get</code>/<code>with</code> record a read in the innermost tracking <code>Observer</code>; <code>set</code>/<code>update</code> notify only the observers that read it during their latest run.</li>
+<li><code>Binding&lt;T&gt;</code> is a read/write view of a value owned elsewhere (SwiftUI&#39;s <code>@Binding</code>). <code>Binding::map</code> projects onto a field.</li>
+<li><code>Derived&lt;T&gt;</code> is a lazily recomputed, cached value over other state (a memo). It notifies its own readers when its inputs change.</li>
+<li><code>Observer</code> runs a closure and calls back once when any dependency changes.</li>
+</ul>
+<p><strong>Dependency bookkeeping without back-references.</strong> Each observer run increments an <em>epoch</em>. A source stores <code>(Weak&lt;observer&gt;, epoch)</code> pairs; on notification, entries from older epochs or dropped observers are discarded. This keeps ownership one-directional (sources never keep observers alive), makes re-tracking O(reads), and makes dropping either side safe at any time.</p>
+<p><strong>What is rebuilt.</strong> In this milestone the <code>Ui</code> has one observer for the whole build, so a change to any state the UI read triggers a full rebuild + relayout + repaint, and a change to state the UI never read triggers nothing (covered by <code>unrelated_state_does_not_invalidate</code>). Per-component observers and incremental reconciliation (rebuilding only the subtrees whose dependencies changed, reusing their layout nodes) are the next step (Phase 3); the <code>WidgetId</code> identity scheme below is already what that needs.</p>
+<p><strong>Identity.</strong> Every view gets a <code>WidgetId</code> derived from its parent&#39;s id and its position (or an explicit key via <code>BuildCx::keyed_child</code>). Hover, press and focus survive rebuilds because they are stored per <code>WidgetId</code>, not per element.</p>
+<h2 id="6-extensibility-making-your-own-components">6. Extensibility: making your own components<a class="heading-anchor" href="#6-extensibility-making-your-own-components" aria-label="Link to 6. Extensibility: making your own components">#</a></h2>
+<p>Components can be created at three levels, and the built-in widgets use the same public API as apps:</p>
+<ol>
+<li><strong>Functions</strong> returning <code>impl View</code> for stateless composition.</li>
+<li><strong><code>Component</code></strong>: a struct that holds its state and implements <code>body() -&gt; impl View</code>. Every <code>Component</code> is a <code>View</code> through a blanket implementation.</li>
+<li><strong><code>View</code></strong> implemented directly, with full access to <code>BuildCx</code>:<ul>
+<li><code>cx.child(&amp;view)</code>, <code>cx.children(&amp;seq)</code>, <code>cx.keyed_child(key, &amp;view)</code> to build children;</li>
+<li><code>cx.container(LayoutStyle, &amp;children, Paint)</code> and <code>cx.text(...)</code> to create layout boxes;</li>
+<li><code>Paint::Quad(QuadPaint)</code> or <code>Paint::Custom(DrawFn)</code> to draw anything into the <code>Scene</code>, or <code>Paint::Rich(RichFn)</code> when the drawing also shapes text or needs the device scale;</li>
+<li><code>cx.on_click</code>, <code>cx.focusable</code>, <code>cx.cursor</code> for behavior;</li>
+<li><code>cx.is_hovered()</code>, <code>cx.is_pressed()</code>, <code>cx.is_focused()</code>, <code>cx.theme()</code> to style by state and tokens.</li>
+</ul>
+</li>
+</ol>
+<p><code>Canvas</code> wraps <code>Paint::Custom</code> for custom drawing inside normal layout, <code>view_fn</code> turns a closure into a reactive view, and <code>Option&lt;V&gt;</code> renders conditionally.</p>
+<h2 id="6-1-runtime-services-for-components">6.1 Runtime services for components<a class="heading-anchor" href="#6-1-runtime-services-for-components" aria-label="Link to 6.1 Runtime services for components">#</a></h2>
+<p>Rich components need more than layout and paint; the runtime provides them generically, so third-party components get the same powers as built-in ones:</p>
+<ul>
+<li><strong>Widget-local state.</strong> <code>cx.use_state(init)</code> returns a <code>State&lt;T&gt;</code> owned by that widget instance, keyed by its <code>WidgetId</code> and call order. It survives rebuilds and is dropped when the widget is no longer built. <code>Keyed::new(key, view)</code> resets it on purpose.</li>
+<li><strong>Overlays.</strong> <code>cx.overlay(anchor, placement, &amp;view, on_dismiss)</code> builds a floating layer after the main tree. It is laid out as its own Taffy root, placed relative to the anchor&#39;s final frame (flipped and clamped to the viewport), painted last, hit-tested first, and dismissed on outside clicks or Escape.</li>
+<li><strong>Scrolling and clipping.</strong> <code>cx.scrollable(node)</code> makes a vertical scroll container (<code>cx.scroll_horizontally</code> adds the other axis, which <code>DataGrid</code> uses): offsets are kept per <code>WidgetId</code>, wheel events move the innermost scrollable under the pointer, children are clipped with scissor rectangles, and a thin scrollbar is drawn. Scrolling only re-places and repaints; it does not rebuild or re-run layout. When Tab or <code>cx.request_focus</code> moves focus, the containers around the focused element scroll just far enough to show it, innermost first, stopping at the edge of a floating layer. A click focuses without scrolling.</li>
+<li><strong>Scroll-driven pages.</strong> <code>cx.pin(node, top)</code> keeps a node <code>top</code> pixels below the top of its scroll container while its parent passes, and lets the parent&#39;s bottom take it away (<code>Sticky</code>). It is moved when frames are placed, before hit testing, so input and the accessibility tree see it where it shows. <code>cx.scroll_track(node, top, length)</code> marks a scene track (<code>ScrollScene</code>), and <code>cx.scroll_linked(node, link)</code> paints a subtree with the <code>Effect</code> a <code>ScrollLink</code> computes from scroll progress (<code>ScrollLinked</code>): progress through the nearest scene, or the node&#39;s own pass across the view (<code>ScrollRange</code>). Both are worked out from the placed frames and the visible area of each node&#39;s scroll container (<code>Ui::views</code>), so scrolling still only re-places and repaints. Linked effects, like motion effects, change neither layout nor hit testing; under reduced motion they keep only their opacity.</li>
+<li><strong>Showcase pages.</strong> <code>cx.links()</code> opens addresses through a provider each platform installs (<code>Ui::set_links</code>: the browser navigates, the desktop opens the system&#39;s browser); <code>#name</code> instead glides the scroll container to the node marked with <code>cx.anchor(node, name, offset)</code> (<code>Anchor</code>), over a few paint frames. <code>cx.on_appear(node, handler)</code> calls a handler once, after the first frame in which a node shows in its scroll container (<code>CountUp</code>). <code>cx.time_linked(node, link)</code> paints a subtree with an <code>Effect</code> of the clock and its frame, keeping frames coming only while it shows (<code>Ticker</code>). <code>cx.scroll_progress(node, range, cell)</code> writes the scroll progress into a cell before each paint, for live drawing that follows the scroll itself (<code>QuadField</code>).</li>
+<li><strong>Input.</strong> <code>cx.on_key</code> (focused element first, default handling otherwise), <code>cx.on_drag</code> (start/move/end with the element frame), <code>cx.on_click</code>, <code>cx.focusable</code>, <code>cx.cursor</code>, and <code>cx.is_hover_within()</code> for hover over a subtree.</li>
+<li><strong>Clipboard.</strong> <code>cx.clipboard()</code> reads and writes the system clipboard: <code>arboard</code> on desktop, <code>navigator.clipboard</code> on the web (where reading is asynchronous, so a paste arrives through the browser&#39;s <code>paste</code> event as typed text). <code>Ui::set_clipboard</code> swaps the provider; tests use an in-memory one.</li>
+<li><strong>Sound.</strong> <code>cx.sound()</code> plays short clips and speaks. On the desktop, <code>cpal</code> plays on a thread that starts with the first sound, and its output closes once quiet; the voice is the system&#39;s own program (<code>say</code>, Windows speech through PowerShell, <code>espeak-ng</code>), which gets the text on stdin. On the web it is Web Audio and <code>speechSynthesis</code>. <code>Ui::set_sound</code> swaps the provider; the default is silence.</li>
+<li><strong>Theme as state.</strong> The theme is a <code>State&lt;Theme&gt;</code>; <code>ThemeSwitcher</code> or any component can change it through <code>cx.theme_state()</code> and the whole UI rebuilds with the new tokens.</li>
+<li><strong>Icons.</strong> A subset of Lucide (ISC), about 200 icons in 68 KB, is embedded as a font, so icons are glyphs: sharp at any size, colored like text, and batched with text. <code>scripts/gen-icons.py</code> regenerates the subset and the <code>IconName</code> enum.</li>
+</ul>
+<h2 id="6-2-datagrid">6.2 DataGrid<a class="heading-anchor" href="#6-2-datagrid" aria-label="Link to 6.2 DataGrid">#</a></h2>
+<p><code>DataGrid</code> is split in two layers. <code>grid::query</code> is a pure pipeline over rows (filter → search → sort → group → summarize) with no UI dependency: it is unit-tested on its own, including a 100,000-row sort-and-group run. The view caches the query result per (query, data version) and builds only the rows inside the viewport plus a small overscan, with spacers above and below; scrolling rebuilds just that window (<code>BuildCx::scrollable_virtual</code>, <code>scroll_viewport</code>, <code>set_scroll_offset</code>). Data lives in <code>GridData</code>, shared copy-on-write so edits invalidate the cache exactly once.</p>
+<p>Parity with the feature set of commercial data grids:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Virtual scrolling (100k+ rows), vertical and horizontal</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Sorting, multi-column (Shift/Ctrl-click), with priority badges</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Filter row with operators (<code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>=</code>, <code>&lt;&gt;</code>, <code>a..b</code>), text and yes/no</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Filter row expressions over column titles (<code>[Seats] &gt; 10 And [Country] = &#39;Brazil&#39;</code>), from <code>ravenrs-criteria</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Search panel across visible columns</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Grouping, nested, expand/collapse (click or arrows), group panel chips</td>
+<td>✓ (by dragging headers to the panel, reorder or ungroup by dragging chips, expand and collapse all)</td>
+</tr>
+<tr>
+<td>Group summaries and footer totals (sum, average, min, max, count)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Column resizing (drag), columns that keep their width, column chooser (show/hide), min widths</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Selection: single, multiple with check boxes, Shift ranges, Ctrl toggle, select all</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Keyboard navigation (arrows, Home/End, Page Up/Down, Space, Enter/F2) with auto-scroll</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Cell editing (double-click, Enter, F2; Enter commits, Escape cancels), typed parsing</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Cell templates (any view) and custom formats; number/currency formats with separators (digits from <code>ravenrs_criteria::NumberStyle</code>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>CSV export (RFC 4180, raw numbers; quoting from <code>ravenrs_core::csv</code>, shared with reports)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Copying rows as tab-separated text (Cmd/Ctrl+C)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Column reordering by drag, menu on each column, fit width</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Columns pinned to the left</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Multi-level (banded) headers, columns pinned to the right</td>
+<td>planned</td>
+</tr>
+<tr>
+<td>Filter by value (checklists) with a filter panel</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Filter builder</td>
+<td>✓ <code>FilterBuilder</code>, also in the toolbar with <code>filter_builder</code> and behind &quot;Edit filter&quot; on the filter panel, over the whole filter</td>
+</tr>
+<tr>
+<td>Paging UI, infinite scroll and rows on a server (<code>RemoteRows</code>: bounded memory, settled requests, no totals needed, keyset by <code>after</code>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Summaries changed at run time, with formulas over <code>ravenrs-criteria</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Row add and delete (<code>on_add_row</code>, <code>on_delete_rows</code>), buttons on rows (<code>row_action</code>), edits that can be refused (<code>on_cell_edit</code>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Keys that survive data changes (<code>key_column</code>, <code>selected_keys</code>), dates (<code>GridColumn::date</code>), field names (<code>GridColumn::field</code>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Master-detail rows (<code>row_detail</code>, a fixed height for each, so the rows stay virtualized)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Row drag and drop</td>
+<td>planned</td>
+</tr>
+<tr>
+<td>Saved layouts and named scenarios (<code>GridLayout</code>, <code>GridScenario</code>, JSON)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Excel and PDF export (<code>on_export_file</code>, with <code>ravenrs-grid-export</code>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Cell range copy</td>
+<td>planned</td>
+</tr>
+</tbody></table>
+<h2 id="6-3-criteria-language">6.3 Criteria language<a class="heading-anchor" href="#6-3-criteria-language" aria-label="Link to 6.3 Criteria language">#</a></h2>
+<p><code>ravenrs-criteria</code> is one expression language for filters, report totals, rules and SQL <code>WHERE</code> clauses, with the syntax and behavior business developers already know from filter languages of commercial suites. It knows nothing about reports or UI, and nothing specific to a module belongs in it.</p>
+<ul>
+<li><strong>Tree.</strong> <code>Criteria</code> is public: parse it from text (<code>parse</code>), build it in code, walk it, and print it back to text that parses to the same tree (<code>format</code>).</li>
+<li><strong>Evaluation.</strong> <code>Scope</code> interprets the tree in memory over any <code>Record</code>, such as JSON, a map or your own rows. <code>Environment</code> holds parameters and custom functions.</li>
+<li><strong>Function catalog.</strong> One table in <code>functions</code> drives parsing, arity checks and expression editors.</li>
+<li><strong>Validation.</strong> <code>validate</code> checks an expression against a <code>Schema</code> before anything runs.</li>
+<li><strong>SQL.</strong> <code>to_sql</code> translates to parameterized SQL per <code>Dialect</code>.</li>
+<li><strong>Formatting.</strong> <code>format_value</code> and <code>format_composite</code> use .NET-style format strings per <code>Culture</code>.</li>
+</ul>
+<p><code>DataGrid</code> filter rows use this crate for expressions. Text that parses, whose fields are all column titles and that needs nothing beyond the row (no aggregates, parameters or custom functions), runs here over raw cell values. Anything else keeps the short syntax in <code>grid::query</code>, which stays a native fast path: it is checked against a frozen copy of its old behavior, and costs no parsing unless the text has a <code>[</code>. <code>NumberStyle</code> lays out digits for both <code>Culture</code> and the grid&#39;s <code>NumberFormat</code>.</p>
+<h2 id="6-4-reporting">6.4 Reporting<a class="heading-anchor" href="#6-4-reporting" aria-label="Link to 6.4 Reporting">#</a></h2>
+<p><code>ravenrs-report</code> turns a definition plus data into a paginated document. Layout happens once, and every consumer draws the same result, so a preview and an export cannot drift apart.</p>
+<div class="codeblock"><div class="codebar"><span class="code-language">text</span><button type="button" data-copy-code aria-label="Copy text code">Copy <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code>Report (model: JSON or builder) + data ──► ReportEngine (engine) ──► Document (pages in points)
+                                                                         │
+                                               paint_page ──► Scene ──► on-screen preview</code></pre></div>
+<p>Expressions in a report come from <code>ravenrs-criteria</code>, and text is measured with the same Parley stack as the UI. <code>wizard</code> builds a finished table report from a data source, and <code>samples</code> holds the templates. The designer is <code>examples/report-designer</code>, built on <code>Ribbon</code> and the other public components: <code>editor</code> (shared state), <code>surface</code> (bands and controls), <code>props</code> (property grid), <code>preview</code> (document viewer).</p>
+<p>Phase R1 is done. <code>ravenrs-report-pdf</code>, <code>ravenrs-report-xlsx</code> export the <code>Document</code> to PDF, XLSX and CSV, also in the browser. <code>ravenrs-report-server</code> stores layouts, renders over HTTP and delivers scheduled reports (<a href="../report-server/">docs/REPORT-SERVER.md</a>). <code>ravenrs-report-viewer</code> shows documents with thumbnails and search, and asks for parameters; <a href="../reporting/">docs/REPORTING.md</a> has the design and phases, and <a href="https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING-PARITY.md">docs/REPORTING-PARITY.md</a> tracks each feature.</p>
+<h2 id="6-5-motion">6.5 Motion<a class="heading-anchor" href="#6-5-motion" aria-label="Link to 6.5 Motion">#</a></h2>
+<p><code>ravenrs-animation</code> holds the mathematics and knows nothing about the UI. <code>ravenrs-style</code> carries the tokens in <code>Theme::motion</code>. The runtime is <code>motion.rs</code> in <code>ravenrs-widgets</code>.</p>
+<p><strong>Declared, not driven.</strong> A view says how a node moves with <code>cx.motion(node, Motion::new()...)</code>. Builds only set targets, on tracks that live outside the view tree and are keyed by identity. Then <code>Ui::update</code> has three cases: state changed, so build, lay out and paint; only animations are due, so paint alone; nothing is due, so no frame is requested. An animation therefore costs a repaint, not a rebuild. <code>Scene</code> stays the only meeting point with the renderer, so motion works headless and needed no GPU changes.</p>
+<table>
+<thead>
+<tr>
+<th>Technique</th>
+<th>Where</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Closed-form springs</td>
+<td><code>Spring::sample</code></td>
+<td>The position depends only on time, so results do not vary with frame rate and a long frame cannot blow up.</td>
+</tr>
+<tr>
+<td>Interruption without a jump</td>
+<td><code>Animated::set_target</code></td>
+<td>A spring restarts from its current position and velocity. Tweens are additive: each one eases in its share of the change and the sum has no corner.</td>
+</tr>
+<tr>
+<td>OKLab with premultiplied alpha</td>
+<td><code>Animatable for Color</code></td>
+<td>Midpoints keep lightness and hue, and a fade from transparent does not pass through gray. At rest the exact token comes back, with no rounding.</td>
+</tr>
+<tr>
+<td>Layout animation</td>
+<td><code>Motion::layout</code></td>
+<td>The node&#39;s old frame eases to its new one while children travel with it. Its size is redrawn rather than scaled, so nothing distorts. Input uses the final frame, and frames are compared without scroll offsets, so scrolling never animates.</td>
+</tr>
+<tr>
+<td>Shared layout</td>
+<td><code>Motion::shared_layout</code></td>
+<td>Nodes of different widgets count as one object, which is how a tab underline slides. <code>underlay</code> paints it behind its siblings.</td>
+</tr>
+<tr>
+<td>Exit by snapshot</td>
+<td><code>Motion::exit</code></td>
+<td>A view that stops being built is gone at once for the app: state, input and accessibility. Its last primitives stay on screen as a <em>ghost</em> that plays the exit. Reopening revives it from where it was. A nested exit (a dialog&#39;s card in its backdrop) plays inside the outer one.</td>
+</tr>
+<tr>
+<td>Anchored popups</td>
+<td><code>Motion::anchored</code></td>
+<td>Scale around the point nearest the anchor; offsets flip when the popup flipped.</td>
+</tr>
+<tr>
+<td>Height to fit</td>
+<td><code>Collapse</code></td>
+<td>The runtime reports the content&#39;s natural size to the next build. This one does rebuild on each frame, because it changes layout.</td>
+</tr>
+<tr>
+<td>Live drawing</td>
+<td><code>Paint::Live</code></td>
+<td>Spinners and pulses repaint at no more than 60 Hz with no rebuild.</td>
+</tr>
+<tr>
+<td>Theme crossfade</td>
+<td><code>Ui::paint</code></td>
+<td>The old picture fades over the new one, in a single layer, instead of every color moving at its own pace.</td>
+</tr>
+<tr>
+<td>Lag smoothing</td>
+<td><code>Ui::set_time</code></td>
+<td>Animations have their own clock, in which a gap above 250 ms counts as 50 ms: after a stall they continue instead of jumping to the end, and a very slow machine still gets through them.</td>
+</tr>
+</tbody></table>
+<p><strong>Reduced motion.</strong> It comes from <code>Ui::set_reduced_motion</code> (the browser&#39;s <code>prefers-reduced-motion</code>, live) or from the theme&#39;s token. Things stop traveling and bouncing, colors and opacity fade briefly, and live drawing stops.</p>
+<p><strong>No clock, no animation.</strong> Motion starts with the first <code>Ui::set_time</code>. A <code>Ui</code> without a platform lands everything at once, which keeps headless tests and reference images deterministic.</p>
+<p><strong>Limits.</strong> Effects run on the display list (<code>Scene::apply_effect</code>), so there is no rotation, and opacity applies per primitive: overlapping shapes show through each other while partly faded. Real group opacity and rotation need layers and transforms in the renderer. Text snaps to pixels vertically, so a slow move of a text block advances in device pixels.</p>
+<h2 id="7-rendering">7. Rendering<a class="heading-anchor" href="#7-rendering" aria-label="Link to 7. Rendering">#</a></h2>
+<p><code>ravenrs-render</code> is a small 2D renderer on <code>wgpu</code> 30.</p>
+<ul>
+<li><strong>Quads</strong> are instanced. The WGSL fragment shader evaluates a signed-distance function of a rounded box with per-corner radii, so edges are anti-aliased analytically (one device pixel of coverage ramp) at any scale factor. Borders, two-stop linear gradients and fill share the same shader.</li>
+<li><strong>Soft shadows</strong> are separate instances drawn under their shape: the coverage is an <code>erf</code> approximation over the same SDF, which gives a Gaussian-looking falloff in one pass with no blur texture.</li>
+<li><strong>Text</strong> is shaped by Parley, rasterized per glyph by <code>swash</code> (outline, alpha mask, 4 horizontal sub-pixel positions, no hinting) into an R8 atlas packed with shelves, and drawn as textured quads snapped to the device pixel grid. The atlas grows (×2 up to the device limit) when it fills; at the limit it is cleared.</li>
+<li><strong>Color.</strong> Tokens are sRGB. The renderer prefers non-sRGB surface formats so blending happens in sRGB space, as in browsers and design tools; on <code>*Srgb</code> targets the shaders linearize colors first. Output is premultiplied alpha.</li>
+<li><strong>Resources</strong> (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: <code>crates/ravenrs-render/tests/offscreen.rs</code> checks pixels of real scenes and <code>crates/ravenrs/tests/visual.rs</code> compares golden images. GPU timing is off unless asked for, and its answers arrive frames later through buffers mapped in the background, so it never makes a frame wait (<code>timing.rs</code>).</li>
+</ul>
+<p><strong>Why not Vello (yet).</strong> Vello&#39;s main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Arbitrary vector paths have their own pipeline, <code>Primitive::Path</code>: edges add up the exact area they cover in each pixel of a coverage texture, in one pass, and the main pass paints from it in scene order. It needs no compute, tessellation or multisampling.</p>
+<p><strong>Glass and blur (planned).</strong> Raven Glass&#39;s backdrop blur needs a layer compositor: render the content behind a glass surface to an intermediate texture, blur it (separable Gaussian, downsampled), then composite. Until that lands, glass surfaces render their translucent fill; this is the documented degradation path for platforms where the extra passes are too costly.</p>
+<h2 id="8-layout">8. Layout<a class="heading-anchor" href="#8-layout" aria-label="Link to 8. Layout">#</a></h2>
+<p><code>ravenrs-layout</code> exposes a small typed subset of flexbox (<code>LayoutStyle</code>: axis, spacing, padding, alignment, justification, sizes, growth) over Taffy. The UI root is a box sized to the viewport; stacks are flex containers; text leaves have zero minimum width so they wrap instead of overflowing. The <code>Grid</code> view uses Taffy&#39;s Grid layout with equal-width columns (<code>grid_columns</code>).</p>
+<h2 id="9-text">9. Text<a class="heading-anchor" href="#9-text" aria-label="Link to 9. Text">#</a></h2>
+<p>Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at weights 400 and 600, so text is identical on every platform and works in browsers, which expose no system fonts to WebAssembly. <code>TextSystem::register_font</code> adds more fonts. Layout happens in logical pixels; glyphs are rasterized at the device scale factor, so HiDPI text is sharp without reshaping.</p>
+<h2 id="10-platforms">10. Platforms<a class="heading-anchor" href="#10-platforms" aria-label="Link to 10. Platforms">#</a></h2>
+<p><strong>Desktop (<code>ravenrs-platform-native</code>).</strong> winit 0.30 (<code>ApplicationHandler</code>), one window, <code>ControlFlow::Wait</code>. Surface reconfiguration on resize and scale-factor changes, logical-pixel input, cursor icons, keyboard focus traversal, and GPU device-loss recovery (the device, surface and renderer are recreated on the next frame).</p>
+<p><strong>Diagnostics (desktop only for now).</strong> The native platform wraps every root in <code>DiagnosticsHost</code>, which adds no element and no wake-up while closed. Ctrl+Shift+D (Cmd+Shift+D on a Mac) or the <code>RAVENRS_DIAG</code> variable opens a panel with the GPU in use, the alternatives, what is wrong and what recent frames cost, with text to copy. <code>ravenrs::native::diagnose</code> gives the same GPU report without a window, for a command line option. The data is plain types in <code>ravenrs-core</code>, so widgets and the renderer still only meet through it. Its performance test redraws the window for 5 seconds and judges the frames per second, which do count the GPU&#39;s work, since a busy GPU holds back the next frame. Each frame asks for the next only while it runs. The other durations are CPU time: there are no GPU timestamps, so a busy GPU only shows as waiting in acquire or present. The web platform does not record frames yet.</p>
+<p>With <code>AppIdentity::new_issue_url</code>, the panel also has a button that starts a bug report: <code>ravenrs_core::new_issue_url</code> puts the report in the URL of a new issue, percent-encoded and cut to <code>MAX_ISSUE_URL</code>, and <code>ravenrs::native::open_url</code> opens it in the browser. The app sends nothing; the person reviews and submits on that page. The report is made to be shared: <code>VK_DRIVER_FILES</code> and <code>VK_ICD_FILENAMES</code> keep only file names, the panel passes everything it shows through <code>redact_user_paths</code>, and no app data reaches it. The panel says this next to the button, above the exact text.</p>
+<p><strong>Tray (desktop, <code>tray</code> feature).</strong> With <code>AppIdentity::close_to_tray</code>, closing the window hides it, or destroys it on Wayland, which cannot hide one, and keeps the <code>Ui</code> and its state behind an icon: <code>tray-icon</code> on macOS and Windows, <code>ksni</code> on Linux, which asks for no GTK. Where nothing hosts the icon, as on plain GNOME, closing the window closes the app. A copy of the app started meanwhile finds the first through a local TCP port, asks it to open its window and leaves.</p>
+<p><strong>Web (<code>ravenrs-platform-web</code>).</strong> Plain <code>web-sys</code> on a <code>&lt;canvas&gt;</code>:</p>
+<ul>
+<li>async adapter and device creation (<code>wasm-bindgen-futures</code>), never blocking the main thread;</li>
+<li>a friendly message next to the canvas when <code>navigator.gpu</code> is missing (no WebGL fallback in this phase);</li>
+<li>canvas backing store sized from CSS size × <code>devicePixelRatio</code>, re-checked every frame and on <code>ResizeObserver</code> callbacks;</li>
+<li>pointer events with pointer capture, keyboard events with Tab/Space/Enter kept inside the app;</li>
+<li><code>requestAnimationFrame</code> scheduled only when the UI is invalidated (at most one pending);</li>
+<li>GPU device-loss recovery: the device is re-requested asynchronously;</li>
+<li><code>WebApp</code> removes every listener and observer and releases GPU resources when dropped.</li>
+</ul>
+<p><code>winit</code>&#39;s web backend was not used so that DPR handling, frame scheduling and (later) IME and accessibility bridges stay explicit.</p>
+<p><strong>Accessibility.</strong> After layout, <code>Ui::access_tree</code> walks the element tree and builds a platform-neutral <code>AccessTree</code> (<code>ravenrs-core</code>).</p>
+<ul>
+<li><strong>Which elements become nodes.</strong> An element becomes a node when a widget described it with <code>Semantics</code> or when it is focusable (it then defaults to a button). Text is a label, except inside roles that take their name from content, where it becomes the name (&quot;Save&quot; on a button). Other boxes are transparent.</li>
+<li><strong>Ids.</strong> Node ids derive from <code>WidgetId</code>, so they stay stable across rebuilds.</li>
+<li><strong>Modal layers.</strong> While one is open, only it is exposed.</li>
+<li><strong>Actions.</strong> <code>Ui::perform_action</code> maps click, focus and increment/decrement back to the element&#39;s handlers. Assistive technology therefore drives the same code paths as the mouse and keyboard.</li>
+<li><strong>Desktop.</strong> The tree goes to AccessKit (<code>accesskit_winit</code>) only while a screen reader is listening, and is resent when it changes. The root transform scales logical to physical pixels.</li>
+<li><strong>Web.</strong> It is mirrored as invisible, absolutely positioned ARIA elements over the canvas. The hidden text input that holds keyboard focus points at the focused node with <code>aria-activedescendant</code>. New status and alert nodes are announced through a live region, and clicks on mirror elements become click actions.</li>
+</ul>
+<p><strong>WASM size (hello-world, <code>wasm-release</code> profile + <code>wasm-opt -Oz</code>).</strong> ≈2.4 MB raw, ≈1.06 MB gzipped, of which about 830 KB raw are the two embedded Inter faces. Shipping a subsetted font is the first size win available.</p>
+<h2 id="11-status">11. Status<a class="heading-anchor" href="#11-status" aria-label="Link to 11. Status">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Implemented</th>
+<th>Experimental</th>
+<th>Planned</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Workspace, local checks (<code>scripts/check.sh</code>: desktop + wasm)</td>
+<td>✓</td>
+<td></td>
+<td>Hosted CI (intentionally not used for now)</td>
+</tr>
+<tr>
+<td><code>State</code>, <code>Binding</code>, <code>Derived</code>, dependency tracking</td>
+<td>✓</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Full rebuild on tracked change</td>
+<td>✓</td>
+<td></td>
+<td>Incremental reconciliation, per-component observers</td>
+</tr>
+<tr>
+<td><code>View</code>, <code>Component</code>, <code>BuildCx</code>, <code>view_fn</code>, <code>responsive</code>, <code>Option&lt;V&gt;</code>, <code>Keyed</code>, <code>ViewExt</code> modifiers, <code>use_state</code> widget-local state</td>
+<td>✓</td>
+<td></td>
+<td>Environment values, <code>#[component]</code> macro (<code>ravenrs-macros</code>)</td>
+</tr>
+<tr>
+<td>Layout: <code>VStack</code>, <code>HStack</code>, <code>ZStack</code>, <code>Grid</code>, <code>ScrollView</code>, <code>Sticky</code>, <code>ScrollScene</code>, <code>ScrollLinked</code>, <code>Anchor</code>, <code>Ticker</code>, <code>CountUp</code>, <code>Link</code>, <code>QuadField</code>, <code>Spacer</code>, <code>Footer</code>, <code>PropertyRow</code>, <code>PageHeader</code>, <code>Section</code>, <code>Card</code>, <code>Splitter</code>, <code>SplitPanes</code>, <code>SplitHandle</code>, <code>DockArea</code>, <code>AspectRatio</code>, <code>VirtualList</code> (rows of any height, measured and kept by key), <code>SortableList</code></td>
+<td>✓</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Inputs: <code>Button</code> (4 styles, 3 sizes), <code>IconButton</code>, <code>ButtonGroup</code>, <code>TextField</code>, <code>TextArea</code>, <code>CodeEditor</code>, <code>Playground</code> (feature <code>code</code>), <code>NumberField</code>, <code>MaskedField</code>, <code>TimePicker</code>, <code>DateTimePicker</code>, <code>LookupField</code>, <code>FormLayout</code>, <code>Toolbar</code>, <code>FloatingToolbar</code>, <code>TitleBar</code>, <code>SplitButton</code>, <code>ConfirmDialog</code>, <code>Toggle</code>, <code>Checkbox</code>, <code>RadioGroup</code>, <code>Slider</code>, <code>ValueSlider</code>, <code>InlineRename</code>, <code>Stepper</code>, <code>SegmentedControl</code>, <code>Select</code>, <code>Combobox</code>, <code>ToggleButton</code>, <code>ToggleGroup</code>, <code>InputOtp</code>, <code>Calendar</code>, <code>DatePicker</code>, <code>ThemeSwitcher</code>, <code>FavoriteToggle</code>, <code>SwatchGrid</code>, <code>NinePointAnchor</code>, <code>ColorPair</code>; text selection in <code>TextField</code></td>
+<td>✓</td>
+<td></td>
+<td>multi-line text</td>
+</tr>
+<tr>
+<td>Navigation: <code>Tabs</code> (underlined, segmented), <code>DocumentTabs</code>, <code>FileBrowser</code>, <code>YearView</code>, <code>Sidebar</code>, <code>Breadcrumb</code>, <code>Disclosure</code>, <code>Accordion</code>, <code>Pagination</code>, <code>Menubar</code>, <code>Ribbon</code></td>
+<td>✓</td>
+<td></td>
+<td><code>NavigationView</code></td>
+</tr>
+<tr>
+<td>Overlays: <code>Tooltip</code>, <code>Popover</code>, <code>HoverCard</code>, <code>DropdownMenu</code>, <code>ContextMenu</code>, <code>Dialog</code>, <code>Sheet</code>, <code>SplashScreen</code>, <code>Toaster</code>, <code>CommandPalette</code>, <code>ShortcutSheet</code></td>
+<td>✓</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Data grid: <code>DataGrid</code> (see §6.2)</td>
+<td>✓</td>
+<td></td>
+<td>see the parity table in §6.2</td>
+</tr>
+<tr>
+<td>Display: <code>Image</code> (PNG/JPEG, cover/fit/fill, mipmaps), <code>Filmstrip</code>, <code>PagedDocumentView</code>, <code>ImageLightbox</code>, <code>CompareView</code>, <code>Eyedropper</code>, <code>CropOverlay</code>, <code>Protractor</code>, <code>TransformHandles</code>, <code>Marquee</code>, <code>RubberBand</code>, <code>RuleOfThirdsGrid</code>, <code>Minimap</code>, <code>ZoomPanView</code>, <code>ZoomControl</code>, <code>CurveEditor</code>, <code>ColorWheel</code>, <code>Ruler</code>, <code>Histogram</code>, <code>Text</code>, <code>RichText</code>, <code>AttachmentStrip</code>, <code>AudioPlayerButton</code>, <code>SelectionBar</code>, <code>Icon</code> (about 200 Lucide icons), <code>Badge</code>, <code>Dot</code>, <code>OverlayBadge</code>, <code>Rating</code>, <code>IconTile</code>, <code>EmptyState</code>, <code>HeroBanner</code>, <code>MultiProgress</code>, <code>ShimmerText</code>, <code>DaySeparator</code>, <code>Avatar</code>, <code>Kbd</code>, <code>Divider</code>, <code>ProgressBar</code>, <code>Spinner</code>, <code>Skeleton</code>, <code>Carousel</code>, <code>ColorSwatch</code>, <code>Alert</code>, <code>Stat</code>, <code>List</code>, <code>Table</code>, <code>Chart</code> (line, area, bar, pie, doughnut, radar, radial, scatter, sparkline, candlestick), <code>SankeyChart</code>, <code>BarChart</code>, <code>AreaChart</code>, <code>Barcode</code> (QR Code and six linear formats), <code>Canvas</code>, <code>Lottie</code></td>
+<td>✓</td>
+<td></td>
+<td>image loading from URLs, funnel charts</td>
+</tr>
+<tr>
+<td><code>GlassCard</code></td>
+<td></td>
+<td>translucent fill only</td>
+<td>backdrop blur</td>
+</tr>
+<tr>
+<td>Rounded rects, borders, gradients, soft shadows, text, images (mipmapped, rounded), rectangular clipping</td>
+<td>✓</td>
+<td></td>
+<td>rounded clipping, radial gradients, transforms, layers</td>
+</tr>
+<tr>
+<td>Raven Dark / Light / Glass tokens, runtime theme switching, reduced motion from the theme token, <code>Ui::set_reduced_motion</code> and the browser&#39;s <code>prefers-reduced-motion</code></td>
+<td>✓</td>
+<td></td>
+<td>reading the setting on the desktop (winit does not expose it)</td>
+</tr>
+<tr>
+<td>Motion (see §6.5): analytic springs, additive tweens, OKLab colors, implicit paint and layout transitions, shared layout, enter and exit, paint-only frames; scroll-driven <code>Sticky</code>, <code>ScrollScene</code>, <code>ScrollLinked</code></td>
+<td>✓</td>
+<td></td>
+<td>rotation and true group opacity (renderer transforms and layers), gestures, momentum scrolling</td>
+</tr>
+<tr>
+<td>Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, clipboard, sound and voice, device loss</td>
+<td>✓</td>
+<td></td>
+<td>multiple windows, IME</td>
+</tr>
+<tr>
+<td>Web: canvas, WebGPU or WebGL2 (<code>WebBackend</code>), DPR, pointer, wheel, touch scrolling with momentum, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), clipboard copy, sound and voice, rAF on demand, cleanup, device loss</td>
+<td>✓</td>
+<td>IME preedit is not drawn yet</td>
+<td>pinch</td>
+</tr>
+<tr>
+<td>Accessibility</td>
+<td>keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web</td>
+<td></td>
+<td>caret and selection for screen readers, right-to-left</td>
+</tr>
+<tr>
+<td>Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3)</td>
+<td>✓</td>
+<td></td>
+<td><code>DataGrid</code> filters on this crate</td>
+</tr>
+<tr>
+<td>Spreadsheet: <code>Spreadsheet</code> over <code>ravenrs-sheet</code> (500+ functions, dynamic arrays, XLSX/XLS/ODS/CSV in, XLSX/CSV out), editing in the cell and the formula bar, selection by pointer and keys, clipboard, undo, fonts, fills, borders, merges, number formats, column widths, sheet tabs</td>
+<td>✓</td>
+<td></td>
+<td>ribbon of every command, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find, the culture&#39;s separators</td>
+</tr>
+<tr>
+<td>Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4)</td>
+<td>✓</td>
+<td></td>
+<td>Other exports, parameter lookups, SQL data sources (phases R2 to R5)</td>
+</tr>
+<tr>
+<td>Benchmarks and profiling</td>
+<td><code>tracing</code> spans per phase, criterion benches (<code>crates/*/benches</code>), a gate of exact counters and frame times (<code>crates/ravenrs-perf</code>, budgets in <a href="../quality/">docs/QUALITY.md</a>), the diagnostics panel with GPU timestamps (<a href="../performance/">docs/PERFORMANCE.md</a>)</td>
+<td></td>
+<td>stepping through a frozen frame, a map of what was rebuilt, invalidation by subtree</td>
+</tr>
+<tr>
+<td>Application framework: <code>ravenrs-app</code>, <code>ravenrs-app-ui</code>; see <a href="../applications/">docs/APP-FRAMEWORK.md</a></td>
+<td>derive, model, actions (also declared as data), frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail</td>
+<td>the API</td>
+<td>relations</td>
+</tr>
+</tbody></table>
+<h2 id="12-decisions-log">12. Decisions log<a class="heading-anchor" href="#12-decisions-log" aria-label="Link to 12. Decisions log">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Decision</th>
+<th>Alternatives considered</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Own SDF quad renderer on wgpu</td>
+<td>Vello, tiny-skia</td>
+<td>One pass per primitive, small WASM, no compute requirement.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Parley + swash + own atlas</td>
+<td>glyphon/cosmic-text</td>
+<td>Parley is the most complete pure-Rust rich text layout; owning the atlas keeps text in the same batching and pass as quads.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Embedded Inter, no system fonts</td>
+<td>System fonts on desktop</td>
+<td>Identical rendering everywhere; the web has no system fonts.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>web-sys</code> directly on the web</td>
+<td>winit web backend</td>
+<td>Explicit control of DPR, frame scheduling, IME and accessibility bridges.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Single-threaded reactivity with epoch subscriptions</td>
+<td>Signals with back-references, <code>Arc&lt;Mutex&gt;</code></td>
+<td>No locks on the UI thread; safe drops; matches the browser model.</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Display list (<code>Scene</code>) as the widget/renderer boundary</td>
+<td>Widgets calling the renderer</td>
+<td>Headless widget tests; swappable renderers.</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Builders before macros</td>
+<td><code>VStack!{}</code> proc macros first</td>
+<td>Real, type-checked API first; macros later as sugar over it.</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Non-sRGB surface formats preferred</td>
+<td>Linear blending</td>
+<td>Matches how designers and browsers blend, so tokens look as designed.</td>
+</tr>
+<tr>
+<td>9</td>
+<td>The spreadsheet engine is GridCraft&#39;s, brought in as <code>ravenrs-sheet</code></td>
+<td>Writing an engine; a git dependency on GridCraft</td>
+<td>GridCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has 1,800 tests for formulas, recalculation and XLSX. It is not on crates.io, so a git dependency would stop RavenRS publishing; the code lives here with <code>NOTICE</code> naming the commit it came from. Only the view is ours (<code>ravenrs-spreadsheet</code>), built on <code>ravenrs-widgets</code>.</td>
+</tr>
+</tbody></table>
+</article><div class="page-feedback"><span>Help us improve these docs.</span><a href="https://github.com/alexkads/RavenRS/edit/master/ARCHITECTURE.md">Edit this page on GitHub <span aria-hidden="true">↗</span></a><a href="index.md">View Markdown <span aria-hidden="true">↗</span></a></div><nav class="pager" aria-label="Previous and next pages"><a class="pager-card " href="../cli/"><span>Previous</span><strong>← CLI & AI assistants</strong></a><a class="pager-card next" href="../design-system/"><span>Next</span><strong>Design system →</strong></a></nav><footer class="footer">RavenRS 27.1.23<span>One UI. Native and web.</span></footer></main>
+<aside class="toc" aria-label="On this page"><h2>On this page</h2><nav><a class="toc-level-2" href="#1-goals-and-constraints">1. Goals and constraints</a><a class="toc-level-2" href="#2-ecosystem-survey">2. Ecosystem survey</a><a class="toc-level-2" href="#3-crate-graph">3. Crate graph</a><a class="toc-level-2" href="#3-1-where-things-live">3.1 Where things live</a><a class="toc-level-2" href="#4-the-frame-pipeline">4. The frame pipeline</a><a class="toc-level-2" href="#5-reactive-system">5. Reactive system</a><a class="toc-level-2" href="#6-extensibility-making-your-own-components">6. Extensibility: making your own components</a><a class="toc-level-2" href="#6-1-runtime-services-for-components">6.1 Runtime services for components</a><a class="toc-level-2" href="#6-2-datagrid">6.2 DataGrid</a><a class="toc-level-2" href="#6-3-criteria-language">6.3 Criteria language</a><a class="toc-level-2" href="#6-4-reporting">6.4 Reporting</a><a class="toc-level-2" href="#6-5-motion">6.5 Motion</a><a class="toc-level-2" href="#7-rendering">7. Rendering</a><a class="toc-level-2" href="#8-layout">8. Layout</a><a class="toc-level-2" href="#9-text">9. Text</a><a class="toc-level-2" href="#10-platforms">10. Platforms</a><a class="toc-level-2" href="#11-status">11. Status</a><a class="toc-level-2" href="#12-decisions-log">12. Decisions log</a></nav><div class="toc-help"><span>Ready to build?</span><a href="../getting-started/">Create your first app →</a></div></aside></div>
+<dialog id="search-dialog" aria-label="Search documentation"><div class="search-field"><span aria-hidden="true">⌕</span><input id="docs-search" type="search" placeholder="What are you looking for?" aria-label="Search documentation" autocomplete="off"><button class="icon-button" data-close-search aria-label="Close search">Esc</button></div><div id="search-results" role="status"></div><div class="search-footer"><span>↑ ↓ to navigate</span><span>↵ to open</span><span>esc to close</span></div></dialog>
+<dialog id="mobile-nav" aria-label="Documentation navigation"><button class="icon-button close-nav" aria-label="Close navigation">✕</button><div class="version"><span>RavenRS Docs</span><span>v27.1.23</span></div><section class="nav-group"><h2>Start here</h2><a href="../" >Introduction</a><a href="../getting-started/" >Installation</a><a href="../cli/" >CLI & AI assistants</a></section><section class="nav-group"><h2>Build applications</h2><a href="../architecture/" aria-current="page">Architecture</a><a href="../design-system/" >Design system</a><a href="../applications/" >Records & forms</a><a href="../components/" >Component coverage</a></section><section class="nav-group"><h2>Reports</h2><a href="../reporting/" >Create reports</a><a href="../report-server/" >Report server</a></section><section class="nav-group"><h2>Reference</h2><a href="../quality/" >Quality & accessibility</a><a href="../performance/" >Performance</a><a href="../versioning/" >Versions & upgrades</a></section></dialog><div id="copy-status" class="sr-only" role="status"></div></body></html>
