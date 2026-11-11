@@ -62,7 +62,7 @@ async function linuxDependencies(ctx, native) {
 async function windowsTools(ctx, native) {
   if (ctx.platform !== 'win32' || !native) return true;
   const vswhere = join(ctx.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Microsoft Visual Studio', 'Installer', 'vswhere.exe');
-  if (ctx.probe('cl.exe', []).ok || (await ctx.exists(vswhere) && ctx.probe(vswhere, ['-latest', '-products', '*', '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-property', 'installationPath']).stdout.trim())) { ctx.log(step(4, 'Build Tools', 'MSVC encontrado', ctx.color)); return true; }
+  if (ctx.probe('cl.exe', []).ok || (await ctx.exists(vswhere) && ctx.probe(vswhere, ['-latest', '-products', '*', '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-property', 'installationPath']).stdout.trim())) return true;
   ctx.log('[4/6] Instale Visual Studio Build Tools com Desktop development with C++ e Windows SDK:\n  https://visualstudio.microsoft.com/visual-cpp-build-tools/');
   return false;
 }
@@ -87,6 +87,9 @@ export async function bootstrap(args, ctx = system()) {
     options.target = state.match(/^target = "([^"]+)"/m)?.[1];
   }
   const native = options.target !== 'web';
+  // The CLI itself needs the native MSVC linker even for a web-only project.
+  // Check before rustup-init so it cannot offer to install Build Tools itself.
+  if (!await windowsTools(ctx, true)) throw new Error('Prepare as dependências do sistema e rode o comando de novo. Build Tools não foram instaladas.');
   let rustup = ctx.probe('rustup', ['--version']).ok;
   const rust = ctx.probe('rustc', ['--version']).ok && ctx.probe('cargo', ['--version']).ok;
   ctx.log(step(1, 'Rust', rust ? 'encontrado' : 'vamos preparar o ambiente', ctx.color));
@@ -133,8 +136,8 @@ export async function bootstrap(args, ctx = system()) {
   }
   ctx.log(step(3, 'cargo-ravenrs', release.version, ctx.color));
   const libraries = await linuxDependencies(ctx, native);
-  const tools = await windowsTools(ctx, native);
-  if (!libraries || !tools) throw new Error('Prepare as dependências do sistema e rode o comando de novo. Nenhum comando de administrador foi executado.');
+  if (ctx.platform === 'win32') ctx.log(step(4, 'Build Tools', 'MSVC encontrado', ctx.color));
+  if (!libraries) throw new Error('Prepare as dependências do sistema e rode o comando de novo. Nenhum comando de administrador foi executado.');
   if (ctx.platform !== 'linux' && ctx.platform !== 'win32') ctx.log(step(4, 'Sistema', 'tudo certo', ctx.color));
   const root = options.doctor ? ctx.cwd : resolve(ctx.cwd, options.name);
   if (!options.doctor) {

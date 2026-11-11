@@ -123,6 +123,13 @@ test('Windows does not install build tools automatically', async () => {
   assert.equal(state.runs.length, 0);
 });
 
+test('Windows prerequisites are checked before any Rust installer, including web projects', async () => {
+  const { state, ctx } = machine({ platform: 'win32', rust: false, rustup: false, cli: null });
+  await assert.rejects(bootstrap(['app', '--yes', '--target', 'web'], ctx), /dependências do sistema/);
+  assert.equal(state.installs.length, 0);
+  assert.equal(state.runs.length, 0);
+});
+
 test('macOS and Windows rustup URLs follow the selected architecture', () => {
   assert.match(rustInstaller('darwin', 'arm64').url, /aarch64-apple-darwin\/rustup-init$/);
   assert.match(rustInstaller('win32', 'x64').url, /x86_64-pc-windows-msvc\/rustup-init\.exe$/);
