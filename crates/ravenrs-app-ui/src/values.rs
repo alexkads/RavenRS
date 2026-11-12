@@ -253,6 +253,178 @@ pub(crate) fn value_of_cell(field: &FieldInfo, cell: &Cell) -> Option<Value> {
     })
 }
 
+/// A number as people write it in a spreadsheet: with the separators of the language or the other
+/// way around, a money prefix, a sign. With only one mark, the language's decimal is decimal, and
+/// the other mark is decimal unless three digits follow it, as in `1.234`.
+pub(crate) fn number_of_text(text: &str, words: &Words) -> Option<f64> {
+    let prefix = words.money_prefix.trim();
+    let mut text: String = text.chars().filter(|c| !c.is_whitespace() && *c != '\u{a0}').collect();
+    if !prefix.is_empty() {
+        text = text.replacen(prefix, "", 1);
+    }
+    let (ours, other) = if words.decimal == ',' { (',', '.') } else { ('.', ',') };
+    let last = |mark: char| text.rfind(mark);
+    let decimal = match (last(ours), last(other)) {
+        (Some(a), Some(b)) => {
+            if a > b {
+                ours
+            } else {
+                other
+            }
+        }
+        (Some(_), None) if text.matches(ours).count() > 1 => other,
+        (Some(_), None) => ours,
+        (None, Some(at)) if text.matches(other).count() == 1 && text.len() - at - 1 != 3 => other,
+        (None, Some(_)) => ours,
+        (None, None) => ours,
+    };
+    let thousands = if decimal == ',' { '.' } else { ',' };
+    let plain: String =
+        text.chars().filter(|c| *c != thousands).map(|c| if c == decimal { '.' } else { c }).collect();
+    plain.parse::<f64>().ok().filter(|number| number.is_finite())
+}
+
+/// A date, or a date and a time, as a spreadsheet writes it: `2026-11-12`, `12/11/2026`,
+/// `12.11.2026` or `12-11-2026`, then maybe `14:30` or `14:30:15` after a space or a `T`.
+pub(crate) fn moment_of_text(text: &str) -> Option<Moment> {
+    let text = text.trim();
+    if let Some(moment) = Moment::parse(text) {
+        return Some(moment);
+    }
+    let (day_part, time_part) = match text.split_once([' ', 'T']) {
+        Some((day, time)) => (day, Some(time.trim())),
+        None => (text, None),
+    };
+    let parts: Vec<&str> = day_part.split(['/', '-', '.']).collect();
+    let [a, b, c] = parts.as_slice() else { return None };
+    let number = |part: &str| part.trim().parse::<u32>().ok();
+    let (year, month, day) = if a.len() == 4 { (number(a)?, number(b)?, number(c)?) } else { (number(c)?, number(b)?, number(a)?) };
+    if year < 1000 {
+        return None;
+    }
+    let mut moment = Moment::from_ymd(year as i32, month, day)?;
+    if let Some(time) = time_part.filter(|time| !time.is_empty()) {
+        let pieces: Vec<u32> = time.split(':').map(|piece| piece.parse().ok()).collect::<Option<_>>()?;
+        let (hour, minute, second) = match pieces.as_slice() {
+            [hour, minute] => (*hour, *minute, 0),
+            [hour, minute, second] => (*hour, *minute, *second),
+            _ => return None,
+        };
+        if hour > 23 || minute > 59 || second > 59 {
+            return None;
+        }
+        moment.seconds = hour * 3600 + minute * 60 + second;
+    }
+    Some(moment)
+}
+
+fn folded(text: &str) -> String {
+    text.trim().to_lowercase()
+}
+
+/// An option by its code or its caption, whatever the case.
+fn option_of<'a>(options: &'a [ravenrs_app::EnumOption], text: &str) -> Option<&'a ravenrs_app::EnumOption> {
+    let wanted = folded(text);
+    options.iter().find(|option| folded(&option.code) == wanted || folded(&option.caption) == wanted)
+}
+
+fn is_guid(text: &str) -> bool {
+    text.len() == 36
+        && text.char_indices().all(|(at, c)| match at {
+            8 | 13 | 18 | 23 => c == '-',
+            _ => c.is_ascii_hexdigit(),
+        })
+}
+
+/// What a record holds from the text of a cell of a spreadsheet, for every kind of field: an empty
+/// cell is nothing, an option is found by its code or caption, and a reference by the name of the
+/// record it points to, refused when no record or more than one has that name. The error says
+/// which field and what it read.
+pub(crate) fn value_of_text(
+    field: &FieldInfo,
+    text: &str,
+    words: &Words,
+    references: &crate::import::References,
+) -> Result<Value, String> {
+    let text = text.trim();
+    let wrong = |template: &str| ravenrs_app_i18n::format(template, &[&field.caption, text]);
+    let said = &words.import;
+    if text.is_empty() {
+        return Ok(Value::Null);
+    }
+    Ok(match &field.kind {
+        FieldKind::Text | FieldKind::LongText | FieldKind::Criteria => Value::Text(text.to_owned()),
+        FieldKind::Integer => {
+            let number = number_of_text(text, words).ok_or_else(|| wrong(&said.not_a_number))?;
+            if number.fract() != 0.0 {
+                return Err(wrong(&said.not_whole));
+            }
+            Value::Number(number)
+        }
+        FieldKind::Decimal(_) => Value::Number(number_of_text(text, words).ok_or_else(|| wrong(&said.not_a_number))?),
+        FieldKind::Money => {
+            let units = number_of_text(text, words).ok_or_else(|| wrong(&said.not_a_number))?;
+            Value::Number((units * 100.0).round())
+        }
+        FieldKind::Date => {
+            let moment = moment_of_text(text).ok_or_else(|| wrong(&said.not_a_date))?;
+            Value::Date(Moment { days: moment.days, seconds: 0 })
+        }
+        FieldKind::DateTime => Value::Date(moment_of_text(text).ok_or_else(|| wrong(&said.not_a_date))?),
+        FieldKind::Boolean => {
+            let said = folded(text);
+            let yes = [folded(&words.yes), "true".into(), "1".into(), "x".into(), "y".into(), "s".into(), "sim".into(), "verdadeiro".into()];
+            let no = [folded(&words.no), "false".into(), "0".into(), "n".into(), "no".into(), "não".into(), "nao".into(), "falso".into()];
+            if yes.contains(&said) {
+                Value::Bool(true)
+            } else if no.contains(&said) {
+                Value::Bool(false)
+            } else {
+                return Err(wrong(&words.import.not_yes_no));
+            }
+        }
+        FieldKind::Enum(options) => {
+            Value::Text(option_of(options, text).ok_or_else(|| wrong(&said.not_an_option))?.code.clone())
+        }
+        FieldKind::Tags(options) => {
+            let mut codes: Vec<&str> = Vec::new();
+            for part in text.split([',', ';']).map(str::trim).filter(|part| !part.is_empty()) {
+                let option = option_of(options, part)
+                    .ok_or_else(|| ravenrs_app_i18n::format(&said.not_an_option, &[&field.caption, part]))?;
+                if !codes.contains(&option.code.as_str()) {
+                    codes.push(&option.code);
+                }
+            }
+            if codes.is_empty() { Value::Null } else { Value::Text(codes.join(",")) }
+        }
+        FieldKind::Reference(target) => match references.find(target, text) {
+            crate::import::Found::One(key) => key,
+            crate::import::Found::None => return Err(wrong(&said.not_found)),
+            crate::import::Found::Many => return Err(wrong(&said.ambiguous)),
+        },
+        FieldKind::Color => {
+            let hex = text.trim_start_matches('#');
+            let hex = match hex.len() {
+                3 => hex.chars().flat_map(|c| [c, c]).collect(),
+                _ => hex.to_owned(),
+            };
+            if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Err(wrong(&said.not_a_color));
+            }
+            Value::Text(format!("#{}", hex.to_uppercase()))
+        }
+        FieldKind::Guid => {
+            if !is_guid(text) {
+                return Err(wrong(&said.not_a_guid));
+            }
+            Value::Text(text.to_lowercase())
+        }
+        FieldKind::Collection(_) | FieldKind::Image | FieldKind::File => {
+            return Err(ravenrs_app_i18n::format(&said.not_importable, &[&field.caption]));
+        }
+    })
+}
+
 /// The color of a tint, in the theme.
 pub(crate) fn semantic_of(tint: Tint) -> Semantic {
     match tint {

@@ -33,6 +33,7 @@ pub const FALLBACK: &str = "en";
 const BUILTIN: &[(&str, &str)] = &[
     ("en", include_str!("../texts/en/ai.json")),
     ("en", include_str!("../texts/en/format.json")),
+    ("en", include_str!("../texts/en/import.json")),
     ("en", include_str!("../texts/en/movie.json")),
     ("en", include_str!("../texts/en/pane.json")),
     ("en", include_str!("../texts/en/report.json")),
@@ -44,6 +45,7 @@ const BUILTIN: &[(&str, &str)] = &[
     ("en", include_str!("../texts/en/widgets.json")),
     ("pt-BR", include_str!("../texts/pt-BR/ai.json")),
     ("pt-BR", include_str!("../texts/pt-BR/format.json")),
+    ("pt-BR", include_str!("../texts/pt-BR/import.json")),
     ("pt-BR", include_str!("../texts/pt-BR/movie.json")),
     ("pt-BR", include_str!("../texts/pt-BR/pane.json")),
     ("pt-BR", include_str!("../texts/pt-BR/report.json")),
