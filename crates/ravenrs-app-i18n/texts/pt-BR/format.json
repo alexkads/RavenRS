@@ -1,4 +1,6 @@
 {
+ "format.date": "dd/MM/yyyy",
+ "format.date_time": "dd/MM/yyyy HH:mm",
  "format.decimal": ",",
  "format.money_prefix": "R$ ",
  "format.thousands": "."
