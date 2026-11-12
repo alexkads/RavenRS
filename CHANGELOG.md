@@ -29,6 +29,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
   a column with a format of its own filters a number by what it shows when it does not compare.
   ([#231](https://github.com/alexkads/RavenRS/issues/231))
 
+### Fixed
+
+- Permissions on records can go through references, such as
+  `[class_id.teacher_id.login] = ?CurrentUserName`, and hold for records being created, changed
+  and read: `SecuredObjectSpace` follows them in storage, and a value put on the record under the
+  path is replaced and never kept. ([#232](https://github.com/alexkads/RavenRS/issues/232))
+
 ## [27.1.27] - 2026-11-11
 
 ### Added
