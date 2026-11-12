@@ -12,6 +12,7 @@ use crate::{EntityInfo, FieldKind, Object};
 
 mod audit;
 mod directory;
+mod external;
 mod password;
 mod records;
 mod space;
@@ -21,6 +22,7 @@ pub use directory::{
     AuthError, Authenticator, Credentials, MIN_PASSWORD_CHARS, PasswordError, SecurityContext, SpaceMaker,
     UserDirectory,
 };
+pub use external::{Claims, ExternalSignIn, IdentityProvider, SECURITY_EXTERNAL_LOGIN};
 pub use password::{hash_password, verify_password};
 pub use records::{
     ADMINISTRATORS_ROLE, SECURITY_ACTION_PERMISSION, SECURITY_AUDIT_ENTRY, SECURITY_MEMBER_PERMISSION,
