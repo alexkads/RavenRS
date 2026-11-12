@@ -276,6 +276,7 @@
  "widgets.grid_name": "Grade de dados",
  "widgets.grid_next": "Próxima",
  "widgets.grid_no_rows": "Nenhuma linha atende aos filtros.",
+ "widgets.grid_no_records": "Nada por aqui ainda.",
  "widgets.grid_number_filter_hint": "ex.: >100",
  "widgets.grid_of": "de",
  "widgets.grid_page": "Página",

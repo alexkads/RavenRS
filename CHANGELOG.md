@@ -9,6 +9,16 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - A shared canonical policy for Pages and Vercel, crawlable canvas content, static
   playground examples, social PNG cards, complete sitemaps and a local SEO build gate.
   ([#156](https://github.com/alexkads/RavenRS/issues/156))
+- `EntityInfo::empty_text` and `#[object(empty_text = "...")]`: what a generated list says with no
+  records, kept on the list view as `EmptyText`. Without it a grid with no rows says
+  `widgets.grid_no_records` ("Nada por aqui ainda.") and keeps "no rows match the filters" for
+  when its filters hid them. ([#233](https://github.com/alexkads/RavenRS/issues/233))
+
+### Fixed
+
+- A remote grid with no rows said it had a chunk's worth: an empty chunk past the end stretched
+  its total. It now ends where the earliest end says, and shows what it says when empty.
+  ([#233](https://github.com/alexkads/RavenRS/issues/233))
 
 ## [27.1.27] - 2026-11-11
 

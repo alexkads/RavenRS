@@ -727,8 +727,10 @@ pub struct Labels {
     pub grid_add_row: String,
     /// A data grid's button that removes the selected rows.
     pub grid_delete_rows: String,
-    /// A grid with nothing to show.
+    /// A grid whose filters leave nothing to show.
     pub grid_no_rows: String,
+    /// A grid with no rows at all.
+    pub grid_no_records: String,
     /// A grid's name.
     pub grid_name: String,
     /// A row's check box.
@@ -1181,6 +1183,7 @@ impl Labels {
             grid_add_row: texts.get("widgets.grid_add_row"),
             grid_delete_rows: texts.get("widgets.grid_delete_rows"),
             grid_no_rows: texts.get("widgets.grid_no_rows"),
+            grid_no_records: texts.get("widgets.grid_no_records"),
             grid_name: texts.get("widgets.grid_name"),
             grid_select_row: texts.get("widgets.grid_select_row"),
             grid_sorted_ascending: texts.get("widgets.grid_sorted_ascending"),

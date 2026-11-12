@@ -54,6 +54,10 @@ fn list_view(entity: &EntityInfo, id: String, shown: impl Fn(&FieldInfo) -> bool
         Some(text) => node.with("Description", text.as_str()),
         None => node,
     };
+    let node = match &entity.empty_text {
+        Some(text) => node.with("EmptyText", text.as_str()),
+        None => node,
+    };
     let node = entity.editor_settings.iter().fold(node, |mut node, (settings, name, value)| {
         if node.get(settings).is_none() {
             node = node.child(ModelNode::new(settings));

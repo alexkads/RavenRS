@@ -707,6 +707,10 @@ impl View for ListView {
             Some(rows) => DataGrid::remote(rows, columns),
             None => DataGrid::new(data, columns),
         };
+        let grid = match node.text("EmptyText") {
+            Some(text) => grid.empty_text(text),
+            None => grid,
+        };
         let grid = grid
             .striped(true)
             .key_column(key_at)

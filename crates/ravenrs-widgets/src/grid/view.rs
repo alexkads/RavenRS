@@ -3610,11 +3610,19 @@ impl View for DataGrid {
                 ),
             );
         } else if total == 0 {
-            let empty = self
-                .empty_text
-                .clone()
-                .filter(|_| self.remote.is_none() && self.data.rows().is_empty())
-                .unwrap_or_else(|| cx.labels().grid_no_rows.clone());
+            // No rows at all says so, or what the grid was given to say; rows the filters left
+            // out say that. A remote grid knows only what it was asked.
+            let asked = !query.search.trim().is_empty()
+                || query.filters.iter().any(|filter| !filter.trim().is_empty());
+            let has_none = match &self.remote {
+                Some(_) => !asked,
+                None => self.data.rows().is_empty(),
+            };
+            let empty = if has_none {
+                self.empty_text.clone().unwrap_or_else(|| cx.labels().grid_no_records.clone())
+            } else {
+                cx.labels().grid_no_rows.clone()
+            };
             let msg = util::label(cx, &empty, TextStyle::Body, None, theme.color(Semantic::InkMuted));
             body_rows.push(cx.container(
                 LayoutStyle { padding: Insets::uniform(24.0), ..LayoutStyle::stack(Axis::Horizontal) },

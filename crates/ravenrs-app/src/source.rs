@@ -85,6 +85,9 @@ fn entity(
     if let Some(icon) = &settings.icon {
         info = info.icon(icon.value());
     }
+    if let Some(text) = &settings.empty_text {
+        info = info.empty_text(text.value());
+    }
     if let Some(text) = &settings.list_criteria {
         info = info.list_criteria(text.value());
     }
