@@ -1,0 +1,15 @@
+{
+  "id": "ORD01",
+  "status": "at_terminal",
+  "external_reference": "venda-1",
+  "transactions": {
+    "payments": [
+      {
+        "id": "PAY01",
+        "amount": "19.90",
+        "status": "at_terminal",
+        "status_detail": "cancellation_requested"
+      }
+    ]
+  }
+}

@@ -72,6 +72,8 @@ pub struct App {
     steps: Vec<SessionStep>,
     administrator: Option<String>,
     security: Option<(Rc<ravenrs_app::SecurityContext>, ravenrs_app::SpaceMaker)>,
+    theme: Option<ravenrs_style::Theme>,
+    counter: bool,
     actions: Vec<ActionMaker>,
 }
 
@@ -127,6 +129,8 @@ impl App {
             steps: Vec::new(),
             administrator: None,
             security: None,
+            theme: None,
+            counter: false,
             actions: Vec::new(),
         }
     }
@@ -367,6 +371,18 @@ impl App {
         self
     }
 
+    /// Starts on this theme, the look of an application with a look of its own.
+    pub fn theme(mut self, theme: ravenrs_style::Theme) -> Self {
+        self.theme = Some(theme);
+        self
+    }
+
+    /// Arranges the window for use at a counter: see [`CounterTemplate`](crate::CounterTemplate).
+    pub fn counter(mut self) -> Self {
+        self.counter = true;
+        self
+    }
+
     /// Puts it together, or says what is wrong with how it was declared.
     pub fn build(self) -> Result<AnyView, ModelError> {
         let texts = texts_of(self.language, &self.texts)?;
@@ -424,7 +440,13 @@ impl App {
             seed(&mut *space).map_err(ModelError)?;
             space.commit().map_err(|e| ModelError(e.to_string()))?;
         }
-        let shell = AppShell::from_factory(application, factory, words, self.editors);
+        let mut shell = AppShell::from_factory(application, factory, words, self.editors);
+        if let Some(theme) = self.theme {
+            shell = shell.theme(theme);
+        }
+        if self.counter {
+            shell = shell.template(crate::CounterTemplate);
+        }
         let session = shell.session();
         session.use_texts(texts.clone());
         session.set_access_words(ravenrs_app_a11y::AccessWords::for_language(self.language.code()));

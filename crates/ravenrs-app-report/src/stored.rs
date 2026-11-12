@@ -256,7 +256,7 @@ fn layout_to_keep(mut report: Report) -> String {
 }
 
 /// The stored report on this record, whatever shape it is in, or what is wrong with it.
-fn report_of(
+pub(crate) fn report_of(
     session: &Session,
     record: &Object,
     words: &ReportWords,
@@ -278,7 +278,7 @@ fn report_of(
     Ok((report, entity))
 }
 
-fn every_record(session: &Session, entity: &str, limit: Option<usize>) -> Vec<Object> {
+pub(crate) fn every_record(session: &Session, entity: &str, limit: Option<usize>) -> Vec<Object> {
     let query = match limit {
         Some(limit) => Query::all().page(0, limit),
         None => Query::all(),
@@ -300,7 +300,7 @@ fn show_report(
 }
 
 /// Opens the designer on a stored report, with what the entity holds at hand.
-fn design_report(session: &Session, record: &Object, words: &ReportWords) -> Result<(), String> {
+pub(crate) fn design_report(session: &Session, record: &Object, words: &ReportWords) -> Result<(), String> {
     let (report, entity) = report_of(session, record, words)?;
     let sample = every_record(session, &entity.name, Some(SAMPLE_ROWS));
     let rows = rows_of(session, &entity, &sample);

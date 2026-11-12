@@ -28,6 +28,7 @@ ravenrs-core.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-reactive.workspace = true
 regex-lite.workspace = true
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
 serde_json.workspace = true
 uuid.workspace = true
 ravenrs-app-spec = { workspace = true, optional = true }

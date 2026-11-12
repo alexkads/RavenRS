@@ -1,7 +1,7 @@
 {
-  "version": "27.1.27",
-  "cliVersion": "27.1.27",
-  "tag": "v27.1.27",
+  "version": "27.1.28",
+  "cliVersion": "27.1.28",
+  "tag": "v27.1.28",
   "toolchain": "stable",
   "components": [
     "rustfmt",

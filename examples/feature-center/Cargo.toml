@@ -20,6 +20,7 @@ ravenrs-app-ui.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-report.workspace = true
 ravenrs-widgets.workspace = true
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ravenrs-app-server.workspace = true
@@ -40,6 +41,7 @@ pollster.workspace = true
 ravenrs-core.workspace = true
 ravenrs-render.workspace = true
 serde_json.workspace = true
+ravenrs-report-label.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets.workspace = true
 

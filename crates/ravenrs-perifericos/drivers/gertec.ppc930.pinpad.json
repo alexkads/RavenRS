@@ -1,0 +1,14 @@
+{
+  "id": "gertec.ppc930.pinpad",
+  "versao": "1.0.0",
+  "tipo": "pinpad",
+  "fabricante": "Gertec",
+  "modelos": [{ "nome": "Gertec PPC930", "variacoes": ["PPC930 V5, ref. 70500035"] }],
+  "conexoes": ["usb", "serial"],
+  "protocolo": { "nome": "abecs", "versao": "2.20" },
+  "situacao": {
+    "estado": "so_pela_documentacao",
+    "fonte": "Folha do PPC930, Gertec, lista ABECS nas certificações, https://www.gertec.com.br/wp-content/uploads/2025/08/PPC930-1.pdf"
+  },
+  "observacoes": "Só exibição e coleta sem chave da adquirente: a transação com cartão fica com o software de TEF. A folha cita ABECS sem versão, e 2.20 é a versão que ravenrs-pagamento implementa, sem prova de que este aparelho a siga. Pix na tela não consta porque só há indicação de terceiro."
+}

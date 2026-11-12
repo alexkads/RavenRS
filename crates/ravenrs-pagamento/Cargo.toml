@@ -1,0 +1,39 @@
+[package]
+name = "ravenrs-pagamento"
+description = "BETA, proof of concept: electronic payments for a Brazilian point of sale, with a power-loss journal, a provider simulator, the ABECS pinpad protocol and IntPos files. Never tested against a real provider."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-pagamento"
+keywords = ["pos", "tef", "pinpad", "abecs", "brazil"]
+categories = ["finance"]
+
+[features]
+# Real HTTPS through ureq. Only exists on native targets.
+http = ["dep:ureq"]
+# A real serial port for the pinpad. Only exists on native targets.
+serial = ["dep:serialport"]
+# Builds the simulated helper process used by the tests of the helper contract.
+auxiliar-bin = []
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = { version = "3.5", default-features = false, features = ["rustls"], optional = true }
+# Without "libudev": it would ask for a system library on Linux, and enumeration is not essential.
+serialport = { version = "4.10", default-features = false, optional = true }
+
+[[bin]]
+name = "ravenrs-pagamento-auxiliar-simulado"
+path = "src/bin/auxiliar_simulado.rs"
+required-features = ["auxiliar-bin"]
+
+[lints]
+workspace = true

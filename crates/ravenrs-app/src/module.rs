@@ -56,6 +56,12 @@ pub trait Module {
         Ok(())
     }
 
+    /// What everyone using the application has to know while this module is in it, such as that it
+    /// is experimental. It stays on top of every window and cannot be dismissed.
+    fn notices(&self) -> Vec<Notice> {
+        Vec::new()
+    }
+
     /// What it says about itself: its version, the versions it accepts of what it depends on,
     /// where it runs and what it needs from the host. Saying nothing is accepted everywhere.
     fn manifest(&self) -> ModuleManifest {
@@ -169,6 +175,47 @@ struct Host {
     target: Option<Target>,
     database: Option<String>,
     capabilities: Vec<String>,
+}
+
+/// How serious a [`Notice`] is.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum NoticeKind {
+    /// Good to know.
+    Info,
+    /// Take care.
+    #[default]
+    Warning,
+    /// Something can go wrong for real.
+    Danger,
+}
+
+/// Something a module keeps in sight in every window.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Notice {
+    /// How serious it is.
+    pub kind: NoticeKind,
+    /// The short version.
+    pub title: String,
+    /// The rest.
+    pub message: String,
+}
+
+impl Notice {
+    /// A warning.
+    pub fn warning(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self { kind: NoticeKind::Warning, title: title.into(), message: message.into() }
+    }
+
+    /// Something good to know.
+    pub fn info(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self { kind: NoticeKind::Info, title: title.into(), message: message.into() }
+    }
+
+    /// Something that can go wrong for real.
+    pub fn danger(title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self { kind: NoticeKind::Danger, title: title.into(), message: message.into() }
+    }
 }
 
 /// What a piece of a dashboard shows.
@@ -349,6 +396,13 @@ impl std::fmt::Debug for Application {
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl Application {
+    /// What its modules want everyone to know, in the order of the modules.
+    pub fn notices(&self) -> Vec<Notice> {
+        self.modules.iter().flat_map(|module| module.notices()).collect()
+    }
+}
+
 impl Application {
     /// Starts an application with this title.
     pub fn builder(title: impl Into<String>) -> ApplicationBuilder {

@@ -22,9 +22,15 @@
 use std::rc::Rc;
 
 mod analytics;
+mod print;
 mod stored;
 
 pub use analytics::{ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, analytics_entities};
+#[cfg(not(target_arch = "wasm32"))]
+pub use print::send_to_printer;
+pub use print::{
+    design_stored_report, label_bytes, render_stored_report, render_stored_report_with, stored_reports_for,
+};
 pub use stored::{PT_BR, REPORT_DEFINITION, ReportWords, StoredReportsModule, report_entity};
 
 use ravenrs_app::{Action, ActionCategory, Module, TargetScope, ViewController, ViewKind};

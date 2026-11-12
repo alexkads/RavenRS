@@ -1,10 +1,10 @@
 ---
 name: ravenrs
-description: Builds and changes user interfaces with RavenRS, the Rust GUI framework that draws on the GPU on the desktop and in the browser. Use whenever the code depends on the `ravenrs` crates or the user mentions RavenRS, including screens, forms, DataGrid, Ribbon, custom components, themes and design tokens, accessibility, the WebAssembly build, `ravenrs-criteria` expressions and `ravenrs-report`.
+description: Builds and changes user interfaces with RavenRS, the Rust GUI framework that draws on the GPU on the desktop and in the browser. Use whenever the code depends on the `ravenrs` crates or the user mentions RavenRS, including screens, forms, DataGrid, Ribbon, custom components, themes and design tokens, accessibility, the WebAssembly build, `ravenrs-criteria` expressions, `ravenrs-report`, label and receipt printers, `ravenrs-app` and the beta NF-e and point of sale crates.
 ---
 
 <!-- ravenrs:skill:begin -->
-<!-- cargo-ravenrs 27.1.27 -->
+<!-- cargo-ravenrs 27.1.28 -->
 
 # Building with RavenRS
 
@@ -20,6 +20,8 @@ Builder method names vary by component, so confirm them before writing a view. I
 | What are its methods and states? | `component_api`, which also accepts `ViewExt`, `State`, `Semantic`, `BuildCx` and any other public item |
 | How is it used in real code? | `component_examples` |
 | Which color or text style is this? | `design_tokens` |
+| Which type does this? I do not know its name. | `search_api`, over every crate |
+| How does this part work? What does it not do yet? | `guides`, over the repository's documents |
 | Does this feature exist yet? | `parity_status`; for record applications, with `document: "application"` |
 | What does a reusable module have to honor, and which issue follows a capability? | `app_contracts` |
 | Is this expression valid? Which functions exist? | `validate_expression`, `expression_functions` |
@@ -154,4 +156,12 @@ A module meant for more than one application follows [docs/APP-CONTRACTS.md](htt
 ## Expressions and reports
 
 `ravenrs-criteria` is the expression language used by filters and reports: `[Price] * [Qty] > ?Minimum`, `Iif([Paid], 'Yes', 'No')`, `[Items][[Qty] > 0].Sum([Qty] * [Price])`. Validate expressions with `validate_expression` before putting them in code. `ravenrs-report` defines reports as JSON or with a builder. See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REPORTING.md), and check `parity_status` with `document: "reporting"` before relying on a feature. Export to PDF and XLSX is still planned.
+
+## Applications and point of sale
+
+`ravenrs-app` turns a Rust struct into an application. See `guides` with `document: "APP-FRAMEWORK"`. For an application used all day from the keyboard, `App::counter` gives a window with a bar of keys made from the actions, `KeyBar` and `ScanField` are the components behind it, and the same guide lists notices, work in the background and numbers.
+
+Labels and receipts are ordinary reports made in the standard designer, and `ravenrs-report-label` sends them to ZPL, EPL, PPLA, TSPL and ESC/POS printers. It has not been tried on a physical printer.
+
+`ravenrs-nfe`, `ravenrs-app-nfe`, `ravenrs-pagamento`, `ravenrs-pos` and `ravenrs-app-pos` are a **beta proof of concept for Brazilian point of sale**: they have never talked to a real SEFAZ, pinpad or payment provider, and production is blocked in the code. Never tell someone they can issue real fiscal documents with them. See `guides` with `document: "AUTOMACAO"`, `crates/ravenrs-nfe/README.md` for the local sandbox of the SEFAZ, and `crates/ravenrs-nfe/REGRAS.md` for where each rule came from.
 <!-- ravenrs:skill:end -->

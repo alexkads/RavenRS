@@ -1,11 +1,4 @@
-//! Desktop backend for RavenRS: one winit window per app, rendered with wgpu
-//! (Metal on macOS, DX12/Vulkan on Windows, Vulkan/GL on Linux).
-//!
-//! Frames are produced on demand: the event loop sleeps until input arrives or
-//! reactive state changes, so an idle app uses no CPU or GPU time.
-//!
-//! Screen readers see the UI through AccessKit: the accessibility tree is
-//! built only while one is running.
+#![doc = include_str!("../README.md")]
 
 mod access;
 mod diagnostics;
@@ -48,6 +41,7 @@ use winit::event::StartCause;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy, OwnedDisplayHandle};
 use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement as _;
 use winit::window::{Icon, Window, WindowAttributes, WindowId};
 
 pub use diagnostics::diagnose;
@@ -79,7 +73,11 @@ impl From<accesskit_winit::Event> for UserEvent {
     }
 }
 
-/// How the main window opens.
+/// How the main window opens: its title, size and starting theme.
+///
+/// Sizes are in logical pixels, which the system scales for the screen, so 800 is the
+/// same apparent width on a regular and on a high-density display. The defaults are a
+/// 960 × 640 window that the person cannot shrink below 320 × 240, with the default theme.
 #[derive(Clone, Debug)]
 pub struct WindowOptions {
     /// Window title.
@@ -88,7 +86,8 @@ pub struct WindowOptions {
     pub size: Size,
     /// Smallest inner size the user can resize to, in logical pixels.
     pub min_size: Option<Size>,
-    /// Theme the UI starts with.
+    /// Theme the UI starts with. The view can change it later, as with a light and dark
+    /// switch; this is only the first frame's.
     pub theme: Theme,
     /// Whether the theme follows the system between Raven Dark and Raven Light.
     pub follow_system_theme: bool,
@@ -140,14 +139,27 @@ impl WindowOptions {
     }
 }
 
-/// Failure to start or run the desktop app.
+/// Why the app could not open its window or stopped with an error.
+///
+/// Returned by [`run`], [`run_as`] and [`run_with_icon`]. Once the window is on screen,
+/// trouble that the app can survive is logged instead: a lost GPU is recreated, and
+/// a missing clipboard, icon or voice is done without. When the window will not open,
+/// [`diagnose`] says which GPU and drivers the machine has. The crate documentation has
+/// a section on what to try for each of these.
 #[derive(Debug)]
 pub enum PlatformError {
-    /// The event loop could not be created or exited with an error.
+    /// The window system could not be reached, or the event loop stopped with an error.
+    /// On Linux this is usually a session with neither `DISPLAY` nor `WAYLAND_DISPLAY`,
+    /// as over SSH. It also happens when the app tries to run a second event loop:
+    /// a process has one, so call `run` once.
     EventLoop(String),
-    /// The window could not be created.
+    /// The window system refused to create the window; the message carries its reason.
+    /// It can also come later, when a window closed to the tray on Wayland could not be
+    /// created again.
     Window(String),
-    /// GPU setup or surface configuration failed.
+    /// No GPU adapter, device or drawing surface could be created: an old or missing
+    /// driver, or a virtual machine without 3D acceleration. On Linux, `WGPU_BACKEND=gl`
+    /// tries OpenGL instead of Vulkan, and `LIBGL_ALWAYS_SOFTWARE=1` with it draws on the CPU.
     Gpu(GpuError),
 }
 
@@ -169,12 +181,36 @@ impl From<GpuError> for PlatformError {
     }
 }
 
-/// Opens a window showing `root` and runs until it is closed.
+/// Opens a window showing `root` and runs until the window is closed.
+///
+/// This takes over the calling thread: it sets up the window, the GPU and the system's
+/// services, then runs the event loop, drawing a frame only when something changed.
+/// It returns `Ok` when the person closes the window, and an error only when the app
+/// could not start or the loop failed. Call it once, from `main`, on the main thread,
+/// which macOS requires.
+///
+/// The window has the system's generic icon, and Linux cannot tie it to a `.desktop`
+/// file. For an installed app, use [`run_as`]; for just an icon, [`run_with_icon`].
+///
+/// ```no_run
+/// use ravenrs_platform_native::{WindowOptions, run};
+/// use ravenrs_widgets::Text;
+///
+/// run(Text::new("Hello"), WindowOptions::new("Hello"))?;
+/// # Ok::<(), ravenrs_platform_native::PlatformError>(())
+/// ```
 pub fn run(root: impl View + 'static, options: WindowOptions) -> Result<(), PlatformError> {
     run_window(root, options, AppIdentity::anonymous(None))
 }
 
-/// Who the app is to the system, for finding its icon and its menu entry.
+/// Who the app is to the system, and what it asks of the desktop: given to [`run_as`].
+///
+/// The id is how the system recognizes the window as belonging to the installed app,
+/// to show its icon and group it with its launcher. On top of it, the identity carries
+/// what an installed app usually wants: the words of the UI ([`labels`](Self::labels)),
+/// a diagnostics panel shared with the app ([`diagnostics`](Self::diagnostics)), a page for
+/// bug reports ([`new_issue_url`](Self::new_issue_url)), a window icon ([`icon`](Self::icon))
+/// and closing to the tray ([`close_to_tray`](Self::close_to_tray)).
 ///
 /// On Linux the id is what ties the window to the app's `.desktop` file. Wayland
 /// has no way for a window to carry an icon: GNOME shows the one in the
@@ -208,7 +244,8 @@ impl AppIdentity {
         Self { id: id.into(), icon: None, labels: None, diagnostics: None, new_issue_url: None, tray: None }
     }
 
-    /// Sets the words of the whole UI, including the diagnostics panel.
+    /// Sets the words of the whole UI, including the diagnostics panel and the texts the
+    /// components show by themselves, such as a dialog's buttons or an empty list's message.
     pub fn labels(mut self, labels: Labels) -> Self {
         self.labels = Some(labels);
         self
@@ -238,13 +275,32 @@ impl AppIdentity {
     /// Closing the window keeps the app running behind an icon beside the clock, which
     /// shows [`Self::icon`] and needs it. Opening the app again, or clicking its icon in the
     /// Dock on macOS, brings the same window back. See [`SystemTray`] for where the system has no such icon.
+    ///
+    /// It also makes the app a single copy: launching it while it runs opens the window
+    /// of the copy that is running, and the second launch exits. That keeps two copies
+    /// from working on the same data. Needs the `tray` feature, and a non-empty id.
     pub fn close_to_tray(mut self, tray: SystemTray) -> Self {
         self.tray = Some(tray);
         self
     }
 }
 
-/// Like [`run`], for an app the system should recognize as itself.
+/// Like [`run`], for an installed app that the system should recognize as itself.
+///
+/// The [`AppIdentity`] ties the window to the app's `.desktop` file on Linux, so its icon
+/// and launcher are found, and turns on what an installed app needs: the language of the
+/// UI, bug reports from the diagnostics panel and closing to the tray. With
+/// [`close_to_tray`](AppIdentity::close_to_tray), a second launch of the app opens the
+/// window of the copy already running and returns `Ok` at once.
+///
+/// ```no_run
+/// use ravenrs_platform_native::{AppIdentity, WindowOptions, run_as};
+/// use ravenrs_widgets::{Labels, Text};
+///
+/// let identity = AppIdentity::new("notes").labels(Labels::pt_br());
+/// run_as(Text::new("Olá"), WindowOptions::new("Notas"), identity)?;
+/// # Ok::<(), ravenrs_platform_native::PlatformError>(())
+/// ```
 pub fn run_as(
     root: impl View + 'static,
     options: WindowOptions,
@@ -254,7 +310,10 @@ pub fn run_as(
 }
 
 /// Like [`run`], with an icon for the window's title bar and the task bar on
-/// Windows and Linux. macOS takes an app's icon from its bundle instead.
+/// Windows and Linux with X11. macOS takes an app's icon from its bundle instead, and
+/// Wayland from the app's `.desktop` file, which only [`run_as`] can name.
+///
+/// For a tool or an example that wants its own icon without being an installed app.
 pub fn run_with_icon(
     root: impl View + 'static,
     options: WindowOptions,
@@ -741,6 +800,18 @@ fn map_key(key: &WinitKey) -> Key {
         WinitKey::Named(NamedKey::ArrowRight) => Key::ArrowRight,
         WinitKey::Named(NamedKey::ArrowUp) => Key::ArrowUp,
         WinitKey::Named(NamedKey::ArrowDown) => Key::ArrowDown,
+        WinitKey::Named(NamedKey::F1) => Key::Function(1),
+        WinitKey::Named(NamedKey::F2) => Key::Function(2),
+        WinitKey::Named(NamedKey::F3) => Key::Function(3),
+        WinitKey::Named(NamedKey::F4) => Key::Function(4),
+        WinitKey::Named(NamedKey::F5) => Key::Function(5),
+        WinitKey::Named(NamedKey::F6) => Key::Function(6),
+        WinitKey::Named(NamedKey::F7) => Key::Function(7),
+        WinitKey::Named(NamedKey::F8) => Key::Function(8),
+        WinitKey::Named(NamedKey::F9) => Key::Function(9),
+        WinitKey::Named(NamedKey::F10) => Key::Function(10),
+        WinitKey::Named(NamedKey::F11) => Key::Function(11),
+        WinitKey::Named(NamedKey::F12) => Key::Function(12),
         WinitKey::Character(c) if c.as_str() == " " => Key::Space,
         WinitKey::Character(c) => Key::Character(c.to_string()),
         other => Key::Other(format!("{other:?}")),
@@ -983,6 +1054,7 @@ impl ApplicationHandler<UserEvent> for App {
                     ctrl: s.control_key(),
                     alt: s.alt_key(),
                     meta: s.super_key(),
+                    base_key: None,
                 };
             }
             WindowEvent::KeyboardInput { event, .. } => {
@@ -993,7 +1065,12 @@ impl ApplicationHandler<UserEvent> for App {
                     return;
                 }
                 let key = map_key(&event.logical_key);
-                let modifiers = self.modifiers;
+                let mut modifiers = self.modifiers;
+                if modifiers.alt
+                    && let WinitKey::Character(base) = event.key_without_modifiers()
+                {
+                    modifiers.base_key = base.chars().next();
+                }
                 self.dispatch(match event.state {
                     ElementState::Pressed => Event::KeyDown { key, modifiers },
                     ElementState::Released => Event::KeyUp { key, modifiers },
@@ -1043,7 +1120,7 @@ mod tests {
     #[test]
     fn the_diagnostics_shortcut_needs_both_modifiers() {
         let key = WinitKey::Character("D".into());
-        let held = |ctrl, shift, meta| Modifiers { ctrl, shift, meta, alt: false };
+        let held = |ctrl, shift, meta| Modifiers { ctrl, shift, meta, ..Modifiers::default() };
         assert!(is_diagnostics_shortcut(&key, held(true, true, false)));
         assert!(is_diagnostics_shortcut(&key, held(false, true, true)));
         assert!(!is_diagnostics_shortcut(&key, held(true, false, false)));
@@ -1078,7 +1155,8 @@ mod tests {
     fn characters_and_unknown_keys() {
         assert_eq!(map_key(&WinitKey::Character(" ".into())), Key::Space, "a typed space is the Space key");
         assert_eq!(map_key(&WinitKey::Character("ç".into())), Key::Character("ç".into()));
-        assert!(matches!(map_key(&WinitKey::Named(NamedKey::F5)), Key::Other(name) if name.contains("F5")));
+        assert_eq!(map_key(&WinitKey::Named(NamedKey::F5)), Key::Function(5));
+        assert!(matches!(map_key(&WinitKey::Named(NamedKey::F13)), Key::Other(name) if name.contains("F13")));
     }
 
     #[test]

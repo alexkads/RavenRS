@@ -50,6 +50,7 @@ mod color_picker;
 mod commands;
 mod context;
 mod conversation;
+mod counter;
 mod data;
 mod date;
 mod diagnostics;
@@ -143,6 +144,7 @@ pub use context::{
     PaintCx, Placement, QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
 };
 pub use conversation::{Attachment, AttachmentStrip, AudioPlayerButton, SelectionBar};
+pub use counter::{KeyBar, KeyBarItem, Scan, ScanField};
 pub use data::{Column, List, ListItem, Table};
 pub use date::{Date, days_in_month, is_leap_year};
 pub use diagnostics::{Diagnostics, DiagnosticsHost};

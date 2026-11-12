@@ -296,7 +296,7 @@ Then open http://localhost:8080 in a current browser. RavenRS draws with WebGPU 
 RavenRS ships a skill and an MCP server so coding assistants write against the real API instead of guessing it.
 
 - The **skill** teaches how to compose screens, use tokens instead of literal values, meet the [quality bar](https://github.com/alexkads/RavenRS/blob/master/docs/QUALITY.md) and build for the web.
-- The **MCP server** ([`ravenrs-mcp`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp)) is read-only and works offline. It lists components, shows their API and real examples, looks up design tokens, reports parity status and validates expressions.
+- The **MCP server** ([`ravenrs-mcp`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp)) is read-only and works offline. It lists components, finds any public item of any crate, reads the repository's guides, shows their API and real examples, looks up design tokens, reports parity status and validates expressions.
 
 `cargo ravenrs new` registers `cargo ravenrs mcp` for Claude Code, VS Code / Copilot,
 Cursor and Codex, copies the version-matched skill, and writes project instructions.
@@ -324,6 +324,15 @@ Start with `ravenrs`. The others come in as you need them.
 | [`ravenrs-app`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app), [`-derive`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-derive), [`-ui`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui) | The application framework: model, attributes and generated screens. |
 | [`ravenrs-app-i18n`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-i18n) | Languages and words of the screens and components, by key, with English to fall back on. |
 | [`ravenrs-app-sqlite`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-sqlite), [`-report`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-report), [`-library`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-library) | Storage, reports inside an application, and ready-made records. |
+| [`ravenrs-report-label`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report-label) | Reports on label and receipt printers: ZPL II, EPL2/PPLB, PPLA, TSPL and ESC/POS. Tested by reading the output back, not yet on a physical printer. |
+| [`ravenrs-barcode`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-barcode) | Barcodes as plain data, with GTIN checks and nothing about drawing. |
+| [`ravenrs-pos`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-pos) | The rules of a point of sale with no screens: a cart, what a scanner reads, totals, payments and change. |
+| [`ravenrs-dfe`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-dfe) | **Beta, proof of concept.** What every Brazilian electronic fiscal document shares: XML, C14N, XMLDSig with SHA-1 or SHA-256, the transport, the handlers of the sandboxes and test ICP-Brasil certificates. |
+| [`ravenrs-nfe`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-nfe) | **Beta, proof of concept.** NF-e and NFC-e with no GUI and a local sandbox of the SEFAZ. Not homologated, and production is blocked in the code. |
+| [`ravenrs-nfse`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-nfse) | **Beta, proof of concept.** NFS-e of the national standard (DPS to the Sefin Nacional), with recovery of a lost answer and a local sandbox. Not homologated, and production is blocked in the code. |
+| [`ravenrs-pagamento`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-pagamento) | **Beta, proof of concept.** Electronic payments for a Brazilian point of sale, with a provider simulator. Never tested against a real provider. |
+| [`ravenrs-app-nfe`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-nfe), [`-pos`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-pos) | **Beta, proof of concept.** NF-e, the DANFSe and a point of sale as modules of `ravenrs-app`. `examples/mini-pdv` puts them together. |
+| [`ravenrs-perifericos`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-perifericos) | **Beta, proof of concept.** Printers, label printers, pinpads and scanners described as data, in versioned manifests. See [docs/PERIFERICOS.md](https://github.com/alexkads/RavenRS/blob/master/docs/PERIFERICOS.md). |
 | [`ravenrs-ai`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-ai) | Local models and voice. |
 | [`ravenrs-movie`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-movie) | Vector training films and bug reports. |
 | [`ravenrs-movie-video`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-movie-video) | Films as video files for video sites and social networks: wide, vertical and square, with subtitles, chapters and a cover. |

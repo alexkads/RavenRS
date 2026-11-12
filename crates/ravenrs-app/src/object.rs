@@ -56,6 +56,26 @@ macro_rules! whole_numbers {
 
 whole_numbers!(i32, i64, u32, u64, usize);
 
+/// The decimal places a record's number keeps exactly: a number as records hold it has about 15
+/// digits to spare, so a value with up to 9 before the comma comes back the same.
+const DECIMAL_PLACES: u32 = 6;
+
+/// A decimal, for calculations that cannot lose a cent. Records keep numbers as they always do; this
+/// is what comes in and out of them, rounded to the places they keep exactly.
+impl FieldValue for rust_decimal::Decimal {
+    fn kind() -> FieldKind {
+        FieldKind::Decimal(DECIMAL_PLACES as u8)
+    }
+    fn to_value(&self) -> Value {
+        use rust_decimal::prelude::ToPrimitive;
+        Value::Number(self.to_f64().unwrap_or(0.0))
+    }
+    fn from_value(value: Value) -> Self {
+        let Value::Number(number) = value else { return Self::ZERO };
+        Self::from_f64_retain(number).map_or(Self::ZERO, |exact| exact.round_dp(DECIMAL_PLACES).normalize())
+    }
+}
+
 impl FieldValue for f64 {
     fn kind() -> FieldKind {
         FieldKind::Decimal(2)
@@ -168,5 +188,25 @@ impl<S: ObjectSpace + ?Sized> ObjectSpaceExt for S {
     fn read<T: BusinessObject>(&self, query: &Query) -> Result<Vec<T>, SpaceError> {
         let found = self.query(&T::entity_info().name, query)?;
         Ok(found.iter().map(T::from_object).collect())
+    }
+}
+
+#[cfg(test)]
+mod decimal_tests {
+    use rust_decimal::Decimal;
+
+    use super::*;
+
+    #[test]
+    fn a_decimal_comes_back_exactly() {
+        for text in ["0.1", "5.49", "16.47", "123456789.123456", "0.000001", "1234.5"] {
+            let exact: Decimal = text.parse().unwrap_or_else(|e| panic!("{e}"));
+            assert_eq!(Decimal::from_value(exact.to_value()), exact.normalize(), "{text}");
+        }
+    }
+
+    #[test]
+    fn what_is_not_a_number_comes_as_zero() {
+        assert_eq!(Decimal::from_value(Value::Text("x".into())), Decimal::ZERO);
     }
 }

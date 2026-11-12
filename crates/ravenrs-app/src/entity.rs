@@ -642,6 +642,8 @@ pub struct EntityInfo {
     pub data_access: DataAccess,
     /// Places on its form for actions, by the name of their `ActionCategory::InForm`.
     pub form_actions: Vec<String>,
+    /// It has one record, such as settings: going to it opens the form of that record, with no list.
+    pub singleton: bool,
     /// The fields its form goes through first with the keyboard, in this order. The form shows
     /// them in the same order, so the eye and the keyboard go the same way.
     pub focus_order: Vec<String>,
@@ -676,8 +678,15 @@ impl EntityInfo {
             list_editable: false,
             data_access: DataAccess::Client,
             form_actions: Vec::new(),
+            singleton: false,
             focus_order: Vec::new(),
         }
+    }
+
+    /// It has one record, such as settings: going to it opens the form of that record, with no list.
+    pub fn singleton(mut self) -> Self {
+        self.singleton = true;
+        self
     }
 
     /// What people see.

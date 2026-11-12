@@ -234,6 +234,8 @@ pub(crate) struct Shortcut {
     pub command: bool,
     /// It also needs Shift; without this, Shift does not matter.
     pub shift: bool,
+    /// It needs Alt, and goes before what the focused element would do with the key.
+    pub alt: bool,
     pub handler: Rc<dyn Fn()>,
 }
 
@@ -878,6 +880,11 @@ impl<'a> BuildCx<'a> {
         self.interaction.pressed == Some(self.widget_id())
     }
 
+    /// Nothing on the screen has keyboard focus.
+    pub fn nothing_focused(&self) -> bool {
+        self.interaction.focused.is_none()
+    }
+
     /// Keyboard focus is on this view.
     pub fn is_focused(&self) -> bool {
         self.interaction.focused == Some(self.widget_id())
@@ -1274,7 +1281,7 @@ impl<'a> BuildCx<'a> {
     /// Registers an app-wide keyboard shortcut for as long as this view is built.
     /// With `command`, it needs Cmd (macOS) or Ctrl held, e.g. Cmd/Ctrl+K.
     pub fn shortcut(&mut self, key: Key, command: bool, handler: Rc<dyn Fn()>) {
-        self.shortcuts.push(Shortcut { key, command, shift: false, handler });
+        self.shortcuts.push(Shortcut { key, command, shift: false, alt: false, handler });
     }
 
     /// Makes the wheel over `node` move what this widget scrolls, for a part that
@@ -1288,7 +1295,13 @@ impl<'a> BuildCx<'a> {
     /// Like [`Self::shortcut`], for a key that also needs Shift. Register it before the
     /// same key without Shift, which would otherwise answer first.
     pub fn shortcut_with_shift(&mut self, key: Key, command: bool, handler: Rc<dyn Fn()>) {
-        self.shortcuts.push(Shortcut { key, command, shift: true, handler });
+        self.shortcuts.push(Shortcut { key, command, shift: true, alt: false, handler });
+    }
+
+    /// Like [`Self::shortcut`], for a key held with Alt. It wins over a text field that has the
+    /// focus, since Alt and a letter would otherwise type an accented character.
+    pub fn shortcut_with_alt(&mut self, key: Key, handler: Rc<dyn Fn()>) {
+        self.shortcuts.push(Shortcut { key, command: false, shift: false, alt: true, handler });
     }
 
     /// Calls `handler` with the pointer position on a secondary (right) click.

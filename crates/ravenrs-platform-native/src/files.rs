@@ -156,6 +156,11 @@ impl ravenrs_widgets::FilePickerProvider for SystemFilePicker {
 
 /// Opens a file with the program the system uses for it: a PDF in its viewer, a
 /// web page in the browser. The program runs on its own, so this does not wait for it.
+///
+/// It goes through `open` on macOS, `start` on Windows and `xdg-open` on Linux. The
+/// error only says that the command could not start, for example because `xdg-open` is not
+/// installed. A file with no program for it fails in the system, after this returned `Ok`.
+/// For web addresses, use [`open_url`], which refuses anything else.
 pub fn open_with_system(path: &Path) -> io::Result<()> {
     let mut command = if cfg!(target_os = "macos") {
         Command::new("open")
@@ -171,7 +176,9 @@ pub fn open_with_system(path: &Path) -> io::Result<()> {
 }
 
 /// Opens a web page in the browser. Only `http` and `https` are accepted, so a
-/// bad URL cannot end up running a program or opening a file instead.
+/// bad URL cannot end up running a program or opening a file instead: anything else
+/// returns an [`io::ErrorKind::InvalidInput`] error. Use it for addresses that come from
+/// data, such as a link in a document.
 ///
 /// On Windows this does not go through `cmd`, as [`open_with_system`] does: `cmd`
 /// would take the `&` between a query's parameters as the start of a new command.

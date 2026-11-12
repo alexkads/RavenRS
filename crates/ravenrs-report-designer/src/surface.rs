@@ -356,6 +356,13 @@ pub fn design_text(c: &Control) -> String {
         ControlKind::Barcode(b) => {
             format!("Código: {}", b.expression.clone().unwrap_or_else(|| b.text.clone()))
         }
+        ControlKind::PrinterCommand(p) => {
+            let name = crate::props::PRINTER_ACTIONS
+                .iter()
+                .find(|(_, action)| *action == p.action)
+                .map_or("Comando", |(name, _)| *name);
+            format!("⚙ {name}")
+        }
         ControlKind::Picture(p) => match p.expression.as_deref().filter(|s| !s.trim().is_empty()) {
             Some(field) => format!("Imagem: {field}"),
             None if p.source.trim().is_empty() => "Imagem".to_owned(),

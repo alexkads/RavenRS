@@ -1,0 +1,26 @@
+[package]
+name = "ravenrs-nfse"
+description = "BETA, proof of concept: NFS-e Padrão Nacional (DPS, Sefin Nacional) for RavenRS with a sandbox. Not homologated, blocks production, must not issue real fiscal documents."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-nfse"
+keywords = ["nfse", "dps", "sefin", "xmldsig", "brazil"]
+categories = ["encoding"]
+
+[features]
+# Real network: HttpTransport with a client certificate. Only exists on native targets.
+http = ["ravenrs-dfe/http"]
+
+[dependencies]
+ravenrs-dfe.workspace = true
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,15 @@
+{
+  "id": "ORD01",
+  "status": "failed",
+  "external_reference": "venda-1",
+  "transactions": {
+    "payments": [
+      {
+        "id": "PAY01",
+        "amount": "19.90",
+        "status": "failed",
+        "status_detail": "insufficient_amount"
+      }
+    ]
+  }
+}
