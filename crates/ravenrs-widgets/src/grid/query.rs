@@ -435,6 +435,23 @@ pub fn group_keys(columns: &[GridColumn], rows: &[Row], query: &GridQuery) -> BT
         .collect()
 }
 
+/// The rows a column's filter list draws its values from: those that every other
+/// filter and the search let through. The column's own filter does not count, so
+/// what it holds can be swapped for another value; order and groups do not matter.
+pub fn rows_for_column_values(
+    columns: &[GridColumn],
+    rows: &[Row],
+    query: &GridQuery,
+    column: usize,
+) -> Vec<usize> {
+    let mut others =
+        GridQuery { sort: Vec::new(), group_by: Vec::new(), collapsed: BTreeSet::new(), ..query.clone() };
+    others.set_filter(column, String::new());
+    let mut matched = run_query(columns, rows, &others).matched;
+    matched.sort_unstable();
+    matched
+}
+
 /// Runs the whole pipeline.
 pub fn run_query(columns: &[GridColumn], rows: &[Row], query: &GridQuery) -> QueryResult {
     let search = query.search.trim().to_lowercase();

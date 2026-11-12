@@ -689,6 +689,8 @@ pub struct Labels {
     pub grid_filter_label: String,
     /// Opens the editor of a grid's whole filter.
     pub grid_edit_filter: String,
+    /// Placeholder of the search in a column's filter list.
+    pub grid_filter_search: String,
     /// The tab of a grid's filter editor that builds the filter line by line.
     pub grid_filter_visual: String,
     /// The tab of a grid's filter editor that writes the filter as an expression.
@@ -1193,6 +1195,7 @@ impl Labels {
             expression_constants: texts.pair_list("widgets.expression_constants"),
             grid_filter_label: texts.get("widgets.grid_filter_label"),
             grid_edit_filter: texts.get("widgets.grid_edit_filter"),
+            grid_filter_search: texts.get("widgets.grid_filter_search"),
             grid_filter_visual: texts.get("widgets.grid_filter_visual"),
             grid_filter_text: texts.get("widgets.grid_filter_text"),
             grid_all_values: texts.get("widgets.grid_all_values"),

@@ -259,7 +259,7 @@ Parity with the feature set of commercial data grids:
 | Column reordering by drag, menu on each column, fit width | ✓ |
 | Columns pinned to the left | ✓ |
 | Multi-level (banded) headers, columns pinned to the right | planned |
-| Filter by value (checklists) with a filter panel | ✓ |
+| Filter by value (checklists, offering only what the other filters leave) with a filter panel | ✓ |
 | Filter builder | ✓ `FilterBuilder`, also in the toolbar with `filter_builder` and behind "Edit filter" on the filter panel, over the whole filter |
 | Paging UI, infinite scroll and rows on a server (`RemoteRows`: bounded memory, settled requests, no totals needed, keyset by `after`) | ✓ |
 | Summaries changed at run time, with formulas over `ravenrs-criteria` | ✓ |

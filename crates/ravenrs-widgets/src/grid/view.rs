@@ -1412,7 +1412,11 @@ fn value_literal(value: &Value) -> Option<String> {
 }
 
 /// The distinct values of a column, with what the filter menu shows for each.
-fn values_of(rows: &[Row], col: &GridColumn, c: usize) -> Vec<(String, Value)> {
+fn values_of<'r>(
+    rows: impl IntoIterator<Item = &'r Row>,
+    col: &GridColumn,
+    c: usize,
+) -> Vec<(String, Value)> {
     let mut seen = BTreeMap::new();
     for row in rows {
         let Some(value) = row.get(c) else { continue };
@@ -1428,6 +1432,33 @@ fn values_of(rows: &[Row], col: &GridColumn, c: usize) -> Vec<(String, Value)> {
         }
     }
     seen.into_iter().collect()
+}
+
+/// What a column's filter list offers: the values of the rows the other filters
+/// and the search let through, plus any already checked, so it can be unchecked.
+/// Rows that stay on a server come filtered, so they are offered as they are.
+fn offered_values(
+    grid: &DataGrid,
+    rows: &[Row],
+    query: &GridQuery,
+    c: usize,
+    chosen: &BTreeSet<String>,
+) -> Vec<(String, Value)> {
+    let col = &grid.columns[c];
+    if grid.remote.is_some() {
+        return values_of(rows, col, c);
+    }
+    let matched = super::query::rows_for_column_values(&grid.columns, rows, query, c);
+    let mut values = values_of(matched.iter().filter_map(|&r| rows.get(r)), col, c);
+    if chosen.iter().any(|shown| !values.iter().any(|(v, _)| v == shown)) {
+        for (shown, value) in values_of(rows, col, c) {
+            if chosen.contains(&shown) && !values.iter().any(|(v, _)| *v == shown) {
+                values.push((shown, value));
+            }
+        }
+        values.sort_by(|a, b| a.0.cmp(&b.0));
+    }
+    values
 }
 
 /// A column's filter by value: a list of what is in it, to check.
@@ -1467,7 +1498,7 @@ impl View for ValueFilter {
         let mut lines = vec![
             cx.child(
                 &TextField::new(self.search.binding())
-                    .placeholder(labels.grid_search.clone())
+                    .placeholder(labels.grid_filter_search.clone())
                     .icon(IconName::Search)
                     .compact(),
             ),
@@ -1674,7 +1705,7 @@ impl View for HeaderCell<'_> {
                     .on_click(move || {
                         // The list starts from what the filter holds, written by hand or not.
                         let text = q2.peek().filter(c).to_owned();
-                        let values = values_of(&rows2, &col2, c);
+                        let values = values_of(rows2.iter(), &col2, c);
                         chosen.set(
                             values
                                 .into_iter()
@@ -1770,7 +1801,7 @@ impl View for HeaderCell<'_> {
             let filter = ValueFilter {
                 title: col.title.clone(),
                 column: c,
-                values: values_of(s.rows, col, c),
+                values: offered_values(s.grid, s.rows, &s.h.query.peek(), c, &s.h.filter_chosen.peek()),
                 query: s.h.query.clone(),
                 chosen: s.h.filter_chosen.clone(),
                 search: s.h.filter_search.clone(),
