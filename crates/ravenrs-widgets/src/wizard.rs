@@ -14,6 +14,7 @@ use crate::{Alert, AnyView, Button, ButtonStyle, IconName, Tone, View, util};
 type StepCheck = Rc<dyn Fn() -> Result<(), String>>;
 
 /// One step of a [`Wizard`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct WizardStep {
     title: String,
     content: AnyView,
@@ -27,6 +28,7 @@ impl fmt::Debug for WizardStep {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl WizardStep {
     /// A step with this title and content.
     pub fn new(title: impl Into<String>, content: impl View + 'static) -> Self {
@@ -67,6 +69,7 @@ impl WizardStep {
 /// let mut ui = Ui::new(wizard, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Wizard {
     step: Binding<usize>,
     steps: Vec<WizardStep>,
@@ -81,6 +84,7 @@ impl fmt::Debug for Wizard {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Wizard {
     /// A wizard over these steps, bound to the index of the one showing.
     pub fn new(step: Binding<usize>, steps: Vec<WizardStep>) -> Self {
@@ -109,6 +113,7 @@ impl Wizard {
 /// Where a step of a task stands.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum StepState {
     /// Not reached yet.
     #[default]
@@ -177,12 +182,14 @@ fn step_state_text(cx: &BuildCx<'_>, state: StepState) -> Option<String> {
 /// ui.update();
 /// ```
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct StepBadge {
     number: usize,
     state: StepState,
     size: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl StepBadge {
     /// The mark of the step with this number, not reached yet.
     pub fn new(number: usize) -> Self {
@@ -289,12 +296,14 @@ impl View for StepRow<'_> {
 
 /// One step shown by a [`StepIndicator`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct IndicatorStep {
     title: String,
     state: StepState,
     note: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl IndicatorStep {
     /// A step with this title, in this state.
     pub fn new(title: impl Into<String>, state: StepState) -> Self {
@@ -324,6 +333,7 @@ impl IndicatorStep {
 /// let mut ui = Ui::new(steps, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct StepIndicator {
     steps: Vec<IndicatorStep>,
     vertical: bool,
@@ -336,6 +346,7 @@ impl fmt::Debug for StepIndicator {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl StepIndicator {
     /// A row of these steps.
     pub fn new(steps: Vec<IndicatorStep>) -> Self {
@@ -388,7 +399,7 @@ impl View for StepIndicator {
         let current = self.steps.iter().position(|s| s.state == StepState::Current).map_or(0, |i| i + 1);
         cx.semantics(
             node,
-            Semantics::new(Role::List).name((labels.wizard_progress)(current, self.steps.len())),
+            Semantics::new(Role::List).name(labels.wizard_progress(current, self.steps.len())),
         );
         node
     }
@@ -464,7 +475,7 @@ impl View for Wizard {
             &marks,
             Paint::None,
         );
-        cx.semantics(header, Semantics::new(Role::List).name((labels.wizard_progress)(current + 1, count)));
+        cx.semantics(header, Semantics::new(Role::List).name(labels.wizard_progress(current + 1, count)));
         let step = &self.steps[current];
         let mut body = Vec::new();
         if let Some(message) = error.get() {

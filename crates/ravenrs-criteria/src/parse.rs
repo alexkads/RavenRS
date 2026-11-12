@@ -179,6 +179,70 @@ fn lex(src: &str, base: usize) -> Result<Vec<(Tok, usize)>, ParseError> {
     }
 }
 
+/// Splits `field = expression; ...` into its fields and parsed expressions. A field is a name or
+/// `[name]`; `;` and `=` inside quotes or brackets belong to the expression.
+pub(crate) fn parse_assignments(source: &str) -> Result<Vec<(String, Criteria)>, ParseError> {
+    let mut found = Vec::new();
+    let mut start = 0;
+    for end in top_level(source, b';').into_iter().chain([source.len()]) {
+        let piece = &source[start..end];
+        if !piece.trim().is_empty() {
+            let at = |offset: usize| start + offset;
+            let Some(&equals) = top_level(piece, b'=').first() else {
+                let first = piece.len() - piece.trim_start().len();
+                return Err(ParseError {
+                    message: "expected `field = expression`".into(),
+                    offset: at(first),
+                });
+            };
+            let name = piece[..equals].trim();
+            let name = name.strip_prefix('[').and_then(|n| n.strip_suffix(']')).unwrap_or(name).trim();
+            let simple = name.starts_with(|c: char| c.is_alphabetic() || c == '_')
+                && name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '.');
+            if !simple {
+                let first = piece.len() - piece.trim_start().len();
+                return Err(ParseError {
+                    message: "expected the name of a field before `=`".into(),
+                    offset: at(first),
+                });
+            }
+            let text = &piece[equals + 1..];
+            let expression =
+                parse(text).map_err(|e| ParseError { offset: at(equals + 1 + e.offset), ..e })?;
+            found.push((name.to_owned(), expression));
+        }
+        start = end + 1;
+    }
+    Ok(found)
+}
+
+/// Where `wanted` stands outside quotes and brackets; an `=` next to `<`, `>`, `!` or `=` is part
+/// of an operator.
+fn top_level(source: &str, wanted: u8) -> Vec<usize> {
+    let bytes = source.as_bytes();
+    let (mut quoted, mut brackets, mut found) = (false, 0usize, Vec::new());
+    for (i, &byte) in bytes.iter().enumerate() {
+        match byte {
+            b'\'' => quoted = !quoted,
+            _ if quoted => {}
+            b'[' => brackets += 1,
+            b']' => brackets = brackets.saturating_sub(1),
+            _ if brackets > 0 => {}
+            b'=' if wanted == b'=' => {
+                let before = i.checked_sub(1).map(|j| bytes[j]);
+                let after = bytes.get(i + 1).copied();
+                let operator = matches!(before, Some(b'<' | b'>' | b'!' | b'=')) || after == Some(b'=');
+                if !operator {
+                    found.push(i);
+                }
+            }
+            _ if byte == wanted => found.push(i),
+            _ => {}
+        }
+    }
+    found
+}
+
 struct Parser {
     toks: Vec<(Tok, usize)>,
     i: usize,
@@ -187,12 +251,13 @@ struct Parser {
 
 /// Parses an expression.
 pub fn parse(source: &str) -> Result<Criteria, ParseError> {
-    parse_at(source, 0)
+    parse_at(source, 0, 0)
 }
 
-fn parse_at(source: &str, base: usize) -> Result<Criteria, ParseError> {
+/// `depth` is how deep it already is, so a condition inside a field does not start counting over.
+fn parse_at(source: &str, base: usize, depth: u32) -> Result<Criteria, ParseError> {
     let toks = lex(source, base)?;
-    let mut p = Parser { toks, i: 0, depth: 0 };
+    let mut p = Parser { toks, i: 0, depth };
     let node = p.or()?;
     match p.peek() {
         Tok::End => Ok(node),
@@ -260,6 +325,13 @@ impl Parser {
         } else {
             Err(self.err(format!("expected {}, found {}", describe(t), describe(self.peek()))))
         }
+    }
+
+    fn nested(&mut self, source: &str, at: usize) -> Result<Criteria, ParseError> {
+        self.enter()?;
+        let parsed = parse_at(source, at, self.depth);
+        self.depth -= 1;
+        parsed
     }
 
     fn enter(&mut self) -> Result<(), ParseError> {
@@ -364,9 +436,11 @@ impl Parser {
             } else if self.is_word("between") {
                 self.bump();
                 self.expect(&Tok::LParen)?;
+                self.enter()?;
                 let lo = self.or()?;
                 self.expect(&Tok::Comma)?;
                 let hi = self.or()?;
+                self.depth -= 1;
                 self.expect(&Tok::RParen)?;
                 left = wrap(Criteria::Between(Box::new(left), Box::new(lo), Box::new(hi)));
             } else if self.is_word("is") {
@@ -489,7 +563,7 @@ impl Parser {
         // `[Items][].Sum(...)` or `[Items][[Qty] > 0].Sum(...)`: an aggregate over a collection.
         if let Tok::Field(inner, inner_at) = self.peek().clone() {
             self.bump();
-            let condition = if inner.trim().is_empty() { None } else { Some(parse_at(&inner, inner_at)?) };
+            let condition = if inner.trim().is_empty() { None } else { Some(self.nested(&inner, inner_at)?) };
             self.expect(&Tok::Dot)?;
             let fat = self.offset();
             let Tok::Ident(f) = self.bump() else {

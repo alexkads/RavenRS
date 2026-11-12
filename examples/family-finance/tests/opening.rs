@@ -86,6 +86,13 @@ fn the_splash_comes_first_and_gives_way_to_the_app() {
     ui.update();
     assert!(!has_splash(&mut ui), "gone once its time is up");
     assert!(says(&mut ui, "Lançamentos"), "the app, under what covered it");
+    // The dashboard's charts draw their data in, for about a second.
+    let mut time = 3.0;
+    while time < 5.0 {
+        time += 1.0 / 30.0;
+        ui.set_time(time);
+        ui.update();
+    }
     assert!(ui.next_wake().is_none(), "an idle window stays asleep, got {:?}", ui.next_wake());
 }
 

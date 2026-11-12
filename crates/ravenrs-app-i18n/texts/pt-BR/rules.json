@@ -1,0 +1,12 @@
+{
+ "rules.comparison": "{0} não está como deveria",
+ "rules.duplicate": "Já existe um registro com este valor em {0}",
+ "rules.invalid": "{0} não é válido",
+ "rules.must_be_true": "{0} precisa ser marcado",
+ "rules.none_exists": "Um registro necessário não existe",
+ "rules.not_referenced": "Nada aponta para este registro ainda",
+ "rules.record": "Este registro não é válido",
+ "rules.required": "{0} é obrigatório",
+ "rules.too_high": "{0} não pode ser maior que {1}",
+ "rules.too_low": "{0} não pode ser menor que {1}"
+}

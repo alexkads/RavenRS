@@ -1,23 +1,22 @@
 {
-  "versao": "0.1.32",
-  "titulo": "Telegram por áudio e atualização que explica o que deu errado.",
+  "versao": "0.1.38",
+  "titulo": "Painel do seu jeito, por conta, e bot do Telegram firme em rede ruim.",
   "importante": false,
   "novidades": [
-    "No Telegram, responda ao comprovante falando ou escrevendo, e diga quem gastou: \"despesa de mercado, quem gastou foi a Ana\".",
-    "Antes de lançar, o bot mostra o que vai gravar com os botões Confirmar, Corrigir e Cancelar.",
-    "Para entender áudios, baixe um modelo em Ajustes, no cartão Telegram. Ele roda só neste computador.",
-    "Se uma atualização não der certo, Ver detalhes mostra o motivo inteiro e o fim do registro do instalador, para copiar ou tentar de novo.",
-    "Em Lançamentos, o painel do filtro ganhou Editar filtro, com é um de e não é nenhum de.",
-    "Os ícones ficaram centralizados, como o check da caixa de marcação.",
-    "As novidades agora mostram quem contribuiu e as issues resolvidas em cada versão."
+    "No Painel, cada card muda de lugar e de tamanho, pelo mouse ou pelo teclado. O arranjo fica guardado, e o botão Restaurar layout volta ao original.",
+    "O Painel mostra uma conta só ou todas: o saldo, o gráfico, as receitas, as despesas e as categorias seguem a conta escolhida, que fica guardada para a próxima vez.",
+    "O bot do Telegram não responde duas vezes depois de uma queda de rede, e um botão já usado avisa no próprio botão, sem encher o chat.",
+    "Os botões do bot respondem mais rápido, e as respostas ficaram mais claras: ✅ Lançado, ❌ Cancelado e ↩️ Desfeito.",
+    "Um comprovante em PDF com mais de um valor mostra os valores como botões para você escolher o total."
   ],
-  "por_que_atualizar": "Para lançar comprovantes pelo Telegram falando, confirmar antes de gravar e entender uma atualização que falhe.",
+  "por_que_atualizar": "Para arrumar o Painel como prefere, ver cada conta separada e lançar pelo Telegram sem respostas repetidas, mesmo com a internet ruim.",
   "contribuidores": [
     "Matheus Braga de Carvalho",
     "Alex S S Fonseca"
   ],
   "issues": [
-    4,
-    6
+    199,
+    200,
+    201
   ]
 }

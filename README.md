@@ -6,7 +6,7 @@
 
 The whole toolkit for serious applications, free and open source: 100+ components, a data grid for 100,000+ rows, a reporting suite with a server, `ravenrs-app`, which turns a Rust struct into a working application, training films that ship inside your app, and AI that stays on the machine. One codebase, drawn on the GPU, on Windows, macOS, Linux and the web.
 
-[**Try the live gallery**](https://alexkads.github.io/RavenRS/demo/) · [Report designer](https://alexkads.github.io/RavenRS/designer/) · [Install a real app](#install-a-real-app) · [An app from two structs](https://alexkads.github.io/RavenRS/quick/) · [Getting started](https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md) · [Components](https://alexkads.github.io/RavenRS/components/) · [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/)
+[**Try the live gallery**](https://alexkads.github.io/RavenRS/demo/) · [Playground](https://alexkads.github.io/RavenRS/playground/) · [Report designer](https://alexkads.github.io/RavenRS/designer/) · [Install a real app](#install-a-real-app) · [An app from two structs](https://alexkads.github.io/RavenRS/quick/) · [Getting started](https://github.com/alexkads/RavenRS/blob/master/docs/GETTING_STARTED.md) · [Components](https://alexkads.github.io/RavenRS/components/) · [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/)
 
 ![License: MIT or Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-4c66ee)
 ![Rust 1.88+](https://img.shields.io/badge/rust-1.88%2B-4c66ee)
@@ -199,14 +199,14 @@ See [docs/REPORTING.md](https://github.com/alexkads/RavenRS/blob/master/docs/REP
 | Group | Components |
 |---|---|
 | Buttons and commands | `Button` (4 styles, 3 sizes, icons, loading, selected), `IconButton`, `ToggleButton`, `ToggleGroup`, `ButtonGroup`, `SplitButton`, `SegmentedControl`, `Toolbar`, `FloatingToolbar`, `ThemePicker`, `ThemeEditor`, `ThemeSwitcher` |
-| Text and choices | `TextField`, `TextArea`, `NumberField`, `MaskedField`, `InputOtp`, `Select`, `Combobox`, `LookupField`, `TagBox`, `Checkbox`, `RadioGroup`, `Toggle`, `Slider`, `ValueSlider`, `InlineRename`, `Stepper`, `Rating`, `FavoriteToggle`, `ColorPicker`, `ColorSwatch`, `SwatchGrid`, `ColorPair`, `NinePointAnchor`, `FileUpload`, `DropZone`, `ImageField` |
+| Text and choices | `TextField`, `TextArea`, `CodeEditor`, `Playground`, `NumberField`, `MaskedField`, `InputOtp`, `Select`, `Combobox`, `LookupField`, `TagBox`, `Checkbox`, `RadioGroup`, `Toggle`, `Slider`, `ValueSlider`, `InlineRename`, `Stepper`, `Rating`, `FavoriteToggle`, `ColorPicker`, `ColorSwatch`, `SwatchGrid`, `ColorPair`, `NinePointAnchor`, `FileUpload`, `DropZone`, `ImageField` |
 | Forms | `FormField` with `validate::{required, email, min_length}` and custom rules, `FormLayout`, `FilterBuilder`, `Wizard`, `StepIndicator`, `StepBadge`, `Label`, `HelpTip` |
 | Dates and scheduling | `Calendar`, `DatePicker`, `DateRangePicker`, `TimePicker`, `DateTimePicker`, `YearView`, `EventCalendar`, `Scheduler` (a timeline per resource), `RecurrenceEditor`, `Timeline` |
 | Navigation | `Ribbon`, `Menubar`, `Tabs`, `DocumentTabs`, `Sidebar`, `SidebarBrand`, `Breadcrumb`, `Pagination`, `Disclosure`, `Collapse`, `Accordion`, `CommandPalette` (⌘K) |
 | Overlays | `Dialog`, `ConfirmDialog`, `Sheet`, `FloatingPanel`, `SplashScreen`, `Popover`, `HoverCard`, `Tooltip`, `DropdownMenu`, `ContextMenu`, `Toaster` |
 | Data | `DataGrid`, `TreeView`, `CardView`, `Table`, `List`, `VirtualList`, `SortableList`, `FileBrowser`, `Stat`, `Barcode` (QR Code and linear codes) |
-| Charts | `Chart` (line, area, bar, pie, doughnut, radar, radial, scatter, sparkline, candlestick), `ChartCard`, `ChartReference`, `SankeyChart`, `BarChart`, `AreaChart`: all 70 patterns of the shadcn/ui chart catalog are in the gallery |
-| Layout | `TileLayout`, `VStack`, `HStack`, `Grid`, `ScrollView`, `ScrollEdgeArrow`, `Splitter`, `SplitPanes`, `SplitHandle`, `DockArea`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `ZStack`, `PropertyRow`, `PageHeader`, `Spacer`, `Footer`, `StatusBar`, `TitleBar`, `ToolRail`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
+| Charts | `Chart` (line, area, bar, pie, doughnut, radar, radial, scatter, sparkline, candlestick), `ChartCard`, `ChartReference`, `SankeyChart`, `FlowCanvas` (nodes and connections), `BarChart`, `AreaChart`: all 70 patterns of the shadcn/ui chart catalog are in the gallery |
+| Layout | `TileLayout`, `VStack`, `HStack`, `Grid`, `ScrollView`, `Sticky`, `ScrollScene`, `ScrollLinked`, `Anchor`, `Ticker`, `Link`, `QuadField`, `ScrollEdgeArrow`, `Splitter`, `SplitPanes`, `SplitHandle`, `DockArea`, `Card`, `GlassCard`, `Section`, `AspectRatio`, `ZStack`, `PropertyRow`, `PageHeader`, `Spacer`, `Footer`, `StatusBar`, `TitleBar`, `ToolRail`, `responsive`, and `.padding()`, `.background()`, `.frame()`, `.grow()` on any view |
 | Media and feedback | `Image` (PNG/JPEG), `Icon` (200 Lucide icons), `Filmstrip`, `PagedDocumentView`, `ImageLightbox`, `CompareView`, `Eyedropper`, `CropOverlay`, `Protractor`, `TransformHandles`, `Marquee`, `RubberBand`, `RuleOfThirdsGrid`, `Minimap`, `ZoomPanView`, `ZoomControl`, `CurveEditor`, `ColorWheel`, `Ruler`, `Histogram`, `Carousel`, `Avatar`, `Badge`, `Dot`, `OverlayBadge`, `IconTile`, `EmptyState`, `Alert`, `HeroBanner`, `ProgressBar`, `MultiProgress`, `ShimmerText`, `Spinner`, `Skeleton`, `Kbd`, `ShortcutSheet`, `ShortcutHintBar`, `Divider`, `DaySeparator`, `Canvas`, `CodeBlock`, `ReleaseNotes`, `Lottie` |
 | Assistants | `Chat`, `RichText`, `AttachmentStrip`, `AudioPlayerButton`, `SelectionBar`, `ModelPicker` |
 | Training and support (`ravenrs::movie`) | `Recorder`, `MoviePlayer`, `MovieAssistant`, `MovieChat`, `MovieEditor`, `FlightRecorder`, `BugReporter` |
@@ -236,6 +236,29 @@ impl Component for Counter {
 
 Need full control? Implement `View` and use `BuildCx`: layout boxes, any drawing through `Paint::Custom`, per-instance state with `cx.use_state`, floating layers with `cx.overlay`, virtualized scrolling, timers with `cx.wake_at`, and input through `on_click`, `on_key`, `on_drag`, `on_context_menu` and `shortcut`. Every built-in component is written this way.
 
+## Getting started
+
+```bash
+npx create-ravenrs minha-loja
+```
+
+The guided setup prepares Rust and the matching CLI, then creates an app with the RavenRS
+MCP server, skill and instructions for coding assistants. Choose `hello`, `app`, `app-sqlite`
+or `relatorios`, and desktop, web or both. Use `--yes` for noninteractive setup. Existing
+installations are reused and system packages are reported with manual instructions.
+See [create-ravenrs](npm/create-ravenrs/README.md).
+
+If Rust is already installed:
+
+```sh
+cargo install --git https://github.com/alexkads/RavenRS --locked cargo-ravenrs
+cargo ravenrs new minha-loja
+```
+
+Use `--tag vYY.R.P` when installing to match a particular release.
+See [the CLI guide](crates/cargo-ravenrs/README.md).
+
+
 ## Run the examples
 
 Requirements: Rust stable 1.88+. For the browser: the `wasm32-unknown-unknown` target and `wasm-bindgen-cli` **0.2.130** (it must match the crate version).
@@ -256,7 +279,7 @@ cargo install wasm-bindgen-cli --version 0.2.130 --locked
 ./scripts/build-web.sh component-gallery && python3 -m http.server -d examples/component-gallery/web 8080
 ```
 
-Then open http://localhost:8080 in a browser with WebGPU (Chrome, Edge, Safari 18+, or Firefox with WebGPU enabled). Without WebGPU, the page explains what is missing.
+Then open http://localhost:8080 in a current browser. RavenRS draws with WebGPU where the browser has it and with WebGL2 otherwise, so it also opens on phones and browsers without WebGPU; `WebOptions::backend` can ask for one of them.
 
 ## Quality you can check
 
@@ -275,21 +298,16 @@ RavenRS ships a skill and an MCP server so coding assistants write against the r
 - The **skill** teaches how to compose screens, use tokens instead of literal values, meet the [quality bar](https://github.com/alexkads/RavenRS/blob/master/docs/QUALITY.md) and build for the web.
 - The **MCP server** ([`ravenrs-mcp`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp)) is read-only and works offline. It lists components, shows their API and real examples, looks up design tokens, reports parity status and validates expressions.
 
-Install the server, then add the Claude Code plugin, which brings both:
+`cargo ravenrs new` registers `cargo ravenrs mcp` for Claude Code, VS Code / Copilot,
+Cursor and Codex, copies the version-matched skill, and writes project instructions.
+For an existing app, run `cargo ravenrs ai`, then `cargo ravenrs doctor` to verify it.
+Use `--plugin` to select the versioned Claude marketplace plugin instead of the local skill.
+
+Whoever writes the code, a person or any agent, [`ravenrs-lint`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lint) holds it to the same rules: it denies literal colors and sizes, spacing off the grid, unnamed icon buttons and state or blocking work in `body`, and `cargo ravenrs-lint --init` turns rustc and Clippy to their strictest and writes the rules into `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` and Copilot's instructions.
 
 ```bash
-cargo install --git https://github.com/alexkads/RavenRS --locked ravenrs-mcp
+cargo install ravenrs-lint --locked && cargo ravenrs-lint --init
 ```
-
-```bash
-claude plugin marketplace add alexkads/RavenRS
-```
-
-```bash
-claude plugin install ravenrs@ravenrs
-```
-
-For other MCP clients, configure the command `ravenrs-mcp` over stdio. The skill is a plain file: [`plugins/ravenrs/skills/ravenrs/SKILL.md`](https://github.com/alexkads/RavenRS/blob/master/plugins/ravenrs/skills/ravenrs/SKILL.md).
 
 ## Crates
 
@@ -301,8 +319,10 @@ Start with `ravenrs`. The others come in as you need them.
 | [`ravenrs-report`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report), [`-viewer`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report-viewer), [`-designer`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report-designer) | The report engine, the document viewer and the designer. |
 | [`ravenrs-report-export`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report-export), [`-pdf`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report-pdf), [`-xlsx`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report-xlsx) | Reports as files. |
 | [`ravenrs-report-server`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report-server) | Layouts, rendering over HTTP and scheduled delivery. |
+| [`ravenrs-spreadsheet`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-spreadsheet), [`ravenrs-sheet`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-sheet) | A spreadsheet component and its engine: formulas, recalculation, `.xlsx` in and out. |
 | [`ravenrs-grid-export`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-grid-export) | What a `DataGrid` shows, as Excel, PDF or CSV. |
 | [`ravenrs-app`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app), [`-derive`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-derive), [`-ui`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui) | The application framework: model, attributes and generated screens. |
+| [`ravenrs-app-i18n`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-i18n) | Languages and words of the screens and components, by key, with English to fall back on. |
 | [`ravenrs-app-sqlite`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-sqlite), [`-report`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-report), [`-library`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-library) | Storage, reports inside an application, and ready-made records. |
 | [`ravenrs-ai`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-ai) | Local models and voice. |
 | [`ravenrs-movie`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-movie) | Vector training films and bug reports. |
@@ -318,9 +338,10 @@ Start with `ravenrs`. The others come in as you need them.
 | [`ravenrs-render`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-render) | The `wgpu` renderer: SDF shapes, shadows, gradients, images, glyph atlas, clipping. |
 | [`ravenrs-core`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-core) | Geometry, colors, input events and the `Scene` display list. |
 | [`ravenrs-platform-native`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-native) | Desktop windows with [winit](https://github.com/rust-windowing/winit). |
-| [`ravenrs-platform-web`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-web) | `<canvas>` + WebGPU in the browser. |
+| [`ravenrs-platform-web`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-platform-web) | `<canvas>` + WebGPU or WebGL2 in the browser. |
 | [`ravenrs-wayland-gestures`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-wayland-gestures) | Touchpad pinches on Wayland. |
 | [`ravenrs-mcp`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp) | A read-only MCP server for coding assistants. A tool, not a dependency of your app. |
+| [`ravenrs-lint`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lint) | Lints for applications: theme tokens, the 4px grid, named controls, no state or blocking work in `body`. A dev-dependency and `cargo ravenrs-lint`. |
 
 ## Roadmap
 

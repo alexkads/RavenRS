@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "trailingSlash": true,
+  "rewrites": [
+    { "source": "/api/:path*/", "destination": "/reference/:path*/index.html" },
+    { "source": "/api/:path*", "destination": "/reference/:path*" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)\\.wasm",
+      "headers": [{ "key": "Content-Type", "value": "application/wasm" }]
+    }
+  ]
+}

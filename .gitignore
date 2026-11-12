@@ -2,3 +2,5 @@
 **/web/pkg/
 .DS_Store
 /target-*/
+
+**/node_modules/

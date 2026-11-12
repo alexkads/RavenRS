@@ -1,7 +1,11 @@
 {
   "mcpServers": {
     "ravenrs": {
-      "command": "ravenrs-mcp"
+      "command": "cargo",
+      "args": [
+        "ravenrs",
+        "mcp"
+      ]
     }
   }
 }

@@ -1,0 +1,13 @@
+{
+ "report.broken_layout": "O layout deste relatório não pode ser lido:",
+ "report.close": "Fechar",
+ "report.design": "Desenhar",
+ "report.none_for_list": "Ainda não há relatório para esta lista.",
+ "report.open_panel": "Abrir painel",
+ "report.pick_report": "Qual relatório?",
+ "report.save": "Salvar",
+ "report.saved": "Relatório salvo.",
+ "report.show": "Visualizar",
+ "report.show_in_report": "Mostrar em relatório",
+ "report.unknown_entity": "Este relatório é sobre uma entidade que não existe:"
+}

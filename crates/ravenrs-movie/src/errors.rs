@@ -25,8 +25,10 @@ const KEPT: usize = 30;
 /// assert_eq!(errors.lines(), ["could not save code=7"]);
 /// ```
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RecentErrors(Arc<Mutex<VecDeque<String>>>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RecentErrors {
     /// What it has, oldest first, with the person's home folder written as `~`, so
     /// that a path does not say whose computer this is.

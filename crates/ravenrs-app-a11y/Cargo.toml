@@ -1,0 +1,25 @@
+[package]
+name = "ravenrs-app-a11y"
+description = "Accessibility of a RavenRS business application: accessible names from the model, announcements, and an audit that walks a generated app."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-a11y"
+keywords = ["accessibility", "a11y", "screen-reader", "application", "gui"]
+categories = ["gui", "accessibility"]
+
+[dependencies]
+ravenrs-app.workspace = true
+ravenrs-core.workspace = true
+ravenrs-layout.workspace = true
+ravenrs-reactive.workspace = true
+ravenrs-style.workspace = true
+ravenrs-widgets.workspace = true
+
+[lints]
+workspace = true

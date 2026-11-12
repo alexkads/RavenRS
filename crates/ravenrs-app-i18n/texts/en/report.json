@@ -1,0 +1,13 @@
+{
+ "report.broken_layout": "This report's layout cannot be read:",
+ "report.close": "Close",
+ "report.design": "Design",
+ "report.none_for_list": "There is no report for this list yet.",
+ "report.open_panel": "Open panel",
+ "report.pick_report": "Which report?",
+ "report.save": "Save",
+ "report.saved": "Report saved.",
+ "report.show": "Show",
+ "report.show_in_report": "Show in report",
+ "report.unknown_entity": "This report is about an entity that does not exist:"
+}

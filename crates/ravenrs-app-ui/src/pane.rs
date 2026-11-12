@@ -20,6 +20,7 @@ use crate::{DetailView, ListView, SystemModule};
 /// What a pane says about its records.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PaneWords {
     /// Over the form of a new record.
     pub new_title: String,
@@ -43,6 +44,7 @@ pub struct PaneWords {
     pub delete_answer: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PaneWords {
     /// What a pane says about its records, in Brazilian Portuguese where it does not say otherwise.
     pub fn new(
@@ -54,18 +56,28 @@ impl PaneWords {
         delete_answer: impl Into<String>,
     ) -> Self {
         let answer: String = delete_answer.into();
+        let texts = ravenrs_app_i18n::Texts::new(ravenrs_app_i18n::Language::BrazilianPortuguese);
         Self {
             new_title: new_title.into(),
             edit_title: edit_title.into(),
             add: add.into(),
-            save_changes: "Salvar alterações".into(),
-            cancel: "Cancelar".into(),
-            edit_row: "Alterar".into(),
+            save_changes: String::new(),
+            cancel: String::new(),
+            edit_row: String::new(),
             delete_row: answer.clone(),
             delete_question: delete_question.into(),
             delete_detail: delete_detail.into(),
             delete_answer: answer,
         }
+        .with_texts(&texts)
+    }
+
+    /// The words that are the same for every pane, from a catalog of texts in its language.
+    pub fn with_texts(mut self, texts: &ravenrs_app_i18n::Texts) -> Self {
+        self.save_changes = texts.get("pane.save_changes");
+        self.cancel = texts.get("pane.cancel");
+        self.edit_row = texts.get("pane.edit_row");
+        self
     }
 }
 
@@ -81,6 +93,7 @@ enum Outcome {
 
 /// A list of an entity's records beside a form that adds or changes them, with a button on each
 /// row to open it and one to take it away. It fits inside a screen an application made itself.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EntityPane {
     session: Session,
     entity: EntityInfo,
@@ -100,6 +113,7 @@ impl std::fmt::Debug for EntityPane {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EntityPane {
     /// A pane over this entity. `space` makes a unit of work for each record opened.
     pub fn new<S: ObjectSpace + 'static>(
@@ -260,6 +274,7 @@ struct Handles {
     failed: Option<FailHandler>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Handles {
     fn say(&self, outcome: Outcome) {
         if let Some(told) = &self.told {

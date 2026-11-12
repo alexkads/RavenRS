@@ -10,6 +10,8 @@ use ravenrs_app::{
     ModelNode, ModelStore, Object, ObjectSpace, Query, RuleWords, Severity, Value, ViewInfo, ViewKind,
     Violation, merge_changes, validate,
 };
+use ravenrs_app_a11y::{AccessWords, Announcer};
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_reactive::State;
 use ravenrs_widgets::{ConfirmDialog, Date, FilePicker, ToastExtras, Toaster, Toasts, Tone};
 
@@ -19,6 +21,7 @@ use crate::values::key_text;
 /// The words the generated screens use.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Words {
     /// Creates a record.
     pub new: String,
@@ -86,6 +89,10 @@ pub struct Words {
     pub chart_count: String,
     /// Things to be reminded of.
     pub reminders: String,
+    /// Background work that cannot say what it is doing.
+    pub working: String,
+    /// Background work asked to stop, until it does.
+    pub stopping: String,
     /// Reminds again later.
     pub snooze: String,
     /// Stops reminding.
@@ -124,6 +131,8 @@ pub struct Words {
     pub password_too_short: String,
     /// The current one is not right.
     pub password_wrong_current: String,
+    /// When the new password is the one they already have.
+    pub password_same: String,
     /// It was changed.
     pub password_saved: String,
     /// Keeps the new password.
@@ -158,165 +167,103 @@ pub struct Words {
     pub thousands: char,
     /// Before decimals.
     pub decimal: char,
+    /// How a date shows in lists, such as `dd/MM/yyyy`.
+    pub date_format: String,
+    /// How a date with a time shows in lists, such as `dd/MM/yyyy HH:mm`.
+    pub date_time_format: String,
 }
 
 impl Default for Words {
     fn default() -> Self {
-        Self {
-            new: "New".into(),
-            delete: "Delete".into(),
-            save: "Save".into(),
-            save_and_close: "Save and close".into(),
-            save_and_new: "Save and new".into(),
-            cancel: "Cancel".into(),
-            previous: "Previous".into(),
-            next: "Next".into(),
-            refresh: "Refresh".into(),
-            back: "Back".into(),
-            delete_question: "Delete?".into(),
-            delete_detail: "This cannot be undone.".into(),
-            discard_question: "Discard the changes?".into(),
-            discard_detail: "What you changed here was not saved.".into(),
-            discard: "Discard".into(),
-            new_record: "New".into(),
-            variant: "View".into(),
-            link: "Link".into(),
-            unlink: "Unlink".into(),
-            save_first: "Save this record to add to this list.".into(),
-            filter: "Filter".into(),
-            clone: "Clone".into(),
-            clone_unsaved: "Save the changes before cloning.".into(),
-            save_file: "Save file".into(),
-            warning_question: "Save anyway?".into(),
-            warning_answer: "Save anyway".into(),
-            conflict_question: "Someone else changed this record".into(),
-            conflict_detail: "They changed {0} too. Saving keeps your value there, and their other changes."
-                .into(),
-            conflict_answer: "Keep mine".into(),
-            list_editor_needs: "This view needs a field that fits:".into(),
-            no_resource: "No resource".into(),
-            chart_count: "Records".into(),
-            reminders: "Reminders".into(),
-            snooze: "In 15 minutes".into(),
-            dismiss: "Dismiss".into(),
-            open: "Open".into(),
-            yes: "Yes".into(),
-            no: "No".into(),
-            access_denied: "You are not allowed to do this.".into(),
-            protected_value: "Protected".into(),
-            sign_in: "Sign in".into(),
-            sign_out: "Sign out".into(),
-            sign_in_failed:
-                "The name or the password is not right, or the account is waiting after too many attempts."
-                    .into(),
-            user_name: "Name".into(),
-            password: "Password".into(),
-            current_password: "Current password".into(),
-            new_password: "New password".into(),
-            repeat_password: "Repeat the password".into(),
-            sign_in_unavailable: "Signing in is not available right now. Try again.".into(),
-            passwords_differ: "The two passwords are not the same.".into(),
-            password_too_short: "A password has at least 8 characters.".into(),
-            password_wrong_current: "The current password is not right.".into(),
-            password_saved: "Password changed.".into(),
-            save_password: "Save password".into(),
-            change_password: "Change password".into(),
-            set_password: "Set password".into(),
-            must_change_password: "This password was given to you. Choose your own to go on.".into(),
-            first_user: "Nobody can sign in yet. This creates the administrator.".into(),
-            create_user: "Create administrator".into(),
-            model_editor: "Application model".into(),
-            search_model: "Search the model".into(),
-            pick_model_node: "Pick a node to see its settings.".into(),
-            apply: "Apply".into(),
-            restore_model: "Restore all".into(),
-            record_gone: "Someone else deleted this record.".into(),
-            rules: RuleWords::default(),
-            money_prefix: "$ ".into(),
-            thousands: ',',
-            decimal: '.',
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Words {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            new: texts.get("ui.new"),
+            delete: texts.get("ui.delete"),
+            save: texts.get("ui.save"),
+            save_and_close: texts.get("ui.save_and_close"),
+            save_and_new: texts.get("ui.save_and_new"),
+            cancel: texts.get("ui.cancel"),
+            previous: texts.get("ui.previous"),
+            next: texts.get("ui.next"),
+            refresh: texts.get("ui.refresh"),
+            back: texts.get("ui.back"),
+            delete_question: texts.get("ui.delete_question"),
+            delete_detail: texts.get("ui.delete_detail"),
+            discard_question: texts.get("ui.discard_question"),
+            discard_detail: texts.get("ui.discard_detail"),
+            discard: texts.get("ui.discard"),
+            new_record: texts.get("ui.new_record"),
+            variant: texts.get("ui.variant"),
+            link: texts.get("ui.link"),
+            unlink: texts.get("ui.unlink"),
+            save_first: texts.get("ui.save_first"),
+            filter: texts.get("ui.filter"),
+            clone: texts.get("ui.clone"),
+            clone_unsaved: texts.get("ui.clone_unsaved"),
+            save_file: texts.get("ui.save_file"),
+            warning_question: texts.get("ui.warning_question"),
+            warning_answer: texts.get("ui.warning_answer"),
+            conflict_question: texts.get("ui.conflict_question"),
+            conflict_detail: texts.get("ui.conflict_detail"),
+            conflict_answer: texts.get("ui.conflict_answer"),
+            list_editor_needs: texts.get("ui.list_editor_needs"),
+            no_resource: texts.get("ui.no_resource"),
+            chart_count: texts.get("ui.chart_count"),
+            reminders: texts.get("ui.reminders"),
+            working: texts.get("ui.working"),
+            stopping: texts.get("ui.stopping"),
+            snooze: texts.get("ui.snooze"),
+            dismiss: texts.get("ui.dismiss"),
+            open: texts.get("ui.open"),
+            yes: texts.get("ui.yes"),
+            no: texts.get("ui.no"),
+            access_denied: texts.get("ui.access_denied"),
+            protected_value: texts.get("ui.protected_value"),
+            sign_in: texts.get("ui.sign_in"),
+            sign_out: texts.get("ui.sign_out"),
+            sign_in_failed: texts.get("ui.sign_in_failed"),
+            user_name: texts.get("ui.user_name"),
+            password: texts.get("ui.password"),
+            current_password: texts.get("ui.current_password"),
+            new_password: texts.get("ui.new_password"),
+            repeat_password: texts.get("ui.repeat_password"),
+            sign_in_unavailable: texts.get("ui.sign_in_unavailable"),
+            passwords_differ: texts.get("ui.passwords_differ"),
+            password_too_short: texts.get("ui.password_too_short"),
+            password_same: texts.get("ui.password_same"),
+            password_wrong_current: texts.get("ui.password_wrong_current"),
+            password_saved: texts.get("ui.password_saved"),
+            save_password: texts.get("ui.save_password"),
+            change_password: texts.get("ui.change_password"),
+            set_password: texts.get("ui.set_password"),
+            must_change_password: texts.get("ui.must_change_password"),
+            first_user: texts.get("ui.first_user"),
+            create_user: texts.get("ui.create_user"),
+            model_editor: texts.get("ui.model_editor"),
+            search_model: texts.get("ui.search_model"),
+            pick_model_node: texts.get("ui.pick_model_node"),
+            apply: texts.get("ui.apply"),
+            restore_model: texts.get("ui.restore_model"),
+            record_gone: texts.get("ui.record_gone"),
+            rules: RuleWords::from_texts(texts),
+            money_prefix: texts.get("format.money_prefix"),
+            thousands: texts.char("format.thousands", ','),
+            decimal: texts.char("format.decimal", '.'),
+            date_format: texts.get("format.date"),
+            date_time_format: texts.get("format.date_time"),
+        }
+    }
+
     /// In Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            new: "Novo".into(),
-            delete: "Excluir".into(),
-            save: "Salvar".into(),
-            save_and_close: "Salvar e fechar".into(),
-            save_and_new: "Salvar e novo".into(),
-            cancel: "Cancelar".into(),
-            previous: "Anterior".into(),
-            next: "Próximo".into(),
-            refresh: "Atualizar".into(),
-            back: "Voltar".into(),
-            delete_question: "Excluir?".into(),
-            delete_detail: "Não será possível desfazer.".into(),
-            discard_question: "Descartar as alterações?".into(),
-            discard_detail: "O que você mudou aqui não foi salvo.".into(),
-            discard: "Descartar".into(),
-            new_record: "Novo".into(),
-            variant: "Visão".into(),
-            link: "Vincular".into(),
-            unlink: "Desvincular".into(),
-            save_first: "Salve este registro para acrescentar a esta lista.".into(),
-            filter: "Filtro".into(),
-            clone: "Clonar".into(),
-            clone_unsaved: "Salve as alterações antes de clonar.".into(),
-            save_file: "Salvar arquivo".into(),
-            warning_question: "Salvar assim mesmo?".into(),
-            warning_answer: "Salvar assim mesmo".into(),
-            conflict_question: "Outra pessoa alterou este registro".into(),
-            conflict_detail:
-                "Ela também alterou {0}. Salvar mantém o seu valor ali, e as outras alterações dela.".into(),
-            conflict_answer: "Manter o meu".into(),
-            list_editor_needs: "Esta visão precisa de um campo que sirva:".into(),
-            no_resource: "Sem recurso".into(),
-            chart_count: "Registros".into(),
-            reminders: "Lembretes".into(),
-            snooze: "Em 15 minutos".into(),
-            dismiss: "Dispensar".into(),
-            open: "Abrir".into(),
-            yes: "Sim".into(),
-            no: "Não".into(),
-            access_denied: "Você não tem permissão para fazer isso.".into(),
-            protected_value: "Protegido".into(),
-            sign_in: "Entrar".into(),
-            sign_out: "Sair".into(),
-            sign_in_failed:
-                "O nome ou a senha não conferem, ou a conta está aguardando depois de muitas tentativas."
-                    .into(),
-            user_name: "Nome".into(),
-            password: "Senha".into(),
-            current_password: "Senha atual".into(),
-            new_password: "Nova senha".into(),
-            repeat_password: "Repita a senha".into(),
-            sign_in_unavailable: "Não foi possível entrar agora. Tente de novo.".into(),
-            passwords_differ: "As duas senhas não são iguais.".into(),
-            password_too_short: "A senha precisa ter pelo menos 8 caracteres.".into(),
-            password_wrong_current: "A senha atual não confere.".into(),
-            password_saved: "Senha alterada.".into(),
-            save_password: "Salvar senha".into(),
-            change_password: "Trocar senha".into(),
-            set_password: "Definir senha".into(),
-            must_change_password: "Esta senha foi definida por outra pessoa. Escolha a sua para continuar."
-                .into(),
-            first_user: "Ninguém consegue entrar ainda. Isto cria o administrador.".into(),
-            create_user: "Criar administrador".into(),
-            model_editor: "Modelo da aplicação".into(),
-            search_model: "Buscar no modelo".into(),
-            pick_model_node: "Escolha um nó para ver as configurações.".into(),
-            apply: "Aplicar".into(),
-            restore_model: "Restaurar tudo".into(),
-            record_gone: "Outra pessoa excluiu este registro.".into(),
-            rules: RuleWords::pt_br(),
-            money_prefix: "R$ ".into(),
-            thousands: '.',
-            decimal: ',',
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 
@@ -329,6 +276,7 @@ pub(crate) struct FormState {
     pub fields: BTreeMap<String, State<Value>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FormState {
     fn new(entity: EntityInfo, original: Object, is_new: bool) -> Self {
         let fields = entity
@@ -401,6 +349,8 @@ struct SessionInner {
     toasts: Toasts,
     /// Where entities no storage keeps get their records.
     record_sources: Rc<RefCell<BTreeMap<String, crate::list_view::ListSource>>>,
+    /// What each list on screen shows now, by view, for a report to take the same rows.
+    shown_lists: RefCell<BTreeMap<String, crate::list_view::ShownList>>,
     /// Where lists no storage keeps get theirs, by entity and field.
     collection_sources: Rc<RefCell<BTreeMap<(String, String), CollectionSource>>>,
     /// Where it came from, for going back.
@@ -410,6 +360,7 @@ struct SessionInner {
     on_file: Rc<RefCell<Option<FileHandler>>>,
     on_url: Rc<RefCell<Option<UrlHandler>>>,
     controls: Rc<RefCell<BTreeMap<String, ControlFactory>>>,
+    settings: RefCell<Option<Rc<dyn ravenrs_app::SettingsStore>>>,
     presented: State<Option<Presented>>,
     /// Something that takes the place of the view, as an editor of its own does.
     full: State<Option<ControlFactory>>,
@@ -420,6 +371,7 @@ struct SessionInner {
     lists_field_errors: Cell<bool>,
     list_editors: Rc<RefCell<BTreeMap<String, crate::list_view::ListEditorFactory>>>,
     attachment_store: Rc<RefCell<Option<Rc<dyn AttachmentStore>>>>,
+    texts: Rc<RefCell<Texts>>,
     model_store: Rc<RefCell<Option<Rc<dyn ModelStore>>>>,
     /// What the list of the popup about to open has to meet.
     popup_filter: RefCell<Option<Criteria>>,
@@ -432,6 +384,9 @@ struct SessionInner {
     siblings: RefCell<Vec<Value>>,
     /// Who is signed in and how they leave.
     account: RefCell<Option<Account>>,
+    /// Where screen readers hear what changed, and in which words.
+    announcer: Announcer,
+    access_words: Rc<RefCell<AccessWords>>,
 }
 
 /// Who is signed in, for the window to show.
@@ -444,6 +399,7 @@ pub(crate) struct Account {
 /// What the screens of a running application share: the frame, the current form, and what
 /// has to happen next. A handle.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Session(Rc<SessionInner>);
 
 impl std::fmt::Debug for Session {
@@ -455,6 +411,7 @@ impl std::fmt::Debug for Session {
 /// How a frame finds its session.
 struct SessionLink(std::rc::Weak<SessionInner>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Session {
     pub(crate) fn new(
         application: Application,
@@ -476,6 +433,7 @@ impl Session {
             noting: State::new(false),
             toasts: Toasts::new(),
             record_sources: Rc::default(),
+            shown_lists: RefCell::default(),
             collection_sources: Rc::default(),
             history: State::new(Vec::new()),
             error: State::new(None),
@@ -483,6 +441,7 @@ impl Session {
             on_file: Rc::default(),
             on_url: Rc::default(),
             controls: Rc::default(),
+            settings: RefCell::new(None),
             presented: State::new(None),
             full: State::new(None),
             reminders: State::new((0, false)),
@@ -490,6 +449,7 @@ impl Session {
             lists_field_errors: Cell::new(true),
             list_editors: Rc::default(),
             attachment_store: Rc::default(),
+            texts: Rc::default(),
             model_store: Rc::default(),
             popup_filter: RefCell::default(),
             pending: RefCell::default(),
@@ -497,6 +457,8 @@ impl Session {
             today: Cell::new(today),
             siblings: RefCell::default(),
             account: RefCell::default(),
+            announcer: Announcer::new(),
+            access_words: Rc::default(),
         })
     }
 
@@ -505,6 +467,8 @@ impl Session {
         let inner = Rc::new(inner);
         let frame = inner.frame.clone();
         frame.set_extension(Rc::new(SessionLink(Rc::downgrade(&inner))));
+        // Declared actions say what is wrong in the application's words.
+        frame.set_extension(Rc::new(inner.words.rules.clone()));
         let telling = Rc::downgrade(&inner);
         frame.set_messenger(move |message| {
             if let Some(inner) = telling.upgrade() {
@@ -550,6 +514,7 @@ impl Session {
             noting: State::new(false),
             toasts: parent.toasts.clone(),
             record_sources: parent.record_sources.clone(),
+            shown_lists: RefCell::default(),
             collection_sources: parent.collection_sources.clone(),
             history: State::new(Vec::new()),
             error: State::new(None),
@@ -557,6 +522,7 @@ impl Session {
             on_file: parent.on_file.clone(),
             on_url: parent.on_url.clone(),
             controls: parent.controls.clone(),
+            settings: RefCell::new(parent.settings.borrow().clone()),
             presented: parent.presented.clone(),
             full: parent.full.clone(),
             reminders: parent.reminders.clone(),
@@ -564,6 +530,7 @@ impl Session {
             lists_field_errors: Cell::new(parent.lists_field_errors.get()),
             list_editors: parent.list_editors.clone(),
             attachment_store: parent.attachment_store.clone(),
+            texts: parent.texts.clone(),
             model_store: parent.model_store.clone(),
             popup_filter: RefCell::default(),
             pending: RefCell::default(),
@@ -571,6 +538,8 @@ impl Session {
             today: Cell::new(parent.today.get()),
             siblings: RefCell::default(),
             account: RefCell::default(),
+            announcer: parent.announcer.clone(),
+            access_words: parent.access_words.clone(),
         })
     }
 
@@ -634,6 +603,14 @@ impl Session {
         self.0.collection_sources.borrow_mut().insert((entity.into(), field.into()), Rc::new(source));
     }
 
+    pub(crate) fn keep_shown_list(&self, view: &str, shown: crate::list_view::ShownList) {
+        self.0.shown_lists.borrow_mut().insert(view.to_owned(), shown);
+    }
+
+    pub(crate) fn shown_list(&self, view: &str) -> Option<crate::list_view::ShownList> {
+        self.0.shown_lists.borrow().get(view).cloned()
+    }
+
     pub(crate) fn record_source(&self, entity: &str) -> Option<crate::list_view::ListSource> {
         self.0.record_sources.borrow().get(entity).cloned()
     }
@@ -668,6 +645,14 @@ impl Session {
 
     pub(crate) fn account(&self) -> Option<Account> {
         self.0.account.borrow().clone()
+    }
+
+    pub(crate) fn use_settings(&self, store: Rc<dyn ravenrs_app::SettingsStore>) {
+        *self.0.settings.borrow_mut() = Some(store);
+    }
+
+    pub(crate) fn settings(&self) -> Option<Rc<dyn ravenrs_app::SettingsStore>> {
+        self.0.settings.borrow().clone()
     }
 
     pub(crate) fn use_account(&self, account: Account) {
@@ -1035,6 +1020,17 @@ impl Session {
         &self.0.words
     }
 
+    /// Every text of the application in its language, with what it added over the ones that come
+    /// with the framework, for words of its own by key.
+    pub fn texts(&self) -> Texts {
+        self.0.texts.borrow().clone()
+    }
+
+    /// The texts [`texts`](Self::texts) gives, for this session and the ones inside it.
+    pub fn use_texts(&self, texts: Texts) {
+        *self.0.texts.borrow_mut() = texts;
+    }
+
     pub(crate) fn editors(&self) -> &EditorRegistry {
         &self.0.editors
     }
@@ -1083,6 +1079,31 @@ impl Session {
     /// An entity by name.
     pub fn entity(&self, name: &str) -> Option<EntityInfo> {
         self.0.application.borrow().entities().iter().find(|e| e.name == name).cloned()
+    }
+
+    /// Where screen readers hear what changed: saving, deleting, the screen that opened. Its
+    /// region is in the window; an application says more with it.
+    pub fn announcer(&self) -> &Announcer {
+        &self.0.announcer
+    }
+
+    /// The words of what screen readers hear, from the language of the application unless given.
+    pub fn set_access_words(&self, words: AccessWords) {
+        *self.0.access_words.borrow_mut() = words;
+    }
+
+    /// The words of what screen readers hear.
+    pub fn access_words(&self) -> AccessWords {
+        self.0.access_words.borrow().clone()
+    }
+
+    /// What names a record when it is announced: its default property, or what its entity is called.
+    fn spoken_name(entity: &EntityInfo, object: &Object) -> String {
+        entity
+            .default_property()
+            .map(|field| crate::values::display(field, &object.get(&field.name)))
+            .filter(|name| !name.trim().is_empty())
+            .unwrap_or_else(|| entity.caption.clone())
     }
 
     /// Goes up whenever records may have changed; reading it builds again when they do.
@@ -1238,6 +1259,9 @@ impl Session {
             Ok(view) => {
                 self.0.form.set(None);
                 self.0.history.set(vec![id.to_owned()]);
+                if let Some(title) = model.at(&["Views", id]).and_then(|node| node.text("Caption")) {
+                    self.0.announcer.polite(self.access_words().showing(title));
+                }
                 self.show(view);
                 self.touch();
             }
@@ -1365,7 +1389,9 @@ impl Session {
         if !errors.is_empty() {
             self.0.error.set(None);
             self.0.checking.set(true);
-            return Err(errors.join("; "));
+            let why = errors.join("; ");
+            self.0.announcer.assertive(self.access_words().not_saved(&why));
+            return Err(why);
         }
         self.0.checking.set(false);
         let then: Rc<dyn Fn(&Self)> = Rc::new(then);
@@ -1460,6 +1486,7 @@ impl Session {
         match done {
             Ok(()) => {
                 self.0.error.set(None);
+                self.0.announcer.polite(self.access_words().saved(&Self::spoken_name(&form.entity, &object)));
                 let saved = form.entity.key_field().map(|f| object.get(&f.name));
                 self.touch();
                 if let Some(key) = saved {
@@ -1552,6 +1579,7 @@ impl Session {
         };
         match done {
             Ok(()) => {
+                self.0.announcer.polite(self.access_words().deleted(objects.len()));
                 self.touch();
                 let leaving_form = self.0.form.peek().is_some();
                 if leaving_form {
@@ -1646,6 +1674,11 @@ impl Session {
     /// An action changed records: what is selected reads again, so actions go by what they are now,
     /// and a form with nothing typed in shows what they are now. What someone typed stays, and
     /// saving puts it together with what changed.
+    /// Background work changed records, or ended: what shows records and actions reads again.
+    pub(crate) fn after_background_work(&self) {
+        self.reread_after_action();
+    }
+
     fn reread_after_action(&self) {
         let frame = &self.0.frame;
         let fresh: Vec<Object> = frame

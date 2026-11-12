@@ -3,6 +3,7 @@
 use std::fmt;
 use std::rc::Rc;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_layout::Align;
 use ravenrs_style::{Semantic, TextStyle};
 
@@ -15,6 +16,7 @@ use crate::{
 /// Where a [`ModelChoice`] stands.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ModelStatus {
     /// It can be downloaded.
     Available,
@@ -28,6 +30,7 @@ pub enum ModelStatus {
 
 /// A model offered by a [`ModelPicker`].
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelChoice {
     /// Its name.
     pub name: String,
@@ -46,6 +49,7 @@ pub struct ModelChoice {
 /// The words a [`ModelPicker`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelPickerLabels {
     /// Downloads a model.
     pub download: String,
@@ -73,38 +77,32 @@ pub struct ModelPickerLabels {
 
 impl Default for ModelPickerLabels {
     fn default() -> Self {
-        Self {
-            download: "Download".into(),
-            cancel: "Cancel".into(),
-            test: "Test speed".into(),
-            testing: "Testing…".into(),
-            use_it: "Use".into(),
-            stop_using: "Stop using".into(),
-            in_use: "In use".into(),
-            remove: "Remove".into(),
-            nothing_fits: "No model fits this machine.".into(),
-            model: "Model".into(),
-            downloaded: "Downloaded".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModelPickerLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            download: texts.get("widgets.model_picker.download"),
+            cancel: texts.get("widgets.model_picker.cancel"),
+            test: texts.get("widgets.model_picker.test"),
+            testing: texts.get("widgets.model_picker.testing"),
+            use_it: texts.get("widgets.model_picker.use_it"),
+            stop_using: texts.get("widgets.model_picker.stop_using"),
+            in_use: texts.get("widgets.model_picker.in_use"),
+            remove: texts.get("widgets.model_picker.remove"),
+            nothing_fits: texts.get("widgets.model_picker.nothing_fits"),
+            model: texts.get("widgets.model_picker.model"),
+            downloaded: texts.get("widgets.model_picker.downloaded"),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            download: "Baixar".into(),
-            cancel: "Cancelar".into(),
-            test: "Testar velocidade".into(),
-            testing: "Testando…".into(),
-            use_it: "Usar".into(),
-            stop_using: "Deixar de usar".into(),
-            in_use: "Em uso".into(),
-            remove: "Remover".into(),
-            nothing_fits: "Nenhum modelo cabe nesta máquina.".into(),
-            model: "Modelo".into(),
-            downloaded: "Baixado".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 
@@ -127,6 +125,7 @@ type OnChoice = Rc<dyn Fn(usize)>;
 /// }])
 /// .on_download(|index| println!("download {index}"));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelPicker {
     choices: Vec<ModelChoice>,
     labels: ModelPickerLabels,
@@ -143,6 +142,7 @@ impl fmt::Debug for ModelPicker {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModelPicker {
     /// A list of these models.
     pub fn new(choices: Vec<ModelChoice>) -> Self {
@@ -269,6 +269,7 @@ impl ModelPicker {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl ModelPicker {
     /// How a model reads in the list: its name and where it stands.
     fn option(&self, choice: &ModelChoice) -> String {

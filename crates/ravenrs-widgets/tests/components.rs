@@ -468,7 +468,7 @@ mod from_the_family_finance_example {
         let date = Date::new(2026, 11, 5).expect("valid");
         let pt = Labels::pt_br();
         assert_eq!(pt.month_title(date), "novembro de 2026");
-        assert_eq!((pt.short_date)(date), "05/11/2026");
+        assert_eq!(pt.short_date(date), "05/11/2026");
         assert_eq!(pt.summary(ravenrs_widgets::Summary::Sum), "Soma");
         assert_eq!(Labels::default().month_title(date), date.month_title());
     }
@@ -1345,4 +1345,20 @@ fn theme_editor_counts_warns_restores_and_takes_tokens_back() {
     press_named(&mut ui, "Paste tokens");
     assert!(says_in_tree(&mut ui, "1 token changed"), "what was copied comes back");
     assert_eq!(ui.theme().palette.ink, Theme::raven_dark().palette.bg_200);
+}
+
+#[test]
+fn labels_fill_their_templates_in_each_language() {
+    let (en, pt) = (Labels::default(), Labels::pt_br());
+    let day = Date::new(2026, 11, 5).expect("a date");
+    assert_eq!(en.short_date(day), "Nov 5, 2026");
+    assert_eq!(pt.short_date(day), "05/11/2026");
+    assert_eq!(en.theme_contrast(4.53, "surface"), "Contrast 4.5:1 on surface");
+    assert_eq!(pt.theme_contrast(4.53, "surface"), "Contraste 4,5:1 sobre surface");
+    assert_eq!(pt.theme_changed(0), "Sem alterações");
+    assert_eq!(pt.theme_changed(1), "1 token alterado");
+    assert_eq!(en.theme_changed(3), "3 tokens changed");
+    assert_eq!(pt.rating_value(3, 5), "3 de 5");
+    assert_eq!(en.wizard_progress(2, 4), "Step 2 of 4");
+    assert_eq!(pt.tag_add("azul"), "Adicionar \"azul\"");
 }

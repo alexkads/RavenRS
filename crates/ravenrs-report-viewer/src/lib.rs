@@ -19,6 +19,7 @@
 //! # let _ = viewer;
 //! ```
 
+mod fan;
 mod parameters;
 mod print;
 mod search;
@@ -27,6 +28,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_core::{Color, CursorIcon, Insets, Key, Point, Primitive, Quad, Rect, Role, Scene};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
@@ -39,6 +41,7 @@ use ravenrs_widgets::{
     ViewExt,
 };
 
+pub use fan::PageFan;
 pub use parameters::{ParameterLabels, ParameterPanel, ParameterValues};
 pub use print::print;
 pub use search::{Match, find_matches};
@@ -117,24 +120,7 @@ pub struct ViewerLabels {
 
 impl Default for ViewerLabels {
     fn default() -> Self {
-        let text = |s: &str| s.to_owned();
-        Self {
-            previous: text("Previous"),
-            next: text("Next"),
-            page: text("Page"),
-            search: text("Search"),
-            previous_match: text("Previous result"),
-            next_match: text("Next result"),
-            no_matches: text("Not found"),
-            of: text("of"),
-            thumbnails: text("Thumbnails"),
-            thumbnail_of_page: text("Thumbnail of page"),
-            zoom_out: text("Zoom out"),
-            zoom_in: text("Zoom in"),
-            fit_width: text("Fit width"),
-            print: text("Print"),
-            report_error: text("Problem in the report"),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
@@ -144,26 +130,30 @@ impl ViewerLabels {
         if culture.starts_with("pt") { Self::pt_br() } else { Self::default() }
     }
 
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            previous: texts.get("viewer.previous"),
+            next: texts.get("viewer.next"),
+            page: texts.get("viewer.page"),
+            search: texts.get("viewer.search"),
+            previous_match: texts.get("viewer.previous_match"),
+            next_match: texts.get("viewer.next_match"),
+            no_matches: texts.get("viewer.no_matches"),
+            of: texts.get("viewer.of"),
+            thumbnails: texts.get("viewer.thumbnails"),
+            thumbnail_of_page: texts.get("viewer.thumbnail_of_page"),
+            zoom_out: texts.get("viewer.zoom_out"),
+            zoom_in: texts.get("viewer.zoom_in"),
+            fit_width: texts.get("viewer.fit_width"),
+            print: texts.get("viewer.print"),
+            report_error: texts.get("viewer.report_error"),
+        }
+    }
+
     /// The labels in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        let text = |s: &str| s.to_owned();
-        Self {
-            previous: text("Anterior"),
-            next: text("Próxima"),
-            page: text("Página"),
-            search: text("Buscar"),
-            previous_match: text("Resultado anterior"),
-            next_match: text("Próximo resultado"),
-            no_matches: text("Não encontrado"),
-            of: text("de"),
-            thumbnails: text("Miniaturas"),
-            thumbnail_of_page: text("Miniatura da página"),
-            zoom_out: text("Afastar"),
-            zoom_in: text("Aproximar"),
-            fit_width: text("Ajustar à largura"),
-            print: text("Imprimir"),
-            report_error: text("Erro no relatório"),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 

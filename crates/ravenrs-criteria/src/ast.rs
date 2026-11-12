@@ -151,6 +151,20 @@ impl Criteria {
         crate::parse::parse(source)
     }
 
+    /// Parses assignments, `field = expression; ...`, as an update sets fields: each field with
+    /// the expression that gives its new value.
+    ///
+    /// ```
+    /// use ravenrs_criteria::Criteria;
+    ///
+    /// let set = Criteria::assignments("state = 'done'; [finished] = Today()").unwrap();
+    /// assert_eq!(set[0].0, "state");
+    /// assert_eq!(set[1].0, "finished");
+    /// ```
+    pub fn assignments(source: &str) -> Result<Vec<(String, Self)>, crate::ParseError> {
+        crate::parse::parse_assignments(source)
+    }
+
     /// A field.
     pub fn property(path: &str) -> Self {
         Self::Property(path.split('.').map(str::to_owned).collect())

@@ -258,7 +258,7 @@ pub(crate) fn titled(title: &str, help: Help) -> impl View + use<> {
 
 /// A card with its title inside.
 pub(crate) fn titled_card<V: View + 'static>(title: &str, help: Help, content: V) -> impl View + use<V> {
-    Card::new(VStack::new((titled(title, help), content)).spacing(14.0).align(Align::Stretch))
+    Card::new(VStack::new((titled(title, help), content)).spacing(16.0).align(Align::Stretch))
 }
 
 /// Moves between months.
@@ -278,7 +278,7 @@ pub(crate) fn month_nav(month: &State<Date>, today: Date) -> impl View + use<> {
                 .on_click(move || ahead.update(|m| *m = m.add_months(1))),
             "Próximo mês",
         ),
-        Button::new("Este mês")
+        Button::new("Ir para este mês")
             .style(ButtonStyle::Ghost)
             .size(ButtonSize::Small)
             .on_click(move || now.set(today.first_of_month())),

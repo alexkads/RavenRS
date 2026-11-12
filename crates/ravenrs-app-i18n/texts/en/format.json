@@ -1,0 +1,7 @@
+{
+ "format.date": "yyyy-MM-dd",
+ "format.date_time": "yyyy-MM-dd HH:mm",
+ "format.decimal": ".",
+ "format.money_prefix": "$ ",
+ "format.thousands": ","
+}
