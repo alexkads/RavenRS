@@ -32,7 +32,7 @@ fn uma_etapa_basta_e_quem_pede_pode_ser_da_coordenacao() {
     let coordenador = pessoa("coordenador", COORDENACAO);
     let mut espaco = dados.t1.space_as(coordenador.clone());
     pacote.submit(&mut espaco, &coordenador, 1, "Matrícula tardia", "U1").expect("aberto");
-    let decidido = pacote.decide(&mut espaco, &coordenador, &decisao("c1", 1), 0);
+    let decidido = pacote.decide(&mut espaco, "T1", &coordenador, &decisao("c1", 1), 0);
     assert_eq!(decidido.expect("autorizado"), Decided::Recorded { state: APPROVED.to_owned() });
 }
 
@@ -43,6 +43,6 @@ fn um_pedido_sem_polo_nao_e_autorizado() {
     let coordenador = pessoa("coordenador", COORDENACAO);
     let mut espaco = dados.t1.space_as(coordenador.clone());
     pacote.submit(&mut espaco, &coordenador, 1, "Matrícula tardia", "").expect("aberto");
-    let recusado = pacote.decide(&mut espaco, &coordenador, &decisao("c1", 1), 0);
+    let recusado = pacote.decide(&mut espaco, "T1", &coordenador, &decisao("c1", 1), 0);
     assert!(matches!(recusado, Err(SpaceError::Denied(_))));
 }

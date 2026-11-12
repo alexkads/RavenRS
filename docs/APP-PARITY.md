@@ -77,7 +77,7 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Modules that declare version, targets, databases, permissions, migrations, jobs and providers, and turn off without losing data | 🟡 `ModuleManifest`, checked by `ApplicationBuilder::build`; `switch_off` and `Application::guard`. The generated screens do not use the guard yet (#242); not listed by the CLI or MCP yet (#81) | #271 |
 | Failures that say a capability is missing, a failure is temporary or the outcome is unknown | ✅ `SpaceError::Unavailable`, `Temporary`, `Unknown`, with `is_temporary` and `may_have_happened`; SQLite busy is temporary | #270 |
 | Providers that declare what they can do, and a contract to send events | 🟡 `Provider`, `EventSink`, `CAN_TELL_STATUS`. No cancellation or deadline inside a send yet (#255) | #270 |
-| Events written in the same commit as the change that raised them | ⬜ | #254 |
+| Events written in the same commit as the change that raised them | ✅ `ObjectSpaceExt::emit`, `Event`, `OutboxModule`: one event per organization and key, kept with the change or not at all; `Dispatcher` sends them in this process | #254 |
 | Delivering events with limited retries, reconciling before sending again | ⬜ `Job` runs inside the process only | #255 |
 | Incoming webhooks, signed and deduplicated per organization | ⬜ | #256 |
 | Signing in through an external identity provider, linked by issuer, with sessions that can be revoked | ⬜ `Authenticator` is where a provider goes; none is built in | #257 |
@@ -91,5 +91,5 @@ What exists of the behavior documented for model-driven application frameworks, 
 | A media player that says what each host can play | 🟡 `SoundClip` and `AudioPlayerButton` play sound; no video | #265 |
 | An MCP server of the application, acting with the person's permissions and asking before writing | ⬜ `ravenrs-mcp` answers about the framework only | #266 |
 | A test kit for reusable modules: two organizations with the same keys, units, people, example roles, a controlled clock | ✅ `ravenrs-app-testkit` | #268 |
-| Requests decided step by step, with steps, roles and rules from the application, idempotent decisions and an event in the same commit | 🟡 `ravenrs-app-requests`, in two applications of `examples/contracts`. No task inbox, delegation or deadlines (#258); events kept by the package until #254 | #268 |
+| Requests decided step by step, with steps, roles and rules from the application, idempotent decisions and an event in the same commit | 🟡 `ravenrs-app-requests`, in two applications of `examples/contracts`. No task inbox, delegation or deadlines (#258) | #268 |
 | Finding the contracts of reusable modules: scenarios and groups with their owners, the state of each capability | ✅ `app_contracts` and `parity_status` with `document: application` in `ravenrs-mcp`; the skill that `cargo ravenrs` installs points to them | #274 |

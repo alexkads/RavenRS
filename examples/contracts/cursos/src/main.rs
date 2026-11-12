@@ -41,12 +41,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     pacote.submit(&mut espaco, &secretaria, 1, "Matrícula tardia em Desenho Técnico", "")?;
     println!("Pedido 1 aberto pela secretaria, sem polo.");
-    let sem_polo = pacote.decide(&mut espaco, &coordenador, &decisao("c1"), 0);
+    let sem_polo = pacote.decide(&mut espaco, "cursos", &coordenador, &decisao("c1"), 0);
     println!("A coordenação tenta autorizar sem polo: {sem_polo:?}");
 
     pacote.submit(&mut espaco, &secretaria, 2, "Matrícula tardia em Informática", "Polo Centro")?;
     let autorizada = Decision { request: 2, ..decisao("c2") };
-    println!("Coordenação: {:?}", pacote.decide(&mut espaco, &coordenador, &autorizada, 0)?);
+    println!("Coordenação: {:?}", pacote.decide(&mut espaco, "cursos", &coordenador, &autorizada, 0)?);
 
     let mensagens = Mensagens::default();
     let relatorio = Dispatcher::new("cursos", 3).run(&mut espaco, &mensagens)?;

@@ -5,8 +5,8 @@ use std::path::PathBuf;
 
 use ravenrs_app::{Access, Identity, ObjectSpace, Operation, Query, Role, SpaceError, Value};
 use ravenrs_app_requests::{
-    APPROVED, DECISION, Decided, Decision, Dispatcher, OUTBOX, Outcome, REQUEST, RequestsModule, Step,
-    forbid_self_decision,
+    APPROVED, DECISION, Decided, Decision, Dispatcher, OUTBOX, OutboxModule, Outcome, REQUEST,
+    RequestsModule, Step, forbid_self_decision,
 };
 use ravenrs_app_testkit::{Behavior, Clock, FakeSink, Fixture, Organization, PERSON, roles};
 
@@ -129,8 +129,13 @@ fn whoever_made_a_request_does_not_decide_it() {
     let fixture = fixture();
     submit(&fixture.t1, "ana");
     let ana = person("ana", "Reviewers");
-    let result =
-        module().decide(&mut fixture.t1.space_as(ana.clone()), &ana, &decision("d1", 1, Outcome::Approve), 0);
+    let result = module().decide(
+        &mut fixture.t1.space_as(ana.clone()),
+        "T1",
+        &ana,
+        &decision("d1", 1, Outcome::Approve),
+        0,
+    );
     assert!(matches!(result, Err(SpaceError::Denied(_))), "got {result:?}");
     assert_eq!(state(&fixture.t1), Value::Text("review".to_owned()));
 }
@@ -140,8 +145,13 @@ fn only_the_role_of_the_step_decides_it() {
     let fixture = fixture();
     submit(&fixture.t1, "ana");
     let bia = person("bia", "Approvers");
-    let result =
-        module().decide(&mut fixture.t1.space_as(bia.clone()), &bia, &decision("d1", 1, Outcome::Approve), 0);
+    let result = module().decide(
+        &mut fixture.t1.space_as(bia.clone()),
+        "T1",
+        &bia,
+        &decision("d1", 1, Outcome::Approve),
+        0,
+    );
     assert!(matches!(result, Err(SpaceError::Denied(_))), "got {result:?}");
 }
 
@@ -150,12 +160,22 @@ fn a_decision_on_an_old_version_is_a_conflict() {
     let fixture = fixture();
     submit(&fixture.t1, "ana");
     let bia = person("bia", "Reviewers");
-    let first =
-        module().decide(&mut fixture.t1.space_as(bia.clone()), &bia, &decision("d1", 1, Outcome::Approve), 0);
+    let first = module().decide(
+        &mut fixture.t1.space_as(bia.clone()),
+        "T1",
+        &bia,
+        &decision("d1", 1, Outcome::Approve),
+        0,
+    );
     assert_eq!(first.expect("kept"), Decided::Recorded { state: "approval".to_owned() });
     let cid = person("cid", "Approvers");
-    let stale =
-        module().decide(&mut fixture.t1.space_as(cid.clone()), &cid, &decision("d2", 1, Outcome::Reject), 0);
+    let stale = module().decide(
+        &mut fixture.t1.space_as(cid.clone()),
+        "T1",
+        &cid,
+        &decision("d2", 1, Outcome::Reject),
+        0,
+    );
     assert!(matches!(stale, Err(SpaceError::Conflict(_))), "got {stale:?}");
     assert_eq!(state(&fixture.t1), Value::Text("approval".to_owned()));
 }
@@ -170,6 +190,7 @@ fn reopening_the_files_continues_on_the_right_step_without_repeating_a_decision(
         let bia = person("bia", "Reviewers");
         let kept = module().decide(
             &mut fixture.t1.space_as(bia.clone()),
+            "T1",
             &bia,
             &decision("d1", 1, Outcome::Approve),
             clock.now(),
@@ -182,6 +203,7 @@ fn reopening_the_files_continues_on_the_right_step_without_repeating_a_decision(
     let bia = person("bia", "Reviewers");
     let again = module().decide(
         &mut fixture.t1.space_as(bia.clone()),
+        "T1",
         &bia,
         &decision("d1", 1, Outcome::Approve),
         clock.now(),
@@ -191,6 +213,7 @@ fn reopening_the_files_continues_on_the_right_step_without_repeating_a_decision(
     let cid = person("cid", "Approvers");
     let last = module().decide(
         &mut fixture.t1.space_as(cid.clone()),
+        "T1",
         &cid,
         &decision("d2", 2, Outcome::Approve),
         clock.now(),
@@ -206,8 +229,13 @@ fn a_refused_decision_leaves_no_event() {
     let fixture = fixture();
     submit(&fixture.t1, "ana");
     let ana = person("ana", "Reviewers");
-    let _ =
-        module().decide(&mut fixture.t1.space_as(ana.clone()), &ana, &decision("d1", 1, Outcome::Approve), 0);
+    let _ = module().decide(
+        &mut fixture.t1.space_as(ana.clone()),
+        "T1",
+        &ana,
+        &decision("d1", 1, Outcome::Approve),
+        0,
+    );
     assert_eq!(count(&fixture.t1, OUTBOX), 0);
     assert_eq!(count(&fixture.t1, DECISION), 0);
 }
@@ -216,7 +244,13 @@ fn decided(organization: &Organization) {
     submit(organization, "ana");
     let bia = person("bia", "Reviewers");
     module()
-        .decide(&mut organization.space_as(bia.clone()), &bia, &decision("d1", 1, Outcome::Approve), 0)
+        .decide(
+            &mut organization.space_as(bia.clone()),
+            organization.name(),
+            &bia,
+            &decision("d1", 1, Outcome::Approve),
+            0,
+        )
         .expect("kept");
 }
 
@@ -298,6 +332,9 @@ fn the_package_says_its_version_and_its_job() {
     let manifest = module().manifest();
     assert!(manifest.version.is_some());
     assert_eq!(manifest.jobs, vec![ravenrs_app_requests::DISPATCH_JOB.to_owned()]);
-    let app = Application::builder("App").module(module()).build().expect("fits");
-    assert_eq!(app.manifests()[0].0, "Requests");
+    let without_events = Application::builder("App").module(module()).build();
+    assert!(without_events.is_err_and(|e| e.0.contains("Outbox")), "events come from the framework's module");
+    let app = Application::builder("App").module(module()).module(OutboxModule).build().expect("fits");
+    let names: Vec<String> = app.manifests().into_iter().map(|(name, _)| name).collect();
+    assert_eq!(names, ["Outbox", "Requests"]);
 }

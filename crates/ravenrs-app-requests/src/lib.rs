@@ -17,18 +17,19 @@ use std::fmt;
 use std::rc::Rc;
 
 use ravenrs_app::{
-    Criteria, EntityInfo, EnumOption, FieldInfo, FieldKind, Identity, Module, ModuleManifest, Object,
-    ObjectSpace, Query, SpaceError, Value,
+    EntityInfo, EnumOption, FieldInfo, FieldKind, Identity, Module, ModuleManifest, Object, ObjectSpace,
+    ObjectSpaceExt, SpaceError, Value,
 };
 
-pub use ravenrs_app::{CAN_TELL_STATUS, EventSink, Provider};
+pub use ravenrs_app::{
+    CAN_TELL_STATUS, Dispatcher, Emitted, Event, EventSink, OUTBOX_EVENT as OUTBOX, OutboxModule, Provider,
+    Report,
+};
 
 /// The entity of requests.
 pub const REQUEST: &str = "Request";
 /// The entity of decisions.
 pub const DECISION: &str = "Decision";
-/// The entity of events waiting to be sent, written with the change that raised them.
-pub const OUTBOX: &str = "OutboxEvent";
 
 /// The state of a request no step is deciding anymore because it was approved.
 pub const APPROVED: &str = "approved";
@@ -104,7 +105,8 @@ impl RequestsModule {
         &self.steps
     }
 
-    /// The entities it declares: requests, decisions and events.
+    /// The entities it declares: requests and decisions. Events are the framework's, from
+    /// [`OutboxModule`], which this package depends on.
     pub fn declared_entities(&self) -> Vec<EntityInfo> {
         let mut states: Vec<EnumOption> =
             self.steps.iter().map(|step| EnumOption::new(step.code.clone(), step.caption.clone())).collect();
@@ -127,19 +129,7 @@ impl RequestsModule {
             .field(FieldInfo::new("outcome", FieldKind::Enum(outcomes)))
             .field(FieldInfo::new("reason", FieldKind::LongText))
             .field(FieldInfo::new("at", FieldKind::Integer));
-        let event_states = vec![
-            EnumOption::new("pending", "Pending"),
-            EnumOption::new("unknown", "To reconcile"),
-            EnumOption::new("confirmed", "Confirmed"),
-            EnumOption::new("failed", "Failed"),
-        ];
-        let outbox = EntityInfo::new(OUTBOX)
-            .field(FieldInfo::new("key", FieldKind::Text).key())
-            .field(FieldInfo::new("kind", FieldKind::Text))
-            .field(FieldInfo::new("payload", FieldKind::LongText))
-            .field(FieldInfo::new("state", FieldKind::Enum(event_states)))
-            .field(FieldInfo::new("attempts", FieldKind::Integer));
-        vec![request, decision, outbox]
+        vec![request, decision]
     }
 
     fn step(&self, code: &str) -> Option<(usize, &Step)> {
@@ -170,12 +160,14 @@ impl RequestsModule {
     /// Decides the step a request is on, as this person.
     ///
     /// `decision.id` makes it idempotent: sending the same decision again changes nothing and says
-    /// so. `decision.version` is the version of the request the person saw; another one means
+    /// so. `organization` is whose event it is, until the organization comes from the context of the
+    /// space (#225). `decision.version` is the version of the request the person saw; another one means
     /// someone decided in between, and the decision is refused as a conflict. The decision, the
     /// request moving on and its event are one commit.
     pub fn decide(
         &self,
         space: &mut dyn ObjectSpace,
+        organization: &str,
         identity: &Identity,
         decision: &Decision,
         at: i64,
@@ -216,22 +208,17 @@ impl RequestsModule {
         record.set("at", at as f64);
         request.set("state", next.clone());
         request.set("version", (decision.version + 1) as f64);
-        let mut event = space.new_object(OUTBOX)?;
-        event.set("key", format!("decision/{}", decision.id));
-        event.set("kind", "request.decided");
-        event.set(
-            "payload",
-            format!(
-                "request={};step={};outcome={};state={next}",
-                decision.request,
-                step.code,
-                decision.outcome.code()
-            ),
+        let payload = format!(
+            "request={};step={};outcome={};state={next}",
+            decision.request,
+            step.code,
+            decision.outcome.code()
         );
-        event.set("state", "pending");
-        event.set("attempts", 0.0);
-        let written =
-            space.insert(record).and_then(|()| space.save(request)).and_then(|()| space.insert(event));
+        let event = Event::new(organization, "request.decided", format!("decision/{}", decision.id), payload);
+        let written = space
+            .insert(record)
+            .and_then(|()| space.save(request))
+            .and_then(|()| space.emit(&event).map(drop));
         if let Err(error) = written {
             space.rollback();
             return Err(error);
@@ -249,6 +236,10 @@ impl RequestsModule {
 impl Module for RequestsModule {
     fn name(&self) -> &str {
         "Requests"
+    }
+
+    fn dependencies(&self) -> Vec<String> {
+        vec![OutboxModule.name().to_owned()]
     }
 
     fn entities(&self) -> Vec<EntityInfo> {
@@ -318,94 +309,4 @@ pub enum Decided {
     },
     /// The same decision was already kept; nothing changed.
     AlreadyRecorded,
-}
-
-/// Hands the events waiting in one organization to an [`EventSink`].
-#[derive(Clone, Debug)]
-pub struct Dispatcher {
-    organization: String,
-    max_attempts: u32,
-}
-
-/// What one run of a [`Dispatcher`] did.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Report {
-    /// Events confirmed in this run.
-    pub confirmed: usize,
-    /// Events that will be tried again.
-    pub retry: usize,
-    /// Events sent with no answer, to be checked before sending again.
-    pub unknown: usize,
-    /// Events that failed for good.
-    pub failed: usize,
-}
-
-impl Dispatcher {
-    /// For this organization, giving up on an event after this many failed attempts.
-    pub fn new(organization: impl Into<String>, max_attempts: u32) -> Self {
-        Self { organization: organization.into(), max_attempts: max_attempts.max(1) }
-    }
-
-    /// The key the destination sees: the organization's name and the event's own key, so that two
-    /// organizations with the same local keys never share an effect.
-    pub fn key_of(&self, event: &str) -> String {
-        format!("{}/{event}", self.organization)
-    }
-
-    /// Sends what is pending and checks what was sent with no answer.
-    pub fn run(&self, space: &mut dyn ObjectSpace, sink: &dyn EventSink) -> Result<Report, SpaceError> {
-        let waiting = Criteria::parse("[state] = 'pending' Or [state] = 'unknown'")
-            .map_err(|e| SpaceError::BadQuery(e.to_string()))?;
-        let events = space.query(OUTBOX, &Query::all().filter(waiting).sort("key", true))?;
-        let mut report = Report::default();
-        for mut event in events {
-            let key = self.key_of(&text(&event.get("key")));
-            if text(&event.get("state")) == "unknown" {
-                if !sink.can(CAN_TELL_STATUS) {
-                    report.unknown += 1;
-                    continue;
-                }
-                match sink.status(&key) {
-                    Ok(true) => {
-                        event.set("state", "confirmed");
-                        report.confirmed += 1;
-                        space.save(event)?;
-                        continue;
-                    }
-                    Ok(false) => {}
-                    Err(_) => {
-                        report.unknown += 1;
-                        continue;
-                    }
-                }
-            }
-            let attempts = match event.get("attempts") {
-                Value::Number(n) => n as u32,
-                _ => 0,
-            } + 1;
-            event.set("attempts", f64::from(attempts));
-            let state = match sink.send(&key, &text(&event.get("payload"))) {
-                Ok(()) => {
-                    report.confirmed += 1;
-                    "confirmed"
-                }
-                Err(error) if error.may_have_happened() => {
-                    report.unknown += 1;
-                    "unknown"
-                }
-                Err(error) if error.is_temporary() && attempts < self.max_attempts => {
-                    report.retry += 1;
-                    "pending"
-                }
-                Err(_) => {
-                    report.failed += 1;
-                    "failed"
-                }
-            };
-            event.set("state", state);
-            space.save(event)?;
-        }
-        commit_or_rollback(space)?;
-        Ok(report)
-    }
 }

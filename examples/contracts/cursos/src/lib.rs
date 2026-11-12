@@ -31,9 +31,10 @@ pub fn curso() -> EntityInfo {
         .field(FieldInfo::new("vagas", FieldKind::Integer))
 }
 
-/// Tudo o que o centro guarda: o que é dele e o que o pacote declara.
+/// Tudo o que o centro guarda: o que é dele, o que o pacote declara e os eventos a enviar.
 pub fn entidades() -> Result<Vec<EntityInfo>, String> {
     let mut todas = vec![curso()];
     todas.extend(matriculas()?.declared_entities());
+    todas.push(ravenrs_app::outbox_entity());
     Ok(todas)
 }
