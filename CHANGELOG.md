@@ -9,6 +9,14 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - A shared canonical policy for Pages and Vercel, crawlable canvas content, static
   playground examples, social PNG cards, complete sitemaps and a local SEO build gate.
   ([#156](https://github.com/alexkads/RavenRS/issues/156))
+- `GridCurrent` and `DataGrid::current` give what a grid shows now, its query and its rows as a
+  table, to something outside it. ([#181](https://github.com/alexkads/RavenRS/issues/181))
+
+### Fixed
+
+- The report of a list (`ReportModule`, `Session::list_table`) has the rows the list shows: its
+  search, column filters, sorting, columns and grouping, and a remote list asks storage for all of
+  them. ([#181](https://github.com/alexkads/RavenRS/issues/181))
 - `FlowCanvas`: diagrams of nodes joined by connections on an endless surface, with pan,
   zoom, nodes that move on the grid and take focus, ports that check what connects and say
   why not, curve, step and straight lines with labels and travelling dashes, selection by

@@ -179,10 +179,10 @@ pub use flow::{
 pub use form_layout::{FormGroup, FormLayout};
 pub use full_screen::{FullScreen, FullScreenProvider};
 pub use grid::{
-    CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridCellStyle, GridColumn, GridData,
-    GridExportFormat, GridLayout, GridPage, GridRequest, GridResponder, GridRowAction, GridScenario,
-    GridTable, GridTableColumn, GridTableKind, NumberFormat, RemoteRows, SelectionMode, SortDirection,
-    SortLayout, Summary, Value,
+    CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridCellStyle, GridColumn, GridCurrent,
+    GridData, GridExportFormat, GridLayout, GridPage, GridRequest, GridResponder, GridRowAction,
+    GridScenario, GridTable, GridTableColumn, GridTableKind, NumberFormat, RemoteRows, SelectionMode,
+    SortDirection, SortLayout, Summary, Value,
 };
 pub use icon::Icon;
 pub use icon_set::IconName;
