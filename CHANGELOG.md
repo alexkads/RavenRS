@@ -9,6 +9,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - A shared canonical policy for Pages and Vercel, crawlable canvas content, static
   playground examples, social PNG cards, complete sitemaps and a local SEO build gate.
   ([#156](https://github.com/alexkads/RavenRS/issues/156))
+- The screen of signing in of `SecuredApp` takes `description`, `notice`, buttons of its own with
+  `sign_in_action(SignInAction)`, such as going back to choosing the organization, which forget
+  what was typed and leave whoever was halfway in behind, and `demo_credentials`, which fills in a
+  demonstration's name and password and still checks them on Sign in.
+  ([#191](https://github.com/alexkads/RavenRS/issues/191))
 - `GridCurrent` and `DataGrid::current` give what a grid shows now, its query and its rows as a
   table, to something outside it. ([#181](https://github.com/alexkads/RavenRS/issues/181))
 
