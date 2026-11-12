@@ -200,7 +200,7 @@ impl HistogramPicture {
 }
 
 /// The outline of a line through `points`: a stroke is a fill of its expanded outline.
-fn stroke_outline(points: &[Point], width: f32) -> Vec<PathElement> {
+pub(crate) fn stroke_outline(points: &[Point], width: f32) -> Vec<PathElement> {
     let half = width / 2.0;
     let normal = |i: usize| {
         let (a, b) = (points[i.saturating_sub(1)], points[(i + 1).min(points.len() - 1)]);

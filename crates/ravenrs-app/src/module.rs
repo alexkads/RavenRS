@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::frame::FrameContext;
+use crate::manifest::{GuardedObjectSpace, ModuleManifest, Target};
 use crate::model::{Diff, MergedModel, ModelLayer, ModelLayers, check_model, generate_model};
 use crate::{EntityInfo, Frame, ModelError, ModelNode, ObjectSpace, ViewController, WindowController};
 
@@ -54,6 +55,120 @@ pub trait Module {
     fn initial_records(&self, _space: &mut dyn ObjectSpace) -> Result<(), String> {
         Ok(())
     }
+
+    /// What it says about itself: its version, the versions it accepts of what it depends on,
+    /// where it runs and what it needs from the host. Saying nothing is accepted everywhere.
+    fn manifest(&self) -> ModuleManifest {
+        ModuleManifest::default()
+    }
+}
+
+/// A module switched off: its entities stay, to be read and exported, with every field read only;
+/// its controllers, actions and initial records go.
+struct SwitchedOff(Box<dyn Module>);
+
+impl Module for SwitchedOff {
+    fn name(&self) -> &str {
+        self.0.name()
+    }
+
+    fn dependencies(&self) -> Vec<String> {
+        self.0.dependencies()
+    }
+
+    fn entities(&self) -> Vec<EntityInfo> {
+        self.0
+            .entities()
+            .into_iter()
+            .map(|mut entity| {
+                for field in &mut entity.fields {
+                    field.read_only = true;
+                }
+                entity
+            })
+            .collect()
+    }
+
+    fn extend_model(&self, root: &mut ModelNode) {
+        self.0.extend_model(root);
+    }
+
+    fn update_generated(&self, root: &mut ModelNode) {
+        self.0.update_generated(root);
+    }
+
+    fn model_difference(&self) -> Option<&'static str> {
+        self.0.model_difference()
+    }
+
+    fn manifest(&self) -> ModuleManifest {
+        self.0.manifest()
+    }
+}
+
+/// Refuses what the modules say they cannot work with, naming the module.
+fn check_manifests(modules: &[Box<dyn Module>], host: &Host) -> Result<(), ModelError> {
+    let mut migrations: Vec<(String, String)> = Vec::new();
+    let mut jobs: Vec<(String, String)> = Vec::new();
+    for module in modules {
+        let name = module.name();
+        let manifest = module.manifest();
+        for (other, range) in &manifest.requires {
+            let found = modules
+                .iter()
+                .find(|m| m.name() == other)
+                .ok_or_else(|| ModelError(format!("the module {name} needs {other}, which was not added")))?;
+            match found.manifest().version {
+                Some(version) if range.accepts(version) => {}
+                Some(version) => {
+                    return Err(ModelError(format!(
+                        "the module {name} needs {other} {range}, and {other} is {version}"
+                    )));
+                }
+                None => {
+                    return Err(ModelError(format!(
+                        "the module {name} needs {other} {range}, and {other} says no version"
+                    )));
+                }
+            }
+        }
+        if let Some(target) = host.target
+            && !manifest.targets.is_empty()
+            && !manifest.targets.contains(&target)
+        {
+            return Err(ModelError(format!("the module {name} does not run on {target:?}")));
+        }
+        if let Some(database) = &host.database
+            && !manifest.databases.is_empty()
+            && !manifest.databases.contains(database)
+        {
+            return Err(ModelError(format!("the module {name} does not work on {database}")));
+        }
+        if let Some(missing) = manifest.capabilities.iter().find(|c| !host.capabilities.contains(c)) {
+            return Err(ModelError(format!(
+                "the module {name} needs the capability {missing}, which the host does not offer"
+            )));
+        }
+        for (kind, ids, seen) in
+            [("migration", &manifest.migrations, &mut migrations), ("job", &manifest.jobs, &mut jobs)]
+        {
+            for id in ids {
+                if let Some((_, first)) = seen.iter().find(|(other, _)| other == id) {
+                    return Err(ModelError(format!("the {kind} {id} comes from both {first} and {name}")));
+                }
+                seen.push((id.clone(), name.to_owned()));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// What the host says about where the application runs.
+#[derive(Debug, Default)]
+struct Host {
+    target: Option<Target>,
+    database: Option<String>,
+    capabilities: Vec<String>,
 }
 
 /// What a piece of a dashboard shows.
@@ -176,7 +291,15 @@ fn in_dependency_order(modules: Vec<Box<dyn Module>>) -> Result<Vec<Box<dyn Modu
         let mut progressed = false;
         for slot in &mut waiting {
             let Some(module) = slot.as_ref() else { continue };
-            let needs = module.dependencies();
+            let mut needs = module.dependencies();
+            needs.extend(
+                module
+                    .manifest()
+                    .requires
+                    .into_iter()
+                    .map(|(name, _)| name)
+                    .filter(|n| !module.dependencies().contains(n)),
+            );
             if let Some(missing) = needs.iter().find(|d| !names.contains(d)) {
                 return Err(ModelError(format!(
                     "the module {} depends on {missing}, which was not added",
@@ -216,6 +339,7 @@ pub struct Application {
     model: Rc<ModelNode>,
     unusable: Vec<crate::UnusableNode>,
     security: Option<Rc<crate::SecurityContext>>,
+    switched_off: Vec<String>,
 }
 
 impl std::fmt::Debug for Application {
@@ -235,7 +359,24 @@ impl Application {
             dashboards: Vec::new(),
             services: Vec::new(),
             translations: Vec::new(),
+            host: Host::default(),
+            off: Vec::new(),
         }
+    }
+
+    /// What each module says about itself, by name, for whoever lists what an application has.
+    pub fn manifests(&self) -> Vec<(String, ModuleManifest)> {
+        self.modules.iter().map(|m| (m.name().to_owned(), m.manifest())).collect()
+    }
+
+    /// A unit of work where the entities of switched-off modules can be read and not changed.
+    pub fn guard(&self, space: Box<dyn ObjectSpace>) -> GuardedObjectSpace {
+        GuardedObjectSpace::new(space, self.switched_off.clone())
+    }
+
+    /// The entities of switched-off modules.
+    pub fn switched_off_entities(&self) -> &[String] {
+        &self.switched_off
     }
 
     /// Its title.
@@ -374,6 +515,8 @@ pub struct ApplicationBuilder {
     dashboards: Vec<DashboardInfo>,
     services: Vec<Rc<dyn Any>>,
     translations: Vec<(String, String)>,
+    host: Host,
+    off: Vec<String>,
 }
 
 impl std::fmt::Debug for ApplicationBuilder {
@@ -387,6 +530,33 @@ impl ApplicationBuilder {
     /// Adds a module.
     pub fn module(mut self, module: impl Module + 'static) -> Self {
         self.modules.push(Box::new(module));
+        self
+    }
+
+    /// Says where the application runs, so that modules that do not run there are refused.
+    pub fn target(mut self, target: Target) -> Self {
+        self.host.target = Some(target);
+        self
+    }
+
+    /// Says the storage it works on, such as `sqlite`, so that modules that do not work there are
+    /// refused.
+    pub fn database(mut self, database: impl Into<String>) -> Self {
+        self.host.database = Some(database.into());
+        self
+    }
+
+    /// Says the host offers this capability of a provider, such as `events.status`.
+    pub fn capability(mut self, capability: impl Into<String>) -> Self {
+        self.host.capabilities.push(capability.into());
+        self
+    }
+
+    /// Switches a module off by its name: its records can still be read and exported, nothing of
+    /// it can be changed through [`Application::guard`], and its controllers and actions are gone.
+    /// It grants nothing and deletes nothing.
+    pub fn switch_off(mut self, module: impl Into<String>) -> Self {
+        self.off.push(module.into());
         self
     }
 
@@ -425,7 +595,30 @@ impl ApplicationBuilder {
     /// applies their layers and checks the result. What is wrong comes out here, and not when
     /// someone reaches that screen.
     pub fn build(self) -> Result<Application, ModelError> {
-        let mut modules = in_dependency_order(self.modules)?;
+        if let Some(unknown) =
+            self.off.iter().find(|name| !self.modules.iter().any(|m| m.name() == name.as_str()))
+        {
+            return Err(ModelError(format!("the module {unknown} cannot be switched off: it was not added")));
+        }
+        let modules: Vec<Box<dyn Module>> = self
+            .modules
+            .into_iter()
+            .map(|module| {
+                if self.off.iter().any(|name| name == module.name()) {
+                    Box::new(SwitchedOff(module)) as Box<dyn Module>
+                } else {
+                    module
+                }
+            })
+            .collect();
+        let mut modules = in_dependency_order(modules)?;
+        check_manifests(&modules, &self.host)?;
+        let switched_off: Vec<String> = modules
+            .iter()
+            .filter(|m| self.off.iter().any(|name| name == m.name()))
+            .flat_map(|m| m.entities())
+            .map(|entity| entity.name)
+            .collect();
         let mut entities = self.entities;
         for module in &modules {
             entities.extend(module.entities());
@@ -493,6 +686,7 @@ impl ApplicationBuilder {
             model: Rc::new(ModelNode::default()),
             unusable: Vec::new(),
             security: None,
+            switched_off,
         };
         application.refresh_model()?;
         Ok(application)
