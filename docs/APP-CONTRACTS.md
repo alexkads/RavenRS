@@ -14,7 +14,7 @@ What a reusable component, module or plugin of `ravenrs-app` has to honor so tha
 
 ## Test fixture
 
-Every scenario runs on synthetic data, with no private database, credential or account.
+Every scenario runs on synthetic data, with no private database, credential or account. [`ravenrs-app-testkit`](../crates/ravenrs-app-testkit) builds it: organizations, units, people, the example roles and a controlled clock.
 
 | Record | Fields and relations |
 |---|---|
@@ -112,7 +112,16 @@ Each scenario has one owner issue, where its checklist lives. The text of the in
 | C16 | Preview and public output stay apart; a disconnected screen recovers; the player states what each host can play | #237, #265 |
 | C17 | Card, chart, list and export share filter and period; restricted is not zero; aggregation happens in storage; one failing tile does not break the rest | #203 |
 | C18 | An assistant sees and changes only what its user can; a write shows its effect first and is checked again on confirmation | #266 |
-| C19 | One package runs in two applications of different sectors, with different entities, texts, roles and policies, without copying it | #253 (first slice) |
+| C19 | One package runs in two applications of different sectors, with different entities, texts, roles and policies, without copying it | #268 |
+
+## First slice
+
+[`ravenrs-app-requests`](../crates/ravenrs-app-requests) is the first package held to these contracts (#268). Its tests prove, on the fixture:
+
+- **C02**, as far as `master` goes: a registrar of U1 reads only the people of U1, never the reserved note, and cannot create a person in U2; T1 and T2 never mix although they share keys; a worker reaches only the entities of its job. References computed on create wait for #232.
+- **C06, minimum:** the role of each step and the application's own rule decide; a decision on an old version is a conflict; reopening the SQLite files continues on the right step, and the same decision sent again changes nothing.
+- **C07, minimum:** a refused decision leaves no event; an answer lost on the way back is checked before sending again; a destination that stays down ends in failed after the limit; the same local key in T1 and T2 makes two effects.
+- **C19:** [`examples/contracts`](../examples/contracts) installs it in two applications outside this workspace.
 
 ## What a pull request shows
 

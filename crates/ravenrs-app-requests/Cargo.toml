@@ -1,0 +1,21 @@
+[package]
+name = "ravenrs-app-requests"
+description = "An optional ravenrs-app package of requests decided step by step: steps and who decides come from the application, decisions are idempotent and each one leaves an event written in the same commit."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+publish = false
+
+[dependencies]
+ravenrs-app.workspace = true
+
+[dev-dependencies]
+ravenrs-app-testkit.workspace = true
+
+[lints]
+workspace = true
