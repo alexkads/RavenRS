@@ -546,6 +546,20 @@ pub struct Labels {
     pub zoom_view: String,
     /// A [`Minimap`](crate::Minimap)'s name.
     pub minimap: String,
+    /// A [`FlowCanvas`](crate::FlowCanvas)'s name.
+    pub flow_canvas: String,
+    /// What a [`FlowCanvas`](crate::FlowCanvas) holds, with `{0}` nodes and `{1}` connections.
+    pub flow_count: String,
+    /// The zoom buttons of a [`FlowCanvas`](crate::FlowCanvas), as a group.
+    pub flow_controls: String,
+    /// Locks the editing of a [`FlowCanvas`](crate::FlowCanvas).
+    pub flow_lock: String,
+    /// Unlocks the editing of a [`FlowCanvas`](crate::FlowCanvas).
+    pub flow_unlock: String,
+    /// Why two ports of a [`FlowCanvas`](crate::FlowCanvas) do not connect, when the app says nothing.
+    pub flow_refused: String,
+    /// A node of a [`FlowCanvas`](crate::FlowCanvas) that is switched off.
+    pub flow_disabled: String,
     /// A [`RubberBand`](crate::RubberBand)'s name.
     pub rubber_band: String,
     /// A [`Marquee`](crate::Marquee)'s name.
@@ -1092,6 +1106,13 @@ impl Labels {
             zoom_actual: texts.get("widgets.zoom_actual"),
             zoom_view: texts.get("widgets.zoom_view"),
             minimap: texts.get("widgets.minimap"),
+            flow_canvas: texts.get("widgets.flow_canvas"),
+            flow_count: texts.get("widgets.flow_count"),
+            flow_controls: texts.get("widgets.flow_controls"),
+            flow_lock: texts.get("widgets.flow_lock"),
+            flow_unlock: texts.get("widgets.flow_unlock"),
+            flow_refused: texts.get("widgets.flow_refused"),
+            flow_disabled: texts.get("widgets.flow_disabled"),
             rubber_band: texts.get("widgets.rubber_band"),
             marquee: texts.get("widgets.marquee"),
             transform: texts.get("widgets.transform"),
@@ -1358,6 +1379,11 @@ impl Labels {
             }
             _ => false,
         })
+    }
+
+    /// What a [`FlowCanvas`](crate::FlowCanvas) holds, for screen readers.
+    pub fn flow_count(&self, nodes: usize, edges: usize) -> String {
+        two_numbers(&self.flow_count, nodes, edges)
     }
 
     /// Which picture of how many an [`ImageLightbox`](crate::ImageLightbox) is showing.

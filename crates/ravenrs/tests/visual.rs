@@ -251,6 +251,58 @@ fn charts() -> impl View {
     .spacing(8.0)
 }
 
+fn flow_canvas() -> impl View {
+    let graph = State::new(
+        FlowGraph::new()
+            .node(
+                FlowNode::new("sale", "trigger", "New sale", 0.0, 48.0)
+                    .subtitle("Registers 1 and 2")
+                    .port(FlowPort::output("out")),
+            )
+            .node(
+                FlowNode::new("stock", "action", "Check stock", 264.0, 48.0)
+                    .subtitle("For each item")
+                    .port(FlowPort::input("in"))
+                    .port(FlowPort::output("out")),
+            )
+            .node(
+                FlowNode::new("enough", "condition", "Enough in stock?", 528.0, 48.0)
+                    .port(FlowPort::input("in"))
+                    .port(FlowPort::output("yes").side(PortSide::Bottom))
+                    .port(FlowPort::output("no").side(PortSide::Bottom)),
+            )
+            .node(
+                FlowNode::new("receipt", "action", "Issue receipt", 360.0, 240.0)
+                    .port(FlowPort::input("in").side(PortSide::Top)),
+            )
+            .node(
+                FlowNode::new("warn", "action", "Tell the manager", 624.0, 240.0)
+                    .status(FlowNodeStatus::Warning("No chat chosen".into()))
+                    .port(FlowPort::input("in").side(PortSide::Top)),
+            )
+            .edge(FlowEdge::new("e1", FlowEndpoint::new("sale", "out"), FlowEndpoint::new("stock", "in")))
+            .edge(FlowEdge::new("e2", FlowEndpoint::new("stock", "out"), FlowEndpoint::new("enough", "in")))
+            .edge(
+                FlowEdge::new("e3", FlowEndpoint::new("enough", "yes"), FlowEndpoint::new("receipt", "in"))
+                    .label("Yes"),
+            )
+            .edge(
+                FlowEdge::new("e4", FlowEndpoint::new("enough", "no"), FlowEndpoint::new("warn", "in"))
+                    .shape(EdgeShape::Step)
+                    .label("No"),
+            ),
+    );
+    let view = State::new(FlowViewport::at(Point::new(32.0, 24.0), 1.0));
+    let selection = State::new(FlowSelection::node("stock"));
+    FlowCanvas::new(graph.binding())
+        .view(view.binding())
+        .selection(selection.binding())
+        .kind("trigger", FlowKind::new(IconName::Zap, "Trigger").tone(Semantic::Warning))
+        .kind("action", FlowKind::new(IconName::Package, "Action"))
+        .kind("condition", FlowKind::new(IconName::GitBranch, "Condition").tone(Semantic::Success))
+        .size(900.0, 500.0)
+}
+
 macro_rules! visual {
     ($name:ident, $view:expr, $w:expr, $h:expr) => {
         #[test]
@@ -271,3 +323,4 @@ visual!(calendar_month, calendar(), 300.0, 340.0);
 visual!(data_grid_sorted_selected, data_grid(), 520.0, 404.0);
 visual!(ribbon_home_page, ribbon(), 700.0, 160.0);
 visual!(charts_of_every_family, charts(), 720.0, 500.0);
+visual!(flow_canvas_selected_and_warned, flow_canvas(), 900.0, 500.0);

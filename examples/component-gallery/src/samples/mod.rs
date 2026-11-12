@@ -139,6 +139,7 @@ catalog! {
     "Chart" => data,
     "ChartReference" => data,
     "SankeyChart" => data,
+    "FlowCanvas" => data,
     "ChartCard" => data,
     "BarChart" => data,
     "AreaChart" => data,

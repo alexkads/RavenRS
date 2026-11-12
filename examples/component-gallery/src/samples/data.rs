@@ -5,7 +5,7 @@ use ravenrs::prelude::*;
 samples! {
     "TreeView" => tree_view, "TileLayout" => tile_layout, "CardView" => card_view, "DataGrid" => data_grid,
     "Table" => table, "List" => list, "Stat" => stat, "Chart" => chart, "ChartReference" => chart_reference,
-    "SankeyChart" => sankey_chart, "ChartCard" => chart_card, "BarChart" => bar_chart,
+    "SankeyChart" => sankey_chart, "FlowCanvas" => flow_canvas, "ChartCard" => chart_card, "BarChart" => bar_chart,
     "AreaChart" => area_chart, "Barcode" => barcode, "Timeline" => timeline, "PropertyRow" => property_row,
     "VirtualList" => virtual_list, "PagedDocumentView" => paged_document_view,
     "FileBrowser" => file_browser, "SortableList" => sortable_list,
@@ -155,6 +155,67 @@ fn sankey_chart() -> impl View {
         .flow("Savings", "Stocks", 500.0)
         .format(|value| format!("$ {value:.0}"))
         .height(300.0)
+}
+// end
+
+// sample: FlowCanvas, 460
+fn flow_canvas() -> impl View {
+    let graph = State::new(
+        FlowGraph::new()
+            .node(
+                FlowNode::new("sale", "trigger", "New sale", 0.0, 96.0)
+                    .subtitle("Registers 1 and 2")
+                    .port(FlowPort::output("out").kind("sale")),
+            )
+            .node(
+                FlowNode::new("stock", "action", "Check stock", 264.0, 96.0)
+                    .subtitle("For each item")
+                    .port(FlowPort::input("in").kind("sale"))
+                    .port(FlowPort::output("out").kind("sale")),
+            )
+            .node(
+                FlowNode::new("enough", "condition", "Enough in stock?", 528.0, 96.0)
+                    .port(FlowPort::input("in").kind("sale"))
+                    .port(FlowPort::output("yes").side(PortSide::Bottom).kind("sale"))
+                    .port(FlowPort::output("no").side(PortSide::Bottom).kind("shortage")),
+            )
+            .node(
+                FlowNode::new("invoice", "action", "Issue receipt", 360.0, 312.0)
+                    .port(FlowPort::input("in").side(PortSide::Top).kind("sale")),
+            )
+            .node(
+                FlowNode::new("warn", "action", "Tell the manager", 648.0, 312.0)
+                    .status(FlowNodeStatus::Warning("No chat chosen".into()))
+                    .port(FlowPort::input("in").side(PortSide::Top).kind("shortage")),
+            )
+            .edge(
+                FlowEdge::new("e1", FlowEndpoint::new("sale", "out"), FlowEndpoint::new("stock", "in"))
+                    .animated(true),
+            )
+            .edge(FlowEdge::new("e2", FlowEndpoint::new("stock", "out"), FlowEndpoint::new("enough", "in")))
+            .edge(
+                FlowEdge::new("e3", FlowEndpoint::new("enough", "yes"), FlowEndpoint::new("invoice", "in"))
+                    .label("Yes"),
+            )
+            .edge(
+                FlowEdge::new("e4", FlowEndpoint::new("enough", "no"), FlowEndpoint::new("warn", "in"))
+                    .shape(EdgeShape::Step)
+                    .label("No"),
+            ),
+    );
+    FlowCanvas::new(graph.binding())
+        .kind("trigger", FlowKind::new(IconName::Zap, "Trigger").tone(Semantic::Warning))
+        .kind("action", FlowKind::new(IconName::Package, "Action"))
+        .kind("condition", FlowKind::new(IconName::GitBranch, "Condition").tone(Semantic::Success))
+        .validate(|graph, from, to| {
+            let carries = |end: &FlowEndpoint| graph.port(end).and_then(|port| port.kind.clone());
+            if carries(from) == carries(to) {
+                Ok(())
+            } else {
+                Err(String::from("This input takes something else"))
+            }
+        })
+        .size(880.0, 440.0)
 }
 // end
 
