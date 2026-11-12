@@ -4,12 +4,11 @@
 use std::path::PathBuf;
 
 use ravenrs_app::{Access, Identity, ObjectSpace, Operation, Query, Role, SpaceError, Value};
-use ravenrs_app_requests::testing::{Behavior, FakeSink};
 use ravenrs_app_requests::{
     APPROVED, DECISION, Decided, Decision, Dispatcher, OUTBOX, Outcome, REQUEST, RequestsModule, Step,
     forbid_self_decision,
 };
-use ravenrs_app_testkit::{Clock, Fixture, Organization, PERSON, roles};
+use ravenrs_app_testkit::{Behavior, Clock, FakeSink, Fixture, Organization, PERSON, roles};
 
 use Operation::{Create, Read, Write};
 
@@ -269,4 +268,26 @@ fn the_same_local_key_in_two_organizations_makes_two_effects() {
 #[test]
 fn a_package_needs_at_least_one_step() {
     assert!(RequestsModule::new(Vec::new()).is_err());
+}
+
+#[test]
+fn a_destination_that_cannot_tell_leaves_a_lost_answer_to_reconcile() {
+    let fixture = fixture();
+    decided(&fixture.t1);
+    let sink = FakeSink::without_status();
+    sink.then(Behavior::LoseReply);
+    let dispatcher = Dispatcher::new("T1", 3);
+    assert_eq!(dispatcher.run(&mut worker(&fixture.t1), &sink).expect("runs").unknown, 1);
+    assert_eq!(dispatcher.run(&mut worker(&fixture.t1), &sink).expect("runs").unknown, 1);
+    assert_eq!(sink.sends(), 1, "nothing is sent blindly again");
+}
+
+#[test]
+fn a_refused_event_fails_at_once() {
+    let fixture = fixture();
+    decided(&fixture.t1);
+    let sink = FakeSink::new();
+    sink.then(Behavior::Refuse);
+    let report = Dispatcher::new("T1", 3).run(&mut worker(&fixture.t1), &sink).expect("runs");
+    assert_eq!((report.failed, sink.effects()), (1, 0));
 }

@@ -39,6 +39,7 @@ mod live_list;
 mod model;
 mod module;
 mod object;
+mod provider;
 mod record_action;
 mod security;
 #[cfg(feature = "source")]
@@ -69,6 +70,7 @@ pub use model::{
 };
 pub use module::{Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
+pub use provider::{CAN_TELL_STATUS, EventSink, Provider};
 pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 #[cfg(not(target_arch = "wasm32"))]
 pub use ravenrs_core::FileStorage;

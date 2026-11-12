@@ -1,7 +1,7 @@
 //! Synthetic data for testing a reusable `ravenrs-app` module, as `docs/APP-CONTRACTS.md` describes
 //! it: two organizations, T1 and T2, that use **the same local keys** on purpose, so that mixing one
 //! with the other shows; units and people in each; example roles; and a clock that moves only when
-//! a test says so.
+//! a test says so; and a destination for events that answers as the test asks.
 //!
 //! Each organization keeps its records apart, in memory or in a SQLite file of its own. Nothing here
 //! belongs to a sector: the module under test brings its own entities, and the roles are an example
@@ -24,8 +24,9 @@ use std::path::Path;
 use std::rc::Rc;
 
 use ravenrs_app::{
-    EntityInfo, FieldInfo, FieldKind, Identity, MemoryDatabase, ObjectSpace, RoleMerge, SecuredObjectSpace,
-    SecurityContext, SpaceError, SpaceMaker, UserDirectory, Value, security_entities,
+    CAN_TELL_STATUS, EntityInfo, EventSink, FieldInfo, FieldKind, Identity, MemoryDatabase, ObjectSpace,
+    Provider, RoleMerge, SecuredObjectSpace, SecurityContext, SpaceError, SpaceMaker, UserDirectory, Value,
+    security_entities,
 };
 use ravenrs_app_sqlite::{SqliteDatabase, TableMap};
 
@@ -259,5 +260,105 @@ impl Default for Clock {
     /// 12 November 2026, 00:00 UTC.
     fn default() -> Self {
         Self::at(1_794_441_600)
+    }
+}
+
+/// How [`FakeSink`] answers the next send.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Behavior {
+    /// Keeps it and says so.
+    Accept,
+    /// Refuses it for good.
+    Refuse,
+    /// Cannot be reached this time; nothing is kept.
+    Down,
+    /// Keeps it, and the answer is lost on the way back.
+    LoseReply,
+}
+
+#[derive(Debug, Default)]
+struct SinkState {
+    script: std::collections::VecDeque<Behavior>,
+    kept: std::collections::BTreeSet<String>,
+    sends: usize,
+    blind: bool,
+}
+
+/// A destination for events that behaves as a test says, with no network and no account.
+///
+/// It keeps one effect per key, as a destination honoring idempotency keys does, and counts every
+/// send, so a test sees what was sent again. Clones share what it kept.
+#[derive(Clone, Debug, Default)]
+pub struct FakeSink(Rc<std::cell::RefCell<SinkState>>);
+
+impl FakeSink {
+    /// One that accepts everything and can tell what it received.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// One that cannot tell what it received: it declares no [`CAN_TELL_STATUS`].
+    pub fn without_status() -> Self {
+        let sink = Self::default();
+        sink.0.borrow_mut().blind = true;
+        sink
+    }
+
+    /// Answers the next send this way; once the script runs out, it accepts.
+    pub fn then(&self, behavior: Behavior) -> &Self {
+        self.0.borrow_mut().script.push_back(behavior);
+        self
+    }
+
+    /// How many effects it kept: one per key.
+    pub fn effects(&self) -> usize {
+        self.0.borrow().kept.len()
+    }
+
+    /// How many times something was sent to it, kept or not.
+    pub fn sends(&self) -> usize {
+        self.0.borrow().sends
+    }
+
+    /// The keys it kept, in order.
+    pub fn keys(&self) -> Vec<String> {
+        self.0.borrow().kept.iter().cloned().collect()
+    }
+}
+
+impl Provider for FakeSink {
+    fn name(&self) -> &str {
+        "fake destination"
+    }
+
+    fn capabilities(&self) -> Vec<String> {
+        if self.0.borrow().blind { Vec::new() } else { vec![CAN_TELL_STATUS.to_owned()] }
+    }
+}
+
+impl EventSink for FakeSink {
+    fn send(&self, key: &str, _payload: &str) -> Result<(), SpaceError> {
+        let mut state = self.0.borrow_mut();
+        state.sends += 1;
+        match state.script.pop_front().unwrap_or(Behavior::Accept) {
+            Behavior::Accept => {
+                state.kept.insert(key.to_owned());
+                Ok(())
+            }
+            Behavior::Refuse => Err(SpaceError::Refused("refused by the fake destination".to_owned())),
+            Behavior::Down => Err(SpaceError::Temporary("the fake destination is out of reach".to_owned())),
+            Behavior::LoseReply => {
+                state.kept.insert(key.to_owned());
+                Err(SpaceError::Unknown("the answer of the fake destination was lost".to_owned()))
+            }
+        }
+    }
+
+    fn status(&self, key: &str) -> Result<bool, SpaceError> {
+        let state = self.0.borrow();
+        if state.blind {
+            return Err(SpaceError::Unavailable("the fake destination cannot tell".to_owned()));
+        }
+        Ok(state.kept.contains(key))
     }
 }

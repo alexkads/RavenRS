@@ -6,6 +6,7 @@ Synthetic data for testing a reusable `ravenrs-app` module, as [docs/APP-CONTRAC
 - `Organization::space_as`: a unit of work as one person, every read and write checked by their roles.
 - `roles`: an example policy (administrator, registrar of a unit, worker limited to some entities). It belongs to the tests, not to RavenRS.
 - `Clock`: time that moves only when a test says so.
+- `FakeSink`: a destination for events that accepts, refuses, is out of reach, loses its answer or cannot tell what it received, as the test asks, keeping one effect per key and counting every send.
 
 Opening `Fixture::sqlite` on the same folder again finds what was kept, which is how a test restarts an application.
 
