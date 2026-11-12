@@ -508,6 +508,18 @@ pub struct Labels {
     pub step_down: String,
     /// After the count of events an [`EventCalendar`](crate::EventCalendar) day has no room for.
     pub calendar_more: String,
+    /// Month, week and day, as an [`EventCalendar`](crate::EventCalendar) offers its views.
+    pub calendar_views: [String; 3],
+    /// The name of an [`EventCalendar`](crate::EventCalendar)'s choice of view.
+    pub calendar_view_name: String,
+    /// An [`EventCalendar`](crate::EventCalendar)'s back button, by week or by day.
+    pub calendar_previous: String,
+    /// An [`EventCalendar`](crate::EventCalendar)'s forward button, by week or by day.
+    pub calendar_next: String,
+    /// Over the events of a whole day, above the hours of a week or a day.
+    pub calendar_all_day: String,
+    /// What an empty hour of an [`EventCalendar`](crate::EventCalendar) creates, before its time.
+    pub calendar_new_event: String,
     /// The header over a [`Scheduler`](crate::Scheduler)'s resources.
     pub scheduler_resources: String,
     /// Zooms a scheduler's time axis in.
@@ -546,6 +558,20 @@ pub struct Labels {
     pub zoom_view: String,
     /// A [`Minimap`](crate::Minimap)'s name.
     pub minimap: String,
+    /// A [`FlowCanvas`](crate::FlowCanvas)'s name.
+    pub flow_canvas: String,
+    /// What a [`FlowCanvas`](crate::FlowCanvas) holds, with `{0}` nodes and `{1}` connections.
+    pub flow_count: String,
+    /// The zoom buttons of a [`FlowCanvas`](crate::FlowCanvas), as a group.
+    pub flow_controls: String,
+    /// Locks the editing of a [`FlowCanvas`](crate::FlowCanvas).
+    pub flow_lock: String,
+    /// Unlocks the editing of a [`FlowCanvas`](crate::FlowCanvas).
+    pub flow_unlock: String,
+    /// Why two ports of a [`FlowCanvas`](crate::FlowCanvas) do not connect, when the app says nothing.
+    pub flow_refused: String,
+    /// A node of a [`FlowCanvas`](crate::FlowCanvas) that is switched off.
+    pub flow_disabled: String,
     /// A [`RubberBand`](crate::RubberBand)'s name.
     pub rubber_band: String,
     /// A [`Marquee`](crate::Marquee)'s name.
@@ -1073,6 +1099,12 @@ impl Labels {
             step_up: texts.get("widgets.step_up"),
             step_down: texts.get("widgets.step_down"),
             calendar_more: texts.get("widgets.calendar_more"),
+            calendar_views: texts.array("widgets.calendar_views"),
+            calendar_view_name: texts.get("widgets.calendar_view_name"),
+            calendar_previous: texts.get("widgets.calendar_previous"),
+            calendar_next: texts.get("widgets.calendar_next"),
+            calendar_all_day: texts.get("widgets.calendar_all_day"),
+            calendar_new_event: texts.get("widgets.calendar_new_event"),
             scheduler_resources: texts.get("widgets.scheduler_resources"),
             zoom_in: texts.get("widgets.zoom_in"),
             zoom_out: texts.get("widgets.zoom_out"),
@@ -1092,6 +1124,13 @@ impl Labels {
             zoom_actual: texts.get("widgets.zoom_actual"),
             zoom_view: texts.get("widgets.zoom_view"),
             minimap: texts.get("widgets.minimap"),
+            flow_canvas: texts.get("widgets.flow_canvas"),
+            flow_count: texts.get("widgets.flow_count"),
+            flow_controls: texts.get("widgets.flow_controls"),
+            flow_lock: texts.get("widgets.flow_lock"),
+            flow_unlock: texts.get("widgets.flow_unlock"),
+            flow_refused: texts.get("widgets.flow_refused"),
+            flow_disabled: texts.get("widgets.flow_disabled"),
             rubber_band: texts.get("widgets.rubber_band"),
             marquee: texts.get("widgets.marquee"),
             transform: texts.get("widgets.transform"),
@@ -1358,6 +1397,11 @@ impl Labels {
             }
             _ => false,
         })
+    }
+
+    /// What a [`FlowCanvas`](crate::FlowCanvas) holds, for screen readers.
+    pub fn flow_count(&self, nodes: usize, edges: usize) -> String {
+        two_numbers(&self.flow_count, nodes, edges)
     }
 
     /// Which picture of how many an [`ImageLightbox`](crate::ImageLightbox) is showing.

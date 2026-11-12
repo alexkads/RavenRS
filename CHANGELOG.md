@@ -14,6 +14,40 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
   what was typed and leave whoever was halfway in behind, and `demo_credentials`, which fills in a
   demonstration's name and password and still checks them on Sign in.
   ([#191](https://github.com/alexkads/RavenRS/issues/191))
+- `GridCurrent` and `DataGrid::current` give what a grid shows now, its query and its rows as a
+  table, to something outside it. ([#181](https://github.com/alexkads/RavenRS/issues/181))
+
+### Fixed
+
+- The report of a list (`ReportModule`, `Session::list_table`) has the rows the list shows: its
+  search, column filters, sorting, columns and grouping, and a remote list asks storage for all of
+  them. ([#181](https://github.com/alexkads/RavenRS/issues/181))
+- `FlowCanvas`: diagrams of nodes joined by connections on an endless surface, with pan,
+  zoom, nodes that move on the grid and take focus, ports that check what connects and say
+  why not, curve, step and straight lines with labels and travelling dashes, selection by
+  press, Shift and rectangle, a lock, zoom controls and a map. The model and the routes of
+  the lines live in `ravenrs_graphics::flow`, and `BuildCx::on_wheel` lets a surface take the
+  wheel before any scroll container around it. ([#195](https://github.com/alexkads/RavenRS/issues/195))
+
+### Fixed
+
+- `AppShell` in a window narrower than 720 points shows a button in the header that opens the
+  navigation sheet; choosing a screen closes it. `AppShell::sidebar` shares the state with the
+  application. ([#184](https://github.com/alexkads/RavenRS/issues/184))
+
+### Fixed
+
+- Dates and moments in generated lists show the language's way (`format.date`,
+  `format.date_time`: `dd/MM/yyyy` in Brazilian Portuguese) and still sort and filter as dates;
+  a column with a format of its own filters a number by what it shows when it does not compare.
+  ([#231](https://github.com/alexkads/RavenRS/issues/231))
+
+### Fixed
+
+- Permissions on records can go through references, such as
+  `[class_id.teacher_id.login] = ?CurrentUserName`, and hold for records being created, changed
+  and read: `SecuredObjectSpace` follows them in storage, and a value put on the record under the
+  path is replaced and never kept. ([#232](https://github.com/alexkads/RavenRS/issues/232))
 
 ## [27.1.27] - 2026-11-11
 

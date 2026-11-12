@@ -4838,6 +4838,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-app-requests"
+version = "27.1.27"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-app-testkit",
+ "ravenrs-criteria",
+]
+
+[[package]]
 name = "ravenrs-app-spec"
 version = "27.1.27"
 dependencies = [
@@ -4855,6 +4864,15 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-i18n",
  "ravenrs-criteria",
+ "rusqlite",
+]
+
+[[package]]
+name = "ravenrs-app-testkit"
+version = "27.1.27"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-app-sqlite",
  "rusqlite",
 ]
 
