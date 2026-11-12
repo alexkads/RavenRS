@@ -144,7 +144,21 @@ impl ApplicationHandler for Probe {
 /// `--diagnostics`, which still answers when a window would not open or would be
 /// too slow to use. Printing the result gives text to paste into a bug report.
 ///
+/// The report names the GPU and the API it would use, or why none started; the
+/// system, and on Linux the session type (X11 or Wayland), the desktop and the Vulkan
+/// drivers installed; the version and whether the build is optimized; and the
+/// variables that change which GPU is used, such as `WGPU_BACKEND` or
+/// `LIBGL_ALWAYS_SOFTWARE`. Paths in those variables are cut to their file names,
+/// since the report is made to be shared. Over SSH, with no window system, it still
+/// lists the adapters.
+///
 /// Call it instead of running the app: a process has only one event loop.
+///
+/// ```no_run
+/// if std::env::args().any(|a| a == "--diagnostics") {
+///     print!("{}", ravenrs_platform_native::diagnose());
+/// }
+/// ```
 pub fn diagnose() -> DiagnosticReport {
     let Ok(event_loop) = EventLoop::new() else {
         // No window system at all, as over SSH: adapters can still be listed.
