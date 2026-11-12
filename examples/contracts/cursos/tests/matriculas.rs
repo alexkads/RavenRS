@@ -3,7 +3,9 @@
 
 use contrato_cursos::{COORDENACAO, entidades, matriculas};
 use ravenrs_app::{Access, Identity, Operation, Role, SpaceError};
-use ravenrs_app_requests::{APPROVED, DECISION, Decided, Decision, OUTBOX, Outcome, REQUEST};
+use ravenrs_app_requests::{
+    APPROVED, DECISION, DELEGATION, Decided, Decision, OUTBOX, Outcome, REQUEST, TASK,
+};
 use ravenrs_app_testkit::Fixture;
 
 fn pessoa(nome: &str, papel: &str) -> Identity {
@@ -11,7 +13,9 @@ fn pessoa(nome: &str, papel: &str) -> Identity {
     let papel = Role::new(papel)
         .type_permission(REQUEST, todas, Access::Allow)
         .type_permission(DECISION, todas, Access::Allow)
-        .type_permission(OUTBOX, todas, Access::Allow);
+        .type_permission(OUTBOX, todas, Access::Allow)
+        .type_permission(TASK, todas, Access::Allow)
+        .type_permission(DELEGATION, todas, Access::Allow);
     Identity::new(nome, nome, vec![papel])
 }
 
@@ -31,7 +35,7 @@ fn uma_etapa_basta_e_quem_pede_pode_ser_da_coordenacao() {
     let pacote = matriculas().expect("pacote");
     let coordenador = pessoa("coordenador", COORDENACAO);
     let mut espaco = dados.t1.space_as(coordenador.clone());
-    pacote.submit(&mut espaco, &coordenador, 1, "Matrícula tardia", "U1").expect("aberto");
+    pacote.submit(&mut espaco, &coordenador, 1, "Matrícula tardia", "U1", 0).expect("aberto");
     let decidido = pacote.decide(&mut espaco, "T1", &coordenador, &decisao("c1", 1), 0);
     assert_eq!(decidido.expect("autorizado"), Decided::Recorded { state: APPROVED.to_owned() });
 }
@@ -42,7 +46,7 @@ fn um_pedido_sem_polo_nao_e_autorizado() {
     let pacote = matriculas().expect("pacote");
     let coordenador = pessoa("coordenador", COORDENACAO);
     let mut espaco = dados.t1.space_as(coordenador.clone());
-    pacote.submit(&mut espaco, &coordenador, 1, "Matrícula tardia", "").expect("aberto");
+    pacote.submit(&mut espaco, &coordenador, 1, "Matrícula tardia", "", 0).expect("aberto");
     let recusado = pacote.decide(&mut espaco, "T1", &coordenador, &decisao("c1", 1), 0);
     assert!(matches!(recusado, Err(SpaceError::Denied(_))));
 }

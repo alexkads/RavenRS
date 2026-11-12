@@ -5,8 +5,8 @@ use std::path::PathBuf;
 
 use ravenrs_app::{Access, Identity, ObjectSpace, Operation, Query, Role, SpaceError, Value};
 use ravenrs_app_requests::{
-    APPROVED, DECISION, Decided, Decision, Dispatcher, OUTBOX, OutboxModule, Outcome, REQUEST,
-    RequestsModule, Step, forbid_self_decision,
+    APPROVED, DECISION, DELEGATION, Decided, Decision, Dispatcher, OUTBOX, OutboxModule, Outcome, REQUEST,
+    RequestsModule, Step, TASK, forbid_self_decision,
 };
 use ravenrs_app_testkit::{Behavior, Clock, FakeSink, Fixture, Organization, PERSON, roles};
 
@@ -28,6 +28,8 @@ fn member(role: &str) -> Role {
         .type_permission(REQUEST, [Read, Write, Create], Access::Allow)
         .type_permission(DECISION, [Read, Write, Create], Access::Allow)
         .type_permission(OUTBOX, [Read, Write, Create], Access::Allow)
+        .type_permission(TASK, [Read, Write, Create], Access::Allow)
+        .type_permission(DELEGATION, [Read, Write, Create], Access::Allow)
 }
 
 fn person(name: &str, role: &str) -> Identity {
@@ -53,7 +55,7 @@ fn state(organization: &Organization) -> Value {
 fn submit(organization: &Organization, by: &str) {
     let requester = person(by, "Requesters");
     module()
-        .submit(&mut organization.space_as(requester), &person(by, "Requesters"), 1, "New chairs", "U1")
+        .submit(&mut organization.space_as(requester), &person(by, "Requesters"), 1, "New chairs", "U1", 0)
         .expect("submitted");
 }
 

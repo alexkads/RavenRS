@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let conselheiro = Identity::new("conselheiro", "conselheiro", vec![Role::new(CONSELHO)]);
     let diretora = Identity::new("diretora", "diretora", vec![Role::new(DIRETORIA)]);
 
-    pacote.submit(&mut espaco, &tesoureira, 1, "Cadeiras para o salão", "Sede")?;
+    pacote.submit(&mut espaco, &tesoureira, 1, "Cadeiras para o salão", "Sede", 0)?;
     println!("Pedido 1 aberto pela tesoureira.");
     let recusa = pacote.decide(&mut espaco, "associacao", &tesoureira, &decisao("a1", 1), 0);
     println!("A tesoureira tenta decidir o próprio pedido: {recusa:?}");
