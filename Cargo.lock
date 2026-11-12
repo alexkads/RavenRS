@@ -5716,6 +5716,7 @@ version = "27.1.27"
 dependencies = [
  "ravenrs-app",
  "ravenrs-app-sqlite",
+ "ravenrs-criteria",
  "rusqlite",
 ]
 

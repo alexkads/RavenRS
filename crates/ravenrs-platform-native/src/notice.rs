@@ -2,7 +2,13 @@
 
 /// Shows notifications in the system's own place: the Notification Center on macOS,
 /// a toast on Windows and the notification server on Linux, which plain GNOME has
-/// even without a tray. Needs the `notifications` feature.
+/// even without a tray.
+///
+/// Use it for what must reach the person while they are looking elsewhere: a reminder,
+/// a long export that finished. Inside the window, a toast of `ravenrs-widgets` is better.
+///
+/// Needs the `notifications` feature. Without it, the type still exists, so the app
+/// compiles the same, and [`send`](Self::send) returns an error.
 ///
 /// ```no_run
 /// use ravenrs_platform_native::SystemNotifier;

@@ -16,6 +16,19 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 8. **Tests.** At least one behavior test that drives it through `Ui` (pointer and keyboard). Property tests for any pure logic. A golden image for any component whose drawing is non-trivial.
 9. **Docs and demo.** A section in the [component gallery](../examples/component-gallery) that shows its variants and states.
 
+## Definition of done for a crate's documentation
+
+Having rustdoc on every public item is the floor, not the bar. Documentation that only names the parts ("desktop backend: winit windows rendered with wgpu") fails, however long it is. A crate's README and its crate-level docs, which may be the same text through `#![doc = include_str!("../README.md")]`, answer these questions in this order:
+
+1. **Role.** What the crate does for the person using it, who calls it and what it calls, and how it differs from its neighbors. When most people should reach it through the `ravenrs` facade, say so.
+2. **How it works.** The lifecycle and the model, at the depth a user needs: when work happens, which thread owns what, what blocks, what is kept and what is rebuilt.
+3. **Use from start to finish.** A runnable example first, then each part with why someone would reach for it, and when to choose one entry point over another.
+4. **What comes for free.** Behavior the end user gets without a line of the app's code: shortcuts, gestures, defaults, fallbacks.
+5. **Per platform.** What changes on each system or browser and why, including what does not exist somewhere and what happens then. Features, with what each turns on and what it pulls in.
+6. **When something goes wrong.** What each error means and what to try, how to see what is happening (logs, panels, environment variables), and what to send in a bug report.
+
+Behavior that a user can observe is documented publicly. A private comment can keep the implementation detail, but if it explains something the app or the person will see, the public docs explain it too. A section that names a part without saying what it does for the reader, or why, is sent back in review. The test is to give someone who does not know the code only the docs, and check that they can answer a few concrete questions about using the crate.
+
 ## Enforced checks
 
 `scripts/check.sh --full` runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate. Without `--full` it is the quick check for each pull request: rustfmt, and clippy and the tests of the packages the change reaches (`scripts/changed-packages.py`).

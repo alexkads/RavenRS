@@ -19,7 +19,14 @@ use ravenrs_core::ImageData;
 ///
 /// The menu has two items: one opens the window again, in the state it was left,
 /// and the other really closes the app. Where the system shows no such icon, such as
-/// plain GNOME, closing the window closes the app as usual. Needs the `tray` feature.
+/// plain GNOME, closing the window closes the app as usual: an app hidden behind an
+/// icon that nobody draws could never be closed.
+///
+/// With it, the app also runs as a single copy: launching it again opens the window of
+/// the copy already running, which keeps two copies from working on the same data.
+///
+/// Needs the `tray` feature. Without it, the type still exists, so the app compiles the
+/// same, and closing the window closes the app.
 ///
 /// ```
 /// use ravenrs_platform_native::SystemTray;
