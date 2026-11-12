@@ -66,27 +66,27 @@ impl SecuredObjectSpace {
     /// The record as they can see it; nothing if they cannot see it at all. A field of theirs
     /// keeps its value only if it can be read on this very record.
     fn visible(&self, entity: &EntityInfo, mut record: Object) -> Option<Object> {
-        self.context.with(|permissions| {
-            let hidden: Vec<&str> = stored_fields(entity)
+        let followed = self.followed_if_needed(entity, &record);
+        let judged = followed.as_ref().unwrap_or(&record);
+        let hidden: Vec<String> = self.context.with(|permissions| {
+            let hidden: Vec<String> = stored_fields(entity)
                 .filter(|field| !field.is_key)
                 .filter(|field| {
-                    !permissions.can_field(Operation::Read, &entity.name, &field.name, Some(&record))
+                    !permissions.can_field(Operation::Read, &entity.name, &field.name, Some(judged))
                 })
-                .map(|field| field.name.as_str())
+                .map(|field| field.name.clone())
                 .collect();
-            let whole = permissions.can(Operation::Read, &entity.name, Some(&record));
+            let whole = permissions.can(Operation::Read, &entity.name, Some(judged));
             // A permission on a field can open a record its entity keeps closed, but only that.
             let some_field = stored_fields(entity).filter(|field| !field.is_key).count() > hidden.len();
-            if !whole && !some_field {
-                return None;
+            (whole || some_field).then_some(hidden)
+        })?;
+        for name in hidden {
+            if record.values().contains_key(&name) {
+                record.set(&name, Value::Null);
             }
-            for name in hidden {
-                if record.values().contains_key(name) {
-                    record.set(name, Value::Null);
-                }
-            }
-            Some(record)
-        })
+        }
+        Some(record)
     }
 
     /// Whether a query can go to storage as it is, because no record and no field it mentions
@@ -109,11 +109,55 @@ impl SecuredObjectSpace {
         })
     }
 
+    /// The record with what its permissions read through references followed in storage, as it
+    /// is and not as the person sees it, so a condition such as
+    /// `[class_id.teacher_id.login] = ?CurrentUserName` holds for a record not yet kept, and a value
+    /// put on the record cannot stand in for it. Only for judging: it is never written.
+    fn followed(&self, entity: &EntityInfo, object: &Object) -> Object {
+        self.followed_if_needed(entity, object).unwrap_or_else(|| object.clone())
+    }
+
+    /// Like [`followed`](Self::followed), with nothing when no permission reads a path, which is
+    /// the common case and costs no copy.
+    fn followed_if_needed(&self, entity: &EntityInfo, object: &Object) -> Option<Object> {
+        let paths = self.context.with(|permissions| permissions.paths_through(&entity.name));
+        if paths.is_empty() {
+            return None;
+        }
+        let mut judged = object.clone();
+        for path in paths {
+            // Anything put there by hand goes first: what counts is what storage says.
+            let joined = path.join(".");
+            judged.set(&joined, self.follow(entity, object, &path).unwrap_or(Value::Null));
+        }
+        Some(judged)
+    }
+
+    /// The value at the end of `path`, going from record to record through references.
+    fn follow(&self, entity: &EntityInfo, object: &Object, path: &[String]) -> Option<Value> {
+        let (last, through) = path.split_last()?;
+        let (mut info, mut record) = (entity.clone(), object.clone());
+        for step in through {
+            let target = match &info.field_named(step)?.kind {
+                crate::FieldKind::Reference(target) => target.clone(),
+                _ => return None,
+            };
+            let key = record.get(step);
+            if key == Value::Null {
+                return None;
+            }
+            record = self.inner.find(&target, &key).ok()??;
+            info = self.entity(&target).ok()?;
+        }
+        info.field_named(last).map(|_| record.get(last))
+    }
+
     fn check_new(&self, entity: &EntityInfo, object: &Object) -> Result<(), SpaceError> {
         let fresh = entity.new_object();
+        let followed = self.followed(entity, object);
         self.context.with(|permissions| {
             let name = &entity.name;
-            let mut object = object.clone();
+            let mut object = followed;
             entity.compute(&mut object, permissions.environment());
             let object = &object;
             if !permissions.can(Operation::Create, name, Some(object))
@@ -142,10 +186,11 @@ impl SecuredObjectSpace {
         mut object: Object,
         stored: &Object,
     ) -> Result<Option<Object>, SpaceError> {
-        self.context.with(|permissions| {
+        let stored = &self.followed(entity, stored);
+        let writable = || stored_fields(entity).filter(|field| field.calculated.is_none());
+        let changed = self.context.with(|permissions| {
             let name = &entity.name;
             let mut changed = false;
-            let writable = || stored_fields(entity).filter(|field| field.calculated.is_none());
             for field in writable() {
                 let (new, old) = (object.get(&field.name), stored.get(&field.name));
                 if new == old {
@@ -162,15 +207,20 @@ impl SecuredObjectSpace {
                 }
                 changed = true;
             }
-            if !changed {
-                return Ok(None);
-            }
-            // What the rules read after the change is worked out here, and not taken from the caller.
-            let mut after = object.clone();
-            entity.compute(&mut after, permissions.environment());
+            Ok(changed)
+        })?;
+        if !changed {
+            return Ok(None);
+        }
+        // What the rules read after the change is worked out here, and not taken from the caller,
+        // with its references followed again: moving a record is judged where it lands.
+        let mut after = object.clone();
+        self.context.with(|permissions| entity.compute(&mut after, permissions.environment()));
+        let after = self.followed(entity, &after);
+        self.context.with(|permissions| {
             for field in writable() {
                 if after.get(&field.name) != stored.get(&field.name)
-                    && !permissions.can_field(Operation::Write, name, &field.name, Some(&after))
+                    && !permissions.can_field(Operation::Write, &entity.name, &field.name, Some(&after))
                 {
                     return Err(self.context.denied());
                 }
@@ -238,6 +288,7 @@ impl ObjectSpace for SecuredObjectSpace {
     }
 
     fn save(&mut self, object: Object) -> Result<(), SpaceError> {
+        let object = object.without_paths();
         let info = self.entity(object.entity())?;
         let key = info.key_field().map(|field| object.get(&field.name)).unwrap_or(Value::Null);
         match self.inner.find(&info.name, &key)? {
@@ -253,6 +304,7 @@ impl ObjectSpace for SecuredObjectSpace {
     }
 
     fn insert(&mut self, object: Object) -> Result<(), SpaceError> {
+        let object = object.without_paths();
         let info = self.entity(object.entity())?;
         self.check_new(&info, &object)?;
         self.inner.insert(object)
