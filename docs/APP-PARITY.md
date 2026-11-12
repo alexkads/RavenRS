@@ -1,6 +1,6 @@
 # Application framework parity
 
-What exists of the behavior documented for model-driven application frameworks, and the step that brings the rest. ✅ works, 🟡 in part, ⬜ planned. See [APP-FRAMEWORK.md](APP-FRAMEWORK.md).
+What exists of the behavior documented for model-driven application frameworks, and the step that brings the rest. ✅ works, 🟡 in part, ⬜ planned. See [APP-FRAMEWORK.md](APP-FRAMEWORK.md), and [APP-CONTRACTS.md](APP-CONTRACTS.md) for what reusable modules have to honor and the scenarios that prove it.
 
 | Area | State | Step |
 |---|---|---|
@@ -69,8 +69,23 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Chart and scheduler list editors | ⬜ | F9 |
 | Tree and pivot list editors | ⬜ needs the tree list and the pivot grid | F9 |
 | Report designer and definitions in a database, dashboards people create | ⬜ | F10 |
-| Web API, remote object space, other databases | ⬜ | F12 |
-| Multi-tenancy | ⬜ | F13 |
+| Web API, remote object space, other databases | ⬜ | F12, #226 |
+| Multi-tenancy | ⬜ | F13, #225 |
 | AI: natural language filters, writing help, smart paste | ⬜ local models only, so not on the web | F14 |
 | A command-line tool that creates projects step by step from templates; deployment and diagnostics guides | ⬜ | F15 |
 | An installer with Zed as the editor for projects, its extension and skills, and a graphical viewer of a project | ⬜ | F16 |
+| Modules that declare version, targets, databases, permissions, migrations, jobs and providers, and turn off without losing data | ⬜ `Module` declares name, dependencies, entities, controllers, model and initial records | #82, #253 |
+| Failures that say a capability is missing, a failure is temporary or the outcome is unknown | ⬜ `SpaceError` tells denied, refused and conflict apart, not these | #253 |
+| Events written in the same commit as the change that raised them | ⬜ | #254 |
+| Delivering events with limited retries, reconciling before sending again | ⬜ `Job` runs inside the process only | #255 |
+| Incoming webhooks, signed and deduplicated per organization | ⬜ | #256 |
+| Signing in through an external identity provider, linked by issuer, with sessions that can be revoked | ⬜ `Authenticator` is where a provider goes; none is built in | #257 |
+| Durable processes: a task inbox, delegation, deadlines and resuming after a restart | ⬜ `StateMachine` checks transitions of one record | #258 |
+| Conversations kept with members, delivery state and unread counts | 🟡 `Chat` draws a conversation; nothing keeps one | #259 |
+| Forms published in versions, and audiences by criteria | ⬜ | #260 |
+| Issued documents frozen at a template revision, with a hash and a checked download | 🟡 `AttachmentStore` keeps files by key; reading a key checks no permission | #261 |
+| Charges, receipts and refunds through one provider contract | ⬜ | #262 |
+| Passes checked by the service, with separate states for reading and printing | 🟡 `ravenrs-graphics` draws the code (`barcode::encode`) and reports print it as `ControlKind::Barcode`; nothing reads one or knows if it printed | #263 |
+| Pages with draft, version and audience, in an optional package | ⬜ | #264 |
+| A media player that says what each host can play | 🟡 `SoundClip` and `AudioPlayerButton` play sound; no video | #265 |
+| An MCP server of the application, acting with the person's permissions and asking before writing | ⬜ `ravenrs-mcp` answers about the framework only | #266 |
