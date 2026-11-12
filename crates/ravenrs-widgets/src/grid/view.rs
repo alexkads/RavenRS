@@ -100,6 +100,7 @@ pub struct DataGrid {
     detail_height: f32,
     expanded_rows: Option<Binding<BTreeSet<usize>>>,
     on_export_file: Option<Rc<dyn Fn(GridExportFormat, GridTable)>>,
+    current: Option<GridCurrent>,
     export_title: Option<String>,
     filter_builder: bool,
     cell_style: Option<CellStyler>,
@@ -222,6 +223,67 @@ impl GridRowAction {
     }
 }
 
+/// What a [`DataGrid`] shows now, for something outside it, such as a report, to take the same
+/// rows. Hand one to [`DataGrid::current`]; it follows the grid every time it is built.
+#[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct GridCurrent(Rc<RefCell<Option<Showing>>>);
+
+/// The grid as it was built last.
+struct Showing {
+    columns: Vec<GridColumn>,
+    rows: Rc<Vec<Row>>,
+    query: GridQuery,
+    result: Rc<QueryResult>,
+    remote: bool,
+}
+
+impl fmt::Debug for GridCurrent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GridCurrent").field("built", &self.0.borrow().is_some()).finish()
+    }
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl GridCurrent {
+    /// Nothing yet, until a grid is built with it.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// What people asked the grid for now: sorting, filters, search, grouping and hidden
+    /// columns. `None` before the grid is built.
+    pub fn query(&self) -> Option<GridQuery> {
+        self.0.borrow().as_ref().map(|showing| showing.query.clone())
+    }
+
+    /// Whether the grid brings its rows from elsewhere a page at a time, so only
+    /// [`query`](Self::query) says what it shows.
+    pub fn is_remote(&self) -> bool {
+        self.0.borrow().as_ref().is_some_and(|showing| showing.remote)
+    }
+
+    /// Every row that matches, in the order it shows them, with the columns showing, the same as
+    /// its Export menu makes. The rows of every page, and of collapsed groups too. `None` before
+    /// the grid is built and for a remote grid, which does not hold all its rows.
+    pub fn table(&self, title: &str, culture: &str) -> Option<GridTable> {
+        let held = self.0.borrow();
+        let showing = held.as_ref().filter(|showing| !showing.remote)?;
+        Some(to_table(
+            title,
+            culture,
+            &showing.columns,
+            &showing.rows,
+            &showing.query,
+            &showing.result.matched,
+        ))
+    }
+
+    fn put(&self, showing: Showing) {
+        *self.0.borrow_mut() = Some(showing);
+    }
+}
+
 impl fmt::Debug for DataGrid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DataGrid")
@@ -276,6 +338,7 @@ impl DataGrid {
             detail_height: 240.0,
             expanded_rows: None,
             on_export_file: None,
+            current: None,
             export_title: None,
             filter_builder: false,
             cell_style: None,
@@ -328,6 +391,13 @@ impl DataGrid {
     /// that match, as shown. `ravenrs-grid-export` turns these into a file.
     pub fn on_export_file(mut self, handler: impl Fn(GridExportFormat, GridTable) + 'static) -> Self {
         self.on_export_file = Some(Rc::new(handler));
+        self
+    }
+
+    /// Keeps `current` up to date with what the grid shows, for a report or anything else outside
+    /// it to take the same rows.
+    pub fn current(mut self, current: GridCurrent) -> Self {
+        self.current = Some(current);
         self
     }
 
@@ -3252,6 +3322,15 @@ impl View for DataGrid {
                 }
             }
         };
+        if let Some(current) = &self.current {
+            current.put(Showing {
+                columns: self.columns.clone(),
+                rows: rows.clone(),
+                query: query.clone(),
+                result: result.clone(),
+                remote: self.remote.is_some(),
+            });
+        }
         {
             // Answers are about these rows and these formulas.
             let about = (Rc::as_ptr(&result) as usize, arrangement.formulas.clone());
@@ -3610,11 +3689,19 @@ impl View for DataGrid {
                 ),
             );
         } else if total == 0 {
-            let empty = self
-                .empty_text
-                .clone()
-                .filter(|_| self.remote.is_none() && self.data.rows().is_empty())
-                .unwrap_or_else(|| cx.labels().grid_no_rows.clone());
+            // No rows at all says so, or what the grid was given to say; rows the filters left
+            // out say that. A remote grid knows only what it was asked.
+            let asked = !query.search.trim().is_empty()
+                || query.filters.iter().any(|filter| !filter.trim().is_empty());
+            let has_none = match &self.remote {
+                Some(_) => !asked,
+                None => self.data.rows().is_empty(),
+            };
+            let empty = if has_none {
+                self.empty_text.clone().unwrap_or_else(|| cx.labels().grid_no_records.clone())
+            } else {
+                cx.labels().grid_no_rows.clone()
+            };
             let msg = util::label(cx, &empty, TextStyle::Body, None, theme.color(Semantic::InkMuted));
             body_rows.push(cx.container(
                 LayoutStyle { padding: Insets::uniform(24.0), ..LayoutStyle::stack(Axis::Horizontal) },

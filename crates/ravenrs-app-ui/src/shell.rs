@@ -13,8 +13,8 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_widgets::{
     Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Dialog, Divider, IconButton,
-    IconName, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection, Text,
-    ThemePicker, Tone, VStack, View, ViewExt,
+    IconName, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection,
+    SidebarState, SidebarTrigger, Text, ThemePicker, Tone, VStack, View, ViewExt,
 };
 
 use crate::container::{ActionContainer, icon_named};
@@ -86,6 +86,7 @@ pub struct AppShell {
     template: Rc<dyn FrameTemplate>,
     theme_menu: bool,
     kept_theme: RefCell<Option<String>>,
+    sidebar: SidebarState,
 }
 
 impl std::fmt::Debug for AppShell {
@@ -124,7 +125,13 @@ impl AppShell {
         if let Some(first) = session.first_view() {
             session.show_view_now(&first);
         }
-        Self { session, template: Rc::new(MainTemplate), theme_menu: true, kept_theme: RefCell::new(None) }
+        Self {
+            session,
+            template: Rc::new(MainTemplate),
+            theme_menu: true,
+            kept_theme: RefCell::new(None),
+            sidebar: SidebarState::new(true),
+        }
     }
 
     /// Arranges the window with this.
@@ -150,6 +157,18 @@ impl AppShell {
     pub fn on_url(self, handler: impl Fn(String) + 'static) -> Self {
         self.session.set_on_url(Rc::new(handler));
         self
+    }
+
+    /// Whether the navigation is open, shared with the button that opens it in a narrow window.
+    /// An application that saves or drives it passes a [`SidebarState::controlled`] one.
+    pub fn sidebar(mut self, state: SidebarState) -> Self {
+        self.sidebar = state;
+        self
+    }
+
+    /// Whether the navigation is open.
+    pub fn sidebar_state(&self) -> SidebarState {
+        self.sidebar.clone()
     }
 
     /// What its screens share.
@@ -222,6 +241,7 @@ impl AppShell {
         let sidebar = Sidebar::new(content)
             .collapsible(SidebarCollapse::Icons)
             .narrow_below(NARROW_WINDOW)
+            .state(self.sidebar.clone())
             .header(Text::new(self.session.title()).style(TextStyle::Headline).font_weight(Weight::SEMIBOLD));
         let (due, _) = self.session.reminders().get();
         let reminders = (due > 0).then(|| {
@@ -309,10 +329,24 @@ impl AppShell {
         trail
     }
 
-    fn header(&self, view: Option<&ViewInfo>) -> AnyView {
+    fn header(&self, view: Option<&ViewInfo>, narrow: bool) -> AnyView {
+        // In a narrow window the navigation is a sheet, and this is the way to it.
+        let trigger = narrow.then(|| SidebarTrigger::new(self.sidebar.clone()));
         // What is showing in place of the view has its own commands.
         if self.session.full().is_some() {
-            return Box::new(VStack::new(Vec::<AnyView>::new()));
+            return match trigger {
+                Some(trigger) => Box::new(
+                    VStack::new((
+                        VStack::new((trigger,))
+                            .align(Align::Start)
+                            .padding(Insets::symmetric(8.0, PAGE_GUTTER)),
+                        Divider::horizontal(),
+                    ))
+                    .spacing(0.0)
+                    .align(Align::Stretch),
+                ),
+                None => Box::new(VStack::new(Vec::<AnyView>::new())),
+            };
         }
         // One place is a title; only going deeper makes it a way back.
         let trail = self.trail(view);
@@ -324,10 +358,13 @@ impl AppShell {
         };
         Box::new(
             VStack::new((
-                VStack::new((place, ActionContainer::new(self.session.clone(), [])))
-                    .spacing(8.0)
-                    .align(Align::Stretch)
-                    .padding(Insets::symmetric(12.0, PAGE_GUTTER)),
+                VStack::new((
+                    ravenrs_widgets::HStack::new((trigger, place)).spacing(8.0).align(Align::Center),
+                    ActionContainer::new(self.session.clone(), []),
+                ))
+                .spacing(8.0)
+                .align(Align::Stretch)
+                .padding(Insets::symmetric(12.0, PAGE_GUTTER)),
                 Divider::horizontal(),
             ))
             .spacing(0.0)
@@ -608,9 +645,10 @@ impl View for AppShell {
         let session = &self.session;
         let view = session.frame().view();
         let view = view.as_ref();
+        let narrow = cx.viewport().width < NARROW_WINDOW;
         let window = self.template.arrange(TemplateParts {
             navigation: self.navigation(view),
-            header: self.header(view),
+            header: self.header(view, narrow),
             content: self.content(view),
         });
         let mut parts = vec![cx.child(&window)];

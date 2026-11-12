@@ -123,6 +123,8 @@ pub enum SqlError {
     Constraint,
     /// Anything else, in its own words.
     Other(String),
+    /// The database is held by another connection right now, which passes: trying later may work.
+    Busy(String),
 }
 
 impl SqlError {
@@ -138,7 +140,7 @@ impl fmt::Display for SqlError {
             Self::Unique(column) => write!(f, "not unique: {}", column.as_deref().unwrap_or("")),
             Self::ForeignKey => f.write_str("something else points to this record"),
             Self::Constraint => f.write_str("a rule of the table refused it"),
-            Self::Other(why) => f.write_str(why),
+            Self::Other(why) | Self::Busy(why) => f.write_str(why),
         }
     }
 }
@@ -374,6 +376,19 @@ impl<B: SqlBackend> SqlBuilder<B> {
     }
 }
 
+impl<B> SqlDatabase<B> {
+    /// The database itself, for what only one kind of database does, such as a backup.
+    pub fn backend(&self) -> &B {
+        &self.0.backend
+    }
+
+    /// Forgets the next keys it handed out, so they are counted again from what is stored: after
+    /// the records were replaced underneath, as a restore does.
+    pub fn forget_next_keys(&self) {
+        self.0.next_keys.borrow_mut().clear();
+    }
+}
+
 impl<B: SqlBackend> SqlDatabase<B> {
     /// Starts one over this. See [`SqlBuilder`].
     pub fn builder(backend: impl Into<B>) -> SqlBuilder<B> {
@@ -435,6 +450,7 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
             }
             SqlError::Constraint => SpaceError::Refused(words.rule.clone()),
             SqlError::Other(why) => SpaceError::Storage(words.failed.replace("{0}", why)),
+            SqlError::Busy(why) => SpaceError::Temporary(words.failed.replace("{0}", why)),
         }
     }
 
@@ -714,7 +730,10 @@ impl<B: SqlBackend> ObjectSpace for SqlObjectSpace<B> {
         let changes = self.changes.list().to_vec();
         self.tell(SpaceEvent::Committing(&changes))?;
         let shared = self.shared.clone();
-        let storage = |e: SqlError| SpaceError::Storage(e.to_string());
+        let storage = |e: SqlError| match e {
+            SqlError::Busy(why) => SpaceError::Temporary(why),
+            other => SpaceError::Storage(other.to_string()),
+        };
         shared.backend.batch("BEGIN").map_err(storage)?;
         if let Err(error) = self.apply_all(&changes) {
             let _ = shared.backend.batch("ROLLBACK");

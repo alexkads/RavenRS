@@ -58,13 +58,16 @@ pub enum AuthError {
     Rejected,
     /// Storage failed.
     Storage(String),
+    /// The way of signing in cannot be reached now; trying later may work, or another way the
+    /// application offers.
+    Unavailable(String),
 }
 
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Rejected => f.write_str("the name or the password is not right"),
-            Self::Storage(why) => f.write_str(why),
+            Self::Storage(why) | Self::Unavailable(why) => f.write_str(why),
         }
     }
 }
@@ -147,6 +150,11 @@ impl UserDirectory {
         let directory = Self { space, roles: Rc::new(roles) };
         directory.ensure_roles()?;
         Ok(directory)
+    }
+
+    /// A unit of work with no permissions, for what the security system does itself.
+    pub(crate) fn raw(&self) -> Box<dyn ObjectSpace> {
+        (self.space)()
     }
 
     fn ensure_roles(&self) -> Result<(), SpaceError> {
@@ -367,6 +375,7 @@ pub struct SecurityContext {
     merge: RoleMerge,
     trail: Option<Rc<AuditTrail>>,
     denied: String,
+    external: Option<(String, String)>,
 }
 
 impl fmt::Debug for SecurityContext {
@@ -392,12 +401,20 @@ impl SecurityContext {
             merge,
             trail: None,
             denied: "You are not allowed to do this.".to_owned(),
+            external: None,
         }
     }
 
     /// Writes what the security system does itself there.
     pub fn with_audit_trail(mut self, trail: Rc<AuditTrail>) -> Self {
         self.trail = Some(trail);
+        self
+    }
+
+    /// Ties the session to the outside identity it signed in with: once that identity is
+    /// unlinked, the next [`reload`](Self::reload) leaves it no permission.
+    pub fn signed_in_with(mut self, issuer: impl Into<String>, subject: impl Into<String>) -> Self {
+        self.external = Some((issuer.into(), subject.into()));
         self
     }
 
@@ -429,10 +446,14 @@ impl SecurityContext {
     /// turned off, takes effect now. Someone no longer active keeps no permission at all.
     pub fn reload(&self) -> Result<(), SpaceError> {
         let current = self.identity();
-        let identity = self
-            .directory
-            .identity_by_key(&current.key)?
-            .unwrap_or(Identity { roles: Vec::new(), ..current });
+        let linked = match &self.external {
+            Some((issuer, subject)) => {
+                self.directory.linked_user(issuer, subject)? == Some(current.key.clone())
+            }
+            None => true,
+        };
+        let found = if linked { self.directory.identity_by_key(&current.key)? } else { None };
+        let identity = found.unwrap_or(Identity { roles: Vec::new(), ..current });
         *self.permissions.borrow_mut() = Permissions::new(identity, self.entities.clone(), self.merge);
         Ok(())
     }

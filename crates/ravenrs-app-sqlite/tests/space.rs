@@ -294,3 +294,30 @@ fn a_watcher_can_refuse_and_rules_run_on_it() {
     );
     assert_eq!(validate(&rules, &twin, CONTEXT_SAVE, &space, &RuleWords::default()).len(), 1);
 }
+
+#[test]
+fn a_database_held_by_another_connection_is_a_temporary_failure() {
+    let path = std::env::temp_dir().join(format!("ravenrs-busy-{}.sqlite", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let holder = Connection::open(&path).expect("opens");
+    let db = {
+        let connection = Connection::open(&path).expect("opens");
+        connection.busy_timeout(std::time::Duration::ZERO).expect("no waiting");
+        SqliteDatabase::builder(Rc::new(connection))
+            .managed(account(), TableMap::new("accounts"))
+            .expect("valid")
+            .build()
+    };
+    let mut space = db.space();
+    let mut record = space.new_object("Account").expect("known");
+    record.set("id", 1.0);
+    record.set("name", "Cash");
+    holder.execute_batch("BEGIN EXCLUSIVE").expect("holds the database");
+    let reading = space.new_object("Account");
+    assert!(matches!(&reading, Err(e) if e.is_temporary()), "got {reading:?}");
+    let result = space.save(record).and_then(|()| space.commit());
+    assert!(matches!(&result, Err(e) if e.is_temporary()), "got {result:?}");
+    holder.execute_batch("ROLLBACK").expect("lets go");
+    drop(holder);
+    let _ = std::fs::remove_file(&path);
+}

@@ -33,6 +33,10 @@ use ravenrs_criteria::Dialect;
 use rusqlite::types::{Value as SqlValue, ValueRef};
 use rusqlite::{Connection, ErrorCode, OptionalExtension, params_from_iter};
 
+mod backup;
+
+pub use backup::{BackupError, BackupInfo, BackupStamp, Backups, COPIES_KEPT, KeptCopy, SqliteBackups};
+
 fn quoted(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
 }
@@ -244,6 +248,9 @@ fn bound(value: &Value) -> SqlValue {
 
 fn sql_error(error: &rusqlite::Error) -> SqlError {
     let text = error.to_string();
+    if matches!(error.sqlite_error_code(), Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked)) {
+        return SqlError::Busy(text);
+    }
     if error.sqlite_error_code() != Some(ErrorCode::ConstraintViolation) {
         return SqlError::Other(text);
     }
@@ -266,6 +273,13 @@ fn sql_error(error: &rusqlite::Error) -> SqlError {
 /// A connection to SQLite, which can be shared with the rest of an application.
 #[derive(Clone, Debug)]
 pub struct SqliteBackend(Rc<Connection>);
+
+impl SqliteBackend {
+    /// The connection underneath.
+    pub fn connection(&self) -> &Connection {
+        &self.0
+    }
+}
 
 impl From<Rc<Connection>> for SqliteBackend {
     fn from(connection: Rc<Connection>) -> Self {

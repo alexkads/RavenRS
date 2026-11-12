@@ -154,7 +154,7 @@ pub use dock::{
     DockTabBar,
 };
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
-pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
+pub use event_calendar::{CalendarEvent, CalendarView, EventCalendar, RecurrenceEditor};
 pub use expression_editor::ExpressionEditor;
 pub use extras::{
     AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
@@ -179,10 +179,10 @@ pub use flow::{
 pub use form_layout::{FormGroup, FormLayout};
 pub use full_screen::{FullScreen, FullScreenProvider};
 pub use grid::{
-    CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridCellStyle, GridColumn, GridData,
-    GridExportFormat, GridLayout, GridPage, GridRequest, GridResponder, GridRowAction, GridScenario,
-    GridTable, GridTableColumn, GridTableKind, NumberFormat, RemoteRows, SelectionMode, SortDirection,
-    SortLayout, Summary, Value,
+    CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridCellStyle, GridColumn, GridCurrent,
+    GridData, GridExportFormat, GridLayout, GridPage, GridRequest, GridResponder, GridRowAction,
+    GridScenario, GridTable, GridTableColumn, GridTableKind, NumberFormat, RemoteRows, SelectionMode,
+    SortDirection, SortLayout, Summary, Value,
 };
 pub use icon::Icon;
 pub use icon_set::IconName;
@@ -227,7 +227,9 @@ pub use quad_field::QuadField;
 pub use quick_edit::{InlineRename, ValueSlider};
 #[cfg(feature = "lottie")]
 pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
-pub use recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
+pub use recurrence::{
+    Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
+};
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
 pub use remote::UiWaker;
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};

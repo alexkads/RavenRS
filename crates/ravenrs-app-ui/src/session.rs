@@ -167,6 +167,10 @@ pub struct Words {
     pub thousands: char,
     /// Before decimals.
     pub decimal: char,
+    /// How a date shows in lists, such as `dd/MM/yyyy`.
+    pub date_format: String,
+    /// How a date with a time shows in lists, such as `dd/MM/yyyy HH:mm`.
+    pub date_time_format: String,
 }
 
 impl Default for Words {
@@ -252,6 +256,8 @@ impl Words {
             money_prefix: texts.get("format.money_prefix"),
             thousands: texts.char("format.thousands", ','),
             decimal: texts.char("format.decimal", '.'),
+            date_format: texts.get("format.date"),
+            date_time_format: texts.get("format.date_time"),
         }
     }
 
@@ -343,6 +349,8 @@ struct SessionInner {
     toasts: Toasts,
     /// Where entities no storage keeps get their records.
     record_sources: Rc<RefCell<BTreeMap<String, crate::list_view::ListSource>>>,
+    /// What each list on screen shows now, by view, for a report to take the same rows.
+    shown_lists: RefCell<BTreeMap<String, crate::list_view::ShownList>>,
     /// Where lists no storage keeps get theirs, by entity and field.
     collection_sources: Rc<RefCell<BTreeMap<(String, String), CollectionSource>>>,
     /// Where it came from, for going back.
@@ -425,6 +433,7 @@ impl Session {
             noting: State::new(false),
             toasts: Toasts::new(),
             record_sources: Rc::default(),
+            shown_lists: RefCell::default(),
             collection_sources: Rc::default(),
             history: State::new(Vec::new()),
             error: State::new(None),
@@ -505,6 +514,7 @@ impl Session {
             noting: State::new(false),
             toasts: parent.toasts.clone(),
             record_sources: parent.record_sources.clone(),
+            shown_lists: RefCell::default(),
             collection_sources: parent.collection_sources.clone(),
             history: State::new(Vec::new()),
             error: State::new(None),
@@ -591,6 +601,14 @@ impl Session {
         source: impl Fn(&Object) -> Vec<Object> + 'static,
     ) {
         self.0.collection_sources.borrow_mut().insert((entity.into(), field.into()), Rc::new(source));
+    }
+
+    pub(crate) fn keep_shown_list(&self, view: &str, shown: crate::list_view::ShownList) {
+        self.0.shown_lists.borrow_mut().insert(view.to_owned(), shown);
+    }
+
+    pub(crate) fn shown_list(&self, view: &str) -> Option<crate::list_view::ShownList> {
+        self.0.shown_lists.borrow().get(view).cloned()
     }
 
     pub(crate) fn record_source(&self, entity: &str) -> Option<crate::list_view::ListSource> {

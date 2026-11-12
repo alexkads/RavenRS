@@ -6,7 +6,7 @@ use ravenrs_app::{
     Operation, PermissionPolicy, Query, Role, SECURITY_AUDIT_ENTRY, SECURITY_ROLE, SECURITY_USER,
     SECURITY_USER_ROLE, Value, audit_entity, security_entities,
 };
-use ravenrs_app_ui::{App, Language, SecuredApp};
+use ravenrs_app_ui::{App, Language, SecuredApp, SignInAction};
 use ravenrs_core::{AccessAction, Event, Key, Modifiers, Role as AccessRole};
 use ravenrs_style::Theme;
 use ravenrs_widgets::Ui;
@@ -486,4 +486,154 @@ fn storage_that_does_not_know_the_entities_is_told_up_front() {
         .audit(AuditSettings::new(AuditMode::Full))
         .build();
     assert!(result.is_err());
+}
+
+mod at_the_door {
+    //! What an application adds to the screen of signing in: going back, a demonstration's
+    //! credentials, and words of its own.
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    use super::*;
+
+    /// A database whose administrator is `ana`, with the password `correct horse`.
+    fn with_ana() -> MemoryDatabase {
+        let (_world, database) = with_admin();
+        database
+    }
+
+    fn counting() -> (Rc<Cell<u32>>, SignInAction) {
+        let pressed = Rc::new(Cell::new(0));
+        let counter = pressed.clone();
+        (pressed, SignInAction::new("Back", move || counter.set(counter.get() + 1)))
+    }
+
+    fn inside(world: &mut World) -> bool {
+        world.has_button("Sign out")
+    }
+
+    fn value_of(world: &mut World, field: &str) -> Option<String> {
+        world.settle();
+        world
+            .ui
+            .access_tree()
+            .nodes
+            .iter()
+            .find(|n| {
+                n.role == AccessRole::TextInput && n.name.as_deref().is_some_and(|t| t.starts_with(field))
+            })
+            .and_then(|n| n.value.clone())
+    }
+
+    #[test]
+    fn the_demonstration_fills_in_the_door_and_still_asks_for_sign_in() {
+        let database = with_ana();
+        let mut world =
+            World::over(secured(&database, Language::English).demo_credentials("ana", "correct horse"));
+        assert!(!inside(&mut world), "nobody gets in before Sign in");
+        assert_eq!(value_of(&mut world, "Name").as_deref(), Some("ana"));
+        assert!(!world.says("correct horse"), "the password stays hidden");
+        world.press("Sign in");
+        assert!(inside(&mut world));
+        world.press("Sign out");
+        assert_eq!(value_of(&mut world, "Name").as_deref(), Some("ana"), "signing out fills it in again");
+        world.press("Sign in");
+        assert!(inside(&mut world));
+    }
+
+    #[test]
+    fn a_wrong_demonstration_is_checked_like_anyone_else() {
+        let database = with_ana();
+        let mut world = World::over(secured(&database, Language::English).demo_credentials("ana", "not it"));
+        world.press("Sign in");
+        assert!(!inside(&mut world));
+        assert!(world.says("is not right"), "{:?}", world.names(AccessRole::Label));
+        assert!(!world.says("not it"));
+    }
+
+    #[test]
+    fn without_a_demonstration_nothing_is_filled_in() {
+        let database = with_ana();
+        let mut world = World::over(secured(&database, Language::English));
+        assert_eq!(value_of(&mut world, "Name").unwrap_or_default(), "");
+    }
+
+    #[test]
+    fn going_back_forgets_what_was_typed_and_signs_nobody_in() {
+        let database = with_ana();
+        let (pressed, back) = counting();
+        let mut world = World::over(secured(&database, Language::English).sign_in_action(back));
+        world.sign_in("ana", "wrong password");
+        assert!(world.says("is not right"));
+        world.type_into("Name", "ana");
+        world.type_into("Password", "correct horse");
+        world.press("Back");
+        assert_eq!(pressed.get(), 1);
+        assert!(!inside(&mut world));
+        assert!(!world.says("is not right"), "the message went");
+        assert_eq!(value_of(&mut world, "Name").unwrap_or_default(), "");
+        // What was typed went with it: Sign in alone does not get in.
+        world.press("Sign in");
+        assert!(!inside(&mut world));
+    }
+
+    #[test]
+    fn going_back_from_choosing_a_password_leaves_that_person_behind() {
+        let database = with_ana();
+        add_reader(&database, |_, _| {});
+        let mut space = database.space();
+        let mut user = space
+            .query(SECURITY_USER, &Query::all())
+            .expect("reads")
+            .into_iter()
+            .find(|user| user.get("name") == Value::Text("bia".into()))
+            .expect("there");
+        user.set("must_change_password", true);
+        space.save(user).expect("saved");
+        space.commit().expect("committed");
+
+        let (pressed, back) = counting();
+        let mut world = World::over(secured(&database, Language::English).sign_in_action(back));
+        world.sign_in("bia", "bia's password");
+        assert!(world.says("Choose your own"));
+        world.press("Back");
+        assert_eq!(pressed.get(), 1);
+        assert!(!world.says("Choose your own"));
+        assert!(world.has_button("Sign in"));
+        // Coming back asks again, and still for a new password.
+        world.sign_in("bia", "bia's password");
+        assert!(world.says("Choose your own"));
+    }
+
+    #[test]
+    fn it_shows_its_own_words_and_icon() {
+        let database = with_ana();
+        let (_, back) = counting();
+        let mut world = World::over(
+            secured(&database, Language::English)
+                .description("Central Church")
+                .notice("A demonstration: nothing here is real.")
+                .sign_in_action(back.icon(ravenrs_widgets::IconName::ArrowLeft)),
+        );
+        assert!(world.says("Central Church"));
+        assert!(world.says("A demonstration"));
+        assert!(world.has_button("Back"));
+    }
+
+    #[test]
+    fn the_first_administrator_can_go_back_too() {
+        let (pressed, back) = counting();
+        let mut world = World::over(secured(&database(), Language::English).sign_in_action(back));
+        assert!(world.has_button("Create administrator"));
+        world.press("Back");
+        assert_eq!(pressed.get(), 1);
+        assert!(world.has_button("Create administrator"), "still nobody to sign in as");
+    }
+
+    #[test]
+    fn its_description_for_developers_never_has_the_password() {
+        let database = with_ana();
+        let app = secured(&database, Language::English).demo_credentials("ana", "correct horse");
+        assert!(!format!("{app:?}").contains("correct horse"));
+    }
 }

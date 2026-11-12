@@ -13,7 +13,7 @@ use syn::{DeriveInput, Error, Result, parse_macro_input};
 /// Declares a struct as a business object: an entity for the model, and the way to and from
 /// a record.
 ///
-/// On the struct, `#[object(caption = "...", navigation = "...", icon = "...",
+/// On the struct, `#[object(caption = "...", navigation = "...", icon = "...", empty_text = "...",
 /// list_criteria = "...", form_columns = 2, cloneable, transient, checks_on_leave, list_editable,
 /// data_access = "server", form_actions = "name", focus_order = "a,b")]`, where `data_access` is
 /// `client`, `server` or `data_view`, and `focus_order` the fields the form goes through first.
@@ -334,6 +334,9 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     }
     if let Some(icon) = &object.icon {
         info = quote!(#info.icon(#icon));
+    }
+    if let Some(text) = &object.empty_text {
+        info = quote!(#info.empty_text(#text));
     }
     if let Some(text) = &object.list_criteria {
         info = quote!(#info.list_criteria(#text));

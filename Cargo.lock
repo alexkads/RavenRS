@@ -4994,6 +4994,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-app-requests"
+version = "27.1.27"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-app-testkit",
+ "ravenrs-criteria",
+]
+
+[[package]]
 name = "ravenrs-app-server"
 version = "27.1.27"
 dependencies = [
@@ -5036,6 +5045,15 @@ dependencies = [
  "ravenrs-app-i18n",
  "ravenrs-app-sql",
  "ravenrs-criteria",
+ "rusqlite",
+]
+
+[[package]]
+name = "ravenrs-app-testkit"
+version = "27.1.27"
+dependencies = [
+ "ravenrs-app",
+ "ravenrs-app-sqlite",
  "rusqlite",
 ]
 
@@ -6972,6 +6990,8 @@ name = "tutorial-tasks"
 version = "27.1.27"
 dependencies = [
  "console_error_panic_hook",
+ "image",
+ "pollster",
  "ravenrs",
  "ravenrs-app",
  "ravenrs-app-ui",

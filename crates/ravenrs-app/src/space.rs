@@ -37,6 +37,13 @@ pub enum SpaceError {
     Denied(String),
     /// Storage failed.
     Storage(String),
+    /// What it needs is not there: a provider that does not do this, a feature that is off, a
+    /// host that cannot. Trying again does not help until something changes.
+    Unavailable(String),
+    /// It failed this time and may work later: storage busy, a service out of reach.
+    Temporary(String),
+    /// It may have happened: there was no answer to tell. Find out before doing it again.
+    Unknown(String),
 }
 
 impl fmt::Display for SpaceError {
@@ -47,7 +54,10 @@ impl fmt::Display for SpaceError {
             | Self::Conflict(why)
             | Self::Refused(why)
             | Self::Denied(why)
-            | Self::Storage(why) => f.write_str(why),
+            | Self::Storage(why)
+            | Self::Unavailable(why)
+            | Self::Temporary(why)
+            | Self::Unknown(why) => f.write_str(why),
             Self::MissingKey(entity) => write!(f, "a record of {entity} has no key"),
             Self::DuplicateKey { entity, key } => {
                 write!(f, "{entity} already has a record with the key {key}")
@@ -57,6 +67,18 @@ impl fmt::Display for SpaceError {
 }
 
 impl std::error::Error for SpaceError {}
+
+impl SpaceError {
+    /// Whether trying the same thing again later may work.
+    pub fn is_temporary(&self) -> bool {
+        matches!(self, Self::Temporary(_))
+    }
+
+    /// Whether it may have happened in spite of the error, so that doing it again could do it twice.
+    pub fn may_have_happened(&self) -> bool {
+        matches!(self, Self::Unknown(_))
+    }
+}
 
 /// What to read: a filter, an order and a page.
 #[derive(Clone, Debug, Default)]

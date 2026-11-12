@@ -614,6 +614,8 @@ pub struct EntityInfo {
     pub variants: Vec<ViewVariant>,
     /// What its list says it is there for, above the records.
     pub description: Option<String>,
+    /// What its list says when it has no records, in place of the language's own words.
+    pub empty_text: Option<String>,
     /// The states its records go through.
     pub state_machines: Vec<crate::StateMachine>,
     /// When to remind people of a record.
@@ -660,6 +662,7 @@ impl EntityInfo {
             appearance: Vec::new(),
             variants: Vec::new(),
             description: None,
+            empty_text: None,
             state_machines: Vec::new(),
             actions: Vec::new(),
             reminder: None,
@@ -777,6 +780,14 @@ impl EntityInfo {
     /// What its list says it is there for, above the records.
     pub fn description(mut self, text: impl Into<String>) -> Self {
         self.description = Some(text.into());
+        self
+    }
+
+    /// What its list says when it has no records, such as how to add the first. Without it the
+    /// list says what the language says. It lands on the list view as `EmptyText`, where the
+    /// model can change and translate it.
+    pub fn empty_text(mut self, text: impl Into<String>) -> Self {
+        self.empty_text = Some(text.into());
         self
     }
 
@@ -1056,6 +1067,13 @@ impl Object {
         self.values.insert(field.to_owned(), value.into());
     }
 
+    /// Leaves out what was put on it under a path, such as `class_id.teacher_id.login`: values
+    /// only what holds the record works out, for judging it, and never kept.
+    pub fn without_paths(mut self) -> Self {
+        self.values.retain(|name, _| !name.contains('.'));
+        self
+    }
+
     /// Every value, by field.
     pub fn values(&self) -> &BTreeMap<String, Value> {
         &self.values
@@ -1071,7 +1089,8 @@ impl Record for Object {
     fn field(&self, path: &[String]) -> Option<Value> {
         match path {
             [name] => self.values.get(name).cloned(),
-            _ => None,
+            // A path through references, when what holds the record has followed it.
+            path => self.values.get(&path.join(".")).cloned(),
         }
     }
 

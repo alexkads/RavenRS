@@ -373,8 +373,11 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DateTimePicker::__live_expose(registry);
     crate::CalendarEvent::__live_expose_fields(registry);
     crate::CalendarEvent::__live_expose(registry);
+    crate::CalendarView::__live_expose_variants(registry);
+    crate::CalendarView::__live_expose(registry);
     crate::EventCalendar::__live_expose_fields(registry);
     crate::EventCalendar::__live_expose(registry);
+    crate::EventCalendar::__live_expose_part1(registry);
     crate::RecurrenceEditor::__live_expose_fields(registry);
     crate::RecurrenceEditor::__live_expose(registry);
     crate::ExpressionEditor::__live_expose_fields(registry);
@@ -709,6 +712,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::RecurrenceEnd::__live_expose_variants(registry);
     crate::RecurrenceRule::__live_expose_fields(registry);
     crate::RecurrenceRule::__live_expose(registry);
+    crate::RecurrenceSet::__live_expose_fields(registry);
+    crate::RecurrenceSet::__live_expose(registry);
     crate::CodeBlock::__live_expose_fields(registry);
     crate::CodeBlock::__live_expose(registry);
     crate::ReleaseNote::__live_expose_fields(registry);

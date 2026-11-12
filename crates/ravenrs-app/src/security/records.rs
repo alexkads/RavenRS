@@ -73,6 +73,12 @@ fn of_role(name: &str) -> EntityInfo {
 
 /// The entities of users, roles and permissions, which storage has to know.
 pub fn security_entities() -> Vec<EntityInfo> {
+    let mut all = declared_security_entities();
+    all.push(super::external::external_login_entity());
+    all
+}
+
+fn declared_security_entities() -> Vec<EntityInfo> {
     let operations = |entity: EntityInfo| {
         ["can_read", "can_write", "can_create", "can_delete"]
             .iter()
