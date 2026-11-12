@@ -7,7 +7,8 @@
 //! exists to be sent.
 //!
 //! [`Dispatcher`] hands the events to an [`EventSink`] and never sends blindly again: an event sent
-//! with no answer is checked with [`EventSink::status`] first.
+//! with no answer is checked with [`EventSink::status`] first, and stays to be reconciled when the
+//! sink cannot tell.
 //!
 //! Nothing here belongs to a sector. Steps, roles and texts are the application's, and two
 //! applications can install the same package with different ones.
@@ -20,7 +21,7 @@ use ravenrs_app::{
     SpaceError, Value,
 };
 
-pub mod testing;
+pub use ravenrs_app::{CAN_TELL_STATUS, EventSink, Provider};
 
 /// The entity of requests.
 pub const REQUEST: &str = "Request";
@@ -311,26 +312,6 @@ pub enum Decided {
     AlreadyRecorded,
 }
 
-/// Why sending an event did not end in a confirmation.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SendError {
-    /// The destination refused it for good.
-    Refused(String),
-    /// The destination could not be reached; trying later may work.
-    Unavailable,
-    /// It may have arrived: there was no answer to tell.
-    Unknown,
-}
-
-/// Where events go. This is the smallest contract the package needs; it moves into `ravenrs-app`
-/// once a second provider needs it.
-pub trait EventSink {
-    /// Sends an event under this key. A destination that already has the key keeps one effect.
-    fn send(&self, key: &str, payload: &str) -> Result<(), SendError>;
-    /// Whether the destination already has an event under this key.
-    fn status(&self, key: &str) -> Result<bool, SendError>;
-}
-
 /// Hands the events waiting in one organization to an [`EventSink`].
 #[derive(Clone, Debug)]
 pub struct Dispatcher {
@@ -372,6 +353,10 @@ impl Dispatcher {
         for mut event in events {
             let key = self.key_of(&text(&event.get("key")));
             if text(&event.get("state")) == "unknown" {
+                if !sink.can(CAN_TELL_STATUS) {
+                    report.unknown += 1;
+                    continue;
+                }
                 match sink.status(&key) {
                     Ok(true) => {
                         event.set("state", "confirmed");
@@ -396,21 +381,17 @@ impl Dispatcher {
                     report.confirmed += 1;
                     "confirmed"
                 }
-                Err(SendError::Unknown) => {
+                Err(error) if error.may_have_happened() => {
                     report.unknown += 1;
                     "unknown"
                 }
-                Err(SendError::Refused(_)) => {
-                    report.failed += 1;
-                    "failed"
-                }
-                Err(SendError::Unavailable) if attempts >= self.max_attempts => {
-                    report.failed += 1;
-                    "failed"
-                }
-                Err(SendError::Unavailable) => {
+                Err(error) if error.is_temporary() && attempts < self.max_attempts => {
                     report.retry += 1;
                     "pending"
+                }
+                Err(_) => {
+                    report.failed += 1;
+                    "failed"
                 }
             };
             event.set("state", state);

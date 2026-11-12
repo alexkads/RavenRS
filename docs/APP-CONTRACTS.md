@@ -69,22 +69,24 @@ A small application installs one module without the whole platform. A mobile cli
 
 A provider declares the capabilities it supports, its settings and secrets, the authorized context it runs in, cancellation and timeout, its result and how to resume. A deterministic **fake provider** tests success, refusal, late answer, duplicate and outage with no paid account and no network.
 
+In `ravenrs-app`, `Provider` names a provider and the capabilities it declares, and `EventSink` sends events under a key and, with `CAN_TELL_STATUS`, tells whether it already has one. Failures use the meanings of contract 3. `ravenrs_app_testkit::FakeSink` is the fake one.
+
 Capabilities are honest: messaging may send without receiving, a printer may produce a document without confirming paper, storage may limit sizes, a player may not play every format on every host. The interface shows the effective capability and never shows a failure as success.
 
 ## Contract 3: commands, events and failures
 
 Every operation that changes data documents its preconditions, permission, transaction boundary, idempotency, consequence, audit and the result shown to the person. An effect key belongs to its organization: a key of T1 never deduplicates an operation of T2.
 
-The result distinguishes six meanings. `SpaceError` (`crates/ravenrs-app/src/space.rs`) covers three of them today:
+The result distinguishes six meanings, all of them in `SpaceError` (`crates/ravenrs-app/src/space.rs`). `is_temporary()` says when trying again later may work, and `may_have_happened()` when doing it again could do it twice:
 
 | Meaning | Today |
 |---|---|
 | Not allowed | `SpaceError::Denied` |
 | Invalid data | `SpaceError::Refused`, `BadQuery`, `DuplicateKey` |
 | Version conflict | `SpaceError::Conflict` |
-| Capability unavailable | missing |
-| Temporary integration failure | missing (`Storage` mixes it with permanent ones) |
-| Outcome still unknown | missing |
+| Capability unavailable | `SpaceError::Unavailable` |
+| Temporary integration failure | `SpaceError::Temporary`; SQLite busy or locked by another connection answers it |
+| Outcome still unknown | `SpaceError::Unknown` |
 
 Messages never reveal that data the person cannot reach exists.
 

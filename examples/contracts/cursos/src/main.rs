@@ -3,21 +3,31 @@
 use std::cell::RefCell;
 
 use contrato_cursos::{COORDENACAO, entidades, matriculas};
-use ravenrs_app::{Identity, MemoryDatabase, Role};
-use ravenrs_app_requests::{Decision, Dispatcher, EventSink, Outcome, SendError};
+use ravenrs_app::{CAN_TELL_STATUS, EventSink, Identity, MemoryDatabase, Provider, Role, SpaceError};
+use ravenrs_app_requests::{Decision, Dispatcher, Outcome};
 
 /// Mensagens ao aluno: aqui só escritas na tela.
 #[derive(Default)]
 struct Mensagens(RefCell<Vec<String>>);
 
+impl Provider for Mensagens {
+    fn name(&self) -> &str {
+        "mensagens"
+    }
+
+    fn capabilities(&self) -> Vec<String> {
+        vec![CAN_TELL_STATUS.to_owned()]
+    }
+}
+
 impl EventSink for Mensagens {
-    fn send(&self, chave: &str, conteudo: &str) -> Result<(), SendError> {
+    fn send(&self, chave: &str, conteudo: &str) -> Result<(), SpaceError> {
         println!("  mensagem {chave}: {conteudo}");
         self.0.borrow_mut().push(chave.to_owned());
         Ok(())
     }
 
-    fn status(&self, chave: &str) -> Result<bool, SendError> {
+    fn status(&self, chave: &str) -> Result<bool, SpaceError> {
         Ok(self.0.borrow().iter().any(|enviada| enviada == chave))
     }
 }

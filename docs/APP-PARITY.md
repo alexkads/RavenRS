@@ -75,7 +75,8 @@ What exists of the behavior documented for model-driven application frameworks, 
 | A command-line tool that creates projects step by step from templates; deployment and diagnostics guides | ⬜ | F15 |
 | An installer with Zed as the editor for projects, its extension and skills, and a graphical viewer of a project | ⬜ | F16 |
 | Modules that declare version, targets, databases, permissions, migrations, jobs and providers, and turn off without losing data | ⬜ `Module` declares name, dependencies, entities, controllers, model and initial records | #82, #253 |
-| Failures that say a capability is missing, a failure is temporary or the outcome is unknown | ⬜ `SpaceError` tells denied, refused and conflict apart, not these | #253 |
+| Failures that say a capability is missing, a failure is temporary or the outcome is unknown | ✅ `SpaceError::Unavailable`, `Temporary`, `Unknown`, with `is_temporary` and `may_have_happened`; SQLite busy is temporary | #270 |
+| Providers that declare what they can do, and a contract to send events | 🟡 `Provider`, `EventSink`, `CAN_TELL_STATUS`. No cancellation or deadline inside a send yet (#255) | #270 |
 | Events written in the same commit as the change that raised them | ⬜ | #254 |
 | Delivering events with limited retries, reconciling before sending again | ⬜ `Job` runs inside the process only | #255 |
 | Incoming webhooks, signed and deduplicated per organization | ⬜ | #256 |
