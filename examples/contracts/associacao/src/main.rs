@@ -43,10 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     pacote.submit(&mut espaco, &tesoureira, 1, "Cadeiras para o salão", "Sede")?;
     println!("Pedido 1 aberto pela tesoureira.");
-    let recusa = pacote.decide(&mut espaco, &tesoureira, &decisao("a1", 1), 0);
+    let recusa = pacote.decide(&mut espaco, "associacao", &tesoureira, &decisao("a1", 1), 0);
     println!("A tesoureira tenta decidir o próprio pedido: {recusa:?}");
-    println!("Conselho: {:?}", pacote.decide(&mut espaco, &conselheiro, &decisao("a2", 1), 0)?);
-    println!("Diretoria: {:?}", pacote.decide(&mut espaco, &diretora, &decisao("a3", 2), 0)?);
+    println!("Conselho: {:?}", pacote.decide(&mut espaco, "associacao", &conselheiro, &decisao("a2", 1), 0)?);
+    println!("Diretoria: {:?}", pacote.decide(&mut espaco, "associacao", &diretora, &decisao("a3", 2), 0)?);
 
     let avisos = Avisos::default();
     let relatorio = Dispatcher::new("associacao", 3).run(&mut espaco, &avisos)?;

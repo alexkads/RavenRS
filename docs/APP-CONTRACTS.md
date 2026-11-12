@@ -76,6 +76,8 @@ Capabilities are honest: messaging may send without receiving, a printer may pro
 
 Every operation that changes data documents its preconditions, permission, transaction boundary, idempotency, consequence, audit and the result shown to the person. An effect key belongs to its organization: a key of T1 never deduplicates an operation of T2.
 
+In `ravenrs-app`, `ObjectSpaceExt::emit` adds an `Event` to the unit of work in progress, so the commit keeps the change and its event together or neither; an organization keeps one event per key. `OutboxModule` declares the entity, and `Dispatcher` hands pending events to an `EventSink` in this process.
+
 The result distinguishes six meanings, all of them in `SpaceError` (`crates/ravenrs-app/src/space.rs`). `is_temporary()` says when trying again later may work, and `may_have_happened()` when doing it again could do it twice:
 
 | Meaning | Today |
@@ -101,7 +103,7 @@ Each scenario has one owner issue, where its checklist lives. The text of the in
 | C04 | A second writer on the same version does not overwrite silently; a backup of T1 restores on a clean install, a file of T2 is refused; migrations keep data and can be recovered | #241, #229, #243 |
 | C05 | An offline change reconciles once; a permission revoked meanwhile is refused; an online-only command shows pending, never false success; turning a module off keeps reads and exports | #240, #242 |
 | C06 | An approval survives a restart without losing or repeating a decision; self-approval follows the application's policy; delegation ends on its date | #258 |
-| C07 | An event leaves only after its commit; a duplicate or a crash between send and confirmation never doubles the effect; an unauthenticated incoming event is refused | #254, #255, #256 |
+| C07 | An event leaves only after its commit; a duplicate or a crash between send and confirmation never doubles the effect; an unauthenticated incoming event is refused | #254 (done), #255, #256 |
 | C08 | Conversations follow membership and the application's history policy; a repeated notification does not duplicate a message | #259 |
 | C09 | A published form keeps its versions; an audience fires once per change; a field without read permission never leaks through filter, preview or count | #260 |
 | C10 | An issued document stays frozen at its template revision, with its hash; download checks permission; a repeated signature callback changes nothing | #261 |
@@ -136,7 +138,7 @@ What each group of capabilities uses today and where the rest is followed. *Mast
 | M04 Data and recovery | `merge_changes`, `SqliteBuilder::migration`, `SpaceError::Conflict` | | native; SQLite | partial; backup in PR #230 | #241, #229, #243 |
 | M05 Offline and features | `ApplicationBuilder::switch_off`, `Application::guard` | #241 | any; any | partial (master) | #240, #242 |
 | M06 Durable processes | `ravenrs-app-requests` (`RequestsModule`, `Step`, `Policy`), `StateMachine` | | any; any | partial (master): no inbox, delegation or deadlines | #258 |
-| M07 Events and worker | `Provider`, `EventSink`, `CAN_TELL_STATUS`, `ravenrs_app_requests::Dispatcher` | #66 | any; any | partial (master): in-process only | #254, #255, #256 |
+| M07 Events and worker | `ObjectSpaceExt::emit`, `Event`, `OutboxModule`, `Dispatcher`, `Provider`, `EventSink`, `CAN_TELL_STATUS` | #66 | any; any | partial (master): events in the commit done (#254); delivery in this process only | #255, #256 |
 | M08 Conversations | `Chat`, `ChatMessage`, `AttachmentStrip` widgets | #254, #255 | desktop, web; — | partial: drawing only | #259 |
 | M09 Forms and audiences | `FilterBuilder`, `ravenrs-criteria`, `EntityInfo` at run time | #232 | any; any | planned | #260 |
 | M10 Documents | `AttachmentStore`, `SqliteAttachmentStore`, `ravenrs-report-pdf` | #256 | any; any | partial: files by key, no issued revisions | #261 |

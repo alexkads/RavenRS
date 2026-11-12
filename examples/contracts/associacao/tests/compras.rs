@@ -36,15 +36,16 @@ fn a_compra_passa_pelo_conselho_e_pela_diretoria() {
         .expect("aberto");
 
     let propria =
-        pacote.decide(&mut dados.t1.space_as(tesoureira.clone()), &tesoureira, &decisao("a1", 1), 0);
+        pacote.decide(&mut dados.t1.space_as(tesoureira.clone()), "T1", &tesoureira, &decisao("a1", 1), 0);
     assert!(matches!(propria, Err(SpaceError::Denied(_))));
 
     let conselheiro = pessoa("conselheiro", CONSELHO);
     let conselho =
-        pacote.decide(&mut dados.t1.space_as(conselheiro.clone()), &conselheiro, &decisao("a2", 1), 0);
+        pacote.decide(&mut dados.t1.space_as(conselheiro.clone()), "T1", &conselheiro, &decisao("a2", 1), 0);
     assert_eq!(conselho.expect("conferido"), Decided::Recorded { state: "diretoria".to_owned() });
 
     let diretora = pessoa("diretora", DIRETORIA);
-    let diretoria = pacote.decide(&mut dados.t1.space_as(diretora.clone()), &diretora, &decisao("a3", 2), 0);
+    let diretoria =
+        pacote.decide(&mut dados.t1.space_as(diretora.clone()), "T1", &diretora, &decisao("a3", 2), 0);
     assert_eq!(diretoria.expect("aprovado"), Decided::Recorded { state: APPROVED.to_owned() });
 }

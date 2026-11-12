@@ -27,9 +27,10 @@ pub fn fornecedor() -> EntityInfo {
         .field(FieldInfo::new("nome", FieldKind::Text).default_property())
 }
 
-/// Tudo o que a associação guarda: o que é dela e o que o pacote declara.
+/// Tudo o que a associação guarda: o que é dela, o que o pacote declara e os eventos a enviar.
 pub fn entidades() -> Result<Vec<EntityInfo>, String> {
     let mut todas = vec![fornecedor()];
     todas.extend(compras()?.declared_entities());
+    todas.push(ravenrs_app::outbox_entity());
     Ok(todas)
 }

@@ -26,7 +26,7 @@ use std::rc::Rc;
 use ravenrs_app::{
     CAN_TELL_STATUS, EntityInfo, EventSink, FieldInfo, FieldKind, Identity, MemoryDatabase, ObjectSpace,
     Provider, RoleMerge, SecuredObjectSpace, SecurityContext, SpaceError, SpaceMaker, UserDirectory, Value,
-    security_entities,
+    outbox_entity, security_entities,
 };
 use ravenrs_app_sqlite::{SqliteDatabase, TableMap};
 
@@ -53,9 +53,10 @@ pub fn person_entity() -> EntityInfo {
         .field(FieldInfo::new("note", FieldKind::LongText))
 }
 
-/// The entities every organization of the fixture has: units, people and those of security.
+/// The entities every organization of the fixture has: units, people, events waiting to be sent
+/// and those of security.
 pub fn fixture_entities() -> Vec<EntityInfo> {
-    let mut all = vec![unit_entity(), person_entity()];
+    let mut all = vec![unit_entity(), person_entity(), outbox_entity()];
     all.extend(security_entities());
     all
 }
