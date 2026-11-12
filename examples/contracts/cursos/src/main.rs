@@ -39,12 +39,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let secretaria = Identity::new("secretaria", "secretaria", vec![Role::new("Secretaria")]);
     let coordenador = Identity::new("coordenador", "coordenador", vec![Role::new(COORDENACAO)]);
 
-    pacote.submit(&mut espaco, &secretaria, 1, "Matrícula tardia em Desenho Técnico", "")?;
+    pacote.submit(&mut espaco, &secretaria, 1, "Matrícula tardia em Desenho Técnico", "", 0)?;
     println!("Pedido 1 aberto pela secretaria, sem polo.");
     let sem_polo = pacote.decide(&mut espaco, "cursos", &coordenador, &decisao("c1"), 0);
     println!("A coordenação tenta autorizar sem polo: {sem_polo:?}");
 
-    pacote.submit(&mut espaco, &secretaria, 2, "Matrícula tardia em Informática", "Polo Centro")?;
+    pacote.submit(&mut espaco, &secretaria, 2, "Matrícula tardia em Informática", "Polo Centro", 0)?;
     let autorizada = Decision { request: 2, ..decisao("c2") };
     println!("Coordenação: {:?}", pacote.decide(&mut espaco, "cursos", &coordenador, &autorizada, 0)?);
 

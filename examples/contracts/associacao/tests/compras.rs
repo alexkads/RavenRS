@@ -3,7 +3,9 @@
 
 use contrato_associacao::{CONSELHO, DIRETORIA, compras, entidades};
 use ravenrs_app::{Access, Identity, Operation, Role, SpaceError};
-use ravenrs_app_requests::{APPROVED, DECISION, Decided, Decision, OUTBOX, Outcome, REQUEST};
+use ravenrs_app_requests::{
+    APPROVED, DECISION, DELEGATION, Decided, Decision, OUTBOX, Outcome, REQUEST, TASK,
+};
 use ravenrs_app_testkit::Fixture;
 
 fn pessoa(nome: &str, papel: &str) -> Identity {
@@ -11,7 +13,9 @@ fn pessoa(nome: &str, papel: &str) -> Identity {
     let papel = Role::new(papel)
         .type_permission(REQUEST, todas, Access::Allow)
         .type_permission(DECISION, todas, Access::Allow)
-        .type_permission(OUTBOX, todas, Access::Allow);
+        .type_permission(OUTBOX, todas, Access::Allow)
+        .type_permission(TASK, todas, Access::Allow)
+        .type_permission(DELEGATION, todas, Access::Allow);
     Identity::new(nome, nome, vec![papel])
 }
 
@@ -32,7 +36,7 @@ fn a_compra_passa_pelo_conselho_e_pela_diretoria() {
     // Ela é do conselho, e mesmo assim não decide o que ela mesma pediu.
     let tesoureira = pessoa("tesoureira", CONSELHO);
     pacote
-        .submit(&mut dados.t1.space_as(tesoureira.clone()), &tesoureira, 1, "Cadeiras", "U1")
+        .submit(&mut dados.t1.space_as(tesoureira.clone()), &tesoureira, 1, "Cadeiras", "U1", 0)
         .expect("aberto");
 
     let propria =

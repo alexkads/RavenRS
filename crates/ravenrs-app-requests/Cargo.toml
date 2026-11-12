@@ -13,6 +13,7 @@ publish = false
 
 [dependencies]
 ravenrs-app.workspace = true
+ravenrs-criteria.workspace = true
 
 [dev-dependencies]
 ravenrs-app-testkit.workspace = true

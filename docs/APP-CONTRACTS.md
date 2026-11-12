@@ -102,7 +102,7 @@ Each scenario has one owner issue, where its checklist lives. The text of the in
 | C03 | An external identity never widens scope: no linking by e-mail, revocation stops the next operation, provider outage has a documented recovery | #257 |
 | C04 | A second writer on the same version does not overwrite silently; a backup of T1 restores on a clean install, a file of T2 is refused; migrations keep data and can be recovered | #241, #229, #243 |
 | C05 | An offline change reconciles once; a permission revoked meanwhile is refused; an online-only command shows pending, never false success; turning a module off keeps reads and exports | #240, #242 |
-| C06 | An approval survives a restart without losing or repeating a decision; self-approval follows the application's policy; delegation ends on its date | #258 |
+| C06 | An approval survives a restart without losing or repeating a decision; self-approval follows the application's policy; delegation ends on its date | #258 (done) |
 | C07 | An event leaves only after its commit; a duplicate or a crash between send and confirmation never doubles the effect; an unauthenticated incoming event is refused | #254 (done), #255, #256 |
 | C08 | Conversations follow membership and the application's history policy; a repeated notification does not duplicate a message | #259 |
 | C09 | A published form keeps its versions; an audience fires once per change; a field without read permission never leaks through filter, preview or count | #260 |
@@ -122,7 +122,7 @@ Each scenario has one owner issue, where its checklist lives. The text of the in
 [`ravenrs-app-requests`](../crates/ravenrs-app-requests) is the first package held to these contracts (#268). Its tests prove, on the fixture:
 
 - **C02**, as far as `master` goes: a registrar of U1 reads only the people of U1, never the reserved note, and cannot create a person in U2; T1 and T2 never mix although they share keys; a worker reaches only the entities of its job. References computed on create wait for #232.
-- **C06, minimum:** the role of each step and the application's own rule decide; a decision on an old version is a conflict; reopening the SQLite files continues on the right step, and the same decision sent again changes nothing.
+- **C06:** the role of each step and the application's own rule decide; a decision on an old version is a conflict; reopening the SQLite files continues on the right step, and the same decision sent again changes nothing.
 - **C07, minimum:** a refused decision leaves no event; an answer lost on the way back is checked before sending again; a destination that stays down ends in failed after the limit; the same local key in T1 and T2 makes two effects.
 - **C19:** [`examples/contracts`](../examples/contracts) installs it in two applications outside this workspace.
 
@@ -137,7 +137,7 @@ What each group of capabilities uses today and where the rest is followed. *Mast
 | M03 Identity | `Authenticator`, `UserDirectory`, `SecurityContext` | | any; any | partial: local passwords only | #257 |
 | M04 Data and recovery | `merge_changes`, `SqliteBuilder::migration`, `SpaceError::Conflict` | | native; SQLite | partial; backup in PR #230 | #241, #229, #243 |
 | M05 Offline and features | `ApplicationBuilder::switch_off`, `Application::guard` | #241 | any; any | partial (master) | #240, #242 |
-| M06 Durable processes | `ravenrs-app-requests` (`RequestsModule`, `Step`, `Policy`), `StateMachine` | | any; any | partial (master): no inbox, delegation or deadlines | #258 |
+| M06 Durable processes | `ravenrs-app-requests` (`RequestsModule`, `Step::when`, `Step::due_in`, `task_reader`, `delegate`, `delegated_roles`, `tasks_for`), `StateMachine` | #66 for escalation | any; any | partial (master): tasks, inboxes, deadlines and delegations done (#258); no escalation | #66 |
 | M07 Events and worker | `ObjectSpaceExt::emit`, `Event`, `OutboxModule`, `Dispatcher`, `Provider`, `EventSink`, `CAN_TELL_STATUS` | #66 | any; any | partial (master): events in the commit done (#254); delivery in this process only | #255, #256 |
 | M08 Conversations | `Chat`, `ChatMessage`, `AttachmentStrip` widgets | #254, #255 | desktop, web; — | partial: drawing only | #259 |
 | M09 Forms and audiences | `FilterBuilder`, `ravenrs-criteria`, `EntityInfo` at run time | #232 | any; any | planned | #260 |

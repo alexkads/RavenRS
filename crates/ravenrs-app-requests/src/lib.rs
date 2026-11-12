@@ -16,9 +16,11 @@
 use std::fmt;
 use std::rc::Rc;
 
+use ravenrs_criteria::Scope;
+
 use ravenrs_app::{
-    EntityInfo, EnumOption, FieldInfo, FieldKind, Identity, Module, ModuleManifest, Object, ObjectSpace,
-    ObjectSpaceExt, SpaceError, Value,
+    Access, Criteria, EntityInfo, EnumOption, FieldInfo, FieldKind, Identity, Module, ModuleManifest, Object,
+    ObjectSpace, ObjectSpaceExt, Operation, Query, Role, SpaceError, Value,
 };
 
 pub use ravenrs_app::{
@@ -30,6 +32,10 @@ pub use ravenrs_app::{
 pub const REQUEST: &str = "Request";
 /// The entity of decisions.
 pub const DECISION: &str = "Decision";
+/// The entity of tasks: one per request and step, open until the step is decided.
+pub const TASK: &str = "RequestTask";
+/// The entity of delegations: a role lent to someone else until a moment.
+pub const DELEGATION: &str = "Delegation";
 
 /// The state of a request no step is deciding anymore because it was approved.
 pub const APPROVED: &str = "approved";
@@ -43,14 +49,39 @@ pub struct Step {
     pub code: String,
     /// What people read.
     pub caption: String,
-    /// The role whose members decide it. Nobody else does, whatever other role they have.
+    /// The role whose members decide it. Nobody else does, whatever other role they have, unless
+    /// a member lent it with [`RequestsModule::delegate`].
     pub decided_by: String,
+    /// An expression of `ravenrs-criteria` over the request that has to hold for a decision, with
+    /// `?CurrentUserName` and `?CurrentUserId` as the person deciding.
+    pub when: Option<String>,
+    /// How long the step has, in seconds from when its task opens.
+    pub due_in: Option<i64>,
 }
 
 impl Step {
     /// A step with this code and caption, decided by members of this role.
     pub fn new(code: impl Into<String>, caption: impl Into<String>, decided_by: impl Into<String>) -> Self {
-        Self { code: code.into(), caption: caption.into(), decided_by: decided_by.into() }
+        Self {
+            code: code.into(),
+            caption: caption.into(),
+            decided_by: decided_by.into(),
+            when: None,
+            due_in: None,
+        }
+    }
+
+    /// Only decided when this expression holds over the request, such as
+    /// `[requester] <> ?CurrentUserName`.
+    pub fn when(mut self, expression: impl Into<String>) -> Self {
+        self.when = Some(expression.into());
+        self
+    }
+
+    /// Gives the step this many seconds from when its task opens.
+    pub fn due_in(mut self, seconds: i64) -> Self {
+        self.due_in = Some(seconds);
+        self
     }
 }
 
@@ -105,8 +136,11 @@ impl RequestsModule {
         &self.steps
     }
 
-    /// The entities it declares: requests and decisions. Events are the framework's, from
-    /// [`OutboxModule`], which this package depends on.
+    /// The entities it declares: requests, decisions, tasks and delegations. Events are the
+    /// framework's, from [`OutboxModule`], which this package depends on.
+    ///
+    /// The list of tasks shows the open ones: with [`task_reader`] on each role, it is everyone's
+    /// own inbox.
     pub fn declared_entities(&self) -> Vec<EntityInfo> {
         let mut states: Vec<EnumOption> =
             self.steps.iter().map(|step| EnumOption::new(step.code.clone(), step.caption.clone())).collect();
@@ -129,14 +163,31 @@ impl RequestsModule {
             .field(FieldInfo::new("outcome", FieldKind::Enum(outcomes)))
             .field(FieldInfo::new("reason", FieldKind::LongText))
             .field(FieldInfo::new("at", FieldKind::Integer));
-        vec![request, decision]
+        let task_states = vec![EnumOption::new("open", "Open"), EnumOption::new("done", "Done")];
+        let task = EntityInfo::new(TASK)
+            .field(FieldInfo::new("id", FieldKind::Text).key().in_list(false))
+            .field(FieldInfo::new("title", FieldKind::Text).default_property())
+            .field(FieldInfo::new("request", FieldKind::Integer))
+            .field(FieldInfo::new("step", FieldKind::Text))
+            .field(FieldInfo::new("role", FieldKind::Text))
+            .field(FieldInfo::new("state", FieldKind::Enum(task_states)))
+            .field(FieldInfo::new("due", FieldKind::Integer))
+            .field(FieldInfo::new("decided_by", FieldKind::Text))
+            .list_criteria("[state] = 'open'");
+        let delegation = EntityInfo::new(DELEGATION)
+            .field(FieldInfo::new("id", FieldKind::Text).key())
+            .field(FieldInfo::new("delegator", FieldKind::Text))
+            .field(FieldInfo::new("delegate", FieldKind::Text).default_property())
+            .field(FieldInfo::new("role", FieldKind::Text))
+            .field(FieldInfo::new("until", FieldKind::Integer));
+        vec![request, decision, task, delegation]
     }
 
     fn step(&self, code: &str) -> Option<(usize, &Step)> {
         self.steps.iter().enumerate().find(|(_, step)| step.code == code)
     }
 
-    /// Makes a request on its first step, as this person.
+    /// Makes a request on its first step, as this person, and opens the task of that step.
     pub fn submit(
         &self,
         space: &mut dyn ObjectSpace,
@@ -144,6 +195,7 @@ impl RequestsModule {
         id: i64,
         title: &str,
         unit: &str,
+        at: i64,
     ) -> Result<Object, SpaceError> {
         let mut request = space.new_object(REQUEST)?;
         request.set("id", id as f64);
@@ -152,7 +204,12 @@ impl RequestsModule {
         request.set("unit", unit);
         request.set("state", self.steps[0].code.clone());
         request.set("version", 1.0);
-        space.save(request.clone())?;
+        let written =
+            space.save(request.clone()).and_then(|()| open_task(space, &request, &self.steps[0], at));
+        if let Err(error) = written {
+            space.rollback();
+            return Err(error);
+        }
         commit_or_rollback(space)?;
         Ok(request)
     }
@@ -186,8 +243,23 @@ impl RequestsModule {
         if request.get("version") != Value::Number(decision.version as f64) {
             return Err(SpaceError::Conflict("Someone decided this request in the meantime.".to_owned()));
         }
-        if !identity.roles.iter().any(|role| role.name() == step.decided_by) {
+        if !self.roles_of(space, identity, at)?.contains(&step.decided_by) {
             return Err(SpaceError::Denied(format!("Only {} decides this step.", step.decided_by)));
+        }
+        if let Some(expression) = &step.when {
+            let criteria = Criteria::parse(expression).map_err(|e| SpaceError::BadQuery(e.to_string()))?;
+            let environment = ravenrs_app::environment()
+                .parameter("CurrentUserName", identity.name.clone())
+                .parameter("CurrentUserId", identity.key.clone());
+            match Scope::new(&environment).row(&request).evaluate(&criteria) {
+                Ok(Value::Bool(true)) => {}
+                _ => {
+                    return Err(SpaceError::Denied(format!(
+                        "The rule of {} does not allow this decision.",
+                        step.caption
+                    )));
+                }
+            }
         }
         for policy in &self.policies {
             policy(identity, &request, step).map_err(SpaceError::Denied)?;
@@ -215,8 +287,18 @@ impl RequestsModule {
             decision.outcome.code()
         );
         let event = Event::new(organization, "request.decided", format!("decision/{}", decision.id), payload);
+        let task_key = Value::Text(format!("{}/{}", decision.request, step.code));
+        let mut task = space.find(TASK, &task_key)?.ok_or_else(not_there)?;
+        task.set("state", "done");
+        task.set("decided_by", identity.name.clone());
+        let following = match decision.outcome {
+            Outcome::Approve => self.steps.get(index + 1),
+            Outcome::Reject => None,
+        };
         let written = space
             .insert(record)
+            .and_then(|()| space.save(task))
+            .and_then(|()| following.map_or(Ok(()), |next| open_task(space, &request, next, at)))
             .and_then(|()| space.save(request))
             .and_then(|()| space.emit(&event).map(drop));
         if let Err(error) = written {
@@ -231,6 +313,130 @@ impl RequestsModule {
             Err(error) => Err(error),
         }
     }
+}
+
+impl RequestsModule {
+    /// The roles this person decides with at this moment: their own, and those lent to them by a
+    /// delegation still running.
+    pub fn roles_of(
+        &self,
+        space: &dyn ObjectSpace,
+        identity: &Identity,
+        at: i64,
+    ) -> Result<Vec<String>, SpaceError> {
+        let mut roles: Vec<String> = identity.roles.iter().map(|role| role.name().to_owned()).collect();
+        let name = identity.name.replace('\'', "''");
+        let mine = Criteria::parse(&format!("[delegate] = '{name}' And [until] > {at}"))
+            .map_err(|e| SpaceError::BadQuery(e.to_string()))?;
+        for delegation in space.query(DELEGATION, &Query::all().filter(mine))? {
+            let role = text(&delegation.get("role"));
+            if !roles.contains(&role) {
+                roles.push(role);
+            }
+        }
+        Ok(roles)
+    }
+
+    /// Lends a role this person has to someone else until a moment, after which the other person
+    /// no longer decides with it. `id` makes it idempotent.
+    #[allow(clippy::too_many_arguments)]
+    pub fn delegate(
+        &self,
+        space: &mut dyn ObjectSpace,
+        identity: &Identity,
+        id: &str,
+        to: &str,
+        role: &str,
+        until: i64,
+        at: i64,
+    ) -> Result<(), SpaceError> {
+        if !identity.roles.iter().any(|own| own.name() == role) {
+            return Err(SpaceError::Denied(format!("Only a member of {role} lends it.")));
+        }
+        if until <= at {
+            return Err(SpaceError::Refused("A delegation has to end later than now.".to_owned()));
+        }
+        if space.find(DELEGATION, &Value::Text(id.to_owned()))?.is_some() {
+            return Ok(());
+        }
+        let mut delegation = space.new_object(DELEGATION)?;
+        delegation.set("id", id);
+        delegation.set("delegator", identity.name.clone());
+        delegation.set("delegate", to);
+        delegation.set("role", role);
+        delegation.set("until", until as f64);
+        space.insert(delegation)?;
+        commit_or_rollback(space)
+    }
+
+    /// Roles that let this person read the tasks of the roles lent to them and still running, to
+    /// add to their identity when they sign in. Deciding checks the end of each delegation again,
+    /// so a role kept past it reads nothing new and decides nothing.
+    pub fn delegated_roles(
+        &self,
+        space: &dyn ObjectSpace,
+        identity: &Identity,
+        at: i64,
+    ) -> Result<Vec<Role>, SpaceError> {
+        let own: Vec<&str> = identity.roles.iter().map(Role::name).collect();
+        Ok(self
+            .roles_of(space, identity, at)?
+            .into_iter()
+            .filter(|role| !own.contains(&role.as_str()))
+            .map(|role| Role::new(format!("{role} (lent)")).reads_tasks_of(&role))
+            .collect())
+    }
+
+    /// The open tasks this person decides at this moment, by their roles and the delegations
+    /// still running.
+    pub fn tasks_for(
+        &self,
+        space: &dyn ObjectSpace,
+        identity: &Identity,
+        at: i64,
+    ) -> Result<Vec<Object>, SpaceError> {
+        let roles = self.roles_of(space, identity, at)?;
+        let open = Criteria::parse("[state] = 'open'").map_err(|e| SpaceError::BadQuery(e.to_string()))?;
+        let tasks = space.query(TASK, &Query::all().filter(open).sort("id", true))?;
+        Ok(tasks.into_iter().filter(|task| roles.contains(&text(&task.get("role")))).collect())
+    }
+}
+
+/// Lets members of a role read the tasks of the steps that role decides, so the generated list of
+/// tasks is their inbox. Give it to each role that decides a step.
+pub fn task_reader(role: Role) -> Role {
+    let name = role.name().to_owned();
+    role.reads_tasks_of(&name)
+}
+
+/// Reading the tasks of a role, added to another role.
+trait ReadsTasks {
+    fn reads_tasks_of(self, role: &str) -> Role;
+}
+
+impl ReadsTasks for Role {
+    fn reads_tasks_of(self, role: &str) -> Role {
+        let name = role.replace('\'', "''");
+        self.object_permission(TASK, &format!("[role] = '{name}'"), [Operation::Read], Access::Allow)
+    }
+}
+
+fn open_task(space: &mut dyn ObjectSpace, request: &Object, step: &Step, at: i64) -> Result<(), SpaceError> {
+    let key = match request.get("id") {
+        Value::Number(n) => n as i64,
+        _ => 0,
+    };
+    let mut task = space.new_object(TASK)?;
+    task.set("id", format!("{key}/{}", step.code));
+    task.set("title", request.get("title"));
+    task.set("request", key as f64);
+    task.set("step", step.code.clone());
+    task.set("role", step.decided_by.clone());
+    task.set("state", "open");
+    if let Some(due_in) = step.due_in {
+        task.set("due", (at + due_in) as f64);
+    }
+    space.insert(task)
 }
 
 impl Module for RequestsModule {

@@ -81,7 +81,7 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Delivering events with limited retries, reconciling before sending again | ⬜ `Job` runs inside the process only | #255 |
 | Incoming webhooks, signed and deduplicated per organization | ⬜ | #256 |
 | Signing in through an external identity provider, linked by issuer, with sessions that can be revoked | ⬜ `Authenticator` is where a provider goes; none is built in | #257 |
-| Durable processes: a task inbox, delegation, deadlines and resuming after a restart | ⬜ `StateMachine` checks transitions of one record | #258 |
+| Durable processes: a task inbox, delegation, deadlines and resuming after a restart | 🟡 `ravenrs-app-requests`: a task per request and step with its role and deadline, the generated list of open tasks as each role's inbox (`task_reader`), rules as expressions (`Step::when`), delegations that end (`delegate`, `delegated_roles`), resuming from storage. Escalating overdue tasks waits for #66 | #258 |
 | Conversations kept with members, delivery state and unread counts | 🟡 `Chat` draws a conversation; nothing keeps one | #259 |
 | Forms published in versions, and audiences by criteria | ⬜ | #260 |
 | Issued documents frozen at a template revision, with a hash and a checked download | 🟡 `AttachmentStore` keeps files by key; reading a key checks no permission | #261 |
@@ -91,5 +91,5 @@ What exists of the behavior documented for model-driven application frameworks, 
 | A media player that says what each host can play | 🟡 `SoundClip` and `AudioPlayerButton` play sound; no video | #265 |
 | An MCP server of the application, acting with the person's permissions and asking before writing | ⬜ `ravenrs-mcp` answers about the framework only | #266 |
 | A test kit for reusable modules: two organizations with the same keys, units, people, example roles, a controlled clock | ✅ `ravenrs-app-testkit` | #268 |
-| Requests decided step by step, with steps, roles and rules from the application, idempotent decisions and an event in the same commit | 🟡 `ravenrs-app-requests`, in two applications of `examples/contracts`. No task inbox, delegation or deadlines (#258) | #268 |
+| Requests decided step by step, with steps, roles and rules from the application, idempotent decisions and an event in the same commit | 🟡 `ravenrs-app-requests`, in two applications of `examples/contracts`. Tasks, inboxes, deadlines and delegations since #258 | #268 |
 | Finding the contracts of reusable modules: scenarios and groups with their owners, the state of each capability | ✅ `app_contracts` and `parity_status` with `document: application` in `ravenrs-mcp`; the skill that `cargo ravenrs` installs points to them | #274 |
