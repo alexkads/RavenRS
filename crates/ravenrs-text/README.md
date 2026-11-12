@@ -1,6 +1,6 @@
 # ravenrs-text
 
-Text shaping and line layout for RavenRS with Parley; Inter and a Lucide icon font embedded.
+Text shaping and line layout for RavenRS with Parley; Inter and a Lucide icon font embedded, and Fira Mono for code with the `mono` feature.
 
 This crate is part of [RavenRS](https://github.com/alexkads/RavenRS). Most apps depend on the [`ravenrs`](https://crates.io/crates/ravenrs) facade instead, which re-exports it.
 

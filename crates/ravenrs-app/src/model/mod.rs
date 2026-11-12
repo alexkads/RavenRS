@@ -14,4 +14,4 @@ pub use layers::{Diff, MergedModel, ModelLayer, ModelLayers, UnusableNode};
 pub use node::ModelNode;
 #[cfg(not(target_arch = "wasm32"))]
 pub use store::FileStore;
-pub use store::{EmbeddedStore, MemoryModelStore, ModelStore};
+pub use store::{EmbeddedStore, MemoryModelStore, ModelStore, StoredModel};

@@ -29,12 +29,51 @@ pub struct WebOptions {
     pub theme: Theme,
     /// Mirrors the UI as invisible ARIA elements for screen readers (on by default).
     pub accessibility: bool,
+    /// Which browser graphics API draws the canvas.
+    pub backend: WebBackend,
+}
+
+/// The browser graphics API RavenRS draws with.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WebBackend {
+    /// WebGPU where the browser has it, WebGL2 otherwise or if WebGPU fails to start.
+    #[default]
+    Auto,
+    /// WebGPU only: a browser without it shows [`WebError::WebGpuUnavailable`].
+    WebGpu,
+    /// WebGL2 only. It starts in nearly every browser and phone, including ones where
+    /// WebGPU is missing or turned off; pages that must open everywhere use it.
+    WebGl2,
+}
+
+impl WebBackend {
+    /// The backends to try, in order.
+    fn order(self) -> Vec<wgpu::Backends> {
+        match self {
+            Self::WebGpu => vec![wgpu::Backends::BROWSER_WEBGPU],
+            Self::WebGl2 => vec![wgpu::Backends::GL],
+            Self::Auto if webgpu_available() => vec![wgpu::Backends::BROWSER_WEBGPU, wgpu::Backends::GL],
+            Self::Auto => vec![wgpu::Backends::GL],
+        }
+    }
 }
 
 impl WebOptions {
     /// Mounts on the `<canvas>` with this id, in the default theme.
     pub fn new(canvas_id: impl Into<String>) -> Self {
-        Self { canvas_id: canvas_id.into(), theme: Theme::default(), accessibility: true }
+        Self {
+            canvas_id: canvas_id.into(),
+            theme: Theme::default(),
+            accessibility: true,
+            backend: WebBackend::Auto,
+        }
+    }
+
+    /// Draws with this graphics API instead of choosing one.
+    pub fn backend(mut self, backend: WebBackend) -> Self {
+        self.backend = backend;
+        self
     }
 
     /// Starts in `theme` instead of Raven Dark.
@@ -56,6 +95,8 @@ struct Gpu {
     context: GpuContext,
     renderer: Renderer,
     lost: Arc<AtomicBool>,
+    /// The graphics API this device runs on, to start the same one again after a loss.
+    backends: wgpu::Backends,
 }
 
 struct State {
@@ -69,7 +110,25 @@ struct State {
     diagnostics: Diagnostics,
     /// The diagnostics panel is open, so the frames are being looked at closely.
     looking: bool,
+    /// The graphics API the page started on, to start the same one after a device loss.
+    backends: wgpu::Backends,
+    /// A scroll still gliding after the finger lifted.
+    fling: Option<Fling>,
 }
+
+/// Momentum after a touch scroll: where it scrolls, how fast (pixels a second) and when
+/// it last moved.
+#[derive(Clone, Copy)]
+struct Fling {
+    at: Point,
+    velocity: Point,
+    last: f64,
+}
+
+/// Each second of gliding keeps this share of the speed, as touch scrolling does on phones.
+const FLING_KEEP_PER_SECOND: f64 = 0.135;
+/// Slower than this, in pixels a second, a glide stops.
+const FLING_STOP: f32 = 20.0;
 
 /// Schedules at most one `requestAnimationFrame` at a time. Kept apart from
 /// `State` so it can be called while `State` is borrowed (e.g. from a click
@@ -180,6 +239,17 @@ fn document() -> Result<Document, WebError> {
 }
 
 /// Shows `message` in a small panel right after the canvas.
+/// Puts a copy of `canvas` in its place, without the graphics context it gave out.
+fn fresh_canvas(canvas: &HtmlCanvasElement) -> Result<HtmlCanvasElement, WebError> {
+    let copy = canvas
+        .clone_node()
+        .map_err(|e| WebError::Js(format!("{e:?}")))?
+        .dyn_into::<HtmlCanvasElement>()
+        .map_err(|_| WebError::Js("the canvas copy is not a canvas".into()))?;
+    canvas.replace_with_with_node_1(&copy).map_err(|e| WebError::Js(format!("{e:?}")))?;
+    Ok(copy)
+}
+
 fn show_error(canvas: &HtmlCanvasElement, message: &str) {
     let Ok(doc) = document() else { return };
     let Ok(panel) = doc.create_element("div") else { return };
@@ -199,6 +269,9 @@ struct TouchScroll {
     start: Point,
     last: Point,
     scrolling: bool,
+    /// The finger's recent speed in pixels a second, and when it was last measured.
+    velocity: Point,
+    stamp: f64,
 }
 
 fn is_dragging(state: &Rc<RefCell<State>>) -> bool {
@@ -343,6 +416,45 @@ impl ravenrs_widgets::FilePickerProvider for BrowserFilePicker {
 
 /// Copies through `navigator.clipboard`. Reading is asynchronous in the
 /// browser, so pasting is left to the browser: it arrives as typed text.
+/// Navigates the page to the address, as a link on a web page does.
+struct BrowserLinks;
+
+impl ravenrs_widgets::LinkOpener for BrowserLinks {
+    fn open(&self, url: &str) {
+        if let Some(location) = web_sys::window().map(|w| w.location())
+            && let Err(e) = location.assign(url)
+        {
+            tracing::warn!(url, error = ?e, "the address did not open");
+        }
+    }
+}
+
+/// The page's full screen. Inside a frame it works only where the frame allows it.
+struct BrowserFullScreen;
+
+impl ravenrs_widgets::FullScreenProvider for BrowserFullScreen {
+    fn is_on(&self) -> bool {
+        document().is_ok_and(|d| d.fullscreen_element().is_some())
+    }
+
+    fn set(&self, on: bool) {
+        let Ok(document) = document() else { return };
+        if on {
+            if let Some(page) = document.document_element()
+                && let Err(e) = page.request_fullscreen()
+            {
+                tracing::warn!(error = ?e, "the page did not go full screen");
+            }
+        } else if document.fullscreen_element().is_some() {
+            document.exit_fullscreen();
+        }
+    }
+
+    fn available(&self) -> bool {
+        document().is_ok_and(|d| d.fullscreen_enabled())
+    }
+}
+
 struct BrowserClipboard;
 
 impl ravenrs_widgets::ClipboardProvider for BrowserClipboard {
@@ -440,9 +552,13 @@ fn physical(css: Size, dpr: f32, limit: u32) -> (u32, u32) {
     (w, h)
 }
 
-async fn create_gpu(canvas: &HtmlCanvasElement, scheduler: &Rc<Scheduler>) -> Result<Gpu, WebError> {
+async fn create_gpu(
+    canvas: &HtmlCanvasElement,
+    scheduler: &Rc<Scheduler>,
+    backends: wgpu::Backends,
+) -> Result<Gpu, WebError> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-        backends: wgpu::Backends::BROWSER_WEBGPU,
+        backends,
         ..wgpu::InstanceDescriptor::new_without_display_handle()
     });
     let surface = instance
@@ -476,7 +592,7 @@ async fn create_gpu(canvas: &HtmlCanvasElement, scheduler: &Rc<Scheduler>) -> Re
     });
     let renderer = Renderer::new(&context.device, &context.queue, format);
     scheduler.schedule();
-    Ok(Gpu { surface, config, context, renderer, lost })
+    Ok(Gpu { surface, config, context, renderer, lost, backends })
 }
 
 /// Mounts `root` on the canvas and starts rendering.
@@ -489,7 +605,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         .and_then(|e| e.dyn_into::<HtmlCanvasElement>().ok())
         .ok_or_else(|| WebError::CanvasNotFound(options.canvas_id.clone()))?;
 
-    if !webgpu_available() {
+    if options.backend == WebBackend::WebGpu && !webgpu_available() {
         let e = WebError::WebGpuUnavailable;
         show_error(&canvas, &e.to_string());
         return Err(e);
@@ -510,12 +626,29 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
             }
         }));
     }
-    let gpu = match create_gpu(&canvas, &scheduler).await {
-        Ok(gpu) => gpu,
-        Err(e) => {
-            show_error(&canvas, &e.to_string());
-            return Err(e);
+    let mut canvas = canvas;
+    let mut started = None;
+    let mut failure = None;
+    for (n, backends) in options.backend.order().into_iter().enumerate() {
+        // A canvas keeps the first kind of context it gave out: the next API gets a fresh one.
+        if n > 0 {
+            canvas = fresh_canvas(&canvas)?;
         }
+        match create_gpu(&canvas, &scheduler, backends).await {
+            Ok(gpu) => {
+                started = Some(gpu);
+                break;
+            }
+            Err(e) => {
+                tracing::warn!(?backends, error = %e, "graphics did not start; trying the next API");
+                failure = Some(e);
+            }
+        }
+    }
+    let Some(gpu) = started else {
+        let e = failure.unwrap_or(WebError::WebGpuUnavailable);
+        show_error(&canvas, &e.to_string());
+        return Err(e);
     };
 
     let diagnostics = Diagnostics::default();
@@ -541,6 +674,8 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     });
     let mut ui = Ui::new(DiagnosticsHost::new(root, diagnostics.clone()), options.theme);
     ui.set_clipboard(BrowserClipboard);
+    ui.set_links(BrowserLinks);
+    ui.set_full_screen(BrowserFullScreen);
     ui.set_file_picker(BrowserFilePicker);
     ui.set_sound(BrowserSound::default());
     let (css, dpr) = measure(&canvas);
@@ -553,6 +688,7 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     canvas.style().set_property("outline", "none").ok();
     canvas.style().set_property("touch-action", "none").ok();
 
+    let backends = gpu.backends;
     let state = Rc::new(RefCell::new(State {
         ui,
         canvas: canvas.clone(),
@@ -562,6 +698,8 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         mirror: None,
         diagnostics,
         looking: false,
+        backends,
+        fling: None,
     }));
 
     // The frame callback.
@@ -618,7 +756,17 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                         e.prevent_default();
                         focus_text_input.focus().ok();
                         if is_touch {
-                            touch.set(Some(TouchScroll { start: p, last: p, scrolling: false }));
+                            touch.set(Some(TouchScroll {
+                                start: p,
+                                last: p,
+                                scrolling: false,
+                                velocity: Point::ZERO,
+                                stamp: now_seconds(),
+                            }));
+                            // A finger on the page stops a glide, as on a phone.
+                            if let Ok(mut s) = state.try_borrow_mut() {
+                                s.fling = None;
+                            }
                         }
                     }
                     "pointermove" if is_touch => {
@@ -634,6 +782,16 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                                 }
                                 let delta = Point::new(p.x - t.last.x, p.y - t.last.y);
                                 dispatch(&state, &sched, Event::Scroll { position: t.start, delta });
+                                let now = now_seconds();
+                                let dt = (now - t.stamp) as f32;
+                                if dt > 0.0 {
+                                    let seen = Point::new(delta.x / dt, delta.y / dt);
+                                    t.velocity = Point::new(
+                                        t.velocity.x * 0.2 + seen.x * 0.8,
+                                        t.velocity.y * 0.2 + seen.y * 0.8,
+                                    );
+                                    t.stamp = now;
+                                }
                                 t.last = p;
                                 touch.set(Some(t));
                                 return;
@@ -642,8 +800,19 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                     }
                     "pointerup" | "pointercancel" => {
                         canvas.release_pointer_capture(e.pointer_id()).ok();
-                        let was_scrolling = touch.take().is_some_and(|t| t.scrolling);
-                        if was_scrolling {
+                        let ended = touch.take();
+                        if let Some(t) = ended.filter(|t| t.scrolling) {
+                            // A finger that was still moving when it lifted sends the page on.
+                            let now = now_seconds();
+                            let speed = t.velocity.x.hypot(t.velocity.y);
+                            if now - t.stamp < 0.1
+                                && speed > 2.0 * FLING_STOP
+                                && let Ok(mut s) = state.try_borrow_mut()
+                            {
+                                s.fling = Some(Fling { at: t.start, velocity: t.velocity, last: now });
+                                drop(s);
+                                sched.schedule();
+                            }
                             return;
                         }
                     }
@@ -760,6 +929,8 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
                 };
                 let position = Point::new(e.offset_x() as f32, e.offset_y() as f32);
                 let delta = Point::new((-e.delta_x() * unit) as f32, (-e.delta_y() * unit) as f32);
+                // Shift turns a wheel that only goes up and down sideways, where the browser does not.
+                let delta = if e.shift_key() && delta.x == 0.0 { Point::new(delta.y, 0.0) } else { delta };
                 // Browsers send a trackpad pinch as a wheel with Ctrl held. Taking it
                 // keeps the browser from zooming the whole page.
                 if e.ctrl_key() {
@@ -978,6 +1149,22 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
     let Ok(mut s) = state.try_borrow_mut() else { return };
     let s = &mut *s;
 
+    if let Some(mut fling) = s.fling {
+        let now = now_seconds();
+        let dt = (now - fling.last).clamp(0.0, 0.05);
+        let delta = Point::new(fling.velocity.x * dt as f32, fling.velocity.y * dt as f32);
+        s.ui.set_time(now);
+        let moved = s.ui.handle_event(&Event::Scroll { position: fling.at, delta });
+        let keep = FLING_KEEP_PER_SECOND.powf(dt) as f32;
+        fling.velocity = Point::new(fling.velocity.x * keep, fling.velocity.y * keep);
+        fling.last = now;
+        // It stops when it slows down or reaches the end of what scrolls.
+        s.fling = (moved && fling.velocity.x.hypot(fling.velocity.y) > FLING_STOP).then_some(fling);
+        if s.fling.is_some() {
+            scheduler.schedule();
+        }
+    }
+
     if s.gpu.as_ref().is_some_and(|g| g.lost.load(Ordering::SeqCst)) {
         s.gpu = None;
     }
@@ -985,8 +1172,9 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
         if !s.recovering {
             s.recovering = true;
             let (state, sched, canvas) = (state.clone(), scheduler.clone(), s.canvas.clone());
+            let backends = s.backends;
             wasm_bindgen_futures::spawn_local(async move {
-                let result = create_gpu(&canvas, &sched).await;
+                let result = create_gpu(&canvas, &sched, backends).await;
                 let Ok(mut s) = state.try_borrow_mut() else { return };
                 s.recovering = false;
                 match result {

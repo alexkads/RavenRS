@@ -1,0 +1,28 @@
+[package]
+name = "ravenrs-app-spec"
+description = "What the derives of ravenrs-app read from a business object or enum, as data: shared by the derive and by programs that read Rust source while they run."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-spec"
+keywords = ["application", "framework", "derive", "parsing"]
+categories = ["development-tools::procedural-macro-helpers", "parsing"]
+
+[dependencies]
+proc-macro2.workspace = true
+ravenrs-criteria.workspace = true
+regex-lite.workspace = true
+syn = { workspace = true, features = ["derive", "clone-impls"] }
+
+[dev-dependencies]
+# By path only: ravenrs-app depends on this crate, so a version here would ask crates.io for a
+# ravenrs-app that is published after it. Cargo leaves a path-only dev-dependency out.
+ravenrs-app = { path = "../ravenrs-app", features = ["source"] }
+
+[lints]
+workspace = true

@@ -28,6 +28,7 @@ use crate::{
 /// How rows can be selected.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum SelectionMode {
     /// Rows cannot be selected.
     None,
@@ -63,6 +64,7 @@ pub enum SelectionMode {
 /// let mut ui = Ui::new(grid, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DataGrid {
     empty_text: Option<String>,
     data: GridData,
@@ -98,6 +100,7 @@ pub struct DataGrid {
     detail_height: f32,
     expanded_rows: Option<Binding<BTreeSet<usize>>>,
     on_export_file: Option<Rc<dyn Fn(GridExportFormat, GridTable)>>,
+    current: Option<GridCurrent>,
     export_title: Option<String>,
     filter_builder: bool,
     cell_style: Option<CellStyler>,
@@ -131,6 +134,7 @@ struct RowTops {
     open: Vec<usize>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RowTops {
     fn top(&self, row: usize) -> f32 {
         row as f32 * self.row_height + self.open.partition_point(|&o| o < row) as f32 * self.detail_height
@@ -154,6 +158,7 @@ impl RowTops {
 /// How a cell looks, by what its row holds. Colors come from the theme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridCellStyle {
     /// The color of the text.
     pub ink: Option<Semantic>,
@@ -163,6 +168,7 @@ pub struct GridCellStyle {
     pub bold: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridCellStyle {
     /// A cell with this color of text, this color behind it, and heavier text or not.
     pub fn new(ink: Option<Semantic>, fill: Option<Semantic>, bold: bool) -> Self {
@@ -173,6 +179,7 @@ impl GridCellStyle {
 /// A change someone made in a cell, before it is kept.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CellEdit {
     /// The row in the data.
     pub row: usize,
@@ -186,6 +193,7 @@ pub struct CellEdit {
 
 /// A button at the end of every row, such as Edit or Delete.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridRowAction {
     label: String,
     icon: IconName,
@@ -199,6 +207,7 @@ impl fmt::Debug for GridRowAction {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridRowAction {
     /// A button with this icon that runs `on_click` with its row. Screen readers hear
     /// `label` and the row, such as "Delete Acme", from
@@ -214,6 +223,67 @@ impl GridRowAction {
     }
 }
 
+/// What a [`DataGrid`] shows now, for something outside it, such as a report, to take the same
+/// rows. Hand one to [`DataGrid::current`]; it follows the grid every time it is built.
+#[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct GridCurrent(Rc<RefCell<Option<Showing>>>);
+
+/// The grid as it was built last.
+struct Showing {
+    columns: Vec<GridColumn>,
+    rows: Rc<Vec<Row>>,
+    query: GridQuery,
+    result: Rc<QueryResult>,
+    remote: bool,
+}
+
+impl fmt::Debug for GridCurrent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GridCurrent").field("built", &self.0.borrow().is_some()).finish()
+    }
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl GridCurrent {
+    /// Nothing yet, until a grid is built with it.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// What people asked the grid for now: sorting, filters, search, grouping and hidden
+    /// columns. `None` before the grid is built.
+    pub fn query(&self) -> Option<GridQuery> {
+        self.0.borrow().as_ref().map(|showing| showing.query.clone())
+    }
+
+    /// Whether the grid brings its rows from elsewhere a page at a time, so only
+    /// [`query`](Self::query) says what it shows.
+    pub fn is_remote(&self) -> bool {
+        self.0.borrow().as_ref().is_some_and(|showing| showing.remote)
+    }
+
+    /// Every row that matches, in the order it shows them, with the columns showing, the same as
+    /// its Export menu makes. The rows of every page, and of collapsed groups too. `None` before
+    /// the grid is built and for a remote grid, which does not hold all its rows.
+    pub fn table(&self, title: &str, culture: &str) -> Option<GridTable> {
+        let held = self.0.borrow();
+        let showing = held.as_ref().filter(|showing| !showing.remote)?;
+        Some(to_table(
+            title,
+            culture,
+            &showing.columns,
+            &showing.rows,
+            &showing.query,
+            &showing.result.matched,
+        ))
+    }
+
+    fn put(&self, showing: Showing) {
+        *self.0.borrow_mut() = Some(showing);
+    }
+}
+
 impl fmt::Debug for DataGrid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DataGrid")
@@ -223,6 +293,7 @@ impl fmt::Debug for DataGrid {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DataGrid {
     /// What it says when there is no data at all, as opposed to filters leaving nothing.
     pub fn empty_text(mut self, text: impl Into<String>) -> Self {
@@ -267,6 +338,7 @@ impl DataGrid {
             detail_height: 240.0,
             expanded_rows: None,
             on_export_file: None,
+            current: None,
             export_title: None,
             filter_builder: false,
             cell_style: None,
@@ -319,6 +391,13 @@ impl DataGrid {
     /// that match, as shown. `ravenrs-grid-export` turns these into a file.
     pub fn on_export_file(mut self, handler: impl Fn(GridExportFormat, GridTable) + 'static) -> Self {
         self.on_export_file = Some(Rc::new(handler));
+        self
+    }
+
+    /// Keeps `current` up to date with what the grid shows, for a report or anything else outside
+    /// it to take the same rows.
+    pub fn current(mut self, current: GridCurrent) -> Self {
+        self.current = Some(current);
         self
     }
 
@@ -541,6 +620,11 @@ struct Cached {
 #[derive(Clone)]
 struct Handles {
     building_filter: State<bool>,
+    /// The filter editor's tab: 0 for lines, 1 for text.
+    filter_tab: State<usize>,
+    /// Text being written in the filter editor that does not read yet; the grid keeps
+    /// filtering by the last one that did.
+    filter_draft: State<Option<String>>,
     expanded: Binding<BTreeSet<usize>>,
     query: State<GridQuery>,
     widths: State<Vec<f32>>,
@@ -618,6 +702,7 @@ struct Shared<'a> {
     ranges: Rc<Vec<(usize, usize)>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Shared<'_> {
     fn fixed_x(&self, column: usize) -> Option<f32> {
         self.fixed.iter().find(|(c, _)| *c == column).map(|(_, x)| *x)
@@ -1327,7 +1412,11 @@ fn value_literal(value: &Value) -> Option<String> {
 }
 
 /// The distinct values of a column, with what the filter menu shows for each.
-fn values_of(rows: &[Row], col: &GridColumn, c: usize) -> Vec<(String, Value)> {
+fn values_of<'r>(
+    rows: impl IntoIterator<Item = &'r Row>,
+    col: &GridColumn,
+    c: usize,
+) -> Vec<(String, Value)> {
     let mut seen = BTreeMap::new();
     for row in rows {
         let Some(value) = row.get(c) else { continue };
@@ -1345,6 +1434,33 @@ fn values_of(rows: &[Row], col: &GridColumn, c: usize) -> Vec<(String, Value)> {
     seen.into_iter().collect()
 }
 
+/// What a column's filter list offers: the values of the rows the other filters
+/// and the search let through, plus any already checked, so it can be unchecked.
+/// Rows that stay on a server come filtered, so they are offered as they are.
+fn offered_values(
+    grid: &DataGrid,
+    rows: &[Row],
+    query: &GridQuery,
+    c: usize,
+    chosen: &BTreeSet<String>,
+) -> Vec<(String, Value)> {
+    let col = &grid.columns[c];
+    if grid.remote.is_some() {
+        return values_of(rows, col, c);
+    }
+    let matched = super::query::rows_for_column_values(&grid.columns, rows, query, c);
+    let mut values = values_of(matched.iter().filter_map(|&r| rows.get(r)), col, c);
+    if chosen.iter().any(|shown| !values.iter().any(|(v, _)| v == shown)) {
+        for (shown, value) in values_of(rows, col, c) {
+            if chosen.contains(&shown) && !values.iter().any(|(v, _)| *v == shown) {
+                values.push((shown, value));
+            }
+        }
+        values.sort_by(|a, b| a.0.cmp(&b.0));
+    }
+    values
+}
+
 /// A column's filter by value: a list of what is in it, to check.
 struct ValueFilter {
     title: String,
@@ -1355,6 +1471,7 @@ struct ValueFilter {
     search: State<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ValueFilter {
     fn write(&self, chosen: &BTreeSet<String>) {
         let literals: Vec<String> = self
@@ -1381,7 +1498,7 @@ impl View for ValueFilter {
         let mut lines = vec![
             cx.child(
                 &TextField::new(self.search.binding())
-                    .placeholder(labels.grid_search.clone())
+                    .placeholder(labels.grid_filter_search.clone())
                     .icon(IconName::Search)
                     .compact(),
             ),
@@ -1445,6 +1562,7 @@ struct ValueFilterHandle {
     chosen: State<BTreeSet<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ValueFilterHandle {
     fn of(filter: &ValueFilter) -> Self {
         Self {
@@ -1587,7 +1705,7 @@ impl View for HeaderCell<'_> {
                     .on_click(move || {
                         // The list starts from what the filter holds, written by hand or not.
                         let text = q2.peek().filter(c).to_owned();
-                        let values = values_of(&rows2, &col2, c);
+                        let values = values_of(rows2.iter(), &col2, c);
                         chosen.set(
                             values
                                 .into_iter()
@@ -1683,7 +1801,7 @@ impl View for HeaderCell<'_> {
             let filter = ValueFilter {
                 title: col.title.clone(),
                 column: c,
-                values: values_of(s.rows, col, c),
+                values: offered_values(s.grid, s.rows, &s.h.query.peek(), c, &s.h.filter_chosen.peek()),
                 query: s.h.query.clone(),
                 chosen: s.h.filter_chosen.clone(),
                 search: s.h.filter_search.clone(),
@@ -2397,6 +2515,7 @@ impl View for GroupRow<'_> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl DataGrid {
     fn handles(&self, cx: &mut BuildCx<'_>) -> Handles {
         let initial = {
@@ -2436,6 +2555,8 @@ impl DataGrid {
             resize,
             modifiers: cx.modifiers(),
             building_filter: cx.use_state(|| false),
+            filter_tab: cx.use_state(|| 0),
+            filter_draft: cx.use_state(|| None),
             expanded: {
                 let local = cx.use_state(BTreeSet::new);
                 self.expanded_rows.clone().unwrap_or_else(|| local.binding())
@@ -2619,14 +2740,17 @@ impl DataGrid {
             );
         }
         if self.filter_builder {
-            let open = h.building_filter.clone();
+            let (open, draft) = (h.building_filter.clone(), h.filter_draft.clone());
             items.push(
                 cx.child(
                     &Button::new(labels.grid_filter_label.clone())
                         .style(ButtonStyle::Secondary)
                         .size(ButtonSize::Small)
                         .icon(IconName::Filter)
-                        .on_click(move || open.set(true)),
+                        .on_click(move || {
+                            draft.set(None);
+                            open.set(true);
+                        }),
                 ),
             );
         }
@@ -2779,15 +2903,39 @@ impl DataGrid {
             };
             crate::FilterField::new(column.title.clone(), column.title.clone(), kind).values(values)
         });
-        let (read, write) = (h.query.clone(), h.query.clone());
-        let text = Binding::new(
+        let fields: Vec<crate::FilterField> = fields.collect();
+        let (read, write, cols) = (h.query.clone(), h.query.clone(), columns.clone());
+        let (draft, cleared) = (h.filter_draft.clone(), h.filter_draft.clone());
+        let lines = Binding::new(
             move || read.with(whole_filter),
-            move |text: String| write.update(|q| set_whole_filter(q, &columns, text)),
+            move |text: String| {
+                cleared.set(None);
+                write.update(|q| set_whole_filter(q, &cols, text));
+            },
         );
+        // Text that does not read yet stays in the editor, and the grid keeps the last that did.
+        let (read, write, kept, known) = (h.query.clone(), h.query.clone(), draft.clone(), fields.clone());
+        let text = Binding::new(
+            move || kept.get().unwrap_or_else(|| read.with(whole_filter)),
+            move |text: String| {
+                if filter_reads(&text, &known) {
+                    draft.set(None);
+                    write.update(|q| set_whole_filter(q, &columns, text));
+                } else {
+                    draft.set(Some(text));
+                }
+            },
+        );
+        let labels = cx.labels();
+        let tabs = crate::Tabs::new(h.filter_tab.binding())
+            .variant(crate::TabsVariant::Segmented)
+            .size(ButtonSize::Small)
+            .tab(labels.grid_filter_visual.clone(), crate::FilterBuilder::new(lines, fields.clone()))
+            .tab(labels.grid_filter_text.clone(), crate::ExpressionEditor::new(text).fields(fields));
         cx.child(
-            &Dialog::new(h.building_filter.binding(), cx.labels().grid_edit_filter.clone())
-                .content(crate::FilterBuilder::new(text, fields))
-                .width(640.0),
+            &Dialog::new(h.building_filter.binding(), labels.grid_edit_filter.clone())
+                .content(tabs)
+                .width(720.0),
         )
     }
 
@@ -3106,6 +3254,26 @@ fn whole_filter(query: &GridQuery) -> String {
     }
 }
 
+/// Whether the filter editor's text can filter the grid: empty, or an expression
+/// that reads and names only the grid's columns.
+fn filter_reads(text: &str, fields: &[crate::FilterField]) -> bool {
+    use ravenrs_criteria::{Criteria, FieldType, Schema, validate};
+    if text.trim().is_empty() {
+        return true;
+    }
+    let Ok(criteria) = Criteria::parse(text) else { return false };
+    let schema = fields.iter().fold(Schema::new(), |schema, f| {
+        let kind = match f.kind {
+            crate::FilterFieldKind::Text => FieldType::Text,
+            crate::FilterFieldKind::Number => FieldType::Number,
+            crate::FilterFieldKind::Boolean => FieldType::Boolean,
+            crate::FilterFieldKind::Date => FieldType::Date,
+        };
+        schema.field(&f.name, kind)
+    });
+    validate(&criteria, &schema).is_empty()
+}
+
 /// Writes what the filter editor made in place of every expression the columns had,
 /// in the column of the first one so it stays where it was.
 fn set_whole_filter(query: &mut GridQuery, columns: &[GridColumn], text: String) {
@@ -3239,6 +3407,15 @@ impl View for DataGrid {
                 }
             }
         };
+        if let Some(current) = &self.current {
+            current.put(Showing {
+                columns: self.columns.clone(),
+                rows: rows.clone(),
+                query: query.clone(),
+                result: result.clone(),
+                remote: self.remote.is_some(),
+            });
+        }
         {
             // Answers are about these rows and these formulas.
             let about = (Rc::as_ptr(&result) as usize, arrangement.formulas.clone());
@@ -3597,11 +3774,19 @@ impl View for DataGrid {
                 ),
             );
         } else if total == 0 {
-            let empty = self
-                .empty_text
-                .clone()
-                .filter(|_| self.remote.is_none() && self.data.rows().is_empty())
-                .unwrap_or_else(|| cx.labels().grid_no_rows.clone());
+            // No rows at all says so, or what the grid was given to say; rows the filters left
+            // out say that. A remote grid knows only what it was asked.
+            let asked = !query.search.trim().is_empty()
+                || query.filters.iter().any(|filter| !filter.trim().is_empty());
+            let has_none = match &self.remote {
+                Some(_) => !asked,
+                None => self.data.rows().is_empty(),
+            };
+            let empty = if has_none {
+                self.empty_text.clone().unwrap_or_else(|| cx.labels().grid_no_records.clone())
+            } else {
+                cx.labels().grid_no_rows.clone()
+            };
             let msg = util::label(cx, &empty, TextStyle::Body, None, theme.color(Semantic::InkMuted));
             body_rows.push(cx.container(
                 LayoutStyle { padding: Insets::uniform(24.0), ..LayoutStyle::stack(Axis::Horizontal) },
@@ -3669,13 +3854,16 @@ impl View for DataGrid {
             let icon = util::icon(cx, IconName::Filter, 14.0, theme.color(Semantic::Accent));
             let text = format!("{}: {}", labels.grid_filter_label, filters.join(" · "));
             let label = util::label(cx, &text, TextStyle::Callout, None, muted);
-            let open = h.building_filter.clone();
+            let (open, draft) = (h.building_filter.clone(), h.filter_draft.clone());
             let edit = cx.child(
                 &Button::new(labels.grid_edit_filter.clone())
                     .style(ButtonStyle::Ghost)
                     .size(ButtonSize::Small)
                     .icon(IconName::Pencil)
-                    .on_click(move || open.set(true)),
+                    .on_click(move || {
+                        draft.set(None);
+                        open.set(true);
+                    }),
             );
             let q = h.query.clone();
             let clear = cx.child(

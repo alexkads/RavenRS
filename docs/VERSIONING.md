@@ -40,9 +40,25 @@ Breaking changes are the ones that Cargo SemVer and [`cargo semver-checks`](http
 
 ## Release checklist
 
-1. `scripts/check.sh` passes, including the golden-image tests.
+1. `scripts/check.sh --full` passes, including the golden-image tests.
 2. `cargo semver-checks` runs against the previous release. Until 28.1.0, what it finds goes under *Breaking* in the CHANGELOG; from then on it has to agree with the version bump.
 3. Benchmarks are within the budgets in [QUALITY.md](QUALITY.md).
 4. CHANGELOG has an entry, plus a migration guide for a major.
 5. All crates are published in dependency order, then the tag `vYY.R.P`, the GitHub release, and the site and API docs are updated.
 6. Every crate's documentation built on docs.rs (`https://docs.rs/crate/<name>/<version>/status.json`); it uses a recent nightly, so it can fail when stable passes.
+
+## Unified publication
+
+Framework crates, the cargo-ravenrs CLI, the RavenRS plugin and the npm preparer ship together
+under the same YY.R.P version. Every release publishes all public crates, the versioned Git tag,
+the npm package, API documentation and both documentation sites. CLI and npm-only fixes are
+included in the next complete release; do not report them as a complete RavenRS release.
+A different publication strategy requires an explicit request from Alex.
+
+The CLI inherits the workspace version. npm/create-ravenrs/release.json pins that same version,
+cliVersion and vYY.R.P Git tag. Run prepare-release after the workspace bump; prepack rejects
+any mismatch in package versions, pins, toolchain or bundled licenses. Before publication,
+confirm the chosen version is unpublished on crates.io and npm, then follow the checklist above.
+
+Historical npm 27.1.24–27.1.26 and CLI-only 27.1.24 kept framework 27.1.23. Starting with 27.1.27,
+all release artifacts are aligned again.

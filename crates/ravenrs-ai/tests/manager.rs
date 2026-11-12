@@ -295,12 +295,15 @@ fn the_real_model_tests_and_answers() {
 
 /// Runs only where the real voice model is:
 /// `RAVENRS_AI_MODELS=folder cargo test --release -p ravenrs-ai --test manager real_speech -- --ignored --nocapture`.
+/// `RAVENRS_AI_VOICE` names the model, Kokoro unless it says `lfm3-audio-2b-q4`.
 #[test]
 #[ignore = "needs the real model"]
 fn real_speech_is_written_to_a_file() {
     use ravenrs_ai::{ModelFolder, SpeechEngine, SpeechSettings, SpeechVoice};
     let root = std::env::var("RAVENRS_AI_MODELS").expect("RAVENRS_AI_MODELS");
-    let model = ravenrs_ai::model_by_id("lfm3-audio-2b-q4").expect("known");
+    let wanted = std::env::var("RAVENRS_AI_VOICE").unwrap_or_else(|_| "kokoro-82m".to_owned());
+    let model = ravenrs_ai::model_by_id(&wanted).expect("known");
+    let kokoro = model.family == ravenrs_ai::ModelFamily::Kokoro;
     let started = Instant::now();
     let mut engine = SpeechEngine::load(&ModelFolder::new(root.clone()), &model).expect("the model");
     eprintln!("loaded in {:.1}s", started.elapsed().as_secs_f32());
@@ -313,7 +316,9 @@ fn real_speech_is_written_to_a_file() {
         ),
     ];
     for (index, (text, voice)) in cases.iter().enumerate() {
-        let settings = SpeechSettings { voice: *voice, ..SpeechSettings::default() };
+        // Kokoro says each with another of its voices.
+        let speaker = kokoro.then(|| ravenrs_ai::KOKORO_SPEAKERS[index % 3].to_owned());
+        let settings = SpeechSettings { voice: *voice, speaker, ..SpeechSettings::default() };
         let started = Instant::now();
         let sound = engine.speak(text, &settings, &mut |_| true).expect("sound");
         let seconds = sound.len() as f32 / ravenrs_ai::SPEECH_RATE as f32;

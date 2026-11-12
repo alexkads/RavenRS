@@ -50,6 +50,7 @@ const OVERSCAN: f32 = 200.0;
 
 /// A row of a [`Scheduler`]: a person, a room, a machine, an account.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Resource {
     /// What events refer to.
     pub id: u64,
@@ -61,6 +62,7 @@ pub struct Resource {
     pub group: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Resource {
     /// A row with this name.
     pub fn new(id: u64, name: impl Into<String>) -> Self {
@@ -82,6 +84,7 @@ impl Resource {
 
 /// A bar on a [`Scheduler`]. One with no length shows as a milestone.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SchedulerEvent {
     /// Given back when it changes.
     pub id: u64,
@@ -103,6 +106,7 @@ pub struct SchedulerEvent {
     pub resizable: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SchedulerEvent {
     /// A bar on this row, from `start` to `end`.
     pub fn new(id: u64, resource: u64, start: TimePoint, end: TimePoint, title: impl Into<String>) -> Self {
@@ -146,6 +150,7 @@ impl SchedulerEvent {
 
 /// A shaded stretch of time across all rows, such as a holiday or a deadline.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SchedulerRange {
     /// When it begins.
     pub start: TimePoint,
@@ -157,6 +162,7 @@ pub struct SchedulerRange {
 
 /// An event moved, resized, or drawn for the first time: where it would now be.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SchedulerChange {
     /// The event; for one being created, `None`.
     pub id: Option<u64>,
@@ -197,6 +203,7 @@ type OnChange = Rc<dyn Fn(SchedulerChange)>;
 /// let mut ui = Ui::new(scheduler, ravenrs_style::Theme::raven_light());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Scheduler {
     axis: Binding<TimeAxis>,
     resources: Vec<Resource>,
@@ -229,6 +236,7 @@ impl fmt::Debug for Scheduler {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Scheduler {
     /// A scheduler over this stretch of time. Zooming and moving through time change `axis`.
     pub fn new(axis: Binding<TimeAxis>) -> Self {
@@ -382,6 +390,7 @@ enum Row {
     Resource { index: usize, y: f32, height: f32 },
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Row {
     fn y(&self) -> f32 {
         match self {
@@ -453,6 +462,7 @@ struct Editing {
     reveal: Rc<Cell<Option<(f32, f32)>>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Editing {
     fn resource_at(&self, y: f32) -> Option<u64> {
         let found = self.rows.iter().find(|(_, top, height)| y >= *top && y < top + height);
@@ -678,6 +688,7 @@ struct Bar<'a> {
     on_delete: Option<Rc<dyn Fn(u64)>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Bar<'_> {
     fn color(&self, theme: &Theme) -> ravenrs_core::Color {
         match self.dragging {
@@ -939,6 +950,7 @@ struct Lanes {
     draw: Option<Rc<dyn Fn(Drag)>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Lanes {
     fn build(&self, cx: &mut BuildCx<'_>, s: &Scheduler, editing: &Editing) -> NodeId {
         let node = cx.container(
@@ -1021,7 +1033,7 @@ fn draw_handler(cx: &mut BuildCx<'_>, s: &Scheduler, editing: &Editing) -> Optio
 
 /// A moment as a person reads it on this scale.
 fn time_label(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
-    let date = (labels.short_date)(time.date());
+    let date = labels.short_date(time.date());
     match scale {
         TimeScale::Hours => {
             let (hour, minute) = time.hour_minute();
@@ -1054,7 +1066,7 @@ fn tick_text(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
 fn group_text(labels: &Labels, scale: TimeScale, time: TimePoint) -> String {
     let date = time.date();
     match scale {
-        TimeScale::Hours => (labels.short_date)(date),
+        TimeScale::Hours => labels.short_date(date),
         TimeScale::Days | TimeScale::Weeks => labels.month_title(date),
         TimeScale::Months => date.year().to_string(),
     }
@@ -1100,6 +1112,7 @@ fn placed_text(
     )
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Scheduler {
     /// Groups stay together, in the order their first resource appears.
     fn lane_height(&self) -> f32 {
@@ -1179,8 +1192,8 @@ impl Scheduler {
         if !self.card {
             let title = format!(
                 "{} – {}",
-                (labels.short_date)(axis.start.date()),
-                (labels.short_date)(axis.end.plus_minutes(-1).date())
+                labels.short_date(axis.start.date()),
+                labels.short_date(axis.end.plus_minutes(-1).date())
             );
             items.push(util::label(cx, &title, TextStyle::Headline, None, cx.theme().color(Semantic::Ink)));
             items.extend(today_button);

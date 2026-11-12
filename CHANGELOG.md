@@ -13,9 +13,224 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Soundtrack`: the sound of a whole film as samples, with its clicks and keys and the narration of each box when it shows.
 - `ExpressionEditor`: edits an expression of the criteria language, with fields, parameters, functions by group, operators and constants to search and insert at the caret, each item's signature and description, and a check while typing that gives the line and column of a syntax error and lists unknown names. Its words are in `Labels` (`expression_*`). The report designer opens it from the button beside an expression, the filter and a group's field, and from Expression on the Home page.
 - `ravenrs-mcp` creates report layouts: `report_layout_format` describes the `.rvreport.json` format with examples made by `ravenrs-report`, `create_report_layout` builds a table layout from sample rows or from fields and a data URL, `check_report_layout` reports JSON errors by line and column, checks every expression and renders the layout, and `report_layout_templates` returns the ready layouts. The server still has no side effects: it returns JSON for the assistant to save.
+- `DataGrid`: the "Edit filter" window has Visual and Text tabs over the same filter. Text is the `ExpressionEditor` with the grid's columns as fields; the grid filters by what is written only once it reads and names known columns, and keeps the last such filter meanwhile. `Labels::grid_filter_visual` and `grid_filter_text` name the tabs.
+- **API keys** in `ravenrs-app-server`: for other systems, shown once, kept as a hash, acting as a user and never more, with rotation, expiry and revoking. `security_entities()` has a new entity for them, so storage learns a table.
+- **`SettingsStore`**, with `MemorySettings`, `RecordSettings` and `settings_entity`: JSON under a name, for everyone or for one person, reached at `/api/settings/{name}` when declared. `App::settings` keeps the theme someone chose, also over a server with `RemoteSettings`.
+- **`ravenrs-app-remote`:** the screens over the web API, on the desktop and in the browser: a copy in memory of what the person can see, a way in with `RemoteApp`, and commits that go as one batch. `ApiOptions::allow_origin` lets a page on another origin call the API. `MemoryDatabase::replace_records`, `value_to_json` and `object_from_json` in `ravenrs-app`.
+- **`ravenrs-app-postgres`:** records in PostgreSQL with the same builder as SQLite, meeting the column types of tables that came first. What SQL databases share moved to **`ravenrs-app-sql`**, whose `SqlBackend` is how another database comes in. `SqliteDatabase`, `SqliteBuilder` and `SqliteObjectSpace` are now names for its generic types.
+- **`ravenrs-app-server`:** a web API over an application's model, with sign-in by token, protected CRUD, filters in the criteria language, pages, deep updates of aggregated collections, batches that stay or go together, endpoints of the application's own and an OpenAPI description of what each person can reach. Reads and writes go through the same permissions, rules, states and audit trail as the screens.
+- A shared canonical policy for Pages and Vercel, crawlable canvas content, static
+  playground examples, social PNG cards, complete sitemaps and a local SEO build gate.
+  ([#156](https://github.com/alexkads/RavenRS/issues/156))
+- `EntityInfo::empty_text` and `#[object(empty_text = "...")]`: what a generated list says with no
+  records, kept on the list view as `EmptyText`. Without it a grid with no rows says
+  `widgets.grid_no_records` ("Nada por aqui ainda.") and keeps "no rows match the filters" for
+  when its filters hid them. ([#233](https://github.com/alexkads/RavenRS/issues/233))
+
+### Fixed
+
+- A remote grid with no rows said it had a chunk's worth: an empty chunk past the end stretched
+  its total. It now ends where the earliest end says, and shows what it says when empty.
+  ([#233](https://github.com/alexkads/RavenRS/issues/233))
+- `ravenrs-app-sqlite` backups: `SqliteDatabase::backups(BackupStamp)` saves a checked, consistent
+  copy while the database is in use, stamped with the application, tenant and migrations;
+  `restore` refuses another application, tenant or migrations, keeps a copy first and replaces
+  everything in one transaction or nothing; `keep_copy` keeps copies in a folder with a retention.
+  ([#229](https://github.com/alexkads/RavenRS/issues/229))
+- The screen of signing in of `SecuredApp` takes `description`, `notice`, buttons of its own with
+  `sign_in_action(SignInAction)`, such as going back to choosing the organization, which forget
+  what was typed and leave whoever was halfway in behind, and `demo_credentials`, which fills in a
+  demonstration's name and password and still checks them on Sign in.
+  ([#191](https://github.com/alexkads/RavenRS/issues/191))
+- `GridCurrent` and `DataGrid::current` give what a grid shows now, its query and its rows as a
+  table, to something outside it. ([#181](https://github.com/alexkads/RavenRS/issues/181))
+
+### Fixed
+
+- The report of a list (`ReportModule`, `Session::list_table`) has the rows the list shows: its
+  search, column filters, sorting, columns and grouping, and a remote list asks storage for all of
+  them. ([#181](https://github.com/alexkads/RavenRS/issues/181))
+- `FlowCanvas`: diagrams of nodes joined by connections on an endless surface, with pan,
+  zoom, nodes that move on the grid and take focus, ports that check what connects and say
+  why not, curve, step and straight lines with labels and travelling dashes, selection by
+  press, Shift and rectangle, a lock, zoom controls and a map. The model and the routes of
+  the lines live in `ravenrs_graphics::flow`, and `BuildCx::on_wheel` lets a surface take the
+  wheel before any scroll container around it. ([#195](https://github.com/alexkads/RavenRS/issues/195))
+
+### Fixed
+
+- `AppShell` in a window narrower than 720 points shows a button in the header that opens the
+  navigation sheet; choosing a screen closes it. `AppShell::sidebar` shares the state with the
+  application. ([#184](https://github.com/alexkads/RavenRS/issues/184))
+
+### Fixed
+
+- Dates and moments in generated lists show the language's way (`format.date`,
+  `format.date_time`: `dd/MM/yyyy` in Brazilian Portuguese) and still sort and filter as dates;
+  a column with a format of its own filters a number by what it shows when it does not compare.
+  ([#231](https://github.com/alexkads/RavenRS/issues/231))
+
+### Fixed
+
+- Permissions on records can go through references, such as
+  `[class_id.teacher_id.login] = ?CurrentUserName`, and hold for records being created, changed
+  and read: `SecuredObjectSpace` follows them in storage, and a value put on the record under the
+  path is replaced and never kept. ([#232](https://github.com/alexkads/RavenRS/issues/232))
+
+## [27.1.27] - 2026-11-11
+
+### Added
+
+- Interactive project creation with arrow-key target/template selection, contextual descriptions,
+  RavenRS branding, asynchronous build progress, saved diagnostic logs and `--verbose`. ([#213](https://github.com/alexkads/RavenRS/issues/213))
+- npm discovery metadata, complete installation reference, AI development guide, llms.txt,
+  llms-full.txt and structured documentation metadata on Pages and Vercel. ([#211](https://github.com/alexkads/RavenRS/issues/211))
+
+### Fixed
+
+- Repeating creation preserves the original template/target when choices are omitted and refuses
+  incompatible choices before changing files or installing prerequisites. All four templates are
+  checked on desktop, web and both targets, with native screen tests. ([#215](https://github.com/alexkads/RavenRS/issues/215))
 
 ### Changed
 
+- Publish all framework crates, CLI, plugin, npm and documentation together as 27.1.27.
+  npm and CLI patches published since 27.1.23 are included in this complete release. ([#218](https://github.com/alexkads/RavenRS/issues/218))
+
+## [27.1.23] - 2026-11-11
+
+### Security
+
+- Upgrade the MCP SDK to rmcp 3.9.0, fixing RUSTSEC-2026-0462 (unbounded HTTP client response buffering). RavenRS uses its stdio server transport.
+
+### Added
+
+- A documentation portal at `/docs/`, generated locally from repository Markdown: navigation by topic, full-text search with Ctrl/Cmd+K, on-page index, highlighted copyable code, light/dark themes and mobile navigation. The same guide ships on GitHub Pages and Vercel; installation remains documented in `docs/GETTING_STARTED.md`.
+
+- `cargo-ravenrs`: create hello, app, SQLite and report projects for desktop and web, with version-matched AI instructions, skill and MCP configuration. Includes `new`, `ai`, `mcp` and `doctor`. `npx create-ravenrs` prepares Rust and the matching CLI before generating the project, with consent for installations and repeatable setup. ([#205](https://github.com/alexkads/RavenRS/issues/205), [#206](https://github.com/alexkads/RavenRS/pull/206), [#207](https://github.com/alexkads/RavenRS/pull/207))
+
+- `Chart::animate_changes`: when the data changes to as many series and categories, the chart goes from its old shape to the new one in 0.75 s, quick to start and settling softly: lines and bars rise or fall, slices turn and grow, and the value axis slides along instead of jumping between round numbers. A change in the middle starts from where the chart is; under reduced motion it changes at once. `ravenrs_graphics::plot::value_range` gives the value axis a chart would pick for some data, for such in-between frames.
+- `CountUp` also counts when its value changes, from what it shows to the new value, even halfway through a count, and `CountUp::start_at_value` leaves out the first count from zero. Its digits keep the width of the widest one, so a number does not shake as it counts.
+- `BuildCx::animated_numbers`: a list of numbers that tweens from where it is to a new target in full `f64` precision, picking up from where it is when the target changes again, and at once under reduced motion.
+- Raven Finanças: on another account, the dashboard's figures count to their new values and its balance, income and expense and category charts move to their new shapes.
+
+### Fixed
+
+- `#[ravenrs_live::expose]` preserves conditional compilation on methods, constants and module functions. The `live` feature can be used without image decoding, including in `ravenrs-movie`.
+
+- `TileLayout` keeps the same 16 px margin around what a tile holds, on both sides of the header too, and its header is tall enough for a small control (a `Select`, a button) to keep 8 px above and below it. The corner that resizes is two diagonal strokes in that margin, along the curve of the edge, instead of a few dots over the content: faint while the pointer is over the tile, plain under the pointer and while it drags. A tile's content is 12 px shorter and 8 px narrower.
+- A chart with `tight_scale` keeps a little room above its peak and below its lowest point: the scale ends there instead of at the next round number, so a peak no longer runs along the top edge of the plot.
+
+## [27.1.22] - 2026-11-08
+
+### Added
+
+- `Tile::accessory`: something at the end of a tile's header, after its title, such as a help button, a badge or a choice that changes what the tile shows. Raven Finanças' dashboard is now a `TileLayout` with it.
+- `ravenrs-lint`: lints for applications built with RavenRS, reported like the compiler's, from `cargo ravenrs-lint` or from `cargo test` with `ravenrs_lint::assert_clean()`. It reads the syntax tree and denies literal colors and font sizes, spacing off the 4px grid, captions without a verb, icon buttons without a name, more than one primary button, `State::new` and blocking work in `body` or `build`, and files over 600 lines. Exceptions need a written reason, in a comment or in `[package.metadata.ravenrs-lint]`. `--init` writes the strictest rustc and Clippy levels, a `clippy.toml`, the test and the same instructions for every coding agent (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`); `--gate` runs formatting, Clippy, the rules and the tests.
+
+## [27.1.21] - 2026-11-08
+
+### Breaking
+
+- `MotionTokens` has a `draw_in` field (the `duration-draw` token, `Transition::draw_in`): code that builds it field by field adds `draw_in: Transition::draw_in()`.
+
+### Added
+
+- `Playground` goes full screen: a button beside Run (in the ⋯ menu below 768 px) puts it over the whole screen and brings it back, and the component pages allow it. Full screen is a service the platform installs, as links are: `FullScreen` and `FullScreenProvider`, through `BuildCx::full_screen`, `Ui::full_screen` and `Ui::set_full_screen`. The browser uses the page's full screen and hides the button where the frame does not allow it; the desktop turns the window into a borderless full screen.
+- `Playground` has a new layout: one bar (examples, the app's actions, Restore, Download project, Run), the code beside the result, and an **Output** panel under the result with Console, what the code prints, and Problems, where it went wrong, including closures that fail later on a click. Picking an example runs it. The last result that worked fades while the code has problems. Below 768 px: Code, Result and Output tabs, the other actions in a ⋯ menu and Run at the bottom. `Runner::take_output` and `Runner::watch` carry what a runner hears, and `LiveRunner` hears `println!` and its family through `ravenrs_live::printed` and `on_output`. `ViewExt::opacity` (`Faded`) draws any view faded, and `DropdownMenu::icon_only` shows only its icon.
+- A chart's data draws in the first time it is painted, over a second that starts fast and settles softly, with its axes, grid and their labels there from the first frame: lines, areas, dots, candles and the flows of a `SankeyChart` come in from the left, bars grow out of the zero line together, a pie or a doughnut sweeps clockwise with its labels and guides coming in at the end, and a radar grows out of its center over rings that stay put. The tooltip waits until the data is whole, and with less motion asked for it is whole at once. `Chart::no_appear` and `SankeyChart::no_appear` turn it off, and `appear_key` draws it in again when its key changes. It runs on the GPU over the pictures a chart already keeps, so it draws none anew.
+- `BuildCx::appear`: how far a view has appeared since it was first built, for content that draws itself in.
+- `ravenrs-graphics`: a `Plot` says which layers are its `backdrop` and its `notes`, which labels are `data_labels`, where bars start (`baseline`), and its `uncut_rules`, which `rules_around_bars` cuts again for bars of another length.
+- The site also publishes to Vercel: `scripts/deploy-vercel.sh` (`--prod` for the production address) sends the same files `scripts/deploy-pages.sh` sends to GitHub Pages, both built here by `scripts/build-site.sh`. Vercel builds nothing.
+- The site has a playground at `/playground/`: every example in one place, picked from its bar, edited, run and downloaded as a Cargo project. `?example=Slider` opens on one. Each component page links to it, and so does the home page.
+- `ravenrs-project`: code of the playground becomes a Cargo project, `Cargo.toml` on the published crates, `src/lib.rs` with the code and the browser's entry, `src/main.rs`, `web/index.html`, a README and the records as `src/seed.json`, as files or one `.zip`. `Playground::download` adds the button that saves it, with the system's dialog or as a download, and marks in the code why it cannot. The gallery's playground downloads every example this way.
+- Actions declared as data. `#[action(caption, set = "state = 'done'; finished = Today()", enabled, selection, confirm, id)]` on a business object, or `EntityInfo::action(RecordAction::new(..))`, sets fields of the records selected from expressions, checks the rules and keeps all of them or none. `Action::assign` does the same for any action, and `Criteria::assignments` reads `field = expression; ...`.
+- `ravenrs-live`, an interpreter of the Rust small examples are written in: `let`, closures, chains of builders, tuples, `vec!`, ranges and iterators, `format!`, `if`, `match`, `for` and `State`, with every mistake placed by line and column. `#[ravenrs_live::expose]` (`ravenrs-live-derive`) registers what an `impl` block or enum offers, and `scripts/gen-live.py` puts it on the components and the types under them behind a `live` feature. `LiveRunner` (in `ravenrs-widgets` and `ravenrs`, feature `live`) runs a `Playground`'s code with it, so the component pages run edited examples: all 181. It also reads `Result` and `?`, `let .. else`, the program's own structs, `impl` blocks and `impl View for ..` with a `cx` that keeps its states, struct literals and fields of the host's structs, closures that get references or give host values, functions named where a closure goes, float ranges and `Binding::map`. `ravenrs-movie`, `ravenrs-app` and `ravenrs-app-ui` have a `live` feature too, with `live_expose`.
+- `ravenrs-app-spec`: what `#[derive(BusinessObject)]` and `#[derive(BusinessEnum)]` read from a struct or an enum, as data, now shared by the derive. With the new `source` feature, `ravenrs_app::entities_from_source` reads the same structs from Rust text while the program runs and gives the `EntityInfo`s the derive would, refusing the same mistakes with the same words and each `SourceError`'s line and column.
+- Records and settings that stay between runs. `App::keep_in(storage)` keeps them in a `Storage` (new in `ravenrs-core`): `FileStorage` on the desktop, `IndexedDbStorage` on the web (`ravenrs::web`), `MemoryStorage` for tests; the `seed` runs only while nothing was kept. Underneath, `MemoryDatabase::stored_in` reads what was kept and writes after every commit, `export_json` and `import_json` move all records out and in, all or nothing, and `StoredModel` keeps the person's settings. `examples/quick-app` keeps its records in the browser.
+- `CodeEditor` and `Playground`, behind the new `code` feature of `ravenrs-widgets` and `ravenrs`. `CodeEditor` edits source code in Fira Mono (embedded by the new `mono` feature of `ravenrs-text`), with line numbers, Rust colors by token, Tab and Shift+Tab indenting, Enter keeping the indentation, and `CodeDiagnostic`s marking their lines and columns. `Playground` puts code beside what it makes: examples, Restore, Ctrl/Cmd+Enter running it through a `Runner`, problems listed and marked, the last result that worked kept, and tabs below 768 pixels. The component pages of the site open each example in one.
+
+### Fixed
+
+- `CodeEditor`'s line numbers keep their background down to the bottom of the editor, even when the code ends higher, and no longer cover the editor's border.
+- An optimized build with the `live` feature never ended: `#[ravenrs_live::expose]` wrote `Name { .. }` for a struct as one expression with every field, and for `Labels`, with hundreds, the compiler worked on it for hours. A struct with more than 32 fields is now built from `..base`, or from its `Default` when every field is given, one field at a time. `ravenrs-widgets` with `live` builds in release in about a minute and a half.
+- On a component's page the playground fits its box: every line of the code and the status under it show, the code gets the wider side (the result starts at 40%), and an example taller than the room scrolls in the result instead of pushing the rest out. `Playground::output_open(false)` starts the output folded, as the component pages do; a problem opens it. The page's code block shows the `use` lines the playground shows.
+- `CodeEditor` scrolls sideways: a line longer than the editor no longer gets cut. The wheel or trackpad moves it, the caret brings its column into view as it moves or types, and the line numbers stay put over the code that passes under them. Shift with a wheel that only goes up and down scrolls sideways on the desktop, as browsers do.
+- An `Action` changed through a copy, as the playground's interpreter makes one, kept none of the change: `selection`, `on_execute` and the rest were lost without a word. The change now goes to an action of its own. `ActionContext` copies too, so a closure written in the playground gets it instead of `()`.
+
+## [27.1.20] - 2026-11-07
+
+### Breaking
+
+- `WebOptions` has a `backend` field: code that builds it field by field adds `backend: WebBackend::Auto`. A browser without WebGPU no longer stops at `WebError::WebGpuUnavailable` unless `WebBackend::WebGpu` is asked for; it opens with WebGL2.
+
+### Added
+
+- Showcase pages. `Link` opens an address through the new `Links` service (`BuildCx::links`, `Ui::set_links`): the browser navigates, the desktop asks the system's browser. A `#name` address glides the page to the `Anchor` of that name, landing below a pinned bar (`BuildCx::anchor`), and jumps under reduced motion. `CountUp` counts up to its number the first time it shows on screen, through `BuildCx::on_appear`, which calls a handler once when an element first shows. `Ticker` keeps a strip of content moving sideways through `BuildCx::time_linked` and `TimeLink`, an effect of the clock worked out when painting, without rebuilding; it stands still under reduced motion.
+- `QuadField` draws a plane of squares that waves like a floor, lifts under the pointer and, as the scroll goes through its scene, stands up into the picture a function paints, one color per square, on every frame without rebuilding. `BuildCx::scroll_progress` gives drawing like this the scroll progress along a `ScrollRange` before each paint.
+- `PageFan` in `ravenrs-report-viewer` spreads real pages of rendered reports like a hand of cards: they open as the fan scrolls in, the page under the pointer or keyboard focus comes forward with an accent ring while the others step back, and a click opens its address. Each page is painted once and reused.
+- On the web, a touch scroll keeps gliding after the finger lifts and slows down as on a phone; a finger on the page stops it.
+- `examples/site-home`: the project's home page as a RavenRS app, drawn with WebGL2 in every browser and phone. The floor of squares that stands up into an app screen, the six steps held by the scroll, live components in moving strips, counters, real report pages in a fan, the platforms and themes switching the whole page, and the command palette are all library components. `scripts/deploy-pages.sh` puts it at the root of the site, in place of the HTML page.
+- The web backend also draws with WebGL2, so RavenRS opens in browsers and phones without WebGPU. `WebBackend::Auto`, the default, uses WebGPU where it is and WebGL2 otherwise or if WebGPU fails to start; `WebOptions::backend` asks for `WebBackend::WebGpu` or `WebBackend::WebGl2`. A WebGL2 device asks only for WebGL2's limits. The WebAssembly grows by about 0.7 MB compressed.
+- `ravenrs-spreadsheet`: the `Spreadsheet` component and `SpreadsheetState`. It opens XLSX, XLS, ODS and CSV and saves XLSX, with formulas that recalculate, editing in the cell and in the formula bar, selection with the pointer and the keys, the clipboard, undo, bold, italic, underline, alignment, number formats, column widths and sheet tabs, on the desktop and the web. `examples/spreadsheet` shows a household budget in it.
+- `ravenrs-sheet`: the spreadsheet engine underneath, from GridCraft (MIT OR Apache-2.0): 500+ functions with dynamic arrays, incremental recalculation, number formats, XLSX and CSV reading and writing, charts, and sessions in which every action is a command with undo. It runs in WebAssembly too.
+- Scroll-driven pages. `Sticky` keeps its content on screen while its section scrolls past, like CSS `position: sticky`, and clicks, focus and screen readers find it where it shows. `ScrollScene` holds its content for a length of scrolling, the stage for steps that change as the reader scrolls. `ScrollLinked` paints its content with the `Effect` a `ScrollLink` gives for the scroll position: a `ScrollRange` (the scene, the pass across the view, entering, leaving), a window with `between`, an `Easing`, and keyframes or any function, with `fade_in`, `fade_out`, `parallax` and `grow_from` ready. Scrolling still neither rebuilds nor lays out again. With reduced motion, linked effects only fade. The same powers are on `BuildCx`: `pin`, `scroll_track` and `scroll_linked`.
+- `Effect::lerp` interpolates between two effects and `Effect::then` combines them.
+
+### Fixed
+
+- After the graphics device was lost, the web backend started WebGPU again even on a page that ran on WebGL2; it now starts the API the page was using.
+- `ravenrs::web` exports `WebBackend`, which the WebGL2 release added to `ravenrs-platform-web` but left out of the re-export.
+
+
+## [27.1.19] - 2026-11-07
+
+### Breaking
+
+- `ClipKind::Title` has a `look` field: code that builds it field by field adds `look: CardLook::Plain`. Films saved before read as `Plain`.
+
+### Added
+
+- `ravenrs-movie` opens and closes films with moving cards: `CardLook::Opening` and `CardLook::Closing`, put in with `Project::insert_card`, show the app's animated logo playing in the time of the film (it follows a pause or a jump), then the title, a line and the words under it coming in. `Composition::logo`, `MoviePlayer::logo` and `MovieAssistant::logo` take the logo, a `LottieAnimation`. The player says the words of a card once they are in, only from a recording, and `Movie::poster_ms` shows an opening with its words.
+- `Recorder::narration`: with the recordings the player will use, each box of a recorded film lasts as long as its recording and a breath, instead of a time guessed from its letters. `Narration::seconds` says how long a recording lasts without decoding it, and `Narration::pack_onto` adds recordings to a packed file, keeping the ones already there byte for byte.
+
+### Fixed
+
+- A recorded film no longer cuts its voice: a box that lasted less than its recording was replaced, mid-sentence, by the next one, and a film that ended on such a box stopped the voice at its end.
+
+## [27.1.18] - 2026-11-07
+
+### Breaking
+
+- `SpeechSettings` has a `speaker` field: code that builds it field by field adds `speaker: None`.
+
+### Added
+
+- `ravenrs-ai` speaks with Kokoro 82M, in Rust: `VOICE_CATALOG` offers it first, with the Brazilian voices `pf_dora`, `pm_alex` and `pm_santa` (`KOKORO_SPEAKERS`). `SpeechSettings::speaker` picks one, `SpeechEngine::pieces` splits a text as each model says it best, and `VoiceManager` shows the three voices when Kokoro is in use. The phonemes come from the crate's own rules for Brazilian Portuguese (stress, open and nasal vowels, how a word changes before the next), without espeak-ng. `ModelFamily::Kokoro` is new.
+
+## [27.1.17] - 2026-11-07
+
+### Breaking
+
+- `Labels::tag_add`, `wizard_progress`, `theme_changed`, `theme_contrast`, `short_date`, `lightbox_counter` and `rating_value` are templates now, with `{0}`, `{1}` where the values go, and no longer functions. Methods of the same name fill them in: `labels.short_date(day)` instead of `(labels.short_date)(day)`. `theme_changed` has three forms, for none, one and more.
+
+### Added
+
+- **`ravenrs-app-i18n`**: `Language`, `Catalog` and `Texts`. Every word of the application framework and of the components has a key, in English and Brazilian Portuguese, in JSON by part; a language without a key falls back to English. `App::texts` and `SecuredApp::texts` add or replace words with a flat JSON of keys, and `Session::texts` reads them, keys of the application's own included. `Words`, `RuleWords`, `ReportWords`, `SqlWords`, `Labels`, `ModelPickerLabels`, `ViewerLabels`, `ParameterLabels`, the labels of `ravenrs-movie` and of `ravenrs-ai` have `from_texts`, and their `default()` and `pt_br()` come from the catalog. `ravenrs_app_ui::Language` is the one of this crate, and the translations of the model that come with the framework are in `ravenrs_app_i18n::model`.
+
+- `ExpressionEditor`: edits an expression of the criteria language, with fields, parameters, functions by group, operators and constants to search and insert at the caret, each item's signature and description, and a check while typing that gives the line and column of a syntax error and lists unknown names. Its words are in `Labels` (`expression_*`). The report designer opens it from the button beside an expression, the filter and a group's field, and from Expression on the Home page.
+- `ravenrs-mcp` creates report layouts: `report_layout_format` describes the `.rvreport.json` format with examples made by `ravenrs-report`, `create_report_layout` builds a table layout from sample rows or from fields and a data URL, `check_report_layout` reports JSON errors by line and column, checks every expression and renders the layout, and `report_layout_templates` returns the ready layouts. The server still has no side effects: it returns JSON for the assistant to save.
+
+- `ravenrs-app-a11y`: the accessibility of business applications in one crate. `AccessibleText` names fields and actions from the model, with the caption as default (`FieldInfo::accessible_name` / `accessible_description`, `Action::accessible_name` / `accessible_description`, `#[field(accessible_name, accessible_description)]`, copied to the form's items as `AccessibleName` and `AccessibleDescription`). `Announcer` and `LiveRegion` tell screen readers what changed, as a status or an alert. `AccessWords` holds their words under `a11y.*` keys. `Audit` walks an application with no window and reports unnamed controls, repeated ids, focus that is stuck or trapped, windows that Escape does not close, shared shortcuts and theme contrast under WCAG AA. `quick-app`, `quick-plan` and `feature-center` run it in their tests.
+- `EntityInfo::focus_order` and `#[object(focus_order = "...")]`: fields that come first on the form, on the screen and for Tab.
+- `ravenrs-app-ui` announces saving, a save that fails its rules, deleting and the list that opened, through `Session::announcer`, and names fields and commands from the model.
+- `FormField::accessible_name` / `accessible_description`, `AccessibleControl`, `Button::accessible_description`, `IconButton::description`, `ToolbarAction::accessible_name` / `accessible_description` (a command with keys says them), and `Ui::shortcuts`.
+- Background actions: `Action::background` and `in_background` run the work on a thread of its own, with a `JobContext` that reports progress, checks `cancelled`, and saves, deletes or tells. The `Frame` applies what comes back to the `ObjectSpace` on the UI thread, commits it and rolls back a batch that fails; the action stays off (`REASON_RUNNING`) while it runs, and an error or a panic becomes a message. `App::action` declares an action with no module or controller. The generated window shows a progress bar and Cancel at the foot of the navigation.
+- `ConfirmDialog::ask_typing`: the button acts only after the exact word is typed, capitals included; Enter in the field confirms too. Its words are `Labels::confirm_by_typing`.
+
+### Changed
+
+- `DataGrid`: a column's filter by value lists only the values of the rows the other filters and the search leave, so it never offers one that would show nothing. Its own filter does not narrow it, and a value already checked stays to be unchecked. Rows from `DataGrid::remote` are listed as they come. The list's search says "Search values" (`Labels::grid_filter_search`).
 - The report designer is laid out as a full report editor: a toolbox down the left, rulers in centimeters across the page and beside each band (marking the selected control), the field list and report explorer as tabs over the properties on the right with a bar to drag between them, Design / Preview / JSON tabs under the document and a zoom slider in the status bar. The Ribbon's Home page has Edit (cut, copy, paste, delete), Font (bold, larger, smaller), Alignment and Layout (bring to front, send to back); printing and export moved to an Output page and stay in the File menu and the quick access bar.
 
 ## [27.1.16] - 2026-11-06
@@ -197,6 +412,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Screens reviewed against `examples/feature-center`**, with the rules now in `docs/design-system/README.md`: one accented action in a window, one page margin, page titles, a flat filter row lined up with its columns, fields that fill their column, collections with one heading and no owner column, full-width panels with their title and Close at the top, and a list that says it is empty instead of repeating its name.
 
 ### Fixed
+- A user turned off or deleted loses their API session at once, and with it settings, which no permission guards.
+- The theme at a sign-in door no longer carries over from the person who left, and a kept theme nobody could read goes unused (`Theme::is_readable`).
+- An expression could nest past the depth limit through a condition inside a field, or through `Between`, and overflow the stack. `FormatString` and `PadLeft` no longer take widths that exhaust memory or panic, and date functions no longer overflow on absurd amounts.
+- Sorting a field that holds values of mixed kinds could panic.
+- `SecuredObjectSpace` refuses a field someone can neither read nor write even when the value sent is the stored one, which told them what it held.
+- A wrong current password when changing it counts as a wrong try, with the same lock as signing in, and the new password has to differ (`PasswordError::SameAsCurrent`).
 - A long `Sidebar` scrolls and keeps its footer in the window, instead of stretching the whole window past the bottom of the screen.
 - In the browser, a field that takes the keyboard when the page opens gets what is typed from the start, without a click first.
 - A filter or rule in the model can use a function the application registered; checking the model refused it.

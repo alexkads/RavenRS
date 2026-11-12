@@ -93,7 +93,10 @@ impl GpuContext {
 }
 
 async fn request_device(adapter: &wgpu::Adapter) -> Result<(wgpu::Device, wgpu::Queue), String> {
-    let limits = if cfg!(target_arch = "wasm32") {
+    let limits = if adapter.get_info().backend == wgpu::Backend::Gl && cfg!(target_arch = "wasm32") {
+        // WebGL2 offers less than WebGPU's defaults; the renderer needs no more than it has.
+        wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits())
+    } else if cfg!(target_arch = "wasm32") {
         wgpu::Limits::default().using_resolution(adapter.limits())
     } else {
         wgpu::Limits::default()

@@ -5,7 +5,7 @@ use family_finance::db::Database;
 use family_finance::seed;
 use family_finance::ui::App;
 use family_finance::update::{CURRENT, News, UpdateStatus, Updater};
-use ravenrs::core::{Event, Key, Modifiers};
+use ravenrs::core::{Event, Key, Modifiers, PointerButton};
 use ravenrs::prelude::*;
 
 const PAGES: [&str; 8] =
@@ -343,7 +343,7 @@ fn asking_in_the_settings_answers_at_the_foot() {
     press(&mut ui, Role::Button, "Ver detalhes");
     assert!(says(&mut ui, "Detalhes da atualização"));
     assert!(says(&mut ui, "Sem disco."), "the whole reason, which the status bar would cut");
-    press(&mut ui, Role::Button, "Como atualizar à mão");
+    press(&mut ui, Role::Button, "Ver como atualizar à mão");
     assert!(says(&mut ui, "Se a atualização pelo app falhar"));
     assert!(says(&mut ui, "install.cmd"), "the command by hand is there to copy");
 }
@@ -537,4 +537,277 @@ fn the_parts_of_a_screen_fold_and_unfold_in_the_menu() {
     press(&mut ui, Role::Button, "Agenda");
     press(&mut ui, Role::Button, "Contas a pagar");
     assert_eq!(unfolded(&mut ui), Some(true), "coming back opens it");
+}
+
+/// How many clips the screen paints through: a line or an area drawing in is revealed through
+/// one more, which grows until the chart is whole.
+fn clips(ui: &Ui) -> usize {
+    ui.scene().primitives().iter().filter(|p| matches!(p, ravenrs::core::Primitive::PushClip(_))).count()
+}
+
+fn settle_from(ui: &mut Ui, from: f64) {
+    for step in 0..40 {
+        ui.set_time(from + f64::from(step) * 0.1);
+        ui.update();
+    }
+}
+
+#[test]
+fn another_period_draws_the_balance_in_again() {
+    let mut ui = app();
+    settle_from(&mut ui, 0.0);
+    let whole = clips(&ui);
+
+    press(&mut ui, Role::ComboBox, "Período");
+    press(&mut ui, Role::ListBoxOption, "6 meses");
+    ui.set_time(4.1);
+    ui.update();
+    assert_eq!(clips(&ui), whole + 1, "the balance is revealed again");
+    settle_from(&mut ui, 4.2);
+    assert_eq!(clips(&ui), whole, "until it is whole");
+}
+
+/// The amount a dashboard card shows first: the card is a group named by its title.
+fn stat(ui: &mut Ui, label: &str) -> Option<String> {
+    let tree = ui.access_tree();
+    let card = tree.nodes.iter().find(|n| n.role == Role::Group && n.name.as_deref() == Some(label))?;
+    let mut inside = card.children.clone();
+    while !inside.is_empty() {
+        let id = inside.remove(0);
+        let node = tree.nodes.iter().find(|n| n.id == id)?;
+        if let Some(name) = node.name.as_deref().filter(|name| name.starts_with("R$")) {
+            return Some(name.to_owned());
+        }
+        inside.extend(node.children.iter().copied());
+    }
+    None
+}
+
+fn choose_account(ui: &mut Ui, account: &str) {
+    press(ui, Role::ComboBox, "Conta");
+    press(ui, Role::ListBoxOption, account);
+}
+
+#[test]
+fn the_dashboard_shows_one_account_and_remembers_it() {
+    let folder = std::env::temp_dir().join(format!("family-finance-app-{}-account", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    let path = folder.join("financas.db");
+    let open = || {
+        let db = Database::open(&path).expect("database");
+        if db.is_empty().expect("empty") {
+            seed::load_demo(&db, today()).expect("seed");
+        }
+        let wallet =
+            db.accounts().expect("accounts").into_iter().find(|a| a.name == "Carteira").expect("a wallet");
+        let total: i64 = db.accounts().expect("accounts").iter().map(|a| a.balance_cents).sum();
+        let mut ui =
+            Ui::new(App::new(db, today(), Some(path.clone()), Updater::idle()), Theme::raven_light());
+        ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
+        settle(&mut ui);
+        (
+            ui,
+            family_finance::money::format_brl(wallet.balance_cents),
+            family_finance::money::format_brl(total),
+        )
+    };
+
+    let (mut ui, wallet, total) = open();
+    assert_eq!(stat(&mut ui, "Saldo das contas"), Some(total.clone()), "every account at first");
+    assert!(!says(&mut ui, "Contas a pagar e pagamentos programados"), "with nothing to explain");
+    choose_account(&mut ui, "Carteira");
+    assert_eq!(stat(&mut ui, "Saldo de Carteira"), Some(wallet.clone()), "its own balance");
+    assert!(
+        says(&mut ui, "Contas a pagar e pagamentos programados"),
+        "and says the bills are still everyone's"
+    );
+    assert!(says(&mut ui, "vencida"), "which still warn");
+    audit(&mut ui, "Painel de uma conta");
+    drop(ui);
+
+    let (mut ui, wallet, _) = open();
+    assert_eq!(stat(&mut ui, "Saldo de Carteira"), Some(wallet), "the choice is kept for the next opening");
+    choose_account(&mut ui, "Todas as contas");
+    assert!(stat(&mut ui, "Saldo das contas").is_some());
+    drop(ui);
+    let (mut ui, _, total) = open();
+    assert_eq!(stat(&mut ui, "Saldo das contas"), Some(total), "and so is going back to all of them");
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
+#[test]
+fn a_deleted_account_leaves_the_dashboard_on_all_of_them() {
+    let folder = std::env::temp_dir().join(format!("family-finance-app-{}-gone", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    let path = folder.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    seed::load_demo(&db, today()).expect("seed");
+    std::fs::write(path.with_extension("painel-conta"), "999").expect("an old choice");
+    let mut ui = Ui::new(App::new(db, today(), Some(path), Updater::idle()), Theme::raven_light());
+    ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
+    settle(&mut ui);
+    assert!(stat(&mut ui, "Saldo das contas").is_some());
+    assert!(says(&mut ui, "Todas as contas"), "the selector says so too");
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
+/// Frame by frame, as a window would, so the animations follow the clock.
+fn run_to(ui: &mut Ui, from: f64, to: f64) {
+    let mut time = from;
+    while time < to {
+        time = (time + 1.0 / 60.0).min(to);
+        ui.set_time(time);
+        ui.update();
+    }
+}
+
+#[test]
+fn another_account_counts_the_balance_to_its_own() {
+    let folder = std::env::temp_dir().join(format!("family-finance-app-{}-count", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    let path = folder.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    seed::load_demo(&db, today()).expect("seed");
+    let accounts = db.accounts().expect("accounts");
+    let wallet = accounts.iter().find(|a| a.name == "Carteira").expect("a wallet").balance_cents;
+    let total: i64 = accounts.iter().map(|a| a.balance_cents).sum();
+    let (wallet, total) =
+        (family_finance::money::format_brl(wallet), family_finance::money::format_brl(total));
+    let mut ui = Ui::new(App::new(db, today(), Some(path), Updater::idle()), Theme::raven_light());
+    ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
+    ui.set_time(0.0);
+    settle(&mut ui);
+    run_to(&mut ui, 0.0, 2.0);
+    assert_eq!(stat(&mut ui, "Saldo das contas"), Some(total.clone()), "no count on opening");
+    choose_account(&mut ui, "Carteira");
+    run_to(&mut ui, 2.0, 2.1);
+    let partway = stat(&mut ui, "Saldo de Carteira").expect("the balance");
+    assert!(partway != wallet && partway != total, "counting: {partway}");
+    run_to(&mut ui, 2.1, 3.2);
+    assert_eq!(stat(&mut ui, "Saldo de Carteira"), Some(wallet), "and it lands on the account's");
+    ui.set_reduced_motion(true);
+    choose_account(&mut ui, "Todas as contas");
+    run_to(&mut ui, 3.2, 3.25);
+    assert_eq!(stat(&mut ui, "Saldo das contas"), Some(total), "at once under reduced motion");
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
+fn card(ui: &mut Ui, title: &str) -> ravenrs::core::Rect {
+    let tree = ui.access_tree();
+    let found = tree.nodes.iter().find(|n| n.role == Role::Group && n.name.as_deref() == Some(title));
+    found.unwrap_or_else(|| panic!("no card {title}")).bounds
+}
+
+fn node_bounds(ui: &mut Ui, name: &str) -> ravenrs::core::Rect {
+    let tree = ui.access_tree();
+    tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).unwrap_or_else(|| panic!("no {name}")).bounds
+}
+
+fn key(ui: &mut Ui, key: Key, shift: bool) {
+    ui.handle_event(&Event::KeyDown { key, modifiers: Modifiers { shift, ..Modifiers::default() } });
+    settle(ui);
+}
+
+fn drag(ui: &mut Ui, from: ravenrs::core::Point, to: ravenrs::core::Point) {
+    ui.handle_event(&Event::PointerMove { position: from });
+    ui.handle_event(&Event::PointerDown { position: from, button: PointerButton::Primary });
+    ui.update();
+    ui.handle_event(&Event::PointerMove { position: ravenrs::core::Point::new(from.x + 8.0, from.y + 8.0) });
+    ui.update();
+    ui.handle_event(&Event::PointerMove { position: to });
+    ui.update();
+    ui.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
+    settle(ui);
+}
+
+#[test]
+fn the_dashboard_cards_move_and_resize_and_stay_that_way() {
+    let folder = std::env::temp_dir().join(format!("family-finance-app-{}-cards", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    let path = folder.join("financas.db");
+    let open = || {
+        let db = Database::open(&path).expect("database");
+        if db.is_empty().expect("empty") {
+            seed::load_demo(&db, today()).expect("seed");
+        }
+        let mut ui =
+            Ui::new(App::new(db, today(), Some(path.clone()), Updater::idle()), Theme::raven_light());
+        ui.set_viewport(Size::new(1360.0, 1600.0), 1.0);
+        settle(&mut ui);
+        ui
+    };
+    let disabled = |ui: &mut Ui, name: &str| {
+        let tree = ui.access_tree();
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).expect(name).disabled
+    };
+
+    let mut ui = open();
+    audit(&mut ui, "Painel arrumável");
+    assert!(disabled(&mut ui, "Restaurar layout"), "nothing to restore yet");
+    let (receipts, expenses) = (card(&mut ui, "Receitas do mês"), card(&mut ui, "Despesas do mês"));
+    assert!(receipts.x() < expenses.x());
+
+    // The keyboard: the arrows move a card, Shift with the arrows resizes it.
+    press(&mut ui, Role::Button, "Mover Receitas do mês");
+    key(&mut ui, Key::ArrowRight, false);
+    assert!(card(&mut ui, "Despesas do mês").x() < card(&mut ui, "Receitas do mês").x(), "swapped");
+    let chart = node_bounds(&mut ui, "Receitas e despesas por mês").height();
+    press(&mut ui, Role::Button, "Mover Receitas e despesas");
+    key(&mut ui, Key::ArrowDown, true);
+    assert!(
+        node_bounds(&mut ui, "Receitas e despesas por mês").height() > chart + 100.0,
+        "a taller card has a taller chart"
+    );
+    key(&mut ui, Key::ArrowLeft, true);
+    let flows = card(&mut ui, "Receitas e despesas");
+    assert!(flows.width() < card(&mut ui, "Receitas do mês").width() * 3.0 - 1.0, "and narrower");
+
+    // The pointer: the handle moves a card, the corner resizes it.
+    let handle = node_bounds(&mut ui, "Mover Saldo por conta").center();
+    let target = card(&mut ui, "Saldo das contas").center();
+    drag(&mut ui, handle, target);
+    assert!(card(&mut ui, "Saldo por conta").y() < card(&mut ui, "Próximas contas").y() + 1.0, "{target:?}");
+    let accounts = card(&mut ui, "Saldo por conta");
+    let corner = ravenrs::core::Point::new(accounts.max_x() - 9.0, accounts.max_y() - 9.0);
+    ui.handle_event(&Event::PointerMove { position: accounts.center() });
+    settle(&mut ui);
+    drag(&mut ui, corner, ravenrs::core::Point::new(corner.x, corner.y + 160.0));
+    assert!(card(&mut ui, "Saldo por conta").height() > accounts.height() + 100.0, "one row taller");
+    let moved = (card(&mut ui, "Saldo por conta"), card(&mut ui, "Receitas e despesas"));
+    assert!(!disabled(&mut ui, "Restaurar layout"));
+    drop(ui);
+
+    let mut ui = open();
+    assert_eq!(
+        (card(&mut ui, "Saldo por conta"), card(&mut ui, "Receitas e despesas")),
+        moved,
+        "the next opening finds the cards where they were left"
+    );
+    press(&mut ui, Role::Button, "Restaurar layout");
+    assert_eq!(card(&mut ui, "Receitas do mês"), receipts, "back where they began");
+    assert!(disabled(&mut ui, "Restaurar layout"));
+    drop(ui);
+    let mut ui = open();
+    assert_eq!(card(&mut ui, "Receitas do mês"), receipts, "and that is kept too");
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
+#[test]
+fn a_damaged_layout_file_gives_the_cards_their_places() {
+    let folder = std::env::temp_dir().join(format!("family-finance-app-{}-bad-layout", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    let path = folder.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    seed::load_demo(&db, today()).expect("seed");
+    std::fs::write(path.with_extension("painel-cards.json"), "not json").expect("a damaged file");
+    let mut ui = Ui::new(App::new(db, today(), Some(path), Updater::idle()), Theme::raven_light());
+    ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
+    settle(&mut ui);
+    assert!(card(&mut ui, "Saldo das contas").width() > card(&mut ui, "Próximas contas").width());
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
 }

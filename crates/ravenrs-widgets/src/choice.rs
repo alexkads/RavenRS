@@ -13,6 +13,7 @@ use crate::{ButtonSize, ButtonStyle, IconButton, IconName, Tone, View, util};
 
 /// A button that stays pressed: bold, italic, "pin", "mute".
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ToggleButton {
     value: Binding<bool>,
     label: String,
@@ -20,6 +21,7 @@ pub struct ToggleButton {
     look: ToggleLook,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToggleButton {
     /// A toggle button bound to `value`; clicking flips it.
     pub fn new(value: Binding<bool>, label: impl Into<String>) -> Self {
@@ -132,12 +134,14 @@ impl View for ToggleButton {
 /// A row of toggle buttons where one (or several) can be on. Arrow keys move
 /// the focus between buttons; Space or Enter toggles the focused one.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ToggleGroup {
     items: Vec<(Option<IconName>, String)>,
     single: Option<Binding<usize>>,
     multiple: Option<Binding<BTreeSet<usize>>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToggleGroup {
     /// Exactly one item is on (like text alignment).
     pub fn single(
@@ -226,6 +230,7 @@ impl View for ToggleGroup {
 
 /// Page navigation: Previous, numbered pages with ellipses, Next.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Pagination {
     page: Binding<usize>,
     pages: usize,
@@ -235,6 +240,7 @@ pub struct Pagination {
     compact: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Pagination {
     /// `page` is zero-based; `pages` is the total count.
     pub fn new(page: Binding<usize>, pages: usize) -> Self {
@@ -387,6 +393,7 @@ impl View for Pagination {
 
 /// A round color to pick, from a palette of [`ColorSwatch`]es. Its hit target is
 /// 32 px; the color itself is 20 px.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ColorSwatch {
     color: Option<Color>,
     label: String,
@@ -400,6 +407,7 @@ impl std::fmt::Debug for ColorSwatch {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ColorSwatch {
     /// A swatch of `color`. `label` is what screen readers announce, such as "Accent".
     pub fn new(color: Color, label: impl Into<String>) -> Self {
@@ -477,6 +485,7 @@ impl View for ColorSwatch {
 /// let heart = FavoriteToggle::new(liked.binding()).label("Warm portrait");
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FavoriteToggle {
     value: Binding<bool>,
     label: Option<String>,
@@ -485,6 +494,7 @@ pub struct FavoriteToggle {
     color: Option<Color>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FavoriteToggle {
     /// A heart bound to `value`; clicking flips it.
     pub fn new(value: Binding<bool>) -> Self {
@@ -581,6 +591,7 @@ impl View for FavoriteToggle {
 ///         # let _ = (color, for_background);
 ///     });
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SwatchGrid {
     colors: Vec<(Color, String)>,
     selected: Option<Color>,
@@ -595,6 +606,7 @@ impl std::fmt::Debug for SwatchGrid {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SwatchGrid {
     /// A grid of these colors, each with the name screen readers announce.
     pub fn new<S: Into<String>>(colors: impl IntoIterator<Item = (Color, S)>) -> Self {
@@ -694,6 +706,7 @@ impl View for SwatchGrid {
 
 /// One of the nine points of a [`NinePointAnchor`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum AnchorPoint {
     /// The top left corner.
     TopLeft,
@@ -716,6 +729,7 @@ pub enum AnchorPoint {
     BottomRight,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AnchorPoint {
     /// All nine, row by row from the top left.
     pub const ALL: [Self; 9] = [
@@ -759,12 +773,14 @@ impl AnchorPoint {
 /// let picker = NinePointAnchor::new(point.binding());
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct NinePointAnchor {
     value: Binding<AnchorPoint>,
     cell: f32,
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NinePointAnchor {
     /// A grid bound to `value`.
     pub fn new(value: Binding<AnchorPoint>) -> Self {
@@ -890,6 +906,7 @@ impl View for NinePointAnchor {
 ///     .defaults(Color::BLACK, Color::WHITE)
 ///     .on_foreground(|| { /* open a picker */ });
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ColorPair {
     foreground: Binding<Color>,
     background: Binding<Color>,
@@ -905,6 +922,7 @@ impl std::fmt::Debug for ColorPair {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ColorPair {
     /// A pair bound to these two colors.
     pub fn new(foreground: Binding<Color>, background: Binding<Color>) -> Self {
@@ -1048,6 +1066,7 @@ impl View for ColorPair {
 
 /// A form label with an optional required marker and hint.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Label {
     text: String,
     required: bool,
@@ -1055,6 +1074,7 @@ pub struct Label {
     ink: Option<Semantic>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Label {
     /// A label with this text.
     pub fn new(text: impl Into<String>) -> Self {
@@ -1128,6 +1148,7 @@ pub struct AspectRatio<V> {
     content: V,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> AspectRatio<V> {
     /// Sizes `content` to `ratio` = width / height (e.g. `16.0 / 9.0`); at least 0.01.
     pub fn new(ratio: f32, content: V) -> Self {

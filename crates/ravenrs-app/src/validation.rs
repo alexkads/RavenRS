@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::rc::Rc;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_criteria::{Criteria, Environment, Scope, Value};
 
 use crate::{EntityInfo, ModelError, Object, ObjectSpace, Query};
@@ -16,6 +17,7 @@ pub const CONTEXT_DELETE: &str = "Delete";
 /// How a [`RuleKind::Text`] compares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum TextComparison {
     /// The field holds exactly the text.
     Equals,
@@ -32,6 +34,7 @@ pub enum TextComparison {
 /// How a [`RuleKind::Compare`] compares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Comparison {
     /// The same.
     Equal,
@@ -50,6 +53,7 @@ pub enum Comparison {
 /// What a [`RuleKind::Compare`] compares with.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Operand {
     /// This value.
     Value(Value),
@@ -60,6 +64,7 @@ pub enum Operand {
 /// How much not meeting a rule matters.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Severity {
     /// It stops what was being done until it is fixed.
     #[default]
@@ -70,6 +75,7 @@ pub enum Severity {
     Information,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Severity {
     fn from_name(name: &str) -> Option<Self> {
         match name {
@@ -86,6 +92,7 @@ type CustomRule = Rc<dyn Fn(&Object, &dyn ObjectSpace) -> Result<(), String>>;
 /// What a [`Rule`] asks for.
 #[derive(Clone)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum RuleKind {
     /// The field has something in it.
     Required,
@@ -162,6 +169,7 @@ impl fmt::Debug for RuleKind {
 /// One thing a record has to meet, in some contexts, and perhaps only when it fits.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Rule {
     /// What it is known by.
     pub id: String,
@@ -187,6 +195,7 @@ impl PartialEq for Rule {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Rule {
     /// A rule set in the model, under an entity's `Rules`: `Kind` is `Required`, `Range`, `Matches`,
     /// `Criteria` or `Unique`, with `Field`, `Min`, `Max`, `Pattern`, `Expression`, `Message`,
@@ -371,6 +380,7 @@ impl Rule {
 /// The words of what fails, where `{0}` is the name of the field.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RuleWords {
     /// [`RuleKind::Required`].
     pub required: String,
@@ -398,44 +408,39 @@ pub struct RuleWords {
 
 impl Default for RuleWords {
     fn default() -> Self {
-        Self {
-            required: "{0} is required".into(),
-            too_low: "{0} cannot be below {1}".into(),
-            too_high: "{0} cannot be above {1}".into(),
-            invalid: "{0} is not valid".into(),
-            comparison: "{0} does not compare as it should".into(),
-            record: "This record is not valid".into(),
-            must_be_true: "{0} has to be checked".into(),
-            duplicate: "There is already a record with this {0}".into(),
-            none_exists: "A record it needs does not exist".into(),
-            not_referenced: "Nothing points to this record yet".into(),
-            decimal: '.',
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RuleWords {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            required: texts.get("rules.required"),
+            too_low: texts.get("rules.too_low"),
+            too_high: texts.get("rules.too_high"),
+            invalid: texts.get("rules.invalid"),
+            comparison: texts.get("rules.comparison"),
+            record: texts.get("rules.record"),
+            must_be_true: texts.get("rules.must_be_true"),
+            duplicate: texts.get("rules.duplicate"),
+            none_exists: texts.get("rules.none_exists"),
+            not_referenced: texts.get("rules.not_referenced"),
+            decimal: texts.char("format.decimal", '.'),
+        }
+    }
+
     /// In Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            required: "{0} é obrigatório".into(),
-            too_low: "{0} não pode ser menor que {1}".into(),
-            too_high: "{0} não pode ser maior que {1}".into(),
-            invalid: "{0} não é válido".into(),
-            comparison: "{0} não está como deveria".into(),
-            record: "Este registro não é válido".into(),
-            must_be_true: "{0} precisa ser marcado".into(),
-            duplicate: "Já existe um registro com este valor em {0}".into(),
-            none_exists: "Um registro necessário não existe".into(),
-            not_referenced: "Nada aponta para este registro ainda".into(),
-            decimal: ',',
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 
 /// A rule that was not met.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Violation {
     /// The rule.
     pub rule: String,
@@ -447,6 +452,7 @@ pub struct Violation {
     pub severity: Severity,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Violation {
     /// Whether it stops what was being done.
     pub fn is_error(&self) -> bool {

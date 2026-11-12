@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generates one page per component under <out>/, from the list in
-site/components/index.html and the examples in examples/component-gallery/src/samples.rs.
+site/components/index.html and the examples in examples/component-gallery/src/samples/.
 The code on a page is the example the gallery compiles, so it cannot go stale."""
 import html
 import pathlib
@@ -10,7 +10,9 @@ import sys
 root = pathlib.Path(__file__).resolve().parent.parent
 out = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else root / "target/site-preview/components"
 listing = (root / "site/components/index.html").read_text()
-source = (root / "examples/component-gallery/src/samples.rs").read_text()
+source = "".join(
+    path.read_text() for path in sorted((root / "examples/component-gallery/src/samples").glob("*.rs"))
+)
 
 ROW = re.compile(
     r'<li><a href="(\w+)/" data-api="([^"]+)">(\w+)</a><span class="sep"> - </span><span class="desc">(.*?)</span></li>'
@@ -64,6 +66,7 @@ TEMPLATE = """<!doctype html>
   <ul>
     <li><a href="../" aria-current="page">Components</a></li>
     <li class="hide-sm"><a href="../../demo/">Live demo</a></li>
+    <li class="hide-sm"><a href="../../playground/">Playground</a></li>
     <li class="hide-sm"><a href="../../designer/">Reports</a></li>
     <li><a href="../../api/ravenrs/">API</a></li>
     <li class="hide-sm"><a href="https://github.com/alexkads/RavenRS">GitHub</a></li>
@@ -80,13 +83,14 @@ TEMPLATE = """<!doctype html>
     <h1>{name}</h1>
     <p class="lede">{description}.</p>
     <h2 class="block">Example</h2>
-    <p class="sub">This is the component itself, running in WebAssembly. Try it.</p>
-    <iframe class="stage" src="../../demo/?component={name}" title="Live example of {name}" height="{height}"></iframe>
+    <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
+    <iframe class="stage" src="../../demo/?component={name}" title="Live example of {name}" height="{height}" allow="fullscreen" allowfullscreen></iframe>
     <div class="block-head">
       <h2 class="block">Code</h2>
       <button class="copy" type="button" hidden>Copy</button>
     </div>
     <pre class="code" tabindex="0"><code>{code}</code></pre>
+    <p><a class="more" href="../../playground/?example={name}">Open in the playground, with every example →</a></p>
     <p><a class="more" href="../../api/ravenrs_widgets/{api}">Full API of {name} →</a></p>
     <nav class="pager" aria-label="Other components">{previous}{following}</nav>
   </main>
@@ -106,8 +110,35 @@ TEMPLATE = """<!doctype html>
 </html>
 """
 
+# What the playground of one example takes, in logical pixels: the page's padding and the bar,
+# then the taller of the code (its lines and the status under it) and the example (its own
+# height, the caption and padding around it, and the folded output). The gallery's tests check
+# these against its layout.
+PAGE, BAR, LINE, EDITOR, STATUS, AROUND_EXAMPLE = 32, 89, 22, 12, 46, 127
+
+
+def with_uses(code):
+    """The code as the playground shows it: what the gallery's file brings in for every example,
+    said in the ones that use it (`sample_code` in examples/component-gallery does the same)."""
+    uses = ""
+    for module, names in (("std::collections", ["BTreeSet"]), ("ravenrs::layout", ["Axis", "LayoutStyle"])):
+        used = [name for name in names if re.search(r"(?<![\w:])" + name + r"(?!\w)", code)]
+        if len(used) == 1:
+            uses += f"use {module}::{used[0]};\n"
+        elif used:
+            uses += f"use {module}::{{{', '.join(used)}}};\n"
+    return uses + "use ravenrs::prelude::*;\n\n" + code
+
+
+def stage_height(code, example):
+    # Its lines, and the empty one after.
+    lines = code.count("\n") + 1
+    return PAGE + BAR + max(lines * LINE + EDITOR + STATUS, example + AROUND_EXAMPLE)
+
+
 for position, (slug, api, name, description) in enumerate(ordered):
     height, code = samples[name]
+    code = with_uses(code)
     current = ' aria-current="page"'
     index = "".join(
         f'<li><a href="../{other[0]}/"{current if other[2] == name else ""}>{other[2]}</a></li>' for other in ordered
@@ -123,8 +154,8 @@ for position, (slug, api, name, description) in enumerate(ordered):
         plain=html.escape(html.unescape(description)),
         description=description,
         index=index,
-        height=height + 48,
-        code=highlight("use ravenrs::prelude::*;\n\n" + code),
+        height=stage_height(code, height),
+        code=highlight(code),
         api=api,
         previous=previous,
         following=following,

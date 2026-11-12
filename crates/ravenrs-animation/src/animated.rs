@@ -101,6 +101,12 @@ impl Transition {
         Self::tween(0.32, Easing::Emphasized)
     }
 
+    /// Data drawing in the first time a chart is painted (the `duration-draw` token):
+    /// long, and fast at first, so the shape reads at once and settles softly.
+    pub const fn draw_in() -> Self {
+        Self::tween(1.0, Easing::Bezier(crate::CubicBezier::new(0.25, 1.0, 0.5, 1.0)))
+    }
+
     /// Things changing place or size.
     pub const fn snappy() -> Self {
         Self::Spring(Spring::snappy())

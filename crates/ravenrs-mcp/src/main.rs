@@ -5,14 +5,6 @@
 //! opens no sockets and always describes the RavenRS it was built from. See the
 //! README for the tools and how to install it.
 
-mod api;
-mod docs;
-mod expression;
-mod report;
-mod server;
-
-use rmcp::ServiceExt;
-
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match std::env::args().nth(1).as_deref() {
@@ -29,7 +21,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
     }
-    let service = server::RavenServer::new().serve(rmcp::transport::stdio()).await?;
-    service.waiting().await?;
-    Ok(())
+    ravenrs_mcp::serve_stdio().await
 }

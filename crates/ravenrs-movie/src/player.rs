@@ -3,20 +3,21 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_core::{Border, CursorIcon, Key, Role};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
     BuildCx, Button, ButtonSize, ButtonStyle, Card, HStack, Icon, IconButton, IconName, List, ListItem,
-    NodeId, Paint, QuadPaint, ScrollView, Semantics, Slider, Sound, SoundClip, Text, Toggle, VStack, View,
-    ViewExt,
+    LottieAnimation, NodeId, Paint, QuadPaint, ScrollView, Semantics, Slider, Sound, SoundClip, Text, Toggle,
+    VStack, View, ViewExt,
 };
 
 use crate::composition::{Composition, camera_at};
 use crate::movie::{FilmSound, Hotspot, HotspotKind, Movie};
 use crate::narration::Narration;
-use crate::project::Region;
+use crate::project::{CardLook, ClipKind, Place, Region};
 
 /// The film offered at the end: its name and what opening it does.
 type NextFilm = (String, Rc<dyn Fn()>);
@@ -55,6 +56,7 @@ const SOUNDS_AT_MOST_MS: u64 = 400;
 /// The words a [`MoviePlayer`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieLabels {
     /// The play button.
     pub play: String,
@@ -90,46 +92,36 @@ pub struct MovieLabels {
 
 impl Default for MovieLabels {
     fn default() -> Self {
-        Self {
-            play: "Play".into(),
-            pause: "Pause".into(),
-            restart: "From the start".into(),
-            guided: "Stop at each step".into(),
-            next_step: "Continue".into(),
-            chapters: "Chapters".into(),
-            position: "Position".into(),
-            movie: "Film".into(),
-            sound: "Sound".into(),
-            narration: "Narration".into(),
-            language: "en-US".into(),
-            step_of: "Step {} of {}".into(),
-            finished: "You finished this film".into(),
-            watch_again: "Watch again".into(),
-            next_film: "Next: {}".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            play: texts.get("movie.player.play"),
+            pause: texts.get("movie.player.pause"),
+            restart: texts.get("movie.player.restart"),
+            guided: texts.get("movie.player.guided"),
+            next_step: texts.get("movie.player.next_step"),
+            chapters: texts.get("movie.player.chapters"),
+            position: texts.get("movie.player.position"),
+            movie: texts.get("movie.player.movie"),
+            sound: texts.get("movie.player.sound"),
+            narration: texts.get("movie.player.narration"),
+            language: texts.get("movie.player.language"),
+            step_of: texts.get("movie.player.step_of"),
+            finished: texts.get("movie.player.finished"),
+            watch_again: texts.get("movie.player.watch_again"),
+            next_film: texts.get("movie.player.next_film"),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            play: "Reproduzir".into(),
-            pause: "Pausar".into(),
-            restart: "Do início".into(),
-            guided: "Parar em cada passo".into(),
-            next_step: "Continuar".into(),
-            chapters: "Capítulos".into(),
-            position: "Posição".into(),
-            movie: "Filme".into(),
-            sound: "Som".into(),
-            narration: "Narração".into(),
-            step_of: "Passo {} de {}".into(),
-            finished: "Você terminou este filme".into(),
-            watch_again: "Ver de novo".into(),
-            next_film: "Próximo: {}".into(),
-            language: "pt-BR".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 
@@ -149,12 +141,14 @@ pub(crate) fn clock_label(ms: u64) -> String {
 /// cue.go_to(61_500);
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieCue {
     request: Rc<Cell<Option<u64>>>,
     film: Rc<Cell<Option<usize>>>,
     changes: State<u64>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieCue {
     /// A cue that asks for nothing yet.
     pub fn new() -> Self {
@@ -206,6 +200,7 @@ struct Playhead {
     speed: Cell<usize>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Playhead {
     fn is_running(&self) -> bool {
         self.running.get().is_some()
@@ -532,6 +527,7 @@ struct Stage<'a> {
     /// The explanation over the film, and whether it waits for a click.
     explaining: Option<Hotspot>,
     next: Option<&'a NextFilm>,
+    logo: Option<LottieAnimation>,
 }
 
 impl View for Stage<'_> {
@@ -544,7 +540,7 @@ impl View for Stage<'_> {
         let logical = self.movie.logical_size();
         let height = height_of(self.width, logical);
         let camera = camera_at(self.movie, at, self.width, false);
-        let film = Composition::new(self.movie.clone(), at).width(self.width);
+        let film = Composition::new(self.movie.clone(), at).width(self.width).logo(self.logo.clone());
         let film = cx.child(&film);
         cx.semantics(film, Semantics::new(Role::Image).name(self.labels.movie.clone()));
         let mut children = vec![film];
@@ -674,6 +670,7 @@ impl View for Stage<'_> {
 /// let player = MoviePlayer::new(movie).width(960.0);
 /// # Ok::<(), ravenrs_movie::MovieError>(())
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MoviePlayer {
     movie: Movie,
     width: f32,
@@ -681,6 +678,7 @@ pub struct MoviePlayer {
     labels: MovieLabels,
     cue: Option<MovieCue>,
     narration: Option<Narration>,
+    logo: Option<LottieAnimation>,
     next: Option<NextFilm>,
     on_finished: Option<Rc<dyn Fn()>>,
 }
@@ -691,6 +689,7 @@ impl std::fmt::Debug for MoviePlayer {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MoviePlayer {
     /// A player for `movie`, stopped at its first picture.
     pub fn new(movie: Movie) -> Self {
@@ -701,6 +700,7 @@ impl MoviePlayer {
             labels: MovieLabels::default(),
             cue: None,
             narration: None,
+            logo: None,
             next: None,
             on_finished: None,
         }
@@ -740,6 +740,30 @@ impl MoviePlayer {
     pub fn narration(mut self, narration: Narration) -> Self {
         self.narration = Some(narration);
         self
+    }
+
+    /// The app's animated logo, played on the film's opening and farewell cards.
+    #[must_use]
+    pub fn logo(mut self, logo: LottieAnimation) -> Self {
+        self.logo = Some(logo);
+        self
+    }
+
+    /// What an opening or a farewell card says at `at`, once its words are coming
+    /// in: told apart from the boxes by a number of its own. Only a recording says
+    /// it, since the system's voice would be a second voice in the film.
+    fn card_said(&self, at: u64) -> Option<(usize, String)> {
+        let project = self.movie.project();
+        let Some(Place::Title(index)) = project.place_at(at) else {
+            return None;
+        };
+        let Some(ClipKind::Title { title, subtitle, look, .. }) = project.clips.get(index).map(|c| &c.kind)
+        else {
+            return None;
+        };
+        let inside = at.saturating_sub(project.clip_start_ms(index));
+        (*look != CardLook::Plain && inside >= look.speaks_from_ms())
+            .then(|| (usize::MAX - index, format!("{title}. {subtitle}")))
     }
 
     /// The words it shows.
@@ -967,6 +991,13 @@ impl MoviePlayer {
                 Some(clip) => sound.speak_clip(&clip),
                 None => sound.speak(&said, &self.labels.language),
             }
+        } else if let Some((index, said)) = self.card_said(at).filter(|_| speaking && explaining.is_none())
+            && playhead.spoken.get() != Some(index)
+        {
+            playhead.spoken.set(Some(index));
+            if let Some(clip) = self.narration.as_ref().and_then(|narration| narration.clip(&said)) {
+                sound.speak_clip(&clip);
+            }
         }
     }
 }
@@ -1076,6 +1107,7 @@ impl View for MoviePlayer {
             labels: &self.labels,
             explaining: explained.clone().filter(|_| boxes),
             next: self.next.as_ref(),
+            logo: self.logo.clone(),
         };
         let stage = cx.child(&stage);
         // A hairline and a shadow, so a film that opens on white still has an edge.

@@ -16,6 +16,7 @@ use crate::{Action, ModelError, ModelNode, Object, ObjectSpace};
 
 /// What a view shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ViewKind {
     /// Many records.
     List,
@@ -28,6 +29,7 @@ pub enum ViewKind {
 /// A view, as the model describes it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ViewInfo {
     /// Its id in the model.
     pub id: String,
@@ -37,6 +39,7 @@ pub struct ViewInfo {
     pub entity: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ViewInfo {
     /// A view with this id.
     pub fn new(id: impl Into<String>, kind: ViewKind, entity: Option<&str>) -> Self {
@@ -59,6 +62,7 @@ impl ViewInfo {
 
 /// Where a frame is, which decides its template and what targets it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FrameContext {
     /// The main window.
     Main,
@@ -73,6 +77,7 @@ pub enum FrameContext {
 /// What a frame goes through, in order, for whoever shows it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FrameEvent {
     /// The view is about to change, to this one.
     ViewChanging(Option<String>),
@@ -120,6 +125,9 @@ struct FrameInner {
     /// Views asked for while one was being changed to, which wait for it to end.
     pending: RefCell<VecDeque<PendingView>>,
     changing: Cell<bool>,
+    /// Background work that started here and did not end yet.
+    jobs: RefCell<Vec<crate::Job>>,
+    job_waker: RefCell<Option<crate::JobWaker>>,
 }
 
 /// Where a view lives: it holds the view, the controllers that fit it, their actions and a
@@ -128,6 +136,7 @@ struct FrameInner {
 /// Changing the view tells whoever watches, turns off the controllers that were on, changes the
 /// view, turns on those that fit the new one, and tells again.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Frame(Rc<FrameInner>);
 
 impl fmt::Debug for Frame {
@@ -136,6 +145,7 @@ impl fmt::Debug for Frame {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Frame {
     /// A frame with no view, with these controllers. Window controllers turn on now, if
     /// the context fits them, and stay on.
@@ -180,6 +190,8 @@ impl Frame {
             security: RefCell::default(),
             pending: RefCell::default(),
             changing: Cell::new(false),
+            jobs: RefCell::default(),
+            job_waker: RefCell::default(),
         }));
         for slot in &frame.0.windows {
             let fits = slot.controller.borrow().contexts().contains(&context);
@@ -495,12 +507,113 @@ impl Frame {
             }
         }
         action.run(cx).map_err(ActionError::Failed)?;
+        if let Some(work) = action.work() {
+            let waker = self.0.job_waker.borrow().clone();
+            let job = crate::Job::start(
+                action.id(),
+                action.caption(),
+                work,
+                cx.selected.clone(),
+                cx.input.clone(),
+                waker,
+            );
+            let id = job.id();
+            action.set_enabled(crate::REASON_RUNNING, false);
+            self.0.jobs.borrow_mut().push(job);
+            return Ok(ActionResult::Started(id));
+        }
         action.run_notice(cx);
         let next = cx.take_next().unwrap_or(ActionResult::Done);
         if let ActionResult::ShowView(id) = &next {
             self.show_view(id).map_err(|e| ActionError::Failed(e.0))?;
         }
         Ok(next)
+    }
+
+    /// Wakes whoever shows the frame, from any thread, when background work has something to show.
+    pub fn set_job_waker(&self, waker: crate::JobWaker) {
+        for job in self.0.jobs.borrow().iter() {
+            job.set_waker(Some(waker.clone()));
+        }
+        *self.0.job_waker.borrow_mut() = Some(waker);
+    }
+
+    /// The background work that runs now, in the order it started.
+    pub fn jobs(&self) -> Vec<crate::Job> {
+        self.0.jobs.borrow().clone()
+    }
+
+    /// Keeps what background work handed back, tells what it asked to, and ends the work that
+    /// ended: its action turns on again and says it ran. Says whether records changed, so what
+    /// shows them reads again. Whoever shows the frame calls it once it is woken.
+    pub fn apply_jobs(&self) -> bool {
+        let jobs = self.jobs();
+        let mut changed = false;
+        for job in &jobs {
+            changed |= self.keep_changes(job.take_changes());
+            let Some(end) = job.take_end() else { continue };
+            self.0.jobs.borrow_mut().retain(|running| running.id() != job.id());
+            let action = self.action(job.action());
+            if let Some(action) = &action {
+                action.set_enabled(crate::REASON_RUNNING, true);
+            }
+            match end {
+                Ok(()) => {
+                    if let Some(action) = action {
+                        action.run_notice(&self.context_for(ActionInput::None));
+                    }
+                }
+                Err(error) => self.show_message(crate::Message::new(error, crate::MessageKind::Error)),
+            }
+        }
+        changed
+    }
+
+    fn keep_changes(&self, changes: Vec<crate::JobChange>) -> bool {
+        let space = self.space();
+        let mut wrote = false;
+        let mut failed = None;
+        for change in changes {
+            let done = match change {
+                crate::JobChange::Save(record) => space.borrow_mut().save(record).map_err(|e| e.to_string()),
+                crate::JobChange::Delete(record) => {
+                    let entities = self.0.entities.borrow().clone();
+                    let key = entities
+                        .iter()
+                        .find(|entity| entity.name == record.entity())
+                        .and_then(|entity| entity.key_field())
+                        .map(|field| record.get(&field.name));
+                    match key {
+                        Some(key) => {
+                            space.borrow_mut().delete(record.entity(), &key).map_err(|e| e.to_string())
+                        }
+                        None => Err(format!("{} has no key to remove it by", record.entity())),
+                    }
+                }
+                crate::JobChange::Tell(text, kind) => {
+                    self.show_message(crate::Message::new(text, kind));
+                    continue;
+                }
+            };
+            match done {
+                Ok(()) => wrote = true,
+                Err(error) => {
+                    failed = Some(error);
+                    break;
+                }
+            }
+        }
+        if let Some(error) = failed {
+            space.borrow_mut().rollback();
+            self.show_message(crate::Message::new(error, crate::MessageKind::Error));
+            return false;
+        }
+        if wrote && let Err(error) = space.borrow_mut().commit() {
+            space.borrow_mut().rollback();
+            self.show_message(crate::Message::new(error.to_string(), crate::MessageKind::Error));
+            return false;
+        }
+        wrote
     }
 
     /// Opens a popup on this view for this action, for when the view depends on what it is run

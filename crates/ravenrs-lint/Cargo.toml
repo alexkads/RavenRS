@@ -1,0 +1,25 @@
+[package]
+name = "ravenrs-lint"
+description = "Lints for applications built with RavenRS: theme tokens instead of literal colors and sizes, the 4px grid, named icon buttons, one primary action, and no state or blocking work in `body`. Runs as `cargo ravenrs-lint` and from `cargo test`."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+keywords = ["ravenrs", "lint", "gui", "accessibility", "design-tokens"]
+categories = ["development-tools", "gui"]
+
+[[bin]]
+name = "cargo-ravenrs-lint"
+path = "src/bin/cargo-ravenrs-lint.rs"
+
+[dependencies]
+syn = { workspace = true, features = ["full", "parsing", "visit"] }
+proc-macro2.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,5 @@
+error: this struct has no field `state`
+ --> tests/ui/action_unknown_field.rs:4:38
+  |
+4 | #[action(caption = "Concluir", set = "state = 'done'")]
+  |                                      ^^^^^^^^^^^^^^^^

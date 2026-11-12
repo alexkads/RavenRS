@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, CursorIcon, Insets, Key, Point, Quad, Rect, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, PathElement, PathFill, Point, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -13,12 +13,19 @@ use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics};
 use crate::{AnyView, SelectionMode, View, util};
 
 const TILE_GAP: f32 = 12.0;
-const TILE_HEADER: f32 = 36.0;
+/// Tall enough for a small control in the header to keep a margin above and below.
+const TILE_HEADER: f32 = 48.0;
+/// How far a tile keeps what it holds from its edges, on every side.
+const TILE_INSET: f32 = 16.0;
+/// The corner that resizes: what takes the pointer, and how far its grip stays from the edges.
+const CORNER: f32 = 20.0;
+const GRIP_INSET: f32 = 5.0;
 const CARD_OVERSCAN: usize = 2;
 
 /// Where a tile stands: which tile, and how many cells it takes. The order of a list
 /// of these is the order on the screen.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TileSpot {
     /// The tile, by [`Tile::new`]'s key.
     pub key: String,
@@ -28,6 +35,7 @@ pub struct TileSpot {
     pub rows: u16,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TileSpot {
     /// A tile taking this many cells.
     pub fn new(key: impl Into<String>, columns: u16, rows: u16) -> Self {
@@ -36,10 +44,12 @@ impl TileSpot {
 }
 
 /// One tile of a [`TileLayout`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Tile {
     key: String,
     title: String,
     content: AnyView,
+    accessory: Option<AnyView>,
 }
 
 impl fmt::Debug for Tile {
@@ -48,10 +58,18 @@ impl fmt::Debug for Tile {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Tile {
     /// A tile known by `key`, under this title.
     pub fn new(key: impl Into<String>, title: impl Into<String>, content: impl View + 'static) -> Self {
-        Self { key: key.into(), title: title.into(), content: Box::new(content) }
+        Self { key: key.into(), title: title.into(), content: Box::new(content), accessory: None }
+    }
+
+    /// Something at the end of the header, after the title, such as a help button or a
+    /// choice that changes what the tile shows.
+    pub fn accessory(mut self, accessory: impl View + 'static) -> Self {
+        self.accessory = Some(Box::new(accessory));
+        self
     }
 }
 
@@ -115,6 +133,7 @@ fn reconcile(saved: &[TileSpot], defaults: &[TileSpot]) -> Vec<TileSpot> {
 /// let mut ui = Ui::new(tiles, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TileLayout {
     spots: Binding<Vec<TileSpot>>,
     tiles: Vec<Tile>,
@@ -130,6 +149,7 @@ impl fmt::Debug for TileLayout {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TileLayout {
     /// A layout bound to where the tiles stand, to keep between sessions. Tiles not in
     /// the list take one cell, after the others.
@@ -183,6 +203,7 @@ struct Cells {
     row_step: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Cells {
     /// The cell under a point inside the layout.
     fn at(&self, x: f32, y: f32) -> (usize, usize) {
@@ -206,7 +227,7 @@ impl View for TileHandle {
         let theme = *cx.theme();
         let muted = theme.color(Semantic::InkMuted);
         let handle = cx.container(
-            LayoutStyle { width: Some(24.0), height: Some(TILE_HEADER), ..LayoutStyle::leaf() },
+            LayoutStyle { width: Some(20.0), height: Some(TILE_HEADER), ..LayoutStyle::leaf() },
             &[],
             Paint::Custom(Rc::new(move |f: Rect, scene| {
                 let center = f.center();
@@ -277,28 +298,45 @@ struct TileCorner {
     cells: Cells,
 }
 
+/// Two short strokes across the corner, along the curve of the tile's edge.
+fn grip(frame: Rect, ink: Color) -> [PathFill; 2] {
+    let (x, y) = (frame.max_x() - GRIP_INSET, frame.max_y() - GRIP_INSET);
+    [10.0, 5.0].map(|length| {
+        // A 1.5 px stroke from (x, y - length) to (x - length, y), as a thin quad.
+        let half = 0.75 * std::f32::consts::FRAC_1_SQRT_2;
+        let corners = [
+            Point::new(x + half, y - length + half),
+            Point::new(x - length + half, y + half),
+            Point::new(x - length - half, y - half),
+            Point::new(x - half, y - length - half),
+        ];
+        let mut path = vec![PathElement::MoveTo(corners[0])];
+        path.extend(corners[1..].iter().map(|&p| PathElement::LineTo(p)));
+        path.push(PathElement::Close);
+        PathFill::solid(path, ink)
+    })
+}
+
 impl View for TileCorner {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let ink = cx.theme().color(Semantic::InkMuted).with_alpha(if self.shown { 1.0 } else { 0.0 });
+        let theme = *cx.theme();
+        // Faint over the tile, plain under the pointer or while it drags.
+        let ink = if cx.is_hovered() || cx.is_pressed() {
+            theme.color(Semantic::Ink)
+        } else {
+            theme.color(Semantic::InkMuted).with_alpha(if self.shown { 0.7 } else { 0.0 })
+        };
         let corner = cx.container(
             LayoutStyle {
-                width: Some(16.0),
-                height: Some(16.0),
+                width: Some(CORNER),
+                height: Some(CORNER),
                 absolute: Some(self.at),
                 ..LayoutStyle::leaf()
             },
             &[],
             Paint::Custom(Rc::new(move |f: Rect, scene| {
-                for i in 0..3 {
-                    let step = i as f32 * 4.0;
-                    scene.push_quad(Quad::new(
-                        Rect::new(f.max_x() - 3.0 - step, f.max_y() - 3.0, 2.0, 2.0),
-                        ink,
-                    ));
-                    scene.push_quad(Quad::new(
-                        Rect::new(f.max_x() - 3.0, f.max_y() - 3.0 - step, 2.0, 2.0),
-                        ink,
-                    ));
+                for stroke in grip(f, ink) {
+                    scene.push_path(stroke);
                 }
             })),
         );
@@ -362,11 +400,19 @@ impl View for TileCard<'_> {
             }));
         }
         header.push(title);
+        if let Some(accessory) = &self.tile.accessory {
+            header.push(cx.child(accessory.as_ref()));
+        }
         let bar = cx.container(
             LayoutStyle {
                 height: Some(TILE_HEADER),
-                padding: Insets { left: if self.locked { 12.0 } else { 4.0 }, right: 12.0, ..Insets::ZERO },
-                spacing: 4.0,
+                // The handle's dots, like the accessory's edge, stand an inset from the side.
+                padding: Insets {
+                    left: if self.locked { TILE_INSET } else { TILE_INSET - 8.0 },
+                    right: TILE_INSET,
+                    ..Insets::ZERO
+                },
+                spacing: 8.0,
                 align: Align::Center,
                 align_self: Some(Align::Stretch),
                 ..LayoutStyle::stack(Axis::Horizontal)
@@ -380,7 +426,7 @@ impl View for TileCard<'_> {
                 grow: 1.0,
                 min_height: Some(0.0),
                 overflow_hidden: true,
-                padding: Insets { left: 12.0, right: 12.0, top: 0.0, bottom: 12.0 },
+                padding: Insets { left: TILE_INSET, right: TILE_INSET, top: 0.0, bottom: TILE_INSET },
                 align: Align::Stretch,
                 align_self: Some(Align::Stretch),
                 ..LayoutStyle::stack(Axis::Vertical)
@@ -394,7 +440,7 @@ impl View for TileCard<'_> {
             parts.push(cx.child(&TileCorner {
                 key: self.key.to_owned(),
                 place: self.place,
-                at: (width - 18.0, height - 18.0),
+                at: (width - CORNER, height - CORNER),
                 shown: cx.is_hover_within(),
                 spots: self.spots.clone(),
                 cells: self.cells,
@@ -522,6 +568,7 @@ type CardBuilder = Rc<dyn Fn(usize) -> AnyView>;
 /// let mut ui = Ui::new(cards, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CardView {
     count: usize,
     card: CardBuilder,
@@ -541,6 +588,7 @@ impl fmt::Debug for CardView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CardView {
     /// `count` cards, each the view `card` gives for its index.
     pub fn new(count: usize, card: impl Fn(usize) -> AnyView + 'static) -> Self {

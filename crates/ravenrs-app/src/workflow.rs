@@ -12,6 +12,7 @@ use crate::{
 /// A way from one state to another.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Transition {
     /// The state it leaves.
     pub from: String,
@@ -43,6 +44,7 @@ pub struct Transition {
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct StateMachine {
     /// The field that holds the state: options, text or a reference.
     pub field: String,
@@ -54,6 +56,7 @@ pub struct StateMachine {
     pub transitions: Vec<Transition>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl StateMachine {
     /// Over this field.
     pub fn new(field: impl Into<String>) -> Self {
@@ -169,6 +172,7 @@ pub fn check_transitions(entity: &EntityInfo, old: Option<&Object>, new: &Object
 /// The field of a record that says when to remind people of it, and what to say.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Reminder {
     /// The date and time it is due; empty means nothing to remind.
     pub field: String,
@@ -178,6 +182,7 @@ pub struct Reminder {
     pub criteria: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Reminder {
     /// Due at the time in this field.
     pub fn new(field: impl Into<String>) -> Self {

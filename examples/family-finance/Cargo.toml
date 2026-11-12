@@ -2,7 +2,7 @@
 name = "family-finance"
 description = "RavenRS example: a desktop app for family expenses and bills to pay, stored in SQLite."
 # The app has its own version: raising it is what announces an update (see README.md).
-version = "0.1.32"
+version = "0.1.38"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -37,6 +37,10 @@ ravenrs-app-sqlite.workspace = true
 [dev-dependencies]
 image.workspace = true
 pollster.workspace = true
+
+# The house follows its own rules: `cargo run -p ravenrs-lint -- -p family-finance` (scripts/check.sh runs it).
+[package.metadata.ravenrs-lint]
+language = "pt-BR"
 
 [lints]
 workspace = true

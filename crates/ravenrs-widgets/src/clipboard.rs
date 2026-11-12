@@ -16,6 +16,7 @@ pub trait ClipboardProvider {
 
 /// A clipboard that lives only inside the app (tests, headless use).
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MemoryClipboard(RefCell<Option<String>>);
 
 impl ClipboardProvider for MemoryClipboard {
@@ -39,8 +40,10 @@ impl ClipboardProvider for MemoryClipboard {
 /// assert_eq!(clipboard.read().as_deref(), Some("hello"));
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Clipboard(Rc<dyn ClipboardProvider>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Clipboard {
     /// Wraps a provider.
     pub fn new(provider: impl ClipboardProvider + 'static) -> Self {

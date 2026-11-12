@@ -12,6 +12,7 @@ use crate::property::{Numbers, Shape, numbers};
 
 /// Why a file could not be read.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum LottieError {
     /// It is not JSON.
     NotJson(String),
@@ -181,6 +182,7 @@ pub(crate) struct Document {
 /// assert!(animation.paths_at(0.5, 1.0).is_empty());
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Animation(pub(crate) Arc<Document>);
 
 fn number(value: Option<&Value>, default: f32) -> f32 {
@@ -559,6 +561,7 @@ fn solid_color(text: &str) -> [f32; 3] {
     [part(0), part(2), part(4)]
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Animation {
     /// Reads the JSON of a Lottie file.
     pub fn from_json(bytes: &[u8]) -> Result<Self, LottieError> {

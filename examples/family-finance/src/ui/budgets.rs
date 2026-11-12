@@ -76,7 +76,7 @@ pub(crate) fn budgets(store: &Store, state: &BudgetsState, window: Size) -> Page
         .spacing(8.0)
         .align(Align::Center),
     ))
-    .spacing(10.0)
+    .spacing(12.0)
     .align(Align::Stretch)
     .grow(1.0);
     let summary: AnyView = if content < TWO_COLUMNS_FROM {

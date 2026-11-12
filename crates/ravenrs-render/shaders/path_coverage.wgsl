@@ -4,6 +4,8 @@
 
 struct Target {
     size: vec2<f32>,
+    // WebGL2 needs uniform blocks in whole 16-byte rows.
+    _pad: vec2<f32>,
 };
 
 @group(0) @binding(0) var<uniform> target_size: Target;

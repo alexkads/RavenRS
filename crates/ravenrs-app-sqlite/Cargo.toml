@@ -14,7 +14,9 @@ keywords = ["application", "framework", "sqlite", "crud"]
 categories = ["database"]
 
 [dependencies]
+ravenrs-app-i18n.workspace = true
 ravenrs-app.workspace = true
+ravenrs-app-sql.workspace = true
 ravenrs-criteria.workspace = true
 rusqlite.workspace = true
 

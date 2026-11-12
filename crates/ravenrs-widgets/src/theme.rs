@@ -22,6 +22,7 @@ const COLUMNS: usize = 3;
 /// toolbar. For the three of them side by side, in a settings page, see
 /// [`ThemeSwitcher`](crate::ThemeSwitcher).
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ThemePicker {
     themes: Vec<Theme>,
 }
@@ -32,6 +33,7 @@ impl Default for ThemePicker {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ThemePicker {
     /// A menu of the themes that come with RavenRS.
     pub fn new() -> Self {
@@ -79,6 +81,7 @@ fn flattened(color: Color, canvas: Color) -> Color {
 /// sizes of text. It warns when text stops being legible on its ground, and copies what changed
 /// as JSON, or takes it back, so an application can keep it wherever it wants.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ThemeEditor {
     picker: ThemePicker,
 }
@@ -89,6 +92,7 @@ impl Default for ThemeEditor {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ThemeEditor {
     /// An editor over the theme of the application.
     pub fn new() -> Self {
@@ -125,7 +129,7 @@ fn color_field(
     let ratio = flattened(theme.palette.get(role), canvas)
         .contrast_ratio(flattened(theme.palette.get(ground), canvas));
     let tone = if ratio < LEGIBLE { Tone::Warning } else { Tone::Neutral };
-    field.note_text(Some((cx.labels().theme_contrast)(ratio, ground.token())), tone)
+    field.note_text(Some(cx.labels().theme_contrast(ratio, ground.token())), tone)
 }
 
 fn stepper_field(
@@ -252,9 +256,7 @@ impl View for ThemeEditor {
             });
         let bar = HStack::new((
             self.picker.clone(),
-            Text::new((labels.theme_changed)(changed))
-                .style(TextStyle::Callout)
-                .foreground(Semantic::InkMuted),
+            Text::new(labels.theme_changed(changed)).style(TextStyle::Callout).foreground(Semantic::InkMuted),
             Spacer::new(),
             restore,
             copy,
