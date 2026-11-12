@@ -195,12 +195,24 @@ impl Filter {
 
     /// `display` is only called when the value has to be matched as text.
     fn matches<'a>(&self, value: &Value, display: impl FnOnce() -> Cow<'a, str>) -> bool {
+        self.matches_shown(value, display, false)
+    }
+
+    /// Like [`matches`](Self::matches). In a column with a format of its own a number may stand
+    /// for something else, such as a moment, so a number that does not compare still matches
+    /// by the text it shows.
+    fn matches_shown<'a>(&self, value: &Value, display: impl FnOnce() -> Cow<'a, str>, shown: bool) -> bool {
         if self.text.is_empty() {
             return true;
         }
-        match (value, &self.number, self.boolean) {
-            (Value::Number(n), Some(NumberTest::Range(a, b)), _) => *n >= *a && *n <= *b,
-            (Value::Number(n), Some(NumberTest::Compare(test, x)), _) => test(*n, *x),
+        let hit = match (value, &self.number) {
+            (Value::Number(n), Some(NumberTest::Range(a, b))) => Some(*n >= *a && *n <= *b),
+            (Value::Number(n), Some(NumberTest::Compare(test, x))) => Some(test(*n, *x)),
+            _ => None,
+        };
+        match (value, hit, self.boolean) {
+            (_, Some(true), _) => true,
+            (_, Some(false), _) => shown && contains_lowercase(&display(), &self.text),
             (Value::Bool(b), _, Some(want)) => *b == want,
             _ => contains_lowercase(&display(), &self.text),
         }
@@ -423,6 +435,23 @@ pub fn group_keys(columns: &[GridColumn], rows: &[Row], query: &GridQuery) -> BT
         .collect()
 }
 
+/// The rows a column's filter list draws its values from: those that every other
+/// filter and the search let through. The column's own filter does not count, so
+/// what it holds can be swapped for another value; order and groups do not matter.
+pub fn rows_for_column_values(
+    columns: &[GridColumn],
+    rows: &[Row],
+    query: &GridQuery,
+    column: usize,
+) -> Vec<usize> {
+    let mut others =
+        GridQuery { sort: Vec::new(), group_by: Vec::new(), collapsed: BTreeSet::new(), ..query.clone() };
+    others.set_filter(column, String::new());
+    let mut matched = run_query(columns, rows, &others).matched;
+    matched.sort_unstable();
+    matched
+}
+
 /// Runs the whole pipeline.
 pub fn run_query(columns: &[GridColumn], rows: &[Row], query: &GridQuery) -> QueryResult {
     let search = query.search.trim().to_lowercase();
@@ -452,7 +481,7 @@ pub fn run_query(columns: &[GridColumn], rows: &[Row], query: &GridQuery) -> Que
         .filter(|&r| {
             active_filters.iter().all(|(c, f)| {
                 let v = cell(r, *c);
-                f.matches(v, || columns[*c].display_cow(v))
+                f.matches_shown(v, || columns[*c].display_cow(v), columns[*c].format.is_some())
             })
         })
         .filter(|&r| {
@@ -770,6 +799,34 @@ mod tests {
         q.set_filter(1, "BRA".into());
         q.set_filter(3, "yes".into());
         assert_eq!(names(&run_query(&c, &r, &q), &r), ["Acme", "Initech"]);
+    }
+
+    #[test]
+    fn a_number_shown_as_something_else_filters_by_what_shows() {
+        // Seconds standing for moments, shown as the language writes them.
+        let columns = vec![
+            GridColumn::text("Name"),
+            GridColumn::text("Starts").format(|value| match value {
+                Value::Number(n) if *n > 100.0 => "05/04/2026 09:30".to_owned(),
+                Value::Number(_) => "01/12/2025 19:30".to_owned(),
+                _ => String::new(),
+            }),
+            GridColumn::number("Seats"),
+        ];
+        let rows: Vec<Row> = vec![
+            vec![Value::Text("Easter".into()), Value::Number(500.0), Value::Number(2026.0)],
+            vec![Value::Text("Advent".into()), Value::Number(50.0), Value::Number(80.0)],
+        ];
+        let first = |q: &GridQuery| run_query(&columns, &rows, q).matched.clone();
+        let mut q = GridQuery::default();
+        q.set_filter(1, "2026".into());
+        assert_eq!(first(&q), [0], "a year it shows, though no number equals it");
+        q.set_filter(1, ">100".into());
+        assert_eq!(first(&q), [0], "a comparison still compares");
+        // A plain number column compares and nothing else.
+        let mut q = GridQuery::default();
+        q.set_filter(2, "202".into());
+        assert!(first(&q).is_empty());
     }
 
     #[test]

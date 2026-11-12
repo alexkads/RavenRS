@@ -12,6 +12,7 @@ use crate::{EntityInfo, FieldKind, Object};
 
 mod audit;
 mod directory;
+mod external;
 mod password;
 mod records;
 mod space;
@@ -21,11 +22,12 @@ pub use directory::{
     AuthError, Authenticator, Credentials, MIN_PASSWORD_CHARS, PasswordError, SecurityContext, SpaceMaker,
     UserDirectory,
 };
+pub use external::{Claims, ExternalSignIn, IdentityProvider, SECURITY_EXTERNAL_LOGIN};
 pub use password::{hash_password, verify_password};
 pub use records::{
-    ADMINISTRATORS_ROLE, SECURITY_ACTION_PERMISSION, SECURITY_AUDIT_ENTRY, SECURITY_MEMBER_PERMISSION,
-    SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE, SECURITY_TYPE_PERMISSION,
-    SECURITY_USER, SECURITY_USER_ROLE, audit_entity, security_entities,
+    ADMINISTRATORS_ROLE, SECURITY_ACTION_PERMISSION, SECURITY_API_KEY, SECURITY_AUDIT_ENTRY,
+    SECURITY_MEMBER_PERMISSION, SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE,
+    SECURITY_TYPE_PERMISSION, SECURITY_USER, SECURITY_USER_ROLE, audit_entity, security_entities,
 };
 pub use space::SecuredObjectSpace;
 
@@ -209,6 +211,12 @@ impl Role {
 
     /// Says this about these operations on the records an expression holds for. `?CurrentUserId`
     /// and `?CurrentUserName` are the person. It comes before what is said about the whole entity.
+    ///
+    /// The expression can go through references, such as
+    /// `[class_id.teacher_id.login] = ?CurrentUserName`. They are followed in storage whatever the
+    /// person can read, also for a record being created, and what is put on the record under that
+    /// path counts for nothing. Prefer this to a field storage calculates, which a record not yet
+    /// kept does not have.
     pub fn object_permission(
         mut self,
         entity: impl Into<String>,
@@ -388,6 +396,28 @@ impl Role {
         match self.members_say(operation, entity, field, record, environment) {
             Some(access) => access == Access::Allow,
             None => self.can(operation, entity, record, entities, environment),
+        }
+    }
+
+    /// The paths through references its conditions on this entity read, such as
+    /// `class_id.teacher_id.login`.
+    fn paths_through(&self, entity: &str, into: &mut Vec<Vec<String>>) {
+        let conditions =
+            self.objects.iter().filter(|p| p.entity == entity).map(|p| &p.condition).chain(
+                self.members.iter().filter(|p| p.entity == entity).filter_map(|p| p.condition.as_ref()),
+            );
+        for condition in conditions {
+            if let Some(criteria) = &condition.criteria {
+                criteria.walk(&mut |part| {
+                    if let Criteria::Property(path) = part
+                        && path.len() > 1
+                        && !path[0].starts_with('^')
+                        && !into.contains(path)
+                    {
+                        into.push(path.clone());
+                    }
+                });
+            }
         }
     }
 
@@ -574,6 +604,15 @@ impl Permissions {
     /// Whether what they can do with this entity changes from record to record.
     pub(crate) fn depends_on_record(&self, entity: &str) -> bool {
         self.identity.roles.iter().any(|role| role.depends_on_record(entity))
+    }
+
+    /// The paths through references that the conditions of their roles on this entity read.
+    pub(crate) fn paths_through(&self, entity: &str) -> Vec<Vec<String>> {
+        let mut paths = Vec::new();
+        for role in self.identity.roles.iter().filter(|role| !role.administrative) {
+            role.paths_through(entity, &mut paths);
+        }
+        paths
     }
 
     /// Whether this navigation item shows, inside this group, if it has one. An item comes before

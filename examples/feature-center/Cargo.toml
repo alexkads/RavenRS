@@ -14,12 +14,16 @@ crate-type = ["cdylib", "rlib"]
 ravenrs.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-library.workspace = true
+ravenrs-app-remote.workspace = true
 ravenrs-app-report.workspace = true
 ravenrs-app-ui.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-report.workspace = true
+ravenrs-widgets.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ravenrs-app-server.workspace = true
+tokio = { version = "1.54", default-features = false, features = ["net", "rt-multi-thread"] }
 ravenrs-app-sqlite.workspace = true
 rusqlite.workspace = true
 
@@ -35,6 +39,7 @@ image.workspace = true
 pollster.workspace = true
 ravenrs-core.workspace = true
 ravenrs-render.workspace = true
+serde_json.workspace = true
 ravenrs-style.workspace = true
 ravenrs-widgets.workspace = true
 

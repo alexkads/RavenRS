@@ -11,9 +11,9 @@ use ravenrs_grid_export::export;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::grid::{GridQuery, Row, Value as Cell, to_table};
 use ravenrs_widgets::{
-    AnyView, BuildCx, CellEdit, DataGrid, GridCellStyle, GridColumn, GridData, GridPage, GridRequest,
-    GridResponder, GridRowAction, GridTable, Keyed, NodeId, RemoteRows, SelectionMode, SortDirection, Text,
-    View,
+    AnyView, BuildCx, CellEdit, DataGrid, GridCellStyle, GridColumn, GridCurrent, GridData, GridPage,
+    GridRequest, GridResponder, GridRowAction, GridTable, Keyed, NodeId, RemoteRows, SelectionMode,
+    SortDirection, Text, View,
 };
 
 use crate::session::Session;
@@ -226,19 +226,24 @@ fn both(first: Option<Criteria>, second: Option<Criteria>) -> Option<Criteria> {
 
 /// The part of a remote request that says which rows, over the fields of its columns.
 fn request_filter(request: &GridRequest, fields: &[FieldInfo]) -> Option<Criteria> {
+    filter_of(&request.filters, &request.search, fields)
+}
+
+/// What filters by column and a search ask of storage, over the fields of the columns.
+fn filter_of(filters: &[String], search: &str, fields: &[FieldInfo]) -> Option<Criteria> {
     let searchable =
         |field: &FieldInfo| matches!(field.kind, FieldKind::Text | FieldKind::LongText | FieldKind::Enum(_));
     let contains = |field: &FieldInfo, text: &str| {
         Criteria::parse(&format!("Contains(Upper([{}]), Upper({}))", field.name, literal(text))).ok()
     };
-    let by_column = request.filters.iter().enumerate().fold(None, |all, (at, text)| {
+    let by_column = filters.iter().enumerate().fold(None, |all, (at, text)| {
         let this = fields
             .get(at)
             .filter(|field| searchable(field) && !text.trim().is_empty())
             .and_then(|field| contains(field, text.trim()));
         both(all, this)
     });
-    let typed = request.search.trim();
+    let typed = search.trim();
     let searched = if typed.is_empty() {
         None
     } else {
@@ -249,6 +254,42 @@ fn request_filter(request: &GridRequest, fields: &[FieldInfo]) -> Option<Criteri
             .reduce(Criteria::or)
     };
     both(by_column, searched)
+}
+
+/// What a list on screen shows now, as a table, for a report to take the same rows.
+pub(crate) type ShownList = Rc<dyn Fn() -> Option<GridTable>>;
+
+/// Every record of a remote list that its filters and search let through, in its order: the grid
+/// holds only the pages it has brought.
+fn whole_remote(
+    reader: &Reader,
+    entity: &EntityInfo,
+    fields: &[FieldInfo],
+    base: Option<&Criteria>,
+    sort: &[(String, bool)],
+    asked: &GridQuery,
+) -> Result<Vec<Row>, String> {
+    let mut query = Query::all();
+    if let Some(filter) = both(base.cloned(), filter_of(&asked.filters, &asked.search, fields)) {
+        query = query.filter(filter);
+    }
+    let asked_sort: Vec<(String, bool)> = asked
+        .sort
+        .iter()
+        .filter_map(|(column, direction)| {
+            let field = fields.get(*column)?;
+            Some((field.name.clone(), matches!(direction, SortDirection::Ascending)))
+        })
+        .collect();
+    let order = if asked_sort.is_empty() { sort.to_vec() } else { asked_sort };
+    for (field, ascending) in order {
+        query = query.sort(field, ascending);
+    }
+    if let Some(key) = entity.key_field() {
+        query = query.sort(key.name.clone(), true);
+    }
+    let objects = reader.frame.space().borrow().query(&entity.name, &query).map_err(|e| e.to_string())?;
+    Ok(reader.rows(fields, &objects))
 }
 
 /// Rows brought from storage a chunk at a time. With no sorting asked for, a chunk continues from
@@ -703,11 +744,35 @@ impl View for ListView {
                 GridCellStyle::new(found.font.map(semantic_of), found.back.map(semantic_of), found.bold)
             }
         });
+        let current = cx.use_state(GridCurrent::new).get();
+        if !self.compact {
+            let culture = if words.decimal == ',' { "pt-BR" } else { "en-US" };
+            let (current, title, columns) = (current.clone(), caption.clone(), columns.clone());
+            let (reader, named, shown) = (self.reader(), entity.clone(), infos.clone());
+            let (base, sort) = (filter.clone(), self.sort.clone());
+            let report: ShownList = Rc::new(move || {
+                if !current.is_remote() {
+                    return current.table(&title, culture);
+                }
+                let asked = current.query()?;
+                let rows = whole_remote(&reader, &named, &shown, base.as_ref(), &sort, &asked)
+                    .map_err(|error| reader.session.set_error(Some(error)))
+                    .ok()?;
+                let every: Vec<usize> = (0..rows.len()).collect();
+                Some(to_table(&title, culture, &columns, &rows, &asked, &every))
+            });
+            session.keep_shown_list(&self.view.id, report);
+        }
         let grid = match remote_rows {
             Some(rows) => DataGrid::remote(rows, columns),
             None => DataGrid::new(data, columns),
         };
+        let grid = match node.text("EmptyText") {
+            Some(text) => grid.empty_text(text),
+            None => grid,
+        };
         let grid = grid
+            .current(current)
             .striped(true)
             .key_column(key_at)
             .selection_mode(if self.single { SelectionMode::Single } else { SelectionMode::Multiple })
@@ -837,9 +902,17 @@ impl Session {
         self.frame().space().borrow().query(name, &query).unwrap_or_default()
     }
 
-    /// A list as it stands: the columns showing and every record the way it chose to see them, as
-    /// a table to make a report or a file from.
+    /// A list as it stands, as a table to make a report or a file from. While the list is on
+    /// screen it is what the grid shows: the search, the filters of its columns and the filter
+    /// builder, its sorting, the columns showing and its grouping, with every row that matches,
+    /// on every page and in collapsed groups. A remote list asks storage again for all of them.
+    /// Before the list is built, it is every record its model filter and variant let through.
+    /// Either way the rows are read through the frame's storage, so only what the person can read.
     pub fn list_table(&self, view: &ViewInfo) -> Option<GridTable> {
+        // A list on screen: what its filters, search, sorting and columns let through.
+        if let Some(table) = self.shown_list(&view.id).and_then(|shown| shown()) {
+            return Some(table);
+        }
         let model = self.model();
         let (name, node) = (view.entity.as_deref()?, model.at(&["Views", &view.id])?);
         let entity = self.entity(name)?;

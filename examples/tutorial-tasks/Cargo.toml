@@ -21,5 +21,10 @@ wasm-bindgen-futures.workspace = true
 console_error_panic_hook.workspace = true
 web-sys = { workspace = true, features = ["console"] }
 
+# The example that records the tutorial's video draws off screen, on native only.
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+pollster.workspace = true
+image.workspace = true
+
 [lints]
 workspace = true

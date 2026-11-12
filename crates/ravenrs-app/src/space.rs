@@ -37,6 +37,13 @@ pub enum SpaceError {
     Denied(String),
     /// Storage failed.
     Storage(String),
+    /// What it needs is not there: a provider that does not do this, a feature that is off, a
+    /// host that cannot. Trying again does not help until something changes.
+    Unavailable(String),
+    /// It failed this time and may work later: storage busy, a service out of reach.
+    Temporary(String),
+    /// It may have happened: there was no answer to tell. Find out before doing it again.
+    Unknown(String),
 }
 
 impl fmt::Display for SpaceError {
@@ -47,7 +54,10 @@ impl fmt::Display for SpaceError {
             | Self::Conflict(why)
             | Self::Refused(why)
             | Self::Denied(why)
-            | Self::Storage(why) => f.write_str(why),
+            | Self::Storage(why)
+            | Self::Unavailable(why)
+            | Self::Temporary(why)
+            | Self::Unknown(why) => f.write_str(why),
             Self::MissingKey(entity) => write!(f, "a record of {entity} has no key"),
             Self::DuplicateKey { entity, key } => {
                 write!(f, "{entity} already has a record with the key {key}")
@@ -57,6 +67,18 @@ impl fmt::Display for SpaceError {
 }
 
 impl std::error::Error for SpaceError {}
+
+impl SpaceError {
+    /// Whether trying the same thing again later may work.
+    pub fn is_temporary(&self) -> bool {
+        matches!(self, Self::Temporary(_))
+    }
+
+    /// Whether it may have happened in spite of the error, so that doing it again could do it twice.
+    pub fn may_have_happened(&self) -> bool {
+        matches!(self, Self::Unknown(_))
+    }
+}
 
 /// What to read: a filter, an order and a page.
 #[derive(Clone, Debug, Default)]
@@ -238,11 +260,24 @@ fn compare(a: &Value, b: &Value) -> Ordering {
         (Value::Null, Value::Null) => Ordering::Equal,
         (Value::Null, _) => Ordering::Less,
         (_, Value::Null) => Ordering::Greater,
-        (Value::Number(x), Value::Number(y)) => x.partial_cmp(y).unwrap_or(Ordering::Equal),
+        (Value::Number(x), Value::Number(y)) => x.total_cmp(y),
         (Value::Text(x), Value::Text(y)) => x.cmp(y),
         (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
         (Value::Date(x), Value::Date(y)) => (x.days, x.seconds).cmp(&(y.days, y.seconds)),
-        _ => Ordering::Equal,
+        // Different kinds in one field come in the order of their kinds: sorting needs an order
+        // that holds across all of them, and panics on one that does not.
+        _ => kind_rank(a).cmp(&kind_rank(b)),
+    }
+}
+
+fn kind_rank(value: &Value) -> u8 {
+    match value {
+        Value::Null => 0,
+        Value::Bool(_) => 1,
+        Value::Number(_) => 2,
+        Value::Text(_) => 3,
+        Value::Date(_) => 4,
+        _ => 5,
     }
 }
 
@@ -682,6 +717,25 @@ impl MemoryDatabase {
         if let Some(kept) = self.kept.borrow_mut().as_mut() {
             kept.problem = kept.storage.write(&kept.name, text.as_bytes()).err();
         }
+    }
+
+    /// Puts these in place of the records of an entity, with no rules or states to go through, for
+    /// a copy of what is kept somewhere else.
+    pub fn replace_records(&self, entity: &str, records: Vec<Object>) {
+        let Some(info) = self.entities.iter().find(|known| known.name == entity) else { return };
+        let mut tables = self.tables.borrow_mut();
+        let highest = records
+            .iter()
+            .filter_map(|record| match info.key_field().map(|field| record.get(&field.name)) {
+                Some(Value::Number(number)) => Some(number as i64),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0);
+        tables.next_key = tables.next_key.max(highest + 1);
+        let rows =
+            records.into_iter().filter_map(|record| key_of(info, &record).map(|key| (key, record))).collect();
+        tables.rows.insert(entity.to_owned(), rows);
     }
 
     /// A new unit of work over these records.

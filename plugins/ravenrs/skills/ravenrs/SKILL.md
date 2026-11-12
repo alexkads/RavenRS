@@ -20,7 +20,8 @@ Builder method names vary by component, so confirm them before writing a view. I
 | What are its methods and states? | `component_api`, which also accepts `ViewExt`, `State`, `Semantic`, `BuildCx` and any other public item |
 | How is it used in real code? | `component_examples` |
 | Which color or text style is this? | `design_tokens` |
-| Does this feature exist yet? | `parity_status` |
+| Does this feature exist yet? | `parity_status`; for record applications, with `document: "application"` |
+| What does a reusable module have to honor, and which issue follows a capability? | `app_contracts` |
 | Is this expression valid? Which functions exist? | `validate_expression`, `expression_functions` |
 | How do I make a report? | `report_layout_format`, then `create_report_layout` or `report_layout_templates`; confirm with `check_report_layout` and save the JSON as a `.rvreport.json` file |
 
@@ -140,6 +141,15 @@ Serve the folder over HTTP with a page that has `<canvas id="raven-canvas">`. It
 - A new component needs rustdoc with an example, semantics, keyboard support, a behavior test through `Ui` and a section in `examples/component-gallery`. Update `docs/PARITY.md` and `CHANGELOG.md` under `[Unreleased]`.
 - Use only `Semantic` tokens and existing components in the repository's own modules. If something is missing, add it to the library first.
 - Versions are `YY.R.P`: until 28.1.0 any release may hold breaking changes, listed in the CHANGELOG; from then on, only in each year's `.1` release, with additions in `.2` and fixes in maintenance releases. See [docs/VERSIONING.md](https://github.com/alexkads/RavenRS/blob/master/docs/VERSIONING.md). Visual changes need a golden-image update: `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test visual`.
+
+## Reusable application modules
+
+A module meant for more than one application follows [docs/APP-CONTRACTS.md](https://github.com/alexkads/RavenRS/blob/master/docs/APP-CONTRACTS.md); `app_contracts` lists its scenarios and groups with the issue that owns each one.
+
+- Declare what the module needs in `Module::manifest()` (`ModuleManifest`: version, accepted versions of its dependencies, targets, databases, capabilities, migrations, jobs). `ApplicationBuilder::build` refuses what does not fit, and `switch_off` keeps a module's records readable while `Application::guard` refuses changes.
+- Talk to anything outside through a `Provider` that declares its capabilities; events go through `EventSink`. Report failures with the `SpaceError` meanings: `Temporary` may work later, `Unknown` may have happened (check before doing it again), `Unavailable` is a missing capability.
+- Test on `ravenrs-app-testkit`: organizations T1 and T2 share keys on purpose, roles are an example policy, `Clock` moves only when told, and `FakeSink` accepts, refuses, goes down or loses its answer. `ravenrs-app-requests` and `examples/contracts` show a package used by two applications of different sectors.
+- Never put a sector's rules in a generic package: the application gives steps, roles and policies.
 
 ## Expressions and reports
 

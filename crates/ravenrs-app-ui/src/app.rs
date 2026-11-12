@@ -337,6 +337,30 @@ impl App {
         self
     }
 
+    /// Says who is signed in somewhere else, on a server, and how they leave.
+    pub fn signed_in_remotely(self, name: String, sign_out: impl Fn() + 'static) -> Self {
+        self.signed_in(name, sign_out)
+    }
+
+    /// Keeps what people choose for themselves, as the theme, here.
+    pub fn settings(self, store: impl ravenrs_app::SettingsStore + 'static) -> Self {
+        let store: Rc<dyn ravenrs_app::SettingsStore> = Rc::new(store);
+        self.with_session(move |session| session.use_settings(store))
+    }
+
+    /// Keeps them in storage, if storage knows where.
+    pub(crate) fn settings_over(
+        self,
+        space: ravenrs_app::SpaceMaker,
+        known: &[ravenrs_app::EntityInfo],
+    ) -> Self {
+        if known.iter().any(|entity| entity.name == ravenrs_app::APP_SETTING) {
+            self.settings(ravenrs_app::RecordSettings::new(space))
+        } else {
+            self
+        }
+    }
+
     /// Runs this with its session, once it is put together, for what needs a session from outside.
     pub fn with_session(mut self, then: impl FnOnce(&crate::Session) + 'static) -> Self {
         self.steps.push(Box::new(then));

@@ -1,0 +1,18 @@
+[package]
+name = "channel-video"
+description = "The videos of the project's channel, recorded from the real apps and written as video files."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ravenrs.workspace = true
+ravenrs-ai.workspace = true
+ravenrs-movie-video.workspace = true
+component-gallery = { path = "../component-gallery" }
+family-finance = { path = "../family-finance" }
+
+[lints]
+workspace = true

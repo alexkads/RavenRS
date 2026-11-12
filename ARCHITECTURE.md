@@ -83,6 +83,9 @@ ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
 ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)
 ravenrs-app-library    ──► ravenrs-app  (ready-made records)
 ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-designer  (reports and panels)
+ravenrs-app-server     ──► ravenrs-app, ravenrs-criteria  (HTTP on one worker thread; no GUI)
+ravenrs-app-remote     ──► ravenrs-app-ui  (the same screens over the API of ravenrs-app-server, which it does not depend on)
+ravenrs-app-sqlite, ravenrs-app-postgres ──► ravenrs-app-sql ──► ravenrs-app, ravenrs-criteria  (only these two know a database driver)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-sheet          (spreadsheet engine from GridCraft: formulas, recalculation, XLSX; depends on nothing in RavenRS)
 ravenrs-spreadsheet    ──► ravenrs-sheet, ravenrs-widgets  (`Spreadsheet`: the engine ──► screen)
@@ -125,6 +128,10 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-app-sqlite` | `lib` |
 | `ravenrs-app-library` | `lib` |
 | `ravenrs-app-report` | `lib`, `stored`, `analytics` |
+| `ravenrs-app-server` | `lib` (`ApiService`, routes, sessions), `json`, `openapi`, `http` (worker thread and axum) |
+| `ravenrs-app-remote` | `lib` (`RemoteClient`, `RemoteDatabase`, `RemoteObjectSpace`), `transport`, `gate` (`RemoteApp`) |
+| `ravenrs-app-sql` | `lib` (`SqlBackend`, `SqlDatabase`, `SqlObjectSpace`, `TableMap`) |
+| `ravenrs-app-postgres` | `lib` (`PostgresBackend`, types in and out) |
 | `ravenrs-report-designer` | `lib`, `editor`, `bands`, `surface`, `props`, `preview` |
 | `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values`, `security`, `model_editor`, `list_editors`, `reminders` |
 | `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files`, `workflow`, `security` (`space`, `directory`, `password`, `records`, `audit`) |
@@ -252,7 +259,7 @@ Parity with the feature set of commercial data grids:
 | Column reordering by drag, menu on each column, fit width | ✓ |
 | Columns pinned to the left | ✓ |
 | Multi-level (banded) headers, columns pinned to the right | planned |
-| Filter by value (checklists) with a filter panel | ✓ |
+| Filter by value (checklists, offering only what the other filters leave) with a filter panel | ✓ |
 | Filter builder | ✓ `FilterBuilder`, also in the toolbar with `filter_builder` and behind "Edit filter" on the filter panel, over the whole filter |
 | Paging UI, infinite scroll and rows on a server (`RemoteRows`: bounded memory, settled requests, no totals needed, keyset by `after`) | ✓ |
 | Summaries changed at run time, with formulas over `ravenrs-criteria` | ✓ |

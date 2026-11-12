@@ -137,12 +137,17 @@ impl GridResponder {
             held.in_flight.remove(&self.chunk);
             held.error = None;
             let start = self.chunk * self.chunk_size;
-            held.end = held.end.max(start + page.rows.len());
+            let ends_at = start + page.rows.len();
+            // A chunk past the end comes back empty; it does not stretch what is there.
+            if !page.rows.is_empty() {
+                held.end = held.end.max(ends_at);
+            }
             held.has_more = page.has_more;
             if page.total.is_some() {
                 held.total = page.total;
             } else if !page.has_more {
-                held.total = Some(start + page.rows.len());
+                // Chunks answer in any order: the rows end where the earliest end says.
+                held.total = Some(held.total.map_or(ends_at, |total| total.min(ends_at)));
             }
             if !page.totals.is_empty() {
                 held.totals = page.totals;

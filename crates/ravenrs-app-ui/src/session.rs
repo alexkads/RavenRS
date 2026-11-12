@@ -131,6 +131,8 @@ pub struct Words {
     pub password_too_short: String,
     /// The current one is not right.
     pub password_wrong_current: String,
+    /// When the new password is the one they already have.
+    pub password_same: String,
     /// It was changed.
     pub password_saved: String,
     /// Keeps the new password.
@@ -165,6 +167,10 @@ pub struct Words {
     pub thousands: char,
     /// Before decimals.
     pub decimal: char,
+    /// How a date shows in lists, such as `dd/MM/yyyy`.
+    pub date_format: String,
+    /// How a date with a time shows in lists, such as `dd/MM/yyyy HH:mm`.
+    pub date_time_format: String,
 }
 
 impl Default for Words {
@@ -231,6 +237,7 @@ impl Words {
             sign_in_unavailable: texts.get("ui.sign_in_unavailable"),
             passwords_differ: texts.get("ui.passwords_differ"),
             password_too_short: texts.get("ui.password_too_short"),
+            password_same: texts.get("ui.password_same"),
             password_wrong_current: texts.get("ui.password_wrong_current"),
             password_saved: texts.get("ui.password_saved"),
             save_password: texts.get("ui.save_password"),
@@ -249,6 +256,8 @@ impl Words {
             money_prefix: texts.get("format.money_prefix"),
             thousands: texts.char("format.thousands", ','),
             decimal: texts.char("format.decimal", '.'),
+            date_format: texts.get("format.date"),
+            date_time_format: texts.get("format.date_time"),
         }
     }
 
@@ -340,6 +349,8 @@ struct SessionInner {
     toasts: Toasts,
     /// Where entities no storage keeps get their records.
     record_sources: Rc<RefCell<BTreeMap<String, crate::list_view::ListSource>>>,
+    /// What each list on screen shows now, by view, for a report to take the same rows.
+    shown_lists: RefCell<BTreeMap<String, crate::list_view::ShownList>>,
     /// Where lists no storage keeps get theirs, by entity and field.
     collection_sources: Rc<RefCell<BTreeMap<(String, String), CollectionSource>>>,
     /// Where it came from, for going back.
@@ -349,6 +360,7 @@ struct SessionInner {
     on_file: Rc<RefCell<Option<FileHandler>>>,
     on_url: Rc<RefCell<Option<UrlHandler>>>,
     controls: Rc<RefCell<BTreeMap<String, ControlFactory>>>,
+    settings: RefCell<Option<Rc<dyn ravenrs_app::SettingsStore>>>,
     presented: State<Option<Presented>>,
     /// Something that takes the place of the view, as an editor of its own does.
     full: State<Option<ControlFactory>>,
@@ -421,6 +433,7 @@ impl Session {
             noting: State::new(false),
             toasts: Toasts::new(),
             record_sources: Rc::default(),
+            shown_lists: RefCell::default(),
             collection_sources: Rc::default(),
             history: State::new(Vec::new()),
             error: State::new(None),
@@ -428,6 +441,7 @@ impl Session {
             on_file: Rc::default(),
             on_url: Rc::default(),
             controls: Rc::default(),
+            settings: RefCell::new(None),
             presented: State::new(None),
             full: State::new(None),
             reminders: State::new((0, false)),
@@ -500,6 +514,7 @@ impl Session {
             noting: State::new(false),
             toasts: parent.toasts.clone(),
             record_sources: parent.record_sources.clone(),
+            shown_lists: RefCell::default(),
             collection_sources: parent.collection_sources.clone(),
             history: State::new(Vec::new()),
             error: State::new(None),
@@ -507,6 +522,7 @@ impl Session {
             on_file: parent.on_file.clone(),
             on_url: parent.on_url.clone(),
             controls: parent.controls.clone(),
+            settings: RefCell::new(parent.settings.borrow().clone()),
             presented: parent.presented.clone(),
             full: parent.full.clone(),
             reminders: parent.reminders.clone(),
@@ -587,6 +603,14 @@ impl Session {
         self.0.collection_sources.borrow_mut().insert((entity.into(), field.into()), Rc::new(source));
     }
 
+    pub(crate) fn keep_shown_list(&self, view: &str, shown: crate::list_view::ShownList) {
+        self.0.shown_lists.borrow_mut().insert(view.to_owned(), shown);
+    }
+
+    pub(crate) fn shown_list(&self, view: &str) -> Option<crate::list_view::ShownList> {
+        self.0.shown_lists.borrow().get(view).cloned()
+    }
+
     pub(crate) fn record_source(&self, entity: &str) -> Option<crate::list_view::ListSource> {
         self.0.record_sources.borrow().get(entity).cloned()
     }
@@ -621,6 +645,14 @@ impl Session {
 
     pub(crate) fn account(&self) -> Option<Account> {
         self.0.account.borrow().clone()
+    }
+
+    pub(crate) fn use_settings(&self, store: Rc<dyn ravenrs_app::SettingsStore>) {
+        *self.0.settings.borrow_mut() = Some(store);
+    }
+
+    pub(crate) fn settings(&self) -> Option<Rc<dyn ravenrs_app::SettingsStore>> {
+        self.0.settings.borrow().clone()
     }
 
     pub(crate) fn use_account(&self, account: Account) {

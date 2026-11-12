@@ -46,7 +46,8 @@ Any other MCP client needs the same command:
 | `component_api` | Docs, signatures, fields, variants, traits, source location and quality audit of any public item | `name`, `filter` |
 | `component_examples` | Real code from the examples, rustdoc and the getting started guide | `name`, `limit` |
 | `design_tokens` | Colors per theme, type scale, spacing, radii, shadows, durations and springs, with their Rust names | `category`, `query` |
-| `parity_status` | Status of a feature in `docs/PARITY.md` and `docs/REPORTING-PARITY.md` | `document`, `query`, `status`, `limit` |
+| `parity_status` | Status of a feature in `docs/PARITY.md`, `docs/REPORTING-PARITY.md` or, with `document: application`, `docs/APP-PARITY.md` | `document`, `query`, `status`, `limit` |
+| `app_contracts` | Scenarios C01–C19 and groups M01–M19 of `docs/APP-CONTRACTS.md`, with the issue that owns each one | `query` |
 | `validate_expression` | Syntax and schema check of a `ravenrs-criteria` expression; never evaluates it | `expression`, `schema` |
 | `expression_functions` | Functions and aggregates of the expression language | `category`, `query` |
 | `report_layout_format` | The `.rvreport.json` format: bands, each control with a JSON example, styles, data sources and a complete layout, all produced by `ravenrs-report` itself | |

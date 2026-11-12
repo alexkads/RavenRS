@@ -8,15 +8,76 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ravenrs-movie-video`, a new crate: turns films into a QuickTime video (H.264 pictures, 16-bit sound at 48 kHz), the films one after the other, with their boxes, the pointer, the zooms, clicks, keys and the recorded narration. Each picture is drawn by the renderer with no window, and OpenH264 is built from its source, so nothing has to be installed. `VideoFormat` has `WIDE` (1920 × 1080), `VERTICAL` (1080 × 1920, for short vertical videos), `PORTRAIT` (1080 × 1350) and `SQUARE`, with the longest each place takes; `Video::thumbnail` gives a cover as PNG, `subtitles` the boxes as `.srt` and `chapters` the lines a video description turns into chapters.
+- `MovieFrame`: one moment of a film as someone who does not stop at the steps sees it, with the mark and the box of what it explains and nothing that answers clicks. The player draws its boxes with the same code.
+- `SocialFrame`: one moment of a film laid out for a tall or square screen, with the chapter on top, the film, and the title and words of what it explains under it.
+- `Movie::following(zoom)`: the same film with the camera brought closer to each spot it explains.
+- `Soundtrack`: the sound of a whole film as samples, with its clicks and keys and the narration of each box when it shows.
+- `ExpressionEditor`: edits an expression of the criteria language, with fields, parameters, functions by group, operators and constants to search and insert at the caret, each item's signature and description, and a check while typing that gives the line and column of a syntax error and lists unknown names. Its words are in `Labels` (`expression_*`). The report designer opens it from the button beside an expression, the filter and a group's field, and from Expression on the Home page.
+- `ravenrs-mcp` creates report layouts: `report_layout_format` describes the `.rvreport.json` format with examples made by `ravenrs-report`, `create_report_layout` builds a table layout from sample rows or from fields and a data URL, `check_report_layout` reports JSON errors by line and column, checks every expression and renders the layout, and `report_layout_templates` returns the ready layouts. The server still has no side effects: it returns JSON for the assistant to save.
+- `DataGrid`: the "Edit filter" window has Visual and Text tabs over the same filter. Text is the `ExpressionEditor` with the grid's columns as fields; the grid filters by what is written only once it reads and names known columns, and keeps the last such filter meanwhile. `Labels::grid_filter_visual` and `grid_filter_text` name the tabs.
+- **API keys** in `ravenrs-app-server`: for other systems, shown once, kept as a hash, acting as a user and never more, with rotation, expiry and revoking. `security_entities()` has a new entity for them, so storage learns a table.
+- **`SettingsStore`**, with `MemorySettings`, `RecordSettings` and `settings_entity`: JSON under a name, for everyone or for one person, reached at `/api/settings/{name}` when declared. `App::settings` keeps the theme someone chose, also over a server with `RemoteSettings`.
+- **`ravenrs-app-remote`:** the screens over the web API, on the desktop and in the browser: a copy in memory of what the person can see, a way in with `RemoteApp`, and commits that go as one batch. `ApiOptions::allow_origin` lets a page on another origin call the API. `MemoryDatabase::replace_records`, `value_to_json` and `object_from_json` in `ravenrs-app`.
+- **`ravenrs-app-postgres`:** records in PostgreSQL with the same builder as SQLite, meeting the column types of tables that came first. What SQL databases share moved to **`ravenrs-app-sql`**, whose `SqlBackend` is how another database comes in. `SqliteDatabase`, `SqliteBuilder` and `SqliteObjectSpace` are now names for its generic types.
+- **`ravenrs-app-server`:** a web API over an application's model, with sign-in by token, protected CRUD, filters in the criteria language, pages, deep updates of aggregated collections, batches that stay or go together, endpoints of the application's own and an OpenAPI description of what each person can reach. Reads and writes go through the same permissions, rules, states and audit trail as the screens.
 - A shared canonical policy for Pages and Vercel, crawlable canvas content, static
   playground examples, social PNG cards, complete sitemaps and a local SEO build gate.
   ([#156](https://github.com/alexkads/RavenRS/issues/156))
+- `EntityInfo::empty_text` and `#[object(empty_text = "...")]`: what a generated list says with no
+  records, kept on the list view as `EmptyText`. Without it a grid with no rows says
+  `widgets.grid_no_records` ("Nada por aqui ainda.") and keeps "no rows match the filters" for
+  when its filters hid them. ([#233](https://github.com/alexkads/RavenRS/issues/233))
+
+### Fixed
+
+- A remote grid with no rows said it had a chunk's worth: an empty chunk past the end stretched
+  its total. It now ends where the earliest end says, and shows what it says when empty.
+  ([#233](https://github.com/alexkads/RavenRS/issues/233))
+- `ravenrs-app-sqlite` backups: `SqliteDatabase::backups(BackupStamp)` saves a checked, consistent
+  copy while the database is in use, stamped with the application, tenant and migrations;
+  `restore` refuses another application, tenant or migrations, keeps a copy first and replaces
+  everything in one transaction or nothing; `keep_copy` keeps copies in a folder with a retention.
+  ([#229](https://github.com/alexkads/RavenRS/issues/229))
+- The screen of signing in of `SecuredApp` takes `description`, `notice`, buttons of its own with
+  `sign_in_action(SignInAction)`, such as going back to choosing the organization, which forget
+  what was typed and leave whoever was halfway in behind, and `demo_credentials`, which fills in a
+  demonstration's name and password and still checks them on Sign in.
+  ([#191](https://github.com/alexkads/RavenRS/issues/191))
+- `GridCurrent` and `DataGrid::current` give what a grid shows now, its query and its rows as a
+  table, to something outside it. ([#181](https://github.com/alexkads/RavenRS/issues/181))
+
+### Fixed
+
+- The report of a list (`ReportModule`, `Session::list_table`) has the rows the list shows: its
+  search, column filters, sorting, columns and grouping, and a remote list asks storage for all of
+  them. ([#181](https://github.com/alexkads/RavenRS/issues/181))
 - `FlowCanvas`: diagrams of nodes joined by connections on an endless surface, with pan,
   zoom, nodes that move on the grid and take focus, ports that check what connects and say
   why not, curve, step and straight lines with labels and travelling dashes, selection by
   press, Shift and rectangle, a lock, zoom controls and a map. The model and the routes of
   the lines live in `ravenrs_graphics::flow`, and `BuildCx::on_wheel` lets a surface take the
   wheel before any scroll container around it. ([#195](https://github.com/alexkads/RavenRS/issues/195))
+
+### Fixed
+
+- `AppShell` in a window narrower than 720 points shows a button in the header that opens the
+  navigation sheet; choosing a screen closes it. `AppShell::sidebar` shares the state with the
+  application. ([#184](https://github.com/alexkads/RavenRS/issues/184))
+
+### Fixed
+
+- Dates and moments in generated lists show the language's way (`format.date`,
+  `format.date_time`: `dd/MM/yyyy` in Brazilian Portuguese) and still sort and filter as dates;
+  a column with a format of its own filters a number by what it shows when it does not compare.
+  ([#231](https://github.com/alexkads/RavenRS/issues/231))
+
+### Fixed
+
+- Permissions on records can go through references, such as
+  `[class_id.teacher_id.login] = ?CurrentUserName`, and hold for records being created, changed
+  and read: `SecuredObjectSpace` follows them in storage, and a value put on the record under the
+  path is replaced and never kept. ([#232](https://github.com/alexkads/RavenRS/issues/232))
 
 ## [27.1.27] - 2026-11-11
 
@@ -171,6 +232,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Changed
 
+- `DataGrid`: a column's filter by value lists only the values of the rows the other filters and the search leave, so it never offers one that would show nothing. Its own filter does not narrow it, and a value already checked stays to be unchecked. Rows from `DataGrid::remote` are listed as they come. The list's search says "Search values" (`Labels::grid_filter_search`).
 - The report designer is laid out as a full report editor: a toolbox down the left, rulers in centimeters across the page and beside each band (marking the selected control), the field list and report explorer as tabs over the properties on the right with a bar to drag between them, Design / Preview / JSON tabs under the document and a zoom slider in the status bar. The Ribbon's Home page has Edit (cut, copy, paste, delete), Font (bold, larger, smaller), Alignment and Layout (bring to front, send to back); printing and export moved to an Output page and stay in the File menu and the quick access bar.
 
 ## [27.1.16] - 2026-11-06
@@ -352,6 +414,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Screens reviewed against `examples/feature-center`**, with the rules now in `docs/design-system/README.md`: one accented action in a window, one page margin, page titles, a flat filter row lined up with its columns, fields that fill their column, collections with one heading and no owner column, full-width panels with their title and Close at the top, and a list that says it is empty instead of repeating its name.
 
 ### Fixed
+- A user turned off or deleted loses their API session at once, and with it settings, which no permission guards.
+- The theme at a sign-in door no longer carries over from the person who left, and a kept theme nobody could read goes unused (`Theme::is_readable`).
+- An expression could nest past the depth limit through a condition inside a field, or through `Between`, and overflow the stack. `FormatString` and `PadLeft` no longer take widths that exhaust memory or panic, and date functions no longer overflow on absurd amounts.
+- Sorting a field that holds values of mixed kinds could panic.
+- `SecuredObjectSpace` refuses a field someone can neither read nor write even when the value sent is the stored one, which told them what it held.
+- A wrong current password when changing it counts as a wrong try, with the same lock as signing in, and the new password has to differ (`PasswordError::SameAsCurrent`).
 - A long `Sidebar` scrolls and keeps its footer in the window, instead of stretching the whole window past the bottom of the screen.
 - In the browser, a field that takes the keyboard when the page opens gets what is typed from the start, without a click first.
 - A filter or rule in the model can use a function the application registered; checking the model refused it.

@@ -297,3 +297,40 @@ fn the_window_offers_the_themes_and_changes_to_the_one_chosen() {
     w.settle();
     assert_eq!(w.ui.theme().name, Theme::raven_light().name);
 }
+
+#[test]
+fn the_theme_someone_chose_is_there_the_next_time_it_opens() {
+    let store = ravenrs_app::MemorySettings::default();
+    let database = database(None);
+    let open = |store: ravenrs_app::MemorySettings| {
+        let source = database.clone();
+        let view = ravenrs_app_ui::App::new("Temas")
+            .entity_info(task())
+            .storage(move || source.space())
+            .settings(store)
+            .build()
+            .expect("it puts together");
+        let mut ui = Ui::new(view, Theme::raven_dark());
+        ui.set_viewport(ravenrs_core::Size::new(1200.0, 800.0), 1.0);
+        for _ in 0..4 {
+            ui.update();
+        }
+        ui
+    };
+    let mut first = open(store.clone());
+    assert_eq!(first.theme().name, Theme::raven_dark().name);
+    let mut edited = Theme::raven_light();
+    edited.radii.md = 3.0;
+    first.theme_state().set(edited);
+    for _ in 0..4 {
+        first.update();
+    }
+    let again = open(store.clone());
+    assert_eq!(again.theme().name, Theme::raven_light().name);
+    assert_eq!(again.theme().radii.md, 3.0, "with what was edited");
+
+    // Whatever got in there is no reason not to open.
+    ravenrs_app::SettingsStore::set(&store, &ravenrs_app::SettingScope::Global, "theme", "nonsense").unwrap();
+    let broken = open(store);
+    assert_eq!(broken.theme().name, Theme::raven_dark().name);
+}

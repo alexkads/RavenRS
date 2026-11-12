@@ -58,7 +58,7 @@ pub use list_view::{CellText, ColumnShape, GridShape, ListEditorRequest, ListSou
 pub use model_editor::ModelEditor;
 pub use pane::{EntityPane, PaneWords};
 pub use ravenrs_app_i18n::{Catalog, Language, Texts};
-pub use security::SecuredApp;
+pub use security::{SecuredApp, SignInAction};
 pub use session::{CollectionSource, FormCaption, Session, Words};
 pub use shell::{AppShell, FrameTemplate, MainTemplate, TemplateParts};
 pub use system::{CloneModule, SystemModule, ids};

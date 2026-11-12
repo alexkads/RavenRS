@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
 members = ["crates/*", "examples/*"]
+# Applications of their own, opened and built apart: they prove a package works outside this workspace.
+exclude = ["examples/contracts"]
 
 [workspace.package]
 version = "27.1.28"
@@ -36,6 +38,12 @@ ravenrs-app-derive = { version = "27.1.28", path = "crates/ravenrs-app-derive" }
 ravenrs-live = { version = "27.1.28", path = "crates/ravenrs-live" }
 ravenrs-live-derive = { version = "27.1.28", path = "crates/ravenrs-live-derive" }
 ravenrs-app-sqlite = { version = "27.1.28", path = "crates/ravenrs-app-sqlite" }
+ravenrs-app-sql = { version = "27.1.28", path = "crates/ravenrs-app-sql" }
+ravenrs-app-postgres = { version = "27.1.28", path = "crates/ravenrs-app-postgres" }
+ravenrs-app-server = { version = "27.1.28", path = "crates/ravenrs-app-server" }
+ravenrs-app-remote = { version = "27.1.28", path = "crates/ravenrs-app-remote" }
+ravenrs-app-testkit = { version = "27.1.28", path = "crates/ravenrs-app-testkit" }
+ravenrs-app-requests = { version = "27.1.28", path = "crates/ravenrs-app-requests" }
 ravenrs-app-library = { version = "27.1.28", path = "crates/ravenrs-app-library" }
 ravenrs-app-report = { version = "27.1.28", path = "crates/ravenrs-app-report" }
 ravenrs-report-pdf = { version = "27.1.28", path = "crates/ravenrs-report-pdf" }
@@ -49,6 +57,7 @@ ravenrs-criteria = { version = "27.1.28", path = "crates/ravenrs-criteria", defa
 ravenrs-ai = { version = "27.1.28", path = "crates/ravenrs-ai" }
 ravenrs-lottie = { version = "27.1.28", path = "crates/ravenrs-lottie" }
 ravenrs-movie = { version = "27.1.28", path = "crates/ravenrs-movie" }
+ravenrs-movie-video = { version = "27.1.28", path = "crates/ravenrs-movie-video" }
 ravenrs-app-spec = { version = "27.1.28", path = "crates/ravenrs-app-spec" }
 ravenrs-project = { version = "27.1.28", path = "crates/ravenrs-project" }
 

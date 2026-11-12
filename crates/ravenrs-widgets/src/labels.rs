@@ -508,6 +508,18 @@ pub struct Labels {
     pub step_down: String,
     /// After the count of events an [`EventCalendar`](crate::EventCalendar) day has no room for.
     pub calendar_more: String,
+    /// Month, week and day, as an [`EventCalendar`](crate::EventCalendar) offers its views.
+    pub calendar_views: [String; 3],
+    /// The name of an [`EventCalendar`](crate::EventCalendar)'s choice of view.
+    pub calendar_view_name: String,
+    /// An [`EventCalendar`](crate::EventCalendar)'s back button, by week or by day.
+    pub calendar_previous: String,
+    /// An [`EventCalendar`](crate::EventCalendar)'s forward button, by week or by day.
+    pub calendar_next: String,
+    /// Over the events of a whole day, above the hours of a week or a day.
+    pub calendar_all_day: String,
+    /// What an empty hour of an [`EventCalendar`](crate::EventCalendar) creates, before its time.
+    pub calendar_new_event: String,
     /// The header over a [`Scheduler`](crate::Scheduler)'s resources.
     pub scheduler_resources: String,
     /// Zooms a scheduler's time axis in.
@@ -677,6 +689,12 @@ pub struct Labels {
     pub grid_filter_label: String,
     /// Opens the editor of a grid's whole filter.
     pub grid_edit_filter: String,
+    /// Placeholder of the search in a column's filter list.
+    pub grid_filter_search: String,
+    /// The tab of a grid's filter editor that builds the filter line by line.
+    pub grid_filter_visual: String,
+    /// The tab of a grid's filter editor that writes the filter as an expression.
+    pub grid_filter_text: String,
     /// Every value of a grid's column, in its filter.
     pub grid_all_values: String,
     /// A grid's menu of saved arrangements.
@@ -741,8 +759,10 @@ pub struct Labels {
     pub grid_add_row: String,
     /// A data grid's button that removes the selected rows.
     pub grid_delete_rows: String,
-    /// A grid with nothing to show.
+    /// A grid whose filters leave nothing to show.
     pub grid_no_rows: String,
+    /// A grid with no rows at all.
+    pub grid_no_records: String,
     /// A grid's name.
     pub grid_name: String,
     /// A row's check box.
@@ -1087,6 +1107,12 @@ impl Labels {
             step_up: texts.get("widgets.step_up"),
             step_down: texts.get("widgets.step_down"),
             calendar_more: texts.get("widgets.calendar_more"),
+            calendar_views: texts.array("widgets.calendar_views"),
+            calendar_view_name: texts.get("widgets.calendar_view_name"),
+            calendar_previous: texts.get("widgets.calendar_previous"),
+            calendar_next: texts.get("widgets.calendar_next"),
+            calendar_all_day: texts.get("widgets.calendar_all_day"),
+            calendar_new_event: texts.get("widgets.calendar_new_event"),
             scheduler_resources: texts.get("widgets.scheduler_resources"),
             zoom_in: texts.get("widgets.zoom_in"),
             zoom_out: texts.get("widgets.zoom_out"),
@@ -1169,6 +1195,9 @@ impl Labels {
             expression_constants: texts.pair_list("widgets.expression_constants"),
             grid_filter_label: texts.get("widgets.grid_filter_label"),
             grid_edit_filter: texts.get("widgets.grid_edit_filter"),
+            grid_filter_search: texts.get("widgets.grid_filter_search"),
+            grid_filter_visual: texts.get("widgets.grid_filter_visual"),
+            grid_filter_text: texts.get("widgets.grid_filter_text"),
             grid_all_values: texts.get("widgets.grid_all_values"),
             grid_scenario: texts.get("widgets.grid_scenario"),
             grid_scenario_save: texts.get("widgets.grid_scenario_save"),
@@ -1202,6 +1231,7 @@ impl Labels {
             grid_add_row: texts.get("widgets.grid_add_row"),
             grid_delete_rows: texts.get("widgets.grid_delete_rows"),
             grid_no_rows: texts.get("widgets.grid_no_rows"),
+            grid_no_records: texts.get("widgets.grid_no_records"),
             grid_name: texts.get("widgets.grid_name"),
             grid_select_row: texts.get("widgets.grid_select_row"),
             grid_sorted_ascending: texts.get("widgets.grid_sorted_ascending"),
