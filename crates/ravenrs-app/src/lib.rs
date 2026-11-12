@@ -34,6 +34,7 @@ mod files;
 mod frame;
 mod functions;
 mod job;
+mod json;
 #[cfg(feature = "live")]
 mod live_list;
 mod manifest;
@@ -44,6 +45,7 @@ mod outbox;
 mod provider;
 mod record_action;
 mod security;
+mod settings;
 #[cfg(feature = "source")]
 mod source;
 mod space;
@@ -64,6 +66,7 @@ pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
 pub use functions::{environment, register_function};
 pub use job::{Job, JobChange, JobContext, JobWaker, JobWork};
+pub use json::{object_from_json, value_to_json};
 pub use manifest::{GuardedObjectSpace, ModuleManifest, Target, Version, VersionRange};
 #[cfg(not(target_arch = "wasm32"))]
 pub use model::FileStore;
@@ -85,10 +88,13 @@ pub use security::{
     ADMINISTRATORS_ROLE, Access, AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError,
     Authenticator, Claims, Credentials, ExternalSignIn, Identity, IdentityProvider, MIN_PASSWORD_CHARS,
     Operation, PasswordError, PermissionPolicy, Permissions, Role, RoleMerge, SECURITY_ACTION_PERMISSION,
-    SECURITY_AUDIT_ENTRY, SECURITY_EXTERNAL_LOGIN, SECURITY_MEMBER_PERMISSION,
+    SECURITY_API_KEY, SECURITY_AUDIT_ENTRY, SECURITY_EXTERNAL_LOGIN, SECURITY_MEMBER_PERMISSION,
     SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE, SECURITY_TYPE_PERMISSION,
     SECURITY_USER, SECURITY_USER_ROLE, SecuredObjectSpace, SecurityContext, SpaceMaker, UserDirectory,
     audit_entity, hash_password, security_entities, verify_password,
+};
+pub use settings::{
+    APP_SETTING, MemorySettings, RecordSettings, SettingScope, SettingsStore, settings_entity,
 };
 #[cfg(feature = "source")]
 pub use source::{SourceError, entities_from_source, entities_from_spec};

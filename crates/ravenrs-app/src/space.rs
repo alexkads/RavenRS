@@ -260,11 +260,24 @@ fn compare(a: &Value, b: &Value) -> Ordering {
         (Value::Null, Value::Null) => Ordering::Equal,
         (Value::Null, _) => Ordering::Less,
         (_, Value::Null) => Ordering::Greater,
-        (Value::Number(x), Value::Number(y)) => x.partial_cmp(y).unwrap_or(Ordering::Equal),
+        (Value::Number(x), Value::Number(y)) => x.total_cmp(y),
         (Value::Text(x), Value::Text(y)) => x.cmp(y),
         (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
         (Value::Date(x), Value::Date(y)) => (x.days, x.seconds).cmp(&(y.days, y.seconds)),
-        _ => Ordering::Equal,
+        // Different kinds in one field come in the order of their kinds: sorting needs an order
+        // that holds across all of them, and panics on one that does not.
+        _ => kind_rank(a).cmp(&kind_rank(b)),
+    }
+}
+
+fn kind_rank(value: &Value) -> u8 {
+    match value {
+        Value::Null => 0,
+        Value::Bool(_) => 1,
+        Value::Number(_) => 2,
+        Value::Text(_) => 3,
+        Value::Date(_) => 4,
+        _ => 5,
     }
 }
 
@@ -704,6 +717,25 @@ impl MemoryDatabase {
         if let Some(kept) = self.kept.borrow_mut().as_mut() {
             kept.problem = kept.storage.write(&kept.name, text.as_bytes()).err();
         }
+    }
+
+    /// Puts these in place of the records of an entity, with no rules or states to go through, for
+    /// a copy of what is kept somewhere else.
+    pub fn replace_records(&self, entity: &str, records: Vec<Object>) {
+        let Some(info) = self.entities.iter().find(|known| known.name == entity) else { return };
+        let mut tables = self.tables.borrow_mut();
+        let highest = records
+            .iter()
+            .filter_map(|record| match info.key_field().map(|field| record.get(&field.name)) {
+                Some(Value::Number(number)) => Some(number as i64),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0);
+        tables.next_key = tables.next_key.max(highest + 1);
+        let rows =
+            records.into_iter().filter_map(|record| key_of(info, &record).map(|key| (key, record))).collect();
+        tables.rows.insert(entity.to_owned(), rows);
     }
 
     /// A new unit of work over these records.

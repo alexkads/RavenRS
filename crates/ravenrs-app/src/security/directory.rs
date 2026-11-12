@@ -90,6 +90,8 @@ pub enum PasswordError {
     TooShort,
     /// The current password given is not right.
     WrongCurrent,
+    /// The new password is the one they already have.
+    SameAsCurrent,
     /// This person cannot change that password.
     NotAllowed,
     /// There is no such user.
@@ -103,6 +105,7 @@ impl fmt::Display for PasswordError {
         match self {
             Self::TooShort => write!(f, "a password has at least {MIN_PASSWORD_CHARS} characters"),
             Self::WrongCurrent => f.write_str("the current password is not right"),
+            Self::SameAsCurrent => f.write_str("the new password has to be another one"),
             Self::NotAllowed => f.write_str("this password cannot be changed by this person"),
             Self::NoSuchUser => f.write_str("there is no such user"),
             Self::Failed(why) => f.write_str(why),
@@ -296,14 +299,6 @@ impl UserDirectory {
         space.save(user).map_err(wrong)?;
         space.commit().map_err(wrong)
     }
-
-    fn check_password(&self, key: &Value, password: &str) -> Result<bool, PasswordError> {
-        let user = (self.space)()
-            .find(SECURITY_USER, key)
-            .map_err(|e| PasswordError::Failed(e.to_string()))?
-            .ok_or(PasswordError::NoSuchUser)?;
-        Ok(matches!(user.get("password_hash"), Value::Text(hash) if verify_password(password, &hash)))
-    }
 }
 
 fn checked_hash(password: &str) -> Result<String, PasswordError> {
@@ -471,8 +466,16 @@ impl SecurityContext {
         if active.is_none() {
             return Err(PasswordError::NotAllowed);
         }
-        if !self.directory.check_password(&key, current)? {
-            return Err(PasswordError::WrongCurrent);
+        // The same door as signing in, with the same count of wrong tries and the same lock, or
+        // this would be a way to go on guessing a password someone else left open on a session.
+        let credentials = Credentials::new(self.identity().name, current);
+        match self.directory.authenticate(&credentials) {
+            Ok(_) => {}
+            Err(AuthError::Rejected) => return Err(PasswordError::WrongCurrent),
+            Err(error) => return Err(PasswordError::Failed(error.to_string())),
+        }
+        if new == current {
+            return Err(PasswordError::SameAsCurrent);
         }
         self.directory.write_password(&key, new, false)?;
         self.note_password_change(&key);

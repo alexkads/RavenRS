@@ -10,7 +10,7 @@
 //! use std::rc::Rc;
 //!
 //! use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, ObjectSpace};
-//! use ravenrs_app_sqlite::{BackupStamp, SqliteDatabase, TableMap};
+//! use ravenrs_app_sqlite::{BackupStamp, SqliteDatabase, TableMap, SqliteBackups};
 //!
 //! let member = EntityInfo::new("Member")
 //!     .field(FieldInfo::new("id", FieldKind::Integer).key())
@@ -205,9 +205,14 @@ fn remove_database_files(path: &Path) {
     }
 }
 
-impl SqliteDatabase {
+/// Backups of a SQLite database.
+pub trait SqliteBackups {
     /// Backups of this database, stamped with this.
-    pub fn backups(&self, stamp: BackupStamp) -> Backups {
+    fn backups(&self, stamp: BackupStamp) -> Backups;
+}
+
+impl SqliteBackups for SqliteDatabase {
+    fn backups(&self, stamp: BackupStamp) -> Backups {
         Backups { database: self.clone(), stamp, folder: None, keep: COPIES_KEPT }
     }
 }
@@ -227,7 +232,7 @@ impl Backups {
     }
 
     fn connection(&self) -> &Connection {
-        &self.database.0.connection
+        self.database.backend().connection()
     }
 
     /// The file of the database in use, if it is in one.
@@ -361,7 +366,7 @@ impl Backups {
         };
         self.take_all_from(path)?;
         // Keys are counted again from what is there now.
-        self.database.0.next_keys.borrow_mut().clear();
+        self.database.forget_next_keys();
         Ok((info, copy))
     }
 

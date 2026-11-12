@@ -6,6 +6,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- **API keys** in `ravenrs-app-server`: for other systems, shown once, kept as a hash, acting as a user and never more, with rotation, expiry and revoking. `security_entities()` has a new entity for them, so storage learns a table.
+- **`SettingsStore`**, with `MemorySettings`, `RecordSettings` and `settings_entity`: JSON under a name, for everyone or for one person, reached at `/api/settings/{name}` when declared. `App::settings` keeps the theme someone chose, also over a server with `RemoteSettings`.
+- **`ravenrs-app-remote`:** the screens over the web API, on the desktop and in the browser: a copy in memory of what the person can see, a way in with `RemoteApp`, and commits that go as one batch. `ApiOptions::allow_origin` lets a page on another origin call the API. `MemoryDatabase::replace_records`, `value_to_json` and `object_from_json` in `ravenrs-app`.
+- **`ravenrs-app-postgres`:** records in PostgreSQL with the same builder as SQLite, meeting the column types of tables that came first. What SQL databases share moved to **`ravenrs-app-sql`**, whose `SqlBackend` is how another database comes in. `SqliteDatabase`, `SqliteBuilder` and `SqliteObjectSpace` are now names for its generic types.
+- **`ravenrs-app-server`:** a web API over an application's model, with sign-in by token, protected CRUD, filters in the criteria language, pages, deep updates of aggregated collections, batches that stay or go together, endpoints of the application's own and an OpenAPI description of what each person can reach. Reads and writes go through the same permissions, rules, states and audit trail as the screens.
 - A shared canonical policy for Pages and Vercel, crawlable canvas content, static
   playground examples, social PNG cards, complete sitemaps and a local SEO build gate.
   ([#156](https://github.com/alexkads/RavenRS/issues/156))
@@ -398,6 +403,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - **Screens reviewed against `examples/feature-center`**, with the rules now in `docs/design-system/README.md`: one accented action in a window, one page margin, page titles, a flat filter row lined up with its columns, fields that fill their column, collections with one heading and no owner column, full-width panels with their title and Close at the top, and a list that says it is empty instead of repeating its name.
 
 ### Fixed
+- A user turned off or deleted loses their API session at once, and with it settings, which no permission guards.
+- The theme at a sign-in door no longer carries over from the person who left, and a kept theme nobody could read goes unused (`Theme::is_readable`).
+- An expression could nest past the depth limit through a condition inside a field, or through `Between`, and overflow the stack. `FormatString` and `PadLeft` no longer take widths that exhaust memory or panic, and date functions no longer overflow on absurd amounts.
+- Sorting a field that holds values of mixed kinds could panic.
+- `SecuredObjectSpace` refuses a field someone can neither read nor write even when the value sent is the stored one, which told them what it held.
+- A wrong current password when changing it counts as a wrong try, with the same lock as signing in, and the new password has to differ (`PasswordError::SameAsCurrent`).
 - A long `Sidebar` scrolls and keeps its footer in the window, instead of stretching the whole window past the bottom of the screen.
 - In the browser, a field that takes the keyboard when the page opens gets what is typed from the start, without a click first.
 - A filter or rule in the model can use a function the application registered; checking the model refused it.

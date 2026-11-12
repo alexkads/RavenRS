@@ -34,6 +34,7 @@
  "ui.open": "Open",
  "ui.password": "Password",
  "ui.password_saved": "Password changed.",
+ "ui.password_same": "The new password has to be another one.",
  "ui.password_too_short": "A password has at least 8 characters.",
  "ui.password_wrong_current": "The current password is not right.",
  "ui.passwords_differ": "The two passwords are not the same.",

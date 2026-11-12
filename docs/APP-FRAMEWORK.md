@@ -388,6 +388,96 @@ Audit::new().theme(Theme::raven_light()).open("Novo").app(&mut ui).assert_clean(
 
 `Audit::app` walks the application with no window: the screen it opens on, every item of the navigation, and on each, the buttons given to `open`. On every screen it reports a control with no name, an id that appears twice, focus on a node that is not there, Tab that does not move or goes round some controls and never reaches the others, a window over the screen that Escape does not close, and two commands on the same keys. On the theme on screen and on every theme given, it checks text and the focus ring against the WCAG AA contrast. `Audit::screen` looks at one screen, and `check_tree`, `check_focus`, `check_theme` and `check_shortcuts` are there one by one. `quick-app`, `quick-plan` and `feature-center` run it in their tests, and any example can.
 
+## PostgreSQL
+
+`ravenrs-app-postgres` keeps records in PostgreSQL, with the same builder as SQLite: `managed` creates and grows tables, `mapped` leaves a table that came first as it is, and `migration` runs something once. What the two share is in `ravenrs-app-sql`, and another database is a `SqlBackend`.
+
+```rust,ignore
+let client = postgres::Client::connect("host=localhost user=app", postgres::NoTls)?;
+let database = PostgresDatabase::builder(client).managed(order, TableMap::new("orders"))?.build();
+```
+
+You make the connection, so TLS and credentials are yours to choose. A value goes in as what its column asks for, so a table with `NUMERIC`, `TIMESTAMP`, `DATE`, `SMALLINT` or `UUID` works as it is; a managed table keeps dates as text, as SQLite does.
+
+Limits to know:
+- Numbered keys come from the highest in the table, so one process at a time should create records on it. A second one gets a conflict, and not a wrong record.
+- `Like` is case-sensitive here and not in SQLite, as each database does.
+- `TIMESTAMPTZ` comes in UTC, with no time zone of its own, since `DateTime` has none.
+- Reading entities from a schema, and keeping the model and attachments in the database, are only in SQLite for now.
+
+Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `scripts/check.sh` does not start one.
+
+## A web API
+
+`ravenrs-app-server` serves the same model to clients that do not use RavenRS. Reads and writes go through `SecuredObjectSpace`, so what a role cannot do on the screens it cannot do here, and rules, state machines and the audit trail hold.
+
+```rust,ignore
+ravenrs_app_server::serve(listener, || {
+    // On the thread that serves requests: storage and permissions belong to one thread.
+    ApiService::new(space, roles).map(|service| service.audit(settings)).map_err(|e| e.to_string())
+})
+```
+
+| Route | What it does |
+|---|---|
+| `POST /api/auth/token` | Signs in with `name` and `password`, for a bearer token |
+| `POST /api/auth/revoke`, `POST /api/auth/password` | Ends a token; changes the password, ending this person's other tokens |
+| `GET /api/data/{entity}` | Records, with `filter` (the criteria language), `order`, `skip`, `top`, `count` and `expand` |
+| `GET`, `PATCH`, `DELETE /api/data/{entity}/{key}` | One record. `PATCH` changes only the fields sent |
+| `POST /api/data/{entity}` | A new record. Aggregated collections come along, as records to create or change, or `{"$delete": key}` |
+| `POST /api/batch` | Several writes that stay or go together |
+| `POST /api/validate/{entity}` | What the rules would say, with nothing kept |
+| `POST /api/run/{name}` | Something of the application's own, from `ApiService::endpoint`, with the permissions of who calls |
+| `GET /api/openapi.json`, `GET /api/me` | The description of what this person can reach; who they are |
+| `GET /health` | The only route that needs no token |
+
+Answers: `400` what was asked does not fit, including any field that cannot be written; `401` no valid token; `403` not allowed; `404` no such record, or one this person cannot see; `409` someone got there first; `422` rules or states refuse it, with `violations`; `429` too many tries to sign in; `503` busy.
+
+Other systems sign in with a **key**, in the same `Authorization: Bearer` header. An administrator makes one with `POST /api/auth/keys`, giving a `name` and optionally a `user`, `roles` and `expires_in_days`, and it shows in that answer and never again, since only a hash is kept. `GET /api/auth/keys` lists them, `POST /api/auth/keys/{id}/rotate` gives a new secret and `DELETE /api/auth/keys/{id}` ends one, each at once. A key acts as its user and never as more: its roles are those it names that the user still has, so losing a role or being turned off counts at once. With `RoleMerge::AllRoles` a key cannot name roles, since leaving one out would take away what it denies. A key makes no keys, changes no passwords and reaches no setting that belongs to a person. Changing a user's password does not end their keys, which is what lets a nightly job go on. There is no screen for keys yet.
+
+**Settings** are JSON under a name, for everyone or for one person, and add no column, unlike a custom field. `ApiService::setting(name, SettingAccess::PerPerson)` or `Shared` opens one at `/api/settings/{name}`, with `GET`, `PUT` and `DELETE`; one nobody declared cannot be reached. Storage has to know `settings_entity()`. `App::settings` gives the screens a `SettingsStore`, and a `SecuredApp` over storage that knows that entity uses it by itself: the theme someone chose comes back when they open again, each person their own. A setting is at most 64 KB. What comes back as a theme goes through `Theme::from_tokens_json` and `Theme::is_readable`, so someone who saved a blank theme still opens to a window they can read, and the theme at the door stays the same for whoever comes next.
+
+It is not OData: the query options are its own, which is the difference to keep in mind for clients made for OData. Money travels in cents, as it is stored, and dates as text. Users, roles and the audit trail are not exposed, whatever the permissions say.
+
+Limits to know:
+- One thread answers everything, one request at a time, as storage belongs to one thread. No throughput has been measured, so none is promised.
+- Tokens live in memory, so a restart asks everyone to sign in again.
+- Plain HTTP only: outside the machine it belongs behind something that does TLS.
+- Tries to sign in are limited by address, and behind a proxy everyone is one address.
+- Five wrong passwords lock a user for fifteen minutes, from any address, so someone who knows a name can keep that person out. It is the price of stopping guesses; the lock is per user because an address is cheap.
+- A unique key or rule says that a value is taken, even to someone who cannot read that record: any unique value does, since refusing it is the only honest answer. Do not put a secret in a key someone can pick.
+- What a rule says goes back as written: a message that quotes a field the person cannot read would show it, so keep those out of rule messages.
+- A key's expiry goes by the server's clock, in its local time, so a change of time zone moves it.
+- Two people changing the same field: the last one stays, since `PATCH` carries no version. Different fields do not get in each other's way.
+
+Try it with `cargo run -p feature-center --bin api`.
+
+## An application over a server
+
+`ravenrs-app-remote` puts the screens over the web API, on the desktop and in the browser, which gives the browser real storage.
+
+```rust,ignore
+RemoteApp::view("Orders", Language::English, RemoteClient::http(address), entities, |records| {
+    let records = records.clone();
+    App::new("Orders").entity::<Order>().storage(move || records.space())
+})
+```
+
+It asks who is there, reads what they can see into a copy in memory, and the screens work over that copy. A commit goes to the server as one batch, and what it touched is read again, with the keys the server gave.
+
+- **On the desktop** a commit waits for the server, and what it refuses is refused there and then.
+- **In the browser** nothing can wait. The screen goes on at once, and the answer sets it right: what the server refused comes back, with a message. A form has already closed by then, so what was typed in it is gone. That is the price of a browser.
+
+The server decides everything: the copy only holds what the person can see, so taking the client apart gives nobody anything more. A browser page on another origin needs `ApiOptions::allow_origin`, and there is no way to allow every origin.
+
+Limits to know:
+- Everything the person can see is read when they sign in, so this is for what fits in memory. `DataGrid::remote` over the API, for larger lists, is not done.
+- What someone else changes shows only when this person's own write reads that entity again, or on signing in again.
+- A record that refers to another one created in the same commit does not work, since the server gives the key. Keep them in two commits.
+- An address comes from the build (`RAVEN_API_URL` in the center), and never from the page's own address, so a link cannot make a page send a password somewhere else.
+
+Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p feature-center --bin api`, and `RAVEN_API_URL=http://127.0.0.1:8090 scripts/build-web.sh feature-center`, served on that port.
+
 ## Known gaps
 
 - The audit checks the contrast of a theme's pairs of tokens, not of each pixel drawn: a color a rule or a screen chose for itself is not checked. It does not look at the size of targets, at text resized, or at the reading order against the screen.

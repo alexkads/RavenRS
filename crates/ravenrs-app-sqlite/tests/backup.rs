@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, ObjectSpace, Query, Value};
-use ravenrs_app_sqlite::{BackupError, BackupStamp, Backups, SqliteDatabase, TableMap};
+use ravenrs_app_sqlite::{BackupError, BackupStamp, Backups, SqliteBackups, SqliteDatabase, TableMap};
 use rusqlite::Connection;
 
 fn member() -> EntityInfo {

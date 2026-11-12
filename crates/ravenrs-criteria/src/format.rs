@@ -3,6 +3,9 @@
 
 use crate::value::{DateTime, Value};
 
+/// The most digits a format can ask for.
+const MOST_DIGITS: usize = 64;
+
 /// Number, currency and date conventions of a language and region.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Culture {
@@ -267,7 +270,8 @@ fn format_number(n: f64, spec: &str, culture: &Culture) -> String {
     }
     let mut chars = spec.chars();
     let kind = chars.next().unwrap_or('G');
-    let digits: Option<usize> = chars.as_str().parse().ok();
+    // An expression can come from anyone, and nobody needs more than this many digits.
+    let digits: Option<usize> = chars.as_str().parse().ok().map(|digits: usize| digits.min(MOST_DIGITS));
     let standard = chars.as_str().is_empty() || digits.is_some();
     if standard {
         match kind.to_ascii_uppercase() {

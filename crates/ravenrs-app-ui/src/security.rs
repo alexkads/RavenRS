@@ -33,6 +33,7 @@ fn message_of(words: &Words, error: &PasswordError) -> String {
     match error {
         PasswordError::TooShort => words.password_too_short.clone(),
         PasswordError::WrongCurrent => words.password_wrong_current.clone(),
+        PasswordError::SameAsCurrent => words.password_same.clone(),
         other => other.to_string(),
     }
 }
@@ -438,6 +439,7 @@ impl SecuredApp {
             repeated: State::new(String::new()),
             error: State::new(None),
             entered: RefCell::new(0),
+            door_theme: std::cell::Cell::new(None),
             door: self.door,
         }));
         gate.fill_demo();
@@ -462,6 +464,7 @@ enum Stage {
 }
 
 struct GateInner {
+    door_theme: std::cell::Cell<Option<ravenrs_style::Theme>>,
     title: String,
     words: Words,
     language: Language,
@@ -632,6 +635,7 @@ impl Gate {
                     .control(words.model_editor.clone(), MODEL_EDITOR),
             )
             .storage(storage)
+            .settings_over(inner.space.clone(), &inner.entities)
             .secured(context, inner.space.clone())
             .signed_in(identity.name.clone(), move || gate.sign_out());
         match app.build() {
@@ -739,6 +743,13 @@ impl Gate {
 
 impl View for Gate {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        // The theme at the door is for whoever comes next, and not what the last person chose.
+        let inside = matches!(self.0.stage.get(), Stage::Inside(..));
+        match self.0.door_theme.get() {
+            None => self.0.door_theme.set(Some(*cx.theme())),
+            Some(door) if !inside && *cx.theme() != door => cx.theme_state().set(door),
+            Some(_) => {}
+        }
         let form = match self.0.stage.get() {
             Stage::Inside(view, entered) => return cx.child(&Keyed::new(entered, SharedView(view))),
             Stage::FirstUser => self.first_user_form(),

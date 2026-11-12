@@ -11,6 +11,9 @@ use crate::format::{Culture, format_composite};
 use crate::functions::{Aggregate, Function};
 use crate::value::{DateTime, Value};
 
+/// The longest text padding makes.
+const MOST_PADDED: usize = 65_536;
+
 /// A row expressions can read: a JSON object, a grid row, an entity.
 pub trait Record: Sized {
     /// The value at a field path; `None` when there is no such field.
@@ -427,7 +430,7 @@ impl<'a, R: Record> Scope<'a, R> {
         let math = |g: fn(f64) -> f64| num(0).map_or(Value::Null, |x| Value::Number(g(x)));
         let part = |g: fn(DateTime) -> i64| date(0).map_or(Value::Null, |d| Value::Number(g(d) as f64));
         let add = |unit: i64| match (date(0), num(1)) {
-            (Some(d), Some(n)) => Value::Date(add_seconds(d, n as i64 * unit)),
+            (Some(d), Some(n)) => Value::Date(add_seconds(d, in_reach(n) * unit)),
             _ => Value::Null,
         };
         let diff = |g: fn(DateTime, DateTime) -> i64| match (date(0), date(1)) {
@@ -492,7 +495,8 @@ impl<'a, R: Record> Scope<'a, R> {
             F::NewLine => Value::Text("\n".into()),
             F::PadLeft | F::PadRight => {
                 let s = text(0);
-                let width = num(1).unwrap_or(0.0).max(0.0) as usize;
+                // An expression can come from anyone: a width is not a way to ask for all the memory.
+                let width = (num(1).unwrap_or(0.0).max(0.0) as usize).min(MOST_PADDED);
                 let fill = text(2).chars().next().unwrap_or(' ');
                 let pad: String =
                     std::iter::repeat_n(fill, width.saturating_sub(s.chars().count())).collect();
@@ -577,7 +581,7 @@ impl<'a, R: Record> Scope<'a, R> {
             F::AddSeconds => add(1),
             F::AddMonths | F::AddYears => match (date(0), num(1)) {
                 (Some(d), Some(n)) => {
-                    Value::Date(d.add_months(n as i64 * if f == F::AddYears { 12 } else { 1 }))
+                    Value::Date(d.add_months(in_reach(n) * if f == F::AddYears { 12 } else { 1 }))
                 }
                 _ => Value::Null,
             },
@@ -690,6 +694,12 @@ impl<'a, R: Record> Scope<'a, R> {
 
 fn total_seconds(d: DateTime) -> i64 {
     d.days * 86_400 + i64::from(d.seconds)
+}
+
+/// A number of days or months that stays inside what dates can do. It keeps a date from overflowing
+/// when an expression asks for one absurdly far away.
+fn in_reach(n: f64) -> i64 {
+    n.clamp(-1e9, 1e9) as i64
 }
 
 fn add_seconds(d: DateTime, n: i64) -> DateTime {

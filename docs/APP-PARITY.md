@@ -69,7 +69,11 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Chart and scheduler list editors | ⬜ | F9 |
 | Tree and pivot list editors | ⬜ needs the tree list and the pivot grid | F9 |
 | Report designer and definitions in a database, dashboards people create | ⬜ | F10 |
-| Web API, remote object space, other databases | ⬜ | F12, #226 |
+| Web API: protected CRUD, filters, pages, deep updates, batches, own endpoints, OpenAPI | ✅ `ravenrs-app-server`, on a contract of its own rather than OData | F12 |
+| PostgreSQL | ✅ `ravenrs-app-postgres`, over what SQL databases share in `ravenrs-app-sql`; schema reading, model and attachment storage only in SQLite for now | F12 |
+| Remote object space, so the web has real storage | ✅ `ravenrs-app-remote`: a copy in memory of what the person can see, written back in batches | F12 |
+| API keys for other systems; settings kept by scope | ✅ `/api/auth/keys`, `SettingsStore` and `/api/settings/{name}`; the theme someone chose comes back | F12 |
+| Background jobs, scheduled tasks that run once, an event bus | ⬜ | F12.5 |
 | Multi-tenancy | ⬜ | F13, #225 |
 | AI: natural language filters, writing help, smart paste | ⬜ local models only, so not on the web | F14 |
 | A command-line tool that creates projects step by step from templates; deployment and diagnostics guides | ⬜ | F15 |
