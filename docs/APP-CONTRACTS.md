@@ -103,7 +103,7 @@ Each scenario has one owner issue, where its checklist lives. The text of the in
 | C04 | A second writer on the same version does not overwrite silently; a backup of T1 restores on a clean install, a file of T2 is refused; migrations keep data and can be recovered | #241, #229, #243 |
 | C05 | An offline change reconciles once; a permission revoked meanwhile is refused; an online-only command shows pending, never false success; turning a module off keeps reads and exports | #240, #242 |
 | C06 | An approval survives a restart without losing or repeating a decision; self-approval follows the application's policy; delegation ends on its date | #258 (done) |
-| C07 | An event leaves only after its commit; a duplicate or a crash between send and confirmation never doubles the effect; an unauthenticated incoming event is refused | #254 (done), #255, #256 |
+| C07 | An event leaves only after its commit; a duplicate or a crash between send and confirmation never doubles the effect; an unauthenticated incoming event is refused | #254 (done), #255 (done in this process), #256 |
 | C08 | Conversations follow membership and the application's history policy; a repeated notification does not duplicate a message | #259 |
 | C09 | A published form keeps its versions; an audience fires once per change; a field without read permission never leaks through filter, preview or count | #260 |
 | C10 | An issued document stays frozen at its template revision, with its hash; download checks permission; a repeated signature callback changes nothing | #261 |
@@ -124,6 +124,7 @@ Each scenario has one owner issue, where its checklist lives. The text of the in
 - **C02**, as far as `master` goes: a registrar of U1 reads only the people of U1, never the reserved note, and cannot create a person in U2; T1 and T2 never mix although they share keys; a worker reaches only the entities of its job. References computed on create wait for #232.
 - **C06:** the role of each step and the application's own rule decide; a decision on an old version is a conflict; reopening the SQLite files continues on the right step, and the same decision sent again changes nothing.
 - **C07, minimum:** a refused decision leaves no event; an answer lost on the way back is checked before sending again; a destination that stays down ends in failed after the limit; the same local key in T1 and T2 makes two effects.
+- **C07, delivery** (`crates/ravenrs-app-testkit/tests/delivery.rs`, #255): a worker that stops after the send leaves the event `sending`, held until its deadline and then reconciled with the destination, with no second send; one that stops before the destination kept it sends once more; a destination that stays down is tried by the clock, 30 s and then 60 s later, and fails, seen only by those granted the events; a worker turned off is refused on its next run; sending again takes permission to write events and keeps the key, and the destination keeps one effect.
 - **C19:** [`examples/contracts`](../examples/contracts) installs it in two applications outside this workspace.
 
 ## Groups
@@ -138,7 +139,7 @@ What each group of capabilities uses today and where the rest is followed. *Mast
 | M04 Data and recovery | `merge_changes`, `SqliteBuilder::migration`, `SpaceError::Conflict` | | native; SQLite | partial; backup in PR #230 | #241, #229, #243 |
 | M05 Offline and features | `ApplicationBuilder::switch_off`, `Application::guard` | #241 | any; any | partial (master) | #240, #242 |
 | M06 Durable processes | `ravenrs-app-requests` (`RequestsModule`, `Step::when`, `Step::due_in`, `task_reader`, `delegate`, `delegated_roles`, `tasks_for`), `StateMachine` | #66 for escalation | any; any | partial (master): tasks, inboxes, deadlines and delegations done (#258); no escalation | #66 |
-| M07 Events and worker | `ObjectSpaceExt::emit`, `Event`, `OutboxModule`, `Dispatcher`, `Provider`, `EventSink`, `CAN_TELL_STATUS` | #66 | any; any | partial (master): events in the commit done (#254); delivery in this process only | #255, #256 |
+| M07 Events and worker | `ObjectSpaceExt::emit`, `Event`, `OutboxModule`, `Dispatcher`, `Provider`, `EventSink`, `CAN_TELL_STATUS` | #66 | any; any | partial (master): events in the commit (#254) and delivery with tries, deadline and reconciling (#255) done, in this process only; no scheduler or worker process yet | #256 |
 | M08 Conversations | `Chat`, `ChatMessage`, `AttachmentStrip` widgets | #254, #255 | desktop, web; — | partial: drawing only | #259 |
 | M09 Forms and audiences | `FilterBuilder`, `ravenrs-criteria`, `EntityInfo` at run time | #232 | any; any | planned | #260 |
 | M10 Documents | `AttachmentStore`, `SqliteAttachmentStore`, `ravenrs-report-pdf` | #256 | any; any | partial: files by key, no issued revisions | #261 |
