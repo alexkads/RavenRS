@@ -1,0 +1,20 @@
+[package]
+name = "tutorial-tasks"
+description = "RavenDevLab: primeiro app com ravenrs-app no VS Code."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ravenrs.workspace = true
+ravenrs-app.workspace = true
+ravenrs-app-ui.workspace = true
+
+[dev-dependencies]
+pollster.workspace = true
+image.workspace = true
+
+[lints]
+workspace = true
