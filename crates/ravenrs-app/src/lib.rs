@@ -83,11 +83,12 @@ pub use ravenrs_criteria::{Criteria, Value};
 pub use record_action::RecordAction;
 pub use security::{
     ADMINISTRATORS_ROLE, Access, AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError,
-    Authenticator, Credentials, Identity, MIN_PASSWORD_CHARS, Operation, PasswordError, PermissionPolicy,
-    Permissions, Role, RoleMerge, SECURITY_ACTION_PERMISSION, SECURITY_AUDIT_ENTRY,
-    SECURITY_MEMBER_PERMISSION, SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE,
-    SECURITY_TYPE_PERMISSION, SECURITY_USER, SECURITY_USER_ROLE, SecuredObjectSpace, SecurityContext,
-    SpaceMaker, UserDirectory, audit_entity, hash_password, security_entities, verify_password,
+    Authenticator, Claims, Credentials, ExternalSignIn, Identity, IdentityProvider, MIN_PASSWORD_CHARS,
+    Operation, PasswordError, PermissionPolicy, Permissions, Role, RoleMerge, SECURITY_ACTION_PERMISSION,
+    SECURITY_AUDIT_ENTRY, SECURITY_EXTERNAL_LOGIN, SECURITY_MEMBER_PERMISSION,
+    SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE, SECURITY_TYPE_PERMISSION,
+    SECURITY_USER, SECURITY_USER_ROLE, SecuredObjectSpace, SecurityContext, SpaceMaker, UserDirectory,
+    audit_entity, hash_password, security_entities, verify_password,
 };
 #[cfg(feature = "source")]
 pub use source::{SourceError, entities_from_source, entities_from_spec};
