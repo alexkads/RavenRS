@@ -19,6 +19,9 @@ use crate::{
     Stepper, Text, ToggleButton, VStack, View, util,
 };
 
+/// What runs when an event is moved: its id, its new start and its new end.
+type MoveHandler = Rc<dyn Fn(u64, TimePoint, TimePoint)>;
+
 /// Something on a [`EventCalendar`]'s day.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
@@ -157,7 +160,7 @@ pub struct EventCalendar {
     view: Option<Binding<CalendarView>>,
     hours: (u32, u32),
     on_create: Option<Rc<dyn Fn(TimePoint, TimePoint)>>,
-    on_move: Option<Rc<dyn Fn(u64, TimePoint, TimePoint)>>,
+    on_move: Option<MoveHandler>,
 }
 
 impl std::fmt::Debug for EventCalendar {
