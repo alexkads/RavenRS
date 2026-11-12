@@ -1,0 +1,5 @@
+error: an action needs caption = "..." and set = "..."
+ --> tests/ui/action_without_set.rs:4:1
+  |
+4 | #[action(caption = "Concluir")]
+  | ^

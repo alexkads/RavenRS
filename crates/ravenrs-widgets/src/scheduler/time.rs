@@ -6,8 +6,10 @@ const MINUTES_PER_DAY: i64 = 24 * 60;
 
 /// A moment on a calendar, to the minute, with no time zone.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimePoint(i64);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TimePoint {
     /// Minutes since the start of 1970-01-01.
     pub const fn from_minutes(minutes: i64) -> Self {
@@ -54,6 +56,7 @@ impl TimePoint {
 /// What one tick of a [`TimeAxis`] is.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum TimeScale {
     /// An hour, under its day.
     Hours,
@@ -80,6 +83,7 @@ const ZOOM_LEVELS: [(TimeScale, f32); 8] = [
 
 /// The stretch of time a [`Scheduler`](crate::Scheduler) shows, how wide it is and how it is marked.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimeAxis {
     /// Where it begins.
     pub start: TimePoint,
@@ -99,6 +103,7 @@ pub(crate) struct Tick {
     pub start: TimePoint,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TimeAxis {
     /// `count` days from `from`, a tick per day.
     pub fn days(from: Date, count: u32) -> Self {

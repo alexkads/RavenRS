@@ -99,6 +99,13 @@ fn demos(space: &mut dyn ObjectSpace) -> Result<(), String> {
         &[("id", n(1.0)), ("name", t("Pedido")), ("discount", n(10.0)), ("amount", n(500.0))],
     )?;
     add(space, "ValidationOnLeave", &[("id", n(1.0)), ("name", t("Recife")), ("city", t("Recife"))])?;
+    for (id, name, amount) in [(1.0, "Aluguel", 1_800.0), (2.0, "Mercado", 950.0)] {
+        add(
+            space,
+            "AccessibilityDemo",
+            &[("id", n(id)), ("name", t(name)), ("amount", n(amount)), ("checked", Value::Bool(false))],
+        )?;
+    }
     for (id, name, state, amount, notes) in [
         (1.0, "Em dia", "ok", 10_000.0, "Tudo certo"),
         (2.0, "Atrasado", "late", 25_000.0, "Vencido há dias"),
@@ -152,6 +159,7 @@ fn demos(space: &mut dyn ObjectSpace) -> Result<(), String> {
         "CustomFieldsDemo",
         &[("id", n(1.0)), ("name", t("Com campos do modelo")), ("amount", n(21.0)), ("segment", t("Varejo"))],
     )?;
+    add(space, "TextsDemo", &[("id", n(1.0)), ("name", t("Ana"))])?;
     for (id, name) in [(1.0, ("Ana", "Lima")), (2.0, ("Bia", "Rocha"))] {
         // People come from the library of ready-made records.
         add(space, "Person", &[("id", n(id)), ("first_name", t(name.0)), ("last_name", t(name.1))])?;

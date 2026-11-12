@@ -16,7 +16,7 @@ use crate::update::Updater;
 use crate::{backup, seed};
 
 /// The logo's animation, made by `assets/gen-logo-animada.py`.
-const ANIMATED_LOGO: &[u8] = include_bytes!("../../assets/logo-animada.json");
+pub(crate) const ANIMATED_LOGO: &[u8] = include_bytes!("../../assets/logo-animada.json");
 /// When the screens get built, in seconds: building them takes the UI thread for a
 /// moment, which must not fall in the middle of the logo's animation.
 const LOGO_PLAYED_SECONDS: f64 = 1.9;

@@ -20,7 +20,7 @@ const MAX_MEMBERS: usize = 60;
 const INSTRUCTIONS: &str = "Answers questions about the RavenRS GUI framework for Rust, from the sources and docs \
 of the version this server was built from. Check component_api and component_examples before writing a view \
 instead of guessing builder methods. Use design_tokens to find the semantic name of a color or text style, \
-parity_status before promising that a feature exists, and validate_expression for filters and report expressions. \
+parity_status before promising that a feature exists, app_contracts before writing a module meant for more than one application, and validate_expression for filters and report expressions. \
 To make a report, read report_layout_format, start from create_report_layout or report_layout_templates, edit the \
 JSON and confirm it with check_report_layout before saving it as a .rvreport.json file.";
 
@@ -58,7 +58,8 @@ struct DesignTokens {
 
 #[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
 struct ParityStatus {
-    /// components (docs/PARITY.md) or reporting (docs/REPORTING-PARITY.md). Defaults to both.
+    /// components (docs/PARITY.md), reporting (docs/REPORTING-PARITY.md) or application
+    /// (docs/APP-PARITY.md). Defaults to components and reporting.
     document: Option<String>,
     /// Only rows whose section or text contains this, such as "barcode" or "tree".
     query: Option<String>,
@@ -66,6 +67,12 @@ struct ParityStatus {
     status: Option<String>,
     /// How many rows to return, up to 200. Defaults to 50.
     limit: Option<usize>,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+struct AppContracts {
+    /// Only scenarios and groups whose text contains this, such as "C07", "M12", "outbox" or "#254".
+    query: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -215,7 +222,7 @@ impl RavenServer {
     }
 
     #[tool(
-        description = "Check whether a feature exists: searches the parity trackers against shadcn/ui and two commercial component suites (components) and commercial reporting suites (reporting), and returns each row's status (done, partial or planned) with counts.",
+        description = "Check whether a feature exists: searches the parity trackers against shadcn/ui and two commercial component suites (components), commercial reporting suites (reporting) and model-driven application frameworks (application), and returns each row's status (done, partial or planned) with counts and, for application, the issue that follows it.",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn parity_status(&self, Parameters(input): Parameters<ParityStatus>) -> CallToolResult {
@@ -225,6 +232,14 @@ impl RavenServer {
             input.status.as_deref(),
             input.limit.unwrap_or(50).clamp(1, 200),
         ))
+    }
+
+    #[tool(
+        description = "The contracts reusable ravenrs-app modules honor (docs/APP-CONTRACTS.md): acceptance scenarios C01-C19 and capability groups M01-M19, each with what proves it, the package or API to use, targets, state and the GitHub issue that owns it.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn app_contracts(&self, Parameters(input): Parameters<AppContracts>) -> CallToolResult {
+        answer(Ok(docs::app_contracts(input.query.as_deref())))
     }
 
     #[tool(

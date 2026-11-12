@@ -19,13 +19,21 @@ You need Rust stable 1.88+. For the web build, also `rustup target add wasm32-un
 cargo run -p component-gallery --release
 ```
 
-Before opening a pull request, run every check locally (the project has no hosted CI):
+Before opening a pull request, run the checks locally (the project has no hosted CI):
 
 ```bash
 ./scripts/check.sh
 ```
 
-It runs rustfmt, clippy with warnings as errors for desktop and wasm32, all tests and both web builds. Renderer tests draw on your GPU and skip themselves when no adapter is available.
+It runs rustfmt, then clippy with warnings as errors and the tests of the packages your change reaches: those whose files changed against `origin/master`, and every package that depends on them. A change to `Cargo.toml`, `Cargo.lock` or `.cargo/` reaches the whole workspace.
+
+Before a release, run everything:
+
+```bash
+./scripts/check.sh --full
+```
+
+That adds wasm32, optional features, the minimum Rust version, dependency checks, benchmarks, API docs and the web builds. Renderer tests draw on your GPU and skip themselves when no adapter is available.
 
 ## Adding a component
 
@@ -35,8 +43,9 @@ A component is done when it:
 2. Takes colors, radii and spacing from the theme (`Semantic` roles and theme scales), never hard-coded values, and looks right in Raven Dark, Light and Glass.
 3. Works with the keyboard: focusable when interactive, Enter/Space to activate, arrows where it makes sense, Escape to close overlays.
 4. Has behavior tests in `crates/ravenrs-widgets/tests/` that drive it through `Ui` (click, type, check state).
-5. Appears in the gallery (`examples/component-gallery`), is listed in the README and in `site/components/index.html`, has an example in `examples/component-gallery/src/samples.rs`, and its row in `docs/PARITY.md` is updated.
+5. Appears in the gallery (`examples/component-gallery`), is listed in the README and in `site/components/index.html`, has an example in one of the files of `examples/component-gallery/src/samples/`, and its row in `docs/PARITY.md` is updated.
 6. Has rustdoc on the public type and builder methods.
+7. Runs in the playground: `scripts/gen-live.py` exposes it to the interpreter (the gate fails until it is run), and its example runs from its code, which `coverage_of_the_interpreter` in `examples/component-gallery` checks. The check runs the example interpreted and compiled, and the two have to build as many elements, with no problem later in a paint or a handler. An example the interpreter cannot read yet goes in `examples/component-gallery/live-pending.txt`, with why; today the list is empty.
 
 ## Code style
 

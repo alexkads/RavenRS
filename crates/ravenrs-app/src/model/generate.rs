@@ -54,6 +54,10 @@ fn list_view(entity: &EntityInfo, id: String, shown: impl Fn(&FieldInfo) -> bool
         Some(text) => node.with("Description", text.as_str()),
         None => node,
     };
+    let node = match &entity.empty_text {
+        Some(text) => node.with("EmptyText", text.as_str()),
+        None => node,
+    };
     let node = entity.editor_settings.iter().fold(node, |mut node, (settings, name, value)| {
         if node.get(settings).is_none() {
             node = node.child(ModelNode::new(settings));
@@ -254,8 +258,19 @@ fn group(id: &str, index: i64, columns: i64, fields: &[&FieldInfo]) -> ModelNode
 
 /// The form's layout: simple fields in a group, in two columns when there are many; fields
 /// that take the height they need in a group of their own; one list in a group, several in tabs.
+/// The fields of its form, those of its focus order first and in that order.
+fn on_form(entity: &EntityInfo) -> Vec<&FieldInfo> {
+    let mut shown: Vec<&FieldInfo> = entity.fields.iter().filter(|f| f.in_detail).collect();
+    let place = |field: &FieldInfo| {
+        entity.focus_order.iter().position(|name| *name == field.name).unwrap_or(entity.focus_order.len())
+    };
+    // Stable, so the fields it does not name keep the order they were declared in.
+    shown.sort_by_key(|field| place(field));
+    shown
+}
+
 fn layout(entity: &EntityInfo) -> ModelNode {
-    let shown: Vec<&FieldInfo> = entity.fields.iter().filter(|f| f.in_detail).collect();
+    let shown = on_form(entity);
     let simple: Vec<&FieldInfo> = shown
         .iter()
         .copied()
@@ -324,14 +339,20 @@ fn layout(entity: &EntityInfo) -> ModelNode {
 }
 
 fn detail_view(entity: &EntityInfo) -> ModelNode {
-    let items = entity.fields.iter().filter(|f| f.in_detail).fold(ModelNode::new("Items"), |items, field| {
-        items.child(
-            ModelNode::new(&field.name)
-                .with("Caption", field.caption.as_str())
-                .with("Editor", field.editor.as_deref().unwrap_or(field.kind.name()))
-                .with("Wide", field.wide)
-                .with("ReadOnly", field.read_only),
-        )
+    let items = on_form(entity).into_iter().fold(ModelNode::new("Items"), |items, field| {
+        let mut item = ModelNode::new(&field.name)
+            .with("Caption", field.caption.as_str())
+            .with("Editor", field.editor.as_deref().unwrap_or(field.kind.name()))
+            .with("Wide", field.wide)
+            .with("ReadOnly", field.read_only);
+        // In the model, a translation or an administrator can change them like the caption.
+        if let Some(name) = &field.accessible_name {
+            item = item.with("AccessibleName", name.as_str());
+        }
+        if let Some(text) = &field.accessible_description {
+            item = item.with("AccessibleDescription", text.as_str());
+        }
+        items.child(item)
     });
     ModelNode::new(format!("{}_DetailView", entity.name))
         .with("Kind", "DetailView")
@@ -526,6 +547,21 @@ mod tests {
         let many =
             (0..5).fold(account_key(), |e, i| e.field(FieldInfo::new(format!("f{i}"), FieldKind::Text)));
         assert_eq!(form_layout(many).get("Main").and_then(|g| g.integer("Columns")), Some(2));
+    }
+
+    #[test]
+    fn the_focus_order_leads_the_form_and_accessible_words_reach_the_model() {
+        let entity = account()
+            .field(FieldInfo::new("until", FieldKind::Date).caption("Até").accessible_name("Fim do período"))
+            .focus_order(["kind", "name"]);
+        let main = form_layout(entity.clone()).get("Main").cloned().expect("main");
+        let order: Vec<&str> = main.in_order().iter().map(|n| n.id.as_str()).collect();
+        assert_eq!(order, ["kind", "name", "until"]);
+        let root = generate_model(&[entity]).expect("valid");
+        let item = root.at(&["Views", "Account_DetailView", "Items", "until"]).expect("the item");
+        assert_eq!(item.text("AccessibleName"), Some("Fim do período"));
+        let wrong = account().focus_order(["nothing"]);
+        assert!(wrong.check().is_err(), "a focus order names fields that exist");
     }
 
     fn account_key() -> EntityInfo {

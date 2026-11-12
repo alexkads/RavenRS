@@ -37,6 +37,7 @@ These accounts exist only here. The password of all three is `raven-demo`.
 | Estados e lembretes | A state machine, and a reminder that comes up 30 seconds after opening |
 | Segurança | The same documents as each of the three people |
 | Auditoria | Each mode side by side, a field left out, changes in collections |
+| Acessibilidade | Names and descriptions for screen readers from the model, the focus order of a form, an action that says its keys and announces what it did |
 | Registros prontos | `ravenrs-app-library` |
 | Relatórios | Reports people design and keep, and panels |
 | Administração | Users, roles, the audit trail and the model editor, for `ana` |

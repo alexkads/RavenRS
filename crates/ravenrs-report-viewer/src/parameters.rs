@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_core::Insets;
 use ravenrs_layout::Align;
 use ravenrs_reactive::{Binding, State};
@@ -29,14 +30,19 @@ pub struct ParameterLabels {
 
 impl Default for ParameterLabels {
     fn default() -> Self {
-        Self { apply: "Apply".to_owned(), reset: "Reset".to_owned() }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl ParameterLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self { apply: texts.get("viewer.parameters.apply"), reset: texts.get("viewer.parameters.reset") }
+    }
+
     /// The labels in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self { apply: "Aplicar".to_owned(), reset: "Redefinir".to_owned() }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 

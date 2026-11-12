@@ -386,6 +386,10 @@ fn syntax_errors_say_what_and_where() {
     let deep = format!("{}1{}", "(".repeat(5000), ")".repeat(5000));
     assert!(err(&deep).message.contains("nested too deeply"));
     assert!(err(&"-".repeat(5000)).message.contains("nested too deeply"));
+    // A condition inside a field and the bounds of Between count too.
+    let inside = format!("{}1{}", format!("{}[a][", "(".repeat(127)).repeat(30), "]".repeat(30));
+    assert!(err(&inside).message.contains("nested too deeply"));
+    assert!(err(&"0 between(".repeat(409)).message.contains("nested too deeply"));
 }
 
 #[test]
@@ -602,4 +606,23 @@ proptest! {
         prop_assert_eq!(s.matches(&parse("?a < ?b Or ?a >= ?b")), true);
         prop_assert_eq!(s.evaluate(&parse("?a + ?b")), Ok(n(f64::from(a) + f64::from(b))));
     }
+}
+
+#[test]
+fn assignments_split_where_the_language_does() {
+    let set = Criteria::assignments("state = 'a;b=c'; [total] = [price] * 2; done = [total] >= 10").unwrap();
+    let names: Vec<&str> = set.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(names, ["state", "total", "done"]);
+    assert_eq!(set[0].1, Criteria::parse("'a;b=c'").unwrap());
+    assert_eq!(set[2].1, Criteria::parse("[total] >= 10").unwrap());
+    assert!(Criteria::assignments(" ; ").unwrap().is_empty());
+}
+
+#[test]
+fn assignments_say_where_they_are_wrong() {
+    let missing = Criteria::assignments("state = 'a'; total").unwrap_err();
+    assert_eq!(missing.offset, 13);
+    let bad = Criteria::assignments("state = 'a'; total = 1 +").unwrap_err();
+    assert!(bad.offset >= 20, "{bad}");
+    assert!(Criteria::assignments("1 = 2").is_err());
 }

@@ -28,6 +28,7 @@ impl<V: fmt::Debug> fmt::Debug for Card<V> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> Card<V> {
     /// A card around `content` with the theme's surface, radius, shadow and padding.
     pub fn new(content: V) -> Self {
@@ -163,6 +164,7 @@ pub struct GlassCard<V> {
     card: Card<V>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> GlassCard<V> {
     /// A glass card around `content`.
     pub fn new(content: V) -> Self {

@@ -15,6 +15,7 @@ use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, MenuItem, Mo
 
 /// An indeterminate activity indicator. With reduced motion it is static.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Spinner {
     size: f32,
     color: Option<Color>,
@@ -26,6 +27,7 @@ impl Default for Spinner {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Spinner {
     /// A 20 px spinner.
     pub fn new() -> Self {
@@ -83,6 +85,7 @@ impl View for Spinner {
 }
 
 /// Slides with previous/next buttons, position dots and optional autoplay.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Carousel {
     slides: Vec<AnyView>,
     height: f32,
@@ -95,6 +98,7 @@ impl fmt::Debug for Carousel {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Carousel {
     /// A carousel over `slides`, starting at the first.
     pub fn new(slides: Vec<AnyView>) -> Self {
@@ -316,6 +320,7 @@ fn split_arrow(key: &Key, vertical_stack: bool) -> Option<f32> {
 /// let mut ui = Ui::new(bar, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitHandle {
     axis: Axis,
     value: Binding<f32>,
@@ -332,6 +337,7 @@ impl fmt::Debug for SplitHandle {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SplitHandle {
     /// A bar between things laid out along `axis`, which writes the size it controls to
     /// `value`. It lies across that axis: along `Axis::Horizontal`, it stands upright.
@@ -441,6 +447,7 @@ impl View for SplitHandle {
 }
 
 /// One pane of a [`SplitPanes`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitPane {
     content: AnyView,
     size: Option<f32>,
@@ -455,6 +462,7 @@ impl fmt::Debug for SplitPane {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SplitPane {
     /// A pane around `content`. Without [`Self::size`], it takes the room the others leave.
     pub fn new(content: impl View + 'static) -> Self {
@@ -525,6 +533,7 @@ fn split_sizes(room: f32, asked: &[Option<f32>], limits: &[(f32, f32)]) -> Vec<f
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitPanes {
     axis: Axis,
     panes: Vec<SplitPane>,
@@ -542,6 +551,7 @@ impl fmt::Debug for SplitEnd {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SplitPanes {
     /// No panes yet, to go side by side.
     pub fn horizontal() -> Self {
@@ -702,6 +712,7 @@ impl<A, B> fmt::Debug for Splitter<A, B> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<A: View, B: View> Splitter<A, B> {
     /// Side-by-side panes.
     pub fn horizontal(first: A, second: B) -> Self {
@@ -833,6 +844,7 @@ impl<A: View, B: View> View for Splitter<A, B> {
 
 /// A horizontal bar of menus (File, Edit, View…).
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Menubar {
     menus: Vec<(String, Vec<Entry>)>,
 }
@@ -843,6 +855,7 @@ impl fmt::Debug for Menubar {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Menubar {
     /// An empty menubar; add menus with [`Menubar::menu`].
     pub fn new() -> Self {
@@ -982,6 +995,7 @@ impl View for Menubar {
 }
 
 /// Separate boxes for a one-time code; accepts digits by default.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct InputOtp {
     value: Binding<String>,
     length: usize,
@@ -994,6 +1008,7 @@ impl fmt::Debug for InputOtp {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl InputOtp {
     /// `length` boxes (clamped to 1–12) editing `value`.
     pub fn new(value: Binding<String>, length: usize) -> Self {
@@ -1092,6 +1107,7 @@ impl View for InputOtp {
 }
 
 /// Common validation rules for [`FormField::validate`].
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 pub mod validate {
     /// The field must not be empty.
     pub fn required(value: &str) -> Result<(), String> {
@@ -1153,6 +1169,8 @@ pub struct FormField<V> {
     told_error: Option<String>,
     told_note: Option<(String, crate::Tone)>,
     fill: Option<Semantic>,
+    accessible_name: Option<String>,
+    accessible_description: Option<String>,
 }
 
 impl<V> fmt::Debug for FormField<V> {
@@ -1161,6 +1179,7 @@ impl<V> fmt::Debug for FormField<V> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> FormField<V> {
     /// A field with this label above `content`.
     pub fn new(label: impl Into<String>, content: V) -> Self {
@@ -1175,7 +1194,23 @@ impl<V: View> FormField<V> {
             told_error: None,
             told_note: None,
             fill: None,
+            accessible_name: None,
+            accessible_description: None,
         }
+    }
+
+    /// What screen readers call the control, instead of the label: for a label that only makes
+    /// sense next to what is around it.
+    pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
+        self.accessible_name = Some(name.into());
+        self
+    }
+
+    /// What screen readers say after its name, instead of the hint. An error or a note still
+    /// comes first.
+    pub fn accessible_description(mut self, text: impl Into<String>) -> Self {
+        self.accessible_description = Some(text.into());
+        self
     }
 
     /// Marks the label with `*` and adds the [`validate::required`] rule (for the value set by [`FormField::validate`]).
@@ -1260,6 +1295,15 @@ impl<V: View> View for FormField<V> {
         });
         let note = self.told_note.as_ref().map(|(note, _)| note.as_str());
         cx.label_control(content, self.label.text(), error.as_deref().or(note).or(self.hint.as_deref()));
+        if self.accessible_name.is_some() || self.accessible_description.is_some() {
+            let told = error.as_deref().or(note);
+            let description = match (told, self.accessible_description.as_deref()) {
+                (Some(told), Some(own)) => Some(format!("{told}. {own}")),
+                (None, Some(own)) => Some(own.to_owned()),
+                (_, None) => None,
+            };
+            cx.rename_control(content, self.accessible_name.as_deref(), description.as_deref());
+        }
         if let Some(e) = error {
             let icon = util::icon(cx, IconName::CircleAlert, 14.0, theme.color(Semantic::Danger));
             let text = util::label(cx, &e, TextStyle::Callout, None, theme.color(Semantic::Danger));
@@ -1301,6 +1345,57 @@ impl<V: View> View for FormField<V> {
             &children,
             paint,
         )
+    }
+}
+
+/// A control with a name and a description of its own for screen readers, for one that has no
+/// label around it to take them from, such as a check box that says its own caption.
+///
+/// ```
+/// use ravenrs_core::Role;
+/// use ravenrs_reactive::Binding;
+/// use ravenrs_widgets::{AccessibleControl, Checkbox, Ui};
+///
+/// let check = Checkbox::new("Ativo", Binding::constant(true));
+/// let named = AccessibleControl::new(check).name("Conta ativa").description("Aparece nos lançamentos");
+/// let mut ui = Ui::new(named, ravenrs_style::Theme::raven_dark());
+/// ui.update();
+/// let tree = ui.access_tree();
+/// let node = tree.find(Role::CheckBox, "Conta ativa").expect("renamed");
+/// assert_eq!(node.description.as_deref(), Some("Aparece nos lançamentos"));
+/// ```
+#[derive(Debug)]
+pub struct AccessibleControl<V> {
+    content: V,
+    name: Option<String>,
+    description: Option<String>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl<V: View> AccessibleControl<V> {
+    /// `content`, as it calls itself.
+    pub fn new(content: V) -> Self {
+        Self { content, name: None, description: None }
+    }
+
+    /// What screen readers call it.
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    /// What screen readers say after its name.
+    pub fn description(mut self, text: impl Into<String>) -> Self {
+        self.description = Some(text.into());
+        self
+    }
+}
+
+impl<V: View> View for AccessibleControl<V> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let node = cx.child(&self.content);
+        cx.rename_control(node, self.name.as_deref(), self.description.as_deref());
+        node
     }
 }
 

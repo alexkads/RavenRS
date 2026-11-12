@@ -15,35 +15,51 @@ pub(crate) fn tip(help: Help) -> HelpTip {
 pub(crate) const PAINEL: Help = (
     "Painel",
     "O resumo das finanças da família: quanto há nas contas, o que entrou, o que saiu e o que está para vencer.",
-    "Comece pelas próximas contas. Dá para pagar direto daqui.",
+    "Comece pelas próximas contas. Dá para pagar direto daqui. Em Conta, no alto, veja os números de uma conta só. Os cards mudam de lugar e de tamanho, do jeito que você preferir.",
+);
+pub(crate) const LAYOUT: Help = (
+    "Arrumar o painel",
+    "Cada card muda de lugar e de tamanho, e o painel fica assim nas próximas vezes. Restaurar layout devolve tudo ao lugar de antes.",
+    "Arraste o puxador ao lado do título para mudar o card de lugar, e o canto de baixo para mudar o tamanho. Pelo teclado, vá com Tab até o puxador: as setas mudam o card de lugar e Shift com as setas muda o tamanho.",
+);
+pub(crate) const CONTA: Help = (
+    "Conta",
+    "Mostra o painel de uma conta só: o saldo dela, o histórico, as receitas e as despesas. Em Todas as contas, soma a família toda. A escolha fica guardada para a próxima vez.",
+    "As contas a pagar ainda não têm conta, que só é escolhida na hora de pagar. Por isso, elas e o que está programado na Agenda continuam os da família toda.",
 );
 pub(crate) const SALDO: Help = (
     "Saldo das contas",
-    "A soma do dinheiro em todas as contas, com o que já foi lançado até hoje. O gráfico mostra os últimos 12 meses.",
+    "O dinheiro em todas as contas, ou na conta escolhida no alto, com o que já foi lançado até hoje. O gráfico mostra como o saldo mudou mês a mês.",
     "",
 );
 pub(crate) const PROXIMAS: Help = (
     "Próximas contas",
-    "O que vence nos próximos 30 dias, a começar pelo que está atrasado.",
+    "O que vence nos próximos 30 dias, a começar pelo que está atrasado. São as contas da família toda, qualquer que seja a conta escolhida.",
     "Pagar dá baixa na conta e cria o lançamento da despesa.",
 );
-pub(crate) const RECEITAS: Help =
-    ("Receitas do mês", "Tudo o que entrou neste mês, comparado com o mesmo período do mês passado.", "");
-pub(crate) const DESPESAS: Help =
-    ("Despesas do mês", "Tudo o que saiu neste mês, comparado com o mesmo período do mês passado.", "");
+pub(crate) const RECEITAS: Help = (
+    "Receitas do mês",
+    "Tudo o que entrou neste mês na conta escolhida, comparado com o mesmo período do mês passado.",
+    "",
+);
+pub(crate) const DESPESAS: Help = (
+    "Despesas do mês",
+    "Tudo o que saiu neste mês da conta escolhida, comparado com o mesmo período do mês passado.",
+    "",
+);
 pub(crate) const A_PAGAR: Help = (
     "A pagar em 30 dias",
-    "O que vai sair nos próximos 30 dias: as contas em aberto e os pagamentos programados na Agenda.",
+    "O que vai sair nos próximos 30 dias: as contas em aberto e os pagamentos programados na Agenda, da família toda.",
     "",
 );
 pub(crate) const POR_CATEGORIA: Help = (
     "Despesas por categoria",
-    "Para onde foi o dinheiro neste mês, da categoria que mais gastou para a que menos gastou.",
+    "Para onde foi o dinheiro da conta escolhida neste mês, da categoria que mais gastou para a que menos gastou.",
     "Passe o ponteiro sobre o anel para ver quanto foi cada categoria.",
 );
 pub(crate) const ENTRADAS_E_SAIDAS: Help = (
     "Receitas e despesas",
-    "O que entrou e o que saiu em cada um dos últimos 6 meses, para ver se a família gastou menos do que ganhou.",
+    "O que entrou e o que saiu da conta escolhida em cada um dos últimos 6 meses, para ver se a família gastou menos do que ganhou.",
     "Passe o ponteiro sobre um mês, ou use as setas do teclado, para ver os valores.",
 );
 pub(crate) const POR_CONTA: Help = (
@@ -131,8 +147,8 @@ pub(crate) const ATUALIZACAO: Help = (
 );
 pub(crate) const TELEGRAM: Help = (
     "Telegram",
-    "Conecta um chat privado para enviar comprovantes PDF a este Raven. Depois do PDF, responda por texto ou por áudio: despesa ou receita, a categoria e, se quiser, quem gastou.",
-    "Escaneie o QR, abra o bot e toque em Iniciar. Nada é lançado antes de você tocar em Confirmar.",
+    "Conecta o chat privado de cada pessoa para lançar neste Raven em nome dela, por texto ou por áudio: “gastei 50 no mercado, foi a Ana”. Também responde perguntas, como “quanto gastei com mercado esse mês?”, avisa de contas, orçamento estourado e o resumo da semana (desligue em /avisos), e aceita o PDF do comprovante; depois dele, diga despesa ou receita, a categoria e, se quiser, quem gastou.",
+    "Escolha de quem é o chat, escaneie o QR no Telegram dessa pessoa, abra o bot e toque em Iniciar. Nada é lançado antes de você tocar em Confirmar, e Desfazer apaga o último lançamento do chat por 5 minutos.",
 );
 pub(crate) const RECOMECAR: Help = (
     "Recomeçar",

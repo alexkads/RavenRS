@@ -12,13 +12,15 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 use family_finance::db::Database;
-use family_finance::model::AccountKind;
+use family_finance::model::{AccountKind, BillInput, Flow, Recurrence, TransactionInput};
+use family_finance::reminders::{ReminderSettings, TelegramNotice, TelegramNotices, settings_file};
 use family_finance::telegram::{choose_account, pairing_hash};
 use serde_json::{Value, json};
 
 const BOT_TOKEN: &str = "123456:TESTE";
 const CHAT: i64 = 111;
 const STRANGER: i64 = 222;
+const BRUNO: i64 = 333;
 
 // ---------------------------------------------------------------- the stand-in Telegram
 
@@ -202,7 +204,14 @@ fn route(
             lock.lock().unwrap().sent.push(body.clone());
             reply(json!({ "message_id": 1 }))
         }
-        (_, "answerCallbackQuery" | "editMessageReplyMarkup") => reply(json!(true)),
+        (_, "answerCallbackQuery") => {
+            // What the bot says on the button itself counts as an answer, as the person sees it.
+            if body["text"].as_str().is_some_and(|text| !text.is_empty()) {
+                lock.lock().unwrap().sent.push(json!({ "text": body["text"], "on_button": true }));
+            }
+            reply(json!(true))
+        }
+        (_, "editMessageReplyMarkup") => reply(json!(true)),
         (_, "getFile") => reply(json!({ "file_id": body["file_id"], "file_path": body["file_id"] })),
         _ => ("404 Not Found", json!({"ok": false, "description": "Not Found"}).to_string().into_bytes()),
     }
@@ -310,8 +319,14 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
     let bank = db.add_account("Banco", AccountKind::Checking, 0).expect("account");
     let ana = db.add_member("Ana").expect("member");
     choose_account(&path, bank);
+    // The notices have a test of their own; here they would come on Mondays between answers.
+    let mut quiet = TelegramNotices::default();
+    for kind in TelegramNotice::ALL {
+        quiet.set(kind, false);
+    }
+    quiet.save(&TelegramNotices::file(&path)).expect("notices off");
     let code = "0123456789abcdef0123456789abcdef";
-    db.begin_telegram_pairing(&pairing_hash(code), now()).expect("pairing");
+    db.begin_telegram_pairing(&pairing_hash(code), None, now()).expect("pairing");
     fake.file("pix.pdf", receipt(&["Comprovante de Pix", "Valor", "R$ 3.000,00", "Para: Maria Silva"]));
     fake.file(
         "boleto.pdf",
@@ -349,21 +364,68 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
         { "chat": { "id": -5, "type": "group" }, "from": { "id": CHAT }, "text": "despesa Mercado" } });
     assert_eq!(fake.say_within(group, Duration::from_secs(2), || ()), None, "groups are ignored");
 
-    assert!(fake.say(text(CHAT, "despesa Mercado")).contains("Não há PDF aguardando"));
-    assert!(fake.say(voice(CHAT)).contains("Não há PDF aguardando"), "a voice note needs a receipt first");
+    assert!(fake.say(text(CHAT, "despesa Mercado")).contains("diga o valor"), "no amount, nothing waiting");
+    assert!(
+        fake.say(voice(CHAT)).contains("Para entender áudios"),
+        "a voice note needs no receipt, only a model"
+    );
+    assert!(fake.say(text(CHAT, "gastei 50 no mercado e 30 na farmácia")).contains("mais de um valor"));
+    let question = fake.say(text(CHAT, "50 reais no mercado"));
+    assert!(question.contains("Valor: R$ 50,00") && question.contains("despesa ou receita"), "{question}");
+    assert!(fake.say(text(CHAT, "qual o saldo?")).contains("Saldo: R$"), "a question in the middle");
+    assert!(fake.say(text(STRANGER, "qual o saldo?")).contains("Escaneie o QR"), "only the paired chat asks");
+    assert!(fake.say(text(CHAT, "despesa Mercado Ana")).contains("Não encontrei a categoria “Mercado”"));
+    let question = fake.say(tap(CHAT, "rf:new"));
+    assert!(question.contains("Despesa · Mercado (nova) · Ana · R$ 50,00"), "the amount kept: {question}");
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("✅ Lançado"));
+    let answer = fake.say(text(CHAT, "Quanto a Ana gastou com mercado esse mês?"));
+    assert!(
+        answer.starts_with("Gastos com Mercado de Ana em ") && answer.contains("R$ 50,00 (1 lançamento)"),
+        "{answer}"
+    );
+    let question = fake.say(text(CHAT, "Gastei R$ 12,90 no mercado, foi a Ana."));
+    assert!(
+        question.contains("Despesa · Mercado · Ana · R$ 12,90") && question.contains("Confirma?"),
+        "{question}"
+    );
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("✅ Lançado"), "said in one message, saved without a PDF");
+    assert!(fake.say(text(CHAT, "gastei 7 na padaria")).contains("Não encontrei a categoria “Padaria”"));
+    assert!(fake.say(tap(CHAT, "rf:new")).contains("Despesa · Padaria (nova) · R$ 7,00"));
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("✅ Lançado: Despesa · Padaria · R$ 7,00"));
+    let rows = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"].clone();
+    assert_eq!(rows[0][0]["text"], "Desfazer", "{rows}");
+    assert!(fake.say(tap(STRANGER, "rf:undo")).contains("Escaneie o QR"), "only the chat that saved it");
+    assert!(fake.say(tap(CHAT, "rf:undo")).contains("↩️ Desfeito: Despesa · Padaria · R$ 7,00, apagado."));
+    assert!(
+        fake.say(text(CHAT, "desfazer")).contains("Não há lançamento recente"),
+        "only the last one, once"
+    );
+    let padaria: i64 = rusqlite::Connection::open(&path)
+        .unwrap()
+        .query_row("SELECT count(*) FROM categories WHERE name = 'Padaria'", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(padaria, 0, "the category created with it goes too");
     assert!(fake.say(document(CHAT, "pix.pdf", 20 * 1024 * 1024)).contains("Envie um PDF de até 14 MB"));
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
     assert!(fake.say(voice(CHAT)).contains("Para entender áudios"), "no model yet: says where to get one");
     assert!(fake.say(text(CHAT, "Salário")).contains("despesa ou receita"), "asks again, amount kept");
     let question = fake.say(text(CHAT, "receita Salário"));
+    assert!(question.contains("Não encontrei a categoria “Salário” em receitas. Crie:"), "{question}");
+    let rows = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"].clone();
+    assert_eq!(
+        rows.as_array().map(Vec::len),
+        Some(1),
+        "no income category yet, only Criar and Cancelar: {rows}"
+    );
+    let question = fake.say(tap(CHAT, "rf:new"));
     assert!(
-        question.contains("Receita · Salário · R$ 3000,00") && question.contains("Confirma?"),
+        question.contains("Receita · Salário (nova) · R$ 3000,00") && question.contains("Confirma?"),
         "{question}"
     );
     let buttons = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"][0].clone();
     assert_eq!(buttons.as_array().map(Vec::len), Some(3), "Confirmar, Corrigir e Cancelar: {buttons}");
     assert!(fake.say(tap(STRANGER, "rf:ok")).contains("Escaneie o QR"), "a stranger's tap saves nothing");
-    assert!(fake.say(tap(CHAT, "rf:ok")).contains("Receita · Salário · R$ 3000,00 salva"));
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("✅ Lançado: Receita · Salário · R$ 3000,00"));
 
     assert!(
         fake.say(document(CHAT, "boleto.pdf", 2_000)).contains("R$ 543,58"),
@@ -373,43 +435,311 @@ fn the_bot_pairs_one_chat_and_saves_receipts() {
         fake.say(text(CHAT, "despesa energia elétrica, foi o Pedro")).contains("Pedro"),
         "asks, amount kept"
     );
-    assert!(fake.say(text(CHAT, "despesa energia elétrica")).contains("Despesa · Energia elétrica · R$"));
+    assert!(fake.say(text(CHAT, "despesa energia elétrica")).contains("Não encontrei a categoria"));
+    assert!(fake.say(tap(CHAT, "rf:new")).contains("Despesa · Energia elétrica (nova) · R$"));
     assert!(fake.say(tap(CHAT, "rf:fix")).contains("Envie de novo"), "Corrigir asks again, amount kept");
-    let question = fake.say(text(CHAT, "despesa  energia   elétrica  Ana"));
-    assert!(question.contains("Despesa · Energia elétrica · Ana · R$ 543,58"), "{question}");
-    assert!(fake.say(text(CHAT, "sim")).contains("salva"), "a typed yes confirms too");
+    assert!(
+        fake.say(text(CHAT, "despesa  energia   elétrica  Ana")).contains("Não encontrei a categoria"),
+        "still not created: nothing was saved"
+    );
+    let question = fake.say(tap(CHAT, "rf:new"));
+    assert!(question.contains("Despesa · Energia elétrica (nova) · Ana · R$ 543,58"), "{question}");
+    assert!(fake.say(text(CHAT, "sim")).contains("✅ Lançado"), "a typed yes confirms too");
 
     assert!(fake.say(document(CHAT, "saldo.pdf", 2_000)).contains("mais de um valor"), "never guesses");
+    let rows = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"].clone();
+    assert_eq!(
+        (rows[0][0]["text"].as_str(), rows[0][1]["text"].as_str()),
+        (Some("R$ 50,00"), Some("R$ 1234,56")),
+        "the amounts it could be, to choose: {rows}"
+    );
+    assert!(fake.say(tap(CHAT, "rf:valor:5000")).contains("Valor: R$ 50,00"), "chosen, then what it was");
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
-    assert!(fake.say(text(CHAT, "/cancelar")).contains("cancelado"));
-    assert!(fake.say(text(CHAT, "despesa Aluguel")).contains("Não há PDF aguardando"));
+    assert!(fake.say(text(CHAT, "/cancelar")).contains("❌ Cancelado: R$ 3000,00"));
+    assert!(fake.say(text(CHAT, "despesa Aluguel")).contains("Nada aguardando"));
     assert!(fake.say(document(CHAT, "pix.pdf", 2_000)).contains("R$ 3000,00"));
-    assert!(fake.say(text(CHAT, "despesa Aluguel")).contains("Confirma?"));
-    assert!(fake.say(tap(CHAT, "rf:no")).contains("cancelado"), "Cancelar saves nothing");
-    assert!(fake.say(tap(CHAT, "rf:ok")).contains("Não há PDF aguardando"), "an old button does nothing");
+    let question = fake.say(text(CHAT, "despesa Aluguel"));
+    assert!(question.contains("Escolha uma das mais usadas ou crie"), "{question}");
+    let rows = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"].clone();
+    assert_eq!(
+        (rows[0][0]["text"].as_str(), rows[0][1]["text"].as_str()),
+        (Some("Mercado"), Some("Energia elétrica")),
+        "the most used first: {rows}"
+    );
+    let energy = rows[0][1]["callback_data"].as_str().unwrap().to_owned();
+    assert!(
+        fake.say(tap(CHAT, "rf:cat:999")).contains("Não encontrei a categoria"),
+        "a category that is gone"
+    );
+    assert!(
+        fake.say(tap(CHAT, &energy)).contains("Despesa · Energia elétrica · R$ 3000,00"),
+        "picked, not created"
+    );
+    assert!(
+        fake.say(tap(CHAT, "rf:no"))
+            .contains("❌ Cancelado: Despesa · Energia elétrica · R$ 3000,00. Nada foi salvo."),
+        "Cancelar saves nothing, and says what"
+    );
+    assert_eq!(
+        fake.say(tap(CHAT, "rf:ok")),
+        "Esse botão já foi usado.",
+        "an old button, or one tapped twice on a slow network, says so on itself"
+    );
+    assert!(fake.sent().last().unwrap()["on_button"].as_bool().unwrap_or(false), "and nothing in the chat");
 
-    let saved: Vec<(i64, i64, Option<i64>)> = {
+    let saved: Vec<(i64, i64, Option<i64>, String)> = {
         let conn = rusqlite::Connection::open(&path).expect("open");
         let mut query = conn
-            .prepare("SELECT account_id, amount_cents, member_id FROM transactions ORDER BY amount_cents")
+            .prepare("SELECT account_id, amount_cents, member_id, description FROM transactions ORDER BY amount_cents")
             .unwrap();
         query
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
             .unwrap()
             .map(Result::unwrap)
             .collect()
     };
+    let said = |cents, member, description: &str| (bank, cents, member, description.to_owned());
     assert_eq!(
         saved,
-        [(bank, 54_358, Some(ana)), (bank, 300_000, None)],
-        "both receipts, in the account chosen in Ajustes, with who spent"
+        [
+            said(1_290, Some(ana), "Telegram — Mercado"),
+            said(5_000, Some(ana), "Telegram — Mercado"),
+            said(54_358, Some(ana), "Comprovante PDF — Energia elétrica"),
+            said(300_000, None, "Comprovante PDF — Salário"),
+        ],
+        "said and sent, in the account chosen in Ajustes, with who spent"
     );
 
-    db.revoke_telegram_pairings(now()).expect("revoke");
+    db.revoke_telegram_chat(CHAT, now()).expect("revoke");
     assert!(
         fake.say(document(CHAT, "pix.pdf", 2_000)).contains("Escaneie o QR"),
         "Desvincular cuts the chat off"
     );
+    drop(db);
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
+fn the_bot_tells_what_is_due_and_each_notice_turns_off() {
+    let fake = FakeTelegram::start(Duration::ZERO);
+    let home = folder("avisos");
+    let path = home.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    let bank = db.add_account("Banco", AccountKind::Checking, 0).expect("account");
+    let market = db.add_category("Mercado", Flow::Expense, 10_000).expect("category");
+    let today = family_finance::today();
+    db.add_transaction(&TransactionInput {
+        date: today,
+        description: "feira".into(),
+        amount_cents: 15_000,
+        flow: Flow::Expense,
+        account_id: bank,
+        category_id: market,
+        member_id: None,
+    })
+    .expect("transaction");
+    db.add_bill(&BillInput {
+        description: "Luz".into(),
+        category_id: market,
+        member_id: None,
+        amount_cents: 18_000,
+        due: today.add_days(-2),
+        recurrence: Recurrence::None,
+        installments: 1,
+        barcode: String::new(),
+    })
+    .expect("bill");
+    // From midnight, so the test holds at any hour; the summary is for Mondays only.
+    ReminderSettings { hour: 0, ..ReminderSettings::default() }.save(&settings_file(&path)).expect("hour");
+    let mut notices = TelegramNotices::default();
+    notices.set(TelegramNotice::Weekly, false);
+    notices.save(&TelegramNotices::file(&path)).expect("notices");
+    let code = "fedcba9876543210fedcba9876543210";
+    db.begin_telegram_pairing(&pairing_hash(code), None, now()).expect("pairing");
+
+    let mut command = Command::new(env!("CARGO_BIN_EXE_raven-telegram"));
+    command.arg(&path).stdout(Stdio::null()).stderr(Stdio::null());
+    isolated(&mut command, &fake, &home);
+    let _bot = Bot(command.spawn().expect("raven-telegram"));
+
+    fake.say(text(CHAT, &format!("/start rf1_{code}")));
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let told = loop {
+        let sent = fake.sent();
+        if sent.len() >= 3 || Instant::now() > deadline {
+            break sent;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    let texts: Vec<&str> = told.iter().filter_map(|m| m["text"].as_str()).collect();
+    assert!(texts[0].contains("Telegram conectado"), "{texts:?}");
+    assert!(texts.iter().any(|t| t.starts_with("1 conta vencida: Luz")), "{texts:?}");
+    let budget = told
+        .iter()
+        .find(|m| m["text"].as_str().is_some_and(|t| t.starts_with("Orçamento estourado: Mercado")))
+        .expect("the budget past its limit");
+    assert_eq!(budget["reply_markup"]["inline_keyboard"][0][0]["callback_data"], "rf:aviso:orcamento:off");
+    assert_eq!(told.len(), 3, "each once: {texts:?}");
+
+    assert!(fake.say(tap(STRANGER, "rf:aviso:orcamento:off")).contains("Escaneie o QR"));
+    assert!(fake.say(tap(CHAT, "rf:aviso:orcamento:off")).contains("Aviso desligado: Orçamento estourado"));
+    assert!(!TelegramNotices::load(&TelegramNotices::file(&path)).budget, "kept beside the database");
+    let list = fake.say(text(CHAT, "/avisos"));
+    assert!(
+        list.contains("Contas a vencer: ligado") && list.contains("Orçamento estourado: desligado"),
+        "{list}"
+    );
+    let rows = fake.sent().last().unwrap()["reply_markup"]["inline_keyboard"].clone();
+    assert_eq!(rows[1][0]["callback_data"], "rf:aviso:orcamento:on", "{rows}");
+    assert!(fake.say(text(CHAT, "/avisos resumo ligar")).contains("Aviso ligado: Resumo semanal"));
+    drop(db);
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
+fn the_bot_says_how_many_messages_waited_while_it_was_closed() {
+    let fake = FakeTelegram::start(Duration::ZERO);
+    let home = folder("atrasadas");
+    let path = home.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    db.add_account("Banco", AccountKind::Checking, 0).expect("account");
+    let mut quiet = TelegramNotices::default();
+    for kind in TelegramNotice::ALL {
+        quiet.set(kind, false);
+    }
+    quiet.save(&TelegramNotices::file(&path)).expect("notices off");
+    let code = "00112233445566778899aabbccddeeff";
+    db.begin_telegram_pairing(&pairing_hash(code), None, now()).expect("pairing");
+    // Sent an hour ago, while the app was closed; Telegram kept them.
+    let earlier = |mut update: Value| {
+        update["message"]["date"] = json!(now() - 3600);
+        update
+    };
+    fake.push(earlier(text(CHAT, &format!("/start rf1_{code}"))));
+    fake.push(earlier(text(CHAT, "qual o saldo?")));
+    fake.push(earlier(text(STRANGER, "qual o saldo?")));
+
+    let mut command = Command::new(env!("CARGO_BIN_EXE_raven-telegram"));
+    command.arg(&path).stdout(Stdio::null()).stderr(Stdio::null());
+    isolated(&mut command, &fake, &home);
+    let _bot = Bot(command.spawn().expect("raven-telegram"));
+
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let sent = loop {
+        let sent = fake.sent();
+        if sent.len() >= 4 || Instant::now() > deadline {
+            break sent;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    let said: Vec<(i64, &str)> =
+        sent.iter().map(|m| (m["chat_id"].as_i64().unwrap(), m["text"].as_str().unwrap())).collect();
+    assert_eq!(said.len(), 4, "{said:?}");
+    assert!(
+        said[0].1.contains("Telegram conectado") && said[1].1.starts_with("Saldo:"),
+        "answered in order: {said:?}"
+    );
+    assert_eq!(said[2], (STRANGER, "Escaneie o QR em Ajustes no Raven para conectar este chat."));
+    assert_eq!(said[3].0, CHAT, "only the paired chat hears about it: {said:?}");
+    assert!(said[3].1.starts_with("O Raven estava fechado: respondi agora 2 mensagens"), "{said:?}");
+    assert!(
+        fake.say(text(CHAT, "qual o saldo?")).starts_with("Saldo:"),
+        "a message on time is just answered"
+    );
+    std::thread::sleep(Duration::from_secs(1));
+    assert_eq!(fake.sent().len(), 5, "told once");
+    drop(db);
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+/// One chat per person: who sends is who spent, unless the message names someone else.
+#[test]
+fn each_chat_speaks_for_its_member() {
+    let fake = FakeTelegram::start(Duration::ZERO);
+    let home = folder("membros");
+    let path = home.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    db.add_account("Banco", AccountKind::Checking, 0).expect("account");
+    let ana = db.add_member("Ana").expect("member");
+    let bruno = db.add_member("Bruno").expect("member");
+    db.add_category("Mercado", Flow::Expense, 0).expect("category");
+    let mut quiet = TelegramNotices::default();
+    for kind in TelegramNotice::ALL {
+        quiet.set(kind, false);
+    }
+    quiet.save(&TelegramNotices::file(&path)).expect("notices off");
+
+    let mut command = Command::new(env!("CARGO_BIN_EXE_raven-telegram"));
+    command.arg(&path).stdout(Stdio::null()).stderr(Stdio::null());
+    isolated(&mut command, &fake, &home);
+    let _bot = Bot(command.spawn().expect("raven-telegram"));
+
+    let ana_code = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    db.begin_telegram_pairing(&pairing_hash(ana_code), Some(ana), now()).expect("pairing");
+    let hello = fake.say(text(CHAT, &format!("/start rf1_{ana_code}")));
+    assert!(hello.contains("Telegram conectado a este Raven em nome de Ana"), "{hello}");
+    let bruno_code = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    db.begin_telegram_pairing(&pairing_hash(bruno_code), Some(bruno), now()).expect("pairing");
+    assert!(fake.say(text(BRUNO, &format!("/start rf1_{bruno_code}"))).contains("em nome de Bruno"));
+    assert!(fake.say(text(STRANGER, "qual o saldo?")).contains("Escaneie o QR"), "no QR, no access");
+
+    let question = fake.say(text(CHAT, "gastei 50 no mercado"));
+    assert!(question.contains("Despesa · Mercado · Ana · R$ 50,00"), "Ana's chat: {question}");
+    assert!(fake.say(tap(CHAT, "rf:ok")).contains("✅ Lançado"));
+    let question = fake.say(text(BRUNO, "gastei 20 no mercado"));
+    assert!(question.contains("Despesa · Mercado · Bruno · R$ 20,00"), "Bruno's chat: {question}");
+    assert!(fake.say(tap(BRUNO, "rf:ok")).contains("✅ Lançado"));
+    let question = fake.say(text(BRUNO, "gastei 7 no mercado, foi a Ana"));
+    assert!(question.contains("Despesa · Mercado · Ana · R$ 7,00"), "the name said wins: {question}");
+    assert!(fake.say(tap(BRUNO, "rf:no")).contains("❌ Cancelado"));
+
+    let mine = fake.say(text(BRUNO, "quanto gastei?"));
+    assert!(mine.starts_with("Gastos de Bruno em ") && mine.contains("R$ 20,00"), "{mine}");
+    let all = fake.say(text(BRUNO, "quanto gastamos?"));
+    assert!(all.contains("R$ 70,00"), "everyone sees the whole family: {all}");
+    assert!(fake.say(text(CHAT, "quanto o Bruno gastou?")).contains("R$ 20,00"), "Ana can ask about Bruno");
+
+    db.revoke_telegram_chat(CHAT, now()).expect("unlink Ana's chat");
+    assert!(fake.say(text(CHAT, "quanto gastei?")).contains("Escaneie o QR"), "unlinked");
+    assert!(fake.say(text(BRUNO, "quanto gastei?")).starts_with("Gastos de Bruno"), "Bruno's chat stays");
+    drop(db);
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+/// On a bad network the bot falls and starts again; Telegram resends what it did not see
+/// confirmed, and the bot must not answer it twice.
+#[test]
+fn a_bot_that_starts_again_does_not_answer_twice() {
+    let fake = FakeTelegram::start(Duration::ZERO);
+    let home = folder("de-novo");
+    let path = home.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    db.add_account("Banco", AccountKind::Checking, 0).expect("account");
+    let mut quiet = TelegramNotices::default();
+    for kind in TelegramNotice::ALL {
+        quiet.set(kind, false);
+    }
+    quiet.save(&TelegramNotices::file(&path)).expect("notices off");
+    let code = "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f";
+    db.begin_telegram_pairing(&pairing_hash(code), None, now()).expect("pairing");
+    let start = || {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_raven-telegram"));
+        command.arg(&path).stdout(Stdio::null()).stderr(Stdio::null());
+        isolated(&mut command, &fake, &home);
+        Bot(command.spawn().expect("raven-telegram"))
+    };
+
+    let bot = start();
+    assert!(fake.say(text(CHAT, &format!("/start rf1_{code}"))).contains("Telegram conectado"));
+    assert!(fake.say(text(CHAT, "qual o saldo?")).starts_with("Saldo:"));
+    drop(bot);
+    let answered = fake.sent().len();
+    // The stand-in resends everything from the offset asked for, as Telegram does with what
+    // was never confirmed.
+    let _again = start();
+    std::thread::sleep(Duration::from_secs(3));
+    assert_eq!(fake.sent().len(), answered, "nothing answered twice: {:?}", fake.sent());
+    assert!(fake.say(text(CHAT, "qual o saldo?")).starts_with("Saldo:"), "and a new message is answered");
     drop(db);
     let _ = std::fs::remove_dir_all(&home);
 }
@@ -501,7 +831,8 @@ fn window_side() {
         fake.say_within(text(CHAT, &format!("/start rf1_{code}")), Duration::from_secs(20), &mut tick);
     assert!(answer.is_some_and(|a| a.contains("Telegram conectado")), "the bot inside the window answered");
     wait_for(&mut ui, "Telegram conectado");
-    assert!(find(&mut ui, "Gerar novo QR").is_none(), "no QR to make while a chat is paired");
+    assert!(find(&mut ui, "Gerar novo QR").is_none(), "the QR was used: no QR left on screen");
+    assert!(find(&mut ui, "Conectar outro chat").is_some(), "another person can pair a chat of their own");
     press(&mut ui, "Desvincular");
     wait_for(&mut ui, "Nenhum chat conectado.");
 }

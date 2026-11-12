@@ -12,11 +12,13 @@ const RATE: u32 = 44_100;
 ///
 /// The ready-made ones are computed, so they add nothing to an app's size.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SoundClip {
     samples: Arc<[f32]>,
     rate: u32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SoundClip {
     /// A sound from its samples, between -1 and 1, at `rate` a second.
     pub fn new(samples: impl Into<Arc<[f32]>>, rate: u32) -> Self {
@@ -101,6 +103,7 @@ pub trait SoundProvider {
 
 /// A provider that makes no sound (tests, headless use).
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Silence;
 
 impl SoundProvider for Silence {
@@ -122,6 +125,7 @@ impl SoundProvider for Silence {
 /// sound.speak("Clique em Salvar.", "pt-BR");
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Sound {
     provider: Rc<dyn SoundProvider>,
     /// Goes up each time something takes the place of what was being said, since a provider
@@ -129,6 +133,7 @@ pub struct Sound {
     turn: Rc<Cell<u64>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Sound {
     /// Wraps a provider.
     pub fn new(provider: impl SoundProvider + 'static) -> Self {

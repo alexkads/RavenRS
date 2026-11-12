@@ -2,12 +2,13 @@
 
 use std::collections::BTreeSet;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, TextStyle};
 use ravenrs_widgets::{
-    BuildCx, Card, IconName, ListItem, NodeId, Paint, Placement, SegmentedControl, Select, Text, TextField,
-    VStack, View, ViewExt,
+    BuildCx, Card, IconName, ListItem, LottieAnimation, NodeId, Paint, Placement, SegmentedControl, Select,
+    Text, TextField, VStack, View, ViewExt,
 };
 
 use crate::narration::Narration;
@@ -26,6 +27,7 @@ const AROUND_THE_FILM: f32 = 184.0;
 /// The words a [`MovieAssistant`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AssistantLabels {
     /// Inside the empty question field.
     pub placeholder: String,
@@ -39,24 +41,25 @@ pub struct AssistantLabels {
 
 impl Default for AssistantLabels {
     fn default() -> Self {
-        Self {
-            placeholder: "Ask how to do something".into(),
-            nothing_found: "No film talks about that. Try other words.".into(),
-            film: "Film".into(),
-            player: MovieLabels::default(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AssistantLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            placeholder: texts.get("movie.assistant.placeholder"),
+            nothing_found: texts.get("movie.assistant.nothing_found"),
+            film: texts.get("movie.assistant.film"),
+            player: MovieLabels::from_texts(texts),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            placeholder: "Pergunte como fazer alguma coisa".into(),
-            nothing_found: "Nenhum filme fala sobre isso. Tente outras palavras.".into(),
-            film: "Assunto".into(),
-            player: MovieLabels::pt_br(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 
@@ -71,6 +74,7 @@ impl AssistantLabels {
 /// let assistant = MovieAssistant::new(MovieLibrary::new()).width(960.0);
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieAssistant {
     library: MovieLibrary,
     width: f32,
@@ -78,8 +82,10 @@ pub struct MovieAssistant {
     labels: AssistantLabels,
     cue: Option<MovieCue>,
     narration: Option<Narration>,
+    logo: Option<LottieAnimation>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieAssistant {
     /// An assistant over `library`, with an empty question.
     pub fn new(library: MovieLibrary) -> Self {
@@ -90,6 +96,7 @@ impl MovieAssistant {
             labels: AssistantLabels::default(),
             cue: None,
             narration: None,
+            logo: None,
         }
     }
 
@@ -110,6 +117,13 @@ impl MovieAssistant {
     #[must_use]
     pub fn narration(mut self, narration: Narration) -> Self {
         self.narration = Some(narration);
+        self
+    }
+
+    /// The app's animated logo, played on the films' opening and farewell cards.
+    #[must_use]
+    pub fn logo(mut self, logo: LottieAnimation) -> Self {
+        self.logo = Some(logo);
         self
     }
 
@@ -180,6 +194,7 @@ struct Open {
     cue: MovieCue,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Open {
     fn moment(&self, moment: &Moment) {
         self.film.set(moment.film);
@@ -268,6 +283,9 @@ impl View for MovieAssistant {
                 MoviePlayer::new(movie.clone()).width(self.width).labels(self.labels.player.clone()).cue(cue);
             if let Some(height) = self.height {
                 player = player.max_film_height(height - AROUND_THE_FILM);
+            }
+            if let Some(logo) = &self.logo {
+                player = player.logo(logo.clone());
             }
             if let Some(narration) = &self.narration {
                 player = player.narration(narration.clone());

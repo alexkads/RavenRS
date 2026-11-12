@@ -35,6 +35,7 @@ const SHIMMER_FLOOR: f32 = 0.04;
 /// let unsaved = Dot::new().tone(Tone::Warning).label("Not saved");
 /// ```
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Dot {
     tone: Tone,
     color: Option<Color>,
@@ -42,6 +43,7 @@ pub struct Dot {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Dot {
     /// A neutral dot, 8 logical pixels across.
     pub fn new() -> Self {
@@ -115,6 +117,7 @@ pub struct OverlayBadge<C, B> {
     visible: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View, B: View> OverlayBadge<C, B> {
     /// `badge` on the top right corner of `content`.
     pub fn new(content: C, badge: B) -> Self {
@@ -190,6 +193,7 @@ impl<C: View, B: View> View for OverlayBadge<C, B> {
 /// let shown = Rating::read_only(4);
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Rating {
     value: Option<Binding<u32>>,
     fixed: u32,
@@ -201,6 +205,7 @@ pub struct Rating {
     clearable: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Rating {
     fn with(value: Option<Binding<u32>>, fixed: u32) -> Self {
         Self {
@@ -290,7 +295,7 @@ impl Rating {
         );
         let labels = cx.labels();
         let name = self.label.clone().unwrap_or_else(|| labels.rating.clone());
-        cx.semantics(node, Semantics::new(Role::Image).name(name).value((labels.rating_value)(value, max)));
+        cx.semantics(node, Semantics::new(Role::Image).name(name).value(labels.rating_value(value, max)));
         node
     }
 
@@ -342,7 +347,7 @@ impl Rating {
             Semantics::new(Role::Slider)
                 .name(name)
                 .numeric(f64::from(value), 0.0, f64::from(max), Some(1.0))
-                .value((labels.rating_value)(value, max)),
+                .value(labels.rating_value(value, max)),
         );
         let keys = binding.clone();
         cx.on_key(
@@ -414,6 +419,7 @@ impl View for Star {
 /// let tile = IconTile::new(IconName::TriangleAlert).tone(Tone::Warning);
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct IconTile {
     icon: IconName,
     tone: Tone,
@@ -422,6 +428,7 @@ pub struct IconTile {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl IconTile {
     /// A neutral tile of 48 logical pixels showing `icon`.
     pub fn new(icon: IconName) -> Self {
@@ -494,6 +501,7 @@ impl View for IconTile {
 ///     .description("Import a folder to start.")
 ///     .action(Button::new("Import"));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EmptyState {
     title: String,
     description: Option<String>,
@@ -507,6 +515,7 @@ impl fmt::Debug for EmptyState {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EmptyState {
     /// An empty state with this title.
     pub fn new(title: impl Into<String>) -> Self {
@@ -582,6 +591,7 @@ impl View for EmptyState {
 ///
 /// let banner = HeroBanner::new("You can remove the card").icon(IconName::CircleCheck).tone(Tone::Success);
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct HeroBanner {
     title: String,
     description: Option<String>,
@@ -597,6 +607,7 @@ impl fmt::Debug for HeroBanner {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl HeroBanner {
     /// A banner saying `title`, in the accent tone.
     pub fn new(title: impl Into<String>) -> Self {
@@ -703,11 +714,13 @@ impl View for HeroBanner {
 ///     .meter("Previews", 12, 40);
 /// ```
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MultiProgress {
     bars: Vec<ProgressBar>,
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MultiProgress {
     /// No bars yet.
     pub fn new() -> Self {
@@ -766,12 +779,14 @@ impl View for MultiProgress {
 /// let waiting = ShimmerText::new("Looking for updates");
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ShimmerText {
     text: String,
     style: TextStyle,
     active: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ShimmerText {
     /// `text` with the light passing over it.
     pub fn new(text: impl Into<String>) -> Self {
@@ -882,6 +897,7 @@ impl View for ShimmerText {
 /// let free = DaySeparator::new("Last week");
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DaySeparator {
     text: DayText,
 }
@@ -892,6 +908,7 @@ enum DayText {
     Day { day: Date, today: Date },
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DaySeparator {
     /// A separator with this text.
     pub fn new(text: impl Into<String>) -> Self {
@@ -915,7 +932,7 @@ impl View for DaySeparator {
                 match today.to_days() - day.to_days() {
                     0 => labels.today.clone(),
                     1 => labels.yesterday.clone(),
-                    _ => (labels.short_date)(*day),
+                    _ => labels.short_date(*day),
                 }
             }
         };

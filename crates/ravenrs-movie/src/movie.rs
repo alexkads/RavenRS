@@ -24,6 +24,7 @@ const IMAGE_DETAIL: f32 = 2.0;
 /// What can go wrong with a film.
 #[derive(Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum MovieError {
     /// The file is not a film, or it was cut short.
     Damaged(String),
@@ -44,6 +45,7 @@ impl std::error::Error for MovieError {}
 
 /// A part of the film, in the list of chapters.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Chapter {
     /// Its name.
     pub title: String,
@@ -56,6 +58,7 @@ pub struct Chapter {
 /// What a spot on the screen does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum HotspotKind {
     /// The film stops here until someone clicks the spot.
     Stop,
@@ -65,6 +68,7 @@ pub enum HotspotKind {
 
 /// A spot on the screen that talks to whoever is watching.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Hotspot {
     /// What it does.
     pub kind: HotspotKind,
@@ -86,6 +90,7 @@ pub struct Hotspot {
     pub until_ms: u64,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Hotspot {
     /// Where it is on the screen of the app.
     pub fn bounds(&self) -> Rect {
@@ -108,6 +113,7 @@ pub(crate) enum FilmSound {
 
 /// Where the pointer was at a moment.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct PointerKey {
     /// When, in milliseconds.
     pub at_ms: u64,
@@ -225,6 +231,7 @@ struct Film {
 
 /// A film and its edits. Cloning is cheap: the film itself is shared.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Movie {
     film: Rc<Film>,
     project: Project,
@@ -233,6 +240,7 @@ pub struct Movie {
     sounds: Rc<[(u64, FilmSound)]>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Movie {
     fn with(film: Rc<Film>, project: Project) -> Self {
         let (chapters, hotspots) = edited_marks(&film.header, &project);
@@ -276,16 +284,22 @@ impl Movie {
         &self.chapters
     }
 
-    /// A moment to show before it plays: past any fade from black at the start.
+    /// A moment to show before it plays: past any fade from black at the start, and
+    /// past the coming in of an opening card, so that it shows its words.
     pub fn poster_ms(&self) -> u64 {
-        self.project
+        let faded = self
+            .project
             .overlays
             .iter()
             .filter(|o| matches!(o.kind, OverlayKind::FadeIn) && o.start_ms == 0)
             .map(crate::project::Overlay::end_ms)
             .max()
-            .unwrap_or(0)
-            .min(self.duration_ms())
+            .unwrap_or(0);
+        let opened = match self.project.clips.first().map(|clip| &clip.kind) {
+            Some(crate::project::ClipKind::Title { look, .. }) => look.words_in_ms(),
+            _ => 0,
+        };
+        faded.max(opened).min(self.duration_ms())
     }
 
     /// The chapter playing at `ms` of the timeline.
@@ -474,6 +488,7 @@ fn edited_sounds(header: &Header, project: &Project) -> Vec<(u64, FilmSound)> {
     sounds
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Film {
     fn open(header: Header, blobs: Vec<Vec<u8>>) -> Result<Self, MovieError> {
         let damaged = |why: &str| MovieError::Damaged(why.to_owned());
@@ -532,6 +547,7 @@ fn font_id(bytes: &[u8]) -> u64 {
     hash | (1 << 63)
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Stored {
     fn primitive(&self, fonts: &[FontRef], images: &[ImageData]) -> Result<Primitive, MovieError> {
         let damaged = |why: &str| MovieError::Damaged(why.to_owned());
@@ -623,6 +639,7 @@ fn shrink(image: &ImageData, rect: Rect) -> (u32, u32, Vec<u8>) {
 
 /// Puts a film together from what the app draws, keeping each different thing once.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FilmBuilder {
     header: Header,
     blobs: Vec<Vec<u8>>,
@@ -632,6 +649,7 @@ pub struct FilmBuilder {
     list: Vec<u32>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FilmBuilder {
     /// A film of an app of this logical size, over this color.
     pub fn new(logical: Size, background: Color) -> Self {

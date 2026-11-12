@@ -125,7 +125,7 @@ impl NewsDialog {
                             .font_weight(Weight::SEMIBOLD),
                         CodeBlock::new(tail),
                     ))
-                    .spacing(6.0)
+                    .spacing(8.0)
                     .align(Align::Stretch),
                 ) as AnyView,
                 None => Box::new(
@@ -135,16 +135,18 @@ impl NewsDialog {
                 ) as AnyView,
             },
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Stretch);
         Dialog::new(opened.binding(), "Detalhes da atualização")
             .width(720.0)
             .content(content)
             .action(Button::new("Fechar").style(ButtonStyle::Secondary).on_click(move || close.set(false)))
-            .action(Button::new("Como atualizar à mão").style(ButtonStyle::Secondary).on_click(move || {
-                manual.set(false);
-                news.show_latest();
-            }))
+            .action(Button::new("Ver como atualizar à mão").style(ButtonStyle::Secondary).on_click(
+                move || {
+                    manual.set(false);
+                    news.show_latest();
+                },
+            ))
             .action(
                 Button::new("Abrir o registro")
                     .icon(IconName::FileText)
@@ -301,7 +303,7 @@ pub(crate) fn status_bar(updater: &Updater, news: &NewsDialog, reporter: &BugRep
     let bar = bar.center((
         notice.busy.then(|| Spinner::new().size(12.0)),
         StatusBar::text(notice.text).foreground(Semantic::Ink).truncate().grow(1.0),
-        HStack::new(buttons).spacing(2.0),
+        HStack::new(buttons).spacing(4.0),
     ));
     if notice.important { bar.center_tone(Tone::Warning) } else { bar }
 }

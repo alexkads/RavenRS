@@ -22,8 +22,10 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Separator | ✓ | | | ✅ `Divider` |
 | Aspect ratio | ✓ | | | ✅ `AspectRatio` |
 | Scroll area | ✓ | ✓ | ✓ | ✅ `ScrollView` (vertical; horizontal inside DataGrid) |
+| Sticky content and scroll-driven effects | ✓ | ✓ | ✓ | ✅ `Sticky`, `ScrollScene`, `ScrollLinked` with `ScrollLink` (ranges, windows, easing, keyframes) |
+| Links, anchors, counters, marquees | ✓ | ✓ | ✓ | ✅ `Link`, `Anchor`, `CountUp` (also counts to a new value, with even digits), `Ticker` with `TimeLink`, `QuadField` |
 | Resizable panels / Splitter | ✓ | ✓ | ✓ | ✅ `Splitter` for two panes, `SplitPanes` for any number with limits, `SplitHandle` for a bar of your own; all move with the keyboard |
-| Tile layout / Dashboard layout | | ✓ | ✓ | ✅ `TileLayout`: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep |
+| Tile layout / Dashboard layout | | ✓ | ✓ | ✅ `TileLayout`: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep; controls in a tile's header (`Tile::accessory`) |
 | Docking / Dock manager | | ✓ | ✓ | ✅ `DockArea`: a tree of splits and tabs in four places; moves by a drag with a mark on the target, by keys or by a menu; bars with limits and keys; docks that collapse and panels that close and come back; an arrangement saved as versioned text, where an unknown id is left out. Floating panels are left out: the app this was modeled on does not float them either |
 | Window (floating) | | ✓ | ✓ | 🟡 `FloatingPanel::movable`: moves and reduces, does not resize |
 | App bar / Toolbar | | ✓ | ✓ | ✅ `Toolbar`, `ToolbarAction`: what does not fit folds into a menu |
@@ -75,6 +77,8 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 |---|---|---|---|---|
 | Text box | ✓ | ✓ | ✓ | ✅ `TextField` (selection, clipboard, views before and after the text, clear button, sizes) |
 | Text area (multi-line) | ✓ | ✓ | ✓ | ✅ `TextArea`: wraps, scrolls, builds only the lines in view, grows with the text between two limits |
+| Code editor | | ✓ | | ✅ `CodeEditor` (feature `code`): Fira Mono, line numbers, Rust colors by token, Tab and Shift+Tab indent, Enter keeps the indentation, diagnostics mark the line and underline the columns. No horizontal scrolling or folding yet |
+| Code playground | | | | ✅ `Playground` (feature `code`): one bar, code beside its result, an Output panel with Console (`println!`) and Problems (also from closures that fail later), examples that run when picked, Restore, Ctrl/Cmd+Enter runs through a `Runner`, problems marked on their lines, last result kept and faded, Code/Result/Output tabs with a ⋯ menu below 768 px, and `download` to save what the code makes. The gallery downloads each example as a Cargo project (`ravenrs-project`) that `cargo run`s on the desktop and builds for the browser; `scripts/check.sh --full` builds all of them. `LiveRunner` (feature `live`) runs edited Rust without a compiler through `ravenrs-live`: all 181 gallery examples, each building as many elements as compiled; what it cannot read yet would be listed in `examples/component-gallery/live-pending.txt` |
 | Label | ✓ | ✓ | ✓ | ✅ `Label` |
 | Form, field validation | ✓ | ✓ | ✓ | ✅ `FormField` + validators |
 | Form layout (groups, columns, tabs, error list) | | ✓ | ✓ | ✅ `FormLayout`, `FormGroup` |
@@ -106,7 +110,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Signature | | | ✓ | ⬜ |
 | Rich text editor | | ✓ | ✓ | ⬜ |
 | Code editor | | ✓ | | ⬜ |
-| Spreadsheet | | ✓ | ✓ | ⬜ |
+| Spreadsheet | | ✓ | ✓ | 🟡 `Spreadsheet` (`ravenrs-spreadsheet`): opens XLSX, XLS, ODS and CSV and saves XLSX, 500+ functions with recalculation, editing in the cell and the formula bar, pointer and keyboard selection, clipboard, undo, bold, italic, underline, alignment, number formats, column widths, sheet tabs. Planned: every command on a ribbon, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find |
 
 ## Data
 
@@ -139,10 +143,12 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Pie / donut | ✓ | ✓ | ✓ | ✅ `Chart`: rings, active slice, a slice that comes forward under the pointer, center text, labels, guides with an elbow, a real gap between slices, a radius per slice |
 | Radar, radial | | ✓ | ✓ | ✅ `Chart`: polygon and circle grids, filled, tracks, stacked |
 | Chart tooltip, legend, keyboard | ✓ | ✓ | ✓ | ✅ `ChartTooltip` (share, color by value, free content, either side on both axes), `ChartLegend`, arrow keys; cursor and dots that glide and fade |
+| Chart entrance | ✓ | ✓ | ✓ | 🟡 `Chart`, `SankeyChart`: the data draws in the first time it is painted, with axes and grid there from the first frame: lines, areas, candles and flows from the left, bars out of zero, pies clockwise, radars out of the center; the tooltip waits; `no_appear`, `appear_key`; `animate_changes` moves from old data to new, with the axis; radial bars only fade in ⬜ |
 | Chart axes | ✓ | ✓ | ✓ | ✅ `Chart`: dashed grid, columns, steps of the axis, labels measured with the real font, aligned ends, lines of reference, fixed domain |
 | Scatter, bubble, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`, with a tooltip and cursor when asked; candlestick in `Chart`, with an axis of round numbers, outlines for what rose and the keyboard; bubble and funnel ⬜ |
 | Sankey | | ✓ | ✓ | ✅ `SankeyChart`: alignment, ribbons in a gradient, the rest fading around the focus, arrow keys, every flow read aloud, a clear message when the flows go in a circle |
 | Gauges (linear, circular, arc) | | ✓ | ✓ | ✅ `ProgressBar`, `Chart` with `RadialBar` |
+| Flow diagram (nodes and connections) | | ✓ | ✓ | 🟡 `FlowCanvas`: endless surface with a grid, pan by drag and wheel, zoom by pinch and keys around the pointer, nodes that move on the grid and take focus, ports that check what connects and say why not, curve, step and straight lines with arrows, labels and dashes that travel, selection by press, Shift and rectangle, Delete, a lock, controls and a map. ⬜ undo, copy and paste, JSON, automatic layout, views inside nodes, groups, reconnecting a line by its end |
 
 The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built with `Chart` and `ChartCard`: all 70 patterns are in the gallery's Charts page, under their names (`examples/component-gallery/src/charts.rs`).
 | Maps | | ✓ | ✓ | ⬜ |

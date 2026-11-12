@@ -104,6 +104,7 @@ fn announces_every_tool_as_read_only() {
     assert_eq!(
         listed,
         [
+            "app_contracts",
             "check_report_layout",
             "component_api",
             "component_examples",
@@ -134,7 +135,8 @@ fn the_plugin_matches_the_server() {
     }
 
     let config: Value = serde_json::from_str(include_str!("../../../plugins/ravenrs/.mcp.json")).unwrap();
-    assert_eq!(config["mcpServers"]["ravenrs"]["command"], env!("CARGO_PKG_NAME"));
+    assert_eq!(config["mcpServers"]["ravenrs"]["command"], "cargo");
+    assert_eq!(config["mcpServers"]["ravenrs"]["args"], json!(["ravenrs", "mcp"]));
 }
 
 #[test]
@@ -285,7 +287,40 @@ fn parity_status_searches_both_documents() {
     assert_eq!(planned["done"], 0);
 
     assert!(client.call_err("parity_status", json!({ "status": "maybe" }))["error"].is_string());
-    assert!(client.call_err("parity_status", json!({ "document": "other" }))["error"].is_string());
+    assert!(
+        client.call_err("parity_status", json!({ "document": "other" }))["error"]
+            .as_str()
+            .unwrap()
+            .contains("application")
+    );
+}
+
+#[test]
+fn parity_status_reads_the_application_tracker_with_its_issue() {
+    let mut client = Client::start();
+    let manifest = client.call("parity_status", json!({ "document": "application", "query": "manifest" }));
+    assert_eq!(manifest["rows"][0]["document"], "application");
+    assert_eq!(manifest["rows"][0]["status"], "partial");
+    assert!(manifest["rows"][0]["ravenrs"].as_str().unwrap().contains("ModuleManifest"));
+    assert_eq!(manifest["rows"][0]["reference"]["Step"], "#271");
+
+    let both = client.call("parity_status", json!({ "query": "manifest" }));
+    assert!(both["rows"].as_array().unwrap().iter().all(|row| row["document"] != "application"));
+}
+
+#[test]
+fn app_contracts_lists_scenarios_and_groups_with_their_owners() {
+    let mut client = Client::start();
+    let all = client.call("app_contracts", json!({}));
+    assert_eq!(all["scenarios"].as_array().unwrap().len(), 19);
+    assert_eq!(all["groups"].as_array().unwrap().len(), 19);
+    assert!(
+        all["groups"].as_array().unwrap().iter().all(|group| !group["owner"].as_str().unwrap().is_empty())
+    );
+
+    let events = client.call("app_contracts", json!({ "query": "C07" }));
+    assert_eq!(events["scenarios"].as_array().unwrap().len(), 1);
+    assert!(events["scenarios"][0]["owner"].as_str().unwrap().contains("#254"));
 }
 
 #[test]

@@ -44,6 +44,7 @@ struct Shared {
 /// The web build has no other threads to wake it from; there, change a
 /// [`State`](ravenrs_reactive::State) as usual.
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct UiWaker(Arc<Shared>);
 
 impl fmt::Debug for UiWaker {
@@ -52,6 +53,7 @@ impl fmt::Debug for UiWaker {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl UiWaker {
     /// Asks for a rebuild. Calls made before it happens count as one.
     pub fn wake(&self) {

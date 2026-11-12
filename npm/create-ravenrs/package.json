@@ -1,0 +1,74 @@
+{
+  "name": "create-ravenrs",
+  "version": "27.1.27",
+  "description": "Create Rust GUI apps for desktop and WebAssembly with RavenRS. Sets up Rust, scaffolds your project, and configures version-matched MCP and AI coding tools.",
+  "type": "module",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexkads/RavenRS.git",
+    "directory": "npm/create-ravenrs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "create-ravenrs": "bin/create-ravenrs.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "release.json",
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "prepare-release": "node scripts/prepare-release.mjs",
+    "prepack": "node scripts/prepare-release.mjs --check",
+    "test:e2e:linux": "node scripts/e2e-linux.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://alexkads.github.io/RavenRS/docs/getting-started/",
+  "bugs": {
+    "url": "https://github.com/alexkads/RavenRS/issues"
+  },
+  "author": {
+    "name": "Alex S S Fonseca",
+    "url": "https://github.com/alexkads"
+  },
+  "keywords": [
+    "ravenrs",
+    "rust",
+    "rust-gui",
+    "gui",
+    "desktop",
+    "native",
+    "cross-platform",
+    "webassembly",
+    "wasm",
+    "webgpu",
+    "wgpu",
+    "ui-framework",
+    "scaffolding",
+    "project-generator",
+    "create-app",
+    "cli",
+    "cargo",
+    "developer-tools",
+    "mcp",
+    "model-context-protocol",
+    "ai-coding",
+    "claude-code",
+    "github-copilot",
+    "cursor",
+    "vscode",
+    "codex",
+    "sqlite",
+    "crud",
+    "reporting"
+  ]
+}
