@@ -14,7 +14,7 @@ use syn::{DeriveInput, Error, Result, parse_macro_input};
 /// a record.
 ///
 /// On the struct, `#[object(caption = "...", navigation = "...", icon = "...", empty_text = "...",
-/// list_criteria = "...", form_columns = 2, cloneable, transient, checks_on_leave, list_editable,
+/// list_criteria = "...", form_columns = 2, cloneable, singleton, transient, checks_on_leave, list_editable,
 /// data_access = "server", form_actions = "name", focus_order = "a,b")]`, where `data_access` is
 /// `client`, `server` or `data_view`, and `focus_order` the fields the form goes through first.
 ///
@@ -364,6 +364,9 @@ fn business_object(input: &DeriveInput) -> Result<Tokens> {
     }
     if object.cloneable {
         info = quote!(#info.cloneable());
+    }
+    if object.singleton {
+        info = quote!(#info.singleton());
     }
     if object.transient {
         info = quote!(#info.transient());

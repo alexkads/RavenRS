@@ -41,6 +41,7 @@ use winit::event::StartCause;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy, OwnedDisplayHandle};
 use winit::keyboard::{Key as WinitKey, ModifiersState, NamedKey};
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement as _;
 use winit::window::{Icon, Window, WindowAttributes, WindowId};
 
 pub use diagnostics::diagnose;
@@ -783,6 +784,18 @@ fn map_key(key: &WinitKey) -> Key {
         WinitKey::Named(NamedKey::ArrowRight) => Key::ArrowRight,
         WinitKey::Named(NamedKey::ArrowUp) => Key::ArrowUp,
         WinitKey::Named(NamedKey::ArrowDown) => Key::ArrowDown,
+        WinitKey::Named(NamedKey::F1) => Key::Function(1),
+        WinitKey::Named(NamedKey::F2) => Key::Function(2),
+        WinitKey::Named(NamedKey::F3) => Key::Function(3),
+        WinitKey::Named(NamedKey::F4) => Key::Function(4),
+        WinitKey::Named(NamedKey::F5) => Key::Function(5),
+        WinitKey::Named(NamedKey::F6) => Key::Function(6),
+        WinitKey::Named(NamedKey::F7) => Key::Function(7),
+        WinitKey::Named(NamedKey::F8) => Key::Function(8),
+        WinitKey::Named(NamedKey::F9) => Key::Function(9),
+        WinitKey::Named(NamedKey::F10) => Key::Function(10),
+        WinitKey::Named(NamedKey::F11) => Key::Function(11),
+        WinitKey::Named(NamedKey::F12) => Key::Function(12),
         WinitKey::Character(c) if c.as_str() == " " => Key::Space,
         WinitKey::Character(c) => Key::Character(c.to_string()),
         other => Key::Other(format!("{other:?}")),
@@ -1019,6 +1032,7 @@ impl ApplicationHandler<UserEvent> for App {
                     ctrl: s.control_key(),
                     alt: s.alt_key(),
                     meta: s.super_key(),
+                    base_key: None,
                 };
             }
             WindowEvent::KeyboardInput { event, .. } => {
@@ -1029,7 +1043,12 @@ impl ApplicationHandler<UserEvent> for App {
                     return;
                 }
                 let key = map_key(&event.logical_key);
-                let modifiers = self.modifiers;
+                let mut modifiers = self.modifiers;
+                if modifiers.alt
+                    && let WinitKey::Character(base) = event.key_without_modifiers()
+                {
+                    modifiers.base_key = base.chars().next();
+                }
                 self.dispatch(match event.state {
                     ElementState::Pressed => Event::KeyDown { key, modifiers },
                     ElementState::Released => Event::KeyUp { key, modifiers },
@@ -1079,7 +1098,7 @@ mod tests {
     #[test]
     fn the_diagnostics_shortcut_needs_both_modifiers() {
         let key = WinitKey::Character("D".into());
-        let held = |ctrl, shift, meta| Modifiers { ctrl, shift, meta, alt: false };
+        let held = |ctrl, shift, meta| Modifiers { ctrl, shift, meta, ..Modifiers::default() };
         assert!(is_diagnostics_shortcut(&key, held(true, true, false)));
         assert!(is_diagnostics_shortcut(&key, held(false, true, true)));
         assert!(!is_diagnostics_shortcut(&key, held(true, false, false)));
@@ -1114,7 +1133,8 @@ mod tests {
     fn characters_and_unknown_keys() {
         assert_eq!(map_key(&WinitKey::Character(" ".into())), Key::Space, "a typed space is the Space key");
         assert_eq!(map_key(&WinitKey::Character("ç".into())), Key::Character("ç".into()));
-        assert!(matches!(map_key(&WinitKey::Named(NamedKey::F5)), Key::Other(name) if name.contains("F5")));
+        assert_eq!(map_key(&WinitKey::Named(NamedKey::F5)), Key::Function(5));
+        assert!(matches!(map_key(&WinitKey::Named(NamedKey::F13)), Key::Other(name) if name.contains("F13")));
     }
 
     #[test]

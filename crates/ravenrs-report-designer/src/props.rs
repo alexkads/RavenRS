@@ -3,7 +3,10 @@
 use crate::prelude::*;
 use ravenrs_report::barcode::Symbology;
 use ravenrs_report::chart::ChartKind;
-use ravenrs_report::{ChartSeries, ControlKind, PageSettings, PictureMode, Style, TextAlign};
+use ravenrs_report::{
+    ChartSeries, Columns, ControlKind, PageSettings, PictureMode, PrinterAction, PrinterCommand, Style,
+    TextAlign,
+};
 use ravenrs_style::SPACING;
 
 use crate::bands::BandRef;
@@ -269,15 +272,73 @@ fn bookmark_props(e: &Editor, rows: &mut Vec<AnyView>) {
     rows.push(Box::new(FormField::new("Expressão", text).hint("O texto no sumário do PDF. Ex.: [Region]")));
 }
 
-const SYMBOLOGIES: [(&str, Symbology); 7] = [
+const SYMBOLOGIES: [(&str, Symbology); 8] = [
     ("Code 128", Symbology::Code128),
     ("Code 39", Symbology::Code39),
     ("EAN-13", Symbology::Ean13),
     ("EAN-8", Symbology::Ean8),
     ("UPC-A", Symbology::UpcA),
     ("ITF", Symbology::Itf),
+    ("ITF-14", Symbology::Itf14),
     ("QR Code", Symbology::Qr),
 ];
+
+/// What a printer can be told to do, as people call it.
+pub(crate) const PRINTER_ACTIONS: [(&str, PrinterAction); 5] = [
+    ("Corte total", PrinterAction::Cut),
+    ("Corte parcial", PrinterAction::PartialCut),
+    ("Abrir gaveta", PrinterAction::OpenDrawer),
+    ("Bipe", PrinterAction::Beep),
+    ("Avançar papel", PrinterAction::Feed),
+];
+
+fn printer_command_props(e: &Editor, command: PrinterCommand, rows: &mut Vec<AnyView>) {
+    let index = PRINTER_ACTIONS.iter().position(|(_, action)| *action == command.action).unwrap_or(0);
+    let write = e.clone();
+    let action = Select::new(
+        Binding::new(
+            move || index,
+            move |i: usize| {
+                write.edit_control("printer-action", |c| {
+                    if let ControlKind::PrinterCommand(p) = &mut c.kind {
+                        p.action = PRINTER_ACTIONS[i.min(PRINTER_ACTIONS.len() - 1)].1;
+                    }
+                });
+            },
+        ),
+        PRINTER_ACTIONS.iter().map(|(name, _)| *name),
+    )
+    .width(268.0)
+    .label("Comando");
+    rows.push(Box::new(
+        FormField::new("Comando", action)
+            .hint("Vale para impressoras ESC/POS. O comando não ocupa espaço e não aparece no PDF."),
+    ));
+    if command.action == PrinterAction::Feed {
+        let (read, write) = (e.clone(), e.clone());
+        let lines = TextField::new(Binding::new(
+            move || {
+                read.selected_control()
+                    .and_then(|(_, _, c)| match c.kind {
+                        ControlKind::PrinterCommand(p) => Some(p.lines.to_string()),
+                        _ => None,
+                    })
+                    .unwrap_or_default()
+            },
+            move |s: String| {
+                if let Ok(lines) = s.trim().parse::<u8>() {
+                    write.edit_control("printer-lines", |c| {
+                        if let ControlKind::PrinterCommand(p) = &mut c.kind {
+                            p.lines = lines;
+                        }
+                    });
+                }
+            },
+        ))
+        .compact();
+        rows.push(Box::new(FormField::new("Linhas", lines)));
+    }
+}
 
 fn barcode_props(e: &Editor, barcode: &ravenrs_report::Barcode, rows: &mut Vec<AnyView>) {
     let index = SYMBOLOGIES.iter().position(|(_, s)| *s == barcode.symbology).unwrap_or(0);
@@ -431,6 +492,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Chart(_) => "Gráfico",
         ControlKind::Link(_) => "Link",
         ControlKind::Bookmark(_) => "Marcador",
+        ControlKind::PrinterCommand(_) => "Comando da impressora",
         _ => "Controle",
     };
     let mut rows: Vec<AnyView> = vec![Box::new(
@@ -501,6 +563,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Link(_) => link_props(e, &mut rows),
         ControlKind::Bookmark(_) => bookmark_props(e, &mut rows),
         ControlKind::Barcode(barcode) => barcode_props(e, barcode, &mut rows),
+        ControlKind::PrinterCommand(command) => printer_command_props(e, *command, &mut rows),
         ControlKind::Chart(chart) => chart_props(e, chart, &mut rows),
         _ => {}
     }
@@ -730,6 +793,57 @@ fn report_props(e: &Editor) -> impl View + use<> {
     )
     .label("Orientação");
     let (read, write) = (e.clone(), e.clone());
+    let stocks = ravenrs_report::labels::common_stocks();
+    let stock_names: Vec<String> =
+        std::iter::once("Página comum".to_owned()).chain(stocks.iter().map(|s| s.name.to_owned())).collect();
+    let stocks_to_read = stocks.clone();
+    let stock = Select::new(
+        Binding::new(
+            move || {
+                read.report.with(|r| {
+                    stocks_to_read
+                        .iter()
+                        .position(|s| {
+                            s.page == r.page && s.columns == r.columns && s.continuous == r.continuous
+                        })
+                        .map_or(0, |at| at + 1)
+                })
+            },
+            move |i: usize| {
+                write.edit(|r| match i.checked_sub(1).and_then(|at| stocks.get(at)) {
+                    Some(stock) => {
+                        r.page = stock.page;
+                        r.columns = stock.columns;
+                        r.continuous = stock.continuous;
+                        if !stock.continuous {
+                            r.detail.height = stock.height;
+                        }
+                    }
+                    None => {
+                        r.page = PageSettings::a4();
+                        r.columns = None;
+                        r.continuous = false;
+                    }
+                });
+            },
+        ),
+        stock_names,
+    )
+    .width(268.0)
+    .label("Papel");
+    let (read, write) = (e.clone(), e.clone());
+    let columns = TextField::new(Binding::new(
+        move || read.report.with(|r| r.columns.map_or(1, |c| c.count).to_string()),
+        move |s: String| {
+            if let Ok(count) = s.trim().parse::<u32>() {
+                write.edit_as("columns", |r| {
+                    r.columns = (count > 1).then(|| Columns { count, ..r.columns.unwrap_or_default() });
+                });
+            }
+        },
+    ))
+    .compact();
+    let (read, write) = (e.clone(), e.clone());
     let filter = with_editor(
         e,
         TextField::new(Binding::new(
@@ -744,6 +858,8 @@ fn report_props(e: &Editor) -> impl View + use<> {
         FormField::new("Nome", name),
         FormField::new("Idioma dos formatos", culture),
         FormField::new("Orientação", paper),
+        FormField::new("Papel", stock).hint("Etiquetas em rolo ou em folha ajustam a página e as colunas."),
+        FormField::new("Colunas", columns).hint("Quantas linhas de dados cabem lado a lado."),
         FormField::new("Filtro", filter)
             .hint("Linhas em que a expressão é falsa ficam de fora, ex.: [Total] >= ?MinTotal"),
         Text::new("Clique numa banda ou num controle para editar as propriedades dele.")

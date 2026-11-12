@@ -25,6 +25,7 @@ ravenrs-live = { workspace = true, optional = true }
 ravenrs-app-i18n.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-a11y.workspace = true
+ravenrs-barcode.workspace = true
 ravenrs-core.workspace = true
 ravenrs-criteria.workspace = true
 ravenrs-grid-export.workspace = true

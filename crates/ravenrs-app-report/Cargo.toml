@@ -25,6 +25,7 @@ ravenrs-reactive.workspace = true
 ravenrs-report.workspace = true
 ravenrs-report-designer.workspace = true
 ravenrs-report-export.workspace = true
+ravenrs-report-label.workspace = true
 ravenrs-report-viewer.workspace = true
 serde_json.workspace = true
 ravenrs-widgets.workspace = true

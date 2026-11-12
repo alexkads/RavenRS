@@ -26,9 +26,16 @@ ravenrs-widgets = { version = "27.1.28", path = "crates/ravenrs-widgets", defaul
 ravenrs-wayland-gestures = { version = "27.1.28", path = "crates/ravenrs-wayland-gestures" }
 ravenrs-platform-native = { version = "27.1.28", path = "crates/ravenrs-platform-native" }
 ravenrs-platform-web = { version = "27.1.28", path = "crates/ravenrs-platform-web" }
+ravenrs-barcode = { version = "27.1.28", path = "crates/ravenrs-barcode" }
 ravenrs-graphics = { version = "27.1.28", path = "crates/ravenrs-graphics" }
+ravenrs-nfe = { version = "27.1.28", path = "crates/ravenrs-nfe" }
+ravenrs-dfe = { version = "27.1.28", path = "crates/ravenrs-dfe" }
+ravenrs-nfse = { version = "27.1.28", path = "crates/ravenrs-nfse" }
+ravenrs-pagamento = { version = "27.1.28", path = "crates/ravenrs-pagamento" }
 ravenrs-report = { version = "27.1.28", path = "crates/ravenrs-report" }
 ravenrs-report-export = { version = "27.1.28", path = "crates/ravenrs-report-export" }
+ravenrs-report-label = { version = "27.1.28", path = "crates/ravenrs-report-label" }
+ravenrs-perifericos = { version = "27.1.28", path = "crates/ravenrs-perifericos" }
 ravenrs-grid-export = { version = "27.1.28", path = "crates/ravenrs-grid-export" }
 ravenrs-app = { version = "27.1.28", path = "crates/ravenrs-app" }
 ravenrs-app-a11y = { version = "27.1.28", path = "crates/ravenrs-app-a11y" }
@@ -45,6 +52,9 @@ ravenrs-app-remote = { version = "27.1.28", path = "crates/ravenrs-app-remote" }
 ravenrs-app-testkit = { version = "27.1.28", path = "crates/ravenrs-app-testkit" }
 ravenrs-app-requests = { version = "27.1.28", path = "crates/ravenrs-app-requests" }
 ravenrs-app-library = { version = "27.1.28", path = "crates/ravenrs-app-library" }
+ravenrs-app-nfe = { version = "27.1.28", path = "crates/ravenrs-app-nfe" }
+ravenrs-pos = { version = "27.1.28", path = "crates/ravenrs-pos" }
+ravenrs-app-pos = { version = "27.1.28", path = "crates/ravenrs-app-pos" }
 ravenrs-app-report = { version = "27.1.28", path = "crates/ravenrs-app-report" }
 ravenrs-report-pdf = { version = "27.1.28", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.28", path = "crates/ravenrs-report-xlsx" }

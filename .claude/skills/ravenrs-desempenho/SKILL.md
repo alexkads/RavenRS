@@ -71,7 +71,7 @@ O relógio de GPU do Metal é grosseiro: passes curtos costumam vir como 0. Comp
 cargo run --release -p ravenrs-perf -- cold
 ```
 
-Abre o app de finanças e visita cada página duas vezes, mostrando o pior frame de cada visita. Os tempos acima descartam o aquecimento, então é aqui que aparece o travamento ao abrir uma tela. Acima de 16,67 ms, a pessoa vê.
+Abre o app de finanças e visita cada página duas vezes, mostrando o pior frame de cada visita. O caixa ainda não entra nesta visita; veja a seção do caixa. Os tempos acima descartam o aquecimento, então é aqui que aparece o travamento ao abrir uma tela. Acima de 16,67 ms, a pessoa vê.
 
 ## 5. Regressões plantadas
 
@@ -132,6 +132,14 @@ Aumenta cada tipo de trabalho até o frame não caber, contando até a GPU termi
 ## Componente novo
 
 Todo componente entra numa cena em `crates/ravenrs-perf/src/scenes/`, com `covers` listando o nome dele, no pior caso realista. Rodar `gate --bless` e revisar o diff fica para quando ele pedir a medição. O contrato completo está em `docs/QUALITY.md`.
+
+## Caixa e etiquetas
+
+A cena `counter-keys` (em `crates/ravenrs-perf/src/scenes/components.rs`) cobre `KeyBar` e `ScanField`. O caixa e a tela de etiquetas ainda não têm cena no gate: entram em `scenes/apps.rs`, como as outras telas de aplicação.
+
+O caixa é a tela usada o dia todo, então o que importa é `builds` e `shapes` a cada item bipado: não podem crescer com o tamanho da venda. Para ver a tela sem janela, `RAVEN_PDV_TELAS=pasta cargo test -p mini-pdv --test telas -- --ignored` gera os PNG.
+
+Não foi medido: as telas do caixa e de etiquetas, tempo em máquina de caixa real, a prévia de etiqueta rasterizada com muitas etiquetas, e impressão em impressora física.
 
 ## O que relatar ao terminar
 

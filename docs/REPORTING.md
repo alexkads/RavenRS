@@ -99,6 +99,19 @@ Each phase ends with tests, docs, demos and `scripts/check.sh` green, like every
 | **R4 — Designer depth** | Expression editor, group and sort panel, snap lines, align and size tools, multi-select, labels wizard, style gallery, drill-down and interactive sorting in preview | Planned |
 | **R5 — Enterprise data and documents** | SQL, CSV/XLSX and federated sources; Cross Tab; DOCX; PDF/A, PDF/UA, signatures; vertical bands; right-to-left; AI prompt-to-report | Planned |
 
+## Labels and receipts
+
+Labels and receipts are ordinary reports, made in the same designer, and there is no other editor of layouts.
+
+* **Paper.** `labels::common_stocks` lists common rolls of labels, A4 sheets and receipt rolls of 80 and 58 mm. `shelf_label` is a first shelf label to change in the designer.
+* **Columns.** `Report::columns` puts rows side by side, across or down, for a sheet of labels.
+* **A roll.** `Report::continuous` makes one long page as tall as what it prints.
+* **Commands.** `ControlKind::PrinterCommand` cuts, opens the drawer, beeps or feeds at its place on the page. It takes no room, and only ESC/POS acts on it.
+* **Where it prints.** `Report::printer` keeps the language, the resolution and the connection with the report.
+* **Printing.** `ravenrs-report-label` turns a `Document` into a 1-bit bitmap at the printer's resolution and sends it in ZPL II, EPL2/PPLB, PPLA, TSPL or ESC/POS. Bars are laid on whole dots, and a code that cannot keep its minimum module gives an error instead of a label no scanner reads. "Impressora direta" in the designer shows the dots before printing.
+
+The output was read back by a parser and by a separate barcode decoder, and has never been printed on a physical printer. [`FONTES.md`](../crates/ravenrs-report-label/FONTES.md) says what each manual confirmed and what is only a memory.
+
 ## Server and scheduled delivery
 
 `ravenrs-report-server` runs reports headless with the same engine and layouts:

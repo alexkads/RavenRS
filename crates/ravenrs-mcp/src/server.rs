@@ -9,7 +9,7 @@ use rmcp::{ServerHandler, schemars, tool, tool_handler, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::api::{Index, Item, Member, Usage, code_blocks_with};
+use crate::api::{GUIDES, Index, Item, Member, Usage, code_blocks_with};
 use crate::docs;
 use crate::expression::{self, SchemaInput};
 use crate::report::{self, CreateInput};
@@ -20,7 +20,9 @@ const MAX_MEMBERS: usize = 60;
 const INSTRUCTIONS: &str = "Answers questions about the RavenRS GUI framework for Rust, from the sources and docs \
 of the version this server was built from. Check component_api and component_examples before writing a view \
 instead of guessing builder methods. Use design_tokens to find the semantic name of a color or text style, \
-parity_status before promising that a feature exists, app_contracts before writing a module meant for more than one application, and validate_expression for filters and report expressions. \
+parity_status before promising that a feature exists, app_contracts before writing a module meant for more than one application, validate_expression for filters and report expressions, \
+search_api when you do not know a type's name, and guides for how things work: the application framework, reports, \
+label and receipt printers, NF-e, the SEFAZ sandbox, the point of sale and what they do not prove. \
 To make a report, read report_layout_format, start from create_report_layout or report_layout_templates, edit the \
 JSON and confirm it with check_report_layout before saving it as a .rvreport.json file.";
 
@@ -73,6 +75,28 @@ struct ParityStatus {
 struct AppContracts {
     /// Only scenarios and groups whose text contains this, such as "C07", "M12", "outbox" or "#254".
     query: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct SearchApi {
+    /// Words to find in the name or docs of a public item, such as "sefaz sandbox" or "label printer".
+    query: String,
+    /// Only this crate, such as ravenrs-nfe.
+    krate: Option<String>,
+    /// How many items to return, up to 100. Defaults to 20.
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+struct Guides {
+    /// Part of the path of a document, such as NFSE, ravenrs-nfe/REGRAS or APP-FRAMEWORK.
+    document: Option<String>,
+    /// Part of a heading: returns the text of that section.
+    section: Option<String>,
+    /// Words to find: returns the sections that have them all, with an excerpt.
+    query: Option<String>,
+    /// How many sections to return, up to 50. Defaults to 10.
+    limit: Option<usize>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -205,6 +229,11 @@ impl RavenServer {
         for code in code_blocks_with(docs::GETTING_STARTED, name) {
             examples.push(json!({ "kind": "guide", "source": "docs/GETTING_STARTED.md", "code": code }));
         }
+        for (path, text) in GUIDES.iter().filter(|(path, _)| *path != "docs/GETTING_STARTED.md") {
+            for code in code_blocks_with(text, name) {
+                examples.push(json!({ "kind": "guide", "source": path, "code": code }));
+            }
+        }
         examples.truncate(limit);
         CallToolResult::structured(json!({
             "name": name,
@@ -231,6 +260,42 @@ impl RavenServer {
             input.query.as_deref(),
             input.status.as_deref(),
             input.limit.unwrap_or(50).clamp(1, 200),
+        ))
+    }
+
+    #[tool(
+        description = "Find public items of every RavenRS crate by words in their name or docs, for when you do not know the name. Covers components, the application framework, reports, printers, NF-e and the point of sale. Then use component_api on what it finds.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn search_api(&self, Parameters(input): Parameters<SearchApi>) -> CallToolResult {
+        let found = Index::get().search(&input.query, input.krate.as_deref());
+        let limit = input.limit.unwrap_or(20).clamp(1, 100);
+        let items: Vec<Value> = found
+            .iter()
+            .take(limit)
+            .map(|item| {
+                json!({
+                    "name": item.name,
+                    "kind": item.kind,
+                    "crate": item.krate,
+                    "summary": summary(&item.docs),
+                    "source": location(&item.file, item.line),
+                })
+            })
+            .collect();
+        CallToolResult::structured(json!({ "total": found.len(), "shown": items.len(), "items": items }))
+    }
+
+    #[tool(
+        description = "Read the RavenRS guides, from the repository's Markdown: the application framework, reports, printers, NF-e and its rules with their sources, NFS-e, the point of sale, commercial automation and what is not proven yet. With no arguments lists the documents; with document lists its sections; with section returns one; with query finds the sections that have the words.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn guides(&self, Parameters(input): Parameters<Guides>) -> CallToolResult {
+        answer(docs::guides(
+            input.document.as_deref(),
+            input.section.as_deref(),
+            input.query.as_deref(),
+            input.limit.unwrap_or(10).clamp(1, 50),
         ))
     }
 

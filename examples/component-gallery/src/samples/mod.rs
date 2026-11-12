@@ -201,6 +201,8 @@ catalog! {
     "DaySeparator" => display,
     "ShortcutSheet" => navigation,
     "ShortcutHintBar" => navigation,
+    "KeyBar" => navigation,
+    "ScanField" => navigation,
     "FloatingToolbar" => buttons,
     "TitleBar" => navigation,
     "DropZone" => pickers,

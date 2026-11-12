@@ -1,0 +1,34 @@
+{
+  "id": "ORD01",
+  "type": "point",
+  "status": "processed",
+  "status_detail": "accredited",
+  "external_reference": "venda-1",
+  "config": {
+    "point": {
+      "terminal_id": "NEWLAND_N950__SBX0000001"
+    }
+  },
+  "transactions": {
+    "payments": [
+      {
+        "id": "PAY01",
+        "amount": "19.90",
+        "paid_amount": "19.90",
+        "refunded_amount": "0.00",
+        "status": "processed",
+        "status_detail": "accredited",
+        "reference_id": "12345678",
+        "payment_method": {
+          "id": "master",
+          "type": "credit_card",
+          "installments": 6
+        },
+        "card": {
+          "first_digits": "503143",
+          "last_digits": "6351"
+        }
+      }
+    ]
+  }
+}

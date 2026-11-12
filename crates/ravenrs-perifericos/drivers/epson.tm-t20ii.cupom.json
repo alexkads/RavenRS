@@ -1,0 +1,16 @@
+{
+  "id": "epson.tm-t20ii.cupom",
+  "versao": "1.0.0",
+  "tipo": "impressora_termica",
+  "fabricante": "Epson",
+  "modelos": [{ "nome": "Epson TM-T20II" }],
+  "conexoes": ["usb", "serial", "rede"],
+  "padroes": { "dpi": 203, "largura_pontos": 576 },
+  "protocolo": { "nome": "esc_pos" },
+  "capacidades": { "corta": true, "corte_parcial": true, "gaveta": true },
+  "situacao": {
+    "estado": "so_pela_documentacao",
+    "fonte": "TM-T20II ESC/POS Quick Reference, https://www.datona.cz/sites/default/files/support/TM-T20II_escape_sekvence.pdf"
+  },
+  "observacoes": "Em papel de 58 mm a largura é 420 ou 378 pontos. O bipe da referência é de campainha externa opcional, por isso não consta como capacidade. As conexões dependem da versão comprada."
+}

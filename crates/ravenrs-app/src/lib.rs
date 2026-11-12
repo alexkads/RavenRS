@@ -44,6 +44,7 @@ mod object;
 mod outbox;
 mod provider;
 mod record_action;
+mod records;
 mod security;
 mod settings;
 #[cfg(feature = "source")]
@@ -74,7 +75,10 @@ pub use model::{
     Diff, EmbeddedStore, MemoryModelStore, MergedModel, ModelLayer, ModelLayers, ModelNode, ModelStore,
     StoredModel, UnusableNode, check_model, generate_model,
 };
-pub use module::{Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module};
+pub use module::{
+    Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module, Notice,
+    NoticeKind,
+};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use outbox::{
     Dispatcher, Emitted, Event, OUTBOX_EVENT, OUTBOX_REPROCESS, OutboxModule, Report, outbox_entity,
@@ -86,6 +90,10 @@ pub use ravenrs_core::FileStorage;
 pub use ravenrs_core::{MemoryStorage, Storage};
 pub use ravenrs_criteria::{Criteria, Value};
 pub use record_action::RecordAction;
+pub use records::{
+    AppRecordsModule, DRAFT_ENTITY, Draft, SEQUENCE_ENTITY, draft_entity, drafts, next_number, save_draft,
+    sequence_entity, take_draft,
+};
 pub use security::{
     ADMINISTRATORS_ROLE, Access, AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError,
     Authenticator, Claims, Credentials, ExternalSignIn, Identity, IdentityProvider, MIN_PASSWORD_CHARS,

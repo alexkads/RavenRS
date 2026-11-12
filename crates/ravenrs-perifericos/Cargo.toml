@@ -1,0 +1,31 @@
+[package]
+name = "ravenrs-perifericos"
+description = "Commercial automation peripherals for RavenRS as data: versioned driver manifests for printers, label printers, pinpads and scanners, with signed catalogs and rollback. Drivers carry no code."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-perifericos"
+keywords = ["pos", "driver", "printer", "pinpad", "peripheral"]
+categories = ["hardware-support"]
+
+[features]
+default = []
+# Fetches a catalog over HTTP. Only exists on native targets.
+http = ["dep:ureq"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+semver = { version = "1.0", features = ["serde"] }
+ed25519-dalek = { version = "2.2", default-features = false, features = ["std"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = { version = "3.5", default-features = false, features = ["rustls"], optional = true }
+
+[lints]
+workspace = true

@@ -17,8 +17,8 @@ use ravenrs_criteria::{
 
 use crate::chart::LabelAlign;
 use crate::model::{
-    Band, Control, ControlKind, LineDirection, ParameterKind, PictureMode, Report, ShapeKind, SortField,
-    Style, TableCell, TextAlign, VerticalAlign,
+    Band, ColumnFlow, Control, ControlKind, LineDirection, ParameterKind, PictureMode, Report, ShapeKind,
+    SortField, Style, TableCell, TextAlign, VerticalAlign,
 };
 
 /// Settings for one run of a report.
@@ -66,6 +66,19 @@ struct Measured {
 }
 
 /// A laid-out band instance: its height and items relative to its top-left.
+/// Where the next row goes when rows flow in columns.
+#[derive(Clone, Copy, Debug, Default)]
+struct ColumnCursor {
+    /// The column it goes in.
+    column: usize,
+    /// How tall the line being filled is.
+    line: f32,
+    /// Where the columns begin on this page, when they fill downward.
+    started: Option<f32>,
+    /// The bottom of the tallest column, when they fill downward.
+    lowest: f32,
+}
+
 struct Block {
     height: f32,
     items: Vec<Item>,
@@ -173,11 +186,16 @@ impl ReportEngine {
     }
 }
 
+/// The weight of the font of a report's text, for anything else that draws its documents.
+pub fn text_weight(bold: bool) -> f32 {
+    if bold { 600.0 } else { 400.0 }
+}
+
 pub(crate) fn text_attrs(size: f32, bold: bool) -> TextAttrs {
     TextAttrs {
         size,
         line_height: (size * 1.25).ceil(),
-        weight: if bold { 600.0 } else { 400.0 },
+        weight: text_weight(bold),
         letter_spacing: 0.0,
         family: None,
     }
@@ -387,7 +405,8 @@ impl<'r> Run<'r> {
                 n => (&rows[starts[n - 1]..ends[n - 1]], i - starts[n - 1]),
             };
             let ctx = self.ctx(Some(row), scope, Some(position));
-            if let Some(mut b) = self.band(engine, &report.detail, &ctx, width, Some(i % 2 == 0)) {
+            let detail_width = report.columns.map_or(width, |columns| columns.width_in(width));
+            if let Some(mut b) = self.band(engine, &report.detail, &ctx, detail_width, Some(i % 2 == 0)) {
                 b.row = Some(i);
                 out.push(b);
             }
@@ -759,6 +778,11 @@ impl<'r> Run<'r> {
                             rect.width(),
                             (rect.height() - text_height).max(1.0),
                         );
+                        items.push(Item::BarcodeMark {
+                            rect: bars,
+                            symbology: barcode.symbology,
+                            content: content.trim().to_owned(),
+                        });
                         items.push(Item::Vector {
                             rect: bars,
                             shapes: vec![crate::barcode::shape(&pattern, bars, look.color)],
@@ -858,6 +882,10 @@ impl<'r> Run<'r> {
                 if !title.trim().is_empty() {
                     items.push(Item::Bookmark { title, level: bookmark.level, y: at.y });
                 }
+                0.0
+            }
+            ControlKind::PrinterCommand(command) => {
+                items.push(Item::PrinterCommand { y: at.y, command: *command });
                 0.0
             }
             ControlKind::Panel(panel) => {
@@ -1097,8 +1125,73 @@ impl<'r> Run<'r> {
                     *y += h;
                 }
             };
+        // Where the rows are in the columns, when they flow in several.
+        let columns = report.columns.filter(|columns| columns.count > 1);
+        let mut flow = ColumnCursor::default();
         let mut i = 0;
         while i < blocks.len() {
+            if let Some(columns) = columns {
+                let b = &blocks[i];
+                if b.row.is_some() && !b.keep_with_next && !b.break_before && !b.break_after {
+                    let across = columns.width_in(page.content_width()) + columns.spacing;
+                    let fits = |y: f32| y + b.height <= bottom + 0.01;
+                    match columns.flow {
+                        ColumnFlow::AcrossThenDown => {
+                            if !fits(y) && flow.column > 0 {
+                                // Taller than what is left: its line ends here.
+                                y += flow.line + columns.row_spacing;
+                                flow = ColumnCursor::default();
+                            }
+                            if !fits(y) && y > top + 0.01 {
+                                new_page(&mut pages, &mut y, &repeat);
+                                flow = ColumnCursor::default();
+                            }
+                        }
+                        ColumnFlow::DownThenAcross => {
+                            if flow.started.is_none() {
+                                flow.started = Some(y);
+                            }
+                            let started = flow.started.unwrap_or(y);
+                            if !fits(y) && y > started + 0.01 {
+                                flow.column += 1;
+                                y = started;
+                                if flow.column >= columns.count as usize {
+                                    new_page(&mut pages, &mut y, &repeat);
+                                    flow = ColumnCursor { started: Some(y), ..ColumnCursor::default() };
+                                }
+                            }
+                        }
+                    }
+                    let last = pages.len() - 1;
+                    let at = Point::new(x0 + flow.column as f32 * across, y);
+                    pages[last].0.extend(b.items.iter().map(|it| translate(it, at)));
+                    if let Some(r) = b.row {
+                        pages[last].1.push(r);
+                    }
+                    match columns.flow {
+                        ColumnFlow::AcrossThenDown => {
+                            flow.line = flow.line.max(b.height);
+                            flow.column += 1;
+                            if flow.column >= columns.count as usize {
+                                y += flow.line + columns.row_spacing;
+                                flow = ColumnCursor::default();
+                            }
+                        }
+                        ColumnFlow::DownThenAcross => {
+                            y += b.height + columns.row_spacing;
+                            flow.lowest = flow.lowest.max(y);
+                        }
+                    }
+                    i += 1;
+                    continue;
+                }
+                // Anything else takes the whole width, under everything already placed.
+                y = y.max(flow.lowest);
+                if flow.line > 0.0 {
+                    y += flow.line + columns.row_spacing;
+                }
+                flow = ColumnCursor::default();
+            }
             // A run of keep-with-next blocks travels with the block after it.
             let mut j = i;
             while j + 1 < blocks.len() && blocks[j].keep_with_next {
@@ -1179,9 +1272,14 @@ impl<'r> Run<'r> {
                 }
                 let footer_end = chrome.len();
                 chrome.append(&mut items);
+                let height = if report.continuous {
+                    (lowest_of(&chrome) + page.margin_bottom).clamp(1.0, page.height)
+                } else {
+                    page.height
+                };
                 Page {
                     width: page.width,
-                    height: page.height,
+                    height,
                     items: chrome,
                     page_header: 0..header_end,
                     page_footer: header_end..footer_end,
@@ -1332,6 +1430,22 @@ fn filter_and_sort(
     kept.into_iter().cloned().collect()
 }
 
+/// How far down what is printed goes.
+fn lowest_of(items: &[Item]) -> f32 {
+    items
+        .iter()
+        .map(|item| match item {
+            Item::Rect { rect, .. } | Item::Ellipse { rect, .. } | Item::Vector { rect, .. } => rect.max_y(),
+            Item::Line { from, to, .. } => from.y.max(to.y),
+            Item::Text(text) => text.clip.max_y(),
+            Item::Image { clip, .. } => clip.max_y(),
+            // A command at the very end still needs the page to reach it.
+            Item::PrinterCommand { y, .. } => *y,
+            Item::Link { .. } | Item::Bookmark { .. } | Item::BarcodeMark { .. } => 0.0,
+        })
+        .fold(0.0, f32::max)
+}
+
 fn translate(item: &Item, by: Point) -> Item {
     let r = |rect: &Rect| Rect::from_origin_size(Point::new(rect.x() + by.x, rect.y() + by.y), rect.size);
     let p = |pt: &Point| Point::new(pt.x + by.x, pt.y + by.y);
@@ -1353,6 +1467,10 @@ fn translate(item: &Item, by: Point) -> Item {
         Item::Bookmark { title, level, y } => {
             Item::Bookmark { title: title.clone(), level: *level, y: y + by.y }
         }
+        Item::BarcodeMark { rect, symbology, content } => {
+            Item::BarcodeMark { rect: r(rect), symbology: *symbology, content: content.clone() }
+        }
+        Item::PrinterCommand { y, command } => Item::PrinterCommand { y: y + by.y, command: *command },
         Item::Text(t) => Item::Text(TextBlock {
             clip: r(&t.clip),
             lines: t

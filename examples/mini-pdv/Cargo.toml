@@ -1,0 +1,33 @@
+[package]
+name = "mini-pdv"
+description = "BETA, proof of concept: a supermarket checkout made of RavenRS crates and some sample records."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ravenrs.workspace = true
+ravenrs-app.workspace = true
+ravenrs-app-nfe.workspace = true
+ravenrs-app-pos.workspace = true
+ravenrs-app-sqlite.workspace = true
+ravenrs-app-ui.workspace = true
+ravenrs-widgets.workspace = true
+rusqlite.workspace = true
+
+[dev-dependencies]
+ravenrs-core.workspace = true
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
+ravenrs-nfe.workspace = true
+ravenrs-pagamento.workspace = true
+ravenrs-app-report.workspace = true
+ravenrs-report-label.workspace = true
+ravenrs-report.workspace = true
+ravenrs-style.workspace = true
+image = { workspace = true }
+pollster.workspace = true
+
+[lints]
+workspace = true

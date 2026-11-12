@@ -1,0 +1,14 @@
+{
+  "id": "tsc.ttp-244me.etiqueta",
+  "versao": "1.0.0",
+  "tipo": "etiquetadora",
+  "fabricante": "TSC",
+  "modelos": [{ "nome": "TSC TTP-244ME", "variacoes": ["TTP-244ME Plus"] }],
+  "conexoes": ["usb", "serial"],
+  "protocolo": { "nome": "tspl" },
+  "situacao": {
+    "estado": "so_pela_documentacao",
+    "fonte": "TSPL/TSPL2 Programming Manual, TSC, 2014, lista de modelos, https://www.servopack.de/support/tsc/TSPL_TSPL2_Programming.pdf"
+  },
+  "observacoes": "O manual confirma o TSPL neste modelo, numa cópia em site de terceiro. Conexões e resolução não vieram do manual: confira no aparelho, inclusive se é 203 ou 300 dpi."
+}
