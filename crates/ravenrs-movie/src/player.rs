@@ -397,6 +397,125 @@ fn height_of(width: f32, logical: ravenrs_core::Size) -> f32 {
     width * logical.height / logical.width.max(1.0)
 }
 
+/// The box that says what `spot` is about, placed next to it on a film `width` wide
+/// at `at`. A step being waited at has `go_on` under its words.
+fn explanation(
+    cx: &mut BuildCx<'_>,
+    movie: &Movie,
+    spot: &Hotspot,
+    at: u64,
+    width: f32,
+    labels: &MovieLabels,
+    go_on: Option<Button>,
+) -> NodeId {
+    let logical = movie.logical_size();
+    let camera = camera_at(movie, at, width, false);
+    let chapter = movie.chapter_at(at).and_then(|i| movie.chapters().get(i));
+    let lines = spot.text.chars().count().div_ceil(BOX_LETTERS_PER_LINE).max(1) as f32;
+    let height = BOX_FRAME_HEIGHT + lines * BOX_LINE_HEIGHT + if go_on.is_some() { 36.0 } else { 0.0 };
+    let target =
+        (!spot.is_general()).then(|| camera.region(Region::new(spot.x, spot.y, spot.width, spot.height)));
+    let (x, y) = box_place(target, ravenrs_core::Size::new(width, height_of(width, logical)), height);
+    let step = step_in_chapter(movie, spot, &labels.step_of);
+    let eyebrow = step
+        .or_else(|| chapter.filter(|chapter| chapter.title != spot.title).map(|c| c.title.clone()))
+        .map(|said| Text::new(said).style(TextStyle::Caption).foreground(Semantic::Accent));
+    let content = VStack::new((
+        eyebrow,
+        Text::new(spot.title.clone()).font_weight(Weight::SEMIBOLD),
+        Text::new(spot.text.clone()).style(TextStyle::Callout).foreground(Semantic::InkMuted),
+        go_on,
+    ))
+    .spacing(4.0)
+    .align(Align::Start);
+    let card = cx.child(&Card::new(content).padding(16.0).width(BOX_WIDTH));
+    cx.container(
+        LayoutStyle { absolute: Some((x, y)), width: Some(BOX_WIDTH), ..LayoutStyle::stack(Axis::Vertical) },
+        &[card],
+        Paint::None,
+    )
+}
+
+/// What a film that does not stop at its steps explains at `at`: the most recent
+/// spot that is on.
+pub(crate) fn shown_at(movie: &Movie, at: u64) -> Option<usize> {
+    movie.hotspots().iter().rposition(|spot| spot.from_ms <= at && at < spot.until_ms)
+}
+
+/// One moment of a film as someone who does not stop at the steps sees it: the
+/// edited film, the mark of what it explains and the box with the words. Nothing on
+/// it answers clicks, so it is what a video made from the film shows.
+#[derive(Debug)]
+pub struct MovieFrame {
+    movie: Movie,
+    at_ms: u64,
+    width: f32,
+    labels: MovieLabels,
+    boxes: bool,
+}
+
+impl MovieFrame {
+    /// The moment `at_ms` of the timeline of `movie`.
+    pub fn new(movie: Movie, at_ms: u64) -> Self {
+        Self { movie, at_ms, width: 960.0, labels: MovieLabels::default(), boxes: true }
+    }
+
+    /// Its width, in logical pixels (960 by default).
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// The words of the boxes, such as "Step {} of {}".
+    pub fn labels(mut self, labels: MovieLabels) -> Self {
+        self.labels = labels;
+        self
+    }
+
+    /// Only the mark on the film, for a layout that puts the words elsewhere.
+    pub fn without_boxes(mut self) -> Self {
+        self.boxes = false;
+        self
+    }
+}
+
+impl View for MovieFrame {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let at = self.at_ms;
+        let film = cx.child(&Composition::new(self.movie.clone(), at).width(self.width));
+        let mut children = vec![film];
+        let spot = shown_at(&self.movie, at).and_then(|i| self.movie.hotspots().get(i)).cloned();
+        if let Some(spot) = spot {
+            if !spot.is_general() {
+                let camera = camera_at(&self.movie, at, self.width, false);
+                let region = Region::new(spot.x, spot.y, spot.width, spot.height);
+                let mark = HotspotMark {
+                    hotspot: spot.clone(),
+                    frame: camera.region(region),
+                    waiting: spot.kind == HotspotKind::Stop,
+                    on_click: Rc::new(|| {}),
+                };
+                children.push(cx.child(&mark));
+            }
+            if self.boxes && self.width >= BOX_FROM {
+                children.push(explanation(cx, &self.movie, &spot, at, self.width, &self.labels, None));
+            }
+        }
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(self.width),
+                height: Some(height_of(self.width, self.movie.logical_size())),
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &children,
+            Paint::None,
+        );
+        cx.clip(node);
+        node
+    }
+}
+
 /// The film and the marks over it.
 struct Stage<'a> {
     movie: &'a Movie,
@@ -505,21 +624,7 @@ impl View for Stage<'_> {
             ));
         }
         if let Some(spot) = &self.explaining {
-            let chapter = self.movie.chapter_at(at).and_then(|i| self.movie.chapters().get(i));
-            let lines = spot.text.chars().count().div_ceil(BOX_LETTERS_PER_LINE).max(1) as f32;
             let waiting = self.playhead.waiting.get().is_some();
-            let height = BOX_FRAME_HEIGHT + lines * BOX_LINE_HEIGHT + if waiting { 36.0 } else { 0.0 };
-            let target = (!spot.is_general())
-                .then(|| camera.region(Region::new(spot.x, spot.y, spot.width, spot.height)));
-            let (x, y) = box_place(
-                target,
-                ravenrs_core::Size::new(self.width, height_of(self.width, logical)),
-                height,
-            );
-            let step = step_in_chapter(self.movie, spot, &self.labels.step_of);
-            let eyebrow = step
-                .or_else(|| chapter.filter(|chapter| chapter.title != spot.title).map(|c| c.title.clone()))
-                .map(|said| Text::new(said).style(TextStyle::Caption).foreground(Semantic::Accent));
             let go_on = waiting.then(|| {
                 let (playhead, changes, movie) =
                     (self.playhead.clone(), self.changes.clone(), self.movie.clone());
@@ -532,24 +637,7 @@ impl View for Stage<'_> {
                         changes.update(|n| *n += 1);
                     })
             });
-            let content = VStack::new((
-                eyebrow,
-                Text::new(spot.title.clone()).font_weight(Weight::SEMIBOLD),
-                Text::new(spot.text.clone()).style(TextStyle::Callout).foreground(Semantic::InkMuted),
-                go_on,
-            ))
-            .spacing(4.0)
-            .align(Align::Start);
-            let card = cx.child(&Card::new(content).padding(16.0).width(BOX_WIDTH));
-            children.push(cx.container(
-                LayoutStyle {
-                    absolute: Some((x, y)),
-                    width: Some(BOX_WIDTH),
-                    ..LayoutStyle::stack(Axis::Vertical)
-                },
-                &[card],
-                Paint::None,
-            ));
+            children.push(explanation(cx, self.movie, spot, at, self.width, self.labels, go_on));
         }
         let node = cx.container(
             LayoutStyle {

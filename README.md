@@ -335,6 +335,7 @@ Start with `ravenrs`. The others come in as you need them.
 | [`ravenrs-perifericos`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-perifericos) | **Beta, proof of concept.** Printers, label printers, pinpads and scanners described as data, in versioned manifests. See [docs/PERIFERICOS.md](https://github.com/alexkads/RavenRS/blob/master/docs/PERIFERICOS.md). |
 | [`ravenrs-ai`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-ai) | Local models and voice. |
 | [`ravenrs-movie`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-movie) | Vector training films and bug reports. |
+| [`ravenrs-movie-video`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-movie-video) | Films as video files for video sites and social networks: wide, vertical and square, with subtitles, chapters and a cover. |
 | [`ravenrs-criteria`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-criteria) | The expression language, independent of any UI. |
 | [`ravenrs-graphics`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-graphics) | Vector shapes, chart layout and barcodes, shared by every engine. |
 | [`ravenrs-lottie`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lottie) | A Lottie player of our own: reads the file and works out each frame's curves. |
