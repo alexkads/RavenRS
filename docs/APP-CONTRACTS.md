@@ -124,6 +124,60 @@ Each scenario has one owner issue, where its checklist lives. The text of the in
 - **C07, minimum:** a refused decision leaves no event; an answer lost on the way back is checked before sending again; a destination that stays down ends in failed after the limit; the same local key in T1 and T2 makes two effects.
 - **C19:** [`examples/contracts`](../examples/contracts) installs it in two applications outside this workspace.
 
+## Groups
+
+What each group of capabilities uses today and where the rest is followed. *Master* means it is in `master` and not yet in a published release; the last published release is 27.1.27. Targets: `ravenrs-app` builds for desktop, web (wasm32) and server; `ravenrs-app-sqlite` and what stands on it are native only.
+
+| Group | Package or API to use | Depends on | Targets and databases | State | Owner |
+|---|---|---|---|---|---|
+| M01 API and client | `ravenrs-app-server`, `ravenrs-app-remote`, `ravenrs-app-sql`, `ravenrs-app-postgres` | security of `ravenrs-app` | desktop, web, server; SQLite, PostgreSQL | in PR #244 | #226 |
+| M02 Organization and unit | `SecuredObjectSpace`, `Role::object_permission`, `member_permission` | #225 for the organization in context | any; any | partial; references on create in PR #236 | #225, #232 |
+| M03 Identity | `Authenticator`, `UserDirectory`, `SecurityContext` | | any; any | partial: local passwords only | #257 |
+| M04 Data and recovery | `merge_changes`, `SqliteBuilder::migration`, `SpaceError::Conflict` | | native; SQLite | partial; backup in PR #230 | #241, #229, #243 |
+| M05 Offline and features | `ApplicationBuilder::switch_off`, `Application::guard` | #241 | any; any | partial (master) | #240, #242 |
+| M06 Durable processes | `ravenrs-app-requests` (`RequestsModule`, `Step`, `Policy`), `StateMachine` | | any; any | partial (master): no inbox, delegation or deadlines | #258 |
+| M07 Events and worker | `Provider`, `EventSink`, `CAN_TELL_STATUS`, `ravenrs_app_requests::Dispatcher` | #66 | any; any | partial (master): in-process only | #254, #255, #256 |
+| M08 Conversations | `Chat`, `ChatMessage`, `AttachmentStrip` widgets | #254, #255 | desktop, web; — | partial: drawing only | #259 |
+| M09 Forms and audiences | `FilterBuilder`, `ravenrs-criteria`, `EntityInfo` at run time | #232 | any; any | planned | #260 |
+| M10 Documents | `AttachmentStore`, `SqliteAttachmentStore`, `ravenrs-report-pdf` | #256 | any; any | partial: files by key, no issued revisions | #261 |
+| M11 Schedule and resources | `EventCalendar`, `Scheduler`, `RecurrenceRule`, `RecurrenceEditor` widgets | | desktop, web; any | partial; recurrence in PR #251 | #227 |
+| M12 Payments | `EventSink` and `SpaceError` meanings as the base | #254, #256 | any; any | planned | #262 |
+| M13 Passes and devices | `ravenrs_graphics::barcode::encode`, `ControlKind::Barcode` | #237 | desktop, web; any | partial: codes drawn and printed only | #263 |
+| M14 Maps | none yet | #232 | desktop, web; any | planned | #170 |
+| M15 Publishing | `RichText` | `ModuleManifest` | desktop, web; any | planned | #264 |
+| M16 Media | `SoundClip`, `SoundProvider`, `AudioPlayerButton` | #237 | desktop, web; — | partial: sound only | #265, #237 |
+| M17 Analysis | `AnalyticsModule`, `DashboardInfo`, `Chart` | #181 (PR #223) | desktop, web; any | partial | #203 |
+| M18 Assistant | `ravenrs-mcp` (about the framework, no effects), `ravenrs-ai` (local models) | #257, #226 | desktop, server; any | planned for application data | #266 |
+| M19 Package in two applications | `ravenrs-app-testkit`, `ravenrs-app-requests`, `ModuleManifest`, `examples/contracts` | | any; memory, SQLite | done (master, not published) | #268 |
+
+## Running the scenarios
+
+Everything below runs on synthetic data, with no account, credential or private database, from a clone of the repository:
+
+```bash
+cargo test -p ravenrs-app-requests
+```
+
+```bash
+cargo test -p ravenrs-app --test manifest
+```
+
+```bash
+cargo test -p ravenrs-app-sqlite --test space a_database_held_by_another_connection_is_a_temporary_failure
+```
+
+```bash
+cd examples/contracts/associacao && cargo run && cargo test
+```
+
+```bash
+cd examples/contracts/cursos && cargo run && cargo test
+```
+
+They cover C02 as far as `master` goes, the minimum of C06 and C07, C19, the failure meanings of contract 3 and the module checks of contract 1. Every other scenario is followed in its owner issue, in the table above, with its checklist; none is claimed done here.
+
+The `ravenrs-mcp` server answers the same questions: `app_contracts` lists the scenarios and the groups with their owners, and `parity_status` with `document: application` reads [APP-PARITY.md](APP-PARITY.md).
+
 ## What a pull request shows
 
 1. The scenarios it serves, its implementation issue and the version or commit of what it depends on.

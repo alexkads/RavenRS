@@ -92,3 +92,4 @@ What exists of the behavior documented for model-driven application frameworks, 
 | An MCP server of the application, acting with the person's permissions and asking before writing | ⬜ `ravenrs-mcp` answers about the framework only | #266 |
 | A test kit for reusable modules: two organizations with the same keys, units, people, example roles, a controlled clock | ✅ `ravenrs-app-testkit` | #268 |
 | Requests decided step by step, with steps, roles and rules from the application, idempotent decisions and an event in the same commit | 🟡 `ravenrs-app-requests`, in two applications of `examples/contracts`. No task inbox, delegation or deadlines (#258); events kept by the package until #254 | #268 |
+| Finding the contracts of reusable modules: scenarios and groups with their owners, the state of each capability | ✅ `app_contracts` and `parity_status` with `document: application` in `ravenrs-mcp`; the skill that `cargo ravenrs` installs points to them | #274 |
