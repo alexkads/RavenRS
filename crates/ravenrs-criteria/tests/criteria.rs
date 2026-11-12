@@ -603,3 +603,22 @@ proptest! {
         prop_assert_eq!(s.evaluate(&parse("?a + ?b")), Ok(n(f64::from(a) + f64::from(b))));
     }
 }
+
+#[test]
+fn assignments_split_where_the_language_does() {
+    let set = Criteria::assignments("state = 'a;b=c'; [total] = [price] * 2; done = [total] >= 10").unwrap();
+    let names: Vec<&str> = set.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(names, ["state", "total", "done"]);
+    assert_eq!(set[0].1, Criteria::parse("'a;b=c'").unwrap());
+    assert_eq!(set[2].1, Criteria::parse("[total] >= 10").unwrap());
+    assert!(Criteria::assignments(" ; ").unwrap().is_empty());
+}
+
+#[test]
+fn assignments_say_where_they_are_wrong() {
+    let missing = Criteria::assignments("state = 'a'; total").unwrap_err();
+    assert_eq!(missing.offset, 13);
+    let bad = Criteria::assignments("state = 'a'; total = 1 +").unwrap_err();
+    assert!(bad.offset >= 20, "{bad}");
+    assert!(Criteria::assignments("1 = 2").is_err());
+}

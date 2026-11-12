@@ -7,45 +7,23 @@ use ravenrs_app::{
     Application, ApplicationBuilder, AttachmentStore, BusinessObject, MemoryDatabase, ModelError, ModelStore,
     Module, ObjectSpace,
 };
+use ravenrs_app_i18n::{Catalog, Language, Texts};
 use ravenrs_widgets::{Alert, AnyView, Labels, Localized, Tone};
 
 use crate::editors::EditorRegistry;
 use crate::session::{SpaceFactory, Words};
 use crate::{AppShell, SystemModule};
 
-/// The language of the screens and of everything inside them.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum Language {
-    /// English.
-    #[default]
-    English,
-    /// Brazilian Portuguese.
-    BrazilianPortuguese,
-}
+/// Texts given as JSON, by the code of their language, to put over the ones that come with it.
+pub(crate) type TextPacks = Vec<(String, String)>;
 
-impl Language {
-    pub(crate) fn words(self) -> Words {
-        match self {
-            Self::English => Words::default(),
-            Self::BrazilianPortuguese => Words::pt_br(),
-        }
+/// The texts that come with the framework with these over them, in this language.
+pub(crate) fn texts_of(language: Language, packs: &[(String, String)]) -> Result<Texts, ModelError> {
+    let mut catalog = Catalog::builtin();
+    for (code, json) in packs {
+        catalog.merge_json(code, json).map_err(|error| ModelError(error.0))?;
     }
-
-    /// What a translation of the model is known by.
-    fn code(self) -> &'static str {
-        match self {
-            Self::English => "en",
-            Self::BrazilianPortuguese => "pt-BR",
-        }
-    }
-
-    pub(crate) fn labels(self) -> Labels {
-        match self {
-            Self::English => Labels::default(),
-            Self::BrazilianPortuguese => Labels::pt_br(),
-        }
-    }
+    Ok(catalog.texts(language))
 }
 
 type Seed = Box<dyn FnOnce(&mut dyn ObjectSpace) -> Result<(), String>>;
@@ -78,19 +56,50 @@ type SessionStep = Box<dyn FnOnce(&crate::Session)>;
 /// # let _ = window;
 /// # Ok::<(), ravenrs_app::ModelError>(())
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct App {
     builder: ApplicationBuilder,
     language: Language,
+    texts: TextPacks,
     modules: Vec<Box<dyn FnOnce(ApplicationBuilder) -> ApplicationBuilder>>,
     editors: EditorRegistry,
     seed: Option<Seed>,
     storage: Option<Storage>,
+    kept: Option<Rc<dyn ravenrs_app::Storage>>,
     list_editors: Vec<(String, crate::list_view::ListEditorFactory)>,
     attachment_store: Option<Rc<dyn AttachmentStore>>,
     model_store: Option<Rc<dyn ModelStore>>,
     steps: Vec<SessionStep>,
     administrator: Option<String>,
     security: Option<(Rc<ravenrs_app::SecurityContext>, ravenrs_app::SpaceMaker)>,
+    actions: Vec<ActionMaker>,
+}
+
+type ActionMaker = Rc<dyn Fn() -> ravenrs_app::Action>;
+
+/// The actions an application declared one by one, as a module.
+struct OwnActions(Vec<ActionMaker>);
+
+impl Module for OwnActions {
+    fn name(&self) -> &str {
+        "OwnActions"
+    }
+
+    fn view_controllers(&self) -> Vec<Box<dyn ravenrs_app::ViewController>> {
+        vec![Box::new(OwnActionsController(self.0.iter().map(|make| make()).collect()))]
+    }
+}
+
+struct OwnActionsController(Vec<ravenrs_app::Action>);
+
+impl ravenrs_app::ViewController for OwnActionsController {
+    fn id(&self) -> &str {
+        "OwnActions"
+    }
+
+    fn actions(&self) -> Vec<ravenrs_app::Action> {
+        self.0.clone()
+    }
 }
 
 impl std::fmt::Debug for App {
@@ -99,22 +108,26 @@ impl std::fmt::Debug for App {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl App {
     /// An application with this title, and nothing in it yet.
     pub fn new(title: impl Into<String>) -> Self {
         Self {
             builder: Application::builder(title),
             language: Language::default(),
+            texts: Vec::new(),
             modules: Vec::new(),
             editors: EditorRegistry::default(),
             seed: None,
             storage: None,
+            kept: None,
             list_editors: Vec::new(),
             attachment_store: None,
             model_store: None,
             steps: Vec::new(),
             administrator: None,
             security: None,
+            actions: Vec::new(),
         }
     }
 
@@ -154,6 +167,15 @@ impl App {
         self
     }
 
+    /// Adds or replaces words of its screens, and of any component in them, as a flat JSON of keys
+    /// in the language of this code: `{ "ui.save": "Gravar" }`. The keys that come with it are in
+    /// `ravenrs-app-i18n`; keys of its own, for its modules, go here too, and screens read them with
+    /// [`Session::texts`](crate::Session::texts). Given more than once, the last one wins.
+    pub fn texts(mut self, language: impl Into<String>, json: impl Into<String>) -> Self {
+        self.texts.push((language.into(), json.into()));
+        self
+    }
+
     /// Adds a record declared as a struct.
     pub fn entity<T: BusinessObject>(mut self) -> Self {
         self.builder = self.builder.entity_of::<T>();
@@ -163,6 +185,39 @@ impl App {
     /// Adds a record declared at run time.
     pub fn entity_info(mut self, entity: ravenrs_app::EntityInfo) -> Self {
         self.builder = self.builder.entity(entity);
+        self
+    }
+
+    /// Adds an action of its own, with no module to write. It is made again for each window, so
+    /// each one turns it on and off by itself; its target entity or view says where it shows.
+    ///
+    /// ```
+    /// use ravenrs_app::{Action, BusinessObject, Selection};
+    /// use ravenrs_app_ui::App;
+    ///
+    /// #[derive(BusinessObject)]
+    /// struct Bill {
+    ///     #[field(key)]
+    ///     id: i64,
+    ///     paid: bool,
+    /// }
+    ///
+    /// let app = App::new("Contas").entity::<Bill>().action(|| {
+    ///     Action::background("Pay", "Pagar", |job| {
+    ///         for bill in job.selected() {
+    ///             let mut bill = bill.clone();
+    ///             bill.set("paid", true);
+    ///             job.save(bill);
+    ///         }
+    ///         Ok(())
+    ///     })
+    ///     .target_entity("Bill")
+    ///     .selection(Selection::RequireMultiple)
+    /// });
+    /// # let _ = app;
+    /// ```
+    pub fn action(mut self, make: impl Fn() -> ravenrs_app::Action + 'static) -> Self {
+        self.actions.push(Rc::new(make));
         self
     }
 
@@ -179,7 +234,8 @@ impl App {
     }
 
     /// The model in another language, as a difference in JSON. The one for its
-    /// [`language`](Self::language), `en` or `pt-BR`, is the one used.
+    /// [`language`](Self::language), `en` or `pt-BR`, is the one used. Words of the screens, not of
+    /// the model, go to [`texts`](Self::texts).
     pub fn translation(mut self, language: impl Into<String>, difference: impl Into<String>) -> Self {
         self.builder = self.builder.translation(language, difference);
         self
@@ -222,6 +278,18 @@ impl App {
     /// What is in its records when it opens, kept with a commit once this is done.
     pub fn seed(mut self, seed: impl FnOnce(&mut dyn ObjectSpace) -> Result<(), String> + 'static) -> Self {
         self.seed = Some(Box::new(seed));
+        self
+    }
+
+    /// Keeps the records and the person's own settings in `storage` between runs: a
+    /// [`FileStorage`](ravenrs_app::FileStorage) folder on the desktop, the browser's IndexedDB
+    /// on the web. The records stay in memory while the app runs and are written after every
+    /// commit, under `records`; the settings go under `settings`. The [`seed`](Self::seed) runs
+    /// only the first time, while nothing was kept yet.
+    pub fn keep_in(mut self, storage: impl ravenrs_app::Storage + 'static) -> Self {
+        let storage: Rc<dyn ravenrs_app::Storage> = Rc::new(storage);
+        self.model_store = Some(Rc::new(ravenrs_app::StoredModel::new(storage.clone(), "settings")));
+        self.kept = Some(storage);
         self
     }
 
@@ -277,10 +345,14 @@ impl App {
 
     /// Puts it together, or says what is wrong with how it was declared.
     pub fn build(self) -> Result<AnyView, ModelError> {
-        let words = self.language.words();
+        let texts = texts_of(self.language, &self.texts)?;
+        let words = Words::from_texts(&texts);
         let mut builder = self.builder.module(SystemModule::with_words(words.clone()));
         for add in self.modules {
             builder = add(builder);
+        }
+        if !self.actions.is_empty() {
+            builder = builder.module(OwnActions(self.actions));
         }
         let mut application = builder.build()?;
         if let Some(text) = &self.administrator {
@@ -296,9 +368,17 @@ impl App {
         if let Some((context, _)) = &self.security {
             application.set_security(context.clone());
         }
-        let factory: SpaceFactory = match self.storage {
-            Some(storage) => storage(&application),
-            None => {
+        let mut restored = false;
+        let factory: SpaceFactory = match (self.storage, self.kept) {
+            (Some(storage), _) => storage(&application),
+            (None, Some(kept)) => {
+                let database = MemoryDatabase::new(application.entities().to_vec())?
+                    .stored_in(kept, "records")
+                    .map_err(|e| ModelError(e.to_string()))?;
+                restored = database.was_restored();
+                Rc::new(move || Rc::new(RefCell::new(database.space())) as Rc<RefCell<dyn ObjectSpace>>)
+            }
+            (None, None) => {
                 let database = MemoryDatabase::new(application.entities().to_vec())?;
                 Rc::new(move || Rc::new(RefCell::new(database.space())) as Rc<RefCell<dyn ObjectSpace>>)
             }
@@ -314,7 +394,7 @@ impl App {
                 application.run_initial_records(&mut *space).map_err(ModelError)?;
             }
         }
-        if let Some(seed) = self.seed {
+        if let Some(seed) = self.seed.filter(|_| !restored) {
             let space = factory();
             let mut space = space.borrow_mut();
             seed(&mut *space).map_err(ModelError)?;
@@ -322,6 +402,8 @@ impl App {
         }
         let shell = AppShell::from_factory(application, factory, words, self.editors);
         let session = shell.session();
+        session.use_texts(texts.clone());
+        session.set_access_words(ravenrs_app_a11y::AccessWords::for_language(self.language.code()));
         for (name, editor) in self.list_editors {
             session.register_list_editor(name, move |request| editor(request));
         }
@@ -334,7 +416,7 @@ impl App {
         if let Some(store) = self.model_store {
             session.use_model_store(store).map_err(ModelError)?;
         }
-        Ok(Box::new(Localized::new(self.language.labels(), shell)))
+        Ok(Box::new(Localized::new(Labels::from_texts(&texts), shell)))
     }
 
     /// Puts it together, showing on the screen what is wrong with how it was declared.

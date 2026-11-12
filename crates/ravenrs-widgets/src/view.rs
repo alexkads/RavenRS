@@ -82,6 +82,7 @@ pub struct Keyed<V> {
     view: V,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> Keyed<V> {
     /// Wraps `view` with identity `key`.
     pub fn new(key: u64, view: V) -> Self {

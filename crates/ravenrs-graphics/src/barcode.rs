@@ -12,6 +12,7 @@ use crate::vector::{Shape, append_rectangle};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Symbology {
     /// Code 128: any printable ASCII text, compact for digits.
     #[default]

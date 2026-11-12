@@ -1,5 +1,7 @@
 //! What changed in each version of an app, and the command block it may show.
 
+use std::rc::Rc;
+
 use ravenrs_layout::Align;
 use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -17,10 +19,12 @@ const LIST_WIDTH: f32 = 220.0;
 /// A line of text to copy, such as a command: shown apart from the prose, with a
 /// button that puts it on the clipboard.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CodeBlock {
     code: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CodeBlock {
     /// A block showing `code`.
     pub fn new(code: impl Into<String>) -> Self {
@@ -61,14 +65,32 @@ impl View for CodeBlock {
     }
 }
 
-#[derive(Clone, Debug)]
+/// A label to click and what clicking it does, such as opening a page.
+type Link = (String, Rc<dyn Fn()>);
+
+#[derive(Clone)]
 enum Block {
     Section(String, String),
     Code(String),
+    Links(String, Vec<Link>),
+}
+
+impl std::fmt::Debug for Block {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Section(heading, text) => f.debug_tuple("Section").field(heading).field(text).finish(),
+            Self::Code(code) => f.debug_tuple("Code").field(code).finish(),
+            Self::Links(heading, links) => {
+                let labels: Vec<&str> = links.iter().map(|(label, _)| label.as_str()).collect();
+                f.debug_tuple("Links").field(heading).field(&labels).finish()
+            }
+        }
+    }
 }
 
 /// What one version brought, for a [`ReleaseNotes`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ReleaseNote {
     version: String,
     date: Option<String>,
@@ -78,6 +100,7 @@ pub struct ReleaseNote {
     badge: Option<(String, Tone)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ReleaseNote {
     /// A note on `version`, as the app words it, with the title of the release.
     pub fn new(version: impl Into<String>, title: impl Into<String>) -> Self {
@@ -115,6 +138,23 @@ impl ReleaseNote {
         self
     }
 
+    /// Adds a heading over links, after what is already there: each a label and what
+    /// clicking it does, such as opening the issue a change came from.
+    pub fn links<F: Fn() + 'static>(
+        mut self,
+        heading: impl Into<String>,
+        links: impl IntoIterator<Item = (impl Into<String>, F)>,
+    ) -> Self {
+        let links: Vec<Link> = links
+            .into_iter()
+            .map(|(label, action)| (label.into(), Rc::new(action) as Rc<dyn Fn()>))
+            .collect();
+        if !links.is_empty() {
+            self.blocks.push(Block::Links(heading.into(), links));
+        }
+        self
+    }
+
     /// Marks the version, such as "Installed" or "New".
     pub fn badge(mut self, label: impl Into<String>, tone: Tone) -> Self {
         self.badge = Some((label.into(), tone));
@@ -141,6 +181,28 @@ impl ReleaseNote {
                     .spacing(4.0),
                 ) as crate::AnyView,
                 Block::Code(code) => Box::new(CodeBlock::new(code.clone())) as crate::AnyView,
+                Block::Links(heading, links) => {
+                    let buttons: Vec<Button> = links
+                        .iter()
+                        .map(|(label, action)| {
+                            let action = action.clone();
+                            Button::new(label.clone())
+                                .icon(IconName::ExternalLink)
+                                .style(ButtonStyle::Ghost)
+                                .size(ButtonSize::Small)
+                                .on_click(move || action())
+                        })
+                        .collect();
+                    Box::new(
+                        VStack::new((
+                            Text::new(heading.clone())
+                                .style(TextStyle::Callout)
+                                .font_weight(Weight::SEMIBOLD),
+                            HStack::new(buttons).spacing(4.0).wrap(),
+                        ))
+                        .spacing(4.0),
+                    ) as crate::AnyView
+                }
             })
             .collect();
         VStack::new((
@@ -187,12 +249,14 @@ impl ReleaseNote {
 /// );
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ReleaseNotes {
     notes: Vec<ReleaseNote>,
     selected: Binding<usize>,
     height: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ReleaseNotes {
     /// The versions in `notes`, newest first, on the one at `selected`.
     pub fn new(notes: Vec<ReleaseNote>, selected: Binding<usize>) -> Self {

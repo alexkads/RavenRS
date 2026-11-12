@@ -26,6 +26,7 @@ pub(crate) struct EditorState {
     pub read_only: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EditorState {
     pub fn accepts_input(self) -> bool {
         !self.disabled && !self.read_only
@@ -100,6 +101,7 @@ pub(crate) struct FocusTarget {
     tick: ravenrs_reactive::State<u32>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FocusTarget {
     pub(crate) fn new(initial: Option<usize>) -> Self {
         Self {
@@ -140,6 +142,7 @@ pub(crate) fn roving_cell(cx: &mut BuildCx<'_>, initial: Option<usize>) -> Focus
     cx.use_state(|| FocusTarget::new(initial)).get()
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Roving {
     /// Takes focus if an arrow key moved it here, and handles arrow keys on
     /// `node`. `on_move` runs with the new index (to select it, for patterns

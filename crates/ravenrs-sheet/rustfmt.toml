@@ -1,0 +1,3 @@
+# Kept as the engine was written, so it stays easy to compare with where it came from.
+max_width = 150
+use_small_heuristics = "Max"

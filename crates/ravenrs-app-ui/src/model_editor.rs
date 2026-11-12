@@ -24,6 +24,7 @@ fn tree_of(node: &ModelNode, path: &str) -> TreeNode {
 }
 
 /// The application's model, for whoever may change it.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelEditor {
     session: Session,
     selected: State<Option<String>>,
@@ -39,6 +40,7 @@ impl std::fmt::Debug for ModelEditor {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModelEditor {
     /// Over the model of this session.
     pub fn new(session: Session) -> Self {

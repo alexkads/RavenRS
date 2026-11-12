@@ -484,12 +484,16 @@ impl View for ChartCatalog {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let shown = cx.use_state(|| 0_usize);
         let families = SegmentedControl::new(shown.binding(), FAMILIES).label("Chart family");
-        cx.child(
-            &VStack::new((families, Grid::new(self.columns, family(shown.get()))))
-                .spacing(16.0)
-                .align(Align::Stretch),
-        )
+        let charts = family_grid(shown.get(), self.columns);
+        cx.child(&VStack::new((families, charts)).spacing(16.0).align(Align::Stretch))
     }
+}
+
+/// One family laid out in `columns`. Each family is a new set of charts, so they
+/// draw in again instead of reusing the ones that already appeared in the same
+/// places.
+fn family_grid(index: usize, columns: u16) -> Keyed<Grid<Vec<AnyView>>> {
+    Keyed::new(index as u64, Grid::new(columns, family(index)))
 }
 
 #[cfg(test)]
@@ -501,5 +505,32 @@ mod tests {
         let sizes: Vec<usize> = (0..FAMILIES.len()).map(|i| family(i).len()).collect();
         assert_eq!(sizes, [10, 10, 10, 11, 14, 6, 9]);
         assert_eq!(sizes.iter().sum::<usize>(), 70);
+    }
+
+    #[test]
+    fn another_family_draws_its_charts_in() {
+        // A chart is painted as one finished picture only once it has drawn in.
+        let whole = |ui: &Ui| {
+            ui.scene().primitives().iter().filter(|p| matches!(p, ravenrs::core::Primitive::Image(_))).count()
+        };
+        let settle = |ui: &mut Ui, from: f64| {
+            for step in 0..60 {
+                ui.set_time(from + f64::from(step) * 0.1);
+                ui.update();
+            }
+        };
+        let shown = State::new(0_usize);
+        let s = shown.clone();
+        let mut ui = Ui::new(view_fn(move || family_grid(s.get(), 2)), Theme::raven_dark());
+        ui.set_viewport(Size::new(1000.0, 3000.0), 1.0);
+        settle(&mut ui, 0.0);
+        assert!(whole(&ui) > 0, "the first family is in");
+
+        shown.set(3);
+        ui.set_time(6.0);
+        ui.update();
+        assert_eq!(whole(&ui), 0, "the pies start drawing in instead of showing up whole");
+        settle(&mut ui, 6.0);
+        assert_eq!(whole(&ui), family(3).len(), "every pie is in");
     }
 }

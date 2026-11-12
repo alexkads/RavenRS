@@ -16,18 +16,25 @@ links = {
 listed = set(links)
 
 # Parts of a listed component, and plumbing that is not a component on its own.
-NOT_LISTED = {"DiagnosticsHost", "Command", "EyedropperArea", "ChatMedia", "ListItem", "SidebarGroup", "SidebarInset", "SidebarItem", "SidebarSection", "SidebarSkeleton", "SidebarTrigger", "Styled", "Keyed", "Localized", "Responsive", "FnView"}
+NOT_LISTED = {"DiagnosticsHost", "Command", "EyedropperArea", "ChatMedia", "ListItem", "SidebarGroup", "SidebarInset", "SidebarItem", "SidebarSection", "SidebarSkeleton", "SidebarTrigger", "Styled", "Faded", "Keyed", "Localized", "Responsive", "FnView", "AccessibleControl"}
 
 source = "\n".join(p.read_text() for p in (root / "crates/ravenrs-widgets/src").rglob("*.rs"))
 public = set(re.findall(r"^pub struct (\w+)", source, re.M))
 views = {name for name in public if re.search(rf"impl(<[^>]*>)? (View|Component) for {name}\b", source)}
 
+docs = pathlib.Path(os.environ.get("RAVENRS_API_DOCS_DIR", pathlib.Path(os.environ.get("CARGO_TARGET_DIR", root / "target")) / "doc"))
 problems = []
 for name, path in sorted(links.items()):
-    if not (pathlib.Path(os.environ.get("CARGO_TARGET_DIR", root / "target")) / "doc" / path).exists():
+    if not (docs / path).exists():
         problems.append(f"{name}: no API page; run cargo doc, or fix the link")
 for name in sorted(views - listed - NOT_LISTED):
     problems.append(f"{name}: public component missing from the list")
+
+# The playground's interpreter has to know every component as it is.
+import subprocess
+generated = subprocess.run([sys.executable, str(root / "scripts/gen-live.py"), "--check"], capture_output=True, text=True)
+if generated.returncode != 0:
+    problems.append(generated.stderr.strip() or generated.stdout.strip())
 
 if problems:
     print("\n".join(problems), file=sys.stderr)

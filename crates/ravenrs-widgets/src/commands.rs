@@ -33,13 +33,15 @@ const MORE_ROOM: f32 = 36.0;
 /// assert_eq!(Hotkey::command("s").shift().label(), Hotkey::command("S").shift().label());
 /// assert!(Hotkey::key(ravenrs_core::Key::Delete).label().contains("Del"));
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Hotkey {
     key: Key,
     command: bool,
     shift: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Hotkey {
     /// This key alone.
     pub fn key(key: Key) -> Self {
@@ -49,6 +51,10 @@ impl Hotkey {
     /// This letter or digit with Cmd or Ctrl.
     pub fn command(character: &str) -> Self {
         Self { key: Key::Character(character.to_lowercase()), command: true, shift: false }
+    }
+
+    pub(crate) fn of(key: Key, command: bool, shift: bool) -> Self {
+        Self { key, command, shift }
     }
 
     /// Needs Shift too.
@@ -89,6 +95,7 @@ impl Hotkey {
 }
 
 /// One command of a [`Toolbar`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ToolbarAction {
     label: String,
     icon: Option<IconName>,
@@ -97,6 +104,8 @@ pub struct ToolbarAction {
     icon_only: bool,
     hotkey: Option<Hotkey>,
     on_click: Option<Rc<dyn Fn()>>,
+    accessible_name: Option<String>,
+    accessible_description: Option<String>,
 }
 
 impl fmt::Debug for ToolbarAction {
@@ -105,6 +114,7 @@ impl fmt::Debug for ToolbarAction {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToolbarAction {
     /// A ghost button with this text.
     pub fn new(label: impl Into<String>) -> Self {
@@ -116,7 +126,29 @@ impl ToolbarAction {
             icon_only: false,
             hotkey: None,
             on_click: None,
+            accessible_name: None,
+            accessible_description: None,
         }
+    }
+
+    /// What screen readers call it, instead of its label.
+    pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
+        self.accessible_name = Some(name.into());
+        self
+    }
+
+    /// What screen readers say after its name. Its keys follow, when it has them.
+    pub fn accessible_description(mut self, text: impl Into<String>) -> Self {
+        self.accessible_description = Some(text.into());
+        self
+    }
+
+    /// What screen readers say after its name: its description, then its keys.
+    fn description(&self) -> Option<String> {
+        let keys = self.hotkey.as_ref().map(Hotkey::label);
+        let parts: Vec<&str> =
+            [self.accessible_description.as_deref(), keys.as_deref()].into_iter().flatten().collect();
+        (!parts.is_empty()).then(|| parts.join(". "))
     }
 
     /// An icon before the label.
@@ -174,21 +206,33 @@ impl ToolbarAction {
                 handler();
             }
         };
+        let name = self.accessible_name.clone().unwrap_or_else(|| self.label.clone());
+        let description = self.description();
         match (self.icon_only, self.icon) {
-            (true, Some(icon)) => Box::new(
-                IconButton::new(icon)
-                    .label(self.label.clone())
+            (true, Some(icon)) => {
+                let mut button = IconButton::new(icon)
+                    .label(name)
                     .style(self.style)
                     .size(ButtonSize::Small)
                     .disabled(self.disabled)
-                    .on_click(click),
-            ),
+                    .on_click(click);
+                if let Some(description) = description {
+                    button = button.description(description);
+                }
+                Box::new(button)
+            }
             (_, icon) => {
                 let mut button = Button::new(self.label.clone())
                     .style(self.style)
                     .size(ButtonSize::Small)
                     .disabled(self.disabled)
                     .on_click(click);
+                if self.accessible_name.is_some() {
+                    button = button.accessible_name(name);
+                }
+                if let Some(description) = description {
+                    button = button.accessible_description(description);
+                }
                 if let Some(icon) = icon {
                     button = button.icon(icon);
                 }
@@ -270,6 +314,7 @@ fn entry_node(cx: &mut BuildCx<'_>, index: usize, entry: &ToolbarEntry) -> NodeI
 /// ui.update();
 /// ```
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toolbar {
     entries: Vec<ToolbarEntry>,
     label: Option<String>,
@@ -282,6 +327,7 @@ impl fmt::Debug for Toolbar {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Toolbar {
     /// An empty toolbar.
     pub fn new() -> Self {
@@ -446,6 +492,7 @@ impl<C> fmt::Debug for FloatingToolbar<C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> FloatingToolbar<C> {
     /// An empty bar at the bottom center of `content`.
     pub fn new(content: C) -> Self {
@@ -714,6 +761,7 @@ pub(crate) fn menu_trigger(
 /// let mut ui = Ui::new(save, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplitButton {
     label: String,
     icon: Option<IconName>,
@@ -730,6 +778,7 @@ impl fmt::Debug for SplitButton {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SplitButton {
     /// A primary button with this text and an empty menu.
     pub fn new(label: impl Into<String>) -> Self {
@@ -826,6 +875,7 @@ impl View for SplitButton {
 /// until it is answered; show [`ConfirmDialog`] once, and call
 /// [`ask`](Self::ask) from anywhere.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ConfirmDialog(State<Option<Rc<Question>>>);
 
 struct Question {
@@ -850,6 +900,7 @@ impl Default for ConfirmDialog {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ConfirmDialog {
     /// A dialog with nothing to ask yet.
     pub fn new() -> Self {

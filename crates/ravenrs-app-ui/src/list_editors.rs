@@ -69,6 +69,7 @@ struct Shown {
     build: Build,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Shown {
     fn new(request: &ListEditorRequest, build: Build) -> Self {
         Self {
@@ -99,6 +100,7 @@ impl View for Shown {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Data {
     fn setting(&self, node: &str, name: &str) -> Option<String> {
         if let Some(given) = self.given.get(name) {
@@ -233,6 +235,7 @@ enum Summary {
     Max,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Summary {
     fn named(name: &str) -> Self {
         match name {
@@ -596,6 +599,7 @@ struct Keep {
     keys: Vec<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Keep {
     /// The value of the reference for a row, as the kind of the key it points to.
     fn resource_value(&self, row: u64) -> Value {

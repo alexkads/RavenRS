@@ -602,6 +602,24 @@ mod arranging {
     }
 
     #[test]
+    fn a_server_with_no_rows_says_what_it_was_given_to_say() {
+        let asked = Rc::new(Cell::new(0_usize));
+        let count = asked.clone();
+        let remote = RemoteRows::new(move |_, answer| {
+            count.set(count.get() + 1);
+            answer.send(GridPage::new(Vec::new(), false));
+        });
+        let grid =
+            DataGrid::remote(remote, [GridColumn::text("Name")]).empty_text("No classes yet.").height(300.0);
+        let mut ui = ui(grid);
+        settle(&mut ui);
+        let names: Vec<_> = ui.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect();
+        assert!(says(&mut ui, "No classes yet."), "{names:?} after {} questions", asked.get());
+        // The chunk asked past the end came back empty and did not make room for 100 rows.
+        assert!(!says(&mut ui, "100 rows"), "{names:?}");
+    }
+
+    #[test]
     fn a_page_of_rows_on_a_server_asks_only_for_that_page() {
         let seen: Rc<RefCell<BTreeSet<usize>>> = Rc::default();
         let log = seen.clone();

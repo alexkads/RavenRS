@@ -1,0 +1,36 @@
+
+# Strict rules written by `cargo ravenrs-lint --init`. A lowered rule needs a reason a reviewer accepts.
+[lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+missing_debug_implementations = "deny"
+rust_2018_idioms = { level = "deny", priority = -1 }
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+# Pedantic rules that only add noise in an application.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# No panics in the application: return errors and show them to the person.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+indexing_slicing = "deny"
+string_slice = "deny"
+# No leftovers from debugging.
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+# Every silenced lint says why, with #[expect(lint, reason = "...")].
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+# Results and futures are never dropped by accident.
+let_underscore_must_use = "deny"
+# Functions stay small enough to read; the limits are in clippy.toml.
+cognitive_complexity = "deny"

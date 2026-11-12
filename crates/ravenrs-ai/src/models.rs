@@ -49,6 +49,10 @@ pub enum ModelFamily {
     Mistral,
     /// LFM3, from Liquid AI.
     Lfm3,
+    /// Whisper, from OpenAI, which hears rather than writes.
+    Whisper,
+    /// Kokoro, from hexgrad, which only speaks.
+    Kokoro,
 }
 
 /// A model an app knows how to use.

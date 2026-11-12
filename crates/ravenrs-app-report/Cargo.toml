@@ -14,6 +14,7 @@ keywords = ["application", "framework", "report", "pdf"]
 categories = ["gui"]
 
 [dependencies]
+ravenrs-app-i18n.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-ui.workspace = true
 ravenrs-criteria.workspace = true

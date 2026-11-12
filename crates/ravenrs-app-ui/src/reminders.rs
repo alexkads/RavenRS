@@ -94,6 +94,7 @@ pub(crate) struct Reminders {
     session: Session,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Reminders {
     pub(crate) fn new(session: Session) -> Self {
         Self { session }

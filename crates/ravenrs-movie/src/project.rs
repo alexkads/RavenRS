@@ -8,6 +8,7 @@ const SHORTEST_MS: u64 = 100;
 
 /// A rectangle on the film, in the logical pixels of the app.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Region {
     /// Left.
     pub x: f32,
@@ -19,6 +20,7 @@ pub struct Region {
     pub height: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Region {
     /// A region at this place and of this size.
     pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
@@ -26,8 +28,46 @@ impl Region {
     }
 }
 
+/// How a title card looks and moves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum CardLook {
+    /// The title and the line under it, still.
+    #[default]
+    Plain,
+    /// The opening of a film: the logo plays, then the title and the line under it
+    /// come in. The player says them once they are in.
+    Opening,
+    /// The farewell at the end: the logo plays again, then the parting words come in,
+    /// and the player says them.
+    Closing,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl CardLook {
+    /// When the words of a card of this look are all in, in milliseconds from its start.
+    pub const fn words_in_ms(self) -> u64 {
+        match self {
+            Self::Plain => 0,
+            Self::Opening => 1_700,
+            Self::Closing => 1_300,
+        }
+    }
+
+    /// When the player starts saying the words, in milliseconds from the card's start.
+    pub const fn speaks_from_ms(self) -> u64 {
+        match self {
+            Self::Plain => 0,
+            Self::Opening => 1_100,
+            Self::Closing => 700,
+        }
+    }
+}
+
 /// What a clip shows.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ClipKind {
     /// A stretch of the film.
     Film {
@@ -44,11 +84,15 @@ pub enum ClipKind {
         subtitle: String,
         /// How long it stays, in milliseconds.
         duration_ms: u64,
+        /// How it looks and moves.
+        #[serde(default)]
+        look: CardLook,
     },
 }
 
 /// One piece of the main track.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Clip {
     /// What it shows.
     pub kind: ClipKind,
@@ -56,6 +100,7 @@ pub struct Clip {
     pub speed: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Clip {
     /// How long it lasts on the timeline.
     pub fn duration_ms(&self) -> u64 {
@@ -70,6 +115,7 @@ impl Clip {
 
 /// How a callout looks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CalloutStyle {
     /// A light balloon with a colored edge.
     #[default]
@@ -80,6 +126,7 @@ pub enum CalloutStyle {
 
 /// A chapter added in the editor, at a moment of the timeline.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Marker {
     /// Its name.
     pub title: String,
@@ -90,6 +137,7 @@ pub struct Marker {
 /// What an overlay does.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum OverlayKind {
     /// A balloon with text, placed on the film.
     Callout {
@@ -145,6 +193,7 @@ pub enum OverlayKind {
 
 /// Something over the film for a while, on a track of the timeline.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Overlay {
     /// Its identity, which edits do not change.
     pub id: u64,
@@ -158,6 +207,7 @@ pub struct Overlay {
     pub kind: OverlayKind,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Overlay {
     /// When it ends on the timeline.
     pub fn end_ms(&self) -> u64 {
@@ -172,6 +222,7 @@ impl Overlay {
 
 /// What the timeline shows at a moment.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Place {
     /// This moment of the film.
     Film(u64),
@@ -181,6 +232,7 @@ pub enum Place {
 
 /// A film's edits.
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Project {
     /// The main track, in order.
     pub clips: Vec<Clip>,
@@ -192,6 +244,7 @@ pub struct Project {
     next_id: u64,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Project {
     /// No edits: the whole film of this duration, as it is.
     pub fn whole(duration_ms: u64) -> Self {
@@ -357,6 +410,18 @@ impl Project {
 
     /// Puts a card in at `ms`, cutting the clip there if needed. What is after it moves on.
     pub fn insert_title(&mut self, ms: u64, title: &str, subtitle: &str, duration_ms: u64) -> usize {
+        self.insert_card(ms, title, subtitle, duration_ms, CardLook::Plain)
+    }
+
+    /// A [`Self::insert_title`] of a `look`: an opening at 0, a farewell at the end.
+    pub fn insert_card(
+        &mut self,
+        ms: u64,
+        title: &str,
+        subtitle: &str,
+        duration_ms: u64,
+        look: CardLook,
+    ) -> usize {
         self.split(ms);
         let mut index = self.clips.len();
         let mut start = 0;
@@ -369,7 +434,8 @@ impl Project {
         }
         let at = self.clip_start_ms(index);
         self.open_gap(at, duration_ms);
-        let kind = ClipKind::Title { title: title.to_owned(), subtitle: subtitle.to_owned(), duration_ms };
+        let kind =
+            ClipKind::Title { title: title.to_owned(), subtitle: subtitle.to_owned(), duration_ms, look };
         self.clips.insert(index, Clip { kind, speed: 1.0 });
         index
     }

@@ -336,7 +336,7 @@ pub(crate) fn settings(
                     diagnostics.start_test();
                 }),
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Start),
     );
     let assistant = models.map(|models| {
@@ -351,7 +351,7 @@ pub(crate) fn settings(
                 .foreground(Semantic::InkMuted),
                 models,
             ))
-            .spacing(10.0)
+            .spacing(12.0)
             .align(Align::Stretch),
         )
     });
@@ -361,13 +361,13 @@ pub(crate) fn settings(
             help::VOZ,
             VStack::new((
                 Text::new(
-                    "Opcional. Com o LFM3 Audio, o assistente lê as respostas em voz alta, gerando a fala neste computador. Nada sai daqui.",
+                    "Opcional. Com uma voz local, o assistente lê as respostas em voz alta, gerando a fala neste computador. Nada sai daqui.",
                 )
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
                 voices,
             ))
-            .spacing(10.0)
+            .spacing(12.0)
             .align(Align::Stretch),
         )
     });
@@ -420,7 +420,7 @@ pub(crate) fn settings(
                 .foreground(Semantic::InkMuted),
                 List::new(rows),
             ))
-            .spacing(10.0)
+            .spacing(12.0)
             .align(Align::Stretch),
         )
     });
@@ -435,7 +435,7 @@ pub(crate) fn settings(
                     info_row("Versão do esquema", version.to_string()),
                     info_row("Motor", "SQLite, compilado dentro do app".to_owned()),
                 ))
-                .spacing(10.0),
+                .spacing(12.0),
             ),
             folder.map(|folder| {
                 Button::new("Abrir a pasta")
@@ -449,7 +449,7 @@ pub(crate) fn settings(
                     })
             }),
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Start),
     );
     let updates_card = titled_card(
@@ -476,7 +476,7 @@ pub(crate) fn settings(
             ))
             .spacing(8.0),
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Stretch),
     );
     let telegram = super::telegram_card::TelegramCard::new(store);
@@ -531,7 +531,7 @@ pub(crate) fn settings(
             .spacing(8.0)
             .wrap(),
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Stretch),
     );
 

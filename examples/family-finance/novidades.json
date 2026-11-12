@@ -1,10 +1,22 @@
 {
-  "versao": "0.1.30",
-  "titulo": "Cores novas, em verde-limão.",
+  "versao": "0.1.38",
+  "titulo": "Painel do seu jeito, por conta, e bot do Telegram firme em rede ruim.",
   "importante": false,
   "novidades": [
-    "O tema claro agora é o padrão, com tons de verde-limão.",
-    "O tema escuro ficou mais vivo: grafite no lugar do quase preto, com destaques em limão."
+    "No Painel, cada card muda de lugar e de tamanho, pelo mouse ou pelo teclado. O arranjo fica guardado, e o botão Restaurar layout volta ao original.",
+    "O Painel mostra uma conta só ou todas: o saldo, o gráfico, as receitas, as despesas e as categorias seguem a conta escolhida, que fica guardada para a próxima vez.",
+    "O bot do Telegram não responde duas vezes depois de uma queda de rede, e um botão já usado avisa no próprio botão, sem encher o chat.",
+    "Os botões do bot respondem mais rápido, e as respostas ficaram mais claras: ✅ Lançado, ❌ Cancelado e ↩️ Desfeito.",
+    "Um comprovante em PDF com mais de um valor mostra os valores como botões para você escolher o total."
   ],
-  "por_que_atualizar": "Para usar o app com cores mais alegres, nos dois temas."
+  "por_que_atualizar": "Para arrumar o Painel como prefere, ver cada conta separada e lançar pelo Telegram sem respostas repetidas, mesmo com a internet ruim.",
+  "contribuidores": [
+    "Matheus Braga de Carvalho",
+    "Alex S S Fonseca"
+  ],
+  "issues": [
+    199,
+    200,
+    201
+  ]
 }
