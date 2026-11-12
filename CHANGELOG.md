@@ -16,6 +16,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
   the lines live in `ravenrs_graphics::flow`, and `BuildCx::on_wheel` lets a surface take the
   wheel before any scroll container around it. ([#195](https://github.com/alexkads/RavenRS/issues/195))
 
+### Fixed
+
+- `AppShell` in a window narrower than 720 points shows a button in the header that opens the
+  navigation sheet; choosing a screen closes it. `AppShell::sidebar` shares the state with the
+  application. ([#184](https://github.com/alexkads/RavenRS/issues/184))
+
 ## [27.1.27] - 2026-11-11
 
 ### Added
