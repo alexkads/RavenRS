@@ -21,7 +21,9 @@ use crate::bands::BandRef;
 use crate::editor::{Editor, Selection, snap};
 
 /// The paper is content, not chrome: it stays light in every theme, so all that
-/// is drawn on it comes from Raven Light.
+/// is drawn on it (grid, borders, selection) comes from Raven Light. What sits around
+/// it, the band captions and the rulers, follows the theme on screen: see
+/// [`caption_colors`].
 const PAPER: Palette = Theme::raven_light().palette;
 const ACCENT: Color = PAPER.accent;
 /// Height of a band's caption strip, which the vertical ruler leaves blank.
@@ -32,6 +34,13 @@ const RULER: f32 = 18.0;
 const POINTS_PER_CM: f32 = 72.0 / 2.54;
 /// What the report engine prints when a control sets no color.
 const DOCUMENT_INK: Color = Color::rgba(0.0, 0.0, 0.0, 1.0);
+
+/// The ink and the ground of a band's caption strip, from the theme on screen: the strip is
+/// part of the designer, not of the page, so it goes dark with the rest of it.
+pub(crate) fn caption_colors(theme: &Theme, selected: bool) -> (Color, Color) {
+    let chrome = theme.palette;
+    if selected { (chrome.on_accent, chrome.accent) } else { (chrome.ink_muted, chrome.bg_000) }
+}
 
 /// Parses `#rrggbb` for the design view.
 pub fn color(s: Option<&str>) -> Option<Color> {
@@ -157,7 +166,7 @@ impl View for BandView {
         let height = (band.height * zoom).max(8.0);
 
         // Caption strip.
-        let caption_color = if band_selected { PAPER.on_accent } else { PAPER.ink_muted };
+        let (caption_color, caption_ground) = caption_colors(cx.theme(), band_selected);
         let caption = cx.child(
             &HStack::new((
                 Icon::new(if matches!(self.band, BandRef::Detail | BandRef::DetailReportDetail(_)) {
@@ -178,7 +187,7 @@ impl View for BandView {
             .padding(Insets::symmetric(0.0, 8.0))
             .width(self.width + 2.0)
             .height(CAPTION_HEIGHT)
-            .background(if band_selected { ACCENT.into() } else { Fill::from(PAPER.bg_000) }),
+            .background(Fill::from(caption_ground)),
         );
         let select_band = {
             let (sel, b) = (e.selection.clone(), self.band);
@@ -674,5 +683,32 @@ impl View for ResizeHandle {
         );
         cx.cursor(node, CursorIcon::ColResize);
         node
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn band_captions_follow_the_theme_and_the_paper_stays_light() {
+        let (light_ink, light_ground) = caption_colors(&Theme::raven_light(), false);
+        let (dark_ink, dark_ground) = caption_colors(&Theme::raven_dark(), false);
+        assert_ne!(light_ground, dark_ground);
+        assert_ne!(light_ink, dark_ink);
+        // The page and what prints on it do not depend on the theme on screen.
+        assert_eq!(PAPER.bg_100, Theme::raven_light().palette.bg_100);
+        assert_eq!(DOCUMENT_INK, Color::rgba(0.0, 0.0, 0.0, 1.0));
+    }
+
+    #[test]
+    fn band_captions_are_legible_in_every_theme() {
+        for theme in Theme::builtin() {
+            for selected in [false, true] {
+                let (ink, ground) = caption_colors(&theme, selected);
+                let ratio = ink.contrast_ratio(ground);
+                assert!(ratio >= 4.5, "{} (selected: {selected}): {ratio:.2}:1", theme.name);
+            }
+        }
     }
 }

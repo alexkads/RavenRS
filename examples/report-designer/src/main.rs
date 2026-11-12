@@ -8,7 +8,9 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
                 .unwrap_or_else(|_| "info,wgpu=warn,naga=warn".into()),
         )
         .init();
-    let options = ravenrs::native::WindowOptions::new("RavenRS Report Designer").size(1440.0, 900.0);
+    let options = ravenrs::native::WindowOptions::new("RavenRS Report Designer")
+        .size(1440.0, 900.0)
+        .follow_system_theme();
     ravenrs::native::run(report_designer::app(), options)
 }
 

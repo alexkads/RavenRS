@@ -197,6 +197,7 @@ pub struct Ui {
     appeared: std::collections::HashSet<WidgetId>,
     file_picker: crate::FilePicker,
     files_over: State<bool>,
+    appearance: crate::SystemAppearance,
     motion: MotionSystem,
     motions: Vec<MotionEntry>,
     /// What scrolling added to each element's frame.
@@ -303,6 +304,7 @@ impl Ui {
             appeared: std::collections::HashSet::new(),
             file_picker: crate::FilePicker::default(),
             files_over: State::new(false),
+            appearance: crate::SystemAppearance::default(),
             motion: MotionSystem::default(),
             motions: Vec::new(),
             shifts: Vec::new(),
@@ -544,6 +546,22 @@ impl Ui {
     /// The theme as reactive state.
     pub fn theme_state(&self) -> State<Theme> {
         self.theme.clone()
+    }
+
+    /// Says whether the system is dark (platform layers do this, at the start and on every
+    /// change). While the theme follows the system, it switches to match.
+    pub fn set_system_dark(&mut self, dark: bool) {
+        self.appearance.report(dark, &self.theme);
+    }
+
+    /// Makes the theme follow the system between Raven Dark and Raven Light, or stop.
+    pub fn follow_system_theme(&mut self, follow: bool) {
+        self.appearance.set_follow(follow, &self.theme);
+    }
+
+    /// Whether the system is light or dark, and whether the theme follows it.
+    pub fn system_appearance(&self) -> crate::SystemAppearance {
+        self.appearance.clone()
     }
 
     /// Fonts registered here become available to every `Text`.
@@ -1224,6 +1242,7 @@ impl Ui {
         let full_screen = self.full_screen.clone();
         let file_picker = self.file_picker.clone();
         let files_over = self.files_over.clone();
+        let appearance = self.appearance.clone();
         let ui_waker = self.ui_waker.clone();
         let view_profile = self.view_profile.clone();
         self.hover_readers.borrow_mut().clear();
@@ -1258,6 +1277,7 @@ impl Ui {
                 cx.full_screen = full_screen;
                 cx.file_picker = file_picker;
                 cx.files_over = files_over;
+                cx.appearance = appearance;
                 cx.motion_clock = motion_clock;
                 cx.motion_enabled = motion_enabled;
                 cx.reduced_motion = reduced_motion;

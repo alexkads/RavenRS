@@ -608,6 +608,7 @@ pub struct BuildCx<'a> {
     pub(crate) full_screen: crate::FullScreen,
     pub(crate) file_picker: crate::FilePicker,
     pub(crate) files_over: State<bool>,
+    pub(crate) appearance: crate::SystemAppearance,
     pub(crate) motions: Vec<MotionEntry>,
     pub(crate) motion_clock: f64,
     pub(crate) motion_enabled: bool,
@@ -678,6 +679,7 @@ impl<'a> BuildCx<'a> {
             full_screen: crate::FullScreen::default(),
             file_picker: crate::FilePicker::default(),
             files_over: State::new(false),
+            appearance: crate::SystemAppearance::default(),
             motions: Vec::new(),
             motion_clock: 0.0,
             motion_enabled: false,
@@ -738,6 +740,11 @@ impl<'a> BuildCx<'a> {
     /// The app-wide theme as state: set it to switch themes at runtime.
     pub fn theme_state(&self) -> State<Theme> {
         self.theme_state.clone()
+    }
+
+    /// Whether the system is light or dark, and whether the theme follows it.
+    pub fn system_appearance(&self) -> crate::SystemAppearance {
+        self.appearance.clone()
     }
 
     /// Opens addresses: in the browser it navigates, on the desktop the system's

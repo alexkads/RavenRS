@@ -24,7 +24,7 @@ mod web_entry {
     pub fn start() {
         console_error_panic_hook::set_once();
         wasm_bindgen_futures::spawn_local(async {
-            let options = ravenrs::web::WebOptions::new("raven-canvas");
+            let options = ravenrs::web::WebOptions::new("raven-canvas").follow_system_theme();
             match ravenrs::web::start(super::app(), options).await {
                 Ok(app) => APP.with(|a| *a.borrow_mut() = Some(app)),
                 Err(e) => web_sys::console::error_1(&e.to_string().into()),

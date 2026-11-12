@@ -315,33 +315,36 @@ fn design_report(session: &Session, record: &Object, words: &ReportWords) -> Res
     };
     let (saving, closing, told) = (session.clone(), session.clone(), words.saved.clone());
     let (key, entity_name) = (record.get("id"), REPORT_DEFINITION);
-    let designer = Rc::new(Designer::embedded(
-        report,
-        words.save.clone(),
-        words.close.clone(),
-        move |report| {
-            let space = saving.frame().space();
-            let mut space = space.borrow_mut();
-            let result = (|| {
-                let mut stored = space
-                    .find(entity_name, &key)?
-                    .ok_or_else(|| ravenrs_app::SpaceError::Conflict(told.clone()))?;
-                stored.set("layout", layout_to_keep(report));
-                space.save(stored)?;
-                space.commit()
-            })();
-            if let Err(error) = result {
-                space.rollback();
-                drop(space);
-                saving.show_message(Message::new(error.to_string(), MessageKind::Error));
-            } else {
-                drop(space);
-                saving.show_message(Message::new(told.clone(), MessageKind::Success));
-                saving.records_changed();
-            }
-        },
-        move || closing.close_full(),
-    ));
+    let designer = Rc::new(
+        Designer::embedded(
+            report,
+            words.save.clone(),
+            words.close.clone(),
+            move |report| {
+                let space = saving.frame().space();
+                let mut space = space.borrow_mut();
+                let result = (|| {
+                    let mut stored = space
+                        .find(entity_name, &key)?
+                        .ok_or_else(|| ravenrs_app::SpaceError::Conflict(told.clone()))?;
+                    stored.set("layout", layout_to_keep(report));
+                    space.save(stored)?;
+                    space.commit()
+                })();
+                if let Err(error) = result {
+                    space.rollback();
+                    drop(space);
+                    saving.show_message(Message::new(error.to_string(), MessageKind::Error));
+                } else {
+                    drop(space);
+                    saving.show_message(Message::new(told.clone(), MessageKind::Success));
+                    saving.records_changed();
+                }
+            },
+            move || closing.close_full(),
+        )
+        .theme_menu(session.theme_menu()),
+    );
     session.show_full(move || Box::new(SharedDesigner(designer.clone())) as AnyView);
     Ok(())
 }

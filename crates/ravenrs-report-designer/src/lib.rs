@@ -41,6 +41,8 @@ use preview::RenderCache;
 /// The designer app.
 pub struct Designer {
     embedded: Option<Embedded>,
+    /// Whether the status bar offers the themes.
+    theme_menu: bool,
     editor: Editor,
     cache: Rc<RefCell<RenderCache>>,
     params: State<HashMap<String, serde_json::Value>>,
@@ -83,6 +85,7 @@ impl Designer {
     pub fn new() -> Self {
         Self {
             embedded: None,
+            theme_menu: true,
             editor: Editor::new(samples::sales_by_region(300)),
             cache: Rc::new(RefCell::new(RenderCache::default())),
             params: State::new(HashMap::new()),
@@ -125,6 +128,14 @@ impl Designer {
             on_close: Rc::new(on_close),
         });
         designer
+    }
+
+    /// Whether the status bar offers the themes, on unless said otherwise. Inside an application
+    /// the menu changes the application's theme, which is the same one; an application that keeps
+    /// a look of its own says no here.
+    pub fn theme_menu(mut self, offered: bool) -> Self {
+        self.theme_menu = offered;
+        self
     }
 
     fn embedded_bar(&self) -> Option<AnyView> {
@@ -176,7 +187,7 @@ impl Component for Designer {
                 design.then(|| self.dock()),
             )),
             Divider::horizontal(),
-            StatusBar { editor: e.clone(), cache: self.cache.clone(), themes: on_its_own },
+            StatusBar { editor: e.clone(), cache: self.cache.clone(), themes: self.theme_menu },
             on_its_own.then(|| Gallery { editor: e.clone() }),
             on_its_own.then(|| WizardDialog { editor: e.clone(), state: self.wizard.clone() }),
             ExpressionDialog(e.clone()),
@@ -987,7 +998,7 @@ impl View for JsonPane {
 }
 
 struct StatusBar {
-    /// Whether it offers the themes, which are the application's to say inside one.
+    /// Whether it offers the themes.
     themes: bool,
     editor: Editor,
     cache: Rc<RefCell<RenderCache>>,
@@ -1012,13 +1023,6 @@ impl View for StatusBar {
         let paper = if report.page.width > report.page.height { "paisagem" } else { "retrato" };
         drop(cache);
         let muted = |text: String| Text::new(text).style(TextStyle::Callout).foreground(Semantic::InkMuted);
-        let themes = [Theme::raven_dark(), Theme::raven_light(), Theme::raven_glass()];
-        let state = cx.theme_state();
-        let read = state.clone();
-        let theme = Binding::new(
-            move || read.with(|t| themes.iter().position(|x| x.name == t.name).unwrap_or(0)),
-            move |i: usize| state.set(themes[i.min(themes.len() - 1)]),
-        );
         cx.child(
             &HStack::new((
                 muted(format!("{} · {} linhas de dados · {} · {}", report.name, rows, report.culture, paper)),
@@ -1026,13 +1030,7 @@ impl View for StatusBar {
                 page.map(muted),
                 muted(render),
                 ZoomBar(e.clone()),
-                self.themes.then(|| {
-                    SegmentedControl::with_icons(
-                        theme,
-                        [(IconName::Moon, "Escuro"), (IconName::Sun, "Claro"), (IconName::Layers, "Vidro")],
-                    )
-                    .label("Tema")
-                }),
+                self.themes.then(ThemePicker::new),
             ))
             .spacing(SPACING.s3)
             .align(Align::Center)
@@ -1345,5 +1343,19 @@ impl View for WizardDialog {
                 .content(content)
                 .action(generate),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_theme_menu_is_offered_alone_and_inside_an_application_unless_it_says_no() {
+        assert!(Designer::new().theme_menu);
+        let report = || samples::sales_by_region(3);
+        assert!(Designer::embedded(report(), "Salvar", "Fechar", |_| {}, || {}).theme_menu);
+        let kept = Designer::embedded(report(), "Salvar", "Fechar", |_| {}, || {}).theme_menu(false);
+        assert!(!kept.theme_menu);
     }
 }
