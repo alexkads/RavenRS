@@ -338,5 +338,9 @@ fn the_package_says_its_version_and_its_job() {
     assert!(without_events.is_err_and(|e| e.0.contains("Outbox")), "events come from the framework's module");
     let app = Application::builder("App").module(module()).module(OutboxModule).build().expect("fits");
     let names: Vec<String> = app.manifests().into_iter().map(|(name, _)| name).collect();
-    assert_eq!(names, ["Outbox", "Requests"]);
+    assert_eq!(
+        names,
+        ["Outbox", "Requests", "RecordActions"],
+        "the declared actions come with the framework"
+    );
 }

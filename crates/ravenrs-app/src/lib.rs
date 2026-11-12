@@ -76,7 +76,9 @@ pub use model::{
 };
 pub use module::{Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
-pub use outbox::{Dispatcher, Emitted, Event, OUTBOX_EVENT, OutboxModule, Report, outbox_entity};
+pub use outbox::{
+    Dispatcher, Emitted, Event, OUTBOX_EVENT, OUTBOX_REPROCESS, OutboxModule, Report, outbox_entity,
+};
 pub use provider::{CAN_TELL_STATUS, EventSink, Provider};
 pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 #[cfg(not(target_arch = "wasm32"))]

@@ -25,8 +25,8 @@ use std::rc::Rc;
 
 use ravenrs_app::{
     CAN_TELL_STATUS, EntityInfo, EventSink, FieldInfo, FieldKind, Identity, MemoryDatabase, ObjectSpace,
-    Provider, RoleMerge, SecuredObjectSpace, SecurityContext, SpaceError, SpaceMaker, UserDirectory, Value,
-    outbox_entity, security_entities,
+    Provider, Query, RoleMerge, SECURITY_ROLE, SECURITY_USER, SECURITY_USER_ROLE, SecuredObjectSpace,
+    SecurityContext, SpaceError, SpaceMaker, UserDirectory, Value, outbox_entity, security_entities,
 };
 use ravenrs_app_sqlite::{SqliteDatabase, TableMap};
 
@@ -100,7 +100,8 @@ impl Organization {
     }
 
     fn over(name: String, entities: Vec<EntityInfo>, maker: SpaceMaker) -> Result<Self, String> {
-        let directory = UserDirectory::new(maker.clone(), Vec::new()).map_err(|e| e.to_string())?;
+        let directory =
+            UserDirectory::new(maker.clone(), vec![roles::events_worker()]).map_err(|e| e.to_string())?;
         Ok(Self { name, entities, maker, directory })
     }
 
@@ -116,9 +117,50 @@ impl Organization {
 
     /// A unit of work as this person, every read and write checked by their roles.
     pub fn space_as(&self, identity: Identity) -> SecuredObjectSpace {
-        let context =
-            SecurityContext::new(identity, self.directory.clone(), self.entities.clone(), RoleMerge::AnyRole);
-        SecuredObjectSpace::new(self.raw(), Rc::new(context))
+        SecuredObjectSpace::new(self.raw(), self.context_of(identity))
+    }
+
+    /// What the security system knows of this person here, to be shared by their units of work.
+    pub fn context_of(&self, identity: Identity) -> Rc<SecurityContext> {
+        Rc::new(SecurityContext::new(
+            identity,
+            self.directory.clone(),
+            self.entities.clone(),
+            RoleMerge::AnyRole,
+        ))
+    }
+
+    /// Puts in place someone who can sign in, with a role kept as a record, such as
+    /// [`roles::events_worker`], and says who they are.
+    pub fn add_user(&self, name: &str, role: &str) -> Result<Identity, SpaceError> {
+        let mut space = self.raw();
+        let found = space
+            .query(SECURITY_ROLE, &Query::all())?
+            .into_iter()
+            .find(|record| record.get("name") == Value::Text(role.to_owned()))
+            .ok_or_else(|| SpaceError::Refused(format!("no role named {role}")))?;
+        let mut user = space.new_object(SECURITY_USER)?;
+        user.set("name", name);
+        let key = user.get("id");
+        space.save(user)?;
+        let mut link = space.new_object(SECURITY_USER_ROLE)?;
+        link.set("user_id", key);
+        link.set("role_id", found.get("id"));
+        space.save(link)?;
+        space.commit()?;
+        self.directory.identity_of(name)?.ok_or_else(|| SpaceError::Refused(format!("{name} cannot sign in")))
+    }
+
+    /// Turns someone off: from their next reload on, they can do nothing.
+    pub fn turn_off(&self, name: &str) -> Result<(), SpaceError> {
+        let mut space = self.raw();
+        for mut user in space.query(SECURITY_USER, &Query::all())? {
+            if user.get("name") == Value::Text(name.to_owned()) {
+                user.set("active", false);
+                space.save(user)?;
+            }
+        }
+        space.commit()
     }
 
     /// Puts a unit in place, once.
@@ -203,7 +245,19 @@ impl Fixture {
 pub mod roles {
     use ravenrs_app::{Access, Operation, Role};
 
+    use ravenrs_app::OUTBOX_EVENT;
+
     use super::{PERSON, UNIT};
+
+    /// The role of the worker that sends events: it reads and changes the events and nothing else.
+    /// Every organization of the fixture keeps it as a record, for [`add_user`](super::Organization::add_user).
+    pub fn events_worker() -> Role {
+        Role::new("Events worker").type_permission(
+            OUTBOX_EVENT,
+            [Operation::Read, Operation::Write],
+            Access::Allow,
+        )
+    }
 
     /// Administers everything of the organization it is used in.
     pub fn administrator() -> Role {
@@ -249,6 +303,12 @@ impl Clock {
     /// What it says now.
     pub fn now(&self) -> i64 {
         self.0.get()
+    }
+
+    /// What it says now, as a date and time.
+    pub fn date_time(&self) -> ravenrs_criteria::DateTime {
+        let now = self.now();
+        ravenrs_criteria::DateTime { days: now.div_euclid(86_400), seconds: now.rem_euclid(86_400) as u32 }
     }
 
     /// Moves it forward.
