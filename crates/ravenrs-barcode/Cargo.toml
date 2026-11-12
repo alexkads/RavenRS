@@ -13,7 +13,12 @@ documentation = "https://docs.rs/ravenrs-barcode"
 keywords = ["barcode", "qrcode", "ean", "gtin", "code128"]
 categories = ["encoding"]
 
+[features]
+# Registers its types with the playground's interpreter.
+live = ["dep:ravenrs-live"]
+
 [dependencies]
+ravenrs-live = { workspace = true, optional = true }
 serde.workspace = true
 qrcodegen = "1.8"
 

@@ -70,6 +70,8 @@ pub struct ObjectSettings {
     pub form_columns: Option<LitInt>,
     /// `cloneable`.
     pub cloneable: bool,
+    /// `singleton`: one record, which opens on its form.
+    pub singleton: bool,
     /// `transient`.
     pub transient: bool,
     /// `checks_on_leave`.
@@ -480,6 +482,8 @@ fn object_settings(input: &DeriveInput) -> Result<(ObjectSettings, Option<LitStr
                 attrs.form_columns = Some(meta.value()?.parse()?);
             } else if meta.path.is_ident("cloneable") {
                 attrs.cloneable = true;
+            } else if meta.path.is_ident("singleton") {
+                attrs.singleton = true;
             } else if meta.path.is_ident("transient") {
                 attrs.transient = true;
             } else if meta.path.is_ident("checks_on_leave") {
@@ -501,7 +505,7 @@ fn object_settings(input: &DeriveInput) -> Result<(ObjectSettings, Option<LitStr
             } else {
                 return Err(meta.error(
                     "unknown setting: use caption, navigation, icon, empty_text, list_criteria, form_columns, cloneable, \
-                     transient, checks_on_leave, list_editable, data_access, form_actions or focus_order",
+                     singleton, transient, checks_on_leave, list_editable, data_access, form_actions or focus_order",
                 ));
             }
             Ok(())

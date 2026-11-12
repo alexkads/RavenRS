@@ -60,7 +60,7 @@ impl Hotkey {
     }
 
     pub(crate) fn of(key: Key, command: bool, shift: bool) -> Self {
-        Self { key, command, shift }
+        Self { key, command, shift, alt: false }
     }
 
     /// Needs Shift too.

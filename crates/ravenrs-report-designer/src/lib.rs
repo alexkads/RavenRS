@@ -544,7 +544,7 @@ impl Designer {
 type Tool = (&'static str, IconName, fn() -> Control);
 
 /// The controls of the toolbox and of the Insert page, in order.
-const TOOLS: [Tool; 13] =
+const TOOLS: [Tool; 16] =
     [
         ("Rótulo", IconName::Type, || Control::label("Texto").at(0.0, 0.0, 140.0, 18.0)),
         ("Campo", IconName::Database, || Control::field("[Customer]").at(0.0, 0.0, 140.0, 18.0)),

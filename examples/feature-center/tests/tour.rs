@@ -154,7 +154,7 @@ impl Center {
 }
 
 /// Every list of the navigation, with what it is there to show.
-const DEMONSTRATIONS: [(&str, &str); 20] = [
+const DEMONSTRATIONS: [(&str, &str); 21] = [
     ("Regras", "ValidationRules"),
     ("Avisos e informações", "ValidationSoft"),
     ("Ao sair do campo", "ValidationOnLeave"),
