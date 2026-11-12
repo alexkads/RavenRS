@@ -126,6 +126,36 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     ravenrs_graphics::barcode::Symbology::__live_expose_variants(registry);
     #[cfg(feature = "charts")]
     ravenrs_graphics::chart::ChartKind::__live_expose_variants(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::PortSide::__live_expose_variants(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::PortSide::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::PortDirection::__live_expose_variants(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowPort::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowPort::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowNodeStatus::__live_expose_variants(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowNode::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowNode::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowEndpoint::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowEndpoint::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::EdgeShape::__live_expose_variants(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowEdge::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowEdge::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowGraph::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowGraph::__live_expose(registry);
     #[cfg(feature = "charts")]
     ravenrs_graphics::plot::Curve::__live_expose_variants(registry);
     #[cfg(feature = "charts")]
@@ -410,6 +440,22 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::CommandPalette::__live_expose(registry);
     crate::Combobox::__live_expose_fields(registry);
     crate::Combobox::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowViewport::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowViewport::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowSelection::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowSelection::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowKind::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowKind::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowCanvas::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowCanvas::__live_expose(registry);
     crate::FormGroup::__live_expose_fields(registry);
     crate::FormGroup::__live_expose(registry);
     crate::FormLayout::__live_expose_fields(registry);
@@ -896,6 +942,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::FilterBuilder>(registry);
     crate::live::view::<crate::FloatingPanel>(registry);
     crate::live::view::<crate::FloatingToolbar<crate::AnyView>>(registry);
+    #[cfg(feature = "flow")]
+    crate::live::view::<crate::FlowCanvas>(registry);
     crate::live::view::<crate::Footer>(registry);
     crate::live::view::<crate::FormField<crate::AnyView>>(registry);
     crate::live::view::<crate::FormLayout>(registry);

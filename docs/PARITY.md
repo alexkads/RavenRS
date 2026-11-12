@@ -148,6 +148,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Scatter, bubble, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`, with a tooltip and cursor when asked; candlestick in `Chart`, with an axis of round numbers, outlines for what rose and the keyboard; bubble and funnel ⬜ |
 | Sankey | | ✓ | ✓ | ✅ `SankeyChart`: alignment, ribbons in a gradient, the rest fading around the focus, arrow keys, every flow read aloud, a clear message when the flows go in a circle |
 | Gauges (linear, circular, arc) | | ✓ | ✓ | ✅ `ProgressBar`, `Chart` with `RadialBar` |
+| Flow diagram (nodes and connections) | | ✓ | ✓ | 🟡 `FlowCanvas`: endless surface with a grid, pan by drag and wheel, zoom by pinch and keys around the pointer, nodes that move on the grid and take focus, ports that check what connects and say why not, curve, step and straight lines with arrows, labels and dashes that travel, selection by press, Shift and rectangle, Delete, a lock, controls and a map. ⬜ undo, copy and paste, JSON, automatic layout, views inside nodes, groups, reconnecting a line by its end |
 
 The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built with `Chart` and `ChartCard`: all 70 patterns are in the gallery's Charts page, under their names (`examples/component-gallery/src/charts.rs`).
 | Maps | | ✓ | ✓ | ⬜ |

@@ -222,6 +222,7 @@ Status against the definition of done. **Behavior** names the test suites that d
 | SplashScreen | splash | | ✅ no focus stop: takes no input, focus leaves the page and returns on close, tested | Status and progress announced, tested |
 | DataGrid | datagrid, properties, editing_and_clipboard | ✅ | ✅ row navigation, Page Up/Down, Enter edits, Cmd/Ctrl+C copies rows as tab-separated text, Cmd/Ctrl+A, tested | See the DataGrid parity table in ARCHITECTURE.md |
 | Table, List, Stat | components | ✅ partial | n/a | |
+| FlowCanvas | flow | ✅ | ✅ arrows move the selection or pan, Shift for four steps, `+`/`-`/`0`, Delete, Escape, Cmd/Ctrl+A, tested | Ports take only the pointer for now; the lines' geometry is tested in `ravenrs-graphics` |
 | Chart, BarChart, AreaChart, Barcode | charts, components | ✅ a chart reads its values; a code reads its text or `alt` | n/a | The layout's own tests are in `ravenrs-graphics` |
 | Layout: stacks, Grid, ScrollView, Splitter, AspectRatio, Card, Section | layout_and_content, components, keyboard_and_basics | ✅ partial | 🟡 Splitter arrows, untested | AspectRatio content now fills its box |
 | Link, Anchor, CountUp, Ticker | page_motion | ✅ `Link` is a link with its label, focusable, tested by click | ✅ Enter opens it | Anchors glide, and jump under reduced motion; tickers stand still, tested |

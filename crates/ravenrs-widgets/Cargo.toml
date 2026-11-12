@@ -31,11 +31,13 @@ ravenrs-graphics = { workspace = true, optional = true }
 ravenrs-lottie = { workspace = true, optional = true }
 
 [features]
-default = ["decode", "charts", "lottie"]
+default = ["decode", "charts", "flow", "lottie"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["dep:image"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`, drawn with `ravenrs-graphics`.
 charts = ["dep:ravenrs-graphics"]
+# `FlowCanvas`, diagrams of nodes and connections laid out with `ravenrs-graphics`.
+flow = ["dep:ravenrs-graphics"]
 # `Lottie`, a player of Lottie animations of our own.
 lottie = ["dep:ravenrs-lottie"]
 # `CodeEditor` and `Playground`, with Fira Mono embedded in `ravenrs-text`.

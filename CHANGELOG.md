@@ -9,6 +9,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - A shared canonical policy for Pages and Vercel, crawlable canvas content, static
   playground examples, social PNG cards, complete sitemaps and a local SEO build gate.
   ([#156](https://github.com/alexkads/RavenRS/issues/156))
+- `FlowCanvas`: diagrams of nodes joined by connections on an endless surface, with pan,
+  zoom, nodes that move on the grid and take focus, ports that check what connects and say
+  why not, curve, step and straight lines with labels and travelling dashes, selection by
+  press, Shift and rectangle, a lock, zoom controls and a map. The model and the routes of
+  the lines live in `ravenrs_graphics::flow`, and `BuildCx::on_wheel` lets a surface take the
+  wheel before any scroll container around it. ([#195](https://github.com/alexkads/RavenRS/issues/195))
 
 ## [27.1.27] - 2026-11-11
 

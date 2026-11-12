@@ -419,6 +419,8 @@ pub(crate) struct Element {
     pub translate: Point,
     pub on_double_click: Option<Rc<dyn Fn()>>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
+    /// Takes the wheel over it, before any scroll container around it.
+    pub on_wheel: Option<Rc<dyn Fn(Point)>>,
     /// The wheel over it moves what this widget scrolls.
     pub scrolls_with_widget: bool,
     /// A wheel that only turns up and down moves this scroll container sideways.
@@ -474,6 +476,7 @@ impl Element {
             translate: Point::ZERO,
             on_double_click: None,
             on_pinch: None,
+            on_wheel: None,
             scrolls_with_widget: false,
             wheel_sideways: false,
             on_context_menu: None,
@@ -1393,6 +1396,15 @@ impl<'a> BuildCx<'a> {
     pub fn on_pinch(&mut self, node: NodeId, handler: Rc<dyn Fn(f32)>) {
         if let Some(e) = self.element_mut(node) {
             e.on_pinch = Some(handler);
+        }
+    }
+
+    /// Calls `handler` with the wheel or two-finger scroll over the node, in logical pixels
+    /// (positive `y` when the content should move down), instead of scrolling a container
+    /// around it: for a surface that pans on its own, such as a diagram.
+    pub fn on_wheel(&mut self, node: NodeId, handler: Rc<dyn Fn(Point)>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_wheel = Some(handler);
         }
     }
 

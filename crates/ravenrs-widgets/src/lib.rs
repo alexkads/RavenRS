@@ -63,6 +63,8 @@ mod files;
 mod fill;
 mod filter_builder;
 mod floating;
+#[cfg(feature = "flow")]
+mod flow;
 mod form_layout;
 mod full_screen;
 pub mod grid;
@@ -168,6 +170,11 @@ pub use filter_builder::{FilterBuilder, FilterField, FilterFieldKind};
 pub use floating::{
     Combobox, Command, CommandPalette, ContextMenu, HoverCard, Sheet, Side, SplashScreen, Toast, ToastExtras,
     ToastPosition, Toaster, Toasts,
+};
+#[cfg(feature = "flow")]
+pub use flow::{
+    EdgeShape, FlowCanvas, FlowEdge, FlowEndpoint, FlowGraph, FlowKind, FlowNode, FlowNodeStatus, FlowPort,
+    FlowSelection, FlowValidator, FlowViewport, PortDirection, PortSide,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use full_screen::{FullScreen, FullScreenProvider};
