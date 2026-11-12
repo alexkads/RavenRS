@@ -58,6 +58,10 @@ pub fn project_files(name: &str, template: &str, target: &str) -> Result<Vec<Pro
     resolve_dependencies(&mut manifest["dependencies"], &workspace)?;
     if let Some(targets) = manifest.get_mut("target").and_then(Item::as_table_mut) {
         for (_, item) in targets.iter_mut() {
+            // Tests of the example, such as recording its video, are not part of the new project.
+            if let Some(table) = item.as_table_like_mut() {
+                table.remove("dev-dependencies");
+            }
             resolve_dependencies(&mut item["dependencies"], &workspace)?;
         }
         if target == "desktop" {
