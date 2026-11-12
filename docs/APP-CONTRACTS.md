@@ -56,12 +56,11 @@ The policy belongs to the test application, not to RavenRS. Composition and prec
 **Registers:** entities and adapters, actions, screens, migrations, jobs, translations and capabilities.
 **Output:** public surfaces the application can use, and clear configuration and compatibility errors.
 
-`Module` (`crates/ravenrs-app/src/module.rs`) declares today its name, dependencies, entities, view and window controllers, model extensions, its model difference and initial records. It does not declare yet:
+`Module` (`crates/ravenrs-app/src/module.rs`) declares its name, dependencies, entities, view and window controllers, model extensions, its model difference and initial records. `Module::manifest` adds a `ModuleManifest`: its version, the range it accepts of each module it depends on, targets, databases, capabilities the host has to offer, and the roles, migrations and jobs it brings. A module that says nothing is accepted everywhere.
 
-- version and compatible range, targets and databases supported;
-- permissions, migrations, jobs, providers and capabilities it adds;
-- conflicts and cycles between modules, found when the `Application` is built;
-- turning a module off without deleting data and without granting access, keeping the reads and exports it promised.
+`ApplicationBuilder` tells the target, the database and the capabilities of the host, and `build` refuses, naming the module: a dependency missing or outside its range, a cycle, an entity declared twice, a target or database not supported, a capability the host lacks, the same migration or job in two modules. `Application::manifests` lists what each module says.
+
+`ApplicationBuilder::switch_off` turns a module off without deleting data and without granting access: its entities stay, read only, so they can be read and exported; its controllers and actions go; `Application::guard` refuses to write them with `SpaceError::Unavailable`.
 
 A small application installs one module without the whole platform. A mobile client uses the service contract and never reads the server's SQLite directly.
 

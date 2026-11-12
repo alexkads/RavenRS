@@ -74,7 +74,7 @@ What exists of the behavior documented for model-driven application frameworks, 
 | AI: natural language filters, writing help, smart paste | ⬜ local models only, so not on the web | F14 |
 | A command-line tool that creates projects step by step from templates; deployment and diagnostics guides | ⬜ | F15 |
 | An installer with Zed as the editor for projects, its extension and skills, and a graphical viewer of a project | ⬜ | F16 |
-| Modules that declare version, targets, databases, permissions, migrations, jobs and providers, and turn off without losing data | ⬜ `Module` declares name, dependencies, entities, controllers, model and initial records | #82, #253 |
+| Modules that declare version, targets, databases, permissions, migrations, jobs and providers, and turn off without losing data | 🟡 `ModuleManifest`, checked by `ApplicationBuilder::build`; `switch_off` and `Application::guard`. The generated screens do not use the guard yet (#242); not listed by the CLI or MCP yet (#81) | #271 |
 | Failures that say a capability is missing, a failure is temporary or the outcome is unknown | ✅ `SpaceError::Unavailable`, `Temporary`, `Unknown`, with `is_temporary` and `may_have_happened`; SQLite busy is temporary | #270 |
 | Providers that declare what they can do, and a contract to send events | 🟡 `Provider`, `EventSink`, `CAN_TELL_STATUS`. No cancellation or deadline inside a send yet (#255) | #270 |
 | Events written in the same commit as the change that raised them | ⬜ | #254 |
