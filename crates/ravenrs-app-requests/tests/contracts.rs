@@ -291,3 +291,13 @@ fn a_refused_event_fails_at_once() {
     let report = Dispatcher::new("T1", 3).run(&mut worker(&fixture.t1), &sink).expect("runs");
     assert_eq!((report.failed, sink.effects()), (1, 0));
 }
+
+#[test]
+fn the_package_says_its_version_and_its_job() {
+    use ravenrs_app::{Application, Module};
+    let manifest = module().manifest();
+    assert!(manifest.version.is_some());
+    assert_eq!(manifest.jobs, vec![ravenrs_app_requests::DISPATCH_JOB.to_owned()]);
+    let app = Application::builder("App").module(module()).build().expect("fits");
+    assert_eq!(app.manifests()[0].0, "Requests");
+}

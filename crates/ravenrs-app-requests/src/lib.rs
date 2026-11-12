@@ -17,8 +17,8 @@ use std::fmt;
 use std::rc::Rc;
 
 use ravenrs_app::{
-    Criteria, EntityInfo, EnumOption, FieldInfo, FieldKind, Identity, Module, Object, ObjectSpace, Query,
-    SpaceError, Value,
+    Criteria, EntityInfo, EnumOption, FieldInfo, FieldKind, Identity, Module, ModuleManifest, Object,
+    ObjectSpace, Query, SpaceError, Value,
 };
 
 pub use ravenrs_app::{CAN_TELL_STATUS, EventSink, Provider};
@@ -254,7 +254,15 @@ impl Module for RequestsModule {
     fn entities(&self) -> Vec<EntityInfo> {
         self.declared_entities()
     }
+
+    /// Its version is the crate's; it runs anywhere and brings one job, the dispatch of events.
+    fn manifest(&self) -> ModuleManifest {
+        ModuleManifest::new().version(env!("CARGO_PKG_VERSION")).unwrap_or_default().job(DISPATCH_JOB)
+    }
 }
+
+/// The id of the job that hands events to their destination.
+pub const DISPATCH_JOB: &str = "requests.dispatch";
 
 fn commit_or_rollback(space: &mut dyn ObjectSpace) -> Result<(), SpaceError> {
     space.commit().inspect_err(|_| space.rollback())

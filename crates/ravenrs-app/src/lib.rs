@@ -36,6 +36,7 @@ mod functions;
 mod job;
 #[cfg(feature = "live")]
 mod live_list;
+mod manifest;
 mod model;
 mod module;
 mod object;
@@ -62,6 +63,7 @@ pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
 pub use functions::{environment, register_function};
 pub use job::{Job, JobChange, JobContext, JobWaker, JobWork};
+pub use manifest::{GuardedObjectSpace, ModuleManifest, Target, Version, VersionRange};
 #[cfg(not(target_arch = "wasm32"))]
 pub use model::FileStore;
 pub use model::{
