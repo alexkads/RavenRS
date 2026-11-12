@@ -249,10 +249,10 @@ web projects because the CLI itself is native. The CLI requires a rustup-managed
 
 The npm launcher, Rust CLI and framework ship together. Its `release.json` pins the exact
 CLI Git tag and framework version used for generation.
-**`create-ravenrs`, `cargo-ravenrs` and RavenRS all use version 27.1.27.**
+**`create-ravenrs`, `cargo-ravenrs` and RavenRS all use version 27.1.28.**
 
 ```bash
-cargo install --git https://github.com/alexkads/RavenRS --tag v27.1.27 --locked cargo-ravenrs
+cargo install --git https://github.com/alexkads/RavenRS --tag v27.1.28 --locked cargo-ravenrs
 ```
 
 Templates, skill and MCP all come from that Rust release. The creator does not migrate your application source when creating a project. Prebuilt platform binaries are

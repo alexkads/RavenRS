@@ -4,10 +4,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.28] - 2026-11-12
+
 ### Breaking
 
+- `SpaceError` has new variants, `Unavailable`, `Temporary` and `Unknown`; `AuthError` has `Unavailable`; `SqlError` has `Busy`. A `match` without a catch-all stops compiling.
+- The backups of `ravenrs-app-sqlite` are the trait `SqliteBackups`: bring it into scope to call them.
 - `ravenrs-nfe` (beta): `Signer::sign_rsa_sha1` and `Signer::sign_rsa` return `DfeError`, and `HttpRequest` has a new field, `metodo`; build one with `HttpRequest::post`. `CasoFalha::regra` is now the trait `RegraDoCaso`. The lab keys moved to `crates/ravenrs-dfe/fixtures/laboratorio`.
-
 - `Modifiers` has a new public field, `base_key`, the letter of the key while Alt composes another character. A literal without `..Modifiers::default()` stops compiling.
 - `Key` has a new variant, `Key::Function`. `Key` was already `#[non_exhaustive]`, so a `match` still compiles, but F1 to F24 no longer arrive the way they did.
 - `Hotkey` can now carry Alt, through `Hotkey::alt`, and its `label` says so. Code that only builds hotkeys does not change.
@@ -24,8 +27,6 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `SocialFrame`: one moment of a film laid out for a tall or square screen, with the chapter on top, the film, and the title and words of what it explains under it.
 - `Movie::following(zoom)`: the same film with the camera brought closer to each spot it explains.
 - `Soundtrack`: the sound of a whole film as samples, with its clicks and keys and the narration of each box when it shows.
-- `ExpressionEditor`: edits an expression of the criteria language, with fields, parameters, functions by group, operators and constants to search and insert at the caret, each item's signature and description, and a check while typing that gives the line and column of a syntax error and lists unknown names. Its words are in `Labels` (`expression_*`). The report designer opens it from the button beside an expression, the filter and a group's field, and from Expression on the Home page.
-- `ravenrs-mcp` creates report layouts: `report_layout_format` describes the `.rvreport.json` format with examples made by `ravenrs-report`, `create_report_layout` builds a table layout from sample rows or from fields and a data URL, `check_report_layout` reports JSON errors by line and column, checks every expression and renders the layout, and `report_layout_templates` returns the ready layouts. The server still has no side effects: it returns JSON for the assistant to save.
 - `DataGrid`: the "Edit filter" window has Visual and Text tabs over the same filter. Text is the `ExpressionEditor` with the grid's columns as fields; the grid filters by what is written only once it reads and names known columns, and keeps the last such filter meanwhile. `Labels::grid_filter_visual` and `grid_filter_text` name the tabs.
 - **API keys** in `ravenrs-app-server`: for other systems, shown once, kept as a hash, acting as a user and never more, with rotation, expiry and revoking. `security_entities()` has a new entity for them, so storage learns a table.
 - **`SettingsStore`**, with `MemorySettings`, `RecordSettings` and `settings_entity`: JSON under a name, for everyone or for one person, reached at `/api/settings/{name}` when declared. `App::settings` keeps the theme someone chose, also over a server with `RemoteSettings`.
@@ -39,6 +40,34 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
   records, kept on the list view as `EmptyText`. Without it a grid with no rows says
   `widgets.grid_no_records` ("Nada por aqui ainda.") and keeps "no rows match the filters" for
   when its filters hid them. ([#233](https://github.com/alexkads/RavenRS/issues/233))
+- `ravenrs-app-sqlite` backups: `SqliteDatabase::backups(BackupStamp)` saves a checked, consistent
+  copy while the database is in use, stamped with the application, tenant and migrations;
+  `restore` refuses another application, tenant or migrations, keeps a copy first and replaces
+  everything in one transaction or nothing; `keep_copy` keeps copies in a folder with a retention.
+  ([#229](https://github.com/alexkads/RavenRS/issues/229))
+- The screen of signing in of `SecuredApp` takes `description`, `notice`, buttons of its own with
+  `sign_in_action(SignInAction)`, such as going back to choosing the organization, which forget
+  what was typed and leave whoever was halfway in behind, and `demo_credentials`, which fills in a
+  demonstration's name and password and still checks them on Sign in.
+  ([#191](https://github.com/alexkads/RavenRS/issues/191))
+- `GridCurrent` and `DataGrid::current` give what a grid shows now, its query and its rows as a
+  table, to something outside it. ([#181](https://github.com/alexkads/RavenRS/issues/181))
+- `FlowCanvas`: diagrams of nodes joined by connections on an endless surface, with pan,
+  zoom, nodes that move on the grid and take focus, ports that check what connects and say
+  why not, curve, step and straight lines with labels and travelling dashes, selection by
+  press, Shift and rectangle, a lock, zoom controls and a map. The model and the routes of
+  the lines live in `ravenrs_graphics::flow`, and `BuildCx::on_wheel` lets a surface take the
+  wheel before any scroll container around it. ([#195](https://github.com/alexkads/RavenRS/issues/195))
+- Permissions on records can go through references, such as
+  `[class_id.teacher_id.login] = ?CurrentUserName`, and hold for records being created, changed
+  and read: `SecuredObjectSpace` follows them in storage, and a value put on the record under the
+  path is replaced and never kept. ([#232](https://github.com/alexkads/RavenRS/issues/232))
+- `ravenrs-app` outbox: `ObjectSpaceExt::emit` keeps an `Event` with the record in the same commit, and `OutboxModule` and `Dispatcher` hand what is pending to an `EventSink`.
+- `Provider`, `EventSink` and `CAN_TELL_STATUS`: what a module needs from outside, said once and checked by contract tests.
+- `ModuleManifest`, with `switch_off` and `Application::guard`: a module says its version, what it accepts of its dependencies, where it runs and what it needs from the host, and a module switched off keeps its records read only.
+- `ExternalSignIn`, `IdentityProvider` and `Claims`, with `link_external` and `unlink_external`: signing in through another system, tied to a user of the application.
+- `ravenrs-app-testkit` and `ravenrs-app-requests` (not published): contract tests for reusable modules and a module of requests built on them.
+- `ravenrs-mcp`: `app_contracts`, and `parity_status` with `document: "application"`. `docs/APP-CONTRACTS.md` lists the scenarios and groups of capabilities a reusable module honors.
 - **Beta, proof of concept:** `ravenrs-nfe`, NF-e and NFC-e with no GUI, and `SefazSandbox`, a local SEFAZ in the style of MSW that replaces the `Transport` and checks what arrives. It is not homologated and has never talked to a real SEFAZ. `Ambiente` has no production variant, and an emitter only exists with `BetaAck`.
 - **Beta, proof of concept:** `ravenrs-app-nfe`, the module with the issuer, the documents issued, consulting, canceling and the receipt as a stored report. A notice that cannot be dismissed says it is a beta.
 - **Beta, proof of concept:** `ravenrs-dfe`, what the fiscal engines share: XML, C14N, enveloped XMLDSig with `Algoritmo::NFE` (SHA-1) or `Algoritmo::SHA256`, `Transport` with `Metodo` (POST, GET, HEAD), the MSW-style `Cadeia` of handlers with `Rota`, GZip + Base64 with a limit, and the laboratory of ICP-Brasil test certificates. `ravenrs-nfe` re-exports what moved, with the same paths.
@@ -66,54 +95,20 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
-- Closing a `Dialog` whose field took the focus gives it back to where it was.
 - A remote grid with no rows said it had a chunk's worth: an empty chunk past the end stretched
   its total. It now ends where the earliest end says, and shows what it says when empty.
   ([#233](https://github.com/alexkads/RavenRS/issues/233))
-- `ravenrs-app-sqlite` backups: `SqliteDatabase::backups(BackupStamp)` saves a checked, consistent
-  copy while the database is in use, stamped with the application, tenant and migrations;
-  `restore` refuses another application, tenant or migrations, keeps a copy first and replaces
-  everything in one transaction or nothing; `keep_copy` keeps copies in a folder with a retention.
-  ([#229](https://github.com/alexkads/RavenRS/issues/229))
-- The screen of signing in of `SecuredApp` takes `description`, `notice`, buttons of its own with
-  `sign_in_action(SignInAction)`, such as going back to choosing the organization, which forget
-  what was typed and leave whoever was halfway in behind, and `demo_credentials`, which fills in a
-  demonstration's name and password and still checks them on Sign in.
-  ([#191](https://github.com/alexkads/RavenRS/issues/191))
-- `GridCurrent` and `DataGrid::current` give what a grid shows now, its query and its rows as a
-  table, to something outside it. ([#181](https://github.com/alexkads/RavenRS/issues/181))
-
-### Fixed
-
 - The report of a list (`ReportModule`, `Session::list_table`) has the rows the list shows: its
   search, column filters, sorting, columns and grouping, and a remote list asks storage for all of
   them. ([#181](https://github.com/alexkads/RavenRS/issues/181))
-- `FlowCanvas`: diagrams of nodes joined by connections on an endless surface, with pan,
-  zoom, nodes that move on the grid and take focus, ports that check what connects and say
-  why not, curve, step and straight lines with labels and travelling dashes, selection by
-  press, Shift and rectangle, a lock, zoom controls and a map. The model and the routes of
-  the lines live in `ravenrs_graphics::flow`, and `BuildCx::on_wheel` lets a surface take the
-  wheel before any scroll container around it. ([#195](https://github.com/alexkads/RavenRS/issues/195))
-
-### Fixed
-
 - `AppShell` in a window narrower than 720 points shows a button in the header that opens the
   navigation sheet; choosing a screen closes it. `AppShell::sidebar` shares the state with the
   application. ([#184](https://github.com/alexkads/RavenRS/issues/184))
-
-### Fixed
-
 - Dates and moments in generated lists show the language's way (`format.date`,
   `format.date_time`: `dd/MM/yyyy` in Brazilian Portuguese) and still sort and filter as dates;
   a column with a format of its own filters a number by what it shows when it does not compare.
   ([#231](https://github.com/alexkads/RavenRS/issues/231))
-
-### Fixed
-
-- Permissions on records can go through references, such as
-  `[class_id.teacher_id.login] = ?CurrentUserName`, and hold for records being created, changed
-  and read: `SecuredObjectSpace` follows them in storage, and a value put on the record under the
-  path is replaced and never kept. ([#232](https://github.com/alexkads/RavenRS/issues/232))
+- Closing a `Dialog` whose field took the focus gives it back to where it was.
 
 ## [27.1.27] - 2026-11-11
 
