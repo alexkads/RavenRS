@@ -769,7 +769,7 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "calculator"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -869,7 +869,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-ravenrs"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "clap",
  "ravenrs-mcp",
@@ -1103,7 +1103,7 @@ dependencies = [
 
 [[package]]
 name = "component-gallery"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "image",
@@ -1888,7 +1888,7 @@ dependencies = [
 
 [[package]]
 name = "feature-center"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "image",
@@ -2355,7 +2355,7 @@ dependencies = [
 
 [[package]]
 name = "grid-poc"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs",
  "tracing-subscriber",
@@ -2436,7 +2436,7 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hello-world"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -3313,7 +3313,7 @@ dependencies = [
 
 [[package]]
 name = "movie-editor"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs",
 ]
@@ -4479,7 +4479,7 @@ checksum = "4339fc7a1021c9c1621d87f5e3505f2805c8c105420ba2f2a4df86814590c142"
 
 [[package]]
 name = "quick-app"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -4496,7 +4496,7 @@ dependencies = [
 
 [[package]]
 name = "quick-plan"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -4703,7 +4703,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "image",
  "pollster",
@@ -4724,7 +4724,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-ai"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "candle-core",
  "candle-nn",
@@ -4748,7 +4748,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-animation"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proptest",
  "ravenrs-core",
@@ -4756,7 +4756,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-app"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "argon2",
  "jiff",
@@ -4777,7 +4777,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-app-a11y"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs-app",
  "ravenrs-core",
@@ -4789,7 +4789,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-app-derive"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4799,14 +4799,14 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-app-i18n"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "ravenrs-app-library"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs-app",
  "ravenrs-app-ui",
@@ -4818,7 +4818,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-app-report"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs-app",
  "ravenrs-app-i18n",
@@ -4839,7 +4839,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-app-spec"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proc-macro2",
  "ravenrs-app",
@@ -4850,7 +4850,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-app-sqlite"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs-app",
  "ravenrs-app-i18n",
@@ -4860,7 +4860,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-app-ui"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs-app",
  "ravenrs-app-a11y",
@@ -4879,7 +4879,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-core"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proptest",
  "ravenrs-live",
@@ -4887,7 +4887,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-criteria"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "js-sys",
  "proptest",
@@ -4896,7 +4896,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-graphics"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "qrcodegen",
  "ravenrs-core",
@@ -4907,7 +4907,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-grid-export"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs-report",
  "ravenrs-report-export",
@@ -4917,7 +4917,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-layout"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proptest",
  "ravenrs-core",
@@ -4927,7 +4927,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-lint"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proc-macro2",
  "serde_json",
@@ -4936,7 +4936,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-live"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proc-macro2",
  "ravenrs-live-derive",
@@ -4946,7 +4946,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-live-derive"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4955,7 +4955,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-lottie"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "image",
  "ravenrs-core",
@@ -4965,7 +4965,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-mcp"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proc-macro2",
  "ravenrs-criteria",
@@ -4979,7 +4979,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-movie"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "flate2",
  "ravenrs-app-i18n",
@@ -4998,7 +4998,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-perf"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "calculator",
  "component-gallery",
@@ -5019,7 +5019,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-platform-native"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -5043,7 +5043,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-platform-web"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "js-sys",
  "ravenrs-core",
@@ -5059,7 +5059,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-project"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proc-macro2",
  "syn 2.0.119",
@@ -5068,14 +5068,14 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-reactive"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "proptest",
 ]
 
 [[package]]
 name = "ravenrs-render"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "bytemuck",
  "pollster",
@@ -5088,7 +5088,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "criterion",
  "image",
@@ -5103,7 +5103,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-designer"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "js-sys",
  "ravenrs-core",
@@ -5123,7 +5123,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-export"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs-report",
  "ravenrs-report-pdf",
@@ -5134,7 +5134,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-pdf"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "image",
  "miniz_oxide 0.8.9",
@@ -5149,7 +5149,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-server"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "axum",
  "jiff",
@@ -5167,7 +5167,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-viewer"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs-app-i18n",
  "ravenrs-core",
@@ -5187,7 +5187,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-report-xlsx"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "image",
  "ravenrs-core",
@@ -5199,7 +5199,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-sheet"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "aes 0.9.2",
  "chrono",
@@ -5223,7 +5223,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-spreadsheet"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs-app-i18n",
  "ravenrs-core",
@@ -5238,7 +5238,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-style"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
@@ -5248,7 +5248,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-text"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "criterion",
  "parley",
@@ -5257,7 +5257,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-wayland-gestures"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "wayland-backend",
  "wayland-client",
@@ -5266,7 +5266,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-widgets"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "criterion",
  "image",
@@ -5462,7 +5462,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
 name = "report-designer"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
@@ -5962,7 +5962,7 @@ checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
 
 [[package]]
 name = "site-home"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -6072,7 +6072,7 @@ dependencies = [
 
 [[package]]
 name = "spreadsheet"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -6262,7 +6262,7 @@ dependencies = [
 
 [[package]]
 name = "tasks-sqlite"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
@@ -6762,7 +6762,7 @@ checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 
 [[package]]
 name = "tutorial-tasks"
-version = "27.1.27"
+version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",

@@ -4,6 +4,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [27.1.28] - 2026-11-12
+
 ### Added
 
 - A shared canonical policy for Pages and Vercel, crawlable canvas content, static
