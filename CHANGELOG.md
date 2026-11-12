@@ -6,6 +6,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [27.1.28] - 2026-11-12
 
+### Breaking
+
+- `SpaceError` has new variants, `Unavailable`, `Temporary` and `Unknown`; `AuthError` has `Unavailable`; `SqlError` has `Busy`. A `match` without a catch-all stops compiling.
+- The backups of `ravenrs-app-sqlite` are the trait `SqliteBackups`: bring it into scope to call them.
+
 ### Added
 
 - `ravenrs-movie-video`, a new crate: turns films into a QuickTime video (H.264 pictures, 16-bit sound at 48 kHz), the films one after the other, with their boxes, the pointer, the zooms, clicks, keys and the recorded narration. Each picture is drawn by the renderer with no window, and OpenH264 is built from its source, so nothing has to be installed. `VideoFormat` has `WIDE` (1920 × 1080), `VERTICAL` (1080 × 1920, for short vertical videos), `PORTRAIT` (1080 × 1350) and `SQUARE`, with the longest each place takes; `Video::thumbnail` gives a cover as PNG, `subtitles` the boxes as `.srt` and `chapters` the lines a video description turns into chapters.
@@ -13,8 +18,6 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `SocialFrame`: one moment of a film laid out for a tall or square screen, with the chapter on top, the film, and the title and words of what it explains under it.
 - `Movie::following(zoom)`: the same film with the camera brought closer to each spot it explains.
 - `Soundtrack`: the sound of a whole film as samples, with its clicks and keys and the narration of each box when it shows.
-- `ExpressionEditor`: edits an expression of the criteria language, with fields, parameters, functions by group, operators and constants to search and insert at the caret, each item's signature and description, and a check while typing that gives the line and column of a syntax error and lists unknown names. Its words are in `Labels` (`expression_*`). The report designer opens it from the button beside an expression, the filter and a group's field, and from Expression on the Home page.
-- `ravenrs-mcp` creates report layouts: `report_layout_format` describes the `.rvreport.json` format with examples made by `ravenrs-report`, `create_report_layout` builds a table layout from sample rows or from fields and a data URL, `check_report_layout` reports JSON errors by line and column, checks every expression and renders the layout, and `report_layout_templates` returns the ready layouts. The server still has no side effects: it returns JSON for the assistant to save.
 - `DataGrid`: the "Edit filter" window has Visual and Text tabs over the same filter. Text is the `ExpressionEditor` with the grid's columns as fields; the grid filters by what is written only once it reads and names known columns, and keeps the last such filter meanwhile. `Labels::grid_filter_visual` and `grid_filter_text` name the tabs.
 - **API keys** in `ravenrs-app-server`: for other systems, shown once, kept as a hash, acting as a user and never more, with rotation, expiry and revoking. `security_entities()` has a new entity for them, so storage learns a table.
 - **`SettingsStore`**, with `MemorySettings`, `RecordSettings` and `settings_entity`: JSON under a name, for everyone or for one person, reached at `/api/settings/{name}` when declared. `App::settings` keeps the theme someone chose, also over a server with `RemoteSettings`.
@@ -28,12 +31,6 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
   records, kept on the list view as `EmptyText`. Without it a grid with no rows says
   `widgets.grid_no_records` ("Nada por aqui ainda.") and keeps "no rows match the filters" for
   when its filters hid them. ([#233](https://github.com/alexkads/RavenRS/issues/233))
-
-### Fixed
-
-- A remote grid with no rows said it had a chunk's worth: an empty chunk past the end stretched
-  its total. It now ends where the earliest end says, and shows what it says when empty.
-  ([#233](https://github.com/alexkads/RavenRS/issues/233))
 - `ravenrs-app-sqlite` backups: `SqliteDatabase::backups(BackupStamp)` saves a checked, consistent
   copy while the database is in use, stamped with the application, tenant and migrations;
   `restore` refuses another application, tenant or migrations, keeps a copy first and replaces
@@ -46,38 +43,38 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
   ([#191](https://github.com/alexkads/RavenRS/issues/191))
 - `GridCurrent` and `DataGrid::current` give what a grid shows now, its query and its rows as a
   table, to something outside it. ([#181](https://github.com/alexkads/RavenRS/issues/181))
-
-### Fixed
-
-- The report of a list (`ReportModule`, `Session::list_table`) has the rows the list shows: its
-  search, column filters, sorting, columns and grouping, and a remote list asks storage for all of
-  them. ([#181](https://github.com/alexkads/RavenRS/issues/181))
 - `FlowCanvas`: diagrams of nodes joined by connections on an endless surface, with pan,
   zoom, nodes that move on the grid and take focus, ports that check what connects and say
   why not, curve, step and straight lines with labels and travelling dashes, selection by
   press, Shift and rectangle, a lock, zoom controls and a map. The model and the routes of
   the lines live in `ravenrs_graphics::flow`, and `BuildCx::on_wheel` lets a surface take the
   wheel before any scroll container around it. ([#195](https://github.com/alexkads/RavenRS/issues/195))
-
-### Fixed
-
-- `AppShell` in a window narrower than 720 points shows a button in the header that opens the
-  navigation sheet; choosing a screen closes it. `AppShell::sidebar` shares the state with the
-  application. ([#184](https://github.com/alexkads/RavenRS/issues/184))
-
-### Fixed
-
-- Dates and moments in generated lists show the language's way (`format.date`,
-  `format.date_time`: `dd/MM/yyyy` in Brazilian Portuguese) and still sort and filter as dates;
-  a column with a format of its own filters a number by what it shows when it does not compare.
-  ([#231](https://github.com/alexkads/RavenRS/issues/231))
-
-### Fixed
-
 - Permissions on records can go through references, such as
   `[class_id.teacher_id.login] = ?CurrentUserName`, and hold for records being created, changed
   and read: `SecuredObjectSpace` follows them in storage, and a value put on the record under the
   path is replaced and never kept. ([#232](https://github.com/alexkads/RavenRS/issues/232))
+- `ravenrs-app` outbox: `ObjectSpaceExt::emit` keeps an `Event` with the record in the same commit, and `OutboxModule` and `Dispatcher` hand what is pending to an `EventSink`.
+- `Provider`, `EventSink` and `CAN_TELL_STATUS`: what a module needs from outside, said once and checked by contract tests.
+- `ModuleManifest`, with `switch_off` and `Application::guard`: a module says its version, what it accepts of its dependencies, where it runs and what it needs from the host, and a module switched off keeps its records read only.
+- `ExternalSignIn`, `IdentityProvider` and `Claims`, with `link_external` and `unlink_external`: signing in through another system, tied to a user of the application.
+- `ravenrs-app-testkit` and `ravenrs-app-requests` (not published): contract tests for reusable modules and a module of requests built on them.
+- `ravenrs-mcp`: `app_contracts`, and `parity_status` with `document: "application"`. `docs/APP-CONTRACTS.md` lists the scenarios and groups of capabilities a reusable module honors.
+
+### Fixed
+
+- A remote grid with no rows said it had a chunk's worth: an empty chunk past the end stretched
+  its total. It now ends where the earliest end says, and shows what it says when empty.
+  ([#233](https://github.com/alexkads/RavenRS/issues/233))
+- The report of a list (`ReportModule`, `Session::list_table`) has the rows the list shows: its
+  search, column filters, sorting, columns and grouping, and a remote list asks storage for all of
+  them. ([#181](https://github.com/alexkads/RavenRS/issues/181))
+- `AppShell` in a window narrower than 720 points shows a button in the header that opens the
+  navigation sheet; choosing a screen closes it. `AppShell::sidebar` shares the state with the
+  application. ([#184](https://github.com/alexkads/RavenRS/issues/184))
+- Dates and moments in generated lists show the language's way (`format.date`,
+  `format.date_time`: `dd/MM/yyyy` in Brazilian Portuguese) and still sort and filter as dates;
+  a column with a format of its own filters a number by what it shows when it does not compare.
+  ([#231](https://github.com/alexkads/RavenRS/issues/231))
 
 ## [27.1.27] - 2026-11-11
 
