@@ -6783,6 +6783,8 @@ name = "tutorial-tasks"
 version = "27.1.27"
 dependencies = [
  "console_error_panic_hook",
+ "image",
+ "pollster",
  "ravenrs",
  "ravenrs-app",
  "ravenrs-app-ui",
