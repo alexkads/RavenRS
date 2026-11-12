@@ -508,6 +508,18 @@ pub struct Labels {
     pub step_down: String,
     /// After the count of events an [`EventCalendar`](crate::EventCalendar) day has no room for.
     pub calendar_more: String,
+    /// Month, week and day, as an [`EventCalendar`](crate::EventCalendar) offers its views.
+    pub calendar_views: [String; 3],
+    /// The name of an [`EventCalendar`](crate::EventCalendar)'s choice of view.
+    pub calendar_view_name: String,
+    /// An [`EventCalendar`](crate::EventCalendar)'s back button, by week or by day.
+    pub calendar_previous: String,
+    /// An [`EventCalendar`](crate::EventCalendar)'s forward button, by week or by day.
+    pub calendar_next: String,
+    /// Over the events of a whole day, above the hours of a week or a day.
+    pub calendar_all_day: String,
+    /// What an empty hour of an [`EventCalendar`](crate::EventCalendar) creates, before its time.
+    pub calendar_new_event: String,
     /// The header over a [`Scheduler`](crate::Scheduler)'s resources.
     pub scheduler_resources: String,
     /// Zooms a scheduler's time axis in.
@@ -1087,6 +1099,12 @@ impl Labels {
             step_up: texts.get("widgets.step_up"),
             step_down: texts.get("widgets.step_down"),
             calendar_more: texts.get("widgets.calendar_more"),
+            calendar_views: texts.array("widgets.calendar_views"),
+            calendar_view_name: texts.get("widgets.calendar_view_name"),
+            calendar_previous: texts.get("widgets.calendar_previous"),
+            calendar_next: texts.get("widgets.calendar_next"),
+            calendar_all_day: texts.get("widgets.calendar_all_day"),
+            calendar_new_event: texts.get("widgets.calendar_new_event"),
             scheduler_resources: texts.get("widgets.scheduler_resources"),
             zoom_in: texts.get("widgets.zoom_in"),
             zoom_out: texts.get("widgets.zoom_out"),

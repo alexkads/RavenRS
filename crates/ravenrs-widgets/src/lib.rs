@@ -154,7 +154,7 @@ pub use dock::{
     DockTabBar,
 };
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
-pub use event_calendar::{CalendarEvent, EventCalendar, RecurrenceEditor};
+pub use event_calendar::{CalendarEvent, CalendarView, EventCalendar, RecurrenceEditor};
 pub use expression_editor::ExpressionEditor;
 pub use extras::{
     AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
@@ -227,7 +227,9 @@ pub use quad_field::QuadField;
 pub use quick_edit::{InlineRename, ValueSlider};
 #[cfg(feature = "lottie")]
 pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
-pub use recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
+pub use recurrence::{
+    Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
+};
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
 pub use remote::UiWaker;
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
