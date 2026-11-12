@@ -36,6 +36,10 @@ use ravenrs_criteria::{DateTime, Dialect, Environment, SqlParam, to_sql};
 use rusqlite::types::{Value as SqlValue, ValueRef};
 use rusqlite::{Connection, ErrorCode, OptionalExtension, params_from_iter};
 
+mod backup;
+
+pub use backup::{BackupError, BackupInfo, BackupStamp, Backups, COPIES_KEPT, KeptCopy};
+
 type Hook = Rc<dyn Fn(&mut Object)>;
 
 /// How an entity lands on a table.
